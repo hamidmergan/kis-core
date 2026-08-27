@@ -1,10 +1,4 @@
-/**
- * Wie ein Auftrag seinen Zustand zeigt.
- *
- * Die Entscheidung stand dreimal fast gleich im Code: in Meine Jobs, in der
- * Schublade im Kopf und im Adminbereich. Dreimal fast gleich heisst, dass eine
- * Aenderung zweimal vergessen wird.
- */
+/** How a job shows its state, previously almost the same in three places. */
 import { describe, expect, it } from "vitest";
 
 import { jobStatusDisplay } from "./jobStatusDisplay";

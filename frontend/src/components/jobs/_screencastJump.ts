@@ -1,4 +1,4 @@
-/** Ob und wie ein Screencast-Job aus der Jobs-Liste heraus im Assistenten geoeffnet wird. */
+/** Whether and how a screencast job from the jobs list opens in the assistant. */
 
 interface JumpJob {
   tool: string;
@@ -8,13 +8,13 @@ interface JumpJob {
   is_generating_scripts?: boolean;
 }
 
-/** "resume" wartet auf eine Eingabe, "open" laeuft oder ist fertig, null hat keine Seite. */
+/** 'resume' waits for input, 'open' is running or finished, null has no page. */
 export function screencastJumpKind(job: JumpJob): "resume" | "open" | null {
   if (job.tool !== "screencast_translate") return null;
   if (job.status === "awaiting_user") return job.is_generating_scripts ? null : "resume";
-  // Abgelaufene Jobs haben keine Dateien mehr, da gibt es nichts zu zeigen.
+  // Expired jobs have no files left, there is nothing to show.
   if (job.status === "success") return job.has_download ? "open" : null;
-  // Nur die Vertonung hat eine Warteseite, die Uebersetzung nicht.
+  // Only the voicing has a waiting page, the translation does not.
   if ((job.status === "queued" || job.status === "running") && job.render_queued_at) return "open";
   return null;
 }

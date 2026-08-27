@@ -29,9 +29,7 @@ router = APIRouter(
 
 @router.get("/tts/providers-with-voices")
 async def get_tts_providers_with_voices():
-    """Return enabled openai_compat TTS providers (with voice catalogues) that
-    are reachable right now. An unreachable provider (e.g. Kokoro while its
-    tunnel is down) is hidden and reappears automatically once it answers."""
+    """Reachable speech providers with their voices, unreachable ones stay hidden."""
     from src.dependencies import get_reachable_tts_providers_with_voices
     providers = await get_reachable_tts_providers_with_voices()
     # Strip sensitive fields before sending to frontend
@@ -95,8 +93,7 @@ async def text_to_speech(
     if not has_file and not has_text:
         raise HTTPException(status_code=400, detail=t("tts.noInput", locale))
 
-    # Both inputs end up as a file on disk, so the upload is never held in RAM
-    # and storage can stream it from the path.
+    # Both inputs end up as a file, the upload never sits in memory.
     with tempfile.TemporaryDirectory(prefix="tts_upload_") as tmpdir:
         if has_text:
             cleaned = _sanitize_tts_text(text)

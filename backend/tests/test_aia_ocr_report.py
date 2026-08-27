@@ -1,21 +1,11 @@
-"""Tests fuer den OCR-Lauf pro Dokument (_OcrRun).
-
-Verhaltensvertrag:
-  - Eine Seite, die nicht durchkommt, killt das Dokument NICHT mehr. Sie behaelt
-    ihre Textebene und wird als offen vermerkt.
-  - Nach OCR_MAX_FAILED_PAGES gescheiterten Seiten wird die Texterkennung fuer
-    den Rest des Dokuments abgeschaltet. Der Backoff ist der teure Teil, und ein
-    Dienst, der zwei Seiten hintereinander verliert, ist weg und nicht busy.
-  - Der Bericht sagt der Oberflaeche, ob Texterkennung lief, wie viele Seiten
-    fertig sind und welche noch offen sind. None heisst: gar kein Kandidat.
-"""
+"""Checks the text recognition run per document: open pages, shutdown, report."""
 import pytest
 
 from src.services.aia_chunker import OCR_MAX_FAILED_PAGES, _OcrRun
 
 
 class FakeProvider:
-    """ocr_image spielt pro Aufruf das naechste Skript-Verhalten ab."""
+    """ocr_image plays back the next scripted behaviour per call."""
 
     def __init__(self, behaviours):
         self._behaviours = list(behaviours)
@@ -48,7 +38,7 @@ def test_clean_run_reports_every_page_done():
 
 
 def test_single_failure_keeps_ocr_running_for_the_rest():
-    # Eine Seite faellt aus, die naechste laeuft wieder. Kein Abbruch.
+    # One page fails, the next runs again, no abort.
     run = _run([Exception("400 Bad Request"), "Seite zwei"])
     run.wants(1)
     assert run.ocr_page(b"png", 1) == ""
@@ -65,7 +55,7 @@ def test_gives_up_after_two_failed_pages_and_stops_calling_the_provider():
         assert run.ocr_page(b"png", page) == ""
     calls_after_giving_up = provider.calls
 
-    # Dritter Kandidat: wird gar nicht mehr angefasst, zaehlt aber als offen.
+    # Third candidate: never touched, but still counted as open.
     assert run.wants(3) is False
     assert provider.calls == calls_after_giving_up
     assert run.report() == {"enabled": True, "done": 0, "open": [1, 2, 3]}
@@ -88,6 +78,5 @@ def test_unrendered_page_counts_as_open_without_touching_the_provider():
 
 
 def test_give_up_threshold_is_two():
-    # Die Schwelle steht im Vertrag, nicht nur im Code: ein Dokument darf hoechstens
-    # zweimal auf den Backoff warten, bevor Texterkennung fuer den Rest ausgeht.
+    # The threshold is part of the contract, not just of the code.
     assert OCR_MAX_FAILED_PAGES == 2

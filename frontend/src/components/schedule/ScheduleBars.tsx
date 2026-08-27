@@ -2,29 +2,23 @@
 
 import type { Segment } from "./_ranges";
 
-/** Hoehe eines Balkens. */
+/** Height of a bar. */
 export const BAR_HEIGHT = 18;
-/** Ein einziger Abstand fuer alles: unter der Zahl, zwischen den Balken, ueber der Kachel.
- *  Muss zur Raster-Luecke gap-1 der Balkenebene passen. */
+/** One gap for everything, matching the grid gap of the bar layer. */
 export const BAR_GAP = 4;
-/** Innenabstand 4 plus Tageszahl 17, die Zelle hat keinen Rahmen mehr. */
+/** Padding 4 plus day number 17, the cell has no border any more. */
 const NUMBER_BLOCK = 21;
-/** Einzug am echten Anfang und Ende, damit der Balken dort steht wie eine Kachel.
- *  Entspricht dem seitlichen Innenabstand der Zelle (px-1.5). */
+/** Inset at the real start and end, like the cell's horizontal padding. */
 const BAR_INSET = 6;
-/** Rundung wie bei den Tages-Kacheln (rounded = 4px). */
+/** Rounding as on the day tiles (rounded = 4px). */
 const BAR_RADIUS = 4;
-/** Der erste Balken faengt genau einen Abstand unter der Tageszahl an. */
+/** The first bar starts exactly one gap below the day number. */
 export const BAR_TOP = NUMBER_BLOCK + BAR_GAP;
 
-/** Platzhalter unter der Zahl, damit die Kachel genau einen Abstand unter dem
- *  letzten Balken anfaengt. Ein Balken belegt Hoehe plus einen Abstand. */
+/** Placeholder under the number, a bar takes its height plus one gap. */
 export function barsSpace(lanes: number): number {
   return lanes === 0 ? 0 : BAR_GAP + lanes * (BAR_HEIGHT + BAR_GAP);
 }
-
-/** Ohne Raster-Luecke muss der Abstand zwischen den Spuren am Balken haengen. */
-export const BAR_ROW = BAR_HEIGHT + BAR_GAP;
 
 export default function ScheduleBars({ segments }: { segments: Segment[] }) {
   if (segments.length === 0) return null;
@@ -37,28 +31,26 @@ export default function ScheduleBars({ segments }: { segments: Segment[] }) {
       {segments.map((s) => (
         <span
           key={s.entry.id}
-          // Schrift und Innenabstand wie bei der Tages-Kachel.
+          // Font and padding as on the day tile.
           className="text-2xs font-semibold flex items-center px-1 overflow-hidden whitespace-nowrap"
           style={{
             gridColumn: `${s.col1} / ${s.col2}`,
             gridRow: s.lane + 1,
             height: BAR_HEIGHT,
             marginBottom: BAR_GAP,
-            // An der Wochengrenze laeuft der Balken bis an den Rand, damit er
-            // sichtbar weitergeht. Am echten Anfang und Ende rueckt er ein.
+            // At the week boundary the bar runs to the edge, at the real end it insets.
             marginLeft: s.openLeft ? 0 : BAR_INSET,
             marginRight: s.openRight ? 0 : BAR_INSET,
-            // An der Wochengrenze eckig, damit man sieht dass es weitergeht.
+            // Square at the week boundary so you can see it continues.
             borderTopLeftRadius: s.openLeft ? 0 : BAR_RADIUS,
             borderBottomLeftRadius: s.openLeft ? 0 : BAR_RADIUS,
             borderTopRightRadius: s.openRight ? 0 : BAR_RADIUS,
             borderBottomRightRadius: s.openRight ? 0 : BAR_RADIUS,
-            // Volle Farbe wuerde ueber eine ganze Woche den Monat erschlagen, darum
-            // nur ein Hauch davon mit duenner Kante.
+            // Only a hint of colour with a thin edge, otherwise one week overwhelms the month.
             backgroundColor: `color-mix(in srgb, ${s.entry.color} 18%, transparent)`,
             boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${s.entry.color} 40%, transparent)`,
             color: s.entry.ink ?? "var(--foreground)",
-            // Erledigt sieht am Balken aus wie an der Tages-Kachel.
+            // Done looks the same on the bar as on the day tile.
             opacity: s.entry.is_checked ? 0.45 : 1,
             textDecoration: s.entry.is_checked ? "line-through" : undefined,
           }}

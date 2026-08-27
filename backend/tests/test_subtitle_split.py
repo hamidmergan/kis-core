@@ -4,7 +4,7 @@ import pytest
 
 from src.services.subtitle_converter import split_long_segments
 
-# Ein echtes myLab-Segment aus dem Speicher, 553 Zeichen ueber 29,3 Sekunden.
+# A real segment from storage, 553 characters over 29.3 seconds.
 _LANG = (
     "Verantwortliche. Bei wissenschaftlichen Tagungen gibt es verschiedene "
     "Verantwortliche. Je nach Groesse der Konferenz gibt es mehrere Leiter, "
@@ -22,7 +22,7 @@ def _seg(start: float, ende: float, text: str) -> dict:
 
 
 def test_kurzes_segment_bleibt_unveraendert():
-    """Was schon kurz ist, reicht der Erkenner durch."""
+    """What is already short the recogniser passes through."""
     segmente = split_long_segments([_seg(1.0, 3.0, "Guten Morgen zusammen.")])
     assert segmente == [_seg(1.0, 3.0, "Guten Morgen zusammen.")]
 
@@ -44,7 +44,7 @@ def test_hoechstens_zwei_zeilen_je_einblendung():
 
 
 def test_kein_wort_wird_zerschnitten():
-    """Alle Woerter kommen in der gleichen Reihenfolge wieder heraus."""
+    """All words come back out in the same order."""
     segmente = split_long_segments([_seg(0.0, 29.3, _LANG)])
     heraus = " ".join(s["text"].replace("\n", " ") for s in segmente).split()
     assert heraus == _LANG.split()
@@ -60,7 +60,7 @@ def test_zeiten_bleiben_im_rahmen_und_ohne_luecke():
 
 
 def test_getrennt_wird_am_satzende():
-    """Zwei kurze Saetze, die zusammen zu lang sind, trennen am Punkt."""
+    """Two short sentences that together are too long split at the period."""
     text = (
         "Die Konferenz beginnt am Montag um neun Uhr im grossen Hoersaal. "
         "Danach geht es weiter mit den Vortraegen der Fachgruppen."
@@ -70,7 +70,7 @@ def test_getrennt_wird_am_satzende():
 
 
 def test_ein_uebermaessig_langes_wort_bleibt_ganz():
-    """Kein Endlos-Kreisen, wenn ein Wort allein die Grenze sprengt."""
+    """No endless looping when a single word blows the limit."""
     wort = "Donau" + "dampfschifffahrtsgesellschaft" * 4
     segmente = split_long_segments([_seg(0.0, 4.0, wort)])
     assert " ".join(s["text"].replace("\n", " ") for s in segmente).split() == [wort]

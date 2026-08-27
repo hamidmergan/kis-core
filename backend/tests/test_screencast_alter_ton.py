@@ -1,4 +1,4 @@
-"""Nur angehakte Folien werden neu gesprochen, der Rest kommt aus audio/."""
+"""Only ticked slides are spoken again, the rest comes from audio/."""
 
 import asyncio
 
@@ -41,7 +41,7 @@ def _lauf(tmp_path, scripts, dateien, **kw):
 
 
 def test_ohne_erlaubnis_wird_neu_gesprochen(tmp_path):
-    """Voreinstellung ist die alte: audio/ wird nicht angefasst."""
+    """The default is the old one: audio/ is not touched."""
     tts, _ = _lauf(tmp_path, [TEXT], {"audio/slide_000.mp3": b"ID3alt"})
     assert tts.gesprochen == [TEXT]
 
@@ -56,7 +56,7 @@ def test_mit_erlaubnis_kommt_der_alte_ton(tmp_path):
 
 
 def test_der_vorrat_schlaegt_den_alten_ton(tmp_path):
-    """Sonst verliert ein Neuversuch die Folie, die er gerade gesprochen hat."""
+    """Otherwise a retry loses the slide it just spoke."""
     _, ergebnis = _lauf(
         tmp_path, [TEXT],
         {"render_cache/slide_000.mp3": b"ID3vorrat", "audio/slide_000.mp3": b"ID3alt"},

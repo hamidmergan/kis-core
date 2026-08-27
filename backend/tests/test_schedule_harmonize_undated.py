@@ -1,18 +1,4 @@
-"""Der Titel-Abgleich nimmt jetzt auch die Termine ohne Datum mit.
-
-Er bringt gleiche Veranstaltungen mit verschiedenen Worten auf einen Titel, damit die
-Zusammenfuehrung danach greift. Bisher lief er nur ueber Eintraege MIT Datum, er
-gruppierte nach Tag und wer keinen hatte, war gar nicht dabei.
-
-Genau dort fehlt er aber am meisten: dieselbe Tabellenzeile "Praesentationen nach
-Vereinbarung" kam aus der PDF als "Praesentationen: online" und aus dem Video als
-"Praesentation: Hausarbeit". Ohne Datum gibt es nichts, woran der Textvergleich sie
-sonst zusammenbinden koennte, und sie standen doppelt im Zeitplan.
-
-Die Gegenrichtung ist die Gefahr: alle offenen Termine teilen sich das leere Datum, das
-ist KEIN Hinweis auf dieselbe Veranstaltung. Die Anfrage fuer diese Gruppe sagt das
-ausdruecklich, weil die Systemanweisung fuer gleiche Tage zum Zusammenlegen neigt.
-"""
+"""The title harmonisation takes the undated appointments along, but carefully."""
 
 import json
 import types
@@ -61,8 +47,7 @@ def test_offene_termine_bekommen_einen_gemeinsamen_titel():
 
 
 def test_die_anfrage_warnt_vor_dem_leeren_datum():
-    """Die Systemanweisung neigt bei gleichem Tag zum Zusammenlegen. Fuer die Gruppe
-    ohne Datum muss die Anfrage das ausdruecklich zuruecknehmen."""
+    """For the undated group the query has to undo the merging."""
     cands = [_cand(tbd=True), _cand(tbd=True)]
     cls = [_cls("Präsentation"), _cls("Sprechstunde")]
     client, calls = _make_client({"groups": []})

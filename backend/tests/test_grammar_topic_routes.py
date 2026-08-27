@@ -1,13 +1,4 @@
-"""Wer Grammatikthemen anlegen darf und wer sie nur wählen darf.
-
-Anlegen ist Verwaltungsarbeit und hängt damit an Eigentum oder Tutor-Rolle. Wählen
-darf jeder mit Zugang, sonst wäre die Liste für Studierende nutzlos. Der Systemrang
-spielt wie überall im Workspace keine Rolle, weder zugunsten noch zulasten.
-
-Zusätzlich geprüft: ein Thema aus einem fremden Kurs gilt als nicht vorhanden. Ohne
-diese Prüfung könnte jemand mit Verwaltungsrechten in Kurs A ein Thema in Kurs B
-löschen, indem er dessen id errät.
-"""
+"""Creating hangs off ownership or tutor, choosing is open to anyone with access."""
 
 import types
 
@@ -25,9 +16,7 @@ WORKSPACE = {"id": 7, "uuid": "w-1", "user_id": EIGENTUEMER}
 def workspace(monkeypatch):
     monkeypatch.setattr(_helpers.db, "get_aia_workspace", lambda uuid: WORKSPACE)
     monkeypatch.setattr(_helpers.db, "is_workspace_tutor", lambda ws, uid: uid == TUTOR)
-    # Ein Tutor ist ueber eine Einschreibung im Kurs, deshalb zaehlt er hier mit.
-    # is_student_enrolled fragt nur, ob es eine Einschreibung gibt, nicht welche Rolle
-    # sie traegt.
+    # A tutor is in the course through an enrollment and counts here.
     monkeypatch.setattr(_helpers.db, "is_student_enrolled",
                         lambda ws, uid: uid in (LERNENDER, TUTOR))
 
@@ -78,10 +67,10 @@ def test_an_unknown_topic_is_missing(monkeypatch):
     assert err.value.status_code == 404
 
 
-# ─── Der Namensvorschlag ─────────────────────────────────────────────────────
+# ─── The name suggestion ─────────────────────────────────────────────────────
 
 def _vorschau_ohne_modell(monkeypatch, derived):
-    """Die Vorschau ohne Anbieter: nur die Route, nicht das Modell."""
+    """The preview without a provider: only the route, not the model."""
     monkeypatch.setattr(grammar_topics, "_get_llm_client", lambda: ("c", "m", None))
     monkeypatch.setattr(grammar_topics.db, "get_aia_workspace", lambda uuid: WORKSPACE)
     monkeypatch.setattr(
@@ -91,8 +80,7 @@ def _vorschau_ohne_modell(monkeypatch, derived):
 
 
 async def test_the_preview_hands_the_suggested_name_to_the_form(workspace, monkeypatch):
-    """Das Formular liest genau dieses Feld. Fällt der Name unterwegs weg, merkt es
-    niemand am Backend, der Dozent sieht nur keine Zeile."""
+    """The form reads exactly this field."""
     _vorschau_ohne_modell(monkeypatch, {
         "rule": "r", "task_lines": {}, "label": "Passiv Präsens",
         "examples": [{"before": "Das Team schreibt.", "after": "Es wird geschrieben."}]})
@@ -101,7 +89,7 @@ async def test_the_preview_hands_the_suggested_name_to_the_form(workspace, monke
         "w-1", types.SimpleNamespace(name="passi"), {"user_id": EIGENTUEMER}, "de")
 
     assert out["suggested_name"] == "Passiv Präsens"
-    # Der getippte Name bleibt unangetastet, überschrieben wird nichts.
+    # The typed name stays untouched, nothing is overwritten.
     assert out["name"] == "passi"
 
 

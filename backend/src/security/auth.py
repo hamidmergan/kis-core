@@ -5,18 +5,12 @@ from src.dependencies import get_session_store, get_settings
 from src.i18n import parse_accept_language, t
 
 _OPEN_PATHS = {"/health", "/health/maintenance", "/health/labels", "/docs", "/redoc", "/openapi.json"}
-# Die Einladungsseite gehoert dazu: wer eingeladen wird, hat noch kein Konto und
-# kann deshalb keine Sitzung vorzeigen. Der Schluessel im Link ist der Ausweis.
-# Die Verwaltung der Einladungen liegt unter /admin/invites und bleibt zu.
+# The invitation page belongs here, the key in the link is the credential.
 _OPEN_PREFIXES = ("/auth/", "/invites/")
 
 
 async def verify_auth(request: Request):
-    """Checks session cookie for authentication.
-
-    In local mode (no LDAP configured): always passes through.
-    Open paths (landing page, docs, health, auth endpoints) are exempt.
-    """
+    """Checks the session cookie, open paths are exempt."""
     settings = get_settings()
     if settings.is_local_mode:
         return

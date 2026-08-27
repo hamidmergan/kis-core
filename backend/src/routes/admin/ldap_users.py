@@ -18,7 +18,7 @@ from src.permissions_registry import PERM_SET_USERS_ALL
 
 router = APIRouter(tags=["admin: ldap-users"])
 
-# Nutzer anlegen gehoert zu Alle Nutzer, zusaetzlich zum Serverschalter.
+# Creating users belongs to all users, on top of the server switch.
 _require = require_permission(PERM_SET_USERS_ALL)
 
 
@@ -40,10 +40,7 @@ class CreateLdapUserPayload(BaseModel):
 
 
 def _employee_type_for_role(kis_role: str) -> str:
-    """LDAP employeeType is record-keeping only once a DB row exists.
-
-    Map staff -> 'staff' (recognized by login mapper), everything else -> 'user'.
-    """
+    """Maps employeeType onto 'staff' or 'user'."""
     return "staff" if kis_role == "staff" else "user"
 
 
@@ -85,9 +82,7 @@ def admin_create_ldap_user(
         logger.error("LDAP add failed for uid={}: {}", payload.uid, e)
         raise HTTPException(status_code=500, detail=t("admin.ldap.addFailed", locale))
 
-    # LDAP entry created. Pre-create DB row + whitelist email so admin's chosen
-    # role survives the user's first login (auth.py keeps existing role and
-    # checks whitelist for `active`).
+    # Create row and whitelist entry up front so the role survives the first login.
     display_name = f"{payload.given_name.strip()} {payload.surname.strip()}"
     try:
         database.add_to_whitelist(payload.email)
@@ -101,8 +96,7 @@ def admin_create_ldap_user(
         if payload.kis_role == "custom":
             database.set_user_role(user_id, "custom", payload.custom_role_id)
     except Exception as e:
-        # LDAP entry already exists; report so admin can retry role assignment
-        # via the existing UsersTab dropdown after first login.
+        # The LDAP entry already exists, reported so the admin can adjust the role.
         logger.error(
             "DB write failed after LDAP add for uid={}: {}. Admin must assign role manually.",
             payload.uid,

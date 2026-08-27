@@ -1,18 +1,4 @@
-"""Die Werkzeuge erzeugen ihre Inhalte in der Unterrichtssprache, nicht in der
-Oberflaechensprache der Person. Fuer einen Deutschkurs waere das falsch: wer die
-Oberflaeche auf Englisch stellt, bekaeme eine englische Passiv-Uebung, an der es nichts
-zu ueben gibt.
-
-Zwei Quellen, mit Absicht:
-
-- Karteikarten, Quiz, Datentabelle und Mindmap folgen einer globalen Einstellung der
-  Verwaltung. Eine Hochschule, die auf Franzoesisch unterrichtet, stellt sie einmal ein.
-- Lernkarten, Wortschatz-Lueckentext und Grammatik-Uebung gehoeren zum Sprachtrainer und
-  folgen dem Kursraum. Sie bleiben deutsch, denn ihre Prompts und der Einstufungstest sind
-  auf Deutsch ausgelegt und in keiner anderen Sprache gemessen.
-
-Standard ist beide Male Deutsch.
-"""
+"""The tools generate in the teaching language, from two separate sources."""
 
 import pytest
 
@@ -45,7 +31,7 @@ def test_the_workspace_decides(monkeypatch):
     ("it", "Italian"), ("tr", "Turkish"), ("ar", "Arabic"), ("ru", "Russian"),
 ])
 def test_every_offered_language_resolves(monkeypatch, code, name):
-    """Alle acht aus der Auswahlliste muessen ankommen, nicht nur die beiden gaengigen."""
+    """All eight from the dropdown have to arrive, not just the two common ones."""
     monkeypatch.setattr("src.database.get_aia_workspace_by_id",
                         lambda _id: {"id": 7, "diagnosis_language": code})
     assert tool_output_language(7) == (code, name)
@@ -57,7 +43,7 @@ def test_a_workspace_without_a_setting_gets_the_default(monkeypatch):
 
 
 def test_an_unknown_code_falls_back_instead_of_crashing(monkeypatch):
-    # Ein Wert, den niemand mehr anbietet, darf keinen Auftrag scheitern lassen.
+    # A value nobody offers any more must not fail a job.
     monkeypatch.setattr("src.database.get_aia_workspace_by_id",
                         lambda _id: {"id": 7, "diagnosis_language": "kli"})
     assert tool_output_language(7) == ("de", "German")
@@ -77,15 +63,7 @@ def test_a_missing_workspace_falls_back(monkeypatch):
 
 
 def test_no_tool_derives_its_output_language_from_the_locale():
-    """Die Ableitung aus der Oberflaechensprache darf nirgends wieder auftauchen.
-
-    Der frueher an sechs Stellen kopierte Einzeiler ist genau die Art Fund, die beim
-    naechsten Werkzeug versehentlich mitkopiert wird.
-
-    Geprueft wird der Aufgaben-Baum. Notiz-Titel bleiben bewusst draussen: eine Notiz
-    schreibt der Nutzer selbst, ihr Titel fasst seinen eigenen Text zusammen und gehoert
-    deshalb in seine Sprache.
-    """
+    """The derivation from the interface language must not reappear anywhere."""
     import pathlib
 
     wurzel = (pathlib.Path(__file__).resolve().parent.parent
@@ -98,13 +76,11 @@ def test_no_tool_derives_its_output_language_from_the_locale():
     assert treffer == [], f"Ableitung aus dem locale wieder aufgetaucht in: {treffer}"
 
 
-# --------------------------------------------------------------------------- #
-# Die vier Lern-Tools: eine Einstellung fuer die ganze Installation             #
-# --------------------------------------------------------------------------- #
+# The four learning tools follow one setting for the whole installation.
 
 
 def test_learning_tools_default_to_german(monkeypatch):
-    # Nichts eingestellt: get_setting reicht seinen eigenen Standard durch.
+    # Nothing configured: get_setting passes its own default through.
     monkeypatch.setattr("src.features.admin.repository.settings.get_setting",
                         lambda key, default="": default)
     assert learning_tools_language() == ("de", "German")
@@ -120,26 +96,24 @@ def test_learning_tools_take_every_offered_language(monkeypatch, code, name):
 
 
 def test_learning_tools_fall_back_on_an_unknown_code(monkeypatch):
-    # Sonst stuende der Code wortwoertlich im Auftrag: "Write it in kli."
+    # Otherwise the code would sit verbatim in the instruction: 'Write it in kli.'
     _setting(monkeypatch, "kli")
     assert learning_tools_language() == ("de", "German")
 
 
 def test_only_the_four_learning_tools_follow_the_setting():
-    """Der Sprachtrainer darf nicht mitwandern, wenn die Verwaltung umstellt."""
+    """The language trainer must not move along when management switches."""
     assert LEARNING_TOOLS == {"karteikarten", "quiz"}
     for sprachtrainer in ("flashcards", "grammatik", "wortschatz"):
         assert sprachtrainer not in LEARNING_TOOLS
 
 
-# --------------------------------------------------------------------------- #
-# Was am Lernenden ankommt, muss in derselben Sprache stehen                    #
-# --------------------------------------------------------------------------- #
+# What reaches the learner has to be in the same language.
 
 
 @pytest.mark.parametrize("code", ["de", "en", "fr", "es", "it", "tr", "ar", "ru"])
 def test_true_false_labels_exist_in_every_language(code):
-    """Unter einer franzoesischen Frage darf nicht "Richtig" und "Falsch" stehen."""
+    """A French question must not be followed by German true/false labels."""
     from src.features.ai_assistant.tasks.language_training._source_mc import _verdict_labels
 
     wahr, falsch = _verdict_labels(code)

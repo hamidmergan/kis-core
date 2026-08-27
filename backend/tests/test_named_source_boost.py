@@ -1,9 +1,4 @@
-"""Unit tests for the SPECIFIC named-source boost matcher (chat._named_source_ids).
-
-Pure logic, no live backend. Guards the language-agnostic self-title match that pulls a
-question's NAMED source to Primary (so a distractor that merely cites it can't steal the
-budget) while rejecting incidental generic-word matches.
-"""
+"""Checks the title match that pulls a named source forward."""
 from src.features.ai_assistant.routes.chat import _named_source_ids, _title_word_match
 
 
@@ -25,7 +20,7 @@ def test_inflected_full_name_matches_unique_source():
 
 
 def test_substantial_stem_plus_lawtype_suffix_matches():
-    # "kündigungsschutz" (16) -> "kündigungsschutzgesetz" (header adds a real law-type word)
+    # The header adds a real law-type word to the typed stem
     assert _named_source_ids("Greift hier der besondere Kündigungsschutz?", HEADERS) == {9}
 
 
@@ -37,8 +32,7 @@ def test_generic_inflection_is_rejected():
 
 
 def test_short_common_stem_does_not_match_law_compound():
-    # "grund" (5) must NOT prefix-match "grundgesetz" — otherwise "Aus welchem Grund …"
-    # would wrongly boost the constitution.
+    # A short everyday word must not pull a statute forward.
     assert _named_source_ids("Aus welchem Grund ist das hier geregelt?", HEADERS) == set()
 
 

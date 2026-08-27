@@ -52,8 +52,7 @@ export function parseDetail(detail: unknown, fallback: string): string {
   return fallback;
 }
 
-// Extract a filename from a Content-Disposition header: RFC 5987 `filename*=UTF-8''`
-// first, then a plain `filename="..."`; returns `fallback` when neither is present.
+// Takes the file name from the header, otherwise the fallback.
 export function filenameFromDisposition(disposition: string | null, fallback: string): string {
   if (disposition) {
     const utf8Match = disposition.match(/filename\*=UTF-8''(.+?)(?:;|$)/i);
@@ -69,9 +68,7 @@ function _parseErrorResponse(errorBody: { detail?: unknown }, fallbackStatus: nu
   if (detail && typeof detail === "object" && "quota_type" in (detail as object)) {
     return new QuotaError(detail as Record<string, unknown>);
   }
-  // Burst blocks (kind: "tool_blocked" | "chat_blocked") carry the concrete
-  // block message in detail.message; without this they would surface as the
-  // generic "Error: 429" instead.
+  // Blocks carry their sentence in detail.message, otherwise only 429 would show.
   if (detail && typeof detail === "object" && "message" in (detail as object)) {
     return new Error(String((detail as Record<string, unknown>).message));
   }
@@ -281,11 +278,7 @@ export interface JobStatus {
   meta: Record<string, unknown> | null;
 }
 
-/**
- * Poll a job until it reaches a terminal state (success or failed).
- * Calls onProgress on every status update.
- * Throws on failure or if signal is aborted.
- */
+/** Polls a job to the end and reports every progress update. */
 export async function pollJob(
   jobUuid: string,
   onProgress?: (status: JobStatus) => void,
@@ -326,18 +319,14 @@ export async function pollJob(
     await new Promise<void>((resolve, reject) => {
       let timer: ReturnType<typeof setTimeout>;
       const onAbort = () => { clearTimeout(timer); reject(new DOMException("Aborted", "AbortError")); };
-      // Remove the listener on the normal (timer) path too. { once: true } only
-      // detaches it when it fires, so without this every poll iteration would
-      // leave another abort listener on the signal for the job's whole lifetime.
+      // Detach on the normal path too, otherwise every round adds a listener.
       timer = setTimeout(() => { signal?.removeEventListener("abort", onAbort); resolve(); }, intervalMs);
       signal?.addEventListener("abort", onAbort, { once: true });
     });
   }
 }
 
-/**
- * Download the result file from a completed job as a Blob.
- */
+/** Downloads the result file of a finished job. */
 export async function downloadJobAsBlob(
   jobUuid: string,
   fallbackFilename = "output",

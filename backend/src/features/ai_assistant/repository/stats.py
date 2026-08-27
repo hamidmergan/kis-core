@@ -8,15 +8,11 @@ _TZ_BERLIN = ZoneInfo("Europe/Berlin")
 _REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
 from src.core.db.pool import get_connection
 
-# Which tool belongs to which of the two areas the statistics are split into. Named
-# once because the split is asked three times below (summary, heatmap, day view), and
-# a tool missing from one of them shows up as practised time that never happened.
+# Which tool belongs to which of the two statistics areas.
 LANGUAGE_TRAINING_TOOLS = ("flashcards", "grammatik", "wortschatz")
 LERNTOOLS_TOOLS = ("karteikarten", "quiz")
 
-# Wie weit die Statistik zurueckreicht. Das Kalenderfeld zeichnet genau so viele
-# Tage, und das naechtliche Aufraeumen loescht genau das, was davor liegt. Beides
-# haengt deshalb an dieser einen Zahl.
+# How far the statistics reach back, calendar and cleanup depend on it.
 STATS_WINDOW_DAYS = 180
 
 
@@ -179,12 +175,7 @@ def get_student_stats(workspace_id: int, user_id: int) -> dict:
     }
 
 def get_student_day_stats(workspace_id: int, user_id: int, day_str: str, category: str | None = None) -> dict:
-    """Per-set breakdown for a specific day, optionally filtered by category.
-
-    Je Satz steht nicht eine gemischte Quote, sondern eine Zeile je Durchgang.
-    Der Nenner ist immer die Kartenzahl des Satzes: wer eine Uebung nach zwei
-    richtigen Antworten verlaesst, hat 2 von 10 und nicht 2 von 2.
-    """
+    """Breakdown of a day, one row per round instead of a mixed rate."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             mode_clause = ""
@@ -193,8 +184,7 @@ def get_student_day_stats(workspace_id: int, user_id: int, day_str: str, categor
                 mode_clause = f" AND s.tool IN ({sql_tool_list(LANGUAGE_TRAINING_TOOLS)})"
             elif category == "lerntools":
                 mode_clause = f" AND s.tool IN ({sql_tool_list(LERNTOOLS_TOOLS)})"
-            # Gruppiert wird je Satz UND Durchgang. Antworten ohne Nummer fallen
-            # dabei von selbst in eine Gruppe, das ist der Durchgang "frueher".
+            # Grouped per set and round, answers without a number form the round 'earlier'.
             cur.execute(
                 f"""SELECT s.id AS set_id, s.tool, s.mode, s.title, s.card_count,
                           ep.run_no,
@@ -242,8 +232,7 @@ def get_student_day_stats(workspace_id: int, user_id: int, day_str: str, categor
                 total_correct += zeile["correct"]
                 total_wrong += zeile["wrong"]
 
-            # Der zuletzt geuebte Satz steht oben, wie bisher. Innerhalb eines Satzes
-            # stehen die Durchgaenge in der Reihenfolge, in der sie gelaufen sind.
+            # Most recently practised set on top, rounds inside it in their order.
             sets = sorted(
                 saetze.values(),
                 key=lambda s: s["runs"][-1]["last_answer"],
@@ -320,10 +309,7 @@ def get_recent_activities(workspace_id: int, user_id: int, limit: int = 5) -> li
 # ─── Admin: KI-Tutor Statistics ──────────────────────────────────────────────
 
 def get_aia_admin_stats(days: int = 30, mode: str | None = None) -> dict:
-    """Aggregated KI-Tutor statistics for the admin dashboard.
-
-    mode: None = all, "source" = Lerntools only, "glossary" = LanguageTraining only.
-    """
+    """Numbers of the AI tutor for the admin area."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             interval = f"{days} days"

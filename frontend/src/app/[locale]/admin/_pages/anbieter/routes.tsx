@@ -1,7 +1,6 @@
 "use client";
 
-// Eigener Scrollrahmen: eine Funktionszeile besteht aus Name, Anbieterauswahl,
-// Modellfeld und Testknopf und wird schmaler als 800 px nicht sinnvoll.
+// Its own scroll frame, a feature row needs width.
 import ProvidersTab from "../../_components/providers";
 
 export default function ProviderRoutesPage() {

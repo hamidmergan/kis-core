@@ -1,11 +1,4 @@
-"""Die geteilte Titel-Logik, losgeloest von den Uebungs-Saetzen.
-
-Sie liegt jetzt unter ``tasks/_titles.py``, weil Mindmap und Datentabelle sie
-mitbenutzen. Der Unterschied zur alten Fassung: die Liste der schon vergebenen
-Titel kommt herein, statt dass das Modul selbst ``aia_exercise_sets`` liest.
-
-Kein Netz und keine Datenbank, das Modell ist gefaelscht.
-"""
+"""The shared title logic, the list of taken titles comes in from outside."""
 
 import types
 
@@ -19,7 +12,7 @@ from src.features.ai_assistant.tasks._titles import (
 
 
 class _FakeClient:
-    """Liefert der Reihe nach die vorgegebenen Antworten und merkt sich die Aufrufe."""
+    """Returns the given answers in order and remembers the calls."""
 
     def __init__(self, antworten):
         self._antworten = list(antworten)

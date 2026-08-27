@@ -28,23 +28,7 @@ def get_schedule_entries_for_user(
     only_checked: bool = False,
     include_past_open: bool = False,
 ) -> list[dict]:
-    """Aggregate schedule entries across all workspaces the user has any relation to.
-
-    Module scope: UNION of
-      - workspaces owned by the user (any is_active state), and
-      - workspaces the user is enrolled in (is_active=TRUE AND enrollment not expired).
-    A user who is both owner and enrolled sees the workspace once (UNION dedupes).
-
-    Returns rows enriched with workspace_uuid, module_title, module_relation
-    (owned | enrolled).
-
-    Filter modes (priority: only_checked > include_past_open > default):
-      - default: future unchecked (due_date >= today AND is_checked=FALSE)
-      - include_checked=True: also include checked entries
-      - include_past_open=True: drop the date filter (missed deadlines visible)
-      - only_checked=True: completed entries only, no date filter (history view)
-    include_past_open + include_checked together → no filter at all (full view).
-    """
+    """Collects appointments across all course rooms the person has a relation to."""
     if only_checked:
         status_filter = "AND s.is_checked = TRUE"
     elif include_past_open:
@@ -114,12 +98,7 @@ def get_schedule_entries(workspace_id: int, user_id: int) -> list[dict]:
 
 
 def get_schedule_entries_for_workspace(workspace_id: int) -> list[dict]:
-    """All entries across every user in a workspace.
-    Used by the schedule pipeline as anchor titles for cross-user
-    title harmonization: when user A already extracted an event,
-    user B's new candidate for the same event aligns to A's wording
-    instead of producing a duplicate entry.
-    """
+    """All appointments of a course room as anchor titles against duplicate entries."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
@@ -166,12 +145,7 @@ def create_schedule_entry(
     end_time: Optional[time] = None,
     is_open_ended: bool = False,
 ) -> dict:
-    """Create a schedule entry. source_refs is a list of
-    {source_uuid, page_number?, start_time?, raw_quote?} dicts.
-
-    date_precision: 'day' oder 'month'. 'month' heisst, die Quelle nannte nur einen
-    Monat, due_date traegt dann den Monatsersten als Sortierpunkt.
-    """
+    """Creates an appointment, date_precision 'month' sets the first of the month as sort key."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
@@ -289,9 +263,7 @@ def update_schedule_entry(
 
 
 def append_source_ref_to_entry(entry_id: int, ref: dict) -> None:
-    """Append a source-ref dict to an entry's source_refs JSONB array.
-    Deduplicates by (source_uuid, page_number, start_time) triple.
-    """
+    """Attaches a source reference, without duplicates."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -448,12 +420,7 @@ def update_schedule_job(
 # ─── Source Extractions (workspace-shared) ──────────────────────────────────
 
 def get_source_extraction(source_id: int) -> Optional[dict]:
-    """Return the stored regex + LLM output for a source, or None.
-
-    Shape: {"candidates": [...], "classifications": [...], "extracted_at": ...}.
-    The two lists are index-aligned (each classification belongs to the
-    candidate at the same index), as produced by the schedule pipeline.
-    """
+    """The stored analysis of a source, or None."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
@@ -473,12 +440,7 @@ def upsert_source_extraction(
     candidates: list[dict],
     classifications: list[dict],
 ) -> None:
-    """Persist the regex + LLM output for a source. Idempotent.
-
-    INSERT ... ON CONFLICT DO NOTHING: if two users trigger extraction
-    concurrently on the same source, only one row sticks. The duplicate
-    LLM call is wasted work but never causes an error.
-    """
+    """Stores the analysis of a source, repeatable without error."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -494,7 +456,7 @@ def upsert_source_extraction(
 
 
 def count_source_extractions() -> int:
-    """Wie viele Quellen eine gespeicherte Auswertung haben, ueber alle Kursraeume."""
+    """How many sources have a stored analysis, across all course rooms."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("SELECT COUNT(*) FROM aia_schedule_source_extractions")
@@ -502,13 +464,7 @@ def count_source_extractions() -> int:
 
 
 def clear_source_extractions() -> int:
-    """Die gespeicherten Auswertungen wegwerfen. Gibt die Zahl der Zeilen zurueck.
-
-    Nur der Vorrat faellt. Der Merker "schon ausgewertet" bleibt ausdruecklich stehen:
-    ginge er mit, wuerde der naechste Lauf bei denselben Leuten neu auswerten und ihnen
-    dieselben Termine ein zweites Mal in den Plan legen. Wer eine Quelle noch nicht
-    ausgewertet hat, bekommt so oder so einen frischen Modellauf.
-    """
+    """Throws away the stored analyses, the marker stays."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("DELETE FROM aia_schedule_source_extractions")
@@ -528,7 +484,7 @@ def create_personal_entry(
     end_date: Optional[date],
     due_time: Optional[time],
 ) -> dict:
-    """Ein Termin ohne Workspace, er gehoert nur diesem Nutzer."""
+    """An appointment without a workspace, it belongs to this user alone."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
@@ -560,7 +516,7 @@ def update_personal_entry(
     clear_end_date: bool = False,
     clear_time: bool = False,
 ) -> Optional[dict]:
-    """Aendert einen privaten Eintrag, fremde und Workspace-Eintraege bleiben unberuehrt."""
+    """Changes a private entry, other people's and workspace entries stay untouched."""
     sets: list[str] = []
     vals: list[Any] = []
     if title is not None:
@@ -607,7 +563,7 @@ def update_personal_entry(
 
 
 def delete_personal_entry(entry_id: int, user_id: int) -> bool:
-    """Loescht einen privaten Eintrag, Workspace-Eintraege bleiben unberuehrt."""
+    """Deletes a private entry, workspace entries stay untouched."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(

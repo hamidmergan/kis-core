@@ -55,12 +55,7 @@ class _WhisperMixin:
             raise RuntimeError(f"Whisper API error ({self._provider}): {e}") from e
 
     def _verbose_call(self, file_path: str, translate: bool) -> tuple[list[dict], str]:
-        """Shared helper: call Whisper verbose_json for transcribe or translate.
-
-        Returns ``(segments, language)`` where *language* is the detected source
-        language code (e.g. 'de', 'en'). For the translations endpoint the
-        output text is always English regardless of *language*.
-        """
+        """Calls Whisper and returns segments with the detected language."""
         backoffs = [5, 15, 60, 180, 300, 420, 600]  # 8 attempts total; tail up to 10 min for stubborn rate-limits
         last_err: Exception | None = None
         for attempt in range(len(backoffs) + 1):

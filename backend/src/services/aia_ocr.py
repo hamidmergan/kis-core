@@ -1,16 +1,4 @@
-"""OCR providers for KI Tutor.
-
-Two backends are supported, both selected at runtime via the admin panel:
-
-- ``DoclingOcrProvider``: Docling document-understanding API. Per-image POST
-  with a dedicated layout+OCR model. ~7s per typical slide vs. 30-70s for the
-  vision-LLM route — 5-10x faster in practice.
-- ``OpenAICompatOcrProvider``: OpenAI-compatible /v1/chat/completions with a
-  Vision-LLM. Kept as an alternative provider.
-
-Both expose the same ``ocr_image(bytes) -> str`` interface so the chunker
-doesn't care which is active.
-"""
+"""Two text recognition providers with the same interface, chosen in the admin area."""
 
 import base64
 import re
@@ -65,16 +53,10 @@ def _call_vlm(client, model: str, image_bytes: bytes, mime_type: str) -> str:
 
 
 class OpenAICompatOcrProvider(OcrProvider):
-    """OCR via any OpenAI-compatible Vision-LLM endpoint.
-
-    Multiple deployments are different instances of this same class with
-    their own ``base_url`` / ``api_key`` / ``model``.
-    """
+    """Text recognition via an OpenAI compatible image endpoint."""
 
     def __init__(self, base_url: str, api_key: str, model: str) -> None:
-        # Plain OpenAI client (not langfuse-wrapped): vision payloads trigger
-        # Langfuse multimodal media uploads, which require an S3 bucket we
-        # don't run. Tracing OCR calls isn't worth the operational cost.
+        # A plain client without tracing, image data would need a bucket.
         from openai import OpenAI
         self._client = OpenAI(api_key=api_key, base_url=base_url)
         self._model = model
@@ -84,15 +66,7 @@ class OpenAICompatOcrProvider(OcrProvider):
 
 
 class DoclingOcrProvider(OcrProvider):
-    """OCR via the Docling document-understanding API.
-
-    Posts the image as a single-page document to ``/v1/documents/convert`` and
-    returns the extracted markdown. The API runs IBM's Granite-Docling model
-    end-to-end (layout + OCR) - much faster than a generic vision LLM, but the
-    response is one markdown blob with no page metadata. Since the chunker
-    calls this once per PDF page, page-mapping comes from the caller, not the
-    response.
-    """
+    """Text recognition via the Docling API, much faster than an image model."""
 
     _PICTURE_REF_RE = re.compile(r"^picture-\d+\.png\s*$", re.MULTILINE)
     _IMAGE_COMMENT_RE = re.compile(r"<!--\s*image\s*-->")
@@ -110,28 +84,14 @@ class DoclingOcrProvider(OcrProvider):
             response = client.post(self._endpoint, files=files, headers=headers)
         response.raise_for_status()
         markdown = (response.json().get("markdown") or "").strip()
-        # Docling tags image-input responses with "<!-- image -->" and inlines
-        # picture-N.png placeholders for embedded images. Neither belongs in
-        # the chunk text - the rendered page is the source of truth visually.
+        # Docling image placeholders do not belong in the chunk text.
         markdown = self._IMAGE_COMMENT_RE.sub("", markdown)
         markdown = self._PICTURE_REF_RE.sub("", markdown)
         return markdown.strip()
 
 
 def get_ocr_provider() -> Optional[OcrProvider]:
-    """Return the currently-active OCR provider, or None if OCR is unconfigured.
-
-    Reads the ``ocr`` feature route from the admin tab. The chosen protocol
-    determines the concrete client:
-      - ``docling``: returns the ``DoclingAdapter`` (which carries an
-        ``ocr_image`` method that matches the ``OcrProvider`` interface).
-      - ``openai_compat``: returns an ``OpenAICompatOcrProvider`` driving a
-        Vision-LLM via ``/v1/chat/completions``.
-
-    Returns None early when the global ``ocr_enabled`` switch (admin "System"
-    tab) is off, so OCR is skipped for ALL workspaces/modules regardless of the
-    configured feature route. Default is on, preserving prior behaviour.
-    """
+    """The active text recognition provider, None when it is off or unconfigured."""
     from src import database as db
     if db.get_setting("ocr_enabled", "true").lower() != "true":
         logger.info("OCR resolver: globally disabled via admin setting, skipping OCR")

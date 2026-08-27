@@ -1,12 +1,6 @@
 "use client";
 
-/**
- * Kontingente. Der gewählte Nutzer steht in der Adresse (?user=), damit ein
- * Link auf ein bestimmtes Kontingent funktioniert.
- *
- * Der Schritt zurück führt in die Nutzerliste, nicht in einen Zustand innerhalb
- * dieser Seite. Die Zurück-Taste des Browsers tut damit dasselbe wie der Knopf.
- */
+/** The chosen user sits in the URL, the way back leads into the list. */
 
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "@/i18n/navigation";

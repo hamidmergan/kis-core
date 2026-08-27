@@ -1,11 +1,6 @@
 "use client";
 
-/**
- * Die Rueckfrage vor dem Loeschen eines Kontos.
- *
- * Baut auf dem Haus-Dialog auf und sieht damit aus wie jede andere Rueckfrage
- * auf der Plattform. Rot ist nur der Knopf, der wirklich loescht.
- */
+/** The confirmation before deleting an account. */
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
@@ -62,7 +57,7 @@ export default function DeleteUserConfirmDialog({
     }
   };
 
-  // Nur nennen, was wirklich da ist. Fuenf Nullen lesen sich wie Fuellwerk.
+  // Only name what really exists, five zeros read like filler.
   const posten = vorschau
     ? ([
         ["workspaces", vorschau.workspaces],

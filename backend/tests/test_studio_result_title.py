@@ -1,8 +1,4 @@
-"""Woraus Mindmap und Datentabelle ihren Titel ziehen.
-
-Nicht aus dem Dokument, sondern aus dem eigenen Ergebnis: bei der Mindmap die
-Knoten der ersten Ebene, bei der Tabelle Spaltenkoepfe und erste Spalte.
-"""
+"""Mind map and data table take their title from their own result."""
 
 from src.features.ai_assistant.tasks.studio._result_title import (
     mindmap_entries,
@@ -47,7 +43,7 @@ def test_tabelle_vertraegt_leere_form():
 
 
 def test_tabelle_faellt_auf_den_modelltitel_zurueck_wenn_der_aufruf_scheitert():
-    """Ein kaputter Titel-Aufruf darf keine fertige Tabelle kosten."""
+    """A broken title call must not cost a finished table."""
     import types
 
     from src.features.ai_assistant.tasks._titles import resolve_title

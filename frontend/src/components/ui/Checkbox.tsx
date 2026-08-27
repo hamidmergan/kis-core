@@ -2,11 +2,7 @@
 
 import { Check } from "@phosphor-icons/react";
 
-/**
- * Kaestchen im AIA-Look: quadratischer Knopf mit 2px-Rahmen, gefuellt in der
- * Akzentfarbe wenn gesetzt. Gleiche Darstellung wie in der Quellenliste und im
- * Lernplan, damit jedes Kaestchen in der App gleich aussieht.
- */
+/** Checkbox in the AIA look so every checkbox in the app looks alike. */
 export default function Checkbox({
   checked,
   onChange,

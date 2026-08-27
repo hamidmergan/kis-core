@@ -58,8 +58,7 @@ export function useScreencastResume(onResume: (payload: ScreencastResumePayload)
               index: i,
               imageBase64: imgs[i] ?? "",
               extractedText: texts[i] ?? scripts[i] ?? "",
-              // Fehlt ein Skript, bleibt das Feld leer. Früher stand hier der
-              // Folientext, den man versehentlich als Skript vorlesen ließ.
+              // Without a script the field stays empty instead of reading the slide text aloud.
               script: scripts[i] ?? "",
               unchanged: unchanged.has(i),
             }));
@@ -67,8 +66,7 @@ export function useScreencastResume(onResume: (payload: ScreencastResumePayload)
         onResume({ jobUuid: resumeUuid, slides, step, stepIdx: idx });
       })
       .catch(() => {
-        // Job abgelaufen, gelöscht oder gerade in Arbeit. Vorher landete der
-        // Nutzer wortlos wieder beim Upload und wusste nicht, warum.
+        // Job expired, deleted or still running, the page says so now.
         setResumeFailed(true);
       })
       .finally(() => setResumeLoading(false));

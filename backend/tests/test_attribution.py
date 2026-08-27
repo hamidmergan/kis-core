@@ -1,11 +1,4 @@
-"""Post-hoc semantic attribution for GENERIC answers.
-
-Instead of trusting the model's (often wrong) page citations in an overview answer,
-we re-ground EACH answer line with the same semantic search that works perfectly for
-specific questions: embed the line, search the active sources, and attach the best
-chunk's citation — BUT only when it is close enough (distance gate). A line that is
-not clearly supported gets NO chip (no fabricated attribution / post-rationalization).
-"""
+"""After-the-fact evidence search for overview answers, with a distance threshold."""
 from src.features.ai_assistant.routes._helpers import (
     _pick_attribution,
     _attribution_chip,
@@ -60,16 +53,12 @@ def test_attribution_chip_is_nav_only_media():
 
 
 def test_attribution_chip_media_with_segment_page_uses_timestamp():
-    # REAL audio/video: transcript chunks carry a page_number (segment index) AND a
-    # start_time. The chip MUST be the timestamp, never "S. <segment-index>".
+    # For audio and video the chip has to carry the timestamp, never the segment number.
     chunk = {"source_id": 3, "page_number": 9, "content": "x", "vec_distance": 0.2, "start_time": 92.0}
     assert _attribution_chip(3, chunk, "line") == ["[3, 01:32]"]
 
 
-# ── Segment-genaue Zeitmarke im Medien-Chip ──────────────────────────────────
-# Ein Medien-Chunk fasst 1000 Zeichen zusammen, bei langsamem Sprechen sind das
-# ueber zwei Minuten. Die Chunk-Startzeit zeigt dann auf die Begruessung, obwohl
-# der zitierte Satz kurz vor dem Chunk-Ende faellt.
+# Otherwise the chunk start time points at the greeting instead of the sentence.
 
 _SEGMENTE = [
     {"start": 0.0, "end": 24.0, "text": "Die machen wir auch noch. Aber so weit sind wir ja noch nicht."},
@@ -79,12 +68,7 @@ _SEGMENTE = [
 
 
 def _chunk_aus(segmente: list[dict]) -> dict:
-    """Ein Medien-Chunk, wie das Zerlegen ihn baut.
-
-    ``segments_to_chunks`` reiht die Segmenttexte mit einem Leerzeichen aneinander,
-    der Chunk-Text ist also genau diese Kette. Ein Chunk mit fremdem Text kann gar
-    nicht entstehen, und die Zuordnung Chunk -> Segmente laeuft ueber diese
-    Reihenfolge."""
+    """A media chunk the way chunking builds it."""
     return {
         "source_id": 8, "page_number": 1, "vec_distance": 0.2,
         "start_time": segmente[0]["start"], "end_time": segmente[-1]["end"],
@@ -101,8 +85,7 @@ def test_media_chip_points_at_the_segment_that_carries_the_line():
 
 
 def test_media_chip_matches_across_inflection():
-    # Das Modell beugt neu: "grosses C" im Satz, "grossen C" im Ton. Ein exakter
-    # Wortvergleich fiele hier auf die Chunk-Startzeit zurueck.
+    # The model inflects anew, an exact word comparison would fall behind.
     segs = [
         {"start": 0.0, "end": 24.0, "text": "Die machen wir auch noch."},
         {"start": 128.0, "end": 140.0,
@@ -113,15 +96,7 @@ def test_media_chip_matches_across_inflection():
 
 
 def test_media_chip_counts_a_short_number_as_a_feature():
-    """Eine Zahl ist im gesprochenen Text das trennschaerfste Merkmal.
-
-    ``_significant_tokens`` verlangt vier Zeichen, und daran fiel die "8.9" durch.
-    Beobachtet am 2026-08-16 an der WuK-Aufzeichnung: zu "In einer Aufzeichnung wird
-    eine Klausur vom 8.9. gezeigt" blieben nur die Staemme "aufzei", "gezeig" und
-    "klausu". Das gesuchte Segment lautet "So, das ist die Klausur 8.9." und trug davon
-    genau einen, also einen zu wenig. Der Chip zeigte auf 00:00 statt auf 01:00, und
-    das ist zwei Bloecke vor der Stelle, um die es geht.
-    """
+    """In spoken text a number is the most discriminating feature."""
     segs = [
         {"start": 0.0, "end": 29.0, "text": "Startet doch jetzt, Leute, der rote Punkt."},
         {"start": 30.0, "end": 46.0, "text": "Das sind die Lösungen, die zeigen wir auch noch."},
@@ -134,7 +109,7 @@ def test_media_chip_counts_a_short_number_as_a_feature():
 
 
 def test_media_chip_still_needs_two_features_with_a_number():
-    """Die Zahl ersetzt die Zwei-Treffer-Regel nicht, sie zaehlt nur mit."""
+    """The number does not replace the two-hit rule, it only counts along."""
     segs = [
         {"start": 0.0, "end": 29.0, "text": "Guten Morgen, wir fangen an."},
         {"start": 60.0, "end": 72.0, "text": "Seite 8.9 im Skript."},
@@ -153,9 +128,7 @@ def test_media_chip_falls_back_when_no_segment_carries_the_line():
 
 
 def test_media_chip_ignores_a_single_matching_word():
-    # Ein einziger Wortstamm ("Binomialverteilung") reicht nicht: gemessen war genau das
-    # die Quelle der grossen Ausreisser. Lieber der bekannte Chunk-Anfang als eine
-    # geratene Minute.
+    # A single word stem is not enough, better the known chunk start.
     out = _attribution_chip(8, _LANGSAMER_CHUNK,
                             "Die Binomialverteilung beschreibt wiederholte Zufallsversuche",
                             _SEGMENTE)
@@ -163,8 +136,7 @@ def test_media_chip_ignores_a_single_matching_word():
 
 
 def test_media_chip_marks_the_start_of_a_sentence_split_across_segments():
-    # Der Satz laeuft ueber zwei Segmente, die zweite Haelfte traegt die auffaelligeren
-    # Woerter. Der Chip gehoert trotzdem an den Satzanfang.
+    # The chip belongs at the sentence start, even when more words match later.
     segs = [
         {"start": 0.0, "end": 40.0, "text": "Voellig anderes Thema ohne Bezug."},
         {"start": 104.0, "end": 117.0, "text": "Wir machen das Komplementieren mit dem Strich"},
@@ -260,10 +232,7 @@ def test_crosscheck_media_passes_when_source_retrieved():
 
 
 def test_crosscheck_media_with_segment_page_passes():
-    # REGRESSION (audio/video had NO chips): real media chunks carry a page_number
-    # (transcript segment index), and _pack_context_batches tracks media sources with an
-    # EMPTY seen-page set (navigated by time, not page). The cross-check must still let the
-    # chip through via start_time — keying on the segment page would reject every line.
+    # Media sources have an empty page set, the chip still has to get through.
     line = "Eine inhaltlich substanzielle Aussage zum Thema hier."
     hit = {"source_id": 3, "page_number": 9, "content": "x", "vec_distance": 0.2, "start_time": 92.0}
     out = _attribute_generic_text(line, _searcher({"substanzielle": [hit]}),
@@ -279,8 +248,7 @@ def test_no_crosscheck_when_not_passed():
 
 
 def test_table_header_not_cited_and_data_chip_inside_cell():
-    # A table block: header is a label (never cited), delimiter untouched, and the data
-    # row's chip goes INSIDE the last cell so GFM keeps the column count (table renders).
+    # In a table the chip goes into the last cell, the header row stays free.
     table = (
         "| Datum der Veranstaltung | Termin und Uhrzeit |\n"
         "|---|---|\n"
@@ -300,9 +268,7 @@ def test_table_header_not_cited_and_data_chip_inside_cell():
 
 
 def test_guarantee_chips_grounded_answer_borderline_block():
-    # Two SEPARATE bullets (= separate blocks). Answer IS grounded (bullet A at 0.2).
-    # Bullet B's closest seen chunk is 0.7 (just past the normal gate) — it must STILL
-    # get a chip (per-block guarantee), so no claim block is left without a source link.
+    # A block just behind the threshold gets its chip too.
     text = ("- Erste klar belegte Aussage zum Thema hier.\n"
             "- Zweite Aussage etwas vager formuliert hier.")
     search = _searcher({
@@ -316,9 +282,7 @@ def test_guarantee_chips_grounded_answer_borderline_block():
 
 
 def test_chips_at_block_end_not_mid_bullet():
-    # A bullet whose continuation spills onto a second (non-bullet) line: ALL chips go at
-    # the END of the block, NEVER after the first line (mid-bullet). Same source on both
-    # lines -> deduped to ONE chip at the end.
+    # The chips go to the block end, never into the middle of a bullet.
     text = ("- **Artikel 1 schützt die Würde des Menschen.**\n"
             " Dieser Artikel verpflichtet alle staatliche Gewalt dazu.")
     search = _searcher({
@@ -334,7 +298,7 @@ def test_chips_at_block_end_not_mid_bullet():
 
 
 def test_multi_chip_two_close_pages_both_cited():
-    # Zwei Seiten praktisch gleich weit weg, echte Mitquellen, also zwei Chips.
+    # Two pages practically equally far away, real co-sources, so two chips.
     line = "Eine zusammengesetzte Aussage aus mehreren Stellen zugleich."
     search = _searcher({"zusammengesetzte": [_hit(1, 5, "x", 0.30), _hit(1, 9, "y", 0.33)]})
     out = _attribute_generic_text(line, search, {1: 1},
@@ -343,9 +307,7 @@ def test_multi_chip_two_close_pages_both_cited():
 
 
 def test_multi_chip_drops_far_secondary_relative_gate():
-    # The HwO case: a clearly-best chunk (0.21) plus on-topic-ish near-misses (0.32) that
-    # pass the absolute 0.6 gate but are NOT where the claim came from. The relative gate
-    # (best + _MULTI_CHIP_MAX_DELTA) keeps ONLY the best -> one chip, no spurious extras.
+    # The distance rule keeps only the best hit, no near misses.
     line = "Die Löschung der Eintragung in die Handwerksrolle ist unter Bedingungen möglich."
     search = _searcher({"Löschung der Eintragung": [
         _hit(1, 10, "real source", 0.21),
@@ -359,19 +321,12 @@ def test_multi_chip_drops_far_secondary_relative_gate():
     assert out.count("[1,") == 1   # exactly one chip
 
 
-# ── eine ZWEITE QUELLE mit derselben Aussage ──────────────────────
-# Frueher bekam eine andere Datei einen Freifahrtschein am Abstand vorbei. Gemessen an 33
-# Aussagen fand kein einziger Zusatzbeleg eine Stelle, die der beste verpasst, und weil bei
-# vielen Quellen immer jemand aus einer anderen Datei dabei ist, kamen ueberall drei Chips.
-# Jetzt gilt der Abstand fuer alle: die Aufzeichnung sagt den Termin bei 08:58 (0,31), die
-# Folie sagt ihn auch (0,47), und Reden ueber eine Sache landet nie so nah wie die Sache
-# selbst. Die Folie faellt damit weg.
+# The distance applies to a second source too, no free pass any more.
 _DEADLINE = "Die finale Abgabe der Hausarbeit ist am 3. Juli 2026 fällig"
 _TALK_0858 = "der 3. Juli, da ist die finale Deadline, wann Sie einreichen"
-# Keine nackte "2026"/"3": das Datum steht als eine Zahl, damit die Zahlen-Ausnahme
-# hier nicht greift und der Test wirklich den Abstand misst.
+# The date stands as one number so the number exception does not apply.
 _SLIDE_DEADLINE = "Abgabe der Hausarbeit bis 03.07.2026"
-# Ein Kurs-Korpus: "Abgabe" und "Hausarbeit" stehen auf fast jedem Chunk.
+# A course corpus: 'Abgabe' and 'Hausarbeit' appear on almost every chunk.
 _COURSE = [{"content": f"Kapitel {n}: Hinweise zur Abgabe der Hausarbeit im Modul."}
            for n in ("eins", "zwei", "drei", "vier", "fünf", "sechs", "sieben", "acht",
                      "neun", "zehn")]
@@ -389,8 +344,7 @@ def test_multi_chip_other_source_needs_equal_distance_too():
 
 
 def test_multi_chip_same_source_near_miss_still_dropped():
-    # The other-source rule must not soften the gate WITHIN one document: a second passage
-    # of the SAME source past the delta is still a near-miss and stays out.
+    # Inside one source a near miss stays out.
     hits = [_hit(1, 41, _TALK_0858, 0.31, start=538.0),
             _hit(1, 12, "irgendwann reden wir über die Abgabe", 0.47, start=180.0)]
     out = _attribute_generic_text(
@@ -402,8 +356,7 @@ def test_multi_chip_same_source_near_miss_still_dropped():
 
 
 def test_ungrounded_answer_borderline_gets_no_chip():
-    # Honest "not contained" case: the only line's closest seen chunk is 0.7 (> gate)
-    # -> the answer is NOT grounded -> no chip, even though 0.7 < the guarantee ceiling.
+    # An unsupported answer gets no chip.
     line = "Diese Information ist nicht in den bereitgestellten Materialien enthalten."
     search = _searcher({"Information": [_hit(1, 5, "x", 0.7)]})
     out = _attribute_generic_text(line, search, {1: 1},
@@ -411,22 +364,16 @@ def test_ungrounded_answer_borderline_gets_no_chip():
     assert out == line
 
 
-# ── refusal detection: a "not in the sources" line is never sourced ──────────
-# Even inside a COMPOUND answer where ANOTHER line grounds the answer, the refusal
-# sentence must not collect the loose GUARANTEE chip (the GG51 "S. 44" bug).
+# A refusal line never gets the loose chip.
 
-# The user's exact case: a compound question answered for part 1, refused for part 2.
-# Two SEPARATE bullets (= separate blocks), as the answer actually renders — so each line
-# is attributed on its own and the refusal sentence carries its own (spurious) chip.
+# Compound question: one part answered, one part refused.
 _ANSWERED = "- Die Würde des Menschen ist unantastbar laut Grundgesetz Artikel 1 Absatz 1."
 _REFUSAL = "- Informationen darüber sind nicht in den bereitgestellten Materialien enthalten."
 _COMPOUND = f"{_ANSWERED}\n{_REFUSAL}"
 
 
 def _compound_search():
-    # Part 1 grounds at 0.3. The refusal sentence carries the query topic, so its closest
-    # SEEN chunk (page 44) is in the 0.6-0.85 guarantee band — exactly where the loose
-    # guarantee would (wrongly) chip it.
+    # The refusal sits exactly in the band where the loose chip would apply.
     return _searcher({
         "Würde des Menschen": [_hit(1, 1, "Art 1 Würde des Menschen unantastbar", 0.3)],
         "Informationen darüber": [_hit(1, 44, "Kündigung am Rande erwähnt", 0.7)],
@@ -434,8 +381,7 @@ def _compound_search():
 
 
 def test_compound_refusal_would_be_chipped_without_detection():
-    # Documents the bug: with NO refusal filter the answered part grounds the whole answer,
-    # so the guarantee chips the refusal sentence -> a spurious "S. 44" on a non-answer.
+    # Without the filter the refusal would get a chip on a page that backs nothing.
     out = _attribute_generic_text(_COMPOUND, _compound_search(), {1: 1},
                                   seen_pages_by_source={1: {1, 44}}, max_distance=0.6)
     assert "S. 44" in out
@@ -453,8 +399,7 @@ def test_compound_refusal_no_chip_with_detection():
 
 
 def test_refusal_line_does_not_block_real_borderline_guarantee():
-    # The fix must NOT regress the deliberate guarantee for a real-but-vague claim at 0.7:
-    # only the line explicitly flagged as a refusal loses its chip.
+    # Only the line marked as a refusal loses its chip.
     text = ("- Erste klar belegte Aussage zum Thema hier.\n"
             "- Zweite Aussage etwas vager formuliert hier.")
     search = _searcher({
@@ -492,9 +437,7 @@ def test_cos_dist_degenerate_vector_is_max():
     assert _cos_dist([0.0, 0.0], [1.0, 0.0]) == 1.0
 
 
-# ── is_refusal_answer (whole-answer refusal for the single-page-scope anchor) ─
-# The single-page-scope path appends ONE nav anchor without per-line attribution, so it
-# must itself detect an honest "not in the sources" answer and suppress the chip.
+# The single page anchor has to recognise a refusal too.
 
 def _fake_embed(mapping, fallback):
     # Returns the mapped vector per text (sentinels + the answer), else a fallback vector.
@@ -531,10 +474,7 @@ def test_refusal_answer_empty_text_is_false():
     assert is_refusal_answer("   ", lambda t: [[1.0]], ["s"], max_dist=0.40) is False
 
 
-# ── is_sentinel_refusal (literal whole-answer refusal, no embedding) ──────────
-# Cheap pre-gate in front of the whole post-hoc pass: an answer that is nothing but the
-# canonical no-info sentence has nothing to cite, so it must not pay for an embed batch
-# plus a pgvector fan-out just to have its only line filtered out again afterwards.
+# A pure refusal must not cost a whole embedding round first.
 
 _DE = RAG_NO_INFO_SENTINEL["de"]
 
@@ -549,8 +489,7 @@ def test_sentinel_refusal_tolerates_whitespace_and_emphasis():
 
 
 def test_sentinel_refusal_compound_answer_is_false():
-    # The answered part must still go through attribution and keep its chip; only the
-    # refusal LINE is dropped there (see _refusal_lines).
+    # The answered part keeps its chip.
     text = f"Die Frist endet am dritten Juli laut der Ordnung.\n{_DE}"
     assert is_sentinel_refusal(text) is False
 
@@ -570,11 +509,7 @@ def test_sentinel_refusal_empty_is_false():
 
 
 def test_long_dash_delimiter_row_never_cited():
-    # Regression: a real GFM delimiter renders as `|--------|--------|` (Docling / most
-    # models emit padded dashes). Its dedup key is the dash/pipe string itself — 18 chars,
-    # OVER the substantial-line threshold — so the gate used to treat it as a claim and
-    # inject a chip INSIDE the delimiter, which makes GFM stop parsing the block as a table
-    # (the whole table collapses to a paragraph in the UI). The delimiter must stay verbatim.
+    # A table separator row has to stay verbatim, otherwise the table falls apart.
     table = (
         "| Inhalt | Termin |\n"
         "|--------|--------|\n"
@@ -636,8 +571,7 @@ def test_overview_keeps_enum_chip_when_chunk_backs_all_items():
 
 
 def test_overview_drops_loose_guarantee_chip():
-    # Block 1 grounds the answer (0.2). Block 2 sits in the loose band (0.72):
-    # SPECIFIC guarantees a chip there, overview drops it (a pseudo-source link).
+    # In the loose band the specific question gets a chip, the overview does not.
     text = ("- Klar belegte Kernaussage zum Thema steht hier drin.\n"
             "- Eine weitere eher lose verbundene Aussage zum Sachverhalt.")
     search = _searcher({
@@ -665,18 +599,10 @@ def test_overview_keeps_close_single_source_chip():
     assert "[3, S. 8]" in out
 
 
-# ── NO cross-block chip dedup: each claim keeps its own best source ───────────
-# Cross-block dedup was removed. It gave a shared best source to the FIRST block and left a
-# later, DISTINCT claim with only a wrong leftover (the seminar/project bug: a "Theorie"
-# bullet and a "Praxis" bullet both grounded in the same passage, but the second showed an
-# unrelated timestamp). Genuine restatements are collapsed upstream (line-dedup +
-# answer-cleanup), so a citation is never sacrificed for tidiness. Each claim keeps its own
-# closest source(s) even when an earlier block already cited the same one.
+# Chips are not deduplicated across blocks.
 
 def test_distinct_blocks_each_keep_shared_best_source_pdf():
-    # Two DISTINCT bullets about overlapping content share the SAME best PDF page (S. 4).
-    # Each must keep it; before the fix bullet 2 lost S. 4 to bullet 1 and showed only the
-    # far leftover S. 9.
+    # Two claims may keep the same best page.
     b1 = "- Das wissenschaftliche Seminar vermittelt die theoretischen Grundlagen hier."
     b2 = "- Im wissenschaftlichen Projekt steht die praktische Umsetzung im Vordergrund hier."
     text = b1 + "\n\n" + b2
@@ -694,8 +620,7 @@ def test_distinct_blocks_each_keep_shared_best_source_pdf():
 
 
 def test_distinct_blocks_each_keep_shared_best_media():
-    # The real screenshot case (media/timestamps): bullet 2 must keep 03:47 (its true best),
-    # not fall back to the far leftover 26:04 because bullet 1 already showed 03:47.
+    # For media too every block keeps its own best timestamp.
     b1 = "- Das wissenschaftliche Seminar vermittelt die theoretischen Grundlagen hier."
     b2 = "- Im wissenschaftlichen Projekt steht die praktische Umsetzung im Vordergrund hier."
     text = b1 + "\n\n" + b2
@@ -713,8 +638,7 @@ def test_distinct_blocks_each_keep_shared_best_media():
 
 
 def test_normal_mode_keeps_per_block_chips_no_cross_dedup():
-    # Neither mode dedups chips across blocks: a source that legitimately backs two distinct
-    # claims must stay linkable from BOTH, so the same chip may repeat.
+    # The same chip may repeat when it backs two claims.
     line1 = "Die Abgabe der Hausarbeit ist am 03.07.2026 faellig und steht hier."
     line2 = "Der Abgabetermin der Hausarbeit ist der 03.07.2026 wie hier erneut steht."
     text = line1 + "\n\n" + line2
@@ -723,16 +647,10 @@ def test_normal_mode_keeps_per_block_chips_no_cross_dedup():
     assert out.count("[1, S. 6]") == 2  # per-block, not deduped across the message
 
 
-# ── clause-level coverage: each FACT in a multi-fact line earns its own source ─
-# One sentence can bundle several facts. The whole-line vector is closest to ONE fact's
-# segment, so line-level attribution cites only that and the relative-delta gate trims the
-# rest. Each fact's clause, searched on its OWN focused vector, finds its OWN segment, so
-# every fact earns a chip. Punctuation-only clause split keeps this language-agnostic.
+# Every fact of a multi-part line gets its own citation.
 
 def test_clause_coverage_multi_fact_line_media():
-    # The bullet-4 case (media): "... sechs bis sieben Seiten, sowie eine zwanzig Minuten
-    # Praesentation ...". The whole line is closest to the Seiten segment (14:53); the
-    # 20-minute presentation lives at 15:31 and was lost. Its clause must recover it.
+    # The second clause brings back the spot the whole line lost.
     line = ("- Die Pruefungsleistung umfasst sechs bis sieben Seiten, "
             "sowie eine zwanzig Minuten Praesentation mit anschliessendem Fragegespraech.")
     search = _searcher({
@@ -759,10 +677,7 @@ def test_clause_coverage_multi_fact_line_pdf():
 
 
 def test_clause_coverage_drops_a_passage_that_adds_nothing_to_the_line():
-    # Measured live: 7 of 13 extra chips cited a passage that covers NO word of the line the
-    # first passage was missing. Those are not co-sources, they are near-misses a clause
-    # search dragged in ("inklusive Abbildungen und Tabellen" is not a fact of its own).
-    # A coverage chip must earn its place by covering something new OF THE LINE.
+    # A coverage chip has to cover something new in the line.
     line = "Die Arbeit umfasst sechs Seiten, inklusive Abbildungen und Tabellen."
     search = _searcher({
         "sechs Seiten": [_hit(1, 7, "Arbeit umfasst sechs Seiten Abbildungen Tabellen", 0.20)],
@@ -775,10 +690,7 @@ def test_clause_coverage_drops_a_passage_that_adds_nothing_to_the_line():
 
 
 def test_clause_coverage_keeps_a_second_DOCUMENT_even_for_the_same_fact():
-    # A workspace usually holds the slides AND the recording of the same session, so most
-    # facts exist twice: once written, once spoken. A second SOURCE is a second way in — one
-    # reader wants the slide, another wants to hear the passage — so it is kept even though
-    # it says the same thing. Only a second passage of the SAME file has to earn its place.
+    # A second source is a second way in and stays.
     line = ("Das Seminar und das Projekt bauen aufeinander auf, "
             "beide bereiten auf die spaetere Masterarbeit vor.")
     slide = _hit(1, 2, "Seminar und Projekt bauen aufeinander auf Vorbereitung Masterarbeit", 0.20)
@@ -795,8 +707,7 @@ def test_clause_coverage_keeps_a_second_DOCUMENT_even_for_the_same_fact():
 
 
 def test_clause_coverage_keeps_a_passage_that_covers_a_new_fact():
-    # The case the coverage pass exists for stays intact: the second clause's passage
-    # carries words of the line the first passage does not have.
+    # The case coverage exists for still holds.
     line = "Die Pruefung umfasst sechs Seiten, sowie eine muendliche Praesentation dazu."
     search = _searcher({
         "sechs Seiten": [_hit(1, 7, "Pruefung umfasst sechs Seiten Umfang", 0.20)],
@@ -818,8 +729,7 @@ def test_clause_coverage_no_inflation_when_clauses_share_source():
     assert out.count("[1, S. 5]") == 1
 
 
-# Die Zeile nennt zwei Zahlen, die nur die Folie traegt, und ihr einziges Pin-Wort
-# ("zusaetzlich") steht in keiner der beiden Stellen.
+# The line names two numbers that only the slide carries.
 _TALK_0928 = ("werden Sie auch gesehen haben, dass da auch eine Präsentation dabei ist. "
               "Sie haben einen schriftlichen Teil und dann präsentieren Sie Ihre "
               "Ausarbeitung, sage ich mal, oder die Ergebnisse, was Sie da recherchiert "
@@ -829,8 +739,7 @@ _SLIDE_TIMES = ("ORGANISATORISCHES PRÜFUNGSLEISTUNG Die finale Hausarbeit soll 
                 "bis sieben Seiten betragen, inklusive Abbildungen und Tabellen, "
                 "zuzüglich Literaturverzeichnis. 20 Minuten Präsentation + 10 Minuten "
                 "anschließende Fragerunde")
-# Ein Kurs-Korpus, in dem jedes lange Wort der Zeile ueberall faellt und nur
-# "zusaetzlich" an genau einer Stelle steht.
+# A corpus where every long word of the line appears everywhere.
 _SEMINAR = [{"content": ("Hinweise zur Präsentation, zur Fragerunde, zum schriftlichen "
                          "Teil und zu individuell vereinbarten Terminen in den "
                          f"Prüfungswochen, Abschnitt {n}.")}
@@ -839,8 +748,7 @@ _SEMINAR = [{"content": ("Hinweise zur Präsentation, zur Fragerunde, zum schrif
 
 
 def test_clause_coverage_keeps_the_page_that_states_the_lines_figures():
-    # Gemeldet 19.08.2026: die Aufzeichnung nennt nur die Termine, die Folie nennt die
-    # Dauer, und der einzige Chip zeigte auf die Aufzeichnung.
+    # Reported: the slide names the duration, the only chip pointed at the recording.
     line = ("Zusätzlich zur schriftlichen Arbeit erfolgt eine 20-minütige Präsentation "
             "mit einer anschließenden 10-minütigen Fragerunde, wobei die Termine "
             "individuell während der Prüfungswochen vereinbart werden.")
@@ -856,9 +764,7 @@ def test_clause_coverage_keeps_the_page_that_states_the_lines_figures():
 
 
 def test_clause_coverage_states_the_figures_in_a_bullet_too():
-    # Derselbe Satz als Aufzaehlungspunkt, denn so kam er beim gemeldeten Fall an.
-    # Hier hielt die Zuordnung schon vorher, die Zahlen-Regel ist also nicht noetig:
-    # ueber Dateigrenzen hinweg verdient ein Zusatzbeleg seinen Platz ohnehin.
+    # The same sentence as a bullet, that is how it arrived in the reported case.
     line = ("- **Präsentation**: Zusätzlich zur schriftlichen Arbeit erfolgt eine "
             "20-minütige Präsentation mit einer anschließenden 10-minütigen Fragerunde, "
             "wobei die Termine individuell während der Prüfungswochen vereinbart werden.")
@@ -874,13 +780,12 @@ def test_clause_coverage_states_the_figures_in_a_bullet_too():
 
 
 def test_clause_coverage_picks_the_figure_passage_over_a_nearer_stranger():
-    # Gemeldet 19.08.2026: der Zusatzbeleg landete auf "Fragen zu stellen, Diskussionen zu
-    # machen" aus einer anderen Aufzeichnung, die Folie mit den Zahlen blieb ungenutzt.
+    # Reported: the extra citation landed on an aside from a different source.
     line = ("- **Präsentation**: Die schriftliche Ausarbeitung wird in einer 20-minütigen "
             "Präsentation vorgestellt, auf die eine 10-minütige Fragerunde folgt.")
     talk = _hit(1, 45, "es sind 20 Minuten Präsentation und anschließend geht man in einen "
                        "Fragekontext", 0.25, start=931.0)
-    # Naeher dran, redet aber nur um die Sache herum, und aus einer dritten Datei.
+    # Closer, but only talks around the matter, and from a third file.
     fremd = _hit(4, 2, "Dann gibt es natürlich immer die Möglichkeit Fragen zu stellen, "
                        "Diskussionen zu machen, je nachdem wie schnell wir durchkommen",
                  0.30, start=43.9)
@@ -896,8 +801,7 @@ def test_clause_coverage_picks_the_figure_passage_over_a_nearer_stranger():
 
 
 def test_coverage_chips_never_exceed_the_cap():
-    # Gemessen: die Zeilensuche lieferte schon drei Belege, und die Klausel-Abdeckung
-    # haengte einen vierten an, weil die Grenze erst NACH dem Anhaengen geprueft wurde.
+    # The limit was only checked after appending, which let a fourth chip in.
     line = ("- **Präsentation**: Die Ausarbeitung wird in einer 20-minütigen Präsentation "
             "vorgestellt, auf die eine 10-minütige Fragerunde folgt.")
     nah = [_hit(1, 45, "20 Minuten Präsentation und ein Fragekontext danach", 0.25, start=931.0),
@@ -913,11 +817,7 @@ def test_coverage_chips_never_exceed_the_cap():
     assert "[4, 00:43]" not in out    # der vierte faellt weg, und zwar der schwaechste
 
 
-# ── per-sentence attribution in PROSE ─────────────────────────────────────────
-# A prose paragraph attaches a chip AFTER EACH sentence (its own closest source), not one
-# aggregated chip at the paragraph end. Each sentence is searched on its OWN focused
-# vector, which is also what finds the source a diluted whole-paragraph vector misses.
-# Bullets, headings and table rows are unaffected — they keep their end-of-unit chip.
+# A prose paragraph gets a chip after every sentence.
 
 def test_prose_paragraph_chips_each_sentence():
     line = ("Der Kurs vermittelt die Grundlagen des wissenschaftlichen Arbeitens. "
@@ -935,9 +835,7 @@ def test_prose_paragraph_chips_each_sentence():
 
 
 def test_prose_sentence_chips_capped_at_three():
-    # A chip STOP is a sentence, so the cap is per sentence: a comma-heavy sentence whose
-    # clauses each ground elsewhere shows at most three sources, matching the frontend's
-    # per-group ceiling of one visible chip plus two behind the caret.
+    # The ceiling applies per sentence, matching the display in the browser.
     line = ("Der Kurs behandelt die Grundlagen, die Abgabe der Hausarbeit, "
             "das Kolloquium im Folgesemester, sowie die Anmeldung im Pruefungsamt.")
     search = _searcher({
@@ -952,17 +850,10 @@ def test_prose_sentence_chips_capped_at_three():
     assert "[1, S. 16]" not in out                  # the fourth source is dropped, not shown
 
 
-# ── an overview suppressor must not silence a whole BLOCK ─────────────────────
-# _names_many_laws and _enum_chip_unbacked exist to stop ONE chip being glued to a unit
-# that enumerates many sources, and they were calibrated on a unit = one sentence. A BLOCK
-# (a multi-sentence bullet) is several, where a single parenthetical ("(AND, OR, NOT)") or
-# one example list ("Vorträge, Poster, Workshops, Tutorien, Demos") would strip the chip off
-# everything around it. On the block path they are judged per sentence and only silence the
-# block when EVERY sentence trips them. Prose already chips per sentence and is unaffected.
+# One suppression must not silence the whole block.
 
 def test_bullet_keeps_chip_despite_one_abbreviation_list_sentence():
-    # Live case: search-strategy content whose third sentence mentions Boolean operators.
-    # "(AND, OR, NOT)" reads as three law abbreviations to _names_many_laws.
+    # Boolean operators in brackets read like statute abbreviations.
     line = ("- Fuer die Literaturrecherche sollst du verschiedene Strategien nutzen. "
             "Du kannst ein Schneeballsystem verwenden, indem du Literaturverzeichnisse durchsuchst. "
             "Du sollst Boolesche Operationen (AND, OR, NOT) und Phrasensuche verwenden. "
@@ -986,8 +877,7 @@ def test_bullet_keeps_chip_despite_one_example_list_sentence():
 
 
 def test_single_line_enumeration_is_still_suppressed():
-    # The case the suppressors were built for is UNCHANGED: a lone line that is nothing but
-    # a many-law enumeration still gets no chip, because every sentence in it trips the gate.
+    # A line of nothing but statute abbreviations still stays chip free.
     line = "Die Regelungen stehen im (ZPO), im (MarkenG) und in (§ 21 StBerG) nebeneinander."
     search = _searcher({"Regelungen": [_hit(1, 5, "eine Seite ueber die ZPO allein", 0.2)]})
     out = _attribute_generic_text(line, search, {1: 1}, max_distance=0.6, overview=True,
@@ -996,8 +886,7 @@ def test_single_line_enumeration_is_still_suppressed():
 
 
 def test_bullet_with_only_enumerating_sentences_stays_suppressed():
-    # A bullet whose EVERY sentence is a law enumeration stays chip-free — the suppressor
-    # is weakened per sentence, not switched off.
+    # If it hits every sentence, the whole block stays chip free.
     line = ("- Die Regelungen stehen im (ZPO), im (MarkenG) und in (§ 21 StBerG) nebeneinander. "
             "Ergaenzend gelten die Vorgaben aus (UWG), (UmwG) und (BauGB) fuer diesen Bereich.")
     search = _searcher({"Regelungen": [_hit(1, 5, "eine Seite ueber die ZPO allein", 0.2)]})
@@ -1020,8 +909,7 @@ def test_prose_unsupported_sentence_gets_no_chip():
 
 
 def test_bullet_two_sentences_not_chipped_per_sentence():
-    # A BULLET with two sentences keeps block behaviour: NO chip after the first sentence's
-    # period (mid-bullet). Per-sentence chipping is prose-only.
+    # A bullet keeps its block behaviour, no chip in the middle.
     line = "- Der Kurs vermittelt die Grundlagen. Die Abgabe ist im Juli faellig."
     search = _searcher({"Grundlagen": [_hit(1, 4, "Grundlagen wissenschaftliches Arbeiten", 0.2)]})
     out = _attribute_generic_text(line, search, {1: 1}, max_distance=0.6,
@@ -1061,8 +949,7 @@ def test_bullet_chip_also_before_period():
 
 
 def test_bullet_ending_in_bold_appends_chip_no_reorder():
-    # A bullet whose period is INSIDE trailing markdown emphasis (**...**) must NOT have the
-    # chip inserted into the markup; it is appended after the emphasis instead.
+    # The chip must not end up inside the bold markup.
     line = "- **Wörtliches Zitat vom Autor.**"
     search = _searcher({"Wörtliches Zitat": [_hit(1, 3, "Woertliches Zitat Autor Jahr Seite", 0.2)]})
     out = _attribute_generic_text(line, search, {1: 1}, max_distance=0.6,
@@ -1071,9 +958,7 @@ def test_bullet_ending_in_bold_appends_chip_no_reorder():
 
 
 def test_bold_leadin_stays_chip_free_and_prose_below_chips_per_sentence():
-    # The real intro shape: a bold lead-in on its OWN line, then a 2-sentence prose line.
-    # The lead-in is a heading, so it stays chip-free AND does not swallow the prose below
-    # it — that line still gets a chip after each of its sentences.
+    # A bold intro line stays chip free and does not swallow the paragraph.
     text = ("**Überblick**\n"
             "Der Kurs vermittelt die Grundlagen des wissenschaftlichen Arbeitens. "
             "Die Abgabe der Hausarbeit ist am 03.07.2026 faellig.")
@@ -1089,14 +974,10 @@ def test_bold_leadin_stays_chip_free_and_prose_below_chips_per_sentence():
     assert lines[1].rstrip().endswith("faellig [1, S. 8].")
 
 
-# ── a HEADING is never a claim, in either shape ───────────────────────────────
-# A title names what follows, it asserts nothing, so a chip on it points at a page that
-# backs nothing — and lands in the middle of the heading. Models write titles both as
-# markdown "## Tipps" and as emphasis ("**Was ist Literaturrecherche**?"); both are titles.
-# Shape only, so it holds in every language.
+# A heading claims nothing and never gets a chip.
 
 def test_markdown_heading_line_is_never_cited():
-    # Observed live: "### Tipps für die Suche [1, S. 9]" — a chip glued to a section title.
+    # Observed live: a chip glued to a section title.
     line = "### Tipps fuer die Literatursuche im Studium"
     search = _searcher({"Literatursuche": [_hit(1, 9, "Literatursuche Stichwoerter Tipps", 0.2)]})
     out = _attribute_generic_text(line, search, {1: 1}, max_distance=0.6,
@@ -1124,8 +1005,7 @@ def test_bold_heading_line_is_never_cited():
 
 
 def test_bold_heading_does_not_swallow_the_paragraph_below():
-    # Heading and paragraph on consecutive lines (no blank line between them): the heading
-    # must start its own block, so the chip lands on the PARAGRAPH, never on the title.
+    # The heading starts its own block, the chip lands in the paragraph.
     text = ("**Was ist eine Literaturrecherche im Studium**?\n"
             "Literaturrecherche bedeutet, dass du nach Quellen zu deinem Thema suchst.")
     search = _searcher({"Literaturrecherche": [_hit(1, 4, "Literaturrecherche Quellen Thema", 0.2)]})
@@ -1145,10 +1025,7 @@ def test_partially_bold_prose_line_is_still_cited():
     assert out.rstrip().endswith("Seminars [1, S. 4].")
 
 
-# ── _attribution_subunits (what the caller pre-embeds in ONE batch) ───────────
-# The prose per-sentence path searches each sentence (and its clauses). Those must ride in
-# the same embed batch as the lines/clauses, or search_one falls back to one embed PER
-# sentence. This helper enumerates those sub-units.
+# The sub-units have to be embedded in the same batch.
 
 def test_subunits_prose_multisentence_returns_each_sentence():
     line = "Der Kurs vermittelt die Grundlagen. Die Abgabe ist im Juli faellig."
@@ -1202,8 +1079,7 @@ def _talk(i, dist):
 
 
 def test_the_passage_that_states_the_time_is_cited_although_it_ranks_last():
-    # Three passages that merely mention office hours fill every slot; the one slide that
-    # states the time is far away and would never be reached.
+    # Three near misses fill every slot, the right slide would never get in.
     slide = {"id": 7, "source_id": 3, "page_number": 2, "start_time": None,
              "content": _SLIDE, "vec_distance": 0.54}
     hits = [_talk(0, 0.398), _talk(1, 0.420), _talk(2, 0.433), slide]

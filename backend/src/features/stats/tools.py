@@ -1,27 +1,18 @@
-"""Zahlen zu den globalen Werkzeugen.
-
-Die Quelle ist `job_counts` und nicht `jobs`: aus `jobs` faellt pro Nutzer alles
-ueber dem Vorrat wieder heraus, und geloeschte Auftraege sind ganz weg. Gezaehlt
-wird deshalb beim Anlegen, und diese Zeile bleibt, was mit dem Auftrag danach
-auch passiert. Siehe features/jobs/repository/_counts.py.
-"""
+"""Numbers for the global tools, counted at creation instead of from jobs."""
 from psycopg2.extras import RealDictCursor
 
 from src.core.db.pool import get_connection
 
-# Wie stark ein Zeitraum den Schnitt verduennt, haengt an der Zahl der Tage.
-# Ohne Angabe zaehlt alles seit dem ersten Eintrag.
+# Without an argument everything since the first entry counts.
 ZEITRAEUME = {"alles": None, "jahr": 365, "30t": 30}
 
-# Nur die Zeile vom Anlegen zaehlt als Auftrag. Die Endzustaende stehen in
-# derselben Tabelle und wuerden sonst ein zweites Mal mitgezaehlt.
+# Only the creation row counts as a job.
 GESTARTET = "status = 'started'"
 
-# Ein Screencast bleibt ein Screencast, ob er uebersetzt wurde oder nicht.
+# A screencast stays a screencast, translated or not.
 ZUSAMMEN = {"screencast_render": "screencast", "screencast_translate": "screencast"}
 
-# Alle Werkzeuge, die Auftraege anlegen. Auch die, die noch nie gelaufen sind:
-# eine fehlende Zeile heisst null und soll auch als null dastehen.
+# All tools that create jobs, the never run ones included.
 WERKZEUGE = [
     "screencast", "transcription", "translation", "tts", "summary",
     "image_generate", "image_edit", "image_analyze",
@@ -29,7 +20,7 @@ WERKZEUGE = [
 
 
 def tool_overview(zeitraum: str = "alles") -> dict:
-    """Kacheln, Balken je Werkzeug und das Raster Wochentag mal Stunde."""
+    """Tiles, bars per tool and the weekday by hour grid."""
     tage = ZEITRAEUME.get(zeitraum)
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -54,7 +45,7 @@ def _totals(cur, tage) -> dict:
 
 
 def _per_tool(cur, tage) -> list[dict]:
-    """Wie oft jedes Werkzeug gestartet wurde, auch die nie gestarteten."""
+    """How often each tool was started, the never started ones included."""
     wo, args = _wo(tage)
     cur.execute(f"SELECT tool, SUM(runs) AS gesamt FROM job_counts {wo} GROUP BY tool", args)
     jobs: dict[str, int] = {}
@@ -67,14 +58,7 @@ def _per_tool(cur, tage) -> list[dict]:
 
 
 def _heat(cur, tage) -> list[list[float]]:
-    """Durchschnitt je Wochentag und Stunde.
-
-    Durchschnitt und nicht Summe: sonst waeren die Zahlen zwischen den Zeitraeumen
-    nicht vergleichbar, weil "alles" mehr Wochen enthaelt als "30 Tage". Geteilt
-    wird durch die Zahl der Vorkommen dieses Wochentags im Zeitraum.
-
-    Rueckgabe: sieben Zeilen (Montag zuerst) mal vierundzwanzig Stunden.
-    """
+    """Average per weekday and hour so periods stay comparable."""
     wo, args = _wo(tage)
     cur.execute(
         f"""SELECT EXTRACT(ISODOW FROM day)::int AS wochentag,

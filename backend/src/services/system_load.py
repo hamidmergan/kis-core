@@ -1,21 +1,4 @@
-"""Misst, wie ausgelastet die Maschine GERADE ist.
-
-Abgegrenzt von ``system_capacity.py``: das dort ist statisch (wie groß ist die
-Maschine), das hier ist dynamisch (wie voll ist sie in dieser Sekunde). Beides
-in eine Datei zu werfen hieße, einen Zwischenspeicher zu bauen, der mal gilt und
-mal nicht.
-
-Gebraucht wird das, weil die Auslastung bisher NIRGENDS sichtbar war. Man konnte
-im Admin-Bereich drei parallele Plätze einstellen und hat nie erfahren, ob drei
-reicht. Genau das macht solche Regler so unbefriedigend: eine Zahl eingeben, die
-man nicht begründen kann, und danach keine Rückmeldung bekommen.
-
-Im Container zählt die cgroup, nicht der Wirt. ``/proc/loadavg`` und
-``/proc/meminfo`` zeigen die Werte der ganzen Maschine, auch wenn der Container
-nur zwei Kerne davon benutzen darf. Auf einem geteilten Wirt wäre die Anzeige
-damit schlicht falsch. Deshalb zuerst ``cpu.stat`` und ``memory.current`` der
-eigenen cgroup, und erst danach die Sicht auf den Wirt.
-"""
+"""Measures the current load, in a container via the cgroup instead of the host."""
 
 from __future__ import annotations
 
@@ -25,10 +8,7 @@ import time
 
 from src.services.system_capacity import capacity
 
-# Abstand zwischen den beiden Messpunkten der CPU-Messung. Prozessorlast lässt
-# sich nur als Differenz zweier Zeitpunkte bestimmen, ein Einzelwert existiert
-# nicht. 300 ms ist der Kompromiss: kürzer wird der Wert zappelig, länger
-# spürt man die Wartezeit beim Öffnen der Seite.
+# Gap between the two samples of the CPU measurement.
 _SAMPLE_SECONDS = 0.3
 
 
@@ -41,7 +21,7 @@ def _read_text(path: str) -> str | None:
 
 
 def _cgroup_cpu_usec() -> int | None:
-    """Verbrauchte Prozessorzeit dieser cgroup in Mikrosekunden, seit Start."""
+    """CPU time used by this cgroup in microseconds, since startup."""
     raw = _read_text("/sys/fs/cgroup/cpu.stat")
     if raw:
         for line in raw.splitlines():
@@ -60,16 +40,10 @@ def _cgroup_cpu_usec() -> int | None:
 
 
 async def cpu_percent() -> float | None:
-    """Auslastung in Prozent der VERFÜGBAREN Kerne, nicht der Kerne des Wirts.
-
-    100 Prozent heißt also "die Maschine ist am Anschlag", egal ob sie zwei oder
-    zwanzig Kerne hat. Ohne cgroup (Entwicklung auf macOS) fällt die Messung auf
-    die Lastmittelwerte zurück, die sind gröber, aber besser als nichts.
-    """
+    """Load as a percentage of the available cores, not the host's."""
     first = _cgroup_cpu_usec()
     if first is not None:
-        # asyncio.sleep und nicht time.sleep: die Route ist async, ein
-        # blockierendes Warten würde alle anderen Anfragen mit anhalten.
+        # asyncio.sleep, a blocking wait would stall every request.
         await asyncio.sleep(_SAMPLE_SECONDS)
         second = _cgroup_cpu_usec()
         if second is not None and second >= first:
@@ -108,11 +82,7 @@ def memory_used_bytes() -> int | None:
 
 
 def job_slots() -> dict:
-    """Belegte und wartende Hintergrundplätze.
-
-    Kommt aus der Tabelle ``aia_jobs``, die diese Zustände ohnehin führt. Es
-    braucht dafür keinen neuen Zähler, der auseinanderlaufen könnte.
-    """
+    """Taken and waiting background slots, from the job table."""
     from src.limits import AIA_PARALLEL_SLOTS
     from src.features.ai_assistant.repository.jobs import DbJobStore
 
@@ -131,7 +101,7 @@ def job_slots() -> dict:
 
 
 def upload_slots() -> dict:
-    """Laufende Uploads in der schweren Phase (streamen, umwandeln, ablegen)."""
+    """Running uploads in the heavy phase (stream, convert, store)."""
     from src.features.ai_assistant.routes.sources import _upload
 
     in_flight = None

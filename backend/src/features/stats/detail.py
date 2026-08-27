@@ -1,19 +1,10 @@
-"""Alles zu einer Person oder zu einem Modul an einer Stelle.
-
-Der Zweck ist eine Frage, die man wirklich hat: "der Kollege sagt, bei ihm geht
-Screencast nicht" oder "wieso hat dieses Modul 900 Uebungen". Dafuer musste man
-bisher durch mehrere Reiter klicken und im Kopf zusammensetzen.
-
-Eine Einschraenkung, die in der Oberflaeche steht: was eine Person an Auftraegen
-gemacht hat, reicht nur so weit zurueck wie ihr Vorrat. Der Zaehler fuer die
-Statistik kennt keine Nutzernummer, er zaehlt die Plattform, nicht Personen.
-"""
+"""Everything about one person or one module in one place."""
 from psycopg2.extras import RealDictCursor
 
 from src.core.db.pool import get_connection
 from src.features.stats.assistant import FACHSPRACHE, KACHEL, SPRACHE
 
-# Wie viele der juengsten Auftraege die Detailansicht zeigt.
+# How many of the most recent jobs the detail view shows.
 LETZTE_JOBS = 5
 
 
@@ -125,7 +116,7 @@ def workspace_detail(uuid: str) -> dict | None:
                 for r in cur.fetchall()
             ]
 
-            # Die beiden Trainer getrennt, wie im Modul selbst.
+            # The two trainers kept apart, as in the module itself.
             cur.execute(
                 """SELECT s.tool,
                           (SELECT COUNT(*) FROM aia_exercise_items i WHERE i.set_id = s.id) AS erzeugt,
@@ -135,8 +126,7 @@ def workspace_detail(uuid: str) -> dict | None:
             )
             gruppen: dict[str, dict[str, dict]] = {"source": {}, "glossary": {}}
             for r in cur.fetchall():
-                # Die Gruppe haengt am Werkzeug, nicht am Modus: derselbe Modus
-                # kommt in beiden Trainern vor.
+                # The group hangs off the tool, not off the mode.
                 kachel = KACHEL.get(r["tool"])
                 if kachel in FACHSPRACHE:
                     wohin = "source"
@@ -150,10 +140,7 @@ def workspace_detail(uuid: str) -> dict | None:
                 eintrag["created"] += int(r["erzeugt"])
                 eintrag["answered"] += int(r["beantwortet"])
 
-            # Der Eigentuemer steht in keiner Einschreibung und fehlte deshalb
-            # ganz. Die Einschreibungen werden zusammengefasst: wer ueber zwei
-            # Links kam, hat zwei Zeilen und ist ein Mensch, und die staerkere
-            # Rolle gewinnt.
+            # The owner was missing entirely, enrollments are grouped per person.
             cur.execute(
                 """SELECT COALESCE(u.display_name, u.ldap_username, 'Unbekannt') AS name,
                           t.rolle,

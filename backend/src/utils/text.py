@@ -28,11 +28,7 @@ def _decode_whitespace(text: str, leading: str, trailing: str) -> str:
 # ── Batch helpers for PPTX / DOCX (1 DeepL call per document) ───────────────
 
 class _RunRef:
-    """Holds a reference to a run or paragraph and the encoded text to translate.
-
-    ``also_clear`` sind weitere Runs, deren Text in diesen hier eingeflossen ist.
-    Sie werden beim Zurückschreiben geleert.
-    """
+    """A reference to a text section with the text to translate."""
     __slots__ = ("obj", "attr", "leading", "trailing", "encoded", "also_clear")
 
     def __init__(self, obj, attr: str, leading: str, encoded: str, trailing: str, also_clear=()):
@@ -44,14 +40,13 @@ class _RunRef:
         self.also_clear = list(also_clear)
 
 
-# Diese Angaben kommen von Rechtschreibprüfung und Spracherkennung, nicht von
-# der Formatierung. PowerPoint zerlegt Absätze laufend an genau diesen Stellen.
+# These attributes come from the spell checker, not from the formatting.
 _VOLATILE_RPR_ATTRS = ("lang", "altLang", "dirty", "err", "noProof", "smtClean", "smtId")
 _VOLATILE_RPR_CHILDREN = ("lang", "noProof")
 
 
 def _format_key(run) -> bytes:
-    """Formatierung eines Runs als Vergleichsschlüssel, ohne Prüf- und Sprachmarken."""
+    """Formatting of a run as a comparison key, without proofing and language marks."""
     element = getattr(run, "_r", None)
     if element is None:
         return b""
@@ -68,13 +63,7 @@ def _format_key(run) -> bytes:
 
 
 def _group_runs_by_format(runs: list) -> list[list]:
-    """Aufeinanderfolgende Runs mit gleicher Formatierung zusammenfassen.
-
-    PowerPoint und Word zerschneiden einen Satz oft mitten im Wort, sobald die
-    Rechtschreibprüfung anspringt. Übersetzt man diese Bruchstücke einzeln,
-    stimmt die Wortstellung nicht mehr. Echte Formatwechsel, etwa ein fett
-    gesetztes Wort, bleiben eigene Gruppen und behalten ihr Aussehen.
-    """
+    """Fasst aufeinanderfolgende Abschnitte gleicher Formatierung zusammen."""
     groups: list[list] = []
     last_key: bytes | None = None
     for run in runs:
@@ -88,10 +77,7 @@ def _group_runs_by_format(runs: list) -> list[list]:
 
 
 def collect_paragraph_runs(paragraph, refs: list[_RunRef]) -> None:
-    """
-    Collect all translatable text pieces from a paragraph into refs.
-    Newlines and tabs are encoded as placeholders so DeepL sees a single line.
-    """
+    """Collects the translatable spots of a paragraph."""
     runs = list(paragraph.runs)
 
     if not runs:
@@ -112,8 +98,7 @@ def collect_paragraph_runs(paragraph, refs: list[_RunRef]) -> None:
 def apply_translations(refs: list[_RunRef], translated: list[str]) -> None:
     """Write translated strings back to their source objects."""
     if len(translated) != len(refs):
-        # Früher hat zip() den Rest still stehen lassen. Das Ergebnis war eine
-        # halb übersetzte Datei ohne jeden Hinweis.
+        # zip() used to leave the remainder silently in place, which half-translated files.
         raise ValueError(
             f"Übersetzer lieferte {len(translated)} von {len(refs)} Texten zurück"
         )
@@ -126,11 +111,7 @@ def apply_translations(refs: list[_RunRef], translated: list[str]) -> None:
 def translate_refs(
     refs: list[_RunRef], source_lang: str, target_lang: str, service: TranslationService
 ) -> None:
-    """Alle gesammelten Textstellen übersetzen und zurückschreiben.
-
-    Gleiche Texte gehen nur einmal an den Anbieter. In einer Präsentation
-    wiederholt sich sehr viel, das spart Kontingent und Anfragen.
-    """
+    """Translates all collected spots and writes them back, equal ones only once."""
     if not refs:
         return
     texts = [r.encoded for r in refs]

@@ -5,7 +5,7 @@ import Header from "./Header";
 import ToolsSidebar from "./ToolsSidebar";
 
 const NO_HEADER_PATHS = new Set(["/login", "/wartung", "/pending"]);
-// Die Einladungsseite bringt ihren eigenen Kopf mit, wie die Anmeldeseite.
+// The invitation page brings its own header, like the login page.
 const NO_HEADER_PREFIXES = ["/workspace/", "/einladung/"];
 
 const NO_SIDEBAR_PATHS = new Set([

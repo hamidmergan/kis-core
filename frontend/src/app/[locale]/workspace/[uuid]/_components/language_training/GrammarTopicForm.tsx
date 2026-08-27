@@ -1,21 +1,6 @@
 "use client";
 
-/**
- * Ein Grammatikthema anlegen.
- *
- * Der Dozent tippt zwei Woerter, etwa "Konjunktiv II". Kein Prompt, keine
- * Anweisung. Die KI arbeitet daraus Regel und Musterpaar aus, und er bekommt
- * genau das Musterpaar zu sehen, bevor irgendetwas gespeichert wird.
- *
- * Dieser Blick ist nicht Komfort, sondern die einzige Pruefstelle. Die
- * Grammatik-Uebung ist das einzige Werkzeug, das nicht aus den Quellen antwortet:
- * das Thema kommt vom Dozenten, die Grammatik aus dem Modell, die Quellen liefern
- * nur den Wortschatz. Damit faellt die Quellen-Grenze als Netz gegen einen Irrtum
- * weg, und ein falsches Muster wuerde ein ganzer Kurs mituebe.
- *
- * Die erzeugte Regel bekommt er nie zu sehen. Eine Sprachlehrkraft soll keine
- * Modell-Anweisungen formulieren muessen, sie arbeitet mit Beispielen.
- */
+/** Create a topic: the teacher sees the pattern pair before anything is saved. */
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
@@ -110,8 +95,7 @@ export function GrammarTopicForm({
     setPairs([{ ...editedPair(pairs), [part]: value }]);
   }
 
-  // Nur nach dem Pruefen, und nur wenn der Vorschlag etwas anderes sagt als das
-  // Getippte. Sonst stuende hier bei jedem Thema eine Zeile, die nichts sagt.
+  // The suggestion only appears when it says something other than what was typed.
   const vorschlag = previewed ? shownSuggestion(name, suggested) : "";
 
   const field =

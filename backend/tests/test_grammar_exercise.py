@@ -1,8 +1,4 @@
-"""Grammatik-Übung: Generierung und Prüfung.
-
-Kein DB- und kein Netzzugriff. Der Generator bekommt einen Fake-Client, die
-Attribution wird ausgehängt (sie hat eigene Tests in test_aia_tool_attribution).
-"""
+"""Grammar exercise: generation and checking, without database and network."""
 
 import json
 import types
@@ -19,9 +15,7 @@ from src.services import aia_grammar_check as gc
 
 MARKER = "\n\nADAPT-MARKER: pitch this at level A1."
 
-# Ein Grammatikthema in der Form, die die Generierung aus der Datenbank baut. Früher
-# stand dieses dict im Code-Katalog, die Form ist absichtlich dieselbe geblieben, damit
-# sich an den Generatoren keine Zeile ändern musste.
+# A grammar topic in the shape that comes from the database.
 _TEXT_TYPE = {
     "id": 1,
     "label": "Passiv Präsens",
@@ -81,11 +75,7 @@ _RESPONSE = json.dumps({
 
 @pytest.fixture
 def attributed(monkeypatch):
-    """Record what attribution was asked for, without touching pgvector.
-
-    The chip wiring itself is covered by test_grammar_citation; here only what the
-    grammar generator hands over matters.
-    """
+    """Records what was passed to the attribution, without pgvector."""
     seen: dict = {}
 
     def fake_attach(items, claims, ctx, **kwargs):
@@ -112,11 +102,9 @@ def _generate(response=_RESPONSE, count=2, adaptive_suffix=""):
 def test_generation_builds_items_and_a_title(attributed):
     items, title, header, _ = _generate()
     assert title == "Passiv im Datenmanagement"
-    # Kein Set-Kopf mehr: ein gemischtes Set hat kein gemeinsames Muster, das über
-    # allem stehen könnte. Es hängt an der Aufgabe, die eines braucht.
+    # No set header any more, the pattern hangs on the exercise.
     assert header == {}
-    # Jede Aufgabe traegt ihre Anweisung vorn, sonst weiss der Lernende nicht,
-    # was er tun soll.
+    # Every exercise carries its instruction up front.
     assert [i["front"].split("\n\n")[-1] for i in items] == [
         "Der Server speichert die Messwerte.",
         "Die Software prüft die Eingaben.",
@@ -137,9 +125,7 @@ def test_attribution_gets_the_transformed_sentences_as_claims(attributed):
 
 
 def test_generation_prompt_asks_the_model_where_it_took_the_material_from(attributed):
-    """The sentences are invented, so searching them back afterwards fails often. The
-    model itself knows the passage it used, and every context line is labelled with a
-    page, so it only has to name that number."""
+    """The model knows the passage and only has to name its number."""
     _, _, _, calls = _generate()
     system = _system_of(calls)
     assert '"page"' in system
@@ -192,8 +178,7 @@ def test_generation_drops_unusable_pairs_but_keeps_the_run(attributed):
 
 
 def test_generation_is_discarded_when_too_many_sentences_are_unusable(attributed):
-    """The reported bug: the model returns comprehension questions, which cannot be
-    transformed. Half broken must fail the set rather than reach the learner."""
+    """Too many comprehension questions have to fail the set."""
     response = _exercises(
         _GOOD,
         ("Was bedeutet wissenschaftliches Arbeiten in einfachen Worten?", "Egal."),
@@ -232,8 +217,7 @@ def test_is_usable_pair_rejects_a_question_in_any_script():
 def test_generation_prompt_carries_label_rule_and_adaptive_suffix(attributed):
     _, _, _, calls = _generate(adaptive_suffix=MARKER)
     system = _system_of(calls)
-    # The label names the target form. The learner-facing instruction does not, it
-    # only points at the worked pair, so it is deliberately kept out of the prompt.
+    # The instruction to the learner names no form and stays out.
     assert _TEXT_TYPE["label"] in system
     assert _TEXT_TYPE["rule"] in system
     assert MARKER in system
@@ -242,9 +226,7 @@ def test_generation_prompt_carries_label_rule_and_adaptive_suffix(attributed):
 
 
 def test_generation_prompt_leaves_difficulty_to_the_level_alone(attributed):
-    """Sentence difficulty has exactly one source, the learner's CEFR level. A length
-    cap in this prompt would contradict the adaptive block at B2 and above, which
-    tells the model not to simplify."""
+    """The difficulty comes from the language level alone."""
     _, _, _, calls = _generate()
     system = _system_of(calls)
     assert "14 words" not in system
@@ -254,8 +236,7 @@ def test_generation_prompt_leaves_difficulty_to_the_level_alone(attributed):
 
 
 def test_generation_prompt_shows_the_worked_pair_as_a_shape_to_copy(attributed):
-    # Rules alone get ignored by the chat model, an example is what actually steers
-    # the format (same lesson as the overview prose fix).
+    # An example steers the format, a rule alone does not.
     _, _, _, calls = _generate()
     system = _system_of(calls)
     pair = _TEXT_TYPE["example"]
@@ -277,8 +258,7 @@ def test_title_falls_back_to_the_type_label(attributed):
 
 
 def test_every_transform_carries_the_topics_worked_pattern(attributed):
-    """Vor einer Umformung darf niemand ohne Muster stehen. Es kommt jetzt vom Thema
-    und hängt an der Aufgabe, statt einmal über dem ganzen Set zu stehen."""
+    """Before a reshaping nobody may be left without a pattern."""
     response = json.dumps({
         "title": "T",
         "exercises": [{"before": b, "after": a} for b, a in (_GOOD, _GOOD2)],
@@ -291,7 +271,7 @@ def test_every_transform_carries_the_topics_worked_pattern(attributed):
 
 
 def test_a_transform_carries_the_other_valid_wordings(attributed):
-    """Sie kosten beim Erzeugen nichts und ersparen jede Prüfung per Modell."""
+    """They cost nothing at generation time and save every model-based check."""
     response = json.dumps({
         "title": "T",
         "exercises": [{
@@ -301,7 +281,7 @@ def test_a_transform_carries_the_other_valid_wordings(attributed):
         }],
     })
     items, _, _, _ = _generate(response, count=1)
-    # Leeres raus, und die unveraenderte Vorlage ist keine Loesung.
+    # Empty ones out, and the unchanged template is not a solution.
     assert items[0]["extras"]["accepts"] == ["Ich würde Zeit haben."]
 
 
@@ -319,7 +299,7 @@ def test_generation_asks_for_the_other_valid_wordings(attributed):
     assert "also_ok" in _system_of(calls)
 
 
-# ─── Prüfung: Normalisierung ─────────────────────────────────────────────────
+# ─── Checking: normalisation ─────────────────────────────────────────────────
 
 @pytest.mark.parametrize("given", [
     "Die Messwerte werden vom Server gespeichert.",
@@ -350,8 +330,7 @@ def test_empty_answer_is_never_an_exact_match():
 
 
 def test_normalize_is_language_agnostic():
-    # No German word list anywhere: punctuation is stripped by Unicode category,
-    # so other languages and scripts behave the same.
+    # No word lists, punctuation is dropped by Unicode category.
     assert gc.normalize("¿Qué pasa?") == "qué pasa"
     assert gc.normalize("Der Grenzwert — laut Skript.") == "der grenzwert laut skript"
 
@@ -371,11 +350,10 @@ def test_marking_a_near_miss_is_close_and_a_miss_is_wrong():
     assert gc.mark_answer("Keine Ahnung.", expected) == gc.VERDICT_WRONG
 
 
-# ─── Prüfung: gültige Zweitfassungen ─────────────────────────────────────────
+# ─── Checking: valid alternative versions ────────────────────────────────────
 
 def test_an_accepted_wording_counts_as_correct():
-    # Konjunktiv II geht synthetisch und mit "würde", beides ist richtig. Ohne die
-    # mitgelieferte Zweitfassung faellt die zweite Form durch.
+    # Without a delivered alternative an equally correct form fails.
     expected = "Das Smartphone wäre ein Zeitfresser."
     variant = "Das Smartphone würde ein Zeitfresser sein."
     assert gc.mark_answer(variant, expected, [variant]) == gc.VERDICT_CORRECT
@@ -385,14 +363,13 @@ def test_an_accepted_wording_counts_as_correct():
 def test_close_is_measured_against_the_nearest_wording():
     expected = "Das Smartphone wäre ein Zeitfresser."
     variant = "Das Smartphone würde ein Zeitfresser sein."
-    # An der Musterloesung gemessen waere das weit weg, an der Zweitfassung ist es fast.
+    # Measured against the model solution it would be far off, against the alternative it is close.
     assert gc.mark_answer(
         "Das Smartphone würde ein Zeitfresser seien.", expected, [variant]
     ) == gc.VERDICT_CLOSE
 
 
 def test_the_check_module_has_no_model_client_at_all():
-    """Die Prüfung ist reiner Vergleich. Ein Aufruf pro getippter Antwort waere
-    der teuerste Weg zu einer Rueckmeldung, die schon beim Erzeugen entstanden ist."""
+    """The check is a pure comparison, one call per answer would be the costliest way."""
     assert not hasattr(gc, "check_answer")
     assert not hasattr(gc, "get_check_client")

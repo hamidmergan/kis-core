@@ -1,60 +1,29 @@
-// Popup / action-bar exact-selection highlight for the PDF viewer.
-//
-// The ONLY remaining programmatic highlight: when the user selects text in the PDF
-// and runs a popup action (translate / elaborate / …), the chat answer's chip can
-// re-mark that exact selection on the page. Citation chips themselves NO LONGER draw
-// any highlight — a chip click only scrolls to the page/timestamp.
-//
-// The marker is a passive LIGHT BLUE Highlight annotation, drawn as an ephemeral
-// annotation (created but NEVER committed, so the PDF file is untouched). It is NOT a
-// text selection, so it never triggers the selection action-popup. The user's own
-// manual text selection still uses EmbedPDF's native blue selection + popup, and the
-// native action-bar "highlight" command is left untouched.
-//
-// EmbedPDF-internal APIs in use (NOT in public docs — re-verify on @embedpdf bump):
-//   annotation.createAnnotation / purgeAnnotation / deselectAnnotation,
-//   engine.getPageGeometry, engine.getTextSlices, selection.getState (geometry cache).
+// The only remaining programmatic highlight: a selection of your own in the PDF.
 
 export type HighlightRefs = {
-  // Tracks the current ephemeral highlight — a Highlight annotation that is NEVER
-  // committed, so it never touches the PDF file — so it can be purged on the next
-  // selection or when the user dismisses it. `scrollY` is the topmost region's
-  // page-coordinate y, so the jump chip can re-center the exact spot instead of the
-  // page top.
+  // The current transient highlight, with its position for jumping back.
   citationHighlightRef: { current: { pageIndex: number; ids: string[]; scrollY?: number } | null };
   // Toggles the "dismiss highlight" control in the viewer.
   onHighlightActive?: (active: boolean) => void;
 };
 
-// Controls how drawCitationHighlight integrates with the current marker set:
-//   scroll (default true): scroll the highlight into view after drawing.
+// Controls whether it scrolls to the highlight after drawing.
 type DrawOpts = { scroll?: boolean };
 
-// Exact-selection highlight = passive light-blue marker (NOT a text selection), so it
-// never triggers the selection action-popup. Single colour constant — swap for a
-// tenant brand colour here if desired.
+// A passive light blue mark, not a text selection.
 export const CITATION_HL_COLOR = "#9BD2F0";   // helles CD-Blau, dasselbe wie beim Markieren-Werkzeug
 const CITATION_HL_OPACITY = 0.4;
 const HIGHLIGHT_SUBTYPE = 9;           // PdfAnnotationSubtype.HIGHLIGHT
 
-// Page-frame marker for citation-chip jumps: a blue border drawn around the whole
-// target page (no fill) so the user sees which page the chip landed on. Persistent
-// until the next jump or the "Markierung aufheben" button. SQUARE (subtype 5) renders
-// for programmatically-created annotations in our EmbedPDF build (verified by the
-// Docling layer-box overlay), unlike the HIGHLIGHT subtype which needs segmentRects.
+// The page frame on a chip jump, as a square instead of a highlight.
 const SQUARE_SUBTYPE = 5;              // PdfAnnotationSubtype.SQUARE
-// Der Seitenrahmen nimmt das kraeftige Marken-Blau, nicht die helle Markierungsfarbe.
+// The page frame takes the strong brand blue, not the pale highlight colour.
 const CITATION_FRAME_COLOR = "#004261";   // --kb
 const BORDER_STYLE_SOLID = 1;         // PdfAnnotationBorderStyle.SOLID
 const PAGE_BORDER_WIDTH = 3;          // px frame thickness
 const PAGE_BORDER_OPACITY = 0.95;     // crisp frame
 
-// Position-preserving diacritic fold + lowercase: every character maps to exactly
-// ONE character (its NFKD base letter), so the result has the SAME length and the
-// match index still aligns with cleanToRaw for the highlight geometry. Makes the
-// search diacritic-insensitive, so a selection with umlauts ("Dezimalbrüche") still
-// matches a PDF text layer whose font lost or mangled them ("Dezimalbruche…") —
-// common in LaTeX/maths PDFs. Language-agnostic.
+// Folds accents length preserving so the search tolerates umlauts.
 function _foldDiacritics(s: string): string {
   let out = "";
   for (let i = 0; i < s.length; i++) {
@@ -65,10 +34,7 @@ function _foldDiacritics(s: string): string {
 }
 
 
-// Map a raw text-layer index to the geometry/glyph index space that
-// applyInstantSelection expects. Some pages carry "phantom" glyphs (no visible
-// text), so the geometry index can run ahead of the raw text index; binary-search
-// to realign.
+// Maps a text position onto the geometry, invisible characters shift it.
 function makeFindGeo(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   engine: any, doc: any, targetPageIndex: number, totalChars: number, rawLen: number,
@@ -92,10 +58,7 @@ function makeFindGeo(
 }
 
 
-// Build per-line page-coordinate rects for the geometry char range [a, b] from the
-// page glyph geometry. Same coordinate space the Selection plugin uses to build its
-// highlight rects (min/max of glyph boxes, top-left origin, no y-flip), which is
-// exactly what the annotation layer consumes — verified against @embedpdf internals.
+// Builds the rectangles per line from the page geometry.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function buildSegmentRects(g: any, a: number, b: number): { segmentRects: any[]; bbox: any } {
   const segs: { origin: { x: number; y: number }; size: { width: number; height: number } }[] = [];
@@ -122,8 +85,7 @@ function buildSegmentRects(g: any, a: number, b: number): { segmentRects: any[];
 }
 
 
-// Remove the current ephemeral highlight (purgeAnnotation does NOT modify the PDF —
-// we never commit). Safe to call when none is active.
+// Removes the current transient highlight, the file stays untouched.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function clearCitationHighlight(refs: HighlightRefs, reg: unknown) {
   const cur = refs.citationHighlightRef?.current;
@@ -138,12 +100,7 @@ export function clearCitationHighlight(refs: HighlightRefs, reg: unknown) {
 }
 
 
-// Draw a blue frame around the whole target page when a citation chip jumps here,
-// so the user sees which page they landed on. Border only (no fill); persistent until
-// the next jump or the "Markierung aufheben" button. Ephemeral SQUARE annotation —
-// created but NEVER committed, so the PDF file is untouched — and readOnly+locked so
-// it never intercepts selection/edits. Reuses citationHighlightRef so the existing
-// dismiss button clears it and the next jump replaces it (one marker at a time).
+// Draws a blue frame around the page that was jumped to.
 export function flashPageBorder(refs: HighlightRefs, reg: unknown, page: number) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const r = reg as any;
@@ -161,9 +118,7 @@ export function flashPageBorder(refs: HighlightRefs, reg: unknown, page: number)
 
   clearCitationHighlight(refs, r);   // one marker at a time
 
-  // Rect = the whole page (origin 0,0). The stroke is centred on the page edge so the
-  // frame sits flush — no inset, because the rect is in page coordinates while the
-  // stroke width is screen px, so any page-unit inset would open a zoom-dependent gap.
+  // The frame sits on the page edge, a gap would depend on the zoom.
   const id = `kis-pageborder-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   try {
     anno.createAnnotation(pageIndex, {
@@ -188,10 +143,7 @@ export function flashPageBorder(refs: HighlightRefs, reg: unknown, page: number)
 }
 
 
-// Smoothly scroll the active highlight back into view. Re-centres the exact
-// highlight position (page + region y), not just the page top, mirroring the initial
-// scroll. The annotation persists in EmbedPDF's model across page virtualization, so
-// no re-draw is needed.
+// Scrolls the active highlight back into view, with its position.
 export function scrollToCitationPage(refs: HighlightRefs, reg: unknown) {
   const cur = refs.citationHighlightRef.current;
   if (!cur) return;
@@ -207,11 +159,7 @@ export function scrollToCitationPage(refs: HighlightRefs, reg: unknown) {
 }
 
 
-// Draw the highlight as a passive light-blue Highlight annotation (ephemeral: created
-// but never committed). No text selection is made, so the selection action-popup
-// never appears. Purges any previous one first (one highlight at a time), deselects
-// so no edit handles show, and scrolls the range into view.
-// Exported for unit tests.
+// Draws the highlight as a passive mark and scrolls to it.
 export function drawCitationHighlight(
   refs: HighlightRefs,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -258,11 +206,7 @@ export function drawCitationHighlight(
 }
 
 
-// Locate the verbatim selection on the page and draw it. The caller (a popup/action-
-// bar exact selection) supplied a precise quote: highlight EXACTLY what the user
-// marked, no sentence/paragraph expansion. If the quote doesn't match the page, DO
-// NOT fall back to a fuzzy / single-keyword search — that would highlight something
-// unrelated (e.g. a random date in a slide footer). Just scroll and bail out.
+// Highlights exactly the quote, without a fuzzy fallback.
 export function tryHighlightOnPage(
   refs: HighlightRefs,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -283,9 +227,7 @@ export function tryHighlightOnPage(
   return geoPromise.then((geo: unknown) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const g = geo as any;
-    // Image-only (OCR) page: the text is in the DB chunk but the PDF text-layer
-    // is empty. Scroll to the page and treat as "handled" so the caller doesn't
-    // fall back to nearby pages and highlight something unrelated there.
+    // A pure image page counts as done so nothing foreign gets highlighted.
     const noRuns = !g?.runs?.length;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const lastRun = !noRuns ? (g.runs[g.runs.length - 1] as any) : null;
@@ -316,12 +258,10 @@ export function tryHighlightOnPage(
         } else { cleanText += ch; cleanToRaw.push(i); inSpace = false; }
       }
 
-      // Verbatim user selection: do NOT trim or alter — the user's chosen text IS
-      // the intended highlight.
+      // The user's own selection stays untouched.
       const cleanInput = searchText.replace(/\s+/g, " ").trim()
         .replace(/^\d{1,3}\s+/, "").trim();
-      // Diacritic-folded (still 1:1 length) so the search tolerates a PDF text layer
-      // that lost/mangled umlauts; match indices stay aligned with cleanToRaw.
+      // Accent folded so the search tolerates a broken text layer.
       const ptLower = _foldDiacritics(cleanText);
       const fullPhrase = _foldDiacritics(cleanInput);
 
@@ -345,10 +285,7 @@ export function tryHighlightOnPage(
       if (!docMgr.getActiveDocumentId?.()) return false;
 
       return Promise.all([findGeo(rawStart), findGeo(rawEnd)]).then(([geoStart, geoEnd]) => {
-        // Constrain the range to runs on the same VISUAL line(s) as the match.
-        // PPTX PDFs sometimes store chars in an order that doesn't match the visual
-        // layout, so a char-range can span header+body+footer even if the match
-        // itself is short. Trimming by run y-coordinate prevents that.
+        // Limited to the visible line, the character order misleads otherwise.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const runs = (g.runs || []) as any[];
         if (runs.length) {
@@ -393,8 +330,7 @@ export function tryHighlightOnPage(
 }
 
 
-// Orchestration for the popup / action-bar exact-selection highlight: scroll to the
-// page, clear any previous marker + stray selection, then mark the verbatim text.
+// Scroll to the page, clear the old, then highlight the text.
 export function doHighlightSearch(
   refs: HighlightRefs, reg: unknown, page: number, text: string,
 ) {
@@ -422,8 +358,6 @@ export function doHighlightSearch(
 
   const pageIndex = page - 1;
 
-  // Only try the exact target page. Falling back to nearby pages would mean the
-  // highlight could land on the wrong page when the target is an OCR/image page
-  // whose PDF text layer doesn't contain the selected text.
+  // Only the named page, otherwise the highlight lands on the wrong one.
   tryHighlightOnPage(refs, r, doc, engine, docMgr, scroll, pageIndex, text, opts);
 }

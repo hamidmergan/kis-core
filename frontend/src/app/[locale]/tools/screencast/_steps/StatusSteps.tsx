@@ -69,7 +69,7 @@ export function RenderingStep({
 }: {
   renderProgressLabel: string;
   vorschau?: React.ReactNode;
-  /** Der Lauf ist durch, die Seite dient nur noch zum Nachhoeren. */
+  /** The run is done, the page only serves for listening again. */
   rueckblick?: boolean;
   onCancel: () => void;
   onWeiter: () => void;
@@ -130,7 +130,7 @@ export function DoneStep({
   onNeuVertonen: () => void;
 }) {
   const t = useTranslations("tools.screencast");
-  // Der Link haengt bewusst nicht in der Seite, sonst startet der Ladebalken oben und laeuft endlos weiter.
+  // The link deliberately does not sit in the page, otherwise the top loader runs forever.
   const onDownloadZip = () => {
     const a = document.createElement("a");
     a.href = `/api/jobs/${audioId}/bundle`;

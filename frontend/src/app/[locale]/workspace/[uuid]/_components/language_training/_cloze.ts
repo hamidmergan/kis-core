@@ -1,30 +1,15 @@
-/** Der Vergleich einer eingetippten Lücke mit ihrer Lösung.
- *
- * Er läuft im Browser und nicht im Backend. Die Lösungen kommen beim Laden des
- * Sets mit, das ist Absicht: der Lückentext ist eine Übung und keine Prüfung, und
- * wer schummeln will, fragt ohnehin ein Modell.
- *
- * Gemessen wird über ZEICHEN und nicht über Wörter. `overlap_ratio` im Backend
- * zählt ganze Wörter und liefert bei einer Ein-Wort-Antwort nur 0 oder 1, damit
- * liesse sich ein Tippfehler nicht von einem falschen Wort unterscheiden.
- */
+/** The comparison of a typed gap, in the browser and over characters instead of words. */
 
 export type ClozeVerdict = "correct" | "close" | "wrong";
 
-// Ab dieser Zeichenähnlichkeit gilt eine Antwort als fast richtig. Derselbe Wert
-// wie _CLOSE_RATIO in aia_grammar_check.py, damit ein Lernender im Lückentext
-// nicht anders beurteilt wird als in der Grammatik-Übung.
+// From this similarity on an answer counts as close, as in the backend.
 const CLOSE_RATIO = 0.72;
 
 const PARENS_RE = /\([^)]*\)/g;
 const PUNCT_RE = /\p{P}/gu;
 const WS_RE = /\s+/g;
 
-// Faltet "ß" auf "ss", wie das Backend es tut. JavaScripts toLowerCase() kennt diese
-// Faltung nicht (ß ist im Deutschen schon klein), Pythons casefold() am Ende von
-// normalize() in aia_grammar_check.py aber schon. Ohne diese Zeile bewertet der
-// Browser "Anschluß" gegen "anschluss" als nur fast richtig statt richtig, und genau
-// solche Schreibweisen sind im deutschen Fachwortschatz haeufig.
+// Folds the sharp s like the backend, JavaScript does not know this folding.
 const SHARP_S_RE = /ß/g;
 
 export function normalizeAnswer(text: string): string {
@@ -38,7 +23,7 @@ export function normalizeAnswer(text: string): string {
     .replace(SHARP_S_RE, "ss");
 }
 
-/** Levenshtein-Abstand, zwei Zeilen statt der ganzen Matrix. */
+/** Levenshtein distance, two rows instead of the whole matrix. */
 function distance(a: string, b: string): number {
   if (a === b) return 0;
   if (!a.length) return b.length;

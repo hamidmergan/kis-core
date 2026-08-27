@@ -1,17 +1,9 @@
-"""Tests for the embedding fingerprint used to detect model drift.
-
-The fingerprint must be DETERMINISTIC for a given model: real providers
-(vLLM) return slightly different float vectors on every call, so a
-fingerprint built from the raw vector can never match itself and the admin
-"needs reindex" warning would be stuck forever. The fingerprint identifies the
-embedding space (model name + dimension), not the exact floats.
-"""
+"""The fingerprint has to stay stable per model, otherwise the reindex warning sticks."""
 from src.services.aia_embeddings import EmbeddingProvider, compute_fingerprint
 
 
 class _JitteryProvider(EmbeddingProvider):
-    """Provider that returns a slightly different vector on every call, like
-    a non-deterministic vLLM endpoint."""
+    """A provider that returns slightly different vectors on every call."""
 
     def __init__(self, model: str, dim: int) -> None:
         self._model = model

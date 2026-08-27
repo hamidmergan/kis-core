@@ -5,8 +5,7 @@ import { useTranslations } from "next-intl";
 import { MAX_TRANSCRIPTION_MB, MAX_TRANSCRIPTION_BYTES, MAX_TRANSCRIPTION_MINUTES } from "@/lib/constants";
 import { exceedsTranscriptionLimit, readMediaDurationSeconds } from "@/lib/mediaDuration";
 
-// Everything the Whisper endpoint accepts. Display mirrors the allow-list so
-// the hint and the "only these allowed" error stay honest.
+// Everything Whisper accepts, display and error text read from the same list.
 const ALLOWED_EXTENSIONS = [".mp3", ".mp4", ".m4a", ".wav", ".flac", ".ogg", ".oga", ".webm", ".mpeg", ".mpga"];
 const DISPLAY_EXTENSIONS = ALLOWED_EXTENSIONS;
 
@@ -43,9 +42,7 @@ export default function TranscriptionFileUpload({ onFileSelected, disabled = fal
         setError(validationError);
         return;
       }
-      // The server can only measure the playing time once the whole file has
-      // arrived. Reading it here first spares the user a long upload that ends
-      // in "too long". An unreadable duration falls through to the server.
+      // Saves a long upload that fails on the playing time in the end.
       setChecking(true);
       try {
         const seconds = await readMediaDurationSeconds(file);

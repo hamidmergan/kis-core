@@ -1,11 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { openWorkspace, askAndGetAnswer, selectOnlySourceByName, chipsIn, waitForChipIn } from "./_chat";
 
-/**
- * GENERIC path: broad/overview questions that the intent classifier routes to
- * the summary-based context (page-/doc-summaries), across all sources or one.
- * Live LLM -> we assert the SHAPE (a cited answer arrives), not the wording.
- */
+/** Overview questions: the shape of the answer is checked, not the wording. */
 test.describe("AIA chat — GENERIC path", () => {
   test("overview question across all sources yields a cited answer", async ({ page }) => {
     await openWorkspace(page);
@@ -20,9 +16,7 @@ test.describe("AIA chat — GENERIC path", () => {
     await selectOnlySourceByName(page, "WissenschaftlichesSchreiben");
     const answer = await askAndGetAnswer(page, "Worum geht es in diesem Dokument?");
     await waitForChipIn(answer);
-    // The only active source is that PDF, so EVERY citation must reference it.
-    // Scope to real citation chips ([title]) — the group "+N" toggle is also a
-    // .chip-cite but carries no title, so it would inject an empty string here.
+    // Only real chips count, the expand button carries no title.
     const titles = await chipsIn(answer, "[title]").evaluateAll((els) =>
       els.map((e) => e.getAttribute("title") || "")
     );

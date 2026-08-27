@@ -13,11 +13,7 @@ type Props = {
   className?: string;
 };
 
-/**
- * Provider picker for a user-pickable tool feature. Renders nothing when there
- * is at most one provider — a single choice needs no dropdown, and the backend
- * uses that provider (or its default route) anyway.
- */
+/** Provider choice, with at most one provider it shows nothing. */
 export default function ProviderSelect({
   id,
   label,

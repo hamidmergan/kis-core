@@ -1,15 +1,15 @@
 #!/bin/bash
-# Lokale Entwicklung. GPU-Tweaks werden automatisch dazugeladen, wenn ein
-# NVIDIA-Treiber gefunden wird, sonst startet der Stack ohne GPU.
+# Local development. GPU tweaks are loaded automatically when an NVIDIA driver is
+# found, otherwise the stack starts without a GPU.
 #
-# Modi:
-#   ./start-local.sh            schneller Start (kein Rebuild)
-#   ./start-local.sh build      Start mit --build (nach Dockerfile/requirements-Aenderung)
-#   ./start-local.sh restart    Holzhammer: down + Rebuild + Prune
-#   ./start-local.sh down       Stack stoppen + Orphans entfernen
+# Modes:
+#   ./start-local.sh            fast start (no rebuild)
+#   ./start-local.sh build      start with --build (after a Dockerfile/requirements change)
+#   ./start-local.sh restart    sledgehammer: down + rebuild + prune
+#   ./start-local.sh down       stop the stack + remove orphans
 
-# GPU-Compose nur laden, wenn wirklich ein NVIDIA-Treiber da ist. Frueher wurde
-# per uname geraten, das hielt jedes Nicht-macOS faelschlich fuer eine GPU-Kiste.
+# Only load the GPU compose file when an NVIDIA driver is really there. This used
+# to be guessed via uname, which wrongly took every non-macOS for a GPU box.
 COMPOSE_FILES="-f docker-compose.yml -f docker-compose.dev.yml"
 if command -v nvidia-smi >/dev/null 2>&1; then
     COMPOSE_FILES="$COMPOSE_FILES -f docker-compose.gpu.yml"

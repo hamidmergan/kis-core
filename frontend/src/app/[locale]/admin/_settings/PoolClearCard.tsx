@@ -1,13 +1,6 @@
 "use client";
 
-/**
- * Vorräte leeren. Eigene Karte statt Bausatz, weil das keine Einstellung ist,
- * sondern ein Vorgang, und weil er plattformweit wirkt.
- *
- * Die Karte steht bei den Quellen, weil beide Vorräte an der Quelle hängen und
- * nicht am Workspace: derselbe Vorrat bedient alle, die dieselbe Datei offen
- * haben.
- */
+/** Clearing pools is an action and takes effect platform wide. */
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
@@ -125,7 +118,7 @@ export default function PoolClearCard() {
   );
 }
 
-/** Sicherheitsabfrage. Steht hier, weil sie nur zu dieser Karte gehört. */
+/** Confirmation, it lives here because it belongs to this card alone. */
 function ConfirmDialog({
   count, onCancel, onConfirm,
 }: {

@@ -1,4 +1,4 @@
-"""Die Länge einer zusammengeklebten MP3 darf nicht geschätzt werden."""
+"""The length of a glued MP3 must not be estimated."""
 
 import shutil
 import subprocess
@@ -11,7 +11,7 @@ _HAS_FFMPEG = shutil.which("ffmpeg") is not None and shutil.which("ffprobe") is 
 
 
 def _bild_sekunden(path) -> float:
-    """Länge des Containers, also wie lange das Bild steht."""
+    """Length of the container, that is how long the image stays."""
     result = subprocess.run(
         ["ffprobe", "-v", "error", "-show_entries", "format=duration",
          "-of", "default=nw=1:nk=1", str(path)],
@@ -21,7 +21,7 @@ def _bild_sekunden(path) -> float:
 
 
 def _ton_sekunden(path) -> float:
-    """Echte Länge über die dekodierten Abtastwerte, ohne Container-Angabe."""
+    """Real length from the decoded samples, without the container value."""
     result = subprocess.run(
         ["ffmpeg", "-v", "error", "-i", str(path), "-map", "0:a:0",
          "-f", "s16le", "-ac", "1", "-ar", "48000", "-"],
@@ -41,7 +41,7 @@ def _mp3(path, sekunden: float, bitrate: str, frequenz: int) -> None:
 
 @pytest.fixture
 def geklebte_mp3(tmp_path):
-    """Zwei Stücke mit verschiedener Bitrate, roh aneinander wie in synthesize()."""
+    """Two pieces with different bitrates, raw one after the other as in synthesize()."""
     erstes, zweites = tmp_path / "a.mp3", tmp_path / "b.mp3"
     _mp3(erstes, 5.0, "128k", 440)
     _mp3(zweites, 5.0, "32k", 660)
@@ -56,7 +56,7 @@ def test_stumme_folie_bleibt_bei_drei_sekunden():
 
 @pytest.mark.skipif(not _HAS_FFMPEG, reason="ffmpeg/ffprobe not available")
 def test_geklebte_mp3_wird_nicht_zu_kurz_gemessen(geklebte_mp3):
-    """Zu kurz gemessen heißt abgeschnittener Ton, zu lang fängt -shortest ab."""
+    """Measured too short means cut-off audio, too long is caught by -shortest."""
     echt = _ton_sekunden(geklebte_mp3)
     assert get_audio_duration(geklebte_mp3) >= echt - 0.05
 
@@ -70,14 +70,14 @@ def test_einzelne_datei_wird_weiter_richtig_gemessen(tmp_path):
 
 @pytest.mark.skipif(not _HAS_FFMPEG, reason="ffmpeg/ffprobe not available")
 def test_nicht_messbare_datei_wird_nicht_geschaetzt(tmp_path):
-    """Lieber abbrechen als raten, wann eine Folie zu Ende ist."""
+    """Better abort than guess when a slide ends."""
     with pytest.raises(RuntimeError):
         get_audio_duration(tmp_path / "gibtsnicht.mp3")
 
 
 @pytest.mark.skipif(not _HAS_FFMPEG, reason="ffmpeg/ffprobe not available")
 def test_clip_behaelt_den_ganzen_ton(tmp_path, geklebte_mp3):
-    """Der Weg, auf dem im echten Video Wörter verschwunden sind."""
+    """The path on which words disappeared in the real video."""
     bild = tmp_path / "folie.png"
     subprocess.run(
         ["ffmpeg", "-y", "-v", "error", "-f", "lavfi",
@@ -110,7 +110,7 @@ def test_clip_ohne_pause_behaelt_den_ganzen_ton(tmp_path, geklebte_mp3):
 
 @pytest.mark.skipif(not _HAS_FFMPEG, reason="ffmpeg/ffprobe not available")
 def test_bild_steht_nicht_laenger_als_der_ton(tmp_path, geklebte_mp3):
-    """Sonst friert die Folie ein und die nächste kommt zu spät."""
+    """Otherwise the slide freezes and the next one comes too late."""
     bild = tmp_path / "folie.png"
     subprocess.run(
         ["ffmpeg", "-y", "-v", "error", "-f", "lavfi",
@@ -144,7 +144,7 @@ def folienbild(tmp_path):
 
 @pytest.mark.skipif(not _HAS_FFMPEG, reason="ffmpeg/ffprobe not available")
 def test_sehr_kurze_folie_bekommt_ein_bild(tmp_path, folienbild):
-    """Ohne Bildspur zerlegt die Folie beim Zusammenfügen das ganze Video."""
+    """Without a video track the slide breaks the whole video during concat."""
     kurz = tmp_path / "kurz.mp3"
     _mp3(kurz, 0.5, "64k", 440)
     clip = tmp_path / "clip.mp4"

@@ -1,16 +1,6 @@
 "use client";
 
-/**
- * Bausatz fuer die Statistikseiten.
- *
- * Bewusst eigenes SVG und keine Diagrammbibliothek: gebraucht werden Saeulen,
- * liegende Balken und ein Raster. Das sind ein paar Zeilen, eine Bibliothek
- * dafuer waere ein halbes Megabyte fuer drei Formen und braechte ihre eigene
- * Farbwelt mit, die dann neben den Tokens der App steht.
- *
- * Die Breite wird gemessen statt skaliert. Ein viewBox, der sich streckt, zieht
- * die Beschriftung mit und macht sie in halbbreiten Karten unlesbar.
- */
+/** Building blocks of the statistics pages, own SVG instead of a chart library. */
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
@@ -32,7 +22,7 @@ export function Karte({
 }: {
   titel: string;
   hinweis?: string;
-  /** Kleine Marke neben dem Titel, etwa "jetzt" bei Anwesenheit. */
+  /** A small mark next to the title, such as 'now' for presence. */
   marke?: string;
   children: ReactNode;
 }) {
@@ -92,7 +82,7 @@ function useBreite() {
   return { rahmen, breite };
 }
 
-/** Runde Kappe nur am Datenende, die Grundlinie bleibt eckig. */
+/** Round cap only at the data end, the baseline stays square. */
 function kappe(x: number, y: number, w: number, h: number, r: number, seite: "oben" | "rechts") {
   const rr = Math.max(0, Math.min(r, w / 2, h));
   if (h <= 0.5) return `M${x} ${y + h}h${w}v${-h}h${-w}z`;
@@ -133,8 +123,7 @@ export function Saeulen({
     const bw = Math.max(3, Math.min(schritt > 90 ? 70 : 38, schritt - (schritt > 26 ? 8 : 3)));
     const jede = werte.length > 20 ? 4 : werte.length > 12 ? 2 : 1;
     const letzte = werte.length - 1;
-    // Vier Linien ergeben bei kleinen Zahlen doppelte Beschriftungen, etwa
-    // "1 1 0 0". Dann lieber ganze Schritte und weniger Linien.
+    // With small numbers prefer whole steps to duplicate labels.
     const marken = max <= 4
       ? Array.from({ length: max + 1 }, (_, i) => i)
       : [0, 1, 2, 3].map((g) => (max * g) / 3);
@@ -196,11 +185,11 @@ export function Saeulen({
 export interface BalkenZeile {
   label: string;
   wert: number;
-  /** Zusaetzliche Zahl rechts, etwa "abgeschlossen" neben "gestartet". */
+  /** An extra number on the right, such as 'finished' next to 'started'. */
   zweite?: number | string;
-  /** Eigene Beschriftung statt der Zahl, etwa "84 %". */
+  /** A custom label instead of the number, such as '84 %'. */
   text?: string;
-  /** Eigene Fuellung, etwa ein Verlauf hell nach dunkel bei geordneten Stufen. */
+  /** A custom fill, such as a light to dark gradient for ordered levels. */
   farbe?: string;
 }
 
@@ -210,7 +199,7 @@ export function Balken({
   labelBreite = 168,
 }: {
   zeilen: BalkenZeile[];
-  /** Ueberschriften der Zahlenspalten, hoechstens zwei. */
+  /** Headings of the number columns, at most two. */
   kopf?: [string] | [string, string];
   labelBreite?: number;
 }) {
@@ -278,7 +267,7 @@ export function Balken({
 }
 
 /* ------------------------------------------------------------------ */
-/* Eine gestapelte Zeile, fuer Anteile an einem Ganzen                 */
+/** A stacked row, for shares of a whole */
 /* ------------------------------------------------------------------ */
 
 export function AnteilsZeile({
@@ -318,7 +307,7 @@ export function AnteilsZeile({
 
 
 /* ------------------------------------------------------------------ */
-/* Kurve mit Flaeche, fuer Aufsummiertes                               */
+/** Curve with an area, for cumulative values */
 /* ------------------------------------------------------------------ */
 
 export function Kurve({

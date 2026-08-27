@@ -1,17 +1,4 @@
-"""Eintraege ohne Datum duerfen nicht in einen Topf fallen.
-
-Beim Zusammenfuehren schuetzt normalerweise das Datum: zwei Eintraege kommen nur
-zusammen, wenn sie am selben Tag liegen. Alle offenen Termine teilen sich aber dasselbe
-leere Datum, damit entscheidet dort allein der Titelvergleich.
-
-Der bisherige Vergleich zaehlt Wortueberdeckung mit Wortstamm ab fuenf Zeichen. Bei
-zweiwortigen Titeln reicht das nicht: "Praesentation: online" und "Online-Praesenz:
-Peer-Review" kamen auf volle Uebereinstimmung, weil "online" woertlich trifft und
-"praesentation" ueber den Stamm auf "praesenz" faellt. Im echten Lauf wanderte der
-richtige offene Termin dadurch in einen falschen Eintrag, samt seiner Quellenangabe.
-
-Die Titel unten stammen aus genau diesem Lauf.
-"""
+"""Entries without a date need a stricter title comparison."""
 
 from datetime import date
 
@@ -46,7 +33,7 @@ def test_derselbe_offene_termin_kommt_weiterhin_zusammen(a, b):
 
 
 def test_der_alte_vergleich_haette_sie_zusammengeworfen():
-    """Der Nachweis, dass die Verschaerfung noetig war und nicht nur Kosmetik ist."""
+    """The proof that the tightening was necessary and not just cosmetics."""
     assert _fuzzy_same("Präsentation: online", "Online-Präsenz: Peer-Review") is True
 
 
@@ -55,12 +42,7 @@ def test_leere_titel_kommen_nie_zusammen():
     assert _fuzzy_same_undated("Präsentation", "") is False
 
 
-# --- der Wortlaut schlaegt den Titel -----------------------------------------
-#
-# Derselbe Kursplan steht in mehreren PDFs des Semesters. Das Modell nannte dieselbe
-# Zeile im Lauf vom 13.08. einmal "Präsentation: Hausarbeit" und einmal
-# "Präsentationen: online" und legte sie in zwei Gruppen, obwohl beide Fundstellen Wort
-# für Wort derselbe Satz sind. Titel sind Auslegung, der Wortlaut ist nachprüfbar.
+# Titles are interpretation, the wording is verifiable and beats them.
 
 ZEILE = ("Präsentationen (online)                                    "
          "| während der Prüfungswochen (wird individuell vereinbart) |          |")
@@ -72,7 +54,7 @@ def test_gleicher_wortlaut_findet_den_eintrag():
 
 
 def test_abstand_und_grossschreibung_stoeren_nicht():
-    """Dieselbe Tabellenzeile kommt aus zwei PDFs mit anderer Spaltenbreite."""
+    """The same table row comes from two PDFs with different column widths."""
     anders = "  präsentationen (online) | während der Prüfungswochen (wird individuell vereinbart) |   |  "
     assert _same_source_text(anders, [{"raw_quote": ZEILE}]) is True
 
@@ -92,7 +74,7 @@ def test_eine_von_mehreren_fundstellen_reicht():
     assert _same_source_text(ZEILE, refs) is True
 
 
-# --- die Entscheidung, in welchen Eintrag ein Fund gehoert -------------------
+# --- the decision which entry a finding belongs to ---------------------------
 
 def _eintrag(id_, due_date, title, quote):
     return {"id": id_, "due_date": due_date, "title": title,
@@ -100,8 +82,7 @@ def _eintrag(id_, due_date, title, quote):
 
 
 def test_gleicher_satz_landet_im_selben_eintrag_trotz_anderem_titel():
-    """Der Fall aus dem Lauf vom 13.08.: das Modell nannte dieselbe Tabellenzeile
-    einmal "Präsentation: Hausarbeit" und einmal "Präsentationen: online"."""
+    """The model gave the same table row two different titles."""
     vorhanden = [_eintrag(1, None, "Präsentation: Hausarbeit", ZEILE)]
 
     ziel = _find_merge_target(vorhanden, None, "day", "Präsentationen: online",
@@ -129,8 +110,7 @@ def test_aehnlicher_titel_reicht_weiterhin():
 
 
 def test_mit_datum_zaehlt_der_wortlaut_nicht():
-    """Mit Datum bindet der Tag, der Titelvergleich bleibt der alte. Sonst wuerde eine
-    wiederholte Tabellenzeile Termine ueber verschiedene Tage hinweg zusammenziehen."""
+    """With a date the day binds, there the old comparison stays."""
     tag = date(2026, 5, 29)
     vorhanden = [_eintrag(1, tag, "Online-Präsenz: Peer-Review", ZEILE)]
 

@@ -1,4 +1,4 @@
-"""Der Sprung aus der Jobs-Liste muss auch waehrend der Vertonung und danach gehen."""
+"""The jump from the jobs list has to work during voicing and afterwards too."""
 
 import json
 from unittest.mock import patch
@@ -36,7 +36,7 @@ def _job(status: str) -> dict:
 
 
 def _dateien(dispatch_as: str = "render", scripts_txt: bool = True):
-    """Ersetzt den Job-Ordner: liefert je Dateiname den passenden Inhalt."""
+    """Replaces the job folder: returns the matching content per file name."""
     inhalt = {
         "prompt.txt": b"Sprich locker.",
         "accepted_scripts.json": json.dumps(["Folie eins", "Folie zwei"]).encode(),

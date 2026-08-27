@@ -1,16 +1,4 @@
-"""KI-Assistent routes - language diagnosis (one-time CEFR assessment).
-
-The diagnosis is a short adaptive chat. POST .../turn takes the transcript so
-far and runs ONE LLM call, which either returns the next question or the final
-verdict; on the verdict the level is persisted on the user.
-
-The transcript lives on the client and is posted back each turn. There is no
-server-side session to keep, and nothing to protect: it is the user's own
-diagnosis and they may reset their level at any time anyway. It is length-capped
-so a single request cannot grow without bound.
-
-DELETE .../me clears the level so the user can take the diagnosis again.
-"""
+"""Language level assessment as a short chat, the history lives in the browser."""
 
 from typing import Literal
 
@@ -64,9 +52,7 @@ router = APIRouter(tags=["ki-assistent: language-diagnosis"])
 class TurnMessage(BaseModel):
     role: Literal["assistant", "user"]
     content: str = Field(max_length=MAX_MESSAGE_CHARS)
-    # Assistant turns of an option question carry the shown option values; user
-    # turns carry the values the learner clicked. Both are bounded so a crafted
-    # request cannot grow without limit. Free text answers leave ``selected`` unset.
+    # Both sides carry the shown and clicked values, both are capped.
     options: list[str] | None = Field(default=None, max_length=MAX_OPTIONS)
     selected: list[str] | None = Field(default=None, max_length=MAX_OPTIONS)
 
@@ -83,27 +69,18 @@ class TurnBody(BaseModel):
     history: list[TurnMessage] = Field(default_factory=list, max_length=MAX_HISTORY_MESSAGES)
 
 
-# Der Test ist deutsch, deshalb steht der Sprachname im Prompt fest. Frueher kam er
-# aus dem Kursraum-Feld ``diagnosis_language``; die Fragen sind aber immer deutsch,
-# also haette ein anderer Sprachname nur bedeutet, dass deutsche Fragen nach einem
-# fremden Massstab bewertet werden.
+# The test is German, so the language name is fixed in the prompt.
 DIAGNOSIS_LANGUAGE_NAME = TRANSCRIPT_LANGUAGES[DEFAULT_DIAGNOSIS_LANGUAGE]["name"]
 
 
 async def _ask(llm, messages: list[dict], user_id: int, locale: str) -> str:
-    """Der eine Abschluss-Aufruf. Die Anbindung liegt in aia_json_llm, damit der
-    Adminbereich beim Erzeugen dieselbe benutzt statt einer Kopie."""
+    """The one final call, the wiring lives in aia_json_llm."""
     return await ask_json(llm, messages, locale=locale,
                           what=f"Language diagnosis (user {user_id})")
 
 
 async def _run_turn(llm, messages: list[dict], user_id: int, locale: str) -> dict:
-    """The final grading turn, with a single repair attempt.
-
-    Measured against the production model, roughly one turn in twelve arrives as
-    the bare text with no JSON around it. Without the repair that turn would fail
-    the whole request and the learner would see a retry button after finishing.
-    """
+    """The grading call, with exactly one repair attempt."""
     raw = await _ask(llm, messages, user_id, locale)
     try:
         return parse_turn_response(raw)
@@ -137,9 +114,7 @@ async def turn(
 ):
     user_id = current_user["user_id"]
     workspace = _require_workspace_access(body.workspace_uuid, user_id, locale=locale)
-    # Schaltet die Verwaltung den Trainer waehrend eines laufenden Tests ab, darf
-    # das offene Fenster ihn nicht zu Ende bringen. Sonst stuende hinterher ein
-    # Niveau in der Datenbank, das der Kurs gar nicht mehr benutzt.
+    # A trainer switched off midway must not let the test finish.
     if not db.is_language_training_active(workspace["id"]):
         raise HTTPException(status_code=403, detail=t("ai.workspace.languageTrainingOff", locale))
 
@@ -160,15 +135,11 @@ async def turn(
         DIAGNOSIS_LANGUAGE_NAME,
     )
 
-    # Es sind noch Fragen offen: die naechste kommt direkt aus dem Plan, ohne
-    # Modellaufruf. Jede Zeile im Plan ist ausgeschrieben, es gibt nichts mehr zu
-    # erzeugen. Der Lernende wartet also zwischen zwei Fragen nie.
+    # Open questions come straight from the plan, without a model call.
     if answered < total:
         return manual_question_payload(plan[answered])
 
-    # Nothing given anywhere: there is nothing to grade. The level is fixed in
-    # code rather than left to a model that would pick between the lower bands at
-    # random and invent a strength to praise, and it saves the call as well.
+    # Without a single answer there is nothing to grade, the level is set in code.
     if is_empty_run(history):
         db.set_user_language_level(user_id, "A1")
         logger.info("Language diagnosis: empty run, level fixed to A1 for user={}", user_id)
@@ -178,9 +149,7 @@ async def turn(
             "message": t("ai.languageDiagnosis.allSkipped", locale),
         }
 
-    # Every question answered: the ONE grading call. It reads the full record,
-    # uses the code-graded results as they stand, judges the rest, and returns the
-    # level. A model that forgets to finish is forced once more before we give up.
+    # Once all questions are answered, the one grading call follows.
     enforce_aia_burst(user_id, locale)
     messages = build_final_messages(system_prompt, plan, history)
     result = await _run_turn(llm, messages, user_id, locale)
@@ -199,12 +168,7 @@ async def turn(
 
 @router.get("/ai-assistant/language-diagnosis/config")
 async def config(current_user: dict = Depends(get_current_user)):
-    """Runtime knobs the diagnosis UI needs: how many questions, and the soft
-    answer-length cap. Both come from admin settings, with code defaults.
-
-    The answer cap is clamped to MAX_MESSAGE_CHARS: it is a UI hint (counter and
-    maxlength), while the request body stays hard-capped server-side.
-    """
+    """Question count and answer length for the interface, from the admin settings."""
     plan = parse_question_plan(db.get_setting(QUESTION_PLAN_SETTING, ""))
     raw = db.get_setting(ANSWER_MAX_CHARS_SETTING, str(DEFAULT_ANSWER_MAX_CHARS))
     try:

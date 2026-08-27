@@ -1,14 +1,4 @@
-"""Low-RAM upload path for the classic tools (STT, translate, TTS, summary, screencast).
-
-The tool routes used to do ``content = await file.read()``, holding a whole
-500 MB body in the backend process (twice, once more as the bytes handed to
-storage). These tests lock in the streaming replacement:
-
-- ``stream_upload_to_path`` only ever reads bounded chunks, so an oversize body
-  is rejected mid-stream instead of after it is fully in memory.
-- ``save_queue_file_from_path`` hands S3 a *path* (boto3 streams/multiparts it)
-  instead of a bytes blob.
-"""
+"""The tool routes stream the upload to disk instead of buffering it."""
 import asyncio
 import os
 
@@ -17,12 +7,7 @@ from fastapi import HTTPException
 
 
 class _ChunkOnlyUpload:
-    """UploadFile stand-in that refuses an unbounded read.
-
-    This is the point of the test: a caller that falls back to ``await
-    file.read()`` (the bug) blows up here, a caller that reads bounded chunks
-    passes.
-    """
+    """An upload stand-in that refuses an unbounded read."""
 
     def __init__(self, data: bytes):
         self._data = data
@@ -132,8 +117,7 @@ def test_save_job_file_from_path_stores_under_the_given_name(tmp_path, monkeypat
 
 
 def test_save_queue_file_from_path_hands_s3_a_path_not_bytes(tmp_path, monkeypatch):
-    """boto3 must stream the file itself. Buffering it back into a put_object
-    body is exactly the bug this replaces."""
+    """boto3 has to stream the file itself, not back into memory."""
     from src import storage
 
     calls: list[tuple] = []

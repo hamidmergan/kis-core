@@ -1,22 +1,7 @@
-"""Auch die Werkzeuge suchen ihre Belege nur auf gesehenen Seiten.
-
-Der Chat wurde umgestellt (siehe test_seen_pages_filter): die Einschraenkung auf die
-Seiten, die das Modell wirklich gelesen hat, steht in der ABFRAGE statt als Filter
-dahinter. Die Werkzeuge im Studio und im Sprachtrainer belegen ueber denselben Dienst,
-``attribute_claims``, und ihre Aufrufer reichen ``seen_pages_by_source`` auch schon
-herein. Nur die vorgegebene ``search_fn`` gab es nicht weiter, also rankte die Datenbank
-je Aussage weiter den ganzen Workspace und ``chips_for_claim`` zerriss die Liste danach.
-
-Dieser Test haelt fest, dass die Einschraenkung wirklich bis zur Abfrage durchreicht.
-Die Pruefung in ``chips_for_claim`` bleibt daneben stehen: sie deckt auch Aufrufer ab,
-die eine eigene ``search_fn`` mitbringen.
-"""
+"""The tools also look for their citations only on seen pages."""
 import pytest
 
-# Reihenfolge ist Absicht. aia_attribution holt sich oben die Chip-Auswahl aus
-# ai_assistant.routes, und dieses Paket zieht ueber die Werkzeuge wieder
-# aia_attribution herein. Wer das Dienst-Modul zuerst anfasst, trifft es halbfertig.
-# Erst das Paket vollstaendig laden, dann den Dienst.
+# Load the package fully first, then the service, otherwise you catch it half built.
 import src.features.ai_assistant.routes  # noqa: F401
 from src import database as db
 from src.services import aia_attribution
@@ -24,7 +9,7 @@ from src.services import aia_attribution
 
 @pytest.fixture
 def gesuchte_kwargs(monkeypatch):
-    """Ruft attribute_claims mit der VORGEGEBENEN search_fn und faengt die DB-Aufrufe."""
+    """Calls attribute_claims with the GIVEN search_fn and captures the database calls."""
     calls: list[dict] = []
 
     def _fake_search(workspace_id, text, vec, **kwargs):
@@ -56,7 +41,6 @@ def test_gesehene_seiten_erreichen_die_abfrage(gesuchte_kwargs):
 
 
 def test_ohne_angabe_bleibt_die_suche_breit(gesuchte_kwargs):
-    # Ein Werkzeug ohne Kontextprotokoll (z.B. eine eigene search_fn oder ein Aufruf
-    # ohne die Angabe) darf nicht ploetzlich gar nichts mehr finden.
+    # A tool without a page value must not suddenly find nothing.
     for kw in gesuchte_kwargs():
         assert kw.get("seen_pages") is None

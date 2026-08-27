@@ -13,7 +13,7 @@ interface Optionen {
   bereit: boolean;
 }
 
-/** Die beiden Mengen aus Schritt 6, samt Vorbelegung. */
+/** The two sets from step 6, with their preselection. */
 export function useFolienAuswahl({ slides, stand, hatTon, gespeichert, bereit }: Optionen) {
   const [imScreencast, setImScreencast] = useState<number[]>([]);
   const [neuVertonen, setNeuVertonen] = useState<number[]>([]);
@@ -27,7 +27,7 @@ export function useFolienAuswahl({ slides, stand, hatTon, gespeichert, bereit }:
   );
 
   useEffect(() => {
-    // Ein neu geholter Stand darf die Vorbelegung noch einmal ausloesen.
+    // A newly fetched state may trigger the preselection again.
     if (!bereit || !slides.length || vorbelegtFuer.current === hatTon) return;
     const start = startAuswahl(slides.length, gespeichert);
     setImScreencast(start.imScreencast);

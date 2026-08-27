@@ -1,14 +1,4 @@
-"""CRUD for the feature_routes table.
-
-One row per feature maps the feature to its chosen provider (+ optional model).
-``user_choices`` is the multi-pill list of provider IDs the end-user may pick
-between in the tool UI (used for tts / doc_translate).
-
-Es gab einmal eine eigene Route ``screencast_translate``. Der Screencast hat
-sein Modell aber immer aus ``doc_translate`` gelesen, die Zeile im Admin war
-also wirkungslos und hat nur Verwirrung gestiftet. Beide Werkzeuge übersetzen
-dieselben Dateien, deshalb reicht eine Einstellung.
-"""
+"""Database access to feature_routes, one row per feature."""
 
 import json
 from datetime import datetime
@@ -19,8 +9,7 @@ import psycopg2.extras
 from src.core.db.pool import get_connection
 
 
-# Canonical feature identifiers. Kept here so the API layer can validate input
-# without importing from the protocol package.
+# The fixed feature ids, here so the API can validate them.
 FEATURES: tuple[str, ...] = (
     "chat",
     "embedding",
@@ -34,14 +23,7 @@ FEATURES: tuple[str, ...] = (
     "transcript_translate",
 )
 
-# Features that support user-choice multi-pill selection (admin enables a set
-# of providers, end-user picks one inside the tool).
-#
-# STT is deliberately NOT here: it has a single global default (admin picks one
-# Whisper provider in a dropdown, used everywhere — AIA media ingestion and the
-# transcription tool). The tool's optional per-job provider picker stays working
-# because it is capability-based (see ``feature_provider_choices``), independent
-# of this set.
+# Features where the user may pick from several providers.
 USER_CHOICE_FEATURES: frozenset[str] = frozenset({
     "tts",
     "vision",
@@ -120,11 +102,7 @@ def set_route(
 
 
 def routes_using_provider(provider_id: int) -> list[dict]:
-    """Routes whose provider_id matches OR which list the provider in user_choices.
-
-    Used for the delete-confirmation cascade so the admin sees what they're
-    about to break.
-    """
+    """Routes that use this provider or offer it as a choice."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
@@ -138,12 +116,7 @@ def routes_using_provider(provider_id: int) -> list[dict]:
 
 
 def clear_provider_from_routes(provider_id: int) -> int:
-    """Remove provider_id refs after a provider is deleted.
-
-    Sets provider_id to NULL where it matches, filters the deleted id out of
-    every user_choices array, and removes its entry from provider_models.
-    Returns the number of rows touched.
-    """
+    """Removes every reference to a deleted provider."""
     key = str(provider_id)
     with get_connection() as conn:
         with conn.cursor() as cur:

@@ -1,4 +1,4 @@
-"""mode='glossary': Exercise-Items aus bereits indiziertem Glossary generieren."""
+"""mode='glossary': generate exercise items from the already indexed glossary."""
 
 import json
 import random
@@ -28,16 +28,7 @@ def _sources_for(e: dict) -> list[dict]:
 
 
 def _terms_used(workspace_id: int, user_id: int, tool: str) -> set[str]:
-    """Vergleichsformen der Begriffe, die diese Person in diesem Werkzeug schon hatte.
-
-    ``normalize`` ist dieselbe Vergleichsform, die ``item_key`` benutzt. Sie faltet
-    Gross- und Kleinschreibung, Klammereinschuebe und Satzzeichen und geht nach
-    Unicode-Kategorie, gilt also in jeder Sprache.
-
-    Ein Fehlschlag liefert die leere Menge, dann wird gezogen wie vor dieser Aenderung.
-    Den Filter zu verlieren kostet eine wiederholte Karte, den Auftrag scheitern zu
-    lassen kostet den ganzen Satz. Gleiche Haltung wie in ``seen_by_user``.
-    """
+    """Comparison forms of the terms this person already had in this tool."""
     try:
         gehabt = db.glossary_terms_used(workspace_id, user_id, tool)
     except Exception as exc:  # noqa: BLE001 - ein Satz ohne Filter ist besser als keiner
@@ -47,25 +38,7 @@ def _terms_used(workspace_id: int, user_id: int, tool: str) -> set[str]:
 
 
 def _pick_terms(glossary: list[dict], gehabt: set[str], count: int) -> list[dict]:
-    """Frische Begriffe zuerst, danach mit schon benutzten auffuellen.
-
-    Die Eindeutigkeit in der Datenbank sitzt je Quelle (``ON CONFLICT (user_id, source_id,
-    lower(term_de))``), ein Kursraum hat aber mehrere Quellen. Zwei Zeilen mit derselben
-    Vergleichsform sind darum moeglich, etwa "Abstract" aus einem Skript und "abstract"
-    aus einer Vorlesung. Ohne Entdopplung waeren das zwei eigene Listenelemente, und
-    ``random.sample`` zieht Elemente und nicht Werte, koennte also beide in denselben Satz
-    ziehen. Die Liste kommt sortiert aus der Datenbank (``ORDER BY g.term_de``), darum
-    gewinnt hier die erste Zeile je Vergleichsform.
-
-    Danach ueberschneiden sich die beiden Toepfe nicht mehr, und ``random.sample`` zieht
-    ohne Zuruecklegen. Ein Begriff kann also nicht zweimal im selben Satz stehen. Mehr als
-    das Glossar hergibt kommt nie heraus, ein Glossar mit drei Begriffen liefert weiter
-    drei Karten.
-
-    Sind alle Begriffe verbraucht, ist ``frisch`` leer und es wird vollstaendig aus den
-    benutzten gezogen. Das ist der zweite Durchlauf. Gezogen wird auch dort zufaellig und
-    nicht nach Alter, so entschieden am 2026-08-12.
-    """
+    """Takes fresh terms first and tops up with already used ones."""
     eindeutig: dict[str, dict] = {}
     for e in glossary:
         eindeutig.setdefault(normalize(e["term_de"]), e)
@@ -88,7 +61,7 @@ def generate_from_glossary(
     language: str = "German",
     adaptive_suffix: str = "",
 ) -> tuple[list[dict], str] | None:
-    """Returns (items, title) oder None wenn kein Glossary vorhanden."""
+    """Returns (items, title) or None when there is no glossary."""
     glossary = db.get_aia_glossary_by_workspace(workspace_id, user_id)
     if not glossary:
         return None
@@ -114,13 +87,12 @@ def _plain_flashcard(e: dict) -> dict:
         "source_label": e.get("filename", ""),
         "page_number": e.get("page_number"),
         "sources": _sources_for(e),
-        # Woran diese Karte haengt. Die Auswahl beim naechsten Mal liest genau das.
+        # What this card hangs off, next time's selection reads exactly that.
         "glossary_term": e["term_de"],
     }
 
 
-# Die eine Frage des Auffangnetzes, je eingestellter Sprache. Der Begriff kommt an die
-# Stelle von {0}.
+# The one question of the safety net, per configured language.
 _FALLBACK_FRAGE = {
     "German": "Was bedeutet „{0}\"?",
     "English": "What does \"{0}\" mean?",
@@ -134,11 +106,7 @@ _FALLBACK_FRAGE = {
 
 
 def _fallback_karteikarte(e: dict, language: str) -> dict:
-    """Karte ohne Modellaufruf: die Frage nach der Bedeutung des Begriffs.
-
-    Nur das Auffangnetz. Sie ist auf jeder Karte gleich formuliert und deshalb langweilig,
-    aber sie ist eine Frage, und eine langweilige Frage ist besser als gar keine.
-    """
+    """Safety net without a model call: the question about the term's meaning."""
     frage = _FALLBACK_FRAGE.get(language, _FALLBACK_FRAGE["German"]).format(e["term_de"])
     return {
         "front": frage,
@@ -152,16 +120,7 @@ def _fallback_karteikarte(e: dict, language: str) -> dict:
 
 def _generate_karteikarten(client, model, selected: list[dict], language: str,
                            adaptive_suffix: str = "") -> list[dict]:
-    """Aus Glossarbegriffen echte Frage-Antwort-Karten machen.
-
-    Bis 2026-08-09 stand hier der Begriff selbst als Vorderseite und die Definition als
-    Rueckseite, ohne jeden Modellaufruf. Die Ansicht schreibt aber "FRAGE" darueber, und
-    "Literaturrecherche" ist keine Frage. Gemessen: 9 von 10 Karten aus dem Glossar hatten
-    eine Vorderseite ohne Frage, aus Quellen erzeugte 0 von 34.
-
-    Ein gebuendelter Aufruf fuer den ganzen Satz. Faellt er aus oder fehlt ein Begriff,
-    greift die feste Formulierung; ein Satz entsteht also in jedem Fall.
-    """
+    """Turns glossary terms into real question and answer cards, in one batched call."""
     fallback = [_fallback_karteikarte(e, language) for e in selected]
     try:
         eintraege = "\n".join(
@@ -203,8 +162,7 @@ def _generate_karteikarten(client, model, selected: list[dict], language: str,
             "source_label": e.get("filename", ""),
             "page_number": e.get("page_number"),
             "sources": _sources_for(e),
-            # Aus dem Glossar und nicht aus der Antwort des Modells. Das Modell darf den
-            # Begriff umschreiben, das Gedaechtnis darf davon nicht abhaengen.
+            # The term comes from the glossary, not from the model's answer.
             "glossary_term": e["term_de"],
         })
     return items
@@ -212,15 +170,7 @@ def _generate_karteikarten(client, model, selected: list[dict], language: str,
 
 def _generate_flashcards(client, model, selected: list[dict], language: str,
                          adaptive_suffix: str = "") -> list[dict]:
-    """Enrich glossary flashcards so they match the source-derived Lernkarten.
-
-    ONE batched LLM call reuses AIA_LERNKARTEN_PROMPT to add the word decomposition,
-    word class, singular/plural forms and an example sentence, and to rewrite the
-    definition simply in the UI language. The term itself and its source page stay
-    authoritative from the glossary index (no pgvector attribution). Falls back to the
-    plain card (definition only) per term if the model call fails or omits a term, so
-    flashcards never break.
-    """
+    """Adds word parts, word class, forms and an example sentence to glossary cards."""
     plain = [_plain_flashcard(e) for e in selected]
     try:
         terms_text = "\n".join(

@@ -1,49 +1,27 @@
-"""Der Zaehler, der die Statistik ueber die ganze Zeit traegt.
-
-Aus `jobs` faellt pro Nutzer alles ueber dem Vorrat wieder heraus, siehe
-``_retention.py``. Wer also aus `jobs` eine Statistik zieht, bekommt die Reste
-und nicht die Geschichte. Deshalb wird hier beim Abschluss jedes Auftrags eine
-Zeile hochgezaehlt, die nie wieder geloescht wird.
-
-Gezaehlt wird genau einmal je Auftrag: der Aufrufer haelt die Zeile gesperrt und
-gibt den vorherigen Zustand mit. Wer schon fertig war, zaehlt nicht nochmal.
-"""
+"""The counter that carries the statistics over all time."""
 from datetime import timezone
 
 from ._shared import psycopg2, get_connection
 
-# Bei diesen Werkzeugen ist die Vorbereitung nicht die Arbeit. Gemessen wird ab
-# dem Start des Renderns, sonst stuende in der Dauer die Wartezeit auf den
-# Nutzer mit drin. Gleiche Regel wie in _stats.py.
+# For these tools the duration only counts from rendering on.
 RENDER_TOOLS = ("screencast_render", "screencast_translate")
 
-# Nur diese beiden Ausgaenge sind Endzustaende und damit zaehlbar.
+# Only these two outcomes are final states and therefore countable.
 FINAL = ("success", "failed")
 
-# Der Zustand der Zeile, die beim Anlegen geschrieben wird. Kein echter Zustand
-# eines Auftrags, sondern der Merker "dieser Auftrag hat es je gegeben".
+# The marker that this job ever existed.
 GESTARTET = "started"
 
 
 def _mit_zone(wert):
-    """Zeiten aus `jobs` kommen ohne Zone, die des Aufrufers mit einer.
-
-    Ohne diesen Ausgleich scheitert schon das Abziehen. Die Spalten stehen in
-    UTC, also wird eine fehlende Zone als UTC gelesen.
-    """
+    """Compensates for missing time zones, the columns are in UTC."""
     if wert is None or wert.tzinfo is not None:
         return wert
     return wert.replace(tzinfo=timezone.utc)
 
 
 def count_started(cur, tool: str) -> None:
-    """Das Anlegen eines Auftrags mitzaehlen. Erwartet einen offenen Cursor.
-
-    Diese Zeile ist die einzige Spur, die bleibt: der Auftrag selbst faellt
-    spaeter aus `jobs` heraus, geloescht oder ueber dem Vorrat, und ein Auftrag,
-    den jemand abbricht, erreicht nie einen Endzustand. Gezaehlt wird deshalb
-    beim Anlegen und nicht beim Abschluss.
-    """
+    """Counts the creation of a job, expects an open cursor."""
     cur.execute(
         """INSERT INTO job_counts (day, hour, tool, status, runs, seconds)
            VALUES (
@@ -58,12 +36,7 @@ def count_started(cur, tool: str) -> None:
 
 
 def count_job(cur, tool: str, status: str, started, completed) -> None:
-    """Einen abgeschlossenen Auftrag mitzaehlen. Erwartet einen offenen Cursor.
-
-    Laeuft bewusst im selben Vorgang wie das Setzen des Zustands: entweder beides
-    oder keines. Ein eigener Vorgang koennte auf halbem Weg abbrechen und die
-    Zahlen von der Wahrheit trennen.
-    """
+    """Counts a finished job, in the same transaction as the state."""
     if status not in FINAL or completed is None:
         return
     started, completed = _mit_zone(started), _mit_zone(completed)
@@ -85,18 +58,14 @@ def count_job(cur, tool: str, status: str, started, completed) -> None:
 
 
 def messpunkt(tool: str, started, render_started):
-    """Ab wann die Dauer zaehlt. Screencasts erst ab dem Rendern."""
+    """When the duration starts counting, screencasts only from rendering on."""
     if tool in RENDER_TOOLS and render_started is not None:
         return render_started
     return started
 
 
 def get_counts(days: int | None = None) -> list[dict]:
-    """Die Zaehlzeilen, wahlweise nur die letzten N Tage.
-
-    Ohne ``days`` kommt alles, was je gezaehlt wurde. Genau das ist der Zweck
-    der Tabelle: eine Statistik, die nicht mit dem Aufraeumen schrumpft.
-    """
+    """The counter rows, optionally only the last N days."""
     wo = "WHERE day >= CURRENT_DATE - %s::int" if days else ""
     args = (days,) if days else ()
     with get_connection() as conn:

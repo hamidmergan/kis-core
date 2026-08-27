@@ -1,14 +1,4 @@
-"""Upload rate-limit behaviour.
-
-Locks in two design decisions:
-- the HTTP-level concurrency cap (``aia_max_concurrent_uploads``) is enforced in
-  the route itself, not here; this file only covers the hourly window. The
-  per-workspace ceiling is enforced separately in the route too.
-- the hourly counter is split into a READ-ONLY ``check_upload_limit`` (gate at
-  the door) and ``record_upload`` (bump on success), so a REJECTED upload —
-  duplicate name, workspace full, too many pages, bad file — never consumes a
-  slot. Only fully-accepted uploads count.
-"""
+"""The hourly limit counts accepted uploads only, a rejection costs nothing."""
 import pytest
 from fastapi import HTTPException
 
@@ -77,9 +67,7 @@ def test_check_rejects_when_cap_full(fake_redis):
 
 
 def test_failed_upload_does_not_consume_quota(fake_redis):
-    """A rejected upload calls check (which passes) but never record, so the
-    counter stays put — duplicates / over-max-sources / over-max-pages / bad
-    files do not burn a slot, no matter how many are attempted."""
+    """A rejected upload checks but does not count."""
     for _ in range(UPLOAD_HOURLY_MAX * 3):
         rate_limit.check_upload_limit(user_id=9)    # route would then raise -> no record
     assert fake_redis.get("rl:upload:hourly:9", 0) == 0

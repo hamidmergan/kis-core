@@ -27,11 +27,7 @@ def get_job_by_celery_task_id(celery_task_id: str) -> dict | None:
 
 
 def set_generating_scripts_flag(job_uuid: str, generating: bool) -> None:
-    """Merge or remove the 'generating_scripts' marker in the job's progress JSON.
-
-    Used to signal My Jobs that the resume button should be hidden while
-    script generation is in progress.
-    """
+    """Sets or clears the marker that texts are being generated right now."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("SELECT progress FROM jobs WHERE job_uuid = %s", (job_uuid,))
@@ -59,14 +55,7 @@ def transition_job_to_pending(
     user_id: int,
     from_statuses: tuple = ("awaiting_user",),
 ) -> bool:
-    """Atomically transition a job to 'pending' from one of the allowed source statuses.
-
-    Uses SELECT FOR UPDATE to prevent race conditions when multiple tabs
-    submit the same job simultaneously.
-
-    Returns True if the transition succeeded (this caller owns the job),
-    False if another request already transitioned it (status not in from_statuses).
-    """
+    """Safely sets a job to 'pending', True only for the winner."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -115,8 +104,7 @@ def transition_job_to_queued(
 
 
 def claim_job_for_retry(job_uuid: str) -> bool:
-    """Atomically set job status from 'failed' to 'running' for retry.
-    Returns True if successful, False if job was not in 'failed' state (race condition)."""
+    """Moves a job from 'failed' to 'running' for the second attempt."""
     now = datetime.now(timezone.utc)
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -131,13 +119,7 @@ def claim_job_for_retry(job_uuid: str) -> bool:
 
 
 def reset_stuck_jobs() -> int:
-    """Mark all pending/running jobs as failed on server startup.
-
-    Called once when the backend starts. Jobs stuck in 'pending' or 'running'
-    mean the server crashed mid-task and the Celery broker lost the message.
-    They can be manually retried via the retry endpoint.
-    Returns the number of jobs reset.
-    """
+    """Marks all hanging jobs as failed at startup."""
     now = datetime.now(timezone.utc)
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -155,7 +137,7 @@ def reset_stuck_jobs() -> int:
 
 
 def set_render_started_at(job_uuid: str) -> None:
-    """Setzt render_started_at einmalig (COALESCE - nicht überschreiben bei Retry)."""
+    """Sets render_started_at once (COALESCE, not overwritten on a retry)."""
     now = datetime.now(timezone.utc)
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -167,7 +149,7 @@ def set_render_started_at(job_uuid: str) -> None:
 
 
 def set_render_queued_at(job_uuid: str) -> None:
-    """Setzt render_queued_at einmalig - Zeitpunkt wenn Render-Job in Celery Queue eingereiht wird."""
+    """Sets render_queued_at once, when the render job enters the Celery queue."""
     now = datetime.now(timezone.utc)
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -179,11 +161,7 @@ def set_render_queued_at(job_uuid: str) -> None:
 
 
 def touch_job_heartbeat(job_uuid: str) -> None:
-    """Update progress_updated_at without touching any other field.
-    Called periodically during long external API calls to prevent the watchdog
-    from falsely marking an actively-running job as stuck.
-    Only updates if the job is still in 'running' state.
-    """
+    """Refreshes the progress heartbeat so the watchdog does not strike."""
     now = datetime.now(timezone.utc)
     with get_connection() as conn:
         with conn.cursor() as cur:

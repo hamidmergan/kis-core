@@ -1,10 +1,4 @@
-"""Kein festverdrahtetes Schlusswort ans letzte Skript.
-
-Der Code hat frueher ". Thank you for your attention." an das letzte nicht
-leere Skript geklebt, unabhaengig von der Zielsprache. Bei einem deutschen
-Screencast endete das Video damit auf Englisch. Die Verfeinerung verbietet
-Schlussfloskeln ohnehin per Regel 6 in tool_prompts.
-"""
+"""No hard-wired closing remark on the last script."""
 
 from src.services.openai_compat_llm._scripts import _ScriptsMixin
 

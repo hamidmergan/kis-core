@@ -1,5 +1,4 @@
-/** What a link turns its followers into. A tutor manages the workspace with the
- *  same rights as the owner, a student only learns from it. */
+/** What a link turns its users into, a tutor manages and students only learn. */
 export type LinkRole = "student" | "tutor";
 
 /** How someone reaches a workspace. Ownership and tutoring both mean "manage". */
@@ -28,11 +27,10 @@ export interface KiTutorWorkspace {
   /** Workspace is shared with tutors, or reached as one. Drives the shared icon. */
   shared: boolean;
   access_links?: AccessLink[];
-  // Only set on rows reached as a student, where several links mean several
-  // enrollments with separate chat histories.
+  // Only set for enrolled courses, several links mean several histories.
   enrollment_id?: number | null;
   enrolled_until?: string | null;
-  /** Ueber die Demo beigetreten, nicht ueber einen richtigen Link. */
+  /** Joined through the demo, not through a real link. */
   via_demo?: boolean;
   // Legacy
   enroll_code: string | null;

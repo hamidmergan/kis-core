@@ -2,15 +2,7 @@ import React from "react";
 import { CaretLeft, CaretRight, Check } from "@phosphor-icons/react";
 import IconButton from "@/components/ui/IconButton";
 
-/**
- * Zurueck, Zaehler, Weiter in einer Reihe unter der Karte.
- *
- * Der Zaehler steht zwischen den Pfeilen, weil er zur Navigation gehoert: er
- * sagt, wo man steht, die Pfeile aendern es. Ueber der Karte war er davon
- * getrennt und in der Grammatik-Uebung sass er sogar in der Themenzeile.
- * Alle Uebungsansichten teilen sich jetzt diese Reihe, damit sie in jedem
- * Werkzeug gleich aussieht.
- */
+/** Back, counter, next in one row, shared by all exercise views. */
 export function ExerciseNav({
   index, total, onPrev, onNext, backLabel, nextLabel, finishLabel,
 }: {

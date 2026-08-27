@@ -1,13 +1,4 @@
-"""Der Leser meldet, wann nichts mehr kommt, damit der Strom dann endet.
-
-Gemessen an "wo folien": die Antwort stand nach 13 Sekunden, der Strom lief noch
-157 Sekunden weiter und endete erst an der Token-Obergrenze (8192 Token,
-172012 ms). Zwei Formen kamen vor. Entweder war das Schema voll und das Modell
-schrieb einfach weiter, oder es blieb zwischen zwei Feldern in Leerraum haengen
-und schrieb "\\n  " ohne Ende, was JSON zwischen Feldern erlaubt. Beides faellt
-im Leser weg, also wachsen weder Zeilenpuffer noch Eintragszahl und keine der
-vorhandenen Bremsen greift.
-"""
+"""The reader reports when nothing more is coming so the stream ends."""
 
 from src.features.ai_assistant.routes._json_stream import (
     LEERLAUF_MAX,
@@ -32,7 +23,7 @@ def _fertig_bei(roh: str, **kw) -> int | None:
     return None
 
 
-# -- Das Schema ist voll --------------------------------------------------
+# -- The schema is full ---------------------------------------------------
 
 
 def test_fertig_bleibt_aus_solange_das_schema_laeuft():
@@ -71,11 +62,11 @@ def test_der_grund_nennt_das_volle_schema():
     assert strom.grund == "schema"
 
 
-# -- Das Modell bleibt in Leerraum haengen --------------------------------
+# -- The model hangs in whitespace ----------------------------------------
 
 
 def _haengt_vor_body(leerraum: int) -> str:
-    """Genau der gemessene Fall: nach der Liste kommt nur noch Leerraum."""
+    """Exactly the measured case: after the list only whitespace follows."""
     return (
         '{"no_info_sentence": null, "bridge": null, '
         '"items": [{"term": "Begriff", "text": "Satz."}]' + "\n  " * leerraum
@@ -102,7 +93,7 @@ def test_die_eintraege_vor_dem_leerlauf_bleiben_stehen():
 
 
 def test_normaler_einzug_im_json_loest_nichts_aus():
-    # Ein huebsch eingerueckter Aufbau ist erlaubt und darf nicht abbrechen.
+    # A nicely indented structure is allowed and must not abort.
     huebsch = (
         '{\n  "no_info_sentence": null,\n  "bridge": null,\n'
         '  "items": [\n    {\n      "term": "Begriff",\n'
@@ -115,7 +106,7 @@ def test_normaler_einzug_im_json_loest_nichts_aus():
 
 
 def test_zeilenumbrueche_im_fliesstext_loesen_nichts_aus():
-    # Im laufenden Satz sind Umbrueche Inhalt, kein Leerlauf.
+    # Inside a running sentence line breaks are content, not idling.
     lang = "\\n".join(["Ein Absatz."] * (LEERLAUF_MAX + 50))
     strom = AntwortStrom()
     text = "".join(strom.feed(z) for z in _antwort(lang))
@@ -123,7 +114,7 @@ def test_zeilenumbrueche_im_fliesstext_loesen_nichts_aus():
     assert text.count("Ein Absatz.") == LEERLAUF_MAX + 50
 
 
-# -- Ohne Schema aendert sich nichts --------------------------------------
+# -- Without a schema nothing changes -------------------------------------
 
 
 def test_ohne_json_meldet_der_leser_nie_fertig():

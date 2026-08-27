@@ -6,14 +6,7 @@ import { useRouter } from "@/i18n/navigation";
 import WorkspaceMenu from "./WorkspaceMenu";
 import type { KiTutorWorkspace } from "../_shared";
 
-/** A row for a workspace the user only learns from. Same table as the managed
- *  rows, minus every control that would 403 anyway: no status switch, no link
- *  list, no menu.
- *
- *  A workspace switched off by its owner keeps its row and says so. It used to
- *  drop out of the list without a word, which read like a deleted course. The
- *  row stays put, greyed and not clickable, and turns back into a normal one
- *  the moment the owner switches it on again. */
+/** Row for an enrolled course, a switched-off one stays grey instead of disappearing. */
 export default function WorkspaceTableStudentRow({
   workspace,
   onLeave,
@@ -21,8 +14,7 @@ export default function WorkspaceTableStudentRow({
   workspace: KiTutorWorkspace;
   onLeave?: (uuid: string) => void;
 }) {
-  // Nur wer ueber die Demo beigetreten ist, sieht das Abzeichen und kann hier raus.
-  // Wer ueber einen richtigen Link im selben Kurs sitzt, sieht davon nichts.
+  // Only whoever joined through the demo sees the badge and can leave here.
   const isDemo = !!workspace.via_demo;
   const t = useTranslations("workspace.list");
   const tDemo = useTranslations("workspace.demo");
@@ -44,8 +36,7 @@ export default function WorkspaceTableStudentRow({
     : null;
 
   const open = () => { if (!closed) router.push(href); };
-  // Everything that would lead into the closed workspace is dropped, not just
-  // disabled: no click, no prefetch, no middle-click into a new tab.
+  // Every way in is dropped instead of only disabled, the new tab included.
   const zellenKlasse = closed ? "" : "cursor-pointer";
 
   return (

@@ -1,11 +1,4 @@
-"""Ein Modellaufruf, dessen Antwort JSON sein soll.
-
-Herausgeloest, damit die Einstufung (Abschlussbewertung) und der Adminbereich
-(Fragen erzeugen) dieselbe Anbindung benutzen statt zweier Kopien. Der eine Punkt,
-der hier wirklich haengt, ist der JSON-Modus: nicht jeder eingerichtete Anbieter
-nimmt ``response_format``, und wer ihn ablehnt, soll nicht bei jedem Aufruf erneut
-einen abgelehnten Aufruf kosten. Deshalb wird einmal je Prozess geprobt.
-"""
+"""A model call whose answer should be JSON, the JSON mode is probed once."""
 
 import asyncio
 
@@ -14,17 +7,12 @@ from loguru import logger
 
 from src.i18n import t
 
-# Einmal je Prozess geprobt statt bei jedem Aufruf erneut.
+# Probed once per process instead of again on every call.
 _json_mode_supported = True
 
 
 def _rejects_json_mode(exc: Exception) -> bool:
-    """True, wenn der Anbieter ``response_format`` selbst abgelehnt hat.
-
-    Absichtlich eng: nur ein 400, der das Feld auch benennt, zaehlt. Ein 429 oder
-    ein 400 wegen Kontextlaenge darf den JSON-Modus nicht fuer den ganzen Prozess
-    abschalten.
-    """
+    """True when the provider explicitly rejected response_format."""
     if getattr(exc, "status_code", None) != 400:
         return False
     text = str(exc).lower()
@@ -44,13 +32,7 @@ def _create(llm, messages: list[dict], *, json_mode: bool):
 
 
 def call_json_llm(llm, messages: list[dict]):
-    """Ein Durchlauf, im JSON-Modus wo der Anbieter ihn kann.
-
-    Der JSON-Modus zaehlt hier mehr als anderswo: der Prompt verlangt zugleich
-    Fliesstext-Ton und JSON, und ohne die Fessel driftet das Modell oft genug in
-    reine Prosa ab, dass der Reparaturdurchlauf regelmaessig feuert und das
-    Aufrufvolumen verdoppelt.
-    """
+    """One run, in JSON mode where the provider can do it."""
     global _json_mode_supported
     if _json_mode_supported:
         try:
@@ -65,10 +47,7 @@ def call_json_llm(llm, messages: list[dict]):
 
 
 async def ask_json(llm, messages: list[dict], *, locale: str, what: str) -> str:
-    """Der Aufruf in einem Thread, mit einer verstaendlichen Absage bei Ausfall.
-
-    ``what`` steht nur im Log und sagt, welcher Aufruf gescheitert ist.
-    """
+    """The call in a thread, with a readable refusal on failure."""
     try:
         response = await asyncio.to_thread(call_json_llm, llm, messages)
         return response.choices[0].message.content or ""

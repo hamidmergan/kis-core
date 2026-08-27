@@ -4,20 +4,20 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import type { ScheduleListEntry } from "./ScheduleEntryCardGlobal";
 
-/** Dieselben Zahlen stehen im Backend in schemas.py als TITLE_MAX und NOTE_MAX. */
+/** The same numbers sit in the backend schemas.py as TITLE_MAX and NOTE_MAX. */
 const TITLE_MAX = 80;
 const NOTE_MAX = 500;
 
 interface Props {
-  /** null heisst neu anlegen, sonst wird dieser Eintrag geaendert. */
+  /** null means create new, otherwise this entry is changed. */
   entry: ScheduleListEntry | null;
-  /** Vorbelegtes Datum beim Anlegen, etwa nach einem Doppelklick auf einen Tag. */
+  /** Prefilled date when creating, such as after a double click on a day. */
   defaultDate?: string;
   onClose: () => void;
   onSaved: () => void;
 }
 
-/** Dialog fuer eigene Termine, wahlweise ein Tag oder ein Zeitraum. */
+/** Dialog for private appointments, either one day or a span. */
 export default function ScheduleEntryModal({ entry, defaultDate, onClose, onSaved }: Props) {
   const t = useTranslations("schedule.modal");
   const [title, setTitle] = useState(entry?.title ?? "");
@@ -71,7 +71,7 @@ export default function ScheduleEntryModal({ entry, defaultDate, onClose, onSave
     }
   }
 
-  /** Zeigt an, wie viel noch geht, und faerbt sich, wenn es eng wird. */
+  /** Shows how much room is left and colours when it gets tight. */
   const zaehler = (wert: string, max: number) => (
     <div
       className="text-3xs text-right mt-1"

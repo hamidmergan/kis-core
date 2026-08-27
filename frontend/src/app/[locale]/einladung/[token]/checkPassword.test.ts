@@ -1,9 +1,4 @@
-/**
- * Wann der Knopf auf der Einladungsseite ueberhaupt etwas abschickt.
- *
- * Das Backend prueft dasselbe noch einmal. Hier geht es darum, dass die Person
- * den Grund sieht, bevor sie klickt, statt eine Fehlermeldung zurueckzubekommen.
- */
+/** When the button on the invitation page submits anything. */
 import { describe, expect, it } from "vitest";
 
 import { checkPassword, MIN_PASSWORD_LENGTH } from "./checkPassword";

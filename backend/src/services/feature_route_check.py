@@ -1,13 +1,4 @@
-"""Test whether a configured feature route actually works end-to-end.
-
-The admin tab's "test" button on each feature row calls this. Distinct from
-``provider_probe`` (which only checks raw reachability of an endpoint): this
-routes a minimal real request through the feature-specific endpoint with the
-admin-chosen model, so an admin can tell apart "provider is online" from
-"this model is actually wired up for this feature".
-
-Returns a ``FeatureTestResult`` with status="ok"/"error" and an error string.
-"""
+"""Checks whether a configured route really works, with a real call."""
 
 from __future__ import annotations
 
@@ -32,9 +23,7 @@ _TIMEOUT = 15.0
 class FeatureTestResult:
     status: str  # "ok" | "error"
     error: Optional[str] = None
-    # Soft signal alongside status="ok" — the request succeeded but a caveat
-    # applies (e.g. some STT silently accepts any model name, so we can't
-    # actually verify the model is valid).
+    # Soft signal next to 'ok', the call went through with a caveat.
     warning: Optional[str] = None
 
 
@@ -98,17 +87,12 @@ def _test_openai_compat(
     voices: list,
 ) -> FeatureTestResult:
     if feature == "tts":
-        # model_name is optional for TTS — some providers (e.g. Kokoro) only
-        # serve one model and reject requests that carry a ``model`` field.
-        # Others (e.g. myLab/vLLM) need it. We pass through whatever was
-        # configured; _post_tts will omit the field when empty.
+        # The model is optional for speech output, some providers reject it.
         if not voices:
             return FeatureTestResult(status="error", error="no_voices_configured")
         return _post_tts(base_url, api_key, model_name, voices)
     if feature == "stt":
-        # Exercise the real endpoint with a tiny silence WAV so an invalid
-        # model name is actually rejected. Like chat/embedding, the model is
-        # required — a configured STT route with no model is not usable.
+        # A real call with a silence file so a wrong model shows up.
         if not model_name:
             return FeatureTestResult(status="error", error="model_name_not_set")
         return _post_stt(base_url, api_key, model_name)
@@ -193,10 +177,7 @@ def _silence_wav(duration_sec: float = 0.1, sample_rate: int = 16000) -> bytes:
     ])
 
 
-# An obviously-bogus model name we use to detect providers whose
-# /v1/audio/transcriptions silently ignores the ``model`` field — i.e. accept
-# anything, return 200 with an empty body. Without this canary, a passing
-# real probe would falsely report 'ok' for any string the admin typed.
+# An obviously wrong model name as bait.
 _STT_CANARY_MODEL = "__kis_canary_invalid_model_xyz__"
 
 
@@ -214,17 +195,7 @@ def _stt_probe(
 
 
 def _has_real_backend_evidence(resp: httpx.Response) -> int:
-    """Count signals in the response headers that prove the request reached
-    a real backend (not a stub that always returns 200).
-
-    Two independent signals = high confidence:
-    - ``x-ratelimit-*`` / ``ratelimit-*`` headers prove the gateway is
-      counting our request against a quota.
-    - ``x-kong-upstream-latency`` proves Kong forwarded to an upstream that
-      took measurable time to respond.
-    - ``via`` (Kong / Cloudflare / etc.) proves a real gateway routed it.
-    - ``x-request-id`` / ``x-kong-request-id`` proves per-request tracking.
-    """
+    """Counts headers that prove the request reached a real service."""
     headers = {k.lower(): v for k, v in resp.headers.items()}
     n = 0
     if any(k.startswith("x-ratelimit-") or k.startswith("ratelimit-") for k in headers):
@@ -248,12 +219,7 @@ def _post_stt(
     primary = _classify_http(resp, expect_json=False)
     if primary.status != "ok":
         return primary
-    # The user's model came back ok — but some providers
-    # accept any model name and silently fall back to a default. Send a
-    # canary with a guaranteed-invalid name: if THAT also passes, the model
-    # field is being ignored and we can't validate the name. We still surface
-    # 'ok' (the endpoint works) and use the response headers to upgrade the
-    # warning when we have strong evidence the request hit a real backend.
+    # A bait call shows whether the provider reads the model name at all.
     try:
         canary = _stt_probe(base_url, api_key, _STT_CANARY_MODEL)
     except httpx.HTTPError:
@@ -270,13 +236,7 @@ def _post_stt(
 
 
 def _make_grey_png(side: int = 64) -> bytes:
-    """Build a side×side mono PNG of mid-grey.
-
-    A 1×1 PNG was rejected by an image-edit reader ("broken data stream" — a
-    PIL/cv2 stack that can't handle degenerate sizes). 64×64 stays under
-    ~200 bytes thanks to PNG's deflate but is large enough that any sane
-    image reader will accept it.
-    """
+    """Builds a small grey PNG, some image readers rejected 1x1."""
     raw = b"".join(b"\x00" + b"\x80" * side for _ in range(side))
     z = zlib.compress(raw)
 
@@ -299,32 +259,21 @@ def _make_grey_png(side: int = 64) -> bytes:
 
 _TINY_PNG = _make_grey_png(64)
 
-# Image generation can legitimately take 10–30 s; bumped from the default
-# 15 s so a slow-but-valid model isn't misreported as 'unreachable'.
+# Image generation may take longer, hence a generous timeout.
 _IMAGE_TIMEOUT = 60.0
 
 
 def _check_image_model(
     *, base_url: str, api_key: Optional[str], model_name: str, edit: bool
 ) -> FeatureTestResult:
-    """Validate an image model with a real POST — same pattern as chat/vision.
-
-    Image gen and image edit each go through the same code path the
-    production job uses (``general_tasks.run_image_*``) so a passing test
-    proves the live feature will also work — no transport-style divergence
-    between probe and prod.
-    """
+    """Checks an image model with a real call, exactly as in operation."""
     headers = {"Accept": "application/json"}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
     try:
         with httpx.Client(timeout=_IMAGE_TIMEOUT, headers=headers) as client:
             if edit:
-                # Mirror the production task's payload (general_tasks.run_image_edit)
-                # — myLab returns a Python TypeError if guidance_scale / steps
-                # / n / size aren't supplied explicitly. A probe with fewer
-                # fields would falsely report "broken endpoint" when in fact
-                # the live job would work fine.
+                # The same payload as in operation, otherwise the probe raises a false alarm.
                 url = _build_url(base_url, "/v1/images/edits")
                 resp = client.post(
                     url,
@@ -372,11 +321,7 @@ def _classify_http(resp: httpx.Response, *, expect_json: bool) -> FeatureTestRes
         return FeatureTestResult(status="ok")
     if status in (401, 403):
         return FeatureTestResult(status="error", error="auth_rejected")
-    # For non-2xx (including 5xx), try to extract a human-readable detail
-    # from the body first — many servers (incl. vLLM/myLab) return 404 with
-    # {"detail":"Model X not found"}, others return plain "Model Not Found",
-    # and myLab's broken image-edit returns plain "Internal Server Error".
-    # All of these tell the admin far more than a generic 'server_error'.
+    # Look in the body for a readable reason first, it says more.
     detail = ""
     try:
         body = resp.json()

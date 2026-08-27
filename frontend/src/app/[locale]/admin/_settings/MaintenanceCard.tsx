@@ -1,11 +1,6 @@
 "use client";
 
-/**
- * Wartungsmodus. Keine gewöhnliche Einstellung, deshalb eigene Karte statt
- * ToggleSetting: der Wert liegt hinter /api/admin/maintenance, nicht in den
- * Einstellungen, und der Schalter ist rot, weil er die Plattform für alle
- * ausser Admins sperrt.
- */
+/** Maintenance mode, its own card because it sits behind its own route. */
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";

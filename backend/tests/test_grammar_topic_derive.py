@@ -1,16 +1,4 @@
-"""Aus einem getippten Namen werden Regel und Musterbeispiel.
-
-Die Grammatik-Übung ist das einzige Werkzeug, das nicht aus den Quellen
-antwortet: das Thema kommt vom Dozenten, die Grammatik aus dem Modell, die
-Quellen liefern nur den Wortschatz. Damit fällt die Quellen-Grenze als Netz gegen
-einen Irrtum weg, und das Musterbeispiel wird zur einzigen Prüfstelle.
-
-Deshalb wird hier lieber abgelehnt als geraten. Ein falsches Muster würde einem
-ganzen Kurs die falsche Form beibringen, und niemand merkt es an der Aufgabe,
-weil sie in sich stimmig aussieht.
-
-Kein Netzzugriff, das Modell bekommt einen Fake-Client.
-"""
+"""A typed name becomes rule and pattern example, rejected when in doubt."""
 
 import json
 import types
@@ -63,15 +51,13 @@ def test_the_prompt_carries_the_typed_name_and_the_language():
 
 
 def test_something_that_is_not_grammar_is_refused():
-    # "Photosynthese" ist ein Fachthema, kein Grammatikthema. Daraus einen Eintrag
-    # zu erfinden wäre schlimmer als eine Absage.
+    # Inventing a subject topic would be worse than a refusal.
     client, _ = _client(json.dumps({"is_grammar": False, "rule": "", "examples": []}))
     assert derive_topic(client, "m", "Photosynthese", "de") is None
 
 
 def test_an_example_that_changes_nothing_is_refused():
-    """Vorher gleich nachher heisst, das Modell hat die Umformung nicht
-    verstanden. Sprach-unabhängig geprüft, ohne Wortlisten."""
+    """Before equals after means the model did not understand the reshaping."""
     client, _ = _client(json.dumps({
         "is_grammar": True, "rule": "r",
         "examples": [{"before": "Er kommt.", "after": "Er kommt!"}],
@@ -98,13 +84,7 @@ def test_unusable_json_is_refused_instead_of_crashing():
 
 
 def test_a_provider_failure_is_not_confused_with_a_bad_topic():
-    """Am laufenden System aufgefallen: der Anbieter meldete "Model Not Loaded", und
-    der Dozent las "daraus lässt sich kein Grammatikthema machen". Er hätte seinen
-    völlig richtigen Themennamen umgeschrieben, obwohl nur der Dienst weg war.
-
-    Eine Störung muss also durchschlagen, damit der Aufrufer sie als solche melden
-    kann. Ein Modell, das antwortet und dabei Unsinn liefert, bleibt None.
-    """
+    """A disruption has to propagate, an unusable answer stays None."""
     def create(**kwargs):
         raise RuntimeError("Model Not Loaded.")
 
@@ -121,8 +101,7 @@ def test_a_fenced_answer_is_still_parsed():
 
 
 def test_only_the_first_example_is_kept():
-    # Der Generator liest nur das erste Paar, weitere zu speichern hiesse sie in der
-    # Tabelle abzulegen und nie wieder anzusehen.
+    # The generator only reads the first pair.
     pairs = [{"before": f"Satz {i} hier.", "after": f"Umgeformt {i} hier."}
              for i in range(5)]
     client, _ = _client(json.dumps({"is_grammar": True, "rule": "r", "examples": pairs}))
@@ -130,7 +109,7 @@ def test_only_the_first_example_is_kept():
     assert out["examples"] == [{"before": "Satz 0 hier.", "after": "Umgeformt 0 hier."}]
 
 
-# ─── Der Namensvorschlag ─────────────────────────────────────────────────────
+# ─── The name suggestion ─────────────────────────────────────────────────────
 
 def test_a_clean_name_comes_through():
     assert usable_label("Passiv Präsens") == "Passiv Präsens"
@@ -142,13 +121,12 @@ def test_surrounding_space_is_trimmed():
 
 @pytest.mark.parametrize("value", [None, "", "   ", 42, ["Passiv"], {"a": 1}])
 def test_nothing_usable_is_no_suggestion(value):
-    """Leer ist kein Fehler. Der Vorschlag ist Komfort und keine Prüfstelle."""
+    """Empty is not an error, the suggestion is a convenience and no gatekeeper."""
     assert usable_label(value) == ""
 
 
 def test_a_whole_paragraph_is_no_suggestion():
-    # Ein Modell, das statt eines Namens einen Absatz liefert, hat die Frage nicht
-    # verstanden. Ein Absatz auf einer Kachel wäre schlimmer als kein Vorschlag.
+    # A paragraph instead of a name means the question was not understood.
     assert usable_label("x" * 61) == ""
     assert usable_label("x" * 60) == "x" * 60
 
@@ -168,8 +146,7 @@ def test_the_suggested_name_comes_back():
 
 
 def test_a_topic_without_a_suggested_name_is_still_created():
-    """Ein Modell, das die neue Zeile im Prompt überliest, darf kein Thema kosten.
-    Der Vorschlag ist Komfort und keine Prüfstelle."""
+    """The name suggestion is a convenience and must not cost a topic."""
     client, _ = _client(_GOOD)
     out = derive_topic(client, "m", "Konjunktiv II", "de")
     assert out is not None
@@ -206,12 +183,7 @@ def test_a_broken_pair_is_dropped_but_the_good_ones_stay():
     assert out["examples"][0]["before"] == "Er kommt morgen."
 
 
-# --- nachgereichte Anweisungszeilen -------------------------------------------
-#
-# Themen, die vor dem Feld `task_lines` ausgearbeitet wurden, tragen Regel und
-# Musterpaar, aber keine Zeilen. Ausgearbeitet wird nur, was noch gar nicht
-# ausgearbeitet ist, also bekaemen sie ohne diesen Nachschlag nie welche. Genau
-# das wurde am 2026-08-12 gemeldet ("Setze den Satz ins Relativsatz").
+# Topics from before the field get their lines backfilled.
 
 _MIT_ZEILEN = json.dumps({
     "is_grammar": True,
@@ -234,22 +206,13 @@ def test_the_lines_can_be_fetched_on_their_own():
 
 
 def test_the_backfill_never_hands_back_rule_or_example():
-    """Der Dozent darf beide im Formular geaendert haben.
-
-    Eine nachgereichte Anweisungszeile ist kein Grund, ihm diese Arbeit zu
-    ueberschreiben, deshalb kommen hier nur die vier Zeilen zurueck.
-    """
+    """Only the four lines come back, rule and pattern stay untouched."""
     client, _ = _client(_MIT_ZEILEN)
     assert set(derive_task_lines(client, "m", "Relativsatz", "de")) == set(TASK_KINDS)
 
 
 def test_a_provider_hiccup_costs_the_lines_and_not_the_set():
-    """Beim ERSTEN Ausarbeiten schlaegt eine Stoerung durch, hier nicht.
-
-    Die Aufgaben selbst sind ohne diesen Aufruf vollstaendig, nur die Anweisung
-    ueber ihnen ist nuechterner. Einen ganzen Satz daran scheitern zu lassen waere
-    die schlechtere Antwort.
-    """
+    """When backfilling, a disruption must not cost a whole set."""
     def create(model, messages, **kwargs):
         raise RuntimeError("Model Not Loaded")
 
@@ -264,15 +227,8 @@ def test_a_topic_the_model_refuses_yields_no_lines():
 
 
 def test_a_word_order_mnemonic_counts_as_grammar():
-    """"tekamolo" ist ein Merkwort fuer die Satzstellung, kein Unsinn.
-
-    Das echte Modell hat den Namen abgelehnt, weil es ihn nicht kannte, und damit
-    fiel genau die am 2026-08-12 gewuenschte Zeile weg ("Bilde den Satz nach der
-    tekamolo-Regel."). Die Frage im Prompt lautet seitdem nicht mehr "kenne ich
-    das?", sondern "sagt der Name etwas darueber, wie ein Satz GEBAUT ist?".
-    """
+    """The question is whether the name says something about sentence structure, not whether the model knows it."""
     assert "tekamolo" in _PROMPT
     assert "not automatically nonsense" in _PROMPT
-    # Die Absage bleibt das Netz gegen ein falsches Musterpaar. Sachthemen fallen
-    # weiter raus, sonst waere die Lockerung ein Freibrief.
+    # Subject topics still drop out, otherwise the loosening would be a free pass.
     assert "photosynthesis" in _PROMPT

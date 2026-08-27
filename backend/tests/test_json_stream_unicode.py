@@ -1,9 +1,4 @@
-"""Ein JSON-Fluchtzeichen fuer ein Sonderzeichen wird wieder zum Zeichen.
-
-Die Modelle schicken griechische Buchstaben als "\\u03C6". Der Leser liess den
-Rueckstrich stehen, weil er ihn fuer einen LaTeX-Befehl hielt, und KaTeX machte
-daraus "0-Halbmond 3C6" statt eines Phi.
-"""
+"""A JSON escape becomes a special character again."""
 
 from src.features.ai_assistant.routes._json_stream import AntwortStrom
 

@@ -1,15 +1,10 @@
-"""Reading and writing the sweep position.
-
-The position is a convenience, never a precondition: a set that generates from a repeated
-window is worth more than a set that fails because a cursor could not be read.
-"""
+"""The sweep mark is a convenience, never a requirement."""
 
 from src.features.ai_assistant.tasks._context_budget import read_cursors, write_cursors
 
 
 def test_no_workspace_means_a_first_run():
-    # Older queued tasks carry no workspace. They sweep from the start every time, which
-    # is the behaviour before cursors existed.
+    # Older jobs without a course room start from the beginning every time.
     assert read_cursors(None, 5, "flashcards") == []
 
 
@@ -42,8 +37,7 @@ def test_a_failing_write_does_not_reach_the_caller(monkeypatch):
 
 
 def test_nothing_is_written_for_a_source_that_fitted_whole(monkeypatch):
-    # An empty cursor list is what the selector returns when the whole source went in.
-    # There is no position to keep, and writing one would be a lie about what was read.
+    # An empty mark list means the whole source went in.
     calls = []
     monkeypatch.setattr("src.database.set_context_cursors",
                         lambda *a: calls.append(a))

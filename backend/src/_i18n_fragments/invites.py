@@ -1,4 +1,4 @@
-"""Textbausteine fuer die Einladungen."""
+"""Text fragments for the invitations."""
 
 MESSAGES: dict[str, dict[str, str]] = {
     "invite.featureDisabled": {

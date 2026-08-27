@@ -1,14 +1,7 @@
 import { useTranslations } from "next-intl";
 import { Check, Minus } from "@phosphor-icons/react";
 
-/** Haken einer Gruppe: waehlt alle fertigen Dateien darin aus oder wieder ab.
- *
- *  Drei Zustaende, weil zwei nicht reichen: bei "einige" muss man sehen, dass
- *  die Gruppe angefasst wurde, ohne dass sie vollstaendig ist.
- *
- *  Nicht fertige Dateien bleiben aussen vor, genau wie bei "Alle auswaehlen".
- *  Der Chat bekaeme von ihnen nur leeren Zusammenhang.
- */
+/** Three states, unfinished files stay out. */
 export function GroupCheckbox({
   state,
   disabled,

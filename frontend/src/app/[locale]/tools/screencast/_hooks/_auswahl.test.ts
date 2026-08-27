@@ -35,7 +35,7 @@ describe("startAuswahl", () => {
   });
 
   it("ein gespeichertes neu_vertonen wird NICHT wiederhergestellt", () => {
-    // Das gilt nur fuer einen Lauf, sonst haengt ein alter Stand ewig fest.
+    // That applies to one run only, otherwise an old state sticks forever.
     const a = startAuswahl(3, { video_folien: [0, 1, 2], neu_vertonen: [0, 1, 2] });
     expect(a.imScreencast).toEqual([0, 1, 2]);
     expect(a.neuVertonen).toEqual([]);

@@ -1,10 +1,4 @@
-"""The sweep position actually reaches the database.
-
-Written after the fact: the first version of ``set_context_cursors`` never committed, so
-every generation run read an empty position and swept the same window forever. The unit
-tests mocked the repository away and could not see it, and the sweep looked correct from
-the outside because a single run is right either way. It only shows up on the SECOND run.
-"""
+"""The mark really has to reach the database, otherwise nothing sweeps."""
 
 import json
 

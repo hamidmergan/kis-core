@@ -1,10 +1,6 @@
 "use client";
 
-/**
- * Hinweis auf der Startseite: ein Schalter und ein Text, die zusammengehören.
- * Deshalb eine eigene Karte statt zweier Einträge aus dem Bausatz, sonst stünde
- * der Schalter über einem Textfeld, dessen Zusammenhang niemand sieht.
- */
+/** Switch and text of the start page notice belong in one card. */
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";

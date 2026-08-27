@@ -7,11 +7,7 @@ import type { PanelKey, ViewerState } from "../_types";
 const MIN_PANEL = 50;
 const MOBILE_BREAKPOINT = 768;
 
-// Smartphones get the single-panel layout regardless of viewport dimensions
-// (landscape iPhones can be 844x390 — neither max-width:767 nor every browser's
-// pointer:coarse query catches that reliably). UA hints + UA-string fallback
-// cover real devices across iOS/Android/browsers. Tablets in portrait fall
-// into single-panel via the mediaQuery below; landscape keeps 3 panels.
+// Phones always get the single column, detected by device instead of window width.
 function isPhoneUA(): boolean {
   if (typeof navigator === "undefined") return false;
   const uaData = (navigator as { userAgentData?: { mobile?: boolean } }).userAgentData;
@@ -73,9 +69,7 @@ export function usePanelLayout({ uuid, viewerSource }: UsePanelLayoutOptions) {
   const mediaOpenRef = useRef(mediaOpen);
   mediaOpenRef.current = mediaOpen;
 
-  // Tablet portrait (iPad etc.) also gets single-panel - at 768-1024px wide
-  // the 3-panel layout is too narrow. With orientation:landscape the tablet
-  // switches back to 3 panels (matchMedia listener fires on rotation).
+  // Tablets in portrait are too narrow for three columns, in landscape they flip back.
   const mobileMediaQuery = `(max-width: ${MOBILE_BREAKPOINT - 1}px), (max-height: 500px) and (pointer: coarse), (orientation: portrait) and (pointer: coarse) and (max-width: 1024px)`;
 
   useEffect(() => {
@@ -97,9 +91,7 @@ export function usePanelLayout({ uuid, viewerSource }: UsePanelLayoutOptions) {
     setIsMobile(isPhone || window.matchMedia(mobileMediaQuery).matches);
   }, [isPhone, mediaOpen, mobileMediaQuery]);
 
-  // Track orientation only on phones — drives is-phone-landscape body class
-  // so CSS rules that hide header/title and narrow the panel fire on phones
-  // in landscape regardless of pointer:coarse / viewport-height quirks.
+  // The orientation only counts on phones and sets the class on the body there.
   useEffect(() => {
     if (!isPhone) return;
     const mq = window.matchMedia("(orientation: landscape)");

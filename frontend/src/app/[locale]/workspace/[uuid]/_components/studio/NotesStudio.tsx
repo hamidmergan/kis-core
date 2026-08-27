@@ -63,8 +63,7 @@ export function NotesStudio({
   const onChipClick: CitationChipClickHandler = (uuid, page, filename, sourceText, startTime, isExact) =>
     onPillClick?.(uuid, page, filename, sourceText, startTime, isExact);
 
-  // Builds a chat-message-shaped object so the chat citation renderer can be reused 1:1.
-  // qmap entries also feed the source list at the bottom of each expanded note.
+  // Builds a chat message object so the citation display can be reused.
   function noteAsMessage(note: Note): { msg: ChatMessage; qmap: SourceQmap[] } {
     const qmap: SourceQmap[] = (note.source_uuids ?? []).map((uuid, i) => ({
       qnum: i + 1,
@@ -157,16 +156,14 @@ export function NotesStudio({
               {notes.map((note, idx) => {
                 const isExpanded = expandedId === note.id;
                 const { msg, qmap } = noteAsMessage(note);
-                // Note plus the start offset of the markdown node: that pair names a chip
-                // stop by its place, so two stops never share their open/closed state.
+                // Note plus node position names a chip site unambiguously.
                 const wrapCitations = (
                   children: React.ReactNode,
                   node?: { position?: { start?: { offset?: number } } },
                 ) =>
                   withCitations(children, msg, activeSourceIds ?? [], getFilename, onChipClick,
                     (key, vals) => tChip(key, vals), `n${note.id}#${node?.position?.start?.offset ?? 0}-`);
-                // Table cells only. A cell holds no sentence that a period ends, so its
-                // stops keep the text exactly as it stands.
+                // In table cells the text stays unchanged.
                 const wrapCitationsInCell = (
                   children: React.ReactNode,
                   node?: { position?: { start?: { offset?: number } } },

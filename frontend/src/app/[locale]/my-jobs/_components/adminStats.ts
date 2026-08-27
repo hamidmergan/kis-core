@@ -1,7 +1,7 @@
-/** Die Zahlen, die der Screencast waehrend des Laufs mitschreibt. Nur fuer Admins. */
+/** The numbers the screencast records during the run, for admins only. */
 export type JobStats = Record<string, Record<string, unknown>>;
 
-/** In dieser Reihenfolge laeuft ein Screencast durch, so wird er auch angezeigt. */
+/** A screencast runs through in this order, and it is displayed that way too. */
 const REIHENFOLGE = [
   "uebersetzung",
   "skripte",
@@ -51,7 +51,7 @@ export function gesamtdauerS(stats: JobStats | undefined | null): number | null 
   return dauern.reduce((a, b) => a + b, 0);
 }
 
-/** Ein Rohwert aus der meta.json, lesbar gemacht. */
+/** A raw value from the meta.json, made readable. */
 export function wertText(
   schluessel: string,
   wert: string | number | boolean,

@@ -1,1 +1,1 @@
-"""Prompt-Texte der KI-Assistenz, je Werkzeug eine Datei."""
+"""Prompt texts of the AI assistant, one file per tool."""

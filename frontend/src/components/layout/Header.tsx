@@ -20,11 +20,10 @@ interface HeaderProps {
 export default function Header({ hasSession = true, showLogout = false, showToolsToggle = false }: HeaderProps) {
   const t = useTranslations("header");
   const pathname = usePathname();
-  // Die Adresse sagt, wo man ist, der Knopf im Kopf zeigt es an.
+  // The URL says where you are, the button in the header shows it.
   const onCalendar = pathname === "/kalender" || pathname.startsWith("/kalender/");
   const [isAdmin, setIsAdmin] = useState(false);
-  // "Admin" nur fuer den, der wirklich alles darf. Wer nur eine Seite
-  // pflegt, geht in seine "Einstellungen".
+  // Admin only for whoever may do everything, everyone else goes to their settings.
   const [areaKey, setAreaKey] = useState<"admin" | "settings">("admin");
   const [isLocalMode, setIsLocalMode] = useState(false);
   const [hasTools, setHasTools] = useState(false);
@@ -35,7 +34,7 @@ export default function Header({ hasSession = true, showLogout = false, showTool
       setIsAdmin(s.is_admin ?? false);
       setAreaKey(areaLabelKey(s.permissions));
       setIsLocalMode(s.local_mode ?? false);
-      // Jobs entstehen nur aus Werkzeugen, ohne Werkzeug-Recht bleibt die Liste leer.
+      // Jobs only come from tools, without a tool permission the list stays empty.
       setHasTools((s.permissions?.tools?.length ?? 0) > 0);
     });
   }, [showLogout, hasSession]);

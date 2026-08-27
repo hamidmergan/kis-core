@@ -1,29 +1,4 @@
-"""Was ein Modell vertraegt: einmal messen, merken, danach nur noch rechnen.
-
-Bis 2026-08-14 stand die Kontextgroesse als feste Zeichenzahl in zwei Admin-Feldern.
-Das ging schief, sobald jemand ein Modell mit kleinerem Fenster eintrug: der Anbieter
-lehnte die Anfrage mit HTTP 400 ab und der Chat zeigte einen Fehler. Gemessen an
-16 Modellen reichen die Fenster von 20.080 bis 1.048.576 Token, ein einziger fester
-Wert kann also gar nicht fuer alle stimmen.
-
-Drei Dinge werden je Anbieter und Modell EINMAL gemessen und weggeschrieben:
-
-* die Fenstergroesse in Token
-* ob das Modell vor der Antwort denkt
-* welcher Schalter dieses Denken abstellt
-
-Warum ueberhaupt Schalter gemessen werden, obwohl Denken ueberall aus sein soll:
-Manche Anbieter ignorieren unbekannte Felder stillschweigend (alle fuenf probierten Schalter kamen
-mit HTTP 200 zurueck, nur zwei wirkten), andere Anbieter lehnen sie mit einem Fehler ab.
-``reasoning_effort: "none"`` ist bei OpenAI kein gueltiger Wert. Beide Schalter blind
-mitzuschicken zerlegt also genau die Anbieter, fuer die dieses Modul gedacht ist.
-Erkannt wird deshalb an der WIRKUNG, nicht am Fehler.
-
-Verraet ein Anbieter seine Grenze nicht (zwei der 16 gemessenen Modelle tun das nicht), bleibt
-das Fenster ``unbekannt`` und es wird KEINE Zahl erfunden: dann deckelt nichts und allein die
-Einstellung im Admin entscheidet. Trifft spaeter eine echte Absage ein, liest
-:func:`learn_from_error` die Zahl heraus und traegt sie als ``gelernt`` nach.
-"""
+"""Measures once what a model can take, remembers it and only computes afterwards."""
 
 from __future__ import annotations
 
@@ -35,63 +10,47 @@ from loguru import logger
 
 # ── Stellschrauben ──────────────────────────────────────────────────────────
 
-# Verraet ein Anbieter sein Fenster nicht, wird KEINE Zahl erfunden: 0 heisst
-# unbekannt, und dann entscheidet allein die Einstellung im Admin.
+# Without a statement from the provider no number is invented, 0 means unknown.
 UNBEKANNTES_FENSTER = 0
 
-# Gemessen wurden 3,3 (dichter KIS-Kontext mit Seitenmarken und Kennungen) bis 6,2
-# (deutscher Fliesstext) Zeichen je Token. Gerechnet wird mit dem dichten Fall, sonst
-# passt der Kontext im schlechtesten Fall nicht mehr ins Fenster.
+# Computed for the dense case, otherwise the context does not fit.
 CHARS_PER_TOKEN = 3.0
 
-# Anteil des Fensters, der an den abgerufenen Kontext geht. Der Rest traegt System-
-# anweisung, Frage, Gespraechsverlauf und die Antwort selbst.
+# Share of the window that goes to the retrieved context.
 CHAT_SHARE = 0.60
-# Ein Werkzeug packt ein ganzes Dokument in EINEN Aufruf, ohne Verlauf und ohne lange
-# Antwort, und darf deshalb mehr vom Fenster belegen.
+# A tool may take more of the window, it has no history.
 TOOL_SHARE = 0.75
-# Eine gezielte Frage braucht nur die passenden Stellen, und zu viel Beiwerk laesst
-# das Modell die Antwort uebersehen.
+# A specific question only needs the matching spots.
 SPECIFIC_SHARE = 0.20
 
 
-# Auch ein winziges Fenster muss noch eine Anfrage zulassen.
+# Even a tiny window must still allow one request.
 MIN_CONTEXT_CHARS = 2000
 
-# Obergrenze fuer kurze Hilfsaufrufe (Absichtserkennung, Titel, Notizen, Urteile).
-# Vorher standen dort 80 bis 300 Token. Gemessen an qwen3.6-35b-a3b kostet schon eine
-# winzige JSON-Antwort 369 Token, sobald das Modell denkt: das Denken frisst den Platz
-# auf und der Inhalt kommt LEER zurueck, was wie ein kaputtes Modell aussieht. Denken ist
-# jetzt zwar abgeschaltet, aber nicht jedes Modell laesst sich abschalten. Die Grenze ist
-# nur eine Obergrenze, ein Modell ohne Denken hoert vorher von selbst auf und zahlt nichts.
+# Obergrenze fuer kurze Hilfsaufrufe, denkende Modelle brauchen Platz.
 PRECALL_MAX_TOKENS = 1000
 
-# Obergrenze fuer die Chat-Antwort, aus 5670 gemessenen Antworten gewaehlt: p99 liegt bei
-# 2.870 Token, oberhalb von 8192 lag genau eine und die war eine Wiederholungsschleife.
+# Ceiling for the chat answer, chosen from 5670 measured answers.
 CHAT_MAX_OUTPUT_TOKENS = 8192
 
-# Merkmale, die ueber /chat/completions laufen und deshalb vermessbar sind. Eine
-# Einbettungs- oder Whisper-Route kennt gar keine Chat-Anfrage.
+# Only features going through /chat/completions can be measured.
 CHAT_LIKE_FEATURES = frozenset({"chat", "vision", "ocr", "doc_translate", "transcript_translate"})
 
 QUELLE_GEMESSEN = "gemessen"
 QUELLE_UNBEKANNT = "unbekannt"
 QUELLE_GELERNT = "gelernt"
 
-# Die Sonde: eine absichtlich unmoegliche Anfrage. Der Anbieter lehnt sie ab, bevor er
-# rechnet, und nennt dabei sein Fenster. Kostet kein Token und keine Rechenzeit.
+# The probe: an impossible request whose refusal names the window.
 _PROBE_MAX_TOKENS = 99_999_999
 _PROBE_FRAGE = "Antworte nur mit: ok"
-# Platz genug, dass ein denkendes Modell sein Denken auch wirklich zeigt. Mit 300 Token
-# frisst das Denken den Platz auf und die Antwort kommt leer zurueck, was frueher wie
-# ein kaputtes Modell aussah.
+# Room enough for a thinking model to show its thinking.
 _PROBE_ANTWORT_TOKENS = 400
 
-# Die Schalter, die Denken abstellen, in der Reihenfolge, in der sie probiert werden.
+# The switches that turn thinking off, in the order they are tried.
 THINK_OFF_SWITCHES: dict[str, dict] = {
-    # vLLM / Qwen / GLM: geht ueber die Chat-Vorlage
+    # vLLM / Qwen / GLM: goes through the chat template
     "chat_template_kwargs": {"chat_template_kwargs": {"enable_thinking": False}},
-    # OpenAI-naher Wortlaut, den viele Anbieter ebenfalls verstehen
+    # OpenAI-style wording that many providers also understand
     "reasoning_effort_none": {"reasoning_effort": "none"},
 }
 _SWITCH_ORDER = ("chat_template_kwargs", "reasoning_effort_none")
@@ -99,8 +58,7 @@ _SWITCH_ORDER = ("chat_template_kwargs", "reasoning_effort_none")
 
 @dataclass
 class ModelProfile:
-    """Was ueber ein Modell bekannt ist. ``think_off`` ist leer, wenn das Modell
-    nicht denkt oder sich sein Denken nicht abstellen laesst."""
+    """What is known about a model, think_off is empty when it does not think."""
 
     window_tokens: int
     source: str
@@ -112,11 +70,9 @@ class ModelProfile:
         return self.window_tokens > 0 and self.source != QUELLE_UNBEKANNT
 
 
-# ── Fenstergroesse aus einer Absage lesen ───────────────────────────────────
+# ── Read the window size from a refusal ─────────────────────────────────────
 
-# Nur Muster, die das FENSTER nennen. Die Groesse der abgelehnten Anfrage steht in
-# derselben Meldung und darf auf keinen Fall mitgelesen werden, sonst merkt sich KIS
-# genau den Wert, an dem es gerade gescheitert ist.
+# Only patterns naming the window, never the size of the rejected request.
 _WINDOW_PATTERNS = (
     r"max_model_len=max_total_tokens=(\d+)",
     r"max_model_len=(\d+)",
@@ -127,11 +83,7 @@ _WINDOW_PATTERNS = (
 
 
 def parse_window(text: str | None) -> int | None:
-    """Die Fenstergroesse in Token aus einer Anbieter-Absage, oder ``None``.
-
-    Nennt eine Meldung mehrere Zahlen, gilt die kleinste. Wer die groessere nimmt,
-    baut sich denselben Fehler wieder ein.
-    """
+    """The window size from a provider refusal, the smallest of several numbers."""
     if not text:
         return None
     treffer: list[int] = []
@@ -144,22 +96,13 @@ def parse_window(text: str | None) -> int | None:
 # ── Token in Zeichen ────────────────────────────────────────────────────────
 
 def context_chars(window_tokens: int, share: float) -> int:
-    """Zeichenbudget fuer ein Fenster dieser Groesse.
-
-    Bewusst vorsichtig gerechnet (siehe :data:`CHARS_PER_TOKEN`) und nach unten
-    begrenzt, damit auch ein winziges Fenster noch eine Anfrage zulaesst.
-    """
+    """Character budget for a window of this size, computed conservatively."""
     roh = int(max(0, window_tokens) * share * CHARS_PER_TOKEN)
     return max(MIN_CONTEXT_CHARS, roh)
 
 
 def think_off_body(profile: ModelProfile | None) -> dict:
-    """Die Zusatzangabe, die das Denken dieses Modells abstellt.
-
-    Leer, wenn das Modell nicht denkt oder kein Schalter gewirkt hat. Etwas
-    Wirkungsloses mitzuschicken bringt nichts und kostet bei strengen Anbietern
-    die ganze Anfrage.
-    """
+    """The extra argument that turns off this model's thinking, empty otherwise."""
     if profile is None or not profile.thinks or not profile.think_off:
         return {}
     return dict(THINK_OFF_SWITCHES.get(profile.think_off) or {})
@@ -168,12 +111,7 @@ def think_off_body(profile: ModelProfile | None) -> dict:
 # ── Messen ──────────────────────────────────────────────────────────────────
 
 def measure_with(call) -> ModelProfile:
-    """Ein Modell vermessen. ``call(**kwargs)`` schickt eine Chat-Anfrage.
-
-    Drei winzige Aufrufe, zusammen billiger als eine einzige echte Chatanfrage:
-    die Sonde fuer das Fenster, eine Miniaturfrage fuer das Denkverhalten, und nur
-    bei einem Denker je eine Runde pro Schalter.
-    """
+    """Measures a model with three tiny calls."""
     window, quelle = _measure_window(call)
     thinks = _measure_thinking(call)
     think_off = _measure_switch(call) if thinks else ""
@@ -181,7 +119,7 @@ def measure_with(call) -> ModelProfile:
 
 
 def _measure_window(call) -> tuple[int, str]:
-    """Fenstergroesse per Sonde, oder unbekannt. Geraten wird nie."""
+    """Window size by probe, or unknown, it is never guessed."""
     try:
         call(messages=[{"role": "user", "content": "hi"}], max_tokens=_PROBE_MAX_TOKENS)
     except Exception as e:  # noqa: BLE001 — die Absage IST das Messergebnis
@@ -193,7 +131,7 @@ def _measure_window(call) -> tuple[int, str]:
 
 
 def _measure_thinking(call) -> bool:
-    """Denkt das Modell vor der Antwort?"""
+    """Does the model think before answering?"""
     try:
         antwort = call(
             messages=[{"role": "user", "content": _PROBE_FRAGE}],
@@ -207,12 +145,7 @@ def _measure_thinking(call) -> bool:
 
 
 def _measure_switch(call) -> str:
-    """Welcher Schalter das Denken abstellt, oder leer.
-
-    Ein Schalter, den der Anbieter mit einem Fehler ablehnt, wird uebersprungen.
-    Ein Schalter, den er stillschweigend ignoriert, faellt durch, weil weiter
-    gedacht wird.
-    """
+    """Which switch turns thinking off, recognised by its effect."""
     for name in _SWITCH_ORDER:
         try:
             antwort = call(
@@ -229,21 +162,12 @@ def _measure_switch(call) -> str:
     return ""
 
 
-# Was in der Mitte einer gekuerzten Nachricht steht, damit das Modell die Luecke sieht
-# und nicht so tut, als haette es das ganze Dokument gelesen.
+# Sits in the middle of a shortened message so the model sees the gap.
 _LUECKE = "\n\n[…]\n\n"
 
 
 def fit_messages(messages: list[dict], budget_chars: int) -> list[dict]:
-    """Nachrichten so kuerzen, dass sie zusammen unter ``budget_chars`` bleiben.
-
-    Gekuerzt wird der laengsten Nachricht die MITTE, so lange bis es passt. Anfang und
-    Ende einer Quellensammlung tragen die Antwort, die Mitte ist der billigste Verlust.
-    Systemanweisung und Frage sind meist kurz und bleiben dadurch von selbst heil.
-
-    Das Original bleibt unangetastet, damit ein misslungener zweiter Versuch nicht auch
-    noch den ersten Stand zerstoert hat.
-    """
+    """Cuts the middle out of the longest message until everything fits the budget."""
     kopie = [dict(m) for m in messages or []]
     if not kopie:
         return kopie
@@ -251,8 +175,7 @@ def fit_messages(messages: list[dict], budget_chars: int) -> list[dict]:
     if gesamt <= budget_chars:
         return kopie
 
-    # Jede Nachricht behaelt mindestens diesen Rest, sonst antwortet das Modell
-    # quellenlos statt gar nicht.
+    # Every message keeps a remainder, otherwise the model answers without sources.
     boden = 200
     while gesamt > budget_chars:
         index = max(range(len(kopie)), key=lambda i: len(kopie[i].get("content") or ""))
@@ -270,7 +193,7 @@ def fit_messages(messages: list[dict], budget_chars: int) -> list[dict]:
 
 
 def _kuerze_mitte(text: str, ziel: int) -> str:
-    """``text`` auf etwa ``ziel`` Zeichen bringen, indem die Mitte herausfaellt."""
+    """Brings ``text`` to about ``ziel`` characters by dropping the middle."""
     if ziel >= len(text):
         return text
     nutzbar = max(0, ziel - len(_LUECKE))
@@ -282,16 +205,14 @@ def _kuerze_mitte(text: str, ziel: int) -> str:
 
 
 def measure_provider_model(base_url: str, api_key: str, model: str) -> ModelProfile:
-    """Ein Modell an seinem Anbieter vermessen. Nur hier faellt Netzverkehr an."""
+    """Measures a model at its provider, only here does network traffic occur."""
     import httpx
     from openai import OpenAI
 
     client = OpenAI(
         api_key=api_key or "not-needed",
         base_url=base_url,
-        # Kuerzer als im Betrieb: eine Messung haengt an einem Admin-Klick oder an der
-        # ersten Nutzeranfrage, und ein lahmer Anbieter darf beides nicht minutenlang
-        # aufhalten. Wer nicht rechtzeitig antwortet, gilt als unvermessen.
+        # Shorter than in operation, a measurement hangs on a click.
         timeout=httpx.Timeout(connect=10.0, read=30.0, write=10.0, pool=10.0),
         max_retries=0,
     )
@@ -304,15 +225,13 @@ def measure_provider_model(base_url: str, api_key: str, model: str) -> ModelProf
 
 # ── Speicher davor ──────────────────────────────────────────────────────────
 
-# Schlaegt eine Messung fehl (Anbieter offline, Schluessel falsch), wird sie nicht bei
-# jeder Anfrage erneut versucht. Sonst zahlt jeder Nutzer die Zeitgrenze des toten
-# Anbieters, und das bei jedem Klick.
+# A failed measurement is not repeated on every request.
 _RETRY_AFTER_SEC = 300.0
 _failed_at: dict[tuple[int, str], float] = {}
 
 
 def stored_profile(provider_id: int, model: str) -> ModelProfile | None:
-    """Die gemerkte Messung, oder ``None``. Fasst nie das Netz an."""
+    """The remembered measurement, or ``None``, it never touches the network."""
     if not provider_id or not model:
         return None
     from src import database as db
@@ -332,12 +251,7 @@ def stored_profile(provider_id: int, model: str) -> ModelProfile | None:
 
 
 def ensure_profile(provider: dict, model: str) -> ModelProfile:
-    """Die Messung dieses Modells, notfalls jetzt nachgeholt und weggeschrieben.
-
-    Ist bereits etwas gemerkt, kostet der Aufruf eine Zeile aus der Datenbank. Sonst
-    wird einmal gemessen. Scheitert das Messen, bleibt das Fenster unbekannt und der
-    naechste Versuch wartet ein paar Minuten.
-    """
+    """The measurement of this model, taken now and stored if need be."""
     provider_id = (provider or {}).get("id")
     fallback = ModelProfile(UNBEKANNTES_FENSTER, QUELLE_UNBEKANNT, False, "")
     if not provider_id or not model:
@@ -384,13 +298,7 @@ def ensure_profile(provider: dict, model: str) -> ModelProfile:
 
 
 def remeasure(provider: dict, model: str) -> ModelProfile | None:
-    """Neu vermessen und wegschreiben, auch wenn schon etwas gemerkt ist.
-
-    Das ist der Weg aus dem Admin: wer ein Modell eintraegt oder den Testknopf drueckt,
-    soll sofort sehen, was es kann. Gibt ``None`` zurueck, wenn nicht gemessen werden
-    konnte, dann bleibt der alte Eintrag stehen statt durch einen Ratewert ersetzt zu
-    werden.
-    """
+    """Measures again and stores, even when something is already remembered."""
     provider_id = (provider or {}).get("id")
     if not provider_id or not model:
         return None
@@ -424,7 +332,7 @@ def remeasure(provider: dict, model: str) -> ModelProfile | None:
 
 
 def as_dict(profile: ModelProfile | None) -> dict | None:
-    """Fuer die Oberflaeche: die Messung als schlichtes Wortverzeichnis."""
+    """For the interface: the measurement as a plain dictionary."""
     if profile is None:
         return None
     bekannt = profile.measured
@@ -439,12 +347,7 @@ def as_dict(profile: ModelProfile | None) -> dict | None:
 
 
 def learn_from_error(provider_id: int, model: str, error) -> int | None:
-    """Aus einer echten Absage im Betrieb die Fenstergroesse lernen.
-
-    Gibt die gelernte Zahl zurueck, wenn die Meldung eine nennt, sonst ``None``.
-    Der Aufrufer kann daraufhin verkleinert nochmal senden, statt dem Nutzer einen
-    Fehler zu zeigen.
-    """
+    """Learns the window size from a real refusal in operation."""
     fenster = parse_window(str(error))
     if not fenster or not provider_id or not model:
         return None
@@ -458,11 +361,7 @@ def learn_from_error(provider_id: int, model: str, error) -> int | None:
 
 
 def profile_for_feature(feature: str = "chat") -> ModelProfile | None:
-    """Was ueber das Modell dieses Merkmals bekannt ist, oder ``None``. Nie Netzverkehr.
-
-    ``None`` heisst "nichts bekannt". Die Budgetrechnung darf keine Anfrage aufhalten,
-    also ist eine unlesbare Route dasselbe wie ein unvermessenes Modell.
-    """
+    """What is known about this feature's model, without network traffic."""
     from src import database as db
     try:
         route = db.get_route(feature) or {}
@@ -475,25 +374,8 @@ def profile_for_feature(feature: str = "chat") -> ModelProfile | None:
     return stored_profile(provider_id, model)
 
 
-def window_for_feature(feature: str = "chat") -> int:
-    """Fenstergroesse des Modells, das dieses Merkmal bedient, oder 0 fuer unbekannt."""
-    profil = profile_for_feature(feature)
-    return profil.window_tokens if profil else UNBEKANNTES_FENSTER
-
-
 def cap_for_model(budget_chars: int, share: float, feature: str = "chat") -> int:
-    """Ein Admin-Budget auf das kuerzen, was das Modell nachweislich vertraegt.
-
-    Die Zahl im Admin bleibt die Vorgabe. Dieser Deckel greift nur, wenn ueber das
-    Modell wirklich etwas bekannt ist: gemessen, im Betrieb gelernt oder von Hand
-    eingetragen. Schweigt der Anbieter, wird nichts erfunden und nichts gekuerzt.
-
-    Warum es den Deckel ueberhaupt gibt: am 14.08.2026 am echten Modell geprueft,
-    qwen3-omni kann 65.536 Token. Die im Admin stehenden 800.000 Zeichen fuer die
-    Werkzeuge lehnt es mit HTTP 400 ab. Die Selbstheilung faengt das ab, aber sie
-    repariert nur den einen Aufruf. Ohne diesen Deckel zahlt JEDER weitere Lauf
-    denselben Fehlversuch, weil die Einstellung unveraendert dasteht.
-    """
+    """Trims an admin budget down to what the model provably takes."""
     profil = profile_for_feature(feature)
     if profil is None or not profil.measured:
         return budget_chars
@@ -501,19 +383,13 @@ def cap_for_model(budget_chars: int, share: float, feature: str = "chat") -> int
 
 
 def _with_v1(base_url: str) -> str:
-    """Manche Anbieter stehen mit ``/v1`` in der Datenbank, manche ohne."""
+    """Some providers sit in the database with ``/v1``, some without."""
     url = (base_url or "").rstrip("/")
     return url if url.endswith("/v1") else f"{url}/v1"
 
 
 def _thought(antwort) -> bool:
-    """Hat das Modell gedacht?
-
-    Drei Wege, weil jeder Anbieter es anders nennt: ``reasoning``,
-    ``reasoning_content`` (vLLM-Standard), oder ``<think>`` mitten im Text. Kommt gar
-    kein Inhalt zurueck und der Platz ist aufgebraucht, hat das Denken ihn gefressen,
-    was fuer uns dasselbe bedeutet.
-    """
+    """Did the model think? Three ways, because every provider names it differently."""
     try:
         wahl = antwort.choices[0]
         nachricht = wahl.message

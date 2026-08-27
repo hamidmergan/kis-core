@@ -1,4 +1,4 @@
-"""Kein Skript darf auf der falschen Folie landen."""
+"""No script may end up on the wrong slide."""
 
 import pytest
 
@@ -57,7 +57,7 @@ class ScriptClient(_ScriptsMixin):
         return self._client.chat.completions.calls
 
 
-# Die drei Folien aus dem echten Durchlauf, gekürzt.
+# The three slides from the real run, shortened.
 FOLIE_BILDER = "Sample tasks"
 FOLIE_NEWSTEST = (
     "Current study by the New Responsibility Foundation on how to deal with news "
@@ -121,7 +121,7 @@ def test_passende_gruppe_kostet_keinen_zusatzaufruf():
 
 
 def test_folie_ohne_text_loest_keinen_fehlalarm_aus():
-    """Eine leere Folie hat keinen Inhalt, an dem sich etwas messen ließe."""
+    """An empty slide has no content to measure anything against."""
     client = ScriptClient([
         f"{SKRIPT_NEWSTEST}\n|||\n\n|||\n{SKRIPT_PROGRAMME}",
     ])

@@ -68,8 +68,7 @@ async def search_pdf(
     if not q_clean:
         return {"matches": [], "page_width": 0, "page_height": 0}
 
-    # Fetch, parse and scan run in a thread so the single-worker event
-    # loop is not blocked during a PDF search.
+    # Runs in a thread so the search does not block the event loop.
     def _search() -> dict:
         data = get_file(source["file_path"])
         doc = pdfium.PdfDocument(data)
@@ -97,10 +96,7 @@ async def search_pdf(
                     if count <= 0:
                         continue
 
-                    # Walk the matched chars, grouping into per-line rects.
-                    # pdfium uses bottom-up coords (origin bottom-left); convert to
-                    # display orientation (top-left origin, y0=top, y1=bottom) so
-                    # the frontend overlay math matches fitz's old output shape.
+                    # Converts the coordinates from bottom-left to top-left.
                     line_rects: list[tuple[float, float, float, float]] = []
                     cur: list[tuple[float, float, float, float]] = []
                     last_bottom: float | None = None

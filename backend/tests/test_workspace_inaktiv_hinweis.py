@@ -1,23 +1,4 @@
-"""Ein abgeschalteter Workspace sagt den Lernenden, dass er zu ist.
-
-Der Schalter im Kursraum verspricht "fuer Studierende gesperrt". Eingeloest hat
-er das nie: er filterte nur zwei Listenabfragen. Der Kurs verschwand also
-kommentarlos aus der Liste, waehrend ein Lesezeichen weiterhin voll
-hineinfuehrte, samt Chat. Beides falsch herum.
-
-Ab jetzt gilt in beide Richtungen dasselbe. Die Karte bleibt in der Liste
-stehen und sagt, dass gerade zu ist. Der direkte Weg hinein wird abgelehnt, und
-zwar mit 423 statt 403: mit den Rechten dieser Person ist alles in Ordnung, es
-ist nur zu. Nur daran kann die Oberflaeche den Hinweis vom Rauswurf
-unterscheiden.
-
-Eigentuemer und Tutoren kommen weiter hinein. Sie fuehren den Raum, und
-abgeschaltet ist er genau dann, wenn sie ihn herrichten.
-
-Wer ueber einen Link auf einen abgeschalteten Workspace stoesst, darf beitreten
-und bekommt den Hinweis. Ein abgelehnter Beitritt haette die Person spaeter
-erneut auf Linksuche geschickt, so schaltet die Karte einfach frei.
-"""
+"""A switched-off course room says so and answers with 423 instead of 403."""
 
 import asyncio
 import inspect
@@ -41,7 +22,7 @@ ZU = {**OFFEN, "is_active": False}
 
 @pytest.fixture
 def workspace_mit(monkeypatch):
-    """Klinkt die Datenbank aus: welcher Raum, wer Tutor, wer eingeschrieben."""
+    """Stubs out the database: which room, who is tutor, who is enrolled."""
     def einrichten(workspace, tutoren=frozenset(), eingeschrieben=frozenset()):
         monkeypatch.setattr(_helpers.db, "get_aia_workspace", lambda uuid: workspace)
         monkeypatch.setattr(
@@ -53,10 +34,10 @@ def workspace_mit(monkeypatch):
     return einrichten
 
 
-# --- Der Weg hinein -------------------------------------------------------
+# --- The way in -----------------------------------------------------------
 
 def test_lernender_kommt_nicht_in_den_abgeschalteten_raum(workspace_mit):
-    """Das Lesezeichen lief frueher daran vorbei, der Chat antwortete weiter."""
+    """The bookmark used to slip past this and the chat kept answering."""
     workspace_mit(ZU, eingeschrieben={LERNENDER})
     with pytest.raises(HTTPException) as fehler:
         _helpers._require_workspace_access("w-1", LERNENDER)
@@ -64,7 +45,7 @@ def test_lernender_kommt_nicht_in_den_abgeschalteten_raum(workspace_mit):
 
 
 def test_die_absage_sagt_woran_es_liegt(workspace_mit):
-    """Ohne eigenen Text stuende dort 'Kein Zugriff', und das stimmt hier nicht."""
+    """Without its own text it would say 'no access', and that is not true here."""
     workspace_mit(ZU, eingeschrieben={LERNENDER})
     with pytest.raises(HTTPException) as fehler:
         _helpers._require_workspace_access("w-1", LERNENDER, locale="de")
@@ -78,7 +59,7 @@ def test_eigentuemer_kommt_auch_im_abgeschalteten_raum_hinein(workspace_mit):
 
 
 def test_tutor_kommt_auch_im_abgeschalteten_raum_hinein(workspace_mit):
-    """Abgeschaltet ist der Raum genau dann, wenn Tutoren ihn herrichten."""
+    """The room is switched off exactly while tutors are setting it up."""
     workspace_mit(ZU, tutoren={TUTOR}, eingeschrieben={TUTOR})
     assert _helpers._require_workspace_access("w-1", TUTOR) == ZU
 
@@ -89,14 +70,14 @@ def test_offener_raum_bleibt_offen(workspace_mit):
 
 
 def test_fremder_erfaehrt_weiterhin_nur_kein_zugriff(workspace_mit):
-    """423 wuerde einem Unbeteiligten verraten, dass es diesen Raum gibt."""
+    """423 would tell an outsider that this room exists."""
     workspace_mit(ZU)
     with pytest.raises(HTTPException) as fehler:
         _helpers._require_workspace_access("w-1", FREMDER)
     assert fehler.value.status_code == 403
 
 
-# --- Wer den Raum offen sieht ---------------------------------------------
+# --- Who sees the room as open --------------------------------------------
 
 @pytest.fixture
 def tutoren(monkeypatch):
@@ -115,11 +96,11 @@ def test_offenheit_haengt_an_der_person_nicht_nur_am_schalter(tutoren):
     assert routes._is_open_for(OFFEN, LERNENDER) is True
 
 
-# --- Der Weg ueber den Link -----------------------------------------------
+# --- The way via the link -------------------------------------------------
 
 @pytest.fixture
 def beitritt(monkeypatch):
-    """Beitritt ohne Datenbank, mit Protokoll ueber jede Einschreibung."""
+    """Joining without a database, with a log of every enrollment."""
     def einrichten(workspace, tutoren=frozenset()):
         protokoll = []
         monkeypatch.setattr(
@@ -147,7 +128,7 @@ def _beitreten(user_id=LERNENDER):
 
 
 def test_beitritt_in_den_abgeschalteten_raum_klappt_und_sagt_es(beitritt):
-    """Ablehnen haette die Person spaeter erneut auf Linksuche geschickt."""
+    """Rejecting would have sent the person looking for a link again later."""
     protokoll = beitritt(ZU)
     ergebnis = _beitreten()
     assert protokoll == [(ZU["id"], LERNENDER)]
@@ -168,7 +149,7 @@ def test_eigener_link_fuehrt_den_eigentuemer_auch_im_zu_raum_hinein(beitritt):
 
 
 def test_vorschau_sagt_vorher_ob_der_raum_offen_ist(monkeypatch):
-    """Sonst stuende dort nur ein Knopf, der ins Nichts fuehrt."""
+    """Otherwise there would only be a button leading nowhere."""
     monkeypatch.setattr(
         routes.db, "get_workspace_by_access_link_code",
         lambda code: (ZU, {"id": 22, "expires_at": None}),
@@ -179,17 +160,17 @@ def test_vorschau_sagt_vorher_ob_der_raum_offen_ist(monkeypatch):
     assert vorschau["is_open"] is False
 
 
-# --- Die Karte in der Liste -----------------------------------------------
+# --- The card in the list -------------------------------------------------
 
 def test_abgeschalteter_raum_faellt_nicht_mehr_aus_der_liste():
-    """Verschwindet die Zeile, gibt es nichts, woran der Hinweis haengen koennte."""
+    """If the row disappears there is nothing for the notice to hang on."""
     from src.features.ai_assistant.repository import workspaces as repo
     quelle = inspect.getsource(repo.get_aia_workspaces_for_member)
     assert "m.is_active = TRUE" not in quelle
 
 
 def test_die_zeile_bringt_ihren_zustand_mit():
-    """Die Liste baut den Hinweis aus is_active, das Feld muss also mitkommen."""
+    """The list builds the notice from is_active, so the field has to come along."""
     from src.features.ai_assistant.routes import workspaces as routes_modul
     quelle = inspect.getsource(routes_modul.list_workspaces)
     assert '"is_active": m["is_active"]' in quelle

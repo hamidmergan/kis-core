@@ -1,23 +1,4 @@
-"""Anmeldesitzungen, gehalten in Redis.
-
-Warum Redis und nicht mehr der Arbeitsspeicher: die Liste lag vorher in zwei
-dicts INNERHALB eines Prozesses. Das hatte zwei Folgen. Ein Neustart des
-Backends hat jeden Nutzer ausgeloggt, und mehrere uvicorn-Prozesse waren
-unmöglich, weil Prozess 2 die Anmeldung von Prozess 1 nicht kannte und Nutzer
-zufällig ausgesperrt hätte.
-
-Redis läuft ohnehin im Stapel (Celery-Broker), es kommt also kein Dienst dazu.
-
-Der Token bleibt unverändert aufgebaut: ``<zufalls-id>.<hmac>``. Die Signatur
-ist keine Verschlüsselung, sie sortiert nur Müll-Tokens aus, bevor Redis
-überhaupt gefragt wird. Die eigentliche Sicherheit steckt in den 32 Zufallsbytes.
-
-Bei Redis-Ausfall wird ZU gemacht, nicht auf. Eine kaputte Sitzungsprüfung darf
-niemals versehentlich jeden hereinlassen. Nutzer sehen dann eine Abmeldung,
-was ärgerlich aber sicher ist. Anders als die Missbrauchsbremse in
-security/rate_limit.py, die bewusst fail-open ist, weil dort die Datenbank die
-Wahrheit behält.
-"""
+"""Login sessions in Redis so they survive a restart and several processes."""
 
 import hashlib
 import hmac
@@ -40,7 +21,7 @@ class SessionStore:
     # ─── intern ──────────────────────────────────────────────────────────────
 
     def _redis(self):
-        """Client mit kurzen Zeitgrenzen, gleiches Muster wie rate_limit.py."""
+        """Client with short timeouts, same pattern as rate_limit.py."""
         if self._client is None:
             import redis as _redis_lib
             self._client = _redis_lib.from_url(
@@ -62,13 +43,12 @@ class SessionStore:
             return None
         return data
 
-    # ─── öffentlich ──────────────────────────────────────────────────────────
+    # ─── public ──────────────────────────────────────────────────────────────
 
     def create(self, data: dict | None = None) -> str:
         raw_id = secrets.token_hex(32)
         token = self._sign(raw_id)
-        # Die Ablaufzeit macht Redis selbst über die TTL. Absolut ab Erstellung,
-        # genau wie vorher, es gibt kein Verlängern bei Aktivität.
+        # Redis handles the expiry itself, absolute from creation.
         self._redis().set(
             _KEY_PREFIX + raw_id, json.dumps(data or {}), ex=self._max_age
         )

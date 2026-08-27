@@ -1,10 +1,4 @@
-"""Vorraete plattformweit leeren: Aufgaben je Werkzeug und Zeitplan-Auswertungen.
-
-Geschrieben, weil hier zwei Dinge schiefgehen koennen, die man einer gruenen Zeile nicht
-ansieht: ein fertiger Aufgabensatz wird leer, wenn der Inhalt nicht vorher
-zurueckgeschrieben wird, und der Zeitplan legt Termine doppelt an, wenn der Merker
-"schon ausgewertet" mitfaellt.
-"""
+"""Clear pools platform wide without hollowing out finished sets or duplicating appointments."""
 
 from unittest.mock import patch
 
@@ -80,7 +74,7 @@ def _anweisungen(calls):
 # --- Aufgaben-Vorrat leeren ----------------------------------------------------
 
 def test_clearing_a_tool_writes_the_content_back_before_deleting(fake_pool_db):
-    """Sonst steht ein fertiger Satz danach ohne Antworten da."""
+    """Otherwise a finished set would be left without answers."""
     calls = fake_pool_db()
     pool_repo.clear_pool_for_tools(["quiz"])
     sql = _anweisungen(calls)
@@ -89,7 +83,7 @@ def test_clearing_a_tool_writes_the_content_back_before_deleting(fake_pool_db):
 
 
 def test_clearing_a_tool_covers_every_workspace(fake_pool_db):
-    """Der Knopf raeumt plattformweit, eine Quellen-Bedingung waere ein Rueckschritt."""
+    """The button clears platform wide, a source condition would be a step back."""
     calls = fake_pool_db()
     pool_repo.clear_pool_for_tools(["quiz"])
     loeschung = next(a for a in _anweisungen(calls) if "DELETE FROM aia_exercise_pool" in a)
@@ -110,7 +104,7 @@ def test_clearing_takes_only_the_chosen_tools(fake_pool_db):
 
 
 def test_clearing_an_unknown_tool_is_refused(fake_pool_db):
-    """Ein Tippfehler darf nicht stillschweigend nichts loeschen und Erfolg melden."""
+    """A typo must not silently delete nothing and report success."""
     fake_pool_db()
     with pytest.raises(ValueError):
         pool_repo.clear_pool_for_tools(["gibtsnicht"])
@@ -140,7 +134,7 @@ def test_the_counts_come_grouped_by_tool(fake_pool_db):
 # --- Zeitplan ------------------------------------------------------------------
 
 def test_clearing_the_schedule_pool_leaves_the_processed_marker(fake_schedule_db):
-    """Faellt der Merker mit, legt der naechste Lauf dieselben Termine noch einmal an."""
+    """If the marker goes too, the next run creates the same appointments again."""
     calls = fake_schedule_db()
     schedule_repo.clear_source_extractions()
     sql = " ".join(_anweisungen(calls))
@@ -160,7 +154,7 @@ def test_the_schedule_pool_size_is_read(fake_schedule_db):
     assert schedule_repo.count_source_extractions() == 7
 
 
-# --- die Route -----------------------------------------------------------------
+# --- the route -----------------------------------------------------------------
 
 @pytest.fixture
 def client():
@@ -203,7 +197,7 @@ def test_the_route_leaves_the_schedule_alone_when_it_was_not_chosen(client):
 
 
 def test_the_route_refuses_an_empty_selection(client):
-    """Ohne Haken darf nichts passieren, sonst raeumt ein Fehlklick alles."""
+    """Without a checkbox nothing may happen, otherwise a misclick clears everything."""
     with patch("src.routes.admin.pools.db.clear_pool_for_tools") as clear_pool, \
          patch("src.routes.admin.pools.db.clear_source_extractions") as clear_sched:
         r = client.post("/admin/pools/clear", json={"tools": [], "schedule": False})

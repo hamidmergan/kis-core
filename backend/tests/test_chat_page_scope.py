@@ -1,16 +1,4 @@
-"""Tests for page-scoped retrieval: when a question names an explicit page
-("fasse Seite 5 zusammen", "summarize page 12"), the chat route pulls exactly
-that page's chunks as context instead of running semantic hybrid search where the
-page number is just another search token.
-
-Two units:
-  * ``_parse_page_refs``  – pure, language-agnostic-ish extraction of page numbers
-    (German "Seite"/"S.", English "page"/"p.", ranges) from the raw question.
-  * ``_retrieve_page_scoped_context`` – loads a source's chunks (db) and keeps only
-    those on the requested pages.
-
-db is monkeypatched so these stay deterministic and offline.
-"""
+"""Checks the page reference: a named page is fetched instead of searched."""
 from src.features.ai_assistant.routes import chat as chat_mod
 from src.features.ai_assistant.routes.chat import (
     _parse_page_refs,
@@ -133,10 +121,7 @@ def test_missing_page_returns_empty(monkeypatch):
     assert _retrieve_page_scoped_context([1], [99]) == []
 
 
-# ── _scope_unfulfillable_message (generic can't-help for unservable scope asks) ─
-# A page/time scope was explicitly requested but cannot be served (absent / wrong
-# source kind). We return a GENERIC can't-help message — distinct from the genuine
-# "no info in sources" content sentinel, which must stay for real topic gaps.
+# An unservable reference gets its own message, not the content refusal.
 
 def test_unfulfillable_when_scope_requested_but_no_chunks():
     assert _scope_unfulfillable_message(True, None, "de") is not None
@@ -160,6 +145,5 @@ def test_none_when_scope_request_fulfilled():
 
 
 def test_none_when_no_scope_requested():
-    # Not a scope question at all -> never short-circuit (normal RAG, incl. the real
-    # "no info in sources" sentinel, stays in charge).
+    # Without a reference question the normal path stays in charge.
     assert _scope_unfulfillable_message(False, None, "de") is None

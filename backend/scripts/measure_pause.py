@@ -1,8 +1,4 @@
-"""End-to-end A/B of the chip pre-search (the actual chip pause) with vs without the
-hnsw index, on identical input. Runs the real production path: _parallel_search over
-the same fixed lines calling the real db.hybrid_search_chunks (vector+keyword+substring).
-Drops the index, measures, rebuilds it, measures again — so both sides see the same lines.
-"""
+"""Measures the chip pause with and without the hnsw index on the same input."""
 import time
 
 from src import database as db

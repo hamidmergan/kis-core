@@ -32,13 +32,11 @@ export function ScheduleEntryCard({
   const t = useTranslations("workspace.detail.studio.schedule.entry");
   const tChip = useTranslations("sourceChip");
   const locale = useLocale();
-  // Die Zeitspanne steht immer als Zeile unter dem Titel, nie in der Datumsplakette.
-  // Die Plakette beschriftet den Punkt auf der Achse, zwei Daten machen sie mehrdeutig.
+  // The span sits as a line under the title, never in the date badge.
   const spannenEnde = formatRangeEnd(entry.due_date, entry.end_date, locale);
   const baseStyle: React.CSSProperties = {
     border: "1px solid var(--border)",
-    // Dim whenever the deadline has passed — including today's entries whose
-    // time is already in the past (isPast is computed with due_time in mind).
+    // Greyed out once the deadline has passed, the time counts too.
     opacity: isPast ? 0.55 : entry.is_checked ? 0.7 : 1,
     boxShadow: "0 1px 3px rgba(13,31,45,.04)",
     borderRadius: 12,
@@ -46,8 +44,7 @@ export function ScheduleEntryCard({
     fontSize: "0.875rem",
   };
 
-  // Dedup: same (source_uuid, page, start_time) appears only once per entry,
-  // even if multiple raw quotes hit the same position in the same source.
+  // The same spot appears only once per entry.
   const chipRefs: { ref: typeof entry.source_refs[number]; filename: string }[] = [];
   const seen = new Set<string>();
   for (const ref of entry.source_refs) {
@@ -154,9 +151,7 @@ export function ScheduleEntryCard({
                     tabIndex={0}
                     onClick={(e) => {
                       e.stopPropagation();
-                      // Nav-only wie die anderen Studio-Tools (Datentabelle, Mindmap): nur zur
-                      // Seite oder zum Zeitstempel springen, kein Highlight. raw_quote wird
-                      // bewusst nicht mehr uebergeben.
+                      // Only jump, no highlighting, as with the other studio tools.
                       onPillClick?.(ref.source_uuid, page, filename, undefined, startTime);
                     }}
                     onKeyDown={(e) => { if (e.key === "Enter") (e.currentTarget as HTMLElement).click(); }}

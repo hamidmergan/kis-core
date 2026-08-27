@@ -11,36 +11,22 @@ from src.tool_prompts import SCRIPT_REFINE_DEFAULT as _SCRIPT_REFINE_DEFAULT
 from src.services.openai_compat_llm.base import load_prompt
 from src.security.usage_log import log_llm_response as _verbrauch
 
-# Wartezeit vor dem zweiten Versuch eines Stapels. Als Konstante, damit Tests
-# nicht wirklich warten müssen.
+# Wait before the second attempt of a batch.
 _BATCH_RETRY_DELAY = 5.0
 
 
-# Kürzestes Ergebnis, das noch eine Aussage sein kann. Darunter liegen nur
-# Platzhalter: "(Empty)", "(leer)", "-", "n/a", "...". Bewusst über die Länge
-# und nicht über eine Wortliste, sonst funktioniert es nur auf Deutsch und
-# Englisch, KIS läuft aber mit beliebigen Zielsprachen.
-#
-# Die Grenze ist absichtlich niedrig. Ein echtes, sehr kurzes Skript wie
-# "Thank you" oder "Any questions" muss durchkommen, sonst würde die Prüfung
-# gültige Skripte verwerfen. Ein Platzhalter darf nicht ins Video, er würde
-# wörtlich vorgelesen.
+# Shortest result that can still be a statement.
 _MIN_USABLE_SCRIPT_CHARS = 8
 
 
 def is_blank_script(script: str) -> bool:
-    """Leer, oder zu kurz, um eine gesprochene Aussage zu sein."""
+    """Empty, or too short to be a spoken statement."""
     letters = re.sub(r"[^\w\s]", "", script or "").strip()
     return len(letters) < _MIN_USABLE_SCRIPT_CHARS
 
 
 class _ScriptCountMismatch(RuntimeError):
-    """Der Stapel kam mit einer anderen Anzahl Skripte zurück als angefragt.
-
-    Das ist kein Anbieterfehler, sondern ein Formatfehler. Auffüllen oder
-    Abschneiden würde die Zuordnung Folie zu Skript verschieben, deshalb wird
-    stattdessen Folie für Folie neu erzeugt.
-    """
+    """The batch came back with a different number of scripts than requested."""
 
     def __init__(self, expected: int, got: int):
         super().__init__(f"{got} Skripte statt {expected}")
@@ -48,26 +34,26 @@ class _ScriptCountMismatch(RuntimeError):
         self.got = got
 
 
-# Ab wie vielen eigenen Wörtern eine Folie als Vergleichspunkt taugt.
+# From how many own words on a slide is fit as a reference point.
 _MIN_VERGLEICHSWOERTER = 6
 
-# Wie deutlich ein fremdes Skript besser passen muss, damit es als Versatz gilt.
+# How much better another script must fit to count as an offset.
 _VERSATZ_ABSTAND = 0.15
 
 
 def _inhaltswoerter(text: str) -> set[str]:
-    """Wörter ab vier Buchstaben, ohne Zahlen und Satzzeichen."""
+    """Words from four letters on, without numbers and punctuation."""
     return {w for w in re.findall(r"[^\W\d_]{4,}", (text or "").lower())}
 
 
 def _deckung(script: str, slide_text: str) -> float:
-    """Anteil der Folienwörter, die im Skript vorkommen."""
+    """Share of the slide words that appear in the script."""
     folie = _inhaltswoerter(slide_text)
     return len(folie & _inhaltswoerter(script)) / len(folie) if folie else 0.0
 
 
 def find_misaligned(scripts: list[str], slide_texts: list[str]) -> int | None:
-    """Index einer Folie, deren Inhalt ein anderes Skript der Gruppe erzählt."""
+    """Index of a slide whose content another script of the group tells."""
     if len(scripts) < 2:
         return None
     for j, text in enumerate(slide_texts):
@@ -81,7 +67,7 @@ def find_misaligned(scripts: list[str], slide_texts: list[str]) -> int | None:
 
 
 class _ScriptMisaligned(RuntimeError):
-    """Die Skripte des Stapels gehören zu anderen Folien als angefragt."""
+    """The batch's scripts belong to different slides than requested."""
 
     def __init__(self, slide_index: int):
         super().__init__(f"Folie {slide_index + 1} der Gruppe erzählt ein fremdes Skript")
@@ -96,14 +82,7 @@ def build_length_and_format_rules(
     min_chars: int,
     max_chars: int,
 ) -> str:
-    """Systemanweisung für die Skript-Erzeugung eines Stapels.
-
-    Die Längenvorgabe ist bewusst eine Obergrenze mit weichem Ziel, keine
-    Spanne. Vorher stand hier "zwischen 1500 und 2000 Zeichen" ohne Bedingung.
-    Eine Titelfolie mit fünf Wörtern Inhalt bekam damit 333 Wörter Skript, in
-    denen derselbe Begriff 25 mal vorkam, weil das Modell die Vorgabe nur durch
-    Wiederholen erfüllen konnte. Gemessen an einem echten Durchlauf.
-    """
+    """System instruction for script generation, the length is a ceiling."""
     return (
         "You are an expert at creating spoken narration scripts for presentations. "
         f"Generate a spoken script for EACH of the {batch_size} content blocks below. "
@@ -140,8 +119,7 @@ def build_length_and_format_rules(
 
 
 class _ScriptsMixin:
-    """Erwartet: self._client (OpenAI), self._model, self._extra_body,
-    self._batch_size, self._batch_max_workers, self._batch_timeout."""
+    """Expects client, model and the batch settings on the object."""
 
     def refine_script(
         self,
@@ -152,12 +130,7 @@ class _ScriptsMixin:
         selected_text: str | None = None,
         messages: list[dict] | None = None,
     ) -> str:
-        """Refine or create a narration script for a single slide based on a user instruction.
-
-        Uses the current script as the base if provided, otherwise falls back to slide_text.
-        If selected_text is given, the instruction applies only to that excerpt.
-        No length or format constraints - follows the user instruction freely.
-        """
+        """Rewrites the script of a single slide following an instruction."""
         current_script_content = current_script.strip() or slide_text.strip()
         is_followup = messages is not None and len(messages) > 1
         if selected_text and selected_text.strip():
@@ -254,7 +227,7 @@ class _ScriptsMixin:
             if (is_first_batch and add_greeting) else
             "- Do not use any greeting or welcome phrase.\n"
         )
-        # Ohne festen Anhang heisst add_closing nur noch: ein Schlusswort ist erlaubt.
+        # Without a fixed suffix add_closing only means: a closing remark is allowed.
         closing_rule = (
             "" if (is_last_batch and add_closing) else
             "- Do not add any closing statement or thank-you.\n"
@@ -291,7 +264,7 @@ class _ScriptsMixin:
             parts = re.split(r"\|\|\|", content_clean)
             scripts = [p.strip() for p in parts]
 
-            # Ein überzähliger Trenner am Ende ist harmlos.
+            # A surplus separator at the end is harmless.
             while len(scripts) > batch_size and not scripts[-1]:
                 scripts.pop()
 
@@ -342,7 +315,7 @@ class _ScriptsMixin:
         results: dict[int, list[str]] = {}  # batch_index → scripts
 
         def _one_slide(text: str, idx: int, slide_no: int) -> str:
-            """Eine einzelne Folie erzeugen. Ohne Trenner kann nichts verrutschen."""
+            """Generate a single slide, without separators nothing can slip."""
             try:
                 return self._generate_scripts_single_batch(
                     [text], idx, batch_count, False, False,
@@ -355,24 +328,13 @@ class _ScriptsMixin:
         def _fill_gaps(
             scripts: list[str], texts: list[str], idx: int, start: int, retry: bool = True
         ) -> list[str]:
-            """Folie hat Text, Skript aber nicht: diese eine Folie nachholen.
-
-            Gemessen an einem echten Durchlauf: eine Folie, deren Text der
-            Vorfolie stark ähnelte, bekam gar kein Skript und stand im Video
-            stumm da. Der Prompt sagt inzwischen deutlich, dass jede Folie mit
-            Inhalt ein Skript bekommt. Antworten eines Sprachmodells sind aber
-            nie garantiert, deshalb hier ein Netz darunter.
-
-            Bleibt auch der zweite Versuch ein Platzhalter, wird daraus ein
-            leerer Text. Lieber eine stumme Folie als eine, die "Empty" sagt.
-            """
+            """Slide has text but the script does not: redo this one slide."""
             for i, (script, text) in enumerate(zip(scripts, texts)):
                 if not is_blank_script(script):
                     continue
                 slide_no = start + i + 1
                 if not text.strip() or not retry:
-                    # Wirklich leere Folie, oder die Folie wurde gerade schon
-                    # einzeln erzeugt. In beiden Fällen nur den Platzhalter weg.
+                    # Really empty slide or already generated individually, just drop the placeholder.
                     scripts[i] = ""
                     continue
                 logger.warning(
@@ -399,7 +361,7 @@ class _ScriptsMixin:
                     )
                     return idx, _fill_gaps(scripts, texts, idx, start)
                 except _ScriptMisaligned as e:
-                    # Ein zweiter Anlauf behebt das nicht, also gleich einzeln.
+                    # A second attempt does not fix this, so go individual right away.
                     logger.warning(
                         "Batch {}/{}: {} - erzeuge {} Folie(n) einzeln",
                         idx + 1, batch_count, e, n,
@@ -415,8 +377,7 @@ class _ScriptsMixin:
                         time.sleep(_BATCH_RETRY_DELAY)
                         continue
                     if isinstance(e, _ScriptCountMismatch):
-                        # Auffüllen würde jede folgende Folie um eine verschieben.
-                        # Einzeln erzeugen kostet mehr Aufrufe, bleibt aber richtig.
+                        # Auffuellen wuerde jede folgende Folie verschieben, also einzeln erzeugen.
                         logger.warning(
                             "Batch {}/{}: {} - erzeuge {} Folie(n) einzeln",
                             idx + 1, batch_count, e, n,
@@ -443,8 +404,7 @@ class _ScriptsMixin:
                 except Exception as e:
                     idx = futures[future]
                     logger.warning("Batch {}/{} unexpected error: {}", idx + 1, batch_count, e)
-                    # Länge des tatsächlichen Stapels, nicht die Sollgröße. Der
-                    # letzte Stapel ist meist kürzer, sonst wächst die Liste.
+                    # Length of the actual batch, the last one is usually shorter.
                     results[idx] = [""] * len(batches[idx][1])
 
         # Reassemble in slide order

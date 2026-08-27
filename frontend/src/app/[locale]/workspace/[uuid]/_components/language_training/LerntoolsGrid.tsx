@@ -24,8 +24,7 @@ export function LerntoolsGrid({ tiles, onSelect }: {
         {tiles.map((tile) => (
           <HoverTooltip
             key={tile.key}
-            // Die Kachel zeigt ihren Namen selbst, nur die schmale Ansicht nicht.
-            // Deshalb steht der Name auch nur dort im Tooltip.
+            // The tile shows its own name, only the narrow view does not.
             text={
               !tile.description ? tile.label
                 : compact ? `${tile.label}\n${tile.description}`
@@ -35,9 +34,7 @@ export function LerntoolsGrid({ tiles, onSelect }: {
             <button
               type="button"
               onClick={() => onSelect(tile.key)}
-              // min-w-0 nimmt der Kachel die eingebaute Mindestbreite eines
-              // Grid-Kindes. Ohne das zieht ein langes Wort wie
-              // "Wortschatzuebungen" die Spalte auf und legt sich ins Polster.
+              // Without min-w-0 a long word stretches the column.
               className="flex flex-col items-center justify-center gap-2 p-3 min-w-0 rounded-2xl text-center border-2 transition-colors border-[var(--tile-border)] hover:border-[var(--tile-color)]"
               style={{
                 minHeight: compact ? 50 : 90,

@@ -1,14 +1,4 @@
-"""Text-Extraktion aus PPTX für den Screencast.
-
-Was hier schiefging: SmartArt und Diagramme legen ihren Text nicht in die Folie,
-sondern in eigene Teile der Datei (ppt/diagrams/dataN.xml, ppt/charts/chartN.xml).
-Die Folie enthält nur einen Verweis. Ein Scan über das Folien-XML findet dort
-also nichts, die Folie gilt als leer und bekommt kein Sprechskript.
-
-Versteckte Folien sind der zweite Fallstrick: python-pptx liefert sie mit,
-LibreOffice exportiert sie nicht. Zählt die Extraktion sie mit, laufen ab der
-ersten versteckten Folie Bild und Ton auseinander.
-"""
+"""Text extraction from PPTX, with SmartArt, charts and hidden slides."""
 
 from tests._pptx_fixtures import (
     CHART_CATEGORIES,
@@ -41,25 +31,21 @@ def test_extracts_chart_title_and_categories():
 
 
 def test_chart_numbers_are_not_extracted_as_text():
-    """Nur Beschriftungen sind Text. Die Zahlenreihe gehört nicht ins Skript."""
+    """Only labels are text, the number series does not belong in the script."""
     text = extract_text_per_slide(chart_pptx())[0]
     assert "19.2" not in text
     assert "21.4" not in text
 
 
 def test_hidden_slides_are_skipped():
-    """LibreOffice rendert versteckte Folien nicht, also dürfen sie auch keinen Text liefern."""
+    """LibreOffice does not render hidden slides, so they must not supply text either."""
     texts = extract_text_per_slide(hidden_slide_pptx())
     assert len(texts) == 2
     assert texts == ["Folie A", "Folie C"]
 
 
 def test_smartart_text_appears_once_with_real_powerpoint_packaging():
-    """PowerPoint legt neben das Diagramm eine gerenderte Ersatzgruppe mit demselben Text.
-
-    Käme beides durch, stünde jede SmartArt-Zeile doppelt im Skript und würde
-    zweimal vorgelesen.
-    """
+    """The fallback group next to the chart would duplicate every line."""
     from tests._pptx_fixtures import smartart_with_fallback_pptx
 
     text = extract_text_per_slide(smartart_with_fallback_pptx())[1]

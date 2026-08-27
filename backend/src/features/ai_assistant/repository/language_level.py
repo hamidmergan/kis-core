@@ -1,9 +1,4 @@
-"""Read/write CEFR language level columns on the users table, plus the
-Sprachtrainer switch that decides whether the level is applied at all.
-
-The diagnosis is a one-time self-assessment per user (global, not workspace-scoped).
-Two columns: language_level (A1-C2 or NULL) and language_level_set_at.
-"""
+"""Reads and writes the language level and the language trainer switch."""
 
 import psycopg2.extras
 
@@ -45,24 +40,14 @@ LANGUAGE_TRAINING_SETTING = "language_training_enabled"
 
 
 def is_language_training_enabled_globally() -> bool:
-    """System-wide switch for the Sprachtrainer, set by the admin. Off by default.
-
-    Off means the feature does not exist for anyone: no owner setting, no tiles, no
-    adaptive output. The per-workspace choice stays stored while it is off, so
-    switching the feature back on restores every workspace as it was.
-    """
+    """Platform wide switch for the language trainer, off by default."""
     from src.features.admin.repository.settings import get_setting
 
     return get_setting(LANGUAGE_TRAINING_SETTING, "false").lower() == "true"
 
 
 def is_language_training_active(workspace_id: int) -> bool:
-    """Whether the Sprachtrainer is on in this workspace, admin switch included.
-
-    The owner decides this for everyone in the workspace. The CEFR level is stored
-    globally per user, so this is also the gate that keeps level-pitched answers and
-    tools out of workspaces that do not run the trainer.
-    """
+    """Whether the language trainer is on in this course room, admin switch included."""
     if not is_language_training_enabled_globally():
         return False
     with get_connection() as conn:

@@ -1,4 +1,4 @@
-"""Das fertige Video muss sofort starten und springen koennen."""
+"""The finished video has to start right away and be seekable."""
 
 from unittest.mock import patch
 
@@ -63,7 +63,7 @@ def test_unfertiger_job_hat_noch_kein_video(client, video):
 
 
 def test_im_bucket_wird_der_bereich_durchgereicht(client, video):
-    """Auf der Box liegt das Video im Bucket, dort muss Range mitgehen."""
+    """On the box the video lives in the bucket, Range has to go along there."""
     daten = video.read_bytes()[10:20]
     with patch("src.routes.jobs._video.db.get_job", return_value=_job(video)), \
          patch("src.routes.jobs._video.USE_S3", True), \

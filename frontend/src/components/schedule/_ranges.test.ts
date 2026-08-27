@@ -53,7 +53,7 @@ describe("weekSegments", () => {
   });
 
   it("kommt mit einem Wochenanfang im Vormonat zurecht", () => {
-    // Das April-Raster faengt am Montag, dem 29. Maerz an.
+    // The April grid starts on Monday the 29th of March.
     const ueberDenMonat: RangeEntry = { ...abgabefenster, id: 6, due_date: "2027-03-30", end_date: "2027-04-02" };
     const [s] = weekSegments([ueberDenMonat], "2027-03-29");
     expect(s.col1).toBe(2);

@@ -1,18 +1,4 @@
-"""Fragen einmalig von der KI schreiben lassen, im Adminbereich.
-
-Es gibt genau zwei Wege zu einem Fragen-Plan: von Hand tippen, oder hier einmal
-erzeugen lassen und danach von Hand nachbessern. Beide enden in derselben Liste
-und derselben Einstellung, es gibt keinen zweiten Testtyp.
-
-Warum einmalig und nicht waehrend des Tests: ein Aufruf je Frage je Lernendem
-war teuer, niemand konnte die Fragen vorher lesen, und der Lernende wartete vor jeder Frage auf das Modell. Einmal erzeugen
-kostet EINEN Aufruf fuer den ganzen Kurs, die Verwaltung sieht das Ergebnis, und
-jeder Test laeuft danach ohne Modell.
-
-Der Auftrag traegt die Stufen-Leiter mit (Beschreibungen und Beispielsaetze aus
-demselben Reiter), damit die Fragen zu genau der Skala passen, nach der spaeter
-eingestuft wird.
-"""
+"""Lets the AI write the question plan once, after that every test runs without a model."""
 
 from src.services.aia_diagnosis_chat import (
     CHOICE_TYPE,
@@ -24,20 +10,7 @@ from src.services.aia_diagnosis_chat import (
     _loads_lenient,
 )
 
-# Die Plaetze in der Reihenfolge, in der erzeugt wird: von sehr leicht nach sehr
-# anspruchsvoll, mit genug Plaetzen, die die KI spaeter beurteilt. Sie deckt sich
-# Platz fuer Platz mit dem ausgelieferten Standardplan.
-#
-# Es gibt nur noch zwei Aufgabenarten, also traegt ein Platz zusaetzlich, WIE die
-# Aufgabe aussehen soll ("shape"). Frueher hiessen die Arten selbst so ("reading
-# comprehension", "situation") und der Auftrag brauchte nichts weiter. Die Arten
-# waren im Code aber identisch, deshalb steht die Vielfalt jetzt hier, wo sie
-# hingehoert: im Auftrag an das Modell, nicht in einem Dropdown, aus dem die
-# Verwaltung dreimal dasselbe waehlen konnte.
-#
-# ``answers`` sagt, ob der Platz eine Loesung tragen soll. Ein Freitext MIT
-# Loesung wird im Code bewertet (der alte Lueckentext), einer OHNE ist die
-# Schreibprobe, aus der die Stufe entsteht.
+# The slots in generation order, from easy to demanding.
 GENERATION_SLOTS = [
     {"type": FREE_TEXT_TYPE, "answers": True,
      "shape": "one short everyday sentence with a blank ___ , solution is one word"},
@@ -66,7 +39,7 @@ GENERATION_SLOTS = [
      "shape": "a word-choice item in a formal register, where only one word fits"},
 ]
 
-# Der Test ist deutsch, deshalb steht die Zielsprache im Auftrag fest.
+# The test is German, so the target language is fixed in the instruction.
 GENERATION_LANGUAGE = "German"
 
 _SYSTEM = (
@@ -121,13 +94,7 @@ answer options inside "text"."""
 
 
 def _slot_requirement(slot: dict) -> str:
-    """Was diese eine Nummer tragen muss, in Klammern hinter der Aufgabenart.
-
-    Die Sammelregel unter THE SHAPE reicht nachweislich nicht: gemessen schrieb
-    das Modell zwei Auswahl-Aufgaben hintereinander ohne Optionen, weil es die Art
-    nur als Ueberschrift gelesen hat. An der Nummer selbst ist es nicht zu
-    uebersehen.
-    """
+    """What this one number has to carry, right behind the exercise kind."""
     if slot["type"] == CHOICE_TYPE:
         return "four options, exactly one correct"
     if slot["answers"]:
@@ -137,16 +104,7 @@ def _slot_requirement(slot: dict) -> str:
 
 def build_generation_messages(levels_block: str, examples_block: str,
                               slots: list[dict]) -> list[dict]:
-    """Der eine Auftrag, aus dem der ganze Fragen-Plan entsteht.
-
-    ``levels_block`` und ``examples_block`` kommen aus der Stufen-Leiter, in
-    genau der Form, in der sie auch im Einstufungs-Prompt stehen. So schreibt das
-    Modell die Fragen nach demselben Massstab, nach dem spaeter bewertet wird.
-
-    Jeder Platz nennt neben der Aufgabenart auch seinen Charakter ("shape"). Mit
-    nur zwei Arten waere der Auftrag sonst zwoelfmal fast derselbe Satz, und der
-    Fragensatz wuerde eintoenig.
-    """
+    """The one instruction the whole question plan comes out of."""
     numbered = "\n".join(
         f"{i}. {slot['type']} ({_slot_requirement(slot)}) - {slot['shape']}"
         for i, slot in enumerate(slots, 1)
@@ -172,22 +130,12 @@ _REPAIR = (
 
 
 def build_repair_message(reason: str) -> str:
-    """Das eine Nachfassen, mit dem konkreten Grund.
-
-    Ein allgemeiner Reparaturtext half nicht: gemessen wiederholte das Modell
-    denselben Fehler wortgleich, weil es gar nicht wusste, welche Frage woran
-    gescheitert war.
-    """
+    """The one retry, with the concrete reason."""
     return _REPAIR.format(reason=reason)
 
 
 def _generated_options(raw, number: int) -> list[dict]:
-    """Die Optionen einer erzeugten Auswahl-Frage, genau eine davon richtig.
-
-    Strenger als der Speicherweg von Hand, der mehrere richtige zulaesst: eine
-    Maschine, die zwei richtige Optionen schreibt, hat einen Ablenker erfunden,
-    der selbst stimmt. Von Hand ist das eine Absicht, hier ist es ein Fehler.
-    """
+    """The options of a generated choice question, exactly one of them correct."""
     if not isinstance(raw, list) or not (MIN_OPTIONS <= len(raw) <= MAX_OPTIONS):
         raise DiagnosisChatError(f"Question {number}: needs {MIN_OPTIONS}..{MAX_OPTIONS} options")
     options: list[dict] = []
@@ -209,7 +157,7 @@ def _generated_options(raw, number: int) -> list[dict]:
 
 
 def _generated_answers(raw, number: int) -> list[str]:
-    """Der Loesungsschluessel einer erzeugten Tipp-Frage."""
+    """The answer key of a generated typing question."""
     if not isinstance(raw, list) or not (1 <= len(raw) <= MAX_ANSWERS):
         raise DiagnosisChatError(f"Question {number}: needs 1..{MAX_ANSWERS} answers")
     answers: list[str] = []
@@ -221,17 +169,7 @@ def _generated_answers(raw, number: int) -> list[str]:
 
 
 def parse_generated_plan(raw: str, slots: list[dict]) -> list[dict]:
-    """Die Antwort des Modells als fertiger Fragen-Plan, oder ein Fehler.
-
-    Streng geprueft, weil das Ergebnis unveraendert gespeichert wird: die Anzahl
-    und die Reihenfolge der Aufgabenarten muessen stimmen, jede Frage braucht
-    ihren Text, jede Auswahl-Frage genau eine richtige Option und jeder Platz mit
-    Loesung seinen Loesungsschluessel. Ein Fehler loest den einen Reparaturversuch
-    des Aufrufers aus, statt der Verwaltung eine halbe Liste hinzulegen.
-
-    Ein ueberzaehliges Feld an einer Schreibprobe faellt still weg. Das ist kein
-    Qualitaetsproblem, nur ein Modell, das eine Zeile zu gut gemeint hat.
-    """
+    """Reads the model answer strictly as a finished question plan, or reports an error."""
     parsed = _loads_lenient(raw)
     if not isinstance(parsed, dict):
         raise DiagnosisChatError("Response must be a JSON object")

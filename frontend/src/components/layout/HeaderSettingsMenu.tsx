@@ -43,7 +43,7 @@ export default function HeaderSettingsMenu({ isAdmin = false, areaKey = "admin",
   const rootRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
-  // Merkt sich, welche Zeile nach dem Oeffnen per Taste den Fokus bekommt.
+  // Remembers which row gets the focus by keyboard after opening.
   const focusOnOpen = useRef<"first" | "last" | null>(null);
 
   const rows = () => Array.from(menuRef.current?.querySelectorAll<HTMLElement>("[data-row]") ?? []);
@@ -73,7 +73,7 @@ export default function HeaderSettingsMenu({ isAdmin = false, areaKey = "admin",
     setOpen(false);
     buttonRef.current?.focus();
     if (next === currentLocale) return;
-    // next-intl setzt den Sprach-Cookie erst nach dem Start, dann schickt die Middleware die erste Anfrage zurueck.
+    // next-intl sets the language cookie only after startup, then the middleware bounces the first request.
     document.cookie = `NEXT_LOCALE=${next}; path=/; max-age=${60 * 60 * 24 * 365}; SameSite=Lax`;
     router.replace(pathname, { locale: next });
     void persistLocale(next);
@@ -93,7 +93,7 @@ export default function HeaderSettingsMenu({ isAdmin = false, areaKey = "admin",
     list[next]?.focus();
   };
 
-  // Enter und Leertaste loest der Browser selbst auf der fokussierten Zeile aus.
+  // The browser triggers Enter and Space on the focused row itself.
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (!open) {
       if (e.key === "ArrowDown" || e.key === "ArrowUp") {
@@ -220,7 +220,7 @@ export default function HeaderSettingsMenu({ isAdmin = false, areaKey = "admin",
               className={rowClass}
               style={{
                 color: "var(--foreground)",
-                // Admin und Abmelden gehoeren zusammen, der Strich steht nur vor der ersten Zeile des Blocks.
+                // Admin and log out belong together, the divider sits only before the first row of the block.
                 ...(isAdmin ? {} : { borderTop: "1px solid var(--border)", marginTop: 4 }),
               }}
             >

@@ -1,4 +1,4 @@
-"""Die Info-Datei, die im ZIP neben Video und Folien liegt."""
+"""The info file that sits in the ZIP next to video and slides."""
 
 from datetime import datetime
 
@@ -69,12 +69,12 @@ def test_info_fuer_admin_zeigt_anbieter_und_modell():
 
 
 def test_info_nennt_keine_dauern_mehr():
-    """Die Zeiten je Schritt stehen nicht mehr in der Datei."""
+    """The per-step times are no longer in the file."""
     assert "Dauer" not in baue_info(_job(), _meta(), mit_technik=True)
 
 
 def test_info_ohne_zahlen_bleibt_lesbar():
-    """Alte Auftraege haben keine stats, die Datei darf trotzdem nicht leer sein."""
+    """Old jobs have no stats, the file must still not be empty."""
     text = baue_info(_job(), {"audio_count": 5, "subtitles": False}, mit_technik=True)
 
     assert "Vorlesung 3" in text

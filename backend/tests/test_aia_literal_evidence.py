@@ -1,11 +1,4 @@
-"""Literal evidence: may a further-away chunk still earn a citation chip?
-
-The relative gate keeps an additional chip only when it sits within 0.08 of the best
-one. That gate is blind to the one thing a reader checks: whether the passage actually
-CONTAINS what the sentence claims. Measured on a real course, the slide holding
-"Wöchentliche Sprechstunde (Mittwoch 17:30-18:30 Uhr)" sat at 0.501 while a transcript
-segment that merely mentions office hours sat at 0.394 and took the only slot.
-"""
+"""May a more distant chunk get a citation anyway?"""
 
 from src.services.aia_literal_evidence import (
     adds_literal_evidence,
@@ -31,8 +24,7 @@ def test_a_passage_that_only_talks_around_it_earns_nothing():
 
 
 def test_a_thirty_in_a_clock_time_is_not_the_thirty_of_thirty_minutes():
-    # "Die gesamte Zeit ist 30 Minuten" must not latch onto a chunk whose only 30 is the
-    # 30 of 17:30. Figures are compared as whole runs, never as substrings.
+    # Numbers are compared as whole sequences, never as fragments.
     line = "Die gesamte Zeit ist 30 Minuten."
     clock = "Die Sprechstunde ist mittwochs von 17:30 bis 18:30 Uhr im Fachforum."
     other = "Ein ganz anderer Text über Literaturrecherche und Fachzeitschriften."
@@ -101,8 +93,7 @@ def test_distinctive_tokens_drop_what_the_corpus_is_full_of():
 
 
 def test_a_filler_adverb_is_not_evidence():
-    # "insgesamt" earned a transcript segment a chip when rarity was measured against ten
-    # candidates only. Against the answer's whole context it is plainly common.
+    # Measured against the whole corpus a filler word is clearly common.
     line = "Insgesamt 30 Minuten, aufgeteilt in 20 Minuten Vortrag."
     corpus = [f"Insgesamt geht es hier um Thema {i} und weiteres Drumherum." for i in range(12)]
     chunk, primary = corpus[0], "Etwas ganz anderes ohne dieses Wort."
@@ -123,8 +114,7 @@ def test_a_date_is_looked_up():
 
 
 def test_a_bare_count_is_not_looked_up():
-    # "20 Minuten" or "7 Seiten" match half the world; only structured figures are
-    # specific enough to be worth a lookup of their own.
+    # Only structured numbers are worth looking up.
     assert lookup_figures("Die Präsentation dauert 20 Minuten und hat 7 Folien", CORPUS) == []
 
 
@@ -143,14 +133,9 @@ def test_at_most_a_handful_is_looked_up():
     assert len(lookup_figures(line, CORPUS)) <= 3
 
 
-# ── Pin-Woerter: woran eine Aussage haengt ──────────────────────────────────
+# ── Pin words: what a claim hangs on ────────────────────────────────────────
 
-# Gemeldet 17.08.2026 per Screenshot. Zu "nach der Behandlung von affinen Chiffren bleibt
-# noch Zeit fuer eine Fragestunde" standen drei Chips. Der erste traf die Stelle mit der
-# Fragestunde, die anderen beiden hingen an der Nebensache: einer an "dann kommt hier die
-# affine Chiffre dran" (dort ging es um den Klausurstoff), einer an einer Aufzaehlung von
-# Verschluesselungsverfahren. "Nur weil affine Chiffre in der zweiten Quelle vorkommt,
-# heisst es nicht, dass ich das wissen wollte."
+# Reported case: two chips hung on the aside instead of on the claim.
 _KORPUS = [
     "Wir machen nächste Woche noch affine Schifren. Dann haben wir noch Zeit, "
     "da machen wir noch eine Fragestunde. Da können Sie sich die Sachen angucken.",
@@ -171,7 +156,7 @@ def test_pin_wort_ist_das_seltene_lange_wort():
 
 
 def test_kurze_woerter_werden_nie_pin():
-    """"Chiffren" hat acht Zeichen und faellt durch, obwohl es selten ist."""
+    """'Chiffren' has eight characters and fails, even though it is rare."""
     from src.services.aia_literal_evidence import pin_words
     assert "chiffren" not in pin_words(_ZEILE, _KORPUS)
 
@@ -183,7 +168,7 @@ def test_haeufiges_wort_wird_nie_pin():
 
 
 def test_ohne_genug_material_gibt_es_keine_pin_woerter():
-    """Unter acht Texten laesst sich Seltenheit nicht messen, dann bleibt alles wie bisher."""
+    """Below eight texts rarity cannot be measured, then nothing changes."""
     from src.services.aia_literal_evidence import pin_words
     assert pin_words(_ZEILE, _KORPUS[:3]) == set()
 

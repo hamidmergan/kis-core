@@ -1,12 +1,4 @@
-"""Shared text-extraction helpers used by TTS and Script routes.
-
-Every extractor takes ``Source`` — raw ``bytes`` or a path to a file on disk.
-The upload routes stream the body to a temp file (see
-``src.utils.upload_stream``) and pass the path, so a large document is never
-held in the backend process; the Celery tasks already have the bytes in hand
-and pass those. python-docx / python-pptx open a path directly and read zip
-members on demand, which is the whole point of the path form.
-"""
+"""Text extraction for speech output and scripts, from bytes or from a path."""
 
 import re
 from io import BytesIO

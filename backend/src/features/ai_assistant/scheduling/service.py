@@ -1,18 +1,4 @@
-"""Production seam between AIA routes/tasks and the dispatch engine.
-
-Immer aktiv. Der Umschalter ``aia_scheduler_enabled`` war eine Umzugshilfe: er
-hielt den alten direkten ``.delay()``-Pfad offen, solange der neue noch nicht
-live bestätigt war. Das ist er längst, und ein Schalter, der nur noch eine
-Stellung hat, ist kein Schalter, sondern eine Falle. Wer ihn ausschaltet,
-umgeht die Platzverwaltung und überlastet die Maschine, ohne dass irgendwo
-steht warum.
-
-One shared pool of background slots (``AIA_PARALLEL_SLOTS``), areas weighted by
-``AIA_AREA_WEIGHTS``. Chat is NOT here (synchronous). All jobs go to the ``aia``
-queue; the dispatcher controls how many are in flight. Die Platzanzahl kommt aus
-der erkannten Maschinengröße (services/system_capacity.py), nicht aus einer
-Einstellung.
-"""
+"""Connects routes and jobs to slot management, the slot count comes from the machine size."""
 from __future__ import annotations
 
 import json
@@ -47,14 +33,12 @@ def area_for_task(task_name: str) -> str:
 
 
 def scheduler_enabled(get_setting: Callable[..., str] = _default_get_setting) -> bool:
-    """Immer an. Bleibt als Funktion stehen, weil die Aufrufer sie abfragen und
-    ein flächiges Entfernen der Abfrage nur Lärm im Diff wäre."""
+    """Always on, it only remains because the callers query it."""
     return True
 
 
 def slots_from_settings(get_setting: Callable[..., str] = _default_get_setting) -> int:
-    """Plätze aus der erkannten Maschinengröße. Signatur bleibt, damit Tests
-    weiterhin eine eigene Quelle einsetzen können."""
+    """Slots from the detected machine size, the signature stays for the tests."""
     return AIA_PARALLEL_SLOTS
 
 
@@ -69,9 +53,7 @@ def weights_from_settings(get_setting: Callable[..., str] = _default_get_setting
 
 
 def _launch(job: Job) -> str:
-    """Send the real Celery task to the aia queue, threading the aia_job uuid so
-    the task can call ``on_complete`` when it finishes. Lazy import keeps this
-    module importable without Celery in unit tests."""
+    """Sends the Celery job into the aia queue, with the job uuid."""
     from src.celery_app import celery_app
 
     args = job.payload.get("args", [])

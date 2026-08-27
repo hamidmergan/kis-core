@@ -1,19 +1,4 @@
-"""Tutoren verwalten einen fremden Workspace wie sein Eigentuemer, ausser einladen.
-
-Ein Mentor schickt allen denselben Einschreibelink. Aus der Teilnehmerliste
-befoerdert er dann einzelne, namentlich bekannte Personen zu Tutoren. Es gibt
-bewusst keinen Link, der Rechte verteilt: ein solcher Link waere ein Passwort,
-das sich durch simples Weiterleiten vermehrt, ohne dass es jemand merkt.
-
-Einladen bleibt deshalb allein beim Eigentuemer, sowohl das Anlegen von Links
-als auch das Befoerdern. Der Systemrang (staff, admin, user) spielt nirgends
-eine Rolle, weder zugunsten noch zulasten.
-
-Geprueft wird die Trennung der beiden Zugriffspruefungen und der Ablageort
-hochgeladener Dateien. Letzteres ist der stille Fallstrick: der Pfad enthaelt
-eine Nutzer-ID, und waere das die des Hochladenden, zerfielen die Dateien eines
-Workspace auf mehrere Ordner.
-"""
+"""Tutors manage like the owner, except inviting and promoting."""
 
 import pytest
 from fastapi import HTTPException
@@ -30,7 +15,7 @@ WORKSPACE = {"id": 7, "uuid": "w-1", "user_id": MENTOR}
 
 @pytest.fixture
 def workspace_mit(monkeypatch):
-    """Klinkt Datenbankzugriffe aus und legt fest, wer Tutor ist."""
+    """Stubs out the database access and fixes who is a tutor."""
     def einrichten(tutoren: set[int], eingeschrieben: set[int] = frozenset()):
         monkeypatch.setattr(_helpers.db, "get_aia_workspace", lambda uuid: WORKSPACE)
         monkeypatch.setattr(
@@ -42,7 +27,7 @@ def workspace_mit(monkeypatch):
     return einrichten
 
 
-# --- Wer darf verwalten ---------------------------------------------------
+# --- Who may manage -------------------------------------------------------
 
 def test_eigentuemer_darf_verwalten(workspace_mit):
     workspace_mit(tutoren=set())
@@ -55,7 +40,7 @@ def test_tutor_darf_verwalten(workspace_mit):
 
 
 def test_lernender_darf_nicht_verwalten(workspace_mit):
-    """Eingeschrieben sein reicht nicht, sonst duerfte jeder Kursteilnehmer loeschen."""
+    """Being enrolled is not enough, otherwise every participant could delete."""
     workspace_mit(tutoren=set(), eingeschrieben={LERNENDER})
     with pytest.raises(HTTPException) as fehler:
         _helpers._require_workspace_manage("w-1", LERNENDER)
@@ -77,28 +62,20 @@ def test_unbekannter_workspace_ist_404(monkeypatch):
 
 
 def test_lernender_darf_weiterhin_lesen(workspace_mit):
-    """Die Lesepruefung bleibt unberuehrt, sonst waere der Kurs fuer alle zu."""
+    """The read check stays untouched, otherwise the course would be shut for everyone."""
     workspace_mit(tutoren=set(), eingeschrieben={LERNENDER})
     assert _helpers._require_workspace_access("w-1", LERNENDER) == WORKSPACE
 
 
 def test_pruefung_kennt_den_rang_gar_nicht():
-    """Die Pruefung nimmt nur eine Nutzer-ID entgegen, keine Rolle und keine Rechte.
-
-    Damit kann kein staff- oder admin-Konto ueber seinen Rang in einen fremden
-    Workspace hineinregieren. Waere hier je ein Rollenargument, faellt es auf.
-    """
+    """The check takes only a user id, no role and no permissions."""
     import inspect
     parameter = set(inspect.signature(_helpers._require_workspace_manage).parameters)
     assert parameter == {"workspace_uuid", "user_id", "locale"}
 
 
 def test_gleiche_person_gleiche_antwort_egal_welcher_rang(workspace_mit):
-    """Zwei Konten, gleiche Beziehung zum Workspace, gleiches Ergebnis.
-
-    Der Rang steckt weder im Aufruf noch in der Antwort, also muss ein staff-
-    Konto ohne Tutor-Einschreibung genauso scheitern wie ein Studierendenkonto.
-    """
+    """The rank is neither in the call nor in the answer."""
     workspace_mit(tutoren=set(), eingeschrieben={LERNENDER, FREMDER})
     for konto in (LERNENDER, FREMDER):
         with pytest.raises(HTTPException) as fehler:
@@ -106,15 +83,10 @@ def test_gleiche_person_gleiche_antwort_egal_welcher_rang(workspace_mit):
         assert fehler.value.status_code == 403
 
 
-# --- Was allein dem Eigentuemer bleibt ------------------------------------
+# --- What stays with the owner alone --------------------------------------
 
 def test_tutor_darf_verwalten_aber_nicht_das_unumkehrbare(workspace_mit):
-    """Der Tutor verwaltet alles, ausser den Workspace loeschen und befoerdern.
-
-    Loeschen ist nicht rueckholbar, und wer befoerdern kann, vergroessert den
-    Kreis der Leute mit Vollrechten, ohne dass der Eigentuemer es merkt.
-    Einladen dagegen ist gewoehnliche Tutorenarbeit und deshalb erlaubt.
-    """
+    """The tutor manages everything except deleting and promoting."""
     workspace_mit(tutoren={TUTOR})
     assert _helpers._require_workspace_manage("w-1", TUTOR) == WORKSPACE
     with pytest.raises(HTTPException) as fehler:
@@ -128,7 +100,7 @@ def test_eigentuemer_darf_auch_das_unumkehrbare(workspace_mit):
 
 
 def test_loeschroute_haengt_an_der_eigentuemerpruefung():
-    """Sonst koennte ein Tutor den Workspace samt allem wegwerfen."""
+    """Otherwise a tutor could throw the workspace away with everything in it."""
     import inspect
     from src.features.ai_assistant.routes import workspaces as routes
     quelle = inspect.getsource(routes.delete_workspace)
@@ -137,10 +109,7 @@ def test_loeschroute_haengt_an_der_eigentuemerpruefung():
 
 
 def test_beitritt_immer_als_lernender(monkeypatch):
-    """Jeder Link schreibt als Lernender ein, egal welcher.
-
-    Damit es keinen Link geben kann, dessen Weiterleitung Rechte verschenkt.
-    """
+    """Every link enrolls as a learner, no link gives away permissions."""
     from src.features.ai_assistant.repository import enrollments
 
     gespeichert = {}
@@ -169,12 +138,12 @@ def test_beitritt_immer_als_lernender(monkeypatch):
     monkeypatch.setattr(enrollments, "get_connection", lambda: FakeConn())
 
     enrollments.enroll_student(7, LERNENDER, None, link_id=6)
-    # Die Rolle steht an der Stelle der Spalte role, hinter workspace, user, link und Frist.
+    # The role sits in the role column, behind workspace, user, link and deadline.
     assert gespeichert["params"][4] == "student"
 
 
 def test_befoerdern_erfasst_alle_einschreibungen(monkeypatch):
-    """Wer ueber zwei Links drin ist, wird als Person befoerdert, nicht je Link."""
+    """Whoever is in through two links is promoted as a person, not per link."""
     from src.features.ai_assistant.repository import enrollments
 
     gespeichert = {}
@@ -207,38 +176,32 @@ def test_befoerdern_erfasst_alle_einschreibungen(monkeypatch):
     assert gespeichert["params"] == ("tutor", 7, TUTOR)
 
 
-# --- Ablageort hochgeladener Dateien --------------------------------------
+# --- Storage location of uploaded files -----------------------------------
 
 def test_datei_landet_beim_eigentuemer(lokal):
-    """Laedt der Tutor hoch, liegt die Datei trotzdem im Ordner des Mentors."""
+    """If the tutor uploads, the file still sits in the owner's folder."""
     from src import storage
 
     schluessel = storage.aia_source_key(MENTOR, "w-1", "q1", ".pdf")
     assert f"users/{MENTOR}/" in schluessel
     assert f"users/{TUTOR}/" not in schluessel
 
-    # Gegenprobe: mit der ID des Hochladenden waere es ein zweiter Ordner,
-    # und das Loeschen des Workspace wuerde ihn nicht mitnehmen.
+    # With the uploader's id a second folder would appear.
     falsch = storage.aia_source_key(TUTOR, "w-1", "q1", ".pdf")
     assert falsch != schluessel
     assert storage.aia_workspace_prefix(MENTOR, "w-1") not in falsch
 
 
-# --- Sprachtrainer schaltet, wer den Workspace verwaltet -------------------
+# --- Whoever manages the workspace switches the language trainer -----------
 
 @pytest.fixture
 def sprachtrainer_bereit(workspace_mit, monkeypatch):
-    """Workspace da, Sprachtrainer systemweit frei, Schreibzugriff mitgeschrieben.
-
-    Zurueck kommt die Liste der geschriebenen Werte. Bleibt sie leer, hat die
-    Route nichts gespeichert.
-    """
+    """Kursraum da, Trainer frei, Schreibzugriff mitgeschrieben."""
     from src.features.ai_assistant.routes import _helpers
     from src.features.ai_assistant.routes import workspaces as routes
 
     workspace_mit(tutoren={TUTOR})
-    # Die Route liest Titel, Beschreibung und Zustand, die im schlanken
-    # WORKSPACE der uebrigen Tests fehlen.
+    # The route reads fields the lean test object does not have.
     voll = {**WORKSPACE, "title": "Kurs", "description": "", "is_active": True}
     monkeypatch.setattr(_helpers.db, "get_aia_workspace", lambda uuid: voll)
     geschrieben: list[bool] = []
@@ -253,7 +216,7 @@ def sprachtrainer_bereit(workspace_mit, monkeypatch):
 
 
 def _sprachtrainer_schalten(nutzer: dict):
-    """Ruft die PATCH-Route direkt auf, ohne HTTP-Schicht."""
+    """Calls the PATCH route directly, without the HTTP layer."""
     import asyncio
 
     from src.features.ai_assistant import schemas
@@ -270,18 +233,13 @@ def _sprachtrainer_schalten(nutzer: dict):
 
 
 def test_eigentuemer_schaltet_den_sprachtrainer(sprachtrainer_bereit):
-    """Der Admin gibt den Sprachtrainer plattformweit frei, mehr nicht.
-
-    Ob ein Kurs ihn anbietet, entscheidet der Eigentuemer. Der Systemrang
-    spielt dabei keine Rolle, sonst koennte niemand ausser Admins den
-    Sprachtrainer ueberhaupt benutzen.
-    """
+    """The admin releases it platform wide, the owner decides per course."""
     _sprachtrainer_schalten({"user_id": MENTOR, "role": "user", "email": ""})
     assert sprachtrainer_bereit == [True]
 
 
 def test_tutor_schaltet_den_sprachtrainer(sprachtrainer_bereit):
-    """Der Tutor verwaltet den Workspace mit, also darf er das auch."""
+    """The tutor helps manage the workspace, so they may do this too."""
     _sprachtrainer_schalten({"user_id": TUTOR, "role": "user", "email": ""})
     assert sprachtrainer_bereit == [True]
 
@@ -289,7 +247,7 @@ def test_tutor_schaltet_den_sprachtrainer(sprachtrainer_bereit):
 def test_sprachtrainer_bleibt_zu_wenn_die_plattform_ihn_nicht_anbietet(
     sprachtrainer_bereit, monkeypatch
 ):
-    """Ein altes offenes Fenster schaltet nichts an, was der Admin abgeraeumt hat."""
+    """An old open window switches on nothing the admin has cleared away."""
     from src.features.ai_assistant.routes import workspaces as routes
 
     monkeypatch.setattr(routes.db, "is_language_training_enabled_globally", lambda: False)
@@ -300,7 +258,7 @@ def test_sprachtrainer_bleibt_zu_wenn_die_plattform_ihn_nicht_anbietet(
 
 
 def test_admin_ohne_verwaltungsrecht_kommt_gar_nicht_rein(sprachtrainer_bereit):
-    """Der Systemrang oeffnet keinen fremden Workspace, das bleibt so."""
+    """The system rank opens no foreign workspace, and that stays."""
     with pytest.raises(HTTPException) as fehler:
         _sprachtrainer_schalten({"user_id": FREMDER, "role": "admin", "email": ""})
     assert fehler.value.status_code == 403

@@ -22,50 +22,27 @@ from ._shared import (
 
 router = APIRouter(tags=["ki-assistent: sources"])
 
-# Globale Bremse für gleichzeitige Uploads in der schweren Phase (streamen,
-# umwandeln, ablegen). Der Zähler liegt in Redis, nicht mehr als int im Prozess:
-# bei mehreren uvicorn-Prozessen hätte jeder seinen eigenen gezählt, aus einer
-# Grenze von 3 wären bei 3 Prozessen faktisch 9 geworden. Genau der Schutz, der
-# die kleine Box am Leben hält, wäre damit weg gewesen.
-#
-# Umsetzung als sortierte Menge mit Zeitstempeln statt als INCR/DECR-Zähler.
-# Grund: wird ein Prozess hart abgeschossen, läuft das DECR nie und der Zähler
-# bliebe für immer zu hoch. Einträge mit altem Zeitstempel fallen dagegen von
-# selbst heraus.
+# Global upload brake in Redis, as a sorted set with timestamps.
 _UPLOAD_SET_KEY = "kis:uploads:inflight"
-# Wie lange ein Eintrag höchstens gilt. Großzügig, damit ein echter langer
-# Upload (großes Video, Office-Umwandlung) nie fälschlich verworfen wird. Ein
-# verwaister Platz heilt entsprechend nach dieser Zeit von selbst.
+# How long a slot is valid at most, an orphan heals by itself afterwards.
 _UPLOAD_STALE_SECONDS = 15 * 60
 
 _REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
 
 
 def _redis():
-    """Redis-Client mit kurzen Zeitgrenzen, gleiches Muster wie rate_limit.py."""
+    """Redis client with short timeouts, same pattern as rate_limit.py."""
     import redis as _redis_lib
     return _redis_lib.from_url(_REDIS_URL, socket_connect_timeout=1, socket_timeout=1)
 
 
 def _max_concurrent_uploads() -> int:
-    """Wie viele Uploads gleichzeitig durch die schwere Phase dürfen.
-
-    Keine Einstellung mehr, sondern an der Maschine bemessen: die Frage "wie
-    viele gleichzeitig" ist eine Frage nach Kernen und Arbeitsspeicher, nicht
-    nach einer Meinung. Formel in services/system_capacity.py.
-    """
+    """How many uploads may pass through the heavy phase at once."""
     return AIA_MAX_CONCURRENT_UPLOADS
 
 
 def _claim_upload_slot(limit: int) -> str | None:
-    """Einen Upload-Platz belegen. Gibt die Kennung zurück, oder None wenn voll.
-
-    ``limit <= 0`` heißt unbegrenzt, dann wird nur mitgezählt.
-
-    Bei Redis-Ausfall wird AUF gemacht (Upload erlaubt). Die Bremse schützt vor
-    Überlast, sie ist kein Sicherheitsmerkmal, und ein Redis-Ausfall darf nicht
-    dazu führen, dass niemand mehr Dateien hochladen kann.
-    """
+    """Claims an upload slot, or None when full."""
     ticket = uuid.uuid4().hex
     now = time.time()
     try:
@@ -87,7 +64,7 @@ def _release_upload_slot(ticket: str) -> None:
     try:
         _redis().zrem(_UPLOAD_SET_KEY, ticket)
     except Exception as e:
-        # Kein Drama: der Eintrag fällt nach _UPLOAD_STALE_SECONDS von selbst raus.
+        # No drama: the entry drops out by itself after _UPLOAD_STALE_SECONDS.
         logger.warning("Upload-Platz konnte nicht freigegeben werden: {}", e)
 
 
@@ -102,20 +79,14 @@ async def upload_source(
 ):
     workspace = _require_workspace_manage(workspace_uuid, current_user["user_id"], locale=locale)
 
-    # Reject before reading the body so spam attempts don't waste bandwidth.
-    # READ-ONLY check here; the counter is bumped by record_upload() only once the
-    # upload is fully accepted below, so a duplicate / over-max-sources /
-    # over-max-pages / bad-file rejection never consumes a slot. Concurrent
-    # throughput is bounded by the Celery worker; the per-workspace ceiling is
-    # enforced just below.
+    # Only check, do not count, so a rejection uses up no slot.
     check_upload_limit(current_user["user_id"], locale=locale)
 
     existing_sources = db.get_aia_sources_by_workspace(workspace["id"])
     # Existing filenames, normalized for a case-insensitive duplicate check below.
     existing_names = {(s["filename"] or "").strip().lower() for s in existing_sources}
 
-    # Limit is admin-tunable at runtime via the settings tab; fall back to the
-    # code constant when the DB setting is missing or unparseable.
+    # Limit from the admin area, otherwise the value from the code.
     raw_limit = db.get_setting("aia_workspace_max_sources", str(AIA_WORKSPACE_MAX_SOURCES))
     try:
         max_sources = int(raw_limit)
@@ -136,25 +107,19 @@ async def upload_source(
             detail=t("ai.source.allowedExtensions", locale, extensions=", ".join(sorted(_ALLOWED_EXTENSIONS))),
         )
 
-    # Reject same-name uploads early (before reading the body) so a re-uploaded
-    # file is bounced cheaply. Office files get a second check after the PDF
-    # rename below, since their stored name changes.
+    # Reject same-named uploads early, office files are checked again after conversion.
     if file.filename.strip().lower() in existing_names:
         raise HTTPException(
             status_code=409,
             detail=t("ai.source.duplicateName", locale, name=file.filename, label=_workspace_label(locale)),
         )
 
-    # Globale Bremse, jetzt prozessübergreifend über Redis. Wer keinen Platz
-    # bekommt, erhält 503 und kann es gleich nochmal versuchen, statt die Box
-    # zusätzlich zu belasten.
+    # Whoever gets no slot receives 503 and can try again right away.
     ticket = _claim_upload_slot(_max_concurrent_uploads())
     if ticket is None:
         raise HTTPException(status_code=503, detail=t("ai.source.serverBusy", locale))
     try:
-        # Stream the body to a temp file on disk, then run every heavy step
-        # (validate, convert, faststart, page-count, store) off the event loop so
-        # one upload can't freeze the single-worker backend for everyone else.
+        # Stream onto a temp file and keep every heavy step outside the event loop.
         with tempfile.TemporaryDirectory(prefix="aia_upload_") as tmpdir:
             raw_path = str(Path(tmpdir) / f"input{ext}")
             total, head = await stream_upload_to_path(file, raw_path, _MAX_UPLOAD_BYTES, locale)
@@ -169,8 +134,7 @@ async def upload_source(
                 final_path = await asyncio.to_thread(_convert_office_to_pdf_path, raw_path, ext, tmpdir, locale)
                 stored_filename = Path(file.filename).stem + ".pdf"
                 ext = ".pdf"
-                # The converted name (e.g. lecture.docx -> lecture.pdf) may now
-                # collide with an existing source even though the original did not.
+                # The converted name can now collide with an existing source.
                 if stored_filename.strip().lower() in existing_names:
                     raise HTTPException(
                         status_code=409,
@@ -181,8 +145,7 @@ async def upload_source(
                 final_path = await asyncio.to_thread(_mp4_faststart_path, raw_path, tmpdir)
 
             page_count = await asyncio.to_thread(_count_pages_path, ext, final_path)
-            # Max pages per source is admin-tunable at runtime (settings tab); fall
-            # back to the code constant when the DB setting is missing or unparseable.
+            # Page limit from the admin area, otherwise the value from the code.
             try:
                 max_pages = int(db.get_setting("aia_source_max_pages", str(AIA_SOURCE_MAX_PAGES)))
             except (TypeError, ValueError):
@@ -195,9 +158,7 @@ async def upload_source(
 
             source_uuid = uuid.uuid4().hex
             file_type = ext.lstrip(".")
-            # Key the file to the workspace OWNER, not whoever uploaded it. A
-            # tutor uploading into someone else's workspace must not scatter its
-            # files across a second prefix, or deleting the workspace would miss them.
+            # The file hangs off the owner, not off the uploader.
             file_path = await asyncio.to_thread(
                 _save_source_file_path, workspace["user_id"], workspace_uuid, source_uuid, ext, final_path
             )
@@ -217,8 +178,7 @@ async def upload_source(
                 from src.tasks.aia_tasks import run_index_source
                 run_index_source.delay(source_uuid, locale)
 
-            # Count toward the hourly cap ONLY now that the upload is fully accepted —
-            # every reject path above returned before here, so errors don't burn a slot.
+            # Only count now, every rejection above reversed it before.
             record_upload(current_user["user_id"])
 
             logger.info("KI Tutor: source {} ({}) uploaded to workspace {}", source_uuid, stored_filename, workspace_uuid)
@@ -235,12 +195,9 @@ async def retry_source(
     locale: str = Depends(get_locale),
 ):
     workspace = _require_workspace_manage(workspace_uuid, current_user["user_id"], locale=locale)
-    # Bind the source to the owned workspace: without this an owner of workspace A
-    # could retry (delete chunks + reset) a source belonging to workspace B.
+    # Binds the source to your own course room.
     source = _load_workspace_source(source_uuid, workspace, locale)
-    # Two ways in: a source that broke, or a ready source whose text recognition
-    # left pages open. The second is the "catch up" entry in the source menu - the
-    # run is the same, only its starting point differs.
+    # Two ways in: a broken source or one with open pages.
     ocr_open = bool((source.get("ocr_info") or {}).get("open"))
     catching_up_ocr = source["status"] == "ready" and ocr_open
     if source["status"] != "failed" and not catching_up_ocr:
@@ -268,8 +225,7 @@ def delete_source(
     locale: str = Depends(get_locale),
 ):
     workspace = _require_workspace_manage(workspace_uuid, current_user["user_id"], locale=locale)
-    # Bind the source to the owned workspace: without this an owner of workspace A
-    # could delete a source (file + DB row) belonging to workspace B.
+    # Binds the source to your own course room.
     source = _load_workspace_source(source_uuid, workspace, locale)
     try:
         delete_aia_source_files(source["file_path"])

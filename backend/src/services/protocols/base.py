@@ -1,16 +1,4 @@
-"""Protocol adapter interface.
-
-A protocol adapter is the code-side definition of one AI-provider protocol
-(``openai_compat``, ``deepl``, ``docling``, ...). Each adapter knows:
-
-- which capabilities the protocol can serve (fixed list or "depends on probe")
-- how to probe a concrete endpoint to confirm it works
-- how to actually invoke the protocol-specific endpoints (when the protocol
-  is not OpenAI-compatible and therefore needs custom request shaping)
-
-The admin UI lists the registry of adapter classes as available "Protocols";
-the database stores ``protocol`` as a free string keyed against that registry.
-"""
+"""The interface of a protocol adapter: capabilities, probing, call shape."""
 
 from __future__ import annotations
 
@@ -43,13 +31,7 @@ class ProbeResult:
 
 
 class ProviderAdapter(ABC):
-    """Base class for every protocol adapter.
-
-    Subclasses must set ``PROTOCOL`` and either ``FIXED_CAPABILITIES`` (for
-    protocols where the capability set is implied by the spec, like DeepL or
-    Docling) or leave it as ``None`` (for ``openai_compat`` where the actual
-    capability set depends on what the configured server exposes).
-    """
+    """Base class of every adapter, capabilities fixed or from the probe."""
 
     PROTOCOL: str = ""
     FIXED_CAPABILITIES: Optional[tuple[str, ...]] = None

@@ -1,11 +1,4 @@
-"""PPTX-Fixtures für die Screencast-Tests.
-
-python-pptx kann kein SmartArt erzeugen, deshalb wird der Diagramm-Teil hier von
-Hand in eine erzeugte Datei injiziert. Der Aufbau entspricht dem, was PowerPoint
-schreibt: die Folie enthält nur einen <p:graphicFrame> mit <dgm:relIds>, der
-eigentliche Text steht in ppt/diagrams/data1.xml. Genau deshalb findet ein
-Scan über das Folien-XML dort nichts.
-"""
+"""PPTX fixtures for the screencast tests, with hand-written SmartArt."""
 
 import zipfile
 from io import BytesIO
@@ -87,7 +80,7 @@ def _to_bytes(prs: Presentation) -> bytes:
 
 
 def smartart_pptx(slide_text: str = "Normaler Text auf Folie 1") -> bytes:
-    """Zwei Folien: Folie 1 mit normalem Textfeld, Folie 2 mit echtem SmartArt."""
+    """Two slides: slide 1 with a normal text box, slide 2 with real SmartArt."""
     raw = _to_bytes(_blank_deck([slide_text, ""]))
 
     points = "\n".join(
@@ -120,13 +113,7 @@ _FALLBACK_GROUP = """<p:grpSp xmlns:p="http://schemas.openxmlformats.org/present
 
 
 def smartart_with_fallback_pptx() -> bytes:
-    """SmartArt so verpackt, wie PowerPoint es wirklich schreibt.
-
-    Echte Dateien legen das Diagramm in <mc:AlternateContent>: unter mc:Choice
-    den graphicFrame, unter mc:Fallback eine gerenderte Gruppe, die denselben
-    Text noch einmal enthält. Lieferte python-pptx beide aus, stünde der Text
-    doppelt im Skript.
-    """
+    """SmartArt packaged the way PowerPoint really writes it."""
     data = smartart_pptx()
     with zipfile.ZipFile(BytesIO(data)) as zin:
         slide2 = zin.read("ppt/slides/slide2.xml").decode()
@@ -150,7 +137,7 @@ def smartart_with_fallback_pptx() -> bytes:
 
 
 def chart_pptx() -> bytes:
-    """Eine Folie mit einem Balkendiagramm: Titel und Kategorien sind Text im Chart-Teil."""
+    """One slide with a bar chart, title and categories are text in the chart part."""
     prs = Presentation()
     slide = prs.slides.add_slide(prs.slide_layouts[6])
     data = CategoryChartData()
@@ -166,18 +153,14 @@ def chart_pptx() -> bytes:
 
 
 def hidden_slide_pptx() -> bytes:
-    """Drei Folien, die mittlere ist ausgeblendet (show="0")."""
+    """Three slides, the middle one is hidden (show="0")."""
     prs = _blank_deck(["Folie A", "Folie B versteckt", "Folie C"])
     prs.slides[1]._element.set("show", "0")
     return _to_bytes(prs)
 
 
 def multi_run_paragraph_pptx() -> bytes:
-    """Ein Absatz, den PowerPoint in mehrere Runs zerlegt hat.
-
-    So etwas entsteht laufend durch Rechtschreibprüfung oder Sprachauszeichnung.
-    Übersetzt man die Runs einzeln, geht die Wortstellung kaputt.
-    """
+    """One paragraph PowerPoint has split into several runs."""
     prs = Presentation()
     slide = prs.slides.add_slide(prs.slide_layouts[6])
     box = slide.shapes.add_textbox(Inches(1), Inches(1), Inches(6), Inches(1))

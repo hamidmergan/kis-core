@@ -1,14 +1,4 @@
-"""Low-RAM upload streaming, shared by the KI-Tutor and the classic tools.
-
-Both upload paths need the same thing: get a possibly huge request body onto
-disk without ever holding it in the backend process. A 500 MB body read with
-``await file.read()`` costs 500 MB of RAM per in-flight upload (plus a second
-copy when those bytes are handed to storage), which is what tips a small prod
-box over.
-
-The head of the body is kept separately so magic-byte / UTF-8 validation still
-works without re-reading the file.
-"""
+"""Streams an upload to disk without holding it in memory."""
 
 from fastapi import HTTPException, UploadFile
 
@@ -24,12 +14,7 @@ async def stream_upload_to_path(
     max_bytes: int,
     locale: str,
 ) -> tuple[int, bytes]:
-    """Stream the request body to ``dest_path`` in chunks.
-
-    Returns ``(total_bytes, head)`` where *head* is the first 64 KiB. Raises
-    413 as soon as the body exceeds ``max_bytes``, so an oversize upload is cut
-    off mid-stream instead of after it is fully buffered.
-    """
+    """Streams the body to disk and returns size and leading bytes."""
     total = 0
     head = bytearray()
     with open(dest_path, "wb") as out:

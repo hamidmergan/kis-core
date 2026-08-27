@@ -1,8 +1,4 @@
-"""Unit tests for AI config export/import endpoints.
-
-Style: monkeypatch on src.routes.admin.providers.db.* — matches
-test_translate_provider.py, no real DB required.
-"""
+"""Checks export and import of the provider settings."""
 from unittest.mock import MagicMock
 
 
@@ -86,8 +82,7 @@ def test_export_wraps_api_key_when_export_key_set(monkeypatch):
 
 
 def test_export_envelope_rejects_provider_name_swap(monkeypatch):
-    """v2 envelopes are bound to the provider name via AAD: unwrapping the
-    same ciphertext under a different name must fail."""
+    """An envelope is bound to its provider name."""
     from src.services.export_crypto import (
         try_unwrap_api_key, wrap_api_key,
     )
@@ -99,8 +94,7 @@ def test_export_envelope_rejects_provider_name_swap(monkeypatch):
 
 
 def test_export_v1_envelope_still_decryptable(monkeypatch):
-    """Legacy v1 envelopes (no AAD) must still round-trip on import for
-    backups produced before the v2 hardening."""
+    """Old envelopes without a binding have to stay readable."""
     import os
     from cryptography.hazmat.primitives.ciphers.aead import AESGCM
     from src.services.export_crypto import _derive_key, _b64e, try_unwrap_api_key
@@ -163,8 +157,7 @@ def test_export_translates_route_ids_to_provider_names(monkeypatch):
 
 
 def test_export_drops_routes_with_missing_provider_id(monkeypatch):
-    """An orphaned route (provider_id refers to a deleted provider) should
-    not crash the export — its provider_name becomes null."""
+    """An orphaned route must not crash the export."""
     from src.routes.admin.providers import build_export
 
     monkeypatch.setattr(
@@ -435,8 +428,7 @@ def test_import_decrypts_envelope_and_sets_key_on_create(monkeypatch):
 
 
 def test_import_ignores_envelope_with_wrong_secret(monkeypatch):
-    """Envelope produced by a different KIS_EXPORT_KEY → no key applied,
-    provider lands in providers_needing_key."""
+    """A foreign key leaves the provider without an access key."""
     from src.routes.admin.providers import perform_import
     from src.services.export_crypto import wrap_api_key
 
@@ -466,8 +458,7 @@ def test_import_ignores_envelope_with_wrong_secret(monkeypatch):
 
 
 def test_import_does_not_overwrite_existing_key_with_envelope(monkeypatch):
-    """If a provider already has a key on the target, the envelope must not
-    clobber it — admin's current value wins."""
+    """An existing key wins against the one from the import."""
     from src.routes.admin.providers import perform_import
     from src.services.export_crypto import wrap_api_key
 
@@ -596,8 +587,7 @@ def test_import_skips_route_with_unresolved_provider(monkeypatch):
 
 
 def test_import_filters_unresolved_user_choices(monkeypatch):
-    """A user_choices list with a mix of resolvable and unresolvable names
-    should keep only the resolvable ones and still set the route."""
+    """Unresolvable names are dropped, the route is set anyway."""
     from src.routes.admin.providers import perform_import
 
     p = _make_provider(7, "Anbieter A")
@@ -753,9 +743,7 @@ def test_clear_all_invalidates_fingerprint_cache(monkeypatch):
 
 
 def test_clear_all_routes_deleted_before_providers(monkeypatch):
-    """Routes reference providers via FK; if FK is RESTRICT, routes must
-    go first. If it's CASCADE/SET NULL it doesn't matter, but the safe
-    order shouldn't change either way."""
+    """The routes go first, that is the safe order."""
     from src.routes.admin.providers import perform_clear_all
 
     call_order: list[str] = []

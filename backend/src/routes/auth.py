@@ -46,13 +46,10 @@ def login(body: LoginRequest, response: Response, locale: str = Depends(get_loca
     else:
         ldap_role_default = "user"
 
-    # Pre-fetch existing DB user so the maintenance gate below knows the
-    # role without committing any DB writes for non-admins during maintenance.
+    # Fetch the existing user up front so the maintenance check knows the role.
     db_user = database.get_user_by_username(ldap_username)
 
-    # Maintenance gate: only admin may sign in while maintenance is on. Mirrors
-    # is_admin_user(): env-admin email OR DB-role 'admin'. Without the DB-role
-    # branch a role='admin' user gets locked out of their own system.
+    # During maintenance only an admin may log in.
     maintenance_on = database.get_setting("maintenance_mode", "false").lower() == "true"
     is_admin_email = bool(email and settings.admin_email and email.lower() == settings.admin_email.lower())
     is_db_admin = bool(db_user and (db_user.get("role") or "") == "admin")
@@ -141,8 +138,7 @@ async def auth_status(request: Request):
                 "allow_workspace_create": perms.allow_workspace_create,
                 "allow_ldap_user_create": perms.allow_ldap_user_create,
                 "tools": list(perms.tools),
-                # Die volle Schluesselmenge. Die Seitenleiste des Bereichs
-                # entscheidet damit je Seite, statt nur "Admin ja oder nein".
+                # The full key set, the sidebar decides per page with it.
                 "keys": sorted(perms.keys),
             },
         }

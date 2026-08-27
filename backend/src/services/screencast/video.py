@@ -8,15 +8,15 @@ from loguru import logger
 from src.services.screencast.outro import KI_HINWEIS
 from src.services.screencast.process import run_proc
 
-# Zuschlag auf die Bildlänge, damit die Tonspur und nicht das Bild das Ende bestimmt.
+# Padding on the image length so the audio and not the image decides the end.
 _BILD_RESERVE = 2.0
 
-# Bilder je Sekunde für das Standbild. Bei 1 bekommt eine Folie unter einer Sekunde gar kein Bild.
+# Frames per second for the still, at 1 a slide under a second gets no frame at all.
 _BILDRATE = 5
 
 
 def get_audio_duration(audio_path: Path | None) -> float:
-    """Länge des Tons in Sekunden aus den gezählten Paketen, 3.0 für stumme Folien."""
+    """Audio length in seconds from the counted packets, 3.0 for silent slides."""
     if audio_path is None:
         return 3.0
     cmd = [
@@ -41,7 +41,7 @@ def get_audio_duration(audio_path: Path | None) -> float:
 
 
 def get_video_duration(video_path: Path) -> float:
-    """Laenge eines fertigen Clips in Sekunden, gibt den Versatz der naechsten Folie."""
+    """Length of a finished clip in seconds, it gives the offset of the next slide."""
     cmd = [
         "ffprobe", "-v", "error",
         "-show_entries", "format=duration",
@@ -58,7 +58,7 @@ def get_video_duration(video_path: Path) -> float:
 
 
 def _tempo_anpassen(audio_path: Path, output_path: Path, speed: float, job_uuid: str | None) -> Path:
-    """Lokal verlangsamen, damit die Tonhöhe bleibt."""
+    """Slow down locally so the pitch stays."""
     gedehnt = output_path.with_suffix(".tempo.mp3")
     cmd = [
         "ffmpeg", "-y", "-i", str(audio_path),
@@ -73,11 +73,7 @@ def _tempo_anpassen(audio_path: Path, output_path: Path, speed: float, job_uuid:
 
 
 def create_slide_video(image_path: Path, audio_path: Path | None, output_path: Path, pause: float = 0.0, crf: int = 23, job_uuid: str | None = None, silent_duration: float = 3.0, speed: float = 1.0) -> None:
-    """Combine a single slide image with its audio into a video clip.
-
-    If audio_path is None (silent/empty slide), produces a clip with silent
-    audio whose length is ``silent_duration`` seconds (default 3s).
-    """
+    """Assembles a slide image with its audio into a clip."""
     # Normalise: treat missing or empty audio files the same as None (silent slide)
     if audio_path is not None and (not audio_path.exists() or audio_path.stat().st_size == 0):
         logger.warning("Audio file is empty/missing ({}), falling back to silent slide", audio_path)
@@ -110,7 +106,7 @@ def create_slide_video(image_path: Path, audio_path: Path | None, output_path: P
             raise RuntimeError(f"Video-Erstellung fehlgeschlagen (kein Audio): {result.stderr[-300:]}")
         return
 
-    # Der Anbieter senkt beim Verlangsamen die Tonhöhe mit, das klingt hallig.
+    # The provider lowers the pitch when slowing down, which sounds hollow.
     if speed and abs(speed - 1.0) > 0.001:
         audio_path = _tempo_anpassen(audio_path, output_path, speed, job_uuid)
 
@@ -146,7 +142,7 @@ def create_slide_video(image_path: Path, audio_path: Path | None, output_path: P
         final_audio = audio_path
         bild_dauer = duration + _BILD_RESERVE
 
-    # -t begrenzt nur das Bild, -shortest beendet den Clip am Ende der Tonspur.
+    # -t only bounds the image, -shortest ends the clip at the end of the audio.
     cmd = [
         "ffmpeg", "-y",
         "-loop", "1", "-framerate", str(_BILDRATE), "-t", str(bild_dauer), "-i", str(image_path),
@@ -184,7 +180,7 @@ def concatenate_videos(video_paths: list[Path], output_path: Path) -> None:
 
 
 def apply_faststart(input_path: Path, output_path: Path, subtitle_path: Path | None = None, subtitle_lang: str = "") -> bytes:
-    """Faststart fuers Netz, dabei kommt die Untertitel-Spur ohne neues Kodieren mit rein."""
+    """Faststart for the network, the subtitle track comes in without re-encoding."""
     cmd = ["ffmpeg", "-y", "-i", str(input_path)]
     if subtitle_path is not None:
         cmd += ["-i", str(subtitle_path)]
@@ -193,7 +189,7 @@ def apply_faststart(input_path: Path, output_path: Path, subtitle_path: Path | N
         cmd += ["-map", "1:0", "-c:s", "mov_text"]
         if subtitle_lang:
             cmd += ["-metadata:s:s:0", f"language={subtitle_lang}"]
-    # Kennzeichnung an der Datei, damit sie auch ohne Ansehen des Videos auslesbar ist.
+    # A mark on the file so it can be read without watching the video.
     cmd += ["-metadata", f"comment={KI_HINWEIS}"]
     cmd += ["-c:v", "copy", "-c:a", "copy", "-movflags", "+faststart", str(output_path)]
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)

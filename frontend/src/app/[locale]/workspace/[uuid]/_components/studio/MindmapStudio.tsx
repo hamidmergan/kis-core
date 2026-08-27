@@ -63,7 +63,7 @@ export function MindmapStudio({
   const viewerRef = useRef<HTMLDivElement>(null);
   const meInstanceRef = useRef<any>(null);
   const [view, setView] = useState<"viewer" | "list">(openInViewer ? "viewer" : "list");
-  // Welche Karte gerade umbenannt wird. Nur eine, mehr braucht niemand gleichzeitig.
+  // Which card is currently being renamed, only one, nobody needs more at once.
   const [umbenennt, setUmbenennt] = useState<number | null>(null);
   const [allExpanded, setAllExpanded] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
@@ -76,8 +76,7 @@ export function MindmapStudio({
     }
   }, [openInViewer, onViewerOpened]);
 
-  // Enter/exit native browser fullscreen and lock orientation to landscape
-  // on mobile. Falls back to pure CSS fullscreen if the API is unavailable.
+  // Full screen with an orientation lock, otherwise plain CSS full screen.
   async function handleFullscreenToggle() {
     const el = viewerRef.current;
     if (!fullscreen) {
@@ -99,8 +98,7 @@ export function MindmapStudio({
     }
   }
 
-  // Sync fullscreen state and release orientation lock if user exits via ESC,
-  // system gesture, or unmounts — otherwise device stays locked in landscape.
+  // Release the lock, even when full screen is left another way.
   useEffect(() => {
     function unlockOrientation() {
       const o = screen.orientation as ScreenOrientation & { unlock?: () => void };
@@ -207,8 +205,7 @@ export function MindmapStudio({
               ? node.page_number
               : tMm("pageLabel", { page: node.page_number ?? 0 });
             const esc = node.topic.replace(/&/g, "&amp;").replace(/</g, "&lt;");
-            // Escape the chip label too (defense in depth, consistent with the
-            // topic above) since it is interpolated into innerHTML below.
+            // The chip label is escaped too, it ends up in innerHTML.
             const label = String(rawLabel).replace(/&/g, "&amp;").replace(/</g, "&lt;");
             const IconComp = _getChipIcon(node.source_label);
             const icon = renderToStaticMarkup(
@@ -254,9 +251,7 @@ export function MindmapStudio({
       me.refresh();
       me.toCenter();
 
-      // Node click → open source: use pointerdown/pointerup with move threshold
-      // because mind-elixir pans on any mouse movement which shifts the DOM nodes,
-      // causing the browser click target to miss the me-tpc element.
+      // Click via pointer events, because the map shifts on every movement.
       let downTpc: HTMLElement | null = null;
       let downX = 0;
       let downY = 0;
@@ -288,9 +283,7 @@ export function MindmapStudio({
           ?? srcs.find((s) => s.filename.toLowerCase() === label)
           ?? srcs.find((s) => label.includes(s.filename.toLowerCase()) || s.filename.toLowerCase().includes(label));
         if (src) {
-          // Exit native browser fullscreen, otherwise the viewer container stays
-          // in element fullscreen and the source panel in the workspace is not visible
-          // (black borders + state mismatch).
+          // Leave full screen, otherwise the sources panel stays invisible.
           if (document.fullscreenElement) {
             try { await document.exitFullscreen(); } catch { /* ignore */ }
           }

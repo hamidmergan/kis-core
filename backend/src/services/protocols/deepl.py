@@ -1,9 +1,4 @@
-"""Adapter for the DeepL translation API.
-
-DeepL is a single-capability protocol: translation only. The probe hits
-``/v2/usage`` — DeepL's free, no-quota-cost endpoint that verifies both the
-auth key and the host (Free vs Pro) in a single call.
-"""
+"""Adapter for the DeepL API, one feature: translation."""
 
 from __future__ import annotations
 
@@ -30,12 +25,7 @@ class DeepLAdapter(ProviderAdapter):
         }
 
     def _effective_base_url(self) -> str:
-        """Auto-route between DeepL's Free and Pro hosts based on the key suffix.
-
-        Free keys end with ``:fx`` and only work on ``api-free.deepl.com``;
-        Pro keys only work on ``api.deepl.com``. Only swap between these two
-        canonical hosts - custom proxy URLs are left untouched.
-        """
+        """Picks the free or pro address by the key suffix."""
         if not self.api_key:
             return self.base_url
         canonical = self.base_url.rstrip("/")

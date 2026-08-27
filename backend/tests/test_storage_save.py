@@ -1,11 +1,4 @@
-"""Ablegen im Speicher: jede Funktion schreibt an ihren Platz und meldet ihn zurueck.
-
-Die Funktionen hatten alle denselben Rumpf, nur mit einem anderen Schluessel.
-Diese Tests halten fest, was jede von ihnen tut, damit das Zusammenziehen
-nichts verschiebt. Zwei Dinge sind leicht zu uebersehen: mit S3 kommt der
-Schluessel zurueck, ohne S3 der volle Pfad, und der Ordner muss angelegt
-werden, bevor geschrieben wird.
-"""
+"""Every save function writes to its place and reports it back."""
 
 import json
 
@@ -16,7 +9,7 @@ from src import storage
 
 @pytest.fixture
 def s3(monkeypatch):
-    """Speicher mit S3: merkt sich, was abgelegt wurde."""
+    """Storage with S3: remembers what was stored."""
     abgelegt: dict[str, bytes] = {}
     hochgeladen: dict[str, str] = {}
 
@@ -32,7 +25,7 @@ def s3(monkeypatch):
     return abgelegt, hochgeladen
 
 
-# ─── Ohne S3: voller Pfad zurueck, Ordner wird angelegt ────────────────────
+# ─── Without S3: full path back, the folder is created ─────────────────────
 
 def test_jede_bytes_funktion_schreibt_an_ihren_platz(lokal):
     job = lokal / "users/7/jobs/j1"
@@ -73,7 +66,7 @@ def test_jede_pfad_funktion_kopiert_an_ihren_platz(lokal, tmp_path):
 
 
 def test_der_ordner_wird_angelegt_falls_er_fehlt(lokal):
-    """Bei einem frischen Job gibt es den Ordner noch nicht."""
+    """For a fresh job the folder does not exist yet."""
     assert not (lokal / "users/9").exists()
 
     storage.save_queue_file(9, "neu", ".txt", b"x")
@@ -81,7 +74,7 @@ def test_der_ordner_wird_angelegt_falls_er_fehlt(lokal):
     assert (lokal / "users/9/jobs/neu/input.txt").read_bytes() == b"x"
 
 
-# ─── Mit S3: Schluessel zurueck, kein Pfad ─────────────────────────────────
+# ─── With S3: key back, no path ────────────────────────────────────────────
 
 def test_mit_s3_kommt_der_schluessel_zurueck(s3):
     abgelegt, _ = s3

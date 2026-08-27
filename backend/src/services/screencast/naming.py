@@ -14,13 +14,7 @@ def translate_stem(
     target_lang: str = "EN-US",
     service=None,
 ) -> str:
-    """Übersetzt den Namensstamm einer Datei. Ohne Endung.
-
-    ``service`` ist der Übersetzer, den der Nutzer für diesen Job gewählt hat.
-    Ohne ihn ging der Aufruf immer direkt an DeepL, auch wenn der Job über ein
-    Sprachmodell übersetzt wurde. Ohne DeepL-Schlüssel blieb der Dateiname dann
-    unübersetzt, während der Inhalt übersetzt war.
-    """
+    """Translates the stem of a file name with the chosen translator."""
     if not filename or not filename.strip():
         return "screencast"
 

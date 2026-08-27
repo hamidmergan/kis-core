@@ -25,7 +25,7 @@ from src.routes.screencast._models import PrerenderRequest, RenderRequest
 
 
 def _merke_zielsprache(user_id: int, job_uuid: str, target_lang: str) -> None:
-    """Die Vertonung liest die Sprache spaeter hier, auch beim Neu-Rendern."""
+    """The voicing reads the language here later, on a re-render too."""
     if not target_lang:
         return
     save_result_meta(user_id, job_uuid, {**(load_result_meta(user_id, job_uuid) or {}),
@@ -33,7 +33,7 @@ def _merke_zielsprache(user_id: int, job_uuid: str, target_lang: str) -> None:
 
 
 def _vorrat_passt_nicht(user_id: int, job_uuid: str, body) -> bool:
-    """Stimme, Anbieter oder Sprache gewechselt? Dann ist der Ton im Vorrat der falsche."""
+    """Voice, provider or language changed? Then the pooled audio is the wrong one."""
     try:
         alt = json.loads(get_job_file(user_id, job_uuid, "queue_params.json"))
     except Exception:
@@ -58,15 +58,10 @@ async def prerender_images(
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    """Start background pre-rendering of slide images at 300 DPI.
-
-    Call this after the user confirms scripts so images are ready when /render is called.
-    Fire-and-forget: always returns immediately.
-    """
+    """Starts pre-rendering the slide images and returns right away."""
     if not re.match(r"^[a-f0-9]{32}$", body.translate_job_uuid):
         raise HTTPException(status_code=400, detail=t("job.invalidUuid", locale))
-    # Ownership check: only the job owner may trigger pre-rendering. Same status
-    # for missing and not-owned so job existence cannot be probed.
+    # Only the owner may pre-render, missing and foreign give the same answer.
     job = db.get_job(body.translate_job_uuid)
     if not job or job["user_id"] != current_user.get("user_id", 0):
         raise HTTPException(status_code=404, detail=t("screencast.translateJobNotFound", locale))
@@ -134,8 +129,7 @@ def screencast_render(
         db.delete_job(body.translate_job_uuid)
         raise HTTPException(status_code=404, detail=t("screencast.jobFilesGone", locale))
 
-    # Vorrat wegwerfen, wenn er nicht mehr passt: nach einem Erfolg sind die Skripte neu,
-    # nach einem Stimmwechsel spraeche sonst die alte Stimme weiter.
+    # Throw the pool away when it no longer fits.
     if translate_job["status"] == "success" or _vorrat_passt_nicht(user_id, body.translate_job_uuid, body):
         clear_render_cache(user_id, body.translate_job_uuid)
         logger.info("Vorrat geleert fuer job={}", body.translate_job_uuid)

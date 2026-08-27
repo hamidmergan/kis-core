@@ -1,10 +1,4 @@
-"""Chunk selection for the AIA tools' context window.
-
-A source that fits goes in whole. An oversized source is read as a SWEEP: one window per
-coverage block, resuming where the previous run stopped, always returned in document
-order. The properties that matter are coverage (every chunk is eventually read, including
-the very first and the very last) and progress (no run repeats the previous one).
-"""
+"""Chunk selection for the context window, checked for coverage and progress."""
 
 from src.features.ai_assistant.tasks._context_budget import (
     _COVERAGE_BLOCKS,
@@ -43,8 +37,7 @@ def test_oversized_is_trimmed_to_budget():
 
 
 def test_oversized_covers_whole_document_not_just_front():
-    # Taking the first chunks only would bias every exercise to page 1. One window per
-    # block means a single run spans the document.
+    # One window per block, otherwise every exercise hangs on page 1.
     cs = _chunks(120, 100)
     picked, _ = select_chunks_for_budget(cs, 3000)
     pages = _pages(picked)
@@ -53,9 +46,7 @@ def test_oversized_covers_whole_document_not_just_front():
 
 
 def test_first_run_starts_at_the_very_first_chunk():
-    # The random sampler this replaced anchored each block at a random offset and only
-    # grew forward, so everything before the first anchor was unreachable: on a real
-    # 489-page PDF page 1 came up once in 30 runs. A sweep starts at the start.
+    # A sweep starts at the beginning, unlike the old random selection.
     cs = _chunks(120, 100)
     picked, _ = select_chunks_for_budget(cs, 3000)
     assert min(_pages(picked)) == 1
@@ -87,14 +78,7 @@ def test_same_cursors_give_the_same_run():
 
 
 def test_sweep_covers_every_chunk_in_close_to_the_fewest_runs():
-    """The whole document gets read, and roughly as fast as the budget allows.
-
-    Not exactly the arithmetic minimum: the blocks are one chunk apart in width, so they
-    reach their end on different runs and whoever finishes first starts over while the
-    others are still going. The overhead is small and bounded, and it disappears as the
-    chunks get small against the per-block share, which is the production case: on a real
-    2.18M-char PDF against an 800k budget the sweep hits the minimum of three runs exactly.
-    """
+    """The whole document gets read, roughly as fast as the budget allows."""
     cs = _chunks(200, 100)
     total = sum(len(c["content"]) + 1 for c in cs)
     budget = 3000
@@ -112,8 +96,7 @@ def test_sweep_covers_every_chunk_in_close_to_the_fewest_runs():
 
 
 def test_a_run_actually_uses_its_budget():
-    # Handing every block a fixed share and stopping there wastes the remainder of each
-    # share, which showed up as the sweep needing more runs than the budget called for.
+    # The remainder of every share is handed out, otherwise a sweep needs more runs.
     cs = _chunks(200, 100)
     picked, _ = select_chunks_for_budget(cs, 3000)
     used = sum(len(c["content"]) + 1 for c in picked)
@@ -122,8 +105,7 @@ def test_a_run_actually_uses_its_budget():
 
 
 def test_sweep_wraps_around_instead_of_running_dry():
-    # Past the end of the document the cursors start over rather than returning nothing,
-    # so a workspace that keeps generating keeps getting material.
+    # At the end the marks start over instead of delivering nothing.
     cs = _chunks(60, 100)
     cursors: list[int] = []
     for _ in range(20):
@@ -132,8 +114,7 @@ def test_sweep_wraps_around_instead_of_running_dry():
 
 
 def test_stored_cursors_of_the_wrong_length_are_survivable():
-    # The block count changes when a source is re-uploaded shorter than the block count.
-    # An old row must cost at most one uneven run, never an exception.
+    # A changed block count costs at most one uneven run.
     cs = _chunks(120, 100)
     picked, cursors = select_chunks_for_budget(cs, 3000, cursors=[1, 2, 3])
     assert picked
@@ -141,9 +122,7 @@ def test_stored_cursors_of_the_wrong_length_are_survivable():
 
 
 def test_a_source_barely_over_budget_is_almost_read_out_in_one_run():
-    # 2020 chars against a 2000 budget. Nearly every block holds its whole width, so most
-    # of them wrap straight back to their start, and the two runs together have seen the
-    # document twice over rather than stalling on the one chunk that did not fit.
+    # Almost every block fits entirely and starts over right away.
     cs = _chunks(20, 100)
     first, cursors = select_chunks_for_budget(cs, 2000)
     assert len(first) == 19  # all but the one the budget cannot hold
@@ -154,8 +133,7 @@ def test_a_source_barely_over_budget_is_almost_read_out_in_one_run():
 
 
 def test_a_chunk_larger_than_its_share_is_still_read():
-    # Skipping it would park that block's cursor in front of it forever and the material
-    # behind it would never be reached.
+    # Skipping would park the mark in front of it forever.
     cs = [{"page_number": i + 1, "content": "x" * 5000} for i in range(24)]
     picked, cursors = select_chunks_for_budget(cs, 1200)  # 100 chars per block
     assert picked

@@ -1,16 +1,4 @@
-"""PPTX nach PNG: LibreOffice-Aufruf und Bildanzahl.
-
-Zwei Dinge sind hier schon schiefgegangen.
-
-Erstens teilen sich alle LibreOffice-Aufrufe ohne eigenes Profil dieselbe
-Konfiguration. Ein zweiter Aufruf während eines laufenden reicht den Auftrag
-nur weiter und endet mit Rückgabewert 0, ohne PDF. Gemessen: drei gleichzeitige
-Konvertierungen, eine ohne Ergebnis, keine Fehlermeldung im Log.
-
-Zweitens exportiert LibreOffice ausgeblendete Folien nicht. Der Aufruf muss sie
-deshalb schon beim Export ausschliessen, sonst bekommt jedes Bild nach der ersten
-versteckten Folie das falsche Skript.
-"""
+"""PPTX to PNG: its own LibreOffice profile and no hidden slides."""
 
 import threading
 from concurrent.futures import ThreadPoolExecutor
@@ -38,7 +26,7 @@ def test_soffice_cmd_excludes_hidden_slides():
 
 
 def test_profile_dir_differs_between_concurrent_threads():
-    """Zwei gleichzeitig laufende Konvertierungen dürfen sich kein Profil teilen."""
+    """Two concurrent conversions must not share a profile."""
     barrier = threading.Barrier(2)
 
     def _profile(_: int) -> Path:

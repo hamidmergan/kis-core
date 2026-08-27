@@ -13,20 +13,19 @@ import { laneCount, weekSegments, type RangeEntry } from "./_ranges";
 import { useHiddenIds } from "./_hidden";
 import { todayISO } from "./utils";
 
-/** Kleine feste Palette, damit mehrere Workspaces im Raster unterscheidbar bleiben. */
+/** A small fixed palette so several workspaces stay distinguishable in the grid. */
 const WS_COLORS = ["var(--kb)", "#B45309", "#6D28D9", "#0F766E", "#9D174D", "#1D4ED8"];
 
-/** Eigene Termine tragen alle dasselbe Marken-Blau. Fest statt var(--kb60), weil
- *  weisse Schrift darauf in beiden Modi lesbar bleiben muss. */
+/** Fixed instead of a variable, because white text has to stay readable in both modes. */
 const PRIV_COLOR = "#4F7A91";
 
-/** Mehr Einträge pro Tag werden zu "+N weitere", sonst sprengt ein Tag die Zeilenhöhe. */
+/** More entries per day become '+N more', otherwise one day blows the row height. */
 const MAX_CHIPS = 2;
 
-/** Hoechstens so viele Balken uebereinander, der Rest zaehlt in "+N weitere" mit. */
+/** At most this many bars on top of each other, the rest counts into '+N more'. */
 const MAX_LANES = 2;
 
-/** Heute traegt nur vier Winkel, kein voller Rahmen und keine Fuellung. */
+/** Today only carries four corners, no full border and no fill. */
 const ECK_STRICH = "2px solid var(--kb)";
 const ECKEN: React.CSSProperties[] = [
   { top: 0, left: 0, borderTop: ECK_STRICH, borderLeft: ECK_STRICH },
@@ -44,13 +43,13 @@ function ymd(y: number, m: number, d: number): string {
   return `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
-/** Wie ymd, aber der Tag darf ueber den Monat hinauslaufen, Date rechnet das um. */
+/** Like ymd, but the day may run past the month, Date converts that. */
 function ymdShift(y: number, m: number, dayOffset: number): string {
   const dt = new Date(y, m, dayOffset);
   return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
 }
 
-/** Der Kalender zeigt immer alles. Ein Monat mit Löchern wäre kein Kalender. */
+/** The calendar always shows everything, a month with holes would be no calendar. */
 async function fetchAll(): Promise<ScheduleListEntry[] | null> {
   const params = new URLSearchParams({
     include_past_open: "true",
@@ -73,7 +72,7 @@ async function putChecked(
   entryId: number,
   checked: boolean,
 ): Promise<boolean> {
-  // Ein eigener Termin hat keinen Workspace im Pfad.
+  // A private appointment has no workspace in the path.
   const url = workspaceUuid
     ? `/api/ai-assistant/workspaces/${workspaceUuid}/schedule/entries/${entryId}`
     : `/api/ai-assistant/schedule/entries/${entryId}`;
@@ -93,10 +92,7 @@ async function putChecked(
   }
 }
 
-/**
- * Monatsraster über alle Workspaces. Ein Klick auf einen Tag öffnet dessen
- * Termine unter dem Raster, weil in einer Zelle nur zwei Titel Platz haben.
- */
+/** Month grid across all courses, a click opens the day's appointments below. */
 export default function ScheduleMonth() {
   const t = useTranslations("schedule");
   const locale = useLocale();
@@ -104,16 +100,16 @@ export default function ScheduleMonth() {
 
   const [entries, setEntries] = useState<ScheduleListEntry[] | null>(null);
   const [error, setError] = useState(false);
-  // Der Kalender startet immer im laufenden Monat, damit heute im Bild ist.
+  // The calendar always starts in the current month so today is in view.
   const [cursor, setCursor] = useState(() => {
     const d = new Date();
     return { y: d.getFullYear(), m: d.getMonth() };
   });
   const [selected, setSelected] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
-  // Vorbelegtes Datum fuer einen neuen Termin, leer beim Knopf in der Leiste.
+  // Prefilled date for a new appointment, empty for the button in the bar.
   const [modalDate, setModalDate] = useState("");
-  // Merkt den letzten Klick, damit ein Doppelklick oder Doppeltipp erkannt wird.
+  // Remembers the last click so a double click or double tap is recognised.
   const letzterKlick = useRef<{ iso: string; zeit: number } | null>(null);
   const [editing, setEditing] = useState<ScheduleListEntry | null>(null);
   const { hidden, toggleHidden } = useHiddenIds();
@@ -157,7 +153,7 @@ export default function ScheduleMonth() {
     if (r.ok) setEntries((prev) => prev?.filter((e) => e.id !== entry.id) ?? prev);
   }, [t]);
 
-  /** Einmal waehlt den Tag, zweimal kurz hintereinander legt dort einen Termin an. */
+  /** One click selects the day, two in quick succession create an appointment there. */
   const handleDayClick = useCallback((iso: string) => {
     const jetzt = Date.now();
     const vorher = letzterKlick.current;
@@ -184,11 +180,10 @@ export default function ScheduleMonth() {
     if (!ok) {
       setEntries((prev) => prev?.map((e) => (e.id === entry.id ? { ...e, is_checked: !checked } : e)) ?? prev);
     }
-    // Erledigtes bleibt stehen und wird nur durchgestrichen, der Kalender zeigt alles.
+    // Done entries stay and are only struck through, the calendar shows everything.
   }, []);
 
-  // Farbe nach Reihenfolge statt nach Hash: so bekommen die ersten sechs
-  // Workspaces garantiert verschiedene Farben, und die Zuordnung bleibt stabil.
+  // Colour by order instead of by hash, so the first six stay distinct.
   const wsColors = useMemo(() => {
     const ids = [...new Set((entries ?? []).map((e) => e.workspace_uuid))]
       .filter((id): id is string => id !== null)
@@ -202,7 +197,7 @@ export default function ScheduleMonth() {
   );
 
   const weekdays = useMemo(() => {
-    // 2024-01-01 war ein Montag, das gibt die Reihenfolge Mo bis So.
+    // 2024-01-01 was a Monday, that gives the order Monday to Sunday.
     const fmt = new Intl.DateTimeFormat(tag, { weekday: "short" });
     return Array.from({ length: 7 }, (_, i) => fmt.format(new Date(2024, 0, 1 + i)));
   }, [tag]);
@@ -221,15 +216,14 @@ export default function ScheduleMonth() {
   const trailing = (7 - ((startCol + daysInMonth) % 7)) % 7;
   const weeks = (startCol + daysInMonth + trailing) / 7;
 
-  // Ein Eintrag mit date_precision "month" nennt keinen Tag und passt daher in
-  // keine Zelle. Er steht unter dem Raster.
+  // An entry without a day number fits no cell and sits below the grid.
   const byDay = new Map<string, ScheduleListEntry[]>();
   const noDay: ScheduleListEntry[] = [];
   const monthPrefix = `${y}-${String(m + 1).padStart(2, "0")}`;
   const monthStart = `${monthPrefix}-01`;
   const monthEnd = `${monthPrefix}-${String(daysInMonth).padStart(2, "0")}`;
 
-  // Zeitraeume zeichnet der Balken, sie duerfen nicht zusaetzlich als Tages-Kachel auftauchen.
+  // Spans are drawn by the bar, they must not also appear as a day tile.
   const isRange = (e: ScheduleListEntry) => !!e.end_date && e.end_date !== e.due_date;
   const monthRanges = entries.filter(
     (e) => isRange(e) && e.due_date <= monthEnd && (e.end_date as string) >= monthStart,
@@ -250,7 +244,7 @@ export default function ScheduleMonth() {
   const usedWorkspaces = new Map<string, { title: string; color: string }>();
   let hatPrivate = false;
   for (const e of [...byDay.values()].flat().concat(noDay, monthRanges)) {
-    // Eigene Termine tragen keinen Workspace-Namen, sie stehen als eine Zeile.
+    // Private appointments carry no workspace name, they stand as one line.
     if (e.workspace_uuid === null) {
       hatPrivate = true;
       continue;
@@ -266,11 +260,11 @@ export default function ScheduleMonth() {
     usedWorkspaces.set("__privat__", { title: t("month.personal"), color: PRIV_COLOR });
   }
 
-  // Nur das Raster laesst Ausgeblendetes weg, die Liste rechts zeigt weiter alles.
+  // Only the grid leaves hidden entries out, the list on the right still shows everything.
   const imRaster = (e: ScheduleListEntry) => !hidden.has(e.id);
   const noDayGrid = noDay.filter(imRaster);
 
-  // Ein Zeitraum hat ein Ende, alles andere ist ein einzelner Tag.
+  // A span has an end, everything else is a single day.
   const ranges: RangeEntry[] = monthRanges
     .filter(imRaster)
     .map((e) => ({
@@ -284,16 +278,14 @@ export default function ScheduleMonth() {
 
   const monthLabel = new Intl.DateTimeFormat(tag, { month: "long", year: "numeric" })
     .format(new Date(y, m, 1));
-  // Ein Zeitraum steht in keiner Tageszelle, deckt den Tag aber trotzdem ab.
-  // Ohne ihn waere ein Tag mitten in der Klausurphase nicht anklickbar.
+  // A span sits in no cell but covers the day and makes it clickable.
   const rangesOn = (iso: string) =>
     monthRanges.filter((r) => r.due_date <= iso && (r.end_date as string) >= iso);
   const entriesOn = (iso: string) => (byDay.get(iso) ?? []).concat(rangesOn(iso));
   const selectedEntries = selected ? entriesOn(selected) : [];
   const isEmptyMonth = byDay.size === 0 && noDay.length === 0;
 
-  // Nur auf breiten Schirmen: die Spalte rechts zeigt den ganzen Monat, und
-  // sobald ein Tag gewählt ist, nur noch diesen.
+  // Only on wide screens, the column shows the month or the selected day.
   const monthEntries = [...byDay.entries()]
     .flatMap(([, list]) => list)
     .concat(monthRanges)
@@ -375,13 +367,12 @@ export default function ScheduleMonth() {
       {Array.from({ length: weeks }, (_, w) => {
         const weekStart = ymdShift(y, m, 1 - startCol + w * 7);
         const segmente = weekSegments(ranges, weekStart);
-        // Was ueber den Deckel hinausgeht, wird nicht gezeichnet, sondern gezaehlt.
+        // Whatever exceeds the cap is not drawn but counted.
         const sichtbareBalken = segmente.filter((s) => s.lane < MAX_LANES);
         const versteckteIds = new Set(
           segmente.filter((s) => s.lane >= MAX_LANES).map((s) => s.entry.id),
         );
-        // Platz pro Tag statt pro Woche: ein Tag, den kein Balken kreuzt, braucht
-        // keinen. Sonst steht in leeren Zellen ein Loch von zwei Balkenhoehen.
+        // Space per day instead of per week, otherwise empty cells gape.
         const spurProTag = new Map<number, number>();
         for (const seg of sichtbareBalken) {
           for (let i = seg.col1 - 1; i <= seg.col2 - 2; i++) {
@@ -393,7 +384,7 @@ export default function ScheduleMonth() {
           <div
             key={weekStart}
             className="relative grid grid-cols-7 xl:flex-1"
-            // Viele Balken brauchen echte Hoehe, sonst rutscht die Kachel darunter aus der Zelle.
+            // Many bars need real height, otherwise the tile below slips out of the cell.
             style={{
               borderTop: w === 0 ? undefined : "1px solid var(--border-soft)",
               ...(wochenPlatz ? { minHeight: BAR_TOP + wochenPlatz + BAR_GAP } : {}),
@@ -419,8 +410,7 @@ export default function ScheduleMonth() {
           const iso = ymd(y, m, day);
           const items = (byDay.get(iso) ?? []).filter(imRaster);
           const spannen = rangesOn(iso);
-          // Ein Zeitraum ohne Balken ist fuer diesen Tag genauso ein versteckter Eintrag
-          // wie eine weggelassene Kachel, beide zaehlen in denselben Rest.
+          // A span without a bar counts into the same remainder as an omitted tile.
           const versteckteSpannen = spannen.filter((r) => versteckteIds.has(r.id)).length;
           const spur = spurProTag.get(i);
           const platz = spur === undefined ? 0 : barsSpace(spur + 1);
@@ -439,7 +429,7 @@ export default function ScheduleMonth() {
               className="relative min-h-13 md:min-h-19 px-1.5 py-1 flex flex-col text-left transition-colors cursor-pointer hover:bg-[var(--surface-dim)] hover:outline-2 hover:outline-[var(--kb)]"
               style={{
                 borderLeft: i === 0 ? undefined : "1px solid var(--border-soft)",
-                // Der gewaehlte Tag bekommt die volle Kontur, heute nur die Winkel darunter.
+                // The selected day gets the full outline, today only the corners below.
                 outline: isSelected ? "2px solid var(--kb)" : undefined,
                 outlineOffset: -2,
                 backgroundColor: "var(--background)",
@@ -450,8 +440,7 @@ export default function ScheduleMonth() {
               ))}
               <span
                 className="text-2xs font-semibold"
-                // Feste Hoehe, sonst rundet die Zeilenbox und der Abstand darunter
-                // stimmt um ein Pixel nicht mit dem zwischen den Balken ueberein.
+                // Fixed height, otherwise the gap is off by a pixel.
                 style={{ height: 17, color: isToday ? "var(--kb)" : "var(--foreground-soft)" }}
               >
                 {day}

@@ -1,8 +1,4 @@
-"""Audio chunking utilities for Whisper uploads.
-
-OpenAI-compatible Whisper deployments accept max 600s per upload. Longer audio
-is split at silence points, transcribed individually and stitched back together.
-All functions here are pure (no client state)."""
+"""Splits long recordings at speech pauses for the Whisper upload."""
 
 import json
 import re
@@ -19,16 +15,7 @@ _SPLIT_SEARCH_WINDOW = 60  # Search window around each target split point (s)
 
 
 class AudioTooLongError(Exception):
-    """Media longer than the configured maximum.
-
-    Typed rather than a formatted string: this is raised deep in the service
-    layer, which has no locale, while the wording belongs to whoever knows the
-    user's language (``src.tasks._errors.handle_task_exception``). ``str()``
-    stays readable for logs.
-
-    Die Grenze kommt als Argument herein, weil sie im Admin einstellbar ist
-    (``services/tool_limits.py``) und dieses Modul bewusst ohne Datenbank auskommt.
-    """
+    """Recording longer than allowed, the limit comes in as an argument."""
 
     def __init__(self, duration_sec: float, max_sec: int):
         self.duration_sec = duration_sec
@@ -58,13 +45,7 @@ def get_audio_duration(file_path: str) -> float:
 
 
 def find_silence_starts(file_path: str) -> list[float]:
-    """Run ffmpeg silencedetect and return a list of silence_start timestamps.
-
-    ``-vn`` ist der teuerste Buchstabe hier: ohne ihn dekodiert ffmpeg die
-    komplette Bildspur mit und wirft sie in den null-Muxer, obwohl nur die
-    Tonpausen gesucht werden. Gemessen an 5 Minuten 720p: 5,25 s CPU mit Bild
-    gegen 0,26 s ohne, und das Dekodieren lief ueber alle Kerne.
-    """
+    """Finds the speech pauses via ffmpeg, without decoding the video track."""
     result = subprocess.run(
         [
             "ffmpeg", "-i", file_path,
@@ -93,20 +74,7 @@ def compute_split_points(duration: float, silence_starts: list[float]) -> list[f
 
 
 def split_audio(file_path: str, split_points: list[float], tmpdir: str) -> list[tuple[str, float]]:
-    """Split audio at given timestamps and re-encode to low-bitrate mono mp3.
-
-    Re-encoding (instead of stream-copy) keeps every chunk under typical Whisper
-    upload limits regardless of source bitrate or codec (see CHUNK_REENCODE_BITRATE_KBPS).
-
-    ``-ss`` is placed BEFORE ``-i`` (input seeking): ffmpeg jumps near the chunk
-    start via the demuxer instead of decoding the whole file up to that point.
-    With output seeking (``-ss`` after ``-i``) chunk N re-decoded the entire 0..start
-    prefix, so a 7-chunk video decoded the head ~4-5x over — the dominant cost of
-    the split step. Input seek + re-encode stays accurate, and each chunk's output
-    timestamps still start at 0, so the returned ``start`` offset is unchanged.
-
-    Returns list of (chunk_path, start_offset_seconds).
-    """
+    """Cuts the recording and turns every piece into a small MP3."""
     boundaries = [0.0] + split_points + [None]  # None = end of file
     chunks: list[tuple[str, float]] = []
     for i, (start, end) in enumerate(zip(boundaries[:-1], boundaries[1:])):

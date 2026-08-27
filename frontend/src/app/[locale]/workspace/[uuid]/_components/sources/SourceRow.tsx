@@ -15,11 +15,7 @@ import type { Chapter, Source } from "../../_types";
 import { splitFilename } from "../../_utils";
 import { FileIcon, SourceStatus } from "./FileIcon";
 
-/** Eine Zeile der Quellenliste: Haken, Symbol, Name, Zustand und das Menue.
- *
- *  Umbenennen und das offene Menue werden vom Panel gesteuert, nicht hier. So
- *  bleibt es dabei, dass immer nur eine Zeile im Bearbeiten-Zustand ist.
- */
+/** One row of the source list, the panel drives the renaming. */
 export function SourceRow({
   src,
   checked,
@@ -45,14 +41,14 @@ export function SourceRow({
   src: Source;
   checked: boolean;
   isOwner: boolean;
-  /** Texterkennung plattformweit an. Ist sie aus, gibt es nichts nachzuholen. */
+  /** Text recognition on platform wide, with it off there is nothing to catch up on. */
   ocrEnabled: boolean;
   compact: boolean;
-  /** Eingerueckt, sobald es ueberhaupt Kapitel gibt. */
+  /** Indented as soon as chapters exist at all. */
   nested: boolean;
   chapters: Chapter[];
   menuOpen: boolean;
-  /** "root" = das normale Menue, "chapter" = die Kapitelliste zum Verschieben. */
+  /** 'root' is the normal menu, 'chapter' the chapter list for moving. */
   menuMode: "root" | "chapter";
   onMenuOpen: (open: boolean) => void;
   onMenuMode: (mode: "root" | "chapter") => void;
@@ -72,8 +68,7 @@ export function SourceRow({
   const [renameBusy, setRenameBusy] = useState(false);
   const renameInputRef = useRef<HTMLInputElement>(null);
 
-  // Beim Oeffnen steht der Namensteil markiert im Feld, damit Ueberschreiben
-  // ohne vorheriges Markieren geht.
+  // The name part is selected in the field so overtyping works right away.
   useEffect(() => {
     if (renaming) {
       setRenameValue(splitFilename(src.filename)[0]);
@@ -82,19 +77,13 @@ export function SourceRow({
     }
   }, [renaming, src.filename]);
 
-  // A source is chat-ready once indexing is done (status "ready" with the
-  // progress field cleared). Selecting an in-progress source would feed the
-  // chat empty context.
+  // A source is only selectable once ingest is finished.
   const ready = src.status === "ready" && !src.progress;
 
-  // Seiten, die keinen erkannten Text tragen. Die Quelle ist trotzdem benutzbar,
-  // deshalb bloss ein Warnzeichen mit Tooltip und kein Fehlerkasten. Steht die
-  // Texterkennung plattformweit aus, waere jede Bild-PDF rot markiert, ohne dass
-  // jemand etwas dagegen tun koennte. Dann bleibt das Zeichen weg.
+  // Only a warning sign, and none when text recognition is off entirely.
   const ocrOpen = src.ocr_info?.open ?? [];
   const showOcrWarning = ready && ocrEnabled && ocrOpen.length > 0;
-  // Kurze Zeile fuer das Menue, der ganze Satz haengt als Tooltip daran. Das Menue
-  // ist schmal, ein Absatz darin wuerde die anderen Eintraege wegdruecken.
+  // A short line for the menu, the full sentence hangs off it as a tooltip.
   const ocrLabel = !src.ocr_info
     ? ""
     : src.ocr_info.enabled
@@ -109,7 +98,7 @@ export function SourceRow({
   async function commitRename() {
     if (renameBusy || !onRename) return;
     const next = renameValue.trim();
-    // Unveraendert oder leer: einfach schliessen, kein Aufruf, keine Meldung.
+    // Unchanged or empty: simply close, no call, no message.
     if (!next || next === splitFilename(src.filename)[0]) {
       onRenameEnd();
       setRenameError(null);
@@ -121,7 +110,7 @@ export function SourceRow({
       onRenameEnd();
       setRenameError(null);
     } catch (e) {
-      // Das Feld bleibt offen, damit der abgelehnte Name gleich zu bessern ist.
+      // The field stays open so the rejected name can be fixed right away.
       setRenameError(e instanceof Error && e.message ? e.message : t("renameFailed"));
     } finally {
       setRenameBusy(false);

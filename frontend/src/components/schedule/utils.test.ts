@@ -1,14 +1,4 @@
-/**
- * Zeitspannen in der Zeitleiste.
- *
- * Zwei Regeln haengen daran und beide waren vorher falsch, weil es nur ein Datum gab:
- *
- *   1. Faellig ist ein Termin an seinem LETZTEN Tag. Eine Betreuungszeit vom 28.09. bis
- *      zum 21.01. laeuft vier Monate und darf in dieser Zeit weder abgeblendet noch
- *      dringend aussehen.
- *   2. "bis 21. Januar" braucht das Jahr, sobald die Spanne den Jahreswechsel
- *      ueberschreitet. Ohne Jahr hat der Leser keinen Anhalt, welcher Januar gemeint ist.
- */
+/** Spans in the timeline, due on the last day and with a year across the year boundary. */
 
 import { describe, expect, it } from "vitest";
 import {

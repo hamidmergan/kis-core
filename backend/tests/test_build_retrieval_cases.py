@@ -1,13 +1,4 @@
-"""Die pruefbaren Teile des Fragen-Bauers fuer den breiten Messsatz.
-
-Der Bauer zieht Chunks aus einem Workspace, laesst ein Modell je eine Frage
-dazu schreiben und legt beides als Messfall ab. Modellaufruf und Datenbank sind
-hier aussen vor, geprueft wird was auch ohne beides falsch sein kann:
-
-* welche Chunks ueberhaupt taugen (ein Ueberschriften-Chunk traegt keine Antwort)
-* welcher Textausschnitt als Beleg dient (er muss woertlich wiederfindbar sein)
-* was von der Antwort des Modells uebrig bleibt (Modelle liefern Zierrat)
-"""
+"""Checks the parts of the question builder that can be wrong without a model."""
 import pytest
 
 from scripts.build_retrieval_cases import (
@@ -31,8 +22,7 @@ def test_langer_fliesstext_taugt():
 
 
 def test_ueberschrift_taugt_nicht():
-    # Rund ein Drittel der Chunks im Bestand sind Kopfzeilen dieser Art. Eine Frage
-    # dazu waere unbeantwortbar und der Messsatz damit stiller Unsinn.
+    # A question about a header line would be unanswerable.
     assert _taugt_als_quelle("§ 5 Ruhezeit") is False
     assert _taugt_als_quelle("Inhaltsuebersicht") is False
 
@@ -43,22 +33,20 @@ def test_leeres_oder_fehlendes_taugt_nicht():
 
 
 def test_kurzer_absatz_taugt_nicht():
-    # Zu kurz, um eine Frage zu tragen, die nicht der halbe Text selbst ist.
+    # Too short to carry a question that is not half the text itself.
     assert _taugt_als_quelle("Die Ruhezeit betraegt elf Stunden.") is False
 
 
-# ── Der Beleg ─────────────────────────────────────────────────────────────────
+# ── The evidence ──────────────────────────────────────────────────────────────
 
 def test_beleg_steht_woertlich_im_text():
-    # Der Messsatz sucht den Beleg spaeter per ILIKE. Steht er nicht woertlich drin,
-    # ist der Fall von Anfang an unmessbar.
+    # If the evidence is not there verbatim, the case cannot be measured.
     b = _beleg(LANG)
     assert b and b in " ".join(LANG.split())
 
 
 def test_beleg_faellt_nicht_mit_dem_anfang_zusammen():
-    # Der Anfang eines Chunks ist oft die Ueberschrift oder der Paragrafenkopf und
-    # taucht wortgleich in vielen Chunks auf. Ein Beleg von dort waere mehrdeutig.
+    # Evidence from the chunk start would be ambiguous.
     assert not " ".join(LANG.split()).startswith(_beleg(LANG))
 
 
@@ -71,8 +59,7 @@ def test_beleg_beginnt_und_endet_auf_ganzen_woertern():
 
 
 def test_beleg_glaettet_zeilenumbrueche():
-    # Im PDF-Text steht der Umbruch mitten im Satz. Der Messsatz normalisiert beim
-    # Suchen ebenso, beides muss zueinander passen.
+    # Whitespace has to be flattened when building exactly as when searching.
     roh = LANG.replace(" ", "\n", 1).replace("Stunden ", "Stunden\n   ", 1)
     assert "\n" not in _beleg(roh)
 
@@ -86,7 +73,7 @@ def test_belegLaenge_ist_einstellbar():
     assert len(_beleg(LANG, laenge=80)) <= 80
 
 
-# ── Die Antwort des Modells ───────────────────────────────────────────────────
+# ── The model's answer ────────────────────────────────────────────────────────
 
 def test_anfuehrungszeichen_fallen_weg():
     assert _frage_saeubern('"Wie lang ist die Ruhezeit?"') == "Wie lang ist die Ruhezeit?"
@@ -104,8 +91,7 @@ def test_nur_die_erste_zeile_zaehlt():
 
 
 def test_ohne_fragezeichen_verworfen():
-    # Modelle liefern gelegentlich eine Aussage statt einer Frage. Die waere als
-    # Suchanfrage untypisch und wuerde die Messung schoenen.
+    # A statement instead of a question would flatter the measurement.
     assert _frage_saeubern("Die Ruhezeit betraegt elf Stunden.") is None
 
 
@@ -116,7 +102,7 @@ def test_leeres_verworfen():
 
 
 def test_ausschweifendes_verworfen():
-    # Eine halbe Seite ist keine Nutzerfrage. Die Schranke haelt den Satz realistisch.
+    # Half a page is not a user question, the limit keeps it realistic.
     assert _frage_saeubern("Wie " + "lang " * 80 + "ist die Ruhezeit?") is None
 
 
@@ -126,7 +112,7 @@ def test_codezaun_faellt_weg(roh):
     assert _frage_saeubern(roh) == "Wie lang ist die Ruhezeit?"
 
 
-# ── Der Schreibweg ────────────────────────────────────────────────────────────
+# ── The write path ────────────────────────────────────────────────────────────
 
 def test_schreibbarer_pfad_wird_angenommen(tmp_path):
     _pruefe_schreibbar(tmp_path / "neu.json")     # legt nichts an, wirft nur nicht
@@ -145,8 +131,7 @@ def test_verzeichnis_statt_datei_faellt_auf(tmp_path):
 
 
 def test_bestehende_datei_bleibt_unveraendert(tmp_path):
-    # Die Pruefung darf den vorherigen Satz nicht anfassen: wer den Lauf abbricht,
-    # soll seine alte Datei unversehrt wiederfinden.
+    # The check must not touch the previous set.
     ziel = tmp_path / "alt.json"
     ziel.write_text('[{"id": "alt"}]', encoding="utf-8")
     _pruefe_schreibbar(ziel)

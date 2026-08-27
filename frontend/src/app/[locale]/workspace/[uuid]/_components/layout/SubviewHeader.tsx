@@ -5,7 +5,7 @@ import { MinimizeContext } from "../../_context";
 
 type BadgeStyle = { bg: string; color: string };
 
-// Werte sind CSS-Variablen aus globals.css (Token-Block "Generisches Badge-Palette-System").
+// Values are CSS variables from globals.css, the generic badge palette tokens.
 const LEARNING_TOOLS_BADGE: Record<string, BadgeStyle> = {
   Flashcards:   { bg: "var(--badge-emerald-bg)", color: "var(--badge-emerald-fg)" },
   Quiz:         { bg: "var(--badge-yellow-bg)",  color: "var(--badge-yellow-fg)" },

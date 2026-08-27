@@ -3,27 +3,13 @@ import { MAX_TRANSCRIPTION_MINUTES } from "./constants";
 /** The transcription ceiling in seconds, mirroring backend MAX_AUDIO_SEC. */
 export const MINUTES_LIMIT_SECONDS = MAX_TRANSCRIPTION_MINUTES * 60;
 
-/**
- * Whether a recording is too long to transcribe.
- *
- * An unknown duration (null, NaN for a file the browser cannot decode, Infinity
- * for a stream without a fixed length) deliberately passes: the browser check
- * exists to save the user a pointless upload, not to be the authority. ffprobe
- * on the server has the final say, so guessing here would only reject files
- * that would actually have worked.
- */
+/** Whether a recording is too long, an unknown duration deliberately passes. */
 export function exceedsTranscriptionLimit(durationSeconds: number | null): boolean {
   if (durationSeconds === null || !Number.isFinite(durationSeconds)) return false;
   return durationSeconds > MINUTES_LIMIT_SECONDS;
 }
 
-/**
- * Read a media file's duration in the browser, without uploading it.
- *
- * Resolves to null whenever the duration cannot be determined (unsupported
- * codec, broken metadata, timeout), which :func:`exceedsTranscriptionLimit`
- * then treats as "let the server decide".
- */
+/** Reads the playing time in the browser, null means the server decides. */
 export function readMediaDurationSeconds(file: File, timeoutMs = 5000): Promise<number | null> {
   return new Promise((resolve) => {
     // A <video> element reads plain audio too, so one element covers both.
@@ -41,8 +27,7 @@ export function readMediaDurationSeconds(file: File, timeoutMs = 5000): Promise<
       resolve(value);
     };
 
-    // Some containers never fire either event. Without this the upload button
-    // would stay dead with no explanation.
+    // Some formats fire no event at all and the button would stay dead.
     const timer = setTimeout(() => finish(null), timeoutMs);
 
     element.preload = "metadata";

@@ -1,12 +1,4 @@
-"""Language-agnostic sentence splitter for per-sentence citation attribution.
-
-Prose answers attach a source chip AFTER EACH SENTENCE, so the
-attribution needs sentence boundaries. The splitter favours PRECISION over recall:
-a MISSED split just leaves two sentences sharing one chip (the old block behaviour,
-no regression), but a FALSE split would drop a chip into the middle of a sentence.
-So every guard below suppresses a split when it is not clearly a real boundary.
-No language word lists (works for DE, EN, and any Latin-script source).
-"""
+"""Language independent sentence splitting, precision before completeness."""
 from src.features.ai_assistant.routes._helpers import _split_sentences
 
 
@@ -50,11 +42,7 @@ def test_no_split_on_single_letter_abbreviation_zb():
 
 
 def test_no_split_on_page_ref_S():
-    # "S. 5" (page ref) must stay intact — no chip lands between "S." and "5". The real
-    # boundary is the sentence's own period at "Anhang.". A bare number directly BEFORE a
-    # sentence-ending period ("... auf S. 5. Der ...") is deliberately left un-split, since
-    # it is locally indistinguishable from an ordinal ("3. Juli"); that is a missed split
-    # (two sentences share one chip), never a mid-sentence chip.
+    # A page reference stays intact, a missed cut is harmless.
     assert _split_sentences("Die Quelle steht auf S. 5 im Anhang. Der Termin folgt.") == [
         "Die Quelle steht auf S. 5 im Anhang.",
         "Der Termin folgt.",
@@ -92,9 +80,7 @@ def test_no_split_inside_email():
 
 
 def test_no_split_on_parenthesized_abbreviation():
-    # A leading "(" must not hide the single-letter "z." / "B." abbreviations inside
-    # "(z. B. …)". Real case: "Datenbanken (z. B. DBIS, ACM) und Portale." wrongly split at
-    # "(z." because the paren stuck to the token. The boundary is only the sentence's period.
+    # An opening bracket must not hide the abbreviation behind it.
     assert _split_sentences("Nutze Datenbanken (z. B. DBIS und ACM) im Katalog. Das hilft dabei.") == [
         "Nutze Datenbanken (z. B. DBIS und ACM) im Katalog.",
         "Das hilft dabei.",

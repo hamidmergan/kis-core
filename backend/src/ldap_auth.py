@@ -10,11 +10,7 @@ def authenticate_user(username: str, password: str) -> dict | None:
     if not settings.ldap_server:
         raise RuntimeError("LDAP not configured")
 
-    # Reject an empty password before binding. A simple bind with a DN and an empty
-    # password is an "unauthenticated bind" (RFC 4513 §5.1.2); many LDAP servers
-    # accept it as anonymous and return success, which would log an attacker in as
-    # any existing user without knowing the password. ldap3 likewise turns an empty
-    # password into an anonymous bind. Treat blank username/password as invalid.
+    # Reject an empty password, otherwise it becomes an anonymous bind.
     if not username or not password:
         return None
 
@@ -36,8 +32,7 @@ def authenticate_user(username: str, password: str) -> dict | None:
     except LDAPException as e:
         raise RuntimeError(f"LDAP service bind failed: {e}") from e
 
-    # Step 2: Search for user by username attribute. Escape the username so it
-    # cannot inject LDAP filter metacharacters (e.g. "*" or ")(uid=admin)").
+    # Escape the user name, otherwise the filter can be injected.
     from ldap3.utils.conv import escape_filter_chars
     search_filter = f"({settings.ldap_attr_username}={escape_filter_chars(username)})"
     service_conn.search(
@@ -72,8 +67,7 @@ def authenticate_user(username: str, password: str) -> dict | None:
 
     affiliation = attr(settings.ldap_attr_affiliation)
     lecturer_values = [v.strip() for v in settings.ldap_role_lecturer_values.split(",")]
-    # Fail closed: an empty or unknown affiliation must NOT grant the elevated
-    # lecturer role. Only an explicit match on a configured lecturer value does.
+    # Only an explicit match grants the teacher role.
     if affiliation and affiliation in lecturer_values:
         role = "lecturer"
     else:

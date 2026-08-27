@@ -143,7 +143,7 @@ async def list_mindmaps(
         {
             "id": r["id"],
             "created_at": r["created_at"].isoformat() + "Z" if r["created_at"] else None,
-            # Der Anzeigename kommt fertig aus der Abfrage, eigener Titel vor Wurzelknoten.
+            # The display name comes ready from the query, own title before root node.
             "topic": r["topic"] or "Mindmap",
         }
         for r in rows
@@ -177,7 +177,7 @@ async def rename_mindmap(
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    """Den Namen einer Mindmap aendern. Ohne eigenen Namen zeigt die Liste den Wurzelknoten."""
+    """Change the name of a mind map, without one the list shows the root node."""
     user_id = current_user["user_id"]
     workspace = db.get_aia_workspace(workspace_uuid)
     if not workspace:
@@ -187,7 +187,7 @@ async def rename_mindmap(
     if not titel:
         raise HTTPException(status_code=400, detail=t("title.empty", locale))
 
-    # Fremde Zeile: 404 statt 403, wie bei der Loeschen-Route darueber.
+    # Someone else's row: 404 instead of 403, as on the delete route above.
     if not db.update_artifact_title("mindmap", mindmap_id, user_id, workspace["id"], titel):
         raise HTTPException(status_code=404, detail=t("mindmap.notFound", locale))
     return {"ok": True, "title": titel}

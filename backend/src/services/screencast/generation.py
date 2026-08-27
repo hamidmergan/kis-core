@@ -17,12 +17,7 @@ from src.storage import get_job_file, save_job_file
 
 
 def resolve_tts_parallelism() -> int:
-    """Wie viele Text-Stuecke gleichzeitig vertont werden.
-
-    Keine Einstellung mehr, sondern eine gemessene Konstante. Bleibt als
-    Funktion stehen, damit Tests den Wert ersetzen können, ohne die Konstante
-    im ganzen Modul zu verbiegen.
-    """
+    """How many text pieces are voiced at once."""
     return SCREENCAST_TTS_PARALLELISM
 
 
@@ -53,7 +48,7 @@ async def generate_all_scripts(
 
 
 def _lies_ton(user_id: int, job_uuid: str, name: str) -> bytes | None:
-    """Leere Dateien gelten als nicht vorhanden, sie sind kein gueltiges MP3."""
+    """Empty files count as missing, they are not a valid MP3."""
     try:
         daten = get_job_file(user_id, job_uuid, name)
     except Exception:
@@ -76,19 +71,7 @@ async def generate_all_tts(
     ausgeschlossen: set[int] | None = None,
     alter_ton_erlaubt: set[int] | None = None,
 ) -> list[tuple[Path, dict | None]]:
-    """Vertont alle Folien, die Text-Stuecke laufen gleichzeitig.
-
-    Returns a list of (audio_path, alignment_or_None) tuples.
-    on_slide_done(current, total, folie) meldet eine fertige Folie. Die Meldung
-    kommt streng in Folienreihenfolge, damit die Vorschau nicht auf die
-    kuerzeste Folie springt statt auf die erste.
-    Each slide's audio is saved to persistent storage immediately after synthesis
-    so a crash can be recovered without re-paying for completed slides.
-    ``zaehler`` nimmt fuer die Admin-Anzeige auf, wie viele Folien aus dem
-    Zwischenspeicher kamen statt neu vertont zu werden.
-    ``alter_ton_erlaubt`` nennt die Folien, die den Ton des letzten Laufs aus
-    ``audio/`` nehmen duerfen statt neu gesprochen zu werden.
-    """
+    """Voices all slides, the pieces run concurrently, reporting in slide order."""
     parallelism = resolve_tts_parallelism()
     logger.info("TTS provider_id={}: parallelism={}", provider_id, parallelism)
     total = len(slide_scripts)
@@ -104,7 +87,7 @@ async def generate_all_tts(
     melde_lock = asyncio.Lock()
 
     async def _melde(i: int) -> None:
-        """Gibt die Folie erst frei, wenn alle davor freigegeben sind."""
+        """Releases the slide only when all before it are released."""
         nonlocal freigegeben
         async with melde_lock:
             fertige.add(i)
@@ -114,7 +97,7 @@ async def generate_all_tts(
                 freigegeben += 1
 
     async def _zerlegen(i: int, script_text: str) -> list[str]:
-        """Was nicht gesprochen werden muss, faellt hier raus."""
+        """Whatever need not be spoken is dropped here."""
         nonlocal aus_zwischenspeicher, aus_altem_ton
         if i in ausgeschlossen:
             audio_paths[i] = None
@@ -128,8 +111,7 @@ async def generate_all_tts(
             await _melde(i)
             return []
         if job_uuid and user_id is not None:
-            # Der Vorrat gehoert zum laufenden Lauf und muss zuerst kommen, sonst
-            # verliert ein Neuversuch die Folie, die er gerade gesprochen hat.
+            # The pool of the running job has to come first.
             ton = _lies_ton(user_id, job_uuid, f"render_cache/slide_{i:03d}.mp3")
             if ton is not None:
                 audio_paths[i].write_bytes(ton)
@@ -153,18 +135,17 @@ async def generate_all_tts(
         return _split_text(script_text)
 
     async def _hole_stueck(i: int, k: int, chunk: str, anzahl: int) -> bytes:
-        # Retry transient server errors (5xx) with exponential backoff.
-        # myLab/Kokoro occasionally return 500s that recover within seconds.
+        # Retry temporary server errors with growing waits.
         retry_delays = (2.0, 5.0, 10.0)
         last_error: Exception | None = None
         for attempt in range(len(retry_delays) + 1):
             try:
-                # Immer 1.0: der Anbieter senkt beim Verlangsamen die Tonhoehe mit.
+                # Always 1.0: the provider lowers the pitch when slowing down.
                 result = await asyncio.to_thread(
                     tts_client.synthesize_with_timestamps,
                     chunk, target_lang, voice_id=voice_id, speed=1.0,
                 )
-                # Zeitmarken eines Stuecks gelten nicht fuer die ganze Folie.
+                # Timestamps of a piece do not apply to the whole slide.
                 if anzahl == 1:
                     alignments[i] = result["alignment"]
                 return result["audio_bytes"]
@@ -200,8 +181,7 @@ async def generate_all_tts(
     try:
         zerlegt = await asyncio.gather(*[_zerlegen(i, t) for i, t in enumerate(slide_scripts)])
 
-        # Auftragsliste in Folienreihenfolge: Folie 1 bekommt ihre Plaetze zuerst
-        # und ist nach einer Runde durch statt nach so vielen Runden wie Stuecken.
+        # Job list in slide order so slide 1 finishes first.
         auftraege: list[tuple[int, int]] = []
         stuecke: dict[int, list[bytes | None]] = {}
         for i, chunks in enumerate(zerlegt):
@@ -222,7 +202,7 @@ async def generate_all_tts(
                     i, k = auftraege[naechster]
                     naechster += 1
                 stuecke[i][k] = await _hole_stueck(i, k, zerlegt[i][k], len(zerlegt[i]))
-                # Kein await zwischen Ablage und Pruefung, also meldet genau ein Arbeiter.
+                # No await between storing and checking, so exactly one worker reports.
                 if all(teil is not None for teil in stuecke[i]):
                     _sichern(i, b"".join(stuecke[i]))
                     await _melde(i)

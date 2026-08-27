@@ -1,10 +1,4 @@
-"""STT provider routing: end-user provider choice for the transcription tool.
-
-Covers that resolve_whisper_client routes an explicit user pick through the
-capability-based provider-choice service, and falls back to the admin default
-route when no provider is picked. The reachability/listing logic itself lives
-in test_feature_provider_choices.py.
-"""
+"""The provider choice for speech recognition, with a fallback to the admin route."""
 
 
 def _binding(model="whisper-large-v3"):

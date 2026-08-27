@@ -11,12 +11,11 @@ export interface EditInput {
   description: string;
   due_date: string;      // '' == leer
   due_time: string;      // '' == leer
-  // Leer heisst: keine Spanne, der Termin gilt nur an seinem Tag.
+  // Empty means no span, the appointment applies on its day only.
   end_date: string;
-  // Leer heisst: keine Uhrzeit-Spanne.
+  // Empty means no time span.
   end_time: string;
-  // 'month' heisst: nur der Monat ist bekannt. due_date traegt dann den Monatsersten
-  // als Sortierpunkt, die Zeitleiste zeigt ihn nie als Tagesnummer.
+  // 'month' means only the month is known, the first only sorts.
   date_precision: "day" | "month";
   is_optional: boolean;
 }
@@ -46,15 +45,14 @@ export function ScheduleEntryEditModal({
   const [isOptional, setIsOptional] = useState(initial?.is_optional || false);
   const [submitting, setSubmitting] = useState(false);
 
-  // Der Haken schaltet nur die Anzeige um. Gespeichert wird immer ein volles Datum,
-  // bei "nur Monat" der Monatserste.
+  // The checkbox only switches the display, a full date is always saved.
   function toggleMonthOnly() {
     const next = !monthOnly;
     setMonthOnly(next);
     if (next && dueDate) setDueDate(`${dueDate.slice(0, 7)}-01`);
   }
 
-  // Ein Ende vor dem Anfang ist keine Spanne, sondern ein Vertipper.
+  // An end before the start is not a span but a typo.
   const endeVerkehrt = !!endDate && !!dueDate && endDate < dueDate;
 
   useEffect(() => {

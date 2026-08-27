@@ -17,8 +17,7 @@ const MINT = "#A8D5BA";
 const SAND = "#E8DCC4";
 
 export default function Hilde({ size = 120, state = "idle", className }: HildeProps) {
-  // Strip non-alphanumeric chars from useId output. React's default IDs
-  // contain ":" which some browsers refuse to resolve in url(#...) SVG refs.
+  // The colon in React's ids breaks the SVG references.
   const reactId = useId().replace(/[^a-zA-Z0-9]/g, "");
   const eyeLId = `hilde-eye-l-${reactId}`;
   const eyeRId = `hilde-eye-r-${reactId}`;

@@ -1,9 +1,4 @@
-"""Die Namensbruecke bleibt kurz, auch wenn das Modell endlos Eintraege liefert.
-
-Auf "wann klausur" lieferte das Modell ueber hundert Eintraege, weil das Feld
-"items" nirgends eine Obergrenze hatte. Der Leser gibt nur noch die ersten
-Eintraege aus und liest den Rest still zu Ende, damit "body" danach noch stimmt.
-"""
+"""The name bridge stays short, even with endlessly many entries."""
 
 from src.features.ai_assistant.routes._json_stream import (
     MAX_EINTRAEGE,
@@ -53,12 +48,12 @@ def test_absage_und_bruecke_bleiben_ein_satz():
 
 
 def test_der_body_kommt_nach_gekappten_eintraegen_noch_an():
-    # Der Leser muss die uebersprungenen Eintraege trotzdem sauber zu Ende parsen.
+    # The reader still has to parse the skipped entries cleanly to the end.
     assert _lies(_antwort(40, "Schlusstext.")).endswith("Schlusstext.")
 
 
 def test_der_leser_meldet_wenn_es_genug_ist():
-    # Ohne dieses Signal schreibt das Modell unsichtbar weiter und die Leitung schweigt.
+    # Without this signal the model keeps writing invisibly and the connection goes quiet.
     strom = AntwortStrom()
     roh = _antwort(40)
     genug_bei = None
@@ -78,7 +73,7 @@ def test_genug_bleibt_aus_solange_die_liste_kurz_ist():
 
 
 def test_der_ueberblick_faehrt_ohne_deckel():
-    # Beim Ueberblick ist die Breite die Leistung, darum darf dort nichts wegfallen.
+    # In the overview the breadth is the value, so nothing may be dropped there.
     strom = AntwortStrom(max_eintraege=None)
     text = "".join(strom.feed(z) for z in _antwort(40))
     assert text.count("- **") == 40
@@ -86,8 +81,7 @@ def test_der_ueberblick_faehrt_ohne_deckel():
 
 
 def test_die_fuenf_stehen_nur_im_prompt_der_einzelfrage():
-    # Der Ueberblick-Prompt bleibt Zeichen fuer Zeichen der alte, sonst schrumpft
-    # seine Abdeckung.
+    # The overview prompt stays unchanged, otherwise its coverage shrinks.
     from src.features.ai_assistant.prompts.rag_chat.prompts import aia_system_rag
     knapp, breit = aia_system_rag("de"), aia_system_rag("de", overview=True)
     assert "AT MOST FIVE entries." in knapp

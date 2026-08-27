@@ -1,11 +1,4 @@
-/**
- * Wem der Papierkorb in der Nutzerliste ueberhaupt angeboten wird.
- *
- * Zwei Konten duerfen nie einen Knopf bekommen: das eigene und das Konto aus
- * der Konfiguration. Beides wuerde die Verwaltung dauerhaft aussperren. Das
- * Backend sperrt ebenfalls, hier geht es darum, den Knopf gar nicht erst
- * anzubieten.
- */
+/** Your own and the configuration account never get a delete button. */
 import { describe, expect, it } from "vitest";
 
 import { canDeleteUser } from "./canDeleteUser";

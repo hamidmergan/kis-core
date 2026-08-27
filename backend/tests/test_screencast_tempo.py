@@ -1,9 +1,4 @@
-"""Das Tempo wird lokal gemacht, nicht vom Anbieter.
-
-Der Anbieter senkt beim Verlangsamen die Tonhoehe mit, das klingt hallig.
-Am Hoervergleich bestaetigt: Tempo 1.0 sauber, Anbieter-Tempo 0.9 hallig,
-lokal verlangsamtes 0.9 wieder sauber.
-"""
+"""The speed is applied locally, the provider would lower the pitch with it."""
 
 import shutil
 import subprocess
@@ -62,7 +57,7 @@ def test_langsameres_tempo_verlaengert_den_ton(tmp_path, bild, ton):
 
 @pytest.mark.skipif(not _HAS_FFMPEG, reason="ffmpeg/ffprobe not available")
 def test_die_pause_wird_nicht_mitgedehnt(tmp_path, bild, ton):
-    """Die Pause ist eine Vorgabe in Sekunden, kein Teil der Aufnahme."""
+    """The pause is a value in seconds, not part of the recording."""
     clip = tmp_path / "clip.mp4"
     create_slide_video(bild, ton, clip, pause=1.0, crf=30, speed=0.5)
     soll = _ton_sekunden(ton) / 0.5 + 1.0

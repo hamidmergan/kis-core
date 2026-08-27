@@ -1,4 +1,4 @@
-"""KI-Hinweis im Screencast: Rahmen um die Folien und Kennzeichnung in der Datei."""
+"""AI notice in the screencast: a frame around the slides and a mark in the file."""
 
 import shutil
 import subprocess
@@ -12,7 +12,7 @@ from src.services.screencast.video import apply_faststart
 _HAS_FFMPEG = shutil.which("ffmpeg") is not None and shutil.which("ffprobe") is not None
 
 
-# ── Reihenfolge der Clips ───────────────────────────────────────────────────
+# ── Order of the clips ──────────────────────────────────────────────────────
 
 
 def test_der_hinweis_rahmt_die_folien_vorne_und_hinten():
@@ -35,7 +35,7 @@ def test_ohne_hinweis_bleiben_die_folien_unberuehrt():
     assert hat_sprache == [True]
 
 
-# ── Kennzeichnung in der Videodatei ─────────────────────────────────────────
+# ── Mark in the video file ──────────────────────────────────────────────────
 
 
 @pytest.fixture

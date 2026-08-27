@@ -1,12 +1,4 @@
-"""Ein Einschreibelink darf ohne Ablaufdatum angelegt und angezeigt werden.
-
-Nicht jeder Kurs hat ein Enddatum. Ein erzwungenes Datum fuehrt nur zu Links,
-die mitten im Semester still aufhoeren zu funktionieren. Leer heisst deshalb
-"laeuft nie ab", und die Datenbank haelt dafuer NULL.
-
-Die Anzeige stolperte darueber: die Linkliste formatierte ``expires_at``
-bedingungslos und warf einen 500er, sobald ein Link ohne Frist dabei war.
-"""
+"""An enrollment link may be created and shown without an expiry date."""
 
 import asyncio
 from datetime import datetime
@@ -19,7 +11,7 @@ from src.features.ai_assistant.routes import workspaces as routes
 WORKSPACE = {"id": 7, "uuid": "w-1", "user_id": 1}
 
 
-# --- Anlegen ohne Datum ---------------------------------------------------
+# --- creating without a date ----------------------------------------------
 
 def test_leeres_datum_heisst_unbegrenzt():
     assert routes._parse_optional_expiry(None, "de") is None
@@ -33,7 +25,7 @@ def test_datum_wird_als_utc_gelesen():
 
 
 def test_unsinniges_datum_bleibt_ein_fehler():
-    """Optional heisst nicht, dass Muell stillschweigend zu 'unbegrenzt' wird."""
+    """Optional does not mean garbage silently becomes 'unlimited'."""
     with pytest.raises(HTTPException) as fehler:
         routes._parse_optional_expiry("kein datum", "de")
     assert fehler.value.status_code == 400
@@ -41,7 +33,7 @@ def test_unsinniges_datum_bleibt_ein_fehler():
 
 @pytest.fixture
 def links(monkeypatch):
-    """Klinkt Zugriffspruefung und Datenbank aus, liefert die gesetzten Links."""
+    """Stubs out the access check and the database and returns the given links."""
     def einrichten(rows):
         monkeypatch.setattr(routes, "_require_workspace_manage", lambda *a, **k: WORKSPACE)
         monkeypatch.setattr(routes.db, "get_access_links_by_workspace", lambda ws_id: rows)
@@ -69,7 +61,7 @@ def test_link_mit_ablaufdatum_bleibt_unveraendert(links):
 
 
 def test_gemischte_liste(links):
-    """Ein einziger Link ohne Frist darf nicht die ganze Liste unbrauchbar machen."""
+    """A single link without a deadline must not break the whole list."""
     links([
         {"id": 1, "code": "aaa11111", "expires_at": None, "created_at": None},
         {"id": 2, "code": "bbb22222", "expires_at": datetime(2027, 1, 1), "created_at": None},

@@ -1,6 +1,4 @@
-"""Context builder for mode='source': pulls chunks from N sources and packs them into a
-budget-limited context string for the LLM prompt, sweeping a different window of each
-source on every run."""
+"""Builds the context from several sources and sweeps a different window each run."""
 
 import random
 from dataclasses import dataclass, field
@@ -14,8 +12,7 @@ from src.features.ai_assistant.tasks._context_budget import (
 )
 
 
-# A source contributes at least this much even when a tiny one sets the common size.
-# Without it a half-page PDF would shrink every other source down to its own size.
+# Minimum share per source, otherwise one tiny source shrinks all the others.
 _MIN_PER_SOURCE_CHARS = 3000
 
 
@@ -27,19 +24,11 @@ class QuelleContext:
     multi_label: str
     source_hint: str  # "folgender Source" / "folgenden Sources"
     source_by_name: dict[str, dict] = field(default_factory=dict)
-    # Section number -> filename, in the order the sections appear in the context. The
-    # model cites these numbers back, which is what makes coverage measurable: the
-    # post-hoc attribution cannot tell where an exercise came from when its wording is
-    # generic enough to match every source.
+    # Section number to file name, that makes the coverage measurable.
     sections: dict[int, str] = field(default_factory=dict)
-    # {source_id: set(page_numbers)} actually present in the context above — the pages the
-    # LLM really saw. Attribution clamps chips to these (like chat's seen-check), so a card
-    # can never cite a page the model was not shown. Media source_ids appear here too (their
-    # seen-check is source-level, not per page).
+    # The pages the model really saw, the citations stay limited to them.
     seen_pages_by_source: dict[int, set] = field(default_factory=dict)
-    # {source_id: {page_number: start_time}}, media chunks only. Every context line reads
-    # "[Datei, S. N]", so for audio and video the model cites N — a segment index, not a
-    # page. A chip must navigate media by timestamp, so the index is translated back here.
+    # Segment number to timestamp, media only, so the chip can jump.
     media_start_by_page: dict[int, dict[int, float]] = field(default_factory=dict)
 
 
@@ -49,21 +38,7 @@ def per_section_quota(n_sections: int, count: int) -> int:
 
 
 def coverage_rule(ctx: "QuelleContext", count: int) -> str:
-    """Prompt block that spreads the entries over every section of the context.
-
-    Two earlier attempts were not enough. Splitting the character budget per source only
-    guarantees all of them are IN the context, and it does not even do that evenly: the
-    split is a ceiling, so a one-hour transcript filled 39% of the context and a slide
-    deck 8%, and the model wrote about the transcript. A quota stated once at the top of
-    the prompt then landed 4 of 5 sources, still lopsided.
-
-    So the quota is repeated in the header of every section, right where the material is,
-    and each entry has to name the section it came from. Naming it forces the model to
-    count instead of estimate, and it makes the result checkable afterwards -- the
-    post-hoc attribution cannot do that, because a generic sentence matches every source.
-
-    Empty for a single section, where there is nothing to spread.
-    """
+    """Prompt block that spreads the exercises across all sections."""
     if len(ctx.sections) < 2:
         return ""
     quota = per_section_quota(len(ctx.sections), count)
@@ -80,15 +55,7 @@ def coverage_rule(ctx: "QuelleContext", count: int) -> str:
 
 
 def section_usage(items: list[dict], ctx: "QuelleContext") -> dict[int, int]:
-    """How many entries each section got, by the model's own ``_section`` claim.
-
-    Sections with nothing map to 0, so a caller can see at a glance which ones were
-    skipped. Unknown numbers are dropped rather than trusted.
-
-    Deliberately the model's claim and not the post-hoc attribution: attribution matches
-    a finished sentence against the whole workspace, and a sentence like "Die Studierenden
-    zitieren korrekt" fits every source, so it says nothing about where the model looked.
-    """
+    """How many exercises came out of each section, according to the model."""
     used = {num: 0 for num in ctx.sections}
     for item in items:
         try:
@@ -101,16 +68,7 @@ def section_usage(items: list[dict], ctx: "QuelleContext") -> dict[int, int]:
 
 
 def missing_section_uuids(items: list[dict], ctx: "QuelleContext") -> list[str]:
-    """Source uuids of the sections that got nothing, in section order.
-
-    Feeds the top-up run. Measured need: the grammar tool served all five sections on
-    its own, the quiz skipped the last one in both runs, so this is not hypothetical
-    and not worth an extra call when it does not happen.
-
-    A run that names NO section at all yields nothing to top up. The model does skip the
-    field sometimes, and reading that as "every section was missed" cost a full second
-    generation that could not know any better than the first.
-    """
+    """The sources of the sections that got nothing, in section order."""
     usage = section_usage(items, ctx)
     if not any(usage.values()):
         return []
@@ -126,13 +84,7 @@ def missing_section_uuids(items: list[dict], ctx: "QuelleContext") -> list[str]:
 
 def remap_sections(items: list[dict], from_ctx: "QuelleContext",
                    to_ctx: "QuelleContext") -> list[dict]:
-    """Renumber a top-up run's ``_section`` claims into the full context's numbering.
-
-    The top-up sees only the skipped sources, so it numbers them 1..n again. Merged
-    unchanged, its "section 1" would read as the full context's section 1 and the
-    rebalancing would drop the wrong entries. The filename is what actually identifies
-    a section, so it is the bridge.
-    """
+    """Maps the section numbers of a top-up back into the full numbering."""
     back = {label: num for num, label in to_ctx.sections.items()}
     for item in items:
         try:
@@ -145,12 +97,7 @@ def remap_sections(items: list[dict], from_ctx: "QuelleContext",
 
 
 def rebalance_to_count(items: list[dict], count: int) -> list[dict]:
-    """Trim back to ``count`` after a top-up, dropping from the fullest sections first.
-
-    The learner asked for a fixed number of entries, so the top-up must not simply make
-    the set longer. Entries whose section is unknown are dropped before the known ones,
-    since they cannot be shown to serve any section.
-    """
+    """Trims back after a top-up, the fullest sections give up first."""
     if len(items) <= count:
         return items
     keep = list(items)
@@ -174,12 +121,7 @@ def _chunk_len(chunk: dict) -> int:
 
 
 def _trim_to_size(chunks: list[dict], cap: int, rng) -> list[dict]:
-    """Cut a source down to ``cap`` characters without favouring the front.
-
-    Taking the first chunks until the cap is reached would always keep the beginning of
-    the document. The pages are drawn at random first, then put back in reading order,
-    so the excerpt still stays coherent to read.
-    """
+    """Trims a source without favouring its beginning."""
     if sum(_chunk_len(c) for c in chunks) <= cap:
         return chunks
     order = list(chunks)
@@ -196,28 +138,7 @@ def _trim_to_size(chunks: list[dict], cap: int, rng) -> list[dict]:
 
 def build_source_context(uuids: list[str], tool: str,
                          count: int | None = None) -> QuelleContext | None:
-    """Build context string + meta maps from N sources. None = no content available.
-
-    Two things shape what the model sees:
-
-    * sweep — a source goes in whole when it fits the admin ``aia_tool_context_max_chars``
-      budget (shared by all generation tools, separate from the chat budget). A source that
-      is too big is read as a moving window per coverage block, resuming where the previous
-      run for this workspace+source+tool stopped (``select_chunks_for_budget`` plus the
-      cursors stored here). That is what makes two runs see different material, and unlike
-      the random sampling it replaced it also guarantees the document is covered completely
-      before anything repeats.
-    * equal sections — with several sources every one of them is then cut to the SAME size
-      and gets a numbered header. Without that step the per-source budget is only a
-      ceiling: each source contributes its own length, so a one-hour transcript took 39%
-      of the context against a slide deck's 8%, and the exercises were about the
-      transcript. Equal sections cost total volume, which is fine here because a handful
-      of exercises needs far less material than a whole document.
-
-    ``count`` is the number of entries being generated. It only appears in the section
-    headers as the per-section quota, so the requirement stands next to the material
-    instead of only at the top of the prompt.
-    """
+    """Builds the context from several sources, sweeping and with equally sized sections."""
     sources: list[tuple[str, list[dict]]] = []
     source_by_name: dict[str, dict] = {}
     first_label = ""
@@ -250,8 +171,7 @@ def build_source_context(uuids: list[str], tool: str,
         write_cursors(workspace_id, source_id, tool, resume)
         picked_by_label.append((label, picked))
 
-    # Equal sections. The smallest source sets the size, with a floor so one very short
-    # document cannot starve the rest. Single source: nothing to balance.
+    # Equally sized sections, the smallest source sets the size with a floor.
     if len(picked_by_label) > 1:
         sizes = [sum(_chunk_len(c) for c in chunks) for _, chunks in picked_by_label if chunks]
         cap = max(_MIN_PER_SOURCE_CHARS, min(sizes)) if sizes else _MIN_PER_SOURCE_CHARS
@@ -267,8 +187,7 @@ def build_source_context(uuids: list[str], tool: str,
         sections[i] = label
         lines = [f"[{label}, S. {c['page_number']}] {c['content']}" for c in picked]
         if len(picked_by_label) > 1:
-            # The quota rides in the header, next to the material it applies to. Stated
-            # only once at the top of the prompt it reached 4 of 5 sources, lopsided.
+            # The quota sits in the header of every section, next to the material.
             head = f"=== SECTION {i} OF {len(picked_by_label)} — {label}"
             if quota:
                 head += f" — take at least {quota} entries from here"
@@ -277,12 +196,9 @@ def build_source_context(uuids: list[str], tool: str,
             head = f"--- {label} ---"
         trimmed.append(head + "\n" + "\n".join(lines))
         sid = source_by_name[label]["id"]
-        # The pages the LLM was actually shown (used as the attribution seen-set). Media
-        # chunks land here too: their page_number is a segment index, but the seen-check is
-        # source-level for media, so recording the source_id is what matters.
+        # The shown pages, for media only the source counts.
         seen_pages_by_source.setdefault(sid, set()).update(c["page_number"] for c in picked)
-        # Segment index -> timestamp, so a citation of "S. 7" in a transcript can be turned
-        # back into the timestamp the player needs.
+        # Segment number to timestamp so a citation becomes a play position.
         times = {c["page_number"]: c["start_time"] for c in picked
                  if c.get("start_time") is not None}
         if times:

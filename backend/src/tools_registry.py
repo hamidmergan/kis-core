@@ -1,9 +1,5 @@
 # backend/src/tools_registry.py
-"""Canonical registry of global tool keys.
-
-Mirrors the frontend ToolsSidebar TOOLS array. When adding a new global tool,
-update both lists.
-"""
+"""The registry of the global tool keys, it has to match the toolbar."""
 
 ALL_TOOL_KEYS: tuple[str, ...] = (
     "translation",

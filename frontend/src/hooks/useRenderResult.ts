@@ -18,7 +18,7 @@ export function useRenderResult() {
   const [hasSubtitles, setHasSubtitles] = useState(false);
   const [videoFolien, setVideoFolien] = useState<number[] | null>(null);
 
-  // Die Adresse statt eines Blobs: das Video startet sofort und laesst sich springen.
+  // The URL instead of a blob: the video starts at once and can be seeked.
   const apply = useCallback((url: string, opts: ApplyOptions = {}) => {
     setHasSubtitles(opts.hasSubtitles === true);
     if (opts.audioId) setAudioId(opts.audioId);

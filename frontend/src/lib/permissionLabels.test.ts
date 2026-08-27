@@ -4,11 +4,7 @@ import de from "../../messages/de.json";
 import en from "../../messages/en.json";
 import { PERM, SETTINGS_PERMS } from "./permissions";
 
-/**
- * Jeder Rechteschluessel braucht seinen Text, sonst steht im Rolleneditor der
- * nackte Schluessel. Das faellt beim Bauen nicht auf, weil next-intl die
- * Schluessel erst zur Laufzeit kennt: der Katalog kommt vom Server.
- */
+/** Every permission key needs its text, otherwise the bare key appears in the editor. */
 
 /** `settings.statistik.eigene` -> messages.admin.permissions.settings.statistik.eigene */
 function label(messages: Record<string, unknown>, key: string): unknown {
@@ -36,8 +32,7 @@ describe.each(SPRACHEN)("Beschriftungen der Rechte (%s)", (_sprache, messages) =
 
 describe("Die beiden Statistik-Rechte sind auseinanderzuhalten", () => {
   it("das globale sagt im Text, dass es alle Module meint", () => {
-    // Sonst stehen im Editor zwei Zeilen namens "KI-Assistent" untereinander,
-    // von denen eine die ganze Plattform aufmacht.
+    // Otherwise two identically named rows appear, one of which opens everything.
     expect(label(de as Record<string, unknown>, PERM.aiaUsage)).toMatch(/alle Module/i);
   });
 

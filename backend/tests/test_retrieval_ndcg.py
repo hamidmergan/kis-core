@@ -1,16 +1,4 @@
-"""Die Kennzahl des Abruf-Messsatzes: aus einem Platz wird eine Punktzahl.
-
-Warum eine Zahl und nicht nur "gefunden ja/nein". Ohne sie kann man zwei Staende
-nur an einer Liste von Plaetzen vergleichen, und eine Verschiebung von Platz 2 auf
-Platz 4 faellt dabei durch. Genau solche feinen Verschiebungen entscheiden aber,
-ob die tragende Stelle spaeter noch ins Budget passt.
-
-NDCG@10 ist der uebliche Massstab dafuer. Bei uns hat fast jeder Fall GENAU EINE
-richtige Stelle, deshalb faellt die ideale Rangfolge auf 1 zusammen und die Formel
-verkuerzt sich auf ``1 / log2(platz + 1)``. Das ist rechnerisch dasselbe wie der
-mittlere gedaempfte Kehrwert des Platzes, der Name bleibt trotzdem richtig und
-macht die Zahl mit der Literatur vergleichbar.
-"""
+"""The metric of the retrieval benchmark: a rank becomes a score."""
 import math
 
 import pytest
@@ -23,7 +11,7 @@ def test_platz_eins_ist_die_volle_punktzahl():
 
 
 def test_platz_drei_gibt_die_haelfte():
-    # 1 / log2(4) = 1/2. Ein guter Anker fuer das Gefuehl, wie stark gedaempft wird.
+    # 1 / log2(4) = 1/2, a good anchor for how strongly it is damped.
     assert _ndcg_at_k(3) == pytest.approx(0.5)
 
 
@@ -34,8 +22,7 @@ def test_die_daempfung_faellt_monoton():
 
 
 def test_jenseits_der_schranke_zaehlt_nichts():
-    # Was auf Platz 11 steht, sieht das Modell nicht. Halbe Punkte dafuer waeren
-    # eine Luege ueber den Nutzen.
+    # What sits behind the cut-off the model does not see and counts zero.
     assert _ndcg_at_k(11) == 0.0
     assert _ndcg_at_k(80) == 0.0
 
@@ -50,10 +37,10 @@ def test_schranke_ist_einstellbar():
 
 
 def test_mittel_ueber_mehrere_faelle():
-    # Ein Treffer auf Platz 1, einer auf Platz 3, einer gar nicht.
+    # One hit at rank 1, one at rank 3, one not at all.
     assert _mittel_ndcg([1, 3, None]) == pytest.approx((1.0 + 0.5 + 0.0) / 3)
 
 
 def test_mittel_ohne_faelle_ist_null_statt_absturz():
-    # Der Vergleichslauf darf an einem leeren --only nicht sterben.
+    # The comparison run must not die on an empty --only.
     assert _mittel_ndcg([]) == 0.0

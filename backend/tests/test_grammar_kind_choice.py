@@ -1,10 +1,4 @@
-"""Die gewaehlte Formatauswahl steuert Plan und Prompt.
-
-Gemischt bleibt, was es war: alle vier reihum. Eine eigene Auswahl verteilt reihum
-ueber genau die gewaehlten Arten, und im Prompt steht kein Wort ueber die anderen.
-
-Kein DB- und kein Netzzugriff.
-"""
+"""The chosen format selection steers plan and prompt."""
 
 import json
 import types
@@ -51,7 +45,7 @@ def _client(content):
     ), calls
 
 
-# --- Der Plan -----------------------------------------------------------------
+# --- The plan -----------------------------------------------------------------
 
 def test_without_a_choice_the_plan_is_all_four():
     assert item_plan(4) == list(KINDS)
@@ -71,7 +65,7 @@ def test_one_kind_takes_everything():
 
 
 def test_an_uneven_count_gives_the_front_kinds_one_more():
-    """Bestehende Regel: geht es nicht glatt auf, bekommen die vorderen einen mehr."""
+    """Existing rule: when it does not divide evenly, the front ones get one more."""
     plan = item_plan(7, ["transform", "cloze", "statement"])
     assert plan.count("transform") == 3
     assert plan.count("cloze") == 2
@@ -79,11 +73,11 @@ def test_an_uneven_count_gives_the_front_kinds_one_more():
 
 
 def test_an_empty_choice_falls_back_to_all_four():
-    """Die Route laesst das nicht durch, aber der Plan darf daran nicht zerbrechen."""
+    """The route does not let this through, but the plan must not break on it."""
     assert item_plan(4, []) == list(KINDS)
 
 
-# --- Der Prompt ---------------------------------------------------------------
+# --- The prompt ---------------------------------------------------------------
 
 def test_the_prompt_only_names_the_chosen_kinds():
     client, calls = _client(json.dumps({"title": "T", "exercises": []}))
@@ -106,7 +100,7 @@ def test_without_a_choice_the_prompt_names_all_four():
         assert f'of kind "{kind}"' in prompt
 
 
-# --- Der Nachschlag -----------------------------------------------------------
+# --- The top-up ---------------------------------------------------------------
 
 _ONLY_STATEMENT = {
     "kind": "statement",
@@ -117,16 +111,14 @@ _ONLY_STATEMENT = {
 
 @pytest.fixture
 def no_db_attachment(monkeypatch):
-    """Mock attach_chips_cited damit der Test ohne Datenbankzugriff laeuft."""
+    """Mock attach_chips_cited so the test runs without database access."""
     monkeypatch.setattr(
         "src.features.ai_assistant.tasks.language_training._source_grammar"
         ".attach_chips_cited", lambda items, claims, ctx, **kw: None)
 
 
 def test_an_unchosen_kind_is_always_rejected_even_on_the_last_draw(no_db_attachment):
-    """Ein abgehaktes Kaestchen ist ein Ausschluss, keine Vorliebe. Auch im letzten Wurf
-    wird ein Format, das nicht in der Auswahl steht, verworfen. Ohne diese Sperre kaeme
-    eine Richtig/Falsch-Aufgabe heraus, obwohl der Lernende nur "Umformen" ausgewaehlt hat."""
+    """An unticked box is an exclusion, in the last attempt too."""
     antwort = json.dumps({"title": "T", "exercises": [_ONLY_STATEMENT]})
     client, _ = _client_queue(antwort)
 
@@ -134,13 +126,12 @@ def test_an_unchosen_kind_is_always_rejected_even_on_the_last_draw(no_db_attachm
         client, "m", _ctx(), _TOPIC, 2,
         locale="de", kinds=["transform"])
 
-    # Es wurde eine Richtig/Falsch-Aufgabe angeboten, aber sie haette nicht akzeptiert
-    # werden duerfen: die Art steht nicht in der Auswahl.
+    # The kind is not in the selection and must not be accepted.
     assert items == []
 
 
 def test_an_unchosen_kind_is_accepted_when_gemischt(no_db_attachment):
-    """Ohne Auswahl (Gemischt) werden alle vier Arten akzeptiert, auch im letzten Wurf."""
+    """Without a selection all four kinds are accepted, in the last attempt too."""
     antwort = json.dumps({"title": "T", "exercises": [_ONLY_STATEMENT]})
     client, _ = _client_queue(antwort)
 
@@ -148,14 +139,13 @@ def test_an_unchosen_kind_is_accepted_when_gemischt(no_db_attachment):
         client, "m", _ctx(), _TOPIC, 1,
         locale="de", kinds=None)
 
-    # Ohne Auswahl ist Richtig/Falsch erlaubt.
+    # Without a selection true/false is allowed.
     assert len(items) == 1
     assert "Ist der Satz korrekt?" in items[0]["front"]
 
 
 def _client_queue(*contents):
-    """Fake-Client, der die Antworten der Reihe nach ausgibt. Die letzte wiederholt
-    sich, damit ein Test nicht an der Anzahl der Würfe hängt."""
+    """A stub client that returns the answers in order."""
     calls = []
     queue = list(contents)
 

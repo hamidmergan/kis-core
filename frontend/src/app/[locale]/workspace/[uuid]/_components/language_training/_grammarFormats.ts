@@ -1,12 +1,4 @@
-/**
- * Die vier Aufgabenformate der Grammatik-Uebung und was davon gesendet wird.
- *
- * Reine Funktionen, damit sie ohne Browser pruefbar sind. Der Dialog haelt nur den
- * Zustand, die Entscheidungen stehen hier.
- *
- * Die Kuerzel sind dieselben, die das Backend kennt. Sie stehen im Frontend NUR hier,
- * damit ein Tippfehler an einer Stelle auffaellt und nicht an vieren.
- */
+/** The four formats and what of them is sent, as pure functions. */
 
 export const GRAMMAR_FORMATS = [
   "transform",
@@ -17,13 +9,7 @@ export const GRAMMAR_FORMATS = [
 
 export type GrammarFormat = (typeof GRAMMAR_FORMATS)[number];
 
-/**
- * Was an das Backend geht, oder `undefined` fuer gemischt.
- *
- * Alle vier anzuhaken ist sachlich gemischt und sendet deshalb nichts. Zwei
- * Schreibweisen fuer denselben Zustand waeren zwei Faelle, die frueher oder
- * spaeter auseinanderlaufen.
- */
+/** All four is mixed and sends nothing. */
 export function sentKinds(checked: GrammarFormat[]): string[] | undefined {
   const gewaehlt = GRAMMAR_FORMATS.filter((f) => checked.includes(f));
   if (gewaehlt.length === 0 || gewaehlt.length === GRAMMAR_FORMATS.length) {
@@ -32,12 +18,12 @@ export function sentKinds(checked: GrammarFormat[]): string[] | undefined {
   return gewaehlt;
 }
 
-/** Ob die Formatauswahl den Erstellen-Knopf freigibt. Mindestens eins muss an sein. */
+/** Whether the format selection unlocks the create button, at least one must be on. */
 export function formatChoiceReady(checked: GrammarFormat[]): boolean {
   return checked.length > 0;
 }
 
-/** Ein Kaestchen umlegen. Die Reihenfolge bleibt die des Katalogs. */
+/** Flip one checkbox, the order stays the catalogue's. */
 export function toggleFormat(
   checked: GrammarFormat[],
   format: GrammarFormat,

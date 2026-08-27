@@ -1,13 +1,4 @@
-"""Verbangaben auf der Lernkarte.
-
-Ein Nomen zeigt seit jeher Singular und Plural. Ein Verb zeigt jetzt seine Art in
-Klammern hinter der Wortart und darunter Präsens, Präteritum und Perfekt.
-
-Geprüft wird der Weg vom Modell nach ``extras``: die Ansicht liest genau diese
-Schlüssel, und ein leeres Feld darf keine leere Zeile erzeugen. Dazu die Regeln im
-Prompt, die am meisten wehtun, wenn sie jemand später herausstreicht: das Hilfsverb
-im Perfekt und das Verbot zu raten.
-"""
+"""Verb details on the flashcard, from the model into the extras."""
 
 import json
 import types
@@ -21,7 +12,7 @@ from src.features.ai_assistant.prompts.language_training_prompts import AIA_LERN
 
 
 def _fake_client(content: str):
-    """Modell-Ersatz: liefert immer dieselbe Antwort, kein Netz, keine Datenbank."""
+    """Model stub: always returns the same answer, no network, no database."""
     def create(model, messages, **kwargs):
         message = types.SimpleNamespace(content=content)
         return types.SimpleNamespace(choices=[types.SimpleNamespace(message=message)])
@@ -31,7 +22,7 @@ def _fake_client(content: str):
     )
 
 
-# --- der Weg nach extras -----------------------------------------------------
+# --- the path into extras ----------------------------------------------------
 
 def test_verbformen_landen_in_extras():
     item = _format_lernkarte({
@@ -49,8 +40,7 @@ def test_verbformen_landen_in_extras():
 
 
 def test_leere_verbformen_erzeugen_keine_schluessel():
-    """Ein Nomen liefert die Felder leer mit. Die Ansicht zeichnet eine Zeile, sobald
-    der Schlüssel da ist, also darf er gar nicht erst entstehen."""
+    """A noun must not create the verb fields in the first place."""
     item = _format_lernkarte({
         "begriff": "Fluchtweg",
         "definition": "Weg aus dem Gebäude nach draußen.",
@@ -75,12 +65,12 @@ def test_verbformen_werden_getrimmt():
 
 
 def test_karte_ohne_verbfelder_bleibt_wie_vorher():
-    """Alte Sätze und Modelle, die die Felder nicht kennen, ändern sich nicht."""
+    """Old sets and models that do not know the fields stay unchanged."""
     item = _format_lernkarte({"begriff": "X", "definition": "Y"})
     assert item.get("extras") is None
 
 
-# --- die Regeln im Prompt ----------------------------------------------------
+# --- the rules in the prompt -------------------------------------------------
 
 def test_prompt_kennt_die_drei_felder():
     for feld in ("verb_present", "verb_past", "verb_perfect"):
@@ -88,18 +78,18 @@ def test_prompt_kennt_die_drei_felder():
 
 
 def test_prompt_verlangt_das_hilfsverb_im_perfekt():
-    """Ohne hat oder ist ist die Perfektform für den Lernenden wertlos."""
+    """Without the auxiliary the perfect form is worthless to the learner."""
     assert "hat sich getroffen" in AIA_LERNKARTEN_PROMPT
     assert "MUST carry its auxiliary" in AIA_LERNKARTEN_PROMPT
 
 
 def test_prompt_verbietet_zu_raten():
-    """Lieber eine fehlende Zeile als eine erfundene Form auf einer Lernkarte."""
+    """Better a missing line than an invented form on a flashcard."""
     assert "leave ALL THREE empty" in AIA_LERNKARTEN_PROMPT
 
 
 def test_prompt_haelt_die_formen_in_der_quellsprache():
-    """Die Formen sind das Lernmaterial, sie werden nie in die Erklärsprache übersetzt."""
+    """The forms are the learning material, they are never translated into the explanation language."""
     assert (
         "the verb forms in 'verb_present', 'verb_past' and 'verb_perfect'"
         in AIA_LERNKARTEN_PROMPT
@@ -110,15 +100,14 @@ def test_prompt_kennt_die_klammer_hinter_der_wortart():
     assert "Verb (unregelmäßig, reflexiv)" in AIA_LERNKARTEN_PROMPT
 
 
-# --- gemeinsame Konstante für Quelltext und Glossar --------------------------
+# --- shared constant for source text and glossary ----------------------------
 
 def test_gemeinsame_konstante_enthaelt_alle_felder():
-    """Die gemeinsame Konstante AIA_FLASHCARD_EXTRAS_FIELDS ist für beide Wege
-    (Quelltext und Glossar) maßgeblich und muss alle neuen Felder enthalten."""
+    """The shared field list applies to both paths and has to contain everything."""
     assert "verb_present" in AIA_FLASHCARD_EXTRAS_FIELDS
     assert "verb_past" in AIA_FLASHCARD_EXTRAS_FIELDS
     assert "verb_perfect" in AIA_FLASHCARD_EXTRAS_FIELDS
-    # Und die etablierten Felder
+    # And the established fields
     assert "word_parts" in AIA_FLASHCARD_EXTRAS_FIELDS
     assert "word_class" in AIA_FLASHCARD_EXTRAS_FIELDS
     assert "singular" in AIA_FLASHCARD_EXTRAS_FIELDS
@@ -126,9 +115,8 @@ def test_gemeinsame_konstante_enthaelt_alle_felder():
 
 
 def test_glossar_verbformen_landen_in_extras():
-    """Im Glossar-Weg legt _generate_flashcards Verbformen korrekt in extras ab.
-    Der Test ruft _generate_flashcards wirklich auf, nicht nur _format_lernkarte."""
-    # Modell-Antwort mit einem Verb mit allen drei Zeitformen
+    """The glossary path puts verb forms into extras correctly."""
+    # Model answer with a verb in all three tenses
     antwort = json.dumps({"cards": [{
         "begriff": "schreiben",
         "definition": "Worte aufzeichnen.",
@@ -149,19 +137,18 @@ def test_glossar_verbformen_landen_in_extras():
 
     items = _generate_flashcards(client, "modell", glossary_entries, "German")
 
-    # Alle drei Verbformen müssen in extras landen
+    # All three verb forms have to land in extras
     assert items[0]["extras"]["verb_present"] == "schreibt"
     assert items[0]["extras"]["verb_past"] == "schrieb"
     assert items[0]["extras"]["verb_perfect"] == "hat geschrieben"
-    # Auch die anderen Felder
+    # The other fields too
     assert items[0]["extras"]["word_class"] == "Verb (unregelmäßig)"
     assert items[0]["extras"]["example_sentence"] == "Ich schreibe."
 
 
 def test_glossar_leere_verbformen_erzeugen_keine_schluessel():
-    """Im Glossar-Weg landen leere Verbformen nicht in extras, auch wenn das
-    Modell sie mit leeren Werten liefert. Der Test ruft _generate_flashcards auf."""
-    # Modell-Antwort mit einem Nomen (keine Verbformen)
+    """Empty verb forms do not land in extras on the glossary path either."""
+    # Model answer with a noun (no verb forms)
     antwort = json.dumps({"cards": [{
         "begriff": "Metapher",
         "definition": "Ein Vergleich ohne 'wie'.",
@@ -183,12 +170,12 @@ def test_glossar_leere_verbformen_erzeugen_keine_schluessel():
 
     items = _generate_flashcards(client, "modell", glossary_entries, "German")
 
-    # Leere Verbformen dürfen nicht in extras sein
+    # Empty verb forms must not be in extras
     extras = items[0].get("extras", {})
     assert "verb_present" not in extras
     assert "verb_past" not in extras
     assert "verb_perfect" not in extras
-    # Aber die etablierten Felder kommen durch
+    # But the established fields come through
     assert extras["singular"] == "die Metapher"
     assert extras["plural"] == "die Metaphern"
     assert extras["word_class"] == "Nomen"

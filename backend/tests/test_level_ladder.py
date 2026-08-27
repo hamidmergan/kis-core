@@ -1,5 +1,4 @@
-"""Die Stufen-Leiter: eine Beschreibung je CEFR-Stufe, geteilt von Diagnose,
-Chat und Werkzeugen."""
+"""The level ladder, shared by assessment, chat and tools."""
 
 import json
 

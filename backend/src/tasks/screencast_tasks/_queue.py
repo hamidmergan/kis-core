@@ -1,4 +1,4 @@
-"""User-Level Queue für Screencast-Jobs: dispatcht den nächsten wartenden Job."""
+"""Per-user queue for screencast jobs, dispatches the next waiting job."""
 
 import json
 import os
@@ -55,7 +55,7 @@ def dispatch_next_screencast_job_for_user(user_id: int) -> None:
 
 
 def _render_args(job_uuid: str, scripts: list, params: dict, original_filename: str) -> list:
-    """Argumente fuer den Render-Task, in der Reihenfolge der Task-Signatur."""
+    """Arguments for the render task, in the order of the task signature."""
     return [
         job_uuid, scripts,
         params["voice_id"], params["speed"], params["slide_pause"],

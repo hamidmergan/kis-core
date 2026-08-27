@@ -1,4 +1,4 @@
-"""Die Einladungen in der Datenbank."""
+"""The invitations in the database."""
 from datetime import datetime
 
 import psycopg2.extras
@@ -16,7 +16,7 @@ def create_invite(
     created_by: int,
     expires_at: datetime,
 ) -> int:
-    """Legt eine Einladung an und gibt ihre Kennung zurueck."""
+    """Creates an invitation and returns its id."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -32,7 +32,7 @@ def create_invite(
 
 
 def get_invite_by_token(token: str) -> dict | None:
-    """Sucht eine Einladung ueber den Schluessel aus dem Link."""
+    """Looks up an invitation by the key from the link."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute("SELECT * FROM invites WHERE token = %s", (token,))
@@ -41,7 +41,7 @@ def get_invite_by_token(token: str) -> dict | None:
 
 
 def mark_invite_used(invite_id: int) -> bool:
-    """Stempelt die Einladung als eingeloest, nur solange sie offen ist."""
+    """Stamps the invitation as redeemed, only while it is still open."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -56,7 +56,7 @@ def mark_invite_used(invite_id: int) -> bool:
 
 
 def list_invites() -> list[dict]:
-    """Alle Einladungen, die neueste zuerst."""
+    """All invitations, newest first."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute("SELECT * FROM invites ORDER BY created_at DESC")
@@ -64,7 +64,7 @@ def list_invites() -> list[dict]:
 
 
 def delete_invite(invite_id: int) -> bool:
-    """Zieht eine Einladung zurueck."""
+    """Withdraws an invitation."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("DELETE FROM invites WHERE id = %s RETURNING id", (invite_id,))
@@ -74,7 +74,7 @@ def delete_invite(invite_id: int) -> bool:
 
 
 def open_invite_for_email(email: str) -> dict | None:
-    """Die noch offene Einladung an diese Adresse, falls es eine gibt."""
+    """The still open invitation to this address, if there is one."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
@@ -88,7 +88,7 @@ def open_invite_for_email(email: str) -> dict | None:
 
 
 def reopen_invite(invite_id: int) -> None:
-    """Nimmt den Stempel zurueck, wenn das Anlegen danach schiefgegangen ist."""
+    """Takes the stamp back when creation failed afterwards."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("UPDATE invites SET used_at = NULL WHERE id = %s", (invite_id,))

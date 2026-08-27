@@ -1,20 +1,4 @@
-"""Tool-side wiring for the shared post-hoc attribution.
-
-Turns a generated item's claim text into nav-only source chips via the SAME pgvector
-gate/selector the chat uses (:mod:`src.services.aia_attribution`). Replaces the per-tool
-page-guessing heuristics (find_all_pages, word-overlap, whole-page highlight) with one path.
-
-Two entry points:
-
-* :func:`attach_chips` — pure post-hoc search. Right for tools whose items REPEAT source
-  wording (flashcards, quiz, karteikarten): the claim is close to a chunk, so the search
-  finds it and a miss genuinely means "not clearly in the sources".
-* :func:`attach_chips_cited` — search plus what the model itself reported. Right for the
-  grammar drill, whose sentences are INVENTED from the material and then grammatically
-  transformed on top. Such a claim is far from every chunk by construction, so the search
-  alone left roughly half a set chip-less while the other half was cited, which reads to a
-  learner as "this sentence has no source" although it has one.
-"""
+"""Connects the generated exercises to the shared after-the-fact evidence search."""
 
 from loguru import logger
 
@@ -22,9 +6,7 @@ from src.features.ai_assistant.tasks.language_training._context import QuelleCon
 from src.services.aia_attribution import attribute_claims
 
 
-# Prompt-Zeile, die das ``page``-Feld anfordert, das :func:`attach_chips_cited` liest.
-# Sie steht hier und nicht in den Generatoren, damit die Frage und ihr Leser zusammen
-# liegen: ändert sich das Feld, ändert sich beides an einer Stelle.
+# The prompt line requesting the page field sits next to its reader.
 PAGE_RULE = (
     "- 'page' is the page number printed in front of the passage you took the facts "
     "from, copied from its \"[file, S. <number>]\" label above. Every exercise carries "
@@ -51,21 +33,12 @@ def attach_chips(
     search_fn=None,
     segments_fn=None,
 ) -> list[dict]:
-    """Attribute each item's ``claim`` and attach nav-only ``sources`` (+ primary
-    source_label/page_number/start_time from the first chip). Items that ground nowhere
-    get no chip (their source fields are cleared), never a guessed page.
-
-    ``embed_fn``/``search_fn``/``segments_fn`` gehen unveraendert an
-    :func:`~src.services.aia_attribution.attribute_claims`. Alle drei greifen sonst nach
-    aussen (Embedding-Anbieter, pgvector, Whisper-Segmente aus der Ablage), ein Test muss
-    also jeden von ihnen ersetzen koennen."""
+    """Backs every exercise and attaches the chips, without a hit it stays chip free."""
     workspace_id, source_ids, id_to_label = attribution_inputs(ctx)
     chip_lists = attribute_claims(
         claims, id_to_label, multi=multi,
         workspace_id=workspace_id, source_ids=source_ids,
-        # Clamp chips to the pages the LLM was actually shown (chat-style seen-check):
-        # a card can only cite material from its own generation context, never elsewhere.
-        # `or None` is a safety net: an empty seen-set would otherwise strip EVERY chip.
+        # Chips only onto shown pages, 'or None' guards against an empty set.
         seen_pages_by_source=ctx.seen_pages_by_source or None,
         embed_fn=embed_fn, search_fn=search_fn, segments_fn=segments_fn,
     )
@@ -75,10 +48,7 @@ def attach_chips(
 
 
 def _write_chips(item: dict, chips: list[dict]) -> None:
-    """Put ``chips`` on an item, or clear its source fields when there are none.
-
-    The primary fields mirror the first chip because the views read those directly
-    (older sets predate the ``sources`` list)."""
+    """Puts the chips on an exercise or clears its source fields."""
     if not chips:
         item.pop("sources", None)
         item["source_label"] = None
@@ -100,28 +70,7 @@ def attach_chips_cited(
     search_fn=None,
     segments_fn=None,
 ) -> list[dict]:
-    """Attach one nav-only chip per item, taking the most trustworthy origin available.
-
-    Three steps, in this order:
-
-    1. the page the model itself cited while writing the sentence (``item['_page']``),
-       accepted only if the model was actually shown that page,
-    2. otherwise the shared pgvector search — run ONLY for the items step 1 left open, so
-       the common case costs neither an embedding call nor a vector search,
-    3. otherwise the source the model named as its section, cited at its first shown page.
-
-    Step 1 is the accurate one and it is free: the model knows where it took the material
-    from, we only have to ask. Step 3 is navigation rather than pinpointing, which is the
-    honest promise for an invented sentence anyway ("the material is here"), and it is what
-    turns a set with scattered chips into one where every sentence carries its origin.
-
-    One gap stays open on purpose: several sources, no cited page, no named section and no
-    search hit. Guessing a source there would be worse than staying silent, so the item
-    keeps no chip and the counts below make it visible.
-
-    ``embed_fn``/``search_fn``/``segments_fn`` gehen unveraendert an Schritt 2 weiter, siehe
-    :func:`attach_chips`.
-    """
+    """Attaches one chip per exercise, in three stages from the most reliable origin."""
     workspace_id, source_ids, id_to_label = attribution_inputs(ctx)
     chips: list[dict | None] = [_cited_chip(item, ctx, id_to_label) for item in items]
     from_model = sum(chip is not None for chip in chips)
@@ -158,12 +107,7 @@ def attach_chips_cited(
 
 
 def _cited_page(value) -> int | None:
-    """The page the model claims it used, as a plain page number.
-
-    Models write JSON numbers as strings often enough that a digit string counts, but
-    anything else ("Seite 4", a range, a bool) is not an answer to the question asked
-    and must fall through to the search rather than become a chip.
-    """
+    """The page the model names, as a bare number."""
     if isinstance(value, bool):
         return None
     if isinstance(value, str):
@@ -177,13 +121,7 @@ def _cited_page(value) -> int | None:
 
 
 def _named_source_id(item: dict, ctx: QuelleContext) -> int | None:
-    """Source id the model named for this item, or None if it named nothing known.
-
-    Two ways to name one, because the tools ask differently: the quiz asks for the
-    filename outright on its true/false items (``_source_label``), the other kinds only
-    for the numbered section the coverage rule hands out (``_section``). A filename that
-    is not in this context is invented and counts as nothing.
-    """
+    """The source the model names for this exercise, or None."""
     label = (item.get("_source_label") or "").strip()
     if label and label in ctx.source_by_name:
         return ctx.source_by_name[label].get("id")
@@ -196,11 +134,7 @@ def _named_source_id(item: dict, ctx: QuelleContext) -> int | None:
 
 
 def _is_media(ctx: QuelleContext, source_id: int) -> bool:
-    """Whether this source went into the context as timed segments (audio/video).
-
-    Read off the timestamp map rather than the filename, so no extension list has to be
-    kept in sync.
-    """
+    """Whether this source went into the context as time segments."""
     return bool(ctx.media_start_by_page.get(source_id))
 
 
@@ -210,29 +144,12 @@ def _chip_for_page(source_id: int, page: int, label: str) -> dict:
 
 
 def _source_only_chip(label: str) -> dict:
-    """Chip that names the source and nothing else: "the material is in this file".
-
-    What media falls back to. A wrong minute inside a 45-minute recording sends the
-    learner somewhere unrelated, which is worse than not offering a jump at all.
-    """
+    """Chip that names only the source, without a jump target."""
     return {"source_label": label, "page_number": None, "start_time": None}
 
 
 def _cited_chip(item: dict, ctx: QuelleContext, id_to_label: dict[int, str]) -> dict | None:
-    """Step 1: the page the model named, cross-checked against what it was shown.
-
-    The page alone identifies the source whenever only one source showed it. When several
-    did, the model's own section claim breaks the tie, and a claim that contradicts the
-    page is not trusted at all.
-
-    Documents only. Measured on real sets: for a slide deck the cited page is right, even
-    exactly right where the sentence sits on it, but for a lecture recording the model
-    writes down any number — three sentences in one set carried the same segment number
-    and none of them was about what is said there. The difference is what the number MEANS
-    to the model: a slide page is a visible unit, while a transcript is 105 interchangeable
-    30-second blocks labelled "S. 1", "S. 2" … So for media this step abstains and the
-    search decides, because it compares actual transcript text.
-    """
+    """The page named by the model, checked against what was shown, documents only."""
     page = _cited_page(item.get("_page"))
     if page is None:
         return None
@@ -249,11 +166,7 @@ def _cited_chip(item: dict, ctx: QuelleContext, id_to_label: dict[int, str]) -> 
 
 
 def _section_chip(item: dict, ctx: QuelleContext, id_to_label: dict[int, str]) -> dict | None:
-    """Step 3: cite the source the sentence came from, at its first shown page.
-
-    With a single source that source is known regardless of what the model wrote, which is
-    what makes the common case chip-less-proof.
-    """
+    """Names the sentence's source at its first shown page."""
     source_id = _named_source_id(item, ctx)
     if source_id is None:
         shown = list(ctx.seen_pages_by_source)
@@ -261,8 +174,7 @@ def _section_chip(item: dict, ctx: QuelleContext, id_to_label: dict[int, str]) -
             return None
         source_id = shown[0]
     label = id_to_label.get(source_id, "")
-    # Media gets the file and no timestamp: the first shown segment is not where the
-    # sentence came from, it is merely the earliest one in this run.
+    # Media get the file without a timestamp, the first segment says nothing.
     if _is_media(ctx, source_id):
         return _source_only_chip(label)
     pages = ctx.seen_pages_by_source.get(source_id) or set()

@@ -18,9 +18,7 @@ def client(monkeypatch):
 
     get_settings.cache_clear()
     app.dependency_overrides[verify_auth] = lambda: None
-    # Die Route haengt jetzt am Recht "Alle Nutzer", nicht mehr an der Rolle
-    # "admin". Der eingesetzte Nutzer traegt deshalb eine Rolle, aus der sich
-    # Rechte ableiten lassen.
+    # The route hangs off the permission, no longer off the role.
     app.dependency_overrides[get_current_user] = lambda: {
         "user_id": 1, "email": "admin@th-luebeck.de", "role": "admin",
     }
@@ -233,9 +231,7 @@ def test_create_ldap_user_404_when_flag_off(monkeypatch):
 
     get_settings.cache_clear()
     app.dependency_overrides[verify_auth] = lambda: None
-    # Die Route haengt jetzt am Recht "Alle Nutzer", nicht mehr an der Rolle
-    # "admin". Der eingesetzte Nutzer traegt deshalb eine Rolle, aus der sich
-    # Rechte ableiten lassen.
+    # The route hangs off the permission, no longer off the role.
     app.dependency_overrides[get_current_user] = lambda: {
         "user_id": 1, "email": "admin@th-luebeck.de", "role": "admin",
     }

@@ -17,7 +17,7 @@ export function StatusBadge({ status, expired, isGeneratingScripts, resumeHref, 
   const t = useTranslations("myJobs.status");
   const anzeige = jobStatusDisplay(status, { expired, isGeneratingScripts });
 
-  // Fortsetzen ist eine Handlung, kein Zustand, und bekommt deshalb einen Knopf.
+  // Resuming is an action, not a state, and therefore gets a button.
   if (anzeige.kind === "action") {
     if (resumeHref)
       return (

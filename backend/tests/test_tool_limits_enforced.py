@@ -1,10 +1,4 @@
-"""Die Grenzen aus dem Admin muessen an den Routen auch WIRKEN.
-
-test_tool_limits.py prueft nur das Lesen. Hier geht es um den Fehler, der beim
-Umbau am ehesten passiert: eine Route importiert die Konstante wieder direkt und
-merkt von der Einstellung nichts mehr. Deshalb wird jede Stelle mit einem
-gesetzten Wert gegen die Vorgabe geprueft.
-"""
+"""The limits have to take effect on the routes, not just be readable."""
 
 import pytest
 
@@ -13,7 +7,7 @@ from src.limits import MAX_RESULT_FILES
 
 @pytest.fixture
 def gesetzt(monkeypatch):
-    """Eine Einstellung vortaeuschen, ohne Datenbank."""
+    """Fakes a setting, without a database."""
     werte: dict[str, str] = {}
     from src.services import tool_limits
 
@@ -44,12 +38,7 @@ def test_aufbewahrung_raeumt_nach_der_einstellung(gesetzt):
 
 
 def test_unbegrenzt_raeumt_gar_nichts(gesetzt):
-    """-1 muss die Raeumung ausschalten, nicht etwa von hinten schneiden.
-
-    Der Fehler waere still und teuer: ``jobs[-1:]`` gibt den AELTESTEN Job
-    zurueck, ein Unbegrenzt wuerde dann bei jedem Speichern genau den loeschen,
-    den es eigentlich schuetzen soll.
-    """
+    """-1 has to switch the cleanup off, not cut from the back."""
     from src.features.jobs.repository._retention import select_jobs_to_evict
 
     jobs = [{"job_uuid": str(i), "status": "completed"} for i in range(10)]
@@ -65,7 +54,7 @@ def test_ohne_einstellung_gilt_die_vorgabe(gesetzt):
 
 
 def test_laufende_auftraege_werden_nie_geraeumt(gesetzt):
-    """Bestehendes Verhalten, das der Umbau nicht kaputt machen darf."""
+    """Existing behaviour the rework must not break."""
     from src.features.jobs.repository._retention import select_jobs_to_evict
 
     gesetzt["results_kept_per_user"] = "1"
@@ -92,7 +81,7 @@ def test_aufnahmelaenge_in_sekunden(gesetzt):
 
 
 def test_zu_lange_aufnahme_meldet_die_eingestellte_grenze(gesetzt):
-    """Die Absage muss die AKTUELLE Grenze nennen, nicht die alte Konstante."""
+    """The refusal has to name the CURRENT limit, not the old constant."""
     from src.services.openai_compat_llm._chunking import AudioTooLongError
     from src.services.openai_compat_llm import _whisper_chunked
 

@@ -1,8 +1,4 @@
-"""Die Vorraete plattformweit leeren: Aufgaben je Werkzeug und Zeitplan-Auswertungen.
-
-Beide Vorraete wachsen als Nebenprodukt der Nutzung und liegen an der Quelle, nicht am
-Kursraum. Wer sie loswerden will, musste sie bisher Quelle fuer Quelle neu hochladen.
-"""
+"""Clears the pools platform wide: exercises per tool and schedule analyses."""
 
 from fastapi import APIRouter, Depends, HTTPException
 from loguru import logger
@@ -15,7 +11,7 @@ from src.permissions_registry import PERM_SET_AIA_SOURCES
 
 router = APIRouter(tags=["admin: pools"])
 
-# Die Karte steht bei den Quellen, weil beide Vorraete an der Quelle haengen.
+# The card sits with the sources because both pools hang off the source.
 _require = require_permission(PERM_SET_AIA_SOURCES)
 
 
@@ -26,7 +22,7 @@ class ClearPoolsRequest(BaseModel):
 
 @router.get("/pools")
 async def get_pools(_admin=Depends(_require)):
-    """Was gerade in den Vorraeten liegt. Wer etwas wegwirft, soll es vorher sehen."""
+    """What currently sits in the pools, you should see it before throwing it away."""
     return {
         "tools": db.pool_counts_by_tool(),
         "schedule": db.count_source_extractions(),
@@ -37,11 +33,7 @@ async def get_pools(_admin=Depends(_require)):
 async def clear_pools(
     body: ClearPoolsRequest, admin=Depends(_require), locale: str = Depends(get_locale)
 ):
-    """Die gewaehlten Vorraete leeren.
-
-    Ohne Auswahl passiert nichts und die Anfrage ist ein Fehler: ein Fehlklick auf einen
-    Knopf, der dann alles raeumt, waere die schlimmste Auslegung.
-    """
+    """Clears the chosen pools, without a selection the request is an error."""
     unbekannt = [tool for tool in body.tools if tool not in db.POOL_TOOLS]
     if unbekannt or not (body.tools or body.schedule):
         raise HTTPException(status_code=400, detail=t("admin.pools.nothingChosen", locale))

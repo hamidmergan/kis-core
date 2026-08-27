@@ -26,8 +26,7 @@ type TestState =
   | { kind: "warning"; message: string }
   | { kind: "error"; message: string };
 
-// Each feature is satisfied by one capability. Used to filter the provider
-// dropdown down to providers that actually offer the feature.
+// One capability per feature, the provider list filters by it.
 const FEATURE_CAPABILITY: Record<Feature, Capability> = {
   chat: "chat",
   embedding: "embedding",
@@ -42,8 +41,7 @@ const FEATURE_CAPABILITY: Record<Feature, Capability> = {
   transcript_translate: "translation",
 };
 
-// For translation features the dropdown should also accept any chat-capable
-// provider (LLM-driven translation). This widens the capability check.
+// For translating a chat capable provider counts too.
 const FEATURE_EXTRA_CAPABILITIES: Partial<Record<Feature, Capability[]>> = {
   doc_translate: ["chat"],
   screencast_translate: ["chat"],
@@ -64,10 +62,7 @@ const FEATURE_ORDER: Feature[] = [
   "transcript_translate",
 ];
 
-// Split user-choice features test each eligible provider individually
-// (per-provider model). Other features test the row's resolved provider once.
-// STT is a single global-default feature (provider dropdown + model field), so
-// it is not listed here — its "test" runs once on the resolved route.
+// Features with a user choice test every provider separately, the others once.
 const SPLIT_USER_CHOICE_FEATURES: ReadonlySet<Feature> = new Set([
   "tts",
   "vision",

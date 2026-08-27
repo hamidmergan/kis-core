@@ -8,9 +8,7 @@ import psycopg2.pool
 
 
 _TZ_BERLIN = ZoneInfo("Europe/Berlin")
-# So viele Nachrichten werden fuer die letzte Runde gelesen. Genug, um ueber ein
-# paar abgebrochene oder gescheiterte Antworten hinweg die letzte brauchbare
-# Runde zu finden, und wenig genug, um billig zu bleiben.
+# This many messages are read to find the last usable round.
 _LAST_ROUND_SCAN = 8
 _REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
 from src.core.db.pool import get_connection
@@ -69,8 +67,7 @@ def get_aia_messages(
     enrollment_id: int | None = None,
     include_aborted: bool = True,
 ) -> list[dict]:
-    """Fetch chat history (for the chat UI). Pass include_aborted=False to drop
-    cancelled half-answers from the result."""
+    """Loads the chat history, include_aborted=False leaves cancelled answers out."""
     aborted_filter = "" if include_aborted else " AND aborted = FALSE"
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
@@ -96,16 +93,7 @@ def get_aia_messages(
 def get_last_aia_user_questions(
     workspace_id: int, user_id: int, enrollment_id: int | None = None, limit: int = 10
 ) -> list[str]:
-    """Die letzten Fragen dieser Person in diesem Chat, neueste zuerst.
-
-    Dienen allein als Sprach-Anker fuer die naechste Antwort: der Chat schickt
-    keinen Verlauf an das Modell, deshalb hat eine Eingabe wie "hi" kein
-    Sprachsignal und die Antwort kippt ins Englische. Es werden mehr Zeilen
-    gelesen als gebraucht, weil kurze Eingaben spaeter als Sprachprobe
-    ausscheiden (siehe ``language_anchors``). Nur Nachrichten der Person
-    kommen infrage, die Antworten des Tutors wuerden dessen eigene Sprachwahl
-    nur bestaetigen. Chats je Zugangslink bleiben getrennt.
-    """
+    """This person's last questions, purely as a language anchor for the next answer."""
     where = "enrollment_id = %s" if enrollment_id is not None else "enrollment_id IS NULL"
     params: tuple = (workspace_id, user_id) + (
         (enrollment_id,) if enrollment_id is not None else ()) + (limit,)
@@ -125,17 +113,7 @@ def get_last_aia_user_questions(
 def get_last_aia_round(
     workspace_id: int, user_id: int, enrollment_id: int | None = None
 ) -> dict | None:
-    """Die letzte abgeschlossene Runde dieses Chats: Frage, Antwort, Quellen.
-
-    Dient allein dazu, eine Nachfrage vor der Suche eigenstaendig zu machen
-    (siehe ``routes/_followup``). Es geht weiterhin KEIN Verlauf an den
-    Antwort-Aufruf.
-
-    Abgebrochene und gescheiterte Antworten zaehlen nicht: ein halber oder gar
-    kein Text traegt keinen Zusammenhang, und die Nachfrage meint dann noch die
-    Runde davor. Genommen wird die neueste brauchbare Antwort und die Frage
-    unmittelbar davor. Chats je Zugangslink bleiben getrennt.
-    """
+    """The last completed round, only to make a follow-up question self-contained."""
     where = "enrollment_id = %s" if enrollment_id is not None else "enrollment_id IS NULL"
     params: tuple = (workspace_id, user_id) + (
         (enrollment_id,) if enrollment_id is not None else ()) + (_LAST_ROUND_SCAN,)
@@ -183,10 +161,7 @@ def get_aia_user_settings(workspace_id: int, user_id: int) -> dict:
         "language_training_active": False,
     }
 
-# Zwei Schalter, gleicher Name, verschiedene Tabellen. In aia_workspaces gibt die
-# Verwaltung des Kurses den Sprachtrainer frei, hier entscheidet jede Person für
-# sich, ob sie ihn in diesem Kurs sehen will. Beide müssen an sein, sonst bleibt
-# er weg. Standard ist aus, niemand wird ungefragt eingestuft.
+# Two switches of the same name, course and person, both must be on.
 def upsert_aia_user_settings(
     workspace_id: int, user_id: int, chat_lang: str, studio_enabled: bool,
     popup_translate_lang: str = "en", language_training_active: bool = False,

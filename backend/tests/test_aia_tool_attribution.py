@@ -1,5 +1,4 @@
-"""Tool-side wiring of the shared attribution: build search inputs from a QuelleContext
-and attach nav-only chips to generated items. Shared by flashcards/quiz/karteikarten."""
+"""Connects the tool context with the shared evidence search."""
 
 from src.features.ai_assistant.tasks.language_training._attribution import (
     attach_chips,
@@ -51,8 +50,7 @@ def test_attach_chips_sets_sources_and_primary_fields():
 
 
 def test_attach_chips_clamps_to_seen_pages():
-    # The best hit is on page 9, which the ctx never showed (seen = {1: {4}}). attach_chips
-    # must drop it rather than cite a page outside the generation context.
+    # A hit on a page that was never shown has to be dropped.
     items = [{"front": "X", "back": "def x"}]
 
     def embed_fn(texts):

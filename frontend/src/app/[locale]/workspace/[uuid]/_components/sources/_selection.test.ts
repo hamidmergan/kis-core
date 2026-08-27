@@ -22,7 +22,7 @@ describe("Zustand des Gruppen-Hakens", () => {
   });
 
   it("laesst eine noch laufende Datei die Gruppe nicht auf halb festhalten", () => {
-    // Sonst stuende jede Gruppe, in der gerade indiziert wird, dauerhaft auf "some".
+    // Otherwise every group with an indexing file would sit on 'some' forever.
     expect(groupState([fertig("a"), laeuft("b")], ["a"])).toBe("all");
   });
 

@@ -35,7 +35,7 @@ router = APIRouter(tags=["screencast: translate"])
 
 
 def _enforce_queue_and_quota(user_id: int, current_user: dict, locale: str = "de") -> None:
-    # -1 heisst unbegrenzt, dann faellt die Warteschlangen-Pruefung ganz weg.
+    # -1 means unlimited, then the queue check falls away entirely.
     offene_grenze = max_open_screencast_jobs()
     if offene_grenze >= 0 and db.count_all_jobs_for_tool(user_id, SCREENCAST_TOOLS) >= offene_grenze:
         raise HTTPException(
@@ -65,8 +65,7 @@ async def screencast_translate(
     if content_length is not None and int(content_length) > max_upload_bytes():
         raise HTTPException(status_code=413, detail=t("file.tooLargeMb", locale, max=max_upload_bytes() // (1024 * 1024)))
 
-    # Streamed to disk, never buffered: a PPTX with embedded media easily runs
-    # to hundreds of MB, and the body limit alone allows 500.
+    # Stream to disk, a PPTX with media quickly gets huge.
     with tempfile.TemporaryDirectory(prefix="screencast_upload_") as tmpdir:
         tmp_path = os.path.join(tmpdir, "input.pptx")
         total, head = await stream_upload_to_path(file, tmp_path, max_upload_bytes(), locale)
@@ -100,12 +99,6 @@ async def screencast_translate(
     return {"job_uuid": job_uuid}
 
 
-# /screencast/extract-texts und /screencast/prepare wurden entfernt.
-# Beide nahmen eine PPTX als Base64 im JSON-Rumpf entgegen, ohne Größengrenze,
-# und /prepare startete LibreOffice mitten im Request. Das Backend läuft mit
-# einem einzigen uvicorn-Worker, jeder Aufruf hat also die gesamte API
-# blockiert. Benutzt hat sie niemand, das Frontend geht über /screencast/translate
-# und /screencast/upload-corrected.
 
 
 @router.post("/screencast/upload-corrected")
@@ -120,9 +113,7 @@ async def screencast_upload_corrected(
     validate_upload(file.filename, locale)
     maybe_start_cleanup_task()
 
-    # One temp copy serves everything below: validation, text extraction, the
-    # job folder and the LibreOffice render. Reading the body into memory first
-    # (the old path) meant a multi-GB PPTX sat in the backend process.
+    # One temp copy serves everything: check, text extraction, job folder and rendering.
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp = Path(tmpdir)
         pptx_path = tmp / "upload.pptx"
@@ -158,7 +149,7 @@ async def screencast_upload_corrected(
             )
 
         if translate_job_uuid:
-            # Die Foliennummer ist der Schluessel zwischen Bild, Skript und Ton.
+            # The slide number is the key between image, script and audio.
             try:
                 alte_anzahl = len(json.loads(get_job_file(job["user_id"], translate_job_uuid, "scripts.txt")))
             except Exception:
@@ -171,10 +162,10 @@ async def screencast_upload_corrected(
                 )
             # Existing job: save as corrected.pptx (user re-uploaded after translation)
             save_job_file_from_path(job["user_id"], translate_job_uuid, "corrected.pptx", str(pptx_path))
-            # Ohne das behielte scripts.txt die Texte von vor der Korrektur.
+            # Without this scripts.txt would keep the texts from before the correction.
             save_job_file(job["user_id"], translate_job_uuid, "scripts.txt",
                           json.dumps(slide_texts, ensure_ascii=False, indent=2).encode("utf-8"))
-            # Neue Folien, alter Ton waere falsch. Erst jetzt, die Folienzahl-Pruefung ist bestanden.
+            # New slides, old audio would be wrong, only now that the slide count check passed.
             vertonung_verwerfen(job["user_id"], translate_job_uuid)
             logger.info("Saved corrected.pptx to job folder {}", translate_job_uuid)
         else:

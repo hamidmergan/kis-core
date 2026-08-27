@@ -10,12 +10,7 @@ export interface IndexingProgress {
   total?: number;
 }
 
-/** Wie die Texterkennung bei dieser Quelle gelaufen ist.
- *
- *  Fehlt ganz, wenn das Dokument gar keine Seite hatte, die dafuer in Frage kam.
- *  "open" sind die Seiten ohne erkannten Text, egal ob die Texterkennung aus war,
- *  der Dienst die Seite verloren hat oder der Lauf aufgegeben hat. Eine solche
- *  Seite bremst nichts mehr, sie steht hier und laesst sich nachholen. */
+/** How text recognition went, open pages can be caught up on. */
 export interface OcrInfo {
   enabled: boolean;
   done: number;
@@ -29,24 +24,20 @@ export interface Source {
   error_message?: string | null;
   progress?: IndexingProgress | null;
   ocr_info?: OcrInfo | null;
-  /** Kapitel, in dem die Quelle in der Liste steht. null heisst "Ohne Kapitel". */
+  /** Chapter the source sits in within the list, null means no chapter. */
   chapter_uuid?: string | null;
 }
 
-/** Kapitel gliedern die Quellenliste. Reine Optik: die Auswahl fuer Chat und
- *  Werkzeuge haengt weiterhin am Haken der einzelnen Datei. */
+/** Chapters only structure the display, the selection hangs off the file's checkbox. */
 export interface Chapter {
   uuid: string;
   name: string;
   position: number;
 }
 
-// The list of target languages comes from the backend (GET /ai-assistant/
-// transcript-languages, single source: i18n.TRANSCRIPT_LANGUAGES). Viewer tabs
-// label arbitrary detected source codes via langLabel below.
+// The target languages come from the backend.
 
-// Human label for an ISO language code in the user's locale, e.g. langLabel("fr","de")
-// -> "Französisch". Falls back to the upper-cased code when the runtime can't resolve it.
+// Plain name for a language code, the upper-cased code when in doubt.
 export function langLabel(code: string, locale: string): string {
   try {
     const name = new Intl.DisplayNames([locale], { type: "language" }).of(code);
@@ -76,8 +67,7 @@ export interface WorkspaceDetail {
   language_training_active?: boolean;
   /** Sprachtrainer offered on this platform at all (admin setting, off by default). */
   language_training_enabled?: boolean;
-  /** Texterkennung auf dieser Plattform ueberhaupt an (Admin-Schalter, Standard an).
-   *  Steht sie aus, gibt es kein Nachholen, der Menue-Eintrag entfaellt dann. */
+  /** Text recognition on at all, otherwise the catch-up is dropped. */
   ocr_enabled?: boolean;
   staff_note_text?: string | null;
   staff_note_links?: StaffNoteLink[];
@@ -115,8 +105,7 @@ export interface ChatMessage {
   aborted?: boolean;
   /** Stream died on an error (not a user cancellation) — the turn offers a retry. */
   failed?: boolean;
-  /** CEFR level the adaptive tutor applied to this answer, or null when none was
-   *  applied. Shown to admins only as a small grey label. */
+  /** Applied level, for admins only as a small grey line. */
   applied_level?: string | null;
 }
 
@@ -135,37 +124,21 @@ export interface ViewerState {
   uuid: string;
   filename: string;
   page: number;
-  // Verbatim text to highlight on the page. Only set by a popup/action-bar exact
-  // selection (the user marked this text). Citation chips never set it — a chip
-  // click only scrolls to the page/timestamp.
+  // Text to highlight verbatim, only from the selection bar, never from a chip.
   highlightText?: string;
-  // True when highlightText is a verbatim user-popup selection (highlight it
-  // exactly, no line/sentence expansion). Always true when highlightText is set,
-  // since the only remaining highlight source is the popup exact selection.
+  // True when the text is highlighted verbatim instead of expanded to sentence bounds.
   exactSelection?: boolean;
-  // Blendet das Transkript im Quellen-Fenster aus. Gesetzt vom Hör- und
-  // Leseverstehen: wer beim Hören mitlesen kann, hört nicht zu, und die Aufgabe
-  // prüft wieder Lesen. Der Aufgabenkasten zeigt deshalb keinen Text UND das
-  // Quellen-Fenster auch nicht.
+  // Hides the transcript so listening comprehension does not become reading along.
   hideTranscript?: boolean;
-  // True when the viewer was opened by clicking a citation chip (pill / source
-  // reference) — used only to distinguish a chip nav from a plain document open.
+  // True when a citation chip opened the viewer.
   isCitation?: boolean;
   nonce?: number;
   startTime?: number;
-  // End of the CITED passage, not of a single subtitle cue. A retrieval chunk runs some
-  // 45 seconds and therefore spans several cues, so marking only the cue at startTime
-  // leaves the rest of the cited passage unmarked — the sentence the answer rests on
-  // often sits in the second or third cue and reads as "not in the source". With the end
-  // the transcript marks the whole span.
+  // End of the cited spot, not of a single subtitle line.
   endTime?: number;
-  // Anfang des zitierten Chunks. ``startTime`` ist die beste Vermutung, WO im Chunk die
-  // Aussage faellt, und liegt meist mittendrin. Traegt die Vermutung nicht, markiert das
-  // Transkript den ganzen Chunk statt zu raten, und dafuer braucht es dessen Anfang.
+  // Start of the cited section, needed when the guess in startTime does not hold.
   chunkStart?: number;
-  // The piece of the ANSWER this chip backs up. The marked span runs about a minute, so the
-  // transcript uses this to weight the line carrying the claim over the rest of the span.
-  // Ranking among lines already known to be right, never a search.
+  // The part of the answer the chip backs, weighting the lines of the span.
   citationClaim?: string;
 }
 
@@ -204,7 +177,7 @@ export interface GlossaryEntry {
 }
 
 /** One entry of the grammar exercise catalogue, as the backend exposes it. */
-/** Ein Grammatikthema des Kurses. Der Name ist alles, was der Dozent tippt. */
+/** A grammar topic of the course, the name is all the teacher types. */
 export interface GrammarTopic {
   id: number;
   name: string;
@@ -237,12 +210,10 @@ export interface ExerciseItemSource {
 }
 
 export interface ExerciseItemExtras {
-  /** Musterpaar der Grammatik-Übung, nur bei einer Umformung gesetzt. Es hängt an
-   *  der Aufgabe, weil ein gemischtes Set kein gemeinsames Muster mehr hat. */
+  /** Pattern pair of the reshaping, on the exercise because mixed sets share none. */
   pattern_front?: string;
   pattern_back?: string;
-  /** Der Tipp zur Aufgabe, im selben Aufruf entstanden wie die Aufgabe. Fehlt er,
-   *  stammt die Aufgabe aus der Zeit davor und der Knopf fragt wie früher den Chat. */
+  /** The hint for the exercise, without it the button asks the chat. */
   tip?: string;
   word_parts?: string;
   word_parts_explained?: string;
@@ -250,24 +221,16 @@ export interface ExerciseItemExtras {
   word_class?: string;
   singular?: string;
   plural?: string;
-  /** Verben: dritte Person Einzahl in den drei Zeiten, das Perfekt mit Hilfsverb.
-   *  Entweder alle drei oder keine, das Modell darf bei Unsicherheit nicht raten. */
+  /** Verb forms of the three tenses, either all or none. */
   verb_present?: string;
   verb_past?: string;
   verb_perfect?: string;
-  /** Wortschatz-Lückentext: je Lücke die Grundform, die als Chip unter dem Text
-   *  steht, und die Form, die hineingehört. Reihenfolge gleich der Nummerierung
-   *  der Platzhalter im Text. */
+  /** Per gap the base form as a chip and the fitting form, in the order of the text. */
   gaps?: { base: string; solution: string }[];
-  /** Wortschatz-Lückentext: die Anweisung und das gelöste Beispiel darüber. Sie
-   *  stehen an der AUFGABE und nicht in den Set-Spalten instruction/pattern_*,
-   *  die die Grammatik-Übung benutzt, weil der Vorrat nur Aufgaben mitführt. */
+  /** Instruction and solved example sit on the exercise because the pool holds exercises only. */
   instruction?: string;
   example?: { gapped: string; solved: string };
-  /** Set-Titel, redundant zu ExerciseSet.title. Wird nur gebraucht, wenn eine
-   *  Vorratszeile zum ersten Mal fertiggestellt wird (siehe run_cloze_set im
-   *  Backend), NICHT in der Übungsansicht: dort steht der Titel im Kopf, nicht
-   *  im Fliesstext der Aufgabe. */
+  /** Set title, only needed when completing a pool row. */
   title?: string;
 }
 
@@ -296,26 +259,23 @@ export interface ExerciseSet {
   title: string;
   mode: string;
   source_uuid?: string;
-  /** The set's sources, numbered in the order the learner picked them. The citation
-   *  chips print these numbers, so they are the same on every item of the set.
-   *  Empty in glossary mode. */
+  /** The sources of the set in the order they were picked, empty in the glossary. */
   sources?: ExerciseSetSource[];
   card_count: number;
   status?: string;
   created_at: string;
   total_attempts?: number;
-  /** Anteil der Karten, deren letzte Antwort richtig war. Der Ring auf der Karte. */
+  /** Share of cards whose last answer was correct, the ring on the card. */
   progress_pct?: number;
   items?: ExerciseItem[];
   // Grammar sets only: the catalogue entry plus the header shown above the sentences.
   grammar_type?: string | null;
-  /** Localised name of the catalogue entry, e.g. "Passiv Präsens". List view only. */
+  /** Localised name of the catalogue entry, list view only. */
   grammar_topic_name?: string | null;
   instruction?: string | null;
   pattern_front?: string | null;
   pattern_back?: string | null;
-  /** Ob eine Stimme für die Aussprache eingerichtet ist. Kommt nur an der EINZELNEN
-   *  Menge mit, nicht an der Liste, weil nur die Lernansicht den Knopf zeigt. */
+  /** Whether a voice is set up, only delivered with the single set. */
   speech_enabled?: boolean;
 }
 
@@ -371,15 +331,14 @@ export interface ScheduleEntry {
   title: string;
   description: string | null;
   due_date: string | null;   // 'YYYY-MM-DD'
-  /** Gesetzt heisst: der Termin laeuft bis zu diesem Tag. */
+  /** When set, the appointment runs until this day. */
   end_date: string | null;
   due_time: string | null;   // 'HH:MM'
-  /** Gesetzt heisst: er endet an seinem Tag zu dieser Uhrzeit. */
+  /** When set, it ends on its day at this time. */
   end_time: string | null;
-  /** Anfang bekannt, Ende ausdruecklich offen ("ab 15.09."). Wird nie abgeblendet. */
+  /** Start known, end explicitly open, it is never greyed out. */
   is_open_ended?: boolean;
-  /** 'day' oder 'month'. Bei 'month' nannte die Quelle nur einen Monat, due_date traegt
-   *  dann den Monatsersten als Sortierpunkt und die Ansicht zeigt keine Tagesnummer. */
+  /** With 'month' the source named only the month and the view shows no day. */
   date_precision?: "day" | "month" | null;
   is_optional: boolean;
   is_checked: boolean;

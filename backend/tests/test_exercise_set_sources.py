@@ -1,11 +1,4 @@
-"""The numbered source legend of an exercise set.
-
-A set used to record only the FIRST of the selected sources, so neither the count on the
-card nor a stable numbering for the citation chips was recoverable. The chips numbered
-per card instead, which gave one file different numbers on different cards.
-
-Pure function test: ``_numbered_sources`` against a stubbed source lookup, no DB.
-"""
+"""The numbered source legend of an exercise set."""
 
 import pytest
 

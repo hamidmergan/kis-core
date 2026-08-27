@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-/** Ausgeblendet wird nur die Ansicht, darum steht es im Browser und nicht am Termin. */
+/** Only the view is hidden, so it lives in the browser and not on the appointment. */
 const STORAGE_KEY = "kis.kalender.ausgeblendet";
 
 function lesen(): Set<number> {
@@ -16,11 +16,11 @@ function lesen(): Set<number> {
   }
 }
 
-/** Welche Termine das Raster weglaesst, gemerkt ueber Neuladen hinweg. */
+/** Which appointments the grid leaves out, remembered across reloads. */
 export function useHiddenIds() {
   const [hidden, setHidden] = useState<Set<number>>(() => new Set());
 
-  // Erst nach dem Mounten lesen, sonst rendert der Server etwas anderes als der Browser.
+  // Read only after mounting, otherwise the server renders something else than the browser.
   useEffect(() => { setHidden(lesen()); }, []);
 
   const toggleHidden = useCallback((id: number) => {

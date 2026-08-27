@@ -1,9 +1,4 @@
-"""Die Sprache der Skripte wird schon beim Schreiben gemerkt.
-
-Sonst haengt die Vertonung daran, dass der Browser sie spaeter mitschickt.
-Die Skripte werden immer in einer Zielsprache geschrieben, auch wenn die
-Uebersetzung uebersprungen wurde.
-"""
+"""The language of the scripts is recorded when they are written."""
 
 from contextlib import contextmanager
 from unittest.mock import AsyncMock, Mock
@@ -34,7 +29,7 @@ def test_ohne_job_oder_sprache_passiert_nichts(ablage):
     assert "meta" not in ablage
 
 
-# --- Neu erzeugte Skripte duerfen den alten Ton nicht stehen lassen ---
+# --- Newly generated scripts must not leave the old audio in place ---
 
 UUID = "d" * 32
 _JOB = {"user_id": 1, "job_uuid": UUID, "status": "awaiting_user"}
@@ -47,7 +42,7 @@ def _stumme_messe(*a, **k):
 
 @pytest.fixture
 def erzeugung_stummgeschaltet(monkeypatch):
-    """Alles rund um die eigentliche LLM-Erzeugung stummgeschaltet, nur der Vorrat-Aufruf zaehlt."""
+    """Everything around the actual LLM generation is silenced, only the cache call counts."""
     monkeypatch.setattr(modul, "get_job_file", lambda u, j, name: b"[]")
     monkeypatch.setattr(modul, "save_job_file", lambda *a, **k: None)
     monkeypatch.setattr(modul, "_merke_skriptsprache", lambda *a, **k: None)
@@ -70,7 +65,7 @@ async def test_gueltiger_auftrag_wirft_die_vertonung_weg(monkeypatch, erzeugung_
 
 
 async def test_ohne_auftragsnummer_bleibt_der_vorrat_unangetastet(monkeypatch, erzeugung_stummgeschaltet):
-    """Skripte ohne Job-Bezug (noch keine Uebersetzung) haben keinen Vorrat zu verwerfen."""
+    """Scripts without a job reference have no cache to discard."""
     verwerfen = Mock()
     monkeypatch.setattr(modul, "vertonung_verwerfen", verwerfen)
     body = GenerateScriptsRequest(slide_texts=["a", "b"], translate_job_uuid=None)

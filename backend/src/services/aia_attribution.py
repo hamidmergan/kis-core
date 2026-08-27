@@ -1,21 +1,4 @@
-"""Shared, tool-facing post-hoc attribution.
-
-The chat re-grounds each answer line against pgvector and attaches a nav-only chip
-(closest retrieved chunk within a distance gate, page for PDFs / timestamp for media,
-or NO chip when nothing is close enough). The studio tools (flashcards, quiz, …) used
-to guess pages with their own lexical heuristics instead. This module lets a tool reuse
-the EXACT same selector, but returns STRUCTURED chips (dicts) for the item's ``sources``
-JSON instead of inline markdown chip strings.
-
-One logic source: the distance gate (``_GENERIC_ATTRIB_MAX_DIST`` = 0.6) and the selector
-(``_pick_attribution``) are imported from the chat helper, not re-implemented.
-
-Note: a looser tool gate (0.66) was tried to catch a few borderline-correct pages a card
-states only tersely, but it was reverted — the gate cannot help here. The closest WRONG
-page (a topically-adjacent one) sat at 0.626, i.e. NEARER than the genuinely-correct
-borderline pages at 0.631-0.653, so any gate that admits the good ones also admits the bad
-one. 0.6 stays: no fabricated page, at the cost of leaving the rare terse case chip-less.
-"""
+"""Shared after-the-fact evidence search for the tools, with the same threshold as the chat."""
 
 from src.features.ai_assistant.routes._helpers import (
     _pick_attribution,
@@ -27,15 +10,10 @@ from src.features.ai_assistant.routes._helpers import (
     _MAX_CHIPS_PER_LINE,
 )
 
-# Eigener Wert, weil eine Lernkarte keinen Kontext hat, an dem sich der Chat messen liesse.
+# Its own value, because a flashcard has no context the chat could measure against.
 _TOOL_MULTI_CHIP_MAX_DELTA = 0.08
 
-# Minimum chunk length (chars) to be a citation anchor. Slide decks get chunked into tiny
-# running-header/title fragments (e.g. "WISSENSCHAFTLICHES ARBEITEN UND PUBLIZIEREN? VON DER
-# IDEE ZUR VERÖFFENTLICHUNG", ~80 chars). Such a generic title sits close to almost ANY query
-# and becomes a "magnet" that mis-anchors short claims (a mindmap label) to its page. Real
-# content chunks are 200+ chars and media transcript segments ~580 avg, so this floor drops the
-# boilerplate without touching genuine matches.
+# Minimum length for an evidence anchor, short header lines would be a magnet.
 _MIN_ATTRIB_CONTENT = 100
 
 
@@ -46,13 +24,7 @@ def _chip_key(chip: dict) -> tuple:
 
 def _chip_from_chunk(chunk: dict, label: str, claim: str = "",
                      segments: list[dict] | None = None) -> dict:
-    """Nav-only structured chip. Media (has start_time) cites its timestamp and carries
-    no page; a PDF cites its page. Mirrors the chat's ``_attribution_chip`` start-time-first
-    rule so audio/video never gets a bogus "S. <segment-index>".
-
-    Mit ``claim`` und den Whisper-``segments`` zeigt die Zeitmarke auf das Segment mit der
-    zitierten Aussage statt auf den Anfang des ganzen Chunks (siehe
-    :func:`_line_segment_start`). Ohne sie bleibt es beim Chunk-Anfang."""
+    """A chip to jump with: a timestamp for media, a page number for PDF."""
     st = chunk.get("start_time")
     if st is not None:
         if claim and segments:
@@ -64,12 +36,7 @@ def _chip_from_chunk(chunk: dict, label: str, claim: str = "",
 
 
 def _default_segments_fn():
-    """Whisper-Segmente je Quelle, einmal geladen und dann aus dem Gedaechtnis.
-
-    Ein Werkzeug attribuiert dutzende Aussagen am Stueck, die fast alle auf dieselben
-    paar Quellen zeigen. Ohne das Gedaechtnis waere das ein Griff in den Speicher pro
-    Aussage. Gefragt wird nur fuer Medien-Treffer, eine reine PDF-Sammlung fasst die
-    Ablage also gar nicht an."""
+    """Whisper segments per source, loaded once and then cached."""
     cache: dict[int, list[dict]] = {}
 
     def load(source_id: int) -> list[dict]:
@@ -95,16 +62,7 @@ def attribute_claims(
     search_fn=None,
     segments_fn=None,
 ) -> list[list[dict]]:
-    """Attribute a batch of claim texts to nav-only source chips, one chip-list per claim.
-
-    Embeds ALL claims in ONE call (``embed_fn``), then per claim runs hybrid search
-    (``search_fn``) scoped to ``source_ids`` and selects chips via :func:`chips_for_claim`.
-    ``max_distance`` is the gate handed to the selector — a caller with thin claims (e.g. a
-    mindmap's one-word node labels) can tighten it so weak matches abstain instead of citing a
-    near-but-wrong page. ``seen_pages_by_source`` (optional) clamps chips to pages actually shown
-    to the LLM, like the chat's seen-check. ``embed_fn``/``search_fn``/``segments_fn`` are
-    injectable for testing; in production they default to the shared embedding provider,
-    ``db.hybrid_search_chunks`` und den Whisper-Segmenten der Quelle."""
+    """Backs a batch of statements at once, one chip list per statement."""
     if not claims:
         return []
 
@@ -120,11 +78,7 @@ def attribute_claims(
             return db.hybrid_search_chunks(workspace_id, text, vec,
                                            source_ids=source_ids,
                                            limit=_ATTRIB_CANDIDATES, fuzzy=False,
-                                           # Die Einschraenkung auf gesehene Seiten gehoert
-                                           # in die ABFRAGE, nicht nur in den Filter unten:
-                                           # sonst rankt die Datenbank je Aussage den ganzen
-                                           # Workspace und die Kandidaten sind zum Teil schon
-                                           # verbraucht, bevor chips_for_claim sie sieht.
+                                           # The restriction to seen pages belongs in the query, not in the filter.
                                            seen_pages=seen_pages_by_source)
 
     try:
@@ -159,23 +113,8 @@ def chips_for_claim(
     claim: str = "",
     segments_fn=None,
 ) -> list[dict]:
-    """Turn ranked search hits for one claim into nav-only structured source chips.
-
-    With ``multi=True`` a claim genuinely drawn from several passages also cites the
-    co-sources that sit CLOSE to the best one (within ``_TOOL_MULTI_CHIP_MAX_DELTA``),
-    deduped by source/page and capped at ``_MAX_CHIPS_PER_LINE``.
-
-    ``seen_pages_by_source`` (optional) restricts hits to source/pages the LLM was actually
-    shown (chat-style seen-check) BEFORE selecting — so a chip can never point at a page that
-    was not in the generation context.
-
-    ``claim`` ist der Text der Aussage und ``segments_fn`` liefert die Whisper-Segmente einer
-    Quelle. Zusammen ruecken sie die Zeitmarke eines Medien-Chips auf das Segment mit der
-    Aussage, statt auf den Anfang des ganzen Chunks zu zeigen.
-
-    Returns ``[]`` when nothing lands within the distance gate (no fabricated source)."""
-    # Drop boilerplate/title fragments so a generic running-header chunk can't become a magnet
-    # that mis-anchors a thin claim (see _MIN_ATTRIB_CONTENT).
+    """Turns a statement's hits into source chips, or an empty list."""
+    # Header fragments out, otherwise they become a magnet.
     hits = [h for h in hits if len(h.get("content") or "") >= _MIN_ATTRIB_CONTENT]
     if seen_pages_by_source is not None:
         hits = [h for h in hits if _is_seen(h, seen_pages_by_source)]
@@ -183,7 +122,7 @@ def chips_for_claim(
     if best is None:
         return []
     def _segs(hit: dict) -> list[dict] | None:
-        """Segmente nur fuer Medien-Treffer holen, eine PDF-Seite braucht keine."""
+        """Fetch segments only for media hits, a PDF page needs none."""
         if segments_fn is None or hit.get("start_time") is None:
             return None
         return segments_fn(hit["source_id"])
@@ -195,9 +134,7 @@ def chips_for_claim(
 
     seen = {_chip_key(chips[0])}
     best_dist = best["vec_distance"]
-    # Ein reiner Stichworttreffer hat KEINEN Abstand. Die Schleife wirft ihn unten
-    # ohnehin weg, aber das Sortieren kam vorher und flog auf die Nase. Latent war das
-    # immer, mit 40 Kandidaten statt 10 ist es wahrscheinlich geworden.
+    # A pure keyword hit has no distance and must not be sorted along.
     for h in sorted(hits, key=lambda x: (x.get("vec_distance") is None,
                                          x.get("vec_distance") or 0.0)):
         if len(chips) >= _MAX_CHIPS_PER_LINE:

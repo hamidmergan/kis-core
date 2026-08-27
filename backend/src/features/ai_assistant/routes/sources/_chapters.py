@@ -1,12 +1,4 @@
-"""Kapitel im Quellenbereich: anlegen, umbenennen, verschieben, loeschen.
-
-Kapitel sind reine Gliederung. Sie aendern nichts daran, was der Chat oder ein
-Werkzeug zu sehen bekommt, das entscheidet weiterhin der Haken an der einzelnen
-Datei. Deshalb gibt es hier auch keine Auswahl je Kapitel.
-
-Alle Wege verlangen Verwaltungsrechte, also Eigentum oder Tutor. Studierende
-sehen die Gliederung, aendern sie aber nicht.
-"""
+"""Create, rename, move and delete chapters, pure structure."""
 
 import uuid as uuid_lib
 
@@ -29,11 +21,9 @@ from ._shared import (
 router = APIRouter(tags=["ki-assistent: chapters"])
 
 _MAX_NAME_LEN = 100
-# Deckel gegen Versehen und Missbrauch. Wer mehr als hundert Kapitel braucht,
-# braucht keine Gliederung, sondern einen zweiten Kursraum.
+# Cap against accidents, more than a hundred chapters is no longer structure.
 _MAX_CHAPTERS = 100
-# Gleiche Regel wie beim Dateinamen: Pfadtrenner, Anfuehrungszeichen und
-# Umbrueche wuerden Kopfzeilen und Prompts zerlegen.
+# Path separators, quotes and line breaks would break header lines apart.
 _FORBIDDEN = set('/\\"\r\n\t')
 
 
@@ -62,7 +52,7 @@ def _clean_name(raw: str, locale: str) -> str:
 
 
 def _reject_duplicate(name: str, workspace_id: int, locale: str, skip_uuid: str | None = None) -> None:
-    """Zwei gleich benannte Kapitel waeren in der Liste nicht zu unterscheiden."""
+    """Two chapters of the same name could not be told apart in the list."""
     taken = {
         (c["name"] or "").strip().lower()
         for c in db.get_aia_chapters_by_workspace(workspace_id)
@@ -76,12 +66,7 @@ def _reject_duplicate(name: str, workspace_id: int, locale: str, skip_uuid: str 
 
 
 def _load_workspace_chapter(chapter_uuid: str, workspace: dict, locale: str) -> dict:
-    """Kapitel laden und an den eigenen Kursraum binden.
-
-    Ohne diese Pruefung koennte der Besitzer von Kursraum A ein Kapitel aus
-    Kursraum B umbenennen oder loeschen. 404 statt 403, damit eine fremde uuid
-    nicht von einer erfundenen zu unterscheiden ist.
-    """
+    """Loads a chapter and binds it to your own course room, otherwise 404."""
     chapter = db.get_aia_chapter(chapter_uuid)
     if not chapter or chapter["workspace_id"] != workspace["id"]:
         raise HTTPException(status_code=404, detail=t("ai.chapter.notFound", locale))
@@ -158,8 +143,7 @@ def move_chapter(
     _load_workspace_chapter(chapter_uuid, workspace, locale)
     if body.direction not in ("up", "down"):
         raise HTTPException(status_code=400, detail=t("ai.chapter.badDirection", locale))
-    # Am oberen oder unteren Rand passiert nichts. Das ist kein Fehler, die
-    # Oberflaeche graut den Eintrag ohnehin aus.
+    # Nothing happens at the edge, the interface greys the entry out anyway.
     db.move_aia_chapter(chapter_uuid, body.direction)
     return {
         "chapters": [_as_dict(c) for c in db.get_aia_chapters_by_workspace(workspace["id"])]
@@ -174,7 +158,7 @@ def set_source_chapter(
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    """Quelle einem Kapitel zuordnen. ``chapter_uuid: null`` heisst "Ohne Kapitel"."""
+    """Assign a source to a chapter, ``chapter_uuid: null`` means no chapter."""
     workspace = _require_workspace_manage(workspace_uuid, current_user["user_id"], locale=locale)
     _load_workspace_source(source_uuid, workspace, locale)
     chapter_id = None

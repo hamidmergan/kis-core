@@ -38,7 +38,7 @@ def _merke_vertonten_stand(
     subtitles: bool,
     video_folien: list[int] | None,
 ) -> None:
-    """Schritt 6 vergleicht spaeter hiergegen, um Geaendertes vorauszuwaehlen."""
+    """Step 6 later compares against this to preselect what changed."""
     try:
         folientexte = json.loads(get_job_file(user_id, job_uuid, "scripts.txt"))
     except Exception:
@@ -81,11 +81,7 @@ def run_screencast_render(
     video_folien: list[int] | None = None,
     neu_vertonen: list[int] | None = None,
 ):
-    """Render final MP4 from edited scripts and stored PPTX.
-
-    Reads PPTX from the translate job's folder (corrected.pptx or translated.pptx).
-    All artifacts are saved to the same folder (single-folder workflow).
-    """
+    """Renders the finished MP4 from the scripts and the stored PPTX."""
     from celery.exceptions import Retry, SoftTimeLimitExceeded
     from fastapi import HTTPException
     try:
@@ -121,7 +117,7 @@ def run_screencast_render(
         save_result_meta(
             user_id,
             translate_job_uuid,
-            # gerendert_am ist sekundengenau und steuert nur den Browser-Zwischenspeicher, kein Dateiname.
+            # gerendert_am is second precise and only steers the browser cache, not a file name.
             {**meta_existing, "result_stem": result_stem, "gerendert_am": int(time.time())},
         )
         with job_heartbeat(translate_job_uuid):
@@ -149,9 +145,7 @@ def run_screencast_render(
         _maybe_dispatch_next(translate_job_uuid)
 
     except HTTPException as e:
-        # Transient upstream TTS error (5xx): requeue with exponential backoff.
-        # Already-cached slide audios survive the retry via render_cache/, so only
-        # the failed slide(s) re-synthesize on the next attempt.
+        # Temporary voicing errors re-queue, finished slides stay.
         detail = str(getattr(e, "detail", e))
         is_tts_transient = e.status_code == 502 and "TTS" in detail
         if is_tts_transient and self.request.retries < 5:
@@ -168,8 +162,7 @@ def run_screencast_render(
             })
             raise self.retry(exc=e, countdown=countdown, max_retries=5)
         logger.error("Screencast render task {} failed (HTTPException {}): {}", translate_job_uuid, e.status_code, detail)
-        # Nach dem letzten Versuch steht hier sonst die rohe Meldung der Vertonung
-        # im Bildschirm, etwa "TTS API error (500)".
+        # Otherwise the raw provider message ends up on screen after the last attempt.
         if is_upstream_busy(detail):
             detail = t("job.upstreamBusy", job_locale(translate_job_uuid))
         db.update_job_status(translate_job_uuid, "failed", error_message=detail)

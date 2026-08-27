@@ -27,13 +27,7 @@ def create_aia_mindmap(workspace_id: int, user_id: int, source_ids: list[int]) -
 
 def update_aia_mindmap(mindmap_id: int, status: str, mindmap: dict | None = None,
                        error: str | None = None, title: str | None = None) -> None:
-    """Status und Ergebnis schreiben. ``title`` nur, wenn einer uebergeben wird.
-
-    Ohne die Bedingung wuerde jeder spaetere Aufruf ohne Titel den von Hand
-    gesetzten Namen mit NULL ueberschreiben. Die drei alten Spalten bleiben
-    absichtlich unbedingt geschrieben, damit sich am bisherigen Verhalten nichts
-    aendert.
-    """
+    """Writes status and result, the title only when one is passed."""
     import json as _json
     zusatz = ", title = %s" if title is not None else ""
     werte: list = [status, _json.dumps(mindmap) if mindmap else None, error]
@@ -71,11 +65,7 @@ def get_latest_aia_mindmap(workspace_id: int, user_id: int) -> dict | None:
     return dict(row) if row else None
 
 def get_all_aia_mindmaps(workspace_id: int, user_id: int) -> list[dict]:
-    """Alle fertigen Mindmaps eines Kursraums, neueste zuerst.
-
-    ``topic`` ist der Anzeigename: der von Hand gesetzte Titel, sonst der
-    Wurzelknoten aus dem JSON. Damit sehen alte Mindmaps aus wie bisher.
-    """
+    """All finished mind maps of a course room, newest first."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(

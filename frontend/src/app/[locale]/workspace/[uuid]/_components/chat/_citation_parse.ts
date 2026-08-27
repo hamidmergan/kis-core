@@ -1,12 +1,4 @@
-// Pure citation-token parsing, separated from React rendering so it can be unit
-// tested in isolation. Chips are NAV-ONLY (position, no offsets/keyword):
-//   [Q1:uuid, S. 2]   PDF page (optional Q-num, optional embedded source uuid)
-//   [1, 05:32]        media timestamp
-//   [S. 2]            bare page
-// Legacy tokens with a trailing "@start-end" offset and/or "| keyword" still parse
-// to their page/timestamp — the extras are tolerated and discarded (forward-tolerant
-// for already-stored answers / saved notes). CJK lenticular brackets 【】
-// (U+3010/U+3011) are accepted in place of [].
+// Reads the citation markers, old forms with extra fields are tolerated.
 
 export interface CitationFields {
   qNum: number | null;
@@ -17,15 +9,12 @@ export interface CitationFields {
   length: number;               // match length
 }
 
-// A fresh stateful (/g) matcher each call.
-// Groups: 1=qnum 2=uuid 3=page 4=timestamp. Any trailing junk before the closing
-// bracket (legacy "@1-9 | kw") is matched by [^\]】]* and discarded.
+// A fresh matcher per call, trailing extras are discarded.
 export function citationPattern(): RegExp {
   return /[[【](?:Q?(\d+)(?::([a-f0-9]{6,64}))?,\s*)?(?:S\.\s*(\d+)|(\d{1,2}:\d{2}(?::\d{2})?))[^\]】]*[\]】]/g;
 }
 
-// Does this answer carry a single citation? Decides whether a message gets the
-// "show every stop" switch at all — without a stop the switch would be a dead knob.
+// Does this answer carry a citation at all?
 export function hasCitations(text: string): boolean {
   return citationPattern().test(text);
 }
@@ -47,17 +36,7 @@ export function parseCitationFields(text: string): CitationFields[] {
   return out;
 }
 
-// Two citations collapse into ONE chip when they point at the same PDF page of the
-// same source and sit directly next to each other in the answer text, e.g.
-// "… [1] S. 15 [1] S. 15" or "Passt die Fragestellung zum Thema? [7] S. 8. [7] S. 8".
-// "Next to each other" means the gap between them is only whitespace and/or sentence
-// punctuation — the model often ends a clause with one citation and immediately opens
-// the next ("…?]. […"), which is still the same redundant target, not a new claim. Any
-// letters/digits in the gap (real claim text, or a word that happens to end in a dot
-// like "etc.") block the merge. Media timestamps and bare-page citations never merge.
-// `sourceKeyA/B` are the caller-resolved source identities (uuid via qmap), so two
-// adjacent "[1] S. 15" tokens that resolve to the same source merge even though the
-// raw token has no uuid. Language-agnostic (no wordlist). Pure for unit testing.
+// Two neighbouring citations to the same page collapse into one chip.
 export function citationsAreAdjacentSameTarget(
   text: string,
   a: CitationFields,
@@ -74,16 +53,7 @@ export function citationsAreAdjacentSameTarget(
 }
 
 
-// Make citation tokens safe to hand to react-markdown. Chips are nav-only now, so
-// there is no in-chip '|' / keyword to scrub. Two structural fixes remain:
-//   1. A thematic break (---/***/___) is a separator, not a claim. Older answers may
-//      have a citation appended to it; strip the chip(s) so it renders as a clean rule.
-//   2. The model often appends a citation AFTER the final pipe of a table row — incl.
-//      the header. That trailing chip is a phantom extra column, so the header's cell
-//      count no longer matches the delimiter row and gfm refuses to parse the block as
-//      a table (it leaks as raw text with literal pipes). Tuck any such trailing chip
-//      back into the last cell so every row keeps its pipe-defined column count.
-// Language-agnostic; chips already inside a cell stay untouched.
+// Cleans up citations that would break a separator line or a table.
 export function sanitizeCitationsForMarkdown(text: string): string {
   let out = stripStrayCitations(normalizeTableBlocks(text));
   out = out.replace(/^(\s{0,3}(?:[-*_]\s*){3,})(?:\s*\[[^\]\n]*\])+\s*$/gm, "$1");
@@ -92,23 +62,13 @@ export function sanitizeCitationsForMarkdown(text: string): string {
   return out;
 }
 
-// Lenticular brackets 【】 never occur in real prose — only LLMs emit them. The prompt
-// forbids the model from citing sources (chips are attached post-hoc), yet some models
-// (Qwen-family especially) still leak a bare 【source】 / 【Quelle】 placeholder. A 【…】
-// with NO page ("S. 6") or timestamp ("MM:SS") locator inside is not a real citation:
-// it would render as dead text and survive the copy-strip. Drop it (with one leading
-// space). Valid 【1, S. 6】 / 【1, 08:58】 citations are kept by the negative lookahead.
+// Empty 【…】 brackets are dropped, real citations stay.
 const _STRAY_LENTICULAR = /\s?【(?![^】]*(?:S\.\s*\d|\d{1,2}:\d{2}))[^】]*】/g;
 export function stripStrayCitations(text: string): string {
   return text.replace(_STRAY_LENTICULAR, "");
 }
 
-// The model often nests a Markdown table under a bullet ("- Termine:\n | a | b |\n |---|")
-// — indented and with no blank line before it. GFM then does NOT parse it as a table
-// (it becomes a paragraph, so the rows collapse onto one line). Lift every table block
-// to column 0 and guarantee a blank line before AND after it, so it always renders as a
-// real table. A block = a row line immediately followed by a delimiter row, plus the
-// contiguous row/delimiter lines after it.
+// Lifts indented tables to the margin, otherwise Markdown does not render them.
 function _isTableRow(l: string): boolean {
   const s = l.trim();
   return s.startsWith("|") && s.endsWith("|") && (s.match(/\|/g)?.length ?? 0) >= 2;
@@ -140,8 +100,7 @@ function normalizeTableBlocks(text: string): string {
   return out.join("\n");
 }
 
-// One nav-only citation token (page or timestamp, optional q-num/uuid, trailing junk
-// tolerated). Used to recognise a chip trailing a table row.
+// A single citation marker, recognises a chip at the end of a table row.
 const _CHIP_SRC =
   "[[【](?:Q?\\d+(?::[a-f0-9]{6,64})?,\\s*)?" +
   "(?:S\\.\\s*\\d+|\\d{1,2}:\\d{2}(?::\\d{2})?)" +
@@ -151,8 +110,7 @@ const _TABLE_TRAIL_CHIP =
   new RegExp(`^(\\s*\\|.*\\|)(\\s*(?:${_CHIP_SRC}\\s*[.;,]?\\s*)+)$`, "gm");
 
 
-// Remove every citation chip (nav-only; legacy trailing offset/keyword tolerated) —
-// used when copying an answer to the clipboard.
+// Removes every citation, for copying an answer.
 export function stripCitations(text: string): string {
   return text
     .replace(

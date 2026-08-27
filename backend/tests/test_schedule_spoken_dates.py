@@ -1,16 +1,4 @@
-"""Gesprochene Termine aus Transkripten kommen im Zeitplan an.
-
-Ein Vortrag sagt "der 3. Juli", der Kursplan schreibt "03.07.2026". Der gesprochene
-Termin traegt also keine Jahreszahl, und die faellt im Code immer auf das laufende Jahr.
-
-Sobald der Tag in diesem Jahr vorbei war, hielt die Klassifikation ihn fuer eine
-Erinnerung an frueher und verwarf ihn. Am 13.08.2026 gemessen: alle vier gesprochenen
-Termine der drei Vorlesungsvideos waren mit is_historical=true weg, im Zeitplan hingen
-danach fast nur PDF-Quellen.
-
-Der Ausweg ist ein Beleg statt einer Vermutung: steht derselbe Tag irgendwo MIT Jahr,
-dann ist der gesprochene Termin dieselbe Veranstaltung und kein Rueckblick.
-"""
+"""Spoken appointments arrive when the same day appears somewhere with a year."""
 
 import json
 import types
@@ -50,7 +38,7 @@ def _antwort(n):
                          "type": "deadline"} for i in range(n)]}
 
 
-# --- welche Tage sind mit Jahr belegt ----------------------------------------
+# --- which days are attested with a year --------------------------------------
 
 def test_tage_aus_den_kandidaten_zaehlen():
     assert mod._dated_month_days([_geschrieben()], []) == {(7, 3)}
@@ -66,11 +54,11 @@ def test_eintraege_ohne_datum_zaehlen_nicht():
 
 
 def test_gesprochene_termine_belegen_keinen_tag():
-    """Sonst wuerde sich ein Transkript selbst zum Beleg erklaeren."""
+    """Otherwise a transcript would declare itself its own evidence."""
     assert mod._dated_month_days([_gesprochen()], []) == set()
 
 
-# --- was die Klassifikation zu sehen bekommt ---------------------------------
+# --- what the classification gets to see --------------------------------------
 
 def _kandidaten_im_aufruf(calls):
     text = calls[0][1]["content"]
@@ -86,7 +74,7 @@ def test_der_beleg_steht_am_gesprochenen_termin():
     gesprochen, geschrieben = _kandidaten_im_aufruf(calls)
     assert gesprochen["year_missing"] is True
     assert gesprochen["documented_with_year_elsewhere"] is True
-    # der geschriebene Termin traegt sein Jahr selbst, er braucht die Marke nicht
+    # the written appointment carries its own year and does not need the mark
     assert "documented_with_year_elsewhere" not in geschrieben
 
 
@@ -109,7 +97,7 @@ def test_ein_anderer_tag_belegt_nichts():
 
 
 def test_der_beleg_darf_aus_einem_frueheren_lauf_kommen():
-    """Die PDF wurde gestern verarbeitet, das Video kommt heute dazu."""
+    """The PDF was processed yesterday, the video arrives today."""
     client, calls = _make_client(_antwort(1))
     batch = [_gesprochen()]
     eintraege = [{"due_date": date(2026, 7, 3), "title": "Abgabe Hausarbeit"}]
@@ -120,7 +108,7 @@ def test_der_beleg_darf_aus_einem_frueheren_lauf_kommen():
 
 
 def test_die_anfrage_sagt_die_wahrheit_ueber_das_jahr():
-    """Sie versprach "next upcoming occurrence", der Code nimmt das laufende Jahr."""
+    """It promised the next upcoming occurrence, the code takes the current year."""
     client, calls = _make_client(_antwort(1))
 
     mod._classify_candidates(client, "m", [_gesprochen()], HEUTE, set())

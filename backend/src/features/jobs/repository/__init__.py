@@ -1,8 +1,4 @@
-"""Jobs repository - split into domain sub-modules.
-
-Public API is re-exported here so existing imports (including
-`from src.features.jobs.repository import *` in src/database.py) keep working.
-"""
+"""Job data access, split into submodules and re-exported here."""
 from ._crud import (
     create_job,
     update_job_expiry,

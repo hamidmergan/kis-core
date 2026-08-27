@@ -1,17 +1,4 @@
-"""Dispatch orchestration: enqueue, decide what runs, re-dispatch on completion.
-
-This is the heart the routes and tasks talk to. Storage-agnostic via the
-``JobStore`` protocol, so the logic is unit-tested in memory and runs against the
-``aia_jobs`` DB table in production.
-
-Model: ONE shared pool of ``total_slots`` background slots. A freed slot goes to
-an area by weight (``weights``), then round-robin across users. Chat is NOT here
-- it runs synchronously. ``total_slots <= 0`` means unlimited (own-GPU future).
-
-Flow:
-- ``enqueue(job)``  -> persist as 'queued', then start whatever the pool allows.
-- ``on_complete()`` -> mark terminal, then re-dispatch into the freed slot.
-"""
+"""One shared slot pool, split by area weight and then round robin per person."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -123,12 +110,8 @@ class DispatchService:
         return self.dispatch()
 
     def dispatch(self) -> list[str]:
-        """Start every job the shared pool currently allows.
-
-        Claim-before-launch: ``mark_running`` atomically wins the slot, so two
-        concurrent dispatch passes can never launch the same job twice."""
-        # Fairness counts are derived from the shared aia_jobs table (area/user
-        # grants so far), so every process - backend and workers - agrees.
+        """Starts every job the pool currently allows, slot claimed before the start."""
+        # The fairness numbers come from the shared table, all processes see the same.
         picks = select_shared_pool(
             self.store.queued_all(), self.store.running_all(), self.total_slots,
             self.weights, self.store.area_grant_counts(), self.store.user_grant_counts(),

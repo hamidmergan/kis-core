@@ -1,5 +1,4 @@
-"""Chunked Whisper-Varianten: Audio wird bei Bedarf gesplittet, einzeln
-transkribiert und wieder zusammengeführt."""
+"""Whisper with parts: cut when needed, recognise individually, merge."""
 
 import tempfile
 from collections.abc import Callable
@@ -19,22 +18,17 @@ from src.services.openai_compat_llm._chunking import (
 from src.services.openai_compat_llm._subtitles import merge_srt, merge_vtt
 from src.limits import STT_CHUNK_PARALLELISM
 
-# (finished_chunks, total_chunks) -> None. Fires per finished chunk so a long
-# transcription can say "part 3 of 12" instead of just "running".
+# Reports the progress after every finished part.
 ProgressFn = Callable[[int, int], None] | None
 
 
 def chunk_concurrency() -> int:
-    """How many chunks of one recording go to the provider at once.
-
-    Keine Einstellung mehr, sondern eine gemessene Konstante. Bleibt als
-    Funktion stehen, damit Tests den Wert ersetzen können.
-    """
+    """How many parts go to the provider at once."""
     return STT_CHUNK_PARALLELISM
 
 
 def _reject_if_too_long(duration: float) -> None:
-    """Grenze aus dem Admin, nicht aus dem Code. Siehe services/tool_limits.py."""
+    """Limit from the admin area, not from the code, see services/tool_limits.py."""
     from src.services.tool_limits import max_transcription_seconds
 
     grenze = max_transcription_seconds()
@@ -43,16 +37,12 @@ def _reject_if_too_long(duration: float) -> None:
 
 
 def _fail_chunk(kind: str, index: int, error: Exception) -> RuntimeError:
-    """Einheitliche Fehlermeldung für einen gescheiterten Teil."""
+    """One uniform error message for a failed part."""
     return RuntimeError(f"Chunk {index + 1} {kind} failed: {error}")
 
 
 def _report(on_progress: ProgressFn, done: int, total: int) -> None:
-    """Report chunk progress, never letting a reporting failure kill the job.
-
-    The callback writes to the DB, so a hiccup there would otherwise throw away
-    a transcription that actually succeeded.
-    """
+    """Reports the progress, an error there must not kill the job."""
     if on_progress is None:
         return
     try:
@@ -62,17 +52,12 @@ def _report(on_progress: ProgressFn, done: int, total: int) -> None:
 
 
 class _WhisperChunkedMixin:
-    """Erwartet alle `_WhisperMixin`-Methoden auf self (via Multi-Inheritance)."""
+    """Expects all `_WhisperMixin` methods on self via multiple inheritance."""
 
     def transcribe_chunked(self, file_path: str, response_format: str = "text",
                            cache_key: str | None = None,
                            on_progress: ProgressFn = None) -> str:
-        """Transcribe audio, splitting files that exceed the provider's 600s cap at silence points.
-
-        ``cache_key`` (e.g. the job_uuid) enables per-chunk Redis caching so a Celery
-        retry skips chunks that already succeeded instead of restarting from zero.
-        ``on_progress(done, total)`` fires after each finished chunk.
-        """
+        """Recognises language, cuts overlong recordings and remembers every part."""
         duration = get_audio_duration(file_path)
         _reject_if_too_long(duration)
         if duration <= CHUNK_MAX_SEC:
@@ -122,12 +107,7 @@ class _WhisperChunkedMixin:
     def transcribe_and_translate_chunked(self, file_path: str, response_format: str = "text",
                                          cache_key: str | None = None,
                                          on_progress: ProgressFn = None) -> str:
-        """Transcribe and translate audio, splitting files that exceed the provider's 600s cap.
-
-        ``cache_key`` (e.g. the job_uuid) enables per-chunk Redis caching so a retry
-        skips chunks that already succeeded. ``on_progress(done, total)`` fires
-        after each finished chunk.
-        """
+        """Recognises and translates, cuts overlong recordings and remembers every part."""
         duration = get_audio_duration(file_path)
         _reject_if_too_long(duration)
         if duration <= CHUNK_MAX_SEC:
@@ -177,15 +157,7 @@ class _WhisperChunkedMixin:
     def transcribe_chunked_verbose(
         self, file_path: str, cache_key: str | None = None
     ) -> tuple[list[dict], float, str]:
-        """Transcribe audio with timestamps, splitting if needed.
-
-        Returns ``(segments, duration, language)`` where segments =
-        ``[{start, end, text}, ...]`` and language is the detected source
-        language (e.g. 'de', 'en').
-
-        ``cache_key`` (e.g. source_uuid) enables per-chunk Redis caching so
-        Celery retries skip chunks that already succeeded.
-        """
+        """Recognises with timestamps and returns segments, duration and language."""
         duration = get_audio_duration(file_path)
         _reject_if_too_long(duration)
         if duration <= CHUNK_MAX_SEC:
@@ -242,11 +214,7 @@ class _WhisperChunkedMixin:
         return all_segments, duration, first_lang
 
     def translate_chunked_verbose(self, file_path: str) -> list[dict]:
-        """Translate audio to English with timestamps, splitting if needed.
-
-        Returns segments ``[{start, end, text}, ...]`` in English. Audio
-        duration/limit handling mirrors :meth:`transcribe_chunked_verbose`.
-        """
+        """Translates into English with timestamps, like recognition with parts."""
         duration = get_audio_duration(file_path)
         _reject_if_too_long(duration)
         if duration <= CHUNK_MAX_SEC:

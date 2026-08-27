@@ -14,7 +14,7 @@ def create_job(
     input_path: str | None = None,
     locale: str = "de",
 ) -> None:
-    # Kein Ablaufdatum: die Aufbewahrung regelt allein der Vorrat (siehe _retention.py).
+    # No expiry date, retention is governed by the pool alone (see _retention.py).
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -93,9 +93,7 @@ def update_job_status(
                     (status, error_message, progress_json, now, now, job_uuid),
                 )
             elif status in ("success", "failed"):
-                # Erst die Zeile sperren und den bisherigen Zustand lesen. Nur
-                # wer noch nicht fertig war, wird gleich mitgezaehlt: sonst
-                # zaehlte ein zweiter Aufruf denselben Auftrag doppelt.
+                # Lock first and read the old state, otherwise a second call counts twice.
                 cur.execute(
                     """SELECT status, tool, started_at, render_started_at
                        FROM jobs WHERE job_uuid = %s FOR UPDATE""",
@@ -148,12 +146,7 @@ def update_job_result(
     result_path: str,
     result_filename: str,
 ) -> None:
-    """Save job result.
-
-    Das Raeumen haengt nicht mehr hier dran. Es zaehlt inzwischen alle Jobs eines
-    Nutzers, nicht nur die mit Ergebnisdatei, und liegt deshalb in _retention.py.
-    Aufrufer nehmen storage.save_result_and_evict().
-    """
+    """Stores the result, the clearing lives in _retention.py."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(

@@ -97,7 +97,7 @@ export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number
       });
   }, [t]);
 
-  /** Fragt nach, wenn ein Konto den Haken verliert, sonst schaltet es direkt um. */
+  /** Asks when an account loses the flag, otherwise it switches directly. */
   function askDemo(user: AdminUser, value: boolean) {
     const bisher = users.find((u) => u.is_demo);
     const verliert = value ? bisher && bisher.id !== user.id : user.is_demo;
@@ -116,7 +116,7 @@ export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number
       body: JSON.stringify({ is_demo: value }),
     });
     if (res.ok) {
-      // Es gibt nur ein Demo-Konto, beim Anhaken verlieren alle anderen den Haken.
+      // There is only one demo account, ticking one unticks all the others.
       setUsers((prev) => prev.map((u) =>
         u.id === userId ? { ...u, is_demo: value } : value ? { ...u, is_demo: false } : u,
       ));

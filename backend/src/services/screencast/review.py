@@ -1,9 +1,8 @@
-"""Hilfen für den Prüfen-Schritt: Folien finden, an denen die Übersetzung nichts geändert hat."""
+"""Helpers for the review step: find slides the translation left unchanged."""
 
 import re
 
-# Unter dieser Menge an Buchstaben und Ziffern lohnt der Vergleich nicht.
-# Eine Jahreszahl oder ein Kürzel ist in jeder Sprache gleich.
+# Below this character count the comparison is not worthwhile.
 _MIN_SIGNIFICANT_CHARS = 8
 
 _WHITESPACE = re.compile(r"\s+")
@@ -18,13 +17,7 @@ def _is_significant(text: str) -> bool:
 
 
 def find_unchanged_slides(original_texts: list[str], translated_texts: list[str]) -> list[int]:
-    """Folien, deren Text die Übersetzung unverändert gelassen hat.
-
-    Rein zeichenbasiert, damit es in jeder Sprachrichtung funktioniert. Das
-    Ergebnis ist ein Hinweis, kein Urteil: Eigennamen, Zahlen und Fachbegriffe
-    bleiben zu Recht gleich. Der Prüfen-Schritt zeigt es deshalb als Markierung
-    an und blockiert nichts.
-    """
+    """Slides whose text the translation left unchanged, as a hint."""
     flagged: list[int] = []
     for index, (original, translated) in enumerate(zip(original_texts, translated_texts)):
         normalized = _normalize(original)

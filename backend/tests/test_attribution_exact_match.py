@@ -1,13 +1,4 @@
-"""Unit tests for exact-match post-hoc attribution.
-
-A bare proper name embeds far from its surrounding prose (the same reason an author
-can sit at fused rank ~59), so semantic attribution misses it. But the name is
-LITERALLY in a chunk we already retrieved, whose page we already know — so we ground
-the line by verbatim token presence against the in-context chunks first, and only fall
-back to semantic search for reworded prose.
-
-Pure functions: no DB, no LLM.
-"""
+"""Checks verbatim citation via the chunks that were already fetched."""
 from src.features.ai_assistant.routes._helpers import (
     _significant_tokens,
     _exact_attribution_chunk,

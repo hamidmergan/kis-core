@@ -1,10 +1,4 @@
-"""Adminbereich: den Fragen-Plan der Einstufung einmal von der KI schreiben lassen.
-
-Der Endpunkt speichert NICHT. Er gibt die Fragen zurueck, die Karte im Adminbereich
-traegt sie in die Liste ein und speichert sie ueber den gewohnten Weg. So laeuft
-alles durch dieselbe Pruefung, und die Verwaltung sieht das Ergebnis, bevor es fuer
-einen Kurs gilt.
-"""
+"""Lets the AI write the assessment question plan, nothing is saved here."""
 
 from fastapi import APIRouter, Depends, HTTPException
 from loguru import logger
@@ -36,12 +30,12 @@ from src.permissions_registry import PERM_SET_AIA_LEVEL
 
 router = APIRouter()
 
-# Der Fragenplan gehoert zur Seite Sprachniveau.
+# The question plan belongs to the language level page.
 _require = require_permission(PERM_SET_AIA_LEVEL)
 
 
 async def _ask(llm, messages: list[dict], locale: str) -> str:
-    """Ein Durchlauf. Eigene Funktion, damit ein Test sie ersetzen kann."""
+    """One run, its own function so a test can replace it."""
     return await ask_json(llm, messages, locale=locale, what="Diagnosis plan generation")
 
 
@@ -51,13 +45,7 @@ async def generate_diagnosis_plan(
     llm=Depends(get_llm_client),
     locale: str = Depends(get_locale),
 ):
-    """Einen kompletten Fragen-Plan erzeugen, EIN Aufruf fuer die ganze Hochschule.
-
-    Der Auftrag traegt die Stufen-Leiter aus dem Reiter KI-Verhalten, damit die
-    Fragen zu derselben Skala passen, nach der spaeter eingestuft wird. Kommt eine
-    unbrauchbare Antwort, wird genau einmal nachgefasst; danach gibt es eine klare
-    Absage statt einer halben Liste.
-    """
+    """Generates a complete question plan in one call, with one retry."""
     levels = build_levels_block(
         parse_level_descriptions(db.get_setting(LEVEL_DESCRIPTIONS_SETTING, ""))
     )

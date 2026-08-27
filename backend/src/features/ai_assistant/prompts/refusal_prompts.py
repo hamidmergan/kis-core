@@ -1,17 +1,17 @@
-"""Absage-Saetze der KI-Assistenz und ihre Erkennung in der Antwort."""
+"""Refusal sentences of the AI assistant and how they are detected in the answer."""
 
 import re
 
 
-# Woertlich verglichener Absage-Satz, zugleich der Anker fuer den Abstand.
+# Refusal sentence compared verbatim, and at the same time the anchor for the distance.
 RAG_NO_INFO_SENTINEL: dict[str, str] = {
     "de": "Diese Information ist nicht in den bereitgestellten Materialien enthalten.",
 }
 
-# Sprache des einen Ankers, gegen den per Abstand gemessen wird.
+# Language of the one anchor that the distance is measured against.
 _MESS_LOCALE = "de"
 
-# Sicherheitsnetz fuer die alte Wendung, die das Modell aus Gewohnheit noch schreibt.
+# Safety net for the old wording the model still writes out of habit.
 _GAP_ANCHORS: tuple[str, ...] = (
     "steht nicht in den materialien",
     "stehen nicht in den materialien",
@@ -19,43 +19,43 @@ _GAP_ANCHORS: tuple[str, ...] = (
     "stehen nicht in den quellen",
 )
 
-# Ein Satz hat ein Satzende, ein nackt genannter Begriff hat keines.
+# A sentence has an end mark, a bare term does not.
 _SATZENDE = ".!?"
 
-# Mehr Woerter als das schreibt niemand als blosse Benennung.
+# Nobody writes more words than this as a mere naming.
 _MAX_BEGRIFF_WOERTER = 4
 
-# Rand-Zeichen, die vor dem Vergleich abfallen.
+# Edge characters that fall off before the comparison.
 _SENTINEL_TRIM = " \t\r\n*_`\"'“”„«».!"
 
-# Satzende mit Nachfolger, grob mit Absicht.
+# Sentence end with a follower, deliberately rough.
 _MORE_THAN_ONE_SENTENCE = re.compile(r"[.!?][\"'”’)\]]?\s+[^\Wa-z\d_]", re.UNICODE)
 
 
 def _sentinel_key(text: str | None) -> str:
-    """Vergleichsform eines Satzes: Leerraum vereinheitlicht, Rand-Zeichen ab, klein."""
+    """Comparison form of a sentence: whitespace normalised, edge characters off, lowercased."""
     return " ".join((text or "").split()).strip(_SENTINEL_TRIM).casefold()
 
 
 def refusal_reference_texts() -> list[str]:
-    """Der Satz, gegen den per Einbettung gemessen wird, gemessen genuegt der deutsche."""
+    """The sentence measured against by embedding, the German one has proven enough."""
     return [RAG_NO_INFO_SENTINEL[_MESS_LOCALE]]
 
 
 def is_only_gap(answer: str | None, gap: str | None) -> bool:
-    """True, wenn die ganze Antwort nur der Absage-Satz aus dem Feld ``gap`` ist."""
+    """True when the whole answer is only the refusal sentence from the ``gap`` field."""
     schluessel = _sentinel_key(gap)
     return bool(schluessel) and _sentinel_key(answer) == schluessel
 
 
 def is_gap_line(text: str | None) -> bool:
-    """True, wenn diese Zeile eine Absage ist und darum KEINEN Quellenchip bekommt."""
+    """True when this line is a refusal and therefore gets NO source chip."""
     key = _sentinel_key(text)
     return bool(key) and any(anchor in key for anchor in _GAP_ANCHORS)
 
 
 def is_sentinel_refusal(text: str | None) -> bool:
-    """True, wenn die GANZE Antwort nur die Absage ist und die Nachbearbeitung entfaellt."""
+    """True when the WHOLE answer is only the refusal and post-processing can be skipped."""
     key = _sentinel_key(text)
     if not key:
         return False
@@ -67,6 +67,6 @@ def is_sentinel_refusal(text: str | None) -> bool:
 
 
 def is_bare_term(text: str | None) -> bool:
-    """True, wenn hier nur der Begriff steht statt eines Satzes, nur zum Melden."""
+    """True when only the term stands here instead of a sentence, for reporting only."""
     kern = (text or "").strip()
     return bool(kern) and kern[-1] not in _SATZENDE and len(kern.split()) <= _MAX_BEGRIFF_WOERTER

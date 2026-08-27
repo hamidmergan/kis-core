@@ -19,13 +19,7 @@ async def maintenance_status():
 
 @router.get("/health/labels")
 async def ui_labels():
-    """Public UI labels (e.g. customizable 'Workspace' wording).
-
-    Read pre-login by the frontend to render the right vocabulary everywhere.
-    Returns both locales so the client picks the one matching its UI locale
-    without a re-fetch on language switch. Legacy unsuffixed keys fall back
-    as DE defaults for back-compat with older deployments.
-    """
+    """Public labels, both languages at once."""
     return {
         "workspace_singular_de": db.get_setting(
             "workspace_label_singular_de",
@@ -37,9 +31,7 @@ async def ui_labels():
         ),
         "workspace_singular_en": db.get_setting("workspace_label_singular_en", "Module"),
         "workspace_plural_en": db.get_setting("workspace_label_plural_en", "Modules"),
-        # Home-page notice banner: shown to all users on the start page above
-        # "Nächste Termine". Read here (public) so the home page renders it
-        # without admin rights.
+        # The notice banner is read publicly so the start page can show it without rights.
         "home_notice_enabled": db.get_setting("home_notice_enabled", "false").lower() == "true",
         "home_notice_text": db.get_setting("home_notice_text", ""),
     }

@@ -1,17 +1,6 @@
 import { test, expect, Page } from "@playwright/test";
 
-/**
- * The length guard on the transcription upload, wired end to end.
- *
- * The pure rule lives in src/lib/mediaDuration.test.ts. What that unit test
- * cannot show is whether the component actually asks — so this spec checks the
- * thing that matters to the user: a too-long recording is refused *before* the
- * upload starts, and a normal one still goes through.
- *
- * The fixture is generated in the page (a real WAV, silent, 8 kHz 8-bit mono)
- * rather than committed: 102 minutes is ~47 MB, which the browser builds in
- * milliseconds and no repo wants to carry.
- */
+/** The length check on upload, with a test file created in the browser. */
 
 const MINUTES_LIMIT = 100;
 
@@ -80,8 +69,7 @@ test("a recording under the limit is accepted", async ({ page }) => {
 });
 
 test("a recording exactly at the limit is accepted", async ({ page }) => {
-  // The server rejects strictly above the ceiling. If the browser rounded the
-  // other way it would block files the backend would have taken.
+  // If the browser rounded the other way it would block valid files.
   await selectGeneratedAudio(page, MINUTES_LIMIT * 60, "genau-100.wav");
 
   await expect(page.getByText("genau-100.wav")).toBeVisible();

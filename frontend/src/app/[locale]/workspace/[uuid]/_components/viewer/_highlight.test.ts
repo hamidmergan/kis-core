@@ -1,8 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { drawCitationHighlight, doHighlightSearch, type HighlightRefs } from "./_highlight";
 
-// Minimal page geometry: one run with two visible glyphs, so buildSegmentRects
-// yields a non-empty bbox for the [0,1] glyph range.
+// Minimal page geometry with two visible characters.
 function fakeGeometry() {
   return {
     runs: [
@@ -39,9 +38,7 @@ function fakeRefs(): HighlightRefs & { onHighlightActive: ReturnType<typeof vi.f
 
 const docMgr = { getActiveDocumentId: () => "doc-1" };
 
-// Full registry mock that lets the exact-selection search path reach (or skip) the
-// draw. One run whose glyph count equals the raw text length (phantoms = 0), so the
-// offset→geometry mapping is identity and a matched range yields a real bbox.
+// A stub index where text position and geometry line up exactly.
 function fakeSearchRegistry(rawPageText: string) {
   const createAnnotation = vi.fn();
   const scrollToPage = vi.fn();
@@ -85,8 +82,7 @@ describe("doHighlightSearch marks the user's exact popup selection", () => {
 
     expect(createAnnotation).toHaveBeenCalledTimes(1);
     const rect = createAnnotation.mock.calls[0][1].rect;
-    // Glyph x = index*6. The selected phrase starts well to the right of x=0, so the
-    // highlight must begin there (no expansion back to sentence 1).
+    // The highlight has to start at the selection, not at the start of the sentence.
     expect(rect.origin.x).toBeGreaterThan(100);
     // ...and it must not stretch into sentence 3 (whole paragraph ≈ RAW.length*6 wide).
     expect(rect.origin.x + rect.size.width).toBeLessThan(RAW.length * 6 - 100);

@@ -24,15 +24,12 @@ export function FlashcardsLearnView({
   breadcrumbs?: BreadcrumbItem[];
   showTranslation?: boolean;
   chatLang?: "de" | "en";
-  /** Für den Weg zur Aussprache. Die Menge trägt nur die interne Nummer. */
+  /** For the pronunciation route, the set only carries the internal id. */
   workspaceUuid: string;
 }) {
   const t = useTranslations("workspace.detail.languageTraining");
   const tChip = useTranslations("sourceChip");
-  // Chat prompt strings are sent to the LLM, not displayed. They follow the UI
-  // locale (the language picked in the header) so a hint/learn-more for an
-  // English card is asked — and answered — in English. chatLang stays in the
-  // prop signature for callers but no longer drives these prompts.
+  // The chat instructions follow the interface language.
   void chatLang;
   const locale = useLocale();
   const promptTip = (term: string) => locale === "en"
@@ -67,36 +64,27 @@ export function FlashcardsLearnView({
   const [, setStreak] = useState(0);
   const [showResults, setShowResults] = useState(false);
   const [showPendingPrompt, setShowPendingPrompt] = useState(false);
-  // Ein Aufbau der Ansicht ist ein Durchgang. Die erste Antwort meldet ihn an,
-  // aus der Meldung macht das Backend die naechste Durchgangsnummer.
+  // One mount of the view is one round, the first answer opens it.
   const runGemeldetRef = useRef(false);
-  // Dieselbe Liste wie in `results`, nur sofort da. `results` steht erst beim
-  // naechsten Zeichnen bereit. Bei Lernkarten bewertet der Weiter-Knopf die
-  // Karte und blaettert im selben Zug weiter, und das Blaettern las dabei noch
-  // den alten Stand: die letzte Karte galt als offen, obwohl sie gerade
-  // beantwortet wurde. Die Nachfrage kam und zaehlte null offene Karten.
+  // The same list available at once, otherwise paging reads the old state.
   const answeredRef = useRef<Set<number>>(new Set());
-  // Der Tipp steht fertig an der Karte, der Knopf klappt ihn nur auf.
+  // The hint sits ready on the card, the button only expands it.
   const [showHint, setShowHint] = useState(false);
-  // Der erzeugte Ton bleibt an der Karte hängen, solange diese Ansicht steht.
-  // Zweiter Klick spielt sofort. Beim Verlassen ist alles weg, gespeichert wird
-  // nichts.
+  // The audio stays on the card while the view lives.
   const { playingId, loadingId, failedId, playFromApi } = useVoicePlayer({ keepCache: true });
 
   const total = items.length;
   const card = items[index];
   const isVocab = exerciseSet.tool === "flashcards";
-  // Schon bewertet? Dann sind die beiden Urteilsknoepfe gesperrt.
+  // Already graded? Then the two verdict buttons are locked.
   const rated = Boolean(card && card.id in results);
-  // Chip numbering belongs to the SET, so a file keeps its number on every card
-  // and matches the numbered legend at the bottom of the view.
+  // The numbering belongs to the set so it matches the legend.
   const srcNumbers = sourceNumbers(exerciseSet.sources);
 
   useEffect(() => { setFlipped(false); setShowHint(false); }, [index]);
 
   function answer(correct: boolean) {
-    // Eine bewertete Karte bleibt bewertet. Wer zurueckblaettert, sieht sein Urteil
-    // und kann es nicht mehr aendern, offene Karten bleiben offen.
+    // A graded card stays graded.
     if (!card || card.id in results) return;
     answeredRef.current.add(card.id);
     setResults((r) => ({ ...r, [card.id]: correct }));
@@ -220,8 +208,7 @@ export function FlashcardsLearnView({
           </div>
         </div>
       ) : showPendingPrompt ? (() => {
-        // Dieselbe Zaehlung wie beim Ausloesen der Nachfrage, damit Text und
-        // Anlass nie auseinanderlaufen.
+        // The same counting as when the follow-up is triggered.
         const pendingCount = items.filter((it) => !answeredRef.current.has(it.id)).length;
         return (
           <div className="flex-1 flex flex-col items-center justify-center px-6 gap-3">
@@ -263,13 +250,9 @@ export function FlashcardsLearnView({
           const verbPresent = card.extras?.verb_present?.trim() || "";
           const verbPast = card.extras?.verb_past?.trim() || "";
           const verbPerfect = card.extras?.verb_perfect?.trim() || "";
-          // Ein Verb bringt normalerweise alle drei mit. Gezeichnet wird trotzdem
-          // jede Zeile für sich, damit eine halb gefüllte Karte aus der Zeit vor
-          // dieser Änderung nicht plötzlich leere Zeilen zeigt.
+          // Every line on its own so a half-filled card shows no empty rows.
           const hasVerbForms = Boolean(verbPresent || verbPast || verbPerfect);
-          // A noun without a plural (Wasser, Hunger) keeps its singular under the neutral
-          // label "Form", because the article is the point. A lone "Singular" row would
-          // promise a "Plural" row that never comes. A plural without a singular is dropped.
+          // A noun without a plural keeps the neutral label.
           const showNumberPair = Boolean(singular && plural);
           const showFormOnly = Boolean(singular && !plural);
           return <>
@@ -301,9 +284,7 @@ export function FlashcardsLearnView({
                               {parts.map((part, pi) => {
                                 const [term, ...rest] = part.split("=");
                                 const explanation = rest.join("=").trim();
-                                // Doppelpunkt wie bei Wortart/Singular/Plural, die ihn im
-                                // Sprachtext tragen. Hier steht das Wort vom Modell, also
-                                // haengt ihn die Ansicht an und nie zweimal.
+                                // The colon comes from the view and never twice.
                                 const label = term.trim().replace(/[:=]+$/, "");
                                 return (
                                   <div key={pi} className="flex items-baseline gap-1.5 text-sm">
@@ -490,8 +471,7 @@ export function FlashcardsLearnView({
                         title={showHint ? t("common.hintHide") : t("common.hint")}
                         onClick={(e) => {
                           e.stopPropagation();
-                          // Karten aus der Zeit vor dem mitgelieferten Tipp haben keinen.
-                          // Fuer sie bleibt der alte Weg ueber den Chat.
+                          // Older cards without a delivered hint take the old path through the chat.
                           if (card.extras?.tip) setShowHint((v) => !v);
                           else onAskChat?.(promptTip(card.front));
                         }}

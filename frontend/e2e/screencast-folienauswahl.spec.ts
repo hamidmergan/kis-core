@@ -2,10 +2,7 @@ import path from "node:path";
 
 import { expect, test, type Page } from "@playwright/test";
 
-/**
- * Folienauswahl in Schritt 6 im echten Browser. Jeder Testfall legt einen
- * echten Screencast-Auftrag an, den afterEach danach wieder loescht.
- */
+/** Slide selection in a real browser, every case clears its job away again. */
 test.describe("Folienauswahl in Schritt 6", () => {
   let jobUuid = "";
 
@@ -15,7 +12,7 @@ test.describe("Folienauswahl in Schritt 6", () => {
     jobUuid = "";
   });
 
-  /** Bringt einen frischen Auftrag bis zum geoeffneten Block in Schritt 6. */
+  /** Brings a fresh job up to the opened block in step 6. */
   async function bisSchritt6Offen(page: Page): Promise<string> {
     test.setTimeout(180_000);
     await page.goto("/de/tools/screencast", { waitUntil: "domcontentloaded" });
@@ -98,7 +95,7 @@ test.describe("Folienauswahl in Schritt 6", () => {
   test("eine Folie ohne Ton wird nach dem Wiederhinzufuegen nicht von allein angehakt", async ({ page }) => {
     const uuid = await bisSchritt6Offen(page);
 
-    // Gestellt, weil ein echter zweiter Render-Durchlauf hier zu lange braeuchte.
+    // Faked, because a real second render pass would take too long here.
     await page.route("**/vertonungs-stand", (route) =>
       route.fulfill({
         status: 200,
@@ -115,7 +112,7 @@ test.describe("Folienauswahl in Schritt 6", () => {
     const imScreencast = page.getByRole("checkbox", { name: "Folie 2 in den Screencast" });
     const neuSprechen = page.getByRole("checkbox", { name: "Folie 2 neu sprechen" });
 
-    // Folie 2 hat ein Skript und keinen Ton, nichts wird deshalb von selbst angehakt.
+    // Slide 2 has a script and no audio, nothing gets ticked automatically for that.
     await expect(neuSprechen).toHaveAttribute("aria-checked", "false");
     await expect(neuSprechen).toBeEnabled();
 

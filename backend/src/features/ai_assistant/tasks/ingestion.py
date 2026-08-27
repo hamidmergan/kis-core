@@ -16,11 +16,7 @@ from src.storage import (
 
 from src.features.ai_assistant.tasks._helpers import _format_ts
 
-# DOC SUMMARY at ingest is currently UNUSED: nothing reads aia_sources.summary (verified across
-# chat, backend logic and frontend) — it was built for the not-yet-wired "GENERIC over summaries"
-# Phase 2. Disabled so uploads don't burn map-reduce LLM calls for a dead artifact. The block in
-# run_index_source is kept intact; set this True to re-enable (or when Phase 2 lands). Existing
-# stored summaries are NOT touched.
+# The summary during ingest is deliberately off, nobody reads it.
 _BUILD_INGEST_SUMMARY = False
 
 
@@ -47,10 +43,7 @@ def run_index_source(self, source_uuid: str, locale: str = "de", _aia_job_uuid: 
         db.update_aia_source_status(source_uuid, "indexing")
         logger.info("KI Tutor: indexing source {} ({})", source_uuid, filename)
 
-        # 3. Embedding provider. The drift-detection fingerprint {model, dim} is built
-        # WITHOUT a probe call: the dimension is read for free from the first chunk vector
-        # we embed below (len(vector)). compute_fingerprint kept only as a fallback for the
-        # (pathological) chunks-but-no-vector case.
+        # The fingerprint is built without a probe, the size comes from the first vector.
         from src.services.aia_embeddings import (
             get_embedding_provider, compute_fingerprint, fingerprint_from_dim,
         )
@@ -73,12 +66,7 @@ def run_index_source(self, source_uuid: str, locale: str = "de", _aia_job_uuid: 
                 from src.services.subtitle_converter import segments_to_vtt
                 from src.dependencies import resolve_whisper_client
 
-                # Fragmented MP4 (fMP4) plays unreliably in the native <audio>/<video>
-                # element — the browser skips whole ~fragment-length spans mid-stream,
-                # which desyncs the transcript. Losslessly remux it to a progressive
-                # faststart MP4 and overwrite the stored playback file (no re-encode, no
-                # quality loss). Idempotent: a retry re-checks and skips an already-clean
-                # file. Transcription then runs on the same normalised file.
+                # Fragmented MP4 is rewritten losslessly, repeatable without damage.
                 from src.services.media_normalize import normalize_if_fragmented
                 media_path = local_path
                 normalized_path = normalize_if_fragmented(local_path)
@@ -119,31 +107,21 @@ def run_index_source(self, source_uuid: str, locale: str = "de", _aia_job_uuid: 
                 _save_transcript_artifact(source_vtt_key, segments_to_vtt(segments))
                 logger.info("KI Tutor: VTT ({}) saved to {}", lang_code, source_vtt_key)
 
-                # Ingest never translates. The translated VTT is produced by a
-                # separate Celery task that only runs when someone asks for it in
-                # the transcript panel (target language comes from the workspace).
+                # Ingest never translates, a separate job does that on request.
             else:
                 def _progress_cb(stage: str, page: int | None = None, total: int | None = None) -> None:
                     db.update_aia_source_progress(source_uuid, stage, page=page, total=total)
-                # Filled in by the chunker when the document had OCR candidate pages.
-                # A page that did not come through no longer fails the source, it only
-                # shows up here so the owner can catch it up from the source menu.
+                # An unrecognised page no longer fails the source, it just shows up here.
                 ocr_report: dict = {}
                 chunks = aia_chunker.extract_chunks(
                     local_path, file_type, progress_cb=_progress_cb, ocr_report=ocr_report
                 )
                 db.update_aia_source_ocr_info(source_uuid, ocr_report or None)
 
-            # 6. Save chunks to DB. Delete any chunks from a previous (failed then
-            # retried) attempt first: the whole task body re-runs on retry and
-            # create_aia_chunk does not dedupe, so without this a retry would leave
-            # duplicate chunk rows polluting vector search. No-op on a first run.
+            # Delete old chunks first, otherwise a second attempt doubles them.
             db.update_aia_source_progress(source_uuid, "chunking")
             db.delete_aia_chunks_by_source(source_id)
-            # Der Aufgaben-Vorrat haengt am Text dieser Quelle. Wird der ersetzt, sind
-            # die Aufgaben Fragen zu einem Dokument, das es so nicht mehr gibt. Fertige
-            # Saetze behalten ihren Inhalt, clear_pool_for_source schreibt ihn vorher
-            # zurueck. Beim ersten Durchlauf ist der Vorrat leer und das hier ein No-op.
+            # The exercise pool hangs off the text, finished sets get their content back first.
             db.clear_pool_for_source(source_id)
             chunk_ids: list[int] = []
             for chunk in chunks:
@@ -156,11 +134,7 @@ def run_index_source(self, source_uuid: str, locale: str = "de", _aia_job_uuid: 
                 )
                 chunk_ids.append(chunk_id)
 
-            # 7. Embed chunks. Die Schleife schreibt stückweise in die Datenbank und
-            # meldet Fortschritt, sie hält also den Speicher klein (bei 2560 Maßen
-            # sind 1000 Vektoren rund 20 MB). Wie viele Texte wirklich in EINEN
-            # Aufruf gehen, entscheidet der Client selbst: er startet bei
-            # AIA_EMBEDDING_BATCH_SIZE und halbiert, wenn der Endpunkt ablehnt.
+            # Embed and write in pieces, the client sets the batch size itself.
             db.update_aia_source_progress(source_uuid, "embedding")
             _t_embed = time.monotonic()
             from src.limits import AIA_EMBEDDING_BATCH_SIZE
@@ -182,17 +156,11 @@ def run_index_source(self, source_uuid: str, locale: str = "de", _aia_job_uuid: 
                 "KI Tutor: embedding done for {} ({} chunks) in {:.1f}s",
                 source_uuid, len(chunks), time.monotonic() - _t_embed,
             )
-            # Safety net: chunks existed but no vector came back (shouldn't happen) →
-            # probe once so the source still gets a drift fingerprint. Zero-chunk sources
-            # keep fingerprint=None (nothing indexed → nothing to drift; stale-check ignores it).
+            # Last resort: if no vector came back, the fingerprint is probed once.
             if fingerprint is None and chunks:
                 fingerprint = compute_fingerprint(provider)
 
-        # 7b. Per-source DOC SUMMARY (map-reduce over chunks), built for the not-yet-wired
-        # "GENERIC over summaries" Phase 2. CURRENTLY DISABLED via _BUILD_INGEST_SUMMARY:
-        # nothing reads aia_sources.summary (verified across chat, backend logic and frontend),
-        # so building it only burns map-reduce LLM calls per upload. Code kept intact — flip the
-        # flag (top of file) to re-enable when Phase 2 lands. Existing summaries are NOT deleted.
+        # The per-source summary is off by a switch, the code stays.
         if _BUILD_INGEST_SUMMARY:
             db.update_aia_source_progress(source_uuid, "summarizing")
             from src.services.aia_summarizer import build_source_summary
@@ -236,21 +204,14 @@ def run_index_source(self, source_uuid: str, locale: str = "de", _aia_job_uuid: 
                 )
                 logger.info("KI Tutor: workspace {} is now ready", workspace["uuid"])
 
-        # 10. Source is ready (chunks embedded + DOC SUMMARY built in step 7b).
-        # SPECIFIC answers run on chunk retrieval, GENERIC on the per-source
-        # summary (see routes/chat.py). Clear the progress field so the card
-        # shows ready.
+        # The source is done, the progress field is cleared.
         db.clear_aia_source_progress(source_uuid)
 
     except Exception as e:
         from src.services.aia_chunker import PdfNoReadableTextError
         from src.i18n import t
 
-        # Rate-limit / transient upstream → keep status, requeue task with backoff.
-        # Whisper transcription is cached per source_uuid in Redis, so a media
-        # retry does not re-transcribe. Chunking + embedding DO re-run from the
-        # top; step 6 deletes prior chunks first so a retry never duplicates rows
-        # (it does re-embed all batches, bounded by the retry cap).
+        # On a temporary disruption it is re-queued with a pause.
         msg = str(e).lower()
         is_rate_limit = "429" in msg or "rate limit" in msg
         if is_rate_limit and self.request.retries < 5:
@@ -286,12 +247,7 @@ def run_index_source(self, source_uuid: str, locale: str = "de", _aia_job_uuid: 
 def run_translate_transcript(
     self, source_uuid: str, provider_id: int | None = None, target_lang: str | None = None
 ):
-    """Translate a media source's source-language VTT into the workspace target language.
-
-    Runs as a follow-up to indexing so chat is available before translation completes.
-    ``provider_id`` is resolved from the ``transcript_translate`` feature route.
-    ``target_lang`` falls back to the workspace's ``transcript_target_lang`` (default English).
-    """
+    """Translates a media source's transcript into the course room's target language."""
     try:
         return _run_translate_transcript_inner(source_uuid, provider_id, target_lang)
     except Exception as e:
@@ -309,14 +265,7 @@ def run_translate_transcript(
 
 
 def _resolve_source_vtt(file_path: str, source: dict) -> tuple[str | None, str | None]:
-    """Return (vtt_key, source_lang) for a media source's original-language VTT.
-
-    Prefers the Whisper-detected ``language`` on the source; falls back to the
-    known target codes for any existing ``_transcript.<code>.vtt`` (older sources
-    indexed before the language column was populated).
-
-    One listing instead of a HEAD per candidate language: the bucket is remote,
-    so nine probes are nine round trips."""
+    """Returns key and language of the original transcript, via one listing."""
     from src.i18n import TRANSCRIPT_LANGUAGES
 
     vorhanden = set(list_keys(aia_transcript_prefix(file_path)))
@@ -361,8 +310,7 @@ def _run_translate_transcript_inner(
         logger.warning("KI Tutor translate: no source VTT for {}, skipping", source_uuid)
         return
 
-    # Keep exactly the source VTT + the languages in `keep`; drop every other
-    # known-language translation so a media source never accumulates spurs.
+    # Only the original transcript and the named languages stay, the rest goes.
     def _cleanup_stale(keep: set[str]) -> None:
         vorhanden = set(list_keys(aia_transcript_prefix(file_path)))
         for code in TRANSCRIPT_LANGUAGES:
@@ -395,8 +343,7 @@ def _run_translate_transcript_inner(
             "transcript_translate: no translation provider configured — set one in the admin KI panel"
         )
 
-    # DeepLClient expects ISO codes (source "DE", target "EN-US"); LLMTranslationClient
-    # uses human-readable names embedded in the prompt ("German", "English").
+    # DeepL wants codes, the language model wants the spelled-out names.
     from src.services.deepl_client import DeepLClient
 
     target_meta = TRANSCRIPT_LANGUAGES[target_lang]
@@ -416,8 +363,7 @@ def _run_translate_transcript_inner(
     ]
     target_key = aia_vtt_key(file_path, target_lang)
     _save_transcript_artifact(target_key, segments_to_vtt(out_segments))
-    # Overwrite-when-ready: only after the new VTT is saved do we drop the old one,
-    # so the player never sees a gap while a re-translation runs.
+    # Save the new transcript first, then delete the old one.
     _cleanup_stale({source_lang, target_lang})
     logger.info(
         "KI Tutor translate: saved {} ({} segments, {}->{}, provider_id={})",

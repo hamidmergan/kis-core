@@ -1,9 +1,4 @@
-"""Controlled before/after for post-hoc attribution search parallelism.
-
-Same input lines, same real DB, only the concurrency changes. Isolates the pure
-speedup of _parallel_search (sequential max_workers=1 vs parallel max_workers=8).
-Run inside the backend container.
-"""
+"""Measures the speedup of the parallel evidence search."""
 import time
 
 from src import database as db
@@ -20,8 +15,7 @@ def main():
     source_ids = [s["id"] for s in sources]
     print(f"workspace id={ws_id}, {len(source_ids)} sources")
 
-    # Realistic query lines: pull ~150 chunk texts (first sentence-ish slice) from the
-    # workspace, exactly the kind of text attribution searches.
+    # About 150 real chunk texts used as search lines.
     lines = []
     for sid in source_ids:
         for c in db.get_aia_chunks_by_source(sid):

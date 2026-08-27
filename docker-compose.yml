@@ -14,41 +14,38 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-kis}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kis-local-dev}
       POSTGRES_DB: ${POSTGRES_DB:-kis}
-    # Speicherwerte aus dem vorhandenen RAM berechnen statt fest einzutragen.
-    # Postgres nimmt ohne Angabe 128 MB shared_buffers, egal wie gross der Server
-    # ist. Das ist ein Startwert fuer Mini-Systeme, kein Betriebswert. Mit dieser
-    # Zeile passt sich alles nach einem Server-Upgrade von allein an, ohne dass
-    # jemand daran denken muss.
+    # Compute the memory values from the available RAM instead of hard-coding them.
+    # Without a value Postgres takes 128 MB shared_buffers no matter how big the
+    # server is. That is a starting value for tiny systems, not an operating value.
+    # With this line everything adapts by itself after a server upgrade, without
+    # anyone having to think of it.
     #
-    # Ein ACHTEL des RAM als shared_buffers, nicht das Viertel aus der
-    # Postgres-Doku. Grund: die Viertel-Regel gilt fuer einen reinen
-    # Datenbankserver. Hier laufen auf derselben Maschine zusaetzlich backend,
-    # frontend, drei Celery-Container, LDAP, nginx und MinIO.
+    # One EIGHTH of the RAM as shared_buffers, not the quarter from the Postgres
+    # docs. Reason: the quarter rule is for a pure database server. Here backend,
+    # frontend, three Celery containers, LDAP, nginx and MinIO run on the same
+    # machine as well.
     #
-    # Gemessen am 2026-07-29 (hnsw-Suche, 823 MB Index, 138.511 Abschnitte):
-    #   128 MB  -> 0,9 ms je Suche
-    #   1983 MB -> 0,6 ms je Suche
-    # Der Gewinn ist also 0,3 ms, waehrend eine Chatanfrage Sekunden braucht.
-    # Grund fuer den kleinen Unterschied: das Betriebssystem haelt die Indexdatei
-    # ohnehin in seinem eigenen Zwischenspeicher. Ein grosses shared_buffers
-    # nimmt genau diesem Zwischenspeicher den Platz weg.
+    # Measured on 2026-07-29 (hnsw search, 823 MB index, 138,511 chunks):
+    #   128 MB  -> 0.9 ms per search
+    #   1983 MB -> 0.6 ms per search
+    # So the gain is 0.3 ms while a chat request takes seconds. Reason for the small
+    # difference: the operating system keeps the index file in its own cache anyway.
+    # A large shared_buffers takes the space away from exactly that cache.
     #
-    # Warum dann nicht bei 128 MB bleiben: der Zwischenspeicher des
-    # Betriebssystems ist niemandem zugesichert. Laeuft eine Video-Transkription
-    # oder mehrere Uploads, verdraengt das die Indexdaten daraus. shared_buffers
-    # wird nicht verdraengt. Ein knappes Gigabyte ist die Versicherung dagegen,
-    # ohne dem Rest der Plattform 2 GB wegzunehmen.
+    # Why not stay at 128 MB then: the operating system cache is guaranteed to
+    # nobody. A video transcription or several uploads push the index data out of it.
+    # shared_buffers is not pushed out. Just under a gigabyte is the insurance
+    # against that, without taking 2 GB from the rest of the platform.
     #
-    # effective_cache_size bleibt bei der Haelfte des RAM, das ist nur eine
-    # Schaetzung fuer den Abfrageplaner und belegt nichts. max_connections
-    # waechst mit, weil bei mehreren Backend-Prozessen und den Celery-Workern je
-    # ein eigener Verbindungsvorrat entsteht (core/db/pool.py).
+    # effective_cache_size stays at half the RAM, that is only an estimate for the
+    # query planner and allocates nothing. max_connections grows along, because with
+    # several backend processes and the Celery workers each gets its own connection
+    # pool (core/db/pool.py).
     #
-    # Warum docker-entrypoint.sh nochmal aufgerufen wird: das aeussere bash
-    # laeuft schon ueber den Entrypoint des Images, der ueberspringt dabei die
-    # Erstinitialisierung. Der zweite Aufruf mit 'postgres' als Argument holt sie
-    # nach, sonst wuerde ein frisches Volume nie angelegt. Getestet mit leerem
-    # und mit bestehendem Volume.
+    # Why docker-entrypoint.sh is called again: the outer bash already runs through
+    # the image entrypoint, which skips the first-time initialisation. The second
+    # call with 'postgres' as the argument does it, otherwise a fresh volume would
+    # never be created. Tested with an empty and with an existing volume.
     command: >
       bash -c '
       RAM_MB=$$(awk "/MemTotal/ {print int(\$$2/1024)}" /proc/meminfo);
@@ -63,12 +60,11 @@ services:
       -c maintenance_work_mem=$${MAINT}MB
       -c max_connections=$${CONNS}
       '
-    # Muss mitwachsen, sonst scheitert der Bau des hnsw-Index. Parallele
-    # Index-Arbeit legt ihren Speicher in /dev/shm ab, und das hat im Container
-    # standardmaessig nur 64 MB. Mit einem groesseren maintenance_work_mem
-    # verlangt Postgres dort mehr und bricht sonst mit "No space left on device"
-    # ab. Beim Testen genau so passiert. Der Wert ist eine Obergrenze, kein
-    # reservierter Speicher, ungenutzt kostet er nichts.
+    # Has to grow along, otherwise building the hnsw index fails. Parallel index work
+    # puts its memory in /dev/shm, and in a container that has only 64 MB by default.
+    # With a larger maintenance_work_mem Postgres demands more there and otherwise
+    # aborts with "No space left on device". Happened exactly like that in testing.
+    # The value is a ceiling, not reserved memory, unused it costs nothing.
     shm_size: 1gb
     volumes:
       - kis-postgres-data:/var/lib/postgresql/data
@@ -88,18 +84,18 @@ services:
       - ./backend/src:/app/src:ro
       - ./backend/demo:/app/demo:ro
       - ./backend/tests:/app/tests:ro
-      # Auswertungs- und Messskripte. Sie brauchen die echte Datenbank und die
-      # echten Einbettungen, laufen also im Container:
-      #   docker exec kis-backend python scripts/rag_retrieval_eval.py
+      # Evaluation and measurement scripts. They need the real database and the real
+      # embeddings, so they run in the container:
+      # docker exec kis-backend python scripts/rag_retrieval_eval.py
       - ./backend/scripts:/app/scripts:ro
       # pytest config (testpaths + asyncio_mode). Without it, in-container test
       # runs need `-o asyncio_mode=auto` and 18 async tests fail as "not supported".
       - ./backend/pytest.ini:/app/pytest.ini:ro
       - kis-storage:/app/storage
     ports:
-      # Nur an localhost binden, nicht ans oeffentliche Interface. nginx und der
-      # Frontend-Container erreichen das Backend intern ueber das Docker-Netz
-      # (backend:8000); nur lokale Host-Tools brauchen den veroeffentlichten Port.
+      # Bind to localhost only, not to the public interface. nginx and the frontend
+      # container reach the backend internally over the Docker network (backend:8000);
+      # only local host tools need the published port.
       - "127.0.0.1:8000:8000"
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -109,20 +105,19 @@ services:
       postgres:
         condition: service_healthy
     restart: unless-stopped
-    # Macht sichtbar, ob der Prozess noch antwortet. Ein abgestuerzter Prozess
-    # wird schon von restart:unless-stopped aufgefangen, ein HAENGENDER nicht,
-    # und genau der ist der wahrscheinlichere Fall.
-    # ACHTUNG: Docker Compose startet einen ungesunden Container NICHT von
-    # selbst neu, es zeigt ihn nur als "unhealthy" in `docker ps`. Fuer echten
-    # Selbstheilungsbetrieb braucht es zusaetzlich einen Watchdog.
-    # curl ist im Image nicht vorhanden, deshalb ueber python.
+    # Makes it visible whether the process still answers. A crashed process is
+    # already caught by restart:unless-stopped, a HANGING one is not, and that is
+    # the more likely case.
+    # NOTE: Docker Compose does NOT restart an unhealthy container by itself, it
+    # only shows it as "unhealthy" in `docker ps`. Real self-healing needs an extra
+    # watchdog. curl is not in the image, hence via python.
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health', timeout=5).status == 200 else 1)"]
       interval: 30s
       timeout: 10s
       retries: 3
-      # Der Start dauert gemessen 20 bis 35 Sekunden (Schema, Storage, Routen).
-      # Ohne diese Karenz waere der Container beim Hochfahren sofort ungesund.
+      # The start takes a measured 20 to 35 seconds (schema, storage, routes). Without
+      # this grace period the container would be unhealthy right at boot.
       start_period: 90s
     logging:
       driver: json-file
@@ -133,10 +128,10 @@ services:
   celery-worker-screencast:
     build: ./backend
     container_name: kis-celery-screencast
-    # Obergrenze aus den Kernen statt fest. Die Formel ergibt auf der heutigen
-    # 4-Kern-Box exakt die bisherige 2, waechst aber bei einem groesseren Server
-    # mit. Screencast bleibt bewusst der sparsamste Worker: Rendern und PPTX
-    # umwandeln lasten Kerne dauerhaft voll aus.
+    # Ceiling from the cores instead of fixed. On today's 4-core box the formula
+    # gives exactly the previous 2, but it grows with a bigger server. Screencast
+    # stays the most frugal worker on purpose: rendering and PPTX conversion keep
+    # cores fully busy.
     command: >
       sh -c 'K=$$(nproc 2>/dev/null || echo 2);
       C=$$(( K / 2 )); [ "$$C" -lt 2 ] && C=2; [ "$$C" -gt 4 ] && C=4;
@@ -165,10 +160,10 @@ services:
   celery-worker-general:
     build: ./backend
     container_name: kis-celery-general
-    # Obergrenze aus den Kernen. Ergibt auf 4 Kernen die bisherige 10. Hoeher als
-    # bei screencast, weil hier vor allem gewartet wird (Vertonung, Uebersetzung,
-    # Bilder gehen an fremde Server). Die Ausnahme ist das Transkribieren, das
-    # ffmpeg-Vorspiel dazu rechnet echt.
+    # Ceiling from the cores. On 4 cores it gives the previous 10. Higher than for
+    # screencast because here it is mostly waiting (voicing, translation, images go
+    # to other servers). The exception is transcription, whose ffmpeg prelude really
+    # computes.
     command: >
       sh -c 'K=$$(nproc 2>/dev/null || echo 4);
       M=$$(( K * 5 / 2 )); [ "$$M" -lt 2 ] && M=2; [ "$$M" -gt 16 ] && M=16;
@@ -196,17 +191,17 @@ services:
   celery-worker-aia:
     build: ./backend
     container_name: kis-celery-aia
-    # Obergrenze aus den Kernen. Ergibt auf 4 Kernen die bisherige 12. Die
-    # Studio-Werkzeuge und das Einlesen warten die meiste Zeit auf das KI-Modell.
+    # Ceiling from the cores. On 4 cores it gives the previous 12. The studio tools
+    # and ingest wait on the AI model most of the time.
     command: >
       sh -c 'K=$$(nproc 2>/dev/null || echo 4);
       M=$$(( K * 3 )); [ "$$M" -lt 2 ] && M=2; [ "$$M" -gt 16 ] && M=16;
       echo "kis-celery-aia: $${K} Kern(e), autoscale=$${M},2";
       exec celery -A src.celery_app worker --queues=aia --autoscale=$$M,2 --loglevel=info'
-    # Deckel gegen einen einzelnen Ausreisser, damit ein grosses Dokument nicht
-    # Postgres aus dem Speicher draengt. Bisher fest auf 1.5g, was auf einer
-    # groesseren Box unnoetig bremst. Jetzt ueber die .env anpassbar, Standard
-    # bleibt der alte Wert, damit sich heute nichts aendert.
+    # Cap against a single outlier so a large document does not push Postgres out of
+    # memory. Previously fixed at 1.5g, which slows a bigger box down for no reason.
+    # Now adjustable via the .env, the default stays the old value so nothing changes
+    # today.
     mem_limit: ${CELERY_AIA_MEM_LIMIT:-1.5g}
     env_file:
       - .env
@@ -254,16 +249,15 @@ services:
     environment:
       LDAP_ORGANISATION: TH Luebeck
       LDAP_DOMAIN: th-luebeck.de
-      # In prod ueber .env auf ein starkes Passwort setzen. Default nur fuer
-      # lokale Entwicklung. Achtung: osixia/openldap setzt das Admin-Passwort
-      # nur beim ERSTEN Init im Volume, ein spaeterer Wechsel braucht ldappasswd
-      # oder ein frisches Volume.
+      # In production set a strong password via .env. The default is for local
+      # development only. Note: osixia/openldap sets the admin password only on the
+      # FIRST init in the volume, a later change needs ldappasswd or a fresh volume.
       LDAP_ADMIN_PASSWORD: ${LDAP_ADMIN_PASSWORD:-admin}
       LDAP_TLS: "false"
     ports:
-      # Nur localhost. Das Backend erreicht LDAP intern ueber das Docker-Netz
-      # (LDAP_SERVER=kis-openldap), niemand von aussen. Frueher lag 389 offen
-      # auf 0.0.0.0, also am oeffentlichen Interface der Prod-Box.
+      # localhost only. The backend reaches LDAP internally over the Docker network
+      # (LDAP_SERVER=kis-openldap), nobody from outside. Port 389 used to sit open on
+      # 0.0.0.0, that is on the public interface of the production box.
       - "127.0.0.1:389:389"
     volumes:
       - ./docker/ldap/seed.ldif:/container/service/slapd/assets/config/bootstrap/ldif/custom/seed.ldif:ro

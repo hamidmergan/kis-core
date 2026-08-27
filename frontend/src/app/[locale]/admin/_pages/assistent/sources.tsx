@@ -1,21 +1,6 @@
 "use client";
 
-/**
- * Quellen des KI-Assistenten: was hochgeladen werden darf, wie es eingelesen
- * wird und wie viel davon in eine Anfrage geht. Alles hier betrifft nur den
- * Assistenten, nicht die globalen Tools.
- *
- * Vorher lagen diese fünf Karten verstreut in einer Liste von siebzehn unter
- * "System", zwischen Wartungsmodus und Maskottchen.
- *
- * Die beiden Kontext-Budgets standen zuletzt unter einem eigenen Reiter
- * "Antworten". Der Name log: keine der beiden Zahlen beschreibt die Antwort,
- * beide zählen Quelltext, was ihre eigenen Hinweistexte auch so sagen. Sie
- * stehen deshalb hier, hinter dem Weg der Quelle vom Upload bis ins
- * Modell. Dass eines davon "Tools Kontext-Budget" heisst, klingt nach den
- * globalen Tools auf der Startseite, steuert aber die Lern-Tools im Modul. Der
- * Schlüssel im Backend bleibt wie er ist, nur der Ort stimmt jetzt.
- */
+/** The path of a source from upload into the model, with both context budgets. */
 
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
@@ -25,8 +10,7 @@ import { NumberSetting, SelectSetting, ToggleSetting } from "../../_settings/fie
 import ReindexCard from "../../_settings/ReindexCard";
 import PoolClearCard from "../../_settings/PoolClearCard";
 
-/** Grobe Schätzung, etwa 3,5 Zeichen je Token bei gemischtem Text. Nur zur
- *  Orientierung, deshalb auf Tausender gerundet. */
+/** A rough estimate for orientation, rounded to thousands. */
 const approxTokens = (chars: number) => Math.round(chars / 3.5 / 1000);
 
 export default function SourcesPage() {
@@ -48,10 +32,7 @@ export default function SourcesPage() {
   const tools = useSetting<number>("aia_tool_context_max_chars", 250000);
   const toolLang = useSetting<string>("aia_learning_tools_language", "de");
 
-  // WELCHE Sprachen es gibt, sagt das Backend (i18n.TRANSCRIPT_LANGUAGES). Wie sie
-  // HEISSEN, steht in unseren eigenen langLabels, wie bei jeder anderen Sprachauswahl
-  // im Haus: der Name aus dem Backend folgt Accept-Language und nicht der Sprache,
-  // auf die der Admin seine Oberflaeche gestellt hat.
+  // The languages come from the backend, the names from our own labels.
   const [codes, setCodes] = useState<{ id: string; deepl: string }[]>([]);
   useEffect(() => {
     let abgebrochen = false;

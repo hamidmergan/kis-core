@@ -1,19 +1,4 @@
-"""Bestandsaufnahme: welche Dateien im Speicher hat die Datenbank vergessen.
-
-Das regulaere Aufraeumen geht immer von der Datenbank aus. Es fragt, welche
-Eintraege abgelaufen sind, und loescht deren Dateien. Eine Datei, deren Zeile es
-nicht mehr gibt, kann es also nie finden. Fuer ``users/`` gibt es auch keine
-Regel im Speicher, die nach Zeit aufraeumt, die greift nur fuer ``tmp/`` und
-``backups/``.
-
-Entstanden sind solche Reste vor allem so: bis zum Praefix-Loeschen entfernte
-das Loeschen einer Quelle nur die Hauptdatei, Transkript und Untertitel blieben
-liegen. Neu entstehen kann das nicht mehr, was liegt bleibt aber liegen.
-
-Die Einordnung hier ist bewusst vorsichtig. Alles, was nicht eindeutig zum
-bekannten Schema gehoert, landet unter ``unbekannt`` statt unter einer Art, die
-zum Loeschen freigegeben wuerde.
-"""
+"""Finds files in storage the database forgot, classified carefully."""
 
 import re
 from dataclasses import dataclass, field
@@ -23,22 +8,13 @@ _JOB = re.compile(r"^(users/\d+/jobs/[^/]+)/.+$")
 # users/{user_id}/aia/workspaces/{workspace_uuid}/...
 _WORKSPACE = re.compile(r"^(users/\d+/aia/workspaces/[^/]+)/(.+)$")
 
-# Bereiche mit eigener Aufbewahrungsregel. ``tmp/`` und ``backups/`` raeumt der
-# Bucket selbst nach Zeit auf, die gesprochenen Beispielsaetze raeumt naechtlich
-# ``cleanup.speech_cache`` nach letztem Abruf. Eine Bestandsaufnahme hat dort
-# nichts zu suchen: sie kennt die Regel nicht und wuerde alles unter "unbekannt"
-# melden, bis der Bericht vor lauter Toenen nichts mehr zeigt.
+# Areas with their own retention rule stay out.
 _FREMDE_BEREICHE = ("tmp/", "backups/", "aia/speech/")
 
 
 @dataclass
 class Bestand:
-    """Was die Datenbank kennt, als Schluessel-Praefixe.
-
-    ``quell_basen`` ist nach Workspace-Praefix gruppiert. Damit bleibt die
-    Pruefung je Datei auf die Quellen eines Workspace beschraenkt, das sind
-    hoechstens ein paar Dutzend.
-    """
+    """What the database knows, as key prefixes."""
 
     job_praefixe: set[str] = field(default_factory=set)
     workspace_praefixe: set[str] = field(default_factory=set)
@@ -46,19 +22,14 @@ class Bestand:
 
 
 def als_schluessel(pfad: str, wurzel: str = "") -> str:
-    """Absoluten Pfad auf die Schluesselform bringen.
-
-    Ohne S3 stehen in der Datenbank und im Speicher absolute Pfade, mit S3
-    relative Schluessel. Beide Seiten muessen dieselbe Form haben, sonst faende
-    die Pruefung alles verwaist.
-    """
+    """Brings an absolute path into key form."""
     if wurzel and pfad.startswith(wurzel):
         return pfad[len(wurzel):]
     return pfad
 
 
 def _art(schluessel: str, bestand: Bestand) -> str | None:
-    """Art des Fundes, oder None wenn die Datei einen Eintrag hat."""
+    """Kind of finding, or None when the file has a database row."""
     if schluessel.startswith(_FREMDE_BEREICHE):
         return None
 
@@ -68,16 +39,14 @@ def _art(schluessel: str, bestand: Bestand) -> str | None:
 
     treffer = _WORKSPACE.match(schluessel)
     if not treffer:
-        # Nicht im bekannten Schema. Kann Absicht sein, kann ein Rest sein.
-        # Melden, aber nie als verwaist einordnen.
+        # Not in the known scheme: report it, but never classify it as orphaned.
         return "unbekannt"
 
     workspace, rest = treffer.group(1), treffer.group(2)
     if workspace not in bestand.workspace_praefixe:
         return "workspace"
     if not rest.startswith("sources/"):
-        # Zum Beispiel das nie benutzte outputs/. Wer das anlegt, weiss es
-        # besser als diese Pruefung.
+        # Whoever creates something like this knows better than this check.
         return "unbekannt"
 
     basen = bestand.quell_basen.get(workspace, set())
@@ -89,11 +58,7 @@ def _art(schluessel: str, bestand: Bestand) -> str | None:
 def finde_verwaiste(
     schluessel: list[str], bestand: Bestand, wurzel: str = ""
 ) -> dict[str, list[str]]:
-    """Ordnet jede Datei ein. Liefert nur die Arten, zu denen es Funde gibt.
-
-    Die Listen sind sortiert, damit zwei Laeufe dasselbe melden und sich zwei
-    Berichte vergleichen lassen.
-    """
+    """Classifies every file and returns only the kinds with findings."""
     funde: dict[str, list[str]] = {}
     for pfad in schluessel:
         art = _art(als_schluessel(pfad, wurzel), bestand)
@@ -108,15 +73,7 @@ def trenne_nach_alter(
     mindest_stunden: float,
     jetzt: float,
 ) -> tuple[list[str], list[str]]:
-    """Teilt in (alt genug, zu frisch). ``alter_lesen`` liefert einen Unix-Zeitstempel.
-
-    Ein laufender Upload hat seine Datei schon abgelegt, aber die Zeile in der
-    Datenbank noch nicht geschrieben. Ohne diese Schranke wuerde ein Aufraeumen
-    zum falschen Zeitpunkt genau diese Datei treffen.
-
-    Ist der Zeitstempel nicht lesbar, gilt die Datei als zu frisch. Im Zweifel
-    nicht loeschen.
-    """
+    """Splits into old enough and too fresh, too fresh when in doubt."""
     if mindest_stunden <= 0:
         return list(pfade), []
     grenze = jetzt - mindest_stunden * 3600
@@ -128,22 +85,17 @@ def trenne_nach_alter(
 
 
 def zusammenfassen(verwaiste: dict[str, list[str]]) -> dict[str, int]:
-    """Anzahl je Art plus Gesamtzahl."""
+    """Count per kind plus the total."""
     zahlen = {art: len(pfade) for art, pfade in verwaiste.items()}
     zahlen["gesamt"] = sum(zahlen.values())
     return zahlen
 
 
-# --- Datenbank-Seite ---
+# --- database side ---
 
 
 def bestand_aus_datenbank() -> Bestand:
-    """Liest, welche Jobs, Workspaces und Quellen es noch gibt.
-
-    Nur Lesezugriffe. Die Quellen kommen ueber ihren gespeicherten ``file_path``
-    herein, nicht ueber eine selbst gebaute Kennung: was die Quelle besitzt,
-    steht in der Spalte, und genau die benutzt auch das Loeschen.
-    """
+    """Reads which jobs, course rooms and sources still exist."""
     from src.database import get_connection
     from src.storage import STORAGE_ROOT, USE_S3, aia_source_base, aia_workspace_prefix, job_prefix
 

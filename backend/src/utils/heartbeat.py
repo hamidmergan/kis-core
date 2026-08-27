@@ -1,15 +1,4 @@
-"""Heartbeat context manager for long-running external API calls.
-
-Usage:
-    from src.utils.heartbeat import job_heartbeat
-
-    with job_heartbeat(job_uuid):
-        result = some_slow_api_call(...)
-
-The watchdog marks jobs as stuck if progress_updated_at is not updated for
-JOB_WATCHDOG_MINUTES (see src/limits.py). This context manager fires a DB
-heartbeat every 10 seconds during the wrapped call, keeping the timer fresh.
-"""
+"""A heartbeat during long external calls so the watchdog stays quiet."""
 
 import threading
 from contextlib import contextmanager

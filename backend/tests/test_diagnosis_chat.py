@@ -1,11 +1,4 @@
-"""Language diagnosis: prompt rendering, question generation and verdict parsing.
-
-Jede Frage kommt ausgeschrieben aus dem Plan und wird ohne Modellaufruf
-ausgeliefert, Auswahl- und Tippantworten bewertet der Code. Nur der eine
-Abschluss-Aufruf spricht mit dem Modell. Dieses Modul haelt den gemeinsamen Prompt,
-die Nachrichten der Abschlussbewertung und den Verdikt-Parser fest. Datenmodell und
-deterministische Bewertung liegen in test_diagnosis_authoring.
-"""
+"""Assessment: prompt, messages of the final grading and the verdict parser."""
 
 import json
 import re
@@ -60,19 +53,17 @@ def test_default_prompt_is_usable_out_of_the_box():
     assert "Spanish" in rendered
     # Language-agnostic by design: no German wordlists or grammar terms baked in.
     assert "German" not in DEFAULT_DIAGNOSIS_PROMPT
-    # The register rule must stay language-neutral too: naming du/Sie or tu/vous
-    # would silently make the prompt German- or French-only.
+    # The form of address stays language neutral.
     for tv_pair in ("du", "Sie", "tu", "vous", "usted"):
         assert f" {tv_pair} " not in DEFAULT_DIAGNOSIS_PROMPT
     assert "informal second person" in DEFAULT_DIAGNOSIS_PROMPT
 
 
 def test_default_prompt_defines_both_task_types():
-    """Zwei Arten tragen den Test, und der Prompt muss dieselben zwei Namen
-    benutzen wie der Plan, sonst beschreibt er eine Aufgabe, die es nicht gibt."""
+    """The prompt has to use the same two exercise names as the plan."""
     assert "choice" in DEFAULT_DIAGNOSIS_PROMPT
     assert "free text" in DEFAULT_DIAGNOSIS_PROMPT
-    # Die alten sechs Namen kommen nicht wieder vor.
+    # The old six names do not appear again.
     for gone in ("gap fill", "reading comprehension", "free writing"):
         assert gone not in DEFAULT_DIAGNOSIS_PROMPT
     # The type is dictated per question, not chosen by the model.
@@ -80,8 +71,7 @@ def test_default_prompt_defines_both_task_types():
 
 
 def test_default_prompt_returns_options_as_structured_data_not_letters():
-    """Options travel in an array so the interface can shuffle them; the old
-    a), b), c), d) layout inside the message is gone."""
+    """The options travel as a field so the interface can shuffle them."""
     assert '"options"' in DEFAULT_DIAGNOSIS_PROMPT
     assert '"correct": true' in DEFAULT_DIAGNOSIS_PROMPT
     # No letters and no in-message option layout survive.
@@ -99,8 +89,7 @@ def test_default_prompt_carries_no_reaction_machinery():
 
 
 def test_default_prompt_lays_the_task_out_over_lines():
-    """One long line is unreadable for the learners this is built for: the
-    instruction and the sentence need their own lines, options go in the array."""
+    """Instruction and sentence need their own lines, the options sit in the field."""
     assert "TASK LAYOUT" in DEFAULT_DIAGNOSIS_PROMPT
     # The layout is worthless if the model packs it into a single JSON line.
     assert "\\n" in DEFAULT_DIAGNOSIS_PROMPT
@@ -113,8 +102,7 @@ def test_default_prompt_demands_a_single_defensible_answer():
 
 
 def test_default_prompt_builds_items_like_a_placement_test():
-    """Modelled on published placement tests (Klett Netzwerk A1-B1, ISS Aarau
-    A1-B2): options are minimal pairs of one form, never different content."""
+    """The options differ in a form, never in the content."""
     assert "ITEM DESIGN" in DEFAULT_DIAGNOSIS_PROMPT
     assert "SAME class as the correct one" in DEFAULT_DIAGNOSIS_PROMPT
     # A reading item whose answer is copied out of the text grades nothing.
@@ -122,8 +110,7 @@ def test_default_prompt_builds_items_like_a_placement_test():
 
 
 def test_difficulty_range_stays_language_agnostic():
-    """The difficulty range names categories, so it survives a workspace set to
-    any language; naming a concrete rule would silently make it German-only."""
+    """The difficulty names categories, not a rule of one single language."""
     section = DEFAULT_DIAGNOSIS_PROMPT[DEFAULT_DIAGNOSIS_PROMPT.find("DIFFICULTY RANGE"):]
     assert "DIFFICULTY RANGE" in DEFAULT_DIAGNOSIS_PROMPT
     for level in ("A1:", "A2:", "B1:", "B2:", "C1:", "C2:"):
@@ -132,8 +119,7 @@ def test_difficulty_range_stays_language_agnostic():
 
 
 def test_default_prompt_is_a_fixed_set_not_adaptive():
-    """Fixed length and task types, difficulty rising by position, not adapting to
-    the answers."""
+    """Fixed length and exercise kinds, the difficulty rises with the position."""
     assert "RISES FROM EASY TO HARD" in DEFAULT_DIAGNOSIS_PROMPT
     assert "fixed set of questions" in DEFAULT_DIAGNOSIS_PROMPT
     assert "not adaptive testing" in DEFAULT_DIAGNOSIS_PROMPT
@@ -147,8 +133,7 @@ def test_default_prompt_places_from_the_learners_answers_not_a_question_label():
 
 
 def test_default_prompt_uses_the_full_cefr_ladder():
-    """The scale runs A1..C2; the level ladder and output format must offer all
-    six, and the old collapsed 'B1+' outcome must be gone everywhere."""
+    """The scale runs A1 to C2, the old merged B1+ is gone everywhere."""
     from src.services.aia_diagnosis_chat import DEFAULT_GRADING_RULES
     from src.services.aia_level_ladder import DEFAULT_LEVEL_DESCRIPTIONS
     assert "B1+" not in DEFAULT_GRADING_RULES
@@ -179,8 +164,7 @@ def test_the_model_is_never_asked_for_per_skill_scores():
 
 
 def test_grading_rules_are_holistic_not_a_ladder():
-    """Placement is by overall quality, weighing free-text production most, not a
-    fixed per-question ladder."""
+    """The level follows the overall quality, free writing weighs the most."""
     from src.services.aia_diagnosis_chat import DEFAULT_GRADING_RULES
     assert "OVERALL quality" in DEFAULT_GRADING_RULES
     assert "no fixed ladder" in DEFAULT_GRADING_RULES
@@ -190,8 +174,7 @@ def test_grading_rules_are_holistic_not_a_ladder():
 
 
 def test_grading_rules_require_production_for_high_levels():
-    """Multiple choice is recognition, not production: C1/C2 must rest on the
-    free-text answers, so an all-multiple-choice plan cannot mint a high level."""
+    """Multiple choice is recognition, high levels rest on free writing."""
     from src.services.aia_diagnosis_chat import DEFAULT_GRADING_RULES
     assert "Recognition is not production" in DEFAULT_GRADING_RULES
     assert "C1 or C2" in DEFAULT_GRADING_RULES
@@ -285,11 +268,7 @@ def test_parse_rejects_levels_outside_the_ladder(level):
 
 
 def test_parse_accepts_a_final_turn_without_scores():
-    """The five per-skill scores are gone: an answer without them is complete.
-
-    They used to be mandatory, so a model that dropped one failed the whole
-    grading turn and cost a repair call for a number nobody read.
-    """
+    """The five single marks are gone, an answer without them is complete."""
     result = parse_turn_response(_final())
     assert result["done"] is True
     assert "skill_scores" not in result
@@ -317,7 +296,7 @@ def test_build_final_messages_carries_the_record_to_one_user_turn():
 
 def test_plan_is_twelve_written_out_slots():
     assert QUESTION_COUNT == 12
-    # Fragen tragen keine Stufe, nur eine Aufgabenart, und jede ist ausgeschrieben.
+    # Questions carry no level, only an exercise kind, and each is spelled out.
     assert all("text" in step for step in DEFAULT_GERMAN_QUESTION_PLAN)
     assert all("band" not in step for step in DEFAULT_GERMAN_QUESTION_PLAN)
     types = [step["type"] for step in DEFAULT_GERMAN_QUESTION_PLAN]
@@ -474,8 +453,7 @@ class _ProviderError(Exception):
 
 
 def test_rate_limit_does_not_disable_json_mode():
-    """A 429 is load, not a capability signal. Disabling on it would give up
-    JSON mode permanently the first time the provider is busy."""
+    """An overload is no evidence of a missing ability."""
     assert not _rejects_json_mode(_ProviderError("Failed to process request", 429))
 
 
@@ -507,22 +485,22 @@ def test_diagnosis_config_defaults(monkeypatch):
     assert out["answer_max_chars"] == 2000
 
 
-# ─── Stufen-Leiter: die Beschreibungen kommen aus der Karte ──────────────────
+# ─── Level ladder: the descriptions come from the ladder ─────────────────────
 
 def test_prompt_carries_the_levels_placeholder():
-    """Die Stufen-Beschreibungen kommen aus der Karte, nicht aus dem Prompt-Text."""
+    """The level descriptions come from the ladder, not from the prompt text."""
     from src.services.aia_diagnosis_chat import LEVELS_PLACEHOLDER
     assert LEVELS_PLACEHOLDER in DEFAULT_DIAGNOSIS_PROMPT
     assert "These describe a typical learner at each outcome:" in DEFAULT_DIAGNOSIS_PROMPT
 
 
 def test_grading_rules_no_longer_carry_the_level_list():
-    """Die Liste steht jetzt in der Stufen-Leiter, nicht mehr doppelt hier."""
+    """The list now lives in the level ladder, no longer duplicated here."""
     from src.services.aia_diagnosis_chat import DEFAULT_GRADING_RULES
     assert "These describe a typical learner" not in DEFAULT_GRADING_RULES
     assert "- A1:" not in DEFAULT_GRADING_RULES
     assert "- C2:" not in DEFAULT_GRADING_RULES
-    # Das Verfahren bleibt vollstaendig.
+    # The method stays complete.
     assert "OVERALL quality" in DEFAULT_GRADING_RULES
     assert "Recognition is not production" in DEFAULT_GRADING_RULES
 
@@ -543,7 +521,7 @@ def test_assemble_fills_the_levels_block():
 
 
 def test_assemble_appends_the_levels_block_when_the_placeholder_is_gone():
-    """Ein angepasster Prompt darf die Stufen nicht verlieren."""
+    """A customised prompt must not lose the levels."""
     from src.services.aia_diagnosis_chat import assemble_system_prompt
     out = assemble_system_prompt(
         "Nur Text ohne Platzhalter.",
@@ -557,7 +535,7 @@ def test_assemble_appends_the_levels_block_when_the_placeholder_is_gone():
 
 
 def test_legacy_grading_rules_are_recognised_as_the_old_default():
-    """Wer den Text angefasst und zurueckgesetzt hat, bekommt den neuen Standard."""
+    """Whoever touched the text and reset it gets the new default."""
     from src.services.aia_diagnosis_chat import (
         DEFAULT_GRADING_RULES,
         _LEGACY_GRADING_RULES,

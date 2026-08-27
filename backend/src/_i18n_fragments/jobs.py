@@ -1,9 +1,4 @@
-"""i18n message fragments for tool/job routes.
-
-Auto-loaded by `src.i18n._load_fragments()`. Keys group by the route area
-(`translate`, `tts`, `image`, `summary`, `screencast`,
-`job`, `auth`).
-"""
+"""Text fragments for the tool and job routes."""
 
 MESSAGES: dict[str, dict[str, str]] = {
     # ── translate ────────────────────────────────────────────────────────────

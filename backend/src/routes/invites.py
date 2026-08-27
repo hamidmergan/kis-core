@@ -1,7 +1,4 @@
-"""Die oeffentliche Seite einer Einladung: nachschauen und einloesen.
-
-Ohne Anmeldung erreichbar, der Schluessel im Link ist der Ausweis.
-"""
+"""The public page of an invitation, the key in the link is the credential."""
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Response
@@ -21,7 +18,7 @@ MIN_PASSWORD_LENGTH = 8
 
 
 def _open_invite_or_error(token: str, locale: str) -> dict:
-    """Holt die Einladung und laesst nur eine offene durch."""
+    """Fetches the invitation and lets only an open one through."""
     if not get_settings().ldap_user_creation_enabled:
         raise HTTPException(status_code=404, detail=t("invite.featureDisabled", locale))
 
@@ -67,8 +64,7 @@ def redeem_invite(
     vorname, nachname = payload.given_name.strip(), payload.surname.strip()
     display_name = " ".join(teil for teil in (vorname, nachname) if teil) or invite["uid"]
 
-    # Erst den Link entwerten, dann anlegen. Zwei gleichzeitige Versuche kommen so
-    # nie beide durch.
+    # Invalidate the link first, then create, otherwise two attempts get through.
     if not repo.mark_invite_used(invite["id"]):
         raise HTTPException(status_code=410, detail=t("invite.notValid", locale))
 
@@ -83,7 +79,7 @@ def redeem_invite(
             password=payload.password,
         )
     except Exception as fehler:
-        # Nichts angelegt, also gehoert der Link der Person wieder.
+        # Nothing was created, so the link belongs to the person again.
         repo.reopen_invite(invite["id"])
         logger.error("invite redeem failed for uid={}: {}", invite["uid"], fehler)
         code = 409 if isinstance(fehler, LdapUserExistsError) else 500

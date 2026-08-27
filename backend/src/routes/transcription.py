@@ -33,12 +33,7 @@ _VALID_FORMATS = {"text", "srt", "vtt"}
 
 @router.get("/transcription/providers")
 async def list_transcription_providers(current_user: dict = Depends(get_current_user)):
-    """STT providers the admin configured a model for, filtered to those
-    currently reachable. Mirrors the TTS tool's provider picker.
-
-    Returns an empty list when nothing is configured/reachable — the tool then
-    hides the dropdown and falls back to the admin default route.
-    """
+    """Reachable speech recognition providers, empty means the choice stays hidden."""
     return await feature_provider_choices.list_reachable_choices("stt")
 
 
@@ -55,9 +50,7 @@ async def transcribe(
     if not file.filename:
         raise HTTPException(status_code=400, detail=t("file.nameMissing", locale))
 
-    # When the user picked a provider, it must be one the admin configured a
-    # model for. Reject anything else so a forged id can't bypass the route.
-    # Omitting provider_id keeps the admin default route.
+    # A chosen provider must be set up by the admin.
     if provider_id is not None and not feature_provider_choices.is_eligible("stt", provider_id):
         raise HTTPException(status_code=400, detail=t("transcription.invalidProvider", locale))
 
@@ -84,9 +77,7 @@ async def transcribe(
     if content_length is not None and int(content_length) > max_upload_bytes():
         raise HTTPException(status_code=413, detail=t("file.tooLargeMb", locale, max=max_upload_bytes() // (1024 * 1024)))
 
-    # Audio/video runs to hundreds of MB: stream it to a temp file and hand
-    # storage the path. Reading the body into a bytes object would put the whole
-    # upload (twice) into the backend process.
+    # Stream to a temp file, media quickly reach hundreds of MB.
     with tempfile.TemporaryDirectory(prefix="stt_upload_") as tmpdir:
         tmp_path = os.path.join(tmpdir, f"input{ext}")
         total, head = await stream_upload_to_path(file, tmp_path, max_upload_bytes(), locale)

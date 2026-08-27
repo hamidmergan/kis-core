@@ -1,11 +1,4 @@
-"""Schluessel-Aufbau im Bucket: abgeleitete Namen, Loeschen per Praefix, Folienreihenfolge.
-
-Geprueft wird das, was leise falsch sein kann. Ein Loeschen, das die
-Zusatzdateien einer Quelle stehen laesst, faellt im Betrieb nie auf, der
-Volltext eines Videos ueberlebt dann aber seine Quelle. Und ein Auflisten, das
-nach Text statt nach Zahl sortiert, vertauscht die Reihenfolge erst jenseits
-von 1000 Folien.
-"""
+"""Key layout in the bucket: derived names, prefix delete, slide order."""
 
 import pytest
 
@@ -13,12 +6,7 @@ from src import storage
 
 
 class _FakeS3:
-    """Minimaler S3-Ersatz: kennt eine Schluesselliste und blaettert in 1000er-Schritten.
-
-    Das Blaettern ist der Punkt: eine echte Antwort liefert hoechstens 1000
-    Schluessel, und genau daran sind die beiden Folien-Funktionen frueher
-    stillschweigend abgeschnitten worden.
-    """
+    """A minimal S3 stand-in that paginates like the original."""
 
     def __init__(self, keys: list[str]):
         self.keys = keys
@@ -49,7 +37,7 @@ class _FakeS3:
 
 @pytest.fixture
 def s3(monkeypatch):
-    """Speicher mit S3: haengt fuer die uebergebenen Schluessel den Fake-Client ein."""
+    """Storage with S3: installs the fake client for the given keys."""
     def _einrichten(keys: list[str]) -> _FakeS3:
         client = _FakeS3(keys)
         monkeypatch.setattr(storage, "USE_S3", True)
@@ -61,8 +49,7 @@ def s3(monkeypatch):
 # ─── Abgeleitete Schluessel ────────────────────────────────────────────────
 
 def test_transkript_und_untertitel_haengen_am_namen_der_quelle():
-    """Die Helfer nehmen den Quellpfad selbst, damit keine Aufrufstelle mehr
-    die Endung von Hand abschneiden muss."""
+    """The helpers take the source path themselves, nobody cuts the extension by hand."""
     quelle = "users/1/aia/workspaces/w1/sources/xyz.mp4"
     basis = "users/1/aia/workspaces/w1/sources/xyz"
 
@@ -73,7 +60,7 @@ def test_transkript_und_untertitel_haengen_am_namen_der_quelle():
 
 
 def test_ein_schon_abgeschnittener_pfad_geht_auch_durch():
-    """Wichtig, weil manche Aufrufer eine Basis weiterreichen statt der Quelle."""
+    """Important because some callers pass a base instead of the source."""
     basis = "users/1/sources/xyz"
 
     assert storage.aia_source_base(basis) == basis
@@ -98,8 +85,7 @@ def test_quelldatei_landet_unter_dem_workspace_schluessel(lokal, tmp_path):
 
 
 def test_bytes_landen_unter_dem_uebergebenen_schluessel(lokal):
-    """Gegenstueck zu ``get_file``. Ohne das muessten Aufrufer selbst zu boto3
-    greifen, und die Kenntnis vom Bucket laege wieder an mehreren Orten."""
+    """Counterpart to reading, otherwise bucket knowledge would sit in several places."""
     schluessel = str(lokal / "users/1/aia/workspaces/w1/sources/s1_transcript.txt")
 
     storage.put_bytes(schluessel, b"volltext")
@@ -108,7 +94,7 @@ def test_bytes_landen_unter_dem_uebergebenen_schluessel(lokal):
 
 
 def test_transkript_wird_ueber_den_speicher_geschrieben(lokal):
-    """Die Ingestion darf nicht an storage.py vorbei direkt auf S3 schreiben."""
+    """Ingestion must not write to S3 directly, bypassing storage.py."""
     from src.features.ai_assistant.tasks import ingestion
 
     ordner = lokal / "users/1/aia/workspaces/w1/sources"
@@ -123,19 +109,14 @@ def test_transkript_wird_ueber_den_speicher_geschrieben(lokal):
 # ─── Gesprochene Beispielsaetze ────────────────────────────────────────────
 
 def test_aussprache_verteilt_sich_auf_unterordner():
-    """Alle Toene in einem Ordner waeren irgendwann Hunderttausende nebeneinander.
-
-    Die ersten beiden Zeichen des Fingerabdrucks faechern sie auf 256 Ordner auf.
-    Der Fingerabdruck ist ein SHA-256, die Verteilung also gleichmaessig.
-    """
+    """The fingerprint spreads the audio files evenly over 256 folders."""
     fp = "ab12" + "0" * 60
 
     assert storage.aia_speech_key(fp) == f"aia/speech/ab/{fp}.mp3"
 
 
 def test_aussprache_liegt_nicht_unter_users():
-    """Ein Ton haengt am Satz und nicht an einer Person. Unter ``users/`` wuerde ihn
-    das Loeschen eines Kontos mitnehmen, obwohl ihn andere noch hoeren."""
+    """An audio file hangs off the sentence, under users/ a deleted account takes it along."""
     assert not storage.aia_speech_key("a" * 64).startswith("users/")
 
 
@@ -146,7 +127,7 @@ def test_aussprache_ablegen_und_wiederholen(lokal):
 
 
 def test_aussprache_ohne_datei_liefert_nichts(lokal):
-    """Der Aufrufer muss den Fehltreffer sehen, sonst spielt er einen leeren Ton."""
+    """The caller has to see the miss, otherwise it plays an empty audio file."""
     assert storage.get_speech_audio("b" * 64) is None
 
 
@@ -161,8 +142,7 @@ def test_aussprache_loeschen_nimmt_die_datei_mit(lokal):
 
 
 def test_aussprache_loeschen_ohne_schluessel_ruft_nichts_auf(s3):
-    """Das naechtliche Aufraeumen laeuft meistens leer. Eine Anfrage mit einer leeren
-    Liste weist S3 als Fehler ab."""
+    """S3 rejects a request with an empty list as an error."""
     client = s3([])
 
     storage.delete_speech_audio([])
@@ -171,9 +151,7 @@ def test_aussprache_loeschen_ohne_schluessel_ruft_nichts_auf(s3):
 
 
 def test_aussprache_loeschen_blaettert_ueber_die_1000er_grenze(s3):
-    """``delete_objects`` nimmt hoechstens 1000 Schluessel. Eine Nacht mit mehr
-    abgelaufenen Toenen wuerde sonst mit einem Fehler abbrechen und den Rest liegen
-    lassen."""
+    """Delete takes at most 1000 keys, the rest has to go in batches."""
     client = s3([])
 
     storage.delete_speech_audio([f"{i:064x}" for i in range(1200)])
@@ -185,7 +163,7 @@ def test_aussprache_loeschen_blaettert_ueber_die_1000er_grenze(s3):
 # ─── Loeschen per Praefix ──────────────────────────────────────────────────
 
 def test_praefix_loeschen_nimmt_die_geschwisterdateien_mit(lokal):
-    """Der eigentliche Fehler: Transkript und Untertitel blieben liegen."""
+    """The actual bug: transcript and subtitles were left behind."""
     ordner = lokal / "users/1/aia/workspaces/w1/sources"
     ordner.mkdir(parents=True)
     (ordner / "xyz.mp4").write_bytes(b"video")
@@ -205,8 +183,7 @@ def test_praefix_loeschen_nimmt_die_geschwisterdateien_mit(lokal):
 
 
 def test_praefix_loeschen_versteht_auch_einen_absoluten_pfad(lokal):
-    """Ohne S3 steht in ``file_path`` ein absoluter Pfad, mit S3 ein relativer
-    Schluessel. Beide Formen erreichen dieselben Dateien."""
+    """Absolute path and relative key reach the same files."""
     ordner = lokal / "users/1/aia/workspaces/w1/sources"
     ordner.mkdir(parents=True)
     (ordner / "xyz.mp4").write_bytes(b"video")
@@ -219,7 +196,7 @@ def test_praefix_loeschen_versteht_auch_einen_absoluten_pfad(lokal):
 
 
 def test_praefix_loeschen_raeumt_weiterhin_ganze_ordner(lokal):
-    """Bestandsverhalten, das die Jobs brauchen. Darf nicht kaputtgehen."""
+    """Existing behaviour the jobs rely on, it must not break."""
     ordner = lokal / "users/1/jobs/j1"
     (ordner / "audio").mkdir(parents=True)
     (ordner / "output.mp4").write_bytes(b"v")
@@ -250,11 +227,7 @@ def test_auflisten_findet_geschwisterdateien(lokal):
 
 
 def test_auflisten_steigt_in_einen_ordner_hinab(lokal):
-    """Ohne das findet eine Bestandsaufnahme ueber ``users/`` lokal nichts.
-
-    Mit S3 liefert ein Praefix immer alles darunter, egal wie tief. Lokal muss
-    dieselbe Frage dieselbe Antwort geben, sonst haengt das Ergebnis daran, wo
-    die Dateien gerade liegen."""
+    """Locally a prefix has to give the same answer as with S3."""
     (lokal / "users/1/jobs/j1/audio").mkdir(parents=True)
     (lokal / "users/1/jobs/j1/output.mp4").write_bytes(b"v")
     (lokal / "users/1/jobs/j1/audio/slide_000.mp3").write_bytes(b"a")
@@ -277,7 +250,7 @@ def test_auflisten_meldet_nichts_wenn_es_nichts_gibt(lokal):
 # ─── Folienreihenfolge ─────────────────────────────────────────────────────
 
 def test_folien_bleiben_jenseits_von_1000_in_der_richtigen_reihenfolge(lokal):
-    """Nach Text sortiert steht ``slide_1000`` vor ``slide_999``."""
+    """Sorted as text, ``slide_1000`` comes before ``slide_999``."""
     ordner = lokal / "users/1/jobs/j1/audio"
     ordner.mkdir(parents=True)
     for name in ("slide_009.mp3", "slide_010.mp3", "slide_999.mp3", "slide_1000.mp3"):

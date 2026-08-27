@@ -1,17 +1,4 @@
-"""Regelmaessiges Aufraeumen: abgelaufene Auftragsdateien.
-
-Lag vorher als Endlosschleife (``_periodic_cleanup``) im Web-Prozess, gestartet
-beim Hochfahren von kis-backend. Mit mehreren uvicorn-Prozessen haette JEDER
-Prozess seine eigene Schleife gefahren, also dreifaches Loeschen zur selben
-Stunde. Die Loeschvorgaenge sind zwar idempotent, aber es ist unnoetige Last und
-das Logbuch wird unleserlich.
-
-kis-celery-beat laeuft per Bauart genau einmal. Dort gehoert so eine Aufgabe hin.
-
-Zeitplaneintraege werden hier NICHT mehr angefasst. Sie bleiben dauerhaft
-erhalten, auch vergangene. Es gibt keine Aufbewahrungsdauer und keine
-Einstellung dafuer.
-"""
+"""Regelmaessiges Aufraeumen abgelaufener Auftragsdateien, per celery-beat."""
 
 from loguru import logger
 
@@ -34,12 +21,7 @@ def run_cleanup_expired_files() -> int:
 
 @celery_app.task(name="cleanup.job_cap", queue="general")
 def run_cleanup_job_cap() -> int:
-    """Jeden Nutzer auf den Vorrat aus dem Admin zurechtstutzen. Stuendlich.
-
-    Normalerweise raeumt schon das Speichern eines Ergebnisses mit. Wer nur
-    Fehlversuche produziert, loest das aber nie aus, und seit die Frist von sieben
-    Tagen weg ist, holt sie auch niemand mehr ab. Dafuer ist dieser Durchlauf da.
-    """
+    """Trims every user hourly down to the pool set in the admin area."""
     from src.database import get_users_over_cap
     from src.storage import evict_jobs_over_cap
 
@@ -57,12 +39,7 @@ def run_cleanup_job_cap() -> int:
 
 @celery_app.task(name="cleanup.exercise_progress", queue="general")
 def run_cleanup_exercise_progress() -> int:
-    """Uebungsantworten von vor dem Kalenderfeld aufraeumen. Naechtlich.
-
-    Die Statistik zeigt nur die letzten sechs Monate, aeltere Antworten sind nicht
-    erreichbar. Je Karte bleibt die juengste stehen, sonst faellt der Ring auf der
-    Uebungskarte auf null, sobald ein Satz ein halbes Jahr geruht hat.
-    """
+    """Nightly clears exercise answers older than the calendar view reaches."""
     from src.features.ai_assistant.repository.exercises import prune_old_exercise_progress
 
     try:
@@ -77,13 +54,7 @@ def run_cleanup_exercise_progress() -> int:
 
 @celery_app.task(name="cleanup.speech_cache", queue="general")
 def run_cleanup_speech_cache() -> int:
-    """Gesprochene Beispielsaetze aufraeumen, die lange niemand gehoert hat. Naechtlich.
-
-    Der Vorrat waechst nur durch Nutzung, wird aber nie von selbst kleiner: eine
-    geloeschte Quelle nimmt ihre Toene nicht mit, weil der Schluessel am Satz haengt
-    und nicht an der Karte. Wer einen aufgeraeumten Satz doch wieder braucht, wartet
-    einmal fuenf Sekunden und hat ihn zurueck.
-    """
+    """Nightly clears spoken sentences nobody has listened to in a long time."""
     from src.features.ai_assistant.repository.speech_cache import prune
 
     try:

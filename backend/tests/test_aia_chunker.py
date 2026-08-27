@@ -1,8 +1,4 @@
-"""Tests for the document chunker (text splitting, transcript merging, dispatch).
-
-These cover the PURE-LOGIC core that needs no PDF/Office libraries or files, plus
-the dispatch error paths and the plain-text extractor (via a tmp file).
-"""
+"""Checks the chunker: text splitting, transcript merging and distribution."""
 import pytest
 
 from src.services.aia_chunker import (
@@ -31,11 +27,7 @@ def test_clean_handles_empty_string():
     assert _clean("") == ""
 
 
-# ── _clean: lose Akzentzeichen aus LaTeX-PDFs ────────────────────────────────
-# Ein mit LaTeX gesetztes PDF malt Akzente als EIGENE Glyphe neben den Buchstaben.
-# Die Textebene liefert sie darum als freistehendes Zeichen (U+00A8, U+00AF, ...)
-# direkt vor oder hinter dem Grundbuchstaben. Die Beispiele unten stehen woertlich
-# so in der Datenbank (Mathe-Vorkurs-Skript).
+# Standalone accents from LaTeX PDFs, verbatim as they appear in the corpus.
 
 def test_clean_merges_leading_spacing_diaeresis_into_umlaut():
     assert _clean("Komplement¨armenge") == "Komplementärmenge"
@@ -55,14 +47,12 @@ def test_clean_normalises_ohm_sign_to_greek_omega():
 
 
 def test_clean_leaves_letter_without_precomposed_form_as_combining_pair():
-    # B + Makron hat keine fertige Einzelform, bleibt also ein Grundbuchstabe
-    # plus kombinierendem Strich. Im Browser sieht das trotzdem korrekt aus.
+    # B with a macron stays one letter plus a combining stroke.
     assert _clean("B¯") == "B̄"
 
 
 def test_clean_leaves_accent_that_is_not_next_to_a_letter():
-    # Weit verrutschte Akzente sind nicht sicher zuzuordnen: das Zeichen gehoert
-    # zu "Fur" mehrere Woerter davor. Lieber stehen lassen als falsch anhaengen.
+    # Badly displaced accents are better left alone than attached wrongly.
     assert _clean("Fur jedes Ereignis ¨ A gilt") == "Fur jedes Ereignis ¨ A gilt"
 
 
@@ -71,7 +61,7 @@ def test_clean_keeps_a_standalone_accent_character():
 
 
 def test_clean_keeps_degree_sign_untouched():
-    # Das Gradzeichen ist ein echtes Zeichen, kein verrutschter Akzent.
+    # The degree sign is a real character, not a displaced accent.
     assert _clean("20 °C warm") == "20 °C warm"
 
 
@@ -84,7 +74,7 @@ def test_clean_merges_spacing_caron_into_letter():
 
 
 def test_clean_keeps_ascii_caret_untouched():
-    # "^" steht in normalem Text fuer eine Potenz, nicht fuer einen Akzent.
+    # In normal text '^' stands for a power, not for an accent.
     assert _clean("2^3 = 8") == "2^3 = 8"
 
 
@@ -93,7 +83,7 @@ def test_clean_keeps_backtick_untouched():
 
 
 def test_clean_keeps_acute_used_as_apostrophe():
-    # Der Akut ist bewusst aussen vor: hier waere "gehtś" schlechter als vorher.
+    # The acute is deliberately left out, here it would make things worse.
     assert _clean("geht´s") == "geht´s"
 
 
@@ -117,8 +107,7 @@ def test_split_text_exactly_chunk_size_is_one_chunk():
 
 
 def test_split_breaks_at_whitespace_to_avoid_cutting_words():
-    # chunk_size 10: first window is "abcdef ghi"; the space at index 6 (> 10//2)
-    # triggers a break, so the first chunk is the whole word "abcdef", never "ghi".
+    # The first chunk is the whole word, never the fragment behind it.
     chunks = _split_text("abcdef ghijklmno", 10, 2)
     assert chunks[0] == "abcdef"
 
@@ -137,18 +126,12 @@ def test_split_chunks_overlap():
     text = "0123456789ABCDEFGHIJ"  # 20 chars, no spaces
     chunks = _split_text(text, 10, 4)
     assert len(chunks) >= 2
-    # Consecutive chunks share their boundary region (overlap), so the tail of
-    # chunk N reappears at the head of chunk N+1.
+    # Consecutive chunks share their boundary region.
     assert chunks[1][:1] in chunks[0]
 
 
 def test_split_never_starts_a_chunk_mid_word():
-    """Das Ende eines Chunks wurde auf eine Wortgrenze gezogen, der Anfang des
-    naechsten nicht: ``next_start`` war eine rohe Zeichenposition. Damit begann fast
-    jeder Chunk mitten im Wort, aus "Richtlinie" wurde "ichtlinie". Gemessen an den
-    Gesetzen: bei 36,9 Prozent der geprueften Chunks kam das erste Wort im ganzen
-    Bestand kein zweites Mal vor, war also ein Bruchstueck. Ein solches Wort ist in
-    diesem Chunk nicht auffindbar."""
+    """The start of a chunk has to sit on a word boundary too."""
     text = "alpha beta gamma delta epsilon zeta eta theta iota kappa lambda my"
     chunks = _split_text(text, 20, 8)
     assert len(chunks) > 1
@@ -158,8 +141,7 @@ def test_split_never_starts_a_chunk_mid_word():
 
 
 def test_split_snapping_keeps_every_character():
-    # Zurueckziehen auf die Wortgrenze verlaengert die Ueberlappung, es darf dabei
-    # nichts verloren gehen.
+    # Pulling back lengthens the overlap, it must lose nothing.
     text = " ".join(f"wort{i:03d}" for i in range(40))
     chunks = _split_text(text, 50, 15)
     for w in text.split():
@@ -167,8 +149,7 @@ def test_split_snapping_keeps_every_character():
 
 
 def test_split_terminates_on_pathological_overlap():
-    # overlap >= chunk_size would make next_start regress; the guard must break
-    # instead of looping forever.
+    # An oversized overlap has to abort instead of looping forever.
     chunks = _split_text("a" * 50, 10, 10)
     assert isinstance(chunks, list)
     assert len(chunks) >= 1
@@ -196,8 +177,7 @@ def test_merge_single_chunk_untouched_even_if_tiny():
 
 
 def test_split_text_folds_tiny_trailing_scrap():
-    # 205 chars, chunk_size 100, no overlap -> 100/100/5; threshold = 100//10 = 10,
-    # so the 5-char scrap is folded into its neighbour, not left as its own chunk.
+    # A remainder of 5 characters is folded in instead of becoming its own chunk.
     out = _split_text("a" * 205, 100, 0)
     assert len(out) == 2
     assert not any(len(c) < 10 for c in out)
@@ -303,6 +283,5 @@ def test_extract_text_long_file_paginates(tmp_path):
 
 
 def test_pdf_no_readable_text_error_is_a_value_error():
-    # The Celery task catches ValueError; PdfNoReadableTextError must stay in
-    # that hierarchy so the existing handler keeps working.
+    # The error has to stay a ValueError, otherwise the handling does not catch it.
     assert issubclass(PdfNoReadableTextError, ValueError)

@@ -25,13 +25,7 @@ from src.services.aia_transcript_offsets import TranscriptIndex
 
 
 def _spannen_ende(raw: str, has_year: bool, start_iso: str | None) -> dict | None:
-    """Das zweite Datum einer Spanne als Ende, oder None wenn es sich nicht lesen laesst.
-
-    Ohne eigene Jahreszahl erbt es das Jahr des Anfangs: "28.09.2026 bis 02.11." meint
-    dasselbe Jahr. Faellt es damit vor den Anfang, ist der Jahreswechsel gemeint
-    ("28.12.2026 bis 02.01."). Fehlt auch dem Anfang das Jahr, bleibt es beim
-    Tag-Monat-Paar, beide legt der Auftrag spaeter gemeinsam auf das laufende Jahr.
-    """
+    """The second date of a span as the end, or None when it cannot be read."""
     if has_year:
         iso = _normalize_date(raw)
         return {"iso": iso, "partial": None} if iso else None
@@ -59,25 +53,7 @@ def _load_source_chunks(source_id: int) -> list[dict]:
 
 
 def _model_finds_by_chunk(chunks: list[dict], client, model):
-    """Was das Modell in den Chunks findet: offene Termine und ausgeschriebene Daten.
-
-    Rueckgabe: (offene_stellen, daten_je_chunk).
-      offene_stellen: {Chunk-Nummer: (start, ende, Wortlaut)}, hoechstens eine je Chunk.
-      daten_je_chunk: {Chunk-Nummer: [{span, date_iso, partial_date, date_precision}]}.
-
-    Bei den offenen Terminen kommt zuerst die Phrasenliste aus _regex zum Zug. Sie kostet
-    nichts und deckt Deutsch und Englisch ab, ihr Treffer schlaegt den des Modells. Die
-    Daten dagegen braucht jeder Chunk, deshalb gehen hier ALLE Chunks in die Anfrage und
-    nicht nur die ohne Phrasentreffer. Ohne Modell (client=None) bleibt beides beim
-    Regex-Weg.
-
-    Als Fundstelle zaehlt immer der Text aus dem Chunk, nie die Antwort des Modells. Was
-    sich im Chunk nicht wiederfindet, faellt raus.
-
-    Eine offene Stelle, deren Zeile ihr Datum in der Nachbarspalte traegt, zaehlt nicht.
-    Ein verworfener Treffer blockiert den Chunk nicht, dieselbe Tabelle kann eine Zeile
-    weiter einen echten offenen Termin haben.
-    """
+    """What the model finds: open appointments and spelled-out dates."""
     spans: dict[int, tuple[int, int, str]] = {}
     daten: dict[int, list[dict]] = {}
     blocks: list[tuple[int, str]] = []
@@ -128,11 +104,7 @@ def _model_finds_by_chunk(chunks: list[dict], client, model):
 
 
 def _transcript_index(src: dict, chunks: list[dict]) -> TranscriptIndex | None:
-    """Die Zeitachse der Quelle, einmal je Quelle geladen.
-
-    Nur fuer Medien: hat kein Chunk eine Startzeit, ist es ein PDF und die Ablage
-    wird gar nicht angefasst. Ein fehlendes Transkript-Artefakt ist kein Fehler,
-    dann bleibt es beim Chunk-Anfang wie bisher."""
+    """The source's timeline, loaded once per source, media only."""
     if not any(c.get("start_time") is not None for c in chunks):
         return None
     segmente = _load_transcript_segments(src)
@@ -145,11 +117,7 @@ def _transcript_index(src: dict, chunks: list[dict]) -> TranscriptIndex | None:
 
 def _fundstelle_zeit(index: TranscriptIndex | None, chunk: dict,
                      offset: int) -> float | None:
-    """Zeitmarke fuer eine Stelle im Chunk-Text.
-
-    Ein Chunk umfasst ueber eine Minute gesprochene Zeit, der Chunk-Anfang zeigt
-    also im schlimmsten Fall weit vor den Termin. Laesst sich die Stelle nicht
-    zuordnen, bleibt der Chunk-Anfang als bekannter Rahmen."""
+    """Timestamp for a spot in the chunk text, otherwise the chunk start."""
     st = chunk.get("start_time")
     if st is None or index is None:
         return st
@@ -158,14 +126,7 @@ def _fundstelle_zeit(index: TranscriptIndex | None, chunk: dict,
 
 
 def _build_candidates_for_source(src: dict, client=None, model=None) -> list[dict]:
-    """Find all date candidates in a source. Year-full matches produce date_iso;
-    year-less matches produce partial_date=(month, day), resolved to current year.
-    'To-be-arranged'-style phrases produce is_tbd=True with no date.
-
-    date_precision sagt, wie genau das Datum im Dokument steht: "day" ist der Normalfall,
-    "month" heisst, dass dort nur ein Monat genannt war ("im Juli 2026"). Dann traegt
-    date_iso den Monatsersten als Sortierpunkt und die Ansicht zeigt keine Tagesnummer.
-    """
+    """Finds all date candidates of a source, with precision and open appointments."""
     candidates: list[dict] = []
     chunks = _load_source_chunks(src["id"])
     tbd_spans, modell_daten = _model_finds_by_chunk(chunks, client, model)
@@ -177,12 +138,10 @@ def _build_candidates_for_source(src: dict, client=None, model=None) -> list[dic
         page = c.get("page_number")
 
         def st_bei(offset: int, _c=c) -> float | None:
-            """Die Zeitmarke der Fundstelle, nicht die des ganzen Chunks."""
+            """The timestamp of the hit, not that of the whole chunk."""
             return _fundstelle_zeit(zeitachse, _c, offset)
 
-        # German shorthand "DD.MM.YYYY/YYYY/..." -> one candidate per year.
-        # Tracked so the standard scanner below skips matches inside these spans.
-        # Hard cap to keep adversarial input from generating a flood of candidates.
+        # A short form with several years yields one candidate per year, with a hard cap.
         _MAX_SHORTHAND_YEARS = 20
         shorthand_spans: list[tuple[int, int]] = []
         for m in _MULTI_YEAR_SHORTHAND.finditer(content):
@@ -216,12 +175,10 @@ def _build_candidates_for_source(src: dict, client=None, model=None) -> list[dic
                     "source_filename": src.get("filename") or "",
                 })
 
-        # Date-based candidates. Die Spannen werden mitgeschrieben, damit ein Fund des
-        # Modells an derselben Stelle nicht ein zweites Mal denselben Termin erzeugt.
+        # The hits are recorded so the model does not duplicate them.
         date_spans: list[tuple[int, int]] = list(shorthand_spans)
         gefundene_daten = _date_candidates_in_text(content)
-        # Wurde ein Datum schon als ENDE einer Spanne verbraucht, ist es kein eigener
-        # Termin mehr. Genau hier entstanden bisher die Dubletten.
+        # A date used up as a span end is no appointment of its own any more.
         als_ende_verbraucht: set[int] = set()
         for di, (s, e, raw_date, has_year, precision) in enumerate(gefundene_daten):
             if any(cs <= s < ce for cs, ce in shorthand_spans):
@@ -247,10 +204,7 @@ def _build_candidates_for_source(src: dict, client=None, model=None) -> list[dic
                     continue
                 date_iso = None
 
-            # Steht direkt dahinter ein zweites Datum, ist das meist das Ende einer
-            # Zeitspanne. Der Kandidat traegt es mit, bestaetigen muss es die
-            # Klassifikation. Ein Monat ohne Tag taugt nicht als Ende, dort waere
-            # unklar, ob der Erste oder der Letzte gemeint ist.
+            # A second date right behind is usually a span end, a month will not do.
             ende_iso = ende_raw = None
             ende_partial = None
             e_bis = e
@@ -268,15 +222,11 @@ def _build_candidates_for_source(src: dict, client=None, model=None) -> list[dic
                         date_spans.append((s2, e2))
                         e_bis = e2
 
-            # +/-450 chars so table headers with time (e.g. "17:30") at the top of a
-            # schedule listing are visible to the classifier for every row below.
+            # Generous context so the classification also sees the table header row.
             ctx_start = max(0, s - 450)
             ctx_end = min(len(content), e_bis + 450)
             ctx = content[ctx_start:ctx_end].replace("\n", " ").strip()
-            # Short snippet for the frontend highlight search. Start AT the date
-            # (no chars before) so the PDF-viewer match lands on the date and
-            # doesn't bleed into the preceding bullet. Stop at the next newline
-            # to catch exactly one bullet/line; cap at 200 chars for safety.
+            # Short excerpt from the date to the end of the line, for the browser search.
             nl_pos = content.find("\n", e_bis)
             hl_end = min(len(content), s + 200)
             if nl_pos != -1 and nl_pos < hl_end:
@@ -299,12 +249,7 @@ def _build_candidates_for_source(src: dict, client=None, model=None) -> list[dic
                 "source_filename": src.get("filename") or "",
             })
 
-        # Ausgeschriebene Daten aus dem Modell ("3 Temmuz 2026", "im Juli 2026"). Der
-        # Regex kennt nur Zahlformate und deutsche/englische Monatsnamen, deshalb kommt
-        # hier alles dazu, was er nicht lesen konnte. Was er gelesen hat, steht schon
-        # oben, deshalb faellt jede Stelle raus, die sich mit einem Regex-Fund ueberlappt.
-        # Auch hier gilt die Spannen-Regel: "3 Temmuz 2026 kadar 17 Temmuz 2026" ist EIN
-        # Termin. Sonst haetten nur deutsche und englische Quellen Zeitspannen.
+        # Spelled-out dates from the model, overlapping regex hits are dropped.
         modell_treffer = sorted(modell_daten.get(chunk_idx) or [], key=lambda t: t["span"])
         modell_als_ende: set[int] = set()
         for mi, treffer in enumerate(modell_treffer):
@@ -361,10 +306,7 @@ def _build_candidates_for_source(src: dict, client=None, model=None) -> list[dic
                 "source_filename": src.get("filename") or "",
             })
 
-        # TBD candidates ("nach Vereinbarung" etc.): no date, but a real event
-        # whose scheduling is still open. One TBD candidate per chunk, even if the
-        # chunk names several. Found by phrase list or, in any other language, by
-        # the model (_model_finds_by_chunk).
+        # Open appointments without a date, at most one per chunk.
         span = tbd_spans.get(chunk_idx)
         if span:
             s, e, phrase = span

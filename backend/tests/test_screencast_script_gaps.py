@@ -1,16 +1,4 @@
-"""Keine stumme Folie, wenn die Folie Text hat.
-
-Beobachtet an einem echten Durchlauf: Folie 18 von 34 hatte 136 Zeichen
-Folientext, bekam aber kein Skript. Grund war die Regel gegen Wiederholung,
-zusammen mit einer Folie, die der vorherigen stark ähnelte. Das Modell hielt
-sich für fertig und schrieb nichts.
-
-Im fertigen Video steht so eine Folie stumm da. Aufgefallen ist es erst beim
-Durchsehen, also nach Vertonung und Videobau.
-
-Der zweite Fall aus demselben Durchlauf: das Modell schrieb wörtlich "(Empty)".
-Das ist kein leerer Text, wurde also vertont. Im Video sagt die Stimme "Empty".
-"""
+"""No silent slide and no placeholder read aloud."""
 
 import pytest
 
@@ -75,7 +63,7 @@ LONG = "This slide introduces the study series and its main findings."
 
 
 def test_slide_with_text_never_stays_silent():
-    """Folie 2 hat Inhalt, kommt aber leer zurück. Sie wird einzeln nachgeholt."""
+    """Slide 2 has content but comes back empty, it is redone individually."""
     client = ScriptClient([
         f"{LONG}\n|||\n\n|||\n{LONG}",   # mittlere Folie leer
         "Now we look at who the affected children turn to.",  # Nachschlag
@@ -89,7 +77,7 @@ def test_slide_with_text_never_stays_silent():
 
 
 def test_placeholder_is_treated_as_missing():
-    """"(Empty)" ist kein Skript. Es würde sonst vorgelesen."""
+    """'(Empty)' is not a script, it would otherwise be read aloud."""
     client = ScriptClient([
         f"{LONG}\n|||\n(Empty)\n|||\n{LONG}",
         "The chart shows the contact persons children choose.",
@@ -102,7 +90,7 @@ def test_placeholder_is_treated_as_missing():
 
 
 def test_placeholder_never_reaches_the_video_even_if_retry_fails():
-    """Auch der zweite Versuch bringt nur einen Platzhalter, dann lieber stumm."""
+    """If the second attempt also returns only a placeholder, better stay silent."""
     client = ScriptClient([
         f"{LONG}\n|||\n(Empty)\n|||\n{LONG}",
         "(empty)",
@@ -114,7 +102,7 @@ def test_placeholder_never_reaches_the_video_even_if_retry_fails():
 
 
 def test_truly_empty_slide_costs_no_extra_call():
-    """Eine Folie ohne Text darf leer bleiben, ohne Nachfrage beim Modell."""
+    """A slide without text may stay empty, without asking the model."""
     client = ScriptClient([f"{LONG}\n|||\n\n|||\n{LONG}"])
     scripts = client.generate_scripts_batch(
         ["eins", "", "drei"], add_greeting=False, add_closing=False
@@ -134,8 +122,7 @@ def test_full_batch_is_untouched():
 
 @pytest.mark.parametrize("value", ["", "   ", "(Empty)", "[empty]", "-", "n/a", "(leer)", "..."])
 def test_blank_detection_catches_placeholders_in_any_language(value):
-    """Erkennung über die Länge, nicht über eine Wortliste. Sonst gilt es nur
-    für Deutsch und Englisch, KIS läuft aber mit beliebigen Zielsprachen."""
+    """Detection by length, not by a word list."""
     assert is_blank_script(value)
 
 
@@ -149,7 +136,7 @@ def test_real_sentences_are_not_blank(value):
 
 
 def test_prompt_demands_a_script_for_every_slide_with_content():
-    """Die Regel gegen Wiederholung darf nicht als Freibrief zum Schweigen gelten."""
+    """The rule against repetition must not become a licence to stay silent."""
     from src.services.openai_compat_llm._scripts import build_length_and_format_rules
 
     rules = build_length_and_format_rules(3, "EN-US", "", "", 1500, 2000)

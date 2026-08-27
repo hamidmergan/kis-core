@@ -3,11 +3,7 @@
 
 def title_from_items(client, model, items_list: list[dict], fallback: str,
                      avoid: list[str] | None = None) -> str:
-    """Titel aus den Vorderseiten der Karten. Die Arbeit macht ``tasks._titles``.
-
-    Bleibt als eigener Name stehen, weil die Generatoren die Karten-Form kennen
-    und das geteilte Modul absichtlich nur Textzeilen sieht.
-    """
+    """Title from the fronts of the cards, tasks._titles does the work."""
     from src.features.ai_assistant.tasks._titles import title_from_entries
 
     if not items_list:
@@ -36,8 +32,7 @@ def title_from_glossary_terms(client, model, terms: list[str]) -> str:
                 {"role": "user", "content": fallback},
             ],
             temperature=0.3,
-            # Ein Titel ist kurz, aber ein denkendes Modell braucht davor Platz,
-            # sonst kommt der Inhalt leer zurueck. Nur eine Obergrenze.
+            # A thinking model needs room before the title, otherwise it comes back empty.
             max_tokens=model_limits.PRECALL_MAX_TOKENS,
         )
         title = (resp.choices[0].message.content or "").strip().strip('"\'')

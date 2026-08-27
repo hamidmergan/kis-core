@@ -105,11 +105,7 @@ def _latex_find_environment_end(text: str, start_idx: int, env_name: str):
     return pos + len(end_tag)
 
 
-# ── Batch-aware parser ────────────────────────────────────────────────────────
-# Instead of translating immediately, we collect (index, chunk) pairs into
-# `translate_slots` and emit a placeholder "__TX_n__" into `out`.
-# After parsing, all chunks are translated in one batch call and placeholders
-# are replaced with the results.
+# Collects the pieces with placeholders and translates them in one batch.
 
 _SLOT_RE = re.compile(r"__TX_(\d+)__")
 

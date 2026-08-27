@@ -13,7 +13,7 @@ from src.permissions_registry import PERM_SET_USERS_ALL
 
 router = APIRouter(tags=["admin: quota"])
 
-# Kontingente sind ein Absprung aus Alle Nutzer und teilen deren Recht.
+# Quotas are a jump-off from all users and share its right.
 _require = require_permission(PERM_SET_USERS_ALL)
 
 

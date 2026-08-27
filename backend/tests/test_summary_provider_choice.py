@@ -1,9 +1,4 @@
-"""Summary tool provider choice (runs on the chat LLM).
-
-The summary task resolves an explicit user pick through the capability-based
-service for the ``chat`` feature, and falls back to the admin default chat
-route when none is picked.
-"""
+"""The summary runs on the chat model, with a provider choice."""
 
 
 def test_get_llm_client_explicit_uses_service(monkeypatch):

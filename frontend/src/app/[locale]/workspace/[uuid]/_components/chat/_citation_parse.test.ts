@@ -92,9 +92,7 @@ describe("sanitizeCitationsForMarkdown", () => {
   });
 
   it("tucks a chip trailing a table header/row back into the last cell so gfm keeps the table", () => {
-    // The model appends the citation AFTER the final pipe of each row — incl. the
-    // header. That phantom column makes the header's cell count differ from the
-    // delimiter row, so gfm refuses to parse the table at all (renders raw pipes).
+    // A chip behind the last pipe breaks the table.
     const raw = [
       "| Thema | Inhalt | Quelle | [Q1:abc123def456, S. 19]",
       "|-------|--------|--------|",

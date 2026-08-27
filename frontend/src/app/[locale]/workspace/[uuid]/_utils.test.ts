@@ -163,9 +163,7 @@ describe("_chunkLabel", () => {
     expect(_chunkLabel("v.mp4", 3, null, tChip)).toBe("Part 3");
   });
   it("names media with neither a time nor a part by its file alone", () => {
-    // Grammatik-Sätze werden erfunden, deshalb lässt sich für Ton und Video oft
-    // keine Stelle belegen. Dann sagt der Chip nur, aus welcher Datei der Stoff
-    // stammt, statt eine falsche Minute anzubieten.
+    // Invented grammar sentences often have no spot, then the chip names only the file.
     expect(_chunkLabel("v.mp4", null, null)).toBe("");
   });
 });
@@ -209,10 +207,7 @@ describe("parseQuiz", () => {
     expect(parseQuiz(text)).toHaveLength(2);
   });
 
-  // Regression guard for a former bug: the option-cleaning regex used to be a
-  // CHARACTER CLASS (/[✓(richtig)]/g) that stripped every individual letter
-  // r/i/c/h/t/g from option text. It must only remove the literal "✓" and
-  // "(richtig)" markers, leaving the words intact.
+  // Guard against the old bug that stripped single letters out of the answers.
   it("strips only the markers, never letters from the option words", () => {
     const out = parseQuiz("1. Q?\nA. Right ✓\nB. Other (richtig)");
     expect(out[0].options).toEqual(["Right", "Other"]);
@@ -245,22 +240,20 @@ describe("_guardMathDollars", () => {
   });
 
   it("escapes a numeric currency range instead of reading it as a formula", () => {
-    // "5$-10$" → inner "-10" is digits/punctuation only → currency, must be escaped
-    // (the old heuristic treated the short space-free "-10" as math).
+    // Only digits and punctuation in between means money and is protected.
     expect(_guardMathDollars("Kosten 5$-10$ pro Stunde."))
       .toBe("Kosten 5\\$-10\\$ pro Stunde.");
   });
 
   it("keeps a pure-number calculation as math, so no dollar leaks into the text", () => {
-    // "$11 + 13$" hat keinen Buchstaben, ist aber eine Rechnung und kein Preis.
+    // It has no letter but is a calculation and not a price.
     expect(_guardMathDollars("also 24 ($11 + 13$).")).toBe("also 24 ($11 + 13$).");
     expect(_guardMathDollars("Paare $(11, 10)$ und $(24, 10)$."))
       .toBe("Paare $(11, 10)$ und $(24, 10)$.");
   });
 
   it("keeps spaced formulas as math (relation/operator with a variable)", () => {
-    // These have no ^_{} and contain spaces, but "=", "+", "-" alongside a letter
-    // make them formulas — the old length/space rule wrongly escaped them.
+    // With a letter and an operator it is a formula, despite the spaces.
     expect(_guardMathDollars("Sei $x = 5$ gegeben.")).toBe("Sei $x = 5$ gegeben.");
     expect(_guardMathDollars("Dann $a - b$ und $a + b$.")).toBe("Dann $a - b$ und $a + b$.");
   });
@@ -341,7 +334,7 @@ describe("splitFilename", () => {
   });
 
   it("behandelt einen fuehrenden Punkt als Namensteil", () => {
-    // ".gitignore" ist der Name, nicht eine Endung ohne Namen.
+    // '.gitignore' is the name, not an extension without a name.
     expect(splitFilename(".gitignore")).toEqual([".gitignore", ""]);
   });
 });

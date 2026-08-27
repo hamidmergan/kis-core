@@ -1,17 +1,4 @@
-"""Wortschatz-Lückentext aus Quelltext (tool='wortschatz').
-
-Ein Set ist genau EINE Aufgabe: ein zusammenhängender Text mit Platzhaltern, die
-Lösungen und Grundformen hängen in ``extras.gaps`` daran. Der Text entsteht aus
-dem Inhalt der Quellen und nicht aus der Luft, damit das Geübte zu dem passt, was
-im Kurs gelesen wird.
-
-Die Wörter kommen entweder aus den Quellen oder aus einem Lernkarten-Set. Im
-zweiten Fall steht die Kartenliste im Auftrag, und ``clean_gaps`` wirft alles
-weg, was nicht darauf steht.
-
-Es gibt so viele Chips wie Lücken. Ablenker wurden ausdrücklich verworfen: wer
-aus einem Lernkarten-Set übt, will genau diese Karten üben.
-"""
+"""Vocabulary cloze from source text, one text is exactly one exercise."""
 
 import json
 import re
@@ -31,9 +18,7 @@ from src.services.llm_context_healing import create_with_shrink
 
 _PLACEHOLDER_RE = re.compile(r"\{\{(\d+)\}\}")
 
-# Unter diesem Anteil brauchbarer Lücken gilt der Durchlauf als misslungen. Lieber
-# ein fehlgeschlagenes Set als ein Text, in dem die Hälfte der Lücken schon
-# ausgefüllt dasteht. Derselbe Massstab wie in _source_grammar.py.
+# Below this share of usable gaps the run counts as failed.
 _MIN_USABLE_RATIO = 0.5
 
 _SHAPE = (
@@ -55,13 +40,7 @@ _RULES = (
     "unrelated sentences. It must read as if it came from the material.\n"
     "- Number the placeholders {{1}}, {{2}} and so on, without gaps, in the order "
     "they appear. The gaps array is in the same order.\n"
-    # Gemessen an Satz 7043 (BewG85.pdf): das Modell schrieb die Grundform in Klammern
-    # direkt hinter jeden Platzhalter, bei 10 von 10 Luecken, und loeste die Aufgabe damit
-    # selbst. Die Beispiel-Konvention ("gapped"/"solved") war ins Passagen-Feld gewandert,
-    # obwohl die alte Regel schon "never write a solution somewhere else" verlangte -- aus
-    # Modellsicht ist eine Klammer ein Hinweis, keine zweite Nennung. Diese Regel benennt
-    # die Klammer ausdruecklich, und _strip_answer_hints raeumt weiter unten auf, was
-    # trotzdem durchrutscht.
+    # The rule names the bracket explicitly, _strip_answer_hints clears the rest.
     "- At each gap, the passage contains ONLY the placeholder, nothing beside it: no "
     "parenthesis, no bracket, no hint, no base form, no translation, no synonym next to "
     "its own gap. The chips shown below the text are the ONLY place a base form appears.\n"
@@ -74,23 +53,7 @@ _RULES = (
 
 
 def _min_inflected(count: int) -> int:
-    """Wie viele der bestellten Lücken mindestens eine geänderte Form brauchen.
-
-    Rund ein Drittel, mindestens eine, nie alle. Die Zahl allein STEUERT das Modell
-    nicht zuverlässig, sie sagt nur, wie viele Lücken es TREFFEN soll -- gemessen an
-    Satz 7044 (BRAO91.pdf): 0 von 10 Lücken änderten die Form, obwohl der Prompt schon
-    "At least 3 of the 10 gaps" verlangte (vorher, nur mit der Absicht "mix the forms"
-    und ohne Zahl, war es bei Satz 7043 1 von 10 -- die Zahl allein machte es also nicht
-    besser). Der Grund: ob sich eine Form überhaupt ändert, entscheiden WORTART und
-    SATZSTELLE, die das Modell selbst wählt, nicht diese Zahl. Acht von zehn Lücken in
-    Satz 7044 waren Nomen im Nominativ/Akkusativ von Femininum/Neutrum (dort ändert
-    sich im Deutschen sichtbar nichts), die beiden Verben standen direkt nach einem
-    Modalverb (dort ist der Infinitiv schon die Grundform) -- das Modell konnte die
-    Zahl nur durch Zufall erfüllen, weil es beim Bau des Satzes zufällig Stellen traf,
-    die gar keine Änderung verlangen. Die Zahl bleibt (dieser Wert), wirkt aber erst
-    zusammen mit :func:`_mix_rule`, die dem Modell jetzt sagt, WELCHE Wortart und
-    WELCHE Satzstelle eine Änderung überhaupt erzwingt.
-    """
+    """How many gaps must need a changed form at minimum."""
     bestellt = max(1, count)
     if bestellt == 1:
         return 1
@@ -99,19 +62,7 @@ def _min_inflected(count: int) -> int:
 
 
 def _mix_rule(count: int) -> str:
-    """Prompt-Zeilen für die Formen-Mischung: die Zahl UND die Satzstelle, die sie
-    überhaupt erst erzwingt.
-
-    Die Zahl allein reicht nicht (siehe :func:`_min_inflected`): ein Nomen im
-    Nominativ/Akkusativ von Femininum/Neutrum oder ein Verb direkt nach einem
-    Modalverb erfüllt die Zahl nie, egal wie oft man sie verlangt, weil sich an
-    solchen Stellen im Deutschen nichts sichtbar ändert. Die Regeln unten nennen
-    deshalb WELCHE Wortart und WELCHE Position eine Änderung erzwingt, in
-    grammatischen Kategorien statt an deutschen Beispielen, damit der Prompt auch
-    für die anderen Ausgabesprachen trägt. Ausserdem: 8 von 10 Lücken in Satz 7044
-    waren Nomen, eine einzige Wortart lässt sich zu leicht auf eine Stelle ohne
-    sichtbaren Unterschied schieben, deshalb die Mischungs-Regel am Ende.
-    """
+    """Prompt lines for the form mix, a number plus a position that forces it."""
     bestellt = max(1, count)
     n = _min_inflected(bestellt)
     zeile = (
@@ -128,10 +79,7 @@ def _mix_rule(count: int) -> str:
         "form is singular; a noun in a grammatical case that visibly changes its "
         "written form.\n"
     )
-    # Bei genau einer Luecke widerspricht "nicht alle dieselbe Wortart" der Zeile
-    # darueber ("At least 1 of the 1 gaps"): mit einer einzigen Luecke gibt es keine
-    # Mischung, die Vorgabe waere unerfuellbar. Erreichbar, wenn ein Lernkarten-Set
-    # nur ein einziges brauchbares Wort beisteuert (siehe run_cloze_set).
+    # With exactly one gap there is no mix, the requirement is dropped.
     if bestellt > 1:
         zeile += (
             "- The gaps must not all be the same part of speech. Mix nouns, verbs, and "
@@ -144,31 +92,16 @@ def _mix_rule(count: int) -> str:
 
 
 def placeholders(text: str) -> list[int]:
-    """Die Platzhalter-Nummern in der Reihenfolge, in der sie im Text stehen."""
+    """The placeholder numbers in the order they appear in the text."""
     return [int(m.group(1)) for m in _PLACEHOLDER_RE.finditer(text or "")]
 
 
-# Eine Klammer direkt hinter einem Platzhalter, mit wenig Inhalt. Die Längengrenze
-# haelt die Suche schnell und verhindert, dass eine ganz andere Klammer weiter hinten
-# im Satz aus Versehen mitgenommen wird.
+# A short bracket directly after a placeholder.
 _GAP_HINT_RE = re.compile(r"(\{\{(\d+)\}\})[ \t]*\(([^)]{1,80})\)")
 
 
 def _strip_answer_hints(text: str, gaps: list) -> str:
-    """Entfernt eine Klammer direkt nach einem Platzhalter, wenn ihr Inhalt die
-    Grundform oder die Lösung genau dieser Lücke ist.
-
-    Gemessen an Satz 7043 (BewG85.pdf, 10 von 10 Lücken betroffen): das Modell übernahm
-    die Klammer-Konvention aus dem Beispielfeld in den FLIESSTEXT, "{{1}} (gemeiner
-    Wert)" verriet die Lösung direkt neben ihrer eigenen Lücke, die Chips darunter
-    wurden überflüssig. Die Prompt-Regel allein reicht nicht zuverlässig, deshalb räumt
-    der Code auf, was das Modell trotzdem schreibt.
-
-    Läuft VOR der Platzhalter-Buchführung in :func:`clean_gaps`, damit die Nummerierung
-    den bereinigten Text sieht und nicht die Klammer mitzählt. Eine Klammer, deren
-    Inhalt zu keiner der beiden Fassungen passt, ist gewöhnliche Prosa und bleibt stehen,
-    zum Beispiel ein Verweis wie "(siehe Anlage 3)".
-    """
+    """Removes a bracket after a placeholder when it gives the solution away."""
     if not text or not gaps:
         return text
 
@@ -190,14 +123,7 @@ def _strip_answer_hints(text: str, gaps: list) -> str:
 
 
 def _is_usable(gap, words: list[str] | None, gesehen: set[str]) -> bool:
-    """Ob diese Lücke stehen bleiben darf.
-
-    Eine Lücke ohne Lösung ist unlösbar, eine doppelte Grundform stünde zweimal
-    als Chip unter dem Text, und bei Lernkarten gehört alles weg, was nicht auf
-    einer Karte steht. Kein Dict ist ebenfalls unbrauchbar, nicht abstürzend: das
-    Modell schreibt ``"gaps"`` gelegentlich als Liste blosser Strings statt als
-    Liste von Objekten, und das ist ein misslungener Durchlauf, kein Programmfehler.
-    """
+    """Whether this gap may stay."""
     if not isinstance(gap, dict):
         return False
     base = (gap.get("base") or "").strip()
@@ -213,20 +139,7 @@ def _is_usable(gap, words: list[str] | None, gesehen: set[str]) -> bool:
 
 
 def clean_gaps(text: str, gaps: list[dict], words: list[str] | None):
-    """Unbrauchbare Lücken füllen, die brauchbaren neu durchnummerieren.
-
-    Eine verworfene Lücke wird im Text durch ihre Lösung ersetzt statt gelöscht.
-    Sonst risse ein Satz auseinander, und der Lernende bekäme einen Text, der
-    mitten im Wort aufhört. Fehlt auch die Lösung, bleibt an der Stelle nichts.
-
-    Eine Lücke zählt nur mit, wenn ihr Platzhalter auch WIRKLICH im Text steht. Sonst
-    schreibt das Modell drei brauchbare Lücken, setzt aber nur zwei Platzhalter, und
-    der dritte Chip haette keine Stelle im Text, an der er geuebt wird -- ein Ablenker,
-    und Ablenker sind zweimal ausdruecklich verworfen worden.
-
-    Gibt (Text, Lücken) zurück. Die Nummern laufen danach wieder lückenlos von 1, und
-    es gibt nie mehr Lücken als Platzhalter im zurückgegebenen Text (und umgekehrt).
-    """
+    """Fills unusable gaps and renumbers the usable ones."""
     text = text or ""
     im_text = set(placeholders(text))
     gesehen: set[str] = set()
@@ -234,8 +147,7 @@ def clean_gaps(text: str, gaps: list[dict], words: list[str] | None):
     ersatz: dict[int, str] = {}
     for i, gap in enumerate(gaps or [], start=1):
         if i not in im_text:
-            # Keine Stelle im Text, an der diese Nummer steht -- weder ein Chip noch
-            # eine Ersetzung ist hier noetig, es gibt schlicht nichts zu tun.
+            # No spot in the text with this number, there is nothing to do.
             continue
         if _is_usable(gap, words, gesehen):
             gesehen.add(normalize(gap["base"]))
@@ -250,7 +162,7 @@ def clean_gaps(text: str, gaps: list[dict], words: list[str] | None):
 
 
 def _solved(text: str, gaps: list[dict]) -> str:
-    """Die Musterlösung: derselbe Text mit eingesetzten Lösungen."""
+    """The model solution: the same text with the answers filled in."""
     return _PLACEHOLDER_RE.sub(
         lambda m: gaps[int(m.group(1)) - 1]["solution"] if 0 < int(m.group(1)) <= len(gaps) else "",
         text,
@@ -287,15 +199,7 @@ def generate_cloze_from_source(
     adaptive_suffix: str = "",
     title_avoidance: str = "",
 ):
-    """Ein Aufruf, ein Text, eine Aufgabe.
-
-    Gibt ``(items, title)`` zurück oder ``None``, wenn nichts Brauchbares herauskam.
-    ``items`` hat genau einen Eintrag.
-
-    Es gibt kein ``coverage`` und keinen Abschnitts-Anteil wie bei den anderen
-    Werkzeugen. Die Aufteilung auf alle Abschnitte zerschnitte den Text, und einer,
-    der aus jedem Kapitel einen Satz nimmt, ist kein zusammenhängender Text mehr.
-    """
+    """One call, one text, one exercise, or None when nothing usable came back."""
     prompt = _build_prompt(count, language, words) + adaptive_suffix + title_avoidance
     messages = [
         {"role": "system", "content": prompt},
@@ -311,17 +215,12 @@ def generate_cloze_from_source(
         return None
     if not isinstance(data, dict):
         return None
-    # Falsche Form ist ein misslungener Durchlauf und kein Absturz: 'text' fehlt oder
-    # ist keine Zeichenkette, oder 'gaps' ist gar keine Liste (z.B. ein einzelnes
-    # Objekt statt einer Aufzaehlung). Ohne diese Pruefung wuerde re.sub weiter unten
-    # bei einem Nicht-String-Text mit TypeError abstuerzen, statt None zu liefern wie
-    # jeder andere schlechte Antwortpfad hier auch.
+    # A wrong shape is a failed run and not a crash.
     if not isinstance(data.get("text"), str) or not isinstance(data.get("gaps"), list):
         logger.warning("KI Tutor: Lückentext-Antwort hatte die falsche Form")
         return None
 
-    # Erst die verratenen Klammern raus, DANN die Platzhalter-Buchführung -- sonst
-    # zaehlte clean_gaps eine Klammer mit, die gleich wieder verschwindet.
+    # Remove the revealing brackets first, then count the placeholders.
     roh_text = _strip_answer_hints(data.get("text"), data.get("gaps"))
     text, gaps = clean_gaps(roh_text, data.get("gaps"), words)
     bestellt = max(1, count)
@@ -330,21 +229,14 @@ def generate_cloze_from_source(
                        len(gaps), bestellt)
         return None
 
-    # Der Titel wird VOR dem Item bestimmt, weil er selbst mit in extras wandert.
-    # Ohne das traegt eine Vorratszeile keinen Titel: ein Satz aus dem Vorrat wird
-    # nie ueber generate_cloze_from_source finalisiert (siehe run_cloze_set), sein
-    # Titel kaeme sonst nur aus der noch nicht fertigen Satz-Zeile, und die traegt an
-    # dieser Stelle immer den Platzhalter "Wird generiert...".
+    # The title is decided before the exercise because it travels into extras.
     title = (data.get("title") or "").strip() or ctx.multi_label
 
     beispiel = data.get("example") or {}
     item = {
         "front": text,
         "back": _solved(text, gaps),
-        # Anweisung, Beispiel und Titel stehen HIER und nicht in den Set-Spalten
-        # instruction/pattern_*/title, die die Grammatik-Übung bzw. die Satz-Zeile
-        # benutzen. Der Vorrat trägt Aufgaben und keine Set-Spalten: ein Text aus dem
-        # Vorrat käme sonst ohne Anweisung und ohne eigenen Titel an.
+        # Instruction, example and title live in extras, the pool carries no set columns.
         "extras": {
             "gaps": gaps,
             "instruction": (data.get("instruction") or "").strip(),
@@ -352,40 +244,19 @@ def generate_cloze_from_source(
                         "solved": (beispiel.get("solved") or "").strip()},
             "title": title,
         },
-        # Mit Unterstrich, weil _attribution.py genau dieses Feld liest (_cited_chip
-        # prüft item.get("_page")). Ohne ihn griffe die erste Stufe der Zuordnung nie,
-        # jeder Lauf zahlte die Suche, obwohl das Modell die Seite schon genannt hat.
+        # With an underscore, because _attribution.py reads exactly this field.
         "_page": data.get("page"),
-        # Bei diesem Werkzeug ist die Luecken-Zahl eine Eigenschaft der ZEILE und nicht
-        # die Zahl der geholten Zeilen (die bleibt bei einem Text immer 1). _kind traegt
-        # sie in den Vorrat (siehe exercise_pool.py), damit eine spaetere Anfrage gezielt
-        # nach einem Text mit GENAU der bestellten Luecken-Zahl fragen kann (run_cloze_set
-        # unten), statt irgendeinen gespeicherten Text zu bekommen, egal wie viele
-        # Luecken er traegt. Wird vor dem Speichern des Satzes wieder entfernt.
+        # _kind carries the gap count into the pool so a request can filter on it.
         "_kind": str(len(gaps)),
     }
-    # Ein Text, ein Satz Quellen-Chips. Der Lückentext ist aus dem Material NEU
-    # geschrieben und findet sich deshalb oft nicht wörtlich wieder, darum die
-    # gestaffelte Zuordnung: erst die Seite, die das Modell selbst genannt hat (kostenlos,
-    # kein Suchaufruf), dann die Suche, dann wenigstens die Datei. attach_chips_cited
-    # entfernt _page nach dem Lesen selbst, hier bleibt nichts mehr aufzuräumen.
+    # Layered attribution, because the cloze is written from scratch.
     attach_chips_cited([item], [item["back"]], ctx)
 
     return [item], title
 
 
 def usable_flashcard_set(ex_set: dict | None, workspace_id: int, user_id: int) -> bool:
-    """Ob dieses Lernkarten-Set die Wörter für einen Lückentext liefern darf.
-
-    Es muss existieren, diesem Kursraum und dieser Person gehören, wirklich ein
-    Lernkarten-Set sein und fertig. Ein fremdes Set wäre ein Blick in die Ablage
-    einer anderen Person, ein unfertiges hätte keine Karten herzugeben.
-
-    Prüft absichtlich NICHT, ob das Set auch wirklich Karten enthält: dafür bräuchte
-    es die Karten selbst und nicht nur die Satz-Zeile, und diese Funktion bleibt eine
-    reine Prüfung ohne Datenbankzugriff. Ein Set ohne Karten fängt die Route separat
-    ab, mit denselben ``items``, die sie ohnehin schon geladen hat.
-    """
+    """Whether this flashcard set may supply the words for a cloze."""
     return bool(
         ex_set
         and ex_set.get("workspace_id") == workspace_id
@@ -397,17 +268,7 @@ def usable_flashcard_set(ex_set: dict | None, workspace_id: int, user_id: int) -
 
 def run_cloze_set(set_id, ex_set, user_id, count, client, model,
                   language, adaptive_suffix, uuids) -> None:
-    """Einen Lückentext-Satz fertigstellen: Vorrat, sonst erzeugen, dann speichern.
-
-    Steht hier und nicht im Verteiler, damit der Verteiler nicht um einen zweiten
-    Ablauf wächst. Er behält eine Verzweigung, den Rest trägt dieses Modul.
-
-    Kein ``locale``-Parameter: die anderen Erzeuger brauchen es fuer feste
-    de/en-Beschriftungen (Richtig/Falsch, Aufgaben-Zeilen), dieser Lückentext hat
-    keine -- Anweisung, Beispiel und Titel schreibt das Modell selbst in `language`,
-    Python haelt dafuer kein eigenes Woerterbuch. Ein ungenutzter Parameter waere
-    hier nur eine zweite Kopie desselben Fehlers, den diese Aenderung gerade behebt.
-    """
+    """Completes a cloze set: pool, otherwise generate, then save."""
     from src import database as db
     from src.features.ai_assistant.tasks.language_training._context import build_source_context
     from src.features.ai_assistant.tasks.language_training._pool import (
@@ -422,8 +283,7 @@ def run_cloze_set(set_id, ex_set, user_id, count, client, model,
         db.fail_exercise_set(set_id)
         return
 
-    # Aus Lernkarten: die Vorderseiten sind die Wortliste. Hat das Set weniger
-    # Karten als bestellt, gibt es eben weniger Lücken.
+    # From flashcards the fronts are the word list.
     words = None
     if mode == "cards":
         karten = db.get_exercise_set_with_items(ex_set.get("flashcard_set_id"))
@@ -433,50 +293,29 @@ def run_cloze_set(set_id, ex_set, user_id, count, client, model,
         words = [i["front"] for i in karten["items"] if (i.get("front") or "").strip()]
         count = min(count, len(words))
         if not words:
-            # Karten mit ausschliesslich leeren Vorderseiten: syntaktisch ein Set mit
-            # Eintraegen, inhaltlich keiner. Sonst liefe ``words=[]`` weiter in den
-            # Erzeuger, wo eine leere Liste etwas anderes bedeutet als kein Auftrag
-            # (siehe Modulkopf) und die Prüfung dort alles verwerfen wuerde.
+            # A set with nothing but empty fronts is not really a set.
             db.fail_exercise_set(set_id)
             return
 
     level = pool_level(adaptive_suffix, user_id)
-    # Eine Vorratszeile ist ein GANZER Text, deshalb genau einer und nicht `count`.
+    # A pool row is a WHOLE text, hence exactly one and not `count`.
     if uses_pool(tool="wortschatz", mode=mode):
-        # Die bestellte Anzahl ist bei diesem Werkzeug eine Eigenschaft der ZEILE und
-        # nicht die Zahl der geholten Zeilen (die bleibt immer 1). Ohne "kinds" gaebe
-        # der Vorrat irgendeinen gespeicherten Text zurueck, egal wie viele Luecken er
-        # traegt -- ein Lernender, der 5 Luecken bestellt, bekaeme still einen
-        # gespeicherten 15-Luecken-Text. kinds filtert auf die Luecken-Zahl, die
-        # generate_cloze_from_source unter _kind einlagert.
+        # kinds filters the pool down to the ordered gap count.
         aus_vorrat = take_from_pool(uuids, "wortschatz", level, user_id, 1,
                                     kinds=[str(count)])
         if aus_vorrat:
             logger.info("KI Tutor: Satz {} nimmt seinen Text aus dem Vorrat", set_id)
-            # Der Titel steht in extras.title (siehe generate_cloze_from_source), denn
-            # ex_set traegt an dieser Stelle immer noch den Platzhalter "Wird
-            # generiert...": diese Zeile wird erst hier zum ersten Mal fertiggestellt.
-            # Eine Vorratszeile von vor dieser Aenderung hat noch keinen Titel in
-            # extras, deshalb der Rueckfall.
+            # The title lives in extras.title, the set row still carries the placeholder here.
             titel = (aus_vorrat[0].get("extras") or {}).get("title") or "Lückentext"
             db.finalize_exercise_set(set_id, titel, aus_vorrat)
             return
 
-    # Kein count= hier: build_source_context traegt die Zahl nur in die
-    # Abschnitts-Kopfzeile als Quote je Abschnitt (siehe per_section_quota in
-    # _context.py). Bei zwei oder mehr Quellen wuerde diese Quote verlangen, "mindestens
-    # Q Eintraege" aus jedem Abschnitt zu nehmen -- ein Begriff, den der Lückentext-Prompt
-    # gar nicht kennt (er kennt Lücken, keine "Eintraege"), und der dem einen
-    # zusammenhaengenden Text widerspricht, den generate_cloze_from_source bauen soll:
-    # verteilt ueber mehrere Abschnitte zerlegte er den Text in ein Patchwork.
-    # generate_cloze_from_source bekommt die bestellte Zahl ohnehin direkt als eigenes
-    # Argument, dafuer braucht es die Kopfzeile nicht.
+    # No count, the section quota would break the continuous text apart.
     ctx = build_source_context(uuids, "wortschatz")
     if ctx is None:
         db.fail_exercise_set(set_id)
         return
-    # Ohne diesen Block bekaeme ein zweites Set aus demselben Dokument leicht denselben
-    # Titel: die anderen Werkzeuge lesen ihn schon, der Lückentext tat es bisher nicht.
+    # Without this a second set from the same document would get the same title.
     title_avoidance = build_title_avoidance_block(ex_set.get("workspace_id"), "wortschatz")
     result = generate_cloze_from_source(
         client, model, ctx, count, words=words, language=language,
@@ -488,14 +327,10 @@ def run_cloze_set(set_id, ex_set, user_id, count, client, model,
     items, title = result
     if uses_pool(tool="wortschatz", mode=mode):
         store_in_pool(items, ctx, "wortschatz", level)
-    # _kind hat seinen Zweck erfuellt, sobald der Vorrat ihn gesehen hat (oder, ausserhalb
-    # des Vorrats, gar nicht gebraucht wurde). Im gespeicherten Satz hat er nichts
-    # verloren, dort traegt die Aufgabe ihre Anweisung schon selbst (dieselbe Regel wie
-    # bei der Grammatik-Uebung, siehe _plan.py).
+    # _kind has served its purpose and has no place in the saved set.
     for item in items:
         item.pop("_kind", None)
-    # Kein header=: Anweisung und Beispiel hängen in extras an der Aufgabe, damit
-    # sie den Vorrat überleben.
+    # No header, instruction and example hang in extras on the exercise.
     db.finalize_exercise_set(set_id, title, items)
 
 

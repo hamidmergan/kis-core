@@ -1,29 +1,10 @@
-"""Bestandsaufnahme: Dateien im Speicher, zu denen es keinen Eintrag mehr gibt.
-
-Das regulaere Aufraeumen geht immer von der Datenbank aus, es fragt welche
-Eintraege abgelaufen sind und loescht deren Dateien. Was keine Zeile mehr hat,
-findet es also nie, und fuer ``users/`` gibt es auch keine Regel im Speicher,
-die nach Zeit aufraeumt. Solche Reste bleiben damit fuer immer liegen.
-
-Entstanden sind sie vor allem so: bis zum Praefix-Loeschen entfernte das
-Loeschen einer Quelle nur die Hauptdatei, Transkript und Untertitel blieben
-liegen. Neu entstehen kann das nicht mehr.
-
-Meldet per Vorgabe nur. ``--delete`` loescht, und auch dann nur die Arten, bei
-denen die Zuordnung eindeutig ist. Alles unter ``unbekannt`` wird nie
-geloescht, dort kann dieses Skript nicht entscheiden.
-
-Im Backend-Container ausfuehren, dort sind die Zugangsdaten gesetzt:
-  docker exec kis-backend python scripts/audit_orphans.py             # nur melden
-  docker exec kis-backend python scripts/audit_orphans.py --full      # alle Pfade
-  docker exec kis-backend python scripts/audit_orphans.py --delete    # wirklich loeschen
-"""
+"""Finds stored files that no longer have a database row."""
 import argparse
 import sys
 import time
 from pathlib import Path
 
-# 'src.*' importierbar machen, egal von wo aufgerufen.
+# Make 'src.*' importable no matter where this is called from.
 _BACKEND_ROOT = Path(__file__).resolve().parent.parent
 if str(_BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(_BACKEND_ROOT))
@@ -31,7 +12,7 @@ if str(_BACKEND_ROOT) not in sys.path:
 from src import storage
 from src.services import storage_audit
 
-# Arten, bei denen die Zuordnung eindeutig ist. Nur die duerfen weg.
+# Kinds with an unambiguous mapping, only those may be deleted.
 _LOESCHBAR = ("job", "workspace", "quelle")
 
 _BESCHREIBUNG = {
@@ -43,7 +24,7 @@ _BESCHREIBUNG = {
 
 
 def _kopf(pfad: str) -> dict:
-    """Groesse und Aenderungszeit einer abgelegten Datei, leer wenn nicht lesbar."""
+    """Size and mtime of a stored file, empty when it cannot be read."""
     try:
         if storage.USE_S3:
             from src.storage import _S3_BUCKET, _s3  # type: ignore[attr-defined]

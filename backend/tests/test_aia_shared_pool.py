@@ -22,8 +22,7 @@ def test_unlimited_dispatches_all_oldest_first():
 
 
 def test_studio_preferred_over_ingest_by_weight():
-    # both areas have demand, 2 free slots, weights studio2/ingest1
-    # studio should take the larger share. With 2 slots: studio then ingest.
+    # Both areas have demand, the heavier one gets the larger share.
     q = [_j("s1", 1, "studio", 1.0), _j("s2", 2, "studio", 2.0), _j("i1", 3, "ingest", 3.0)]
     picks = select_shared_pool(q, running=[], total_slots=2, weights=W)
     assert "s1" in picks  # studio served
@@ -46,17 +45,14 @@ def test_flooder_does_not_block_newcomer():
 
 
 def test_running_area_load_counts():
-    # studio already busy (1 running), ingest idle; 1 free slot, both have demand.
-    # studio is ahead of its weight share, so the free slot should go to ingest.
+    # Whoever is above their share gives the free slot up.
     q = [_j("s", 1, "studio", 1.0), _j("i", 2, "ingest", 2.0)]
     picks = select_shared_pool(q, running=[(9, "studio")], total_slots=2, weights=W)
     assert picks == ["i"]
 
 
 def test_cumulative_user_fairness_interleaves_flooder_and_newcomer():
-    # flooder user 1 has 6 OLD jobs, newcomer user 2 has 3 NEWER jobs. With only
-    # created_at the flooder would win every tie; cumulative user_granted makes
-    # them interleave 1,2,1,2,...
+    # The cumulative count lets heavy users and newcomers alternate.
     ug: dict = {}
     queued = [PoolJob(f"u1-{i}", 1, "studio", float(i)) for i in range(6)] + [
         PoolJob(f"u2-{i}", 2, "studio", 100.0 + i) for i in range(3)

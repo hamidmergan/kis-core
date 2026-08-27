@@ -26,20 +26,11 @@ from src.storage import (
     save_aia_source_from_path,
 )
 
-# Smaller models sometimes emit `[N] S. X` or `[N] MM:SS` (closing the bracket
-# before the position label). Repair to `[N, S. X]` / `[N, MM:SS]` so the chip
-# parser renders them as clickable citations.
+# Repairs citations where the model closes the bracket too early.
 _CITATION_FIX_TIME_RE = re.compile(r"\[(\d+)\]\s+(\d{1,2}:\d{2}(?::\d{2})?)")
 _CITATION_FIX_PAGE_RE = re.compile(r"\[(\d+)\]\s+(S\.\s*\d+(?:[-,–]\s*\d+)*)")
 
-# Lenticular brackets 【】 do not occur in real LATIN prose — only LLMs emit them there.
-# The prompt forbids the model from citing sources at all (chips are attached post-hoc),
-# yet some models (Qwen-family especially) still leak a bare 【source】 / 【Quelle】
-# placeholder. A 【…】 with NO page ("S. 6") or timestamp ("08:58") locator inside is not
-# a real citation: it renders as dead text AND survives the copy-strip. Drop it (with one
-# leading space) before attribution runs. Valid 【1, S. 6】 / 【1, 08:58】 are kept by the
-# negative lookahead. In CJK, though, 【】 ARE genuine punctuation, so a span whose
-# content contains a CJK/Hangul/Kana character is kept as real prose (language-agnostic).
+# Drops empty 【…】 brackets, real citations and CJK text stay.
 _STRAY_LENTICULAR_RE = re.compile(
     r"\s?【(?![^】]*(?:S\.\s*\d|\d{1,2}:\d{2}|[぀-鿿가-퟿]))[^】]*】"
 )
@@ -53,14 +44,7 @@ def _sanitize_citations(text: str) -> str:
     return text
 
 
-# Arrows as a connector between two steps ("Es wird zum Subjekt. → Es steht am
-# Anfang."). The model reaches for them on its own — they are in neither the sources
-# nor the prompt — and they are exactly wrong for a language learner: the arrow hides
-# the verb and leaves the reader to guess it. Prompt rules did not hold, and every
-# wording that did suppress them also weakened the not-in-sources refusal (measured
-# 2026-07-29, three attempts), so this is enforced here instead of asked for there.
-# Observed arrows always follow a finished sentence, so dropping the connector leaves
-# clean prose. Runs per streamed token, hence a plain sub and no state.
+# Arrows between two steps out, they hide the verb.
 _ARROW_CONNECTOR_RE = re.compile(r"[ \t]*(?:→|⟶|➔|➜|-->|->|=>)[ \t]*")
 
 
@@ -100,12 +84,7 @@ def _convert_office_to_pdf(data: bytes, ext: str, locale: str = DEFAULT_LOCALE) 
         return pdf_path.read_bytes()
 
 def _mp4_faststart(data: bytes) -> bytes:
-    """Remux MP4 so the moov atom sits at the file start (progressive playback).
-
-    Without this, browsers must download to near end-of-file before playback
-    starts - painful for multi-hour recordings. ffmpeg -c copy avoids re-encoding.
-    Falls back to the original bytes on any failure.
-    """
+    """Remuxes MP4 so the browser can play right away instead of downloading first."""
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp = Path(tmpdir)
         src = tmp / "input.mp4"
@@ -144,14 +123,10 @@ def _count_pages(ext: str, data: bytes) -> int | None:
     return None
 
 
-# ── Path-based variants (low-RAM upload streaming) ───────────────────────────
-# The byte-based helpers above keep their callers untouched. These operate on
-# files on disk so a large upload never has to sit fully in memory: the request
-# body is streamed to a temp file and only the path is passed around.
+# The same helpers on file paths so a large upload need not go into memory.
 
 def _convert_office_to_pdf_path(src_path: str, ext: str, out_dir: str, locale: str = DEFAULT_LOCALE) -> str:
-    """Convert a .docx/.pptx file on disk to PDF via LibreOffice. Returns the
-    PDF path in ``out_dir``. Raises HTTPException on failure."""
+    """Converts a docx or pptx file to PDF via LibreOffice."""
     result = subprocess.run(
         ["libreoffice", "--headless", "--norestore", "--convert-to", "pdf",
          "--outdir", out_dir, src_path],
@@ -165,8 +140,7 @@ def _convert_office_to_pdf_path(src_path: str, ext: str, out_dir: str, locale: s
 
 
 def _mp4_faststart_path(src_path: str, out_dir: str) -> str:
-    """Remux an MP4 on disk for progressive playback (moov atom up front).
-    Returns the remuxed path, or the original ``src_path`` on any failure."""
+    """Remuxes an MP4 file on disk for immediate playback."""
     dst = Path(out_dir) / "faststart.mp4"
     try:
         result = subprocess.run(
@@ -221,41 +195,26 @@ def _parse_ts(ts: str) -> float:
 
 
 def _norm_for_match(s: str) -> str:
-    """Normalize text for verbatim keyword matching: NFKC, case-fold, unify the
-    various Unicode hyphens (e.g. non-breaking U+2011 in 'Peer‑Review'), collapse
-    whitespace. Makes the keyword-in-chunk check robust to cosmetic differences."""
+    """Prepares text for the verbatim keyword comparison."""
     s = unicodedata.normalize("NFKC", s).casefold()
     for hy in ("‐", "‑", "‒", "–", "—", "−"):
         s = s.replace(hy, "-")
     return re.sub(r"\s+", " ", s).strip()
 
 
-# A table-of-contents / index / list-of-figures entry: a dotted leader run (4+ dots,
-# solid OR spaced — "........ 4" and ". . . . 4" — so a normal 3-dot ellipsis is NOT
-# caught) followed by a page-reference number. Such a line carries the topic keyword
-# verbatim ("Vektorgrafik ........ 4"), so a claim about that topic would wrongly ground
-# to the index page instead of the real content section. A letter or digit between the
-# dots breaks the run, so abbreviations ("z.B.") and decimals ("3.14") are safe.
-# Structure-only -> language-agnostic (KIS is multi-tenant). Limitation: pure whitespace
-# alignment with no dots isn't caught (too ambiguous vs. a sentence ending in a number).
+# Recognises a table-of-contents line by the dot leader before the page number.
 _TOC_LEADER_RE = re.compile(r"(?:\.\s*){4,}\d{1,4}")
 
 
 def _strip_toc_lines(text: str) -> str:
-    """Drop lines that are table-of-contents / index entries (dotted leader + page
-    number). Works per line, so genuine prose on the same chunk is preserved; a chunk
-    that is ENTIRELY such entries collapses to '' and then matches nothing (intended —
-    the index page is never the right citation target)."""
+    """Drops lines that are table-of-contents entries."""
     if not text or "." not in text:
         return text
     return "\n".join(ln for ln in text.split("\n") if not _TOC_LEADER_RE.search(ln))
 
 
 def _is_toc_chunk(content: str, *, min_chars: int = 20, max_kept_ratio: float = 0.4) -> bool:
-    """True if a chunk is (almost) entirely table-of-contents / index entries — so it is
-    NOT a valid citation target. Measured structurally: if stripping the TOC leader lines
-    removes most of the chunk's characters, the chunk WAS a TOC. Prose loses ~nothing.
-    Tiny chunks are never flagged (too little signal)."""
+    """True when a chunk is almost only a table of contents and therefore no evidence target."""
     raw = (content or "").replace(" ", "").replace("\n", "")
     if len(raw) < min_chars:
         return False
@@ -263,27 +222,20 @@ def _is_toc_chunk(content: str, *, min_chars: int = 20, max_kept_ratio: float = 
     return len(kept) <= len(raw) * max_kept_ratio
 
 
-# Repetition-loop safety net. A model can degenerate into emitting the same few
-# lines forever ("fasse detailliert zusammen" on a thin source). We key lines by
-# their PROSE only (citations + bullet/heading markers stripped, normalized), so the
-# same point with a different chip still counts as a repeat. Substantial lines only —
-# short/structural lines (markers, table seps) never trip the guard.
+# Guard against repetition loops, lines are compared by their prose.
 _DEDUP_BRACKET_RE = re.compile(r"[\[【][^\]】]*[\]】]")
 _DEDUP_MIN_KEY_LEN = 16
 
 
 def _line_dedup_key(line: str) -> str:
-    """Normalized prose key for a line: strip citation chips + leading list/heading
-    markers, then NFKC/casefold/whitespace-normalize. Same key == same content line."""
+    """Comparison form of a line: chips and bullets out, then normalise."""
     s = _DEDUP_BRACKET_RE.sub("", line)
     s = re.sub(r"^\s*(?:[-*+]\s+|\d+[.)]\s+|#{1,6}\s+)", "", s)
     return _norm_for_match(s)
 
 
 class _RepetitionGuard:
-    """Detects a model repetition loop in a streamed answer: a substantial line
-    emitted ``max_repeats`` times (consecutive OR alternating). Per-stream state; the
-    caller stops consuming the LLM stream the moment ``is_loop`` returns True."""
+    """Detects a repetition loop of the model across whole lines."""
 
     def __init__(self, max_repeats: int = 4, min_key_len: int = _DEDUP_MIN_KEY_LEN) -> None:
         self._counts: dict = {}
@@ -300,15 +252,7 @@ class _RepetitionGuard:
 
 def _tail_repeats(buf: str, *, min_unit: int = 6, max_unit: int = 160,
                   repeats: int = 5, window: int = 2000) -> bool:
-    """True when the END of ``buf`` is a short unit repeated back-to-back ``repeats``+
-    times — an INTRA-line degeneration loop (a phrase echoed with NO newline).
-
-    The line-based :class:`_RepetitionGuard` never catches this: no line ever completes
-    so it is never asked. Observed in GENERIC over 100+ sources, where the model looped
-    ``"… (BEG, BStrMKnotV), "`` thousands of times into a single 168k-char / ~11-min
-    answer. The stream loop calls this on the GROWING buffer so the runaway is cut early.
-    Only the trailing ``window`` chars are scanned, so it is cheap to call periodically.
-    ``repeats=5`` of a ``>=6``-char unit keeps it well clear of legitimate prose."""
+    """True when the end of the buffer repeats a short unit without a line break."""
     tail = buf[-window:]
     n = len(tail)
     for unit in range(min_unit, max_unit + 1):
@@ -320,22 +264,19 @@ def _tail_repeats(buf: str, *, min_unit: int = 6, max_unit: int = 160,
     return False
 
 
-# Collapse a short unit repeated 3+ times IN A ROW to one occurrence — cleans the
-# residue an intra-line loop leaves in the final answer before the stream guard trips.
+# Folds a short unit repeated three times in a row.
 _COLLAPSE_REPEAT_RE = re.compile(r"(.{6,160}?)(?:\1){3,}", re.DOTALL)
 
 
 def _collapse_repeats(text: str) -> str:
-    """Collapse a unit repeated 3+ times back-to-back to a single copy. Bounded scan;
-    skipped on very large input to avoid pathological backtracking cost."""
+    """Folds a unit repeated three or more times down to one copy."""
     if len(text) > 60000:
         return text
     return _COLLAPSE_REPEAT_RE.sub(lambda m: m.group(1), text)
 
 
 def _dedup_repeated_lines(text: str) -> str:
-    """Drop later duplicates of a substantial line (same :func:`_line_dedup_key`).
-    Cleans up a repetition loop's residue; blank/short/marker lines pass through."""
+    """Drops later duplicates of a content-bearing line."""
     seen: set = set()
     out: list[str] = []
     for line in text.split("\n"):
@@ -354,13 +295,7 @@ _LIST_BULLET_RE = re.compile(r"^\s*(?:[-*+]|\d+[.)])\s+")
 
 
 def _is_pure_source_ref(line: str, names: list[str]) -> bool:
-    """True when a line is JUST a source reference — a known source filename plus a
-    page/timestamp locator, e.g. ``- VL1.webm | 08:58`` or ``01_Intro.pdf | S. 6``.
-    That is the model enumerating sources in prose, which the clickable nav chips
-    already cover. A line with real prose around the filename (an inline mention like
-    "laut 01_Intro.pdf auf Seite 6 …") is NOT flagged — after removing the filename and
-    the locator, substantial words remain. Language-agnostic: keys on a known filename
-    plus a locator, no per-language word list."""
+    """True when a line is only a source name plus a page or time reference."""
     s = _LIST_BULLET_RE.sub("", line.strip())
     if not s:
         return False
@@ -375,11 +310,7 @@ def _is_pure_source_ref(line: str, names: list[str]) -> bool:
 
 
 def _strip_source_list(text: str, source_filenames: list[str]) -> str:
-    """Remove a model-written "sources" enumeration: a run of >=2 pure source-reference
-    lines (:func:`_is_pure_source_ref`) plus a short heading line right above it (one
-    that ends with ':' — "Quellen:", "Sources:", any language). The nav chips already
-    list every source/page, so this textual copy is pure noise. Single inline mentions
-    are untouched (the >=2 run requirement); a lone heading without a list is kept."""
+    """Removes a source list written by the model together with its heading."""
     names: list[str] = []
     for f in source_filenames:
         if not f:
@@ -418,10 +349,7 @@ def _strip_source_list(text: str, source_filenames: list[str]) -> str:
 
 
 def _strip_tiny_tables(text: str) -> str:
-    """Drop a GFM table that has fewer than 2 data rows — a one-row "table" that should
-    have been a sentence (the model duplicating a single fact as BOTH prose and a
-    table). Only stripped when substantial non-table text remains, so a legitimate
-    stand-alone single-row table (the whole answer) is kept rather than silently lost."""
+    """Drops a table with fewer than two data rows when enough text remains."""
     lines = text.split("\n")
     keep = [True] * len(lines)
     n = len(lines)
@@ -443,72 +371,25 @@ def _strip_tiny_tables(text: str) -> str:
     return remaining if len(remaining) >= 15 else text
 
 
-# ── Post-hoc semantic attribution for GENERIC answers ───────────────────────
-# Overview answers are where the model's own page citations go wrong (it grounds on
-# a frequent word, not meaning). Instead we re-ground each answer line with the SAME
-# semantic search that grounds specific questions perfectly: embed the line, search
-# the active sources, attach the closest chunk's citation — but ONLY when it is close
-# enough. A line that isn't clearly supported gets NO chip (no post-rationalization).
-# The distance gate is the make-or-break knob; calibrate at the UI.
+# Overview answers are backed afterwards by search, with a distance threshold.
 _GENERIC_ATTRIB_MAX_DIST = 0.6
-# For an answer that IS grounded (>=1 substantial line lands within the normal gate
-# above), every OTHER substantial line still gets a chip to its closest retrieved chunk
-# up to this looser ceiling — a claim built from the sent chunks must never be left
-# without a "where does this come from" link (navigation beats pinpoint precision).
-# Beyond this the line is an outlier (or the answer is the honest "not in the sources"
-# response, which never grounds <=0.6 and so stays uncited). Tuned above the honest
-# distance band observed against off-topic retrieved chunks.
+# Looser threshold so no line of a backed answer stays without a chip.
 _GUARANTEE_MAX_DIST = 0.85
-# Wie viele Kandidaten die Suche fuer EINE Aussage liefern muss, bevor ausgewaehlt wird.
-#
-# Hier trafen zwei verschiedene Massstaebe aufeinander. Die Suche ordnet nach RRF, also
-# Vektor UND Stichwort gemischt. ``_pick_attribution`` nimmt dann den mit der kleinsten
-# DISTANZ, also rein nach inhaltlicher Naehe. Bei 10 Kandidaten entschied damit faktisch
-# die RRF-Reihenfolge, wen der Auswaehler ueberhaupt zu sehen bekommt.
-#
-# Gemessen am 16.08.2026 im Kurs "Wiss. Seminar": die Folie mit "20 Minuten
-# PPT-Praesentation, 10 Minuten Fragerunde/Diskussion" ist fuer genau diesen Satz der
-# mit Abstand naechste Chunk (Distanz 0,221, der naechste liegt bei 0,334). Im RRF stand
-# sie auf Platz 11, weil ihr der Stichworttreffer fehlte: die Antwort schreibt
-# "PowerPoint-Praesentation" und "Fragerunde", die Folie "PPT-Praesentation" und
-# "Fragerunde/Diskussion", und aus letzterem macht Postgres EIN Wort wie einen Dateipfad.
-# Der Auswaehler haette die Folie genommen, er hat sie nur nie gesehen. Im Chat hiess das:
-# die Folie mit der Information bekam keinen Beleg, zitiert wurden drei Videostellen, die
-# dasselbe umstaendlicher sagen.
-#
-# 40 statt 10, weil die Suche intern ohnehin mit 80 Vektortreffern rechnet: es kostet
-# praktisch nichts und gibt dem Auswaehler die Chance, seinen eigenen Massstab anzuwenden.
+# How many candidates the search must return before picking.
 _ATTRIB_CANDIDATES = 40
 _MAX_CHIPS_PER_LINE = 3
-# Ein weiterer Chip kommt nur mit, wenn sein Abstand praktisch der des besten ist.
+# A further chip only comes along when its distance is practically that of the best.
 _MULTI_CHIP_MAX_DELTA = 0.04
-# Clause coverage: a multi-fact unit is also attributed fact-by-fact, so ONE chip stop may
-# carry up to this many chips total (unit-level chips PLUS one per distinct clause source).
-# In prose a chip stop is a SENTENCE, so this is the per-sentence ceiling. Matches the
-# frontend's per-group cap: one visible chip plus two behind the caret.
+# Ceiling of chips per chip position, matching the display in the browser.
 _COVERAGE_MAX_CHIPS_PER_LINE = 3
-# How many looked-up chunks may jump the queue for one line. Beyond a handful they stop
-# being evidence and start being a second search.
+# How many looked-up chunks may push ahead per line.
 _MAX_LITERAL_CANDIDATES = 4
-# A line whose embedding is within this cosine distance of a canonical no-info SENTINEL is
-# an honest "the answer is not in the sources" refusal, NOT a claim — it must get NO chip,
-# even inside an otherwise-grounded COMPOUND answer (one sub-question answered, another
-# refused). Distance alone cannot separate this from a real-but-vague claim (both sit in the
-# 0.6-0.85 guarantee band), so a refusal is detected by meaning, not by its chunk distance.
-# Language-agnostic: the model writes the refusal in the QUESTION's language and a
-# multilingual embedding places that translation near the German sentinel — no word lists.
-# Calibrated against the live embedding model: across refusal paraphrases (de + en, incl. the
-# topic-padded "Informationen darüber, welches Gesetz …, sind nicht enthalten") the distance
-# to the nearest sentinel stayed <=0.48, while real factual answer lines were >=0.75 — a wide,
-# clean gap. The gate sits in the MIDDLE of that gap, not on its edge: 0.40 sat right on a
-# refusal at 0.389 and so fired only intermittently as the wording shifted.
+# Distance threshold below which a line counts as a refusal and gets no chip.
 _REFUSAL_MAX_DIST = 0.60
 
 
 def _cos_dist(a, b) -> float:
-    """Cosine distance (1 - cosine similarity) between two equal-length vectors. Returns the
-    max distance 1.0 if either vector is degenerate (zero norm) so a bad embed never
-    falsely flags a line as a refusal."""
+    """Cosine distance of two equally long vectors, 1.0 on degenerate input."""
     dot = na = nb = 0.0
     for x, y in zip(a, b):
         dot += x * y
@@ -521,13 +402,7 @@ def _cos_dist(a, b) -> float:
 
 def _refusal_lines(cands: list[str], vec_by_line: dict, sentinel_vecs: list,
                    max_dist: float = _REFUSAL_MAX_DIST) -> set:
-    """Subset of candidate lines that are a "not in the sources" refusal, by embedding
-    proximity to the canonical no-info ``sentinel_vecs`` (see ``RAG_NO_INFO_SENTINEL``).
-
-    Caller embeds the candidate lines AND the sentinels in one batch, then passes the
-    resulting set to ``_attribute_generic_text`` so those lines are skipped during
-    attribution. Empty ``sentinel_vecs`` (e.g. the embed batch failed) -> empty set, i.e.
-    the filter is simply off and behaviour falls back to the distance-only path."""
+    """Which candidate lines are a refusal, measured by distance to the model sentence."""
     if not sentinel_vecs:
         return set()
     flagged: set = set()
@@ -542,15 +417,7 @@ def _refusal_lines(cands: list[str], vec_by_line: dict, sentinel_vecs: list,
 
 def is_refusal_answer(text: str, embed_fn, sentinels: list[str],
                       max_dist: float = _REFUSAL_MAX_DIST) -> bool:
-    """True if the WHOLE answer is a "not in the sources" refusal, by embedding proximity
-    to a canonical no-info ``sentinel`` (see ``RAG_NO_INFO_SENTINEL``).
-
-    Mirrors ``_refusal_lines`` but for a single complete answer instead of per-line, used by
-    the single-page-scope path: that path appends ONE nav anchor without running per-line
-    attribution, so it would otherwise anchor an honest refusal to the scoped page. Language-
-    agnostic: the model writes the refusal in the question's language and a multilingual
-    embedding places it near the German sentinel — no word lists. Any embed failure → False
-    (anchor stays), so a transient error never silently strips a legitimate citation."""
+    """True when the whole answer is a refusal."""
     cleaned = (text or "").strip()
     if not cleaned or not sentinels:
         return False
@@ -565,14 +432,7 @@ def is_refusal_answer(text: str, embed_fn, sentinels: list[str],
 
 
 def _is_seen(chunk: dict, seen_pages_by_source: Optional[dict]) -> bool:
-    """True if this chunk's source/page was actually retrieved into the model's context.
-
-    ``None`` mapping == no cross-check (accept). A PDF chunk passes only if its page is in
-    the retrieved set for its source; a MEDIA chunk (audio/video — identified by a
-    ``start_time``; it ALSO carries a transcript ``page_number`` that is a segment index,
-    NOT a navigable page) passes whenever its source was retrieved at all — media is tracked
-    by source and navigated by timestamp, so its seen-set is intentionally empty. This is
-    what keeps a chip pointing at a page the model never saw."""
+    """True when source and page of this chunk really were in the model's context."""
     if seen_pages_by_source is None:
         return True
     pages = seen_pages_by_source.get(chunk.get("source_id"))
@@ -585,14 +445,7 @@ def _is_seen(chunk: dict, seen_pages_by_source: Optional[dict]) -> bool:
 
 
 def _scope_chunk_ids(scope_chunks: Optional[list[dict]]) -> Optional[set]:
-    """The set of chunk ids the model was shown for an EXPLICIT page/time scope.
-
-    Returned to attribution as a clamp: a citation may only point at a chunk INSIDE the
-    scoped window. For media this is the load-bearing fix — a media chunk's seen-check is
-    source-level (any chunk of the source passes ``_is_seen``), so without this clamp a
-    "from minute 40" summary could be attributed to a closer chunk at minute 13. ``None``
-    means no scope / no restriction; an empty scope never yields an empty set (which would
-    strip every chip) — it falls back to ``None``."""
+    """The chunk ids the model saw when a page or time reference was explicit."""
     if not scope_chunks:
         return None
     ids = {c["id"] for c in scope_chunks if c.get("id") is not None}
@@ -601,18 +454,7 @@ def _scope_chunk_ids(scope_chunks: Optional[list[dict]]) -> Optional[set]:
 
 def _pick_attribution(hits: list[dict], max_distance: float,
                       seen_pages_by_source: Optional[dict] = None) -> Optional[dict]:
-    """Return the closest hit (min cosine ``vec_distance``) iff within the gate, else
-    None. None == the line is not clearly in the sources -> no chip is attached.
-
-    When ``seen_pages_by_source`` is given, candidates are FILTERED to pages actually
-    retrieved into context BEFORE the closest is chosen — so a line whose globally-closest
-    chunk sits on a page that was NOT retrieved (e.g. a non-dominant source only got its
-    budget floor) still gets a chip via the closest chunk that WAS retrieved, instead of
-    being dropped. The same fact usually appears on several pages; this picks the one the
-    model actually saw.
-
-    A table-of-contents / index chunk is never a target: it carries every topic keyword
-    verbatim, so it can rank close, but citing the index page is always wrong."""
+    """The nearest hit within the threshold, otherwise None and therefore no chip."""
     cand = [h for h in hits
             if h.get("vec_distance") is not None
             and not _is_toc_chunk(h.get("content") or "")
@@ -633,15 +475,12 @@ _ATTR_STOP = frozenset((
     "had have not but so if then do does did what which who when where why how their "
     "there here than them they you are our its".split()
 ))
-# Keep word chars + German umlauts; allow @ . - inside so emails/hyphenated names and
-# numbers survive as one token.
+# Keep word characters and umlauts, allow at sign, dot and inner hyphen.
 _TOKEN_RE = re.compile(r"[0-9A-Za-zÄÖÜäöüß][0-9A-Za-zÄÖÜäöüß@.\-]*")
 
 
 def _significant_tokens(line: str) -> list[str]:
-    """Distinctive content tokens of a line (lowercased): markdown stripped, words ≥4
-    chars that are not stopwords. Proper names, emails and numbers survive; filler is
-    dropped. Used to ground a line by VERBATIM presence in a retrieved chunk."""
+    """The distinguishing content words of a line."""
     s = re.sub(r"[*_`~#>]+", " ", line)
     out: list[str] = []
     for w in _TOKEN_RE.findall(s):
@@ -652,16 +491,7 @@ def _significant_tokens(line: str) -> list[str]:
 
 
 def _exact_attribution_chunk(line: str, context_chunks: list[dict]) -> Optional[dict]:
-    """Ground a line by VERBATIM presence in an already-retrieved chunk.
-
-    If every significant token of the line appears (case-insensitive) in one of the
-    chunks we already sent to the model, that chunk IS the source — no re-embedding,
-    no re-search. This is reliable exactly where semantic attribution fails: a proper
-    name / email / number embeds far from its surrounding prose (the same reason an
-    author can sit at fused rank ~59), but it is *literally* present in the chunk we
-    retrieved, whose page we already know. Returns the first match in ``context_chunks``
-    order (relevance-ordered, so the most relevant copy wins), else None. TOC/index
-    chunks are skipped — they list every term verbatim and would mis-attribute."""
+    """Backs a line by its verbatim occurrence in a chunk that was already fetched."""
     toks = _significant_tokens(line)
     if not toks:
         return None
@@ -675,35 +505,17 @@ def _exact_attribution_chunk(line: str, context_chunks: list[dict]) -> Optional[
     return None
 
 
-# Wie viel Wortanfang zaehlt, wenn eine Antwortzeile gegen ein Transkript-Segment
-# gehalten wird. Das Modell beugt die Woerter neu ("ein grosses C" in der Antwort,
-# "einem grossen C" im Ton), ein Vergleich auf das ganze Wort findet dann nichts.
-# Sechs Zeichen lassen die Endung fallen und halten den Wortstamm fest. Reine
-# Praefix-Regel ohne Wortlisten, also unabhaengig von der Sprache.
+# How much of a word start counts when comparing with a transcript segment.
 _SEGMENT_STEM_CHARS = 6
 
-# Wie viele Wortstaemme ein Segment mindestens tragen muss, damit es die Zeitmarke
-# bestimmen darf. Ein einzelnes Wort trifft zu leicht das falsche Segment: gemessen an
-# 1781 Saetzen mit eindeutiger Wahrheit riss genau das die Ausreisser hoch (99 Faelle
-# ueber zehn Sekunden schlechter als der Chunk-Anfang). Ab zwei Staemmen bleiben von
-# den Ausreissern ueber zehn Sekunden 72 statt 661, der mittlere Fehler faellt von
-# 12,5 auf 1,4 Sekunden. Traegt kein Segment zwei, bleibt es beim Chunk-Anfang.
+# How many word stems a segment must carry to fix the timestamp.
 _SEGMENT_MIN_STEM_HITS = 2
-# Ein Stamm traegt die Zeitmarke allein, wenn er in hoechstens so vielen Segmenten der
-# Quelle faellt.
+# One stem carries the timestamp alone when it occurs rarely enough.
 _SEGMENT_RARE_MAX_DF = 3
-# Dafuer muss die Quelle so viele Segmente je erlaubtem Vorkommen haben. Unter einem
-# Dutzend Segmente wirkt jedes Wort selten, und dann waere die Zeitmarke geraten.
+# For that the source needs enough segments per allowed occurrence.
 _SEGMENT_RARE_SEGMENTS_PER_HIT = 25
 
-# Zahlen zaehlen als eigenes Merkmal, auch wenn sie kurz sind. ``_significant_tokens``
-# verlangt vier Zeichen, und daran fiel ausgerechnet das Auffaelligste durch: zu
-# "In einer Aufzeichnung wird eine Klausur vom 8.9. gezeigt" blieben nur die Staemme
-# "aufzei", "gezeig", "klausu". Das gesuchte Segment lautet "So, das ist die Klausur
-# 8.9." und trug davon genau einen, also einen zu wenig, und der Chip zeigte wieder auf
-# den Chunk-Anfang (00:00 statt 01:00). Mit der Zahl sind es zwei und das Segment
-# gewinnt deutlich. Ein Datum, eine Uhrzeit oder eine Nummer ist in gesprochenem Text
-# das trennschaerfste Merkmal ueberhaupt, und sie sind sprachunabhaengig.
+# Numbers count as a feature of their own, even when short.
 _SEGMENT_MIN_NUM_CHARS = 2
 
 
@@ -711,15 +523,12 @@ _SEGMENT_HYPHEN_RE = re.compile(r"-+")
 
 
 def _norm_for_segment(s: str) -> str:
-    """Wie :func:`_norm_for_match`, aber der Bindestrich zaehlt als Leerzeichen."""
+    """Like :func:`_norm_for_match`, but the hyphen counts as a space."""
     return re.sub(r"\s+", " ", _SEGMENT_HYPHEN_RE.sub(" ", _norm_for_match(s))).strip()
 
 
 def _segment_stems(line: str) -> set[str]:
-    """Merkmale einer Antwortzeile fuer den Segment-Vergleich.
-
-    Wortstaemme der langen Woerter plus die Zahlen der Zeile. Die Zahl bleibt ganz,
-    sie ist kurz genug und wird nicht gebeugt."""
+    """Features of an answer line for the segment comparison."""
     line = _SEGMENT_HYPHEN_RE.sub(" ", line)
     stems = {_norm_for_segment(t)[:_SEGMENT_STEM_CHARS] for t in _significant_tokens(line)}
     for w in _TOKEN_RE.findall(re.sub(r"[*_`~#>]+", " ", line)):
@@ -731,40 +540,14 @@ def _segment_stems(line: str) -> set[str]:
 
 
 def _chunk_segments(chunk: dict, segments: list[dict]) -> list[dict]:
-    """Die Whisper-Segmente, aus denen dieser Medien-Chunk besteht.
-
-    Zugeordnet wird ueber die Reihenfolge, nicht ueber die Zeit: der Chunk-Text ist
-    ein zusammenhaengendes Stueck der aneinandergereihten Segmente (siehe
-    :mod:`src.services.aia_transcript_offsets`).
-
-    Die fruehere Auswahl ueber ``start_time``/``end_time`` mit einer halben Sekunde
-    Toleranz griff daneben. Die Chunk-Zeit in der Ablage und die Zeit im
-    Transkript-Artefakt weichen bis zu einer Sekunde voneinander ab, weil das
-    Artefakt auf ganze Sekunden gerundet ist. Damit fehlte das erste Segment des
-    Chunks und Segmente des naechsten rutschten herein: an 790 Chunks der Testablage
-    traf die Auswahl nur bei 155 den eigenen Chunk-Text.
-
-    Leer, wenn sich der Chunk nicht wiederfindet, etwa nach einer Uebersetzung des
-    Transkripts. Die Aufrufer bleiben dann beim Chunk-Text und beim Chunk-Anfang."""
+    """The Whisper segments of a media chunk, matched up by their order."""
     if chunk.get("start_time") is None or not segments:
         return []
     return TranscriptIndex(segments).segments_of(chunk)
 
 
 def _line_segment_start(line: str, chunk: dict, segments: list[dict]) -> Optional[float]:
-    """Startzeit des Segments, das die zitierte Zeile traegt, oder None.
-
-    Ein Medien-Chunk fasst bis zu 1000 Zeichen zusammen. Wie lang das in Minuten
-    wird, haengt allein am Sprechtempo: gemessen 65 Sekunden im Schnitt und 114
-    im laengsten Fall, bei einer langsamen Vorlesung mit vielen Pausen ueber zwei
-    Minuten. Die Chunk-Startzeit zeigt dann auf die Begruessung, waehrend der
-    zitierte Satz kurz vor dem Chunk-Ende faellt.
-
-    Hier steht nur die Huerde: mindestens ein Segment muss ``_SEGMENT_MIN_STEM_HITS``
-    Wortstaemme der Zeile tragen, sonst bleibt es beim Chunk-Anfang — eine geratene
-    Minute waere schlechter als der bekannte Rahmen. WELCHES Segment es dann wird,
-    entscheidet :mod:`src.services.aia_segment_pick` (Seltenheit statt Anzahl, und
-    ein Fenster statt eines einzelnen Segments)."""
+    """Start time of the segment carrying the cited line, or None."""
     segs = _chunk_segments(chunk, segments)
     if len(segs) < 2:
         return None
@@ -786,15 +569,7 @@ def _line_segment_start(line: str, chunk: dict, segments: list[dict]) -> Optiona
 
 def _attribution_chip(qnum: int, chunk: dict, line: str,
                       segments: Optional[list[dict]] = None) -> list[str]:
-    """Nav-only citation chip for a post-hoc attributed line: a MEDIA chunk (audio/video —
-    has a ``start_time``) cites its timestamp ``[N, MM:SS]``; a PDF chunk cites its page
-    ``[N, S. X]``. Media also carries a transcript ``page_number`` (segment index) which
-    must NOT be rendered as a page, so the start_time is checked FIRST. No span offset, no
-    keyword — clicking only scrolls to the page/timestamp.
-
-    ``segments`` sind die Whisper-Segmente der Quelle. Mit ihnen zeigt der Chip auf das
-    Segment, das ``line`` traegt, statt auf den Chunk-Anfang (siehe
-    :func:`_line_segment_start`). Ohne sie bleibt es beim bisherigen Chunk-Anfang."""
+    """Source chip to jump with: a timestamp for media, a page number for PDF."""
     st = chunk.get("start_time")
     if st is not None:
         if line and segments:
@@ -807,58 +582,27 @@ def _attribution_chip(qnum: int, chunk: dict, line: str,
 
 
 def _append_scope_anchor(text: str, qnum: int, page: int) -> str:
-    """Append ONE nav-only page chip at the very bottom of a SINGLE-page scope summary.
-
-    A single-page PDF scope ("fasse Seite 5 zusammen") would otherwise chip every line
-    with the SAME page the user explicitly named — pure noise in nav-only mode. We skip
-    per-line attribution for that case and append this one click-to-page anchor instead,
-    so a single jump-to-page link remains. The frontend renders ``[N, S. X]`` as a chip."""
+    """Appends exactly one page chip at the end of a single-page summary."""
     return f"{text.rstrip()}\n\n[{qnum}, S. {page}]"
 
 
 def _is_label_line(line: str) -> bool:
-    """A lead-in / label line that ends with a colon once trailing markdown emphasis and
-    whitespace are stripped (``**Quelle nach dem AGG:**``, ``Sanktionen:``). It introduces
-    the content on the following line(s) rather than making a claim itself, so it must NOT
-    carry a citation chip — the chip would just dangle after the colon and the real claim
-    below is cited anyway. Colon-only (after stripping) → language-agnostic, no word lists."""
+    """A line ending in a colon only introduces and gets no chip."""
     s = re.sub(r"[*_`~\s]+$", "", line.rstrip())
     return s.endswith(":")
 
 
-# A line wrapped ENTIRELY in bold, optionally followed by sentence punctuation:
-# ``**Überblick**``, ``**Was ist Literaturrecherche**?``. The inner text may not contain a
-# second emphasis run, so ``**A** und **B**`` (two emphasised words in one sentence) does
-# NOT match. Anchored at both ends, so a bullet ("- **Zitat.**") is not a heading either.
+# A line entirely in bold counts as a heading.
 _BOLD_HEADING_RE = re.compile(r"^(\*\*|__)(?:(?!\1).)+\1[\s.?!:]*$")
 
 
 def _is_heading_line(line: str) -> bool:
-    """A section TITLE, in either shape the model writes: a markdown ``## Tipps für die
-    Suche`` or a line set entirely in bold (``**Was ist Literaturrecherche**?``).
-
-    A title names what follows, it does not assert anything, so it must never carry a
-    citation chip — the chip would point at a page that backs nothing the title says, and
-    it lands right in the middle of the heading. The restated question at the top of an
-    answer is the worst case of this.
-
-    Both shapes are treated the same everywhere: own attribution block, no chip, never a
-    continuation of the paragraph above. Shape-only, no word lists → holds in every answer
-    language."""
+    """A heading, as a hash or fully bold, claims nothing and gets no chip."""
     return line.lstrip().startswith("#") or bool(_BOLD_HEADING_RE.match(line.strip()))
 
 
 def _needs_attribution(line: str) -> bool:
-    """Whether a GENERIC answer line gets post-hoc attribution: substantial enough, not a
-    table delimiter, not a colon-ending label, AND not already cited. Exposed so the caller
-    can pre-collect the exact same candidate lines and embed them in ONE batch call (instead
-    of one embed per line).
-
-    The delimiter guard is load-bearing: a real GFM delimiter is `|--------|--------|`, whose
-    dedup key is the dash/pipe run itself (≥16 chars) — substantial by length alone. Without
-    this it passes the gate and gets a chip injected INSIDE the row, which makes GFM stop
-    parsing the block as a table (it collapses to a paragraph in the UI). A short `|-|-|`
-    happens to fall under the length floor, which is why this only bites real-world tables."""
+    """Whether a line can carry a chip at all."""
     return (len(_line_dedup_key(line)) >= _DEDUP_MIN_KEY_LEN
             and not _is_table_delim(line)
             and not _is_label_line(line)
@@ -873,18 +617,13 @@ def _is_table_row(line: str) -> bool:
 
 
 def _is_table_delim(line: str) -> bool:
-    """A Markdown table delimiter row, e.g. ``|---|---|`` / ``|:--|--:|`` (only
-    pipes, dashes, colons, spaces)."""
+    """A separator row of a Markdown table."""
     s = line.strip()
     return bool(s) and set(s) <= set("|-: ")
 
 
 def _attach_chips(text: str, chip_str: str) -> str:
-    """Attach ``chip_str`` BEFORE the sentence-ending punctuation when the
-    text ends in a plain '.', '!' or '?', so ``Satz.`` -> ``Satz [chip].``. If the text does
-    NOT end in bare terminal punctuation (a trailing '**' emphasis marker, a closing quote, a
-    table pipe, or no punctuation at all), the chip is simply appended — never inserted into
-    markup. Language-agnostic; keys only on the trailing character(s)."""
+    """Puts the chip before the final period, otherwise simply at the end."""
     s = text.rstrip()
     i = len(s)
     while i > 0 and s[i - 1] in ".!?":
@@ -895,28 +634,18 @@ def _attach_chips(text: str, chip_str: str) -> str:
 
 
 def _place_chip(line: str, chip_str: str) -> str:
-    """Attach ``chip_str`` to a line. For a table row the chip goes INSIDE the last
-    cell (before the closing pipe) so the row keeps its pipe-defined column count and
-    GFM still parses the block as a table; otherwise it is attached via :func:`_attach_chips`
-    (before the sentence-ending period)."""
+    """Appends the chip to a line, in a table row into the last cell."""
     if _is_table_row(line):
         return re.sub(r"\s*\|\s*$", f" {chip_str} |", line.rstrip())
     return _attach_chips(line, chip_str)
 
 
 def _in_scope(chunk: dict, scope_ids: Optional[set]) -> bool:
-    """True if the chunk is inside the explicit scope window (or no scope is active).
-
-    ``scope_ids`` (from :func:`_scope_chunk_ids`) is the set of chunk ids the model was
-    actually shown; ``None`` means no scope, so everything passes."""
+    """True when the chunk lies inside the explicit reference window, or there is none."""
     return scope_ids is None or chunk.get("id") in scope_ids
 
 
-# Comma/semicolon only — NOT colon: a colon would split clock times ("14:53") and ratios in
-# prose into junk fragments, and the comma already separates list items.
-# Content words for the coverage check: 4+ characters, case-folded. The length floor drops
-# function words (der/die/und, the/and/of) WITHOUT a per-language stop list, so this holds in
-# every answer language — the same shape-only rule the rest of attribution follows.
+# Split on comma and semicolon only, content words from four characters count.
 _CONTENT_WORD_RE = re.compile(r"[^\W\d_]{4,}", re.UNICODE)
 
 
@@ -926,12 +655,7 @@ def _content_words(text: str) -> set:
 
 def _figure_first(unit: str, cands: list[dict],
                   corpus: Optional[list[str]] = None) -> list[dict]:
-    """Kandidaten, die eine Zahl der Zeile woertlich nennen, zuerst.
-
-    Eine Klausel-Suche liefert ihren naechsten Chunk, und der redet oft nur um die Sache
-    herum ("die Moeglichkeit, Fragen zu stellen") waehrend die Stelle mit der Zahl weiter
-    hinten liegt. Geprueft wird nur unter den schon gefundenen Kandidaten, es kostet also
-    keine Suche, und die Reihenfolge der uebrigen bleibt wie sie war."""
+    """Candidates that name a number of the line verbatim come first."""
     if not cands or not corpus:
         return cands
     from src.services.aia_literal_evidence import distinctive_tokens, figure_runs
@@ -948,39 +672,7 @@ def _figure_first(unit: str, cands: list[dict],
 def _extra_chip_earns_place(unit: str, primary: dict, extra: dict,
                             pins: frozenset = frozenset(),
                             corpus: Optional[list[str]] = None) -> bool:
-    """Whether an ADDITIONAL chip earns its place next to the closest one.
-
-    Two different rules, because "adds nothing" means different things across and within a
-    document:
-
-    - A DIFFERENT source always earns it, even for the very same fact. A workspace typically
-      holds the slides AND the recording of the same session, so most statements exist twice,
-      once written and once spoken. That is a second way in, not noise: one reader wants the
-      slide, another wants to hear the passage.
-    - A second passage of the SAME source has to cover a content word OF THE UNIT that the
-      closest passage does not already carry. A clause search always returns its nearest
-      chunk, even when the clause is not a fact of its own ("inklusive Abbildungen und
-      Tabellen"). Measured live, 7 of 13 extra chips cited a passage covering NO word the
-      first was missing — near misses, not co-sources. Overlap between the two passages
-      cannot catch this: they ARE different (mean overlap 0.17), just about something else.
-
-    ``pins`` sind die Pin-Woerter der GANZEN Zeile (siehe aia_literal_evidence): lange
-    Woerter, die im Material praktisch an einer Stelle fallen. Gibt es welche, entscheiden
-    sie allein, auch ueber Dateigrenzen hinweg — traegt der beste Treffer sie alle, ist
-    nichts mehr abzudecken und ein zweiter Chip belegt nur noch das Thema. Gemeldeter Fall:
-    zu "nach den affinen Chiffren ... noch eine Fragestunde" haengte sich eine
-    Terminabsprache aus einer anderen Vorlesung an, allein weil sie aus einer anderen Datei
-    stammte. "fragestunde" faellt im ganzen Kurs genau einmal, und zwar beim besten Treffer.
-
-    Vor allem anderen zaehlt eine ZAHL der Zeile, die nur der Zusatzbeleg woertlich
-    traegt: die Pin-Woerter sehen Zahlen nicht, und genau daran hing der gemeldete Fall
-    ("eine 20-minuetige Praesentation mit einer anschliessenden 10-minuetigen Fragerunde,
-    wobei die Termine ... vereinbart werden"), wo die Aufzeichnung nur die Termine sagt
-    und die Folie mit "20 Minuten Praesentation + 10 Minuten anschliessende Fragerunde"
-    keinen Chip bekam. Dieselbe Regel wie in ``adds_literal_evidence``, wo EINE Zahl
-    genuegt, denn eine Zahl ist der Teil einer Aussage, den ein Leser nachschlaegt.
-
-    Word sets only (4+ characters, case-folded), so no per-language stop list is involved."""
+    """Whether an extra chip earns its place next to the best hit."""
     from src.services.aia_literal_evidence import distinctive_tokens, figure_runs
     if corpus:
         _, zahlen = distinctive_tokens(unit, corpus)
@@ -1007,16 +699,7 @@ _CLAUSE_SPLIT_RE = re.compile(r"[,;]")
 
 
 def _clauses(line: str) -> list[str]:
-    """Substantial sub-clauses of a line (comma/semicolon-separated), EXCLUDING the
-    whole line. A multi-fact sentence ("X von sechs Seiten, sowie eine Praesentation") is
-    attributed fact-by-fact: each clause is embedded and searched on its OWN focused vector,
-    so a fact whose source segment sits far from the diluted whole-sentence vector still
-    earns a chip instead of being trimmed by the cap / relative-delta gate.
-
-    Punctuation-only split keeps this language-agnostic (no conjunction word lists). A clause
-    is kept only if it is substantial on its own (same dedup-key length floor as a line), so
-    short fragments ("sowie", "z. B.") never become spurious queries. The leading clause may
-    still carry the markdown bullet prefix — harmless for embedding and substring search."""
+    """The content-bearing clauses of a line, without the whole line."""
     if not _CLAUSE_SPLIT_RE.search(line):
         return []
     whole = line.strip()
@@ -1028,34 +711,16 @@ def _clauses(line: str) -> list[str]:
     return out
 
 
-# A sentence boundary: one or more terminal marks, whitespace, then a word char. The
-# lookahead is NOT consumed, so the following letter's case is checked in code (only an
-# UPPERCASE start is a boundary — a lowercase start is a wrapped/continued clause). A mark
-# directly before a DIGIT (a decimal "6.2", a "S. 5" page ref) never matches, since the
-# lookahead excludes digits — decimals need no separate guard.
+# A sentence boundary, digits behind it rule it out.
 _SENT_BOUNDARY_RE = re.compile(r"[.!?]+\s+(?=[^\W\d_])")
 
 
 def _is_abbreviation_end(prefix: str) -> bool:
-    """Whether the terminal ``.`` of ``prefix`` closes an abbreviation / number rather than a
-    sentence — i.e. a split here would drop a chip mid-sentence. Language-agnostic (NO word
-    lists), keyed only on the shape of the last whitespace-token before the mark:
-
-    - a single char ("z. B.", "S.", an initial),
-    - a bare number ("am 3. Juli", an ordinal — favoured over the rare "… Seite 5. Der …",
-      which is locally identical and only costs a missed split),
-    - a short dotted token ("u.a.", "d.h.", "e.g.", "i.e." — internal '.' and <= 4 chars, so
-      a real domain "th-luebeck.de" is NOT caught and the sentence-ending '.' after an email
-      still splits),
-    - a short Capitalised token ("Prof.", "Dr.", "Nr.", "Abb.", "Hrsg." — <= 4 chars).
-
-    Bias is PRECISION: each rule suppresses an ambiguous split. A missed split merely merges
-    two sentences under one chip (the old block behaviour); a false split cannot happen."""
+    """Whether the final period ends an abbreviation or number instead of a sentence."""
     tok = prefix.rstrip(".!?").split()
     if not tok:
         return False
-    # Strip surrounding brackets/quotes/dashes so an opening "(" or a quote does not hide the
-    # abbreviation inside it ("(z. B. …)", "„z. B."). Internal dots (u.a.) are kept.
+    # Strip brackets and quotes, inner periods stay.
     tok = re.sub(r"^\W+|\W+$", "", tok[-1])
     if not tok:
         return False
@@ -1071,13 +736,7 @@ def _is_abbreviation_end(prefix: str) -> bool:
 
 
 def _split_sentences(text: str) -> list[str]:
-    """Split prose ``text`` into sentences for per-sentence citation attribution.
-
-    Used only on PROSE blocks (bullets/tables/headings keep their chip at the unit end).
-    Splits at :data:`_SENT_BOUNDARY_RE` boundaries that :func:`_is_abbreviation_end` does not
-    veto. Precision over recall: a MISSED split just leaves two sentences sharing one chip (no
-    regression), a FALSE split would strand a chip inside a sentence. Returns trimmed
-    sentences (each incl. its terminal mark); a single ``" ".join`` reconstructs the prose."""
+    """Splits prose into sentences for per-sentence evidence matching."""
     s = text.strip()
     if not s:
         return []
@@ -1104,17 +763,7 @@ def _split_sentences(text: str) -> list[str]:
 def _literal_candidates(line: str, literal_lookup, corpus: Optional[list[str]],
                         seen_pages_by_source: Optional[dict],
                         scope_ids: Optional[set]) -> list[dict]:
-    """Chunks that carry a distinctive FIGURE of ``line`` verbatim, looked up in the material.
-
-    Ranking by meaning cannot reach these. For "mittwochs von 17:30 bis 18:30 Uhr" the one
-    slide stating that time sat at distance 0.656 — outside the citation gate entirely —
-    while three passages that merely mention office hours filled all three chip slots. No
-    ordering rule fixes a candidate that was never a candidate; the figure has to be looked
-    up. Which figures qualify is decided in aia_literal_evidence (structured and rare only).
-
-    The usual gates still apply: a looked-up chunk must have been in the model's context
-    and inside any explicit page/time scope, or it is dropped like any other.
-    """
+    """Chunks that carry a distinguishing number of the line verbatim."""
     if literal_lookup is None:
         return []
     from src.services.aia_literal_evidence import lookup_figures
@@ -1127,11 +776,7 @@ def _literal_candidates(line: str, literal_lookup, corpus: Optional[list[str]],
                 continue
             if not _is_seen(h, seen_pages_by_source) or not _in_scope(h, scope_ids):
                 continue
-            # The RAREST match wins: a date recurring on four pages says far less about
-            # where a claim comes from than a time standing in exactly one place. Without
-            # this ordering the four hits for "22.04.2026" filled the chip slots and the
-            # single hit for "18:30" — the only passage stating the office hour — was
-            # pushed out again.
+            # The rarest hit wins, a common date says little.
             if cid not in best or len(hits) < best[cid][0]:
                 best[cid] = (len(hits), dict(h))
     ordered = sorted(best.values(), key=lambda pair: pair[0])
@@ -1142,16 +787,7 @@ def _line_candidates(line: str, search_one, context_chunks: Optional[list[dict]]
                      seen_pages_by_source: Optional[dict],
                      scope_ids: Optional[set] = None,
                      literal_lookup=None, corpus: Optional[list[str]] = None) -> list[dict]:
-    """Retrieved (seen), non-TOC source chunks that could ground ``line``, closest-first.
-
-    If an EXACT verbatim chunk exists (a name/email/number we already retrieved, whose
-    page we know), it is the SOLE high-confidence candidate — semantic near-misses on
-    other pages are suppressed. Otherwise the seen semantic hits, sorted by distance: a
-    reworded/synthesised line may legitimately draw from several passages, so the caller
-    can attach a chip per distinct source/page.
-
-    ``scope_ids`` clamps candidates to an EXPLICIT page/time scope: a "from minute 40"
-    summary may only cite chunks inside that window, never a closer chunk from minute 13."""
+    """Fetched chunks that could back the line, nearest first."""
     exact = _exact_attribution_chunk(line, context_chunks) if context_chunks else None
     if (exact is not None and _is_seen(exact, seen_pages_by_source)
             and _in_scope(exact, scope_ids)):
@@ -1167,11 +803,7 @@ def _line_candidates(line: str, search_one, context_chunks: Optional[list[dict]]
             continue
         cands.append(h)
     cands.sort(key=lambda h: h["vec_distance"])
-    # A chunk that states the line's figure moves right BEHIND the closest one. The closest
-    # stays the anchor of the relative gate, but the passage carrying the claim is now
-    # considered before the merely-nearby ones. Ordering is the load-bearing part: the
-    # slide with the office hour's time WAS among the candidates, at rank eight, and the
-    # three chip slots were long full — being allowed in is worth nothing if nobody looks.
+    # The chunk with the number moves right behind the nearest one.
     found = _literal_candidates(line, literal_lookup, corpus, seen_pages_by_source, scope_ids)
     if found:
         lit_ids = {h.get("id") for h in found if h.get("id") is not None}
@@ -1195,16 +827,14 @@ def _chips_for_line(cands: list[dict], source_id_to_qnum: dict,
                     guarantee_dist: float = _GUARANTEE_MAX_DIST,
                     line: str = "", corpus: Optional[list[str]] = None,
                     transcript_by_source: Optional[dict[int, list[dict]]] = None) -> list[str]:
-    """Baut die Chips einer Zeile: den besten Treffer, dazu nur praktisch gleich nahe."""
+    """Builds the chips of a line: the best hit plus only practically equally near ones."""
     from src.services.aia_literal_evidence import carries_pin, pin_words
     chips: list[str] = []
     keys: set = set()
     primary_d: Optional[float] = None
     primary_content = ""
     evidence_corpus = corpus or [c.get("content") or "" for c in cands]
-    # Die Woerter, an denen die Zeile haengt. Gleich unten auf die eingeschraenkt, die der
-    # BESTE Treffer traegt: jeder WEITERE Chip muss dann mindestens eines davon tragen,
-    # sonst belegt er nur das THEMA der Aussage und nicht die Aussage.
+    # Every further chip must carry a word the best hit is missing.
     pins = pin_words(line, evidence_corpus) if line else set()
     for h in cands:
         qnum = source_id_to_qnum.get(h.get("source_id"))
@@ -1230,10 +860,7 @@ def _chips_for_line(cands: list[dict], source_id_to_qnum: dict,
                               (transcript_by_source or {}).get(h.get("source_id")))
         if not c:
             continue
-        # Der fertige Chip ist der Schluessel: er traegt Quelle und Ziel schon in sich.
-        # Bei Medien ist das die segmentgenaue Zeit, nicht der Transkript-"Seite", die
-        # als Segment-Nummer in page_number steckt. Zwei Chunks, deren zitierter Satz
-        # im selben Segment liegt, fallen damit zu einem Chip zusammen.
+        # The finished chip is the key, it already carries source and target.
         if c[0] in keys:
             continue
         chips.extend(c)
@@ -1244,10 +871,7 @@ def _chips_for_line(cands: list[dict], source_id_to_qnum: dict,
 
 
 def _is_continuation(line: str) -> bool:
-    """A non-blank line that CONTINUES the previous claim block (wrapped prose / a second
-    sentence of the same bullet) rather than starting a new one. New list items, headings,
-    table rows and blank lines start a fresh block. Used so a bullet's chips go at the
-    block END, never mid-bullet."""
+    """A line that continues the previous block instead of starting a new one."""
     s = line.strip()
     if not s or _is_table_row(line):
         return False
@@ -1260,9 +884,7 @@ def _is_continuation(line: str) -> bool:
 
 
 def _attr_blocks(lines: list[str]) -> list[list[int]]:
-    """Group line indices into attribution BLOCKS. A claim block = one bullet/paragraph
-    line PLUS the continuation lines that render as part of it (its chips go on the
-    block's LAST line). Blank/heading lines and each table row are their own block."""
+    """Groups lines into evidence blocks, the chip goes on the last line."""
     blocks: list[list[int]] = []
     i, n = 0, len(lines)
     while i < n:
@@ -1283,11 +905,7 @@ def _attr_blocks(lines: list[str]) -> list[list[int]]:
 
 
 def _is_prose_line(line: str) -> bool:
-    """A plain PROSE paragraph line — NOT a list item, heading, or table row/delimiter.
-
-    Only prose lines get per-sentence citation chips; bullets and table
-    rows keep their single end-of-unit chip. Mirrors the exclusions in :func:`_is_continuation`
-    so the two agree on what counts as a bullet/heading. Language-agnostic (structure only)."""
+    """An ordinary prose line, no bullet, no heading, no table."""
     ls = line.lstrip()
     if not ls.strip() or _is_table_row(line) or _is_table_delim(line):
         return False
@@ -1299,33 +917,13 @@ def _is_prose_line(line: str) -> bool:
 
 
 def _holds_for_every_sentence(text: str, predicate) -> bool:
-    """Whether ``predicate`` holds for EVERY sentence of ``text``.
-
-    The overview suppressors (:func:`_names_many_laws`, :func:`_enum_chip_unbacked`) exist to
-    stop ONE chip being glued to a unit that enumerates many sources, and they were
-    calibrated when a unit meant one sentence. A BLOCK can be several sentences (a
-    multi-sentence bullet), where a single parenthetical ("(AND, OR, NOT)") or one example
-    list would strip the chip off everything around it.
-
-    So on the block path they are judged sentence by sentence and only silence the block when
-    they hold throughout — for a genuine enumeration (one sentence, or a block that is nothing
-    but enumerations) the outcome is exactly as before. The prose path already judges each
-    sentence on its own and needs no wrapper."""
+    """Whether a condition holds for every sentence of the text."""
     sents = _split_sentences(text) or [text]
     return all(predicate(s) for s in sents)
 
 
 def _attribution_subunits(line: str) -> list[str]:
-    """Sub-line text units to pre-embed alongside a candidate ``line``, so ``search_one``
-    reuses a batched vector instead of one embed call PER unit. Mirrors EXACTLY what attribution searches below the line level:
-
-    - a PROSE paragraph of > 1 sentence is attributed per sentence, so return each sentence
-      AND each sentence's clauses (what :func:`_attribute_prose_line` searches),
-    - any other line (bullet, table row, single-sentence prose) is attributed as ONE unit,
-      so return its clauses (what the block path searches).
-
-    Order preserved, de-duplicated; the whole line is never returned (the caller always
-    embeds it as a candidate on its own)."""
+    """The sub-units of a line that are embedded along up front."""
     if _is_prose_line(line):
         sents = _split_sentences(line)
         if len(sents) > 1:
@@ -1341,46 +939,25 @@ def _attribution_subunits(line: str) -> list[str]:
 
 
 _PAREN_RE = re.compile(r"\(([^)]{1,80})\)")
-# A law abbreviation: ALL-CAPS (ZPO, UWG, SGB, GG) or a word with an INTERNAL capital
-# (UrhG, MarkenG, VwVfG, BImSchG, StBerG, BauGB, FeV). Plain Title-case nouns
-# (Wortmarken, Berechnung) are NOT matched, so a descriptive paren is not read as a law.
+# A statute abbreviation, all caps or with an inner capital.
 _LAW_ABBR_RE = re.compile(r"[A-ZÄÖÜ]{2,}[0-9]*|[A-ZÄÖÜ][A-Za-zäöüß0-9]*[A-ZÄÖÜ][A-Za-zÄÖÜäöüß0-9]*")
 
 def _names_many_laws(text: str, threshold: int = 3) -> bool:
-    """True when a line names >= ``threshold`` DISTINCT law abbreviations inside parentheses
-    (e.g. "… (ZPO) … (MarkenG) … (§ 21 StBerG) … (z. B. UWG, UmwG) …"). That is a GENERIC
-    synthesis/enumeration over many sources that no single citation chip can meaningfully
-    point at, so overview mode leaves it chip-free instead of attaching one misleading link.
-    Only law-shaped abbreviations count, not Title-case descriptive words. A spelled-out
-    name-list ("Maler, Flugtechnik, …") is handled separately by ``_enum_chip_unbacked``,
-    which is content-gated — capitalisation alone cannot tell a multi-source enumeration
-    from an in-source example list ("(Ärzte, Zahnärzte, Tierärzte, Apotheker)")."""
+    """True when a line names many statute abbreviations and therefore has no single source."""
     abbrs: set = set()
     for m in _PAREN_RE.finditer(text or ""):
         abbrs.update(_LAW_ABBR_RE.findall(m.group(1)))
     return len(abbrs) >= threshold
 
 
-# A SPELLED-OUT enumeration the paren-abbreviation rule misses: a tight comma-run of
-# capitalised single-word items ("Maler, Flugtechnik, Heimarbeiter, Bauwirtschaft"). Each
-# comma segment is exactly ONE capitalised token, so ordinary prose noun-lists carrying
-# prepositions or multi-word phrases ("Anforderungen an Prüfungen, … einschließlich
-# Gewichtung") break the run and do NOT match. ``{3,}`` = >= 3 commas = >= 4 items.
-# Language-agnostic: keys only on capitalisation + commas, no per-language word list.
+# A spelled-out enumeration of at least four capitalised single words.
 _CAP_TOKEN = r"[A-ZÄÖÜ][A-Za-zÄÖÜäöüß0-9-]+"
 _ENUM_LIST_RE = re.compile(rf"{_CAP_TOKEN}(?:\s*,\s*{_CAP_TOKEN}){{3,}}")
 _ENUM_BACKED_MIN = 0.5  # fraction of items the cited chunk must contain to keep the chip
 
 
 def _enum_chip_unbacked(text: str, content: str) -> bool:
-    """True when ``text`` spells out a >= 4-item name-list ("… Maler, Flugtechnik,
-    Heimarbeiter, Bauwirtschaft …") AND the single chunk we would cite (``content``)
-    does NOT actually contain most of those items — i.e. the chip would point at a page
-    that backs only one of the listed things, the misleading "one chip on a many-source
-    enumeration" case. The content gate is what separates that from an in-source example
-    list ("(Ärzte, Zahnärzte, Tierärzte, Apotheker)" whose chunk literally enumerates all
-    four): there the items ARE in the cited chunk, so the chip stays. Capitalisation alone
-    cannot tell the two apart, so we check the cited chunk's text, not just the shape."""
+    """True when a long enumeration does not occur in the cited chunk at all."""
     m = _ENUM_LIST_RE.search(text or "")
     if not m:
         return False
@@ -1396,15 +973,7 @@ def _attribute_prose_line(sentences: list[str], search_one, source_id_to_qnum: d
                           context_chunks, seen_pages_by_source, scope_ids,
                           max_distance: float, guarantee: float, overview: bool,
                           literal_lookup=None, transcript_by_source=None) -> str:
-    """Rebuild a PROSE paragraph with a citation chip AFTER EACH sentence.
-
-    Each sentence is grounded on its OWN vector — whole-sentence closest source plus one
-    coverage chip per distinct clause — reusing the exact block-path selector and gate
-    (:func:`_line_candidates`, :func:`_chips_for_line`). A sentence with no close, seen
-    source stays chip-less, exactly like an unsupported block. Overview suppressions apply
-    per sentence: a many-law synthesis or an unbacked spelled-out enumeration gets no chip.
-    Called ONLY for a grounded answer's single-line prose block, so ``guarantee`` is already
-    resolved by the caller (loose for SPECIFIC, tight = ``max_distance`` for overview)."""
+    """Rebuilds a paragraph with a source chip after every sentence."""
     corpus = [c.get("content") or "" for c in (context_chunks or [])] or None
     parts: list[str] = []
     for sent in sentences:
@@ -1430,9 +999,7 @@ def _attribute_prose_line(sentences: list[str], search_one, source_id_to_qnum: d
                                              guarantee_dist=guarantee, line=cl,
                                              corpus=corpus,
                                              transcript_by_source=transcript_by_source) if ccands else []
-                    # A clause search ALWAYS returns its nearest chunk, so an extra chip must
-                    # earn its place: it only stays if its passage covers a word of the
-                    # SENTENCE the closest passage is missing.
+                    # An extra chip only stays when it covers a word of the sentence that was missing.
                     if (cchips and cchips[0] not in seen_targets
                             and _extra_chip_earns_place(sent, cands[0], ccands[0],
                                                         satz_pins, corpus=corpus)):
@@ -1444,23 +1011,13 @@ def _attribute_prose_line(sentences: list[str], search_one, source_id_to_qnum: d
     return " ".join(parts)
 
 
-# Post-hoc attribution searches LOCAL Postgres once per sentence/clause. Done serially that
-# is the dominant cost of the after-answer pause (~13.7s of ~15.3s measured). The pool is a
-# ThreadedConnectionPool(1, 20), so we fan the searches across a thread pool and keep the
-# sequential attribution walk a pure dict lookup. 8 leaves ample pool headroom for other
-# requests and stays sane on the 4-core prod box (the queries are partly I/O-bound).
+# The searches run over a thread pool, otherwise the pause after the answer bites.
 _ATTRIB_SEARCH_CONCURRENCY = 8
 
 
 def _parallel_search(lines: list[str], search_fn: Callable[[str], list],
                      max_workers: int = _ATTRIB_SEARCH_CONCURRENCY) -> dict[str, list]:
-    """Run ``search_fn`` once per UNIQUE non-blank line across a thread pool.
-
-    Returns ``{line: hits}`` the sequential attribution walk then looks up instead of
-    hitting the DB inline. Correctness is identical to calling ``search_fn(line)`` inline:
-    the map holds exactly that result per line, deduped so a repeated line is searched once.
-    A search that raises maps to ``[]`` (same as the caller's own guarded search), so one
-    bad line never sinks the batch."""
+    """Searches once per distinct line over a thread pool."""
     uniq = [ln for ln in dict.fromkeys(lines) if ln and ln.strip()]
     if not uniq:
         return {}
@@ -1478,26 +1035,11 @@ def _parallel_search(lines: list[str], search_fn: Callable[[str], list],
 
 
 class _AttributionPrewarmer:
-    """Warm the post-hoc attribution caches WHILE the answer is still streaming, so the
-    after-answer pause shrinks toward zero.
-
-    The stream calls :meth:`feed_line` with each COMPLETED answer line as it arrives; a
-    candidate line (``_needs_attribution``) and its sentence/clause sub-units
-    (``_attribution_subunits`` — exactly what attribution later searches) are queued,
-    deduped by exact text. A background pump calls :meth:`flush`, which embeds the queued
-    batch in ONE provider call and parallel-searches it, filling ``vecs`` and ``hits``.
-    Attribution then reads those caches and only computes the misses.
-
-    Call-count safe: a single flush runs at a time (``_lock``), so bursts coalesce into a
-    few batched embed calls rather than one-per-line.
-    Correctness safe: everything is keyed by exact text and a miss is just recomputed
-    inline at attribution, so a failed or stale prewarm can never change the answer."""
+    """Warms the evidence caches while the answer is still streaming."""
 
     def __init__(self, embed_batch: Callable[[list], list],
                  search_with_vec: Callable[[str, Optional[list]], list]):
-        # embed_batch: (list[str]) -> list[vector]  (ONE call for the whole batch)
-        # search_with_vec: (line, vector|None) -> list[hit dicts]  (the same search
-        #   attribution does, given a precomputed vector)
+        # embed_batch embeds the whole batch in one call, search_with_vec searches with it.
         self._embed_batch = embed_batch
         self._search_with_vec = search_with_vec
         self.vecs: dict[str, list] = {}
@@ -1508,8 +1050,7 @@ class _AttributionPrewarmer:
         self._lock = asyncio.Lock()
 
     def feed_line(self, line: str) -> None:
-        """Queue a completed answer line and its sub-units for prewarming, if it is a
-        candidate. No-op for headings/labels/blank/already-seen text."""
+        """Queues a finished answer line with its sub-units for warming."""
         if not line or not _needs_attribution(line):
             return
         for unit in [line, *_attribution_subunits(line)]:
@@ -1521,8 +1062,7 @@ class _AttributionPrewarmer:
         return len(self._pending)
 
     async def flush(self) -> None:
-        """Embed + parallel-search whatever is queued (one batch), into ``vecs``/``hits``.
-        Single in-flight; a concurrent call finds the queue already drained and no-ops."""
+        """Embeds and searches whatever is queued, exactly one run at a time."""
         async with self._lock:
             batch = self._pending
             self._pending = []
@@ -1551,70 +1091,23 @@ def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offs
                             scope_chunks: Optional[list[dict]] = None,
                             literal_lookup=None,
                             transcript_by_source: Optional[dict[int, list[dict]]] = None) -> str:
-    """Re-ground each substantial, uncited line of a GENERIC answer.
-
-    Two-stage grounding per line:
-    1. **Exact match against the already-retrieved chunks** (``context_chunks``): if
-       every significant token of the line is verbatim in a chunk we sent, that chunk
-       is the source. Catches names/emails/numbers that embed poorly — we already have
-       those chunks with their pages, so there is no need to re-search for them.
-    2. **Semantic search** (``search_one(line)`` → ranked hits with vec_distance /
-       source_id / page_number / content / optional start_time) for paraphrased prose
-       the model reworded, gated by ``max_distance``.
-
-    ``offset_fn`` is accepted for backwards-compatibility but IGNORED — all chips are
-    nav-only. Short/heading lines and lines that already carry a chip are left
-    untouched; an unsupported line (gate) gets no chip.
-
-    ``seen_pages_by_source`` (optional) maps source_id -> set of PDF page numbers that
-    were actually retrieved into context. When given, a chip is only emitted if the
-    attributed source/page was in that set (cross-check). Media sources (page_number is
-    None) pass the check whenever their source_id is present in the mapping.
-
-    The candidate gate is ``_needs_attribution`` — the caller uses the same predicate
-    to batch-embed all candidate lines up front, so ``search_one`` only has to look up
-    a precomputed vector here.
-
-    GUARANTEE + MULTI-CHIP: every substantial claim of a *grounded* answer gets at least
-    one chip (closest retrieved chunk, up to ``_GUARANTEE_MAX_DIST``) — a claim built
-    from the sent chunks is never left without a source link. A reworded/synthesised line
-    that legitimately draws from several retrieved passages gets a chip PER distinct
-    source/page (up to ``_MAX_CHIPS_PER_LINE``). "Grounded" = at least one substantial
-    line lands within ``max_distance`` (or has an exact verbatim match); the honest
-    "not in the sources" answer never does, so it stays uncited as before.
-
-    ``refusal_lines`` (optional) is the set of answer lines the caller identified as a
-    "not in the sources" REFUSAL (embedding-near the no-info sentinel). They are skipped
-    here exactly like a non-candidate line, so a COMPOUND answer that answers one part and
-    refuses another never attaches a (misleading) source chip to the refusal sentence — the
-    GUARANTEE would otherwise chip it, since the answered part already grounded the whole.
-
-    ``transcript_by_source`` (optional) sind die Whisper-Segmente je Medienquelle. Damit
-    zeigt ein Medien-Chip auf das Segment, das die Zeile traegt, statt auf den Anfang des
-    ganzen Chunks (siehe :func:`_line_segment_start`)."""
+    """Backs every content-bearing line of an overview answer after the fact."""
     lines = text.split("\n")
-    # An explicit page/time scope clamps attribution to the chunks the model was shown, so
-    # a "from minute 40" summary can never cite a closer chunk from minute 13 (media's
-    # seen-check is source-level and would otherwise let it through).
+    # An explicit page or time reference brackets the evidence.
     scope_ids = _scope_chunk_ids(scope_chunks)
-    # What "states it word for word" is judged against: everything the answer was written
-    # from, so a filler adverb cannot pass for a distinctive term (see aia_literal_evidence).
+    # Measured against everything the answer was written from.
     evidence_corpus = [c.get("content") or "" for c in (context_chunks or [])] or None
-    # Pass 1: gather seen candidates per substantial line; decide if the answer is grounded.
-    # Also gather per-CLAUSE candidates so a multi-fact line can be attributed fact-by-fact
-    # in Pass 2.
+    # Pass 1 collects the candidates per line and per clause.
     cand_by_idx: dict[int, list[dict]] = {}
     clause_cands_by_idx: dict[int, list[list[dict]]] = {}
     grounded = False
     for i, line in enumerate(lines):
         if not _needs_attribution(line):
             continue
-        # A "not in the sources" refusal sentence is not a claim — never attribute it (it
-        # neither grounds the answer nor earns a chip), even when another line is grounded.
+        # A refusal is not a claim and never gets evidence.
         if refusal_lines and line in refusal_lines:
             continue
-        # A table HEADER row (next line is the |---| delimiter) is a column label, not a
-        # claim — never cite it (citing it would also dirty the column titles).
+        # A table header row is a column label and is never backed.
         nxt = lines[i + 1] if i + 1 < len(lines) else ""
         if _is_table_row(line) and _is_table_delim(nxt):
             continue
@@ -1634,31 +1127,14 @@ def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offs
                           for cl in _clauses(line)) if c]
         if cc:
             clause_cands_by_idx[i] = cc
-    # Pass 2: emit chips at the END of each BLOCK (a bullet/paragraph + its continuation
-    # lines), never mid-block, with contributing sources DEDUPED across the whole block —
-    # so a two-sentence bullet shows its chips once, at the end, not after each sentence.
-    # An UNGROUNDED answer (honest "not contained") gets none.
+    # Pass 2 puts the chips at the block end, sources deduplicated across the block.
     out = list(lines)
     if grounded:
-        # Overview (GENERIC): no loose GUARANTEE chip — cite only a genuinely close single
-        # source (gate = max_distance), and leave a multi-law enumeration line chip-free,
-        # since one chip on a 100-source synthesis is misleading. SPECIFIC is unchanged.
+        # In the overview the tight threshold applies, a statute list stays chip free.
         guarantee = max_distance if overview else _GUARANTEE_MAX_DIST
-        # Chips are NOT deduped across blocks. Two DISTINCT claims may legitimately draw on
-        # the same passage (a "theory" bullet and a "practice" bullet both grounded in the
-        # one segment that contrasts them), so each block must keep its OWN closest source(s)
-        # — even one an earlier block already cited. Cross-block dedup used to hand a shared
-        # best source to the first block and leave the later, distinct claim with only a far,
-        # wrong leftover. Genuine restatements (a fact repeated in two shapes) are collapsed
-        # upstream — duplicate lines by _dedup_repeated_lines, redundant one-row tables /
-        # model source-lists by answer-cleanup — so a citation is never sacrificed for tidiness.
+        # Chips are not deduplicated across blocks, two claims may name the same spot.
         for blk in _attr_blocks(lines):
-            # Per-sentence chips for a PROSE block — a block whose FIRST line
-            # is prose (not a bullet, heading, or table row). EACH line's sentences get their
-            # OWN chip after the sentence, so a two-line intro ("**Überblick**\n<prose>") or a
-            # multi-sentence paragraph is chipped sentence-by-sentence, not once at the end.
-            # Bullets and table rows keep the aggregating block path below. A refusal line
-            # carries no candidates from Pass 1 and is left verbatim here.
+            # A prose block gets its chips per sentence instead of once at the end.
             if _is_prose_line(lines[blk[0]]):
                 for _i in blk:
                     if refusal_lines and lines[_i] in refusal_lines:
@@ -1682,9 +1158,7 @@ def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offs
             if not agg:
                 continue
             agg.sort(key=lambda h: h["vec_distance"] if h.get("vec_distance") is not None else 1.0)
-            # Overview: a spelled-out name-list whose cited chunk backs only one item is the
-            # misleading "one chip on a many-source enumeration" case → leave it chip-free.
-            # Content-gated so an in-source example list (chunk holds all items) keeps its chip.
+            # In the overview an enumeration whose evidence carries only one item stays chip free.
             _cited = agg[0].get("content") or ""
             if overview and _holds_for_every_sentence(
                     block_text, lambda s: _enum_chip_unbacked(s, _cited)):
@@ -1693,11 +1167,7 @@ def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offs
                                     guarantee_dist=guarantee, line=block_text,
                                     corpus=evidence_corpus,
                                     transcript_by_source=transcript_by_source)
-            # Clause coverage: the whole-line vector is closest to ONE fact, so the cap /
-            # relative-delta gate trims the others. Add each distinct clause's single closest
-            # in-gate source as a coverage chip — so every fact in a multi-fact bullet earns a
-            # link — deduped against what the line already shows and bounded by
-            # _COVERAGE_MAX_CHIPS_PER_LINE. A table data row keeps its in-cell chip only.
+            # One coverage chip per clause so every fact gets a reference.
             if not _is_table_row(lines[blk[-1]]):
                 seen_targets = set(chips)
                 for idx in blk:
@@ -1709,8 +1179,7 @@ def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offs
                                                  guarantee_dist=guarantee, line=block_text,
                                                  corpus=evidence_corpus,
                                                  transcript_by_source=transcript_by_source)
-                        # Same rule as the prose path: an extra chip must cover something of
-                        # the BLOCK that the closest passage does not already carry.
+                        # Here too an extra chip must cover something the best hit does not carry.
                         if (cchips and cchips[0] not in seen_targets
                                 and _extra_chip_earns_place(block_text, agg[0], ccands[0],
                                                             corpus=evidence_corpus)):
@@ -1722,8 +1191,7 @@ def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offs
                         break
             if chips:
                 last = blk[-1]
-                # Table data row -> chip(s) INSIDE the last cell (keeps GFM column count
-                # intact); otherwise appended after the block's last line.
+                # In a table row the chip goes into the last cell, otherwise at the block end.
                 out[last] = _place_chip(lines[last], " ".join(chips))
     return "\n".join(out)
 
@@ -1732,19 +1200,14 @@ _INLINE_CITE_STRIP_RE = re.compile(r"\s*[\[【][^\]】\n]*(?:#\s*\d|S\.\s*\d|\d{
 
 
 def _strip_inline_citation_chips(text: str) -> str:
-    """Remove citation-shaped brackets (chunk-id, page or timestamp) from a line. Used
-    for the GENERIC live stream: we show clean text while streaming and attach the
-    post-hoc semantic-attribution chips only in the final answer."""
+    """Removes citation-shaped brackets from a line."""
     out = _INLINE_CITE_STRIP_RE.sub("", text)
     out = re.sub(r"[ \t]+([.,;:!?])", r"\1", out)
     return re.sub(r"[ \t]{2,}", " ", out).rstrip()
 
 
 def _load_transcript_segments(source: dict) -> list[dict]:
-    """Load Whisper segments from the _transcript.txt artifact next to a media source.
-
-    Returns list of {"start": float, "end": float, "text": str} or [] on any error.
-    """
+    """Loads the Whisper segments from the transcript file next to a media source."""
     file_path = source.get("file_path") or ""
     if not file_path:
         return []
@@ -1767,12 +1230,7 @@ def _load_transcript_segments(source: dict) -> list[dict]:
 
 
 def _enrich_media_content(chunk: dict, segments: list[dict]) -> str:
-    """Inject inline `(MM:SS)` markers at segment boundaries within a media chunk's content.
-
-    Gives the LLM finer-grained timestamps to cite than just the chunk's start_time,
-    so answers about content mid-chunk can reference the correct moment.
-    Falls back to the original content if segments can't be aligned.
-    """
+    """Puts timestamps on the segment boundaries inside a media chunk."""
     content = chunk.get("content") or ""
     relevant = _chunk_segments(chunk, segments)
     if len(relevant) < 2:
@@ -1780,13 +1238,7 @@ def _enrich_media_content(chunk: dict, segments: list[dict]) -> str:
     return " ".join(f"({_format_timestamp(s['start'])}) {s['text']}" for s in relevant)
 
 def _require_workspace_owner(workspace_uuid: str, user_id: int, locale: str = DEFAULT_LOCALE) -> dict:
-    """Owner only. The two things a tutor must not do.
-
-    Deleting the workspace is unrecoverable, and handing out tutor rights would
-    let the circle of people with full rights grow without the owner noticing.
-    Inviting learners is not in here: that is ordinary tutoring work and cannot
-    hurt anything.
-    """
+    """Owner only: deleting and granting tutor rights."""
     workspace = db.get_aia_workspace(workspace_uuid)
     if not workspace:
         raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
@@ -1796,12 +1248,7 @@ def _require_workspace_owner(workspace_uuid: str, user_id: int, locale: str = DE
 
 
 def _require_workspace_manage(workspace_uuid: str, user_id: int, locale: str = DEFAULT_LOCALE) -> dict:
-    """Allow the owner OR a tutor. Used for everything that changes a workspace.
-
-    A tutor joined through a tutor link and manages the workspace on the owner's
-    behalf, with the same rights. The system role (staff/admin/user) never grants
-    this, only ownership or a tutor enrollment does.
-    """
+    """Allows owner or tutor, for everything that changes a course room."""
     workspace = db.get_aia_workspace(workspace_uuid)
     if not workspace:
         raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
@@ -1812,20 +1259,7 @@ def _require_workspace_manage(workspace_uuid: str, user_id: int, locale: str = D
     raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
 
 def _require_workspace_access(workspace_uuid: str, user_id: int, locale: str = DEFAULT_LOCALE) -> dict:
-    """Allow owner OR enrolled student. Used for read-only workspace info.
-
-    Inactive closes the room, it does not merely hide it. The switch promises
-    the owner "locked for students", and that promise was empty as long as the
-    flag only filtered two list queries: the course dropped out of the list
-    without a word, while a bookmarked link walked straight past it into the
-    open workspace.
-
-    Owner and tutors keep coming in while it is off. They run the room, and
-    switching it off is exactly when they prepare it.
-
-    The refusal is 423 (locked), not 403: nothing is wrong with this person's
-    rights, so the browser has to be able to tell the two apart and say why.
-    """
+    """Allows owner or enrolled people, an inactive course room answers with 423."""
     workspace = db.get_aia_workspace(workspace_uuid)
     if not workspace:
         raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
@@ -1838,17 +1272,11 @@ def _require_workspace_access(workspace_uuid: str, user_id: int, locale: str = D
     raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
 
 def _save_source_file_path(user_id: int, workspace_uuid: str, source_uuid: str, ext: str, local_path: str) -> str:
-    """Store an uploaded source, streaming from a file on disk (low-RAM).
-
-    Returns the stored key (S3) or absolute path (local)."""
+    """Stores an uploaded source, streaming from disk."""
     return save_aia_source_from_path(user_id, workspace_uuid, source_uuid, ext, local_path)
 
 def _delete_workspace_files(workspace: dict) -> None:
-    """Remove the workspace folder as a whole.
-
-    Per-source deletion would leave the derived artifacts (transcript,
-    subtitles) behind, and those hold the full text of a lecture recording.
-    """
+    """Removes the course room folder as a whole, derived files included."""
     try:
         removed = delete_aia_workspace_folder(workspace["user_id"], workspace["uuid"])
         logger.info("KI Tutor: removed {} files for workspace {}", removed, workspace["uuid"])
@@ -1872,15 +1300,7 @@ def _resolve_source_ids(
     return ids
 
 def _context_snippet(page_text: str, term: str, max_chars: int = 700) -> str:
-    """A short excerpt of ``page_text`` centred on the marked ``term``, for grounding
-    a glossary definition in how the term is actually used in the document.
-
-    Finds the first case-insensitive occurrence of the term and returns a window of
-    at most ``max_chars`` around it, trimmed at whitespace so words are not cut mid-way
-    (an ellipsis marks a trimmed edge). If the term is not found literally (an inflected
-    or multi-word mark), the leading ``max_chars`` of the page are returned instead, so
-    there is always *some* context. Empty input → "". Pure so it is unit-testable without
-    the route's DB/LLM dependencies."""
+    """A short excerpt of the page around the marked term."""
     text = re.sub(r"\s+", " ", (page_text or "")).strip()
     if not text:
         return ""
@@ -1905,10 +1325,7 @@ def _context_snippet(page_text: str, term: str, max_chars: int = 700) -> str:
 
 
 def _term_appears_in_text(term: str, text_lower: str) -> bool:
-    """Check if term appears literally or as a lemma/stem prefix in the text.
-    Allows LLM to return Grundform (e.g. "erhöhen") when text has inflected
-    form ("erhöht", "zu erhöhen"). Rejects terms that share only a weak prefix.
-    """
+    """Checks whether the term appears verbatim or as a word stem in the text."""
     t = term.lower().strip()
     if not t:
         return False
@@ -1919,6 +1336,5 @@ def _term_appears_in_text(term: str, text_lower: str) -> bool:
     return bool(re.search(r"\b" + re.escape(stem), text_lower))
 
 
-# A line "already has a citation" if it ends with a chip token — optionally followed
-# by a markdown table cell's closing pipe (the chip can sit inside the last cell).
+# A line already has evidence when it ends with a chip.
 _HAS_CITE = re.compile(r"\[(?:Q?\d+,\s*)?(?:S\.\s*\d+|\d{1,2}:\d{2}(?::\d{2})?)[^\]]*\]\s*\|?\s*$")

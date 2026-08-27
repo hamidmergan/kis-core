@@ -14,16 +14,7 @@ const COLLAPSED_MAX_HEIGHT = "3.75rem";
 // Fade the last line into nothing so it reads as "there's more below".
 const FADE_MASK = "linear-gradient(to bottom, black 45%, transparent 100%)";
 
-/**
- * Admin-configurable notice banner for the start page. Shown to all users
- * (any role) above "Nächste Termine". Reads the public /health/labels probe
- * so it renders without auth/admin rights. Renders nothing unless the admin
- * enabled it AND left a non-empty text.
- *
- * Long texts are collapsed to ~3 lines by default with a soft fade at the
- * bottom; a subtle caret toggles the full text. Short texts show in full
- * without a toggle.
- */
+/** Notice banner of the start page, reads the public probe and stays empty without text. */
 export default function HomeNotice() {
   const [notice, setNotice] = useState<Notice | null>(null);
   const [expanded, setExpanded] = useState(false);
@@ -51,8 +42,7 @@ export default function HomeNotice() {
     };
   }, []);
 
-  // Once the text is in the DOM (still collapsed), check whether it is taller
-  // than the 3-line window. Only then do we show the fade + toggle.
+  // Only in the DOM does it show whether the text is taller than three lines.
   useEffect(() => {
     const el = textRef.current;
     if (!el) return;

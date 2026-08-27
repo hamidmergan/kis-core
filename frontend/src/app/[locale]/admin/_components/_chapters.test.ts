@@ -19,15 +19,14 @@ describe("byChapter", () => {
     expect(out.map((b) => b.chapter)).toEqual(["benutzen", "verwalten"]);
   });
 
-  // Der Server ist die Reihenfolge. Kaeme dasselbe Kapitel zweimal, waeren es
-  // zwei Bloecke, statt Zeilen aus ihrer Reihenfolge zu reissen.
+  // The server sets the order, duplicates become two blocks.
   it("zieht getrennte Gruppen nicht nachtraeglich zusammen", () => {
     const out = byChapter([g("a", "x"), g("b", "y"), g("c", "x")]);
 
     expect(out.map((b) => b.chapter)).toEqual(["x", "y", "x"]);
   });
 
-  // Ein alter Server ohne Kapitel darf die Tabelle nicht leer lassen.
+  // An old server without chapters must not leave the table empty.
   it("kommt ohne Kapitelangabe aus", () => {
     const out = byChapter([g("aia"), g("tools")]);
 

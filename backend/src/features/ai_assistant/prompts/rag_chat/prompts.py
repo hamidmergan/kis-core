@@ -1,4 +1,4 @@
-"""System- und User-Prompts fuer den RAG-Chat der KI-Assistenz."""
+"""System and user prompts for the RAG chat of the AI assistant."""
 
 from src.features.ai_assistant.prompts.rag_chat.language_anchor import (
     ambiguous_language_rule,
@@ -7,7 +7,7 @@ from src.features.ai_assistant.prompts.rag_chat.language_anchor import (
 
 
 def _language_order(answer_language: str) -> str:
-    """Die im Vor-Call gemessene Fragesprache als Befehl, leer wenn sie unbekannt ist."""
+    """The question language measured in the pre-call as an order, empty when unknown."""
     if not answer_language:
         return ""
     return (
@@ -22,9 +22,8 @@ def aia_system_rag(
     target_locale: str = "de", *, overview: bool = False,
     prev_questions: list[str] | None = None, answer_language: str = "",
 ) -> str:
-    """Haupt-Prompt des Antwort-Calls: Sprache folgt der Frage, ``overview``
-    haengt den Ueberblick-Modus an."""
-    # Die Zahl gilt nur der Einzelfrage, der Ueberblick lebt von der Breite.
+    """Main prompt of the answer call, overview appends the overview mode."""
+    # The number only applies to a single question, the overview lives on breadth.
     grenze = "" if overview else "AT MOST FIVE entries. "
     base = (
         "## Role\n"
@@ -116,7 +115,7 @@ def aia_system_rag(
 def aia_system_greeting(
     target_locale: str = "de", prev_questions: list[str] | None = None
 ) -> str:
-    """Prompt fuer den reinen Gruss: zurueckgruessen, Themen nennen, Beispielfragen anbieten."""
+    """Prompt for a bare greeting: greet back, name the topics, offer example questions."""
     return (
         "The user has ONLY said hello. This is NOT a question about the documents, so "
         "do NOT answer anything from them and NEVER say that something is missing.\n"
@@ -162,7 +161,7 @@ def aia_system_greeting(
 
 
 def aia_greeting_user_message(context: str, greeting: str) -> str:
-    """Nutzer-Nachricht des Grusses: die Quellen sind nur da, damit er die Themen kennt."""
+    """User message of the greeting, the sources are only there so it knows the topics."""
     return (
         "The documents below are there ONLY so you can name their topics. Do not answer "
         "from them.\n\n"
@@ -174,8 +173,7 @@ def aia_rag_user_message(
     context: str, question: str, prev_questions: list[str] | None = None,
     answer_language: str = "",
 ) -> str:
-    """Nutzer-Nachricht des Antwort-Calls: die Sprachregel klammert den Kontext ein,
-    sonst ziehen deutsche Quellen die Antwort mit."""
+    """User message of the answer call, the language rule brackets the context."""
     fallback = ""
     anchors = language_anchors(prev_questions)
     if anchors:
@@ -204,7 +202,7 @@ def aia_rag_user_message(
 def aia_system_reformat(
     target_locale: str = "de", prev_questions: list[str] | None = None
 ) -> str:
-    """Systemprompt fuers Umformen: Stoff ist allein die letzte Antwort."""
+    """System prompt for reshaping, the material is only the last answer."""
     return (
         "You RESHAPE a text that you wrote earlier in this chat. The text is the ONLY "
         "material you have.\n"
@@ -225,7 +223,7 @@ def aia_system_reformat(
 
 
 def aia_reformat_user_message(previous_answer: str, instruction: str) -> str:
-    """Nutzer-Nachricht fuers Umformen: die Anweisung zuletzt, sie gibt den Ausschlag."""
+    """User message for reshaping, the instruction comes last because it decides."""
     return (
         "TEXT TO RESHAPE (your own earlier answer in this chat):\n"
         f"{previous_answer}\n\n"

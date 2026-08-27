@@ -1,4 +1,4 @@
-"""Zahlen zum Screencast-Lauf: phasenweise anhaengen, nichts verlieren."""
+"""Numbers about the screencast run: append per phase, lose nothing."""
 
 import pytest
 

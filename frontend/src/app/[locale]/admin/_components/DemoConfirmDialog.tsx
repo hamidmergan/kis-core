@@ -1,11 +1,6 @@
 "use client";
 
-/**
- * Die Rueckfrage, bevor ein Konto den Demo-Haken verliert.
- *
- * Sie kommt nur, wenn dabei wirklich Einschreibungen verloren gehen, also beim
- * Entfernen des Hakens und beim Wechsel auf ein anderes Konto.
- */
+/** The confirmation before an account loses the demo flag. */
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
@@ -13,9 +8,9 @@ import Modal from "@/components/ui/Modal";
 import Spinner from "@/components/ui/Spinner";
 
 type Props = {
-  /** Name des Kontos, das den Haken verliert. */
+  /** Name of the account that loses the flag. */
   verlierer: string;
-  /** Wahr, wenn auf ein anderes Konto gewechselt wird. */
+  /** True when switching to another account. */
   wechsel: boolean;
   onCancel: () => void;
   onConfirm: () => Promise<void>;

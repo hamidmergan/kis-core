@@ -1,6 +1,6 @@
 import type { Language } from "./useLanguageConfig";
 
-/** Nur erlaubte Sprachen behalten und eine gesperrte Zielsprache zurueckholen. */
+/** Keeps only allowed languages and pulls a blocked target language back. */
 export function pickAllowed(
   languages: Language[],
   allowed: readonly string[] | undefined,

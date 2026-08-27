@@ -34,8 +34,7 @@ class PatchWorkspaceBody(BaseModel):
     is_active: Optional[bool] = None
     transcript_target_lang: Optional[str] = None
     diagnosis_language: Optional[str] = None
-    # Sprachtrainer for everyone in this workspace. Admin decision, see the
-    # rank check in patch_workspace.
+    # Language trainer for everyone in this course room, a management decision.
     language_training_active: Optional[bool] = None
     staff_note_text: Optional[str] = Field(None, max_length=2000)
     staff_note_links: Optional[list[StaffNoteLink]] = Field(None, max_length=30)
@@ -47,14 +46,12 @@ class RenewCodeBody(BaseModel):
 
 
 class CreateAccessLinkBody(BaseModel):
-    # None means the link never expires. Not every course has an end date, and a
-    # forced one only leads to links that quietly stop working mid-semester.
+    # None means the link never expires.
     expires_at: Optional[str] = None  # ISO datetime string
 
 
 class SetParticipantRoleBody(BaseModel):
-    # Owner-only. A tutor manages the workspace like the owner, except that
-    # inviting stays with the owner alone.
+    # Owner only, inviting stays with them alone.
     role: Literal["student", "tutor"]
 
 
@@ -77,18 +74,16 @@ class ChatBody(BaseModel):
 class UserSettingsBody(BaseModel):
     chat_lang: str
     studio_enabled: bool = True
-    # Zielsprache der Auswahlleisten-Übersetzung, Code aus i18n.TRANSCRIPT_LANGUAGES.
+    # Target language of the selection bar translation, code from i18n.TRANSCRIPT_LANGUAGES.
     popup_translate_lang: str = "en"
-    # Eigene Entscheidung, ob der vom Kurs freigegebene Sprachtrainer angezeigt
-    # wird. Standard aus.
+    # Personal decision whether the released language trainer is shown.
     language_training_active: bool = False
 
 
 class NoteBody(BaseModel):
     content: str = Field(..., max_length=50000)
     source_uuids: Optional[list[str]] = None
-    # Carry chat metadata so the chat citation renderer can resolve exact-highlight
-    # state (popup-action selections) when the note is later opened.
+    # Carry the chat details along so the citations resolve again on opening.
     source_pages: Optional[list[dict]] = None
     popup_selection: Optional[dict] = None
     auto_title: bool = True
@@ -99,11 +94,7 @@ class NoteTitleBody(BaseModel):
 
 
 class ArtifactTitleBody(BaseModel):
-    """Neuer Anzeigename fuer Satz, Mindmap oder Datentabelle.
-
-    200 als obere Schranke der Uebergabe, gekuerzt wird spaeter auf MAX_TITLE_LEN.
-    Zwei Werte, weil hier nur abgewehrt wird, was gar nicht erst ankommen soll.
-    """
+    """New display name for a set, mind map or data table."""
     title: str = Field(..., max_length=200)
 
 
@@ -132,23 +123,20 @@ class CreateSetBody(BaseModel):
     count: int = 10
     # Only tool="grammatik": id of the workspace's grammar topic the set is built from.
     grammar_topic_id: Optional[int] = None
-    # Only tool="grammatik": which of the four exercise formats the learner picked.
-    # Absent means mixed, which is the normal case and the only way to say it.
+    # Grammar only: the chosen formats, missing means mixed.
     grammar_kinds: Optional[list[str]] = None
-    # Nur tool="wortschatz" mit mode="cards": das Lernkarten-Set, dessen Begriffe die
-    # Lücken werden. Der Text kommt trotzdem aus den Quellen.
+    # Only for vocabulary from cards, the text still comes from the sources.
     flashcard_set_id: Optional[int] = None
 
 
 class GrammarExamplePair(BaseModel):
-    """Ein Musterpaar. Steuert das Modell und ist zugleich das, was der Dozent
-    prüft und der Lernende sieht."""
+    """A pattern pair, it steers the model and shows the learner the form."""
     before: str = Field(..., max_length=500)
     after: str = Field(..., max_length=500)
 
 
 class GrammarTopicPreviewBody(BaseModel):
-    """Der getippte Themenname. Kein Prompt, nur ein Name."""
+    """The typed topic name, no prompt, just a name."""
     name: str = Field(..., max_length=120)
 
 
@@ -156,8 +144,7 @@ class GrammarTopicCreateBody(BaseModel):
     name: str = Field(..., max_length=120)
     rule: str = Field(..., max_length=4000)
     examples: list[GrammarExamplePair]
-    # Die vier Anweisungszeilen aus der Vorschau. Optional: aeltere Clients schicken sie
-    # nicht, dann arbeitet der erste Uebungslauf das Thema nach.
+    # The four instruction lines from the preview, otherwise the first run backfills them.
     task_lines: dict[str, str] | None = None
 
 
@@ -172,8 +159,7 @@ class GrammarCheckBody(BaseModel):
 
 class ExerciseProgressBody(BaseModel):
     results: list[dict]  # [{"item_id": int, "correct": bool}]
-    # Die Uebungsansicht setzt das bei ihrer ersten Antwort. Das Backend macht
-    # daraus die naechste Durchgangsnummer.
+    # The exercise view sets this on its first answer.
     new_run: bool = False
 
 
@@ -188,13 +174,12 @@ class ScheduleEntryCreateBody(BaseModel):
     title: str = Field(..., max_length=200)
     description: Optional[str] = Field(None, max_length=2000)
     due_date: Optional[str] = None  # ISO date 'YYYY-MM-DD' or None
-    # Gesetzt heisst: der Termin laeuft bis zu diesem Tag.
+    # When set, the appointment runs until this day.
     end_date: Optional[str] = None
     due_time: Optional[str] = None  # 'HH:MM' or None
-    # Gesetzt heisst: er endet an diesem Tag zu dieser Uhrzeit.
+    # When set, it ends on this day at this time.
     end_time: Optional[str] = None
-    # 'day' | 'month'. Bei 'month' kennt der Termin nur den Monat, due_date traegt
-    # dann den Monatsersten als Sortierpunkt.
+    # With 'month' the appointment only knows the month, the first sorts it.
     date_precision: Optional[str] = None
     # Gesetzt heisst: Anfang bekannt, Ende ausdruecklich offen ("ab 15.09.").
     is_open_ended: bool = False
@@ -219,19 +204,18 @@ class ScheduleEntryUpdateBody(BaseModel):
     clear_end_time: bool = False
 
 
-# Grenzen fuer eigene Termine, dieselben Zahlen stehen im Dialog im Frontend.
+# Limits for private appointments, the same numbers are in the frontend dialog.
 TITLE_MAX = 80
 NOTE_MAX = 500
 
 
 class PersonalEntryCreateBody(BaseModel):
-    """Ein eigener Termin, er gehoert zu keinem Workspace."""
-    # Enger als bei den aus Quellen gezogenen Terminen: der Titel steht in einer
-    # Rasterzelle und in einer schmalen Spalte, lang wird dort unlesbar.
+    """A private appointment, it belongs to no workspace."""
+    # Tighter than for extracted appointments, the title sits in a narrow column.
     title: str = Field(..., max_length=TITLE_MAX)
     description: Optional[str] = Field(None, max_length=NOTE_MAX)
     due_date: str  # ISO date 'YYYY-MM-DD'
-    # Gesetzt heisst: der Termin geht bis zu diesem Tag.
+    # When set, the appointment runs until this day.
     end_date: Optional[str] = None
     due_time: Optional[str] = None
 

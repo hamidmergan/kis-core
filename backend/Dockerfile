@@ -32,8 +32,8 @@ RUN chmod +x /usr/local/bin/kis-entrypoint.sh
 
 EXPOSE 8000
 
-# Startet ueber das Skript, damit die Prozesszahl aus den vorhandenen Kernen
-# kommt statt fest zu sein. Der Schalter dafuer steht oben im Skript und ist
-# heute aus, es laeuft also genau ein Prozess wie bisher. Die Celery-Container
-# ueberschreiben das per 'command:' in der Compose-Datei.
+# Starts through the script so the process count comes from the available cores
+# instead of being fixed. The switch for that sits at the top of the script and is
+# off today, so exactly one process runs as before. The Celery containers override
+# this via 'command:' in the compose file.
 CMD ["/usr/local/bin/kis-entrypoint.sh"]

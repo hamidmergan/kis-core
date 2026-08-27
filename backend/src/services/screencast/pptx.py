@@ -21,14 +21,7 @@ from src.utils.pptx_text import (
 
 
 def extract_text_per_slide(source: bytes | str | Path) -> list[str]:
-    """Text je Folie, ein Eintrag pro sichtbarer Folie.
-
-    Ausgeblendete Folien bleiben außen vor, weil LibreOffice sie auch nicht
-    exportiert. Sonst liefe die Skriptliste gegen die Bilderliste aus dem Takt.
-
-    Nimmt Bytes oder einen Pfad. Die Upload-Route reicht den Pfad der Temp-Datei
-    durch, damit eine große PPTX nicht zusätzlich im Speicher liegt.
-    """
+    """Text per visible slide, hidden ones stay out."""
     prs = Presentation(BytesIO(source) if isinstance(source, bytes) else source)
     slide_texts: list[str] = []
     for slide in iter_visible_slides(prs):
@@ -37,7 +30,7 @@ def extract_text_per_slide(source: bytes | str | Path) -> list[str]:
             text = paragraph.text.strip()
             if text:
                 texts.append(text)
-        # SmartArt und Diagramme halten ihren Text außerhalb des Folien-XML.
+        # SmartArt and charts keep their text outside the slide XML.
         for node in iter_linked_text_nodes(slide):
             text = (node.text or "").strip()
             if text:
@@ -47,30 +40,13 @@ def extract_text_per_slide(source: bytes | str | Path) -> list[str]:
 
 
 def soffice_profile_dir() -> Path:
-    """Eigenes LibreOffice-Profil je Prozess und Thread.
-
-    Ohne eigenes Profil teilen sich alle Aufrufe ~/.config/libreoffice. Startet
-    ein zweiter Aufruf, während der erste läuft, reicht er den Auftrag an die
-    laufende Instanz weiter und beendet sich sofort mit Rückgabewert 0, ohne ein
-    PDF zu schreiben. Gemessen: drei gleichzeitige Konvertierungen, eine ohne
-    Ergebnis, keine Fehlermeldung. Der Renderer läuft mit zwei Celery-Prozessen
-    und die API konvertiert zusätzlich, also passiert das im Betrieb.
-
-    Der Pfad ist stabil je Thread, damit ein einmal angelegtes Profil
-    wiederverwendet wird und nicht bei jeder Konvertierung neu entsteht.
-    """
+    """Its own LibreOffice profile per process and thread, otherwise a conversion fails."""
     key = f"{os.getpid()}-{threading.get_ident()}"
     return Path(tempfile.gettempdir()) / "kis-lo-profiles" / key
 
 
 def build_soffice_cmd(pptx_path: Path, output_dir: Path) -> list[str]:
-    """LibreOffice-Aufruf für PPTX nach PDF.
-
-    ExportHiddenSlides steht ausdrücklich auf false. Das ist zwar auch die
-    Voreinstellung, aber die Bildliste muss zur Textliste passen, und
-    ``extract_text_per_slide`` überspringt ausgeblendete Folien. Diese Zusage
-    soll nicht von einer Voreinstellung abhängen.
-    """
+    """The LibreOffice call for PPTX to PDF, without hidden slides."""
     profile = soffice_profile_dir()
     profile.mkdir(parents=True, exist_ok=True)
     pdf_filter = (
@@ -86,9 +62,7 @@ def build_soffice_cmd(pptx_path: Path, output_dir: Path) -> list[str]:
 
 
 def _apply_autofit_for_rendering(pptx_path: Path) -> Path:
-    """Return a temp copy of the PPTX with AutoFit text shrunk by 20%.
-    Works at XML level so inherited/theme font sizes are also captured.
-    The original file is never modified."""
+    """A temp copy with the font shrunk by 20 percent, the original stays."""
     prs = Presentation(str(pptx_path))
     changed = False
     for slide in prs.slides:
@@ -131,8 +105,7 @@ def _apply_autofit_for_rendering(pptx_path: Path) -> Path:
 
 def pptx_to_images(pptx_path: Path, output_dir: Path, dpi: int = 100) -> list[Path]:
     """Convert PPTX slides to PNG images using LibreOffice."""
-    # Read actual slide dimensions so we can detect non-standard sizes and
-    # pass the correct aspect ratio to the post-processing step.
+    # Reads the real slide dimensions so the aspect ratio is right.
     prs = Presentation(str(pptx_path))
     slide_width = prs.slide_width   # EMU (1 cm = 360000 EMU)
     slide_height = prs.slide_height
@@ -148,8 +121,7 @@ def pptx_to_images(pptx_path: Path, output_dir: Path, dpi: int = 100) -> list[Pa
         logger.info("Converting PPTX to PDF: {}", " ".join(cmd))
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
     finally:
-        # Die AutoFit-Kopie liegt neben der Quelle. Beim Vorrendern ist das ein
-        # bleibendes Verzeichnis, dort sammelte sie sich sonst an.
+        # Clear the copy away, otherwise the folder stays behind after pre-rendering.
         render_pptx.unlink(missing_ok=True)
 
     pdf_path = output_dir / f"{render_pptx.stem}.pdf"

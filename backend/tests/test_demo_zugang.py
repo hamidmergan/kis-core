@@ -1,4 +1,4 @@
-"""Demo-Zugang: der Haken im Admin und die zwei Routen auf der Startseite."""
+"""Demo access: the admin flag and the two routes on the start page."""
 from unittest.mock import patch
 
 import pytest
@@ -59,7 +59,7 @@ def test_die_liste_reicht_nur_die_sichtbaren_felder_durch(client):
         "description": "Modul B.Eng.", "source_count": 7, "joined": False,
         "via_demo": False, "owned": False,
     }]
-    # Die interne Kennung darf die Route nicht verlassen.
+    # The internal id must not leave the route.
     assert "id" not in r.json()[0]
 
 
@@ -123,7 +123,7 @@ def test_verlassen_geht_nur_bei_demo_kursen(client):
 
 
 def test_verlassen_ohne_einschreibung_bleibt_ruhig(client):
-    """Der Eigentuemer hat keine Einschreibung, das ist kein Fehler."""
+    """The owner has no enrollment, that is not an error."""
     with patch("src.features.ai_assistant.routes.demo.db.get_demo_workspaces",
                return_value=[_kurs(5, "w5")]), \
          patch("src.features.ai_assistant.routes.demo.db.delete_demo_enrollment",
@@ -134,7 +134,7 @@ def test_verlassen_ohne_einschreibung_bleibt_ruhig(client):
 
 
 def test_der_haken_weg_raeumt_die_demo_einschreibungen_ab(client):
-    """Wer den Haken verliert, dessen Demo-Teilnehmer fliegen aus dem Kurs."""
+    """Whoever loses the flag loses their demo participants from the course."""
     with patch("src.routes.admin.users.db.get_user_by_id", return_value={"id": 7}), \
          patch("src.routes.admin.users.db.set_user_demo", return_value=[7]), \
          patch("src.routes.admin.users.db.delete_demo_enrollments_of_owner",
@@ -145,7 +145,7 @@ def test_der_haken_weg_raeumt_die_demo_einschreibungen_ab(client):
 
 
 def test_das_vorige_demo_konto_wird_mit_abgeraeumt(client):
-    """Beim Umhaken verliert das alte Konto den Haken und damit seine Teilnehmer."""
+    """On switching, the old account loses the flag and with it its participants."""
     with patch("src.routes.admin.users.db.get_user_by_id", return_value={"id": 9}), \
          patch("src.routes.admin.users.db.set_user_demo", return_value=[7]), \
          patch("src.routes.admin.users.db.delete_demo_enrollments_of_owner",
@@ -156,7 +156,7 @@ def test_das_vorige_demo_konto_wird_mit_abgeraeumt(client):
 
 
 def test_beitreten_merkt_sich_den_weg_ueber_die_demo(client):
-    """Sonst liesse sich spaeter nicht sagen, welche Einschreibung abgeraeumt werden darf."""
+    """Otherwise it would be impossible to say later which enrollment may be cleared."""
     with patch("src.features.ai_assistant.routes.demo.db.get_demo_workspaces",
                return_value=[_kurs(5, "w5")]), \
          patch("src.features.ai_assistant.routes.demo.db.enroll_student",
@@ -166,7 +166,7 @@ def test_beitreten_merkt_sich_den_weg_ueber_die_demo(client):
 
 
 def test_der_eigentuemer_tritt_seinem_eigenen_kurs_nicht_bei(client):
-    """Ihm gehoert der Kurs schon, eine Einschreibung waere sinnlos."""
+    """They already own the course, an enrollment would be pointless."""
     with patch("src.features.ai_assistant.routes.demo.db.get_demo_workspaces",
                return_value=[_kurs(5, "w5", owned=True)]), \
          patch("src.features.ai_assistant.routes.demo.db.enroll_student") as einschreiben:
@@ -176,12 +176,12 @@ def test_der_eigentuemer_tritt_seinem_eigenen_kurs_nicht_bei(client):
 
 
 def test_verlassen_fasst_eine_echte_einschreibung_nicht_an(client):
-    """Wer ueber einen richtigen Link drin ist, bleibt drin."""
+    """Whoever is in through a real link stays in."""
     with patch("src.features.ai_assistant.routes.demo.db.get_demo_workspaces",
                return_value=[_kurs(5, "w5", joined=True, via_demo=False)]), \
          patch("src.features.ai_assistant.routes.demo.db.delete_demo_enrollment",
                return_value=False) as loeschen:
         r = client.post("/ai-assistant/demo/leave", json={"workspace_uuid": "w5"})
     assert r.json()["left"] is False
-    # Die Abfrage selbst schuetzt: sie fasst nur Zeilen mit via_demo an.
+    # The query itself protects: it only touches rows with via_demo.
     loeschen.assert_called_once_with(5, 1)

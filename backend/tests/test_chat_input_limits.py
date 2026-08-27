@@ -1,19 +1,4 @@
-"""Unit tests for the chat QUESTION input length controls.
-
-Three layers guard against an unbounded chat question (a user pasting a huge
-text into the AIA input):
-
-1. ``ChatBody.question`` — schema hard cap (clean 422 instead of a 500 deep in
-   the embedding/answer call) and a non-empty minimum.
-2. ``_truncate_query_for_embedding`` — the RETRIEVAL query is trimmed before it
-   is embedded, so a long paste cannot overflow a low-limit embedding model or
-   blur the search vector. The full question still reaches the answer model.
-3. ``_reserve_question_budget`` — the context char budget reserves room for the
-   question (appended after the context in the answer prompt), so context +
-   question never overflow the model window together.
-
-All pure / offline: no DB, no LLM, no network.
-"""
+"""Three limits against a runaway chat question: schema, search query, budget."""
 import pytest
 from pydantic import ValidationError
 
@@ -71,8 +56,7 @@ def test_empty_query_is_returned_as_is():
 
 
 def test_embed_cap_is_below_schema_cap():
-    # The schema cap bounds the question; the embed cap must be the tighter one so
-    # truncation actually happens for a long-but-valid question.
+    # The embedding limit has to be tighter, otherwise nothing is ever shortened.
     assert AIA_EMBED_QUERY_MAX_CHARS < AIA_QUESTION_MAX_CHARS
 
 
@@ -86,8 +70,7 @@ def test_budget_reserves_question_length_plus_overhead():
 
 
 def test_budget_floors_at_1000_for_tiny_budget():
-    # Admin sets a tiny budget AND the user pastes a max-length question: never
-    # go to zero/negative, always leave usable context.
+    # Even with a tiny budget usable context remains.
     out = _reserve_question_budget(1500, "x" * AIA_QUESTION_MAX_CHARS)
     assert out == 1000
 

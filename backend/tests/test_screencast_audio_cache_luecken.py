@@ -1,4 +1,4 @@
-"""Ausgeschlossene Folien behalten ihren alten Ton, damit Wiederaufnehmen nichts kostet."""
+"""Excluded slides keep their old audio so resuming costs nothing."""
 
 from src import storage
 from src.storage import audio_folien_mit_ton, clear_audio_cache, hat_audio_slide, job_prefix, save_audio_cache
@@ -19,7 +19,7 @@ def test_none_laesst_die_vorhandene_datei_stehen(lokal):
 
 
 def test_leere_bytes_schreiben_eine_leere_datei(lokal):
-    """Eine Folie ohne Skript hat keinen Ton, der Platz bleibt aber belegt."""
+    """A slide without a script has no audio, but the slot stays taken."""
     save_audio_cache(1, UUID, [b""])
     assert (_audio_dir(lokal) / "slide_000.mp3").read_bytes() == b""
 
@@ -35,7 +35,7 @@ def test_hat_audio_slide_erkennt_inhalt(lokal):
 
 
 def test_leere_datei_gilt_als_kein_ton(lokal):
-    """Null Bytes sind kein gueltiges MP3, der Rueckgriff darf sie nicht nehmen."""
+    """Zero bytes is not a valid MP3, the fallback must not take it."""
     save_audio_cache(1, UUID, [b"ID3", b""])
     assert hat_audio_slide(1, UUID, 1) is False
 
@@ -57,7 +57,7 @@ def test_audio_folien_mit_ton_ohne_ordner(lokal):
 
 
 class _FakePaginator:
-    """Gibt vorgegebene Seiten zurueck, wie der echte S3-Paginator."""
+    """Returns given pages, like the real S3 paginator."""
 
     def __init__(self, seiten):
         self._seiten = seiten
@@ -67,7 +67,7 @@ class _FakePaginator:
 
 
 class _FakeS3Listing:
-    """S3-Attrappe, die nur list_objects_v2 ueber einen Paginator kennt."""
+    """S3 stub that only knows list_objects_v2 through a paginator."""
 
     def __init__(self, seiten):
         self._seiten = seiten
@@ -77,7 +77,7 @@ class _FakeS3Listing:
 
 
 def test_audio_folien_mit_ton_s3_findet_nur_belegte_plaetze(monkeypatch):
-    """Der S3-Zweig muss dieselbe Menge liefern wie der lokale, ueber zwei Seiten verteilt."""
+    """The S3 branch has to return the same set as the local one, spread over two pages."""
     praefix = job_prefix(1, UUID) + "/audio/"
     seiten = [
         {"Contents": [
@@ -95,7 +95,7 @@ def test_audio_folien_mit_ton_s3_findet_nur_belegte_plaetze(monkeypatch):
 
 
 def test_audio_folien_mit_ton_s3_verwirft_unpassenden_schluessel(monkeypatch):
-    """Ein Schluessel ausserhalb des slide_NNN-Musters darf nicht als -1 in der Menge landen."""
+    """A key outside the slide_NNN pattern must not land in the set as -1."""
     praefix = job_prefix(1, UUID) + "/audio/"
     seiten = [
         {"Contents": [
@@ -121,7 +121,7 @@ def test_clear_audio_cache_ohne_ordner_wirft_nicht(lokal):
 
 
 def test_clear_audio_cache_laesst_anderen_auftrag_unangetastet(lokal):
-    """Der Schluessel darf nur den Ordner GENAU dieses Auftrags treffen."""
+    """The key may only hit the folder of EXACTLY this job."""
     save_audio_cache(1, UUID, [b"ID3"])
     save_audio_cache(1, ANDERE_UUID, [b"ID3andere"])
 

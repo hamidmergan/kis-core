@@ -57,8 +57,7 @@ export function ChatPanel({
   const stickBottomRef = useRef(true);
   const [showJumpDown, setShowJumpDown] = useState(false);
 
-  // Tracks window scroll on landscape mobile (inner scroll is disabled there)
-  // to flip the jump button between "go to top" and "go to bottom".
+  // Tracks the scrolling on the phone to toggle the jump button.
   const [pageNearTop, setPageNearTop] = useState(true);
   const [pageScrollable, setPageScrollable] = useState(false);
   useEffect(() => {
@@ -92,16 +91,14 @@ export function ChatPanel({
     }
   }, [messages.length]);
 
-  // Sticky-bottom auto-scroll: follow new content only while user is at the
-  // bottom. If the user scrolls up mid-stream to re-read, stop following;
-  // resume once they scroll back down.
+  // Follows the stream only while you are at the bottom.
   useEffect(() => {
     const el = scrollContainerRef.current;
     if (!el) return;
     const onScroll = () => {
       const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
       stickBottomRef.current = distance < 50;
-      // Erst ab vier Bildschirmhoehen Rueckstand zeigen wir den Knopf.
+      // The button only appears from four screen heights of backlog on.
       setShowJumpDown(distance > el.clientHeight * 4);
     };
     el.addEventListener("scroll", onScroll, { passive: true });
@@ -119,7 +116,7 @@ export function ChatPanel({
     setShowJumpDown(el.scrollHeight - el.scrollTop - el.clientHeight > el.clientHeight * 4);
   }, [messages]);
 
-  // Springt ans Ende und nimmt das Mitlaufen wieder auf.
+  // Jumps to the end and resumes following along.
   function jumpDown() {
     const el = scrollContainerRef.current;
     if (!el) return;
@@ -128,9 +125,7 @@ export function ChatPanel({
     setShowJumpDown(false);
   }
 
-  // Stable callback identities via refs - otherwise React.memo on ChatMessage
-  // gets invalidated on every re-render of page.tsx (e.g. tab switch), because
-  // `onPillClick` has deps like `activeTab` and its identity keeps changing.
+  // Stable callbacks via refs, otherwise the memoisation breaks.
   const sourcesRef = useRef(sources);
   sourcesRef.current = sources;
   const onPillClickRef = useRef(onPillClick);
@@ -145,17 +140,13 @@ export function ChatPanel({
     [],
   );
 
-  // Wrap onPillClick so opening the viewer doesn't cause the chat to jump.
-  // Captures scrollTop before the click and restores it across a few frames
-  // while the panel layout settles.
+  // Holds the scroll height so opening the viewer does not make the chat jump.
   const handleChipClick = useCallback(
-    // Chips are nav-only: a click scrolls to the page/timestamp. Only a popup/action-
-    // bar exact selection (isExact + sourceText) carries text to highlight.
+    // Chips only jump, only a selection of your own is highlighted.
     (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number, isExact?: boolean, endTime?: number, chunkStart?: number) => {
       const el = scrollContainerRef.current;
       const savedTop = el?.scrollTop ?? 0;
-      // hideTranscript stays undefined here: that flag belongs to the listening exercise,
-      // never to a chip. endTime und chunkStart stehen bei pillClick hinten.
+      // The transcript toggle does not belong to the chip.
       onPillClickRef.current(sourceUuid, page, filename, sourceText, startTime, isExact, undefined, endTime, chunkStart);
       if (el) {
         const restore = () => { el.scrollTop = savedTop; };

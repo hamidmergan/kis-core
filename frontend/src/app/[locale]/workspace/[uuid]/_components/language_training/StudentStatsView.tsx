@@ -31,8 +31,7 @@ export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSe
   const locale = useLocale();
   const dateLocale = locale === "en" ? "en-US" : "de-DE";
   const [period, setPeriod] = useState<StatsPeriod>("30");
-  // Der volle Kalender ist ueber 400px hoch und schiebt das Tagesdetail aus dem
-  // Blick. Standard ist darum die laufende Woche als eine Zeile.
+  // The current week by default, the full calendar pushes the detail away.
   const [calendarOpen, setCalendarOpen] = useState(false);
 
   // Responsive heatmap: adjust cells to container width
@@ -51,8 +50,7 @@ export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSe
   };
   useEffect(() => () => { observerRef.current?.disconnect(); }, []);
 
-  // Heatmap source: language_training off -> learning tools only; otherwise combined.
-  // Day-detail endpoint mirrors this choice via the category param.
+  // Without the language trainer only the learning tools, otherwise both together.
   const heatmapSource: HeatmapDay[] = stats
     ? (language_trainingActive ? stats.heatmap : stats.lerntools_heatmap)
     : [];
@@ -80,8 +78,7 @@ export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSe
   // ── Expand/collapse for day detail (limit to 10 entries) ──
   const DAY_DETAIL_LIMIT = 10;
   const [showAllSets, setShowAllSets] = useState(false);
-  // Wer einen Satz an einem Tag zwanzigmal uebt, haette sonst zwanzig Zeilen in
-  // einem Kasten und schoebe damit alle anderen Uebungen des Tages nach unten.
+  // Otherwise one heavily practised set would push all other exercises down.
   const RUN_LIMIT = 5;
   const [openRuns, setOpenRuns] = useState<Record<number, boolean>>({});
   useEffect(() => { setShowAllSets(false); setOpenRuns({}); }, [selectedDay]);
@@ -172,17 +169,16 @@ export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSe
     t("stats.weekdays.su"),
   ];
 
-  // Die letzten sieben Tage, heute steht ganz rechts. filteredHeatmap endet
-  // immer auf heute, darum reicht das Abschneiden vom Ende.
+  // The last seven days, today on the far right.
   const weekRow: HeatmapDay[] = filteredHeatmap.slice(-7);
 
-  // Das Kuerzel steht am Tag selbst, weil die Zeile nicht mehr auf Montag beginnt.
+  // The abbreviation sits on the day itself because the row no longer starts on Monday.
   function weekdayLabel(dayStr: string) {
     const dow = new Date(dayStr + "T12:00:00+02:00").getDay(); // 0=Sonntag
     return weekdayLabels[dow === 0 ? 6 : dow - 1];
   }
 
-  // Eine Kachel, geteilt von Wochenzeile und vollem Kalender.
+  // One tile, shared by the week row and the full calendar.
   function dayCell(d: HeatmapDay, cellSize: number, showDayNums: boolean) {
     const isSelected = selectedDay?.day === d.day;
     const dayNum = new Date(d.day + "T12:00:00+02:00").getDate();
@@ -374,14 +370,11 @@ export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSe
               {(showAllSets ? dayDetail.sets : dayDetail.sets.slice(0, DAY_DETAIL_LIMIT)).map(s => {
                 // Clean title: remove file extensions for display
                 const displayTitle = s.title.replace(/\.(pdf|mp4|mp3|webm|wav|m4a|ogg)$/i, "");
-                // Neuester Durchgang oben, wie ueberall sonst in der Oberflaeche. Das
-                // Backend liefert sie in der Reihenfolge ihres Laufs.
+                // Newest round on top, as everywhere else.
                 const runs = [...s.runs].reverse();
                 const alleRuns = openRuns[s.set_id] ?? false;
                 const sichtbareRuns = alleRuns ? runs : runs.slice(0, RUN_LIMIT);
-                // Derselbe Kasten wie in der Uebungsuebersicht: eigene Flaeche, weicher
-                // Schatten, beim Zeigen ein 2px Rahmen in der Akzentfarbe. Ohne ihn
-                // liefen die Uebungen eines Tages ineinander.
+                // The same box as in the overview, otherwise the exercises run into each other.
                 return (
                   <div key={s.set_id}
                     className="bg-background rounded-xl px-3 py-2.5 border-2 border-transparent transition-colors cursor-pointer hover:border-[var(--kb)]"
@@ -401,9 +394,7 @@ export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSe
                     {/* Eine Zeile je Durchgang. Der Nenner ist die Kartenzahl des
                         Satzes, wer abbricht hat deshalb 2 von 10 und nicht 2 von 2. */}
                     {sichtbareRuns.map((r, i) => (
-                      // Ab dem fuenften Durchgang laufen die Zeilen sonst ineinander,
-                      // deshalb trennt sie eine Haarlinie. Die erste bekommt keine, sie
-                      // steht schon unter dem Titel.
+                      // From the fifth round on a hairline separates the rows.
                       <div key={i} className="flex items-center justify-between text-3xs py-1"
                         style={{ color: "var(--muted)", borderTop: i > 0 ? "1px solid var(--border)" : undefined }}>
                         <span>{r.run_no === null ? t("stats.runEarlier") : t("stats.run", { n: r.run_no })}</span>
@@ -414,8 +405,7 @@ export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSe
                       </div>
                     ))}
                     {runs.length > RUN_LIMIT && (
-                      // Der Kasten selbst springt in die Uebung, der Knopf darf das nicht
-                      // ausloesen, sonst kommt man beim Aufklappen nie zurueck.
+                      // The button must not trigger the box's jump.
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); setOpenRuns(v => ({ ...v, [s.set_id]: !alleRuns })); }}

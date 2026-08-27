@@ -1,8 +1,4 @@
-"""KI-Assistent sources routes - upload, streaming, PDF ops.
-
-Aggregated via one umbrella router so the existing inclusion
-in `features.ai_assistant.routes.__init__` (`sources.router`) keeps working.
-"""
+"""Source routes: upload, serve, PDF access."""
 from fastapi import APIRouter
 
 from ._upload import router as _upload_router

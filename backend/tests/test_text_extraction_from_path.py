@@ -1,13 +1,4 @@
-"""Extractors accept a path, not just bytes.
-
-The upload routes stream the body to a temp file to keep it out of RAM. If the
-extractor then only took ``bytes``, the route would have to read the file back
-in and the streaming would buy nothing. python-docx / python-pptx read a path
-incrementally (zip members on demand), so the path form is the low-RAM one.
-
-Existing callers (the Celery tasks) still pass bytes, so both forms must work
-and must produce the same text.
-"""
+"""The text extractors take a path and return the same text as from bytes."""
 from io import BytesIO
 
 import pytest

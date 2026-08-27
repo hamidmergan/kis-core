@@ -1,17 +1,6 @@
 "use client";
 
-/**
- * Eine Route für alle Adminseiten. Welche Seite gemeint ist, entscheidet die
- * Registry, nicht diese Datei.
- *
- * Damit ist eine neue Seite ein Eintrag in der Registry und sonst nichts.
- * Vorher brauchte es drei Änderungen in page.tsx: Tab-Union, NAV-Array und
- * eine weitere Zeile in der Kette aus {tab === "x" && <XTab/>}.
- *
- * Unvollständige Adressen werden nach unten aufgefüllt: /admin landet beim
- * ersten Bereich, /admin/nutzer bei dessen erster Unterseite. Unbekannte
- * Adressen leiten auf den Anfang, statt eine leere Seite zu zeigen.
- */
+/** One route for all admin pages, the registry decides which. */
 
 import { use, useEffect } from "react";
 import { useTranslations } from "next-intl";
@@ -31,10 +20,7 @@ export default function AdminPage({ params }: { params: Promise<{ path?: string[
   const perms = useAdminPerms();
   const found = resolve(segments);
 
-  // Weiterleiten, wenn die Adresse unvollständig, unbekannt oder für diese
-  // Person gesperrt ist. Eine gesperrte Adresse landet auf der ersten Seite,
-  // die sie sehen darf, nicht auf einer leeren Seite und nicht auf der
-  // markierten Startseite, die ihr genauso verwehrt sein kann.
+  // Incomplete or blocked URLs land on a permitted page.
   const mayOpen = found ? allowed(found, perms.keys) : false;
   const target = mayOpen ? found!.path : firstAllowed(perms.keys)?.path;
   const needsRedirect = !mayOpen || segments.join("/") !== target;
@@ -47,10 +33,7 @@ export default function AdminPage({ params }: { params: Promise<{ path?: string[
   const { section, page } = found;
   const base = page ? `${section.key}.${page.key}` : section.key;
 
-  // Reiter kann sowohl eine Unterseite haben als auch ein Bereich, der selbst
-  // die Seite ist. Gefiltert wird auch hier: bei der Statistik haengt jeder
-  // Reiter an einem eigenen Recht, und wer nur eines davon hat, soll nicht auf
-  // einem gesperrten Reiter landen.
+  // The tabs are filtered too, each hangs off its own permission.
   const tabs = page
     ? allowedTabs(page.tabs, page.perm, perms.keys)
     : allowedTabs(section.tabs, section.perm, perms.keys);
@@ -59,7 +42,7 @@ export default function AdminPage({ params }: { params: Promise<{ path?: string[
   const Body = active ? active.Component : (page?.Component ?? section.Component);
   if (!Body) return null;
 
-  // Nicht jede Seite braucht eine Unterzeile.
+  // Not every page needs a subtitle line.
   const hasSub = ts.has(`${base}.sub`);
 
   return (

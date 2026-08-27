@@ -1,16 +1,4 @@
-"""Die Schreibweisen, die ein Kursplan sonst noch benutzt.
-
-Eindeutiges liest das Suchmuster, Mehrdeutiges beurteilt das Modell mit dem Zusammenhang.
-Die Trennlinie ist bewusst gezogen:
-
-  03.Juli.2026  -> Muster. Eindeutig, und vorher fiel hier sogar das Jahr weg: es blieb
-                   "03.Juli" uebrig und landete im laufenden Jahr.
-  06.2026       -> Muster. Monat mit vierstelligem Jahr, wird ein Monatstermin.
-  3.6.26        -> Modell. Sieht genauso aus wie eine Gliederungsnummer
-                   ("3.6.26 Zusammenfassung"), das entscheidet nur der Zusammenhang.
-  6.26          -> gar nicht. Kann Juni 2026 sein, ein Gliederungspunkt, eine Seitenzahl,
-                   eine Kommazahl. Zu wenig Substanz fuer zu viel Fehlalarm.
-"""
+"""The pattern reads unambiguous date forms, the model judges ambiguous ones."""
 
 import pytest
 
@@ -26,7 +14,7 @@ def _funde(text):
     return [(roh, iso_teil, prec) for _s, _e, roh, iso_teil, prec in _date_candidates_in_text(text)]
 
 
-# --- was das Suchmuster kann -------------------------------------------------
+# --- what the search pattern can do ------------------------------------------
 
 def test_punkt_vor_dem_jahr_behaelt_das_jahr():
     funde = _funde("Abgabe am 03.Juli.2026 um 18:00")
@@ -56,26 +44,24 @@ def test_unmoegliche_monate_und_zu_kurze_jahre_fallen_raus(wert):
 
 
 def test_das_ganze_datum_schlaegt_den_monat_darin():
-    """In "03.07.2026" steckt "07.2026". Gemeint ist das ganze Datum."""
+    """'03.07.2026' contains '07.2026', the whole date is meant."""
     assert _funde("Abgabe am 03.07.2026") == [("03.07.2026", True, "day")]
 
 
 def test_zweistellige_jahre_bleiben_dem_modell_ueberlassen():
-    """Ein Muster wuerde hier auch jede Gliederungsnummer einsammeln."""
+    """A pattern here would also collect every section number."""
     assert _funde("Klausur am 3.6.26") == []
     assert _funde("Gliederung 3.6.26 Zusammenfassung") == []
 
 
 def test_sechs_punkt_sechsundzwanzig_wird_bewusst_nicht_erkannt():
-    """Die Form "6.26." sieht wie Tag.Monat aus, der Monat waere die 26. Den gibt es
-    nicht, also faellt sie beim Umrechnen raus und erreicht den Zeitplan nie.
-    Als Juni 2026 wird sie bewusst NICHT gelesen, dafuer ist sie zu mehrdeutig."""
+    """A form that is too ambiguous is deliberately not read at all."""
     assert _funde("Die Abgabe erfolgt im 6.26.") == [("6.26.", False, "day")]
     assert _normalize_partial_date("6.26.") is None
     assert _normalize_month_date("6.26") is None
 
 
-# --- die Genauigkeit reicht bis zum Kandidaten durch -------------------------
+# --- the precision reaches the candidate --------------------------------------
 
 def test_jeder_fund_traegt_seine_genauigkeit():
     text = "Abgabe 03.07.2026, Vortraege im 06.2026, Rueckmeldung am 15. April"

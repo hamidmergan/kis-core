@@ -5,17 +5,11 @@ import { useTranslations } from "next-intl";
 import Mascot from "@/components/ui/Mascot";
 import { useMascotPref } from "@/hooks/useMascotPref";
 
-/** Der Tipp zur Aufgabe, als Karte an der Aufgabe statt als Antwort im Chat.
- *
- *  Er steht fertig im Datensatz, ist also sofort da und kostet keinen Modellaufruf.
- *  Das Gesicht ist das im Kopf gewaehlte Maskottchen, damit derselbe Begleiter hilft,
- *  der auch im Chat antwortet.
- */
+/** The hint as a card on the exercise, there at once and without a model call. */
 export function HintCard({ text }: { text: string }) {
   const t = useTranslations("workspace.detail.languageTraining");
   const { variant } = useMascotPref();
-  // Die Namen sind Eigennamen und werden in keiner Sprache uebersetzt, deshalb stehen
-  // sie hier und nicht in den Sprachdateien.
+  // The names are proper nouns and therefore not in the language files.
   const name = variant === "hilde" ? "Hilde" : "Francis";
   return (
     <div className="flex items-start gap-2.5 px-3 py-2.5 rounded-2xl border-2"

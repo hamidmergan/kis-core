@@ -13,8 +13,7 @@ from src.core.db.pool import get_connection
 
 
 def create_access_link(workspace_id: int, code: str, expires_at: datetime | None) -> dict:
-    """Create an access link. Following it always joins as a learner: only the
-    owner can hand out tutor rights, and only to a named person."""
+    """Creates an access link, following it always makes a learner."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
@@ -41,8 +40,7 @@ def get_access_links_by_workspace(workspace_id: int) -> list[dict]:
     return [dict(row) for row in rows]
 
 def delete_access_link(link_id: int, workspace_id: int) -> None:
-    # Scope the delete to the owning workspace so a link_id from another
-    # workspace cannot be deleted via a workspace the caller happens to own.
+    # Scoped to your own course room, otherwise you delete someone else's links.
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(

@@ -1,12 +1,4 @@
-"""Die Statistik einer Lehrperson: nur Module, die ihr gehoeren oder die sie betreut.
-
-Ein eigener Ort und kein Filter auf den vorhandenen Abfragen. Die Zahlen zu
-Werkzeugen und Modellen haben gar keine Modulspalte, ein Auftrag haengt an einer
-Person und ein Token an einem Modell. Filtern liesse sich also nur die Haelfte,
-und ein vergessener Block spuckt still die ganze Plattform aus.
-
-Die Nutzernummer kommt immer aus der Anmeldung und nie aus der Adresse.
-"""
+"""A teacher's statistics, only their own modules."""
 from psycopg2.extras import RealDictCursor
 
 from src import database as db
@@ -14,11 +6,7 @@ from src.core.db.pool import get_connection
 
 
 def may_see_workspace(uuid: str, user_id: int) -> bool:
-    """Eigentuemer oder Tutor, wie ueberall sonst im Modul.
-
-    Bewusst dieselben zwei Abfragen wie ``_require_workspace_manage``: eine
-    zweite eigene Bedingung wuerde irgendwann von der ersten abweichen.
-    """
+    """Owner or tutor, the same two queries as for the management right."""
     workspace = db.get_aia_workspace(uuid)
     if not workspace:
         return False
@@ -28,7 +16,7 @@ def may_see_workspace(uuid: str, user_id: int) -> bool:
 
 
 def own_workspaces(user_id: int) -> dict:
-    """Kacheln und Liste fuer den Reiter "Meine Module"."""
+    """Tiles and list for the 'my modules' tab."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(

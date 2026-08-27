@@ -16,7 +16,7 @@ interface SettingsMenuProps {
   /** Sprachtrainer offered on this platform at all (admin setting). */
   languageTrainingAvailable: boolean;
   onToggleLanguageTraining: () => void;
-  /** Eigene Entscheidung, ob der freigegebene Sprachtrainer angezeigt wird. */
+  /** Personal decision whether the released language trainer is shown. */
   languageTrainingOptIn: boolean;
   onToggleLanguageTrainingOptIn: () => void;
   isOwner: boolean;
@@ -66,9 +66,7 @@ function ToggleRow({
   );
 }
 
-// The dialog mixes two kinds of settings: personal ones every reader has for
-// themselves, and workspace ones only owners and tutors see that apply to
-// everyone. Without a visible break, an owner cannot tell which is which.
+// Personal and course settings need a visible separation.
 function SectionHeading({
   title,
   description,
@@ -117,13 +115,7 @@ export function SettingsMenu({
   const tLang = useTranslations("langLabels");
   const { variant: mascotVariant, setVariant: setMascotVariant } = useMascotPref();
 
-  // WHICH languages exist comes from the backend (single source of truth,
-  // i18n.TRANSCRIPT_LANGUAGES). What they are CALLED comes from our own
-  // langLabels messages, like every other language picker in the app - the
-  // backend's own label follows Accept-Language, not the UI locale, so it would
-  // read "Turkish" inside a German dialog.
-  // Not gated on isOwner: the popup-translation target is a per-reader setting,
-  // so every enrolled person needs this list, not just the owner.
+  // The languages come from the backend, the names from our own labels.
   const [targetLangCodes, setTargetLangCodes] = useState<{ id: string; deepl: string }[]>([]);
   useEffect(() => {
     let cancelled = false;
@@ -150,8 +142,7 @@ export function SettingsMenu({
     void onResetLanguageLevel();
   };
 
-  // Erst Kurs und Person zusammen zeigen den Trainer an. Was unten daran haengt,
-  // das Niveau, richtet sich deshalb nach beiden, nicht nur nach der Freigabe.
+  // Only course and person together show the trainer.
   const languageTrainingVisible = language_trainingActive && languageTrainingOptIn;
 
   const MASCOT_OPTIONS = [

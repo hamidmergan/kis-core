@@ -29,13 +29,10 @@ export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
 }
 
-// Layout reads the session cookie to drive header/footer visibility; force
-// dynamic rendering so the build does not snapshot a "no session" version.
+// Render dynamically, otherwise the build freezes the state without a session.
 export const dynamic = "force-dynamic";
 
-// Backfills the kis-theme cookie from localStorage on first paint so SSR can
-// pick it up after the next navigation. Cookie is the source of truth for SSR;
-// localStorage stays for backwards-compat and cross-tab sync via storage events.
+// Backfills the theme cookie so the server reads it on the next request.
 const themeBootScript = `(function(){try{var t=localStorage.getItem('kis.theme');var hasCookie=document.cookie.indexOf('kis-theme=')!==-1;if(t==='dark'){document.documentElement.setAttribute('data-theme','dark');if(!hasCookie)document.cookie='kis-theme=dark; path=/; max-age=31536000; SameSite=Lax';}else if(t==='light'&&!hasCookie){document.cookie='kis-theme=light; path=/; max-age=31536000; SameSite=Lax';}}catch(e){}})();`;
 
 type Props = {

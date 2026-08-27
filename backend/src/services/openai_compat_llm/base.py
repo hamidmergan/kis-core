@@ -5,10 +5,7 @@ import json
 import httpx
 from langfuse.openai import AsyncOpenAI, OpenAI
 
-# Connect + headers + first-byte deadline. Once the upstream starts streaming, the
-# per-chunk inactivity timeout (in chat.py) takes over. Default OpenAI SDK timeout
-# is 600s — far too generous for an interactive chat where requests pile up if the
-# provider stalls.
+# Timeout until the first character, after that the chat's silence timeout applies.
 _LLM_HTTP_TIMEOUT = httpx.Timeout(connect=10.0, read=120.0, write=10.0, pool=10.0)
 
 
@@ -48,12 +45,7 @@ def clean_whisper_response(raw: str) -> str:
 
 
 class _OpenAICompatBase:
-    """Shared attributes of all OpenAI-compat LLM client mixins.
-
-    Mixins (`_ScriptsMixin`, `_SummaryMixin`, `_WhisperMixin`, `_WhisperChunkedMixin`)
-    expect these instance variables. The concrete client class sets them here.
-    The ``provider`` field is a free-form tag for telemetry / logging only and
-    has no effect on request shape (the API surface is the same OpenAI spec)."""
+    """The shared fields of all mixins, set by the actual class."""
 
     def __init__(
         self,
@@ -71,8 +63,7 @@ class _OpenAICompatBase:
         self._base_url = base_url
         self._whisper_model = whisper_model
         self._extra_body: dict = {}
-        # Batch settings (used in _ScriptsMixin.generate_scripts_batch).
-        # Defaults are provider-independent; placeholders for future provider profiles.
+        # Batch settings for script generation.
         self._batch_max_workers: int = 3
         self._batch_timeout: float = 180.0
         self._batch_size: int = 3

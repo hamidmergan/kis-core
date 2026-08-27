@@ -24,7 +24,7 @@ from src.routes.screencast._shared import get_script_gen_lock, vertonung_verwerf
 
 
 def _merke_skriptsprache(user_id: int, job_uuid: str | None, target_lang: str) -> None:
-    """In dieser Sprache stehen die Skripte, also muss die Vertonung sie sprechen."""
+    """The scripts are in this language, so the voicing has to speak it."""
     if not job_uuid or not target_lang:
         return
     save_result_meta(user_id, job_uuid, {**(load_result_meta(user_id, job_uuid) or {}),
@@ -92,10 +92,7 @@ async def screencast_generate_scripts(
 
     uuid_key = body.translate_job_uuid if (body.translate_job_uuid and re.match(r"^[a-f0-9]{32}$", body.translate_job_uuid)) else None
 
-    # The endpoint is authenticated (global verify_auth) but must also confirm the
-    # caller OWNS the referenced job. Without it a user could generate into and
-    # overwrite another user's job folder (suggested_scripts.json) via its uuid.
-    # A foreign / missing job both return 410 so ownership is not an oracle.
+    # The caller must own the job, foreign and missing both give 410.
     uuid_user_id: int | None = None
     if uuid_key:
         job_row = db.get_job(uuid_key)
@@ -109,7 +106,7 @@ async def screencast_generate_scripts(
             get_job_file(uuid_user_id, uuid_key, "scripts.txt")
         except Exception:
             raise HTTPException(status_code=410, detail=t("job.dataUnavailable", locale))
-        # Neue Skripte kommen, der alte Ton darf nicht liegen bleiben.
+        # New scripts arrive, the old audio must not stay behind.
         vertonung_verwerfen(uuid_user_id, uuid_key)
 
     _merke_skriptsprache(uuid_user_id or 0, uuid_key, body.target_lang)
@@ -138,8 +135,7 @@ async def screencast_generate_scripts(
                 return {"scripts": json.loads(data)}
             except Exception:
                 pass
-        # File missing after wait (other request failed) - fall through to regenerate.
-        # The lock is now FREE (we released it above), so the acquire below is safe.
+        # File missing after the wait, so generate again, the lock is free.
 
     async with lock:
         db.set_generating_scripts_flag(uuid_key, True)
@@ -165,11 +161,7 @@ async def screencast_regenerate_slide_script(
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    """Regenerate the narration script for a single slide via the configured LLM.
-
-    Called from Step 5 when the user clicks the AI icon next to a slide.
-    Uses a single LLM call (no batching) so user_prompt is fully reliable.
-    """
+    """Rewrites the text of a single slide, in one call."""
     user_prompt = body.user_prompt or (body.messages[-1].content if body.messages else "")
     has_content = (
         body.slide_text.strip()

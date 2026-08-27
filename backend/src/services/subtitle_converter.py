@@ -1,10 +1,10 @@
-"""WebVTT-Untertitel: Segmente in VTT schreiben, kuerzen und aus VTT zurueckelesen."""
+"""WebVTT subtitles: write segments to VTT, split them and read VTT back."""
 
 from __future__ import annotations
 
 import re
 
-# Rundfunk-uebliche Grenzen fuer eine Einblendung.
+# Broadcast standard limits for one cue.
 MAX_ZEICHEN_JE_ZEILE = 42
 MAX_ZEILEN_JE_EINBLENDUNG = 2
 
@@ -74,7 +74,7 @@ def vtt_to_segments(raw: str) -> list[dict]:
 
 
 def _zeilen(text: str, max_zeile: int) -> list[str]:
-    """Woerter zu Zeilen packen, ein einzelnes zu langes Wort bleibt ganz."""
+    """Packs words into lines, a single overlong word stays whole."""
     zeilen: list[str] = []
     aktuell = ""
     for wort in text.split():
@@ -90,7 +90,7 @@ def _zeilen(text: str, max_zeile: int) -> list[str]:
 
 
 def _stuecke(text: str, max_zeile: int, max_zeilen: int) -> list[str]:
-    """Text in Einblendungen zerlegen, bevorzugt am Satzende."""
+    """Splits text into cues, preferably at sentence ends."""
     teile: list[list[str]] = []
     for satz in _SATZENDE.split(text):
         if not satz.strip():
@@ -100,7 +100,7 @@ def _stuecke(text: str, max_zeile: int, max_zeilen: int) -> list[str]:
             teile.append(zeilen[i:i + max_zeilen])
     zusammen: list[list[str]] = []
     for teil in teile:
-        # Zwei kurze Saetze duerfen sich eine Einblendung teilen.
+        # Two short sentences may share one cue.
         if zusammen and len(zusammen[-1]) + len(teil) <= max_zeilen:
             zusammen[-1] = zusammen[-1] + teil
         else:
@@ -113,7 +113,7 @@ def split_long_segments(
     max_zeile: int = MAX_ZEICHEN_JE_ZEILE,
     max_zeilen: int = MAX_ZEILEN_JE_EINBLENDUNG,
 ) -> list[dict]:
-    """Lange Segmente in kurze Einblendungen zerlegen, die Zeit anteilig nach Zeichenzahl."""
+    """Splits long segments into short cues, the time shared by character count."""
     heraus: list[dict] = []
     for seg in segments:
         text = " ".join(str(seg.get("text", "")).split())

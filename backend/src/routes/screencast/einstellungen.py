@@ -1,4 +1,4 @@
-"""Was Schritt 6 beim Betreten braucht und was er beim Aendern speichert."""
+"""What step 6 needs on entry and what it saves on change."""
 
 import json
 import re
@@ -15,7 +15,7 @@ router = APIRouter(tags=["screencast: einstellungen"])
 
 
 class EinstellungenRequest(BaseModel):
-    """Alles, was Schritt 6 zeigt, in einem Rutsch."""
+    """Everything step 6 shows, in one go."""
 
     provider_id: int = 0
     voice_id: str = ""
@@ -30,7 +30,7 @@ class EinstellungenRequest(BaseModel):
 
 
 def _auftrag(job_uuid: str, current_user: dict, locale: str) -> int:
-    """Gleiche Antwort fuer fehlend und fremd, sonst liesse sich raten."""
+    """The same answer for missing and foreign, otherwise it could be guessed."""
     if not re.match(r"^[a-f0-9]{32}$", job_uuid):
         raise HTTPException(status_code=400, detail=t("job.invalidUuid", locale))
     job = get_job(job_uuid)
@@ -52,11 +52,11 @@ def vertonungs_stand(
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    """Gespeicherte Einstellungen, Abzug des letzten Laufs und wer schon Ton hat."""
+    """Saved settings, the deduction of the last run and who already has audio."""
     user_id = _auftrag(job_uuid, current_user, locale)
     stand = _lies_json(user_id, job_uuid, "vertonter_stand.json")
     scripts = _lies_json(user_id, job_uuid, "render_scripts.json") or []
-    # Der Nummernraum kommt von den Folien, audio/ kann alten Ton ausgeschlossener Folien halten.
+    # The number space comes from the slides, audio/ can hold old audio of excluded ones.
     anzahl = len(scripts) or get_audio_slide_count(user_id, job_uuid)
     mit_ton = audio_folien_mit_ton(user_id, job_uuid)
     return {
@@ -73,7 +73,7 @@ def einstellungen_speichern(
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    """Gespeichert wird beim Aendern, damit morgen nichts auf Standard steht."""
+    """Saved on change so nothing sits on the default tomorrow."""
     user_id = _auftrag(job_uuid, current_user, locale)
     save_job_file(user_id, job_uuid, "einstellungen.json",
                   json.dumps(body.model_dump(), ensure_ascii=False).encode())

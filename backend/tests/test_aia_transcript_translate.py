@@ -1,10 +1,4 @@
-"""Transkript-Uebersetzung: welche Untertiteldatei gilt als Original, was fliegt raus.
-
-Diese beiden Entscheidungen liefen frueher ueber eine einzelne Abfrage je
-Sprache, also bis zu neun Netzwerkrunden pro Aufruf. Jetzt ist es eine
-Auflistung. Das Ergebnis muss dasselbe sein, deshalb steht hier beides: was
-herauskommt und wie oft dafuer der Speicher befragt wird.
-"""
+"""Which subtitle file counts as the original, and how often storage is queried."""
 
 import pytest
 
@@ -20,7 +14,7 @@ SEGMENTE = [
 
 @pytest.fixture
 def quelle(lokal):
-    """Eine Medienquelle im Speicher. Liefert (ordner, file_path, vtt_anlegen)."""
+    """A media source in storage, returns (folder, file_path, make_vtt)."""
     ordner = lokal / "users/42/aia/workspaces/w1/sources"
     ordner.mkdir(parents=True)
     file_path = str(ordner / "abc.mp4")
@@ -35,7 +29,7 @@ def quelle(lokal):
 
 
 class _FakeUebersetzer:
-    """Uebersetzt, indem er jedem Satz die Zielsprache anhaengt."""
+    """Translates by appending the target language to every sentence."""
 
     def __init__(self):
         self.aufrufe: list[dict] = []
@@ -47,7 +41,7 @@ class _FakeUebersetzer:
 
 @pytest.fixture
 def uebersetzer(monkeypatch):
-    """Haengt einen Fake-Uebersetzer ein und liefert ihn zurueck."""
+    """Installs a fake translator and returns it."""
     from src import dependencies
     client = _FakeUebersetzer()
     monkeypatch.setattr(
@@ -64,12 +58,10 @@ def _db_stubs(monkeypatch, source: dict, workspace: dict | None = None) -> None:
     )
 
 
-# ─── Welche Datei gilt als Original ────────────────────────────────────────
+# ─── Which file counts as the original ─────────────────────────────────────
 
 def test_die_erkannte_sprache_gewinnt(quelle):
-    """``en`` steht in der Sprachliste hinter ``de``. Wer die erkannte Sprache
-    ueberginge und einfach die Liste durchliefe, kaeme hier auf ``de`` und
-    wuerde eine Uebersetzung faelschlich zum Original erklaeren."""
+    """The detected language decides, not the order of the list."""
     ordner, file_path, vtt_anlegen = quelle
     vtt_anlegen("de")
     vtt_anlegen("en")
@@ -91,7 +83,7 @@ def test_ohne_erkannte_sprache_zaehlt_die_erste_vorhandene(quelle):
 
 
 def test_erkannte_sprache_ohne_datei_faellt_auf_die_vorhandene_zurueck(quelle):
-    """Die Spalte kann eine Sprache nennen, deren Datei es nicht gibt."""
+    """The column can name a language whose file does not exist."""
     _, file_path, vtt_anlegen = quelle
     vtt_anlegen("en")
 
@@ -107,7 +99,7 @@ def test_ohne_jede_untertiteldatei_kommt_nichts_zurueck(quelle):
 
 
 def test_das_original_wird_mit_einer_einzigen_abfrage_gefunden(quelle, monkeypatch):
-    """Der Punkt der Umstellung. Eine Auflistung statt einer Abfrage je Sprache."""
+    """The point of the change, one listing instead of a query per language."""
     _, file_path, vtt_anlegen = quelle
     vtt_anlegen("ru")  # letzte der acht Sprachen, frueher der teuerste Fall
     aufrufe: list[str] = []
@@ -156,7 +148,7 @@ def test_uebersetzung_wird_geschrieben_und_das_original_bleibt(
 
 
 def test_eine_neue_zielsprache_verdraengt_die_alte(quelle, monkeypatch, uebersetzer):
-    """Genau eine Uebersetzung je Quelle, sonst sammeln sich Altlasten an."""
+    """Exactly one translation per source, otherwise leftovers pile up."""
     ordner, file_path, vtt_anlegen = quelle
     vtt_anlegen("de")
     vtt_anlegen("en")
@@ -208,5 +200,5 @@ def test_eine_unbekannte_zielsprache_aendert_nichts(quelle, monkeypatch):
 
 
 def test_alle_bekannten_sprachen_sind_zweistellig_klein():
-    """Beide Wege verlassen sich darauf, dass der Code im Schluessel steht."""
+    """Both paths rely on the code being part of the key."""
     assert all(c.isalpha() and c.islower() and 2 <= len(c) <= 5 for c in TRANSCRIPT_LANGUAGES)

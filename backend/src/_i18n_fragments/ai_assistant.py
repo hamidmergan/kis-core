@@ -119,7 +119,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Konvertierung nach PDF fehlgeschlagen",
         "en": "Conversion to PDF failed",
     },
-    # Wortschatz-Lückentext aus Lernkarten
+    # Vocabulary cloze built from flashcards.
     "ai.flashcardSet.invalid": {
         "de": "Das gewählte Lernkarten-Set gibt es nicht.",
         "en": "That flashcard set does not exist.",
@@ -199,9 +199,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Auswertung fehlgeschlagen. Bitte erneut versuchen.",
         "en": "Evaluation failed. Please retry.",
     },
-    # Shown when the learner skipped every single question. Deliberately flat:
-    # there is nothing to praise and nothing to criticise, so the line only says
-    # what happened and how to get a real result.
+    # Deliberately sober, without a single answer there is nothing to praise.
     "ai.languageDiagnosis.allSkipped": {
         "de": "Du hast alle Fragen übersprungen. Dein Niveau steht deshalb auf A1. "
               "Du kannst den Test jederzeit neu machen.",

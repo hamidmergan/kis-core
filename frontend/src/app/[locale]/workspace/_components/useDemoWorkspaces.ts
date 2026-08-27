@@ -8,13 +8,13 @@ export interface DemoWorkspace {
   description: string | null;
   source_count: number;
   joined: boolean;
-  /** Die Einschreibung stammt aus der Demo, nicht aus einem richtigen Link. */
+  /** The enrollment comes from the demo, not from a real link. */
   via_demo: boolean;
-  /** Dem Betrachter gehoert der Kurs, dann gibt es nichts zu betreten. */
+  /** The viewer owns the course, then there is nothing to enter. */
   owned: boolean;
 }
 
-/** Laedt die Demo-Kurse und haelt Beitreten und Verlassen an einer Stelle. */
+/** Loads the demo courses and keeps joining and leaving in one place. */
 export function useDemoWorkspaces() {
   const [items, setItems] = useState<DemoWorkspace[]>([]);
   const [busy, setBusy] = useState<string | null>(null);

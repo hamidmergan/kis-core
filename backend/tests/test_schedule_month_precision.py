@@ -1,12 +1,4 @@
-"""Ein Termin, bei dem nur der Monat bekannt ist, darf keinen Tag behaupten.
-
-"Die Abgabe erfolgt im Juli 2026" nennt keinen Tag. Die Datenbank speichert aber einen
-Tag, sonst laesst sich nichts einsortieren. Also traegt due_date den Monatsersten als
-reinen Sortierpunkt und date_precision='month' sagt dazu: dieser Tag stand nirgends.
-
-Die Ansicht zeigt daraufhin nur den Monat. Der 01.07. darf nicht als Frist erscheinen,
-sonst haelt ihn jemand fuer den Abgabetermin.
-"""
+"""An appointment without a day must not claim one, the first only sorts."""
 
 from datetime import date
 
@@ -19,7 +11,7 @@ def _eintrag(id_, due_date, title, precision="day"):
 
 
 def test_monat_und_monatserster_sind_nicht_dasselbe():
-    """Beide liegen auf dem 01.07., meinen aber Verschiedenes."""
+    """Both sit on 1 July but mean different things."""
     vorhanden = [_eintrag(1, date(2026, 7, 1), "Abgabe Hausarbeit", "month")]
 
     ziel = _find_merge_target(vorhanden, date(2026, 7, 1), "day",
@@ -47,7 +39,7 @@ def test_zwei_taggenaue_termine_kommen_weiterhin_zusammen():
 
 
 def test_alte_eintraege_ohne_das_feld_gelten_als_taggenau():
-    """Bestand aus der Zeit vor der Spalte. Ohne Angabe ist der Tag gemeint."""
+    """Legacy from before the column, without a value the day is meant."""
     alt = {"id": 1, "due_date": date(2026, 7, 3), "title": "Abgabe Hausarbeit",
            "source_refs": []}
 

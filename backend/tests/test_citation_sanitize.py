@@ -1,11 +1,4 @@
-"""Stray-bracket cleanup in the chat answer pipeline.
-
-Despite the prompt forbidding the model from citing sources (tool_prompts), some
-models (Qwen-family especially) still leak a bare 【source】 / 【Quelle】 placeholder
-with no page/timestamp inside. That is never a real citation — the chip parser needs
-"S. X" or "MM:SS" inside the bracket — so it would render as dead text and survive the
-copy-strip. _sanitize_citations drops it while keeping real citations untouched.
-"""
+"""Empty citation brackets from the model are removed, real ones stay."""
 
 from src.features.ai_assistant.routes._helpers import _sanitize_citations
 

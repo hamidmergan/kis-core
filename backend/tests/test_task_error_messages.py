@@ -1,17 +1,11 @@
-"""Fehlertexte der Werkzeuge sind fuer Leute ohne Technikwissen gedacht.
-
-Wenn der Dienst dahinter ueberlastet ist oder gar nicht antwortet, stand bisher
-die rohe Meldung des Anbieters im Bildschirm, etwa
-``TTS API error (500): Internal Server Error``. Damit kann niemand etwas
-anfangen, und zu tun ist ohnehin nur eines, spaeter noch einmal versuchen.
-"""
+"""Error texts are meant for people without technical knowledge."""
 import pytest
 
 from src.tasks import _errors
 
 
 class FakeDb:
-    """Merkt sich, was als Fehlertext am Job landen wuerde."""
+    """Remembers what would land on the job as an error text."""
 
     def __init__(self, locale="de"):
         self.locale = locale
@@ -56,7 +50,7 @@ def test_eigene_fehler_bleiben_unberuehrt(meldung):
     assert _errors.is_upstream_busy(Exception(meldung)) is False
 
 
-# ── Text am Job ──────────────────────────────────────────────────────────────
+# ── Text on the job ──────────────────────────────────────────────────────────
 
 def test_ueberlastung_wird_zu_klartext(db):
     _errors.handle_task_exception(

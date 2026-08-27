@@ -33,8 +33,7 @@ router = APIRouter(
 
 @router.get("/summary/providers")
 async def list_summary_providers(_user: dict = Depends(get_current_user)):
-    """Reachable chat-capable providers the admin configured a model for. The
-    summary tool runs on the chat LLM, so the picker mirrors the chat route."""
+    """Reachable chat providers, the tool runs on the chat model."""
     return await feature_provider_choices.list_reachable_choices("chat")
 
 
@@ -50,8 +49,7 @@ async def summarize(
     if not file.filename:
         raise HTTPException(status_code=400, detail=t("file.nameMissing", locale))
 
-    # A user-picked provider must be one the admin configured a chat model for.
-    # Omitting provider_id keeps the admin default chat route.
+    # A chosen provider must be set up by the admin.
     if provider_id is not None and not feature_provider_choices.is_eligible("chat", provider_id):
         raise HTTPException(status_code=400, detail=t("summary.invalidProvider", locale))
 
@@ -70,8 +68,7 @@ async def summarize(
     if content_length is not None and int(content_length) > max_upload_bytes():
         raise HTTPException(status_code=413, detail=t("file.tooLargeMb", locale, max=max_upload_bytes() // (1024 * 1024)))
 
-    # Stream to a temp file instead of holding the body (up to 500 MB) in RAM.
-    # The extractor reads the path, storage uploads from the path.
+    # Stream to a temp file instead of holding the body in memory.
     with tempfile.TemporaryDirectory(prefix="summary_upload_") as tmpdir:
         tmp_path = os.path.join(tmpdir, f"input{ext}")
         total, head = await stream_upload_to_path(file, tmp_path, max_upload_bytes(), locale)

@@ -1,13 +1,4 @@
-"""Ein Sperrkonflikt beim Wandern darf das Backend nicht am Starten hindern.
-
-Gemessen am 2026-08-08: ein Neustart des Backends waehrend die Celery-Worker liefen endete
-mit ``DeadlockDetected`` in einem ALTER TABLE und danach mit
-``Application startup failed. Exiting.`` Das Backend kam nicht mehr hoch. Genau das
-passiert bei einem Neustart im laufenden Betrieb, wenn eine Wanderung eine Tabelle
-exklusiv braucht, die ein Worker gerade liest.
-
-Jede Anweisung in ``_init_db`` ist idempotent, ein zweiter Anlauf ist also gefahrlos.
-"""
+"""A lock conflict during migration must not stop the backend from starting."""
 
 import psycopg2
 import pytest
@@ -17,7 +8,7 @@ from src.core.db import schema
 
 @pytest.fixture(autouse=True)
 def kein_warten(monkeypatch):
-    """Die Pause zwischen den Anlaeufen wegnehmen, sonst dauert der Test Sekunden."""
+    """Remove the pause between attempts, otherwise the test takes seconds."""
     monkeypatch.setattr("time.sleep", lambda _s: None)
 
 
@@ -35,7 +26,7 @@ def test_a_lock_conflict_is_retried_instead_of_killing_the_start(monkeypatch):
 
 
 def test_a_lock_timeout_is_retried_too(monkeypatch):
-    # Mit gesetztem lock_timeout meldet Postgres LockNotAvailable statt zu blockieren.
+    # With lock_timeout set Postgres reports LockNotAvailable instead of blocking.
     laeufe = {"n": 0}
 
     def _flaky(_admin_email=None):
@@ -49,8 +40,7 @@ def test_a_lock_timeout_is_retried_too(monkeypatch):
 
 
 def test_it_gives_up_after_the_last_attempt(monkeypatch):
-    # Irgendwann muss der Fehler sichtbar werden. Endlos zu wiederholen wuerde einen
-    # kaputten Zustand als gesunden Start ausgeben.
+    # At some point the error has to become visible.
     laeufe = {"n": 0}
 
     def _immer_blockiert(_admin_email=None):
@@ -64,7 +54,7 @@ def test_it_gives_up_after_the_last_attempt(monkeypatch):
 
 
 def test_a_real_error_is_not_retried(monkeypatch):
-    """Ein Tippfehler im Schema soll sofort auffallen, nicht fuenfmal wiederholt werden."""
+    """A typo in the schema should show up right away, not be retried five times."""
     laeufe = {"n": 0}
 
     def _kaputt(_admin_email=None):

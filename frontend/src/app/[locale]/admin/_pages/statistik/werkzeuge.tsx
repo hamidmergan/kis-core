@@ -1,12 +1,6 @@
 "use client";
 
-/**
- * Zahlen zu den globalen Werkzeugen.
- *
- * Die Quelle ist der Zaehler und nicht die Auftragstabelle: aus der faellt pro
- * Nutzer alles ueber dem Vorrat wieder heraus, eine Statistik daraus waere eine
- * ueber die Reste.
- */
+/** Numbers for the global tools, from the counter instead of the job table. */
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
@@ -25,8 +19,7 @@ export default function StatistikWerkzeugePage() {
   const [daten, setDaten] = useState<Daten | null>(null);
   const [fehler, setFehler] = useState(false);
   const [zeitraum, setZeitraum] = useState("alles");
-  // Die Farbskala haengt am hoechsten je gesehenen Wert, damit ein Wechsel des
-  // Zeitraums das Bild sichtbar heller oder dunkler macht.
+  // The colour scale hangs off the highest value ever seen.
   const [skala, setSkala] = useState(1);
 
   useEffect(() => {

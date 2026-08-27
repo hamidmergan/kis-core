@@ -1,4 +1,4 @@
-"""Die Route prueft die Auswahl, bevor sie irgendetwas in die Warteschlange legt."""
+"""The route checks the selection before it queues anything."""
 
 from unittest.mock import patch
 
@@ -106,7 +106,7 @@ def test_die_zeichengrenze_zaehlt_nur_die_gewaehlten_folien(client):
 
 
 def test_die_zeichengrenze_greift_fuer_die_gewaehlten_folien(client):
-    """Sonst waere die Grenze nach der Aenderung wirkungslos."""
+    """Otherwise the limit would be ineffective after the change."""
     from src.utils.file_validation import SCREENCAST_MAX_CHARS
     lang = "x" * (SCREENCAST_MAX_CHARS + 10)
     rumpf = {

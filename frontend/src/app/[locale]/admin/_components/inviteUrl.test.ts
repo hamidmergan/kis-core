@@ -1,9 +1,4 @@
-/**
- * Der Link, den die Verwaltung kopiert und selbst verschickt.
- *
- * Er entsteht im Browser aus der Adresse der Seite, damit lokal, auf dem
- * Testserver und in Betrieb jeweils der richtige Rechnername darin steht.
- */
+/** The link is built in the browser from the page address. */
 import { describe, expect, it } from "vitest";
 
 import { inviteUrl } from "./inviteUrl";

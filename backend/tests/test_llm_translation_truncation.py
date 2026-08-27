@@ -1,11 +1,4 @@
-"""LLM-Übersetzung in Blöcken: abgeschnittene Antworten dürfen nicht durchrutschen.
-
-Der Client schickt bis zu 40 nummerierte Einträge in einem Aufruf. Reißt die
-Antwort an der Token-Grenze ab, fehlen die letzten Einträge ganz und der
-angefangene wird mitten im Satz beendet. Die fehlenden hat der Code erkannt,
-den angefangenen nicht. Der galt als fertige Übersetzung und landete
-abgeschnitten in der Datei.
-"""
+"""A translation cut off at the token limit must not slip through."""
 
 import pytest
 
@@ -61,7 +54,7 @@ def test_complete_answer_maps_one_to_one():
 
 
 def test_truncated_answer_is_not_taken_as_finished():
-    """Die Antwort bricht in Eintrag 3 ab. Dann darf 'thr' nicht als Ergebnis gelten."""
+    """The answer breaks off in entry 3, then the fragment must not count as a result."""
     client = _client([
         ("1. one\n2. two\n3. thr", "length"),   # abgeschnitten in Eintrag 3
         ("1. one", "stop"),                     # erste Hälfte neu (1 Eintrag)
@@ -69,18 +62,12 @@ def test_truncated_answer_is_not_taken_as_finished():
     ])
     out = client.translate_batch(["eins", "zwei", "drei"], "DE", "EN")
     assert out == ["one", "two", "three"]
-    # "thr" darf nirgends überlebt haben
+    # the fragment must not have survived anywhere
     assert "thr" not in out
 
 
 def test_single_item_truncation_retries_with_more_room():
-    """Reasoning-Modelle denken lange, bevor überhaupt etwas herauskommt.
-
-    Gemessen an qwen3.5-122b-a10b: ein Satz mit 52 Zeichen
-    verbraucht 998 Ausgabe-Token und liefert 45 Zeichen Text. Bei zu knappem
-    Budget kommt finish_reason "length" und content None zurück. Teilen hilft
-    da nicht, der Block ist ja schon einer. Also mehr Platz geben.
-    """
+    """A single text cannot be split, so give it more room."""
     client = _client([
         ("", "length"),     # Blockaufruf, Budget zu knapp
         ("", "length"),     # Einzelaufruf, immer noch zu knapp
@@ -96,18 +83,18 @@ def test_single_item_truncation_is_reported_when_even_the_maximum_is_too_small()
 
 
 def test_token_budget_leaves_room_for_thinking():
-    """Ein einzelner kurzer Satz kostet an qwen3.5 rund 1000 Token, fast alles Denken."""
+    """A single short sentence costs around 1000 tokens on this model, almost all thinking."""
     assert LLMTranslationClient._max_tokens_for("1. Kurzer Satz", 1) >= 4000
 
 
 def test_token_budget_covers_the_measured_six_item_case():
-    """Gemessen: 6 kurze Einträge verbrauchen 6856 Ausgabe-Token."""
+    """Measured: 6 short entries consume 6856 output tokens."""
     numbered = "\n".join(f"{i + 1}. Ein kurzer deutscher Satz" for i in range(6))
     assert LLMTranslationClient._max_tokens_for(numbered, 6) >= 6856
 
 
 def test_token_budget_grows_with_the_item_count():
-    """Der Denkaufwand haengt an der Zahl der Eintraege, nicht an ihrer Laenge."""
+    """The thinking effort hangs off the number of entries, not their length."""
     assert LLMTranslationClient._max_tokens_for("x" * 100, 20) > LLMTranslationClient._max_tokens_for("x" * 100, 1)
 
 

@@ -1,12 +1,4 @@
-"""Fertige Arbeit darf kein späterer Schritt mehr wegwerfen.
-
-Set 1755 ist am 2026-08-05 gestorben, obwohl der erste Lauf 14 brauchbare Aufgaben
-mit Quellenchips geliefert hatte. Gescheitert ist erst der Nachschlag, also der
-Zusatzlauf für zwei übersprungene Abschnitte. Der ist eine Verbesserung und keine
-Voraussetzung, hat das Set aber mitgerissen, weil er im selben try stand.
-
-Kein DB- und kein Netzzugriff: Datenbank und Generierung werden ausgetauscht.
-"""
+"""No later step may throw finished work away."""
 
 import pytest
 
@@ -18,7 +10,7 @@ _ITEMS = [{"front": "a", "back": "A"}, {"front": "b", "back": "B"}]
 
 @pytest.fixture
 def stack(monkeypatch):
-    """Hängt den Auftrag an Attrappen und hält fest, was in der Datenbank landet."""
+    """Hooks the job up to stubs and records what lands in the database."""
     import src.features.ai_assistant.tasks.language_training as mod
 
     seen = {"finalized": None, "failed": False}
@@ -60,8 +52,7 @@ def _run():
 
 
 def test_a_failing_top_up_keeps_the_items_that_are_already_finished(stack, monkeypatch):
-    """Der gemeldete Fall. Der Nachschlag scheitert, die Aufgaben aus dem ersten
-    Lauf sind fertig und müssen gespeichert werden statt verloren zu gehen."""
+    """The top-up fails, the finished exercises are saved anyway."""
     mod, seen = stack
     calls = {"n": 0}
 
@@ -80,8 +71,7 @@ def test_a_failing_top_up_keeps_the_items_that_are_already_finished(stack, monke
 
 
 def test_a_failing_title_call_keeps_the_provisional_name(stack, monkeypatch):
-    # Der Titel ist Kosmetik. Ein Set ohne endgültigen Namen ist brauchbar, ein
-    # verlorenes Set nicht.
+    # The title is cosmetics, a lost set is not.
     mod, seen = stack
     monkeypatch.setattr(mod, "missing_section_uuids", lambda *a, **k: [])
 
@@ -97,8 +87,7 @@ def test_a_failing_title_call_keeps_the_provisional_name(stack, monkeypatch):
 
 
 def test_a_failing_first_run_still_fails_the_set(stack, monkeypatch):
-    # Ohne eine einzige Aufgabe gibt es nichts zu retten, und ein leeres Set darf
-    # dem Lernenden nicht als fertig angeboten werden.
+    # Without a single exercise there is nothing to salvage.
     mod, seen = stack
 
     def _boom(*a, **k):

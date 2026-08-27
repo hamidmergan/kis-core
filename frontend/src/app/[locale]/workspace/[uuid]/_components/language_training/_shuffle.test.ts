@@ -3,7 +3,7 @@ import { shuffleOptions } from "./_shuffle";
 
 describe("shuffleOptions", () => {
   it("leaves a true/false item in its fixed order", () => {
-    // Sonst steht mal "Falsch, Richtig" da, und das liest sich wie ein Fehler.
+    // Otherwise 'false, true' would appear, and that reads like a bug.
     const item = { options: ["Richtig", "Falsch"], correct_idx: 1 };
     for (let i = 0; i < 20; i++) {
       expect(shuffleOptions(item)).toEqual({ options: ["Richtig", "Falsch"], correct_idx: 1 });

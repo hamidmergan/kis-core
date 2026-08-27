@@ -1,12 +1,4 @@
-"""Das Kontingent-Fenster laeuft ab der ersten Nutzung, je Werkzeug getrennt.
-
-Frueher startete die Uhr erst, wenn eine Grenze zum ersten Mal erreicht war, und
-sie galt dann fuer alle Werkzeuge eines Nutzers gemeinsam. Wer nie eine Grenze
-riss, sammelte seine Zaehlerstaende ueber Wochen an.
-
-Die Regeln stecken in SQL, deshalb laeuft der Test gegen echtes Postgres und wird
-uebersprungen, wo keins erreichbar ist.
-"""
+"""The quota window runs from first use, separately per tool."""
 
 import os
 from datetime import datetime, timedelta, timezone
@@ -24,7 +16,7 @@ FENSTER_STUNDEN = QUOTA_DEFAULTS["tts"]["window_hours"]
 
 @pytest.fixture(scope="module")
 def verbindung():
-    """Eine Datenbankverbindung oder ein sauberes Ueberspringen."""
+    """A database connection or a clean skip."""
     if not os.environ.get("DATABASE_URL"):
         pytest.skip("kein DATABASE_URL gesetzt (Test braucht echtes Postgres)")
     from src.core.db.pool import get_connection
@@ -47,14 +39,14 @@ def _aufraeumen(verbindung):
 
 @pytest.fixture
 def sauber(verbindung):
-    """Ein Nutzer ohne Kontingent-Vorgeschichte, vorher wie nachher."""
+    """A user with no quota history, before as after."""
     _aufraeumen(verbindung)
     yield verbindung
     _aufraeumen(verbindung)
 
 
 def _zeile(verbindung, typ: str) -> tuple[int, datetime | None]:
-    """Zaehlerstand und Fensterende dieses Werkzeugs, das Ende als UTC."""
+    """Counter and window end of this tool, the end in UTC."""
     with verbindung() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -71,7 +63,7 @@ def _zeile(verbindung, typ: str) -> tuple[int, datetime | None]:
 
 
 def _fenster_ablaufen_lassen(verbindung, typ: str) -> None:
-    """Schiebt das Fensterende dieses Werkzeugs in die Vergangenheit."""
+    """Pushes this tool's window end into the past."""
     with verbindung() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -96,7 +88,7 @@ def _verbrauchen(typ: str = "tts") -> dict:
     return quotas.check_and_consume_quota(NUTZER, typ, is_admin=False)
 
 
-# --- das Fenster startet bei der ersten Nutzung --------------------------------
+# --- the window starts at first use --------------------------------------------
 
 def test_der_erste_aufruf_startet_das_fenster(sauber):
     vorher = datetime.now(timezone.utc)
@@ -133,7 +125,7 @@ def test_nach_ablauf_faengt_der_zaehler_wieder_bei_eins_an(sauber):
 
 
 def test_ein_zaehler_ohne_fenster_zaehlt_nicht_mit(sauber):
-    """Altbestand: Zeilen aus der alten Fassung haben einen Stand, aber kein Fenster."""
+    """Legacy: rows from the old version have a count but no window."""
     with sauber() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -149,7 +141,7 @@ def test_ein_zaehler_ohne_fenster_zaehlt_nicht_mit(sauber):
     assert _zeile(sauber, "tts")[0] == 1, "ohne Fenster hat der alte Stand keine Bedeutung"
 
 
-# --- jedes Werkzeug fuer sich --------------------------------------------------
+# --- every tool on its own -----------------------------------------------------
 
 def test_jedes_werkzeug_hat_sein_eigenes_fenster(sauber):
     _grenze_setzen(sauber, "tts", 1)
@@ -163,7 +155,7 @@ def test_jedes_werkzeug_hat_sein_eigenes_fenster(sauber):
     assert _verbrauchen("summary")["allowed"] is False, "das fremde Fenster laeuft weiter"
 
 
-# --- die Grenze greift weiter --------------------------------------------------
+# --- the limit still applies ---------------------------------------------------
 
 def test_die_grenze_sperrt_und_nennt_das_fensterende(sauber):
     _grenze_setzen(sauber, "tts", 2)
@@ -207,7 +199,7 @@ def test_unbegrenzt_schreibt_keine_zeile(sauber):
     assert _zeile(sauber, "tts") == (0, None)
 
 
-# --- die Admin-Ansicht ---------------------------------------------------------
+# --- the admin view ------------------------------------------------------------
 
 def test_die_admin_ansicht_nennt_das_fensterende_je_werkzeug(sauber):
     from src.database import quota_get_all_for_user
@@ -230,7 +222,7 @@ def test_admin_zuruecksetzen_beendet_das_fenster(sauber):
     assert _zeile(sauber, "tts") == (0, None), "Zaehler und Fenster sind weg"
 
 
-# --- die Absage nennt eine lesbare Uhrzeit --------------------------------------
+# --- the refusal names a readable time ------------------------------------------
 
 def test_das_gemeldete_fensterende_ist_lesbar(sauber):
     ergebnis = _verbrauchen("tts")

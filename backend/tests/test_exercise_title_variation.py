@@ -1,14 +1,4 @@
-"""Set titles must not repeat inside one workspace.
-
-Two mechanisms, both covered here:
-
-* a do-not-repeat list in the generation prompt, which is only a request and is blind
-  while another set of the same workspace is still generating;
-* ``resolve_set_title``, which decides the final name AFTER generation from the set's own
-  items, when the other set is finished and a clash is actually visible.
-
-No DB and no network: the title calls run against a fake client.
-"""
+"""Set titles must not repeat inside a course room."""
 
 import json
 import types
@@ -22,9 +12,7 @@ from src.features.ai_assistant.tasks.language_training._variation import (
 
 USED = ["Wissenschaftliches Arbeiten", "Wissenschaftliches Seminar"]
 
-# Ein Grammatikthema in der Form, die die Generierung aus der Datenbank baut.
-# Frueher kam dieses dict aus einem Code-Katalog, die Form ist absichtlich dieselbe
-# geblieben, damit sich an den Generatoren keine Zeile aendern musste.
+# A grammar topic in the shape that comes from the database.
 _TOPIC = {
     "id": 1,
     "label": "Passiv Präsens",
@@ -118,9 +106,7 @@ def test_block_is_read_per_workspace_and_tool(monkeypatch):
     assert USED[0] in block
 
 
-# --- what counts as the same title -------------------------------------------
-#
-# All three of these came out of one workspace and drove the two reported bugs.
+# All three titles come from one course room and caused the reported bugs.
 
 SEEN = "Wissenschaftliches Arbeiten im Seminar"
 NEAR = "Wissenschaftliche Arbeiten im Seminar"          # one letter apart
@@ -143,9 +129,7 @@ def test_a_counted_title_belongs_to_its_own_family():
 
 
 def test_a_more_specific_title_is_its_own_title():
-    """The second reported bug: this got flagged as taken and was handed a pointless
-    "(2)" although it was the first set with that name. A longer, more specific title
-    is exactly what we want to keep."""
+    """A longer, more precise title must not get a number."""
     assert not is_title_taken(SPECIFIC, [SEEN])
 
 
@@ -162,8 +146,7 @@ def test_nothing_is_taken_against_an_empty_history():
 # --- resolving the final title -----------------------------------------------
 
 def test_the_title_comes_from_the_items_not_from_the_generation_call(monkeypatch):
-    """The root cause of the repeats: the generation call sees the whole document and
-    keeps naming the document. The proposed title is only a fallback now."""
+    """The generation call names the document, its title is only a fallback."""
     monkeypatch.setattr("src.database.get_recent_exercise_titles", lambda w, t, limit=100: [])
     client, calls = _make_client("Zitate richtig setzen")
     out = resolve_set_title(client, "m", 3, "grammatik", SEEN, ITEMS)
@@ -193,8 +176,7 @@ def test_the_retry_is_told_which_titles_are_taken(monkeypatch):
 
 
 def test_the_counter_looks_at_the_whole_family_not_at_exact_matches(monkeypatch):
-    """The first reported bug: two sets both ended in "(2)" because their bases differed
-    by a letter and an exact comparison never saw the other one."""
+    """Two titles differing by one letter are one family."""
     monkeypatch.setattr("src.database.get_recent_exercise_titles",
                         lambda w, t, limit=100: [SEEN, f"{SEEN} (2)"])
     client, _ = _make_client(NEAR, NEAR)  # both attempts land on a taken title
@@ -282,8 +264,7 @@ def test_grammar_prompt_carries_the_block(monkeypatch):
 
 
 def test_generators_stay_unchanged_without_a_block(monkeypatch):
-    """The default is empty, so a first set in a fresh workspace is byte-identical
-    to what the tool produced before."""
+    """In a fresh course room everything stays as before."""
     from src.features.ai_assistant.tasks.language_training import _source_mc as mod
     monkeypatch.setattr(mod, "attach_chips", lambda *a, **k: None)
     client, calls = _make_client(json.dumps({"title": "T", "exercises": [

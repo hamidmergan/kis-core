@@ -1,13 +1,4 @@
-"""Tests for per-page OCR retry/backoff in the chunker.
-
-Behaviour contract:
-  - Transient errors (429, rate limit, timeout, 5xx) → wait + re-OCR the SAME
-    page, up to OCR_MAX_ATTEMPTS times.
-  - After retries are exhausted (or on a non-transient error) → raise
-    OcrFailedError carrying the page number. That is an INTERNAL signal: _OcrRun
-    catches it, books the page as open and lets the source stay usable
-    (see test_aia_ocr_report.py). It never reaches the indexing task.
-"""
+"""Checks retry and backoff of text recognition per page."""
 import pytest
 
 from src.services.aia_chunker import (

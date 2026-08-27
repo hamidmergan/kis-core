@@ -1,4 +1,4 @@
-"""Per-Job Subprocess-Tracking für sofortige ffmpeg-Cancellation."""
+"""Per-job subprocess tracking for immediate ffmpeg cancellation."""
 
 import os
 import signal

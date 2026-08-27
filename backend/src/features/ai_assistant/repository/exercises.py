@@ -55,25 +55,7 @@ def create_exercise_set_placeholder(
     source_uuids: list[str] | None = None, requested_count: int | None = None,
     flashcard_set_id: int | None = None, grammar_kinds: list[str] | None = None,
 ) -> dict:
-    """Create a placeholder set with status='generating'. Returns the set.
-
-    ``grammar_topic_id`` is only set by the grammar tool and points at the workspace
-    topic the set was built from; it stays NULL for every other tool.
-
-    ``source_uuids`` is the learner's whole selection, in the order they picked it. That
-    order becomes the numbering of the citation chips, so it has to be stored rather than
-    recomputed. ``source_uuid`` keeps holding the first one for older clients.
-
-    ``requested_count`` is the size the learner picked. It is kept because a retry has
-    to generate the same size, and card_count is 0 on a set that never finished.
-
-    ``flashcard_set_id`` setzt nur der Wortschatz-Lückentext aus Lernkarten und zeigt
-    auf das Set, dessen Begriffe die Lücken werden. Sonst bleibt es NULL.
-
-    ``grammar_kinds`` sind die gewaehlten Aufgabenformate der Grammatik-Uebung. NULL
-    heisst gemischt, also alle vier, und das ist der Normalfall. Ein zweiter Anlauf
-    liest die Spalte wieder und uebt damit dieselbe Auswahl wie der erste.
-    """
+    """Creates a placeholder set with status 'generating' and returns it."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
@@ -94,13 +76,7 @@ def create_exercise_set_placeholder(
 
 
 def reset_exercise_set_for_retry(set_id: int, user_id: int) -> dict | None:
-    """Put a failed set back into 'generating' so its task can run again.
-
-    Returns the set with everything the generation task needs, or None when the set
-    is not this user's or is not in the failed state. Scoping the UPDATE itself keeps
-    a double click, or two tabs, from queueing the same set twice: the second call
-    finds nothing to update.
-    """
+    """Resets a failed set to 'generating', safe against double clicks."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
@@ -113,9 +89,7 @@ def reset_exercise_set_for_retry(set_id: int, user_id: int) -> dict | None:
             )
             row = cur.fetchone()
             if row:
-                # A run that died between writing its items and marking the set ready
-                # leaves them behind. The second run appends, so without this the set
-                # comes back with both halves in it.
+                # Clear leftovers of a crashed run, otherwise the set appears twice.
                 cur.execute("DELETE FROM aia_exercise_items WHERE set_id = %s", (set_id,))
         conn.commit()
     return dict(row) if row else None
@@ -123,23 +97,11 @@ def reset_exercise_set_for_retry(set_id: int, user_id: int) -> dict | None:
 def finalize_exercise_set(
     set_id: int, title: str, items: list[dict], header: dict | None = None,
 ) -> dict:
-    """Add items to a placeholder set and mark as ready.
-
-    ``header`` carries the grammar tool's set-level text (instruction and the worked
-    example pair). It is shown once above the sentences, so it belongs on the set and
-    not on every item. Other tools pass None and the columns stay NULL.
-    """
+    """Attaches exercises to the placeholder set and marks it done."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             for i, item in enumerate(items):
-                # Eine Aufgabe aus dem Vorrat wird nicht kopiert, der Satz zeigt nur
-                # dorthin. Ihr Inhalt steht genau einmal, naemlich im Vorrat.
-                # ``front`` bleibt trotzdem gefuellt, weil die Spalte NOT NULL ist und
-                # weil sie die Vergleichsform fuer "hatte ich schon" traegt.
-                #
-                # Verschwindet der Vorrat, weil die Quelle geloescht oder neu
-                # hochgeladen wird, schreibt ``materialize_pool_items`` den Inhalt
-                # vorher in diese Zeilen zurueck. Ein fertiger Satz bleibt lesbar.
+                # The set points at the pool, front stays filled as a comparison form.
                 aus_vorrat = bool(item.get("pool_item_id"))
                 cur.execute(
                     """INSERT INTO aia_exercise_items
@@ -164,10 +126,7 @@ def finalize_exercise_set(
                         None if aus_vorrat or not item.get("extras")
                         else json.dumps(item.get("extras")),
                         item.get("pool_item_id"),
-                        # Anders als die Inhaltsspalten NICHT geleert, wenn die Aufgabe
-                        # aus dem Vorrat kommt. Eine Glossar-Aufgabe kommt nie von dort,
-                        # und der Begriff ist ein Merkmal des Satzes und nicht des
-                        # Inhalts, der im Vorrat liegt.
+                        # Glossary terms never come from the pool and are therefore not cleared.
                         item.get("glossary_term"),
                     ),
                 )
@@ -200,18 +159,7 @@ def fail_exercise_set(set_id: int) -> None:
         conn.commit()
 
 def get_exercise_sets(workspace_id: int, user_id: int, tool: str | None = None) -> list[dict]:
-    """List exercise sets for a user in a workspace with mastery info.
-
-    ``progress_pct`` is what the ring on the card shows: the share of cards whose
-    LAST answer was correct. Per card, not per attempt, so a card that was wrong
-    and is now right counts as learned, and one that was right and is now wrong
-    does not.
-
-    It used to be the correct answers of the last run, cut off by a timestamp the
-    browser set when the learner answered the first card of a session. Anything
-    answered before that mark was dropped, so interrupting an exercise and coming
-    back showed less than the learner had right (reported: 40 percent at 4 of 5).
-    """
+    """Lists the exercise sets with progress, counted per card instead of per attempt."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             where = "s.workspace_id = %s AND s.user_id = %s"
@@ -251,10 +199,7 @@ def get_exercise_sets(workspace_id: int, user_id: int, tool: str | None = None) 
 def get_recent_exercise_titles(
     workspace_id: int, tool: str, limit: int = 12,
 ) -> list[str]:
-    """Titles of the most recent ready sets of this workspace+tool, newest first.
-
-    Without them the model has no idea a set already exists and simply names the
-    document, which is why several sets end up sharing one title."""
+    """Titles of the last finished sets so the model does not reuse names."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -276,11 +221,7 @@ def get_exercise_set_with_items(set_id: int) -> dict | None:
             if not ex_set:
                 return None
             ex_set = dict(ex_set)
-            # Aufgaben aus dem Vorrat stehen nur einmal, naemlich dort. Die Zeile im Satz
-            # ist ein Verweis, ihre Inhaltsspalten sind leer. COALESCE holt deshalb je
-            # Feld den Vorratswert, wo es einen gibt, und faellt sonst auf die Zeile
-            # zurueck: alte Saetze von vor dem Vorrat und Aufgaben ohne zuordenbare
-            # Quelle tragen ihren Inhalt weiter selbst.
+            # COALESCE takes the pool value per field and falls back to the row.
             cur.execute(
                 """SELECT i.id, i.set_id, i.position, i.pool_item_id,
                           COALESCE(p.front, i.front)               AS front,
@@ -301,8 +242,7 @@ def get_exercise_set_with_items(set_id: int) -> dict | None:
             )
             items = [dict(r) for r in cur.fetchall()]
 
-            # Enrich items (top-level AND nested sources[]) with start_time where missing.
-            # Legacy sets may only have page_number; download/UI needs timestamp for media.
+            # Backfill missing timestamps, old sets only have page numbers.
             def _needs_top(it: dict) -> bool:
                 return bool(it.get("page_number")) and it.get("start_time") is None and bool(it.get("source_label"))
 
@@ -341,9 +281,7 @@ def get_exercise_set_with_items(set_id: int) -> dict | None:
             return ex_set
 
 def get_exercise_set_meta(set_id: int) -> dict | None:
-    """Owner + workspace of a set, without loading its items. For authorization
-    checks on the single-set routes (get/delete/progress) so one user cannot
-    reach another user's set by guessing the serial id."""
+    """Owner and course room of a set, for the permission check without loading exercises."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
@@ -355,8 +293,7 @@ def get_exercise_set_meta(set_id: int) -> dict | None:
 
 
 def delete_exercise_set(set_id: int, user_id: int) -> bool:
-    """Delete an exercise set and all related data, scoped to its owner so a set
-    can never be deleted by another user via its serial id."""
+    """Deletes an exercise set with everything, scoped to its owner."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -370,12 +307,7 @@ def delete_exercise_set(set_id: int, user_id: int) -> bool:
 def bulk_record_exercise_progress(
     set_id: int, user_id: int, results: list[dict], new_run: bool = False,
 ) -> None:
-    """Record multiple exercise answers at once.
-
-    Jede Antwort traegt die Nummer ihres Durchgangs. Die Nummer vergibt diese
-    Funktion und nicht der Browser: die Uebungsansicht meldet mit ihrer ersten
-    Antwort ``new_run``, daraus wird die naechste freie Nummer je Satz und Nutzer.
-    """
+    """Writes several answers at once, this function assigns the round number."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -384,8 +316,7 @@ def bulk_record_exercise_progress(
                 (set_id, user_id),
             )
             hoechste = cur.fetchone()[0]
-            # Ohne Meldung laeuft der Durchgang schon. Die Eins faengt den Fall ab,
-            # dass die allererste Antwort nie ankam, etwa weil das Netz weg war.
+            # The one catches the case where the very first answer never arrived.
             run_no = hoechste + 1 if new_run else max(hoechste, 1)
             for r in results:
                 cur.execute(
@@ -398,16 +329,7 @@ def bulk_record_exercise_progress(
 
 
 def prune_old_exercise_progress() -> int:
-    """Antworten aufraeumen, die aelter sind als das Kalenderfeld reicht.
-
-    Die Statistik zeichnet nur die letzten ``STATS_WINDOW_DAYS`` Tage, alles davor
-    kann sie nie zeigen. Genau eine alte Zeile je Karte bleibt trotzdem stehen: die
-    juengste. Aus ihr rechnet der Ring auf der Uebungskarte, und der soll nicht auf
-    null fallen, nur weil ein Satz ein halbes Jahr geruht hat.
-
-    Liefert die Zahl der geloeschten Zeilen. Laeuft naechtlich als
-    ``cleanup.exercise_progress``.
-    """
+    """Clears answers older than the calendar view reaches."""
     from src.features.ai_assistant.repository.stats import STATS_WINDOW_DAYS
 
     with get_connection() as conn:

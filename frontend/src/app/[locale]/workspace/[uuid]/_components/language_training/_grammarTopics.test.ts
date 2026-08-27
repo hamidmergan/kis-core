@@ -26,7 +26,7 @@ describe("usablePairs", () => {
   });
 
   it("drops a pair that transforms nothing", () => {
-    // Vorher gleich nachher ist kein Muster, sondern ein Satz.
+    // Before equals after is not a pattern but a sentence.
     expect(usablePairs([{ before: "Er kommt.", after: "Er kommt." }])).toHaveLength(0);
   });
 
@@ -79,7 +79,7 @@ describe("shownSuggestion", () => {
   });
 
   it("treats case and spacing as the same name, they are no correction", () => {
-    // Sonst stuende bei jedem sauber getippten Thema eine Zeile, die nichts sagt.
+    // Otherwise every cleanly typed topic would show a line that says nothing.
     expect(shownSuggestion("passiv  präsens", " Passiv Präsens ")).toBe("");
   });
 
@@ -88,8 +88,7 @@ describe("shownSuggestion", () => {
   });
 
   it("shows the narrower form for an ambiguous topic", () => {
-    // "Passiv" sind im Deutschen neun Formen. Welche geuebt wird, gehoert auf die
-    // Kachel und nicht nur ins Musterpaar.
+    // Which form is practised belongs on the tile.
     expect(shownSuggestion("Passiv", "Passiv Präsens")).toBe("Passiv Präsens");
   });
 });

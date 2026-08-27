@@ -1,10 +1,4 @@
-"""Die dritte Aufgabenart des Quiz: Richtig/Falsch.
-
-Richtig/Falsch war bis zum 2026-08-10 die einzige Form des Werkzeugs Hörverstehen. Mit
-dessen Abschaffung zieht sie ins Quiz um, dort als dritte Art neben Verständnisfrage und
-Lückensatz. Die Regeln aus der Testkonstruktion sind wörtlich mitgekommen, sie waren am
-echten Lauf nachgemessen.
-"""
+"""True/false as the third exercise kind of the quiz."""
 
 import json
 import types
@@ -48,8 +42,7 @@ def _user_of(calls):
     (1, (1, 0, 0)),
 ])
 def test_aufteilung_der_anzahl(bestellt, erwartet):
-    """Gezählte Vorgabe statt 'etwa ein Drittel'. Der Rest geht der Reihe nach an
-    Verständnisfrage, Lückensatz, Richtig/Falsch."""
+    """A counted requirement instead of a rough statement."""
     assert mod._split_counts(bestellt) == erwartet
 
 
@@ -58,12 +51,10 @@ def test_aufteilung_ergibt_immer_die_bestellte_zahl(bestellt):
     assert sum(mod._split_counts(bestellt)) == bestellt
 
 
-# --- die Zeile, die aus einer Modellantwort entsteht -------------------------
+# --- the row that comes out of a model answer --------------------------------
 
 def test_alle_drei_arten_landen_in_derselben_zeilenform(monkeypatch):
-    """Verständnisfrage, Lückensatz und Richtig/Falsch teilen sich eine Zeilenform.
-    Die Ansicht unterscheidet sie an der Anzahl der Optionen und am ___ im Text, nicht
-    an einem eigenen Feld."""
+    """The three kinds share one row shape."""
     monkeypatch.setattr(mod, "_attach_by_kind", lambda *a, **k: None)
     content = json.dumps({"title": "T", "exercises": [
         {"question": "Was ist X?", "options": ["a", "b", "c", "d"], "correct_idx": 1},
@@ -88,8 +79,7 @@ def test_alle_drei_arten_landen_in_derselben_zeilenform(monkeypatch):
 
 
 def test_beschriftung_folgt_der_sprache(monkeypatch):
-    """Die Beschriftung kommt aus dem Code. Das Modell schrieb sonst mal 'Wahr', mal
-    klein, und die Ansicht zeigt die Optionen unverändert an."""
+    """The label comes from the code, not from the model."""
     monkeypatch.setattr(mod, "_attach_by_kind", lambda *a, **k: None)
     content = json.dumps({"title": "T", "exercises": [
         {"statement": "The plant runs less efficiently in frost.", "answer": True},
@@ -102,8 +92,7 @@ def test_beschriftung_folgt_der_sprache(monkeypatch):
 
 
 def test_richtig_falsch_mit_vier_optionen_faellt_durch(monkeypatch):
-    """Der Prompt bestellt zwei Optionen, das Modell liefert gelegentlich trotzdem vier.
-    Beim Hörverstehen war genau das der Grund für diese Prüfung im Code."""
+    """Four options still occur and have to be rejected."""
     monkeypatch.setattr(mod, "_attach_by_kind", lambda *a, **k: None)
     content = json.dumps({"title": "T", "exercises": [
         {"statement": "Gute Aussage.", "answer": True},
@@ -116,8 +105,7 @@ def test_richtig_falsch_mit_vier_optionen_faellt_durch(monkeypatch):
 
 
 def test_urteil_muss_ein_echter_boolescher_wert_sein(monkeypatch):
-    """Die Zeichenkette "true" ist kein Urteil. Ohne diese Prüfung stünde die Aufgabe
-    mit correct_idx=1 im Satz, also mit der falschen Lösung."""
+    """A string 'true' is no verdict and would yield the wrong answer."""
     monkeypatch.setattr(mod, "_attach_by_kind", lambda *a, **k: None)
     content = json.dumps({"title": "T", "exercises": [
         {"statement": "Gute Aussage.", "answer": False},
@@ -131,9 +119,7 @@ def test_urteil_muss_ein_echter_boolescher_wert_sein(monkeypatch):
 
 
 def test_abgeschriebene_musteraufgabe_faellt_durch(monkeypatch):
-    """Das Musterbeispiel steht hinter dem Quellmaterial, damit es als Form wirkt und
-    nicht als Aufgabe 1 abgeschrieben wird. Beim Grammatik-Quiz wurde es trotzdem
-    abgeschrieben, deshalb wird es zusätzlich im Code gesperrt."""
+    """The sample example sits behind the material and is barred in the code as well."""
     monkeypatch.setattr(mod, "_attach_by_kind", lambda *a, **k: None)
     musteraussage = mod._EXAMPLE_ITEMS[0][0]
     content = json.dumps({"title": "T", "exercises": [
@@ -145,11 +131,10 @@ def test_abgeschriebene_musteraufgabe_faellt_durch(monkeypatch):
     assert [i["front"] for i in items] == ["Eine eigene Aussage."]
 
 
-# --- was im Prompt steht ----------------------------------------------------
+# --- what is in the prompt --------------------------------------------------
 
 def test_prompt_bestellt_gezaehlte_anteile(monkeypatch):
-    """Nicht 'roughly half and half'. Beim Grammatik-Quiz drillte das Modell auf eine
-    Absichtserklärung hin zehnmal dieselbe Form."""
+    """A statement of intent is not enough, it takes a number."""
     monkeypatch.setattr(mod, "_attach_by_kind", lambda *a, **k: None)
     content = json.dumps({"title": "T", "exercises": [
         {"question": "Q", "options": ["a", "b", "c", "d"], "correct_idx": 0}]})
@@ -163,8 +148,7 @@ def test_prompt_bestellt_gezaehlte_anteile(monkeypatch):
 
 
 def test_prompt_traegt_die_regeln_der_testkonstruktion(monkeypatch):
-    """Ohne sie ist die Aufgabe ohne die Quelle lösbar und das Modell schreibt fast nur
-    wahre Sätze. Am 2026-08-09 gemessen: mit den Regeln hielt es sich an etwa 13 von 15."""
+    """Without the rules the exercise would be solvable without the source."""
     monkeypatch.setattr(mod, "_attach_by_kind", lambda *a, **k: None)
     content = json.dumps({"title": "T", "exercises": [
         {"question": "Q", "options": ["a", "b", "c", "d"], "correct_idx": 0}]})
@@ -178,7 +162,7 @@ def test_prompt_traegt_die_regeln_der_testkonstruktion(monkeypatch):
 
 
 def test_die_beiden_verbote_des_hoerverstehens_bleiben_draussen(monkeypatch):
-    """Sie verboten genau das, was das Quiz will: Definitionen und Fachbegriffe."""
+    """They forbade exactly what the quiz wants: definitions and technical terms."""
     monkeypatch.setattr(mod, "_attach_by_kind", lambda *a, **k: None)
     content = json.dumps({"title": "T", "exercises": [
         {"question": "Q", "options": ["a", "b", "c", "d"], "correct_idx": 0}]})
@@ -190,9 +174,7 @@ def test_die_beiden_verbote_des_hoerverstehens_bleiben_draussen(monkeypatch):
 
 
 def test_musterbeispiele_stehen_hinter_dem_quellmaterial(monkeypatch):
-    """Diese Reihenfolge entschied beim Grammatik-Quiz über 0 gegen 8 brauchbare
-    Aufgaben: davor wird das Beispiel als Aufgabe 1 abgeschrieben, dahinter wirkt es
-    als Form."""
+    """Before the material the example gets copied, behind it it works as a form."""
     monkeypatch.setattr(mod, "_attach_by_kind", lambda *a, **k: None)
     content = json.dumps({"title": "T", "exercises": [
         {"question": "Q", "options": ["a", "b", "c", "d"], "correct_idx": 0}]})
@@ -204,15 +186,10 @@ def test_musterbeispiele_stehen_hinter_dem_quellmaterial(monkeypatch):
     assert user.index("ctx") < user.index(beispiel)
 
 
-# --- Zuordnung der Quellen-Chips --------------------------------------------
+# --- attribution of the source chips ----------------------------------------
 
 def test_zwei_zuordnungslaeufe_je_aufgabenart(monkeypatch):
-    """Ankreuzen über die reine Suche, Richtig/Falsch über die gestaffelte Zuordnung.
-
-    Eine Richtig/Falsch-Aussage ist per Regel immer umformuliert. Beim Hörverstehen
-    wurde deshalb von reiner Suche auf die gestaffelte Zuordnung umgestellt, weil sonst
-    die halbe Übung ohne Quellenangabe dastand.
-    """
+    """Multiple choice via the pure search, true/false layered."""
     gesehen = {}
     monkeypatch.setattr(
         mod, "attach_chips",
@@ -232,19 +209,17 @@ def test_zwei_zuordnungslaeufe_je_aufgabenart(monkeypatch):
     tf_items, tf_claims = gesehen["tf"]
     assert [i["front"] for i in mc_items] == ["Was ist X?"]
     assert [i["front"] for i in tf_items] == ["Eine Aussage über die Quelle."]
-    # Suchtext beim Ankreuzen: Frage plus Antwort. Bei Richtig/Falsch die Aussage allein,
-    # nie plus "Richtig", sonst sucht die Zuordnung nach der festen Beschriftung.
+    # The search runs on the statement alone, never plus the fixed label.
     assert mc_claims == ["Was ist X? b"]
     assert tf_claims == ["Eine Aussage über die Quelle."]
     assert "Richtig" not in tf_claims[0]
-    # Was das Modell selbst genannt hat, geht an die gestaffelte Zuordnung mit.
+    # What the model named itself goes along to the layered attribution.
     assert tf_items[0]["_source_label"] == "Datei.pdf"
     assert tf_items[0]["_page"] == 9
 
 
 def test_die_markierung_der_aufgabenart_wird_wieder_entfernt(monkeypatch):
-    """_tf ist nur für die Zuordnung da. Bliebe es stehen, wanderte ein internes Feld
-    in den Vorrat und in den fertigen Satz."""
+    """_tf exists only for the attribution and must not travel into the pool."""
     monkeypatch.setattr(mod, "attach_chips", lambda *a, **k: None)
     monkeypatch.setattr(mod, "attach_chips_cited", lambda *a, **k: None)
     content = json.dumps({"title": "T", "exercises": [
@@ -256,8 +231,7 @@ def test_die_markierung_der_aufgabenart_wird_wieder_entfernt(monkeypatch):
 
 
 def test_ein_satz_ganz_ohne_richtig_falsch_ruft_nur_die_suche(monkeypatch):
-    """Bei sehr kleinen Sätzen fällt Richtig/Falsch weg. Dann darf die gestaffelte
-    Zuordnung gar nicht erst laufen, sie kostet sonst einen Suchlauf über nichts."""
+    """Without true/false the layered attribution must not run at all."""
     gerufen = []
     monkeypatch.setattr(mod, "attach_chips", lambda *a, **k: gerufen.append("mc"))
     monkeypatch.setattr(mod, "attach_chips_cited", lambda *a, **k: gerufen.append("tf"))

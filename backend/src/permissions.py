@@ -1,14 +1,5 @@
 # backend/src/permissions.py
-"""Permission model for RBAC.
-
-Eine Person hat eine Menge von Rechte-Schluesseln aus
-``src.permissions_registry``. Systemrollen (admin/staff/user) bringen ihre Menge
-als Konstante mit, eigene Rollen holen sie aus der Tabelle ``custom_roles``.
-
-Die vier Felder, die es hier frueher gab, sind zu abgeleiteten Eigenschaften
-geworden. So laufen ``auth.py``, die Werkzeugleiste und die Startseite
-unveraendert weiter, waehrend die Torwaechter auf Schluessel umsteigen.
-"""
+"""Permission model: a person holds a set of keys from the catalogue."""
 from dataclasses import dataclass, field
 
 from src.dependencies import get_settings
@@ -35,28 +26,19 @@ __all__ = [
 
 @dataclass(frozen=True)
 class Permissions:
-    """Was jemand darf, als Menge von Schluesseln.
-
-    ``allow_ldap_user_create`` steht daneben statt im Katalog, weil es kein
-    Recht ist, das man vergeben kann: es haengt zusaetzlich an einem
-    Serverschalter, der beim Start gelesen wird.
-    """
+    """What someone may do, as a set of keys."""
 
     keys: frozenset[str] = field(default_factory=frozenset)
     allow_ldap_user_create: bool = False
 
     def has(self, *keys: str) -> bool:
-        """Wahr, sobald einer der genannten Schluessel da ist."""
+        """True as soon as one of the named keys is present."""
         return any(k in self.keys for k in keys)
 
-    # --- abgeleitete Sicht fuer alles, was noch die alten Namen nutzt --------
+    # --- derived view for everything still using the old names --------
     @property
     def allow_admin_panel(self) -> bool:
-        """Darf ueberhaupt eine Seite des Bereichs sehen.
-
-        Frueher hiess das "ist Administrator". Jetzt reicht ein einziges
-        Einstellungsrecht, denn genau darum ging der Umbau.
-        """
+        """May see any page of the area at all."""
         return any(is_settings_key(k) for k in self.keys)
 
     @property
@@ -69,7 +51,7 @@ class Permissions:
 
     @property
     def tools(self) -> tuple[str, ...]:
-        """Werkzeug-Schluessel ohne Praefix, in der Reihenfolge des Katalogs."""
+        """Tool keys without a prefix, in catalogue order."""
         return tuple(tool_key_of(k) for k in TOOL_KEYS if k in self.keys)
 
     @property
@@ -85,11 +67,7 @@ def permissions_for_system_role(role: str) -> Permissions:
 
 
 def custom_role_permissions(keys) -> Permissions:
-    """Permissions for a DB-backed custom role.
-
-    Unbekannte Schluessel fallen weg, damit eine geloeschte Berechtigung eine
-    Rolle nicht mit einem Fehler statt mit weniger Rechten beantwortet.
-    """
+    """Permissions of a custom role from the database, unknown ones are dropped."""
     return Permissions(keys=frozenset(valid_keys(keys)))
 
 
@@ -98,12 +76,7 @@ def resolve_user_permissions(
     custom_role_id: int | None,
     is_env_admin: bool,
 ) -> Permissions:
-    """Compute effective permissions, layering the LDAP feature flag on top.
-
-    Note: `get_settings()` is `lru_cache`d, so `ldap_user_creation_enabled`
-    is read once per process and frozen. Toggling the env var requires a
-    backend restart — matches the deploy-time-only flag strategy in the spec.
-    """
+    """Computes the effective permissions, with the LDAP switch on top."""
     base = _resolve_base_permissions(role, custom_role_id, is_env_admin)
     if PERM_SET_USERS_ALL in base.keys and get_settings().ldap_user_creation_enabled:
         return Permissions(keys=base.keys, allow_ldap_user_create=True)
@@ -115,11 +88,7 @@ def _resolve_base_permissions(
     custom_role_id: int | None,
     is_env_admin: bool,
 ) -> Permissions:
-    """Compute base permissions before the LDAP env-flag layer.
-
-    env-admin always wins (bootstrap super-admin). Otherwise: system role
-    constants, or DB-backed custom role.
-    """
+    """The base permissions before the LDAP switch, the environment admin always wins."""
     if is_env_admin:
         return permissions_for_system_role("admin")
     if role in SYSTEM_ROLES:

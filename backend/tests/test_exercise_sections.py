@@ -1,13 +1,4 @@
-"""Equal, numbered context sections.
-
-Measured before this: with five selected sources the context was 39% one video
-transcript and 8% the smallest slide deck, because the per-source budget is a ceiling
-and each source simply contributed its own length. The exercises followed the volume.
-
-Sections fix the material side (same size each, numbered header carrying the quota), and
-``section_usage`` makes the outcome checkable from the model's own answer instead of from
-the post-hoc attribution, which cannot tell sources apart for a generic sentence.
-"""
+"""Equally sized numbered sections so all sources get their turn."""
 
 from src.features.ai_assistant.tasks.language_training._context import (
     QuelleContext,
@@ -37,8 +28,7 @@ def _install(monkeypatch, sizes):
         by_id[i] = _chunks(i, pages, chars)
     monkeypatch.setattr("src.database.get_aia_source", lambda u: by_uuid.get(u))
     monkeypatch.setattr("src.database.get_chunks_by_source", lambda sid: by_id.get(sid, []))
-    # The sweep position lives in the database. These tests are about the sections, so
-    # every call is a first run and nothing is written back.
+    # Every call is a first run, nothing is written back.
     monkeypatch.setattr("src.database.get_context_cursors", lambda w, s, t: [])
     monkeypatch.setattr("src.database.set_context_cursors", lambda w, s, t, c: None)
     monkeypatch.setattr(
@@ -90,9 +80,7 @@ def test_a_tiny_source_cannot_starve_the_others(monkeypatch):
     })
     ctx = build_source_context(uuids, "quiz", count=4)
     sizes = _block_sizes(ctx)
-    # Without the floor the smallest source would set the size and the other one would
-    # be cut to 200 characters too. Chunks are never split, so the floor is approached
-    # from below rather than hit exactly.
+    # Without a floor the smallest source would squeeze all the others together.
     assert sizes["normal.pdf"] > _MIN_PER_SOURCE_CHARS * 0.8, sizes
     assert sizes["normal.pdf"] > sizes["winzig.pdf"] * 5, sizes
 
@@ -164,10 +152,7 @@ def test_usage_survives_a_missing_or_bogus_section_number():
     assert section_usage(items, ctx) == {1: 0, 2: 1}
 
 
-# --- the top-up for skipped sections -----------------------------------------
-#
-# Measured need: the grammar tool served all five sections by itself, the quiz skipped
-# the last one in two runs out of two.
+# The top-up for skipped sections, measured as necessary.
 
 def _full_ctx():
     return QuelleContext(
@@ -189,16 +174,13 @@ def test_nothing_to_top_up_when_every_section_was_served():
 
 
 def test_a_run_that_names_no_section_is_not_topped_up():
-    """Seen live: the model dropped the field for a whole grammar run. Reading that as
-    "all five sections were missed" bought a second full generation that knew no more
-    than the first."""
+    """A missing field must not be read as 'all sections missed'."""
     items = [{"front": "x"}, {"_section": None}, {"_section": "keine Zahl"}]
     assert missing_section_uuids(items, _full_ctx()) == []
 
 
 def test_the_top_ups_own_numbering_is_translated_back():
-    """The top-up sees only the skipped sources and numbers them from 1 again. Merged
-    unchanged, its section 1 would read as the full context's section 1."""
+    """The top-up numbers its own sections, that has to be mapped back."""
     gap = QuelleContext(context="", first_label="b.pdf", multi_label="", source_hint="",
                         sections={1: "b.pdf"})
     extra = [{"_section": 1}, {"_section": 1}]

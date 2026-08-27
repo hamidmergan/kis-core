@@ -19,8 +19,7 @@ interface SelectProps<T extends string> {
   placeholder?: string;
   id?: string;
   className?: string;
-  // "md" is the full-width form control used across admin and dialogs.
-  // "sm" is a compact pill that fits into a toolbar row.
+  // 'md' is the wide form control, 'sm' the narrow pill for toolbars.
   size?: "sm" | "md";
 }
 
@@ -29,9 +28,7 @@ const SM_POPOVER_MAX_WIDTH_PX = 256; // 16rem at 16px font base
 const SM_POPOVER_MAX_WIDTH_REM = `${SM_POPOVER_MAX_WIDTH_PX / 16}rem`; // "16rem"
 const SM_POPOVER_MARGIN_PX = 8;
 
-// Conflicting Tailwind utilities (w-full vs auto, rounded-md vs rounded-full, px-3 vs px-2.5)
-// resolve by stylesheet order, not by class order, so the two sizes must be mutually
-// exclusive lists rather than a base plus overrides.
+// Conflicting classes are decided by stylesheet order, hence separate lists.
 const SIZE_CLS = {
   md: "block w-full rounded-md px-3 py-2 text-sm gap-2",
   sm: "rounded-full px-2.5 py-1 text-xs gap-1.5 max-w-[16rem]",
@@ -84,10 +81,7 @@ export default function Select<T extends string>({
       if (!r) return;
 
       if (size === "sm") {
-        // For "sm", stay anchored under the button (never clamp left — a shifted popover
-        // reads as detached from its trigger) and instead bound the width: never narrower
-        // than the button itself, never past the viewport's right edge minus margin, and
-        // never past the design cap.
+        // 'sm' stays anchored under the button and is only bounded in width.
         const left = r.left;
         const availableWidth = window.innerWidth - left - SM_POPOVER_MARGIN_PX;
         const smMaxWidth = Math.min(SM_POPOVER_MAX_WIDTH_PX, Math.max(r.width, availableWidth));
@@ -184,8 +178,7 @@ export default function Select<T extends string>({
           style={{
             top: pos.top,
             left: pos.left,
-            // "sm" sits in a toolbar and is only as wide as its current label, so the list
-            // must be free to grow past the button. "md" stays pinned to the field width.
+            // 'sm' may grow past the button, 'md' stays at the field width.
             ...(size === "sm"
               ? { minWidth: pos.width, width: "max-content", maxWidth: pos.smMaxWidth ? `${pos.smMaxWidth}px` : SM_POPOVER_MAX_WIDTH_REM }
               : { width: pos.width }),

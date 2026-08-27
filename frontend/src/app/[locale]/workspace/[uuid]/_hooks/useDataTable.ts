@@ -74,8 +74,7 @@ export function useDataTable({ uuid, selectedSourceIds }: UseDataTableOptions) {
     if (selectedSourceIds.length === 0) return;
     setDataTableLoading(true);
     try {
-      // api.fetch attaches Accept-Language from the NEXT_LOCALE cookie so the
-      // table is generated in the UI language (raw fetch defaulted to de).
+      // The table is produced in the interface language.
       const res = await api.fetch(`/api/ai-assistant/workspaces/${uuid}/data_table/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -112,8 +111,7 @@ export function useDataTable({ uuid, selectedSourceIds }: UseDataTableOptions) {
     } catch { /* ignore */ }
   }, [uuid]);
 
-  // Wirft bei Fehler weiter, anders als die Nachbarn hier: beim Umbenennen sieht
-  // jemand zu und das Feld soll den Grund zeigen koennen.
+  // Rethrows, when renaming the field should show the reason.
   const rename = useCallback(async (id: number, title: string) => {
     const res = await fetch(`/api/ai-assistant/workspaces/${uuid}/data_table/${id}/title`, {
       method: "PATCH",
@@ -123,8 +121,7 @@ export function useDataTable({ uuid, selectedSourceIds }: UseDataTableOptions) {
     });
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "");
     const daten = await res.json();
-    // Direkt in der Liste ersetzen statt neu laden: der Name steht sofort, ohne
-    // dass die ganze Liste flackert.
+    // Replace in the list directly so it does not flicker.
     setDataTableList((prev) => prev.map((d) => (d.id === id ? { ...d, title: daten.title } : d)));
   }, [uuid]);
 

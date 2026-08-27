@@ -1,9 +1,4 @@
-"""Public feature-status endpoint.
-
-Tool pages query this to find out whether the AI features they depend on are
-configured. The response is intentionally boolean-only - no provider names or
-URLs leak to non-admin users.
-"""
+"""Says publicly whether a feature is configured, without revealing names."""
 
 from __future__ import annotations
 
@@ -21,11 +16,7 @@ async def feature_status(
     features: str = Query(default="", description="Comma-separated feature ids; empty = all"),
     _user: dict = Depends(get_current_user),
 ):
-    """Return ``{ feature: configured }`` for the requested feature ids.
-
-    Authenticated only (a logged-in tool user) - no admin requirement, and no
-    information that wouldn't already be inferable from successful tool use.
-    """
+    """Returns a yes or no per feature, for logged-in users only."""
     requested = [f.strip() for f in features.split(",") if f.strip()] or list(FEATURES)
     valid = [f for f in requested if f in FEATURES]
     return {"status": {f: is_configured(f) for f in valid}}

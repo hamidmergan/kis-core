@@ -1,4 +1,4 @@
-"""Die Wege ins Programm: einladen im Admin, einloesen ohne Anmeldung."""
+"""The ways in: invite in the admin area, redeem without logging in."""
 
 from unittest.mock import patch
 
@@ -144,7 +144,7 @@ def test_withdrawing_an_open_invite_works(client):
     loeschen.assert_called_once_with(9)
 
 
-# --- die oeffentliche Seite ----------------------------------------------------
+# --- the public page -----------------------------------------------------------
 
 def _offene_einladung(**overrides):
     from datetime import datetime, timedelta
@@ -202,7 +202,7 @@ def test_an_expired_link_is_gone(client):
 
 
 def _redeem_patches():
-    """Alles, was das Einloesen anfasst, in einem Griff."""
+    """Everything redemption touches, in one grip."""
     return {
         "lesen": patch("src.routes.invites.repo.get_invite_by_token", return_value=_offene_einladung()),
         "stempeln": patch("src.routes.invites.repo.mark_invite_used", return_value=True),
@@ -300,11 +300,7 @@ def test_without_a_name_the_username_is_shown(client):
     assert anlegen.call_args.kwargs["display_name"] == "max.mustermann"
 
 
-# --- ohne Sitzung ---------------------------------------------------------------
-#
-# Die Einladungsseite ist der einzige Weg fuer jemanden, der noch kein Konto hat.
-# Der Torwaechter am ganzen Programm muss sie deshalb durchlassen. Die Tests
-# oben setzen ihn ausser Kraft und wuerden das nie bemerken.
+# The invitation page has to be reachable without a session.
 
 @pytest.fixture
 def client_ohne_sitzung(monkeypatch):
@@ -344,7 +340,7 @@ def test_the_admin_side_still_needs_a_session(client_ohne_sitzung):
 
 
 def test_eight_characters_are_enough_and_seven_are_not(client):
-    """Die Grenze steht bewusst auf acht, ein Verschieben soll auffallen."""
+    """The limit is deliberately eight, moving it should be noticed."""
     p = _redeem_patches()
     with p["lesen"], p["stempeln"], p["ldap"], p["whitelist"], p["anlegen"], p["rolle"], p["sitzung"] as sitzung:
         sitzung.return_value.create.return_value = "sitzungsschluessel"

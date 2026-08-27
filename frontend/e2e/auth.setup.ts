@@ -2,11 +2,7 @@ import { test as setup, expect } from "@playwright/test";
 
 const STATE = "e2e/.auth/state.json";
 
-/**
- * Log in once via the real LDAP form and persist the session cookie so every
- * chat spec starts authenticated. Credentials default to the seeded dev user
- * `a`/`a` (the workspace owner); override with E2E_USER / E2E_PASS.
- */
+/** Logs in once through the real form and saves the cookie. */
 setup("authenticate", async ({ page }) => {
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await page.waitForSelector("#username");

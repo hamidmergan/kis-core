@@ -3,16 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-/**
- * Hover tooltip without delay — shows the moment the pointer enters the
- * wrapped element. Replaces the native `title` attribute, whose delay of
- * about a second is fixed in the browser and cannot be configured.
- *
- * The wrapper is `display: contents`, so it adds no box of its own and the
- * wrapped element keeps its place in a grid or flex layout. Positioning is
- * fixed and rendered into a portal, so the tooltip is not clipped by
- * ancestors with `overflow` (e.g. the scrollable studio panel).
- */
+/** Bubble without a delay as a replacement for title, in a portal and without a box of its own. */
 const TOOLTIP_WIDTH = 240; // max width, the box hugs shorter text
 const EDGE_MARGIN = 8;
 
@@ -31,8 +22,7 @@ export default function HoverTooltip({
     if (!anchor) return;
     const r = anchor.getBoundingClientRect();
     const above = r.bottom + 140 > window.innerHeight;
-    // The tooltip is centred on the element, so half its width has to fit on
-    // either side. Near a window edge the centre moves inwards instead.
+    // At the window edge the centre moves inwards instead of overflowing.
     const half = TOOLTIP_WIDTH / 2;
     const left = Math.min(
       Math.max(r.left + r.width / 2, half + EDGE_MARGIN),

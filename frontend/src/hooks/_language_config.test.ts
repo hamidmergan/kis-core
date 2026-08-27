@@ -20,7 +20,7 @@ describe("pickAllowed", () => {
   });
 
   it("holt eine nicht erlaubte Zielsprache zurueck", () => {
-    // Die Stimme spricht kein Tuerkisch, also darf es auch nicht eingestellt bleiben.
+    // The voice does not speak Turkish, so it must not stay configured either.
     expect(pickAllowed(ALLE, ["DE", "EN-US"], "TR").target).toBe("DE");
   });
 

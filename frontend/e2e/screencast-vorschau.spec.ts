@@ -12,20 +12,20 @@ async function offeneScreencastsWegraeumen(page: Page) {
   }
 }
 
-/** Waehrend des Renderns muessen Bild, Text und Ton je fertiger Folie zu sehen sein. */
+/** During rendering image, text and audio have to be visible per finished slide. */
 test("Vorschau zeigt die fertigen Folien", async ({ page }) => {
   test.setTimeout(180_000);
 
-  // Der Render-Job laeuft unter derselben UUID wie der Uebersetzungs-Job.
+  // The render job runs under the same UUID as the translation job.
   let jobUuid = "";
   await page.route("**/api/screencast/render", (route) => {
     jobUuid = route.request().postDataJSON().translate_job_uuid;
     return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ job_uuid: jobUuid }) });
   });
 
-  // Der Fortschritt wird gestellt, ein echter Lauf braucht Minuten und die Vertonung.
+  // The progress is faked, a real run takes minutes and the voicing.
   await page.route(/\/api\/jobs\/[0-9a-f]{32}$/, (route) => {
-    // Vor dem Render-Auftrag laeuft die echte Skript-Erzeugung, die darf nicht gestellt werden.
+    // Before the render job the real script generation runs, that must not be faked.
     if (!jobUuid) return route.continue();
     return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
       job_uuid: jobUuid, status: "running",
@@ -54,14 +54,14 @@ test("Vorschau zeigt die fertigen Folien", async ({ page }) => {
 
   await page.getByRole("button", { name: /Screencast erstellen/i }).click();
 
-  // Folie 1 ist fertig und anklickbar, Folie 2 noch nicht.
+  // Slide 1 is finished and clickable, slide 2 is not yet.
   const erste = page.getByRole("button", { name: /Folie 1 anhören/i });
   await expect(erste).toBeEnabled({ timeout: 60_000 });
   await expect(page.getByRole("button", { name: /Folie 2 wird noch vertont/i })).toBeDisabled();
 
   await erste.click();
   await expect(page.locator("audio")).toHaveAttribute("src", `/api/screencast/${jobUuid}/vorschau/0`);
-  // Abbrechen fragt erst nach, bevor der Lauf wirklich stirbt.
+  // Cancelling asks first, before the run really dies.
   await page.getByRole("button", { name: /^Abbrechen$/ }).click();
   await expect(page.getByRole("dialog")).toContainText("Rendern abbrechen?");
 
@@ -73,13 +73,13 @@ test("Vorschau zeigt die fertigen Folien", async ({ page }) => {
   await page.waitForTimeout(300);
   await page.locator("section[aria-label]").last().screenshot({ path: "e2e/screens/screencast-vorschau.png" });
 
-  // Erst das Ja im Fenster stoppt den Lauf und fuehrt zurueck zu den Einstellungen.
+  // Only the yes in the dialog stops the run and leads back to the settings.
   await page.getByRole("button", { name: /^Abbrechen$/ }).click();
   await page.getByRole("dialog").getByRole("button", { name: /Rendern abbrechen/ }).click();
   await expect(page.getByRole("button", { name: /Screencast erstellen/i })).toBeVisible({ timeout: 30_000 });
 });
 
-/** Das fertige Ergebnis muss sich spaeter wieder oeffnen lassen. */
+/** The finished result has to be openable again later. */
 test("Fertiges Ergebnis laesst sich wieder oeffnen", async ({ page }) => {
   test.setTimeout(120_000);
   const fertigUuid = "c".repeat(32);
@@ -88,7 +88,7 @@ test("Fertiges Ergebnis laesst sich wieder oeffnen", async ({ page }) => {
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
       tool: "screencast_translate", step: "done",
       slide_texts: ["Folientext"], unchanged_slides: [], slide_images: [],
-      // 24 Folien, damit der Streifen ueberlaeuft und die Pfeile etwas zu tun haben.
+      // 24 slides so the strip overflows and the arrows have something to do.
       scripts: Array.from({ length: 24 }, (_, i) => `Folie ${i + 1} spricht.`),
       original_filename: "mini.pptx", user_prompt: "",
     }) }));
@@ -102,19 +102,19 @@ test("Fertiges Ergebnis laesst sich wieder oeffnen", async ({ page }) => {
   await page.goto(`/de/tools/screencast?resume=${fertigUuid}`, { waitUntil: "domcontentloaded" });
 
   await expect(page.getByText("Fertig!", { exact: false })).toBeVisible({ timeout: 60_000 });
-  // Der Lauf-Stempel haengt als Abfrageteil an, sonst zeigt der Browser nach einem neuen Lauf das alte Video.
+  // The run stamp hangs on as a query part, otherwise the browser shows the old video.
   await expect(page.locator("video source")).toHaveAttribute("src", `/api/jobs/${fertigUuid}/video?v=mini_screencast`);
 
   await page.waitForTimeout(300);
   await page.screenshot({ path: "e2e/screens/screencast-ergebnis-wieder.png" });
 
-  // Zurueck auf Rendern: dort stehen jetzt alle Folien zum Nachhoeren.
+  // Back to rendering: all slides are there now for listening again.
   await page.getByRole("button", { name: /Rendern/ }).click();
   await expect(page.getByRole("heading", { name: /Alle Folien einzeln anhören/ })).toBeVisible({ timeout: 20_000 });
   await expect(page.getByRole("button", { name: /Folie 1 anhören/i })).toBeEnabled();
   await expect(page.locator("audio")).toHaveAttribute("src", `/api/screencast/${fertigUuid}/vorschau/0`);
 
-  // Pfeile nur auf dem Desktop, und sie schieben den Streifen wirklich.
+  // Arrows only on the desktop, and they really move the strip.
   const nachRechts = page.getByRole("button", { name: /Folien nach rechts schieben/ });
   await expect(nachRechts).toBeVisible();
   const streifen = page.locator("section[aria-label] div.overflow-x-auto");
@@ -124,8 +124,7 @@ test("Fertiges Ergebnis laesst sich wieder oeffnen", async ({ page }) => {
   await page.waitForTimeout(400);
   await page.screenshot({ path: "e2e/screens/screencast-rueckblick.png" });
 
-  // Schnelle Klicks duerfen keinen Text markieren, deshalb muessen die Knoepfe
-  // user-select: none tragen. Ein Klick-Test faengt das nicht, die Regel schon.
+  // Fast clicks must not select any text.
   for (const knopf of [nachRechts, page.getByRole("button", { name: /Zum fertigen Video/ }),
                        page.getByRole("button", { name: /Folie 1 anhören/i })]) {
     await expect.poll(() => knopf.evaluate((el) => getComputedStyle(el).userSelect)).toBe("none");

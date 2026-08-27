@@ -1,17 +1,4 @@
-"""i18n helper for backend user-facing strings.
-
-Locale is resolved from Accept-Language (or an explicit `?lang=` query param).
-Use `get_locale` as a FastAPI dependency, then pass the result to `t()`:
-
-    from src.i18n import get_locale, t
-
-    @router.get("/foo")
-    async def foo(locale: str = Depends(get_locale)):
-        raise HTTPException(401, t("auth.notAuthenticated", locale))
-
-For Celery workers and other contexts without HTTP access, pass the locale
-explicitly (e.g. from a `creator_locale` column on the job).
-"""
+"""Text fragments of the backend, the language comes from the request header."""
 
 from fastapi import Header, Query
 
@@ -25,12 +12,7 @@ TRANSLATE_LANGUAGES: tuple[str, ...] = (
 DEFAULT_TRANSLATE_SOURCE = "DE"
 DEFAULT_TRANSLATE_TARGET = "EN-US"
 
-# Transcript-translation languages — the ONE place to add/remove a target a
-# workspace owner may translate media transcripts into. Keyed by the short ISO
-# code used both for the VTT filename (`_transcript.<code>.vtt`) and the player
-# <track srclang>. Each entry maps to the DeepL target code and the English
-# language name embedded in the LLM-translation prompt. Mirrors the 8
-# TRANSLATE_LANGUAGES above; `lang.<deepl>` i18n keys supply display labels.
+# The one place for the languages transcripts are translated into.
 TRANSCRIPT_LANGUAGES: dict[str, dict[str, str]] = {
     "de": {"deepl": "DE",    "name": "German"},
     "en": {"deepl": "EN-US", "name": "English"},
@@ -42,15 +24,13 @@ TRANSCRIPT_LANGUAGES: dict[str, dict[str, str]] = {
     "ru": {"deepl": "RU",    "name": "Russian"},
 }
 DEFAULT_TRANSCRIPT_TARGET = "en"
-# Language a workspace holds its CEFR chat diagnosis in. Same code set as above;
-# German is the default because that is what the courses are taught in today.
+# The language a course room runs its assessment in, German by default.
 DEFAULT_DIAGNOSIS_LANGUAGE = "de"
-# Sprache, in der Karteikarten, Quiz, Datentabelle und Mindmap geschrieben werden.
+# Language flashcards, quiz, data table and mind map are written in.
 DEFAULT_LEARNING_TOOLS_LANGUAGE = "de"
 
 
-# All user-facing backend strings live here. Keys follow `area.key` convention.
-# Add to BOTH locales when introducing a new key.
+# All visible texts of the backend, always add them in both languages.
 MESSAGES: dict[str, dict[str, str]] = {
     # Auth
     "auth.notAuthenticated": {
@@ -81,8 +61,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Du darfst die Einstellung „{field}“ nicht ändern.",
         "en": "You may not change the setting “{field}”.",
     },
-    # Man kann nur vergeben, was man selbst hat. Sonst waere jedes Recht, das
-    # Rollen oder Nutzer verwaltet, ein Weg zum Administrator.
+    # You can only grant what you hold yourself.
     "auth.grantBeyondOwn": {
         "de": "Du kannst nur Rechte vergeben, die du selbst hast.",
         "en": "You can only grant permissions you hold yourself.",
@@ -94,8 +73,7 @@ MESSAGES: dict[str, dict[str, str]] = {
     # Common errors (broadly reused across feature routes)
     "workspace.notFound": {"de": "Modul nicht gefunden", "en": "Module not found"},
     "workspace.accessDenied": {"de": "Kein Zugriff", "en": "Access denied"},
-    # Der Workspace steht auf inaktiv. Das ist kein fehlendes Recht, sondern ein
-    # geschlossener Raum, deshalb ein eigener Text und ein eigener Statuscode.
+    # An inactive course room is not a missing right but a closed room.
     "workspace.inactive": {
         "de": "Dieses Modul ist gerade nicht freigegeben.",
         "en": "This module is currently not open.",
@@ -307,10 +285,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Anbieter für die Aussprache ist keine gültige Nummer",
         "en": "The pronunciation provider is not a valid id",
     },
-    # Die vier Fehlermeldungen zu Nebenläufigkeit sind entfallen. Sie gehörten zu
-    # Eingabefeldern, die es nicht mehr gibt: Plätze und Uploads werden an der
-    # Maschine gemessen, Vertonung und Spracherkennung regeln sich nach Absagen
-    # des Anbieters selbst. Eine Fehleingabe kann es ohne Eingabe nicht geben.
+    # The four concurrency messages went with their input fields.
     "admin.providers.requiredFields": {
         "de": "Name und Base-URL sind Pflicht.",
         "en": "Name and base URL are required.",
@@ -437,11 +412,7 @@ async def get_locale(
 
 
 def register_messages(extra: dict[str, dict[str, str]]) -> None:
-    """Register additional translation entries from a sub-module.
-
-    Used by feature-specific message fragments (see `src/_i18n_fragments/`)
-    to keep niche keys close to their feature without bloating this file.
-    """
+    """Backfills further translations from a submodule."""
     MESSAGES.update(extra)
 
 
@@ -454,8 +425,7 @@ def t(key: str, locale: str = DEFAULT_LOCALE, **params: object) -> str:
     return text.format(**params) if params else text
 
 
-# Register feature-specific message fragments. Imported lazily to avoid
-# circular imports if a fragment ever needs `t()` itself.
+# Backfills the submodules, imported late against cycles.
 def _load_fragments() -> None:
     try:
         from src._i18n_fragments import ai_assistant, jobs, admin, invites  # noqa: F401

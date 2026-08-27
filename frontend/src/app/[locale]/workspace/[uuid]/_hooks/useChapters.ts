@@ -5,17 +5,11 @@ import type { Chapter, Source } from "../_types";
 
 interface UseChaptersOptions {
   uuid: string;
-  /** Aus useSources. Beim Verschieben einer Datei aendert sich deren Kapitel. */
+  /** From useSources, moving a file changes its chapter. */
   setSources: (updater: (prev: Source[]) => Source[]) => void;
 }
 
-/** Kapitel des Quellenbereichs: anlegen, umbenennen, verschieben, loeschen und
- *  Dateien zuordnen.
- *
- *  Anlegen und Umbenennen werfen bei Fehlern, weil dabei jemand tippt und einen
- *  abgelehnten Namen sehen muss. Die uebrigen Wege schlucken den Fehler wie
- *  Loeschen und erneut versuchen bei den Quellen.
- */
+/** Create, rename, move and delete chapters and assign files. */
 export function useChapters({ uuid, setSources }: UseChaptersOptions) {
   const [chapters, setChapters] = useState<Chapter[]>([]);
 
@@ -51,7 +45,7 @@ export function useChapters({ uuid, setSources }: UseChaptersOptions) {
       });
       if (!res.ok) return;
       setChapters((prev) => prev.filter((c) => c.uuid !== chapterUuid));
-      // Die Dateien darin bleiben, sie stehen danach ohne Kapitel.
+      // The files in it stay, they end up without a chapter.
       setSources((prev) =>
         prev.map((s) => (s.chapter_uuid === chapterUuid ? { ...s, chapter_uuid: null } : s))
       );
@@ -67,8 +61,7 @@ export function useChapters({ uuid, setSources }: UseChaptersOptions) {
         body: JSON.stringify({ direction }),
       });
       if (!res.ok) return;
-      // Der Server schickt die neue Reihenfolge zurueck. Selbst tauschen waere
-      // eine zweite Wahrheit, die frueher oder spaeter abweicht.
+      // The server sends the new order, swapping ourselves would be a second truth.
       const data = await res.json().catch(() => null);
       if (Array.isArray(data?.chapters)) setChapters(data.chapters as Chapter[]);
     } catch { /* ignore */ }

@@ -7,8 +7,7 @@ describe("exceedsTranscriptionLimit", () => {
   });
 
   it("accepts a recording exactly at the limit", () => {
-    // The backend rejects strictly above, so the browser must not reject here
-    // and send the user chasing a file the server would have accepted.
+    // The backend only rejects above that, the browser must not be stricter.
     expect(exceedsTranscriptionLimit(MINUTES_LIMIT_SECONDS)).toBe(false);
   });
 

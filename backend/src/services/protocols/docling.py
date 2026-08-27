@@ -1,10 +1,4 @@
-"""Adapter for the Docling document-conversion API.
-
-Single capability: OCR via a multipart POST to ``/documents/convert``. The
-server returns a JSON payload with a ``markdown`` field; layout, tables, and
-embedded images are all rendered into that markdown blob. KIS treats the
-result as plain text.
-"""
+"""Adapter for the Docling API, one feature: text recognition."""
 
 from __future__ import annotations
 
@@ -19,8 +13,7 @@ from src.services.protocols.base import ProbeResult, ProviderAdapter
 _PICTURE_REF_RE = re.compile(r"^picture-\d+\.png\s*$", re.MULTILINE)
 _IMAGE_COMMENT_RE = re.compile(r"<!--\s*image\s*-->")
 
-# 1x1 PNG used as a probe payload. The server must at least accept and route
-# the request before failing with a payload-related error.
+# A tiny PNG as the probe payload.
 _PROBE_PNG = (
     b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
     b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\rIDATx\x9cc\x00\x01"

@@ -1,15 +1,10 @@
-"""Ein Nutzerkonto samt allem, was daran haengt.
-
-Die Nutzernummer steht in vielen Tabellen als blanke Zahl ohne Fremdschluessel.
-Nur der Arbeitsbereich raeumt per Kaskade auf, alles andere muss hier stehen,
-sonst bleiben Zeilen ohne Besitzer liegen.
-"""
+"""Deletes a user account and everything hanging off it without a foreign key."""
 
 import psycopg2.extras
 
 from src.core.db.pool import get_connection
 
-# Wird stur der Reihe nach per user_id geleert.
+# Cleared strictly in order by user_id.
 SWEEP_BY_USER_ID = (
     # Haengt an keinem Arbeitsbereich.
     "jobs",
@@ -18,7 +13,7 @@ SWEEP_BY_USER_ID = (
     "user_quotas",
     "user_quota_overrides",
     "aia_llm_usage_log",
-    # Haengt zwar an einem Arbeitsbereich, aber womoeglich an einem fremden.
+    # Hangs off a workspace, but possibly off someone else's.
     "aia_enrollments",
     "aia_messages",
     "aia_notes",
@@ -34,7 +29,7 @@ SWEEP_BY_USER_ID = (
     "aia_schedule_processed_sources",
 )
 
-# Tabellen mit Nutzernummer, die bewusst nicht in der Liste oben stehen.
+# Tables with a user id that are deliberately not in the list above.
 SONDERFALL = {
     "users": "die Zeile selbst, geht zuletzt",
     "aia_workspaces": "geht zuerst, damit die Kaskade greift",
@@ -45,7 +40,7 @@ SONDERFALL = {
 
 
 def count_user_footprint(user_id: int) -> dict:
-    """Die Zahlen fuer die Rueckfrage vor dem Loeschen."""
+    """The numbers for the confirmation before deleting."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
@@ -63,7 +58,7 @@ def count_user_footprint(user_id: int) -> dict:
 
 
 def delete_user_completely(user_id: int) -> None:
-    """Loescht Arbeitsbereiche, Spuren, Whitelist-Eintrag und zuletzt das Konto."""
+    """Deletes workspaces, traces, the whitelist entry and finally the account."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("DELETE FROM aia_workspaces WHERE user_id = %s", (user_id,))

@@ -20,8 +20,8 @@ import { fileURLToPath } from "node:url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const srcDir = join(__dirname, "src");
 
-// Next.js Bildrouten (ImageResponse/satori) rendern in eine PNG-Datei, nicht
-// ins Browser-DOM. Dort gibt es keine Wurzel-Schriftgroesse, rem waere falsch.
+// Next.js image routes (ImageResponse/satori) render into a PNG file, not into
+// the browser DOM. There is no root font size there, so rem would be wrong.
 const EXEMPT = /(^|\/)(icon|apple-icon|opengraph-image|twitter-image)\.tsx$/;
 
 const RULES = [

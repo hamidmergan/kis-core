@@ -1,16 +1,13 @@
-/**
- * Die Auswahl in der Vorrats-Karte. Steht getrennt von der Karte, damit sich das
- * Zaehlen pruefen laesst, ohne die Oberflaeche zu starten.
- */
+/** The selection of the pool card, kept separate so it stays testable. */
 
 export type PoolCounts = { tools: Record<string, number>; schedule: number };
 
-/** Die fuenf Werkzeuge mit Vorrat, in derselben Reihenfolge wie in der Karte. */
+/** The five tools with a pool, in the same order as in the card. */
 export const POOL_TOOLS = [
   "flashcards", "karteikarten", "quiz", "grammatik", "wortschatz",
 ] as const;
 
-/** Wie viel die aktuelle Auswahl wegwirft. Steht in der Sicherheitsabfrage. */
+/** How much the current selection throws away, shown in the confirmation. */
 export function chosenCount(
   counts: PoolCounts, tools: string[], schedule: boolean,
 ): number {

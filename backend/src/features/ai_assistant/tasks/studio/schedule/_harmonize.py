@@ -1,4 +1,4 @@
-"""Cross-Candidate-Title-Harmonisierung: gleiche Events am gleichen Datum → gleicher Titel."""
+"""Cross-candidate title harmonisation: same events on the same date get the same title."""
 
 import json
 from collections import defaultdict
@@ -21,22 +21,8 @@ def _harmonize_same_date_titles(
     client, model, all_candidates: list[dict], classifications: list[dict],
     today_d: date, existing_entries: list[dict],
 ) -> None:
-    """Cross-candidate dedup pass. Shows the LLM ALL events on one date -
-    both new candidates (title can be rewritten) and existing DB entries
-    (title is fixed). The LLM groups same-events; any new candidate whose
-    group contains an existing entry gets rewritten to that existing title,
-    so fuzzy-merge downstream picks it up instead of creating a duplicate.
-    Mutates `classifications` in place.
-
-    Termine OHNE Datum bilden eine eigene Gruppe (Schluessel None). Sie brauchen den
-    Schritt am dringendsten: dieselbe Zeile "Praesentationen nach Vereinbarung" kommt
-    aus der PDF und aus dem Video mit verschiedenen Worten an, und ohne Datum gibt es
-    nichts, woran der Textvergleich sie sonst zusammenbinden koennte. Das gemeinsame
-    leere Datum ist dabei KEIN Hinweis auf dieselbe Veranstaltung, darauf weist die
-    Anfrage fuer diese Gruppe eigens hin.
-    """
-    # Gruppenschluessel ist (Tag, Genauigkeit). "im Juli" und der 01.07. teilen sich zwar
-    # den Sortierpunkt, sind aber nicht dieselbe Aussage und gehoeren nicht in eine Gruppe.
+    """Harmonises the titles of one day, appointments without a date form their own group."""
+    # The group key is day plus precision, 'in July' is not the 1st of July.
     cand_groups: dict[tuple, list[int]] = defaultdict(list)
     for idx, (cand, cls) in enumerate(zip(all_candidates, classifications)):
         if not cls["keep"] or cls["is_footer"] or cls.get("is_header") or cls.get("is_historical"):
@@ -48,8 +34,7 @@ def _harmonize_same_date_titles(
             d = _resolve_current_year(today_d, mo, da)
         else:
             d = None
-        # Das Ende gehoert in den Schluessel: eine Spanne ab dem 28.09. und ein
-        # einzelner Termin am 28.09. fangen gleich an und sind trotzdem verschieden.
+        # The end belongs in the key, otherwise a span collapses into a single appointment.
         ende = _range_end_date(cand, d, today_d) if cls.get("is_range") else None
         cand_groups[(d, ende, cand.get("date_precision") or "day")].append(idx)
 

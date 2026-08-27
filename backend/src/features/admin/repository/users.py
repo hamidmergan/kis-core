@@ -35,9 +35,7 @@ def create_user(ldap_username: str, display_name: str, email: str, active: int, 
         return user_id
 
 def update_user(user_id: int, display_name: str, email: str, active: int) -> None:
-    """Update a user's profile fields. Role and custom_role_id are NOT touched here;
-    role mutation goes through `set_user_role` (see roles repository).
-    """
+    """Changes the profile fields, the role goes through set_user_role."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -93,10 +91,7 @@ def get_all_users(
     limit: int = 50, offset: int = 0, q: str = "",
     date_from: str = "", date_to: str = "",
 ) -> tuple[list[dict], int]:
-    """All users, newest first. Returns (users, total_count).
-
-    Filters: q (name/username/email), date_from/date_to (YYYY-MM-DD).
-    """
+    """All users, newest first, as a pair of list and total count."""
     conditions = []
     params: list = []
 
@@ -140,7 +135,7 @@ def activate_user(user_id: int) -> None:
         conn.commit()
 
 def set_user_demo(user_id: int, is_demo: bool) -> list[int]:
-    """Setzt genau ein Demo-Konto und meldet zurueck, wer den Haken dabei verloren hat."""
+    """Sets exactly one demo account and reports who lost the flag doing so."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             if is_demo:

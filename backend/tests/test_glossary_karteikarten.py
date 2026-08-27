@@ -1,12 +1,4 @@
-"""Karteikarten aus dem Glossar tragen eine Frage, keinen blanken Begriff.
-
-Gemeldet an einer Karte, die "FRAGE" ueber dem Wort "Literaturrecherche" zeigte. Die
-Beschriftung war richtig, der Inhalt nicht: bis 2026-08-09 setzte der Glossar-Weg den
-Begriff selbst als Vorderseite ein, ohne jeden Modellaufruf.
-
-In der Datenbank nachgezaehlt: aus dem Glossar hatten 9 von 10 Karten eine Vorderseite
-ohne Frage, aus Quellen erzeugte 0 von 34.
-"""
+"""Flashcards from the glossary carry a question, not a bare term."""
 
 import json
 import types
@@ -25,7 +17,7 @@ def _eintraege(*begriffe):
 
 
 def _client(content: str):
-    """Attrappe, die genau eine Antwort liefert und die Aufrufe mitschreibt."""
+    """Stub that returns exactly one answer and records the calls."""
     calls = []
 
     def create(**kwargs):
@@ -53,7 +45,7 @@ def test_the_front_is_a_question_not_the_term():
 
 
 def test_one_call_for_the_whole_set():
-    # Ein gebuendelter Aufruf, nicht einer je Begriff.
+    # One batched call, not one per term.
     antwort = json.dumps({"cards": [
         {"term": b, "question": f"Was ist {b}?", "answer": f"Das ist {b}."}
         for b in ("Abstract", "Peer Review", "Exposé")
@@ -67,8 +59,7 @@ def test_one_call_for_the_whole_set():
 
 
 def test_the_source_page_stays_with_the_card():
-    # Seite und Datei kommen aus dem Glossar-Index und sind dort massgeblich. Das Modell
-    # darf sie nicht ueberschreiben, sonst zeigt der Quellenchip auf die falsche Stelle.
+    # Page and file come from the glossary and the model must not overwrite them.
     antwort = json.dumps({"cards": [
         {"term": "Abstract", "question": "Was ist ein Abstract?", "answer": "Eine Zusammenfassung."},
     ]})
@@ -105,8 +96,7 @@ def test_a_term_the_model_skipped_falls_back():
 
 
 def test_an_empty_question_counts_as_missing():
-    # Ein leeres Feld waere sonst eine Karte mit leerer Vorderseite, also genau der
-    # Zustand, den dieser Weg beheben soll.
+    # An empty field would be exactly the state this path is meant to fix.
     antwort = json.dumps({"cards": [
         {"term": "Abstract", "question": "   ", "answer": "Eine Zusammenfassung."},
     ]})

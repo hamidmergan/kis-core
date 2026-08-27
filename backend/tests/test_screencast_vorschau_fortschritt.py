@@ -1,4 +1,4 @@
-"""Die Vorschau muss wissen, WELCHE Folie fertig ist, nicht nur wie viele."""
+"""The preview has to know WHICH slide is finished, not only how many."""
 
 import asyncio
 
@@ -25,7 +25,7 @@ def test_jede_fertige_folie_meldet_ihre_nummer(tmp_path):
 
 
 def test_folie_ohne_text_meldet_sich_auch(tmp_path):
-    """Ohne Ton ist die Folie trotzdem fertig, sonst bleibt die Kachel ewig grau."""
+    """Without audio the slide is still finished, otherwise the tile stays grey forever."""
     assert _nummern(["Eins.", "   ", "Drei."], tmp_path) == [0, 1, 2]
 
 
@@ -36,7 +36,7 @@ def test_fortschritt_traegt_die_fertigen_nummern_sortiert():
 
 
 def test_gesprochen_zaehlt_unabhaengig_von_der_groesse_von_fertig():
-    """Vorrats-Folien fuellen ``fertig`` sofort, ohne den Zaehler ``gesprochen`` zu heben."""
+    """Cached slides fill ``fertig`` right away without raising the ``gesprochen`` counter."""
     assert _fortschritt_vertonung({0, 1, 2}, 27, 1) == {
         "step": "tts", "current": 1, "total": 27, "fertig": [0, 1, 2], "nicht_dabei": [],
     }

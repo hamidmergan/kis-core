@@ -22,10 +22,9 @@ jobs:
       run:
         working-directory: backend
 
-    # Postgres mit pgvector, damit die Tests laufen, die echtes SQL anfassen. Ohne
-    # ihn ueberspringen sich rund 76 Tests still, also wird genau der Teil nicht
-    # geprueft, der am ehesten kaputt geht. Das Abbild bringt die Erweiterung
-    # `vector` schon mit, `pg_trgm` steckt in Postgres selbst.
+    # Postgres with pgvector so the tests that touch real SQL run. Without it
+    # about 76 tests skip silently, so exactly the part most likely to break goes
+    # unchecked. The image ships the `vector` extension, `pg_trgm` is in Postgres itself.
     services:
       postgres:
         image: pgvector/pgvector:pg16
@@ -57,9 +56,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # Baut das Schema von null auf, so wie es eine neue Hochschule auch tut.
-      # Faellt dieser Schritt um, ist die Reihenfolge im Schema kaputt, siehe
-      # scripts/check_fresh_schema.sh.
+      # Builds the schema from scratch, the way a new university does. If this step
+      # falls over, the order in the schema is broken, see scripts/check_fresh_schema.sh.
       - name: Schema anlegen
         run: python -c "from src.core.db.schema import init_db; init_db()"
 

@@ -1,4 +1,4 @@
-"""Prompts des Sprachtrainers: Lernkarten, Karteikarten, Glossar."""
+"""Prompts of the language trainer: exercises, flashcards, glossary."""
 
 
 AIA_LERNKARTEN_PROMPT = (
@@ -128,12 +128,7 @@ AIA_LERNKARTEN_PROMPT = (
     "- Respond ONLY with the JSON object, no other text."
 )
 
-# Der Tipp entsteht im SELBEN Aufruf wie die Aufgabe. Vorher kostete der Tipp-Knopf einen
-# Modellaufruf pro Klick und warf den Lernenden aus der Aufgabe. Geteilt von Quiz und
-# Karteikarten.
-#
-# Das Verbot steht als Gegenbeispiel: eine Regel, die das Modell an einem falschen Satz
-# SIEHT, befolgt es, eine bloss formulierte oft nicht.
+# The hint is produced in the same call as the exercise, the ban stands as a counter-example.
 AIA_HINT_RULE = (
     "- tip: ONE short sentence that helps a learner who is stuck, WITHOUT giving the answer away. "
     "Point at the thought that leads there: the situation, the comparison, or the example in "
@@ -157,8 +152,7 @@ AIA_HINT_RULE = (
 )
 
 
-# Q AND A in a single call, no per-card RAG round-trip. Source links are attached
-# post-hoc, so the prompt forbids citing.
+# Question and answer in one call, source references are added afterwards.
 AIA_KARTEIKARTEN_QA_PROMPT = (
     "You are an expert in learning materials. Generate {count} question-answer flashcards from the given documents. "
     "Each question AND its answer must be derivable using ONLY the documents (no general knowledge). "
@@ -184,9 +178,7 @@ AIA_KARTEIKARTEN_QA_PROMPT = (
 )
 
 
-# Aus fertigen Glossarbegriffen echte Frage-Antwort-Karten. Getrennt von
-# AIA_KARTEIKARTEN_QA_PROMPT, weil der dort verbotene Definitionsbezug hier genau die
-# Aufgabe ist: die Definition steht schon fest, gesucht ist die Frage dazu.
+# Turns finished glossary terms into real question and answer cards.
 AIA_KARTEIKARTEN_GLOSSAR_PROMPT = (
     "You turn glossary entries into question-answer flashcards. Each entry already has a term "
     "and a definition; your job is to write the QUESTION that the definition answers.\n\n"

@@ -1,24 +1,24 @@
-"""Ziffern zu Wörtern, bevor der Text an die Vertonung geht."""
+"""Digits to words before the text goes to the voicing."""
 
 import re
 
 from loguru import logger
 
-# Ziffernfolge mit Tausendertrennern und Nachkommastelle, freistehend als Wort.
+# Digit sequence with thousands separators and a decimal, standing alone as a word.
 _ZAHL = re.compile(r"(?<![\w.,/@-])(?:\d{1,3}(?:[.,]\d{3})+|\d+(?:\.\d+)?)(?![\w/@-])")
 
-# Adressen bleiben unangetastet, dort ist eine Ziffer keine gesprochene Zahl.
+# Addresses stay untouched, a digit there is not a spoken number.
 _ADRESSE = re.compile(r"\S+(?:://|@)\S+|\b\S+\.(?:de|com|org|net|eu|io)\b", re.I)
 
-# Vierstellige Zahlen in dieser Spanne werden als Jahr gesprochen.
+# Four-digit numbers in this range are spoken as a year.
 _JAHR_VON, _JAHR_BIS = 1500, 2099
 
-# Nur hier ist das Deutsch-Raten der Stimme gemessen, sonst bleibt alles wie bisher.
+# Only here is the voice's German guessing measured, elsewhere nothing changes.
 _GEMESSENE_SPRACHEN = {"en"}
 
 
 def _sprachcode(language: str) -> str:
-    """Aus "EN-US" wird "en"."""
+    """'EN-US' becomes 'en'."""
     return (language or "").strip().replace("_", "-").split("-")[0].lower()
 
 
@@ -34,11 +34,7 @@ def _als_wort(roh: str, lang: str) -> str:
 
 
 def spell_numbers(text: str, language: str) -> str:
-    """Ziffern als Wörter ausschreiben, damit die Vertonung die Sprache erkennt.
-
-    Greift nur bei Englisch, weil das Deutsch-Raten der Stimme nur dort gemessen
-    ist. Jede andere Sprache geht unverändert raus.
-    """
+    """Spells digits out as words, English only."""
     if not text:
         return ""
     lang = _sprachcode(language)

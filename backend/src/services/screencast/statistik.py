@@ -1,4 +1,4 @@
-"""Zahlen zum Screencast-Lauf, phasenweise in die meta.json des Jobs."""
+"""Numbers about the screencast run, phase by phase into the job's meta.json."""
 
 import time
 from contextlib import contextmanager
@@ -9,7 +9,7 @@ from src.storage import load_result_meta, save_result_meta
 
 
 def notiere(user_id: int, job_uuid: str, phase: str, werte: dict) -> None:
-    """Haengt die Werte einer Phase unter stats an, ohne Bestehendes zu verlieren."""
+    """Appends the values of a phase under stats without losing existing ones."""
     try:
         meta = load_result_meta(user_id, job_uuid) or {}
         stats = dict(meta.get("stats") or {})
@@ -21,7 +21,7 @@ def notiere(user_id: int, job_uuid: str, phase: str, werte: dict) -> None:
 
 @contextmanager
 def messe(user_id: int, job_uuid: str, phase: str):
-    """Misst die Dauer der Phase und schreibt sie mit, auch wenn sie scheitert."""
+    """Measures the phase duration and records it, even when it fails."""
     werte: dict = {}
     start = time.monotonic()
     try:
@@ -35,7 +35,7 @@ def messe(user_id: int, job_uuid: str, phase: str):
 
 
 def anbieter_und_modell(provider_id: int, feature: str) -> dict:
-    """Name des Anbieters und das Modell, das die Route fuer ihn benutzt."""
+    """Name of the provider and the model the route uses for it."""
     from src import database as db
 
     provider = db.get_provider(provider_id) or {}
@@ -49,7 +49,7 @@ def anbieter_und_modell(provider_id: int, feature: str) -> dict:
 
 
 def route_kennung(feature: str) -> dict:
-    """Anbieter und Modell einer Route ohne eigene Anbieterwahl, etwa die Skripte."""
+    """Provider and model of a route without its own provider choice, such as the scripts."""
     from src.services import feature_router
 
     try:
@@ -65,7 +65,7 @@ def route_kennung(feature: str) -> dict:
 
 
 def zeichen_zahlen(scripts: list[str]) -> dict:
-    """Wie viel Text die Vertonung zu sprechen hat, verteilt auf die Folien."""
+    """How much text the voicing has to speak, spread over the slides."""
     laengen = [len(s.strip()) for s in scripts]
     return {
         "folien": len(scripts),

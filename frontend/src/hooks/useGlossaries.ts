@@ -3,9 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import type { Glossary } from "@/types";
 import { api } from "@/lib/api";
 
-// Terminology glossaries for the translation tool. Persisted per user in the
-// DB (see backend/src/routes/glossaries.py). All consumers use this hook
-// exclusively, so no other changes are needed to switch storage backends.
+// Glossaries for translation, per person in the database.
 
 export const MAX_GLOSSARIES = 10;
 export const MAX_ENTRIES_PER_GLOSSARY = 500;
@@ -19,8 +17,7 @@ async function migrateLegacyGlossaries(serverGlossaries: Glossary[]): Promise<Gl
   if (localStorage.getItem(MIGRATED_FLAG)) return serverGlossaries;
 
   const raw = localStorage.getItem(LEGACY_KEY);
-  // Only migrate when the server side is still empty, so re-running on a second
-  // device (with its own leftover localStorage) cannot create duplicates.
+  // Only migrate while the server is empty, otherwise the second device gets duplicates.
   if (raw && serverGlossaries.length === 0) {
     let legacy: Glossary[] = [];
     try {
@@ -91,8 +88,7 @@ export function useGlossaries() {
     setGlossaries(prev => prev.filter(g => g.id !== id));
   }, []);
 
-  // Merge up to 3 glossary IDs into a single JSON string for API calls.
-  // Index 0 has highest priority — its entries overwrite conflicts from index 1 and 2.
+  // Up to three glossaries in one call, the first beats the others.
   const mergeToApiJson = useCallback((ids: string[]): string => {
     const merged: Record<string, string> = {};
     // Iterate from lowest to highest priority so higher-priority entries overwrite

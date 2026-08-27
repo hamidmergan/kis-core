@@ -8,32 +8,18 @@ from loguru import logger
 
 
 class PdfNoReadableTextError(ValueError):
-    """Raised when a PDF has no extractable text (typical for scanned PDFs).
-
-    The Celery task that catches this maps it to a localized error_message
-    using the source's creator locale. Carries no message body - the route /
-    task is the only place that knows which locale to render in.
-    """
+    """Raised when a PDF has no readable text."""
 
 
 class OcrFailedError(RuntimeError):
-    """Raised when OCR for a page fails after all retries (incl. transient 429s).
-
-    Internal signal between ``_ocr_image_with_retry`` and ``_OcrRun`` only. It
-    does NOT escape the chunker: a page that will not come through keeps its
-    text layer and is booked as "open" in the run's report. OCR is a bonus, and
-    a shared, rate-limited service must never be able to kill an upload.
-    """
+    """Raised when text recognition of a page fails for good."""
 
     def __init__(self, page_number: int):
         self.page_number = page_number
         super().__init__(f"OCR failed for page {page_number} after retries")
 
 
-# Per-page OCR retry budget. Transient upstream errors (rate limits, timeouts,
-# 5xx) are retried with exponential backoff before the page is given up on and
-# booked as open. Kept small: the OCR endpoint is shared, so a long per-page
-# retry storm would only deepen the contention it is reacting to.
+# How often a page is retried, deliberately kept small.
 OCR_MAX_ATTEMPTS = 5
 
 _TRANSIENT_OCR_MARKERS = (
@@ -44,23 +30,13 @@ _TRANSIENT_OCR_MARKERS = (
 
 
 def _is_transient_ocr_error(e: Exception) -> bool:
-    """True for upstream errors worth re-trying the SAME page (429/5xx/timeout).
-
-    String-based on purpose: OCR providers raise heterogeneous exception types
-    (httpx.HTTPStatusError, openai errors, RuntimeError) but all surface the
-    status/cause in their message. Mirrors the task-level rate-limit check.
-    """
+    """True for temporary errors that make a second attempt worthwhile."""
     msg = str(e).lower()
     return any(m in msg for m in _TRANSIENT_OCR_MARKERS)
 
 
 def _ocr_image_with_retry(provider, png_bytes, page_number, *, attempts=OCR_MAX_ATTEMPTS, sleep=time.sleep):
-    """OCR one page image, retrying transient failures with exponential backoff.
-
-    Non-transient errors fail fast (retrying a deterministic error is pointless).
-    Either way, exhausting the budget raises ``OcrFailedError``, which ``_OcrRun``
-    turns into an open page in its report. ``sleep`` is injectable for tests.
-    """
+    """Recognises a page, with growing waits on temporary errors."""
     last_exc: Exception | None = None
     for attempt in range(attempts):
         try:
@@ -79,24 +55,12 @@ def _ocr_image_with_retry(provider, png_bytes, page_number, *, attempts=OCR_MAX_
     raise OcrFailedError(page_number) from last_exc
 
 
-# How many pages may fail before OCR is switched off for the REST of the document.
-# The per-page backoff above is the expensive part (~31s of pure waiting per page,
-# holding a Celery slot), so a service that dropped two pages in a row is down, not
-# busy - and grinding through the remaining pages only deepens the contention and
-# stalls every other upload behind it.
+# How many pages may fail before text recognition is switched off entirely.
 OCR_MAX_FAILED_PAGES = 2
 
 
 class _OcrRun:
-    """OCR bookkeeping for ONE document: what ran, what did not, when to stop.
-
-    The caller asks ``wants(page)`` before rendering, hands the PNG to
-    ``ocr_page(...)`` and gets the recognised text back - or ``""`` when the page
-    did not come through. Nothing raises: the page simply keeps its text layer.
-
-    ``report()`` is what the source row later shows. ``None`` means the document
-    had no OCR candidate at all, so there is nothing to say about it.
-    """
+    """Bookkeeping of text recognition for a document, none of it raises."""
 
     def __init__(self, provider, *, sleep=time.sleep):
         self._provider = provider
@@ -107,22 +71,14 @@ class _OcrRun:
         self.open: list[int] = []
 
     def wants(self, page_number: int) -> bool:
-        """True when this candidate page should actually be rendered and sent.
-
-        False when OCR is off/unconfigured or the run has given up. Either way the
-        page is booked as open, so it can be caught up later once OCR is available.
-        """
+        """True when this page should really be rendered and sent."""
         if self._provider is None or self._given_up:
             self.open.append(page_number)
             return False
         return True
 
     def mark_open(self, page_number: int) -> None:
-        """Book a candidate page as open without blaming the OCR service.
-
-        Used when the page could not even be rendered - not a service failure, so
-        it must not count towards the give-up budget.
-        """
+        """Books a page as open without blaming text recognition."""
         self.open.append(page_number)
 
     def ocr_page(self, png_bytes: bytes, page_number: int) -> str:
@@ -155,38 +111,18 @@ class _OcrRun:
         }
 
 
-# 1000 chars ≈ 250-333 tokens (German); 200 char overlap = 20% (LangChain default).
-# All supported embedding models (nomic-embed-text 2048 ctx, e5-mistral 4096 ctx) handle this comfortably.
+# Chunk size and overlap, all supported models can take this.
 CHUNK_SIZE = 1000
 CHUNK_OVERLAP = 200
 
 
-# Ein mit LaTeX gesetztes PDF malt Akzente als EIGENE Glyphe neben den Grundbuchstaben,
-# nicht als ein zusammengesetztes Zeichen. Die Textebene gibt sie darum als freistehendes
-# Zeichen aus, mal vor und mal hinter dem Buchstaben: "Komplement¨armenge", "H¨aufigkeit",
-# "A¯". Das trifft nicht nur die Anzeige. Es trifft vor allem die Vektorsuche, weil
-# "H¨aufigkeit" nicht mehr auf eine Frage nach "Häufigkeit" passt, und jedes Werkzeug,
-# das auf denselben Chunks arbeitet.
-#
-# Welches freistehende Zeichen zu welchem kombinierenden gehoert, steht in den
-# Unicode-Daten selbst (Zerlegung "<compat> 0020 XXXX"). Die Tabelle wird daraus
-# abgeleitet statt von Hand gepflegt: so gilt sie in jeder Sprache und nimmt echte
-# Zeichen wie "°", "²" oder "×" nicht versehentlich mit. Abgesucht wird nur der
-# Bereich, in dem PDF-Extraktoren solche Zeichen ueberhaupt ausgeben (Latin-1 plus
-# Spacing Modifier Letters).
+# Puts standalone accents from LaTeX PDFs back on their letter.
 _ACCENT_SCAN_RANGE = range(0x00A0, 0x0300)
 
-# Der Akut bleibt bewusst draussen. Er wird in normalem Text als Apostroph getippt
-# ("geht´s"), und dort waere ein Zusammenziehen zu "gehtś" eine Verschlimmbesserung.
-# Bei ihm ist der Schaden durch ein falsches Zusammenziehen groesser als der Nutzen.
+# The acute stays out, it is typed as an apostrophe.
 _ACCENT_EXCLUDED = {"´"}
 
-# Zirkumflex und Hatschek fallen aus der Ableitung heraus, weil Unicode ihnen keine
-# Zerlegung "Leerzeichen plus kombinierender Akzent" gibt. In LaTeX-PDFs kommen sie
-# aber genauso freistehend vor wie die anderen ("hˆotel", "ˇCech"), darum hier von
-# Hand ergaenzt. Beide sind ungefaehrlich, weil sie in normalem Text keine zweite
-# Rolle als Satzzeichen haben. Die ASCII-Zwillinge "^" und "`" bleiben bewusst
-# draussen: "^" steht fuer eine Potenz und "`" in Code fuer ein Zitat.
+# Circumflex and caron added by hand, Unicode knows no decomposition for them.
 _ACCENT_EXTRA = {
     "ˆ": "̂",  # MODIFIER LETTER CIRCUMFLEX ACCENT -> COMBINING CIRCUMFLEX
     "ˇ": "̌",  # CARON -> COMBINING CARON
@@ -194,7 +130,7 @@ _ACCENT_EXTRA = {
 
 
 def _spacing_accent_marks() -> dict[str, str]:
-    """Freistehender Akzent -> kombinierender Akzent, aus den Unicode-Daten abgeleitet."""
+    """Standalone accent to combining accent, derived from the Unicode data."""
     marks: dict[str, str] = {}
     for code_point in _ACCENT_SCAN_RANGE:
         char = chr(code_point)
@@ -211,7 +147,7 @@ _SPACING_ACCENT_RE = re.compile(f"[{re.escape(''.join(_SPACING_ACCENTS))}]")
 
 
 def _attach_spacing_accents(text: str) -> str:
-    """Haenge jeden freistehenden Akzent an den Buchstaben, zu dem er gehoert."""
+    """Attach every standalone accent to the letter it belongs to."""
     out: list[str] = []
     index = 0
     end = len(text)
@@ -219,35 +155,24 @@ def _attach_spacing_accents(text: str) -> str:
         char = text[index]
         mark = _SPACING_ACCENTS.get(char)
         if mark:
-            # Der FOLGENDE Buchstabe hat Vorrang. In "Komplement¨armenge" steht auf
-            # beiden Seiten einer, gemeint ist aber das "a".
+            # The following letter takes precedence.
             if index + 1 < end and text[index + 1].isalpha():
                 out.append(text[index + 1] + mark)
                 index += 2
                 continue
-            # Sonst der vorangehende: "A¯", "p(A¯)".
+            # Otherwise the preceding one, as in "A¯" or "p(A¯)".
             if out and out[-1][-1:].isalpha():
                 out[-1] += mark
                 index += 1
                 continue
-            # Kein Buchstabe daneben, also nicht sicher zuzuordnen. In "Fur jedes
-            # Ereignis ¨ A" gehoert das Zeichen mehrere Woerter zurueck zu "Fur".
-            # Lieber stehen lassen als falsch anhaengen.
+            # No letter next to it means it cannot be assigned, then it stays.
         out.append(char)
         index += 1
     return "".join(out)
 
 
 def _clean(text: str) -> str:
-    """Strip NUL bytes and reunite accents the PDF text layer left standing alone.
-
-    NUL bytes go because Postgres TEXT columns reject them. The accent repair is
-    described at ``_SPACING_ACCENTS`` above. The closing NFC pass does two jobs: it
-    fuses the reattached mark into a single character where one exists ("a" plus
-    combining diaeresis becomes "ä"), and it folds the lookalike code points that
-    the same PDFs emit onto their canonical twin (the Ohm sign becomes an Omega),
-    so equal-looking text also compares and embeds as equal.
-    """
+    """Removes null bytes and reassembles separated accents."""
     if not text:
         return text
     text = text.replace("\x00", "")
@@ -257,14 +182,7 @@ def _clean(text: str) -> str:
 
 
 def _merge_small_fragments(chunks: list[str], min_chars: int) -> list[str]:
-    """Fold sub-*min_chars* fragments into a neighbour.
-
-    A split page can leave a tiny trailing scrap (a running-header line or the
-    last few overlap chars) as its own chunk; such a fragment carries no real
-    standalone meaning and becomes a "magnet" in vector search that mis-ranks for
-    thin queries. Folding it into the adjacent chunk keeps every character and,
-    since this runs per page, does not affect page attribution. A page that is
-    simply short stays a single chunk (nothing to merge)."""
+    """Folds overly short fragments into the neighbour, they would be magnets."""
     if len(chunks) <= 1:
         return chunks
     merged: list[str] = []
@@ -301,39 +219,22 @@ def _split_text(text: str, chunk_size: int, overlap: int) -> list[str]:
         next_start = start + len(chunk) - overlap
         if next_start <= start:
             break
-        # Auch den ANFANG auf eine Wortgrenze ziehen. Das Ende wird oben schon
-        # gezogen, next_start war aber eine rohe Zeichenposition, also begann fast
-        # jeder Chunk mitten im Wort: aus "Richtlinie" wurde "ichtlinie". Gemessen an
-        # den 30 Gesetzen der Testablage kam bei 36,9 Prozent der Chunks das erste
-        # Wort im ganzen Bestand kein zweites Mal vor, war also ein Bruchstueck. Ein
-        # so zerschnittenes Wort ist in diesem Chunk nicht mehr auffindbar.
-        #
-        # Zurueck statt vor, damit nichts verloren geht: die Ueberlappung wird um
-        # hoechstens eine Wortlaenge groesser, nie kleiner. Der Vergleich mit start
-        # haelt den Fortschritt und damit die Abbruchbedingung oben intakt.
+        # The start is pulled to a word boundary too, otherwise every chunk begins mid-word.
         if not text[next_start - 1].isspace():
             wortanfang = text.rfind(" ", start, next_start)
             if wortanfang + 1 > start:
                 next_start = wortanfang + 1
             else:
-                # Zurueck ginge nur ueber start hinaus und wuerde den Fortschritt
-                # aufheben. Dann vorwaerts auf die naechste Luecke, aber nur bis zum
-                # Ende des eben gebauten Chunks: das Ende steht auf einer Wortgrenze,
-                # dieses Wort liegt also vollstaendig im Chunk davor und geht nicht
-                # verloren.
+                # Forward only to the end of the chunk just built, otherwise a word is lost.
                 vor = text.find(" ", next_start)
                 if vor != -1 and vor + 1 <= start + len(chunk):
                     next_start = vor + 1
         start = next_start
-    # Fold away tiny leftover fragments (< 10% of a full chunk) so a split page
-    # does not seed the index with header-scrap magnets. Threshold is relative to
-    # chunk_size so tiny test sizes are unaffected.
+    # Fold tiny remainders in so no header magnets end up in the index.
     return _merge_small_fragments(chunks, max(1, chunk_size // 10))
 
 
-# A bullet group must carry at least this much of its own text to be indexed on its
-# own; thinner ones travel with their neighbour. Sits above the 100-char floor the
-# citation attribution applies, so a group that survives here can also be cited.
+# This much text of its own a bullet group needs to be indexed alone.
 SLIDE_GROUP_MIN_CHARS = 120
 
 
@@ -343,25 +244,7 @@ def extract_chunks(
     progress_cb=None,
     ocr_report: dict | None = None,
 ) -> list[dict]:
-    """Extract text chunks from a document file.
-
-    Args:
-        file_path:   Absolute path to the file on disk.
-        file_type:   One of "pdf", "docx", "pptx", "txt", "md".
-        progress_cb: Optional callback ``fn(stage, page=None, total=None)``
-                     invoked when the extractor enters a new stage. Used by
-                     the indexing task to surface per-page OCR progress in
-                     the UI without coupling the chunker to the DB.
-        ocr_report:  Optional dict filled in with ``{"enabled", "done", "open"}``
-                     when the document had OCR candidate pages. Left untouched
-                     otherwise, so "no key" and "nothing to report" are the same
-                     thing to the caller. PDF only - no other type OCRs.
-
-    Returns:
-        List of dicts with keys:
-          - page_number (int, 1-indexed)
-          - content    (str)
-    """
+    """Gets the text sections out of a file, with the page number."""
     ft = file_type.lower().lstrip(".")
     if ft == "pdf":
         return _extract_pdf(file_path, CHUNK_SIZE, CHUNK_OVERLAP, progress_cb, ocr_report)
@@ -382,36 +265,15 @@ def extract_chunks(
 
 # ── Format-specific extractors ────────────────────────────────────────────────
 
-# Trigger OCR when raster images cover >= this fraction of the page area.
-# Bitmap-coverage heuristic skips logos/decorative icons (typically < 5%) and
-# only OCRs pages dominated by screenshots or full-page scans. Title slides
-# with a header logo and short text no longer trigger spurious vision calls.
+# From this image share on text recognition runs, small logos do not trigger it.
 _OCR_IMAGE_COVERAGE_THRESHOLD = 0.20
 
-# Aufloesung des Seitenbilds, das an die Bilderkennung geht. pdfium rendert von Haus aus
-# mit 72 DPI, der Faktor rechnet das um.
-#
-# Waren 200 DPI, das kostete stillschweigend Tabellenzellen. Im Kursplan zweier Seminar-
-# PDFs fehlte die Zelle "25.03.2026, 17:30 Uhr", und damit im Zeitplan ein Termin, ohne
-# dass es irgendwo aufgefallen waere. Am 13.08.2026 durchgemessen, dieselbe Seite, nur
-# die Aufloesung veraendert:
-#
-#   300 250 175 150 144 120 100 DPI -> Zelle gelesen
-#   200 DPI                        -> Zelle fehlt, 6 von 6 Laeufen
-#
-# Also kein Ausrutscher des Dienstes und auch nicht "je hoeher desto besser", sondern
-# genau dieser eine Wert. 150 DPI liegt bei der Aufloesung, mit der solche Modelle
-# ueblicherweise arbeiten, las in der Messung jede Seite mindestens so gut wie 200 DPI
-# und schickt dabei ein Drittel weniger Daten.
+# Resolution of the page image for image recognition, measured instead of guessed.
 _OCR_RENDER_DPI = 150
 
 
 def _render_ocr_png(page, page_number: int) -> bytes | None:
-    """Seitenbild fuer die Bilderkennung, oder None wenn das Rendern scheitert.
-
-    Rendern ist lokal und liefert bei gleichem Eingang immer dasselbe. Ein Fehler hier
-    laesst sich durch Wiederholen nicht heilen, deshalb faellt nur diese eine Seite aus.
-    """
+    """Page image for image recognition, or None when rendering fails."""
     import io as _io
     try:
         pil = page.render(scale=_OCR_RENDER_DPI / 72).to_pil()
@@ -444,16 +306,7 @@ def _bitmap_coverage(page) -> float:
 
 
 def _page_line_boxes(textpage) -> list:
-    """The page's RAW text rects with their geometry, or [] when pdfium reports none.
-
-    Raw on purpose: the running header is only stable in this form. Assembling rows first
-    glues the footer's three text objects together on some pages and not on others (their
-    baselines differ by fractions of a point), and a variant that only occurs on a few
-    pages never looks like furniture. Rows are assembled AFTER the furniture is dropped.
-
-    Empty is a normal answer (an image-only page), and every caller falls back to the
-    plain text path for it — layout knowledge is a bonus, never a requirement.
-    """
+    """The raw text boxes of the page with their position, empty is a valid answer."""
     from src.services.aia_pdf_layout import LineBox
     try:
         n = textpage.count_rects()
@@ -485,16 +338,13 @@ def _extract_pdf(
         boilerplate_keys, is_boilerplate, merge_rows, slide_groups, strip_boilerplate_text,
     )
     chunks: list[dict] = []
-    # Pass 1 collects every page, pass 2 cuts it up: the running header can only be
-    # recognised once all pages are in, since "stands on most pages" is the whole
-    # definition of it.
+    # Collect all pages first, then cut, the header only shows in the whole.
     page_texts: list[str] = []
     page_lines: list[list] = []
     doc = pdfium.PdfDocument(file_path)
     total_pages = len(doc)
 
-    # Lazy-init OCR provider once per PDF. None means OCR toggle is off or
-    # the configured provider couldn't be constructed - either way, skip OCR.
+    # The text recognition provider is fetched on demand, None means skipped.
     ocr_run: _OcrRun | None = None
 
     if progress_cb:
@@ -506,16 +356,11 @@ def _extract_pdf(
         raw_text = textpage.get_text_range() or ""
         text = _clean(raw_text).strip()
 
-        # Bitmap-coverage heuristic: only OCR pages where raster images
-        # dominate the layout (screenshots, scans). Small header/footer logos
-        # fall below the threshold and are correctly ignored, even on pages
-        # with little or no text-layer content.
+        # Only pages that are mostly image go into text recognition.
         coverage = _bitmap_coverage(page)
         should_ocr = coverage >= _OCR_IMAGE_COVERAGE_THRESHOLD
 
-        # Resolve the OCR provider lazily on the first page that wants OCR, so the
-        # log below reports whether OCR ACTUALLY ran (provider present) and not just
-        # the coverage heuristic. None = OCR toggle off / provider missing -> skip.
+        # The provider is only resolved at the first candidate page.
         if should_ocr and ocr_run is None:
             try:
                 from src.services.aia_ocr import get_ocr_provider
@@ -525,10 +370,7 @@ def _extract_pdf(
                 provider = None
             ocr_run = _OcrRun(provider)
 
-        # ocr_tried = the page is an OCR candidate AND OCR is enabled/available
-        # and the run has not given up. The log below reports ocr_ran from
-        # ocr_merged, i.e. text really came back: logging only the heuristic
-        # made a disabled toggle look like OCR had run.
+        # The log reports whether text really came back, not just the pre-check.
         ocr_tried = should_ocr and ocr_run.wants(page_num + 1)
         ocr_merged = False
 
@@ -540,9 +382,7 @@ def _extract_pdf(
             if png_bytes is None:
                 ocr_run.mark_open(page_num + 1)
             else:
-                # A page that will not come through returns "" and is booked as
-                # open. It keeps its text layer, the source stays usable, and the
-                # owner can catch the page up later from the source menu.
+                # A page that did not get through keeps its text layer and counts as open.
                 ocr_text = _clean(ocr_run.ocr_page(png_bytes, page_num + 1)).strip()
                 if ocr_text:
                     ocr_merged = True
@@ -558,26 +398,18 @@ def _extract_pdf(
             page_num + 1, len(text), coverage, should_ocr, ocr_merged,
         )
 
-        # Geometry is read from the TEXT LAYER only. An OCR'd page has no rects for the
-        # text that matters, so it keeps the plain path and loses nothing. A page whose
-        # OCR did NOT come through has only its text layer, so it keeps its geometry.
+        # The position is only read from the text layer, recognised pages take the simple path.
         page_lines.append([] if ocr_merged else _page_line_boxes(textpage))
         page_texts.append(text)
         textpage.close()
         page.close()
     doc.close()
 
-    # Pass 2. A bullet-structured slide is cut per top-level bullet group: as one
-    # page-sized chunk its embedding is the average of everything on the slide, and the
-    # one bullet a reader is after barely registers (measured 0.513 vs 0.205 against the
-    # sentence it backs). Everything else keeps the whole-page path and only loses its
-    # running header, since re-ordering prose by geometry would interleave a two-column
-    # statute.
+    # A slide with bullets is cut per group, otherwise the whole page path stays.
     boiler = boilerplate_keys(page_lines, page_texts)
     n_grouped = 0
     for i, (lines, text) in enumerate(zip(page_lines, page_texts)):
-        # Drop the furniture on the RAW rects, then assemble rows: a glyph and its words
-        # only become one line once the header fragments are out of the way.
+        # Subtract the header from the raw boxes first, then form lines.
         kept = merge_rows([b for b in lines if not is_boilerplate(b.text, boiler)])
         groups = slide_groups(kept, min_chars=SLIDE_GROUP_MIN_CHARS) if kept else []
         if groups:
@@ -683,18 +515,7 @@ def is_media_file(file_type: str) -> bool:
 
 
 def segments_to_chunks(segments: list[dict]) -> list[dict]:
-    """Merge Whisper segments into embedding-optimal chunks with timestamps.
-
-    Args:
-        segments: List of dicts with keys: start (float), end (float), text (str).
-
-    Returns:
-        List of dicts with keys:
-          - page_number (int, sequential 1-indexed)
-          - content     (str)
-          - start_time  (float, seconds)
-          - end_time    (float, seconds)
-    """
+    """Groups Whisper segments into chunks with timestamps."""
     chunks: list[dict] = []
     current_text = ""
     current_start: float | None = None

@@ -8,8 +8,7 @@ import {
 
 describe("sentKinds", () => {
   it("sends nothing when all four are ticked", () => {
-    // Alle vier IST gemischt, und gemischt wird als NULL gespeichert. Es gibt
-    // genau einen Weg, das auszudruecken, naemlich gar nichts zu senden.
+    // All four is mixed and is stored as NULL.
     expect(sentKinds([...GRAMMAR_FORMATS])).toBeUndefined();
   });
 
@@ -18,8 +17,7 @@ describe("sentKinds", () => {
   });
 
   it("sends nothing when nothing is ticked", () => {
-    // Der Knopf ist dann ohnehin gesperrt, aber die Funktion darf keinen
-    // unmoeglichen Zustand nach hinten geben.
+    // The function must not return an impossible state.
     expect(sentKinds([])).toBeUndefined();
   });
 
@@ -56,10 +54,7 @@ describe("toggleFormat", () => {
   });
 
   it("preserves catalogue order when toggled in reverse-catalogue click order", () => {
-    // Wenn der Nutzer "choice" klickt, dann "transform" (umgekehrte Reihenfolge),
-    // muss das Ergebnis Katalogordnung haben, nicht Klickordnung.
-    // Das unterscheidet toggleFormat (filter ueber Katalog) von einer naiven
-    // append/remove-Implementierung, die ["choice","transform"] ergeben wuerde.
+    // The result is in catalogue order, not click order.
     const afterChoice = toggleFormat([], "choice");
     const afterTransform = toggleFormat(afterChoice, "transform");
     expect(afterTransform).toEqual(["transform", "choice"]);

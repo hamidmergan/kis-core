@@ -25,9 +25,7 @@ def create_aia_workspace(user_id: int, title: str, description: str | None) -> s
             )
             new_id = cur.fetchone()[0]
         conn.commit()
-    # Grundstock an Grammatikthemen, damit ein frischer Kurs sofort ueben kann statt
-    # vor einer leeren Liste zu stehen. Ohne Ausarbeitung: die entsteht beim ersten
-    # Benutzen in der Kurssprache.
+    # Seed of grammar topics so a fresh course can be practised right away.
     from src.features.ai_assistant.repository.grammar_topics import seed_grammar_topics
     seed_grammar_topics(new_id, user_id)
     return workspace_uuid
@@ -75,13 +73,7 @@ def get_workspace_ids_with_tutors() -> set[int]:
 
 
 def get_aia_workspaces_for_member(user_id: int) -> list[dict]:
-    """Workspaces the user joined via a link, with the role that link gave them.
-
-    A deactivated workspace stays in the list. It used to drop out silently,
-    which left the learner with a course that vanished overnight and no word
-    why. It comes along with its ``is_active`` flag instead, so the row can say
-    it is closed, and opening it is refused by the access check.
-    """
+    """Course rooms the person joined through a link, with role and is_active."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
@@ -117,7 +109,7 @@ def get_aia_workspaces_for_student(user_id: int) -> list[dict]:
     return [dict(row) for row in rows]
 
 def get_demo_workspaces(viewer_id: int) -> list[dict]:
-    """Aktive Kurse aller Demo-Konten, mit dem Merker ob der Betrachter schon drin ist."""
+    """Active courses of all demo accounts, with a flag whether the viewer is already in."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(

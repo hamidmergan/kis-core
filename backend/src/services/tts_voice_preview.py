@@ -1,8 +1,8 @@
-"""Der kurze Beispielsatz, mit dem sich eine Stimme vorstellt."""
+"""The short example sentence a voice introduces itself with."""
 
 from src.features.ai_assistant.repository import speech_cache
 
-# Geht in den Fingerabdruck ein, eine Aenderung entwertet den Vorrat.
+# Goes into the fingerprint, a change invalidates the pool.
 _SPEED = 1.0
 
 _SATZ = {
@@ -12,12 +12,12 @@ _SATZ = {
 
 
 def preview_text(lang: str) -> str:
-    """Der Vorschau-Satz in dieser Sprache, sonst der deutsche."""
+    """The preview sentence in this language, otherwise the German one."""
     return _SATZ.get(lang, _SATZ["de"])
 
 
 def preview_audio(provider_id: int, voice_id: str, locale: str = "de") -> bytes:
-    """Die Stimme einmal sprechen lassen und die MP3-Bytes zurueckgeben."""
+    """Have the voice speak once and return the MP3 bytes."""
     from fastapi import HTTPException
     from loguru import logger
 
@@ -28,13 +28,13 @@ def preview_audio(provider_id: int, voice_id: str, locale: str = "de") -> bytes:
     )
     from src.i18n import t
 
-    # Die Sprache kommt aus der Datenbank, damit der Browser den Schluessel nicht bestimmt.
+    # The language comes from the database so the browser does not decide the key.
     lang = _voice_language_for(provider_id, voice_id) if voice_id else locale
     text = preview_text(lang)
     key = speech_cache.fingerprint(
         text, provider_id, voice_id, _SPEED, tts_model_for_provider(provider_id))
 
-    # Vor dem Anbieter gefragt, damit ein Treffer keinen einzigen Netzweg kostet.
+    # Asked before the provider so a hit costs no network round trip at all.
     try:
         vorrat = speech_cache.get(key)
     except Exception as exc:  # noqa: BLE001 - jeder Datenbankfehler ist derselbe Fall

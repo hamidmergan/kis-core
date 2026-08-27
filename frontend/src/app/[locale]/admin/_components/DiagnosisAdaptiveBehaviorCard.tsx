@@ -4,13 +4,7 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import CollapsibleCard from "@/components/ui/CollapsibleCard";
 
-/**
- * The adaptive answer behaviour that steers the existing workspace chat.
- *
- * For a learner with a stored CEFR level, this text (with `{level}` replaced by
- * the level) is appended to the chat system prompt. Saving an empty field
- * restores the shipped default, so the behaviour is never left blank.
- */
+/** The adaptive answer behaviour of the chat, empty resets to the default. */
 export default function DiagnosisAdaptiveBehaviorCard() {
   const t = useTranslations("admin.adaptiveBehaviorCard");
   const [saved, setSaved] = useState<string | null>(null);

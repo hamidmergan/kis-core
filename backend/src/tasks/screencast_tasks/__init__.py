@@ -1,8 +1,4 @@
-"""Celery tasks: Screencast translate, render.
-
-Each task lives in its own module; importing this package registers them all
-with Celery via side-effect imports.
-"""
+"""Loads the screencast tasks so Celery knows them."""
 
 from src.tasks.screencast_tasks._queue import (
     dispatch_next_screencast_job_for_user,

@@ -23,9 +23,7 @@ export function useSources({ uuid, onModuleUpdate }: UseSourcesOptions) {
     }
   }, [selectedSourceIds, uuid]);
 
-  // Poll while any source is still processing (status pending/indexing, or
-  // "ready" with a progress field still set), so we keep polling until
-  // indexing is fully done.
+  // Keep polling while a source is still being processed.
   useEffect(() => {
     const isProcessing = (s: Source) =>
       s.status === "pending" || s.status === "indexing" || (s.status === "ready" && !!s.progress);
@@ -64,8 +62,7 @@ export function useSources({ uuid, onModuleUpdate }: UseSourcesOptions) {
   }, [uuid]);
 
   const renameSource = useCallback(async (srcUuid: string, name: string) => {
-    // Anders als loeschen und erneut versuchen schluckt das hier keinen Fehler:
-    // der Nutzer tippt gerade, ein abgelehnter Name muss ihm auffallen.
+    // Unlike deleting this swallows no error, a rejected name has to be noticed.
     const res = await fetch(`/api/ai-assistant/workspaces/${uuid}/sources/${srcUuid}`, {
       method: "PATCH",
       credentials: "include",
@@ -88,10 +85,7 @@ export function useSources({ uuid, onModuleUpdate }: UseSourcesOptions) {
 
   const uploadFiles = useCallback(async (files: File[]) => {
     if (files.length === 0) return;
-    // Matches the per-workspace source ceiling (AIA_WORKSPACE_MAX_SOURCES).
-    // The backend no longer rejects on concurrency — extra uploads queue as
-    // `pending` and Celery drains them — so this only chops absurdly large
-    // single drops; the per-workspace and hourly caps do the real enforcing.
+    // Only caps absurdly large batches, the real limits are drawn by the backend.
     const MAX_BATCH = 30;
     const skipped = files.length > MAX_BATCH ? files.slice(MAX_BATCH) : [];
     const toUpload = files.length > MAX_BATCH ? files.slice(0, MAX_BATCH) : files;
@@ -101,16 +95,12 @@ export function useSources({ uuid, onModuleUpdate }: UseSourcesOptions) {
     }));
     setUploadErrors(errors);
     let rateLimitHit = false;
-    // Names already present (case-insensitive) so a re-uploaded file is skipped
-    // before hitting the network. The backend stays authoritative — it also
-    // catches office files whose stored name changes (e.g. .docx -> .pdf).
+    // Existing names save the network trip, the backend stays authoritative.
     const existingNames = new Set(sources.map((s) => (s.filename ?? "").trim().toLowerCase()));
     for (let i = 0; i < toUpload.length; i++) {
       const file = toUpload[i];
       if (rateLimitHit) {
-        // First 429 from the backend means the upload limit is full; trying
-        // the remaining files in this batch would just bounce the same way
-        // and waste bandwidth, so we mark them as skipped immediately.
+        // If the limit is full, the remaining files bounce off just the same.
         errors.push({ filename: file.name, message: t("uploadSkippedLimit") });
         continue;
       }
@@ -140,8 +130,7 @@ export function useSources({ uuid, onModuleUpdate }: UseSourcesOptions) {
               let detail: string = t("uploadFailed");
               try {
                 const body = JSON.parse(xhr.responseText);
-                // Rate-limit / quota errors return a structured detail object;
-                // plain errors return a string. Pick the message either way.
+                // The reason arrives sometimes as an object and sometimes as text.
                 if (typeof body?.detail === "string") {
                   detail = body.detail;
                 } else if (body?.detail?.message) {

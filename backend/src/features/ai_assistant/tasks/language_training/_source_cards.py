@@ -1,8 +1,4 @@
-"""Karteikarten (Q&A cards) from source (mode='source').
-
-ONE LLM call generates the question AND the answer together; source links are then
-attached post-hoc by the shared pgvector attribution (same gate as chat), nav-only.
-This replaces the old N+1 two-pass (one call per card through the chat pipeline)."""
+"""Quiz cards from the sources, question and answer in one call."""
 
 import json
 
@@ -35,10 +31,7 @@ def generate_cards_from_source(
         .replace("{count}", str(count))
         .replace("{language}", language)
     ) + adaptive_suffix + title_avoidance + coverage
-    # No "avoid these existing cards" block: feeding them back made the model copy them.
-    # Variation comes from the context sweep in build_source_context, and a repeat that
-    # still gets through is dropped afterwards by _dedup. Only the
-    # TITLE gets a do-not-repeat list (title_avoidance), which has no such pull.
+    # No block with existing cards, the model would just copy them.
     messages = [
         {"role": "system", "content": prompt},
         {"role": "user", "content": (
@@ -46,8 +39,7 @@ def generate_cards_from_source(
             f"(write them in {language}, regardless of the source-text language):\n\n{ctx.context}"
         )},
     ]
-    # 0.6 for a little wording diversity; the real variation is the context sweep in
-    # build_source_context (different chunks per run). Still JSON-safe.
+    # 0.6 for some word variety, the real variation comes from the context.
     response = create_with_shrink(client, endpoint="karteikarten", model=model, messages=messages, temperature=0.6)
     try:
         data = json.loads(_clean_llm_json(response.choices[0].message.content or ""))
@@ -68,7 +60,7 @@ def generate_cards_from_source(
     items = [{"front": c["question"].strip(), "back": c["answer"].strip(),
               # See _source_mc: the model's own section number, for the coverage check.
               "_section": c.get("section")} for c in cards]
-    # Der Tipp kommt aus derselben Antwort und nicht aus einem zweiten Aufruf.
+    # The hint comes from the same answer and not from a second call.
     for item, c in zip(items, cards):
         attach_hint(item, c)
     claims = [f'{c["question"].strip()} {c["answer"].strip()}'.strip() for c in cards]

@@ -1,15 +1,4 @@
-"""Auswahlleiste: die Zielsprache steht im Prompt.
-
-Vorher war das Übersetzen fest auf Deutsch gegen Englisch verdrahtet. Wer
-Türkisch oder Arabisch braucht, hatte keine Möglichkeit. Jetzt reicht der
-Browser den Code der eigenen Einstellung durch, und die Route setzt den
-englischen Sprachnamen ein.
-
-Ein unbekannter Code fällt still auf Englisch zurück statt zu scheitern, denn
-sonst stünde die Auswahlleiste ohne Aktionen da.
-
-Offline, die Route hängt nur an der Oberflächensprache.
-"""
+"""The selection bar target language sits in the prompt, unknown falls back to English."""
 
 import pytest
 

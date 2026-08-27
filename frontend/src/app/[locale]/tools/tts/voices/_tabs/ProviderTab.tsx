@@ -14,7 +14,7 @@ interface Props {
 
 export default function ProviderTab({ providerId, voices }: Props) {
   const t = useTranslations("tools.tts.voices");
-  // Zweiter Klick auf dieselbe Stimme spielt ohne Netzweg, solange die Seite steht.
+  // A second click on the same voice plays without a network trip while the page lives.
   const { playingId, loadingId, playFromApi } = useVoicePlayer({ keepCache: true });
 
   if (voices.length === 0) {

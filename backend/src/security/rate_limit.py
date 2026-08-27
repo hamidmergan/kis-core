@@ -1,20 +1,4 @@
-"""Burst block for chat: protects against bug loops and script abuse.
-
-Mechanics in 2 steps:
-
-1. **Counter (Redis)** - per user, count how many chat requests come in within
-   ``RATE_LIMIT_BURST_WINDOW_SECONDS``. Fast, atomic, with TTL.
-
-2. **Block (Postgres)** - as soon as the counter exceeds ``RATE_LIMIT_BURST_REQUESTS``,
-   ``users.chat_blocked_until`` is set to now + ``RATE_LIMIT_BLOCK_MINUTES``.
-   While that lies in the future, ``enforce_burst`` raises 429.
-
-Why DB instead of just Redis: the block should also apply after a backend restart.
-A Redis wipe does not break the protection (DB is truth for "is blocked?").
-
-On Redis outage: fail-open (counter does not work, block from DB still applies).
-On DB outage: the whole service is down anyway.
-"""
+"""Burst block for the chat: counter in Redis, block in the database."""
 
 import os
 from datetime import datetime, timedelta, timezone
@@ -79,15 +63,7 @@ def _format_block_message(blocked_until: datetime, locale: str = "de") -> str:
 
 
 def enforce_burst(user_id: int, locale: str = "de") -> None:
-    """Raise HTTP 429 if the user is currently blocked or exceeds the burst limit.
-
-    Order:
-    1. Check DB block (takes precedence over Redis counter, if any).
-    2. Atomically increment Redis counter.
-    3. If limit exceeded: set DB block -> 429.
-
-    With ``user_id <= 0`` (anonymous/admin bypass): no-op.
-    """
+    """Raises 429 when the user is blocked or breaks the burst limit."""
     if user_id <= 0:
         return
 
@@ -147,15 +123,7 @@ def enforce_burst(user_id: int, locale: str = "de") -> None:
 
 
 def enforce_tool_burst(user_id: int, tool_key: str, locale: str = "de") -> None:
-    """Raise HTTP 429 if the user fires too many requests against a tool in a
-    short window. Redis-only (no DB persistence): the 10-min block is short
-    enough that surviving a backend restart isn't worth a schema change. On
-    Redis outage: fail-open, the 4h-quota still applies as the second line of
-    defense.
-
-    ``tool_key`` is namespaced into the Redis key so each tool has its own
-    counter and block (e.g. burst on TTS does not block screencast).
-    """
+    """Raises 429 on too many tool requests, one counter per tool."""
     if user_id <= 0:
         return
 
@@ -222,25 +190,7 @@ def enforce_aia_burst(user_id: int, locale: str = "de") -> None:
 
 
 def check_upload_limit(user_id: int, locale: str = "de") -> None:
-    """Reject an upload at the door only when the hourly cap is ALREADY full.
-
-    READ-ONLY: it inspects the current counter but never increments it. The
-    counter is bumped by ``record_upload`` AFTER an upload is fully accepted, so a
-    rejected attempt (duplicate name, workspace full, too many pages, bad file, …)
-    never consumes a slot. Called early in the route so spam is bounced before the
-    body is read.
-
-    There is deliberately NO concurrent in-flight limit: backpressure for the
-    indexing pipeline belongs in the Celery worker (bounded ``--concurrency`` on
-    the ``aia`` queue), not at the HTTP door. The hourly cap is the abuse guard,
-    alongside the per-workspace ceiling enforced by the caller.
-
-    Trade-off of check-then-record (vs the old atomic incr-then-rollback): a burst
-    of concurrent uploads can momentarily slip a few past the cap, since each reads
-    the count before any has recorded. Acceptable for a soft abuse guard — the old
-    design instead counted EVERY rejected attempt, which wrongly throttled a
-    legitimate bulk upload that hit duplicates / the page or workspace ceiling.
-    """
+    """Rejects an upload only when the hourly limit is already full, without counting."""
     if user_id <= 0:
         return
 
@@ -276,13 +226,7 @@ def check_upload_limit(user_id: int, locale: str = "de") -> None:
 
 
 def record_upload(user_id: int) -> None:
-    """Count ONE accepted upload toward the hourly cap.
-
-    Called by the route only after the upload passed every validation and the
-    source row was created + queued, so errors never consume the user's quota.
-    Failures here are swallowed (fail-open): a Redis hiccup must not undo an
-    upload the user already succeeded at.
-    """
+    """Counts an accepted upload, errors stay without consequence."""
     if user_id <= 0:
         return
 

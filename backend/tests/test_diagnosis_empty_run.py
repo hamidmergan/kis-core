@@ -1,9 +1,4 @@
-"""The empty run: everything skipped means a fixed A1 with no model call.
-
-Without this the grading call receives a record of twelve blank answers and has
-to invent a level, which lands on A1 or A2 at random and comes with a made-up
-strength in the closing message.
-"""
+"""Everything skipped yields a fixed A1, without a model call."""
 
 import pytest
 
@@ -11,11 +6,7 @@ from src.services.aia_diagnosis_chat import is_empty_run
 
 
 def _run(*answers) -> list[dict]:
-    """Build a transcript of question/answer pairs.
-
-    Each argument is either the typed text, or a ``(text, selected)`` tuple for a
-    question where the learner clicked an option.
-    """
+    """Builds a history from question and answer pairs."""
     history: list[dict] = []
     for i, item in enumerate(answers, 1):
         text, selected = item if isinstance(item, tuple) else (item, None)
@@ -50,11 +41,7 @@ def test_not_empty_when_an_option_was_clicked():
 
 
 def test_empty_history_is_not_an_empty_run():
-    """No answered item at all is not an empty run, it is no run.
-
-    Guards the ``all()`` on an empty sequence, which is True and would otherwise
-    hand out A1 to a transcript that never started.
-    """
+    """No answer at all is not an empty run but no run."""
     assert is_empty_run([]) is False
 
 
@@ -71,9 +58,7 @@ ROUTE = "src.features.ai_assistant.routes.language_training.diagnosis"
 
 @pytest.fixture
 def client(monkeypatch):
-    # Without an LDAP server the app runs in local mode, where a middleware
-    # mints a session from the database on every request. Setting the variable
-    # keeps the request out of the DB, the same way the LDAP route tests do.
+    # The variable keeps the request out of the database.
     monkeypatch.setenv("LDAP_SERVER", "ldap://openldap")
 
     from src.app import app
@@ -85,8 +70,7 @@ def client(monkeypatch):
     app.dependency_overrides[verify_auth] = lambda: None
     app.dependency_overrides[require_aia_access] = lambda: None
     app.dependency_overrides[get_current_user] = lambda: {"user_id": 1}
-    # A real client would need a provider; if the empty branch ever reaches for
-    # one, the patched _ask below records it.
+    # If the empty branch did reach for a provider, it would show up here.
     app.dependency_overrides[get_llm_client] = lambda: object()
     yield TestClient(app)
     app.dependency_overrides.clear()
@@ -121,11 +105,7 @@ def test_all_skipped_gives_a_fixed_a1_without_asking_the_model(client):
 
 
 def test_a_single_answer_still_goes_to_the_model(client):
-    """One typed sentence anywhere and the normal grading call runs.
-
-    There is no middle ground: the fixed A1 applies only to a run with nothing
-    in it at all.
-    """
+    """One typed sentence is enough, then the normal grading runs."""
     history = _full_skip_history()
     history[1]["content"] = "Ich gehe ins Kino."
 

@@ -1,4 +1,4 @@
-"""Nach einem Stimmwechsel darf kein Ton aus dem alten Vorrat weiterleben."""
+"""After a voice change no audio from the old cache may live on."""
 
 import json
 from types import SimpleNamespace
@@ -45,7 +45,7 @@ def test_andere_zielsprache_wirft_den_vorrat_weg():
 
 
 def test_anderes_tempo_behaelt_den_vorrat():
-    """Vertont wird immer in 1,0, das Tempo kommt erst per atempo ins Video."""
+    """Voicing always happens at 1.0, the speed only enters the video via atempo."""
     assert _lauf(_ALT, "DE", _body(speed=1.4)) is False
 
 

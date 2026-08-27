@@ -27,8 +27,7 @@ def check_stuck_jobs() -> None:
                 "failed",
                 error_message=t("job.watchdogStuck", locale),
             )
-            # Revoke + terminate the Celery task so the worker slot is freed immediately.
-            # Without this the slot stays blocked until the soft time limit fires (up to 60 min).
+            # Really end the job, otherwise the slot stays blocked until the timeout.
             if celery_task_id:
                 celery_app.control.revoke(celery_task_id, terminate=True, signal="SIGTERM")
                 logger.info("Watchdog: revoked Celery task {} for job {}", celery_task_id, job_uuid[:8])

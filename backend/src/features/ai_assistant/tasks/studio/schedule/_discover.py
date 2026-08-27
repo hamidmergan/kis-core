@@ -1,25 +1,4 @@
-"""Termine finden, in jeder Sprache: ohne festes Datum und ausgeschrieben.
-
-Die Phrasenliste in _regex.py kennt nur Deutsch und Englisch. Ein Zeitplan aus einem
-tuerkischen oder spanischen Dokument verlor damit genau die Zeilen, die kein Datum
-tragen ("tarih daha sonra duyurulacak"). Hier liest das Modell die Textbloecke selbst
-und gibt die Stelle woertlich zurueck, es braucht dafuer keine Wortliste.
-
-Dasselbe Loch gab es eine Ebene tiefer beim Datum selbst: Zahlformate wie 03.07.2026
-sind sprachneutral, ausgeschriebene Monate standen dagegen als feste Liste im Code, auch
-nur Deutsch und Englisch. "3 Temmuz 2026" fand niemand. Deshalb liest das Modell in
-DERSELBEN Anfrage beides: offene Termine und ausgeschriebene Daten. Das kostet keine
-zusaetzliche Anfrage.
-
-Woertlich ist die Bedingung. Die zurueckgegebene Stelle wird im Block wiedergesucht,
-was sich dort nicht findet, hat sich das Modell ausgedacht und faellt raus. Damit
-zeigt auch ein Fund des Modells auf eine echte Stelle im Text, genau wie ein
-Regex-Treffer, und die Ansicht kann ihn im Dokument markieren.
-
-Beim Datum kommt eine zweite Pruefung dazu: das Modell nennt es zusaetzlich in Ziffern,
-und zwar nur so genau, wie es dasteht. Ein Monat ohne Tag bleibt ein Monat ohne Tag,
-erfunden wird nichts.
-"""
+"""Finds open appointments and spelled-out dates in any language via the model."""
 
 import json
 import re
@@ -32,42 +11,31 @@ from src.features.ai_assistant.tasks._helpers import _clean_llm_json
 from src.features.ai_assistant.prompts.schedule_prompts import AIA_SCHEDULE_TBD_DISCOVER_PROMPT
 
 
-# Ein Block ist ein Chunk, der Chunker schneidet bei 1000 Zeichen. 24000 Zeichen je
-# Anfrage liegen in derselben Groessenordnung wie die Klassifikation, die 30 Kandidaten
-# mit je +/-450 Zeichen Umfeld schickt.
+# So viele Zeichen gehen je Anfrage raus.
 _MAX_CHARS_PER_CALL = 24000
 _MAX_BLOCKS_PER_CALL = 30
-# Ein einzelner Block, der aus der Reihe faellt, darf die Anfrage nicht sprengen.
+# A single block that is out of line must not blow up the request.
 _MAX_BLOCK_CHARS = 4000
-# Notbremse fuer sehr lange Quellen. Ein 90-Minuten-Transkript hat rund 100k Zeichen und
-# braucht damit rund 5 Anfragen. Was ueber der Grenze liegt, wird nicht mehr durchsucht.
+# Emergency brake for very long sources, beyond this nothing is searched.
 _MAX_CALLS_PER_SOURCE = 12
-# Gleiche Werte wie in _classify: 120s sind fuer langsame Anbieter zu knapp.
+# Same values as in _classify: 120s is too tight for slow providers.
 _TIMEOUT_SECS = 180
 _RETRY_WAIT_SECS = 5
-# Kuerzere Bloecke koennen keine Ankuendigung tragen. Das spart die Kopfzeilen-Schnipsel
-# aus dem Ingest ("Folie 3", "Seite 4"), die rund ein Drittel aller Chunks ausmachen.
-# Bewusst niedrig: "Tutorias: fecha a convenir" ist schon eine gueltige Ankuendigung.
+# Shorter blocks cannot carry an announcement.
 _MIN_BLOCK_CHARS = 15
-# Das Modell soll die Stelle nennen, nicht den halben Block zurueckgeben.
+# The model should name the spot, not return half the block.
 _MAX_PHRASE_CHARS = 120
-# Mehr ausgeschriebene Daten hat kein Chunk, alles darueber ist Ausufern.
+# No chunk has more spelled-out dates, anything above is running wild.
 _MAX_DATES_PER_BLOCK = 6
 
-# Die drei Genauigkeiten, in denen ein ausgeschriebenes Datum zurueckkommen darf.
+# The three precisions a spelled-out date may come back in.
 _DATE_FULL = re.compile(r"^(\d{4})-(\d{2})-(\d{2})$")
 _DATE_MONTH = re.compile(r"^(\d{4})-(\d{2})$")
 _DATE_DAY_MONTH = re.compile(r"^(\d{2})-(\d{2})$")
 
 
 def _parse_model_date(value: str) -> dict | None:
-    """Die Ziffernform des Modells in unsere Kandidatenfelder uebersetzen.
-
-    Drei Formen, mehr nicht: ganzes Datum, Monat mit Jahr, Tag mit Monat ohne Jahr.
-    Alles andere ist ein Missverstaendnis und faellt raus. Ein Monat ohne Tag bekommt
-    den Monatsersten als Sortierpunkt und die Genauigkeit "month", damit die Ansicht
-    keine Tagesnummer zeigt, die im Dokument nie stand.
-    """
+    """Translates the model's numeric form into our candidate fields."""
     value = (value or "").strip()
 
     m = _DATE_FULL.match(value)
@@ -99,13 +67,7 @@ def _parse_model_date(value: str) -> dict | None:
 
 
 def _locate(content: str, phrase: str) -> tuple[int, int] | None:
-    """Die genannte Stelle im Blocktext wiederfinden.
-
-    Erst woertlich, dann ohne Ruecksicht auf Gross- und Kleinschreibung, zuletzt mit
-    beliebigem Abstand zwischen den Woertern. Im Chunk steht oft ein Zeilenumbruch, wo
-    das Modell ein Leerzeichen geschrieben hat. Findet sich nichts davon, gibt es die
-    Stelle nicht und der Fund wird verworfen.
-    """
+    """Finds the named spot again in the block text, otherwise the hit is discarded."""
     phrase = (phrase or "").strip()
     if not phrase or len(phrase) > _MAX_PHRASE_CHARS:
         return None
@@ -125,7 +87,7 @@ def _locate(content: str, phrase: str) -> tuple[int, int] | None:
 
 
 def _batches(blocks: list[tuple[int, str]]) -> list[list[tuple[int, str]]]:
-    """Bloecke zu Anfragen buendeln, begrenzt durch Zeichenzahl und Anzahl."""
+    """Bundles blocks into requests, bounded by character count and number."""
     out: list[list[tuple[int, str]]] = []
     current: list[tuple[int, str]] = []
     chars = 0
@@ -143,7 +105,7 @@ def _batches(blocks: list[tuple[int, str]]) -> list[list[tuple[int, str]]]:
 
 
 def _discover_batch(client, model, batch: list[tuple[int, str]]) -> dict[int, dict]:
-    """Eine Anfrage, zwei Ausbeuten je Block: die offene Stelle und die Datumsfunde."""
+    """One request, two yields per block: the open spot and the date hits."""
     payload = [{"id": bid, "text": text} for bid, text in batch]
     user_msg = (
         "Two jobs on the blocks below.\n"
@@ -224,15 +186,7 @@ def _discover_batch(client, model, batch: list[tuple[int, str]]) -> dict[int, di
 
 
 def _discover_in_blocks(client, model, blocks: list[tuple[int, str]]) -> dict[int, dict]:
-    """Bloecke durchsuchen lassen.
-
-    Gibt je durchsuchtem Block {"tbd": woertliche Stelle oder None, "dates":
-    [Datumsfunde]} zurueck, auch wenn nichts gefunden wurde. Nur die zu kurzen und die
-    hinter der Anfragengrenze fehlen im Ergebnis, sie hat niemand angesehen.
-
-    Ein Fehler bleibt folgenlos fuer den Rest des Auftrags, der Zeitplan entsteht auch
-    ohne diese Suche. Beim ersten Fehlschlag wird abgebrochen statt weiter angefragt.
-    """
+    """Has the blocks searched, an error stays without consequence for the job."""
     if client is None:
         return {}
     usable: list[tuple[int, str]] = []

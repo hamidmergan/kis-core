@@ -18,9 +18,7 @@ from src.features.ai_assistant.prompts.popup_prompts import AIA_NOTE_TITLE
 
 _NOTE_TITLE_SAFETY_CAP = 80
 
-# Citation markers like "[Q1:UUID, S. 2]" or "[Q1:UUID, 00:42 | term]" are
-# inline anchors for the source-chip renderer; they must never leak into the
-# auto-generated title, so we strip them before AND after the LLM call.
+# Citation markers must never leak into the generated title, removed before and after.
 _CITATION_MARKER_RE = re.compile(r"\s*\[Q\d+:[^\]]+\]\s*")
 
 
@@ -55,8 +53,7 @@ def _generate_note_title(llm, content: str, language: str = "German") -> Optiona
                 {"role": "user", "content": snippet},
             ],
             temperature=0.2,
-            # Ein Titel ist kurz, aber ein denkendes Modell braucht davor Platz,
-            # sonst kommt der Inhalt leer zurueck. Nur eine Obergrenze.
+            # A thinking model needs room before the title, otherwise it comes back empty.
             max_tokens=model_limits.PRECALL_MAX_TOKENS,
             **(llm._extra_body and {"extra_body": llm._extra_body} or {}),
         )

@@ -1,9 +1,4 @@
-"""KI-Hinweis für Screencasts: gleiche Folie am Anfang und am Ende (Transparenzpflicht).
-
-Lädt ein statisches Bild aus ``assets/screencast-outro.png`` und passt es
-passend zur Slide-Auflösung (weisses Padding) an, damit ffmpeg-Concat per
-``-c copy`` funktioniert. Zum Anpassen einfach das PNG austauschen.
-"""
+"""The AI notice as a slide at the beginning and at the end."""
 
 from pathlib import Path
 
@@ -14,11 +9,7 @@ OUTRO_SOURCE = ASSETS_DIR / "screencast-outro.png"
 
 
 def create_outro_image(width: int, height: int, output_path: Path) -> None:
-    """Render outro slide at exactly (width, height) by fitting OUTRO_SOURCE
-    onto a white canvas. Aspect ratio is preserved; remaining space stays white.
-
-    Raises FileNotFoundError if assets/outro.png is missing.
-    """
+    """Puts the notice slide at exactly this size, with a white border."""
     if not OUTRO_SOURCE.exists():
         raise FileNotFoundError(f"Outro source missing: {OUTRO_SOURCE}. Drop a PNG there to enable the outro.")
 
@@ -46,7 +37,7 @@ KI_HINWEIS = "Dieses Video wurde mithilfe von KI erstellt. This video was create
 def rahme_clips(
     clips: list[Path], hat_sprache: list[bool], hinweis: Path | None
 ) -> tuple[list[Path], list[bool]]:
-    """Setzt den Hinweis-Clip vor und hinter die Folien, er gilt dabei als stumm."""
+    """Puts the notice clip before and after the slides, counting it as silent."""
     if hinweis is None:
         return list(clips), list(hat_sprache)
     return [hinweis, *clips, hinweis], [False, *hat_sprache, False]

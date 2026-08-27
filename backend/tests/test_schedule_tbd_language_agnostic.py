@@ -1,13 +1,4 @@
-"""Termine ohne festes Datum, unabhaengig von der Sprache des Dokuments.
-
-Der Zeitplan erkannte "nach Vereinbarung" ueber eine feste Phrasenliste im Code, die nur
-Deutsch und Englisch kennt. Ein tuerkisches oder spanisches Dokument verlor damit genau
-die Zeilen ohne Datum. Die Liste bleibt als schneller Weg bestehen, jeder Chunk ohne
-Treffer geht zusaetzlich an das Modell.
-
-Die Bedingung an den Fund des Modells: die genannte Stelle muss woertlich im Text
-stehen. Sonst zeigt der Eintrag spaeter auf nichts.
-"""
+"""Open appointments in any language, the finding must appear verbatim in the text."""
 
 import json
 import types
@@ -41,7 +32,7 @@ def _chunks(*texts):
     ]
 
 
-# --- die Stelle im Text wiederfinden -----------------------------------------
+# --- find the spot in the text again ------------------------------------------
 
 def test_stelle_wird_woertlich_gefunden():
     text = "Ders plani: Sunum tarihleri daha sonra duyurulacak."
@@ -57,7 +48,7 @@ def test_stelle_wird_auch_bei_anderer_schreibung_gefunden():
 
 
 def test_zeilenumbruch_im_chunk_bricht_die_suche_nicht():
-    """Im Chunk steht ein Umbruch, wo das Modell ein Leerzeichen geschrieben hat."""
+    """The chunk has a line break where the model wrote a space."""
     text = "Termine\nnach   Vereinbarung mit dem Dozenten"
     found = mod._locate(text, "Termine nach Vereinbarung")
     assert found is not None
@@ -73,7 +64,7 @@ def test_leere_und_ueberlange_stelle_werden_verworfen():
     assert mod._locate("x" * 500, "x" * 200) is None
 
 
-# --- die Anfrage an das Modell -----------------------------------------------
+# --- the request to the model -------------------------------------------------
 
 def test_ohne_modell_bleibt_es_bei_der_phrasenliste():
     assert mod._discover_in_blocks(None, "m", [(0, "tarih daha sonra duyurulacak")]) == {}
@@ -112,7 +103,7 @@ def test_fehler_beim_modell_laesst_den_zeitplan_weiterlaufen():
     assert mod._discover_in_blocks(client, "m", [(0, "x" * 100)]) == {}
 
 
-# --- was daraus im Zeitplan wird ---------------------------------------------
+# --- what becomes of it in the schedule ---------------------------------------
 
 def test_tuerkischer_termin_ohne_datum_wird_zum_kandidaten(monkeypatch):
     chunks = _chunks("Sunum tarihleri daha sonra duyurulacak.\nSinav: 12.05.2026")
@@ -128,7 +119,7 @@ def test_tuerkischer_termin_ohne_datum_wird_zum_kandidaten(monkeypatch):
     assert tbd[0]["date_raw"] == "Sunum tarihleri daha sonra duyurulacak"
     assert tbd[0]["date_iso"] is None
     assert tbd[0]["page_number"] == 1
-    # das Datum im selben Chunk bleibt ein eigener Kandidat
+    # the date in the same chunk stays a candidate of its own
     assert any(c["date_iso"] == "2026-05-12" for c in out)
 
 
@@ -143,9 +134,7 @@ def test_erfundene_stelle_erzeugt_keinen_eintrag(monkeypatch):
 
 
 def test_die_phrasenliste_schlaegt_das_modell(monkeypatch):
-    """Findet die Liste die Stelle, gilt ihr Treffer, auch wenn das Modell etwas anderes
-    meldet. Der Chunk geht trotzdem in die Anfrage, denn dort wird auch nach
-    ausgeschriebenen Daten gesucht, und die braucht jeder Chunk."""
+    """The list hit applies, the chunk still goes to the model."""
     chunks = _chunks("Sprechstunde nach Vereinbarung, Anmeldung im Sekretariat")
     monkeypatch.setattr(cand_mod.db, "get_aia_chunks_by_source", lambda _id: chunks)
     client, calls = _make_client({"results": [
@@ -167,11 +156,7 @@ def test_ohne_modell_arbeitet_die_kandidatensuche_wie_vorher(monkeypatch):
     assert [c["date_raw"] for c in out if c["is_tbd"]] == ["nach Absprache"]
 
 
-# --- Datum in der Nachbarspalte ----------------------------------------------
-#
-# Aus einem echten Kursplan (Quelle 2 im Testbestand). Die erste Zeile traegt ihr Datum
-# in der naechsten Spalte, das "tba" meint dort den noch offenen INHALT. Die zweite
-# Zeile hat in der Datumsspalte gar kein Datum, sie ist der echte offene Termin.
+# A real course plan: the first line carries its date in the neighbouring column.
 
 ZEILE_MIT_DATUM = (
     "| Online-Präsenz: tba, mgl. Schreibwerkstatt, Poster         "
@@ -184,8 +169,7 @@ ZEILE_OHNE_DATUM = (
 
 
 def test_tba_neben_dem_datum_ist_kein_offener_termin(monkeypatch):
-    """Zwei Schutzwaende: das Kuerzel steht nicht mehr in der Phrasenliste, und selbst
-    wenn das Modell die Zeile meldet, faellt sie ueber das Datum in der Nachbarspalte."""
+    """Two safeguards: not in the list and a date in the neighbouring column."""
     chunks = _chunks(ZEILE_MIT_DATUM)
     monkeypatch.setattr(cand_mod.db, "get_aia_chunks_by_source", lambda _id: chunks)
     client, _ = _make_client({"results": [{"id": 0, "phrase": "Online-Präsenz: tba"}]})
@@ -197,9 +181,7 @@ def test_tba_neben_dem_datum_ist_kein_offener_termin(monkeypatch):
 
 
 def test_abgeschnittene_tba_zeile_ergibt_keinen_eintrag_mehr(monkeypatch):
-    """Der Chunker schneidet die Tabellenzeile mitten durch, das Datum liegt im
-    Nachbar-Chunk. Genau daraus entstand der falsche Eintrag "Online-Präsenz:
-    Schreibwerkstatt" ohne Datum. Ohne das Kuerzel in der Liste passiert nichts mehr."""
+    """The chunker cuts the table row, the date sits in the neighbouring chunk."""
     chunks = _chunks("| Anfertigen der Hausarbeit |\n| Online-Präsenz: tba, mgl. Schreibwerkstatt,")
     monkeypatch.setattr(cand_mod.db, "get_aia_chunks_by_source", lambda _id: chunks)
 
@@ -209,8 +191,7 @@ def test_abgeschnittene_tba_zeile_ergibt_keinen_eintrag_mehr(monkeypatch):
 
 
 def test_zeile_ohne_datum_bleibt_ein_offener_termin(monkeypatch):
-    """Die Phrasenliste kennt "wird individuell vereinbart" nicht, im echten Lauf kam
-    diese Zeile vom Modell. Genau die soll uebrig bleiben."""
+    """The list does not know this line, it came from the model in a real run."""
     chunks = _chunks(ZEILE_OHNE_DATUM)
     monkeypatch.setattr(cand_mod.db, "get_aia_chunks_by_source", lambda _id: chunks)
     client, _ = _make_client({"results": [
@@ -223,8 +204,7 @@ def test_zeile_ohne_datum_bleibt_ein_offener_termin(monkeypatch):
 
 
 def test_beide_zeilen_zusammen_ergeben_genau_einen_offenen_termin(monkeypatch):
-    """Das verworfene "tba" darf den Chunk nicht blockieren: die zweite Zeile muss noch
-    beim Modell ankommen."""
+    """A discarded hit must not block the chunk."""
     chunks = _chunks(ZEILE_MIT_DATUM + "\n" + ZEILE_OHNE_DATUM)
     monkeypatch.setattr(cand_mod.db, "get_aia_chunks_by_source", lambda _id: chunks)
     client, _ = _make_client({"results": [
@@ -239,8 +219,7 @@ def test_beide_zeilen_zusammen_ergeben_genau_einen_offenen_termin(monkeypatch):
 
 
 def test_fliesstext_mit_datum_verliert_seinen_offenen_termin_nicht(monkeypatch):
-    """Ein Transkript-Chunk hat keine Zeilenumbrueche. Ein Datum irgendwo im selben Chunk
-    darf den offenen Termin nicht abraeumen, es fehlt die Spaltengrenze."""
+    """The transcript has no column boundary, a date clears nothing there."""
     chunks = _chunks(
         "Am 27.06.2026 machen wir die Schreibwerkstatt und die Präsentationen "
         "werden dann später individuell vereinbart, das machen wir per Mail."

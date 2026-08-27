@@ -1,11 +1,4 @@
-"""Ein Werkzeug schickt zu viel Kontext: kuerzen und einmal wiederholen.
-
-Der Chat kann das seit dem 14.08.2026 (chat.py, ``_open_stream``). Die Werkzeuge nicht,
-und seit die Budgets eine feste Obergrenze haben statt eines Vorsichtswerts, trifft es
-sie wirklich: 600.000 Zeichen sind rund 200.000 Token, ``openai-gpt-oss-120b`` verraet
-seine Groesse nicht und hat nur 131.072. Ohne Wiederholung braeche dort jeder Quiz-,
-Lernkarten- und Mindmap-Lauf ab, und zwar bei jedem Versuch aufs Neue.
-"""
+"""A tool with too much context shortens and retries once."""
 from unittest.mock import patch
 
 import pytest
@@ -19,7 +12,7 @@ _ABSAGE = ("This model's maximum context length is 131072 tokens. However, your 
 
 
 class _Anbieter:
-    """Lehnt zu lange Nachrichten ab, genau wie vLLM es tut."""
+    """Rejects overlong messages exactly as vLLM does."""
 
     def __init__(self, grenze_zeichen: int, absage: str = _ABSAGE):
         self.grenze = grenze_zeichen
@@ -48,7 +41,7 @@ def _nachrichten(zeichen: int) -> list[dict]:
 
 @pytest.fixture(autouse=True)
 def _kein_speicher(monkeypatch):
-    """Kein Netz, keine Datenbank: das Gelernte wird nur eingesammelt."""
+    """No network, no database: what was learned is only collected."""
     from src import database as db
 
     gemerkt: list[tuple] = []
@@ -69,8 +62,7 @@ def test_kuerzt_und_wiederholt_nach_einer_absage():
 
 
 def test_der_zweite_versuch_passt_ins_gelernte_fenster():
-    """131.072 Token mal 0,75 mal 3,0 Zeichen. Wer nur "irgendwie kuerzer" sendet,
-    faellt beim naechsten Mal wieder auf die Nase."""
+    """Whoever only sends somewhat less fails again next time."""
     anbieter = _Anbieter(grenze_zeichen=400_000)
     heilung.create_with_shrink(
         _Client(anbieter), model="gpt-oss-120b", messages=_nachrichten(600_000),
@@ -95,8 +87,7 @@ def test_ein_passender_aufruf_geht_ohne_umweg_durch():
 
 
 def test_absage_ohne_zahl_bleibt_ein_fehler():
-    """Nur eine Absage, die die Groesse nennt, kann etwas verbessern. Blind kuerzen und
-    nochmal senden kostet nur Zeit und Ratenkontingent."""
+    """Only a refusal that names the size can improve anything."""
     anbieter = _Anbieter(grenze_zeichen=400_000, absage="Bad Request")
     with pytest.raises(RuntimeError, match="Bad Request"):
         heilung.create_with_shrink(
@@ -106,7 +97,7 @@ def test_absage_ohne_zahl_bleibt_ein_fehler():
 
 
 def test_reicht_die_uebrigen_angaben_unveraendert_weiter():
-    """Temperatur und Antwortlaenge gehoeren zum Aufruf, nicht zum Kontext."""
+    """Temperature and answer length belong to the call, not to the context."""
     gesehen = {}
 
     class _Merker(_Anbieter):
@@ -122,8 +113,7 @@ def test_reicht_die_uebrigen_angaben_unveraendert_weiter():
 
 
 def test_ohne_bekannten_anbieter_wird_nicht_gelernt(monkeypatch):
-    """Ohne Kennung gibt es keine Zeile, in die die Groesse gehoert. Dann lieber der
-    ehrliche Fehler als ein zweiter Versuch, der nichts merkt."""
+    """Without an id there is no row, then the honest error is better."""
     monkeypatch.setattr(heilung, "_provider_id_for_chat", lambda: None)
     anbieter = _Anbieter(grenze_zeichen=400_000)
     with pytest.raises(RuntimeError):

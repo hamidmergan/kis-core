@@ -1,10 +1,10 @@
-"""Die Info-Datei im ZIP: was drin ist und womit es gemacht wurde."""
+"""The info file in the ZIP: what is inside and what it was made with."""
 
 from pathlib import Path
 
 from src.i18n import t
 
-# Klein und ohne Umlaut, weil das Wort im Dateinamen landet.
+# Lowercase and without an umlaut, because the word ends up in the file name.
 _SPRACH_WORTE = {
     "DE": "deutsch",
     "EN-US": "englisch",
@@ -20,12 +20,12 @@ _SPRACH_WORTE = {
 
 
 def sprach_wort(lang_code: str) -> str:
-    """Das Wort für den Dateinamen der übersetzten Folien."""
+    """The word for the file name of the translated slides."""
     return _SPRACH_WORTE.get((lang_code or "").upper(), "uebersetzt")
 
 
 def sprach_name(lang_code: str) -> str:
-    """Die Sprache ausgeschrieben, leer wenn der Code unbekannt ist."""
+    """The language spelled out, empty when the code is unknown."""
     if not lang_code:
         return ""
     schluessel = f"lang.{lang_code.upper()}"
@@ -34,7 +34,7 @@ def sprach_name(lang_code: str) -> str:
 
 
 def dauer_text(sekunden: float) -> str:
-    """Eine Dauer so, wie man sie aussprechen würde."""
+    """A duration the way you would say it out loud."""
     gesamt = round(sekunden or 0)
     if gesamt < 60:
         return f"{gesamt} s"
@@ -44,12 +44,12 @@ def dauer_text(sekunden: float) -> str:
 
 
 def _zahl(wert) -> str:
-    """Tausenderpunkt wie im Deutschen."""
+    """Thousands separator as in German."""
     return f"{int(wert):,}".replace(",", ".")
 
 
 def _komma(wert) -> str:
-    """Eine Nachkommastelle mit Komma statt Punkt."""
+    """One decimal place with a comma instead of a period."""
     return f"{float(wert):.1f}".replace(".", ",")
 
 
@@ -85,7 +85,7 @@ def _anbieterzeile(beschriftung: str, phase: dict) -> str:
     return f"{beschriftung}: {anbieter}, Modell {modell}" if modell else f"{beschriftung}: {anbieter}"
 
 
-# Reihenfolge und Beschriftung der gemessenen Abschnitte.
+# Order and labels of the measured sections.
 _PHASEN = (
     ("skripte", "Sprechtexte"),
     ("uebersetzung", "Übersetzung"),
@@ -98,7 +98,7 @@ _PHASEN = (
 
 
 def _technikteil(stats: dict) -> list[str]:
-    """Anbieter und Modelle je Schritt. Nur für Admins."""
+    """Providers and models per step, for admins only."""
     zeilen = ["", "--- Technik ---"]
     for schluessel, beschriftung in (
         ("skripte", "Sprechtexte"), ("uebersetzung", "Übersetzung"), ("vertonung", "Vertonung"),
@@ -118,7 +118,7 @@ def _technikteil(stats: dict) -> list[str]:
 
 
 def baue_info(job: dict, meta: dict, *, mit_technik: bool = False) -> str:
-    """Der Text der Info-Datei. Ohne ``mit_technik`` bleiben Anbieter und Modelle draußen."""
+    """The text of the info file, without ``mit_technik`` providers and models stay out."""
     stats = meta.get("stats") or {}
     zeilen = [f"Screencast: {Path(job.get('original_filename') or 'screencast').stem}"]
 

@@ -20,8 +20,7 @@ const getFilename = (uuid: string) =>
   ({ u1: "A.pdf", u2: "B.pdf", u3: "C.pdf", u4: "KoSM-11_Negative-Folgen.pdf" }[uuid] ?? "");
 const noop = () => {};
 
-// Names of the React node types in the order they are emitted (text nodes -> "text",
-// intrinsic elements like the line break -> their tag name).
+// The node type names in the order they are emitted.
 function shape(nodes: ReturnType<typeof parseCitations>): string[] {
   return nodes.map((n) => {
     if (typeof n === "string") return "text";
@@ -62,8 +61,7 @@ describe("parseCitations — adjacent-chip accordion", () => {
   });
 
   it("wraps a single chip too, so nothing stays open in a folded text", () => {
-    // Every stop is collapsed behind its mark, however many chips it holds. A lone chip
-    // rendered bare would be the only visible source label on the page and read as noise.
+    // Every site stays behind its mark, even with only one chip.
     const text = "[1, S. 5] [1, S. 5]";
     const nodes = parseCitations(text, msg, ["u1"], getFilename, noop);
     expect(shape(nodes)).toEqual(["CitationChipGroup"]);
@@ -72,9 +70,7 @@ describe("parseCitations — adjacent-chip accordion", () => {
 });
 
 describe("parseCitations — every stop has its own id", () => {
-  // The id is what the open/closed choice is stored under. Two stops sharing one id share
-  // one choice: opening either one opens BOTH as soon as the tree is rebuilt, e.g. when a
-  // chip click opens the viewer. So the id must name the PLACE, never the content.
+  // The id has to name the place, otherwise two sites share one choice.
   it("gives two stops with identical sources different ids", () => {
     const text = "Erstens dies. [1, S. 5] Zweitens das. [1, S. 5]";
     const groups = groupsOf(parseCitations(text, msg, ["u1"], getFilename, noop));
@@ -83,8 +79,7 @@ describe("parseCitations — every stop has its own id", () => {
   });
 
   it("gives media stops of the same file but different seconds different ids", () => {
-    // The worst case in practice: a media chip carries no page (0 for all of them), so an
-    // id built from source + page collapses every stop of one file into a single id.
+    // A media chip has no page, ids built on the page would collapse.
     const text = "Erstens dies. [1, 07:56] Zweitens das. [1, 27:30]";
     const groups = groupsOf(parseCitations(text, msg, ["u1"], getFilename, noop));
     expect(groups).toHaveLength(2);
@@ -92,8 +87,7 @@ describe("parseCitations — every stop has its own id", () => {
   });
 
   it("gives the same stop in two paragraphs different ids", () => {
-    // Each markdown node parses on its own and its offsets restart at 0, so the prefix has
-    // to carry the message and the position of the node.
+    // Every node counts from 0, the prefix has to name it.
     const text = "Dies. [1, S. 5]";
     const a = groupOf(parseCitations(text, msg, ["u1"], getFilename, noop, "m7#0-"));
     const b = groupOf(parseCitations(text, msg, ["u1"], getFilename, noop, "m7#84-"));
@@ -101,8 +95,7 @@ describe("parseCitations — every stop has its own id", () => {
   });
 
   it("keeps the id of a stop stable while later text is still being written", () => {
-    // Streaming appends, so a stop that is already on screen keeps its position and must
-    // keep its id, otherwise an opened stop folds itself away mid-answer.
+    // The stream appends at the end, an open site keeps its id.
     const partial = "Erstens dies. [1, S. 5] Zweitens";
     const full = "Erstens dies. [1, S. 5] Zweitens das. [1, S. 9]";
     const before = groupOf(parseCitations(partial, msg, ["u1"], getFilename, noop, "m7#0-"));
@@ -112,11 +105,7 @@ describe("parseCitations — every stop has its own id", () => {
 });
 
 describe("parseCitations — die Stelle laeuft im Satz mit", () => {
-  // Die Chips einer Stelle stehen IMMER im Layout (nur unsichtbar, solange die Stelle zu
-  // ist), damit ein Zeiger kein Wort verschiebt. Sie laufen dabei im Zeilenrest hinter der
-  // Marke mit und brechen um wie jedes andere Wort: keine eigene Zeile, kein <br>, kein
-  // Abstand darunter. Mitgenommen wird nur das Satzzeichen, das sonst hinter dem
-  // reservierten Platz haengen bliebe.
+  // The chips always sit in the layout and run along in the rest of the line.
   it("laesst den Text hinter der Stelle einfach weiterlaufen", () => {
     const nodes = parseCitations("Dies gilt [1, S. 5] und weiter.", msg, ["u1"], getFilename, noop);
     expect(shape(nodes)).toEqual(["text", "CitationChipGroup", "text"]);
@@ -124,13 +113,11 @@ describe("parseCitations — die Stelle laeuft im Satz mit", () => {
   });
 
   it("hands the punctuation of the finished sentence to the stop itself", () => {
-    // The period must sit right behind the mark, AHEAD of the room the hidden chips hold.
-    // Left in the text it landed behind that room and hung alone in the middle of the line.
+    // The period belongs right behind the mark, before the reserved space.
     const nodes = parseCitations("Dies gilt [1, S. 5]. Und weiter.", msg, ["u1"], getFilename, noop);
     expect(shape(nodes)).toEqual(["text", "CitationChipGroup", "text"]);
     expect(groupOf(nodes).tail).toBe(".");
-    // Das Leerzeichen zum naechsten Satz bleibt stehen, der Text laeuft ja in derselben
-    // Zeile weiter.
+    // The space to the next sentence stays.
     expect(nodes[2]).toBe(" Und weiter.");
   });
 
@@ -149,8 +136,7 @@ describe("parseCitations — die Stelle laeuft im Satz mit", () => {
   });
 
   it("schluckt Leerzeichen nur zusammen mit einem Satzzeichen", () => {
-    // Ohne Satzzeichen bleibt der Zwischenraum stehen, sonst klebte das naechste Wort an den
-    // Chips. Am Textende faellt er im HTML ohnehin zusammen.
+    // Without punctuation the gap stays.
     const nodes = parseCitations("Dies gilt [1, S. 5]  ", msg, ["u1"], getFilename, noop);
     expect(shape(nodes)).toEqual(["text", "CitationChipGroup", "text"]);
     expect(nodes[2]).toBe("  ");
@@ -166,8 +152,7 @@ describe("parseCitations — die Stelle laeuft im Satz mit", () => {
   });
 
   it("writes the punctuation exactly once", () => {
-    // The stop consumes what it takes along, otherwise the period is drawn twice: once by
-    // the stop and once by the text that follows it.
+    // The site consumes what it takes along, otherwise the period appears twice.
     const nodes = parseCitations("Dies gilt [1, S. 5]. Und weiter.", msg, ["u1"], getFilename, noop);
     expect(nodes.filter((n) => typeof n === "string")).toEqual(["Dies gilt ", " Und weiter."]);
   });
@@ -182,9 +167,7 @@ describe("parseCitations — die Stelle laeuft im Satz mit", () => {
 });
 
 describe("parseCitations — hard ceiling of three chips per group", () => {
-  // A group carries at most 3 chips: one visible plus two behind the caret. Longer runs are
-  // trimmed, so opening a group can never unroll into a wall of pills. Chips arrive
-  // closest-first, so the dropped ones are the weakest matches.
+  // At most three chips per site, the further ones are the weakest hits.
   const long = "…dazu. [4, S. 34] [4, S. 29] [4, S. 18] [4, S. 12] [4, S. 7]";
 
   it("keeps only the first three chips of a longer run", () => {
@@ -194,8 +177,7 @@ describe("parseCitations — hard ceiling of three chips per group", () => {
 
   it("consumes the WHOLE run, so a dropped chip leaves no raw token in the text", () => {
     const nodes = parseCitations(long, msg, ["u4"], getFilename, noop);
-    // Only the leading prose is emitted as text: the capped-away "[4, S. 12] [4, S. 7]"
-    // must not reappear as literal text after the group.
+    // Cut markers must not reappear as raw text.
     expect(nodes.filter((n) => typeof n === "string")).toEqual(["…dazu. "]);
   });
 
@@ -228,10 +210,7 @@ describe("chipClickArgs — was ein Klick weitergibt", () => {
   });
 
   it("verliert bei 00:00 nichts — die Sekunde 0 ist keine fehlende Zeit", () => {
-    // Die Null-Falle: `clickSeconds ? … : …` schickte einen Chip auf 00:00 in den
-    // PDF-Zweig, ohne Chunk-Anfang und ohne Ende. Auf den Chunk-Anfang zeigt ein Chip
-    // aber genau dann, wenn keine Zeile sicher genug war — also wenn das Transkript den
-    // ganzen Abschnitt markieren soll und beides dafuer braucht.
+    // The zero trap: a chip at 00:00 ended up on the PDF branch.
     const a = chipClickArgs({ ...medien, clickSeconds: 0, clickChunkStart: 0 });
     expect(a.istMedien).toBe(true);
     expect(a.page).toBe(0);

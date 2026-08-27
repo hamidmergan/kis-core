@@ -9,18 +9,11 @@ import {
   revealChipsIn,
 } from "./_chat";
 
-/**
- * SPECIFIC path: topic-focused questions routed to hybrid search, producing
- * keyword-grounded citations. The payoff we verify here is the user-visible
- * effect of clicking a citation: the viewer NAVIGATES — a PDF chip opens the
- * cited page nav-only (no highlight), a media chip seeks the player. Citation
- * chips are nav-only; only the user's own popup/action-bar selection highlights.
- */
+/** Specific questions: the chip jumps there but highlights nothing. */
 test.describe("AIA chat — SPECIFIC path", () => {
   test("PDF citation click opens the cited page nav-only (no text highlight)", async ({ page }) => {
     await openWorkspace(page);
-    // Scope to the citation-styles PDF so the answer's citation is deterministically a
-    // PDF page chip (with all 6 sources active it may cite a lecture video instead).
+    // Narrowed to one PDF so the citation surely names a page.
     await selectOnlySourceByName(page, "WissenschaftlichesSchreiben");
     const answer = await askAndGetAnswer(page, "Welche Zitierstile oder Zitierregeln werden genannt?");
 
@@ -34,8 +27,7 @@ test.describe("AIA chat — SPECIFIC path", () => {
 
     await pdfChip.click();
 
-    // Nav-only: the chip opens the PDF viewer to the cited page (a flashing page
-    // frame), but NEVER draws a text highlight inside the EmbedPDF shadow DOM.
+    // The chip jumps to the page, without a highlight in the PDF.
     await expect(page.locator("embedpdf-container")).toBeVisible({ timeout: 30_000 });
     await page.waitForTimeout(1500); // give any would-be highlight time to render
     expect(await highlightRectCount(page)).toBe(0);

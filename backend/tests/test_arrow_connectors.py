@@ -1,11 +1,4 @@
-"""Arrow connectors never reach the reader.
-
-The model writes them on its own — no source and no prompt asks for them — and for
-a language learner they are the wrong shape: an arrow hides the verb and leaves the
-reader to guess it. Three prompt wordings were tried on 2026-07-29; each either
-failed to stop the arrows or weakened the not-in-sources refusal, so the rule is
-enforced in code and the prompt was left alone.
-"""
+"""Arrows never reach the reader, the rule lives in the code instead of the prompt."""
 
 from src.features.ai_assistant.routes._helpers import _strip_arrow_connectors
 
@@ -34,8 +27,7 @@ def test_arrow_at_the_start_of_a_bullet():
 
 
 def test_line_breaks_survive():
-    # Streaming feeds this per token, and the newline is what closes a line for the
-    # repetition guard and the citation prewarm. It must not be eaten.
+    # The line break has to stay, it closes the line.
     assert _strip_arrow_connectors("Schritt eins\n→ Schritt zwei") == "Schritt eins\n Schritt zwei"
 
 
@@ -45,8 +37,7 @@ def test_text_without_arrows_is_untouched():
 
 
 def test_a_lone_arrow_token_becomes_a_space():
-    # The stream can deliver the arrow as its own token, with the spaces around it
-    # sitting in the neighbouring tokens.
+    # The arrow can arrive as its own chunk, the spaces next to it too.
     assert _strip_arrow_connectors("→") == " "
 
 

@@ -1,31 +1,15 @@
 import type { MouseEvent } from "react";
 
-/**
- * Klick daneben schliesst das Fenster, Markieren im Feld aber nicht.
- *
- * Der Browser feuert `click` nicht dort, wo die Maus losgelassen wird, sondern auf dem
- * gemeinsamen Elternteil von Druck und Loslassen. Wer in einem Eingabefeld markiert und
- * die Taste ueber dem Hintergrund loslaesst, erzeugt also einen Klick auf dem
- * Hintergrund, und ein blosses `onClick={onClose}` haelt das faelschlich fuer "daneben
- * geklickt". Ein `stopPropagation` im Inhalt hilft dagegen nicht, das Ereignis entsteht
- * schon oben.
- *
- * Deshalb zaehlt hier nicht nur, wo der Klick endet, sondern auch, wo er begonnen hat.
- */
+/** A click outside closes, selecting in a field does not, so the click start counts too. */
 
 export type BackdropPress = { startedOnBackdrop: boolean };
 
-/** Der Merker fuer ein Fenster. Gehoert in ein ``useRef``, er muss Neuzeichnen ueberleben. */
+/** The marker for one dialog, it belongs in a ``useRef`` and has to survive redraws. */
 export function newBackdropPress(): BackdropPress {
   return { startedOnBackdrop: false };
 }
 
-/**
- * Die beiden Behandler fuer den Hintergrund.
- *
- * ``enabled`` auf ``false`` heisst: der Hintergrund schliesst gerade nicht, etwa waehrend
- * gespeichert wird.
- */
+/** The two handlers, 'enabled' false means it does not close right now. */
 export function backdropClose(
   press: BackdropPress,
   onClose: () => void,

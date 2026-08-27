@@ -1,4 +1,4 @@
-"""Schritt 6 holt seinen Stand hier und speichert ihn hier."""
+"""Step 6 fetches its state here and saves it here."""
 
 import json
 from unittest.mock import patch
@@ -93,7 +93,7 @@ def test_kaputte_uuid_wird_abgelehnt(client):
 
 
 def test_einzelabruf_findet_die_letzte_folie_trotz_luecke(client):
-    """Beim ersten Lauf mit Ausschluss hat der Ordner Luecken."""
+    """On the first run with an exclusion the folder has gaps."""
     modul = "src.routes.screencast.audio"
     with patch(f"{modul}.get_job", return_value=_JOB), \
          patch(f"{modul}.get_audio_slide_count", return_value=9), \
@@ -113,7 +113,7 @@ def test_einzelabruf_gibt_404_wenn_die_datei_fehlt(client):
 
 
 def test_alter_ton_ueber_die_folienzahl_hinaus_zaehlt_nicht_mit(client):
-    """audio/ behaelt den Ton ausgeschlossener Folien, das darf hat_ton nicht verlaengern."""
+    """audio/ keeps the audio of excluded slides, that must not extend hat_ton."""
     dateien = {"render_scripts.json": json.dumps(["a", "b"]).encode()}
     with patch(f"{MODUL}.get_job", return_value=_JOB), \
          patch(f"{MODUL}.get_job_file", side_effect=_dateien(dateien)), \
@@ -125,7 +125,7 @@ def test_alter_ton_ueber_die_folienzahl_hinaus_zaehlt_nicht_mit(client):
 
 
 def test_ohne_skriptdatei_zaehlt_der_ordner(client):
-    """Ging render_scripts.json verloren, ist die Dateizahl die beste Auskunft."""
+    """If render_scripts.json is lost, the file count is the best information."""
     with patch(f"{MODUL}.get_job", return_value=_JOB), \
          patch(f"{MODUL}.get_job_file", side_effect=_dateien({})), \
          patch(f"{MODUL}.get_audio_slide_count", return_value=3), \

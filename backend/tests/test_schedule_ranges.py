@@ -1,16 +1,4 @@
-"""Zeitspannen: "28.09.2026 bis 02.11.2026" ist EIN Termin, nicht zwei.
-
-Bis hierhin fand der Kandidatenschritt jedes Datum einzeln. Aus einer Zeile des
-Terminplans wurden zwei Karten, eine am Anfang mit "bis 02.11.2026" im Text und eine am
-Ende mit "ab 28.09.2026". Am echten MIM-Terminplan waren 9 von 22 Karten solche
-Dubletten.
-
-Die Arbeitsteilung ist dieselbe wie ueberall im Zeitplan: der Regex SCHLAEGT eine
-Paarung VOR, er sieht nur den Abstand und was dazwischen nicht stehen darf. Ob es
-wirklich eine Spanne ist, entscheidet die Klassifikation mit dem ganzen Zusammenhang.
-Lehnt sie ab, wird die Paarung wieder zu zwei Terminen, damit die Erkennung nie
-schlechter ist als der Stand ohne sie.
-"""
+"""A span is one appointment, the pattern proposes and the model confirms."""
 
 from datetime import date
 
@@ -35,14 +23,14 @@ def _chunks(*texts):
 
 
 def _luecke(text):
-    """Der Abstand zwischen den ersten beiden Daten des Textes."""
+    """The distance between the first two dates of the text."""
     from src.features.ai_assistant.tasks.studio.schedule._regex import _date_candidates_in_text
     funde = _date_candidates_in_text(text)
     assert len(funde) >= 2, funde
     return _looks_like_range(text, funde[0][1], funde[1][0])
 
 
-# --- was der Regex vorschlaegt ------------------------------------------------
+# --- what the regex proposes --------------------------------------------------
 
 @pytest.mark.parametrize("text", [
     "28.09.2026 bis 02.11.2026 Online-Anmeldung",
@@ -69,10 +57,7 @@ def test_was_keine_spanne_ist(text, warum):
 
 
 def test_auch_ausgeschriebene_daten_bilden_eine_spanne(monkeypatch):
-    """Was das Modell liest ("3 Temmuz 2026"), wird genauso gepaart wie die Ziffernform.
-
-    Sonst haetten nur deutsche und englische Quellen Zeitspannen.
-    """
+    """Dates read by the model are paired up too."""
     import json, types
     chunks = _chunks("Sinav 3 Temmuz 2026 kadar 17 Temmuz 2026 arasinda")
     monkeypatch.setattr(cand_mod.db, "get_aia_chunks_by_source", lambda _id: chunks)
@@ -96,15 +81,11 @@ def test_auch_ausgeschriebene_daten_bilden_eine_spanne(monkeypatch):
 
 
 def test_ein_wort_dazwischen_wird_vorgeschlagen_aber_nicht_entschieden():
-    """"Abgabe 01.09.2026 Klausur 27.09.2026" sieht wie eine Spanne aus.
-
-    Der Regex kann das nicht unterscheiden, er schlaegt vor. Verworfen wird es weiter
-    unten von der Klassifikation, siehe test_abgelehnte_paarung_wird_wieder_zu_zwei.
-    """
+    """The pattern cannot tell two appointments from a span."""
     assert _luecke("Abgabe 01.09.2026 Klausur 27.09.2026") is True
 
 
-# --- was daraus als Kandidat wird ---------------------------------------------
+# --- what becomes a candidate from it -----------------------------------------
 
 def test_spanne_wird_ein_kandidat_statt_zwei(monkeypatch):
     chunks = _chunks("28.09.2026 bis 02.11.2026 Online-Anmeldung zu den "
@@ -158,7 +139,7 @@ def test_rueckwaerts_ist_keine_spanne(monkeypatch):
 
 
 def test_ein_monat_ohne_tag_taugt_nicht_als_ende(monkeypatch):
-    """"ab 03.07.2026 bis 11.2026": der Erste oder der Letzte des Monats? Unklar."""
+    """'from 03.07.2026 to 11.2026': the first or the last of the month? Unclear."""
     chunks = _chunks("Laufzeit 03.07.2026 bis 11.2026")
     monkeypatch.setattr(cand_mod.db, "get_aia_chunks_by_source", lambda _id: chunks)
 
@@ -177,7 +158,7 @@ def test_aufzaehlung_bleibt_bei_zwei_kandidaten(monkeypatch):
 
 
 def test_die_ganze_terminplan_zeile_ergibt_genau_einen_termin(monkeypatch):
-    """Sechs Zeilen aus dem echten MIM-Plan, vier davon Spannen."""
+    """Six lines from a real course plan, four of them spans."""
     chunks = _chunks(
         "01.09.2026 bis 27.09.2026 Belegung der Module\n"
         "25.09.2026 Begrüßung der Studienanfängerinnen\n"
@@ -200,7 +181,7 @@ def test_die_ganze_terminplan_zeile_ergibt_genau_einen_termin(monkeypatch):
     ]
 
 
-# --- was die Klassifikation daraus macht --------------------------------------
+# --- what the classification makes of it --------------------------------------
 
 def _cand(iso, ende=None, teil=None):
     return {"date_iso": iso, "date_end_iso": ende, "date_end_partial": teil,
@@ -231,7 +212,7 @@ def test_abgelehnte_paarung_wird_wieder_zu_zwei():
 
 
 def test_verworfener_kandidat_wird_nicht_aufgeteilt():
-    """Was die Klassifikation ohnehin wegwirft, braucht kein zweites Datum."""
+    """Whatever the classification discards anyway needs no second date."""
     cands, _ = _split_rejected_ranges(
         [_cand("2026-09-01", "2026-09-27")], [_cls(keep=False)])
 
@@ -244,7 +225,7 @@ def test_termin_ohne_zweites_datum_bleibt_unberuehrt():
     assert len(cands) == 1
 
 
-# --- das aufgeloeste Enddatum -------------------------------------------------
+# --- the resolved end date ----------------------------------------------------
 
 def test_ende_muss_nach_dem_anfang_liegen():
     heute = date(2026, 8, 25)

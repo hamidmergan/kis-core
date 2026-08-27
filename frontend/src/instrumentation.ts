@@ -1,5 +1,4 @@
-// Polyfill for Promise.withResolvers — available since Node 22, missing in Node 20.
-// Required by pdfjs-dist which calls it at module evaluation time (SSR).
+// Replacement for Promise.withResolvers, missing in Node 20 and needed by pdfjs on load.
 export async function register() {
   if (typeof (Promise as any).withResolvers === "undefined") {
     (Promise as any).withResolvers = function <T>() {

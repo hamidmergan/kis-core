@@ -1,4 +1,4 @@
-"""Untertitel-Spur fuer den Screencast: Zeitversatz je Folie und Spur im MP4."""
+"""Subtitle track for the screencast: time offset per slide and the track in the MP4."""
 
 import inspect
 import shutil
@@ -26,10 +26,7 @@ def _seg(start: float, ende: float, text: str) -> dict:
 
 
 class _FakeWhisper:
-    """Antwortet je Dateiname, weil die Folien parallel erkannt werden.
-
-    myLab kann kein vtt oder srt, nur verbose_json mit Segmenten.
-    """
+    """Answers per file name because the slides are recognised in parallel."""
 
     def __init__(self, antworten: dict):
         self.antworten = antworten
@@ -167,7 +164,7 @@ def test_der_untertitel_text_steht_im_video(tmp_path, clip):
     assert "Hallo Welt" in ausgelesen.stdout
 
 
-# ── Untertitel-Spur im Render-Ablauf ────────────────────────────────────────
+# ── Subtitle track in the render flow ───────────────────────────────────────
 
 
 @pytest.mark.skipif(not _HAS_FFMPEG, reason="ffmpeg/ffprobe not available")
@@ -176,8 +173,7 @@ def test_die_spur_wird_als_datei_mit_versatz_abgelegt(tmp_path, clip, monkeypatc
 
     zweiter = tmp_path / "clip2.mp4"
     shutil.copy(clip, zweiter)
-    # Der Ton kommt aus dem fertigen Clip, sonst passt er bei geaenderter
-    # Geschwindigkeit nicht mehr zur Cliplaenge.
+    # The audio comes from the finished clip, otherwise the length does not match.
     client = _FakeWhisper({"stt_000.m4a": [_seg(0.0, 1.0, "eins")],
                            "stt_001.m4a": [_seg(0.0, 1.0, "zwei")]})
     monkeypatch.setattr(modul, "_spracherkenner", lambda: client)
@@ -191,7 +187,7 @@ def test_die_spur_wird_als_datei_mit_versatz_abgelegt(tmp_path, clip, monkeypatc
 
 @pytest.mark.skipif(not _HAS_FFMPEG, reason="ffmpeg/ffprobe not available")
 def test_stumme_folien_gehen_gar_nicht_erst_zum_erkenner(tmp_path, clip, monkeypatch):
-    """Auf Stille erfindet Whisper Text, etwa ein 'you'."""
+    """On silence Whisper invents text, such as a 'you'."""
     from src.services.screencast import subtitles as modul
 
     zweiter = tmp_path / "clip2.mp4"
@@ -255,7 +251,7 @@ def test_wiederholen_behaelt_die_untertitel_wahl():
 
 
 def test_die_argumente_passen_zur_task_signatur():
-    """Positionsargumente: eine Verschiebung wuerde die Wahl auf ein anderes Feld legen."""
+    """Positional arguments: a shift would put the choice on a different field."""
     import inspect
 
     from src.tasks.screencast_tasks._render import run_screencast_render
@@ -270,7 +266,7 @@ def test_die_argumente_passen_zur_task_signatur():
 
 
 def test_langes_segment_wird_zu_mehreren_einblendungen():
-    """Ein Segment, das der Erkenner als Textwand liefert, wird zerlegt."""
+    """A segment the recogniser returns as a wall of text is split."""
     lang = (
         "Bei wissenschaftlichen Tagungen gibt es verschiedene Verantwortliche. "
         "Je nach Groesse der Konferenz gibt es mehrere Leiter, sogenannte Chairs. "
@@ -290,7 +286,7 @@ def test_keine_zeile_der_spur_ist_zu_lang():
 
 
 def test_geteiltes_segment_behaelt_den_folienversatz():
-    """Die Stuecke der zweiten Folie liegen hinter der ersten Folie."""
+    """The pieces of the second slide sit behind the first slide."""
     lang = "Erster Satz mit Inhalt. " * 6
     spur = build_subtitle_vtt(
         [[_seg(0.0, 2.0, "Folie eins")], [_seg(0.0, 10.0, lang)]],

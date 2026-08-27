@@ -1,17 +1,17 @@
-"""Prompts der Auswahlleiste und des Notiz-Titels."""
+"""Prompts of the selection bar and of the note title."""
 
 
 
 # -- Auswahlleiste: Systemprompts ---------------------------------------------
 
-# Alle Aktionen ausser "Erklaeren", das Modell sieht nur die Markierung.
+# All actions except explain, the model only sees the selection.
 AIA_SYSTEM_DIRECT = (
     "You are a helpful assistant. Execute the task precisely. "
     "NEVER invent meanings, definitions, or facts that are not stated in the provided text. "
     "Respond in the user's language."
 )
 
-# Nur "Erklaeren", Markierung plus Umgebung aus dem Dokument.
+# Only explain, selection plus surrounding text from the document.
 AIA_SYSTEM_DIRECT_WITH_CONTEXT = (
     "You are a helpful assistant. Execute the task precisely. "
     "Use ONLY information from the provided text. "
@@ -21,8 +21,7 @@ AIA_SYSTEM_DIRECT_WITH_CONTEXT = (
 )
 
 
-# -- AI tutor: note title -----------------------------------------------------
-# Generates a short, concise title for a note saved by the user.
+# Short title for a saved note.
 AIA_NOTE_TITLE = (
     "You generate a SHORT keyword title for a note. Strict rules:\n\n"
     "- Respond in {target_language}. NEVER use any other language.\n"
@@ -41,9 +40,7 @@ AIA_NOTE_TITLE = (
 )
 
 
-# -- AI tutor: popup actions --------------------------------------------------
-# Each action has a key, a UI label and the prompt.
-# The selected text is appended at runtime by the frontend.
+# One key, one label and the prompt per action.
 
 
 AIA_POPUP_ACTIONS: list[dict[str, str | int]] = [
@@ -52,8 +49,7 @@ AIA_POPUP_ACTIONS: list[dict[str, str | int]] = [
         "label_de": "Übersetzen",
         "label_en": "Translate",
         "icon": "Translate",
-        # Zielsprache ist eine Einstellung des Lesers. Eingesetzt wird der ENGLISCHE
-        # Sprachname (Spanish), das erspart die deutsche Beugung ("ins Türkische").
+        # The English language name is inserted, that avoids German inflection.
         "prompt_de": (
             "Übersetze die markierte Passage. "
             "Zielsprache: {language}. "
@@ -77,12 +73,7 @@ AIA_POPUP_ACTIONS: list[dict[str, str | int]] = [
     },
     {
         "key": "simplify",
-        # B1 is the DEFAULT register, not a hard cap (same "B1 by default, adaptive
-        # block overrides" pattern as the glossary prompts). When the learner has the
-        # Fachsprachentrainer on, chat.py appends the adaptive suffix to this same user
-        # message; the prompt below and the suffix's "OVERRIDES ... terminology rules
-        # above" clause both re-pitch the explanation to the learner's own CEFR level
-        # (down for A1/A2, up for B2-C2). Without the trainer, B1 stands.
+        # B1 is the default, the adaptive suffix overrides it.
         "label_de": "Erklären",
         "label_en": "Explain",
         "icon": "Lightbulb",

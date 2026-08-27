@@ -54,10 +54,7 @@ def get_aia_sources_by_workspace(workspace_id: int) -> list[dict]:
 
 
 def list_aia_workspaces_with_stale_fingerprint(current_fingerprint: str) -> list[dict]:
-    """Return workspaces (with owner name) whose stored fingerprint differs from current.
-
-    Modules without a fingerprint (never indexed) are ignored.
-    """
+    """Course rooms whose stored fingerprint differs from the current one."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
@@ -97,8 +94,7 @@ def update_aia_source_status(
     duration: float | None = None,
     language: str | None = None,
 ) -> None:
-    # Terminal states (ready/failed) clear the progress JSON so the UI stops
-    # showing a stale stage label after indexing finishes.
+    # Final states clear the progress, otherwise an old step label lingers.
     progress_clause = ", progress = NULL" if status in ("ready", "failed") else ""
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -118,9 +114,7 @@ def update_aia_source_status(
 
 
 def clear_aia_source_progress(uuid: str) -> None:
-    """Reset the progress JSON to NULL once indexing has finished, so the
-    source card stops showing a stage label.
-    """
+    """Sets the progress to NULL as soon as ingest is done."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -136,12 +130,7 @@ def update_aia_source_progress(
     page: int | None = None,
     total: int | None = None,
 ) -> None:
-    """Record the active indexing stage for the source so the UI can render it.
-
-    ``page`` / ``total`` are optional and only meaningful for the OCR stage;
-    other stages pass them as ``None``. The terminal status update clears this
-    column.
-    """
+    """Records the running ingest step so the interface can show it."""
     payload: dict = {"stage": stage}
     if page is not None:
         payload["page"] = page
@@ -156,11 +145,7 @@ def update_aia_source_progress(
         conn.commit()
 
 def update_aia_source_ocr_info(uuid: str, ocr_info: dict | None) -> None:
-    """Record how text recognition went for this source.
-
-    ``None`` clears the column, which is what a re-run with no OCR candidate
-    should leave behind. The shape is documented at the column definition.
-    """
+    """Records how text recognition went, None clears the column."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -181,14 +166,7 @@ def update_aia_source_summary(uuid: str, summary: str) -> None:
         conn.commit()
 
 def delete_aia_source(uuid: str) -> None:
-    """Quelle loeschen. Fertige Aufgabensaetze ueberleben das.
-
-    Der Aufgaben-Vorrat haengt per Fremdschluessel an der Quelle und verschwindet
-    mit ihr. Saetze, die auf Vorratsaufgaben zeigen, wuerden dabei leer werden, und
-    ein fertiger Satz gehoert der Person, die ihn gemacht hat. Deshalb wird der
-    Inhalt vorher in diese Saetze zurueckgeschrieben. Steht hier und nicht beim
-    Aufrufer, damit es nicht vergessen werden kann.
-    """
+    """Deletes a source, finished exercise sets get their content beforehand."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("SELECT id FROM aia_sources WHERE uuid = %s", (uuid,))
@@ -209,11 +187,7 @@ def delete_aia_chunks_by_source(source_id: int) -> None:
         conn.commit()
 
 def reset_aia_source_for_retry(uuid: str) -> None:
-    """Reset a source to pending state and clear the error message.
-
-    ``ocr_info`` goes with it: the coming run writes its own report, and leaving
-    the old one would show open pages that the run may just have closed.
-    """
+    """Resets a source to pending and clears error and OCR report."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(

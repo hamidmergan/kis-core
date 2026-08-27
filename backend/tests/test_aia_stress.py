@@ -1,16 +1,4 @@
-"""Stress test for the AIA shared-pool dispatcher.
-
-Deterministic discrete-tick simulation: users submit background jobs into the
-shared pool, jobs run for a random number of ticks, and finishing a job
-re-dispatches into the freed slot. We assert the invariants under load:
-
-1. The shared pool of N slots is NEVER exceeded at any tick.
-2. A user flooding never blocks a newcomer (per-user fairness).
-3. Areas get their weighted share (studio outweighs ingest), none starves.
-4. Everything drains - no deadlock, every job completes.
-
-Runnable standalone for a heavier load:  python tests/test_aia_stress.py
-"""
+"""Load test of the slot management, checks cap, fairness, weights and flow."""
 import itertools
 import random
 
@@ -108,8 +96,7 @@ def test_stress_flooder_does_not_block_newcomer():
 
 
 def test_stress_weighted_order_studio_over_ingest():
-    # Under backlog, studio (weight 2) drains ~2x faster than ingest (weight 1).
-    # Over a full drain totals equalise, so we measure the dispatch ORDER.
+    # The order is what is measured, the totals even out in the end.
     subs = [(0, u, "studio") for u in range(1, 101)] + [(0, u, "ingest") for u in range(101, 201)]
     res = simulate(subs, total_slots=3, weights={"studio": 2.0, "ingest": 1.0}, seed=5)
     first60 = res["started"][:60]

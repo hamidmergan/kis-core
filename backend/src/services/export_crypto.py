@@ -1,24 +1,4 @@
-"""AES-GCM wrap/unwrap for sensitive fields in admin config exports.
-
-The export key lives in env as ``KIS_EXPORT_KEY`` and is shared across all
-exports from the same deployment. It is hashed (SHA-256) to derive a 32-byte
-AES key, so the env value can be any non-empty string.
-
-Envelope format (JSON-safe, embedded inline in the export):
-
-    {"alg": "aesgcm-v2", "nonce": "<b64url-12>", "ct": "<b64url-ciphertext>"}
-
-Two algorithm versions are recognized:
-
-- ``aesgcm-v1`` — legacy, no AAD. Kept as a read-only path so any backups
-  produced before the AAD hardening can still be imported.
-- ``aesgcm-v2`` — current, binds the envelope to its provider via AAD
-  (Additional Authenticated Data = provider name, UTF-8). A swapped or
-  retargeted envelope fails decryption.
-
-A missing or empty ``KIS_EXPORT_KEY`` disables wrapping — plain exports
-behave like before (no api_key field included).
-"""
+"""Verschluesselt Zugangsschluessel in Admin-Ausfuhren, gebunden an ihren Anbieter."""
 
 from __future__ import annotations
 
@@ -58,9 +38,7 @@ def _b64d(s: str) -> bytes:
 
 
 def wrap_api_key(plain: str, *, provider_name: str) -> dict[str, str]:
-    """Encrypt ``plain`` with the configured export key, binding the result
-    to ``provider_name`` via AAD. Caller must ensure
-    ``is_export_key_configured()`` is true."""
+    """Encrypts a plaintext and binds it to the provider name."""
     secret = _secret()
     if secret is None:
         raise RuntimeError("KIS_EXPORT_KEY not configured")
@@ -83,9 +61,7 @@ def is_envelope(value: Any) -> bool:
 def try_unwrap_api_key(
     envelope: dict[str, Any], *, provider_name: str
 ) -> str | None:
-    """Decrypt an envelope. Returns the plain key on success, ``None`` if the
-    current ``KIS_EXPORT_KEY`` cannot decrypt it (wrong key, missing env,
-    tampered ciphertext, or — for v2 envelopes — provider name mismatch)."""
+    """Decrypts an envelope, None when the key does not fit."""
     secret = _secret()
     if secret is None:
         return None

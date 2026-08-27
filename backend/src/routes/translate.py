@@ -74,8 +74,7 @@ async def translate(
     if content_length is not None and int(content_length) > max_upload_bytes():
         raise HTTPException(status_code=413, detail=t("file.tooLargeMb", locale, max=max_upload_bytes() // (1024 * 1024)))
 
-    # Stream to a temp file instead of holding the body (up to 500 MB) in RAM.
-    # The extractor reads the path, storage uploads from the path.
+    # Stream to a temp file instead of holding the body in memory.
     with tempfile.TemporaryDirectory(prefix="translate_upload_") as tmpdir:
         tmp_path = os.path.join(tmpdir, f"input{ext}")
         total, head = await stream_upload_to_path(file, tmp_path, max_upload_bytes(), locale)

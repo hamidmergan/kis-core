@@ -1,9 +1,4 @@
-/** Mischen der Antwortoptionen einer Aufgabe.
- *
- * Gemischt wird, damit die richtige Antwort nicht immer an derselben Stelle steht.
- * Ausgenommen sind Aufgaben mit zwei Optionen: das ist Richtig/Falsch, und dort ist
- * die Reihenfolge Teil der Beschriftung. "Falsch, Richtig" liest sich wie ein Fehler.
- */
+/** Shuffles the options, except for true/false where the order matters. */
 
 type WithOptions = { options?: string[]; correct_idx?: number };
 

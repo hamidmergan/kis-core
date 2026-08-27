@@ -17,21 +17,7 @@ const VERDICT_STYLE: Record<GrammarCheckResult["verdict"], { fg: string; bg: str
   wrong: { fg: "#d4453a", bg: "rgba(212,69,58,0.07)" },
 };
 
-/**
- * Grammatik-Übung: ein Satz je Schritt, vier Darreichungsformen gemischt.
- *
- * Die Ansicht unterscheidet sie an genau einem Merkmal, nämlich ob die Aufgabe
- * ``options`` mitbringt:
- *
- * * mit Optionen wird angekreuzt, und das entscheidet der Browser selbst,
- * * ohne Optionen wird getippt (Umformung oder Lückentext), und das vergleicht das
- *   Backend mit der Musterlösung und ihren gültigen Zweitfassungen. Kein Modell mehr:
- *   die Erklärung steht seit dem Erzeugen an der Aufgabe.
- *
- * Das Musterpaar steht an der Aufgabe, die eines braucht, nicht mehr über dem Set:
- * ein gemischtes Set hat kein gemeinsames Muster, und eine Richtig/Falsch-Aufgabe
- * folgt keinem.
- */
+/** Four formats mixed, told apart only by whether the exercise has options. */
 export function GrammarExerciseView({
   exerciseSet, workspaceUuid, onBack, onAnswer, onSourceClick, breadcrumbs, onFinish,
 }: {
@@ -47,18 +33,15 @@ export function GrammarExerciseView({
   const tChip = useTranslations("sourceChip");
   const minimize = useContext(MinimizeContext);
 
-  // Grammar sentences are a numbered worksheet, so they keep their generated order
-  // instead of being shuffled like flashcards.
+  // Grammar sets keep their order, they are a numbered worksheet.
   const items: ExerciseItem[] = useMemo(() => exerciseSet.items || [], [exerciseSet.items]);
   const [index, setIndex] = useState(0);
   const [checking, setChecking] = useState(false);
   const [checkError, setCheckError] = useState(false);
-  // Eingeklappt: das Muster ist Hilfe auf Abruf, nicht Teil der Aufgabe.
+  // Collapsed: the pattern is help on demand, not part of the exercise.
   const [showPattern, setShowPattern] = useState(false);
 
-  // Alles je AUFGABE, nicht je Bildschirm. Nur so kann man vor und zurueck gehen:
-  // eine beantwortete Aufgabe zeigt beim Zurueckblaettern wieder ihr Ergebnis und
-  // ist gesperrt, eine unbeantwortete behaelt den angefangenen Text und bleibt offen.
+  // Everything per exercise, only that way can you go back and forth.
   const [results, setResults] = useState<Record<number, GrammarCheckResult>>({});
   const [picks, setPicks] = useState<Record<number, number>>({});
   const [drafts, setDrafts] = useState<Record<number, string>>({});
@@ -71,8 +54,7 @@ export function GrammarExerciseView({
   const picked = card ? picks[card.id] ?? null : null;
   const correctCount = Object.values(results).filter((r) => r.verdict === "correct").length;
 
-  // Ein Aufbau der Ansicht ist ein Durchgang. Getippt und angekreuzt teilen sich
-  // dieselbe Marke, ein Satz mischt beide Formen.
+  // Typed and ticked share the same round marker.
   const runGemeldetRef = useRef(false);
 
   function melden(itemId: number, correct: boolean) {
@@ -120,7 +102,7 @@ export function GrammarExerciseView({
     goTo(index + 1);
   }
 
-  /** Ankreuzen entscheidet der Browser: die Lösung steht in der Aufgabe. */
+  /** The browser decides multiple choice, the answer sits in the exercise. */
   function pick(optionIndex: number) {
     if (!card || answered) return;
     setPicks((p) => ({ ...p, [card.id]: optionIndex }));
@@ -143,15 +125,13 @@ export function GrammarExerciseView({
   );
 
   const progressPct = ((index + 1) / total) * 100;
-  // Ankreuzen oder Tippen: genau ein Merkmal entscheidet es.
+  // Multiple choice or typing: exactly one feature decides it.
   const isChoice = Boolean(card.options?.length);
-  // Das Muster haengt an der Aufgabe, die eines braucht (die Umformung).
+  // The pattern hangs on the exercise that needs one, the reshaping.
   const pattern = card.extras?.pattern_front && card.extras?.pattern_back
     ? { front: card.extras.pattern_front, back: card.extras.pattern_back }
     : null;
-  // Anweisung und Satz stecken zusammen in front, getrennt durch eine Leerzeile.
-  // Die Anweisung gehoert ueber die Karte, wie frueher der Set-Kopf, der Satz
-  // hinein. Beides gross und fett uebereinander in der Karte machte sie schwer.
+  // The instruction belongs above the card, the sentence inside it.
   const [taskLine, sentence] = (() => {
     const m = card.front.match(/^\*\*(.+?)\*\*\n\n([\s\S]+)$/);
     return m ? [m[1], m[2]] : ["", card.front];
@@ -175,8 +155,7 @@ export function GrammarExerciseView({
     seenKeys.add(k);
     return true;
   });
-  // Numbering belongs to the set, not to the card, so a file keeps its number across
-  // every sentence and matches the legend at the bottom.
+  // The numbering belongs to the set so it matches the legend.
   const srcNumbers = sourceNumbers(exerciseSet.sources);
 
   return (

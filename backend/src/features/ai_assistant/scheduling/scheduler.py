@@ -1,17 +1,4 @@
-"""Dispatcher engine: fair-share scheduling for the shared background pool.
-
-Two pure pieces, no IO:
-
-- ``WeightedAreaSelector`` -- work-conserving weighted picker that distributes a
-  shared budget (the available slots) across areas by weight. An idle area is
-  skipped so its share is lent to others, while a busy area never starves
-  because every area with weight > 0 keeps getting turns.
-
-- ``select_shared_pool`` -- fills a single shared pool of background slots: each
-  free slot goes to an area by weighted deficit, then to the fairest user in
-  that area (fewest running jobs, then fewest cumulative grants, then oldest).
-  ``PoolJob`` is the queued-job record it consumes.
-"""
+"""Fair split of the shared slot pool, two pure building blocks without any I/O."""
 from __future__ import annotations
 
 from collections import Counter
@@ -20,12 +7,7 @@ from typing import Optional
 
 
 class WeightedAreaSelector:
-    """Deficit-weighted, work-conserving picker over areas sharing a budget.
-
-    Each granted unit goes to the area with the lowest ``granted / weight`` ratio
-    among areas that still have demand. Over many picks the grants converge to the
-    weight ratios, but only areas that actually have work are ever served.
-    """
+    """Splits a budget by weight, empty areas are skipped."""
 
     def __init__(self, weights: dict[str, float]) -> None:
         self.weights = dict(weights)
@@ -60,17 +42,7 @@ def select_shared_pool(
     area_granted: Optional[dict[str, float]] = None,
     user_granted: Optional[dict[int, int]] = None,
 ) -> list[str]:
-    """Fill a single shared pool of ``total_slots`` background slots.
-
-    Each free slot goes to an area by weighted deficit, then to the fairest user
-    in that area. User fairness prefers (1) fewest jobs currently running, then
-    (2) fewest CUMULATIVE grants (``user_granted``), then oldest job. The
-    cumulative tally is what stops a flooder whose older jobs would otherwise win
-    every created-at tiebreak; it persists across dispatches and is updated in
-    place. ``area_granted`` does the same for areas. Pass ``None`` for a one-shot
-    pick with no memory. ``total_slots <= 0`` means unlimited (own-GPU future):
-    everything dispatches immediately, oldest first.
-    """
+    """Fills the shared slot pool, per slot first the area, then the fairest person."""
     if total_slots <= 0:
         return [j.job_id for j in sorted(queued, key=lambda j: j.created_at)]
 

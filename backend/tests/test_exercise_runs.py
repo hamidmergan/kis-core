@@ -1,12 +1,4 @@
-"""Jeder Durchgang eines Uebungssatzes zaehlt fuer sich.
-
-Wer denselben Satz dreimal uebt, soll in der Statistik drei Ergebnisse sehen und
-nicht eine gemischte Quote ueber alle Versuche. Die Nummer des Durchgangs vergibt
-das Backend, der Browser meldet nur, dass ein Durchgang begonnen hat.
-
-Die Regeln stecken in SQL, deshalb laeuft der Test gegen echtes Postgres und wird
-uebersprungen, wo keins erreichbar ist.
-"""
+"""Every round counts on its own, the backend assigns the number."""
 
 import os
 import uuid as uuid_modul
@@ -26,7 +18,7 @@ BERLIN = ZoneInfo("Europe/Berlin")
 
 @pytest.fixture(scope="module")
 def verbindung():
-    """Eine Datenbankverbindung oder ein sauberes Ueberspringen."""
+    """A database connection or a clean skip."""
     if not os.environ.get("DATABASE_URL"):
         pytest.skip("kein DATABASE_URL gesetzt (Test braucht echtes Postgres)")
     from src.core.db.pool import get_connection
@@ -41,7 +33,7 @@ def verbindung():
 
 @pytest.fixture
 def arbeitsraum(verbindung):
-    """Ein Wegwerf-Workspace. Beim Aufraeumen faellt alles Angehaengte mit."""
+    """A throwaway workspace, cleanup takes everything attached with it."""
     kennung = f"test-runs-{uuid_modul.uuid4()}"
     with verbindung() as conn:
         with conn.cursor() as cur:
@@ -60,7 +52,7 @@ def arbeitsraum(verbindung):
 
 
 def _satz_anlegen(verbindung, workspace_id: int, anzahl: int = 10):
-    """Fertiger Satz mit ``anzahl`` Karten. Liefert (satz_id, karten_ids)."""
+    """A finished set with ``anzahl`` cards, returns (set_id, card_ids)."""
     with verbindung() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -83,7 +75,7 @@ def _satz_anlegen(verbindung, workspace_id: int, anzahl: int = 10):
 
 
 def _nummern(verbindung, satz_id: int) -> list[int]:
-    """Die Durchgangsnummern der Antworten, in der Reihenfolge des Eintrags."""
+    """The round numbers of the answers, in insertion order."""
     with verbindung() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -95,7 +87,7 @@ def _nummern(verbindung, satz_id: int) -> list[int]:
 
 
 def _durchgang_antworten(satz_id: int, karten: list[int], richtige: int, neu: bool = True):
-    """Ein Durchgang: erste Antwort meldet ihn an, der Rest haengt sich an."""
+    """One round: the first answer opens it, the rest joins in."""
     for i, karte in enumerate(karten):
         repo.bulk_record_exercise_progress(
             satz_id, NUTZER,
@@ -105,7 +97,7 @@ def _durchgang_antworten(satz_id: int, karten: list[int], richtige: int, neu: bo
 
 
 def test_erster_durchgang_bekommt_die_eins(verbindung, arbeitsraum):
-    """Ohne Vorgeschichte faengt die Zaehlung bei eins an."""
+    """Without a history the counting starts at one."""
     satz_id, karten = _satz_anlegen(verbindung, arbeitsraum)
     _durchgang_antworten(satz_id, karten[:3], richtige=3)
 
@@ -113,7 +105,7 @@ def test_erster_durchgang_bekommt_die_eins(verbindung, arbeitsraum):
 
 
 def test_zweiter_durchgang_zaehlt_hoch(verbindung, arbeitsraum):
-    """Wer denselben Satz nochmal oeffnet, beginnt Durchgang zwei."""
+    """Whoever opens the same set again starts round two."""
     satz_id, karten = _satz_anlegen(verbindung, arbeitsraum)
     _durchgang_antworten(satz_id, karten[:2], richtige=2)
     _durchgang_antworten(satz_id, karten[:2], richtige=1)
@@ -122,7 +114,7 @@ def test_zweiter_durchgang_zaehlt_hoch(verbindung, arbeitsraum):
 
 
 def test_antwort_ohne_meldung_bleibt_im_laufenden_durchgang(verbindung, arbeitsraum):
-    """Nur die erste Antwort meldet den Durchgang an, alle weiteren gehoeren dazu."""
+    """Only the first answer opens the round, all the others belong to it."""
     satz_id, karten = _satz_anlegen(verbindung, arbeitsraum)
     repo.bulk_record_exercise_progress(
         satz_id, NUTZER, [{"item_id": karten[0], "correct": True}], new_run=True,
@@ -135,7 +127,7 @@ def test_antwort_ohne_meldung_bleibt_im_laufenden_durchgang(verbindung, arbeitsr
 
 
 def test_verlorene_erste_antwort_erzeugt_keinen_nulldurchgang(verbindung, arbeitsraum):
-    """Kam die erste Antwort nie an, landet die zweite trotzdem in Durchgang eins."""
+    """If the first answer never arrived, the second still lands in round one."""
     satz_id, karten = _satz_anlegen(verbindung, arbeitsraum)
     repo.bulk_record_exercise_progress(
         satz_id, NUTZER, [{"item_id": karten[0], "correct": True}], new_run=False,
@@ -146,11 +138,7 @@ def test_verlorene_erste_antwort_erzeugt_keinen_nulldurchgang(verbindung, arbeit
 
 def _antwort_am_tag(verbindung, satz_id: int, karte_id: int, richtig: bool,
                     run_no, stunde: int, minute: int = 0):
-    """Eine Antwort mit fester Uhrzeit am heutigen Tag.
-
-    Die Spalte ist zeitzonenlos und wird als UTC gelesen. Zehn Uhr UTC liegt in
-    Berlin am selben Tag, egal ob Sommer oder Winter.
-    """
+    """An answer at a fixed time on the current day."""
     heute = datetime.now(BERLIN).date()
     zeitpunkt = datetime(heute.year, heute.month, heute.day, stunde, minute)
     with verbindung() as conn:
@@ -165,13 +153,13 @@ def _antwort_am_tag(verbindung, satz_id: int, karte_id: int, richtig: bool,
 
 
 def _heute(workspace_id: int) -> dict:
-    """Die Tagesansicht fuer heute."""
+    """The day view for today."""
     heute = str(datetime.now(BERLIN).date())
     return stats_repo.get_student_day_stats(workspace_id, NUTZER, heute)
 
 
 def test_zwei_durchgaenge_stehen_getrennt(verbindung, arbeitsraum):
-    """Der gewuenschte Fall: erst 5 von 10, dann 7 von 10, keine Mischquote."""
+    """The wanted case: first 5 of 10, then 7 of 10, no mixed rate."""
     satz_id, karten = _satz_anlegen(verbindung, arbeitsraum, anzahl=10)
     for i, karte in enumerate(karten):
         _antwort_am_tag(verbindung, satz_id, karte, i < 5, run_no=1, stunde=8, minute=i)
@@ -186,7 +174,7 @@ def test_zwei_durchgaenge_stehen_getrennt(verbindung, arbeitsraum):
 
 
 def test_abgebrochener_durchgang_zaehlt_gegen_die_kartenzahl(verbindung, arbeitsraum):
-    """Bei Aufgabe drei verlassen, eins und zwei richtig, ergibt 2 von 10."""
+    """Left at exercise three, one and two correct, gives 2 of 10."""
     satz_id, karten = _satz_anlegen(verbindung, arbeitsraum, anzahl=10)
     _antwort_am_tag(verbindung, satz_id, karten[0], True, run_no=1, stunde=8)
     _antwort_am_tag(verbindung, satz_id, karten[1], True, run_no=1, stunde=8, minute=1)
@@ -197,7 +185,7 @@ def test_abgebrochener_durchgang_zaehlt_gegen_die_kartenzahl(verbindung, arbeits
 
 
 def test_alte_antworten_ohne_nummer_sind_ein_durchgang(verbindung, arbeitsraum):
-    """Antworten von vor der Spalte tragen keine Nummer und fallen zusammen."""
+    """Answers from before the column carry no number and collapse together."""
     satz_id, karten = _satz_anlegen(verbindung, arbeitsraum, anzahl=10)
     for i, karte in enumerate(karten[:4]):
         _antwort_am_tag(verbindung, satz_id, karte, i < 3, run_no=None, stunde=7, minute=i)
@@ -209,7 +197,7 @@ def test_alte_antworten_ohne_nummer_sind_ein_durchgang(verbindung, arbeitsraum):
 
 def _antwort_vor_tagen(verbindung, satz_id: int, karte_id: int, richtig: bool,
                        run_no, tage: int):
-    """Eine Antwort, ``tage`` Tage in der Vergangenheit."""
+    """An answer ``tage`` days in the past."""
     with verbindung() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -222,7 +210,7 @@ def _antwort_vor_tagen(verbindung, satz_id: int, karte_id: int, richtig: bool,
 
 
 def _zeilen(verbindung, satz_id: int) -> list[tuple]:
-    """Was noch dasteht: je Zeile Durchgang und Urteil, in Eintragsreihenfolge."""
+    """What is left: round and verdict per row, in insertion order."""
     with verbindung() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -234,11 +222,7 @@ def _zeilen(verbindung, satz_id: int) -> list[tuple]:
 
 
 def test_aufraeumen_behaelt_die_letzte_antwort_je_karte(verbindung, arbeitsraum):
-    """Aelter als das Kalenderfeld reicht: weg, bis auf die juengste Antwort.
-
-    Die Statistik kann diese Tage ohnehin nicht mehr zeichnen. Die letzte Antwort
-    muss bleiben, weil der Ring auf der Uebungskarte aus ihr rechnet.
-    """
+    """Old answers drop out, except the newest per card."""
     satz_id, karten = _satz_anlegen(verbindung, arbeitsraum, anzahl=3)
     for nr in (1, 2, 3):
         for karte in karten:
@@ -252,7 +236,7 @@ def test_aufraeumen_behaelt_die_letzte_antwort_je_karte(verbindung, arbeitsraum)
 
 
 def test_aufraeumen_laesst_die_letzten_sechs_monate_in_ruhe(verbindung, arbeitsraum):
-    """Alles im Fenster bleibt vollstaendig, auch mehrere Durchgaenge je Karte."""
+    """Everything inside the window stays complete, several rounds per card included."""
     satz_id, karten = _satz_anlegen(verbindung, arbeitsraum, anzahl=2)
     for nr in (1, 2):
         for karte in karten:
@@ -265,11 +249,11 @@ def test_aufraeumen_laesst_die_letzten_sechs_monate_in_ruhe(verbindung, arbeitsr
 
 
 def test_aufraeumen_laesst_den_ring_unveraendert(verbindung, arbeitsraum):
-    """Der Prozentwert auf der Uebungskarte muss danach derselbe sein."""
+    """The percentage on the exercise card has to be the same afterwards."""
     satz_id, karten = _satz_anlegen(verbindung, arbeitsraum, anzahl=4)
     for nr in (1, 2):
         for i, karte in enumerate(karten):
-            # Im zweiten Durchgang sitzen drei von vier Karten.
+            # In the second round three of four cards are learned.
             _antwort_vor_tagen(verbindung, satz_id, karte,
                                richtig=(nr == 2 and i > 0), run_no=nr, tage=400 - nr)
 
@@ -285,7 +269,7 @@ def test_aufraeumen_laesst_den_ring_unveraendert(verbindung, arbeitsraum):
 
 
 def test_durchgaenge_stehen_in_der_reihenfolge_ihres_laufs(verbindung, arbeitsraum):
-    """Alt vor neu, damit man die Entwicklung von oben nach unten liest."""
+    """Old before new, so the development reads top to bottom."""
     satz_id, karten = _satz_anlegen(verbindung, arbeitsraum, anzahl=10)
     _antwort_am_tag(verbindung, satz_id, karten[0], True, run_no=2, stunde=9)
     _antwort_am_tag(verbindung, satz_id, karten[0], False, run_no=1, stunde=8)

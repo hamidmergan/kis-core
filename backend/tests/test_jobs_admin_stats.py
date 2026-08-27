@@ -1,4 +1,4 @@
-"""Die Screencast-Zahlen gehen nur an Admins und auch bei fehlgeschlagenen Jobs mit."""
+"""The screencast numbers go to admins only and travel with failed jobs too."""
 
 from datetime import datetime
 

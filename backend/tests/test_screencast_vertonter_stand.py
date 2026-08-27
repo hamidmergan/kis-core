@@ -1,4 +1,4 @@
-"""Nach einem Lauf liegt ein Abzug, gegen den Schritt 6 spaeter vergleicht."""
+"""After a run a snapshot exists that step 6 compares against later."""
 
 import json
 from unittest.mock import patch
@@ -67,7 +67,7 @@ def test_ohne_folienauswahl_steht_die_volle_liste():
 
 
 def test_ohne_folientexte_bleibt_die_liste_leer():
-    """Ein alter Auftrag ohne scripts.txt darf den Lauf nicht scheitern lassen."""
+    """An old job without scripts.txt must not fail the run."""
     with patch("src.tasks.screencast_tasks._render.get_job_file", side_effect=_dateien({})), \
          patch("src.tasks.screencast_tasks._render.load_result_meta", return_value=None), \
          patch("src.tasks.screencast_tasks._render.save_job_file") as sichern:

@@ -1,13 +1,4 @@
-"""Helper for the active embedding provider and fingerprint cache.
-
-The fingerprint is the embedding of a fixed sentinel string. It is
-deterministic per provider+model and persisted in the settings table so it
-survives backend restarts (the first cold call against a remote provider
-takes 15-50s, all subsequent calls are instant).
-
-Key includes the provider id so that switching back to a previously-used
-provider re-uses its cached fingerprint instead of recomputing.
-"""
+"""The active embedding provider and the stored fingerprint."""
 
 from loguru import logger
 
@@ -42,11 +33,7 @@ def get_cached_fingerprint() -> str | None:
 
 
 def invalidate_fingerprint_cache() -> None:
-    """Clear all fingerprint_* settings rows so the next call recomputes.
-
-    Called after the admin changes the embedding route. We don't know the
-    previous key, so we wipe every fingerprint_* row in one statement.
-    """
+    """Deletes all fingerprint rows, the next call computes them again."""
     try:
         from src.core.db.pool import get_connection
         with get_connection() as conn:

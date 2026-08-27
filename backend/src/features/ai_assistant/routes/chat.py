@@ -56,49 +56,38 @@ from src.services.aia_diagnosis_chat import ADAPTIVE_BEHAVIOR_SETTING
 from src.services.aia_level_ladder import resolve_prompt_setting
 from src.services.upstream_errors import upstream_error_code
 
-# Laengere Fragen sind fast immer themenbezogen, der Vor-Call entfaellt.
+# Longer questions are almost always topical, the pre-call is skipped.
 _INTENT_MAX_WORDS = 30
 
-# GENERIC: eine breite Suche setzt die Startpunkte, die Auffuellung weiter unten
-# sorgt fuer die Breite ueber alle Quellen.
+# Overview: a broad search sets the starting points, the top-up brings the breadth.
 _GENERIC_RETRIEVE_LIMIT = 32
-# Notnagel: gleichmaessige Stichprobe je Quelle, wenn die Suche nichts findet
-# (etwa ein Video ohne durchsuchbaren Text).
+# Last resort: an even sample per source when the search finds nothing.
 _GENERIC_FALLBACK_SAMPLE = 8
 
-# Seitenbezug in der Frage ("fasse Seite 5 zusammen"): die Seite wird direkt geholt,
-# nicht gesucht, denn die Zahl steht selten im Seitentext. Das Schluesselwort davor
-# verhindert, dass "die 5 wichtigsten Punkte" greift.
+# A page reference in the question is fetched directly instead of searched.
 _PAGE_REF_RE = re.compile(
     r"\b(?:S\.\s*|Seiten?\s*|pp?\.\s*|pages?\s*)"
     r"(\d{1,4})"
-    # Bereichstrenner: Bindestriche und/oder bis/to, auch vertippt. Ein blosses
-    # Leerzeichen ("12 14") zaehlt NICHT als Bereich.
+    # Range separators, a bare space does not count as a range.
     r"(?:\s*(?:[-–—]+\s*(?:bis|to)?|bis|to)\s*[-–—]*\s*(\d{1,4}))?",
     re.IGNORECASE,
 )
 _MAX_PAGE_SPAN = 50
 
-# Nachbar-Erweiterung (SPECIFIC): wie viele Treffer als Ankerpunkte dienen. Eine
-# Angabe steht oft NEBEN dem Treffer, etwa der Name neben der Ueberschrift "Autoren".
+# How many hits serve as anchor points for the neighbour expansion.
 _NEIGHBOR_ANCHORS = 24
-# Wie viele Stellen die globale Suche liefert, bevor Nachbarn dazukommen.
+# How many spots the global search returns before neighbours are added.
 _GLOBAL_CANDIDATES = 120
-# Absichten, die auf Breite zielen und deshalb das ganze Material sehen duerfen.
+# Intents that aim at breadth and may therefore see all the material.
 _UEBERBLICK_INTENTS = ("GENERIC", "GREETING")
 _NEIGHBOR_RADIUS = 3
-# Zwei Anker naeher als so viele Stellen: die Luecke dazwischen wird gefuellt, damit
-# eine Angabe ZWISCHEN beiden nicht durchfaellt.
+# When two anchors are nearer than this, the gap between them is filled.
 _NEIGHBOR_BRIDGE = 4
-# Deckel fuer gleichzeitige DB-Abfragen, unter der Poolgroesse (20), damit parallele
-# Suchen den Pool nie leerraeumen. Gilt je Prozess.
+# Cap on concurrent queries, below the pool size.
 _RETRIEVE_CONCURRENCY = 10
 _retrieve_sem: Optional[asyncio.Semaphore] = None
 
-# NENNT DIE FRAGE EINE QUELLE BEIM NAMEN, wird die vorgezogen. Sonst gewinnt eine
-# Quelle, die das Werk nur ZITIERT. Erkannt am Titelkopf von Seite 1: ein langes
-# Fragewort, das in GENAU EINER Quelle passt. Allerweltswoerter passen ueberall und
-# zaehlen darum nicht.
+# When the question names a source, that one is preferred.
 _NAME_TITLE_CHARS = 400          # how much of page 1 counts as the self-naming "title"
 _NAME_MIN_TOKEN_LEN = 5          # shorter tokens (der/die/und, abbreviations) are too loose
 _NAME_BOOST_FACTOR = 0.95        # boosted distance = global_best * this → Primary, peers survive
@@ -114,34 +103,17 @@ def _get_retrieve_sem() -> asyncio.Semaphore:
 
 
 def _truncate_query_for_embedding(text: str) -> str:
-    """Trim a RETRIEVAL query to AIA_EMBED_QUERY_MAX_CHARS before it is embedded.
-
-    The question is embedded as ONE vector. A very long query produces a washed-out
-    average vector (worse retrieval) and can overflow the embedding model's input
-    limit — which is provider-configurable here (an admin may pick a 512-token
-    model), so we cannot assume a high ceiling. Retrieval intent lives in the
-    opening of a question, so a prefix is a fine search anchor. Only the SEARCH
-    query is shortened; the FULL question still reaches the answer model."""
+    """Shortens the search query before embedding, the full question still goes to the model."""
     if not text:
         return text
     return text[:AIA_EMBED_QUERY_MAX_CHARS]
 
 
 def _title_word_match(token: str, hword: str) -> bool:
-    """True if a question token names a source-title word (lang-agnostic, no wordlist).
-
-    Three shapes, tuned to separate a real NAME from an incidental generic word:
-      - exact:                token == hword                       ("grundgesetz")
-      - name + law-type word: hword extends token by ≥4 chars      ("marke"→"markengesetz")
-      - question inflection:  token extends hword by ≤3 chars       ("grundgesetzes"→"grundgesetz")
-    The ≥4 vs ≤3 split is the crux: a real title compounds the typed name with a law-type
-    word ("…gesetz", "…ordnung", "…act"); a false match only adds an inflection ("allgemeine"
-    →"allgemeines", "stelle"→"stellen"), which this rejects.
-    """
+    """True when part of the question names a word from a source title."""
     if token == hword:
         return True
-    # header = typed stem + a law-type word (≥4 chars). The stem must be substantial (≥7)
-    # so a short common word can't prefix a law compound ("grund"→"grundgesetz").
+    # The typed stem must be long enough, otherwise it matches every statute.
     if len(token) >= 7 and hword.startswith(token) and len(hword) - len(token) >= 4:
         return True
     # question-side inflection of a substantial base name ("grundgesetzes"→"grundgesetz").
@@ -151,15 +123,7 @@ def _title_word_match(token: str, hword: str) -> bool:
 
 
 def _named_source_ids(question: str, headers: dict[int, str]) -> set[int]:
-    """Source ids the question NAMES, via discriminative self-title match (lang-agnostic).
-
-    ``headers`` = {source_id: lowercased title region (page-1 header)}. A question token
-    (len ≥ ``_NAME_MIN_TOKEN_LEN``) that ``_title_word_match``-es a word in EXACTLY ONE
-    header marks that source as named. A token hitting several headers ("gesetz", "artikel")
-    is generic and ignored, so this can only concentrate onto a uniquely-named source, never
-    flood. A source whose copy is a fragment without its title page (no self-name in the
-    header) simply isn't matched — we never invent a boost for missing content.
-    """
+    """Sources the question names, via an unambiguous title match."""
     qtokens = {m.group(0).lower() for m in _NAME_TOKEN_RE.finditer(question or "")}
     if not qtokens or not headers:
         return set()
@@ -174,21 +138,12 @@ def _named_source_ids(question: str, headers: dict[int, str]) -> set[int]:
 
 
 def _reserve_question_budget(budget: int, question: str) -> int:
-    """Subtract the question's chars from the context char budget.
-
-    The budget caps only the retrieved documents, but the question is appended
-    AFTER the context in the answer prompt (aia_rag_user_message), so context +
-    question could overflow the model window together. Reserve room for the
-    question (plus a little prompt scaffolding) and floor at 1000 so even a tiny
-    admin budget leaves usable context. Usually negligible against a 250k budget;
-    it matters when an admin sets a small budget and a user pastes a long question."""
+    """Subtracts the characters of the question from the context budget."""
     return max(1000, budget - len(question or "") - 200)
 
 
 def _parse_page_refs(question: str) -> list[int]:
-    """Extract explicit page numbers from a question. Returns them sorted and
-    de-duplicated (ranges expanded); empty when no page is named, so the caller
-    falls back to normal retrieval. See _PAGE_REF_RE for the recognised forms."""
+    """Pulls explicit page numbers out of a question, sorted and without duplicates."""
     pages: set[int] = set()
     for m in _PAGE_REF_RE.finditer(question or ""):
         start = int(m.group(1))
@@ -202,11 +157,7 @@ def _parse_page_refs(question: str) -> list[int]:
 
 
 def _first_source_kind(source_ids: Optional[list[int]], sources_by_id: dict[int, dict]) -> Optional[str]:
-    """Classify the FIRST selected source as ``"pdf"`` / ``"media"`` / None.
-
-    Scope ("Seite 5", "Minute 10") applies to the lead source — with several
-    sources it is ambiguous which one, so we take the first and ignore the rest.
-    PDFs carry pages, media carries timestamps; anything else has neither → None."""
+    """Classifies the first chosen source as PDF, media or None."""
     if not source_ids:
         return None
     src = sources_by_id.get(source_ids[0])
@@ -221,12 +172,7 @@ def _first_source_kind(source_ids: Optional[list[int]], sources_by_id: dict[int,
 
 
 def _parse_scope_response(content: str) -> dict:
-    """Parse the scope extractor's reply into ``{"unit", "intervals"}``.
-
-    Tolerant: strips <think> blocks and code fences, finds the first JSON object,
-    coerces ``unit`` to page/time/unknown/None and keeps only well-formed
-    ``[from, to]`` intervals (``to`` may be null for an open end). Any garbage →
-    empty scope, so the caller falls back to the regex / normal retrieval."""
+    """Reads the reference call's answer leniently, nonsense yields an empty reference."""
     raw = re.sub(r"<think>.*?</think>", "", content or "", flags=re.DOTALL)
     raw = raw.replace("```json", "").replace("```", "")
     m = re.search(r"\{.*\}", raw, re.DOTALL)
@@ -256,9 +202,7 @@ _MAX_TIME_SPAN_SEC = 6 * 3600  # safety cap so an open/absurd time range can't p
 
 
 def _expand_page_intervals(intervals: list[list], max_page: Optional[int]) -> list[int]:
-    """Expand ``[[from, to], ...]`` page intervals to a sorted page list. An open end
-    (``to is None``) runs to ``max_page``; an absurd span collapses to the start
-    (a typo'd "1-9999" must not drag in the whole document)."""
+    """Expands page ranges into a sorted page list."""
     pages: set[int] = set()
     for a, b in intervals:
         if b is None:
@@ -271,27 +215,14 @@ def _expand_page_intervals(intervals: list[list], max_page: Optional[int]) -> li
 
 
 def _servable_scope_intervals(unit: Optional[str], intervals: list[list]) -> list[list]:
-    """Drop scope intervals that are almost certainly NOT a real page/time scope.
-
-    A bare-number ("unknown") OPEN range — "ab 3", "from 3 on" — is overwhelmingly content
-    or a date ("ab dritten Juli" → the model returns ``[[3, None]]``), not a page the user
-    pointed at. Left in, it gets opportunistically mapped to a PDF page and the open end
-    collapses to a single page (e.g. Seite 3), producing a misleading "not in the sources"
-    answer scoped to the wrong page. So for ``unit="unknown"`` we keep only CLOSED ranges
-    ("zwischen 12 und 13" → ``[[12, 13]]``), which carry a genuine "between X and Y" intent.
-    An EXPLICIT page/time ask keeps ``unit`` "page"/"time" and is untouched (an open
-    "ab Seite 10" stays a real scope)."""
+    """Drops ranges that are almost certainly no real page or time reference."""
     if unit != "unknown":
         return intervals
     return [iv for iv in intervals if iv[1] is not None]
 
 
 def _page_scope_too_large(intervals: list[list], max_page: Optional[int], limit: int) -> bool:
-    """True when the requested page scope spans more than ``limit`` pages — i.e. it
-    covers (most of) the document. That is an overview request, not a precise scope:
-    the small candidate set is what makes scoping accurate, and a huge range won't fit
-    the context budget anyway. The caller routes such asks to GENERIC instead of
-    scoping. Cheap span count (no list build); overlaps over-count, which is safe."""
+    """True when the page reference covers nearly the whole document and is thus an overview."""
     total = 0
     for a, b in intervals:
         if b is None:
@@ -304,9 +235,7 @@ def _page_scope_too_large(intervals: list[list], max_page: Optional[int], limit:
 
 
 def _time_intervals_to_seconds(intervals: list[list], max_seconds: Optional[float]) -> list[tuple]:
-    """Convert MINUTE intervals to inclusive second windows. A point ``[10,10]`` →
-    the whole 10th minute ``(600, 660)``; a range ``[10,12]`` → ``(600, 780)``; an
-    open end → up to ``max_seconds``. Span-capped so an open/absurd range stays sane."""
+    """Turns minute ranges into second windows, capped against absurd spans."""
     out: list[tuple] = []
     for a, b in intervals:
         if b is None:
@@ -323,8 +252,7 @@ def _time_intervals_to_seconds(intervals: list[list], max_seconds: Optional[floa
 
 
 def _retrieve_page_scoped_context(source_ids: list[int], pages: list[int]) -> list[dict]:
-    """Load the given sources' chunks and keep only those on the requested pages.
-    Document order is preserved (get_aia_chunks_by_source orders by page/time)."""
+    """Loads the chunks of the sources and keeps only the requested pages."""
     wanted = set(pages)
     chunks: list[dict] = []
     for sid in source_ids:
@@ -335,8 +263,7 @@ def _retrieve_page_scoped_context(source_ids: list[int], pages: list[int]) -> li
 
 
 def _retrieve_time_scoped_context(source_id: int, ranges_seconds: list[tuple]) -> list[dict]:
-    """Load a media source's chunks and keep those whose ``[start_time, end_time]``
-    overlaps any requested second window. Non-media chunks (no start_time) are skipped."""
+    """Loads a medium's chunks and keeps those that fall into the time window."""
     chunks: list[dict] = []
     for c in db.get_aia_chunks_by_source(source_id):
         st = c.get("start_time")
@@ -350,9 +277,7 @@ def _retrieve_time_scoped_context(source_id: int, ranges_seconds: list[tuple]) -
     return chunks
 
 
-# Absage fuer einen Seiten- oder Zeitbezug, den wir nicht bedienen koennen. BEWUSST
-# anders formuliert als der Absage-Satz: der meldet eine echte inhaltliche Luecke,
-# dieser hier nur, dass genau diese Einschraenkung nicht geht.
+# Refusal for a reference that cannot be served, worded differently from the content one.
 _SCOPE_UNFULFILLABLE_MSG = {
     "de": "Dabei kann ich dir leider nicht weiterhelfen. Bitte formuliere deine Frage anders oder wähle das passende Material aus.",
     "en": "I'm afraid I can't help with that. Please rephrase your question or select the relevant source.",
@@ -360,25 +285,14 @@ _SCOPE_UNFULFILLABLE_MSG = {
 
 
 def _scope_unfulfillable_message(scope_requested: bool, scope_chunks, chat_lang: str) -> Optional[str]:
-    """Return a generic can't-help message when a page/time scope was explicitly
-    requested but could not be served (``scope_chunks`` empty/None), else None.
-    Kept separate from the 'no info in sources' sentinel — see _SCOPE_UNFULFILLABLE_MSG."""
+    """Message for when a requested page or time reference could not be served."""
     if scope_requested and not scope_chunks:
         return _SCOPE_UNFULFILLABLE_MSG.get(chat_lang, _SCOPE_UNFULFILLABLE_MSG["de"])
     return None
 
 
 def _parse_understanding(content: str) -> tuple[str, dict, list[str]]:
-    """Parse the combined query-understanding reply into
-    ``(intent, scope, subqueries)``.
-
-    Tolerant: strips <think>/code-fences, takes the first JSON object. ``intent``
-    defaults to SPECIFIC (the conservative route) and is GREETING only for a line that
-    is nothing but a greeting; ``scope`` is validated by
-    ``_parse_scope_response``; ``subqueries`` is the question split into its distinct
-    asks for retrieval (empty when not decomposed / missing → caller uses the full
-    question). If the JSON is broken we still salvage a GENERIC token if present. Any
-    garbage → ``("SPECIFIC", {"unit": None, "intervals": []}, [])``."""
+    """Reads route, reference and sub-questions from the pre-call answer."""
     import json
     raw = re.sub(r"<think>.*?</think>", "", content or "", flags=re.DOTALL)
     raw = raw.replace("```json", "").replace("```", "")
@@ -400,12 +314,12 @@ def _parse_understanding(content: str) -> tuple[str, dict, list[str]]:
     return intent, scope, subqueries
 
 
-# Ein Sprachname, mehr nicht: der Wert geht ungeprueft in den naechsten Prompt.
+# A language name and nothing more, the value goes unchecked into the next prompt.
 _SPRACHNAME = re.compile(r"^[A-Za-z][A-Za-z \-]{1,29}$")
 
 
 def _parse_answer_language(content: str) -> str:
-    """Der englische Name der Fragesprache aus dem Vor-Call, leer wenn unbrauchbar."""
+    """The English name of the question language from the pre-call, empty when unusable."""
     import json
     raw = re.sub(r"<think>.*?</think>", "", content or "", flags=re.DOTALL)
     m = re.search(r"\{.*\}", raw.replace("```json", "").replace("```", ""), re.DOTALL)
@@ -421,16 +335,7 @@ def _parse_answer_language(content: str) -> str:
 async def _understand_query(
     llm, question: str, letzte_runde: Optional[dict] = None
 ) -> tuple[str, dict, list[str], str, str, str]:
-    """ONE pre-call that does ALL query-understanding jobs in a single round-trip:
-    route GENERIC vs SPECIFIC, extract any explicit page/time scope, split compound
-    questions into subqueries, and — when ``letzte_runde`` is given — turn a follow-up
-    into a self-contained question. Returns
-    ``(intent, scope, subqueries, nachfrage_art, frage, sprache)`` where ``frage`` is
-    the question retrieval should use (the original one unless it was rewritten) and
-    ``sprache`` is the English name of the question's language ("" when unreadable).
-    On any failure → ``("SPECIFIC", empty scope, [], KEINE, question)`` — the
-    conservative route; the regex fallback still covers simple page refs downstream.
-    Runs in a worker thread so a stalled provider cannot block the event loop."""
+    """One pre-call for everything: route, reference, sub-questions, follow-up and language."""
     import asyncio
     def _call():
         # 60s covers Ollama cold-start; warm calls return in ~500ms.
@@ -442,11 +347,9 @@ async def _understand_query(
                 {"role": "user", "content": _followup.vorcall_eingabe(question, letzte_runde)},
             ],
             temperature=0.0,
-            # Erzwingt gueltiges JSON statt es nur zu erbitten, wie in den drei Aufrufen
-            # des Zeitplans auch. Nimmt dem Prompt die Formatarbeit ab.
+            # Forces valid JSON instead of merely asking for it.
             response_format={"type": "json_object"},
-            # Platz fuer die Teilfragen einer zusammengesetzten Frage, und fuer ein
-            # Modell, dessen Denken sich nicht abstellen laesst.
+            # Room for sub-questions and for a model whose thinking cannot be turned off.
             max_tokens=model_limits.PRECALL_MAX_TOKENS,
             **(llm._extra_body and {"extra_body": llm._extra_body} or {}),
         )
@@ -467,29 +370,13 @@ async def _understand_query(
 
 
 def _context_budget() -> int:
-    """Zeichenbudget fuer den Kontext, admin-einstellbar ueber ``aia_context_max_chars``.
-
-    KIS laeuft auf sehr verschiedenen Aufbauten, von einem lokalen Ollama bis zu einem
-    grossen Cloud-Modell, deshalb ist die Zahl einstellbar. Sie wird nur dann gekuerzt,
-    wenn ueber das Modell nachweislich bekannt ist, dass es weniger vertraegt, sonst
-    kostet ein zu hoch eingetragener Wert bei JEDER Anfrage einen Fehlversuch.
-
-    Dieselbe Rechnung wie bei den Werkzeugen, deshalb steht sie nur einmal in
-    ``tasks._context_budget`` und wird hier nur weitergereicht.
-    """
+    """Character budget for the context, configurable in the admin area."""
     from src.features.ai_assistant.tasks._context_budget import context_budget
     return context_budget()
 
 
 def _full_context_if_fits(source_ids: Optional[list[int]], max_chars: int) -> Optional[list[dict]]:
-    """Return ALL chunks of the active sources iff their total fits the budget.
-
-    For an overview/summary question over source(s) small enough to fit the
-    context window, sending the full content beats retrieving a sample: the LLM
-    sees the whole document, nothing is missed, and we skip the strategy LLM call
-    entirely. Short-circuits to None as soon as the running total exceeds the
-    budget, so a 117-page doc bails cheaply and falls back to retrieval.
-    """
+    """All chunks of the active sources, if together they fit the budget."""
     if not source_ids:
         return None  # keine Auswahl -> nichts zu laden, der Suchweg uebernimmt
     all_chunks: list[dict] = []
@@ -507,19 +394,9 @@ async def _retrieve_generic_context(
     provider, workspace_id: int, source_ids: list[int], question: str,
     budget: int = 0,
 ) -> list[dict]:
-    """Build the GENERIC (overview) context purely from pgvector retrieval.
-
-    Runs the question through ONE wide hybrid search, dedups the hits, then
-    guarantees every active source is represented (per-source mini-search
-    fallback, then the source's first chunk). The round-robin budget top-up below
-    fills the rest of the context in document order, so the overview spans the
-    whole content — no sub-query decomposition and no strategy LLM call (for a
-    broad question relevance is weak; coverage does the real work). No summaries
-    involved — chunks + embeddings are the only precomputed data.
-    """
+    """Builds the overview context from one broad search plus coverage per source."""
     import asyncio
-    # Cap the retrieval query (embed + lexical search). Long pastes overflow the
-    # embedding model / blur the vector; the full question still reaches the answer.
+    # Caps the search query, the full question still goes to the model.
     question = _truncate_query_for_embedding(question)
     question_vector = await asyncio.to_thread(provider.embed_one, question)
     hits = await asyncio.to_thread(
@@ -552,16 +429,12 @@ async def _retrieve_generic_context(
                 diverse.append(raw[0])
         chunks = diverse + remaining
 
-    # Absolute fallback: retrieval returned nothing (e.g. media with no matchable
-    # text). Hand over an even-spread sample of raw chunks so the LLM still sees
-    # the document; the char budget at the call site truncates the rest.
+    # Last resort: an even sample of raw chunks.
     if not chunks:
         for sid in source_ids or []:
             _raw = await asyncio.to_thread(db.get_aia_chunks_by_source, sid)
             chunks.extend(_sample(_raw, _GENERIC_FALLBACK_SAMPLE))
-    # Auffuellen: die Suche allein laesst das Budget halb leer und eine Quelle kann
-    # mit einer einzigen Stelle dastehen. Der Rest wird reihum ueber alle Quellen
-    # gefuellt, Treffer zuerst, dann jede Quelle abwechselnd.
+    # Top up round robin across all sources, hits first.
     if budget and (source_ids or []):
         _OVERHEAD = 150  # ~chars for the <document>/<source>/<content> wrapper
         seen_keys = {(c["source_id"], c.get("page_number"), (c.get("content") or "")[:80]) for c in chunks}
@@ -587,9 +460,7 @@ async def _retrieve_generic_context(
                 approx += cost
                 progressing = True
 
-    # _seq ist die Runde je Quelle. _order_round_robin verschraenkt danach: erst
-    # Runde 0 aller Quellen, dann Runde 1. Schneidet das Budget ab, faellt hinten
-    # weg, also behaelt jede Quelle ihre besten Stellen.
+    # _seq is the round per source so each keeps its best spots.
     seq_by_source: dict[int, int] = {}
     for c in chunks:
         sid = c["source_id"]
@@ -604,12 +475,7 @@ async def _retrieve_generic_context(
 
 
 def _should_skip_intent_classification(source_text, source_ids, question: str) -> bool:
-    """Cheap pre-filter: skip the LLM intent call when the route is obvious.
-
-    Popup actions carry ``source_text`` and are always topic-focused; no
-    sources means hybrid search is the only option; very long questions are
-    nearly always specific and blow up the classifier premise. All -> SPECIFIC.
-    """
+    """Cheap pre-check that saves the routing call when the route is obvious."""
     return (
         bool(source_text)
         or not source_ids
@@ -626,12 +492,7 @@ def _sample(items: list, k: int) -> list:
 
 
 def _diversify_by_source(chunks: list[dict], source_ids: list[int]):
-    """Reorder hybrid-search hits so each source gets a representative first.
-
-    Returns ``(diverse, remaining, missing)``: one chunk per seen source up
-    front, the rest deferred, and the ``source_ids`` that produced no hit at all
-    (the caller backfills those via per-source search / raw chunks).
-    """
+    """Reorders the hits so every source gets a representative first."""
     seen_sources: set[int] = set()
     diverse_chunks: list[dict] = []
     remaining: list[dict] = []
@@ -646,16 +507,7 @@ def _diversify_by_source(chunks: list[dict], source_ids: list[int]):
 
 
 def _order_round_robin(chunks: list[dict], source_id_to_qnum: dict[int, int]) -> list[dict]:
-    """Interleave chunks so each source's Nth segment precedes any (N+1)th.
-
-    Sorts stably by ``(_seq, panel_order)``: generic segments carry a per-source
-    sequence index (``_seq`` 0,1,2…) so round 0 of every source comes first, then
-    round 1, and so on — when the downstream char budget truncates, it cuts the
-    late rounds and every source keeps its early (most representative) segments.
-
-    Chunks without ``_seq`` (the SPECIFIC path) all sort as round 0, so the
-    secondary panel-order key simply groups them by source as before.
-    """
+    """Interleaves the chunks so every source keeps its early spots."""
     return sorted(
         chunks,
         key=lambda c: (c.get("_seq", 0), source_id_to_qnum.get(c["source_id"], 0)),
@@ -663,10 +515,7 @@ def _order_round_robin(chunks: list[dict], source_id_to_qnum: dict[int, int]) ->
 
 
 def _take_chunks_within(hits: list[dict], char_share: int) -> list[dict]:
-    """Take a source's TOP chunks (hits are RRF-ranked, most relevant first) until
-    their content fills ``char_share``. Always takes at least one chunk so a source
-    is never represented by nothing. Tags each with ``_seq`` = its per-source
-    relevance rank, so _order_round_robin can interleave sources fairly."""
+    """Takes the best chunks of a source until its share is full, at least one."""
     taken: list[dict] = []
     used = 0
     for i, c in enumerate(hits):
@@ -686,27 +535,10 @@ def _expand_with_neighbors(
     source_id: int,
     bridge: int = _NEIGHBOR_BRIDGE,
 ) -> list[dict]:
-    """Weitet Anker zu Fenstern von ±``radius`` Stellen und schliesst Luecken.
-
-    ``anchors`` sind die besten Treffer der Quelle, ``doc_chunks`` alle Stellen
-    derselben Quelle in Dokumentreihenfolge. Jeder Anker wird zu ``[i-radius,
-    i+radius]``; Fenster mit Abstand ``<= bridge`` verschmelzen, damit zwei Anker,
-    die die Antwort EINRAHMEN, auch das Dazwischen mitnehmen. Zurueck kommen die
-    abgedeckten Stellen in Dokumentreihenfolge, jede mit ``_anchor_dist``, dem
-    Abstand zum NAECHSTEN Anker. Kleiner ist besser.
-
-    Sortiert wird nach der fusionierten Note aus Vektor- und Stichwortsuche. Der
-    reine Kosinus allein verwirft, was die Stichwortsuche gerade gefunden hat.
-
-    Der Abstand gilt JE STELLE, nicht je Fenster. Frueher bekam jede Stelle eines
-    verschmolzenen Fensters denselben Wert. Bei einem Transkript decken die Anker das
-    ganze Dokument ab, alles wurde gleich bewertet, das Sortieren lief ins Leere und
-    das Budget schnitt vorne ab: die Begruessung statt der Antwort.
-    """
+    """Expands anchors into windows and closes gaps, the distance applies per spot."""
     pos = {c["id"]: i for i, c in enumerate(doc_chunks)}
     n = len(doc_chunks)
-    # (index, distance) per anchor, sorted by index — the input for both the windows
-    # below and the per-chunk nearest-anchor lookup.
+    # Anchors as a pair of spot and distance, sorted by spot.
     marks: list[tuple[int, float]] = []
     for a in anchors:
         i = pos.get(a["id"])
@@ -733,11 +565,7 @@ def _expand_with_neighbors(
             spans.append([lo, hi])
 
     def _nearest(j: int) -> tuple[float, int]:
-        """Sort key and hop count of the anchor closest to chunk index ``j``.
-
-        bisect over the sorted anchor indices, so only the two neighbouring anchors
-        are compared instead of all of them — the whole expansion stays linear in the
-        number of covered chunks even at 24 anchors per source."""
+        """Sort key and distance of the nearest anchor, via bisect instead of all comparisons."""
         k = bisect_left(mark_idx, j)
         best: Optional[tuple[int, float]] = None
         for cand in (k - 1, k):
@@ -753,9 +581,7 @@ def _expand_with_neighbors(
         for j in range(lo, hi + 1):
             c = dict(doc_chunks[j])
             c["source_id"] = source_id
-            # ``_anchor_gap`` = Abstand zum Anker. Ohne ihn gewinnt beim Sortieren die
-            # Stelle, die im Dokument frueher steht, und nicht die, die den Begriff
-            # wirklich traegt.
+            # Without the anchor distance the earlier spot wins instead of the carrying one.
             c["_anchor_dist"], c["_anchor_gap"] = _nearest(j)
             out.append(c)
     return out
@@ -769,32 +595,16 @@ async def _retrieve_specific_context(
     question: str,
     char_budget: int,
 ) -> list[dict]:
-    """The SPECIFIC retrieval path: per-source hybrid anchors + neighbour expansion.
-
-    Extracted from :func:`chat` so the retrieval EVAL harness
-    (``scripts/rag_retrieval_eval.py``) exercises the exact code that ships,
-    instead of a copy that silently drifts. Pure retrieval: no request object, no
-    streaming, no LLM — it takes the already-resolved queries and returns the
-    chunks that go into the prompt, in document order per source.
-    """
+    """The retrieval path for specific questions: anchors per source plus neighbourhood."""
     # Cap each retrieval query (embed + lexical search) — see _truncate_query_for_embedding.
     _retrieval_queries = [_truncate_query_for_embedding(q) for q in retrieval_queries]
     _qvecs = await asyncio.to_thread(provider.embed, _retrieval_queries)
     _query_pairs = list(zip(_retrieval_queries, _qvecs))
 
-    # NACHBAR-ERWEITERUNG. Die Suche liefert Ankerpunkte, dazu kommen die
-    # Nachbarstellen im Dokument: die Antwort steht fast immer NEBEN etwas
-    # Auffindbarem. Alles passt in EIN Fenster und wird in einem Aufruf beantwortet.
-    #
-    # Keine Fuzzy-Suche hier: die kostet ~3s je Aufruf und die Vektorsuche ist
-    # gegen Tippfehler ohnehin robust.
+    # Neighbour expansion: the answer almost always sits next to something findable.
     _sem = _get_retrieve_sem()
 
-    # EINE Suche ueber ALLE Quellen, dann die besten Stellen zuerst, bis das Budget
-    # voll ist. Frueher lief eine Suche je Quelle mit gestaffelter Platzverteilung,
-    # weil die Noten je Quelle nicht vergleichbar waren. Seit die Stichwortsuche nach
-    # Seltenheit gewichtet, ist die globale Suche gleich treffsicher (gemessen am
-    # 16.08.2026 an 15 Faellen) und die Staffelung faellt weg.
+    # One search across all sources, then the best spots first.
     _kandidaten: dict[int, dict] = {}
     for _qtext, _qvec in _query_pairs:
         for a in (await asyncio.to_thread(
@@ -807,8 +617,7 @@ async def _retrieve_specific_context(
         logger.info("SPECIFIC: keine Treffer ueber {} Quellen", len(search_source_ids))
         return []
 
-    # Nachbarn holen. Das laeuft weiter JE QUELLE, weil ein Fenster nur innerhalb eines
-    # Dokuments Sinn ergibt, aber es entscheidet nichts mehr ueber die Verteilung.
+    # Each source fetches neighbours for itself, a window only holds inside a document.
     _je_quelle: dict[int, list[dict]] = {}
     for a in _kandidaten.values():
         _je_quelle.setdefault(a["source_id"], []).append(a)
@@ -825,8 +634,7 @@ async def _retrieve_specific_context(
     _headers = {sid: kopf for (sid, _a), (_f, kopf)
                 in zip(_je_quelle.items(), _fenster_ergebnis)}
 
-    # Nennt die Frage eine Quelle beim Titel, wird deren Note verbessert. Ein Dokument,
-    # das sie nur ZITIERT, nimmt ihr so nicht mehr den Platz weg.
+    # When the question names a source by title, its score is improved.
     if len(_je_quelle) > 1:
         _named = _named_source_ids(question, _headers)
         if _named:
@@ -836,8 +644,7 @@ async def _retrieve_specific_context(
                         if c["_anchor_dist"] > 0 else c["_anchor_dist"] / _NAME_BOOST_FACTOR
             logger.info("SPECIFIC named-source boost → Quellen {}", sorted(_named))
 
-    # Beste Stellen zuerst, bei gleicher Note der Anker vor seinen Nachbarn. Dann
-    # auffuellen bis das Budget voll ist. Das ist die ganze Verteilung.
+    # Best spots first, then top up until the budget is full.
     alle.sort(key=lambda c: (c.get("_anchor_dist", 1.0), c.get("_anchor_gap", 0)))
     from src.features.ai_assistant.tasks._context_budget import specific_context_budget
     chunks = _take_chunks_within(alle, min(char_budget, specific_context_budget()))
@@ -866,19 +673,7 @@ def _pack_context_batches(
     all_sources_list: dict[int, dict],
     transcript_by_source: dict[int, list[dict]],
 ) -> tuple[list[str], dict[int, set]]:
-    """Pack chunks into ONE ``<documents>`` context string of ≤ ``budget`` chars.
-
-    Every path (GENERIC / SPECIFIC / SCOPE / popup) is single-batch: a chunk that
-    would overflow the budget is skipped, and later smaller chunks may still fit.
-    Neighbor expansion bounds SPECIFIC to one coherent window too, so there is no
-    map-reduce and no gap-filling hallucination.
-
-    Returns ``(batches, seen_pages_by_source)`` where ``batches`` holds at most one
-    entry and ``seen_pages_by_source`` are the pages the model saw (media sources
-    map to an EMPTY set → the attribution cross-check reads that as "source
-    retrieved, accept", since a timestamp chip has no page to validate). An empty
-    ``chunks`` yields ``([], {})``.
-    """
+    """Packs the chunks into one context block and reports the pages seen."""
     batches: list[str] = []
     cur_parts: list[str] = []
     cur_len = 0
@@ -957,14 +752,7 @@ router = APIRouter(tags=["ki-assistent: chat"])
 
 
 def _stream_usage_tokens(chunk) -> tuple[Optional[int], Optional[int]]:
-    """Extract (tokens_in, tokens_out) from a streaming chunk.
-
-    With ``stream_options={"include_usage": True}`` the final chunk of an
-    OpenAI-compatible stream carries a ``usage`` object; normal content chunks
-    do not. Providers that don't support it send ``usage=None``. Returns
-    ``(None, None)`` whenever usage is absent so the caller can keep the last
-    real value.
-    """
+    """Pulls the token counts out of a stream chunk, otherwise (None, None)."""
     usage = getattr(chunk, "usage", None)
     if usage is None:
         return None, None
@@ -975,16 +763,7 @@ def _stream_usage_tokens(chunk) -> tuple[Optional[int], Optional[int]]:
 
 
 def _enrich_chat_trace(trace_id, question, answer, *, user_id, session_id) -> None:
-    """Upsert the aia-chat trace with the real question/answer + user/session.
-
-    ``@observe`` finalizes the trace when ``chat()`` returns its
-    StreamingResponse, but the answer is only produced LATER inside the
-    streaming generator — outside the observe context. So we write back by
-    trace id via the client (captured while still in context) instead of
-    ``update_current_observation``, which would target a closed context.
-    Tracing must never break the user-facing response, so failures are
-    swallowed.
-    """
+    """Backfills question and answer via the trace id, errors stay silent."""
     if not trace_id:
         return
     try:
@@ -1013,16 +792,13 @@ async def chat(
     _trace_llm(llm, "aia-chat")
     user_id = current_user["user_id"]
     logger.info("Chat: request received user={} workspace={}", user_id, workspace_uuid[:8])
-    # Captured here while still inside the @observe context; the streaming
-    # generator runs after this function returns, so it can no longer reach
-    # the trace via context — only by id.
+    # Caught here because the stream only runs after leaving this function.
     try:
         _trace_id = langfuse_context.get_current_trace_id()
     except Exception:
         _trace_id = None
 
-    # Burst block: at >50 chat requests in 60s the user is blocked for 10 min.
-    # Raises 429 if currently blocked or the limit is being exceeded right now.
+    # Block on too many requests in a short time, raises 429.
     enforce_burst(user_id, locale)
 
     _started_at = _time.monotonic()
@@ -1035,19 +811,14 @@ async def chat(
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
 
-    # Per-(workspace, user) AI tutor language; drives the locale-specific
-    # "no info" sentinel injected into the RAG system prompt.
+    # The tutor language per course room and person drives the refusal sentence.
     _user_settings = db.get_aia_user_settings(workspace["id"], user_id) or {}
     chat_lang = _user_settings.get("chat_lang", "de")
 
-    # Niveau-gerechte Antworten gibt es nur, wenn der Eigentuemer den Sprachtrainer
-    # freigegeben UND der Leser ihn selbst eingeschaltet hat. Das Niveau haengt am
-    # Nutzer, nicht am Workspace, darum braucht es beide Schalter.
+    # Level-appropriate answers need both switches, course and person.
     _adaptive_suffix, _applied_level = "", None
     if db.is_language_training_active(workspace["id"]) and _user_settings.get("language_training_active", False):
-        # Beschreibung und Sprachprobe der Stufe kalibrieren den Ton. Ohne Niveau
-        # aendert sich nichts. Haengt spaeter an der NUTZER-Nachricht direkt neben der
-        # Frage, dort wiegt es beim Modell am schwersten.
+        # The level block hangs on the user message, where it weighs most.
         _level = db.get_user_language_level(user_id)["language_level"]
         _example, _description = level_texts(_level)
         _adaptive_suffix, _applied_level = adaptive_chat_appendix(
@@ -1061,8 +832,7 @@ async def chat(
             _description,
         )
 
-    # Sealed OUTSIDE the trainer gate: the sources guard goes out on every chat, with
-    # or without the adaptive block, and seal_adaptive_suffix keeps it LAST.
+    # The source guard goes along with every chat and always stays last.
     _adaptive_suffix = seal_adaptive_suffix(_adaptive_suffix)
 
     # Resolve enrollment_id for per-link chat separation (needed for history fetch)
@@ -1077,8 +847,7 @@ async def chat(
         if all(s["status"] == "ready" for s in sources_check):
             db.update_aia_workspace_status(workspace_uuid, "ready")
 
-    # Resolve active_source_ids (UUIDs → DB int ids). Keep the resolved source
-    # dicts so the page-scope gate can check single-source-and-PDF without a refetch.
+    # Resolve source UUIDs to database ids and keep the rows.
     source_ids: list[int] | None = None
     resolved_sources: dict[int, dict] = {}
     if body.active_source_ids is not None:
@@ -1090,11 +859,7 @@ async def chat(
                 resolved_sources[source["id"]] = source
         source_ids = resolved if resolved else None
 
-    # VOR-CALL: ein LLM-Aufruf entscheidet GENERIC gegen SPECIFIC, holt einen
-    # Seiten- oder Zeitbezug heraus und macht eine Folgefrage eigenstaendig
-    # (siehe routes/_followup). Ist der Weg offensichtlich (Auswahl-Aktion, keine
-    # Quellen, sehr lange Frage), entfaellt er und es gilt SPECIFIC ohne Bezug.
-    # Der Verlauf erreicht NIE den Antwort-Aufruf, nur diesen Vor-Call.
+    # Pre-call: route, reference and follow-up in one go, the history stays here.
     _letzte_runde = None
     if _should_skip_intent_classification(body.source_text, source_ids, body.question):
         intent, scope_raw, subqueries = "SPECIFIC", None, []
@@ -1115,9 +880,7 @@ async def chat(
         logger.info("Chat: pre-call routed intent={} scope={} subqueries={} nachfrage={} in {:.1f}s ('{}' across {} sources)",
                     intent, scope_raw, len(subqueries), _nachfrage, _t_pc.monotonic() - _t_pc0, body.question[:60], len(source_ids or []))
 
-    # Umformen der letzten Antwort ("in 3 Stichpunkten"): es gibt nichts zu suchen,
-    # der Stoff IST diese Antwort. Suche und Kontext entfallen, die Chips der Runde
-    # werden uebernommen.
+    # When reshaping, the last answer is the material, search and context are skipped.
     _umformen = _nachfrage == _followup.UMFORMEN and bool(_letzte_runde)
     if _umformen:
         logger.info("Chat: Folgefrage formt die letzte Antwort um ('{}'), keine Suche",
@@ -1126,42 +889,30 @@ async def chat(
         logger.info("Chat: Folgefrage eigenstaendig gemacht: '{}' → '{}'",
                     body.question[:60], rewritten_question[:80])
 
-    # Reiner Gruss: "hi" fragt nichts, eine Absage waere also falsch. Er bekommt den
-    # breiten Kontext wie ein Ueberblick, aber einen eigenen Prompt, der zurueckgruesst,
-    # die Themen nennt, Beispielfragen anbietet und zurueckfragt. NUR der nackte
-    # Gruss, "wie geht es dir" nicht.
+    # A bare greeting gets broad context and a prompt of its own.
     _gruss = intent == "GREETING" and not body.source_text and not _umformen
     if _gruss:
         logger.info("Chat: reiner Gruss ('{}'), eigener Weg ohne Absage", body.question[:40])
 
-    # Kontext-Budget in Zeichen, vom Admin einstellbar. Platz fuer die Frage wird
-    # abgezogen: sie steht im Prompt NACH den Quellen, beides muss zusammen ins
-    # Modellfenster passen.
+    # Context budget in characters, the room for the question is subtracted.
     context_budget = _reserve_question_budget(_context_budget(), body.question)
 
-    # ── Weg mit Seiten- oder Zeitbezug ──
-    # "Seite 5" oder "Minute 10" wird aus GENAU diesen Stellen bedient, nicht gesucht.
-    # Der Bezug kommt aus dem Vor-Call, _parse_page_refs ist der Notnagel ohne ihn.
-    # Gilt fuer die ERSTE gewaehlte Quelle, sonst waere unklar, wessen Seite 5 gemeint ist.
+    # A page or time reference is served from exactly these spots, not searched.
     scope_chunks: Optional[list[dict]] = None
     scope_requested = False
     if not body.source_text and not _umformen:
         unit = scope_raw["unit"] if scope_raw else None
         intervals = scope_raw["intervals"] if scope_raw else []
-        # Drop a bare-number OPEN range ("ab dritten Juli" → unit="unknown", [[3, None]]):
-        # it is a date/content, not a page — left in it would scope a PDF to the wrong page.
+        # An open range of bare numbers is a date, not a page reference.
         intervals = _servable_scope_intervals(unit, intervals)
-        # Regex fallback: if the pre-call (or the skipped-pre-call case) produced no
-        # structured scope, still catch a simple "Seite 5" page reference in the text.
+        # Pattern-based last resort when the pre-call returned no reference.
         if not intervals:
             rx = _parse_page_refs(body.question)
             if rx:
                 unit, intervals = "page", [[p, p] for p in rx]
         if intervals:
             kind = _first_source_kind(source_ids, resolved_sources)  # "pdf"|"media"|None
-            # Explicit page/time ask -> may short-circuit to can't-help when unservable.
-            # "unknown" (bare numbers) only scopes opportunistically; if it can't, we
-            # fall through to normal retrieval (the numbers might be content, not scope).
+            # An explicit reference may refuse, bare numbers fall back into the search.
             explicit = unit in ("page", "time")
             scope_requested = explicit
             eff_unit = unit if explicit else (
@@ -1170,8 +921,7 @@ async def chat(
             if first_id and eff_unit == "page" and kind == "pdf":
                 max_page = max(db.get_source_page_numbers(first_id), default=None)
                 if _page_scope_too_large(intervals, max_page, _MAX_PAGE_SPAN):
-                    # Ein Bereich ueber das halbe Dokument ist ein Ueberblick, kein
-                    # Bezug. Also GENERIC statt Bezug, und ausdruecklich KEINE Absage.
+                    # A range over half the document is an overview, not a reference.
                     intent = "GENERIC"
                     scope_requested = False
                     logger.info("Page scope too large (> {} pages) → routing to GENERIC overview", _MAX_PAGE_SPAN)
@@ -1190,9 +940,7 @@ async def chat(
             else:
                 logger.info("Scope requested (unit={}, kind={}) — not servable", unit, kind)
 
-    # Bezug verlangt, aber nicht bedienbar (falsche Quellenart, Seite gibt es nicht).
-    # Statt zurueck in die Suche zu fallen und "steht nicht in den Quellen" zu
-    # antworten, sofort die klare Absage. Kein LLM-Aufruf, keine Suche.
+    # A requested but unservable reference refuses right away, without searching.
     _cant_help = _scope_unfulfillable_message(scope_requested, scope_chunks, chat_lang)
     if _cant_help:
         logger.info("Scope request unfulfillable: generic can't-help message")
@@ -1216,13 +964,7 @@ async def chat(
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
 
-    # ABKUERZUNG: passen die gewaehlten Quellen ganz ins Budget, geht der volle Text
-    # raus, ohne Suche und ohne Einbettung. Gemessen besser und schneller als eine
-    # Stichprobe. Bei zu grossen Quellen bricht die Pruefung frueh ab.
-    #
-    # Auf welchen Quellen die Frage laeuft: bei einer Auswahl-Aktion genau dieses
-    # Dokument, sonst die Anhaken-Auswahl. Die Quellenliste unter der Antwort
-    # braucht das in JEDEM Zweig.
+    # If the sources fit the budget entirely, the full text goes out without a search.
     search_source_ids = source_ids
     if body.source_uuid:
         popup_source = db.get_aia_source(body.source_uuid)
@@ -1232,8 +974,7 @@ async def chat(
     _fit_full = (None if (body.source_text or _umformen or intent not in _UEBERBLICK_INTENTS)
                  else _full_context_if_fits(source_ids, context_budget))
     if _umformen:
-        # Kein Suchtreffer, kein Kontext: der Stoff ist die letzte Antwort selbst
-        # (die Nachrichten dafuer werden weiter unten gebaut).
+        # No hits and no context, the material is the last answer itself.
         chunks = []
     elif scope_chunks:
         chunks = scope_chunks
@@ -1243,9 +984,7 @@ async def chat(
         _ps = Counter(c["source_id"] for c in chunks)
         logger.info("Fit-shortcut: {} chunks fit budget ({} chars), skipping retrieval | per-source: {}", len(chunks), context_budget, dict(_ps))
     elif intent in _UEBERBLICK_INTENTS:
-        # ── GENERIC: eine breite Suche plus Auffuellen reihum ueber ALLE Quellen,
-        # damit der Ueberblick jede Quelle beruehrt. Der Ueberblick-Prompt unten sorgt
-        # dann fuer die Abdeckung Dokument fuer Dokument.
+        # Overview: one broad search plus round robin top-up across all sources.
         provider = get_embedding_provider()
         chunks = await _retrieve_generic_context(
             provider, workspace["id"], source_ids, rewritten_question, budget=context_budget,
@@ -1255,9 +994,7 @@ async def chat(
         provider = get_embedding_provider()
 
         embed_text = body.source_text if body.source_text else rewritten_question
-        # Zusammengesetzte Frage ("X und Y") wird je Teilsatz gesucht, sonst verdeckt
-        # der staerkere Teil die Stellen zum schwaecheren und das Modell antwortet dazu
-        # aus den falschen Seiten. Einfache Fragen behalten genau eine Suche.
+        # A compound question is searched per clause.
         _retrieval_queries = (subqueries if (len(subqueries) > 1 and not body.source_text)
                               else [embed_text])
 
@@ -1266,9 +1003,7 @@ async def chat(
             _retrieval_queries, rewritten_question, context_budget,
         )
 
-    # Eine einzelne PDF-Seite: jede Zeile bekaeme denselben Chip auf die Seite, die
-    # der Nutzer selbst genannt hat. Reines Rauschen, darum stattdessen EIN Anker
-    # unten. Mehrere Seiten und Medien behalten ihre Chips je Zeile.
+    # For a single PDF page one anchor sits at the bottom instead of a chip per line.
     _scope_pages = {c["page_number"] for c in (scope_chunks or []) if c.get("page_number") is not None}
     scope_single_page = bool(scope_chunks) and len(_scope_pages) == 1
 
@@ -1276,13 +1011,7 @@ async def chat(
     all_sources_list = {s["id"]: s for s in db.get_aia_sources_by_workspace(workspace["id"])}
     source_id_to_qnum: dict[int, int] = {}
     source_qmap: list[dict] = []  # [{qnum, uuid, filename}, ...]
-    # Q-Nummern in der Reihenfolge der Quellenliste in der Oberflaeche. Gleiche
-    # Auswahl heisst gleiche Nummer bei jeder Anfrage.
-    #
-    # Nummeriert wird die AUSWAHL, nicht nur die Quellen mit Fundstelle: sonst stand
-    # unter einer Antwort "11 Quellen", obwohl 13 angehakt waren, und es sah aus, als
-    # haette der Leser zwei abgewaehlt. Quellen ohne Fundstelle bekommen eine Nummer,
-    # die im Prompt nie auftaucht und auf die kein Beleg zeigt.
+    # The whole selection is numbered, not only the sources with a hit.
     chunk_sids = {c["source_id"] for c in chunks}
     qmap_sids = set(search_source_ids or []) | chunk_sids
     qnum_counter = 0
@@ -1298,30 +1027,24 @@ async def chat(
             "filename": src["filename"],
             "is_media": Path(src["filename"]).suffix.lower() in _MEDIA_EXTENSIONS,
         })
-    # Defensive: a cited source not in the workspace list (shouldn't happen) still
-    # needs a number so its citations aren't dropped. Append in first-seen order.
+    # An unexpected source gets a number too, otherwise its citation is lost.
     for chunk in chunks:
         sid = chunk["source_id"]
         if sid not in source_id_to_qnum:
             qnum_counter += 1
             source_id_to_qnum[sid] = qnum_counter
 
-    # Beim Umformen gibt es keine Treffer, aus denen Nummern und gesehene Seiten
-    # entstehen koennten. Beides kommt aus der Runde, die umgeformt wird: die
-    # Aussage bleibt dieselbe, also bleiben auch die Stellen dieselben.
+    # When reshaping, numbers and seen pages come from the old round.
     _umform_seiten: list[dict] = []
     if _umformen:
         _uuid_zu_id = {s["uuid"]: sid for sid, s in all_sources_list.items()}
         source_qmap, source_id_to_qnum, _umform_gesehen, _umform_seiten = _followup.letzte_quellen(
             _letzte_runde, _uuid_zu_id)
 
-    # Reihum sortieren: erst die N-te Stelle jeder Quelle, dann die N+1-te. Schneidet
-    # das Budget ab, verliert jede Quelle nur hinten. SPECIFIC hat kein _seq.
+    # Sort round robin so every source only loses at the end when truncating.
     chunks = _order_round_robin(chunks, source_id_to_qnum)
 
-    # Pre-load Whisper segments for media sources so we can inject inline
-    # (MM:SS) markers into each media chunk's context - lets the LLM cite
-    # a precise timestamp within the chunk, not just the chunk start.
+    # Preload Whisper segments so timestamps make it into the media chunks.
     transcript_by_source: dict[int, list[dict]] = {}
     for chunk in chunks:
         sid = chunk["source_id"]
@@ -1330,9 +1053,7 @@ async def chat(
             if src:
                 transcript_by_source[sid] = _load_transcript_segments(src)
 
-    # Alle Stellen in EIN <documents>-Fenster packen. seen_pages_by_source sind die
-    # Seiten, die das Modell wirklich gesehen hat: die Beleg-Pruefung laesst nur Chips
-    # auf diese Seiten durch.
+    # Pack all spots into one context window and record the pages seen.
     batches, seen_pages_by_source = _pack_context_batches(
         chunks, context_budget, source_id_to_qnum, all_sources_list,
         transcript_by_source,
@@ -1346,27 +1067,19 @@ async def chat(
         len(batches), _ctx_chars, round(_ctx_chars / 3.5), context_budget, len(chunks),
     )
 
-    # Build the LLM call. One context window → one call. No conversation history
-    # is ever sent: each turn is fully standalone (no follow-up condensing, no leaks).
+    # One context window, one call, never a conversation history.
     messages: Optional[list[dict]] = None
-    # Sprachanker: eine Frage ohne eigene Sprache ("hi", "klsdf") wuerde sonst auf
-    # Englisch beantwortet und der Chat kippt mitten im Gespraech. Gelesen BEVOR
-    # diese Runde gespeichert wird, es ist also wirklich die vorige Frage.
+    # Language anchor so a question without a language of its own cannot flip the chat.
     _prev_questions = [] if body.source_text else db.get_last_aia_user_questions(
         workspace["id"], user_id, enrollment_id=enrollment_id)
     if _umformen:
-        # Umformen der letzten Antwort: eigener Prompt, kein <documents>-Kontext.
-        # Die Anweisung ist die eigenstaendig gemachte Zeile aus dem Vor-Call
-        # ("Fasse die Pruefungsleistung in 3 kurzen Stichpunkten zusammen").
+        # Reshaping gets its own prompt without a context window.
         messages = _followup.umform_nachrichten(
             _letzte_runde, rewritten_question, chat_lang, _prev_questions, _adaptive_suffix)
     elif body.source_text:
         # Popup actions: user has selected text themselves.
         page_ref = f" [S. {body.source_page}]" if body.source_page else ""
-        # Nur "Erklaeren" braucht den Text drumherum. Uebersetzen und alles andere
-        # arbeitet NUR auf der Auswahl, sonst geht die Anweisung im Kontext unter.
-        # Erkannt am SCHLUESSEL, nicht an der Position in der Liste: die hat sich schon
-        # einmal verschoben und die beiden Aktionen stillschweigend vertauscht.
+        # Only explain needs the surrounding text, recognised by the key instead of the position.
         if body.action_key == "simplify":
             system_prompt = AIA_SYSTEM_DIRECT_WITH_CONTEXT
             user_message = f"{body.question}\n\nMarkierter Text (aus {body.source_filename or 'Dokument'}{page_ref}):\n{body.source_text}\n\nWeiterer Kontext aus dem Dokument:\n{context}"
@@ -1378,16 +1091,14 @@ async def chat(
             {"role": "user", "content": user_message + _adaptive_suffix},
         ]
     elif _gruss:
-        # Gruss: eigener Prompt, keine Felder, keine Belege. Der Kontext steht nur da,
-        # damit das Modell die Themen benennen kann.
+        # Greeting: own prompt, no fields, the context only serves the topics.
         messages = [
             {"role": "system", "content": aia_system_greeting(chat_lang, _prev_questions)},
             {"role": "user",
              "content": aia_greeting_user_message(context, body.question) + _adaptive_suffix},
         ]
     else:
-        # OVERVIEW MODE only for a broad GENERIC ask (not a page/time SCOPE summary):
-        # thematic lead-in + document-by-document coverage so all sources are touched.
+        # Overview mode only for a broad question, not for a reference.
         _overview = intent == "GENERIC" and not scope_chunks
         messages = [
             {"role": "system", "content": aia_system_rag(chat_lang, overview=_overview, prev_questions=_prev_questions,
@@ -1399,8 +1110,7 @@ async def chat(
     source_pages: list[dict] = []
     is_popup = bool(body.source_text and body.source_uuid and body.source_page)
 
-    # Build popup-selection entry up-front so the user message can carry it too
-    # (lets the chat render the action chip + selection on reload, not just live).
+    # Build the selection note early so it reappears on reload.
     popup_entry: Optional[dict] = None
     if is_popup:
         popup_entry = {
@@ -1419,9 +1129,7 @@ async def chat(
                 popup_entry["action_key"] = body.action_key
                 popup_entry["action_icon"] = action_def["icon"]
 
-    # Persist user question up-front so it survives any stream-termination path
-    # (browser reload, CancelledError, yield exception). Otherwise a mid-stream
-    # disconnect can leave the turn invisible after reload.
+    # Save the question right away so it survives a cancelled stream.
     await asyncio.to_thread(
         db.save_aia_message,
         workspace["id"], user_id, "user", body.question,
@@ -1430,7 +1138,7 @@ async def chat(
     )
 
     if _umformen:
-        # Dieselben Stellen wie in der Runde, die umgeformt wird.
+        # The same spots as in the round being reshaped.
         source_pages = list(_umform_seiten)
     elif popup_entry:
         source_pages.append(popup_entry)
@@ -1458,47 +1166,36 @@ async def chat(
         source_pages.sort(key=lambda x: x["page_number"])
 
     async def _stream() -> AsyncGenerator[str, None]:
-        # Status is set to "error" on LLM failure, "aborted" when the client
-        # disconnects mid-stream - default is "ok".
+        # Status is set to error or cancelled, otherwise it stays ok.
         _log_status = "ok"
         stream = None
         answer_parts: list[str] = []
         assistant_saved = False
-        # B2 prewarm (set up before the stream loop when the RAG-attribution path applies);
-        # declared here so the outer finally can always cancel a still-running pump.
+        # Declared here so the outer finally can always cancel the warm-up pump.
         _prewarmer = None
         _pump_task = None
         _pump_stop = None
         tokens_in: Optional[int] = None
         tokens_out: Optional[int] = None
         try:
-            # Send qmap upfront so the frontend can resolve [Q1], [Q2] chips
-            # during streaming instead of falling back to activeSourceIds[0].
+            # The source numbers go out up front so chips resolve while streaming.
             yield f"data: {json.dumps({'qmap': source_qmap, 'source_pages': source_pages, 'applied_level': _applied_level})}\n\n"
 
             _final_messages = messages
             _line_buf = ""
             aborted = False
-            # Safety net against a model repetition/degeneration loop (same few bullets
-            # forever). When tripped we stop consuming the stream; the final dedup below
-            # cleans the handful of repeats that streamed before the stop.
+            # Guard against repetition loops, deduplication tidies up afterwards.
             _repeat_guard = _RepetitionGuard()
             _loop_detected = False
-            # Ist aus dem Strom nichts mehr zu holen, wirft der Leser jedes Zeichen weg.
+            # When there is nothing left in the stream, the reader discards every character.
             _nichts_mehr = False
-            # Intra-line loop guard baseline: the line guard only fires on a COMPLETED
-            # line (\n); a phrase looped with no newline never completes one, so we also
-            # scan the growing buffer's tail every _INTRA_LINE_CHECK_EVERY chars.
+            # The line guard only fires at the line end, so the buffer is checked as well.
             _last_intra = 0
             _INTRA_LINE_CHECK_EVERY = 1500
-            # Vorwaermen: waehrend die Antwort noch laeuft, werden fertige Zeilen schon
-            # eingebettet und gesucht. Am Ende rechnet die Beleg-Zuordnung nur noch nach,
-            # was fehlt.
+            # Warm-up: finished lines are embedded and searched while still streaming.
             _do_prewarm = bool(source_ids) and not is_popup and not scope_single_page
             if _do_prewarm:
-                # Kurze Schranke, kein zweiter Versuch: das Vorwaermen ist eine Abkuerzung.
-                # Antwortet die Gegenstelle nicht, soll es das schnell merken und den Weg
-                # freigeben, statt Threads an einer haengenden Anfrage zu binden.
+                # Short timeout, no retry, the warm-up is only a shortcut.
                 _pw_prov = get_embedding_provider(timeout=AIA_ATTRIBUTION_EMBED_TIMEOUT_SECONDS,
                                    retry_on_timeout=False)
 
@@ -1507,9 +1204,7 @@ async def chat(
                         return db.hybrid_search_chunks(
                             workspace["id"], _ln, _vec or _pw_prov.embed_one(_ln),
                             source_ids=source_ids, limit=_ATTRIB_CANDIDATES,
-                            # MUSS dieselbe Einschraenkung sein wie in _raw_search: der
-                            # Cache liegt unter dem Zeilentext, zwei Kandidatenkreise
-                            # unter demselben Schluessel waeren ein Zufallsergebnis.
+                            # Must be the same restriction as in _raw_search, otherwise the cache does not match.
                             seen_pages=seen_pages_by_source)
                     except Exception:
                         return []
@@ -1518,8 +1213,7 @@ async def chat(
                 _pump_stop = asyncio.Event()
 
                 async def _prewarm_pump():
-                    # Das Vorwaermen darf nur ein paar verteilte Aufrufe je Antwort kosten,
-                    # nicht einen je Zeile. Der Rest laeuft am Ende in einem Aufruf mit.
+                    # The warm-up may cost a few calls per answer, not one per line.
                     _PREWARM_POLL_SECONDS = 2.0
                     _PREWARM_MAX_FLUSHES = 6
                     while not _pump_stop.is_set():
@@ -1537,7 +1231,7 @@ async def chat(
                     await _prewarmer.flush()  # final drain of whatever is still pending
 
                 _pump_task = asyncio.create_task(_prewarm_pump())
-            # Felder statt Fliesstext: die Form baut der Code, das Modell fuellt nur.
+            # Fields instead of prose: the code builds the shape, the model only fills it.
             _ANTWORT_SCHEMA = {
                 "type": "json_schema",
                 "json_schema": {
@@ -1545,8 +1239,7 @@ async def chat(
                     "schema": {
                         "type": "object",
                         "properties": {
-                            # Die Regel steht AM Feld, nicht nur im Systemprompt: hier
-                            # schreibt das Modell, hier muss sie stehen.
+                            # The rule sits at the field, because that is where the model writes.
                             "no_info_sentence": {
                                 "type": ["string", "null"],
                                 "description": (
@@ -1584,28 +1277,23 @@ async def chat(
                 },
             }
             _felder = not (body.source_text or _umformen or _gruss)
-            # Der Ueberblick lebt von der Breite, nur die Einzelfrage bekommt einen Deckel.
+            # The overview lives on breadth, only the single question gets a cap.
             _strom_bau = AntwortStrom(
                 max_eintraege=None if _overview else MAX_EINTRAEGE,
             ) if _felder else None
 
             async def _open_stream(messages):
-                # 90s connect/first-token timeout so an Ollama cold-start model
-                # load can finish before we abort. Once tokens flow the
-                # inter-chunk inactivity guard below takes over.
+                # Long timeout until the first character so a cold model can still load.
                 return await llm._async_client.with_options(timeout=90.0, max_retries=0).chat.completions.create(
                     model=llm._model,
                     messages=messages,
-                    # 0.7 statt 0.2, wie der Steckbrief des Modells es empfiehlt: eine sehr
-                    # enge Auswahl beguenstigt Wiederholungsschleifen.
+                    # 0.7 instead of 0.2, too narrow a choice encourages repetition loops.
                     temperature=0.7,
-                    # Ohne Obergrenze lief eine Schleife schon bis 178.820 Token durch.
+                    # Without a ceiling a loop once ran up to 178,820 tokens.
                     max_tokens=model_limits.CHAT_MAX_OUTPUT_TOKENS,
                     stream=True,
                     **({"response_format": _ANTWORT_SCHEMA} if _felder else {}),
-                    # Ask for a final usage chunk so chat token counts land in
-                    # usage_log + Langfuse. Providers that ignore it send no
-                    # usage and _stream_usage_tokens just returns (None, None).
+                    # Asks for a final chunk with the token counts for the log.
                     stream_options={"include_usage": True},
                     **(llm._extra_body and {"extra_body": llm._extra_body} or {}),
                 )
@@ -1614,11 +1302,7 @@ async def chat(
                 try:
                     stream = await _open_stream(_final_messages)
                 except Exception as _limit_err:  # noqa: BLE001
-                    # Der Anbieter lehnt zu viel Kontext ab, BEVOR ein Zeichen geflossen
-                    # ist. Nennt seine Absage die Fenstergroesse, merken wir sie uns,
-                    # kuerzen und senden sofort nochmal. Der Nutzer sieht eine kurze
-                    # Verzoegerung statt eines Fehlers, und beim naechsten Mal passt es
-                    # von vornherein. Nennt sie keine, bleibt es beim Fehler wie bisher.
+                    # If the refusal names the window size, it is shortened and sent again right away.
                     _fenster = model_limits.learn_from_error(
                         getattr(llm, "_provider_id", None), llm._model, _limit_err
                     )
@@ -1629,8 +1313,7 @@ async def chat(
                         model_limits.context_chars(_fenster, model_limits.CHAT_SHARE),
                     )
                     stream = await _open_stream(_final_messages)
-                # Sobald der Strom laeuft, greift die Zeitschranke der Bibliothek nicht
-                # mehr. Wird die Gegenstelle stumm, warteten wir sonst ewig.
+                # Once the stream runs, only this own silence timeout applies.
                 _CHUNK_INACTIVITY_SECONDS = 60.0
                 stream_iter = stream.__aiter__()
                 while True:
@@ -1659,28 +1342,23 @@ async def chat(
                     if delta and delta.content:
                         _roh_tok = (_strom_bau.feed(delta.content)
                                     if _strom_bau is not None else delta.content)
-                        # Ohne Abbruch schriebe das Modell unsichtbar weiter und die
-                        # Leitung bliebe waehrenddessen stumm.
+                        # Without cancelling, the model would keep writing invisibly.
                         if _strom_bau is not None and _strom_bau.genug:
                             logger.info("Eintragsgrenze erreicht, Strom beendet")
                             break
-                        # Danach sieht keine der Bremsen unten mehr etwas: der Zeilenpuffer
-                        # waechst nicht und die Eintragszahl auch nicht.
+                        # After that none of the brakes below sees anything.
                         _nichts_mehr = _strom_bau is not None and _strom_bau.fertig
                         if not _roh_tok:
                             if _nichts_mehr:
                                 logger.info("Strom beendet, {}", _strom_bau.grund)
                                 break
                             continue
-                        # Arrow connectors are dropped here, before the token reaches the
-                        # browser — the live stream is what the learner reads, so a later
-                        # cleanup of the finished answer would come too late.
+                        # Arrows drop out here already, the stream is what the learner reads.
                         _tok = _strip_arrow_connectors(_roh_tok)
                         answer_parts.append(_tok)
                         yield f"data: {json.dumps({'token': _tok})}\n\n"
                         _line_buf += _tok
-                        # Intra-line degeneration loop (no newline) — cut the runaway
-                        # before it grows to 100k+ chars / minutes of streaming.
+                        # Cuts a loop without a line break before it gets out of hand.
                         if len(_line_buf) - _last_intra >= _INTRA_LINE_CHECK_EVERY:
                             _last_intra = len(_line_buf)
                             if _tail_repeats(_line_buf):
@@ -1704,9 +1382,7 @@ async def chat(
             except Exception as e:
                 _log_status = "error"
                 logger.error("LLM stream error: {}", e)
-                # War der Anbieter ueberlastet oder stumm, sagt das die Oberflaeche
-                # als "spaeter noch einmal" statt als "Es ist ein Fehler aufgetreten".
-                # Der rohe Text bleibt fuers Log dabei, der Schluessel steuert den Satz.
+                # Overload is reported as 'try again later' instead of a raw error.
                 _err = {"error": str(e)}
                 _code = upstream_error_code(e)
                 if _code:
@@ -1720,9 +1396,7 @@ async def chat(
                     except Exception:
                         pass
 
-            # Streaming finished: feed the trailing newline-less last line, then stop the pump
-            # and await its final flush so the prewarm caches are complete + stable before the
-            # attribution below reads them.
+            # After the stream, deliver the last line and stop the pump cleanly.
             if _prewarmer is not None and _pump_task is not None:
                 if _line_buf.strip():
                     _prewarmer.feed_line(_line_buf)
@@ -1733,29 +1407,19 @@ async def chat(
                     pass
 
             _clean_answer = _dedup_repeated_lines(_collapse_repeats(_sanitize_citations("".join(answer_parts).strip())))
-            # Doppelte Struktur entfernen, die das Modell bei "zeige mir alle Quellen"
-            # anhaengt: eine Ein-Zeilen-Tabelle und eine Quellenliste im Text. Die Chips
-            # zeigen das schon. Wird im Code erzwungen, nicht per Prompt erhofft.
+            # Removes the duplicate source list the model appends.
             _clean_answer = _strip_tiny_tables(_clean_answer)
-            # Der Satz aus dem eigenen Feld ist als Absage gesetzt, nicht geraten.
+            # The sentence from its own field is set as a refusal, not guessed.
             _gap_satz = (_strom_bau.gap or "").strip() if _strom_bau is not None else ""
             if source_ids:
                 _clean_answer = _strip_source_list(_clean_answer, [q.get("filename", "") for q in source_qmap])
-            # BELEGE NACHTRAEGLICH: jede tragende Zeile wird eingebettet, in den aktiven
-            # Quellen gesucht, gegen die tatsaechlich gelesenen Seiten geprueft und bekommt
-            # einen Chip zum Hinspringen. Auswahl-Aktionen bekommen keine Belege.
-            # Eine reine Absage ueberspringt den Durchgang: sie hat nichts zu belegen, und
-            # das Einbetten ihrer einen Zeile war die Pause unter einer Antwort ohne Chip.
-            # Ein Gruss ebenso: er behauptet nichts ueber die Quellen.
-            # Steht der Satz im eigenen Feld, wird der Text nicht noch einmal befragt.
-            # Das haelt in jeder Sprache, das Raten am Wortlaut kann nur de und en.
+            # Back citations afterwards, refusals and greetings skip the pass.
             _nur_absage = (is_only_gap(_clean_answer, _gap_satz) if _gap_satz
                            else is_sentinel_refusal(_clean_answer))
             if is_popup or _gruss or not source_ids or _nur_absage:
                 answer = _clean_answer
             elif scope_single_page:
-                # Einzelne Seite: statt Chips je Zeile EIN Anker unten. Ausser bei einer
-                # Absage, die darf nie einen Beleg tragen.
+                # For a single page one anchor at the bottom, except on a refusal.
                 _aqn = source_id_to_qnum.get(scope_chunks[0]["source_id"]) if scope_chunks else None
                 _apg = next(iter(_scope_pages), None)
                 if _aqn and _apg is not None:
@@ -1769,21 +1433,15 @@ async def chat(
                 else:
                     answer = _clean_answer
             else:
-                # Der Nutzer liest den Text schon fertig und wartet nur noch auf die Chips.
-                # Deshalb kurze Schranke und kein zweiter Versuch: kommt nichts, geht die
-                # Antwort chiplos raus, statt sie an einer haengenden Gegenstelle festzuhalten.
+                # Short timeout, if need be the answer goes out without chips.
                 _prov = get_embedding_provider(timeout=AIA_ATTRIBUTION_EMBED_TIMEOUT_SECONDS,
                                                retry_on_timeout=False)
                 _stripped = _strip_inline_citation_chips(_clean_answer)  # defensive: model shouldn't emit chips now
 
                 def _attribute_blocking() -> str:
-                    # ALLE Zeilen in EINEM Aufruf einbetten statt einzeln. Die Muster-Absagen
-                    # fahren im selben Stapel mit: eine Zeile, die einer davon nahe liegt, ist
-                    # selbst eine Absage und bekommt keinen Beleg.
+                    # Embed all lines in one call, the model refusals ride along.
                     _cands = [ln for ln in _stripped.split("\n") if _needs_attribution(ln)]
-                    # Auch die Teilstuecke fahren im selben Stapel: Fliesstext wird je Satz
-                    # belegt, eine Zeile mit mehreren Angaben je Angabe. Das ist keine reine
-                    # Beschleunigung, ein eigener Aufruf je Satz waere zu teuer.
+                    # The sub-parts ride in the same batch too, one by one would be too expensive.
                     _extra_units: list[str] = []
                     for _ln in _cands:
                         for _u in _attribution_subunits(_ln):
@@ -1791,9 +1449,7 @@ async def chat(
                                 _extra_units.append(_u)
                     _batch_lines = _cands + _extra_units
                     _sentinels = refusal_reference_texts()
-                    # Reuse whatever the streaming prewarm (B2) already embedded; embed only the
-                    # misses plus the sentinels. If prewarm covered everything, this is just the
-                    # sentinel embed and the after-answer pause is near zero.
+                    # Reuses the warmed-up results and embeds only the missing ones.
                     _pw_vecs = _prewarmer.vecs if _prewarmer is not None else {}
                     _pw_hits = _prewarmer.hits if _prewarmer is not None else {}
                     _vec_by_line: dict[str, list] = {ln: _pw_vecs[ln] for ln in _batch_lines if ln in _pw_vecs}
@@ -1814,14 +1470,10 @@ async def chat(
                                     _vec_by_line[_ln] = _v
                                 _sentinel_vecs = _vecs[len(_miss_lines):]
                         except Exception as e:
-                            # Stapelaufruf gescheitert heisst: die Gegenstelle ist gerade weg.
-                            # Dann NICHT je Zeile nachfassen, das liess die Chips frueher
-                            # minutenlang ausbleiben. Ohne Vektor eben kein Chip.
+                            # If the batch fails there is no per-line retry, then simply no chip.
                             _embed_down = True
                             logger.warning("post-hoc batch embedding failed, answer ships without chips: {}", e)
-                    # Der Absage-Satz wird WOERTLICH erkannt, nicht per Abstand: er und der
-                    # Satz davor liegen zu dicht beieinander (0,551 gegen 0,522 bei Schwelle
-                    # 0,60), sonst verlöre der Aussagesatz seinen Chip mit.
+                    # The refusal sentence is matched verbatim, by distance it sits too close to a claim.
                     _refusals = _refusal_lines(_cands, _vec_by_line, _sentinel_vecs)
                     _refusals |= {ln for ln in _cands if is_gap_line(ln)}
                     if _gap_satz:
@@ -1834,12 +1486,7 @@ async def chat(
                             return []
                         try:
                             _qv = _vec_by_line.get(_line) or _prov.embed_one(_line)
-                            # Die Einschraenkung auf gesehene Seiten steht in der ABFRAGE,
-                            # nicht mehr nur als Filter dahinter. Vorher rankte die
-                            # Datenbank den ganzen Workspace und _is_seen zerriss die
-                            # Liste danach: ein passender Chunk hinter Platz 40 war schon
-                            # weg, bevor der Filter ihn sah. Deshalb wurde das Limit
-                            # zweimal hochgezogen (4 -> 10 -> 40), ein Pflaster.
+                            # The restriction to seen pages sits in the query, not as a filter behind it.
                             return db.hybrid_search_chunks(workspace["id"], _line, _qv,
                                                            source_ids=source_ids,
                                                            limit=_ATTRIB_CANDIDATES,
@@ -1848,10 +1495,7 @@ async def chat(
                             logger.warning("post-hoc attribution search failed for a line: {}", e)
                             return []
 
-                    # Alle Zeilensuchen vorab parallel gegen die lokale Datenbank. Das war
-                    # der Grossteil der Pause und ist so etwa 3x schneller. Der Durchgang
-                    # darunter wird damit zum Nachschlagen. Bereits vorgewaermte Treffer
-                    # werden wiederverwendet, gesucht wird nur, was fehlt.
+                    # All line searches run in parallel up front, the pass below only looks them up.
                     _t_search0 = time.perf_counter()
                     _hits_by_line: dict = {ln: _pw_hits[ln] for ln in _batch_lines if ln in _pw_hits}
                     _search_miss = [ln for ln in _batch_lines if ln not in _hits_by_line]
@@ -1864,8 +1508,7 @@ async def chat(
                             return _hits_by_line[_line]
                         return _raw_search(_line)
 
-                    # Eine Zahl nachschlagen schlaegt das Sortieren nach Bedeutung genau bei
-                    # den Aussagen, die ein Leser nachprueft. Billig und je Zahl gemerkt.
+                    # Looking up a number beats sorting by meaning.
                     _literal_cache: dict = {}
 
                     def _literal_lookup(_figure: str):
@@ -1879,32 +1522,20 @@ async def chat(
                         return _literal_cache[_figure]
 
                     _attr_result = _attribute_generic_text(_stripped, _search_one, source_id_to_qnum,
-                                                   # Chips may only point at pages the model
-                                                   # actually saw (cross-check vs. retrieved pages).
+                                                   # Chips may only point at pages the model really saw.
                                                    seen_pages_by_source=seen_pages_by_source,
-                                                   # GENERIC overview: drop the loose guarantee chip
-                                                   # and chip-free the multi-law synthesis lines.
-                                                   # Eine Umformung ist nie ein Ueberblick, auch wenn
-                                                   # die Wegwahl fuer die Zeile GENERIC sagte.
+                                                   # In the overview the loose chip is dropped, a reshaping is never an overview.
                                                    overview=(intent == "GENERIC" and not scope_chunks
                                                              and not _umformen),
-                                                   # Exact-match grounding sees exactly what the
-                                                   # model read (the single neighbor-expanded window).
+                                                   # The verbatim match sees exactly what the model read.
                                                    context_chunks=chunks,
                                                    # Who states this figure? Looked up, not ranked.
                                                    literal_lookup=_literal_lookup,
-                                                   # Honest "not in the sources" lines get no chip,
-                                                   # even inside an otherwise-grounded compound answer.
+                                                   # Refusal lines never get a chip.
                                                    refusal_lines=_refusals,
-                                                   # Explicit page/time scope ("ab Minute 40"): the
-                                                   # post-hoc search still sweeps the WHOLE source, so
-                                                   # clamp citations to the scoped chunks — otherwise a
-                                                   # closer chunk from minute 13 leaks into the summary.
+                                                   # An explicit reference brackets the citations to the named spots.
                                                    scope_chunks=scope_chunks,
-                                                   # Dieselben Whisper-Segmente, die schon im Kontext
-                                                   # stecken: der Medien-Chip zeigt damit auf das
-                                                   # Segment mit dem zitierten Satz statt auf den
-                                                   # Anfang des ganzen Chunks.
+                                                   # The same Whisper segments make the media chip point at the right segment.
                                                    transcript_by_source=transcript_by_source)
                     _pw_flushes = _prewarmer.flushes if _prewarmer is not None else 0
                     logger.info(
@@ -1917,8 +1548,7 @@ async def chat(
 
                 answer = await asyncio.to_thread(_attribute_blocking)
 
-            # Push the real question + answer onto the aia-chat trace; the
-            # @observe decorator otherwise only captured the StreamingResponse.
+            # Backfill question and answer onto the trace.
             _enrich_chat_trace(
                 _trace_id, body.question, answer,
                 user_id=str(user_id), session_id=workspace_uuid,
@@ -1932,9 +1562,7 @@ async def chat(
                     )
                 except Exception:
                     pass
-                # Persist partial answer flagged as aborted so the rewriter can
-                # filter it out and the UI can render a marker. User question
-                # was already saved before _stream started.
+                # The half answer is stored as cancelled, the question was already there.
                 try:
                     await asyncio.to_thread(
                         db.save_aia_message,
@@ -1947,8 +1575,7 @@ async def chat(
                     logger.warning("Failed to persist aborted chat message: {}", e)
                 return
 
-            # Auswahl-Aktionen bekommen die Seite als Chip im Text, wie jede andere
-            # Antwort. Ein Klick springt hin und markiert die Auswahl wieder.
+            # Selection actions get the page as a chip like any other answer.
             if is_popup:
                 suffix = f" [S. {body.source_page}]"
                 answer += suffix
@@ -1966,15 +1593,10 @@ async def chat(
             # Send final metadata event - also send corrected answer
             yield f"data: {json.dumps({'done': True, 'answer': answer, 'source_pages': source_pages, 'source_qmap': source_qmap})}\n\n"
         finally:
-            # B2: make sure the prewarm pump never outlives the stream. The success path
-            # already stopped+awaited it before attribution; this cancels it on any early
-            # exit (LLM error, client abort, CancelledError) so no background task leaks.
+            # Cancels the warm-up pump on every earlier exit.
             if _pump_task is not None and not _pump_task.done():
                 _pump_task.cancel()
-            # Notfall: kein Speicherweg lief. Trotzdem etwas ablegen, sonst steht nach
-            # dem Neuladen eine Frage ohne alles darunter. Mit Text heisst abgebrochen,
-            # ohne Text heisst Fehler zum Wiederholen. Bewusst ein synchroner
-            # Datenbankaufruf, damit er das Abbrechen der Aufgabe ueberlebt.
+            # Emergency: store something anyway, otherwise a reload shows a question with nothing.
             if not assistant_saved:
                 partial = "".join(answer_parts).strip()
                 _is_failure = _log_status == "error" and not partial
@@ -1989,8 +1611,7 @@ async def chat(
                         _log_status = "aborted"
                 except Exception as e:
                     logger.warning("Fallback save of unfinished answer failed: {}", e)
-            # `or None` keeps the "no usage reported" case as None instead of a
-            # misleading 0.
+            # 'or None' keeps missing token counts as None instead of a misleading 0.
             _total_in = tokens_in or None
             _total_out = tokens_out or None
             _log_usage(

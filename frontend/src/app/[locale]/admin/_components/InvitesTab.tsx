@@ -1,8 +1,6 @@
 "use client";
 
-/**
- * Die offenen und verbrauchten Einladungen. Voruebergehender Zugang ohne SSO.
- */
+/** The open and used invitations. */
 
 import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";

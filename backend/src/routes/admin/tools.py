@@ -1,4 +1,4 @@
-"""Tool-Visibility: welche Tools sind auf der Homepage sichtbar/aktiv."""
+"""Tool visibility: which tools are visible and active on the home page."""
 
 import json
 
@@ -16,7 +16,7 @@ from src.permissions_registry import PERM_SET_TOOLS_RELEASE
 
 router = APIRouter(tags=["admin: tools"])
 
-# Ein Werkzeug freigeben oder sperren.
+# Release or block a tool.
 _require = require_permission(PERM_SET_TOOLS_RELEASE)
 
 

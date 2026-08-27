@@ -1,10 +1,4 @@
-"""Die Mindmap-Liste zeigt den eigenen Titel, wenn es einen gibt.
-
-Ohne den COALESCE saehen umbenannte Mindmaps in der Liste weiter nach ihrem
-Wurzelknoten aus, obwohl der neue Name schon in der Spalte steht.
-
-Keine echte Datenbank: geprueft wird die abgesetzte Anweisung.
-"""
+"""The mind map list shows the own title when there is one."""
 
 import pytest
 

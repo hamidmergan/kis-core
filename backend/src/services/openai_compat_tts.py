@@ -1,12 +1,4 @@
-"""OpenAI-compatible TTS client.
-
-Endpoints used (OpenAI Audio spec):
-    POST /v1/audio/speech   -> audio bytes (mp3)
-    GET  /v1/models         -> health probe
-
-Works with any OpenAI-compatible TTS server. Voices are managed in the
-providers.voices DB column, not hardcoded here.
-"""
+"""Speech output via an OpenAI compatible endpoint, voices come from the database."""
 from __future__ import annotations
 
 import httpx
@@ -14,19 +6,14 @@ import httpx
 from src.limits import TTS_MAX_CHARS_PER_REQUEST
 from src.services.tts_number_words import spell_numbers
 
-# Ab welchem Anteil der Obergrenze nach einem Satzende gesucht wird. Darunter
-# würden die Stücke unnötig kurz und die Zahl der Anfragen unnötig groß.
+# From which share of the ceiling on a sentence end is looked for.
 _SEARCH_FROM = 0.6
 
 _SENTENCE_ENDS = (". ", "! ", "? ", ".\n", "!\n", "?\n")
 
 
 def _resolve_chunk_limit() -> int:
-    """Obergrenze je Anfrage, zur Laufzeit über die Admin-Einstellung änderbar.
-
-    Die Grenze hängt am Anbieter, nicht am Text. Sie muss sich ohne neuen Build
-    verschieben lassen, wenn ein anderer Anbieter mehr oder weniger verträgt.
-    """
+    """Ceiling per request, changeable at runtime in the admin area."""
     try:
         from src import database as db
         value = int(db.get_setting("tts_max_chars_per_request", str(TTS_MAX_CHARS_PER_REQUEST)))
@@ -36,15 +23,7 @@ def _resolve_chunk_limit() -> int:
 
 
 def _split_text(text: str, max_chars: int | None = None) -> list[str]:
-    """Langen Text in Stücke zerlegen, bevorzugt an Satzenden.
-
-    Der Anbieter bricht nach einer festen Zeit ab, nicht nach einer festen
-    Länge. Deshalb ist die Obergrenze bewusst klein: ein Screencast-Skript mit
-    1800 Zeichen ging vorher als eine Anfrage raus und lief immer in den
-    Timeout. Reihenfolge der Schnittstellen: Satzende, sonst Wortgrenze, sonst
-    harter Schnitt. Ein harter Schnitt ist in der Aufnahme hörbar, aber immer
-    noch besser als gar keine Aufnahme.
-    """
+    """Splits long text, preferably at sentence ends, otherwise at word boundaries."""
     limit = max_chars or _resolve_chunk_limit()
     if len(text) <= limit:
         return [text]
@@ -61,7 +40,7 @@ def _split_text(text: str, max_chars: int | None = None) -> list[str]:
                 split_at = pos + len(punct)
                 break
         if split_at == -1:
-            # Kein Satzende in Reichweite: an der letzten Wortgrenze trennen.
+            # No sentence end in reach: split at the last word boundary.
             pos = remaining.rfind(" ", search_from, limit)
             if pos != -1:
                 split_at = pos + 1
@@ -137,7 +116,7 @@ class OpenAICompatTTSClient:
         language: str = "",
     ) -> bytes:
         text = " ".join(line.strip() for line in text.splitlines() if line.strip())
-        # Ziffern klingen sonst deutsch, weil die Stimme ihre Sprache am Text errät.
+        # Digits would otherwise sound German, the voice guesses its language from the text.
         text = spell_numbers(text, language)
         if not voice_id or voice_id == "default":
             raise ValueError(
@@ -172,10 +151,7 @@ class OpenAICompatTTSClient:
         speed: float = 1.0,
         **kwargs,
     ) -> dict:
-        """Synthesize with optional alignment data.
-
-        Returns {"audio_bytes": bytes, "alignment": None} — no timestamp support.
-        """
+        """Generates audio, this provider does not support timestamps."""
         audio_bytes = self.synthesize(text, language, voice_id=voice_id, speed=speed)
         return {"audio_bytes": audio_bytes, "alignment": None}
 

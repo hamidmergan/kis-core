@@ -1,12 +1,6 @@
 "use client";
 
-/**
- * Alles zu einem Modul an einer Stelle.
- *
- * Steht im Fenster, das eine Zeile der Modultabelle oeffnet. Die beiden Trainer
- * stehen getrennt, wie im Modul selbst, und erzeugt bleibt von beantwortet
- * getrennt: der Vorrat wird angelegt, danach arbeitet ihn jemand ab.
- */
+/** Everything about one module in one place, generated kept apart from answered. */
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
@@ -71,7 +65,7 @@ export function ModulAnsicht({
   basis = "/api/admin/stats/workspaces",
 }: {
   uuid: string;
-  /** Die Lehrperson holt dasselbe Modul ueber den Weg mit Besitzpruefung. */
+  /** The teacher fetches the same module through the path with the ownership check. */
   basis?: string;
 }) {
   const t = useTranslations("admin.statistik");
@@ -90,7 +84,7 @@ export function ModulAnsicht({
   if (fehler) return <p className="text-sm text-error">{t("loadError")}</p>;
   if (!d) return <Ladeanzeige />;
 
-  /** Unbekanntes steht so da, wie es kam, statt die Zeile leer zu lassen. */
+  /** Unknown values are shown as they arrived instead of leaving the row empty. */
   const rolle = (r: string) =>
     ({ owner: t("detail.roleOwner"), tutor: t("detail.roleTutor"), student: t("detail.roleMember") })[r] ?? r;
 

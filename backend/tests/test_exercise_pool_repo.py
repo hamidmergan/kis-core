@@ -1,9 +1,4 @@
-"""Die Datenbankseite des Vorrats.
-
-Geschrieben, weil genau diese Schicht heute schon einmal einen fehlenden ``commit``
-durchgelassen hat: die Fachtests mocken sie weg, und ein einzelner Aufruf sieht ohne
-Commit richtig aus. Auffallen wuerde es erst beim zweiten.
-"""
+"""Checks the database side of the pool, a missing commit would show up late otherwise."""
 
 import json
 
@@ -25,8 +20,7 @@ class _FakeCursor:
         return False
 
     def execute(self, sql, params=None):
-        # Ungekuerzt: die Tests unten pruefen Bestandteile der Anweisung, ein Abschneiden
-        # wuerde sie stillschweigend gruen machen.
+        # Untruncated, otherwise the tests below would silently pass.
         self._calls.append(("execute", " ".join(sql.split()), params))
         self.rowcount = 3
 
@@ -99,8 +93,7 @@ def test_an_item_without_a_fingerprint_is_skipped(fake_db):
 
 
 def test_a_duplicate_returns_the_id_of_the_row_that_is_already_there(fake_db):
-    # ON CONFLICT DO NOTHING liefert keine Zeile zurueck, dann wird die vorhandene
-    # gesucht. So kann ein Satz auf eine Aufgabe zeigen, die jemand anderes erzeugt hat.
+    # If the row is already there, the existing one is looked up.
     calls = fake_db(rows=[None, (42,)])
     items, fps = _art("a")
     assert repo.add_pool_items(9, "quiz", None, items, fps) == [42]
@@ -145,11 +138,7 @@ def test_the_take_is_random_and_excludes_what_the_person_had(fake_db):
 
 
 def test_the_take_leaves_out_what_the_order_already_holds(fake_db):
-    """Die Abfrage kennt nur gespeicherte Saetze, und der entsteht erst am Ende.
-
-    Was ein frueherer Griff in denselben Vorrat schon geholt hat, muss sie deshalb
-    gesagt bekommen, sonst liefert sie es ein zweites Mal.
-    """
+    """What an earlier draw already took has to be told to the query."""
     calls = fake_db(rows=[])
     repo.take_from_pool(9, "quiz", None, 3, 5, exclude_ids=[11, 12])
     sql, params = next((c[1], c[2]) for c in calls if c[0] == "execute")
@@ -165,8 +154,7 @@ def test_without_an_exclusion_the_take_stays_as_it_was(fake_db):
 
 
 def test_the_level_free_pool_is_matched_with_coalesce(fake_db):
-    # Zwei NULL gelten in Postgres nicht als gleich, ein blosses `level = %s` wuerde
-    # den niveaulosen Vorrat also nie treffen.
+    # Two NULLs do not count as equal in Postgres.
     calls = fake_db(rows=[])
     repo.take_from_pool(9, "quiz", None, 3, 5)
     sql = " ".join(c[1] for c in calls if c[0] == "execute")
@@ -188,7 +176,7 @@ def test_seen_fingerprints_reads_by_user_and_tool(fake_db):
 # --- aufraeumen ----------------------------------------------------------------
 
 def test_clearing_writes_the_content_back_before_deleting(fake_db):
-    """Sonst wird ein fertiger Satz leer, weil jemand die Quelle ausgetauscht hat."""
+    """Otherwise a finished set goes empty because someone swapped the source."""
     calls = fake_db()
     repo.clear_pool_for_source(9)
     anweisungen = [c[1] for c in calls if c[0] == "execute"]
@@ -197,11 +185,10 @@ def test_clearing_writes_the_content_back_before_deleting(fake_db):
     assert any("DELETE FROM aia_exercise_pool" in a for a in anweisungen)
 
 
-# --- die Darreichungsform ------------------------------------------------------
+# --- the presentation format --------------------------------------------------
 
 def test_the_kind_of_a_grammar_item_is_stored(fake_db):
-    """Ohne die Art kann der Vorrat eine Formatauswahl nicht bedienen: er wuesste
-    nicht, was er da liegen hat."""
+    """Without the kind the pool cannot serve a format selection."""
     calls = fake_db(rows=[(5,)])
     repo.add_pool_items(
         9, "grammatik", "B1",
@@ -209,14 +196,12 @@ def test_the_kind_of_a_grammar_item_is_stored(fake_db):
 
     sql, params = calls[0][1], calls[0][2]
     assert "kind" in sql
-    # Auf der Position geprueft und nicht nur auf Vorkommen: die Werte haengen an der
-    # Reihenfolge der Spaltenliste, und ein Verrutschen wuerde die Art still in die
-    # Nachbarspalte schreiben.
+    # Checked by position, a shift would write into the neighbouring column.
     assert params[4] == "cloze"
 
 
 def test_an_item_without_a_kind_stores_null(fake_db):
-    """Jedes andere Werkzeug hat keine Arten. Die Spalte bleibt dort leer."""
+    """Every other tool has no kinds, the column stays empty there."""
     calls = fake_db(rows=[(5,)])
     repo.add_pool_items(9, "quiz", None, [{"front": "f", "back": "b"}], ["fp"])
 
@@ -233,8 +218,7 @@ def test_a_format_choice_narrows_the_take(fake_db):
 
 
 def test_without_a_format_choice_the_take_stays_as_it_was(fake_db):
-    """Gemischt holt alles, auch Altbestand ohne Art. Sonst waere der ganze
-    bestehende Vorrat mit einem Schlag wertlos."""
+    """Mixed takes everything, legacy rows without a kind included."""
     calls = fake_db()
     repo.take_from_pool(9, "quiz", None, 3, 5)
 
@@ -242,8 +226,7 @@ def test_without_a_format_choice_the_take_stays_as_it_was(fake_db):
 
 
 def test_the_exclusion_and_the_format_choice_keep_their_order(fake_db):
-    """Beide haengen einen Platzhalter an dieselbe Anweisung. Laufen Text und Werte
-    auseinander, sucht die Abfrage stillschweigend nach dem Falschen."""
+    """If text and values drift apart, the query looks for the wrong thing."""
     calls = fake_db()
     repo.take_from_pool(9, "grammatik", None, 3, 5, 4,
                         exclude_ids=[11], kinds=["cloze"])

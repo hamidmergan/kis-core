@@ -1,5 +1,4 @@
-"""Shared helpers for all screencast routes: upload validation, prerender task,
-script-generation locks, job-tool list."""
+"""Gemeinsame Helfer aller Screencast-Routen."""
 
 import asyncio
 import tempfile
@@ -18,8 +17,7 @@ from src.utils.file_validation import SCREENCAST_EXTENSIONS
 # Job tools that count toward the screencast in the queue/limit calculation
 SCREENCAST_TOOLS = ["screencast_translate", "screencast_render"]
 
-# Per-UUID lock: prevents parallel script generation for the same job.
-# Begrenzt, weil die Einträge sonst für jeden je gesehenen Job liegen bleiben.
+# One lock per job against parallel generation, limited in number.
 _script_gen_locks: OrderedDict[str, asyncio.Lock] = OrderedDict()
 _MAX_SCRIPT_GEN_LOCKS = 256
 
@@ -30,7 +28,7 @@ def get_script_gen_lock(uuid_key: str) -> asyncio.Lock:
     if lock is None:
         lock = asyncio.Lock()
         _script_gen_locks[uuid_key] = lock
-        # Älteste freie Sperren verwerfen. Eine gehaltene Sperre bleibt.
+        # Discard the oldest free locks, a held lock stays.
         while len(_script_gen_locks) > _MAX_SCRIPT_GEN_LOCKS:
             oldest_key, oldest_lock = next(iter(_script_gen_locks.items()))
             if oldest_lock.locked():
@@ -42,12 +40,12 @@ def get_script_gen_lock(uuid_key: str) -> asyncio.Lock:
 
 
 def prerender_dir(translate_job_uuid: str, dpi: int) -> Path:
-    """Ablage der vorgerenderten Bilder. Die Auflösung gehört in den Pfad."""
+    """Storage of the pre-rendered images, the resolution belongs in the path."""
     return IMAGE_TMP_DIR / translate_job_uuid / f"dpi{dpi}"
 
 
 def vertonung_verwerfen(user_id: int, job_uuid: str) -> None:
-    """Nach einem Neuanfang im selben Auftrag darf nichts aus dem Vorrat kommen."""
+    """After a fresh start in the same job nothing may come from the pool."""
     clear_audio_cache(user_id, job_uuid)
     delete_prefix(f"{job_prefix(user_id, job_uuid)}/vertonter_stand.json")
 
@@ -63,13 +61,7 @@ def validate_upload(filename: str | None, locale: str = "de") -> str:
 
 
 async def prerender_images_task(translate_job_uuid: str, dpi: int = 100) -> None:
-    """Background task: render slide images and cache them in IMAGE_TMP_DIR.
-
-    Die Auflösung steht im Ordnernamen. Vorher wurde immer mit 100 DPI
-    vorgerendert, während die Oberfläche 144 DPI voreinstellt. Damit passte das
-    Ergebnis nie und jeder Job hat die LibreOffice-Konvertierung umsonst
-    gemacht und danach noch einmal richtig.
-    """
+    """Pre-renders the slide images, the resolution sits in the folder name."""
     out_dir = prerender_dir(translate_job_uuid, dpi)
     out_dir.mkdir(parents=True, exist_ok=True)
 

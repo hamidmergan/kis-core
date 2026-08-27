@@ -32,7 +32,7 @@ class RegenerateSlideScriptRequest(BaseModel):
 class RenderRequest(BaseModel):
     scripts: list[str]
     translate_job_uuid: str          # the existing translate job to update
-    # Ohne Angabe bleibt die Sprache unbekannt und die Vertonung raet nicht.
+    # Without a value the language stays unknown and the voicing does not guess.
     target_lang: str = ""
     slide_images_b64: list[str] = []
     voice_id: str = ""
@@ -41,17 +41,17 @@ class RenderRequest(BaseModel):
     slide_pause: float = 1.0
     dpi: int = 100
     provider_id: int
-    # Untertitel-Spur ins MP4, per Haken in den Einstellungen.
+    # Subtitle track in the MP4, via a checkbox in the settings.
     subtitles: bool = False
-    # None heisst alle Folien, eine Liste nennt die Nummern im Screencast.
+    # None means all slides, a list names the numbers in the screencast.
     video_folien: list[int] | None = None
-    # Diese Folien werden neu gesprochen statt den Ton des letzten Laufs zu nehmen.
+    # These slides are voiced again instead of taking the audio of the last run.
     neu_vertonen: list[int] = []
 
 
 class PrerenderRequest(BaseModel):
     translate_job_uuid: str
-    # Muss zur späteren Render-Auflösung passen, sonst ist das Vorrendern umsonst.
+    # Must match the later render resolution, otherwise pre-rendering is wasted.
     dpi: int = 144
 
 

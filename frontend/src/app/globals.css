@@ -66,30 +66,29 @@
   --color-tooltip-bg: var(--tooltip-bg);
   --color-tooltip-fg: var(--tooltip-fg);
 
-  /* ─── Schriftskala ───────────────────────────────────────────────────
-     Die Skala steht auf den Werten, mit denen die App angefangen hat:
-     14px Bedientext, 12px Nebentext, 10px fuer Beschriftungen. Zwei
-     Versuche, sie hochzuziehen, sind am 2026-08-04 wieder rausgeflogen,
-     erst 18px Bedientext, dann 16px. Beides war zu gross. Wer das ein
-     drittes Mal probieren will, hat hier die Vorgeschichte.
-
-     Die Namen entsprechen damit wieder Tailwinds Groessen. Trotzdem gilt
-     diese Tabelle als Nachschlagewerk, weil die Werte hier stehen und
-     nicht in der Tailwind-Doku:
-
-       text-3xs  10px   kleinste Beschriftung, Untergrenze
-       text-2xs  11px   Beschriftung
-       text-xs   12px   Nebentext, Hinweise
-       text-sm   14px   Bedientext, Fliesstext
-       text-base 16px   betonter Text, Eingabefelder, Modal-Titel
+  /* ─── Font scale ───────────────────────────────────────────────────
+     The scale sits on the values the app started with: 14px body text,
+     12px secondary text, 10px for labels. Two attempts to raise it were
+     reverted on 2026-08-04, first 18px body text, then 16px. Both were
+     too large. Whoever wants to try a third time has the history here.
+     
+     The names therefore match Tailwind's sizes again. This table still
+     counts as the reference, because the values live here and not in
+     the Tailwind docs:
+     
+       text-3xs  10px   smallest label, floor
+       text-2xs  11px   label
+       text-xs   12px   secondary text, hints
+       text-sm   14px   body text, prose
+       text-base 16px   emphasised text, input fields, modal titles
        text-lg   18px   h2
        text-xl   20px   h1
-       text-2xl  24px   grosse Seitentitel
-       text-3xl  30px   groesste Ueberschrift
-
-     Zeilenhoehen bleiben Tailwinds Verhaeltnisse und wachsen mit.
-     Nicht mit einer :root-Skalierung nachbauen, das wurde schon einmal
-     gebaut und verworfen. Groessen gehoeren hierher. */
+       text-2xl  24px   large page titles
+       text-3xl  30px   largest heading
+     
+     Line heights stay Tailwind's ratios and grow along.
+     Do not rebuild this with a :root scaling, that was built once and
+     dropped. Sizes belong here. */
   --text-3xs: 0.625rem;   /* 10px */
   --text-2xs: 0.6875rem;  /* 11px */
   --text-xs: 0.75rem;     /* 12px */
@@ -123,8 +122,8 @@
   --surface-dim:     #EBEDF0;
   --border-soft:     #D9E2E6;
   --border:          #B8CDD5;
-  /* muted/-soft sind Marken-Toenungen (kb75 / kb85) statt kb60/kb45.
-     kb60 lag bei 3,0:1 auf --surface-dim und verfehlte WCAG 2.1 AA. */
+  /* muted/-soft are brand tints (kb75 / kb85) instead of kb60/kb45.
+     kb60 sat at 3.0:1 on --surface-dim and missed WCAG 2.1 AA. */
   --muted-soft:      #407188;
   --muted:           #265E79;
   --foreground-soft: #2F4D5C;
@@ -145,7 +144,7 @@
   --warn-strong:  #92400E;
   --warn-bg:      #FFFBEB;
   --warn-border:  #FCD34D;
-  /* Gefuelltes Warn-Abzeichen: --warn traegt Weiss nur mit 3,2:1, --warn-solid mit 5,0:1. */
+  /* Filled warning badge: --warn carries white at only 3.2:1, --warn-solid at 5.0:1. */
   --warn-solid:   #B45309;
   --on-warn:      #ffffff;
 
@@ -157,7 +156,7 @@
   --shadow:       0 1px 4px rgba(0,66,97,.10);
   --shadow-hover: 0 6px 20px rgba(0,66,97,.15);
 
-  /* Belegstelle: Rahmen des Chips, Strich und Flaeche des markierten Absatzes. */
+  /* Citation: border of the chip, stroke and area of the marked paragraph. */
   --cite-border: var(--kb);
   --cite-bg:     rgba(0,66,97,0.16);
 
@@ -192,9 +191,9 @@
   --mm-c6: var(--error-strong);
 }
 
-/* ─── Dark Mode ("Deep Slate") ───────────────────────────────────────
-   Aktiviert ueber <html data-theme="dark"> (gesetzt durch useTheme +
-   FOUC-Inline-Script in layout.tsx). Ueberschreibt alle :root-Werte. */
+/* ─── Dark mode ("Deep Slate") ───────────────────────────────────────
+   Activated via <html data-theme="dark"> (set by useTheme plus the FOUC
+   inline script in layout.tsx). Overrides all :root values. */
 :root[data-theme="dark"] {
   /* Native UI (date-picker icon, scrollbars etc.) im Dark Mode rendern */
   color-scheme: dark;
@@ -219,7 +218,7 @@
   --foreground-soft: #ffffff;
   --foreground:      #ffffff;
 
-  /* Semantic — aufgehellt fuer Kontrast auf Dunkel */
+  /* Semantic, lightened for contrast on dark */
   --error:         #F87171;
   --error-strong:  #FCA5A5;
   --error-bg:      #2A1414;
@@ -245,7 +244,7 @@
   --shadow:       0 1px 4px rgba(0,0,0,.4);
   --shadow-hover: 0 6px 20px rgba(0,0,0,.55);
 
-  /* Belegstelle: das dunkle Marken-Blau verschwindet auf Dunkel, darum die helle Tonung. */
+  /* Citation: the dark brand blue disappears on dark, hence the light tint. */
   --cite-border: #7BBDE5;
   --cite-bg:     rgba(123,189,229,0.18);
 
@@ -277,13 +276,13 @@
   --mm-c6: var(--error-strong);
 }
 
-/* Dark Mode: alle inline color: var(--kb) Elemente (Titles, Links, Labels) auf weiss.
-   Chips ausgeschlossen, die behalten ihren Brand-getoenten Look. */
+/* Dark mode: all inline color: var(--kb) elements (titles, links, labels) to white.
+   Chips excluded, they keep their brand-tinted look. */
 :root[data-theme="dark"] [style*="color: var(--kb)"]:not(.chip-cite) {
   color: var(--foreground) !important;
 }
 
-/* Dark Mode: Citation-Chips kraeftiger machen (Default-Inline-rgba ist zu dezent auf Dunkel). */
+/* Dark mode: make citation chips stronger, the default inline rgba is too subtle on dark. */
 :root[data-theme="dark"] .chip-cite {
   color: #7BBDE5 !important;
   background-color: rgba(91, 163, 206, 0.18) !important;
@@ -299,16 +298,15 @@
   border-color: var(--kb) !important;
 }
 
-/* Quellen-Zeilen (Chat-Chips, Quellenliste unter den Uebungen): Hover hellt die Zeile
-   auf, statt sie ins dunkle Akzentblau kippen zu lassen. Hell eine Stufe ueber --muted,
-   dunkel bis auf Weiss. Icons folgen ueber currentColor.
-   Hell springt auf --kb60: --muted-soft war nur eine halbe Stufe und im Betrieb nicht
-   zu sehen. --kb60 ist als Textfarbe zu hell (3,0:1 auf --surface-dim), als reiner
-   Hover-Zustand einer ohnehin nebensaechlichen Zeile aber vertretbar, der Ruhezustand
-   bleibt auf --muted.
-   Steht bewusst AUSSERHALB von @layer components: die Zeilen tragen die Utility
-   text-[var(--muted)], und die utilities-Layer schlaegt components unabhaengig von der
-   Spezifitaet. Ungelayerte Regeln gewinnen gegen beide. */
+/* Source rows (chat chips, source list under the exercises): hover lightens the row
+   instead of tipping it into the dark accent blue. Light one step above --muted,
+   dark all the way to white. Icons follow via currentColor.
+   Light jumps to --kb60: --muted-soft was only half a step and invisible in use.
+   --kb60 is too light as a text colour (3.0:1 on --surface-dim), but acceptable as
+   a pure hover state of an already secondary row, the resting state stays --muted.
+   Deliberately OUTSIDE @layer components: the rows carry the utility
+   text-[var(--muted)], and the utilities layer beats components regardless of
+   specificity. Unlayered rules win against both. */
 .hover-lighten:hover:not(:disabled, [aria-disabled="true"]) {
   color: var(--kb60) !important;
 }
@@ -330,25 +328,25 @@
   color: #FFFFFF !important;
 }
 
-/* Dark Mode: btn-primary/btn-fill-accent Hover BG transparent + Schrift weiss (statt --background = fast schwarz und --kb = unlesbar). */
+/* Dark mode: btn-primary/btn-fill-accent hover background transparent and text white. */
 :root[data-theme="dark"] .btn-primary:hover:not(:disabled, [aria-disabled="true"]),
 :root[data-theme="dark"] .btn-fill-accent:hover:not(:disabled, [aria-disabled="true"]) {
   background-color: transparent !important;
   color: #FFFFFF !important;
 }
 
-/* ─── KI-Assistent: eigene, kompakte Schriftskala ───────────────────────
-   Diese Werte sind gerade identisch mit dem @theme-Block oben, der Block
-   ist also im Moment wirkungslos. Er bleibt trotzdem stehen, und zwar als
-   Sperre: im KI-Assistenten stehen Quellen, Chat und Studio als drei
-   Spalten nebeneinander, dort kosten groessere Schriften mehr Uebersicht
-   als sie an Lesbarkeit bringen. Wird die Skala oben irgendwann wieder
-   hochgezogen, bleibt der KI-Assistent durch diese Liste kompakt.
-
-   Es genuegt, die Werte auf einem Vorfahren neu zu setzen, weil die
-   Utilities font-size: var(--text-sm) lesen und Custom Properties nach
-   unten vererben. Wer die Skala im @theme-Block aendert, zieht hier
-   NICHT mit: diese Liste ist absichtlich eingefroren. */
+/* ─── AI assistant: its own compact font scale ───────────────────────────
+   These values are currently identical to the @theme block above, so the
+   block has no effect at the moment. It stays anyway, as a lock: in the AI
+   assistant sources, chat and studio sit as three columns next to each
+   other, and there larger fonts cost more overview than they gain in
+   readability. If the scale above is raised again some day, this list keeps
+   the AI assistant compact.
+   
+   Resetting the values on an ancestor is enough, because the utilities read
+   font-size: var(--text-sm) and custom properties inherit downwards.
+   Whoever changes the scale in the @theme block does NOT change this list:
+   it is frozen on purpose. */
 .aia-scale {
   --text-3xs: 0.625rem;   /* 10px */
   --text-2xs: 0.6875rem;  /* 11px */
@@ -407,13 +405,12 @@ td, th, p, span, li, h1, h2, h3, h4, h5, h6, div {
   &::-webkit-scrollbar { display: none !important; }
 }
 
-/* ─── Seitenrand fuer Listen- und Tabellenseiten ────────────────────────
-   Kein fester Deckel wie max-w-5xl, sondern ein Rand der prozentual
-   mitwaechst. Auf einem 3440er Bildschirm blieben mit 1024 px Deckel zwei
-   Drittel der Flaeche leer. Unterhalb von lg bleiben feste Werte, weil
-   10 % Rand auf dem Handy den Inhalt auffressen wuerden.
-   Nur fuer Listen und Tabellen gedacht. Fliesstext (Impressum, Datenschutz)
-   und Formulare bleiben schmal, dort ist die Zeilenlaenge das Argument. */
+/* ─── Page margin for list and table pages ────────────────────────────
+   No fixed cap like max-w-5xl, but a margin that grows proportionally. On
+   a 3440px screen a 1024px cap left two thirds of the area empty. Below lg
+   fixed values stay, because a 10 % margin would eat the content on a phone.
+   Meant for lists and tables only. Prose (imprint, privacy) and forms stay
+   narrow, there the line length is the argument. */
 @utility page-shell {
   padding-inline: 1rem;
 
@@ -512,18 +509,17 @@ me-tpc:hover .mm-src-chip {
   opacity: 1;
 }
 
-/* ─── Hover-System: semantische Component-Klassen ─────────────────────
-   Eine zentrale Quelle fuer alle interaktiven Hover-Patterns.
-   Layer 2 oben liefert transition + focus-ring + disabled gratis. */
+/* ─── Hover system: semantic component classes ─────────────────────────
+   One central source for all interactive hover patterns. Layer 2 above
+   provides transition, focus ring and disabled for free. */
 @layer components {
-  /* ─── Zustands-Marke ─────────────────────────────────────────────────
-     Ein Zustand ist keine Plakette. Statt einer gefuellten Pille steht ein
-     2px-Strich links vom Wort, dieselbe Sprache wie die eingerueckten
-     Unterpunkte in der Seitenleiste. Die Farbe traegt nur der Strich, die
-     Schrift bleibt Fliesstext.
-
-     Nicht zu verwechseln mit einem Marker: Tutor und Admin sagen dauerhaft,
-     was jemand ist, und bleiben ein kleines rundes Schild. */
+  /* ─── Status mark ─────────────────────────────────────────────────────
+     A state is not a badge. Instead of a filled pill there is a 2px stroke
+     left of the word, the same language as the indented sub-items in the
+     sidebar. Only the stroke carries the colour, the text stays prose.
+     
+     Not to be confused with a marker: tutor and admin say permanently what
+     someone is and stay a small round badge. */
   .status-mark {
     display: inline-flex;
     align-items: center;
@@ -544,8 +540,8 @@ me-tpc:hover .mm-src-chip {
   .status-mark--error   { --status-bar: var(--error); }
   .status-mark--warn    { --status-bar: var(--warn); }
   .status-mark--muted   { --status-bar: var(--border); color: var(--muted-soft); }
-  /* Nur laufende Arbeit bewegt sich, und nur der Strich. Die globale Regel
-     fuer reduzierte Bewegung weiter unten schaltet das mit ab. */
+  /* Only running work moves, and only the stroke. The global reduced motion
+     rule further down switches that off too. */
   .status-mark--pulse::before { animation: status-puls 1.8s ease-in-out infinite; }
 
   /* Icon-Button: gray default, primary + outline on hover.
@@ -609,7 +605,7 @@ me-tpc:hover .mm-src-chip {
   .btn-on-dark:hover:not(:disabled, [aria-disabled="true"]) {
     opacity: 0.8;
   }
-  /* Aktive Kopf-Zeile: gefuellte Pille, damit man die eigene Seite sieht. */
+  /* Active header row: a filled pill so you can see your own page. */
   .btn-on-dark.is-active {
     background-color: rgba(255, 255, 255, 0.18);
   }
@@ -636,8 +632,8 @@ me-tpc:hover .mm-src-chip {
     outline-color: var(--kb);
   }
 
-  /* Aufklapp-Marke: kein Rahmen, der Hinweis ist die Marke selbst, die beim Zeigen
-     kraeftiger wird. Opacity sitzt am svg, damit Ring und Punkt gemeinsam aufhellen. */
+  /* Expand mark: no border, the hint is the mark itself, which gets stronger on
+     hover. Opacity sits on the svg so ring and dot lighten together. */
   .chip-toggle svg {
     transition: opacity 120ms ease;
   }
@@ -655,8 +651,8 @@ me-tpc:hover .mm-src-chip {
     color: var(--on-accent);
   }
 
-  /* Dark Mode: hover:text-[var(--kb)] wuerde auf dunklem BG unsichtbar werden,
-     daher Hover-Text auf weiss zwingen (z.B. Abbrechen-Buttons in Modals). */
+  /* Dark mode: hover:text-[var(--kb)] would be invisible on a dark background,
+     so hover text is forced to white (e.g. cancel buttons in modals). */
   :root[data-theme="dark"] .hover\:text-\[var\(--kb\)\]:hover {
     color: #ffffff;
   }
@@ -718,9 +714,9 @@ me-tpc:hover .mm-src-chip {
     color: #fff;
     box-shadow: 0 4px 12px rgba(26,138,92,0.28);
   }
-  /* Die getroffene Wahl. Sie sieht aus wie der Hover-Zustand und bleibt voll
-     sichtbar, waehrend der nicht gewaehlte Knopf verblasst. So sagt die Karte,
-     was man gedrueckt hat, auch wenn man spaeter zurueckblaettert. */
+  /* The choice that was made. It looks like the hover state and stays fully
+     visible while the unchosen button fades. That way the card says what was
+     pressed, even when you page back later. */
   .btn-outline-danger.is-picked,
   .btn-outline-success.is-picked {
     color: #fff;
@@ -735,7 +731,7 @@ me-tpc:hover .mm-src-chip {
   }
 }
 
-/* Sources panel: hovering "Alle auswählen" previews hover on per-source checkboxes */
+/* Sources panel: hovering "select all" previews hover on the per-source checkboxes */
 .sources-panel:has(.sources-select-all:hover) .source-checkbox {
   border-color: var(--kb);
 }
@@ -773,9 +769,9 @@ me-tpc:hover .mm-src-chip {
   box-shadow: 0 0 0 5px var(--background), 0 0 0 6px var(--kb) !important;
 }
 
-/* Heatmap-Cell (Sprachtraining-Stats): Accent-Outline auf Hover.
-   !important noetig, weil das selected-Outline inline gesetzt wird. */
-/* outline-color permanent setzen + outline aus transition-all ausschliessen, damit Hover-Border sofort 2px snappt */
+/* Heatmap cell (language training stats): accent outline on hover. !important is
+   needed because the selected outline is set inline. */
+/* Set outline-color permanently and exclude outline from transition-all so the hover border snaps to 2px at once */
 .heatmap-cell {
   outline-color: var(--kb);
   transition-property: background-color, color !important;
@@ -797,12 +793,12 @@ me-tpc:hover .mm-src-chip {
   background-color: rgba(255, 255, 255, 0.10);
 }
 
-/* Zustands-Marke im dunklen Modus: das Marken-Blau verschwindet auf Dunkel,
-   genau wie bei der Belegstelle weiter oben, und der Rahmenton ist zu leise. */
+/* Status mark in dark mode: the brand blue disappears on dark, just as with the
+   citation above, and the border tone is too quiet. */
 :root[data-theme="dark"] .status-mark--brand { --status-bar: var(--kb-dark); }
 :root[data-theme="dark"] .status-mark--muted { --status-bar: var(--muted-soft); }
 
-/* Tools-Sidebar Item — kb-getöntes Hover, konsistent mit CD */
+/* Tools sidebar item: kb-tinted hover, consistent with the corporate design */
 .tools-sidebar-item__box {
   background-color: var(--background);
   border: 1px solid var(--border);
@@ -822,7 +818,7 @@ me-tpc:hover .mm-src-chip {
   color: var(--kb) !important;
 }
 
-/* Dark Mode: Download-Links (Jobs-Panel, my-jobs JobArtifacts) weiss statt --kb (#004261 unlesbar auf dunkel); Hover faerbt zu --kb. */
+/* Dark mode: download links (jobs panel, my-jobs JobArtifacts) white instead of --kb, hover goes to --kb. */
 :root[data-theme="dark"] .download-link {
   color: #FFFFFF !important;
 }
@@ -959,10 +955,10 @@ body.is-phone-landscape [title="Panel minimieren"] {
   }
 }
 
-/* ─── Globale Hover/Focus/Disabled-Regeln ─────────────────────────────
-   :where() hat Specificity 0, also gewinnen Tailwind-Utilities und
-   bestehende Komponenten-CSS-Regeln immer. Greift automatisch auf
-   alle interaktiven Elemente, egal welche Farbe oder Komponente. */
+/* ─── Global hover/focus/disabled rules ─────────────────────────────────
+   :where() has specificity 0, so Tailwind utilities and existing component
+   CSS rules always win. Applies automatically to all interactive elements,
+   whatever their colour or component. */
 @layer base {
   :where(
     a, button, summary, label[for],
@@ -1192,20 +1188,21 @@ body.is-phone-landscape [title="Panel minimieren"] {
   40%      { transform: scale(.7); opacity: .4; }
 }
 
-/* Quellen-Stelle: normaler Inline-Fluss, KEIN inline-flex, damit die Stelle kein eigener
-   Kasten im Satz ist.
-
-   Die Chips stehen IMMER im Layout und sind nur unsichtbar, solange die Stelle zu ist (siehe
-   CitationChip, reserved). Darum bewegt sich beim Hovern nichts mehr. Frueher wurden sie
-   erst beim Hovern erzeugt: ein Zeiger auf einer einzigen Stelle verschob dann 54 von 58
-   Textstuecken der Antwort, schob 25 davon in eine andere Zeile und verrueckte
-   Tabellenspalten um bis zu 460px.
-
-   Die Stelle selbst darf umbrechen. Als unteilbarer Block (nowrap) sprang sie samt dem
-   reservierten Platz komplett in die naechste Zeile, sobald der Satz die Zeile fast fuellte,
-   und die Zeile trug dann nur noch die Marke. So bleibt die Marke am Satzende und nur der
-   unsichtbare Vorrat rutscht weiter, genau dorthin, wo beim Hovern die Chips erscheinen.
-   Zusammen bleiben muessen nur Marke und Satzzeichen, dafuer sorgt chip-stop-head. */
+/* Citation site: normal inline flow, NOT inline-flex, so the site is not a box of
+   its own inside the sentence.
+   
+   The chips are ALWAYS in the layout and are only invisible while the site is
+   closed (see CitationChip, reserved). That is why nothing moves on hover. They
+   used to be created on hover: a pointer on a single site then shifted 54 of 58
+   text pieces of the answer, pushed 25 of them onto another line and moved table
+   columns by up to 460px.
+   
+   The site itself may wrap. As an unbreakable block (nowrap) it jumped, together
+   with the reserved space, entirely onto the next line as soon as the sentence
+   nearly filled the line, and that line then carried only the mark. This way the
+   mark stays at the sentence end and only the invisible reserve slides on, exactly
+   to where the chips appear on hover. Only mark and punctuation have to stay
+   together, chip-stop-head takes care of that. */
 .chip-stop {
   display: inline;
 }

@@ -1,7 +1,4 @@
-"""Chunk-Merge mit Offset-Shift für SRT- und VTT-Timestamps.
-
-Wenn Whisper-Transkripte aus mehreren Chunks wieder zusammengeführt werden,
-müssen alle Timestamps um den Offset des jeweiligen Chunks verschoben werden."""
+"""Merges subtitles from several parts and shifts the timestamps."""
 
 import re
 

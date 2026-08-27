@@ -1,12 +1,6 @@
 "use client";
 
-/**
- * Die Seite Nutzer > Rollen zeigt die Rechtetabelle.
- *
- * Vorher standen hier eine Liste eigener Rollen und ein Dialog dahinter. Die
- * Liste konnte nur zwei Dinge: Zugriff auf den KI-Assistenten und ein paar
- * Werkzeuge. Alles, was den Bereich selbst betrifft, war gar nicht vergebbar.
- */
+/** The users and roles page shows the permission table. */
 
 import PermissionMatrix from "./PermissionMatrix";
 

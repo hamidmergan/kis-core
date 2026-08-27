@@ -4,15 +4,7 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import CollapsibleCard from "@/components/ui/CollapsibleCard";
 
-/**
- * Die Stufen-Leiter A1 bis C2: je Stufe eine Beschreibung und Beispielsaetze.
- *
- * EINE Quelle fuer DREI Verwendungen: die Diagnose stuft daran ein, der Chat und
- * die Werkzeuge schreiben daran entlang. Ersetzt die frühere Karte
- * "Sprachniveau-Beispiele" und die Stufen-Liste, die vorher im englischen
- * Prompt-Text stand, damit ein Sprachexperte auf Deutsch und ohne Platzhalter
- * pflegt. Ein leeres Feld stellt den ausgelieferten Standard wieder her.
- */
+/** The level ladder, one source for assessment, chat and tools. */
 
 type PerLevel = Record<string, string>;
 
@@ -28,8 +20,7 @@ export default function DiagnosisLevelsCard() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Kanonische Form, damit blosses Anschauen nie speichert (das wuerde die
-  // aktuellen Standards festschreiben und kuenftige Aenderungen daran verdecken).
+  // Canonical form so merely looking never saves.
   const keyOf = (values: PerLevel, lvls: string[]) => {
     const clean: PerLevel = {};
     for (const lvl of lvls) if ((values[lvl] ?? "").trim()) clean[lvl] = values[lvl].trim();

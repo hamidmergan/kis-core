@@ -1,10 +1,10 @@
-# Lokale Entwicklung. Explizit via -f in start-local.bat/sh geladen.
-# Auf dem Server nicht genutzt.
+# Local development, loaded explicitly via -f in start-local.bat/sh.
+# Not used on the server.
 
 services:
   # ── Hot-Reload-Tweaks ──────────────────────────────────────────────────
   backend:
-    # --timeout-graceful-shutdown: sonst haengt der Reload ewig an offenen SSE-Streams
+    # --timeout-graceful-shutdown: otherwise the reload hangs forever on open SSE streams
     command: python -m uvicorn src.app:app --host 0.0.0.0 --port 8000 --reload --timeout-graceful-shutdown 5
     volumes:
       - ./backend/src:/app/src

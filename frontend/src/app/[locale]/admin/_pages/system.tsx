@@ -1,16 +1,6 @@
 "use client";
 
-/**
- * System. Frueher ein Sammelbecken aus siebzehn Karten, heute drei: der
- * Wartungsmodus und das, was vorher unter "Oberflaeche" stand.
- *
- * Die fuenf Zahlenfelder fuer Parallelitaet sind entfallen, die Maschine wird
- * erkannt und die Grenzen kommen daraus.
- *
- * "Oberflaeche" war ein eigener Punkt in der Leiste fuer zwei Karten. Beide
- * gelten fuer die ganze Plattform, genau wie der Wartungsmodus, und stehen
- * deshalb jetzt hier.
- */
+/** System: maintenance mode and the two platform-wide cards. */
 
 import MaintenanceCard from "../_settings/MaintenanceCard";
 import WorkspaceLabelCard from "../_components/WorkspaceLabelCard";

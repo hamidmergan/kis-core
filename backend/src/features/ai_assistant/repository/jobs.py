@@ -1,13 +1,4 @@
-"""DB-backed JobStore for the AIA orchestration queue (``aia_jobs`` table).
-
-Implements the same ``JobStore`` protocol the in-memory store does, so the
-``DispatchService`` runs identically in tests and in production. AIA-owned on
-purpose: it must NOT share the global-tools ``jobs`` table, which is being
-split into a separate project.
-
-The queue claim in ``mark_running`` is guarded with ``FOR UPDATE`` so two
-dispatch passes (backend + worker) cannot start the same job twice.
-"""
+"""The assistant's queue in the database, with FOR UPDATE against double starts."""
 from __future__ import annotations
 
 import json
@@ -67,10 +58,7 @@ class DbJobStore:
                 cur.execute("SELECT user_id, area FROM aia_jobs WHERE status = 'running'")
                 return [(r[0], r[1]) for r in cur.fetchall()]
 
-    # Fairness counts: jobs already granted (running or finished) in a recent
-    # window, grouped by area / user. Derived from the shared table so all
-    # processes agree. The 1h window means yesterday's heavy user is not
-    # penalised today, and the counts stay bounded.
+    # Fairness counter over an hourly window, per area and user.
     _GRANT_WINDOW = "1 hour"
 
     def area_grant_counts(self) -> dict[str, float]:
@@ -94,8 +82,7 @@ class DbJobStore:
                 return {r[0]: r[1] for r in cur.fetchall()}
 
     def mark_running(self, job_uuid: str) -> bool:
-        """Atomically claim a queued job (queued -> running). Returns True iff this
-        caller won the slot (so a concurrent dispatcher can never double-launch)."""
+        """Claims a waiting job, True only for the winner."""
         with get_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute(

@@ -1,4 +1,4 @@
-"""GET /jobs/{job_uuid} - Status-Poll (Progress while running, Ergebnis bei fertig)."""
+"""Status poll: progress while running, the result once finished."""
 
 import json
 from pathlib import Path
@@ -23,9 +23,7 @@ def get_job_status(
 ):
     """Poll job status. Returns progress while running, result when done."""
     job = db.get_job(job_uuid)
-    # Jobs are personal. Combine not-found and not-owner into one 404 so a foreign
-    # job_uuid cannot be used to poll another user's status/result (translated
-    # document content, render meta).
+    # Not found and not yours both yield 404.
     if not job or job["user_id"] != current_user.get("user_id", 0):
         raise HTTPException(status_code=404, detail=t("job.notFound", locale))
 

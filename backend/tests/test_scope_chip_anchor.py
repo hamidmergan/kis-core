@@ -1,11 +1,4 @@
-"""Single-page scope summary keeps ONE click-to-page anchor chip.
-
-A single-page PDF scope ("fasse Seite 5 zusammen") must not chip every line with the
-page the user named (pure noise in nav-only mode). The route skips per-line
-attribution for it and appends exactly one ``[N, S. X]`` anchor at the bottom via
-``_append_scope_anchor`` — a single jump-to-page link. The frontend renders that as a
-chip.
-"""
+"""For a single page exactly one anchor chip stays at the end."""
 from src.features.ai_assistant.routes._helpers import _append_scope_anchor
 
 

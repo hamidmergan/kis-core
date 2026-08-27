@@ -1,9 +1,4 @@
-"""CRUD for the providers table.
-
-A provider is an endpoint the admin registered (name + protocol + base_url +
-api_key). Capabilities are filled in by the probe service or by protocol
-definition. Feature routing happens in a separate table (``feature_routes``).
-"""
+"""Database access to providers, one row per registered endpoint."""
 
 import json
 from datetime import datetime
@@ -156,8 +151,7 @@ def set_probe_result(
 
 
 def delete_provider(provider_id: int) -> bool:
-    """Delete a provider. ON DELETE SET NULL on feature_routes.provider_id
-    will leave the routes in an "unconfigured" state."""
+    """Deletes a provider, its routes are left unconfigured."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("DELETE FROM providers WHERE id = %s", (provider_id,))

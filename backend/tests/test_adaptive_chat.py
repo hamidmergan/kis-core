@@ -45,26 +45,16 @@ def test_default_behavior_carries_both_placeholders():
 
 
 def test_default_behavior_is_style_only_and_covers_the_bands():
-    """The default steers WORDING and must give a rule for every band A1..C2.
-
-    What it must NOT do is hand the model a role. It used to open with "ADAPT TO
-    THE LEARNER" and claim to OVERRIDE the rules above, and that read as "you are
-    this learner's language tutor": measured 2026-07-29, a grammar question no
-    document answered got a full invented lesson with the trainer on and the
-    correct refusal with it off. A role beats a single prohibition sentence, so
-    the text stays a style rule with an explicit carve-out for the refusal.
-    """
+    """The default steers the wording and prescribes no role."""
     b = DEFAULT_ADAPTIVE_BEHAVIOR
     assert "STYLE" in b
     assert "no role" in b
     assert "never decides" in b.lower()
-    # The refusal is one sentence at every level — the "never shorter" rule above
-    # it must not be allowed to inflate it back into an answer.
+    # The refusal stays one sentence at every level.
     assert "not-in-sources sentence" in b
     # Grammar stays out of the model's remit unless a document states it.
     assert "language teacher" in b
-    # Die Stufen kommen aus der Stufen-Leiter, der Text nennt sie nur noch ueber
-    # den Platzhalter. Die eigene A1/A2..C1/C2-Liste ist bewusst raus.
+    # The levels come from the ladder, the text only names the placeholder.
     from src.services.aia_adaptive_chat import DESCRIPTION_PLACEHOLDER
     assert DESCRIPTION_PLACEHOLDER in b
     assert "C1 or C2" in b
@@ -73,20 +63,7 @@ def test_default_behavior_is_style_only_and_covers_the_bands():
 
 
 def test_default_behavior_does_not_turn_a_word_question_into_a_grammar_question():
-    """Asking what a term MEANS is an ordinary question, not a vocabulary lesson.
-
-    The block used to close with "a message that quotes words which do appear in
-    the documents is still such a message: the quoted words are not the answer".
-    It was aimed at grammar asks, but it also caught "was ist die
-    Komplementaermenge?" — a question that quotes a word from the sources and
-    wants the definition standing right next to it. Measured 2026-08-16 against
-    the Mathe-Vorkurs chunk that holds the definition, 10 runs each: 5-6 wrong
-    refusals on A1 with the sentence, 0 without it, 0 with no level and 0 on B2.
-
-    Removing it does not open the grammar hole it was meant to close: the same
-    grammar question no source answers is refused 10 out of 10 either way,
-    because ADAPTIVE_SOURCES_GUARD carries that rule and ships separately.
-    """
+    """Asking what a term means is an ordinary question."""
     b = DEFAULT_ADAPTIVE_BEHAVIOR
     assert "the quoted words are not the answer" not in b
     assert "quotes words which do appear" not in b
@@ -96,15 +73,7 @@ def test_default_behavior_does_not_turn_a_word_question_into_a_grammar_question(
 
 
 def test_default_behavior_never_drops_facts_at_the_low_levels():
-    """Simplifying is about WORDING, never about leaving content out.
-
-    Regression: with a learner on A2 the same question lost the Peer-Review, the
-    Extended Abstract, the grading relevance and the access route that the same
-    workspace answered in full with adaptation off. The A1/A2 branch told the
-    model to give "only the few MOST important points, not everything" and to
-    "keep the whole answer short", and the header let the block override the base
-    prompt's completeness rule.
-    """
+    """Simplifying concerns the wording, never the content."""
     b = DEFAULT_ADAPTIVE_BEHAVIOR
     low = b.lower()
     assert "not everything" not in low
@@ -117,11 +86,7 @@ def test_default_behavior_never_drops_facts_at_the_low_levels():
 
 
 def test_default_behavior_keeps_the_response_structure_at_the_low_levels():
-    """A2 collapsed a structured answer into one prose block.
-
-    The base prompt's RESPONSE STRUCTURE rules (headings, bullets, tables) apply
-    at every level, so the block has to say it does not override them.
-    """
+    """The level block must not override the structuring rules of the main prompt."""
     low = DEFAULT_ADAPTIVE_BEHAVIOR.lower()
     assert "response structure" in low
 
@@ -157,34 +122,22 @@ def test_example_for_level_empty_without_level():
 
 
 def test_sources_guard_is_the_last_thing_the_model_reads():
-    """The guard must end the suffix, after the behaviour text.
-
-    The suffix is appended at the END of the user message, so the tail is what the
-    model weights most. When the guard stopped being last, the adaptive block's
-    "never shorter" won and the chat answered off-topic messages instead of
-    refusing (regression seen 2026-07-29).
-    """
+    """The source guard has to end the suffix, the end weighs the most."""
     from src.services.aia_adaptive_chat import seal_adaptive_suffix, ADAPTIVE_SOURCES_GUARD
     sealed = seal_adaptive_suffix("\n\nBEHAVIOUR TEXT")
     assert sealed.endswith(ADAPTIVE_SOURCES_GUARD)
     assert "BEHAVIOUR TEXT" in sealed
 
 
-# ENTFALLEN am 2026-08-19: der Guard geht nur noch mit dem Sprachtrainer raus, und er
-# beschreibt keine Antwortform mehr. Beides regelt jetzt der Hauptprompt allein. Der
-# alte Anlass, Erfinden ohne Trainer am 2026-07-29, lief gegen den alten Hauptprompt
-# ohne eigenen Abschnitt fuer fehlende Information.
 
 
 def test_sources_guard_cannot_be_deleted_by_an_admin_edit():
-    """The guard lives in code, NOT in the admin-editable behaviour text: an expert
-    rewriting the didactics in the admin UI must not be able to remove the rule that
-    keeps the chat from inventing answers."""
+    """The guard lives in the code, not in the admin text."""
     from src.services.aia_adaptive_chat import ADAPTIVE_SOURCES_GUARD, DEFAULT_ADAPTIVE_BEHAVIOR
     assert ADAPTIVE_SOURCES_GUARD not in DEFAULT_ADAPTIVE_BEHAVIOR
 
 
-# ─── Stufen-Leiter: die Beschreibung kommt aus der Karte ─────────────────────
+# ─── Level ladder: the description comes from the ladder ─────────────────────
 
 def test_appendix_substitutes_the_description():
     from src.services.aia_adaptive_chat import adaptive_chat_appendix
@@ -207,7 +160,7 @@ def test_default_behavior_carries_the_description_placeholder():
 
 
 def test_default_behavior_no_longer_carries_its_own_band_list():
-    """Die Stufen stehen in der Karte, nicht mehr doppelt im Verhaltenstext."""
+    """The levels live in the ladder, no longer duplicated in the behaviour text."""
     b = DEFAULT_ADAPTIVE_BEHAVIOR
     assert "- A1 or A2:" not in b
     assert "- B1:" not in b
@@ -216,7 +169,7 @@ def test_default_behavior_no_longer_carries_its_own_band_list():
 
 
 def test_default_behavior_keeps_the_glossing_instruction():
-    """Der Auftrag zum Erklaeren von Fachwoertern darf nicht mit der Liste verschwinden."""
+    """The instruction to explain technical terms must not vanish with the list."""
     low = DEFAULT_ADAPTIVE_BEHAVIOR.lower()
     assert "gloss" in low
     assert "from the documents" in low

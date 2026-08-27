@@ -1,13 +1,4 @@
-"""Sprach-Anker fuer den Chat: die letzte Frage der Person.
-
-Warum es diese Abfrage gibt: der Chat schickt keinen Verlauf an das Modell,
-jede Frage steht allein. Bei "hi" oder "klsdf" gibt es deshalb kein
-Sprachsignal und die Antwort kippt ins Englische. Die letzte echte Frage aus
-demselben Chat dient als Anker, damit die Sprache erhalten bleibt.
-
-Alles offline. Die Datenbankverbindung wird durch eine Attrappe ersetzt, die
-eine vorgegebene Zeile liefert und die abgesetzte Anweisung mitschreibt.
-"""
+"""The language anchor: the person's last real question holds the language."""
 
 import pytest
 
@@ -55,7 +46,7 @@ class _FakeConn:
 
 @pytest.fixture
 def fake_db(monkeypatch):
-    """Haengt die Verbindung aus und gibt die Liste der Anweisungen zurueck."""
+    """Unhooks the connection and returns the list of statements."""
     def _apply(row):
         calls: list[tuple] = []
         monkeypatch.setattr(repo_chat, "get_connection", lambda: _FakeConn(row, calls))
@@ -83,8 +74,7 @@ def test_nur_fragen_der_person_und_wenige_davon(fake_db):
     calls = fake_db([{"content": "egal"}])
     repo_chat.get_last_aia_user_questions(1, 2, limit=3)
     sql, params = calls[0]
-    # Antworten des Tutors sind kein Anker, sonst wuerde dessen Sprachwahl
-    # sich selbst verstaerken.
+    # Tutor answers are no anchor, otherwise its language choice reinforces itself.
     assert "role = 'user'" in sql
     assert "ORDER BY created_at DESC" in sql
     assert "LIMIT %s" in sql
@@ -93,9 +83,7 @@ def test_nur_fragen_der_person_und_wenige_davon(fake_db):
 
 
 def test_es_werden_mehr_fragen_geholt_als_gebraucht(fake_db):
-    # Kurze Eingaben ("hi", "ok") fallen spaeter als Sprachprobe raus, deshalb
-    # muss der Verlauf tief genug gelesen werden, damit eine echte Frage
-    # uebrig bleibt.
+    # The history has to be read deep enough, short inputs drop out.
     calls = fake_db([{"content": "egal"}])
     repo_chat.get_last_aia_user_questions(1, 2)
     _, params = calls[0]
@@ -103,8 +91,7 @@ def test_es_werden_mehr_fragen_geholt_als_gebraucht(fake_db):
 
 
 def test_zugangslink_hat_seinen_eigenen_verlauf(fake_db):
-    # Chats je Zugangslink sind getrennt, der Anker darf nicht aus einem
-    # anderen Verlauf stammen.
+    # Chats per access link are separate, the anchor stays in its own history.
     calls = fake_db([{"content": "egal"}])
     repo_chat.get_last_aia_user_questions(1, 2, enrollment_id=7, limit=3)
     sql, params = calls[0]

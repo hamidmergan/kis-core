@@ -20,7 +20,6 @@ interface TtsSettingsStepProps {
   voiceId: string;
   speed: number;
   slidePause: number;
-  dpi: number;
   subtitles: boolean;
   slides: SlideData[];
   totalWords: number;
@@ -45,7 +44,6 @@ interface TtsSettingsStepProps {
   onVoiceIdChange: (v: string) => void;
   onSpeedChange: (v: number) => void;
   onSlidePauseChange: (v: number) => void;
-  onDpiChange: (v: number) => void;
   onSubtitlesChange: (v: boolean) => void;
   onBackToScripts: () => void;
   onStartRender: () => void;
@@ -65,7 +63,6 @@ export default function TtsSettingsStep(props: TtsSettingsStepProps) {
     voiceId,
     speed,
     slidePause,
-    dpi,
     subtitles,
     slides,
     totalWords,
@@ -90,7 +87,6 @@ export default function TtsSettingsStep(props: TtsSettingsStepProps) {
     onVoiceIdChange,
     onSpeedChange,
     onSlidePauseChange,
-    onDpiChange,
     onSubtitlesChange,
     onBackToScripts,
     onStartRender,

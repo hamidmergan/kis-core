@@ -18,13 +18,7 @@ interface Props {
   hideHeader?: boolean;
 }
 
-/**
- * The CEFR diagnosis, run as a short adaptive chat.
- *
- * The questions come from the model, driven by the admin-managed prompt and the
- * workspace's diagnosis language, so nothing about the method is hardcoded here.
- * The mascot follows the user's existing preference; there is no separate switch.
- */
+/** The assessment as a short chat, method and language come from the admin area. */
 export function LanguageDiagnosisPanel({
   userId,
   workspaceUuid,
@@ -41,9 +35,7 @@ export function LanguageDiagnosisPanel({
   const { turns, status, result, errorMessage, send, retry, abort, questionCount, answerMaxChars } =
     useLanguageDiagnosis(userId, workspaceUuid);
 
-  // Each assistant turn is one question (the reaction rides along on the same
-  // turn, so it does not add to the count). Clamped because the forced verdict
-  // turn is also an assistant turn but is not an extra question.
+  // One question per model turn, capped because of the final turn.
   const askedCount = Math.min(
     turns.filter((turn) => turn.role === "assistant").length,
     questionCount,
@@ -54,38 +46,28 @@ export function LanguageDiagnosisPanel({
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [turns, status]);
 
-  // The intro is a real speech bubble, but it never goes to the model: it is
-  // interface framing, so it stays in the UI language even when the interview
-  // itself runs in another one. The prompt tells the model not to greet again.
+  // The introduction is frame and stays in the interface language.
   const visibleTurns: ChatTurn[] = [{ role: "assistant", content: t("intro") }, ...turns];
 
-  // Each turn is one bubble. Reactions are gone: a turn is a question or an answer.
-  // A skipped question is stored as an empty user turn; show it as a "skipped"
-  // label so the bubble is not blank.
+  // One bubble per turn, a skipped question gets a label.
   const bubbles: { role: ChatTurn["role"]; text: string }[] = visibleTurns.map((turn) => ({
     role: turn.role,
     text: turn.role === "user" && !turn.content.trim() ? t("skipped") : turn.content,
   }));
 
-  // The current question is the last assistant turn while answering. Its options
-  // (if any) are rendered as clickable buttons; the answer key stays server-side.
+  // The current question is the last model turn, the answer key stays on the server.
   const current =
     status === "answering" && turns.length > 0 && turns[turns.length - 1].role === "assistant"
       ? turns[turns.length - 1]
       : undefined;
   const options = current?.options;
   const multi = current?.multi ?? false;
-  // A free-text question is one being answered that carries no options. It gets a
-  // real textbox with a submit button, not the chat-style composer.
+  // A free-text question gets a real text area instead of the chat line.
   const isFreeText = !!current && !(options && options.length > 0);
-  // Eine Lücke wird mit einem Wort beantwortet, also gibt es ein einzeiliges
-  // Feld. Der Server entscheidet das an der Länge der hinterlegten Lösung. Der
-  // große Kasten ist für ganze Sätze und liest sich neben einem Satz, dem ein
-  // einziges Wort fehlt, wie "schreib viel".
+  // A gap gets a single-line field, decided by the answer length.
   const isShort = current?.short ?? false;
 
-  // Checkbox picks for a multi-correct question, and the free-text draft. Both
-  // reset whenever a new question arrives, so nothing leaks between questions.
+  // Selection and draft are cleared on every new question.
   const [picked, setPicked] = useState<string[]>([]);
   const [draft, setDraft] = useState("");
   useEffect(() => {
@@ -98,9 +80,7 @@ export function LanguageDiagnosisPanel({
       prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value],
     );
 
-  // Skip: send an empty answer and move on. Always available while answering, so
-  // a hard question never traps an overwhelmed learner. Rendered in every answer
-  // block (options and free text), so there is always a way forward.
+  // Skipping is always possible, in every answer block.
   const skipButton = (
     <button
       type="button"
@@ -112,9 +92,7 @@ export function LanguageDiagnosisPanel({
     </button>
   );
 
-  // The avatar heads the newest block of assistant bubbles. Anchoring it to the
-  // last bubble alone would strand the intro above a nameless bubble, since the
-  // opening block is intro + first question.
+  // The face sits on the newest block, not on the last bubble.
   let mascotIndex = bubbles.map((bubble) => bubble.role).lastIndexOf("assistant");
   while (mascotIndex > 0 && bubbles[mascotIndex - 1].role === "assistant") mascotIndex--;
 
@@ -247,8 +225,7 @@ export function LanguageDiagnosisPanel({
               <div className="max-w-2xl mx-auto w-full flex flex-col gap-2">
                 {options.map((opt, i) => {
                   const active = multi && picked.includes(opt);
-                  // Letter is a display label from the shuffled position; the value
-                  // sent back is still the option text, so grading stays value-based.
+                  // The letter is display, the option text goes back.
                   const letter = String.fromCharCode(97 + i);
                   return (
                     <button
@@ -369,8 +346,7 @@ export function LanguageDiagnosisPanel({
               <button
                 onClick={() => {
                   setConfirmAbort(false);
-                  // The dialog promises the answers are gone, so drop the saved
-                  // transcript too instead of silently resuming it later.
+                  // The dialog promises the answers are gone, so the history goes too.
                   abort();
                   onAbort();
                 }}

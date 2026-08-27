@@ -132,9 +132,9 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
   // ── Render from accepted scripts ──
   const handleStartRender = useCallback(async () => {
     setTtsSettingsError("");
-    // Ohne das haelt ein altes Video den neuen Lauf faelschlich fuer einen Rueckblick.
+    // Without this an old video makes the new run look like a review.
     renderResult.clear();
-    // Die Listen des letzten Laufs wuerden den neuen sonst falsch beschriften.
+    // The lists of the last run would otherwise label the new one wrongly.
     setFertigeFolien([]);
     setNichtDabei([]);
     if (!translateJobUuid) {
@@ -266,16 +266,14 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
     processRenderResultFromJob, goError, dispatch, currentJobUuidRef, messages,
   ]);
 
-  // ── Wiederanschluss an einen laufenden Render ──
-  // Zwei Wege fuehren hierher: das Neuladen im selben Tab (sessionStorage) und
-  // der Sprung aus der Jobs-Liste, der die UUID direkt mitbringt.
+  // Two ways to reconnect: a reload in the tab and a jump from the job list.
   const reconnectToRender = useCallback((uuid: string) => {
     sessionStorage.setItem(RENDER_SESSION_KEY, JSON.stringify({ uuid }));
     fetch(`/api/jobs/${uuid}`, { credentials: "include" })
       .then((r) => r.json())
       .then((job) => {
         if (job.status === "success") {
-          // Fertig geworden, waehrend niemand hingesehen hat: direkt die Fertig-Seite.
+          // Finished while nobody was looking: go straight to the finished page.
           processRenderResultFromJob(job).catch(() => {});
           return;
         }
@@ -314,7 +312,7 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
     abortControllerRef, currentJobUuidRef,
   ]);
 
-  // Beim Neuladen im selben Tab haengt sich die Seite von allein wieder an.
+  // On a reload in the same tab the page reattaches by itself.
   useEffect(() => {
     const saved = sessionStorage.getItem(RENDER_SESSION_KEY);
     if (!saved) return;

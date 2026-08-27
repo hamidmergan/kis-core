@@ -14,15 +14,7 @@ const VERDICT_STYLE: Record<ClozeVerdict, { fg: string; bg: string }> = {
   wrong: { fg: "#d4453a", bg: "rgba(212,69,58,0.07)" },
 };
 
-/** Ein Satz, ein Text, ein Knopf.
- *
- * Der Text kommt mit Platzhaltern und wird hier an ihnen zerlegt. Zwischen die
- * Stücke kommen Eingabefelder. Unter dem Text stehen die Grundformen als Chips,
- * ein Klick streicht einen durch und ein zweiter hebt den Strich auf. Das ist
- * eine Merkhilfe und hat auf die Auswertung keinen Einfluss.
- *
- * Geprüft wird im Browser. Die Lösungen kommen mit dem Satz mit, das ist Absicht.
- */
+/** One set, one text, one button, checked in the browser. */
 export function ClozeExerciseView({
   exerciseSet, onBack, onAnswer, onSourceClick, onFinish, breadcrumbs,
 }: {
@@ -35,17 +27,13 @@ export function ClozeExerciseView({
 }) {
   const t = useTranslations("workspace.detail.languageTraining");
 
-  // Ein Set ist genau EINE Aufgabe (siehe run_cloze_set im Backend), deshalb reicht
-  // das erste Element. Anweisung und Beispiel haengen an DIESER Aufgabe und nicht
-  // am Set (exerciseSet.instruction/pattern_* gehoeren der Grammatik-Uebung, der
-  // Vorrat traegt nur Aufgaben mit, kein Set-Feld).
+  // One text is exactly one exercise, instruction and example hang off it.
   const item = exerciseSet.items?.[0] ?? null;
   const gaps = useMemo(() => item?.extras?.gaps ?? [], [item]);
   const instruction = item?.extras?.instruction ?? "";
   const example = item?.extras?.example ?? null;
 
-  // Der Text in Stücke und Lücken zerlegt. Ein Stück ist Text, eine Lücke ist die
-  // (0-indizierte) Nummer eines Platzhalters, ueber die gaps[] angesprochen wird.
+  // The text split into pieces and gaps.
   const parts = useMemo(() => {
     const out: { text?: string; gap?: number }[] = [];
     const src = item?.front ?? "";
@@ -59,23 +47,13 @@ export function ClozeExerciseView({
     return out;
   }, [item]);
 
-  // Alle Eingabefelder gleich breit, nach der LAENGSTEN Loesung im Satz. Die Breite
-  // aus der eigenen Loesung einer Luecke zu nehmen wuerde die Antwortlaenge schon
-  // verraten, bevor ueberhaupt etwas eingetippt ist.
+  // All fields equally wide, otherwise the width reveals the answer length.
   const maxSolutionLen = useMemo(
     () => Math.max(6, ...gaps.map((g) => g.solution.length)),
     [gaps],
   );
 
-  // Die Chips einmal gemischt, damit ihre Reihenfolge die Lösung nicht verrät. Die
-  // Ansicht öffnet sich mit der Listenzeile, BEVOR die Aufgabe nachgeladen ist: beim
-  // ersten Rendern ist item noch null und gaps damit leer. Ein useState-Initialisierer
-  // liefe genau einmal beim Mounten und fröre diesen leeren Stand für immer ein, die
-  // Chip-Reihe bliebe leer, obwohl der Text und die Eingabefelder (über ihre eigenen
-  // useMemo) richtig nachziehen. useMemo über die Aufgaben-Id läuft dagegen erneut,
-  // sobald die echte Aufgabe eintrifft, danach aber nicht mehr bei jedem Neuzeichnen
-  // (Tippen, Prüfen, Chip-Klick ändern die Id nicht). Genau einmal PRO SATZ, nicht
-  // einmal pro Mount.
+  // The chips are shuffled once per exercise so the order reveals nothing.
   const chips = useMemo(() => {
     const list = gaps.map((g, i) => ({ base: g.base, key: i }));
     for (let i = list.length - 1; i > 0; i--) {
@@ -83,35 +61,28 @@ export function ClozeExerciseView({
       [list[i], list[j]] = [list[j], list[i]];
     }
     return list;
-    // gaps absichtlich nicht in den deps: seine Identität hängt an item und würde bei
-    // jedem Objekt-Neuaufbau ohne echte Datenänderung mitmischen, item.id ist der
-    // stabile Schlüssel dafür, ob wirklich eine ANDERE Aufgabe vorliegt.
+    // The exercise id is the stable key, not the object.
   }, [item?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [drafts, setDrafts] = useState<Record<number, string>>({});
   const [struck, setStruck] = useState<Record<number, boolean>>({});
-  // Eingeklappt: das Beispiel ist Hilfe auf Abruf und nicht Teil der Aufgabe.
-  // Genauso haelt es die Grammatik-Uebung mit ihrem Musterpaar.
+  // Collapsed, the example is help on demand.
   const [showExample, setShowExample] = useState(false);
   const [verdicts, setVerdicts] = useState<ClozeVerdict[] | null>(null);
-  // Ob geprueft wurde, unabhaengig davon, ob jede Luecke ein eigenes Urteil bekam.
-  // Sperrt so wirklich JEDES Feld (Vorgabe), auch ein Platzhalter ohne passenden
-  // gaps-Eintrag, statt an einem einzelnen Urteil festzumachen.
+  // Whether it was checked really locks every field.
   const checked = verdicts !== null;
-  // Ein Aufbau der Ansicht ist ein Durchgang.
+  // One mount of the view is one round.
   const runGemeldetRef = useRef(false);
 
   const gefuellt = Object.values(drafts).some((v) => v.trim());
   const correctCount = verdicts?.filter((v) => v === "correct").length ?? 0;
 
   function check() {
-    // Ohne die Laengen-Wache waere [] hier ein gueltiges Urteil: [].every(...) ist
-    // in JavaScript immer true, und eine Aufgabe ohne Luecken (kaputte extras.gaps)
-    // ginge damit als gekonnt durch, obwohl nie etwas geprueft wurde.
+    // Without the length guard an exercise without gaps would pass as mastered.
     if (!item || checked || gaps.length === 0) return;
     const urteile = gaps.map((g, i) => checkGap(drafts[i] ?? "", g.solution));
     setVerdicts(urteile);
-    // Der Satz ist EINE Aufgabe. Sie gilt als gekonnt, wenn jede Lücke sitzt.
+    // The text is ONE exercise, mastered when every gap is right.
     const neuerDurchgang = !runGemeldetRef.current;
     runGemeldetRef.current = true;
     onAnswer(item.id, urteile.every((u) => u === "correct"), neuerDurchgang);
@@ -186,10 +157,7 @@ export function ClozeExerciseView({
               type="button"
               onClick={() => setStruck((s) => ({ ...s, [c.key]: !s[c.key] }))}
               className="px-2.5 py-1 rounded-full text-2xs font-medium border-2 transition-colors"
-              // Neutrales Grau aus der hauseigenen Skala und nicht die Rose-Farbe der
-              // Kachel. Ein Chip ist Material zum Einsetzen und keine Wertung, eine
-              // Farbe daran wuerde eine Bedeutung behaupten, die es nicht gibt. Die
-              // beiden Werte sind fuer hell und dunkel getrennt hinterlegt.
+              // Neutral grey, a chip is material and not a judgement.
               style={{
                 backgroundColor: "var(--surface-dim)",
                 color: "var(--foreground)",

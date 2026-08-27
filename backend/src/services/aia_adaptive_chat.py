@@ -1,4 +1,4 @@
-"""Macht aus Stufe und Verhaltenstext den Anhang fuer den Chat-Prompt."""
+"""Turns level and behaviour text into the suffix for the chat prompt."""
 
 from src.services.aia_diagnosis_chat import (
     LEVEL_EXAMPLES_SETTING,
@@ -15,7 +15,7 @@ LEVEL_PLACEHOLDER = "{level}"
 EXAMPLE_PLACEHOLDER = "{example}"
 DESCRIPTION_PLACEHOLDER = "{description}"
 
-# Der alte Standardtext, nur noch da, um ihn beim Lesen als "nicht gesetzt" zu erkennen.
+# The old default text, kept only to recognise it as 'not set' on read.
 _LEGACY_ADAPTIVE_BEHAVIOR = (
     "WRITING STYLE. Write at CEFR level {level}. This is a STYLE rule and nothing "
     "else: it changes the WORDING of an answer you are already allowed to give. It "
@@ -52,7 +52,7 @@ _LEGACY_ADAPTIVE_BEHAVIOR = (
     "An example of {level} wording: {example}"
 )
 
-# Mitgelieferter Standardtext, vom Admin unter der Sprachdiagnose aenderbar.
+# Shipped default text, changeable by the admin under the language diagnosis.
 DEFAULT_ADAPTIVE_BEHAVIOR = (
     "WRITING STYLE. Write at CEFR level {level}. This is a STYLE rule and nothing "
     "else: it changes the WORDING of an answer you are already allowed to give. It "
@@ -76,7 +76,7 @@ DEFAULT_ADAPTIVE_BEHAVIOR = (
     "one, never shorter. This applies ONLY to an answer you are allowed to give. It "
     "NEVER applies to the not-in-sources sentence, which stays exactly one sentence "
     "at every level.\n"
-    # Der Zusatz ueber zitierte Woerter ist raus, er traf auch gewoehnliche Wortfragen.
+    # The addition about quoted words is gone, it also hit ordinary word questions.
     "THIS STYLE RULE IS NOT A SUBJECT. It says how to write, never what to write "
     "about. It does NOT make you a language teacher and it does NOT put grammar, "
     "word forms, cases, tenses or vocabulary rules into your remit. If a message "
@@ -85,7 +85,7 @@ DEFAULT_ADAPTIVE_BEHAVIOR = (
     "An example of {level} wording: {example}"
 )
 
-# Steht ZULETZT, weil er innerhalb des Verhaltenstexts gegen dessen eigene Regeln verlor.
+# Stands LAST because inside the behaviour text it lost against its own rules.
 ADAPTIVE_SOURCES_GUARD = (
     "\n\nHIGHEST-PRIORITY RULE, IT OVERRIDES EVERYTHING ABOVE: the style rules above "
     "only shape HOW you word an answer you are allowed to give. They NEVER decide "
@@ -106,14 +106,14 @@ ADAPTIVE_SOURCES_GUARD = (
 
 
 def example_for_level(level: str | None, examples: dict) -> str:
-    """Der Beispielsatz zur Stufe eines Lernenden, leer wenn keiner hinterlegt ist."""
+    """The example sentence for a learner's level, empty when none is stored."""
     if not level:
         return ""
     return " / ".join(example_items(examples.get(level, "")))
 
 
 def seal_adaptive_suffix(behavior_suffix: str) -> str:
-    """Haengt den Guard hinter den Trainer-Block, und nur dann."""
+    """Appends the guard behind the trainer block, and only then."""
     if not behavior_suffix:
         return ""
     return behavior_suffix + ADAPTIVE_SOURCES_GUARD
@@ -122,7 +122,7 @@ def seal_adaptive_suffix(behavior_suffix: str) -> str:
 def adaptive_chat_appendix(
     level: str | None, behavior: str, example: str = "", description: str = ""
 ) -> tuple[str, str | None]:
-    """Setzt Stufe, Beispiel und Beschreibung in den Verhaltenstext ein."""
+    """Inserts level, example and description into the behaviour text."""
     if not level or not behavior or not behavior.strip():
         return "", None
     text = (
@@ -135,7 +135,7 @@ def adaptive_chat_appendix(
 
 
 def level_texts(level: str | None) -> tuple[str, str]:
-    """Beispielsatz und Beschreibung der Stufe, aus den Einstellungen."""
+    """Example sentence and description of the level, from the settings."""
     if not level:
         return "", ""
     from src import database as db

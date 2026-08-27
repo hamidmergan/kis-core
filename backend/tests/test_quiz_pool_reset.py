@@ -1,16 +1,4 @@
-"""Der einmalige Schritt, der den Quiz-Vorrat leert.
-
-Zwei Dinge können hier richtig teuer schiefgehen, und beide prüft dieser Test.
-
-Erstens: eine Aufgabe aus dem Vorrat wird nicht in den Satz kopiert, der Satz zeigt nur
-dorthin, und die Inhaltsspalten seiner Zeile sind leer. Ein blankes DELETE setzt den
-Verweis per ON DELETE SET NULL auf NULL und macht damit jeden fertigen Satz leer, der auf
-eine dieser Zeilen zeigt. Zurückgeschrieben werden muss also VOR dem Löschen.
-
-Zweitens: anders als beim abgeschafften Hörverstehen entstehen beim Quiz laufend neue
-Vorratszeilen. Ohne Schlüssel in settings würfe der Schritt den Vorrat bei jedem Neustart
-des Backends wieder weg.
-"""
+"""The one-off step that clears the quiz pool, with write-back and marker."""
 
 from src.core.db import schema
 
@@ -21,8 +9,7 @@ class _FakeCursor:
         self.calls = []
 
     def execute(self, sql, params=None):
-        # Ungekuerzt: der Test prueft Bestandteile der Anweisung, ein Abschneiden wuerde
-        # ihn stillschweigend gruen machen.
+        # Untruncated, otherwise the test would silently pass.
         self.calls.append((" ".join(sql.split()), params))
 
     def fetchone(self):
@@ -40,8 +27,7 @@ def test_erst_zurueckschreiben_dann_loeschen():
     assert update < delete
     assert "p.tool = 'quiz'" in anweisungen[update]
     assert "tool = 'quiz'" in anweisungen[delete]
-    # Der Verweis der Satzzeile bekommt jedes Inhaltsfeld zurueck, sonst steht die
-    # Aufgabe hinterher ohne Optionen da.
+    # Every content field has to go back, otherwise the exercise is left without options.
     for feld in ("back", "options", "correct_idx", "sources", "extras"):
         assert f"{feld} = p.{feld}" in anweisungen[update]
 
@@ -55,7 +41,7 @@ def test_der_schluessel_wird_danach_gesetzt():
 
 
 def test_mit_gesetztem_schluessel_passiert_nichts():
-    """Sonst waere jeder Backend-Neustart ein Verlust des ganzen Quiz-Vorrats."""
+    """Otherwise every backend restart would lose the whole quiz pool."""
     cur = _FakeCursor([("true",)])
     assert schema._reset_quiz_pool_once(cur) is False
     anweisungen = [sql for sql, _ in cur.calls]

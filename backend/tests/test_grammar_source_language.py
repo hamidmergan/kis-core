@@ -1,16 +1,4 @@
-"""Die Grammatik-Uebung folgt der Sprache der Quelle, nicht der des Kursraums.
-
-Sie ist das einzige Werkzeug, bei dem die Sprache nicht das Mittel ist, sondern der
-Lernstoff. Geuebt wird an den Saetzen, die im Dokument stehen.
-
-Uebersetzt waere die Uebung wertlos, und zwar in beide Richtungen:
-* englisches PDF, Kursraum auf Deutsch -> das Modell muesste deutsche Saetze zu einem
-  englischen Text erfinden, es hat keine Vorlage im Material
-* deutsches PDF, Kursraum auf Englisch -> englische Saetze zu einem Thema wie
-  "Konjunktiv II", das es auf Englisch gar nicht gibt
-
-Erkannt werden muss die Sprache dafuer nirgends: das Modell hat den Quelltext vor sich.
-"""
+"""The grammar exercise follows the source language, not the course room's."""
 
 import json
 import types
@@ -22,7 +10,7 @@ from src.features.ai_assistant.tasks.language_training import _source_grammar as
 
 @pytest.fixture
 def gesendet(monkeypatch):
-    """Faengt ab, was an das Modell ginge, ohne es zu rufen."""
+    """Captures what would go to the model, without calling it."""
     calls = []
 
     def create(model, messages, **kwargs):
@@ -54,27 +42,20 @@ def test_the_sentences_follow_the_source_text(gesendet):
 
 
 def test_no_target_language_is_imposed_on_the_sentences(gesendet):
-    """Der alte Satz "Write ALL sentences in {language}" darf nicht zurueckkommen."""
+    """The old sentence 'Write ALL sentences in {language}' must not come back."""
     text = gesendet()
     assert "Write ALL sentences in German" not in text
     assert "Write the output in German" not in text
 
 
 def test_the_workspace_language_does_not_leak_into_the_prompt(gesendet):
-    """Auch bei einem englischen Kursraum bleibt die Anweisung an der Quelle.
-
-    Sonst entstuenden englische Saetze zu einem deutschen Grammatikthema.
-    """
+    """Even with an English course room the instruction stays with the source."""
     text = gesendet(language="English")
     assert "Write ALL sentences in English" not in text
     assert "SAME language as the source text" in text
 
 
 def test_the_instruction_line_still_follows_the_course(gesendet):
-    """Anweisung und Beschriftung sind Geruest fuer den Lernenden, kein Uebungsstoff.
-
-    In einem Sprachlehrbuch steht die Aufgabenstellung in der Sprache des Lernenden und
-    das Uebungsmaterial in der Zielsprache. Genau diese Trennung.
-    """
+    """Instruction and labels are frame, not practice material."""
     assert mod.task_line("transform", "de", "Passiv Präsens") != \
         mod.task_line("transform", "en", "Passiv Präsens")

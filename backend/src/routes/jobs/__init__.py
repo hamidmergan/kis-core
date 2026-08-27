@@ -1,9 +1,4 @@
-"""Job status and download endpoints for async Celery tasks.
-
-Aggregates sub-routers in the original registration order so FastAPI route
-priority is preserved (specific paths like /my and /check/* must precede
-/{job_uuid} catch-alls).
-"""
+"""Job routes, the registration order is preserved."""
 
 from fastapi import APIRouter
 

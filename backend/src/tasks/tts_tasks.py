@@ -32,12 +32,7 @@ def run_tts(
     provider_id: int,
     voice_label: str = "",
 ):
-    """Synthesize uploaded document to MP3.
-
-    Long texts are split into ≤25k-char chunks. Each chunk is saved immediately
-    after synthesis so a crash or network error can be resumed without re-paying
-    for already completed chunks.
-    """
+    """Voices an uploaded document, every part is saved right away."""
     try:
         tts_params = {
             "voice_id": voice_id,

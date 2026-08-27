@@ -1,10 +1,4 @@
-"""Feasibility spike: halfvec hnsw index for aia_chunks.embedding (2560-dim).
-
-Proves on the REAL dev DB (133k chunks): build time, that a FILTERED workspace
-query actually uses the index, recall vs exact full-scan, and the speedup. Builds
-a PARTIAL index (predicate vector_dims=2560) so a future different-dim model does
-not break inserts. Safe to re-run; DROPs nothing unless --drop is passed.
-"""
+"""Trial run for the halfvec hnsw index on the real development database."""
 import sys
 import time
 
@@ -52,11 +46,7 @@ def main():
     with get_connection() as c:
         c.autocommit = True
         with c.cursor() as cur:
-            # Parallel index build shares work via DSM in /dev/shm, which is only 64MB in a
-            # default Docker container -> "could not resize shared memory segment". Disable
-            # parallel maintenance so the build uses backend-local maintenance_work_mem instead.
-            # PROD NOTE: same /dev/shm limit applies, so the real build must do the same (or the
-            # container needs a bigger --shm-size).
+            # No parallel build, it would blow the small /dev/shm in the container.
             cur.execute("SET max_parallel_maintenance_workers = 0")
             cur.execute("SET maintenance_work_mem = '512MB'")
             exists = q(cur, "SELECT 1 FROM pg_indexes WHERE indexname=%s", [IDX])

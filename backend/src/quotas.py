@@ -1,11 +1,4 @@
-"""Per-user rate limiting / quota enforcement.
-
-Each tool has its own independent counter and its own window. The window starts
-with the first use of that tool and runs for the configured hours, so the
-counter is only ever a count within a running window.
-
-Admin users bypass all checks entirely.
-"""
+"""Quotas per user, every tool has its own counter and its own window."""
 
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -41,16 +34,7 @@ def check_and_consume_quota(
     quota_type: str,
     is_admin: bool,
 ) -> dict:
-    """Atomically check quota and consume 1 unit.
-
-    Returns:
-        {"allowed": bool, "used": int, "limit": int, "reset_at": str | None}
-
-    Admins always get allowed=True without any DB write.
-    The window is per tool and starts with the first use: the first consume sets
-    reset_at, later ones in the same window leave it alone, and once it has
-    passed the counter starts over at 1.
-    """
+    """Checks the quota and consumes one unit in the same step."""
     if is_admin:
         return {"allowed": True, "used": 0, "limit": -1, "reset_at": None}
 
@@ -130,11 +114,7 @@ def check_and_consume_quota(
 
 
 def enforce_quota(user_id: int, quota_type: str, is_admin: bool, locale: str = DEFAULT_LOCALE) -> None:
-    """Check quota and raise HTTP 429 if the limit is exceeded.
-
-    Call this before create_job() in each route handler.
-    Retry jobs do NOT call this - quota was consumed at original submission.
-    """
+    """Checks the quota and raises 429 when it is used up."""
     result = check_and_consume_quota(user_id, quota_type, is_admin)
     if not result["allowed"]:
         cfg = QUOTA_DEFAULTS.get(quota_type, {})

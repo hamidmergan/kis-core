@@ -1,19 +1,4 @@
-"""Quiz aus Quelltext (mode='source').
-
-Das Quiz stellt drei Aufgabenarten in einem Satz: Verständnisfragen und Lückensätze,
-beide mit vier Auswahloptionen, und Aussagen mit Richtig oder Falsch.
-
-Das eigenständige Lückentext-Werkzeug ist deshalb entfallen, es war dieselbe Aufgabe
-unter einem eigenen Namen und stand zudem im Sprachbereich, obwohl die Lücke ein
-Fachbegriff ist und kein Grammatikthema.
-
-Richtig/Falsch kam am 2026-08-10 dazu. Es war bis dahin die einzige Form des Werkzeugs
-Hörverstehen, das an diesem Tag abgeschafft wurde. Die Form zieht damit hierher um, statt
-ersatzlos wegzufallen. Mitgekommen sind die Regeln aus der Testkonstruktion und die zwei
-Musteraufgaben, beide am echten Lauf nachgemessen. Nicht mitgekommen sind die zwei
-Verbote, die dort den Unterschied zum Quiz sicherten (keine Definitionen, keine
-Wortbedeutungen): sie verbieten genau das, was das Quiz will.
-"""
+"""Quiz from source text with three exercise kinds: question, gap and true/false."""
 
 import json
 
@@ -37,17 +22,13 @@ _SOURCE_RULE = (
 _PERSONAL_RULE = (
     "IMPORTANT:\n- Do NOT use personal names in questions. Instead of 'laut Prof. X', write 'laut Material' (German) or 'according to the source' (English), matching the output language.\n"
 )
-# The title ships with the generation response so no extra LLM call is needed for it
-# (that call used to come back empty on reasoning models and left the raw filename behind).
+# The title comes with the answer, that saves a second call.
 _TITLE_RULE = (
     "- title: a short, concrete topic title in {language} (max 6 words), no quotation marks, "
     "never a filename.\n"
 )
 
-# Feste Beschriftung statt einer vom Modell erfundenen: es schrieb sonst mal "Wahr",
-# mal "richtig", und die Ansicht zeigt die Optionen unverändert an. Eine Zeile je Sprache,
-# die die Verwaltung einstellen kann, sonst stuende unter einer franzoesischen Frage
-# "Richtig" und "Falsch".
+# A fixed label per language instead of one invented by the model.
 _VERDICT_LABELS = {
     "de": ("Richtig", "Falsch"),
     "en": ("True", "False"),
@@ -59,28 +40,22 @@ _VERDICT_LABELS = {
     "ru": ("Верно", "Неверно"),
 }
 
-# Zwei Musteraufgaben, eine wahre und eine falsche Aussage. Sie stehen HINTER dem
-# Quellmaterial, siehe _build_user, und werden in _true_false_item gesperrt, damit sie
-# nicht als Aufgabe 1 abgeschrieben werden.
+# Two sample exercises, they sit behind the material and are barred as exercises.
 _EXAMPLE_ITEMS = (
     ("Bei sinkender Temperatur arbeitet die Anlage weniger wirtschaftlich.", True),
     ("Die Leistungszahl steigt, wenn es draußen kälter wird.", False),
 )
 
-# Aus denselben Sätzen abgeleitet, damit Beispiel und Sperre nicht auseinanderlaufen
-# können.
+# Derived from the same sentences so example and ban stay together.
 _EXAMPLE_MARKERS = frozenset(normalize(satz) for satz, _ in _EXAMPLE_ITEMS)
 
 
 def _verdict_labels(locale: str) -> tuple[str, str]:
-    """Die beiden Beschriftungen in der eingestellten Sprache, sonst deutsch."""
+    """The two labels in the configured language, German otherwise."""
     return _VERDICT_LABELS.get((locale or "").lower()[:2], _VERDICT_LABELS["de"])
 
 
-# Regeln aus der Testkonstruktion. Ohne sie ist die Aufgabe ohne die Quelle lösbar:
-# Absolutwörter wie "immer" sind fast immer falsch, Weichmacher wie "in der Regel" fast
-# immer richtig, wörtlich übernommene Sätze prüfen Wiedererkennung statt Verstehen, und
-# ein Modell ohne Vorgabe schreibt fast nur wahre Sätze.
+# Rules from test construction, otherwise the exercise is solvable without the source.
 _TRUE_FALSE_RULES = (
     "\nRULES FOR THE TRUE/FALSE STATEMENTS (a statement that breaks one of these can be "
     "marked right without having read the source):\n"
@@ -96,7 +71,7 @@ _TRUE_FALSE_RULES = (
     "- True and false statements must be about the same length.\n"
 )
 
-# Die Musteraufgaben, wie sie hinter dem Quellmaterial stehen.
+# The sample exercises as they sit behind the source material.
 _EXAMPLE_BLOCK = (
     "\nTwo examples of the SHAPE of a true/false item. They are about different material,\n"
     "never reuse their wording or their content:\n\n"
@@ -107,17 +82,7 @@ _EXAMPLE_BLOCK = (
 
 
 def _split_counts(count: int) -> tuple[int, int, int]:
-    """Wie viele Aufgaben je Art bestellt werden: Verständnis, Lücke, Richtig/Falsch.
-
-    Gezählte Vorgabe und keine Absichtserklärung. Die alte Zeile "use BOTH kinds, roughly
-    half and half" ist genau so eine Absichtserklärung, und beim Grammatik-Quiz war
-    gemessen der Unterschied zwischen "vary the forms" und "mindestens drei verschiedene"
-    der zwischen zehnmal derselben Form und zehn verschiedenen.
-
-    Der Rest geht der Reihe nach an die Ankreuz-Arten. Ein sehr kleiner Satz hat damit
-    keine Richtig/Falsch-Aufgabe, und das ist richtig so: das Quiz ist schwerpunktmässig
-    eine Ankreuz-Übung.
-    """
+    """How many exercises are ordered per kind, as a counted requirement."""
     base, rest = divmod(count, 3)
     return (base + (1 if rest > 0 else 0),
             base + (1 if rest > 1 else 0),
@@ -134,26 +99,18 @@ def generate_mc_from_source(
     title_avoidance: str = "",
     coverage: str = "",
 ) -> tuple[list[dict], str]:
-    # adaptive_suffix pitches questions/options at the learner's CEFR level; it
-    # explicitly must not change the item count, the options or the correct answer.
+    # The level block tunes the questions without changing count or solution.
     tool_prompt = _build_prompt(count, language) + adaptive_suffix + title_avoidance + coverage
-    # No "already exists, avoid these" block: feeding the old questions back made the model
-    # COPY them verbatim (it even reproduced a "laut Seite 7" question for a page no longer in
-    # context). Variation comes instead from the context sweep in build_source_context,
-    # with _dedup dropping anything that repeats an earlier set regardless.
-    # The TITLE is the exception (title_avoidance): one short string, no few-shot pull.
+    # No block with existing questions, the model would just copy them.
     messages = [
         {"role": "system", "content": tool_prompt},
         {"role": "user", "content": _build_user(ctx, language)},
     ]
-    # 0.6 (not 0.3): a little sampling diversity for wording. The real variation comes from the
-    # context sweep in build_source_context (a different window per run). Still JSON-safe.
+    # 0.6 for some word variety, the real variation comes from the context.
     response = create_with_shrink(client, endpoint="quiz", model=model, messages=messages, temperature=0.6)
     answer = _clean_llm_json(response.choices[0].message.content or "")
     data = json.loads(answer)
-    # Preferred shape is {"title": ..., "exercises": [...]} so the title comes free with the
-    # generation call. A bare array (older/simpler models) still works, then the title is
-    # derived afterwards from the items.
+    # Preferably the title comes along, a bare list works too.
     if isinstance(data, dict):
         exercises = data.get("exercises") or []
         json_title = (data.get("title") or "").strip()
@@ -164,8 +121,7 @@ def generate_mc_from_source(
 
     items, claims = _build_items(exercises, locale)
 
-    # Post-hoc attribution (same pgvector gate as chat): each item cites where its
-    # answer actually appears, nav-only, no highlight.
+    # Attribution after the fact, every exercise names where its answer sits.
     _attach_by_kind(items, claims, ctx)
 
     title = json_title or title_from_items(client, model, items, ctx.multi_label)
@@ -173,15 +129,7 @@ def generate_mc_from_source(
 
 
 def _attach_by_kind(items: list[dict], claims: list[str], ctx: QuelleContext) -> None:
-    """Zwei Zuordnungsläufe, einer je Aufgabenart.
-
-    Die zwei Ankreuz-Arten wiederholen die Formulierung der Quelle, für sie ist die reine
-    Suche richtig: sie findet den Satz, und ein Fehlschlag heisst ehrlich "steht so nicht
-    in den Quellen". Eine Richtig/Falsch-Aussage ist dagegen per Regel immer umformuliert
-    und findet sich oft nicht wieder. Für sie gilt dieselbe gestaffelte Zuordnung wie in
-    der Grammatik-Übung: erst die Seite, die das Modell selbst genannt hat, dann die
-    Suche, dann wenigstens die Datei.
-    """
+    """Two attribution runs, pure search for multiple choice, layered for true/false."""
     tf_items, tf_claims, mc_items, mc_claims = [], [], [], []
     for item, claim in zip(items, claims):
         ziel_items, ziel_claims = ((tf_items, tf_claims) if item.pop("_tf", False)
@@ -189,9 +137,7 @@ def _attach_by_kind(items: list[dict], claims: list[str], ctx: QuelleContext) ->
         ziel_items.append(item)
         ziel_claims.append(claim)
     if mc_items:
-        # multi=False: eine Ankreuz-Antwort hat einen Ursprung und nicht "jede Seite, auf
-        # der das Wort vorkommt". Die vom Modell genannte Datei und Seite werden hier
-        # bewusst ignoriert, die Zuordnung entscheidet über die Seite.
+        # A multiple choice answer has an origin, the attribution decides the page.
         attach_chips(mc_items, mc_claims, ctx, multi=False)
     if tf_items:
         attach_chips_cited(tf_items, tf_claims, ctx)
@@ -235,24 +181,13 @@ def _build_prompt(count: int, language: str) -> str:
 
 
 def _build_user(ctx: QuelleContext, language: str) -> str:
-    """Quellmaterial zuerst, Musterbeispiele dahinter.
-
-    Die Reihenfolge ist nicht Geschmack: ein Beispiel im System-Prompt wurde auf
-    Fachquellen als Aufgabe 1 abgeschrieben, hinter dem Material wirkt es als Form.
-    """
+    """Source material first, sample exercises behind it, otherwise they get copied."""
     return (f"Write the output in {language}.\n\nSources:\n\n{ctx.context}\n\n"
             f"{_EXAMPLE_BLOCK}")
 
 
 def _build_items(exercises: list[dict], locale: str) -> tuple[list[dict], list[str]]:
-    """Item-Zeilen + der Suchtext, über den die Quellen-Chips gesucht werden.
-
-    Drei Arten, eine Zeilenform. Eine Lückenaufgabe trägt "sentence", eine
-    Verständnisfrage "question", eine Richtig/Falsch-Aufgabe "statement". Der
-    Aufgabentext landet immer in ``front``, die richtige Antwort in ``back``. Die Ansicht
-    unterscheidet sie an der Anzahl der Optionen und am Lückenzeichen im Text, nicht an
-    einem eigenen Feld.
-    """
+    """The exercise rows plus the search text for the source chips."""
     items, claims = [], []
     for ex in exercises:
         if ex.get("statement") is not None or "answer" in ex:
@@ -262,8 +197,7 @@ def _build_items(exercises: list[dict], locale: str) -> tuple[list[dict], list[s
         if gebaut is None:
             continue
         item, claim = gebaut
-        # Eine Stelle für alle drei Arten: der Tipp haengt an der Aufgabe und nicht an
-        # ihrer Form. Er kommt aus derselben Antwort und nicht aus einem zweiten Aufruf.
+        # One place for all three kinds, the hint hangs on the exercise.
         attach_hint(item, ex)
         items.append(item)
         claims.append(claim)
@@ -271,7 +205,7 @@ def _build_items(exercises: list[dict], locale: str) -> tuple[list[dict], list[s
 
 
 def _choice_item(ex: dict) -> tuple[dict, str] | None:
-    """Verständnisfrage oder Lückensatz, beide mit vier Optionen."""
+    """Comprehension question or gapped sentence, both with four options."""
     prompt_text = (ex.get("question") or ex.get("sentence") or "").strip()
     options = ex.get("options") or []
     idx = ex.get("correct_idx")
@@ -283,20 +217,13 @@ def _choice_item(ex: dict) -> tuple[dict, str] | None:
         "back": answer,
         "options": options,
         "correct_idx": idx,
-        # Welchen nummerierten Kontextabschnitt das Modell benutzt haben will. Wird nicht
-        # gespeichert (finalize_exercise_set liest nur bekannte Felder), der Aufrufer
-        # prüft damit, ob jeder Abschnitt drankam.
+        # Which section the model claims to have used, only for the coverage check.
         "_section": ex.get("section"),
     }, f"{prompt_text} {answer}".strip()
 
 
 def _true_false_item(ex: dict, locale: str) -> tuple[dict, str] | None:
-    """Eine Aussage über die Quelle, zwei Optionen. Was durchfällt, gibt None.
-
-    Eine Aufgabe mit vier Optionen fällt hier durch, auch wenn der Prompt sie nie
-    bestellt hat: das Modell liefert sie gelegentlich trotzdem, und dann stünde eine
-    Ankreuzaufgabe ohne Frage im Satz.
-    """
+    """A statement about the source with two options, None otherwise."""
     statement = (ex.get("statement") or "").strip()
     verdict = ex.get("answer")
     options = ex.get("options") or []
@@ -312,12 +239,10 @@ def _true_false_item(ex: dict, locale: str) -> tuple[dict, str] | None:
         "options": [yes, no],
         "correct_idx": 0 if verdict else 1,
         "_section": ex.get("section"),
-        # Markiert die Aufgabenart für die Zuordnung. Wird dort entfernt.
+        # Marks the exercise kind for the attribution, which removes it again.
         "_tf": True,
-        # Woher das Modell die Aufgabe genommen haben will. Beides wird gegen den
-        # Kontext geprüft und danach entfernt.
+        # Where the model claims to have taken the exercise from, checked and then removed.
         "_source_label": (ex.get("source_label") or "").strip(),
         "_page": ex.get("page_number"),
-    # Gesucht wird über die Aussage allein und nie plus "Richtig": die feste
-    # Beschriftung steht in keiner Quelle und würde die Suche verwässern.
+    # The search runs on the statement alone, the fixed label would dilute it.
     }, statement

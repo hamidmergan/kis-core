@@ -1,4 +1,4 @@
-"""Der Ton einer schon vertonten Folie muss abrufbar sein, waehrend der Rest laeuft."""
+"""The audio of an already voiced slide has to be fetchable while the rest runs."""
 
 from unittest.mock import patch
 
@@ -45,7 +45,7 @@ def test_ton_kommt_aus_dem_vorrat(client):
 
 
 def test_nach_dem_erfolg_kommt_der_ton_aus_dem_audio_ordner(client):
-    """clear_render_cache raeumt den Vorrat, dieselbe Route muss weiter liefern."""
+    """clear_render_cache clears the cache, the same route has to keep delivering."""
     with patch("src.routes.screencast.audio.get_job", return_value={**_JOB, "status": "success"}), \
          patch("src.routes.screencast.audio.get_job_file",
                side_effect=_dateien({"audio/slide_003.mp3": b"ID3fertig"})):
@@ -55,7 +55,7 @@ def test_nach_dem_erfolg_kommt_der_ton_aus_dem_audio_ordner(client):
 
 
 def test_der_ton_wird_nie_zwischengespeichert(client):
-    """Nach einem Stimmwechsel liegt unter derselben Adresse eine andere Stimme."""
+    """After a voice change a different voice sits under the same address."""
     with patch("src.routes.screencast.audio.get_job", return_value=_JOB), \
          patch("src.routes.screencast.audio.get_job_file",
                side_effect=_dateien({"render_cache/slide_000.mp3": b"ID3"})):

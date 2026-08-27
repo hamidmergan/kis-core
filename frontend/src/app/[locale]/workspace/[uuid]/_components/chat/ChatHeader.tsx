@@ -7,7 +7,7 @@ interface ChatHeaderProps {
   messageCount: number;
   onClear: () => void;
   onMinimize?: () => void;
-  /** Mobil: nur die Knoepfe in einer schmalen Zeile, Titel traegt die Tab-Leiste. */
+  /** Mobile: only the buttons in a narrow row, the tab bar carries the title. */
   compact?: boolean;
 }
 

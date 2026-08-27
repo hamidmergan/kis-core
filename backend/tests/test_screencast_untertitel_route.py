@@ -1,4 +1,4 @@
-"""Die Untertitel-Datei muss der Browser-Player abrufen koennen."""
+"""The browser player has to be able to fetch the subtitle file."""
 
 from unittest.mock import patch
 

@@ -16,8 +16,7 @@ const MAX_SIZE_BYTES = MAX_UPLOAD_BYTES;
 export default function ZusammenfassungPage() {
   const t = useTranslations("tools.summarize");
   const tCommon = useTranslations("common");
-  // Summary runs on the chat LLM; offer the reachable chat providers the admin
-  // configured a model for. Empty list hides the dropdown (admin default route).
+  // Runs on the chat model, an empty list hides the choice.
   const { providers, providerId, setProviderId } = useFeatureProviders("/summary/providers");
   const [processing, setProcessing] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);

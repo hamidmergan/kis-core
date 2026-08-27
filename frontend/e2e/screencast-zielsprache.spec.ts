@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-/** Der Screencast darf nur DE und EN als Zielsprache anbieten. */
+/** The screencast may offer only DE and EN as target languages. */
 test("Zielsprache bietet nur Deutsch und Englisch", async ({ page }) => {
   await page.goto("/de/tools/screencast", { waitUntil: "domcontentloaded" });
 

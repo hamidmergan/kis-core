@@ -15,11 +15,10 @@ from src.permissions_registry import PERM_SET_TOOLS_JOBS
 
 router = APIRouter(tags=["admin: jobs"])
 
-# Die Auftragsliste der Werkzeuge.
+# The job list of the tools.
 _require = require_permission(PERM_SET_TOOLS_JOBS)
 
-# Screencast tools have a separate render_started_at timestamp,
-# which measures the pure ffmpeg runtime (excluding queue wait time).
+# For a screencast only the render time counts, without waiting time.
 _SCREENCAST_TOOLS = {"screencast_render", "screencast_translate"}
 
 

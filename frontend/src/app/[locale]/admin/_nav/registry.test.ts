@@ -2,8 +2,7 @@ import { describe, expect, it } from "vitest";
 import { PERM } from "@/lib/permissions";
 import { SECTIONS, allowedSections, allowedTabs, resolve } from "./registry";
 
-/** Die Reiter einer Unterseite haengen am Recht dieser Seite, nicht am
- *  Bereich: Bereiche mit Unterseiten tragen selbst gar kein Recht. */
+/** The tabs hang off their page's permission, not off the area. */
 describe("Reiter einer Unterseite", () => {
   it("erscheinen fuer jemanden, der die Seite sehen darf", () => {
     const found = resolve(["ki-assistent", "sprachniveau"]);
@@ -18,8 +17,7 @@ describe("Reiter einer Unterseite", () => {
   });
 });
 
-/** Jede Seite ohne eigene Reiter braucht ein Component, sonst rendert die
- *  Route nichts und die Adresse zeigt eine leere Seite. */
+/** Every page without tabs of its own needs a component. */
 describe("Jeder Eintrag rendert etwas", () => {
   it("hat entweder ein Component oder Reiter", () => {
     const leer: string[] = [];
@@ -33,8 +31,7 @@ describe("Jeder Eintrag rendert etwas", () => {
   });
 });
 
-/** Eine Lehrperson bekommt genau ein Recht und darf davon genau einen Reiter
- *  sehen. Alles andere in der Statistik zeigt die ganze Plattform. */
+/** A teacher with their one permission may see exactly one tab. */
 describe("Statistik einer Lehrperson", () => {
   const dozentin = [PERM.statsOwn];
 

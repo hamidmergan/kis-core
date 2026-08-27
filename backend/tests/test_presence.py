@@ -1,12 +1,4 @@
-"""Anwesenheit: wer gerade da ist, und an welchen Stunden jemand da war.
-
-Warum es das braucht: angemeldet ist nicht online. Der Sitzungsschluessel laeuft
-24 Stunden ab der Anmeldung, nicht ab der letzten Handlung. Wer sich morgens
-anmeldet und den Laptop zuklappt, gaelte sonst den ganzen Tag als anwesend.
-
-Die Tests hier pruefen vor allem eins: ein Fehler beim Mitschreiben darf nie
-den Stream reissen, an dem ein Nutzer gerade haengt.
-"""
+"""Presence via the heartbeat, an error must never break the stream."""
 from unittest.mock import MagicMock, patch
 
 from src.security import presence
@@ -21,8 +13,7 @@ def test_ein_lebenszeichen_setzt_einen_schluessel_mit_frist():
 
 
 def test_die_frist_ist_laenger_als_der_ping_abstand():
-    """Der Stream pingt alle zwanzig Sekunden. Waere die Frist kuerzer, gaelte
-    jeder als weg, sobald die Leitung einmal stockt."""
+    """The window has to be longer than the gap between heartbeats."""
     assert presence.TTL_SECONDS > 20
 
 
@@ -40,7 +31,7 @@ def test_ein_redis_ausfall_reisst_den_stream_nicht():
 
 
 def test_ohne_redis_ist_niemand_online_statt_geraten():
-    """Eine Statistik, die kurz nichts anzeigt, ist besser als eine, die raet."""
+    """Statistics that briefly show nothing beat statistics that guess."""
     with patch.object(presence, "_redis", side_effect=RuntimeError("Redis weg")):
         assert presence.online_user_ids() == []
 
@@ -65,8 +56,7 @@ def test_ohne_gueltige_nutzernummer_keine_stunde():
 
 
 def test_ein_alter_schluessel_ergibt_keine_millionen_minuten():
-    """Fruehere Fassungen schrieben eine schlichte "1" in den Schluessel.
-    Ohne Abfangen wuerden daraus 29 Millionen Minuten Anwesenheit."""
+    """An old placeholder value must not yield millions of minutes."""
     r = MagicMock()
     r.keys.return_value = [b"kis:seen:7"]
     r.mget.return_value = [b"1"]
@@ -85,7 +75,7 @@ def test_ein_gueltiger_zeitpunkt_bleibt_stehen():
 
 
 def test_das_lebenszeichen_ueberschreibt_den_anfang_nicht():
-    """Sonst waere jeder immer "seit 0 Minuten" da."""
+    """Otherwise everyone would always be here 'for 0 minutes'."""
     r = MagicMock()
     with patch.object(presence, "_redis", return_value=r):
         presence.touch(7)

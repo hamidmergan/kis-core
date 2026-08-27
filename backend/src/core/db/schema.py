@@ -12,45 +12,20 @@ _REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
 from src.core.db.pool import get_connection
 
 
-# Wie lange eine Wanderung auf eine Tabellensperre wartet, bevor sie aufgibt. Ohne das
-# wartet ein ALTER TABLE unbegrenzt auf die Worker, die dieselbe Tabelle lesen, und ein
-# Neustart bei laufenden Workern endet in einer Verklemmung: der Migrator will die
-# Tabelle exklusiv, der Worker haelt sie lesend und will eine zweite. Postgres loest das
-# auf, indem es einen von beiden abschiesst, und das war bisher der Start des Backends.
+# Wait time for a table lock, otherwise a restart deadlocks with running workers.
 _MIGRATION_LOCK_TIMEOUT = "10s"
-# So oft wird es erneut versucht. Jede Anweisung in init_db ist idempotent
-# (IF NOT EXISTS / ADD COLUMN IF NOT EXISTS), ein zweiter Anlauf ist also gefahrlos.
+# Number of attempts, every statement in init_db is repeatable.
 _MIGRATION_ATTEMPTS = 5
 
-# Einmaliger Schritt, kein wiederholbarer. Siehe _reset_quiz_pool_once.
+# A one-time step, not a repeatable one, see _reset_quiz_pool_once.
 _QUIZ_POOL_RESET_KEY = "quiz_pool_true_false_reset_done"
 
-# Dasselbe fuer die Grammatik. Siehe _reset_grammar_pool_once.
+# The same for grammar, see _reset_grammar_pool_once.
 _GRAMMAR_POOL_RESET_KEY = "grammar_pool_task_line_reset_done"
 
 
 def _reset_quiz_pool_once(cur) -> bool:
-    """Den Quiz-Vorrat einmalig wegwerfen, weil Richtig/Falsch dazugekommen ist.
-
-    Das Quiz zieht zuerst aus dem Vorrat, und die vorhandenen Zeilen kennen nur die zwei
-    Ankreuz-Arten. Ohne diesen Schritt kaeme weiter das Alte heraus und die Aenderung
-    waere unsichtbar.
-
-    Zwei Dinge sind hier wichtig.
-
-    Zurueckgeschrieben wird VOR dem Loeschen. Eine Aufgabe aus dem Vorrat wird nicht in
-    den Satz kopiert, der Satz zeigt nur dorthin, und die Inhaltsspalten seiner Zeile
-    sind leer. Ein blankes DELETE setzt den Verweis per ON DELETE SET NULL auf NULL und
-    macht damit jeden fertigen Satz leer, der darauf zeigt. Dieselbe Reihenfolge macht
-    ``clear_pool_for_source`` vor.
-
-    Und er laeuft genau einmal. Anders als beim abgeschafften Hoerverstehen entstehen
-    beim Quiz laufend neue Vorratszeilen, ein ungeschuetzter Schritt wuerde den Vorrat
-    bei jedem Neustart des Backends wieder wegwerfen. Der Schluessel in ``settings``
-    macht es wie die search_vector-Wanderung weiter unten in dieser Datei.
-
-    Gibt zurueck, ob der Schritt gelaufen ist.
-    """
+    """Drops the quiz pool once because true/false questions were added."""
     cur.execute("SELECT value FROM settings WHERE key = %s", (_QUIZ_POOL_RESET_KEY,))
     row = cur.fetchone()
     if row and row[0] == "true":
@@ -74,25 +49,7 @@ def _reset_quiz_pool_once(cur) -> bool:
 
 
 def _reset_grammar_pool_once(cur) -> bool:
-    """Den Grammatik-Vorrat einmalig wegwerfen, weil die Anweisungszeile neu ist.
-
-    Die Anweisung ueber einer Aufgabe wird beim Erzeugen fest in den Aufgabentext
-    geschrieben. Der Vorrat traegt damit die alte Fassung ("Setze den Satz ins
-    Relativsatz.") in seinen Zeilen, und ein neuer Satz zieht zuerst aus dem Vorrat.
-    Ohne diesen Schritt kaeme also weiter das Gemeldete heraus, obwohl der Code es
-    laengst besser macht.
-
-    Aufbau wie bei :func:`_reset_quiz_pool_once`: erst zurueckschreiben, dann loeschen,
-    und genau einmal. Zum Zurueckschreiben siehe dort, die Gruende sind dieselben. Die
-    Grammatik legt laufend neue Vorratszeilen an, ein ungeschuetzter Schritt wuerfe sie
-    bei jedem Neustart des Backends weg.
-
-    Fertige Saetze behalten ihre alte Anweisung. Das ist Absicht: sie sind bearbeitet,
-    teils schon beantwortet, und ein Satz, dessen Aufgaben sich unter der Hand
-    umformulieren, waere schlimmer als eine schiefe Zeile in einem alten Satz.
-
-    Gibt zurueck, ob der Schritt gelaufen ist.
-    """
+    """Drops the grammar pool once because the instruction line is new."""
     cur.execute("SELECT value FROM settings WHERE key = %s", (_GRAMMAR_POOL_RESET_KEY,))
     row = cur.fetchone()
     if row and row[0] == "true":
@@ -116,30 +73,13 @@ def _reset_grammar_pool_once(cur) -> bool:
 
 
 def _table_exists(cur, table: str) -> bool:
-    """Gibt es die Tabelle schon?
-
-    Fuer Aufraeum-Schritte am Altbestand (UPDATE, DELETE), die eine Tabelle lesen,
-    die weiter unten erst entsteht. Auf einer gewachsenen Datenbank ist sie laengst
-    da und der Schritt laeuft; auf einer LEEREN gibt es nichts aufzuraeumen, und
-    ohne diese Frage braeche der ganze Start ab. Eine neue Hochschule faengt immer
-    mit einer leeren Datenbank an, dort zaehlt das.
-
-    Nicht dasselbe wie eine Strukturaenderung: ein fehlendes ``ADD COLUMN`` wird
-    auch auf einer frischen Datenbank gebraucht, das gehoert an die richtige
-    Stelle gezogen statt uebersprungen.
-    """
+    """Does the table already exist?"""
     cur.execute("SELECT to_regclass(%s) IS NOT NULL", (f"public.{table}",))
     return bool(cur.fetchone()[0])
 
 
 def init_db(admin_email: Optional[str] = None) -> None:
-    """Schema anlegen und wandern. Wiederholt sich bei Sperrkonflikten.
-
-    Gemessen am 2026-08-08: ein Neustart des Backends waehrend die Celery-Worker liefen
-    endete mit ``DeadlockDetected`` beim ALTER TABLE, und danach mit
-    ``Application startup failed. Exiting.`` Das Backend kam nicht mehr hoch. Eine
-    begrenzte Wartezeit plus Wiederholung macht daraus eine Verzoegerung von Sekunden.
-    """
+    """Creates and migrates the schema, retrying on lock conflicts."""
     from loguru import logger
 
     letzter: Exception | None = None
@@ -163,17 +103,13 @@ def init_db(admin_email: Optional[str] = None) -> None:
 def _init_db(admin_email: Optional[str] = None) -> None:
     with get_connection() as conn:
         with conn.cursor() as cur:
-            # Begrenzt jede einzelne Sperre in dieser Sitzung, siehe oben.
+            # Bounds every single lock in this session, see above.
             cur.execute(f"SET lock_timeout = '{_MIGRATION_LOCK_TIMEOUT}'")
             cur.execute("CREATE EXTENSION IF NOT EXISTS vector")
-            # pg_trgm powers the typo-tolerant keyword anchor in hybrid_search_chunks:
-            # a misspelled query word ("authoren") still matches a similar word in the
-            # text ("Autoren") via trigram word-similarity, so the answer-bearing chunk
-            # is still retrieved. Language-agnostic (character trigrams, no word lists).
+            # pg_trgm carries the typo tolerant keyword anchor of the search.
             cur.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm")
 
-            # Migration: rename legacy table prefixes to aia_*. All entries are
-            # idempotent (no-op on fresh DBs and on already-migrated DBs).
+            # Renames old table prefixes to aia_*.
             for old, new in [
                 # Stage 1: very old ki_tutor_* tables migrate straight to aia_*.
                 ("ki_tutor_modules", "aia_modules"),
@@ -314,40 +250,20 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'lecturer'")
             # Chat block after burst-limit trigger (survives backend restart, unlike Redis counter).
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS chat_blocked_until TIMESTAMP WITH TIME ZONE")
-            # UI locale preference (DE default, EN supported). Cookie + URL prefix are authoritative
-            # for unauthenticated requests; this column is the cross-device source of truth after login.
+            # Interface language wish, shared across devices after login.
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS locale TEXT NOT NULL DEFAULT 'de' CHECK (locale IN ('de', 'en'))")
-            # Language level diagnosis (one-time self-assessment for Fachsprachentrainer).
-            # Both columns nullable: NULL means "diagnosis not yet completed".
-            # The full CEFR ladder A1..C2. An earlier version collapsed everything
-            # above B1 into "B1+"; the scale now runs the whole ladder so the
-            # adaptive chat can pitch every level, not only "needs support" vs not.
+            # Language level assessment, NULL means not done yet.
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS language_level TEXT CHECK (language_level IN ('A1','A2','B1','B2','C1','C2'))")
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS language_level_set_at TIMESTAMP WITH TIME ZONE")
-            # Demo-Konto: seine aktiven Kurse stehen bei allen anderen auf der Startseite.
+            # Demo account: its active courses appear on everyone's start page.
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT FALSE")
-            # Migration: the five per-skill scores are gone. Only the result screen
-            # ever showed them, and a model that forgot one failed the whole grading
-            # turn and cost a repair call, so the column goes with them.
+            # The five single marks are gone, only the final value stays.
             cur.execute("ALTER TABLE users DROP COLUMN IF EXISTS language_level_skill_scores")
-            # Migration: the outcome set grew from the four A1..B1+ values back to
-            # the full ladder. The inline CHECK above only fires on fresh installs,
-            # so rewrite the constraint on existing DBs. Any stored "B1+" (the old
-            # "above B1") maps to B2, the lowest band it stood for, so the new CHECK
-            # cannot fail validation.
+            # The level list walks the whole ladder again, old B1+ becomes B2.
             cur.execute("UPDATE users SET language_level = 'B2' WHERE language_level = 'B1+'")
             cur.execute("ALTER TABLE users DROP CONSTRAINT IF EXISTS users_language_level_check")
             cur.execute("ALTER TABLE users ADD CONSTRAINT users_language_level_check CHECK (language_level IN ('A1','A2','B1','B2','C1','C2'))")
-            # === Role system migration ===
-            # System roles: 'admin', 'staff', 'user' (fixed, code-defined permissions).
-            # Custom roles live in the custom_roles table; users.custom_role_id is set
-            # iff users.role = 'custom'. Existing legacy values are migrated:
-            #   'lecturer' -> 'staff'
-            #   'student'  -> 'user'
-            # Eine eigene Rolle ist ein Name und eine Liste von Rechte-Schluesseln
-            # aus src/permissions_registry.py. Vorher waren es zwei Sonderfelder
-            # (aia_access, allowed_tools), die nur zwei der drei Rechtegruppen
-            # abbilden konnten und den Adminbereich gar nicht.
+            # Roles: fixed system roles plus custom roles with permission keys.
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS custom_roles (
                     id            SERIAL PRIMARY KEY,
@@ -361,13 +277,7 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                 "ALTER TABLE custom_roles ADD COLUMN IF NOT EXISTS permissions "
                 "JSONB NOT NULL DEFAULT '[]'::jsonb"
             )
-            # Zwei Umzuege hintereinander, beide laufen nur auf alten Datenbanken
-            # und beide sind daran erkennbar, dass die jeweils alte Spalte noch da
-            # ist. Auf einer frischen Datenbank passiert hier nichts.
-            #
-            # Erst der alte Umzug aus Commit c2a6bbd: aus dem Ja-Nein-Feld
-            # `allow_aia` wurde das dreiwertige `aia_access`. Ohne diesen Schritt
-            # verloere eine sehr alte Datenbank ihre Zugriffsstufe.
+            # Old migration: allow_aia became the three-valued aia_access.
             cur.execute("""
                 DO $$
                 BEGIN
@@ -383,11 +293,7 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                     END IF;
                 END $$;
             """)
-            # Dann der neue: aus aia_access und allowed_tools werden Schluessel.
-            # 'edit' war die einzige Stufe, die wirklich mehr erlaubt hat, naemlich
-            # eigene Workspaces. Lesen ueber einen geteilten Link hatte ohnehin
-            # jeder. Danach fallen beide Spalten weg, denn zwei Wahrheiten ueber
-            # dasselbe Recht waeren schlimmer als ein Umzug.
+            # New migration: aia_access and allowed_tools become permission keys.
             cur.execute("""
                 DO $$
                 BEGIN
@@ -443,7 +349,7 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                     created_at TIMESTAMP NOT NULL DEFAULT NOW()
                 )
             """)
-            # Einladungen sind der Zugang ohne SSO und verschwinden mit ihm wieder.
+            # Invitations are the access path without SSO and go away with it.
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS invites (
                     id             SERIAL PRIMARY KEY,
@@ -458,7 +364,7 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                     used_at        TIMESTAMP
                 )
             """)
-            # Wer eingeladen hat, darf verschwinden, die Einladung bleibt.
+            # The inviter may disappear, the invitation stays.
             cur.execute("ALTER TABLE invites ALTER COLUMN created_by DROP NOT NULL")
             cur.execute("CREATE INDEX IF NOT EXISTS invites_email_idx ON invites (LOWER(email))")
             cur.execute("""
@@ -486,22 +392,7 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             """)
             cur.execute("ALTER TABLE jobs ADD COLUMN IF NOT EXISTS render_queued_at TIMESTAMP")
 
-            # Der Zaehler fuer die Statistik.
-            #
-            # Warum eine eigene Tabelle: aus `jobs` faellt pro Nutzer alles ueber
-            # dem Vorrat wieder heraus (siehe jobs/repository/_retention.py). Eine
-            # Statistik "ueber die ganze Zeit" waere damit keine, sondern eine
-            # ueber die Reste. Hier wird jeder Auftrag beim Abschluss genau einmal
-            # hochgezaehlt und nie wieder geloescht.
-            #
-            # Eine Zeile fasst Tag, Stunde, Werkzeug und Ausgang zusammen. Daraus
-            # faellt alles heraus, was der Statistikbereich braucht: Verlauf je
-            # Monat, Wochentag mal Stunde, Erfolgsquote je Werkzeug. Die Stunde
-            # steht in Ortszeit, weil die Frage "wann ist was los" eine Frage nach
-            # dem Arbeitstag ist und nicht nach UTC.
-            #
-            # Groesse: hoechstens 24 * 9 Werkzeuge * 2 Ausgaenge Zeilen am Tag,
-            # in echt ein Bruchteil davon, weil die meisten Felder leer bleiben.
+            # Counters for the statistics, one row per day, hour, tool and outcome.
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS job_counts (
                     day       DATE     NOT NULL,
@@ -518,13 +409,7 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                 ON job_counts(day)
             """)
 
-            # Wer wann da war. Eine Zeile je Nutzer und Stunde, mehr nicht:
-            # daraus faellt "wie viele waren an dem Tag da" genauso heraus wie
-            # die Verteilung ueber den Tag, und die Bindung ueber die Zahl der
-            # Tage mit Anwesenheit.
-            #
-            # Warum nicht aus den Auftraegen ableiten: wer nur Uebungen macht
-            # oder ein PDF liest, startet nie einen Auftrag und waere unsichtbar.
+            # Who was here when, one row per user and hour.
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS user_presence (
                     user_id INTEGER  NOT NULL,
@@ -538,12 +423,7 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                 ON user_presence(day)
             """)
 
-            # Einmalig nachtragen, was noch in `jobs` steht. Das holt die
-            # Geschichte nicht zurueck, die die Aufbewahrung schon entfernt hat,
-            # aber es startet nicht bei null. Laeuft genau einmal: ein zweiter
-            # Lauf wuerde alles doppelt zaehlen, deshalb der Merker.
-            # `settings` entsteht erst weiter unten. Auf einer leeren Datenbank
-            # gibt es ohnehin nichts nachzutragen, dann faellt der Block aus.
+            # Backfills once what is still in jobs.
             if _table_exists(cur, "settings"):
                 cur.execute("SELECT value FROM settings WHERE key = 'job_counts_backfill_done'")
                 nachtragen = not cur.fetchone()
@@ -569,9 +449,7 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                        ON CONFLICT (key) DO UPDATE SET value = 'true'"""
                 )
 
-            # Dasselbe fuer die Zeile beim Anlegen. Sie kam spaeter dazu, und
-            # ohne sie faehrt die Statistik nur die Auftraege, die einen
-            # Endzustand erreicht haben. Ebenfalls genau einmal.
+            # The same for the created row, also exactly once.
             if _table_exists(cur, "settings"):
                 cur.execute("SELECT value FROM settings WHERE key = 'job_counts_started_backfill_done'")
                 nachtragen = not cur.fetchone()
@@ -592,16 +470,12 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                        ON CONFLICT (key) DO UPDATE SET value = 'true'"""
                 )
             cur.execute("ALTER TABLE jobs DROP COLUMN IF EXISTS username")
-            # Locale at job-creation time, used by Celery workers (no HTTP context)
-            # to localize error_message strings on timeout / provider failure.
+            # Language at creation time so workers without an HTTP context can translate errors.
             cur.execute(
                 "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS creator_locale TEXT NOT NULL DEFAULT 'de' "
                 "CHECK (creator_locale IN ('de', 'en'))"
             )
-            # Migration: die Frist von sieben Tagen ist raus, es zaehlt nur noch der
-            # Vorrat der letzten Auftraege. Ohne dieses Zuruecksetzen behielten alle
-            # Bestandsjobs ihr altes Ablaufdatum und waeren trotzdem verschwunden.
-            # Die Spalte bleibt stehen, sie wird nur nicht mehr befuellt.
+            # The deadline is gone, only the pool of recent jobs counts now.
             cur.execute("UPDATE jobs SET expires_at = NULL WHERE expires_at IS NOT NULL")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS settings (
@@ -633,14 +507,9 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                     UNIQUE (user_id, quota_type)
                 )
             """)
-            # Jedes Werkzeug hat sein eigenes Fenster in user_quotas, ein
-            # gemeinsames Fensterende je Nutzer gibt es nicht mehr.
+            # Every tool has its own window in user_quotas.
             cur.execute("DROP TABLE IF EXISTS user_quota_resets")
-            # Per-user terminology glossaries for the translation tool. The id is
-            # a client-visible opaque string (uuid hex) generated server-side, so
-            # the frontend Glossary.id stays a plain string. entries is a flat
-            # {source_term: target_term} map. Deleting a user removes their
-            # glossaries.
+            # Per-user terminology lists for translation.
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS user_glossaries (
                     id         TEXT PRIMARY KEY,
@@ -683,24 +552,15 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             cur.execute("UPDATE aia_workspaces SET last_visited_at = COALESCE(updated_at, created_at, NOW()) WHERE last_visited_at IS NULL")
             cur.execute("ALTER TABLE aia_workspaces ALTER COLUMN last_visited_at SET NOT NULL")
             cur.execute("ALTER TABLE aia_workspaces ALTER COLUMN last_visited_at SET DEFAULT NOW()")
-            # Per-workspace setting: the ONE language the owner translates transcripts into
-            # (short ISO code, see i18n.TRANSCRIPT_LANGUAGES). Source is the Whisper-detected
-            # media language; English is the default target.
+            # The one language the course room translates its transcripts into.
             cur.execute(
                 "ALTER TABLE aia_workspaces ADD COLUMN IF NOT EXISTS transcript_target_lang TEXT NOT NULL DEFAULT 'en'"
             )
-            # Per-workspace setting: the language the CEFR chat diagnosis is held in
-            # (short ISO code, see i18n.TRANSCRIPT_LANGUAGES). Independent of the
-            # transcript target — a workspace can hold French sources while the
-            # diagnosis stays in the language the course is taught in.
+            # The language the assessment is conducted in.
             cur.execute(
                 "ALTER TABLE aia_workspaces ADD COLUMN IF NOT EXISTS diagnosis_language TEXT NOT NULL DEFAULT 'de'"
             )
-            # Per-workspace setting: whether the Sprachtrainer (flashcards, vocabulary
-            # cloze, grammar exercise) is offered here at all. The owner decides
-            # this once for everyone; it used to be a per-reader checkbox, which meant
-            # a course could not rely on the trainer being there. Off by default, and
-            # only effective while the system-wide switch is on (see _common settings).
+            # Whether the language trainer is offered in this course room at all.
             cur.execute(
                 "ALTER TABLE aia_workspaces ADD COLUMN IF NOT EXISTS language_training_active BOOLEAN NOT NULL DEFAULT FALSE"
             )
@@ -711,16 +571,11 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             cur.execute(
                 "ALTER TABLE aia_workspaces ADD COLUMN IF NOT EXISTS staff_note_links JSONB NOT NULL DEFAULT '[]'::jsonb"
             )
-            # Short-lived per-workspace filter for the grammar exercise catalogue.
-            # Dropped again: the catalogue is the same everywhere and the learner
-            # picks the type when creating a set, so there was nothing to configure.
+            # Filter for the grammar catalogue, dropped again.
             cur.execute("ALTER TABLE aia_workspaces DROP COLUMN IF EXISTS grammar_types")
-            # Legacy per-workspace summary toggle: summaries were removed entirely
-            # (pgvector-only retrieval), so drop the now-meaningless column.
+            # Old summary switch, gone together with the summaries.
             cur.execute("ALTER TABLE aia_workspaces DROP COLUMN IF EXISTS summary_mode")
-            # Legacy transcript translation mode (off/auto/manual): translation now
-            # always runs on click in the transcript panel, so there is nothing left
-            # to configure.
+            # Old translation mode, translating now always happens on click.
             cur.execute("ALTER TABLE aia_workspaces DROP COLUMN IF EXISTS transcript_translation_mode")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_access_links (
@@ -747,17 +602,9 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             """)
             # Migration: add link_id column if table already existed without it
             cur.execute("ALTER TABLE aia_enrollments ADD COLUMN IF NOT EXISTS link_id INTEGER REFERENCES aia_access_links(id) ON DELETE SET NULL")
-            # Ueber die Demo beigetreten, damit sich genau diese Einschreibungen wieder
-            # abraeumen lassen, wenn das Konto den Demo-Haken verliert.
+            # Joined through the demo, so exactly these enrollments can be cleared.
             cur.execute("ALTER TABLE aia_enrollments ADD COLUMN IF NOT EXISTS via_demo BOOLEAN NOT NULL DEFAULT FALSE")
-            # A member is either a learner or a tutor. Tutors manage the workspace
-            # with the same rights as its owner, minus inviting: only the owner
-            # decides who gets in and who becomes a tutor.
-            #
-            # The role sits on the enrollment, never on the link. A link that
-            # granted full rights would be a credential that leaks by being
-            # forwarded, and nobody could tell it had spread. Promotion instead
-            # targets a named person the owner picked from the participant list.
+            # The role sits on the enrollment, never on the link.
             cur.execute(
                 "ALTER TABLE aia_enrollments ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'student'"
             )
@@ -788,18 +635,7 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                     END IF;
                 END $$
             """)
-            # One enrollment per person and workspace. The rule used to include
-            # link_id, which made it toothless: link_id is ON DELETE SET NULL, and
-            # an empty value never equals another empty value, so a course that
-            # replaced its link collected a second enrollment for the same person
-            # and stood twice in their list.
-            #
-            # Existing duplicates are merged first, otherwise the rule could not be
-            # put in place at all. The oldest enrollment stays, with its own expiry:
-            # a later link must not silently extend an access that was meant to run
-            # out. Its role wins if any of the merged rows was a tutor, because
-            # rights belong to the person, and messages move along so no chat is
-            # left hanging on a row that is about to disappear.
+            # One enrollment per person and course room, existing duplicates are merged first.
             cur.execute("""
                 UPDATE aia_enrollments k
                 SET role = 'tutor'
@@ -809,8 +645,7 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                   AND t.role = 'tutor'
                   AND k.role <> 'tutor'
             """)
-            # aia_messages entsteht weiter unten. Auf einer leeren Datenbank gibt es
-            # keine Nachrichten umzuhaengen, dort faellt der Schritt einfach weg.
+            # On an empty database there are no messages to move.
             if _table_exists(cur, "aia_messages"):
                 cur.execute("""
                     UPDATE aia_messages m
@@ -909,31 +744,19 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             cur.execute("""
                 ALTER TABLE aia_sources ADD COLUMN IF NOT EXISTS language TEXT
             """)
-            # Migration: fine-grained progress info during indexing. NULL when the
-            # source is at rest (ready/failed/pending). JSON shape is
-            # ``{"stage": str, "page": int?, "total": int?}`` so the UI can render
-            # a stage label plus an optional page counter without inventing keys.
+            # Fine-grained ingest progress, NULL when the source is idle.
             cur.execute("""
                 ALTER TABLE aia_sources ADD COLUMN IF NOT EXISTS progress JSONB
             """)
-            # Migration: how the text recognition (OCR) went for this source. NULL when
-            # the document had no OCR candidate page at all, so there is nothing to
-            # say about it. JSON shape is ``{"enabled": bool, "done": int, "open": [int]}``
-            # where "open" lists the pages that carry no OCR text - because OCR was off,
-            # because the service dropped them, or because the run gave up. A failed OCR
-            # never fails the source any more, it only shows up here.
+            # How text recognition went, NULL when there was no candidate page.
             cur.execute("""
                 ALTER TABLE aia_sources ADD COLUMN IF NOT EXISTS ocr_info JSONB
             """)
-            # Migration: per-source DOC SUMMARY (one compact summary built at ingest,
-            # map-reduce over chunks). Used for GENERIC/overview answers. NULL until
-            # built; a source is only set 'ready' once its summary exists.
+            # A short summary per source, built during ingest.
             cur.execute("""
                 ALTER TABLE aia_sources ADD COLUMN IF NOT EXISTS summary TEXT
             """)
-            # Kapitel gliedern die Quellenliste eines Kursraums. Rein zur
-            # Uebersicht: welche Quellen der Chat bekommt, entscheidet weiterhin
-            # allein der Haken an der Datei.
+            # Chapters structure the source list but decide nothing about the chat.
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_chapters (
                     id           SERIAL PRIMARY KEY,
@@ -949,8 +772,7 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                 CREATE INDEX IF NOT EXISTS idx_aia_chapters_workspace
                 ON aia_chapters (workspace_id, position)
             """)
-            # SET NULL statt CASCADE: ein geloeschtes Kapitel darf keine Quelle
-            # mitnehmen, die Dateien rutschen zurueck nach "Ohne Kapitel".
+            # SET NULL instead of CASCADE, a deleted chapter takes no source with it.
             cur.execute("""
                 ALTER TABLE aia_sources ADD COLUMN IF NOT EXISTS chapter_id INTEGER
                     REFERENCES aia_chapters(id) ON DELETE SET NULL
@@ -988,28 +810,17 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                 CREATE INDEX IF NOT EXISTS idx_chunks_search
                 ON aia_chunks USING gin(search_vector)
             """)
-            # Trigram index on content for the fuzzy (typo-tolerant) keyword fallback
-            # in hybrid_search_chunks — lets the `<%` word-similarity operator use an
-            # index instead of scanning every chunk.
+            # Trigram index for the typo tolerant keyword search.
             cur.execute("""
                 CREATE INDEX IF NOT EXISTS idx_chunks_content_trgm
                 ON aia_chunks USING gin(content gin_trgm_ops)
             """)
-            # Quelle + Seite fuer die Beleg-Suche nach einer Chat-Antwort: die schraenkt
-            # auf die Seiten ein, die das Modell wirklich gelesen hat (siehe
-            # chunks._seen_pages_filter). Ohne diesen Index findet Postgres jene paar
-            # Dutzend Zeilen nur ueber den vollen Durchlauf und der Filter bringt statt
-            # 62 -> 6 ms nur 62 -> 40 ms je Antwortsatz. Die Spaltenreihenfolge zaehlt:
-            # source_id steht vorn, weil eine Medienquelle OHNE Seitenbedingung gesucht
-            # wird (dort belegt eine Zeitmarke, keine Seite).
+            # Source plus page for the evidence search, source_id first because of media sources.
             cur.execute("""
                 CREATE INDEX IF NOT EXISTS idx_chunks_source_page
                 ON aia_chunks (source_id, page_number)
             """)
-            # Migration: legacy page/paragraph summary TABLES were removed
-            # (pgvector-only retrieval). NOTE: the per-source ``summary`` column is
-            # BACK (added above) for the DOC SUMMARY feature (GENERIC answers) — do
-            # NOT re-add a DROP for it. Idempotent.
+            # The old page and paragraph summaries are gone.
             cur.execute("DROP TABLE IF EXISTS aia_page_summaries")
             cur.execute("DROP TABLE IF EXISTS aia_paragraph_summaries")
             cur.execute("ALTER TABLE aia_sources DROP COLUMN IF EXISTS summaries_status")
@@ -1043,9 +854,7 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                     updated_at   TIMESTAMP NOT NULL DEFAULT NOW()
                 )
             """)
-            # AIA-owned orchestration queue. Decouples AIA background work from the
-            # global-tools `jobs` table (which is being split into its own project).
-            # area = 'ingest' | 'studio'. status = 'queued' | 'running' | 'done' | 'failed'.
+            # Separate queue for the assistant's background work.
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_jobs (
                     id             SERIAL PRIMARY KEY,
@@ -1084,10 +893,7 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             cur.execute("ALTER TABLE aia_messages ADD COLUMN IF NOT EXISTS source_qmap JSONB")
             # Migration: mark assistant messages whose stream was cancelled by the user
             cur.execute("ALTER TABLE aia_messages ADD COLUMN IF NOT EXISTS aborted BOOLEAN NOT NULL DEFAULT FALSE")
-            # Migration: mark assistant messages whose stream died on an error. Kept
-            # apart from `aborted` on purpose - the UI labels a cancelled turn
-            # "stopped" and a failed one "failed" with a retry button, and calling a
-            # provider outage a user cancellation would be a lie.
+            # Marks answers whose stream died on an error, apart from a cancellation.
             cur.execute("ALTER TABLE aia_messages ADD COLUMN IF NOT EXISTS failed BOOLEAN NOT NULL DEFAULT FALSE")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_user_settings (
@@ -1102,13 +908,9 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                 )
             """)
             cur.execute("ALTER TABLE aia_user_settings ADD COLUMN IF NOT EXISTS studio_enabled BOOLEAN NOT NULL DEFAULT TRUE")
-            # Zielsprache der Auswahlleisten-Übersetzung, je Person und Modul.
-            # Englisch als Standard, weil das die Sprache ist, in die am
-            # häufigsten übersetzt wird. Codes aus i18n.TRANSCRIPT_LANGUAGES.
+            # Target language of the selection bar translation, per person and module.
             cur.execute("ALTER TABLE aia_user_settings ADD COLUMN IF NOT EXISTS popup_translate_lang TEXT NOT NULL DEFAULT 'en'")
-            # Eigene Entscheidung je Person und Kurs, ob der freigegebene
-            # Sprachtrainer angezeigt wird. Steht auch im CREATE TABLE, hier für
-            # Datenbanken, die davor angelegt wurden.
+            # Each person decides per course whether the language trainer is shown.
             cur.execute("ALTER TABLE aia_user_settings ADD COLUMN IF NOT EXISTS language_training_active BOOLEAN NOT NULL DEFAULT FALSE")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_notes (
@@ -1143,19 +945,10 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             # Migration: add English columns to glossary
             cur.execute("ALTER TABLE aia_glossary_entries ADD COLUMN IF NOT EXISTS definition_en TEXT")
             cur.execute("ALTER TABLE aia_glossary_entries ADD COLUMN IF NOT EXISTS example_sentence_en TEXT")
-            # Migration: dictionary base form (lemma) of the marked term, e.g. the
-            # marked "läuft" carries base_form "laufen". Empty when the term is
-            # already in its base form or cannot be lemmatised (phrase, loanword).
+            # Base form of the marked term, empty when there is none.
             cur.execute("ALTER TABLE aia_glossary_entries ADD COLUMN IF NOT EXISTS base_form TEXT")
 
-            # ─── Glossary: back to a plain per-user glossary ──────────────────
-            # The glossary used to be a workspace-shared pool (aia_glossary_entries)
-            # with an M:N per-user pick list (aia_user_glossary_picks), fed by an
-            # auto-extraction task. That is gone: the glossary is now built only
-            # via the PDF popup action bar, one private glossary per user. This
-            # one-time reset drops the pool machinery and discards the old shared
-            # entries. Guarded so it fires only while old structures still exist —
-            # afterwards every condition is false, so it never truncates again.
+            # The glossary is purely personal again, the shared pool goes once.
             cur.execute("""
                 SELECT
                   to_regclass('public.aia_user_glossary_picks') IS NOT NULL
@@ -1221,12 +1014,7 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             """)
             # Migration: add sources JSONB to exercise_items
             cur.execute("ALTER TABLE aia_exercise_items ADD COLUMN IF NOT EXISTS sources JSONB")
-            # Grammatikthemen. Steht VOR dem Vorrat, weil dessen `topic_id` hierher
-            # zeigt: eine Fremdschluessel-Spalte laesst sich nicht auf eine Tabelle
-            # legen, die es noch nicht gibt. Auf einer Datenbank, die die Tabelle schon
-            # hatte, faellt die Reihenfolge nicht auf, auf einer aelteren bricht der
-            # ganze Start ab. Regel, Beispiele und Grundstock stehen weiter unten, die
-            # brauchen die Reihenfolge nicht.
+            # Grammar topics come before the pool, whose topic_id points here.
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_grammar_topics (
                     id           SERIAL PRIMARY KEY,
@@ -1237,16 +1025,7 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                     created_at   TIMESTAMP NOT NULL DEFAULT NOW()
                 )
             """)
-            # ─── Exercise pool ──────────────────────────────────
-            # Aufgaben werden nicht mehr bei jedem Klick neu erzeugt. Was einmal
-            # entstanden ist, liegt hier und steht allen im Kursraum offen. Wer
-            # Aufgaben anfordert, bekommt zuerst das, was schon da ist und was er
-            # selbst noch nicht hatte; nur der Fehlbetrag kostet einen Modellaufruf.
-            # Der Vorrat waechst als Nebenprodukt der Nutzung, es gibt keinen
-            # Bau-Auftrag.
-            #
-            # Ein Vorrat je Quelle, Werkzeug UND Sprachniveau: dieselbe Sache fuer A1
-            # und fuer C1 formuliert sind zwei verschiedene Aufgaben.
+            # One pool per source, tool and level, filled as a by-product of use.
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_exercise_pool (
                     id          SERIAL PRIMARY KEY,
@@ -1269,30 +1048,16 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                     created_at  TIMESTAMP NOT NULL DEFAULT NOW()
                 )
             """)
-            # Der Vorrat traegt dieselben Felder wie eine Aufgabe im Satz, damit ein
-            # Verweis dorthin nichts verliert. Nachtraeglich ergaenzte Spalten stehen
-            # hier, sonst bekommt sie eine bestehende Installation nie.
+            # The pool carries the same fields as an exercise in a set.
             cur.execute("ALTER TABLE aia_exercise_pool ADD COLUMN IF NOT EXISTS back_en TEXT")
-            # Die Grammatik-Uebung haengt nicht nur an der Quelle, sondern am gewaehlten
-            # Thema: aus demselben Text entsteht eine Passiv- oder eine Konjunktiv-Aufgabe.
-            # Ihr Vorrat trennt deshalb zusaetzlich nach Thema. Bei allen anderen
-            # Werkzeugen bleibt die Spalte leer.
+            # The grammar exercise also splits by topic, otherwise the column stays empty.
             cur.execute(
                 "ALTER TABLE aia_exercise_pool ADD COLUMN IF NOT EXISTS topic_id INTEGER "
                 "REFERENCES aia_grammar_topics(id) ON DELETE CASCADE"
             )
-            # Welche Darreichungsform eine Grammatik-Aufgabe hat: Umformen, Luecke
-            # fuellen, Richtig oder falsch, Ankreuzen. Nur so kann der Vorrat eine
-            # Formatauswahl bedienen, statt blind auszuliefern, was gerade daliegt.
-            # Bei allen anderen Werkzeugen bleibt die Spalte leer. Altbestand hat sie
-            # ebenfalls leer und faellt damit bei einer Auswahl durch den Filter, was
-            # richtig ist: ausliefern wuerde die Auswahl brechen.
+            # Presentation format of a grammar exercise, empty otherwise.
             cur.execute("ALTER TABLE aia_exercise_pool ADD COLUMN IF NOT EXISTS kind TEXT")
-            # Zwei NULL gelten in Postgres nicht als gleich, ein gewoehnlicher
-            # UNIQUE ueber `level` wuerde im niveaulosen Vorrat also jeden Doppler
-            # durchlassen. COALESCE macht daraus einen vergleichbaren Wert.
-            # Der alte Index kannte das Thema noch nicht und wuerde zwei Aufgaben zum
-            # selben Satz aus verschiedenen Themen faelschlich als Doppler abweisen.
+            # COALESCE, because two NULLs do not count as equal in Postgres.
             cur.execute("DROP INDEX IF EXISTS uq_exercise_pool_item")
             cur.execute(
                 "CREATE UNIQUE INDEX IF NOT EXISTS uq_exercise_pool_entry "
@@ -1304,9 +1069,7 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                 "CREATE INDEX IF NOT EXISTS idx_exercise_pool_find "
                 "ON aia_exercise_pool (source_id, tool, level, topic_id)"
             )
-            # Ein Satz zeigt auf seine Vorratsaufgaben, statt sie zu kopieren. Alte
-            # Zeilen tragen weiter ihren eigenen Inhalt und bleiben lesbar, deshalb
-            # ist die Spalte nullable und es gibt keine Wanderung des Altbestands.
+            # A set points at its pooled exercises instead of copying them.
             cur.execute(
                 "ALTER TABLE aia_exercise_items "
                 "ADD COLUMN IF NOT EXISTS pool_item_id INTEGER "
@@ -1316,33 +1079,10 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                 "CREATE INDEX IF NOT EXISTS idx_exercise_items_pool "
                 "ON aia_exercise_items (pool_item_id)"
             )
-            # Das Hoer- und Leseverstehen wurde am 2026-08-10 abgeschafft. Der Code kennt
-            # das Werkzeug nicht mehr, seine Zeilen aber schon: sie stuenden weiter in der
-            # Statistik und in den letzten Aktivitaeten, ohne dass sich noch einer
-            # aufschlagen liesse. Deshalb hier einmal weg.
-            #
-            # Die Saetze reissen ihre Aufgaben und den Fortschritt per ON DELETE CASCADE
-            # mit. Idempotent: danach passt keine Zeile mehr.
+            # Listening and reading comprehension is gone, its rows go once.
             cur.execute("DELETE FROM aia_exercise_sets WHERE tool = 'hoerverstehen'")
             cur.execute("DELETE FROM aia_exercise_pool WHERE tool = 'hoerverstehen'")
-            # ─── Vorrat fuer gesprochene Beispielsaetze ─────────
-            # Ein Satz kostet vier bis fuenf Sekunden beim Anbieter. Ohne Vorrat zahlt
-            # jede Person im Kurs diesen Preis erneut, und dieselbe Person nach jedem
-            # Neuladen noch einmal.
-            #
-            # Der Schluessel ist der SATZ samt Stimme, Anbieter und Tempo, nicht die
-            # Karte: zwei Karten mit demselben Beispielsatz teilen sich einen Ton, und
-            # ein neu erzeugter Kartensatz greift auf das zu, was ein alter schon
-            # gesprochen hat. Haengte er an der Kartennummer, waere er nach jeder
-            # Neuerzeugung leer.
-            #
-            # Der Vorrat gilt fuer alle. Am Ton ist nichts persoenlich, und der Satz
-            # steht ohnehin im gemeinsamen Kursmaterial.
-            #
-            # Der TON steht nicht hier, sondern im Speicher unter aia/speech/. Die
-            # Zeile traegt nur, wann er zuletzt gehoert wurde. Genau dafuer wird sie
-            # gebraucht: eine Aufbewahrungsregel im Bucket kennt nur das Erstelldatum
-            # und wuerde den Satz wegwerfen, den ein Kurs jedes Semester wieder hoert.
+            # Pool for spoken example sentences, keyed by sentence and voice.
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_speech_cache (
                     fingerprint  TEXT PRIMARY KEY,
@@ -1351,15 +1091,7 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                     last_used_at TIMESTAMP NOT NULL DEFAULT NOW()
                 )
             """)
-            # Frueher lagen die MP3s als BYTEA in der Zeile. Sie sind mit den Jahren in
-            # jede Sicherung gewandert, obwohl an ihnen nichts wiederherzustellen ist:
-            # was fehlt, spricht der Anbieter in fuenf Sekunden neu.
-            #
-            # Die Altzeilen zeigen nach dem Umzug auf keine Datei mehr und sind damit
-            # wertlos. Sie gehen zusammen mit der Spalte, sonst laeuft jede von ihnen
-            # noch einmal in einen Fehlgriff in den Speicher. Die Bedingung haelt das
-            # auf den einen Start beschraenkt, an dem die Spalte faellt: unbedingt
-            # geschrieben wuerde sie den Vorrat bei jedem Neustart leeren.
+            # The MP3s now live in storage, the old rows go with the column.
             cur.execute("""
                 DO $$
                 BEGIN
@@ -1371,21 +1103,12 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                 END $$
             """)
             cur.execute("ALTER TABLE aia_speech_cache DROP COLUMN IF EXISTS audio")
-            # Das naechtliche Aufraeumen sucht nach dem Zeitstempel, nicht nach dem
-            # Schluessel.
+            # The nightly cleanup looks for the timestamp.
             cur.execute(
                 "CREATE INDEX IF NOT EXISTS idx_speech_cache_last_used "
                 "ON aia_speech_cache (last_used_at)"
             )
-            # ─── Context sweep cursors ──────────────────────────
-            # Where the last generation run stopped reading inside each of the
-            # coverage blocks of ONE source. A source larger than the context budget
-            # can never go in whole, so the run has to pick part of it; picking that
-            # part at random meant some pages came up over and over while others were
-            # structurally unreachable (measured on a 489-page PDF: page 1 appeared
-            # once in 30 runs). The cursors turn that draw into a sweep: every run
-            # continues where the last one stopped, so the document is covered
-            # completely and in the fewest possible runs before anything repeats.
+            # Remembers per source where the last run stopped, so generation sweeps through.
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_context_cursors (
                     workspace_id INTEGER NOT NULL
@@ -1398,31 +1121,12 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                     PRIMARY KEY (workspace_id, source_id, tool)
                 )
             """)
-            # The standalone Lückentext tool is gone: its gap sentences were the same
-            # multiple-choice exercise under a second name, and they sat in the language
-            # area although the gap is a technical term and not a grammar form. The quiz
-            # now produces both kinds, so old sets move there rather than being deleted.
-            # The UI tells a gap item apart by the ___ marker in `front`, so nothing else
-            # has to change for them to keep working.
-            # Same for the removed Begriffe-Quiz: it was multiple choice over technical
-            # terms, so its sets belong with the quiz rather than being orphaned by a
-            # tile that no longer exists.
+            # The separate cloze is gone, its sentences move into the quiz.
             cur.execute(
                 "UPDATE aia_exercise_sets SET tool = 'quiz' "
                 "WHERE tool IN ('lueckentext', 'vokabeltest')"
             )
-            # Grammar exercises: a set carries the instruction and the worked example
-            # pair, because those are shown once above the sentences instead of being
-            # repeated on every item.
-            # Grammatikthemen. Sie standen im Code, und ein neues kostete dort einen
-            # Eintrag mit Regel, Musterpaar je Sprache und beim Ankreuz-Format noch drei
-            # falschen Formen. Für zwei Themen tragbar, für dreissig nicht. Jetzt tippt
-            # der Dozent einen Namen und die KI arbeitet den Rest aus.
-            #
-            # Zwei Tabellen, weil ein Thema nur ein Name ist, Regel und Beispiele aber
-            # zusätzlich an der Sprache hängen: "Konjunktiv II" braucht auf Deutsch ein
-            # anderes Beispiel als derselbe Kurs auf Englisch. Die Themen-Tabelle selbst
-            # steht weiter oben, der Vorrat verweist schon auf sie.
+            # Grammar sentences carry instruction and pattern pair, topics live in two tables.
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_grammar_topic_specs (
                     id        SERIAL PRIMARY KEY,
@@ -1434,15 +1138,7 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                     UNIQUE (topic_id, language)
                 )
             """)
-            # Die Anweisungszeile je Aufgabenformat, vom Modell formuliert statt aus
-            # einer Schablone. Die Schablone setzte den Themennamen stur ein und traf
-            # nur saechliche Einzahlwoerter: "Setze den Satz ins Perfekt." geht auf,
-            # "Setze den Satz ins Nebensaetze." nicht. Bei acht echten Themen war die
-            # Haelfte falsch. Beugung laesst sich nicht schablonisieren, und eine
-            # deutsche Grammatikregel im Code braeche bei der naechsten Hochschule.
-            # NULL heisst: noch nicht ausgearbeitet. Das wird beim naechsten Benutzen
-            # nachgereicht, siehe derive_task_lines. Bis dahin greift die Schablone, die
-            # den Namen inzwischen hinter einen Doppelpunkt setzt statt hinter "ins".
+            # The instruction line per format, worded by the model instead of from a template.
             cur.execute(
                 "ALTER TABLE aia_grammar_topic_specs ADD COLUMN IF NOT EXISTS task_lines JSONB"
             )
@@ -1450,17 +1146,7 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                 "CREATE INDEX IF NOT EXISTS idx_grammar_topics_workspace "
                 "ON aia_grammar_topics(workspace_id)"
             )
-            # Grundstock für die Kurse, die es vor der Themen-Tabelle schon gab. Ohne
-            # Ausarbeitung: die entsteht beim ersten Benutzen in der jeweiligen Sprache,
-            # sonst kostete jeder Kurs acht Modell-Aufrufe, von denen die meisten nie
-            # gebraucht werden.
-            #
-            # GENAU EINMAL, festgehalten in `settings` wie die search_vector-Migration
-            # weiter unten. Vorher lief das bei jedem Start und hat jeden fehlenden der
-            # acht Namen neu angelegt. Damit war ein gelöschtes "Perfekt" nach dem
-            # nächsten Neustart wieder da, und das Entfernen von Themen wäre eine
-            # Täuschung. Neue Kurse bekommen ihren Grundstock beim Anlegen über
-            # `seed_grammar_topics`, nicht von hier.
+            # Seed for courses from before the topic table, exactly once.
             seed_key = "grammar_topics_seeded"
             cur.execute("SELECT value FROM settings WHERE key = %s", (seed_key,))
             row = cur.fetchone()
@@ -1483,12 +1169,7 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                     "ON CONFLICT (key) DO UPDATE SET value = 'true'",
                     (seed_key,),
                 )
-            # Die Textspalte zeigte auf einen Code-Eintrag, den es nicht mehr gibt. Kein
-            # Bestandsschutz, wir sind auf dev: die alten Grammatik-Sets gehen mit.
-            #
-            # NUR EINMAL, nämlich solange die alte Spalte noch da ist. Ohne diese Klammer
-            # lief das DELETE bei JEDEM Start und hat frisch erzeugte Sets gleich wieder
-            # weggeräumt. Genau so passiert am 2026-08-05.
+            # The old text column pointed nowhere, its sentences come along, only once.
             cur.execute(
                 "SELECT 1 FROM information_schema.columns "
                 "WHERE table_name = 'aia_exercise_sets' AND column_name = 'grammar_type'"
@@ -1500,10 +1181,7 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                 "ALTER TABLE aia_exercise_sets ADD COLUMN IF NOT EXISTS grammar_topic_id "
                 "INTEGER REFERENCES aia_grammar_topics(id) ON DELETE SET NULL"
             )
-            # Die gewaehlten Aufgabenformate der Grammatik-Uebung, als JSON-Liste von
-            # Kuerzeln. NULL heisst gemischt, also alle vier, und das ist der
-            # Normalfall. Jeder Satz von vor dieser Spalte ist damit richtig
-            # eingeordnet, ohne dass etwas gewandert werden muss.
+            # Chosen exercise formats as a JSON list, NULL means mixed.
             cur.execute(
                 "ALTER TABLE aia_exercise_sets ADD COLUMN IF NOT EXISTS "
                 "grammar_kinds JSONB"
@@ -1511,23 +1189,18 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             cur.execute("ALTER TABLE aia_exercise_sets ADD COLUMN IF NOT EXISTS instruction TEXT")
             cur.execute("ALTER TABLE aia_exercise_sets ADD COLUMN IF NOT EXISTS pattern_front TEXT")
             cur.execute("ALTER TABLE aia_exercise_sets ADD COLUMN IF NOT EXISTS pattern_back TEXT")
-            # Nur der Wortschatz-Lückentext aus Lernkarten füllt das. Es steht am Satz
-            # und nicht nur im Auftrag, weil der Neuversuch eines fehlgeschlagenen
-            # Satzes seine Einstellungen aus dieser Zeile liest.
+            # Only the vocabulary cloze fills this, a retry reads it here.
             cur.execute(
                 "ALTER TABLE aia_exercise_sets ADD COLUMN IF NOT EXISTS flashcard_set_id "
                 "INTEGER REFERENCES aia_exercise_sets(id) ON DELETE SET NULL"
             )
-            # Every source the set was generated from, in the order the learner picked
-            # them. source_uuid only ever held the first one, so neither the count nor a
-            # stable numbering for the citation chips was recoverable from the row.
+            # All sources of the set in the order they were picked.
             cur.execute("ALTER TABLE aia_exercise_sets DROP COLUMN IF EXISTS source_count")
             cur.execute(
                 "ALTER TABLE aia_exercise_sets ADD COLUMN IF NOT EXISTS "
                 "source_uuids JSONB NOT NULL DEFAULT '[]'::jsonb"
             )
-            # Sets from before the column keep the one source that was recorded. The rest
-            # of their selection is gone and cannot be reconstructed.
+            # Older sets keep the one source that was recorded.
             cur.execute(
                 "UPDATE aia_exercise_sets SET source_uuids = jsonb_build_array(source_uuid) "
                 "WHERE source_uuid IS NOT NULL AND source_uuids = '[]'::jsonb"
@@ -1544,19 +1217,12 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                     answered_at TIMESTAMP NOT NULL DEFAULT NOW()
                 )
             """)
-            # Die Statistik zeigt jeden Durchgang einzeln, dafuer traegt jede Antwort
-            # die Nummer ihres Durchgangs. Antworten von vor der Spalte haben keine
-            # und bleiben NULL, sie erscheinen als ein Durchgang je Tag.
+            # Every answer carries the number of its round, older ones stay NULL.
             cur.execute(
                 "ALTER TABLE aia_exercise_progress "
                 "ADD COLUMN IF NOT EXISTS run_no INTEGER"
             )
-            # The learner profile (per-user weakness tracking) was removed. Adaptivity
-            # is the CEFR level and nothing else. Nothing creates or reads
-            # aia_learner_weakness or users.learning_profile_enabled any more; both are
-            # left in place on existing installs so no data disappears behind an
-            # operator's back, and are dropped by hand when they decide to.
-            # ─── Streak Tracking ────────────────────────────────
+            # The learner profile is gone, its tables stay until deleted by hand.
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_streaks (
                     id              SERIAL PRIMARY KEY,
@@ -1589,25 +1255,11 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             cur.execute("ALTER TABLE aia_exercise_items ADD COLUMN IF NOT EXISTS back_en TEXT")
             # Migration: add extras JSONB for Flashcards structured fields (word_parts etc.)
             cur.execute("ALTER TABLE aia_exercise_items ADD COLUMN IF NOT EXISTS extras JSONB")
-            # Welcher Glossarbegriff hinter dieser Aufgabe steckt. Nur im Glossar-Weg
-            # gefuellt, sonst NULL. Ohne diese Spur laesst sich bei Karteikarten nicht
-            # feststellen, welcher Begriff schon dran war: ihre Vorderseite ist eine
-            # erzeugte Frage und lautet bei jedem Lauf anders.
-            #
-            # Der Begriff als Text und nicht die id des Glossareintrags. Ein geloeschter
-            # und neu angelegter Eintrag bekaeme eine neue id, der Begriff bliebe aber
-            # derselbe, und genau der ist gemeint.
+            # Which glossary term is behind the exercise, as text instead of an id.
             cur.execute(
                 "ALTER TABLE aia_exercise_items ADD COLUMN IF NOT EXISTS glossary_term TEXT"
             )
-            # Nachtragung fuer den Altbestand. Bei Lernkarten aus dem Glossar IST die
-            # Vorderseite der Begriff, die lassen sich rueckwirkend fuellen. Karteikarten
-            # von frueher fangen bei null an, ihre Vorderseite ist eine Frage und der
-            # Begriff daraus nicht mehr zu erkennen.
-            #
-            # `IS NULL` macht den Befehl beim naechsten Start zu einer leeren Aenderung.
-            # Auf einer frischen Datenbank trifft er auf keine Zeile, beide Tabellen
-            # entstehen weiter oben, also braucht er keine Existenzpruefung.
+            # Backfills the term for flashcards built from the glossary.
             cur.execute("""
                 UPDATE aia_exercise_items i SET glossary_term = i.front
                 FROM aia_exercise_sets s
@@ -1615,30 +1267,13 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                   AND s.mode = 'glossary' AND s.tool = 'flashcards'
                   AND i.glossary_term IS NULL AND i.front <> ''
             """)
-            # Der Quiz-Vorrat kennt nur die zwei Ankreuz-Arten, seit dem 2026-08-10
-            # stellt das Quiz auch Richtig/Falsch. Einmal leeren, sonst bleibt die
-            # Aenderung unsichtbar.
-            #
-            # Der Schritt steht HIER und nicht oben beim abgeschafften Hoerverstehen,
-            # obwohl er inhaltlich dorthin gehoert: er schreibt jede Inhaltsspalte
-            # zurueck, und start_time, back_en und extras entstehen erst in den drei
-            # Zeilen darueber. Auf einer leeren Datenbank brach init_db an genau dieser
-            # Stelle ab, gefunden mit scripts/check_fresh_schema.sh.
+            # Empties the quiz pool once because true/false questions were added.
             _reset_quiz_pool_once(cur)
-            # Dieselbe Stelle und derselbe Grund fuer die Grammatik: die Anweisungszeile
-            # steckt im Aufgabentext, der Vorrat traegt also die am 2026-08-12 gemeldete
-            # Fassung, und ohne dieses Leeren bliebe die Korrektur unsichtbar.
+            # The same for grammar, whose instruction line now sits in the exercise text.
             _reset_grammar_pool_once(cur)
-            # The run boundary is gone. The progress ring counted only the answers
-            # after this mark, and the browser set it when the learner answered the
-            # first card of a session. Interrupting an exercise moved the mark into
-            # the middle of the run, and everything answered before it stopped
-            # counting. The ring now reads the last answer per card instead, which
-            # needs no boundary at all.
+            # The round limit is gone, the ring now reads the last answer per card.
             cur.execute("ALTER TABLE aia_exercise_sets DROP COLUMN IF EXISTS last_run_start")
-            # Migration: the item count the learner asked for. card_count only says how
-            # many were produced, which is 0 on a failed set, so a retry would silently
-            # fall back to the default size instead of the one that was picked.
+            # The wanted number of exercises, so a retry does not lose it.
             cur.execute("ALTER TABLE aia_exercise_sets ADD COLUMN IF NOT EXISTS requested_count INTEGER")
             # Migration: drop legacy mastery columns if they exist
             for col in ("correct_streak", "total_attempts", "total_correct"):
@@ -1666,28 +1301,22 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                 )
             """)
             cur.execute("ALTER TABLE aia_schedule_entries ADD COLUMN IF NOT EXISTS source_refs JSONB NOT NULL DEFAULT '[]'::jsonb")
-            # Gesetzt heisst: der Termin geht bis zu diesem Tag.
+            # When set, the appointment runs until this day.
             cur.execute("ALTER TABLE aia_schedule_entries ADD COLUMN IF NOT EXISTS end_date DATE")
-            # Bestehende Datenbanken tragen workspace_id noch als NOT NULL.
+            # Existing databases still carry workspace_id as NOT NULL.
             cur.execute("ALTER TABLE aia_schedule_entries ALTER COLUMN workspace_id DROP NOT NULL")
-            # Wie genau steht das Datum in der Quelle: 'day' ist der Normalfall, 'month'
-            # heisst, dort stand nur ein Monat ("im Juli 2026"). due_date traegt dann den
-            # Monatsersten als Sortierpunkt, die Ansicht zeigt dafuer keine Tagesnummer.
+            # How precisely the date appears in the source, day or month only.
             cur.execute("ALTER TABLE aia_schedule_entries ADD COLUMN IF NOT EXISTS date_precision TEXT NOT NULL DEFAULT 'day'")
-            # Gesetzt heisst: der Termin geht an diesem Tag bis zu dieser Uhrzeit.
+            # When set, the appointment runs on this day until this time.
             cur.execute("ALTER TABLE aia_schedule_entries ADD COLUMN IF NOT EXISTS end_time TIME")
-            # Gesetzt heisst: die Quelle nennt einen Anfang und ausdruecklich KEIN Ende
-            # ("ab 15.09. freigeschaltet"). So ein Termin ist nie vorbei, die Ansicht
-            # blendet ihn deshalb nie ab.
+            # When set, the source names a start and explicitly no end.
             cur.execute("ALTER TABLE aia_schedule_entries ADD COLUMN IF NOT EXISTS is_open_ended BOOLEAN NOT NULL DEFAULT FALSE")
             # Drop legacy columns (were single-position; replaced by source_refs array)
             cur.execute("ALTER TABLE aia_schedule_entries DROP COLUMN IF EXISTS source_ids")
             cur.execute("ALTER TABLE aia_schedule_entries DROP COLUMN IF EXISTS raw_quote")
             cur.execute("ALTER TABLE aia_schedule_entries DROP COLUMN IF EXISTS page_number")
             cur.execute("ALTER TABLE aia_schedule_entries DROP COLUMN IF EXISTS start_time")
-            # Bis hierhin trug eine Mindmap keinen eigenen Namen, die Liste zeigte den
-            # Wurzelknoten aus dem JSON. Mit der Spalte kann sie umbenannt werden und
-            # bekommt beim Erzeugen einen Titel aus ihrem Inhalt.
+            # Its own name per mind map instead of showing the root node from the JSON.
             cur.execute("ALTER TABLE aia_mindmaps ADD COLUMN IF NOT EXISTS title TEXT")
             cur.execute("""
                 CREATE INDEX IF NOT EXISTS idx_schedule_workspace_user
@@ -1737,10 +1366,7 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                 )
             """)
 
-            # ─── AI Providers ─────────────────────────────────────────────────
-            # Provider-centric admin model: each row is an endpoint the admin
-            # registered (Name + Protocol + URL + Key). Capabilities are filled
-            # by probe (openai_compat) or by protocol definition (deepl/docling).
+            # One row per endpoint the admin entered.
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS providers (
                     id             SERIAL PRIMARY KEY,
@@ -1771,12 +1397,7 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                 ADD COLUMN IF NOT EXISTS voices JSONB NOT NULL DEFAULT '[]'::jsonb
             """)
 
-            # ─── Feature Routes ───────────────────────────────────────────────
-            # One row per feature (chat, embedding, ocr, ...). Maps a feature to
-            # a chosen provider + model. user_choices is the multi-pill list of
-            # provider IDs the user may pick from in the tool UI (used for tts,
-            # doc_translate). Unset feature row means the feature is
-            # unconfigured and not available.
+            # One row per feature with the chosen provider and model.
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS feature_routes (
                     id              SERIAL PRIMARY KEY,
@@ -1792,23 +1413,10 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                 ALTER TABLE feature_routes
                 ADD COLUMN IF NOT EXISTS provider_models JSONB NOT NULL DEFAULT '{}'::jsonb
             """)
-            # Die Route screencast_translate ist entfallen. Der Screencast hat
-            # sein Modell immer aus doc_translate gelesen, die Zeile im Admin
-            # wirkte also nie und führte in die Irre. Beide Werkzeuge übersetzen
-            # dieselben Dateien, eine Einstellung reicht. Idempotent.
+            # The screencast_translate route is gone, the screencast reads doc_translate.
             cur.execute("DELETE FROM feature_routes WHERE feature = 'screencast_translate'")
 
-            # ─── Modellvermessung ─────────────────────────────────────────────
-            # Was ein Modell vertraegt, einmal gemessen statt im Admin geraten:
-            # Fenstergroesse in Token, ob es vor der Antwort denkt, und welcher
-            # Schalter dieses Denken abstellt. Gemessen an 16 Modellen
-            # reichen die Fenster von 20.080 bis 1.048.576 Token, eine feste
-            # Zeichenzahl fuer alle kann es also gar nicht geben.
-            #
-            # source sagt, wie verlaesslich die Zahl ist: "gemessen" (Anbieter hat
-            # sie genannt), "unbekannt" (er schweigt, dann steht dort 0 und es wird
-            # nichts gedeckelt), "gelernt" (aus einer echten Absage im Betrieb
-            # nachtraeglich korrigiert), "gesetzt" (der Admin hat sie eingetragen).
+            # What a model can take, measured once instead of guessed in the admin area.
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS model_limits (
                     provider_id   INTEGER NOT NULL REFERENCES providers(id) ON DELETE CASCADE,
@@ -1822,17 +1430,13 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                 )
             """)
 
-            # Bis 20.08.2026 wurde ein schweigender Anbieter mit 32.768 Token geraten.
-            # Die Zahl sah aus wie eine Messung, war aber keine. Idempotent.
+            # A silent provider is no longer guessed.
             cur.execute("""
                 UPDATE model_limits SET window_tokens = 0, source = 'unbekannt'
                  WHERE source = 'geraten'
             """)
 
-            # ─── LLM Usage Log ────────────────────────────────────────────────
-            # One row per request: for daily alerts (anomaly detection) and
-            # admin visibility. Token columns are nullable - Langfuse has
-            # the exact truth, here "best effort" from response.usage is enough.
+            # One row per request, for daily reports and insight in the admin area.
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_llm_usage_log (
                     id          BIGSERIAL PRIMARY KEY,
@@ -1857,11 +1461,7 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             """)
         conn.commit()
 
-    # Backfill / migrate tsvector (separate transaction).
-    # Switched from 'german' to 'simple' tokenizer so non-German content
-    # (English, Turkish, Spanish slides/transcripts) also gets useful keyword
-    # search hits. Vector search still handles semantic matches; the keyword
-    # side just needs language-agnostic exact-token matching.
+    # tsvector switched to the simple parser so foreign language text gets hits too.
     from loguru import logger as _log
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -1895,16 +1495,7 @@ def _init_db(admin_email: Optional[str] = None) -> None:
 
         conn.commit()
 
-    # hnsw ANN index for vector search (own transaction, so a long build stays out of the
-    # schema transaction and a failure cannot roll schema setup back). Built on the
-    # halfvec(2560) form of embedding: 2560-dim exceeds pgvector's 2000-dim vector-index
-    # limit, halfvec allows up to 4000. PARTIAL on vector_dims=2560 so a future different-dim
-    # model neither breaks inserts nor is wrongly returned (see chunks._vector_search_sql,
-    # which queries in the same form). SET LOCAL keeps the build tuning off the pooled
-    # connection: parallel index build shares memory via DSM in /dev/shm (only 64MB in a
-    # Docker container -> "could not resize shared memory segment"), so parallel maintenance
-    # is disabled. IF NOT EXISTS = built once; on an existing prod DB prefer a manual
-    # CREATE INDEX CONCURRENTLY off-hours before deploy so first startup does not block.
+    # hnsw index in its own transaction, on halfvec and only for 2560 dimensions.
     with get_connection() as conn:
         with conn.cursor() as cur:
             try:

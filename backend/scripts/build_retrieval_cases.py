@@ -1,31 +1,4 @@
-"""Baut einen breiten Messsatz fuer den Abruf aus einem echten Workspace.
-
-Aufruf aus backend/:
-    python scripts/build_retrieval_cases.py --workspace <uuid> --anzahl 100
-    python scripts/build_retrieval_cases.py --workspace <uuid> --pruefen
-
-Warum es das gibt. ``rag_retrieval_cases.json`` enthaelt 19 von Hand geschriebene
-Faelle, und jeder einzelne entstand, NACHDEM etwas kaputt war. Der Satz bewacht
-also die bekannten Schwachstellen, sagt aber nichts ueber den Normalfall. Gemessen
-am 18.08.2026 liegt er bei NDCG@10 = 0.910, also fast an der Decke: eine
-Verbesserung liesse sich daran kaum noch ablesen, nur noch ein Rueckschritt.
-
-Dieser Bauer erzeugt den Gegensatz dazu: viele Faelle auf Material, das keiner
-vorher angesehen hat. Das Verfahren ist bekannt und einfach. Man nimmt einen
-Chunk, laesst ein Modell die Frage schreiben, die dieser Chunk beantwortet, und
-haelt fest welcher Chunk das war. Damit hat man Frage, Beleg und Zuordnung, also
-genau die drei Teile, die eine Abruf-Messung braucht.
-
-Die bekannte Falle dabei: das Modell formuliert gern den ersten Satz des Chunks
-um. Solche Fragen misst man dann als Wortgleichheit und nicht als Abruf, und die
-Stichwortsuche sieht dadurch besser aus als sie ist. Dagegen steht die Anweisung
-im Prompt, und dagegen steht die Sichtpruefung (--pruefen), die man vor dem
-ersten Messlauf machen sollte.
-
-Die Ausgabe hat dasselbe Format wie die Handfaelle und wird von
-``rag_retrieval_eval.py --faelle`` gelesen. Bewusst eine EIGENE Datei: die 19
-gewachsenen Faelle sollen nicht zwischen hundert erzeugten untergehen.
-"""
+"""Builds a broad retrieval benchmark from a real workspace."""
 import argparse
 import json
 import random
@@ -64,11 +37,7 @@ Frage:"""
 
 
 def _taugt_als_quelle(text: str | None) -> bool:
-    """Traegt dieser Chunk ueberhaupt eine beantwortbare Frage?
-
-    Rund ein Drittel der Chunks im Bestand sind Kopfzeilen, Paragrafenkoepfe und
-    Inhaltsverzeichnisse. Eine Frage dazu waere unbeantwortbar, der Fall damit
-    stiller Unsinn, der die Messzahl nach unten zieht ohne etwas zu zeigen."""
+    """Does this chunk carry an answerable question at all?"""
     t = " ".join((text or "").split())
     if len(t) < _MIN_ZEICHEN:
         return False
@@ -77,17 +46,11 @@ def _taugt_als_quelle(text: str | None) -> bool:
 
 
 def _beleg(text: str | None, laenge: int = _BELEG_LAENGE) -> str | None:
-    """Ein kurzer, woertlich wiederfindbarer Ausschnitt als Anker des Falls.
-
-    Drei Bedingungen. Er muss den Zwischenraum genauso glaetten wie die spaetere
-    Suche, sonst macht ein Zeilenumbruch im PDF die Stelle unauffindbar. Er darf
-    nicht am Chunk-Anfang liegen, weil dort oft der Paragrafenkopf steht, der
-    wortgleich in vielen Chunks vorkommt. Und er muss auf ganzen Woertern
-    beginnen und enden, sonst findet ILIKE zwar etwas, aber nichts Lesbares."""
+    """A short, verbatim findable excerpt as the anchor of the case."""
     t = " ".join((text or "").split())
     if len(t) < laenge + 40:
         return None
-    # Hinter dem ersten Fuenftel einsetzen, an der naechsten Wortgrenze.
+    # Start after the first fifth, at the next word boundary.
     start = t.find(" ", len(t) // 5)
     if start == -1:
         return None
@@ -99,12 +62,7 @@ def _beleg(text: str | None, laenge: int = _BELEG_LAENGE) -> str | None:
 
 
 def _frage_saeubern(roh: str | None) -> str | None:
-    """Was von der Antwort des Modells als Frage uebrig bleibt, oder None.
-
-    Modelle liefern Zierrat: Codezaeune, Anfuehrungszeichen, ein vorangestelltes
-    "Frage:", manchmal noch eine Erlaeuterung in der zweiten Zeile. Und
-    gelegentlich eine Aussage statt einer Frage, die als Suchanfrage untypisch
-    waere und die Messung schoenen wuerde."""
+    """Whatever is left of the model's answer as a question, or None."""
     t = (roh or "").strip()
     if t.startswith("```"):
         t = re.sub(r"^```[a-zA-Z]*\s*", "", t)
@@ -117,10 +75,10 @@ def _frage_saeubern(roh: str | None) -> str | None:
     return t
 
 
-# ── Alles darunter braucht Datenbank und Modell ───────────────────────────────
+# ── Everything below needs the database and the model ─────────────────────────
 
 def _lade_kandidaten(ws_uuid: str, anzahl: int, seed: int) -> tuple[int, list[dict]]:
-    """Zufaellige, aber wiederholbare Auswahl brauchbarer Chunks."""
+    """Random but repeatable pick of usable chunks."""
     import psycopg2.extras
     from src.core.db.pool import get_connection
 
@@ -149,11 +107,7 @@ def _lade_kandidaten(ws_uuid: str, anzahl: int, seed: int) -> tuple[int, list[di
 
 
 def _beleg_ist_eindeutig(ws_id: int, beleg: str) -> bool:
-    """Kommt der Beleg genau einmal im Workspace vor?
-
-    Mehrdeutige Belege (Formulierungen, die in vielen Paragrafen gleich lauten)
-    machen den Fall unscharf: die Messung wuesste nicht, welcher Chunk der
-    richtige ist, und wuerde jeden Treffer gelten lassen."""
+    """Does the evidence occur exactly once in the workspace?"""
     import psycopg2.extras
     from src.core.db.pool import get_connection
 
@@ -180,16 +134,7 @@ def _frage_erzeugen(client, model, auszug: str) -> str | None:
 
 
 def _pruefe_schreibbar(pfad) -> None:
-    """Vor dem ersten Modellaufruf pruefen, ob das Ergebnis spaeter ablegbar ist.
-
-    Der Anlass: der Container haengt ``scripts/`` schreibgeschuetzt ein. Ohne
-    diese Pruefung faellt das erst NACH hundert Modellaufrufen auf, und die sind
-    dann verloren. Rechtebits allein reichen als Pruefung nicht, weil der
-    Container als root laeuft und root sie umgeht: ein eingehaengter
-    Nur-Lese-Bereich stoppt aber auch root. Deshalb wird wirklich geschrieben.
-
-    Eine bereits vorhandene Datei bleibt unangetastet, und eine neue wird wieder
-    entfernt: die Pruefung darf keine Spur hinterlassen."""
+    """Checks before the first model call whether the result can be stored."""
     pfad = Path(pfad)
     gab_es_schon = pfad.exists()
     try:
@@ -243,8 +188,7 @@ def _bauen(args) -> int:
             "expect_text": [beleg],
         })
         print(f"  {len(faelle):3d}/{args.anzahl}  {frage}", file=sys.stderr)
-        # Die Ratengrenze des Anbieters gilt hochschulweit und ist der enge Punkt.
-        # Deshalb der Reihe nach mit Pause, niemals nebenlaeufig.
+        # One after another with a pause, the rate limit applies campus wide.
         time.sleep(args.pause)
 
     Path(args.out).write_text(
@@ -257,7 +201,7 @@ def _bauen(args) -> int:
 
 
 def _pruefen(args) -> int:
-    """Die erzeugten Fragen zum Durchsehen ausgeben, bevor sie als Massstab gelten."""
+    """Print the generated questions for review before they count as a benchmark."""
     faelle = json.loads(Path(args.out).read_text(encoding="utf-8"))
     for f in faelle:
         print(f"\n{f['id']}  ({f['note']})")

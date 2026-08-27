@@ -16,8 +16,7 @@ function isVariant(v: unknown): v is MascotVariant {
 function readLocalVariant(): MascotVariant {
   if (typeof window === "undefined") return DEFAULT_VARIANT;
   try {
-    // Anything else, including the retired "off" choice and the even older
-    // on/off toggle, lands on the default character.
+    // Everything else, old values included, lands on the default character.
     const raw = localStorage.getItem(STORAGE_KEY);
     return isVariant(raw) ? raw : DEFAULT_VARIANT;
   } catch {
@@ -53,10 +52,7 @@ export function useMascotPref(): MascotPref {
     };
   }, []);
 
-  // Side effects run in the event handler, not inside the setState updater — an
-  // updater runs during render, where dispatching would trigger setState in
-  // other listeners mid-render (React's "Cannot update a component while
-  // rendering a different component" warning).
+  // Side effects belong in the handler, in the updater they would run during render.
   const setVariant = useCallback((next: MascotVariant) => {
     setVariantState(next);
     try { localStorage.setItem(STORAGE_KEY, next); } catch { /* ignore */ }

@@ -1,4 +1,4 @@
-"""Die Vertonung bekommt die Zielsprache des Screencasts, nicht ein festes EN."""
+"""The voicing gets the screencast's target language, not a fixed EN."""
 
 import asyncio
 
@@ -27,7 +27,7 @@ def test_zielsprache_wird_durchgereicht(tmp_path):
 
 
 def test_ohne_zielsprache_bleibt_die_sprache_unbekannt(tmp_path):
-    """Unbekannt heißt: Ziffern bleiben stehen, statt falsch ausgeschrieben zu werden."""
+    """Unknown means digits stay as they are instead of being spelled out wrongly."""
     assert _lauf(tmp_path) == [""]
 
 

@@ -15,15 +15,7 @@ router = APIRouter(tags=["ki-assistent: sources"])
 
 
 def _inline_content_disposition(filename: str) -> str:
-    """Build an `inline` Content-Disposition header that is always latin-1 safe.
-
-    HTTP headers must be latin-1 encodable, but filenames can contain non-Latin-1
-    characters (umlauts, or combining marks like the NFD "ü" in "Einführung",
-    U+0308). Putting such a name raw into the header crashes StreamingResponse
-    with a UnicodeEncodeError. RFC 6266 solves this: an ASCII-only ``filename``
-    fallback plus a UTF-8 percent-encoded ``filename*`` that modern browsers
-    prefer for display.
-    """
+    """Builds a header for serving that is always latin-1 safe."""
     from urllib.parse import quote
     ascii_fallback = filename.encode("ascii", "ignore").decode("ascii") or "download"
     return f"inline; filename=\"{ascii_fallback}\"; filename*=UTF-8''{quote(filename)}"
@@ -67,8 +59,7 @@ def stream_source_file(
     disposition = _inline_content_disposition(source["filename"])
 
     if USE_S3:
-        # Stream through the backend instead of redirecting to a presigned URL:
-        # same origin as the app, so it works from smartphones too.
+        # Serve through the backend instead of redirecting so it works on phones too.
         range_header = request.headers.get("range")
         body_iter, content_length, content_range = stream_s3_object(source["file_path"], range_header)
         headers = {
@@ -102,12 +93,7 @@ async def regenerate_transcript(
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    """Dispatch an async Celery task to translate the source-language VTT into the
-    workspace target language (owner-chosen, default English).
-
-    The translation provider is resolved from the ``transcript_translate`` feature route
-    configured in the admin KI panel.
-    """
+    """Queues a job that translates the transcript into the target language."""
     from src.services import feature_router
 
     workspace = _require_workspace_manage(workspace_uuid, current_user["user_id"], locale=locale)
@@ -121,8 +107,7 @@ async def regenerate_transcript(
             detail="transcript_translate not configured — set a translation provider in the admin KI panel",
         )
 
-    # A source-language VTT must exist to translate from. One listing instead of a
-    # HEAD probe per known language, off the event loop.
+    # A transcript in the source language must exist, checked with one listing.
     keys = await asyncio.to_thread(list_keys, aia_transcript_prefix(source["file_path"]))
     if not any(k.endswith(".vtt") for k in keys):
         raise HTTPException(status_code=404, detail=t("ai.transcript.sourceMissing", locale))
@@ -214,12 +199,7 @@ async def get_transcript_langs(
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    """Describe a media source's transcript languages for the player.
-
-    Returns the original (Whisper-detected) language, the workspace target language,
-    and the list of codes whose VTT actually exists right now. The player builds its
-    track list and language tabs from this instead of hard-coding de/en.
-    """
+    """Tells the player the transcript languages that really exist."""
     from src.i18n import TRANSCRIPT_LANGUAGES
 
     user_id = current_user["user_id"]
@@ -237,24 +217,20 @@ async def get_transcript_langs(
     source_lang = (source.get("language") or "").lower() or None
     target_lang = workspace.get("transcript_target_lang") or "en"
 
-    # One listing instead of a HEAD probe per candidate language: read which
-    # "<base>_transcript.<lang>.vtt" files actually exist in a single round trip,
-    # off the event loop so the storage call does not block other requests.
+    # One listing instead of a request per language, outside the event loop.
     prefix = aia_transcript_prefix(source["file_path"])
     keys = await asyncio.to_thread(list_keys, prefix)
     vtt_re = re.compile(re.escape(prefix) + r"([a-z]{2,5})\.vtt$")
     found = {m.group(1) for k in keys if (m := vtt_re.search(k))}
 
-    # Order: the detected source language first, then every known target. Keep only
-    # codes whose VTT exists so the player attaches just the available tracks.
+    # Source language first, then the targets, only what really exists.
     candidates: list[str] = []
     if source_lang and source_lang != "unknown":
         candidates.append(source_lang)
     candidates.extend(c for c in TRANSCRIPT_LANGUAGES if c not in candidates)
     available = [c for c in candidates if c in found]
 
-    # If the source language was never stored, treat the first available code that
-    # is not the target as the original so the UI can still label the tabs.
+    # Without a stored source language the first code that is not the target applies.
     if not source_lang or source_lang == "unknown":
         source_lang = next((c for c in available if c != target_lang), available[0] if available else None)
 

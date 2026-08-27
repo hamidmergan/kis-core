@@ -15,7 +15,7 @@ def _is_env_admin(email: str | None) -> bool:
 
 
 def permissions_of(user: dict) -> Permissions:
-    """Rechte zu einem bereits geladenen Nutzer-Woerterbuch."""
+    """Permissions for an already loaded user dict."""
     return resolve_user_permissions(
         user.get("role", "user"),
         user.get("custom_role_id"),
@@ -28,18 +28,7 @@ async def get_user_permissions(request: Request) -> Permissions:
 
 
 def require_permission(*keys: str):
-    """Torwaechter fuer eine Route, die eines der genannten Rechte verlangt.
-
-    Liefert das Nutzer-Woerterbuch zurueck und ist damit ein direkter Ersatz fuer
-    ``get_admin_user``: Routen, die den Admin selbst brauchen (etwa fuer die
-    eigene Adresse), bekommen ihn weiter.
-
-    Mehrere Schluessel bedeuten ODER. Das braucht die Auslastungskarte, die auf
-    zwei Seiten steht.
-
-    Usage:
-        @router.get("/stats", dependencies=[Depends(require_permission(PERM_SET_TOOLS_STATS))])
-    """
+    """Gatekeeper for a route that demands one of the named permissions."""
     async def _check(
         user: dict = Depends(get_current_user),
         locale: str = Depends(get_locale),
@@ -56,12 +45,7 @@ async def require_any_settings(
     user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ) -> dict:
-    """Fuer Routen, die jede Seite des Bereichs beim Aufbau braucht.
-
-    Die Einstellungen kommen in einem Datensatz, den jede Seite liest. Lesen ist
-    deshalb fuer alle offen, die irgendeine Seite sehen duerfen. Gespeichert wird
-    dagegen Feld fuer Feld geprueft, siehe ``routes/admin/settings.py``.
-    """
+    """Reading is open to everyone who may see any page of the area."""
     if not any(is_settings_key(k) for k in permissions_of(user).keys):
         raise HTTPException(
             status_code=403, detail=t("auth.permissionRequired", locale)
@@ -70,12 +54,7 @@ async def require_any_settings(
 
 
 def assert_may_grant(actor: Permissions, keys, locale: str) -> None:
-    """Man kann nur vergeben, was man selbst hat.
-
-    Ohne diese Regel waere jedes Recht, das Rollen oder Nutzer verwaltet, ein
-    Weg zum Administrator: eine Rolle mit ``settings.system`` bauen und sie sich
-    selbst zuweisen. Der Administrator hat alles und merkt von der Regel nichts.
-    """
+    """You can only grant what you hold yourself."""
     beyond = [k for k in keys if k not in actor.keys]
     if beyond:
         raise HTTPException(status_code=403, detail=t("auth.grantBeyondOwn", locale))
@@ -109,11 +88,7 @@ async def require_workspace_create(
 
 
 def require_tool_access(tool_key: str):
-    """Factory for a dependency that checks tool access for a named tool key.
-
-    Usage:
-        @router.post("/translate", dependencies=[Depends(require_tool_access("translation"))])
-    """
+    """Builds a dependency that checks access to a named tool."""
     async def _check(
         perms: Permissions = Depends(get_user_permissions),
         locale: str = Depends(get_locale),

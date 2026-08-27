@@ -1,4 +1,4 @@
-/** Reine Helfer für den Punkt am Job-Knopf. */
+/** Pure helpers for the dot on the jobs button. */
 
 import { toMs } from "@/lib/format";
 

@@ -20,25 +20,15 @@ from src.services import aia_flashcard_speech as speech
 
 router = APIRouter(tags=["ki-assistent: language-training"])
 
-# A set is generated from at most this many sources (enforced at creation), so the
-# numbered legend under the exercises never grows past it either.
+# Maximum number of sources per set, the legend follows the same number.
 _MAX_SET_SOURCES = 5
 
-# Die Werkzeuge des Sprachtrainers. Karteikarten und Quiz laufen ueber dieselbe
-# Route, gehoeren aber zu den Lernwerkzeugen und bleiben ohne ihn benutzbar.
+# The language trainer tools, flashcards and quiz stay usable without it.
 LANGUAGE_TRAINING_TOOLS: frozenset[str] = frozenset({"flashcards", "wortschatz", "grammatik"})
 
 
 def _numbered_sources(ex_set: dict) -> list[dict]:
-    """The set's sources as ``[{number, filename}]``, numbered in selection order.
-
-    That numbering is what the citation chips print in brackets, so it has to be the
-    same for every item of the set. Numbering per item (which is what the views did)
-    gives the same file different numbers on different cards.
-
-    A source deleted since generation drops out and the remaining ones close the gap:
-    a legend entry the learner cannot open is worse than a renumbering.
-    """
+    """The sources of a set, numbered in the order they were picked."""
     uuids = ex_set.get("source_uuids") or []
     if not uuids and ex_set.get("source_uuid"):
         uuids = [ex_set["source_uuid"]]
@@ -70,17 +60,14 @@ async def create_exercise_set(
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
 
-    # Ist der Trainer im Workspace aus, gibt es fuer seine Werkzeuge nichts mehr
-    # zu bauen. Ein offen gebliebenes Fenster kennt die Kacheln noch und wuerde
-    # sonst weiterhin Modell-Aufrufe ausloesen.
+    # With the trainer off, a window left open builds nothing any more.
     if body.tool in LANGUAGE_TRAINING_TOOLS and not db.is_language_training_active(workspace["id"]):
         raise HTTPException(status_code=403, detail=t("ai.workspace.languageTrainingOff", locale))
 
     enforce_aia_burst(user_id, locale)
     enforce_quota(user_id, "aia_generate", is_admin_user(current_user), locale)
 
-    # A set can be generated from every selected source, not just the first one.
-    # source_uuid stays supported for older clients that only send a single UUID.
+    # A set is built from all chosen sources, source_uuid stays for old browsers.
     source_uuids = body.source_uuids or ([body.source_uuid] if body.source_uuid else [])
     if body.mode == "source":
         if not source_uuids:
@@ -90,44 +77,30 @@ async def create_exercise_set(
     grammar_topic_id = None
     grammar_kinds = None
     if body.tool == "grammatik":
-        # Geübt wird an den Vorlesungsfolien: die Quellen liefern den Wortschatz, das
-        # Thema kommt vom Dozenten. Ohne Quellen gibt es also nichts umzuformen.
+        # Without sources there is nothing to reshape, the vocabulary comes from the slides.
         if body.mode != "source":
             raise HTTPException(status_code=400, detail=t("ai.source.notSelected", locale))
         topic = db.get_grammar_topic(body.grammar_topic_id)
         if not topic or topic["workspace_id"] != workspace["id"]:
             raise HTTPException(status_code=400, detail=t("grammar.typeInvalid", locale))
         grammar_topic_id = topic["id"]
-        # Was der Browser sendet, wird gesaeubert und nicht geglaubt. Unbekannte
-        # Kuerzel fliegen raus, statt die Anfrage abzuweisen: sie kommen von einem
-        # aelteren oder neueren Browser, und eine gemischte Uebung ist eine bessere
-        # Antwort als ein Fehler.
+        # Unknown codes are dropped, a mixed exercise beats an error.
         grammar_kinds = clean_kinds(body.grammar_kinds)
 
     flashcard_set_id = None
     if body.tool == "wortschatz":
-        # Lokal importiert wie run_generate_exercise_set weiter unten: ein
-        # Modulkopf-Import von hier aus dem Werkzeug-Paket schliesst einen Kreis
-        # (routes/__init__.py haengt schon an tasks/language_training ueber die
-        # Zuordnung, tasks/language_training haengt jetzt an dieser Route). Der
-        # lokale Import bricht ihn, weil er erst beim Aufruf laeuft und nicht beim
-        # Laden des Moduls, wenn der Kreis noch offen ist.
+        # Imported locally, a module level import would close a cycle here.
         from src.features.ai_assistant.tasks.language_training._source_cloze import (
             usable_flashcard_set,
         )
-        # Der Text kommt IMMER aus den Quellen, auch wenn die Wörter von Karten
-        # stammen. Ohne Quelle gäbe es also nichts zu schreiben. Die Prüfung oben
-        # greift nur bei mode='source', der Kartenweg liefe daran vorbei.
+        # The text always comes from the sources, on the card path too.
         if body.mode not in ("source", "cards") or not source_uuids:
             raise HTTPException(status_code=400, detail=t("ai.source.notSelected", locale))
         _resolve_source_ids(workspace, source_uuids, max_count=5, locale=locale)
         if body.mode == "cards":
             karten = (db.get_exercise_set_with_items(body.flashcard_set_id)
                       if body.flashcard_set_id else None)
-            # usable_flashcard_set prüft Besitz, Werkzeug und Status ohne Kenntnis der
-            # Karten selbst. Ob wirklich welche drin sind, steht erst in den items, die
-            # hier schon geladen sind. Ein Set kann "ready" sein und trotzdem leer,
-            # zum Beispiel wenn seine einzige Karte danach gelöscht wurde.
+            # Whether there really are cards only shows in the exercises already loaded.
             if not usable_flashcard_set(karten, workspace["id"], user_id) or not karten.get("items"):
                 raise HTTPException(status_code=400,
                                     detail=t("ai.flashcardSet.invalid", locale))
@@ -161,32 +134,22 @@ async def retry_exercise_set(
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    """Run a failed set's generation again, with the settings it was created from.
-
-    The set keeps its id rather than being deleted and re-created, so the learner
-    watches the same card go from failed back to generating instead of one card
-    vanishing and another appearing.
-    """
+    """Restarts a failed set with its original settings."""
     user_id = current_user["user_id"]
     workspace = db.get_aia_workspace(workspace_uuid)
     if not workspace:
         raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
 
     meta = db.get_exercise_set_meta(set_id)
-    # Same 404-not-403 rule as the other single-set routes: the serial id must not
-    # reveal that another user's set exists.
+    # 404 instead of 403, the running number must not reveal other people's sets.
     if not meta or meta["user_id"] != user_id or meta["workspace_id"] != workspace["id"]:
         raise HTTPException(status_code=404, detail=t("set.notFound", locale))
 
-    # Ein abgeschalteter Trainer erzeugt nichts mehr, auch keinen zweiten Anlauf.
-    # Zu welchem Lager der Satz gehoert, steht erst im Satz selbst, darum nach
-    # dem Nachschlagen.
+    # A switched-off trainer produces no second attempt either.
     if meta["tool"] in LANGUAGE_TRAINING_TOOLS and not db.is_language_training_active(workspace["id"]):
         raise HTTPException(status_code=403, detail=t("ai.workspace.languageTrainingOff", locale))
 
-    # A retry costs the same model calls as the first attempt, so it is charged the
-    # same way. Checked before the reset, so a rejected retry leaves the card failed
-    # rather than stuck in generating with no task behind it.
+    # A second attempt costs the same and is therefore billed the same.
     enforce_aia_burst(user_id, locale)
     enforce_quota(user_id, "aia_generate", is_admin_user(current_user), locale)
 
@@ -220,13 +183,7 @@ async def check_grammar_answer(
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    """Mark one free-text grammar answer against its expected solution.
-
-    Pure comparison, no model call: the solution, its other valid wordings and the
-    explanation all exist since the set was generated. A call per typed answer was
-    the most expensive way to feedback that was already there, and the provider
-    rate limit is shared across the whole university.
-    """
+    """Checks a free-text answer purely by computation, without a model call."""
     from src.services import aia_grammar_check as gc
 
     user_id = current_user["user_id"]
@@ -235,8 +192,7 @@ async def check_grammar_answer(
         raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
 
     ex_set = db.get_exercise_set_with_items(set_id)
-    # Same ownership gate as the other single-set routes: 404, not 403, so the
-    # serial id cannot be used to probe for other users' sets.
+    # 404 instead of 403, the running number must not reveal other people's sets.
     if not ex_set or ex_set["user_id"] != user_id or ex_set["workspace_id"] != workspace["id"]:
         raise HTTPException(status_code=404, detail=t("set.notFound", locale))
     if ex_set.get("tool") != "grammatik":
@@ -250,7 +206,7 @@ async def check_grammar_answer(
     if not answer:
         raise HTTPException(status_code=400, detail=t("grammar.answerEmpty", locale))
 
-    # Die anderen gueltigen Fassungen derselben Umformung, beim Erzeugen mitgeliefert.
+    # The other valid versions of the same reshaping, delivered at generation time.
     accepts = (item.get("extras") or {}).get("accepts") or []
 
     return {
@@ -274,9 +230,7 @@ async def list_exercise_sets(
     for s in sets:
         if s.get("created_at") and hasattr(s["created_at"], "isoformat"):
             s["created_at"] = s["created_at"].isoformat() + "Z"
-        # Grammatik-Sets tragen ein Thema. Die Liste löst es hier zum Namen auf,
-        # damit die Karte sagen kann worum es geht, ohne dass die Oberfläche dafür
-        # eine zweite Anfrage stellt.
+        # Grammar sets carry a topic, resolved to its name right here.
         topic = db.get_grammar_topic(s.get("grammar_topic_id"))
         if topic:
             s["grammar_topic_name"] = topic["name"]
@@ -295,9 +249,7 @@ async def get_exercise_set(
     if not workspace:
         raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
     ex_set = db.get_exercise_set_with_items(set_id)
-    # A set belongs to one user in one workspace (the list route is scoped the same
-    # way). Without this check any logged-in user could read another user's set by
-    # counting up the serial id. 404 rather than 403 so it does not leak existence.
+    # A set belongs to one person in one course room, otherwise 404.
     if not ex_set or ex_set["user_id"] != user_id or ex_set["workspace_id"] != workspace["id"]:
         raise HTTPException(status_code=404, detail=t("set.notFound", locale))
     if ex_set.get("created_at") and hasattr(ex_set["created_at"], "isoformat"):
@@ -307,8 +259,7 @@ async def get_exercise_set(
         ex_set["grammar_topic_name"] = topic["name"]
     # The numbered legend under the exercises, and the numbers the chips print.
     ex_set["sources"] = _numbered_sources(ex_set)
-    # Ob die Karte einen Lautsprecher zeigen darf. Hier statt in einer zweiten
-    # Anfrage, und hier statt im Browser geraten: die Antwort steht im Admin.
+    # Whether the card may show a speaker is set in the admin area.
     ex_set["speech_enabled"] = speech.speech_enabled()
     return {"set": ex_set}
 
@@ -332,11 +283,7 @@ async def rename_exercise_set(
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    """Den Namen eines Satzes aendern.
-
-    Kein Dopplungs-Schutz: was jemand von Hand tippt, gilt. Der Schutz greift nur
-    bei automatisch vergebenen Namen.
-    """
+    """Changes the name of a set, hand-typed names apply without duplicate protection."""
     user_id = current_user["user_id"]
     workspace = db.get_aia_workspace(workspace_uuid)
     if not workspace:
@@ -346,8 +293,7 @@ async def rename_exercise_set(
     if not titel:
         raise HTTPException(status_code=400, detail=t("title.empty", locale))
 
-    # Fremde Zeile: 404 statt 403, wie bei den anderen Einzel-Routen. Die laufende
-    # Nummer darf nicht verraten, dass es den Satz bei jemand anderem gibt.
+    # Someone else's row: 404 instead of 403, as on the other single-item routes.
     if not db.update_artifact_title("exercise_set", set_id, user_id, workspace["id"], titel):
         raise HTTPException(status_code=404, detail=t("set.notFound", locale))
     return {"ok": True, "title": titel}
@@ -364,8 +310,7 @@ async def record_set_progress(
     workspace = db.get_aia_workspace(workspace_uuid)
     if not workspace:
         raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
-    # Without this the serial set_id let any user write progress against a set
-    # they do not own.
+    # Without this check anyone could write progress onto other people's sets.
     meta = db.get_exercise_set_meta(set_id)
     if not meta or meta["user_id"] != user_id or meta["workspace_id"] != workspace["id"]:
         raise HTTPException(status_code=404, detail=t("set.notFound", locale))

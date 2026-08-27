@@ -2,10 +2,7 @@
 
 import { ButtonHTMLAttributes, forwardRef } from "react";
 
-/**
- * Consistent icon button used across the app.
- * rounded-full, hover:outline-kb, centered flex, theme-aware color.
- */
+/** One consistent icon button for the whole app. */
 const IconButton = forwardRef<
   HTMLButtonElement,
   ButtonHTMLAttributes<HTMLButtonElement> & { size?: "sm" | "md" }

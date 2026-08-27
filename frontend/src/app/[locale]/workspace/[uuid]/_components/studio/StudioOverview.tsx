@@ -132,9 +132,7 @@ export function StudioOverview({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [langTrainingView, studioTab]);
 
-  // A tab wish is one-shot: apply it once, then tell the parent to drop it.
-  // The nonce guard keeps a remount (coming back from a tool unmounts this
-  // component) from replaying a wish that was already served.
+  // A tab wish applies once, the id prevents a replay.
   const servedTabNonce = useRef<number | null>(null);
   useEffect(() => {
     if (!requestedTab) return;

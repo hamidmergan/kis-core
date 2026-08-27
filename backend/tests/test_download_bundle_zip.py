@@ -1,9 +1,4 @@
-"""Round-trip tests for the streaming ZIP bundle.
-
-_ZipStreamWriter reports virtual (absolute) offsets and drains its buffer after
-every entry so the whole archive is never held in RAM. These tests confirm the
-produced byte stream is still a valid, extractable ZIP.
-"""
+"""Checks that the streaming archive still produces a valid ZIP."""
 
 import io
 import zipfile
@@ -87,7 +82,7 @@ def test_bundle_prefers_corrected_pptx(monkeypatch):
 
 
 def test_bundle_ohne_uebersetzung_heisst_die_datei_original(monkeypatch):
-    """Auf dem englischen Weg gibt es nur eine Datei, und das ist die hochgeladene."""
+    """On the English path there is only one file, and that is the uploaded one."""
     monkeypatch.setattr(_download, "BUNDLE_INCLUDE_AUDIO", False)
     _fake_store({"output.mp4": b"MP4", "translated.pptx": b"HOCHGELADEN"}, monkeypatch)
 
@@ -99,7 +94,7 @@ def test_bundle_ohne_uebersetzung_heisst_die_datei_original(monkeypatch):
 
 
 def test_bundle_ohne_info_text_laesst_die_datei_weg(monkeypatch):
-    """Ohne Text keine leere Info-Datei im Archiv."""
+    """No text means no empty info file in the archive."""
     monkeypatch.setattr(_download, "BUNDLE_INCLUDE_AUDIO", False)
     _fake_store({"output.mp4": b"MP4"}, monkeypatch)
 

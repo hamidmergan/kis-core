@@ -16,16 +16,7 @@ def enroll_student(
     workspace_id: int, user_id: int, enrolled_until: datetime | None,
     link_id: int | None = None, role: str = "student", via_demo: bool = False,
 ) -> int | None:
-    """Enroll a user. Returns enrollment id, or None if already enrolled here.
-
-    ``role`` is copied from the link rather than looked up through ``link_id``
-    later, because ``link_id`` is ON DELETE SET NULL: deleting a spent tutor link
-    must not silently demote the tutor.
-
-    The conflict target is the person, not the link, and matches the rule on the
-    table. Two links clicked at the same moment both pass the check in the route,
-    so this is where that race ends: quietly, with None, instead of a 500.
-    """
+    """Enrolls a person, or None when they are already enrolled."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -41,7 +32,7 @@ def enroll_student(
     return row[0] if row else None
 
 def delete_demo_enrollment(workspace_id: int, user_id: int) -> bool:
-    """Loescht nur eine ueber die Demo entstandene Einschreibung, nie eine echte."""
+    """Deletes only an enrollment created through the demo, never a real one."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -54,7 +45,7 @@ def delete_demo_enrollment(workspace_id: int, user_id: int) -> bool:
     return geloescht
 
 def delete_demo_enrollments_of_owner(owner_id: int) -> int:
-    """Raeumt alle ueber die Demo entstandenen Einschreibungen in den Kursen dieses Kontos ab."""
+    """Clears all demo enrollments in the courses of this account."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -68,12 +59,7 @@ def delete_demo_enrollments_of_owner(owner_id: int) -> int:
     return anzahl
 
 def is_workspace_tutor(workspace_id: int, user_id: int) -> bool:
-    """True if the user joined this workspace through a tutor link.
-
-    Tutors manage the workspace exactly like its owner, so an expired
-    enrollment still counts here: losing management rights mid-semester
-    because a link ran out would be a trap.
-    """
+    """True when the person came through a tutor link, expired ones included."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -84,11 +70,7 @@ def is_workspace_tutor(workspace_id: int, user_id: int) -> bool:
             return cur.fetchone() is not None
 
 def get_workspace_participants(workspace_id: int) -> list[dict]:
-    """Everyone enrolled in a workspace, one entry per person.
-
-    Someone who joined through several links has several enrollments but is one
-    participant, so the strongest role wins and the earliest join date is kept.
-    """
+    """All enrolled people, one entry per person, the strongest role wins."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
@@ -110,11 +92,7 @@ def get_workspace_participants(workspace_id: int) -> list[dict]:
 
 
 def set_participant_role(workspace_id: int, user_id: int, role: str) -> int:
-    """Promote or demote a participant. Returns how many enrollments changed.
-
-    All of the person's enrollments in this workspace move together: rights
-    belong to the person, not to the link they happened to arrive through.
-    """
+    """Promotes or demotes, all enrollments of the person move along."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(

@@ -1,23 +1,17 @@
-"""Tests fuer die einmalige Modellvermessung und die daraus gerechneten Budgets.
-
-Kein Netz, keine Datenbank: die reine Logik wird geprueft, der Messaufruf gegen
-einen gefaelschten Client. Die Fehlertexte in ``_ECHTE_ABSAGEN`` stammen wortwoertlich
-von einem vLLM-Anbieter und sind der einzige Ort, an dem ein
-Anbieter seine Fenstergroesse ueberhaupt verraet.
-"""
+"""Checks the one-off model measurement and the budgets computed from it."""
 import pytest
 
 from src.services import model_limits as ml
 
 
-# ── Fenstergroesse aus der Absage lesen ─────────────────────────────────────
+# ── Read the window size from the refusal ───────────────────────────────────
 
 _ECHTE_ABSAGEN = [
-    # Antwort auf die Sonde (max_tokens absichtlich unmoeglich gross)
+    # Answer to the probe (max_tokens deliberately impossibly large)
     ("max_tokens=99999999 cannot be greater than max_model_len=max_total_tokens=262144. "
      "Please request fewer output tokens. (parameter=max_tokens, value=99999999)", 262144),
     ("max_tokens=99999999 cannot be greater than max_model_len=max_total_tokens=20080.", 20080),
-    # Antwort auf eine echte, zu grosse Anfrage
+    # Answer to a real, oversized request
     ("This model's maximum context length is 65536 tokens. However, your request has "
      "73251 input tokens. Please reduce the length of the input messages.", 65536),
     # OpenAI-Wortlaut
@@ -37,8 +31,7 @@ def test_absage_ohne_zahl_ergibt_nichts():
 
 
 def test_nimmt_die_kleinere_zahl_wenn_beide_vorkommen():
-    """Nennt ein Anbieter Fenster UND Anfragegroesse, ist das Fenster die kleinere.
-    Wer die groessere nimmt, baut sich denselben Fehler wieder ein."""
+    """With two numbers in the refusal the window is the smaller one."""
     text = ("This model's maximum context length is 65536 tokens. However, your request "
             "has 73251 input tokens.")
     assert ml.parse_window(text) == 65536
@@ -47,15 +40,13 @@ def test_nimmt_die_kleinere_zahl_wenn_beide_vorkommen():
 # ── Token in Zeichen ────────────────────────────────────────────────────────
 
 def test_budget_bleibt_unter_dem_fenster():
-    """Gemessen wurden 3,3 bis 6,2 Zeichen je Token je nach Textart. Gerechnet wird
-    mit 3,0, damit auch der dichteste Kontext noch hineinpasst."""
+    """Computed for the densest case so everything fits."""
     zeichen = ml.context_chars(262144, ml.CHAT_SHARE)
     assert zeichen / 3.0 <= 262144 * ml.CHAT_SHARE + 1
 
 
 def test_kleines_fenster_ergibt_kleines_budget():
-    """apertus-70b kann nur 20080 Token. Das feste alte Budget von 250000 Zeichen
-    haette dort jede Anfrage zerlegt."""
+    """A small window would have split every request under the old fixed budget."""
     assert ml.context_chars(20080, ml.CHAT_SHARE) < 60000
 
 
@@ -64,14 +55,12 @@ def test_grosses_fenster_ergibt_grosses_budget():
 
 
 def test_werkzeuge_bekommen_mehr_als_der_chat():
-    """Ein Werkzeug packt ein ganzes Dokument in EINEN Aufruf und hat weder Verlauf
-    noch lange Antwort zu bezahlen."""
+    """A tool may take more of the window than the chat."""
     assert ml.context_chars(262144, ml.TOOL_SHARE) > ml.context_chars(262144, ml.CHAT_SHARE)
 
 
 def test_budget_faellt_nie_unter_den_boden():
-    """Auch ein absurd kleines Fenster darf kein Budget von 0 ergeben, sonst geht
-    gar keine Anfrage mehr durch."""
+    """Even a tiny window must not yield a budget of 0."""
     assert ml.context_chars(10, ml.CHAT_SHARE) >= ml.MIN_CONTEXT_CHARS
 
 
@@ -95,7 +84,7 @@ class _Antwort:
 
 
 class _Denker:
-    """Ein Modell, das denkt, und dessen Denken genau ein Schalter abstellt."""
+    """A model that thinks and whose thinking exactly one switch turns off."""
 
     def __init__(self, wirksam="chat_template_kwargs", window=262144, lehnt_ab=()):
         self.wirksam = wirksam
@@ -142,20 +131,14 @@ def test_misst_fenster_denken_und_wirksamen_schalter():
 
 
 def test_findet_den_zweiten_schalter_wenn_der_erste_nichts_bewirkt():
-    """Der Anbieter lehnt unbekannte Schalter nicht ab, er ignoriert sie stillschweigend.
-    Erkannt wird deshalb an der Wirkung, nicht am Fehler."""
+    """Recognised by the effect, not by the error."""
     client = _Denker(wirksam="reasoning_effort_none")
     profil = _messen(client)
     assert profil.think_off == "reasoning_effort_none"
 
 
 def test_ueberspringt_einen_schalter_den_der_anbieter_ablehnt():
-    """OpenAI kennt reasoning_effort, aber nicht den Wert none, und ein strenger
-    Anbieter lehnt unbekannte Felder mit einem Fehler ab. Wer beide Schalter blind
-    mitschickt, zerlegt genau die Anbieter, fuer die der Umbau gedacht ist.
-
-    Abgelehnt wird hier der ZUERST probierte Schalter, sonst prueft der Fall nichts.
-    """
+    """Beide Schalter blind mitzuschicken zerlegt strenge Anbieter."""
     assert ml._SWITCH_ORDER[0] == "chat_template_kwargs"
     client = _Denker(wirksam="reasoning_effort_none", lehnt_ab=("chat_template_kwargs",))
     profil = _messen(client)
@@ -174,13 +157,12 @@ def test_modell_ohne_denken_wird_nicht_weiter_behelligt():
     profil = _messen(client)
     assert profil.thinks is False
     assert profil.think_off == ""
-    # Sonde + eine Probefrage, keine Schalterrunden
+    # Probe plus one trial question, no switch rounds
     assert len(client.aufrufe) == 2
 
 
 def test_schweigsamer_anbieter_bleibt_unbekannt():
-    """Zwei Modelle nennen ihre Grenze nicht. Fuer die wird KEINE Zahl erfunden: bis
-    20.08.2026 standen dort 32.768 Token, die wie eine Messung aussahen."""
+    """For a silent model no number is invented."""
     class _Schweiger(_Denker):
         def create(self, **kwargs):
             if kwargs.get("max_tokens", 0) > 1_000_000:
@@ -194,14 +176,14 @@ def test_schweigsamer_anbieter_bleibt_unbekannt():
 
 
 def test_unbekanntes_fenster_deckelt_nichts(monkeypatch):
-    """Ohne Wissen ueber das Modell gilt allein die Einstellung im Admin."""
+    """Without knowledge about the model only the admin setting applies."""
     profil = ml.ModelProfile(0, ml.QUELLE_UNBEKANNT, False, "")
     monkeypatch.setattr(ml, "profile_for_feature", lambda feature="chat": profil)
     assert ml.cap_for_model(250000, ml.CHAT_SHARE) == 250000
     assert ml.as_dict(profil)["context_chars"] is None
 
 
-# ── Zusatzangaben fuer den echten Aufruf ────────────────────────────────────
+# ── Extra arguments for the real call ───────────────────────────────────────
 
 def test_baut_die_zusatzangabe_zum_gemerkten_schalter():
     profil = ml.ModelProfile(window_tokens=1, source=ml.QUELLE_GEMESSEN,
@@ -219,7 +201,7 @@ def test_kein_denker_bekommt_keine_zusatzangabe():
     assert ml.think_off_body(profil) == {}
 
 
-# ── Kuerzen nach einer Absage ───────────────────────────────────────────────
+# ── Shortening after a refusal ──────────────────────────────────────────────
 
 def _nachrichten(system_chars, kontext_chars, frage_chars=50):
     return [
@@ -235,8 +217,7 @@ def test_kuerzen_bringt_die_nachrichten_unter_das_budget():
 
 
 def test_kuerzen_nimmt_der_groessten_nachricht_die_mitte():
-    """Anfang und Ende der Quellen tragen die Antwort, die Mitte ist der billigste
-    Verlust. Die Systemanweisung und die Frage bleiben unangetastet."""
+    """The middle is cut, system instruction and question stay untouched."""
     gekuerzt = ml.fit_messages(_nachrichten(1000, 100000), 20000)
     assert gekuerzt[0]["content"] == "S" * 1000
     assert gekuerzt[2]["content"] == "F" * 50
@@ -252,8 +233,7 @@ def test_kuerzen_laesst_passende_nachrichten_in_ruhe():
 
 
 def test_kuerzen_gibt_niemals_leere_nachrichten_zurueck():
-    """Ein absurd kleines Budget darf den Kontext nicht auf nichts eindampfen,
-    sonst antwortet das Modell quellenlos statt gar nicht."""
+    """A tiny budget must not boil the context down to nothing."""
     gekuerzt = ml.fit_messages(_nachrichten(1000, 100000), 10)
     assert all(m["content"] for m in gekuerzt)
 
@@ -265,8 +245,7 @@ def test_kuerzen_ruehrt_das_original_nicht_an():
 
 
 def test_denker_ohne_wirksamen_schalter_bekommt_auch_keine():
-    """Ein Modell, dessen Denken sich nicht abstellen laesst, bekommt nichts
-    mitgeschickt statt etwas Wirkungsloses."""
+    """Thinking that cannot be turned off gets nothing ineffective sent along."""
     profil = ml.ModelProfile(window_tokens=1, source=ml.QUELLE_GEMESSEN,
                              thinks=True, think_off="")
     assert ml.think_off_body(profil) == {}

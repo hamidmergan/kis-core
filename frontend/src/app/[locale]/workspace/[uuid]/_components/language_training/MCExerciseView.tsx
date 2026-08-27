@@ -22,20 +22,14 @@ export function MCExerciseView({
   onSourceClick?: (filename: string, page: number, startTime?: number) => void;
   breadcrumbs?: BreadcrumbItem[];
   chatLang?: "de" | "en";
-  // The view also serves the grammar quiz, whose breadcrumb badge lives in the
-  // language-training palette rather than the learning-tools one.
+  // The view also serves the grammar quiz with its own colour.
   badgeCategory?: "learning_tools" | "language_training";
-  // Both chat buttons, hint and learn-more. The grammar exercises leave them out: the
-  // answer is a form, and a chat explanation of the sentence leads away from the
-  // exercise instead of into it.
+  // Grammar leaves the chat buttons out, they lead away from the exercise.
   showChatHelp?: boolean;
 }) {
   const t = useTranslations("workspace.detail.languageTraining");
   const tChip = useTranslations("sourceChip");
-  // Chat prompt strings are sent to the LLM, not displayed. They follow the UI
-  // locale (the language picked in the header) so a hint/learn-more for an
-  // English exercise is asked — and answered — in English. chatLang stays in the
-  // prop signature for callers but no longer drives these prompts.
+  // The chat instructions follow the interface language.
   void chatLang;
   const locale = useLocale();
   const promptTip = (term: string) => locale === "en"
@@ -62,32 +56,24 @@ export function MCExerciseView({
   }, [exerciseSet.items]);
   const items = shuffledItems;
   const [index, setIndex] = useState(0);
-  // Die Wahl haengt an der AUFGABE, nicht am Bildschirm. Nur so kann man vor und
-  // zurueck gehen: eine beantwortete Aufgabe zeigt beim Zurueckblaettern wieder ihr
-  // Ergebnis und ist gesperrt, eine unbeantwortete bleibt offen.
+  // The choice hangs on the exercise, only that way can you go back and forth.
   const [picks, setPicks] = useState<Record<number, number>>({});
   const [results, setResults] = useState<{ item_id: number; correct: boolean }[]>([]);
   const [, setStreak] = useState(0);
   const [showResults, setShowResults] = useState(false);
-  // Der Tipp steht fertig an der Aufgabe, der Knopf klappt ihn nur auf. Der Ladezustand
-  // gilt allein dem Rueckfall in den Chat, den Aufgaben ohne Tipp noch brauchen.
+  // The hint sits ready on the exercise, the loading state belongs to the fallback.
   const [showHint, setShowHint] = useState(false);
   const [hintLoading, setHintLoading] = useState(false);
-  // Hover lives in state rather than in a CSS class: the border colour is set inline
-  // (it also carries the right/wrong result), and an inline style always beats the
-  // class, so `hover:border-kb` never showed.
+  // The hover state lives in state, an inline border beats every class.
   const [hovered, setHovered] = useState<number | null>(null);
-  // Ein Aufbau der Ansicht ist ein Durchgang. Nach "Erneut versuchen" faengt ein
-  // neuer an, deshalb wird die Marke dort zurueckgesetzt.
+  // One mount of the view is one round, a retry resets it.
   const runGemeldetRef = useRef(false);
 
   const total = items.length;
   const card = items[index];
-  // A gap item is recognised by its marker, not by a separate tool: the standalone
-  // Lückentext tool is gone and the quiz produces both kinds in one set.
+  // A gap exercise is recognised by its marker, not by a separate tool.
   const isGap = /___+/.test(card?.front || "");
-  // Chip numbering belongs to the SET, so a file keeps its number on every card
-  // and matches the numbered legend at the bottom of the view.
+  // The numbering belongs to the set so it matches the legend.
   const srcNumbers = sourceNumbers(exerciseSet.sources);
   const selected = card ? picks[card.id] ?? null : null;
   const answered = selected !== null;
@@ -119,8 +105,7 @@ export function MCExerciseView({
 
   async function requestHint() {
     if (!card || hintLoading) return;
-    // Aufgaben aus der Zeit vor dem mitgelieferten Tipp haben keinen. Fuer sie bleibt
-    // der alte Weg: die Frage geht in den Chat und kostet dort einen Modellaufruf.
+    // Older exercises without a hint take the old path through the chat.
     if (card.extras?.tip) { setShowHint((v) => !v); return; }
     setHintLoading(true);
     try {
@@ -209,9 +194,7 @@ export function MCExerciseView({
                       }}
                     />
                   ) : (
-                    // pre-line keeps the blank line a grammar exercise puts between its
-                    // task and the sentence it refers to. Quiz questions carry no line
-                    // breaks, so they render exactly as before.
+                    // pre-line keeps the blank line between instruction and sentence.
                     <p className="text-sm font-semibold leading-snug" style={{ color: "var(--foreground)", whiteSpace: "pre-line" }} dangerouslySetInnerHTML={{ __html: _md(card.front) }} />
                   )}
                   {/* Options */}
@@ -225,8 +208,7 @@ export function MCExerciseView({
                       let dotColor = "var(--muted)";
                       if (answered && isRight) { borderColor = "#1a8a5c"; bg = "rgba(26,138,92,0.08)"; dotBg = "#1a8a5c"; dotColor = "#fff"; }
                       else if (answered && isThis && !isRight) { borderColor = "#d4453a"; bg = "rgba(212,69,58,0.07)"; dotBg = "#d4453a"; dotColor = "#fff"; }
-                      // Only before answering: afterwards the border carries the result
-                      // and must not change under the pointer.
+                      // Only before answering, afterwards the border carries the result.
                       if (!answered && hovered === oi) { borderColor = "var(--kb)"; }
                       return (
                         <button key={oi} type="button" onClick={() => select(oi)}

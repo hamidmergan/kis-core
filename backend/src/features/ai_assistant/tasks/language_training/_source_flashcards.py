@@ -14,10 +14,7 @@ from src.features.ai_assistant.tasks.language_training._wortteile import clean_w
 from src.services.llm_context_healing import create_with_shrink
 
 
-# Gemeinsame Schlüssel für extras in Lernkarten (Quelltext-Weg und Glossar-Weg).
-# Beide Modi enrichen Karten mit denselben Felder: Wortzerlegung, Beispielsatz,
-# Wortart (mit Klammer für Verben: Art/Reflexivität), und für Verben die drei
-# Zeitformen (3. Person Singular: Präsens, Präteritum, Perfekt mit Hilfsverb).
+# Shared keys for the extras of a flashcard.
 AIA_FLASHCARD_EXTRAS_FIELDS = (
     "word_parts", "word_parts_explained", "example_sentence",
     "word_class", "singular", "plural",
@@ -26,12 +23,7 @@ AIA_FLASHCARD_EXTRAS_FIELDS = (
 
 
 def flashcard_extras(c: dict, begriff: str) -> dict:
-    """Die extras einer Lernkarte, gemeinsam für den Quelltext- und den Glossar-Weg.
-
-    Die Wortzerlegung wird dabei nachgerechnet (siehe ``_wortteile``): das Modell hat
-    Teile erfunden, die im Begriff gar nicht vorkommen. Leere Felder entstehen erst gar
-    nicht, denn die Ansicht zeichnet eine Zeile, sobald der Schlüssel da ist.
-    """
+    """The extras of a flashcard, shared by the source text and glossary paths."""
     extras = {
         k: (c.get(k) or "").strip()
         for k in AIA_FLASHCARD_EXTRAS_FIELDS
@@ -40,8 +32,7 @@ def flashcard_extras(c: dict, begriff: str) -> dict:
     parts, explained = clean_word_parts(
         begriff, extras.get("word_parts", ""), extras.get("word_parts_explained", ""))
     if extras.get("word_parts") and not parts:
-        # Damit sichtbar bleibt, wie oft das Modell danebenliegt. Ohne diese Zeile wäre
-        # die Bremse unsichtbar und niemand merkte, wenn sie zu oft oder gar nicht greift.
+        # So it stays visible how often the model gets it wrong.
         logger.info("Lernkarte {}: Wortzerlegung {!r} verworfen, ein Teil steht nicht im Begriff",
                     begriff, extras["word_parts"])
     for schluessel, wert in (("word_parts", parts), ("word_parts_explained", explained)):
@@ -62,18 +53,12 @@ def generate_flashcards_from_source(
     title_avoidance: str = "",
     coverage: str = "",
 ) -> tuple[list[dict], str]:
-    # Explanations follow the UI language; the term itself (begriff) stays in the
-    # source language for study and highlighting (see prompt LANGUAGE rule).
-    # adaptive_suffix pitches the definitions at the learner's CEFR level (empty
-    # when they have no level); it OVERRIDES the prompt's default register.
+    # Explanations follow the language, the term stays in the source language.
     prompt = (
         AIA_LERNKARTEN_PROMPT.replace("{count}", str(count)).replace("{language}", language)
         + adaptive_suffix + title_avoidance + coverage
     )
-    # No "avoid these existing cards" block: feeding them back made the model copy them.
-    # Variation comes from the context sweep in build_source_context, and a repeat that
-    # still gets through is dropped afterwards by _dedup. Only the
-    # TITLE gets a do-not-repeat list (title_avoidance), which has no such pull.
+    # No block with existing cards, the model would just copy them.
     messages = [
         {"role": "system", "content": prompt},
         {"role": "user", "content": (
@@ -81,21 +66,16 @@ def generate_flashcards_from_source(
             f"keep the term itself in the source-text language:\n\n{ctx.context}"
         )},
     ]
-    # 0.6 for a little wording diversity; the real variation is the context sweep in
-    # build_source_context (different chunks per run). Still JSON-safe.
+    # 0.6 for some word variety, the real variation comes from the context.
     response = create_with_shrink(client, endpoint="lernkarten", model=model, messages=messages, temperature=0.6)
     answer = _clean_llm_json(response.choices[0].message.content or "")
     data = json.loads(answer)
 
     cards = (data.get("cards") or [])[:count]
     items = [_format_lernkarte(c) for c in cards]
-    # One batched attribution for the whole set: each card cites where its term+definition
-    # actually appears (same pgvector gate as chat), nav-only, no highlight. A card is one
-    # atomic fact, so multi=False -> exactly the single best-matching source, never several.
+    # One batched attribution for the whole set, exactly one source per card.
     attach_chips(items, [_card_claim(c) for c in cards], ctx, multi=False)
-    # The generation prompt already asks for a "title" (see AIA_LERNKARTEN_PROMPT), so take it
-    # from this same response instead of spending a second call on it. title_from_items stays
-    # as the fallback for models that skip the field.
+    # The title comes from the same answer, that saves a second call.
     title = (data.get("title") or "").strip()
     if not title:
         title = title_from_items(client, model, items, ctx.multi_label)
@@ -103,15 +83,12 @@ def generate_flashcards_from_source(
 
 
 def _format_lernkarte(c: dict) -> dict:
-    """Map the LLM card to shared DB columns (front/back). Source attribution is added
-    afterwards by attach_chips, not guessed here."""
+    """Maps the model card onto front and back, citations are added later."""
     item = {
         "front": (c.get("begriff") or "").strip(),
         "back": (c.get("definition") or "").strip(),
         "back_en": (c.get("begriff_en") or "").strip(),
-        # Which numbered context section the model says it used. Not persisted
-        # (finalize_exercise_set only reads known keys), it exists so the caller can
-        # check that every section was actually served.
+        # Which section the model claims to have used, not stored.
         "_section": c.get("section"),
     }
     extras = flashcard_extras(c, item["front"])

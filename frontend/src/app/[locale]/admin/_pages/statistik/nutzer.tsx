@@ -1,16 +1,6 @@
 "use client";
 
-/**
- * Wer da ist und wer bleibt.
- *
- * Alles Zeitliche kommt aus der Anwesenheit und nicht aus den Auftraegen: wer
- * nur Uebungen macht oder ein PDF liest, startet nie einen Auftrag und waere
- * sonst unsichtbar.
- *
- * Die Anwesenheit steht oben, die Entwicklung darunter. Wer den Bereich
- * oeffnet, will meist wissen ob gerade jemand da ist, nicht wie viele im Mai
- * dazukamen.
- */
+/** Who is here and who stays, based on presence. */
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
@@ -32,7 +22,7 @@ interface Daten {
   roles: { role: string; users: number }[];
 }
 
-/** Wie viele Namen zu sehen sind, solange die Liste zu ist. */
+/** How many names are visible while the list is collapsed. */
 const KURZ = 5;
 
 export default function StatistikNutzerPage() {
@@ -56,7 +46,7 @@ export default function StatistikNutzerPage() {
   const rest = daten.online.users.length - KURZ;
   const b = daten.retention;
 
-  // Aufsummiert aus den Neuzugaengen: eine eigene Abfrage waere dieselbe Zahl.
+  // Accumulated from the new arrivals, a separate query would be the same number.
   let lauf = 0;
   const summiert = daten.new_per_month.map((m) => ({
     label: m.month,

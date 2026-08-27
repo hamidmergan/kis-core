@@ -40,9 +40,7 @@ export function _fileKind(filename: string): "pdf" | "video" | "audio" | "doc" {
   return "doc";
 }
 
-/** Trennt einen Dateinamen in Namensteil und Endung, etwa "a.pdf" zu ["a", ".pdf"].
- *  Beim Umbenennen ist nur der Namensteil frei, die Endung bleibt fest, weil der
- *  Dateityp an mehreren Stellen aus ihr gelesen wird. */
+/** Splits file name and extension, because renaming keeps the extension fixed. */
 export function splitFilename(filename: string): [string, string] {
   const i = filename.lastIndexOf(".");
   return i > 0 ? [filename.slice(0, i), filename.slice(i)] : [filename, ""];
@@ -63,8 +61,7 @@ export function _formatTime(seconds: number): string {
   return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}` : `${m}:${String(s).padStart(2, "0")}`;
 }
 
-/** Convert **bold** and *italic* markdown to HTML (XSS-safe). Flashcards render through
- * this, and there is no KaTeX on them, so LaTeX is flattened to Unicode first. */
+/** Turns bold and italic into HTML, LaTeX is flattened to Unicode first. */
 export function _md(text: string): string {
   const esc = _mathToUnicode(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   return esc
@@ -72,34 +69,19 @@ export function _md(text: string): string {
     .replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, "<em>$1</em>");
 }
 
-// Models write math in LaTeX ("$\rightarrow$", "$x^2$"), so the chat renders it with
-// KaTeX. The catch: a single "$" is also a currency sign, and remark-math would pair
-// "5$ ... 10$" into one bogus formula that swallows the prose in between. So before
-// handing text to Markdown, escape every "$" pair whose content does not look like math.
-// Math means: a LaTeX command/sub-/superscript/brace, OR a short span with no spaces
-// (covers "$n$", "$a+b$"). Language-agnostic, it only looks at symbols, never at words.
-// Code spans and fences are skipped, and "$$…$$" display math is left as one unit.
-// An unclosed "$" stays plain text, so a streaming answer only snaps into a rendered
-// formula once the model has written the closing "$".
+// Protects dollar pairs that are no formula so KaTeX swallows no prose.
 const _CODE_SPANS = /(```[\s\S]*?```|~~~[\s\S]*?~~~|`[^`\n]*`)/g;
 const _DOLLAR_SPANS = /\$\$[\s\S]*?\$\$|(?<!\\)\$([^$\n]{1,200})(?<!\\)\$/g;
 function _looksLikeMath(inner: string): boolean {
   // A LaTeX command, sub-/superscript or grouping is unambiguous math.
   if (/[\\^_{}]/.test(inner)) return true;
-  // Beyond that, math needs a variable letter. Currency amounts and ranges
-  // ("5", "-10", "5.99", "1,000") are digits and punctuation only, never math —
-  // so "5$-10$" no longer renders as a bogus formula. \p{L} stays language-
-  // agnostic (Greek, Cyrillic, ... also count as variable letters).
+  // Without letters it is digits and punctuation, so money and not a formula.
   if (!/\p{L}/u.test(inner)) {
-    // Ohne Buchstaben ist es meist Geld, aber eine ganze Rechnung ("11 + 13") oder ein
-    // geklammertes Zahlenpaar ("(11, 10)") ist eine Formel.
+    // A whole calculation or a number pair still counts as a formula.
     if (/\d\s*[+*/=<>−]\s*\d/.test(inner) || /\d\s+-\s+\d/.test(inner)) return true;
     return /^\(\s*-?\d[\d\s.,]*\)$/.test(inner);
   }
-  // With a letter present, a relation or operator makes it a formula and covers
-  // the spaced forms the old length/space rule dropped ("x = 5", "a + b",
-  // "a - b", "n < m"). The hyphen is safe here: letter-free currency ranges were
-  // already rejected above.
+  // With a letter an operator or comparison sign makes it a formula.
   if (/[=<>+\-*\/−]/.test(inner)) return true;
   // Otherwise a short, space-free token is a bare variable ("x", "H2O", "v0").
   return !/\s/.test(inner) && inner.length <= 20;
@@ -113,12 +95,7 @@ export function _guardMathDollars(text: string): string {
     .join("");
 }
 
-// Same LaTeX, but for the surfaces that show model text as PLAIN text (note preview
-// line, flashcard front/back) — no KaTeX there, so "$\rightarrow$" would sit in the UI
-// verbatim. Flatten the formula to the closest Unicode instead: symbols by table,
-// fractions to "a/b", sub-/superscripts to their Unicode digits, and an unknown command
-// at least loses its backslash. Currency is protected by the same _looksLikeMath rule
-// the renderer uses, so "5$ … 10$" stays untouched here as well.
+// The same LaTeX for surfaces without KaTeX, flattened to the nearest Unicode.
 const _LATEX_SYMBOLS: Record<string, string> = {
   rightarrow: "→", to: "→", longrightarrow: "→", Rightarrow: "⇒", implies: "⇒",
   leftarrow: "←", Leftarrow: "⇐", leftrightarrow: "↔", Leftrightarrow: "⇔", iff: "⇔",
@@ -167,8 +144,7 @@ export function _mathToUnicode(text: string): string {
   });
 }
 
-/** Deduplication key for source chips. Same PDF page+highlight or same media timestamp
- * share a key so duplicate chips can be filtered out. */
+/** Key for recognising duplicate citation chips. */
 export function _sourceChipKey(
   label: string,
   page: number | null | undefined,
@@ -179,11 +155,7 @@ export function _sourceChipKey(
   return `p:${label}:${page ?? 0}:${highlight ?? ""}`;
 }
 
-// Localized label for a source-citation chip. The page/part wording comes from
-// the i18n "sourceChip" namespace, so it follows the UI language (S./Teil in DE,
-// p./Part in EN, and whatever a future locale file provides) — no hardcoded
-// per-language strings. `tChip` is `useTranslations("sourceChip")`; when omitted
-// (non-React callers / plain text export) it falls back to the German wording.
+// Label of a citation chip in the interface language, German without tChip.
 export type ChipLabelT = (key: "page" | "part", values: { num: number }) => string;
 
 export function _chunkLabel(
@@ -193,9 +165,7 @@ export function _chunkLabel(
   tChip?: ChipLabelT,
 ): string {
   if (_isMediaFile(filename) && startTime != null) return _formatTime(startTime);
-  // Ton und Video ohne beides: der Chip nennt nur die Datei. Für erfundene Sätze
-  // (Grammatik-Übung) lässt sich die Stelle im Transkript oft nicht belegen, und
-  // eine falsche Minute schickt den Lernenden irgendwohin.
+  // If both are missing, the chip names only the file instead of a wrong minute.
   if (_isMediaFile(filename)) {
     if (num == null) return "";
     return tChip ? tChip("part", { num }) : `Teil ${num}`;

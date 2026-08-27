@@ -1,21 +1,4 @@
-"""Per-source DOC SUMMARY builder (ingest-side, offline).
-
-Builds ONE compact summary per source from its chunks, used to represent the
-source in GENERIC/overview answers (and optionally as a thin base layer in
-SPECIFIC). Chunk-based → works for PDF pages and media transcripts alike.
-
-Strategy (map-reduce, fill-to-cap):
-- Pack chunks into batches whose combined size stays under ``cap_chars`` so each
-  LLM call's prefill finishes well under the myLab time-to-first-token limit (a
-  whole large doc in one call would time out — see private/rag-log.md).
-- MAP: summarize each batch (1 call).
-- REDUCE: if >1 batch, merge the partial summaries into one (1 combine call).
-- One batch → return its summary directly (no combine).
-
-Pure of DB/Celery: callers pass an LLM client + model + cap; this module only
-builds text. Raises on persistent LLM failure so the ingest task can mark the
-source 'failed' (→ user retry).
-"""
+"""Builds a short summary per source, in batches and then merged."""
 from __future__ import annotations
 
 import random
@@ -31,8 +14,7 @@ from src.features.ai_assistant.prompts.summarizer_prompts import (
     aia_summary_combine_user,
 )
 
-# Markers for a throttling rejection. String-based on purpose — providers raise
-# heterogeneous types.
+# Signs of a refusal due to overload, deliberately via the text.
 _RATE_LIMIT_MARKERS = ("429", "rate limit", "rate_limit", "too many requests")
 
 
@@ -42,18 +24,12 @@ def _is_rate_limit(e: Exception) -> bool:
     msg = str(e).lower()
     return any(m in msg for m in _RATE_LIMIT_MARKERS)
 
-# Ceiling on summary output: compact enough that many summaries coexist in one
-# GENERIC window (~5k chars/source max), but high enough to cover EVERY section
-# (the prompt enforces brevity per bullet, so small docs stay well under it).
-# ~1280 tok ≈ ~4.5k chars. Input is bounded by ``cap_chars`` per call.
+# Ceiling of the output, short enough for many sources in one window.
 _MAX_OUTPUT_TOKENS = 1280
 
 
 def _batch_by_chars(chunks: list[dict], cap_chars: int) -> list[list[str]]:
-    """Pack chunk contents into batches, each ≤ cap_chars (fill-to-cap, doc order).
-
-    A single chunk larger than the cap still gets its own batch (never dropped).
-    """
+    """Packs the chunks into batches below the character limit, in document order."""
     batches: list[list[str]] = []
     cur: list[str] = []
     used = 0
@@ -75,12 +51,7 @@ def _call(
     client: Any, model: str, system: str, user: str, *, retries: int,
     temperature: float = 0.4,
 ) -> str:
-    """One chat-completion call with simple retry; returns stripped text.
-
-    ``temperature`` is lower for the combine/reduce step: merging partials is a
-    faithfulness task (don't invent section-number attributions), so we sample
-    more conservatively there than in the map step.
-    """
+    """One call with a simple retry, returns the trimmed text."""
     last: Optional[Exception] = None
     for attempt in range(retries + 1):
         try:
@@ -105,9 +76,7 @@ def _call(
                 "Summary call failed (attempt {}/{}, rate_limit={}): {}",
                 attempt + 1, retries + 1, rate_limited, e,
             )
-        # Back off before the next attempt (no sleep after the final one). A
-        # throttled call needs a real wait; other errors get a short pause.
-        # Exponential + jitter so concurrent ingests don't resync.
+        # Wait before the next attempt, growing and with jitter.
         if attempt < retries:
             base = 8.0 if (last is not None and _is_rate_limit(last)) else 2.0
             delay = min(base * (2 ** attempt), 60.0) + random.uniform(0, 1.0)
@@ -123,12 +92,7 @@ def build_source_summary(
     *,
     retries: int = 2,
 ) -> str:
-    """Build ONE doc summary from a source's chunks.
-
-    fill-to-cap batches → MAP (1 call/batch) → REDUCE (combine, only if >1 batch).
-    Raises on persistent LLM failure so the caller can mark the source 'failed'.
-    Returns "" for an empty/contentless source.
-    """
+    """Builds a summary from the chunks of a source."""
     batches = _batch_by_chars(chunks, cap_chars)
     if not batches:
         return ""

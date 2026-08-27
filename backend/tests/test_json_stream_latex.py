@@ -1,10 +1,4 @@
-"""LaTeX in der Modellantwort ueberlebt den JSON-Leser des Chat-Streams.
-
-Die Antwort kommt als JSON, aber die Modelle maskieren den Rueckstrich darin nicht.
-Der Leser hielt "\\t" darum fuer einen Tabulator und machte aus "\\text{mod}" ein
-"ext{mod}", das KaTeX als "extmod" anzeigte. Dasselbe traf jeden anderen Befehl,
-weil ein unbekannter Buchstabe seinen Rueckstrich verlor.
-"""
+"""LaTeX in the model answer survives the JSON reader."""
 
 from src.features.ai_assistant.routes._json_stream import AntwortStrom
 
@@ -30,8 +24,7 @@ def test_jeder_anfangsbuchstabe_bleibt_erhalten():
 
 
 def test_zeilenumbruch_bleibt_ein_echter_umbruch():
-    # Nur das n bleibt ein JSON-Zeichen, weil der Umbruch jede Antwort gliedert und ein
-    # Befehl mit n ("\\neq") viel seltener ist als eine neue Zeile.
+    # Only the n stays a JSON escape, a line break is more common than the command.
     assert _lies(_antwort("Erste Zeile.\\nZweite Zeile.")) == "Erste Zeile.\nZweite Zeile."
 
 

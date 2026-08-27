@@ -1,20 +1,4 @@
-"""Language diagnosis as a short adaptive chat interview.
-
-The learner's CEFR level used to come from a fixed 12-question form whose items
-were hardcoded in one language. This module replaces that with a chat: the
-model asks one question at a time, adapts to the answers, and closes with a
-verdict. Everything didactic lives in the prompt, which an admin edits centrally
-(setting ``language_diagnosis_prompt``), so a language expert can change the
-method without a code change.
-
-The prompt is language-agnostic. It carries the CEFR anchors, which are the same
-scale for every language, and takes the actual target language through the
-``{language}`` placeholder. That is why there is ONE prompt rather than one per
-language.
-
-Substitution is a plain ``str.replace``, never ``str.format``: the template
-contains a JSON example full of braces, and it is free text an admin types.
-"""
+"""Assessment as a short chat, everything didactic lives in the admin prompt."""
 
 import json
 import random
@@ -24,49 +8,17 @@ from src.services.aia_level_ladder import LEVELS, build_levels_block
 
 PROMPT_PLACEHOLDER = "{language}"
 
-# The six CEFR outcomes. The test used to collapse everything above B1 into a
-# single "B1+", on the theory that a learner past B1 needs no support. The scale
-# now runs the full ladder A1..C2 so the adaptive chat can pitch a B2, C1 or C2
-# learner as precisely as an A1 one. Telling C1 from C2 is the least reliable
-# split and needs its own C1/C2 questions in the plan; the admin owns the plan,
-# so how deep the test really reaches is the expert's choice, not a code limit.
+# The six levels, the whole ladder from A1 to C2.
 VALID_LEVELS = {"A1", "A2", "B1", "B2", "C1", "C2"}
 
-# Fixed-length test. Every learner answers the same questions, so two results are
-# comparable and the UI can show "question 3 of 12". A question carries only a
-# TASK TYPE, never a CEFR level: the expert does not label a question's level, the
-# model reads the learner's answers and places them A1..C2 holistically, measured
-# against the CALIBRATION EXAMPLES. The difficulty spread comes from POSITION, not
-# a per-question band: the test rises from very easy (first slots) to very
-# demanding (last), so the model varies difficulty by where a slot sits. The plan
-# keeps at least MIN_FREE_TEXT_QUESTIONS slots the AI judges, since free writing
-# is what the level actually rests on. The admin owns the plan. Index 0 is Q1.
-#
-# JEDE Frage im Plan ist ausgeschrieben, entweder von Hand oder einmalig von der
-# KI im Adminbereich. Es gibt keinen Plan mehr, der nur Typen nennt und dessen
-# Fragen das Modell waehrend des Tests erfindet: das kostete einen Aufruf je Frage
-# je Lernendem, niemand konnte die Fragen vorher pruefen, und der Lernende wartete
-# vor jeder Frage. Der ausgelieferte Plan
-# steht weiter unten als DEFAULT_GERMAN_QUESTION_PLAN.
+# Fixed test size, every question is spelled out, the difficulty comes from the position.
 
-# ZWEI Aufgabenarten, nicht mehr sechs. Frueher standen sechs im Dropdown (gap
-# fill, multiple choice, error correction, reading comprehension, situation, free
-# writing), aber im Code gab es immer nur diese zwei Auslieferungsformen. Drei der
-# sechs waren Wort fuer Wort dasselbe Multiple Choice und unterschieden sich nur
-# darin, was VOR der Frage stand, und das steht ohnehin im frei getippten
-# Fragetext. Wer eine Lesefrage oder eine Alltagssituation will, schreibt sie
-# einfach hinein.
-#
-# CHOICE_TYPE: Antwortoptionen a), b), c), d). Im Code bewertet.
-# FREE_TEXT_TYPE: kein Anklicken, der Lernende tippt selbst.
+# Two exercise kinds: choice graded in code, free text typed.
 CHOICE_TYPE = "choice"
 FREE_TEXT_TYPE = "free text"
 VALID_QUESTION_TYPES = {CHOICE_TYPE, FREE_TEXT_TYPE}
 
-# Die sechs alten Namen bleiben lesbar, damit ein gespeicherter Plan (und jeder
-# Test, der gerade laeuft) unveraendert weiterlaeuft. Sie werden beim Einlesen auf
-# die zwei Arten abgebildet und danach nie wieder geschrieben. Der Lueckentext
-# wird Freitext MIT Loesung, die anderen beiden Freitext OHNE, genau wie vorher.
+# The six old names stay readable so stored plans keep working.
 LEGACY_TYPE_ALIASES = {
     "multiple choice": CHOICE_TYPE,
     "reading comprehension": CHOICE_TYPE,
@@ -76,78 +28,43 @@ LEGACY_TYPE_ALIASES = {
     "free writing": FREE_TEXT_TYPE,
 }
 
-# Bei Auswahl-Fragen bestimmt der Server, WO die richtige Option steht, und zieht
-# die Stelle jedes Mal neu. Modelle setzen die richtige Antwort stark bevorzugt
-# auf a), was den Test kaputt wirken laesst ("die Antwort ist immer a"); eine
-# feste Rotation half, war aber selbst vorhersagbar (man konnte nach Position
-# raten, ohne zu lesen), also wird gewuerfelt. Freitext hat nichts zu mischen.
+# The position of the correct option is rolled again every time.
 
-# Every plan must carry at least this many free-text questions the AI judges,
-# meaning free text WITHOUT a solution key. A choice question only shows what a
-# learner RECOGNISES, and a free text with a solution key is a one-word gap, so
-# neither is production the model can read a level off. Without this floor an
-# all-recognition plan would let the model hand out C1/C2 on nothing. Two gives a
-# second signal without overloading a weak learner (who can still skip), and the
-# shipped plan carries four, so the default is never affected.
+# This many AI-judged free texts every plan has to carry.
 MIN_FREE_TEXT_QUESTIONS = 2
-# Bounds for an authored option set. Four is the shipped shape, but an expert may
-# use fewer or a couple more; a single option is not a choice and a runaway count
-# is a paste accident.
+# Limits for a set of answer options.
 MIN_OPTIONS = 2
 MAX_OPTIONS = 8
-# Bounds for a free text's answer key. One accepted answer is the normal case;
-# the extra room is for the spellings that are genuinely just as right
-# ("Straße" / "Strasse"), not for a list long enough to accept anything.
+# Limits for the answer key of a free text.
 MAX_ANSWERS = 8
-# Bis zu dieser Laenge ist eine Loesung ein Wort oder eine Wendung, also bekommt
-# der Lernende ein einzeiliges Feld. Ist die Loesung laenger, ist ein ganzer Satz
-# gemeint (etwa ein richtig geschriebener Fehlersatz) und das grosse Feld passt.
-# Frueher hing die Feldgroesse am Typ 'gap fill'; den gibt es nicht mehr, und die
-# Loesung selbst sagt es genauso gut.
+# Up to this length an answer counts as a word and gets a single-line field.
 SHORT_ANSWER_MAX_CHARS = 40
-# History caps. The client keeps the transcript and posts it back each turn, so
-# these bound how big a single request may grow.
+# Limits for the history the browser sends back every round.
 MAX_HISTORY_MESSAGES = 40
 MAX_MESSAGE_CHARS = 2000
-# Ceiling for the admin-edited prompt, so a paste accident cannot blow up every
-# diagnosis request.
+# Ceiling for the prompt edited in the admin area.
 MAX_PROMPT_CHARS = 20000
 
-# Admin-settings keys (German-scoped, "_de" suffix). An empty stored value always
-# means "use the code default", so the diagnosis can never end up without a plan.
+# Admin keys, an empty value always means 'take the default'.
 QUESTION_PLAN_SETTING = "language_diagnosis_question_plan_de"
 ADAPTIVE_BEHAVIOR_SETTING = "language_diagnosis_adaptive_behavior_de"
 ANSWER_MAX_CHARS_SETTING = "language_diagnosis_answer_max_chars_de"
 GRADING_RULES_SETTING = "language_diagnosis_grading_rules_de"
 LEVEL_EXAMPLES_SETTING = "language_diagnosis_level_examples_de"
 
-# Placeholders inside the main prompt. {grading} is filled with the grading rules
-# (the Einstufungs-Regeln field), {levels} with the per-level descriptions from the
-# Stufen-Leiter, {examples} with the per-band calibration example list. All three
-# are VISIBLE in the prompt itself, so nothing is merged in secretly. If a custom
-# prompt drops a placeholder, that block is appended at the end.
+# The three visible placeholders in the prompt, missing blocks are appended.
 GRADING_PLACEHOLDER = "{grading}"
 LEVELS_PLACEHOLDER = "{levels}"
 EXAMPLES_PLACEHOLDER = "{examples}"
 
-# The bands that carry a calibration example, one per CEFR level. Each is a
-# reference answer the final grading call compares free-text answers against, and
-# the adaptive chat reuses the same samples to calibrate how it writes per level.
-# Reihenfolge und Umfang kommen aus der Stufen-Leiter, damit Beschreibungen und
-# Beispiele nie auseinanderlaufen.
+# One example sentence per level, order and size come from the level ladder.
 EXAMPLE_LEVELS = list(LEVELS)
 
-# Soft UI limit for the answer length. The hard backend cap stays
-# MAX_MESSAGE_CHARS; this one only drives the counter and maxlength in the client.
+# Soft answer length for the display, the hard limit stays on the server.
 DEFAULT_ANSWER_MAX_CHARS = MAX_MESSAGE_CHARS
 
 def canonical_type(raw_type) -> str | None:
-    """Die Aufgabenart in ihrer heutigen Form, oder None wenn unbekannt.
-
-    Nimmt die zwei heutigen Namen und die sechs alten. So oeffnet ein Plan, der
-    vor der Zusammenlegung gespeichert wurde, ohne Umbau und ohne Datenwanderung:
-    gelesen wird umbenannt, geschrieben wird nur noch neu.
-    """
+    """The exercise kind in its current form, old names are renamed."""
     if not isinstance(raw_type, str):
         return None
     if raw_type in VALID_QUESTION_TYPES:
@@ -156,14 +73,7 @@ def canonical_type(raw_type) -> str | None:
 
 
 def _parse_options(raw_options) -> list[dict] | None:
-    """Validate an authored option set, or None when it is unusable.
-
-    Each option is ``{"text": <non-empty>, "correct": <bool>}``. A usable set has
-    MIN_OPTIONS..MAX_OPTIONS options and at least one correct one (the expert may
-    mark several correct; the model path enforces exactly one separately). Returns
-    the cleaned options, or None so the caller can revert the whole plan. Text is
-    stripped; the correct flag is coerced to a plain bool.
-    """
+    """Validates a set of answer options, or None when it is unusable."""
     if not isinstance(raw_options, list) or not (MIN_OPTIONS <= len(raw_options) <= MAX_OPTIONS):
         return None
     cleaned: list[dict] = []
@@ -174,8 +84,7 @@ def _parse_options(raw_options) -> list[dict] | None:
         text = opt.get("text")
         if not isinstance(text, str) or not text.strip():
             return None
-        # bool is an int subclass; accept only a real boolean so a stray 1/0 that
-        # would silently read as correct is rejected rather than guessed.
+        # Only a real boolean counts, a 1 is rejected.
         correct = opt.get("correct")
         if not isinstance(correct, bool):
             return None
@@ -185,14 +94,7 @@ def _parse_options(raw_options) -> list[dict] | None:
 
 
 def _parse_answers(raw_answers) -> list[str] | None:
-    """Validate an authored answer key for a typed question, or None when unusable.
-
-    The key is a plain list of accepted answers, ``["gehe"]`` in the common case.
-    There is no correct flag: everything in the list IS correct, which is what an
-    author expects from a field called "Lösung". One to MAX_ANSWERS entries, each a
-    non-empty string. Returns the stripped answers, or None so the caller can
-    revert the whole plan, exactly like a broken option set does.
-    """
+    """Validates the answer key of a free-text question, or None."""
     if not isinstance(raw_answers, list) or not (1 <= len(raw_answers) <= MAX_ANSWERS):
         return None
     cleaned: list[str] = []
@@ -204,14 +106,7 @@ def _parse_answers(raw_answers) -> list[str] | None:
 
 
 def _legacy_answers_from_options(raw_options) -> list[str] | None:
-    """Answer key recovered from a stored gap fill that still carries options.
-
-    Gap fill used to be an option type, so the oldest plans hold four options with
-    a correct flag. Reading the correct ones as the answer key keeps such a plan
-    working word for word instead of silently dropping it back to the shipped
-    default. Returns None when the option set itself is broken, so the caller
-    reverts as it always did.
-    """
+    """Gets the answer key out of the options of an old cloze."""
     cleaned = _parse_options(raw_options)
     if cleaned is None:
         return None
@@ -219,23 +114,7 @@ def _legacy_answers_from_options(raw_options) -> list[str] | None:
 
 
 def _parse_step(item) -> dict | None:
-    """Eine gespeicherte Zeile in ihrer geprueften Form, oder None wenn unbrauchbar.
-
-    Felder:
-      * ``"type"``   ``choice`` oder ``free text``, Pflicht. Ein alter Name aus der
-        Zeit der sechs Arten wird hier umbenannt. Eine Frage traegt KEINE
-        CEFR-Stufe: das Modell stuft aus den Antworten ein, nicht anhand eines
-        Etiketts an der Frage.
-      * ``"text"``   der Fragetext, wortwoertlich so gezeigt.
-      * ``"options"`` (nur Auswahl) die Antwortoptionen mit ``correct``-Flag. Im
-        Code bewertet, also ohne Modellaufruf.
-      * ``"answers"`` (nur Freitext, freiwillig) die akzeptierten Antworten.
-        Stehen sie da, bewertet der Code; fehlen sie, liest die KI am Ende. Ein
-        Lueckentext aus der Zeit vor den Tipp-Antworten traegt noch ``"options"``,
-        dessen richtige werden zum Loesungsschluessel.
-    Ein altes ``"band"``, ein ``"example"`` und Optionen an einem Freitext werden
-    ignoriert statt abgelehnt, damit ein altes Feld nicht stoert.
-    """
+    """A stored row in its validated form, or None when unusable."""
     if not isinstance(item, dict):
         return None
     raw_type = item.get("type")
@@ -267,16 +146,7 @@ def _parse_step(item) -> dict | None:
 
 
 def step_is_complete(step: dict) -> bool:
-    """True, wenn die Zeile im Test allein tragfaehig ist.
-
-    Fertig heisst: ein Fragetext ist da, und eine Auswahl hat ihre Optionen. Ein
-    Freitext braucht nur den Text: seine Loesung ist freiwillig, ohne sie
-    beurteilt der Abschluss-Aufruf die Antwort.
-
-    Frueher durfte eine Zeile halb sein und das Modell schrieb die Frage waehrend
-    des Tests. Diesen Weg gibt es nicht mehr, deshalb ist Unvollstaendigkeit jetzt
-    ein Fehler statt ein Modus.
-    """
+    """True when the row carries the test on its own."""
     if not (step.get("text") or "").strip():
         return False
     if step.get("type") == CHOICE_TYPE and not step.get("options"):
@@ -285,14 +155,7 @@ def step_is_complete(step: dict) -> bool:
 
 
 def parse_question_plan(raw: str) -> list[dict]:
-    """Der gespeicherte Fragen-Plan, sonst der ausgelieferte deutsche Standard.
-
-    Eine kaputte ODER unfertige Zeile setzt den ganzen Plan auf den Standard
-    zurueck (bestehende Philosophie: der Test laeuft immer auf einem brauchbaren
-    Plan). Unfertig kann heute nur noch Altbestand sein, denn der Speicherweg
-    lehnt so etwas ab; ohne diesen Rueckfall stuende sonst eine Frage ohne Text im
-    Test.
-    """
+    """The stored question plan, otherwise the shipped default."""
     if not raw or not raw.strip():
         return DEFAULT_GERMAN_QUESTION_PLAN
     try:
@@ -310,16 +173,7 @@ def parse_question_plan(raw: str) -> list[dict]:
     return plan
 
 
-# Der ausgelieferte deutsche Fragensatz und damit der Standard fuer JEDEN Test,
-# solange die Verwaltung nichts eigenes gespeichert hat. Vollstaendig ausgeschrieben:
-# echter deutscher Text und Optionen mit correct-Flag, also laeuft der Normalfall
-# sofort und mit NULL Modellaufrufen. Der Test ist deutsch, deshalb gibt es genau
-# diesen einen Standard und keine Verzweigung nach Sprache mehr. Die Verwaltung darf
-# alles davon aendern oder ersetzen, von Hand oder einmalig von der KI erzeugt.
-# Die Fragen stehen von sehr leicht nach sehr anspruchsvoll, so deckt der Test die
-# ganze Spanne ab; die Stufe liest das Modell aus den Antworten, die Fragen selbst
-# tragen keine. Jede Auswahl-Frage hat genau eine richtige Option und lauter
-# Ablenker, die ein echter, bewertbarer Fehler sind.
+# The shipped German question set, spelled out in full.
 DEFAULT_GERMAN_QUESTION_PLAN = [
     {
         "type": FREE_TEXT_TYPE,
@@ -427,16 +281,7 @@ DEFAULT_GERMAN_QUESTION_PLAN = [
 
 
 def question_plan_is_valid(raw: str) -> bool:
-    """True iff every item in the admin JSON is well-formed.
-
-    The save path uses this to reject a typo with a 400, rather than storing
-    something the runtime then silently reverts to a default. Mirrors
-    :func:`parse_question_plan`: the type must be known (both of today's names and
-    the six old ones), an option set must pass ``_parse_options``, an answer key
-    must pass ``_parse_answers``, and text must be a string. A legacy ``band``
-    field is ignored, and so is a legacy option set on an old gap fill, which the
-    runtime converts to an answer key instead of rejecting.
-    """
+    """True when every row of the admin JSON is well formed."""
     try:
         data = json.loads(raw)
     except json.JSONDecodeError:
@@ -456,12 +301,7 @@ def question_plan_is_valid(raw: str) -> bool:
 
 
 def count_judged_questions(plan: list[dict]) -> int:
-    """Wie viele Zeilen eines eingelesenen Plans die KI beurteilt.
-
-    Das sind die Freitext-Zeilen OHNE Loesung. Eine Auswahl bewertet der Code, ein
-    Freitext MIT Loesung ebenfalls; nur wo nichts zum Abgleichen steht, muss der
-    Abschluss-Aufruf die Sprache selbst lesen, und genau daran haengt die Stufe.
-    """
+    """How many rows of a plan the AI judges, that is free text without a key."""
     return sum(
         1 for step in plan
         if step.get("type") == FREE_TEXT_TYPE and not step.get("answers")
@@ -469,14 +309,7 @@ def count_judged_questions(plan: list[dict]) -> int:
 
 
 def question_plan_has_enough_free_text(raw: str) -> bool:
-    """True iff the admin plan carries at least MIN_FREE_TEXT_QUESTIONS questions
-    the AI judges (free text without a solution key).
-
-    Kept separate from :func:`question_plan_is_valid` (which checks structure) on
-    purpose: a short, structurally fine plan used in isolation still validates.
-    This floor is a save-path policy, enforced by the settings route, so a plan
-    the model could grade well cannot be stored without any production to judge.
-    """
+    """True when enough AI-judged questions are in the plan."""
     try:
         data = json.loads(raw)
     except json.JSONDecodeError:
@@ -488,16 +321,7 @@ def question_plan_has_enough_free_text(raw: str) -> bool:
 
 
 def first_incomplete_question(raw: str) -> int | None:
-    """Die 1-basierte Nummer der ersten unfertigen Zeile, sonst None.
-
-    Fertig heisst: ein Fragetext ist immer da, und eine Auswahl hat ihre Optionen.
-    Ein Freitext braucht nur den Text, seine Loesung ist freiwillig.
-
-    Save-Path-Politik wie :func:`question_plan_has_enough_free_text`, absichtlich
-    getrennt von :func:`question_plan_is_valid` (Struktur). Frueher war eine halbe
-    Zeile erlaubt und das Modell hat die Frage waehrend des Tests erzeugt; diesen
-    Weg gibt es nicht mehr, also muss die Luecke beim Speichern auffallen.
-    """
+    """The number of the first unfinished row, None otherwise."""
     try:
         data = json.loads(raw)
     except json.JSONDecodeError:
@@ -517,11 +341,7 @@ def correct_values(step: dict) -> set[str]:
 
 
 def option_values(step: dict) -> list[str]:
-    """The option texts in authoring order, without the correct flags.
-
-    This is the client-facing shape: the answer key never leaves the server, and
-    the display order is shuffled at serve time, so position carries no signal.
-    """
+    """The option texts without the answer markers, the key stays on the server."""
     return [opt["text"] for opt in step.get("options", [])]
 
 
@@ -531,13 +351,7 @@ def is_multi_correct(step: dict) -> bool:
 
 
 def grade_selection(step: dict, selected: list[str]) -> bool:
-    """Deterministic all-or-nothing grade for an authored option question.
-
-    Correct iff the learner's picks are exactly the correct set: every correct
-    option and no wrong one. Matching is exact after stripping whitespace; case
-    is significant. Anything that is not a clean pick (free words, a near miss) is
-    never graded here, it is left to the final LLM, so the code path never guesses.
-    """
+    """Grades a choice question in code, correct only on exactly the right set."""
     correct = correct_values(step)
     if not correct:
         return False
@@ -546,41 +360,22 @@ def grade_selection(step: dict, selected: list[str]) -> bool:
 
 
 def answer_key(step: dict) -> list[str]:
-    """The accepted answers of a free text that carries a solution, in order.
-
-    Never sent to the client: the learner types, so knowing the key would give the
-    answer away outright, unlike an option list that has to be shown anyway.
-    """
+    """The accepted answers of a free text, they never go to the browser."""
     return list(step.get("answers", []))
 
 
-# Punctuation a learner may leave at the end of a typed answer. Ending a one-word
-# answer with a full stop is a habit, not a language mistake, and marking it wrong
-# would be graded typing rather than graded language.
+# Punctuation at the end of a typed answer is a habit, not a mistake.
 _TRAILING_PUNCTUATION = ".,;:!?…"
 
 
 def normalize_typed_answer(value: str) -> str:
-    """Fold a typed answer down to what actually carries meaning.
-
-    Dropped: outer whitespace, doubled inner whitespace, trailing punctuation and
-    capitalisation. Kept: every letter as written, so "gehe" never matches "geht"
-    and a missing umlaut stays a mistake. ``lower`` rather than ``casefold`` on
-    purpose, since casefold would quietly make "Straße" equal "strasse" and that
-    is the author's call to make in the answer key, not ours.
-    """
+    """Folds a typed answer down to what carries meaning."""
     folded = " ".join(value.split()).rstrip(_TRAILING_PUNCTUATION).strip()
     return folded.lower()
 
 
 def grade_typed(step: dict, answer: str) -> bool:
-    """Deterministic grade for a free text whose author set a solution.
-
-    Correct iff the typed answer folds onto one of the accepted answers. A skipped
-    question arrives as an empty string and is never correct. Nothing is guessed
-    here: a near miss is simply wrong, since the author decides which spellings
-    count by listing them.
-    """
+    """Grades a free text with a key in code, a near miss is wrong."""
     key = {normalize_typed_answer(a) for a in answer_key(step)}
     if not key:
         return False
@@ -588,21 +383,7 @@ def grade_typed(step: dict, answer: str) -> bool:
 
 
 def question_mode(step: dict) -> str:
-    """Wie eine Zeile ausgeliefert und bewertet wird.
-
-    * manual_options: Auswahl. Sofort ausgeliefert, im Code bewertet.
-    * manual_typed: Freitext MIT Loesung. Sofort ausgeliefert, im Code gegen den
-      Loesungsschluessel bewertet, also ohne Modellaufruf.
-    * manual_text: Freitext OHNE Loesung. Sofort ausgeliefert, vom
-      Abschluss-Aufruf beurteilt.
-
-    Entscheidend ist nicht mehr die Aufgabenart, sondern ob eine Loesung dasteht:
-    seit es nur noch zwei Arten gibt, ist genau das der Schalter zwischen "der
-    Code weiss die Antwort" und "die KI muss lesen". Jede Zeile im laufenden Plan
-    ist vollstaendig (:func:`step_is_complete`), es fehlt also nichts. Ein vierter
-    Modus 'auto', bei dem das Modell die Frage waehrend des Tests schrieb, ist
-    entfallen.
-    """
+    """How a row is delivered and graded, the key decides."""
     if step.get("type") == CHOICE_TYPE:
         return "manual_options"
     if step.get("answers"):
@@ -611,36 +392,20 @@ def question_mode(step: dict) -> str:
 
 
 def _shuffle(values: list[str], rng=None) -> list[str]:
-    """A shuffled copy of ``values``. Display order carries no signal, so the
-    correct answer is never learnable from position. ``rng`` is injectable so a
-    test can pin the order."""
+    """A shuffled copy, the display order reveals nothing."""
     order = list(values)
     (rng or random).shuffle(order)
     return order
 
 
 def wants_short_box(step: dict) -> bool:
-    """True, wenn der Lernende hier ein einzeiliges Feld bekommt.
-
-    Nur bei Freitext mit Loesung, und nur wenn jede zugelassene Loesung kurz ist
-    (SHORT_ANSWER_MAX_CHARS). Ein Lueckensatz mit der Loesung "gehe" ist damit
-    einzeilig, ein Fehlersatz, dessen Loesung der ganze richtige Satz ist,
-    bekommt das grosse Feld. Frueher hing das am Typ 'gap fill'.
-    """
+    """True when the learner gets a single-line field here."""
     answers = answer_key(step)
     return bool(answers) and all(len(a) <= SHORT_ANSWER_MAX_CHARS for a in answers)
 
 
 def manual_question_payload(step: dict, rng=None) -> dict:
-    """Client payload for an expert-authored question, with no model involved.
-
-    The message is the authored question text. Choice questions also carry the
-    shuffled option values (never the correct flags) and a ``multi`` flag so the
-    client picks radio vs checkbox. A free text with a short solution carries
-    ``short`` so the client offers a one-line box instead of the big one meant for
-    whole sentences; the answer key itself stays here. Everything else carries
-    only the message.
-    """
+    """The delivery of a hand-written question, without a model."""
     payload = {"done": False, "message": step["text"]}
     if step.get("type") == CHOICE_TYPE and step.get("options"):
         payload["options"] = _shuffle(option_values(step), rng)
@@ -651,12 +416,7 @@ def manual_question_payload(step: dict, rng=None) -> dict:
 
 
 def answered_items(history: list[dict]) -> list[dict]:
-    """Pair each asked question with the learner's answer, in order.
-
-    One dict per answered question: the question text shown, the options shown (if
-    any), the picks the learner clicked (``selected``, a list or None) and the raw
-    text they typed (``answer``). A trailing unanswered assistant turn is ignored.
-    """
+    """Pairs every asked question with the learner's answer."""
     items: list[dict] = []
     pending: dict | None = None
     for turn in history:
@@ -675,14 +435,7 @@ def answered_items(history: list[dict]) -> list[dict]:
 
 
 def is_empty_run(history: list[dict]) -> bool:
-    """True when the learner produced nothing at all: no text and no pick.
-
-    There is then nothing to grade. Asked to place a learner from a record of
-    blank answers, the model picks between the lower bands at random and, because
-    the prompt asks for an encouraging closing message, invents a strength to
-    praise. The caller answers with a fixed A1 instead. An empty transcript is
-    NOT an empty run: it is no run, so it returns False.
-    """
+    """True when the learner supplied nothing at all."""
     items = answered_items(history)
     return bool(items) and all(
         not item["answer"] and not item["selected"] for item in items
@@ -690,15 +443,7 @@ def is_empty_run(history: list[dict]) -> bool:
 
 
 def build_grading_brief(plan: list[dict], history: list[dict]) -> str:
-    """The record the one final call grades from: every question, its answer key
-    where the expert set one, and the learner's answer.
-
-    Authored option answers that arrived as clean picks are graded in code and
-    handed to the model as a fixed RESULT it must not second-guess. Everything
-    else (free-worded picks, model-generated items, free-text answers) is laid out
-    for the model to judge. The answer key for authored questions is included here
-    so the model can judge a free-worded answer, and it never travels to the client.
-    """
+    """The record the one final call grades from."""
     lines: list[str] = []
     for i, item in enumerate(answered_items(history)):
         step = plan[i] if i < len(plan) else {"type": "?"}
@@ -755,21 +500,14 @@ FINAL_INSTRUCTION = (
 
 
 def build_final_messages(system_prompt: str, plan: list[dict], history: list[dict]) -> list[dict]:
-    """Messages for the ONE grading call: the system prompt, then the record.
-
-    The record (:func:`build_grading_brief`) carries every question, the answer
-    key for authored items and the code-graded results, so the model judges only
-    what it must (free text, free-worded picks, model-generated items) and assigns
-    the level. It replaces the old per-turn verdict flow entirely.
-    """
+    """The messages for the one grading call."""
     return [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": FINAL_INSTRUCTION + "\n\n" + build_grading_brief(plan, history)},
     ]
 
 
-# Sent after an unparseable turn. Measured against the production model, roughly
-# one turn in twelve comes back as the bare question text with no JSON at all.
+# Sent after an unreadable answer.
 REPAIR_MESSAGE = (
     "Your last reply was not a JSON object, so it could not be used. Send the "
     "same turn again as ONLY the JSON object from the output format, with no "
@@ -963,11 +701,7 @@ On the final turn, "level" must be exactly one of "A1", "A2", "B1", "B2", "C1", 
 """
 
 
-# Der Standard, wie er bis 2026-08 ausgeliefert wurde, mit der Stufen-Liste am
-# Ende. Steht nur noch hier, um ihn beim Lesen als "nicht gesetzt" zu erkennen:
-# wer den Text damals angefasst und wieder zurueckgesetzt hat, hat ihn gespeichert
-# und bekaeme sonst die Liste doppelt (einmal hier, einmal ueber {levels}). Nicht
-# loeschen, siehe aia_level_ladder.resolve_prompt_setting.
+# The old default stays so it is recognised on read.
 _LEGACY_GRADING_RULES = """Decide the level from the OVERALL quality of the learner's language, judged from
 their answers as a whole. There is no fixed ladder of per-question levels: you
 place the learner by how well they actually use the language.
@@ -997,14 +731,7 @@ These describe a typical learner at each outcome:
 - C1: fluent and spontaneous, complex structures used naturally, idiomatic and precise wording.
 - C2: near-native precision and range, full control of register and nuance, only the subtlest slips."""
 
-# Editable grading rules, kept out of the main prompt so a language expert can
-# tune HOW the level is decided in one focused field. Injected at the
-# {grading} placeholder. Language-agnostic: it describes the CEFR scale, not
-# one language's forms.
-#
-# Beschreibt nur noch das VERFAHREN. Wie eine Stufe aussieht, steht in der
-# Stufen-Leiter (aia_level_ladder) und wird ueber {levels} eingesetzt, damit ein
-# Sprachexperte sie an EINER Stelle auf Deutsch pflegt statt hier auf Englisch.
+# The grading rules as their own field, they only describe the method.
 DEFAULT_GRADING_RULES = """Decide the level from the OVERALL quality of the learner's language, judged from
 their answers as a whole. There is no fixed ladder of per-question levels: you
 place the learner by how well they actually use the language.
@@ -1026,14 +753,7 @@ and one slip does not cap a learner who writes well elsewhere. A blank, off-topi
 or skipped answer is evidence of a LOW level. When the code has already graded an
 option answer for you (RESULT given), use that result as it stands."""
 
-# Shipped calibration examples: TWO per band, one sentence per LINE (kein "--"
-# mehr, das Admin-Feld verspricht eine Zeile je Satz und soll auch so aussehen;
-# example_items versteht beides weiter). The two
-# contexts are the SAME across all bands (line 1 is always the cinema/weekend
-# situation, line 2 is always the work situation), so the model can compare how
-# the SAME idea is expressed as the level rises. That contrast is what makes the
-# examples calibrate well. An answer of similar quality to a band's examples
-# points to that level. Editable per level by an expert.
+# Two example sentences per level, always the same two situations.
 DEFAULT_LEVEL_EXAMPLES = {
     "A1": (
         "Am Samstag gehe ich ins Kino.\n"
@@ -1063,11 +783,7 @@ DEFAULT_LEVEL_EXAMPLES = {
 
 
 def parse_level_examples(raw: str) -> dict:
-    """Parse the admin per-level examples JSON, merged onto the defaults.
-
-    A missing or invalid entry keeps the shipped default, so every band is
-    always present for calibration. An empty/invalid setting yields the defaults.
-    """
+    """Reads the examples per level, missing ones stay on the default."""
     examples = dict(DEFAULT_LEVEL_EXAMPLES)
     if not raw or not raw.strip():
         return examples
@@ -1085,25 +801,13 @@ def parse_level_examples(raw: str) -> dict:
 
 
 def example_items(raw: str) -> list[str]:
-    """Split one band's example value into clean example strings.
-
-    Separators are "--" or a line break. "--" is used over a single "-" because
-    a hyphen occurs inside words (E-Mail), so it would split a sentence; "--"
-    practically never appears mid-sentence. Shared by the grading block and the
-    adaptive-chat wiring, so both read the examples the same way.
-    """
+    """Splits a level's example value into single examples."""
     normalized = (raw or "").replace("--", "\n")
     return [ln.strip() for ln in normalized.splitlines() if ln.strip()]
 
 
 def build_examples_block(examples: dict) -> str:
-    """Render the per-band calibration examples as a bullet list.
-
-    Only the example lines: the explaining text ("CALIBRATION EXAMPLES ...") lives
-    visibly in the prompt template, so nothing is merged in secretly. An example
-    value may hold several examples (separated by "--" or a line break): one
-    renders inline, several render as sub-items under the band.
-    """
+    """Renders the examples per level as a bullet list."""
     lines: list[str] = []
     for level in EXAMPLE_LEVELS:
         items = example_items(examples.get(level, ""))
@@ -1129,16 +833,7 @@ def assemble_system_prompt(
     examples: dict,
     language_name: str,
 ) -> str:
-    """Build the full diagnosis system prompt.
-
-    Three visible placeholders are filled: {grading} with the grading procedure,
-    {levels} with the per-level descriptions from the Stufen-Leiter and
-    {examples} with the per-band example list. All three are just editable
-    content, so the reader sees the whole structure in the prompt. If a
-    customised prompt dropped a placeholder, that block is appended under its own
-    header so the model never loses it. The {language} substitution then runs
-    over the whole.
-    """
+    """Builds the full assessment prompt from its three blocks."""
     text = main_prompt
     if GRADING_PLACEHOLDER in text:
         text = text.replace(GRADING_PLACEHOLDER, grading_rules.strip())
@@ -1169,13 +864,7 @@ def _strip_fence(raw: str) -> str:
 
 
 def _loads_lenient(raw: str):
-    """Parse the model's turn, tolerating prose wrapped around the JSON.
-
-    The prompt asks for a bare object, and most turns deliver one. But models
-    occasionally prepend a sentence ("Sure, here is the next question:") or
-    append one, which used to fail the whole turn with a 502. Falling back to the
-    outermost brace pair recovers those instead of throwing away a good answer.
-    """
+    """Reads the model answer even when prose surrounds the JSON."""
     text = _strip_fence(raw)
     try:
         return json.loads(text)
@@ -1191,14 +880,7 @@ def _loads_lenient(raw: str):
 
 
 def parse_turn_response(raw: str) -> dict:
-    """Validate one model turn.
-
-    Returns ``{"done": False, "message": str}`` while the interview runs, or
-    ``{"done": True, "message": str, "level": str}`` on the final grading turn.
-    Extra keys are dropped, so a level that shows up early can never be mistaken
-    for a verdict. Used for the final call; auto question turns go through
-    :func:`parse_auto_question`, which also validates the options.
-    """
+    """Validates a model answer, surplus fields are dropped."""
     parsed = _loads_lenient(raw)
 
     if not isinstance(parsed, dict):

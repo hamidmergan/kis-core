@@ -44,8 +44,7 @@ describe("istErreichbar", () => {
     expect(istErreichbar(3, ALLE_ERREICHT, false, "done")).toBe(true);
   });
 
-  // Rendern ist eine Warteseite, bis das Video steht. Danach liegt dort der
-  // Rueckblick mit allen Folien zum Nachhoeren.
+  // Rendering is a waiting page, afterwards the review sits there.
   it("gibt Rendern erst frei, wenn das Video fertig ist", () => {
     expect(istErreichbar(6, ALLE_ERREICHT, false, "done")).toBe(true);
     expect(istErreichbar(6, ALLE_ERREICHT, false, "tts-settings")).toBe(false);

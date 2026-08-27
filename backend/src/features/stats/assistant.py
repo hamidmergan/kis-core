@@ -1,19 +1,13 @@
-"""Zahlen zum KI-Assistenten: Module, Materialien, Werkzeuge, Sprachniveau.
-
-Die sieben Werkzeuge stehen in zwei Gruppen, wie die Kacheln im Modul.
-Karteikarten und Lernkarten sind dabei zwei verschiedene Werkzeuge in zwei
-verschiedenen Gruppen, nicht dasselbe unter zwei Namen.
-"""
+"""Zahlen zum KI-Assistenten: Module, Materialien, Werkzeuge, Sprachniveau."""
 from psycopg2.extras import RealDictCursor
 
 from src.core.db.pool import get_connection
 
-# Die zwei Kachelgruppen aus dem Modul, benannt wie die Kacheln dort.
+# The two tile groups from the module, named like the tiles there.
 FACHSPRACHE = ["karteikarten", "quiz", "dataTable", "mindmap"]
 SPRACHE = ["lernkarten", "vocabulary", "grammar"]
 
-# Der Name in `aia_exercise_sets.tool` auf den Namen der Kachel. Beide gingen
-# historisch auseinander, drei Werkzeuge heissen in der Datenbank anders.
+# Maps the name in the database onto the name of the tile.
 KACHEL = {
     "karteikarten": "karteikarten",
     "quiz": "quiz",
@@ -24,7 +18,7 @@ KACHEL = {
 
 
 def assistant_overview() -> dict:
-    """Alles, was der Reiter KI-Assistent braucht."""
+    """Everything the AI assistant tab needs."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             return {
@@ -48,7 +42,7 @@ def _totals(cur) -> dict:
 
 
 def _levels(cur) -> list[dict]:
-    """Sprachniveau der Teilnehmer. Kommt fertig aus der Einstufung."""
+    """Language level of the participants, comes ready from the assessment."""
     cur.execute(
         """SELECT language_level AS stufe, COUNT(*) AS n
            FROM users WHERE language_level IS NOT NULL
@@ -59,8 +53,7 @@ def _levels(cur) -> list[dict]:
 
 
 def _materials(cur) -> dict:
-    """Nach Art zusammengefasst. Word und PowerPoint werden beim Hochladen in
-    PDF umgewandelt und zaehlen deshalb dort mit."""
+    """Grouped by kind, office files count as PDF."""
     cur.execute(
         """SELECT CASE
                     WHEN file_type = 'pdf' THEN 'PDF'
@@ -85,11 +78,7 @@ def _materials(cur) -> dict:
 
 
 def _tools(cur) -> dict:
-    """Die sieben Werkzeuge in ihren zwei Gruppen, wie im Modul selbst.
-
-    Gezaehlt wird ein Satz als eine Benutzung. Mindmap und Datentabelle legen
-    keine Saetze an, sie haben ihre eigenen Tabellen.
-    """
+    """The seven tools in their two groups, one set is one use."""
     cur.execute("SELECT tool, COUNT(*) AS n FROM aia_exercise_sets GROUP BY tool")
     je_tool = {KACHEL[r["tool"]]: int(r["n"]) for r in cur.fetchall() if r["tool"] in KACHEL}
     cur.execute("SELECT COUNT(*) AS n FROM aia_mindmaps")
@@ -105,11 +94,7 @@ def _tools(cur) -> dict:
 
 
 def _heat(cur) -> list[list[float]]:
-    """Wann Anfragen an die KI gehen, gemittelt je Wochentag und Stunde.
-
-    Quelle sind die Chatnachrichten der Nutzer: sie sind der Takt, den man sehen
-    will, und sie liegen mit Zeitstempel vor.
-    """
+    """When requests go to the AI, per weekday and hour."""
     cur.execute(
         """SELECT EXTRACT(ISODOW FROM (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Berlin'))::int AS wochentag,
                   EXTRACT(HOUR   FROM (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Berlin'))::int AS stunde,
@@ -125,12 +110,7 @@ def _heat(cur) -> list[list[float]]:
 
 
 def _workspaces(cur) -> list[dict]:
-    """Die Module mit ihren Zahlen. Eine Abfrage fuer alle, nicht eine je Modul.
-
-    Der alte Weg stellte je Modul und je Teilnehmer eigene Abfragen: bei
-    achtundsechzig Modulen sind das schon hunderte, und es waechst mit jedem
-    weiteren Modul.
-    """
+    """The modules with their numbers, in one query instead of one per module."""
     cur.execute(
         """SELECT m.uuid, m.title, m.is_active, m.created_at,
                   COALESCE(u.display_name, u.ldap_username, 'Unbekannt') AS owner,

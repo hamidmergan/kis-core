@@ -1,4 +1,4 @@
-/** Gespeicherter Teil der Auswahl, so wie ihn das Backend ablegt. */
+/** The stored part of the selection, the way the backend saves it. */
 export interface GespeicherteAuswahl {
   video_folien: number[] | null;
   neu_vertonen: number[];
@@ -9,7 +9,7 @@ export interface Startauswahl {
   neuVertonen: number[];
 }
 
-/** Diese Folien muessen gesprochen werden, es gibt nichts zum Wiederverwenden. */
+/** These slides have to be spoken, there is nothing to reuse. */
 export function ohneTonAberMitSkript(scripts: string[], hatTon: boolean[]): number[] {
   if (!hatTon.length) return [];
   return scripts
@@ -17,7 +17,7 @@ export function ohneTonAberMitSkript(scripts: string[], hatTon: boolean[]): numb
     .filter((i) => i >= 0);
 }
 
-/** Was Schritt 6 beim Betreten anhakt. */
+/** What step 6 ticks on entry. */
 export function startAuswahl(
   anzahl: number,
   gespeichert: GespeicherteAuswahl | null,
@@ -26,11 +26,11 @@ export function startAuswahl(
   const imScreencast = gespeichert?.video_folien
     ? gespeichert.video_folien.filter((i) => i >= 0 && i < anzahl)
     : alle;
-  // Was neu gesprochen wird, gilt nur fuer einen Lauf und faengt immer leer an.
+  // What gets spoken again applies to one run only and always starts empty.
   return { imScreencast, neuVertonen: [] };
 }
 
-/** Neu vertont wird nur, was ueberhaupt im Screencast ist. */
+/** Only what is in the screencast at all gets voiced again. */
 export function angleichen(imScreencast: number[], bisherNeu: number[]): number[] {
   const dabei = new Set(imScreencast);
   return [...new Set(bisherNeu.filter((i) => dabei.has(i)))].sort((a, b) => a - b);

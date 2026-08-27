@@ -40,8 +40,7 @@ export interface AdminJob {
 export function JobStatusBadge({ status }: { status: string }) {
   const t = useTranslations("admin.jobStatus");
   const anzeige = jobStatusDisplay(status, {});
-  // Fortsetzen kommt in dieser Liste nicht vor, der Adminbereich zeigt nur die
-  // fuenf Zustaende, fuer die er auch Beschriftungen hat.
+  // The admin area only shows the states it has labels for.
   const key = anzeige.kind === "action" ? "pending" : anzeige.key;
   const tone = anzeige.kind === "action" ? "warn" : anzeige.tone;
   return (

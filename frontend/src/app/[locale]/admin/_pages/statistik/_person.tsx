@@ -1,12 +1,6 @@
 "use client";
 
-/**
- * Alles zu einer Person, unter der Suche.
- *
- * Eine Einschraenkung steht in der Karte selbst: was jemand an Auftraegen
- * gemacht hat, reicht nur so weit zurueck wie sein Vorrat. Der Zaehler fuer die
- * Statistik kennt keine Nutzernummer, er zaehlt die Plattform, nicht Personen.
- */
+/** Everything about one person, their jobs reach only as far as their pool. */
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";

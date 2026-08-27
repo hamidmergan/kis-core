@@ -1,13 +1,4 @@
-"""Handprobe: findet das konfigurierte Modell die richtigen Stellen?
-
-Bloecke 0 bis 2 sind fremdsprachige Ankuendigungen, sie MUESSEN gefunden werden.
-Bloecke 3 bis 6 duerfen nichts liefern, sie stammen aus echten Fehlfunden:
-Block 5 ist der Transkript-Satz, der im Lauf vom 13.08. faelschlich als offener Termin
-im Zeitplan landete, Block 6 die Tabellenzeile mit "tba" neben ihrem Datum.
-
-Der Ordner scripts/ ist nicht in den Container gemountet, deshalb ueber die Eingabe:
-docker exec -i -w /app kis-backend python - < backend/scripts/tbd_discover_smoke.py
-"""
+"""Smoke test: does the model find the right spots and not the known false hits?"""
 
 from src.features.ai_assistant.tasks._helpers import _get_llm_client
 from src.features.ai_assistant.tasks.studio.schedule._discover import (
@@ -15,7 +6,7 @@ from src.features.ai_assistant.tasks.studio.schedule._discover import (
     _locate,
 )
 
-# (Block, soll etwas gefunden werden?)
+# (block, should something be found?)
 BLOCKS = [
     ("Ders programi\nSinav: 12.05.2026 saat 10:00\n"
      "Sunum tarihleri daha sonra duyurulacak.\nOdev teslimi: 20.06.2026", True),
@@ -45,7 +36,7 @@ def main():
 
     fehler = 0
     for i, (text, soll) in enumerate(BLOCKS):
-        # Hier zaehlt nur die offene Stelle, die Datumsfunde desselben Aufrufs nicht.
+        # Only the open spot counts here, not the date hits of the same call.
         phrase = (found.get(i) or {}).get("tbd")
         if phrase is not None and _locate(text, phrase) is None:
             phrase = None  # nicht im Text, wird verworfen

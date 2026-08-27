@@ -1,9 +1,6 @@
 "use client";
 
-/**
- * Einladung erzeugen. Zwei Zustaende im selben Fenster: erst das Formular, dann
- * der Link zum Kopieren.
- */
+/** Create an invitation: the form first, then the link to copy. */
 
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
@@ -57,8 +54,7 @@ export default function CreateInviteDialog({ onClose, onCreated }: Props) {
     [t],
   );
 
-  // Der Benutzername entsteht im Backend aus demselben Teil vor dem @. Hier
-  // steht nur die Vorschau.
+  // The user name is built in the backend, this is only the preview.
   const uidVorschau = email.split("@")[0].trim().toLowerCase();
 
   async function submit(e: React.FormEvent) {

@@ -4,16 +4,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { renameCommit, renameErrorText } from "./renameCommit";
 
-/**
- * Ein Feld zum Umbenennen, an Ort und Stelle.
- *
- * Abgeschaut vom Umbenennen einer Quelle in `SourceRow.tsx`. Eigene Komponente,
- * weil sonst drei Listen denselben Zustand dreimal halten.
- *
- * Enter und Verlassen des Feldes speichern, Escape verwirft. Was dabei
- * ueberhaupt zu tun ist, entscheidet `renameCommit` nebenan. Ein abgelehnter
- * Name haelt das Feld offen, damit er gleich zu bessern ist.
- */
+/** Field for renaming in place, a rejected name keeps it open. */
 export function InlineRename({
   value, onSave, onCancel, errorText,
 }: {
@@ -26,7 +17,7 @@ export function InlineRename({
   const [fehler, setFehler] = useState<string | null>(null);
   const [laeuft, setLaeuft] = useState(false);
   const feldRef = useRef<HTMLInputElement>(null);
-  // Verhindert das zweite Speichern, wenn Enter das Feld verlaesst und dabei blur ausloest.
+  // Prevents the second save when Enter leaves the field and triggers blur.
   const fertigRef = useRef(false);
 
   useEffect(() => {

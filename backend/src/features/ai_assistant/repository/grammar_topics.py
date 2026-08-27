@@ -1,14 +1,4 @@
-"""Themen der Grammatik-Übung: Ablage je Workspace.
-
-Ein Thema ist nur ein Name, den ein Dozent tippt. Regel und Musterbeispiele
-hängen zusätzlich an der Sprache, denn "Konjunktiv II" braucht auf Deutsch ein
-anderes Beispiel als derselbe Kurs auf Englisch. Deshalb zwei Tabellen und nicht
-eine.
-
-Vorher standen die Themen im Code. Ein neues kostete einen Eintrag mit Regel,
-Musterpaar je Sprache und beim Ankreuz-Format noch drei falschen Formen und drei
-fertigen Beispielaufgaben. Das war für zwei Themen tragbar und für dreissig nicht.
-"""
+"""Grammar exercise topics per course room, name and elaboration kept apart."""
 
 import json
 
@@ -20,9 +10,7 @@ from src.features.ai_assistant.repository.exercise_pool import (
 )
 
 
-# Grundstock, damit niemand vor einer leeren Liste steht. Bewusst deutsch gedacht:
-# für eine Hochschule mit türkischen Kursen taugt "Konjunktiv II" nichts, deren
-# Dozenten tippen ihre Themen selbst, und genau dafür ist der freie Text da.
+# Seed so nobody faces an empty list.
 SEED_TOPICS = [
     {"name": "Passiv Präsens"},
     {"name": "Passiv mit Modalverb"},
@@ -34,24 +22,14 @@ SEED_TOPICS = [
     {"name": "Adjektivdeklination"},
 ]
 
-# Genau ein Paar. Der Generator hat nie ein zweites gelesen: er baut aus dem
-# ersten die SHAPE TO COPY fuer das Modell und zeigt es dem Lernenden ueber der
-# Aufgabe. Paar zwei und drei lagen nur in der Tabelle herum und standen im
-# Formular als Felder, die nichts bewirkten.
+# Exactly one pair, the generator never read a second one.
 MAX_EXAMPLES = 1
 
 _EMPTY_PAIR = {"before": "", "after": ""}
 
 
 def catalog_entry(topic: dict, spec: dict) -> dict:
-    """Thema plus Ausarbeitung in der Form, die die Generatoren erwarten.
-
-    Sie bekamen dieses dict bisher aus dem Code-Katalog. Bleibt die Form gleich,
-    ändert sich an den Generatoren keine Zeile.
-
-    ``example`` ist das erste Paar, denn genau eines zeigt die Aufgabe dem
-    Lernenden. ``examples`` trägt alle, die steuern gemeinsam das Modell.
-    """
+    """Topic plus elaboration in the shape the generators expect."""
     examples = list(spec.get("examples") or [])
     return {
         "id": topic["id"],
@@ -59,8 +37,7 @@ def catalog_entry(topic: dict, spec: dict) -> dict:
         "rule": spec.get("rule") or "",
         "example": examples[0] if examples else dict(_EMPTY_PAIR),
         "examples": examples,
-        # Die Anweisung je Aufgabenformat, beim Ausarbeiten des Themas mitformuliert.
-        # Leer bei Themen von vor diesem Feld, dann greift die Schablone.
+        # The instruction per format, empty for topics from before this field.
         "task_lines": dict(spec.get("task_lines") or {}),
     }
 
@@ -103,16 +80,7 @@ def create_grammar_topic(workspace_id: int, name: str, created_by: int) -> dict:
 
 
 def delete_grammar_topic(topic_id: int) -> None:
-    """Thema entfernen, samt Ausarbeitung und Vorrat.
-
-    Vorher wandert der Inhalt des Vorrats in die Saetze, die darauf zeigen. Eine
-    Aufgabe aus dem Vorrat wird beim Bauen eines Satzes nicht kopiert, der Satz
-    verweist nur. Ohne diesen Schritt haette jemand mitten im Ueben ploetzlich
-    Aufgaben ohne Loesung, weil eine Lehrkraft aufgeraeumt hat.
-
-    Fertige Saetze bleiben also stehen. Sie verlieren nur den Themen-Namen ueber
-    den Aufgaben, denn ``grammar_topic_id`` wird dabei auf NULL gesetzt.
-    """
+    """Removes a topic with elaboration and pool, finished sets stay."""
     materialize_pool_items_for_topic(topic_id)
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -134,11 +102,7 @@ def get_topic_spec(topic_id: int, language: str) -> dict | None:
 
 def save_topic_spec(topic_id: int, language: str, rule: str, examples: list,
                     task_lines: dict | None = None) -> dict:
-    """Legt die Ausarbeitung an oder ersetzt sie.
-
-    Mehr als :data:`MAX_EXAMPLES` Paare werden abgeschnitten, statt sie
-    stillschweigend zu speichern und in der Ansicht zu verlieren.
-    """
+    """Creates or replaces the elaboration, surplus pairs are dropped."""
     trimmed = list(examples)[:MAX_EXAMPLES]
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -159,11 +123,6 @@ def save_topic_spec(topic_id: int, language: str, rule: str, examples: list,
 
 
 def seed_grammar_topics(workspace_id: int, created_by: int) -> None:
-    """Grundstock in einen frischen Workspace kopieren.
-
-    Ohne Ausarbeitung: die entsteht beim ersten Benutzen in der jeweiligen
-    Sprache, sonst würde jeder neue Kurs acht Modell-Aufrufe kosten, von denen
-    die meisten nie gebraucht werden.
-    """
+    """Copies the seed into a fresh course room, without elaboration."""
     for entry in SEED_TOPICS:
         create_grammar_topic(workspace_id, entry["name"], created_by)

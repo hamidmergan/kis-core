@@ -9,8 +9,7 @@ export interface FrancisProps {
   className?: string;
 }
 
-// Colours sampled from the original Francis reference (a seagull with a
-// TH-Lübeck lanyard). Ported 1:1 from the standalone design — do not retune.
+// Colours taken 1:1 from the reference, do not retune.
 const WHITE = "#FDFCFA";
 const EDGE = "#E7E1D6";
 const WING = "#A6AEB2";
@@ -24,8 +23,7 @@ const RED = "#D62B2B";
 const ACCENT = "#004261";
 
 export default function Francis({ size = 120, state = "idle", className }: FrancisProps) {
-  // Strip non-alphanumeric chars from useId — React's default IDs contain ":"
-  // which some browsers refuse to resolve in url(#...) SVG refs.
+  // The colon in React's ids breaks the SVG references.
   const reactId = useId().replace(/[^a-zA-Z0-9]/g, "");
   const shadowId = `francis-shadow-${reactId}`;
 
@@ -35,8 +33,7 @@ export default function Francis({ size = 120, state = "idle", className }: Franc
   const isThink = state === "thinking";
   const isConf = state === "confused";
 
-  // Head: tilts curiously when idle/found/wave, cocks toward the question mark
-  // when confused, stays still while thinking (it reads the speech bubble).
+  // The head tilts with the mood and stays still while thinking.
   const headAnim = isThink
     ? "none"
     : isConf

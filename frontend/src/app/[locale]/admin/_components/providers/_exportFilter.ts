@@ -1,5 +1,4 @@
-// Shape of an exported JSON (subset we touch). Backend keys cross-refs by
-// provider name, so the filter operates on names too.
+// The export references by name, so the filter works with names too.
 type ExportedProvider = { name: string; [key: string]: unknown };
 type ExportedRoute = {
   feature: string;
@@ -21,12 +20,7 @@ function isExportedConfig(value: unknown): value is ExportedConfig {
   return Array.isArray(v.providers) && Array.isArray(v.feature_routes);
 }
 
-/**
- * Keep only providers whose `name` is in `selectedNames`. For each route:
- * - drop the route if its `provider_name` is not selected;
- * - otherwise filter `user_choices` and `provider_models` keys to selected names.
- * Top-level fields (schema_version, exported_at, exported_from) pass through.
- */
+/** Keeps only the chosen providers and tidies the routes accordingly. */
 export function filterExportConfig(
   config: unknown,
   selectedNames: Set<string>,

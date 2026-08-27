@@ -1,9 +1,4 @@
-"""Die Teilnehmerliste eines Moduls, jetzt mit Rolle.
-
-Ohne die Rolle stand in der Liste eine Zahlenkolonne, in der der Tutor wie
-jeder andere aussah. Wer eine Lehrperson auf ihre eigenen Module loslaesst,
-muss ihr auch sagen koennen, wen sie da vor sich hat.
-"""
+"""The participant list of a module, now with the role."""
 
 from src.features.stats import detail
 
@@ -24,7 +19,7 @@ LEUTE = [
 
 
 class _Cursor:
-    """Antwortet nach dem, was gefragt wurde, statt nach Aufrufreihenfolge."""
+    """Answers by what was asked instead of by call order."""
 
     def __init__(self, leute, calls):
         self._leute, self._calls, self._sql = leute, calls, ""
@@ -77,7 +72,7 @@ def test_jede_person_traegt_ihre_rolle(monkeypatch):
 
 
 def test_die_zahlen_je_person_bleiben_daneben_stehen(monkeypatch):
-    """Die Rolle kommt dazu, sie ersetzt nichts."""
+    """The role is added, it replaces nothing."""
     daten, _ = lauf(monkeypatch)
 
     assert daten["members"][2] == {
@@ -92,7 +87,7 @@ def test_der_eigentuemer_zaehlt_bei_den_teilnehmern_mit(monkeypatch):
 
 
 def test_die_abfrage_holt_den_eigentuemer_dazu(monkeypatch):
-    """Er steht in keiner Einschreibung und fehlte deshalb ganz."""
+    """They appear in no enrollment and were therefore missing entirely."""
     _, calls = lauf(monkeypatch)
     sql = [s for s, _ in calls if "aia_enrollments" in s][0]
 
@@ -101,7 +96,7 @@ def test_die_abfrage_holt_den_eigentuemer_dazu(monkeypatch):
 
 
 def test_der_eigentuemer_steht_nicht_zweimal_da(monkeypatch):
-    """Wer sein Modul einmal selbst betreten hat, hat auch eine Einschreibung."""
+    """Whoever entered their own module once also has an enrollment."""
     _, calls = lauf(monkeypatch)
     sql = [s for s, _ in calls if "aia_enrollments" in s][0]
 
@@ -109,13 +104,7 @@ def test_der_eigentuemer_steht_nicht_zweimal_da(monkeypatch):
 
 
 def test_mehrere_einschreibungen_blieben_eine_person(monkeypatch):
-    """Heute verhindert ein UNIQUE auf (workspace_id, user_id) den Fall schon.
-
-    Die Zusammenfassung steht trotzdem da, weil ``get_workspace_participants``
-    dieselbe Frage genauso beantwortet. Zwei Listen derselben Leute, die sich
-    bei geloeckertem Schluessel unterschiedlich verhalten, waeren die schlechtere
-    Wahl als eine Zeile, die heute nichts tut.
-    """
+    """The grouping stays so both lists answer the same question alike."""
     _, calls = lauf(monkeypatch)
     sql = [s for s, _ in calls if "aia_enrollments" in s][0]
 
@@ -126,10 +115,7 @@ def test_mehrere_einschreibungen_blieben_eine_person(monkeypatch):
 # ── Dieselbe Zahl an beiden Stellen ──────────────────────────────────────────
 
 def test_die_modulliste_zaehlt_teilnehmer_wie_die_detailansicht():
-    """Die Liste im Reiter KI-Assistent und das Fenster darueber zeigen dieselbe
-    Spalte. Stuende in der Zeile 2 und im geoeffneten Modul 3, suchte man den
-    Fehler bei sich statt in der Abfrage.
-    """
+    """List and the panel above it have to show the same number."""
     import inspect
 
     from src.features.stats import assistant

@@ -32,15 +32,7 @@ type DialogState =
   | { open: true; mode: "edit"; provider: Provider }
   | { open: true; mode: "export-import"; initialTab: "export" | "import" };
 
-/**
- * Anbieter und Funktionen. `only` waehlt aus, welche der beiden Karten
- * gerendert wird, damit jede eine eigene Adresse bekommen kann. Ohne `only`
- * bleibt das alte Verhalten mit beiden Karten untereinander.
- *
- * Der Zustand bleibt bewusst hier: beide Karten arbeiten auf denselben Daten,
- * und ein gemeinsamer Zustand ueber zwei Routen waere mehr Aufwand als der
- * eine zusaetzliche Ladevorgang beim Wechseln kostet.
- */
+/** Providers and features, 'only' picks which card is rendered. */
 export default function ProvidersTab({ only }: { only?: "list" | "routes" } = {}) {
   const t = useTranslations("admin.providers");
   const [meta, setMeta] = useState<ProviderMeta | null>(null);
@@ -77,8 +69,7 @@ export default function ProvidersTab({ only }: { only?: "list" | "routes" } = {}
       capabilities?: string[];
     }) => {
       if (dialog.open && dialog.mode === "edit") {
-        // For edits, only patch fields the dialog actually changes. api_key
-        // null means "leave existing key untouched"; empty string would clear.
+        // When editing, send only changed fields, null leaves the key in place.
         const patch: Record<string, unknown> = {
           name: data.name,
           base_url: data.base_url,
@@ -205,8 +196,7 @@ export default function ProvidersTab({ only }: { only?: "list" | "routes" } = {}
       const nextChoices = on
         ? Array.from(new Set([...current, providerId]))
         : current.filter((id) => id !== providerId);
-      // Default provider for the row: first choice (so resolve() has something
-      // to return when no user runtime pick is supplied).
+      // The first entry of the selection is the row's default provider.
       const defaultProvider = nextChoices[0] ?? null;
       await setFeatureRoute(feature, {
         provider_id: defaultProvider,

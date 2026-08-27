@@ -1,12 +1,4 @@
-"""Wiederholung gestörter Modell-Aufrufe.
-
-Ein Übungs-Set starb heute an einem einzelnen "Connection error" nach 23 Sekunden,
-obwohl der erste Lauf schon 14 fertige Aufgaben geliefert hatte. Zwei Dinge müssen
-deshalb stimmen: ein gestörter Aufruf wird wiederholt, und eine Absage wegen
-Überlastung wird NICHT wiederholt.
-
-Kein Netzzugriff, die Wartezeit wird hineingereicht.
-"""
+"""A disrupted call is retried, an overload never."""
 
 import httpx
 import openai
@@ -26,14 +18,14 @@ def _status_error(cls, code):
     return cls("x", response=httpx.Response(code, request=_REQ), body=None)
 
 
-# ─── Welche Störung darf wiederholt werden ───────────────────────────────────
+# ─── Which disruption may be retried ─────────────────────────────────────────
 
 @pytest.mark.parametrize("exc", [
     openai.APIConnectionError(request=_REQ),
     openai.APITimeoutError(request=_REQ),
 ])
 def test_a_broken_connection_is_worth_another_try(exc):
-    # Kostet nichts: die Anfrage kam nie an.
+    # Costs nothing: the request never arrived.
     assert is_retryable(exc)
 
 
@@ -42,26 +34,25 @@ def test_a_server_fault_is_worth_another_try():
 
 
 def test_an_overload_refusal_is_never_repeated():
-    """Der wichtigste Fall. Ein sofortiger zweiter Versuch verschärft genau die
-    Überlastung, die zur Absage geführt hat."""
+    """An immediate second attempt makes the overload worse."""
     assert not is_retryable(_status_error(openai.RateLimitError, 429))
 
 
 @pytest.mark.parametrize("code", [400, 401, 403, 404, 422])
 def test_a_faulty_request_is_never_repeated(code):
-    # Derselbe Aufruf scheitert beim zweiten Mal genauso, nur später.
+    # The same call fails the second time just as much, only later.
     assert not is_retryable(_status_error(openai.BadRequestError, code))
 
 
 def test_an_unknown_error_is_not_repeated():
-    # Im Zweifel nicht wiederholen: ein Programmierfehler wiederholt sich nur.
+    # Do not retry when in doubt: a bug only repeats itself.
     assert not is_retryable(ValueError("kaputt"))
 
 
-# ─── Der Client ──────────────────────────────────────────────────────────────
+# ─── The client ──────────────────────────────────────────────────────────────
 
 class _Inner:
-    """Mindest-Client: zählt Aufrufe und wirft die vorgegebenen Fehler der Reihe nach."""
+    """Minimal client: counts calls and throws the given errors in order."""
 
     def __init__(self, *errors, result="ok"):
         self.calls = 0
@@ -88,8 +79,7 @@ def test_a_disturbed_call_succeeds_on_the_second_try():
 
 
 def test_it_gives_up_after_three_attempts_and_reraises():
-    """Drei Versuche, dann steht der Fehlschlag. Der Aufrufer muss ihn sehen, damit er
-    retten kann, was schon fertig ist."""
+    """Three attempts, then the caller has to see the failure."""
     errors = [openai.APIConnectionError(request=_REQ) for _ in range(ATTEMPTS)]
     inner, client = _client(*errors)
     with pytest.raises(openai.APIConnectionError):
@@ -105,7 +95,7 @@ def test_an_overload_refusal_fails_on_the_first_attempt():
 
 
 def test_it_waits_longer_before_each_further_attempt():
-    # Sofort nochmal fragen trifft dieselbe Störung. Die Pause wächst.
+    # Asking again right away hits the same disruption, the pause grows.
     waits: list = []
     _inner, client = _client(openai.APIConnectionError(request=_REQ),
                              openai.APIConnectionError(request=_REQ), waits=waits)
@@ -122,7 +112,7 @@ def test_a_healthy_call_is_made_exactly_once():
 
 
 def test_everything_else_reaches_the_real_client_untouched():
-    # Der Wrapper darf nicht die halbe Schnittstelle verschlucken.
+    # The wrapper must not swallow half the interface.
     inner = _Inner()
     inner.embeddings = "E"
     client = RetryingClient(inner, sleep_fn=lambda s: None)

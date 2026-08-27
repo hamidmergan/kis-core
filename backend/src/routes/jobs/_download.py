@@ -69,9 +69,9 @@ def download_job_subtitles(
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    """Die Untertitel-Spur als VTT, damit der Player im Browser CC anbieten kann."""
+    """The subtitle track as VTT so the browser player can offer CC."""
     job = db.get_job(job_uuid)
-    # Nur der Eigentuemer, sonst liesse sich ueber fremde UUIDs mitlesen.
+    # Owner only, otherwise other people's UUIDs could be read along.
     if not job or job["user_id"] != current_user.get("user_id", 0):
         raise HTTPException(status_code=404, detail=t("job.notFound", locale))
 
@@ -119,11 +119,7 @@ def download_job_pptx(
 
 
 def _resolve_artifact_filename(job: dict, ext: str) -> str:
-    """Resolve the user-facing filename for a job artifact (mp4/pptx/zip).
-
-    Prefers result_stem from meta (translated stem + timestamp); falls back to
-    the translated_stem alone, then to the original filename's stem.
-    """
+    """The visible file name of a result."""
     meta = load_result_meta(job["user_id"], job["job_uuid"]) or {}
     stem = (
         meta.get("result_stem")
@@ -135,13 +131,7 @@ def _resolve_artifact_filename(job: dict, ext: str) -> str:
 
 
 class _ZipStreamWriter:
-    """File-like sink for zipfile that can be drained chunk by chunk.
-
-    zipfile records absolute stream offsets, so tell() reports a virtual
-    position (bytes already drained + current buffer). drain() hands back
-    everything written since the last drain and resets the buffer, which keeps
-    peak memory at roughly one archive entry instead of the whole ZIP.
-    """
+    """A buffer for zipfile that is drained in pieces and keeps memory small."""
 
     def __init__(self):
         self._buf = io.BytesIO()
@@ -157,8 +147,7 @@ class _ZipStreamWriter:
         return self._base + self._buf.tell()
 
     def seek(self, offset: int, whence: int = 0) -> int:
-        # zipfile only seeks to absolute positions inside the current entry
-        # (patching a local header), never back into already-drained bytes.
+        # zipfile only seeks back within the current entry.
         if whence == 0:
             offset -= self._base
         self._buf.seek(offset, whence)
@@ -204,8 +193,7 @@ def _streaming_zip_bundle(
             except Exception:
                 pass
 
-    # Die Folien. Gab es eine Uebersetzung, traegt die Datei die Zielsprache im
-    # Namen, sonst ist die hochgeladene Datei die einzige und heisst so.
+    # If there was a translation, the file carries the target language in its name.
     hat_original = job_file_exists(user_id, job_uuid, "original.pptx")
     pptx_name = "corrected.pptx" if job_file_exists(user_id, job_uuid, "corrected.pptx") else "translated.pptx"
     try:
@@ -215,7 +203,7 @@ def _streaming_zip_bundle(
     except Exception:
         pass
 
-    # Die hochgeladene Datei vor der Uebersetzung.
+    # The uploaded file before the translation.
     try:
         original_data = get_job_file(user_id, job_uuid, "original.pptx")
         yield _add_and_yield(f"{stem}_original.pptx", original_data)
@@ -238,7 +226,7 @@ def _streaming_zip_bundle(
         except Exception:
             continue
 
-    # Was drinsteckt und womit es gemacht wurde.
+    # What is inside and what it was made with.
     if info_text:
         yield _add_and_yield(f"{stem}_info.txt", info_text.encode("utf-8"))
 
@@ -270,8 +258,7 @@ def download_job_bundle(
         or "screencast"
     )
     zip_filename = f"{stem}.zip"
-    # Anbieter, Modelle und Dauern sind eine Betriebsauskunft und stehen nur im
-    # Archiv eines Admins.
+    # Providers, models and durations appear only in an admin's archive.
     info_text = baue_info(job, meta, mit_technik=is_admin_user(current_user))
 
     return StreamingResponse(

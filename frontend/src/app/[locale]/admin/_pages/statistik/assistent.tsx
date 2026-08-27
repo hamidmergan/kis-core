@@ -1,16 +1,11 @@
 "use client";
 
-/**
- * Zahlen zum KI-Assistenten.
- *
- * Die sieben Werkzeuge stehen in zwei Gruppen, wie die Kacheln im Modul.
- */
+/** Numbers for the AI assistant, seven tools in two groups. */
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import Modal from "@/components/ui/Modal";
-// Dieselbe Blaetterleiste wie unter Meine Jobs, damit die Knoepfe im ganzen
-// Haus gleich aussehen.
+// The same pagination bar as under my jobs.
 import { Pagination } from "@/app/[locale]/my-jobs/_components/Pagination";
 import { Balken, Kachel, Karte, Ladeanzeige } from "./_bausteine";
 import { Raster, ZeitraumChips } from "./_raster";
@@ -44,7 +39,7 @@ function Gruppe({ titel, zeilen }: { titel: string; zeilen: Werkzeug[] }) {
   );
 }
 
-/** Wie viele Module eine Seite fasst. */
+/** How many modules fit on a page. */
 const PRO_SEITE = 15;
 
 export default function StatistikAssistentPage() {
@@ -78,7 +73,7 @@ export default function StatistikAssistentPage() {
           zeilen={daten.levels.map((s, i) => ({
             label: s.level,
             wert: s.users,
-            // A1 bis C2 ist eine Reihenfolge, keine sechs gleichrangigen Dinge.
+            // A1 to C2 is an order, not six equal-ranking things.
             farbe: ["fill-kb/25", "fill-kb/40", "fill-kb/55", "fill-kb/70", "fill-kb/85", "fill-kb"][i],
           }))}
           labelBreite={40}

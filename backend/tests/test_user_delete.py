@@ -1,10 +1,4 @@
-"""Ein Konto loeschen muss alles mitnehmen, was daran haengt.
-
-Der teuerste Fehler waere eine vergessene Tabelle: die Zeilen bleiben mit einer
-Nutzernummer stehen, die niemandem mehr gehoert, und tauchen spaeter in Zahlen
-und Listen wieder auf. Deshalb prueft der erste Test das Schema selbst und
-nicht nur den Ablauf.
-"""
+"""Deleting an account has to take everything with it, checked against the schema itself."""
 import re
 from pathlib import Path
 
@@ -16,7 +10,7 @@ SCHEMA = Path(__file__).resolve().parents[1] / "src/core/db/schema.py"
 
 
 class FakeCursor:
-    """Merkt sich die abgesetzten Anweisungen und liefert feste Zeilen."""
+    """Remembers the issued statements and returns fixed rows."""
 
     def __init__(self, protokoll, zeile=None):
         self._protokoll = protokoll
@@ -56,14 +50,14 @@ class FakeConnection:
 
 @pytest.fixture
 def protokoll(monkeypatch):
-    """Klinkt die Datenbank aus und gibt die Liste der Anweisungen zurueck."""
+    """Stubs out the database and returns the list of statements."""
     eintraege: list[tuple[str, object]] = []
     monkeypatch.setattr(ud, "get_connection", lambda: FakeConnection(eintraege))
     return eintraege
 
 
 def _tabellen_mit_nutzerspalte() -> set[str]:
-    """Alle Tabellen des Schemas, die eine Nutzernummer fuehren."""
+    """All tables of the schema that carry a user id."""
     quelle = SCHEMA.read_text()
     treffer = re.findall(
         r"CREATE TABLE IF NOT EXISTS\s+(\w+)\s*\((.*?)\n\s*\)\s*\"\"\"", quelle, re.S
@@ -75,7 +69,7 @@ def _tabellen_mit_nutzerspalte() -> set[str]:
 
 
 def test_jede_tabelle_mit_einer_nutzernummer_ist_bedacht():
-    """Neue Tabelle mit user_id? Dann muss hier eine Entscheidung fallen."""
+    """New table with user_id? Then a decision has to be made here."""
     gefunden = _tabellen_mit_nutzerspalte()
     assert len(gefunden) > 20, "Schema nicht gelesen, der Test wuerde blind bestehen"
     bedacht = set(ud.SWEEP_BY_USER_ID) | set(ud.SONDERFALL)
@@ -97,7 +91,7 @@ def test_alle_tabellen_der_liste_werden_wirklich_abgeraeumt(protokoll):
 
 
 def test_die_arbeitsbereiche_gehen_vor_dem_konto(protokoll):
-    """Erst die Kaskade ausloesen, dann die Zeile, an der sie haengt."""
+    """Trigger the cascade first, then the row it hangs off."""
     ud.delete_user_completely(42)
     reihenfolge = [sql for sql, _ in protokoll]
     arbeitsbereiche = next(i for i, s in enumerate(reihenfolge) if "aia_workspaces" in s)
@@ -111,7 +105,7 @@ def test_das_konto_geht_zuletzt(protokoll):
 
 
 def test_der_whitelist_eintrag_geht_mit(protokoll):
-    """Sonst legt der naechste Login das Konto sofort wieder an."""
+    """Otherwise the next login recreates the account right away."""
     ud.delete_user_completely(42)
     assert any("DELETE FROM whitelist" in sql for sql, _ in protokoll)
 
@@ -123,7 +117,7 @@ def test_die_leere_mailadresse_raeumt_die_whitelist_nicht_leer(protokoll):
 
 
 def test_grammatik_themen_verlieren_nur_den_urheber(protokoll):
-    """Das Thema gehoert einem fremden Arbeitsbereich und bleibt dort stehen."""
+    """The topic belongs to someone else's workspace and stays there."""
     ud.delete_user_completely(42)
     themen = [sql for sql, _ in protokoll if "aia_grammar_topics" in sql]
     assert themen == ["UPDATE aia_grammar_topics SET created_by = NULL WHERE created_by = %s"]
@@ -135,7 +129,7 @@ def test_jede_anweisung_bekommt_die_nutzernummer(protokoll):
 
 
 def test_es_wird_genau_einmal_bestaetigt(monkeypatch):
-    """Eine Transaktion, sonst bleibt ein halb geloeschtes Konto zurueck."""
+    """One transaction, otherwise a half-deleted account is left behind."""
     verbindung = FakeConnection([])
     monkeypatch.setattr(ud, "get_connection", lambda: verbindung)
     ud.delete_user_completely(42)
@@ -148,10 +142,10 @@ def test_die_vorschau_nennt_die_zahlen_fuer_die_rueckfrage(monkeypatch):
     assert ud.count_user_footprint(42) == zeile
 
 
-# --- Dateien -----------------------------------------------------------------
+# --- Files -------------------------------------------------------------------
 
 def _dateien_anlegen(wurzel, user_id: int) -> None:
-    """Ein Arbeitsbereich und eine Aufgabe, so wie die Ablage sie anlegt."""
+    """A workspace and an exercise, the way storage creates them."""
     ws = wurzel / f"users/{user_id}/aia/workspaces/w1/sources"
     ws.mkdir(parents=True, exist_ok=True)
     (ws / "quelle.pdf").write_bytes(b"pdf")
@@ -171,7 +165,7 @@ def test_die_dateien_des_nutzers_verschwinden_mit_dem_konto(lokal):
 
 
 def test_eine_aehnliche_nutzernummer_bleibt_unberuehrt(lokal):
-    """Ohne den Schraegstrich am Ende wuerde 4 auch 42 mitnehmen."""
+    """Without the trailing slash 4 would take 42 along."""
     from src import storage
 
     _dateien_anlegen(lokal, 4)
@@ -192,7 +186,7 @@ def test_geloescht_wird_gezaehlt(lokal):
 
 
 def test_die_einladung_bleibt_und_verliert_nur_den_urheber(protokoll):
-    """Die Einladung gehoert der eingeladenen Person, nicht der, die sie erzeugt hat."""
+    """The invitation belongs to the invited person, not to the one who created it."""
     ud.delete_user_completely(42)
     assert any(
         "UPDATE invites SET created_by = NULL" in sql for sql, _ in protokoll

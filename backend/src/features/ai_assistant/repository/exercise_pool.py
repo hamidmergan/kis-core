@@ -1,12 +1,4 @@
-"""Der Aufgaben-Vorrat je Quelle, Werkzeug und Sprachniveau.
-
-Aufgaben werden nicht mehr bei jedem Klick neu erzeugt. Was einmal entstanden ist, liegt
-im Vorrat und steht allen im Kursraum offen. Eine Anfrage nimmt zuerst, was schon da ist
-und was diese Person noch nicht hatte, und nur der Fehlbetrag kostet einen Modellaufruf.
-
-Der Vorrat waechst als Nebenprodukt der Nutzung. Es gibt keinen Bau-Auftrag und keinen
-Knopf, der ihn fuellt: was niemand anfordert, entsteht auch nicht.
-"""
+"""The exercise pool per source, tool and language level."""
 
 import json
 
@@ -14,16 +6,13 @@ import psycopg2.extras
 
 from src.core.db.pool import get_connection
 
-# Obergrenze je Vorrat, also je Quelle, Werkzeug und Niveau. Gibt die Quelle weniger her,
-# bleibt der Vorrat kleiner; aufgefuellt wird nie mit Wiederholungen.
+# Ceiling per pool, it is never refilled with repeats.
 POOL_MAX_ITEMS = 1000
 
-# Werkzeuge mit Vorrat. Die Liste steht hier statt beim Erzeugen, weil sie eine
-# Eigenschaft der Tabelle ist: nur diese Werte kommen in ``tool`` vor.
+# Tools with a pool, only these values appear in tool.
 POOL_TOOLS = frozenset({"flashcards", "karteikarten", "quiz", "grammatik", "wortschatz"})
 
-# Felder, die eine Aufgabe im Vorrat traegt. Ein Satz verweist nur noch hierher, deshalb
-# muss der Vorrat alles halten, was die Anzeige braucht.
+# Fields an exercise carries in the pool.
 _ITEM_FIELDS = (
     "front", "back", "back_en", "options", "correct_idx", "explanation",
     "source_label", "page_number", "start_time", "sources", "extras",
@@ -39,9 +28,7 @@ def _as_row(item: dict, source_id: int, tool: str, level, topic_id, fingerprint:
             values.append(json.dumps(value) if value else None)
         else:
             values.append(value)
-    # Die Art steht am Item unter ``_kind``, mit Unterstrich: sie ist ein Hilfsfeld der
-    # Erzeugung und wird nicht in den fertigen Satz geschrieben. In den Vorrat gehoert
-    # sie trotzdem, denn nur dort steht sie ueber den Lauf hinaus.
+    # The kind sits on the item under _kind and still belongs in the pool.
     return (source_id, tool, level, topic_id, item.get("_kind"), fingerprint, *values)
 
 
@@ -49,13 +36,7 @@ def add_pool_items(
     source_id: int, tool: str, level, items: list[dict], fingerprints: list[str],
     topic_id=None,
 ) -> list[int]:
-    """Aufgaben einlagern und die Vorrats-ids in derselben Reihenfolge zurueckgeben.
-
-    Doppler werden vom eindeutigen Index abgefangen, nicht in Python: eine Aufgabe, die
-    schon im Vorrat liegt, wird nicht ein zweites Mal geschrieben und liefert stattdessen
-    die id der vorhandenen. Damit kann ein Satz auch auf eine Aufgabe zeigen, die jemand
-    anderes erzeugt hat.
-    """
+    """Stores exercises and returns the pool ids in the same order."""
     if not items:
         return []
     ids: list[int] = []
@@ -78,8 +59,7 @@ def add_pool_items(
                 )
                 row = cur.fetchone()
                 if row is None:
-                    # Lag schon drin, entweder aus einem frueheren Lauf oder von einer
-                    # anderen Person. Wir nehmen die vorhandene Zeile.
+                    # Already there, we take the existing row.
                     cur.execute(
                         """SELECT id FROM aia_exercise_pool
                            WHERE source_id = %s AND tool = %s
@@ -95,7 +75,7 @@ def add_pool_items(
 
 
 def pool_size(source_id: int, tool: str, level, topic_id=None) -> int:
-    """Wie viele Aufgaben in diesem Vorrat liegen."""
+    """How many exercises sit in this pool."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -112,26 +92,7 @@ def take_from_pool(
     source_id: int, tool: str, level, user_id: int, limit: int, topic_id=None,
     exclude_ids=None, kinds=None,
 ) -> list[dict]:
-    """``limit`` Aufgaben aus dem Vorrat, die diese Person noch nicht hatte.
-
-    Zufaellig gezogen und nicht der Reihe nach: sonst bekaeme jeder Neue immer denselben
-    Anfang des Vorrats zu sehen, und der Rest bliebe liegen.
-
-    "Noch nicht gehabt" heisst: die Aufgabe steckte in keinem Satz dieser Person. Der
-    Vermerk haengt an der Aufgabe und nicht am Niveau, ein Aufstieg von A2 auf B1 bringt
-    also nichts durcheinander.
-
-    ``exclude_ids`` sind Zeilen, die derselbe Auftrag weiter oben schon geholt hat. Die
-    Bedingung daneben sieht die nicht: sie prueft **gespeicherte** Saetze, und der Satz
-    entsteht erst am Ende. Ohne diesen Ausschluss liefert ein zweiter Griff in denselben
-    Vorrat noch einmal, was der erste schon hatte.
-
-    ``kinds`` ist die Formatauswahl der Grammatik-Uebung. Gesetzt kommen nur Aufgaben
-    dieser Arten heraus. Zeilen ohne Art, also der Altbestand und jedes andere
-    Werkzeug, fallen dabei durch, denn ``NULL = ANY(...)`` ist nicht wahr. Genau so
-    gewollt: eine Aufgabe unbekannter Art auszuliefern wuerde die Auswahl brechen.
-    Ohne ``kinds`` bleibt die Abfrage, was sie war, und holt auch den Altbestand.
-    """
+    """Draws random exercises from the pool that this person has not had yet."""
     if limit <= 0:
         return []
     ausschluss = " AND p.id <> ALL(%s)" if exclude_ids else ""
@@ -162,12 +123,7 @@ def take_from_pool(
 
 
 def seen_fingerprints(user_id: int, tool: str, limit: int = 2000) -> list[str]:
-    """Vergleichsformen der Aufgaben, die diese Person in diesem Werkzeug schon hatte.
-
-    Gebraucht fuer den Fehlbetrag: was frisch erzeugt wird, soll nicht das sein, was die
-    Person letzte Woche schon bekommen hat. Der Vorrat filtert das ueber die Verweise,
-    frisch Erzeugtes hat noch keine.
-    """
+    """Comparison forms of the exercises this person already had in this tool."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -182,7 +138,7 @@ def seen_fingerprints(user_id: int, tool: str, limit: int = 2000) -> list[str]:
 
 
 def _materialize(bedingung: str, wert) -> int:
-    """Der gemeinsame Rueckschreib-Befehl. ``bedingung`` waehlt den Vorrat aus."""
+    """The shared write-back statement, ``bedingung`` picks the pool."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -201,32 +157,17 @@ def _materialize(bedingung: str, wert) -> int:
 
 
 def materialize_pool_items(source_id: int) -> int:
-    """Vorratsinhalt in die Saetze zurueckschreiben, die darauf zeigen.
-
-    Muss laufen, BEVOR ein Vorrat verschwindet, also vor dem Loeschen der Quelle und vor
-    dem Leeren beim Neu-Hochladen. Ein fertiger Aufgabensatz gehoert der Person, die ihn
-    gemacht hat, und darf nicht leer werden, weil jemand die Quelle ausgetauscht hat.
-
-    Gibt die Zahl der zurueckgeschriebenen Aufgaben zurueck.
-    """
+    """Writes pool content back into the sets that point at it."""
     return _materialize("p.source_id = %s", source_id)
 
 
 def materialize_pool_items_for_topic(topic_id: int) -> int:
-    """Dasselbe fuer den Vorrat eines Grammatikthemas.
-
-    Gebraucht beim Entfernen des Themas: sein Vorrat haengt per Fremdschluessel daran
-    und faellt mit. Die Saetze, die schon jemand gebaut hat, bleiben stehen und muessen
-    ihren Inhalt vorher bekommen.
-    """
+    """The same for the pool of a grammar topic."""
     return _materialize("p.topic_id = %s", topic_id)
 
 
 def pool_counts_by_tool() -> dict[str, int]:
-    """Wie viele Aufgaben je Werkzeug im Vorrat liegen, ueber alle Kursraeume.
-
-    Fuer die Admin-Karte: wer einen Vorrat wegwirft, soll vorher sehen, was weggeht.
-    """
+    """How many exercises sit in the pool per tool, across all course rooms."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("SELECT tool, COUNT(*) FROM aia_exercise_pool GROUP BY tool")
@@ -234,16 +175,7 @@ def pool_counts_by_tool() -> dict[str, int]:
 
 
 def clear_pool_for_tools(tools) -> int:
-    """Den Vorrat der genannten Werkzeuge plattformweit wegwerfen.
-
-    Bewusst ohne Quellen- oder Kursraum-Bedingung: das ist der Admin-Knopf, der einen
-    Werkzeug-Vorrat ueberall leert. Der Inhalt wird vorher in die Saetze
-    zurueckgeschrieben, die darauf zeigen, danach setzt der Fremdschluessel deren
-    Verweis auf NULL. Fertige Saetze und Fortschritt bleiben damit lesbar.
-
-    Ein unbekannter Name ist ein Fehler und kein leerer Lauf: sonst meldet ein
-    Tippfehler Erfolg, obwohl nichts passiert ist.
-    """
+    """Throws away the pool of the named tools platform wide."""
     tools = list(tools)
     unbekannt = [t for t in tools if t not in POOL_TOOLS]
     if unbekannt:
@@ -260,12 +192,7 @@ def clear_pool_for_tools(tools) -> int:
 
 
 def clear_pool_for_source(source_id: int) -> int:
-    """Vorrat einer Quelle wegwerfen. Gibt die Zahl der geloeschten Aufgaben zurueck.
-
-    Beim Neu-Hochladen noetig: sonst bleiben Aufgaben zu einem Text stehen, den es so
-    nicht mehr gibt. Der Inhalt wird vorher in die Saetze zurueckgeschrieben, die darauf
-    zeigen, danach setzt der Fremdschluessel deren Verweis auf NULL.
-    """
+    """Throws away a source's pool and returns the number of deleted exercises."""
     materialize_pool_items(source_id)
     with get_connection() as conn:
         with conn.cursor() as cur:

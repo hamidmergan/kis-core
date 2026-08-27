@@ -19,31 +19,20 @@ from src.services.llm_context_healing import create_with_shrink
 def run_generate_data_table(self, data_table_id: int, source_ids: list[int],
                               source_uuids: list[str], source_map: dict,
                               locale: str = "de", user_id: int | None = None):
-    """Generate a data table from source chunks as a background job.
-
-    `locale` controls the output language (title/headers/values); 'highlight'
-    stays verbatim in the source language. Defaults to 'de' for older queued tasks.
-    `user_id` drives the adaptive language level (cell wording pitched at the
-    learner's CEFR level); None for older queued tasks keeps the shipped register.
-    """
+    """Generates a data table from the sources as a background job."""
     import json as _json
     from src.features.ai_assistant.prompts.studio_prompts import AIA_DATENTABELLE_PROMPT
     from src.services.aia_adaptive_tools import build_adaptive_tool_suffix
 
     from src.features.ai_assistant.tasks._helpers import learning_tools_language
-    # Wie bei Karteikarten und Quiz: der erzeugte Inhalt folgt der Sprache, die die
-    # Verwaltung eingestellt hat, nicht der Sprachwahl der Person.
+    # The generated content follows the management setting.
     _, language = learning_tools_language()
 
     try:
         db.update_aia_data_table(data_table_id, "running")
         logger.info("KI Tutor: generating data_table {}", data_table_id)
 
-        # Build context with source filenames for citations. Per-source budget from the admin
-        # aia_tool_context_max_chars setting (shared by all generation tools, separate from the
-        # chat budget); each source goes in whole when it fits, otherwise it is read as a sweep
-        # that resumes where the last run for this source stopped, so a re-run covers other
-        # rows instead of the same window again.
+        # Context with a budget per source, oversized sources are swept.
         from src.features.ai_assistant.tasks._context_budget import (
             tool_context_budget,
             select_chunks_for_budget,
@@ -55,8 +44,7 @@ def run_generate_data_table(self, data_table_id: int, source_ids: list[int],
         sweep_workspace_id = (db.get_aia_source(source_uuids[0]) or {}).get("workspace_id") \
             if source_uuids else None
         context_parts: list[str] = []
-        # For post-hoc pgvector attribution (same gate as chat): which source/pages the model
-        # actually saw, and the id->label map. Chips are clamped to these seen pages.
+        # Which pages the model saw, the chips are limited to them.
         source_id_to_label: dict[int, str] = {}
         seen_pages_by_source: dict[int, set] = {}
         for sid, suuid in zip(source_ids, source_uuids):
@@ -87,8 +75,7 @@ def run_generate_data_table(self, data_table_id: int, source_ids: list[int],
         context = "\n\n---\n\n".join(context_parts)
 
         client, model, _ = _get_llm_client()
-        # Workspace comes from the sources: the adaptive suffix is gated on the
-        # Fachsprachentrainer being on there, exactly like the chat.
+        # The course room comes from the sources, the level block hangs off its switch.
         _first_source = db.get_aia_source(source_uuids[0]) if source_uuids else None
         adaptive_suffix = build_adaptive_tool_suffix(
             user_id, (_first_source or {}).get("workspace_id"),
@@ -100,9 +87,7 @@ def run_generate_data_table(self, data_table_id: int, source_ids: list[int],
             )},
         ]
 
-        # The LLM occasionally emits malformed JSON (e.g. a missing delimiter).
-        # Retry once with a fresh sample before giving up - a re-roll almost
-        # always parses, so a single flaky generation no longer fails the table.
+        # A second attempt on broken JSON, a re-roll almost always works.
         table_data = None
         for attempt in range(2):
             response = create_with_shrink(client, endpoint="datentabelle", model=model, messages=messages, temperature=0.2)
@@ -122,9 +107,7 @@ def run_generate_data_table(self, data_table_id: int, source_ids: list[int],
             db.update_aia_data_table(data_table_id, "failed", error="Invalid table format")
             return
 
-        # Post-hoc attribution (same pgvector gate as chat), nav-only: re-ground each row's
-        # content and OVERWRITE the LLM's guessed page/highlight with the verified page (or a
-        # media timestamp). A row that grounds nowhere gets no chip rather than a fabricated one.
+        # Attribution afterwards overwrites the guessed page with the checked one.
         from src.features.ai_assistant.tasks.studio._attribution import (
             attribute_studio_claims, nav_page_value,
         )
@@ -147,9 +130,7 @@ def run_generate_data_table(self, data_table_id: int, source_ids: list[int],
             {"number": info["number"], "filename": info["filename"]}
             for info in sorted(source_map.values(), key=lambda x: x["number"])
         ]
-        # Der Titel aus dem Erzeugungs-Aufruf beschreibt das Dokument, weil dieser Aufruf
-        # das ganze Dokument sieht. Hier zaehlt, was in der Tabelle steht: die Spaltenkoepfe
-        # und die erste Spalte. Der alte Titel bleibt der Rueckfall.
+        # The title comes from the column headers and the first column.
         from src.features.ai_assistant.tasks._titles import resolve_title
         from src.features.ai_assistant.tasks.studio._result_title import (
             recent_titles, table_entries,

@@ -1,8 +1,4 @@
-"""Capability-based provider choice service (STT + image tools).
-
-Verifies model resolution, eligibility, binding, and the reachability-filtered
-listing used by the tool dropdowns.
-"""
+"""Checks the provider choice by capability for speech recognition and image tools."""
 
 import pytest
 

@@ -1,12 +1,4 @@
-"""Die Statistik, die nur die eigenen Module zeigt.
-
-Der Bereich Statistik war bisher ganz oder gar nicht: wer hineindurfte, sah
-jedes Modul jedes Kollegen. Eine Lehrperson braucht aber genau die drei Module,
-die sie betreut, und die Leute darin.
-
-Der Schwerpunkt liegt deshalb auf der Grenze. Eine Zahl, die zu viel zeigt,
-faellt niemandem auf, sie sieht nur nach mehr Betrieb aus.
-"""
+"""The statistics of your own modules only, checked above all at the boundary."""
 
 import pytest
 from fastapi import HTTPException
@@ -30,17 +22,14 @@ LERNENDE = 9
 FREMD = 99
 
 
-# ── Der Schluessel ───────────────────────────────────────────────────────────
+# ── The key ──────────────────────────────────────────────────────────────────
 
 def test_der_neue_schluessel_steht_im_katalog():
     assert PERM_SET_STATS_OWN in ALL_PERMISSION_KEYS
 
 
 def test_die_beiden_modul_rechte_stehen_direkt_untereinander():
-    """Beide Zeilen handeln von Modulen, die eine eingeschraenkt, die andere
-    nicht. Standen zwei fremde Zeilen dazwischen, las man sie als zwei Themen
-    statt als Paar und hakte im Zweifel beide an.
-    """
+    """The module pair sits together, otherwise you tick both by accident."""
     assert PERMISSION_GROUPS["set.statistik"] == (
         PERM_SET_STATS_OWN,
         PERM_SET_AIA_USAGE,
@@ -51,16 +40,15 @@ def test_die_beiden_modul_rechte_stehen_direkt_untereinander():
 
 
 def test_er_ist_ein_einstellungsrecht_und_oeffnet_damit_den_bereich():
-    """``allow_admin_panel`` heisst "hat irgendein settings.*". Ohne das
-    Praefix bekaeme die Lehrperson das Recht, aber keine Tuer dazu."""
+    """Without the prefix the permission would exist but no door to it."""
     assert is_settings_key(PERM_SET_STATS_OWN)
 
 
-# ── Die Besitzpruefung ───────────────────────────────────────────────────────
+# ── The ownership check ──────────────────────────────────────────────────────
 
 @pytest.fixture
 def modul(monkeypatch):
-    """Ein Modul mit Eigentuemer, Tutor und einer Lernenden."""
+    """A module with an owner, a tutor and one learner."""
     def _apply(vorhanden=True):
         monkeypatch.setattr(
             eigene.db, "get_aia_workspace",
@@ -79,13 +67,13 @@ def test_der_eigentuemer_darf(modul):
 
 
 def test_der_tutor_darf_auch(modul):
-    """Wie ueberall sonst: wer das Modul betreut, sieht auch seine Zahlen."""
+    """As everywhere else: whoever tutors the module also sees its numbers."""
     modul()
     assert eigene.may_see_workspace("abc", TUTOR) is True
 
 
 def test_eine_eingeschriebene_lernende_darf_nicht(modul):
-    """Der Kern der Sache. Wer im Modul lernt, sieht die Zahlen der anderen nie."""
+    """The heart of it: whoever learns in the module never sees the others' numbers."""
     modul()
     assert eigene.may_see_workspace("abc", LERNENDE) is False
 
@@ -100,7 +88,7 @@ def test_ein_unbekanntes_modul_ist_kein_zugriff(modul):
     assert eigene.may_see_workspace("weg", EIGNER) is False
 
 
-# ── Die Liste der eigenen Module ─────────────────────────────────────────────
+# ── The list of your own modules ─────────────────────────────────────────────
 
 class _FakeCursor:
     def __init__(self, rows, calls):
@@ -175,8 +163,7 @@ def test_ohne_eigenes_modul_bleibt_die_seite_leer_statt_zu_werfen(fake_db):
 
 
 def test_die_liste_zaehlt_den_eigentuemer_mit_wie_die_detailansicht(fake_db):
-    """Sonst steht in der Zeile 2 und im geoeffneten Modul 3, und man sucht den
-    Fehler bei sich."""
+    """Otherwise two different numbers stand for the same thing."""
     calls = fake_db([])
 
     eigene.own_workspaces(EIGNER)
@@ -187,7 +174,7 @@ def test_die_liste_zaehlt_den_eigentuemer_mit_wie_die_detailansicht(fake_db):
 
 
 def test_die_abfrage_laesst_nur_eigentum_und_tutor_durch(fake_db):
-    """Ohne die Tutor-Bedingung waere die Liste eine Liste aller Module."""
+    """Without the tutor condition the list would be a list of all modules."""
     calls = fake_db([])
 
     eigene.own_workspaces(EIGNER)
@@ -198,10 +185,10 @@ def test_die_abfrage_laesst_nur_eigentum_und_tutor_durch(fake_db):
     assert set(params) == {EIGNER}, "die Nummer kommt aus der Anmeldung, sonst nichts"
 
 
-# ── Die Routen ───────────────────────────────────────────────────────────────
+# ── The routes ───────────────────────────────────────────────────────────────
 
 async def test_die_liste_fragt_nach_dem_angemeldeten_nutzer(monkeypatch):
-    """Der Filter darf nie aus der Adresse kommen, sonst ist er kein Filter."""
+    """The filter must never come from the URL, otherwise it is no filter."""
     gefragt = []
     monkeypatch.setattr(stats_route, "own_workspaces", lambda uid: gefragt.append(uid))
 
@@ -211,7 +198,7 @@ async def test_die_liste_fragt_nach_dem_angemeldeten_nutzer(monkeypatch):
 
 
 async def test_ein_fremdes_modul_antwortet_mit_404(monkeypatch):
-    """404 und nicht 403: sonst verraet die Antwort, dass es das Modul gibt."""
+    """404 and not 403, otherwise the answer reveals that the module exists."""
     monkeypatch.setattr(stats_route, "may_see_workspace", lambda uuid, uid: False)
 
     with pytest.raises(HTTPException) as fehler:
@@ -230,7 +217,7 @@ async def test_das_eigene_modul_kommt_durch(monkeypatch):
 
 
 async def test_ein_geloeschtes_modul_antwortet_auch_mit_404(monkeypatch):
-    """Die Pruefung sagt ja, die Detailabfrage findet nichts mehr."""
+    """The check says yes, the detail query no longer finds anything."""
     monkeypatch.setattr(stats_route, "may_see_workspace", lambda uuid, uid: True)
     monkeypatch.setattr(stats_route, "workspace_detail", lambda uuid: None)
 

@@ -1,4 +1,4 @@
-/** Heute ist kein Fehler, darum das Akzentblau und dieselbe Farbe wie die Heute-Zelle im Raster. */
+/** Today is not an error, hence the accent blue and the same colour as today's grid cell. */
 export const URGENCY_TODAY = "var(--kb-dark)";
 export const URGENCY_SOON = "var(--warn)";
 
@@ -7,12 +7,7 @@ export function todayISO(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-/**
- * Foreground color for a deadline's date/time text:
- *   today → accent blue, less than 7 days away → orange, else null (use default).
- * Past deadlines fall through to default since the "vor X Tagen" label
- * already conveys overdue status.
- */
+/** Colour of the appointment line, blue today and orange under seven days. */
 export function urgencyColor(dueDate: string | null | undefined, today: string): string | null {
   if (!dueDate) return null;
   if (dueDate < today) return null;
@@ -24,32 +19,14 @@ export function urgencyColor(dueDate: string | null | undefined, today: string):
   return null;
 }
 
-/**
- * Strip start-time repetition from a schedule entry's description.
- *
- * The classifier sometimes leaks the due_time back into `description` (e.g.
- * description="2359 Uhr" while due_time="23:59", or description="10 bis 13:15
- * Uhr" while due_time="10:00"). The UI shows due_time separately, so the
- * leading repetition is pure noise. For ranges the trailing "bis HH:MM Uhr"
- * is kept because it carries the end-time, which the data model has no slot
- * for.
- */
-/**
- * Wirft ein "bis <Datum>" oder "ab <Datum>" aus der Beschreibung, wenn dort der EIGENE
- * Tag des Eintrags steht.
- *
- * Das stammt aus Laeufen, bevor es die Spalte fuer das Ende gab: die Extraktion schrieb
- * das zweite Datum der Zeile als Text in die Beschreibung, und der Eintrag am Ende der
- * Spanne trug dann seinen eigenen Tag nochmal unter sich ("27 SEP - Belegung der Module -
- * bis 27.09.2026"). Zeigt der Text auf einen ANDEREN Tag, bleibt er stehen, dort steckt
- * noch echte Information.
- */
+/** Drops the start time from the description, for spans the end stays. */
+/** Drops an 'until' or 'from' carrying its own day, another day stays. */
 function stripSelfDate(text: string, dueDate: string | null | undefined): string {
   if (!dueDate || !/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) return text;
   const [jahr, monat, tag] = dueDate.split("-");
   const t = String(Number(tag));
   const m = String(Number(monat));
-  // "27.09.2026", "27.9.2026", "27.09.26" und dieselben Formen ohne fuehrende Null.
+  // The German date forms with two or four digit years, with and without a leading zero.
   const zahl = `0?${t}\\.\\s*0?${m}\\.\\s*(?:${jahr}|${jahr.slice(2)})`;
   const wort = "(?:bis|ab|until|from)(?:\\s+(?:zum|zur|dem))?";
   return text
@@ -86,8 +63,7 @@ export function cleanScheduleDescription(
     return null;
   }
 
-  // 2) Range like "10 bis 13:15 Uhr" / "10:00–13:15": strip the leading start-time
-  //    so only the end remains.
+  // For a span the start time drops out and only the end stays.
   const stripped = trimmed.replace(
     new RegExp(
       `^(?:um\\s+)?(?:${variantPattern}|${hourOnly})\\s*(?:Uhr\\s+)?(?=bis\\b|und\\b|[–—-]\\s*\\d)`,
@@ -104,13 +80,7 @@ function parseYMD(s: string): Date {
   return new Date(y, m - 1, d);
 }
 
-/**
- * Der Tag, an dem der Termin wirklich faellig ist: bei einer Spanne der letzte.
- *
- * Danach richtet sich, ab wann die Ansicht warnt und wann sie abblendet. Eine
- * Betreuungszeit vom 28.09. bis zum 21.01. laeuft vier Monate, sie ist am 29.09. weder
- * vorbei noch dringend.
- */
+/** The really due day, for a span the last one. */
 export function effectiveDueDate(entry: {
   due_date: string | null;
   end_date?: string | null;
@@ -118,15 +88,7 @@ export function effectiveDueDate(entry: {
   return entry.end_date || entry.due_date;
 }
 
-/**
- * Das Ende einer Zeitspanne im Klartext: "2. November", "21. Januar 2027".
- *
- * Das Jahr steht nur dort, wo die Spanne den Jahreswechsel ueberschreitet. Ohne diese
- * Regel waere "bis 21. Januar" bei einer Spanne ab dem 28. September mehrdeutig, der
- * Leser haette keinen Anhalt, welcher Januar gemeint ist.
- *
- * Gibt null zurueck, wenn es keine Spanne ist.
- */
+/** The end of a span in plain text, with a year only across the year boundary. */
 export function formatRangeEnd(
   dueDate: string | null | undefined,
   endDate: string | null | undefined,
@@ -142,16 +104,7 @@ export function formatRangeEnd(
   }).format(parseYMD(endDate));
 }
 
-/**
- * "ab" oder "bis" vor der Tagesnummer, wenn die Quelle den Tag so eingegrenzt hat.
- *
- * Die Quelle schreibt "ab 15.09.2026 Freischaltung der Module" und "bis 03.01.2027
- * Eingabe der Pruefungsvorleistungen". Ohne den Marker sieht beides aus wie ein Termin AN
- * diesem Tag. Er steht an der Plakette und nicht als Zeile in der Karte, damit das Datum
- * nicht ein zweites Mal dasteht.
- *
- * Eine Spanne braucht ihn nicht, dort sagt die Zeile "bis <Datum>" schon alles.
- */
+/** 'from' or 'until' before the day number when the source bounded the day. */
 export function dateQualifier(entry: {
   type?: string | null;
   end_date?: string | null;

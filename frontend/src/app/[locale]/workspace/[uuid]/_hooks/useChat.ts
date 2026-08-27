@@ -41,10 +41,7 @@ export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, c
     abortControllerRef.current?.abort();
   }, []);
 
-  // Abort any in-flight stream when the panel unmounts (SPA navigation away).
-  // The browser fetch is then cancelled, the route handler's req.signal fires and
-  // the backend stops generating, instead of writing an answer nobody is reading
-  // anymore.
+  // Aborts the stream when the panel is left.
   useEffect(() => {
     return () => { abortControllerRef.current?.abort(); };
   }, []);
@@ -80,10 +77,7 @@ export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, c
 
   const loadPopupActions = useCallback(async () => {
     try {
-      // Locale comes from Accept-Language (api.fetch reads NEXT_LOCALE cookie),
-      // not chat_lang - popup labels are UI strings, not LLM output language.
-      // The target language IS the reader's own setting, so it rides along as a
-      // query param and this refetches whenever they change it.
+      // The target language travels as a parameter and reloads on a change.
       const res = await api.fetch(popupActionsUrl(popupTranslateLang));
       if (res.ok) {
         const d = await res.json();
@@ -98,9 +92,7 @@ export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, c
     sourceInfo?: { uuid: string; filename: string; page: number; selectedText?: string; actionKey?: string }
   ) => {
     content = content.replace(/\s*\[(?:Q\d+,\s*)?S\.\s*\d+\]/g, "");
-    // An open source never narrows the scope. Everything the reader checked stays
-    // active, also while one of those sources sits open in the viewer. Restricting
-    // the chat to a single source is a manual choice via the checkboxes.
+    // An opened source does not narrow the selection.
     const effectiveSourceIds = selectedSourceIds;
     if (!content.trim()) return;
     if (!directText && effectiveSourceIds.length === 0) return;
@@ -121,11 +113,7 @@ export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, c
     setChatLoading(true);
     setMessages((prev) => [...prev, { role: "assistant", content: "", sourceCount: msgSourceCount, popup_selection: popupSel }]);
 
-    // Safety net for a finished request that left the bubble empty: the backend can
-    // emit `done` with an empty answer (model produced nothing, or the cleanup filters
-    // stripped everything), and the stream can also end without any done/error event.
-    // Both used to leave the message blank, which the UI rendered as an endless
-    // typing indicator. A cancelled message keeps its own "aborted" marker.
+    // A net against an answer that stayed empty, otherwise the display types forever.
     const failIfEmpty = () =>
       setMessages((prev) => {
         const last = prev[prev.length - 1];
@@ -145,11 +133,7 @@ export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, c
 
     const ac = new AbortController();
     abortControllerRef.current = ac;
-    // Inactivity safety net: if no chunk arrives for this long, the connection
-    // is presumed dead (network zombie, provider stall the backend missed) and
-    // we bail so the user can retry instead of staring at a frozen indicator.
-    // Backend has its own 60s inactivity timeout, so this is a slightly looser
-    // outer bound that only fires when the backend itself is unreachable.
+    // If nothing comes for a long time, the connection counts as dead.
     const INACTIVITY_MS = 90_000;
     let inactivityTimer: ReturnType<typeof setTimeout> | null = null;
     let timedOut = false;
@@ -210,9 +194,7 @@ export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, c
                 rafId = requestAnimationFrame(() => { flushTokens(); rafId = null; });
               }
             } else if (evt.qmap) {
-              // Pre-stream metadata: lets citation chips resolve to the right
-              // source while tokens are still arriving. applied_level carries the
-              // CEFR level the adaptive tutor used, for the admin-only badge.
+              // Details before the stream so chips resolve while it is still running.
               updateLast({
                 source_qmap: evt.qmap,
                 source_pages: evt.source_pages,
@@ -225,8 +207,7 @@ export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, c
               if (evt.answer) patch.content = evt.answer;
               updateLast(patch);
             } else if (evt.error) {
-              // Beim ueberlasteten oder stummen Anbieter hilft nur spaeter noch einmal
-              // fragen. Das steht jetzt da, statt fuer jede Ursache derselbe Satz.
+              // With an overloaded provider it now says 'try again later'.
               const key = evt.code === "upstream_busy" ? "upstreamBusy" : "genericError";
               updateLast({ content: tChat(key), failed: true });
             }
@@ -249,8 +230,7 @@ export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, c
       } else if (res.status === 409) {
         updateLast({ content: tChat("indexingInProgress", { label: labels.singular }) });
       } else if (res.status === 429) {
-        // Burst lock: too many chat requests in a short time. Backend returns
-        // the concrete lock time in detail.message ("Chat ist bis HH:MM Uhr gesperrt").
+        // The block names the concrete time.
         let msg = tChat("tooManyRequests");
         try {
           const err = await res.json();
@@ -258,15 +238,11 @@ export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, c
         } catch { /* ignore */ }
         updateLast({ content: msg });
       } else {
-        // 409 and 429 above stay unflagged on purpose: they are "come back later"
-        // states, and an immediate retry would only hit the same lock.
+        // Blocks stay without a retry button, it would hit the same block.
         updateLast({ content: tChat("genericError"), failed: true });
       }
     } catch {
-      // AbortController-triggered cancel: keep partial text + flag aborted.
-      // Inactivity timeout also routes through abort but with timedOut=true so
-      // the user sees an actionable error instead of a silent "you cancelled" flag.
-      // Other errors (network drop, parse fail) overwrite with generic error text.
+      // A cancellation keeps the partial text, a timeout reports as an error.
       if (timedOut) {
         updateLast({ content: tChat("genericError"), failed: true });
       } else if (ac.signal.aborted) {
@@ -282,19 +258,11 @@ export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, c
     }
   }, [uuid, enrollmentId, selectedSourceIds, popupActions]);
 
-  // Read through a ref so retryLast keeps a stable identity — it travels down to
-  // the memoized ChatMessage, and a `messages` dependency would re-render every
-  // bubble on every token.
+  // Read through a ref so the callback stays stable.
   const messagesRef = useRef<ChatMessage[]>(messages);
   messagesRef.current = messages;
 
-  /**
-   * Re-ask the most recent question after a failed turn. The failed bubble stays
-   * in place and the retry appends a new turn, so the panel matches what the
-   * backend persisted (a failed marker, then the new exchange) instead of
-   * quietly rewriting history. Popup/action-bar turns are skipped: replaying one
-   * needs the original selection context, which the retry button does not carry.
-   */
+  /** Asks the last question again, the failed bubble stays. */
   const retryLast = useCallback(() => {
     if (chatLoading) return;
     const lastUser = [...messagesRef.current].reverse().find((m) => m.role === "user");

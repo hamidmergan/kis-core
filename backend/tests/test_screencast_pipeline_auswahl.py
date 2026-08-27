@@ -1,4 +1,4 @@
-"""Der Zaehler meldet die zu sprechenden Folien, nicht die Folien im Video."""
+"""The counter reports the slides to be spoken, not the slides in the video."""
 
 from src.tasks.screencast_tasks._pipeline import _fortschritt_vertonung
 

@@ -1,10 +1,4 @@
-"""Der Zaehler fuer die Statistik: einmal je Auftrag, nie doppelt.
-
-Warum das eigene Tests braucht: die Zaehlung ist die einzige Spur, die ein
-Auftrag hinterlaesst, nachdem ihn die Aufbewahrung aus `jobs` entfernt hat.
-Zaehlt sie zweimal, steht in der Statistik dauerhaft eine falsche Zahl, und
-niemand kann sie nachtraeglich richtigstellen.
-"""
+"""The counter runs once per job, double counting would be wrong forever."""
 import pytest
 
 from src.features.jobs.repository._counts import (
@@ -18,7 +12,7 @@ from src.features.stats.tools import WERKZEUGE, ZUSAMMEN
 
 
 class FakeCursor:
-    """Merkt sich nur, ob und womit eingefuegt wurde."""
+    """Only remembers whether and with what an insert happened."""
 
     def __init__(self):
         self.calls = []
@@ -47,12 +41,12 @@ def test_ein_erfolg_wird_gezaehlt():
 def test_die_dauer_ist_die_gemessene_spanne():
     cur = FakeCursor()
     count_job(cur, "translation", "success", _started(), _completed())
-    # Reihenfolge der Parameter: completed, completed, tool, status, sekunden
+    # Parameter order: completed, completed, tool, status, seconds
     assert cur.calls[0][1][-1] == 600
 
 
 def test_ein_fehlschlag_zaehlt_ohne_dauer():
-    """Eine abgebrochene Dauer waere keine Rechenzeit, sondern Zufall."""
+    """A cancelled duration would not be compute time but chance."""
     cur = FakeCursor()
     count_job(cur, "translation", "failed", _started(), _completed())
     assert len(cur.calls) == 1
@@ -83,7 +77,7 @@ def test_nur_erfolg_und_fehlschlag_sind_endzustaende():
 
 
 def test_screencast_misst_ab_dem_rendern():
-    """Sonst stuende die Wartezeit auf den Nutzer in der Rechenzeit."""
+    """Otherwise the wait for the user would sit in the compute time."""
     assert messpunkt("screencast_render", _started(), _completed()) == _completed()
     assert messpunkt("screencast_translate", _started(), _completed()) == _completed()
 
@@ -97,11 +91,7 @@ def test_andere_werkzeuge_messen_ab_dem_start():
 
 
 def test_gemischte_zeitzonen_stuerzen_nicht_ab():
-    """`jobs` speichert ohne Zone, der Aufrufer rechnet mit einer.
-
-    Ohne Ausgleich scheitert schon das Abziehen der beiden Zeiten, und der
-    Auftrag wuerde nie gezaehlt. Live aufgefallen, nicht im Kopf.
-    """
+    """Without the time zone fix even subtracting the times fails."""
     from datetime import datetime, timezone
     cur = FakeCursor()
     ohne_zone = datetime(2026, 8, 25, 9, 20)
@@ -111,7 +101,7 @@ def test_gemischte_zeitzonen_stuerzen_nicht_ab():
 
 
 def test_das_anlegen_wird_gezaehlt():
-    """Die Zeile beim Anlegen ist die, die einen geloeschten Auftrag ueberlebt."""
+    """The creation row is the one that survives a deleted job."""
     cur = FakeCursor()
     count_started(cur, "screencast_render")
     assert len(cur.calls) == 1
@@ -121,7 +111,7 @@ def test_das_anlegen_wird_gezaehlt():
 
 
 def test_anlegen_und_abschluss_sind_zwei_zeilen():
-    """Sonst zaehlte derselbe Auftrag zweimal in derselben Summe."""
+    """Otherwise the same job would count twice in the same total."""
     cur = FakeCursor()
     count_started(cur, "translation")
     count_job(cur, "translation", "success", _started(), _completed())
@@ -135,6 +125,6 @@ def test_screencast_uebersetzung_gilt_als_screencast():
 
 
 def test_jedes_werkzeug_hat_einen_namen():
-    """Sonst steht in den Balken ein leerer Schluessel statt eines Namens."""
+    """Otherwise the bars show an empty key instead of a name."""
     assert len(WERKZEUGE) == 8
     assert set(ZUSAMMEN.values()) <= set(WERKZEUGE)

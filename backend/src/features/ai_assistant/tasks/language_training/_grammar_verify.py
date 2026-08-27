@@ -1,29 +1,4 @@
-"""Ein Modell-Urteil über fertige Grammatik-Aufgaben, bevor sie ins Set kommen.
-
-Warum überhaupt ein Aufruf, wo dieses Werkzeug seine Prüfungen sonst im Code macht.
-Zwei der Meldungen vom 2026-08-12 sind ohne Urteil nicht zu fangen:
-
-* "Die Familienmitglieder ___ am Wochenende treffen." mit der Lösung "müssen getroffen
-  werden". Die Lösung ist richtig, der Satz mit ihr darin nicht, denn hinten steht
-  noch "treffen". Ein Wortvergleich sieht das nicht, "treffen" und "getroffen" sind
-  zwei verschiedene Wörter.
-* "Das Verb steht im Relativsatz immer am Ende." ist eine Aussage ÜBER die Grammatik
-  und keine Übung IN ihr. Sprach-unabhängig ist das im Code nicht zu erkennen, dafür
-  bräuchte es Wortlisten, und die gibt es in diesem Werkzeug nirgends.
-
-Geprüft wird der Satz, mit dem der LERNENDE dasteht: Lücke gefüllt, markierte Option
-eingesetzt. Was der Prüfer NICHT beurteilt, ist die Umformung selbst, also ob ``after``
-zu ``before`` passt. Das war nicht gemeldet, und ein Prüfer, der alles beurteilt,
-urteilt überall ein bisschen.
-
-EIN Aufruf für alle Aufgaben eines Wurfs. Ein Aufruf je Aufgabe wäre dieselbe Falle,
-in die die Freitext-Prüfung schon einmal gelaufen ist (siehe :mod:`src.services.aia_grammar_check`).
-
-Verworfen wird nur, was das Modell ausdrücklich meldet. Eine unlesbare Antwort, eine
-fehlende Nummer, eine Störung des Anbieters: alles kommt durch. Die Aufgaben sind ohne
-diesen Aufruf vollständig, nur ungeprüft, und ein Prüfer, der bei Zweifel wegwirft,
-macht aus einem guten Set ein zu kurzes.
-"""
+"""A model verdict on finished grammar exercises, passed through when in doubt."""
 
 import json
 
@@ -32,8 +7,7 @@ from loguru import logger
 from src.features.ai_assistant.tasks._helpers import _clean_llm_json
 
 
-# Woran der Prüfer eine absichtlich fehlerhafte Aussage erkennt. Steht als Text im
-# Prompt UND im Test, deshalb als Konstante und nicht zweimal getippt.
+# How the checker recognises a deliberately faulty statement.
 _ON_PURPOSE = "wrong on purpose"
 
 _SHAPE = (
@@ -70,15 +44,8 @@ def _prompt(target_form: str, rule: str) -> str:
 
 
 def solved_text(ex: dict) -> str:
-    """Der Satz, mit dem der Lernende dasteht, oder leer, wenn es keinen gibt.
-
-    Leer heisst nicht schlecht, sondern nicht beurteilbar: eine Art, die es nicht gibt,
-    oder eine Aufgabe ohne Satz. Die fallen ohnehin durch die Filter in
-    :mod:`._source_grammar`, hier werden sie nur übersprungen.
-    """
-    # Erst hier geholt: der Aufrufer dieses Moduls ist _source_grammar, ein Import auf
-    # Modulebene ergäbe also einen Ringschluss. Dieselbe Lage wie bei ``derive_topic``
-    # in :mod:`src.services.aia_grammar_topic`.
+    """The sentence the learner is left with, or empty when there is none."""
+    # Fetched only here, an import at the module header would close a cycle.
     from src.features.ai_assistant.tasks.language_training._source_grammar import GAP
 
     kind = (ex.get("kind") or "").strip().lower()
@@ -98,12 +65,7 @@ def solved_text(ex: dict) -> str:
 
 
 def _marked_option(ex: dict) -> str:
-    """Die als richtig markierte Option, oder leer.
-
-    Ungeprüft übernommen: ob die Nummer überhaupt zur Liste passt, entscheiden die
-    Filter in :mod:`._source_grammar`. Hier zählt nur, ob sich ein Satz zum Vorlesen
-    bilden lässt.
-    """
+    """The option marked correct, or empty."""
     options = ex.get("options") or []
     idx = ex.get("correct_idx")
     if not isinstance(idx, int) or isinstance(idx, bool):
@@ -114,24 +76,14 @@ def _marked_option(ex: dict) -> str:
 
 
 def _wrong_on_purpose(ex: dict) -> bool:
-    """Ob die Aufgabe einen Fehler zeigen SOLL.
-
-    Das ist die Hälfte aller Richtig/Falsch-Aussagen. Ohne diese Unterscheidung würde
-    der Prüfer sie alle melden, denn er sucht ja nach Sätzen, die nicht stimmen. Übrig
-    blieben die richtigen, und der Lernende bekäme ein Format, in dem "Falsch" nie die
-    Antwort ist.
-    """
+    """Whether the exercise deliberately shows an error."""
     return (ex.get("kind") or "").strip().lower() == "statement" and \
         ex.get("answer") is False
 
 
 def verdicts(client, model, exercises: list[dict], target_form: str,
              rule: str) -> list[bool]:
-    """Je Aufgabe, ob sie brauchbar ist. Reihenfolge und Länge wie ``exercises``.
-
-    ``True`` heisst durchgelassen und ist der Rückfall für jeden Zweifel: kein Urteil,
-    kein lesbares JSON, keine Antwort. Siehe den Modulkopf.
-    """
+    """Per exercise, whether it is usable, True when in doubt."""
     if not exercises:
         return []
     urteile = [True] * len(exercises)
@@ -149,7 +101,7 @@ def verdicts(client, model, exercises: list[dict], target_form: str,
     messages = [{"role": "system", "content": _prompt(target_form, rule)},
                 {"role": "user", "content": "\n".join(lines)}]
     try:
-        # Niedrige Temperatur: hier ist keine Vielfalt gefragt, sondern ein Urteil.
+        # Low temperature: variety is not wanted here, a verdict is.
         response = client.chat.completions.create(
             model=model, messages=messages, temperature=0.2)
         data = json.loads(_clean_llm_json(response.choices[0].message.content or ""))
@@ -173,11 +125,7 @@ def verdicts(client, model, exercises: list[dict], target_form: str,
 
 
 def _is_rejected(value) -> bool:
-    """Ob ``ok`` eine Meldung ist.
-
-    Auch als Wort: Modelle schreiben ``"false"`` gern als Text, und eine Meldung bleibt
-    eine Meldung. Alles Unbekannte gilt als durchgelassen, nie als Meldung.
-    """
+    """Whether ok is a message, anything unknown counts as passed."""
     if value is False:
         return True
     return isinstance(value, str) and value.strip().casefold() in ("false", "no")

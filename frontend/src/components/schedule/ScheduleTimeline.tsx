@@ -5,14 +5,14 @@ import { dateQualifier, effectiveDueDate, todayISO, urgencyColor } from "./utils
 export interface DatedEntry {
   id: number | string;
   due_date: string | null;
-  /** Gesetzt heisst: der Termin laeuft bis zu diesem Tag. */
+  /** When set, the appointment runs until this day. */
   end_date?: string | null;
   due_time?: string | null;
   /** Anfang bekannt, Ende ausdruecklich offen ("ab 15.09."). */
   is_open_ended?: boolean | null;
-  /** 'deadline' ohne Spanne heisst: die Quelle sagte "bis <Tag>". */
+  /** 'deadline' without a span means the source said 'until <day>'. */
   type?: string | null;
-  /** "month": die Quelle nannte nur einen Monat, dann steht keine Tagesnummer da. */
+  /** 'month': the source named only a month, then no day number appears. */
   date_precision?: string | null;
   is_checked?: boolean;
 }
@@ -52,8 +52,7 @@ function formatDay(
   const d = parseYMD(dateStr);
   const tag = locale === "en" ? "en-US" : "de-DE";
   return {
-    // Nennt die Quelle nur einen Monat, steht hier keine Tagesnummer. Der Monatserste
-    // ist nur der Sortierpunkt, im Dokument stand er nie.
+    // Without a day number in the source none appears here, the first only sorts.
     day: monthOnly ? null : String(d.getDate()).padStart(2, "0"),
     month: new Intl.DateTimeFormat(tag, { month: "short" }).format(d),
     year: String(d.getFullYear()),
@@ -69,14 +68,7 @@ function isToday(dateStr: string, today: Date): boolean {
   );
 }
 
-/**
- * Abgeblendet wird erst, wenn der Termin wirklich vorbei ist.
- *
- * Bei einer Zeitspanne ist das der letzte Tag, nicht der erste: eine Betreuungszeit vom
- * 28.09. bis zum 21.01. laeuft vier Monate und darf in dieser Zeit nicht grau aussehen.
- * Ein Termin mit offenem Ende ("ab 15.09. freigeschaltet") ist nie vorbei, er hat nur
- * angefangen.
- */
+/** Greyed out only after the last day, an open end is never over. */
 function entryIsPast(entry: DatedEntry, now: Date): boolean {
   if (entry.is_open_ended) return false;
   if (entry.end_date) return isPast(entry.end_date, null, now);
@@ -124,12 +116,10 @@ export function ScheduleTimeline<T extends DatedEntry>({
           const today_ = !monthOnly && isToday(entry.due_date!, today);
           const past_ = entryIsPast(entry, today);
           const { day, month, year } = formatDay(entry.due_date!, locale, monthOnly);
-          // Die Jahreszahl steht nur dort, wo ein Jahr anfängt. Danach reicht der Monat.
+          // The year only appears where a year starts, after that the month is enough.
           const prev = i > 0 ? dated[i - 1].due_date : null;
           const startsYear = !prev || String(parseYMD(prev).getFullYear()) !== year;
-          // Dringend wird ein Termin an seinem LETZTEN Tag, nicht an seinem ersten.
-          // Ein Termin ohne festes Ende wird nie dringend, er hat ja keine Frist.
-          // "ab" oder "bis" ueber der Tagesnummer, wenn die Quelle den Tag eingegrenzt hat.
+          // An appointment becomes urgent on its last day, without an end never.
           const marke = dateQualifier(entry);
           const urgency = entry.is_open_ended
             ? null

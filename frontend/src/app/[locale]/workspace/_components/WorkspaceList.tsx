@@ -17,9 +17,7 @@ interface Props {
   canCreate: boolean;
 }
 
-/** One list for everything the user can reach: workspaces they own, workspaces
- *  they tutor, and workspaces they learn from. Each row carries its own access
- *  level, so a single table can show all three without splitting the page. */
+/** One list for owned, tutored and enrolled courses, every row carries its level. */
 export default function WorkspaceList({ canCreate }: Props) {
   const t = useTranslations("workspace.list");
   const labels = useWorkspaceLabel();
@@ -48,8 +46,7 @@ export default function WorkspaceList({ canCreate }: Props) {
     return () => clearInterval(id);
   }, [workspaces, load]);
 
-  // Only rows the user manages can change, so the optimistic updates below
-  // never need to consider student rows.
+  // Only managed rows change, learner rows stay out.
   async function handleToggleActive(uuid: string, newVal: boolean) {
     try {
       const res = await fetch(`/api/ai-assistant/workspaces/${uuid}`, {

@@ -33,11 +33,7 @@ export type ElapsedFormatter = {
   hours: (h: number, m: string, s: string) => string;
 };
 
-/**
- * Split a span in milliseconds into seconds, m:ss or h:mm:ss and let the caller
- * spell it. The job list wants bare "2:07", the job detail wants translated
- * words, so only the splitting is shared.
- */
+/** Splits a duration, the caller does the labelling. */
 export function formatElapsed(ms: number, fmt: ElapsedFormatter): string {
   const totalSec = Math.round(ms / 1000);
   if (totalSec < 60) return fmt.seconds(totalSec);

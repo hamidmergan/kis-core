@@ -9,7 +9,7 @@ interface StepFooterProps {
   nextDisabled?: boolean;
 }
 
-/** Die gleiche Fussleiste fuer jede Seite, auf der man etwas entscheidet. */
+/** The same footer for every page where something is decided. */
 export default function StepFooter({ onBack, nextLabel, onNext, nextDisabled }: StepFooterProps) {
   const t = useTranslations("tools.screencast");
   return (

@@ -1,11 +1,4 @@
-"""Kleinteile rund um den Screencast, die still das Falsche taten.
-
-Dateinamen gingen immer direkt an DeepL, auch wenn der Job über ein
-Sprachmodell übersetzt wurde. Vorgerendert wurde immer mit 100 DPI, während
-die Oberfläche 144 DPI voreinstellt, das Ergebnis war deshalb nie brauchbar.
-Und die Sperren für die Skript-Erzeugung blieben für jeden je gesehenen Job
-im Speicher liegen.
-"""
+"""Small parts around the screencast that quietly did the wrong thing."""
 
 import asyncio
 
@@ -38,7 +31,7 @@ def test_stem_falls_back_when_the_service_fails():
         def translate_filename(self, *a):
             raise RuntimeError("Anbieter weg")
 
-    # Ohne DeepL-Schlüssel liefert der Rückfallweg den Originalstamm.
+    # Without a DeepL key the fallback path returns the original stem.
     assert translate_stem("Vorlesung.pptx", "DE", "EN-US", service=Broken()) == "Vorlesung"
 
 
@@ -53,7 +46,7 @@ def test_artifact_stem_appends_timestamp():
 
 
 def test_prerender_dir_is_separate_per_resolution():
-    """Sonst wird ein 100-DPI-Vorrat für einen 144-DPI-Render benutzt."""
+    """Otherwise a 100 DPI cache gets used for a 144 DPI render."""
     a = prerender_dir("abc", 100)
     b = prerender_dir("abc", 144)
     assert a != b
@@ -68,7 +61,7 @@ def test_script_gen_locks_do_not_grow_without_bound():
 
 
 def test_held_lock_is_never_dropped():
-    """Eine gehaltene Sperre wegzuwerfen würde zwei parallele Läufe erlauben."""
+    """Throwing away a held lock would allow two parallel runs."""
     async def _run():
         _script_gen_locks.clear()
         held = get_script_gen_lock("wichtig")

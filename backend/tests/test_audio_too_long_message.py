@@ -1,12 +1,4 @@
-"""The "audio too long" rejection must reach the user in their own language.
-
-It used to be a raw German f-string inside the whisper service
-("Audio zu lang (183.4 min). Maximum: 100 Minuten."), and handle_task_exception
-passes str(e) straight into jobs.error_message — so an English user got German.
-The service layer has no locale, so it raises a typed error and the task layer,
-which can read the job's creator_locale, does the wording. Same shape as
-FeatureNotConfigured.
-"""
+"""The 'recording too long' refusal has to arrive in the user's language."""
 import pytest
 
 from src.limits import MAX_AUDIO_SEC

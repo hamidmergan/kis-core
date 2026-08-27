@@ -1,16 +1,4 @@
-"""Post-hoc attribution must stay INSIDE an explicit page/time scope.
-
-The bug: "fasse alles ab 40 min zusammen" correctly restricts RETRIEVAL to chunks
-from minute 40 onwards (the model only reads that window), but the post-hoc citation
-step re-searches the WHOLE transcript and, because a media chunk's seen-cross-check is
-source-level (any chunk of the source passes), happily attaches a timestamp from
-minute 13 to a line whose globally-closest match sits early in the transcript. Result:
-a summary "from minute 40" shows citations at 13:16, 26:57, ...
-
-Fix: when an explicit scope produced ``scope_chunks`` (the exact window the model was
-shown), attribution candidates are filtered to those chunk ids — a citation can only
-point at something inside the scope. Pure layer, so these tests inject ``search_one``.
-"""
+"""With an explicit reference citations may only come from the reference window."""
 from src.features.ai_assistant.routes._helpers import (
     _attribute_generic_text,
     _scope_chunk_ids,
@@ -23,8 +11,7 @@ def _hit(sid, page, content, dist, start=None, cid=None):
 
 
 def _media_chunk(cid, start):
-    # A scoped media chunk as loaded by get_aia_chunks_by_source: carries an id,
-    # a start_time, and a transcript segment index in page_number (NOT a page).
+    # A media chunk carries a timestamp and a segment number, no page.
     return {"id": cid, "source_id": 3, "page_number": cid, "content": "x",
             "start_time": start, "end_time": start + 30}
 
@@ -79,8 +66,7 @@ def test_scoped_media_drops_chip_when_only_outside_hit_matches():
 
 
 def test_no_scope_keeps_closest_hit_unchanged():
-    # Without a scope there is no window, so the existing behaviour (cite the closest
-    # retrieved chunk) must be preserved.
+    # Without a reference the existing behaviour stays.
     line = "Quellenarten umfassen physische Zeitschriften und digitale Bibliotheken."
     out_hit = _hit(3, 13, "frühe Passage", 0.10, start=786.0, cid=13)
     in_hit = _hit(3, 41, "späte Passage", 0.30, start=2460.0, cid=101)
@@ -93,8 +79,7 @@ def test_no_scope_keeps_closest_hit_unchanged():
 
 
 def test_scoped_pdf_multipage_cites_inside_window():
-    # The same clamp protects a multi-page PDF scope ("fasse Seite 12 bis 14 zusammen"):
-    # an out-of-range page must never be cited even if it is semantically closer.
+    # The same bracket also protects a multi-page PDF reference.
     line = "Die Filterung im Frequenzbereich nutzt die diskrete Fouriertransformation."
     out_hit = _hit(1, 30, "andere Seite", 0.10, cid=30)
     in_hit = _hit(1, 13, "Seite im Scope", 0.30, cid=113)

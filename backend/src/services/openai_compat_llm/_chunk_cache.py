@@ -1,14 +1,4 @@
-"""Per-chunk Whisper transcription cache (Redis).
-
-When a chunked transcription task fails partway and Celery retries it, we want
-to skip chunks that already succeeded so the user does not lose progress and we
-do not redo finished work. Cache is keyed by ``(source_id, chunk_index)``
-and holds the (segments, language) tuple as JSON.
-
-TTL is generous: indexing tasks may sit in retry-backoff for hours while a
-provider is rate-limited; once the source is finally indexed the cache is no
-longer read but expires on its own.
-"""
+"""Remembers the Whisper result per part so a second attempt repeats nothing."""
 
 import json
 import os
@@ -33,8 +23,7 @@ def _key(cache_key: str, chunk_index: int) -> str:
 
 
 def _text_key(cache_key: str, chunk_index: int) -> str:
-    # Separate namespace from the verbose (segments) cache so a text entry is never
-    # read as JSON segments and vice-versa.
+    # Its own namespace so text and segments are never confused.
     return f"whisper:chunktext:{cache_key}:{chunk_index}"
 
 
@@ -75,14 +64,10 @@ def clear(cache_key: str, total_chunks: int) -> None:
         pass
 
 
-# ── Plain-text variant (non-verbose transcribe/translate tool) ───────────────
-# The standalone transcription tool produces a TEXT string per chunk (text/srt/vtt),
-# not (segments, language). Same per-(job, chunk) keying and TTL so a failed run can
-# resume instead of redoing the finished chunks.
+# The same for the tool that returns one text per part.
 
 def get_text(cache_key: str, chunk_index: int) -> str | None:
-    """Return the cached chunk text, or None if not cached. An empty cached string ('')
-    is a valid hit (a silent chunk) and is returned as ''."""
+    """The remembered text, or None, an empty text is a valid hit."""
     try:
         return _r().get(_text_key(cache_key, chunk_index))
     except Exception:

@@ -1,8 +1,4 @@
-"""Tests for the layout-aware PDF page reader.
-
-Pure logic: every test feeds LineBox records (text + geometry), the same shape the
-pdfium text page yields, so no PDF file or library is involved.
-"""
+"""Checks the layout-aware PDF reader, pure logic without a PDF file."""
 
 from src.services.aia_pdf_layout import (
     LineBox,
@@ -23,8 +19,7 @@ def L(text, x=30.0, y=100.0):
 # ── reading order ────────────────────────────────────────────────────────────
 
 def test_reading_order_is_top_to_bottom_not_extraction_order():
-    # pdfium hands the slide title back LAST because it sits in its own text object.
-    # Sorted by falling y it goes back to the top, where a reader would look for it.
+    # pdfium returns the slide title last, sorted it is back on top.
     lines = [L("erster Punkt", y=390), L("zweiter Punkt", y=356), L("TITEL", y=424)]
     assert [b.text for b in page_reading_order(lines)] == ["TITEL", "erster Punkt", "zweiter Punkt"]
 
@@ -35,8 +30,7 @@ def test_reading_order_breaks_ties_left_to_right():
 
 
 def test_reading_order_treats_near_equal_y_as_one_row():
-    # Baselines of one row differ by a fraction of a point; without a tolerance the
-    # right-hand column would sort above the left one.
+    # Without tolerance the right column sorted above the left one.
     lines = [L("rechts", x=300, y=100.0), L("links", x=30, y=100.4)]
     assert [b.text for b in page_reading_order(lines)] == ["links", "rechts"]
 
@@ -69,16 +63,14 @@ def test_keeps_a_number_that_is_part_of_a_sentence():
 
 
 def test_leaves_a_short_document_alone():
-    # Under the minimum page count "repeats everywhere" says nothing: a two-page
-    # handout may legitimately open both pages with the same heading.
+    # Below the minimum page count a repetition says nothing.
     pages = [[L("Überschrift"), L("Inhalt")] for _ in range(3)]
     out = drop_boilerplate_lines(pages)
     assert [b.text for b in out[0]] == ["Überschrift", "Inhalt"]
 
 
 def test_never_empties_a_page_completely():
-    # A page whose every line is boilerplate keeps its lines rather than vanishing
-    # from the index without trace.
+    # A page made of nothing but headers keeps its lines.
     pages = [[L("Kopfzeile")] for _ in range(8)]
     out = drop_boilerplate_lines(pages)
     assert all(p for p in out)
@@ -99,9 +91,7 @@ def test_strips_furniture_from_plain_text_without_reordering_it():
 
 
 def test_a_footer_glued_together_in_the_plain_text_is_still_recognised():
-    # Verbatim shape of the real deck: pdfium reports the footer as THREE rects, but its
-    # plain text run glues them into ONE line. Keys built from the rects alone never match
-    # that line, so the footer rode along in 19 of 32 chunks.
+    # The footer arrives as three boxes and as one glued line.
     pages_lines = [[L("Wissenschaftliches Seminar"), L("Einführung"),
                     L("Lenka Kleinau, M.Sc."), L(f"Inhalt {i}")] for i in range(6)]
     page_texts = [f"Inhalt {i}\nWissenschaftliches Seminar - Einführung - Lenka Kleinau, M.Sc."
@@ -111,8 +101,7 @@ def test_a_footer_glued_together_in_the_plain_text_is_still_recognised():
 
 
 def test_the_ocr_spelling_of_the_same_footer_counts_as_the_same_line():
-    # On image-heavy pages the OCR model re-transcribes the footer without the dashes.
-    # Counted as a separate line it stands on too few pages to look like furniture.
+    # Text recognition writes the footer differently, that has to count too.
     pages_lines = [[L("Wissenschaftliches Seminar"), L(f"Inhalt {i}")] for i in range(8)]
     page_texts = [f"Inhalt {i}\nWissenschaftliches Seminar - Einführung - Lenka Kleinau, M.Sc."
                   for i in range(6)]
@@ -215,8 +204,7 @@ def test_no_text_of_the_page_is_lost():
 
 
 def test_tiny_bullets_travel_with_a_group_that_carries_them():
-    # Neither one-word bullet can stand as a citation anchor, so both ride along with the
-    # next substantial group instead of becoming their own scraps.
+    # Bullet points that are too thin travel with the next group.
     page = [
         L("TITEL", x=30, y=400),
         L("• kurz", x=30.5, y=320),
@@ -231,9 +219,7 @@ def test_tiny_bullets_travel_with_a_group_that_carries_them():
 
 
 def test_a_thin_group_next_to_a_full_one_is_not_left_stranded():
-    # Verbatim shape of a real slide: a heading bullet, a full group, a closing bullet.
-    # Cutting it left 39- and 29-character scraps in the index — smaller than anything
-    # that page produced before it was cut at all.
+    # Without a floor, fragments of 29 characters would stay in the index.
     page = [
         L("• PERSÖNLICHER ZEIT UND MEILENSTEINPLAN", x=30.5, y=400),
         L("• Zeit und Meilensteinplan erstellen", x=30.5, y=380),
@@ -246,9 +232,7 @@ def test_a_thin_group_next_to_a_full_one_is_not_left_stranded():
 
 
 def test_no_group_lands_under_the_floor_it_was_cut_for():
-    # The floor counts the FINISHED text, title included. Measured on the bullets alone,
-    # this page produced a 98-character group — just under the 100 characters at which
-    # the citation attribution writes a chunk off as boilerplate.
+    # The floor counts the finished text including the title.
     page = [
         L("ORGANISATORISCHES PRÜFUNGSLEISTUNG", x=30, y=400),
         L("• 20 Minuten Präsentation", x=30.5, y=300),
@@ -259,8 +243,7 @@ def test_no_group_lands_under_the_floor_it_was_cut_for():
 
 
 def test_a_page_that_folds_back_into_one_group_gains_nothing():
-    # Both bullets are thin, so they merge; one group is exactly what the whole-page
-    # path already produces, so the caller is told there is nothing to do.
+    # If only one group remains there is nothing to do.
     page = [
         L("TITEL", x=30, y=400),
         L("• kurz", x=30.5, y=300),
@@ -292,8 +275,7 @@ def test_dashes_and_digits_count_as_bullets_too():
 # ── prose pages must stay whole ──────────────────────────────────────────────
 
 def test_a_prose_page_with_a_few_dashes_is_not_a_slide():
-    # A statute page: one long paragraph plus a handful of dashed citation notes. Cutting
-    # it turned 3050 characters into 7157, because the paragraph rode along in every group.
+    # A prose page with a few dashes must not be cut.
     page = [L("Art 144 (1) " + "Dieses Grundgesetz bedarf der Annahme durch die Volksvertretungen. " * 12,
               x=30, y=500)]
     page += [L(f"Zwischentext ohne Aufzählungszeichen Nummer {i}, in ganzen Sätzen.", x=30, y=480 - i * 10)

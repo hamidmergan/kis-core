@@ -83,8 +83,7 @@ def test_reader_detects_fragmented():
 
 
 def test_reader_progressive_large_moov_header_only():
-    # A 200 KB front moov (faststart). The walk must decide via box HEADERS only — it never
-    # reads the moov body — so a handful of tiny range reads classify it as progressive.
+    # The decision goes by the box headers alone, never by the content.
     big_moov = _box(b"moov", b"\x00" * 200_000)
     read, calls = _reader(_FTYP + big_moov + _MDAT)
     assert is_fragmented_mp4_reader(read) is False

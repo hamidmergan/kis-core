@@ -1,22 +1,6 @@
 "use client";
 
-/**
- * Bausatz für Einstellungskarten.
- *
- * Vorher hatte jede Karte ihre eigenen achtzig Zeilen aus Laden, Entwurf,
- * Speichern, Fehler und Schalter-Markup. Zwölf Karten, zwölf Kopien, jede
- * minimal anders. Hier steht das einmal.
- *
- * Festgelegtes Verhalten, überall gleich:
- *
- * - Kein Speichern-Knopf. Zahlen und Texte greifen beim Verlassen des Feldes
- *   oder mit Enter, Schalter sofort. Ein Knopf über allen Einstellungen wäre
- *   die andere saubere Möglichkeit, scheitert aber daran, dass die Hälfte der
- *   Einstellungen Schalter sind, und ein Schalter, der erst nach Klick auf
- *   Speichern wirkt, wirkt kaputt.
- * - Sichtbare Rückmeldung. Genau das fehlte vorher: man tippte eine Zahl,
- *   klickte weg und erfuhr nie, ob sie angekommen ist.
- */
+/** Building blocks for settings cards, no save button and visible feedback. */
 
 import { useEffect, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
@@ -36,7 +20,7 @@ export function SettingCard({
 }: {
   title: ReactNode;
   description?: ReactNode;
-  /** Steuerelement rechts oben. Für breite Inhalte stattdessen children nutzen. */
+  /** Control in the top right, for wide content use children instead. */
   control?: ReactNode;
   error?: string | null;
   children?: ReactNode;
@@ -66,9 +50,7 @@ export function SettingCard({
   );
 }
 
-/* Hier stand eine Marke "Gespeichert." neben jedem Feld. Sie ist weg: dass eine
-   Einstellung sofort greift, weiss man, und ein Schild dafuer ist Laerm. Fehler
-   meldet die Karte weiterhin. */
+/** The saved mark is gone, the card passes errors on. */
 
 /* ------------------------------------------------------------------ */
 /* Schalter                                                            */
@@ -115,7 +97,7 @@ export function ToggleSetting({
 }: {
   field: SettingHandle<boolean>;
   title: ReactNode;
-  /** Statuszeile bei an, weglassbar wenn der Schalter schon alles sagt. */
+  /** Status line when on, omittable when the switch already says everything. */
   activeText?: string;
   disabledText: string;
   hint?: ReactNode;
@@ -157,15 +139,15 @@ export function NumberSetting({
   unit?: string;
   min: number;
   max: number;
-  /** Meldung bei Werten ausserhalb der Grenzen, aus den Übersetzungen. */
+  /** Message for values outside the limits, from the translations. */
   outOfRange: string;
-  /** Zusatz rechts, etwa die ungefähre Tokenzahl. */
+  /** An addition on the right, such as the approximate token count. */
   suffix?: (value: number) => ReactNode;
 }) {
   const [draft, setDraft] = useState("");
   const [local, setLocal] = useState<string | null>(null);
 
-  // Entwurf nachziehen, wenn der Wert von aussen kommt oder sich ändert.
+  // Update the draft when the value comes from outside or changes.
   useEffect(() => {
     if (field.value !== null) setDraft(String(field.value));
   }, [field.value]);
@@ -217,9 +199,7 @@ export function NumberSetting({
 /* Auswahl                                                             */
 /* ------------------------------------------------------------------ */
 
-/* Anbieter und Stimme der Aussprache gehoeren weiterhin in EINE eigene Karte und
-   nicht hierher: sie haengen aneinander. Dieser Baustein ist fuer die Faelle, in
-   denen eine Karte genau eine Auswahl traegt. */
+/** Provider and voice belong in a card of their own, they hang together. */
 
 export function SelectSetting<T extends string>({
   field,
@@ -232,7 +212,7 @@ export function SelectSetting<T extends string>({
   title: ReactNode;
   hint?: ReactNode;
   options: ReadonlyArray<SelectOption<T>>;
-  /** Beschriftung fuer Vorlesegeraete, wenn der Titel kein Text ist. */
+  /** Label for screen readers when the title is not text. */
   label?: string;
 }) {
   if (field.loading || field.value === null) return null;

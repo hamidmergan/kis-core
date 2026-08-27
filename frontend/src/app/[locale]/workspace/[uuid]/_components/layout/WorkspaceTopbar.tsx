@@ -19,7 +19,7 @@ interface WorkspaceTopbarProps {
   /** Sprachtrainer offered on this platform at all (admin setting). */
   languageTrainingAvailable: boolean;
   onToggleLanguageTraining: () => void;
-  /** Eigene Entscheidung, ob der freigegebene Sprachtrainer angezeigt wird. */
+  /** Personal decision whether the released language trainer is shown. */
   languageTrainingOptIn: boolean;
   onToggleLanguageTrainingOptIn: () => void;
   isOwner: boolean;

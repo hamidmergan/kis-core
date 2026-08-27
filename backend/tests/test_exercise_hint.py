@@ -1,12 +1,4 @@
-"""Der Tipp an der Aufgabe.
-
-Bis zum 2026-08-10 schickte der Tipp-Knopf eine Frage in den Chat: ein Modellaufruf pro
-Klick, Wartezeit, und der Lernende stand danach im Chat statt in der Aufgabe. Jetzt
-schreibt das Modell den Tipp im SELBEN Aufruf, in dem auch die Aufgabe entsteht.
-
-Geprüft wird deshalb vor allem eines: es bleibt bei einem Aufruf, und der Tipp landet in
-``extras``, weil diese Spalte schon von Vorrat zu Aufgabe zu Ansicht durchläuft.
-"""
+"""The hint is produced in the same call as the exercise and lives in extras."""
 
 import json
 import types
@@ -34,7 +26,7 @@ def _ctx():
     return types.SimpleNamespace(source_hint="Quelle", context="ctx", multi_label="T")
 
 
-# --- die Ablage in extras ----------------------------------------------------
+# --- storage in extras -------------------------------------------------------
 
 def test_tipp_landet_in_extras():
     item = {"front": "F", "back": "B"}
@@ -43,8 +35,7 @@ def test_tipp_landet_in_extras():
 
 
 def test_ohne_tipp_bleibt_extras_leer():
-    """Wer keinen liefert, bekommt auch kein leeres Feld. Die Ansicht erkennt daran,
-    dass sie auf den alten Chat-Weg zurückfallen muss."""
+    """Without a hint the field stays out, the view falls back to the chat."""
     for roh in ({}, {"tip": ""}, {"tip": "   "}, {"tip": None}, {"tip": 7}):
         item = {"front": "F", "back": "B"}
         attach_hint(item, roh)
@@ -52,15 +43,14 @@ def test_ohne_tipp_bleibt_extras_leer():
 
 
 def test_tipp_verdraengt_vorhandene_extras_nicht():
-    """Die Grammatik-Übung legt ihr Musterpaar in dieselbe Spalte."""
+    """The grammar exercise puts its pattern pair in the same column."""
     item = {"front": "F", "back": "B", "extras": {"pattern_front": "P"}}
     attach_hint(item, {"tip": "Schau auf die Endung."})
     assert item["extras"] == {"pattern_front": "P", "tip": "Schau auf die Endung."}
 
 
 def test_extras_laeuft_durch_den_vorrat():
-    """Der Tipp braucht keine eigene Spalte: ``extras`` trägt der Vorrat schon, und
-    zwar als JSON."""
+    """The hint needs no column of its own, the pool already carries extras."""
     assert "extras" in exercise_pool._ITEM_FIELDS
     assert "extras" in exercise_pool._JSON_FIELDS
 
@@ -88,8 +78,7 @@ def test_quiz_nimmt_den_tipp_aus_derselben_antwort(monkeypatch):
 
 
 def test_quiz_ohne_tipp_bleibt_eine_gueltige_aufgabe(monkeypatch):
-    """Ein fehlender Tipp macht die Aufgabe nicht kaputt. Sie kommt in den Satz, ihr
-    Knopf fragt dann eben wie früher den Chat."""
+    """A missing hint does not break the exercise."""
     monkeypatch.setattr(mc_mod, "_attach_by_kind", lambda *a, **k: None)
     content = json.dumps({"title": "T", "exercises": [
         {"question": "Was ist X?", "options": ["a", "b", "c", "d"], "correct_idx": 1},
@@ -103,7 +92,7 @@ def test_quiz_ohne_tipp_bleibt_eine_gueltige_aufgabe(monkeypatch):
 def test_quiz_prompt_bestellt_den_tipp():
     prompt = mc_mod._build_prompt(3, "German")
     assert '"tip"' in prompt
-    # Das Verbot steht als Gegenbeispiel, nicht als Absichtserklärung.
+    # The ban stands as a counter-example, not as a statement of intent.
     assert "GOOD:" in prompt and "BAD:" in prompt
     assert "{language}" not in prompt, "Platzhalter muss ersetzt sein"
 

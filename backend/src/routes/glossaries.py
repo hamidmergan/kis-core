@@ -1,10 +1,4 @@
-"""Per-user terminology glossaries (translation tool).
-
-CRUD over the user's own glossaries, persisted in the DB. Replaces the former
-browser-only (localStorage) storage so glossaries survive across devices and
-browser resets. Every endpoint is scoped to the authenticated user; there is
-no sharing between users.
-"""
+"""Personal terminology lists for translating, no sharing."""
 
 from fastapi import APIRouter, Depends, HTTPException
 

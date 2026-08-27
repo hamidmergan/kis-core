@@ -48,23 +48,20 @@ export function useExercises({ uuid }: UseExercisesOptions) {
 
   const createExerciseSet = useCallback(async (tool: string, mode: string, count: number, sourceUuids?: string[], grammarTopicId?: number, grammarKinds?: string[], flashcardSetId?: number) => {
     try {
-      // api.fetch attaches Accept-Language from the NEXT_LOCALE cookie so the
-      // backend generates the set in the UI language (raw fetch defaulted to de).
+      // The set is produced in the interface language.
       const res = await api.fetch(`/api/ai-assistant/workspaces/${uuid}/exercise-sets`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // source_uuids covers every selected source; source_uuid stays for the older
-        // single-source contract the backend still accepts.
+        // source_uuids carries the whole selection, the old field stays for the contract.
         body: JSON.stringify({
           tool, mode, count,
           source_uuids: sourceUuids,
           source_uuid: sourceUuids?.[0],
           // Only the grammar tool sends this; the backend rejects an unknown id.
           grammar_topic_id: grammarTopicId,
-          // Nur die Grammatik-Uebung sendet das, und auch die nur bei einer echten
-          // Auswahl. Fehlt es, ist das Set gemischt.
+          // Only grammar sends the formats, without them the set is mixed.
           grammar_kinds: grammarKinds,
-          // Nur der Wortschatz-Lueckentext aus Lernkarten schickt das mit.
+          // Only the vocabulary cloze from flashcards sends this along.
           flashcard_set_id: flashcardSetId,
         }),
       });
@@ -77,8 +74,7 @@ export function useExercises({ uuid }: UseExercisesOptions) {
     return null;
   }, [uuid, loadExerciseSets]);
 
-  // Run a failed set again. The card keeps its id and flips straight back to
-  // "generating" so the learner sees the same card retrying, not a new one.
+  // A second attempt keeps the id of the card.
   const retryExerciseSet = useCallback(async (setId: number, tool: string) => {
     setExerciseSets((prev) => prev.map((s) => (
       s.id === setId ? { ...s, status: "generating" } : s
@@ -88,8 +84,7 @@ export function useExercises({ uuid }: UseExercisesOptions) {
         method: "POST",
       });
       if (!res.ok) {
-        // Quota, burst limit or an already-running set: put the card back to failed
-        // rather than leaving it spinning forever on a task that was never queued.
+        // On a refusal back to failed instead of spinning forever.
         loadExerciseSets(tool);
         return false;
       }
@@ -112,8 +107,7 @@ export function useExercises({ uuid }: UseExercisesOptions) {
     } catch { /* ignore */ }
   }, [uuid, loadExerciseSets]);
 
-  // Wirft bei Fehler weiter, damit das Feld offen bleibt und den Grund zeigen kann.
-  // Die Nachbarn hier schlucken ihre Fehler, weil dort niemand zusieht.
+  // Rethrows so the field can show the reason.
   const renameExerciseSet = useCallback(async (setId: number, tool: string, title: string) => {
     const res = await fetch(`/api/ai-assistant/workspaces/${uuid}/exercise-sets/${setId}/title`, {
       method: "PATCH",

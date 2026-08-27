@@ -21,8 +21,7 @@ export async function POST(
         cookie: req.headers.get("cookie") || "",
       },
       body,
-      // Forward client cancellation so the backend's is_disconnected() check
-      // fires and the LLM stream can be torn down promptly.
+      // Passes the cancellation through so the backend closes the stream.
       signal: req.signal,
     },
   );

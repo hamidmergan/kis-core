@@ -1,4 +1,4 @@
-"""Eine korrigierte PPTX mit anderer Folienzahl verschoebe Skripte und Ton."""
+"""A corrected PPTX with a different slide count would shift scripts and audio."""
 
 import json
 from unittest.mock import patch
@@ -85,7 +85,7 @@ def test_bei_ablehnung_wird_nichts_geschrieben(client):
 
 
 def test_ohne_auftrag_gibt_es_keinen_bezugspunkt(client):
-    """Der Einstieg ohne Uebersetzung hat nichts zum Vergleichen."""
+    """Entering without a translation has nothing to compare against."""
     r, _ = _hochladen(client, ["a", "b", "c", "d", "e"], mit_job=False)
     assert r.status_code == 200
 
@@ -100,7 +100,7 @@ def test_der_neue_folientext_landet_in_scripts_txt(client):
 
 
 def test_gleiche_folienzahl_wirft_die_vertonung_weg(client):
-    """Neue Folien unter altem Ton waeren falsch, der Vorrat muss weg."""
+    """New slides under old audio would be wrong, the cache has to go."""
     modul = "src.routes.screencast.translate"
     with patch(f"{modul}.vertonung_verwerfen") as verwerfen:
         r, _ = _hochladen(client, ["a", "b", "c"])
@@ -109,7 +109,7 @@ def test_gleiche_folienzahl_wirft_die_vertonung_weg(client):
 
 
 def test_abgelehnte_folienzahl_wirft_die_vertonung_nicht_weg(client):
-    """Der wichtigste Test: eine abgelehnte Datei darf keinen Datenverlust anrichten."""
+    """The most important test: a rejected file must not cause data loss."""
     modul = "src.routes.screencast.translate"
     with patch(f"{modul}.vertonung_verwerfen") as verwerfen:
         r, _ = _hochladen(client, ["a", "b"])

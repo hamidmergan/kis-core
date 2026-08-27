@@ -26,15 +26,12 @@ export default function TranscriptionPage() {
   const [doneJobUuid, setDoneJobUuid] = useState<string | null>(null);
   const [transcriptText, setTranscriptText] = useState<string>("");
   const [transcriptFilename, setTranscriptFilename] = useState<string>("");
-  // Long recordings are split into 9-minute parts. The backend reports each
-  // finished part so the wait is not a silent spinner.
+  // Long recordings run in parts, every finished part is reported.
   const [chunkProgress, setChunkProgress] = useState<{ current: number; total: number } | null>(null);
 
   const [responseFormat, setResponseFormat] = useState("text");
 
-  // Reachable STT providers the admin configured a model for. Empty list means
-  // none configured/reachable — the dropdown hides and the backend uses its
-  // default route.
+  // Reachable providers with a model, an empty list means hide the choice.
   const { providers, providerId, setProviderId } = useFeatureProviders("/transcription/providers");
 
   const handleFileSelected = useCallback((file: File) => {
@@ -78,8 +75,7 @@ export default function TranscriptionPage() {
         60_000,
       );
       window.dispatchEvent(new Event("kis-jobs-changed"));
-      // Load the finished transcript into the editor so it can be reviewed,
-      // edited and re-downloaded without a second round-trip.
+      // The finished transcript lands in the field, without a second trip to the server.
       const ext = responseFormat === "text" ? "txt" : responseFormat;
       const stem = pendingFile.name.replace(/\.[^.]+$/, "");
       const { blob, filename } = await downloadJobAsBlob(data.job_uuid, `${stem}.${ext}`);

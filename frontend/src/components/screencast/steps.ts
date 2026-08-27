@@ -35,7 +35,7 @@ export function stepToIndex(step: ScreencastStep): number {
   }
 }
 
-/** Nur diese Schritte darf man wieder betreten, alles andere ist Upload oder Warteseite. */
+/** Only these steps may be re-entered, everything else is upload or a waiting page. */
 export function indexToStep(index: number): ScreencastStep | null {
   switch (index) {
     case 2:
@@ -55,13 +55,13 @@ export function indexToStep(index: number): ScreencastStep | null {
   }
 }
 
-/** Diese Schritte sind fuer immer zu, nicht nur gerade eben. */
+/** These steps are closed for good, not just at the moment. */
 export function nieBetretbar(index: number, skipTranslation: boolean): boolean {
   if (skipTranslation && index === 1) return true;
   return indexToStep(index) === null;
 }
 
-/** Die eine Regel, die Fortschrittsbalken und Fussleiste gleich beantworten. */
+/** The one rule that progress bar and footer answer alike. */
 export function istErreichbar(
   index: number,
   maxReachedIdx: number,
@@ -70,7 +70,7 @@ export function istErreichbar(
   hatErgebnis = false,
 ): boolean {
   if (step === "generating-scripts") return false;
-  // Waehrend des Laufs ist die Warteseite bindend, mit fertigem Video nicht mehr.
+  // During the run the waiting page is binding, with a finished video no longer.
   if (step === "rendering" && !hatErgebnis) return false;
   if (index === 6 && step !== "done" && !hatErgebnis) return false;
   if (index > maxReachedIdx) return false;
@@ -78,7 +78,7 @@ export function istErreichbar(
   return indexToStep(index) !== null;
 }
 
-/** Der naechste betretbare Schritt nach links, Warteseiten werden uebersprungen. */
+/** The next enterable step to the left, waiting pages are skipped. */
 export function vorherErreichbar(
   index: number,
   maxReachedIdx: number,

@@ -1,4 +1,4 @@
-"""Die Auswahl darf die Foliennummern nie verschieben."""
+"""The selection must never shift the slide numbers."""
 
 from src.services.screencast.auswahl import folien_auswahl
 
@@ -54,7 +54,7 @@ def test_keine_folien():
 
 
 def test_die_bauposition_traegt_die_richtige_foliennummer():
-    """Bei ausgeschlossener Folie 2 muss Clip 1 zu Folie 3 gehoeren, nicht zu Folie 2."""
+    """With slide 2 excluded, clip 1 has to belong to slide 3, not to slide 2."""
     from src.services.screencast.auswahl import clip_paare
     assert clip_paare([0, 2, 3], 4) == [(0, 0), (1, 2), (2, 3)]
 
@@ -65,7 +65,7 @@ def test_mehr_folien_als_bilder_werden_abgeschnitten():
 
 
 def test_ausgeschlossene_folien_bekommen_keinen_platz_fuer_neuen_ton():
-    """False heisst, der alte Ton dieser Folie bleibt liegen."""
+    """False means the old audio of this slide stays."""
     from src.services.screencast.auswahl import ton_plaetze
     assert ton_plaetze(4, [0, 2, 3]) == [True, False, True, True]
 

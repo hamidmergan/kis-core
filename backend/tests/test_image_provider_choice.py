@@ -1,8 +1,4 @@
-"""Image tools: end-user provider choice (generate / edit / analyze).
-
-Covers the route-level validation + listing delegation and that the task HTTP
-client routes an explicit pick through the capability-based service.
-"""
+"""Checks the provider choice of the image tools, route and call."""
 
 import pytest
 from fastapi import HTTPException

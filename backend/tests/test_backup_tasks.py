@@ -1,11 +1,4 @@
-"""Naechtliche Datenbank-Sicherung: Aufrufbau, Passwort-Umgang, Aufbewahrung.
-
-Der eigentliche pg_dump-Lauf wird hier nicht ausgefuehrt, der braucht eine
-laufende Datenbank und dauert Minuten. Geprueft wird das, was leise falsch sein
-koennte: dass das Passwort nicht in den Argumenten landet, dass die richtige
-Datenbank angesprochen wird, und dass die Aufbewahrung die richtigen Dateien
-loescht.
-"""
+"""Checks call construction, password handling and retention of the backup."""
 
 import pytest
 
@@ -25,8 +18,7 @@ def test_dump_command_reads_host_port_user_and_db_from_url(monkeypatch):
 
 
 def test_password_never_lands_in_the_arguments(monkeypatch):
-    """Argumente sind per ``ps`` fuer jeden auf der Maschine sichtbar, die
-    Umgebung eines fremden Prozesses nicht."""
+    """Arguments are visible to everyone, another process's environment is not."""
     monkeypatch.setenv("DATABASE_URL", "postgresql://kisuser:geheim@dbhost:5432/kisdb")
     cmd, env = backup_tasks._dump_command_and_env()
     assert "geheim" not in " ".join(cmd)
@@ -34,7 +26,7 @@ def test_password_never_lands_in_the_arguments(monkeypatch):
 
 
 def test_dump_uses_custom_format_so_single_tables_can_be_restored(monkeypatch):
-    """Das reine SQL-Format kann kein ``pg_restore -t``, deshalb -Fc."""
+    """The plain SQL format cannot do ``pg_restore -t``, hence -Fc."""
     monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@h:5432/d")
     cmd, _ = backup_tasks._dump_command_and_env()
     assert "-Fc" in cmd
@@ -63,8 +55,7 @@ def test_prune_keeps_the_newest_and_deletes_the_rest(monkeypatch):
     entfernt = backup_tasks._prune_old(backup_tasks._DAILY, keep=2)
 
     assert entfernt == 2
-    # Der Name beginnt mit dem ISO-Datum, alphabetisch sortiert ist also
-    # chronologisch sortiert. Die zwei aeltesten muessen weg sein.
+    # Sorted alphabetically is sorted chronologically here.
     assert geloescht == ["backups/kis-2026-07-24.dump", "backups/kis-2026-07-25.dump"]
 
 
@@ -75,8 +66,7 @@ def test_prune_does_nothing_when_within_retention(monkeypatch):
 
 
 def test_prune_ignores_foreign_files_in_the_prefix(monkeypatch):
-    """Im Bucket koennte unter backups/ auch etwas anderes liegen. Was nicht auf
-    .dump endet, wird nicht angefasst."""
+    """Whatever does not end in .dump is not touched."""
     geloescht = []
     monkeypatch.setattr(backup_tasks, "list_keys", lambda p: [
         "backups/kis-2026-07-24.dump",
@@ -89,8 +79,7 @@ def test_prune_ignores_foreign_files_in_the_prefix(monkeypatch):
 
 
 def test_prune_survives_a_failing_delete(monkeypatch):
-    """Ein einzelner Fehlschlag beim Loeschen darf die Sicherung nicht zum
-    Fehler machen, die Datei von heute liegt ja schon im Bucket."""
+    """A failed delete must not turn the backup into an error."""
     def kaputt(_):
         raise RuntimeError("Bucket sagt nein")
     monkeypatch.setattr(backup_tasks, "list_keys", lambda p: [
@@ -115,7 +104,7 @@ def test_period_copy_is_skipped_when_it_already_exists(monkeypatch):
 
 
 def test_period_copy_is_made_when_only_other_periods_exist(monkeypatch):
-    """Der neue Zeitraum braucht seine eigene Kopie, auch wenn aeltere liegen."""
+    """The new period needs its own copy, even when older ones exist."""
     monkeypatch.setattr(backup_tasks, "list_keys", lambda p: [
         "backups/monthly/kis-2026-05.dump",
         "backups/monthly/kis-2026-06.dump",
@@ -124,8 +113,7 @@ def test_period_copy_is_made_when_only_other_periods_exist(monkeypatch):
 
 
 def test_all_three_tiers_live_in_separate_folders():
-    """Eine Lebenszyklus-Regel auf backups/ wuerde Wochen- und Monatskopien
-    mitloeschen, deshalb muessen die Praefixe getrennt und disjunkt sein."""
+    """The prefixes have to stay separate, otherwise the tiering breaks."""
     stufen = [backup_tasks._DAILY, backup_tasks._WEEKLY, backup_tasks._MONTHLY]
     assert len(set(stufen)) == 3
     for a in stufen:
@@ -135,8 +123,7 @@ def test_all_three_tiers_live_in_separate_folders():
 
 
 def test_week_label_uses_iso_week_so_new_year_has_no_duplicates():
-    """Mit %Y statt %G bekaeme die Woche um Silvester zwei Namen fuer denselben
-    Zeitraum, oder zwei Zeitraeume denselben Namen."""
+    """With the wrong year format the new year week would get two names."""
     from datetime import datetime, timezone
     silvester = datetime(2025, 12, 29, tzinfo=timezone.utc)   # ISO-Woche 1 von 2026
     assert silvester.strftime("%G-W%V") == "2026-W01"

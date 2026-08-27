@@ -1,13 +1,8 @@
-"""Prompts der Quellen-Zusammenfassung beim Ingest (map-reduce)."""
+"""Prompts of the source summary during ingest (map-reduce)."""
 
 
 def aia_summary_system() -> str:
-    """System prompt for the per-source DOC SUMMARY (map step over one batch).
-
-    Represents the source in GENERIC/overview answers. Deliberately NOT exhaustive:
-    enumerating every section overflows the output cap and truncates the tail
-    (private/rag-log.md, AGG13). Lossy by design, precise facts come from chunks.
-    """
+    """System prompt for the per-source summary, deliberately not exhaustive."""
     return (
         "Write a CONCISE summary of the following content.\n"
         "The content is one part of a larger document (PDF text or a media transcript).\n"

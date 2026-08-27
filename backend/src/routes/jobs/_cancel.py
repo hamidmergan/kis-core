@@ -1,4 +1,4 @@
-"""POST /jobs/{job_uuid}/cancel + DELETE /jobs/{job_uuid} - Soft-Cancel und Hard-Delete."""
+"""Soft cancel and hard delete of a job."""
 
 from fastapi import APIRouter, Depends, HTTPException
 from loguru import logger
@@ -73,9 +73,7 @@ def cancel_job(
         except Exception as e:
             logger.warning("Could not revoke Celery task {}: {}", job["celery_task_id"], e)
 
-    # Set Redis cancellation flag so the worker stops at the next checkpoint
-    # (same mechanism as POST /cancel). Without this, _assert_not_cancelled()
-    # never triggers and the worker keeps running despite the revoke.
+    # The cancel marker in Redis, otherwise the worker keeps running.
     try:
         import redis as _redis
         _r = _redis.from_url("redis://kis-redis:6379/0")
@@ -87,8 +85,7 @@ def cancel_job(
     delete_job_folder(job["user_id"], job_uuid)
     db.delete_job(job_uuid)
 
-    # Notify SSE clients that job list changed (job was removed)
-    # Must happen after delete but we still have user_id from the job dict above.
+    # Notify the interface about the changed list.
     try:
         import redis as _redis_notify
         _rn = _redis_notify.from_url("redis://kis-redis:6379/0", socket_connect_timeout=1, socket_timeout=1)

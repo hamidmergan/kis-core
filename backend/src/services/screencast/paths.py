@@ -1,4 +1,4 @@
-"""Temp-Verzeichnisse + periodische Cleanup-Task für Screencast-Uploads."""
+"""Temp directories and the periodic cleanup task for screencast uploads."""
 
 import asyncio
 import shutil

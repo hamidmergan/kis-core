@@ -1,9 +1,4 @@
-"""Abfragen fuer den Statistikbereich.
-
-Bewusst ein eigener Ort und nicht bei den Auftraegen oder beim Assistenten: die
-Zahlen des Adminbereichs schneiden quer durch beide Produkte, und keiner der
-beiden ist ihr Zuhause.
-"""
+"""Queries for the statistics area, across both products."""
 from .assistant import assistant_overview
 from .detail import user_detail, workspace_detail
 from .eigene import may_see_workspace, own_workspaces

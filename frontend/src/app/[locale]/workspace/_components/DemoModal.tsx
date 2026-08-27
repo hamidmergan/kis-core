@@ -13,7 +13,7 @@ interface Props {
   onLeave: (uuid: string) => void;
 }
 
-/** Alle Demo-Kurse in einem Fenster, beitreten und wieder verlassen. */
+/** All demo courses in one dialog, join and leave again. */
 export default function DemoModal({ open, onClose, items, busy, onJoin, onLeave }: Props) {
   const t = useTranslations("workspace.demo");
   const offene = items.filter((m) => !m.joined).length;

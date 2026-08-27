@@ -1,14 +1,4 @@
-"""Erkennung unübersetzter Folien für den Prüfen-Schritt.
-
-Im Prüfen-Schritt sieht man nur Vorschaubilder in Briefmarkengröße. Ob eine
-Folie übersetzt wurde, ist darauf nicht zu erkennen. Genau daran sind einzelne
-Folien durchgerutscht.
-
-Der Vergleich läuft ohne Sprachkenntnis: Originaltext gegen übersetzten Text.
-Sind beide gleich, hat die Übersetzung an dieser Folie nichts geändert. Das
-kann harmlos sein, etwa bei Zahlen oder Eigennamen, ist aber der einzige
-Hinweis, den man sprachunabhängig geben kann.
-"""
+"""Detects untranslated slides by plain text comparison, without language knowledge."""
 
 from src.services.screencast.review import find_unchanged_slides
 
@@ -30,12 +20,12 @@ def test_case_only_difference_is_flagged():
 
 
 def test_empty_slide_is_not_flagged():
-    """Eine leere Folie ist kein Übersetzungsproblem."""
+    """An empty slide is not a translation problem."""
     assert find_unchanged_slides(["", "   "], ["", ""]) == []
 
 
 def test_very_short_text_is_not_flagged():
-    """Einzelne Zahlen oder Kürzel sind in jeder Sprache gleich, das ist kein Fund."""
+    """Single numbers or codes are the same in every language, that is no finding."""
     assert find_unchanged_slides(["2026", "Nr. 4"], ["2026", "Nr. 4"]) == []
 
 
@@ -46,6 +36,6 @@ def test_reports_every_affected_slide():
 
 
 def test_different_lengths_do_not_crash():
-    """Kommt die Folienzahl auseinander, darf das keine Ausnahme werfen."""
+    """If the slide counts diverge, that must not raise."""
     assert find_unchanged_slides(["Ein längerer Text hier"], []) == []
     assert find_unchanged_slides([], ["Ein längerer Text hier"]) == []

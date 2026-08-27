@@ -12,8 +12,7 @@ export function SourceStatus({
   progress?: IndexingProgress | null;
 }) {
   const t = useTranslations("workspace.detail.sources");
-  // Keep the spinner visible until the source is fully done: status "ready"
-  // with the progress field cleared.
+  // The spinner stays until the source is really finished.
   const isProcessing =
     status === "pending" || status === "indexing" || (status === "ready" && !!progress);
   if (isProcessing) {

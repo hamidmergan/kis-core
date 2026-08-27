@@ -1,12 +1,6 @@
 "use client";
 
-/**
- * Reiter "KI-Verhalten" unter Sprachniveau.
- *
- * Oben die Stufen-Leiter, die einzige Karte, die ein Sprachexperte pflegen soll:
- * deutsch, ohne Platzhalter. Die englischen Prompt-Texte liegen darunter unter
- * "Erweitert", zugeklappt, weil sie Prompt-Bastelei sind und kein Fachwissen.
- */
+/** The level ladder on top, the prompt texts sit collapsed below. */
 
 import { useTranslations } from "next-intl";
 import CollapsibleCard from "@/components/ui/CollapsibleCard";

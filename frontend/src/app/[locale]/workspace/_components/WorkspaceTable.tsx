@@ -33,8 +33,7 @@ export default function WorkspaceTable({
   const labels = useWorkspaceLabel();
   const [page, setPage] = useState(1);
 
-  // Workspaces the user runs come first, the ones they only learn from after.
-  // Sorting before paginating keeps the two groups from interleaving across pages.
+  // Sort first, then paginate, otherwise the two groups mix across pages.
   const sorted = useMemo(
     () => [...workspaces].sort(
       (a, b) => Number(canManage(b.access)) - Number(canManage(a.access)),
@@ -49,8 +48,7 @@ export default function WorkspaceTable({
   const startIdx = (safePage - 1) * MODULES_PER_PAGE;
   const visibleModules = sorted.slice(startIdx, startIdx + MODULES_PER_PAGE);
 
-  // A heading goes above the first row of a page and wherever the group changes,
-  // so every page says what it is showing even when a group spans pages.
+  // A heading on top and at every group change so every page explains itself.
   const groupHeadingFor = (index: number): string | null => {
     if (!hasBothGroups) return null;
     const current = canManage(visibleModules[index].access);

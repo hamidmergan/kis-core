@@ -3,8 +3,7 @@
 
 # -- Summary tool -------------------------------------------------------------
 
-# {language} comes from SUMMARY_LANGUAGE_PROBE, never from the model itself: a German
-# cover page once flipped an English document to a German summary.
+# The language comes from the language sample, never from the model itself.
 SUMMARY_DEFAULT = (
     "You are a precise summarizer.\n"
     "Create a summary based EXCLUSIVELY on the provided content.\n"
@@ -20,8 +19,7 @@ SUMMARY_DEFAULT = (
 )
 
 
-# Separate probe call. The sample handed to it is taken from the middle of the
-# document, so edge boilerplate cannot decide the language.
+# Its own sample call, the sample comes from the middle of the document.
 SUMMARY_LANGUAGE_PROBE = (
     "Identify the language of the text the user sends.\n"
     "Answer with the English name of that language and nothing else, for example: English, German, Spanish.\n"

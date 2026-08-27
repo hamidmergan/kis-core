@@ -1,19 +1,10 @@
 import { test, expect, type Page } from "@playwright/test";
 
-/**
- * Zielsprache der Auswahlleisten-Übersetzung: Sichtprüfung am laufenden System.
- *
- * Prüft, dass das neue Auswahlfeld im Einstellungen-Dialog steht, dass eine
- * Änderung gespeichert wird und dass die Aktionen der Auswahlleiste danach mit
- * dem neuen Sprachcode nachgeladen werden.
- *
- * Das Auswahlfeld ist kein natives <select>, sondern die eigene Select-Komponente
- * (Knopf mit role=combobox, Liste im Portal mit role=option).
- */
+/** The selection bar target language checked in the running system. */
 const WORKSPACE = process.env.E2E_WORKSPACE ?? "1ea7b2fa-b237-4bbd-801b-c9793d388984";
 const TITLE = "Zielsprache beim Übersetzen im Dokument";
 
-/** Der Knopf des Auswahlfeldes, das direkt unter der neuen Überschrift steht. */
+/** The button of the dropdown that sits directly under the new heading. */
 function langCombobox(page: Page) {
   return page
     .locator("div")
@@ -56,13 +47,13 @@ test("Zielsprache waehlen, speichern, Aktionen laden neu", async ({ page }) => {
   expect(popupCalls.join("|")).toContain("target=tr");
   await page.screenshot({ path: "e2e/screens/popup-lang-turkish.png" });
 
-  // Neu laden: die Wahl steht noch da
+  // Reload: the choice is still there
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.waitForTimeout(4000);
   await openSettings(page);
   await expect(langCombobox(page)).toHaveText(/Türkisch|Turkish/);
 
-  // Zuruecksetzen, damit der Teststand sauber bleibt
+  // Reset so the test environment stays clean
   await langCombobox(page).click();
   await page.getByRole("option", { name: /^(Englisch|English)$/ }).click();
   await page.waitForTimeout(1500);

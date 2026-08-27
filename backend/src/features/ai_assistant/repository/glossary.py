@@ -28,17 +28,7 @@ def get_aia_glossary_by_workspace(workspace_id: int, user_id: int) -> list[dict]
 
 
 def glossary_terms_used(workspace_id: int, user_id: int, tool: str) -> list[str]:
-    """Die Glossarbegriffe, die diese Person in diesem Werkzeug schon hatte.
-
-    Drei Einschraenkungen, jede mit Grund. Nach PERSON, denn ein Glossar gehoert der
-    Person und was jemand anderes hatte, ist hier ohne Belang. Nach WERKZEUG, denn ein
-    Begriff, der als Lernkarte dran war, ist als Karteikarte eine andere Uebung auf
-    demselben Wort. Nach KURSRAUM, denn das Glossar wird per Kursraum gelesen, also
-    gehoert das Gedaechtnis in denselben Rahmen.
-
-    Woertlich, nicht normalisiert. Die Vergleichsform bildet der Aufrufer, damit hier
-    keine zweite Meinung darueber entsteht, was zwei Begriffe gleich macht.
-    """
+    """The glossary terms this person already had in this tool."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -60,8 +50,7 @@ def bulk_create_glossary_entries(
     user_id: int,
     entries: list[dict],
 ) -> list[dict]:
-    """Add entries to the user's personal glossary. Skips terms the user already
-    has for this source (case-insensitive). Returns the newly inserted rows."""
+    """Adds terms to the personal glossary and skips existing ones."""
     if not entries:
         return []
     inserted: list[dict] = []

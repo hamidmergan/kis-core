@@ -1,8 +1,4 @@
-"""Admin-only LDAP user creation. Behind LDAP_USER_CREATION_ENABLED feature flag.
-
-This module is a temporary bridge for local dev and the Hetzner box. It will
-be retired once THL SSO is wired up.
-"""
+"""Create LDAP users, a bridge until the university's SSO."""
 import base64
 import hashlib
 import os
@@ -38,11 +34,7 @@ class LdapServiceError(RuntimeError):
 
 
 def _make_ssha_hash(password: str) -> str:
-    """Return an OpenLDAP-compatible {SSHA} hash for `password`.
-
-    Format: '{SSHA}' + base64( sha1(password + salt) + salt ),
-    salt is 4 random bytes (matches OpenLDAP defaults).
-    """
+    """Returns an SSHA hash that OpenLDAP accepts."""
     salt = os.urandom(4)
     digest = hashlib.sha1(password.encode("utf-8") + salt).digest()
     return "{SSHA}" + base64.b64encode(digest + salt).decode("ascii")
@@ -78,14 +70,8 @@ def create_ldap_user(
     employee_type: str,
     password: str | None = None,
 ) -> str:
-    """Add an inetOrgPerson under ou=people. Return the plain password.
-
-    Without ``password`` one is generated, an invited user brings their own.
-    The password is hashed to {SSHA} before it leaves this function.
-    The plaintext is returned to the caller exactly once and must NOT be logged
-    or persisted.
-    """
-    # Namen sind bei einer Einladung freiwillig, fehlt einer, traegt der Benutzername das im Schema pflichtige Feld.
+    """Creates a person under ou=people and returns the plain password exactly once."""
+    # Names are optional on an invitation, without one the user name fills the required field.
     vorname = (given_name or "").strip()
     nachname = (surname or "").strip()
     cn = " ".join(teil for teil in (vorname, nachname) if teil) or uid

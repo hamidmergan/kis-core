@@ -1,14 +1,4 @@
-"""Der Vorrat, die Doppler und die bestellte Anzahl im fertigen Auftrag.
-
-Zuerst der Vorrat, dann das Modell. Erzeugt wird nur der Fehlbetrag, und was dabei
-entsteht, wandert in den Vorrat und steht ab dann allen offen.
-
-Aussortiert wird nach der Erzeugung, nicht im Prompt: alte Aufgaben in den Prompt zu
-schreiben wurde schon einmal gebaut und zurueckgenommen, weil das Modell sie abschreibt
-(siehe ``_variation``).
-
-Kein DB- und kein Netzzugriff, Datenbank und Generierung sind ausgetauscht.
-"""
+"""Pool, duplicates and the ordered count in the finished job."""
 
 import pytest
 
@@ -17,7 +7,7 @@ from src.features.ai_assistant.tasks.language_training import run_generate_exerc
 
 @pytest.fixture
 def stack(monkeypatch):
-    """Haengt den Auftrag an Attrappen und haelt fest, was gespeichert wird."""
+    """Hooks the job up to stubs and records what gets saved."""
     import src.features.ai_assistant.tasks.language_training as mod
 
     seen = {"finalized": None, "failed": False, "eingelagert": [], "erzeugt": 0}
@@ -47,9 +37,9 @@ def stack(monkeypatch):
     monkeypatch.setattr(mod, "build_title_avoidance_block", lambda *a, **k: "")
     monkeypatch.setattr(mod, "resolve_set_title", lambda *a, **k: "Endgueltig")
     monkeypatch.setattr(mod, "coverage_rule", lambda *a, **k: "")
-    # Kein Abschnitts-Nachschlag: hier geht es um Vorrat und Doppler.
+    # No section top-up, this is about pool and duplicates.
     monkeypatch.setattr(mod, "missing_section_uuids", lambda *a, **k: [])
-    # Vorrat und Historie standardmaessig leer, jeder Test setzt was er braucht.
+    # Pool and history empty by default, every test sets what it needs.
     monkeypatch.setattr(mod, "take_from_pool", lambda *a, **k: [])
     monkeypatch.setattr(mod, "seen_by_user", lambda *a, **k: [])
     monkeypatch.setattr(
@@ -70,7 +60,7 @@ def _cards(*fronts):
 
 
 def _pool_cards(*fronts):
-    """Wie sie aus dem Vorrat kommen: mit Verweis."""
+    """The way they come out of the pool: with a reference."""
     return [{"front": f, "back": f.upper(), "pool_item_id": 100 + i}
             for i, f in enumerate(fronts)]
 
@@ -80,7 +70,7 @@ def _run(count=3, tool="quiz"):
 
 
 def _generator(mod, monkeypatch, seen, *runden):
-    """Setzt die Generierung auf eine Folge von Rueckgaben je Aufruf."""
+    """Sets generation to a sequence of return values per call."""
     lauf = {"n": 0}
 
     def _gen(*a, **k):
@@ -95,7 +85,7 @@ def _generator(mod, monkeypatch, seen, *runden):
 # --- Vorrat zuerst ------------------------------------------------------------
 
 def test_a_full_pool_costs_no_generation(stack, monkeypatch):
-    """Der Kern der Sache: reicht der Vorrat, laeuft kein Modell."""
+    """The heart of it: if the pool suffices, no model runs."""
     mod, seen = stack
     monkeypatch.setattr(mod, "take_from_pool",
                         lambda *a, **k: _pool_cards("a", "b", "c"))
@@ -108,8 +98,7 @@ def test_a_full_pool_costs_no_generation(stack, monkeypatch):
 
 
 def test_a_full_pool_does_not_even_build_the_context(stack, monkeypatch):
-    # Das Fenster zu bauen kostet Datenbankarbeit und rueckt den Lesezeiger weiter.
-    # Beides waere umsonst, wenn ohnehin nichts erzeugt wird.
+    # Building the window would be wasted when nothing is generated.
     mod, seen = stack
     gebaut = {"n": 0}
 
@@ -182,10 +171,7 @@ def test_nothing_is_stored_when_the_pool_covered_it(stack, monkeypatch):
 
 
 def test_the_grammar_pool_is_asked_with_its_topic(stack, monkeypatch):
-    """Ihre Aufgaben haengen zusaetzlich am Thema, also fragt sie mit Thema an.
-
-    Ohne das kaeme eine Passiv-Aufgabe in einer Konjunktiv-Uebung heraus.
-    """
+    """Grammar asks with a topic, otherwise the wrong thing comes out."""
     mod, seen = stack
     gefragt = {}
 
@@ -243,7 +229,7 @@ def test_no_refill_when_nothing_was_dropped(stack, monkeypatch):
 
 
 def test_a_failing_refill_keeps_the_unique_items(stack, monkeypatch):
-    # Gleiche Regel wie beim Abschnitts-Nachschlag: was fertig ist, wird gespeichert.
+    # Same rule as for the section top-up: whatever is finished gets saved.
     mod, seen = stack
     monkeypatch.setattr(mod, "seen_by_user", lambda *a, **k: ["Abstract"])
     lauf = {"n": 0}
@@ -263,8 +249,7 @@ def test_a_failing_refill_keeps_the_unique_items(stack, monkeypatch):
 
 
 def test_a_set_that_is_nothing_but_repeats_does_not_get_saved(stack, monkeypatch):
-    # Das Dokument hat nichts Neues mehr herzugeben. Ein leeres Set als fertig
-    # anzubieten waere schlimmer als ein gescheitertes.
+    # Offering an empty set as finished would be worse than a failed one.
     mod, seen = stack
     monkeypatch.setattr(mod, "seen_by_user", lambda *a, **k: ["a", "b"])
     _generator(mod, monkeypatch, seen, _cards("a", "b"), _cards("a", "b"))
@@ -275,15 +260,10 @@ def test_a_set_that_is_nothing_but_repeats_does_not_get_saved(stack, monkeypatch
     assert seen["finalized"] is None
 
 
-# --- Die bestellte Anzahl -----------------------------------------------------
+# --- The ordered count --------------------------------------------------------
 
 def test_a_short_run_is_topped_up_to_the_ordered_count(stack, monkeypatch):
-    """Der gemeldete Fehler: zehn bestellt, neun bekommen, im naechsten Lauf zehn.
-
-    Es muss nicht am Doppler-Filter liegen. Liefert das Modell einfach weniger, oder
-    werfen die Pruefungen des Werkzeugs eine unloesbare Aufgabe weg, stand dahinter
-    bis hierher kein Nachschlag: der Satz wurde zu kurz gespeichert.
-    """
+    """Even without duplicates a top-up is needed, otherwise the set stays too short."""
     mod, seen = stack
     lauf = _generator(mod, monkeypatch, seen, _cards("a", "b"), _cards("c"))
 
@@ -294,7 +274,7 @@ def test_a_short_run_is_topped_up_to_the_ordered_count(stack, monkeypatch):
 
 
 def test_the_top_up_keeps_going_until_the_count_stands(stack, monkeypatch):
-    """Mehr als ein Nachschlag, wenn auch der zweite Wurf zu wenig liefert."""
+    """More than one top-up when the second attempt also delivers too little."""
     mod, seen = stack
     lauf = _generator(mod, monkeypatch, seen,
                       _cards("a"), _cards("b"), _cards("c"))
@@ -306,12 +286,7 @@ def test_the_top_up_keeps_going_until_the_count_stands(stack, monkeypatch):
 
 
 def test_the_top_up_stops_when_a_round_brings_nothing_new(stack, monkeypatch):
-    """Eine Runde ohne eine neue Aufgabe beendet den Nachschlag sofort.
-
-    Dann hat das Dokument nichts mehr herzugeben, und ein kuerzerer Satz ist die
-    ehrliche Antwort. Weiterzufragen kostet nur Anfragen, die die ganze Hochschule
-    sich teilt.
-    """
+    """A round without a new exercise ends the top-up right away."""
     mod, seen = stack
     lauf = _generator(mod, monkeypatch, seen, _cards("a"), _cards("a"), _cards("b"))
 
@@ -322,7 +297,7 @@ def test_the_top_up_stops_when_a_round_brings_nothing_new(stack, monkeypatch):
 
 
 def test_the_top_up_has_an_upper_bound(stack, monkeypatch):
-    """Liefert jeder Wurf nur eine Aufgabe, wird nicht endlos nachbestellt."""
+    """If every attempt returns only one exercise, the top-up is not endless."""
     mod, seen = stack
     lauf = _generator(mod, monkeypatch, seen,
                       _cards("a"), _cards("b"), _cards("c"), _cards("d"))
@@ -334,7 +309,7 @@ def test_the_top_up_has_an_upper_bound(stack, monkeypatch):
 
 
 def test_the_pool_counts_towards_the_ordered_number(stack, monkeypatch):
-    """Der Nachschlag zielt auf die bestellte Anzahl, nicht auf den Modell-Anteil."""
+    """The top-up aims at the ordered count, not at the model's share."""
     mod, seen = stack
     monkeypatch.setattr(mod, "take_from_pool", lambda *a, **k: _pool_cards("a", "b"))
     lauf = _generator(mod, monkeypatch, seen, _cards("c"), _cards("d"))
@@ -346,11 +321,7 @@ def test_the_pool_counts_towards_the_ordered_number(stack, monkeypatch):
 
 
 def test_a_pool_item_is_not_dropped_as_a_repeat(stack, monkeypatch):
-    """Was der Vorrat liefert, hat diese Person nachweislich noch nicht gehabt.
-
-    Der Filter darf es also nicht nachtraeglich wieder wegwerfen, auch wenn die
-    Historie zufaellig eine aehnliche Vorderseite enthaelt.
-    """
+    """What the pool delivers the filter must not throw away again."""
     mod, seen = stack
     monkeypatch.setattr(mod, "take_from_pool", lambda *a, **k: _pool_cards("a", "b"))
     monkeypatch.setattr(mod, "seen_by_user", lambda *a, **k: ["a", "b"])
@@ -361,16 +332,10 @@ def test_a_pool_item_is_not_dropped_as_a_repeat(stack, monkeypatch):
     assert [i["front"] for i in seen["finalized"]["items"]] == ["a", "b"]
 
 
-# --- Die Formatauswahl --------------------------------------------------------
+# --- The format selection -----------------------------------------------------
 
 def _grammar_generator(mod, monkeypatch, *runden):
-    """Wie ``_generator``, aber fuer die Grammatik-Uebung.
-
-    Sie hat eine eigene Rueckgabe (Aufgaben, Titel, Kopf) und einen eigenen Namen,
-    deshalb reicht der Helfer weiter oben nicht: der haengt an
-    ``generate_mc_from_source``. Haelt zusaetzlich fest, mit welcher Formatauswahl
-    erzeugt wurde.
-    """
+    """Like the other helper, but for the grammar exercise."""
     lauf = {"n": 0, "kinds": "nie gerufen"}
 
     def _gen(client, model, ctx, gtype, how_many, **k):
@@ -383,7 +348,7 @@ def _grammar_generator(mod, monkeypatch, *runden):
 
 
 def _pool_spy(monkeypatch, mod):
-    """Faengt ab, mit welcher Formatauswahl der Vorrat gefragt wurde."""
+    """Captures which format selection the pool was asked with."""
     gefragt = {"kinds": "nie gerufen"}
 
     def _take(uuids, tool, level, user_id, count, topic_id=None, kinds=None):
@@ -395,8 +360,7 @@ def _pool_spy(monkeypatch, mod):
 
 
 def test_the_format_choice_reaches_the_pool(stack, monkeypatch):
-    """Der Vorrat wird VOR dem Modell gefragt. Ohne die Auswahl liefert er
-    abgewaehlte Formate aus, und zwar ohne dass je ein Modell im Spiel war."""
+    """Without the selection the pool hands out deselected formats."""
     mod, seen = stack
     monkeypatch.setattr(mod.db, "get_exercise_set_with_items", lambda _id: {
         "user_id": 1, "grammar_type": None, "grammar_topic_id": 99,
@@ -424,8 +388,7 @@ def test_the_format_choice_reaches_the_generator(stack, monkeypatch):
 
 
 def test_a_mixed_set_asks_for_everything(stack, monkeypatch):
-    """Ein Satz ohne Auswahl, also der Normalfall und jeder Satz von vor dieser
-    Spalte. Vorrat und Erzeugung duerfen dann keine Einschraenkung sehen."""
+    """A set without a selection is the normal case, then no restriction applies."""
     mod, seen = stack
     gefragt = _pool_spy(monkeypatch, mod)
     lauf = _grammar_generator(mod, monkeypatch, _cards("a", "b", "c"))
@@ -437,8 +400,7 @@ def test_a_mixed_set_asks_for_everything(stack, monkeypatch):
 
 
 def test_a_stale_kind_in_the_column_does_not_break_the_run(stack, monkeypatch):
-    """Ein Satz kann aelter sein als die heutigen Formate. Ein Kuerzel, das es nicht
-    mehr gibt, macht daraus eine gemischte Uebung und keinen Fehlschlag."""
+    """A dead code makes a mixed exercise, not a failure."""
     mod, seen = stack
     monkeypatch.setattr(mod.db, "get_exercise_set_with_items", lambda _id: {
         "user_id": 1, "grammar_type": None, "grammar_topic_id": 99,
@@ -453,9 +415,7 @@ def test_a_stale_kind_in_the_column_does_not_break_the_run(stack, monkeypatch):
 
 
 def test_the_pool_gets_the_kind_the_finished_set_does_not(stack, monkeypatch):
-    """``_kind`` ist ein Hilfsfeld der Erzeugung. Es faehrt bis in den Vorrat mit,
-    denn nur dort steht die Art ueber diesen Lauf hinaus. Im gespeicherten Satz hat
-    es nichts verloren, dort traegt jede Aufgabe ihre Anweisung schon selbst."""
+    """_kind travels into the pool and has no place in the saved set."""
     mod, seen = stack
     _grammar_generator(mod, monkeypatch,
                        [{"front": "a", "back": "A", "_kind": "transform"}])

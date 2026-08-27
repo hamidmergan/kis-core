@@ -22,7 +22,7 @@ from src.permissions_registry import (
 from src.tools_registry import ALL_TOOL_KEYS
 
 
-# ── Der Katalog ───────────────────────────────────────────────────────────────
+# ── The catalogue ─────────────────────────────────────────────────────────────
 
 def test_catalog_has_no_duplicates():
     assert len(ALL_PERMISSION_KEYS) == len(set(ALL_PERMISSION_KEYS))
@@ -43,7 +43,7 @@ def test_every_settings_field_points_at_a_known_permission():
         assert key in ALL_PERMISSION_KEYS, field
 
 
-# ── Systemrollen behalten ihre bisherigen Rechte ──────────────────────────────
+# ── System roles keep their existing permissions ──────────────────────────────
 
 def test_system_roles_constant_lists_three_fixed_roles():
     assert SYSTEM_ROLES == ("admin", "staff", "user")
@@ -62,7 +62,7 @@ def test_staff_gets_the_numbers_of_its_own_workspaces():
     assert perms.allow_aia is True
     assert perms.allow_workspace_create is True
     assert set(perms.tools) == set(ALL_TOOL_KEYS)
-    # Der Bereich geht auf, aber nur fuer diesen einen Reiter.
+    # The area opens, but only for this one tab.
     assert perms.allow_admin_panel is True
     assert perms.settings_pages == (PERM_SET_STATS_OWN,)
 
@@ -80,7 +80,7 @@ def test_unknown_role_raises():
         permissions_for_system_role("ninja")
 
 
-# ── Auflösung ─────────────────────────────────────────────────────────────────
+# ── Resolution ────────────────────────────────────────────────────────────────
 
 def test_env_admin_overrides_any_role():
     perms = resolve_user_permissions(role="user", custom_role_id=None, is_env_admin=True)
@@ -177,8 +177,7 @@ def test_custom_role_tools_are_layered_on_top():
     assert perms.allow_workspace_create is False
 
 
-# Der eigentliche Anlass des Umbaus: eine Rolle, die genau eine Seite des
-# Bereichs pflegen darf und sonst nichts.
+# The reason for the rework: a role for exactly one page.
 def test_custom_role_with_one_settings_key_reaches_the_area():
     perms = custom_role_permissions([PERM_AIA_USE, PERM_SET_AIA_LEVEL])
     assert perms.allow_admin_panel is True
@@ -188,7 +187,7 @@ def test_custom_role_with_one_settings_key_reaches_the_area():
     assert perms.tools == ()
 
 
-# ── Umzug der alten Spalten ───────────────────────────────────────────────────
+# ── Migration of the old columns ──────────────────────────────────────────────
 
 def test_legacy_edit_role_with_tools_maps_to_four_keys():
     keys = keys_from_legacy("edit", ["translation", "tts"])

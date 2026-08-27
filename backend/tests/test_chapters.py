@@ -1,9 +1,4 @@
-"""Kapitel im Quellenbereich.
-
-Kapitel sind reine Gliederung. Der Test achtet deshalb auf zwei Dinge: dass
-keine Datei durch ein Kapitel verschwindet, und dass ein Kapitel den eigenen
-Kursraum nicht verlaesst.
-"""
+"""Chapters are pure structure, no file may disappear."""
 
 import pytest
 from fastapi import HTTPException
@@ -13,7 +8,7 @@ from src.features.ai_assistant.routes.sources import _chapters
 
 
 class _FakeCursor:
-    """Cursor-Attrappe. Merkt jede Anweisung mit, liefert vorgegebene Zeilen."""
+    """Cursor stub, records every statement and returns given rows."""
 
     def __init__(self, antworten, calls):
         self._antworten = list(antworten)
@@ -79,7 +74,7 @@ def datenbank(monkeypatch):
 # ─── Repository ──────────────────────────────────────────────────────────────
 
 def test_anlegen_haengt_hinten_an(datenbank):
-    """Ein neues Kapitel steht unten, nicht irgendwo mittendrin."""
+    """A new chapter goes at the bottom, not somewhere in the middle."""
     zustand = datenbank([[{"id": 1, "uuid": "k1", "name": "Neu", "position": 3}]])
 
     repo.create_aia_chapter(7, "k1", "Neu")
@@ -90,7 +85,7 @@ def test_anlegen_haengt_hinten_an(datenbank):
 
 
 def test_loeschen_nimmt_keine_quelle_mit(datenbank):
-    """Die Anweisung trifft nur aia_chapters. Die Quellen haengen per SET NULL dran."""
+    """The statement only hits aia_chapters, the sources hang off it via SET NULL."""
     zustand = datenbank([[(7,)], []])
 
     repo.delete_aia_chapter("k1")
@@ -101,7 +96,7 @@ def test_loeschen_nimmt_keine_quelle_mit(datenbank):
 
 
 def test_loeschen_rueckt_die_nummern_zurecht(datenbank):
-    """Sonst blieben Luecken, und Nachbarsuche beim Verschieben ginge ins Leere."""
+    """Otherwise gaps would remain and the neighbour lookup when moving would miss."""
     zustand = datenbank([[(7,)], []])
 
     repo.delete_aia_chapter("k1")
@@ -128,7 +123,7 @@ def test_verschieben_tauscht_mit_dem_nachbarn(datenbank):
 
 
 def test_verschieben_am_rand_macht_nichts(datenbank):
-    """Ohne Nachbarn bleibt alles stehen, statt eine Position ins Minus zu schreiben."""
+    """Without a neighbour everything stays, instead of writing a negative position."""
     zustand = datenbank([[(5, 7, 0)], [], [(0,)], []])
 
     assert repo.move_aia_chapter("k1", "up") is False
@@ -155,11 +150,7 @@ def test_zuordnen_ohne_kapitel_setzt_null(datenbank):
 # ─── Routen ──────────────────────────────────────────────────────────────────
 
 def _route_vorbereiten(monkeypatch, vorhandene=(), anzahl=0, fremd=False):
-    """Klinkt Rechtepruefung und Datenbank aus.
-
-    ``vorhandene`` sind die Namen der Kapitel im Kursraum, ``fremd`` laesst jedes
-    Kapitel so aussehen, als gehoerte es einem anderen Kursraum.
-    """
+    """Stubs out the permission check and the database."""
     workspace = {"id": 7, "uuid": "w1", "user_id": 42}
     kapitel = [
         {"id": i, "uuid": f"k{i}", "name": n, "position": i, "workspace_id": 7}
@@ -236,7 +227,7 @@ def test_anlegen_lehnt_einen_zu_langen_namen_ab(monkeypatch):
 
 
 def test_anlegen_lehnt_einen_schon_vergebenen_namen_ab(monkeypatch):
-    """Zwei gleich benannte Kapitel waeren in der Liste nicht zu unterscheiden."""
+    """Two chapters of the same name could not be told apart in the list."""
     _route_vorbereiten(monkeypatch, vorhandene=["1 Einführung"])
 
     with pytest.raises(HTTPException) as fehler:
@@ -256,7 +247,7 @@ def test_anlegen_hat_eine_obergrenze(monkeypatch):
 
 def test_umbenennen_stoert_sich_nicht_am_eigenen_namen(monkeypatch):
     gerufen = _route_vorbereiten(monkeypatch, vorhandene=["Alt"])
-    # k0 ist genau das Kapitel, das umbenannt wird
+    # k0 is exactly the chapter that gets renamed
     _chapters.rename_chapter(
         workspace_uuid="w1", chapter_uuid="k0",
         body=_chapters.ChapterBody(name="alt"),
@@ -280,7 +271,7 @@ def test_umbenennen_lehnt_den_namen_eines_anderen_kapitels_ab(monkeypatch):
 
 
 def test_kapitel_aus_einem_fremden_kursraum_ist_nicht_zu_finden(monkeypatch):
-    """404 statt 403, damit eine fremde uuid nicht von einer erfundenen zu unterscheiden ist."""
+    """404 instead of 403 so a foreign uuid is indistinguishable from an invented one."""
     _route_vorbereiten(monkeypatch, fremd=True)
 
     with pytest.raises(HTTPException) as fehler:
@@ -307,7 +298,7 @@ def test_verschieben_lehnt_eine_unsinnige_richtung_ab(monkeypatch):
 
 
 def test_zuordnen_setzt_die_interne_id_des_kapitels(monkeypatch):
-    """Nach aussen geht die uuid, in der Spalte steht die id."""
+    """The uuid goes outside, the column holds the id."""
     gerufen = _route_vorbereiten(monkeypatch)
 
     antwort = _chapters.set_source_chapter(

@@ -1,4 +1,4 @@
-"""Shared constants + Job-Row-Formatter für die /jobs-Endpunkte."""
+"""Shared constants and the job row formatter for the /jobs endpoints."""
 
 import json as json_lib
 import os
@@ -110,7 +110,7 @@ def _format_job_rows(
         meta = None
         if job["status"] in ("success", "failed") and tool in _META_TOOLS:
             meta = load_result_meta(job["user_id"], job["job_uuid"])
-            # Die Zahlen zum Lauf sind eine Betriebsauskunft und gehen nur an Admins.
+            # The run numbers are operational information and go to admins only.
             if meta and not is_admin:
                 meta = {k: v for k, v in meta.items() if k != "stats"}
 

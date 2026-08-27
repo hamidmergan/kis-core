@@ -35,7 +35,6 @@ interface MyJob {
 const SCREENCAST_RENDER_TOOLS = new Set(["screencast_render", "screencast_auto"]);
 const LAST_SEEN_KEY = "kis-jobs-last-seen";
 
-const isActive = (s: MyJob["status"]) => s === "pending" || s === "running" || s === "awaiting_user" || s === "queued";
 const isExpired = (job: MyJob) => job.status === "success" && !job.has_download;
 
 function useTimeAgo() {
@@ -64,7 +63,7 @@ function StatusBadge({ status, expired, isGeneratingScripts, resumeHref, onResum
   const t = useTranslations("myJobs.status");
   const anzeige = jobStatusDisplay(status, { expired, isGeneratingScripts });
 
-  // Fortsetzen ist eine Handlung, kein Zustand, und bekommt deshalb einen Knopf.
+  // Resuming is an action, not a state, and therefore gets a button.
   if (anzeige.kind === "action") {
     if (resumeHref)
       return (
@@ -94,12 +93,11 @@ export default function JobsPanel() {
   const [open, setOpen] = useState(false);
   const [jobs, setJobs] = useState<MyJob[]>([]);
   const [lastSeen, setLastSeen] = useState<number | null>(null);
-  const [cancelling, setCancelling] = useState<string | null>(null);
   const [retrying, setRetrying] = useState<string | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
-  // Der Knopf fuehrt zu "/my-jobs", also zeigt er auch an, wenn man schon dort ist.
+  // The button leads to /my-jobs, so it also shows when you are already there.
   const onJobsPage = usePathname().startsWith("/my-jobs");
 
   const prevJobStatusesRef = useRef<Record<string, { status: string; isGeneratingScripts?: boolean }>>({});
@@ -140,9 +138,7 @@ export default function JobsPanel() {
     return () => bc.close();
   }, [applyJobs]);
 
-  // SSE connection — opens only when tab is visible, closes when hidden
-  // This prevents exhausting the browser's 6-connection-per-origin limit
-  // when many tabs are open simultaneously.
+  // The stream only runs in the visible tab, otherwise the 6 connections fill up fast.
   useEffect(() => {
     let es: EventSource | null = null;
     let fallbackPoll: ReturnType<typeof setInterval> | null = null;
@@ -168,8 +164,7 @@ export default function JobsPanel() {
         } catch { /* ignore parse errors */ }
         stopFallback();
       };
-      // EventSource retries on its own while the state is CONNECTING, so only a
-      // permanently closed connection needs the slow fallback.
+      // EventSource retries by itself, only a dead connection needs the fallback.
       es.onerror = () => {
         if (es?.readyState !== EventSource.CLOSED || fallbackPoll) return;
         fallbackPoll = setInterval(() => { fetchJobs(); openSSE(); }, 30000);
@@ -211,8 +206,7 @@ export default function JobsPanel() {
     return () => window.removeEventListener("kis-jobs-changed", handler);
   }, [fetchJobs]);
 
-  // Remember when the user last looked, so the dot only marks fresh results.
-  // First visit starts the clock now, old jobs must not light up the dot.
+  // Remembers the last look so the dot only reports what is new.
   useEffect(() => {
     const stored = Number(localStorage.getItem(LAST_SEEN_KEY));
     if (stored > 0) { setLastSeen(stored); return; }
@@ -221,8 +215,7 @@ export default function JobsPanel() {
     setLastSeen(now);
   }, []);
 
-  // Opening the panel marks everything seen, closing it covers jobs that
-  // finished while it was open.
+  // Opening marks everything seen, closing catches what finished meanwhile.
   useEffect(() => {
     if (!open) return;
     const markSeen = () => {
@@ -283,19 +276,6 @@ export default function JobsPanel() {
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-  };
-
-  const handleCancel = async (e: React.MouseEvent, job: MyJob) => {
-    e.stopPropagation();
-    setCancelling(job.job_uuid);
-    try {
-      await fetch(`/api/jobs/${job.job_uuid}`, { method: "DELETE", credentials: "include" });
-      setJobs((prev) => prev.filter((j) => j.job_uuid !== job.job_uuid));
-    } catch {
-      // silently ignore
-    } finally {
-      setCancelling(null);
-    }
   };
 
   const handleRetry = async (e: React.MouseEvent, job: MyJob) => {

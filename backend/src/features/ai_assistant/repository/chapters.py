@@ -1,13 +1,4 @@
-"""Kapitel im Quellenbereich eines Kursraums.
-
-Ein Kapitel ist reine Gliederung: es gruppiert Quellen in der Liste und traegt
-sonst nichts. Es entscheidet nicht, was der Chat oder ein Werkzeug zu sehen
-bekommt, das haengt weiterhin allein am Haken der einzelnen Datei.
-
-``position`` ist luecklos und beginnt bei 0. Jede Aenderung an der Reihenfolge
-schreibt die Nummern des Kursraums neu, damit "nach oben" und "nach unten" nie
-auf zwei gleiche Nummern trifft.
-"""
+"""Chapters structure the source list, position is gapless and starts at 0."""
 
 import psycopg2.extras
 
@@ -15,7 +6,7 @@ from src.core.db.pool import get_connection
 
 
 def get_aia_chapters_by_workspace(workspace_id: int) -> list[dict]:
-    """Kapitel eines Kursraums in ihrer Reihenfolge."""
+    """Chapters of a course room in their order."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
@@ -74,7 +65,7 @@ def rename_aia_chapter(uuid: str, name: str) -> None:
 
 
 def delete_aia_chapter(uuid: str) -> None:
-    """Kapitel loeschen. Die Quellen darin bleiben und stehen danach ohne Kapitel."""
+    """Delete a chapter, the sources in it stay and end up without a chapter."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -88,7 +79,7 @@ def delete_aia_chapter(uuid: str) -> None:
 
 
 def move_aia_chapter(uuid: str, direction: str) -> bool:
-    """Kapitel um einen Platz verschieben. Gibt False zurueck, wenn es am Rand steht."""
+    """Move a chapter by one slot, returns False when it sits at the edge."""
     if direction not in ("up", "down"):
         return False
     with get_connection() as conn:
@@ -101,8 +92,7 @@ def move_aia_chapter(uuid: str, direction: str) -> bool:
             if not row:
                 return False
             chapter_id, workspace_id, position = row
-            # Vor dem Tausch aufraeumen: aeltere Zeilen koennen aus einer Zeit
-            # stammen, in der noch nicht neu nummeriert wurde.
+            # Renumber before the swap, older rows may have gaps.
             _renumber(cur, workspace_id)
             cur.execute("SELECT position FROM aia_chapters WHERE id = %s", (chapter_id,))
             position = cur.fetchone()[0]
@@ -127,7 +117,7 @@ def move_aia_chapter(uuid: str, direction: str) -> bool:
 
 
 def set_aia_source_chapter(source_uuid: str, chapter_id: int | None) -> None:
-    """Quelle einem Kapitel zuordnen. ``None`` heisst "Ohne Kapitel"."""
+    """Assign a source to a chapter, ``None`` means no chapter."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -138,7 +128,7 @@ def set_aia_source_chapter(source_uuid: str, chapter_id: int | None) -> None:
 
 
 def _renumber(cur, workspace_id: int) -> None:
-    """Positionen eines Kursraums auf 0..n-1 zurechtruecken."""
+    """Renumber a course room's positions to 0..n-1."""
     cur.execute(
         """UPDATE aia_chapters c
            SET position = ranked.rn - 1

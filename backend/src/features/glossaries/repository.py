@@ -1,10 +1,4 @@
-"""Per-user terminology glossary persistence.
-
-Backs the translation-tool glossary that previously lived only in the browser
-(localStorage). Each row belongs to exactly one user; there is no sharing.
-Returned dicts are already shaped for the API / frontend ``Glossary`` type:
-``{id, name, entries, createdAt}``.
-"""
+"""Personal terminology lists for translating, no sharing."""
 
 import json
 import uuid
@@ -70,8 +64,7 @@ def update_user_glossary(
     name: Optional[str] = None,
     entries: Optional[dict[str, str]] = None,
 ) -> Optional[dict]:
-    """Partial update scoped to the owner. Returns the updated row, or None if
-    the glossary does not exist for this user."""
+    """Partial update scoped to the owner, None otherwise."""
     sets: list[str] = []
     params: list = []
     if name is not None:

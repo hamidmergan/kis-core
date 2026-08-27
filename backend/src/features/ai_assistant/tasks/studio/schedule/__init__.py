@@ -1,11 +1,4 @@
-"""AI assistant Celery tasks: schedule extraction (regex + batch-classify pipeline).
-
-Pipeline:
-  1) Regex finds 100% of date candidates per source (_candidates)
-  2) A single batch LLM call classifies them all (keep/footer/historical/type/title) (_classify)
-  3) Same-date harmonization aligns titles with existing entries (_harmonize)
-  4) Merge by fuzzy-title + date (_titles) into existing entries or create new ones
-"""
+"""Find appointments: search patterns, classify in one call, harmonise, merge."""
 
 from datetime import date as _date_cls
 
@@ -38,13 +31,7 @@ from src.features.ai_assistant.tasks.studio.schedule._titles import _find_merge_
 
 def _split_rejected_ranges(candidates: list[dict],
                            classifications: list[dict]) -> tuple[list[dict], list[dict]]:
-    """Was das Modell nicht als Spanne bestaetigt hat, wird wieder zu zwei Terminen.
-
-    Der Kandidatenschritt schlaegt eine Paarung nur vor, er sieht ja nur den Abstand.
-    Lehnt die Klassifikation sie ab ("Abgabe 01.09.2026 Klausur 27.09.2026"), darf das
-    zweite Datum nicht verloren gehen, sonst waere die Spannen-Erkennung ein Rueckschritt
-    gegenueber dem Stand ohne sie.
-    """
+    """Whatever the model does not confirm as a span becomes two appointments again."""
     cands: list[dict] = []
     cls_out: list[dict] = []
     for cand, cls in zip(candidates, classifications):
@@ -67,11 +54,7 @@ def _split_rejected_ranges(candidates: list[dict],
 @observe(name="aia-schedule")
 def run_generate_schedule(self, job_id: int, workspace_id: int, user_id: int,
                           source_uuids: list[str]):
-    """Regex-first pipeline:
-      1) find all date candidates per source via regex (100% recall)
-      2) classify all candidates in ONE LLM call (is_event? footer? type? title?)
-      3) merge into existing entries (fuzzy-title + same date, append source_ref)
-    """
+    """Finds candidates by pattern, classifies them in one call and merges them."""
     try:
         db.update_schedule_job(job_id, "running")
         logger.info("Schedule job {} started", job_id)
@@ -90,18 +73,12 @@ def run_generate_schedule(self, job_id: int, workspace_id: int, user_id: int,
             logger.info("Schedule job {}: no pending sources", job_id)
             return
 
-        # STAGE 1+2: For each pending source, reuse stored extraction or
-        # run regex + LLM and persist. Result is two index-aligned lists
-        # (all_candidates, classifications) covering all pending sources,
-        # assembled in `pending` order.
+        # Per open source, use the stored analysis or analyse again.
         today_d = _date_cls.today()
         per_source: dict[int, tuple[list[dict], list[dict]]] = {}
         sources_needing_classify: list[tuple[dict, list[dict]]] = []
 
-        # Der Client steht schon vor der Kandidatensuche bereit: sie fragt fuer Termine
-        # ohne Datum ("nach Vereinbarung", in jeder Sprache) selbst beim Modell nach.
-        # Faellt er aus, laeuft ein Auftrag aus dem Zwischenspeicher trotzdem durch,
-        # nur die Klassifikation unten kommt ohne Modell nicht aus.
+        # The client is ready before the candidate search, which asks for it itself.
         try:
             client, model, _ = _get_llm_client()
         except Exception as e:  # noqa: BLE001 - der Zwischenspeicher-Weg braucht kein Modell
@@ -125,9 +102,7 @@ def run_generate_schedule(self, job_id: int, workspace_id: int, user_id: int,
                 )
                 sources_needing_classify.append((src, cands))
 
-        # Schon stehende Eintraege des Workspaces. Sie werden weiter unten fuer den
-        # Abgleich und das Zusammenfuehren gebraucht und schon hier, damit die
-        # Klassifikation weiss, welche Tage mit Jahreszahl belegt sind.
+        # The entries already there, also so the classification knows the taken days.
         existing_entries: list[dict] = list(db.get_schedule_entries(workspace_id, user_id))
         workspace_entries: list[dict] = list(db.get_schedule_entries_for_workspace(workspace_id))
 
@@ -136,10 +111,7 @@ def run_generate_schedule(self, job_id: int, workspace_id: int, user_id: int,
             for _src, cands in sources_needing_classify:
                 to_classify.extend(cands)
 
-            # Ein Vortrag sagt "der 3. Juli", der Kursplan schreibt "03.07.2026". Ohne
-            # diesen Hinweis verwirft die Klassifikation den gesprochenen Termin als
-            # Erinnerung an frueher, sobald der Tag im laufenden Jahr vorbei ist, und
-            # der Zeitplan traegt am Ende nur PDF-Quellen.
+            # Without this hint the classification discards spoken appointments as past.
             dated_days = _dated_month_days(to_classify, workspace_entries)
 
             try:
@@ -168,8 +140,7 @@ def run_generate_schedule(self, job_id: int, workspace_id: int, user_id: int,
             all_candidates.extend(cands)
             classifications.extend(cls)
 
-        # Abgelehnte Paarungen zurueck in zwei Termine, bevor irgendetwas die beiden
-        # Listen ueber ihre Position miteinander verbindet.
+        # Rejected pairings back into two appointments before the lists are joined.
         all_candidates, classifications = _split_rejected_ranges(all_candidates, classifications)
 
         if not all_candidates:
@@ -179,20 +150,12 @@ def run_generate_schedule(self, job_id: int, workspace_id: int, user_id: int,
             logger.info("Schedule job {}: no candidates found", job_id)
             return
 
-        # Die Eintraege stehen schon oben bereit (die Klassifikation braucht sie auch).
-        # `existing_entries` (own) drives the merge loop below.
-        # `harmonize_anchors` adds entries from OTHER users in the same workspace
-        # so user B's job inherits user A's canonical wording (otherwise
-        # harmonize has no anchor when user B uploads both sources at once
-        # and the LLM may keep semantically-equal titles like
-        # "Abgabe Hausarbeit" vs "Abgabe schriftliche Ausarbeitung" apart).
+        # Other people's entries serve as anchors for consistent naming.
         own_ids = {e["id"] for e in existing_entries}
         cross_user_anchors = [e for e in workspace_entries if e["id"] not in own_ids]
         harmonize_anchors = existing_entries + cross_user_anchors
 
-        # STAGE 2c: Cross-candidate title harmonization for events on the same date.
-        # Aligns new candidates with each other AND with existing DB entries so
-        # fuzzy-merge downstream picks them up instead of creating duplicates.
+        # Harmonise titles of the same day so no duplicates appear later.
         try:
             _harmonize_same_date_titles(
                 client, model, all_candidates, classifications, today_d, harmonize_anchors,
@@ -212,8 +175,7 @@ def run_generate_schedule(self, job_id: int, workspace_id: int, user_id: int,
                 )
                 continue
 
-            # Resolve the date: explicit ISO -> use it; partial (MM-DD) -> current
-            # year; TBD ('nach Vereinbarung') -> no date at all.
+            # Resolve the date: complete, month and day only, or none at all.
             if cand.get("is_tbd"):
                 due_date_obj = None
             elif cand["date_iso"]:
@@ -226,26 +188,23 @@ def run_generate_schedule(self, job_id: int, workspace_id: int, user_id: int,
             # Only non-TBD candidates require a resolved date
             if due_date_obj is None and not cand.get("is_tbd"):
                 continue
-            # "month" heisst: die Quelle nannte nur einen Monat. due_date traegt dann den
-            # Monatsersten als Sortierpunkt, die Ansicht zeigt keine Tagesnummer.
+            # 'month' means the source named only a month.
             precision = "month" if cand.get("date_precision") == "month" else "day"
             end_date_obj = (
                 _range_end_date(cand, due_date_obj, today_d) if cls.get("is_range") else None
             )
-            # Ein Ende und "laeuft unbegrenzt weiter" schliessen sich aus.
+            # An end and 'runs on indefinitely' are mutually exclusive.
             offenes_ende = bool(cls.get("is_open_ended")) and end_date_obj is None
 
             ref = {
                 "source_uuid": cand["source_uuid"],
                 "page_number": cand["page_number"],
                 "start_time": cand["start_time"],
-                # raw_quote is the short +/-80-char snippet used by the frontend
-                # highlight search; context (+/-450) was only for the classifier.
+                # The short excerpt serves the browser search, the long one only the classification.
                 "raw_quote": cand.get("raw_quote") or cand.get("context"),
             }
 
-            # Try to merge into existing entry (same date + fuzzy title; for TBD:
-            # also no-date + fuzzy title or same source text).
+            # Try to merge into an existing entry.
             merge_target = _find_merge_target(
                 existing_entries, due_date_obj, precision, cls["title"], ref,
                 end_date=end_date_obj,

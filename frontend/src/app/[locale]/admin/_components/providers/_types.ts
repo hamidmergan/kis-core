@@ -56,9 +56,7 @@ export type Provider = {
   updated_at: string;
 };
 
-/** Was einmal an einem Modell gemessen wurde: wie viel Kontext es verträgt und ob
- *  es vor der Antwort denkt. `source` sagt, wie verlässlich die Zahl ist.
- */
+/** What was measured on a model, source says how reliable it is. */
 export type ModelLimits = {
   window_tokens: number;
   source: "gemessen" | "unbekannt" | "gelernt" | "gesetzt";

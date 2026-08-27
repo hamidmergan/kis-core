@@ -52,9 +52,7 @@ def _normalize_date(raw: str) -> Optional[str]:
     if m:
         d, mo, y = m.groups()
         return f"{int(y):04d}-{int(mo):02d}-{int(d):02d}"
-    # D. Month YYYY (German), Trennzeichen vor dem Jahr ist ein Leerzeichen ODER ein
-    # Punkt: "3. Juli 2026" und "03.Juli.2026" meinen dasselbe. Ohne den Punkt-Fall
-    # blieb vom zweiten nur "03.Juli" uebrig und das Jahr fiel unter den Tisch.
+    # A space or a period may stand before the year.
     m = re.fullmatch(r"(\d{1,2})\.\s*([A-Za-zÄäÖöÜüß]+)(?:\s+|\.\s*)(\d{4})", s)
     if m:
         d, mo_str, y = m.groups()
@@ -72,11 +70,7 @@ def _normalize_date(raw: str) -> Optional[str]:
 
 
 def _normalize_month_date(raw: str) -> Optional[str]:
-    """Monat mit Jahr ohne Tag ("06.2026", "Juli 2026") auf den Monatsersten legen.
-
-    Der Erste ist nur der Sortierpunkt. Dass der Tag NICHT dasteht, merkt sich der
-    Kandidat getrennt in date_precision, sonst wuerde die Ansicht einen Tag behaupten.
-    """
+    """Puts a month without a day on the first of the month as a sort key."""
     s = raw.strip().replace(" ", " ")
     m = re.fullmatch(r"(\d{1,2})\.(\d{4})", s)
     if m:
@@ -116,12 +110,7 @@ def _normalize_partial_date(raw: str) -> Optional[tuple[int, int]]:
 
 def _range_end_date(cand: dict, due_date_obj: Optional[date],
                     today_d: date) -> Optional[date]:
-    """Das Enddatum einer bestaetigten Spanne, oder None.
-
-    Ohne Jahr im Text gilt dasselbe laufende Jahr wie beim Anfang. Faellt das Ende damit
-    vor den Anfang, ist der Jahreswechsel gemeint. Ein Ende, das nicht nach dem Anfang
-    liegt, ist keine Spanne und faellt weg.
-    """
+    """The end date of a confirmed span, or None."""
     ende = None
     if cand.get("date_end_iso"):
         ende = _parse_date(cand["date_end_iso"])
@@ -136,9 +125,7 @@ def _range_end_date(cand: dict, due_date_obj: Optional[date],
 
 
 def _resolve_current_year(today_d: date, month: int, day: int) -> Optional[date]:
-    """Year-less dates ALWAYS resolve to the current year. If the resulting date
-    is in the past, it's shown dimmed by the UI - we do NOT hallucinate a future
-    year. Returns None on invalid MD."""
+    """A date without a year counts in the current year, none is invented."""
     try:
         return date(today_d.year, month, day)
     except ValueError:

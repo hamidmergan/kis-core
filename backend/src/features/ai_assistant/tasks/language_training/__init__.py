@@ -1,8 +1,4 @@
-"""KI-Assistent Celery-Task: Exercise-Set-Generierung.
-
-Dispatcht je nach `mode` (glossary/source) und `tool`
-(flashcards/karteikarten/quiz/grammatik) an die passenden
-Handler-Module."""
+"""Dispatches the generation of an exercise set to the matching module."""
 
 from langfuse.decorators import observe
 from loguru import logger
@@ -57,9 +53,7 @@ from src.features.ai_assistant.tasks.language_training._variation import (
 )
 
 
-# So oft wird nachbestellt, bis die verlangte Anzahl steht. Zwei Runden und nicht mehr.
-# Eine Runde, die keine einzige neue Aufgabe bringt, beendet den Nachschlag ohnehin sofort, denn dann hat das Dokument
-# nichts mehr herzugeben und ein kuerzerer Satz ist die ehrliche Antwort.
+# This many top-up rounds, at most two.
 _NACHSCHLAG_RUNDEN = 2
 
 
@@ -70,12 +64,7 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
                               mode: str, count: int, source_uuid: str | None = None,
                               source_uuids: list[str] | None = None,
                               locale: str = "de"):
-    """Generate items for an exercise set (flashcards/karteikarten/quiz/grammatik).
-
-    `locale` kommt vom Aufrufer, wird hier aber sofort durch die Unterrichtssprache
-    ersetzt: was der Lernende zu sehen bekommt, folgt dem Kurs und nicht der Sprachwahl
-    in seinem Kopf der Seite.
-    """
+    """Generates the exercises of a set, the language follows the course."""
     try:
         workspace = db.get_aia_workspace_by_id(workspace_id)
         if not workspace:
@@ -88,39 +77,23 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
             return
         user_id = ex_set["user_id"]
 
-        # Die Sprache der Aufgaben haengt nicht an der Oberflaeche der Person. `locale`
-        # wird hier bewusst ueberschrieben: alles weiter unten, was den Lernenden erreicht
-        # (Anweisungszeile, Richtig/Falsch-Beschriftung, Grammatikregel und Musterbeispiel),
-        # soll in der Unterrichtssprache stehen und nicht in der Sprache, auf die jemand
-        # seine Knoepfe gestellt hat.
-        #
-        # Karteikarten und Quiz folgen der globalen Einstellung der Verwaltung. Lernkarten,
-        # Wortschatz-Lueckentext und Grammatik-Uebung gehoeren zum Sprachtrainer und bleiben
-        # am Kursraum, also auf Deutsch: ihre Prompts sind auf Deutsch ausgelegt und in
-        # keiner anderen Sprache gemessen.
+        # The exercise language follows the course, not the person's interface.
         locale, language = (learning_tools_language() if tool in LEARNING_TOOLS
                             else tool_output_language(workspace_id))
 
         client, model, _ = _get_llm_client()
 
-        # Pitch the generated items at the learner's stored CEFR level, exactly as
-        # the chat does. Empty string when the learner has no level yet, so the
-        # tools keep their shipped register.
+        # The exercises are tuned to the stored language level.
         adaptive_suffix = build_adaptive_tool_suffix(user_id, workspace_id)
 
-        # Der Wortschatz-Lückentext geht seinen eigenen Weg und nicht durch die
-        # Maschinerie darunter. Ein Set ist bei ihm EINE Aufgabe, es gibt also nichts
-        # nachzubestellen, nichts zu entdoppeln und keine Abschnittsquote zu erfüllen.
-        # Die drei Schritte hier sind alles, was er braucht.
+        # The vocabulary cloze goes its own way, one sentence is one exercise.
         if tool == "wortschatz":
             run_cloze_set(set_id, ex_set, user_id, count, client, model,
                           language, adaptive_suffix,
                           source_uuids or ([source_uuid] if source_uuid else []))
             return
 
-        # Names the titles this workspace already uses for this tool, so a second set
-        # from the same document does not end up with the same name. Only the title,
-        # never the items: those get copied when fed back (see the generator comments).
+        # Names the titles already taken so a second set is called something else.
         title_avoidance = build_title_avoidance_block(workspace_id, tool)
 
         items: list[dict] = []
@@ -129,9 +102,7 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
         header: dict | None = None
         # Stays None in glossary mode, which has no sources and therefore no sections.
         ctx = None
-        # Set in source mode so the duplicate filter below can order a refill. Glossary
-        # mode leaves it None: it draws from a finite term list, so a second run has
-        # nothing new to offer and the set is simply shorter.
+        # Only set in source mode, glossary mode has nothing to top up.
         refill = None
 
         if mode == "glossary":
@@ -149,18 +120,11 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
                 db.fail_exercise_set(set_id)
                 return
 
-            # Erst der Vorrat, dann das Modell. Was frueher hier schon erzeugt wurde,
-            # liegt an der Quelle und steht allen offen; genommen wird nur, was diese
-            # Person noch nicht hatte. Reicht das, kostet die ganze Anfrage keinen
-            # einzigen Modellaufruf.
+            # Pool first, then the model, only unseen items are taken.
             level = pool_level(adaptive_suffix, user_id)
-            # Die Grammatik-Uebung haengt zusaetzlich am gewaehlten Thema: aus demselben
-            # Text entsteht eine Passiv- oder eine Konjunktiv-Aufgabe. Ihr Vorrat trennt
-            # deshalb auch danach. Bei allen anderen Werkzeugen bleibt das Thema leer.
+            # The grammar exercise splits its pool by topic as well.
             topic_id = ex_set.get("grammar_topic_id") if tool == "grammatik" else None
-            # Die gewaehlten Aufgabenformate. Noch einmal gesaeubert, weil der Satz
-            # aelter sein kann als die heutigen Formate: ein Kuerzel, das es nicht mehr
-            # gibt, soll den Auftrag nicht schief machen. None heisst gemischt.
+            # Clean the formats again, an old set can carry dead codes.
             kinds = (clean_kinds(ex_set.get("grammar_kinds"))
                      if tool == "grammatik" else None)
             if uses_pool(tool, mode):
@@ -172,8 +136,7 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
 
             zu_erzeugen = count - len(items)
             if zu_erzeugen <= 0:
-                # Der Vorrat hat gereicht. Kein Kontext, kein Aufruf, kein Fegen des
-                # Dokuments: der Titel weiter unten ist alles, was noch aussteht.
+                # The pool was enough, only the title is missing.
                 ctx = None
             else:
                 ctx = build_source_context(uuids, tool, count=zu_erzeugen)
@@ -185,17 +148,14 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
 
             gtype = None
             if tool == "grammatik":
-                # Das Thema wurde beim Anlegen geprüft, es wird hier neu gelesen, weil
-                # der Auftrag lange nach der Anfrage laufen kann.
+                # The topic is read again, the job can run long after the request.
                 topic = db.get_grammar_topic(ex_set.get("grammar_topic_id"))
                 if not topic:
                     db.fail_exercise_set(set_id)
                     return
                 spec = db.get_topic_spec(topic["id"], locale)
                 if not spec:
-                    # Erste Benutzung in dieser Sprache. Das trifft jeden Kurs, dessen
-                    # Thema in einer anderen Sprache angelegt wurde, denn Regel und
-                    # Beispiel hängen an der Sprache und nicht am Namen.
+                    # First use in this language, rule and example hang off it.
                     derived = derive_topic(client, model, topic["name"], language)
                     if not derived:
                         logger.warning(
@@ -208,13 +168,7 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
                         topic["id"], locale, derived["rule"], derived["examples"],
                         derived.get("task_lines"))
                 elif not spec.get("task_lines"):
-                    # Ausgearbeitet vor den Anweisungszeilen. Ohne diesen Nachschlag
-                    # bliebe so ein Thema fuer immer an der Schablone haengen, denn oben
-                    # wird nur ausgearbeitet, was noch gar nicht ausgearbeitet ist.
-                    #
-                    # Regel und Musterpaar bleiben, wie sie sind: der Dozent darf sie im
-                    # Formular geaendert haben, und eine Anweisungszeile ist kein Grund,
-                    # ihm das zu ueberschreiben.
+                    # Instruction lines are backfilled, rule and pattern pair stay untouched.
                     zeilen = derive_task_lines(client, model, topic["name"], language)
                     if zeilen:
                         spec = db.save_topic_spec(
@@ -222,14 +176,8 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
                 gtype = catalog_entry(topic, spec)
 
             def generate(from_ctx, how_many):
-                """One generation run against one context. Returns (items, title, header).
-
-                Wrapped so the top-up below can repeat it against a smaller context
-                without duplicating the tool dispatch.
-                """
-                # Splitting the context budget only puts every source IN the prompt, and
-                # not even evenly. It took equal numbered sections plus a stated quota
-                # per section to make the model use them all.
+                """One generation run against a context, returns exercises, title and header."""
+                # Only equally sized numbered sections with a quota make the model use them all.
                 cov = coverage_rule(from_ctx, how_many)
                 shared = dict(locale=locale, language=language,
                               adaptive_suffix=adaptive_suffix,
@@ -243,7 +191,7 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
                         client, model, from_ctx, how_many, **shared)
                     return got, name, None
                 if tool == "grammatik":
-                    # Ein Aufruf, die gewaehlten Formate gleichmässig gemischt.
+                    # One call, the chosen formats mixed evenly.
                     return generate_grammar_from_source(
                         client, model, from_ctx, gtype, how_many, kinds=kinds, **shared)
                 got, name = generate_mc_from_source(
@@ -251,13 +199,10 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
                 return got, name, None
 
             refill = generate
-            # Erzeugt wird nur der Fehlbetrag. Was aus dem Vorrat kam, steht schon in
-            # ``items`` und wird am Ende davorgestellt.
+            # Only the shortfall is generated, the pool is already in items.
             neu, title, header = generate(ctx, zu_erzeugen)
 
-            # Did every section actually get used? Measured: the grammar tool served all
-            # five on its own, the quiz skipped the last one in both runs. So the sections
-            # that came up empty get one more run of their own, and only then.
+            # Sections left empty get a run of their own, and only those.
             if neu and len(ctx.sections) > 1:
                 gap_uuids = missing_section_uuids(neu, ctx)
                 if gap_uuids:
@@ -266,21 +211,15 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
                         set_id, len(gap_uuids), len(ctx.sections),
                     )
                     need = per_section_quota(len(ctx.sections), zu_erzeugen) * len(gap_uuids)
-                    # Der Nachschlag ist eine Verbesserung und keine Voraussetzung. Er lief
-                    # bis 2026-08-05 im selben try wie alles andere und hat ein Set mit 14
-                    # fertigen Aufgaben mitgerissen, als sein Aufruf an einer Störung
-                    # scheiterte. Was fertig ist, wird gespeichert.
+                    # The top-up is an improvement, whatever is finished gets saved.
                     try:
                         gap_ctx = build_source_context(gap_uuids, tool, count=need)
                         if gap_ctx is not None:
                             extra, _, _ = generate(gap_ctx, need)
                             if extra:
-                                # The top-up numbers its own sections from 1, so its claims
-                                # have to be translated back before the two runs are merged.
+                                # The top-up numbers its own sections, that has to be undone before merging.
                                 remap_sections(extra, gap_ctx, ctx)
-                                # Jeder Lauf sortiert seine eigenen Doppler aus, über die
-                                # Laufgrenze hinweg kann er das nicht. Gemessen: derselbe
-                                # Satz kam an Position 1 und noch einmal an Position 5.
+                                # Across the run boundary no run sorts out its own duplicates.
                                 extra, _ = drop_repeats(
                                     extra, [i.get("front", "") for i in neu])
                                 neu = rebalance_to_count(neu + extra, zu_erzeugen)
@@ -290,8 +229,7 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
                             "generated: {}", set_id, len(neu), e,
                         )
 
-            # Was diese Person schon einmal bekommen hat, fliegt raus. Der Vorrat filtert
-            # das ueber die Verweise, frisch Erzeugtes hat noch keine.
+            # Whatever this person already had is dropped.
             gehabt = seen_by_user(user_id, tool)
             if neu:
                 neu, wiederholt = drop_repeats(neu, gehabt + [i.get("front", "") for i in items])
@@ -299,15 +237,7 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
                     logger.info("KI Tutor: set {} hat {} Wiederholungen aussortiert",
                                 set_id, wiederholt)
 
-            # Nachbestellen, bis die verlangte Anzahl steht. Wer zehn Aufgaben anklickt,
-            # will zehn, und es ist ihm gleich, warum es neun geworden sind.
-            #
-            # Genau daran hing der Fehler: einen Nachschlag gab es nur, wenn der
-            # Doppler-Filter etwas weggeworfen hatte, und dann genau einen. Die anderen
-            # Gruende blieben unbeantwortet -- das Modell liefert von sich aus weniger, und
-            # die Pruefungen der Werkzeuge werfen unloesbare Aufgaben weg (die
-            # Grammatik-Uebung tut das laufend). Deshalb kam derselbe
-            # Auftrag einmal mit zehn und einmal mit neun Aufgaben heraus.
+            # Top up until the requested number is reached.
             for _ in range(_NACHSCHLAG_RUNDEN):
                 fehlt = zu_erzeugen - len(neu)
                 if fehlt <= 0:
@@ -317,8 +247,7 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
                 try:
                     mehr, _, _ = generate(ctx, fehlt)
                 except Exception as e:
-                    # Der Nachschlag ist eine Verbesserung und keine Voraussetzung. Was
-                    # fertig ist, wird gespeichert.
+                    # The top-up is an improvement, whatever is finished gets saved.
                     logger.warning(
                         "KI Tutor: set {} behaelt seine {} eigenen Aufgaben, "
                         "Nachschlag fehlgeschlagen: {}", set_id, len(neu), e,
@@ -328,33 +257,21 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
                     mehr, _ = drop_repeats(
                         mehr, gehabt + [i.get("front", "") for i in items + neu])
                 if not mehr:
-                    # Keine einzige neue Aufgabe. Das Dokument hat nichts mehr, weiter zu
-                    # fragen kostet nur Anfragen.
+                    # Not a single new exercise, asking further only costs requests.
                     break
                 neu = rebalance_to_count(neu + mehr, zu_erzeugen)
 
-            # Einlagern, damit der naechste Aufruf sie geschenkt bekommt. Setzt die
-            # Vorrats-id an den Aufgaben, die untergebracht werden konnten.
+            # Store them so the next call gets them for free.
             if neu and uses_pool(tool, mode):
                 store_in_pool(neu, ctx, tool, level, topic_id)
 
-            # Die Darreichungsform hat ihren Zweck erfuellt, sie steht jetzt im Vorrat.
-            # Im fertigen Satz hat sie nichts verloren, dort traegt jede Aufgabe ihre
-            # Anweisung schon selbst.
+            # The presentation format now lives in the pool and has no place in the set.
             for item in neu:
                 item.pop("_kind", None)
 
             items = items + neu
 
-        # Der Glossar-Weg entscheidet VOR der Erzeugung, welche Begriffe drankommen:
-        # frische zuerst, aufgefuellt wird mit schon benutzten (siehe ``_pick_terms``).
-        # Der Vergleich mit der Vergangenheit stand bis 2026-08-12 hier und wuerde jetzt
-        # genau die gewollten Wiederholungen wieder wegwerfen.
-        #
-        # Was bleibt, ist der Blick in den Satz selbst. Mit leerer Vergangenheitsliste
-        # vergleicht ``drop_repeats`` die Aufgaben nur untereinander. Zwei verschiedene
-        # Begriffe koennen dieselbe Frage erzeugen, und zwei gleiche Karten nebeneinander
-        # sind ein sichtbarer Fehler.
+        # The glossary path only compares inside the set, wanted repetitions stay.
         if items and mode == "glossary":
             items, _ = drop_repeats(items, [])
 
@@ -362,13 +279,7 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
             db.fail_exercise_set(set_id)
             return
 
-        # The title is decided here, from the finished items, not by the generation call.
-        # That call sees the whole document and keeps naming the document, and it is also
-        # blind to a set that is still generating, so two sets started seconds apart both
-        # came out with the same name. By now the other set is finished and visible.
-        #
-        # Auch das ist Kosmetik: ein Set mit vorläufigem Namen ist brauchbar, ein
-        # verlorenes Set nicht.
+        # The title is built here from the finished exercises, not in the generation call.
         try:
             title = resolve_set_title(client, model, workspace_id, tool, title, items)
         except Exception as e:
@@ -377,13 +288,7 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
         db.finalize_exercise_set(set_id, title, items, header=header)
         logger.info("KI Tutor: exercise set {} generated ({} items)", set_id, len(items))
         if mode == "source" and len(items) < count:
-            # Bleibt ein Satz trotz Nachschlag zu kurz, steht das im Protokoll und nicht
-            # nur in der Ansicht des Lernenden. Sonst faellt es erst auf, wenn jemand
-            # nachzaehlt.
-            #
-            # Nur im Quellen-Modus: der Glossar-Modus zieht aus einer endlichen
-            # Begriffsliste, dort IST der kuerzere Satz die richtige Antwort und keine
-            # Warnung wert.
+            # A set still too short after the top-up is logged, source mode only.
             logger.warning("KI Tutor: set {} bleibt bei {} von {} bestellten Aufgaben",
                            set_id, len(items), count)
 

@@ -1,8 +1,4 @@
-"""Die Datenbankseite der Einladungen.
-
-Geprueft wird, was ein gemockter Fachtest nicht sieht: dass geschrieben und
-committet wird und dass die Anweisungen die richtigen Bedingungen tragen.
-"""
+"""The database side of the invitations: written, committed, correctly conditioned."""
 
 from datetime import datetime
 

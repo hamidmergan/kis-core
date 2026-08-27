@@ -1,14 +1,4 @@
-"""Die Route screencast_translate gibt es nicht mehr.
-
-Sie stand im Admin als eigene Zeile, wirkte aber nie: der Screencast liest sein
-Übersetzungsmodell aus doc_translate. Wer dort etwas einstellte, wunderte sich,
-warum nichts passiert. Beide Werkzeuge übersetzen dieselben Dateiformate,
-deshalb gibt es jetzt genau eine Einstellung.
-
-Achtung beim Lesen: "screencast_translate" existiert weiter als Name eines
-Auftragstyps in der Job-Tabelle. Das ist etwas anderes als eine Route und muss
-bleiben.
-"""
+"""The screencast_translate route is gone, the job type stays."""
 
 from src.features.ai_providers.repository.feature_routes import (
     FEATURES,
@@ -24,14 +14,13 @@ def test_route_is_gone():
 
 
 def test_doc_translate_still_exists_and_stays_user_choice():
-    """Sie ist der Ersatz. Fällt sie weg, kann niemand mehr übersetzen."""
+    """It is the replacement, without it nobody can translate any more."""
     assert "doc_translate" in FEATURES
     assert "doc_translate" in USER_CHOICE_FEATURES
 
 
 def test_job_tool_name_is_untouched():
-    """Der Auftragstyp heißt weiter so, sonst verschwinden alte Aufträge
-    aus dem Verlauf."""
+    """The job type keeps its name, otherwise old jobs disappear."""
     from src.routes.admin._registries import TOOL_LABELS
 
     assert "screencast_translate" in TOOL_LABELS

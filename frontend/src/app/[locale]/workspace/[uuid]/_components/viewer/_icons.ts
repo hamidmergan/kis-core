@@ -1,8 +1,7 @@
 import { registerIcons } from "@embedpdf/snippet";
 
 
-// Register Phosphor icons as custom EmbedPDF icons for the selection popup.
-// Fires once at workspace load (imported by PdfViewer.tsx).
+// Registers our own icons for the viewer's selection menu.
 registerIcons({
   "ph-binoculars": {
     viewBox: "0 0 256 256",

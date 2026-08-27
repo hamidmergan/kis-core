@@ -1,16 +1,6 @@
 "use client";
 
-/**
- * Die Rechtetabelle: Rollen als Spalten, Funktionen als Zeilen.
- *
- * Es gibt keinen Speicherknopf. Ein Klick auf ein Kästchen ist ein Aufruf mit
- * genau diesem einen Recht. Das Kästchen springt sofort um, und wenn der Aufruf
- * scheitert, springt es zurück und sagt warum. Ein Formular mit dreißig
- * Kästchen und einem Knopf am Ende hätte niemand mehr überblickt.
- *
- * Die drei Systemrollen stehen fest und sind gesperrt. Sie stehen trotzdem in
- * der Tabelle, damit man sieht, wogegen man eine eigene Rolle vergleicht.
- */
+/** The permission table without a save button, every click is its own call. */
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
@@ -26,7 +16,7 @@ import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
 
 interface Group {
   key: string;
-  /** Kapitel, in dem die Gruppe steht. Fehlt es, bleibt die Tabelle einstufig. */
+  /** Chapter the group sits in, without it the table stays single level. */
   chapter?: string;
   permissions: string[];
 }
@@ -49,7 +39,7 @@ interface MatrixResponse {
   grantable: string[];
 }
 
-/** Eine Spalte ist entweder eine Systemrolle oder eine eigene. */
+/** A column is either a system role or a custom one. */
 type Column =
   | { kind: "system"; key: string; permissions: Set<string> }
   | { kind: "custom"; role: CustomRole; permissions: Set<string> };
@@ -57,12 +47,9 @@ type Column =
 export default function PermissionMatrix() {
   const t = useTranslations("admin.roles");
   const tp = useTranslations("admin.permissions");
-  // Zwei Zeilen sprechen von Workspaces, und wie die heissen, legt der
-  // Betreiber in der Oberflaeche fest. Die uebrigen Texte ignorieren die
-  // Werte einfach.
+  // Two rows speak of course rooms, whose label the operator sets.
   const ws = useWorkspaceLabel();
-  // Der Katalog kommt vom Server, die Schluessel sind also erst zur Laufzeit
-  // bekannt. next-intl kennt sie beim Uebersetzen der Typen nicht.
+  // The catalogue comes from the server, the keys are only known at runtime.
   const permLabel = (key: string) =>
     (tp as unknown as (k: string, v?: Record<string, string>) => string)(key, {
       label: ws.singular,
@@ -74,13 +61,11 @@ export default function PermissionMatrix() {
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
-  // Eigener Fehler für den Dialog. Der allgemeine steht auf der Seite und
-  // damit hinter dem Dialog, wo ihn beim Anlegen niemand liest.
+  // A separate error for the dialog, the general one sits behind it.
   const [createError, setCreateError] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<number | null>(null);
   const [deleting, setDeleting] = useState<CustomRole | null>(null);
-  // Läuft gerade ein Aufruf für dieses Kästchen? Verhindert Doppelklicks, die
-  // sich gegenseitig überholen.
+  // Prevents double clicks from overtaking each other.
   const [busy, setBusy] = useState<Set<string>>(new Set());
 
   const load = useCallback(async () => {
@@ -121,7 +106,7 @@ export default function PermissionMatrix() {
     setBusy((b) => new Set(b).add(cell));
     setError(null);
 
-    // Zuerst umspringen, dann fragen. Bei einer Absage wird zurückgesetzt.
+    // Flip first, then ask, on a refusal it is reverted.
     const rollback = role.permissions;
     applyPermissions(role.id, next ? [...rollback, key] : rollback.filter((k) => k !== key));
 
@@ -182,7 +167,7 @@ export default function PermissionMatrix() {
       setNewName("");
       await load();
     } catch (e) {
-      // Der Dialog bleibt offen, damit der Name gleich zu bessern ist.
+      // The dialog stays open so the name can be fixed right away.
       setCreateError(e instanceof Error ? e.message : "error");
     }
   }
@@ -195,8 +180,7 @@ export default function PermissionMatrix() {
       body: JSON.stringify({ name }),
     });
     if (!res.ok) {
-      // Der Grund vom Server hat Vorrang, sonst stünde bei einem vergebenen
-      // Namen nur "HTTP 409" im Feld. InlineRename zeigt genau diese Meldung.
+      // The reason from the server takes precedence, otherwise only an error code shows.
       const body = await res.json().catch(() => ({}));
       throw new Error(body.detail ?? `HTTP ${res.status}`);
     }
@@ -434,7 +418,7 @@ function GroupRows({
   busy: Set<string>;
   label: (key: string) => string;
   groupLabel: string;
-  /** Unter einer Kapitelzeile ruecken Gruppe und Zeilen eine Stufe ein. */
+  /** Under a chapter row, group and rows indent by one level. */
   indent: boolean;
   onToggle: (role: CustomRole, key: string, next: boolean) => void;
   lockedLabel: string;
@@ -484,7 +468,7 @@ function GroupRows({
                 <div className="flex justify-center">
                   <Checkbox
                     checked={checked}
-                    // Wegnehmen ist immer erlaubt, geben nur was man selbst hat.
+                    // Taking away is always allowed, granting only what you hold yourself.
                     disabled={busy.has(cell) || (!checked && !mayGrant)}
                     onChange={(next) => onToggle(col.role, key, next)}
                     label={undefined}

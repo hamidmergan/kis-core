@@ -1,15 +1,4 @@
-"""Die Zeitmarke eines Zeitplan-Eintrags zeigt auf die Stelle, an der der Termin faellt.
-
-Ein Medien-Chunk fasst bis zu tausend Zeichen zusammen, gemessen ueber eine Minute
-gesprochene Zeit. Der Scanner kennt die genaue Zeichenposition seines Fundes, nahm
-als Zeitmarke aber den Anfang des ganzen Chunks. Gemessen an einem echten Eintrag:
-"Der naechste Termin ist dann im Januar" faellt bei 29:11, der Zeitplan verwies auf
-27:56, und dort wird ueber Einsendeaufgaben im April gesprochen.
-
-Der Chunk-Text ist zeichengleich die aneinandergereihten Whisper-Segmente (an allen
-21 Medienquellen der Testablage geprueft). Damit zeigt jede Zeichenposition im Chunk
-auf genau ein Segment, und dessen Startzeit ist die gesuchte Marke.
-"""
+"""The timestamp points at the spot where the appointment is mentioned."""
 
 import pytest
 
@@ -17,8 +6,7 @@ from src.features.ai_assistant.tasks.studio.schedule import _candidates as mod
 from src.services.aia_transcript_offsets import TranscriptIndex, start_at_offset
 
 
-# ── Segmente einer erfundenen Aufzeichnung ──────────────────────────────────
-# Nachgebaut wie Whisper liefert: kurze Saetze, jeder mit eigener Zeit.
+# Segments of an invented recording, built the way Whisper delivers.
 SEGMENTE = [
     {"start": 100.0, "end": 110.0, "text": "Ich werde einen Aufgabenblock einstellen."},
     {"start": 110.0, "end": 120.0, "text": "Mal gucken, vielleicht schaffe ich das."},
@@ -27,7 +15,7 @@ SEGMENTE = [
     {"start": 145.0, "end": 160.0, "text": "Die Sprechstunde laeuft nach Vereinbarung."},
 ]
 
-# So entsteht der Chunk im Ingest: Segmenttexte mit einem Leerzeichen verbunden.
+# This is how the chunk arises during ingest: segment texts joined by a space.
 CHUNK = {
     "id": 1,
     "content": " ".join(s["text"] for s in SEGMENTE),
@@ -41,7 +29,7 @@ QUELLE = {"id": 7, "uuid": "u-7", "filename": "vorlesung.mp4", "file_path": "x/v
 
 @pytest.fixture
 def medien_quelle(monkeypatch):
-    """Eine Medienquelle mit einem Chunk und den zugehoerigen Segmenten."""
+    """A media source with one chunk and the matching segments."""
     monkeypatch.setattr(mod.db, "get_aia_chunks_by_source", lambda sid: [dict(CHUNK)])
     monkeypatch.setattr(mod, "_load_transcript_segments", lambda src: list(SEGMENTE))
     return QUELLE
@@ -53,17 +41,17 @@ def _finde(kandidaten, teil):
     return treffer[0]
 
 
-# ── Die Zeitmarke am Zeitplan-Eintrag ───────────────────────────────────────
+# ── The timestamp on the schedule entry ─────────────────────────────────────
 
 def test_datum_zeigt_auf_sein_segment_statt_auf_den_chunk_anfang(medien_quelle):
-    """Das Datum faellt im vierten Segment, also zeigt die Marke dorthin."""
+    """The date falls in the fourth segment, so the mark points there."""
     kandidaten = mod._build_candidates_for_source(medien_quelle)
     kand = _finde(kandidaten, "03.07.2026")
     assert kand["start_time"] == 130.0, "Zeitmarke steht auf dem Chunk-Anfang statt auf dem Satz"
 
 
 def test_offener_termin_zeigt_auf_sein_segment(medien_quelle):
-    """Auch "nach Vereinbarung" hat eine Stelle, nicht nur der Chunk."""
+    """An open appointment has a spot too, not just the chunk."""
     kandidaten = mod._build_candidates_for_source(medien_quelle)
     offen = [c for c in kandidaten if c["is_tbd"]]
     assert offen, "kein offener Termin gefunden"
@@ -71,13 +59,13 @@ def test_offener_termin_zeigt_auf_sein_segment(medien_quelle):
 
 
 def test_seite_bleibt_wie_sie_war(medien_quelle):
-    """Nur die Zeitmarke wandert, die Seitenzahl bleibt unangetastet."""
+    """Only the timestamp moves, the page number stays untouched."""
     kandidaten = mod._build_candidates_for_source(medien_quelle)
     assert all(c["page_number"] == 17 for c in kandidaten)
 
 
 def test_pdf_ohne_zeiten_bleibt_unberuehrt(monkeypatch):
-    """Eine PDF-Quelle hat keine Zeitmarke und darf auch keine bekommen."""
+    """A PDF source has no timestamp and must not get one."""
     seite = {"id": 2, "content": "Abgabe bis 03.07.2026.", "page_number": 4,
              "start_time": None, "end_time": None}
     monkeypatch.setattr(mod.db, "get_aia_chunks_by_source", lambda sid: [seite])
@@ -88,10 +76,10 @@ def test_pdf_ohne_zeiten_bleibt_unberuehrt(monkeypatch):
     assert _finde(kandidaten, "03.07.2026")["start_time"] is None
 
 
-# ── Die Abbildung Zeichenposition -> Zeit ───────────────────────────────────
+# ── The mapping from character position to time ─────────────────────────────
 
 def test_jede_position_trifft_ihr_segment():
-    """Ueber den ganzen Chunk hinweg, nicht an einer Beispielstelle."""
+    """Across the whole chunk, not at one sample spot."""
     index = TranscriptIndex(SEGMENTE)
     pos = 0
     for seg in SEGMENTE:
@@ -102,18 +90,14 @@ def test_jede_position_trifft_ihr_segment():
 
 
 def test_position_ausserhalb_wird_eingefangen():
-    """Ein zu grosser Wert zeigt auf das letzte Segment, nicht ins Leere."""
+    """An oversized value points at the last segment, not into nothing."""
     index = TranscriptIndex(SEGMENTE)
     assert index.start_at(CHUNK, 10**6) == SEGMENTE[-1]["start"]
     assert index.start_at(CHUNK, -5) == SEGMENTE[0]["start"]
 
 
 def test_ohne_passendes_transkript_kein_geratener_wert():
-    """Deckt sich der Chunk nicht mit den Segmenten, bleibt es beim Chunk-Anfang.
-
-    Das passiert, wenn das Transkript nach dem Zerlegen neu geschrieben wurde,
-    etwa durch eine Uebersetzung. Eine geratene Minute waere schlechter als der
-    bekannte Rahmen, deshalb gibt es hier None."""
+    """Without coverage it stays at the chunk start, a guessed minute would be worse."""
     fremd = dict(CHUNK, content="Ein voellig anderer Text, der so nie gesprochen wurde.")
     assert start_at_offset(fremd, SEGMENTE, 5) is None
 
@@ -123,12 +107,12 @@ def test_ohne_segmente_kein_wert():
 
 
 def test_chunk_ohne_zeiten_kein_wert():
-    """Eine PDF-Seite hat keine Zeitachse, in die eine Position fallen koennte."""
+    """A PDF page has no timeline a position could fall into."""
     assert start_at_offset(dict(CHUNK, start_time=None), SEGMENTE, 5) is None
 
 
 def test_gleicher_wortlaut_zweimal_nimmt_die_nahe_stelle():
-    """Sagt jemand denselben Satz zweimal, entscheidet die Zeit des Chunks."""
+    """If someone says the same sentence twice, the chunk time decides."""
     segmente = [
         {"start": 10.0, "end": 20.0, "text": "Das ist wichtig."},
         {"start": 20.0, "end": 30.0, "text": "Ein Zwischensatz."},
@@ -141,7 +125,7 @@ def test_gleicher_wortlaut_zweimal_nimmt_die_nahe_stelle():
 
 
 def test_leere_segmente_verschieben_die_rechnung_nicht():
-    """Das Zerlegen ueberspringt leere Segmente, die Abbildung muss das auch."""
+    """Chunking skips empty segments, the mapping has to do the same."""
     segmente = [
         {"start": 5.0, "end": 6.0, "text": "  "},
         {"start": 6.0, "end": 12.0, "text": "Erster Satz."},

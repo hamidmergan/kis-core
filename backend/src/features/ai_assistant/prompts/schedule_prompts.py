@@ -1,4 +1,4 @@
-"""Prompts des Zeitplan-Werkzeugs: Erkennen, Nachtragen, Vereinheitlichen."""
+"""Prompts of the schedule tool: detect, backfill, normalise."""
 
 
 AIA_SCHEDULE_CLASSIFY_PROMPT = (

@@ -1,20 +1,5 @@
 #!/usr/bin/env python3
-"""Kokoro TTS concurrency stress test — no external deps (urllib + threads).
-
-Run ON the box that can reach the endpoint (e.g. the prod host where the autossh
-tunnel kokoro-tunnel.service exposes the GPU Kokoro). Fires bursts at
-rising concurrency and reports per-request latency, throughput and errors — so you
-can see whether the GPU server PARALLELISES concurrent requests or serialises them
-(the local CPU container serialises: C=8 took 8x as long).
-
-Usage:
-    python3 kokoro_stress.py                       # uses $KOKORO_BASE_URL
-    python3 kokoro_stress.py http://172.18.0.1:8880
-    KOKORO_BASE_URL=http://127.0.0.1:8880 python3 kokoro_stress.py
-
-Env: KOKORO_BASE_URL, KOKORO_VOICE (default af_sky), KOKORO_MODEL (default kokoro),
-     KOKORO_LEVELS (default "1,2,4,8,16").
-"""
+"""Measures whether the Kokoro endpoint really handles concurrent requests in parallel."""
 import json
 import os
 import sys

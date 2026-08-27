@@ -1,11 +1,4 @@
-"""B2: warm the post-hoc attribution caches WHILE the answer streams.
-
-The chip pause is the after-answer embed+search. _AttributionPrewarmer lets the stream
-feed completed lines as they arrive; it embeds + parallel-searches them in the background
-(one batch in flight, keyed by exact text) so that by the time streaming ends most work is
-already cached and the final attribution only computes the misses. Correctness is unchanged:
-a cache miss is simply recomputed inline, so a wrong/failed prewarm never changes the answer.
-"""
+"""Checks the warm-up of the evidence caches during the stream."""
 from src.features.ai_assistant.routes._helpers import _AttributionPrewarmer
 
 
@@ -92,8 +85,7 @@ async def test_two_flushes_accumulate_across_batches():
 
 
 async def test_flushes_counter_tracks_embed_calls_only_when_work_done():
-    # The counter is how the caller bounds the number of embed calls:
-    # it advances once per NON-empty flush and never on an empty one.
+    # The counter only advances on a non-empty pass.
     pw = _AttributionPrewarmer(fake_embed, fake_search)
     await pw.flush()                 # nothing pending
     assert pw.flushes == 0

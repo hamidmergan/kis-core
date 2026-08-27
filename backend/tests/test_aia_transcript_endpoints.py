@@ -1,9 +1,4 @@
-"""Transkript-Endpunkte: Untertitel ausliefern, Vorhandensein melden, Sprachen auflisten.
-
-Alle drei bauen ihren Schluessel aus dem Pfad der Quelle. Geht dabei etwas
-schief, liefert der Player stumm keine Spur, ohne Fehler im Log. Geprueft wird
-gegen den echten lokalen Speicher.
-"""
+"""Transkript-Wege: ausliefern, melden, Sprachen auflisten."""
 
 import pytest
 from fastapi import HTTPException
@@ -83,7 +78,7 @@ async def test_fehlende_sprache_gibt_404(quelle):
 
 
 async def test_die_sprachen_werden_nicht_verwechselt(quelle):
-    """Der Schluessel muss die angefragte Sprache treffen, nicht irgendeine."""
+    """The key has to match the requested language, not just any."""
     ordner, _, _ = quelle
     (ordner / "abc_transcript.de.vtt").write_text(
         segments_to_vtt([{"start": 0.0, "end": 1.0, "text": "deutsch"}]), encoding="utf-8",
@@ -134,7 +129,7 @@ async def test_ohne_untertitel_bleibt_die_liste_leer(quelle):
 
 
 async def test_die_erkannte_sprache_steht_vorn(quelle):
-    """Der Player baut daraus seine Reiter, die Reihenfolge ist sichtbar."""
+    """The player builds its tabs from this, the order is visible."""
     _, vtt_anlegen, source = quelle
     source["language"] = "fr"
     vtt_anlegen("de")
@@ -146,7 +141,7 @@ async def test_die_erkannte_sprache_steht_vorn(quelle):
 
 
 async def test_das_transkript_der_nachbarquelle_zaehlt_nicht_mit(quelle):
-    """Alle Zusatzdateien liegen im selben Ordner, die Trennung macht der Name."""
+    """All extra files sit in the same folder, the name keeps them apart."""
     ordner, vtt_anlegen, _ = quelle
     vtt_anlegen("de")
     (ordner / "xyz_transcript.fr.vtt").write_text("fremd", encoding="utf-8")

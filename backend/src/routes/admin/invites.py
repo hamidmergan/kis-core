@@ -1,8 +1,4 @@
-"""Einladungen im Admin: erzeugen, auflisten, zuruecknehmen.
-
-Voruebergehender Zugang ohne SSO, haengt am selben Schalter wie das Anlegen von
-LDAP-Benutzern und verschwindet mit ihm.
-"""
+"""Create, list and withdraw invitations, until SSO arrives."""
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -29,7 +25,7 @@ MAX_DAYS = 30
 
 
 def _require_feature(locale: str) -> None:
-    """Einladungen haengen am selben Schalter wie das Anlegen von LDAP-Benutzern."""
+    """Invitations hang off the same switch as creating LDAP users."""
     if not get_settings().ldap_user_creation_enabled:
         raise HTTPException(status_code=404, detail=t("invite.featureDisabled", locale))
 

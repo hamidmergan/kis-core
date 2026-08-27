@@ -1,4 +1,4 @@
-"""GET /jobs/my und /jobs/stream - Jobliste + SSE-Stream."""
+"""The job list and the SSE stream."""
 
 import json as json_lib
 import time
@@ -68,7 +68,7 @@ async def job_stream(
         pubsub = r.pubsub()
         await pubsub.subscribe(f"jobs:{user_id}")
         last_sent = time.monotonic()
-        # Die Stunde wird selten geschrieben, das Lebenszeichen oft.
+        # The hour is written rarely, the heartbeat often.
         last_hour = 0.0
         presence.touch(user_id)
         presence.mark_hour(user_id)
@@ -82,14 +82,10 @@ async def job_stream(
                     yield f"data: {json_lib.dumps({'jobs': _format_job_rows(jobs, locale, is_admin), 'total': total})}\n\n"
                     last_sent = time.monotonic()
                 elif time.monotonic() - last_sent >= _KEEPALIVE_SECONDS:
-                    # SSE comment, ignored by the browser. Keeps proxies from
-                    # dropping an idle connection, which would restart the client.
+                    # A heartbeat so intermediaries do not cut the idle connection.
                     yield ": ping\n\n"
                     last_sent = time.monotonic()
-                    # Dieselbe Schleife traegt die Anwesenheit. Sie laeuft
-                    # ohnehin fuer jeden offenen Tab, kostet also nichts
-                    # zusaetzlich. Redis merkt sich "gerade da", die Stunde
-                    # landet hoechstens einmal in der Datenbank.
+                    # The same loop records presence, at no extra cost.
                     presence.touch(user_id)
                     if time.monotonic() - last_hour >= 300:
                         presence.mark_hour(user_id)

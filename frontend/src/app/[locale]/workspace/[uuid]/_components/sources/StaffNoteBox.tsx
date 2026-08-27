@@ -44,8 +44,7 @@ export function StaffNoteBox({ text, links, isOwner, workspaceUuid, onEdit }: St
         <button
           type="button"
           onClick={onEdit}
-          /* Rahmen und Hover kommen aus Klassen, nicht aus dem style-Attribut:
-             ein inline gesetzter Rahmen schlaegt jedes hover:border-... */
+          /** Border from classes, an inline border beats every hover state. */
           className="add-source-btn w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors border-2 border-dashed text-[var(--kb)] border-[rgba(var(--kb-rgb),0.35)] hover:border-[var(--kb)]"
         >
           <PushPin size={14} weight="bold" />
@@ -141,7 +140,7 @@ function LinkChip({ url, label }: { url: string; label: string }) {
   return (
     <a
       href={url}
-      /* Ein mailto: im neuen Tab laesst einen leeren Fehler-Tab zurueck. */
+      /** A mailto: in a new tab leaves an empty error tab behind. */
       target={istMail ? undefined : "_blank"}
       rel={istMail ? undefined : "noopener noreferrer"}
       className="group flex items-center gap-2 rounded-md px-2.5 py-1.5 transition-colors"

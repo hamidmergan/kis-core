@@ -1,12 +1,4 @@
-"""Normalise uploaded media containers for reliable native-browser playback.
-
-A fragmented MP4 (fMP4/CMAF: a tiny init ``moov`` + ``sidx`` + many ``moof``/``mdat``
-fragments) is built for MSE/HLS/DASH — NOT for direct ``<audio>``/``<video src>``
-progressive playback. Browsers routinely skip a whole fragment mid-stream, which makes
-the audio jump and desyncs the transcript highlight. The fix is a LOSSLESS remux
-(``ffmpeg -c copy``) into a progressive MP4 with the ``moov`` atom up front
-(``-movflags +faststart``). No re-encoding, no quality loss, ~I/O-bound.
-"""
+"""Rewrites fragmented MP4 losslessly into continuously playable files."""
 
 import os
 import subprocess
@@ -16,16 +8,12 @@ from typing import Optional
 from loguru import logger
 
 
-# A reader is any ``read(offset, length) -> bytes`` callable (local file seek, or an S3
-# byte-range fetch). The scan only ever reads 16-byte box *headers*, so it decides without
-# touching the media body — a handful of tiny reads even for a multi-GB remote object.
+# The reader only reads box headers, never the media content.
 _MAX_BOXES = 100_000  # safety bound against a malformed/looping file
 
 
 def _scan_is_fragmented(read) -> bool:
-    """Walk top-level ISO-BMFF boxes. Return True at the first ``moof`` (fragmented), False
-    at the first top-level ``mdat`` (progressive: a fragmented file always has a ``moof``
-    before its first ``mdat``), and False for non-ISO-BMFF / malformed / truncated input."""
+    """Walks the boxes, True at the first moof, False at the first mdat."""
     head = read(0, 8)
     if len(head) < 8 or head[4:8] != b"ftyp":
         return False  # not ISO-BMFF → not our case
@@ -51,8 +39,7 @@ def _scan_is_fragmented(read) -> bool:
 
 
 def is_fragmented_mp4(path: str) -> bool:
-    """True iff the local file ``path`` is a fragmented MP4 (ISO-BMFF with a top-level
-    ``moof``). Progressive MP4s and non-ISO-BMFF inputs (mp3, wav, …) return False."""
+    """True when the file is a fragmented MP4."""
     try:
         with open(path, "rb") as f:
             def _read(off: int, length: int) -> bytes:
@@ -64,9 +51,7 @@ def is_fragmented_mp4(path: str) -> bool:
 
 
 def is_fragmented_mp4_reader(read) -> bool:
-    """Detect fragmentation over a ``read(offset, length) -> bytes`` callable — e.g. an S3
-    byte-range fetch — so a remote object is classified from a few KB of box headers
-    instead of a full download. Any reader error is treated as 'not fragmented'."""
+    """Detects fragmentation via one read, so it works remotely too."""
     try:
         return _scan_is_fragmented(read)
     except Exception:
@@ -86,9 +71,7 @@ def remux_to_progressive(src: str, dst: str) -> None:
 
 
 def normalize_if_fragmented(path: str) -> Optional[str]:
-    """If ``path`` is a fragmented MP4, remux it to a progressive faststart copy and return
-    that copy's path. The caller owns the returned file (upload it, then delete it). Returns
-    ``None`` when no change is needed (already progressive, or not an MP4)."""
+    """Rewrites a fragmented MP4 and returns the path of the copy, None otherwise."""
     if not is_fragmented_mp4(path):
         return None
     fd, out = tempfile.mkstemp(suffix=".mp4")

@@ -1,12 +1,4 @@
-"""Where the last generation run stopped reading inside a source.
-
-One row per workspace + source + tool, holding one cursor per coverage block. A
-source that does not fit the context budget is read as a sweep rather than a
-random draw, and these are the positions the sweep resumes from.
-
-Kept out of ``exercises.py`` on purpose: the data table and the mindmap read
-sources the same way and are not exercises.
-"""
+"""Remembers per source and tool where the last generation run stopped."""
 
 import json
 
@@ -14,11 +6,7 @@ from src.core.db.pool import get_connection
 
 
 def get_context_cursors(workspace_id: int, source_id: int, tool: str) -> list[int]:
-    """Cursors of the last run, or an empty list when this source is new to the tool.
-
-    An empty list means "start at the beginning of every block", which is what a
-    first run should do.
-    """
+    """The marks of the last run, empty means start from the beginning."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(

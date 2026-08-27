@@ -1,4 +1,4 @@
-"""Die Vorschau einer Stimme kommt aus dem Vorrat, sobald sie einmal gesprochen wurde."""
+"""The preview of a voice comes from the cache once it has been spoken."""
 
 import pytest
 from fastapi import HTTPException
@@ -8,7 +8,7 @@ from src.services import tts_voice_preview as vorschau
 
 
 class _Client:
-    """Ein Anbieter, der mitzaehlt, wonach gefragt wurde."""
+    """A provider that records what it was asked for."""
 
     def __init__(self, erreichbar=True, wirft=False):
         self.erreichbar = erreichbar
@@ -28,7 +28,7 @@ class _Client:
 
 
 class _Vorrat:
-    """Der Vorrat als Woerterbuch, ohne Datenbank."""
+    """The cache as a dictionary, without a database."""
 
     def __init__(self, kaputt_beim_lesen=False, kaputt_beim_schreiben=False):
         self.inhalt = {}
@@ -48,7 +48,7 @@ class _Vorrat:
 
 @pytest.fixture(autouse=True)
 def vorrat(monkeypatch):
-    """Der Vorrat als Woerterbuch, sonst schriebe ein Test in die echte Datenbank."""
+    """The cache as a dictionary, otherwise a test would write to the real database."""
     return _mit_vorrat(monkeypatch, _Vorrat())
 
 
@@ -60,7 +60,7 @@ def _mit_vorrat(monkeypatch, v):
 
 @pytest.fixture(autouse=True)
 def sprachen(monkeypatch):
-    """Die Sprache einer Stimme, ohne Datenbank. Standard: Deutsch."""
+    """The language of a voice, without a database, German by default."""
     zuordnung: dict[str, str] = {}
     monkeypatch.setattr(
         "src.dependencies._voice_language_for",
@@ -71,7 +71,7 @@ def sprachen(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def tts_modell(monkeypatch):
-    """Das Modell aus der Route "Text in Sprache", ohne Datenbank."""
+    """The model from the text-to-speech route, without a database."""
     monkeypatch.setattr("src.dependencies.tts_model_for_provider", lambda _pid: "")
 
 
@@ -80,7 +80,7 @@ def _mit_client(monkeypatch, client):
     return client
 
 
-# --- der Vorrat im Vorschau-Weg ----------------------------------------------
+# --- the cache on the preview path -------------------------------------------
 
 def test_erster_aufruf_spricht_und_legt_ab(monkeypatch, vorrat):
     client = _mit_client(monkeypatch, _Client())
@@ -99,7 +99,7 @@ def test_zweiter_aufruf_kommt_aus_dem_vorrat(monkeypatch):
 
 
 def test_ein_treffer_fasst_den_anbieter_gar_nicht_an(monkeypatch):
-    """Ein Treffer geht keinen Netzweg, auch nicht fuer die Erreichbarkeitsfrage."""
+    """A hit takes no network trip, not even for the reachability question."""
     client = _mit_client(monkeypatch, _Client())
     vorschau.preview_audio(21, "alloy")
     vorher = client.erreichbarkeitsfragen
@@ -125,13 +125,13 @@ def test_ein_anderer_anbieter_wird_neu_gesprochen(monkeypatch):
 
 
 def test_das_tempo_ist_eins(monkeypatch):
-    """Geht in den Fingerabdruck ein, eine Aenderung entwertet den Vorrat."""
+    """Goes into the fingerprint, a change invalidates the cache."""
     client = _mit_client(monkeypatch, _Client())
     vorschau.preview_audio(21, "alloy")
     assert client.aufrufe[0][2] == 1.0
 
 
-# --- die Sprache des Vorschau-Satzes -----------------------------------------
+# --- the language of the preview sentence ------------------------------------
 
 def test_eine_englische_stimme_bekommt_den_englischen_satz(monkeypatch, sprachen):
     sprachen["nova"] = "en"
@@ -149,7 +149,7 @@ def test_eine_deutsche_stimme_bekommt_den_deutschen_satz(monkeypatch):
 
 
 def test_ohne_stimme_entscheidet_die_oberflaechensprache(monkeypatch):
-    """Ohne Stimme gibt es nichts, woraus sich eine Sprache ableiten liesse."""
+    """Without a voice there is nothing to derive a language from."""
     client = _mit_client(monkeypatch, _Client())
 
     vorschau.preview_audio(21, "", locale="en")
@@ -157,7 +157,7 @@ def test_ohne_stimme_entscheidet_die_oberflaechensprache(monkeypatch):
 
 
 def test_die_sprache_kommt_aus_der_datenbank_nicht_vom_aufrufer(monkeypatch, sprachen):
-    """Sonst koennte der Browser die Sprache und damit den Schluessel bestimmen."""
+    """Otherwise the browser could decide the language and with it the key."""
     sprachen["nova"] = "en"
     client = _mit_client(monkeypatch, _Client())
 
@@ -165,10 +165,10 @@ def test_die_sprache_kommt_aus_der_datenbank_nicht_vom_aufrufer(monkeypatch, spr
     assert client.aufrufe[0][0].startswith("Hello!")
 
 
-# --- das Modell im Schluessel ------------------------------------------------
+# --- the model in the key ----------------------------------------------------
 
 def test_der_vorschau_weg_nimmt_das_modell_in_den_schluessel(monkeypatch, vorrat):
-    """Ohne das Modell im Schluessel liefert der Vorrat nach einem Wechsel den alten Klang."""
+    """Without the model in the key the cache returns the old sound after a switch."""
     _mit_client(monkeypatch, _Client())
     monkeypatch.setattr("src.dependencies.tts_model_for_provider", lambda pid: "modell-a")
 
@@ -190,10 +190,10 @@ def test_ein_modellwechsel_spricht_neu(monkeypatch):
     assert len(client.aufrufe) == 2
 
 
-# --- wenn etwas kaputt ist ---------------------------------------------------
+# --- when something is broken ------------------------------------------------
 
 def test_kaputter_vorrat_verhindert_die_vorschau_nicht(monkeypatch):
-    """Der Vorrat ist eine Abkuerzung, keine Voraussetzung."""
+    """The cache is a shortcut, not a requirement."""
     client = _mit_client(monkeypatch, _Client())
     _mit_vorrat(monkeypatch, _Vorrat(kaputt_beim_lesen=True, kaputt_beim_schreiben=True))
 
@@ -202,7 +202,7 @@ def test_kaputter_vorrat_verhindert_die_vorschau_nicht(monkeypatch):
 
 
 def test_ein_fehlschlag_legt_nichts_ab(monkeypatch, vorrat):
-    """Ein leerer Ton im Vorrat wuerde die Stimme dauerhaft stumm stellen."""
+    """An empty audio file in the cache would silence the voice for good."""
     _mit_client(monkeypatch, _Client(wirft=True))
 
     with pytest.raises(RuntimeError):
@@ -227,7 +227,7 @@ def test_kein_anbieter_hinter_der_nummer_gibt_503(monkeypatch):
 
 
 def test_fehlendes_modell_gibt_503_kein_absturz(monkeypatch):
-    """get_tts_client_for_provider wirft, wenn die Route kein Modell hinterlegt hat."""
+    """get_tts_client_for_provider raises when the route has no model stored."""
     def _wirft(pid):
         raise RuntimeError("tts route has no model_name")
 
@@ -238,7 +238,7 @@ def test_fehlendes_modell_gibt_503_kein_absturz(monkeypatch):
 
 
 def test_ein_treffer_ueberlebt_einen_toten_anbieter(monkeypatch, vorrat):
-    """Der Vorrat wird vor dem Anbieter gefragt, ein bekannter Ton kommt also auch ohne ihn."""
+    """The cache is asked before the provider, so a known audio arrives without it."""
     _mit_client(monkeypatch, _Client())
     vorschau.preview_audio(21, "alloy")
 

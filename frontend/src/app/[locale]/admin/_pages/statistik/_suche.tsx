@@ -1,15 +1,6 @@
 "use client";
 
-/**
- * Suchfeld mit Trefferliste.
- *
- * Eine Tabelle zu filtern haette gereicht, um etwas zu finden. Aber die Frage
- * ist nicht "welche Zeile", sondern "alles zu dieser einen Sache". Deshalb ein
- * Feld, eine Liste, und darunter eine eigene Ansicht.
- *
- * Personen und Module teilen sich diesen Baustein, damit sich beides gleich
- * anfuehlt: gleiche Liste, gleiche Tastenbedienung, gleicher Aufbau darunter.
- */
+/** Search field with a result list, shared by people and modules. */
 
 import { useEffect, useRef, useState } from "react";
 import { MagnifyingGlass } from "@phosphor-icons/react";
@@ -37,8 +28,7 @@ export function Suche({
   const [offen, setOffen] = useState(false);
   const rahmen = useRef<HTMLDivElement>(null);
 
-  // Ein Klick daneben schliesst die Liste. Ohne das bleibt sie ueber dem
-  // Inhalt stehen und verdeckt genau das, was man lesen will.
+  // A click outside closes the list, otherwise it covers the content.
   useEffect(() => {
     const zu = (e: MouseEvent) => {
       if (!rahmen.current?.contains(e.target as Node)) setOffen(false);
@@ -116,8 +106,7 @@ export function Suche({
   );
 }
 
-/** Platzhalter, solange nichts gewaehlt ist. Eine leere Flaeche saehe aus, als
- *  fehle etwas. */
+/** Placeholder while nothing is selected. */
 export function NochNichts({ text }: { text: string }) {
   return (
     <div className="mt-4 rounded-xl border border-dashed border-border px-4 py-9 text-center text-sm text-muted-soft">

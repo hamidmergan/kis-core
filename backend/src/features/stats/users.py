@@ -1,10 +1,4 @@
-"""Zahlen zu den Nutzern: wer da ist, wie viele dazukommen, wer bleibt.
-
-Alles Zeitliche stuetzt sich auf `user_presence` und nicht auf die Auftraege.
-Wer nur Uebungen macht oder ein PDF liest, startet nie einen Auftrag und waere
-sonst unsichtbar. Genau die Gruppe ist bei der Frage nach Bindung die
-interessante.
-"""
+"""User numbers, based on presence instead of on jobs."""
 import time
 
 from psycopg2.extras import RealDictCursor
@@ -12,14 +6,12 @@ from psycopg2.extras import RealDictCursor
 from src.core.db.pool import get_connection
 from src.security import presence
 
-# Ab wie vielen Tagen mit Anwesenheit jemand als regelmaessig gilt. Grob
-# gegriffen, aber die Schwelle muss irgendwo liegen, und ein Wert im Code ist
-# ehrlicher als eine Zahl, die im Diagramm erfunden aussieht.
+# From how many days with presence someone counts as regular.
 REGELMAESSIG_AB_TAGEN = 10
 
 
 def user_overview() -> dict:
-    """Alles, was der Reiter Nutzer braucht, in einem Rutsch."""
+    """Everything the users tab needs, in one go."""
     seit = presence.online_since()
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -36,12 +28,7 @@ def user_overview() -> dict:
 
 
 def _online_details(cur, seit: dict[int, int]) -> dict:
-    """Namen zu den Nummern. Ohne Namen waere die Liste eine Zahlenkolonne.
-
-    Gezaehlt wird, wer sich wirklich zuordnen laesst, nicht wie viele Schluessel
-    in Redis liegen. Ein geloeschter Nutzer laesst seinen Schluessel noch bis zum
-    Ablauf stehen und wuerde die Zahl sonst aufblaehen.
-    """
+    """Names for the ids, only those that can be resolved are counted."""
     if not seit:
         return {"count": 0, "users": []}
     jetzt = int(time.time())
@@ -54,7 +41,7 @@ def _online_details(cur, seit: dict[int, int]) -> dict:
         {
             "id": r["id"],
             "name": r["display_name"] or r["ldap_username"] or "Unbekannt",
-            # Minuten seit dem ersten Lebenszeichen, nicht seit dem letzten.
+            # Minutes since the first sign of life, not since the last.
             "minutes": max(0, (jetzt - seit[r["id"]]) // 60),
         }
         for r in cur.fetchall()
@@ -90,8 +77,7 @@ def _per_day(cur) -> list[dict]:
 
 
 def _today_by_hour(cur) -> list[dict]:
-    """Heute, Stunde fuer Stunde. Die laufende Stunde bleibt draussen: sie ist
-    noch nicht vorbei und stuende als volle Saeule falsch da."""
+    """Today hour by hour, the current hour stays out."""
     cur.execute(
         """SELECT hour, COUNT(DISTINCT user_id) AS n
            FROM user_presence
@@ -115,12 +101,7 @@ def _new_per_month(cur) -> list[dict]:
 
 
 def _retention(cur) -> dict:
-    """Wie viele Tage jemand da war, in drei Gruppen.
-
-    Ein Tag zaehlt, sobald an ihm ein Lebenszeichen kam. Das Lebenszeichen
-    verlangt fuenf Minuten offene Seite, weil der Schluessel in Redis so lange
-    lebt und nur von einer laufenden Leitung erneuert wird.
-    """
+    """How many days someone was here, in three groups."""
     cur.execute(
         """SELECT tage, COUNT(*) AS n FROM (
                SELECT user_id, COUNT(DISTINCT day) AS tage
@@ -145,8 +126,7 @@ def _retention(cur) -> dict:
 
 
 def _people(cur) -> list[dict]:
-    """Alle Namen fuer die Suche. Nur Nummer, Name und Rolle: die Detailansicht
-    holt den Rest erst, wenn jemand gewaehlt wurde."""
+    """All names for the search, the detail view fetches the rest."""
     cur.execute(
         """SELECT u.id, COALESCE(u.display_name, u.ldap_username, 'Unbekannt') AS name,
                   COALESCE(c.name, u.role) AS rolle

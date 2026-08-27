@@ -16,10 +16,7 @@ import {
   type GrammarFormat,
 } from "./_grammarFormats";
 
-// Every picker in this modal shares one look: 2px border, primary on hover,
-// primary + tint for the current choice (same classes as the quiz answers).
-// The border must come from a class, not an inline style: an inline border
-// always beats `hover:border-kb`, which is why hover used to do nothing here.
+// All dropdowns share one style, the border has to come from one class.
 const PICK_BOX = "border-2 transition-colors disabled:opacity-40";
 const PICK_ON = "border-kb bg-kb/10";
 const PICK_OFF = "border-border bg-background enabled:hover:border-kb";
@@ -48,7 +45,7 @@ export function CreateSetModal({
   onClose: () => void;
   onCreate: (mode: string, count: number, grammarTopicId?: number,
              grammarKinds?: string[], flashcardSetId?: number) => void;
-  /** Eigentuemer oder Tutor. Nur die duerfen Themen anlegen. */
+  /** Owner or tutor, only they may create topics. */
   canManage?: boolean;
 }) {
   const t = useTranslations("workspace.detail.languageTraining");
@@ -59,37 +56,28 @@ export function CreateSetModal({
     ? pickedSources[0].filename
     : t("createModal.selectedSourcesCount", { count: pickedSources.length });
   const isQuiz = tool === "quiz";
-  // The grammar tool rewrites sentences about the source content, so it has no
-  // glossary mode at all.
+  // The grammar exercise has no glossary path.
   const isGrammar = tool === "grammatik";
-  // Der Wortschatz-Lueckentext kennt keinen Glossar-Weg. Er schreibt einen Text aus
-  // den Quellen, dafuer braucht er den Quelltext und keine Begriffsliste.
+  // The cloze needs source text, not a term list.
   const isVocabulary = tool === "wortschatz";
-  // Der Weg ueber die Quellen ist ueberall der Standard, auch wo es ein Glossar
-  // gibt. Das Glossar ist der Sonderfall und steht darum an zweiter Stelle.
+  // The path through the sources is the default everywhere.
   const [mode, setMode] = useState<"glossary" | "source" | "cards">("source");
   const [count, setCount] = useState(isQuiz ? 5 : 10);
   const press = useRef(newBackdropPress()).current;
 
-  // Die Themen gehoeren dem Kurs und stehen in der Datenbank, nicht im Code. Ein
-  // neues Thema erscheint hier also ohne Aenderung an der Oberflaeche.
+  // The topics live in the database, a new one appears here without a change.
   const [topics, setTopics] = useState<GrammarTopic[]>([]);
   const [topicId, setTopicId] = useState<number | null>(null);
   const [typesLoading, setTypesLoading] = useState(false);
   const [addingTopic, setAddingTopic] = useState(false);
   const [reload, setReload] = useState(0);
-  // Das Thema, das gerade nach einer Bestaetigung fragt. Ein Thema gehoert dem
-  // ganzen Kurs und nimmt seinen Aufgaben-Vorrat mit, dafuer ist ein Fehlklick zu
-  // teuer. Fertige Saetze bleiben lesbar, darum kuemmert sich das Backend.
+  // A topic belongs to the course, a misclick is too expensive for that.
   const [confirmTopicId, setConfirmTopicId] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
-  // Alle vier sind an, das ist gemischt und damit das Verhalten von vorher.
-  // Abzuhaken ist weniger Arbeit, als vier leere Kaestchen zu fuellen.
+  // All four on is mixed and therefore the existing behaviour.
   const [formats, setFormats] = useState<GrammarFormat[]>([...GRAMMAR_FORMATS]);
 
-  // Die eigenen Lernkarten-Sets fuer den Kartenweg des Lueckentexts. Die Liste kommt
-  // schon nach Person gefiltert von der Route, hier bleibt nur der Fertig-Status zu
-  // pruefen: ein Satz, der noch entsteht, hat keine Karten herzugeben.
+  // Your own flashcard sets, the list arrives already filtered.
   const [flashcardSets, setFlashcardSets] = useState<{ id: number; title: string }[]>([]);
   const [flashcardSetId, setFlashcardSetId] = useState<number | null>(null);
   const [flashcardSetsLoading, setFlashcardSetsLoading] = useState(false);
@@ -123,7 +111,7 @@ export function CreateSetModal({
       setTopics((prev) => prev.filter((t) => t.id !== topic.id));
       setConfirmTopicId(null);
     } catch {
-      /* die Liste bleibt stehen, ein zweiter Versuch schadet nicht */
+      /** the list stays, a second attempt does no harm */
     } finally {
       setDeleting(false);
     }
@@ -159,8 +147,7 @@ export function CreateSetModal({
     ? Boolean(hasSource && topicId && !addingTopic
               && formatChoiceReady(formats))
     : isVocabulary
-      // Der Text kommt immer aus den Quellen, auch im Kartenweg. Der braucht
-      // zusaetzlich ein gewaehltes Lernkarten-Set.
+      // The text always comes from the sources, on the card path too.
       ? Boolean(hasSource && (mode !== "cards" || flashcardSetId))
       : true;
 
@@ -195,8 +182,7 @@ export function CreateSetModal({
             </p>
           )}
           {isVocabulary && hasSource && !flashcardSetsLoading && flashcardSets.length === 0 && (
-            // Sonst bleibt der Kartenweg nur ausgegraut, ohne dass klar wird,
-            // warum er sich nicht waehlen laesst.
+            // Otherwise the card path would stay greyed out without saying why.
             <p className="text-3xs ml-5" style={{ color: "#c4820e" }}>
               {t("createModal.noFlashcardSets")}
             </p>
@@ -230,10 +216,7 @@ export function CreateSetModal({
             <div className="text-3xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted)" }}>{t("createModal.grammarTypeHeading")}</div>
             <div className="flex flex-col gap-1.5 mb-3">
               {canManage && !addingTopic && (
-                /* Anlegen ist Verwaltungsarbeit und keine Auswahl. Deshalb steht
-                   der Eintrag ueber der Liste und traegt den gestrichelten
-                   Hinzufuegen-Rahmen aus dem Bestand statt eines Auswahlpunkts.
-                   Lernende sehen ihn nicht, waehlen duerfen sie aus derselben Liste. */
+                /** Creating is management work and sits above the list. */
                 <button type="button" onClick={() => setAddingTopic(true)}
                   className={`add-source-btn w-full flex items-center gap-2 px-3 py-2 rounded-lg text-2xs font-medium border-dashed text-[var(--kb)] border-[rgba(var(--kb-rgb),0.35)] hover:border-[var(--kb)] ${PICK_BOX}`}>
                   <Plus size={14} weight="bold" />
@@ -248,9 +231,7 @@ export function CreateSetModal({
               )}
               {!addingTopic && topics.map((topic) => (
                 confirmTopicId === topic.id ? (
-                  /* Die Ruecknahme steht an der Stelle der Zeile und nicht in einem
-                     eigenen Fenster: die Liste bleibt sichtbar, und die Frage steht
-                     bei dem Thema, um das es geht. */
+                  /** The confirmation sits on the row it concerns. */
                   <div key={topic.id} className={`flex flex-col gap-1.5 px-3 py-2 rounded-lg ${PICK_BOX} border-border bg-background`}>
                     <span className="text-2xs text-foreground">
                       {t("grammarTopics.deleteAsk", { name: topic.name })}
@@ -270,10 +251,7 @@ export function CreateSetModal({
                     </div>
                   </div>
                 ) : (
-                  /* Nur der Name. Die Anweisung an den Lernenden lautet fuer jedes
-                     Thema gleich und gehoert deshalb ueber die Saetze, nicht hierhin.
-                     Der Papierkorb liegt ueber der Zeile statt in ihr: ein Knopf im
-                     Knopf waere kein gueltiges HTML. */
+                  /** Only the name, the delete button sits above the row instead of inside it. */
                   <div key={topic.id} className="relative">
                     <PickerOption selected={topicId === topic.id}
                       onClick={() => setTopicId(topic.id)}>

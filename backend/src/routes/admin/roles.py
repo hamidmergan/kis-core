@@ -1,8 +1,4 @@
-"""Admin endpoints for the permission matrix: custom roles + role assignment.
-
-Die Tabelle hat keinen Speicherknopf. Ein Klick auf ein Haekchen ist ein
-``PATCH .../permissions`` mit genau einem Schluessel, nichts weiter.
-"""
+"""Admin routes for the permission table, every checkbox is its own request."""
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -24,8 +20,7 @@ from src.permissions_registry import (
 
 router = APIRouter(tags=["admin: roles"])
 
-# Wer die Rechte anderer verteilt, braucht das Recht dafuer. Was er verteilen
-# darf, begrenzt zusaetzlich assert_may_grant.
+# Whoever hands out permissions needs the right to do so.
 _require = require_permission(PERM_SET_USERS_ROLES)
 
 
@@ -45,12 +40,7 @@ class PermissionTogglePayload(BaseModel):
 
 @router.get("/roles")
 async def list_roles(admin=Depends(_require)):
-    """Zeilen, Spalten und Haekchen der Rechtetabelle in einem Aufruf.
-
-    Die Texte stehen nicht hier. Die Oberflaeche uebersetzt jeden Schluessel
-    ueber ``admin.permissions.<schluessel>``, damit Deutsch und Englisch an
-    einer Stelle liegen.
-    """
+    """Rows, columns and checkboxes of the permission table in one call."""
     perms = permissions_of(admin)
     return {
         "groups": [
@@ -66,8 +56,7 @@ async def list_roles(admin=Depends(_require)):
             for r in SYSTEM_ROLES
         ],
         "custom_roles": db.list_custom_roles(),
-        # Was der Aufrufer selbst hat. Alles darueber hinaus zeigt die Tabelle
-        # gesperrt, statt den Klick erst beim Speichern abzulehnen.
+        # What the caller does not hold themselves the table shows locked.
         "grantable": list(perms.keys & set(ALL_PERMISSION_KEYS)),
     }
 
@@ -97,7 +86,7 @@ async def rename_role(
     _admin=Depends(_require),
     locale: str = Depends(get_locale),
 ):
-    """Nur umbenennen. Die Haekchen laufen ueber den eigenen Endpunkt."""
+    """Rename only, the checkboxes go through their own endpoint."""
     if db.get_custom_role(role_id) is None:
         raise HTTPException(status_code=404, detail="Role not found")
     name = payload.name.strip()
@@ -117,12 +106,7 @@ async def toggle_role_permission(
     admin=Depends(_require),
     locale: str = Depends(get_locale),
 ):
-    """Ein Haekchen setzen oder loeschen.
-
-    Gepruefte Rechteerhoehung auch hier: wer ``settings.system`` nicht selbst
-    hat, kann es keiner Rolle geben. Wegnehmen ist dagegen immer erlaubt, das
-    kann nichts erhoehen.
-    """
+    """Sets or clears a checkbox, you may only grant what you hold yourself."""
     if payload.key not in ALL_PERMISSION_KEYS:
         raise HTTPException(status_code=400, detail=f"Unknown permission: {payload.key}")
     if db.get_custom_role(role_id) is None:
@@ -145,8 +129,7 @@ async def delete_role(
     role = db.get_custom_role(role_id)
     if role is None:
         raise HTTPException(status_code=404, detail="Role not found")
-    # Eine Rolle loeschen setzt ihre Leute auf "user". Wer die Rolle nicht
-    # haette vergeben duerfen, darf sie auch nicht aufloesen.
+    # Whoever could not grant a role may not dissolve it either.
     assert_may_grant(permissions_of(admin), role["permissions"], locale)
     db.delete_custom_role(role_id)
     return {"status": "ok"}

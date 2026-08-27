@@ -54,7 +54,7 @@ export function JobArtifacts({ job }: { job: MyJob }) {
 
   // screencast_translate: single-folder workflow — show artifacts for both phases
   if (job.tool === "screencast_translate") {
-    // "Fortsetzen" sitzt jetzt im Status-Abzeichen, hier bleibt nur das Oeffnen.
+    // Resume now sits in the status badge, only opening remains here.
     const sprung = screencastJumpKind(job);
     const sprungChip = sprung === "open" && (
       <a
@@ -66,7 +66,7 @@ export function JobArtifacts({ job }: { job: MyJob }) {
     );
 
     if (job.status === "awaiting_user") {
-      // Ohne laufende Skripte bleibt hier nichts, das Abzeichen fuehrt weiter.
+      // Without running scripts nothing stays here, the badge leads on.
       if (!job.is_generating_scripts) return null;
       return (
         <div className="mt-3 space-y-2">
@@ -109,7 +109,7 @@ export function JobArtifacts({ job }: { job: MyJob }) {
       );
     }
 
-    // Waehrend der Vertonung fuehrt der Knopf auf die Warteseite im Assistenten.
+    // During voicing the button leads to the waiting page in the assistant.
     return sprungChip ? <div className="mt-3 flex flex-wrap gap-2 items-center">{sprungChip}</div> : null;
   }
 

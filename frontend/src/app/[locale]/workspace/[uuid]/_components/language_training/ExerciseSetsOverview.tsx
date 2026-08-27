@@ -24,7 +24,7 @@ export function ExerciseSetsOverview({
   const t = useTranslations("workspace.detail.languageTraining");
   const locale = useLocale();
   const dateLocale = locale === "en" ? "en-US" : "de-DE";
-  // Welche Karte gerade umbenannt wird. Nur eine, mehr braucht niemand gleichzeitig.
+  // Which card is currently being renamed, only one, nobody needs more at once.
   const [umbenennt, setUmbenennt] = useState<number | null>(null);
 
   const noSources = sourceCount === 0;
@@ -90,8 +90,7 @@ export function ExerciseSetsOverview({
                     default: return t("exerciseSets.modeFlashcards");
                   }
                 })();
-                // Der Name, wie er auf der Karte steht: ohne die Werkzeug-Vorsilbe, die
-                // aelteren Saetzen noch anhaengt. Umbenannt wird genau das, was man sieht.
+                // Exactly the name shown on the card is renamed.
                 const anzeigeTitel = s.title
                   .replace(/^(Lernkarten|Grammatik-Übung|Quiz)\s*(aus|von)\s*/i, "")
                   .replace(/^(Flashcards|Grammar exercise|Quiz)\s*(from|of)\s*/i, "");
@@ -131,8 +130,7 @@ export function ExerciseSetsOverview({
                       {generating ? (
                         <Spinner size="sm" />
                       ) : failed ? null : (() => {
-                        // Wie viele Karten des Satzes sitzen. Der Wert kommt fertig
-                        // aus dem Backend, damit Ring und Statistik dasselbe zaehlen.
+                        // The value comes ready from the backend so ring and statistics count alike.
                         const pct = setProgressPct(s);
                         const r = 16; const c = 2 * Math.PI * r; const offset = c - (pct / 100) * c;
                         return (

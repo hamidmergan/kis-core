@@ -1,4 +1,4 @@
-"""Core Render-Pipeline für Screencast-Tasks: Bilder → TTS → Clips → Concat → Faststart."""
+"""Core render pipeline: images, TTS, clips, concat, faststart."""
 
 import asyncio
 import json
@@ -43,7 +43,7 @@ def _fortschritt_vertonung(
     gesprochen: int,
     nicht_dabei: set[int] | None = None,
 ) -> dict:
-    """Der Zaehler meint die neu gesprochenen Folien, ``fertige`` traegt die Vorschau."""
+    """The counter means the newly spoken slides, ``fertige`` carries the preview."""
     return {
         "step": "tts",
         "current": gesprochen,
@@ -68,13 +68,7 @@ def _run_render_pipeline(
     video_folien: list[int] | None = None,
     neu_vertonen: list[int] | None = None,
 ) -> dict:
-    """
-    Core render pipeline. Reads PPTX from job folder (corrected.pptx or translated.pptx).
-    All output files are saved to job_uuid's folder.
-
-    Returns a dict with:
-      result_path, audio_id, audio_count
-    """
+    """The render path: reads the PPTX from the job folder and stores everything there."""
     (
         IMAGE_TMP_DIR,
         _pptx_to_images, _generate_all_tts, _convert_slides_to_images_async,
@@ -102,14 +96,12 @@ def _run_render_pipeline(
     }).encode())
     save_job_file(user_id, job_uuid, "render_scripts.json", json.dumps(scripts).encode())
 
-    # Check cancel flag before starting - catches cancels that arrived while
-    # the task was queued or being restarted after a SIGTERM (acks_late requeue).
+    # Check for cancellation before it starts.
     _assert_not_cancelled(job_uuid)
 
     db.update_job_status(job_uuid, "running", progress={"step": "images"})
 
-    # Watcher thread: runs for the ENTIRE pipeline (images + TTS + video clips)
-    # Checks Redis cancel flag every 0.5s and kills active ffmpeg processes immediately.
+    # A watcher thread checks for cancellation and kills running ffmpeg processes.
     _stop_watcher = threading.Event()
     _cancelled_by_watcher = threading.Event()
 
@@ -134,9 +126,7 @@ def _run_render_pipeline(
       with tempfile.TemporaryDirectory() as tmpdir:
         tmp = Path(tmpdir)
 
-        # ── Slide images ──────────────────────────────────────────────────
-        # Vorgerendert wird je Auflösung in einen eigenen Unterordner. Passt die
-        # Auflösung nicht, ist der Vorrat wertlos und es wird neu gerendert.
+        # Pre-rendering happens per resolution, if it does not match it is rendered again.
         prerendered_dir = IMAGE_TMP_DIR / job_uuid
         with messe(user_id, job_uuid, "bilder") as bild_zahlen:
             bild_zahlen["dpi"] = dpi
@@ -167,8 +157,7 @@ def _run_render_pipeline(
         if _cancelled_by_watcher.is_set():
             raise _JobCancelled()
 
-        # ── TTS ───────────────────────────────────────────────────────────
-        # Diese Folien liegen schon fertig vor, sie gehoeren sofort in die Vorschau.
+        # These slides are already finished and belong in the preview right away.
         schon_da = audio_folien_mit_ton(user_id, job_uuid) & auswahl.alter_ton_erlaubt
         zu_sprechen = zu_sprechende_folien(auswahl.clip_folien, scripts, schon_da)
         fertige_folien: set[int] = set(schon_da)
@@ -189,7 +178,7 @@ def _run_render_pipeline(
             db.update_job_status(job_uuid, "running", progress=_fortschritt_vertonung(
                 fertige_folien, zu_sprechen, gesprochen, auswahl.ausgeschlossen))
 
-        # Ohne bekannte Zielsprache bleibt sie leer, dann raet die Vertonung nicht.
+        # Without a known target language it stays empty, then the voicing does not guess.
         target_lang = (load_result_meta(user_id, job_uuid) or {}).get("target_lang", "")
         with messe(user_id, job_uuid, "vertonung") as ton_zahlen:
             ton_zahlen.update(zeichen_zahlen(scripts))
@@ -206,9 +195,7 @@ def _run_render_pipeline(
         if num_slides == 0:
             raise RuntimeError("Keine Slides verarbeitet")
         if len(slide_images) != len(audio_paths):
-            # Darf nicht mehr vorkommen, seit ausgeblendete Folien auf beiden
-            # Seiten gleich behandelt werden. Falls doch, muss es im Log stehen:
-            # ab der Abweichung liegt der Ton unter dem falschen Bild.
+            # Must not happen any more but has to be logged: otherwise audio and image mismatch.
             logger.error(
                 "Render {}: {} Bilder, aber {} Skripte. Video wird auf {} Folien gekürzt.",
                 job_uuid, len(slide_images), len(audio_paths), num_slides,
@@ -220,7 +207,7 @@ def _run_render_pipeline(
 
         # ── Video clips (parallel) ────────────────────────────────────────
         db.set_render_started_at(job_uuid)
-        # Die Foliennummer bleibt der Schluessel, gebaut wird nur die Auswahl.
+        # The slide number stays the key, only the selection is built.
         paare = clip_paare(auswahl.clip_folien, num_slides)
         if not paare:
             raise RuntimeError("Keine Folie im Screencast")
@@ -254,7 +241,7 @@ def _run_render_pipeline(
                         raise _JobCancelled()
                     _assert_not_cancelled(job_uuid)
 
-        # ── KI-Hinweis (gleiche Folie am Anfang und am Ende, 3s stumm) ────
+        # ── AI notice (same slide at the start and the end, 3s silent) ────
         _assert_not_cancelled(job_uuid)
         if _cancelled_by_watcher.is_set():
             raise _JobCancelled()
@@ -270,10 +257,10 @@ def _run_render_pipeline(
         except Exception as e:
             hinweis_clip = None
             logger.warning("KI-Hinweis konnte nicht erzeugt werden, das Video laeuft ohne: {}", e)
-        # Der Hinweis muss vor der Untertitel-Spur stehen, sonst liegen alle Zeitmarken daneben.
+        # The notice has to come before the subtitle track, otherwise every timestamp is off.
         clip_paths, hat_sprache = rahme_clips(clip_paths, hat_sprache, hinweis_clip)
 
-        # ── Untertitel (eigene Spur, nicht eingebrannt) ───────────────────
+        # ── Subtitles (own track, not burned in) ──────────────────────────
         spur_pfad = None
         spur_sprache = ""
         if subtitles:
@@ -305,7 +292,7 @@ def _run_render_pipeline(
 
         # ── Save audio cache ──────────────────────────────────────────────
         db.update_job_status(job_uuid, "running", progress={"step": "saving"})
-        # None heisst: den Platz nicht anfassen, dort liegt der Ton des letzten Laufs.
+        # None means do not touch the slot, the audio of the last run sits there.
         audio_bytes_list: list[bytes | None] = [None] * len(scripts)
         for i, platz in enumerate(ton_plaetze(len(scripts), clip_folien)):
             if not platz:

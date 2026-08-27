@@ -3,11 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-/**
- * Click-based help tooltip — click to open, click outside to close.
- * Renders into a portal with fixed positioning to avoid being clipped
- * by ancestors with `overflow` (e.g. horizontally scrollable tables).
- */
+/** Help bubble on click, in a portal so it is not clipped. */
 export default function HelpTooltip({ text }: { text: string }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);

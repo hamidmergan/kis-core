@@ -13,7 +13,7 @@ interface TranslateResponse {
   slide_images: string[];
   translate_job_uuid?: string;
   user_prompt?: string;
-  /** Folien, an denen die Übersetzung nichts geändert hat (0-basiert). */
+  /** Slides the translation left unchanged (0-based). */
   unchanged_slides?: number[];
 }
 
@@ -184,9 +184,7 @@ export function useScreencastTranslateFlow(opts: UseScreencastTranslateFlowOptio
     newSignal, dispatch, currentJobUuidRef,
   ]);
 
-  // ── Download translated PPTX ──
-  // Gibt zurück, ob es geklappt hat. Vorher landete ein Fehlschlag nur in der
-  // Konsole und der Nutzer stand vor einem Knopf, der scheinbar nichts tut.
+  // Returns whether it worked, otherwise the button appears to do nothing.
   const handleDownloadTranslatedPptx = useCallback(async (): Promise<boolean> => {
     if (!translateJobUuid) return false;
     try {
@@ -281,7 +279,7 @@ export function useScreencastTranslateFlow(opts: UseScreencastTranslateFlowOptio
           glossary_json: mergeToApiJson(glossaryIds),
           translate_job_uuid: translateJobUuid || null,
           add_greeting: true,
-          // Kein Schlusswort, sonst endet das Video auf einer Floskel.
+          // No closing remark, otherwise the video ends on a platitude.
           add_closing: false,
           min_chars: 1500,
           max_chars: 2000,

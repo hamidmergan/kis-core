@@ -1,8 +1,4 @@
-"""Die Loeschroute im Admin.
-
-Geprueft werden vor allem die Sperren. Ein Admin, der sich selbst oder das
-env-Konto loescht, sperrt die ganze Anlage aus, und zwar endgueltig.
-"""
+"""The delete route in the admin area, above all its locks."""
 from unittest.mock import patch
 
 import pytest
@@ -35,12 +31,12 @@ def test_ein_unbekanntes_konto_gibt_vierhundertvier(client):
     with patch("src.routes.admin.users.db.get_user_by_id", return_value=None):
         r = client.delete("/admin/users/999")
     assert r.status_code == 404
-    # Ohne diese Zeile bestuende der Test auch ganz ohne Route.
+    # Without this line the test would pass even with no route at all.
     assert r.json()["detail"] == "User nicht gefunden"
 
 
 def test_das_eigene_konto_bleibt_stehen(client):
-    """Sonst sperrt sich der Admin mit einem Klick selbst aus."""
+    """Otherwise the admin locks themselves out with one click."""
     with patch("src.routes.admin.users.db.get_user_by_id", return_value=_nutzer(1)), \
          patch("src.routes.admin.users.delete_user_completely") as loeschen:
         r = client.delete("/admin/users/1")
@@ -49,7 +45,7 @@ def test_das_eigene_konto_bleibt_stehen(client):
 
 
 def test_das_env_konto_bleibt_stehen(client):
-    """Es wird beim Start neu angelegt und ist der Weg zurueck in die Anlage."""
+    """It is recreated at startup and is the way back into the system."""
     with patch("src.routes.admin.users.db.get_user_by_id",
                return_value=_nutzer(9, "admin@th-luebeck.de")), \
          patch("src.routes.admin.users.delete_user_completely") as loeschen:
@@ -78,7 +74,7 @@ def test_ein_fremdes_konto_wird_geloescht(client):
 
 
 def test_die_dateien_gehen_erst_nach_der_datenbank(client):
-    """Bricht die Datenbank ab, sind die Dateien noch da und der Ablauf wiederholbar."""
+    """If the database aborts, the files are still there and the flow stays repeatable."""
     reihenfolge = []
     with patch("src.routes.admin.users.db.get_user_by_id", return_value=_nutzer()), \
          patch("src.routes.admin.users.delete_user_completely",
@@ -90,7 +86,7 @@ def test_die_dateien_gehen_erst_nach_der_datenbank(client):
 
 
 def test_eine_stolpernde_ablage_kippt_das_loeschen_nicht(client):
-    """Das Konto ist weg, der Rest im Speicher ist eine Meldung im Protokoll wert."""
+    """The account is gone, leftovers in storage are worth a log message."""
     with patch("src.routes.admin.users.db.get_user_by_id", return_value=_nutzer()), \
          patch("src.routes.admin.users.delete_user_completely"), \
          patch("src.routes.admin.users.delete_user_folder", side_effect=OSError("S3 weg")):

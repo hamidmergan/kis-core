@@ -1,13 +1,4 @@
-"""Fragen einmalig von der KI erzeugen lassen, im Adminbereich.
-
-Der Gegenentwurf zum frueheren Erzeugen waehrend des Tests: ein Aufruf, das
-Ergebnis landet als ganz normale Zeilen im Fragen-Plan, die Verwaltung liest und
-korrigiert es, und danach laeuft jeder Test ohne Modellaufruf.
-
-Deshalb ist die Pruefung hier streng. Was der Aufruf zurueckgibt, muss ohne
-weitere Handgriffe speicherbar sein, sonst haette die Verwaltung eine Liste, die
-der Speicherweg gleich wieder ablehnt.
-"""
+"""Generate questions once with the AI, the result has to be savable right away."""
 
 import json
 
@@ -27,9 +18,7 @@ from src.services.aia_diagnosis_authoring import (
     parse_generated_plan,
 )
 
-# Drei Plaetze, die alle drei Faelle abdecken: Auswahl, Freitext MIT Loesung und
-# Freitext OHNE. Seit es nur noch zwei Aufgabenarten gibt, ist die Loesung der
-# Unterschied, nicht der Name.
+# Three slots for the three cases, the answer key makes the difference.
 SLOTS = [
     {"type": FREE_TEXT_TYPE, "answers": True, "shape": "one sentence with a blank ___"},
     {"type": CHOICE_TYPE, "answers": False, "shape": "a plain grammar item"},
@@ -54,12 +43,10 @@ CHOICE = {
 FREE = {"type": FREE_TEXT_TYPE, "text": "Schreibe drei Sätze über deinen Tag."}
 
 
-# ─── Die Plaetze ────────────────────────────────────────────────────────────
+# ─── The slots ──────────────────────────────────────────────────────────────
 
 def test_the_slots_follow_the_shipped_plan():
-    """Erzeugt wird Platz fuer Platz wie im ausgelieferten Satz, also leicht nach
-    schwer und mit genug Schreibproben. Die Loesungs-Flags muessen mitwandern,
-    sonst waere Platz 1 auf einmal eine Schreibprobe statt einer Luecke."""
+    """Generation goes slot by slot as in the shipped set."""
     assert [s["type"] for s in GENERATION_SLOTS] == [
         s["type"] for s in DEFAULT_GERMAN_QUESTION_PLAN
     ]
@@ -69,14 +56,13 @@ def test_the_slots_follow_the_shipped_plan():
 
 
 def test_every_slot_carries_its_own_shape():
-    """Mit nur zwei Aufgabenarten waere der Auftrag sonst zwoelfmal derselbe Satz
-    und der Fragensatz eintoenig. Der Charakter steht jetzt am Platz."""
+    """The character sits on the slot, otherwise the instruction would be the same twelve times."""
     shapes = [s["shape"] for s in GENERATION_SLOTS]
     assert all(shape.strip() for shape in shapes)
     assert len(set(shapes)) > 1
 
 
-# ─── Der Auftrag an das Modell ──────────────────────────────────────────────
+# ─── The instruction to the model ───────────────────────────────────────────
 
 def test_the_order_carries_the_level_ladder_and_the_types():
     messages = build_generation_messages("- A1: Einzelne Wörter.", "- A1: Ich heiße Ana.", SLOTS)
@@ -88,18 +74,14 @@ def test_the_order_carries_the_level_ladder_and_the_types():
 
 
 def test_the_order_carries_the_shape_of_every_slot():
-    """Der Charakter des Platzes ist das Einzige, was zwei Freitext-Plaetze noch
-    unterscheidet. Faellt er aus dem Auftrag, schreibt das Modell zwoelfmal
-    dasselbe."""
+    """Without the character the model writes the same thing twelve times."""
     order = build_generation_messages("- A1: x", "- A1: y", SLOTS)[1]["content"]
     for slot in SLOTS:
         assert slot["shape"] in order
 
 
 def test_every_listed_slot_says_what_it_must_carry():
-    """Gemessen: ohne Angabe an der Zeile schrieb das Modell eine Auswahl ohne
-    Optionen, zweimal hintereinander. Die Sammelregel weiter oben reicht nicht,
-    die Anforderung muss an jeder einzelnen Nummer stehen."""
+    """The requirement has to sit on every single number."""
     order = build_generation_messages("- A1: x", "- A1: y", SLOTS)[1]["content"]
     lines = [ln for ln in order.splitlines() if ln.startswith(("1.", "2.", "3."))]
     assert any(CHOICE_TYPE in ln and "options" in ln for ln in lines)
@@ -108,13 +90,12 @@ def test_every_listed_slot_says_what_it_must_carry():
 
 
 def test_the_repair_order_names_what_was_wrong():
-    """Der allgemeine Reparaturtext half nicht: das Modell wiederholte denselben
-    Fehler. Es muss lesen koennen, welche Frage woran gescheitert ist."""
+    """The retry has to name the concrete reason."""
     order = build_repair_message("Question 6: needs 2..8 options")
     assert "Question 6: needs 2..8 options" in order
 
 
-# ─── Die Antwort des Modells ────────────────────────────────────────────────
+# ─── The model's answer ─────────────────────────────────────────────────────
 
 def test_a_good_answer_becomes_a_plan():
     plan = parse_generated_plan(_answer(GAP, CHOICE, FREE), SLOTS)
@@ -125,7 +106,7 @@ def test_a_good_answer_becomes_a_plan():
 
 
 def test_the_result_is_savable_as_it_stands():
-    """Der Sinn der Sache: nichts nacharbeiten muessen."""
+    """The point of the whole thing: nothing to rework."""
     plan = parse_generated_plan(_answer(GAP, CHOICE, FREE), SLOTS)
     assert first_incomplete_question(json.dumps(plan)) is None
 
@@ -146,7 +127,7 @@ def test_a_wrong_type_order_is_rejected():
 
 
 def test_two_correct_options_are_rejected():
-    """Der alte Fehler: ein Ablenker, der selbst richtig ist."""
+    """The old bug: a distractor that is correct itself."""
     broken = {**CHOICE, "options": [
         {"text": "Das", "correct": True},
         {"text": "Dieses", "correct": True},
@@ -174,8 +155,7 @@ def test_a_slot_that_wants_a_solution_is_rejected_without_one():
 
 
 def test_a_solution_on_a_writing_sample_is_dropped():
-    """Platz 3 ist die Schreibprobe, an der die Stufe haengt. Traegt sie eine
-    Loesung, wuerde der Code sie pruefen und die KI bekaeme nichts zu lesen."""
+    """The writing sample must carry no answer key, otherwise the AI reads nothing."""
     plan = parse_generated_plan(
         _answer(GAP, CHOICE, {**FREE, "answers": ["egal"]}),
         SLOTS,
@@ -189,7 +169,7 @@ def test_a_question_without_text_is_rejected():
 
 
 def test_options_on_a_free_text_question_are_dropped():
-    """Ein ueberschuessiges Feld kippt nicht den ganzen Durchlauf."""
+    """A surplus field does not topple the whole run."""
     plan = parse_generated_plan(
         _answer(GAP, CHOICE, {**FREE, "options": [{"text": "x", "correct": True}]}),
         SLOTS,
@@ -202,7 +182,7 @@ def test_prose_instead_of_json_is_rejected():
         parse_generated_plan("Gerne! Hier sind die Fragen.", SLOTS)
 
 
-# ─── Der Endpunkt ───────────────────────────────────────────────────────────
+# ─── The endpoint ───────────────────────────────────────────────────────────
 
 from unittest.mock import AsyncMock, patch  # noqa: E402
 
@@ -220,12 +200,12 @@ def _for_slot(slot: dict) -> dict:
 
 
 def _full_answer() -> str:
-    """Eine Antwort, die genau zur ausgelieferten Platz-Folge passt."""
+    """An answer matching exactly the shipped slot sequence."""
     return json.dumps({"questions": [_for_slot(s) for s in GENERATION_SLOTS]})
 
 
 async def test_the_endpoint_returns_a_plan_without_saving_it(monkeypatch):
-    """Die Verwaltung soll erst lesen und dann selbst speichern."""
+    """Management should read first and then save themselves."""
     saved = []
     monkeypatch.setattr(route.db, "get_setting", lambda key, default="": default)
     monkeypatch.setattr(route.db, "set_setting", lambda key, value: saved.append(key))
@@ -251,7 +231,7 @@ async def test_a_broken_answer_is_repaired_once(monkeypatch):
 
 
 async def test_the_repair_turn_tells_the_model_what_broke(monkeypatch):
-    """Sonst wiederholt es denselben Fehler, gemessen an der Aufgabenart situation."""
+    """Otherwise it repeats the same mistake, measured by the exercise kind."""
     monkeypatch.setattr(route.db, "get_setting", lambda key, default="": default)
 
     half = json.loads(_full_answer())

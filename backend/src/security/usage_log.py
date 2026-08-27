@@ -1,16 +1,4 @@
-"""LLM-Usage-Logging in eigene DB-Tabelle (``aia_llm_usage_log``).
-
-Pro LLM-Request 1 Zeile mit User, Endpoint, Provider, Tokens (best effort),
-Dauer und Status. Wird vom Tagesalarm gegen rolling 7d-Average geprüft, um
-plötzliche Verbrauchssprünge zu erkennen - ohne dass eine fixe Schwelle
-gesetzt werden muss (Plattform skaliert sich selbst ein).
-
-Langfuse hat die exakte Wahrheit für Token-Tracing. Diese Tabelle ist die
-schnelle, lokal aggregierbare Alternative für Alarms und Admin-Dashboards.
-
-Fire-and-forget: bei DB-Fehler nur Warnung loggen, niemals den eigentlichen
-Request scheitern lassen.
-"""
+"""One row per model request, for daily reports and the admin area."""
 
 from typing import Optional
 
@@ -29,15 +17,7 @@ def log_request(
     duration_ms: Optional[int] = None,
     status: str = "ok",
 ) -> None:
-    """Schreibt eine Zeile in ``aia_llm_usage_log``. Fail-safe.
-
-    ``status``: ``"ok"`` | ``"error"`` | ``"rate_limited"``.
-
-    ``user_id`` ist ``-1`` fuer Aufrufe ohne Sitzung, etwa aus einem Hintergrund-
-    lauf. Die Summen je Modell stimmen damit, eine Zuordnung je Person nicht.
-    Null heisst dagegen "unbekannt" und wird verworfen, sonst haengt Verbrauch an
-    einem Nutzer, den es nicht gibt.
-    """
+    """Writes a row into the usage log, errors stay without consequence."""
     if user_id == 0:
         return
 
@@ -59,7 +39,7 @@ def log_request(
 
 
 def log_llm_response(endpoint: str, client, response) -> None:
-    """Verbrauch einer Antwort mitschreiben, ohne Nutzernummer und fail-safe."""
+    """Records the consumption of an answer, without a user id and fail-safe."""
     try:
         nutzung = getattr(response, "usage", None)
         log_request(

@@ -65,8 +65,7 @@ export default function KiTutorWorkspacePage() {
   const [moduleDetail, setWorkspaceDetail] = useState<WorkspaceDetail | null>(null);
   // auth + initialized come from useWorkspaceInit (after all source/chat hooks)
 
-  // Layout state (panels, widths, mobile detection, drag): see usePanelLayout
-  // Defined after viewerSource because the hook needs viewerSource as input.
+  // Comes after viewerSource because the hook needs it as input.
 
   const {
     sources, setSources,
@@ -80,9 +79,7 @@ export default function KiTutorWorkspacePage() {
     uploadFiles: handleUpload,
   } = useSources({ uuid, onModuleUpdate: (mod) => setWorkspaceDetail(mod) });
 
-  // Kapitel gliedern nur die Quellenliste. Sie stehen absichtlich neben den
-  // Quellen und nicht in ihnen: die Auswahl fuer Chat und Werkzeuge bleibt der
-  // Haken an der einzelnen Datei.
+  // Chapters only structure the list, the selection stays the file's checkbox.
   const {
     chapters, setChapters,
     createChapter: handleCreateChapter,
@@ -92,8 +89,7 @@ export default function KiTutorWorkspacePage() {
     setSourceChapter: handleSetSourceChapter,
   } = useChapters({ uuid, setSources });
 
-  // Der Kursraum ist die eine Quelle der Wahrheit. Beim Laden und bei jedem
-  // Nachfassen kommt die Gliederung frisch mit.
+  // The course room is the one truth, the structure comes along every time.
   useEffect(() => {
     if (moduleDetail?.chapters) setChapters(moduleDetail.chapters);
   }, [moduleDetail?.chapters, setChapters]);
@@ -111,7 +107,7 @@ export default function KiTutorWorkspacePage() {
   } = usePanelLayout({ uuid, viewerSource });
 
   const [chatLang, setChatLang] = useState<"de" | "en">("de");
-  // Zielsprache der Auswahlleisten-Übersetzung, je lesender Person.
+  // Target language of the selection bar translation, per reading person.
   const [popupTranslateLang, setPopupTranslateLang] = useState<string>("en");
 
   const chat = useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, chatLang, popupTranslateLang });
@@ -128,24 +124,17 @@ export default function KiTutorWorkspacePage() {
 
 
   const [studioEnabled, setStudioEnabled] = useState(true);
-  // Sprachtrainer: an owner decision for the whole workspace, not a personal
-  // checkbox. Comes with the workspace, and already accounts for the admin's
-  // system-wide switch (off there = false for everyone).
+  // The owner's decision for the whole course, the admin switch is already included.
   const [language_trainingActive, setLanguageTrainingActive] = useState(false);
   useEffect(() => {
     setLanguageTrainingActive(moduleDetail?.language_training_active ?? false);
   }, [moduleDetail?.language_training_active]);
   const languageTrainingAvailable = moduleDetail?.language_training_enabled ?? false;
-  // Der Kurs gibt den Trainer frei, jede Person entscheidet danach für sich, ob
-  // sie ihn hier sehen will. Standard ist aus, sonst würde die Freigabe alle
-  // ungefragt in die Einstufung schicken. Angezeigt wird er nur, wenn beide
-  // Schalter an sind, deshalb hängt jede Anzeige unten an diesem abgeleiteten
-  // Flag und nicht mehr am Schalter des Kurses.
+  // The course releases it, each person switches it on, shown only when both are on.
   const [languageTrainingOptIn, setLanguageTrainingOptIn] = useState(false);
   const language_trainingVisible = language_trainingActive && languageTrainingOptIn;
 
-  // Language level diagnosis: triggered when the Sprachtrainer is on in this
-  // workspace and the reader has no stored language_level. Fetched once at mount.
+  // The assessment starts when the trainer is on and no level is set yet.
   const [me, setMe] = useState<{ id: number; language_level: string | null } | null>(null);
   useEffect(() => {
     let cancelled = false;
@@ -156,12 +145,7 @@ export default function KiTutorWorkspacePage() {
     return () => { cancelled = true; };
   }, []);
   const diagnosisActive = language_trainingVisible && me !== null && me.language_level === null;
-  // While diagnosis runs, sources & studio appear minimized and chat expanded so
-  // the user focuses on the diagnosis panel. The MiniStrip buttons are disabled
-  // separately, so the user can't re-expand them until the diagnosis is done or
-  // aborted. This is a render-time override, not a state change: `panels` (and
-  // its localStorage copy) keeps the user's own layout, so leaving the diagnosis
-  // restores the panels exactly as they were before it started.
+  // During the assessment only the rendering changes, the saved layout stays.
   const effectivePanels = diagnosisActive
     ? { quellen: false, chat: true, studio: false }
     : panels;
@@ -181,9 +165,7 @@ export default function KiTutorWorkspacePage() {
       body: JSON.stringify({ transcript_target_lang: lang }),
     }).catch(() => { /* ignore */ });
   };
-  // Owner switch, so it goes to the workspace, not to the personal settings. The
-  // local state flips first and is put back if the request fails, otherwise the
-  // switch would sit in a state the workspace never took.
+  // The owner's switch, set locally up front and reverted on an error.
   const handleToggleLanguageTraining = () => {
     const next = !language_trainingActive;
     setLanguageTrainingActive(next);
@@ -220,10 +202,7 @@ export default function KiTutorWorkspacePage() {
   const selectDataTable = dt.select;
   const { notes, setNotes, pendingTitleIds, addNote, deleteNote, updateNoteTitle } = useNotes({ uuid });
 
-  // ─── Language training state ─────────────────────────────────────────────
-  // One-shot tab wish for the studio overview. MUST be cleared once applied,
-  // otherwise the overview re-applies it on every remount (e.g. coming back
-  // from a tool) and drags the user back to that tab forever.
+  // A one-off tab wish, it has to be cleared or it pulls back on every mount.
   const [studioTabRequest, setStudioTabRequest] = useState<{ tab: "tools" | "glossary" | "notes" | "statistik" | "schedule"; nonce: number } | null>(null);
   const clearStudioTabRequest = useCallback(() => setStudioTabRequest(null), []);
   // Language training state: see useLanguageTraining (init after selectedSourceIds)
@@ -236,8 +215,7 @@ export default function KiTutorWorkspacePage() {
     loadExerciseSets, loadExerciseSet, createExerciseSet, deleteExerciseSet, renameExerciseSet,
     retryExerciseSet, downloadExerciseSet, submitSingleAnswer,
   } = ex;
-  // statsVersion aus useStats (init nach initialized-Flag)
-  // glossaryCount aus useLanguageTraining
+  // statsVersion and glossaryCount come from the hooks below.
 
   // ─── Init (see useWorkspaceInit) ─────────────────────────────────────────
   const { auth, initialized, locked } = useWorkspaceInit({
@@ -262,9 +240,7 @@ export default function KiTutorWorkspacePage() {
     if (!studioEnabled && activeTab === "studio") setActiveTab("chat");
   }, [studioEnabled, activeTab]);
 
-  // Deep-link: arrive from /kalender with ?tab=schedule → open studio panel
-  // and jump straight to the schedule tab. Fire-once via ref so a later
-  // viewport-resize doesn't yank the user back here after they navigated away.
+  // Jump from the calendar straight to the schedule, once via a ref.
   const tabDeepLinkHandledRef = useRef(false);
   useEffect(() => {
     if (tabDeepLinkHandledRef.current) return;
@@ -319,9 +295,7 @@ export default function KiTutorWorkspacePage() {
     await extractGlossary(text, sourceUuid, page);
   }
 
-  // Wrapper: save PDF selection as a new note with source chip
-  // Appends a citation marker so wrapCitations renders an inline, clickable source chip
-  // that jumps back to the original page and highlights the selected text.
+  // Saves the PDF selection as a note with a citation chip back to the spot.
   async function handleAddToNote(text: string, sourceUuid: string, page: number) {
     const citation = ` [Q1:${sourceUuid}, S. ${page}]`;
     const bodyBudget = NOTE_BODY_MAX - citation.length;
@@ -359,9 +333,7 @@ export default function KiTutorWorkspacePage() {
     loadStreak, bumpStats,
   });
 
-  // Build the language_training content tree
-  // Helper: sources a new exercise set is generated from (all selected ones, same cap of 5
-  // as mindmap/data table, not just the first)
+  // All chosen sources, the same limit of 5 as for mind map and table.
   const setSourceUuids = selectedSourceIds.slice(0, 5);
   const selectedSourcesForSet = setSourceUuids
     .map((id) => sources.find((s) => s.uuid === id))
@@ -406,8 +378,7 @@ export default function KiTutorWorkspacePage() {
           || sources.find((s) => selectedSourceIds.includes(s.uuid));
         if (!src) return;
         if (_isMediaFile(src.filename) && startTime != null) {
-          // Don't narrow the selection: narrowing here used to persist a stuck
-          // single source on reload.
+          // Do not narrow the selection, otherwise a single source sticks on reload.
           setViewerSource({ uuid: src.uuid, filename: src.filename, page: 0, startTime, nonce: Date.now() });
           setPanels((prev) => ({ ...prev, quellen: true }));
         } else {
@@ -437,12 +408,9 @@ export default function KiTutorWorkspacePage() {
 
   // ─── Render ────────────────────────────────────────────────────────────────
 
-  // The relationship to THIS workspace decides what it offers, never the system
-  // role. Owner and tutor manage it, everyone else learns from it, whether they
-  // are staff, admin or student.
+  // The relationship to this course decides, never the role in the system.
   const isOwner = moduleDetail?.can_manage ?? moduleDetail?.is_owner ?? false;
-  // Opening a source does not deactivate the others: the checked selection is the
-  // only thing that decides the scope, viewer open or not.
+  // An opened source does not switch the others off.
   const activeSourceIds = selectedSourceIds;
 
   const p1Style: React.CSSProperties = effectivePanels.quellen
@@ -537,9 +505,7 @@ export default function KiTutorWorkspacePage() {
     );
   };
 
-  // Chat panel content: mobile + desktop shared.
-  // While Fachsprachentrainer is on but no language_level is set yet, the
-  // diagnosis panel takes over the middle slot until the user completes it.
+  // Without a level the assessment takes over the middle column.
   const renderChatContent = ({ onMinimize, hideHeader: hh }: { onMinimize: () => void; hideHeader: boolean }) => {
     if (diagnosisActive) {
       return (
@@ -586,9 +552,7 @@ export default function KiTutorWorkspacePage() {
     );
   };
 
-  // Der Kurs steht auf inaktiv. Die Seite sagt das und bietet den Rueckweg an,
-  // statt wortlos auf die Startseite zu springen: ein Lesezeichen, das kommentarlos
-  // woanders landet, sieht aus wie ein geloeschter Kurs.
+  // The course is inactive, the page says so and offers the way back.
   if (locked) {
     return (
       <ProtectedRoute>
@@ -712,7 +676,7 @@ export default function KiTutorWorkspacePage() {
             }
             await createExerciseSet(
               createSetTool, mode, count,
-              // Auch der Kartenweg braucht die Quellen: der Text kommt aus ihnen.
+              // The card path needs the sources too, the text comes from them.
               mode === "glossary" ? undefined : setSourceUuids,
               grammarTopicId,
               grammarKinds,

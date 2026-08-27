@@ -1,16 +1,6 @@
 "use client";
 
-/**
- * Reiter innerhalb einer Seite.
- *
- * Bewusst sparsam. Unterseiten gehören in die Seitenleiste, weil sie zur
- * Navigation zählen. Reiter sind nur dann richtig, wenn ein Gegenstand in zwei
- * Ansichten auf dieselbe Sache zerfällt. Im Adminbereich trifft das zweimal zu,
- * beim Sprachniveau und bei den Anbietern.
- *
- * Der aktive Reiter steht in der Adresse (?ansicht=), damit ein Lesezeichen
- * auch die Ansicht trifft und die Zurück-Taste funktioniert.
- */
+/** Tabs only where one thing splits into two views, the active one sits in the URL. */
 
 import { Link } from "@/i18n/navigation";
 

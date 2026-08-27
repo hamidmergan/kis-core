@@ -1,38 +1,15 @@
-"""Eine Quelle umbenennen, samt aller Namenskopien im erzeugten Material.
-
-Der Dateiname einer Quelle ist reiner Anzeigename. Die Datei selbst liegt unter
-``file_path`` und heisst nach der UUID, Umbenennen fasst also keine gespeicherte
-Datei an.
-
-Was es anfassen muss, sind die Kopien. Aufgaben, Vorrat, Mindmaps und
-Datentabellen schreiben den Namen zum Zeitpunkt ihrer Entstehung fest und finden
-ihre Quelle spaeter ueber Namensgleichheit. Ohne Nachziehen verlieren die Chips
-in altem Material ihr Ziel. Alles laeuft in einer Transaktion, damit nie ein halb
-umbenannter Zustand stehen bleibt.
-
-Eigenes Modul und nicht in ``sources.py``, weil hier vier fremde Tabellen
-angefasst werden. Das ist eine eigene Aufgabe mit eigener Grenze.
-"""
+"""Renames a source and pulls every copy of the name in the generated material along."""
 
 from psycopg2.extras import Json
 
 from src.core.db.pool import get_connection
 
-# Die beiden Schluessel, unter denen ein Quellenname wirklich steht.
-# ``source_label`` in Aufgaben, Mindmap-Knoten und Tabellenzeilen,
-# ``filename`` in der Quellenlegende einer Datentabelle.
+# The two keys a source name really appears under.
 _NAME_KEYS = ("source_label", "filename")
 
 
 def _relabel(value, old: str, new: str):
-    """Ersetzt in einer JSON-Struktur jeden Quellennamen ``old`` durch ``new``.
-
-    Geht rekursiv durch Listen und Woerterbuecher, damit derselbe Durchlauf den
-    Mindmap-Baum, die Zeilen einer Datentabelle und die Quellenliste einer
-    Aufgabe trifft, ohne dass er ihre Form einzeln kennen muss. Ersetzt wird nur
-    unter den Namensschluesseln. Ein Fliesstext, der zufaellig den alten Namen
-    enthaelt, bleibt unangetastet.
-    """
+    """Recursively replaces every source name, but only under the name keys."""
     if isinstance(value, list):
         return [_relabel(v, old, new) for v in value]
     if isinstance(value, dict):
@@ -44,16 +21,7 @@ def _relabel(value, old: str, new: str):
 
 
 def _relabel_column(cur, table: str, column: str, where: str, params: tuple, old: str, new: str) -> None:
-    """Schreibt eine JSON-Spalte neu, in der Quellennamen als Kopie stehen.
-
-    Der Umweg ueber Python statt ueber jsonb-Funktionen ist Absicht. Die
-    Strukturen sind unterschiedlich tief verschachtelt, ein rekursiver Durchlauf
-    trifft alle, ohne dass die Datenbank jede Form einzeln kennen muss.
-
-    Tabellen- und Spaltennamen kommen ausschliesslich aus den festen Aufrufen
-    unten, nie von aussen. Nur ``old``, ``new`` und ``params`` sind Werte und
-    gehen als Parameter in die Anweisung.
-    """
+    """Rewrites a JSON column that holds source names as copies."""
     cur.execute(f"SELECT id, {column} FROM {table} {where}", params)
     zeilen = cur.fetchall()
     for row_id, value in zeilen:
@@ -65,11 +33,7 @@ def _relabel_column(cur, table: str, column: str, where: str, params: tuple, old
 
 
 def rename_aia_source(source_uuid: str, new_filename: str) -> None:
-    """Benennt eine Quelle um und zieht jede Namenskopie mit.
-
-    Still, wenn es die Quelle nicht gibt oder der Name schon stimmt. Der Aufrufer
-    hat beides bereits geprueft, ein zweiter Fehler waere nur Laerm.
-    """
+    """Renames a source and pulls every copy of the name along."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -87,7 +51,7 @@ def rename_aia_source(source_uuid: str, new_filename: str) -> None:
                 "UPDATE aia_sources SET filename = %s WHERE id = %s",
                 (new_filename, source_id),
             )
-            # Aufgaben haengen ueber ihren Satz am Kursraum, nicht an der Quelle.
+            # Exercises hang off the course room through their set, not off the source.
             cur.execute(
                 """UPDATE aia_exercise_items AS i SET source_label = %s
                      FROM aia_exercise_sets AS s
@@ -96,8 +60,7 @@ def rename_aia_source(source_uuid: str, new_filename: str) -> None:
                       AND i.source_label = %s""",
                 (new_filename, workspace_id, old_filename),
             )
-            # Der Vorrat haengt direkt an der Quelle. Hier braucht es keinen
-            # Namensvergleich, jede Zeile dort gehoert ihr ohnehin.
+            # The pool hangs off the source directly, no name comparison needed.
             cur.execute(
                 "UPDATE aia_exercise_pool SET source_label = %s WHERE source_id = %s",
                 (new_filename, source_id),

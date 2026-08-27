@@ -1,12 +1,4 @@
-"""Die Zeitmarke zeigt auf die Stelle, die das seltene Wort traegt.
-
-Vorher zaehlte nur, wie viele Wortstaemme einer Antwortzeile ein Segment traegt.
-Bei Gleichstand gewann das erste — regelmaessig das falsche, weil die haeufigen
-Fuellwoerter einer Vorlesung ueberall stehen und das eine Fachwort nur an einer
-Stelle. Der Fall unten ist der gemessene aus der Vorlesungsablage WuK: der Chip
-zeigte auf "Modell fuer das Ziehen MIT Zuruecklegen", 45 Sekunden vor der Stelle,
-die "hypergeometrische Verteilung ... OHNE Zuruecklegen ... Lottospielen" sagt.
-"""
+"""The timestamp points at the spot carrying the rare word."""
 
 from src.features.ai_assistant.routes._helpers import (
     _line_segment_start,
@@ -45,24 +37,24 @@ def test_gedaechtnis_haelt_je_quelle_und_faellt_bei_anderer_laenge():
     assert rarity_weights(4711, laenger, _segment_stems, _norm_for_match) is not erst
 
 
-# ── Die Wahl des Segments ───────────────────────────────────────────────────
+# ── The choice of the segment ───────────────────────────────────────────────
 
 def test_bei_gleichstand_gewinnt_nicht_das_erste_sondern_das_seltenere():
-    """Zwei Stellen mit je zwei Treffern, weit auseinander. Nur eine hat das Fachwort."""
+    """Two spots with two hits each, far apart, only one has the technical term."""
     treffer = [["ziehen", "zuruck"], [], [], [], ["hyperg", "vertei"], []]
     gewichte = {"ziehen": 1.0, "zuruck": 1.0, "hyperg": 5.0, "vertei": 4.0}
     assert best_index(treffer, gewichte) == 4
 
 
 def test_unbekannter_stamm_zaehlt_als_selten_nicht_als_haeufig():
-    """Ein Stamm, der nur in einem Kompositum steckt, fehlt in der Tabelle."""
+    """A stem that only occurs inside a compound is missing from the table."""
     treffer = [["ziehen", "zuruck"], [], [], [], ["im-kompositum"], []]
     gewichte = {"ziehen": 1.0, "zuruck": 1.0, "haeufig": 1.0, "selten": 9.0}
     assert best_index(treffer, gewichte) == 4
 
 
 def test_ein_lauf_ueber_drei_segmente_schlaegt_ein_einzelnes_dichtes():
-    """Ein gesprochener Satz verteilt sich; die Zeitmarke gehoert an seinen Anfang."""
+    """A spoken sentence spreads out, the timestamp belongs at its start."""
     treffer = [["a", "b"], [], [], ["c"], ["d"], ["e"]]
     gewichte = {k: 1.0 for k in "abcde"}
     assert best_index(treffer, gewichte) == 3
@@ -77,10 +69,9 @@ def test_ohne_segmente_index_null():
     assert best_index([], {}) == 0
 
 
-# ── Der gemessene Fall, durch die echte Funktion ─────────────────────────────
+# ── The measured case, through the real function ─────────────────────────────
 
-# Wortgetreu aus 2026-05-11.mp4, dem Chunk 25:30-26:59. Die Zeilen 25:48 und
-# 26:33 trugen beide genau drei Wortstaemme der Aussage, 25:48 stand vorn.
+# Verbatim from a real recording, both lines carried three word stems.
 _WUK = [
     {"start": 1530.0, "end": 1548.0,
      "text": "vertütet. Die Binomialverteilung ist ein Modell für formal gesehen "
@@ -126,5 +117,5 @@ def test_hypergeometrische_verteilung_zeigt_nicht_auf_mit_zuruecklegen():
 
 
 def test_ohne_unterscheidendes_wort_bleibt_es_beim_chunk_anfang():
-    """Traegt kein Segment zwei Wortstaemme, gibt es keine geratene Minute."""
+    """If no segment carries two word stems, there is no guessed minute."""
     assert _line_segment_start("Völlig anderes Thema.", _CHUNK, _WUK) is None

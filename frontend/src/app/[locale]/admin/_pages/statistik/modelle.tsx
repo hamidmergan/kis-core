@@ -1,11 +1,6 @@
 "use client";
 
-/**
- * Anfragen und Tokens je Modell.
- *
- * Die Tokenzahlen kommen vom Anbieter selbst, nicht aus einer Schaetzung. Modelle
- * ohne Tokens stehen nicht in der Liste: Whisper und die Vertonung rechnen keine.
- */
+/** Requests and tokens per model, the numbers come from the provider itself. */
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
@@ -38,8 +33,7 @@ export default function StatistikModellePage() {
   if (fehler) return <p className="text-sm text-error">{t("loadError")}</p>;
   if (!daten) return <Ladeanzeige />;
 
-  // Solange nur ein Endpunkt mitschreibt, fehlt der Rest. Das gehoert gesagt,
-  // sonst liest jemand die Zahlen als Gesamtverbrauch.
+  // While only one endpoint records, the gap deserves to be stated.
   const nurChat = daten.endpoints.length === 1 && daten.endpoints[0]?.endpoint === "chat";
   const anteilRaus =
     daten.totals.tokens_in > 0

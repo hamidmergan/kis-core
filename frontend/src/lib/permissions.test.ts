@@ -30,8 +30,7 @@ describe("isFullAdmin", () => {
     expect(isFullAdmin(perms(SETTINGS_PERMS.filter((k) => k !== PERM.system)))).toBe(false);
   });
 
-  // Der Anlass des Umbaus: der Sprachexperte darf in den Bereich, heisst dort
-  // aber "Einstellungen" und nicht "Administration".
+  // The language expert may enter, but the area is called settings there.
   it("der Sprachexperte ist kein Administrator", () => {
     const sprachexperte = perms([PERM.aiaUse, PERM.aiaLevel]);
     expect(sprachexperte.allow_admin_panel).toBe(true);
@@ -44,8 +43,7 @@ describe("isFullAdmin", () => {
   });
 });
 
-// Die Statistik hat einen fuenften Reiter bekommen, der als einziger nicht die
-// ganze Plattform aufmacht.
+// The fifth statistics tab is the only one that does not open the whole platform.
 describe("Statistik nur fuer eigene Module", () => {
   it("kennt den Schluessel aus dem Katalog des Servers", () => {
     expect(PERM.statsOwn).toBe("settings.statistik.eigene");

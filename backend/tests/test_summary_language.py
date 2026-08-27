@@ -1,18 +1,4 @@
-"""Summary tool: output language and register.
-
-Regression cover for two defects seen on an English source document:
-
-1. The summary came back in German. The prompt asked the model to *judge* the
-   dominant language itself, and a German cover page plus footer (44 words
-   against 246 words of English body text) flipped the whole answer. Repro was
-   3/3 against the production model.
-2. The summary opened with a lecture framing sentence ("Today we will review
-   ..."), because the persona said "university lecturer" and "spoken summary"
-   while a later rule tried to forbid exactly that.
-
-The language is therefore probed separately and pinned into the prompt instead
-of being left to the model's judgement.
-"""
+"""The language is measured separately and put into the prompt, not guessed."""
 
 import pytest
 
@@ -147,11 +133,7 @@ def test_summary_survives_a_failed_language_probe(bad):
 
 
 def test_only_plain_text_is_produced():
-    """Markdown and HTML were dropped, the tool always returns plain text.
-
-    The old {format} placeholder had silently fallen out of the prompt, so the
-    choice never reached the model anyway, and the frontend never offered it.
-    """
+    """Markdown and HTML are gone, the tool always returns plain text."""
     assert "{format}" not in SUMMARY_DEFAULT
 
     client = _Client(["English", "the summary"])

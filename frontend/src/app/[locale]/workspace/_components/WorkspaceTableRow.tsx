@@ -29,8 +29,7 @@ export default function WorkspaceTableRow({
   const a = useWorkspaceActions({ workspace, onToggleActive, onDelete, onLinksChanged });
   const labels = useWorkspaceLabel();
   const [showParticipants, setShowParticipants] = useState(false);
-  // A tutor manages links like the owner. Deleting the whole workspace is the
-  // one thing that stays with the owner, because it cannot be undone.
+  // A tutor manages like the owner, only deleting stays with the owner.
   const isOwner = workspace.access === "owner";
 
   return (

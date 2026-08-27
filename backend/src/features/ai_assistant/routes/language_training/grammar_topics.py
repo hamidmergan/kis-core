@@ -1,15 +1,4 @@
-"""Themen der Grammatik-Übung: auflisten, anlegen, Beispiele pflegen.
-
-Anlegen ist Verwaltungsarbeit und hängt deshalb an Eigentum oder Tutor-Rolle,
-nicht am Systemrang. Wählen darf jeder mit Zugang, sonst wäre die Liste für
-Studierende nutzlos.
-
-Der Ablauf ist bewusst zweistufig. ``preview`` leitet Regel und Musterpaar ab und
-speichert **nichts**. Erst der zweite Aufruf legt an. So sieht der Dozent das
-Musterpaar, bevor irgendetwas in der Datenbank steht, und das ist hier die
-einzige Prüfstelle: die Grammatik kommt nicht aus den Quellen, also kann sie auch
-nicht an ihnen geprüft werden.
-"""
+"""List, create and maintain grammar topics, creating happens in two steps."""
 
 from fastapi import APIRouter, Depends, HTTPException
 from loguru import logger
@@ -33,7 +22,7 @@ _BASE = "/ai-assistant/workspaces/{workspace_uuid}/grammar-topics"
 
 
 def _topic_in_workspace(topic_id: int, workspace: dict, locale: str) -> dict:
-    """Das Thema, oder 404. Ein Thema eines fremden Kurses gilt als nicht vorhanden."""
+    """The topic, or 404. A topic of another course counts as non-existent."""
     topic = db.get_grammar_topic(topic_id)
     if not topic or topic["workspace_id"] != workspace["id"]:
         raise HTTPException(status_code=404, detail=t("grammar.topicNotFound", locale))
@@ -46,7 +35,7 @@ async def list_topics(
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    """Die Themen des Kurses. Für alle mit Zugang, denn daraus wählt der Lernende."""
+    """The topics of the course, for everyone with access since the learner picks from them."""
     workspace = _require_workspace_access(workspace_uuid, current_user["user_id"], locale)
     return {"topics": db.list_grammar_topics(workspace["id"])}
 
@@ -58,38 +47,31 @@ async def preview_topic(
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    """Regel und Musterpaar zu einem getippten Namen, ohne zu speichern."""
+    """Rule and pattern pair for a typed name, without saving."""
     _require_workspace_manage(workspace_uuid, current_user["user_id"], locale)
     name = (body.name or "").strip()
     if not name:
         raise HTTPException(status_code=400, detail=t("grammar.topicNameEmpty", locale))
 
     client, model, _ = _get_llm_client()
-    # Regel und Musterbeispiel entstehen in der Unterrichtssprache des Kursraums, nicht
-    # in der Sprache, auf die der Dozent seine Oberflaeche gestellt hat.
+    # Rule and pattern are produced in the teaching language, not the interface language.
     from src.features.ai_assistant.tasks._helpers import tool_output_language
     workspace = db.get_aia_workspace(workspace_uuid) or {}
     _, sprache = tool_output_language(workspace.get("id"))
     try:
         derived = derive_topic(client, model, name, sprache)
     except Exception as e:
-        # Der Dienst ist weg, nicht das Thema falsch. Wer hier "kein Grammatikthema"
-        # liest, schreibt seinen völlig richtigen Namen um und wundert sich.
+        # The service is gone, the topic is not wrong.
         logger.warning("Grammatik-Thema {!r}: Anbieter nicht erreichbar: {}", name, e)
         raise HTTPException(status_code=503, detail=t("grammar.topicServiceDown", locale))
     if not derived:
-        # Kein Grammatikthema, oder das Modell hat kein brauchbares Muster geliefert.
-        # Eine Absage ist hier besser als ein erfundener Eintrag, den später ein
-        # ganzer Kurs übt.
+        # A refusal beats an invented entry that a whole course practises.
         raise HTTPException(status_code=422,
                             detail=t("grammar.topicNotRecognized", locale))
-    # Die Regel geht mit zurück, damit der zweite Aufruf sie nicht neu ableiten muss.
-    # Angezeigt wird sie nicht, der Dozent beurteilt das Musterpaar.
+    # The rule goes back along so the second call need not derive it again.
     return {"name": name, "rule": derived["rule"], "examples": derived["examples"],
             "task_lines": derived.get("task_lines") or {},
-            # Der Name der Form, die das Modell wirklich ausgearbeitet hat. Leer heisst,
-            # das Formular zeigt keine Zeile. Gespeichert wird er nie, er ist danach
-            # entweder der Name oder vergessen.
+            # The name of the elaborated form, empty means no row in the form.
             "suggested_name": derived.get("label") or ""}
 
 
@@ -100,7 +82,7 @@ async def create_topic(
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    """Thema anlegen, mit der Ausarbeitung aus der Vorschau."""
+    """Create a topic, with the elaboration from the preview."""
     user_id = current_user["user_id"]
     workspace = _require_workspace_manage(workspace_uuid, user_id, locale)
     name = (body.name or "").strip()
@@ -112,8 +94,7 @@ async def create_topic(
 
     topic = db.create_grammar_topic(workspace["id"], name, user_id)
     pairs = [p.model_dump() for p in body.examples][:MAX_EXAMPLES]
-    # Die Anweisungszeilen kommen aus der Vorschau mit. Fehlen sie, arbeitet der erste
-    # Uebungslauf das Thema ohnehin nach und traegt sie dann ein.
+    # The instruction lines come along from the preview, otherwise the first run backfills them.
     db.save_topic_spec(topic["id"], locale, body.rule, pairs,
                        getattr(body, "task_lines", None))
     return {"topic": topic}
@@ -127,19 +108,12 @@ async def update_topic_examples(
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    """Beispiele überschreiben. Die Regel bleibt, sie ist Modellsache.
-
-    Das ist der Weg, auf dem das Sprachenzentrum sein eigenes Material einbringt:
-    es korrigiert Beispiele, statt Anweisungen zu formulieren. In diesem Projekt
-    ist mehrfach gemessen worden, dass Prosa-Regeln wirkungslos bleiben und
-    Beispiele wirken.
-    """
+    """Overwrites the examples, the rule stays the model's business."""
     workspace = _require_workspace_manage(workspace_uuid, current_user["user_id"], locale)
     topic = _topic_in_workspace(topic_id, workspace, locale)
     spec = db.get_topic_spec(topic["id"], locale) or {"rule": ""}
     pairs = [p.model_dump() for p in body.examples][:MAX_EXAMPLES]
-    # Der Dozent korrigiert Beispiele, nicht Anweisungen. Die bleiben, wie sie sind,
-    # sonst waeren sie nach jeder Beispiel-Korrektur weg.
+    # The teacher corrects examples, the instructions stay.
     saved = db.save_topic_spec(topic["id"], locale, spec.get("rule") or "", pairs,
                                spec.get("task_lines"))
     return {"topic": topic, "examples": saved["examples"]}
@@ -152,7 +126,7 @@ async def get_topic(
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    """Ein Thema samt Beispielen in der Kurssprache, zum Anzeigen und Bearbeiten."""
+    """A topic with its examples in the course language, for display and editing."""
     workspace = _require_workspace_access(workspace_uuid, current_user["user_id"], locale)
     topic = _topic_in_workspace(topic_id, workspace, locale)
     spec = db.get_topic_spec(topic["id"], locale) or {}

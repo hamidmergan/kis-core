@@ -1,15 +1,6 @@
 import type { UserPermissions } from "@/types";
 
-/**
- * Die Rechte-Schluessel, die der Adminbereich kennt.
- *
- * Spiegelbild von `backend/src/permissions_registry.py`. Der Server bleibt die
- * Wahrheit, er prueft jede Anfrage. Diese Liste sagt der Oberflaeche nur, welche
- * Seite an welchem Recht haengt, damit die Seitenleiste nichts anzeigt, was
- * hinterher ein 403 waere.
- *
- * Die Texte dazu stehen in `messages/{de,en}.json` unter `admin.permissions`.
- */
+/** Mirror of the server's permission keys so the sidebar offers no 403. */
 export const PERM = {
   aiaUse: "aia.use",
   aiaWorkspaceCreate: "aia.workspace.create",
@@ -28,22 +19,16 @@ export const PERM = {
   usersRoles: "settings.nutzer.roles",
   system: "settings.system",
   mascot: "settings.mascot",
-  // Der Bereich Statistik hat fuenf Reiter. Zwei sind umgezogen und behalten
-  // ihren alten Schluessel (toolsStats, aiaUsage), damit bestehende Rollen
-  // nichts verlieren. Die anderen drei haben eigene.
+  // Two tabs keep their old key so existing roles lose nothing.
   statsUsers: "settings.statistik.nutzer",
   statsModels: "settings.statistik.modelle",
-  // Der einzige Schluessel der Gruppe, der nicht die ganze Plattform aufmacht:
-  // er zeigt nur Module, die dem Anrufer gehoeren oder die er betreut.
+  // The only key of the group that shows just your own and tutored modules.
   statsOwn: "settings.statistik.eigene",
-  // Kein Recht, etwas einzustellen, sondern weitermachen zu duerfen, waehrend
-  // die Plattform fuer alle anderen zu ist.
+  // Not a settings right but the right to keep working while everything is shut.
   maintenanceAccess: "settings.wartung.zugang",
 } as const;
 
-export type PermissionKey = (typeof PERM)[keyof typeof PERM] | string;
-
-/** Die Gruppe Einstellungen, also alles was eine Seite des Bereichs aufschliesst. */
+/** The settings group, everything that unlocks a page of the area. */
 export const SETTINGS_PERMS: string[] = [
   PERM.toolsRelease,
   PERM.toolsJobs,
@@ -74,26 +59,19 @@ export const EMPTY_PERMS: UserPermissions = {
   allow_ldap_user_create: false,
 };
 
-/** Ob die Rechte einen der genannten Schluessel enthalten. */
+/** Whether the permissions contain one of the named keys. */
 export function hasPerm(perms: UserPermissions | undefined, ...keys: string[]): boolean {
   if (!perms?.keys) return false;
   return keys.some((k) => perms.keys.includes(k));
 }
 
-/**
- * Traegt jemand jedes Einstellungsrecht, ist er faktisch Administrator, egal
- * unter welchem Rollennamen. Das entscheidet, ob der Bereich "Administration"
- * oder "Einstellungen" heisst.
- *
- * Gemessen an den Rechten und nicht am Rollennamen: eine eigene Rolle mit allen
- * Haekchen soll nicht "Einstellungen" heissen, waehrend sie alles darf.
- */
+/** Whoever holds every settings permission is effectively an administrator, measured by the permissions. */
 export function isFullAdmin(perms: UserPermissions | undefined): boolean {
   if (!perms?.keys) return false;
   return SETTINGS_PERMS.every((k) => perms.keys.includes(k));
 }
 
-/** Schluessel unter `header` fuer den Namen des Bereichs. */
+/** Key under `header` for the name of the area. */
 export function areaLabelKey(perms: UserPermissions | undefined): "admin" | "settings" {
   return isFullAdmin(perms) ? "admin" : "settings";
 }

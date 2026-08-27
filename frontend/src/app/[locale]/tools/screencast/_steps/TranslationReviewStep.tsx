@@ -33,7 +33,7 @@ export default function TranslationReviewStep({
   const t = useTranslations("tools.screencast");
   const [downloadFailed, setDownloadFailed] = useState(false);
   const unchangedCount = slides.filter((s) => s.unchanged).length;
-  // Derselbe Endpunkt meldet auch leere Datei und zu viele Folien, die Ueberschrift passt nur zur echten Folienzahl-Meldung.
+  // The same endpoint also reports an empty file and too many slides, the heading only fits the slide count message.
   const istFolienzahlFehler = /folien(nummer|zahl)|slide (number|count)/i.test(uploadFehler);
   return (
     <section className="animate-[fadeIn_0.3s_ease-out]">

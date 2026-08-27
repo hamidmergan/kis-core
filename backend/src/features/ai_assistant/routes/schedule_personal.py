@@ -1,4 +1,4 @@
-"""KI-Assistent routes - eigene Termine, die zu keinem Workspace gehoeren."""
+"""AI assistant routes: private appointments that belong to no workspace."""
 
 from datetime import date
 from typing import Optional
@@ -21,7 +21,7 @@ router = APIRouter(tags=["ki-assistent: kalender"])
 def _validate_range(
     due_date: date, end_date: Optional[date], locale: str = DEFAULT_LOCALE
 ) -> None:
-    """Das Ende eines Zeitraums darf nicht vor seinem Anfang liegen."""
+    """The end of a span must not lie before its start."""
     if end_date is not None and end_date < due_date:
         raise HTTPException(status_code=400, detail=t("ai.schedule.rangeReversed", locale))
 

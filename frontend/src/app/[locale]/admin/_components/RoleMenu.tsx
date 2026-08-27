@@ -1,16 +1,6 @@
 "use client";
 
-/**
- * Das Drei-Punkte-Menü in der Spaltenüberschrift einer eigenen Rolle.
- *
- * Aufbau und Optik sind von `workspace/_components/WorkspaceMenu.tsx`
- * übernommen, damit ein Menü in KIS überall gleich aussieht und sich gleich
- * anfühlt. Nur die Einträge sind andere.
- *
- * Das Menü hängt bewusst an `document.body` statt in der Zelle: die
- * Rechtetabelle scrollt waagerecht, und ein Menü innerhalb des scrollenden
- * Kastens würde an dessen Rand abgeschnitten.
- */
+/** The menu of a custom role, on document.body instead of in the scrolling cell. */
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";

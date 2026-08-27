@@ -1,16 +1,6 @@
 "use client";
 
-/**
- * Seitenleiste mit aufklappbarem Baum.
- *
- * Sieben Bereiche, mehr sieht man beim Öffnen nicht. Ein Klick klappt einen
- * Bereich auf und zeigt seine Unterseiten eingerückt, der vorher offene klappt
- * zu. So stehen nie mehr als sieben Zeilen plus die Unterseiten eines Bereichs
- * gleichzeitig da, statt wie vorher dreizehn Einträge in fünf Gruppen.
- *
- * Der offene Bereich ergibt sich aus der Adresse, nicht aus Klickzustand.
- * Damit ist ein Direktaufruf oder ein Lesezeichen sofort richtig aufgeklappt.
- */
+/** Sidebar with a collapsible tree, the open area follows the URL. */
 
 import { CaretRight, X } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
@@ -20,12 +10,7 @@ import { useAdminPerms, useIsFullAdmin } from "./AdminAuth";
 
 const ICON = { size: 18, weight: "bold" as const };
 
-/** Wohin der Bereichsname selbst fuehrt: auf die erste Unterseite, sonst auf
- *  den Bereich.
- *
- *  Die Liste ist hier schon nach Rechten gefiltert, versteckte Seiten muessen
- *  aber weiter uebersprungen werden. Sonst landete ein Klick auf "Nutzer" bei
- *  den Kontingenten, die ohne vorher gewaehlten Nutzer leer sind. */
+/** The area name leads to the first visible subpage. */
 function firstPath(s: AdminSection): string {
   if (!s.pages) return `/admin/${s.slug}`;
   const page = s.pages.find((p) => !p.hidden) ?? s.pages[0];
@@ -120,9 +105,7 @@ export default function AdminSidebar({
   const perms = useAdminPerms();
   const fullAdmin = useIsFullAdmin();
 
-  // Erst filtern, dann nach Rang buendeln. Wer nur eine Seite pflegen darf,
-  // sieht genau diese eine Zeile, und leere Raenge fallen samt ihrer
-  // Trennlinie weg.
+  // Filter first, then group, empty ranks drop out with their divider.
   const visible = allowedSections(perms.keys);
   const blocks = RANKS
     .map((rank) => visible.filter((s) => s.rank === rank))

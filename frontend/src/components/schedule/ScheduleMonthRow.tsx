@@ -14,22 +14,19 @@ function parseYMD(s: string): Date {
 
 interface Props {
   entry: ScheduleListEntry;
-  /** Farbe des Workspace, dieselbe wie im Raster. */
+  /** Colour of the workspace, the same as in the grid. */
   color: string;
   today: string;
   onToggleChecked: (checked: boolean) => void;
-  /** Gesetzt heisst: das Raster laesst diesen Termin weg, die Zeile bleibt hier stehen. */
+  /** When set, the grid leaves this appointment out, the row stays here. */
   hidden: boolean;
   onToggleHidden: () => void;
-  /** Nur bei eigenen Terminen gesetzt, Workspace-Termine aendert man im Workspace. */
+  /** Only set for private appointments, workspace ones are edited in the workspace. */
   onEdit?: () => void;
   onDelete?: () => void;
 }
 
-/**
- * Eine Terminzeile neben dem Monatsraster: Datumsplakette, Titel, Workspace.
- * Bewusst flacher als die Karte in der Liste, weil die Spalte schmal ist.
- */
+/** Appointment row next to the grid, flatter than the card because the column is narrow. */
 export default function ScheduleMonthRow({
   entry, color, today, onToggleChecked, hidden, onToggleHidden, onEdit, onDelete,
 }: Props) {
@@ -42,19 +39,15 @@ export default function ScheduleMonthRow({
   const date = parseYMD(entry.due_date);
   const monthOnly = entry.date_precision === "month";
   const month = new Intl.DateTimeFormat(tag, { month: "short" }).format(date);
-  // Nennt die Quelle nur den Monat, ist das Ankerdatum der Monatserste. Vergangen
-  // ist so ein Termin darum erst, wenn der ganze Monat vorbei ist.
+  // If the source names only the month, the appointment is over only after the month.
   const isPast = monthOnly
     ? entry.due_date.slice(0, 7) < today.slice(0, 7)
     : entry.due_date < today;
   const urgency = urgencyColor(entry.due_date, today);
   const description = cleanScheduleDescription(entry.description, entry.due_time, entry.due_date);
-  // Die Spanne steht IMMER als Textzeile, nie in der Plakette. Die Plakette beschriftet
-  // den Tag, an dem der Termin anfaengt, zwei Zahlen darin machen sie mehrdeutig. Bis zum
-  // 25.08.2026 trug sie bei Spannen innerhalb eines Monats "22-30", das war eine zweite
-  // Form fuer dieselbe Sache und las sich beim Ueberfliegen zufaellig.
+  // The span always stands as a text line, the badge only labels the start day.
   const spannenEnde = formatRangeEnd(entry.due_date, entry.end_date, locale);
-  // "ab" oder "bis" ueber der Tagesnummer, wenn die Quelle den Tag eingegrenzt hat.
+  // 'from' or 'until' above the day number when the source bounded the day.
   const marke = dateQualifier(entry);
   const bisText = spannenEnde ? tMonth("until", { datum: spannenEnde }) : null;
   const eigener = entry.workspace_uuid === null;

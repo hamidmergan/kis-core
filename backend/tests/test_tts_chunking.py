@@ -1,17 +1,4 @@
-"""Zerlegung langer Texte für die Sprachausgabe.
-
-Der Anlass: kein Screencast ließ sich vertonen. Gemessen an THL myLab bricht
-jede Anfrage nach genau 60 Sekunden mit HTTP 500 ab. Der Anbieter braucht rund
-0,06 bis 0,1 Sekunden je Zeichen, also ist bei etwa 600 Zeichen Schluss.
-
-Zerlegt wurde aber erst ab 10.000 Zeichen. Ein Screencast-Skript hat 1500 bis
-2000 Zeichen und ging damit als eine einzige Anfrage raus, die zwangsläufig in
-den Timeout lief. Danach folgte der Wiederholungsturm mit 60, 120, 240, 480 und
-960 Sekunden Wartezeit.
-
-Das betraf nicht nur den Screencast, sondern jeden Text über etwa 600 Zeichen,
-auch im normalen Text-in-Sprache-Werkzeug.
-"""
+"""Long texts have to be split early, the provider aborts after 60 seconds."""
 
 import pytest
 
@@ -24,7 +11,7 @@ def test_short_text_stays_one_request():
 
 
 def test_screencast_length_script_is_split():
-    """1500 bis 2000 Zeichen sind die normale Skriptlänge und müssen zerfallen."""
+    """1500 to 2000 characters is the normal script length and has to split."""
     script = "Dies ist ein Satz über wissenschaftliches Arbeiten. " * 35  # ~1800 Zeichen
     chunks = _split_text(script)
     assert len(chunks) > 1
@@ -37,14 +24,14 @@ def test_nothing_is_lost_or_duplicated():
 
 
 def test_splits_at_sentence_ends():
-    """Mitten im Satz zu trennen hört man in der Aufnahme."""
+    """Splitting mid-sentence is audible in the recording."""
     script = ("Ein vollständiger Satz mit etwas Länge. " * 30)
     for chunk in _split_text(script)[:-1]:
         assert chunk.rstrip().endswith((".", "!", "?")), f"Schnitt mitten im Satz: {chunk[-40:]!r}"
 
 
 def test_falls_back_to_word_boundary_without_punctuation():
-    """Ohne Satzzeichen darf trotzdem nicht mitten im Wort geschnitten werden."""
+    """Without punctuation it still must not cut inside a word."""
     script = "Wort " * 300  # keine Satzzeichen
     chunks = _split_text(script)
     assert len(chunks) > 1
@@ -53,7 +40,7 @@ def test_falls_back_to_word_boundary_without_punctuation():
 
 
 def test_hard_cut_when_a_single_word_is_longer_than_the_limit():
-    """Ein einzelnes überlanges Wort darf keine Endlosschleife auslösen."""
+    """A single overlong word must not trigger an endless loop."""
     chunks = _split_text("A" * (TTS_MAX_CHARS_PER_REQUEST * 3))
     assert len(chunks) == 3
     assert all(len(c) <= TTS_MAX_CHARS_PER_REQUEST for c in chunks)
@@ -61,7 +48,7 @@ def test_hard_cut_when_a_single_word_is_longer_than_the_limit():
 
 @pytest.mark.parametrize("limit", [120, 400, 2000])
 def test_limit_is_configurable(limit):
-    """Die Grenze hängt am Anbieter und muss ohne Neubau änderbar sein."""
+    """The limit hangs off the provider and has to be changeable without a rebuild."""
     script = "Ein Satz mit Punkt. " * 200
     chunks = _split_text(script, max_chars=limit)
     assert all(len(c) <= limit for c in chunks)

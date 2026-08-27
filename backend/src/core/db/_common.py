@@ -27,12 +27,7 @@ def _notify_job_update(job_uuid: str) -> None:
 
 
 def _de_date_to_utc(date_str: str, end_of_day: bool = False) -> str:
-    """Convert a YYYY-MM-DD German local date to a UTC datetime string for DB comparison.
-
-    DB timestamps are stored in UTC. The user picks a date in German local time,
-    so 'date_to=2026-02-26' means up to 2026-02-26 23:59:59 Europe/Berlin,
-    which is 2026-02-26 22:59:59 UTC in winter (UTC+1).
-    """
+    """Turns a German local date into a UTC timestamp for comparison."""
     year, month, day = int(date_str[:4]), int(date_str[5:7]), int(date_str[8:10])
     hour, minute, second = (23, 59, 59) if end_of_day else (0, 0, 0)
     local_dt = datetime(year, month, day, hour, minute, second, tzinfo=_TZ_BERLIN)

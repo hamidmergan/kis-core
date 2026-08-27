@@ -1,10 +1,6 @@
 "use client";
 
-/**
- * Die Nutzerliste. Der Sprung zu den Kontingenten läuft jetzt über die Adresse
- * statt über einen Rückruf, damit die Kontingent-Seite auch direkt erreichbar
- * ist. Vorher war sie nur über diesen Klick zu finden und stand in keinem Menü.
- */
+/** The jump to the quotas goes through the URL. */
 
 import { useRouter } from "@/i18n/navigation";
 import UsersTab from "../../_components/UsersTab";

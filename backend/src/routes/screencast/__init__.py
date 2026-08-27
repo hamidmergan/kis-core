@@ -1,8 +1,4 @@
-"""Screencast-Routen-Paket: fügt alle Sub-Router zu einem einzigen `router` zusammen.
-
-Historisch hieß dieses Modul `src/routes/screencast.py` und exportierte `router`.
-Externe Importe sollen unverändert funktionieren (`from src.routes import screencast;
-screencast.router`), daher wird hier ein aggregierter Router bereitgestellt."""
+"""Bundles the screencast routes into one router."""
 
 from fastapi import APIRouter, Depends
 

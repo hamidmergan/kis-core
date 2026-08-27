@@ -66,8 +66,7 @@ def run_screencast_translate(
             except (json.JSONDecodeError, TypeError):
                 pass
 
-        # Ohne Vorgabe nimmt der Aufloeser den ersten Anbieter, hier faellt dieselbe
-        # Wahl schon vorher, damit die Admin-Anzeige den richtigen Namen nennt.
+        # The choice is made here so the admin display names the right provider.
         if provider_id is None:
             from src.dependencies import get_translation_providers
             verfuegbare = get_translation_providers()
@@ -80,10 +79,7 @@ def run_screencast_translate(
             raise RuntimeError("No translation provider configured")
 
         service = TranslationService(deepl_client=translation_client, glossary=glossary)
-        # Der Wächter hält einen Job für abgestürzt, wenn er sich zu lange nicht
-        # meldet. Die Übersetzung meldet von sich aus nichts und dauert bei
-        # Reasoning-Modellen Minuten. Ohne diesen Herzschlag bringt ein langsames
-        # Modell den Job um, obwohl alles läuft. Der Render-Task macht es genauso.
+        # A heartbeat, otherwise the watchdog takes a slow translation for a crash.
         with job_heartbeat(job_uuid), messe(user_id, job_uuid, "uebersetzung") as zahlen:
             zahlen.update(anbieter_und_modell(provider_id or 0, "doc_translate"))
             zahlen["quelle"] = source_lang
@@ -104,7 +100,7 @@ def run_screencast_translate(
             locale = job_row.get("creator_locale") or "de"
             raise ValueError(t("screencast.noSlides", locale))
 
-        # Für den Prüfen-Schritt: welche Folien hat die Übersetzung nicht angefasst.
+        # For the review step: which slides the translation did not touch.
         from src.services.screencast.review import find_unchanged_slides
         unchanged_slides = find_unchanged_slides(
             _extract_text_per_slide(pptx_bytes), slide_texts
@@ -115,7 +111,7 @@ def run_screencast_translate(
                 job_uuid, len(unchanged_slides), unchanged_slides,
             )
 
-        # Die Dauer steht schon drin, die Folienzahlen kennt man erst jetzt.
+        # The duration is already recorded, the slide counts are only known now.
         zahlen["folien"] = len(slide_texts)
         zahlen["unveraenderte_folien"] = len(unchanged_slides)
         notiere(user_id, job_uuid, "uebersetzung", zahlen)
@@ -145,18 +141,15 @@ def run_screencast_translate(
         result_path = save_result_json(user_id, job_uuid, result)
         save_result_and_evict(user_id, job_uuid, result_path, f"{Path(filename).stem}_translate.json")
 
-        # Namensstamm einmal übersetzen, gilt danach für MP4, PPTX und ZIP.
-        # Über denselben Dienst wie den Folieninhalt, nicht fest über DeepL.
+        # The name stem is translated once and applies to MP4, PPTX and ZIP.
         translated = translate_stem(filename, source_lang, target_lang, service=service)
-        # Mitschreiben, nicht ueberschreiben: sonst faellt die Statistik der Uebersetzung raus.
+        # Append, do not overwrite, otherwise the translation statistics are lost.
         save_result_meta(user_id, job_uuid, {
             **(load_result_meta(user_id, job_uuid) or {}),
             "translated_stem": translated, "target_lang": target_lang,
         })
 
-        # awaiting_user: user must review scripts before render starts
-        # Keine eigene Frist mehr. Liegengebliebene Entwuerfe holt der Wachhund ab
-        # (AWAITING_USER_TIMEOUT_HOURS), alles andere regelt der Vorrat.
+        # Waits for the review, the watchdog picks up whatever is left behind.
         db.update_job_status(job_uuid, "awaiting_user")
         _maybe_dispatch_next(job_uuid)  # awaiting_user holds no slot -> start the next job
 

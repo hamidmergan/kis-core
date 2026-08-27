@@ -39,12 +39,7 @@ def aia_source_key(user_id: int, workspace_uuid: str, source_uuid: str, ext: str
     return f"{aia_workspace_prefix(user_id, workspace_uuid)}/sources/{source_uuid}{ext}"
 
 
-# Derived artifacts (transcript, subtitles) live next to their source, sharing
-# its key minus the extension. The naming rule belongs here, with every other
-# key rule, so the next artifact type does not have to rediscover it.
-#
-# All three take the source's own key (or path), so callers never have to strip
-# the extension themselves. Passing an already-stripped base works too.
+# Derived files sit next to their source, the naming rule lives here.
 
 
 def aia_source_base(file_path: str) -> str:
@@ -76,30 +71,12 @@ AIA_SPEECH_PREFIX = "aia/speech"
 
 
 def aia_speech_key(fingerprint: str) -> str:
-    """Key for one spoken example sentence.
-
-    Deliberately NOT under ``users/``: the sound belongs to the sentence, not to a
-    person, and every course shares it. Under a user prefix, deleting one account
-    would take away a sound others are still listening to.
-
-    The first two characters of the fingerprint fan the keys out over 256 folders.
-    It is a SHA-256, so the spread is even, and no single listing ever has to walk
-    hundreds of thousands of siblings.
-    """
+    """Key of a spoken example sentence, deliberately not under users/."""
     return f"{AIA_SPEECH_PREFIX}/{fingerprint[:2]}/{fingerprint}.mp3"
 
 
 def delete_prefix(prefix: str) -> int:
-    """Delete every object whose key starts with ``prefix``. Returns the count.
-
-    The prefix does not have to end at a slash. ``.../sources/abc`` also covers
-    ``.../sources/abc_transcript.txt``, which is how a source and its derived
-    artifacts are removed in one go.
-
-    Local mode mirrors that: a prefix pointing at a directory is removed whole,
-    otherwise every sibling file whose name starts with the prefix goes. An
-    absolute path works too, because ``file_path`` holds one without S3.
-    """
+    """Deletes every object with this prefix and returns the count."""
     if USE_S3:
         deleted = 0
         paginator = _s3().get_paginator("list_objects_v2")
@@ -136,9 +113,7 @@ def _local_path(key: str) -> Path:
     return STORAGE_ROOT / key
 
 
-# Every save_* below is one key expression plus one of these two. Keeping the
-# backend switch in a single place means a change to it (a retry wrapper, a
-# checksum, a content type) is one edit and not ten.
+# The switch between S3 and disk sits in exactly one place.
 
 
 def _store_bytes(key: str, data: bytes) -> str:
@@ -153,12 +128,7 @@ def _store_bytes(key: str, data: bytes) -> str:
 
 
 def _store_from_path(key: str, local_path: str) -> str:
-    """Copy a local file to ``key``, streaming. Returns the key (S3) or path (local).
-
-    boto3 multiparts the upload itself, so a 500 MB recording never sits in the
-    backend process. Use this for anything user-uploaded; :func:`_store_bytes`
-    is fine only for small generated payloads.
-    """
+    """Stores a local file by streaming and returns a key or a path."""
     if USE_S3:
         _s3().upload_file(local_path, _S3_BUCKET, key)
         return key
@@ -169,17 +139,7 @@ def _store_from_path(key: str, local_path: str) -> str:
 
 
 def init_lifecycle_policy() -> None:
-    """Configure bucket lifecycle: tmp/ expires after 1 day, backups/ after the
-    configured retention.
-
-    Both rules go out in ONE call because put_bucket_lifecycle_configuration
-    REPLACES the whole configuration; sending only one rule would silently drop
-    the other.
-
-    The backups/ rule is a second line of defence only. The nightly task in
-    tasks/backup_tasks.py prunes old dumps itself, because this call is
-    logged-and-swallowed when the service user lacks s3:PutLifecycleConfiguration.
-    """
+    """Sets the bucket's retention rules, both in one call."""
     if not USE_S3:
         return
     from botocore.exceptions import ClientError
@@ -199,9 +159,7 @@ def init_lifecycle_policy() -> None:
                         "Expiration": {"Days": 1},
                         "Status": "Enabled",
                     },
-                    # Getrennte Regeln pro Unterordner. Eine Regel auf "backups/"
-                    # wuerde die Monatskopien nach wenigen Tagen mitloeschen und
-                    # die Staffelung damit wertlos machen.
+                    # Separate rules per subfolder, otherwise the tiering breaks.
                     {
                         "ID": "backups-daily-expire",
                         "Filter": {"Prefix": "backups/daily/"},
@@ -265,12 +223,7 @@ def get_file(file_path: str) -> bytes:
 
 
 def get_range(file_path: str, start: int, length: int) -> bytes:
-    """Read up to ``length`` bytes from ``start`` of a stored object.
-
-    HTTP Range for S3, ``seek`` locally. Returns fewer bytes near EOF, or ``b""`` if the
-    range starts past EOF. Lets callers classify a large object (e.g. detect fragmented
-    MP4 from its box headers) without downloading the whole body.
-    """
+    """Reads a slice of an object without fetching all of it."""
     if USE_S3:
         from botocore.exceptions import ClientError
         end = start + length - 1
@@ -289,12 +242,7 @@ def get_range(file_path: str, start: int, length: int) -> bytes:
 
 
 def copy_key(src_path: str, dst_path: str) -> None:
-    """Copy a stored object without pulling it through this process.
-
-    S3 does the copy server-side, so a 1.5 GB backup does not travel over the
-    network twice just to keep a monthly copy. Local mode falls back to a plain
-    file copy.
-    """
+    """Copies an object, on S3 server side instead of through this process."""
     if USE_S3:
         _s3().copy_object(
             Bucket=_S3_BUCKET,
@@ -308,11 +256,7 @@ def copy_key(src_path: str, dst_path: str) -> None:
 
 
 def put_bytes(file_path: str, data: bytes) -> None:
-    """Overwrite a stored object with ``data``. Counterpart to :func:`get_file`.
-
-    For small generated payloads (a transcript, a VTT). Anything user-uploaded
-    or multi-GB belongs in :func:`put_file`, which streams instead.
-    """
+    """Overwrites an object with bytes, for small generated content."""
     if USE_S3:
         _s3().put_object(Bucket=_S3_BUCKET, Key=file_path, Body=data)
         return
@@ -322,11 +266,7 @@ def put_bytes(file_path: str, data: bytes) -> None:
 
 
 def put_file(file_path: str, local_path: str) -> None:
-    """Overwrite a stored object with the contents of a local file.
-
-    Streamed (boto3 multipart for S3, ``shutil.copyfile`` locally) so it stays low-RAM
-    even for multi-GB media. Used to write back a normalised/remuxed media file.
-    """
+    """Overwrites an object with a local file, streaming."""
     if USE_S3:
         _s3().upload_file(local_path, _S3_BUCKET, file_path)
     else:
@@ -334,10 +274,7 @@ def put_file(file_path: str, local_path: str) -> None:
 
 
 def stream_s3_object(file_path: str, range_header: str | None = None):
-    """Stream an S3 object chunk-by-chunk, honouring an optional HTTP Range header.
-
-    Returns (iterator, content_length, content_range_or_none).
-    """
+    """Serves an S3 object in pieces, with a range header."""
     kwargs: dict = {"Bucket": _S3_BUCKET, "Key": file_path}
     if range_header:
         kwargs["Range"] = range_header
@@ -355,12 +292,7 @@ def stream_s3_object(file_path: str, range_header: str | None = None):
 
 
 def file_exists(file_path: str) -> bool:
-    """Check whether a stored file actually exists (S3 HEAD or local stat).
-
-    For S3: returns False ONLY on a genuine 404/NoSuchKey response.
-    Any other error (network issue, S3 unavailable, permissions) returns True
-    so that transient failures never accidentally trigger job deletion.
-    """
+    """Checks whether a file exists, True when in doubt."""
     if USE_S3:
         from botocore.exceptions import ClientError
         try:
@@ -379,17 +311,7 @@ def file_exists(file_path: str) -> bool:
 
 
 def list_keys(prefix: str) -> list[str]:
-    """List stored keys/paths that begin with ``prefix``, in one round trip.
-
-    One ``list_objects_v2`` (S3) or one glob (local) instead of a HEAD probe per
-    candidate file. Mirrors how :func:`file_exists` treats its argument: an S3
-    key in S3 mode, a filesystem path in local mode.
-
-    Same prefix rule as :func:`delete_prefix`: a prefix pointing at a directory
-    covers everything below it, however deep, otherwise it covers the sibling
-    files whose name starts with it. In S3 a prefix always did both, and local
-    mode has to answer the same question the same way.
-    """
+    """Lists the keys with this prefix in one go."""
     if USE_S3:
         keys: list[str] = []
         paginator = _s3().get_paginator("list_objects_v2")
@@ -415,10 +337,7 @@ def delete_file(file_path: str) -> None:
         path.unlink()
 
 
-# --- AIA source file I/O ---
-#
-# Layout: users/{user_id}/aia/workspaces/{workspace_uuid}/sources/...
-#   {source_uuid}{ext}, {source_uuid}_transcript.txt, {source_uuid}_transcript.de.vtt, ...
+# Storage of the sources of a course room collection.
 
 
 def save_aia_source_from_path(
@@ -428,10 +347,7 @@ def save_aia_source_from_path(
     return _store_from_path(aia_source_key(user_id, workspace_uuid, source_uuid, ext), local_path)
 
 
-# --- Job folder helpers ---
-#
-# Layout: users/{user_id}/jobs/{job_uuid}/...
-#   input{ext}, output{ext}, result.json, meta.json, audio/slide_000.mp3, ...
+# Storage of a job folder.
 
 # --- Job file I/O ---
 
@@ -495,9 +411,7 @@ def load_result_meta(user_id: int, job_uuid: str) -> dict | None:
 
 @contextmanager
 def open_input_file(input_path: str, suffix: str = ""):
-    """Yields a local filesystem path for the input file.
-    With S3: downloads to a temp file (auto-deleted after). With local: yields path directly.
-    """
+    """Returns a local path, on S3 via a temp file."""
     if USE_S3:
         data = _s3().get_object(Bucket=_S3_BUCKET, Key=input_path)["Body"].read()
         with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as f:
@@ -522,23 +436,14 @@ def load_result_json(result_path: str) -> dict:
 
 
 def _slide_number(key_or_name: str) -> int:
-    """Slide index from ``slide_007.mp3``. Unparsable names sort to the front.
-
-    Sorting these names as text would put ``slide_1000`` before ``slide_999``.
-    Widening the padding instead would be worse: old jobs would keep the
-    three-digit names and the two widths would mix.
-    """
+    """Slide number from the file name, unreadable ones sort to the front."""
     name = key_or_name.rsplit("/", 1)[-1]
     digits = name[len("slide_"):].split(".", 1)[0]
     return int(digits) if digits.isdigit() else -1
 
 
 def save_audio_cache(user_id: int, job_uuid: str, audio_files: list[bytes | None]) -> None:
-    """Save per-slide MP3 files under the job's audio/ folder. S3 writes parallel.
-
-    ``None`` an einer Stelle heisst: diesen Platz nicht anfassen. Folien, die
-    nicht im Screencast sind, behalten so ihren alten Ton.
-    """
+    """Stores the MP3s per slide, None leaves a slot untouched."""
     base = f"{job_prefix(user_id, job_uuid)}/audio"
     zu_schreiben = [(i, d) for i, d in enumerate(audio_files) if d is not None]
     if not zu_schreiben:
@@ -573,7 +478,7 @@ def get_audio_slide(user_id: int, job_uuid: str, slide_index: int) -> bytes | No
 
 
 def hat_audio_slide(user_id: int, job_uuid: str, slide_index: int) -> bool:
-    """Leere Dateien gelten als kein Ton, sie stehen fuer Folien ohne Skript."""
+    """Empty files count as no audio, they stand for slides without a script."""
     return bool(get_audio_slide(user_id, job_uuid, slide_index))
 
 
@@ -589,7 +494,7 @@ def get_audio_slide_count(user_id: int, job_uuid: str) -> int:
 
 
 def audio_folien_mit_ton(user_id: int, job_uuid: str) -> set[int]:
-    """Welche Folien Ton haben, in einer Abfrage statt einer je Folie."""
+    """Which slides have audio, in one query instead of one per slide."""
     prefix = f"{job_prefix(user_id, job_uuid)}/audio/"
     dabei: set[int] = set()
     if USE_S3:
@@ -609,10 +514,7 @@ def audio_folien_mit_ton(user_id: int, job_uuid: str) -> set[int]:
 
 
 def get_all_audio_slides(user_id: int, job_uuid: str) -> list[tuple[str, bytes]]:
-    """Fetch all per-slide MP3s in parallel (S3) or sequentially (local).
-
-    Returns a list of (filename, data) tuples in slide order.
-    """
+    """Fetches all slide MP3s in slide order."""
     prefix = f"{job_prefix(user_id, job_uuid)}/audio/"
     if USE_S3:
         from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -624,8 +526,7 @@ def get_all_audio_slides(user_id: int, job_uuid: str) -> list[tuple[str, bytes]]
             data = _s3().get_object(Bucket=_S3_BUCKET, Key=key)["Body"].read()
             return (key.split("/")[-1], data)
 
-        # as_completed discards submission order, so the sort at the end is the
-        # one that decides the result. Sorting the keys too would be wasted.
+        # The final sort decides, sorting the keys would be wasted.
         with ThreadPoolExecutor(max_workers=min(len(keys), 10)) as pool:
             results = [f.result() for f in as_completed([pool.submit(_fetch, k) for k in keys])]
         return sorted(results, key=lambda x: _slide_number(x[0]))
@@ -637,10 +538,7 @@ def get_all_audio_slides(user_id: int, job_uuid: str) -> list[tuple[str, bytes]]
     return [(f.name, f.read_bytes()) for f in slides]
 
 
-# --- PPTX temp storage (translate -> render handoff) ---
-#
-# Keyed by a random file_id UUID (not a job UUID).
-# Layout: tmp/pptx/{file_id}.pptx (lifecycle: 24h via init_lifecycle_policy).
+# Interim storage for PPTX between translating and rendering, gone after 24h.
 
 
 def save_pptx_tmp(file_id: str, data: bytes) -> None:
@@ -648,10 +546,7 @@ def save_pptx_tmp(file_id: str, data: bytes) -> None:
     _store_bytes(tmp_pptx_key(file_id), data)
 
 
-# --- Spoken example sentences (AIA flashcards + voice previews) ---
-# Keyed by the fingerprint from repository/speech_cache.py, which owns the
-# retention rule. There is no lifecycle rule here: expiry follows last use, not
-# creation date, and only the database row knows when a sound was last heard.
+# Spoken example sentences, retention follows the last use.
 
 
 def save_speech_audio(fingerprint: str, data: bytes) -> None:
@@ -660,13 +555,7 @@ def save_speech_audio(fingerprint: str, data: bytes) -> None:
 
 
 def get_speech_audio(fingerprint: str) -> bytes | None:
-    """Load one spoken sentence. None means it is genuinely not there.
-
-    A missing object and an unreachable store are different answers on purpose.
-    The caller drops its database row when this returns None, so a network blip
-    must raise instead: otherwise a moment of bad connectivity would throw away
-    the whole cache.
-    """
+    """Loads a spoken sentence, None really means missing."""
     key = aia_speech_key(fingerprint)
     if USE_S3:
         from botocore.exceptions import ClientError
@@ -712,19 +601,12 @@ def clear_render_cache(user_id: int, job_uuid: str) -> int:
 
 
 def clear_audio_cache(user_id: int, job_uuid: str) -> int:
-    """Loescht den fertigen Ton. Noetig, sobald Folien oder Skripte ersetzt werden."""
+    """Deletes the finished audio, needed as soon as slides or scripts are replaced."""
     return delete_prefix(f"{job_prefix(user_id, job_uuid)}/audio/")
 
 
 def delete_aia_source_files(file_path: str) -> int:
-    """Delete an AIA source together with everything derived from it.
-
-    Transcript and subtitles are siblings of the source file, so deleting the
-    source alone would leave the full text of a recording in the bucket with
-    no row pointing at it. Safe as a prefix because source uuids are
-    ``uuid4().hex``, all 32 characters: no source name can be a prefix of
-    another, so this never reaches into a sibling source.
-    """
+    """Deletes a source with everything derived from it."""
     return delete_prefix(aia_source_base(file_path))
 
 
@@ -734,23 +616,14 @@ def delete_aia_workspace_folder(user_id: int, workspace_uuid: str) -> int:
 
 
 def delete_user_folder(user_id: int) -> int:
-    """Alle Dateien eines Nutzers, Aufgaben wie Arbeitsbereiche.
-
-    Der Schraegstrich am Ende ist Pflicht, sonst nimmt Nutzer 4 auch Nutzer 42
-    mit.
-    """
+    """All files of a user, the trailing slash is mandatory."""
     return delete_prefix(f"users/{user_id}/")
 
 
 # --- Result saving with eviction ---
 
 def evict_jobs_over_cap(user_id: int) -> int:
-    """Alles ueber dem Vorrat aus dem Admin loeschen, Zeile und Ordner.
-
-    Einzige Aufbewahrungsregel, seit die Frist von sieben Tagen raus ist. Zaehlt
-    alle Jobs eines Nutzers, also auch Fehlschlaege, die frueher nur die Frist
-    entsorgt hat.
-    """
+    """Deletes everything above the pool, row and folder."""
     from src.database import get_jobs_for_user_newest_first, select_jobs_to_evict
 
     entfernt = 0

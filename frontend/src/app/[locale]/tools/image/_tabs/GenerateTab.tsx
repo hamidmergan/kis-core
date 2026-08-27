@@ -21,8 +21,7 @@ export default function GenerateTab() {
   const [error, setError] = useState("");
   const [result, setResult] = useState<{ url: string; filename: string } | null>(null);
 
-  // Free the object URL when it is replaced (regenerate) or the tab unmounts.
-  // The cleanup closes over the previous url, so each new result revokes the old one.
+  // Releases the old image URL as soon as a new one arrives.
   useEffect(() => {
     const url = result?.url;
     return () => { if (url) URL.revokeObjectURL(url); };

@@ -1,4 +1,4 @@
-"""Fertige Folien aus dem Vorrat muessen sofort in die Vorschau, ohne auf die Vertonung zu warten."""
+"""Cached finished slides have to go into the preview at once, without waiting for the voicing."""
 
 from src.services.screencast.auswahl import zu_sprechende_folien
 

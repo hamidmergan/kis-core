@@ -1,9 +1,4 @@
-"""LLM-based scope extraction (Self-Query Retrieval): the model turns ANY phrasing
-("fasse alles zwischen 12 und 13 zusammen", "was wird bei Minute 10 erzählt",
-"ab 10 min") into a structured page/time scope, so retrieval is no longer at the
-mercy of a hand-written regex. These cover the PURE pieces (JSON parsing, interval
-expansion, time conversion, media retrieval); the LLM call itself is thin glue.
-"""
+"""The model turns any phrasing into a page or time reference."""
 from src.features.ai_assistant.routes import chat as chat_mod
 from src.features.ai_assistant.routes.chat import (
     _parse_scope_response,
@@ -75,10 +70,7 @@ def test_absurd_span_collapses():
     assert _expand_page_intervals([[1, 9999]], max_page=10000) == [1]
 
 
-# ── _servable_scope_intervals (a date is not a page scope) ───────────────────
-# "was ist ab dritten juli" → the extractor returns unit="unknown", [[3, None]]. Left in,
-# that opportunistically scopes a PDF to (the collapsed) Seite 3 and yields a misleading
-# "not in the sources" answer + a spurious S. 3 chip. The open unknown range must be dropped.
+# A date is no page reference, an open number range is dropped.
 
 def test_open_unknown_range_dropped():
     # "ab dritten juli" → [[3, None]]: a date, not a page the user pointed at.
@@ -103,8 +95,7 @@ def test_unknown_mixed_keeps_only_closed():
 # ── _page_scope_too_large (whole-doc range -> route to GENERIC) ───────────────
 
 def test_huge_range_is_too_large():
-    # "fasse Seite 1 bis 450" — summarizing the whole document is an overview, not a
-    # precise scope; route it to GENERIC instead of scoping/collapsing.
+    # Summarising the whole document is an overview, not a reference.
     assert _page_scope_too_large([[1, 450]], max_page=450, limit=50) is True
 
 

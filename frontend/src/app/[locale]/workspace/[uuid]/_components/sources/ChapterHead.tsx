@@ -11,12 +11,7 @@ import type { Chapter } from "../../_types";
 import { MenuItem } from "./SourceRow";
 import { GroupCheckbox } from "./GroupCheckbox";
 
-/** Kopfzeile eines Kapitels: Haken fuer alle Dateien darin, auf- und zuklappen,
- *  Anzahl, und das Menue mit Umbenennen, Reihenfolge und Loeschen.
- *
- *  Der Haken ist eine Abkuerzung, keine eigene Groesse: er setzt die Haken der
- *  Dateien darin. Der Chat sieht weiterhin nur einzelne Dateien.
- */
+/** Header of a chapter, the checkbox only sets the checkboxes of the files in it. */
 export function ChapterHead({
   chapter,
   count,
@@ -40,7 +35,7 @@ export function ChapterHead({
 }: {
   chapter: Chapter;
   count: number;
-  /** Aus den Haken der Dateien im Kapitel abgeleitet, nicht selbst gespeichert. */
+  /** Derived from the file checkboxes in the chapter, not stored itself. */
   selectState: "none" | "some" | "all";
   selectDisabled: boolean;
   onToggleSelect: () => void;

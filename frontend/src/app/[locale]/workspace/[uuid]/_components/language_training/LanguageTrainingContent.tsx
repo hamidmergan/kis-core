@@ -58,16 +58,13 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
     refreshProgress, handleAskChat, handlePillClick, chatLang,
   } = props;
   const t = useTranslations("workspace.detail.languageTraining");
-  // The grammar run reports its score when it finishes, so the summary screen can
-  // show the real numbers rather than the placeholder the MC flows use.
+  // Grammar reports its score, the summary page shows real numbers.
   const [grammarScore, setGrammarScore] = React.useState<{ correct: number; total: number } | null>(null);
-  // Der Wortschatz-Lückentext meldet seine Punktzahl genauso wie die Grammatik-Übung,
-  // denn ein Satz ist EINE Aufgabe und die Lücken darin müssen einzeln gezählt werden.
+  // The cloze reports the same way, its gaps count individually.
   const [clozeScore, setClozeScore] = React.useState<{ correct: number; total: number } | null>(null);
 
   const onSourceClick = (filename: string, page: number, startTime?: number) => {
-    // Tool chips are nav-only, exactly like chat citations: jump to the page/timestamp,
-    // never highlight. (Highlight stays only for the user's own text selection.)
+    // Tool chips only jump, only a selection of your own is highlighted.
     const src = sources.find((s) => s.filename === filename);
     if (src) handlePillClick(src.uuid, page, filename, undefined, startTime, false);
   };
@@ -115,7 +112,7 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
             workspaceUuid={workspaceUuid}
           />
         ) : null;
-      // ─── Grammatik-Übung Sets Flow ─────────────────────────
+      // ─── Grammar exercise set flow ─────────────────────────
       case "gr-sets":
         return (
           <ExerciseSetsOverview
@@ -136,13 +133,7 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
         );
       case "gr-learn": {
         if (!activeSet) return null;
-        // Immer die Grammatik-Ansicht. Sie entscheidet je AUFGABE, ob angekreuzt oder
-        // getippt wird.
-        //
-        // Vorher stand hier eine Weiche über das ganze Set: hatte eine einzige Aufgabe
-        // Optionen, ging alles in die Ankreuz-Ansicht. Seit ein Set die vier Formate
-        // mischt, traf das immer zu, und die Freitext-Aufgaben erschienen als nackter
-        // Satz ohne Eingabefeld. Gemeldet am 2026-08-05.
+        // Always the grammar view, it decides per exercise.
         const grammarCrumbs = [toOverviewWithReset, { label: grammarLabel, toolKey: "Grammar", onClick: () => { setActiveSet(null); setSprachView("gr-sets"); } }];
         return (
           <GrammarExerciseView
@@ -162,8 +153,7 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
             title={activeSet.title.replace(TITLE_PREFIX_RE, "")}
             toolKey="Grammar"
             category="language_training"
-            // Unlike the MC tools the run's real score is known here, so the summary
-            // shows it instead of a placeholder zero.
+            // Here the real score is known and the summary page shows it.
             results={Array.from({ length: grammarScore?.total ?? 0 }, (_, i) => ({
               item_id: i,
               correct: i < (grammarScore?.correct ?? 0),
@@ -174,7 +164,7 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
             breadcrumbs={[toOverviewWithReset, { label: grammarLabel, toolKey: "Grammar", onClick: () => { setActiveSet(null); setSprachView("gr-sets"); } }]}
           />
         ) : null;
-      // ─── Wortschatz-Lückentext ─────────────────────────────
+      // ─── Vocabulary cloze ──────────────────────────────────
       case "wo-sets":
         return (
           <ExerciseSetsOverview
@@ -213,8 +203,7 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
             title={activeSet.title}
             toolKey="Cloze"
             category="language_training"
-            // Der Satz ist EINE Aufgabe, gezählt werden aber die Lücken. Deshalb
-            // steht hier die Zahl aus der Übung und nicht card_count, das ist 1.
+            // The gaps are counted, not the single exercise.
             results={Array.from({ length: clozeScore?.total ?? 0 }, (_, i) => ({
               item_id: i,
               correct: i < (clozeScore?.correct ?? 0),

@@ -2,18 +2,12 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    """Process-level configuration sourced from the environment.
-
-    Provider credentials + URLs (LLM, embedding, TTS, OCR, DeepL, ...) are
-    NOT here — they live in the ``providers`` table managed by the admin
-    "KI" tab. Only deployment-level stuff (DB, S3, sessions, LDAP) stays.
-    """
+    """Settings from the environment, without provider credentials."""
 
     # Security
     session_secret: str = "change-me-in-production"
 
-    # Admin: email must match the LDAP account email of the admin user.
-    # Auto-whitelisted on startup so first login works without manual DB edits.
+    # Must match the admin's LDAP address, it is unlocked at startup.
     admin_email: str = ""
 
     # Set via start-nginx.sh / start-th.sh, never in .env
@@ -32,14 +26,10 @@ class Settings(BaseSettings):
     ldap_role_lecturer_values: str = "staff,faculty"
     ldap_use_ssl: bool = False
 
-    # Admin-only feature flag: enables UI for creating LDAP users.
-    # Disable on prod / SSO deployments.
+    # Unlocks the interface for creating LDAP users.
     ldap_user_creation_enabled: bool = False
 
-    # If set, provider api_keys are encrypted with this secret when exported
-    # via the admin "KI" tab, and decrypted on import. Only the same instance
-    # (sharing this value) can restore the keys. Unset → keys are omitted
-    # from exports, same as before.
+    # Key used to encrypt provider credentials on read and write.
     kis_export_key: str = ""
 
     @property

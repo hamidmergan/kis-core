@@ -1,11 +1,4 @@
-"""Settings endpoints: read + update system-level admin settings.
-
-Provider selection, model names, feature routes, and any LLM-related
-configuration are managed by the dedicated "KI" admin tab (see
-``routes/admin/providers.py``) and live in the ``providers`` +
-``feature_routes`` tables. The settings tab now only covers system-wide
-toggles (whitelist, workspace label/limits, schedule retention).
-"""
+"""Reads and writes the system-wide settings, providers live in the AI tab."""
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -69,15 +62,7 @@ router = APIRouter(tags=["admin: settings"])
 
 
 def _assert_fields_allowed(body: UpdateSettingsRequest, perms, locale: str) -> None:
-    """Jedes mitgeschickte Feld einzeln gegen das Recht seiner Seite pruefen.
-
-    Der Datensatz bedient mehrere Seiten des Bereichs auf einmal. Ohne diese
-    Pruefung koennte jemand mit dem Recht fuer eine einzige Seite jedes Feld
-    jeder anderen Seite mitschicken, etwa den Wartungsmodus.
-
-    Ein Feld, das im Katalog fehlt, gilt als nicht speicherbar. Lieber eine
-    Absage als ein Loch, das beim naechsten neuen Feld aufgeht.
-    """
+    """Checks every submitted field against the right of its page."""
     for field_name, value in body.model_dump().items():
         if value is None:
             continue
@@ -107,10 +92,9 @@ async def get_settings(_admin=Depends(require_any_settings)):
         ),
         "workspace_label_singular_en": db.get_setting("workspace_label_singular_en", "Module"),
         "workspace_label_plural_en": db.get_setting("workspace_label_plural_en", "Modules"),
-        # Sprachtrainer (system-wide, off by default). Owners can only switch the
-        # trainer on in their workspace while this is on.
+        # The language trainer platform wide, without it no course can turn it on.
         "language_training_enabled": _enabled("language_training_enabled", "false"),
-        # Home-page notice banner (all users, above "Nächste Termine").
+        # Home page notice banner, shown to all users above the next appointments.
         "home_notice_enabled": _enabled("home_notice_enabled", "false"),
         "home_notice_text": db.get_setting("home_notice_text", ""),
         # OCR on image-heavy pages during indexing (system-wide, default on)
@@ -123,17 +107,15 @@ async def get_settings(_admin=Depends(require_any_settings)):
         "aia_context_max_chars": int(
             db.get_setting("aia_context_max_chars", str(AIA_CONTEXT_MAX_CHARS))
         ),
-        # Kontext einer gezielten Frage, getrennt vom Ueberblick-Budget darueber.
+        # Context of a specific question, apart from the overview budget above.
         "aia_specific_max_chars": int(
             db.get_setting("aia_specific_max_chars", str(AIA_SPECIFIC_MAX_CHARS))
         ),
-        # Context budget (chars) for the generation tools (mindmap, data table, quiz, …).
-        # Separate from the chat budget; divided by the number of sources at generation time.
+        # Context budget of the generating tools, apart from the chat.
         "aia_tool_context_max_chars": int(
             db.get_setting("aia_tool_context_max_chars", str(AIA_TOOL_CONTEXT_MAX_CHARS))
         ),
-        # Sprache der vier Lern-Tools (Karteikarten, Quiz, Datentabelle, Mindmap).
-        # Der Sprachtrainer folgt dem bewusst nicht, der bleibt deutsch.
+        # Language of the four learning tools, the language trainer stays German.
         "aia_learning_tools_language": db.get_setting(
             "aia_learning_tools_language", DEFAULT_LEARNING_TOOLS_LANGUAGE
         ),
@@ -145,56 +127,39 @@ async def get_settings(_admin=Depends(require_any_settings)):
         "aia_source_max_pages": int(
             db.get_setting("aia_source_max_pages", str(AIA_SOURCE_MAX_PAGES))
         ),
-        # Aussprache auf der Lernkarte. Leer heißt für die Oberfläche: noch nicht
-        # eingerichtet, dann zeigt die Karte keinen Lautsprecher.
+        # Pronunciation on the flashcard, empty means not set up yet.
         "aia_flashcard_voice_provider_id": db.get_setting("aia_flashcard_voice_provider_id", ""),
         "aia_flashcard_voice_id": db.get_setting("aia_flashcard_voice_id", ""),
-        # Zeichen je Sprachausgabe-Anfrage. Der Anbieter bricht nach einer festen
-        # Zeit ab, nicht nach einer festen Länge, siehe Messung in limits.py.
-        # Bleibt einstellbar, weil das eine ANBIETER-EIGENSCHAFT ist, die sich
-        # nicht aus Absagen ablesen lässt: die Anfrage läuft in einen Timeout,
-        # nicht in eine Absage. Alles, was sich messen oder erkennen lässt, ist
-        # dagegen aus diesem Bereich verschwunden.
+        # Characters per speech request, stays configurable because it is a provider trait.
         "tts_max_chars_per_request": int(
             db.get_setting("tts_max_chars_per_request", str(TTS_MAX_CHARS_PER_REQUEST))
         ),
-        # Grenzen der globalen Werkzeuge. Nicht aus limits.py gelesen, sondern
-        # ueber tool_limits, damit hier genau der Wert steht, den die Routen
-        # gerade benutzen. Minuten und MB, nicht Sekunden und Bytes: der Admin
-        # tippt die Einheit, die auf der Karte steht.
+        # Limits of the global tools, in minutes and MB as on the card.
         "screencast_max_slides": tool_limits.max_screencast_slides(),
         "transcription_max_minutes": tool_limits.max_transcription_seconds() // 60,
         "upload_max_mb": tool_limits.max_upload_bytes() // (1024 * 1024),
         "results_kept_per_user": tool_limits.results_kept_per_user(),
         "screencast_max_open_jobs": tool_limits.max_open_screencast_jobs(),
-        # CEFR chat-diagnosis system prompt. One prompt for all languages; the
-        # workspace language replaces the {language} placeholder at request time.
+        # The assessment prompt, a placeholder carries the language.
         "language_diagnosis_prompt": db.get_setting(
             "language_diagnosis_prompt", DEFAULT_DIAGNOSIS_PROMPT
         ),
         "language_diagnosis_prompt_default": DEFAULT_DIAGNOSIS_PROMPT,
-        # Question plan. Empty stored string means "default active"; the frontend
-        # falls back to the default plan for its table.
+        # The question plan, empty means the default is active.
         "language_diagnosis_question_plan_de": db.get_setting(QUESTION_PLAN_SETTING, ""),
-        # The German config tab prefills and resets to the shipped authored German
-        # set (options, correct flags, examples), which is also what a German
-        # diagnosis runs with when nothing is stored.
+        # The German tab fills it and resets to the shipped German set.
         "language_diagnosis_question_plan_default": DEFAULT_GERMAN_QUESTION_PLAN,
         "language_diagnosis_answer_max_chars": int(
             db.get_setting(ANSWER_MAX_CHARS_SETTING, str(DEFAULT_ANSWER_MAX_CHARS))
         ),
-        # Die beiden Prompt-Texte laufen ueber resolve_prompt_setting: ein
-        # gespeicherter ALTER Standard (mit eigener Stufen-Liste) zaehlt als "nicht
-        # gesetzt", sonst zeigt die Karte weiter die Liste, die jetzt aus der
-        # Stufen-Leiter kommt.
+        # A stored old default counts as not set.
         "language_diagnosis_adaptive_behavior": resolve_prompt_setting(
             db.get_setting(ADAPTIVE_BEHAVIOR_SETTING, ""),
             _LEGACY_ADAPTIVE_BEHAVIOR,
             DEFAULT_ADAPTIVE_BEHAVIOR,
         ),
         "language_diagnosis_adaptive_behavior_default": DEFAULT_ADAPTIVE_BEHAVIOR,
-        # LEVEL ASSIGNMENT: grading procedure + the Stufen-Leiter (descriptions and
-        # calibration examples per level).
+        # Grading method plus the level ladder with description and examples.
         "language_diagnosis_grading_rules": resolve_prompt_setting(
             db.get_setting(GRADING_RULES_SETTING, ""),
             _LEGACY_GRADING_RULES,
@@ -222,17 +187,13 @@ async def update_settings(
     if body.whitelist_enabled is not None:
         db.set_setting("whitelist_enabled", "true" if body.whitelist_enabled else "false")
 
-    # Switching the Sprachtrainer off hides it everywhere but keeps each workspace's
-    # own choice, so switching it back on restores the previous state.
+    # The language trainer off hides it everywhere, the per-course choice stays.
     if body.language_training_enabled is not None:
         db.set_setting(
             "language_training_enabled", "true" if body.language_training_enabled else "false"
         )
 
-    # Home-page notice banner. Toggle is independent of the text so an admin can
-    # keep a drafted message and flip it on/off. Text is length-capped so a paste
-    # accident can't blow up the start page; empty text is allowed (banner stays
-    # hidden until something is typed even when the toggle is on).
+    # The notice banner switch is independent of the text, the text is length limited.
     if body.home_notice_enabled is not None:
         db.set_setting("home_notice_enabled", "true" if body.home_notice_enabled else "false")
 
@@ -248,9 +209,7 @@ async def update_settings(
     if body.ocr_enabled is not None:
         db.set_setting("ocr_enabled", "true" if body.ocr_enabled else "false")
 
-    # CEFR chat-diagnosis prompt. Empty input is the documented "reset" gesture:
-    # it stores the shipped default rather than an empty prompt, so the diagnosis
-    # can never end up without instructions.
+    # An empty prompt saves the default, the assessment is never without instructions.
     if body.language_diagnosis_prompt is not None:
         stripped = body.language_diagnosis_prompt.strip()
         if len(stripped) > MAX_PROMPT_CHARS:
@@ -260,11 +219,7 @@ async def update_settings(
             )
         db.set_setting("language_diagnosis_prompt", stripped or DEFAULT_DIAGNOSIS_PROMPT)
 
-    # Question plan (JSON). Empty string is the reset gesture (default plan). A
-    # non-empty value must be a valid plan: a list of {type} with optional text
-    # and, for option types, an option set with a correct flag. Muck is rejected
-    # with a 400 so a typo cannot silently store something the diagnosis then
-    # falls back away from.
+    # An empty plan resets it, a filled one must be valid.
     if body.language_diagnosis_question_plan_de is not None:
         stripped = body.language_diagnosis_question_plan_de.strip()
         if not stripped:
@@ -275,19 +230,14 @@ async def update_settings(
                 detail=t("admin.settings.diagnosisPlanInvalid", locale),
             )
         elif (incomplete := first_incomplete_question(stripped)) is not None:
-            # Eine halbe Zeile hat frueher bedeutet "das Modell schreibt die Frage
-            # waehrend des Tests". Diesen Weg gibt es nicht mehr, also darf sie gar
-            # nicht erst gespeichert werden. Die Meldung nennt die Zeilennummer.
+            # Half a line can no longer be saved, the message names the line number.
             raise HTTPException(
                 status_code=400,
                 detail=t("admin.settings.diagnosisPlanIncomplete", locale,
                          number=incomplete),
             )
         elif not question_plan_has_enough_free_text(stripped):
-            # A plan without enough AI-judged free texts could only be graded on
-            # recognition (choice questions, and gaps with a solution key), so the
-            # level would rest on nothing the learner actually produced. Reject it
-            # with a specific message.
+            # A plan without enough free text would rest the level on nothing written.
             raise HTTPException(
                 status_code=400,
                 detail=t("admin.settings.diagnosisPlanTooFewFreeText", locale,
@@ -296,8 +246,7 @@ async def update_settings(
         else:
             db.set_setting(QUESTION_PLAN_SETTING, stripped)
 
-    # Soft answer-length cap (chars). Bounded 1..MAX_MESSAGE_CHARS: it only drives
-    # the UI counter and maxlength; the request body stays hard-capped server-side.
+    # Soft answer length, it only steers the display.
     if body.language_diagnosis_answer_max_chars is not None:
         value = body.language_diagnosis_answer_max_chars
         if value < 1 or value > MAX_MESSAGE_CHARS:
@@ -307,8 +256,7 @@ async def update_settings(
             )
         db.set_setting(ANSWER_MAX_CHARS_SETTING, str(value))
 
-    # Adaptive answer behaviour. Empty input restores the shipped default, so the
-    # chat is never left without behaviour text when the setting exists.
+    # Empty input resets to the default.
     if body.language_diagnosis_adaptive_behavior is not None:
         stripped = body.language_diagnosis_adaptive_behavior.strip()
         if len(stripped) > MAX_PROMPT_CHARS:
@@ -318,8 +266,7 @@ async def update_settings(
             )
         db.set_setting(ADAPTIVE_BEHAVIOR_SETTING, stripped or DEFAULT_ADAPTIVE_BEHAVIOR)
 
-    # Grading rules (LEVEL ASSIGNMENT). Empty input restores the shipped default,
-    # so the diagnosis is never left without leveling logic.
+    # Empty input resets to the default.
     if body.language_diagnosis_grading_rules is not None:
         stripped = body.language_diagnosis_grading_rules.strip()
         if len(stripped) > MAX_PROMPT_CHARS:
@@ -329,9 +276,7 @@ async def update_settings(
             )
         db.set_setting(GRADING_RULES_SETTING, stripped or DEFAULT_GRADING_RULES)
 
-    # Per-level calibration examples (JSON object). Empty input = reset to
-    # defaults. Otherwise it must be a JSON object whose keys are known bands and
-    # whose values are strings, so a typo cannot store something unusable.
+    # Examples per level as JSON, empty resets, otherwise it is validated.
     if body.language_diagnosis_level_examples is not None:
         stripped = body.language_diagnosis_level_examples.strip()
         if not stripped:
@@ -356,9 +301,7 @@ async def update_settings(
                 )
             db.set_setting(LEVEL_EXAMPLES_SETTING, stripped)
 
-    # Beschreibung je Stufe (JSON-Objekt). Leer bedeutet zuruecksetzen. Sonst muss
-    # es ein Objekt mit bekannten Stufen und String-Werten sein, damit ein Tippfehler
-    # nichts Unbrauchbares speichert. Gleiche Regel wie bei den Beispielen.
+    # Description per level as JSON, empty resets, otherwise it is validated.
     if body.language_diagnosis_level_descriptions is not None:
         stripped = body.language_diagnosis_level_descriptions.strip()
         if not stripped:
@@ -405,8 +348,7 @@ async def update_settings(
                 )
             db.set_setting(label_key, stripped)
 
-    # Workspace source upload cap. Bounded to a sane range so a typo can't
-    # render the upload endpoint useless or unbounded.
+    # Limit of sources per course room, capped against typos.
     if body.aia_workspace_max_sources is not None:
         value = body.aia_workspace_max_sources
         if value < 1 or value > 1000:
@@ -416,11 +358,7 @@ async def update_settings(
             )
         db.set_setting("aia_workspace_max_sources", str(value))
 
-    # KI-tutor context budget in characters. Bounded so a typo cannot starve the
-    # context (too low) or blow past even large model windows (too high). Lower
-    # bound ~ one small chunk; hard upper bound = AIA_CONTEXT_HARD_CAP (single
-    # source of truth, ~228k tokens) so an admin typo (1M+) can't force a context
-    # that stalls/overflows the model.
+    # Context budget of the chat, capped against too small and too large inputs.
     if body.aia_context_max_chars is not None:
         value = body.aia_context_max_chars
         if value < 1000 or value > AIA_CONTEXT_HARD_CAP:
@@ -430,8 +368,7 @@ async def update_settings(
             )
         db.set_setting("aia_context_max_chars", str(value))
 
-    # Kontext einer gezielten Frage. Dieselben Grenzen wie beim Ueberblick-Budget:
-    # die kleinere der beiden Zahlen gewinnt ohnehin an der Auswertung.
+    # Context of a specific question, the same limits as for the overview.
     if body.aia_specific_max_chars is not None:
         value = body.aia_specific_max_chars
         if value < 1000 or value > AIA_CONTEXT_HARD_CAP:
@@ -441,9 +378,7 @@ async def update_settings(
             )
         db.set_setting("aia_specific_max_chars", str(value))
 
-    # Generation-tools context budget in characters. Same lower bound as the chat
-    # budget; upper bound = AIA_TOOL_CONTEXT_HARD_CAP (higher than the chat cap, the
-    # tools pack a whole document into one call and may run on a large/cloud model).
+    # Context budget of the tools, with its own higher ceiling.
     if body.aia_tool_context_max_chars is not None:
         value = body.aia_tool_context_max_chars
         if value < 1000 or value > AIA_TOOL_CONTEXT_HARD_CAP:
@@ -453,8 +388,7 @@ async def update_settings(
             )
         db.set_setting("aia_tool_context_max_chars", str(value))
 
-    # Sprache der vier Lern-Tools. Nur ein Code aus der einen Liste, sonst stuende er
-    # spaeter wortwoertlich im Auftrag an das Modell ("Write it in xx").
+    # Only a code from the one list, otherwise it would end up verbatim in the job.
     if body.aia_learning_tools_language is not None:
         value = (body.aia_learning_tools_language or "").strip().lower()
         if value not in TRANSCRIPT_LANGUAGES:
@@ -464,9 +398,7 @@ async def update_settings(
             )
         db.set_setting("aia_learning_tools_language", value)
 
-    # Summary per-batch char cap. Lower bound ~ one chunk; upper bound 500k chars
-    # (~140k tokens) so an admin typo can't push a single summary batch past even
-    # a large model window. Bigger = fewer (coarser) summary calls per upload.
+    # Characters per summary batch, capped against typos.
     if body.aia_summary_batch_max_chars is not None:
         value = body.aia_summary_batch_max_chars
         if value < 10_000 or value > 500_000:
@@ -476,13 +408,9 @@ async def update_settings(
             )
         db.set_setting("aia_summary_batch_max_chars", str(value))
 
-    # Chunks pro Embedding-Aufruf steht hier bewusst nicht mehr: der Regler konnte
-    # nur unter den Standard, und der Client misst die Grenze jetzt selbst
-    # (aia_embeddings, Halbieren bei Absage). Siehe AIA_EMBEDDING_BATCH_SIZE.
+    # Chunks per embedding call no longer live here, the client measures itself.
 
-    # Max pages per uploaded source. Bounded 1..2000: keeps sources near the
-    # fit-shortcut size (complete overview) and rejects monster docs (split into
-    # chapters). Default 100; an admin can raise it for low-density slide decks.
+    # Maximum pages per source, capped from 1 to 2000.
     if body.aia_source_max_pages is not None:
         value = body.aia_source_max_pages
         if value < 1 or value > 2000:
@@ -492,10 +420,7 @@ async def update_settings(
             )
         db.set_setting("aia_source_max_pages", str(value))
 
-    # Grenzen der globalen Werkzeuge. Die Obergrenzen sind keine Meinung: ein
-    # Screencast bricht nach zwei Stunden ab (SCREENCAST_TIME_LIMIT), eine zu
-    # lange Aufnahme wird beim Anbieter abgelehnt, und eine riesige Datei fuellt
-    # die Platte. Deshalb gibt es dort auch kein Unbegrenzt.
+    # Limits of the global tools, there is no unlimited here.
     for feld, schluessel, unten, oben, darf_unbegrenzt in (
         (body.screencast_max_slides, "screencast_max_slides", 1, 200, False),
         (body.transcription_max_minutes, "transcription_max_minutes", 5, 480, False),
@@ -512,8 +437,7 @@ async def update_settings(
             )
         db.set_setting(schluessel, str(feld))
 
-    # Aussprache auf der Lernkarte. Leer ist ein gültiger Wert und schaltet den
-    # Lautsprecher ab, deshalb wird die leere Zeichenkette durchgelassen.
+    # Empty is valid and turns the speaker off.
     if body.aia_flashcard_voice_provider_id is not None:
         raw = body.aia_flashcard_voice_provider_id.strip()
         if raw and not raw.isdigit():
@@ -526,8 +450,7 @@ async def update_settings(
     if body.aia_flashcard_voice_id is not None:
         db.set_setting("aia_flashcard_voice_id", body.aia_flashcard_voice_id.strip())
 
-    # Zeichen je Sprachausgabe-Anfrage. Zu groß gewählt läuft jede Anfrage in
-    # den Timeout des Anbieters, zu klein gewählt wird die Aufnahme zerstückelt.
+    # Too large runs into the timeout, too small fragments the recording.
     if body.tts_max_chars_per_request is not None:
         value = body.tts_max_chars_per_request
         if value < 50 or value > 10_000:

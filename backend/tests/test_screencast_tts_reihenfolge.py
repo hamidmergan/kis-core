@@ -1,4 +1,4 @@
-"""Die Vertonung meldet die Folien der Reihe nach fertig, nicht nach Textlaenge."""
+"""The voicing reports slides finished in order, not by text length."""
 
 import asyncio
 import threading
@@ -7,13 +7,13 @@ import time
 from src.services.screencast import generation
 from src.services.screencast.generation import generate_all_tts
 
-# Ein echtes Folienskript ist 1500 bis 2000 Zeichen und zerfaellt in mehrere Stuecke.
+# A real slide script is 1500 to 2000 characters and splits into several pieces.
 LANG = ("Dies ist ein etwas laengerer Satz ueber das Thema der Folie und seine Bedeutung. " * 24).strip()
 KURZ = "Kurz und knapp."
 
 
 class FakeTts:
-    """Antwortet langsam auf lange Stuecke und misst die Gleichzeitigkeit."""
+    """Answers slowly on long pieces and measures the concurrency."""
 
     def __init__(self, dauer_lang: float = 0.05, dauer_kurz: float = 0.002):
         self.dauer_lang = dauer_lang
@@ -45,7 +45,7 @@ def _lauf(scripts, tmp_path, tts=None):
 
 
 def test_lange_folie_meldet_sich_vor_den_kurzen_dahinter(tmp_path):
-    """Heute gewinnen die kurzen Folien, weil die lange ihre Stuecke nacheinander schickt."""
+    """Today the short slides win because the long one sends its pieces one by one."""
     gemeldet, _, _ = _lauf([LANG, KURZ, KURZ], tmp_path)
     assert gemeldet == [0, 1, 2]
 
@@ -61,7 +61,7 @@ def test_folie_ohne_text_haelt_die_reihenfolge_nicht_auf(tmp_path):
 
 
 def test_die_stuecke_einer_folie_laufen_gleichzeitig(tmp_path):
-    """Eine einzige lange Folie muss ihre Stuecke parallel schicken, sonst bleibt sie langsam."""
+    """A single long slide has to send its pieces in parallel, otherwise it stays slow."""
     _, tts, _ = _lauf([LANG], tmp_path)
     assert tts.anfragen > 1, "Testtext muss in mehrere Stuecke zerfallen"
     assert tts.max_gleichzeitig == tts.anfragen
@@ -74,13 +74,13 @@ def test_der_deckel_fuer_gleichzeitige_anfragen_haelt(tmp_path, monkeypatch):
 
 
 def test_die_stuecke_werden_in_textreihenfolge_zusammengesetzt(tmp_path):
-    """Vertauschte Stuecke wuerden den Satzbau der Folie zerreissen."""
+    """Swapped pieces would tear the sentence structure of the slide apart."""
 
     class NummerierendesTts:
         def synthesize_with_timestamps(self, text, language, *, voice_id, speed):
             return {"audio_bytes": text[:8].encode(), "alignment": None}
 
-        # Laengere Stuecke brauchen laenger, damit die Reihenfolge nicht zufaellig stimmt.
+        # Longer pieces take longer so the order is not right by accident.
 
     tts = NummerierendesTts()
     gemeldet: list[int] = []

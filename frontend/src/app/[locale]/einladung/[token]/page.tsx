@@ -1,11 +1,6 @@
 "use client";
 
-/**
- * Die oeffentliche Seite einer Einladung.
- *
- * Absichtlich ohne ProtectedRoute: wer hier landet, hat noch kein Konto. Der
- * Schluessel in der Adresse ist der Ausweis, die Mailadresse steht fest.
- */
+/** The public invitation page, the key in the URL is the credential. */
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
@@ -43,8 +38,7 @@ export default function InvitePage() {
           const d = await r.json();
           setEinladung({ email: d.email, uid: d.uid });
         } else if (r.status === 404 || r.status === 410) {
-          // Nur diese zwei heissen wirklich "gibt es nicht mehr". Alles andere ist
-          // eine Stoerung und darf nicht als abgelaufen ausgegeben werden.
+          // Only these two really mean 'no longer exists'.
           setUngueltig(true);
         } else {
           setLadefehler(true);
@@ -91,7 +85,7 @@ export default function InvitePage() {
         setError(typeof body?.detail === "string" ? body.detail : t("errorGeneric"));
         return;
       }
-      // Harter Sprung, damit das Server-Layout die frische Sitzung liest.
+      // A hard jump so the server layout reads the fresh session.
       window.location.assign("/");
     } catch {
       setError(t("errorGeneric"));

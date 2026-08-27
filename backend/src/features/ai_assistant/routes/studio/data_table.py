@@ -134,7 +134,7 @@ async def rename_data_table(
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    """Den Namen einer Datentabelle aendern."""
+    """Change the name of a data table."""
     user_id = current_user["user_id"]
     workspace = db.get_aia_workspace(workspace_uuid)
     if not workspace:
@@ -144,7 +144,7 @@ async def rename_data_table(
     if not titel:
         raise HTTPException(status_code=400, detail=t("title.empty", locale))
 
-    # Fremde Zeile: 404 statt 403, wie bei der Loeschen-Route darueber.
+    # Someone else's row: 404 instead of 403, as on the delete route above.
     if not db.update_artifact_title("data_table", data_table_id, user_id, workspace["id"], titel):
         raise HTTPException(status_code=404, detail=t("ai.dataTable.notFound", locale))
     return {"ok": True, "title": titel}

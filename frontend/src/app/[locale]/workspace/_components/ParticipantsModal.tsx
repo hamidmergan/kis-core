@@ -21,11 +21,7 @@ interface Props {
   onRolesChanged?: () => void;
 }
 
-/** Who is in this workspace, and who of them is a tutor.
- *
- *  Promoting happens here and nowhere else: the owner picks a person they can
- *  see by name, instead of handing out a link that grants rights to whoever
- *  opens it. Tutors may read this list but not change it. */
+/** Who is in the course and who is a tutor, promoting happens here and for the owner only. */
 export default function ParticipantsModal({ workspaceUuid, onClose, onRolesChanged }: Props) {
   const t = useTranslations("workspace.list");
   const locale = useLocale();

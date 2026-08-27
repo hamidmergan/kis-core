@@ -84,40 +84,24 @@ export function TranscriptPanel({
   mediaRef: React.RefObject<HTMLVideoElement | HTMLAudioElement | null>;
   workspaceUuid: string;
   sourceUuid: string;
-  // Available transcript languages, fetched once by the parent MediaPlayer and passed
-  // down so the langs endpoint is hit a single time per source (not once here too).
-  // null = not loaded yet.
+  // The languages come from the player, null means not loaded yet.
   langInfo: LangInfo | null;
   canManage?: boolean;
   onSaveNote?: (content: string, sourceUuids?: string[], extras?: AddNoteExtras) => void | Promise<void>;
-  // Reports whether the student switched the transcript OFF, so the player can drop its
-  // subtitle tracks: reading along in the video would defeat listening comprehension.
+  // Reports a switched-off transcript so the player drops its tracks.
   onOffChange?: (off: boolean) => void;
-  // The cited segment's start time (set only on a citation-chip jump) and the jump's
-  // nonce, used to pin a navigable "citation highlight" the way the PDF viewer frames
-  // the cited page.
+  // The timestamp of the citation and the id of the jump.
   citationTime?: number;
-  // End of the CITED CHUNK, not of a cue. A chunk runs some 45 seconds and therefore
-  // covers several cues; marking only the cue at citationTime leaves the rest of the
-  // cited passage unmarked, and the sentence the answer rests on is regularly one cue
-  // further down — just past the marking, which reads as "the source does not say it".
+  // The end of the cited chunk, not of a single line.
   citationEndTime?: number;
-  // Anfang des zitierten Chunks. ``citationTime`` ist die beste Vermutung, wo im Chunk die
-  // Aussage faellt, und liegt meist mittendrin: der markierte Abschnitt muss trotzdem am
-  // Chunk-Anfang beginnen, sonst bleibt alles davor unmarkiert.
+  // The start of the chunk, otherwise everything before it stays unmarked.
   citationChunkStart?: number;
-  // The answer text the chip backs up. Used to find the ONE line of the passage that carries
-  // it, so the marking is that line rather than the whole minute the chunk covers.
+  // The backed answer text, used to find the carrying line.
   citationClaim?: string;
   citationNonce?: number;
-  // Reports the start of the line the marking actually sits on, so the player can seek THERE
-  // instead of to the chip's chunk start. Only the panel knows it: the pick needs the cues,
-  // which the player never loads. Called only when that line is not the chunk's first, i.e.
-  // only when the seek would otherwise land in a different paragraph than the marking.
+  // Reports the highlighted line so the player jumps there.
   onCitationFocusTime?: (time: number, nonce?: number) => void;
-  // Beim Hör- und Leseverstehen startet das Transkript ausgeschaltet: wer mitlesen kann,
-  // hört nicht zu. Es ist aber NICHT gesperrt, der Umschalter steht daneben und der
-  // Lernende stellt es wieder an, wenn er will.
+  // In listening comprehension the transcript starts off, but it is not locked.
   startOff?: boolean;
 }) {
   const t = useTranslations("workspace.detail.viewer");
@@ -127,60 +111,42 @@ export function TranscriptPanel({
   const [sourceLang, setSourceLang] = useState<string | null>(null);
   const [targetLang, setTargetLang] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  // Always opens on the original track. Students switch to the translation or the
-  // stacked view in the panel itself. Aus einer Hörübung heraus startet es auf "aus".
+  // Always opens on the original track, coming from a listening exercise it opens off.
   const [mode, setMode] = useState<ViewMode>(startOff ? "off" : "source");
-  // Für die Ladefunktion unten, die sonst die Startvorgabe wieder überschreiben würde.
-  // Als Ref, damit sie nicht wegen einer Prop-Änderung erneut läuft.
+  // As a ref so a prop change does not trigger the loading again.
   const startOffRef = useRef(startOff);
   startOffRef.current = startOff;
-  // Jede neue Aufnahme aus einer Übung fängt wieder ausgeschaltet an. Ohne das würde die
-  // Wahl von der vorigen Aufgabe mitwandern.
+  // Every new recording from an exercise starts switched off again.
   useEffect(() => {
     if (startOff) setMode("off");
   }, [sourceUuid, startOff]);
   const [currentIdx, setCurrentIdx] = useState<number>(-1);
-  // Follow-mode (auto-scroll the transcript to the playing cue) is OFF by default: playback
-  // runs without the list jumping around on every cue change. The user opts in via the
-  // jump-to-current button.
+  // Following along is off by default, the user turns it on.
   const [followCurrent, setFollowCurrent] = useState(false);
   const [jumpHover, setJumpHover] = useState(false);
-  // Pinned citation segment: index of the cue a citation chip jumped to (-1 = none),
-  // whether it is currently scrolled into view, and which way it lies relative to the
-  // viewport (so the jump-back button can point an arrow at it).
+  // The pinned spot, whether it is visible and in which direction it lies.
   const [citationIdx, setCitationIdx] = useState<number>(-1);
-  // Last cue of the cited passage. Only used when NO single line stands out: then the whole
-  // passage is marked, because picking one would be guessing. Equal to citationIdx when the
-  // chunk fits in one cue or when no end is known (older messages carry no end_time).
+  // The last line of the cited spot, only when no single one stands out.
   const [citationEndIdx, setCitationEndIdx] = useState<number>(-1);
-  // Which line INSIDE the passage carries the claim, or -1 when none stands out clearly. It is
-  // both the marked line and the scroll target: centring the passage's first line would put a
-  // claim in the last one back at the bottom edge, which is the whole complaint.
+  // Which line carries the claim, it is highlight and jump target at once.
   const [citationClaimIdx, setCitationClaimIdx] = useState<number>(-1);
-  // ALLE tragenden Zeilen, nicht nur die staerkste. Ein Antwortsatz nennt oft zwei Dinge
-  // aus zwei Momenten; nur eine zu markieren laesst die zweite unmarkiert daneben stehen.
+  // All carrying lines, one answer sentence often names two moments.
   const [citationClaimIdxs, setCitationClaimIdxs] = useState<number[]>([]);
   const [citationInView, setCitationInView] = useState(true);
   const [citationDir, setCitationDir] = useState<"up" | "down">("down");
   const citationNonceRef = useRef<number | undefined>(undefined);
-  // Which source the loaded cues belong to. On a document switch the cues briefly still hold
-  // the OLD source's data; this lets the citation pin ignore those stale cues so it does not
-  // scroll to a wrong position (and burn the one-shot scroll) before the new cues arrive.
+  // Which source the loaded lines belong to, guarding against stale data on a switch.
   const cuesUuidRef = useRef<string | null>(null);
   const [savedCueIdx, setSavedCueIdx] = useState<number | null>(null);
   const [savingCueIdx, setSavingCueIdx] = useState<number | null>(null);
   const [regen, setRegen] = useState<"idle" | "running" | "error">("idle");
   const [regenError, setRegenError] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
-  // Keyed by CUE index and attached to the sentence itself, not to its paragraph: the scroll
-  // and the in-view check must keep landing on the cited sentence now that several of them
-  // share a block.
+  // The anchors hang off the sentence, not off the paragraph.
   const itemRefs = useRef<Record<number, HTMLElement | null>>({});
   const lastScrolledIdx = useRef<number>(-1);
 
-  // Persist a "translation dispatched at" marker so the running state survives
-  // reloads / source switches. Backend Celery task is idempotent, so re-mounting
-  // and resuming the poll is safe even if the task has already finished.
+  // Records the start of a translation so the state survives a reload.
   const regenStorageKey = `kis:transcript-translate:${sourceUuid}`;
   const REGEN_TTL_MS = 10 * 60 * 1000;
 
@@ -189,9 +155,7 @@ export function TranscriptPanel({
 
   useEffect(() => {
     let cancelled = false;
-    // Abort the in-flight VTT requests on a source switch. Without this they keep holding
-    // scarce per-origin browser connections; a few quick switches exhaust the pool and the
-    // whole page freezes while every new request waits for a free slot.
+    // Abort running requests, otherwise the connections run out.
     const ac = new AbortController();
     setLoading(true);
     setCues({});
@@ -199,8 +163,7 @@ export function TranscriptPanel({
     setTargetLang(null);
     cuesUuidRef.current = null; // cues are now stale until this source's transcript loads
 
-    // Languages come from the parent (one shared /transcript/langs fetch). Until they
-    // arrive we stay in loading; once present we pull only the VTT spurs themselves.
+    // The languages come from the player, only the tracks themselves are fetched.
     if (!langInfo) return () => { cancelled = true; ac.abort(); };
     const info = langInfo;
 
@@ -230,16 +193,13 @@ export function TranscriptPanel({
 
       const hasSource = !!(info.source_lang && map[info.source_lang]);
       const hasTarget = !!(info.target_lang && map[info.target_lang] && info.target_lang !== info.source_lang);
-      // The original always wins; the translation is only preselected when there is
-      // no original track at all. Ein aus der Übung heraus ausgeschaltetes Transkript
-      // bleibt aus, sonst schaltet das fertige Laden es hinter dem Rücken wieder an.
+      // The original wins, a switched-off transcript stays off.
       const keep = (next: ViewMode) => (m: ViewMode) =>
         (m === "off" && startOffRef.current ? m : next);
       if (hasSource) setMode(keep("source"));
       else if (hasTarget) setMode(keep("target"));
 
-      // Resume "running" state if a translation was dispatched recently and the
-      // target is still missing — the backend task may still be working.
+      // Reattaches to a running translation job.
       if (!hasTarget && info.target_lang && info.target_lang !== info.source_lang) {
         const tsRaw = typeof window !== "undefined" ? window.localStorage.getItem(regenStorageKey) : null;
         const ts = Number(tsRaw || 0);
@@ -253,21 +213,17 @@ export function TranscriptPanel({
     return () => { cancelled = true; ac.abort(); };
   }, [workspaceUuid, sourceUuid, langInfo, regenStorageKey]);
 
-  // Source-language track is the timing master (identical timestamps to the
-  // translation — both derive from Whisper on the same audio).
+  // The original track sets the times, both come from the same recognition.
   const masterCues = useMemo(() => {
     if (sourceLang && cues[sourceLang]) return cues[sourceLang];
     const first = Object.values(cues)[0];
     return first ?? [];
   }, [cues, sourceLang]);
 
-  // Paragraphs to read, built from the sentence-sized cues the provider returns. The cues stay
-  // the unit of everything that POINTS at the text — the seek, the citation jump, the playing
-  // marker — and a block only decides where the paragraph breaks are. See groupCues.
+  // Paragraphs for reading, the lines stay the unit for everything that points.
   const blocks = useMemo(() => groupCues(masterCues), [masterCues]);
 
-  // The whole recording, both tracks, one entry per cue. It is the yardstick for how common a
-  // word is HERE, which is what decides whether that word may point at a line further down.
+  // The whole recording as the yardstick for how common a word is here.
   const claimCorpus = useMemo(() => {
     const src = sourceLang ? cues[sourceLang] : undefined;
     const tgt = targetLang ? cues[targetLang] : undefined;
@@ -277,9 +233,7 @@ export function TranscriptPanel({
     return out;
   }, [cues, sourceLang, targetLang]);
 
-  // The line the marking is actually on: the claim line when one was found, else the start of
-  // the span. Everything that points AT the marking uses this — the scroll, the jump-back
-  // button and its timestamp — so the button always names the place it takes you to.
+  // The highlighted line, everything pointing at it uses this value.
   const citationFocusIdx = citationClaimIdx >= 0 ? citationClaimIdx : citationIdx;
 
   // Drive currentIdx from the media element's time updates.
@@ -318,54 +272,28 @@ export function TranscriptPanel({
       el.scrollIntoView({ block: "center", behavior: isJump ? "instant" : "smooth" });
       lastScrolledIdx.current = currentIdx;
     }
-    // `mode` is a dep (unused in the body) because the list this scrolls unmounts entirely
-    // in "off" mode: coming back needs a fresh re-centre against the newly mounted list.
+    // The list is unmounted in off mode, coming back needs a fresh centring.
   }, [currentIdx, followCurrent, mode]);
 
   // A new source clears any pinned citation before its cues load.
   useEffect(() => { setCitationIdx(-1); }, [sourceUuid]);
 
-  // Pin the cited segment and scroll to it once per jump.
-  //
-  // The MARK (setCitationIdx) runs UNCONDITIONALLY whenever there is a citation time and the
-  // cues are loaded — no consumable guard in front of it — so it can never be "eaten": it
-  // re-pins on the FIRST click even when the media is already open, and re-pins the same chip
-  // after a dismiss (the nonce is a dep, so an identical re-click still re-evaluates).
-  //
-  // The SCROLL is gated to once per jump via the nonce ref, but uses the LOCALLY computed
-  // `idx` — never the `citationIdx` state, which lags a render behind and previously made the
-  // scroll race to a stale/old cue (e.g. jumping to the top) while consuming the nonce.
-  //
-  // In "off" mode the cue list is unmounted, so there is nothing to scroll: the nonce is left
-  // UNconsumed (guarded by `mode !== "off"`, not just the optional-chained scrollIntoView,
-  // which would silently no-op and burn the one-shot). `mode` is a dep so switching the
-  // transcript back on re-runs this and the deferred scroll finally lands.
+  // The highlight is always set, the scrolling exactly once per jump.
   useEffect(() => {
-    // Ignore cues that still belong to the previous source (mid document-switch): acting on
-    // them would scroll to the wrong place and consume the one-shot scroll before the new
-    // cues load. We act once the loaded cues match the current source.
+    // Ignore lines of the previous source, otherwise it jumps to the wrong place.
     if (cuesUuidRef.current !== sourceUuid) return;
     if (citationTime == null || masterCues.length === 0) {
       setCitationIdx(-1); setCitationEndIdx(-1); setCitationClaimIdx(-1);
       setCitationClaimIdxs([]);
       return;
     }
-    // One resolver for the pin, the scroll and the play head. Both language tracks go into
-    // the line comparison (claimCorpus), so a German answer still finds its line when the
-    // lecture is English and only the translation shares its wording. Computed HERE, not in
-    // a memo, because the scroll below needs it in the same pass — a memo would still hold
-    // the previous jump's value.
+    // One resolver for highlight, jump and play head, here instead of in a memo.
     const focus = resolveCitationFocus(masterCues, citationTime, citationEndTime, citationClaim, claimCorpus, citationChunkStart);
     setCitationIdx(focus.idx);
     setCitationEndIdx(focus.endIdx);
     setCitationClaimIdx(focus.claimIdx);
     setCitationClaimIdxs(focus.claimIdxs);
-    // Steht eine tragende Zeile fest, spielt der Player von DORT, nicht von der Zeitmarke des
-    // Chips. Verglichen wird gegen `citationTime`, nicht gegen `focus.idx`: der ist seit der
-    // Verbreiterung der Chunk-Anfang, waehrend der Player von der Zeitmarke ausgeht. Ohne
-    // tragende Zeile bleibt es bei der Zeitmarke, unserer besten Vermutung. NOT gated on
-    // `mode`: with the transcript switched off there is no marking to see, but the sentence
-    // to play is still that one.
+    // Once a carrying line is fixed, the player starts from there.
     if (focus.claimIdx >= 0 && focus.focusTime != null
         && Math.abs(focus.focusTime - citationTime) > 0.05) {
       onCitationFocusTime?.(focus.focusTime, citationNonce);
@@ -379,9 +307,7 @@ export function TranscriptPanel({
     }
   }, [citationNonce, citationTime, citationEndTime, citationChunkStart, citationClaim, masterCues, claimCorpus, sourceUuid, mode, onCitationFocusTime]);
 
-  // Track whether the pinned cue is on-screen so the jump-back button only shows once
-  // it has scrolled out of view (like the PDF jump button appearing after you page away).
-  // Programmatic follow-scrolls fire scroll events too, so this stays in sync with both.
+  // The back button only appears when the highlight is out of view.
   useEffect(() => {
     if (citationFocusIdx < 0) { setCitationInView(true); return; }
     const list = listRef.current;
@@ -398,9 +324,7 @@ export function TranscriptPanel({
     check();
     list.addEventListener("scroll", check, { passive: true });
     return () => list.removeEventListener("scroll", check);
-    // `mode` is a dep (unused in the body) because the list unmounts entirely in "off" mode:
-    // its scroll listener goes with it, and coming back needs a fresh listener on the new list
-    // plus a re-check, or `citationInView` would stay frozen at whatever it last was.
+    // In off mode the observer goes with the list, coming back needs a new one.
   }, [citationFocusIdx, mode]);
 
   // User-initiated scroll disables follow mode until jump button is pressed.
@@ -424,11 +348,7 @@ export function TranscriptPanel({
     setFollowCurrent(true);
   };
 
-  // Push the off-state up so the player can drop its <track> elements in lockstep. Gated on
-  // an actual boolean transition (not just a dep-array change) because `onOffChange` is a
-  // caller-supplied prop of unknown stability: an inline arrow re-fires this every render, and
-  // if the caller stores the flag non-primitively (e.g. into an array or object) that produces
-  // a new reference each time and never bails out on its own, i.e. an infinite render loop.
+  // Report only on a real change, otherwise an endless loop looms.
   const lastOffReportedRef = useRef<boolean | null>(null);
   useEffect(() => {
     const off = mode === "off";
@@ -437,16 +357,14 @@ export function TranscriptPanel({
     onOffChange?.(off);
   }, [mode, onOffChange]);
 
-  // Jump back to the pinned citation: ONLY scroll the transcript to the marking. The play
-  // head and ongoing playback are left exactly where they are — no seek, no pause, no play.
+  // The jump back only scrolls, the playback stays untouched.
   const jumpToCitation = () => {
     if (citationFocusIdx < 0) return;
     // Same target as the original jump, so pressing the button twice never lands differently.
     itemRefs.current[citationFocusIdx]?.scrollIntoView({ block: "center", behavior: "smooth" });
   };
 
-  // Drop the pin AND the cited chip's yellow border in lockstep, exactly like the PDF
-  // viewer's dismiss button (clearActiveChipTarget), so the chat chip stops looking active.
+  // Highlight and chip frame go away together.
   const dismissCitation = () => {
     setCitationIdx(-1); setCitationEndIdx(-1); setCitationClaimIdx(-1); setCitationClaimIdxs([]);
     clearActiveChipTarget();
@@ -480,8 +398,7 @@ export function TranscriptPanel({
           clearInterval(timer);
           if (typeof window !== "undefined") window.localStorage.removeItem(regenStorageKey);
           setCues((prev) => ({ ...prev, [targetLang]: parsed }));
-          // A finished translation reveals both spurs — unless the student deliberately
-          // switched the transcript off, in which case yanking it back on would be rude.
+          // A finished translation shows both tracks, unless the transcript is off.
           if (sourceLang && cues[sourceLang]) setMode((m) => (m === "off" ? m : "both"));
           setRegen("idle");
         }
@@ -514,7 +431,7 @@ export function TranscriptPanel({
     }
   };
 
-  // Ein Klick spielt immer ab der Zeitmarke der Karte, egal wo in der Karte er landet.
+  // A click always plays from the card's timestamp, wherever in the card it lands.
   const onBlockClick = (start: number) => {
     const media = mediaRef.current;
     if (!media) return;
@@ -535,8 +452,7 @@ export function TranscriptPanel({
     return parts.join(" ");
   };
 
-  // Saving takes the whole paragraph, which is the unit on screen. Keyed by the block's
-  // first cue index so the button state keeps working off one number.
+  // The whole paragraph is saved, named after its first line.
   const onSaveBlock = async (from: number, to: number) => {
     if (!onSaveNote || savingCueIdx !== null) return;
     const master = masterCues[from];
@@ -575,8 +491,7 @@ export function TranscriptPanel({
   const targetCues = targetLang ? cues[targetLang] : undefined;
   if (!sourceCues && !targetCues) return null;
 
-  // A target spur only counts as its own entry when it is a different language than the
-  // original (same-language "translations" would just duplicate the source track).
+  // A target track only counts when it has a different language.
   const hasSourceTrack = !!sourceCues;
   const hasTargetTrack = !!targetCues && sourceLang !== targetLang;
   const showSource = (mode === "source" || mode === "both") && !!sourceCues;
@@ -676,27 +591,15 @@ export function TranscriptPanel({
       {mode !== "off" && (
       <div ref={listRef} className="flex-1 overflow-y-auto px-4 py-3">
         {blocks.map((b) => {
-          // The paragraph the play head is in. The sentence itself is marked inside it (bold),
-          // so grouping does not cost the "where am I" resolution the cues gave us.
+          // The running paragraph, the sentence inside it stays separately emphasised.
           const isCurrent = currentIdx >= b.from && currentIdx <= b.to;
           const isPast = currentIdx >= 0 && b.to < currentIdx;
           const citationTint = "var(--cite-bg)";  // dezentes CD-Blau, abgesetzt vom Panel-Hintergrund
-          // The marking is the paragraph's BACKGROUND, a filled surface. It once sat on the
-          // sentences themselves, which is more precise on paper and unreadable in practice: an
-          // inline span only paints the boxes around its glyphs, so a wrapped sentence came out
-          // as stripes with gaps between the lines and ragged ends.
-          //
-          // ONE marking, never two shades of it. Markiert werden die Absaetze, auf denen der
-          // Antwortsatz ruht — meist einer, bei einem Satz aus zwei Momenten beide (siehe
-          // claimLineIndices). Der Rest des Chunks ist Implementierungsdetail, nach dem der
-          // Leser nie gefragt hat. Sticht KEINE Zeile heraus, wird der ganze Abschnitt
-          // markiert, weil eine geratene Zeile neben dem belegenden Satz landet und sich das
-          // liest, als stuende er nicht in der Quelle.
+          // The paragraph area is highlighted, and only one shade.
           const hasCitation = citationClaimIdxs.length > 0
             ? citationClaimIdxs.some((i) => i >= b.from && i <= b.to)
             : citationIdx >= 0 && b.from <= citationEndIdx && b.to >= citationIdx;
-          // Only ONE of the two tracks may own the scroll anchors, or the second would
-          // overwrite the first and the citation jump would land on the wrong track's line.
+          // Only one of the two tracks carries the scroll anchors.
           const anchorTrack = showSource ? sourceLang : targetLang;
 
           const sentences = (lang: string | null, italic: boolean) => {
@@ -730,14 +633,11 @@ export function TranscriptPanel({
                 className="px-3 py-2 rounded-md cursor-pointer transition-colors"
                 onClick={() => onBlockClick(b.start)}
                 style={{
-                  // Die Markierung gewinnt IMMER den Hintergrund, damit sie sichtbar bleibt,
-                  // waehrend derselbe Absaetz gerade laeuft. Sie ist die kraeftigere Toenung,
-                  // der laufende Absatz die blassere plus Rahmen.
+                  // The highlight always wins the background.
                   backgroundColor: hasCitation
                     ? citationTint
                     : isCurrent ? "rgba(var(--kb-rgb), 0.12)" : "transparent",
-                  // Der laufende Absatz bekommt rundum den blauen Rahmen und links den dickeren
-                  // Streifen. Die Markierung traegt nur die Flaeche, ohne eigenen Streifen.
+                  // The running paragraph gets the frame, the highlight only the area.
                   border: isCurrent ? "2px solid var(--kb)" : "2px solid transparent",
                   borderLeft: isCurrent ? "3px solid var(--kb)" : "3px solid transparent",
                 }}

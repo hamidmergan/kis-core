@@ -1,15 +1,4 @@
-"""Every upload route streams its body to disk instead of buffering it.
-
-The shared helper (test_tool_upload_streaming.py) and the STT route
-(test_transcription_upload_stream.py) were covered first, which left a hole:
-nothing noticed if *these* routes went back to ``await file.read()``. Verified
-by mutation — reverting any one route below turns its case red.
-
-Each case drives the real route function with an upload that refuses an
-unbounded read, then checks the bytes that reached storage are exactly the bytes
-sent (nothing truncated by the chunk loop, nothing lost on the way to the job
-folder).
-"""
+"""Every upload route streams its body to disk."""
 import asyncio
 from io import BytesIO
 

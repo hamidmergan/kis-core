@@ -88,7 +88,7 @@ export default function ToolsSidebar() {
     try { localStorage.setItem(STORAGE_KEY, next ? "1" : "0"); } catch { /* ignore */ }
   }
 
-  // Unter 1024px deckt die offene Leiste die ganze Seite ab, nach der Wahl eines Werkzeugs klappt sie darum wieder zu.
+  // Below 1024px the open sidebar covers the whole page, so it closes after picking a tool.
   function closeOnSmallScreen() {
     if (isLarge) return;
     setUserPref(true);

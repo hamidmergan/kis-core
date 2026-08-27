@@ -7,12 +7,7 @@ from src import database as db
 
 @celery_app.task(bind=True, name="aia.reindex_all_sources", queue="aia")
 def run_reindex_all_sources(self):
-    """Re-embed all existing KI-Assistent chunks with the current embedding provider.
-
-    Triggered by admin after an embedding-model change. Preserves source UUIDs,
-    file paths, chunk IDs and page numbers - so chips/notes/tools stay intact.
-    Only the embedding vectors are replaced.
-    """
+    """Re-embeds all existing chunks with the current provider."""
     import json as _json
     from src.services.aia_embeddings import get_embedding_provider, compute_fingerprint
 

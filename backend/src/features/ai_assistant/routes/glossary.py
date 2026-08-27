@@ -86,7 +86,7 @@ async def delete_all_glossary_endpoint(
     return {"ok": True, "deleted": count}
 
 
-# ─── Glossary: Aus Markierung extrahieren ─────────────────────────────────────
+# ─── Glossary: extract from a selection ───────────────────────────────────────
 
 _GLOSSARY_SINGLE_PROMPT = """You are a language expert for international students. Write the definitions at B1 level BY DEFAULT. If an adaptive block at the very end of this prompt names the learner's CEFR level, write the definitions at THAT level instead of B1. The user has manually selected ONE specific term/phrase to add to their glossary.
 
@@ -142,15 +142,7 @@ Rules:
 
 
 def _base_form(raw: str | None, term: str) -> str:
-    """The learner-facing base form (Grundform / lemma) for a marked glossary term.
-
-    Returns the stripped base form only when it is present AND actually differs
-    from the marked word (case-insensitive): an inflected verb or declined noun is
-    worth showing ("läuft" -> "laufen"), an already-base-form or unchanged word
-    would just be noise, so it collapses to "". Multi-word phrases the model can't
-    lemmatise come back empty from the model and stay empty here. Kept as a tiny
-    pure helper so the guard is unit-testable without the route's DB/LLM deps.
-    """
+    """The base form of a marked term, empty when it does not differ."""
     bf = (raw or "").strip()
     if not bf or bf.lower() == (term or "").strip().lower():
         return ""
@@ -158,14 +150,7 @@ def _base_form(raw: str | None, term: str) -> str:
 
 
 def _glossary_system_prompt(is_single_term: bool, adaptive_suffix: str = "") -> str:
-    """The glossary-creation system prompt, level-adapted for this learner.
-
-    The base prompt writes definitions at B1 by default. ``adaptive_suffix`` is
-    the appendix from :func:`build_adaptive_tool_suffix`: empty when the learner
-    has no stored CEFR level (so B1 stands), otherwise a block that overrides the
-    B1 default with the learner's own level. Kept as a tiny pure helper so the
-    adaptation is unit-testable without the route's DB/LLM dependencies.
-    """
+    """The glossary prompt, extended by the learner's level block."""
     base = _GLOSSARY_SINGLE_PROMPT if is_single_term else _GLOSSARY_EXTRACT_PROMPT
     return base + adaptive_suffix
 
@@ -202,9 +187,7 @@ async def extract_glossary_from_selection(
     if not text:
         return {"added": 0, "message": t("ai.glossary.noTextSelected", locale)}
 
-    # Find the source. It must belong to this workspace, otherwise a foreign
-    # source_uuid would let a user attach glossary entries (bulk_create_glossary_entries
-    # keys on source["id"]) to another workspace's source.
+    # The source must belong to this course room, otherwise you reach into someone else's.
     source = db.get_aia_source(body.source_uuid)
     if not source or source["workspace_id"] != workspace["id"]:
         raise HTTPException(status_code=404, detail=t("source.notFound", locale))
@@ -213,25 +196,16 @@ async def extract_glossary_from_selection(
     existing = db.get_aia_glossary_by_workspace(workspace["id"], user_id)
     existing_terms = {e["term_de"].lower() for e in existing}
 
-    # Short selections (single term / short phrase) → take the marked text verbatim,
-    # ask LLM only for translation/definition. Avoids the LLM splitting compounds
-    # like "Prüfungsleistung" into "Prüfung" + "Leistung" + "Prüfungsleistung".
+    # Take a short selection verbatim, otherwise the model splits compound words.
     tokens = [w for w in re.split(r"\s+", text) if w]
     is_single_term_selection = len(tokens) <= 3 and len(text) <= 60
 
-    # Write the definition at the learner's CEFR level when they have one; empty
-    # string falls back to the prompt's B1 default. The glossary is private per
-    # user, so the level is known here and the stored definition is theirs.
-    # Gated on the workspace like every other adaptive path: the level is stored
-    # globally per user, so without the workspace_id one diagnosis would pitch
-    # definitions in workspaces where the Fachsprachentrainer is switched off.
+    # Definition at the learner's level, gated on the course room like every adaptive path.
     adaptive_suffix = build_adaptive_tool_suffix(user_id, workspace["id"])
 
     try:
         if is_single_term_selection:
-            # Ground the definition in how the term is used on its page, not the bare
-            # word: a 1-2 word mark ("Wissenschaftliches Seminar") carries no context on
-            # its own, so the model would fall back to a generic dictionary definition.
+            # The definition is anchored in the page context instead of the bare word.
             context = _context_snippet(db.get_page_text(source["id"], body.page_number), text)
             user_content = f"Markierter Begriff: {text}"
             if context:

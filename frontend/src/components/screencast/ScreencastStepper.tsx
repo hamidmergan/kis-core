@@ -106,7 +106,7 @@ export default function ScreencastStepper({
     };
   }, [messen, step]);
 
-  /** Ein Klick schiebt um eine Schrittbreite, gemessen am ersten Eintrag. */
+  /** A click moves by one step width, measured on the first entry. */
   const schieben = useCallback((richtung: -1 | 1) => {
     const el = containerRef.current;
     if (!el) return;
@@ -145,7 +145,7 @@ export default function ScreencastStepper({
             const isActive = i === currentIdx;
             const isClickable = !isActive && istErreichbar(i, maxReachedIdx, skipTranslation, step, hatErgebnis);
             const istTot = !isActive && nieBetretbar(i, skipTranslation);
-            // Nur betretbare Schritte sind ein Knopf, tote sind ein span und damit auch fuer Tastatur und Vorleseprogramm still.
+            // Only enterable steps are a button, dead ones are a span and thus silent for keyboard and screen reader.
             const Huelle = isClickable ? "button" : "span";
             return (
               <li key={stepKey} data-active={isActive} className="flex items-center gap-1 sm:gap-2">

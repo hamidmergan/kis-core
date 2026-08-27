@@ -9,8 +9,7 @@ export const WS =
 export async function openWorkspace(page: Page): Promise<void> {
   await page.goto(WS, { waitUntil: "domcontentloaded" });
   await page.waitForSelector("textarea", { timeout: 30_000 });
-  // Sources default-select asynchronously after hydration; give them a beat so
-  // the send button (disabled while no source is active) becomes usable.
+  // The sources are only ticked after the layout settles, so wait briefly.
   await page.waitForTimeout(2_500);
 }
 
@@ -21,13 +20,7 @@ export async function ask(page: Page, question: string): Promise<void> {
   await ta.press("Enter");
 }
 
-/**
- * Ask a question and return a locator scoped to the NEW assistant message.
- *
- * The conversation is persisted per (workspace, user), so the panel shows prior
- * answers too. We anchor on the just-created assistant bubble (count grows by
- * one) instead of ".first()" — otherwise assertions hit stale historical chips.
- */
+/** Asks a question and returns exactly the new answer bubble. */
 export async function askAndGetAnswer(page: Page, question: string): Promise<Locator> {
   const answers = page.locator('[data-testid="assistant-message"]');
   const before = await answers.count();
@@ -41,17 +34,7 @@ export function chipsIn(answer: Locator, suffix = ""): Locator {
   return answer.locator(`.chip-cite${suffix}`);
 }
 
-/**
- * Open every citation stop in the answer, so its chips become visible and clickable.
- *
- * Chips sit in the layout at all times but stay `visibility: hidden` until their stop
- * opens — that is what keeps a hover from re-wrapping the paragraph. A test therefore has
- * to open the stops first: hovering would only hold while the pointer stays, so we CLICK
- * each mark, which pins the stop and survives the re-renders of a running stream.
- *
- * A closed mark carries aria-label "+N", an open one "−N", so the loop ends by itself and
- * also catches stops that only appear later while the answer is still being written.
- */
+/** Expands every chip position of the answer so the chips become clickable. */
 export async function revealChipsIn(answer: Locator, timeout = 90_000): Promise<void> {
   await expect(answer.locator(".chip-toggle").first()).toBeVisible({ timeout });
   const closed = answer.locator('.chip-toggle[aria-label^="+"]');
@@ -69,14 +52,9 @@ export async function waitForChipIn(answer: Locator): Promise<Locator> {
   return chip;
 }
 
-/**
- * Restrict the active source set to exactly one source, matched by a substring
- * of its filename. Deselects everything first, then ticks the matching row.
- */
+/** Narrows the active sources down to exactly one. */
 export async function selectOnlySourceByName(page: Page, namePart: string): Promise<void> {
-  // A ticked checkbox renders a Check icon; clear the current selection by
-  // toggling every ticked box off (robust + language-agnostic, unlike relying
-  // on the translated "Deselect all" label).
+  // Untick everything instead of relying on a translated label.
   const ticked = page.locator("button.source-checkbox:has(svg)");
   for (let guard = 0; (await ticked.count()) > 0 && guard < 20; guard++) {
     await ticked.first().click();
@@ -89,14 +67,7 @@ export async function selectOnlySourceByName(page: Page, namePart: string): Prom
   await expect(page.locator("button.source-checkbox:has(svg)")).toHaveCount(1);
 }
 
-/**
- * Count citation text-highlight rects inside the EmbedPDF shadow DOM. A citation
- * highlight is a yellow fill in the brand highlight colour (#FFE14D = rgb(255,225,77));
- * we match THAT colour specifically, not "any absolutely-positioned background", so the
- * PDF page/text-layer backgrounds (also absolute) are not miscounted. With chat citations
- * now nav-only, a chip click navigates but draws no such fill, so this stays 0; only the
- * user's own popup/action-bar selection produces a highlight.
- */
+/** Counts the yellow highlights in the PDF, chips highlight nothing. */
 export async function highlightRectCount(page: Page): Promise<number> {
   return page.evaluate(() => {
     const host = document.querySelector("embedpdf-container") as Element | null;

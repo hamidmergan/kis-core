@@ -1,21 +1,11 @@
-"""Zahlen zu den Modellen: wie viele Anfragen, wie viele Tokens.
-
-Die Quelle ist `aia_llm_usage_log`. Sie wird seit jeher geschrieben und war bis
-hierher nie gelesen worden. Die Tokenzahlen kommen vom Anbieter selbst und nicht
-aus einer Schaetzung: der Chat fragt sie mit ``stream_options`` an. Modelle ohne
-Tokens stehen nicht in der Liste.
-
-Eine Einschraenkung, die man im Kopf behalten muss: heute schreibt nur der Chat
-mit. Vor-Calls, Belege, Uebungen, Einlesen, Transkription und Vertonung fehlen,
-bis dieselbe Zeile auch an ihren Aufrufstellen steht.
-"""
+"""Model numbers from the usage log, so far only the chat writes to it."""
 from psycopg2.extras import RealDictCursor
 
 from src.core.db.pool import get_connection
 
 
 def model_usage(days: int | None = None) -> dict:
-    """Anfragen und Tokens, wahlweise nur die letzten N Tage."""
+    """Requests and tokens, optionally only the last N days."""
     wo = "WHERE ts >= NOW() - (%s || ' days')::interval" if days else ""
     args = (days,) if days else ()
     with get_connection() as conn:
@@ -57,7 +47,7 @@ def _per_month(cur, wo: str, args: tuple) -> list[dict]:
 
 
 def _per_model(cur, wo: str, args: tuple) -> list[dict]:
-    """Je Modell, ohne die ohne Tokens: Whisper und die Vertonung rechnen keine."""
+    """Per model, excluding those without tokens: Whisper and speech count none."""
     cur.execute(
         f"""SELECT COALESCE(model, 'unbekannt') AS modell,
                    COALESCE(provider, 'unbekannt') AS anbieter,
@@ -81,8 +71,7 @@ def _per_model(cur, wo: str, args: tuple) -> list[dict]:
 
 
 def _endpoints(cur, wo: str, args: tuple) -> list[dict]:
-    """Woher die Anfragen kommen. Solange hier nur `chat` steht, ist die Luecke
-    aus dem Modulkopf noch offen, und die Oberflaeche kann das sagen."""
+    """Where the requests come from, while only 'chat' shows up the gap is still open."""
     cur.execute(
         f"""SELECT endpoint, COUNT(*) AS anfragen
             FROM aia_llm_usage_log {wo}

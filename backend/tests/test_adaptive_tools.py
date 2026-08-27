@@ -1,11 +1,4 @@
-"""Tests for the adaptive language level of the generated study tools.
-
-Two layers:
-* the pure ``adaptive_tool_appendix`` builder and the DB-backed
-  ``build_adaptive_tool_suffix`` (mirrors the chat's ``test_adaptive_chat``);
-* the wiring proof that each tool builder actually appends the suffix to the
-  system prompt it sends to the model (with a fake client, no DB, no network).
-"""
+"""Checks the level adaptation of the learning tools, component and wiring."""
 
 import json
 import types
@@ -24,8 +17,7 @@ MARKER = "\n\nADAPT-MARKER: pitch this at level A1."
 
 
 def _make_client(content):
-    """Minimal OpenAI-client stand-in: records the messages of every call and
-    always returns ``content`` as the completion."""
+    """A stub client that records the messages and always returns the same thing."""
     calls = []
 
     def create(model, messages, **kwargs):
@@ -79,13 +71,10 @@ def test_default_behavior_carries_both_placeholders():
 
 
 def test_default_behavior_overrides_covers_bands_and_guards_format():
-    """The default must override the tool's own register rules, give a rule for
-    every band, keep a consistent informal address, and -- unlike the chat
-    version -- forbid changing the item count / JSON / correct answer."""
+    """The default overrides the tool rules but never changes count or solution."""
     b = DEFAULT_ADAPTIVE_TOOL_BEHAVIOR
     assert "OVERRIDES" in b
-    # Die Stufen kommen aus der Stufen-Leiter, der Text nennt sie nur noch ueber
-    # den Platzhalter. Die eigene A1/A2..C1/C2-Liste ist bewusst raus.
+    # The levels come from the ladder, the text only names the placeholder.
     from src.services.aia_adaptive_tools import DESCRIPTION_PLACEHOLDER
     assert DESCRIPTION_PLACEHOLDER in b
     assert "C1 or C2" in b
@@ -131,11 +120,7 @@ def test_build_suffix_reads_admin_behavior_override(monkeypatch):
 
 
 def test_build_suffix_is_gated_on_the_trainer_when_a_workspace_is_given(monkeypatch):
-    """Same gate the chat uses, and it has two halves. The CEFR level is stored per
-    user, so without the workspace half a learner in a workspace whose owner never
-    released the Sprachtrainer would still get level-pitched cards while the chat
-    answers plainly. Without the personal half, someone who switched the trainer off
-    for themselves would keep getting them."""
+    """The same gate as in the chat, with its two halves course and learner."""
     monkeypatch.setattr("src.database.get_user_language_level", lambda uid: {"language_level": "A1"})
     monkeypatch.setattr("src.database.get_setting", lambda k, d="": d)
     monkeypatch.setattr(
@@ -157,8 +142,7 @@ def test_build_suffix_is_gated_on_the_trainer_when_a_workspace_is_given(monkeypa
 
 
 def test_build_suffix_without_a_workspace_stays_ungated(monkeypatch):
-    # Older queued tasks carry no workspace; they must keep working rather than
-    # silently losing the adaptation.
+    # Older queued jobs carry no course room and have to keep running.
     monkeypatch.setattr("src.database.get_user_language_level", lambda uid: {"language_level": "A1"})
     monkeypatch.setattr("src.database.get_setting", lambda k, d="": d)
 
@@ -191,7 +175,7 @@ def test_flashcards_empty_suffix_is_noop(monkeypatch):
     content = json.dumps({"title": "T", "cards": [{"begriff": "X", "definition": "Y"}]})
     client, calls = _make_client(content)
     ctx = types.SimpleNamespace(source_hint="Quelle", context="ctx", multi_label="T")
-    # Die Sprache kommt jetzt vom Auftrag herein, nicht aus einer Konstante im Generator.
+    # The language now comes in with the job, not from a constant in the generator.
     mod.generate_flashcards_from_source(client, "m", ctx, 1, locale="de",
                                         language="German", adaptive_suffix="")
     expected = AIA_LERNKARTEN_PROMPT.replace("{count}", "1").replace("{language}", "German")
@@ -200,8 +184,7 @@ def test_flashcards_empty_suffix_is_noop(monkeypatch):
 
 
 def test_flashcards_carry_grammar_extras(monkeypatch):
-    """word_class / singular / plural from the model land in the card's extras,
-    so the frontend can show the Einzahl/Mehrzahl block."""
+    """Word class and forms from the model end up in the card's extras."""
     from src.features.ai_assistant.tasks.language_training import _source_flashcards as mod
     monkeypatch.setattr(mod, "attach_chips", lambda *a, **k: None)
     content = json.dumps({"title": "T", "cards": [{
@@ -243,8 +226,7 @@ def test_quiz_system_prompt_carries_suffix(monkeypatch):
 
 
 def test_quiz_handles_both_question_and_gap_items(monkeypatch):
-    """The standalone Lückentext tool is gone; the quiz produces comprehension
-    questions AND gap sentences, and both must land in the same item shape."""
+    """The quiz delivers questions and gapped sentences in the same exercise shape."""
     from src.features.ai_assistant.tasks.language_training import _source_mc as mod
     monkeypatch.setattr(mod, "attach_chips", lambda *a, **k: None)
     content = json.dumps({"title": "T", "exercises": [
@@ -279,12 +261,7 @@ def test_quiz_skips_items_with_a_broken_answer_index(monkeypatch):
 # --- wiring: the glossary route gates on the workspace ----------------------
 
 def test_glossary_extract_passes_the_workspace_to_the_gate(monkeypatch):
-    """The route must hand the workspace to build_adaptive_tool_suffix.
-
-    Without it the gate is skipped and one diagnosis pitches definitions in every
-    workspace, including those where the Fachsprachentrainer is switched off, while
-    the chat in that same workspace answers plainly.
-    """
+    """The route has to pass the course room, otherwise the gate falls away."""
     import asyncio
     import types as _types
     from src.features.ai_assistant.routes import glossary as mod
@@ -320,7 +297,7 @@ def test_glossary_extract_passes_the_workspace_to_the_gate(monkeypatch):
     assert seen["args"] == (7, 42)
 
 
-# ─── Stufen-Leiter: die Beschreibung kommt aus der Karte ─────────────────────
+# ─── Level ladder: the description comes from the ladder ─────────────────────
 
 def test_tool_appendix_substitutes_the_description():
     from src.services.aia_adaptive_tools import adaptive_tool_appendix
@@ -346,5 +323,5 @@ def test_tool_default_no_longer_carries_its_own_band_list():
     assert "- B1:" not in b
     assert "- B2:" not in b
     assert "- C1 or C2:" not in b
-    # Die Formatregel bleibt, sie ist der eigentliche Wert dieses Textes.
+    # The format rule stays, it is the real value of this text.
     assert "DO NOT change the requested number of items" in b

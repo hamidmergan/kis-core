@@ -2,12 +2,12 @@ import path from "node:path";
 
 import { expect, test } from "@playwright/test";
 
-/** Der Haken in den Einstellungen muss die Untertitel-Wahl mitschicken. */
+/** The checkbox in the settings has to send the subtitle choice along. */
 test("Einstellungen haben einen Haken fuer Untertitel", async ({ page }) => {
   test.setTimeout(180_000);
 
   let gesendet: Record<string, unknown> | null = null;
-  // Der Auftrag wird abgefangen, sonst liefe ein echter Render los.
+  // The job is intercepted, otherwise a real render would start.
   await page.route("**/api/screencast/render", async (route) => {
     gesendet = route.request().postDataJSON();
     await route.fulfill({ status: 409, contentType: "application/json", body: JSON.stringify({ detail: "Test" }) });
@@ -15,7 +15,7 @@ test("Einstellungen haben einen Haken fuer Untertitel", async ({ page }) => {
 
   await page.goto("/de/tools/screencast", { waitUntil: "domcontentloaded" });
 
-  // Ein offener Screencast sperrt den Hochladen-Schritt, also erst aufraeumen.
+  // An open screencast blocks the upload step, so clean up first.
   const liste = await (await page.request.get("/api/jobs/my?limit=50")).json();
   for (const job of liste.jobs ?? []) {
     if (String(job.tool ?? "").startsWith("screencast") &&

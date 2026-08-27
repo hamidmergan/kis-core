@@ -1,15 +1,8 @@
-"""File-upload validation helpers.
-
-Beyond filename-suffix and Content-Length checks, we sniff the actual
-magic bytes via the pure-python `filetype` lib to guard against renamed
-binaries (`evil.exe` → `evil.pdf`). Pure-text formats have no signature,
-so they fall back to a UTF-8 decode probe of the first 8 KiB.
-"""
+"""Validates uploads by extension, size and the actual leading bytes."""
 
 import filetype
 
-# Hier ungenutzt, aber acht Routen holen sich diese Grenzen von hier statt aus
-# src.limits. Die Zeile sieht deshalb wie ein toter Import aus und ist keiner.
+# Unused here, but eight routes take these limits from here.
 from src.limits import (  # noqa: F401
     MAX_SCREENCAST_SLIDES,
     MAX_TRANSCRIPTION_BYTES,
@@ -71,9 +64,7 @@ SUMMARY_EXTENSIONS = {
 # Text formats have no signature - we accept them after a UTF-8 decode probe.
 _TEXT_EXTS = {".md", ".txt", ".tex", ".srt", ".vtt"}
 
-# Map of allowed extension -> set of detected `filetype` extensions that count
-# as a match. Office formats are zip-based, so `zip` is accepted as a fallback
-# alongside the specific OOXML signature.
+# Which detected types match which extension, office formats also as zip.
 _EXT_TO_DETECTED: dict[str, set[str]] = {
     ".pdf":  {"pdf"},
     ".docx": {"docx", "zip"},
@@ -103,11 +94,7 @@ class TextNotUtf8(ValueError):
 
 
 def validate_or_raise(content: bytes, ext: str, locale: str = "de") -> None:
-    """Validate content and raise HTTP 400 with localized detail on mismatch.
-
-    Wrapper for routes that already have a `locale` dependency injected -
-    keeps the call-site to one line right after `await file.read()`.
-    """
+    """Checks the content and raises 400 with a translated hint."""
     from fastapi import HTTPException  # local import - this module is also used outside HTTP context
     from src.i18n import t
     try:
@@ -119,18 +106,11 @@ def validate_or_raise(content: bytes, ext: str, locale: str = "de") -> None:
 
 
 def validate_content(content: bytes, ext: str) -> None:
-    """Sniff magic bytes (or UTF-8) to verify content matches extension.
-
-    Caller is responsible for size/extension whitelist checks first;
-    this only handles the "is the body actually what it claims to be" step.
-    Unknown extensions pass through silently - upstream whitelisting is the
-    gate, this is a defense-in-depth check on top of it.
-    """
+    """Checks via the leading bytes whether the content matches the extension."""
     ext_lower = ext.lower()
 
     if ext_lower in _TEXT_EXTS:
-        # No magic signature for plain text - probe the first 8 KiB as UTF-8.
-        # Real text files decode cleanly; binaries fail almost immediately.
+        # Plain text has no signature, so check the first 8 KiB as UTF-8.
         try:
             content[:8192].decode("utf-8")
         except UnicodeDecodeError as e:

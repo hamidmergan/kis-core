@@ -1,5 +1,5 @@
-# GPU-Tweaks fuer lokale Entwicklung mit NVIDIA GPU
-# Wird in start-local.bat explizit per -f geladen
+# GPU tweaks for local development with an NVIDIA GPU.
+# Loaded explicitly via -f in start-local.bat.
 
 services:
   celery-worker-general:

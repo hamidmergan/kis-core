@@ -1,4 +1,4 @@
-"""POST /jobs/{job_uuid}/retry - failed TTS/Screencast-Jobs wieder einreihen (ohne Doppelkosten)."""
+"""Re-queues failed TTS and screencast jobs without charging twice."""
 
 import json
 
@@ -15,7 +15,7 @@ router = APIRouter()
 
 
 def _queue_params_from_render(render_params: dict) -> dict:
-    """Die gespeicherten Render-Angaben als Auftrag fuer die Warteschlange."""
+    """The stored render details as a job for the queue."""
     return {
         "dispatch_as": "render",
         "voice_id": render_params["voice_id"],

@@ -1,32 +1,4 @@
-"""Messsatz fuer die ANTWORT: steht die Tatsache am Ende auch in dem, was der Leser liest?
-
-Aufruf (Backend muss laufen, Standard http://localhost:8000):
-    python scripts/rag_answer_eval.py
-    KIS_USER=a KIS_PASS=a KIS_API=http://localhost:8000 python scripts/rag_answer_eval.py
-
-Warum getrennt von ``rag_retrieval_eval.py``. Der andere Satz prueft, ob die Stelle
-in den PROMPT kommt. Das ist notwendig und reicht nicht: bei "wann ist die Klausur"
-stand woertlich "keinen zweiten Termin gibt fuer die Klausur im Juli" im Prompt, und
-die Antwort sagte "am Ende des Semesters ... wann genau, steht nicht in den Quellen".
-Der Abruf war also in Ordnung und die Antwort trotzdem unvollstaendig. Diese Luecke
-sieht man nur, wenn man den fertigen Text prueft.
-
-Das kostet echte Modellaufrufe und dauert, deshalb ein eigener Satz, den man nicht
-bei jeder Codeaenderung laufen laesst.
-
-Fallarten je Fall:
-
-* ``erwartet``      — mindestens eine dieser Zeichenketten MUSS in der Antwort stehen
-                      (Alternativen, weil "acht" und "8" beide richtig sind).
-* ``verboten``      — darf NICHT vorkommen. Fuer den Fall, dass die Absage etwas
-                      abstreitet, das im selben Satz gerade genannt wurde.
-* ``alle_quellen``  — JEDE aktive Quelle muss in der Antwort belegt sein. Der Fall
-                      fuer Ueberblicksfragen: dort ist Abdeckung die eigentliche
-                      Leistung, und sie ist die einzige Eigenschaft eines Ueberblicks,
-                      die sich ohne Fachurteil pruefen laesst. Ob der Text auch gut
-                      GEGLIEDERT ist, steht hier bewusst nicht.
-* ``begruendung``   — was der Fall festhaelt, in einem Satz.
-"""
+"""Answer benchmark: is the fact also in what the reader gets to read?"""
 import json
 import os
 import re
@@ -77,11 +49,7 @@ def _quellen(workspace_uuid: str) -> list[str]:
 
 def _frage(keks: str, workspace_uuid: str, frage: str,
            quellen: list[str]) -> tuple[str, dict[int, str]]:
-    """Die fertige Antwort, so wie sie im Chat steht.
-
-    Der Strom endet mit einem Ereignis ``{"done": true, "answer": ...}``; das ist der
-    zusammengesetzte Text inklusive der Belege. Faellt es aus, werden ersatzweise die
-    einzelnen Wortstuecke zusammengehaengt."""
+    """The finished answer exactly as it appears in the chat."""
     daten = json.dumps({"question": frage, "active_source_ids": quellen}).encode()
     req = urllib.request.Request(
         f"{API}/ai-assistant/workspaces/{workspace_uuid}/chat",

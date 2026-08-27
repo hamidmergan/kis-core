@@ -1,9 +1,6 @@
 "use client";
 
-/**
- * Einladungen. Zugang per Link, solange es kein SSO gibt, und deshalb hinter
- * demselben Serverschalter wie das Anlegen von LDAP-Benutzern.
- */
+/** Invitations, behind the same server switch as the LDAP users. */
 
 import { useTranslations } from "next-intl";
 import InvitesTab from "../../_components/InvitesTab";

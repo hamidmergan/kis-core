@@ -1,10 +1,5 @@
 # backend/tests/test_citation_toc.py
-"""Table-of-contents / index entries must not become citation anchors. A TOC line
-('Vektorgrafik ............... 4') contains the topic keyword verbatim, so a claim
-about that topic would otherwise ground to the index page instead of the real content
-section. We drop such lines (dotted leader + trailing page number) before matching —
-per line, so real prose on the same chunk survives. Language-agnostic (structure only,
-no wordlist)."""
+"""Table-of-contents lines must never become evidence anchors."""
 from src.features.ai_assistant.routes._helpers import _strip_toc_lines
 
 

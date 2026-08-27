@@ -12,10 +12,7 @@ import pytest  # noqa: E402  (after the sys.path shim above)
 
 @pytest.fixture
 def lokal(monkeypatch, tmp_path):
-    """Speicher ohne S3: STORAGE_ROOT zeigt in ein Testverzeichnis.
-
-    Liefert die Wurzel, unter der die Schluessel als echte Dateien landen.
-    """
+    """Storage without S3, the keys end up as files in the test directory."""
     from src import storage
     wurzel = tmp_path / "storage"
     wurzel.mkdir()

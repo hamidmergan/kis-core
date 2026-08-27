@@ -1,21 +1,11 @@
-// Pure transcript helpers, kept React-free so they can be unit-tested in isolation
-// (mirrors the _geometry.ts / _highlight.ts split in this folder).
+// Pure transcript helpers, without React and therefore testable on their own.
 
 export interface TimedCue {
   start: number;
   end: number;
 }
 
-/**
- * Index of the transcript segment to pin for a citation jump.
- *
- * `time` is the cited chunk's EXACT start (resolved from source_pages, a full float). A
- * chunk's start is a Whisper segment start, which is exactly a VTT cue start, so the cited
- * cue is simply the cue whose start is NEAREST to `time` — an exact hit save for millisecond
- * rounding between the stored float and the VTT timestamp. No flooring, no dependence on the
- * lossy whole-second display value, so a neighbouring cue can no longer be mis-picked. On a
- * tie, the cue at or after `time`. Returns -1 only for an empty list. O(log n); start-sorted.
- */
+/** The line a citation jump points at, via the exact segment start. */
 export function cueIndexAtTime(cues: TimedCue[], time: number): number {
   if (cues.length === 0) return -1;
   // Lower bound: first cue whose start is >= time.
@@ -34,17 +24,7 @@ export function cueIndexAtTime(cues: TimedCue[], time: number): number {
   return dAfter <= dBefore ? after : before;
 }
 
-// --- Sentence-sized cues into readable blocks -------------------------------------------
-//
-// What a cue covers is the provider's decision, not ours: we hand Whisper's segments through
-// untouched. myLab returns one short sentence per segment, which is right for subtitles
-// running under a video but wrong for reading: the panel then shows forty rows of six words,
-// each with its own timestamp, and the eye spends more time on the stamps than on the text.
-//
-// So the panel groups those cues into paragraphs. The cues stay the truth — they drive the
-// subtitles, the citation jumps and the seek — and a block is only a view onto a RANGE of
-// them, which is why it carries indices rather than text. Both language tracks share one
-// grouping because both come from the same segments and therefore have identical timings.
+// The lines stay the truth, a paragraph is only a view of several.
 
 export interface TextCue extends TimedCue {
   text: string;
@@ -59,48 +39,24 @@ export interface CueBlock {
   to: number;
 }
 
-// The sizes come from measuring what a paragraph-returning provider actually returns. On the
-// same 30 seconds of German speech, another whisper-large-v2 handed back ONE segment of 432
-// characters over 27.2 seconds, while myLab's whisper-3-large returned nine of 52 characters
-// on average. So a paragraph is roughly 300 to 500 characters, and that is what these say.
-//
-// It gets there by not deciding anything: its segment is just Whisper's 30-second window,
-// which is why its cuts land wherever the window ends, sentence or no sentence. The rules below
-// aim at the same size and cut better — at a pause, or at a sentence end, never in the middle
-// of one unless a transcript without punctuation leaves no choice.
+// The sizes come from a provider that already delivers paragraphs.
 
 // A pause this long is the speaker starting something new, so the block ends with them.
 const BLOCK_GAP_SEC = 1.5;
-// Below this a block is not yet a paragraph, so a sentence ending inside it is not a reason
-// to close it. Measured in characters, not seconds, because that is what reading length is.
+// Below this a block is not a paragraph yet, a sentence end does not close it.
 const BLOCK_MIN_CHARS = 300;
-// Two hard ceilings, for the case where the sentence never ends: a transcript without
-// punctuation must not collapse into one wall of text. Seconds as well as characters,
-// because sparse speech grows in time long before it grows in text. 500 characters is about
-// 30 seconds of speech, so the two ceilings describe the same limit from two sides.
+// Two hard ceilings, in characters and in seconds.
 const BLOCK_MAX_CHARS = 500;
 const BLOCK_MAX_SEC = 30;
 
-// Sentence-final punctuation across the scripts a course can ship in. A list of CHARACTERS,
-// not of words, so it stays language-agnostic: Latin full stop, question and exclamation
-// marks, the ellipsis, their fullwidth CJK forms, plus the Arabic, Devanagari and Armenian
-// equivalents. A closing quote or bracket may follow the mark.
+// Punctuation across writing systems, as characters instead of words.
 const SENTENCE_END = /[.!?…。！？؟।॥։]["'”’»)\]]*$/u;
 
 function endsSentence(text: string): boolean {
   return SENTENCE_END.test(text.trim());
 }
 
-/**
- * Group cues into paragraph-sized blocks.
- *
- * A block closes before the next cue when the speech pauses, when adding that cue would
- * push it past either ceiling, or when it is already long enough to read and the last cue
- * finished a sentence. A cue is never split, so cues that already arrive paragraph-sized
- * come back one block each and this is a no-op for them.
- *
- * The blocks are contiguous and cover every cue exactly once, in order.
- */
+/** Groups the lines into paragraphs, every line stays included exactly once. */
 export function groupCues(cues: TextCue[]): CueBlock[] {
   const blocks: CueBlock[] = [];
   let from = 0;
@@ -131,20 +87,10 @@ export function groupCues(cues: TextCue[]): CueBlock[] {
 }
 
 
-/**
- * Which transcript spurs are shown.
- * "source" = original media language, "target" = the owner-chosen translation,
- * "both" = stacked, "off" = nothing shown (listening comprehension).
- */
+/** Which transcript tracks are shown. */
 export type TranscriptMode = "off" | "source" | "target" | "both";
 
-/**
- * The switcher's entries for a loaded source, in display order.
- *
- * The original always comes first and is the default the panel preselects. "both" needs
- * two distinct spurs. "off" is always offered and always last, so a student can hide the
- * text and just listen — even when only one language exists.
- */
+/** The entries of the switcher, the original first and off last. */
 export function buildTranscriptModes(
   { hasSource, hasTarget }: { hasSource: boolean; hasTarget: boolean },
 ): TranscriptMode[] {
@@ -157,25 +103,9 @@ export function buildTranscriptModes(
 }
 
 
-// --- Which line of a cited passage carries the claim ------------------------------------
-//
-// A citation chip points at a retrieval CHUNK, and the chunk is the smallest thing the
-// search knows: which sentence inside it produced the answer is recorded nowhere. With the
-// current chunker a chunk runs about a minute, i.e. three to four transcript lines, so
-// marking the whole chunk is correct but leaves the reader scanning ~160 spoken words for
-// one date.
-//
-// The chunk's lines are already on screen and the answer sentence stands right next to the
-// chip, so the pick is a comparison between three or four known candidates — NOT a search.
-// That is the whole reason this is safe where the earlier grounding attempts were not: the
-// worst case is emphasis on a neighbouring line INSIDE a block that stays correct, never a
-// jump to the wrong place.
+// Which line of a cited spot carries the claim, a comparison instead of a search.
 
-// Comparable tokens of a text. No stop-word list and no stemmer: those are per-language and
-// this has to hold for every language a course ships in. Instead, drop tokens shorter than
-// three characters, which removes most function words in alphabetic scripts, but KEEP short
-// tokens containing a digit — "22" in "ab dem 22. April" is precisely the discriminating
-// one. \p{L}/\p{N} so non-Latin scripts survive the strip.
+// Comparable words, without a stop word list and without stemming.
 export function claimTokens(text: string): string[] {
   const words = text
     .toLowerCase()
@@ -185,9 +115,7 @@ export function claimTokens(text: string): string[] {
   return [...new Set(words)];
 }
 
-// How many distinct claim tokens the line contains. Substring, not equality: it lets
-// "Sprechstunde" find "Sprechstunden" and "April" find "Aprils" without knowing a single
-// rule of German — the cheap stand-in for a stemmer that works the same in any language.
+// Compared as a substring, which replaces a stemmer.
 export function claimOverlap(tokens: string[], line: string): number {
   if (tokens.length === 0) return 0;
   const hay = line.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ");
@@ -196,15 +124,7 @@ export function claimOverlap(tokens: string[], line: string): number {
   return n;
 }
 
-// Only tokens that are RARE in this recording say anything about which line a claim came
-// from. The length rule alone does not get there: "die", "und", "dem", "wie", "bei" all
-// clear three characters and every one of them counted as a hit, so a pick could be decided
-// by five words that are in every second cue. Which words those are is per-language and per
-// recording, so it is measured, not listed: a token sitting in more than COMMON_SHARE of the
-// transcript's cues cannot discriminate between two of them and is dropped.
-//
-// Needs enough cues to measure against — in a handful of lines an ordinary content word
-// easily clears any share — so below MIN_CORPUS_LINES the tokens are handed back untouched.
+// Only words that are rare in this recording may help decide.
 const COMMON_SHARE = 0.15;
 const MIN_CORPUS_LINES = 8;
 
@@ -219,33 +139,7 @@ export function discriminatingTokens(tokens: string[], corpus: string[]): string
   });
 }
 
-/**
- * The line of a cited passage that carries the claim, or -1 when none stands out.
- *
- * `lines` are the texts of the cited chunk's cues, in order; the returned index is relative
- * to that array. Returning -1 is the DEFAULT, not a failure: without a clear winner every
- * line keeps the same weight, because a guessed emphasis is worse than none — it sends the
- * reader to the wrong sentence with the same confidence as a right one.
- *
- * Three conditions, each of which exists because dropping it produced a confident wrong
- * pick in testing:
- *   - the claim needs MIN_CLAIM_TOKENS of its own. Dropping short words catches most
- *     function words but not all of them ("das", "ist", "und" survive the length rule in
- *     German), so a three-word claim can win a line on function words alone.
- *   - the winner needs MIN_HITS distinct matches, so one accidental word is not a verdict.
- *   - the winner needs DOMINANCE times the runner-up. Anything less means the claim is spread
- *     across the lines, which is exactly when the block should stay evenly marked.
- *
- * `corpus` is every cue of the transcript. Given it, only words that are rare in this
- * recording get to vote (see discriminatingTokens), which is what makes those counts mean
- * anything at all.
- *
- * Both numbers come from measuring the real recording rather than from taste. A claim
- * summarising two lines at once scored 6 against 4 on the lines it summarised; a claim resting
- * on one date scored 3 against 0 and 4 against 0. "One or two hits ahead" cannot separate
- * those, "twice as much" separates them with room to spare. Before the rare-word filter even
- * the ratio could not: the same two cases were 11:8 and 5:3, i.e. both around 1.5.
- */
+/** The line with the claim, or -1 when none clearly stands out. */
 const MIN_CLAIM_TOKENS = 4;
 const MIN_HITS = 3;
 const DOMINANCE = 2;
@@ -265,51 +159,15 @@ export function claimLineIndex(claim: string, lines: string[], corpus?: string[]
 }
 
 
-// Ein Wort, das im GANZEN Transkript an nur einer Stelle faellt, zeigt auf diese Stelle.
-// Traegt eine andere Zeile der Spanne so ein Wort des Anspruchs, das dem Gewinner fehlt,
-// dann ruht der Anspruch auch auf ihr.
-//
-// Der Anteil ist eng gewaehlt und gemessen. Am gemeldeten Fall — "eine Fragestunde
-// durchgefuehrt, nachdem in der darauffolgenden Woche noch affine Schifren behandelt
-// wurden", zwei Saetze der Vorlesung 25 Sekunden auseinander:
-//
-//   0,5%  ->  genau eine Zeile kommt dazu, die mit "Fragestunde". Richtig.
-//   1,0%  ->  zusaetzlich eine Zeile, die "Videoaufzeichnung" enthaelt, weil der
-//             Antwortsatz mit "laut einer Aufzeichnung" beginnt. Zufallstreffer.
-//
-// Bei 362 Untertitelzeilen sind 0,5% eine Zeile, das Wort faellt also woertlich EINMAL.
-// Die Untergrenze haelt das auch fuer kurze Aufnahmen so.
+// A word that occurs once in the whole transcript points at its spot.
 const PIN_SHARE = 0.005;
 
-// Selten allein reicht nicht, das Wort muss auch etwas BEDEUTEN. An 139 echten Belegen aus
-// 14 Aufnahmen kamen ohne Laengenregel neun Zeilen dazu, davon drei aus Versehen:
-//
-//   "stellt"    traf in "hochgestellt" — der Abgleich ist absichtlich eine Teilzeichenkette,
-//               damit "Sprechstunde" auch "Sprechstunden" findet, und kurze Woerter stecken
-//               dann eben in laengeren drin.
-//   "wurden"    ein Hilfsverb, das in DIESER Aufnahme zufaellig selten ist.
-//   "logische"  in der Zeile in einer ganz anderen Bedeutung ("aus logischen Gruenden").
-//
-// Ab neun Zeichen fallen genau diese drei weg und alle fuenf richtigen bleiben
-// (fragestunde, abgabetermine, klausuraufgaben, vorbereitung, notwendig). Bei zehn faellt
-// "notwendig" mit weg. Ein langes Wort ist im Deutschen fast immer ein Inhaltswort oder ein
-// Kompositum; in Sprachen mit kurzen Inhaltswoertern greift die Regel seltener, und dann
-// bleibt es beim bisherigen Verhalten — die harmlose Richtung.
+// Rare alone is not enough, the word also has to be long enough.
 const MIN_PIN_LEN = 9;
 
 const _hay = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ");
 
-/**
- * ALLE Zeilen der Spanne, auf denen der Anspruch ruht — leer, wenn keine heraussticht.
- *
- * Der Gewinner aus :func:`claimLineIndex` ist der Kern. Dazu kommt jede weitere Zeile, die
- * ein Pin-Wort des Anspruchs traegt, das dem Gewinner FEHLT. Ein Antwortsatz nennt oft zwei
- * Dinge aus zwei Momenten ("eine Fragestunde, nachdem affine Chiffren behandelt wurden");
- * nur den Gewinner zu markieren laesst die zweite Tatsache unmarkiert daneben stehen, und
- * genau das liest sich, als stuende sie nicht in der Quelle.
- *
- * Haeufige Woerter zaehlen hier NICHT, sonst zieht jedes "noch" eine Zeile herein.
- */
+/** All lines the claim rests on, empty when none stands out. */
 export function claimLineIndices(claim: string, lines: string[], corpus?: string[]): number[] {
   const sieger = claimLineIndex(claim, lines, corpus);
   if (sieger < 0 || !corpus) return sieger < 0 ? [] : [sieger];
@@ -343,8 +201,7 @@ export interface CitationFocus {
   endIdx: number;
   /** The line inside the chunk carrying the claim, -1 when none stands out. */
   claimIdx: number;
-  /** ALLE Zeilen, auf denen der Anspruch ruht (siehe claimLineIndices). Leer, wenn keine
-   *  heraussticht — dann ist der ganze Abschnitt markiert. Enthaelt immer ``claimIdx``. */
+  /** All carrying lines, empty means the whole section is highlighted. */
   claimIdxs: number[];
   /** The one cue everything points at: the claim line if there is one, else the chunk start. */
   focusIdx: number;
@@ -352,18 +209,7 @@ export interface CitationFocus {
   focusTime: number | null;
 }
 
-/**
- * Resolve a citation jump to the ONE cue the marking, the scroll AND the play head share.
- *
- * The chip carries the chunk's start, but a chunk runs about a minute and the sentence the
- * answer rests on is regularly a line or two further down. The marking already followed that
- * line while the seek kept using the chunk start, so the yellow marking and the playing line
- * sat in two different paragraphs — the reported bug. One resolver, one target, no drift.
- *
- * `corpus` is the whole transcript, one entry per cue, both language tracks joined; the
- * cited span is simply its slice. It is also the yardstick for which words are common in
- * THIS recording and therefore say nothing about which line a claim came from.
- */
+/** One resolver for highlight, jump and play head. */
 export function resolveCitationFocus(
   cues: TimedCue[],
   time: number,
@@ -376,15 +222,10 @@ export function resolveCitationFocus(
   if (timeIdx < 0) {
     return { idx: -1, endIdx: -1, claimIdx: -1, claimIdxs: [], focusIdx: -1, focusTime: null };
   }
-  // Der markierte Abschnitt ist der GANZE Chunk, nicht "ab der Zeitmarke". Die Zeitmarke des
-  // Chips ist die beste Vermutung des Backends, wo im Chunk die Aussage faellt, und liegt
-  // deshalb meist mittendrin. Ab ihr zu markieren liesse alles davor unmarkiert — und wenn
-  // die Vermutung danebenlag, faellt der belegende Satz genau dorthin.
+  // The whole chunk is highlighted, not only from the timestamp on.
   const idx = chunkStart != null ? cueIndexAtTime(cues, chunkStart) : timeIdx;
   const from = idx >= 0 ? Math.min(idx, timeIdx) : timeIdx;
-  // Widen to every cue that STARTS before the chunk ends, so the marking covers the cited
-  // passage rather than its first few seconds. The small guard keeps a cue that begins
-  // exactly at the chunk's end out of it.
+  // Widened to every line that starts before the end of the chunk.
   let endIdx = Math.max(from, timeIdx);
   if (endTime != null) {
     while (endIdx + 1 < cues.length && cues[endIdx + 1].start < endTime - 0.05) endIdx++;
@@ -399,8 +240,7 @@ export function resolveCitationFocus(
       claimIdxs = claimLineIndices(claim, zeilen, corpus).map((r) => from + r);
     }
   }
-  // Findet sich keine tragende Zeile, bleibt der Abschnitt als Ganzes markiert — angesteuert
-  // wird trotzdem die Zeitmarke des Chips, unsere beste Vermutung, statt des Chunk-Anfangs.
+  // Without a carrying line the section stays highlighted, the jump goes to the timestamp.
   const focusIdx = claimIdx >= 0 ? claimIdx : timeIdx;
   return { idx: from, endIdx, claimIdx, claimIdxs, focusIdx, focusTime: cues[focusIdx]?.start ?? null };
 }

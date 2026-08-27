@@ -1,20 +1,6 @@
 "use client";
 
-/**
- * Zugangsprüfung einmal fürs ganze Layout.
- *
- * Vorher stand sie in page.tsx und lief bei jedem Tab-Wechsel mit, weil alles
- * eine Komponente war. Jetzt hängt sie am Layout, das über allen Seiten steht,
- * und die eigene Adresse braucht sie nur noch zum Weiterleiten.
- *
- * Sie prüft nicht mehr "ist Administrator", sondern "darf hier irgendetwas".
- * Der Bereich zerfällt in Seiten, die einzeln vergeben werden, und eine Rolle,
- * die nur das Sprachniveau pflegt, gehört genauso hierher wie der Admin.
- *
- * Die Adresse des Admins geben wir weiter, weil die Whitelist sie braucht, um
- * den eigenen Eintrag zu kennzeichnen. Die Rechte gibt sie weiter, weil
- * Seitenleiste und Seite selbst danach filtern.
- */
+/** One access check for the whole layout, it asks for permissions instead of rank. */
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "@/i18n/navigation";
@@ -29,12 +15,12 @@ export function useAdminEmail(): string {
   return useContext(AdminEmailCtx);
 }
 
-/** Die Rechte der angemeldeten Person. Nie undefined, im Zweifel leer. */
+/** The permissions of the logged-in person, never undefined, empty when in doubt. */
 export function useAdminPerms(): UserPermissions {
   return useContext(AdminPermsCtx);
 }
 
-/** Heißt der Bereich für diese Person "Administration" oder "Einstellungen"? */
+/** Is the area called administration or settings for this person? */
 export function useIsFullAdmin(): boolean {
   return isFullAdmin(useAdminPerms());
 }
@@ -47,15 +33,13 @@ export default function AdminAuth({ children }: { children: ReactNode }) {
     checkAuthStatus().then((s) => {
       if (!s.authenticated) { router.push("/login"); return; }
       const perms = s.permissions ?? EMPTY_PERMS;
-      // allow_admin_panel heißt seit der Rechtematrix: mindestens ein Recht aus
-      // der Gruppe Einstellungen. Wer keines hat, hat hier nichts zu suchen.
+      // Whoever holds not a single settings permission has no business here.
       if (!perms.allow_admin_panel) { router.push("/"); return; }
       setState({ email: s.email ?? "", perms });
     });
   }, [router]);
 
-  // Nichts rendern, solange unklar ist, ob jemand hier sein darf. Sonst blitzt
-  // der Adminbereich kurz auf, bevor die Weiterleitung greift.
+  // Render nothing while it is unclear whether someone may be here.
   if (state === null) return null;
 
   return (

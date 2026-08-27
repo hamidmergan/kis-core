@@ -34,8 +34,7 @@ export function PdfViewer({
   const [, setRegistryReady] = useState(false);
   const viewerRef = useRef<PDFViewerRef>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  // Theme drives EmbedPDF's internal light/dark — change forces a remount via key on the viewer
-  // (EmbedPDF has no hot-swap API for theme).
+  // A theme change forces a remount, the viewer cannot switch on the fly.
   const { theme } = useTheme();
   const themeModeRef = useRef<"light" | "dark">(theme);
   themeModeRef.current = theme;
@@ -57,16 +56,13 @@ export function PdfViewer({
   const popupActionsRef = useRef(popupActions);
   popupActionsRef.current = popupActions;
 
-  // Block EmbedPDF's document-level Ctrl+C handler when focus is outside the viewer
-  // so native copy works in chat / tools panels
+  // Blocks copying from the viewer when the focus lies outside.
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     const handler = (e: KeyboardEvent) => {
       if ((e.key === "c" || e.key === "C") && (e.ctrlKey || e.metaKey)) {
-        // window.getSelection() only sees selections outside shadow DOM.
-        // If text is selected outside (chat/tools) → block EmbedPDF, let native copy run.
-        // If empty → selection is likely inside EmbedPDF's shadow DOM → let EmbedPDF handle it.
+        // A selection outside means native copying, otherwise the viewer's.
         const sel = window.getSelection();
         if (sel && sel.toString().length > 0) {
           e.stopImmediatePropagation();
@@ -77,19 +73,14 @@ export function PdfViewer({
     return () => document.removeEventListener("keydown", handler, true);
   }, []);
 
-  // Scroll to page (+ highlight text for popup/action-bar exact selections) when the
-  // nonce changes (pill click on the same document). Citation chips set no text, so
-  // they only scroll; a popup/action-bar selection sets `text` and gets highlighted.
+  // Jumps to the page, highlights only on a selection of your own.
   const pendingHighlightRef = useRef<{ page: number; text: string; isCitation?: boolean } | null>(null);
   const citationHighlightRef = useRef<{ pageIndex: number; ids: string[]; scrollY?: number } | null>(null);
   // Controls the "Markierung aufheben" button shown while a citation highlight is active.
   const [citationActive, setCitationActive] = useState(false);
   const highlightRefs: HighlightRefs = { citationHighlightRef, onHighlightActive: setCitationActive };
 
-  // When the document changes, the inner PDFViewer remounts (keyed by uuid) but this
-  // outer component does not — so registryRef still points at the previous document's
-  // registry. Reset it so the highlight effect below defers until the new registry is
-  // ready via onLayoutReady, instead of firing search on a stale registry.
+  // Reset the old reference when the document changes.
   const loadedUuidRef = useRef<string | null>(null);
   useEffect(() => {
     if (loadedUuidRef.current !== source.uuid) {
@@ -112,9 +103,7 @@ export function PdfViewer({
       // Popup / action-bar exact selection: highlight the verbatim text.
       doHighlightSearch(highlightRefs, reg, source.page, source.highlightText);
     } else {
-      // Scroll to the page. A citation chip also gets a yellow frame around the page
-      // (cleared via the "Markierung aufheben" button or replaced by the next jump);
-      // a plain document open just scrolls.
+      // A chip additionally draws a yellow frame around the page.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const scroll = (reg as any).getPlugin?.("scroll")?.provides?.();
       scroll?.scrollToPage?.({ pageNumber: source.page, behavior: "instant" });
@@ -123,8 +112,7 @@ export function PdfViewer({
 
   }, [source.nonce, source.page, source.highlightText, source.isCitation]);
 
-  // A new document remounts EmbedPDF (keyed by uuid), discarding the ephemeral
-  // citation highlight — reset its tracking + dismiss button.
+  // A new document discards the transient highlight.
   useEffect(() => {
     citationHighlightRef.current = null;
     setCitationActive(false);
@@ -136,25 +124,17 @@ export function PdfViewer({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const reg = registry as any;
 
-    // Fix oversized selection highlights on PDFs with inflated font bbox
-    // (e.g. LibreOffice-embedded Cambria). See wrapEngineGeometry above.
+    // Corrects oversized highlights with inflated font metrics.
     wrapEngineGeometry(reg.getEngine?.());
 
-    // On touch devices the Pan plugin activates "panMode" as the default
-    // interaction mode. The Selection plugin only ships rect-rendering
-    // config for "pointerMode", so in panMode SelectionLayer never
-    // receives rects — chip highlights scroll-to-page but stay invisible.
-    // Enable rect rendering for panMode without enabling drag-to-select,
-    // so mobile keeps drag-to-pan while programmatic highlights display.
+    // On a touch device the rectangles have to be drawn in pan mode too.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const selCap = reg.getPlugin?.("selection")?.provides?.() as any;
     try {
       selCap?.enableForMode?.("panMode", { enableSelection: false, showSelectionRects: true });
     } catch { /* ignore */ }
 
-    // Inject KIS Corporate Design overrides into EmbedPDF's shadow DOM:
-    // - 5px scrollbar (instead of default 8px)
-    // - 2px border on buttons (transparent default, KB-blue on hover/focus)
+    // Injects the house styling into the sandboxed viewer.
     const injectScrollbarStyle = () => {
       const embedEl = containerRef.current?.querySelector("embedpdf-container");
       const shadow = embedEl?.shadowRoot;
@@ -167,9 +147,7 @@ export function PdfViewer({
           :host *::-webkit-scrollbar-thumb { background: #d8d8d8 !important; border-radius: 999px !important; }
           :host *::-webkit-scrollbar-thumb:hover { background: #bbb !important; }
           :host * { scrollbar-width: thin !important; scrollbar-color: #d8d8d8 transparent !important; }
-          /* KIS-CD: 2px outline on hover/focus for all interactive elements.
-             outline (not border) — preserves EmbedPDF's own border-b tab indicator
-             and doesn't shift layout. Matches KIS pattern from globals.css. */
+          /** outline instead of border, that shifts nothing and keeps the tab underline. */
           :host button,
           :host [role="button"],
           :host [class*="command-button"],
@@ -223,9 +201,7 @@ export function PdfViewer({
       const unsub = scroll.onLayoutReady?.(() => {
         const p = sourcePageRef.current;
         if (p > 1) scroll.scrollToPage({ pageNumber: p, behavior: "instant" });
-        // Run pending highlight after layout is ready. Only a popup/action-bar exact
-        // selection carries text to highlight; a plain/citation open just scrolled
-        // to the page above.
+        // The highlight only after the layout, and only on a selection of your own.
         const pending = pendingHighlightRef.current;
         if (pending) {
           pendingHighlightRef.current = null;
@@ -239,8 +215,7 @@ export function PdfViewer({
       });
     }
 
-    // Clear search highlight when user clicks empty space or starts a new selection.
-    // NOTE: onEmptySpaceClick/onBeginSelection are EmbedPDF-internal hooks — re-verify on bump.
+    // Clears the highlight on a click outside or a new selection.
     const selectionForClear = reg.getPlugin?.("selection")?.provides?.();
     const searchForClear = reg.getPlugin?.("search")?.provides?.();
     if (selectionForClear && searchForClear) {
@@ -322,10 +297,7 @@ export function PdfViewer({
       },
     });
 
-    // Replace EmbedPDF's default copy-selection. Its action awaits getSelectedText()
-    // before calling navigator.clipboard.writeText(), which loses transient activation
-    // on iOS Safari touch (silent failure). copyTextFromPromise passes a Promise to
-    // ClipboardItem so the user gesture is preserved across the await.
+    // Our own copy handler so the user gesture is not lost on the phone.
     commands.registerCommand({
       id: "kis.copy-selection",
       label: t("copy"),
@@ -415,9 +387,7 @@ export function PdfViewer({
       },
     });
 
-    // Merge: add KI actions to the selection menu.
-    // Drop EmbedPDF defaults except copy-selection: we want neither
-    // highlight/underline/strikeout/squiggly/link/redact nor their dividers.
+    // Only the AI actions and copying stay in the selection menu.
     const existingSchema = ui.getSchema?.();
     // We replace copy-selection with kis.copy-selection (touch fix, see above)
     const KEEP_DEFAULT_IDS = new Set(["add-highlight"]);
@@ -487,12 +457,10 @@ export function PdfViewer({
             search: { showAllResults: false },
             annotations: {
               locked: { type: LockModeType.All },
-              // Das Markieren-Werkzeug der Auswahlleiste malt im hellen CD-Blau statt in
-              // EmbedPDFs Gelb, genau wie unsere eigene Markierung (CITATION_HL_COLOR).
+              // The highlighter tool paints in house blue instead of the viewer's yellow.
               tools: [{ id: "highlight", defaults: { color: CITATION_HL_COLOR, strokeColor: CITATION_HL_COLOR } }],
             },
-            // KIS Corporate Design — values mirror tokens in globals.css.
-            // Update both files together when CD changes.
+            // Values from the house styling, change both files together.
             theme: {
               preference: themeModeRef.current,
               light: {

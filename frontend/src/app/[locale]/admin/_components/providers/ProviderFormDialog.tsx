@@ -87,8 +87,7 @@ export default function ProviderFormDialog({
     return t("dialog.deeplProDetected");
   }, [protocol, apiKey, baseUrl, t]);
 
-  // When the protocol is changed in create-mode, pre-fill the base URL with
-  // the protocol's typical default. The admin can edit it after the change.
+  // Switching the protocol prefills the usual address.
   useEffect(() => {
     if (isEdit) return;
     if (baseUrl) return;

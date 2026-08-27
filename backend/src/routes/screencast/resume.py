@@ -35,7 +35,7 @@ _LAUFEND = ("queued", "running")
 
 
 def _phase_ist_vertonung(user_id: int, translate_job_uuid: str) -> bool:
-    """Die Warteschlangen-Datei sagt, welche Haelfte des Screencasts gerade laeuft."""
+    """The queue file says which half of the screencast is currently running."""
     try:
         params = json.loads(get_job_file(user_id, translate_job_uuid, "queue_params.json"))
     except Exception:
@@ -66,12 +66,7 @@ def get_resume_data(
         raise HTTPException(status_code=404, detail=t("job.notFound", locale))
     if job["user_id"] != current_user.get("user_id", 0):
         raise HTTPException(status_code=403, detail=t("job.accessDenied", locale))
-    # awaiting_user → normal wizard resume.
-    # failed → screencast render failed; let the user re-open the wizard at the
-    # last input step (tts-settings if accepted_scripts.json exists) so they can
-    # tweak settings before re-rendering instead of immediately re-queuing.
-    # queued/running → nur die Vertonung, die hat eine eigene Warteseite im Assistenten.
-    # success → die Fertig-Seite mit dem Video.
+    # A different entry point in the wizard per state.
     status = job["status"]
     tool = job["tool"]
     user_id = job["user_id"]
@@ -92,7 +87,7 @@ def get_resume_data(
         try:
             slide_texts = json.loads(get_job_file(user_id, translate_job_uuid, "scripts.txt"))
         except Exception:
-            # Nur wer noch etwas eingeben soll, braucht die Folientexte wirklich.
+            # Only someone who still has to type something really needs the slide texts.
             if ist_eingabeschritt:
                 raise HTTPException(status_code=404, detail=t("job.dataUnavailable", locale))
 

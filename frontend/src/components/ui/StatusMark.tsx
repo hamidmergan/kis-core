@@ -1,10 +1,4 @@
-/**
- * Der Zustand einer Sache: ein Strich links vom Wort statt einer Pille.
- *
- * Fuer alles, was sich von allein aendert, also Auftraege, Konten, Einladungen.
- * Nicht fuer Marker wie Tutor oder Admin, die sagen dauerhaft was jemand ist
- * und bleiben ein rundes Schild.
- */
+/** A stroke left of the word for everything that changes on its own. */
 
 import type { ReactNode } from "react";
 import type { StatusTone } from "@/lib/jobStatusDisplay";

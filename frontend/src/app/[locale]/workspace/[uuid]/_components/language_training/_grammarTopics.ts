@@ -1,34 +1,16 @@
-/**
- * Reine Logik rund um Grammatikthemen.
- *
- * Ein Thema traegt genau ein Musterpaar. Frueher nahm das Formular bis zu drei
- * entgegen, aber der Generator las nie mehr als das erste: er baut daraus die
- * SHAPE TO COPY fuer das Modell und zeigt es dem Lernenden ueber der Aufgabe.
- * Paar zwei und drei wurden gespeichert und von niemandem gelesen, also standen
- * im Formular vier Felder, von denen zwei nichts bewirkten.
- */
+/** A topic carries exactly one pattern pair, the generator never read more. */
 
 export interface ExamplePair {
   before: string;
   after: string;
 }
 
-/**
- * Das Paar, das das Formular zeigt: das erste aus der Ausarbeitung, sonst ein
- * leeres. Die Ausarbeitung liefert immer genau eines, ein leeres Paar ist also
- * nur der Notnagel.
- */
+/** The pair the form shows, otherwise an empty one. */
 export function editedPair(pairs: ExamplePair[]): ExamplePair {
   return pairs[0] ?? { before: "", after: "" };
 }
 
-/**
- * Was gespeichert wird: ein Paar zaehlt nur, wenn beide Haelften da sind und
- * sich unterscheiden.
- *
- * Vorher gleich nachher waere kein Muster, sondern ein Satz. Als Vorlage fuer die
- * Generierung wuerde es nichts steuern und dem Lernenden nichts zeigen.
- */
+/** A pair only counts when both halves are there and differ. */
 export function usablePairs(pairs: ExamplePair[]): ExamplePair[] {
   return pairs
     .map((p) => ({ before: p.before.trim(), after: p.after.trim() }))
@@ -36,14 +18,7 @@ export function usablePairs(pairs: ExamplePair[]): ExamplePair[] {
     .slice(0, 1);
 }
 
-/**
- * Welches Thema nach dem Entfernen ausgewaehlt ist.
- *
- * War ein anderes gewaehlt, bleibt es. War das entfernte gewaehlt, rueckt das
- * nach, das an seine Stelle tritt, beim letzten Eintrag das davor. Ohne diese
- * Nachfolge stuende die Auswahl auf einem Thema, das es nicht mehr gibt, und der
- * Erstellen-Knopf schickte eine Nummer ins Leere.
- */
+/** Which topic is selected after the removal. */
 export function nextTopicId(
   topics: { id: number }[],
   removedId: number,
@@ -57,18 +32,7 @@ export function nextTopicId(
   return rest[Math.min(Math.max(stelle, 0), rest.length - 1)].id;
 }
 
-/**
- * Der Namensvorschlag, sofern er etwas anderes sagt als das Getippte.
- *
- * Leer heisst, im Formular steht keine Zeile. Ohne diesen Vergleich stuende bei
- * jedem sauber getippten Thema ein Vorschlag, der nichts sagt, und nach dem dritten
- * Mal liest ihn niemand mehr. Dann waere er auch in dem einen Fall unsichtbar, in
- * dem er zaehlt: "passi", oder ein Name wie "Passiv", der neun Formen gleichzeitig
- * meint und von dem das Modell sich eine aussucht.
- *
- * Verglichen wird ohne Ruecksicht auf Gross und Klein und auf Leerraum. Kein
- * Woerterbuch und keine deutschen Sonderregeln, wie ueberall in diesem Werkzeug.
- */
+/** The name suggestion, only when it says something other than what was typed. */
 export function shownSuggestion(typed: string, suggested: string): string {
   const vorschlag = suggested.trim();
   if (!vorschlag) return "";

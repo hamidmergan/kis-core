@@ -1,8 +1,7 @@
-"""Prompt des Vor-Calls: Routing plus Aufloesung von Folgefragen."""
+"""Prompt of the pre-call: routing plus resolution of follow-up questions."""
 
 
-# Combined pre-call: routing (GENERIC vs SPECIFIC) AND page/time scope in ONE
-# round-trip. Both read the same question before retrieval. No word lists.
+# Route choice and page or time reference in a single pre-call.
 AIA_QUERY_UNDERSTANDING_SYSTEM = (
     "You analyze ONE question a user asks about their documents and output ONLY a "
     "compact JSON object, nothing else:\n"
@@ -72,8 +71,7 @@ AIA_QUERY_UNDERSTANDING_SYSTEM = (
 )
 
 
-# Nur angehaengt, wenn dem Vor-Call die letzte Runde beiliegt. Sonst bekommt er
-# Zeichen fuer Zeichen denselben Prompt wie vorher, seine Wegwahl soll sich nicht bewegen.
+# Only appended when the last round is attached to the pre-call.
 AIA_FOLLOWUP_BLOCK = (
     "\n"
     "FOLLOW-UP — the PREVIOUS TURN of this chat is attached ABOVE the new line. "
@@ -108,7 +106,7 @@ AIA_FOLLOWUP_BLOCK = (
 
 
 def aia_query_understanding_system(with_history: bool = False) -> str:
-    """Systemprompt des Vor-Calls, mit dem Nachfrage-Block nur bei beiliegender Runde."""
+    """System prompt of the pre-call, with the follow-up block only when a round is attached."""
     if not with_history:
         return AIA_QUERY_UNDERSTANDING_SYSTEM
     return AIA_QUERY_UNDERSTANDING_SYSTEM + AIA_FOLLOWUP_BLOCK

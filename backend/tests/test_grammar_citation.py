@@ -1,13 +1,4 @@
-"""Quellenchip der Grammatik-Übung: gestaffelte Herkunft statt reiner Rücksuche.
-
-Die Sätze werden neu erfunden, deshalb findet die nachträgliche pgvector-Suche sie
-oft nicht wieder und ein Set kam mit Chips bei der Hälfte der Sätze heraus. Hier
-zählt die Reihenfolge: was das Modell selbst nennt schlägt die Suche, und die
-Sektion fängt den Rest ab.
-
-Kein DB- und kein Netzzugriff: Embedding, Suche und die Whisper-Segmente werden
-hineingereicht.
-"""
+"""Layered origin of the source chip, because the sentences are newly invented."""
 
 import pytest
 
@@ -64,11 +55,7 @@ def _embed(texts):
 
 
 def _no_segments(source_id):
-    """Keine Whisper-Segmente bekannt, also bleibt die Zeitmarke am Chunk-Anfang.
-
-    Ein Medien-Treffer holt sich sonst die Segmente der Quelle aus der Datenbank, um die
-    Zeitmarke auf den zitierten Satz zu ruecken. Ohne diesen Ersatz haengen die Tests
-    unten an DATABASE_URL, was hier nichts zu suchen hat."""
+    """Without known segments the timestamp stays at the chunk start."""
     return []
 
 
@@ -77,11 +64,10 @@ def _hit(source_id, page, distance=0.2, start_time=None):
             "vec_distance": distance, "start_time": start_time}
 
 
-# ─── Stufe 1: die Seite, die das Modell selbst nennt ──────────────────────────
+# ─── Stage 1: the page the model names itself ─────────────────────────────────
 
 def test_the_page_the_model_cited_becomes_the_chip_without_any_search():
-    """Der eigentliche Punkt der Umstellung: das Modell weiß beim Schreiben, aus
-    welcher Passage der Satz stammt. Die Suche läuft dann gar nicht erst."""
+    """If the model names the page, the search does not even run."""
     items = [{"front": "S", "back": "T", "_page": 5}]
     out = attach_chips_cited(items, ["T"], _one_source_ctx(),
                              embed_fn=_boom, search_fn=_boom)
@@ -91,7 +77,7 @@ def test_the_page_the_model_cited_becomes_the_chip_without_any_search():
 
 
 def test_a_cited_page_is_matched_to_the_source_that_actually_has_it():
-    # Zwei Quellen, das Modell nennt nur die Seite. Nur B.pdf hat Seite 8 gezeigt.
+    # Two sources, the model names only the page, only B.pdf showed page 8.
     items = [{"front": "S", "back": "T", "_page": 8}]
     out = attach_chips_cited(items, ["T"], _two_source_ctx(),
                              embed_fn=_boom, search_fn=_boom)
@@ -100,7 +86,7 @@ def test_a_cited_page_is_matched_to_the_source_that_actually_has_it():
 
 
 def test_the_named_section_decides_when_two_sources_share_a_page_number():
-    # Beide Quellen hätten Seite 4, die Sektion löst es auf.
+    # Both sources would have page 4, the section resolves it.
     ctx = _two_source_ctx()
     ctx.seen_pages_by_source = {1: {4}, 2: {4}}
     items = [{"front": "S", "back": "T", "_page": 4, "_section": 2}]
@@ -110,8 +96,7 @@ def test_the_named_section_decides_when_two_sources_share_a_page_number():
 
 
 def test_a_page_the_model_never_saw_is_not_trusted():
-    """Sonst wäre die Angabe eine erfundene Seite. Seite 42 stand nie im Kontext,
-    also greift die Suche und deren Treffer gewinnt."""
+    """A page never shown would be invented, then the search wins."""
     items = [{"front": "S", "back": "T", "_page": 42}]
     out = attach_chips_cited(items, ["T"], _one_source_ctx(),
                              embed_fn=_embed, search_fn=lambda t, v: [_hit(1, 4)])
@@ -127,18 +112,17 @@ def test_a_page_that_is_not_a_plain_number_falls_through(cited):
 
 
 def test_a_page_written_as_a_string_of_digits_still_counts():
-    # Modelle liefern Zahlen im JSON regelmässig als Text zurück.
+    # Models regularly return numbers in JSON as text.
     items = [{"front": "S", "back": "T", "_page": "5"}]
     out = attach_chips_cited(items, ["T"], _one_source_ctx(),
                              embed_fn=_boom, search_fn=_boom)
     assert out[0]["page_number"] == 5
 
 
-# ─── Stufe 2: die alte Rücksuche ──────────────────────────────────────────────
+# ─── Stage 2: the old back-search ─────────────────────────────────────────────
 
 def test_search_runs_only_for_the_items_the_model_could_not_place():
-    """Die Suche kostet einen Embedding-Call plus eine Vektorsuche pro Satz. Sie
-    darf nur die Sätze sehen, die Stufe 1 offen gelassen hat."""
+    """The search may only see the sentences stage 1 left open."""
     embedded, searched = [], []
 
     def embed_fn(texts):
@@ -161,11 +145,10 @@ def test_search_runs_only_for_the_items_the_model_could_not_place():
     assert [i["page_number"] for i in out] == [5, 4, 9]
 
 
-# ─── Stufe 3: die Sektion als Auffangnetz ─────────────────────────────────────
+# ─── Stage 3: the section as a safety net ─────────────────────────────────────
 
 def test_without_a_page_and_without_a_search_hit_the_chip_points_at_the_source():
-    """Kein Satz ohne Chip: die Datei steht bei einer Quelle immer fest, also
-    zeigt der Chip auf deren erste gezeigte Seite."""
+    """With one source the file is fixed, so no sentence stays chip free."""
     items = [{"front": "S", "back": "T"}]
     out = attach_chips_cited(items, ["T"], _one_source_ctx(),
                              embed_fn=_embed, search_fn=lambda t, v: [])
@@ -182,9 +165,7 @@ def test_the_named_section_carries_the_chip_when_everything_else_fails():
 
 
 def test_a_multi_source_item_with_no_signal_at_all_stays_without_a_chip():
-    """Die eine verbleibende Lücke, bewusst offen gelassen: mehrere Quellen, das
-    Modell nennt weder Seite noch Sektion, die Suche findet nichts. Eine Quelle zu
-    raten wäre schlimmer als kein Chip."""
+    """The one open gap: guessing a source would be worse than no chip."""
     items = [{"front": "S", "back": "T"}]
     out = attach_chips_cited(items, ["T"], _two_source_ctx(),
                              embed_fn=_embed, search_fn=lambda t, v: [])
@@ -193,14 +174,10 @@ def test_a_multi_source_item_with_no_signal_at_all_stays_without_a_chip():
     assert out[0]["page_number"] is None
 
 
-# ─── Ton und Video ────────────────────────────────────────────────────────────
+# ─── Audio and video ──────────────────────────────────────────────────────────
 
 def test_a_cited_segment_number_is_not_trusted_for_media():
-    """An echten Sets gemessen: für ein Video schreibt das Modell irgendeine
-    Abschnitts-Nummer hin, dreimal dieselbe für drei verschiedene Sätze, und der
-    Inhalt dort passt nicht. Bei einer Folienseite stimmt es, bei 105 gleich
-    aussehenden 30-Sekunden-Blöcken nicht. Also zählt hier nur die Suche, die
-    echten Transkript-Text vergleicht."""
+    """For media only the search counts, the model's section number is wrong there."""
     items = [{"front": "S", "back": "T", "_page": 7}]
     out = attach_chips_cited(items, ["T"], _media_ctx(),
                              embed_fn=_embed,
@@ -221,8 +198,7 @@ def test_a_search_hit_still_cites_media_by_timestamp():
 
 
 def test_media_without_a_search_hit_cites_the_file_and_no_time():
-    """Eine falsche Minute in einer 45-Minuten-Aufnahme ist schlimmer als keine.
-    Der Chip sagt dann nur noch, aus welcher Datei der Stoff kommt."""
+    """A wrong minute is worse than none, then the chip names only the file."""
     items = [{"front": "S", "back": "T"}]
     out = attach_chips_cited(items, ["T"], _media_ctx(),
                              embed_fn=_embed, search_fn=lambda t, v: [])
@@ -234,8 +210,7 @@ def test_media_without_a_search_hit_cites_the_file_and_no_time():
 
 
 def test_a_pdf_in_the_same_set_keeps_the_cited_page():
-    # Die Trennung läuft pro Quelle, nicht pro Set: das Handout behält seine Seite,
-    # auch wenn im selben Set ein Video hängt.
+    # The split runs per source, not per sentence.
     ctx = _media_ctx()
     ctx.sections = {1: "V.mp4", 2: "A.pdf"}
     ctx.source_by_name["A.pdf"] = {"id": 1, "workspace_id": 7}
@@ -246,11 +221,10 @@ def test_a_pdf_in_the_same_set_keeps_the_cited_page():
     assert out[0]["page_number"] == 5
 
 
-# ─── Aufräumen ────────────────────────────────────────────────────────────────
+# ─── Cleanup ──────────────────────────────────────────────────────────────────
 
 def test_the_cited_page_never_reaches_the_database_row():
-    # finalize_exercise_set liest nur bekannte Schlüssel, aber die Hilfsfelder
-    # sollen den Aufrufer gar nicht erst erreichen.
+    # The helper fields should not reach the caller in the first place.
     items = [{"front": "S", "back": "T", "_page": 5, "_section": 1}]
     out = attach_chips_cited(items, ["T"], _one_source_ctx(),
                              embed_fn=_boom, search_fn=_boom)
@@ -258,8 +232,7 @@ def test_the_cited_page_never_reaches_the_database_row():
 
 
 def test_a_failing_embedding_call_still_leaves_every_item_with_a_chip():
-    """Das geteilte Anbieter-Limit wirft regelmässig 429. Vorher war dann das ganze
-    Set chiplos, jetzt fängt die Sektion es ab."""
+    """On a provider refusal the section catches the chip."""
     def embed_fn(texts):
         raise RuntimeError("429 rate limit")
 

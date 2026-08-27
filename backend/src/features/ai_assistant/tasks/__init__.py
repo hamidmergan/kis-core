@@ -1,5 +1,4 @@
-"""Import all KI-Assistent task workspaces so Celery registers tasks,
-and re-export task functions for backwards-compat imports."""
+"""Loads all task modules so Celery knows them."""
 
 from src.features.ai_assistant.tasks.ingestion import (  # noqa: F401
     run_index_source,

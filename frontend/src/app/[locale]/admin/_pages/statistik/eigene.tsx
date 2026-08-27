@@ -1,15 +1,6 @@
 "use client";
 
-/**
- * Die Zahlen einer Lehrperson zu ihren eigenen Modulen.
- *
- * Ein eigener Reiter und kein Filter auf den vier vorhandenen: Werkzeuge und
- * Modelle haben gar keine Modulspalte, ein Auftrag haengt an einer Person und
- * ein Token an einem Modell. Zu filtern waere also nur die Haelfte.
- *
- * Welche Module hier stehen, entscheidet der Server anhand der Anmeldung. Die
- * Seite reicht keine Nummer und keinen Namen mit.
- */
+/** A tab of its own instead of a filter, the server decides the modules. */
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
@@ -48,8 +39,7 @@ export default function StatistikEigenePage() {
       .catch(() => setFehler(true));
   }, []);
 
-  // Vor den Abbruechen, sonst liefe der Hook mal und mal nicht. Einmal
-  // sortiert, damit Ueberschrift und Zeile dieselbe Reihenfolge sehen.
+  // Before the cancellations and sorted once so everything sees the same order.
   const sortiert = useMemo(() => gruppiert(daten?.workspaces ?? []), [daten]);
 
   if (fehler) return <p className="text-sm text-error">{t("loadError")}</p>;

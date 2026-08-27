@@ -1,16 +1,4 @@
-"""Die Aufloesung, mit der eine PDF-Seite an die Bilderkennung geht.
-
-Sie stand auf 200 DPI und kostete stillschweigend Tabellenzellen: im Kursplan zweier
-Seminar-PDFs fehlte "25.03.2026, 17:30 Uhr", und damit im Zeitplan ein Termin.
-
-Am 13.08.2026 an derselben Seite durchgemessen, nur die Aufloesung veraendert:
-300, 250, 175, 150, 144, 120 und 100 DPI lesen die Zelle, 200 DPI nicht, sechs Laeufe
-von sechs. Es ist also weder Tagesform des Dienstes noch "je hoeher desto besser",
-sondern genau dieser eine Wert.
-
-Der Test haelt den Wert fest. Die Bilderkennung selbst laesst sich hier nicht pruefen,
-die haengt am Dienst, aber die Aufloesung, die rausgeht, schon.
-"""
+"""Pins the measured resolution a page is sent to image recognition with."""
 
 import io
 import types
@@ -29,7 +17,7 @@ class _FakeBitmap:
 
 
 class _FakePage:
-    """Eine Seite in A4 quer, wie pdfium sie mit 72 DPI misst: 842 x 595 Punkte."""
+    """An A4 landscape page as pdfium measures it at 72 DPI: 842 x 595 points."""
 
     def __init__(self):
         self.skalen = []
@@ -51,7 +39,7 @@ def test_seitenbild_geht_mit_150_dpi_raus():
 
 
 def test_200_dpi_ist_verbrannt():
-    """Der Wert, der die Tabellenzelle gefressen hat, darf nicht zurueckkommen."""
+    """The value that ate the table cell must not come back."""
     assert mod._OCR_RENDER_DPI != 200
 
 

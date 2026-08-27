@@ -1,14 +1,6 @@
 "use client";
 
-/**
- * Alle Quellen neu indexieren. Eigene Karte statt Bausatz, weil das keine
- * Einstellung ist, sondern ein Vorgang: er läuft minutenlang, meldet Fortschritt
- * und setzt den Wartungsmodus voraus.
- *
- * Genau diese Abhängigkeit war vorher unsichtbar. Der Knopf lag unter System,
- * der Wartungsmodus auch, aber nichts sagte, dass das eine das andere braucht.
- * Jetzt steht die Karte bei den Quellen und der Hinweis daneben.
- */
+/** Re-ingest all sources, an action that requires maintenance mode. */
 
 import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
@@ -45,16 +37,14 @@ export default function ReindexCard() {
 
   useEffect(() => { load(); }, [load]);
 
-  // Während der Reindex läuft, alle zwei Sekunden nachfragen. Danach nicht mehr,
-  // sonst fragt die Seite dauerhaft ins Leere.
+  // Poll only while the run is going, not afterwards.
   useEffect(() => {
     if (!progress?.running) return;
     const id = setInterval(load, 2000);
     return () => clearInterval(id);
   }, [progress?.running, load]);
 
-  // Nach einem Wechsel des Embedding-Anbieters sofort neu prüfen, weil dann
-  // Module veraltet sein können.
+  // Check again right away after a provider change.
   useEffect(() => {
     const handler = () => load();
     window.addEventListener("embedding-provider-changed", handler);

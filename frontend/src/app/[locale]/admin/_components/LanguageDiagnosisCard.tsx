@@ -4,13 +4,7 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import CollapsibleCard from "@/components/ui/CollapsibleCard";
 
-/**
- * The system prompt behind the CEFR chat diagnosis.
- *
- * One prompt covers every language: `{language}` is replaced with the workspace's
- * diagnosis language at request time. Saving an empty field restores the shipped
- * default, so the diagnosis can never end up without instructions.
- */
+/** The assessment prompt, a placeholder carries the language. */
 export default function LanguageDiagnosisCard() {
   const t = useTranslations("admin.languageDiagnosisCard");
   const [saved, setSaved] = useState<string | null>(null);
@@ -56,8 +50,7 @@ export default function LanguageDiagnosisCard() {
         setDraft(saved ?? "");
         return;
       }
-      // An empty save is the reset gesture: the backend stores the default, so
-      // mirror that here instead of showing a blank prompt.
+      // Saving an empty text resets it, which mirrors the interface.
       const stored = value.trim() || fallback;
       setSaved(stored);
       setDraft(stored);

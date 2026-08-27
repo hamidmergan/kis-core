@@ -17,7 +17,7 @@ from src.permissions_registry import PERM_SET_SYSTEM
 
 router = APIRouter(tags=["admin: maintenance"])
 
-# Wartung und Neuaufbau des Index gehoeren zur Seite System.
+# Maintenance and index rebuild belong to the system page.
 _require = require_permission(PERM_SET_SYSTEM)
 
 
@@ -29,9 +29,7 @@ async def get_maintenance(_admin=Depends(_require)):
     except Exception:
         progress = None
 
-    # Read fingerprint from DB only - do NOT compute on demand (compute takes
-    # 15-50s against a cold provider). If not cached yet, fire a background task
-    # to prime it; the user's next page refresh will see the stale_workspaces.
+    # Only read the fingerprint, a cold provider takes up to 50 seconds.
     key = f"fingerprint_{active_embedding_provider_key()}"
     current_fingerprint = db.get_setting(key, "") or None
     stale_workspaces: list[dict] = []

@@ -57,7 +57,7 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
           return;
         }
       }
-      // Jobs entstehen nur aus Werkzeugen, ohne Werkzeug-Recht gibt es nichts zu sehen.
+      // Jobs only come from tools, without a tool permission there is nothing to see.
       if (isJobsPath && perms.tools.length === 0) {
         router.replace("/");
         setLoading(false);

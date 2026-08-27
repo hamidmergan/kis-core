@@ -18,14 +18,11 @@ from src.limits import REQUEST_THREAD_LIMIT
 from src.storage import USE_S3, init_storage
 from src.routes import admin, auth, glossaries, health, image, invites, jobs, aia, ki_status, me, screencast, screencast_demo, summary, transcription, translate, tts
 
-# Routes that stay reachable during maintenance so the admin can toggle it off
-# and users see a clean maintenance page instead of 401/500.
+# Routes that stay reachable during maintenance.
 _MAINTENANCE_OPEN_PATHS = {"/health", "/health/maintenance", "/health/labels"}
 _MAINTENANCE_OPEN_PREFIXES = ("/admin/", "/auth/")
 
-# Cache maintenance_mode: an uncached get_setting per request serializes the whole
-# single-worker app behind a blocking DB round-trip before every dispatch. A few
-# seconds of staleness on a maintenance toggle is harmless.
+# Cache the maintenance flag, otherwise every request waits on a database query.
 _MAINTENANCE_TTL_S = 5.0
 _maintenance_cache: dict = {"enabled": False, "checked_at": -1e9}
 
@@ -46,45 +43,18 @@ def _configure_logging() -> None:
     )
 
 
-# Das stuendliche Aufraeumen lief hier als Endlosschleife (_periodic_cleanup).
-# Es liegt jetzt in tasks/cleanup_tasks.py und wird von kis-celery-beat
-# angestossen, weil das per Bauart genau einmal laeuft. Mit mehreren
-# uvicorn-Prozessen haette hier jeder Prozess seine eigene Schleife gefahren.
+# The hourly cleanup now runs through kis-celery-beat.
 
 
-# Beliebige feste Zahl, sie muss nur projektweit eindeutig sein.
+# Any fixed number, it only has to be unique project wide.
 _LOCK_INIT_DB = 815_001
 
-# Merker in Redis, an dem sich erkennen laesst, ob der Celery-Broker seine
-# Warteschlange verloren hat.
+# Marker in Redis that makes a lost broker recognisable.
 _BROKER_MARKER_KEY = "kis:broker:generation"
 
 
 def _broker_was_emptied() -> bool:
-    """True, wenn der Broker leer ist und laufende Auftraege wirklich verwaist sind.
-
-    Warum diese Pruefung ueberhaupt: ``reset_stuck_jobs`` setzt ALLE Auftraege in
-    'pending' oder 'running' auf fehlgeschlagen. Das ist richtig, wenn der
-    komplette Stapel neu startet, denn dann hat Redis die Warteschlange verloren
-    und niemand arbeitet mehr an ihnen.
-
-    Es ist aber falsch in zwei Faellen:
-    - Nur kis-backend startet neu. Die Celery-Container laufen weiter und
-      arbeiten gerade an genau diesen Auftraegen. Bisher wurden sie trotzdem
-      abgebrochen, das war ein Fehler auch schon mit einem Prozess.
-    - Mit mehreren uvicorn-Prozessen wuerde JEDER neu gestartete Prozess alle
-      laufenden Auftraege der anderen abbrechen.
-
-    Der Merker liegt in Redis, also dort wo auch die Warteschlange liegt. Ist er
-    weg, war Redis weg, und dann sind die Auftraege tatsaechlich verwaist.
-    ``nx=True`` sorgt dafuer, dass von mehreren gleichzeitig startenden Prozessen
-    nur einer True bekommt.
-
-    Bei Redis-Ausfall wird NICHT aufgeraeumt. Lieber bleibt ein Auftrag zu lange
-    auf 'running' stehen, als dass gesunde Arbeit abgebrochen wird. Der Waechter
-    (watchdog.check, alle 5 Sekunden) faengt wirklich haengende Auftraege
-    ohnehin nach JOB_WATCHDOG_MINUTES ueber den Fortschritts-Herzschlag ab.
-    """
+    """True when the broker is empty and running jobs are really orphaned."""
     try:
         import redis as _redis_lib
         r = _redis_lib.from_url(
@@ -101,23 +71,16 @@ def _broker_was_emptied() -> bool:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
-    # Threadpool fuer die `def`-Routen vergroessern. Vorgabe von anyio sind 40,
-    # und die gilt fuer ALLE Routen zusammen. Der Wert wird bewusst kleiner
-    # gehalten als der DB-Verbindungsvorrat, sonst laeuft der leer und wirft
-    # PoolError statt kurz zu warten. Beide Zahlen stehen in limits.py.
+    # Thread pool for def routes, deliberately smaller than the database pool.
     anyio.to_thread.current_default_thread_limiter().total_tokens = REQUEST_THREAD_LIMIT
     logger.info("Request thread pool: {} threads", REQUEST_THREAD_LIMIT)
-    # Fail closed: local mode disables ALL authentication (verify_auth passes
-    # through, every request becomes admin). That must never happen in prod, so
-    # refuse to boot if production is set but no LDAP server is configured
-    # (e.g. an env typo or a forgotten LDAP_SERVER var).
+    # Do not start when production is set but LDAP is missing.
     if settings.production and settings.is_local_mode:
         raise RuntimeError(
             "Refusing to start: production=True but LDAP_SERVER is empty. "
             "Local mode would disable authentication entirely."
         )
-    # Schema nur von EINEM Prozess anlegen lassen, die anderen warten und
-    # ueberspringen, siehe run_once_across_processes().
+    # Let only one process create the schema, the others skip it.
     with run_once_across_processes(_LOCK_INIT_DB) as am_first:
         if am_first:
             init_db(admin_email=settings.admin_email or None)
@@ -160,8 +123,7 @@ def create_app() -> FastAPI:
 
     @application.middleware("http")
     async def local_mode_session(request: Request, call_next) -> Response:
-        """In local mode: inject a long-lived session cookie so Next.js
-        layout sees hasSession=true after the first API call."""
+        """Sets a long-lived session cookie in local operation."""
         if not settings.is_local_mode:
             return await call_next(request)
 
@@ -193,7 +155,7 @@ def create_app() -> FastAPI:
         return await call_next(request)
 
     def _darf_bei_wartung(data: dict) -> bool:
-        """Traegt die Sitzung das Recht auf Zugang waehrend der Wartung?"""
+        """Does the session carry the right to enter during maintenance?"""
         try:
             from src.dependencies_rbac import permissions_of
             from src.permissions_registry import PERM_MAINTENANCE_ACCESS
@@ -221,10 +183,7 @@ def create_app() -> FastAPI:
             _maintenance_cache["checked_at"] = loop_now
         if not _maintenance_cache["enabled"]:
             return await call_next(request)
-        # Admin keeps full access during maintenance so they can keep working.
-        # Mirrors is_admin_user(): env-admin OR DB-role 'admin' — otherwise a
-        # role='admin' user gets locked out of every non-/admin/ endpoint.
-        # Daneben kommt durch, wer das Recht auf Zugang waehrend der Wartung hat.
+        # Admins and holders of the maintenance access right still get through.
         token = request.cookies.get("session")
         if token:
             store = get_session_store()

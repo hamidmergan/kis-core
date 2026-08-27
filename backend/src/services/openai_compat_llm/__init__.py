@@ -1,8 +1,4 @@
-"""OpenAI-compatible LLM client - package aggregation.
-
-The client class is composed from mixins to keep individual files small.
-Callers import via ``from src.services.openai_compat_llm import OpenAICompatLLMClient``.
-"""
+"""The OpenAI compatible client, assembled from mixins."""
 
 from src.services.openai_compat_llm._scripts import _ScriptsMixin
 from src.services.openai_compat_llm._summary import _SummaryMixin
@@ -18,12 +14,7 @@ class OpenAICompatLLMClient(
     _ScriptsMixin,
     _OpenAICompatBase,
 ):
-    """Lightweight wrapper around any OpenAI-compatible LLM endpoint.
-
-    The instance is configured with ``base_url``, ``api_key``, ``model`` and
-    an optional ``provider`` tag (used for telemetry only). All providers are
-    admin-configured in the KI panel; no provider-specific code paths here.
-    """
+    """Thin wrapper around an OpenAI compatible endpoint."""
 
 
 __all__ = ["OpenAICompatLLMClient"]

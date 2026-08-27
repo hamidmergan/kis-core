@@ -1,16 +1,4 @@
-"""Safety net against a model repetition/degeneration loop — when the LLM gets stuck
-emitting the same few bullets over and over (seen with 'fasse detailliert zusammen'
-on a thin source). Two pieces:
-
-  * _RepetitionGuard  — fed each completed line during streaming; returns True once a
-    substantial line has appeared too many times (consecutive OR alternating), so the
-    caller STOPS consuming the stream (#1: stop the runaway).
-  * _dedup_repeated_lines — drops later duplicates of a substantial line from the
-    final answer (#2: clean the residue that streamed before the stop).
-
-Citations and bullet markers are ignored for the comparison key, so the same point
-with the same chip still counts as a repeat.
-"""
+"""Guard against repetition loops: abort and clean up the remains."""
 from src.features.ai_assistant.routes._helpers import (
     _RepetitionGuard,
     _dedup_repeated_lines,
@@ -20,8 +8,7 @@ from src.features.ai_assistant.routes._helpers import (
     _strip_tiny_tables,
 )
 
-# A real intra-line degeneration loop: a phrase echoed with NO newline (GENERIC over
-# 107 sources produced 168k chars of this in a single line, ~11 min stream).
+# A real loop without a line break, from an actual run.
 _LOOP_UNIT = "dem Recht der Verkehrssicherheit (BEG, BStrMKnotV), "
 
 

@@ -7,14 +7,7 @@ export type FeatureProvider = { id: number; name: string };
 
 type ProvidersResponse = { providers: FeatureProvider[]; default_id: number | null };
 
-/**
- * Load the reachable providers a tool may offer for a user-pickable feature.
- *
- * ``path`` is the backend listing endpoint (e.g. ``/transcription/providers``
- * or ``/image/providers/generate``). The dropdown should only be shown when
- * more than one provider comes back; an empty list means the tool falls back
- * to the admin default route. Mirrors the TTS picker.
- */
+/** Loads the reachable providers, an empty list means the admin default route. */
 export function useFeatureProviders(path: string) {
   const [providers, setProviders] = useState<FeatureProvider[]>([]);
   const [providerId, setProviderId] = useState<number | null>(null);

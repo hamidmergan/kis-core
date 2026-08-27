@@ -1,9 +1,4 @@
-"""The coverage rule reaches the system prompt of every generator.
-
-What the rule SAYS, how the context is split into equal numbered sections and how the
-result is checked afterwards live in test_exercise_sections. This file only proves the
-wiring: a rule that never reaches the prompt cannot spread anything.
-"""
+"""The coverage rule has to reach the prompt of every generator."""
 
 import json
 import types
@@ -15,9 +10,7 @@ from src.features.ai_assistant.tasks.language_training._context import (
 
 MARKER = "\n\nCOVERAGE. The source material is split into 2 numbered sections."
 
-# Ein Grammatikthema in der Form, die die Generierung aus der Datenbank baut.
-# Frueher kam dieses dict aus einem Code-Katalog, die Form ist absichtlich dieselbe
-# geblieben, damit sich an den Generatoren keine Zeile aendern musste.
+# A grammar topic in the shape that comes from the database.
 _TOPIC = {
     "id": 1,
     "label": "Passiv Präsens",
@@ -116,15 +109,14 @@ def test_one_source_leaves_the_prompt_untouched(monkeypatch):
 
 
 def test_every_generator_keeps_the_models_section_claim(monkeypatch):
-    """The claim is what makes coverage checkable. It must survive item building, and it
-    must not reach the database: finalize_exercise_set only reads known keys."""
+    """The section field survives the build and must not be saved."""
     from src.features.ai_assistant.tasks.language_training import _source_mc as mc
     from src.features.ai_assistant.tasks.language_training import _source_cards as cards
     from src.features.ai_assistant.tasks.language_training import _source_flashcards as fc
     from src.features.ai_assistant.tasks.language_training import _source_grammar as gr
     for mod in (mc, cards, fc):
         monkeypatch.setattr(mod, "attach_chips", lambda *a, **k: None)
-    # Die Grammatik-Übung nimmt den gestaffelten Weg (Modell-Seite vor Rücksuche).
+    # The grammar exercise takes the layered path, model page before back-search.
     monkeypatch.setattr(gr, "attach_chips_cited", lambda *a, **k: None)
 
     client, _ = _make_client(json.dumps({"title": "T", "exercises": [

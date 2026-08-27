@@ -1,37 +1,16 @@
 "use client";
 
-/**
- * Das Raster Wochentag mal Stunde.
- *
- * Ein Feld heisst: so viel passiert an einem typischen Montag um zehn. Also ein
- * Durchschnitt und keine Summe, sonst waeren die Zeitraeume nicht vergleichbar,
- * weil "alles" mehr Wochen enthaelt als "30 Tage".
- *
- * Die Farbskala haengt am hoechsten Wert ueber alle Zeitraeume und nicht am
- * gewaehlten. Nur so wird beim Umschalten sichtbar, dass der Betrieb gewachsen
- * ist: waere sie relativ, saehe jeder Zeitraum gleich aus.
- *
- * Die Felder fuellen die Karte statt eine feste Breite zu haben. Ein Raster, das
- * auf halber Strecke aufhoert, sieht aus wie ein Fehler.
- */
+/** The weekday by hour grid, average and a fixed colour scale. */
 
 import { useTranslations } from "next-intl";
 import HoverTooltip from "@/components/ui/HoverTooltip";
 
 const TAGE = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
 
-/** Fuenf Stufen aus der Hausfarbe. Deckkraft statt eigener Werte, damit die
- *  Stufen im hellen wie im dunklen Bild ueber dem Kartengrund stimmen. */
+/** Five steps from the house colour, via opacity instead of separate values. */
 const STUFEN = ["bg-kb/10", "bg-kb/30", "bg-kb/50", "bg-kb/75", "bg-kb"];
 
-/** Unter dieser Marke faerbt sich das Raster nicht voll aus.
- *
- *  Ohne sie richtet sich die Skala nach dem hoechsten Wert, den es gerade gibt,
- *  und der ist auf einer ruhigen Anlage eine vier. Dann stuende ein Feld mit vier
- *  Auftraegen im dunkelsten Ton und hiesse "am meisten", obwohl fast nichts los
- *  war. Sobald echter Betrieb laeuft, liegt der Hoechstwert darueber und die
- *  Marke spielt keine Rolle mehr.
- */
+/** Below this mark the grid does not fill in completely. */
 const MINDESTSKALA = 20;
 
 export function Raster({
@@ -41,7 +20,7 @@ export function Raster({
 }: {
   werte: number[][];
   einheit: string;
-  /** Hoechster Wert ueber alle Zeitraeume, damit die Skala fest bleibt. */
+  /** Highest value across all periods so the scale stays fixed. */
   max: number;
 }) {
   const t = useTranslations("admin.statistik");
@@ -68,9 +47,7 @@ export function Raster({
         <div key={tag} className="flex gap-0.5 items-center mb-0.5">
           <span className="w-8 shrink-0 text-3xs text-muted-soft">{TAGE[tag]}</span>
           {zeile.map((wert, stunde) => (
-            // Der Hinweis kommt aus dem Bestand und nicht aus `title`: dessen
-            // Verzoegerung von rund einer Sekunde laesst sich nicht abstellen,
-            // und beim Wandern ueber das Raster wartet niemand so lange.
+            // Its own tooltip instead of title, whose delay is too long.
             <HoverTooltip
               key={stunde}
               text={`${TAGE[tag]}, ${String(stunde).padStart(2, "0")}:00\n⌀ ${zeig(wert)} ${einheit}`}
@@ -98,9 +75,7 @@ export function Raster({
   );
 }
 
-/** Die Zeitraum-Knoepfe stehen in der Karte, nicht ueber der Seite: sie wirken
- *  nur auf dieses eine Raster, und eine Leiste, die global aussieht aber fast
- *  nichts tut, ist schlechter als keine. */
+/** The period buttons sit in the card, they only affect this grid. */
 export function ZeitraumChips({
   wert,
   setzen,

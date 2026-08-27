@@ -1,25 +1,25 @@
 #!/usr/bin/env bash
-# Baut das Schema EINMAL von null auf und meldet, ob es durchlaeuft.
+# Builds the schema ONCE from scratch and reports whether it goes through.
 #
-# Warum das nicht der gewoehnliche Start abdeckt: auf einer gewachsenen Datenbank
-# sind alle Tabellen laengst da, also faellt es nie auf, wenn eine Anweisung eine
-# Tabelle anfasst, die erst weiter unten entsteht. Eine neue Hochschule faengt aber
-# mit einer LEEREN Datenbank an, und dort bricht so etwas den ganzen Start ab
+# Why the ordinary start does not cover this: on a grown database all tables are
+# long since there, so it never shows when a statement touches a table that is
+# only created further down. A new university starts with an EMPTY database, and
+# there something like that aborts the whole start
 # ("relation ... does not exist", Application startup failed).
 #
-# Gemessen am 2026-08-10 auf dem Server genau so passiert. Deshalb vor jedem
-# groesseren Schema-Umbau hier durchlaufen lassen.
+# Happened exactly that way on the server on 2026-08-10. So run this before every
+# larger schema rework.
 #
-# Zwei Arten von Fehlern, zwei verschiedene Fixe:
-#   * ALTER TABLE ... ADD COLUMN  -> wird auch auf einer frischen Datenbank
-#     gebraucht. Die Zieltabelle gehoert VOR die Verwendung gezogen.
-#   * UPDATE / DELETE am Altbestand -> auf einer leeren Datenbank gibt es nichts
-#     aufzuraeumen. Mit _table_exists() ueberspringen.
+# Two kinds of error, two different fixes:
+#   * ALTER TABLE ... ADD COLUMN  -> needed on a fresh database too. The target
+#     table belongs BEFORE its use.
+#   * UPDATE / DELETE on legacy data -> on an empty database there is nothing to
+#     clean up. Skip it with _table_exists().
 #
-# Zeigt immer nur den NAECHSTEN Fehler. Nach jedem Fix erneut aufrufen, bis
-# "SCHEMA OK" steht.
+# It always shows only the NEXT error. Call it again after every fix until
+# "SCHEMA OK" appears.
 #
-# Aufruf aus dem Projektwurzelverzeichnis:  backend/scripts/check_fresh_schema.sh
+# Call from the project root:  backend/scripts/check_fresh_schema.sh
 set -euo pipefail
 
 DB="${FRESH_SCHEMA_DB:-kis_schematest}"
@@ -41,10 +41,10 @@ docker compose run --rm --no-deps \
     backend python -c "from src.core.db.schema import init_db; init_db(); print('SCHEMA OK auf leerer Datenbank')" \
     2>&1 | grep -vE '^time=|Maschine erkannt|orphan containers'
 
-# Ein Abgleich gegen die gewachsene Datenbank stand hier und ist wieder raus: sie
-# traegt tote Spalten aus verworfenen Versuchen, und die tauchten bei jedem Lauf
-# als angebliche Luecke auf. Wer das wirklich vergleichen will, macht es von Hand
-# und schaut sich jede Zeile an.
+# A comparison against the grown database used to sit here and is gone again: it
+# carries dead columns from abandoned attempts, and those showed up as an alleged
+# gap on every run. Whoever really wants to compare does it by hand and looks at
+# every line.
 
 echo
 echo "Raeume $DB wieder ab."

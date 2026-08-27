@@ -1,9 +1,4 @@
-"""Registry of protocol adapters.
-
-Adding a new protocol = drop an adapter module here and register it below.
-The admin UI reads ``known_protocols()`` to populate its dropdown; the
-provider-probe service reads ``make_adapter()`` to talk to a concrete row.
-"""
+"""Registry of the protocol adapters, a new protocol is registered here."""
 
 from __future__ import annotations
 

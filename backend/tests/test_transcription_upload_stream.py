@@ -1,9 +1,4 @@
-"""The transcription route must stream the upload to disk, not buffer it.
-
-A 500 MB lecture recording read with ``await file.read()`` costs the backend
-process 500 MB of RAM (plus a second copy on the way to storage). The fake
-upload here refuses an unbounded read, so the old buffering path fails loudly.
-"""
+"""The speech recognition route has to stream the upload to disk."""
 import asyncio
 
 import pytest

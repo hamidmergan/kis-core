@@ -62,7 +62,7 @@ export function SourcesPanel({
   uploadErrors: { filename: string; message: string }[];
   onDismissUploadErrors: () => void;
   isOwner: boolean;
-  /** Texterkennung plattformweit an (Admin-Schalter). Steuert nur das Nachholen. */
+  /** Text recognition on platform wide (admin switch), it only drives the catch-up. */
   ocrEnabled?: boolean;
   onMinimize: () => void;
   workspaceUuid: string;
@@ -70,7 +70,7 @@ export function SourcesPanel({
   staffNoteText?: string | null;
   staffNoteLinks?: StaffNoteLink[];
   onStaffNoteSave?: (text: string | null, links: StaffNoteLink[]) => Promise<void>;
-  /** Gliederung der Liste. Leer heisst: eine Liste wie bisher, ohne Gruppen. */
+  /** Structure of the list, empty means one flat list as before. */
   chapters?: Chapter[];
   onCreateChapter?: (name: string) => Promise<void>;
   onRenameChapter?: (uuid: string, name: string) => Promise<void>;
@@ -112,8 +112,7 @@ export function SourcesPanel({
     return () => ro.disconnect();
   }, []);
 
-  // Zugeklappte Kapitel ueberleben den Seitenwechsel, sonst muesste ein Kurs mit
-  // zehn Kapiteln bei jedem Besuch neu zusammengeklappt werden.
+  // Collapsed chapters survive a page change.
   useEffect(() => {
     try {
       const saved = localStorage.getItem(CLOSED_KEY_PREFIX + workspaceUuid);
@@ -147,8 +146,7 @@ export function SourcesPanel({
     }
   }
 
-  // Ein Kapitel je Quelle. Was auf ein geloeschtes oder fremdes Kapitel zeigt,
-  // landet bei "Ohne Kapitel", damit keine Datei unsichtbar wird.
+  // Whatever points at a foreign chapter lands under 'no chapter'.
   const known = new Set(chapterList.map((c) => c.uuid));
   const loose = sources.filter((s) => !s.chapter_uuid || !known.has(s.chapter_uuid));
 
@@ -200,8 +198,7 @@ export function SourcesPanel({
     );
   }
 
-  // Anlegen in Hausblau. Steht in der Kopfzeile und, wenn die weg ist, in der
-  // schmalen Zeile darunter.
+  // Create in house blue, in the header or the narrow row below it.
   const ownerActions = isOwner ? (
     <>
       <IconButton

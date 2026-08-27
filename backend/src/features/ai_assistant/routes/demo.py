@@ -1,4 +1,4 @@
-"""Demo-Zugang: die Kurse der Demo-Konten anzeigen und selbst beitreten."""
+"""Demo access: show the courses of the demo accounts and join them yourself."""
 
 from fastapi import APIRouter, Depends, HTTPException
 from loguru import logger
@@ -21,7 +21,7 @@ class DemoLeaveBody(BaseModel):
 
 @router.get("/ai-assistant/demo/workspaces")
 async def list_demo_workspaces(current_user: dict = Depends(get_current_user)):
-    """Alle aktiven Kurse der Demo-Konten, ohne die internen Kennungen."""
+    """All active courses of the demo accounts, without the internal ids."""
     return [
         {
             "uuid": row["uuid"],
@@ -42,7 +42,7 @@ async def enroll_in_demo(
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    """Schreibt in einen Demo-Kurs ein, ohne Angabe in alle noch offenen."""
+    """Enrolls into a demo course, without an argument into all still open ones."""
     user_id = current_user["user_id"]
     kurse = db.get_demo_workspaces(user_id)
     if body.workspace_uuid:
@@ -65,7 +65,7 @@ async def leave_demo(
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    """Nimmt die Einschreibung zurueck, alles andere im Kurs bleibt liegen."""
+    """Withdraws the enrollment, everything else in the course stays."""
     user_id = current_user["user_id"]
     kurs = next((k for k in db.get_demo_workspaces(user_id) if k["uuid"] == body.workspace_uuid), None)
     if kurs is None:

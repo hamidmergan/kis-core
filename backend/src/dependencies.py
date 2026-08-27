@@ -1,12 +1,4 @@
-"""Shared FastAPI dependencies + legacy provider-resolver façade.
-
-All client resolvers in this module are thin shims over
-``src.services.feature_router``. Existing call-sites (chat, whisper, TTS,
-deepl, ...) keep their public signatures so they don't need to be touched
-individually. The router reads from the ``providers`` + ``feature_routes``
-tables managed by the admin tab; legacy ``*_enabled`` settings rows are no
-longer consulted anywhere.
-"""
+"""Shared FastAPI dependencies and thin wrappers around the feature router."""
 
 from functools import lru_cache
 from typing import Optional
@@ -27,10 +19,7 @@ def get_settings() -> Settings:
 
 
 async def get_current_user(request: Request) -> dict:
-    """Return session data for the authenticated user.
-
-    In local mode: always returns the local admin user from DB.
-    """
+    """Session data of the logged-in user."""
     settings = get_settings()
     if settings.is_local_mode:
         from src import database as _db
@@ -64,10 +53,7 @@ def is_admin_user(user: dict) -> bool:
 
 
 async def get_admin_user(request: Request, locale: str = Depends(get_locale)) -> dict:
-    """Like get_current_user, but raises 403 if the user is not an admin.
-
-    This is the admin dependency the admin routes actually depend on.
-    """
+    """Like get_current_user but raises 403 when the user is not an admin."""
     user = await get_current_user(request)
     if not is_admin_user(user):
         raise HTTPException(status_code=403, detail=t("auth.adminRequired", locale))
@@ -88,8 +74,7 @@ def get_session_store():
 # ─── Legacy provider resolvers (now backed by feature_router) ──────────────
 
 def _binding_tuple(binding: feature_router.FeatureBinding) -> tuple[str, str, str, str]:
-    """Flatten a binding into the (api_key, base_url, model, provider_name)
-    tuple shape that the legacy resolvers used to return."""
+    """Flattens a binding down to the old four-tuple."""
     p = binding.provider
     return (
         p.get("api_key") or "not-needed",
@@ -100,21 +85,13 @@ def _binding_tuple(binding: feature_router.FeatureBinding) -> tuple[str, str, st
 
 
 def _resolve_llm_provider() -> tuple[str, str, str, str]:
-    """Resolve the active chat LLM. Raises ``FeatureNotConfigured`` (a
-    ``RuntimeError`` subclass) when no chat route is set."""
+    """Resolves the active chat model, raises FeatureNotConfigured without a route."""
     binding = feature_router.resolve("chat")
     return _binding_tuple(binding)
 
 
 def resolve_whisper_client(provider_id: Optional[int] = None) -> OpenAICompatLLMClient:
-    """Resolve a Whisper client for the ``stt`` feature.
-
-    ``provider_id`` lets the end-user pick one of the STT providers the admin
-    configured a model for (capability-based, same as the TTS picker); when
-    omitted the admin default route is used. Lets ``FeatureNotConfigured``
-    propagate so Celery tasks can surface a localized error message instead of
-    the internal English text.
-    """
+    """Resolves a Whisper credential, optionally via a chosen provider."""
     if provider_id is not None:
         from src.services import feature_provider_choices
         binding = feature_provider_choices.resolve_binding("stt", provider_id)
@@ -141,25 +118,19 @@ def get_llm_client(locale: str = Depends(get_locale)) -> OpenAICompatLLMClient:
 # ─── TTS resolvers ─────────────────────────────────────────────────────────
 
 def get_tts_providers_with_voices() -> list[dict]:
-    """All enabled openai_compat providers that have the tts capability,
-    including their voices list from the DB."""
+    """All enabled providers with speech output including their voices."""
     from src import database as db
     providers = db.list_providers_with_capability("tts")
     return [p for p in providers if p.get("protocol") == "openai_compat"]
 
 
-# In-process TTL cache so a dead TTS provider does not block every voices-page
-# load with a 5 s timeout, and reachable ones are not re-probed on every request.
+# Short-lived cache so a dead provider does not block every voice page.
 _TTS_REACH_TTL_SEC = 30.0
 _tts_reach_cache: dict[int, tuple[float, bool]] = {}
 
 
 def _tts_provider_reachable(provider: dict) -> bool:
-    """Live /v1/models reachability probe for a TTS provider, cached briefly.
-
-    True if the endpoint answered (HTTP < 500) within the timeout. Down
-    providers return False so callers can hide them; once the endpoint is back,
-    the next probe after the TTL flips it to True again."""
+    """Briefly cached reachability probe of a speech output provider."""
     import time
     from src.services.openai_compat_tts import OpenAICompatTTSClient
 
@@ -177,11 +148,7 @@ def _tts_provider_reachable(provider: dict) -> bool:
 
 
 async def get_reachable_tts_providers_with_voices() -> list[dict]:
-    """Like get_tts_providers_with_voices, but only providers reachable right now.
-
-    Probes run concurrently so one slow/dead provider does not serialise the
-    others. Lets the voices UI hide an unreachable provider (e.g. Kokoro while
-    its SSH tunnel is down) and show it again automatically once it answers."""
+    """Like get_tts_providers_with_voices but only currently reachable providers."""
     import asyncio
 
     providers = get_tts_providers_with_voices()
@@ -195,16 +162,7 @@ async def get_reachable_tts_providers_with_voices() -> list[dict]:
 
 
 def tts_model_for_provider(provider_id: int) -> str:
-    """Welches TTS-Modell hinter diesem Anbieter steht, oder "" wenn keines gesetzt ist.
-
-    Steckt NICHT im Anbieter selbst, sondern in der Route "Text in Sprache". Wer den
-    Klang eines Tons eindeutig bestimmen will, braucht deshalb beides. Der
-    Aussprache-Vorrat nimmt das Modell in seinen Fingerabdruck auf: sonst liefert er
-    nach einem Modellwechsel weiter den alten Klang, ohne dass irgendetwas ihn
-    entwertet.
-
-    Wirft nicht. Ein fehlendes Modell ist hier eine Antwort, kein Fehler.
-    """
+    """Which speech model sits behind this provider, or an empty string."""
     from src import database as db
     route = db.get_route("tts")
     provider_models = (route.get("provider_models") if route else None) or {}
@@ -228,10 +186,7 @@ def get_tts_client_for_provider(provider_id: int):
 
 
 def _voice_language_for(provider_id: int, voice_id: str) -> str:
-    """Look up the language for a (provider_id, voice_id) pair from the DB voices list.
-
-    Returns empty string if not found — callers should treat '' as 'unknown'.
-    """
+    """Looks up the language for a provider and voice pair, empty string otherwise."""
     from src import database as db
     provider = db.get_provider(provider_id)
     if not provider:
@@ -245,11 +200,7 @@ def _voice_language_for(provider_id: int, voice_id: str) -> str:
 # ─── Translation resolvers ──────────────────────────────────────────────────
 
 def get_translation_providers() -> list[dict]:
-    """All enabled providers that can serve translation (translation or chat capability).
-
-    DeepL providers have 'translation' capability; OpenAI-compat LLM providers
-    have 'chat' and can translate via prompt. Returns a deduplicated list.
-    """
+    """All enabled providers that can translate."""
     seen_ids: set[int] = set()
     result: list[dict] = []
     for cap in ("translation", "chat"):
@@ -263,22 +214,7 @@ def get_translation_providers() -> list[dict]:
 def get_translate_client_for_provider(
     provider_id: Optional[int], *, glossary_entries: dict | None = None, feature: str = "doc_translate"
 ):
-    """Return (translation_client, GlossaryService) for use with TranslationService.
-
-    When provider_id is None, falls back to the first available translation provider.
-    Returns (None, GlossaryService()) if no provider can be found.
-
-    ``feature`` is the route the per-provider model name is read from. It defaults to
-    ``doc_translate`` (document tool) but transcript translation passes
-    ``transcript_translate`` so its model can be configured independently.
-
-    Protocol dispatch:
-      deepl         -> DeepLClient + GlossaryService with entries
-      openai_compat -> LLMTranslationClient (glossary passed in constructor)
-
-    Note: for LLM providers the returned GlossaryService is intentionally empty;
-    the glossary is embedded in the LLM system prompt instead.
-    """
+    """Supplies the translation credential and terminology list for the TranslationService."""
     from src.services.glossary import GlossaryService
 
     if provider_id is None:
@@ -317,11 +253,7 @@ def get_translate_client_for_provider(
 # ─── DeepL resolvers ───────────────────────────────────────────────────────
 
 def _deepl_provider() -> Optional[dict]:
-    """First enabled DeepL provider on the doc_translate route.
-
-    Der Screencast hatte einmal eine eigene Route, die hier als zweite Quelle
-    abgefragt wurde. Sie ist entfallen, beide Werkzeuge teilen sich jetzt
-    doc_translate."""
+    """First enabled DeepL provider on the doc_translate route."""
     for p in feature_router.providers_for_feature("doc_translate"):
         if p.get("protocol") == "deepl":
             return p
@@ -329,12 +261,7 @@ def _deepl_provider() -> Optional[dict]:
 
 
 def resolve_deepl_api_key() -> str | None:
-    """Return the active DeepL API key, or None if no DeepL provider is configured.
-
-    Historical .env fallback (``DEEPL_API_KEY``) is gone — the provider table
-    is now the only source of truth, with the admin entering the key when they
-    add a DeepL provider in the UI.
-    """
+    """The active DeepL key, or None when no provider is set up."""
     provider = _deepl_provider()
     if not provider:
         return None

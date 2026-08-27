@@ -1,5 +1,5 @@
-# Production-Only — wird nur explizit via -f auf dem Server geladen
-# Lokal NICHT angefasst (Frontend laeuft lokal via 'cd frontend && npm run dev')
+# Production only, loaded explicitly via -f on the server.
+# NOT touched locally (the frontend runs via 'cd frontend && npm run dev').
 
 services:
   frontend:
@@ -11,8 +11,8 @@ services:
     environment:
       BACKEND_URL: http://backend:8000
     ports:
-      # Nur localhost. nginx erreicht das Frontend intern ueber das Docker-Netz
-      # (frontend:3000). Frueher lag 3000 offen auf 0.0.0.0 und umging so TLS.
+      # localhost only. nginx reaches the frontend internally over the Docker network
+      # (frontend:3000). Port 3000 used to sit open on 0.0.0.0 and so bypassed TLS.
       - "127.0.0.1:3000:3000"
     depends_on:
       - backend

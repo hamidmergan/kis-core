@@ -1,15 +1,4 @@
-"""Die Verschmelzung der beiden Trefferlisten, getrennt vom Datenbankzugriff.
-
-Warum es das gibt. ``hybrid_search_chunks`` fragt zwei Wege ab (Vektor und
-Stichwort) und rechnet die Plaetze per RRF zusammen. Um zu messen, WELCHER der
-beiden Wege das Ergebnis traegt, muss man je einen davon abschalten koennen.
-Diese Tests halten fest, was ``mode`` dabei bedeutet.
-
-Ohne den Messsatz waere das eine Vermutung: im Video, aus dem die Idee stammt,
-hat das Zusammenlegen die reine Vektorsuche sogar VERSCHLECHTERT, weil der
-Stichwortweg auf jenen Daten schwach war. Ob das bei uns auch so ist, sagt erst
-eine Zahl. Siehe backend/scripts/rag_retrieval_eval.py --vergleich.
-"""
+"""The fusion of the two hit lists, separate from the database access."""
 import pytest
 
 from src.features.ai_assistant.repository.chunks import _rrf_fuse
@@ -22,9 +11,7 @@ KW = [{"id": 2, "rank": 1}, {"id": 3, "rank": 2}]
 def test_hybrid_zaehlt_beide_wege():
     scores, kw_ids = _rrf_fuse(VEC, KW, rrf_k=60, mode="hybrid")
     assert set(scores) == {1, 2, 3}
-    # Chunk 2 steht in beiden Listen (Vektor Platz 2, Stichwort Platz 1), bekommt
-    # also beide Beitraege und fuehrt, obwohl er in keiner der beiden Listen vorn steht.
-    # Genau das ist der Zweck der Verschmelzung.
+    # A chunk in both lists leads, even though it is first in neither.
     assert scores[2] == pytest.approx(1 / 62 + 1 / 61)
     assert max(scores, key=lambda i: scores[i]) == 2
 
@@ -42,9 +29,7 @@ def test_keyword_laesst_reine_vektortreffer_weg():
 
 
 def test_kw_hit_meldet_nur_echte_stichworttreffer():
-    # ``kw_hit`` trennt "steht das Wort wirklich drin" von "liegt semantisch nahe".
-    # Bei mode="dense" gibt es keinen Stichwortweg, also darf niemand als
-    # Stichworttreffer gelten.
+    # Without the keyword path nobody may count as a keyword hit.
     _, kw_ids = _rrf_fuse(VEC, KW, rrf_k=60, mode="hybrid")
     assert kw_ids == {2, 3}
     _, kw_ids = _rrf_fuse(VEC, KW, rrf_k=60, mode="dense")
@@ -52,14 +37,13 @@ def test_kw_hit_meldet_nur_echte_stichworttreffer():
 
 
 def test_unbekannter_modus_faellt_auf():
-    # Ein Tippfehler im Messskript darf nicht stillschweigend als "hybrid"
-    # durchgehen, sonst vergleicht man zwei gleiche Laeufe.
+    # A typo must not silently pass as hybrid.
     with pytest.raises(ValueError):
         _rrf_fuse(VEC, KW, rrf_k=60, mode="densee")
 
 
 def test_rrf_k_veraendert_die_gewichtung():
-    # Kleineres k spreizt die Plaetze staerker. Der Messsatz variiert das.
+    # A smaller k spreads the ranks more, the benchmark varies it.
     weit, _ = _rrf_fuse(VEC, [], rrf_k=60, mode="hybrid")
     eng, _ = _rrf_fuse(VEC, [], rrf_k=10, mode="hybrid")
     assert weit[1] / weit[2] < eng[1] / eng[2]

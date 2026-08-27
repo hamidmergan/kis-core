@@ -1,13 +1,4 @@
-"""Screencast-Demo route: static playthrough using pre-baked demo files.
-
-No computation, no Celery tasks, no PPTX parsing. All files are read from
-backend/demo/ on the local filesystem (mounted into the container at
-/app/demo, read-only):
-  demo/images/slide_*.png        → slide images
-  demo/accepted_scripts.json     → scripts per slide (list[str])
-  demo/output.mp4                → pre-rendered video
-  demo/audio/*.mp3, demo/*.pptx  → extras for the bundle download
-"""
+"""A prepared run from files, without compute and without jobs."""
 
 import base64
 import io

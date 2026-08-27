@@ -1,9 +1,4 @@
-"""Grenzen der globalen Werkzeuge kommen zur Laufzeit aus dem Admin.
-
-Der Punkt dieser Datei: die Zahlen in ``limits.py`` bleiben die Vorgabe, aber ein
-im Admin gesetzter Wert muss OHNE Neustart greifen. Genau das ginge schief, wenn
-jemand die Konstante wieder direkt importiert statt die Funktion zu rufen.
-"""
+"""The admin limits have to take effect without a restart."""
 
 import pytest
 
@@ -13,7 +8,7 @@ from src.services import tool_limits
 
 @pytest.fixture
 def gesetzt(monkeypatch):
-    """Einstellungen aus der Datenbank vortaeuschen, ohne Datenbank."""
+    """Fakes settings from the database, without a database."""
     werte: dict[str, str] = {}
 
     def fake_get_setting(key: str, default: str = "") -> str:
@@ -23,8 +18,7 @@ def gesetzt(monkeypatch):
     return werte
 
 
-# Jede Grenze: Funktion, Schluessel, erwartete Vorgabe, ein gesetzter Wert und
-# was dabei herauskommen muss (Minuten und MB werden umgerechnet).
+# Per limit: function, key, default, set value and result.
 FAELLE = [
     (tool_limits.max_screencast_slides, "screencast_max_slides",
      limits.MAX_SCREENCAST_SLIDES, "120", 120),
@@ -53,20 +47,19 @@ def test_eintrag_schlaegt_vorgabe(gesetzt, fn, key, vorgabe, roh, erwartet):
 @pytest.mark.parametrize("fn,key,vorgabe,roh,erwartet", FAELLE)
 @pytest.mark.parametrize("muell", ["", "viele", "12,5", None])
 def test_muell_faellt_auf_die_vorgabe_zurueck(gesetzt, fn, key, vorgabe, roh, erwartet, muell):
-    """Ein kaputter Eintrag darf kein Werkzeug lahmlegen."""
+    """A broken entry must not disable a tool."""
     gesetzt[key] = muell
     assert fn() == vorgabe
 
 
 def test_unbegrenzt_nur_wo_es_erlaubt_ist(gesetzt):
-    """-1 heisst unbegrenzt, aber nur bei den beiden Zaehlgrenzen."""
+    """-1 means unlimited, but only for the two count limits."""
     gesetzt["results_kept_per_user"] = "-1"
     gesetzt["screencast_max_open_jobs"] = "-1"
     assert tool_limits.results_kept_per_user() == -1
     assert tool_limits.max_open_screencast_jobs() == -1
 
-    # Bei den anderen dreien waere unbegrenzt eine Falle: der Auftrag bricht
-    # nach zwei Stunden ab, der Anbieter lehnt ab, die Platte laeuft voll.
+    # For the other three unlimited would be a trap.
     for key, fn, vorgabe in (
         ("screencast_max_slides", tool_limits.max_screencast_slides, limits.MAX_SCREENCAST_SLIDES),
         ("transcription_max_minutes", tool_limits.max_transcription_seconds, limits.MAX_AUDIO_SEC),

@@ -1,20 +1,6 @@
 "use client";
 
-/**
- * Der Navigationsbaum des Adminbereichs, an einer Stelle.
- *
- * Vorher stand er dreifach in page.tsx: als Tab-Union, als NAV-Array und als
- * Kette aus {tab === "x" && <XTab/>}. Eine neue Seite hiess: drei Stellen
- * anfassen und hoffen, keine vergessen zu haben.
- *
- * Seitenleiste, Adresse, Seitentitel und Kruemelpfad lesen jetzt alle hier.
- * Eine neue Seite ist ein Eintrag.
- *
- * Das Feld `world` sagt, welches der beiden Produkte eine Seite betrifft. KIS
- * hat zwei: die globalen Tools auf der Startseite und den KI-Assistenten im
- * Modul. Wer das nicht auseinanderhaelt, landet wieder bei Namen wie "Tools
- * Kontext-Budget", das trotz seines Namens den Assistenten steuert.
- */
+/** The admin navigation tree in one place, a new page is one entry. */
 
 import type { ComponentType } from "react";
 import { PERM } from "@/lib/permissions";
@@ -29,77 +15,54 @@ import {
   type Icon,
 } from "@phosphor-icons/react";
 
-/** Welches Produkt eine Seite betrifft. */
+/** Which product a page concerns. */
 export type World = "tools" | "aia" | "both" | "dev";
 
-/**
- * Rang eines Bereichs in der Seitenleiste. Zwischen zwei Raengen zieht die
- * Leiste eine Linie.
- *
- * Ohne diese Trennung sehen sechs Punkte gleichrangig aus, obwohl sie es nicht
- * sind: zwei davon sind die Produkte, die anderen sind Verwaltung drumherum.
- * Genau die Zweiteilung, um die sich der ganze Umbau dreht, soll beim Oeffnen
- * ins Auge springen.
- */
+/** Rank of an area, the sidebar draws a line between two ranks. */
 export type Rank = "product" | "admin" | "dev";
 
-/** Reihenfolge der Raenge in der Leiste. */
+/** Order of the ranks in the sidebar. */
 export const RANKS: Rank[] = ["product", "admin", "dev"];
 
-/** Reiter innerhalb einer Seite. Nur wo ein Gegenstand in zwei Sichten
- *  zerfaellt: Sprachniveau (Einstufung und KI-Verhalten) und Anbieter (die
- *  Anbieter selbst und die Zuordnung zu den Funktionen). Reiter stehen auf der
- *  Seite, nicht in der Seitenleiste. */
+/** Tabs only where one subject splits into two views. */
 export interface AdminTab {
   slug: string;
-  /** Schluessel unter admin.sections.<bereich>.<seite>.tabs */
+  /** Key under admin.sections.<area>.<page>.tabs */
   labelKey: string;
   Component: ComponentType;
-  /** Rechte-Schluessel, ohne den der Reiter nicht erscheint. Leer heisst: es
-   *  gilt das Recht dessen, der die Reiter traegt.
-   *
-   *  Nur wo die Reiter wirklich getrennte Gegenstaende sind, also bei der
-   *  Statistik. Sprachniveau und Anbieter lassen das leer: dort liegen die
-   *  Werte im selben Datensatz, ein getrenntes Recht koennte der Torwaechter
-   *  nicht halten. */
+  /** Permission of the tab, empty means the permission of its page. */
   perm?: string;
 }
 
-/** Zweite Ebene: eine Unterseite, klappt in der Seitenleiste auf. */
+/** Second level: a subpage, expands in the sidebar. */
 export interface AdminPage {
   slug: string;
-  /** Schluessel unter admin.sections.<bereich> */
+  /** Key under admin.sections.<area> */
   key: string;
   world: World;
-  /** Rechte-Schluessel, ohne den die Seite weder in der Leiste steht noch
-   *  ueber ihre Adresse erreichbar ist. Siehe lib/permissions. */
+  /** Without this permission the page is neither in the sidebar nor reachable. */
   perm: string;
   Component?: ComponentType;
   tabs?: AdminTab[];
-  /** Startseite von /admin. Genau eine Seite traegt das. Ohne Markierung
-   *  faellt die Wahl auf die erste Seite des ersten Bereichs. */
+  /** The landing page of /admin, exactly one page carries this. */
   home?: true;
-  /** Nicht in der Seitenleiste zeigen, Adresse bleibt aber gueltig. Fuer
-   *  Seiten, die man nur ueber einen Absprung aus einer anderen Seite
-   *  erreicht und die als eigener Punkt einen falschen Eindruck machen. */
+  /** Do not show in the sidebar, the URL stays valid. */
   hidden?: true;
 }
 
-/** Erste Ebene. Ohne `pages` ist der Bereich selbst die Seite, entweder mit
- *  einem `Component` oder mit eigenen `tabs`. */
+/** First level, without subpages the area itself is the page. */
 export interface AdminSection {
   slug: string;
-  /** Schluessel unter admin.sections */
+  /** Key under admin.sections */
   key: string;
   Icon: Icon;
   world: World;
   rank: Rank;
-  /** Nur fuer Bereiche ohne Unterseiten. Bereiche mit Unterseiten sind
-   *  sichtbar, sobald eine ihrer Seiten sichtbar ist. */
+  /** Only for areas without subpages. */
   perm?: string;
   pages?: AdminPage[];
   Component?: ComponentType;
-  /** Schluessel unter admin.sections.<bereich>.tabs */
+  /** Key under admin.sections.<area>.tabs */
   tabs?: AdminTab[];
 }
 
@@ -132,11 +95,7 @@ import HildePage from "../_pages/mascot/hilde";
 import FrancisPage from "../_pages/mascot/francis";
 
 export const SECTIONS: AdminSection[] = [
-  // Reihenfolge: die beiden Produkte oben, alles andere ist Zuarbeit.
-  // Wer die Leiste zum ersten Mal sieht, soll sofort erkennen, dass KIS aus
-  // zwei getrennten Welten besteht. Nutzer, Anbieter und System sind
-  // Verwaltung drumherum, Maskottchen ist Entwicklerkram und steht
-  // abgetrennt ganz unten.
+  // The two products on top, everything else is support work.
   {
     slug: "werkzeuge",
     key: "werkzeuge",
@@ -156,20 +115,14 @@ export const SECTIONS: AdminSection[] = [
     world: "aia",
     rank: "product",
     pages: [
-      // Quellen traegt auch die beiden Kontext-Budgets. Sie hatten einen
-      // eigenen Reiter "Antworten", der aber nichts ueber Antworten sagte:
-      // beide Zahlen zaehlen Quelltext.
+      // Sources also carries the two context budgets, both count source text.
       { slug: "quellen", key: "sources", world: "aia", perm: PERM.aiaSources, Component: SourcesPage },
-      // Eine Seite, zwei Reiter. Einstufung und KI-Verhalten gehoeren zum
-      // selben Gegenstand: der eine Reiter schaltet den Test ein und legt fest
-      // was er abfragt, der andere sagt wie die KI dabei fragt und urteilt.
-      // Als zwei Punkte in der Leiste sahen sie aus wie zwei Themen.
+      // Assessment and AI behaviour are one subject in two tabs.
       {
         slug: "sprachniveau",
         key: "level",
         world: "aia",
-        // Beide Reiter haengen an einem Recht. Ihre Werte liegen im selben
-        // Datensatz, eine Trennung koennte der Torwaechter nicht halten.
+        // Both tabs hang off one permission, their values live in the same record.
         perm: PERM.aiaLevel,
         tabs: [
           { slug: "einstufung", labelKey: "assessment", Component: LanguageLevelPage },
@@ -178,23 +131,14 @@ export const SECTIONS: AdminSection[] = [
       },
     ],
   },
-  // Zahlen zum Lesen, nicht Knoepfe zum Drehen. Die eigentliche Trennlinie im
-  // Adminbereich laeuft nicht zwischen den beiden Produkten, sondern zwischen
-  // Einstellen und Nachschauen. Deshalb stehen die Zahlen beider Produkte hier
-  // zusammen und nicht verstreut in ihren Bereichen.
-  //
-  // Jeder Reiter traegt sein eigenes Recht. Die zwei umgezogenen behalten das
-  // alte, sonst haetten bestehende Rollen ueber Nacht den Zugang verloren.
+  // Read-only numbers sit together, every tab carries its own permission.
   {
     slug: "statistik",
     key: "statistik",
     Icon: ChartBar,
     world: "both",
     rank: "admin",
-    // Meine Module zuerst: es ist der einzige Reiter, den eine Lehrperson
-    // bekommt, und der einzige, der nicht die ganze Plattform zeigt. Danach
-    // Nutzer, denn wer den Bereich oeffnet, will meist wissen, ob gerade jemand
-    // da ist, nicht wie viele Screencasts letzten Monat liefen.
+    // My modules first, the only tab without platform-wide insight.
     tabs: [
       { slug: "meine-module", labelKey: "eigene", perm: PERM.statsOwn, Component: StatistikEigenePage },
       { slug: "nutzer", labelKey: "nutzer", perm: PERM.statsUsers, Component: StatistikNutzerPage },
@@ -203,10 +147,7 @@ export const SECTIONS: AdminSection[] = [
       { slug: "modelle", labelKey: "modelle", perm: PERM.statsModels, Component: StatistikModellePage },
     ],
   },
-  // Ein Punkt in der Leiste, zwei Reiter auf der Seite. Anbieter und
-  // Funktionen sind zwei Sichten auf dieselbe Sache: erst traegt man einen
-  // Anbieter ein, dann sagt man welche Funktion ihn nutzt. Als zwei
-  // Unterpunkte sahen sie aus wie zwei Themen.
+  // Providers and features are two views of the same thing.
   {
     slug: "anbieter",
     key: "anbieter",
@@ -228,23 +169,15 @@ export const SECTIONS: AdminSection[] = [
     pages: [
       { slug: "ausstehend", key: "pending", world: "both", perm: PERM.usersPending, Component: PendingPage },
       { slug: "whitelist", key: "whitelist", world: "both", perm: PERM.usersWhitelist, Component: WhitelistPage },
-      // Haengt am selben Recht wie "Alle Nutzer", dort steht auch das Anlegen
-      // von Hand. Ohne den Serverschalter bleibt die Seite leer statt weg, sonst
-      // waere die Adresse aus einem kopierten Link plötzlich ungueltig.
+      // Without the server switch the page stays empty instead of gone.
       { slug: "einladungen", key: "invites", world: "both", perm: PERM.usersAll, Component: InvitesPage },
       { slug: "alle-nutzer", key: "users", world: "both", perm: PERM.usersAll, Component: UsersPage },
       { slug: "rollen", key: "roles", world: "both", perm: PERM.usersRoles, Component: RolesPage },
-      // Kein eigener Punkt in der Leiste: die Seite ist ein Absprung aus
-      // "Alle Nutzer", erst Nutzer waehlen, dann dessen Kontingente samt
-      // Standardwerten sehen. Als Punkt sah sie aus wie eine Seite, die man
-      // ohne Nutzer aufrufen kann, und war dann leer.
+      // No entry of its own, the page is a jump-off from the user list.
       { slug: "kontingente", key: "quota", world: "both", perm: PERM.usersAll, Component: QuotaPage, hidden: true },
     ],
   },
-  // System traegt auch die beiden Karten, die vorher unter "Oberflaeche"
-  // standen: Beschriftung der Workspaces und der Hinweis auf der Startseite.
-  // Ein eigener Punkt in der Leiste fuer zwei Karten, die genau wie der
-  // Wartungsmodus fuer die ganze Plattform gelten, war eine Trennung zu viel.
+  // System also carries the two platform-wide cards.
   {
     slug: "system",
     key: "system",
@@ -270,15 +203,11 @@ export const SECTIONS: AdminSection[] = [
 export interface Resolved {
   section: AdminSection;
   page?: AdminPage;
-  /** Adresse ohne /admin-Präfix, immer vollständig. Für Weiterleitungen. */
+  /** Path without the /admin prefix, always complete, for redirects. */
   path: string;
 }
 
-/**
- * Pfadsegmente auf einen Eintrag abbilden. Unvollständige Pfade werden nach
- * unten aufgefüllt (/admin -> erster Bereich -> erste Seite), unbekannte
- * geben null, damit der Aufrufer weiterleiten kann statt leer zu rendern.
- */
+/** Maps path segments onto an entry, unknown ones yield null. */
 export function resolve(segments: string[]): Resolved | null {
   if (!segments[0]) {
     const start = home();
@@ -301,11 +230,7 @@ export function resolve(segments: string[]): Resolved | null {
   return { section, page, path: `${section.slug}/${page.slug}` };
 }
 
-/**
- * Die markierte Startseite. /admin landet dort statt auf der ersten Seite des
- * ersten Bereichs: wer den Adminbereich oeffnet, will meist wissen ob alles
- * laeuft, und das steht bei den Auftraegen.
- */
+/** The marked landing page of /admin. */
 export function home(): Resolved | null {
   for (const section of SECTIONS) {
     const page = section.pages?.find((p) => p.home);
@@ -314,34 +239,18 @@ export function home(): Resolved | null {
   return null;
 }
 
-/**
- * Wer was sehen darf.
- *
- * Der Bereich gehoert nicht mehr einer Rolle, sondern zerfaellt in Seiten, die
- * einzeln vergeben werden. Deshalb muss die Leiste filtern und nicht nur die
- * Tuer bewachen: eine Rolle, die nur das Sprachniveau pflegt, soll auch nur
- * diesen einen Punkt sehen.
- *
- * Der Server prueft jede Anfrage selbst. Hier geht es darum, niemandem eine
- * Tuer zu zeigen, die hinter einem 403 liegt.
- */
+/** The sidebar filters itself so nobody sees a door behind a 403. */
 export function pageAllowed(page: AdminPage, keys: string[]): boolean {
   return keys.includes(page.perm);
 }
 
-/**
- * Reiter ohne eigenes Recht haengen am Recht dessen, der sie traegt.
- *
- * Das ist mal der Bereich und mal die Unterseite. Frueher stand hier fest der
- * Bereich, und weil Bereiche mit Unterseiten selbst gar kein Recht tragen,
- * fielen die Reiter des Sprachniveaus weg und die Seite blieb leer.
- */
+/** Tabs without a permission of their own hang off their carrier's permission. */
 export function tabAllowed(tab: AdminTab, ownerPerm: string | undefined, keys: string[]): boolean {
   if (tab.perm) return keys.includes(tab.perm);
   return !!ownerPerm && keys.includes(ownerPerm);
 }
 
-/** Die sichtbaren Reiter eines Bereichs oder einer Seite. */
+/** The visible tabs of an area or a page. */
 export function allowedTabs(
   tabs: AdminTab[] | undefined,
   ownerPerm: string | undefined,
@@ -356,7 +265,7 @@ export function sectionAllowed(section: AdminSection, keys: string[]): boolean {
   return !!section.perm && keys.includes(section.perm);
 }
 
-/** Die Bereiche samt ihrer erlaubten Seiten und Reiter. Leere fallen weg. */
+/** The areas with their permitted pages and tabs, empty ones drop out. */
 export function allowedSections(keys: string[]): AdminSection[] {
   return SECTIONS.filter((s) => sectionAllowed(s, keys)).map((s) => {
     if (s.pages) return { ...s, pages: s.pages.filter((p) => pageAllowed(p, keys)) };
@@ -365,19 +274,14 @@ export function allowedSections(keys: string[]): AdminSection[] {
   });
 }
 
-/** Darf diese Adresse geoeffnet werden? */
+/** May this URL be opened? */
 export function allowed(found: Resolved, keys: string[]): boolean {
   return found.page
     ? pageAllowed(found.page, keys)
     : sectionAllowed(found.section, keys);
 }
 
-/**
- * Die erste Seite, die jemand sehen darf. Ziel jeder Weiterleitung.
- *
- * Die markierte Startseite hat Vorrang, aber nur wenn sie erlaubt ist. Sonst
- * landete ein Sprachexperte auf den Auftraegen und damit sofort im 403.
- */
+/** The first permitted page, the target of every redirect. */
 export function firstAllowed(keys: string[]): Resolved | null {
   const start = home();
   if (start && allowed(start, keys)) return start;

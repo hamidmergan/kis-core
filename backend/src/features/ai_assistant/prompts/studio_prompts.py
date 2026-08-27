@@ -1,4 +1,4 @@
-"""Prompts der Studio-Werkzeuge: Mindmap und Datentabelle."""
+"""Prompts of the studio tools: mind map and data table."""
 
 
 AIA_MINDMAP_PROMPT = (

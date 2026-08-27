@@ -40,8 +40,7 @@ def get_job_stats(days: int = 30) -> dict:
                 for r in cur.fetchall()
             ]
 
-            # 4. Avg duration per tool (only completed jobs)
-            # Screencast tools: use render_started_at (ffmpeg CPU time only), excluding prep.
+            # For a screencast only the render time counts, without preparation.
             cur.execute("""
                 SELECT tool,
                        ROUND(AVG(EXTRACT(EPOCH FROM (

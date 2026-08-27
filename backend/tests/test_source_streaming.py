@@ -1,12 +1,4 @@
-"""Tests for the source file-streaming Content-Disposition helper.
-
-Regression guard: a source filename with non-Latin-1 characters (umlauts, or a
-combining mark like the NFD "ü" = "u" + U+0308 in "Einführung") must NOT crash
-the file endpoint. HTTP headers are latin-1 encoded, so the disposition string
-has to stay latin-1 safe (RFC 6266: ASCII `filename` fallback + UTF-8
-percent-encoded `filename*`). Before the fix this raised UnicodeEncodeError and
-the endpoint returned 500.
-"""
+"""A file name with special characters must not crash the delivery."""
 import unicodedata
 
 from src.features.ai_assistant.routes.sources._streaming import (
@@ -30,8 +22,7 @@ def test_disposition_ascii_filename_roundtrips():
 
 
 def test_disposition_precomposed_umlaut_is_header_safe():
-    # NFC "ü" (U+00FC) — still not latin-1? It IS latin-1, but the combining
-    # form below is the real-world crash. Cover both.
+    # Cover both spellings of the umlaut, the decomposed one is the real crash.
     name = "Einführung_Skript.pdf"
     out = _inline_content_disposition(name)
     assert _is_header_safe(out)
@@ -39,7 +30,7 @@ def test_disposition_precomposed_umlaut_is_header_safe():
 
 
 def test_disposition_combining_diaeresis_is_header_safe():
-    # The actual bug: NFD "ü" = "u" + COMBINING DIAERESIS (U+0308), not latin-1.
+    # The actual bug: NFD is a letter plus a combining diaeresis, not latin-1.
     name = unicodedata.normalize("NFD", "01_Einführung_WissenschaftlichesSeminar.pdf")
     assert "̈" in name  # sanity: this is the decomposed form
     out = _inline_content_disposition(name)

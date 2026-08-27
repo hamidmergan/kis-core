@@ -1,4 +1,4 @@
-"""Prompts des RAG-Chats, hier ausgestellt damit Aufrufer nur den Ordner kennen."""
+"""Prompts of the RAG chat, re-exported so callers only need to know the folder."""
 
 from src.features.ai_assistant.prompts.rag_chat.language_anchor import (
     ambiguous_language_rule,

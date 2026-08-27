@@ -1,4 +1,4 @@
-"""Der Anbieter bekommt immer Tempo 1.0, verlangsamt wird lokal."""
+"""The provider always gets speed 1.0, slowing down happens locally."""
 
 import asyncio
 

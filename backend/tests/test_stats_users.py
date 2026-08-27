@@ -1,9 +1,4 @@
-"""Die Nutzerzahlen des Statistikbereichs.
-
-Der Schwerpunkt liegt auf den Stellen, an denen eine Zahl leise falsch werden
-kann: eine aufgeblaehte Online-Zahl faellt niemandem auf, sie sieht nur nach
-mehr Betrieb aus.
-"""
+"""The user numbers, checked where a number goes quietly wrong."""
 from unittest.mock import MagicMock, patch
 
 from src.features.stats import users as u
@@ -21,8 +16,7 @@ class FakeCursor:
 
 
 def test_ein_schluessel_ohne_nutzer_blaeht_die_zahl_nicht_auf():
-    """Ein geloeschter Nutzer laesst seinen Schluessel bis zum Ablauf stehen.
-    Gezaehlt wird, wer sich zuordnen laesst."""
+    """Whoever can be resolved is counted."""
     cur = FakeCursor([{"id": 1, "display_name": "Hans", "ldap_username": "h"}])
     ergebnis = u._online_details(cur, {1: 1750000000, 4242: 1750000000})
     assert ergebnis["count"] == 1
@@ -44,7 +38,7 @@ def test_ohne_beides_steht_unbekannt():
 
 
 def test_die_schwelle_fuer_regelmaessig_steht_im_code():
-    """Eine erfundene Zahl im Diagramm waere schlechter als eine benannte."""
+    """An invented number in the chart would be worse than a named one."""
     assert u.REGELMAESSIG_AB_TAGEN == 10
 
 
@@ -62,7 +56,7 @@ def test_die_drei_gruppen_teilen_die_nutzer_ohne_ueberschneidung():
 
 
 def test_wie_lange_jemand_schon_da_ist():
-    """Gemessen ab dem ersten Lebenszeichen, nicht ab dem letzten Ping."""
+    """Measured from the first heartbeat, not from the last ping."""
     import time
     cur = FakeCursor([{"id": 1, "display_name": "Hans", "ldap_username": "h"}])
     vor_zehn_minuten = int(time.time()) - 600

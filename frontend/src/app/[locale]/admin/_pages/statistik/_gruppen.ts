@@ -1,29 +1,16 @@
-/**
- * Eigene und betreute Module untereinander, mit einer Zeile dazwischen.
- *
- * Ohne die Trennung standen vier Zeilen in einer Tabelle und die Rolle in einer
- * Spalte am Rand. Man las sie als eine Liste und musste jede Zeile einzeln
- * nachsehen, um zu wissen, was einem davon gehoert.
- */
+/** Own and tutored modules one below the other, with a row in between. */
 
-/** Was jemand mit einem Modul zu tun hat. Ein Drittes gibt es hier nicht. */
+/** What someone has to do with a module, there is no third option here. */
 export type Zugriff = "owner" | "tutor";
 
-/** Eigene zuerst, betreute danach, innerhalb der Gruppe unveraendert. */
+/** Own first, tutored after, unchanged inside the group. */
 export function gruppiert<T extends { access: Zugriff }>(module: T[]): T[] {
   return [...module].sort(
     (a, b) => Number(b.access === "owner") - Number(a.access === "owner"),
   );
 }
 
-/**
- * Der Zugriff, wenn ueber dieser Zeile eine Ueberschrift stehen soll, sonst null.
- *
- * Anders als auf der Startseite steht sie auch dann da, wenn es nur eine Gruppe
- * gibt: dort heisst eine einzelne Gruppe immer "was ich betreue", hier waeren es
- * zwei verschiedene Dinge, und wer nur fremde Module betreut, wuesste sonst
- * nicht, dass keins davon ihm gehoert.
- */
+/** The accessor for when a heading should sit above this row. */
 export function kopfBei<T extends { access: Zugriff }>(
   sortiert: T[],
   i: number,

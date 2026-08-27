@@ -1,10 +1,4 @@
-"""CRUD fuer die Tabelle model_limits.
-
-Eine Zeile je Anbieter und Modell: wie gross sein Fenster ist, ob es denkt und
-welcher Schalter das Denken abstellt. Gemessen wird einmal, gelesen bei jeder
-Anfrage. Die Messlogik selbst steht in ``src.services.model_limits``, hier liegt
-nur der Speicher.
-"""
+"""Database access to model_limits, one row per provider and model."""
 
 from typing import Optional
 
@@ -29,7 +23,7 @@ def _row_to_dict(row) -> dict:
 
 
 def get_model_limit(provider_id: int, model_name: str) -> Optional[dict]:
-    """Was ueber dieses Modell bekannt ist, oder ``None`` wenn es nie gemessen wurde."""
+    """What is known about this model, or ``None`` when it was never measured."""
     if not provider_id or not model_name:
         return None
     with get_connection() as conn:
@@ -43,14 +37,6 @@ def get_model_limit(provider_id: int, model_name: str) -> Optional[dict]:
             return _row_to_dict(row) if row else None
 
 
-def list_model_limits() -> list[dict]:
-    """Alle Messungen, fuer die Anzeige im Admin."""
-    with get_connection() as conn:
-        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            cur.execute(f"SELECT {_SELECT} FROM model_limits ORDER BY provider_id, model_name")
-            return [_row_to_dict(r) for r in cur.fetchall()]
-
-
 def set_model_limit(
     provider_id: int,
     model_name: str,
@@ -60,7 +46,7 @@ def set_model_limit(
     thinks: bool = False,
     think_off: str = "",
 ) -> None:
-    """Messergebnis wegschreiben oder ersetzen."""
+    """Write or replace a measurement result."""
     if not provider_id or not model_name:
         return
     with get_connection() as conn:
@@ -81,13 +67,7 @@ def set_model_limit(
 
 
 def shrink_model_window(provider_id: int, model_name: str, window_tokens: int) -> None:
-    """Ein im Betrieb gelerntes, KLEINERES Fenster eintragen.
-
-    Nur verkleinern, nie vergroessern: gelernt wird aus einer Absage, und eine Absage
-    beweist nur, dass das Fenster hoechstens so gross ist. Eine gemessene Zeile darf
-    dadurch ueberschrieben werden, denn die Wirklichkeit im Betrieb schlaegt die Sonde.
-    Gibt es noch keine Zeile, wird eine angelegt.
-    """
+    """Records a smaller window learned in operation, never a larger one."""
     if not provider_id or not model_name or window_tokens <= 0:
         return
     with get_connection() as conn:
@@ -102,18 +82,4 @@ def shrink_model_window(provider_id: int, model_name: str, window_tokens: int) -
                            updated_at    = NOW()""",
                 (provider_id, model_name, int(window_tokens)),
             )
-            conn.commit()
-
-
-def delete_model_limits_for_provider(provider_id: int) -> None:
-    """Alle Messungen eines Anbieters vergessen.
-
-    Noetig, wenn sich seine Adresse oder sein Schluessel aendert: dann steht hinter
-    demselben Modellnamen moeglicherweise ein ganz anderes Fenster.
-    """
-    if not provider_id:
-        return
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute("DELETE FROM model_limits WHERE provider_id = %s", (provider_id,))
             conn.commit()

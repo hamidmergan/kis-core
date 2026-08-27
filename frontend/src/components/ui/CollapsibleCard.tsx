@@ -3,13 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { CaretRight } from "@phosphor-icons/react";
 
-/**
- * Karte mit einklappbarem Inhalt. Kopfzeile aus Titel und Beschreibung bleibt
- * immer sichtbar, der Rest faehrt aus und ein.
- *
- * Der Inhalt wird versteckt statt ausgehaengt, damit geladene Einstellungen und
- * angefangene Eingaben beim Zuklappen erhalten bleiben.
- */
+/** Card with collapsible content, hidden instead of unmounted so input stays. */
 export default function CollapsibleCard({
   title,
   badge,
@@ -18,7 +12,7 @@ export default function CollapsibleCard({
   children,
 }: {
   title: ReactNode;
-  /** Platzhaltername in Schreibmaschinenschrift neben dem Titel, z.B. {grading}. */
+  /** Placeholder name in monospace next to the title, e.g. {grading}. */
   badge?: string;
   description?: ReactNode;
   defaultOpen?: boolean;

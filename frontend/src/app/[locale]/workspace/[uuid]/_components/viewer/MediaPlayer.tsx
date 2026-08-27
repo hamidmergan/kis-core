@@ -6,8 +6,7 @@ import type { AddNoteExtras } from "../../_hooks/useNotes";
 import { FileIcon } from "../sources/FileIcon";
 import { TranscriptPanel, type LangInfo } from "./TranscriptPanel";
 
-// "No transcript languages" — used when the langs request is missing or fails so the
-// transcript panel resolves out of its loading state instead of waiting forever.
+// Without a language list the transcript leaves the loading state instead of waiting.
 const EMPTY_LANGS: LangInfo = { source_lang: null, target_lang: null, available: [] };
 
 export function MediaPlayer({
@@ -27,16 +26,12 @@ export function MediaPlayer({
   const isVideo = [".mp4", ".webm"].includes(ext);
   const mediaUrl = `/api/ai-assistant/workspaces/${workspaceUuid}/sources/${source.uuid}/file`;
 
-  // Ask the backend which transcript languages exist ONCE here, then hand the result to
-  // the TranscriptPanel below so the langs endpoint is hit a single time per source.
+  // The languages are fetched once per source and passed on.
   const [langInfo, setLangInfo] = useState<LangInfo | null>(null);
-  // Beim Hör- und Leseverstehen startet das Panel auf "aus", damit niemand mitliest statt
-  // zuzuhören. Gesperrt ist es nicht: der Umschalter im Panel stellt es jederzeit wieder an.
+  // In listening comprehension the panel starts off, but it is not locked.
   const startTranscriptOff = Boolean(source.hideTranscript);
   useEffect(() => {
-    // Clear on source switch (panel shows loading) and abort the in-flight request: an
-    // uncancelled request keeps holding one of the browser's few per-origin connections,
-    // and a few rapid switches exhaust them and freeze the page.
+    // Abort running requests, otherwise the connections run out.
     setLangInfo(null);
     const ac = new AbortController();
     fetch(
@@ -50,31 +45,17 @@ export function MediaPlayer({
     return () => ac.abort();
   }, [workspaceUuid, source.uuid]);
 
-  // Where the transcript put the marking. A citation chip carries the cited CHUNK's start,
-  // but the chunk runs about a minute and the sentence the answer rests on is often a line or
-  // two further down — the transcript marks that line, and without this the play head stayed
-  // at the chunk start, i.e. a paragraph before the marking. Only the panel can tell us: the
-  // pick needs the cues, which are loaded down there. Tied to the nonce so one jump's refined
-  // time can never be applied to the next one.
+  // Where the transcript puts the highlight, only the panel knows the lines.
   const [focus, setFocus] = useState<{ nonce?: number; time: number } | null>(null);
   const onCitationFocusTime = useCallback((time: number, nonce?: number) => {
-    // Bail out on an unchanged value: the panel re-reports on every re-render of its pin
-    // effect, and a fresh object each time would re-run the seek effect below forever.
+    // Bail out on an unchanged value, otherwise the effect loops forever.
     setFocus((prev) => (prev && prev.nonce === nonce && prev.time === time ? prev : { nonce, time }));
   }, []);
   const seekTarget = source.isCitation && focus && focus.nonce === source.nonce
     ? focus.time
     : source.startTime;
 
-  // Seek to the cited timestamp when the source changes — robust against Safari, which is the
-  // only browser that misbehaves here (Chrome seeks fine).
-  //
-  // Two Safari quirks: (1) on a source SWITCH the element still has the OLD resource loaded for
-  // a tick, so an immediate seek hits the wrong media; (2) right after a (re)load Safari SNAPS
-  // currentTime back toward 0 until the resource is really seekable, so a one-shot seek sticks
-  // only "sometimes". So we seek only once `currentSrc` is the NEW source AND `seekable` covers
-  // the target, then for a short window keep watching and re-apply if Safari snaps it back to
-  // ~0. Forward playback (currentTime >= target) is never disturbed.
+  // Only seek once the new source is loaded and really seekable.
   useEffect(() => {
     const media = mediaRef.current;
     if (seekTarget === undefined || !media) return;
@@ -95,8 +76,7 @@ export function MediaPlayer({
         if (Math.abs(media.currentTime - target) < 0.5) seeked = true; // stuck (else retry next event)
         return;
       }
-      // Watchdog: undo Safari snapping currentTime back toward 0 after the seek — downward only,
-      // so playing forward past the target is left alone.
+      // Watches that the play position does not snap back, only downwards.
       if (target > 1 && media.currentTime < target - 0.5) {
         try { media.currentTime = target; } catch { /* ignore */ }
         media.play().catch(() => { });
@@ -107,8 +87,7 @@ export function MediaPlayer({
     events.forEach((e) => media.addEventListener(e, tick));
     tick();
     return stop;
-    // `seekTarget` rather than `source.startTime`: the refined time arrives one render after
-    // the jump (the panel has to read its cues first), and this has to run again for it.
+    // The refined time arrives one round later, hence this value.
   }, [seekTarget, source.nonce, source.uuid]);
 
   return (
@@ -136,8 +115,7 @@ export function MediaPlayer({
       {/* Player */}
       <div className="flex items-center justify-center p-4 flex-shrink-0" style={{ maxHeight: "55%" }}>
         {isVideo ? (
-          // Keine <track>-Spuren und kein Herunterladen: das Menü des Players zeigt weder
-          // "Untertitel" noch "Herunterladen". Gelesen wird das Transkript unten im Panel.
+          // No subtitle tracks and no download in the player menu.
           <video
             ref={mediaRef as React.RefObject<HTMLVideoElement>}
             src={mediaUrl}

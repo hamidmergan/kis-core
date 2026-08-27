@@ -7,17 +7,17 @@ import { cleanScheduleDescription } from "./utils";
 
 export interface ScheduleListEntry {
   id: number;
-  /** null heisst: eigener Termin, er gehoert zu keinem Workspace. */
+  /** null means a private appointment, it belongs to no workspace. */
   workspace_uuid: string | null;
   module_title: string | null;
   module_relation: "owned" | "enrolled" | "personal";
   title: string;
   description?: string | null;
   due_date: string;
-  /** Gesetzt heisst: der Termin geht bis zu diesem Tag. */
+  /** When set, the appointment runs until this day. */
   end_date?: string | null;
   due_time?: string | null;
-  /** 'month': die Quelle nannte nur einen Monat, die Zeitleiste zeigt dann keinen Tag. */
+  /** 'month': the source named only a month, the timeline then shows no day. */
   date_precision?: "day" | "month" | null;
   is_checked?: boolean;
 }
@@ -26,7 +26,7 @@ interface ScheduleEntryCardGlobalProps {
   entry: ScheduleListEntry;
   isPast: boolean;
   urgency: string | null;
-  /** null heisst: eigener Termin, dann fuehrt die Karte nirgendwohin. */
+  /** null means a private appointment, then the card leads nowhere. */
   href: string | null;
   onToggleChecked?: (checked: boolean) => void;
 }
@@ -41,7 +41,7 @@ export function ScheduleEntryCardGlobal({
   const t = useTranslations("schedule.card");
   const tMonth = useTranslations("schedule.month");
   const eigener = entry.workspace_uuid === null;
-  // Ohne Ziel ist die Karte kein Link, sonst landete sie auf /workspace/null.
+  // Without a target the card is no link, otherwise it would land on /workspace/null.
   const Huelle: React.ElementType = href ? Link : "div";
   const containerStyle: React.CSSProperties = {
     border: "1px solid var(--border)",

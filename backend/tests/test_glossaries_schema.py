@@ -1,10 +1,4 @@
-"""Unit tests for the user-glossary request schemas.
-
-The terminology glossary (translation tool) used to live only in the browser
-(localStorage). It now persists per user in the DB. These schemas guard the
-write endpoints so a client cannot push an oversized name or an entry map
-larger than the per-glossary cap. All pure / offline: no DB, no network.
-"""
+"""Checks the schemas of the glossary write routes against oversized input."""
 import pytest
 from pydantic import ValidationError
 

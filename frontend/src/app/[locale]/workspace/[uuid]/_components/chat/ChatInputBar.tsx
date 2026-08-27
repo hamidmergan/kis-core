@@ -5,8 +5,7 @@ import { PaperPlaneRight, Stop, X } from "@phosphor-icons/react";
 
 interface ChatInputBarProps {
   loading: boolean;
-  /** Tutor chat only: shows the "N sources active" line and gates sending on it.
-   *  Omitted by callers without sources, e.g. the language diagnosis. */
+  /** Tutor chat only, shows the active sources and blocks sending without them. */
   activeSourceIds?: string[];
   onSend: (value: string) => void;
   onStop?: () => void;
@@ -80,8 +79,7 @@ export function ChatInputBar({
             }}
             placeholder={placeholder ?? t("inputPlaceholder")}
             disabled={disabled}
-            // Hard cap mirrors the caller's backend limit (chat: AIA_QUESTION_MAX_CHARS)
-            // so an oversized paste is bounced here instead of coming back as a 422.
+            // Mirrors the backend limit so an overlong text shows up here.
             maxLength={maxLength}
             rows={1}
             className="flex-1 text-base resize-none focus:outline-none disabled:opacity-50 bg-transparent"

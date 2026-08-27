@@ -1,10 +1,4 @@
-/**
- * Die Gruppen der Rechtetabelle in ihre Kapitel buendeln.
- *
- * Der Server liefert eine flache Liste in Anzeigereihenfolge, jede Gruppe mit
- * ihrem Kapitel. Hier entsteht daraus die zweite Ebene, ohne die Reihenfolge
- * anzutasten: gebuendelt wird nur, was ohnehin nebeneinander steht.
- */
+/** Groups the permission table's groups into their chapters, without reordering. */
 
 export interface InChapter {
   chapter?: string;

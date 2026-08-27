@@ -39,14 +39,7 @@ from src.features.ai_assistant.routes._helpers import (
 )
 
 def _load_workspace_source(source_uuid: str, workspace: dict, locale: str) -> dict:
-    """Fetch a source and confirm it belongs to *workspace*.
-
-    ``get_aia_source`` is a global lookup by uuid. Callers already verified that
-    the user may access the workspace, but without this membership check a user
-    could pass any source uuid from a different workspace and read its file,
-    transcript, TOC or full-text search (IDOR). 404 rather than 403 so a foreign
-    uuid is indistinguishable from a missing one.
-    """
+    """Fetches a source and binds it to the course room, otherwise 404."""
     source = db.get_aia_source(source_uuid)
     if not source or source["workspace_id"] != workspace["id"]:
         raise HTTPException(status_code=404, detail=t("source.notFound", locale))
@@ -54,12 +47,7 @@ def _load_workspace_source(source_uuid: str, workspace: dict, locale: str) -> di
 
 
 def _workspace_label(locale: str) -> str:
-    """Vom Admin gesetzte Bezeichnung fuer einen Kursraum, etwa "Modul" oder "Kurs".
-
-    Steht hier, weil Hochladen und Umbenennen dieselbe Meldung ueber doppelte
-    Namen ausgeben. Zwei Kopien derselben Abfrage wuerden frueher oder spaeter
-    auseinanderlaufen.
-    """
+    """The label the admin set for a course room."""
     key = "workspace_label_singular_en" if locale == "en" else "workspace_label_singular_de"
     return db.get_setting(key, db.get_setting("workspace_label_singular", "Modul"))
 

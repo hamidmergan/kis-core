@@ -1,4 +1,4 @@
-"""Zahlen werden nur ausgeschrieben, wenn die Sprache bekannt ist."""
+"""Numbers are only spelled out when the language is known."""
 
 import pytest
 
@@ -40,7 +40,7 @@ def test_englischer_screencast_bekommt_ausgeschriebene_zahlen(client_und_post):
 
 
 def test_ohne_bekannte_sprache_bleiben_die_ziffern_stehen(client_und_post):
-    """Raten wäre schlimmer als Ziffern: eine falsche Sprache klingt falsch."""
+    """Guessing would be worse than digits, a wrong language sounds wrong."""
     client, fake = client_und_post
     client.synthesize("The result was 47 percent.", "", voice_id="alloy")
     assert fake.payloads[0]["input"] == "The result was 47 percent."
@@ -55,7 +55,7 @@ def test_synthesize_chunk_folgt_derselben_regel(client_und_post):
 
 
 def test_deutsche_texte_bleiben_wie_bisher(client_und_post):
-    """Der Fehler ist nur fuer Englisch gemessen, also wird nur dort angefasst."""
+    """The bug is measured for English only, so only there is anything touched."""
     client, fake = client_und_post
     client.synthesize_chunk("Es waren 47 Personen.", voice_id="alloy", language="DE")
     assert fake.payloads[0]["input"] == "Es waren 47 Personen."

@@ -79,7 +79,7 @@ interface StudioPanelContentProps {
   onAskChat: (text: string, switchTab?: boolean) => void;
   onPillClick: (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number, isExact?: boolean) => void;
   refreshProgress: () => void;
-  // Schnellzugriff: direkt in Viewer-Modus springen statt Liste
+  // Shortcut: jump straight into viewer mode instead of the list
   openMindmapInViewer: boolean;
   consumeMindmapViewerOpen: () => void;
   openDataTableInViewer: boolean;
@@ -133,8 +133,7 @@ export function StudioPanelContent(props: StudioPanelContentProps) {
   const { activeSet, setActiveSet, exerciseSets, loadExerciseSet, deleteExerciseSet, renameExerciseSet, retryExerciseSet, downloadExerciseSet, setCreateSetTool, setShowCreateModal, submitSingleAnswer } = ex;
 
   const onSourceClick = (filename: string, page: number, startTime?: number) => {
-    // Tool chips are nav-only, exactly like chat citations: jump to the page/timestamp,
-    // never highlight. (Highlight stays only for the user's own text selection.)
+    // Tool chips only jump, only a selection of your own is highlighted.
     const src = sources.find((s) => s.filename === filename);
     if (src) onPillClick(src.uuid, page, filename, undefined, startTime, false);
   };

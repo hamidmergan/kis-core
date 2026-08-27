@@ -22,7 +22,7 @@ interface Antwort {
   hat_ton: boolean[];
 }
 
-/** Holt bei jedem Betreten von Schritt 6, was die Anzeige zum Vorbelegen braucht. */
+/** Fetches on every entry to step 6 what the view needs for its preselection. */
 export function useSchritt6Stand(jobUuid: string, aktiv: boolean) {
   const [geladen, setGeladen] = useState(false);
   const [einstellungen, setEinstellungen] = useState<GespeicherteEinstellungen | null>(null);

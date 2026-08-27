@@ -1,12 +1,4 @@
-"""Runtime feature-routing.
-
-Given a feature id (``chat`` / ``embedding`` / ``ocr`` / ...), resolve which
-provider + model the admin selected, and produce a ready-to-use client. The
-factories below intentionally return the existing legacy client classes
-(``OpenAICompatLLMClient`` etc.) so the rest of the code base does not need
-to switch all at once - the router is the only piece that knows about
-``providers`` and ``feature_routes`` tables.
-"""
+"""Resolves provider and model per feature and builds the finished client."""
 
 from __future__ import annotations
 
@@ -38,13 +30,7 @@ class FeatureBinding:
 
 
 def resolve(feature: str, *, user_provider_id: Optional[int] = None) -> FeatureBinding:
-    """Return the binding for ``feature``.
-
-    For user-choice (multi-pill) features -- e.g. ``tts``, ``image_gen``,
-    ``doc_translate`` -- the caller can pass ``user_provider_id`` to use the
-    user's runtime choice instead of the admin's default; the chosen id must
-    appear in the route's ``user_choices`` list.
-    """
+    """The binding for a feature, optionally with the user's choice."""
     route = db.get_route(feature)
     if route is None:
         raise FeatureNotConfigured(f"feature {feature!r} has no route")
@@ -88,8 +74,7 @@ def is_configured(feature: str) -> bool:
 
 
 def providers_for_feature(feature: str) -> list[dict]:
-    """List of providers a tool may offer as runtime picks for a multi-pill
-    feature. Returns the user_choices entries with their full provider rows."""
+    """The providers a tool may offer as a choice."""
     route = db.get_route(feature)
     if route is None:
         return []
@@ -102,9 +87,7 @@ def providers_for_feature(feature: str) -> list[dict]:
     return rows
 
 
-# ─── Client factories ──────────────────────────────────────────────────────
-# These match the surface of the legacy resolver functions in dependencies.py.
-# They translate a FeatureBinding into a concrete client instance.
+# The factories translate a binding into a finished client.
 
 
 def make_llm_client(binding: FeatureBinding):
@@ -125,15 +108,7 @@ def make_llm_client(binding: FeatureBinding):
 
 
 def _attach_model_profile(client, binding: FeatureBinding) -> None:
-    """Dem Client anheften, was ueber sein Modell bekannt ist.
-
-    Beim ersten Mal wird dafuer gemessen, danach steht es in der Datenbank. Nur fuer
-    Merkmale, die ueber ``/chat/completions`` laufen: eine Einbettungs- oder
-    Whisper-Route mit einer Chat-Sonde zu vermessen ergibt nichts als einen Fehler.
-
-    Das Ergebnis stellt das Denken ab. Wo das Denken nicht abstellbar ist, bleibt die
-    Zusatzangabe leer, damit strenge Anbieter nicht ueber ein unbekanntes Feld stolpern.
-    """
+    """Attaches to the client what is known about its model."""
     from src.services import model_limits
 
     if binding.feature not in model_limits.CHAT_LIKE_FEATURES or not binding.model:
@@ -152,11 +127,7 @@ def _attach_model_profile(client, binding: FeatureBinding) -> None:
 
 
 def make_whisper_client(binding: FeatureBinding):
-    """Return an OpenAICompatLLMClient configured for STT (transcription).
-
-    Mirrors ``make_llm_client`` but enforces that a model is set — a configured
-    STT route with no model is not usable (Whisper needs an explicit model).
-    """
+    """A client for speech recognition, the model is mandatory here."""
     if not binding.model:
         raise FeatureNotConfigured(
             f"stt provider '{binding.provider.get('name', '')}' has no model_name — "
@@ -183,12 +154,7 @@ def make_tts_client(binding: FeatureBinding):
 
 
 def make_ocr_provider(binding: FeatureBinding):
-    """Return an OCR provider that matches the chosen protocol.
-
-    Docling protocol -> the adapter itself (it has an ``ocr_image`` method).
-    OpenAI-compatible protocol -> the legacy ``OpenAICompatOcrProvider`` which
-    drives a vision-LLM via ``/v1/chat/completions``.
-    """
+    """A text recognition provider matching the chosen protocol."""
     if binding.protocol == "docling":
         return make_adapter(
             protocol=binding.protocol,
@@ -212,8 +178,7 @@ def make_ocr_provider(binding: FeatureBinding):
 
 
 def _ensure_v1(base_url: str) -> str:
-    """Some admins paste the bare host, others paste the ``/v1`` URL. Existing
-    clients expect ``/v1`` already in the base. Add it if missing."""
+    """Adds the missing /v1 to the address."""
     url = base_url.rstrip("/")
     if url.endswith("/v1"):
         return url

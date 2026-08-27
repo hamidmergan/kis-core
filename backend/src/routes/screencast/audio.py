@@ -1,4 +1,4 @@
-"""Audio-Download-Endpoints: Einzel-Slide-MP3 und ZIP-Bundle aller Folien."""
+"""Audio download endpoints: single slide MP3 and a ZIP bundle of all slides."""
 
 import zipfile
 from io import BytesIO
@@ -15,9 +15,7 @@ router = APIRouter(tags=["screencast: audio"])
 
 
 def _resolve_user_id(audio_id: str, current_user: dict, locale: str = "de") -> int:
-    """Resolve the owning user_id for an audio_id (which is a job_uuid) and confirm
-    the caller owns that job. Without the ownership check any authenticated user
-    could download another user's slide audio by its job_uuid (IDOR)."""
+    """Checks that the caller owns the job behind this audio id."""
     job = get_job(audio_id)
     if not job or job["user_id"] != current_user.get("user_id", 0):
         raise HTTPException(status_code=404, detail=t("audio.notFound", locale))
@@ -89,11 +87,11 @@ def vorschau_folie(
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    """Der Ton einer einzelnen Folie, schon waehrend der Rest noch vertont wird."""
+    """The audio of a single slide, already while the rest is still being voiced."""
     user_id = _resolve_user_id(job_uuid, current_user, locale)
     if folie < 0 or folie > 999:
         raise HTTPException(status_code=404, detail=t("screencast.slideNotFound", locale, slide=folie + 1))
-    # Waehrend des Laufs liegt der Ton im Vorrat, nach dem Erfolg im audio-Ordner.
+    # During the run the audio sits in the pool, after success in the audio folder.
     for name in (f"render_cache/slide_{folie:03d}.mp3", f"audio/slide_{folie:03d}.mp3"):
         try:
             data = get_job_file(user_id, job_uuid, name)

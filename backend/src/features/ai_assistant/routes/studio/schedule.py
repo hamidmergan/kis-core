@@ -38,8 +38,7 @@ def _parse_date(s: Optional[str], locale: str = DEFAULT_LOCALE) -> Optional[date
 
 
 def _month_anchor(d: Optional[date], precision: str) -> Optional[date]:
-    """Bei 'month' kennt der Eintrag keinen Tag. Der Monatserste ist nur der
-    Sortierpunkt, die Ansicht zeigt ihn nie als Tagesnummer."""
+    """With 'month' the first of the month is only the sort key, never a day number."""
     if precision == "month" and d:
         return d.replace(day=1)
     return d
@@ -63,14 +62,14 @@ def _serialize_entry(row: dict) -> dict:
         "title": row["title"],
         "description": row.get("description"),
         "due_date": row["due_date"].isoformat() if row.get("due_date") else None,
-        # Gesetzt heisst: der Termin geht bis zu diesem Tag.
+        # When set, the appointment runs until this day.
         "end_date": row["end_date"].isoformat() if row.get("end_date") else None,
         "due_time": row["due_time"].strftime("%H:%M") if row.get("due_time") else None,
-        # Gesetzt heisst: der Termin endet an diesem Tag zu dieser Uhrzeit.
+        # When set, the appointment ends on this day at this time.
         "end_time": row["end_time"].strftime("%H:%M") if row.get("end_time") else None,
         # Gesetzt heisst: Anfang bekannt, Ende ausdruecklich offen ("ab 15.09.").
         "is_open_ended": bool(row.get("is_open_ended")),
-        # 'month' = die Quelle nannte nur einen Monat, die Ansicht zeigt dann keinen Tag
+        # 'month' = the source named only a month, the view then shows no day
         "date_precision": row.get("date_precision") or "day",
         "is_optional": row["is_optional"],
         "is_checked": row["is_checked"],
@@ -95,14 +94,14 @@ def _serialize_global_entry(row: dict) -> dict:
         "title": row["title"],
         "description": row.get("description"),
         "due_date": row["due_date"].isoformat() if row.get("due_date") else None,
-        # Gesetzt heisst: der Termin geht bis zu diesem Tag.
+        # When set, the appointment runs until this day.
         "end_date": row["end_date"].isoformat() if row.get("end_date") else None,
         "due_time": row["due_time"].strftime("%H:%M") if row.get("due_time") else None,
-        # Gesetzt heisst: der Termin endet an diesem Tag zu dieser Uhrzeit.
+        # When set, the appointment ends on this day at this time.
         "end_time": row["end_time"].strftime("%H:%M") if row.get("end_time") else None,
         # Gesetzt heisst: Anfang bekannt, Ende ausdruecklich offen ("ab 15.09.").
         "is_open_ended": bool(row.get("is_open_ended")),
-        # 'month' = die Quelle nannte nur einen Monat, die Ansicht zeigt dann keinen Tag
+        # 'month' = the source named only a month, the view then shows no day
         "date_precision": row.get("date_precision") or "day",
         "is_checked": row["is_checked"],
     }
@@ -118,14 +117,7 @@ async def get_upcoming_schedule(
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    """Top-N upcoming schedule entries across all the user's workspaces
-    (owned + enrolled). Used by the home widget (limit=5) and the global
-    overview page (paginated with limit + offset).
-
-    only_checked=True returns the completed-history view (any date).
-    include_past_open=True returns all unchecked entries regardless of date,
-      so missed deadlines are visible alongside upcoming ones.
-    """
+    """The next appointments across all course rooms of the person."""
     if limit is not None and (limit < 1 or limit > 500):
         raise HTTPException(status_code=400, detail=t("ai.schedule.limitRange", locale))
     if offset < 0:
@@ -182,9 +174,7 @@ async def generate_schedule(
     enforce_aia_burst(user_id, locale)
     enforce_quota(user_id, "aia_generate", is_admin_user(current_user), locale)
 
-    # Filter: skip already-processed sources client-side already knows this,
-    # but we also store the full selection for traceability. The task will
-    # filter again on its own.
+    # The whole selection is stored, the job filters once more itself.
     job = db.create_schedule_job(workspace["id"], user_id, list(body.source_ids))
 
     from src.tasks.aia_tasks import run_generate_schedule
@@ -292,8 +282,7 @@ async def update_entry(
         raise HTTPException(status_code=400, detail=t("scheduleEntry.invalidType", locale))
 
     precision = body.date_precision if body.date_precision in ("day", "month") else None
-    # Bleibt die Genauigkeit ungenannt, gilt die des Eintrags: ein neues Datum darf
-    # einen Monats-Eintrag nicht heimlich auf einen Tag festnageln.
+    # Without a stated precision the entry's own applies.
     effective = precision or (existing.get("date_precision") or "day")
 
     row = db.update_schedule_entry(

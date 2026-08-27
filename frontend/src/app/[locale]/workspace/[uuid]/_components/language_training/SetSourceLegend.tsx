@@ -6,15 +6,7 @@ import { CaretDown } from "@phosphor-icons/react";
 import { _getChipIcon } from "../../_utils";
 import type { ExerciseSetSource } from "../../_types";
 
-/**
- * The numbered source list under an exercise set, and the numbering its citation
- * chips print.
- *
- * Numbering belongs to the SET, not to the card on screen. Numbering per card gave
- * one file different numbers on different cards, which makes the bracket useless as
- * a reference. The order is the one the learner picked the sources in and comes from
- * the backend, so it survives a reload and matches between the list and the exercises.
- */
+/** The numbered source list, the numbers belong to the set. */
 
 /** filename -> the number the legend gives it. Missing file means no bracket. */
 export function sourceNumbers(sources?: ExerciseSetSource[] | null): Record<string, number> {
@@ -23,8 +15,7 @@ export function sourceNumbers(sources?: ExerciseSetSource[] | null): Record<stri
   return out;
 }
 
-/** "[3] " for a file that is in the legend, "" for one that is not.
- *  Single-source sets get no bracket at all: there is nothing to tell apart. */
+/** A bracket only when there is something to tell apart. */
 export function sourceTag(filename: string, numbers: Record<string, number>): string {
   if (Object.keys(numbers).length < 2) return "";
   const n = numbers[filename];
@@ -39,16 +30,11 @@ export function SetSourceLegend({
   className?: string;
 }) {
   const t = useTranslations("workspace.detail.languageTraining.common");
-  /* Eingeklappt als Startzustand: bei vielen Quellen schiebt die Liste die Aufgabe
-     aus dem Bild, und gebraucht wird sie nur, wenn jemand eine Zahl nachschlaegt.
-     Die Zeile bleibt sichtbar, damit man sieht, dass es sie gibt. */
+  /** Collapsed as the initial state, the row stays visible. */
   const [open, setOpen] = useState(false);
 
   if (!sources || sources.length === 0) return null;
-  /* Size: the list is a footnote and reads as one. text-xs sits under the exercise
-     text without dropping to the 10px floor, and nothing in it is bold, so the
-     numbers do not fight the exercises for attention (Ansage vom 2026-08-05).
-     The icon follows the text, otherwise it shrinks to a dot next to it. */
+  /** The list is a footnote and reads like one. */
   return (
     <div className={`flex flex-col gap-1 ${className}`}>
       <button

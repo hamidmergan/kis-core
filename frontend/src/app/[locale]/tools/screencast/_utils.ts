@@ -17,14 +17,14 @@ export function computeVoiceLabel(
 }
 
 
-/** Haengt den Lauf-Stempel an, damit der Browser nach einem neuen Lauf nicht das alte Video zeigt. */
+/** Appends the run stamp so the browser does not show the old video after a new run. */
 export function mitLaufStempel(adresse: string, stempel: string): string {
   if (!stempel) return adresse;
   const trenner = adresse.includes("?") ? "&" : "?";
   return `${adresse}${trenner}v=${encodeURIComponent(stempel)}`;
 }
 
-/** Sekundengenauer Stempel aus den Job-Angaben, faellt auf den minutengenauen Dateinamen zurueck. */
+/** Second precise stamp from the job data, falls back to the minute precise file name. */
 export function laufStempelAusMeta(meta: { gerendert_am?: unknown; result_stem?: unknown }): string {
   return String(meta.gerendert_am ?? meta.result_stem ?? "");
 }
@@ -127,7 +127,7 @@ export function parseScriptJsonFile(file: File): Promise<ScriptJsonParseResult> 
   });
 }
 
-/** Abzug des letzten erfolgreichen Laufs, Grundlage der Aenderungs-Erkennung. */
+/** Snapshot of the last successful run, the basis of the change detection. */
 export interface VertonterStand {
   scripts: string[];
   folientexte: string[];
@@ -142,7 +142,7 @@ export interface VertonterStand {
 
 export type FolienMarke = "skript" | "folie" | null;
 
-/** Beides geaendert meldet das Skript, das ist der Grund der den Nutzer betrifft. */
+/** If both changed the script is reported, that is the reason that concerns the user. */
 export function markeFuerFolie(
   stand: VertonterStand | null,
   index: number,
@@ -158,7 +158,7 @@ export function markeFuerFolie(
   return null;
 }
 
-/** Die Folien, die Schritt 6 zum Neuvertonen vorschlaegt. */
+/** The slides step 6 proposes for re-voicing. */
 export function geaenderteFolien(stand: VertonterStand | null, slides: SlideData[]): number[] {
   if (!stand) return [];
   return slides
@@ -166,7 +166,7 @@ export function geaenderteFolien(stand: VertonterStand | null, slides: SlideData
     .filter((i) => i >= 0);
 }
 
-/** Was ein neuer Lauf gegenueber dem letzten aendern wuerde. */
+/** What a new run would change compared to the last one. */
 export interface LaufStand {
   stand: VertonterStand | null;
   hatVideo: boolean;
@@ -182,14 +182,14 @@ export interface LaufStand {
   subtitles: boolean;
 }
 
-/** Wahr, wenn dieser Lauf keine einzige Folie neu sprechen wuerde. */
+/** True when this run would speak not a single slide anew. */
 export function nichtsWirdGesprochen(s: LaufStand): boolean {
   if (s.neuVertonen.length > 0) return false;
-  // Eine Folie ohne Ton bekaeme welchen, auch ohne Haken.
+  // A slide without audio would get some, even without a tick.
   return !s.ohneTon.some((i) => s.imScreencast.includes(i));
 }
 
-/** Wahr, wenn eine neue Stimme wirkungslos bliebe, weil nichts gesprochen wird. */
+/** True when a new voice would have no effect because nothing is spoken. */
 export function stimmwechselOhneWirkung(s: LaufStand): boolean {
   if (!s.stand || !s.hatVideo) return false;
   if (!nichtsWirdGesprochen(s)) return false;
@@ -200,7 +200,7 @@ export function stimmwechselOhneWirkung(s: LaufStand): boolean {
   );
 }
 
-/** Wahr, wenn ein neuer Lauf genau dasselbe Video ergaebe. */
+/** True when a new run would produce exactly the same video. */
 export function laufWaereUmsonst(s: LaufStand): boolean {
   if (!s.stand || !s.hatVideo) return false;
   if (!nichtsWirdGesprochen(s)) return false;
@@ -208,7 +208,7 @@ export function laufWaereUmsonst(s: LaufStand): boolean {
   if (s.stand.voice_id !== s.voiceId) return false;
   if (s.stand.provider_id !== s.providerId) return false;
   if (s.stand.target_lang !== s.targetLang) return false;
-  // Was sich nicht nachpruefen laesst, gilt nicht als unveraendert.
+  // Whatever cannot be verified does not count as unchanged.
   if (s.stand.speed === undefined || rundeZwei(s.stand.speed) !== rundeZwei(s.speed)) return false;
   if (s.stand.slide_pause === undefined || rundeZwei(s.stand.slide_pause) !== rundeZwei(s.slidePause)) return false;
   if (s.stand.subtitles === undefined || s.stand.subtitles !== s.subtitles) return false;
@@ -227,7 +227,7 @@ function gleicheNummern(a: number[], b: number[]): boolean {
   return x.every((wert, i) => wert === y[i]);
 }
 
-/** Welche Folien nicht im Video sind, aus dem Fortschritt, dem Ergebnis oder der Auswahl. */
+/** Which slides are not in the video, from the progress, the result or the selection. */
 export function ausgeschlosseneFolien(
   anzahl: number,
   ausDemFortschritt: number[],
@@ -235,14 +235,14 @@ export function ausgeschlosseneFolien(
   ausDerAuswahl: number[] = [],
 ): number[] {
   if (ausDemFortschritt.length > 0) return ausDemFortschritt;
-  // Waehrend des Laufs gibt es noch kein Ergebnis, dann zaehlt die abgeschickte Auswahl.
+  // During the run there is no result yet, then the submitted selection counts.
   const dabeiListe = videoFolien ?? (ausDerAuswahl.length ? ausDerAuswahl : null);
   if (!dabeiListe) return [];
   const dabei = new Set(dabeiListe);
   return Array.from({ length: anzahl }, (_, i) => i).filter((i) => !dabei.has(i));
 }
 
-/** Sprache der Oberflaeche auf eine angebotene Sprach-Kennung abbilden, sonst null. */
+/** Maps the interface language onto an offered language code, null otherwise. */
 export function sprachIdFuerLocale(
   locale: string,
   languages: { id: string }[],

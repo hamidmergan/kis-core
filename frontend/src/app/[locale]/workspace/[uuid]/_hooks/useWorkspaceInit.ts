@@ -11,7 +11,7 @@ interface WorkspaceSettings {
   chat_lang: "de" | "en";
   studio_enabled: boolean;
   popup_translate_lang: string;
-  /** Eigene Entscheidung, ob der freigegebene Sprachtrainer angezeigt wird. */
+  /** Personal decision whether the released language trainer is shown. */
   language_training_active: boolean;
 }
 
@@ -31,9 +31,7 @@ export function useWorkspaceInit(opts: UseWorkspaceInitOptions) {
 
   const [auth, setAuth] = useState<AuthStatus | null>(null);
   const [initialized, setInitialized] = useState(false);
-  // Der Workspace steht auf inaktiv. Kein fehlendes Recht, sondern ein
-  // geschlossener Raum, deshalb bleibt die Seite stehen und sagt es, statt
-  // die lesende Person wortlos auf die Startseite zu werfen.
+  // A closed room, not a missing permission, so the page says so instead of discarding.
   const [locked, setLocked] = useState(false);
 
   useEffect(() => {
@@ -87,9 +85,7 @@ export function useWorkspaceInit(opts: UseWorkspaceInitOptions) {
   return { auth, initialized, locked };
 }
 
-// Restore previously selected sources from sessionStorage, fallback to all ready.
-// "Fully ready" excludes sources still indexing - selecting those would feed
-// the chat empty context (see SourcesPanel.tsx).
+// Restores the remembered selection, otherwise all ready sources without the running ones.
 function restoreSelectedSources(uuid: string, srcs: Source[]): string[] {
   const storageKey = `kis-selected-sources-${uuid}`;
   const isFullyReady = (s: Source) => s.status === "ready" && !s.progress;

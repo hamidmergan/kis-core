@@ -1,9 +1,4 @@
-"""Resume + caching for the standalone chunked transcription path (general.transcribe).
-
-A chunk that fails (e.g. 429) must not throw away the chunks that already succeeded:
-each successful chunk is cached per (job, chunk index) so a re-run skips it. Mirrors the
-AIA media-ingestion behaviour for the non-verbose transcription tool.
-"""
+"""A failed part must not throw the finished ones away."""
 import pytest
 
 from src.services.openai_compat_llm import _whisper_chunked as wc

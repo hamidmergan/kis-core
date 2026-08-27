@@ -1,4 +1,4 @@
-"""Ziffern gehen als Wörter an die Vertonung, sonst spricht sie sie deutsch."""
+"""Digits go to the voicing as words, otherwise it speaks them in German."""
 
 import pytest
 
@@ -20,7 +20,7 @@ def test_englische_zahlen_werden_ausgeschrieben(roh, erwartet):
 
 @pytest.mark.parametrize("sprache", ["DE", "FR", "TR", "ES"])
 def test_andere_sprachen_bleiben_unangetastet(sprache):
-    """Nur fuer Englisch gemessen, anderswo bleibt es wie bisher."""
+    """Measured for English only, elsewhere nothing changes."""
     text = "Es waren 47 Personen im Jahr 1986."
     assert spell_numbers(text, sprache) == text
 
@@ -50,7 +50,7 @@ def test_adressen_bleiben_unangetastet(text):
 
 
 def test_ziffern_in_woertern_bleiben_stehen():
-    """COVID-19 oder H2O sind Namen, keine Zahlen."""
+    """COVID-19 or H2O are names, not numbers."""
     assert spell_numbers("The COVID-19 pandemic and H2O.", "EN") == "The COVID-19 pandemic and H2O."
 
 

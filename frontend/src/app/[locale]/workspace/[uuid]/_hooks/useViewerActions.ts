@@ -25,11 +25,7 @@ export function useViewerActions(opts: UseViewerActionsOptions) {
     chatSetInputRef, chatTextareaRef, sendChatMessage,
   } = opts;
 
-  // Opening a source does NOT narrow selectedSourceIds, and nothing downstream
-  // narrows it either: every checked source stays active while one of them is open
-  // in the viewer. Narrowing here also overwrote — and persisted to sessionStorage —
-  // the user's multi-source selection, which then came back as a stuck single
-  // source after navigating away/reloading with the viewer still open.
+  // An opened source does not narrow the selection, it used to stick when stored.
   const openViewer = useCallback((source: Source, page = 1, highlightText?: string, exactSelection?: boolean, isCitation = false) => {
     setViewerSource({ uuid: source.uuid, filename: source.filename, page, highlightText, exactSelection, isCitation, nonce: Date.now() });
     setPanels((prev) => ({ ...prev, quellen: true }));
@@ -52,9 +48,7 @@ export function useViewerActions(opts: UseViewerActionsOptions) {
     else setPanels((prev) => ({ ...prev, chat: true }));
     const delay = wasOpen ? 50 : 300;
     setTimeout(() => {
-      // setInput must come AFTER the tab/panel switch: on smartphone the
-      // ChatInputBar is unmounted while the sources/studio tab is active, so
-      // chatSetInputRef is null. The mount cycle is only complete after the setTimeout delay.
+      // setInput has to come after the switch, on the phone the input hangs on nothing otherwise.
       chatSetInputRef.current?.(value);
       const el = chatTextareaRef.current;
       if (!el) return;
@@ -74,16 +68,12 @@ export function useViewerActions(opts: UseViewerActionsOptions) {
     fillChatInput(`"${selectedText}"\n\n`, chatWasOpen, false);
   }, [isMobile, activeTab, panels.chat, fillChatInput]);
 
-  // `endTime` comes last because only citation chips know it: everyone else (glossary,
-  // exercises, notes) opens a source at a point in time, not over a cited span.
+  // endTime comes last because only citation chips know a span.
   const pillClick = useCallback((sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number, isExact?: boolean, hideTranscript?: boolean, endTime?: number, chunkStart?: number) => {
     const src = sources.find((s) => s.uuid === sourceUuid);
     const isMedia = _isMediaFile(filename);
     if (isMedia) {
-      // isCitation marks this as a citation-chip jump so the transcript pins the cited
-      // segment + shows its jump/dismiss bar, mirroring the PDF page-frame behaviour.
-      // For media `sourceText` is the answer text the chip backs up, not something to
-      // highlight verbatim: the transcript ranks the lines of the marked span against it.
+      // isCitation marks the jump of a citation chip, sourceText is the claim and no search term.
       setViewerSource({ uuid: sourceUuid, filename, page: 0, startTime, endTime, chunkStart, citationClaim: sourceText, isCitation: true, hideTranscript, nonce: Date.now() });
       setPanels((prev) => ({ ...prev, quellen: true }));
       if (isMobile) setActiveTab("quellen");

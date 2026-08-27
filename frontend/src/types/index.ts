@@ -1,15 +1,14 @@
 export type SystemRole = "admin" | "staff" | "user" | "custom";
 
 export interface UserPermissions {
-  /** Darf ueberhaupt eine Seite des Adminbereichs sehen, also mindestens ein
-   *  Recht aus der Gruppe Einstellungen. Heisst laengst nicht mehr "Admin". */
+  /** May see at least one page of the admin area, long since no longer called admin. */
   allow_admin_panel: boolean;
   allow_aia: boolean;
   allow_workspace_create: boolean;
   tools: string[]; // tool keys
-  /** Alle Rechte-Schluessel. Die Seitenleiste entscheidet damit je Seite. */
+  /** All permission keys, the sidebar decides per page with them. */
   keys: string[];
-  /** Kein vergebbares Recht, sondern das Recht plus der Serverschalter. */
+  /** Not a grantable permission but the permission plus the server switch. */
   allow_ldap_user_create?: boolean;
 }
 
@@ -64,6 +63,6 @@ export interface SlideData {
   imageBase64: string;
   extractedText: string;
   script: string;
-  /** Übersetzung hat den Text dieser Folie nicht verändert. Hinweis, kein Fehler. */
+  /** The translation did not change the text of this slide, a hint and not an error. */
   unchanged?: boolean;
 }

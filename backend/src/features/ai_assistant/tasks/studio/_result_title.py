@@ -1,26 +1,13 @@
-"""Welche Zeilen ein Studio-Ergebnis dem Titel-Aufruf zeigt.
-
-Der grosse Erzeugungs-Aufruf sieht das ganze Dokument und benennt deshalb das
-Dokument. Der Titel-Aufruf bekommt hier nur das Ergebnis selbst, also das, was
-zwei Mindmaps aus derselben Quelle tatsaechlich unterscheidet.
-
-Die Titel-Logik dahinter liegt in ``tasks/_titles.py`` und ist fuer alle
-Werkzeuge dieselbe.
-"""
+"""Which rows a studio result shows the title call."""
 
 from src.core.db.pool import get_connection
 
-# Nur die Tabellen, die einen Anzeigenamen tragen. Ein Tabellenname geht erst in die
-# Abfrage, wenn er hier steht, dieselbe Regel wie in ``source_rename.py``.
+# Only tables with a display name, a name enters the query once it stands here.
 _TITLE_TABLES = ("aia_mindmaps", "aia_data_tables")
 
 
 def mindmap_entries(mindmap: dict) -> list[str]:
-    """Die Knoten der ersten Ebene, ohne den Wurzelknoten.
-
-    Der Wurzelknoten bleibt draussen: er ist genau der Dokumentname, von dem der
-    Titel wegkommen soll.
-    """
+    """The first level nodes, without the root node."""
     kinder = (mindmap or {}).get("children") or []
     return [
         k["topic"].strip()
@@ -30,10 +17,7 @@ def mindmap_entries(mindmap: dict) -> list[str]:
 
 
 def table_entries(table_data: dict) -> list[str]:
-    """Spaltenkoepfe und die Werte der ersten Spalte.
-
-    Die Koepfe sagen, worum es geht, die erste Spalte sagt, worueber konkret.
-    """
+    """Column headers and the values of the first column."""
     daten = table_data or {}
     eintraege = [str(c).strip() for c in (daten.get("columns") or []) if str(c or "").strip()]
     for zeile in daten.get("rows") or []:
@@ -44,11 +28,7 @@ def table_entries(table_data: dict) -> list[str]:
 
 
 def recent_titles(table: str, workspace_id: int | None, limit: int = 100) -> list[str]:
-    """Die zuletzt vergebenen Titel dieses Werkzeugs im Kursraum, neueste zuerst.
-
-    Leer bei fehlendem Kursraum oder Datenbankfehler: ein doppelter Name ist ein
-    Schoenheitsfehler, nie ein Grund, ein fertiges Ergebnis fallen zu lassen.
-    """
+    """The most recent titles of this tool in the course room, newest first."""
     if table not in _TITLE_TABLES or not workspace_id:
         return []
     try:

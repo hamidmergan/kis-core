@@ -13,7 +13,7 @@ interface Props {
   imScreencast: number[];
   neuVertonen: number[];
   ohneTon: Set<number>;
-  /** Ab dem zweiten Lauf gibt es etwas wiederzuverwenden. */
+  /** From the second run on there is something to reuse. */
   zeigtNeu: boolean;
   stimmeGewechselt: boolean;
   onUmschaltenScreencast: (i: number) => void;

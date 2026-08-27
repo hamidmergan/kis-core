@@ -1,19 +1,12 @@
 "use client";
 
-/**
- * Grenzen der globalen Werkzeuge: wie groß und wie viel angenommen wird.
- *
- * Die Auswahl folgt einer einzigen Frage: hängt der richtige Wert von der
- * Nutzung der Hochschule ab oder von der Technik? Nur das Erste steht hier.
- * Alles Gemessene bleibt fest im Code, die Begründung je Wert steht in
- * ``backend/src/services/tool_limits.py``.
- */
+/** Only what depends on usage sits here, measured values stay in the code. */
 
 import { useTranslations } from "next-intl";
 import { useSetting } from "../../_settings/SettingsProvider";
 import { NumberSetting } from "../../_settings/fields";
 
-/** Der Wert, den die beiden Zaehlgrenzen fuer "unbegrenzt" tragen. */
+/** The value the two count limits carry for unlimited. */
 const UNBEGRENZT = -1;
 
 export default function ToolLimitsPage() {

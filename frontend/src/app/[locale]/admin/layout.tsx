@@ -1,11 +1,6 @@
 "use client";
 
-/**
- * Rahmen des Adminbereichs: Zugangsprüfung, Seitenleiste, Schublade fürs Handy.
- *
- * Steht als Layout über allen Adminseiten, damit die Seitenleiste beim Wechsel
- * nicht neu aufgebaut wird und der Zugang nur einmal geprüft werden muss.
- */
+/** Frame of the admin area: access check, sidebar, drawer for the phone. */
 
 import { useState } from "react";
 import { List } from "@phosphor-icons/react";
@@ -22,8 +17,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname();
   const [navOpen, setNavOpen] = useState(false);
 
-  // Aus der Adresse ableiten statt mitzuzählen: ein Direktaufruf ist damit
-  // sofort richtig aufgeklappt.
+  // Derived from the URL so a direct call expands correctly.
   const segments = pathname.replace(/^\/admin\/?/, "").split("/").filter(Boolean);
   const found = resolve(segments);
   const openSlug = found?.section.slug ?? "";

@@ -47,7 +47,7 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, areaKey = "admin
 
   useEffect(() => {
     if (!open) return;
-    // Das Blatt haengt unter dem Kopf, dessen Hoehe steht erst im Browser fest.
+    // The sheet hangs below the header, whose height is only known in the browser.
     const header = ref.current?.closest("header");
     setSheetTop(header ? Math.round(header.getBoundingClientRect().bottom) : 0);
   }, [open]);
@@ -64,7 +64,7 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, areaKey = "admin
   const chooseLocale = (next: Locale) => {
     setOpen(false);
     if (next === currentLocale) return;
-    // next-intl setzt den Sprach-Cookie erst nach dem Start, dann schickt die Middleware die erste Anfrage zurueck.
+    // next-intl sets the language cookie only after startup, then the middleware bounces the first request.
     document.cookie = `NEXT_LOCALE=${next}; path=/; max-age=${60 * 60 * 24 * 365}; SameSite=Lax`;
     router.replace(pathname, { locale: next });
     void persistLocale(next);
@@ -77,12 +77,12 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, areaKey = "admin
 
   const rowClass =
     "flex items-center gap-3 w-full px-4 py-3 text-sm font-medium hover:bg-[var(--surface-dim)] transition-colors no-underline text-left";
-  // Die Zeile der Seite, auf der man gerade steht, bleibt hinterlegt.
+  // The row of the page you are currently on stays highlighted.
   const activeRowStyle = { backgroundColor: "var(--surface-dim)", fontWeight: 600 };
   const onCalendar = pathname === "/kalender" || pathname.startsWith("/kalender/");
   const onJobsPage = pathname.startsWith("/my-jobs");
   const headingClass = "px-4 pt-2.5 pb-1 text-2xs font-semibold uppercase tracking-wide";
-  // Ohne Sitzung stehen keine Navigations-Zeilen ueber der Sprache, dann faellt der Trennstrich weg.
+  // Without a session no navigation rows sit above the language, then the divider is dropped.
 
   return (
     <div className="sm:hidden relative" ref={ref}>
@@ -220,7 +220,7 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, areaKey = "admin
               className={rowClass}
               style={{
                 color: "var(--foreground)",
-                // Admin und Abmelden gehoeren zusammen, der Strich steht nur vor der ersten Zeile des Blocks.
+                // Admin and log out belong together, the divider sits only before the first row of the block.
                 ...(hasSession && isAdmin ? {} : { borderTop: "1px solid var(--border)", marginTop: 4 }),
               }}
             >

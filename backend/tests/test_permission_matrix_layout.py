@@ -1,9 +1,4 @@
-"""Der Aufbau der Rechtetabelle: zwei Kapitel, darunter die Gruppen der Seitenleiste.
-
-Vorher lagen 17 Zeilen in einer einzigen Gruppe "Einstellungen", und die vier
-Zeilen zur Statistik standen an drei verschiedenen Stellen. Diese Tests halten
-fest, dass beim Umsortieren keine Zeile verloren geht und keine doppelt steht.
-"""
+"""The layout of the permission table, no row may be lost or appear twice."""
 
 from src.permissions_registry import (
     ALL_PERMISSION_KEYS,
@@ -49,8 +44,7 @@ def test_groups_stand_in_two_chapters_in_display_order():
 
 
 def test_the_statistics_rights_stand_together_scoped_one_first():
-    """Die eigenen Module zuerst: der einzige Schluessel der Gruppe, den eine
-    Lehrperson bekommt, und der einzige, der nicht die Plattform aufmacht."""
+    """Own modules first, the only key without platform-wide insight."""
     assert PERMISSION_GROUPS["set.statistik"] == (
         PERM_SET_STATS_OWN,
         PERM_SET_AIA_USAGE,

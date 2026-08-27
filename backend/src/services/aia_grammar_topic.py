@@ -1,19 +1,4 @@
-"""Aus einem getippten Themennamen Regel und Musterbeispiel machen.
-
-Der Dozent tippt zwei Wörter, etwa "Konjunktiv II". Daraus entsteht in einem
-Aufruf genau das, was bisher von Hand im Code stand: eine Regel für das Modell
-und ein ausgearbeitetes Musterpaar in der Kurssprache.
-
-Warum hier strenger geprüft wird als anderswo: Die Grammatik-Übung ist das
-einzige Werkzeug, das nicht aus den Quellen antwortet. Das Thema kommt vom
-Dozenten, die Grammatik aus dem Modell, die Quellen liefern nur den Wortschatz.
-Damit fällt die Quellen-Grenze als Netz gegen einen Irrtum weg. Ein falsches
-Musterpaar würde einem ganzen Kurs die falsche Form beibringen, und niemand
-merkt es an der Aufgabe, weil sie in sich stimmig aussieht.
-
-Deshalb wird lieber abgelehnt als geraten, und was durchkommt, bekommt der
-Dozent vor dem Speichern zu sehen.
-"""
+"""Turns a typed topic name into a rule and a pattern example."""
 
 import json
 
@@ -83,46 +68,27 @@ _PROMPT = (
 
 
 def derive_topic(client, model, name: str, language: str) -> dict | None:
-    """Regel und Musterbeispiel zu einem Themennamen, oder ``None``.
-
-    ``None`` heisst: daraus lässt sich kein Grammatikthema machen. Der Aufrufer
-    zeigt eine Absage, statt einen erfundenen Eintrag zu speichern.
-
-    Eine **Störung** des Anbieters schlägt dagegen durch. Am laufenden System
-    aufgefallen: der Dienst meldete "Model Not Loaded", und der Dozent las
-    "daraus lässt sich kein Grammatikthema machen". Er hätte seinen völlig
-    richtigen Themennamen umgeschrieben, obwohl nur der Dienst weg war. Zwei
-    verschiedene Ursachen brauchen zwei verschiedene Meldungen.
-    """
-    # Erst hier geholt, nicht oben: das Aufgaben-Paket importiert seinerseits
-    # derive_topic, ein Import auf Modulebene ergäbe also einen Ringschluss. Die
-    # beiden sind allgemeine Helfer für Modell-Ausgaben und liegen nur historisch
-    # unter tasks/.
+    """Rule and pattern example for a topic name, or None."""
+    # Fetched only here, an import at the module header would close a cycle.
     from src.features.ai_assistant.tasks._helpers import _clean_llm_json
 
-    # ``language`` darf der englische Sprachname sein ("German") oder der Sprachcode
-    # ("de"). Beides kommt vor, und ein durchgereichter Code landete sonst wortwoertlich
-    # im Prompt: "Write the example in de." Ein Test hat genau das gefunden.
+    # language may be a name or a code, a code would otherwise end up verbatim in the prompt.
     from src.i18n import TRANSCRIPT_LANGUAGES
     eintrag = TRANSCRIPT_LANGUAGES.get((language or "").lower())
-    # Nicht ``label``: so heisst seit dem Namensvorschlag das Feld, das das Modell
-    # zurückgibt. Zwei verschiedene Dinge unter einem Namen in einer Funktion.
+    # Not 'label', that is the field name of the suggested name.
     sprach_label = eintrag["name"] if eintrag else (language or "German")
     messages = [
         {"role": "system", "content": _PROMPT.replace("{language}", sprach_label)},
         {"role": "user",
          "content": f"Topic: {name}\n\nWrite the example in {sprach_label}."},
     ]
-    # Niedrige Temperatur: hier ist keine Vielfalt gefragt, sondern die gängigste
-    # und damit sicherste Lesart des Themennamens. Ein Fehler beim Aufruf selbst
-    # geht bewusst nach oben durch, siehe Docstring.
+    # Low temperature, what is wanted is the safest reading of the topic name.
     response = client.chat.completions.create(
         model=model, messages=messages, temperature=0.2)
     try:
         data = json.loads(_clean_llm_json(response.choices[0].message.content or ""))
     except Exception as e:
-        # Das Modell hat geantwortet, aber unbrauchbar. Das ist eine Absage und
-        # keine Störung: ein zweiter Versuch mit demselben Namen hilft nicht.
+        # An unusable answer is a refusal, not a disruption.
         logger.warning("Grammatik-Thema {!r} nicht lesbar beantwortet: {}", name, e)
         return None
 
@@ -137,36 +103,12 @@ def derive_topic(client, model, name: str, language: str) -> dict | None:
         return None
     return {"rule": rule, "examples": examples[:MAX_EXAMPLES],
             "task_lines": usable_task_lines(data.get("task_lines")),
-            # Welche Form das Modell aus dem getippten Namen gemacht hat. Das Formular
-            # bietet sie als Namen an, damit die Kachel nicht "passi" heisst, während
-            # die Aufgaben Passiv Präsens üben.
+            # Which form the model made out of the typed name.
             "label": usable_label(data.get("label"))}
 
 
 def derive_task_lines(client, model, name: str, language: str) -> dict:
-    """Nur die vier Anweisungszeilen, fuer Ausarbeitungen von vor diesem Feld.
-
-    Themen, die vor den ``task_lines`` ausgearbeitet wurden, tragen Regel und
-    Musterpaar, aber keine Zeilen. Ohne diesen Nachschlag bekaemen sie nie welche,
-    denn ausgearbeitet wird nur, was noch gar nicht ausgearbeitet ist, und sie
-    haengen damit dauerhaft an der Schablone. Genau das wurde am 2026-08-12
-    gemeldet.
-
-    Regel und Musterpaar werden ausdruecklich NICHT mit zurueckgegeben. Der Dozent
-    darf beide im Formular von Hand geaendert haben, und ein Nachschlag fuer eine
-    Anweisungszeile darf ihm diese Arbeit nicht ueberschreiben.
-
-    Klappt es nicht, kommt ein leeres dict zurueck und es bleibt bei der Schablone.
-    Anders als beim ersten Ausarbeiten ist eine Stoerung des Anbieters hier kein
-    Grund, den ganzen Satz scheitern zu lassen: die Aufgaben selbst sind ohne
-    diesen Aufruf vollstaendig, nur die Anweisung ueber ihnen ist nuechterner.
-
-    Ein Fehlschlag wird nicht festgehalten, der naechste Satz fragt also erneut.
-    Das ist Absicht. Die Ablehnung ist nicht stabil: "tekamolo" wurde in vier
-    Anlaeufen dreimal angenommen und einmal abgelehnt, und wer einmal Pech hat,
-    haette sonst fuer immer die nuechterne Zeile. Der Aufruf faellt weg, sobald er
-    einmal geklappt hat, und er kostet nur bei Themen von vor dem Feld etwas.
-    """
+    """Backfills only the instruction lines, rule and pattern pair stay untouched."""
     try:
         derived = derive_topic(client, model, name, language)
     except Exception as e:
@@ -175,42 +117,30 @@ def derive_task_lines(client, model, name: str, language: str) -> dict:
     return (derived or {}).get("task_lines") or {}
 
 
-# Die vier Aufgabenformate, fuer die es je eine Anweisung braucht.
+# The four exercise formats, each needing one instruction.
 TASK_KINDS = ("transform", "cloze", "statement", "choice")
 
 
 def usable_task_lines(lines) -> dict:
-    """Die Anweisungszeilen, sofern alle vier brauchbar sind, sonst ein leeres dict.
-
-    Alles oder nichts: mit drei von vier Zeilen haette ein gemischtes Set eine Aufgabe
-    mit Modell-Anweisung und drei mit Schablone, und die eine faellt aus dem Ton. Leer
-    heisst, die alte Schablone greift, so wie vor diesem Feld.
-    """
+    """The instruction lines, only when all four are usable, empty otherwise."""
     if not isinstance(lines, dict):
         return {}
     fertig = {}
     for kind in TASK_KINDS:
         text = (lines.get(kind) or "").strip()
-        # Eine leere oder ein-Wort-Anweisung ist keine. Der Themenname allein reicht
-        # nicht, der steht ohnehin schon ueber dem Set.
+        # An empty or one-word instruction is none.
         if not text or len(text.split()) < 3:
             return {}
         fertig[kind] = text
     return fertig
 
 
-# Ein Themenname und kein Satz. Länger heisst, das Modell hat die Frage nicht
-# verstanden, und ein Absatz auf einer Kachel wäre schlimmer als kein Vorschlag.
+# A topic name and not a sentence, longer means misunderstood.
 MAX_LABEL_CHARS = 60
 
 
 def usable_label(value) -> str:
-    """Der Namensvorschlag, oder leer.
-
-    Leer ist kein Fehler und keine Absage. Der Vorschlag ist Komfort: er sagt dem
-    Dozenten, welche Form das Modell aus seinem getippten Namen gemacht hat. Ein
-    Thema ohne ihn wird angelegt wie vor diesem Feld.
-    """
+    """The suggested name, empty is not an error."""
     if not isinstance(value, str):
         return ""
     text = value.strip()
@@ -220,12 +150,7 @@ def usable_label(value) -> str:
 
 
 def is_usable_pair(pair) -> bool:
-    """Ob sich zwischen Vorher und Nachher wirklich etwas ändert.
-
-    Gleich heisst, das Modell hat die Umformung nicht verstanden. Geprüft wird
-    normalisiert, damit ein zusätzliches Ausrufezeichen nicht als Umformung
-    durchgeht. Sprach-unabhängig, keine Wortlisten.
-    """
+    """Whether anything really changes between before and after."""
     if not isinstance(pair, dict):
         return False
     before = (pair.get("before") or "").strip()

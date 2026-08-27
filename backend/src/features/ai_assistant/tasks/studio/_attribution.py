@@ -1,11 +1,4 @@
-"""Post-hoc attribution wiring for the studio data table tool.
-
-Unlike the language-training tools it builds its own context (no ``QuelleContext``),
-so it calls the service-level :func:`attribute_claims` directly and converts each nav chip
-into the page field the frontend reads: a page NUMBER for a PDF, or a ``"h:mm:ss"`` timestamp
-STRING for media. Same pgvector gate/selector as the chat, nav-only, seen-clamped, replaces
-the old LLM-guessed page numbers + highlight/keyword strings. (The mindmap tool deliberately
-keeps its LLM-guessed pages and does not use this path.)"""
+"""After-the-fact evidence search for the data table, with its own context."""
 
 from src.services.aia_attribution import attribute_claims, _GENERIC_ATTRIB_MAX_DIST
 
@@ -33,11 +26,7 @@ def attribute_studio_claims(
     seen_pages_by_source: dict[int, set] | None,
     max_distance: float = _GENERIC_ATTRIB_MAX_DIST,
 ) -> list[list[dict]]:
-    """One batched attribution for a list of claim texts -> one chip-list per claim.
-
-    Chips are clamped to the pages actually shown to the model (``seen_pages_by_source``), so a
-    citation can never point at a page that was not in the generation context. ``max_distance``
-    lets a thin-claim caller (mindmap) tighten the gate so weak matches abstain."""
+    """One batched attribution for many statements, limited to seen pages."""
     if not claims:
         return []
     return attribute_claims(

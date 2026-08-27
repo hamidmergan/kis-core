@@ -1,16 +1,4 @@
-"""Adapter for any OpenAI-compatible HTTP endpoint.
-
-Probe strategy — two-step fallback:
-
-  1. ``GET /health`` — most OpenAI-compat servers expose a liveness probe.
-     A 2xx response means the server is alive.
-
-  2. ``GET /v1/models`` — fallback for servers without ``/health``. Any
-     response except 404/5xx/401/403 confirms a live handler.
-
-This avoids burning rate-limited capability endpoints. The admin can untick
-capabilities the server doesn't serve via the Capabilities edit dialog.
-"""
+"""Adapter for any OpenAI compatible endpoint, probing in two stages."""
 
 from __future__ import annotations
 
@@ -20,9 +8,7 @@ from loguru import logger
 from src.services.protocols.base import ProbeResult, ProviderAdapter
 
 
-# Standard OpenAI-spec capabilities we assume a healthy server *might*
-# implement. Includes "ocr" + "translation" because they piggyback on
-# vision / chat respectively (see protocol README).
+# The capabilities a healthy server could have.
 _DEFAULT_CAPABILITIES: tuple[str, ...] = (
     "chat",
     "embedding",
@@ -56,29 +42,14 @@ class OpenAICompatAdapter(ProviderAdapter):
         return base
 
     def _build_url(self, path: str) -> str:
-        """Combine ``base_url`` with a probe path that starts with ``/v1/``.
-
-        Admins paste base URLs in two equally valid shapes — bare host
-        (``https://api.example.com``) or already-with-``/v1`` suffix
-        (``https://api.example.com/v1``). Without this helper the latter
-        produces ``…/v1/v1/models`` which the upstream proxy rejects with
-        an HTML 404.
-        """
+        """Assembles address and probe path without doubling /v1."""
         base = self.base_url.rstrip("/")
         if base.endswith("/v1") and path.startswith("/v1/"):
             return base + path[len("/v1"):]
         return base + path
 
     def probe(self) -> ProbeResult:
-        """Two-step reachability probe: GET /health then GET /v1/models.
-
-        Step 1 — GET /health. A 2xx response is sufficient to declare the
-        server alive.
-
-        Step 2 — GET /v1/models fallback for servers without /health. Any
-        response except 404 / 5xx / auth errors confirms a live OpenAI-compat
-        handler.
-        """
+        """Reachability probe in two stages: /health first, then /v1/models."""
         with httpx.Client(timeout=_PROBE_TIMEOUT) as client:
             # Step 1: /health
             health_url = self._base_host() + "/health"

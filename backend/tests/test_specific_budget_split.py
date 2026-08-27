@@ -1,12 +1,4 @@
-"""Unit tests for the SPECIFIC retrieval cost controls:
-
-- ``_take_chunks_within`` — fuellt eine nach Note sortierte Liste bis zur Grenze auf
-  und nimmt mindestens eine Stelle, auch wenn sie allein schon zu gross ist.
-- ``_pack_context_batches`` — single batch fuer jeden Weg: was nicht mehr passt,
-  faellt raus. Dazu die Seitenmenge und der leere Fall bei Medien.
-
-All pure functions: no DB, no LLM, fully deterministic/offline.
-"""
+"""Checks topping up to the limit and packing into one context window."""
 import pytest
 
 from src.features.ai_assistant.routes.chat import (
@@ -16,8 +8,7 @@ from src.features.ai_assistant.routes.chat import (
 
 
 def _mk(sid, n, *, chars=100, dist=0.5, first_marker=None, page_start=1):
-    """n RRF-ranked chunks for one source (rank 0 first). ``first_marker`` tags
-    the rank-0 chunk's content so tests can check the top hit survives."""
+    """Builds chunks of a source sorted by score, the best one is marked."""
     hits = []
     for i in range(n):
         content = (first_marker if (first_marker and i == 0) else "noise") + " "
@@ -48,11 +39,7 @@ def test_take_chunks_takes_at_least_one_even_if_oversized():
 
 # ── _allocate_specific_budget ────────────────────────────────────────────────
 
-# Die Tests von ``_allocate_specific_budget`` standen hier bis zum 16.08.2026. Die
-# Funktion ist weg: der Platz wird nicht mehr in Stufen nach Quellen verteilt, sondern
-# global nach Note vergeben. Was sie leisten sollte, haelt jetzt der Messsatz fest
-# (scripts/rag_retrieval_eval.py), und zwar an echten Quellen statt an ausgedachten
-# Zahlen. Die vier Waechterfaelle fuer Vergleichsfragen sind genau dafuer da.
+# The tiered slot split is gone, now the benchmark pins it down.
 
 
 _SRCS = {1: {"filename": "a.pdf"}, 2: {"filename": "b.pdf"}}

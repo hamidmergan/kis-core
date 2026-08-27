@@ -1,15 +1,4 @@
-"""Tests fuer die selbstkorrigierende Stapelgroesse beim Embedding.
-
-Frueher war "Chunks pro Aufruf" eine Admin-Einstellung. Sie konnte nur nach
-unten, weil Standard und Obergrenze beide auf dem gemessenen Wert 1000 lagen,
-und niemand kann von Hand wissen, was ein fremder Anbieter vertraegt. Statt des
-Reglers findet der Client die Zahl jetzt selbst: lehnt der Endpunkt eine zu
-grosse Anfrage ab, halbiert er den Stapel und versucht es erneut.
-
-Wichtig ist die Unterscheidung zweier Absagen. "Zu gross" wird kleiner
-versucht, eine Absage wegen Ueberlastung NICHT, denn Halbieren wuerde dort
-nur noch mehr Anfragen erzeugen.
-"""
+"""Checks the self-correcting batch size and the three kinds of refusal."""
 import pytest
 
 from src.limits import AIA_EMBEDDING_BATCH_SIZE
@@ -19,18 +8,14 @@ from src.services.aia_embeddings import OpenAICompatEmbeddingProvider
 
 @pytest.fixture(autouse=True)
 def _frischer_lernspeicher():
-    """Die gelernte Stapelgroesse lebt im Prozess. Zwischen Tests leeren."""
+    """The learned batch size lives in the process, clear it between tests."""
     aia_embeddings._learned_batch_size.clear()
     yield
     aia_embeddings._learned_batch_size.clear()
 
 
 class _FakeEndpoint(OpenAICompatEmbeddingProvider):
-    """Endpunkt, der Anfragen ueber ``max_inputs`` mit 502 ablehnt.
-
-    Genau das Verhalten von myLab qwen3-embedding-4b: 1000 Eingaben gehen,
-    2000 laufen in ein 502. Ein fremder Anbieter kann die Grenze anderswo haben.
-    """
+    """An endpoint that rejects oversized requests with 502."""
 
     def __init__(self, max_inputs: int) -> None:
         self.max_inputs = max_inputs
@@ -48,7 +33,7 @@ class _FakeEndpoint(OpenAICompatEmbeddingProvider):
 
 
 class _RateLimitedEndpoint(OpenAICompatEmbeddingProvider):
-    """Endpunkt, der die ersten ``fehlversuche`` Anfragen mit 429 abweist."""
+    """Endpoint that rejects the first ``fehlversuche`` requests with 429."""
 
     def __init__(self, fehlversuche: int) -> None:
         self.offen = fehlversuche
@@ -65,8 +50,7 @@ class _RateLimitedEndpoint(OpenAICompatEmbeddingProvider):
 
 
 class _HaengenderEndpunkt(OpenAICompatEmbeddingProvider):
-    """Endpunkt, der die ersten ``fehlversuche`` Anfragen in die Zeitschranke laufen
-    laesst. Genau der Fall, der die Quellenchips minutenlang aufgehalten hat."""
+    """An endpoint that lets the first requests run into the timeout."""
 
     def __init__(self, fehlversuche: int, retry_on_timeout: bool = True) -> None:
         self.offen = fehlversuche
@@ -89,14 +73,13 @@ def test_halbiert_bis_der_endpunkt_den_stapel_annimmt():
     vektoren = p.embed([f"chunk {i}" for i in range(700)])
 
     assert len(vektoren) == 700
-    # 700 auf einmal abgelehnt, 500 abgelehnt, ab 250 nimmt der Endpunkt an
+    # 700 at once rejected, 500 rejected, from 250 on the endpoint accepts
     assert p.abgelehnt == [700, 500]
     assert all(n <= 300 for n in p.gesendet if n not in (700, 500))
 
 
 def test_gelernte_groesse_gilt_auch_fuer_die_naechste_quelle():
-    """Der Provider wird pro Upload neu gebaut. Ohne Gedaechtnis wuerde jede
-    Quelle die Grenze neu ertasten und dabei Aufrufe am Rate-Limit verbrennen."""
+    """Without memory every source would feel out the limit again."""
     erste = _FakeEndpoint(max_inputs=300)
     erste.embed([f"chunk {i}" for i in range(700)])
 
@@ -117,8 +100,7 @@ def test_rate_limit_wird_wiederholt_und_nicht_halbiert(monkeypatch):
 
 
 def test_gibt_nach_begrenzt_vielen_versuchen_auf():
-    """Ein dauerhaft kaputter Endpunkt darf sich nicht bis auf 1 herunterhalbieren
-    und dabei hunderte Anfragen absetzen."""
+    """A permanently broken endpoint must not halve itself down to 1."""
     p = _FakeEndpoint(max_inputs=0)
 
     with pytest.raises(RuntimeError):
@@ -128,11 +110,7 @@ def test_gibt_nach_begrenzt_vielen_versuchen_auf():
 
 
 class _LangsamerEndpunkt(OpenAICompatEmbeddingProvider):
-    """Endpunkt, der lebt, aber ueber ``max_inputs`` in die Zeitschranke laeuft.
-
-    Der Unterschied zu einer toten Gegenstelle: hier hilft ein kleinerer Stapel
-    sehr wohl. Ein Upload muss diesen Weg noch finden.
-    """
+    """A live endpoint that runs into the timeout on too many inputs."""
 
     def __init__(self, max_inputs: int) -> None:
         self.max_inputs = max_inputs
@@ -149,13 +127,7 @@ class _LangsamerEndpunkt(OpenAICompatEmbeddingProvider):
 
 
 def test_langsamer_endpunkt_wird_nach_dem_zweitversuch_doch_kleiner():
-    """Ein Upload darf an einer nur langsamen Gegenstelle nicht scheitern.
-
-    Erst gleiche Groesse noch einmal (vielleicht war es ein Aussetzer), und erst
-    wenn auch das in die Schranke laeuft, kleiner schneiden. Ohne diesen zweiten
-    Schritt wuerde jeder Anbieter, der 1000 Eingaben nicht in der Zeit schafft,
-    den ganzen Upload abbrechen.
-    """
+    """First the same size once more, then cut smaller."""
     p = _LangsamerEndpunkt(max_inputs=300)
 
     vektoren = p.embed([f"chunk {i}" for i in range(700)])
@@ -165,13 +137,7 @@ def test_langsamer_endpunkt_wird_nach_dem_zweitversuch_doch_kleiner():
 
 
 def test_erfolg_eines_kleinen_stapels_senkt_die_gelernte_groesse_nicht():
-    """Sonst vergiftet eine Handvoll Chip-Zeilen den naechsten Upload.
-
-    Nimmt der Endpunkt 3 von 6 Zeilen an, heisst das NICHT, dass seine Grenze bei
-    3 liegt. Gelernt wird nur an einem Stapel, der die Grenze wirklich ausgereizt
-    hat, also einem vollen. Sonst liefe der naechste Upload mit 1000 Chunks in
-    Dreier-Haeppchen los.
-    """
+    """Learning only happens on a full batch, otherwise a handful of rows poisons the upload."""
     klein = _FakeEndpoint(max_inputs=3)
     klein.embed([f"zeile {i}" for i in range(6)])
     assert klein.gesendet == [6, 3, 3]  # 6 abgelehnt, dann zweimal 3
@@ -183,13 +149,7 @@ def test_erfolg_eines_kleinen_stapels_senkt_die_gelernte_groesse_nicht():
 
 
 def test_kleiner_stapel_wird_nicht_unveraendert_wiederholt():
-    """Halbieren darf nur zaehlen, wenn die naechste Anfrage wirklich kleiner wird.
-
-    Die gelernte Groesse (1000) lag weit ueber dem Stapel, den die Quellenchips
-    schicken (eine Handvoll Zeilen). Die Absage halbierte 1000 auf 500, der Stapel
-    blieb bei 6 und dieselbe Anfrage ging viermal raus. Bei einer haengenden
-    Gegenstelle sind das viermal die volle Wartezeit fuer nichts.
-    """
+    """Halving only counts when the next request really gets smaller."""
     p = _FakeEndpoint(max_inputs=0)
 
     with pytest.raises(RuntimeError):
@@ -199,9 +159,7 @@ def test_kleiner_stapel_wird_nicht_unveraendert_wiederholt():
 
 
 def test_zeitueberschreitung_wird_nicht_halbiert():
-    """Eine Zeitschranke sagt nichts ueber die Stapelgroesse, sondern dass die
-    Gegenstelle nicht antwortet. Kleiner schneiden hilft dort nie und kostet jedes
-    Mal die volle Wartezeit noch einmal."""
+    """A timeout says nothing about the batch size."""
     p = _HaengenderEndpunkt(fehlversuche=1)
 
     vektoren = p.embed([f"chunk {i}" for i in range(700)])
@@ -211,9 +169,7 @@ def test_zeitueberschreitung_wird_nicht_halbiert():
 
 
 def test_tote_gegenstelle_bleibt_im_hintergrund_begrenzt():
-    """Der Upload darf es zweimal gleich gross und danach kleiner versuchen, aber
-    die Zahl der Versuche muss gedeckelt bleiben. Sonst haelt eine tote Gegenstelle
-    einen Worker beliebig lange fest."""
+    """The number of attempts has to stay capped."""
     p = _HaengenderEndpunkt(fehlversuche=99)
 
     with pytest.raises(RuntimeError):
@@ -223,8 +179,7 @@ def test_tote_gegenstelle_bleibt_im_hintergrund_begrenzt():
 
 
 def test_fail_fast_wartet_kein_zweites_mal():
-    """Die Quellenchips sind eine Zugabe, keine Antwort. Auf diesem Weg wird die
-    Zeitschranke genau einmal bezahlt und die Antwort geht ohne Chips raus."""
+    """For the source chips the timeout is paid exactly once."""
     p = _HaengenderEndpunkt(fehlversuche=99, retry_on_timeout=False)
 
     with pytest.raises(RuntimeError):
@@ -234,8 +189,7 @@ def test_fail_fast_wartet_kein_zweites_mal():
 
 
 def test_dauerabsage_senkt_die_gelernte_groesse_nicht():
-    """Gelernt wird nur eine Groesse, die der Endpunkt wirklich angenommen hat.
-    Sonst wuerde eine voruebergehende Stoerung die Groesse dauerhaft druecken."""
+    """Only a size the endpoint really accepted is learned."""
     kaputt = _FakeEndpoint(max_inputs=0)
     with pytest.raises(RuntimeError):
         kaputt.embed([f"chunk {i}" for i in range(700)])

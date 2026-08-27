@@ -1,10 +1,4 @@
-"""PPTX-Übersetzung: was überhaupt beim Übersetzer ankommt.
-
-Der Anlass: einzelne Folien kamen unübersetzt zurück, obwohl dort ganz normaler
-Text stand. Die Ursache war nicht der Übersetzer, sondern die Sammelschleife.
-SmartArt und Diagramme halten ihren Text außerhalb des Folien-XML, sie wurden
-gar nicht erst eingesammelt.
-"""
+"""What actually reaches the translator, SmartArt and charts included."""
 
 from io import BytesIO
 
@@ -27,7 +21,7 @@ from src.translators.pptx import translate_pptx
 
 
 class FakeService:
-    """Merkt sich, was zu übersetzen war, und setzt EN:: davor."""
+    """Records what was to be translated and prefixes EN::."""
 
     def __init__(self):
         self.seen: list[str] = []
@@ -38,7 +32,7 @@ class FakeService:
 
 
 class CountingService(FakeService):
-    """Zählt zusätzlich, was tatsächlich beim Anbieter landet."""
+    """Also counts what really reaches the provider."""
 
     def __init__(self):
         super().__init__()
@@ -76,7 +70,7 @@ def test_translates_chart_title_and_categories():
 
 
 def test_chart_numbers_stay_untouched():
-    """Zahlen stehen ebenfalls in <c:v>, dürfen aber nicht in die Übersetzung."""
+    """Numbers also sit in <c:v> but must not go into the translation."""
     service = FakeService()
     translate_pptx(chart_pptx(), "DE", "EN-US", service)
     assert "19.2" not in service.seen
@@ -84,7 +78,7 @@ def test_chart_numbers_stay_untouched():
 
 
 def test_hidden_slides_are_translated_too():
-    """Ausgeblendete Folien kommen nicht ins Video, gehören aber in die PPTX zum Download."""
+    """Hidden slides do not make it into the video but belong in the PPTX download."""
     service = FakeService()
     translate_pptx(hidden_slide_pptx(), "DE", "EN-US", service)
     assert "Folie B versteckt" in service.seen
@@ -104,13 +98,7 @@ def test_output_is_a_valid_pptx():
 
 
 def test_master_and_layout_prompt_text_is_not_translated():
-    """Der Platzhaltertext aus Master und Layouts wird nie angezeigt.
-
-    Gemessen an einer Datei mit einem einzigen echten Folientext: 86 Einträge
-    gingen an den Übersetzer, 85 davon Vorlagentext wie "Click to edit Master
-    title style", "1/27/13" oder "‹#›". Das kostet Kontingent und Rate-Limit
-    für Text, den niemand sieht.
-    """
+    """Placeholder text from master and layouts only costs quota."""
     service = FakeService()
     translate_pptx(smartart_pptx(), "DE", "EN-US", service)
 
@@ -120,12 +108,12 @@ def test_master_and_layout_prompt_text_is_not_translated():
 
 
 def test_real_master_text_is_still_translated():
-    """Ein echtes Textfeld im Master ist sichtbar und muss übersetzt werden."""
+    """A real text box in the master is visible and has to be translated."""
     prs = Presentation()
     slide = prs.slides.add_slide(prs.slide_layouts[6])
     box = slide.shapes.add_textbox(Inches(0.2), Inches(6.8), Inches(4), Inches(0.4))
     box.text_frame.text = "Fachhochschule Musterstadt"
-    # python-pptx kann keine Form direkt im Master anlegen, also umhängen.
+    # python-pptx cannot create a shape directly in the master, so it is moved.
     master = prs.slide_masters[0]
     master.shapes._spTree.append(box._element)
     buf = BytesIO()
@@ -137,7 +125,7 @@ def test_real_master_text_is_still_translated():
 
 
 def test_identical_texts_are_sent_once():
-    """Doppelte Texte doppelt zu übersetzen kostet nur Kontingent."""
+    """Translating duplicate texts twice only costs quota."""
     prs = Presentation()
     for _ in range(3):
         slide = prs.slides.add_slide(prs.slide_layouts[6])
@@ -154,7 +142,7 @@ def test_identical_texts_are_sent_once():
 
 
 def test_multi_run_paragraph_is_translated_as_one_sentence():
-    """PowerPoint zerlegt Sätze in Runs. Einzeln übersetzt wird daraus Kauderwelsch."""
+    """PowerPoint splits sentences into runs, translated one by one it becomes gibberish."""
     service = FakeService()
     translate_pptx(multi_run_paragraph_pptx(), "DE", "EN-US", service)
 
@@ -169,7 +157,7 @@ def test_multi_run_result_lands_in_the_paragraph():
 
 
 def test_short_translation_result_is_an_error():
-    """Kommen weniger Übersetzungen zurück als geschickt, blieb der Rest still deutsch."""
+    """If fewer translations come back than were sent, the rest stayed silently German."""
 
     class ShortService:
         def translate_batch(self, texts, source_lang, target_lang):

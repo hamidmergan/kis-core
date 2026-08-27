@@ -1,9 +1,4 @@
-"""Admin-API für die Stufen-Beschreibungen: lesen, speichern, zurücksetzen.
-
-Der direkte Aufruf von ``update_settings`` reicht hier: die Depends-Argumente sind
-gewöhnliche Vorgabewerte, und ``settings.py`` importiert ``db`` auf Modulebene,
-also greift der monkeypatch. Einen Testclient gibt es in dieser Testsuite nicht.
-"""
+"""Admin route for the level descriptions: read, save, reset."""
 
 import json
 
@@ -17,12 +12,11 @@ from src.services.aia_level_ladder import (
 )
 
 
-# Der Speicher-Endpunkt prueft jedes Feld gegen die Rechte des Aufrufers.
-# Ein Administrator hat alle, also aendert das an diesen Tests nichts.
+# The save route checks every field, an admin holds all permissions.
 _ADMIN = {"role": "admin"}
 
 class _Body:
-    """Minimaler Ersatz für UpdateSettingsRequest: alles None ausser einem Feld."""
+    """Minimal stand-in for UpdateSettingsRequest: everything None except one field."""
 
     def __init__(self, **kwargs):
         object.__setattr__(self, "_set", kwargs)
@@ -31,8 +25,7 @@ class _Body:
         return object.__getattribute__(self, "_set").get(name)
 
     def model_dump(self):
-        # Der Speicher-Endpunkt laeuft die Felder ab, um jedes gegen ein Recht
-        # zu pruefen. Was hier nicht drinsteht, gilt als nicht mitgeschickt.
+        # Whatever is not listed here counts as not submitted.
         return dict(object.__getattribute__(self, "_set"))
 
 

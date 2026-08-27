@@ -19,22 +19,11 @@ _LANGUAGE_NAME_RE = re.compile(r"^[^\W\d_]+(?:[ -][^\W\d_]+)?$", re.UNICODE)
 
 
 def _language_sample(text: str, sample_chars: int = _LANGUAGE_SAMPLE_CHARS) -> str:
-    """Return a slice from the middle of *text* for the language probe.
-
-    Cover pages, title blocks, footers and imprints sit at the edges of a
-    document and are usually written in the institution's language rather than
-    the document's. Judging from the opening lines is exactly how an English
-    paper ends up summarized in German.
-
-    Only a window around the midpoint is whitespace-normalized, not the whole
-    document: for a large input (80k+ chars) normalizing everything just to keep
-    1500 chars is wasted allocation.
-    """
+    """An excerpt from the middle as a language sample, the edges mislead."""
     if len(text) <= sample_chars:
         return " ".join(text.split())
     mid = len(text) // 2
-    # A raw window generous enough to still yield sample_chars once whitespace
-    # collapses; normalize and center-slice just that window, not the whole text.
+    # Normalise only the window, not the whole text.
     window = text[max(0, mid - sample_chars): mid + sample_chars]
     body = " ".join(window.split())
     if len(body) <= sample_chars:
@@ -55,11 +44,7 @@ class _SummaryMixin:
     """Erwartet: self._client (OpenAI), self._model."""
 
     def _detect_language(self, text: str) -> str | None:
-        """Ask the model for the language of a boilerplate-free sample.
-
-        Returns None on any failure, the caller then falls back to a generic
-        instruction rather than losing the summary over a probe.
-        """
+        """Asks the model for the language of the sample, None on any error."""
         try:
             response = self._client.chat.completions.create(
                 model=self._model,
@@ -75,26 +60,14 @@ class _SummaryMixin:
             return None
 
     def generate_summary(self, text: str) -> str:
-        """Generate a plain-text summary of the given text using the configured LLM.
-
-        Args:
-            text: The extracted text to summarize.
-
-        Returns:
-            A plain-text summary in the language of the source document.
-
-        Raises:
-            RuntimeError: If the LLM API returns an error.
-        """
+        """Generates a summary in the language of the source text."""
         language = self._detect_language(text) or _LANGUAGE_FALLBACK
 
         template = load_prompt("prompt_summary", _SUMMARY_DEFAULT)
         system_prompt = template.replace("{language}", language)
         if "{language}" not in template:
             system_prompt += f"\nWrite the summary in {language}."
-        # A stale DB override from the old format-based prompt may still carry the
-        # dead {format} placeholder. md/html output is gone, so neutralize it
-        # instead of leaking a literal "{format}" into the system prompt.
+        # An old placeholder from the database is escaped instead of passed through.
         system_prompt = system_prompt.replace("{format}", "plain text")
 
         try:

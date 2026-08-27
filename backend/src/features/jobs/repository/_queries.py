@@ -74,10 +74,7 @@ def count_all_jobs_for_tool(user_id: int, tools: list[str]) -> int:
 
 
 def get_next_queued_job(user_id: int, tools: list[str]) -> dict | None:
-    """Atomically claim the oldest queued job by transitioning queued → pending,
-    but only if the user has no currently active (pending/running) job.
-    awaiting_user does NOT block dispatch - it uses no Celery slot.
-    Returns the updated job row, or None if no queued job exists or user is already active."""
+    """Fetches the oldest waiting job, but only when the user has none running."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(
@@ -139,11 +136,7 @@ def get_all_jobs(
     date_from: str = "", date_to: str = "",
     extra_tools: list[str] | None = None,
 ) -> tuple[list[dict], int]:
-    """All jobs across all users, with display_name via JOIN, newest first.
-
-    Returns (jobs, total_count).
-    Filters: q (user/tool/filename), date_from/date_to (YYYY-MM-DD).
-    """
+    """All jobs of all users with the display name, newest first."""
     conditions = ["(j.expires_at IS NULL OR j.expires_at > NOW())"]
     params: list = []
 

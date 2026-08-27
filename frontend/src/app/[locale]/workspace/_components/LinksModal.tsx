@@ -14,8 +14,7 @@ interface LinksModalProps {
   onRequestDelete: (link: AccessLink) => void;
 }
 
-/** One window for the enrollment links of a workspace: see them, copy them,
- *  delete them, and create a new one without a second dialog on top. */
+/** One dialog for all enrollment links of a course, without a second dialog. */
 export default function LinksModal({
   workspaceUuid,
   links,

@@ -1,12 +1,4 @@
-"""Admin endpoints for the provider-centric AI configuration.
-
-Two resources:
-
-- ``/admin/providers``  - CRUD over the providers table + manual re-probe
-- ``/admin/feature-routes`` - per-feature provider + model assignment
-- ``/admin/providers/meta`` - static metadata for the UI dropdowns (known
-  protocols, known capabilities, known feature ids).
-"""
+"""Admin routes for providers, feature routes and the dropdown metadata."""
 
 from __future__ import annotations
 
@@ -48,7 +40,7 @@ from src.permissions_registry import PERM_SET_PROVIDERS
 
 router = APIRouter(tags=["admin: providers"])
 
-# Anbieter, Modelle und die Zuordnung zu den Funktionen, beide Reiter.
+# Providers, models and the mapping to the features, both tabs.
 _require = require_permission(PERM_SET_PROVIDERS)
 
 
@@ -57,8 +49,7 @@ _require = require_permission(PERM_SET_PROVIDERS)
 
 @router.get("/providers/meta")
 async def get_provider_meta(_admin=Depends(_require)):
-    """Static metadata for the admin UI: protocol dropdown, capability list,
-    feature list. Frontend reads this once on page load."""
+    """Fixed metadata for the dropdowns of the interface."""
     protocols = []
     for proto in known_protocols():
         protocols.append({
@@ -80,8 +71,7 @@ async def get_provider_meta(_admin=Depends(_require)):
 @router.get("/providers")
 async def list_providers(_admin=Depends(_require)):
     rows = db.list_providers()
-    # Mask api_key in responses - only the last 6 chars are returned for
-    # UI display ("sk-...abc123"). The full key never leaves the backend.
+    # The access key only goes out truncated, never in full.
     return {"providers": [_mask_provider(p) for p in rows]}
 
 
@@ -100,11 +90,7 @@ def create_provider(
     if db.get_provider_by_name(name) is not None:
         raise HTTPException(409, t("admin.providers.nameTaken", locale, name=name))
 
-    # Determine initial capability list:
-    # - Protocol with fixed caps (deepl, docling) → use those.
-    # - Admin provided explicit selection via initial_capabilities → use that,
-    #   and probe only for status (not seeding), so the selection sticks.
-    # - Otherwise → seed from probe result (default auto-detect behaviour).
+    # Where the first capability list comes from: protocol, admin choice or probe.
     fixed = fixed_capabilities(body.protocol) or ()
     if fixed:
         initial_caps: list[str] = list(fixed)
@@ -249,8 +235,7 @@ async def get_affected_features(
     _admin=Depends(_require),
     locale: str = Depends(get_locale),
 ):
-    """Used by the delete-confirmation dialog: which features would lose their
-    provider if this row was removed."""
+    """Which features would lose their provider if this row went."""
     if db.get_provider(provider_id) is None:
         raise HTTPException(404, t("admin.providers.notFound", locale))
     affected = db.routes_using_provider(provider_id)
@@ -265,14 +250,7 @@ async def discover_voices(
     body: DiscoverVoicesRequest,
     _admin=Depends(_require),
 ):
-    """Try GET {base_url}/v1/audio/voices and return whatever the provider exposes.
-
-    On success: ``{ voices: [{ voice_id, name }], discoverable: true }``
-    On failure (404, timeout, unreachable): ``{ voices: [], discoverable: false }``
-
-    The ``language`` field is intentionally NOT filled in — the admin must set
-    it manually since providers don't expose language metadata.
-    """
+    """Queries the provider's voices, the admin fills in the language themselves."""
     import httpx
 
     url = body.base_url.rstrip("/")
@@ -314,13 +292,7 @@ async def discover_voices(
 
 @router.get("/feature-routes")
 async def list_feature_routes(_admin=Depends(_require)):
-    """Alle Routen, jede mit dem, was ueber ihr Modell gemessen wurde.
-
-    Die Messung steht bewusst hier und nicht erst hinter dem Testknopf: zwei Modellnamen
-    koennen sich bis auf ein Wort gleichen und trotzdem viermal so grosse Fenster haben,
-    und genau daran ist am 14.08.2026 ein Chat gescheitert. Wer die Zahl in der Liste
-    sieht, waehlt nicht mehr blind.
-    """
+    """All routes, each with what was measured about its model."""
     from src.services import model_limits
 
     routen = db.list_routes()
@@ -340,16 +312,7 @@ def test_route(
     _admin=Depends(_require),
     locale: str = Depends(get_locale),
 ):
-    """Run a feature-specific live test against the route's assigned provider.
-
-    Distinct from the provider probe (which only verifies reachability): this
-    issues a minimal real request to the feature-specific endpoint with the
-    configured model so the admin can confirm the feature/provider/model combo
-    actually works, not just "the provider responds at /v1/models".
-
-    Pass provider_id to test a specific provider using its per-provider model
-    (provider_models[provider_id]) rather than the global model_name.
-    """
+    """A real test call against the route's provider, not just a reachability probe."""
     if feature not in FEATURES:
         raise HTTPException(400, t("admin.providers.unknownFeature", locale, feature=feature))
     routes = db.list_routes()
@@ -386,12 +349,7 @@ def test_route(
 
 
 def _measure_route_model(provider: dict, model_name: str | None, feature: str) -> dict | None:
-    """Das Modell dieser Route vermessen und das Ergebnis fuer die Oberflaeche liefern.
-
-    Nur fuer Merkmale, die ueber ``/chat/completions`` laufen. Scheitert die Messung,
-    gibt es eben nichts anzuzeigen, aber niemals einen Fehler: der Testknopf soll sagen,
-    ob die Route laeuft, und daran darf eine misslungene Nebenmessung nichts aendern.
-    """
+    """Measures the route's model, a failed measurement is not an error."""
     from src.services import model_limits
 
     if feature not in model_limits.CHAT_LIKE_FEATURES or not model_name:
@@ -437,16 +395,12 @@ async def set_feature_route(
         provider_models=body.provider_models,
     )
 
-    # Changing the embedding route makes any persisted fingerprint stale —
-    # the next call to ``get_cached_fingerprint`` must recompute against the
-    # new provider+model so the workspace reindex check uses the right value.
+    # Changing the embedding route invalidates the stored fingerprint.
     if feature == "embedding":
         from src.routes.admin._embedding import invalidate_fingerprint_cache
         invalidate_fingerprint_cache()
 
-    # Ein neu eingetragenes Modell wird sofort vermessen, damit das Kontextbudget ab der
-    # naechsten Anfrage stimmt und der Admin sieht, was das Modell kann. Ohne das faende
-    # die Messung erst beim ersten echten Einsatz statt, also mitten in einer Nutzeranfrage.
+    # A newly registered model is measured right away.
     limits = None
     if body.provider_id is not None:
         provider = db.get_provider(body.provider_id)
@@ -484,13 +438,7 @@ SCHEMA_VERSION = 1
 
 
 def build_export(*, exported_from: str | None) -> dict:
-    """Build the export payload from current DB state.
-
-    Translates feature_routes' provider_id (+ user_choices / provider_models
-    keys) into provider names for portability. When ``KIS_EXPORT_KEY`` is
-    configured, each provider's api_key is wrapped with AES-GCM and embedded
-    in the export so the same deployment can restore it on import.
-    """
+    """Builds the export from the current state, providers as names instead of ids."""
     providers = db.list_providers()
     routes = db.list_routes()
 
@@ -545,11 +493,7 @@ def build_export(*, exported_from: str | None) -> dict:
 
 
 def _needs_api_key(protocol: str, base_url: str) -> bool:
-    """Heuristic: does this provider need an api_key?
-
-    deepl always does. openai_compat usually does unless it's a local
-    endpoint (Kokoro, local Ollama, etc.).
-    """
+    """Does this provider need an access key?"""
     if protocol == "deepl":
         return True
     if protocol == "openai_compat":
@@ -598,10 +542,7 @@ def validate_import_config(cfg: dict) -> None:
 
 
 def build_import_preview(cfg: dict) -> dict:
-    """Compute the diff between current DB state and the import payload.
-
-    Does NOT modify the DB.
-    """
+    """Computes the difference between state and import, without writing."""
     validate_import_config(cfg)
 
     existing_by_name = {p["name"]: p for p in db.list_providers()}
@@ -637,8 +578,7 @@ def build_import_preview(cfg: dict) -> dict:
             "encrypted_key_recoverable": encrypted_key_recoverable,
         })
 
-    # Route diffs. A route's resolved_provider must exist either in the
-    # import payload OR on the target system after merge.
+    # A route's provider must exist after the merge.
     available_names = set(existing_by_name.keys()) | imported_names
 
     route_diffs: list[dict] = []
@@ -656,8 +596,7 @@ def build_import_preview(cfg: dict) -> dict:
                 "reason": f"Provider '{pname}' nicht im Import enthalten",
             })
             continue
-        # action is "update" if a route for that feature already exists,
-        # else "create". We need list_routes to determine that.
+        # The existing route decides whether this creates or updates.
         action = "update" if _route_exists(r["feature"]) else "create"
         route_diffs.append({
             "feature": r["feature"], "action": action,
@@ -681,8 +620,7 @@ async def import_preview(
 
 
 def perform_import(cfg: dict) -> dict:
-    """Apply an import payload to the DB. Merge mode: never wipes
-    existing rows, never touches existing api_keys."""
+    """Applies an import without deleting existing rows or overwriting keys."""
     validate_import_config(cfg)
 
     # ── Provider merge ──
@@ -710,8 +648,7 @@ def perform_import(cfg: dict) -> dict:
             )
             providers_created += 1
         else:
-            # Only restore the key if the existing row has none — never
-            # clobber an admin-set key with a possibly stale envelope.
+            # Only set the key when the row has none.
             update_kwargs: dict = {
                 "protocol": p["protocol"], "base_url": p["base_url"],
                 "capabilities": capabilities, "voices": voices,
@@ -723,13 +660,11 @@ def perform_import(cfg: dict) -> dict:
             providers_updated += 1
         # Re-probe so probe_status reflects current reachability.
         probe_provider(row["id"])
-        # row already carries api_key via the RETURNING clause; we only set
-        # it on create or when restoring into an empty existing row.
+        # The key is only set on creation or when backfilling.
         if _needs_api_key(p["protocol"], p["base_url"]) and not row.get("api_key"):
             providers_needing_key.append(p["name"])
 
-    # ── Route merge ──
-    # Refresh provider name → id map after the create/update pass.
+    # Refresh the name list after creating.
     name_to_id = {p["name"]: p["id"] for p in db.list_providers()}
     existing_routes = {r["feature"]: r for r in db.list_routes()}
     routes_created = 0

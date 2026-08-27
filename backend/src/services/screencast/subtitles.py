@@ -1,4 +1,4 @@
-"""Untertitel-Spur fuer den Screencast: je Folie erkennen, versetzen, zusammenfuegen."""
+"""Subtitle track for the screencast: recognise per slide, shift, merge."""
 
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
@@ -8,26 +8,23 @@ from loguru import logger
 
 from src.services.subtitle_converter import segments_to_vtt, split_long_segments
 
-# Kennung der Untertitel-Spur im MP4, ISO 639-2.
+# Code of the subtitle track in the MP4, ISO 639-2.
 _SPRACHKENNUNG = {
     "DE": "deu", "EN": "eng", "FR": "fra", "ES": "spa",
     "IT": "ita", "TR": "tur", "AR": "ara", "RU": "rus",
 }
 
-# Gleichzeitige Anfragen an den Spracherkenner.
+# Concurrent requests to the speech recogniser.
 _PARALLEL = 4
 
 
 def vtt_sprachkennung(target_lang: str) -> str:
-    """Dreibuchstabige Kennung fuer die Spur, leer wenn die Sprache unbekannt ist."""
+    """Three-letter code for the track, empty when the language is unknown."""
     return _SPRACHKENNUNG.get((target_lang or "").split("-")[0].upper(), "")
 
 
 def transcribe_slides(audio_paths: list[Path | None], client) -> list[list[dict]]:
-    """Je Folie die Segmente mit Zeitmarken holen, ein Fehler gibt eine leere Liste.
-
-    Ueber verbose_json, weil myLab die Formate vtt und srt nicht annimmt.
-    """
+    """Gets the timestamped segments per slide, an error yields an empty list."""
     def _eine(pfad: Path | None) -> list[dict]:
         if pfad is None or not pfad.exists() or pfad.stat().st_size == 0:
             return []
@@ -43,7 +40,7 @@ def transcribe_slides(audio_paths: list[Path | None], client) -> list[list[dict]
 
 
 def build_subtitle_vtt(slide_segments: list[list[dict]], clip_durations: list[float]) -> str:
-    """Segmente verschieben, zu kurzen Einblendungen zerlegen und als eine VTT ausgeben."""
+    """Shift segments, split overlong cues and output them as one VTT."""
     verschoben: list[dict] = []
     versatz = 0.0
     for i, segmente in enumerate(slide_segments):
@@ -62,13 +59,13 @@ def build_subtitle_vtt(slide_segments: list[list[dict]], clip_durations: list[fl
 
 
 def _spracherkenner():
-    """Standard-Route fuer Spracherkennung aus dem Admin."""
+    """Default speech recognition route from the admin area."""
     from src.dependencies import resolve_whisper_client
     return resolve_whisper_client(None)
 
 
 def _ton_aus_clip(clip: Path, ziel: Path) -> Path | None:
-    """Die Tonspur des fertigen Clips herausziehen, ohne sie neu zu kodieren."""
+    """Extract the audio track of the finished clip without re-encoding it."""
     cmd = ["ffmpeg", "-y", "-v", "error", "-i", str(clip), "-vn", "-c:a", "copy", str(ziel)]
     ergebnis = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
     if ergebnis.returncode != 0 or not ziel.exists():
@@ -78,12 +75,7 @@ def _ton_aus_clip(clip: Path, ziel: Path) -> Path | None:
 
 
 def create_subtitle_track(clip_paths: list[Path], tmp: Path, hat_sprache: list[bool] | None = None) -> Path | None:
-    """Untertitel je Clip erkennen und als VTT ablegen, None wenn nichts zustande kommt.
-
-    Der Ton kommt aus dem fertigen Clip, damit Geschwindigkeit und Folienpause
-    schon drin sind und die Zeitmarken zur Zeitachse des Videos passen. Stumme
-    Folien bleiben aussen vor, auf Stille erfindet der Erkenner sonst Text.
-    """
+    """Recognises subtitles per clip and stores them as VTT, silent slides stay out."""
     from src.services.screencast.video import get_video_duration
 
     try:

@@ -1,25 +1,4 @@
-"""Wer gerade da ist, und an welchen Tagen jemand da war.
-
-Angemeldet ist nicht online: der Sitzungsschluessel laeuft 24 Stunden ab der
-Anmeldung, nicht ab der letzten Handlung (siehe services/session.py). Wer sich
-morgens anmeldet und den Laptop zuklappt, gaelte damit bis zum naechsten Morgen
-als anwesend.
-
-Der Herzschlag kommt deshalb von der Leitung, die der Auftrags-Stream ohnehin
-fuer jeden offenen Tab offen haelt: sie schickt alle paar Sekunden ein Ping,
-damit Proxys sie nicht kappen. Dort steht die Nutzer-Nummer, sie wurde nur nie
-festgehalten. Genau da setzt dieses Modul an, ohne eine einzige neue Abfrage.
-
-Zwei Ablagen mit zwei Zwecken:
-
-- Redis mit kurzer Frist beantwortet "wer ist jetzt online". Faellt Redis aus,
-  ist die Antwort leer statt falsch, und niemand merkt es an anderer Stelle.
-- Eine Zeile je Nutzer und Stunde in der Datenbank beantwortet "wie viele waren
-  gestern da". Die bleibt, auch wenn Redis neu startet.
-
-Fire-and-forget: ein Fehler beim Mitschreiben darf nie den Stream reissen, an
-dem ein Nutzer gerade haengt.
-"""
+"""Records who is here right now and which days someone was here."""
 import os
 import time
 from datetime import datetime, timezone
@@ -31,14 +10,10 @@ from src.core.db.pool import get_connection
 _REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
 _PREFIX = "kis:seen:"
 
-# Ein Wert unter dieser Marke kann kein Zeitpunkt sein. Fruehere Fassungen
-# schrieben eine schlichte "1" in den Schluessel, und daraus wuerden Millionen
-# Minuten. Solche Schluessel gelten als eben erst gesetzt.
+# A value below this mark cannot be a timestamp.
 _FRUEHESTENS = 1_600_000_000  # September 2020
 
-# Wie lange ein Lebenszeichen zaehlt. Fuenf Minuten, weil der Stream alle zwanzig
-# Sekunden pingt: eine kurze Stoerung der Leitung soll niemanden sofort als weg
-# zaehlen, eine geschlossene Seite aber schon.
+# How long a heartbeat counts.
 TTL_SECONDS = 300
 
 _client = None
@@ -55,12 +30,7 @@ def _redis():
 
 
 def touch(user_id: int) -> None:
-    """Ein Lebenszeichen. Wird aus der Ping-Schleife des Streams gerufen.
-
-    Im Schluessel steht der Zeitpunkt des ERSTEN Lebenszeichens, nicht des
-    letzten: daraus wird "seit wann online". Deshalb zwei Schritte, ``nx``
-    schreibt nur beim ersten Mal, ``expire`` schiebt die Frist bei jedem Ping.
-    """
+    """A heartbeat, the key holds the moment of the first one."""
     if user_id <= 0:
         return
     try:
@@ -73,16 +43,12 @@ def touch(user_id: int) -> None:
 
 
 def online_user_ids() -> list[int]:
-    """Wer in den letzten fuenf Minuten ein Lebenszeichen gegeben hat."""
+    """Whoever gave a heartbeat in the last five minutes."""
     return sorted(online_since().keys())
 
 
 def online_since() -> dict[int, int]:
-    """Nutzernummer auf den Zeitpunkt des ersten Lebenszeichens, in Sekunden.
-
-    Bei Redis-Ausfall leer. Eine Statistik, die kurz nichts anzeigt, ist besser
-    als eine, die raet.
-    """
+    """User id to the moment of the first heartbeat, empty on failure."""
     try:
         r = _redis()
         keys = r.keys(f"{_PREFIX}*")
@@ -106,11 +72,7 @@ def online_since() -> dict[int, int]:
 
 
 def mark_hour(user_id: int) -> None:
-    """Diese Stunde fuer diesen Nutzer festhalten. Hoechstens eine Zeile je Stunde.
-
-    Aus diesen Zeilen faellt spaeter beides heraus: wie viele an einem Tag da
-    waren, und wie sich ein Tag ueber die Stunden verteilt.
-    """
+    """Records this hour for this user, at most one row per hour."""
     if user_id <= 0:
         return
     jetzt = datetime.now(timezone.utc)

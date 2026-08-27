@@ -11,9 +11,9 @@ interface Props {
   fertig: number[];
   jobUuid: string;
   speed: number;
-  /** Der Lauf ist durch: kein Fortschritt mehr, sondern alle Folien zum Nachhoeren. */
+  /** The run is done: no progress any more, but all slides to listen to again. */
   rueckblick?: boolean;
-  /** Diese Folien sind nicht im Screencast, sie bekommen nie Ton. */
+  /** These slides are not in the screencast, they never get audio. */
   nichtDabei?: number[];
 }
 
@@ -26,12 +26,11 @@ export default function RenderVorschau({ slides, fertig, jobUuid, speed, rueckbl
   const [kannRechts, setKannRechts] = useState(false);
   const fertigeMenge = new Set(fertig);
   const nichtDabeiMenge = new Set(nichtDabei);
-  // Ohne Klick zeigt die Buehne die hoechste fertige Folie und wandert mit. Ein Klick
-  // haelt sie fest, sonst wird man beim Zuhoeren weggerissen.
+  // Without a click the stage moves along, a click pins it.
   const hoechste = fertig.length ? fertig[fertig.length - 1] : null;
   const zeigt = gewaehlt ?? (rueckblick ? 0 : hoechste) ?? 0;
 
-  // Die MP3 ist immer in Tempo 1,0 vertont, das Tempo kommt erst per atempo ins Video.
+  // The MP3 is always voiced at speed 1.0, the speed enters the video via atempo.
   useEffect(() => {
     if (audioRef.current) audioRef.current.playbackRate = speed;
   }, [speed, zeigt]);
@@ -55,7 +54,7 @@ export default function RenderVorschau({ slides, fertig, jobUuid, speed, rueckbl
     };
   }, [messen, slides.length]);
 
-  // Die gezeigte Kachel muss sichtbar bleiben, auch wenn die Buehne von allein weiterwandert.
+  // The shown tile has to stay visible even when the stage moves on by itself.
   useEffect(() => {
     const el = streifenRef.current;
     if (!el) return;
@@ -66,7 +65,7 @@ export default function RenderVorschau({ slides, fertig, jobUuid, speed, rueckbl
     el.scrollBy({ left: innen.left - aussen.left - aussen.width / 2 + innen.width / 2, behavior: "smooth" });
   }, [zeigt]);
 
-  /** Ein Klick schiebt um eine Kachelbreite, gemessen an der ersten Kachel. */
+  /** A click moves by one tile width, measured on the first tile. */
   const schieben = useCallback((richtung: -1 | 1) => {
     const el = streifenRef.current;
     if (!el) return;
@@ -112,7 +111,7 @@ export default function RenderVorschau({ slides, fertig, jobUuid, speed, rueckbl
               ref={audioRef}
               key={`${jobUuid}-${zeigt}`}
               controls
-              // Waehrend des Laufs nichts vorladen, im Rueckblick die Laenge zeigen.
+              // Preload nothing during the run, show the length in the review.
               preload={rueckblick ? "metadata" : "none"}
               className="w-full mt-3"
               src={`/api/screencast/${jobUuid}/vorschau/${zeigt}`}

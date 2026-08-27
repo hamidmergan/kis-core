@@ -1,20 +1,4 @@
-"""Ein Medien-Chunk bekommt seine EIGENEN Segmente, nicht die der Nachbarn.
-
-Die Auswahl lief ueber den Zeitbereich des Chunks. Die gespeicherte Chunk-Startzeit
-weicht aber von der Zeit im Transkript-Artefakt ab, gemessen bis zu einer Sekunde,
-weil das Artefakt auf ganze Sekunden gerundet ist. Die halbe Sekunde Toleranz fiel
-damit auf die falsche Seite und das erste Segment des Chunks fehlte, dafuer rutschten
-Segmente des naechsten Chunks herein. An 790 Chunks gemessen traf die Auswahl nur bei
-155 den eigenen Chunk-Text.
-
-Das wog doppelt: die Zeitmarke im Chat zeigte auf ein fremdes Segment, und
-``_enrich_media_content`` schickte dem Modell den Text der Nachbarn statt den des
-Chunks, den die Suche gefunden hatte.
-
-Die Zuordnung laeuft jetzt ueber die Reihenfolge: der Chunk-Text ist ein
-zusammenhaengendes Stueck der aneinandergereihten Segmente. Keine Zeitarithmetik,
-keine Toleranz.
-"""
+"""A media chunk gets its own segments, matched up by their order."""
 
 from src.features.ai_assistant.routes._helpers import (
     _chunk_segments,
@@ -23,8 +7,7 @@ from src.features.ai_assistant.routes._helpers import (
 )
 
 
-# Nachgebaut wie im Bestand: das Artefakt rundet auf ganze Sekunden, die Chunk-Zeit
-# in der Ablage ist die genaue. Genau diese Luecke riss die alte Auswahl auf.
+# The artefact rounds to whole seconds, the chunk time is exact.
 SEGMENTE = [
     {"start": 0.0, "end": 12.0, "text": "Herzlich willkommen zur heutigen Vorlesung."},
     {"start": 12.0, "end": 23.0, "text": "Wir schauen uns zuerst die Grundlagen an."},
@@ -36,7 +19,7 @@ SEGMENTE = [
 
 
 def _chunk(von: int, bis: int, start_versatz: float = 0.77) -> dict:
-    """Ein Chunk aus den Segmenten [von, bis), mit der Rundungsluecke im Bestand."""
+    """A chunk from the segments [from, to), with the rounding gap seen in the corpus."""
     teil = SEGMENTE[von:bis]
     return {
         "id": 100 + von,
@@ -51,10 +34,10 @@ def _rebaut(chunk, segmente=SEGMENTE) -> str:
     return " ".join(s["text"] for s in _chunk_segments(chunk, segmente))
 
 
-# ── Die Auswahl trifft den eigenen Text ─────────────────────────────────────
+# ── The selection hits its own text ─────────────────────────────────────────
 
 def test_jeder_chunk_bekommt_genau_seine_segmente():
-    """Ueber alle Schnitte hinweg, nicht an einer Beispielstelle."""
+    """Across all cuts, not at one sample spot."""
     for von in range(len(SEGMENTE)):
         for bis in range(von + 1, len(SEGMENTE) + 1):
             c = _chunk(von, bis)
@@ -63,23 +46,21 @@ def test_jeder_chunk_bekommt_genau_seine_segmente():
 
 
 def test_gerundete_startzeit_verliert_das_erste_segment_nicht():
-    """Der Fall aus dem Bestand: Chunk-Zeit 23.77, Segmentzeit 23.0."""
+    """The case from the corpus: chunk time 23.77, segment time 23.0."""
     c = _chunk(2, 5, start_versatz=0.77)
     segs = _chunk_segments(c, SEGMENTE)
     assert segs[0]["text"].startswith("Ich werde einen Aufgabenblock")
 
 
 def test_keine_nachbarsegmente():
-    """Das Segment nach dem Chunk gehoert nicht dazu, auch wenn die Zeit passt."""
+    """The segment after the chunk does not belong to it, even when the time fits."""
     c = _chunk(0, 2)
     texte = [s["text"] for s in _chunk_segments(c, SEGMENTE)]
     assert "Ich werde einen Aufgabenblock einstellen." not in texte
 
 
 def test_fremder_text_gibt_nichts_zurueck():
-    """Deckt sich der Chunk nicht mit dem Transkript, gibt es keine Zuordnung.
-
-    So nach einer Uebersetzung des Transkripts. Lieber nichts als das Falsche."""
+    """Without coverage there is no match, better nothing than the wrong thing."""
     fremd = dict(_chunk(0, 3), content="Ein Text, der so nie gesprochen wurde.")
     assert _chunk_segments(fremd, SEGMENTE) == []
 
@@ -89,7 +70,7 @@ def test_ohne_segmente_und_ohne_zeiten():
     assert _chunk_segments(dict(_chunk(0, 2), start_time=None), SEGMENTE) == []
 
 
-# ── Was das Modell zu lesen bekommt ─────────────────────────────────────────
+# ── What the model gets to read ─────────────────────────────────────────────
 
 def test_modell_bekommt_den_text_des_chunks_nicht_den_der_nachbarn():
     c = _chunk(2, 5)
@@ -110,28 +91,22 @@ def test_unzuordenbarer_chunk_geht_unveraendert_ans_modell():
     assert _enrich_media_content(fremd, SEGMENTE) == fremd["content"]
 
 
-# ── Die Zeitmarke im Chat ───────────────────────────────────────────────────
+# ── The timestamp in the chat ───────────────────────────────────────────────
 
 def test_zeitmarke_zeigt_auf_den_satz_am_chunk_ende():
-    """Der zitierte Satz faellt kurz vor Schluss, nicht am Chunk-Anfang."""
+    """The cited sentence falls shortly before the end, not at the chunk start."""
     c = _chunk(2, 6)
     zeile = "Der naechste Termin ist dann im Januar."
     assert _line_segment_start(zeile, c, SEGMENTE) == 55.0
 
 
 def test_zeitmarke_ohne_treffer_bleibt_offen():
-    """Traegt kein Segment genug Wortstaemme, gibt es keine geratene Minute."""
+    """If no segment carries enough word stems, there is no guessed minute."""
     c = _chunk(2, 6)
     assert _line_segment_start("Voellig anderes Thema hier.", c, SEGMENTE) is None
 
 
-# ── Ein seltenes Wort allein reicht ─────────────────────────────────────────
-# Gemeldeter Fall (Quelle 2026-03-23.mp4, Chunk 204213, 32:28 bis 33:56): der Chip zu
-# "Du darfst eine handgeschriebene, zweiseitige DIN-A4-Formelsammlung verwenden" zeigte
-# auf 32:28, den Chunk-Anfang, wo es um Klausuraufgaben geht. Die Stelle faellt bei 32:48.
-# Whisper hatte die Passage in Schnipsel von ein bis drei Sekunden zerlegt, die Aussage
-# verteilt sich ueber vier davon, und in keinem stehen zwei der gesuchten Woerter. Das
-# Fenster hilft nicht, weil zwischen "Formelsammlung" und "DIN A4" fuenf Segmente liegen.
+# One rare word is enough when the statement is spread over many snippets.
 
 _FUELL = [{"start": float(i * 10), "end": float(i * 10 + 9), "text": f"Wir rechnen die Aufgabe {i} durch."}
           for i in range(30)]
@@ -154,18 +129,18 @@ _PRUEFUNGS_CHUNK = {
 
 
 def test_ein_seltenes_wort_allein_traegt_die_zeitmarke():
-    """Nur "Formelsammlung" passt, und das Wort faellt in der Quelle genau einmal."""
+    """Only one word fits, and it occurs exactly once in the source."""
     zeile = "Du darfst eine handgeschriebene, zweiseitige DIN-A4-Formelsammlung verwenden."
     assert _line_segment_start(zeile, _PRUEFUNGS_CHUNK, _QUELLE) == 308.0
 
 
 def test_ein_haeufiges_wort_allein_traegt_sie_nicht():
-    """Ein Wort aus jedem zweiten Segment zeigt auf nichts, da bleibt der Chunk-Anfang."""
+    """A word from every other segment points at nothing, so the chunk start stays."""
     zeile = "Die Aufgabe wird spaeter noch ausfuehrlich besprochen."
     assert _line_segment_start(zeile, _PRUEFUNGS_CHUNK, _QUELLE) is None
 
 
 def test_bindestrich_zaehlt_wie_ein_leerzeichen():
-    """Die Antwort schreibt "DIN-A4", das Transkript "DIN A4"."""
+    """The answer writes 'DIN-A4', the transcript 'DIN A4'."""
     zeile = "Erlaubt ist ein DIN-A4-Blatt, Vor- und Rueckseite."
     assert _line_segment_start(zeile, _PRUEFUNGS_CHUNK, _QUELLE) == 320.0

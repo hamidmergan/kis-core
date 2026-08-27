@@ -1,12 +1,4 @@
-"""Der Wortschatz-Lückentext: ein Text, eine Aufgabe, keine Ablenker.
-
-Ein Set ist genau EINE Aufgabe. Der Text trägt Platzhalter, die Lösungen hängen
-in extras.gaps daran, und die Chips unter dem Text sind die Grundformen. Es gibt
-so viele Chips wie Lücken, absichtlich keine Ablenker: wer aus einem
-Lernkarten-Set übt, will genau diese Karten üben.
-
-Kein DB- und kein Netzzugriff.
-"""
+"""The vocabulary cloze: one text, one exercise, no distractors."""
 
 import json
 import types
@@ -23,10 +15,7 @@ from src.features.ai_assistant.tasks.language_training._source_cloze import (
 
 @pytest.fixture
 def attributed(monkeypatch):
-    """attach_chips_cited greift auf pgvector-Attribution zu und braucht dafuer eine
-    Datenbank (DATABASE_URL). Zuordnung ist nicht Gegenstand dieser Tests, deshalb wird
-    hier nur der Aufruf durch ein Nichtstun ersetzt, der Erzeuger selbst bleibt unveraendert.
-    """
+    """The attribution needs a database and is replaced by a no-op here."""
     monkeypatch.setattr(
         "src.features.ai_assistant.tasks.language_training._source_cloze"
         ".attach_chips_cited", lambda items, claims, ctx, **kw: items)
@@ -45,7 +34,7 @@ def _ctx():
 
 
 def _client(payload):
-    """Ein Modell, das genau einmal antwortet. Zählt die Aufrufe mit."""
+    """A model that answers exactly once and counts the calls."""
     calls = []
 
     def create(model, messages, **kwargs):
@@ -101,11 +90,7 @@ def test_die_aufgabe_traegt_text_loesung_und_grundformen(attributed):
 
 
 def test_die_zitierte_seite_erreicht_die_zuordnung_mit_unterstrich(monkeypatch):
-    # _attribution.py liest item.get("_page"), nicht item.get("page") (siehe _cited_chip).
-    # Nur mit dem Unterstrich greift die erste, kostenlose Stufe der gestaffelten
-    # Zuordnung ueberhaupt, sonst zahlt jeder Lauf die Suche, obwohl das Modell die
-    # Seite schon genannt hat. Die Attrappe zeichnet auf, was sie bekommen hat, statt
-    # nichts zu tun, damit genau das geprueft werden kann.
+    # Only with an underscore does the first, free stage of the attribution apply.
     empfangen = []
 
     def aufzeichnen(items, claims, ctx, **kw):
@@ -122,8 +107,7 @@ def test_die_zitierte_seite_erreicht_die_zuordnung_mit_unterstrich(monkeypatch):
 
 
 def test_anweisung_und_beispiel_haengen_an_der_aufgabe(attributed):
-    # Nicht am Satz: der Vorrat traegt Aufgaben und keine Set-Spalten. Stuenden sie
-    # in instruction/pattern_*, kaeme ein Text aus dem Vorrat ohne Anweisung an.
+    # Instruction and example live in extras, otherwise the pool loses them.
     client, _ = _client(_GOOD)
     items, _ = generate_cloze_from_source(client, "m", _ctx(), 2)
     extras = items[0]["extras"]
@@ -140,8 +124,7 @@ def test_so_viele_chips_wie_luecken(attributed):
 
 
 def test_eine_luecke_ohne_loesung_wird_im_text_gefuellt():
-    # Eine unbrauchbare Lücke darf den Text nicht zerreissen. Sie wird eingesetzt
-    # und verschwindet aus den Chips, der Text bleibt lesbar.
+    # An unusable gap must not tear the text apart.
     kaputt = dict(_GOOD, gaps=[
         {"base": "arbeiten", "solution": "arbeitet"},
         {"base": "wechseln", "solution": "   "},
@@ -171,9 +154,7 @@ def test_bei_lernkarten_kommt_nur_durch_was_auf_einer_karte_steht():
 
 
 def test_eine_luecke_ohne_platzhalter_im_text_wird_kein_ablenker_chip():
-    # Reale Fehlform: das Modell liefert drei brauchbare Lücken, vergisst aber den
-    # dritten Platzhalter im Text zu setzen. Ein Chip ohne zugehörige Lücke im Text
-    # wäre ein Ablenker, und Ablenker sind zweimal ausdrücklich verworfen worden.
+    # A chip without a gap in the text would be a distractor.
     drei = dict(_GOOD,
                text="Die Anlage {{1}} wieder, der Techniker {{2}} den Filter.",
                gaps=[
@@ -187,9 +168,7 @@ def test_eine_luecke_ohne_platzhalter_im_text_wird_kein_ablenker_chip():
 
 
 def test_platzhalter_luecke_wird_beim_durchnummerieren_uebersprungen():
-    # Reale Fehlform: das Modell lässt {{2}} aus und springt direkt zu {{3}}. Die
-    # Nummern müssen trotzdem lückenlos ab 1 laufen, sonst zeigt die Ansicht eine
-    # Lücke "3" ohne dass es eine Lücke "2" je gab.
+    # The numbers have to run without gaps from 1.
     spruenge = dict(_GOOD,
                     text="Die Anlage {{1}} wieder, der Filter wurde {{3}}.",
                     gaps=[
@@ -217,17 +196,14 @@ def test_eine_unlesbare_antwort_gilt_als_misslungen():
 
 
 def test_luecken_als_stringliste_gilt_als_misslungen():
-    # Reale Fehlform: das Modell schreibt "gaps": ["arbeiten", "wechseln"] statt
-    # Objekten mit base/solution. Ohne Formprüfung würde gap.get("base") auf einem
-    # str einen AttributeError werfen statt None zurückzugeben.
+    # Plain strings instead of objects must not crash it.
     kaputt = dict(_GOOD, gaps=["arbeiten", "wechseln"])
     client, _ = _client(kaputt)
     assert generate_cloze_from_source(client, "m", _ctx(), 2) is None
 
 
 def test_text_ohne_zeichenkette_gilt_als_misslungen():
-    # Reale Fehlform: 'text' fehlt oder kommt als Liste zurück. re.sub auf einem
-    # Nicht-String würde einen TypeError werfen statt None zurückzugeben.
+    # A missing or malformed text must not crash it.
     liste_statt_text = dict(_GOOD, text=["A", "B"])
     client, _ = _client(liste_statt_text)
     assert generate_cloze_from_source(client, "m", _ctx(), 2) is None
@@ -238,12 +214,7 @@ def test_text_ohne_zeichenkette_gilt_als_misslungen():
 
 
 def test_die_schwelle_zaehlt_die_bestellte_menge_nicht_die_rueckgabe():
-    # Deckt eine Regressionslücke: die Mindestquote muss an der BESTELLTEN Anzahl
-    # (count) gemessen werden, nicht an irgendeiner anderen Zahl aus der Antwort. Zehn
-    # bestellt, aber zwei der vier Lücken sind Dubletten und fallen raus, es bleiben
-    # zwei. Das ist deutlich unter der Hälfte von zehn. Ein Vergleich gegen die Zahl
-    # der zurückgegebenen Lücken (hier 4) statt gegen die bestellte (10) fiele hier
-    # nicht auf, weil 2 < 4*0.5 ebenfalls falsch wäre.
+    # The minimum rate is measured against the ordered count.
     viele = dict(_GOOD,
                 text="A {{1}} B {{2}} C {{3}} D {{4}}.",
                 gaps=[
@@ -263,17 +234,10 @@ def test_die_kartenliste_steht_im_auftrag_an_das_modell(attributed):
     assert "arbeiten" in auftrag and "wechseln" in auftrag
 
 
-# ─── Verratene Loesungen in Klammern (Satz 7043, BewG85.pdf) ─────────────────────
-#
-# Live-Lauf am echten Modell: 10 von 10 Luecken kamen als "{{n}} (Grundform)" zurueck,
-# das Modell hatte die Klammer-Konvention aus dem Beispielfeld in die Passage
-# uebernommen. Die Chips unter dem Text waren damit ueberfluessig, die Aufgabe loeste
-# sich selbst. Die Prompt-Regel allein reicht nicht zuverlaessig, deshalb raeumt
-# _strip_answer_hints auf, was trotzdem durchrutscht.
+# The model gave the answer away in brackets, the code cleans that up.
 
 def test_klammer_mit_grundform_nach_luecke_wird_entfernt(attributed):
-    # Der genaue Fehler aus Satz 7043: "{{1}} (gemeiner Wert)" bei einer Luecke mit
-    # base "gemeiner Wert". Die Klammer verschwindet, die Luecke bleibt brauchbar.
+    # The exact bug: the base form stood in brackets behind the gap.
     verraten = dict(_GOOD,
                     text="Man nutzt oft den {{1}} (gemeiner Wert) für Gebäude.",
                     gaps=[{"base": "gemeiner Wert", "solution": "gemeinen Wert"}])
@@ -288,8 +252,7 @@ def test_klammer_mit_grundform_nach_luecke_wird_entfernt(attributed):
 
 
 def test_klammer_mit_loesung_nach_luecke_wird_entfernt(attributed):
-    # Dieselbe Fehlform wie in Satz 7043, nur mit der abgewandelten Form statt der
-    # Grundform in der Klammer -- das Modell verraet die Loesung auf beide Arten.
+    # The same faulty shape, only with the inflected form in the bracket.
     verraten = dict(_GOOD,
                     text="Man nutzt oft den {{1}} (gemeinen Wert) für Gebäude.",
                     gaps=[{"base": "gemeiner Wert", "solution": "gemeinen Wert"}])
@@ -303,9 +266,7 @@ def test_klammer_mit_loesung_nach_luecke_wird_entfernt(attributed):
 
 
 def test_unabhaengige_klammer_nach_luecke_bleibt_stehen(attributed):
-    # Eine Klammer, die nichts mit der Luecke zu tun hat, ist gewoehnliche Prosa (ein
-    # Verweis) und darf nicht verschwinden, sonst zerstoert die Bereinigung Saetze,
-    # die nie ein Hinweis waren.
+    # A bracket unrelated to the gap is prose and stays.
     harmlos = dict(_GOOD,
                    text="Man nutzt oft den {{1}} (siehe Anlage 3) für Gebäude.",
                    gaps=[{"base": "gemeiner Wert", "solution": "gemeinen Wert"}])
@@ -317,8 +278,7 @@ def test_unabhaengige_klammer_nach_luecke_bleibt_stehen(attributed):
 
 
 def test_klammer_fern_von_der_luecke_bleibt_stehen(attributed):
-    # Nur eine Klammer DIREKT nach dem Platzhalter gilt als Verdacht auf einen
-    # Hinweis. Eine an anderer Stelle im selben Satz ist gewoehnliche Prosa.
+    # Only a bracket directly behind the placeholder counts as suspicious.
     fern = dict(_GOOD,
                text="Der Wert (siehe Anlage 3) wird mit dem {{1}} berechnet.",
                gaps=[{"base": "gemeiner Wert", "solution": "gemeinen Wert"}])
@@ -332,10 +292,7 @@ def test_klammer_fern_von_der_luecke_bleibt_stehen(attributed):
 
 
 def test_die_formen_mischung_steht_als_zahl_im_auftrag():
-    # Gemessen an Satz 7043: 9 von 10 Loesungen blieben unveraendert, obwohl der Prompt
-    # schon die Absichtserklaerung "mix the forms" enthielt. Absichten steuern dieses
-    # Modell nicht, eine Zahl schon -- dieselbe Lehre wie beim Formate-Mix der
-    # Grammatik-Uebung (item_plan).
+    # A statement of intent does not steer this model, a number does.
     client, calls = _client(_GOOD)
     generate_cloze_from_source(client, "m", _ctx(), 10)
     auftrag = calls[0][0]["content"]
@@ -343,10 +300,7 @@ def test_die_formen_mischung_steht_als_zahl_im_auftrag():
 
 
 def test_bei_einer_einzigen_luecke_fehlt_die_wortart_mischung():
-    # Bei bestellt=1 verlangt die Zeile darueber "At least 1 of the 1 gaps" -- mit
-    # nur einer Luecke gibt es keine Mischung mehrerer Wortarten, die Vorgabe waere
-    # unerfuellbar. Reale Fehlform: ein Lernkarten-Set steuert genau ein brauchbares
-    # Wort bei (siehe run_cloze_set, count = min(bestellt, len(words))).
+    # With exactly one gap the mix requirement would be impossible.
     client, calls = _client(_GOOD)
     generate_cloze_from_source(client, "m", _ctx(), 1)
     auftrag = calls[0][0]["content"]
@@ -355,13 +309,7 @@ def test_bei_einer_einzigen_luecke_fehlt_die_wortart_mischung():
 
 
 def test_die_formen_mischung_nennt_die_erzwingenden_satzstellen():
-    # Gemessen an Satz 7044 (BRAO91.pdf): die blosse Zahl half nichts, 0 von 10 Luecken
-    # aenderten die Form (vorher, ohne jede Zahl, war es bei Satz 7043 1 von 10). Acht
-    # von zehn Luecken waren Nomen im Fall ohne sichtbaren Unterschied (Nominativ/
-    # Akkusativ bei Femininum/Neutrum), die Verben standen nach einem Modalverb. Die
-    # Zahl allein zwingt nichts, wenn das Modell eine Stelle waehlt, an der sich gar
-    # nichts aendern KANN -- der Prompt muss also sagen, welche Wortart und welche
-    # Satzstelle eine Aenderung ueberhaupt erzwingt.
+    # The number alone forces nothing, the prompt has to name the position.
     client, calls = _client(_GOOD)
     generate_cloze_from_source(client, "m", _ctx(), 10)
     auftrag = calls[0][0]["content"]

@@ -1,4 +1,4 @@
-"""Shared helpers für Screencast-Tasks: Cancel-Check, TTS-Client, Service-Resolver."""
+"""Shared helpers for screencast tasks: cancel check, TTS client, service resolver."""
 
 import os
 from loguru import logger

@@ -5,11 +5,7 @@ from src.services.feature_route_check import FeatureTestResult
 
 
 def test_tts_test_omits_model_when_not_set(monkeypatch):
-    """TTS with model_name=None must still POST — the model field is omitted.
-
-    Kokoro and other single-model TTS servers reject requests that carry a
-    ``model`` field, so an empty model_name must not block the request.
-    """
+    """Without a model name the call still has to go out, the field is dropped."""
     from src.services.feature_route_check import run_feature_route_test
     import httpx
 
@@ -80,9 +76,7 @@ def test_tts_test_uses_first_voice_from_db(monkeypatch):
 
 
 def test_stt_test_posts_real_transcription_when_model_set(monkeypatch):
-    """STT with model_name must POST to /v1/audio/transcriptions. A valid
-    model returns 200 for the user's name and 4xx for the canary probe —
-    the test then reports 'ok'."""
+    """A valid model answers, the bait is rejected."""
     from src.services.feature_route_check import run_feature_route_test
     import httpx
 
@@ -118,9 +112,7 @@ def test_stt_test_posts_real_transcription_when_model_set(monkeypatch):
 
 
 def test_stt_canary_passes_no_backend_evidence_returns_soft_warning(monkeypatch):
-    """If the canary passes AND the response carries no rate-limit or
-    gateway headers, we can't prove the request hit a real backend — use
-    the cautious warning code."""
+    """If the bait gets through too, it stays at the cautious hint."""
     from src.services.feature_route_check import run_feature_route_test
     import httpx
 
@@ -147,9 +139,7 @@ def test_stt_canary_passes_no_backend_evidence_returns_soft_warning(monkeypatch)
 
 
 def test_stt_canary_passes_with_backend_evidence_upgrades_warning(monkeypatch):
-    """The provider returns 200 with Kong headers proving the request
-    was forwarded to the real Whisper backend (not a stub). The warning is
-    upgraded to the positive 'endpoint verified' variant."""
+    """Gateway headers prove a real service behind it."""
     from src.services.feature_route_check import run_feature_route_test
     import httpx
 
@@ -182,8 +172,7 @@ def test_stt_canary_passes_with_backend_evidence_upgrades_warning(monkeypatch):
 
 
 def test_stt_test_reports_error_for_unknown_model(monkeypatch):
-    """When the upstream rejects the model name with 400, the test must
-    surface that — not show 'reachable'."""
+    """A rejected model name has to become visible."""
     from src.services.feature_route_check import run_feature_route_test
     import httpx
 
@@ -208,8 +197,7 @@ def test_stt_test_reports_error_for_unknown_model(monkeypatch):
 
 
 def test_stt_test_requires_model_name():
-    """A configured STT route without a model is not usable — must return
-    'model_name_not_set' instead of silently reporting 'reachable'."""
+    """A route without a model is not usable."""
     from src.services.feature_route_check import run_feature_route_test
 
     result = run_feature_route_test(
@@ -253,9 +241,7 @@ def test_image_edit_requires_model_name():
 
 
 def test_image_gen_posts_real_generation(monkeypatch):
-    """image_gen must POST to /v1/images/generations so providers
-    whose /v1/models listing is undifferentiated can't pass a chat model id
-    off as an image model."""
+    """The image call has to go to the image endpoint, not to the model list."""
     from src.services.feature_route_check import run_feature_route_test
     import httpx
 
@@ -283,8 +269,7 @@ def test_image_gen_posts_real_generation(monkeypatch):
 
 
 def test_image_gen_rejects_invalid_model(monkeypatch):
-    """An unknown image model must surface the provider's error, not a
-    silent 'ok' from a stale /v1/models fast path."""
+    """An unknown image model has to show the provider's error."""
     from src.services.feature_route_check import run_feature_route_test
     import httpx
 
@@ -309,10 +294,7 @@ def test_image_gen_rejects_invalid_model(monkeypatch):
 
 
 def test_image_edit_posts_standard_openai_form(monkeypatch):
-    """image_edit uses the same transport as image_gen / chat / vision:
-    standard OpenAI-style — model in body, no trailing slash, no provider-
-    specific headers. Providers that need something else (a
-    inference-service header) are explicitly NOT supported via this path."""
+    """Image editing uses the same usual transfer as the others."""
     from src.services.feature_route_check import run_feature_route_test
     import httpx
 
@@ -339,8 +321,7 @@ def test_image_edit_posts_standard_openai_form(monkeypatch):
     assert result.status == "ok"
     assert captured["url"].endswith("/v1/images/edits")
     assert not captured["url"].endswith("/edits/")
-    # Probe payload must include the numeric defaults the production task
-    # also sends — without them myLab crashes server-side with a TypeError.
+    # The probe needs the same numbers as operation.
     assert captured["data"]["model"] == "flux.1-kontext"
     assert captured["data"]["prompt"] == "test"
     assert captured["data"]["n"] == "1"
@@ -352,17 +333,14 @@ def test_image_edit_posts_standard_openai_form(monkeypatch):
 
 
 def test_image_gen_does_not_use_models_listing(monkeypatch):
-    """Regression: a chat-only listing must NOT make image_gen pass. Earlier
-    code fast-pathed on any /v1/models match — that hid chat-model misconfigs
-    as 'reachable' (the original bug we removed)."""
+    """A pure chat list must not wave image generation through."""
     from src.services.feature_route_check import run_feature_route_test
     import httpx
 
     get_called = {"n": 0}
 
     def fake_get(self, url, **kwargs):
-        # If the implementation hits /v1/models at all for image_gen, we
-        # surface that here so the test fails loudly.
+        # If the implementation reaches for the model list, the test fails loudly.
         get_called["n"] += 1
         resp = MagicMock(spec=httpx.Response)
         resp.status_code = 200
@@ -392,8 +370,7 @@ def test_image_gen_does_not_use_models_listing(monkeypatch):
 
 
 def test_classify_http_passes_plain_text_404(monkeypatch):
-    """A provider returns 404 with plain text body 'Model Not Found' — must not
-    be swallowed as generic 'endpoint_not_found'."""
+    """A plain text error from the provider must not be swallowed."""
     from src.services.feature_route_check import run_feature_route_test
     import httpx
 
@@ -418,9 +395,7 @@ def test_classify_http_passes_plain_text_404(monkeypatch):
 
 
 def test_stt_test_404_with_model_detail_surfaces_body(monkeypatch):
-    """vLLM/myLab returns 404 with {"detail":"Model X not found"} for an
-    unknown model. The body detail must surface — not a generic
-    'endpoint_not_found' which would falsely blame the endpoint."""
+    """The reason from the body has to come through, not a blanket error."""
     from src.services.feature_route_check import run_feature_route_test
     import httpx
 

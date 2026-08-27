@@ -1,16 +1,4 @@
-"""Handprobe: liefert das Modell den vollen Satz plus Formtraeger statt einer Luecke?
-
-Der Umbau vom 2026-08-12 verlaesst sich darauf, dass das Modell 'form_span' schickt und
-KEINE fertige Luecke mehr. Haelt es sich nicht daran, faellt jede Luecken-Aufgabe durch
-den Filter und die Sets kommen zu kurz heraus. Genau das wird hier gemessen.
-
-Die Quelle ist absichtlich ein Grammatik-Arbeitsblatt mit Regeln DARIN, so wie die
-Quellen des Sprachenzentrums (private/grammer/2/). Das war die Wurzel der Meldungen 4
-und 6: "nimm die Fakten aus dem Text" ergab Saetze UEBER die Grammatik.
-
-Der Ordner scripts/ ist nicht in den Container gemountet, deshalb ueber die Eingabe:
-docker exec -i -w /app kis-backend python - < backend/scripts/grammar_gap_smoke.py
-"""
+"""Smoke test: does the model return the full sentence plus form carrier instead of a gap?"""
 
 import json
 
@@ -19,7 +7,7 @@ from src.features.ai_assistant.tasks.language_training import _source_grammar as
 from src.features.ai_assistant.tasks.language_training._context import QuelleContext
 
 
-# Ein Arbeitsblatt, wie es im Sprachenzentrum liegt: Fachinhalt UND Grammatikregeln.
+# A worksheet as used in the language centre: subject matter AND grammar rules.
 QUELLE = """[Brandschutz.pdf, S. 1] Handfeuerloescher muessen jaehrlich geprueft werden.
 Ein Handfeuerloescher haengt in jedem Flur. Das Gebaeude hat ein modernes
 Rettungssystem. Die Feuerwehr prueft die Anlage regelmaessig. Ein Rauchmelder warnt
@@ -41,8 +29,7 @@ THEMA = {
                   "after": "Das ist ein neues Geraet."}],
 }
 
-# Meldung 4 war eine Richtig/Falsch-Aufgabe zu Relativsaetzen, und die Quelle erklaerte
-# die Regel. Deshalb ein zweiter Durchgang mit genau dieser Lage.
+# Second run with a source that explains the rule itself.
 QUELLE_RELATIV = """[Grammatik.pdf, S. 1] Das Labor prueft die Proben, die aus dem
 Betrieb kommen. Die Dozentin, deren Vorlesung ausfaellt, schickt die Folien. Der
 Bericht, dessen Anhang fehlt, geht zurueck.
@@ -76,7 +63,7 @@ def main():
 def lauf(client, model, thema, quelle, datei, kinds):
     print(f"── {thema['label']}, Format {kinds[0]} ──")
 
-    # Rohantwort mitlesen: die eigentliche Frage ist, WAS das Modell schickt.
+    # Read the raw answer, the real question is WHAT the model sends.
     roh = []
     echt = client.chat.completions.create
 
@@ -86,7 +73,7 @@ def lauf(client, model, thema, quelle, datei, kinds):
         return antwort
 
     client.chat.completions.create = lambda **kw: mitlesen(**kw)
-    # Die Quellen-Chips brauchen pgvector und sind hier nicht die Frage.
+    # The source chips need pgvector and are not the point here.
     sg.attach_chips_cited = lambda items, claims, ctx, **kw: items
 
     ctx = QuelleContext(

@@ -1,4 +1,4 @@
-"""User-Management: Liste/Approve und Whitelist-Verwaltung."""
+"""User management: list, approve and whitelist administration."""
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from loguru import logger
@@ -24,8 +24,7 @@ from src.routes.admin._models import AddWhitelistRequest, SetUserDemoRequest
 
 router = APIRouter(tags=["admin: users"])
 
-# Drei Seiten unter Nutzer, drei Rechte. Wer die Ausstehenden freischalten
-# darf, muss deshalb noch lange nicht die ganze Nutzerliste sehen.
+# Three pages under users, three rights.
 _require_users = require_permission(PERM_SET_USERS_ALL)
 _require_pending = require_permission(PERM_SET_USERS_PENDING)
 _require_whitelist = require_permission(PERM_SET_USERS_WHITELIST)
@@ -125,14 +124,7 @@ async def update_user_role(
     admin=Depends(_require_users),
     locale: str = Depends(get_locale),
 ):
-    """Update a user's role.
-
-    Safety rules:
-    - Cannot change the env-admin's role.
-    - Man kann nur eine Rolle vergeben, deren Rechte man selbst hat. Ohne diese
-      Regel waere "Alle Nutzer" ein Weg zum Administrator: sich selbst oder
-      einem Zweitkonto die Rolle Administrator geben und fertig.
-    """
+    """Changes the role, you may only grant what you hold yourself."""
     target = db.get_user_by_id(user_id)
     if target is None:
         raise HTTPException(status_code=404, detail="User not found")
@@ -164,10 +156,10 @@ async def update_user_demo(
     body: SetUserDemoRequest,
     _admin=Depends(_require_users),
 ):
-    """Der Haken, mit dem die Kurse eines Kontos in der Demo landen."""
+    """The flag that puts an account's courses into the demo."""
     if not db.get_user_by_id(user_id):
         raise HTTPException(status_code=404, detail="User nicht gefunden")
-    # Wer den Haken verliert, verliert auch seine ueber die Demo beigetretenen Teilnehmer.
+    # Whoever loses the flag also loses their participants who joined via the demo.
     for verlorenes_konto in db.set_user_demo(user_id, body.is_demo):
         anzahl = db.delete_demo_enrollments_of_owner(verlorenes_konto)
         logger.info("Demo-Konto {} abgeraeumt: {} Einschreibungen", verlorenes_konto, anzahl)
@@ -181,7 +173,7 @@ async def preview_user_deletion(
     _admin=Depends(_require_users),
     locale: str = Depends(get_locale),
 ):
-    """Die Zahlen fuer die Rueckfrage vor dem Loeschen."""
+    """The numbers for the confirmation before deleting."""
     if db.get_user_by_id(user_id) is None:
         raise HTTPException(status_code=404, detail=t("admin.user.notFound", locale))
     return count_user_footprint(user_id)
@@ -193,11 +185,7 @@ async def delete_user(
     admin=Depends(_require_users),
     locale: str = Depends(get_locale),
 ):
-    """Loescht Konto, Arbeitsbereiche, Spuren in fremden Bereichen und Dateien.
-
-    Zwei Sperren: das eigene Konto und das env-Konto. Beides waere ein Weg,
-    sich selbst dauerhaft aus der Verwaltung auszusperren.
-    """
+    """Deletes account, course rooms, traces and files, behind two locks."""
     target = db.get_user_by_id(user_id)
     if target is None:
         raise HTTPException(status_code=404, detail=t("admin.user.notFound", locale))
@@ -209,8 +197,7 @@ async def delete_user(
         raise HTTPException(status_code=403, detail=t("admin.user.envAdminProtected", locale))
 
     delete_user_completely(user_id)
-    # Die Ablage kommt nach der Datenbank, damit ein Abbruch dort wiederholbar
-    # bleibt.
+    # Storage comes after the database so an abort stays repeatable.
     try:
         entfernt = delete_user_folder(user_id)
     except Exception as e:

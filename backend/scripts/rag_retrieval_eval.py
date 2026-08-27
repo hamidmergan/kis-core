@@ -1,41 +1,4 @@
-"""Messsatz fuer den Abruf: findet der Chat die Stelle, in der die Antwort steht?
-
-Aufruf aus backend/:  python scripts/rag_retrieval_eval.py
-Vergleich zweier Staende:  python scripts/rag_retrieval_eval.py --json > vorher.json
-
-Warum es das gibt. Die Bausteine des Abrufs haben Unit-Tests mit ausgedachten
-Zahlen, und die waren alle gruen, waehrend zwei Fragen, deren Antwort woertlich
-in den Quellen steht, nicht beantwortet wurden. Ein gruener Baustein sagt nichts
-darueber, ob die richtige Stelle beim Modell ankommt. Genau das misst dieser Satz,
-und zwar an echten Workspaces, nicht an Attrappen.
-
-Gemessen wird auf zwei Ebenen, weil die Fehler auf zwei Ebenen sitzen:
-
-* ``anchor``  — steht die Stelle ueberhaupt in der Trefferliste ihrer Quelle?
-                Das ist die Frage an die SUCHE.
-* ``context`` — schafft sie es bis in den Prompt?
-                Das ist die Frage an die VERTEILUNG des Platzes.
-
-Eine Stelle kann als Treffer 1 gefunden und trotzdem weggeschnitten werden. Ohne
-die Trennung sieht man nur, dass etwas fehlt, aber nicht wo.
-
-Zwei Fallarten:
-
-* ``expect_text``         — mindestens eine dieser Textstellen muss im Kontext stehen.
-                            Bewusst der TEXT und nicht die Chunk-ID: beim Neu-Zerlegen
-                            einer Quelle bekommen alle Chunks neue IDs, ein Messsatz
-                            an IDs waere danach wertlos. Die Stelle bleibt dieselbe.
-                            Kurz halten, damit sie keine Chunk-Grenze kreuzt.
-* ``expect_sources_all``  — von JEDER dieser Dateien muss etwas im Kontext sein.
-                            Der Waechter fuer Vergleichsfragen: er haelt fest, was
-                            die Quote pro Quelle leisten soll, damit ein Umbau sie
-                            nicht unbemerkt kaputt macht.
-
-Der Satz ruft ``_retrieve_specific_context`` auf, also genau den Code, der auch im
-Chat laeuft. Keine Kopie, die auseinanderlaeuft.
-
-Exit 0, wenn kein Fall schlechter ist als in ``--baseline``, sonst 1.
-"""
+"""Retrieval benchmark: does the chat find the spot the answer lives in?"""
 import argparse
 import asyncio
 import json
@@ -58,12 +21,7 @@ _STANDARD_FAELLE = Path(__file__).parent / "rag_retrieval_cases.json"
 
 
 def _lade_faelle(pfad=None) -> list[dict]:
-    """Die 19 gewachsenen Handfaelle, oder ein anderer Satz per --faelle.
-
-    Der breite, maschinell erzeugte Satz liegt bewusst in einer eigenen Datei
-    (siehe scripts/build_retrieval_cases.py). Die Handfaelle bewachen bekannte
-    Schwachstellen und stehen fast an der Decke, der breite Satz misst den
-    Normalfall. Zusammengeworfen wuerde keiner von beiden mehr etwas sagen."""
+    """The 19 grown hand-written cases, or another set via --faelle."""
     return json.loads(Path(pfad or _STANDARD_FAELLE).read_text(encoding="utf-8"))
 
 
@@ -71,32 +29,26 @@ CASES = _lade_faelle()
 
 
 def _norm(s: str) -> str:
-    """Ein Leerzeichen statt beliebigem Zwischenraum, damit ein Zeilenumbruch im
-    Dokument keine Textstelle unauffindbar macht."""
+    """Flattens whitespace so a line break cannot make a spot unfindable."""
     return " ".join((s or "").split())
 
 
 def _ndcg_at_k(platz: int | None, k: int = 10) -> float:
-    """Punktzahl fuer EINEN Fall aus dem Platz seiner tragenden Stelle.
-
-    Jeder Fall hat genau eine richtige Stelle, damit faellt die ideale Rangfolge
-    auf 1 zusammen und NDCG@k verkuerzt sich auf ``1 / log2(platz + 1)``. Platz 1
-    gibt 1.0, Platz 3 gibt 0.5, Platz 10 gibt 0.29. Was hinter der Schranke steht,
-    sieht das Modell nicht und zaehlt deshalb null statt wenig."""
+    """Score for one case from the rank of its carrying spot."""
     if platz is None or platz > k:
         return 0.0
     return 1.0 / math.log2(platz + 1)
 
 
 def _mittel_ndcg(plaetze: list[int | None], k: int = 10) -> float:
-    """Die eine Zahl fuer den ganzen Lauf. Ohne Faelle 0.0 statt Division durch null."""
+    """The single number for the whole run, 0.0 instead of a division by zero."""
     if not plaetze:
         return 0.0
     return sum(_ndcg_at_k(p, k) for p in plaetze) / len(plaetze)
 
 
 def _workspace(uuid: str) -> tuple[int, list[dict]]:
-    """Workspace-ID und die aktiven Quellen. Wie im Chat: alle fertigen Quellen."""
+    """Workspace id and the active sources, as in the chat all ready ones."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute("SELECT id FROM aia_workspaces WHERE uuid = %s", (uuid,))
@@ -114,12 +66,7 @@ def _workspace(uuid: str) -> tuple[int, list[dict]]:
 
 def _anchor_rank(ws_id: int, question: str, vec, source_id: int, wanted: set[int],
                  mode: str = "hybrid"):
-    """Platz der gesuchten Stelle in der Trefferliste IHRER Quelle, oder None.
-
-    Getrennt von der Kontext-Pruefung, damit ein Fehlschlag zeigt, ob die Suche
-    die Stelle nicht findet oder die Verteilung sie wegwirft.
-
-    ``mode`` schaltet fuer --vergleich einen der beiden Suchwege ab."""
+    """Rank of the wanted spot in its source's hit list, or None."""
     hits = chunk_repo.hybrid_search_chunks(
         ws_id, question, vec, [source_id], chat_mod._NEIGHBOR_ANCHORS, fuzzy=False,
         mode=mode) or []
@@ -130,11 +77,7 @@ def _anchor_rank(ws_id: int, question: str, vec, source_id: int, wanted: set[int
 
 
 def _wanted_chunks(ws_id: int, expect_text: list[str]) -> tuple[set[int], set[int]]:
-    """Welche Chunks tragen die gesuchten Stellen GERADE, und aus welchen Quellen?
-
-    Ueber den Text nachgeschlagen statt ueber IDs, damit die Zuordnung ein
-    Neu-Zerlegen der Quelle ueberlebt: dabei bekommen alle Chunks neue IDs, die
-    Textstelle bleibt aber dieselbe."""
+    """Which chunks currently carry the wanted spots, and from which sources?"""
     wanted: set[int] = set()
     owner_ids: set[int] = set()
     with get_connection() as conn:
@@ -176,8 +119,7 @@ async def _run_case(case: dict) -> dict:
         phrasen = [_norm(p) for p in case["expect_text"]]
         out["context_ok"] = any(p in _norm(c.get("content") or "")
                                 for c in chunks for p in phrasen)
-        # Welche Chunks tragen die Stelle GERADE, und auf welchem Platz stehen sie in
-        # der Trefferliste ihrer Quelle?
+        # Which chunks carry the spot, and at which rank do they sit?
         wanted, owner_ids = _wanted_chunks(ws_id, case["expect_text"])
         if not wanted:
             out["context_ok"] = False
@@ -212,25 +154,14 @@ def _print(results: list[dict]) -> None:
             print(f"{'':38s} fehlende Quellen: {', '.join(r['missing_sources'])}")
     print("-" * 78)
     print(f"Im Kontext gefunden: {ok}/{len(results)}")
-    # Die eine Zahl fuer die SUCHE, nur ueber die Faelle mit einer tragenden Stelle.
-    # Vergleichsfaelle (expect_sources_all) haben keinen einzelnen Platz und wuerden
-    # als Nullen den Mittelwert verfaelschen.
+    # The single number for the search, only over cases with a carrying spot.
     plaetze = [r["anchor_rank"] for r in results if r["anchor_ok"] is not None]
     if plaetze:
         print(f"NDCG@10 der Suche: {_mittel_ndcg(plaetze):.3f}  ({len(plaetze)} Faelle)")
 
 
 def _vergleich(faelle: list[dict]) -> None:
-    """Dieselben Faelle einmal je Suchweg, damit man sieht, welcher Weg traegt.
-
-    Gemessen wird NUR der Platz in der Suche, nicht der Weg in den Prompt: die
-    Verteilung des Budgets haengt nicht am Suchweg, und ein dreifacher Abruf des
-    vollen Kontexts waere teuer ohne etwas dazu zu sagen.
-
-    Der Anlass. Beim Vorbild dieser Messung hat das Zusammenlegen beider Wege die
-    reine Vektorsuche VERSCHLECHTERT, weil der Stichwortweg auf jenen Daten schwach
-    war. Ob unsere Seltenheitsgewichtung traegt oder bremst, sagt erst diese Tabelle.
-    """
+    """The same cases once per search path, to see which path carries."""
     modi = ("hybrid", "dense", "keyword")
     provider = get_embedding_provider()
     plaetze: dict[str, list] = {m: [] for m in modi}
@@ -307,17 +238,3 @@ if __name__ == "__main__":
     sys.exit(asyncio.run(_main()))
 
 
-# ── Was dieser Satz NICHT misst ──────────────────────────────────────────────
-#
-# Die FIT-ABKUERZUNG in ``chat()``: passen alle aktiven Quellen zusammen ins Budget,
-# wird gar nicht abgerufen, sondern der ganze Bestand geschickt. Dieser Satz ruft
-# ``_retrieve_specific_context`` direkt und laeuft deshalb immer den Abrufweg. Wer die
-# Abkuerzung pruefen will, nimmt ``rag_answer_eval.py``, der geht ueber die echte API.
-#
-# Am 16.08.2026 einmal durchgespielt: das Budget von 250.000 auf 320.000 Zeichen
-# gesetzt, damit der Kurs WuK (302.831 Zeichen) vollstaendig hineinpasst. Hier aenderte
-# sich NICHTS (15/15 vorher wie nachher), weil die Abkuerzung gar nicht erreicht wird.
-# Am Antwort-Messsatz dagegen fiel das Ergebnis von 8/9 auf 6/9: die Ueberblicksantwort
-# liess eine von 13 Aufzeichnungen aus, und die Fragestunden-Antwort verlor ihren Bezug
-# zu den affinen Chiffren. Mehr Kontext war messbar SCHLECHTER. Budget wieder auf
-# 250.000.

@@ -1,29 +1,4 @@
-"""Eine Quelle neu zerlegen, OHNE sie zu loeschen und neu hochzuladen.
-
-Aufruf aus backend/, im Container:
-    docker exec kis-backend python scripts/rechunk_sources.py --workspace <uuid> --probe
-    docker exec kis-backend python scripts/rechunk_sources.py --workspace <uuid>
-
-Wozu. Die Zerlegung zog nur das ENDE eines Chunks auf eine Wortgrenze, nicht den
-Anfang des naechsten, deshalb begann bei den PDFs jeder zweite bis dritte Chunk
-mitten im Wort ("ichtlinie" statt "Richtlinie"). Der Fix in ``aia_chunker`` wirkt
-nur beim Einlesen, vorhandene Quellen behalten ihre Chunks.
-
-Warum nicht loeschen und neu hochladen. An ``aia_sources`` haengen sieben Tabellen
-mit ON DELETE CASCADE: Chunks, Glossar, Aufgaben-Vorrat, die gefundenen Termine,
-das Layout und die Lese-Marken. Ein Loeschen nimmt das alles mit, und die Quelle
-bekommt eine neue UUID, womit jeder Verweis darauf bricht. Hier bleibt die Zeile
-stehen, es werden nur ihre Chunks ersetzt.
-
-Warum der Aufgaben-Vorrat NICHT geleert wird. Beim normalen Einlesen tut
-``run_index_source`` das, weil dort ein moeglicherweise ANDERES Dokument unter
-derselben Quelle landet. Hier ist es dieselbe Datei und derselbe Text, nur die
-Schnittkanten liegen anders. Die Aufgaben bleiben also gueltig.
-
-Nur Dokumente. Medien sind nicht betroffen: ``segments_to_chunks`` reiht ganze
-Whisper-Segmente aneinander und schneidet nie in ein Wort. Eine Medienquelle neu
-zu zerlegen hiesse neu zu transkribieren, das waere teuer und brächte nichts.
-"""
+"""Re-chunks a source without deleting and re-uploading it."""
 import argparse
 import sys
 from pathlib import Path
@@ -48,11 +23,7 @@ def _norm(s: str) -> str:
 
 
 def _fragmentanteil(cur, workspace_id: int, source_id: int) -> tuple[int, int]:
-    """Wie viele Chunks dieser Quelle mit einem Bruchstueck beginnen.
-
-    Kriterium: das erste Wort ist klein geschrieben, mindestens fuenf Buchstaben lang
-    und kommt im ganzen Workspace kein zweites Mal vor. Ein echtes Wort taucht
-    woanders wieder auf, ein abgeschnittenes nicht."""
+    """How many chunks of this source start with a fragment."""
     cur.execute(
         """WITH erst AS (
              SELECT c.id, lower(substring(c.content from '^[^ ]+')) AS w
@@ -89,7 +60,7 @@ def _sources(workspace_uuid: str) -> tuple[int, list[dict]]:
 
 
 def _neu_zerlegen(src: dict) -> list[dict]:
-    """Denselben Text noch einmal zerlegen, mit der reparierten Fassung."""
+    """Chunk the same text again, with the repaired version."""
     suffix = os.path.splitext(src["filename"])[1] or f".{src['file_type']}"
     with open_input_file(src["file_path"], suffix=suffix) as local_path:
         return aia_chunker.extract_chunks(local_path, src["file_type"])
@@ -134,19 +105,14 @@ def main() -> int:
         ges_neu += len(neu)
         ges_frag_vor += frag_vor
         marke = "PROBE" if args.probe else "neu"
-        # Der Nachher-Wert wird NICHT hier geschaetzt. Er braucht denselben Bestand als
-        # Bezug wie der Vorher-Wert, also dieselbe Abfrage nach dem Schreiben ueber den
-        # ganzen Workspace. Eine Schaetzung auf den eigenen Chunks waere zirkulaer: das
-        # Bruchstueck steht ja in genau dem Chunk, den man pruefen will.
+        # The after value needs the same set as reference and therefore comes later.
         print(f"  {src['filename']:22s} {src['chunk_count']:5d} -> {len(neu):5d} Chunks | "
               f"Bruchstuecke vorher {frag_vor:4d} | {marke}")
 
         if args.probe:
             continue
 
-        # Erst zerlegt, dann geloescht: schlaegt das Zerlegen fehl, bleiben die alten
-        # Chunks unberuehrt. Der Aufgaben-Vorrat wird bewusst NICHT geleert, der Text
-        # ist derselbe.
+        # Chunk first, delete after, so a failure leaves the old chunks in place.
         db.delete_aia_chunks_by_source(src["id"])
         ids = [db.create_aia_chunk(source_id=src["id"], page_number=c["page_number"],
                                    content=c["content"], start_time=c.get("start_time"),

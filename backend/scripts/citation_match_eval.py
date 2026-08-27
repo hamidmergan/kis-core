@@ -1,17 +1,9 @@
-"""GO/NO-GO gate for citation grounding. Loads the real units of the audited
-workspace's sources and checks the matcher resolves each chip to the CORRECT
-segment/page. Run from backend/:  python scripts/citation_match_eval.py
-
-Timestamps are compared with a tolerance window (a claim spans 2-3 segments);
-pages are compared exactly. Exit 0 if >=6 previously-wrong cases are fixed and
-none regress; exit 1 otherwise."""
+"""Checks whether the matcher puts every chip on the right spot."""
 import json
 import sys
 from pathlib import Path
 
-# Ensure the backend root (parent of 'scripts/') is on sys.path so 'src.*' is importable
-# whether the script is run as  python scripts/citation_match_eval.py  (from /app)
-# or as  docker exec ... python scripts/citation_match_eval.py  (cwd may not be /app).
+# Backend root on sys.path so src.* is importable.
 _BACKEND_ROOT = Path(__file__).resolve().parent.parent
 if str(_BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(_BACKEND_ROOT))
@@ -30,8 +22,7 @@ from src.features.ai_assistant.routes._citation_match import Unit, match_query
 CASES = json.loads((Path(__file__).parent / "citation_audit_cases.json").read_text())
 TOLERANCE_S = 45.0
 
-# The audited workspace UUID — sources are resolved ONLY within this workspace
-# to avoid false matches from other workspaces that share the same filenames.
+# Resolve sources only inside this workspace, otherwise equal file names mismatch.
 WORKSPACE_UUID = "1ea7b2fa-b237-4bbd-801b-c9793d388984"
 
 

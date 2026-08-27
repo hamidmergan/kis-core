@@ -1,13 +1,4 @@
-"""Die Wortzerlegung auf der Lernkarte wird nachgerechnet, nicht geglaubt.
-
-Das Modell hat "Einstieg" zu "einsteigen + leg" zerlegt und "leg" als "Endung fuer den
-Vorgang" erklaert. Beides steht so im Prompt verboten, aber ein Prompt ist eine Bitte.
-Hier steht die Rechnung dazu: ein Teil, der im Begriff gar nicht vorkommt, kippt die
-ganze Zerlegung.
-
-Die Pruefung kennt keine deutschen Wortlisten. Sie vergleicht nur Buchstaben, damit sie
-in jeder Sprache dasselbe tut.
-"""
+"""The word split is verified, an invented part topples it entirely."""
 
 import json
 import types
@@ -20,7 +11,7 @@ from src.features.ai_assistant.tasks.language_training._wortteile import clean_w
 
 
 def _fake_client(content: str):
-    """Modell-Ersatz: liefert immer dieselbe Antwort, kein Netz, keine Datenbank."""
+    """Model stub: always returns the same answer, no network, no database."""
     def create(model, messages, **kwargs):
         message = types.SimpleNamespace(content=content)
         return types.SimpleNamespace(choices=[types.SimpleNamespace(message=message)])
@@ -33,7 +24,7 @@ def _fake_client(content: str):
 # --- was rausfliegt ----------------------------------------------------------
 
 def test_erfundener_teil_kippt_die_ganze_zerlegung():
-    """Der Fall aus der Karte: 'leg' steckt nirgends in 'Einstieg'."""
+    """The case from the card: 'leg' is nowhere inside 'Einstieg'."""
     parts, explained = clean_word_parts(
         "Einstieg", "einsteigen + leg",
         "einsteigen = in etwas hineingehen | der leg = Endung fuer den Vorgang",
@@ -43,7 +34,7 @@ def test_erfundener_teil_kippt_die_ganze_zerlegung():
 
 
 def test_ableitung_mit_ablaut_ist_kein_kompositum():
-    """'steigen' wird zu 'stieg', der Wortstamm steht also nicht im Begriff."""
+    """'steigen' becomes 'stieg', so the stem is not in the term."""
     parts, _ = clean_word_parts("Einstieg", "ein + steigen", "")
     assert parts == ""
 
@@ -54,7 +45,7 @@ def test_ein_einziger_teil_ist_keine_zerlegung():
 
 
 def test_erklaerung_ohne_teile_verschwindet():
-    """Die Ansicht zeigt den Kasten nur mit Teilen. Eine Erklaerung ohne sie ist Datenmuell."""
+    """The view shows the box only with parts, an explanation without them is junk data."""
     _, explained = clean_word_parts("Wirksamkeit", "", "die Keit = eine Endung")
     assert explained == ""
 
@@ -64,7 +55,7 @@ def test_ein_kaputter_teil_reicht_zum_verwerfen():
     assert parts == ""
 
 
-# --- was bleibt --------------------------------------------------------------
+# --- what stays --------------------------------------------------------------
 
 def test_echtes_kompositum_bleibt_unveraendert():
     parts, explained = clean_word_parts(
@@ -77,7 +68,7 @@ def test_echtes_kompositum_bleibt_unveraendert():
 
 
 def test_fugenlaut_darf_fehlen():
-    """'Hilfsverb' zu 'Hilfe + Verb' ist die verlangte Grundform, kein Fehler."""
+    """'Hilfsverb' to 'Hilfe + Verb' is the requested base form, not a mistake."""
     parts, _ = clean_word_parts("Hilfsverb", "Hilfe + Verb", "")
     assert parts == "Hilfe + Verb"
 
@@ -103,7 +94,7 @@ def test_scharfes_s_bleibt_gueltig():
     assert parts == "Straße + Bahn"
 
 
-# --- die Erklaerung zu den Teilen --------------------------------------------
+# --- the explanation of the parts --------------------------------------------
 
 def test_artikel_vor_dem_teil_stoert_die_zuordnung_nicht():
     _, explained = clean_word_parts(
@@ -114,7 +105,7 @@ def test_artikel_vor_dem_teil_stoert_die_zuordnung_nicht():
 
 
 def test_erklaerung_zum_falschen_wort_faellt_weg_die_teile_bleiben():
-    """Die Teile stimmen, die Erklaerung redet von etwas anderem."""
+    """The parts are right, the explanation talks about something else."""
     parts, explained = clean_word_parts(
         "Pufferzeit", "Puffer + Zeit", "der Schnee = weisses Eis | die Zeit = die Dauer")
     assert parts == "Puffer + Zeit"
@@ -133,7 +124,7 @@ def test_leere_eingabe_bleibt_leer():
     assert clean_word_parts("Einstieg", "", "") == ("", "")
 
 
-# --- die Verdrahtung: beide Wege zur Lernkarte gehen durch die Pruefung -------
+# --- the wiring: both paths to the flashcard go through the check -------------
 
 def test_karte_aus_der_quelle_verliert_die_erfundene_zerlegung():
     item = _format_lernkarte({
@@ -145,7 +136,7 @@ def test_karte_aus_der_quelle_verliert_die_erfundene_zerlegung():
     })
     assert "word_parts" not in item["extras"]
     assert "word_parts_explained" not in item["extras"]
-    # Der Rest der Karte bleibt stehen, verworfen wird nur der Kasten.
+    # The rest of the card stays, only the box is discarded.
     assert item["extras"]["word_class"] == "Nomen"
     assert item["back"] == "Der Beginn einer neuen Aktivität."
 

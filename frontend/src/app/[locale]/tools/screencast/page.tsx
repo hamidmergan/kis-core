@@ -57,8 +57,7 @@ function ScreencastPageInner() {
   const [renderProgressLabel, setRenderProgressLabel] = useState("");
   const [fertigeFolien, setFertigeFolien] = useState<number[]>([]);
   const [nichtDabei, setNichtDabei] = useState<number[]>([]);
-  // Beide Knöpfe oben löschen den Job samt Dateien. Vorher passierte das ohne
-  // Rückfrage bei einem einzigen Klick, und beide taten exakt dasselbe.
+  // Both buttons delete the job with its files, now with a confirmation.
   const [pendingExit, setPendingExit] = useState<"restart" | "cancel" | "render" | null>(null);
   const failedRender = useFailedRender();
   const { jobUuid: failedRenderJobUuid } = failedRender;
@@ -93,7 +92,7 @@ function ScreencastPageInner() {
   const renderResult = useRenderResult();
   const { videoUrl, audioId, hasSubtitles, videoFolien, laufStempel, clear: clearRenderResult } = renderResult;
 
-  // Zurueck auf Rendern kommt man nur, wenn das Video schon fertig ist.
+  // You can only get back to rendering when the video is already finished.
   const rueckblick = step === "rendering" && videoUrl !== null;
 
   const autosaveScripts = useScriptAutosave({ jobUuid: translateJobUuid });
@@ -143,7 +142,7 @@ function ScreencastPageInner() {
       : null,
     bereit: standGeladen,
   });
-  // Nach einem Neuladen kommt die Auswahl aus dem Ergebnis statt aus dem Fortschritt.
+  // After a reload the selection comes from the result instead of the progress.
   const ausgeschlossen = ausgeschlosseneFolien(slides.length, nichtDabei, videoFolien, auswahl.imScreencast);
   const zeigtNeu = hatTon.some(Boolean);
   const stimmeGewechselt = !!stand && (stand.voice_id !== voiceId || stand.provider_id !== providerId || stand.target_lang !== targetLang);
@@ -161,14 +160,14 @@ function ScreencastPageInner() {
     slidePause,
     subtitles,
   };
-  // Ein Lauf ohne jede Aenderung erzeugt genau dasselbe Video, das kostet nur Zeit und Kontingent.
+  // A run without any change produces exactly the same video, that only costs time and quota.
   const laufUmsonst = laufWaereUmsonst(laufStand);
-  // Eine neue Stimme ohne angehakte Folie bliebe unbemerkt beim alten Video.
+  // A new voice without a ticked slide would go unnoticed on the old video.
   const stimmwechselWirkungslos = stimmwechselOhneWirkung(laufStand);
-  // Schritt 6 wartet auf den gespeicherten Stand, sonst ueberschreibt er eine laufende Eingabe.
+  // Step 6 waits for the stored state, otherwise it overwrites a running edit.
   const schritt6Bereit = !translateJobUuid || standGeladen;
 
-  // Wer morgen wiederkommt, findet seinen Stand vor statt der Voreinstellung.
+  // Whoever comes back tomorrow finds their state instead of the default.
   const eingestelltRef = useRef(false);
   useEffect(() => {
     const e = gespeicherteEinstellungen;
@@ -183,7 +182,7 @@ function ScreencastPageInner() {
     setSubtitles(e.subtitles);
   }, [gespeicherteEinstellungen, setTargetLang]);
 
-  // Gespeichert wird beim Aendern, nicht erst beim Rendern.
+  // Saved on change, not only at render time.
   useEffect(() => {
     if (!translateJobUuid || !standGeladen || step !== "tts-settings") return;
     const zeit = setTimeout(() => {
@@ -213,9 +212,7 @@ function ScreencastPageInner() {
   const [skipTranslation, setSkipTranslation] = useState(false);
   const locale = useLocale();
 
-  // Ohne Uebersetzung ist das Sprachfeld die Sprache der Sprechtexte. Sein Standard
-  // stammt aus dem Uebersetzungswerkzeug und ist hier meist falsch, deshalb die
-  // Sprache der Oberflaeche vorschlagen.
+  // Without a translation the field proposes the interface language.
   const skipTranslationSetzen = useCallback((an: boolean) => {
     setSkipTranslation(an);
     if (!an) return;
@@ -262,10 +259,9 @@ function ScreencastPageInner() {
   }, []);
 
 
-  // Die Vertonungs- und die Fertig-Seite brauchen den laufenden bzw. fertigen Job,
-  // den holt ein Effekt weiter unten, sobald der Render-Hook steht.
+  // Voicing and finished page need the job, an effect fetches it.
   const [resumeIntoRender, setResumeIntoRender] = useState<{ uuid: string; step: "rendering" | "done" } | null>(null);
-  // Das fertige Video wird erst geladen, solange bleibt der Fortsetzen-Spinner stehen.
+  // The finished video is only loaded now, until then the resume spinner stays.
   const [holeFertigesVideo, setHoleFertigesVideo] = useState(false);
 
   const { resumeLoading, resumeFailed } = useScreencastResume((payload) => {
@@ -332,7 +328,7 @@ function ScreencastPageInner() {
     gotoIndex(index);
   }, [gotoIndex, maxReachedIdx, skipTranslation, step, videoUrl]);
 
-  /** Der Zuruecktritt einer Seite, oder null wenn davor nichts Betretbares liegt. */
+  /** The step back from a page, or null when nothing enterable lies before it. */
   const zurueckVon = useCallback((index: number): (() => void) | null => {
     const ziel = vorherErreichbar(index, maxReachedIdx, skipTranslation, step, videoUrl !== null);
     return ziel === null ? null : () => gotoIndex(ziel);
@@ -414,7 +410,7 @@ function ScreencastPageInner() {
     currentJobUuidRef,
   });
 
-  // Sprung aus der Jobs-Liste auf die Vertonungs- oder die Fertig-Seite.
+  // Jump from the jobs list to the voicing or the finished page.
   useEffect(() => {
     if (!resumeIntoRender) return;
     const { uuid, step: ziel } = resumeIntoRender;
@@ -476,7 +472,7 @@ function ScreencastPageInner() {
     autosaveScripts(slides.map((s) => s.script), true); // save accepted_scripts.json
     dispatch({ type: "SET_STEP", step: "tts-settings" });
     if (translateJobUuid) {
-      // dpi muss mitgeschickt werden, sonst passt das Vorgerenderte nicht zum Render.
+      // dpi has to be sent along, otherwise the pre-render does not match the render.
       fetch("/api/screencast/prerender-images", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -502,7 +498,7 @@ function ScreencastPageInner() {
     dispatch({ type: "SET_LOADING", loading: false });
   }, []);
 
-  // Den Dateinamen setzt das Backend im Kopf, deshalb reicht der schlichte Link.
+  // The backend sets the file name in the header, so a plain link is enough.
   const handleDownload = () => {
     if (!audioId) return;
     const a = document.createElement("a");
@@ -545,7 +541,7 @@ function ScreencastPageInner() {
 
   const showStepIndicator = step !== "upload" && step !== "error";
 
-  // Nur die gewaehlten Folien zaehlen, sonst bleibt der Startknopf gesperrt, obwohl abgewaehlt wurde.
+  // Only the chosen slides count, otherwise the start button stays locked after unticking.
   const gewaehlteFolien = new Set(auswahl.imScreencast);
   const totalWords = slides.reduce(
     (sum, s, i) => (gewaehlteFolien.has(i) ? sum + wordCount(s.script) : sum),
@@ -556,7 +552,7 @@ function ScreencastPageInner() {
     0,
   );
   const scriptOverLimit = totalChars > SCREENCAST_MAX_CHARS;
-  // Geaendert, aber noch nicht angehakt: der Ton bleibt sonst der alte.
+  // Changed but not yet ticked: the audio would otherwise stay the old one.
   const geaenderteOhneHaken = auswahl.geaendert.filter(
     (i) => auswahl.imScreencast.includes(i) && !auswahl.neuVertonen.includes(i),
   ).length;
@@ -759,7 +755,6 @@ function ScreencastPageInner() {
             voiceId={voiceId}
             speed={speed}
             slidePause={slidePause}
-            dpi={dpi}
             subtitles={subtitles}
             slides={slides}
             totalWords={totalWords}
@@ -783,7 +778,6 @@ function ScreencastPageInner() {
             onVoiceIdChange={setVoiceId}
             onSpeedChange={setSpeed}
             onSlidePauseChange={setSlidePause}
-            onDpiChange={setDpi}
             onSubtitlesChange={setSubtitles}
             onBackToScripts={handleBackToScripts}
             onStartRender={handleStartRender}
@@ -801,7 +795,7 @@ function ScreencastPageInner() {
             vorschau={
               <RenderVorschau
                 slides={slides}
-                // Ausgeschlossene Folien bleiben auch im Rueckblick aussen vor.
+                // Excluded slides stay out in the review too.
                 fertig={rueckblick ? slides.map((_, i) => i).filter((i) => !ausgeschlossen.includes(i)) : fertigeFolien}
                 jobUuid={translateJobUuid}
                 speed={speed}
@@ -843,7 +837,7 @@ function ScreencastPageInner() {
             onConfirm={async () => {
               const mode = pendingExit;
               setPendingExit(null);
-              // Der Render-Abbruch loescht den Job nicht, er stoppt nur den Lauf.
+              // Cancelling the render does not delete the job, it only stops the run.
               if (mode === "render") {
                 await abbrechenUndZurueck();
                 return;

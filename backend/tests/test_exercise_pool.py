@@ -1,9 +1,4 @@
-"""Aufgaben aus dem Vorrat holen und Neues einlagern.
-
-Getestet wird die Verteilungslogik ueber mehrere Quellen und das Einlagern; die
-Datenbankseite (eindeutiger Index, Zufall, Ausschluss des Gesehenen) haengt an echtem
-Postgres und ist dort geprueft, nicht hier.
-"""
+"""Checks taking and storing, the database side needs a real Postgres."""
 
 import types
 
@@ -12,7 +7,7 @@ import pytest
 from src.features.ai_assistant.tasks.language_training import _pool
 
 
-# --- wer ueberhaupt mitmacht --------------------------------------------------
+# --- who takes part at all ----------------------------------------------------
 
 @pytest.mark.parametrize("tool", ["flashcards", "karteikarten", "quiz"])
 def test_the_three_source_tools_use_the_pool(tool):
@@ -20,24 +15,19 @@ def test_the_three_source_tools_use_the_pool(tool):
 
 
 def test_the_grammar_tool_is_in_too():
-    # Ihre Aufgaben haengen zusaetzlich am gewaehlten Thema, ihr Vorrat trennt deshalb
-    # auch danach. Kleinere Vorraete, aber nie teurer als vorher.
+    # Grammar splits its pool by topic as well.
     assert _pool.uses_pool("grammatik", "source") is True
 
 
 def test_the_glossary_mode_stays_out():
-    # Zieht aus einer fertigen Begriffsliste und hat das Problem gar nicht.
+    # Draws from a finished term list and does not have the problem at all.
     assert _pool.uses_pool("quiz", "glossary") is False
 
 
 # --- welches Niveau ------------------------------------------------------------
 
 def test_without_an_adaptive_suffix_the_level_is_none(monkeypatch):
-    """Der Zusatz ist genau dann leer, wenn eine der drei Schranken zu ist.
-
-    Dann erzeugt das Werkzeug in seiner Grundformulierung, und die gehoert in den Vorrat
-    ohne Niveau. So koennen Zusatz und Vorrat nicht auseinanderlaufen.
-    """
+    """The suffix is empty as soon as one of the three gates is closed."""
     monkeypatch.setattr("src.database.get_user_language_level",
                         lambda _u: {"language_level": "B1"})
     assert _pool.pool_level("", 7) is None
@@ -60,13 +50,7 @@ def test_an_unreadable_level_falls_back_to_the_level_free_pool(monkeypatch):
 # --- ziehen --------------------------------------------------------------------
 
 def _stub_pool(monkeypatch, bestand: dict):
-    """``bestand`` bildet source_id auf die Fronts ab, die dort liegen.
-
-    Zustandslos, so wie die echte Abfrage. Die weiss nicht, was ein frueherer Aufruf
-    schon geliefert hat: sie laesst nur weg, was in einem **gespeicherten** Satz steckt,
-    und der entsteht erst am Ende des Auftrags. Ein Stub, der seinen Bestand aufbraucht,
-    macht genau den Doppler unsichtbar, um den es hier geht.
-    """
+    """The stub stays stateless, like the real query."""
     gefragt = []
 
     def take(source_id, tool, level, user_id, limit, topic_id=None, exclude_ids=None, kinds=None):
@@ -93,18 +77,14 @@ def test_the_take_is_spread_evenly_over_the_sources(monkeypatch):
     out = _pool.take(["u1", "u2", "u3"], "quiz", None, 1, 6)
     fronts = [i["front"] for i in out]
     assert len(fronts) == 6
-    # zwei aus jeder Quelle, nicht sechs aus der ersten
+    # two from each source, not six from the first
     assert len([f for f in fronts if f in "abcdef"]) == 2
     assert len([f for f in fronts if f in "ghijkl"]) == 2
     assert len([f for f in fronts if f in "mnopqr"]) == 2
 
 
 def test_a_thin_source_lets_the_others_make_up_for_it(monkeypatch):
-    """Das ersetzt die alte Ausgleichsrechnung im Kontext.
-
-    Die hat der kleinsten Quelle erlaubt, allen anderen ihre Groesse aufzuzwingen: vier
-    Buecher plus ein Handout drueckten den Kontext von 393.000 auf 87.000 Zeichen.
-    """
+    """This replaces the old balancing that squeezed the context together."""
     _stub_pool(monkeypatch, {1: ["a"], 2: list("bcdefgh")})
     out = _pool.take(["u1", "u2"], "quiz", None, 1, 6)
     assert len(out) == 6, "die volle Bestellung, obwohl Quelle 1 nur eine Aufgabe hat"
@@ -121,7 +101,7 @@ def test_never_more_than_ordered(monkeypatch):
 
 
 def test_a_failing_pool_read_means_everything_gets_generated(monkeypatch):
-    # Der Vorrat ist eine Abkuerzung, keine Voraussetzung.
+    # The pool is a shortcut, not a requirement.
     def boom(*_a, **_k):
         raise RuntimeError("database is having a day")
 
@@ -130,11 +110,7 @@ def test_a_failing_pool_read_means_everything_gets_generated(monkeypatch):
 
 
 def test_a_pool_smaller_than_the_order_does_not_repeat_itself(monkeypatch):
-    """Der Normalfall bei einem wachsenden Vorrat: er gibt weniger her als bestellt.
-
-    Die zweite Runde fragt dieselbe Quelle noch einmal. Ohne Ausschluss liefert sie
-    dieselben Aufgaben, und der Satz haette jede zweimal.
-    """
+    """Without exclusion the second round returns the same exercises."""
     _stub_pool(monkeypatch, {1: list("abcd")})
     fronts = [i["front"] for i in _pool.take(["u1"], "quiz", None, 1, 10)]
     assert fronts == list("abcd"), f"jede Aufgabe genau einmal, nicht {fronts}"
@@ -148,18 +124,14 @@ def test_the_second_round_brings_new_tasks_and_not_the_first_ones_again(monkeypa
 
 
 def test_the_same_task_from_two_sources_counts_once(monkeypatch):
-    """Zwei Quellen koennen dieselbe Aufgabe im Vorrat haben.
-
-    Der eindeutige Index sitzt je Quelle, ueber die Quellengrenze hinweg faengt er
-    nichts ab. Zwei Folienstaende zum selben Thema reichen dafuer.
-    """
+    """Two sources can hold the same exercise, the index sits per source."""
     _stub_pool(monkeypatch, {1: ["a"], 2: ["a"]})
     fronts = [i["front"] for i in _pool.take(["u1", "u2"], "quiz", None, 1, 2)]
     assert fronts == ["a"], f"derselbe Satz zweimal in einer Uebung: {fronts}"
 
 
 def test_an_exhausted_source_is_not_asked_again(monkeypatch):
-    """Wer weniger liefert als bestellt, ist leer. Eine zweite Abfrage kostet nur."""
+    """Whoever delivers less than ordered is empty, a second query only costs."""
     gefragt = _stub_pool(monkeypatch, {1: ["a"], 2: ["b"]})
     _pool.take(["u1", "u2"], "quiz", None, 1, 6)
     assert [q[0] for q in gefragt] == [1, 2], "keine zweite Runde auf leere Vorraete"
@@ -202,8 +174,7 @@ def test_generated_items_go_into_the_pool_of_their_source(monkeypatch):
 
 
 def test_an_item_without_a_source_stays_out_of_the_pool(monkeypatch):
-    # Es steht nicht fest, zu welcher Quelle sie gehoeren wuerde. Im Satz bleibt sie und
-    # traegt ihren Inhalt dort weiter selbst.
+    # Without an assignable source the exercise stays in the set and carries its own content.
     gespeichert = _stub_store(monkeypatch)
     items = [{"front": "a", "source_label": "Unbekannt.pdf"}, {"front": "b"}]
     _pool.store(items, _ctx(**{"A.pdf": {"id": 1}}), "quiz", None)
@@ -230,8 +201,7 @@ def test_a_full_pool_stops_taking_more(monkeypatch):
 
 
 def test_a_failing_store_does_not_reach_the_caller(monkeypatch):
-    # Einlagern ist eine Verbesserung fuer den naechsten Aufruf, keine Voraussetzung
-    # fuer diesen. Der Satz ist fertig und wird gespeichert.
+    # Storing is an improvement, the set is saved either way.
     def boom(*_a, **_k):
         raise RuntimeError("database is having a day")
 
@@ -247,7 +217,7 @@ def test_storing_nothing_is_harmless(monkeypatch):
     assert gespeichert == []
 
 
-# --- Grammatik trennt zusaetzlich nach Thema --------------------------------------
+# --- grammar splits by topic as well ------------------------------------------
 
 def test_the_grammar_pool_is_asked_per_topic(monkeypatch):
     gefragt = _stub_pool(monkeypatch, {1: list("abc")})
@@ -270,15 +240,10 @@ def test_a_tool_without_a_topic_stores_none(monkeypatch):
     assert gespeichert[0][4] is None
 
 
-# --- Fingerabdruck: laengensicher fuer den Btree-Index --------------------------
+# --- fingerprint: length safe for the btree index -----------------------------
 
 def test_a_very_long_front_still_gets_a_storable_fingerprint(monkeypatch):
-    # Der eindeutige Index auf aia_exercise_pool ist ein Btree, dessen Zeilen nur rund
-    # 2700 Byte gross sein duerfen. Beim Lueckentext ist "front" ein ganzer Text und
-    # kann das reissen. Ohne die Kappung in _fingerprint() wuerde das INSERT dann mit
-    # einer Ausnahme scheitern, store() faengt sie ab und loggt nur eine Warnung, und
-    # der Vorrat fuellte sich fuer dieses Werkzeug nie, obwohl nichts sichtbar kaputt
-    # wirkt.
+    # Without truncation a long text blows the index limit and the pool stays empty.
     fingerprints_gesehen = []
 
     def add(source_id, tool, level, items, fingerprints, topic_id=None):
@@ -292,20 +257,13 @@ def test_a_very_long_front_still_gets_a_storable_fingerprint(monkeypatch):
     _pool.store(items, _ctx(**{"A.pdf": {"id": 1}}), "wortschatz", None)
 
     assert len(fingerprints_gesehen) == 1
-    # Fester Wert und NICHT _pool._FINGERPRINT_HASH_THRESHOLD: die Konstante ist genau
-    # das, was dieser Test bewachen soll. Ein Vergleich gegen sie selbst wuerde gruen
-    # bleiben, auch wenn jemand sie ueber die Btree-Grenze anhoebe (rund 2700 Byte in
-    # der Praxis, siehe Kommentar an der Konstante) und der Fehler wieder einzoege.
+    # A fixed value instead of the constant, otherwise the test checks itself.
     assert len(fingerprints_gesehen[0].encode("utf-8")) <= 2700
-    # Kommt trotzdem an: store() traegt die vom Aufruf zurueckgegebene id ein, genau
-    # wie bei jedem anderen Werkzeug auch.
+    # The returned id still arrives, as with every tool.
     assert items[0]["pool_item_id"] == f"neu-{fingerprints_gesehen[0]}"
 
 
 def test_a_short_front_keeps_its_established_fingerprint():
-    # Bestehende Vorratszeilen wurden mit item_key() roh gespeichert. Aenderte sich der
-    # Fingerabdruck kurzer Fronten mit, bekaeme derselbe Inhalt vor und nach dieser
-    # Aenderung zwei verschiedene Werte, und der Dopplerschutz liesse fuer jede
-    # bestehende Zeile genau einen Doppler durch.
+    # Short fronts have to keep the same fingerprint as before.
     kurz = "Der Satz wird gebildet."
     assert _pool._fingerprint(kurz) == _pool.item_key(kurz)

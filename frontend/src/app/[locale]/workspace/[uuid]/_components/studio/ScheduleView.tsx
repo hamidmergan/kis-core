@@ -121,8 +121,7 @@ export function ScheduleView({
     return () => { cancelled = true; stopPolling(); };
   }, [workspaceUuid, load, startPolling, stopPolling]);
 
-  // Number sources by first appearance across all entries so chips like "[1] S. 23"
-  // line up with the legend at the bottom of the timeline.
+  // Numbered by first appearance, matching the legend.
   const { sourceLegend, sourceNumByUuid } = useMemo(() => {
     const byUuid = new Map<string, number>();
     const legend: { number: number; filename: string; uuid: string }[] = [];

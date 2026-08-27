@@ -16,20 +16,11 @@ from src.services.llm_context_healing import create_with_shrink
 def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uuids: list[str],
                           locale: str = "de", _aia_job_uuid: str | None = None,
                           user_id: int | None = None):
-    """Generate a mindmap from source chunks as a background job.
-
-    `locale` controls the label language (topic/labels); 'keyword' stays verbatim
-    in the source language for highlighting. Defaults to 'de' for older queued tasks.
-    `_aia_job_uuid` is set by the shared-pool dispatcher; when present we report
-    completion so the freed slot is filled.
-    `user_id` drives the adaptive language level (topic/labels pitched at the
-    learner's CEFR level); None for older queued tasks keeps the shipped register.
-    """
+    """Generates a mind map from the sources as a background job."""
     import json as _json
 
     from src.features.ai_assistant.tasks._helpers import learning_tools_language
-    # Wie bei Karteikarten und Quiz: der erzeugte Inhalt folgt der Sprache, die die
-    # Verwaltung eingestellt hat, nicht der Sprachwahl der Person.
+    # The generated content follows the management setting.
     _, language = learning_tools_language()
 
     try:
@@ -47,8 +38,7 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
             return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
 
         context_parts: list[str] = []
-        # Media sources keep their chunks here so we can later turn a node's keyword into a real
-        # timestamp (the model emits a bogus integer page for audio/video, see post-process below).
+        # Media sources keep their chunks so a node can get a timestamp later.
         media_chunks_by_label: dict[str, list] = {}
         for sid, suuid in zip(source_ids, source_uuids):
             source = db.get_aia_source(suuid)
@@ -76,10 +66,7 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
             db.update_aia_mindmap(mindmap_id, "failed", error="Keine Inhalte vorhanden")
             return
 
-        # Fair budget split per source from the admin tool-context setting (whole chunk lines
-        # only). No fixed chunk cap anymore: each document is filled from the start until its
-        # share is full, so a long source contributes far more than the old 20-chunk limit and
-        # the map covers more than just the front of the document.
+        # Fair budget per source, no fixed chunk cap any more.
         from src.features.ai_assistant.tasks._context_budget import tool_context_budget
         budget_per_source = max(1000, tool_context_budget() // max(1, len(source_ids)))
         trimmed_parts: list[str] = []
@@ -106,8 +93,7 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
             metadata={"provider": _provider, "base_url": _base_url, "model": model},
         )
 
-        # Workspace comes from the sources: the adaptive suffix is gated on the
-        # Fachsprachentrainer being on there, exactly like the chat.
+        # The course room comes from the sources, the level block hangs off its switch.
         _first_source = db.get_aia_source(source_uuids[0]) if source_uuids else None
         adaptive_suffix = build_adaptive_tool_suffix(
             user_id, (_first_source or {}).get("workspace_id"),
@@ -117,8 +103,7 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
             {"role": "user", "content": f"/no_think\nCreate a mind map from the following sources. Write topic and labels in {language}:\n\n{context}"},
         ]
 
-        # Retry once on malformed JSON - a re-roll almost always parses, so a
-        # single flaky generation no longer fails the whole mind map.
+        # A second attempt on broken JSON, a re-roll almost always works.
         mindmap = None
         for attempt in range(2):
             response = create_with_shrink(client, endpoint="mindmap", model=model,
@@ -153,11 +138,7 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
             db.update_aia_mindmap(mindmap_id, "failed", error="Invalid mindmap format")
             return
 
-        # Fix media citations only. For audio/video nodes the model emits an integer page_number
-        # (a guess that doesn't even match the real time), which the UI then renders as "S. 7".
-        # Replace it with a REAL timestamp by finding the node's verbatim keyword in the transcript
-        # (plain text match, no embeddings). No keyword match -> drop the bogus number so nothing
-        # wrong is shown. PDF nodes are left exactly as the model produced them.
+        # For media the guessed page number is replaced by a real timestamp.
         def _fix_media_nodes(node):
             if isinstance(node, dict):
                 label = node.get("source_label")
@@ -179,10 +160,7 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
 
         _fix_media_nodes(mindmap)
 
-        # Der Name kommt aus den Knoten der ersten Ebene, nicht aus dem Wurzelknoten.
-        # Der Wurzelknoten ist der Dokumentname, und zwei Mindmaps derselben Quelle
-        # hiessen damit gleich. Kosmetik: schlaegt der Aufruf fehl, bleibt es beim
-        # Wurzelknoten, die Mindmap ist deshalb nicht weniger brauchbar.
+        # The name comes from the first level nodes, not from the root node.
         from src.features.ai_assistant.tasks._titles import resolve_title
         from src.features.ai_assistant.tasks.studio._result_title import (
             mindmap_entries, recent_titles,

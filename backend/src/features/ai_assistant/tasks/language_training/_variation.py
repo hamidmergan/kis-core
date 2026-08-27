@@ -1,22 +1,6 @@
-"""Keeps generated sets from repeating themselves.
+"""Keeps generated sets from getting the same title, via the title alone."""
 
-The set TITLE, and only the title. The context sweep in ``_context_budget`` gives each run
-different material and ``_dedup`` drops any exercise that repeats an earlier one, but
-neither touches the name of the set: the model never learns that a set already exists, so
-it names the document instead of the set and several sets end up sharing one title.
-
-Only titles, deliberately. Listing the earlier ITEMS was tried and reverted: fed back into
-the prompt they act as few-shot material and the model copies them verbatim (see the
-comments in the generators). A title is a single short string with no such pull. That
-same finding is why ``_dedup`` filters after generation instead of warning beforehand.
-
-Language-agnostic by construction: nothing here inspects words, it only passes back text
-the model itself produced earlier.
-"""
-
-# Liegt seit dem Umzug in ``tasks/_titles.py``, weil Mindmap und Datentabelle dieselbe
-# Pruefung brauchen. Hier weiter importiert, damit der Test unveraendert von diesem
-# Modul lesen kann.
+# Lives in tasks/_titles.py, only re-exported here for the test.
 from src.features.ai_assistant.tasks._titles import is_title_taken  # noqa: F401
 
 # The block sits in front of an already large context, so it stays a footnote.
@@ -25,11 +9,7 @@ _MAX_LEN = 90
 
 
 def title_avoidance_block(titles: list[str]) -> str:
-    """Prompt block naming the titles already in use. Empty when there are none.
-
-    Carries a leading blank line, so a caller can append it to a system prompt without
-    checking whether it is empty.
-    """
+    """Prompt block with the titles already taken, empty when there are none."""
     seen: set[str] = set()
     picked: list[str] = []
     for raw in titles:
@@ -53,11 +33,7 @@ def title_avoidance_block(titles: list[str]) -> str:
 
 
 def build_title_avoidance_block(workspace_id: int | None, tool: str) -> str:
-    """The block for this workspace+tool, read from the finished sets.
-
-    A missing workspace (older queued tasks) or a failing query yields an empty block
-    rather than an error: a duplicate title is a blemish, never a reason to fail a set.
-    """
+    """The block for this course room and tool, from the finished sets."""
     if not workspace_id:
         return ""
     from src import database as db
@@ -69,12 +45,7 @@ def build_title_avoidance_block(workspace_id: int | None, tool: str) -> str:
 
 def resolve_set_title(client, model, workspace_id: int | None, tool: str,
                       fallback: str, items: list[dict]) -> str:
-    """The name a finished set gets.
-
-    Everything about the naming itself lives in ``tasks._titles``. What stays here is the
-    one thing that is specific to exercise sets: which titles count as taken, namely the
-    recent ready sets of this workspace and tool.
-    """
+    """The name a finished set gets."""
     from src.features.ai_assistant.tasks._titles import resolve_title
 
     fallback = (fallback or "").strip()

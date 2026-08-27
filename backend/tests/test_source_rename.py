@@ -1,11 +1,4 @@
-"""Umbenennen einer Quelle.
-
-Der Dateiname ist reiner Anzeigename, die Datei selbst heisst nach ihrer UUID.
-Teuer ist nicht das Umbenennen, teuer sind die Kopien: Aufgaben, Vorrat,
-Mindmaps und Datentabellen schreiben den Namen bei ihrer Entstehung fest und
-finden ihre Quelle spaeter ueber Namensgleichheit. Bleiben die Kopien stehen,
-zeigen die Chips in altem Material ins Leere.
-"""
+"""Renaming a source, the expensive part is the name copies in the generated material."""
 
 import pytest
 from fastapi import HTTPException
@@ -38,11 +31,7 @@ def test_umschreiben_trifft_die_legende_einer_datentabelle():
 
 
 def test_umschreiben_laesst_fliesstext_in_ruhe():
-    """Nur unter den beiden Namensschluesseln wird ersetzt.
-
-    Sonst wuerde eine Aufgabe, in deren Antwort zufaellig 'alt.pdf' steht, beim
-    Umbenennen still verfaelscht.
-    """
+    """Replacement happens only under the two name keys."""
     zeile = {"front": "Woher stammt alt.pdf?", "back": "Aus alt.pdf", "source_label": "alt.pdf"}
 
     neu = repo._relabel(zeile, "alt.pdf", "neu.pdf")
@@ -61,7 +50,7 @@ def test_umschreiben_geht_durch_tief_verschachtelte_zeilen():
 
 
 class _FakeCursor:
-    """Cursor-Attrappe. Merkt jede Anweisung mit, liefert vorgegebene Zeilen."""
+    """Cursor stub, records every statement and returns given rows."""
 
     def __init__(self, antworten, calls):
         self._antworten = list(antworten)
@@ -75,8 +64,7 @@ class _FakeCursor:
         return False
 
     def execute(self, sql, params=None):
-        # Ungekuerzt mitschreiben: die Tests pruefen Bestandteile der Anweisung,
-        # ein Abschneiden wuerde sie stillschweigend gruen machen.
+        # Record untruncated, otherwise the tests would silently pass.
         self._calls.append((" ".join(sql.split()), params))
         self._letzte = self._antworten.pop(0) if self._antworten else []
 
@@ -107,7 +95,7 @@ class _FakeConn:
 
 @pytest.fixture
 def datenbank(monkeypatch):
-    """Setzt die Verbindung durch eine Attrappe und liefert Setz- und Lesehilfe."""
+    """Replaces the connection with a stub and returns setter and reader helpers."""
 
     zustand = {"calls": [], "conn": None}
 
@@ -128,8 +116,7 @@ def datenbank(monkeypatch):
     return _vorbereiten
 
 
-# Antwortfolge von rename_aia_source: erst die Quelle, dann drei UPDATE ohne
-# Rueckgabe, dann fuenf SELECT auf die JSON-Spalten.
+# The expected answer sequence of the rename.
 def _antworten_ohne_material(source_id=5, workspace_id=7, alt="alt.pdf"):
     return [
         [(source_id, workspace_id, alt)],  # SELECT auf aia_sources
@@ -159,7 +146,7 @@ def test_umbenennen_zieht_die_textspalten_mit(datenbank):
 
 
 def test_umbenennen_grenzt_auf_den_eigenen_kursraum_ein(datenbank):
-    """Ein gleicher Name in einem anderen Kursraum darf nicht mitgezogen werden."""
+    """An equal name in another course room must not be dragged along."""
     zustand = datenbank(_antworten_ohne_material(workspace_id=7))
 
     repo.rename_aia_source("q1", "neu.pdf")
@@ -196,7 +183,7 @@ def test_umbenennen_schreibt_json_spalten_mit_altem_namen_neu(datenbank):
 
 
 def test_umbenennen_ruehrt_unveraenderte_json_zeilen_nicht_an(datenbank):
-    """Kein Schreibvorgang ohne Aenderung, sonst waechst die Tabelle grundlos."""
+    """No write without a change, otherwise the table grows for no reason."""
     baum = {"topic": "W", "children": [{"topic": "A", "source_label": "andere.pdf"}]}
     antworten = [
         [(5, 7, "alt.pdf")],
@@ -232,11 +219,7 @@ def test_umbenennen_einer_unbekannten_quelle_macht_nichts(datenbank):
 
 
 def _route_vorbereiten(monkeypatch, quellen, eigene="alt.pdf"):
-    """Klinkt Rechtepruefung, Quellenzugriff, Bezeichnung und Datenbank aus.
-
-    ``quellen`` sind die uebrigen Namen im Kursraum, ``eigene`` der aktuelle Name
-    der Quelle, die umbenannt wird.
-    """
+    """Stubs out permission check, source access, label and database."""
     workspace = {"id": 7, "uuid": "w1", "user_id": 42}
     source = {"uuid": "q1", "workspace_id": 7, "filename": eigene}
     andere = [{"uuid": f"x{i}", "filename": n} for i, n in enumerate(quellen)]
@@ -279,11 +262,7 @@ def test_route_verdoppelt_eine_mitgetippte_endung_nicht(monkeypatch):
 
 
 def test_route_wirft_verbotene_zeichen_raus(monkeypatch):
-    """Pfadtrenner und Zeilenumbrueche haben in einem Anzeigenamen nichts zu suchen.
-
-    Der Name landet im Download-Header und im Prompt, beides bricht an einem
-    Zeilenumbruch.
-    """
+    """Path separators and line breaks break header line and prompt."""
     _route_vorbereiten(monkeypatch, [])
 
     assert _umbenennen("a/b\\c\nd") == {"filename": "abcd.pdf"}
@@ -317,14 +296,14 @@ def test_route_lehnt_einen_schon_vergebenen_namen_ab(monkeypatch):
 
 
 def test_route_stoert_sich_nicht_am_eigenen_namen(monkeypatch):
-    """Wer nur die Gross- und Kleinschreibung aendert, darf nicht am Doppel scheitern."""
+    """Whoever only changes the capitalisation must not fail on the duplicate check."""
     _route_vorbereiten(monkeypatch, [], eigene="alt.pdf")
 
     assert _umbenennen("Alt") == {"filename": "Alt.pdf"}
 
 
 def test_route_laesst_eine_quelle_ohne_endung_zu(monkeypatch):
-    """Aeltere Zeilen koennen einen Namen ohne Punkt tragen."""
+    """Older rows can carry a name without a period."""
     _route_vorbereiten(monkeypatch, [], eigene="ohnepunkt")
 
     assert _umbenennen("neu") == {"filename": "neu"}

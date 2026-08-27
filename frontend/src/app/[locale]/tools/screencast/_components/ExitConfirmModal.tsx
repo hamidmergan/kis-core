@@ -11,7 +11,7 @@ interface ExitConfirmModalProps {
   onConfirm: () => void;
 }
 
-// Der Render-Abbruch loescht nichts, deshalb eigene Texte statt der Verwerfen-Warnung.
+// Cancelling the render deletes nothing, hence its own texts instead of the discard warning.
 const TEXTE = {
   cancel: { titel: "exit.cancelTitle", text: "exit.body", warnung: "exit.warning", ja: "exit.confirm", nein: "common.cancel" },
   restart: { titel: "exit.restartTitle", text: "exit.body", warnung: "exit.warning", ja: "exit.confirm", nein: "common.cancel" },

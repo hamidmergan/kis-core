@@ -1,13 +1,4 @@
-"""Folgefragen im Chat: eine kurze Nachfrage wird vor der Suche eigenstaendig gemacht.
-
-Bis hierher stand jede Runde allein. "erklaere genauer" ging als Suchtext in die
-Quellen, traf nichts und bekam den Satz "steht nicht in den Quellen"; "in 3
-Stichpunkten" wurde als GENERIC gelesen und lieferte einen zweiten, unabhaengigen
-Querschnitt derselben Datei. Die letzte Runde geht deshalb in den ohnehin
-vorhandenen Vor-Call, der daraus eine eigenstaendige Frage baut.
-
-Alles offline: hier stehen nur die reinen Stuecke (Filter, Verlaufsblock, Parser).
-"""
+"""A short follow-up question is made self-contained before the search."""
 
 import pytest
 
@@ -23,7 +14,7 @@ RUNDE = {
 }
 
 
-# ── kommt eine Nachfrage ueberhaupt infrage ──────────────────────────────────
+# ── can this be a follow-up question at all ──────────────────────────────────
 
 def test_kurze_frage_mit_vorheriger_runde_kommt_infrage():
     assert fu.ist_nachfrage_moeglich("erklaere genauer", RUNDE) is True
@@ -47,23 +38,21 @@ def test_runde_ohne_antwort_traegt_keinen_zusammenhang():
 
 
 def test_eine_reine_absage_traegt_keinen_zusammenhang():
-    # "Steht nicht in den Quellen" und sonst nichts nennt kein Thema. Eine
-    # Nachfrage darauf eigenstaendig machen zu wollen, kann nur raten.
+    # A pure refusal names no topic, there would be nothing but guessing.
     from src.features.ai_assistant.prompts.refusal_prompts import RAG_NO_INFO_SENTINEL
     for absage in RAG_NO_INFO_SENTINEL.values():
         assert fu.ist_nachfrage_moeglich("erklaere genauer", {**RUNDE, "answer": absage}) is False
 
 
 def test_absage_mit_hinweis_traegt_sehr_wohl_einen_zusammenhang():
-    # Absage plus Hinweis auf etwas Verwandtes: der Hinweis IST ein Thema, auf
-    # das sich "erklaere genauer" beziehen kann.
+    # Refusal plus hint: the hint is a topic.
     from src.features.ai_assistant.prompts.refusal_prompts import RAG_NO_INFO_SENTINEL
     mit_hinweis = (RAG_NO_INFO_SENTINEL["de"]
                    + "\n\nDie Quellen nennen stattdessen eine Hausarbeit als Pruefungsleistung.")
     assert fu.ist_nachfrage_moeglich("erklaere genauer", {**RUNDE, "answer": mit_hinweis}) is True
 
 
-# ── der Verlaufsblock fuer den Vor-Call ──────────────────────────────────────
+# ── the history block for the pre-call ───────────────────────────────────────
 
 def test_verlaufsblock_enthaelt_frage_und_antwort():
     block = fu.verlaufsblock(RUNDE)
@@ -82,11 +71,10 @@ def test_verlaufsblock_wirft_quellenchips_raus():
     assert "S. 3" not in fu.verlaufsblock(mit_chip)
 
 
-# ── die Eingabe fuer den Vor-Call ────────────────────────────────────────────
+# ── the input for the pre-call ───────────────────────────────────────────────
 
 def test_ohne_verlauf_bleibt_die_blanke_frage():
-    # Der Vor-Call ist fein abgestimmt. Ohne Nachfrage-Fall bekommt er Zeichen
-    # fuer Zeichen dieselbe Eingabe wie vorher.
+    # Without a follow-up case the pre-call gets exactly the same input as before.
     assert fu.vorcall_eingabe("Was ist Quellenkritik?", None) == "Was ist Quellenkritik?"
 
 
@@ -96,7 +84,7 @@ def test_mit_verlauf_steht_die_neue_zeile_hinter_dem_block():
     assert "Pruefungsleistung" in eingabe
 
 
-# ── die Antwort des Vor-Calls ────────────────────────────────────────────────
+# ── the pre-call's answer ────────────────────────────────────────────────────
 
 def test_liest_art_und_eigenstaendige_frage():
     roh = ('{"intent":"SPECIFIC","followup":"rewrite",'
@@ -131,7 +119,7 @@ def test_denkblock_und_codezaun_stoeren_nicht():
     assert fu.nachfrage_lesen(roh, "erklaere genauer") == (fu.UMSCHREIBEN, "Erklaere X genauer")
 
 
-# ── lohnt sich der Blick in die Datenbank ────────────────────────────────────
+# ── is the database lookup worthwhile ────────────────────────────────────────
 
 def test_kurze_frage_lohnt_den_blick_in_den_verlauf():
     assert fu.lohnt_nachschlagen("erklaere genauer", None) is True
@@ -146,7 +134,7 @@ def test_lange_frage_lohnt_den_blick_nicht():
     assert fu.lohnt_nachschlagen(lang, None) is False
 
 
-# ── die Quellen der letzten Runde weiterverwenden ────────────────────────────
+# ── reuse the sources of the last round ──────────────────────────────────────
 
 UUID_ZU_ID = {"u1": 11, "u2": 22}
 
@@ -175,8 +163,7 @@ def test_gesehene_seiten_stehen_pro_quelle():
 
 
 def test_bei_ton_und_video_bleibt_die_seitenmenge_leer():
-    # Medien werden ueber die Quelle geprueft und ueber Zeitmarken angesprungen,
-    # die Seitenzahl ist dort nur ein Abschnittszaehler.
+    # Media are checked at source level and jumped to via timestamps.
     runde = {
         "source_qmap": [{"qnum": 1, "uuid": "u1"}],
         "source_pages": [{"source_uuid": "u1", "page_number": 7, "start_time": 12.5}],
@@ -202,11 +189,10 @@ def test_runde_ohne_quellen_gibt_leere_zuordnung():
     assert fu.letzte_quellen({}, UUID_ZU_ID) == ([], {}, {}, [])
 
 
-# ── der Vor-Call-Systemprompt ────────────────────────────────────────────────
+# ── the pre-call system prompt ───────────────────────────────────────────────
 
 def test_ohne_verlauf_ist_der_prompt_unveraendert():
-    # Die Wegwahl des Vor-Calls ist fein abgestimmt. Ohne Nachfrage-Fall darf
-    # sich an seinem Prompt kein Zeichen aendern.
+    # Without a follow-up case not a character of the prompt may change.
     from src.features.ai_assistant.prompts.query_understanding_prompts import (
         AIA_QUERY_UNDERSTANDING_SYSTEM,
         aia_query_understanding_system,
@@ -225,10 +211,10 @@ def test_mit_verlauf_kommen_die_beiden_felder_dazu():
         assert f'"{art}"' in prompt
 
 
-# ── der Vor-Call selbst ──────────────────────────────────────────────────────
+# ── the pre-call itself ──────────────────────────────────────────────────────
 
 class _MitschreibenderLLM:
-    """Attrappe des Anbieters, die mitschreibt, was gesendet wurde."""
+    """Provider stub that records what was sent."""
 
     def __init__(self, inhalt=""):
         self.gesendet: list[dict] = []
@@ -299,7 +285,7 @@ async def test_faellt_der_vorcall_aus_bleibt_die_frage_wie_sie_war():
     assert (art, frage) == (fu.KEINE, "erklaere genauer")
 
 
-# ── die Nachrichten fuers Umformen ───────────────────────────────────────────
+# ── the messages for reshaping ───────────────────────────────────────────────
 
 def test_umformen_schickt_die_alte_antwort_und_die_anweisung():
     nachrichten = fu.umform_nachrichten(RUNDE, "In 3 Stichpunkten", "de", [], "")
@@ -315,19 +301,18 @@ def test_umformen_schickt_die_alten_chips_nicht_mit():
 
 
 def test_umformen_haengt_den_zusatz_ganz_ans_ende():
-    # Der Sprachtrainer-Zusatz traegt die Quellen-Sperre und muss zuletzt stehen.
+    # The trainer suffix carries the source guard and has to come last.
     nachrichten = fu.umform_nachrichten(RUNDE, "kuerzer", "de", [], "\nZUSATZ")
     assert nachrichten[1]["content"].endswith("\nZUSATZ")
 
 
 def test_umformen_kuerzt_die_alte_antwort_nicht():
-    # Beim Umformen IST die alte Antwort der Stoff. Sie darf nicht auf die
-    # Anhaltspunkt-Laenge des Vor-Calls gestutzt werden.
+    # When reshaping the old answer is the material and must not be trimmed.
     lang = {**RUNDE, "answer": "A" * 5000}
     assert "A" * 5000 in fu.umform_nachrichten(lang, "kuerzer", "de", [], "")[1]["content"]
 
 
-# ── die letzte Runde aus der Datenbank ───────────────────────────────────────
+# ── the last round from the database ─────────────────────────────────────────
 
 class _FakeCursor:
     def __init__(self, rows, calls):
@@ -380,7 +365,7 @@ def _zeile(role, content, aborted=False, failed=False, source_pages=None, source
 
 
 def test_letzte_runde_ist_frage_und_zugehoerige_antwort(fake_db):
-    # Neueste zuerst, wie die Abfrage liefert.
+    # Newest first, the way the query delivers.
     fake_db([
         _zeile("assistant", "Sie besteht aus Hausarbeit und Praesentation."),
         _zeile("user", "Was ist die Pruefungsleistung?"),

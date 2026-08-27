@@ -15,9 +15,7 @@ describe("gruppiert", () => {
     expect(raus.map((x) => x.access)).toEqual(["owner", "tutor"]);
   });
 
-  // Der Server sortiert schon so. Die Oberflaeche verlaesst sich nicht darauf:
-  // eine Zwischenueberschrift, die mitten in einer Gruppe steht, waere falsch
-  // und niemandem faellt auf, warum.
+  // The interface does not rely on the server's sort order.
   it("mischt die beiden Gruppen nie ineinander", () => {
     const raus = gruppiert([BETREUT, EIGEN_A, BETREUT, EIGEN_B]);
 
@@ -50,9 +48,7 @@ describe("kopfBei", () => {
     expect(kopfBei(liste, 1)).toBeNull();
   });
 
-  // Anders als auf der Startseite, wo eine einzelne Gruppe immer "was ich
-  // betreue" heisst. Hier waeren es zwei verschiedene Dinge, und wer nur
-  // fremde Module betreut, wuesste sonst nicht, dass keins davon ihm gehoert.
+  // The heading appears even with a single group.
   it("schreibt die Ueberschrift auch, wenn es nur eine Gruppe gibt", () => {
     expect(kopfBei(gruppiert([BETREUT]), 0)).toBe("tutor");
   });

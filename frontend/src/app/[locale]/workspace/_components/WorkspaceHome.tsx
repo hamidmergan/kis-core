@@ -12,17 +12,16 @@ import WorkspaceList from "./WorkspaceList";
 interface LinkPreview {
   workspace_uuid: string;
   title: string;
-  /** Freiwillig gepflegt, deshalb faellt die Zeile ohne sie ersatzlos weg. */
+  /** Maintained voluntarily, so the line drops out entirely without it. */
   description?: string | null;
-  /** Name der Lehrperson, damit der Link ein Gesicht bekommt. */
+  /** Name of the teacher so the link gets a face. */
   owner_name?: string | null;
   access_until?: string | null;
-  /** Whether this person may enter right now. False while the owner has the
-   *  workspace switched off. Joining still works, the room just stays shut. */
+  /** Whether this person may enter right now, enrolling works on a closed room too. */
   is_open?: boolean;
 }
 
-/** Zwei Buchstaben aus dem Namen fuer den Kreis neben der Lehrperson. */
+/** Two letters from the name for the circle next to the teacher. */
 function initialen(name: string): string {
   const teile = name.trim().split(/\s+/).filter(Boolean);
   if (teile.length === 0) return "";
@@ -36,8 +35,7 @@ interface Props {
   firstName: string;
 }
 
-/** One home page for every role. Joining a workspace via access link works for
- *  everyone, and the workspace itself decides owner vs student by ownership. */
+/** One start page for all roles, ownership decides the view. */
 export default function WorkspaceHome({ canCreate, firstName }: Props) {
   const t = useTranslations("workspace.list");
   const locale = useLocale();
@@ -49,9 +47,7 @@ export default function WorkspaceHome({ canCreate, firstName }: Props) {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewCode, setPreviewCode] = useState<string | null>(null);
   const [previewInvalid, setPreviewInvalid] = useState(false);
-  // Joined a workspace that is switched off: the enrollment is in place, the
-  // room is not. Without this notice the person would land on a list whose new
-  // row is greyed out, with nothing saying why.
+  // Enrolled in a closed course, without a notice the grey row would be inexplicable.
   const [joinedClosed, setJoinedClosed] = useState(false);
 
   useEffect(() => {
@@ -100,8 +96,7 @@ export default function WorkspaceHome({ canCreate, firstName }: Props) {
         throw new Error(err.detail ?? t("enrollInvalidCode"));
       }
       const data = (await res.json()) as { workspace_uuid?: string; is_open?: boolean };
-      // Walking into a closed workspace would only earn a locked page, so the
-      // way leads back to the list, where the fresh row carries the hint.
+      // The way leads to the list, where the new row carries the notice.
       if (data.is_open === false) {
         setJoinedClosed(true);
         router.replace("/");

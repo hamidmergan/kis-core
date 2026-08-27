@@ -1,11 +1,11 @@
-"""Welche Folien in den Screencast kommen und welche ihren alten Ton behalten."""
+"""Which slides go into the screencast and which keep their old audio."""
 
 from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
 class Auswahl:
-    """Die drei Sichten auf dieselbe Entscheidung, damit niemand sie neu rechnet."""
+    """The three views on the same decision so nobody recomputes it."""
 
     clip_folien: list[int]
     ausgeschlossen: set[int]
@@ -17,12 +17,7 @@ def folien_auswahl(
     video_folien: list[int] | None,
     neu_vertonen: list[int] | None,
 ) -> Auswahl:
-    """``video_folien`` gleich None heisst alle Folien.
-
-    Nummern ausserhalb des Bereichs fallen weg. Die Route lehnt sie schon ab,
-    hier steht es nochmal, damit ein alter Auftrag aus der Warteschlange die
-    Pipeline nicht zerlegt.
-    """
+    """None means all slides, numbers outside the range are dropped."""
     alle = set(range(anzahl))
     dabei = alle if video_folien is None else {i for i in video_folien if i in alle}
     neu = {i for i in (neu_vertonen or []) if i in alle}
@@ -34,16 +29,16 @@ def folien_auswahl(
 
 
 def clip_paare(clip_folien: list[int], num_slides: int) -> list[tuple[int, int]]:
-    """Je Clip die Bauposition und die Foliennummer, die zusammengehoeren."""
+    """Per clip the build position and the slide number that belong together."""
     return list(enumerate(i for i in clip_folien if i < num_slides))
 
 
 def ton_plaetze(anzahl: int, clip_folien: list[int]) -> list[bool]:
-    """Wahr nur dort, wo neuer Ton hinkommt, sonst bleibt der alte liegen."""
+    """True only where new audio goes, otherwise the old one stays."""
     dabei = set(clip_folien)
     return [i in dabei for i in range(anzahl)]
 
 
 def zu_sprechende_folien(clip_folien: list[int], scripts: list[str], schon_da: set[int]) -> int:
-    """Zaehlt die Folien, die noch echten Ton brauchen, weder aus dem Vorrat noch leer."""
+    """Counts the slides that still need real audio, neither pooled nor empty."""
     return sum(1 for i in clip_folien if i not in schon_da and scripts[i].strip())

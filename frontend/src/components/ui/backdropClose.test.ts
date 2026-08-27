@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { backdropClose, newBackdropPress } from "./backdropClose";
 
-/** Ein Ereignis, wie React es liefert: worauf gedrueckt wurde und wo der Griff sitzt. */
+/** An event as React delivers it: what was pressed and where the handle sits. */
 function ereignis(target: unknown, currentTarget: unknown) {
   return { target, currentTarget } as never;
 }
@@ -20,8 +20,7 @@ describe("backdropClose", () => {
   });
 
   it("bleibt offen, wenn das Markieren im Feld begann und daneben endete", () => {
-    // Genau der Fall, der genervt hat: der Browser feuert den Klick dann auf dem
-    // gemeinsamen Elternteil, also auf dem Hintergrund.
+    // Exactly the annoying case: the click lands on the shared parent.
     let zu = false;
     const h = backdropClose(newBackdropPress(), () => { zu = true; });
     h.onMouseDown(ereignis(FELD, HINTERGRUND));
@@ -38,7 +37,7 @@ describe("backdropClose", () => {
   });
 
   it("vergisst den vorherigen Griff nicht bis zum naechsten Druck", () => {
-    // Nach einem Markieren muss ein echter Klick daneben wieder schliessen.
+    // After a selection a real click outside has to close again.
     let zu = 0;
     const press = newBackdropPress();
     const h = backdropClose(press, () => { zu += 1; });
@@ -50,7 +49,7 @@ describe("backdropClose", () => {
   });
 
   it("schliesst nicht, solange es abgeschaltet ist", () => {
-    // Fuer Fenster, die waehrend des Speicherns nicht weggehen duerfen.
+    // For dialogs that must not go away while saving.
     let zu = false;
     const press = newBackdropPress();
     const h = backdropClose(press, () => { zu = true; }, false);

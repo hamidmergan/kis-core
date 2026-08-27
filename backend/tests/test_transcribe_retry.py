@@ -1,12 +1,4 @@
-"""run_transcribe retry policy: every *transient* upstream failure requeues with
-backoff, a permanent one fails straight away.
-
-Wider than the AIA ingestion policy on purpose. AIA only requeues on 429 because
-a failed source has a retry button in the UI ("nothing is lost"). A transcription
-job has none — /jobs/{uuid}/retry accepts tts and screencast only — so a 502 on
-chunk 11 of 12 used to throw away eleven finished chunks and cost the user the
-whole file again, quota included. The per-chunk Redis cache makes the requeue
-nearly free, which is exactly what it was built for."""
+"""Every temporary disruption re-queues, a permanent one fails right away."""
 import contextlib
 
 import pytest
@@ -46,11 +38,7 @@ class _RaisingClient:
 
 @pytest.fixture
 def env(monkeypatch):
-    """No-op the side effects so the task body runs straight to the except branch.
-
-    Returns ``(set_error, failed)``: ``set_error(msg)`` installs a whisper client that
-    raises ``msg`` (monkeypatched, so it is restored after the test), ``failed`` records
-    a ``_handle_task_exception`` call."""
+    """Silences the side effects so the job runs into the error branch."""
     import src.dependencies as deps
 
     monkeypatch.setattr(gt.db, "update_job_status", lambda *a, **k: None)

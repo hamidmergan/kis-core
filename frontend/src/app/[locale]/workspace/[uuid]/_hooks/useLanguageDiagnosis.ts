@@ -49,13 +49,7 @@ function clearDraft(userId: number | null | undefined) {
   }
 }
 
-/**
- * Drives the CEFR diagnosis chat.
- *
- * The transcript is the whole state: it is posted back to the backend on every
- * turn and mirrored into localStorage, so a reload lands the learner back where
- * they left off instead of restarting the interview.
- */
+/** The history is the whole state and survives a reload. */
 export function useLanguageDiagnosis(
   userId: number | null | undefined,
   workspaceUuid: string,
@@ -65,9 +59,7 @@ export function useLanguageDiagnosis(
   const [result, setResult] = useState<DiagnosisResult | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // How many questions the test has, and the soft answer-length cap. Both are
-  // admin-configurable; the backend is the authority. The imported constants are
-  // fallbacks until the config call lands (or if it fails).
+  // Question count and answer length come from the server, the constants are a fallback.
   const [questionCount, setQuestionCount] = useState(DIAGNOSIS_QUESTION_COUNT);
   const [answerMaxChars, setAnswerMaxChars] = useState(DIAGNOSIS_ANSWER_MAX_CHARS);
   useEffect(() => {
@@ -81,8 +73,7 @@ export function useLanguageDiagnosis(
       .catch(() => { /* keep fallbacks */ });
   }, []);
 
-  // The transcript the next request must send. Kept in a ref so `send` never
-  // captures a stale copy and the kickoff effect can run exactly once.
+  // As a ref so no stale history is sent along.
   const turnsRef = useRef<ChatTurn[]>([]);
   const startedRef = useRef(false);
 
@@ -105,10 +96,7 @@ export function useLanguageDiagnosis(
           throw new Error(errBody.detail || `HTTP ${res.status}`);
         }
         const data = (await res.json()) as DiagnosisTurnResponse;
-        // A running turn is one question. Option questions carry their shuffled
-        // values and a multi flag so the client renders radio vs checkbox, a gap
-        // fill carries short so it gets a one-line box; the verdict has none of
-        // them and is shown by the result screen.
+        // A running turn is one question, the verdict carries none of these fields.
         const next: ChatTurn[] = [
           ...history,
           data.done
@@ -161,24 +149,18 @@ export function useLanguageDiagnosis(
   const send = useCallback(
     (text: string, selected?: string[]) => {
       if (status !== "answering") return;
-      // An empty answer is a deliberate skip: the learner clicked "next" without
-      // answering. The backend treats a blank answer as not coping with that
-      // band (see the grading rules), so an overwhelmed learner always has a way
-      // forward instead of getting stuck on a hard question.
+      // An empty answer is a deliberate skip and counts as not coped with.
       const trimmed = text.trim();
       const answer: ChatTurn = {
         role: "user",
         content: trimmed,
-        // Clicked options ride in `selected` so the server grades them in code;
-        // a free-typed answer (or a skip) has none and the final call interprets it.
+        // Clicked options ride along in selected, free text has none.
         ...(selected && selected.length ? { selected } : {}),
       };
       const withAnswer: ChatTurn[] = [...turnsRef.current, answer];
       turnsRef.current = withAnswer;
       setTurns(withAnswer);
-      // The draft is only written once the next question arrives, so a saved
-      // transcript always ends on an assistant turn. A failed turn therefore
-      // resumes at the last question rather than at a dangling answer.
+      // The draft is only written with the next question, an abort resumes at the last one.
       void requestTurn(withAnswer);
     },
     [status, requestTurn],

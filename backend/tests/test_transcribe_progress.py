@@ -1,9 +1,4 @@
-"""Chunk progress reaches the job row, so the UI can say "part 3 of 12".
-
-A 90-minute recording is eleven chunks and many minutes of waiting, during which
-the job said nothing but "running". The chunk loop already knows the count, it
-just never reported it.
-"""
+"""The per-part progress reaches the job row."""
 import contextlib
 
 import pytest

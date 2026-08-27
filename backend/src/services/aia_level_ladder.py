@@ -1,29 +1,14 @@
-"""Die Stufen-Leiter: was eine CEFR-Stufe ausmacht.
-
-Genau EINE Quelle für die Frage "wie schreibt jemand auf Stufe X". Vorher stand
-die Antwort an vier Stellen: in den Einstufungs-Regeln der Diagnose, in den
-Beispielsätzen, im adaptiven Chat-Verhalten und noch einmal im Werkzeug-Verhalten.
-Sie liefen auseinander, und ein Sprachexperte musste vier englische Prompt-Texte
-pflegen, um eine Stufe zu schärfen.
-
-Bewusst ohne Importe aus den anderen aia-Modulen: die importieren von hier, nie
-umgekehrt, sonst entsteht ein Ringschluss.
-"""
+"""The one source for what makes up a language level."""
 
 import json
 
-# Die CEFR-Leiter in fester Reihenfolge. Alles, was pro Stufe gepflegt wird
-# (Beschreibungen, Beispielsätze), folgt dieser Liste.
+# The level ladder in fixed order.
 LEVELS: tuple[str, ...] = ("A1", "A2", "B1", "B2", "C1", "C2")
 
-# Admin-Einstellung, JSON-Objekt Stufe -> Beschreibung. Leerer Wert bedeutet
-# "Standard aktiv", genau wie bei den Beispielsätzen.
+# Admin setting from level to description, empty means default.
 LEVEL_DESCRIPTIONS_SETTING = "language_diagnosis_level_descriptions_de"
 
-# Deutsch, weil ein Sprachexperte sie im Admin liest und schreibt. Sie landen in
-# einem englischen Prompt; bei den Beispielsätzen ist das seit jeher so und die
-# Modelle stören sich nicht daran. Inhaltlich wörtlich die Liste, die bis 2026-08
-# am Ende der englischen Einstufungs-Regeln stand.
+# German, because a language expert reads and writes it in the admin area.
 DEFAULT_LEVEL_DESCRIPTIONS: dict[str, str] = {
     "A1": "Einzelne Wörter und auswendig gelernte Sätze, nur Gegenwart. Die Verständigung bricht oft ab.",
     "A2": "Einfache Hauptsätze über den Alltag, Vergangenheit wird versucht und oft falsch. Sehr kleiner Wortschatz.",
@@ -35,11 +20,7 @@ DEFAULT_LEVEL_DESCRIPTIONS: dict[str, str] = {
 
 
 def parse_level_descriptions(raw: str) -> dict:
-    """Die Admin-Beschreibungen (JSON), auf die Standards gemergt.
-
-    Ein fehlender oder kaputter Eintrag behält den Standard, damit nie eine Stufe
-    ohne Beschreibung in den Prompt geht. Gleiche Regel wie bei den Beispielen.
-    """
+    """The admin descriptions, merged onto the defaults."""
     descriptions = dict(DEFAULT_LEVEL_DESCRIPTIONS)
     if not raw or not raw.strip():
         return descriptions
@@ -57,11 +38,7 @@ def parse_level_descriptions(raw: str) -> dict:
 
 
 def build_levels_block(descriptions: dict) -> str:
-    """Die Beschreibungen als Aufzählung, eine Zeile je Stufe.
-
-    Nur die Zeilen: der erklärende Satz darüber steht sichtbar im Prompt, damit
-    nichts heimlich hineingemischt wird.
-    """
+    """The descriptions as a bullet list, one line per level."""
     lines = []
     for level in LEVELS:
         text = (descriptions.get(level) or "").strip()
@@ -71,26 +48,14 @@ def build_levels_block(descriptions: dict) -> str:
 
 
 def description_for_level(level: str | None, descriptions: dict) -> str:
-    """Die Beschreibung der EINEN Stufe eines Lernenden.
-
-    Leer ohne Stufe oder ohne hinterlegte Beschreibung, dann bleibt der
-    Platzhalter im Verhaltenstext einfach leer.
-    """
+    """The description of a learner's one level, empty otherwise."""
     if not level:
         return ""
     return (descriptions.get(level) or "").strip()
 
 
 def resolve_prompt_setting(stored: str | None, legacy: str, default: str) -> str:
-    """Gespeicherter Prompt-Text, aber der alte Standard zählt als "nicht gesetzt".
-
-    Wer nie editiert hat, hat auch nichts gespeichert und bekommt den neuen
-    Standard von allein. Wer den Text einmal angefasst und wieder auf den alten
-    Standard gebracht hat, hätte ohne diese Regel die alte Stufen-Liste doppelt im
-    Prompt. Ein eigener Text bleibt unangetastet.
-
-    Idempotent, deshalb braucht es keinen Datenbank-Migrationsschritt.
-    """
+    """Stored prompt text, the old default counts as not set."""
     text = (stored or "").strip()
     if not text or text == legacy.strip():
         return default

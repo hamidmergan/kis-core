@@ -1,9 +1,6 @@
 "use client";
 
-/**
- * Whitelist. Der Schalter dafür stand vorher unter System, also an einer ganz
- * anderen Stelle als die Liste, die er steuert. Jetzt stehen beide zusammen.
- */
+/** Switch and list now sit together. */
 
 import { useTranslations } from "next-intl";
 import WhitelistTab from "../../_components/WhitelistTab";

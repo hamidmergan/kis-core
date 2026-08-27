@@ -7,14 +7,14 @@ import { ChartBar, DotsThreeVertical, LinkSimple, PencilSimple, SignOut, Trash, 
 import IconButton from "@/components/ui/IconButton";
 
 interface WorkspaceMenuProps {
-  /** Jeder Eintrag erscheint nur, wenn es ihn fuer diese Zeile gibt. */
+  /** Every entry appears only when it exists for this row. */
   onStats?: () => void;
   onParticipants?: () => void;
   onLinks?: () => void;
   onEdit?: () => void;
   /** Left out for tutors: deleting the workspace stays with the owner. */
   onDelete?: () => void;
-  /** Nur bei Demo-Kursen, echte Kurse lassen sich hier nicht verlassen. */
+  /** Demo courses only, real courses cannot be left here. */
   onLeave?: () => void;
   testId?: string;
 }

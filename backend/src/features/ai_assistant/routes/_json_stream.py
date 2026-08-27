@@ -1,4 +1,4 @@
-"""Baut aus den Feldern der Modellantwort schon waehrend des Streamens Markdown."""
+"""Builds Markdown from the fields of the model answer while it is still streaming."""
 
 from typing import Optional
 
@@ -6,23 +6,21 @@ from loguru import logger
 
 from src.features.ai_assistant.prompts.refusal_prompts import is_bare_term
 
-# Ein Rueckstrich vor einem Buchstaben ist in dieser Antwort fast immer ein LaTeX-Befehl
-# und kein JSON-Zeichen, darum bleibt er stehen.
+# A backslash before a letter is almost always LaTeX here and stays.
 _ECHTE_FLUCHT = {"n": "\n", '"': '"', "\\": "\\", "/": "/"}
 
-# Nur "\\u" traegt vier Hex-Ziffern hinter sich und meint darum ein echtes Zeichen.
+# Only '\u' carries four hex digits behind it and therefore means a real character.
 _HEX = "0123456789abcdefABCDEF"
 
-# Ohne Deckel fuellt das Modell das Feld weiter, bis der echte Stoff alle ist.
+# Without a cap the model keeps filling the field until the real material runs out.
 MAX_EINTRAEGE = 5
 
-# Zwischen zwei Feldern erlaubt JSON beliebig viel Leerraum, und genau darin blieb das
-# Modell schon minutenlang haengen. Ein huebsch eingerueckter Aufbau bleibt weit darunter.
+# Between two fields the model has hung in whitespace for minutes.
 LEERLAUF_MAX = 200
 
 
 class AntwortStrom:
-    """Nimmt die Haeppchen des Modells und gibt fertigen Text fuer den Chat heraus."""
+    """Takes the model's chunks and hands out finished text for the chat."""
 
     def __init__(self, max_eintraege: int | None = MAX_EINTRAEGE) -> None:
         self.gap: Optional[str] = None
@@ -39,13 +37,13 @@ class AntwortStrom:
         self._eintraege = 0
         self._max = max_eintraege
         self.genug = False
-        # Steht das auf True, ist aus diesem Strom nichts mehr zu holen.
+        # When this is True there is nothing left to get from this stream.
         self.fertig = False
         self.grund = ""
         self._leerlauf = 0
 
     def feed(self, stueck: str) -> str:
-        """Gibt zurueck, was von diesem Haeppchen in den Chat gehoert."""
+        """Returns whatever part of this chunk belongs in the chat."""
         if self._zustand == "roh":
             return stueck
         return "".join(self._zeichen(z) for z in stueck)
@@ -53,7 +51,7 @@ class AntwortStrom:
     # -- Hilfen ---------------------------------------------------------------
 
     def _entwerte(self, z: str) -> str:
-        """Loest ein JSON-Fluchtzeichen auf und laesst LaTeX-Befehle unversehrt."""
+        """Resolves a JSON escape and leaves LaTeX commands intact."""
         if self._hex is None:
             self._escape = False
             if z == "u":
@@ -61,7 +59,7 @@ class AntwortStrom:
                 return ""
             return _ECHTE_FLUCHT.get(z, "\\" + z)
         if z not in _HEX:
-            # Keine vier Hex-Ziffern, also war es doch ein LaTeX-Befehl.
+            # Not four hex digits, so it was a LaTeX command after all.
             ziffern, self._hex = self._hex, None
             return "\\u" + ziffern + z
         self._hex += z
@@ -71,7 +69,7 @@ class AntwortStrom:
         return self._aus_hex(ziffern)
 
     def _aus_hex(self, ziffern: str) -> str:
-        """Setzt aus vier Hex-Ziffern ein Zeichen zusammen, notfalls aus zwei Haelften."""
+        """Assembles a character from four hex digits, from two halves if needed."""
         punkt = int(ziffern, 16)
         if 0xD800 <= punkt <= 0xDBFF:
             self._hoch = ziffern
@@ -83,7 +81,7 @@ class AntwortStrom:
         return chr(punkt)
 
     def _sammle(self, z: str) -> Optional[str]:
-        """Liest eine Zeichenkette ein und gibt sie zurueck, sobald sie zu Ende ist."""
+        """Reads a string and returns it as soon as it ends."""
         if not self._offen:
             if z == '"':
                 self._offen = True
@@ -101,13 +99,13 @@ class AntwortStrom:
         return None
 
     def _schluss_melden(self, grund: str) -> None:
-        """Merkt sich, warum hier Schluss ist, damit der Aufrufer den Strom beendet."""
+        """Remembers why it stops here so the caller can end the stream."""
         if not self.fertig:
             self.fertig = True
             self.grund = grund
 
     def _leerlauf_pruefen(self, z: str) -> None:
-        """Zaehlt Leerraum zwischen den Feldern und meldet ein steckengebliebenes Modell."""
+        """Counts whitespace between the fields and reports a stuck model."""
         if self._offen or not z.isspace():
             self._leerlauf = 0
             return
@@ -118,36 +116,36 @@ class AntwortStrom:
             self._schluss_melden("leerlauf")
 
     def _zeige(self, text: str) -> str:
-        """Haelt zurueck, was ueber die Obergrenze der Eintraege hinausgeht."""
+        """Holds back whatever goes beyond the ceiling on entries."""
         if self._max is None or self._eintraege <= self._max:
             return text
         self.genug = True
         return ""
 
     def _absage(self, bruecke: str = "") -> str:
-        """Fuegt Absage und Brueckenteil zu einem einzigen Satz zusammen."""
+        """Joins refusal and bridge part into a single sentence."""
         luecke, self._luecke = self._luecke, ""
         if not luecke:
             return (self._schluss(self._gross(bruecke), ":") + "\n") if bruecke else ""
-        # Nur melden, nicht reparieren: einen Satz kann der Code nur auf Deutsch bauen.
+        # Only report, do not repair: the code can only build a sentence in German.
         if is_bare_term(luecke):
             logger.warning("absage: begriff statt satz im feld, {!r}", luecke)
-        # gap traegt die gerenderte Form, sonst findet chat.py die Absage-Zeile nicht mehr.
+        # gap carries the rendered form, otherwise chat.py no longer finds the refusal line.
         if not bruecke:
             self.gap = self._schluss(self._gross(luecke), ".")
             return self.gap + "\n\n"
-        # Das Komma setzt der Zusammenbau, ein eigenes am Satzende waere das zweite.
+        # The join adds the comma, one of its own at the sentence end would be the second.
         self.gap = self._gross(luecke.rstrip().rstrip(".,"))
         return self._schluss(self.gap + ", " + bruecke.lstrip(" ,"), ":") + "\n"
 
     @staticmethod
     def _gross(satz: str) -> str:
-        """Satzanfang gross, weil die Kleinschreib-Regel der Bruecke auf die Absage abfaerbt."""
+        """Capitalise the start, the bridge's lowercase rule bleeds onto the refusal."""
         return satz[:1].upper() + satz[1:]
 
     @staticmethod
     def _schluss(satz: str, zeichen: str) -> str:
-        """Setzt das fehlende Satzende, das Modell laesst es beim Streamen oft weg."""
+        """Adds the missing sentence end, the model often drops it while streaming."""
         kern = satz.rstrip()
         return kern if not kern or kern[-1] in ".:!?" else kern + zeichen
 
@@ -170,7 +168,7 @@ class AntwortStrom:
             self._gesehen += z
             if not self._gesehen.strip():
                 return ""
-            # Kein JSON: das Schema wurde ignoriert, alles faellt unveraendert durch.
+            # Not JSON: the schema was ignored, everything falls through unchanged.
             if not self._gesehen.lstrip().startswith("{"):
                 self._zustand = "roh"
                 return self._gesehen
@@ -188,7 +186,7 @@ class AntwortStrom:
             fertig = self._sammle(z)
             if fertig is not None:
                 self.gap = fertig
-                # Zurueckhalten, bis die Bruecke da ist: beide bilden einen Satz.
+                # Hold back until the bridge arrives, the two form one sentence.
                 self._luecke = fertig
                 self._zustand = "warte_bridge"
             return ""

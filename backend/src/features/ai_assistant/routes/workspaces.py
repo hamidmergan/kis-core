@@ -80,12 +80,7 @@ def _parse_optional_expiry(raw: str | None, locale: str) -> datetime | None:
 
 
 def _managed_workspace_payload(m: dict, access: str, shared: bool) -> dict:
-    """Row for someone who manages this workspace, owner or tutor alike.
-
-    Tutors handle enrollment links like the owner: inviting learners does not
-    widen the circle of people with rights. What stays with the owner is deleting
-    the workspace, which is unrecoverable, and handing out tutor rights.
-    """
+    """Row for someone who manages the course room, owner or tutor."""
     sources = db.get_aia_sources_by_workspace(m["id"])
     links = db.get_access_links_by_workspace(m["id"])
     return {
@@ -117,13 +112,7 @@ def _managed_workspace_payload(m: dict, access: str, shared: bool) -> dict:
 
 @router.get("/ai-assistant/workspaces")
 async def list_workspaces(current_user: dict = Depends(get_current_user)):
-    """Every workspace the user can reach, in one list.
-
-    ``access`` says how they reach it: 'owner', 'tutor' or 'student'. Owners and
-    tutors get the full management payload, students the plain one. A workspace
-    joined through several student links still appears once per enrollment,
-    because those have separate chat histories.
-    """
+    """All reachable course rooms in one list, with the kind of access."""
     user_id = current_user["user_id"]
     with_tutors = db.get_workspace_ids_with_tutors()
     result = []
@@ -154,13 +143,11 @@ async def list_workspaces(current_user: dict = Depends(get_current_user)):
             "enrollment_id": m.get("enrollment_id"),
             "enrolled_until": m["enrolled_until"].isoformat() + "Z" if m.get("enrolled_until") else None,
             "created_at": m["created_at"].isoformat() + "Z" if m["created_at"] else None,
-            # Ueber die Demo beigetreten oder ueber einen richtigen Link, das
-            # entscheidet ueber Abzeichen und Verlassen in der Zeile.
+            # Joined through the demo or through a real link.
             "via_demo": bool(m.get("via_demo")),
         })
 
-    # A student row for a workspace the user also tutors would be a duplicate
-    # with fewer rights, so the stronger role wins.
+    # The stronger role wins, otherwise the row would appear twice.
     result = [r for r in result if not (r["access"] == "student" and r["uuid"] in seen_as_tutor)]
     return result
 
@@ -169,14 +156,7 @@ async def list_transcript_languages(
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    """Languages a transcript or a selection may be translated into. Single source
-    of truth is i18n.TRANSCRIPT_LANGUAGES.
-
-    Each entry also carries its ``deepl`` code, because the browser labels these
-    pickers from its own ``langLabels`` messages — the same way every other
-    language picker in the app does. ``label`` stays for callers without those
-    messages, but it follows Accept-Language, not the UI locale, so the browser
-    should prefer ``deepl``."""
+    """The languages that can be translated into, from i18n.TRANSCRIPT_LANGUAGES."""
     from src.i18n import DEFAULT_TRANSCRIPT_TARGET
     languages = [
         {"id": code, "deepl": meta["deepl"], "label": t(f"lang.{meta['deepl']}", locale)}
@@ -197,12 +177,10 @@ async def get_workspace(
         db.touch_aia_workspace_visited(workspace_uuid)
     sources = db.get_aia_sources_by_workspace(workspace["id"])
     chapters = db.get_aia_chapters_by_workspace(workspace["id"])
-    # Die Quelle kennt nur die interne id ihres Kapitels. Nach aussen geht
-    # ausschliesslich die uuid, wie ueberall sonst auch.
+    # Only the chapter's uuid goes outside, never the internal id.
     chapter_uuid_by_id = {c["id"]: c["uuid"] for c in chapters}
     links = db.get_access_links_by_workspace(workspace["id"])
-    # Tutors manage the workspace like its owner, so the UI follows can_manage.
-    # is_owner stays literal ownership, it is not a permission.
+    # The interface follows can_manage, is_owner stays pure ownership.
     can_manage = is_owner or db.is_workspace_tutor(workspace["id"], current_user["user_id"])
     return {
         "uuid": workspace["uuid"],
@@ -214,13 +192,10 @@ async def get_workspace(
         "can_manage": can_manage,
         "transcript_target_lang": workspace.get("transcript_target_lang", "en"),
         "diagnosis_language": workspace.get("diagnosis_language", DEFAULT_DIAGNOSIS_LANGUAGE),
-        # Sprachtrainer: the stored owner decision only counts while the admin has
-        # the feature switched on system-wide. The raw admin flag goes along so the
-        # settings dialog can hide the owner switch instead of offering a dead one.
+        # The course's decision only counts while the admin switch is on.
         "language_training_enabled": db.is_language_training_enabled_globally(),
         "language_training_active": db.is_language_training_active(workspace["id"]),
-        # Global admin switch. The source list only offers "catch up text recognition"
-        # while it is on, otherwise the entry would be a dead end.
+        # Without the admin switch the catch-up entry would be a dead end.
         "ocr_enabled": db.get_setting("ocr_enabled", "true").lower() == "true",
         "staff_note_text": workspace.get("staff_note_text"),
         "staff_note_links": workspace.get("staff_note_links") or [],
@@ -259,12 +234,7 @@ async def get_workspace(
     }
 
 def _dispatch_transcript_retranslation(workspace: dict, target_lang: str) -> None:
-    """Re-translate every ready media source in the workspace into ``target_lang``.
-
-    Owner-only path, fired when the workspace target language changes. No-op when
-    no provider is configured. The task itself skips sources whose source language
-    already equals the target and cleans up stale VTTs.
-    """
+    """Re-translates every finished media source of the course room, owner only."""
     from src.services import feature_router, aia_chunker
     try:
         binding = feature_router.resolve("transcript_translate")
@@ -304,9 +274,7 @@ async def patch_workspace(
             raise HTTPException(status_code=400, detail=t("ai.workspace.transcriptTargetLangInvalid", locale))
         prev_target = workspace.get("transcript_target_lang", "en")
         db.set_aia_workspace_transcript_target_lang(workspace_uuid, body.transcript_target_lang)
-        # Switching the target re-translates existing media sources into the new
-        # language (overwrite-when-ready: the task writes the new VTT, then drops
-        # the stale one). Skipped when the target is unchanged.
+        # Changing the target language re-translates existing media sources.
         if body.transcript_target_lang != prev_target:
             _dispatch_transcript_retranslation(workspace, body.transcript_target_lang)
     if body.diagnosis_language is not None:
@@ -314,14 +282,10 @@ async def patch_workspace(
             raise HTTPException(status_code=400, detail=t("ai.workspace.diagnosisLanguageInvalid", locale))
         db.set_aia_workspace_diagnosis_language(workspace_uuid, body.diagnosis_language)
     if body.language_training_active is not None:
-        # Only writable while the feature is on system-wide, so a stale dialog cannot
-        # switch on something the admin has retired.
+        # Only writable while the admin has released the feature.
         if not db.is_language_training_enabled_globally():
             raise HTTPException(status_code=403, detail=t("ai.workspace.languageTrainingDisabled", locale))
-        # Whoever manages the workspace decides whether it offers the trainer. The
-        # admin switch above frees the feature for the platform, it does not make
-        # every course a decision only admins may take. _require_workspace_manage
-        # ran above, so a foreign workspace stays closed either way.
+        # Whoever manages the course room decides whether it offers the trainer.
         db.set_aia_workspace_language_training(workspace_uuid, body.language_training_active)
     if body.staff_note_text is not None or body.staff_note_links is not None:
         new_text = body.staff_note_text if body.staff_note_text is not None else workspace.get("staff_note_text")
@@ -452,11 +416,7 @@ async def set_participant_role(
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    """Make a participant a tutor, or take it back. Owner only.
-
-    Deliberately not open to tutors: whoever can promote can grow the circle of
-    people with full rights without the owner ever noticing.
-    """
+    """Makes someone a tutor or takes it back, owner only."""
     workspace = _require_workspace_owner(workspace_uuid, current_user["user_id"], locale=locale)
     if user_id == workspace["user_id"]:
         # The owner is not a participant and cannot demote themselves into one.
@@ -472,12 +432,7 @@ async def set_participant_role(
 
 
 def _is_open_for(workspace: dict, user_id: int) -> bool:
-    """Whether this person may enter the workspace right now.
-
-    An inactive workspace is closed for learners, so the answer depends on the
-    person and not on the flag alone: the owner and the tutors run the room and
-    get in while it is switched off, that is when they prepare it.
-    """
+    """Whether this person may enter the course room right now."""
     if workspace.get("is_active", True):
         return True
     if workspace["user_id"] == user_id:
@@ -486,7 +441,7 @@ def _is_open_for(workspace: dict, user_id: int) -> bool:
 
 
 def _einschreibe_karte(workspace: dict, gueltig_bis, user_id: int) -> dict:
-    """Alles, was vor der Einschreibung auf der Karte steht, aus einer Hand."""
+    """Everything shown on the card before enrolling, from one place."""
     owner = db.get_user_by_id(workspace["user_id"])
     return {
         "workspace_uuid": workspace["uuid"],
@@ -512,7 +467,7 @@ async def preview_access_link(
     workspace = db.get_workspace_by_enroll_code(code)
     if not workspace:
         raise HTTPException(status_code=404, detail=t("ai.workspace.invalidEnrollCode", locale))
-    # Auf dem alten Weg haengt die Frist am Workspace statt an einem Link.
+    # On the old path the deadline hangs off the workspace instead of a link.
     return _einschreibe_karte(workspace, workspace.get("enroll_code_expires"), user_id)
 
 @router.post("/ai-assistant/enroll")
@@ -523,10 +478,7 @@ async def enroll(
 ):
     user_id = current_user["user_id"]
 
-    # Joining a workspace that is switched off is allowed on purpose, and the
-    # answer says so via ``is_open``. Refusing would send the learner back to
-    # hunt down the link again once the owner opens the room; this way the
-    # enrollment is in place and the row simply unlocks itself.
+    # Joining a closed course room is allowed, is_open says so.
 
     # Try new access_links table first
     result = db.get_workspace_by_access_link_code(body.enroll_code)
@@ -536,17 +488,11 @@ async def enroll(
         # The owner following their own link stays the owner, nothing to join.
         if workspace["user_id"] == user_id:
             return {"workspace_uuid": workspace["uuid"], "title": workspace["title"], "enrollment_id": None, "is_open": offen}
-        # Already a member of this workspace? Then the link is a plain redirect.
-        # The question is "already in this course", not "already through this
-        # link": a course hands out several links over a semester, and asking per
-        # link put the same course into the list twice. The existing enrollment
-        # keeps its expiry, so a forwarded link cannot quietly extend an access
-        # that was meant to run out.
+        # The question is about the course, not the link, otherwise it appears twice.
         existing = db.get_enrollment(workspace["id"], user_id)
         if existing:
             return {"workspace_uuid": workspace["uuid"], "title": workspace["title"], "enrollment_id": existing["id"], "is_open": offen}
-        # Every link joins as a learner. Tutor rights are handed out by the owner
-        # afterwards, to a named person, never by following a link.
+        # Every link joins as a learner, tutor rights are granted by the owner.
         enrollment_id = db.enroll_student(
             workspace["id"], user_id, link["expires_at"], link_id=link["id"],
         )
@@ -571,12 +517,7 @@ async def enroll(
 
 @router.get("/ai-assistant/my-workspaces")
 async def my_workspaces(current_user: dict = Depends(get_current_user)):
-    """Legacy: only the workspaces the user learns from.
-
-    Superseded by GET /ai-assistant/workspaces, which returns owned, tutored and
-    joined workspaces in one list with an ``access`` field. Kept so older clients
-    keep working; nothing in the frontend calls it any more.
-    """
+    """Old: only the course rooms the person learns from, replaced by the full list."""
     workspaces = [
         m for m in db.get_aia_workspaces_for_student(current_user["user_id"])
         if m.get("role", "student") != "tutor"

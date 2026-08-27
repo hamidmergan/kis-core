@@ -71,8 +71,7 @@ export function useMindmap({ uuid, selectedSourceIds }: UseMindmapOptions) {
     if (selectedSourceIds.length === 0) return;
     setMindmapLoading(true);
     try {
-      // api.fetch attaches Accept-Language from the NEXT_LOCALE cookie so the
-      // mind map labels are generated in the UI language (raw fetch defaulted to de).
+      // api.fetch appends the interface language so the labels are produced in it.
       const res = await api.fetch(`/api/ai-assistant/workspaces/${uuid}/mindmap/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -107,8 +106,7 @@ export function useMindmap({ uuid, selectedSourceIds }: UseMindmapOptions) {
     } catch { /* ignore */ }
   }, [uuid]);
 
-  // Wirft bei Fehler weiter, anders als die Nachbarn hier: beim Umbenennen sieht
-  // jemand zu und das Feld soll den Grund zeigen koennen.
+  // Rethrows, when renaming the field should show the reason.
   const rename = useCallback(async (id: number, title: string) => {
     const res = await fetch(`/api/ai-assistant/workspaces/${uuid}/mindmap/${id}/title`, {
       method: "PATCH",
@@ -118,8 +116,7 @@ export function useMindmap({ uuid, selectedSourceIds }: UseMindmapOptions) {
     });
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "");
     const daten = await res.json();
-    // Direkt in der Liste ersetzen statt neu laden: der Name steht sofort, ohne
-    // dass die ganze Liste flackert.
+    // Replace in the list directly so it does not flicker.
     setMindmapList((prev) => prev.map((m) => (m.id === id ? { ...m, topic: daten.title } : m)));
   }, [uuid]);
 

@@ -1,13 +1,4 @@
-"""Shared Celery task error-handling.
-
-Centralises two patterns every general/TTS/translate/transcribe task needs:
-
-  - Recovering the creator's UI locale off the job row (Celery workers have
-    no HTTP context, so we can't use ``Depends(get_locale)``).
-  - Detecting ``FeatureNotConfigured`` from the feature_router and turning
-    it into a localized "feature not configured" message — instead of
-    leaking the internal English exception text into the job log.
-"""
+"""Shared error handling of the jobs, including the creator's language."""
 
 from __future__ import annotations
 
@@ -15,9 +6,7 @@ from loguru import logger
 
 from src import database as db
 from src.i18n import t
-# Die Pruefung "war der Anbieter schuld" steht neutral in services, weil der Chat
-# sie mitbenutzt und nicht in dieses private Auftragsmodul greifen darf. Hier nur
-# noch der Name, damit kein Aufrufer der Auftraege etwas merkt.
+# The check sits neutrally in services, here only its name.
 from src.services.upstream_errors import is_upstream_busy  # noqa: F401
 
 
@@ -28,8 +17,7 @@ def job_locale(job_uuid: str) -> str:
 
 
 def audio_too_long_message(e, locale: str) -> str:
-    """Wording for :class:`AudioTooLongError`, shared by the transcription tool
-    and KI-Tutor media ingestion so both say the same thing in both languages."""
+    """The wording for an overlong recording, shared by both paths."""
     return t(
         "transcription.audioTooLong",
         locale,
@@ -39,13 +27,7 @@ def audio_too_long_message(e, locale: str) -> str:
 
 
 def handle_task_exception(job_uuid: str, e: Exception, *, task_label: str) -> None:
-    """Common error path: localize the errors a user can act on, pass anything
-    else through as ``str(e)``. Always writes ``job_status=failed`` so the caller
-    just needs to ``raise`` after to surface the exception to Celery.
-
-    Localizing here rather than at the raise site is deliberate: only the job row
-    knows which language its creator uses (Celery workers have no HTTP context).
-    """
+    """Translates the errors a user can act on and marks the job as failed."""
     from src.services.feature_router import FeatureNotConfigured
     from src.services.openai_compat_llm._chunking import AudioTooLongError
 

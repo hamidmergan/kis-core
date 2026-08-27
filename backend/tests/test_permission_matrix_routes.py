@@ -1,12 +1,4 @@
-"""Die Rechtematrix an den Stellen, an denen sie wirklich haelt.
-
-Drei Dinge muessen stimmen, sonst ist die Tabelle Dekoration:
-1. eine Rolle mit genau einem Einstellungsrecht kommt an ihre Seite und an
-   keine andere,
-2. der gemeinsame Speicher-Endpunkt laesst nur die Felder der eigenen Seite
-   durch,
-3. niemand kann ein Recht vergeben, das er selbst nicht hat.
-"""
+"""The permission matrix at the three places where it really holds."""
 
 import pytest
 from fastapi import HTTPException
@@ -24,12 +16,11 @@ from src.permissions_registry import (
 from src.routes.admin import settings as admin_settings
 from src.routes.admin._models import UpdateSettingsRequest
 
-# Der Sprachexperte aus dem Anlass: KI-Assistent nutzen und die Seite
-# Sprachniveau pflegen, sonst nichts.
+# The language expert: use the assistant and maintain one page, nothing else.
 SPRACHEXPERTE = (PERM_AIA_USE, PERM_SET_AIA_LEVEL)
 
 
-# ── Der gemeinsame Speicher-Endpunkt ─────────────────────────────────────────
+# ── The shared save endpoint ─────────────────────────────────────────────────
 
 @pytest.fixture
 def store(monkeypatch):
@@ -45,7 +36,7 @@ def store(monkeypatch):
 
 @pytest.fixture
 def as_sprachexperte(monkeypatch):
-    """Nutzer mit eigener Rolle, deren Rechte fest verdrahtet sind."""
+    """User with a custom role whose permissions are hard-wired."""
     from src import database
 
     monkeypatch.setattr(
@@ -78,11 +69,7 @@ async def test_sprachexperte_may_not_touch_a_foreign_field(store, as_sprachexper
 async def test_a_foreign_field_smuggled_alongside_an_allowed_one_is_rejected(
     store, as_sprachexperte
 ):
-    """Der ganze Aufruf faellt, nicht nur das fremde Feld.
-
-    Sonst waere das Ergebnis halb gespeichert und niemand wuesste, welche
-    Haelfte.
-    """
+    """The whole call fails, otherwise the result would be half saved."""
     with pytest.raises(HTTPException) as err:
         await admin_settings.update_settings(
             UpdateSettingsRequest(
@@ -107,7 +94,7 @@ async def test_admin_may_save_everything(store):
 
 
 async def test_a_field_nobody_owns_is_admin_only(store, monkeypatch, as_sprachexperte):
-    """Ein neues Feld ohne Eintrag im Katalog ist gesperrt, nicht offen."""
+    """A new field without a catalogue entry is locked, not open."""
     monkeypatch.delitem(
         admin_settings.SETTING_FIELD_PERMISSIONS, "language_diagnosis_prompt"
     )
@@ -118,7 +105,7 @@ async def test_a_field_nobody_owns_is_admin_only(store, monkeypatch, as_sprachex
     assert err.value.status_code == 403
 
 
-# ── Keine Rechteerhöhung ─────────────────────────────────────────────────────
+# ── No privilege escalation ──────────────────────────────────────────────────
 
 def test_you_cannot_grant_what_you_do_not_have():
     actor = custom_role_permissions([PERM_AIA_USE, PERM_SET_USERS_ROLES])
@@ -136,18 +123,14 @@ def test_the_admin_may_grant_anything():
     assert_may_grant(permissions_for_system_role("admin"), [PERM_SET_SYSTEM], "de")
 
 
-# ── Die Matrix-API ───────────────────────────────────────────────────────────
-# Die Endpunkte werden direkt aufgerufen. Ein Testclient zoege die Middleware
-# mit, die im lokalen Betrieb an die Datenbank geht, und die pruefen wir hier
-# nicht. Der Torwaechter selbst ist ein gewoehnlicher Aufruf und laesst sich
-# genauso direkt pruefen.
+# The endpoints are called directly, without a test client and middleware.
 
 from src.routes.admin import roles as roles_route  # noqa: E402
 from src.routes.admin.roles import PermissionTogglePayload  # noqa: E402
 
 
 def _as_role(monkeypatch, keys):
-    """Ein Nutzer mit eigener Rolle, deren Rechte die genannten Schluessel sind."""
+    """A user with a custom role whose permissions are the named keys."""
     from src import database
 
     monkeypatch.setattr(
@@ -168,14 +151,12 @@ async def test_matrix_lists_groups_system_roles_and_own_roles(monkeypatch):
     )
     body = await roles_route.list_roles(admin=ADMIN)
 
-    # Jede Zeile des Katalogs steht in genau einer Gruppe, in Katalogreihenfolge.
-    # Wie die Gruppen heissen und in welchem Kapitel sie stehen, prueft
-    # test_permission_matrix_layout.
+    # Every catalogue row sits in exactly one group, in catalogue order.
     rows = [k for g in body["groups"] for k in g["permissions"]]
     assert rows == list(ALL_PERMISSION_KEYS)
     assert [r["key"] for r in body["system_roles"]] == ["admin", "staff", "user"]
     assert body["custom_roles"][0]["name"] == "Sprachexperte"
-    # Der Administrator darf jedes Haekchen setzen.
+    # The administrator may set every checkbox.
     assert PERM_SET_SYSTEM in body["grantable"]
 
 
@@ -231,7 +212,7 @@ async def test_toggle_refuses_to_grant_beyond_own_rights(monkeypatch):
 
 
 async def test_taking_a_right_away_is_always_allowed(monkeypatch):
-    """Wegnehmen kann niemanden erhoehen, also braucht es dafuer kein Recht."""
+    """Taking away cannot elevate anyone, so it needs no permission."""
     actor = _as_role(monkeypatch, [PERM_AIA_USE, PERM_SET_USERS_ROLES])
     monkeypatch.setattr(
         roles_route.db, "get_custom_role",
@@ -257,7 +238,7 @@ async def test_with_the_roles_right_the_gate_opens(monkeypatch):
     assert await roles_route._require(user=actor, locale="de") is actor
 
 
-# ── Die Seiten selbst ────────────────────────────────────────────────────────
+# ── The pages themselves ─────────────────────────────────────────────────────
 
 def test_sprachexperte_reaches_the_area_but_not_the_whitelist(as_sprachexperte):
     perms = permissions_of(as_sprachexperte)

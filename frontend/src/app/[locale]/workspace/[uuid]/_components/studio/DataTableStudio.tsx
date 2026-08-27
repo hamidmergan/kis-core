@@ -36,7 +36,7 @@ export function DataTableStudio({
   const tDt = useTranslations("workspace.detail.studio.dataTable");
   const locale = useLocale();
   const [view, setView] = useState<"viewer" | "list">(openInViewer ? "viewer" : "list");
-  // Welche Karte gerade umbenannt wird. Nur eine, mehr braucht niemand gleichzeitig.
+  // Which card is currently being renamed, only one, nobody needs more at once.
   const [umbenennt, setUmbenennt] = useState<number | null>(null);
   const minimize = useContext(MinimizeContext);
 

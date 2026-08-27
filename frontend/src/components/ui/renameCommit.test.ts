@@ -1,11 +1,4 @@
-/**
- * Die Entscheidung beim Umbenennen.
- *
- * Drei Faelle, die man leicht verwechselt: leer, unveraendert, wirklich neu.
- * Die ersten beiden duerfen keinen Aufruf ausloesen, sonst schreibt jedes
- * Verlassen des Feldes erneut in die Datenbank, und ein leeres Feld haette einen
- * Namen geloescht.
- */
+/** Empty, unchanged or really new, only the last case may save. */
 import { describe, expect, it } from "vitest";
 
 import { renameCommit, renameErrorText } from "./renameCommit";

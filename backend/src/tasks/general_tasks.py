@@ -45,14 +45,7 @@ def _image_http_client(
     extra_headers: dict | None = None,
     timeout: float = 120.0,
 ):
-    """Build (base_url, model, httpx.Client) for an image-feature route.
-
-    Resolves the provider for ``feature`` (``image_gen``, ``image_edit``,
-    ``vision``). ``provider_id`` is the end-user's pick (capability-based,
-    same as the TTS/STT pickers); when omitted the admin default route is used.
-    Propagates ``FeatureNotConfigured`` unchanged so the task's outer handler
-    can translate it into a localized job error_message.
-    """
+    """Builds address, model and client for an image route."""
     import httpx
     from src.services import feature_router
 
@@ -177,8 +170,7 @@ def run_transcribe(
         client = resolve_whisper_client(provider_id)
         ext_suffix = Path(filename).suffix.lower()
 
-        # Long recordings run for many minutes. Report each finished chunk so the
-        # UI can show "part 3 of 12" instead of an unchanging spinner.
+        # Reports every finished part so the display does not stall.
         def _on_chunk(done: int, total: int) -> None:
             db.update_job_status(
                 job_uuid, "running",
@@ -209,16 +201,7 @@ def run_transcribe(
         logger.info("Transcribe task {} completed: {}", job_uuid, output_name)
 
     except Exception as e:
-        # Any transient upstream failure (429, 5xx, timeout, dropped connection):
-        # keep the job alive and requeue with backoff. Chunks already transcribed
-        # are cached per job_uuid in Redis, so the retry resumes rather than
-        # restarting from zero.
-        #
-        # Deliberately wider than the AIA ingestion policy, which only requeues on
-        # 429: a failed AIA source has a retry button, a transcription job does not
-        # (/jobs/{uuid}/retry covers tts and screencast only). Without this, a 502
-        # on the last chunk of a 90-minute recording discarded every finished chunk
-        # and cost the user the upload and a quota slot.
+        # Temporary disruptions re-queue, finished parts stay remembered.
         from src.services.openai_compat_llm.base import is_transient_error
 
         if is_transient_error(e) and self.request.retries < 5:
@@ -301,20 +284,13 @@ def run_image_edit(
         ext = Path(filename).suffix.lower()
         mime = "image/png" if ext == ".png" else "image/jpeg"
 
-        # Standard OpenAI-compat transport: model in body, no provider quirks.
-        # If a future provider requires a different convention, it gets its own
-        # protocol adapter — not a transport-detection if/else here.
+        # The usual transfer, a deviating provider would get its own adapter.
         base_url, edit_model, client = _image_http_client("image_edit", provider_id=provider_id, timeout=120.0)
         if not edit_model:
             from src.services.feature_router import FeatureNotConfigured
             raise FeatureNotConfigured("image_edit route has no model_name")
 
-        # myLab/THL's image-edit pipeline crashes with "unsupported operand
-        # type(s) for /: 'int' and 'NoneType'" when these numerics aren't
-        # supplied — its internal defaults are absent. Vanilla OpenAI ignores
-        # unknown fields; that image-edit path isn't reached here
-        # anyway. Values match the "standard" quality preset documented in
-        # the myLab wiki (guidance_scale=3.5, num_inference_steps=25).
+        # myLab explicitly needs these numbers, otherwise its image processing crashes.
         with job_heartbeat(job_uuid), client:
             response = client.post(
                 f"{base_url}/images/edits",
@@ -391,12 +367,9 @@ def run_image_analyze(
 
         user_text = prompt.strip() if prompt and prompt.strip() else "Analyze this image."
 
-        # qwen3-omni does not support a separate system role with vision content;
-        # embed the system instructions as the first text block in the user message.
-        # Same pattern works for qwen3-vl on the fallback slot.
+        # The system instruction is the first text block, this model has no role of its own.
         system_prompt = db.get_setting("prompt_image_analyze", _IMAGE_ANALYZE_SYSTEM_PROMPT)
-        # Force the response language to the job creator's UI locale so the
-        # user gets German output when they were running KIS in German etc.
+        # Forces the answer language of the requester.
         from src.tasks._errors import job_locale
         locale = job_locale(job_uuid)
         target_language = "German" if locale == "de" else "English"
@@ -408,9 +381,7 @@ def run_image_analyze(
 
         base_url, model, client = _image_http_client("vision", provider_id=provider_id, timeout=60.0)
         if not model:
-            # Vision has no defacto-default model name across providers
-            # (qwen3-omni / qwen3-vl / gpt-4-vision / claude-3 are all valid
-            # depending on the configured provider), so we fail loudly here.
+            # There is no common model name for image description, so nothing but errors.
             from src.services.feature_router import FeatureNotConfigured
             raise FeatureNotConfigured("vision route has no model_name")
         with job_heartbeat(job_uuid), client:

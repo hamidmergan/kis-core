@@ -1,4 +1,4 @@
-"""Die Zielsprache muss beim Rendern ankommen, auch bei einem alten Job."""
+"""The target language has to arrive at rendering, even for an old job."""
 
 import json
 
@@ -15,7 +15,7 @@ def test_render_anfrage_kennt_eine_zielsprache():
 
 @pytest.fixture
 def gespeichert(monkeypatch):
-    """Faengt ab, was die Route in die Job-Ablage schreibt."""
+    """Captures what the route writes into the job store."""
     ablage: dict[str, dict] = {}
     from src.routes.screencast import render as modul
 

@@ -1,4 +1,4 @@
-"""Stats-Endpoints: Tool-Übersicht, Aktivitätslog und KI-Assistent-Aggregate."""
+"""Stats endpoints: tool overview, activity log and AI assistant aggregates."""
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
@@ -26,8 +26,7 @@ from src.routes.admin._registries import TOOL_LABELS
 
 router = APIRouter(tags=["admin: stats"])
 
-# Zwei Zahlenseiten, zwei Rechte: die Werkzeug-Statistik steht unter
-# Werkzeuge, die Nutzung des KI-Assistenten unter KI-Assistent.
+# Two number pages, two rights.
 _require_tool_stats = require_permission(PERM_SET_TOOLS_STATS)
 _require_aia_usage = require_permission(PERM_SET_AIA_USAGE)
 _require_stats_users = require_permission(PERM_SET_STATS_USERS)
@@ -80,7 +79,7 @@ async def get_aia_stats(
 
 @router.get("/stats/users")
 async def get_user_stats(_admin=Depends(_require_stats_users)):
-    """Anwesenheit, Zulauf und Bindung fuer den Reiter Nutzer."""
+    """Presence, intake and retention for the users tab."""
     return user_overview()
 
 
@@ -89,7 +88,7 @@ async def get_model_stats(
     days: int | None = Query(default=None, ge=1, le=3650),
     _admin=Depends(_require_stats_models),
 ):
-    """Anfragen und Tokens je Modell. Ohne ``days`` ueber die ganze Zeit."""
+    """Requests and tokens per model, without ``days`` over all time."""
     return model_usage(days)
 
 
@@ -98,7 +97,7 @@ async def get_tool_stats(
     range: str = Query(default="alles", pattern="^(alles|jahr|30t)$"),
     _admin=Depends(_require_tool_stats),
 ):
-    """Kacheln, Balken je Werkzeug und das Raster Wochentag mal Stunde."""
+    """Tiles, bars per tool and the weekday by hour grid."""
     return tool_overview(range)
 
 
@@ -110,7 +109,7 @@ async def get_assistant_stats(_admin=Depends(_require_aia_usage)):
 
 @router.get("/stats/users/{user_id}")
 async def get_user_detail(user_id: int, _admin=Depends(_require_stats_users)):
-    """Alles zu einer Person an einer Stelle."""
+    """Everything about one person in one place."""
     daten = user_detail(user_id)
     if daten is None:
         raise HTTPException(status_code=404, detail="Unbekannter Nutzer")
@@ -119,7 +118,7 @@ async def get_user_detail(user_id: int, _admin=Depends(_require_stats_users)):
 
 @router.get("/stats/workspaces/{uuid}")
 async def get_workspace_detail(uuid: str, _admin=Depends(_require_aia_usage)):
-    """Alles zu einem Modul an einer Stelle."""
+    """Everything about one module in one place."""
     daten = workspace_detail(uuid)
     if daten is None:
         raise HTTPException(status_code=404, detail="Unbekanntes Modul")
@@ -128,17 +127,13 @@ async def get_workspace_detail(uuid: str, _admin=Depends(_require_aia_usage)):
 
 @router.get("/stats/eigene")
 async def get_own_stats(user=Depends(_require_stats_own)):
-    """Die Module, die dem Anrufer gehoeren oder die er als Tutor betreut."""
+    """The modules the caller owns or tutors."""
     return own_workspaces(user["user_id"])
 
 
 @router.get("/stats/eigene/{uuid}")
 async def get_own_workspace_detail(uuid: str, user=Depends(_require_stats_own)):
-    """Dasselbe Modul wie oben, aber erst nach der Besitzpruefung.
-
-    Ein fremdes Modul antwortet mit 404 und nicht mit 403: sonst verraet die
-    Antwort, dass es das Modul gibt.
-    """
+    """The same module, but only after the ownership check, otherwise 404."""
     if not may_see_workspace(uuid, user["user_id"]):
         raise HTTPException(status_code=404, detail="Unbekanntes Modul")
     daten = workspace_detail(uuid)

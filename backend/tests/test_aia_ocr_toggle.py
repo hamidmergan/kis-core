@@ -1,17 +1,10 @@
-"""Tests for the global OCR on/off toggle gate in get_ocr_provider.
-
-The admin "System" tab exposes a single global switch (setting key
-``ocr_enabled``). When off, OCR must be skipped for ALL workspaces/modules,
-regardless of whether an OCR feature route is configured. The gate lives in
-``get_ocr_provider`` because that is the single choke point the chunker calls.
-"""
+"""Checks the global text recognition switch."""
 from src.services import aia_ocr
 from src.services import feature_router
 
 
 def test_ocr_disabled_globally_returns_none(monkeypatch):
-    # Global setting off → no OCR provider, and the feature route is never
-    # consulted (gate short-circuits before resolve()).
+    # Switch off means no provider, the route is not even read.
     monkeypatch.setattr("src.database.get_setting", lambda key, default="": "false")
 
     def explode(_feature):  # pragma: no cover - must not be reached

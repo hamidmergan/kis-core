@@ -1,4 +1,4 @@
-"""GET /jobs/check/{tool_group} - prüft aktive Jobs + Storage-Limit."""
+"""Checks active jobs and the storage limit for a tool group."""
 
 from fastapi import APIRouter, Depends
 
@@ -26,14 +26,13 @@ async def check_job_limit(
 
     tools = _TOOL_GROUP_TOOLS.get(tool_group, [])
     max_jobs = max_open_screencast_jobs() if tool_group == "screencast" else 1
-    # -1 heisst unbegrenzt, dann steht der Weg immer offen.
+    # -1 means unlimited, then the way is always open.
     has_active = (
         bool(tools) and max_jobs >= 0
         and db.count_all_jobs_for_tool(user_id, tools) >= max_jobs
     )
 
-    # Was faellt raus, wenn jetzt EIN Auftrag dazukommt? Deshalb cap - 1: der neue
-    # Auftrag belegt selbst einen der Plaetze im Vorrat.
+    # cap - 1, because the new job takes a slot itself.
     vorrat = results_kept_per_user()
     vorhanden = db.get_jobs_for_user_newest_first(user_id)
     faellig = db.select_jobs_to_evict(vorhanden, cap=vorrat if vorrat < 0 else vorrat - 1)

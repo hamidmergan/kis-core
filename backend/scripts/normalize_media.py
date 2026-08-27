@@ -1,18 +1,4 @@
-"""Migration: normalise fragmented MP4 media to progressive faststart.
-
-Fragmented MP4 (fMP4) plays unreliably in the native <audio>/<video> element — the browser
-skips whole fragments mid-stream, which desyncs the transcript. This script finds already-
-uploaded media that is fragmented and losslessly remuxes it (ffmpeg -c copy +faststart),
-overwriting the stored object. Safe to re-run (idempotent: a progressive file is skipped).
-
-Traffic-thrifty: fragmentation is detected by reading only a few 16-byte box HEADERS via
-HTTP Range. A FULL download happens ONLY for files that are actually fragmented — important
-when the bucket is remote (Hetzner Object Storage) and billed per traffic/request.
-
-Run inside the backend container (ffmpeg + S3 creds present):
-  docker exec kis-backend python scripts/normalize_media.py --dry-run   # report only
-  docker exec kis-backend python scripts/normalize_media.py              # remux for real
-"""
+"""Converts fragmented MP4 losslessly into continuously playable files."""
 import argparse
 import os
 import sys

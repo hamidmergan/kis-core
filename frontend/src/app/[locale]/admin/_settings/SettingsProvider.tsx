@@ -1,17 +1,6 @@
 "use client";
 
-/**
- * Einstellungen einmal laden, überall benutzen.
- *
- * Vorher stand in SettingsTab.tsx zwanzigmal `fetch("/api/admin/settings")`.
- * Jede Karte holte sich die vollständigen Einstellungen selbst, eine Seite mit
- * fünf Karten machte also fünf gleiche Anfragen. Dazu sechs handgeschriebene
- * Speicher-Funktionen und ein Dutzend Ladezustände, jeder leicht anders.
- *
- * Hier gibt es eine Anfrage pro Seite und einen Weg zu speichern. Damit ist
- * auch das Verhalten an einer Stelle festgelegt statt vierzehnmal: kein
- * Speichern-Knopf, jede Änderung greift sofort und meldet sich kurz zurück.
- */
+/** Load the settings once, one way to save, no save button. */
 
 import {
   createContext,
@@ -28,21 +17,20 @@ type Settings = Record<string, unknown>;
 
 interface Ctx {
   settings: Settings | null;
-  /** Speichert und schreibt den Wert erst nach Erfolg fest. */
+  /** Saves and only commits the value after success. */
   save: (patch: Settings) => Promise<boolean>;
-  /** Schlüssel, die gerade gespeichert werden. */
+  /** Keys that are currently being saved. */
   pending: Set<string>;
-  /** Schlüssel, die eben erfolgreich gespeichert wurden. Läuft von selbst ab. */
+  /** Keys that were just saved successfully, expires by itself. */
   justSaved: Set<string>;
-  /** Fehlermeldung je Schlüssel, null wenn alles gut ging. */
+  /** Error message per key, null when everything went well. */
   errors: Record<string, string | null>;
   reload: () => void;
 }
 
 const SettingsCtx = createContext<Ctx | null>(null);
 
-/** Wie lange die Marke "Gespeichert" stehen bleibt. Lang genug zum Lesen,
- *  kurz genug, um nicht als Dauerzustand missverstanden zu werden. */
+/** How long the saved mark stays visible. */
 const SAVED_MS = 2600;
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
@@ -61,8 +49,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
   useEffect(load, [load]);
 
-  // Beim Verlassen der Seite laufende Marken abräumen, sonst setzt ein
-  // abgelaufener Zeitgeber Zustand auf einer nicht mehr sichtbaren Karte.
+  // Clear running timers when leaving the page.
   useEffect(() => {
     const map = timers.current;
     return () => { map.forEach(clearTimeout); map.clear(); };
@@ -93,8 +80,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         });
         return false;
       }
-      // Erst nach Erfolg festschreiben. Sonst zeigt die Oberfläche einen Wert,
-      // den der Server nie angenommen hat.
+      // Commit only after success, otherwise the interface shows unsaved values.
       setSettings((s) => ({ ...(s ?? {}), ...patch }));
       setJustSaved((j) => new Set([...j, ...keys]));
       keys.forEach((k) => {
@@ -139,7 +125,7 @@ function useSettingsCtx(): Ctx {
 }
 
 export interface SettingHandle<T> {
-  /** null solange geladen wird. */
+  /** null while loading. */
   value: T | null;
   set: (next: T) => Promise<boolean>;
   saving: boolean;
@@ -148,12 +134,7 @@ export interface SettingHandle<T> {
   loading: boolean;
 }
 
-/**
- * Eine Einstellung lesen und schreiben.
- *
- *   const ocr = useSetting<boolean>("ocr_enabled", false);
- *   <ToggleSetting field={ocr} ... />
- */
+/** Reads and writes a single setting. */
 export function useSetting<T>(key: string, fallback: T): SettingHandle<T> {
   const { settings, save, pending, justSaved, errors } = useSettingsCtx();
   const loading = settings === null;
@@ -169,7 +150,7 @@ export function useSetting<T>(key: string, fallback: T): SettingHandle<T> {
   };
 }
 
-/** Mehrere Schlüssel in einem Rutsch, etwa die vier Felder der Workspace-Bezeichnung. */
+/** Several keys in one go, such as the four fields of the workspace label. */
 export function useSettingGroup(keys: string[]) {
   const { settings, save, pending, justSaved, errors } = useSettingsCtx();
   return {

@@ -9,37 +9,12 @@ import IconButton from "@/components/ui/IconButton";
 import CollapsibleCard from "@/components/ui/CollapsibleCard";
 import Modal from "@/components/ui/Modal";
 
-/**
- * Editor for the CEFR diagnosis question plan.
- *
- * Each row is one question with a task type. Questions carry no level, the AI
- * reads the learner's answers and places them A1 to C2.
- *
- * ES GIBT ZWEI AUFGABENARTEN, nicht mehr sechs. Auswahl traegt Antwortoptionen
- * mit einem "richtig"-Haken. Freitext traegt eine FREIWILLIGE Loesung: steht eine
- * da, prueft der Code die getippte Antwort Wort fuer Wort (das ist der alte
- * Lueckentext), bleibt sie leer, beurteilt die KI die Antwort am Ende (das ist
- * das alte Fehlerkorrigieren und freie Schreiben). Die drei alten Auswahl-Arten
- * (Auswahl, Lesen und verstehen, Situation) waren im Code Wort fuer Wort
- * dasselbe und unterschieden sich nur darin, was VOR der Frage stand, und das
- * steht im frei getippten Fragetext.
- *
- * JEDE Zeile muss fertig sein, sonst lehnt der Speicherweg sie ab. Es gibt genau
- * zwei Wege dorthin: von Hand tippen, oder den Knopf druecken und die KI einmal
- * schreiben lassen. Beide enden in derselben Liste. Frueher durfte eine Zeile halb
- * bleiben und das Modell schrieb die Frage waehrend des Tests; das kostete einen
- * Aufruf je Frage je Lernendem, niemand konnte die Fragen vorher lesen, und der
- * Lernende wartete vor jeder Frage.
- *
- * An empty stored plan means the shipped default is active, so the table falls
- * back to `question_plan_default` (the authored German set) from settings.
- */
+/** The assessment question plan: two exercise kinds, every row spelled out. */
 
 type QType = "choice" | "free text";
 
 interface Opt { text: string; correct: boolean }
-/** `answers` ist der Lösungsschlüssel als Text, eine Lösung pro Zeile.
- *  `open` ist reine Anzeige und wird nicht gespeichert. */
+/** The answer key as text, one answer per line. */
 interface Row { type: QType; text: string; options: Opt[]; answers: string; open?: boolean }
 interface PlanItem {
   type: string;
@@ -49,11 +24,9 @@ interface PlanItem {
 }
 
 const TYPES: QType[] = ["choice", "free text"];
-/** Übersetzungsschlüssel je Art. Der gespeicherte Wert hat ein Leerzeichen, ein
- *  Schlüssel darf keins haben. */
+/** Translation key per kind, without spaces. */
 const TYPE_KEYS: Record<QType, string> = { "choice": "choice", "free text": "freeText" };
-/** Die sechs Namen aus der Zeit vor der Zusammenlegung. Ein gespeicherter Plan
- *  öffnet damit unverändert, genau wie im Backend (LEGACY_TYPE_ALIASES). */
+/** The six old names so a stored plan opens unchanged. */
 const LEGACY_TYPES: Record<string, QType> = {
   "multiple choice": "choice",
   "reading comprehension": "choice",
@@ -71,7 +44,7 @@ const MAX_ANSWERS = 8;
 const emptyOptions = (): Opt[] =>
   Array.from({ length: 4 }, () => ({ text: "", correct: false }));
 
-/** Die Lösungszeilen eines Feldes, leere Zeilen fallen weg. */
+/** The answer lines of a field, empty lines are dropped. */
 const answerLines = (text: string): string[] =>
   text.split("\n").map((line) => line.trim()).filter(Boolean).slice(0, MAX_ANSWERS);
 
@@ -84,9 +57,7 @@ export default function DiagnosisQuestionPlanCard() {
   const [askGenerate, setAskGenerate] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Ein Lückentext aus der Zeit vor den Tipp-Antworten trägt noch Optionen; seine
-  // richtigen werden zur Lösung, so öffnet ein alter Plan ausgefüllt statt leer.
-  // Mirrors the same fallback in parse_question_plan on the backend.
+  // For an old cloze the correct options become the answer key.
   const toRows = (items: PlanItem[]): Row[] =>
     items.map((s) => {
       const type = toQType(s.type);
@@ -140,10 +111,7 @@ export default function DiagnosisQuestionPlanCard() {
     }
   };
 
-  // Serialize one row. Ein Optionssatz wird nur gespeichert, wenn er brauchbar
-  // ist (mindestens zwei Optionen, eine davon richtig); sonst fällt er weg, und
-  // der Speicherweg meldet die Zeile als unfertig zurück, mit ihrer Nummer. Eine
-  // leere Lösung ist dagegen KEIN Fehler, sie heißt "die KI beurteilt das".
+  // An unusable option set is dropped, an empty answer is not an error.
   const serialize = (r: Row): PlanItem => {
     const item: PlanItem = { type: r.type };
     if (r.text.trim()) item.text = r.text.trim();
@@ -169,9 +137,7 @@ export default function DiagnosisQuestionPlanCard() {
     const next = rows.map((r, j) => {
       if (j !== i) return r;
       const merged = { ...r, ...patchRow };
-      // Switching to a choice with no options yet: seed the empty fields so the
-      // editor has something to fill in. Freitext braucht keine Saat, sein
-      // Lösungsfeld ist ein Kasten, der leer anfängt und leer bleiben darf.
+      // A new choice question gets empty option fields, free text needs none.
       if (patchRow.type && isOptionType(patchRow.type) && merged.options.length === 0) {
         merged.options = emptyOptions();
       }
@@ -233,10 +199,7 @@ export default function DiagnosisQuestionPlanCard() {
     void patch({ language_diagnosis_question_plan_de: "" });
   };
 
-  // Die KI schreibt den ganzen Satz EINMAL, das Ergebnis landet als gewoehnliche
-  // Zeilen in der Liste und geht ueber den normalen Speicherweg. Danach ist es
-  // nicht mehr von handgetippten Fragen zu unterscheiden, und der Test selbst
-  // laeuft weiterhin ohne einen einzigen Modellaufruf.
+  // The AI writes the sentence once, after that it is as if typed by hand.
   const generate = async () => {
     setAskGenerate(false);
     setGenerating(true);
@@ -270,7 +233,7 @@ export default function DiagnosisQuestionPlanCard() {
     }
   };
 
-  // Feld- und Knopfmuster wie im uebrigen Adminbereich (2px Rahmen, Hover kb).
+  // Field and button style as in the rest of the admin area.
   const inputClass =
     "text-xs px-2 py-1.5 border-2 border-border rounded-md bg-background text-foreground "
     + "transition-colors hover:border-kb focus:outline-none focus:border-kb disabled:opacity-50";
@@ -280,12 +243,10 @@ export default function DiagnosisQuestionPlanCard() {
 
   const typeOptions = TYPES.map((ty) => ({ value: ty, label: t(`type.${TYPE_KEYS[ty]}`) }));
   const allOpen = rows.length > 0 && rows.every((r) => r.open);
-  // Waehrend die KI schreibt, darf niemand daneben tippen: das Ergebnis ersetzt
-  // die ganze Liste, halb eingetippte Aenderungen waeren sonst weg.
+  // While the AI writes, nobody may type alongside.
   const busy = saving || generating;
 
-  // Die Karte startet offen: das ist die Karte, wegen der man auf diese Seite
-  // geht, und zugeklappt sieht die Einstufung aus, als stuende gar nichts drin.
+  // The card starts open, collapsed the assessment looks empty.
   return (
     <CollapsibleCard title={t("title")} description={t("description")} defaultOpen>
       <p className="text-xs text-muted-soft">{t("languageHint")}</p>

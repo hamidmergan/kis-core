@@ -1,10 +1,4 @@
-"""Jede Zeile im Fragen-Plan muss fertig sein, sonst wird nicht gespeichert.
-
-Frueher war eine halbe Zeile erlaubt: das Modell hat die Frage dann waehrend des
-Tests erzeugt. Diesen Weg gibt es nicht mehr, also darf eine halbe Zeile gar nicht
-erst in die Datenbank. Geprueft wird beim Speichern, und die Meldung nennt die
-Zeilennummer, damit der Admin nicht suchen muss.
-"""
+"""A half-finished row must not be savable in the first place."""
 
 import json
 
@@ -16,8 +10,7 @@ from src.services.aia_diagnosis_chat import (
 )
 
 
-# Der Speicher-Endpunkt prueft jedes Feld gegen die Rechte des Aufrufers.
-# Ein Administrator hat alle, also aendert das an diesen Tests nichts.
+# An administrator holds all permissions, that changes nothing for the tests.
 _ADMIN = {"role": "admin"}
 
 def _raw(*items) -> str:
@@ -38,7 +31,7 @@ def test_a_finished_plan_has_no_incomplete_question():
 
 
 def test_the_shipped_german_plan_passes_its_own_rule():
-    """Der ausgelieferte Standard muss speicherbar sein, sonst ist die Regel falsch."""
+    """The shipped default has to be savable, otherwise the rule is wrong."""
     assert first_incomplete_question(json.dumps(DEFAULT_GERMAN_QUESTION_PLAN)) is None
 
 
@@ -52,8 +45,7 @@ def test_choice_without_options_is_incomplete():
 
 
 def test_free_text_needs_only_the_question_text():
-    """Die Loesung ist freiwillig: ohne sie beurteilt die KI die Antwort, das ist
-    kein fehlendes Feld sondern der Normalfall."""
+    """The answer key is optional, without it the AI judges."""
     assert first_incomplete_question(_raw(FREE)) is None
     assert first_incomplete_question(_raw(GAP)) is None
 
@@ -63,13 +55,13 @@ def test_free_text_without_question_text_is_incomplete():
 
 
 def test_the_first_incomplete_row_is_reported():
-    """Die Nummer ist 1-basiert und zeigt auf die erste Luecke, nicht die letzte."""
+    """The number is 1-based and points at the first gap, not the last."""
     assert first_incomplete_question(
         _raw(CHOICE, {"type": FREE_TEXT_TYPE}, {"type": CHOICE_TYPE})
     ) == 2
 
 
-# ─── Kein Erzeugen mehr waehrend des Tests ──────────────────────────────────
+# ─── No more generating during the test ─────────────────────────────────────
 
 from src.services.aia_diagnosis_chat import (  # noqa: E402
     parse_question_plan,
@@ -82,22 +74,18 @@ def test_no_stored_plan_gives_the_german_default():
 
 
 def test_a_stored_plan_with_an_unfinished_row_falls_back_to_the_default():
-    """Altbestand aus der Zeit, als eine halbe Zeile erlaubt war.
-
-    Speichern verhindert so etwas heute, in der Datenbank kann es noch stehen.
-    Dann laeuft der Test auf dem Standard statt auf einer Frage ohne Text.
-    """
+    """Legacy data can still carry half-finished rows, then the default applies."""
     half = _raw(CHOICE, {"type": CHOICE_TYPE, "text": "Welches Wort passt?"})
     assert parse_question_plan(half) == DEFAULT_GERMAN_QUESTION_PLAN
 
 
 def test_every_shipped_question_is_served_from_the_plan():
-    """Kein Modus mehr, der das Modell um eine Frage bittet."""
+    """No mode left that asks the model for a question."""
     modes = {question_mode(step) for step in DEFAULT_GERMAN_QUESTION_PLAN}
     assert modes <= {"manual_options", "manual_typed", "manual_text"}
 
 
-# ─── Der Speicherweg ────────────────────────────────────────────────────────
+# ─── The save route ─────────────────────────────────────────────────────────
 
 import pytest  # noqa: E402
 from fastapi import HTTPException  # noqa: E402
@@ -109,7 +97,7 @@ FIX = {"type": FREE_TEXT_TYPE, "text": "Der Satz hat einen Fehler: Gestern ich h
 
 
 class _Body:
-    """Minimaler Ersatz für UpdateSettingsRequest: alles None ausser einem Feld."""
+    """Minimal stand-in for UpdateSettingsRequest: everything None except one field."""
 
     def __init__(self, **kwargs):
         object.__setattr__(self, "_set", kwargs)
@@ -118,8 +106,7 @@ class _Body:
         return object.__getattribute__(self, "_set").get(name)
 
     def model_dump(self):
-        # Der Speicher-Endpunkt laeuft die Felder ab, um jedes gegen ein Recht
-        # zu pruefen. Was hier nicht drinsteht, gilt als nicht mitgeschickt.
+        # Whatever is not listed here counts as not submitted.
         return dict(object.__getattribute__(self, "_set"))
 
 

@@ -4,11 +4,7 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import CollapsibleCard from "@/components/ui/CollapsibleCard";
 
-/**
- * The grading rules: how the diagnosis decides the final level (the
- * staircase-to-level logic and the outcome descriptions). Saving an empty field
- * restores the shipped default. The per-level examples live in their own card.
- */
+/** The grading rules of the assessment, empty resets to the default. */
 export default function DiagnosisGradingCard() {
   const t = useTranslations("admin.diagnosisGradingCard");
   const [rules, setRules] = useState<string | null>(null);
@@ -58,8 +54,7 @@ export default function DiagnosisGradingCard() {
 
   if (rules === null) return null;
 
-  // Only persist when the value truly changed, so viewing never pins the current
-  // default into storage (which would stop future default changes from showing).
+  // Save only on a real change, otherwise just looking freezes the default.
   const commit = () => {
     if (rules === savedRules) return;
     setSavedRules(rules);

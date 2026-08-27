@@ -1,8 +1,4 @@
-"""Admin routes package: aggregates all sub-routers under the `/admin` prefix.
-
-Historically this module was named `src/routes/admin.py` and exported `router`
-with prefix="/admin". External imports (`from src.routes import admin;
-admin.router`) continue to work unchanged."""
+"""Bundles all sub-routes under the /admin prefix."""
 
 from fastapi import APIRouter
 

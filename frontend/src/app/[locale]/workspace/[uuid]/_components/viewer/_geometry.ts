@@ -1,12 +1,4 @@
-// Wrap engine.getPageGeometry to clamp inflated glyph heights on PDFs with
-// oversized FontBBox. PDFium's FPDFText_GetLooseCharBox derives char heights
-// from the font's bbox; some PDFs (e.g. LibreOffice-embedded Cambria with
-// FontBBox height ~5580 FUnits) inflate this to 2-5x the real line-height,
-// which makes text-selection highlights visually span multiple lines.
-//
-// Self-correcting: only clamps when `loose_height > 2.0 * tight_height`
-// (clear FontBBox bug). Normal PDFs have loose/tight ratio ~1.2-1.4, so the
-// guard is a no-op on correctly-behaving fonts.
+// Caps inflated character heights in PDFs with wrong font metrics.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function wrapEngineGeometry(engine: any) {
   if (!engine || engine.__kisGeometryWrapped) return;
@@ -17,9 +9,7 @@ export function wrapEngineGeometry(engine: any) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   engine.getPageGeometry = (doc: any, page: any) => {
     const task = original(doc, page);
-    // Task may be sync-resolved (direct engine) or async (worker). In both
-    // cases wait() fires our callback before any other consumer's (ordered).
-    // clampGeometry mutates in place → downstream consumers see clamped data.
+    // The callback runs before all others, the data is changed in place.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (task as any)?.wait?.((geo: any) => { clampGeometry(geo); }, () => {});
     return task;

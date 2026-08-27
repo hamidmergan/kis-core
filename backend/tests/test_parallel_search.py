@@ -1,14 +1,4 @@
-"""Concurrent pre-search for post-hoc citation attribution.
-
-The per-sentence chips search the DB once per sentence/clause. Done
-sequentially that is the dominant cost of the post-answer pause (measured ~13.7s
-of a ~15.3s pause). The searches hit LOCAL Postgres (not the embed API), so they
-can run concurrently. ``_parallel_search`` runs one search
-per UNIQUE line across a thread pool and returns a ``{line: hits}`` map the
-sequential attribution walk then just looks up. Correctness is unchanged: the
-map holds exactly what ``search_fn`` would have returned per line; a failing
-search maps to ``[]`` (same as the caller's own guarded search).
-"""
+"""The line searches run concurrently, the result stays the same."""
 import time
 
 from src.features.ai_assistant.routes._helpers import _parallel_search
@@ -40,8 +30,7 @@ def test_dedupes_repeated_lines_searched_once():
 
 
 def test_search_exception_maps_to_empty_list():
-    # A single failing search must not sink the batch — that line gets [] (exactly
-    # what the caller's guarded _search_one returns on error) and the rest survive.
+    # A failed search must not take the batch down with it.
     def fake(line):
         if line == "boom":
             raise RuntimeError("db down")
@@ -69,8 +58,7 @@ def test_blank_lines_are_skipped():
 
 
 def test_runs_concurrently_not_sequentially():
-    # The whole point of the change: 8 searches that each block 0.1s finish in ~0.1s
-    # (concurrent), not ~0.8s (sequential). This is the behaviour we are adding.
+    # Eight searches together take as long as one.
     def fake(line):
         time.sleep(0.1)
         return [line]

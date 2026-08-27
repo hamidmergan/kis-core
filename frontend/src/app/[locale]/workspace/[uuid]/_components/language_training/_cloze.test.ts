@@ -17,15 +17,12 @@ describe("normalizeAnswer", () => {
   });
 
   it("ersetzt Bindestriche durch Leerzeichen, wie im Backend", () => {
-    // Beide Formen müssen normalisiert gleichwertig sein: E-Mail und E Mail
-    // unterscheiden sich nur in der Schreibweise des Bindestriches, nicht in der Sache.
+    // Both hyphen spellings have to be equivalent.
     expect(normalizeAnswer("E-Mail")).toBe(normalizeAnswer("E Mail"));
   });
 
   it("faltet ß zu ss, wie casefold() im Backend", () => {
-    // toLowerCase() allein kennt diese Faltung nicht (ß ist im Deutschen schon
-    // klein). Beide Schreibrichtungen müssen gleich normalisieren, sonst zählt
-    // "Anschluß"/"anschluss" im Browser nur als fast richtig statt richtig.
+    // Both spellings of the sharp s have to normalise alike.
     expect(normalizeAnswer("Anschluß")).toBe(normalizeAnswer("anschluss"));
     expect(normalizeAnswer("Straße")).toBe(normalizeAnswer("strasse"));
   });
@@ -41,8 +38,7 @@ describe("checkGap", () => {
   });
 
   it("nennt die falsche Endung fast richtig", () => {
-    // Der Lernende hat das richtige Wort und die falsche Form. Genau darum geht
-    // die Übung, also darf das nicht dasselbe Urteil sein wie ein falsches Wort.
+    // The right word in the wrong form is not the same as a wrong word.
     expect(checkGap("arbeiten", "arbeitet")).toBe("close");
     expect(checkGap("wechselt", "gewechselt")).toBe("close");
   });
@@ -63,7 +59,7 @@ describe("checkGap", () => {
   });
 
   it("akzeptiert Bindestriche und Schrägstriche als unwichtig", () => {
-    // Bindestriche und Schrägstriche sind typografische Variationen derselben Antwort.
+    // Hyphens and slashes are typographic variants of the same answer.
     expect(checkGap("E Mail", "E-Mail")).toBe("correct");
     expect(checkGap("und oder", "und/oder")).toBe("correct");
   });

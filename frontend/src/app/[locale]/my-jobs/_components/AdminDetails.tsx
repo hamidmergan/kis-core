@@ -12,7 +12,7 @@ export function AdminDetails({ stats }: { stats: JobStats }) {
   const locale = useLocale();
   const t = useTranslations("myJobs.adminStats");
   const td = useTranslations("myJobs.duration");
-  // Dieselben Namen wie im KI-Panel, damit die Route dort wiederzufinden ist.
+  // The same names as in the AI panel so the route is recognisable there.
   const tr = useTranslations("admin.providers.featureName");
   const [zeilen, gesamt] = [phasenzeilen(stats), gesamtdauerS(stats)];
 

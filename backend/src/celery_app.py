@@ -54,37 +54,31 @@ celery_app.conf.update(
             "schedule": 5.0,  # every 5 seconds
             "options": {"queue": "general"},
         },
-        # Lag vorher als Endlosschleife im Web-Prozess. Hier laeuft es garantiert
-        # genau einmal, egal wie viele uvicorn-Prozesse es gibt.
+        # Runs exactly once here, no matter how many uvicorn processes exist.
         "cleanup-expired-files": {
             "task": "cleanup.expired_files",
             "schedule": 3600.0,  # stuendlich, wie vorher
             "options": {"queue": "general"},
         },
-        # Der Auftrags-Vorrat ist die einzige Aufbewahrungsregel, seit die Frist raus
-        # ist. Wer nur Fehlversuche produziert, loest die Raeumung nie selbst aus.
+        # The job pool is the only retention rule.
         "cleanup-job-cap": {
             "task": "cleanup.job_cap",
             "schedule": 3600.0,  # stuendlich
             "options": {"queue": "general"},
         },
-        # Naechtliche Datenbank-Sicherung in den Bucket. Feste Uhrzeit statt
-        # Intervall, damit sie in der Nacht laeuft und nicht irgendwann am Tag,
-        # abhaengig davon wann celery-beat zuletzt gestartet wurde.
+        # A fixed time instead of an interval, so the backup runs at night.
         "backup-database": {
             "task": "backup.database",
             "schedule": crontab(hour=3, minute=30),
             "options": {"queue": "general"},
         },
-        # Antworten, die aelter sind als das Kalenderfeld reicht. Nach der Sicherung,
-        # damit das Geloeschte noch in der Nacht davor gesichert wurde.
+        # After the backup, so what was deleted had been backed up.
         "cleanup-exercise-progress": {
             "task": "cleanup.exercise_progress",
             "schedule": crontab(hour=4, minute=15),
             "options": {"queue": "general"},
         },
-        # Gesprochene Beispielsaetze, die lange niemand gehoert hat. Der Vorrat waechst
-        # nur durch Nutzung, wird aber nie von selbst kleiner.
+        # Spoken example sentences nobody has listened to for a long time.
         "cleanup-speech-cache": {
             "task": "cleanup.speech_cache",
             "schedule": crontab(hour=4, minute=30),
@@ -111,12 +105,7 @@ def on_worker_ready(**kwargs):
 
 
 def _mark_task_failed(task_id: str, reason: str) -> None:
-    """Mark a running job as failed based on its Celery task ID.
-
-    `reason` is an i18n key (or a tuple `(key, params)`) so the persisted
-    error_message can be localized using the job's `creator_locale`. Plain
-    strings still work as a fallback for legacy callers.
-    """
+    """Marks a running job as failed via its Celery id."""
     try:
         from src import database as db
         from src.i18n import t
@@ -138,14 +127,7 @@ def _mark_task_failed(task_id: str, reason: str) -> None:
 
 
 def _mark_aia_source_failed_from_signal(sender, args, exception) -> None:
-    """Backstop for aia.index_source failures that escape the task body.
-
-    The task already has an inner try/except that marks the source 'failed' for
-    errors raised inside the function. Errors raised at the function boundary
-    (e.g. signature mismatch when worker bytecode lags behind the codebase, or
-    a SIGKILL'd worker) bypass that. Without this hook the source row stays at
-    'queued'/'indexing' and the upload spinner never resolves.
-    """
+    """Catches errors that arise at the function edge of aia.index_source."""
     if sender is None or sender.name != "aia.index_source":
         return
     if not args or not isinstance(args[0], str):
@@ -171,9 +153,7 @@ def on_task_failure(task_id, exception, **kwargs):
 
     from celery.exceptions import SoftTimeLimitExceeded
     if isinstance(exception, SoftTimeLimitExceeded):
-        # Task body should have caught this and updated the DB already.
-        # If it reaches here, the soft limit fired in an unguarded spot - still
-        # give a friendly message rather than a raw exception string.
+        # A friendly message instead of a raw exception if the deadline struck unguarded.
         _mark_task_failed(task_id, "job.timeoutRetry")
     else:
         _mark_task_failed(task_id, ("job.unexpectedError", {"error": str(exception)}))

@@ -1,28 +1,13 @@
 # backend/src/permissions_registry.py
-"""Der Katalog aller Berechtigungen: die Zeilen der Rechtetabelle.
-
-Eine Stelle, an der steht, was es an Rechten gibt. Die Oberflaeche baut daraus
-ihre Tabelle, die Torwaechter pruefen dagegen, und eine eigene Rolle speichert
-nur Schluessel aus diesem Katalog.
-
-Vorher waren es vier feste Schalter in ``permissions.py``, von denen einer
-(Adminbereich) fuer eigene Rollen hart auf False stand. Ein Sprachexperte, der
-nur die Prompts des KI-Assistenten pflegen soll, war damit nicht abbildbar.
-
-Die Texte stehen NICHT hier, sondern in ``frontend/messages/{de,en}.json`` unter
-``admin.permissions.<schluessel>``. Ein Schluessel ohne Text faellt im
-Frontend-Test auf.
-"""
+"""The catalogue of all permissions, the texts live in the frontend language files."""
 
 from src.tools_registry import ALL_TOOL_KEYS
 
-# === Kapitel und Gruppen =====================================================
-# Zwei Kapitel: was jemand selbst benutzt, und was er fuer andere verwaltet.
+# Two chapters: what someone uses themselves and what they manage for others.
 CHAPTER_USE = "benutzen"
 CHAPTER_MANAGE = "verwalten"
 
-# Die Gruppen unter "Verwalten" heissen wie die Bereiche der Seitenleiste, damit
-# man die Zeile dort sucht, wo man die Seite kennt.
+# The groups are named like the areas of the sidebar.
 GROUP_AIA = "aia"
 GROUP_TOOLS = "tools"
 GROUP_SET_TOOLS = "set.werkzeuge"
@@ -39,9 +24,7 @@ PERM_AIA_WORKSPACE_CREATE = "aia.workspace.create"
 
 AIA_KEYS: tuple[str, ...] = (PERM_AIA_USE, PERM_AIA_WORKSPACE_CREATE)
 
-# === Globale Werkzeuge =======================================================
-# Abgeleitet aus der Werkzeugliste, damit ein neues Werkzeug nicht an zwei
-# Stellen eingetragen werden muss.
+# Derived from the tool list so a new tool is registered only once.
 TOOL_PERM_PREFIX = "tools."
 TOOL_KEYS: tuple[str, ...] = tuple(f"{TOOL_PERM_PREFIX}{k}" for k in ALL_TOOL_KEYS)
 
@@ -51,11 +34,7 @@ def tool_key_of(permission: str) -> str:
     return permission[len(TOOL_PERM_PREFIX):]
 
 
-# === Einstellungen ===========================================================
-# Ein Schluessel je Seite des Bereichs. Sprachniveau und Anbieter haben je zwei
-# Reiter, bleiben aber ein Schluessel: ihre Werte liegen im selben Datensatz,
-# eine Trennung waere in der Speicher-Route nicht durchzuhalten und wuerde ein
-# Recht vortaeuschen, das der Torwaechter nicht halten kann.
+# One key per page of the area.
 SETTINGS_PREFIX = "settings."
 
 PERM_SET_TOOLS_RELEASE = "settings.werkzeuge.release"
@@ -70,36 +49,25 @@ PERM_SET_USERS_PENDING = "settings.nutzer.pending"
 PERM_SET_USERS_WHITELIST = "settings.nutzer.whitelist"
 PERM_SET_USERS_ALL = "settings.nutzer.users"
 PERM_SET_USERS_ROLES = "settings.nutzer.roles"
-# Kein eigener Schluessel mehr fuer die Oberflaeche. Beschriftung und Hinweis
-# stehen jetzt auf der System-Seite und haengen an PERM_SET_SYSTEM.
+# Label and hint now hang off PERM_SET_SYSTEM.
 PERM_SET_SYSTEM = "settings.system"
 PERM_SET_MASCOT = "settings.mascot"
-# Der Bereich Statistik hat fuenf Reiter. Zwei davon sind umgezogen und behalten
-# ihren alten Schluessel, damit bestehende Rollen nichts verlieren: die
-# Werkzeug-Zahlen bleiben an PERM_SET_TOOLS_STATS, die des Assistenten an
-# PERM_SET_AIA_USAGE. Die uebrigen drei haben eigene Schluessel.
+# Two statistics tabs keep their old key so roles lose nothing.
 PERM_SET_STATS_USERS = "settings.statistik.nutzer"
 PERM_SET_STATS_MODELS = "settings.statistik.modelle"
-# Der einzige Schluessel der Gruppe, der nicht die ganze Plattform aufmacht: er
-# zeigt nur Module, die dem Anrufer gehoeren oder die er als Tutor betreut.
+# The only key of the group that shows just your own modules.
 PERM_SET_STATS_OWN = "settings.statistik.eigene"
-# Kein Recht, etwas einzustellen, sondern eines, weitermachen zu duerfen, waehrend
-# die Plattform fuer alle anderen zu ist. Braucht wer bei einer Wartung
-# nachschauen soll, ohne die Verwaltung ganz in die Hand zu bekommen.
+# Not a settings right but the right to keep working during maintenance.
 PERM_MAINTENANCE_ACCESS = "settings.wartung.zugang"
 
-# Eine Gruppe je Bereich der Seitenleiste. Die fuenf Rechte, die je einen Reiter
-# der Statistik aufschliessen, stehen dadurch beieinander statt an drei Stellen.
+# One group per area of the sidebar.
 SET_TOOLS_KEYS: tuple[str, ...] = (
     PERM_SET_TOOLS_RELEASE,
     PERM_SET_TOOLS_JOBS,
     PERM_SET_TOOLS_LIMITS,
 )
 SET_AIA_KEYS: tuple[str, ...] = (PERM_SET_AIA_SOURCES, PERM_SET_AIA_LEVEL)
-# Zuerst das Paar, das von Modulen handelt: dieselbe Sache einmal auf die
-# eigenen beschraenkt und einmal fuer die ganze Plattform. Standen zwei fremde
-# Zeilen dazwischen, las man sie als zwei Themen statt als Auswahl zwischen
-# zweien und hakte im Zweifel beide an.
+# The module pair sits together, otherwise you tick both by accident.
 SET_STATS_KEYS: tuple[str, ...] = (
     PERM_SET_STATS_OWN,
     PERM_SET_AIA_USAGE,
@@ -127,11 +95,10 @@ SETTINGS_KEYS: tuple[str, ...] = (
     + SET_MASCOT_KEYS
 )
 
-# === Der ganze Katalog =======================================================
+# === The whole catalogue =====================================================
 ALL_PERMISSION_KEYS: tuple[str, ...] = AIA_KEYS + TOOL_KEYS + SETTINGS_KEYS
 
-# Kapitel, Gruppe und Zeilen in Anzeigereihenfolge, alles andere leitet sich
-# daraus ab, damit eine neue Gruppe an genau einer Stelle entsteht.
+# Chapter, group and rows in display order, everything else is derived.
 MATRIX_LAYOUT: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     (CHAPTER_USE, GROUP_AIA, AIA_KEYS),
     (CHAPTER_USE, GROUP_TOOLS, TOOL_KEYS),
@@ -158,41 +125,22 @@ def is_settings_key(permission: str) -> bool:
 
 
 def valid_keys(keys) -> tuple[str, ...]:
-    """Unbekanntes rauswerfen, Reihenfolge des Katalogs herstellen, Doppelte weg.
-
-    Eine geloeschte Berechtigung darf eine Rolle nicht kaputtmachen, deshalb
-    filtern statt werfen. Die feste Reihenfolge macht gespeicherte Listen
-    vergleichbar.
-    """
+    """Drops the unknown, restores catalogue order and deduplicates."""
     wanted = set(keys)
     return tuple(k for k in ALL_PERMISSION_KEYS if k in wanted)
 
 
-# === Systemrollen ============================================================
-# Fest im Code, nicht in der Datenbank. Die Tabelle zeigt sie ausgegraut, damit
-# man vergleichen kann, was eine eigene Rolle daneben darf.
-#
-# Die drei Zeilen bilden exakt ab, was ``permissions_for_system_role`` vorher
-# als vier Schalter ausgedrueckt hat. Wer hier etwas aendert, aendert das
-# Verhalten aller bestehenden Konten.
+# System roles are fixed in code, the table shows them greyed out.
 SYSTEM_ROLES: tuple[str, ...] = ("admin", "staff", "user")
 
-# Lehrende bekommen zusaetzlich die Zahlen ihrer eigenen Module: das einzige
-# Einstellungsrecht, das nichts ueber die ganze Plattform verraet.
+# Lehrende bekommen zusaetzlich die Zahlen ihrer eigenen Module.
 SYSTEM_ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
     "admin": ALL_PERMISSION_KEYS,
     "staff": AIA_KEYS + TOOL_KEYS + (PERM_SET_STATS_OWN,),
     "user": (PERM_AIA_USE,),
 }
 
-# === Besitzer der Einstellungs-Felder ========================================
-# ``PATCH /api/admin/settings`` bedient mit einem Datensatz mehrere Seiten. Ohne
-# diese Zuordnung koennte jemand mit dem Recht fuer eine Seite jedes Feld jeder
-# anderen Seite mitschicken. Beim Speichern wird jedes gesetzte Feld einzeln
-# gegen diese Tabelle geprueft.
-#
-# Ein Feld, das hier fehlt, ist absichtlich nicht speicherbar: die Pruefung
-# behandelt Unbekanntes wie "nur Administrator".
+# Which settings field belongs to which right, unknown ones count as admin business.
 SETTING_FIELD_PERMISSIONS: dict[str, str] = {
     "whitelist_enabled": PERM_SET_USERS_WHITELIST,
     "screencast_max_slides": PERM_SET_TOOLS_LIMITS,
@@ -230,12 +178,7 @@ SETTING_FIELD_PERMISSIONS: dict[str, str] = {
 
 # === Migration alter Rollen ==================================================
 def keys_from_legacy(aia_access: str | None, allowed_tools) -> tuple[str, ...]:
-    """Die beiden alten Spalten in Schluessel uebersetzen.
-
-    ``aia_access`` war dreiwertig, aber Lesen ueber einen geteilten Link war
-    schon vorher fuer alle da. Nur ``edit`` hat wirklich etwas zusaetzlich
-    erlaubt, naemlich eigene Workspaces.
-    """
+    """Translates the two old columns into permission keys."""
     keys = [PERM_AIA_USE]
     if aia_access == "edit":
         keys.append(PERM_AIA_WORKSPACE_CREATE)

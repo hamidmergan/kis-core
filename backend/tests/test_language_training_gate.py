@@ -1,14 +1,4 @@
-"""Schaltet die Verwaltung den Sprachtrainer ab, ist er im Kurs sofort zu.
-
-Das Sprachniveau haengt am Nutzer, nicht am Workspace, und es bleibt beim
-Abschalten gespeichert. Genau darum reicht es nicht, die Kacheln auszublenden:
-ein offen gebliebenes Fenster wuerde sonst weiter Uebungen erzeugen und den
-Einstufungstest zu Ende laufen lassen. Chat und Werkzeuge pruefen den Schalter
-schon laenger, hier sind die Sprachtrainer-Routen selbst dran.
-
-Das Niveau selbst wird nicht geloescht. Wer den Trainer spaeter wieder
-einschaltet, findet die Einstufung vor, statt sie noch einmal machen zu muessen.
-"""
+"""A switched-off language trainer closes right away, the level stays stored."""
 
 import asyncio
 
@@ -20,7 +10,7 @@ from src.features.ai_assistant.routes.language_training import diagnosis, exerci
 
 LERNENDER = 3
 WORKSPACE = {"id": 7, "uuid": "w-1", "user_id": 1, "diagnosis_language": "de"}
-# Ein Satz je Lager: der eine gehoert dem Sprachtrainer, der andere den Lernwerkzeugen.
+# One set per camp: one belongs to the language trainer, the other to the learning tools.
 LERNKARTEN_SATZ = {"id": 1, "workspace_id": 7, "user_id": LERNENDER, "tool": "flashcards"}
 KARTEIKARTEN_SATZ = {"id": 2, "workspace_id": 7, "user_id": LERNENDER, "tool": "karteikarten"}
 
@@ -38,7 +28,7 @@ def trainer_aus(monkeypatch):
 
 @pytest.fixture
 def ohne_bremsen(monkeypatch):
-    """Tempo- und Kontingentpruefung stillgelegt, hier geht es nur um die Sperre."""
+    """Rate and quota checks disabled, this is only about the gate."""
     monkeypatch.setattr(exercises, "enforce_aia_burst", lambda *a, **k: None)
     monkeypatch.setattr(exercises, "enforce_quota", lambda *a, **k: None)
 
@@ -48,7 +38,7 @@ def _nutzer() -> dict:
 
 
 def test_einstufungstest_laeuft_nicht_weiter(trainer_aus):
-    """Ein offener Test darf nach dem Abschalten nicht zu Ende gehen."""
+    """An open test must not finish after the switch-off."""
     with pytest.raises(HTTPException) as fehler:
         asyncio.run(
             diagnosis.turn(
@@ -89,8 +79,7 @@ def test_fehlgeschlagene_uebung_wird_nicht_wiederholt(trainer_aus):
     assert fehler.value.status_code == 403
 
 
-# Karteikarten und Quiz laufen ueber dieselbe Route, gehoeren aber zu den
-# Lernwerkzeugen. Der abgeschaltete Sprachtrainer darf sie nicht mitnehmen.
+# Flashcards and quiz belong to the learning tools and stay open.
 
 
 def _fehlende_quelle(tool: str) -> int:
@@ -109,7 +98,7 @@ def _fehlende_quelle(tool: str) -> int:
 
 
 def test_karteikarten_brauchen_den_trainer_nicht(trainer_aus, ohne_bremsen):
-    """400 wegen der fehlenden Quelle heisst: die Sperre hat durchgelassen."""
+    """400 for the missing source means the gate let it through."""
     assert _fehlende_quelle("karteikarten") == 400
 
 
@@ -118,7 +107,7 @@ def test_quiz_braucht_den_trainer_nicht(trainer_aus, ohne_bremsen):
 
 
 def test_karteikarten_duerfen_wiederholt_werden(trainer_aus, ohne_bremsen, monkeypatch):
-    """409 statt 403: der Satz ist nur nicht fehlgeschlagen."""
+    """409 instead of 403: the set simply has not failed."""
     monkeypatch.setattr(exercises.db, "get_exercise_set_meta", lambda sid: KARTEIKARTEN_SATZ)
     monkeypatch.setattr(exercises.db, "reset_exercise_set_for_retry", lambda sid, uid: None)
 

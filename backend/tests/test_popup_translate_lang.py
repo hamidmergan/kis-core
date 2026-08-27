@@ -1,12 +1,4 @@
-"""Zielsprache der Auswahlleisten-Übersetzung: Speicherung je Person.
-
-Warum die Einstellung an der Person hängt und nicht am Modul: wer ein
-deutsches Skript liest, braucht die Übersetzung in seiner eigenen Sprache.
-Eine Vorgabe des Moduls würde allen dieselbe aufzwingen.
-
-Alles offline. Die Datenbankverbindung wird durch eine Attrappe ersetzt, die
-eine vorgegebene Zeile liefert und die abgesetzte Anweisung mitschreibt.
-"""
+"""The target language hangs off the person, not off the module."""
 
 import pytest
 
@@ -51,7 +43,7 @@ class _FakeConn:
 
 @pytest.fixture
 def fake_db(monkeypatch):
-    """Hängt die Verbindung aus und gibt die Liste der Anweisungen zurück."""
+    """Unhooks the connection and returns the list of statements."""
     def _apply(row):
         calls: list[tuple] = []
         monkeypatch.setattr(repo_chat, "get_connection", lambda: _FakeConn(row, calls))
@@ -101,7 +93,7 @@ from src.features.ai_assistant.routes import messages as messages_route
 
 @pytest.fixture
 def fake_settings_route(monkeypatch):
-    """Modul und Einschreibung vortäuschen, Schreibaufrufe mitschreiben."""
+    """Fakes module and enrollment and records the writes."""
     written: list[tuple] = []
     monkeypatch.setattr(messages_route.db, "get_aia_workspace", lambda uuid: {"id": 7, "user_id": 3})
     monkeypatch.setattr(messages_route.db, "is_student_enrolled", lambda wid, uid: True)

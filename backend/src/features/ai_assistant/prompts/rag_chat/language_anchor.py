@@ -1,14 +1,13 @@
-"""Sprachanker: alte Fragen der Person als Sprachprobe, damit "hi" den Chat nicht
-ins Englische kippt."""
+"""The person's older questions as a language sample, so a short word cannot flip the chat."""
 
 from src.i18n import DEFAULT_LOCALE, TRANSCRIPT_LANGUAGES
 
 
-# Kurz genug, dass eine eingefuegte Textwand den Prompt nicht flutet.
+# Short enough that a pasted wall of text does not flood the prompt.
 _LANG_ANCHOR_MAX_CHARS = 100
-# Mehrere, weil eine Kette aus "hi" und "klsdf" sonst nichts uebrig liesse.
+# Several, because a chain of 'hi' and 'klsdf' would otherwise leave nothing.
 _LANG_ANCHOR_MAX_QUESTIONS = 3
-# Darunter traegt eine Probe keine Sprache, gezaehlt werden Woerter statt Wortlisten.
+# Below this a sample carries no language, words are counted instead of word lists.
 _LANG_ANCHOR_MIN_WORDS = 3
 
 
@@ -25,12 +24,7 @@ def language_anchors(prev_questions: list[str] | None) -> list[str]:
 
 
 def ambiguous_language_rule(target_locale: str, prev_questions: list[str] | None) -> str:
-    """One line telling the model what to do when the question has NO language.
-
-    A greeting, a single word or gibberish carries no signal, and the model falls
-    back to English so the chat visibly flips. Earlier questions of the same chat
-    are handed over as language SAMPLES, newest first, else the chat language decides.
-    """
+    """One line for the case where the question carries no language signal."""
     anchors = language_anchors(prev_questions)
     if anchors:
         quoted = ", ".join(f"\"{a}\"" for a in anchors)

@@ -11,9 +11,7 @@ from src.features.ai_assistant.tasks.studio.schedule._parse import _parse_date
 from src.features.ai_assistant.prompts.schedule_prompts import AIA_SCHEDULE_CLASSIFY_PROMPT
 
 
-# Classify/harmonize batches can carry up to 30 candidates with ±450 chars of
-# context each → responses up to 10k tokens. 120s (OpenAI default) is too tight
-# for slower providers; 180s + one retry covers transient stalls.
+# Generous timeout plus a second attempt, the answers get long.
 _CLASSIFY_TIMEOUT_SECS = 180
 _CLASSIFY_RETRY_WAIT_SECS = 5
 
@@ -21,14 +19,7 @@ _CLASSIFY_BATCH_SIZE = 30  # safe size so a ~10k-token response stays within lim
 
 
 def _dated_month_days(candidates: list[dict], entries: list[dict]) -> set[tuple[int, int]]:
-    """Alle (Monat, Tag), die IRGENDWO mit Jahreszahl belegt sind.
-
-    Ein Vortrag sagt "der 3. Juli", der Kursplan schreibt "03.07.2026". Ohne diesen
-    Abgleich stand der gesprochene Termin allein da, und sobald der Tag im laufenden
-    Jahr vorbei ist, hielt ihn die Klassifikation fuer eine Erinnerung an frueher.
-    Deshalb bekommt sie hier gesagt, welche Tage schwarz auf weiss mit Jahr belegt
-    sind: in einer Quelle des Auftrags oder in einem Eintrag, der schon steht.
-    """
+    """All days that are attested somewhere with a year."""
     out: set[tuple[int, int]] = set()
     for c in candidates:
         iso = c.get("date_iso")
@@ -64,8 +55,7 @@ def _classify_candidates_batch(client, model, batch: list[dict], today_d: date,
             item["month_only"] = True
         if c.get("is_tbd"):
             item["date_tbd"] = True
-        # Der Kandidatenschritt hat direkt dahinter ein zweites Datum gefunden und haelt
-        # es fuer das Ende einer Spanne. Ob es wirklich eine ist, entscheidet das Modell.
+        # The model decides whether the second date really is a span end.
         if c.get("date_end_raw"):
             item["date_end_raw"] = c["date_end_raw"]
             item["date_end_iso"] = c.get("date_end_iso")
@@ -135,8 +125,7 @@ def _classify_candidates_batch(client, model, batch: list[dict], today_d: date,
             "title": (r.get("title") or "").strip(),
             "description": (r.get("description") or None),
             "due_time": (r.get("due_time") or None),
-            # Nur bestaetigte Spannen tragen ein Ende. Ohne zweites Datum im Kandidaten
-            # ist die Antwort des Modells dazu bedeutungslos.
+            # Only confirmed spans carry an end.
             "is_range": bool(r.get("is_range")) and bool(batch[i].get("date_end_raw")),
             "end_time": (r.get("end_time") or None),
             "is_open_ended": bool(r.get("is_open_ended")),
@@ -147,9 +136,7 @@ def _classify_candidates_batch(client, model, batch: list[dict], today_d: date,
 
 def _classify_candidates(client, model, candidates: list[dict], today_d: date,
                          dated_month_days: set[tuple[int, int]] | None = None) -> list[dict]:
-    """Split candidates into batches of _CLASSIFY_BATCH_SIZE and classify each.
-    Returns a flat list aligned with `candidates`.
-    """
+    """Classifies the candidates in batches and returns a flat list."""
     if not candidates:
         return []
     all_results: list[dict] = []

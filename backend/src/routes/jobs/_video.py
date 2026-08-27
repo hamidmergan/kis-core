@@ -1,4 +1,4 @@
-"""Abspiel-Route fuer das fertige Video: inline, mit Sprungmarken."""
+"""Playback route for the finished video: inline, with chapter marks."""
 
 from pathlib import Path
 
@@ -20,9 +20,9 @@ def stream_job_video(
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    """Das Ergebnis zum Ansehen statt zum Herunterladen."""
+    """The result for viewing instead of downloading."""
     job = db.get_job(job_uuid)
-    # Gleiche Antwort fuer fremd und fehlend, sonst liessen sich Jobs abklopfen.
+    # The same answer for foreign and missing, otherwise jobs could be probed.
     if not job or job["user_id"] != current_user.get("user_id", 0):
         raise HTTPException(status_code=404, detail=t("job.notFound", locale))
     if job["status"] != "success" or not job["result_path"]:
@@ -46,7 +46,7 @@ def stream_job_video(
         return StreamingResponse(strom, status_code=206 if bereich and ausschnitt else 200,
                                  media_type="video/mp4", headers=kopf)
 
-    # FileResponse beantwortet Range selbst, das spart den lokalen Sonderweg.
+    # FileResponse answers Range itself, that saves the local special case.
     return FileResponse(path=pfad, media_type="video/mp4", filename="screencast.mp4",
                         content_disposition_type="inline",
                         headers={"Cache-Control": "private, max-age=3600"})

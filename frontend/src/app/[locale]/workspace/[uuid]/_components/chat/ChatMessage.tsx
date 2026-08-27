@@ -25,18 +25,10 @@ const POPUP_ACTION_ICONS: Record<string, PhosphorIconType> = {
 };
 
 
-// Seit 2026-08-16 steht die Lücke am ENDE der Antwort statt am Anfang: erst was die
-// Quellen hergeben, dann was fehlt. Der Lückensatz endet fest auf "steht nicht in den
-// Quellen" bzw. "is not in the sources", die letzten zwei Alternativen fangen ihn.
-// Ohne sie schaut Francis zufrieden, obwohl er die eigentliche Frage nicht beantworten
-// konnte. Der Rest bleibt für alte Antworten aus dem Chatverlauf stehen.
-// Siehe RAG_NO_INFO_PATTERNS in backend/src/tool_prompts.py.
+// The refusal sentence comes at the end, the last patterns catch it.
 const SORRY_PATTERN = /nichts gefunden|keine information|in den (?:quellen|materialien) nicht enthalten|nicht in den (?:bereitgestellten |angegebenen )?(?:quellen|materialien)|kann ich nicht beantworten|steht nicht in den|not in the (?:provided |given )?sources?|no information (?:found|available|in)|could(?:n['']t| not) find|cannot find|is not (?:in|available in|contained in) (?:the )?sources?|stehe?n nicht in den (?:quellen|materialien)|(?:is|are) not in the sources/i;
 
-// Translate popup may fail silently in two ways: LLM echoes the input verbatim, or
-// it follows the (now-removed but legacy) "no personal names" rule and outputs a
-// 'laut Quelle' / 'according to the source' sentinel. Both cases get replaced with
-// a generic "could not translate" message so the user knows to retry or rephrase.
+// Two silent failure shapes of the translation are replaced by a message.
 function _normalizeForCompare(s: string): string {
   return s.toLowerCase().replace(/[\s\p{P}\p{S}]+/gu, " ").trim();
 }
@@ -50,15 +42,12 @@ function _isTranslateNoop(output: string, input: string | undefined): boolean {
 }
 
 
-// The bit of a markdown node the citation code needs: where it starts in the answer text.
-// Structurally compatible with hast's Element, so react-markdown's `node` fits without
-// dragging the hast types in.
+// Only the part of a Markdown node the citations need.
 type MarkdownNode = { position?: { start?: { offset?: number } } } | undefined;
 
 interface ChatMessageProps {
   msg: ChatMessageType;
-  // Stable name of this message inside the list, so two messages never share a chip stop id.
-  // Chat messages carry no id of their own, hence the list position as fallback.
+  // A stable name for the message so two never share a chip position.
   msgKey: string;
   activeSourceIds: string[];
   getFilename: (uuid: string) => string;
@@ -85,8 +74,7 @@ function ChatMessageImpl({
   const [expandAssistantContent, setExpandAssistantContent] = useState(false);
   const [expandSources, setExpandSources] = useState(false);
   const [copied, setCopied] = useState(false);
-  // The message's own switch for its chip stops. Every stop carries the message key at the
-  // head of its group id, so the switch reaches exactly this message's stops and no other's.
+  // The toggle reaches exactly the chip positions of this message.
   const allChipsOpen = useAllChipsOpen(msgKey);
   const [saved, setSaved] = useState(false);
   const [savingNote, setSavingNote] = useState(false);
@@ -96,8 +84,7 @@ function ChatMessageImpl({
   const userContentRef = useRef<HTMLDivElement | null>(null);
   const [isAssistantOverflow, setIsAssistantOverflow] = useState(false);
   const [isUserOverflow, setIsUserOverflow] = useState(false);
-  // Measure actual rendered height instead of guessing from raw markdown length
-  // (citation markers like [2|file|page] inflate content.length but render as short chips)
+  // The height is measured, citation markers inflate the text length.
   useLayoutEffect(() => {
     const el = msg.role === "assistant" ? assistantContentRef.current : userContentRef.current;
     if (!el) return;
@@ -114,13 +101,11 @@ function ChatMessageImpl({
     return () => ro.disconnect();
   }, [msg.content, msg.role]);
   const collapseAssistant = collapseByDefault && msg.role === "assistant" && isAssistantOverflow && !expandAssistantContent;
-  // Each markdown node hands its own start offset down: message plus offset names a chip
-  // stop by its place in the answer, which is what its open/closed state hangs on.
+  // Message plus position names a chip site unambiguously.
   const wrapCitations = (children: React.ReactNode, node?: MarkdownNode) =>
     withCitations(children, msg, activeSourceIds, getFilename, onChipClick,
       (key, vals) => tChip(key, vals), `${msgKey}#${node?.position?.start?.offset ?? 0}-`);
-  // Table cells only. A cell holds no sentence that a period ends, so its stops keep the
-  // text exactly as it stands.
+  // In table cells the text stays unchanged, no sentence ends there.
   const wrapCitationsInCell = (children: React.ReactNode, node?: MarkdownNode) =>
     withCitations(children, msg, activeSourceIds, getFilename, onChipClick,
       (key, vals) => tChip(key, vals), `${msgKey}#${node?.position?.start?.offset ?? 0}-`, false);
@@ -128,9 +113,7 @@ function ChatMessageImpl({
 
   const isTranslatePopup = msg.popup_selection?.action_key === "translate";
   const isStreaming = loading && isLatest;
-  // Before the first word arrives there is no bubble at all. The mascot stands
-  // right above with its own dotted speech bubble, so a second set of dots in an
-  // otherwise empty bubble only said the same thing twice.
+  // Before the first word there is no bubble, the mascot shows the waiting.
   const waitingForFirstWord = msg.role === "assistant" && !msg.content && isStreaming;
   const translateFailed = msg.role === "assistant"
     && isTranslatePopup
@@ -140,8 +123,7 @@ function ChatMessageImpl({
 
   let avatarState: MascotState = "idle";
   if (msg.role === "assistant") {
-    // Stay "thinking" for the whole stream — qmap arrives before the stream ends,
-    // so switching to "found" on qmap made Hilde look done while still writing.
+    // Thinking for the whole stream, the source numbers arrive earlier.
     if (isStreaming) {
       avatarState = "thinking";
     } else if (translateFailed || SORRY_PATTERN.test(msg.content)) {
@@ -189,8 +171,7 @@ function ChatMessageImpl({
     }
   }
 
-  // An empty answer (cancelled or failed) has nothing to copy or save, so the
-  // buttons would only offer dead actions.
+  // An empty answer has nothing to copy or save.
   const actionButtons = msg.role === "assistant" && !msg.content ? null : (
     <>
       {msg.role === "assistant" && hasCitations(msg.content) && (
@@ -198,9 +179,7 @@ function ChatMessageImpl({
           type="button"
           onClick={() => toggleAllChips(msgKey)}
           aria-pressed={allChipsOpen}
-          // Stays visible while it is on, unlike its neighbours: with the stops open the
-          // answer looks changed, and the switch that did it has to be the thing you see
-          // when you look for the way back.
+          // The toggle stays visible while it is on.
           className={`mt-1 p-1 rounded-full btn-icon${allChipsOpen ? "" : " [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100"}`}
           title={allChipsOpen ? t("hideAllCitations") : t("showAllCitations")}
         >
@@ -261,9 +240,7 @@ function ChatMessageImpl({
             }
           >
             {msg.role === "assistant" && !msg.content ? (
-              // An empty message with no live stream is cancelled or failed. A turn
-              // that failed is persisted with empty content, so after a reload it must
-              // read the same as it did live: the error, not "(no answer)".
+              // After a reload a failed round has to say the same as it did live.
               <span className="text-xs italic" style={{ color: "var(--muted)" }}>
                 {msg.failed ? t("genericError") : t("noAnswer")}
               </span>
@@ -434,7 +411,5 @@ function ChatMessageImpl({
   );
 }
 
-// React.memo: skip Markdown re-render when message + callbacks do not change.
-// Noticeable on iPad, because otherwise ChatMessage re-runs ReactMarkdown +
-// citation walk on every page.tsx re-render (e.g. tab switch).
+// Saves a redraw when message and callbacks do not change.
 export const ChatMessage = memo(ChatMessageImpl);

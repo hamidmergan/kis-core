@@ -1,11 +1,4 @@
-"""Umbenennen von Satz, Mindmap und Datentabelle.
-
-Ein Helfer fuer drei Tabellen. Geprueft wird, dass der Tabellenname aus der festen
-Zuordnung kommt, dass die Bedingung Person UND Kursraum verlangt, und dass ein Titel
-vorher aufgeraeumt wird.
-
-Keine echte Datenbank: geprueft wird die abgesetzte Anweisung.
-"""
+"""Renaming a set, mind map and data table, checked against the statement."""
 
 import pytest
 

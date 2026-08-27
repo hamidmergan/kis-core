@@ -1,11 +1,4 @@
-"""Der Lückentext hängt am Vorrat, an der Statistik und an der Route.
-
-Der Vorrat gilt NUR beim Erzeugen aus den Quellen. Aus Lernkarten hat er keinen
-Sinn: zwei Personen im selben Kursraum haben nicht dieselben Karten, ein
-geteilter Text passte also zu den Karten der anderen nicht.
-
-Kein DB- und kein Netzzugriff.
-"""
+"""The cloze uses the pool only when generated from the sources."""
 
 from src.features.ai_assistant.repository.stats import LANGUAGE_TRAINING_TOOLS
 from src.features.ai_assistant.schemas import CreateSetBody
@@ -21,8 +14,7 @@ def test_aus_quellen_laeuft_ueber_den_vorrat():
 
 
 def test_aus_lernkarten_laeuft_nicht_ueber_den_vorrat():
-    # Ohne eigene Bedingung: uses_pool ist nur bei mode='source' wahr, und der
-    # Kartenweg heisst mode='cards'. Genau dafür wurde der Modus so benannt.
+    # The card path is mode='cards' and therefore falls out of the pool.
     assert uses_pool("wortschatz", "cards") is False
 
 
@@ -62,7 +54,7 @@ def test_ein_set_eines_anderen_werkzeugs_wird_abgelehnt():
 
 
 def test_ein_noch_entstehender_satz_wird_abgelehnt():
-    # Ein Satz ohne fertige Karten hat keine Woerter herzugeben.
+    # A set without finished cards has no words to give.
     roh = dict(_EIGEN, status="generating")
     assert usable_flashcard_set(roh, workspace_id=7, user_id=1) is False
 

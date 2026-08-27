@@ -27,8 +27,7 @@ _TAB_FEATURE = {"generate": "image_gen", "edit": "image_edit", "analyze": "visio
 
 @router.get("/image/providers/{tab}")
 async def list_image_providers(tab: str, _user: dict = Depends(get_current_user)):
-    """Reachable providers the admin configured a model for, for one image tab
-    (generate -> image_gen, edit -> image_edit, analyze -> vision)."""
+    """Reachable providers the admin has registered a model for."""
     feature = _TAB_FEATURE.get(tab)
     if feature is None:
         return {"providers": [], "default_id": None}
@@ -36,8 +35,7 @@ async def list_image_providers(tab: str, _user: dict = Depends(get_current_user)
 
 
 def _validate_provider(feature: str, provider_id: int | None, locale: str) -> None:
-    """Reject a user-picked provider that the admin did not configure for the
-    feature. ``None`` keeps the admin default route."""
+    """Rejects a provider the admin has not set up for this feature."""
     if provider_id is not None and not feature_provider_choices.is_eligible(feature, provider_id):
         raise HTTPException(status_code=400, detail=t("image.invalidProvider", locale))
 

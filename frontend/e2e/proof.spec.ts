@@ -18,8 +18,7 @@ test("proof: live answer + nav-only citation (no highlight)", async ({ page }) =
 
   await pdfChip.click();
 
-  // Nav-only: the chip opens the PDF viewer to the cited page, but draws NO text
-  // highlight (only the user's own popup/action-bar selection highlights).
+  // The chip jumps to the page but highlights nothing there.
   await expect(page.locator("embedpdf-container")).toBeVisible({ timeout: 30_000 });
   await page.waitForTimeout(1500);
   expect(await highlightRectCount(page)).toBe(0);

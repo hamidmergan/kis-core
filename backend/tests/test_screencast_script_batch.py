@@ -1,12 +1,4 @@
-"""Skript-Erzeugung in Stapeln: die Zuordnung Folie zu Skript muss stimmen.
-
-Das Modell trennt die Skripte mit ||| und der Code hat sich darauf verlassen,
-dass genau so viele Teile zurückkommen wie Folien im Stapel waren. Kam eine
-Antwort mit einem Trenner zu wenig, wurde stumpf aufgefüllt oder abgeschnitten.
-Folge: ab dieser Stelle bekommt jede Folie das Skript der Nachbarfolie und
-hinten fällt eines weg. Ein falsches Skript unter dem richtigen Bild fällt beim
-Prüfen kaum auf, das Video ist trotzdem unbrauchbar.
-"""
+"""The slide to script mapping has to hold for faulty batches too."""
 
 import pytest
 
@@ -16,7 +8,7 @@ from src.services.openai_compat_llm._scripts import _ScriptsMixin
 
 @pytest.fixture(autouse=True)
 def _no_retry_delay(monkeypatch):
-    """Der zweite Versuch wartet im Betrieb 5 Sekunden, im Test nicht."""
+    """The second attempt waits 5 seconds in operation, not in the test."""
     monkeypatch.setattr(_scripts, "_BATCH_RETRY_DELAY", 0.0)
 
 
@@ -55,7 +47,7 @@ class FakeClient:
 
 
 class ScriptClient(_ScriptsMixin):
-    """Nur die Skript-Logik, ohne echten Anbieter."""
+    """Only the script logic, without a real provider."""
 
     def __init__(self, replies, batch_size=3):
         self._client = FakeClient(replies)
@@ -81,14 +73,14 @@ def test_clean_batch_maps_one_to_one():
 
 
 def test_trailing_delimiter_is_tolerated():
-    """Ein Trenner am Ende ist harmlos und darf nicht als Fehler gelten."""
+    """A separator at the end is harmless and must not count as an error."""
     client = ScriptClient(["Skript A\n|||\nSkript B\n|||\nSkript C\n|||"])
     scripts = client.generate_scripts_batch(_slides(3), add_greeting=False, add_closing=False)
     assert scripts == ["Skript A", "Skript B", "Skript C"]
 
 
 def test_missing_delimiter_falls_back_to_one_call_per_slide():
-    """Statt zu verschieben wird jede Folie einzeln erzeugt, das kann nicht danebengehen."""
+    """Instead of shifting, every slide is generated individually, which cannot go wrong."""
     client = ScriptClient([
         "Skript A und Skript B zusammen\n|||\nSkript C",  # ein Trenner zu wenig
         "Skript A und Skript B zusammen\n|||\nSkript C",  # Wiederholung, wieder falsch
@@ -101,7 +93,7 @@ def test_missing_delimiter_falls_back_to_one_call_per_slide():
 
 
 def test_failed_single_slide_only_costs_that_slide():
-    """Fällt eine Folie im Einzelbetrieb aus, bleibt sie leer. Die anderen nicht."""
+    """If a slide fails in individual mode it stays empty, the others do not."""
     client = ScriptClient([
         "nur ein Teil",           # Stapel, Versuch 1
         "nur ein Teil",           # Stapel, Versuch 2
@@ -116,7 +108,7 @@ def test_failed_single_slide_only_costs_that_slide():
 
 
 def test_short_last_batch_keeps_its_length_on_failure():
-    """Der letzte Stapel ist oft kürzer. Fällt er aus, darf die Liste nicht wachsen."""
+    """The last batch is often shorter, if it fails the list must not grow."""
     client = ScriptClient(
         [RuntimeError("weg")] * 20,
         batch_size=3,
@@ -139,11 +131,7 @@ def _rules() -> str:
 
 
 def test_length_rule_is_a_ceiling_not_a_range():
-    """Eine feste Spanne zwingt das Modell bei dünnen Folien zum Wiederholen.
-
-    Gemessen an einem echten Durchlauf: eine Titelfolie mit fünf Wörtern Inhalt
-    bekam 333 Wörter Skript, in denen "Scientific Work" 25 mal vorkam.
-    """
+    """A fixed range forces the model to repeat itself on thin slides."""
     rules = _rules()
     assert "between 1500 and 2000 characters" not in rules
     assert "Never write more than 2000 characters" in rules

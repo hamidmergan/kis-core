@@ -1,17 +1,4 @@
-"""Ausgeschriebene Datumsangaben, in jeder Sprache, und Monate ohne Tag.
-
-Das Suchmuster kennt Zahlformate (03.07.2026, 2026-07-03) und ausgeschriebene Monate auf
-Deutsch und Englisch. "3 Temmuz 2026", "3 juillet 2026" und "3 de julio de 2026" fielen
-durch, ein tuerkisches Skript lieferte damit gar keine Termine.
-
-Zahlen bleiben beim Suchmuster, die sind sprachneutral. Ausgeschriebene Daten liest das
-Modell, und zwar in DERSELBEN Anfrage, in der es ohnehin schon nach offenen Terminen
-sucht. Das kostet keine zusaetzliche Anfrage.
-
-Neu ist ausserdem die Genauigkeit: nennt die Quelle nur einen Monat ("im Juli 2026"),
-bleibt das ein Monat. due_date traegt dann den Monatsersten als Sortierpunkt, und die
-Ansicht zeigt keine Tagesnummer, die nirgends stand.
-"""
+"""The model reads spelled-out dates, numbers stay with the pattern."""
 
 import json
 import types
@@ -47,7 +34,7 @@ def _chunks(*texts):
     ]
 
 
-# --- die Ziffernform, die das Modell mitliefert ------------------------------
+# --- the numeric form the model delivers along --------------------------------
 
 def test_ganzes_datum():
     assert mod._parse_model_date("2026-07-03") == {
@@ -55,7 +42,7 @@ def test_ganzes_datum():
 
 
 def test_monat_mit_jahr_behaelt_seine_ungenauigkeit():
-    """Der Monatserste ist nur der Sortierpunkt, die Genauigkeit bleibt "month"."""
+    """The first of the month is only the sort key, the precision stays 'month'."""
     assert mod._parse_model_date("2026-07") == {
         "date_iso": "2026-07-01", "partial_date": None, "date_precision": "month"}
 
@@ -73,7 +60,7 @@ def test_unbrauchbare_ziffernformen_fallen_raus(wert):
     assert mod._parse_model_date(wert) is None
 
 
-# --- was aus der Modellantwort wird ------------------------------------------
+# --- what becomes of the model answer -----------------------------------------
 
 def test_daten_kommen_je_block_zurueck():
     client, _ = _make_client({"results": [], "dates": [
@@ -124,7 +111,7 @@ def test_zu_viele_daten_je_block_werden_gedeckelt():
     assert len(found[0]["dates"]) == mod._MAX_DATES_PER_BLOCK
 
 
-# --- was daraus im Zeitplan wird ---------------------------------------------
+# --- what becomes of it in the schedule ---------------------------------------
 
 def test_tuerkisches_datum_wird_zum_kandidaten(monkeypatch):
     chunks = _chunks("Ders programi\nTeslim tarihi 3 Temmuz 2026 saat 10:00")
@@ -156,7 +143,7 @@ def test_monat_ohne_tag_behaelt_seine_genauigkeit(monkeypatch):
 
 
 def test_erfundenes_datum_wird_verworfen(monkeypatch):
-    """Die Stelle muss woertlich im Text stehen, sonst zeigt der Eintrag auf nichts."""
+    """The spot has to appear verbatim in the text, otherwise the entry points at nothing."""
     chunks = _chunks("Die Vorlesung findet woechentlich statt.")
     monkeypatch.setattr(cand_mod.db, "get_aia_chunks_by_source", lambda _id: chunks)
     client, _ = _make_client({"dates": [
@@ -169,7 +156,7 @@ def test_erfundenes_datum_wird_verworfen(monkeypatch):
 
 
 def test_was_der_regex_schon_hat_kommt_nicht_doppelt(monkeypatch):
-    """Das Modell meldet dieselbe Stelle noch einmal. Ein Termin, nicht zwei."""
+    """The model reports the same spot again, that is one appointment, not two."""
     chunks = _chunks("Abgabe am 03.07.2026 um 18:00 Uhr")
     monkeypatch.setattr(cand_mod.db, "get_aia_chunks_by_source", lambda _id: chunks)
     client, _ = _make_client({"dates": [
@@ -204,7 +191,7 @@ def test_ohne_modell_bleibt_es_beim_suchmuster(monkeypatch):
 
 
 def test_jeder_kandidat_traegt_eine_genauigkeit(monkeypatch):
-    """Sonst muss jede Stelle weiter unten raten, was fehlt."""
+    """Otherwise every spot further down has to guess what is missing."""
     chunks = _chunks("Abgabe 03.07.2026 und Sprechstunde nach Vereinbarung, 15. April")
     monkeypatch.setattr(cand_mod.db, "get_aia_chunks_by_source", lambda _id: chunks)
 
