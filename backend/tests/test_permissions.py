@@ -12,6 +12,7 @@ from src.permissions_registry import (
     PERM_AIA_USE,
     PERM_AIA_WORKSPACE_CREATE,
     PERM_SET_AIA_LEVEL,
+    PERM_SET_STATS_OWN,
     PERM_SET_SYSTEM,
     PERM_SET_USERS_ALL,
     SETTING_FIELD_PERMISSIONS,
@@ -56,12 +57,14 @@ def test_admin_has_all_permissions():
     assert set(perms.keys) == set(ALL_PERMISSION_KEYS)
 
 
-def test_staff_has_everything_except_admin_panel():
+def test_staff_gets_the_numbers_of_its_own_workspaces():
     perms = permissions_for_system_role("staff")
-    assert perms.allow_admin_panel is False
     assert perms.allow_aia is True
     assert perms.allow_workspace_create is True
     assert set(perms.tools) == set(ALL_TOOL_KEYS)
+    # Der Bereich geht auf, aber nur fuer diesen einen Reiter.
+    assert perms.allow_admin_panel is True
+    assert perms.settings_pages == (PERM_SET_STATS_OWN,)
 
 
 def test_user_has_only_aia_workspace_access_no_create():

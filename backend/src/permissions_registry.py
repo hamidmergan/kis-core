@@ -177,9 +177,11 @@ def valid_keys(keys) -> tuple[str, ...]:
 # Verhalten aller bestehenden Konten.
 SYSTEM_ROLES: tuple[str, ...] = ("admin", "staff", "user")
 
+# Lehrende bekommen zusaetzlich die Zahlen ihrer eigenen Module: das einzige
+# Einstellungsrecht, das nichts ueber die ganze Plattform verraet.
 SYSTEM_ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
     "admin": ALL_PERMISSION_KEYS,
-    "staff": AIA_KEYS + TOOL_KEYS,
+    "staff": AIA_KEYS + TOOL_KEYS + (PERM_SET_STATS_OWN,),
     "user": (PERM_AIA_USE,),
 }
 
