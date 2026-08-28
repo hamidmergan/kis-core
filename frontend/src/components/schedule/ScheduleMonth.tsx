@@ -555,7 +555,9 @@ export default function ScheduleMonth() {
       {sideEntries.length > 0 ? (
         rows(sideEntries)
       ) : (
-        <p className="text-xs py-4" style={{ color: "var(--muted)" }}>{t("month.empty")}</p>
+        <p className="text-xs py-4" style={{ color: "var(--muted)" }}>
+          {t(selected ? "month.emptyDay" : "month.empty")}
+        </p>
       )}
     </aside>
 

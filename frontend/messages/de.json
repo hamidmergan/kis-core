@@ -173,6 +173,7 @@
       "noDay": "Ohne festen Tag",
       "more": "+{count} weitere",
       "empty": "In diesem Monat steht nichts an.",
+      "emptyDay": "An diesem Tag steht nichts an.",
       "personal": "Privat",
       "hideInCalendar": "Im Kalender ausblenden",
       "showInCalendar": "Im Kalender einblenden",

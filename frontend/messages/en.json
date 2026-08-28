@@ -173,6 +173,7 @@
       "noDay": "No fixed day",
       "more": "+{count} more",
       "empty": "Nothing scheduled this month.",
+      "emptyDay": "Nothing scheduled on this day.",
       "personal": "Private",
       "hideInCalendar": "Hide in calendar",
       "showInCalendar": "Show in calendar",
