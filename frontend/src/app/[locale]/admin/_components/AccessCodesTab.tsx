@@ -4,7 +4,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Check, Copy } from "@phosphor-icons/react";
+import { Check } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 import Modal from "@/components/ui/Modal";
 import { copyTextFromPromise } from "@/lib/clipboard";
@@ -137,7 +137,17 @@ export default function AccessCodesTab() {
               {codes.map((e) => (
                 <tr key={e.id}>
                   <td className="px-4 py-3 font-medium text-foreground">{e.label}</td>
-                  <td className="px-4 py-3 font-mono text-foreground-soft">{e.code}</td>
+                  <td className="px-4 py-3">
+                    <button
+                      type="button"
+                      onClick={() => kopieren(e)}
+                      aria-label={t("copyCode")}
+                      className="font-mono text-foreground-soft hover:text-kb inline-flex items-center gap-1.5 rounded focus:outline-none focus:ring-2 focus:ring-kb"
+                    >
+                      {e.code}
+                      {kopiert === e.id && <Check size={12} weight="bold" className="text-kb" />}
+                    </button>
+                  </td>
                   <td className="px-4 py-3 text-foreground-soft">{e.used_count} / {e.max_uses}</td>
                   <td className="px-4 py-3 text-foreground-soft">{datum(e.valid_until)}</td>
                   <td className="px-4 py-3 text-foreground-soft">
@@ -171,23 +181,13 @@ export default function AccessCodesTab() {
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <button
-                        type="button"
-                        onClick={() => kopieren(e)}
-                        className="text-xs text-kb hover:underline flex items-center gap-1"
-                      >
-                        {kopiert === e.id ? <Check size={12} weight="bold" /> : <Copy size={12} weight="bold" />}
-                        {kopiert === e.id ? t("copied") : t("copyCode")}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setLoeschen(e)}
-                        className="text-xs text-error hover:underline"
-                      >
-                        {t("delete")}
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setLoeschen(e)}
+                      className="text-xs text-error hover:underline"
+                    >
+                      {t("delete")}
+                    </button>
                   </td>
                 </tr>
               ))}
