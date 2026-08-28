@@ -1406,12 +1406,18 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                     model_name      TEXT,
                     user_choices    JSONB NOT NULL DEFAULT '[]'::jsonb,
                     provider_models JSONB NOT NULL DEFAULT '{}'::jsonb,
+                    provider_sampling JSONB NOT NULL DEFAULT '{}'::jsonb,
                     updated_at      TIMESTAMP NOT NULL DEFAULT NOW()
                 )
             """)
             cur.execute("""
                 ALTER TABLE feature_routes
                 ADD COLUMN IF NOT EXISTS provider_models JSONB NOT NULL DEFAULT '{}'::jsonb
+            """)
+            # Temperatur und top_p je Anbieter, leer heisst nichts mitsenden.
+            cur.execute("""
+                ALTER TABLE feature_routes
+                ADD COLUMN IF NOT EXISTS provider_sampling JSONB NOT NULL DEFAULT '{}'::jsonb
             """)
             # The screencast_translate route is gone, the screencast reads doc_translate.
             cur.execute("DELETE FROM feature_routes WHERE feature = 'screencast_translate'")

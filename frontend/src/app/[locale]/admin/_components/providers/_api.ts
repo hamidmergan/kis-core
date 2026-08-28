@@ -6,6 +6,7 @@ import type {
   ImportResult,
   Provider,
   ProviderMeta,
+  Sampling,
   Voice,
 } from "./_types";
 
@@ -110,6 +111,7 @@ export type SetRouteInput = {
   model_name: string | null;
   user_choices: number[] | null;
   provider_models?: Record<string, string>;
+  provider_sampling?: Record<string, Sampling>;
 };
 
 export async function setFeatureRoute(

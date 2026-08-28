@@ -361,6 +361,37 @@ def _measure_route_model(provider: dict, model_name: str | None, feature: str) -
         return None
 
 
+# Grenzen der Abtastwerte, ausserhalb lehnen die Anbieter ohnehin ab.
+_SAMPLING_GRENZEN = {"temperature": (0.0, 2.0), "top_p": (0.0, 1.0)}
+
+
+def _pruefe_sampling(feature: str, roh: dict | None, locale: str) -> dict | None:
+    """Nimmt nur bekannte Schluessel in gueltigen Grenzen, leere Eintraege fallen weg."""
+    from src.services import model_limits
+
+    if roh is None:
+        return None
+    if roh and feature not in model_limits.CHAT_LIKE_FEATURES:
+        raise HTTPException(400, t("admin.providers.samplingNotSupported", locale,
+                                   feature=feature))
+    sauber: dict[str, dict[str, float]] = {}
+    for pid, werte in roh.items():
+        if not isinstance(werte, dict):
+            continue
+        eintrag: dict[str, float] = {}
+        for schluessel, (unten, oben) in _SAMPLING_GRENZEN.items():
+            wert = werte.get(schluessel)
+            if wert is None:
+                continue
+            if not unten <= float(wert) <= oben:
+                raise HTTPException(400, t("admin.providers.samplingOutOfRange", locale,
+                                           feld=schluessel, min=unten, max=oben))
+            eintrag[schluessel] = float(wert)
+        if eintrag:
+            sauber[str(pid)] = eintrag
+    return sauber
+
+
 @router.patch("/feature-routes/{feature}")
 async def set_feature_route(
     feature: str,
@@ -387,12 +418,15 @@ async def set_feature_route(
                     t("admin.providers.userChoiceUnknownProvider", locale, provider_id=pid),
                 )
 
+    sampling = _pruefe_sampling(feature, body.provider_sampling, locale)
+
     row = db.set_route(
         feature,
         provider_id=body.provider_id,
         model_name=(body.model_name or None),
         user_choices=body.user_choices,
         provider_models=body.provider_models,
+        provider_sampling=sampling,
     )
 
     # Changing the embedding route invalidates the stored fingerprint.
@@ -474,12 +508,21 @@ def build_export(*, exported_from: str | None) -> dict:
                 continue
             if pid in id_to_name:
                 provider_models_named[id_to_name[pid]] = model
+        provider_sampling_named: dict[str, dict] = {}
+        for key, werte in (r.get("provider_sampling") or {}).items():
+            try:
+                pid = int(key)
+            except (TypeError, ValueError):
+                continue
+            if pid in id_to_name:
+                provider_sampling_named[id_to_name[pid]] = werte
         exported_routes.append({
             "feature": r["feature"],
             "provider_name": id_to_name.get(r.get("provider_id")),
             "model_name": r.get("model_name"),
             "user_choices": user_choice_names,
             "provider_models": provider_models_named,
+            "provider_sampling": provider_sampling_named,
         })
 
     return {
@@ -686,6 +729,10 @@ def perform_import(cfg: dict) -> dict:
         for n, model in (r.get("provider_models") or {}).items():
             if n in name_to_id:
                 provider_models[str(name_to_id[n])] = model
+        provider_sampling: dict[str, dict] = {}
+        for n, werte in (r.get("provider_sampling") or {}).items():
+            if n in name_to_id and isinstance(werte, dict):
+                provider_sampling[str(name_to_id[n])] = werte
 
         db.set_route(
             r["feature"],
@@ -693,6 +740,7 @@ def perform_import(cfg: dict) -> dict:
             model_name=r.get("model_name"),
             user_choices=user_choice_ids,
             provider_models=provider_models,
+            provider_sampling=provider_sampling,
         )
         if r["feature"] in existing_routes:
             routes_updated += 1

@@ -318,6 +318,14 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Anbieter {provider_id} aus der Auswahl existiert nicht.",
         "en": "Provider {provider_id} from the choice list does not exist.",
     },
+    "admin.providers.samplingNotSupported": {
+        "de": "Funktion {feature} arbeitet nicht mit Temperatur und top_p.",
+        "en": "Feature {feature} does not use temperature or top_p.",
+    },
+    "admin.providers.samplingOutOfRange": {
+        "de": "{feld} muss zwischen {min} und {max} liegen.",
+        "en": "{feld} must be between {min} and {max}.",
+    },
     "admin.providers.testNoProvider": {
         "de": "Kein Anbieter für diese Funktion ausgewählt.",
         "en": "No provider selected for this feature.",

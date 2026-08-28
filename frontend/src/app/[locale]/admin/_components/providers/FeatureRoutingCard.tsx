@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { CheckCircle, Lightning, Spinner, Warning, XCircle } from "@phosphor-icons/react";
 import { testFeatureRoute } from "./_api";
 import DefaultVoiceRow from "./DefaultVoiceRow";
-import type { Capability, Feature, FeatureRoute, Provider, ProviderMeta } from "./_types";
+import type { Capability, Feature, FeatureRoute, Provider, ProviderMeta, Sampling } from "./_types";
 
 type Props = {
   meta: ProviderMeta;
@@ -14,8 +14,60 @@ type Props = {
   onChangeProvider: (feature: Feature, providerId: number | null) => Promise<void>;
   onChangeModel: (feature: Feature, modelName: string | null) => Promise<void>;
   onChangeProviderModel: (feature: Feature, providerId: number, modelName: string | null) => Promise<void>;
+  onChangeSampling: (feature: Feature, providerId: number, werte: Sampling | null) => Promise<void>;
   onToggleUserChoice: (feature: Feature, providerId: number, on: boolean) => Promise<void>;
 };
+
+// Nur diese Funktionen laufen ueber chat/completions, nur dort wirken die Werte.
+const CHAT_LIKE: ReadonlySet<string> = new Set([
+  "chat", "vision", "ocr", "doc_translate", "transcript_translate",
+]);
+
+const FELD =
+  "w-16 text-xs px-1.5 py-1 border-2 border-border rounded-md font-mono text-center " +
+  "hover:border-kb focus:outline-none focus:border-kb bg-background " +
+  "disabled:opacity-60 disabled:cursor-not-allowed";
+
+function SamplingRow({
+  werte,
+  disabled,
+  onChange,
+}: {
+  werte: Sampling | undefined;
+  disabled: boolean;
+  onChange: (werte: Sampling | null) => void;
+}) {
+  const t = useTranslations("admin.providers");
+  const setze = (schluessel: "temperature" | "top_p", roh: string) => {
+    const naechste: Sampling = { ...(werte ?? {}) };
+    const zahl = roh.trim() === "" ? NaN : Number(roh);
+    if (Number.isNaN(zahl)) delete naechste[schluessel];
+    else naechste[schluessel] = zahl;
+    onChange(Object.keys(naechste).length ? naechste : null);
+  };
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="text-2xs text-muted-soft whitespace-nowrap">{t("routes.temperature")}</span>
+      <input
+        key={`temp-${werte?.temperature ?? ""}`}
+        type="number" step="0.05" min="0" max="2" disabled={disabled}
+        defaultValue={werte?.temperature ?? ""}
+        onBlur={(e) => setze("temperature", e.target.value)}
+        placeholder={t("routes.samplingAuto")}
+        className={FELD}
+      />
+      <span className="text-2xs text-muted-soft whitespace-nowrap">top_p</span>
+      <input
+        key={`topp-${werte?.top_p ?? ""}`}
+        type="number" step="0.05" min="0" max="1" disabled={disabled}
+        defaultValue={werte?.top_p ?? ""}
+        onBlur={(e) => setze("top_p", e.target.value)}
+        placeholder={t("routes.samplingAuto")}
+        className={FELD}
+      />
+    </div>
+  );
+}
 
 type ProviderTestStates = Record<number, TestState>;
 
@@ -78,6 +130,7 @@ export default function FeatureRoutingCard({
   onChangeProvider,
   onChangeModel,
   onChangeProviderModel,
+  onChangeSampling,
   onToggleUserChoice,
 }: Props) {
   const t = useTranslations("admin.providers");
@@ -210,6 +263,7 @@ export default function FeatureRoutingCard({
               onChangeProvider={(pid) => onChangeProvider(feature, pid)}
               onChangeModel={(model) => onChangeModel(feature, model)}
               onChangeProviderModel={(pid, model) => onChangeProviderModel(feature, pid, model)}
+              onChangeSampling={(pid, werte) => onChangeSampling(feature, pid, werte)}
               onToggleUserChoice={(pid, on) => onToggleUserChoice(feature, pid, on)}
             />
           );
@@ -233,6 +287,7 @@ function FeatureRow({
   onChangeProvider,
   onChangeModel,
   onChangeProviderModel,
+  onChangeSampling,
   onToggleUserChoice,
 }: {
   feature: Feature;
@@ -248,6 +303,7 @@ function FeatureRow({
   onChangeProvider: (id: number | null) => void;
   onChangeModel: (model: string | null) => void;
   onChangeProviderModel: (providerId: number, model: string | null) => void;
+  onChangeSampling: (providerId: number, werte: Sampling | null) => void;
   onToggleUserChoice: (id: number, on: boolean) => void;
 }) {
   const t = useTranslations("admin.providers");
@@ -284,6 +340,15 @@ function FeatureRow({
                     />
                     <TestButton state={pState} disabled={testsLocked} onClick={() => onTestProvider(p.id)} />
                   </div>
+                  {CHAT_LIKE.has(feature) && p.protocol === "openai_compat" && (
+                    <div className="flex justify-end pr-1">
+                      <SamplingRow
+                        werte={route?.provider_sampling?.[String(p.id)]}
+                        disabled={false}
+                        onChange={(werte) => onChangeSampling(p.id, werte)}
+                      />
+                    </div>
+                  )}
                   <TestStatusLine state={pState} />
                 </div>
               );
@@ -351,6 +416,15 @@ function FeatureRow({
               </div>
             </div>
           )}
+          {primary && CHAT_LIKE.has(feature) && primary.protocol === "openai_compat" && (
+            <div className="flex justify-end pr-1">
+              <SamplingRow
+                werte={route?.provider_sampling?.[String(primary.id)]}
+                disabled={false}
+                onChange={(werte) => onChangeSampling(primary.id, werte)}
+              />
+            </div>
+          )}
           {!primary && (
             <TestButton state={testState} disabled={!canTest || testsLocked} onClick={onTest} />
           )}
@@ -391,6 +465,15 @@ function FeatureRow({
         />
         <TestButton state={testState} disabled={!canTest || testsLocked} onClick={onTest} />
       </div>
+      {CHAT_LIKE.has(feature) && provider?.protocol === "openai_compat" && (
+        <div className="sm:col-start-3 sm:col-span-2 flex sm:justify-start">
+          <SamplingRow
+            werte={providerId != null ? route?.provider_sampling?.[String(providerId)] : undefined}
+            disabled={!provider}
+            onChange={(werte) => providerId != null && onChangeSampling(providerId, werte)}
+          />
+        </div>
+      )}
     </div>
   );
 }

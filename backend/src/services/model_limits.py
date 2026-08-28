@@ -45,6 +45,8 @@ _PROBE_MAX_TOKENS = 99_999_999
 _PROBE_FRAGE = "Antworte nur mit: ok"
 # Room enough for a thinking model to show its thinking.
 _PROBE_ANTWORT_TOKENS = 400
+# Ein grosses Denk-Modell braucht auch fuer diese Winzprobe deutlich laenger als 30s.
+_PROBE_READ_TIMEOUT = 120.0
 
 # The switches that turn thinking off, in the order they are tried.
 THINK_OFF_SWITCHES: dict[str, dict] = {
@@ -131,7 +133,7 @@ def _measure_window(call) -> tuple[int, str]:
 
 
 def _measure_thinking(call) -> bool:
-    """Does the model think before answering?"""
+    """Does the model think before answering? Im Zweifel ja, das ist die sichere Seite."""
     try:
         antwort = call(
             messages=[{"role": "user", "content": _PROBE_FRAGE}],
@@ -139,8 +141,11 @@ def _measure_thinking(call) -> bool:
             temperature=0.0,
         )
     except Exception as e:  # noqa: BLE001
-        logger.debug("Denkprobe fehlgeschlagen, gilt als nicht denkend: {}", str(e)[:200])
-        return False
+        # Eine Zeitueberschreitung auf "Antworte nur mit: ok" IST der Beleg fuers Denken.
+        # Ein faelschlich gesetzter Schalter kostet nichts, ein fehlender kostet die Antwort.
+        logger.info("Denkprobe fehlgeschlagen, gilt vorsichtshalber als denkend: {}",
+                    str(e)[:200])
+        return True
     return _thought(antwort)
 
 
@@ -212,8 +217,8 @@ def measure_provider_model(base_url: str, api_key: str, model: str) -> ModelProf
     client = OpenAI(
         api_key=api_key or "not-needed",
         base_url=base_url,
-        # Shorter than in operation, a measurement hangs on a click.
-        timeout=httpx.Timeout(connect=10.0, read=30.0, write=10.0, pool=10.0),
+        # Kuerzer als im Betrieb, aber lang genug, dass ein Denk-Modell die Probe schafft.
+        timeout=httpx.Timeout(connect=10.0, read=_PROBE_READ_TIMEOUT, write=10.0, pool=10.0),
         max_retries=0,
     )
 

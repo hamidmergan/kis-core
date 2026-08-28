@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 
 from src import database as db
@@ -20,6 +20,8 @@ class FeatureBinding:
     feature: str
     provider: dict
     model: Optional[str]
+    # Temperatur und top_p aus dem Admin, leer heisst eingebauter Wert.
+    sampling: dict = field(default_factory=dict)
 
     @property
     def protocol(self) -> str:
@@ -57,10 +59,12 @@ def resolve(feature: str, *, user_provider_id: Optional[int] = None) -> FeatureB
 
     provider_models = route.get("provider_models") or {}
     model = provider_models.get(str(chosen_id)) or route.get("model_name")
+    provider_sampling = route.get("provider_sampling") or {}
     return FeatureBinding(
         feature=feature,
         provider=provider,
         model=model,
+        sampling=dict(provider_sampling.get(str(chosen_id)) or {}),
     )
 
 
@@ -103,6 +107,7 @@ def make_llm_client(binding: FeatureBinding):
         whisper_model=model,
         provider=provider["name"],
     )
+    client._sampling = dict(binding.sampling or {})
     _attach_model_profile(client, binding)
     return client
 
@@ -168,6 +173,7 @@ def make_ocr_provider(binding: FeatureBinding):
             base_url=_ensure_v1(binding.provider["base_url"]),
             api_key=binding.provider.get("api_key") or "not-needed",
             model=binding.model or "",
+            sampling=binding.sampling,
         )
     raise FeatureNotConfigured(
         f"OCR is not supported by protocol {binding.protocol!r}"

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { DotsThreeVertical } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
-import type { Feature, FeatureRoute, Provider, ProviderMeta } from "./_types";
+import type { Feature, FeatureRoute, Provider, ProviderMeta, Sampling } from "./_types";
 import {
   clearAllProviders,
   createProvider,
@@ -141,6 +141,7 @@ export default function ProvidersTab({ only }: { only?: "list" | "routes" } = {}
         model_name: carriedModel,
         user_choices: existing?.user_choices ?? null,
         provider_models: existing?.provider_models,
+        provider_sampling: existing?.provider_sampling,
       });
       await refreshAll();
     },
@@ -163,6 +164,7 @@ export default function ProvidersTab({ only }: { only?: "list" | "routes" } = {}
         model_name: modelName,
         user_choices: existing.user_choices ?? null,
         provider_models: nextProviderModels,
+        provider_sampling: existing.provider_sampling,
       });
       await refreshAll();
     },
@@ -183,6 +185,28 @@ export default function ProvidersTab({ only }: { only?: "list" | "routes" } = {}
         model_name: existing?.model_name ?? null,
         user_choices: existing?.user_choices ?? null,
         provider_models: next,
+        provider_sampling: existing?.provider_sampling,
+      });
+      await refreshAll();
+    },
+    [routes, refreshAll],
+  );
+
+  const onChangeSampling = useCallback(
+    async (feature: Feature, providerId: number, werte: Sampling | null) => {
+      const existing = routes.find((r) => r.feature === feature);
+      const next = { ...(existing?.provider_sampling ?? {}) };
+      if (werte) {
+        next[String(providerId)] = werte;
+      } else {
+        delete next[String(providerId)];
+      }
+      await setFeatureRoute(feature, {
+        provider_id: existing?.provider_id ?? null,
+        model_name: existing?.model_name ?? null,
+        user_choices: existing?.user_choices ?? null,
+        provider_models: existing?.provider_models,
+        provider_sampling: next,
       });
       await refreshAll();
     },
@@ -202,6 +226,7 @@ export default function ProvidersTab({ only }: { only?: "list" | "routes" } = {}
         provider_id: defaultProvider,
         model_name: existing?.model_name ?? null,
         user_choices: nextChoices,
+        provider_sampling: existing?.provider_sampling,
       });
       await refreshAll();
     },
@@ -325,6 +350,7 @@ export default function ProvidersTab({ only }: { only?: "list" | "routes" } = {}
           onChangeProvider={onChangeProvider}
           onChangeModel={onChangeModel}
           onChangeProviderModel={onChangeProviderModel}
+          onChangeSampling={onChangeSampling}
           onToggleUserChoice={onToggleUserChoice}
         />
       )}

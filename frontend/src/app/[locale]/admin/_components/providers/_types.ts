@@ -66,6 +66,9 @@ export type ModelLimits = {
   tool_context_chars: number;
 };
 
+// Temperatur und top_p je Anbieter, fehlender Wert heisst nichts mitsenden.
+export type Sampling = { temperature?: number; top_p?: number };
+
 export type FeatureRoute = {
   id: number;
   feature: Feature;
@@ -73,6 +76,7 @@ export type FeatureRoute = {
   model_name: string | null;
   user_choices: number[];
   provider_models: Record<string, string>;
+  provider_sampling: Record<string, Sampling>;
   updated_at: string;
   limits?: ModelLimits | null;
 };

@@ -59,6 +59,71 @@ from src.services.upstream_errors import upstream_error_code
 # Longer questions are almost always topical, the pre-call is skipped.
 _INTENT_MAX_WORDS = 30
 
+async def _antwort_ohne_denken(llm, messages: list[dict]) -> str:
+    """Holt die Antwort ohne Strom und ohne Denken, jeden Schalter der Reihe nach."""
+    import asyncio as _a
+
+    from src.services import model_limits as _ml
+
+    # Der schon aktive Schalter zuerst, danach die anderen. Nie zwei gleichzeitig,
+    # das lehnen strenge Anbieter ab.
+    _aktiv = getattr(getattr(llm, "_model_profile", None), "think_off", "") or ""
+    _reihe = [_aktiv] if _aktiv else []
+    _reihe += [n for n in _ml._SWITCH_ORDER if n != _aktiv]
+
+    _grund = {k: v for k, v in (llm._extra_body or {}).items()
+              if k not in _ml.THINK_OFF_SWITCHES}
+
+    # Eigene Kopie, damit ein gelerntes Fenster hier auch wirkt.
+    _msgs = list(messages)
+    # Kleiner als im Strom, ein enges Fenster platzt sonst schon an der Ausgabe.
+    _raum = min(_ml.CHAT_MAX_OUTPUT_TOKENS, 2048)
+
+    def _hol(schalter: dict, nachrichten: list[dict]):
+        antwort = llm._client.with_options(timeout=180.0, max_retries=0).chat.completions.create(
+            model=llm._model,
+            messages=nachrichten,
+            temperature=0.3,
+            max_tokens=_raum,
+            extra_body={**_grund, **schalter} or None,
+        )
+        nachricht = antwort.choices[0].message
+        # Manche Denk-Modelle legen alles ins Denkfeld, dann ist das die Antwort.
+        return (nachricht.content
+                or getattr(nachricht, "reasoning_content", None)
+                or getattr(nachricht, "reasoning", None)
+                or "")
+
+    for _name in _reihe:
+        _schalter = dict(_ml.THINK_OFF_SWITCHES.get(_name) or {})
+        if not _schalter:
+            continue
+        for _anlauf in (1, 2, 3, 4):
+            try:
+                _text = (await _a.to_thread(_hol, _schalter, _msgs)).strip()
+            except Exception as e:  # noqa: BLE001 — abgelehnt heisst nur: naechster Anlauf
+                _ml.learn_from_error(getattr(llm, "_provider_id", None), llm._model, e)
+                # Relativ schrumpfen statt auf die Formel. Die rechnet mit 3 Zeichen
+                # je Token, deutscher Text liegt naeher bei 2 und passt sonst nie.
+                _zu_lang = "context length" in str(e).lower() or "max_tokens" in str(e).lower()
+                _jetzt = sum(len(m.get("content") or "") for m in _msgs)
+                if _zu_lang and _anlauf < 4 and _jetzt > _ml.MIN_CONTEXT_CHARS:
+                    _msgs = _ml.fit_messages(
+                        _msgs, max(_ml.MIN_CONTEXT_CHARS, int(_jetzt * 0.55))
+                    )
+                    logger.info("Nachschlag zu lang, gekuerzt auf {} Zeichen",
+                                sum(len(m.get("content") or "") for m in _msgs))
+                    continue
+                logger.warning("Nachschlag mit Schalter {} fehlgeschlagen: {}",
+                               _name, str(e)[:160])
+                break
+            if _text:
+                logger.info("Nachschlag erfolgreich mit Schalter {}", _name)
+                return _text
+            break
+    return ""
+
+
 # Overview: a broad search sets the starting points, the top-up brings the breadth.
 _GENERIC_RETRIEVE_LIMIT = 32
 # Last resort: an even sample per source when the search finds nothing.
@@ -1288,7 +1353,7 @@ async def chat(
                     model=llm._model,
                     messages=messages,
                     # 0.7 instead of 0.2, too narrow a choice encourages repetition loops.
-                    temperature=0.7,
+                    **llm.sampling(0.7),
                     # Without a ceiling a loop once ran up to 178,820 tokens.
                     max_tokens=model_limits.CHAT_MAX_OUTPUT_TOKENS,
                     stream=True,
@@ -1380,21 +1445,48 @@ async def chat(
                         logger.info("Strom beendet, {}", _strom_bau.grund)
                         break
             except Exception as e:
-                _log_status = "error"
                 logger.error("LLM stream error: {}", e)
-                # Overload is reported as 'try again later' instead of a raw error.
-                _err = {"error": str(e)}
-                _code = upstream_error_code(e)
-                if _code:
-                    _err["code"] = _code
-                yield f"data: {json.dumps(_err)}\n\n"
-                return
+                # Ein Denk-Modell reisst den Strom mit, bevor ein Zeichen ankommt.
+                # Vor der Fehlermeldung deshalb einmal ohne Denken nachfassen.
+                _nachschlag = ""
+                if not aborted and not "".join(answer_parts).strip():
+                    _nachschlag = await _antwort_ohne_denken(llm, _final_messages)
+                if _nachschlag:
+                    logger.info("Strom gescheitert, Nachschlag ohne Denken lieferte {} Zeichen",
+                                len(_nachschlag))
+                    answer_parts.append(_nachschlag)
+                    yield f"data: {json.dumps({'token': _nachschlag})}\n\n"
+                else:
+                    _log_status = "error"
+                    # Overload is reported as 'try again later' instead of a raw error.
+                    _err = {"error": str(e)}
+                    _code = upstream_error_code(e)
+                    if _code:
+                        _err["code"] = _code
+                    yield f"data: {json.dumps(_err)}\n\n"
+                    return
             finally:
                 if stream is not None:
                     try:
                         await stream.close()
                     except Exception:
                         pass
+
+            # Netz gegen die leere Antwort: ein Denk-Modell verbraucht seine Ausgabe
+            # im Denken und liefert nichts. Dann einmal ohne Denken nachfassen.
+            if not aborted and not "".join(answer_parts).strip():
+                _nachschlag = await _antwort_ohne_denken(llm, _final_messages)
+                if _nachschlag:
+                    logger.info("Leerer Strom, Nachschlag ohne Denken lieferte {} Zeichen",
+                                len(_nachschlag))
+                    answer_parts.append(_nachschlag)
+                    yield f"data: {json.dumps({'token': _nachschlag})}\n\n"
+                else:
+                    # Lieber eine sichtbare Meldung als eine leere Blase.
+                    _log_status = "error"
+                    logger.error("Modell {} liefert auch ohne Denken nichts", llm._model)
+                    yield f"data: {json.dumps({'error': t('job.upstreamBusy', locale), 'code': 'empty_answer'})}\n\n"
+                    return
 
             # After the stream, deliver the last line and stop the pump cleanly.
             if _prewarmer is not None and _pump_task is not None:

@@ -112,6 +112,8 @@ class SetFeatureRouteRequest(BaseModel):
     model_name: str | None = None
     user_choices: list[int] | None = None  # multi-pill provider ids
     provider_models: dict[str, str] | None = None  # per-provider model overrides
+    # Temperatur und top_p je Anbieter, leeres Feld heisst nichts mitsenden.
+    provider_sampling: dict[str, dict[str, float]] | None = None
 
 
 # ─── Export/Import schema ──────────────────────────────────────────────────
@@ -133,6 +135,7 @@ class ExportedFeatureRoute(BaseModel):
     model_name: str | None = None
     user_choices: list[str] = []
     provider_models: dict[str, str] = {}
+    provider_sampling: dict[str, dict[str, float]] = {}
 
 
 class ExportedConfig(BaseModel):

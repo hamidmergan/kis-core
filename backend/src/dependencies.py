@@ -230,6 +230,8 @@ def get_translate_client_for_provider(
     route = db.get_route(feature)
     provider_models = (route.get("provider_models") if route else None) or {}
     model = provider_models.get(str(provider_id)) or (route.get("model_name") if route else None) or ""
+    provider_sampling = (route.get("provider_sampling") if route else None) or {}
+    sampling = dict(provider_sampling.get(str(provider_id)) or {})
 
     glossary = GlossaryService()
     if provider.get("protocol") == "deepl":
@@ -246,6 +248,7 @@ def get_translate_client_for_provider(
             model=model,
             provider=provider["name"],
             glossary=glossary_entries or None,
+            sampling=sampling,
         )
         return client, glossary
 

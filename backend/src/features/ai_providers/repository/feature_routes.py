@@ -35,7 +35,7 @@ USER_CHOICE_FEATURES: frozenset[str] = frozenset({
 
 def _row_to_dict(row) -> dict:
     d = dict(row)
-    for jsonb_col in ("user_choices", "provider_models"):
+    for jsonb_col in ("user_choices", "provider_models", "provider_sampling"):
         v = d.get(jsonb_col)
         if isinstance(v, str):
             d[jsonb_col] = json.loads(v)
@@ -47,7 +47,8 @@ def _row_to_dict(row) -> dict:
     return d
 
 
-_SELECT = "id, feature, provider_id, model_name, user_choices, provider_models, updated_at"
+_SELECT = ("id, feature, provider_id, model_name, user_choices, provider_models, "
+           "provider_sampling, updated_at")
 
 
 def list_routes() -> list[dict]:
@@ -78,24 +79,29 @@ def set_route(
     model_name: Optional[str] = None,
     user_choices: Optional[list[int]] = None,
     provider_models: Optional[dict] = None,
+    provider_sampling: Optional[dict] = None,
 ) -> dict:
     """Upsert the row for one feature. Pass None to clear a field."""
     payload_choices = json.dumps(user_choices or [])
     payload_models = json.dumps(provider_models or {})
+    payload_sampling = json.dumps(provider_sampling or {})
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
                 f"""INSERT INTO feature_routes
-                       (feature, provider_id, model_name, user_choices, provider_models)
-                   VALUES (%s, %s, %s, %s::jsonb, %s::jsonb)
+                       (feature, provider_id, model_name, user_choices, provider_models,
+                        provider_sampling)
+                   VALUES (%s, %s, %s, %s::jsonb, %s::jsonb, %s::jsonb)
                    ON CONFLICT (feature) DO UPDATE
                        SET provider_id = EXCLUDED.provider_id,
                            model_name = EXCLUDED.model_name,
                            user_choices = EXCLUDED.user_choices,
                            provider_models = EXCLUDED.provider_models,
+                           provider_sampling = EXCLUDED.provider_sampling,
                            updated_at = NOW()
                    RETURNING {_SELECT}""",
-                (feature, provider_id, model_name, payload_choices, payload_models),
+                (feature, provider_id, model_name, payload_choices, payload_models,
+                 payload_sampling),
             )
             conn.commit()
             return _row_to_dict(cur.fetchone())

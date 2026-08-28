@@ -27,7 +27,8 @@ class OcrProvider(ABC):
         ...
 
 
-def _call_vlm(client, model: str, image_bytes: bytes, mime_type: str) -> str:
+def _call_vlm(client, model: str, image_bytes: bytes, mime_type: str,
+              sampling: dict | None = None) -> str:
     """Call an OpenAI-compatible Chat Completions endpoint with an image input."""
     b64 = base64.b64encode(image_bytes).decode("ascii")
     data_url = f"data:{mime_type};base64,{b64}"
@@ -43,7 +44,7 @@ def _call_vlm(client, model: str, image_bytes: bytes, mime_type: str) -> str:
                 ],
             },
         ],
-        temperature=0.0,
+        **(dict(sampling) if sampling else {"temperature": 0.0}),
         max_tokens=4000,
     )
     text = (response.choices[0].message.content or "").strip()
@@ -55,14 +56,17 @@ def _call_vlm(client, model: str, image_bytes: bytes, mime_type: str) -> str:
 class OpenAICompatOcrProvider(OcrProvider):
     """Text recognition via an OpenAI compatible image endpoint."""
 
-    def __init__(self, base_url: str, api_key: str, model: str) -> None:
+    def __init__(self, base_url: str, api_key: str, model: str,
+                 sampling: dict | None = None) -> None:
         # A plain client without tracing, image data would need a bucket.
         from openai import OpenAI
         self._client = OpenAI(api_key=api_key, base_url=base_url)
         self._model = model
+        # Abtastwerte aus dem Admin, leer heisst der eingebaute Wert gilt.
+        self._sampling = dict(sampling or {})
 
     def ocr_image(self, image_bytes: bytes, mime_type: str = "image/png") -> str:
-        return _call_vlm(self._client, self._model, image_bytes, mime_type)
+        return _call_vlm(self._client, self._model, image_bytes, mime_type, self._sampling)
 
 
 class DoclingOcrProvider(OcrProvider):

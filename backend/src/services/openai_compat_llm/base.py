@@ -63,7 +63,14 @@ class _OpenAICompatBase:
         self._base_url = base_url
         self._whisper_model = whisper_model
         self._extra_body: dict = {}
+        # Abtastwerte aus dem Admin, leer heisst der eingebaute Wert gilt.
+        self._sampling: dict = {}
         # Batch settings for script generation.
         self._batch_max_workers: int = 3
         self._batch_timeout: float = 180.0
         self._batch_size: int = 3
+
+    def sampling(self, standard: float) -> dict:
+        """Die Admin-Werte wenn gesetzt, sonst die eingebaute Temperatur."""
+        werte = getattr(self, "_sampling", None)
+        return dict(werte) if werte else {"temperature": standard}

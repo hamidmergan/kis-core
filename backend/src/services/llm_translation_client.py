@@ -73,11 +73,19 @@ class LLMTranslationClient:
         model: str,
         provider: str = "openai_compat",
         glossary: dict[str, str] | None = None,
+        sampling: dict | None = None,
     ):
         self._client = OpenAI(api_key=api_key, base_url=base_url)
         self._model = model
         self._provider = provider
         self._glossary = glossary or {}
+        # Abtastwerte aus dem Admin, leer heisst der eingebaute Wert gilt.
+        self._sampling = dict(sampling or {})
+
+    def sampling(self, standard: float) -> dict:
+        """Die Admin-Werte wenn gesetzt, sonst die eingebaute Temperatur."""
+        werte = getattr(self, "_sampling", None)
+        return dict(werte) if werte else {"temperature": standard}
 
     def _extra_body(self) -> dict:
         return {}
@@ -101,7 +109,7 @@ class LLMTranslationClient:
                         {"role": "system", "content": system},
                         {"role": "user", "content": user},
                     ],
-                    temperature=0.1,
+                    **self.sampling(0.1),
                     max_tokens=max_tokens or self._max_tokens_for(user, item_count),
                     extra_body=self._extra_body() or None,
                 )
