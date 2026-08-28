@@ -5,8 +5,8 @@ from src.dependencies import get_session_store, get_settings
 from src.i18n import parse_accept_language, t
 
 _OPEN_PATHS = {"/health", "/health/maintenance", "/health/labels", "/docs", "/redoc", "/openapi.json"}
-# The invitation page belongs here, the key in the link is the credential.
-_OPEN_PREFIXES = ("/auth/", "/invites/")
+# The invitation page and the access code page belong here, both carry their own credential.
+_OPEN_PREFIXES = ("/auth/", "/invites/", "/access-codes/")
 
 
 async def verify_auth(request: Request):

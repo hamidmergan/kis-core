@@ -436,9 +436,9 @@ def t(key: str, locale: str = DEFAULT_LOCALE, **params: object) -> str:
 # Backfills the submodules, imported late against cycles.
 def _load_fragments() -> None:
     try:
-        from src._i18n_fragments import ai_assistant, jobs, admin, invites  # noqa: F401
+        from src._i18n_fragments import ai_assistant, jobs, admin, invites, access_codes  # noqa: F401
 
-        for module in (ai_assistant, jobs, admin, invites):
+        for module in (ai_assistant, jobs, admin, invites, access_codes):
             entries = getattr(module, "MESSAGES", None)
             if entries:
                 register_messages(entries)

@@ -1,0 +1,269 @@
+"""The way in without an invitation: redeem a code, renew an expired access."""
+
+from datetime import datetime, timedelta
+from unittest.mock import patch
+
+import pytest
+from fastapi.testclient import TestClient
+
+MORGEN = datetime.now() + timedelta(days=30)
+GESTERN = datetime.now() - timedelta(days=1)
+
+
+def _code(**abweichungen):
+    eintrag = {
+        "id": 7,
+        "code": "KIS-4K2P-7RXM",
+        "label": "Kollegen August",
+        "role": "staff",
+        "custom_role_id": None,
+        "max_uses": 50,
+        "used_count": 3,
+        "valid_until": MORGEN,
+        "access_days": 14,
+        "active": True,
+    }
+    eintrag.update(abweichungen)
+    return eintrag
+
+
+def _umgebung(monkeypatch):
+    monkeypatch.setenv("LDAP_USER_CREATION_ENABLED", "true")
+    monkeypatch.setenv("LDAP_BASE_DN", "dc=th-luebeck,dc=de")
+    monkeypatch.setenv("LDAP_BIND_DN", "cn=admin,dc=th-luebeck,dc=de")
+    monkeypatch.setenv("LDAP_BIND_PASSWORD", "admin")
+    monkeypatch.setenv("LDAP_SERVER", "ldap://openldap")
+
+
+@pytest.fixture
+def client(monkeypatch):
+    _umgebung(monkeypatch)
+
+    from src.dependencies import get_settings
+    from src.security.auth import verify_auth
+    from src.app import app
+
+    get_settings.cache_clear()
+    app.dependency_overrides[verify_auth] = lambda: None
+    yield TestClient(app)
+    app.dependency_overrides.clear()
+    get_settings.cache_clear()
+
+
+@pytest.fixture
+def client_ohne_sitzung(monkeypatch):
+    """The gate stays armed, this is what proves the open prefix."""
+    _umgebung(monkeypatch)
+
+    from src.dependencies import get_settings
+    from src.app import app
+
+    get_settings.cache_clear()
+    yield TestClient(app)
+    app.dependency_overrides.clear()
+    get_settings.cache_clear()
+
+
+def _sitzung():
+    """The session store, same grip as in test_invites_routes.py."""
+    return patch("src.routes.access_codes.get_session_store")
+
+
+GUELTIG = {
+    "code": "kis-4k2p-7rxm",
+    "given_name": "Max",
+    "surname": "Mustermann",
+    "password": "geheim123",
+}
+
+
+def test_redeeming_creates_the_account_and_sets_the_deadline(client):
+    with patch("src.routes.access_codes.repo.get_code_by_code", return_value=_code()) as suchen, \
+         patch("src.routes.access_codes.database.get_user_by_username", return_value=None), \
+         patch("src.routes.access_codes.repo.claim_use", return_value=True), \
+         patch("src.routes.access_codes.provision_account", return_value={
+             "user_id": 42, "username": "max.mustermann", "display_name": "Max Mustermann",
+             "email": "max.mustermann@demo.kis.local", "role": "staff", "custom_role_id": None,
+         }) as anlegen, \
+         patch("src.routes.access_codes.repo.set_user_access") as frist, \
+         _sitzung() as sitzung:
+        sitzung.return_value.create.return_value = "sitzungsschluessel"
+        r = client.post("/access-codes/redeem", json=GUELTIG)
+
+    assert r.status_code == 200
+    assert r.json()["username"] == "max.mustermann"
+    # Sloppy typing gets repaired before the lookup.
+    suchen.assert_called_once_with("KIS-4K2P-7RXM")
+    assert anlegen.call_args.kwargs["email"] == "max.mustermann@demo.kis.local"
+    assert frist.call_args.kwargs["code_id"] == 7
+    assert r.cookies.get("session") == "sitzungsschluessel"
+    assert sitzung.return_value.create.call_args.kwargs["data"]["access_expires_at"]
+
+
+def test_redeeming_picks_a_free_user_name(client):
+    belegt = {"max.mustermann": {"id": 1}}
+    with patch("src.routes.access_codes.repo.get_code_by_code", return_value=_code()), \
+         patch("src.routes.access_codes.database.get_user_by_username",
+               side_effect=lambda u: belegt.get(u)), \
+         patch("src.routes.access_codes.repo.claim_use", return_value=True), \
+         patch("src.routes.access_codes.provision_account", return_value={
+             "user_id": 42, "username": "max.mustermann2", "display_name": "Max Mustermann",
+             "email": "max.mustermann2@demo.kis.local", "role": "staff", "custom_role_id": None,
+         }) as anlegen, \
+         patch("src.routes.access_codes.repo.set_user_access"), _sitzung():
+        r = client.post("/access-codes/redeem", json=GUELTIG)
+
+    assert r.status_code == 200
+    assert anlegen.call_args.kwargs["uid"] == "max.mustermann2"
+
+
+def test_an_unknown_code_is_refused(client):
+    with patch("src.routes.access_codes.repo.get_code_by_code", return_value=None):
+        r = client.post("/access-codes/redeem", json=GUELTIG)
+    assert r.status_code == 404
+
+
+@pytest.mark.parametrize("abweichung", [
+    {"active": False},
+    {"valid_until": GESTERN},
+    {"used_count": 50},
+])
+def test_a_dead_code_creates_nothing(client, abweichung):
+    with patch("src.routes.access_codes.repo.get_code_by_code", return_value=_code(**abweichung)), \
+         patch("src.routes.access_codes.provision_account") as anlegen:
+        r = client.post("/access-codes/redeem", json=GUELTIG)
+
+    assert r.status_code == 410
+    anlegen.assert_not_called()
+
+
+def test_a_lost_race_for_the_last_seat_creates_nothing(client):
+    with patch("src.routes.access_codes.repo.get_code_by_code", return_value=_code()), \
+         patch("src.routes.access_codes.database.get_user_by_username", return_value=None), \
+         patch("src.routes.access_codes.repo.claim_use", return_value=False), \
+         patch("src.routes.access_codes.provision_account") as anlegen:
+        r = client.post("/access-codes/redeem", json=GUELTIG)
+
+    assert r.status_code == 410
+    anlegen.assert_not_called()
+
+
+def test_a_failing_creation_gives_the_seat_back(client):
+    with patch("src.routes.access_codes.repo.get_code_by_code", return_value=_code()), \
+         patch("src.routes.access_codes.database.get_user_by_username", return_value=None), \
+         patch("src.routes.access_codes.repo.claim_use", return_value=True), \
+         patch("src.routes.access_codes.provision_account", side_effect=RuntimeError("ldap")), \
+         patch("src.routes.access_codes.repo.release_use") as zurueck:
+        r = client.post("/access-codes/redeem", json=GUELTIG)
+
+    assert r.status_code == 500
+    zurueck.assert_called_once_with(7)
+
+
+def test_a_name_without_usable_letters_is_refused(client):
+    with patch("src.routes.access_codes.repo.get_code_by_code", return_value=_code()), \
+         patch("src.routes.access_codes.provision_account") as anlegen:
+        r = client.post("/access-codes/redeem", json={**GUELTIG, "surname": "!!!"})
+
+    assert r.status_code == 400
+    anlegen.assert_not_called()
+
+
+def test_a_short_password_is_refused(client):
+    with patch("src.routes.access_codes.repo.get_code_by_code", return_value=_code()), \
+         patch("src.routes.access_codes.provision_account") as anlegen:
+        r = client.post("/access-codes/redeem", json={**GUELTIG, "password": "kurz"})
+
+    assert r.status_code == 400
+    anlegen.assert_not_called()
+
+
+VERLAENGERN = {"username": "max.mustermann", "password": "geheim123", "code": "KIS-4K2P-7RXM"}
+
+
+def test_renewing_moves_the_deadline_and_logs_in(client):
+    konto = {"id": 42, "ldap_username": "max.mustermann", "display_name": "Max Mustermann",
+             "email": "max.mustermann@demo.kis.local", "role": "staff", "custom_role_id": None,
+             "access_expires_at": GESTERN}
+    with patch("src.routes.access_codes.authenticate_user",
+               return_value={"username": "max.mustermann", "fullname": "Max Mustermann",
+                             "email": "max.mustermann@demo.kis.local", "role": "staff"}), \
+         patch("src.routes.access_codes.database.get_user_by_username", return_value=konto), \
+         patch("src.routes.access_codes.repo.get_code_by_code", return_value=_code()), \
+         patch("src.routes.access_codes.repo.set_user_access") as frist, \
+         _sitzung() as sitzung:
+        sitzung.return_value.create.return_value = "sitzungsschluessel"
+        r = client.post("/access-codes/renew", json=VERLAENGERN)
+
+    assert r.status_code == 200
+    assert frist.call_args[0][0] == 42
+    assert r.cookies.get("session") == "sitzungsschluessel"
+
+
+def test_renewing_works_even_when_every_seat_is_taken(client):
+    konto = {"id": 42, "ldap_username": "max.mustermann", "display_name": "Max Mustermann",
+             "email": "max.mustermann@demo.kis.local", "role": "staff", "custom_role_id": None,
+             "access_expires_at": GESTERN}
+    with patch("src.routes.access_codes.authenticate_user",
+               return_value={"username": "max.mustermann", "fullname": "Max Mustermann",
+                             "email": "max.mustermann@demo.kis.local", "role": "staff"}), \
+         patch("src.routes.access_codes.database.get_user_by_username", return_value=konto), \
+         patch("src.routes.access_codes.repo.get_code_by_code", return_value=_code(used_count=50)), \
+         patch("src.routes.access_codes.repo.set_user_access"), _sitzung():
+        r = client.post("/access-codes/renew", json=VERLAENGERN)
+
+    assert r.status_code == 200, "Verlaengern belegt keinen Platz"
+
+
+def test_renewing_a_switched_off_code_is_refused(client):
+    konto = {"id": 42, "access_expires_at": GESTERN}
+    with patch("src.routes.access_codes.authenticate_user",
+               return_value={"username": "max.mustermann", "fullname": "M", "email": "", "role": "staff"}), \
+         patch("src.routes.access_codes.database.get_user_by_username", return_value=konto), \
+         patch("src.routes.access_codes.repo.get_code_by_code", return_value=_code(active=False)), \
+         patch("src.routes.access_codes.repo.set_user_access") as frist:
+        r = client.post("/access-codes/renew", json=VERLAENGERN)
+
+    assert r.status_code == 410
+    frist.assert_not_called()
+
+
+def test_a_normal_account_cannot_give_itself_a_deadline(client):
+    konto = {"id": 5, "access_expires_at": None}
+    with patch("src.routes.access_codes.authenticate_user",
+               return_value={"username": "hamid", "fullname": "H", "email": "", "role": "admin"}), \
+         patch("src.routes.access_codes.database.get_user_by_username", return_value=konto), \
+         patch("src.routes.access_codes.repo.set_user_access") as frist:
+        r = client.post("/access-codes/renew", json=VERLAENGERN)
+
+    assert r.status_code == 403
+    frist.assert_not_called()
+
+
+def test_renewing_with_a_wrong_password_is_refused(client):
+    with patch("src.routes.access_codes.authenticate_user", return_value=None), \
+         patch("src.routes.access_codes.repo.set_user_access") as frist:
+        r = client.post("/access-codes/renew", json=VERLAENGERN)
+
+    assert r.status_code == 401
+    frist.assert_not_called()
+
+
+def test_the_switch_is_readable_without_logging_in(client):
+    r = client.get("/access-codes/enabled")
+    assert r.status_code == 200
+    assert r.json() == {"enabled": True}
+
+
+# Without the entry in _OPEN_PREFIXES every route below answers 401.
+def test_redeeming_needs_no_session(client_ohne_sitzung):
+    with patch("src.routes.access_codes.repo.get_code_by_code", return_value=None):
+        r = client_ohne_sitzung.post("/access-codes/redeem", json=GUELTIG)
+    assert r.status_code == 404, "401 heisst, das Praefix fehlt im Torwaechter"
+
+
+def test_renewing_needs_no_session(client_ohne_sitzung):
+    with patch("src.routes.access_codes.authenticate_user", return_value=None):
+        r = client_ohne_sitzung.post("/access-codes/renew", json=VERLAENGERN)
+    assert r.status_code == 401
+    assert r.json()["detail"] != "Not authenticated"
