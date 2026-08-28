@@ -1959,7 +1959,7 @@
       "enable": "Switch on",
       "delete": "Delete",
       "deleteTitle": "Delete access code",
-      "deleteText": "The code disappears from the list. The {n, plural, one {# person} other {# people}} who used it keep their account, their deadline and their courses.",
+      "deleteText": "The code disappears from the list. {n, plural, =0 {Nobody has used this code yet.} one {The # person who used it keeps their account, their deadline and their courses.} other {The # people who used it keep their account, their deadline and their courses.}}",
       "deleteHint": "Switching off is usually enough. Then nobody new joins, and you can still see who came from this round.",
       "deleteConfirm": "Delete permanently",
       "cancel": "Cancel",

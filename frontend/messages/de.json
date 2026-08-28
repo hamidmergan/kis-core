@@ -1959,7 +1959,7 @@
       "enable": "Einschalten",
       "delete": "Löschen",
       "deleteTitle": "Zugangscode löschen",
-      "deleteText": "Der Code verschwindet aus der Liste. Die {n, plural, one {# Person} other {# Personen}}, die ihn benutzt haben, behalten ihr Konto, ihre Frist und ihre Kurse.",
+      "deleteText": "Der Code verschwindet aus der Liste. {n, plural, =0 {Diesen Code hat noch niemand benutzt.} one {Die # Person, die ihn benutzt hat, behält ihr Konto, ihre Frist und ihre Kurse.} other {Die # Personen, die ihn benutzt haben, behalten ihr Konto, ihre Frist und ihre Kurse.}}",
       "deleteHint": "Meistens reicht Ausschalten. Dann kommt niemand Neues dazu, und du siehst weiter, wer aus dieser Runde kam.",
       "deleteConfirm": "Endgültig löschen",
       "cancel": "Abbrechen",
