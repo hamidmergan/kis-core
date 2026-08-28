@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from loguru import logger
 from pydantic import BaseModel
@@ -81,6 +83,12 @@ def login(body: LoginRequest, response: Response, locale: str = Depends(get_loca
         logger.warning("Login blocked for '{}' (not whitelisted)", ldap_username)
         raise HTTPException(status_code=403, detail="account_not_activated")
 
+    # Step 4b: A test access whose deadline has passed gets no session.
+    ablauf = db_user.get("access_expires_at") if db_user else None
+    if ablauf is not None and ablauf <= datetime.now():
+        logger.info("Login blocked for '{}' (test access expired)", ldap_username)
+        raise HTTPException(status_code=403, detail="access_expired")
+
     # Step 5: Create session
     store = get_session_store()
     token = store.create(data={
@@ -90,6 +98,7 @@ def login(body: LoginRequest, response: Response, locale: str = Depends(get_loca
         "email": email or "",
         "role": effective_role,
         "custom_role_id": custom_role_id,
+        "access_expires_at": ablauf.isoformat() if ablauf else None,
     })
     response.set_cookie(
         key="session",

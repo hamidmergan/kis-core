@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from fastapi import HTTPException, Request
 from loguru import logger
 
@@ -23,7 +25,12 @@ async def verify_auth(request: Request):
     session_token = request.cookies.get("session")
     if session_token:
         store = get_session_store()
-        if store.validate(session_token):
+        data = store.get_data(session_token)
+        if data is not None:
+            ablauf = data.get("access_expires_at")
+            if ablauf and datetime.fromisoformat(ablauf) <= datetime.now():
+                logger.info("Rejected expired test access on {}", path)
+                raise HTTPException(status_code=403, detail="access_expired")
             return
         logger.info("Rejected invalid/expired session on {}", path)
     else:
