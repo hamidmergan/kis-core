@@ -85,9 +85,16 @@ def login(body: LoginRequest, response: Response, locale: str = Depends(get_loca
 
     # Step 4b: A test access whose deadline has passed gets no session.
     ablauf = db_user.get("access_expires_at") if db_user else None
-    if ablauf is not None and ablauf <= datetime.now():
-        logger.info("Login blocked for '{}' (test access expired)", ldap_username)
-        raise HTTPException(status_code=403, detail="access_expired")
+    if ablauf is not None:
+        try:
+            abgelaufen = ablauf <= datetime.now()
+        except (TypeError, ValueError) as e:
+            logger.error("Unparseable access_expires_at '{}' for '{}': {}", ablauf, ldap_username, e)
+            ablauf = None
+        else:
+            if abgelaufen:
+                logger.info("Login blocked for '{}' (test access expired)", ldap_username)
+                raise HTTPException(status_code=403, detail="access_expired")
 
     # Step 5: Create session
     store = get_session_store()
@@ -168,6 +175,15 @@ async def auth_status(request: Request):
     if user_id:
         db_user = database.get_user_by_id(user_id)
         if db_user:
+            ablauf = db_user.get("access_expires_at")
+            if ablauf is not None:
+                try:
+                    expired = ablauf <= datetime.now()
+                except (TypeError, ValueError) as e:
+                    logger.error("Unparseable access_expires_at '{}' for user {}: {}", ablauf, user_id, e)
+                    expired = False
+                if expired:
+                    return {"authenticated": False}
             data["role"] = db_user.get("role") or data.get("role") or "user"
             data["custom_role_id"] = db_user.get("custom_role_id")
 

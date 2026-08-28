@@ -112,3 +112,44 @@ async def test_the_gate_throws_an_expired_test_access_out():
         await _torwaechter({"user_id": 42, "access_expires_at": GESTERN.isoformat()})
     assert fehler.value.status_code == 403
     assert fehler.value.detail == "access_expired"
+
+
+@pytest.mark.asyncio
+async def test_the_gate_lets_a_session_through_when_the_deadline_is_unparseable():
+    assert await _torwaechter({"user_id": 42, "access_expires_at": "kaputt"}) is None
+
+
+def test_login_lets_an_account_through_when_the_deadline_is_unparseable(client):
+    konto = {"id": 42, "role": "staff", "custom_role_id": None, "access_expires_at": "kaputt"}
+    antwort, anlegen = _anmelden(client, konto)
+
+    assert antwort.status_code == 200
+    assert anlegen.call_args.kwargs["data"]["access_expires_at"] is None
+
+
+def _status(client, sitzungsdaten, konto):
+    client.cookies.set("session", "tok")
+    with patch("src.routes.auth.get_session_store") as store, \
+         patch("src.routes.auth.database.get_user_by_id", return_value=konto):
+        store.return_value = MagicMock()
+        store.return_value.validate.return_value = True
+        store.return_value.get_data.return_value = sitzungsdaten
+        return client.get("/auth/status")
+
+
+def test_status_reports_an_expired_access_as_not_authenticated(client):
+    sitzungsdaten = {"user_id": 42, "email": "", "role": "staff", "custom_role_id": None}
+    konto = {"id": 42, "role": "staff", "custom_role_id": None, "access_expires_at": GESTERN}
+    antwort = _status(client, sitzungsdaten, konto)
+
+    assert antwort.status_code == 200
+    assert antwort.json() == {"authenticated": False}
+
+
+def test_status_still_reports_a_normal_account_as_authenticated(client):
+    sitzungsdaten = {"user_id": 5, "email": "", "role": "admin", "custom_role_id": None}
+    konto = {"id": 5, "role": "admin", "custom_role_id": None, "access_expires_at": None}
+    antwort = _status(client, sitzungsdaten, konto)
+
+    assert antwort.status_code == 200
+    assert antwort.json()["authenticated"] is True

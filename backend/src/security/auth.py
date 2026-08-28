@@ -28,7 +28,13 @@ async def verify_auth(request: Request):
         data = store.get_data(session_token)
         if data is not None:
             ablauf = data.get("access_expires_at")
-            if ablauf and datetime.fromisoformat(ablauf) <= datetime.now():
+            expired = False
+            if ablauf:
+                try:
+                    expired = datetime.fromisoformat(ablauf) <= datetime.now()
+                except (TypeError, ValueError) as e:
+                    logger.error("Unparseable access_expires_at '{}' on {}: {}", ablauf, path, e)
+            if expired:
                 logger.info("Rejected expired test access on {}", path)
                 raise HTTPException(status_code=403, detail="access_expired")
             return
