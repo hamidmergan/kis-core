@@ -6,9 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Check, Copy } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
-import StatusMark from "@/components/ui/StatusMark";
 import Modal from "@/components/ui/Modal";
-import type { StatusTone } from "@/lib/jobStatusDisplay";
 import { copyTextFromPromise } from "@/lib/clipboard";
 import CreateAccessCodeDialog from "./CreateAccessCodeDialog";
 
@@ -29,11 +27,12 @@ type Code = {
   status: Zustand;
 };
 
-const TON: Record<Zustand, StatusTone> = {
-  active: "brand",
-  disabled: "muted",
-  expired: "muted",
-  full: "warn",
+// The switch shows on or off, the word beside it shows why a code no longer works.
+const FARBE: Record<Zustand, string> = {
+  active: "var(--kb)",
+  disabled: "var(--muted)",
+  expired: "var(--muted)",
+  full: "var(--warn-strong)",
 };
 
 function datum(wert: string): string {
@@ -48,6 +47,7 @@ export default function AccessCodesTab() {
   const [dialogOffen, setDialogOffen] = useState(false);
   const [kopiert, setKopiert] = useState<number | null>(null);
   const [loeschen, setLoeschen] = useState<Code | null>(null);
+  const [umschaltend, setUmschaltend] = useState<number | null>(null);
 
   const laden = useCallback(() => {
     fetch("/api/admin/access-codes", { credentials: "include" })
@@ -66,17 +66,22 @@ export default function AccessCodesTab() {
   }
 
   async function umschalten(code: Code) {
-    const r = await fetch(`/api/admin/access-codes/${code.id}`, {
-      method: "PATCH",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ active: !code.active }),
-    });
-    if (!r.ok) {
-      setError(t("saveError"));
-      return;
+    setUmschaltend(code.id);
+    try {
+      const r = await fetch(`/api/admin/access-codes/${code.id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ active: !code.active }),
+      });
+      if (!r.ok) {
+        setError(t("saveError"));
+        return;
+      }
+      laden();
+    } finally {
+      setUmschaltend(null);
     }
-    laden();
   }
 
   async function wirklichLoeschen(code: Code) {
@@ -136,11 +141,32 @@ export default function AccessCodesTab() {
                   <td className="px-4 py-3 text-foreground-soft">{e.used_count} / {e.max_uses}</td>
                   <td className="px-4 py-3 text-foreground-soft">{datum(e.valid_until)}</td>
                   <td className="px-4 py-3 text-foreground-soft">{t("accessDays", { n: e.access_days })}</td>
-                  <td className="px-4 py-3">
-                    <StatusMark tone={TON[e.status]} className="text-xs">
-                      {t(`status${e.status[0].toUpperCase()}${e.status.slice(1)}` as
-                        "statusActive" | "statusDisabled" | "statusExpired" | "statusFull")}
-                    </StatusMark>
+                  <td
+                    className="px-4 py-3 cursor-pointer"
+                    onClick={() => umschaltend !== e.id && umschalten(e)}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={e.active}
+                        aria-label={e.active ? t("disable") : t("enable")}
+                        onClick={(ev) => { ev.stopPropagation(); umschalten(e); }}
+                        disabled={umschaltend === e.id}
+                        className="relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full border-2 border-transparent transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-offset-2 enabled:hover:border-kb"
+                        style={{ backgroundColor: e.active ? "var(--kb)" : "var(--border)" }}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
+                            e.active ? "translate-x-[1.125rem]" : "translate-x-0.5"
+                          }`}
+                        />
+                      </button>
+                      <span className="text-xs font-medium" style={{ color: FARBE[e.status] }}>
+                        {t(`status${e.status[0].toUpperCase()}${e.status.slice(1)}` as
+                          "statusActive" | "statusDisabled" | "statusExpired" | "statusFull")}
+                      </span>
+                    </div>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
@@ -151,13 +177,6 @@ export default function AccessCodesTab() {
                       >
                         {kopiert === e.id ? <Check size={12} weight="bold" /> : <Copy size={12} weight="bold" />}
                         {kopiert === e.id ? t("copied") : t("copyCode")}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => umschalten(e)}
-                        className="text-xs text-kb hover:underline"
-                      >
-                        {e.active ? t("disable") : t("enable")}
                       </button>
                       <button
                         type="button"
