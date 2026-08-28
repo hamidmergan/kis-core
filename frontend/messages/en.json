@@ -232,7 +232,9 @@
     "submit": "Sign in",
     "submitting": "Signing in...",
     "invalidCredentials": "Invalid credentials. Please check username and password.",
-    "maintenanceBanner": "The platform is being updated. Please try again in a few minutes."
+    "maintenanceBanner": "The platform is being updated. Please try again in a few minutes.",
+    "accessCodeLink": "I have an access code",
+    "expiredHint": "Your access has expired"
   },
   "toolsSidebar": {
     "heading": "Tools",
@@ -2959,5 +2961,33 @@
     "loadErrorTitle": "The page could not be loaded",
     "loadErrorText": "The invitation could not be fetched just now. Please reload the page.",
     "retry": "Reload"
+  },
+  "accessCode": {
+    "welcome": "Welcome to KIS",
+    "title": "Redeem access",
+    "intro": "Use the access code from your invitation to create your own account here.",
+    "code": "Access code",
+    "codeHint": "Looks like KIS-XXXX-XXXX",
+    "givenName": "First name",
+    "surname": "Last name",
+    "nameHint": "Your username is built from your name.",
+    "password": "Password",
+    "passwordHint": "At least {min} characters",
+    "passwordRepeat": "Repeat password",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
+    "submit": "Create account",
+    "submitting": "Creating...",
+    "errorCodeMissing": "Please enter the access code",
+    "errorNameMissing": "Please enter first name and last name",
+    "errorTooShort": "The password needs at least {min} characters",
+    "errorMismatch": "The two passwords are not the same",
+    "errorGeneric": "The account could not be created",
+    "doneTitle": "Done",
+    "doneName": "Your username is {uid}",
+    "doneUntil": "Your access is valid until {date}",
+    "doneHint": "Remember your username, you will sign in with it next time.",
+    "doneGo": "Let's go",
+    "toLogin": "Back to sign in"
   }
 }

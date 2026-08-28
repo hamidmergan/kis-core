@@ -4,8 +4,8 @@ import { usePathname } from "@/i18n/navigation";
 import Header from "./Header";
 import ToolsSidebar from "./ToolsSidebar";
 
-const NO_HEADER_PATHS = new Set(["/login", "/wartung", "/pending"]);
-// The invitation page brings its own header, like the login page.
+const NO_HEADER_PATHS = new Set(["/login", "/wartung", "/pending", "/zugang"]);
+// The invitation and access-code pages bring their own header, like the login page.
 const NO_HEADER_PREFIXES = ["/workspace/", "/einladung/"];
 
 const NO_SIDEBAR_PATHS = new Set([
@@ -14,6 +14,7 @@ const NO_SIDEBAR_PATHS = new Set([
   "/privacy",
   "/pending",
   "/wartung",
+  "/zugang",
 ]);
 const NO_SIDEBAR_PREFIXES = ["/workspace/", "/admin", "/einladung/"];
 

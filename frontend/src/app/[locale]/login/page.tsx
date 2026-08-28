@@ -16,6 +16,7 @@ export default function LoginPage() {
   const [checking, setChecking] = useState(true);
   const [loading, setLoading] = useState(false);
   const [maintenanceOn, setMaintenanceOn] = useState(false);
+  const [zugangOffen, setZugangOffen] = useState(false);
 
   useEffect(() => {
     checkAuthStatus().then((status) => {
@@ -42,6 +43,13 @@ export default function LoginPage() {
     poll();
     const id = setInterval(poll, 15000);
     return () => { cancelled = true; clearInterval(id); };
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/access-codes/enabled", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setZugangOffen(!!d?.enabled))
+      .catch(() => {});
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -151,6 +159,14 @@ export default function LoginPage() {
             >
               {loading ? t("submitting") : t("submit")}
             </button>
+
+            {zugangOffen && (
+              <p className="mt-4 text-center text-sm">
+                <a href="/zugang" className="text-kb hover:underline">
+                  {t("accessCodeLink")}
+                </a>
+              </p>
+            )}
           </form>
         </div>
       </div>

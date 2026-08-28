@@ -94,6 +94,10 @@ const nextConfig: NextConfig = {
         destination: `${backendUrl}/invites/:path*`,
       },
       {
+        source: "/api/access-codes/:path*",
+        destination: `${backendUrl}/access-codes/:path*`,
+      },
+      {
         source: "/api/me/:path*",
         destination: `${backendUrl}/me/:path*`,
       },

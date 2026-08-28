@@ -232,7 +232,9 @@
     "submit": "Anmelden",
     "submitting": "Wird angemeldet...",
     "invalidCredentials": "Ungültige Anmeldedaten. Bitte prüfen Sie Benutzername und Passwort.",
-    "maintenanceBanner": "Die Plattform wird gerade aktualisiert. Bitte versuchen Sie es in wenigen Minuten erneut."
+    "maintenanceBanner": "Die Plattform wird gerade aktualisiert. Bitte versuchen Sie es in wenigen Minuten erneut.",
+    "accessCodeLink": "Ich habe einen Zugangscode",
+    "expiredHint": "Dein Zugang ist abgelaufen"
   },
   "toolsSidebar": {
     "heading": "Tools",
@@ -2959,5 +2961,33 @@
     "loadErrorTitle": "Seite konnte nicht geladen werden",
     "loadErrorText": "Die Einladung liess sich gerade nicht abrufen. Bitte lade die Seite neu.",
     "retry": "Neu laden"
+  },
+  "accessCode": {
+    "welcome": "Willkommen bei KIS",
+    "title": "Zugang einlösen",
+    "intro": "Mit dem Zugangscode aus deiner Einladung legst du dir hier selbst ein Konto an.",
+    "code": "Zugangscode",
+    "codeHint": "Sieht aus wie KIS-XXXX-XXXX",
+    "givenName": "Vorname",
+    "surname": "Nachname",
+    "nameHint": "Aus deinem Namen wird dein Benutzername gebaut.",
+    "password": "Passwort",
+    "passwordHint": "Mindestens {min} Zeichen",
+    "passwordRepeat": "Passwort wiederholen",
+    "showPassword": "Passwort anzeigen",
+    "hidePassword": "Passwort verbergen",
+    "submit": "Konto anlegen",
+    "submitting": "Wird angelegt...",
+    "errorCodeMissing": "Bitte den Zugangscode eintragen",
+    "errorNameMissing": "Bitte Vorname und Nachname eintragen",
+    "errorTooShort": "Das Passwort braucht mindestens {min} Zeichen",
+    "errorMismatch": "Die beiden Passwörter sind nicht gleich",
+    "errorGeneric": "Das Konto konnte nicht angelegt werden",
+    "doneTitle": "Fertig",
+    "doneName": "Dein Benutzername ist {uid}",
+    "doneUntil": "Dein Zugang gilt bis zum {date}",
+    "doneHint": "Merk dir den Benutzernamen, damit meldest du dich beim nächsten Mal an.",
+    "doneGo": "Los geht's",
+    "toLogin": "Zurück zur Anmeldung"
   }
 }
