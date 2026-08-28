@@ -206,10 +206,10 @@ def _redeem_patches():
     return {
         "lesen": patch("src.routes.invites.repo.get_invite_by_token", return_value=_offene_einladung()),
         "stempeln": patch("src.routes.invites.repo.mark_invite_used", return_value=True),
-        "ldap": patch("src.routes.invites.create_ldap_user", return_value="ein-langes-passwort"),
-        "whitelist": patch("src.routes.invites.database.add_to_whitelist"),
-        "anlegen": patch("src.routes.invites.database.create_user", return_value=42),
-        "rolle": patch("src.routes.invites.database.set_user_role"),
+        "ldap": patch("src.features.accounts.provisioning.create_ldap_user", return_value="ein-langes-passwort"),
+        "whitelist": patch("src.features.accounts.provisioning.database.add_to_whitelist"),
+        "anlegen": patch("src.features.accounts.provisioning.database.create_user", return_value=42),
+        "rolle": patch("src.features.accounts.provisioning.database.set_user_role"),
         "sitzung": patch("src.routes.invites.get_session_store"),
     }
 
@@ -257,7 +257,7 @@ def test_a_failed_account_creation_leaves_the_link_usable(client):
 
     p = _redeem_patches()
     with p["lesen"], p["stempeln"], p["whitelist"] as whitelist, p["anlegen"], p["rolle"], p["sitzung"], \
-         patch("src.routes.invites.create_ldap_user", side_effect=LdapServiceError("weg")), \
+         patch("src.features.accounts.provisioning.create_ldap_user", side_effect=LdapServiceError("weg")), \
          patch("src.routes.invites.repo.reopen_invite") as wieder_oeffnen:
         r = client.post("/invites/tok", json={"password": "ein-langes-passwort"})
 
@@ -271,7 +271,7 @@ def test_an_account_that_already_exists_reports_a_conflict(client):
 
     p = _redeem_patches()
     with p["lesen"], p["stempeln"], p["whitelist"], p["anlegen"], p["rolle"], p["sitzung"], \
-         patch("src.routes.invites.create_ldap_user", side_effect=LdapUserExistsError("max.mustermann")), \
+         patch("src.features.accounts.provisioning.create_ldap_user", side_effect=LdapUserExistsError("max.mustermann")), \
          patch("src.routes.invites.repo.reopen_invite"):
         r = client.post("/invites/tok", json={"password": "ein-langes-passwort"})
 

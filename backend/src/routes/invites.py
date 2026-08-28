@@ -5,9 +5,9 @@ from fastapi import APIRouter, Depends, HTTPException, Response
 from loguru import logger
 from pydantic import BaseModel, Field
 
-from src import database
 from src.dependencies import get_session_store, get_settings
-from src.ldap_admin import LdapUserExistsError, create_ldap_user
+from src.features.accounts.provisioning import provision_account
+from src.ldap_admin import LdapUserExistsError
 from src.features.invites import repository as repo
 from src.features.invites.service import status_of
 from src.i18n import get_locale, t
@@ -61,21 +61,19 @@ def redeem_invite(
             detail=t("invite.passwordTooShort", locale, min=MIN_PASSWORD_LENGTH),
         )
 
-    vorname, nachname = payload.given_name.strip(), payload.surname.strip()
-    display_name = " ".join(teil for teil in (vorname, nachname) if teil) or invite["uid"]
-
     # Invalidate the link first, then create, otherwise two attempts get through.
     if not repo.mark_invite_used(invite["id"]):
         raise HTTPException(status_code=410, detail=t("invite.notValid", locale))
 
     try:
-        create_ldap_user(
+        sitzungsdaten = provision_account(
             settings=get_settings(),
             uid=invite["uid"],
-            given_name=vorname,
-            surname=nachname,
+            given_name=payload.given_name,
+            surname=payload.surname,
             email=invite["email"],
-            employee_type="staff" if invite["role"] == "staff" else "user",
+            role=invite["role"],
+            custom_role_id=invite["custom_role_id"],
             password=payload.password,
         )
     except Exception as fehler:
@@ -85,26 +83,9 @@ def redeem_invite(
         code = 409 if isinstance(fehler, LdapUserExistsError) else 500
         raise HTTPException(status_code=code, detail=t("invite.createFailed", locale))
 
-    database.add_to_whitelist(invite["email"])
-    user_id = database.create_user(
-        ldap_username=invite["uid"],
-        display_name=display_name,
-        email=invite["email"],
-        active=1,
-        role=invite["role"],
-    )
-    if invite["role"] == "custom":
-        database.set_user_role(user_id, "custom", invite["custom_role_id"])
-
+    display_name = sitzungsdaten["display_name"]
     store = get_session_store()
-    sitzung = store.create(data={
-        "user_id": user_id,
-        "username": invite["uid"],
-        "display_name": display_name,
-        "email": invite["email"],
-        "role": invite["role"],
-        "custom_role_id": invite["custom_role_id"],
-    })
+    sitzung = store.create(data=sitzungsdaten)
     response.set_cookie(
         key="session",
         value=sitzung,
