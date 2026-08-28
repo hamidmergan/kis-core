@@ -6,6 +6,8 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 
+from src.i18n import t
+
 MORGEN = datetime.now() + timedelta(days=30)
 GESTERN = datetime.now() - timedelta(days=1)
 
@@ -160,6 +162,23 @@ def test_a_failing_creation_gives_the_seat_back(client):
     zurueck.assert_called_once_with(7)
 
 
+def test_a_failing_deadline_write_deactivates_the_fresh_account(client):
+    with patch("src.routes.access_codes.repo.get_code_by_code", return_value=_code()), \
+         patch("src.routes.access_codes.database.get_user_by_username", return_value=None), \
+         patch("src.routes.access_codes.repo.claim_use", return_value=True), \
+         patch("src.routes.access_codes.provision_account", return_value={
+             "user_id": 42, "username": "max.mustermann", "display_name": "Max Mustermann",
+             "email": "max.mustermann@demo.kis.local", "role": "staff", "custom_role_id": None,
+         }), \
+         patch("src.routes.access_codes.repo.set_user_access", side_effect=RuntimeError("db down")), \
+         patch("src.routes.access_codes.database.update_user") as abschalten:
+        r = client.post("/access-codes/redeem", json=GUELTIG)
+
+    assert r.status_code == 500
+    assert abschalten.call_args.args[0] == 42
+    assert abschalten.call_args.args[-1] == 0
+
+
 def test_a_name_without_usable_letters_is_refused(client):
     with patch("src.routes.access_codes.repo.get_code_by_code", return_value=_code()), \
          patch("src.routes.access_codes.provision_account") as anlegen:
@@ -240,6 +259,19 @@ def test_a_normal_account_cannot_give_itself_a_deadline(client):
     frist.assert_not_called()
 
 
+def test_a_deactivated_account_cannot_renew_itself_back_in(client):
+    konto = {"id": 42, "access_expires_at": GESTERN, "active": 0}
+    with patch("src.routes.access_codes.authenticate_user",
+               return_value={"username": "max.mustermann", "fullname": "M", "email": "", "role": "staff"}), \
+         patch("src.routes.access_codes.database.get_user_by_username", return_value=konto), \
+         patch("src.routes.access_codes.repo.set_user_access") as frist:
+        r = client.post("/access-codes/renew", json=VERLAENGERN)
+
+    assert r.status_code == 403
+    assert r.json()["detail"] == "account_not_activated"
+    frist.assert_not_called()
+
+
 def test_renewing_with_a_wrong_password_is_refused(client):
     with patch("src.routes.access_codes.authenticate_user", return_value=None), \
          patch("src.routes.access_codes.repo.set_user_access") as frist:
@@ -266,4 +298,5 @@ def test_renewing_needs_no_session(client_ohne_sitzung):
     with patch("src.routes.access_codes.authenticate_user", return_value=None):
         r = client_ohne_sitzung.post("/access-codes/renew", json=VERLAENGERN)
     assert r.status_code == 401
-    assert r.json()["detail"] != "Not authenticated"
+    # The gate answers auth.notAuthenticated, the route answers this - proves the gate let it through.
+    assert r.json()["detail"] == t("access.invalidCredentials", "de")

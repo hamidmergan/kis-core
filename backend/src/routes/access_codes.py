@@ -111,7 +111,18 @@ def redeem(payload: RedeemPayload, response: Response, locale: str = Depends(get
         raise HTTPException(status_code=code, detail=t("access.createFailed", locale))
 
     frist = datetime.now() + timedelta(days=eintrag["access_days"])
-    repo.set_user_access(sitzungsdaten["user_id"], expires_at=frist, code_id=eintrag["id"])
+    try:
+        repo.set_user_access(sitzungsdaten["user_id"], expires_at=frist, code_id=eintrag["id"])
+    except Exception as fehler:
+        # The account exists but never got its deadline, so it must not stay usable.
+        logger.error("access deadline write failed for uid={}: {}", uid, fehler)
+        database.update_user(
+            sitzungsdaten["user_id"],
+            sitzungsdaten["display_name"],
+            sitzungsdaten["email"],
+            0,
+        )
+        raise HTTPException(status_code=500, detail=t("access.createFailed", locale))
     sitzungsdaten["access_expires_at"] = frist.isoformat()
     _set_session(response, sitzungsdaten)
 
@@ -145,6 +156,9 @@ def renew(payload: RenewPayload, response: Response, locale: str = Depends(get_l
     konto = database.get_user_by_username(ldap_user["username"])
     if konto is None or konto.get("access_expires_at") is None:
         raise HTTPException(status_code=403, detail=t("access.notATestAccount", locale))
+    # A missing key means the row predates the active column and counts as active.
+    if not konto.get("active", 1):
+        raise HTTPException(status_code=403, detail="account_not_activated")
 
     eintrag = _live_code(payload.code, locale, seat_needed=False)
     frist = datetime.now() + timedelta(days=eintrag["access_days"])
