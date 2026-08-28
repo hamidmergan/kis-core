@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter
 
+from src.routes.admin.access_codes import router as _access_codes_router
 from src.routes.admin.diagnosis_plan import router as _diagnosis_plan_router
 from src.routes.admin.invites import router as _invites_router
 from src.routes.admin.jobs import router as _jobs_router
@@ -18,6 +19,7 @@ from src.routes.admin.tools import router as _tools_router
 from src.routes.admin.users import router as _users_router
 
 router = APIRouter(prefix="/admin")
+router.include_router(_access_codes_router)
 router.include_router(_settings_router)
 router.include_router(_diagnosis_plan_router)
 router.include_router(_maintenance_router)
