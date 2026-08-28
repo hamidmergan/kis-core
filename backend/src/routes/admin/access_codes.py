@@ -6,19 +6,19 @@ from pydantic import BaseModel, Field, model_validator
 
 from src import database
 from src.dependencies import get_settings
-from src.dependencies_rbac import require_permission
+from src.dependencies_rbac import assert_may_grant, permissions_of, require_permission
 from src.features.access_codes import repository as repo
 from src.features.access_codes.service import new_code, status_of
 from src.i18n import get_locale, t
-from src.permissions_registry import PERM_SET_USERS_ALL
+from src.permissions_registry import PERM_SET_USERS_ALL, SYSTEM_ROLE_PERMISSIONS
 
 router = APIRouter(tags=["admin: access codes"])
 
 _require = require_permission(PERM_SET_USERS_ALL)
 
-MAX_VALID_DAYS = 90
-MAX_ACCESS_DAYS = 90
-MAX_SEATS = 500
+MAX_VALID_DAYS = 60
+MAX_ACCESS_DAYS = 30
+MAX_SEATS = 100
 
 
 def _require_feature(locale: str) -> None:
@@ -61,6 +61,13 @@ def create_access_code(
 
     if payload.kis_role == "custom" and database.get_custom_role(payload.custom_role_id) is None:
         raise HTTPException(status_code=400, detail=t("access.invalidCustomRole", locale))
+
+    if payload.kis_role == "custom":
+        role_row = database.get_custom_role(payload.custom_role_id)
+        granted = role_row["permissions"] if role_row else []
+    else:
+        granted = SYSTEM_ROLE_PERMISSIONS.get(payload.kis_role, ())
+    assert_may_grant(permissions_of(admin), granted, locale)
 
     code = new_code()
     valid_until = datetime.now() + timedelta(days=payload.valid_days)
