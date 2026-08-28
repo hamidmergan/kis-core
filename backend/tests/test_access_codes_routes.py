@@ -171,12 +171,64 @@ def test_a_failing_deadline_write_deactivates_the_fresh_account(client):
              "email": "max.mustermann@demo.kis.local", "role": "staff", "custom_role_id": None,
          }), \
          patch("src.routes.access_codes.repo.set_user_access", side_effect=RuntimeError("db down")), \
+         patch("src.routes.access_codes.database.remove_from_whitelist"), \
          patch("src.routes.access_codes.database.update_user") as abschalten:
         r = client.post("/access-codes/redeem", json=GUELTIG)
 
     assert r.status_code == 500
     assert abschalten.call_args.args[0] == 42
     assert abschalten.call_args.args[-1] == 0
+
+
+def test_a_failing_deadline_write_also_drops_the_whitelist_entry(client):
+    """Switching off alone is not enough, the login rebuilds active from the whitelist."""
+    with patch("src.routes.access_codes.repo.get_code_by_code", return_value=_code()), \
+         patch("src.routes.access_codes.database.get_user_by_username", return_value=None), \
+         patch("src.routes.access_codes.repo.claim_use", return_value=True), \
+         patch("src.routes.access_codes.provision_account", return_value={
+             "user_id": 42, "username": "max.mustermann", "display_name": "Max Mustermann",
+             "email": "max.mustermann@demo.kis.local", "role": "staff", "custom_role_id": None,
+         }), \
+         patch("src.routes.access_codes.repo.set_user_access", side_effect=RuntimeError("db down")), \
+         patch("src.routes.access_codes.database.update_user"), \
+         patch("src.routes.access_codes.database.remove_from_whitelist") as streichen:
+        r = client.post("/access-codes/redeem", json=GUELTIG)
+
+    assert r.status_code == 500
+    streichen.assert_called_once_with("max.mustermann@demo.kis.local")
+
+
+def test_a_code_whose_custom_role_is_gone_creates_nothing(client):
+    with patch("src.routes.access_codes.repo.get_code_by_code",
+               return_value=_code(role="custom", custom_role_id=9)), \
+         patch("src.routes.access_codes.database.get_custom_role", return_value=None) as rolle, \
+         patch("src.routes.access_codes.repo.claim_use") as platz, \
+         patch("src.routes.access_codes.provision_account") as anlegen:
+        r = client.post("/access-codes/redeem", json=GUELTIG)
+
+    assert r.status_code == 410
+    assert r.json()["detail"] == t("access.codeNotValid", "de")
+    rolle.assert_called_once_with(9)
+    platz.assert_not_called()
+    anlegen.assert_not_called()
+
+
+def test_a_code_with_a_living_custom_role_still_works(client):
+    with patch("src.routes.access_codes.repo.get_code_by_code",
+               return_value=_code(role="custom", custom_role_id=9)), \
+         patch("src.routes.access_codes.database.get_custom_role",
+               return_value={"id": 9, "name": "Testrolle", "permissions": []}), \
+         patch("src.routes.access_codes.database.get_user_by_username", return_value=None), \
+         patch("src.routes.access_codes.repo.claim_use", return_value=True), \
+         patch("src.routes.access_codes.provision_account", return_value={
+             "user_id": 42, "username": "max.mustermann", "display_name": "Max Mustermann",
+             "email": "max.mustermann@demo.kis.local", "role": "custom", "custom_role_id": 9,
+         }) as anlegen, \
+         patch("src.routes.access_codes.repo.set_user_access"), _sitzung():
+        r = client.post("/access-codes/redeem", json=GUELTIG)
+
+    assert r.status_code == 200
+    assert anlegen.call_args.kwargs["custom_role_id"] == 9
 
 
 def test_a_name_without_usable_letters_is_refused(client):

@@ -1,6 +1,10 @@
 const API_BASE = "";
 const BACKEND_BASE = "/api";
 
+/** The backend sends exactly this detail when a test access has run out. */
+const ACCESS_EXPIRED_DETAIL = "access_expired";
+const EXPIRED_PATH = "/zugang/abgelaufen";
+
 const FALLBACKS = {
   de: {
     limitReached: "Limit erreicht",
@@ -105,6 +109,21 @@ class ApiClient {
       const currentPath = window.location.pathname;
       if (currentPath !== "/login") {
         window.location.href = "/login";
+      }
+    }
+
+    // Only the expired test access redirects, every other 403 stays a plain error.
+    if (response.status === 403 && typeof window !== "undefined") {
+      const detail = await response
+        .clone()
+        .json()
+        .then((body) => (body as { detail?: unknown })?.detail)
+        .catch(() => null);
+      if (detail === ACCESS_EXPIRED_DETAIL) {
+        const currentPath = window.location.pathname;
+        if (currentPath !== EXPIRED_PATH) {
+          window.location.href = EXPIRED_PATH;
+        }
       }
     }
 

@@ -78,6 +78,11 @@ def redeem(payload: RedeemPayload, response: Response, locale: str = Depends(get
     _require_feature(locale)
     eintrag = _live_code(payload.code, locale, seat_needed=True)
 
+    # A deleted custom role would blow up halfway through, so the code counts as dead.
+    if eintrag["role"] == "custom" and database.get_custom_role(eintrag["custom_role_id"]) is None:
+        logger.error("access code {} points at a missing custom role", eintrag["id"])
+        raise HTTPException(status_code=410, detail=t("access.codeNotValid", locale))
+
     if len(payload.password) < MIN_PASSWORD_LENGTH:
         raise HTTPException(
             status_code=400,
@@ -122,6 +127,8 @@ def redeem(payload: RedeemPayload, response: Response, locale: str = Depends(get
             sitzungsdaten["email"],
             0,
         )
+        # The whitelist has to go too, otherwise the next login switches the account back on.
+        database.remove_from_whitelist(sitzungsdaten["email"])
         raise HTTPException(status_code=500, detail=t("access.createFailed", locale))
     sitzungsdaten["access_expires_at"] = frist.isoformat()
     _set_session(response, sitzungsdaten)
