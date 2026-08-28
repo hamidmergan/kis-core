@@ -846,6 +846,10 @@
           "label": "Einladungen",
           "sub": "Zugang per Link, solange es kein SSO gibt."
         },
+        "accessCodes": {
+          "label": "Zugangscodes",
+          "sub": "Ein Code je Testrunde, das Konto läuft nach der Frist ab."
+        },
         "users": {
           "label": "Alle Nutzer",
           "sub": "Suchen, Rolle setzen, Kontingente öffnen."
@@ -1929,6 +1933,60 @@
       "warning": "Der Link gilt einmal und läuft am {date} ab. Schicke ihn nur an diese eine Person.",
       "close": "Schließen",
       "errorGeneric": "Einladung konnte nicht erzeugt werden"
+    },
+    "accessCodes": {
+      "createButton": "+ Zugangscode anlegen",
+      "summary": "{n, plural, one {# Code} other {# Codes}}, davon {aktiv} aktiv",
+      "empty": "Noch keine Zugangscodes",
+      "disabled": "Zugangscodes sind abgeschaltet.",
+      "colLabel": "Runde",
+      "colCode": "Code",
+      "colUsed": "Benutzt",
+      "colValid": "Code gültig bis",
+      "colAccess": "Zugang",
+      "colStatus": "Status",
+      "colActions": "Aktion",
+      "statusActive": "Aktiv",
+      "statusDisabled": "Aus",
+      "statusExpired": "Abgelaufen",
+      "statusFull": "Voll",
+      "accessDays": "{n, plural, one {# Tag} other {# Tage}}",
+      "copyCode": "Code kopieren",
+      "copied": "Kopiert!",
+      "disable": "Ausschalten",
+      "enable": "Einschalten",
+      "delete": "Löschen",
+      "deleteTitle": "Zugangscode löschen",
+      "deleteText": "Der Code verschwindet aus der Liste. Die {n, plural, one {# Person} other {# Personen}}, die ihn benutzt haben, behalten ihr Konto, ihre Frist und ihre Kurse.",
+      "deleteHint": "Meistens reicht Ausschalten. Dann kommt niemand Neues dazu, und du siehst weiter, wer aus dieser Runde kam.",
+      "deleteConfirm": "Endgültig löschen",
+      "cancel": "Abbrechen",
+      "loadError": "Zugangscodes konnten nicht geladen werden",
+      "saveError": "Änderung fehlgeschlagen",
+      "roleStaff": "Staff",
+      "roleUser": "User"
+    },
+    "createAccessCode": {
+      "title": "Zugangscode anlegen",
+      "label": "Name der Runde",
+      "labelHint": "Nur zur Wiedererkennung, zum Beispiel Kollegen August",
+      "maxUses": "Wie oft einlösbar",
+      "validDays": "Code gültig",
+      "accessDays": "Zugang gültig",
+      "role": "Rolle",
+      "days": "{n, plural, one {# Tag} other {# Tage}}",
+      "seats": "{n} Plätze",
+      "roleStaff": "Staff",
+      "roleUser": "User",
+      "submit": "Anlegen",
+      "submitting": "Wird angelegt...",
+      "cancel": "Abbrechen",
+      "createdTitle": "Code angelegt",
+      "createdHint": "Diesen Code an die Runde weitergeben. Er ist ab jetzt in der Liste zu finden.",
+      "copy": "Code kopieren",
+      "copied": "Kopiert!",
+      "close": "Schließen",
+      "errorGeneric": "Der Code konnte nicht angelegt werden"
     }
   },
   "permissions": {

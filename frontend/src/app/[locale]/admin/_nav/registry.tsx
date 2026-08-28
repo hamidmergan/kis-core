@@ -86,6 +86,7 @@ import ProviderRoutesPage from "../_pages/anbieter/routes";
 import PendingPage from "../_pages/nutzer/pending";
 import WhitelistPage from "../_pages/nutzer/whitelist";
 import InvitesPage from "../_pages/nutzer/einladungen";
+import AccessCodesPage from "../_pages/nutzer/zugangscodes";
 import UsersPage from "../_pages/nutzer/users";
 import RolesPage from "../_pages/nutzer/roles";
 import QuotaPage from "../_pages/nutzer/quota";
@@ -171,6 +172,7 @@ export const SECTIONS: AdminSection[] = [
       { slug: "whitelist", key: "whitelist", world: "both", perm: PERM.usersWhitelist, Component: WhitelistPage },
       // Without the server switch the page stays empty instead of gone.
       { slug: "einladungen", key: "invites", world: "both", perm: PERM.usersAll, Component: InvitesPage },
+      { slug: "zugangscodes", key: "accessCodes", world: "both", perm: PERM.usersAll, Component: AccessCodesPage },
       { slug: "alle-nutzer", key: "users", world: "both", perm: PERM.usersAll, Component: UsersPage },
       { slug: "rollen", key: "roles", world: "both", perm: PERM.usersRoles, Component: RolesPage },
       // No entry of its own, the page is a jump-off from the user list.

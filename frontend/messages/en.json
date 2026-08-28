@@ -846,6 +846,10 @@
           "label": "Invitations",
           "sub": "Access by link until SSO is in place."
         },
+        "accessCodes": {
+          "label": "Access codes",
+          "sub": "One code per test round, the account expires after the deadline."
+        },
         "users": {
           "label": "All users",
           "sub": "Search, set role, open quotas."
@@ -1929,6 +1933,60 @@
       "warning": "The link works once and expires on {date}. Send it to this one person only.",
       "close": "Close",
       "errorGeneric": "The invitation could not be created"
+    },
+    "accessCodes": {
+      "createButton": "+ Create access code",
+      "summary": "{n, plural, one {# code} other {# codes}}, {aktiv} of them active",
+      "empty": "No access codes yet",
+      "disabled": "Access codes are switched off.",
+      "colLabel": "Round",
+      "colCode": "Code",
+      "colUsed": "Used",
+      "colValid": "Code valid until",
+      "colAccess": "Access",
+      "colStatus": "Status",
+      "colActions": "Action",
+      "statusActive": "Active",
+      "statusDisabled": "Off",
+      "statusExpired": "Expired",
+      "statusFull": "Full",
+      "accessDays": "{n, plural, one {# day} other {# days}}",
+      "copyCode": "Copy code",
+      "copied": "Copied!",
+      "disable": "Switch off",
+      "enable": "Switch on",
+      "delete": "Delete",
+      "deleteTitle": "Delete access code",
+      "deleteText": "The code disappears from the list. The {n, plural, one {# person} other {# people}} who used it keep their account, their deadline and their courses.",
+      "deleteHint": "Switching off is usually enough. Then nobody new joins, and you can still see who came from this round.",
+      "deleteConfirm": "Delete permanently",
+      "cancel": "Cancel",
+      "loadError": "Access codes could not be loaded",
+      "saveError": "The change failed",
+      "roleStaff": "Staff",
+      "roleUser": "User"
+    },
+    "createAccessCode": {
+      "title": "Create access code",
+      "label": "Round name",
+      "labelHint": "For your own reference only, e.g. Colleagues August",
+      "maxUses": "How many times redeemable",
+      "validDays": "Code valid",
+      "accessDays": "Access valid",
+      "role": "Role",
+      "days": "{n, plural, one {# day} other {# days}}",
+      "seats": "{n} seats",
+      "roleStaff": "Staff",
+      "roleUser": "User",
+      "submit": "Create",
+      "submitting": "Creating...",
+      "cancel": "Cancel",
+      "createdTitle": "Code created",
+      "createdHint": "Pass this code on to the round. It is now listed above.",
+      "copy": "Copy code",
+      "copied": "Copied!",
+      "close": "Close",
+      "errorGeneric": "The code could not be created"
     }
   },
   "permissions": {
