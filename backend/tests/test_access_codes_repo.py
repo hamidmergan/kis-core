@@ -63,7 +63,7 @@ def test_creating_a_code_commits(fake_db):
     calls = fake_db(rows=[(7,)])
 
     neu = repo.create_code(
-        code="KIS-4K2P-7RXM",
+        code="4K2P-7RXM",
         label="Kollegen August",
         role="staff",
         custom_role_id=None,

@@ -15,7 +15,7 @@ GESTERN = datetime.now() - timedelta(days=1)
 def _code(**abweichungen):
     eintrag = {
         "id": 7,
-        "code": "KIS-4K2P-7RXM",
+        "code": "4K2P-7RXM",
         "label": "Kollegen August",
         "role": "staff",
         "custom_role_id": None,
@@ -72,7 +72,7 @@ def _sitzung():
 
 
 GUELTIG = {
-    "code": "kis-4k2p-7rxm",
+    "code": "4k2p-7rxm",
     "given_name": "Max",
     "surname": "Mustermann",
     "password": "geheim123",
@@ -95,7 +95,7 @@ def test_redeeming_creates_the_account_and_sets_the_deadline(client):
     assert r.status_code == 200
     assert r.json()["username"] == "max.mustermann"
     # Sloppy typing gets repaired before the lookup.
-    suchen.assert_called_once_with("KIS-4K2P-7RXM")
+    suchen.assert_called_once_with("4K2P-7RXM")
     assert anlegen.call_args.kwargs["email"] == "max.mustermann@demo.kis.local"
     assert frist.call_args.kwargs["code_id"] == 7
     assert r.cookies.get("session") == "sitzungsschluessel"
@@ -267,7 +267,7 @@ def test_a_short_password_is_refused(client):
     anlegen.assert_not_called()
 
 
-VERLAENGERN = {"username": "max.mustermann", "password": "geheim123", "code": "KIS-4K2P-7RXM"}
+VERLAENGERN = {"username": "max.mustermann", "password": "geheim123", "code": "4K2P-7RXM"}
 
 
 def test_renewing_moves_the_deadline_and_logs_in(client):

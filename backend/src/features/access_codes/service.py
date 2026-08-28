@@ -9,12 +9,12 @@ DEMO_MAIL_DOMAIN = "demo.kis.local"
 
 
 def new_code() -> str:
-    """A code in the shape KIS-XXXX-XXXX."""
+    """A code in the shape XXXX-XXXX."""
     bloecke = (
         "".join(secrets.choice(_ALPHABET) for _ in range(_BLOCK_LENGTH))
         for _ in range(2)
     )
-    return "KIS-" + "-".join(bloecke)
+    return "-".join(bloecke)
 
 
 def normalize_code(text: str) -> str:

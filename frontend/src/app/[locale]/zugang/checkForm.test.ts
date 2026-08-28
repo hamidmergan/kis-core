@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { checkForm, MIN_PASSWORD_LENGTH } from "./checkForm";
 
 const gueltig = {
-  code: "KIS-4K2P-7RXM",
+  code: "4K2P-7RXM",
   givenName: "Max",
   surname: "Mustermann",
   password: "geheim123",

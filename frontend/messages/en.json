@@ -2968,7 +2968,7 @@
     "title": "Redeem access",
     "intro": "Use the access code from your invitation to create your own account here.",
     "code": "Access code",
-    "codeHint": "Looks like KIS-XXXX-XXXX",
+    "codeHint": "For example 4K2P-7RXM",
     "givenName": "First name",
     "surname": "Last name",
     "nameHint": "Your username is built from your name.",
