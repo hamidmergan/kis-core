@@ -67,6 +67,8 @@ export default function LoginPage() {
       const message = err instanceof Error ? err.message : "";
       if (message === "account_not_activated") {
         router.push("/pending");
+      } else if (message === "access_expired") {
+        router.push("/zugang/abgelaufen");
       } else if (maintenanceOn) {
         setError(t("maintenanceBanner"));
       } else {

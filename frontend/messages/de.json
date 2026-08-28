@@ -2988,6 +2988,17 @@
     "doneUntil": "Dein Zugang gilt bis zum {date}",
     "doneHint": "Merk dir den Benutzernamen, damit meldest du dich beim nächsten Mal an.",
     "doneGo": "Los geht's",
-    "toLogin": "Zurück zur Anmeldung"
+    "toLogin": "Zurück zur Anmeldung",
+    "expiredTitle": "Dein Zugang ist abgelaufen",
+    "expiredText": "Mit einem gültigen Zugangscode kannst du weitermachen. Deine Kurse und Quellen sind noch da.",
+    "expiredUser": "Benutzername",
+    "expiredPassword": "Passwort",
+    "expiredCode": "Zugangscode",
+    "expiredSubmit": "Verlängern",
+    "expiredSubmitting": "Wird verlängert...",
+    "expiredDone": "Dein Zugang gilt jetzt bis zum {date}",
+    "expiredDeadCode": "Dieser Code gilt nicht mehr. Melde dich bei der Person, die dich eingeladen hat.",
+    "expiredWrongLogin": "Benutzername oder Passwort stimmt nicht",
+    "expiredNotATestAccount": "Dieses Konto läuft nicht ab und braucht keinen Code"
   }
 }

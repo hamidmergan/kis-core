@@ -2988,6 +2988,17 @@
     "doneUntil": "Your access is valid until {date}",
     "doneHint": "Remember your username, you will sign in with it next time.",
     "doneGo": "Let's go",
-    "toLogin": "Back to sign in"
+    "toLogin": "Back to sign in",
+    "expiredTitle": "Your access has expired",
+    "expiredText": "A valid access code lets you carry on. Your courses and sources are still there.",
+    "expiredUser": "Username",
+    "expiredPassword": "Password",
+    "expiredCode": "Access code",
+    "expiredSubmit": "Renew",
+    "expiredSubmitting": "Renewing...",
+    "expiredDone": "Your access is now valid until {date}",
+    "expiredDeadCode": "This code is no longer valid. Contact the person who invited you.",
+    "expiredWrongLogin": "Username or password is incorrect",
+    "expiredNotATestAccount": "This account does not expire and does not need a code"
   }
 }
