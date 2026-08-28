@@ -20,7 +20,7 @@ from src.features.ai_assistant.tasks.studio.schedule._parse import (
     _normalize_month_date,
     _normalize_partial_date,
 )
-from src.features.ai_assistant.routes._helpers import _load_transcript_segments
+from src.features.ai_assistant.routes._media_files import _load_transcript_segments
 from src.services.aia_transcript_offsets import TranscriptIndex
 
 

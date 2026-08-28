@@ -4,9 +4,9 @@ from pydantic import ValidationError
 
 from src.limits import AIA_QUESTION_MAX_CHARS, AIA_EMBED_QUERY_MAX_CHARS
 from src.features.ai_assistant.schemas import ChatBody
-from src.features.ai_assistant.routes.chat import (
-    _truncate_query_for_embedding,
+from src.features.ai_assistant.routes._retrieval import (
     _reserve_question_budget,
+    _truncate_query_for_embedding,
 )
 
 

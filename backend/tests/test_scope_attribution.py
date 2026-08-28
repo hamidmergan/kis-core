@@ -1,8 +1,5 @@
 """With an explicit reference citations may only come from the reference window."""
-from src.features.ai_assistant.routes._helpers import (
-    _attribute_generic_text,
-    _scope_chunk_ids,
-)
+from src.features.ai_assistant.routes._evidence import _attribute_generic_text, _scope_chunk_ids
 
 
 def _hit(sid, page, content, dist, start=None, cid=None):

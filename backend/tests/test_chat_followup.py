@@ -241,7 +241,7 @@ class _MitschreibenderLLM:
 
 @pytest.mark.asyncio
 async def test_ohne_letzte_runde_geht_nur_die_frage_raus():
-    from src.features.ai_assistant.routes.chat import _understand_query
+    from src.features.ai_assistant.routes._understand import _understand_query
     from src.features.ai_assistant.prompts.query_understanding_prompts import (
         AIA_QUERY_UNDERSTANDING_SYSTEM,
     )
@@ -255,7 +255,7 @@ async def test_ohne_letzte_runde_geht_nur_die_frage_raus():
 
 @pytest.mark.asyncio
 async def test_mit_letzter_runde_wird_die_frage_eigenstaendig():
-    from src.features.ai_assistant.routes.chat import _understand_query
+    from src.features.ai_assistant.routes._understand import _understand_query
     llm = _MitschreibenderLLM(
         '{"intent":"SPECIFIC","scope":{"unit":null,"intervals":[]},'
         '"followup":"rewrite","standalone":"Erklaere die Pruefungsleistung genauer"}')
@@ -269,7 +269,7 @@ async def test_mit_letzter_runde_wird_die_frage_eigenstaendig():
 
 @pytest.mark.asyncio
 async def test_faellt_der_vorcall_aus_bleibt_die_frage_wie_sie_war():
-    from src.features.ai_assistant.routes.chat import _understand_query
+    from src.features.ai_assistant.routes._understand import _understand_query
 
     class _Kaputt(_MitschreibenderLLM):
         @property

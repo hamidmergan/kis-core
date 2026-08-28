@@ -1,9 +1,6 @@
 """Checks verbatim citation via the chunks that were already fetched."""
-from src.features.ai_assistant.routes._helpers import (
-    _significant_tokens,
-    _exact_attribution_chunk,
-    _attribute_generic_text,
-)
+from src.features.ai_assistant.routes._evidence import _attribute_generic_text, _exact_attribution_chunk
+from src.features.ai_assistant.routes._text import _significant_tokens
 
 
 # ── _significant_tokens ──────────────────────────────────────────────────────

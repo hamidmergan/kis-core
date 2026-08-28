@@ -1,7 +1,7 @@
 """The line searches run concurrently, the result stays the same."""
 import time
 
-from src.features.ai_assistant.routes._helpers import _parallel_search
+from src.features.ai_assistant.routes._evidence import _parallel_search
 
 
 def test_returns_one_result_per_line():

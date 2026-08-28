@@ -1,5 +1,5 @@
 """For a single page exactly one anchor chip stays at the end."""
-from src.features.ai_assistant.routes._helpers import _append_scope_anchor
+from src.features.ai_assistant.routes._chips import _append_scope_anchor
 
 
 def test_appends_single_anchor_at_bottom():

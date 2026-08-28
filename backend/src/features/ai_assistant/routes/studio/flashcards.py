@@ -11,9 +11,7 @@ from src.i18n import get_locale, t
 from src.quotas import enforce_quota
 from src.security.rate_limit import enforce_aia_burst
 
-from src.features.ai_assistant.routes._helpers import (
-    _resolve_source_ids,
-)
+from src.features.ai_assistant.routes._workspace_access import _resolve_source_ids
 from src.features.ai_assistant import schemas
 
 router = APIRouter(tags=["ki-assistent: studio"])

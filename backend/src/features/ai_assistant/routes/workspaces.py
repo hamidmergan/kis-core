@@ -15,11 +15,11 @@ from src.limits import (
     AIA_WORKSPACE_MAX_ACCESS_LINKS,
 )
 
-from src.features.ai_assistant.routes._helpers import (
+from src.features.ai_assistant.routes._workspace_access import (
+    _delete_workspace_files,
+    _require_workspace_access,
     _require_workspace_manage,
     _require_workspace_owner,
-    _require_workspace_access,
-    _delete_workspace_files,
 )
 from src.dependencies_rbac import require_workspace_create
 from src.features.ai_assistant import schemas

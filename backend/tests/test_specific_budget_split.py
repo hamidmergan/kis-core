@@ -1,10 +1,7 @@
 """Checks topping up to the limit and packing into one context window."""
 import pytest
 
-from src.features.ai_assistant.routes.chat import (
-    _take_chunks_within,
-    _pack_context_batches,
-)
+from src.features.ai_assistant.routes._retrieval import _pack_context_batches, _take_chunks_within
 
 
 def _mk(sid, n, *, chars=100, dist=0.5, first_marker=None, page_start=1):

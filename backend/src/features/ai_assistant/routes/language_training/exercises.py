@@ -11,9 +11,7 @@ from src.i18n import get_locale, t
 from src.quotas import enforce_quota
 from src.security.rate_limit import enforce_aia_burst
 
-from src.features.ai_assistant.routes._helpers import (
-    _resolve_source_ids,
-)
+from src.features.ai_assistant.routes._workspace_access import _resolve_source_ids
 from src.features.ai_assistant import schemas
 from src.services.aia_grammar_formats import clean_kinds
 from src.services import aia_flashcard_speech as speech

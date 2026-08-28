@@ -11,9 +11,7 @@ from src.limits import (
     GLOSSARY_LIMIT,
 )
 
-from src.features.ai_assistant.routes._helpers import (
-    _require_workspace_manage,
-)
+from src.features.ai_assistant.routes._workspace_access import _require_workspace_manage
 
 router = APIRouter(tags=["ki-assistent: language-training"])
 

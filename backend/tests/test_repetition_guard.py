@@ -1,11 +1,11 @@
 """Guard against repetition loops: abort and clean up the remains."""
-from src.features.ai_assistant.routes._helpers import (
+from src.features.ai_assistant.routes._text import (
     _RepetitionGuard,
-    _dedup_repeated_lines,
-    _tail_repeats,
     _collapse_repeats,
+    _dedup_repeated_lines,
     _strip_source_list,
     _strip_tiny_tables,
+    _tail_repeats,
 )
 
 # A real loop without a line break, from an actual run.

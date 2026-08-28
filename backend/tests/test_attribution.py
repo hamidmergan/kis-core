@@ -1,15 +1,13 @@
 """After-the-fact evidence search for overview answers, with a distance threshold."""
-from src.features.ai_assistant.routes._helpers import (
-    _pick_attribution,
-    _attribution_chip,
+from src.features.ai_assistant.routes._chips import _attribution_chip
+from src.features.ai_assistant.routes._evidence import (
     _attribute_generic_text,
     _attribution_subunits,
-    _names_many_laws,
     _enum_chip_unbacked,
-    _cos_dist,
-    _refusal_lines,
-    is_refusal_answer,
+    _names_many_laws,
+    _pick_attribution,
 )
+from src.features.ai_assistant.routes._refusal import _cos_dist, _refusal_lines, is_refusal_answer
 from src.features.ai_assistant.prompts.refusal_prompts import (
     RAG_NO_INFO_SENTINEL,
     is_sentinel_refusal,
@@ -1063,7 +1061,7 @@ def test_subunits_single_sentence_prose_has_no_extra_sentence_units():
 
 # ── looking a figure up, instead of only ranking by meaning ──────────────────
 
-from src.features.ai_assistant.routes._helpers import _line_candidates, _chips_for_line
+from src.features.ai_assistant.routes._evidence import _chips_for_line, _line_candidates
 
 _SLIDE = ("Lenka Kleinau Kontakt: Fachforum E-Mail: lenka.kleinau@th-luebeck.de "
           "Wöchentliche Sprechstunde (Mittwoch 17:30-18:30 Uhr) MENTORIN UND TUTORIN")

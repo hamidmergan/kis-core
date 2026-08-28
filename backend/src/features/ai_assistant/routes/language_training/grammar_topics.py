@@ -9,7 +9,7 @@ from src.i18n import get_locale, t
 
 from src.features.ai_assistant import schemas
 from src.features.ai_assistant.repository.grammar_topics import MAX_EXAMPLES
-from src.features.ai_assistant.routes._helpers import (
+from src.features.ai_assistant.routes._workspace_access import (
     _require_workspace_access,
     _require_workspace_manage,
 )

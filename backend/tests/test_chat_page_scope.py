@@ -1,6 +1,6 @@
 """Checks the page reference: a named page is fetched instead of searched."""
 from src.features.ai_assistant.routes import chat as chat_mod
-from src.features.ai_assistant.routes.chat import (
+from src.features.ai_assistant.routes._scope import (
     _parse_page_refs,
     _retrieve_page_scoped_context,
     _scope_unfulfillable_message,

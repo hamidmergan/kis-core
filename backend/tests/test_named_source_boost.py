@@ -1,5 +1,5 @@
 """Checks the title match that pulls a named source forward."""
-from src.features.ai_assistant.routes.chat import _named_source_ids, _title_word_match
+from src.features.ai_assistant.routes._retrieval import _named_source_ids, _title_word_match
 
 
 # Realistic page-1 title headers (gesetze-im-internet.de format), lowercased + trimmed.

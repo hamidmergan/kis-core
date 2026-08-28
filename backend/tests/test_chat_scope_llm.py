@@ -1,13 +1,13 @@
 """The model turns any phrasing into a page or time reference."""
 from src.features.ai_assistant.routes import chat as chat_mod
-from src.features.ai_assistant.routes.chat import (
-    _parse_scope_response,
+from src.features.ai_assistant.routes._scope import (
     _expand_page_intervals,
-    _page_scope_too_large,
-    _time_intervals_to_seconds,
-    _retrieve_time_scoped_context,
     _first_source_kind,
+    _page_scope_too_large,
+    _parse_scope_response,
+    _retrieve_time_scoped_context,
     _servable_scope_intervals,
+    _time_intervals_to_seconds,
 )
 
 

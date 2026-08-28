@@ -1,7 +1,7 @@
 """Deleting a source has to take transcript and subtitles along."""
 
 from src import storage
-from src.features.ai_assistant.routes import _helpers
+from src.features.ai_assistant.routes import _workspace_access
 from src.features.ai_assistant.routes.sources import _upload
 
 # Names as in operation so no source is a prefix of another.
@@ -60,7 +60,7 @@ def test_workspace_loeschen_raeumt_den_ganzen_workspace_ordner(lokal):
     _quelle_anlegen(lokal, 42, "w1", EINS)
     _quelle_anlegen(lokal, 42, "w1", ZWEI)
 
-    _helpers._delete_workspace_files({"id": 7, "uuid": "w1", "user_id": 42})
+    _workspace_access._delete_workspace_files({"id": 7, "uuid": "w1", "user_id": 42})
 
     assert not (lokal / "users/42/aia/workspaces/w1").exists()
 
@@ -69,7 +69,7 @@ def test_workspace_loeschen_laesst_fremde_workspaces_stehen(lokal):
     _quelle_anlegen(lokal, 42, "w1", EINS)
     _quelle_anlegen(lokal, 42, "w2", ZWEI)
 
-    _helpers._delete_workspace_files({"id": 7, "uuid": "w1", "user_id": 42})
+    _workspace_access._delete_workspace_files({"id": 7, "uuid": "w1", "user_id": 42})
 
     assert not (lokal / "users/42/aia/workspaces/w1").exists()
     assert (lokal / f"users/42/aia/workspaces/w2/sources/{ZWEI}.mp4").exists()

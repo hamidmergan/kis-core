@@ -3,7 +3,7 @@
 import pytest
 from fastapi import HTTPException
 
-from src.features.ai_assistant.routes import _helpers
+from src.features.ai_assistant.routes import _workspace_access
 
 MENTOR = 1
 TUTOR = 2
@@ -17,12 +17,12 @@ WORKSPACE = {"id": 7, "uuid": "w-1", "user_id": MENTOR}
 def workspace_mit(monkeypatch):
     """Stubs out the database access and fixes who is a tutor."""
     def einrichten(tutoren: set[int], eingeschrieben: set[int] = frozenset()):
-        monkeypatch.setattr(_helpers.db, "get_aia_workspace", lambda uuid: WORKSPACE)
+        monkeypatch.setattr(_workspace_access.db, "get_aia_workspace", lambda uuid: WORKSPACE)
         monkeypatch.setattr(
-            _helpers.db, "is_workspace_tutor", lambda ws_id, uid: uid in tutoren
+            _workspace_access.db, "is_workspace_tutor", lambda ws_id, uid: uid in tutoren
         )
         monkeypatch.setattr(
-            _helpers.db, "is_student_enrolled", lambda ws_id, uid: uid in eingeschrieben
+            _workspace_access.db, "is_student_enrolled", lambda ws_id, uid: uid in eingeschrieben
         )
     return einrichten
 
@@ -31,46 +31,46 @@ def workspace_mit(monkeypatch):
 
 def test_eigentuemer_darf_verwalten(workspace_mit):
     workspace_mit(tutoren=set())
-    assert _helpers._require_workspace_manage("w-1", MENTOR) == WORKSPACE
+    assert _workspace_access._require_workspace_manage("w-1", MENTOR) == WORKSPACE
 
 
 def test_tutor_darf_verwalten(workspace_mit):
     workspace_mit(tutoren={TUTOR})
-    assert _helpers._require_workspace_manage("w-1", TUTOR) == WORKSPACE
+    assert _workspace_access._require_workspace_manage("w-1", TUTOR) == WORKSPACE
 
 
 def test_lernender_darf_nicht_verwalten(workspace_mit):
     """Being enrolled is not enough, otherwise every participant could delete."""
     workspace_mit(tutoren=set(), eingeschrieben={LERNENDER})
     with pytest.raises(HTTPException) as fehler:
-        _helpers._require_workspace_manage("w-1", LERNENDER)
+        _workspace_access._require_workspace_manage("w-1", LERNENDER)
     assert fehler.value.status_code == 403
 
 
 def test_fremder_darf_nicht_verwalten(workspace_mit):
     workspace_mit(tutoren=set())
     with pytest.raises(HTTPException) as fehler:
-        _helpers._require_workspace_manage("w-1", FREMDER)
+        _workspace_access._require_workspace_manage("w-1", FREMDER)
     assert fehler.value.status_code == 403
 
 
 def test_unbekannter_workspace_ist_404(monkeypatch):
-    monkeypatch.setattr(_helpers.db, "get_aia_workspace", lambda uuid: None)
+    monkeypatch.setattr(_workspace_access.db, "get_aia_workspace", lambda uuid: None)
     with pytest.raises(HTTPException) as fehler:
-        _helpers._require_workspace_manage("gibtsnicht", MENTOR)
+        _workspace_access._require_workspace_manage("gibtsnicht", MENTOR)
     assert fehler.value.status_code == 404
 
 
 def test_lernender_darf_weiterhin_lesen(workspace_mit):
     """The read check stays untouched, otherwise the course would be shut for everyone."""
     workspace_mit(tutoren=set(), eingeschrieben={LERNENDER})
-    assert _helpers._require_workspace_access("w-1", LERNENDER) == WORKSPACE
+    assert _workspace_access._require_workspace_access("w-1", LERNENDER) == WORKSPACE
 
 
 def test_pruefung_kennt_den_rang_gar_nicht():
     """The check takes only a user id, no role and no permissions."""
     import inspect
-    parameter = set(inspect.signature(_helpers._require_workspace_manage).parameters)
+    parameter = set(inspect.signature(_workspace_access._require_workspace_manage).parameters)
     assert parameter == {"workspace_uuid", "user_id", "locale"}
 
 
@@ -79,7 +79,7 @@ def test_gleiche_person_gleiche_antwort_egal_welcher_rang(workspace_mit):
     workspace_mit(tutoren=set(), eingeschrieben={LERNENDER, FREMDER})
     for konto in (LERNENDER, FREMDER):
         with pytest.raises(HTTPException) as fehler:
-            _helpers._require_workspace_manage("w-1", konto)
+            _workspace_access._require_workspace_manage("w-1", konto)
         assert fehler.value.status_code == 403
 
 
@@ -88,15 +88,15 @@ def test_gleiche_person_gleiche_antwort_egal_welcher_rang(workspace_mit):
 def test_tutor_darf_verwalten_aber_nicht_das_unumkehrbare(workspace_mit):
     """The tutor manages everything except deleting and promoting."""
     workspace_mit(tutoren={TUTOR})
-    assert _helpers._require_workspace_manage("w-1", TUTOR) == WORKSPACE
+    assert _workspace_access._require_workspace_manage("w-1", TUTOR) == WORKSPACE
     with pytest.raises(HTTPException) as fehler:
-        _helpers._require_workspace_owner("w-1", TUTOR)
+        _workspace_access._require_workspace_owner("w-1", TUTOR)
     assert fehler.value.status_code == 403
 
 
 def test_eigentuemer_darf_auch_das_unumkehrbare(workspace_mit):
     workspace_mit(tutoren={TUTOR})
-    assert _helpers._require_workspace_owner("w-1", MENTOR) == WORKSPACE
+    assert _workspace_access._require_workspace_owner("w-1", MENTOR) == WORKSPACE
 
 
 def test_loeschroute_haengt_an_der_eigentuemerpruefung():
@@ -197,13 +197,13 @@ def test_datei_landet_beim_eigentuemer(lokal):
 @pytest.fixture
 def sprachtrainer_bereit(workspace_mit, monkeypatch):
     """Kursraum da, Trainer frei, Schreibzugriff mitgeschrieben."""
-    from src.features.ai_assistant.routes import _helpers
+    from src.features.ai_assistant.routes import _workspace_access
     from src.features.ai_assistant.routes import workspaces as routes
 
     workspace_mit(tutoren={TUTOR})
     # The route reads fields the lean test object does not have.
     voll = {**WORKSPACE, "title": "Kurs", "description": "", "is_active": True}
-    monkeypatch.setattr(_helpers.db, "get_aia_workspace", lambda uuid: voll)
+    monkeypatch.setattr(_workspace_access.db, "get_aia_workspace", lambda uuid: voll)
     geschrieben: list[bool] = []
     monkeypatch.setattr(routes.db, "update_aia_workspace", lambda *a, **k: None)
     monkeypatch.setattr(routes.db, "is_language_training_enabled_globally", lambda: True)

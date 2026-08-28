@@ -1,14 +1,14 @@
 """Shared after-the-fact evidence search for the tools, with the same threshold as the chat."""
 
-from src.features.ai_assistant.routes._helpers import (
-    _pick_attribution,
+from src.features.ai_assistant.routes._chips import _line_segment_start
+from src.features.ai_assistant.routes._evidence import (
     _ATTRIB_CANDIDATES,
-    _is_seen,
-    _line_segment_start,
-    _load_transcript_segments,
     _GENERIC_ATTRIB_MAX_DIST,
     _MAX_CHIPS_PER_LINE,
+    _is_seen,
+    _pick_attribution,
 )
+from src.features.ai_assistant.routes._media_files import _load_transcript_segments
 
 # Its own value, because a flashcard has no context the chat could measure against.
 _TOOL_MULTI_CHIP_MAX_DELTA = 0.08

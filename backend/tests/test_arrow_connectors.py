@@ -1,6 +1,6 @@
 """Arrows never reach the reader, the rule lives in the code instead of the prompt."""
 
-from src.features.ai_assistant.routes._helpers import _strip_arrow_connectors
+from src.features.ai_assistant.routes._text import _strip_arrow_connectors
 
 
 def test_arrow_between_sentences_leaves_clean_prose():

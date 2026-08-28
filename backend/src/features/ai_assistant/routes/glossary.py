@@ -17,10 +17,7 @@ from src.limits import (
     GLOSSARY_LIMIT,
 )
 
-from src.features.ai_assistant.routes._helpers import (
-    _context_snippet,
-    _term_appears_in_text,
-)
+from src.features.ai_assistant.routes._text import _context_snippet, _term_appears_in_text
 from src.features.ai_assistant import schemas
 from src.services.aia_adaptive_tools import build_adaptive_tool_suffix
 

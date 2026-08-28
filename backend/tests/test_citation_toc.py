@@ -1,6 +1,6 @@
 # backend/tests/test_citation_toc.py
 """Table-of-contents lines must never become evidence anchors."""
-from src.features.ai_assistant.routes._helpers import _strip_toc_lines
+from src.features.ai_assistant.routes._text import _strip_toc_lines
 
 
 def test_strips_dotted_leader_toc_line():

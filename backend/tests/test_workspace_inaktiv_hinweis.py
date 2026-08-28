@@ -7,7 +7,7 @@ import pytest
 from fastapi import HTTPException
 
 from src.features.ai_assistant import schemas
-from src.features.ai_assistant.routes import _helpers
+from src.features.ai_assistant.routes import _workspace_access
 from src.features.ai_assistant.routes import workspaces as routes
 from src.i18n import t
 
@@ -24,12 +24,12 @@ ZU = {**OFFEN, "is_active": False}
 def workspace_mit(monkeypatch):
     """Stubs out the database: which room, who is tutor, who is enrolled."""
     def einrichten(workspace, tutoren=frozenset(), eingeschrieben=frozenset()):
-        monkeypatch.setattr(_helpers.db, "get_aia_workspace", lambda uuid: workspace)
+        monkeypatch.setattr(_workspace_access.db, "get_aia_workspace", lambda uuid: workspace)
         monkeypatch.setattr(
-            _helpers.db, "is_workspace_tutor", lambda ws_id, uid: uid in tutoren
+            _workspace_access.db, "is_workspace_tutor", lambda ws_id, uid: uid in tutoren
         )
         monkeypatch.setattr(
-            _helpers.db, "is_student_enrolled", lambda ws_id, uid: uid in eingeschrieben
+            _workspace_access.db, "is_student_enrolled", lambda ws_id, uid: uid in eingeschrieben
         )
     return einrichten
 
@@ -40,7 +40,7 @@ def test_lernender_kommt_nicht_in_den_abgeschalteten_raum(workspace_mit):
     """The bookmark used to slip past this and the chat kept answering."""
     workspace_mit(ZU, eingeschrieben={LERNENDER})
     with pytest.raises(HTTPException) as fehler:
-        _helpers._require_workspace_access("w-1", LERNENDER)
+        _workspace_access._require_workspace_access("w-1", LERNENDER)
     assert fehler.value.status_code == 423
 
 
@@ -48,32 +48,32 @@ def test_die_absage_sagt_woran_es_liegt(workspace_mit):
     """Without its own text it would say 'no access', and that is not true here."""
     workspace_mit(ZU, eingeschrieben={LERNENDER})
     with pytest.raises(HTTPException) as fehler:
-        _helpers._require_workspace_access("w-1", LERNENDER, locale="de")
+        _workspace_access._require_workspace_access("w-1", LERNENDER, locale="de")
     assert fehler.value.detail == t("workspace.inactive", "de")
     assert fehler.value.detail != t("workspace.accessDenied", "de")
 
 
 def test_eigentuemer_kommt_auch_im_abgeschalteten_raum_hinein(workspace_mit):
     workspace_mit(ZU)
-    assert _helpers._require_workspace_access("w-1", MENTOR) == ZU
+    assert _workspace_access._require_workspace_access("w-1", MENTOR) == ZU
 
 
 def test_tutor_kommt_auch_im_abgeschalteten_raum_hinein(workspace_mit):
     """The room is switched off exactly while tutors are setting it up."""
     workspace_mit(ZU, tutoren={TUTOR}, eingeschrieben={TUTOR})
-    assert _helpers._require_workspace_access("w-1", TUTOR) == ZU
+    assert _workspace_access._require_workspace_access("w-1", TUTOR) == ZU
 
 
 def test_offener_raum_bleibt_offen(workspace_mit):
     workspace_mit(OFFEN, eingeschrieben={LERNENDER})
-    assert _helpers._require_workspace_access("w-1", LERNENDER) == OFFEN
+    assert _workspace_access._require_workspace_access("w-1", LERNENDER) == OFFEN
 
 
 def test_fremder_erfaehrt_weiterhin_nur_kein_zugriff(workspace_mit):
     """423 would tell an outsider that this room exists."""
     workspace_mit(ZU)
     with pytest.raises(HTTPException) as fehler:
-        _helpers._require_workspace_access("w-1", FREMDER)
+        _workspace_access._require_workspace_access("w-1", FREMDER)
     assert fehler.value.status_code == 403
 
 

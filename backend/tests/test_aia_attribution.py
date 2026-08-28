@@ -163,7 +163,7 @@ def test_closest_hit_wins_even_when_it_ranks_last_in_the_search_order():
 
 def test_attribution_asks_for_enough_candidates():
     """The shortlist has to reach far enough, otherwise the picker never sees the best chunk."""
-    from src.features.ai_assistant.routes._helpers import _ATTRIB_CANDIDATES
+    from src.features.ai_assistant.routes._evidence import _ATTRIB_CANDIDATES
     assert _ATTRIB_CANDIDATES >= 30
 
 

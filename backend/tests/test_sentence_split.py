@@ -1,5 +1,5 @@
 """Language independent sentence splitting, precision before completeness."""
-from src.features.ai_assistant.routes._helpers import _split_sentences
+from src.features.ai_assistant.routes._text import _split_sentences
 
 
 # ── the happy path: real boundaries split ────────────────────────────────────

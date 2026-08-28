@@ -1,10 +1,7 @@
 """The timestamp points at the spot carrying the rare word."""
 
-from src.features.ai_assistant.routes._helpers import (
-    _line_segment_start,
-    _norm_for_match,
-    _segment_stems,
-)
+from src.features.ai_assistant.routes._chips import _line_segment_start, _segment_stems
+from src.features.ai_assistant.routes._text import _norm_for_match
 from src.services.aia_segment_pick import best_index, rarity_weights
 
 

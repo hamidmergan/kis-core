@@ -1,10 +1,7 @@
 """A media chunk gets its own segments, matched up by their order."""
 
-from src.features.ai_assistant.routes._helpers import (
-    _chunk_segments,
-    _enrich_media_content,
-    _line_segment_start,
-)
+from src.features.ai_assistant.routes._chips import _line_segment_start
+from src.features.ai_assistant.routes._media_files import _chunk_segments, _enrich_media_content
 
 
 # The artefact rounds to whole seconds, the chunk time is exact.

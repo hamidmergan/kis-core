@@ -1,5 +1,5 @@
 """Checks the warm-up of the evidence caches during the stream."""
-from src.features.ai_assistant.routes._helpers import _AttributionPrewarmer
+from src.features.ai_assistant.routes._evidence import _AttributionPrewarmer
 
 
 def fake_embed(texts):

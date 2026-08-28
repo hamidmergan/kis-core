@@ -5,7 +5,7 @@ import asyncio
 import pytest
 from fastapi import HTTPException
 
-from src.features.ai_assistant.routes import _helpers
+from src.features.ai_assistant.routes import _workspace_access
 from src.features.ai_assistant.routes.language_training import diagnosis, exercises
 
 LERNENDER = 3
@@ -18,7 +18,7 @@ KARTEIKARTEN_SATZ = {"id": 2, "workspace_id": 7, "user_id": LERNENDER, "tool": "
 @pytest.fixture
 def trainer_aus(monkeypatch):
     """Workspace da, Lernender eingeschrieben, Sprachtrainer abgeschaltet."""
-    for modul in (_helpers, diagnosis, exercises):
+    for modul in (_workspace_access, diagnosis, exercises):
         monkeypatch.setattr(modul.db, "get_aia_workspace", lambda uuid: WORKSPACE)
         monkeypatch.setattr(modul.db, "is_student_enrolled", lambda ws_id, uid: True)
         monkeypatch.setattr(modul.db, "is_workspace_tutor", lambda ws_id, uid: False)

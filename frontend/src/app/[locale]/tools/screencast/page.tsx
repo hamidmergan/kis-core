@@ -22,12 +22,12 @@ import UserPromptStep from "./_steps/UserPromptStep";
 import TranslationReviewStep from "./_steps/TranslationReviewStep";
 import ScriptReviewStep from "./_steps/ScriptReviewStep";
 import TtsSettingsStep from "./_steps/TtsSettingsStep";
-import Lightbox from "./_components/Lightbox";
 import RenderVorschau from "./_components/RenderVorschau";
-import RegenChatModal, { type RegenApplyMode } from "./_components/RegenChatModal";
-import ExitConfirmModal from "./_components/ExitConfirmModal";
+import ScreencastOverlays from "./_components/ScreencastOverlays";
+import { type RegenApplyMode } from "./_components/RegenChatModal";
 import { parseScriptJsonFile, checkHasActiveJob, checkJobValidity, checkJobFolderExists, computeVoiceLabel, laufWaereUmsonst, stimmwechselOhneWirkung, ausgeschlosseneFolien, sprachIdFuerLocale, type LaufStand } from "./_utils";
 import { flowReducer, INITIAL_FLOW_STATE } from "./_reducer";
+import { renderFlowMessages, translateFlowMessages } from "./_messages";
 import { useScreencastRenderFlow } from "./_hooks/useScreencastRenderFlow";
 import { useScreencastTranslateFlow } from "./_hooks/useScreencastTranslateFlow";
 import { useSchritt6Stand } from "./_hooks/useSchritt6Stand";
@@ -374,36 +374,7 @@ function ScreencastPageInner() {
     goError,
     setTtsSettingsError,
     setRenderProgressLabel,
-    messages: {
-      stuck: t("rendering.stuck"),
-      queue: t("rendering.queue"),
-      reconnected: t("rendering.reconnected"),
-      renderError: t("error.renderError"),
-      errorWithCode: (code: number) => t("error.errorWithCode", { code }),
-      retryFailed: t("error.retryFailed"),
-      tooManyJobs: t("error.tooManyJobs"),
-      jobFailed: t("error.jobFailed"),
-      unknownError: tCommon("unknownError"),
-      previousRenderBusy: t("error.previousRenderBusy"),
-      renderLabel: (p) => {
-        switch (p.kind) {
-          case "queue": return t("rendering.queue");
-          case "translatePresentation": return t("rendering.translatePresentation");
-          case "extractSlides": return t("rendering.extractSlides");
-          case "scripts": return p.total != null ? t("rendering.scriptsWithCount", { n: p.total }) : t("rendering.scripts");
-          case "images": return t("rendering.images");
-          case "tts": return p.current != null && p.total != null
-            ? t("rendering.ttsWithProgress", { current: p.current, total: p.total })
-            : t("rendering.tts");
-          case "video": return p.current != null && p.total != null
-            ? t("rendering.videoWithProgress", { current: p.current, total: p.total })
-            : t("rendering.video");
-          case "concat": return t("rendering.concat");
-          case "subtitles": return t("rendering.subtitles");
-          default: return t("rendering.fallback");
-        }
-      },
-    },
+    messages: renderFlowMessages(t, tCommon),
     setFertigeFolien,
     setNichtDabei,
     abortControllerRef,
@@ -447,14 +418,7 @@ function ScreencastPageInner() {
     goError,
     setUploadFehler,
     newSignal,
-    messages: {
-      unknownError: tCommon("unknownError"),
-      errorWithCode: (code: number) => t("error.errorWithCode", { code }),
-      uploadError: t("error.uploadError"),
-      downloadFailed: t("error.downloadFailed"),
-      jobInOtherTab: t("error.jobInOtherTab"),
-      jobDeleted: t("error.jobDeleted"),
-    },
+    messages: translateFlowMessages(t, tCommon),
     currentJobUuidRef,
     isGeneratingScriptsRef,
   });
@@ -830,45 +794,29 @@ function ScreencastPageInner() {
             onReset={() => resetAll()}
           />
         )}
-        {pendingExit !== null && (
-          <ExitConfirmModal
-            mode={pendingExit}
-            onCancel={() => setPendingExit(null)}
-            onConfirm={async () => {
-              const mode = pendingExit;
-              setPendingExit(null);
-              // Cancelling the render does not delete the job, it only stops the run.
-              if (mode === "render") {
-                await abbrechenUndZurueck();
-                return;
-              }
-              resetAll(step !== "done");
-              if (mode === "cancel") window.location.href = "/my-jobs";
-            }}
-          />
-        )}
-
-        {lightboxIndex !== null && (
-          <Lightbox
-            index={lightboxIndex}
-            slides={slides}
-            onClose={() => dispatch({ type: "SET_LIGHTBOX", index: null })}
-            onIndexChange={(idx) => dispatch({ type: "SET_LIGHTBOX", index: idx })}
-          />
-        )}
-
-
-        {regeneratingSlide !== null && slides[regeneratingSlide] && (
-          <RegenChatModal
-            slideIndex={regeneratingSlide}
-            slideExtractedText={slides[regeneratingSlide].extractedText}
-            currentScript={slides[regeneratingSlide].script || ""}
-            anchorText={regenAnchorText}
-            targetLang={targetLang}
-            onApply={(mode, content) => applyRegen(regeneratingSlide, mode, content)}
-            onClose={closeRegen}
-          />
-        )}
+        <ScreencastOverlays
+          slides={slides}
+          targetLang={targetLang}
+          pendingExit={pendingExit}
+          onExitCancel={() => setPendingExit(null)}
+          onExitConfirm={async () => {
+            const mode = pendingExit;
+            setPendingExit(null);
+            // Cancelling the render does not delete the job, it only stops the run.
+            if (mode === "render") {
+              await abbrechenUndZurueck();
+              return;
+            }
+            resetAll(step !== "done");
+            if (mode === "cancel") window.location.href = "/my-jobs";
+          }}
+          lightboxIndex={lightboxIndex}
+          onLightboxIndexChange={(idx) => dispatch({ type: "SET_LIGHTBOX", index: idx })}
+          regeneratingSlide={regeneratingSlide}
+          regenAnchorText={regenAnchorText}
+          onRegenApply={applyRegen}
+          onRegenClose={closeRegen}
+        />
       </div>
     </ProtectedRoute>
   );

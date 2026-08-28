@@ -1,6 +1,6 @@
 """Empty citation brackets from the model are removed, real ones stay."""
 
-from src.features.ai_assistant.routes._helpers import _sanitize_citations
+from src.features.ai_assistant.routes._text import _sanitize_citations
 
 
 def test_strips_stray_lenticular_placeholder_keeps_real_citation():

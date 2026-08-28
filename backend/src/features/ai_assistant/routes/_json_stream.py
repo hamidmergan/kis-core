@@ -289,3 +289,50 @@ class AntwortStrom:
             return z
 
         return ""
+
+
+# Fields instead of prose: the code builds the shape, the model only fills it.
+_ANTWORT_SCHEMA = {
+    "type": "json_schema",
+    "json_schema": {
+        "name": "antwort", "strict": True,
+        "schema": {
+            "type": "object",
+            "properties": {
+                # The rule sits at the field, because that is where the model writes.
+                "no_info_sentence": {
+                    "type": ["string", "null"],
+                    "description": (
+                        "A whole sentence with subject and verb, saying what the "
+                        "documents do not state, with the asked-for term quoted "
+                        "inside it. Never a bare word or phrase. Always in the "
+                        "language of the question, never in the language of the "
+                        "examples. null when the documents do state what was asked."
+                    ),
+                },
+                "bridge": {
+                    "type": ["string", "null"],
+                    "description": (
+                        "The second half of that same sentence, joined with a comma. "
+                        "Starts lowercase with a contrasting connector in the SAME "
+                        "language as no_info_sentence, names what the documents do "
+                        "describe instead, ends with a colon."
+                    ),
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {"term": {"type": "string"},
+                                       "text": {"type": "string"}},
+                        "required": ["term", "text"],
+                        "additionalProperties": False,
+                    },
+                },
+                "body": {"type": "string"},
+            },
+            "required": ["no_info_sentence", "bridge", "items", "body"],
+            "additionalProperties": False,
+        },
+    },
+}

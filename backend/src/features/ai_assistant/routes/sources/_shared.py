@@ -25,17 +25,19 @@ from src.storage import (
     stream_s3_object,
 )
 
-from src.features.ai_assistant.routes._helpers import (
-    _convert_office_to_pdf,
-    _mp4_faststart,
-    _count_pages,
-    _convert_office_to_pdf_path,
-    _mp4_faststart_path,
-    _count_pages_path,
-    _require_workspace_manage,
-    _save_source_file_path,
+from src.features.ai_assistant.routes._media_files import (
     _ALLOWED_EXTENSIONS,
     _MAX_UPLOAD_BYTES,
+    _convert_office_to_pdf,
+    _convert_office_to_pdf_path,
+    _count_pages,
+    _count_pages_path,
+    _mp4_faststart,
+    _mp4_faststart_path,
+)
+from src.features.ai_assistant.routes._workspace_access import (
+    _require_workspace_manage,
+    _save_source_file_path,
 )
 
 def _load_workspace_source(source_uuid: str, workspace: dict, locale: str) -> dict:

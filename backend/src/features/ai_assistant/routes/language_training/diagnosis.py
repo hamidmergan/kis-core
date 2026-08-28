@@ -15,7 +15,7 @@ from src.i18n import (
     t,
 )
 from src.security.rate_limit import enforce_aia_burst
-from src.features.ai_assistant.routes._helpers import _require_workspace_access
+from src.features.ai_assistant.routes._workspace_access import _require_workspace_access
 from src.services.aia_diagnosis_chat import (
     ANSWER_MAX_CHARS_SETTING,
     DEFAULT_ANSWER_MAX_CHARS,

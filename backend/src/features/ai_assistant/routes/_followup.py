@@ -4,7 +4,7 @@ import json
 import re
 from typing import Optional
 
-from ._helpers import _strip_inline_citation_chips
+from ._text import _strip_inline_citation_chips
 
 KEINE = "none"
 UMSCHREIBEN = "rewrite"
