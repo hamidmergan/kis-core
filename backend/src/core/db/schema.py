@@ -377,12 +377,14 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                     max_uses       INTEGER NOT NULL,
                     used_count     INTEGER NOT NULL DEFAULT 0,
                     valid_until    TIMESTAMP NOT NULL,
-                    access_days    INTEGER NOT NULL DEFAULT 14,
+                    access_days    INTEGER DEFAULT 14,
                     active         BOOLEAN NOT NULL DEFAULT TRUE,
                     created_by     INTEGER,
                     created_at     TIMESTAMP NOT NULL DEFAULT NOW()
                 )
             """)
+            # NULL means the accounts this code creates never expire.
+            cur.execute("ALTER TABLE access_codes ALTER COLUMN access_days DROP NOT NULL")
             # A test access runs out on its own, the two columns stay empty for everyone else.
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS access_expires_at TIMESTAMP")
             cur.execute(

@@ -8,7 +8,7 @@ import { Eye, EyeSlash } from "@phosphor-icons/react";
 import Header from "@/components/layout/Header";
 import { checkForm, MIN_PASSWORD_LENGTH } from "./checkForm";
 
-type Fertig = { username: string; expiresAt: string };
+type Fertig = { username: string; expiresAt: string | null };
 
 export default function AccessCodePage() {
   const t = useTranslations("accessCode");
@@ -61,7 +61,7 @@ export default function AccessCodePage() {
       }
       const d = await r.json();
       // The session cookie already arrived with this answer, no extra login needed.
-      setFertig({ username: d.username, expiresAt: d.expires_at });
+      setFertig({ username: d.username, expiresAt: d.expires_at ?? null });
     } catch {
       setError(t("errorGeneric"));
     } finally {
@@ -69,7 +69,7 @@ export default function AccessCodePage() {
     }
   }
 
-  const bisDatum = fertig
+  const bisDatum = fertig?.expiresAt
     ? new Date(fertig.expiresAt).toLocaleDateString(locale === "en" ? "en-US" : "de-DE", {
         day: "2-digit",
         month: "2-digit",
@@ -92,7 +92,7 @@ export default function AccessCodePage() {
             >
               <h2 className="text-lg font-semibold">{t("doneTitle")}</h2>
               <p className="text-sm">{t("doneName", { uid: fertig.username })}</p>
-              <p className="text-sm">{t("doneUntil", { date: bisDatum })}</p>
+              <p className="text-sm">{fertig.expiresAt ? t("doneUntil", { date: bisDatum }) : t("doneUnlimited")}</p>
               <p className="text-xs text-muted-soft">{t("doneHint")}</p>
               <button
                 type="button"

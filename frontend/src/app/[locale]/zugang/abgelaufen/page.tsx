@@ -8,7 +8,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { Eye, EyeSlash } from "@phosphor-icons/react";
 import Header from "@/components/layout/Header";
 
-type Fertig = { expiresAt: string };
+type Fertig = { expiresAt: string | null };
 
 export default function AccessExpiredPage() {
   const t = useTranslations("accessCode");
@@ -53,7 +53,7 @@ export default function AccessExpiredPage() {
       }
       const d = await r.json();
       // The session cookie already arrived with this answer, no extra login needed.
-      setFertig({ expiresAt: d.expires_at });
+      setFertig({ expiresAt: d.expires_at ?? null });
     } catch {
       setError(t("errorGeneric"));
     } finally {
@@ -61,7 +61,7 @@ export default function AccessExpiredPage() {
     }
   }
 
-  const bisDatum = fertig
+  const bisDatum = fertig?.expiresAt
     ? new Date(fertig.expiresAt).toLocaleDateString(locale === "en" ? "en-US" : "de-DE", {
         day: "2-digit",
         month: "2-digit",
@@ -82,7 +82,9 @@ export default function AccessExpiredPage() {
               data-testid="renew-done"
               className="bg-background rounded-xl shadow-sm border border-border-soft p-8 space-y-4"
             >
-              <h2 className="text-lg font-semibold">{t("expiredDone", { date: bisDatum })}</h2>
+              <h2 className="text-lg font-semibold">
+                {fertig.expiresAt ? t("expiredDone", { date: bisDatum }) : t("expiredDoneUnlimited")}
+              </h2>
               <button
                 type="button"
                 onClick={() => window.location.assign("/")}

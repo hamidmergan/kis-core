@@ -63,7 +63,10 @@ export default function CreateAccessCodeDialog({ onClose, onCreated }: Props) {
   );
 
   const accessDaysOptions = useMemo(
-    () => ACCESS_DAYS.map((n) => ({ value: String(n), label: t("days", { n }) })),
+    () => [
+      ...ACCESS_DAYS.map((n) => ({ value: String(n), label: t("days", { n }) })),
+      { value: "0", label: t("unlimited") },
+    ],
     [t],
   );
 
@@ -81,7 +84,7 @@ export default function CreateAccessCodeDialog({ onClose, onCreated }: Props) {
           label: label.trim(),
           max_uses: Number(maxUses),
           valid_days: Number(validDays),
-          access_days: Number(accessDays),
+          access_days: accessDays === "0" ? null : Number(accessDays),
           kis_role: custom ? "custom" : role,
           custom_role_id: custom ? Number(role.slice("custom:".length)) : null,
         }),

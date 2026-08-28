@@ -21,7 +21,7 @@ type Code = {
   max_uses: number;
   used_count: number;
   valid_until: string;
-  access_days: number;
+  access_days: number | null;
   active: boolean;
   created_at: string;
   status: Zustand;
@@ -140,7 +140,9 @@ export default function AccessCodesTab() {
                   <td className="px-4 py-3 font-mono text-foreground-soft">{e.code}</td>
                   <td className="px-4 py-3 text-foreground-soft">{e.used_count} / {e.max_uses}</td>
                   <td className="px-4 py-3 text-foreground-soft">{datum(e.valid_until)}</td>
-                  <td className="px-4 py-3 text-foreground-soft">{t("accessDays", { n: e.access_days })}</td>
+                  <td className="px-4 py-3 text-foreground-soft">
+                    {e.access_days == null ? t("accessUnlimited") : t("accessDays", { n: e.access_days })}
+                  </td>
                   <td
                     className="px-4 py-3 cursor-pointer"
                     onClick={() => umschaltend !== e.id && umschalten(e)}

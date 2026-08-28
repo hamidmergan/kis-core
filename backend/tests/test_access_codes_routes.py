@@ -102,6 +102,24 @@ def test_redeeming_creates_the_account_and_sets_the_deadline(client):
     assert sitzung.return_value.create.call_args.kwargs["data"]["access_expires_at"]
 
 
+def test_redeeming_with_an_unlimited_code_sets_no_deadline(client):
+    with patch("src.routes.access_codes.repo.get_code_by_code", return_value=_code(access_days=None)), \
+         patch("src.routes.access_codes.database.get_user_by_username", return_value=None), \
+         patch("src.routes.access_codes.repo.claim_use", return_value=True), \
+         patch("src.routes.access_codes.provision_account", return_value={
+             "user_id": 42, "username": "max.mustermann", "display_name": "Max Mustermann",
+             "email": "max.mustermann@demo.kis.local", "role": "staff", "custom_role_id": None,
+         }), \
+         patch("src.routes.access_codes.repo.set_user_access") as frist, \
+         _sitzung() as sitzung:
+        sitzung.return_value.create.return_value = "sitzungsschluessel"
+        r = client.post("/access-codes/redeem", json=GUELTIG)
+
+    assert r.status_code == 200
+    assert frist.call_args.kwargs["expires_at"] is None
+    assert sitzung.return_value.create.call_args.kwargs["data"]["access_expires_at"] is None
+
+
 def test_redeeming_picks_a_free_user_name(client):
     belegt = {"max.mustermann": {"id": 1}}
     with patch("src.routes.access_codes.repo.get_code_by_code", return_value=_code()), \
@@ -269,6 +287,25 @@ def test_renewing_moves_the_deadline_and_logs_in(client):
     assert r.status_code == 200
     assert frist.call_args[0][0] == 42
     assert r.cookies.get("session") == "sitzungsschluessel"
+
+
+def test_renewing_with_an_unlimited_code_sets_no_deadline(client):
+    konto = {"id": 42, "ldap_username": "max.mustermann", "display_name": "Max Mustermann",
+             "email": "max.mustermann@demo.kis.local", "role": "staff", "custom_role_id": None,
+             "access_expires_at": GESTERN}
+    with patch("src.routes.access_codes.authenticate_user",
+               return_value={"username": "max.mustermann", "fullname": "Max Mustermann",
+                             "email": "max.mustermann@demo.kis.local", "role": "staff"}), \
+         patch("src.routes.access_codes.database.get_user_by_username", return_value=konto), \
+         patch("src.routes.access_codes.repo.get_code_by_code", return_value=_code(access_days=None)), \
+         patch("src.routes.access_codes.repo.set_user_access") as frist, \
+         _sitzung() as sitzung:
+        sitzung.return_value.create.return_value = "sitzungsschluessel"
+        r = client.post("/access-codes/renew", json=VERLAENGERN)
+
+    assert r.status_code == 200
+    assert frist.call_args.kwargs["expires_at"] is None
+    assert sitzung.return_value.create.call_args.kwargs["data"]["access_expires_at"] is None
 
 
 def test_renewing_works_even_when_every_seat_is_taken(client):

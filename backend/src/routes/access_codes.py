@@ -115,7 +115,8 @@ def redeem(payload: RedeemPayload, response: Response, locale: str = Depends(get
         code = 409 if isinstance(fehler, LdapUserExistsError) else 500
         raise HTTPException(status_code=code, detail=t("access.createFailed", locale))
 
-    frist = datetime.now() + timedelta(days=eintrag["access_days"])
+    tage = eintrag["access_days"]
+    frist = datetime.now() + timedelta(days=tage) if tage else None
     try:
         repo.set_user_access(sitzungsdaten["user_id"], expires_at=frist, code_id=eintrag["id"])
     except Exception as fehler:
@@ -130,10 +131,10 @@ def redeem(payload: RedeemPayload, response: Response, locale: str = Depends(get
         # The whitelist has to go too, otherwise the next login switches the account back on.
         database.remove_from_whitelist(sitzungsdaten["email"])
         raise HTTPException(status_code=500, detail=t("access.createFailed", locale))
-    sitzungsdaten["access_expires_at"] = frist.isoformat()
+    sitzungsdaten["access_expires_at"] = frist.isoformat() if frist else None
     _set_session(response, sitzungsdaten)
 
-    logger.info("access code redeemed for uid={} until={}", uid, frist.date())
+    logger.info("access code redeemed for uid={} until={}", uid, frist.date() if frist else "never")
     return {
         "status": "ok",
         "username": uid,
@@ -168,7 +169,8 @@ def renew(payload: RenewPayload, response: Response, locale: str = Depends(get_l
         raise HTTPException(status_code=403, detail="account_not_activated")
 
     eintrag = _live_code(payload.code, locale, seat_needed=False)
-    frist = datetime.now() + timedelta(days=eintrag["access_days"])
+    tage = eintrag["access_days"]
+    frist = datetime.now() + timedelta(days=tage) if tage else None
     repo.set_user_access(konto["id"], expires_at=frist, code_id=eintrag["id"])
 
     _set_session(response, {
@@ -178,8 +180,8 @@ def renew(payload: RenewPayload, response: Response, locale: str = Depends(get_l
         "email": konto.get("email") or "",
         "role": konto.get("role") or "user",
         "custom_role_id": konto.get("custom_role_id"),
-        "access_expires_at": frist.isoformat(),
+        "access_expires_at": frist.isoformat() if frist else None,
     })
 
-    logger.info("access renewed for uid={} until={}", ldap_user["username"], frist.date())
+    logger.info("access renewed for uid={} until={}", ldap_user["username"], frist.date() if frist else "never")
     return {"status": "ok", "username": ldap_user["username"], "expires_at": frist}

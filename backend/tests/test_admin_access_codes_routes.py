@@ -93,6 +93,28 @@ def test_creating_a_code_returns_the_readable_code(client):
     assert anlegen.call_args.kwargs["created_by"] == 1
 
 
+def test_creating_a_code_with_unlimited_access(client):
+    with patch("src.routes.admin.access_codes.repo.create_code", return_value=7) as anlegen:
+        r = client.post("/admin/access-codes", json={
+            "label": "Kollegen August", "max_uses": 50,
+            "valid_days": 30, "access_days": None, "kis_role": "staff",
+        })
+
+    assert r.status_code == 200
+    assert anlegen.call_args.kwargs["access_days"] is None
+
+
+def test_creating_a_code_with_access_days_above_the_cap_is_refused(client):
+    with patch("src.routes.admin.access_codes.repo.create_code") as anlegen:
+        r = client.post("/admin/access-codes", json={
+            "label": "Kollegen August", "max_uses": 50,
+            "valid_days": 30, "access_days": 31, "kis_role": "staff",
+        })
+
+    assert r.status_code in (400, 422)
+    anlegen.assert_not_called()
+
+
 def test_creating_a_code_without_a_name_is_refused(client):
     with patch("src.routes.admin.access_codes.repo.create_code") as anlegen:
         r = client.post("/admin/access-codes", json={

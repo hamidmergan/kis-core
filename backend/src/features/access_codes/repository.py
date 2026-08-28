@@ -102,7 +102,7 @@ def release_use(code_id: int) -> None:
         conn.commit()
 
 
-def set_user_access(user_id: int, *, expires_at: datetime, code_id: int | None) -> None:
+def set_user_access(user_id: int, *, expires_at: datetime | None, code_id: int | None) -> None:
     """Writes the deadline and the origin onto the account."""
     with get_connection() as conn:
         with conn.cursor() as cur:

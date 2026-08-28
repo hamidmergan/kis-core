@@ -31,7 +31,7 @@ class CreateCodePayload(BaseModel):
     label: str = Field(..., min_length=1, max_length=64)
     max_uses: int = Field(50, ge=1, le=MAX_SEATS)
     valid_days: int = Field(30, ge=1, le=MAX_VALID_DAYS)
-    access_days: int = Field(14, ge=1, le=MAX_ACCESS_DAYS)
+    access_days: int | None = Field(14)
     kis_role: str = Field("user", pattern="^(staff|user|custom)$")
     custom_role_id: int | None = None
 
@@ -40,6 +40,8 @@ class CreateCodePayload(BaseModel):
         if not self.label.strip():
             raise ValueError("label must not be blank")
         self.label = self.label.strip()
+        if self.access_days is not None and not (1 <= self.access_days <= MAX_ACCESS_DAYS):
+            raise ValueError(f"access_days must be between 1 and {MAX_ACCESS_DAYS}")
         if self.kis_role == "custom" and self.custom_role_id is None:
             raise ValueError("custom_role_id required when kis_role is 'custom'")
         if self.kis_role != "custom":
