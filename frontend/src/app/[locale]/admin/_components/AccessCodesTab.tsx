@@ -33,7 +33,7 @@ const TON: Record<Zustand, StatusTone> = {
   active: "brand",
   disabled: "muted",
   expired: "muted",
-  full: "success",
+  full: "warn",
 };
 
 function datum(wert: string): string {
@@ -185,7 +185,7 @@ export default function AccessCodesTab() {
             <button
               type="button"
               onClick={() => setLoeschen(null)}
-              className="px-3 py-2 text-sm text-foreground-soft"
+              className="px-4 py-2 text-sm border-2 border-border rounded-md hover:border-[var(--kb)] hover:text-[var(--kb)]"
             >
               {t("cancel")}
             </button>

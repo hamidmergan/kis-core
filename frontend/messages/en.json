@@ -233,8 +233,7 @@
     "submitting": "Signing in...",
     "invalidCredentials": "Invalid credentials. Please check username and password.",
     "maintenanceBanner": "The platform is being updated. Please try again in a few minutes.",
-    "accessCodeLink": "I have an access code",
-    "expiredHint": "Your access has expired"
+    "accessCodeLink": "I have an access code"
   },
   "toolsSidebar": {
     "heading": "Tools",

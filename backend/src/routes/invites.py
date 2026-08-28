@@ -77,7 +77,7 @@ def redeem_invite(
             password=payload.password,
         )
     except Exception as fehler:
-        # Nothing was created, so the link belongs to the person again.
+        # Whatever half got written, the link has to work again.
         repo.reopen_invite(invite["id"])
         logger.error("invite redeem failed for uid={}: {}", invite["uid"], fehler)
         code = 409 if isinstance(fehler, LdapUserExistsError) else 500

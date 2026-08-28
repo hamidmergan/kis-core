@@ -233,8 +233,7 @@
     "submitting": "Wird angemeldet...",
     "invalidCredentials": "Ungültige Anmeldedaten. Bitte prüfen Sie Benutzername und Passwort.",
     "maintenanceBanner": "Die Plattform wird gerade aktualisiert. Bitte versuchen Sie es in wenigen Minuten erneut.",
-    "accessCodeLink": "Ich habe einen Zugangscode",
-    "expiredHint": "Dein Zugang ist abgelaufen"
+    "accessCodeLink": "Ich habe einen Zugangscode"
   },
   "toolsSidebar": {
     "heading": "Tools",
