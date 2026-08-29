@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     # Unlocks the interface for creating LDAP users.
     ldap_user_creation_enabled: bool = False
 
+    # Welche Module diese Anlage hat, Komma getrennt aus "aia" und "tools".
+    modules: str = "aia,tools"
+
     # Key used to encrypt provider credentials on read and write.
     kis_export_key: str = ""
 
