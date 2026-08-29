@@ -797,6 +797,7 @@ function ScreencastPageInner() {
         <ScreencastOverlays
           slides={slides}
           targetLang={targetLang}
+          glossaryJson={mergeToApiJson(glossaryIds) || ""}
           pendingExit={pendingExit}
           onExitCancel={() => setPendingExit(null)}
           onExitConfirm={async () => {

@@ -8,6 +8,7 @@ import ExitConfirmModal from "./ExitConfirmModal";
 interface Props {
   slides: SlideData[];
   targetLang: string;
+  glossaryJson: string;
   pendingExit: "restart" | "cancel" | "render" | null;
   onExitCancel: () => void;
   onExitConfirm: () => void;
@@ -21,7 +22,7 @@ interface Props {
 
 /** The three windows that lie over the steps: exit prompt, image view, rewrite chat. */
 export default function ScreencastOverlays({
-  slides, targetLang, pendingExit, onExitCancel, onExitConfirm,
+  slides, targetLang, glossaryJson, pendingExit, onExitCancel, onExitConfirm,
   lightboxIndex, onLightboxIndexChange,
   regeneratingSlide, regenAnchorText, onRegenApply, onRegenClose,
 }: Props) {
@@ -51,6 +52,7 @@ export default function ScreencastOverlays({
           currentScript={slides[regeneratingSlide].script || ""}
           anchorText={regenAnchorText}
           targetLang={targetLang}
+          glossaryJson={glossaryJson}
           onApply={(mode, content) => onRegenApply(regeneratingSlide, mode, content)}
           onClose={onRegenClose}
         />

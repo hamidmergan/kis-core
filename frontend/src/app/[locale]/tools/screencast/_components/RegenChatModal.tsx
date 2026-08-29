@@ -45,6 +45,7 @@ interface RegenChatModalProps {
   currentScript?: string;
   anchorText?: string;
   targetLang?: string;
+  glossaryJson?: string;
   demo?: boolean;
   onApply?: (mode: RegenApplyMode, content: string) => void;
   onClose: () => void;
@@ -56,6 +57,7 @@ export default function RegenChatModal({
   currentScript = "",
   anchorText = "",
   targetLang = "",
+  glossaryJson = "",
   demo = false,
   onApply,
   onClose,
@@ -88,6 +90,7 @@ export default function RegenChatModal({
         messages: newMessages,
         selected_text: anchorText || null,
         target_lang: targetLang,
+        glossary_json: glossaryJson,
       });
       setMessages([...newMessages, { role: "assistant", content: result.script }]);
     } catch {

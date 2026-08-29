@@ -173,6 +173,13 @@ async def screencast_regenerate_slide_script(
 
     llm_client = get_llm_client()
 
+    glossary_dict: dict | None = None
+    if body.glossary_json:
+        try:
+            glossary_dict = json.loads(body.glossary_json)
+        except (json.JSONDecodeError, TypeError):
+            pass
+
     try:
         script = await asyncio.to_thread(
             llm_client.refine_script,
@@ -182,6 +189,7 @@ async def screencast_regenerate_slide_script(
             body.target_lang,
             body.selected_text or None,
             [{"role": m.role, "content": m.content} for m in body.messages],
+            glossary_dict,
         )
     except RuntimeError as e:
         raise HTTPException(status_code=502, detail=t("screencast.scriptGenerationFailed", locale, error=str(e)))

@@ -74,6 +74,13 @@ class _ScriptMisaligned(RuntimeError):
         self.slide_index = slide_index
 
 
+def _glossary_hint(glossary: dict[str, str] | None) -> str:
+    if not glossary:
+        return ""
+    lines = "\n".join(f"- {k} → {v}" for k, v in glossary.items())
+    return f"Use the following terminology consistently in your output:\n{lines}\n\n"
+
+
 def build_length_and_format_rules(
     batch_size: int,
     target_lang: str,
@@ -129,14 +136,17 @@ class _ScriptsMixin:
         target_lang: str = "EN-US",
         selected_text: str | None = None,
         messages: list[dict] | None = None,
+        glossary: dict[str, str] | None = None,
     ) -> str:
         """Rewrites the script of a single slide following an instruction."""
         current_script_content = current_script.strip() or slide_text.strip()
         is_followup = messages is not None and len(messages) > 1
+        glossary_hint = _glossary_hint(glossary)
         if selected_text and selected_text.strip():
             instruction = user_prompt.strip() or "Improve this excerpt."
             if is_followup:
                 system_prompt = (
+                    glossary_hint +
                     f"You are an expert editor of spoken narration scripts for presentations.\n"
                     f"The user is refining your previous response. Apply the new instruction to your last answer.\n"
                     f"Output ONLY the refined text. Do not repeat the instruction. Do not add labels or explanations. "
@@ -147,6 +157,7 @@ class _ScriptsMixin:
                 )
             else:
                 system_prompt = (
+                    glossary_hint +
                     f"You are an expert editor of spoken narration scripts for presentations.\n"
                     f"You will receive a selected excerpt from a script and a task to perform on it.\n"
                     f"Output ONLY the resulting text that should replace the excerpt. "
@@ -158,7 +169,7 @@ class _ScriptsMixin:
                     f"Task: {instruction}"
                 )
         else:
-            system_prompt = load_prompt("prompt_script_refine", _SCRIPT_REFINE_DEFAULT).format(
+            system_prompt = glossary_hint + load_prompt("prompt_script_refine", _SCRIPT_REFINE_DEFAULT).format(
                 TARGET_LANG=target_lang,
                 CURRENT_SCRIPT=current_script_content,
                 USER_INSTRUCTION=user_prompt.strip(),
@@ -217,10 +228,7 @@ class _ScriptsMixin:
         slides_input = "\n===\n".join(annotated)
 
         # Build system prompt
-        glossary_hint = ""
-        if glossary:
-            lines = "\n".join(f"- {k} → {v}" for k, v in glossary.items())
-            glossary_hint = f"Use the following terminology consistently in your output:\n{lines}\n\n"
+        glossary_hint = _glossary_hint(glossary)
 
         greeting_rule = (
             "- The block marked [FIRST SLIDE] opens the presentation. Begin its script with a time-neutral greeting such as 'Welcome' or 'Hello everyone' (never time-specific like 'Good morning'). Apply all punctuation rules normally.\n"

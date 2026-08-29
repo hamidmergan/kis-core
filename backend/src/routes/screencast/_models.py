@@ -27,6 +27,7 @@ class RegenerateSlideScriptRequest(BaseModel):
     messages: list[ChatMessage] = []
     selected_text: str | None = None
     target_lang: str = "EN-US"
+    glossary_json: str = ""
 
 
 class RenderRequest(BaseModel):
