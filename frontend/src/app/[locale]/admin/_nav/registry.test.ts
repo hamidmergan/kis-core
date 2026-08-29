@@ -41,13 +41,13 @@ describe("Statistik einer Lehrperson", () => {
 
   it("zeigt darin nur Meine Module", () => {
     const statistik = allowedSections(dozentin)[0];
-    expect(statistik.tabs?.map((t) => t.slug)).toEqual(["own"]);
+    expect(statistik.tabs?.map((t) => t.slug)).toEqual(["my-modules"]);
   });
 
   it("stellt Meine Module vor die vier globalen Reiter", () => {
     const alle = SECTIONS.find((s) => s.slug === "stats");
     expect(alle?.tabs?.map((t) => t.slug)).toEqual([
-      "own", "users", "tools", "ai-assistant", "models",
+      "my-modules", "users", "tools", "ai-assistant", "models",
     ]);
   });
 

@@ -141,7 +141,7 @@ export const SECTIONS: AdminSection[] = [
     rank: "admin",
     // My modules first, the only tab without platform-wide insight.
     tabs: [
-      { slug: "own", labelKey: "eigene", perm: PERM.statsOwn, Component: StatistikEigenePage },
+      { slug: "my-modules", labelKey: "eigene", perm: PERM.statsOwn, Component: StatistikEigenePage },
       { slug: "users", labelKey: "nutzer", perm: PERM.statsUsers, Component: StatistikNutzerPage },
       { slug: "tools", labelKey: "werkzeuge", perm: PERM.toolsStats, Component: StatistikWerkzeugePage },
       { slug: "ai-assistant", labelKey: "assistent", perm: PERM.aiaUsage, Component: StatistikAssistentPage },

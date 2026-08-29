@@ -3,12 +3,11 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
-import { ChartBar, DotsThreeVertical, LinkSimple, PencilSimple, SignOut, Trash, Users } from "@phosphor-icons/react";
+import { DotsThreeVertical, LinkSimple, PencilSimple, SignOut, Trash, Users } from "@phosphor-icons/react";
 import IconButton from "@/components/ui/IconButton";
 
 interface WorkspaceMenuProps {
   /** Every entry appears only when it exists for this row. */
-  onStats?: () => void;
   onParticipants?: () => void;
   onLinks?: () => void;
   onEdit?: () => void;
@@ -23,7 +22,7 @@ const MENU_WIDTH = 220;
 const GAP = 6;
 
 export default function WorkspaceMenu({
-  onStats, onParticipants, onLinks, onEdit, onDelete, onLeave, testId,
+  onParticipants, onLinks, onEdit, onDelete, onLeave, testId,
 }: WorkspaceMenuProps) {
   const t = useTranslations("workspace.list");
   const tDemo = useTranslations("workspace.demo");
@@ -90,17 +89,6 @@ export default function WorkspaceMenu({
             boxShadow: "rgba(0, 0, 0, 0.12) 0px 4px 16px",
           }}
         >
-          {onStats && (
-          <button
-            type="button"
-            onClick={() => handle(onStats)}
-            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-[var(--surface-dim)] transition-colors"
-            style={{ color: "var(--foreground)" }}
-          >
-            <ChartBar size={16} weight="bold" />
-            {t("stats")}
-          </button>
-          )}
           {onParticipants && (
           <button
             type="button"
