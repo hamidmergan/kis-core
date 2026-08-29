@@ -62,7 +62,7 @@ export default function WorkspaceTableStudentRow({
           )}
         </span>
         {workspace.description && (
-          <span className="text-xs truncate block" style={{ color: "var(--muted)" }}>
+          <span className="text-xs truncate block" style={{ color: "var(--muted)" }} title={workspace.description}>
             {workspace.description}
           </span>
         )}
