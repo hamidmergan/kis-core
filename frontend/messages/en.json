@@ -746,7 +746,7 @@
       "selectJsonFirst": "Please select a JSON file first.",
       "jobUnavailable": "Job data no longer available - please start a new screencast.",
       "jobDeleted": "The job was deleted or cancelled. Please start a new screencast.",
-      "demoBadge": "View demo →",
+      "demoBadge": "View demo",
       "exit": {
         "restart": "Start over",
         "cancel": "Discard screencast",

@@ -746,7 +746,7 @@
       "selectJsonFirst": "Bitte zuerst eine JSON-Datei auswählen.",
       "jobUnavailable": "Job-Daten nicht mehr verfügbar - bitte neuen Screencast starten",
       "jobDeleted": "Der Job wurde gelöscht oder abgebrochen. Bitte starte einen neuen Screencast.",
-      "demoBadge": "Demo ansehen →",
+      "demoBadge": "Demo ansehen",
       "exit": {
         "restart": "Neu starten",
         "cancel": "Screencast verwerfen",
