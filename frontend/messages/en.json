@@ -2874,7 +2874,10 @@
       }
     }
   },
-  "doku": {
+  "manual": {
+    "printButton": "Print or save as PDF",
+    "printAll": "Print view",
+    "toc": "Contents",
     "imageOpen": "{alt}, show larger",
     "imageClose": "Close image",
     "title": "Documentation",

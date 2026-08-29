@@ -10,8 +10,8 @@ const nextConfig: NextConfig = {
   // Standalone traegt nur mit, was der Code importiert. Die Doku liest ihre
   // Markdown-Dateien zur Laufzeit, ohne diese Zeile ist sie auf prod leer.
   outputFileTracingIncludes: {
-    "/[locale]/doku": ["./src/content/doku/**/*"],
-    "/[locale]/doku/[slug]": ["./src/content/doku/**/*"],
+    "/[locale]/manual": ["./src/content/docs/**/*"],
+    "/[locale]/manual/[slug]": ["./src/content/docs/**/*"],
   },
   // Ein Probe-Build darf den laufenden Dev-Server nicht abschiessen: beide
   // schreiben sonst in dasselbe .next und :3000 ist danach kaputt. Mit
@@ -200,7 +200,7 @@ const nextConfig: NextConfig = {
         destination: `${backendUrl}/ai-assistant/:path*`,
       },
       {
-        source: "/docs",
+        source: "/manual",
         destination: `${backendUrl}/docs`,
       },
       {

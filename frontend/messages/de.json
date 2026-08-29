@@ -2874,7 +2874,10 @@
       }
     }
   },
-  "doku": {
+  "manual": {
+    "printButton": "Drucken oder als PDF sichern",
+    "printAll": "Druckansicht",
+    "toc": "Inhalt",
     "imageOpen": "{alt}, größer anzeigen",
     "imageClose": "Bild schließen",
     "title": "Dokumentation",
