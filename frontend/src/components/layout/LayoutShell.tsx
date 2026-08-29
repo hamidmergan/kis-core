@@ -5,20 +5,20 @@ import Header from "./Header";
 import ToolsSidebar from "./ToolsSidebar";
 
 // The access-code pages bring their own header, like the login page.
-const NO_HEADER_PATHS = new Set(["/login", "/wartung", "/pending", "/zugang", "/zugang/abgelaufen"]);
+const NO_HEADER_PATHS = new Set(["/login", "/maintenance", "/pending", "/redeem", "/redeem/expired"]);
 // An invitation carries its token in the path, so it is matched by prefix.
-const NO_HEADER_PREFIXES = ["/workspace/", "/einladung/"];
+const NO_HEADER_PREFIXES = ["/workspace/", "/invite/"];
 
 const NO_SIDEBAR_PATHS = new Set([
   "/login",
   "/imprint",
   "/privacy",
   "/pending",
-  "/wartung",
-  "/zugang",
-  "/zugang/abgelaufen",
+  "/maintenance",
+  "/redeem",
+  "/redeem/expired",
 ]);
-const NO_SIDEBAR_PREFIXES = ["/workspace/", "/admin", "/einladung/"];
+const NO_SIDEBAR_PREFIXES = ["/workspace/", "/admin", "/invite/"];
 
 function matchesPrefix(pathname: string, prefixes: string[]): boolean {
   return prefixes.some((p) => pathname.startsWith(p));

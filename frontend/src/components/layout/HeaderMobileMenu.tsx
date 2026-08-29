@@ -79,7 +79,7 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, areaKey = "admin
     "flex items-center gap-3 w-full px-4 py-3 text-sm font-medium hover:bg-[var(--surface-dim)] transition-colors no-underline text-left";
   // The row of the page you are currently on stays highlighted.
   const activeRowStyle = { backgroundColor: "var(--surface-dim)", fontWeight: 600 };
-  const onCalendar = pathname === "/kalender" || pathname.startsWith("/kalender/");
+  const onCalendar = pathname === "/calendar" || pathname.startsWith("/calendar/");
   const onJobsPage = pathname.startsWith("/my-jobs");
   const headingClass = "px-4 pt-2.5 pb-1 text-2xs font-semibold uppercase tracking-wide";
   // Without a session no navigation rows sit above the language, then the divider is dropped.
@@ -123,7 +123,7 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, areaKey = "admin
           )}
           {hasSession && (
             <Link
-              href="/kalender"
+              href="/calendar"
               onClick={() => setOpen(false)}
               aria-current={onCalendar ? "page" : undefined}
               className={rowClass}

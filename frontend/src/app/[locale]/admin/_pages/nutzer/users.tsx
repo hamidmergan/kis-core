@@ -8,6 +8,6 @@ import UsersTab from "../../_components/UsersTab";
 export default function UsersPage() {
   const router = useRouter();
   return (
-    <UsersTab onOpenQuota={(userId) => router.push(`/admin/nutzer/kontingente?user=${userId}`)} />
+    <UsersTab onOpenQuota={(userId) => router.push(`/admin/users/quotas?user=${userId}`)} />
   );
 }

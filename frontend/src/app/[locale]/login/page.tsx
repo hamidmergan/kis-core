@@ -68,7 +68,7 @@ export default function LoginPage() {
       if (message === "account_not_activated") {
         router.push("/pending");
       } else if (message === "access_expired") {
-        router.push("/zugang/abgelaufen");
+        router.push("/redeem/expired");
       } else if (maintenanceOn) {
         setError(t("maintenanceBanner"));
       } else {
@@ -164,7 +164,7 @@ export default function LoginPage() {
 
             {zugangOffen && (
               <p className="mt-4 text-center text-sm">
-                <a href="/zugang" className="text-kb hover:underline">
+                <a href="/redeem" className="text-kb hover:underline">
                   {t("accessCodeLink")}
                 </a>
               </p>

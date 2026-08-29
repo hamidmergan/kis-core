@@ -29,7 +29,7 @@ test("Zugangscode: ein Konto einlösen und die Startseite erreichen", async ({ p
   let username = "";
   try {
     // Needs "load", not "domcontentloaded", or fills land in the DOM before hydration and never reach React state.
-    await page.goto("/de/zugang", { waitUntil: "load" });
+    await page.goto("/de/redeem", { waitUntil: "load" });
     const formular = page.getByTestId("access-code-form");
     await formular.locator("#access-code").fill(code.code);
 
@@ -54,7 +54,7 @@ test("Zugangscode: ein Konto einlösen und die Startseite erreichen", async ({ p
       fertig.locator("button").click(),
     ]);
     expect(kurse.ok()).toBeTruthy();
-    await expect(page).toHaveURL((url) => !url.pathname.includes("zugang") && !url.pathname.includes("login"));
+    await expect(page).toHaveURL((url) => !url.pathname.includes("redeem") && !url.pathname.includes("login"));
     await expect(page.locator("h1").filter({ hasText: username })).toBeVisible();
   } finally {
     await admin.delete(`/api/admin/access-codes/${code.id}`);

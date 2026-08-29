@@ -28,7 +28,7 @@ describe("403 aus dem Zugangsende", () => {
 
     await backendApi.fetch("/aia/workspaces");
 
-    expect(ort.href).toBe("/zugang/abgelaufen");
+    expect(ort.href).toBe("/redeem/expired");
   });
 
   it("laesst die Antwort trotzdem lesbar", async () => {
@@ -41,7 +41,7 @@ describe("403 aus dem Zugangsende", () => {
   });
 
   it("schickt nicht nochmal, wenn die Seite schon offen ist", async () => {
-    const ort = fensterMit("/zugang/abgelaufen");
+    const ort = fensterMit("/redeem/expired");
     antwort(403, { detail: "access_expired" });
 
     await backendApi.fetch("/aia/workspaces");

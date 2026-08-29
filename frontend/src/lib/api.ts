@@ -3,7 +3,7 @@ const BACKEND_BASE = "/api";
 
 /** The backend sends exactly this detail when a test access has run out. */
 const ACCESS_EXPIRED_DETAIL = "access_expired";
-const EXPIRED_PATH = "/zugang/abgelaufen";
+const EXPIRED_PATH = "/redeem/expired";
 
 const FALLBACKS = {
   de: {

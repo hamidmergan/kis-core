@@ -25,10 +25,39 @@ const nextConfig: NextConfig = {
     optimizePackageImports: ["@phosphor-icons/react"],
   },
   async redirects() {
-    // Alte Adresse der Kalender-Seite, damit gemerkte Links weiter ankommen.
+    // Alte deutsche Adressen, damit gemerkte Links und schon verschickte Einladungen weiter ankommen.
     return [
-      { source: "/schedule", destination: "/kalender", permanent: false },
-      { source: "/:locale(de|en)/schedule", destination: "/:locale/kalender", permanent: false },
+      // Aelteste Adresse der Kalender-Seite.
+      { source: "/schedule", destination: "/calendar", permanent: false },
+      { source: "/:locale(de|en)/schedule", destination: "/:locale/calendar", permanent: false },
+      { source: "/kalender", destination: "/calendar", permanent: false },
+      { source: "/:locale(de|en)/kalender", destination: "/:locale/calendar", permanent: false },
+
+      { source: "/zugang", destination: "/redeem", permanent: false },
+      { source: "/:locale(de|en)/zugang", destination: "/:locale/redeem", permanent: false },
+      { source: "/zugang/abgelaufen", destination: "/redeem/expired", permanent: false },
+      { source: "/:locale(de|en)/zugang/abgelaufen", destination: "/:locale/redeem/expired", permanent: false },
+
+      // Traegt ein Token, das schon an echte Personen verschickt wurde, muss unbedingt weiter ankommen.
+      { source: "/einladung/:token", destination: "/invite/:token", permanent: false },
+      { source: "/:locale(de|en)/einladung/:token", destination: "/:locale/invite/:token", permanent: false },
+
+      { source: "/wartung", destination: "/maintenance", permanent: false },
+      { source: "/:locale(de|en)/wartung", destination: "/:locale/maintenance", permanent: false },
+
+      // Admin-Unterseiten, nur die Slugs wurden englisch, key/labelKey blieben unangetastet.
+      { source: "/admin/nutzer/:path*", destination: "/admin/users/:path*", permanent: false },
+      { source: "/:locale(de|en)/admin/nutzer/:path*", destination: "/:locale/admin/users/:path*", permanent: false },
+      { source: "/admin/werkzeuge/:path*", destination: "/admin/tools/:path*", permanent: false },
+      { source: "/:locale(de|en)/admin/werkzeuge/:path*", destination: "/:locale/admin/tools/:path*", permanent: false },
+      { source: "/admin/ki-assistent/:path*", destination: "/admin/ai-assistant/:path*", permanent: false },
+      { source: "/:locale(de|en)/admin/ki-assistent/:path*", destination: "/:locale/admin/ai-assistant/:path*", permanent: false },
+      { source: "/admin/anbieter/:path*", destination: "/admin/providers/:path*", permanent: false },
+      { source: "/:locale(de|en)/admin/anbieter/:path*", destination: "/:locale/admin/providers/:path*", permanent: false },
+      { source: "/admin/statistik", destination: "/admin/stats", permanent: false },
+      { source: "/:locale(de|en)/admin/statistik", destination: "/:locale/admin/stats", permanent: false },
+      { source: "/admin/maskottchen/:path*", destination: "/admin/mascots/:path*", permanent: false },
+      { source: "/:locale(de|en)/admin/maskottchen/:path*", destination: "/:locale/admin/mascots/:path*", permanent: false },
     ];
   },
   async rewrites() {

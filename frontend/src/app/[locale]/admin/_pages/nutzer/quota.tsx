@@ -15,8 +15,8 @@ export default function QuotaPage() {
   return (
     <QuotaTab
       targetUserId={userId}
-      onConsumed={() => router.replace("/admin/nutzer/kontingente")}
-      onBack={() => router.push("/admin/nutzer/alle-nutzer")}
+      onConsumed={() => router.replace("/admin/users/quotas")}
+      onBack={() => router.push("/admin/users/all")}
     />
   );
 }
