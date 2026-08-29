@@ -2,14 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Link } from "@/i18n/navigation";
+import { Link, usePathname } from "@/i18n/navigation";
 import { CaretDown, List } from "@phosphor-icons/react";
 import { checkAuthStatus } from "@/lib/auth";
 import { filterTree } from "../_lib/filterTree";
 import type { ManualGroup } from "../_lib/articles";
 
-export default function ManualNav({ tree, activeSlug }: { tree: ManualGroup[]; activeSlug: string }) {
+export default function ManualNav({ tree }: { tree: ManualGroup[] }) {
   const t = useTranslations("manual");
+  // Die Nav steht im Layout und ueberlebt den Wechsel, den offenen Artikel liest sie deshalb aus der Adresse.
+  const activeSlug = usePathname().split("/").pop() ?? "";
   const [query, setQuery] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
   // Auf dem Handy steht sonst die ganze Liste vor dem Artikel.
