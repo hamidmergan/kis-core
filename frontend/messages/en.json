@@ -2874,11 +2874,11 @@
       }
     }
   },
-  "help": {
+  "doku": {
     "imageOpen": "{alt}, show larger",
     "imageClose": "Close image",
-    "title": "Help",
-    "navLabel": "Help articles",
+    "title": "Documentation",
+    "navLabel": "Documentation articles",
     "filterPlaceholder": "Filter articles",
     "noMatch": "No article matches this filter."
   },

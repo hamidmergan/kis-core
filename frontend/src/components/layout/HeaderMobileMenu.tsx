@@ -37,7 +37,7 @@ async function persistLocale(locale: Locale) {
 export default function HeaderMobileMenu({ hasSession, isAdmin, areaKey = "admin", hasTools = false, isLocalMode = false, showToolsToggle = false, onLogout }: HeaderMobileMenuProps) {
   const t = useTranslations("header");
   const tLang = useTranslations("languageSwitch");
-  const tHelp = useTranslations("help");
+  const tDoku = useTranslations("doku");
   const router = useRouter();
   const pathname = usePathname();
   const currentLocale = useLocale() as Locale;
@@ -202,13 +202,13 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, areaKey = "admin
 
           {hasSession && (
             <Link
-              href="/hilfe"
+              href="/doku"
               onClick={() => setOpen(false)}
               className={rowClass}
               style={{ color: "var(--foreground)", borderTop: "1px solid var(--border)", marginTop: 4 }}
             >
               <Question size={20} weight="bold" />
-              <span>{tHelp("title")}</span>
+              <span>{tDoku("title")}</span>
             </Link>
           )}
           {hasSession && isAdmin && (

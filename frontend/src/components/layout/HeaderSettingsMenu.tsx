@@ -34,7 +34,7 @@ async function persistLocale(locale: Locale) {
 export default function HeaderSettingsMenu({ isAdmin = false, areaKey = "admin", showLogout = false, onLogout }: HeaderSettingsMenuProps) {
   const t = useTranslations("header");
   const tLang = useTranslations("languageSwitch");
-  const tHelp = useTranslations("help");
+  const tDoku = useTranslations("doku");
   const router = useRouter();
   const pathname = usePathname();
   const currentLocale = useLocale() as Locale;
@@ -195,7 +195,7 @@ export default function HeaderSettingsMenu({ isAdmin = false, areaKey = "admin",
 
           <Link
             data-row
-            href="/hilfe"
+            href="/doku"
             role="menuitem"
             tabIndex={-1}
             onClick={() => setOpen(false)}
@@ -203,7 +203,7 @@ export default function HeaderSettingsMenu({ isAdmin = false, areaKey = "admin",
             style={{ color: "var(--foreground)", borderTop: "1px solid var(--border)", marginTop: 4 }}
           >
             <Question size={18} weight="bold" aria-hidden="true" />
-            <span className="flex-1">{tHelp("title")}</span>
+            <span className="flex-1">{tDoku("title")}</span>
           </Link>
 
           {isAdmin && (

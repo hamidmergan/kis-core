@@ -1,0 +1,8 @@
+# Data table
+
+![A data table](/doku/{lang}/modul-datentabelle.png)
+
+Collects facts from the materials in a table. Every row says which material and which page the
+entry came from.
+
+Useful when numbers, deadlines or terms are spread over several documents.

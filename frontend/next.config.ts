@@ -7,11 +7,11 @@ const backendUrl = process.env.BACKEND_URL || "http://localhost:8000";
 
 const nextConfig: NextConfig = {
   output: "standalone",
-  // Standalone traegt nur mit, was der Code importiert. Die Hilfe liest ihre
+  // Standalone traegt nur mit, was der Code importiert. Die Doku liest ihre
   // Markdown-Dateien zur Laufzeit, ohne diese Zeile ist sie auf prod leer.
   outputFileTracingIncludes: {
-    "/[locale]/hilfe": ["./src/content/hilfe/**/*"],
-    "/[locale]/hilfe/[slug]": ["./src/content/hilfe/**/*"],
+    "/[locale]/doku": ["./src/content/doku/**/*"],
+    "/[locale]/doku/[slug]": ["./src/content/doku/**/*"],
   },
   // Ein Probe-Build darf den laufenden Dev-Server nicht abschiessen: beide
   // schreiben sonst in dasselbe .next und :3000 ist danach kaputt. Mit
