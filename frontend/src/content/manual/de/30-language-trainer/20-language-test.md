@@ -3,6 +3,8 @@
 Der Sprach-Test schätzt ein, wie gut Sie die Sprache schon können. Das Ergebnis ist eine Stufe
 von A1 bis C2.
 
+![Eine Frage im Sprach-Test](/manual/{lang}/language-test.png)
+
 ## Wie er abläuft
 
 Die KI stellt nacheinander ein paar Fragen. Zwei Arten kommen vor: Fragen zum Anklicken und

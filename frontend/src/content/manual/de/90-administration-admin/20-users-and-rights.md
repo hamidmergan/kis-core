@@ -11,9 +11,9 @@ Unter Nutzer entscheiden Sie, wer hereinkommt und wer was darf.
 
 ## Wer was darf
 
-- **Alle Nutzer**: suchen, Rolle setzen, Kontingente öffnen
-- **Rollen**: die System-Rollen sind fest, eigene Rollen stellen Sie frei zusammen
-- **Kontingente**: wie oft jemand ein Werkzeug benutzen darf
+- **Reiter „Alle Nutzer"**: suchen, Rolle setzen, Kontingente öffnen
+- **Reiter „Rollen"**: die System-Rollen sind fest, eigene Rollen stellen Sie frei zusammen
+- **Reiter „Kontingente"**: wie oft jemand ein Werkzeug benutzen darf
 
 ## Rollen und Module
 

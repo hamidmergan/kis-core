@@ -3,6 +3,8 @@
 The language test estimates how well you already know the language. The result is a level from
 A1 to C2.
 
+![A question in the language test](/manual/de/language-test.png)
+
 ## How it runs
 
 The AI asks a few questions one after another. Two kinds appear: questions to click and

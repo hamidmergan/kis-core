@@ -11,9 +11,9 @@ Under Users you decide who gets in and who may do what.
 
 ## Who may do what
 
-- **All users**: search, set the role, open quotas
-- **Roles**: the system roles are fixed, your own roles are put together freely
-- **Quotas**: how often somebody may use a tool
+- **"All users" tab**: search, set the role, open quotas
+- **"Roles" tab**: the system roles are fixed, your own roles are put together freely
+- **"Quotas" tab**: how often somebody may use a tool
 
 ## Roles and modules
 
