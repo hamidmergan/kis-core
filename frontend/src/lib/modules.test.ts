@@ -41,4 +41,34 @@ describe("pickHomeTarget", () => {
   it("faellt ohne Angabe auf beide Module zurueck", () => {
     expect(pickHomeTarget(undefined, mitAia)).toEqual({ kind: "aia" });
   });
+
+  it("ueberspringt ein global abgeschaltetes Werkzeug", () => {
+    const perms = { ...EMPTY_PERMS, tools: ["translation", "tts"] };
+    expect(pickHomeTarget(["tools"], perms, ["tts"])).toEqual({
+      kind: "tool",
+      href: "/tools/tts",
+    });
+  });
+
+  it("sperrt, wenn jedes erlaubte Werkzeug global abgeschaltet ist", () => {
+    const perms = { ...EMPTY_PERMS, tools: ["translation"] };
+    expect(pickHomeTarget(["tools"], perms, [])).toEqual({ kind: "locked" });
+  });
+
+  it("beruecksichtigt ohne Angabe der Freigaben alle erlaubten Werkzeuge", () => {
+    const perms = { ...EMPTY_PERMS, tools: ["translation"] };
+    expect(pickHomeTarget(["tools"], perms)).toEqual({
+      kind: "tool",
+      href: "/tools/translate",
+    });
+  });
+
+  it("sperrt bei leerer Modulliste statt auf beide Module zu fallen", () => {
+    expect(pickHomeTarget([], { ...EMPTY_PERMS, allow_aia: true })).toEqual({ kind: "locked" });
+  });
+
+  it("sperrt in einer reinen Assistenten-Anlage ohne aia-Recht", () => {
+    const perms = { ...EMPTY_PERMS, tools: ["tts"] };
+    expect(pickHomeTarget(["aia"], perms)).toEqual({ kind: "locked" });
+  });
 });

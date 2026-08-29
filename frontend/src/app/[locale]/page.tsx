@@ -7,6 +7,8 @@ import LockedNotice from "@/components/auth/LockedNotice";
 import { checkAuthStatus } from "@/lib/auth";
 import { EMPTY_PERMS } from "@/lib/permissions";
 import { pickHomeTarget, type HomeTarget } from "@/lib/modules";
+import { useEnabledTools } from "@/hooks/useEnabledTools";
+import type { AuthStatus } from "@/types";
 import WorkspaceHome from "./workspace/_components/WorkspaceHome";
 import HomeNotice from "./workspace/_components/HomeNotice";
 
@@ -18,18 +20,24 @@ interface HomeState {
 
 export default function HomePage() {
   const router = useRouter();
+  const [auth, setAuth] = useState<AuthStatus | null>(null);
+  const { loaded: toolsLoaded, tools: enabledTools } = useEnabledTools();
   const [state, setState] = useState<HomeState | null>(null);
 
   useEffect(() => {
-    checkAuthStatus().then((s) => {
-      const perms = s.permissions ?? EMPTY_PERMS;
-      setState({
-        target: pickHomeTarget(s.modules, perms),
-        canCreate: !!perms.allow_workspace_create,
-        firstName: s.display_name?.split(" ")[0] ?? s.username ?? "",
-      });
-    });
+    checkAuthStatus().then(setAuth);
   }, []);
+
+  useEffect(() => {
+    if (!auth || !toolsLoaded) return;
+    const perms = auth.permissions ?? EMPTY_PERMS;
+    const enabledKeys = (enabledTools ?? []).filter((tool) => tool.enabled).map((tool) => tool.key);
+    setState({
+      target: pickHomeTarget(auth.modules, perms, enabledKeys),
+      canCreate: !!perms.allow_workspace_create,
+      firstName: auth.display_name?.split(" ")[0] ?? auth.username ?? "",
+    });
+  }, [auth, toolsLoaded, enabledTools]);
 
   useEffect(() => {
     if (state?.target.kind === "tool") router.replace(state.target.href);

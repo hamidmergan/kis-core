@@ -17,9 +17,9 @@ import {
 } from "@phosphor-icons/react";
 import { useEnabledTools } from "@/hooks/useEnabledTools";
 import { usePermissions } from "@/hooks/usePermissions";
-import { TOOL_ROUTES } from "@/lib/modules";
+import { TOOL_ROUTES, type ToolKey } from "@/lib/modules";
 
-type SidebarItemKey = "translation" | "tts" | "transcription" | "image" | "summary" | "screencast" | "glossary";
+type SidebarItemKey = ToolKey;
 type SidebarTool = { key: SidebarItemKey; href: string; icon: Icon };
 
 const ICONS: Record<SidebarItemKey, Icon> = {
@@ -33,9 +33,9 @@ const ICONS: Record<SidebarItemKey, Icon> = {
 };
 
 const TOOLS: SidebarTool[] = TOOL_ROUTES.map((t) => ({
-  key: t.key as SidebarItemKey,
+  key: t.key,
   href: t.href,
-  icon: ICONS[t.key as SidebarItemKey],
+  icon: ICONS[t.key],
 }));
 
 const STORAGE_KEY = "kis_tools_sidebar_collapsed";
