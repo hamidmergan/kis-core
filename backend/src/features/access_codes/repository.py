@@ -102,6 +102,18 @@ def release_use(code_id: int) -> None:
         conn.commit()
 
 
+def list_users_for_code(code_id: int) -> list[dict]:
+    """Every account a code created, newest first."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute(
+                """SELECT id, ldap_username, created_at, access_expires_at, active
+                   FROM users WHERE access_code_id = %s ORDER BY created_at DESC""",
+                (code_id,),
+            )
+            return [dict(zeile) for zeile in cur.fetchall()]
+
+
 def set_user_access(user_id: int, *, expires_at: datetime | None, code_id: int | None) -> None:
     """Writes the deadline and the origin onto the account."""
     with get_connection() as conn:

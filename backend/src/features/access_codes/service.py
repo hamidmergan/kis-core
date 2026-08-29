@@ -50,3 +50,12 @@ def status_of(
     if used_count >= max_uses:
         return "full"
     return "active"
+
+
+def user_status_of(*, active: bool, access_expires_at: datetime | None, now: datetime) -> str:
+    """State of one account made from a code: disabled, expired or active."""
+    if not active:
+        return "disabled"
+    if access_expires_at and access_expires_at <= now:
+        return "expired"
+    return "active"

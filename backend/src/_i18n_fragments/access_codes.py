@@ -33,4 +33,12 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Diesen Zugangscode gibt es nicht",
         "en": "This access code does not exist",
     },
+    "access.notFromCode": {
+        "de": "Dieses Konto stammt nicht aus einem Zugangscode",
+        "en": "This account does not come from an access code",
+    },
+    "access.passwordResetFailed": {
+        "de": "Das Passwort konnte nicht geaendert werden",
+        "en": "The password could not be changed",
+    },
 }

@@ -203,3 +203,49 @@ def test_a_role_beyond_the_admins_own_permissions_is_refused(limited_client):
 def test_without_the_permission_the_list_stays_shut(client_ohne_recht):
     r = client_ohne_recht.get("/admin/access-codes")
     assert r.status_code == 403
+
+
+GESTERN = datetime.now() - timedelta(days=1)
+
+
+def test_the_user_list_carries_the_state_of_every_account(client):
+    konten = [
+        {"id": 1, "ldap_username": "abc12345", "created_at": MORGEN,
+         "access_expires_at": MORGEN, "active": True},
+        {"id": 2, "ldap_username": "def67890", "created_at": MORGEN,
+         "access_expires_at": GESTERN, "active": True},
+        {"id": 3, "ldap_username": "ghi13579", "created_at": MORGEN,
+         "access_expires_at": MORGEN, "active": False},
+        {"id": 4, "ldap_username": "jkl24680", "created_at": MORGEN,
+         "access_expires_at": None, "active": True},
+    ]
+    with patch("src.routes.admin.access_codes.repo.list_users_for_code", return_value=konten):
+        r = client.get("/admin/access-codes/7/users")
+
+    assert r.status_code == 200
+    zustaende = [u["status"] for u in r.json()["users"]]
+    assert zustaende == ["active", "expired", "disabled", "active"], \
+        "eine leere Frist heisst unbegrenzt gueltig, nicht abgelaufen"
+
+
+def test_resetting_a_password_calls_ldap_with_the_right_uid(client):
+    konto = {"id": 42, "ldap_username": "abc12345", "access_code_id": 7}
+    with patch("src.routes.admin.access_codes.database.get_user_by_id", return_value=konto), \
+         patch("src.routes.admin.access_codes.set_ldap_password") as ldap_call:
+        r = client.post("/admin/access-codes/users/42/password")
+
+    assert r.status_code == 200
+    body = r.json()
+    assert body["username"] == "abc12345"
+    assert body["password"]
+    assert ldap_call.call_args.kwargs["uid"] == "abc12345"
+
+
+def test_resetting_a_password_for_an_account_without_a_code_is_refused(client):
+    konto = {"id": 5, "ldap_username": "staffuser", "access_code_id": None}
+    with patch("src.routes.admin.access_codes.database.get_user_by_id", return_value=konto), \
+         patch("src.routes.admin.access_codes.set_ldap_password") as ldap_call:
+        r = client.post("/admin/access-codes/users/5/password")
+
+    assert r.status_code == 403
+    ldap_call.assert_not_called()
