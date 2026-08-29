@@ -23,6 +23,8 @@ export interface AuthStatus {
   role?: SystemRole;
   custom_role_id?: number | null;
   permissions?: UserPermissions;
+  /** Welche Module diese Anlage hat, fehlt bei aelteren Servern. */
+  modules?: string[];
   /** Set while somebody is logged in as this account. */
   impersonator?: Impersonator;
 }

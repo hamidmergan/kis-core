@@ -10,6 +10,7 @@ from src.features.impersonation import repository as impersonation_repo
 from src.features.impersonation import service as impersonation
 from src.i18n import get_locale, t
 from src.ldap_auth import authenticate_user
+from src.modules import active_modules
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -177,6 +178,7 @@ async def auth_status(request: Request):
                 # The full key set, the sidebar decides per page with it.
                 "keys": sorted(perms.keys),
             },
+            "modules": sorted(active_modules()),
         }
 
     token = request.cookies.get("session")
@@ -226,6 +228,7 @@ async def auth_status(request: Request):
             "tools": list(perms.tools),
             "keys": sorted(perms.keys),
         },
+        "modules": sorted(active_modules()),
     }
     # Preserve other session fields (display_name, username, etc.) without clobbering keys above.
     # The token of the borrowed session stays on the server, it must never reach a browser.

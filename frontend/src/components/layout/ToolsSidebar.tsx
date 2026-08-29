@@ -17,19 +17,26 @@ import {
 } from "@phosphor-icons/react";
 import { useEnabledTools } from "@/hooks/useEnabledTools";
 import { usePermissions } from "@/hooks/usePermissions";
+import { TOOL_ROUTES } from "@/lib/modules";
 
 type SidebarItemKey = "translation" | "tts" | "transcription" | "image" | "summary" | "screencast" | "glossary";
 type SidebarTool = { key: SidebarItemKey; href: string; icon: Icon };
 
-const TOOLS: SidebarTool[] = [
-  { key: "translation",   href: "/tools/translate",  icon: Translate },
-  { key: "tts",           href: "/tools/tts",        icon: SpeakerHigh },
-  { key: "transcription", href: "/tools/stt",        icon: Microphone },
-  { key: "image",         href: "/tools/image",      icon: ImageIcon },
-  { key: "summary",       href: "/tools/summarize",  icon: TextAlignLeft },
-  { key: "screencast",    href: "/tools/screencast", icon: MonitorPlay },
-  { key: "glossary",      href: "/tools/glossary",   icon: BookOpen },
-];
+const ICONS: Record<SidebarItemKey, Icon> = {
+  translation: Translate,
+  tts: SpeakerHigh,
+  transcription: Microphone,
+  image: ImageIcon,
+  summary: TextAlignLeft,
+  screencast: MonitorPlay,
+  glossary: BookOpen,
+};
+
+const TOOLS: SidebarTool[] = TOOL_ROUTES.map((t) => ({
+  key: t.key as SidebarItemKey,
+  href: t.href,
+  icon: ICONS[t.key as SidebarItemKey],
+}));
 
 const STORAGE_KEY = "kis_tools_sidebar_collapsed";
 

@@ -1,34 +1,43 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
+import { useRouter } from "@/i18n/navigation";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import LockedNotice from "@/components/auth/LockedNotice";
 import { checkAuthStatus } from "@/lib/auth";
+import { EMPTY_PERMS } from "@/lib/permissions";
+import { pickHomeTarget, type HomeTarget } from "@/lib/modules";
 import WorkspaceHome from "./workspace/_components/WorkspaceHome";
 import HomeNotice from "./workspace/_components/HomeNotice";
 
 interface HomeState {
-  allowAia: boolean;
+  target: HomeTarget;
   canCreate: boolean;
   firstName: string;
 }
 
 export default function HomePage() {
+  const router = useRouter();
   const [state, setState] = useState<HomeState | null>(null);
 
   useEffect(() => {
     checkAuthStatus().then((s) => {
+      const perms = s.permissions ?? EMPTY_PERMS;
       setState({
-        allowAia: !!s.permissions?.allow_aia,
-        canCreate: !!s.permissions?.allow_workspace_create,
+        target: pickHomeTarget(s.modules, perms),
+        canCreate: !!perms.allow_workspace_create,
         firstName: s.display_name?.split(" ")[0] ?? s.username ?? "",
       });
     });
   }, []);
 
+  useEffect(() => {
+    if (state?.target.kind === "tool") router.replace(state.target.href);
+  }, [state, router]);
+
   return (
     <ProtectedRoute>
-      {state === null ? null : state.allowAia ? (
+      {state === null || state.target.kind === "tool" ? null : state.target.kind === "aia" ? (
         <Suspense>
           <WorkspaceHome canCreate={state.canCreate} firstName={state.firstName} />
         </Suspense>
