@@ -242,12 +242,13 @@ def get_translate_client_for_provider(
     else:
         from src.services.llm_translation_client import LLMTranslationClient
         base_url = feature_router._ensure_v1(provider["base_url"])
+        if glossary_entries:
+            glossary.set_entries(glossary_entries)
         client = LLMTranslationClient(
             api_key=provider.get("api_key") or "not-needed",
             base_url=base_url,
             model=model,
             provider=provider["name"],
-            glossary=glossary_entries or None,
             sampling=sampling,
         )
         return client, glossary

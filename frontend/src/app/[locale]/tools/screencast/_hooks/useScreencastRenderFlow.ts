@@ -270,8 +270,16 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
   const reconnectToRender = useCallback((uuid: string) => {
     sessionStorage.setItem(RENDER_SESSION_KEY, JSON.stringify({ uuid }));
     fetch(`/api/jobs/${uuid}`, { credentials: "include" })
-      .then((r) => r.json())
+      .then((r) => {
+        // Stale job from a previous session/account - nothing to reconnect to, fail silently.
+        if (!r.ok) {
+          sessionStorage.removeItem(RENDER_SESSION_KEY);
+          return null;
+        }
+        return r.json();
+      })
       .then((job) => {
+        if (!job) return;
         if (job.status === "success") {
           // Finished while nobody was looking: go straight to the finished page.
           processRenderResultFromJob(job).catch(() => {});

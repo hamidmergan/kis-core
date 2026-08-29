@@ -31,10 +31,10 @@ _SYSTEM_PROMPT = (
     "- Preserve all formatting, line breaks, whitespace, and special characters exactly.\n"
     "- Preserve technical terms, proper nouns, and abbreviations unless a well-established translation exists in the target language.\n"
     "- NEVER translate URLs, domains, email addresses, or code snippets. Leave them exactly as they are.\n"
+    "- If the text contains a token matching __GLOSSARY_<number>__, copy it into your output EXACTLY as it appears, character for character. Never translate, alter, or remove such a token.\n"
     "- Do not introduce dashes or semicolons that are not present in the source text. Prefer periods, commas, colons, exclamation marks, and question marks.\n"
     "- Maintain consistent terminology throughout the text.\n"
     "- Do not add, remove, or reorder any content.\n"
-    "{glossary}"
 )
 
 _BATCH_SYSTEM_PROMPT = (
@@ -47,22 +47,11 @@ _BATCH_SYSTEM_PROMPT = (
     "- Preserve all formatting, line breaks, whitespace, and special characters exactly.\n"
     "- Preserve technical terms, proper nouns, and abbreviations unless a well-established translation exists in the target language.\n"
     "- NEVER translate URLs, domains, email addresses, or code snippets. Leave them exactly as they are.\n"
+    "- If an item contains a token matching __GLOSSARY_<number>__, copy it into your output EXACTLY as it appears, character for character. Never translate, alter, or remove such a token.\n"
     "- Do not introduce dashes or semicolons that are not present in the source text. Prefer periods, commas, colons, exclamation marks, and question marks.\n"
     "- Maintain consistent terminology throughout.\n"
     "- Do not add, remove, or reorder any content.\n"
-    "{glossary}"
 )
-
-
-def _format_glossary(glossary: dict[str, str] | None) -> str:
-    """Build a glossary instruction block for the system prompt."""
-    if not glossary:
-        return ""
-    lines = "\n".join(f"  {src} → {tgt}" for src, tgt in glossary.items())
-    return (
-        "\nYou MUST use the following terminology exactly as specified:\n"
-        f"{lines}\n"
-    )
 
 
 class LLMTranslationClient:
@@ -72,13 +61,11 @@ class LLMTranslationClient:
         base_url: str,
         model: str,
         provider: str = "openai_compat",
-        glossary: dict[str, str] | None = None,
         sampling: dict | None = None,
     ):
         self._client = OpenAI(api_key=api_key, base_url=base_url)
         self._model = model
         self._provider = provider
-        self._glossary = glossary or {}
         # Abtastwerte aus dem Admin, leer heisst der eingebaute Wert gilt.
         self._sampling = dict(sampling or {})
 
@@ -143,10 +130,7 @@ class LLMTranslationClient:
         else:
             instruction = f"to {target_lang} (auto-detect source language)"
 
-        system = _SYSTEM_PROMPT.format(
-            instruction=instruction,
-            glossary=_format_glossary(self._glossary),
-        )
+        system = _SYSTEM_PROMPT.format(instruction=instruction)
         translated, finish_reason = self._completion_with_retry(system, text)
         if finish_reason == "length":
             # A single text cannot be split, so give it more room.
@@ -188,10 +172,7 @@ class LLMTranslationClient:
             instruction = f"to {target_lang} (auto-detect source language)"
 
         numbered = "\n".join(f"{i + 1}. {t}" for i, t in enumerate(texts))
-        system = _BATCH_SYSTEM_PROMPT.format(
-            instruction=instruction,
-            glossary=_format_glossary(self._glossary),
-        )
+        system = _BATCH_SYSTEM_PROMPT.format(instruction=instruction)
 
         raw, finish_reason = self._completion_with_retry(system, numbered, item_count=len(texts))
 

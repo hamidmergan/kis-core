@@ -69,8 +69,8 @@ export function usePanelLayout({ uuid, viewerSource }: UsePanelLayoutOptions) {
   const mediaOpenRef = useRef(mediaOpen);
   mediaOpenRef.current = mediaOpen;
 
-  // Tablets in portrait are too narrow for three columns, in landscape they flip back.
-  const mobileMediaQuery = `(max-width: ${MOBILE_BREAKPOINT - 1}px), (max-height: 500px) and (pointer: coarse), (orientation: portrait) and (pointer: coarse) and (max-width: 1024px)`;
+  // Touch devices up to 1024px are too narrow for three columns in either orientation.
+  const mobileMediaQuery = `(max-width: ${MOBILE_BREAKPOINT - 1}px), (max-height: 500px) and (pointer: coarse), (pointer: coarse) and (max-width: 1024px)`;
 
   useEffect(() => {
     const mq = window.matchMedia(mobileMediaQuery);
