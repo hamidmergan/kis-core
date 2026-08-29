@@ -7,10 +7,28 @@ import { useTranslations } from "next-intl";
 import { Check } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 import Modal from "@/components/ui/Modal";
+import StatusMark from "@/components/ui/StatusMark";
+import type { StatusTone } from "@/lib/jobStatusDisplay";
 import { copyTextFromPromise } from "@/lib/clipboard";
 import CreateAccessCodeDialog from "./CreateAccessCodeDialog";
 
 type Zustand = "active" | "disabled" | "expired" | "full";
+type KontoZustand = "active" | "expired" | "disabled";
+
+type Konto = {
+  id: number;
+  ldap_username: string;
+  created_at: string;
+  access_expires_at: string | null;
+  active: boolean;
+  status: KontoZustand;
+};
+
+const TON_KONTO: Record<KontoZustand, StatusTone> = {
+  active: "brand",
+  expired: "muted",
+  disabled: "muted",
+};
 
 type Code = {
   id: number;
@@ -48,6 +66,14 @@ export default function AccessCodesTab() {
   const [kopiert, setKopiert] = useState<number | null>(null);
   const [loeschen, setLoeschen] = useState<Code | null>(null);
   const [umschaltend, setUmschaltend] = useState<number | null>(null);
+  const [kontenCode, setKontenCode] = useState<Code | null>(null);
+  const [konten, setKonten] = useState<Konto[]>([]);
+  const [kontenLoading, setKontenLoading] = useState(false);
+  const [kontenError, setKontenError] = useState("");
+  const [resettingId, setResettingId] = useState<number | null>(null);
+  const [neuePasswoerter, setNeuePasswoerter] = useState<Record<number, string>>({});
+  const [kopiertNutzer, setKopiertNutzer] = useState<number | null>(null);
+  const [kopiertPasswort, setKopiertPasswort] = useState<number | null>(null);
 
   const laden = useCallback(() => {
     fetch("/api/admin/access-codes", { credentials: "include" })
@@ -97,6 +123,55 @@ export default function AccessCodesTab() {
     setCodes((prev) => prev.filter((e) => e.id !== code.id));
   }
 
+  function kontenOeffnen(code: Code) {
+    setKontenCode(code);
+    setKontenLoading(true);
+    setKontenError("");
+    fetch(`/api/admin/access-codes/${code.id}/users`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("load"))))
+      .then((d) => setKonten(d.users ?? []))
+      .catch(() => setKontenError(t("usersLoadError")))
+      .finally(() => setKontenLoading(false));
+  }
+
+  function kontenSchliessen() {
+    setKontenCode(null);
+    setKonten([]);
+    setKontenError("");
+    setNeuePasswoerter({});
+  }
+
+  function kopierenNutzer(konto: Konto) {
+    copyTextFromPromise(Promise.resolve(konto.ldap_username));
+    setKopiertNutzer(konto.id);
+    setTimeout(() => setKopiertNutzer(null), 1500);
+  }
+
+  function kopierenPasswort(konto: Konto, passwort: string) {
+    copyTextFromPromise(Promise.resolve(passwort));
+    setKopiertPasswort(konto.id);
+    setTimeout(() => setKopiertPasswort(null), 1500);
+  }
+
+  async function passwortZuruecksetzen(konto: Konto) {
+    setResettingId(konto.id);
+    setKontenError("");
+    try {
+      const r = await fetch(`/api/admin/access-codes/users/${konto.id}/password`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!r.ok) {
+        setKontenError(t("resetError"));
+        return;
+      }
+      const d = await r.json();
+      setNeuePasswoerter((prev) => ({ ...prev, [konto.id]: d.password }));
+    } finally {
+      setResettingId(null);
+    }
+  }
+
   const aktiv = codes.filter((e) => e.status === "active").length;
 
   return (
@@ -136,7 +211,16 @@ export default function AccessCodesTab() {
             <tbody className="divide-y divide-border-soft bg-background">
               {codes.map((e) => (
                 <tr key={e.id}>
-                  <td className="px-4 py-3 font-medium text-foreground">{e.label}</td>
+                  <td className="px-4 py-3 font-medium">
+                    <button
+                      type="button"
+                      onClick={() => kontenOeffnen(e)}
+                      title={t("usersTitle")}
+                      className="text-foreground hover:text-kb hover:underline text-left rounded focus:outline-none focus:ring-2 focus:ring-kb"
+                    >
+                      {e.label}
+                    </button>
+                  </td>
                   <td className="px-4 py-3">
                     <button
                       type="button"
@@ -222,6 +306,104 @@ export default function AccessCodesTab() {
       >
         <p className="text-sm text-foreground-soft">{t("deleteText", { n: loeschen?.used_count ?? 0 })}</p>
         <p className="mt-2 text-xs text-muted-soft">{t("deleteHint")}</p>
+      </Modal>
+
+      <Modal
+        open={!!kontenCode}
+        onClose={kontenSchliessen}
+        title={kontenCode?.label}
+        size="lg"
+        footer={
+          <button
+            type="button"
+            onClick={kontenSchliessen}
+            className="px-4 py-2 text-sm border-2 border-border rounded-md hover:border-[var(--kb)] hover:text-[var(--kb)]"
+          >
+            {t("close")}
+          </button>
+        }
+      >
+        <div data-testid="access-code-users">
+          <p className="font-mono text-xs text-muted-soft mb-3">{kontenCode?.code}</p>
+
+          {kontenError && <p className="text-xs text-error mb-2">{kontenError}</p>}
+
+          {kontenLoading ? (
+            <Spinner className="flex justify-center py-8" />
+          ) : konten.length === 0 ? (
+            <p className="text-sm text-muted-soft text-center py-6">{t("usersEmpty")}</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm border border-border-soft rounded-xl overflow-hidden">
+                <thead className="bg-surface text-xs text-muted uppercase">
+                  <tr>
+                    <th className="px-3 py-2 text-left">{t("colUser")}</th>
+                    <th className="px-3 py-2 text-left">{t("colCreated")}</th>
+                    <th className="px-3 py-2 text-left">{t("colExpires")}</th>
+                    <th className="px-3 py-2 text-left">{t("colState")}</th>
+                    <th className="px-3 py-2 text-left">{t("resetPassword")}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border-soft bg-background">
+                  {konten.map((k) => (
+                    <tr key={k.id}>
+                      <td className="px-3 py-2">
+                        <button
+                          type="button"
+                          onClick={() => kopierenNutzer(k)}
+                          aria-label={t("copyUser")}
+                          className="font-mono text-foreground-soft hover:text-kb inline-flex items-center gap-1.5 rounded focus:outline-none focus:ring-2 focus:ring-kb"
+                        >
+                          {k.ldap_username}
+                          {kopiertNutzer === k.id && <Check size={12} weight="bold" className="text-kb" />}
+                        </button>
+                      </td>
+                      <td className="px-3 py-2 text-foreground-soft">{datum(k.created_at)}</td>
+                      <td className="px-3 py-2 text-foreground-soft">
+                        {k.access_expires_at == null ? t("accessUnlimited") : datum(k.access_expires_at)}
+                      </td>
+                      <td className="px-3 py-2">
+                        <StatusMark tone={TON_KONTO[k.status]} className="text-xs">
+                          {t(`state${k.status[0].toUpperCase()}${k.status.slice(1)}` as
+                            "stateActive" | "stateExpired" | "stateDisabled")}
+                        </StatusMark>
+                      </td>
+                      <td className="px-3 py-2">
+                        {neuePasswoerter[k.id] ? (
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs text-muted-soft">{t("newPassword")}:</span>
+                              <button
+                                type="button"
+                                onClick={() => kopierenPasswort(k, neuePasswoerter[k.id])}
+                                aria-label={t("copyPassword")}
+                                className="font-mono text-foreground-soft hover:text-kb inline-flex items-center gap-1.5 rounded focus:outline-none focus:ring-2 focus:ring-kb"
+                              >
+                                {neuePasswoerter[k.id]}
+                                {kopiertPasswort === k.id && <Check size={12} weight="bold" className="text-kb" />}
+                              </button>
+                            </div>
+                            <span className="text-[11px] text-muted-soft">{t("newPasswordOnce")}</span>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            data-testid="access-code-reset"
+                            onClick={() => passwortZuruecksetzen(k)}
+                            disabled={resettingId === k.id}
+                            className="px-3 py-1.5 text-xs bg-kb text-white rounded-md disabled:opacity-50 whitespace-nowrap"
+                          >
+                            {resettingId === k.id ? t("resetting") : t("resetPassword")}
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </Modal>
 
       {dialogOffen && (
