@@ -859,6 +859,10 @@
           "label": "Roles",
           "sub": "System roles are fixed, custom roles are yours to build."
         },
+        "impersonation": {
+          "label": "Borrowed accounts",
+          "sub": "Who was inside whose account and when."
+        },
         "quota": {
           "label": "Quotas",
           "sub": "How often someone may use a tool."
@@ -986,6 +990,23 @@
         "cancel": "Cancel",
         "failed": "Deletion failed"
       }
+    },
+    "impersonate": {
+      "buttonTitle": "Log in as {name}",
+      "failed": "Logging in as this person did not work."
+    },
+    "impersonationLog": {
+      "title": "Who was inside whose account",
+      "hint": "Every visit is recorded, open ones are still running.",
+      "colActor": "Who",
+      "colTarget": "Whose account",
+      "colStart": "Start",
+      "colEnd": "End",
+      "running": "still running",
+      "reasonManual": "ended",
+      "reasonLogout": "logged out",
+      "empty": "Nobody has logged in as somebody else yet.",
+      "loadError": "The record could not be loaded."
     },
     "createLdapUser": {
       "buttonLabel": "+ Add user",
@@ -1697,7 +1718,8 @@
           "pending": "Approve pending sign-ups",
           "whitelist": "Maintain the whitelist",
           "users": "All users and their quotas",
-          "roles": "Assign roles and permissions"
+          "roles": "Assign roles and permissions",
+          "impersonate": "Log in as somebody else"
         },
         "system": "Maintenance, labels and notice",
         "mascot": "Hilde and Francis",
@@ -3029,5 +3051,10 @@
     "expiredDeadCode": "This code is no longer valid. Contact the person who invited you.",
     "expiredWrongLogin": "Username or password is incorrect",
     "expiredNotATestAccount": "This account does not expire and does not need a code"
+  },
+  "impersonation": {
+    "banner": "Signed in as {name}",
+    "back": "Back to my account",
+    "backBusy": "One moment"
   }
 }

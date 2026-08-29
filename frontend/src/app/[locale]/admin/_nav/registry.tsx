@@ -89,6 +89,7 @@ import InvitesPage from "../_pages/nutzer/einladungen";
 import AccessCodesPage from "../_pages/nutzer/zugangscodes";
 import UsersPage from "../_pages/nutzer/users";
 import RolesPage from "../_pages/nutzer/roles";
+import ImpersonationPage from "../_pages/nutzer/impersonation";
 import QuotaPage from "../_pages/nutzer/quota";
 
 import SystemPage from "../_pages/system";
@@ -175,6 +176,7 @@ export const SECTIONS: AdminSection[] = [
       { slug: "access-codes", key: "accessCodes", world: "both", perm: PERM.usersAll, Component: AccessCodesPage },
       { slug: "all", key: "users", world: "both", perm: PERM.usersAll, Component: UsersPage },
       { slug: "roles", key: "roles", world: "both", perm: PERM.usersRoles, Component: RolesPage },
+      { slug: "impersonation", key: "impersonation", world: "both", perm: PERM.usersImpersonate, Component: ImpersonationPage },
       // No entry of its own, the page is a jump-off from the user list.
       { slug: "quotas", key: "quota", world: "both", perm: PERM.usersAll, Component: QuotaPage, hidden: true },
     ],

@@ -2,6 +2,7 @@
 
 import { usePathname } from "@/i18n/navigation";
 import Header from "./Header";
+import ImpersonationBanner from "./ImpersonationBanner";
 import ToolsSidebar from "./ToolsSidebar";
 
 // The access-code pages bring their own header, like the login page.
@@ -37,11 +38,19 @@ export default function LayoutShell({
   const showSidebar =
     hasSession && !NO_SIDEBAR_PATHS.has(pathname) && !matchesPrefix(pathname, NO_SIDEBAR_PREFIXES);
 
-  if (!showHeader && !showSidebar) return <>{children}</>;
+  // The banner sits above every early return, a borrowed account must never hide it.
+  if (!showHeader && !showSidebar)
+    return (
+      <>
+        <ImpersonationBanner />
+        {children}
+      </>
+    );
 
   if (!showSidebar) {
     return (
       <>
+        <ImpersonationBanner />
         {showHeader && <Header hasSession={hasSession} showLogout showToolsToggle={false} />}
         {children}
       </>
@@ -50,6 +59,7 @@ export default function LayoutShell({
 
   return (
     <>
+      <ImpersonationBanner />
       {showHeader && <Header hasSession={hasSession} showLogout showToolsToggle />}
       <div className="flex items-stretch min-h-[calc(100vh-4rem)] overflow-x-hidden">
         <ToolsSidebar />

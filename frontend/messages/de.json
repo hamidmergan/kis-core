@@ -859,6 +859,10 @@
           "label": "Rollen",
           "sub": "System-Rollen sind fest, eigene Rollen frei zusammenstellbar."
         },
+        "impersonation": {
+          "label": "Übernahmen",
+          "sub": "Wer war wann in wessen Konto."
+        },
         "quota": {
           "label": "Kontingente",
           "sub": "Wie oft jemand ein Werkzeug benutzen darf."
@@ -986,6 +990,23 @@
         "cancel": "Abbrechen",
         "failed": "Löschen fehlgeschlagen"
       }
+    },
+    "impersonate": {
+      "buttonTitle": "Als {name} anmelden",
+      "failed": "Die Übernahme hat nicht geklappt."
+    },
+    "impersonationLog": {
+      "title": "Wer war in wessen Konto",
+      "hint": "Jede Übernahme wird festgehalten, offene Übernahmen laufen noch.",
+      "colActor": "Wer",
+      "colTarget": "In wessen Konto",
+      "colStart": "Beginn",
+      "colEnd": "Ende",
+      "running": "läuft noch",
+      "reasonManual": "beendet",
+      "reasonLogout": "abgemeldet",
+      "empty": "Es hat sich noch niemand als jemand anderes angemeldet.",
+      "loadError": "Das Protokoll konnte nicht geladen werden."
     },
     "createLdapUser": {
       "buttonLabel": "+ Benutzer anlegen",
@@ -1697,7 +1718,8 @@
           "pending": "Ausstehende Anmeldungen freischalten",
           "whitelist": "Whitelist pflegen",
           "users": "Alle Nutzer und ihre Kontingente",
-          "roles": "Rollen und Rechte vergeben"
+          "roles": "Rollen und Rechte vergeben",
+          "impersonate": "Sich als jemand anderes anmelden"
         },
         "system": "Wartung, Beschriftungen und Hinweis",
         "mascot": "Hilde und Francis",
@@ -3029,5 +3051,10 @@
     "expiredDeadCode": "Dieser Code gilt nicht mehr. Melde dich bei der Person, die dich eingeladen hat.",
     "expiredWrongLogin": "Benutzername oder Passwort stimmt nicht",
     "expiredNotATestAccount": "Dieses Konto läuft nicht ab und braucht keinen Code"
+  },
+  "impersonation": {
+    "banner": "Angemeldet als {name}",
+    "back": "Zurück zu meinem Konto",
+    "backBusy": "Einen Moment"
   }
 }
