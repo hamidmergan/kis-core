@@ -5,7 +5,7 @@ import os
 import re
 import secrets
 
-from ldap3 import NONE, Connection, Server
+from ldap3 import MODIFY_REPLACE, NONE, Connection, Server
 from ldap3.core.exceptions import LDAPException
 
 from src.config import Settings
@@ -31,6 +31,10 @@ class LdapUserExistsError(Exception):
 
 class LdapServiceError(RuntimeError):
     """Raised on bind failures or unexpected LDAP add errors."""
+
+
+class LdapUserNotFoundError(Exception):
+    """Raised when the uid does not exist in the directory."""
 
 
 def _make_ssha_hash(password: str) -> str:
@@ -123,6 +127,43 @@ def create_ldap_user(
         if desc == "entryAlreadyExists":
             raise LdapUserExistsError(uid)
         raise LdapServiceError(f"LDAP add failed: {desc or conn.result!r}")
+    finally:
+        try:
+            conn.unbind()
+        except LDAPException:
+            pass
+
+
+def set_ldap_password(*, settings: Settings, uid: str, password: str) -> None:
+    """Overwrites an existing person's password with a fresh SSHA hash."""
+    hashed = _make_ssha_hash(password)
+    dn = f"uid={uid},ou=people,{settings.ldap_base_dn}"
+
+    server = Server(
+        settings.ldap_server,
+        port=settings.ldap_port,
+        use_ssl=settings.ldap_use_ssl,
+        get_info=NONE,
+    )
+    try:
+        conn = Connection(
+            server,
+            user=settings.ldap_bind_dn,
+            password=settings.ldap_bind_password,
+            auto_bind=True,
+        )
+    except LDAPException as e:
+        raise LdapServiceError(f"LDAP service bind failed: {e}") from e
+
+    try:
+        ok = conn.modify(dn, {"userPassword": [(MODIFY_REPLACE, [hashed])]})
+        if ok:
+            return
+
+        desc = (conn.result or {}).get("description", "")
+        if desc == "noSuchObject":
+            raise LdapUserNotFoundError(uid)
+        raise LdapServiceError(f"LDAP password change failed: {desc or conn.result!r}")
     finally:
         try:
             conn.unbind()

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import Checkbox from "@/components/ui/Checkbox";
 import DemoConfirmDialog from "./DemoConfirmDialog";
-import { Trash, Users } from "@phosphor-icons/react";
+import { SignIn, Trash, Users } from "@phosphor-icons/react";
 import IconButton from "@/components/ui/IconButton";
 import Select from "@/components/ui/Select";
 import Spinner from "@/components/ui/Spinner";
@@ -13,6 +13,9 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { formatDate } from "@/lib/format";
 import type { AdminUser } from "../_shared";
 import { canDeleteUser } from "./canDeleteUser";
+import { canImpersonate, gesperrteRollenIds } from "./canImpersonate";
+import { clearAuthCache } from "@/lib/auth";
+import { PERM } from "@/lib/permissions";
 import CreateLdapUserDialog from "./CreateLdapUserDialog";
 import DeleteUserConfirmDialog from "./DeleteUserConfirmDialog";
 
@@ -34,6 +37,9 @@ export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [demoFrage, setDemoFrage] = useState<{ user: AdminUser; wert: boolean } | null>(null);
   const [allowLdapCreate, setAllowLdapCreate] = useState(false);
+  const [darfUebernehmen, setDarfUebernehmen] = useState(false);
+  const [gesperrteRollen, setGesperrteRollen] = useState<number[]>([]);
+  const [uebernahmeFehler, setUebernahmeFehler] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
 
   const pageSizeOptions = useMemo(
@@ -87,6 +93,7 @@ export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number
           })),
         ];
         setRoleOptions(opts);
+        setGesperrteRollen(gesperrteRollenIds(d.custom_roles ?? []));
       });
     fetch("/auth/status", { credentials: "include" })
       .then((r) => r.ok ? r.json() : null)
@@ -94,8 +101,26 @@ export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number
         if (s?.email) setAdminEmail(String(s.email).toLowerCase());
         setMeineId(Number(s?.user_id ?? 0));
         setAllowLdapCreate(Boolean(s?.permissions?.allow_ldap_user_create));
+        setDarfUebernehmen(Boolean(s?.permissions?.keys?.includes(PERM.usersImpersonate)));
       });
   }, [t]);
+
+  /** Takes over the account and lands on the start page as that person. */
+  async function uebernehmen(user: AdminUser) {
+    setUebernahmeFehler("");
+    const res = await fetch(`/api/admin/users/${user.id}/impersonate`, {
+      method: "POST",
+      credentials: "include",
+    });
+    if (!res.ok) {
+      const d = await res.json().catch(() => null);
+      setUebernahmeFehler(d?.detail || t("impersonate.failed"));
+      return;
+    }
+    clearAuthCache();
+    // Hard nav so the server layout re-reads the swapped session cookie.
+    window.location.assign("/");
+  }
 
   /** Asks when an account loses the flag, otherwise it switches directly. */
   function askDemo(user: AdminUser, value: boolean) {
@@ -187,6 +212,12 @@ export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number
           </button>
         )}
       </div>
+
+      {uebernahmeFehler && (
+        <StatusMark tone="error" className="text-sm">
+          {uebernahmeFehler}
+        </StatusMark>
+      )}
 
       {loading ? (
         <Spinner className="flex justify-center py-12" />
@@ -283,16 +314,29 @@ export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number
                     </button>
                   </td>
                   <td className="px-4 py-3">
-                    {canDeleteUser(u, { userId: meineId, email: adminEmail }) && (
-                      <IconButton
-                        size="sm"
-                        title={t("users.delete.buttonTitle")}
-                        aria-label={t("users.delete.buttonTitle")}
-                        onClick={() => setZuLoeschen(u)}
-                      >
-                        <Trash size={14} weight="bold" />
-                      </IconButton>
-                    )}
+                    <div className="flex items-center gap-1">
+                      {darfUebernehmen &&
+                        canImpersonate(u, { userId: meineId, adminEmail, gesperrteRollen }) && (
+                          <IconButton
+                            size="sm"
+                            title={t("impersonate.buttonTitle", { name: u.display_name })}
+                            aria-label={t("impersonate.buttonTitle", { name: u.display_name })}
+                            onClick={() => uebernehmen(u)}
+                          >
+                            <SignIn size={14} weight="bold" />
+                          </IconButton>
+                        )}
+                      {canDeleteUser(u, { userId: meineId, email: adminEmail }) && (
+                        <IconButton
+                          size="sm"
+                          title={t("users.delete.buttonTitle")}
+                          aria-label={t("users.delete.buttonTitle")}
+                          onClick={() => setZuLoeschen(u)}
+                        >
+                          <Trash size={14} weight="bold" />
+                        </IconButton>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

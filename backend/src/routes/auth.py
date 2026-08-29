@@ -1,9 +1,13 @@
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from loguru import logger
 from pydantic import BaseModel
 
 from src import database
 from src.dependencies import get_settings, get_session_store
+from src.features.impersonation import repository as impersonation_repo
+from src.features.impersonation import service as impersonation
 from src.i18n import get_locale, t
 from src.ldap_auth import authenticate_user
 
@@ -81,6 +85,19 @@ def login(body: LoginRequest, response: Response, locale: str = Depends(get_loca
         logger.warning("Login blocked for '{}' (not whitelisted)", ldap_username)
         raise HTTPException(status_code=403, detail="account_not_activated")
 
+    # Step 4b: A test access whose deadline has passed gets no session.
+    ablauf = db_user.get("access_expires_at") if db_user else None
+    if ablauf is not None:
+        try:
+            abgelaufen = ablauf <= datetime.now()
+        except (TypeError, ValueError) as e:
+            logger.error("Unparseable access_expires_at '{}' for '{}': {}", ablauf, ldap_username, e)
+            ablauf = None
+        else:
+            if abgelaufen:
+                logger.info("Login blocked for '{}' (test access expired)", ldap_username)
+                raise HTTPException(status_code=403, detail="access_expired")
+
     # Step 5: Create session
     store = get_session_store()
     token = store.create(data={
@@ -90,6 +107,7 @@ def login(body: LoginRequest, response: Response, locale: str = Depends(get_loca
         "email": email or "",
         "role": effective_role,
         "custom_role_id": custom_role_id,
+        "access_expires_at": ablauf.isoformat() if ablauf else None,
     })
     response.set_cookie(
         key="session",
@@ -107,9 +125,27 @@ async def logout(request: Request, response: Response):
     token = request.cookies.get("session")
     if token:
         store = get_session_store()
+        data = store.get_data(token) or {}
+        _close_impersonation(store, data)
         store.destroy(token)
     response.delete_cookie("session")
     return {"status": "ok"}
+
+
+def _close_impersonation(store, data: dict) -> None:
+    """Logging out of a borrowed account closes the record and the own session."""
+    marke = data.get(impersonation.SESSION_KEY)
+    if not marke:
+        return
+    log_id = marke.get("log_id")
+    if log_id:
+        try:
+            impersonation_repo.end_entry(int(log_id), "logout")
+        except Exception as e:
+            logger.error("Could not close impersonation record {}: {}", log_id, e)
+    parent = data.get(impersonation.SESSION_PARENT_TOKEN)
+    if parent:
+        store.destroy(parent)
 
 
 @router.get("/status")
@@ -159,6 +195,15 @@ async def auth_status(request: Request):
     if user_id:
         db_user = database.get_user_by_id(user_id)
         if db_user:
+            ablauf = db_user.get("access_expires_at")
+            if ablauf is not None:
+                try:
+                    expired = ablauf <= datetime.now()
+                except (TypeError, ValueError) as e:
+                    logger.error("Unparseable access_expires_at '{}' for user {}: {}", ablauf, user_id, e)
+                    expired = False
+                if expired:
+                    return {"authenticated": False}
             data["role"] = db_user.get("role") or data.get("role") or "user"
             data["custom_role_id"] = db_user.get("custom_role_id")
 
@@ -183,7 +228,8 @@ async def auth_status(request: Request):
         },
     }
     # Preserve other session fields (display_name, username, etc.) without clobbering keys above.
+    # The token of the borrowed session stays on the server, it must never reach a browser.
     for k, v in data.items():
-        if k not in payload:
+        if k not in payload and k != impersonation.SESSION_PARENT_TOKEN:
             payload[k] = v
     return payload

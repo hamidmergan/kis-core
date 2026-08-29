@@ -86,8 +86,10 @@ import ProviderRoutesPage from "../_pages/anbieter/routes";
 import PendingPage from "../_pages/nutzer/pending";
 import WhitelistPage from "../_pages/nutzer/whitelist";
 import InvitesPage from "../_pages/nutzer/einladungen";
+import AccessCodesPage from "../_pages/nutzer/zugangscodes";
 import UsersPage from "../_pages/nutzer/users";
 import RolesPage from "../_pages/nutzer/roles";
+import ImpersonationPage from "../_pages/nutzer/impersonation";
 import QuotaPage from "../_pages/nutzer/quota";
 
 import SystemPage from "../_pages/system";
@@ -97,84 +99,86 @@ import FrancisPage from "../_pages/mascot/francis";
 export const SECTIONS: AdminSection[] = [
   // The two products on top, everything else is support work.
   {
-    slug: "werkzeuge",
+    slug: "tools",
     key: "werkzeuge",
     Icon: Toolbox,
     world: "tools",
     rank: "product",
     pages: [
-      { slug: "freigabe", key: "release", world: "tools", perm: PERM.toolsRelease, Component: ToolReleasePage },
-      { slug: "auftraege", key: "jobs", world: "tools", perm: PERM.toolsJobs, Component: ToolJobsPage, home: true },
-      { slug: "grenzen", key: "limits", world: "tools", perm: PERM.toolsLimits, Component: ToolLimitsPage },
+      { slug: "release", key: "release", world: "tools", perm: PERM.toolsRelease, Component: ToolReleasePage },
+      { slug: "jobs", key: "jobs", world: "tools", perm: PERM.toolsJobs, Component: ToolJobsPage, home: true },
+      { slug: "limits", key: "limits", world: "tools", perm: PERM.toolsLimits, Component: ToolLimitsPage },
     ],
   },
   {
-    slug: "ki-assistent",
+    slug: "ai-assistant",
     key: "assistent",
     Icon: Notebook,
     world: "aia",
     rank: "product",
     pages: [
       // Sources also carries the two context budgets, both count source text.
-      { slug: "quellen", key: "sources", world: "aia", perm: PERM.aiaSources, Component: SourcesPage },
+      { slug: "sources", key: "sources", world: "aia", perm: PERM.aiaSources, Component: SourcesPage },
       // Assessment and AI behaviour are one subject in two tabs.
       {
-        slug: "sprachniveau",
+        slug: "level",
         key: "level",
         world: "aia",
         // Both tabs hang off one permission, their values live in the same record.
         perm: PERM.aiaLevel,
         tabs: [
-          { slug: "einstufung", labelKey: "assessment", Component: LanguageLevelPage },
-          { slug: "ki-verhalten", labelKey: "behaviour", Component: AiBehaviourPage },
+          { slug: "assessment", labelKey: "assessment", Component: LanguageLevelPage },
+          { slug: "behaviour", labelKey: "behaviour", Component: AiBehaviourPage },
         ],
       },
     ],
   },
   // Read-only numbers sit together, every tab carries its own permission.
   {
-    slug: "statistik",
+    slug: "stats",
     key: "statistik",
     Icon: ChartBar,
     world: "both",
     rank: "admin",
     // My modules first, the only tab without platform-wide insight.
     tabs: [
-      { slug: "meine-module", labelKey: "eigene", perm: PERM.statsOwn, Component: StatistikEigenePage },
-      { slug: "nutzer", labelKey: "nutzer", perm: PERM.statsUsers, Component: StatistikNutzerPage },
-      { slug: "werkzeuge", labelKey: "werkzeuge", perm: PERM.toolsStats, Component: StatistikWerkzeugePage },
-      { slug: "ki-assistent", labelKey: "assistent", perm: PERM.aiaUsage, Component: StatistikAssistentPage },
-      { slug: "modelle", labelKey: "modelle", perm: PERM.statsModels, Component: StatistikModellePage },
+      { slug: "my-modules", labelKey: "eigene", perm: PERM.statsOwn, Component: StatistikEigenePage },
+      { slug: "users", labelKey: "nutzer", perm: PERM.statsUsers, Component: StatistikNutzerPage },
+      { slug: "tools", labelKey: "werkzeuge", perm: PERM.toolsStats, Component: StatistikWerkzeugePage },
+      { slug: "ai-assistant", labelKey: "assistent", perm: PERM.aiaUsage, Component: StatistikAssistentPage },
+      { slug: "models", labelKey: "modelle", perm: PERM.statsModels, Component: StatistikModellePage },
     ],
   },
   // Providers and features are two views of the same thing.
   {
-    slug: "anbieter",
+    slug: "providers",
     key: "anbieter",
     Icon: Sparkle,
     world: "both",
     rank: "admin",
     perm: PERM.providers,
     tabs: [
-      { slug: "liste", labelKey: "list", Component: ProviderListPage },
-      { slug: "funktionen", labelKey: "routes", Component: ProviderRoutesPage },
+      { slug: "list", labelKey: "list", Component: ProviderListPage },
+      { slug: "routes", labelKey: "routes", Component: ProviderRoutesPage },
     ],
   },
   {
-    slug: "nutzer",
+    slug: "users",
     key: "nutzer",
     Icon: Users,
     world: "both",
     rank: "admin",
     pages: [
-      { slug: "ausstehend", key: "pending", world: "both", perm: PERM.usersPending, Component: PendingPage },
+      { slug: "pending", key: "pending", world: "both", perm: PERM.usersPending, Component: PendingPage },
       { slug: "whitelist", key: "whitelist", world: "both", perm: PERM.usersWhitelist, Component: WhitelistPage },
       // Without the server switch the page stays empty instead of gone.
-      { slug: "einladungen", key: "invites", world: "both", perm: PERM.usersAll, Component: InvitesPage },
-      { slug: "alle-nutzer", key: "users", world: "both", perm: PERM.usersAll, Component: UsersPage },
-      { slug: "rollen", key: "roles", world: "both", perm: PERM.usersRoles, Component: RolesPage },
+      { slug: "invites", key: "invites", world: "both", perm: PERM.usersAll, Component: InvitesPage },
+      { slug: "access-codes", key: "accessCodes", world: "both", perm: PERM.usersAll, Component: AccessCodesPage },
+      { slug: "all", key: "users", world: "both", perm: PERM.usersAll, Component: UsersPage },
+      { slug: "roles", key: "roles", world: "both", perm: PERM.usersRoles, Component: RolesPage },
+      { slug: "impersonation", key: "impersonation", world: "both", perm: PERM.usersImpersonate, Component: ImpersonationPage },
       // No entry of its own, the page is a jump-off from the user list.
-      { slug: "kontingente", key: "quota", world: "both", perm: PERM.usersAll, Component: QuotaPage, hidden: true },
+      { slug: "quotas", key: "quota", world: "both", perm: PERM.usersAll, Component: QuotaPage, hidden: true },
     ],
   },
   // System also carries the two platform-wide cards.
@@ -188,7 +192,7 @@ export const SECTIONS: AdminSection[] = [
     Component: SystemPage,
   },
   {
-    slug: "maskottchen",
+    slug: "mascots",
     key: "mascot",
     Icon: Bird,
     world: "dev",

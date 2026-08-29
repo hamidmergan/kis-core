@@ -2,20 +2,24 @@
 
 import { usePathname } from "@/i18n/navigation";
 import Header from "./Header";
+import ImpersonationBanner from "./ImpersonationBanner";
 import ToolsSidebar from "./ToolsSidebar";
 
-const NO_HEADER_PATHS = new Set(["/login", "/wartung", "/pending"]);
-// The invitation page brings its own header, like the login page.
-const NO_HEADER_PREFIXES = ["/workspace/", "/einladung/"];
+// The access-code pages bring their own header, like the login page.
+const NO_HEADER_PATHS = new Set(["/login", "/maintenance", "/pending", "/redeem", "/redeem/expired"]);
+// An invitation carries its token in the path, so it is matched by prefix.
+const NO_HEADER_PREFIXES = ["/workspace/", "/invite/"];
 
 const NO_SIDEBAR_PATHS = new Set([
   "/login",
   "/imprint",
   "/privacy",
   "/pending",
-  "/wartung",
+  "/maintenance",
+  "/redeem",
+  "/redeem/expired",
 ]);
-const NO_SIDEBAR_PREFIXES = ["/workspace/", "/admin", "/einladung/", "/manual"];
+const NO_SIDEBAR_PREFIXES = ["/workspace/", "/admin", "/invite/", "/manual"];
 
 function matchesPrefix(pathname: string, prefixes: string[]): boolean {
   return prefixes.some((p) => pathname.startsWith(p));
@@ -34,11 +38,19 @@ export default function LayoutShell({
   const showSidebar =
     hasSession && !NO_SIDEBAR_PATHS.has(pathname) && !matchesPrefix(pathname, NO_SIDEBAR_PREFIXES);
 
-  if (!showHeader && !showSidebar) return <>{children}</>;
+  // The banner sits above every early return, a borrowed account must never hide it.
+  if (!showHeader && !showSidebar)
+    return (
+      <>
+        <ImpersonationBanner />
+        {children}
+      </>
+    );
 
   if (!showSidebar) {
     return (
       <>
+        <ImpersonationBanner />
         {showHeader && <Header hasSession={hasSession} showLogout showToolsToggle={false} />}
         {children}
       </>
@@ -47,6 +59,7 @@ export default function LayoutShell({
 
   return (
     <>
+      <ImpersonationBanner />
       {showHeader && <Header hasSession={hasSession} showLogout showToolsToggle />}
       <div className="flex items-stretch min-h-[calc(100vh-4rem)] overflow-x-hidden">
         <ToolsSidebar />

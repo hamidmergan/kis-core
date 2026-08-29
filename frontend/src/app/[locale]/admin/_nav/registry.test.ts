@@ -5,14 +5,14 @@ import { SECTIONS, allowedSections, allowedTabs, resolve } from "./registry";
 /** The tabs hang off their page's permission, not off the area. */
 describe("Reiter einer Unterseite", () => {
   it("erscheinen fuer jemanden, der die Seite sehen darf", () => {
-    const found = resolve(["ki-assistent", "sprachniveau"]);
+    const found = resolve(["ai-assistant", "level"]);
     expect(found?.page?.tabs).toHaveLength(2);
     const tabs = allowedTabs(found!.page!.tabs, found!.page!.perm, [PERM.aiaLevel]);
-    expect(tabs.map((t) => t.slug)).toEqual(["einstufung", "ki-verhalten"]);
+    expect(tabs.map((t) => t.slug)).toEqual(["assessment", "behaviour"]);
   });
 
   it("bleiben weg, wenn das Recht der Seite fehlt", () => {
-    const found = resolve(["ki-assistent", "sprachniveau"]);
+    const found = resolve(["ai-assistant", "level"]);
     expect(allowedTabs(found!.page!.tabs, found!.page!.perm, [PERM.aiaSources])).toEqual([]);
   });
 });
@@ -36,24 +36,24 @@ describe("Statistik einer Lehrperson", () => {
   const dozentin = [PERM.statsOwn];
 
   it("laesst genau den Bereich Statistik uebrig", () => {
-    expect(allowedSections(dozentin).map((s) => s.slug)).toEqual(["statistik"]);
+    expect(allowedSections(dozentin).map((s) => s.slug)).toEqual(["stats"]);
   });
 
   it("zeigt darin nur Meine Module", () => {
     const statistik = allowedSections(dozentin)[0];
-    expect(statistik.tabs?.map((t) => t.slug)).toEqual(["meine-module"]);
+    expect(statistik.tabs?.map((t) => t.slug)).toEqual(["my-modules"]);
   });
 
   it("stellt Meine Module vor die vier globalen Reiter", () => {
-    const alle = SECTIONS.find((s) => s.slug === "statistik");
+    const alle = SECTIONS.find((s) => s.slug === "stats");
     expect(alle?.tabs?.map((t) => t.slug)).toEqual([
-      "meine-module", "nutzer", "werkzeuge", "ki-assistent", "modelle",
+      "my-modules", "users", "tools", "ai-assistant", "models",
     ]);
   });
 
   it("laesst niemanden ohne das Recht hinein", () => {
-    const statistik = SECTIONS.find((s) => s.slug === "statistik")!;
+    const statistik = SECTIONS.find((s) => s.slug === "stats")!;
     const fremde = allowedTabs(statistik.tabs, statistik.perm, [PERM.statsUsers]);
-    expect(fremde.map((t) => t.slug)).toEqual(["nutzer"]);
+    expect(fremde.map((t) => t.slug)).toEqual(["users"]);
   });
 });

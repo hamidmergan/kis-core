@@ -23,6 +23,16 @@ export interface AuthStatus {
   role?: SystemRole;
   custom_role_id?: number | null;
   permissions?: UserPermissions;
+  /** Set while somebody is logged in as this account. */
+  impersonator?: Impersonator;
+}
+
+/** Who borrowed this account, shown in the banner above every page. */
+export interface Impersonator {
+  user_id: number;
+  username: string;
+  display_name: string;
+  log_id: number;
 }
 
 export interface LoginResponse {

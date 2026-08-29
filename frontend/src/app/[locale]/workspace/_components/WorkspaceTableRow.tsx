@@ -122,7 +122,6 @@ export default function WorkspaceTableRow({
         <td className="pl-20 pr-4 py-3">
           <div className="flex justify-center">
             <WorkspaceMenu
-              onStats={() => a.setShowStats(true)}
               onParticipants={() => setShowParticipants(true)}
               onLinks={() => a.setShowLinks(true)}
               onEdit={() => a.setEditOpen(true)}

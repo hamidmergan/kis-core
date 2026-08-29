@@ -368,6 +368,47 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             cur.execute("ALTER TABLE invites ALTER COLUMN created_by DROP NOT NULL")
             cur.execute("CREATE INDEX IF NOT EXISTS invites_email_idx ON invites (LOWER(email))")
             cur.execute("""
+                CREATE TABLE IF NOT EXISTS access_codes (
+                    id             SERIAL PRIMARY KEY,
+                    code           TEXT NOT NULL UNIQUE,
+                    label          TEXT NOT NULL,
+                    role           TEXT NOT NULL DEFAULT 'user',
+                    custom_role_id INTEGER,
+                    max_uses       INTEGER NOT NULL,
+                    used_count     INTEGER NOT NULL DEFAULT 0,
+                    valid_until    TIMESTAMP NOT NULL,
+                    access_days    INTEGER DEFAULT 14,
+                    active         BOOLEAN NOT NULL DEFAULT TRUE,
+                    created_by     INTEGER,
+                    created_at     TIMESTAMP NOT NULL DEFAULT NOW()
+                )
+            """)
+            # NULL means the accounts this code creates never expire.
+            cur.execute("ALTER TABLE access_codes ALTER COLUMN access_days DROP NOT NULL")
+            # A test access runs out on its own, the two columns stay empty for everyone else.
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS access_expires_at TIMESTAMP")
+            cur.execute(
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS access_code_id INTEGER "
+                "REFERENCES access_codes(id) ON DELETE SET NULL"
+            )
+            # Wer war wann in wessen Konto, der Nachweis fuer den Datenschutz.
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS impersonation_log (
+                    id              SERIAL PRIMARY KEY,
+                    actor_user_id   INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                    actor_username  TEXT NOT NULL,
+                    target_user_id  INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                    target_username TEXT NOT NULL,
+                    started_at      TIMESTAMP NOT NULL DEFAULT NOW(),
+                    ended_at        TIMESTAMP,
+                    ended_reason    TEXT
+                )
+            """)
+            cur.execute(
+                "CREATE INDEX IF NOT EXISTS impersonation_log_started_idx "
+                "ON impersonation_log (started_at DESC)"
+            )
+            cur.execute("""
                 CREATE TABLE IF NOT EXISTS jobs (
                     id                  SERIAL PRIMARY KEY,
                     job_uuid            TEXT NOT NULL UNIQUE,

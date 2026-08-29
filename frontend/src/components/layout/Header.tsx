@@ -21,7 +21,7 @@ export default function Header({ hasSession = true, showLogout = false, showTool
   const t = useTranslations("header");
   const pathname = usePathname();
   // The URL says where you are, the button in the header shows it.
-  const onCalendar = pathname === "/kalender" || pathname.startsWith("/kalender/");
+  const onCalendar = pathname === "/calendar" || pathname.startsWith("/calendar/");
   const [isAdmin, setIsAdmin] = useState(false);
   // Admin only for whoever may do everything, everyone else goes to their settings.
   const [areaKey, setAreaKey] = useState<"admin" | "settings">("admin");
@@ -68,7 +68,7 @@ export default function Header({ hasSession = true, showLogout = false, showTool
             <div className="hidden sm:flex items-center gap-1.5">
               {hasSession && (
                 <Link
-                  href="/kalender"
+                  href="/calendar"
                   aria-label={t("calendar")}
                   title={t("calendar")}
                   aria-current={onCalendar ? "page" : undefined}

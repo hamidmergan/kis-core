@@ -1,11 +1,8 @@
 """Pure rules around invitations, without database and without LDAP."""
-import re
 import secrets
 from datetime import datetime
 
-_UMLAUTE = {"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"}
-_UNERLAUBT = re.compile(r"[^a-z0-9_.-]")
-_UID = re.compile(r"^[a-z0-9_.-]{2,32}$")
+from src.features.accounts.uid import slugify_uid
 
 
 class InviteValidationError(ValueError):
@@ -19,11 +16,8 @@ class InviteValidationError(ValueError):
 
 def uid_from_email(email: str) -> str:
     """Derives the user name from the part before the @."""
-    lokal = email.split("@", 1)[0].strip().lower()
-    for zeichen, ersatz in _UMLAUTE.items():
-        lokal = lokal.replace(zeichen, ersatz)
-    uid = _UNERLAUBT.sub("", lokal)
-    if not _UID.match(uid):
+    uid = slugify_uid(email.split("@", 1)[0])
+    if uid is None:
         raise InviteValidationError("email", "local part yields no usable uid")
     return uid
 

@@ -232,7 +232,8 @@
     "submit": "Sign in",
     "submitting": "Signing in...",
     "invalidCredentials": "Invalid credentials. Please check username and password.",
-    "maintenanceBanner": "The platform is being updated. Please try again in a few minutes."
+    "maintenanceBanner": "The platform is being updated. Please try again in a few minutes.",
+    "accessCodeLink": "I have an access code"
   },
   "toolsSidebar": {
     "heading": "Tools",
@@ -846,6 +847,10 @@
           "label": "Invitations",
           "sub": "Access by link until SSO is in place."
         },
+        "accessCodes": {
+          "label": "Access codes",
+          "sub": "One code per test round, the account expires after the deadline."
+        },
         "users": {
           "label": "All users",
           "sub": "Search, set role, open quotas."
@@ -853,6 +858,10 @@
         "roles": {
           "label": "Roles",
           "sub": "System roles are fixed, custom roles are yours to build."
+        },
+        "impersonation": {
+          "label": "Borrowed accounts",
+          "sub": "Who was inside whose account and when."
         },
         "quota": {
           "label": "Quotas",
@@ -981,6 +990,23 @@
         "cancel": "Cancel",
         "failed": "Deletion failed"
       }
+    },
+    "impersonate": {
+      "buttonTitle": "Log in as {name}",
+      "failed": "Logging in as this person did not work."
+    },
+    "impersonationLog": {
+      "title": "Who was inside whose account",
+      "hint": "Every visit is recorded, open ones are still running.",
+      "colActor": "Who",
+      "colTarget": "Whose account",
+      "colStart": "Start",
+      "colEnd": "End",
+      "running": "still running",
+      "reasonManual": "ended",
+      "reasonLogout": "logged out",
+      "empty": "Nobody has logged in as somebody else yet.",
+      "loadError": "The record could not be loaded."
     },
     "createLdapUser": {
       "buttonLabel": "+ Add user",
@@ -1691,7 +1717,8 @@
           "pending": "Approve pending sign-ups",
           "whitelist": "Maintain the whitelist",
           "users": "All users and their quotas",
-          "roles": "Assign roles and permissions"
+          "roles": "Assign roles and permissions",
+          "impersonate": "Log in as somebody else"
         },
         "system": "Maintenance, labels and notice",
         "mascot": "Hilde and Francis",
@@ -1928,6 +1955,93 @@
       "warning": "The link works once and expires on {date}. Send it to this one person only.",
       "close": "Close",
       "errorGeneric": "The invitation could not be created"
+    },
+    "accessCodes": {
+      "createButton": "+ Access code",
+      "summary": "{n, plural, one {# code} other {# codes}}, {aktiv} of them active",
+      "empty": "No access codes yet",
+      "disabled": "Access codes are switched off.",
+      "colLabel": "Title",
+      "colCode": "Code",
+      "colUsed": "Used",
+      "colValid": "Code valid until",
+      "colAccess": "Access",
+      "colStatus": "Status",
+      "colActions": "Action",
+      "statusActive": "Active",
+      "statusDisabled": "Off",
+      "statusExpired": "Expired",
+      "statusFull": "Full",
+      "accessDays": "{n, plural, one {# day} other {# days}}",
+      "accessUnlimited": "Unlimited",
+      "copyCode": "Copy code",
+      "copied": "Copied!",
+      "disable": "Switch off",
+      "enable": "Switch on",
+      "delete": "Delete",
+      "deleteTitle": "Delete access code",
+      "deleteText": "The code disappears from the list. {n, plural, =0 {Nobody has used this code yet.} one {The # person who used it keeps their account, their deadline and their courses.} other {The # people who used it keep their account, their deadline and their courses.}}",
+      "deleteHint": "Switching off is usually enough. Then nobody new joins, and you can still see who used this code.",
+      "deleteConfirm": "Delete permanently",
+      "cancel": "Cancel",
+      "loadError": "Access codes could not be loaded",
+      "saveError": "The change failed",
+      "roleStaff": "Staff",
+      "roleUser": "User",
+      "usersTitle": "Accounts created",
+      "usersEmpty": "Nobody has redeemed this code yet",
+      "usersLoadError": "Accounts could not be loaded",
+      "colUser": "User name",
+      "colCreated": "Created",
+      "colExpires": "Valid until",
+      "colState": "Status",
+      "stateActive": "Active",
+      "stateExpired": "Expired",
+      "stateDisabled": "Off",
+      "resetPassword": "New password",
+      "resetting": "Changing...",
+      "resetError": "Password could not be changed",
+      "newPassword": "New password",
+      "newPasswordOnce": "Shown only now, save it or hand it over",
+      "copyUser": "Copy user name",
+      "copyPassword": "Copy password",
+      "activityView": "View",
+      "activityLoadError": "Activity could not be loaded",
+      "activityEmpty": "This account has not used the platform yet.",
+      "activityModulesTitle": "Modules",
+      "activityModulesEmpty": "This person has not opened a module yet.",
+      "activityRelationOwner": "Owner",
+      "activityRelationJoined": "Joined",
+      "activityMessagesTitle": "Chat history",
+      "activityMessagesEmpty": "This person has not written anything yet.",
+      "activityMessagesCapped": "Only the last 50 entries are shown.",
+      "activityNoContent": "(no content)",
+      "activityFailed": "Failed",
+      "activityAborted": "Stopped",
+      "close": "Close"
+    },
+    "createAccessCode": {
+      "title": "Create access code",
+      "label": "Title",
+      "labelHint": "For example Colleagues August",
+      "maxUses": "How many times redeemable",
+      "validDays": "Code valid",
+      "accessDays": "Access valid",
+      "role": "Role",
+      "days": "{n, plural, one {# day} other {# days}}",
+      "unlimited": "Unlimited",
+      "seats": "{n} seats",
+      "roleStaff": "Staff",
+      "roleUser": "User",
+      "submit": "Create",
+      "submitting": "Creating...",
+      "cancel": "Cancel",
+      "createdTitle": "Code created",
+      "createdHint": "Pass this code on. It is listed above from now on.",
+      "copy": "Copy code",
+      "copied": "Copied!",
+      "close": "Close",
+      "errorGeneric": "The code could not be created"
     }
   },
   "permissions": {
@@ -2911,5 +3025,46 @@
     "loadErrorTitle": "The page could not be loaded",
     "loadErrorText": "The invitation could not be fetched just now. Please reload the page.",
     "retry": "Reload"
+  },
+  "accessCode": {
+    "welcome": "Welcome to KIS",
+    "title": "Redeem access",
+    "intro": "Use the access code from your invitation to create your own account here.",
+    "code": "Access code",
+    "codeHint": "KIS-XXXX-XXXX",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
+    "submit": "Create account",
+    "submitting": "Creating...",
+    "errorCodeMissing": "Please enter the access code",
+    "errorGeneric": "The account could not be created",
+    "doneTitle": "Done",
+    "doneUser": "User name",
+    "donePassword": "Password",
+    "doneOnce": "This is the only time the password is shown. Copy it somewhere safe.",
+    "copyUser": "Copy user name",
+    "copyPassword": "Copy password",
+    "copied": "Copied!",
+    "doneUntil": "Your access is valid until {date}",
+    "doneUnlimited": "Your access does not expire",
+    "doneGo": "Let's go",
+    "toLogin": "Back to sign in",
+    "expiredTitle": "Your access has expired",
+    "expiredText": "A valid access code lets you carry on. Your courses and sources are still there.",
+    "expiredUser": "Username",
+    "expiredPassword": "Password",
+    "expiredCode": "Access code",
+    "expiredSubmit": "Renew",
+    "expiredSubmitting": "Renewing...",
+    "expiredDone": "Your access is now valid until {date}",
+    "expiredDoneUnlimited": "Your access no longer expires",
+    "expiredDeadCode": "This code is no longer valid. Contact the person who invited you.",
+    "expiredWrongLogin": "Username or password is incorrect",
+    "expiredNotATestAccount": "This account does not expire and does not need a code"
+  },
+  "impersonation": {
+    "banner": "Signed in as {name}",
+    "back": "Back to my account",
+    "backBusy": "One moment"
   }
 }

@@ -16,6 +16,7 @@ export default function LoginPage() {
   const [checking, setChecking] = useState(true);
   const [loading, setLoading] = useState(false);
   const [maintenanceOn, setMaintenanceOn] = useState(false);
+  const [zugangOffen, setZugangOffen] = useState(false);
 
   useEffect(() => {
     checkAuthStatus().then((status) => {
@@ -44,6 +45,13 @@ export default function LoginPage() {
     return () => { cancelled = true; clearInterval(id); };
   }, []);
 
+  useEffect(() => {
+    fetch("/api/access-codes/enabled", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setZugangOffen(!!d?.enabled))
+      .catch(() => {});
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -59,6 +67,8 @@ export default function LoginPage() {
       const message = err instanceof Error ? err.message : "";
       if (message === "account_not_activated") {
         router.push("/pending");
+      } else if (message === "access_expired") {
+        router.push("/redeem/expired");
       } else if (maintenanceOn) {
         setError(t("maintenanceBanner"));
       } else {
@@ -151,6 +161,14 @@ export default function LoginPage() {
             >
               {loading ? t("submitting") : t("submit")}
             </button>
+
+            {zugangOffen && (
+              <p className="mt-4 text-center text-sm">
+                <a href="/redeem" className="text-kb hover:underline">
+                  {t("accessCodeLink")}
+                </a>
+              </p>
+            )}
           </form>
         </div>
       </div>

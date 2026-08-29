@@ -232,7 +232,8 @@
     "submit": "Anmelden",
     "submitting": "Wird angemeldet...",
     "invalidCredentials": "Ungültige Anmeldedaten. Bitte prüfen Sie Benutzername und Passwort.",
-    "maintenanceBanner": "Die Plattform wird gerade aktualisiert. Bitte versuchen Sie es in wenigen Minuten erneut."
+    "maintenanceBanner": "Die Plattform wird gerade aktualisiert. Bitte versuchen Sie es in wenigen Minuten erneut.",
+    "accessCodeLink": "Ich habe einen Zugangscode"
   },
   "toolsSidebar": {
     "heading": "Tools",
@@ -846,6 +847,10 @@
           "label": "Einladungen",
           "sub": "Zugang per Link, solange es kein SSO gibt."
         },
+        "accessCodes": {
+          "label": "Zugangscodes",
+          "sub": "Ein Code je Testrunde, das Konto läuft nach der Frist ab."
+        },
         "users": {
           "label": "Alle Nutzer",
           "sub": "Suchen, Rolle setzen, Kontingente öffnen."
@@ -853,6 +858,10 @@
         "roles": {
           "label": "Rollen",
           "sub": "System-Rollen sind fest, eigene Rollen frei zusammenstellbar."
+        },
+        "impersonation": {
+          "label": "Übernahmen",
+          "sub": "Wer war wann in wessen Konto."
         },
         "quota": {
           "label": "Kontingente",
@@ -981,6 +990,23 @@
         "cancel": "Abbrechen",
         "failed": "Löschen fehlgeschlagen"
       }
+    },
+    "impersonate": {
+      "buttonTitle": "Als {name} anmelden",
+      "failed": "Die Übernahme hat nicht geklappt."
+    },
+    "impersonationLog": {
+      "title": "Wer war in wessen Konto",
+      "hint": "Jede Übernahme wird festgehalten, offene Übernahmen laufen noch.",
+      "colActor": "Wer",
+      "colTarget": "In wessen Konto",
+      "colStart": "Beginn",
+      "colEnd": "Ende",
+      "running": "läuft noch",
+      "reasonManual": "beendet",
+      "reasonLogout": "abgemeldet",
+      "empty": "Es hat sich noch niemand als jemand anderes angemeldet.",
+      "loadError": "Das Protokoll konnte nicht geladen werden."
     },
     "createLdapUser": {
       "buttonLabel": "+ Benutzer anlegen",
@@ -1691,7 +1717,8 @@
           "pending": "Ausstehende Anmeldungen freischalten",
           "whitelist": "Whitelist pflegen",
           "users": "Alle Nutzer und ihre Kontingente",
-          "roles": "Rollen und Rechte vergeben"
+          "roles": "Rollen und Rechte vergeben",
+          "impersonate": "Sich als jemand anderes anmelden"
         },
         "system": "Wartung, Beschriftungen und Hinweis",
         "mascot": "Hilde und Francis",
@@ -1928,6 +1955,93 @@
       "warning": "Der Link gilt einmal und läuft am {date} ab. Schicke ihn nur an diese eine Person.",
       "close": "Schließen",
       "errorGeneric": "Einladung konnte nicht erzeugt werden"
+    },
+    "accessCodes": {
+      "createButton": "+ Zugangscode",
+      "summary": "{n, plural, one {# Code} other {# Codes}}, davon {aktiv} aktiv",
+      "empty": "Noch keine Zugangscodes",
+      "disabled": "Zugangscodes sind abgeschaltet.",
+      "colLabel": "Titel",
+      "colCode": "Code",
+      "colUsed": "Benutzt",
+      "colValid": "Code gültig bis",
+      "colAccess": "Zugang",
+      "colStatus": "Status",
+      "colActions": "Aktion",
+      "statusActive": "Aktiv",
+      "statusDisabled": "Aus",
+      "statusExpired": "Abgelaufen",
+      "statusFull": "Voll",
+      "accessDays": "{n, plural, one {# Tag} other {# Tage}}",
+      "accessUnlimited": "Unbegrenzt",
+      "copyCode": "Code kopieren",
+      "copied": "Kopiert!",
+      "disable": "Ausschalten",
+      "enable": "Einschalten",
+      "delete": "Löschen",
+      "deleteTitle": "Zugangscode löschen",
+      "deleteText": "Der Code verschwindet aus der Liste. {n, plural, =0 {Diesen Code hat noch niemand benutzt.} one {Die # Person, die ihn benutzt hat, behält ihr Konto, ihre Frist und ihre Kurse.} other {Die # Personen, die ihn benutzt haben, behalten ihr Konto, ihre Frist und ihre Kurse.}}",
+      "deleteHint": "Meistens reicht Ausschalten. Dann kommt niemand Neues dazu, und du siehst weiter, wer diesen Code benutzt hat.",
+      "deleteConfirm": "Endgültig löschen",
+      "cancel": "Abbrechen",
+      "loadError": "Zugangscodes konnten nicht geladen werden",
+      "saveError": "Änderung fehlgeschlagen",
+      "roleStaff": "Staff",
+      "roleUser": "User",
+      "usersTitle": "Erstellte Konten",
+      "usersEmpty": "Noch niemand hat diesen Code eingelöst",
+      "usersLoadError": "Konten konnten nicht geladen werden",
+      "colUser": "Nutzername",
+      "colCreated": "Erstellt",
+      "colExpires": "Gilt bis",
+      "colState": "Status",
+      "stateActive": "Aktiv",
+      "stateExpired": "Abgelaufen",
+      "stateDisabled": "Aus",
+      "resetPassword": "Neues Passwort",
+      "resetting": "Wird geändert...",
+      "resetError": "Passwort konnte nicht geändert werden",
+      "newPassword": "Neues Passwort",
+      "newPasswordOnce": "Wird nur jetzt angezeigt, merk es dir oder gib es weiter",
+      "copyUser": "Nutzername kopieren",
+      "copyPassword": "Passwort kopieren",
+      "activityView": "Ansehen",
+      "activityLoadError": "Aktivität konnte nicht geladen werden",
+      "activityEmpty": "Dieses Konto hat die Plattform noch nicht genutzt.",
+      "activityModulesTitle": "Module",
+      "activityModulesEmpty": "Diese Person hat noch kein Modul geöffnet.",
+      "activityRelationOwner": "Eigentümer:in",
+      "activityRelationJoined": "Beigetreten",
+      "activityMessagesTitle": "Chatverlauf",
+      "activityMessagesEmpty": "Diese Person hat noch nichts geschrieben.",
+      "activityMessagesCapped": "Nur die letzten 50 Einträge werden angezeigt.",
+      "activityNoContent": "(kein Inhalt)",
+      "activityFailed": "Fehlgeschlagen",
+      "activityAborted": "Abgebrochen",
+      "close": "Schließen"
+    },
+    "createAccessCode": {
+      "title": "Zugangscode anlegen",
+      "label": "Titel",
+      "labelHint": "Zum Beispiel Kollegen August",
+      "maxUses": "Wie oft einlösbar",
+      "validDays": "Code gültig",
+      "accessDays": "Zugang gültig",
+      "role": "Rolle",
+      "days": "{n, plural, one {# Tag} other {# Tage}}",
+      "unlimited": "Unbegrenzt",
+      "seats": "{n} Plätze",
+      "roleStaff": "Staff",
+      "roleUser": "User",
+      "submit": "Anlegen",
+      "submitting": "Wird angelegt...",
+      "cancel": "Abbrechen",
+      "createdTitle": "Code angelegt",
+      "createdHint": "Diesen Code weitergeben. Er steht ab jetzt in der Liste.",
+      "copy": "Code kopieren",
+      "copied": "Kopiert!",
+      "close": "Schließen",
+      "errorGeneric": "Der Code konnte nicht angelegt werden"
     }
   },
   "permissions": {
@@ -2911,5 +3025,46 @@
     "loadErrorTitle": "Seite konnte nicht geladen werden",
     "loadErrorText": "Die Einladung liess sich gerade nicht abrufen. Bitte lade die Seite neu.",
     "retry": "Neu laden"
+  },
+  "accessCode": {
+    "welcome": "Willkommen bei KIS",
+    "title": "Zugang einlösen",
+    "intro": "Mit dem Zugangscode aus deiner Einladung legst du dir hier selbst ein Konto an.",
+    "code": "Zugangscode",
+    "codeHint": "KIS-XXXX-XXXX",
+    "showPassword": "Passwort anzeigen",
+    "hidePassword": "Passwort verbergen",
+    "submit": "Konto anlegen",
+    "submitting": "Wird angelegt...",
+    "errorCodeMissing": "Bitte den Zugangscode eintragen",
+    "errorGeneric": "Das Konto konnte nicht angelegt werden",
+    "doneTitle": "Fertig",
+    "doneUser": "Benutzername",
+    "donePassword": "Passwort",
+    "doneOnce": "Das Passwort siehst du nur jetzt. Kopiere es dir weg.",
+    "copyUser": "Benutzernamen kopieren",
+    "copyPassword": "Passwort kopieren",
+    "copied": "Kopiert!",
+    "doneUntil": "Dein Zugang gilt bis zum {date}",
+    "doneUnlimited": "Dein Zugang läuft nicht ab",
+    "doneGo": "Los geht's",
+    "toLogin": "Zurück zur Anmeldung",
+    "expiredTitle": "Dein Zugang ist abgelaufen",
+    "expiredText": "Mit einem gültigen Zugangscode kannst du weitermachen. Deine Kurse und Quellen sind noch da.",
+    "expiredUser": "Benutzername",
+    "expiredPassword": "Passwort",
+    "expiredCode": "Zugangscode",
+    "expiredSubmit": "Verlängern",
+    "expiredSubmitting": "Wird verlängert...",
+    "expiredDone": "Dein Zugang gilt jetzt bis zum {date}",
+    "expiredDoneUnlimited": "Dein Zugang läuft ab jetzt nicht mehr ab",
+    "expiredDeadCode": "Dieser Code gilt nicht mehr. Melde dich bei der Person, die dich eingeladen hat.",
+    "expiredWrongLogin": "Benutzername oder Passwort stimmt nicht",
+    "expiredNotATestAccount": "Dieses Konto läuft nicht ab und braucht keinen Code"
+  },
+  "impersonation": {
+    "banner": "Angemeldet als {name}",
+    "back": "Zurück zu meinem Konto",
+    "backBusy": "Einen Moment"
   }
 }
