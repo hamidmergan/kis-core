@@ -136,14 +136,19 @@ def create_app(modules=None) -> FastAPI:
 
         local_user = db.get_user_by_username("local")
         if local_user:
-            new_token = store.create(data={
-                "user_id": local_user["id"],
-                "username": "local",
-                "display_name": "Admin",
-                "email": "",
-                "role": "admin",
-                "custom_role_id": None,
-            })
+            try:
+                new_token = store.create(data={
+                    "user_id": local_user["id"],
+                    "username": "local",
+                    "display_name": "Admin",
+                    "email": "",
+                    "role": "admin",
+                    "custom_role_id": None,
+                })
+            except Exception as e:
+                # Best-effort convenience, a hiccup here must not break the request.
+                logger.error("Local-mode session creation failed (Redis): {}", e)
+                return await call_next(request)
             response = await call_next(request)
             response.set_cookie(
                 key="session",
