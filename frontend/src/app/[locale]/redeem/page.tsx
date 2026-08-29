@@ -131,6 +131,7 @@ export default function AccessCodePage() {
 
               <button
                 type="button"
+                data-testid="access-code-continue"
                 onClick={() => window.location.assign("/")}
                 className="w-full px-4 py-2 text-sm font-medium rounded-md btn-primary"
               >

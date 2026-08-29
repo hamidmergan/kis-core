@@ -48,10 +48,10 @@ test("Zugangscode: ein Konto einlösen und die Startseite erreichen", async ({ p
     await expect(fertig.getByTestId("access-code-username")).toHaveText(username);
     await expect(fertig.getByTestId("access-code-password")).toHaveText(antwort.password);
 
-    // The done card's only button goes to "/", where the workspace list lives.
+    // The card also carries two copy buttons, so address the continue one directly.
     const [kurse] = await Promise.all([
       page.waitForResponse((r) => r.url().includes("/api/ai-assistant/workspaces") && r.request().method() === "GET"),
-      fertig.locator("button").click(),
+      fertig.getByTestId("access-code-continue").click(),
     ]);
     expect(kurse.ok()).toBeTruthy();
     await expect(page).toHaveURL((url) => !url.pathname.includes("redeem") && !url.pathname.includes("login"));
