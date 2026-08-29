@@ -9,7 +9,7 @@ DEFAULT_DISABLED_TOOLS: set[str] | None = None
 
 
 def is_released(tool_key: str, disabled: set[str], overrides: set[str]) -> bool:
-    """Rein rechnerisch, damit der Fall ohne Datenbank pruefbar bleibt."""
+    """Ohne Datenbank pruefbar, laedt die Standardliste beim ersten Aufruf einmalig nach."""
     global DEFAULT_DISABLED_TOOLS
     if DEFAULT_DISABLED_TOOLS is None:
         from src.routes.admin._registries import DEFAULT_DISABLED_TOOLS as _loaded

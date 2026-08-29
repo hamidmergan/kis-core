@@ -44,8 +44,7 @@ async def toggle_tool(
     valid_keys = {tool["key"] for tool in TOOLS_CONFIG}
     if tool_key not in valid_keys:
         raise HTTPException(status_code=400, detail=t("admin.tools.unknownKey", locale))
-    disabled = set(json.loads(db.get_setting("disabled_tools", "[]")))
-    enabled_overrides = set(json.loads(db.get_setting("enabled_tools_override", "[]")))
+    disabled, enabled_overrides = read_release_state()
     if body.enabled:
         disabled.discard(tool_key)
         if tool_key in DEFAULT_DISABLED_TOOLS:

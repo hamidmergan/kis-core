@@ -24,3 +24,12 @@ def test_standardmaessig_aus_wird_durch_ausnahme_frei(monkeypatch):
     from src.services import tool_release
     monkeypatch.setattr(tool_release, "DEFAULT_DISABLED_TOOLS", {"image"})
     assert tool_release.is_released("image", disabled=set(), overrides={"image"}) is True
+
+
+def test_standardliste_wird_aus_der_registry_nachgeladen(monkeypatch):
+    """Ohne Monkeypatch muss die echte Liste aus der Admin-Verwaltung stammen."""
+    from src.services import tool_release
+    from src.routes.admin._registries import DEFAULT_DISABLED_TOOLS as registry_default
+    monkeypatch.setattr(tool_release, "DEFAULT_DISABLED_TOOLS", None)
+    tool_release.is_released("tts", disabled=set(), overrides=set())
+    assert tool_release.DEFAULT_DISABLED_TOOLS is registry_default
