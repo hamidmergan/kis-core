@@ -159,7 +159,6 @@ export default function AccessCodePage() {
                     disabled={sending}
                     className="w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-kb focus:border-transparent disabled:opacity-50"
                   />
-                  <p className="mt-1.5 text-xs text-muted-soft">{t("codeHint")}</p>
                 </div>
 
                 {error && (
