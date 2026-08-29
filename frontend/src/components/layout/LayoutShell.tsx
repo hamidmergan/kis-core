@@ -15,7 +15,7 @@ const NO_SIDEBAR_PATHS = new Set([
   "/pending",
   "/wartung",
 ]);
-const NO_SIDEBAR_PREFIXES = ["/workspace/", "/admin", "/einladung/"];
+const NO_SIDEBAR_PREFIXES = ["/workspace/", "/admin", "/einladung/", "/hilfe"];
 
 function matchesPrefix(pathname: string, prefixes: string[]): boolean {
   return prefixes.some((p) => pathname.startsWith(p));

@@ -7,6 +7,12 @@ const backendUrl = process.env.BACKEND_URL || "http://localhost:8000";
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  // Standalone traegt nur mit, was der Code importiert. Die Hilfe liest ihre
+  // Markdown-Dateien zur Laufzeit, ohne diese Zeile ist sie auf prod leer.
+  outputFileTracingIncludes: {
+    "/[locale]/hilfe": ["./src/content/hilfe/**/*"],
+    "/[locale]/hilfe/[slug]": ["./src/content/hilfe/**/*"],
+  },
   // Ein Probe-Build darf den laufenden Dev-Server nicht abschiessen: beide
   // schreiben sonst in dasselbe .next und :3000 ist danach kaputt. Mit
   // NEXT_DIST_DIR=.next-verify baut die Probe daneben. Next schreibt dabei

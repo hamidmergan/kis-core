@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { Check, Gear, Moon, SignOut, Sun, UserCircleGear } from "@phosphor-icons/react";
+import { Check, Gear, Moon, Question, SignOut, Sun, UserCircleGear } from "@phosphor-icons/react";
 import { useRouter, usePathname } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
 import { UI_LOCALES } from "@/lib/constants";
@@ -34,6 +34,7 @@ async function persistLocale(locale: Locale) {
 export default function HeaderSettingsMenu({ isAdmin = false, areaKey = "admin", showLogout = false, onLogout }: HeaderSettingsMenuProps) {
   const t = useTranslations("header");
   const tLang = useTranslations("languageSwitch");
+  const tHelp = useTranslations("help");
   const router = useRouter();
   const pathname = usePathname();
   const currentLocale = useLocale() as Locale;
@@ -192,6 +193,19 @@ export default function HeaderSettingsMenu({ isAdmin = false, areaKey = "admin",
             );
           })}
 
+          <Link
+            data-row
+            href="/hilfe"
+            role="menuitem"
+            tabIndex={-1}
+            onClick={() => setOpen(false)}
+            className={rowClass}
+            style={{ color: "var(--foreground)", borderTop: "1px solid var(--border)", marginTop: 4 }}
+          >
+            <Question size={18} weight="bold" aria-hidden="true" />
+            <span className="flex-1">{tHelp("title")}</span>
+          </Link>
+
           {isAdmin && (
             <Link
               data-row
@@ -200,7 +214,7 @@ export default function HeaderSettingsMenu({ isAdmin = false, areaKey = "admin",
               tabIndex={-1}
               onClick={() => setOpen(false)}
               className={rowClass}
-              style={{ color: "var(--foreground)", borderTop: "1px solid var(--border)", marginTop: 4 }}
+              style={{ color: "var(--foreground)" }}
             >
               <UserCircleGear size={18} weight="bold" aria-hidden="true" />
               <span className="flex-1">{t(areaKey)}</span>
@@ -218,11 +232,8 @@ export default function HeaderSettingsMenu({ isAdmin = false, areaKey = "admin",
                 onLogout?.();
               }}
               className={rowClass}
-              style={{
-                color: "var(--foreground)",
-                // Admin and log out belong together, the divider sits only before the first row of the block.
-                ...(isAdmin ? {} : { borderTop: "1px solid var(--border)", marginTop: 4 }),
-              }}
+              // Help, admin and log out are one block, the divider sits above help.
+              style={{ color: "var(--foreground)" }}
             >
               <SignOut size={18} weight="bold" aria-hidden="true" />
               <span className="flex-1">{t("logout")}</span>

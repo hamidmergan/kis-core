@@ -2875,6 +2875,14 @@
       }
     }
   },
+  "help": {
+    "imageOpen": "{alt}, show larger",
+    "imageClose": "Close image",
+    "title": "Help",
+    "navLabel": "Help articles",
+    "filterPlaceholder": "Filter articles",
+    "noMatch": "No article matches this filter."
+  },
   "invite": {
     "welcome": "Welcome to KIS",
     "title": "Set up your account",
