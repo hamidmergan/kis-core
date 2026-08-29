@@ -1,6 +1,7 @@
 # backend/src/permissions_registry.py
 """The catalogue of all permissions, the texts live in the frontend language files."""
 
+from src.modules import MODULE_AIA, MODULE_TOOLS
 from src.tools_registry import ALL_TOOL_KEYS
 
 # Two chapters: what someone uses themselves and what they manage for others.
@@ -121,6 +122,38 @@ GROUP_CHAPTER: dict[str, str] = {group: chapter for chapter, group, _ in MATRIX_
 PERMISSION_GROUPS: dict[str, tuple[str, ...]] = {
     group: keys for _, group, keys in MATRIX_LAYOUT
 }
+
+# Welcher Schluessel zu welchem Modul gehoert, alles Uebrige gilt als immer da.
+KEY_MODULE: dict[str, str] = {
+    **{k: MODULE_AIA for k in AIA_KEYS},
+    PERM_SET_AIA_SOURCES: MODULE_AIA,
+    PERM_SET_AIA_LEVEL: MODULE_AIA,
+    PERM_SET_AIA_USAGE: MODULE_AIA,
+    **{k: MODULE_TOOLS for k in TOOL_KEYS},
+    PERM_SET_TOOLS_RELEASE: MODULE_TOOLS,
+    PERM_SET_TOOLS_JOBS: MODULE_TOOLS,
+    PERM_SET_TOOLS_LIMITS: MODULE_TOOLS,
+    PERM_SET_TOOLS_STATS: MODULE_TOOLS,
+}
+
+
+def keys_for_modules(modules) -> tuple[str, ...]:
+    """Der Katalog dieses Profils, in Katalog-Reihenfolge."""
+    aktiv = frozenset(modules)
+    return tuple(
+        k for k in ALL_PERMISSION_KEYS if KEY_MODULE.get(k) in (None, *aktiv)
+    )
+
+
+def matrix_layout_for(modules) -> tuple[tuple[str, str, tuple[str, ...]], ...]:
+    """Die Rechtematrix dieses Profils, leer gewordene Gruppen fallen raus."""
+    erlaubt = set(keys_for_modules(modules))
+    gefiltert = []
+    for chapter, group, keys in MATRIX_LAYOUT:
+        uebrig = tuple(k for k in keys if k in erlaubt)
+        if uebrig:
+            gefiltert.append((chapter, group, uebrig))
+    return tuple(gefiltert)
 
 
 def is_settings_key(permission: str) -> bool:
