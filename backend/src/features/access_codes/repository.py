@@ -123,3 +123,41 @@ def set_user_access(user_id: int, *, expires_at: datetime | None, code_id: int |
                 (expires_at, code_id, user_id),
             )
         conn.commit()
+
+
+def list_workspaces_for_user(user_id: int) -> list[dict]:
+    """Every module this account owns or joined, owned wins where both apply."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute(
+                """SELECT id AS workspace_id, title, created_at AS since
+                   FROM aia_workspaces WHERE user_id = %s""",
+                (user_id,),
+            )
+            eintraege = {zeile["workspace_id"]: {**dict(zeile), "relation": "owner"} for zeile in cur.fetchall()}
+            cur.execute(
+                """SELECT w.id AS workspace_id, w.title, e.created_at AS since
+                   FROM aia_enrollments e JOIN aia_workspaces w ON w.id = e.workspace_id
+                   WHERE e.user_id = %s""",
+                (user_id,),
+            )
+            for zeile in cur.fetchall():
+                eintraege.setdefault(zeile["workspace_id"], {**dict(zeile), "relation": "enrolled"})
+    return sorted(eintraege.values(), key=lambda z: z["since"], reverse=True)
+
+
+def list_messages_for_user(user_id: int, limit: int = 50) -> list[dict]:
+    """This account's chat rounds across every module, newest first and capped so the query stays cheap."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute(
+                """SELECT m.role, m.content, m.created_at, m.failed, m.aborted,
+                          w.title AS workspace_title
+                   FROM aia_messages m
+                   JOIN aia_workspaces w ON w.id = m.workspace_id
+                   WHERE m.user_id = %s
+                   ORDER BY m.created_at DESC
+                   LIMIT %s""",
+                (user_id, limit),
+            )
+            return [dict(zeile) for zeile in cur.fetchall()]

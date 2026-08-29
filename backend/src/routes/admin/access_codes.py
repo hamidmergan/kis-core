@@ -197,3 +197,21 @@ def reset_access_code_user_password(
 
     logger.info("admin {} reset the password for user_id={}", admin.get("email"), user_id)
     return {"username": konto["ldap_username"], "password": password}
+
+
+@router.get("/access-codes/users/{user_id}/activity")
+def access_code_user_activity(
+    user_id: int,
+    admin: dict = Depends(_require),
+    locale: str = Depends(get_locale),
+):
+    """Read-only look at a test account's modules and chat history, never for a real account."""
+    _require_feature(locale)
+    konto = database.get_user_by_id(user_id)
+    if not konto or not konto.get("access_code_id"):
+        raise HTTPException(status_code=403, detail=t("access.notFromCode", locale))
+
+    return {
+        "workspaces": repo.list_workspaces_for_user(user_id),
+        "messages": repo.list_messages_for_user(user_id),
+    }

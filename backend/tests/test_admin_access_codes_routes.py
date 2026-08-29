@@ -249,3 +249,92 @@ def test_resetting_a_password_for_an_account_without_a_code_is_refused(client):
 
     assert r.status_code == 403
     ldap_call.assert_not_called()
+
+
+def test_the_activity_route_returns_modules_and_messages(client):
+    konto = {"id": 42, "ldap_username": "abc12345", "access_code_id": 7}
+    module = [{"workspace_id": 1, "title": "Deutsch A1", "relation": "owner", "since": MORGEN}]
+    nachrichten = [{
+        "role": "user", "content": "Was bedeutet das?", "created_at": MORGEN,
+        "failed": False, "aborted": False, "workspace_title": "Deutsch A1",
+    }]
+    with patch("src.routes.admin.access_codes.database.get_user_by_id", return_value=konto), \
+         patch("src.routes.admin.access_codes.repo.list_workspaces_for_user", return_value=module) as ws, \
+         patch("src.routes.admin.access_codes.repo.list_messages_for_user", return_value=nachrichten) as msg:
+        r = client.get("/admin/access-codes/users/42/activity")
+
+    assert r.status_code == 200
+    body = r.json()
+    assert body["workspaces"][0]["relation"] == "owner"
+    assert body["messages"][0]["role"] == "user"
+    ws.assert_called_once_with(42)
+    msg.assert_called_once_with(42)
+
+
+def test_the_activity_route_refuses_an_account_without_a_code(client):
+    konto = {"id": 5, "ldap_username": "staffuser", "access_code_id": None}
+    with patch("src.routes.admin.access_codes.database.get_user_by_id", return_value=konto), \
+         patch("src.routes.admin.access_codes.repo.list_workspaces_for_user") as ws, \
+         patch("src.routes.admin.access_codes.repo.list_messages_for_user") as msg:
+        r = client.get("/admin/access-codes/users/5/activity")
+
+    assert r.status_code == 403
+    ws.assert_not_called()
+    msg.assert_not_called()
+
+
+def test_the_activity_route_refuses_an_unknown_account(client):
+    with patch("src.routes.admin.access_codes.database.get_user_by_id", return_value=None), \
+         patch("src.routes.admin.access_codes.repo.list_workspaces_for_user") as ws, \
+         patch("src.routes.admin.access_codes.repo.list_messages_for_user") as msg:
+        r = client.get("/admin/access-codes/users/999/activity")
+
+    assert r.status_code == 403
+    ws.assert_not_called()
+    msg.assert_not_called()
+
+
+class _FakeActivityCursor:
+    """Captures every execute() call so the SQL LIMIT can be checked."""
+
+    def __init__(self):
+        self.calls: list[tuple] = []
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def execute(self, sql, params=None):
+        self.calls.append((" ".join(sql.split()), params))
+
+    def fetchall(self):
+        return []
+
+
+class _FakeActivityConn:
+    def __init__(self, cursor):
+        self._cursor = cursor
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def cursor(self, **kwargs):
+        return self._cursor
+
+
+def test_the_message_cap_is_fifty(monkeypatch):
+    from src.features.access_codes import repository as repo
+
+    cursor = _FakeActivityCursor()
+    monkeypatch.setattr(repo, "get_connection", lambda: _FakeActivityConn(cursor))
+
+    repo.list_messages_for_user(42)
+
+    sql, params = cursor.calls[0]
+    assert "LIMIT %s" in sql
+    assert params[-1] == 50, "die Obergrenze muss bei 50 liegen, sonst waechst die Abfrage unbegrenzt"
