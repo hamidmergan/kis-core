@@ -6,7 +6,7 @@ import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import LockedNotice from "@/components/auth/LockedNotice";
 import { checkAuthStatus } from "@/lib/auth";
 import { EMPTY_PERMS } from "@/lib/permissions";
-import { pickHomeTarget, type HomeTarget } from "@/lib/modules";
+import { pickHomeTarget, enabledToolKeys, type HomeTarget } from "@/lib/modules";
 import { useEnabledTools } from "@/hooks/useEnabledTools";
 import type { AuthStatus } from "@/types";
 import WorkspaceHome from "./workspace/_components/WorkspaceHome";
@@ -31,7 +31,7 @@ export default function HomePage() {
   useEffect(() => {
     if (!auth || !toolsLoaded) return;
     const perms = auth.permissions ?? EMPTY_PERMS;
-    const enabledKeys = (enabledTools ?? []).filter((tool) => tool.enabled).map((tool) => tool.key);
+    const enabledKeys = enabledToolKeys(enabledTools);
     setState({
       target: pickHomeTarget(auth.modules, perms, enabledKeys),
       canCreate: !!perms.allow_workspace_create,

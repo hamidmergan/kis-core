@@ -36,3 +36,11 @@ export function pickHomeTarget(
   }
   return { kind: "locked" };
 }
+
+/** Ohne belastbare Antwort gilt jedes Werkzeug als frei, genau wie in der Seitenleiste. */
+export function enabledToolKeys(
+  tools: { key: string; enabled: boolean }[] | null,
+): string[] | undefined {
+  if (!tools || tools.length === 0) return undefined;
+  return tools.filter((t) => t.enabled).map((t) => t.key);
+}

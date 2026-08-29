@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pickHomeTarget } from "./modules";
+import { pickHomeTarget, enabledToolKeys } from "./modules";
 import { EMPTY_PERMS } from "./permissions";
 
 const mitAia = { ...EMPTY_PERMS, allow_aia: true };
@@ -70,5 +70,32 @@ describe("pickHomeTarget", () => {
   it("sperrt in einer reinen Assistenten-Anlage ohne aia-Recht", () => {
     const perms = { ...EMPTY_PERMS, tools: ["tts"] };
     expect(pickHomeTarget(["aia"], perms)).toEqual({ kind: "locked" });
+  });
+});
+
+describe("enabledToolKeys", () => {
+  it("gibt undefined, wenn die Liste noch nicht da ist", () => {
+    expect(enabledToolKeys(null)).toBeUndefined();
+  });
+
+  it("gibt undefined bei leerer Liste, weil das nur ein gescheiterter Abruf sein kann", () => {
+    expect(enabledToolKeys([])).toBeUndefined();
+  });
+
+  it("gibt die freigegebenen Schluessel", () => {
+    const tools = [
+      { key: "translation", enabled: true },
+      { key: "tts", enabled: false },
+      { key: "image", enabled: true },
+    ];
+    expect(enabledToolKeys(tools)).toEqual(["translation", "image"]);
+  });
+
+  it("gibt eine leere Liste, wenn eine echte Antwort alles sperrt", () => {
+    const tools = [
+      { key: "translation", enabled: false },
+      { key: "tts", enabled: false },
+    ];
+    expect(enabledToolKeys(tools)).toEqual([]);
   });
 });
