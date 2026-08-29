@@ -265,6 +265,31 @@ async def test_creating_a_role_twice_says_so(monkeypatch):
     assert "Sprachexperte" in err.value.detail
 
 
+# ── Loeschen einer Rolle mit Rechten aus einem seither abgeschalteten Modul ──
+
+async def test_delete_role_ignores_stale_keys_from_a_narrowed_profile(monkeypatch):
+    """A role still holding an aia key must stay deletable once MODULES=tools."""
+    from src import permissions as permissions_module
+    from src.modules import MODULE_TOOLS
+
+    nur_tools = frozenset({MODULE_TOOLS})
+    monkeypatch.setattr(permissions_module, "active_modules", lambda: nur_tools)
+    monkeypatch.setattr(roles_route, "active_modules", lambda: nur_tools)
+    monkeypatch.setattr(
+        roles_route.db, "get_custom_role",
+        lambda role_id: {"id": role_id, "name": "Alt", "permissions": [PERM_AIA_USE, PERM_SET_AIA_LEVEL]},
+    )
+    deleted = {}
+    monkeypatch.setattr(
+        roles_route.db, "delete_custom_role", lambda role_id: deleted.setdefault("id", role_id)
+    )
+
+    out = await roles_route.delete_role(3, ADMIN, "de")
+
+    assert out == {"status": "ok"}
+    assert deleted["id"] == 3
+
+
 async def test_renaming_onto_an_existing_name_says_so(monkeypatch):
     from src.features.admin.repository.roles import RoleNameTaken
 

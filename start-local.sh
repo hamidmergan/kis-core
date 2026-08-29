@@ -16,7 +16,7 @@ if command -v nvidia-smi >/dev/null 2>&1; then
 fi
 
 # Compose startet Dienste mit "profiles" nur, wenn ihr Profil genannt ist.
-MODULES_WERT=$(grep -E '^MODULES[[:space:]]*=' .env 2>/dev/null | tail -1 | cut -d= -f2- | tr -d ' "')
+MODULES_WERT=$(grep -E '^MODULES[[:space:]]*=' .env 2>/dev/null | tail -1 | cut -d= -f2- | cut -d'#' -f1 | tr -d " \"'")
 export COMPOSE_PROFILES="${MODULES_WERT:-aia,tools}"
 echo "Modul-Profil: $COMPOSE_PROFILES"
 

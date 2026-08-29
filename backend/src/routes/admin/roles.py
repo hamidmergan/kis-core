@@ -131,7 +131,8 @@ async def delete_role(
     role = db.get_custom_role(role_id)
     if role is None:
         raise HTTPException(status_code=404, detail="Role not found")
-    # Whoever could not grant a role may not dissolve it either.
-    assert_may_grant(permissions_of(admin), role["permissions"], locale)
+    # Whoever could not grant a role may not dissolve it either, stale keys from a since-narrowed profile do not count.
+    erlaubt = set(keys_for_modules(active_modules()))
+    assert_may_grant(permissions_of(admin), [k for k in role["permissions"] if k in erlaubt], locale)
     db.delete_custom_role(role_id)
     return {"status": "ok"}

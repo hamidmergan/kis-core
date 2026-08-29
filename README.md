@@ -51,6 +51,12 @@ than 403, and the Celery worker of the disabled half does not start.
 because all of them belong to the assistant. `MODULES=aia` removes the global glossary,
 the assistant keeps its own.
 
+With `MODULES=tools`, the built-in `user` role ends up with no permissions, because its
+only permission belongs to the assistant. This is deliberate: granting `user` all the
+tools by default would be a bigger grant than it has today, and that is a decision about
+quotas and cost for the university to make. Such an installation therefore needs a custom
+role granting the wanted tools before students can do anything.
+
 ## AI providers
 
 No API keys in `.env`. Log in as admin, add the providers under **Admin → KI** and route every feature to a model there. Any OpenAI compatible endpoint works, plus DeepL and Docling.

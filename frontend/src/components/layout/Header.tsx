@@ -27,6 +27,8 @@ export default function Header({ hasSession = true, showLogout = false, showTool
   const [areaKey, setAreaKey] = useState<"admin" | "settings">("admin");
   const [isLocalMode, setIsLocalMode] = useState(false);
   const [hasTools, setHasTools] = useState(false);
+  // A missing modules field means an older server, which always has both.
+  const [hasAia, setHasAia] = useState(true);
 
   useEffect(() => {
     if (!showLogout || !hasSession) return;
@@ -36,6 +38,7 @@ export default function Header({ hasSession = true, showLogout = false, showTool
       setIsLocalMode(s.local_mode ?? false);
       // Jobs only come from tools, without a tool permission the list stays empty.
       setHasTools((s.permissions?.tools?.length ?? 0) > 0);
+      setHasAia((s.modules ?? ["aia", "tools"]).includes("aia"));
     });
   }, [showLogout, hasSession]);
 
@@ -66,7 +69,7 @@ export default function Header({ hasSession = true, showLogout = false, showTool
         {showLogout && (
           <div className="flex items-center gap-1.5">
             <div className="hidden sm:flex items-center gap-1.5">
-              {hasSession && (
+              {hasSession && hasAia && (
                 <Link
                   href="/calendar"
                   aria-label={t("calendar")}
@@ -92,6 +95,7 @@ export default function Header({ hasSession = true, showLogout = false, showTool
               isAdmin={isAdmin}
               areaKey={areaKey}
               hasTools={hasTools}
+              hasAia={hasAia}
               isLocalMode={isLocalMode}
               showToolsToggle={showToolsToggle}
               onLogout={handleLogout}

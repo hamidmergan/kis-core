@@ -17,6 +17,7 @@ interface HeaderMobileMenuProps {
   isAdmin: boolean;
   areaKey?: "admin" | "settings";
   hasTools?: boolean;
+  hasAia?: boolean;
   isLocalMode?: boolean;
   showToolsToggle?: boolean;
   onLogout: () => void;
@@ -34,7 +35,7 @@ async function persistLocale(locale: Locale) {
   }
 }
 
-export default function HeaderMobileMenu({ hasSession, isAdmin, areaKey = "admin", hasTools = false, isLocalMode = false, showToolsToggle = false, onLogout }: HeaderMobileMenuProps) {
+export default function HeaderMobileMenu({ hasSession, isAdmin, areaKey = "admin", hasTools = false, hasAia = true, isLocalMode = false, showToolsToggle = false, onLogout }: HeaderMobileMenuProps) {
   const t = useTranslations("header");
   const tLang = useTranslations("languageSwitch");
   const tManual = useTranslations("manual");
@@ -122,7 +123,7 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, areaKey = "admin
               <CaretRight size={14} weight="bold" style={{ color: "var(--muted)" }} aria-hidden="true" />
             </button>
           )}
-          {hasSession && (
+          {hasSession && hasAia && (
             <Link
               href="/calendar"
               onClick={() => setOpen(false)}

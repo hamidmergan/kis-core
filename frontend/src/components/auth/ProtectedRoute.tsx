@@ -43,7 +43,14 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
       const isAdminPath = pathname?.startsWith("/admin");
       const isToolPath = pathname?.startsWith("/tools/");
       const isJobsPath = pathname?.startsWith("/my-jobs");
+      const isCalendarPath = pathname === "/calendar" || pathname?.startsWith("/calendar/");
 
+      // The calendar is pure assistant, a missing modules field means an older server.
+      if (isCalendarPath && !(status.modules ?? ["aia", "tools"]).includes("aia")) {
+        router.replace("/");
+        setLoading(false);
+        return;
+      }
       if (isAdminPath && !perms.allow_admin_panel) {
         router.replace("/");
         setLoading(false);

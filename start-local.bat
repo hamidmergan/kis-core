@@ -12,7 +12,7 @@ set COMPOSE_FILES=-f docker-compose.yml -f docker-compose.dev.yml -f docker-comp
 
 rem Compose startet Dienste mit "profiles" nur, wenn ihr Profil genannt ist.
 set COMPOSE_PROFILES=aia,tools
-for /f "tokens=1,* delims==" %%a in ('findstr /b /r "MODULES *=" .env 2^>nul') do set COMPOSE_PROFILES=%%b
+for /f "tokens=1,* delims==" %%a in ('findstr /b /r "MODULES *=" .env 2^>nul') do if not "%%b"=="" set COMPOSE_PROFILES=%%b
 set COMPOSE_PROFILES=%COMPOSE_PROFILES:"=%
 set COMPOSE_PROFILES=%COMPOSE_PROFILES: =%
 echo Modul-Profil: %COMPOSE_PROFILES%
