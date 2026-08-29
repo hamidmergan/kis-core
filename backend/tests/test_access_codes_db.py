@@ -39,7 +39,7 @@ def konto_am_code(schema):
     """A code plus an account created by it, both disappear afterwards."""
     kennung = uuid_modul.uuid4().hex[:8]
     code_id = repo.create_code(
-        code=f"TEST-{kennung.upper()}",
+        code=f"KIS-TEST-{kennung.upper()}",
         label="Testrunde Loeschen",
         role="user",
         custom_role_id=None,

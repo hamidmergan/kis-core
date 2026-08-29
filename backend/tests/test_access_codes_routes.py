@@ -15,7 +15,7 @@ GESTERN = datetime.now() - timedelta(days=1)
 def _code(**abweichungen):
     eintrag = {
         "id": 7,
-        "code": "4K2P-7RXM",
+        "code": "KIS-4K2P-7RXM",
         "label": "Kollegen August",
         "role": "staff",
         "custom_role_id": None,
@@ -71,7 +71,7 @@ def _sitzung():
     return patch("src.routes.access_codes.get_session_store")
 
 
-GUELTIG = {"code": "4k2p-7rxm"}
+GUELTIG = {"code": "kis-4k2p-7rxm"}
 
 
 def test_redeeming_creates_the_account_and_sets_the_deadline(client):
@@ -93,7 +93,7 @@ def test_redeeming_creates_the_account_and_sets_the_deadline(client):
     assert r.json()["username"] == "ab234567"
     assert r.json()["password"] == "s3cr3t-pw"
     # Sloppy typing gets repaired before the lookup.
-    suchen.assert_called_once_with("4K2P-7RXM")
+    suchen.assert_called_once_with("KIS-4K2P-7RXM")
     assert anlegen.call_args.kwargs["email"] == "ab234567@demo.kis.local"
     assert anlegen.call_args.kwargs["given_name"] == ""
     assert anlegen.call_args.kwargs["surname"] == ""
@@ -266,7 +266,7 @@ def test_a_code_with_a_living_custom_role_still_works(client):
     assert anlegen.call_args.kwargs["custom_role_id"] == 9
 
 
-VERLAENGERN = {"username": "max.mustermann", "password": "geheim123", "code": "4K2P-7RXM"}
+VERLAENGERN = {"username": "max.mustermann", "password": "geheim123", "code": "KIS-4K2P-7RXM"}
 
 
 def test_renewing_moves_the_deadline_and_logs_in(client):

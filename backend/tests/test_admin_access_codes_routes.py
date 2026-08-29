@@ -88,7 +88,7 @@ def test_creating_a_code_returns_the_readable_code(client):
         })
 
     assert r.status_code == 200
-    assert re.fullmatch(r"[A-Z2-9]{4}-[A-Z2-9]{4}", r.json()["code"])
+    assert re.fullmatch(r"KIS-[A-Z2-9]{4}-[A-Z2-9]{4}", r.json()["code"])
     assert anlegen.call_args.kwargs["max_uses"] == 50
     assert anlegen.call_args.kwargs["access_days"] == 14
     assert anlegen.call_args.kwargs["created_by"] == 1
@@ -141,15 +141,15 @@ def test_a_custom_role_has_to_exist(client):
 
 def test_the_list_carries_the_state_of_every_code(client):
     eintraege = [
-        {"id": 1, "code": "AAAA-BBBB", "label": "A", "role": "staff",
+        {"id": 1, "code": "KIS-AAAA-BBBB", "label": "A", "role": "staff",
          "custom_role_id": None, "max_uses": 50, "used_count": 3,
          "valid_until": MORGEN, "access_days": 14, "active": True,
          "created_at": MORGEN, "created_by": 1},
-        {"id": 2, "code": "CCCC-DDDD", "label": "B", "role": "user",
+        {"id": 2, "code": "KIS-CCCC-DDDD", "label": "B", "role": "user",
          "custom_role_id": None, "max_uses": 5, "used_count": 5,
          "valid_until": MORGEN, "access_days": 14, "active": True,
          "created_at": MORGEN, "created_by": 1},
-        {"id": 3, "code": "EEEE-FFFF", "label": "C", "role": "user",
+        {"id": 3, "code": "KIS-EEEE-FFFF", "label": "C", "role": "user",
          "custom_role_id": None, "max_uses": 5, "used_count": 0,
          "valid_until": MORGEN, "access_days": 14, "active": False,
          "created_at": MORGEN, "created_by": 1},
