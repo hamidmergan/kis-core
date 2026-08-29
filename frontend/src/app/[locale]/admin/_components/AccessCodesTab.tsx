@@ -383,7 +383,7 @@ export default function AccessCodesTab() {
                                 {kopiertPasswort === k.id && <Check size={12} weight="bold" className="text-kb" />}
                               </button>
                             </div>
-                            <span className="text-[11px] text-muted-soft">{t("newPasswordOnce")}</span>
+                            <span className="text-2xs text-muted-soft">{t("newPasswordOnce")}</span>
                           </div>
                         ) : (
                           <button
