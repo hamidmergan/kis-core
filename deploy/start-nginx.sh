@@ -4,6 +4,12 @@
 cd "$(dirname "$0")/.." || exit 1
 
 COMPOSE_FILES="-f docker-compose.yml -f docker-compose.prod.yml"
+
+# Compose startet Dienste mit "profiles" nur, wenn ihr Profil genannt ist.
+MODULES_WERT=$(grep -E '^MODULES[[:space:]]*=' .env 2>/dev/null | tail -1 | cut -d= -f2- | tr -d ' "')
+export COMPOSE_PROFILES="${MODULES_WERT:-aia,tools}"
+echo "Modul-Profil: $COMPOSE_PROFILES"
+
 CMD=${1:-up}
 
 if [ "$CMD" = "down" ]; then

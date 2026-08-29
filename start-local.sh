@@ -15,6 +15,11 @@ if command -v nvidia-smi >/dev/null 2>&1; then
     COMPOSE_FILES="$COMPOSE_FILES -f docker-compose.gpu.yml"
 fi
 
+# Compose startet Dienste mit "profiles" nur, wenn ihr Profil genannt ist.
+MODULES_WERT=$(grep -E '^MODULES[[:space:]]*=' .env 2>/dev/null | tail -1 | cut -d= -f2- | tr -d ' "')
+export COMPOSE_PROFILES="${MODULES_WERT:-aia,tools}"
+echo "Modul-Profil: $COMPOSE_PROFILES"
+
 frontend_hint() {
     echo
     echo "=== Frontend separat starten: cd frontend && npm run dev ==="

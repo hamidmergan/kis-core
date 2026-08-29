@@ -40,6 +40,17 @@ cd frontend && npm install && npm run dev
 Frontend: http://localhost:3000
 API docs: http://localhost:8000/docs
 
+### Modules
+
+`MODULES` in `.env` decides which halves this installation has. `aia,tools` is the
+default and keeps everything. `MODULES=aia` ships only the AI assistant, `MODULES=tools`
+only the global tools. Disabled routes are not mounted at all, so they answer 404 rather
+than 403, and the Celery worker of the disabled half does not start.
+
+`MODULES=tools` also removes the language trainer, flashcards and grammar exercises,
+because all of them belong to the assistant. `MODULES=aia` removes the global glossary,
+the assistant keeps its own.
+
 ## AI providers
 
 No API keys in `.env`. Log in as admin, add the providers under **Admin → KI** and route every feature to a model there. Any OpenAI compatible endpoint works, plus DeepL and Docling.

@@ -128,6 +128,7 @@ services:
   celery-worker-screencast:
     build: ./backend
     container_name: kis-celery-screencast
+    profiles: ["tools"]
     # Ceiling from the cores instead of fixed. On today's 4-core box the formula
     # gives exactly the previous 2, but it grows with a bigger server. Screencast
     # stays the most frugal worker on purpose: rendering and PPTX conversion keep
@@ -191,6 +192,7 @@ services:
   celery-worker-aia:
     build: ./backend
     container_name: kis-celery-aia
+    profiles: ["aia"]
     # Ceiling from the cores. On 4 cores it gives the previous 12. The studio tools
     # and ingest wait on the AI model most of the time.
     command: >
