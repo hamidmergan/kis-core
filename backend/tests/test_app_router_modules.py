@@ -7,21 +7,8 @@ NUR_AIA = frozenset({MODULE_AIA})
 NUR_TOOLS = frozenset({MODULE_TOOLS})
 
 
-def _collect_paths(routes) -> set[str]:
-    """Recursively collect all paths from routes, handling nested _IncludedRouter objects."""
-    paths = set()
-    for route in routes:
-        if hasattr(route, 'path'):
-            paths.add(route.path)
-        elif hasattr(route, 'original_router'):
-            paths.update(_collect_paths(route.original_router.routes))
-    return paths
-
-
 def _pfade(modules) -> set[str]:
-    """Collect all paths from routers, including nested _IncludedRouter objects."""
-    app = create_app(modules=modules)
-    return _collect_paths(app.routes)
+    return set(create_app(modules=modules).openapi()["paths"])
 
 
 def test_beide_module_haengen_alles_ein():

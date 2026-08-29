@@ -17,8 +17,7 @@ from src.modules import MODULE_AIA, MODULE_TOOLS, active_modules
 from src.security.auth import verify_auth
 from src.limits import REQUEST_THREAD_LIMIT
 from src.storage import USE_S3, init_storage
-from src.routes import access_codes, auth, glossaries, health, image, invites, jobs, aia, ki_status, me, screencast, screencast_demo, summary, transcription, translate, tts
-from src.routes.admin import access_codes as admin_access_codes, diagnosis_plan as admin_diagnosis_plan, impersonation as admin_impersonation, invites as admin_invites, jobs as admin_jobs, load as admin_load, ldap_users as admin_ldap_users, maintenance as admin_maintenance, pools as admin_pools, providers as admin_providers, quota as admin_quota, roles as admin_roles, settings as admin_settings, stats as admin_stats, tools as admin_tools, users as admin_users
+from src.routes import access_codes, admin, auth, glossaries, health, image, invites, jobs, aia, ki_status, me, screencast, screencast_demo, summary, transcription, translate, tts
 
 # Routes that stay reachable during maintenance.
 _MAINTENANCE_OPEN_PATHS = {"/health", "/health/maintenance", "/health/labels"}
@@ -213,36 +212,14 @@ def create_app(modules=None) -> FastAPI:
     )
 
     # Register routers
-    from fastapi import APIRouter
-
     application.include_router(auth.router)
     application.include_router(invites.router)
     application.include_router(access_codes.router)
     application.include_router(health.router)
     application.include_router(jobs.router)
+    application.include_router(admin.router)
     application.include_router(ki_status.router)
     application.include_router(me.router)
-
-    # Build admin router conditionally based on active modules.
-    admin_router = APIRouter(prefix="/admin")
-    admin_router.include_router(admin_access_codes.router)
-    admin_router.include_router(admin_settings.router)
-    admin_router.include_router(admin_diagnosis_plan.router)
-    admin_router.include_router(admin_maintenance.router)
-    admin_router.include_router(admin_pools.router)
-    admin_router.include_router(admin_tools.router)
-    admin_router.include_router(admin_users.router)
-    if MODULE_AIA in aktiv:
-        admin_router.include_router(admin_stats.router)
-    admin_router.include_router(admin_jobs.router)
-    admin_router.include_router(admin_load.router)
-    admin_router.include_router(admin_ldap_users.router)
-    admin_router.include_router(admin_invites.router)
-    admin_router.include_router(admin_providers.router)
-    admin_router.include_router(admin_quota.router)
-    admin_router.include_router(admin_roles.router)
-    admin_router.include_router(admin_impersonation.router)
-    application.include_router(admin_router)
 
     if MODULE_TOOLS in aktiv:
         for modul in (translate, image, tts, transcription, screencast,
