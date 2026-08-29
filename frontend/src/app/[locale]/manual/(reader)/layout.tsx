@@ -17,7 +17,7 @@ export default async function ManualReaderLayout({
   return (
     <ProtectedRoute>
       <div className="relative px-4 sm:px-6 lg:px-8 pt-10 pb-20">
-        <div className="absolute top-6 right-4 sm:right-6 lg:right-8">
+        <div className="flex justify-end mb-6 sm:absolute sm:top-6 sm:right-6 sm:mb-0 lg:right-8">
           <ManualPrintLink />
         </div>
         <div className="flex flex-col lg:flex-row gap-8 lg:gap-12">

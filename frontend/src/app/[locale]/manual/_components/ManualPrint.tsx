@@ -43,7 +43,7 @@ export default function ManualPrintView({
         }
       `}</style>
 
-      <div className="manual-print-hide absolute top-6 right-4 sm:right-6 lg:right-8">
+      <div className="manual-print-hide flex justify-end mb-6 sm:absolute sm:top-6 sm:right-6 sm:mb-0 lg:right-8">
         <button
           type="button"
           onClick={() => window.print()}
