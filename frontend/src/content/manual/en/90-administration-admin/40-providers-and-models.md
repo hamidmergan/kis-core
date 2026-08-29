@@ -6,8 +6,8 @@ on which task.
 
 ## Providers
 
-A provider is a service with an address and a key. The key is stored encrypted and is not shown
-again afterwards.
+A provider is a service with an address and a key. After saving, KIS only shows the last six
+characters, the full key does not appear again.
 
 ## Models per task
 

@@ -5,12 +5,14 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Eye, EyeSlash, Lock, WarningCircle } from "@phosphor-icons/react";
+import { Check, Copy, Eye, EyeSlash, WarningCircle } from "@phosphor-icons/react";
 import Header from "@/components/layout/Header";
+import IconButton from "@/components/ui/IconButton";
 import Spinner from "@/components/ui/Spinner";
+import { copyTextFromPromise } from "@/lib/clipboard";
 import { checkPassword, MIN_PASSWORD_LENGTH } from "./checkPassword";
 
-type Einladung = { email: string; uid: string };
+type Einladung = { uid: string };
 
 export default function InvitePage() {
   const t = useTranslations("invite");
@@ -28,6 +30,14 @@ export default function InvitePage() {
   const [surname, setSurname] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [kopiert, setKopiert] = useState(false);
+
+  /** Same checkmark-for-1500ms feedback as the access-code page. */
+  function benutzernamenKopieren(uid: string) {
+    copyTextFromPromise(Promise.resolve(uid));
+    setKopiert(true);
+    setTimeout(() => setKopiert(false), 1500);
+  }
 
   useEffect(() => {
     if (!token) return;
@@ -36,7 +46,7 @@ export default function InvitePage() {
         const r = await fetch(`/api/invites/${encodeURIComponent(token)}`, { cache: "no-store" });
         if (r.ok) {
           const d = await r.json();
-          setEinladung({ email: d.email, uid: d.uid });
+          setEinladung({ uid: d.uid });
         } else if (r.status === 404 || r.status === 410) {
           // Only these two really mean 'no longer exists'.
           setUngueltig(true);
@@ -137,15 +147,25 @@ export default function InvitePage() {
               <form onSubmit={submit} className="space-y-4">
                 <div>
                   <span className="block text-sm font-medium text-foreground-soft mb-1">
-                    {t("email")}
+                    {t("username")}
                   </span>
-                  <div className="flex items-center gap-2 w-full px-3 py-2 border border-border-soft bg-surface rounded-md text-sm text-foreground-soft">
-                    <Lock size={14} weight="bold" className="shrink-0 text-muted-soft" />
-                    <span className="truncate">{einladung?.email}</span>
+                  <div className="flex items-center justify-between gap-2 px-3 py-2 border border-border rounded-md">
+                    <span data-testid="invite-username" className="font-mono text-sm break-all">
+                      {einladung?.uid}
+                    </span>
+                    <IconButton
+                      size="sm"
+                      onClick={() => benutzernamenKopieren(einladung?.uid ?? "")}
+                      aria-label={kopiert ? t("copied") : t("copyUsername")}
+                    >
+                      {kopiert ? (
+                        <Check size={14} weight="bold" className="text-kb" />
+                      ) : (
+                        <Copy size={14} weight="bold" />
+                      )}
+                    </IconButton>
                   </div>
-                  <p className="mt-1.5 text-xs text-muted-soft">
-                    {t("uidHint", { uid: einladung?.uid ?? "" })}
-                  </p>
+                  <p className="mt-1.5 text-xs text-muted-soft">{t("usernameHint")}</p>
                 </div>
 
                 <div>

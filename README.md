@@ -42,20 +42,15 @@ API docs: http://localhost:8000/docs
 
 ### Modules
 
-`MODULES` in `.env` decides which halves this installation has. `aia,tools` is the
-default and keeps everything. `MODULES=aia` ships only the AI assistant, `MODULES=tools`
-only the global tools. Disabled routes are not mounted at all, so they answer 404 rather
-than 403, and the Celery worker of the disabled half does not start.
+`MODULES` in `.env` picks the halves: `aia,tools` (default), `aia`, or `tools`. A disabled
+half is gone, not hidden — its routes answer 404 and its Celery worker does not start.
+Changing it needs a restart.
 
-`MODULES=tools` also removes the language trainer, flashcards and grammar exercises,
-because all of them belong to the assistant. `MODULES=aia` removes the global glossary,
-the assistant keeps its own.
+`MODULES=aia` drops the global glossary, `MODULES=tools` drops the language trainer,
+flashcards and grammar exercises.
 
-With `MODULES=tools`, the built-in `user` role ends up with no permissions, because its
-only permission belongs to the assistant. This is deliberate: granting `user` all the
-tools by default would be a bigger grant than it has today, and that is a decision about
-quotas and cost for the university to make. Such an installation therefore needs a custom
-role granting the wanted tools before students can do anything.
+`MODULES=tools` leaves the built-in `user` role with no permissions, since its only one
+belongs to the assistant. Give students a custom role with the tools you want.
 
 ## AI providers
 

@@ -7,8 +7,8 @@ Hier pflegen Sie eigene Begriffslisten, damit Fachbegriffe in Übersetzungen üb
 
 ## Ein Glossar anlegen
 
-Auf **+ Neues Glossar** klicken, Namen vergeben, danach Einträge hinzufügen. Ein Eintrag besteht
-aus dem deutschen und dem englischen Begriff.
+Neu entsteht über **+ Neues Glossar**. Ein Eintrag besteht aus dem deutschen und dem
+englischen Begriff.
 
 ## Wo es wirkt
 

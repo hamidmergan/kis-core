@@ -4,10 +4,9 @@ Brings long documents as well as audio and video content down to the essentials.
 
 ![The summary tool](/manual/{lang}/tool-summary.png)
 
-## How it goes
+## Duration
 
-Pick the file, click Create summary, wait. Extensive content takes a few minutes. Afterwards the
-result is ready to download.
+Extensive content takes a few minutes, afterwards the result is ready to download.
 
 ## What to expect
 

@@ -6,8 +6,8 @@ welche Aufgabe übernimmt.
 
 ## Anbieter
 
-Ein Anbieter ist ein Dienst mit einer Adresse und einem Schlüssel. Der Schlüssel wird
-verschlüsselt gespeichert und danach nicht mehr angezeigt.
+Ein Anbieter ist ein Dienst mit einer Adresse und einem Schlüssel. Nach dem Speichern zeigt KIS
+nur noch die letzten sechs Zeichen, der volle Schlüssel erscheint nicht wieder.
 
 ## Modelle je Aufgabe
 

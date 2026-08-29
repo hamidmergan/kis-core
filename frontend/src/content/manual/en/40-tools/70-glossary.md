@@ -6,8 +6,8 @@ Here you keep your own term lists, so technical terms are translated the same wa
 
 ## Creating a glossary
 
-Click **+ New glossary**, give it a name, then add entries. An entry consists of the German and
-the English term.
+A new one starts with **+ New glossary**. An entry consists of the German and the English
+term.
 
 ## Where it takes effect
 

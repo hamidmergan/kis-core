@@ -28,20 +28,21 @@ def client(monkeypatch):
     get_settings.cache_clear()
 
 
-def test_creating_an_invite_derives_the_username_and_returns_a_token(client):
+def test_creating_an_invite_makes_up_the_address_and_returns_a_token(client):
     with patch("src.routes.admin.invites.database.get_user_by_username", return_value=None), \
          patch("src.routes.admin.invites.repo.open_invite_for_email", return_value=None), \
          patch("src.routes.admin.invites.repo.create_invite", return_value=3) as anlegen:
         r = client.post(
             "/admin/invites",
-            json={"email": "Max.Mustermann@th-luebeck.de", "kis_role": "staff"},
+            json={"username": "Max.Mustermann", "kis_role": "staff"},
         )
 
     assert r.status_code == 200
     body = r.json()
     assert body["uid"] == "max.mustermann"
+    assert body["email"] == "max.mustermann@kis.local"
     assert len(body["token"]) >= 32
-    assert anlegen.call_args.kwargs["email"] == "Max.Mustermann@th-luebeck.de"
+    assert anlegen.call_args.kwargs["email"] == "max.mustermann@kis.local"
     assert anlegen.call_args.kwargs["role"] == "staff"
 
 
@@ -51,20 +52,20 @@ def test_inviting_someone_who_already_has_an_account_is_refused(client):
          patch("src.routes.admin.invites.repo.create_invite") as anlegen:
         r = client.post(
             "/admin/invites",
-            json={"email": "max.mustermann@th-luebeck.de", "kis_role": "user"},
+            json={"username": "max.mustermann", "kis_role": "user"},
         )
 
     assert r.status_code == 409
     anlegen.assert_not_called()
 
 
-def test_a_second_open_invite_to_the_same_address_is_refused(client):
+def test_a_second_open_invite_to_the_same_username_is_refused(client):
     with patch("src.routes.admin.invites.database.get_user_by_username", return_value=None), \
          patch("src.routes.admin.invites.repo.open_invite_for_email", return_value={"id": 2}), \
          patch("src.routes.admin.invites.repo.create_invite") as anlegen:
         r = client.post(
             "/admin/invites",
-            json={"email": "max.mustermann@th-luebeck.de", "kis_role": "user"},
+            json={"username": "max.mustermann", "kis_role": "user"},
         )
 
     assert r.status_code == 409
@@ -77,17 +78,17 @@ def test_inviting_is_gone_when_the_switch_is_off(client):
         settings.return_value.ldap_user_creation_enabled = False
         r = client.post(
             "/admin/invites",
-            json={"email": "max.mustermann@th-luebeck.de", "kis_role": "user"},
+            json={"username": "max.mustermann", "kis_role": "user"},
         )
 
     assert r.status_code == 404
     anlegen.assert_not_called()
 
 
-@pytest.mark.parametrize("email", ["keine-adresse", "!@th-luebeck.de"])
-def test_an_address_without_a_usable_username_is_refused(client, email):
+@pytest.mark.parametrize("eingabe", ["!!", "+++++"])
+def test_an_entry_without_a_usable_username_is_refused(client, eingabe):
     with patch("src.routes.admin.invites.repo.create_invite") as anlegen:
-        r = client.post("/admin/invites", json={"email": email, "kis_role": "user"})
+        r = client.post("/admin/invites", json={"username": eingabe, "kis_role": "user"})
 
     assert r.status_code == 400
     anlegen.assert_not_called()
@@ -101,7 +102,7 @@ def test_an_unknown_role_is_refused(client):
         r = client.post(
             "/admin/invites",
             json={
-                "email": "max.mustermann@th-luebeck.de",
+                "username": "max.mustermann",
                 "kis_role": "custom",
                 "custom_role_id": 99,
             },
@@ -116,10 +117,10 @@ def test_the_list_carries_the_status_of_each_invite(client):
 
     jetzt = datetime.now()
     zeilen = [
-        {"id": 1, "email": "offen@th-luebeck.de", "uid": "offen", "role": "staff",
+        {"id": 1, "email": "offen@kis.local", "uid": "offen", "role": "staff",
          "custom_role_id": None, "token": "tok1", "created_at": jetzt,
          "expires_at": jetzt + timedelta(days=1), "used_at": None},
-        {"id": 2, "email": "alt@th-luebeck.de", "uid": "alt", "role": "user",
+        {"id": 2, "email": "alt@kis.local", "uid": "alt", "role": "user",
          "custom_role_id": None, "token": "tok2", "created_at": jetzt,
          "expires_at": jetzt - timedelta(days=1), "used_at": None},
     ]
@@ -153,7 +154,7 @@ def _offene_einladung(**overrides):
     zeile = {
         "id": 1,
         "token": "tok",
-        "email": "max.mustermann@th-luebeck.de",
+        "email": "max.mustermann@kis.local",
         "uid": "max.mustermann",
         "role": "staff",
         "custom_role_id": None,
@@ -172,15 +173,12 @@ def test_an_unknown_link_is_not_found(client):
     assert r.status_code == 404
 
 
-def test_an_open_link_shows_the_address_and_the_username(client):
+def test_an_open_link_shows_the_username(client):
     with patch("src.routes.invites.repo.get_invite_by_token", return_value=_offene_einladung()):
         r = client.get("/invites/tok")
 
     assert r.status_code == 200
-    assert r.json() == {
-        "email": "max.mustermann@th-luebeck.de",
-        "uid": "max.mustermann",
-    }
+    assert r.json() == {"uid": "max.mustermann"}
 
 
 def test_a_used_link_is_gone(client):
@@ -224,7 +222,7 @@ def test_redeeming_creates_an_active_account_and_signs_in(client):
     assert r.status_code == 200
     assert ldap_add.call_args.kwargs["uid"] == "max.mustermann"
     assert ldap_add.call_args.kwargs["password"] == "ein-langes-passwort"
-    whitelist.assert_called_once_with("max.mustermann@th-luebeck.de")
+    whitelist.assert_called_once_with("max.mustermann@kis.local")
     assert anlegen.call_args.kwargs["active"] == 1
     assert anlegen.call_args.kwargs["role"] == "staff"
     stempeln.assert_called_once_with(1)

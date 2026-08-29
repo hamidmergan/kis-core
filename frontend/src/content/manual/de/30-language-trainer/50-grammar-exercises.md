@@ -24,14 +24,15 @@ nicht richtig. Zu jedem Satz gibt es eine Musterlösung.
 Fast bedeutet, dass die Richtung stimmt, aber etwas anderes hakt, etwa ein Fall oder eine
 Endung.
 
-## Welche Themen es gibt
+## Woher die Themen kommen
 
-Die Themen stehen in einem Katalog, den die Verwaltung pflegt. Zur Auswahl stehen unter anderem
-Passiv Präsens, Passiv mit Modalverb, Perfekt, Präteritum, Konjunktiv II, Relativsätze,
-Nebensätze und Adjektivdeklination.
+Eigentümer oder Tutor legen sie im Modul an, mit einem freien Namen wie „Konjunktiv II". Die KI
+schlägt dazu Regel und ein Beispielpaar vor, vor dem Speichern noch änderbar. Acht Themen sind
+von Anfang an da: Passiv Präsens, Passiv mit Modalverb, Perfekt, Präteritum, Konjunktiv II,
+Relativsätze, Nebensätze und Adjektivdeklination.
 
 ## Woran es scheitern kann
 
-Die Themen kommen aus dem Katalog, die Sätze aus Ihren Materialien. Steht in den Materialien
-nichts zu einer Grammatikform, kann die Übung dazu nichts bauen. Das ist kein Fehler, sondern
-die Regel, dass alles aus den Quellen kommt.
+Die Sätze kommen aus Ihren Materialien. Steht dort nichts zu einer Grammatikform, kann die
+Übung dazu nichts bauen. Das ist kein Fehler, sondern die Regel, dass alles aus den Quellen
+kommt.

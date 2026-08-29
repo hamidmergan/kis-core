@@ -2,7 +2,7 @@
 
 ![Ein neues Modul anlegen](/manual/{lang}/create-module.png)
 
-Auf der Startseite **+ Modul**, Name vergeben, dazu eine kurze Beschreibung. Fertig.
+Auf der Startseite über **+ Modul**, mit Name und kurzer Beschreibung.
 
 ## Teilnehmende hereinholen
 
@@ -18,8 +18,3 @@ und weitere Tutoren ernennen.
 - **Einschreibelinks**: Zugänge erzeugen und zurückziehen
 - **Bearbeiten**: Name und Beschreibung
 - **Löschen**: endgültig, mit allem was daranhängt
-
-## Ein Hinweis für alle
-
-Über der Materialliste sitzt ein Feld **Hinweis** für kurzen Text und Links, etwa zur
-Moodle-Seite. Alle sehen ihn, ändern darf ihn nur, wer das Modul betreut.

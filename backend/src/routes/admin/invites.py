@@ -10,9 +10,10 @@ from src.dependencies_rbac import require_permission
 from src.features.invites import repository as repo
 from src.features.invites.service import (
     InviteValidationError,
+    invite_email,
     new_token,
     status_of,
-    uid_from_email,
+    uid_from_username,
 )
 from src.i18n import get_locale, t
 from src.permissions_registry import PERM_SET_USERS_ALL
@@ -31,7 +32,7 @@ def _require_feature(locale: str) -> None:
 
 
 class CreateInvitePayload(BaseModel):
-    email: str = Field(..., min_length=3, max_length=128)
+    username: str = Field(..., min_length=1, max_length=64)
     kis_role: str = Field(..., pattern="^(staff|user|custom)$")
     custom_role_id: int | None = None
     days: int = Field(7, ge=1, le=MAX_DAYS)
@@ -53,18 +54,18 @@ def create_invite(
 ):
     _require_feature(locale)
 
-    if "@" not in payload.email or "." not in payload.email.rsplit("@", 1)[-1]:
-        raise HTTPException(status_code=400, detail=t("invite.invalidEmail", locale))
-
     try:
-        uid = uid_from_email(payload.email)
+        uid = uid_from_username(payload.username)
     except InviteValidationError:
         raise HTTPException(status_code=400, detail=t("invite.noUsableUid", locale))
+
+    # Nobody sends mail here, the address only exists because LDAP demands one.
+    email = invite_email(uid)
 
     if database.get_user_by_username(uid) is not None:
         raise HTTPException(status_code=409, detail=t("invite.userExists", locale))
 
-    if repo.open_invite_for_email(payload.email) is not None:
+    if repo.open_invite_for_email(email) is not None:
         raise HTTPException(status_code=409, detail=t("invite.alreadyInvited", locale))
 
     if payload.kis_role == "custom" and database.get_custom_role(payload.custom_role_id) is None:
@@ -74,7 +75,7 @@ def create_invite(
     expires_at = datetime.now() + timedelta(days=payload.days)
     invite_id = repo.create_invite(
         token=token,
-        email=payload.email,
+        email=email,
         uid=uid,
         role=payload.kis_role,
         custom_role_id=payload.custom_role_id,
@@ -85,7 +86,7 @@ def create_invite(
         "id": invite_id,
         "token": token,
         "uid": uid,
-        "email": payload.email,
+        "email": email,
         "expires_at": expires_at,
     }
 

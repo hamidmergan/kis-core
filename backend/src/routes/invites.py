@@ -37,7 +37,8 @@ def _open_invite_or_error(token: str, locale: str) -> dict:
 @router.get("/{token}")
 def read_invite(token: str, locale: str = Depends(get_locale)):
     invite = _open_invite_or_error(token, locale)
-    return {"email": invite["email"], "uid": invite["uid"]}
+    # The address is made up, only the user name is worth showing.
+    return {"uid": invite["uid"]}
 
 
 class RedeemPayload(BaseModel):

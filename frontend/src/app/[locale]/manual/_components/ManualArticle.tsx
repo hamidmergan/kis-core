@@ -46,8 +46,11 @@ export default function ManualArticleView({
           ),
           blockquote: ({ children }) => (
             <blockquote
-              className="pl-4 my-4"
-              style={{ borderLeft: "3px solid var(--border)", color: "var(--foreground-soft)" }}
+              className="rounded-lg px-4 py-3 my-6 [&>p:last-child]:mb-0"
+              style={{
+                backgroundColor: "var(--info-bg)",
+                color: "var(--foreground)",
+              }}
             >
               {children}
             </blockquote>

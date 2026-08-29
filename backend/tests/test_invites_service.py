@@ -4,28 +4,37 @@ import pytest
 
 from src.features.invites.service import (
     InviteValidationError,
+    invite_email,
     new_token,
     status_of,
-    uid_from_email,
+    uid_from_username,
 )
 
 
-def test_uid_from_email_takes_local_part():
-    assert uid_from_email("max.mustermann@th-luebeck.de") == "max.mustermann"
+def test_uid_from_username_keeps_what_was_typed():
+    assert uid_from_username("max.mustermann") == "max.mustermann"
 
 
-def test_uid_from_email_normalizes_case_and_umlauts():
-    assert uid_from_email("Jörg.Müller@th-luebeck.de") == "joerg.mueller"
+def test_uid_from_username_normalizes_case_and_umlauts():
+    assert uid_from_username("Jörg.Müller") == "joerg.mueller"
 
 
-def test_uid_from_email_drops_characters_ldap_does_not_accept():
-    assert uid_from_email("anna+test@th-luebeck.de") == "annatest"
+def test_uid_from_username_drops_characters_ldap_does_not_accept():
+    assert uid_from_username("anna+test") == "annatest"
 
 
-@pytest.mark.parametrize("email", ["!@th-luebeck.de", "a@th-luebeck.de"])
-def test_uid_from_email_rejects_unusable_local_part(email):
+def test_uid_from_username_turns_a_full_name_into_one_word():
+    assert uid_from_username("Anna Beispiel") == "anna-beispiel"
+
+
+@pytest.mark.parametrize("eingabe", ["!", "a", "+++"])
+def test_uid_from_username_rejects_what_is_left_unusable(eingabe):
     with pytest.raises(InviteValidationError):
-        uid_from_email(email)
+        uid_from_username(eingabe)
+
+
+def test_invite_email_is_made_up_from_the_username():
+    assert invite_email("max.mustermann") == "max.mustermann@kis.local"
 
 
 def test_new_token_is_long_and_unique():

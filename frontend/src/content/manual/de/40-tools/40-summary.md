@@ -4,10 +4,9 @@ Bringt lange Dokumente sowie Audio- und Videoinhalte auf das Wesentliche.
 
 ![Das Werkzeug Zusammenfassung](/manual/{lang}/tool-summary.png)
 
-## So geht es
+## Dauer
 
-Datei auswählen, auf Zusammenfassung erstellen klicken, warten. Umfangreiche Inhalte dauern
-einige Minuten. Danach steht das Ergebnis zum Herunterladen bereit.
+Umfangreiche Inhalte dauern einige Minuten, danach steht das Ergebnis zum Herunterladen bereit.
 
 ## Was Sie erwarten dürfen
 

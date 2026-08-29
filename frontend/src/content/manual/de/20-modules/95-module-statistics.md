@@ -1,14 +1,14 @@
 # Statistik im Modul
 
-Der Reiter Statistik zeigt, wie weit die Teilnehmenden mit den Übungen sind. Wie viele Sätze
-bearbeitet wurden, wie viel davon richtig war, wo es hakt.
+Der Reiter Statistik zeigt Ihren eigenen Stand: wie viele Sätze Sie bearbeitet haben, wie viel
+davon richtig war, wo es hakt.
 
 ![Der Reiter Statistik im Studio](/manual/{lang}/statistics-tab.png)
 
-## Wofür das gut ist
+## Nur der eigene Stand
 
-Für Lehrende ist es der schnellste Blick darauf, ob die Übungen ankommen und welche Themen
-Schwierigkeiten machen. Für Teilnehmende ist es der eigene Stand.
+Auch für Lehrende zeigt dieser Reiter nur die eigenen Zahlen, nicht die der Teilnehmenden.
+Einen Überblick über die ganze Gruppe gibt Statistik → Meine Module im Verwaltungsbereich.
 
 ## Was es nicht ist
 

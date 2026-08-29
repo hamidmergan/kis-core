@@ -24,14 +24,15 @@ yet. Every sentence comes with a model solution.
 
 Close means the direction is correct but something else is off, for example a case or an ending.
 
-## Which topics exist
+## Where the topics come from
 
-The topics sit in a catalogue kept by the administration. Among others you can choose present
-passive, passive with a modal verb, perfect, simple past, subjunctive II, relative clauses,
-subordinate clauses and adjective declension.
+The owner or a tutor creates them in the module, with a free name like "subjunctive II". The AI
+suggests a rule and an example pair for it, still editable before saving. Eight topics are
+there from the start: present passive, passive with a modal verb, perfect, simple past,
+subjunctive II, relative clauses, subordinate clauses and adjective declension.
 
 ## What it can fail on
 
-The topics come from the catalogue, the sentences from your materials. If the materials say
-nothing about a grammatical form, the exercise cannot build anything about it. That is not a
-fault but the rule that everything comes from the sources.
+The sentences come from your materials. If they say nothing about a grammatical form, the
+exercise cannot build anything about it. That is not a fault but the rule that everything comes
+from the sources.

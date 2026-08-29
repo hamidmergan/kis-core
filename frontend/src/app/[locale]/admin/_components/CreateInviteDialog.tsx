@@ -8,6 +8,7 @@ import { Copy, Check, Warning } from "@phosphor-icons/react";
 import Select from "@/components/ui/Select";
 import { copyTextFromPromise } from "@/lib/clipboard";
 import { inviteUrl } from "./inviteUrl";
+import { uidPreview } from "./uidPreview";
 
 type Props = {
   onClose: () => void;
@@ -16,13 +17,13 @@ type Props = {
 
 type CustomRole = { id: number; name: string };
 
-type Erstellt = { token: string; email: string; expires_at: string };
+type Erstellt = { token: string; uid: string; expires_at: string };
 
 const TAGE = [7, 14, 30];
 
 export default function CreateInviteDialog({ onClose, onCreated }: Props) {
   const t = useTranslations("admin.createInvite");
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [role, setRole] = useState("staff");
   const [days, setDays] = useState("7");
   const [customRoles, setCustomRoles] = useState<CustomRole[]>([]);
@@ -55,7 +56,7 @@ export default function CreateInviteDialog({ onClose, onCreated }: Props) {
   );
 
   // The user name is built in the backend, this is only the preview.
-  const uidVorschau = email.split("@")[0].trim().toLowerCase();
+  const uidVorschau = uidPreview(username);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -68,7 +69,7 @@ export default function CreateInviteDialog({ onClose, onCreated }: Props) {
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: email.trim(),
+          username: username.trim(),
           kis_role: custom ? "custom" : role,
           custom_role_id: custom ? Number(role.slice("custom:".length)) : null,
           days: Number(days),
@@ -76,7 +77,7 @@ export default function CreateInviteDialog({ onClose, onCreated }: Props) {
       });
       if (r.ok) {
         const resp = await r.json();
-        setErstellt({ token: resp.token, email: resp.email, expires_at: resp.expires_at });
+        setErstellt({ token: resp.token, uid: resp.uid, expires_at: resp.expires_at });
         onCreated();
       } else {
         const body = await r.json().catch(() => ({}));
@@ -102,7 +103,7 @@ export default function CreateInviteDialog({ onClose, onCreated }: Props) {
         {erstellt ? (
           <>
             <h2 className="text-lg font-semibold">{t("successTitle")}</h2>
-            <p className="text-sm text-muted-soft">{t("successFor", { email: erstellt.email })}</p>
+            <p className="text-sm text-muted-soft">{t("successFor", { uid: erstellt.uid })}</p>
 
             <div className="space-y-1">
               <label className="text-xs uppercase tracking-wide text-muted">{t("linkLabel")}</label>
@@ -150,21 +151,21 @@ export default function CreateInviteDialog({ onClose, onCreated }: Props) {
             <p className="text-xs text-muted-soft">{t("hint")}</p>
 
             <div className="space-y-1">
-              <label className="text-xs uppercase tracking-wide text-muted" htmlFor="invite-email">
-                {t("fieldEmail")}
+              <label className="text-xs uppercase tracking-wide text-muted" htmlFor="invite-username">
+                {t("fieldUsername")}
               </label>
               <input
-                id="invite-email"
-                type="email"
+                id="invite-username"
+                type="text"
                 required
                 autoFocus
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-kb"
               />
-              {uidVorschau && (
-                <p className="text-xs text-muted-soft">{t("uidHint", { uid: uidVorschau })}</p>
-              )}
+              <p className="text-xs text-muted-soft">
+                {uidVorschau ? t("uidHint", { uid: uidVorschau }) : t("usernameHint")}
+              </p>
             </div>
 
             <div className="space-y-1">
@@ -190,7 +191,7 @@ export default function CreateInviteDialog({ onClose, onCreated }: Props) {
               </button>
               <button
                 type="submit"
-                disabled={submitting || !email.trim()}
+                disabled={submitting || !uidVorschau}
                 className="px-4 py-2 text-sm bg-kb text-white rounded-md disabled:opacity-60"
               >
                 {t("submit")}

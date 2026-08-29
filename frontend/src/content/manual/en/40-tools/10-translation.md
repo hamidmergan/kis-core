@@ -5,12 +5,11 @@ presentation comes back as a presentation.
 
 ![The translation tool](/manual/{lang}/tool-translation.png)
 
-## How it goes
+## Source language and duration
 
-Pick the file, choose the target language, click Translate. The source language is detected
-automatically, you do not have to state it.
+The source language is detected automatically, you only choose the target language.
 
-Large documents take a few minutes. Afterwards the translation is ready to download.
+Large documents take a few minutes, afterwards the translation is ready to download.
 
 ## Fixing technical terms
 

@@ -5,21 +5,17 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Einladungen sind abgeschaltet",
         "en": "Invitations are disabled",
     },
-    "invite.invalidEmail": {
-        "de": "Keine gueltige E-Mail-Adresse",
-        "en": "Not a valid email address",
-    },
     "invite.noUsableUid": {
-        "de": "Aus dieser Adresse laesst sich kein Benutzername bilden",
-        "en": "No usable username can be derived from this address",
+        "de": "Aus dieser Eingabe laesst sich kein Benutzername bilden",
+        "en": "No usable username can be derived from this input",
     },
     "invite.userExists": {
-        "de": "Zu dieser Adresse gibt es schon ein Konto",
-        "en": "An account for this address already exists",
+        "de": "Diesen Benutzernamen gibt es schon",
+        "en": "This username already exists",
     },
     "invite.alreadyInvited": {
-        "de": "Zu dieser Adresse ist schon eine Einladung offen",
-        "en": "An invitation to this address is already open",
+        "de": "Zu diesem Benutzernamen ist schon eine Einladung offen",
+        "en": "An invitation for this username is already open",
     },
     "invite.invalidCustomRole": {
         "de": "Rolle nicht gefunden",

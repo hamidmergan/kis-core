@@ -5,12 +5,11 @@ einer Präsentation wird also wieder eine Präsentation.
 
 ![Das Werkzeug Übersetzung](/manual/{lang}/tool-translation.png)
 
-## So geht es
+## Ausgangssprache und Dauer
 
-Datei auswählen, Zielsprache wählen, auf Übersetzen klicken. Die Ausgangssprache wird
-automatisch erkannt, Sie müssen sie nicht angeben.
+Die Ausgangssprache erkennt das Werkzeug automatisch, Sie wählen nur die Zielsprache.
 
-Große Dokumente dauern einige Minuten. Danach steht die Übersetzung zum Herunterladen bereit.
+Große Dokumente dauern einige Minuten, danach steht die Übersetzung zum Herunterladen bereit.
 
 ## Fachbegriffe festlegen
 

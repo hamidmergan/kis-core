@@ -113,7 +113,7 @@ export default function InvitesTab() {
           <table className="w-full text-sm border border-border-soft rounded-xl overflow-hidden">
             <thead className="bg-surface text-xs text-muted uppercase">
               <tr>
-                <th className="px-4 py-3 text-left">{t("colEmail")}</th>
+                <th className="px-4 py-3 text-left">{t("colUsername")}</th>
                 <th className="px-4 py-3 text-left">{t("colRole")}</th>
                 <th className="px-4 py-3 text-left">{t("colCreated")}</th>
                 <th className="px-4 py-3 text-left">{t("colExpires")}</th>
@@ -125,8 +125,7 @@ export default function InvitesTab() {
               {invites.map((e) => (
                 <tr key={e.id}>
                   <td className="px-4 py-3">
-                    <p className="font-medium text-foreground">{e.email}</p>
-                    <p className="text-xs text-muted-soft">{e.uid}</p>
+                    <p className="font-medium text-foreground">{e.uid}</p>
                   </td>
                   <td className="px-4 py-3 text-foreground-soft">{rollenName(e)}</td>
                   <td className="px-4 py-3 text-foreground-soft">{datum(e.created_at)}</td>

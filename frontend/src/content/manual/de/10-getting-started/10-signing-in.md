@@ -1,20 +1,23 @@
-# Anmelden
+# Anmeldung und Registrierung
 
 ![Das Anmeldeformular](/manual/{lang}/sign-in.png)
 
-Benutzername und Passwort eintragen, auf Anmelden klicken.
+## Noch kein eigenes Konto anlegen
 
-## Woher Sie ein Konto bekommen
+Ihre Hochschulkennung funktioniert aktuell noch nicht, KIS hat vorübergehend eine eigene
+Benutzerverwaltung. Bis zur Anbindung an die Hochschule bekommen Sie ein Konto nur eingeladen,
+über die Person, die den Kurs betreut.
 
-**Ihre Hochschulkennung funktioniert hier nicht.** KIS hat eine eigene Benutzerverwaltung.
-
-Sie brauchen einen **Einladungslink** von der Person, die den Kurs betreut. Beim Öffnen legen Sie
-Ihr Passwort fest, den Benutzernamen bekommen Sie genannt. Der Link gilt einmal.
+- **Einladungslink**: Passwort selbst festlegen, Konto bleibt bestehen
+- **Zugangscode**: Benutzername und Passwort werden erzeugt und einmal angezeigt. Zugang für
+  den Testzeitraum, läuft ab, mit gültigem Code verlängerbar
 
 ## Wenn es nicht klappt
 
-- **Abgelehnt:** Groß- und Kleinschreibung prüfen
-- **"Konto noch nicht freigeschaltet":** Ihr Konto ist da, aber nicht freigegeben. Auf der Seite
+- **"Konto noch nicht freigeschaltet":** Konto ist da, aber nicht freigegeben. Auf der Seite
   steht, an wen Sie sich wenden
-- **Passwort vergessen:** kein Knopf zum Zurücksetzen, melden Sie sich bei der Person, die Sie
-  eingeladen hat
+- **Passwort vergessen:** kein Reset-Knopf, melden Sie sich bei der einladenden Person
+- **Zugang abgelaufen:** Seite zum Verlängern, dort einen gültigen Zugangscode eintragen
+
+> Geplant: Anbindung an die zentrale Anmeldung der Hochschule. Dann reicht das
+> Hochschulkonto, ohne Einladung.
