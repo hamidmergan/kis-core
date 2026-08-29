@@ -30,6 +30,29 @@ const TON_KONTO: Record<KontoZustand, StatusTone> = {
   disabled: "muted",
 };
 
+type ModulBezug = "owner" | "enrolled";
+
+type ModulEintrag = {
+  workspace_id: number;
+  title: string;
+  relation: ModulBezug;
+  since: string;
+};
+
+type NachrichtEintrag = {
+  role: "user" | "assistant";
+  content: string;
+  created_at: string;
+  failed: boolean;
+  aborted: boolean;
+  workspace_title: string;
+};
+
+const TON_BEZUG: Record<ModulBezug, StatusTone> = {
+  owner: "brand",
+  enrolled: "muted",
+};
+
 type Code = {
   id: number;
   code: string;
@@ -57,6 +80,10 @@ function datum(wert: string): string {
   return new Date(wert).toLocaleDateString("de-DE");
 }
 
+function datumZeit(wert: string): string {
+  return new Date(wert).toLocaleString("de-DE");
+}
+
 export default function AccessCodesTab() {
   const t = useTranslations("admin.accessCodes");
   const [codes, setCodes] = useState<Code[]>([]);
@@ -74,6 +101,11 @@ export default function AccessCodesTab() {
   const [neuePasswoerter, setNeuePasswoerter] = useState<Record<number, string>>({});
   const [kopiertNutzer, setKopiertNutzer] = useState<number | null>(null);
   const [kopiertPasswort, setKopiertPasswort] = useState<number | null>(null);
+  const [aktivitaetKonto, setAktivitaetKonto] = useState<Konto | null>(null);
+  const [aktivitaetModule, setAktivitaetModule] = useState<ModulEintrag[]>([]);
+  const [aktivitaetNachrichten, setAktivitaetNachrichten] = useState<NachrichtEintrag[]>([]);
+  const [aktivitaetLoading, setAktivitaetLoading] = useState(false);
+  const [aktivitaetError, setAktivitaetError] = useState("");
 
   const laden = useCallback(() => {
     fetch("/api/admin/access-codes", { credentials: "include" })
@@ -151,6 +183,27 @@ export default function AccessCodesTab() {
     copyTextFromPromise(Promise.resolve(passwort));
     setKopiertPasswort(konto.id);
     setTimeout(() => setKopiertPasswort(null), 1500);
+  }
+
+  function aktivitaetOeffnen(konto: Konto) {
+    setAktivitaetKonto(konto);
+    setAktivitaetLoading(true);
+    setAktivitaetError("");
+    fetch(`/api/admin/access-codes/users/${konto.id}/activity`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("load"))))
+      .then((d) => {
+        setAktivitaetModule(d.workspaces ?? []);
+        setAktivitaetNachrichten(d.messages ?? []);
+      })
+      .catch(() => setAktivitaetError(t("activityLoadError")))
+      .finally(() => setAktivitaetLoading(false));
+  }
+
+  function aktivitaetSchliessen() {
+    setAktivitaetKonto(null);
+    setAktivitaetModule([]);
+    setAktivitaetNachrichten([]);
+    setAktivitaetError("");
   }
 
   async function passwortZuruecksetzen(konto: Konto) {
@@ -342,6 +395,7 @@ export default function AccessCodesTab() {
                     <th className="px-3 py-2 text-left">{t("colExpires")}</th>
                     <th className="px-3 py-2 text-left">{t("colState")}</th>
                     <th className="px-3 py-2 text-left">{t("resetPassword")}</th>
+                    <th className="px-3 py-2 text-left">{t("activityView")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border-soft bg-background">
@@ -397,10 +451,107 @@ export default function AccessCodesTab() {
                           </button>
                         )}
                       </td>
+                      <td className="px-3 py-2">
+                        <button
+                          type="button"
+                          data-testid="access-code-activity"
+                          onClick={() => aktivitaetOeffnen(k)}
+                          className="px-3 py-1.5 text-xs border-2 border-border rounded-md hover:border-[var(--kb)] hover:text-[var(--kb)] whitespace-nowrap"
+                        >
+                          {t("activityView")}
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+        </div>
+      </Modal>
+
+      <Modal
+        open={!!aktivitaetKonto}
+        onClose={aktivitaetSchliessen}
+        title={aktivitaetKonto?.ldap_username}
+        size="xl"
+        footer={
+          <button
+            type="button"
+            onClick={aktivitaetSchliessen}
+            className="px-4 py-2 text-sm border-2 border-border rounded-md hover:border-[var(--kb)] hover:text-[var(--kb)]"
+          >
+            {t("close")}
+          </button>
+        }
+      >
+        <div data-testid="access-code-activity-view" className="overflow-x-hidden">
+          {aktivitaetError && <p className="text-xs text-error mb-2">{aktivitaetError}</p>}
+
+          {aktivitaetLoading ? (
+            <Spinner className="flex justify-center py-8" />
+          ) : aktivitaetModule.length === 0 && aktivitaetNachrichten.length === 0 ? (
+            <p className="text-sm text-muted-soft text-center py-6">{t("activityEmpty")}</p>
+          ) : (
+            <div className="space-y-5">
+              <div>
+                <h3 className="text-xs font-semibold uppercase text-muted mb-2">{t("activityModulesTitle")}</h3>
+                {aktivitaetModule.length === 0 ? (
+                  <p className="text-sm text-muted-soft">{t("activityModulesEmpty")}</p>
+                ) : (
+                  <ul className="space-y-1.5">
+                    {aktivitaetModule.map((m) => (
+                      <li key={m.workspace_id} className="flex items-center justify-between gap-2 text-sm">
+                        <span className="truncate">{m.title}</span>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <StatusMark tone={TON_BEZUG[m.relation]} className="text-xs">
+                            {t(m.relation === "owner" ? "activityRelationOwner" : "activityRelationJoined")}
+                          </StatusMark>
+                          <span className="text-xs text-muted-soft">{datum(m.since)}</span>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div>
+                <h3 className="text-xs font-semibold uppercase text-muted mb-2">{t("activityMessagesTitle")}</h3>
+                {aktivitaetNachrichten.length === 0 ? (
+                  <p className="text-sm text-muted-soft">{t("activityMessagesEmpty")}</p>
+                ) : (
+                  <>
+                    <p className="text-2xs text-muted-soft mb-2">{t("activityMessagesCapped")}</p>
+                    <div className="space-y-3">
+                      {aktivitaetNachrichten.map((n, i) => (
+                        <div
+                          key={i}
+                          className={`flex flex-col gap-1 ${n.role === "user" ? "items-end" : "items-start"}`}
+                        >
+                          <div className="text-2xs text-muted-soft">
+                            {n.workspace_title} · {datumZeit(n.created_at)}
+                          </div>
+                          <div
+                            className="max-w-[85%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap break-words"
+                            style={
+                              n.role === "user"
+                                ? { backgroundColor: "var(--kb)", color: "white" }
+                                : { backgroundColor: "var(--surface)", border: "1px solid var(--border)" }
+                            }
+                          >
+                            {n.content || t("activityNoContent")}
+                          </div>
+                          {n.failed ? (
+                            <StatusMark tone="error" className="text-xs">{t("activityFailed")}</StatusMark>
+                          ) : n.aborted ? (
+                            <StatusMark tone="warn" className="text-xs">{t("activityAborted")}</StatusMark>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           )}
         </div>
