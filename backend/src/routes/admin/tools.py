@@ -13,6 +13,7 @@ from src.routes.admin._registries import DEFAULT_DISABLED_TOOLS, TOOLS_CONFIG
 
 from src.dependencies_rbac import require_permission
 from src.permissions_registry import PERM_SET_TOOLS_RELEASE
+from src.services.tool_release import is_released, read_release_state
 
 router = APIRouter(tags=["admin: tools"])
 
@@ -23,19 +24,10 @@ _require = require_permission(PERM_SET_TOOLS_RELEASE)
 @router.get("/tools")
 async def get_tools(_user=Depends(get_current_user)):
     """Return all tools with their enabled/disabled state. Accessible by all logged-in users."""
-    disabled = set(json.loads(db.get_setting("disabled_tools", "[]")))
-    enabled_overrides = set(json.loads(db.get_setting("enabled_tools_override", "[]")))
-
-    def _is_enabled(key: str) -> bool:
-        if key in disabled:
-            return False
-        if key in DEFAULT_DISABLED_TOOLS and key not in enabled_overrides:
-            return False
-        return True
-
+    disabled, overrides = read_release_state()
     return {
         "tools": [
-            {**tool, "enabled": _is_enabled(tool["key"])}
+            {**tool, "enabled": is_released(tool["key"], disabled, overrides)}
             for tool in TOOLS_CONFIG
         ]
     }

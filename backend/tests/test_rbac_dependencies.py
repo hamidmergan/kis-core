@@ -63,3 +63,18 @@ def test_user_blocked_from_tool(user_client):
 def test_staff_allowed_for_tool(staff_client):
     r = staff_client.get("/translate")
     assert r.status_code == 200
+
+
+def test_global_abgeschaltetes_werkzeug_ist_gesperrt(monkeypatch, staff_client):
+    """Der Admin-Schalter muss auch die Route sperren, nicht nur das Menue."""
+    from src import dependencies_rbac
+    monkeypatch.setattr(dependencies_rbac, "is_released_now", lambda key: False)
+    r = staff_client.get("/translate")
+    assert r.status_code == 403
+
+
+def test_frei_gegebenes_werkzeug_bleibt_offen(monkeypatch, staff_client):
+    from src import dependencies_rbac
+    monkeypatch.setattr(dependencies_rbac, "is_released_now", lambda key: True)
+    r = staff_client.get("/translate")
+    assert r.status_code == 200

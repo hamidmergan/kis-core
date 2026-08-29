@@ -5,6 +5,7 @@ from src.dependencies import get_current_user, get_settings
 from src.i18n import get_locale, t
 from src.permissions import Permissions, resolve_user_permissions
 from src.permissions_registry import is_settings_key
+from src.services.tool_release import is_released_now
 
 
 def _is_env_admin(email: str | None) -> bool:
@@ -93,7 +94,7 @@ def require_tool_access(tool_key: str):
         perms: Permissions = Depends(get_user_permissions),
         locale: str = Depends(get_locale),
     ) -> Permissions:
-        if tool_key not in perms.tools:
+        if tool_key not in perms.tools or not is_released_now(tool_key):
             raise HTTPException(status_code=403, detail=t("auth.toolForbidden", locale))
         return perms
     return _check
