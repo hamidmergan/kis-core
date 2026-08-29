@@ -6,7 +6,7 @@ import { Stack } from "@phosphor-icons/react";
 import Select from "@/components/ui/Select";
 import Spinner from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { formatDate, formatDuration } from "@/lib/format";
+import { formatDate } from "@/lib/format";
 import { JobStatusBadge, type AdminJob } from "../_shared";
 
 export default function JobsTab() {
@@ -125,7 +125,6 @@ export default function JobsTab() {
                 <th className="px-4 py-3 text-left">{t("jobs.colTool")}</th>
                 <th className="px-4 py-3 text-left">{t("jobs.colFile")}</th>
                 <th className="px-4 py-3 text-left">{t("jobs.colStatus")}</th>
-                <th className="px-4 py-3 text-right">{t("jobs.colRenderTime")}</th>
                 <th className="px-4 py-3 text-left">{t("jobs.colCreated")}</th>
                 <th className="px-4 py-3"></th>
               </tr>
@@ -144,9 +143,6 @@ export default function JobsTab() {
                     </td>
                     <td className="px-4 py-3">
                       <JobStatusBadge status={j.status} />
-                    </td>
-                    <td className="px-4 py-3 text-right text-muted text-xs whitespace-nowrap">
-                      {formatDuration(j.duration_seconds)}
                     </td>
                     <td className="px-4 py-3 text-muted-soft text-xs whitespace-nowrap">
                       {formatDate(j.created_at)}

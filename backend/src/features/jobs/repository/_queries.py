@@ -166,7 +166,7 @@ def get_all_jobs(
             cur.execute(
                 f"""SELECT j.*, u.display_name AS user_display_name, u.ldap_username
                    FROM jobs j
-                   LEFT JOIN users u ON j.user_id = u.id
+                   JOIN users u ON j.user_id = u.id
                    {where}
                    ORDER BY j.created_at DESC
                    LIMIT %s OFFSET %s""",
@@ -175,7 +175,7 @@ def get_all_jobs(
             rows = cur.fetchall()
             cur.execute(
                 f"""SELECT COUNT(*) AS total FROM jobs j
-                   LEFT JOIN users u ON j.user_id = u.id
+                   JOIN users u ON j.user_id = u.id
                    {where}""",
                 params,
             )

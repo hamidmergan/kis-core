@@ -1014,7 +1014,6 @@
       "colTool": "Tool",
       "colFile": "Datei",
       "colStatus": "Status",
-      "colRenderTime": "Renderzeit",
       "colCreated": "Erstellt",
       "cancelConfirm": "Job abbrechen und löschen?",
       "cancel": "Abbrechen"
