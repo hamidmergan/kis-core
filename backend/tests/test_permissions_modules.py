@@ -1,5 +1,6 @@
 """Der Rechte-Katalog richtet sich nach dem Modul-Profil."""
 from src.modules import MODULE_AIA, MODULE_TOOLS
+from src.permissions import custom_role_permissions, permissions_for_system_role
 from src.permissions_registry import (
     ALL_PERMISSION_KEYS,
     PERM_AIA_USE,
@@ -96,3 +97,42 @@ def test_matrix_behaelt_die_gemischte_statistik_gruppe():
 def test_matrix_mit_beiden_modulen_ist_unveraendert():
     from src.permissions_registry import MATRIX_LAYOUT
     assert matrix_layout_for(BEIDE) == MATRIX_LAYOUT
+
+
+def test_systemrolle_verliert_die_werkzeuge_ohne_das_modul():
+    perms = permissions_for_system_role("staff", modules=NUR_AIA)
+    assert perms.tools == ()
+    assert perms.allow_aia is True
+
+
+def test_systemrolle_verliert_den_assistenten_ohne_das_modul():
+    perms = permissions_for_system_role("staff", modules=NUR_TOOLS)
+    assert perms.allow_aia is False
+    assert perms.allow_workspace_create is False
+    assert "tts" in perms.tools
+
+
+def test_admin_verliert_die_rechte_des_abgeschalteten_moduls():
+    perms = permissions_for_system_role("admin", modules=NUR_TOOLS)
+    assert PERM_SET_AIA_SOURCES not in perms.keys
+    assert PERM_SET_TOOLS_RELEASE in perms.keys
+
+
+def test_admin_behaelt_den_verwaltungsbereich_ohne_assistent():
+    perms = permissions_for_system_role("admin", modules=NUR_TOOLS)
+    assert perms.allow_admin_panel is True
+
+
+def test_eigene_rolle_verliert_die_rechte_des_abgeschalteten_moduls():
+    perms = custom_role_permissions(
+        [PERM_AIA_USE, "tools.tts", PERM_SET_SYSTEM], modules=NUR_TOOLS
+    )
+    assert PERM_AIA_USE not in perms.keys
+    assert "tts" in perms.tools
+    assert PERM_SET_SYSTEM in perms.keys
+
+
+def test_eigene_rolle_ohne_uebrige_rechte_ist_leer_statt_kaputt():
+    perms = custom_role_permissions([PERM_AIA_USE], modules=NUR_TOOLS)
+    assert perms.keys == frozenset()
+    assert perms.allow_admin_panel is False

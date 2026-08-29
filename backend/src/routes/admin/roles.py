@@ -7,14 +7,14 @@ from src import database as db
 from src.dependencies_rbac import assert_may_grant, permissions_of, require_permission
 from src.features.admin.repository.roles import RoleNameTaken
 from src.i18n import get_locale, t
+from src.modules import active_modules
 from src.permissions_registry import (
     ALL_PERMISSION_KEYS,
-    GROUP_CHAPTER,
-    GROUPS,
-    PERMISSION_GROUPS,
     PERM_SET_USERS_ROLES,
     SYSTEM_ROLE_PERMISSIONS,
     SYSTEM_ROLES,
+    keys_for_modules,
+    matrix_layout_for,
     valid_keys,
 )
 
@@ -42,22 +42,24 @@ class PermissionTogglePayload(BaseModel):
 async def list_roles(admin=Depends(_require)):
     """Rows, columns and checkboxes of the permission table in one call."""
     perms = permissions_of(admin)
+    aktiv = active_modules()
+    layout = matrix_layout_for(aktiv)
+    katalog = set(keys_for_modules(aktiv))
     return {
         "groups": [
-            {
-                "key": g,
-                "chapter": GROUP_CHAPTER[g],
-                "permissions": list(PERMISSION_GROUPS[g]),
-            }
-            for g in GROUPS
+            {"key": group, "chapter": chapter, "permissions": list(keys)}
+            for chapter, group, keys in layout
         ],
         "system_roles": [
-            {"key": r, "permissions": list(SYSTEM_ROLE_PERMISSIONS[r])}
+            {
+                "key": r,
+                "permissions": [k for k in SYSTEM_ROLE_PERMISSIONS[r] if k in katalog],
+            }
             for r in SYSTEM_ROLES
         ],
         "custom_roles": db.list_custom_roles(),
         # What the caller does not hold themselves the table shows locked.
-        "grantable": list(perms.keys & set(ALL_PERMISSION_KEYS)),
+        "grantable": list(perms.keys & katalog),
     }
 
 

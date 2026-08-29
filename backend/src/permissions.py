@@ -3,6 +3,7 @@
 from dataclasses import dataclass, field
 
 from src.dependencies import get_settings
+from src.modules import active_modules
 from src.permissions_registry import (
     PERM_AIA_USE,
     PERM_AIA_WORKSPACE_CREATE,
@@ -11,6 +12,7 @@ from src.permissions_registry import (
     SYSTEM_ROLES,
     TOOL_KEYS,
     is_settings_key,
+    keys_for_modules,
     tool_key_of,
     valid_keys,
 )
@@ -59,16 +61,18 @@ class Permissions:
         return tuple(k for k in sorted(self.keys) if is_settings_key(k))
 
 
-def permissions_for_system_role(role: str) -> Permissions:
+def permissions_for_system_role(role: str, modules=None) -> Permissions:
     preset = SYSTEM_ROLE_PERMISSIONS.get(role)
     if preset is None:
         raise ValueError(f"Unknown system role: {role!r}")
-    return Permissions(keys=frozenset(preset))
+    erlaubt = set(keys_for_modules(modules if modules is not None else active_modules()))
+    return Permissions(keys=frozenset(k for k in preset if k in erlaubt))
 
 
-def custom_role_permissions(keys) -> Permissions:
+def custom_role_permissions(keys, modules=None) -> Permissions:
     """Permissions of a custom role from the database, unknown ones are dropped."""
-    return Permissions(keys=frozenset(valid_keys(keys)))
+    erlaubt = set(keys_for_modules(modules if modules is not None else active_modules()))
+    return Permissions(keys=frozenset(k for k in valid_keys(keys) if k in erlaubt))
 
 
 def resolve_user_permissions(
