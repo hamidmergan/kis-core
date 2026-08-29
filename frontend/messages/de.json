@@ -2968,7 +2968,7 @@
     "title": "Zugang einlösen",
     "intro": "Mit dem Zugangscode aus deiner Einladung legst du dir hier selbst ein Konto an.",
     "code": "Zugangscode",
-    "codeHint": "Zum Beispiel KIS-U5V2-TJ65",
+    "codeHint": "KIS-XXXX-XXXX",
     "showPassword": "Passwort anzeigen",
     "hidePassword": "Passwort verbergen",
     "submit": "Konto anlegen",

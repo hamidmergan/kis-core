@@ -2968,7 +2968,7 @@
     "title": "Redeem access",
     "intro": "Use the access code from your invitation to create your own account here.",
     "code": "Access code",
-    "codeHint": "For example KIS-U5V2-TJ65",
+    "codeHint": "KIS-XXXX-XXXX",
     "showPassword": "Show password",
     "hidePassword": "Hide password",
     "submit": "Create account",
