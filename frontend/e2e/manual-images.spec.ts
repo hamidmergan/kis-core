@@ -41,6 +41,8 @@ const LABELS = {
     mindmapFull: "Vollbild",
     nextMonth: "Nächster Monat",
     expandBar: "Tools-Sidebar ausklappen",
+    allMoods: "Alle Stimmungen nebeneinander",
+    showAllCitations: "Alle Belege einblenden",
   },
   en: {
     tabSchedule: "Schedule",
@@ -58,6 +60,8 @@ const LABELS = {
     mindmapFull: "Fullscreen",
     nextMonth: "Next month",
     expandBar: "Expand tools sidebar",
+    allMoods: "All moods side by side",
+    showAllCitations: "Show all citations",
   },
 } as const;
 
@@ -329,6 +333,87 @@ test.describe("Handbuch-Bilder", () => {
       await page.goto(`${prefix(locale)}/workspace/${WORKSPACE}`, { waitUntil: "domcontentloaded" });
       await page.waitForTimeout(5000);
       await page.screenshot({ path: shot(locale, "module-view") });
+    });
+
+    // Die Auswahlleiste erscheint erst an einer echten Textauswahl. EmbedPDF malt die
+    // Seite auf ein Canvas, es gibt keine Textschicht zum Anklicken, also zieht der
+    // Zeiger ueber die Stelle im Demo-Foliensatz, an der die Aufzaehlung steht.
+    test(`auswahlleiste ${locale}`, async ({ page }) => {
+      await useLocale(page, locale);
+      await page.goto(`${prefix(locale)}/workspace/${WORKSPACE}`, { waitUntil: "domcontentloaded" });
+      await page.waitForTimeout(4000);
+      await page.locator('[title$=".pdf"]').first().click();
+      await expect(page.getByText(/Loading document/i)).toHaveCount(0, { timeout: 60_000 });
+      await page.waitForTimeout(6000);
+      const panel = (await page.locator(".viewer-short").first().boundingBox())!;
+      await page.mouse.move(panel.x + 44, panel.y + 400);
+      await page.mouse.down();
+      await page.mouse.move(panel.x + 282, panel.y + 428, { steps: 20 });
+      await page.mouse.up();
+      await page.waitForTimeout(1800);
+      await page.screenshot({
+        path: shot(locale, "selection-bar"),
+        clip: { x: panel.x + 6, y: panel.y + 358, width: 400, height: 140 },
+      });
+    });
+
+    // Der Knopf steht nur beim Darueberfahren, eingeschaltet bleibt er sichtbar.
+    test(`belege-knopf ${locale}`, async ({ page }) => {
+      await useLocale(page, locale);
+      await page.goto(`${prefix(locale)}/workspace/${WORKSPACE}`, { waitUntil: "domcontentloaded" });
+      await page.waitForTimeout(5000);
+      const answer = page.locator('[data-testid="assistant-message"]').last();
+      await answer.hover();
+      await answer.getByTitle(LABELS[locale].showAllCitations).click();
+      await page.waitForTimeout(800);
+      // Die Zeile unter der Antwort: links die Quellenzahl, rechts die Knoepfe.
+      await answer.locator("div.justify-between").first().screenshot({
+        path: shot(locale, "citations-toggle"),
+      });
+    });
+
+    // Beide Knoepfe an der Markierung, der Pfeil kommt erst nach dem Weiterblaettern.
+    test(`markierung-knoepfe ${locale}`, async ({ page }) => {
+      await useLocale(page, locale);
+      await page.goto(`${prefix(locale)}/workspace/${WORKSPACE}`, { waitUntil: "domcontentloaded" });
+      await page.waitForTimeout(5000);
+      const answer = page.locator('[data-testid="assistant-message"]').last();
+      await answer.locator(".chip-toggle").first().click();
+      const chip = answer.locator(".chip-cite").first();
+      await expect(chip).toBeVisible();
+      await chip.click();
+      await page.waitForTimeout(6000);
+      const bar = page.locator("div.absolute.bottom-6.right-4").first();
+      await expect(bar).toBeVisible();
+      const panel = (await page.locator(".viewer-short").first().boundingBox())!;
+      // Weiterblaettern, sonst fehlt der Pfeil zurueck zur Stelle.
+      for (let i = 0; i < 6 && (await bar.locator("button").count()) < 2; i++) {
+        await page.mouse.move(panel.x + panel.width / 2, panel.y + panel.height / 2);
+        await page.mouse.wheel(0, 1200);
+        await page.waitForTimeout(1200);
+      }
+      const box = (await bar.boundingBox())!;
+      // Etwas Umgebung mit im Bild, sonst schweben zwei Knoepfe im Nichts.
+      await page.screenshot({
+        path: shot(locale, "highlight-controls"),
+        clip: { x: box.x - 200, y: box.y - 80, width: box.width + 220, height: box.height + 110 },
+      });
+    });
+
+    // Nur das Raster mit den fuenf Stimmungen, der Rest der Seite ist Werkstatt.
+    // Das Bild gibt es nur auf Deutsch, der englische Artikel zeigt dasselbe.
+    test(`maskottchen-zustaende ${locale}`, async ({ page }) => {
+      test.skip(locale !== "de", "ein Bild fuer beide Sprachen");
+      await useLocale(page, locale);
+      await page.goto(`${prefix(locale)}/admin/mascots/hilde`, { waitUntil: "domcontentloaded" });
+      await settle(page);
+      const section = page.locator("section").filter({ hasText: LABELS[locale].allMoods }).last();
+      // Nur die Kaesten, die Ueberschrift darueber gehoert zur Verwaltung.
+      const grid = section.locator("div.grid").first();
+      await expect(grid).toBeVisible();
+      // Die Figuren laufen beim Erscheinen eine Animation.
+      await page.waitForTimeout(3000);
+      await grid.screenshot({ path: shot(locale, "mascot-states") });
     });
   }
 });

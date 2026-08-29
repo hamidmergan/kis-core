@@ -29,3 +29,15 @@ The history is kept per module and person. Before a new, independent question it
 
 Hilde or Francis, your choice in the settings of the module. It changes nothing about the
 content.
+
+![Hilde in her five moods](/manual/de/mascot-states.png)
+
+The picture sits above the newest answer and shows what the chat is up to. From left to right:
+
+- Idle, for an answer without citations
+- Thinking, while the answer is being written
+- Found it, when the finished answer carries citations
+- Confused, when the materials say nothing about the question
+- Waving, while the chat is still empty
+
+Only the newest answer carries the picture, older ones stand without it.

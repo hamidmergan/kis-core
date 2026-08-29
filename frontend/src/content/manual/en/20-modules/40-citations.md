@@ -10,7 +10,16 @@ highlights the passage.
 
 ![After the click: the material jumps to the spot](/manual/{lang}/citation-jump.png)
 
-**Show all citations** reveals them for the whole answer at once.
+## All citations at once
+
+Below the answer, the left side says how many sources it came from. Next to it on the right
+sits a round button. On a computer it appears as soon as you move the mouse over the answer, on
+a phone it is always there.
+
+![The button for all citations below the answer](/manual/{lang}/citations-toggle.png)
+
+One click unfolds the citations of every sentence at once, the next folds them back. While they
+are open, the button stays visible.
 
 ## When there is no citation
 

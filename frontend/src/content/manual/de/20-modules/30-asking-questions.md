@@ -28,3 +28,16 @@ Der Verlauf bleibt je Modul und Person erhalten. Vor einer neuen, unabhängigen 
 ## Das Maskottchen
 
 Hilde oder Francis, Ihre Wahl in den Einstellungen des Moduls. Am Inhalt ändert das nichts.
+
+![Hilde in ihren fünf Stimmungen](/manual/{lang}/mascot-states.png)
+
+Über der neuesten Antwort steht das Bild und zeigt, woran der Chat gerade ist. Von links nach
+rechts:
+
+- Ruhig, bei einer Antwort ohne Belege
+- Denkt nach, solange die Antwort geschrieben wird
+- Hat es gefunden, wenn die fertige Antwort Belege trägt
+- Verwirrt, wenn in den Materialien nichts zur Frage steht
+- Begrüßt Sie, solange der Chat leer ist
+
+Nur die neueste Antwort trägt das Bild, ältere stehen ohne.
