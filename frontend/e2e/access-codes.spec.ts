@@ -5,9 +5,6 @@ import { test, expect, request as playwrightRequest } from "@playwright/test";
 const ADMIN = { username: process.env.E2E_USER ?? "a", password: process.env.E2E_PASS ?? "a" };
 // A per-run suffix keeps this free even though account deletion never clears the LDAP entry.
 const SUFFIX = Date.now().toString(36);
-const GIVEN_NAME = "E2E";
-const SURNAME = `Zugang-${SUFFIX}`;
-const PASSWORD = "E2eZugang!2026";
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
@@ -35,22 +32,21 @@ test("Zugangscode: ein Konto einlösen und die Startseite erreichen", async ({ p
     await page.goto("/de/zugang", { waitUntil: "load" });
     const formular = page.getByTestId("access-code-form");
     await formular.locator("#access-code").fill(code.code);
-    await formular.locator("#access-given-name").fill(GIVEN_NAME);
-    await formular.locator("#access-surname").fill(SURNAME);
-    await formular.locator("#access-password").fill(PASSWORD);
-    await formular.locator("#access-password-repeat").fill(PASSWORD);
 
     const [einloesung] = await Promise.all([
       page.waitForResponse((r) => r.url().includes("/access-codes/redeem") && r.request().method() === "POST"),
       formular.locator('button[type="submit"]').click(),
     ]);
     expect(einloesung.ok()).toBeTruthy();
-    username = (await einloesung.json()).username;
+    const antwort = await einloesung.json();
+    username = antwort.username;
     expect(username).toBeTruthy();
+    expect(antwort.password).toBeTruthy();
 
     const fertig = page.getByTestId("access-code-done");
     await expect(fertig).toBeVisible();
-    await expect(fertig).toContainText(username);
+    await expect(fertig.getByTestId("access-code-username")).toHaveText(username);
+    await expect(fertig.getByTestId("access-code-password")).toHaveText(antwort.password);
 
     // The done card's only button goes to "/", where the workspace list lives.
     const [kurse] = await Promise.all([
@@ -59,7 +55,7 @@ test("Zugangscode: ein Konto einlösen und die Startseite erreichen", async ({ p
     ]);
     expect(kurse.ok()).toBeTruthy();
     await expect(page).toHaveURL((url) => !url.pathname.includes("zugang") && !url.pathname.includes("login"));
-    await expect(page.locator("h1").filter({ hasText: GIVEN_NAME })).toBeVisible();
+    await expect(page.locator("h1").filter({ hasText: username })).toBeVisible();
   } finally {
     await admin.delete(`/api/admin/access-codes/${code.id}`);
     if (username) {

@@ -8,16 +8,15 @@ from pydantic import BaseModel, Field
 from src import database
 from src.dependencies import get_session_store, get_settings
 from src.features.access_codes import repository as repo
-from src.features.access_codes.service import demo_email, normalize_code, status_of
+from src.features.access_codes.service import demo_email, new_username, normalize_code, status_of
 from src.features.accounts.provisioning import provision_account
-from src.features.accounts.uid import name_to_uid, unique_uid
+from src.features.accounts.uid import unique_uid
 from src.i18n import get_locale, t
-from src.ldap_admin import LdapUserExistsError
+from src.ldap_admin import LdapUserExistsError, _generate_password
 from src.ldap_auth import authenticate_user
 
 router = APIRouter(prefix="/access-codes", tags=["access codes"])
 
-MIN_PASSWORD_LENGTH = 8
 SESSION_MAX_AGE = 86400
 
 
@@ -68,9 +67,6 @@ def feature_enabled():
 
 class RedeemPayload(BaseModel):
     code: str = Field(..., min_length=3, max_length=32)
-    given_name: str = Field(..., min_length=1, max_length=64)
-    surname: str = Field(..., min_length=1, max_length=64)
-    password: str = Field(..., min_length=1, max_length=128)
 
 
 @router.post("/redeem")
@@ -83,16 +79,8 @@ def redeem(payload: RedeemPayload, response: Response, locale: str = Depends(get
         logger.error("access code {} points at a missing custom role", eintrag["id"])
         raise HTTPException(status_code=410, detail=t("access.codeNotValid", locale))
 
-    if len(payload.password) < MIN_PASSWORD_LENGTH:
-        raise HTTPException(
-            status_code=400,
-            detail=t("access.passwordTooShort", locale, min=MIN_PASSWORD_LENGTH),
-        )
-
-    basis = name_to_uid(payload.given_name, payload.surname)
-    if basis is None:
-        raise HTTPException(status_code=400, detail=t("access.nameUnusable", locale))
-    uid = unique_uid(basis, lambda name: database.get_user_by_username(name) is not None)
+    uid = unique_uid(new_username(), lambda name: database.get_user_by_username(name) is not None)
+    password = _generate_password()
 
     # Take the seat first, then create, otherwise the limit leaks under load.
     if not repo.claim_use(eintrag["id"]):
@@ -102,12 +90,12 @@ def redeem(payload: RedeemPayload, response: Response, locale: str = Depends(get
         sitzungsdaten = provision_account(
             settings=get_settings(),
             uid=uid,
-            given_name=payload.given_name,
-            surname=payload.surname,
+            given_name="",
+            surname="",
             email=demo_email(uid),
             role=eintrag["role"],
             custom_role_id=eintrag["custom_role_id"],
-            password=payload.password,
+            password=password,
         )
     except Exception as fehler:
         repo.release_use(eintrag["id"])
@@ -138,7 +126,7 @@ def redeem(payload: RedeemPayload, response: Response, locale: str = Depends(get
     return {
         "status": "ok",
         "username": uid,
-        "display_name": sitzungsdaten["display_name"],
+        "password": password,
         "expires_at": frist,
     }
 

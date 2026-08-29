@@ -71,21 +71,18 @@ def _sitzung():
     return patch("src.routes.access_codes.get_session_store")
 
 
-GUELTIG = {
-    "code": "4k2p-7rxm",
-    "given_name": "Max",
-    "surname": "Mustermann",
-    "password": "geheim123",
-}
+GUELTIG = {"code": "4k2p-7rxm"}
 
 
 def test_redeeming_creates_the_account_and_sets_the_deadline(client):
     with patch("src.routes.access_codes.repo.get_code_by_code", return_value=_code()) as suchen, \
+         patch("src.routes.access_codes.new_username", return_value="ab234567"), \
+         patch("src.routes.access_codes._generate_password", return_value="s3cr3t-pw"), \
          patch("src.routes.access_codes.database.get_user_by_username", return_value=None), \
          patch("src.routes.access_codes.repo.claim_use", return_value=True), \
          patch("src.routes.access_codes.provision_account", return_value={
-             "user_id": 42, "username": "max.mustermann", "display_name": "Max Mustermann",
-             "email": "max.mustermann@demo.kis.local", "role": "staff", "custom_role_id": None,
+             "user_id": 42, "username": "ab234567", "display_name": "ab234567",
+             "email": "ab234567@demo.kis.local", "role": "staff", "custom_role_id": None,
          }) as anlegen, \
          patch("src.routes.access_codes.repo.set_user_access") as frist, \
          _sitzung() as sitzung:
@@ -93,13 +90,32 @@ def test_redeeming_creates_the_account_and_sets_the_deadline(client):
         r = client.post("/access-codes/redeem", json=GUELTIG)
 
     assert r.status_code == 200
-    assert r.json()["username"] == "max.mustermann"
+    assert r.json()["username"] == "ab234567"
+    assert r.json()["password"] == "s3cr3t-pw"
     # Sloppy typing gets repaired before the lookup.
     suchen.assert_called_once_with("4K2P-7RXM")
-    assert anlegen.call_args.kwargs["email"] == "max.mustermann@demo.kis.local"
+    assert anlegen.call_args.kwargs["email"] == "ab234567@demo.kis.local"
+    assert anlegen.call_args.kwargs["given_name"] == ""
+    assert anlegen.call_args.kwargs["surname"] == ""
+    assert anlegen.call_args.kwargs["password"] == "s3cr3t-pw"
     assert frist.call_args.kwargs["code_id"] == 7
     assert r.cookies.get("session") == "sitzungsschluessel"
     assert sitzung.return_value.create.call_args.kwargs["data"]["access_expires_at"]
+
+
+def test_redeeming_returns_a_generated_password_that_is_not_empty(client):
+    with patch("src.routes.access_codes.repo.get_code_by_code", return_value=_code()), \
+         patch("src.routes.access_codes.database.get_user_by_username", return_value=None), \
+         patch("src.routes.access_codes.repo.claim_use", return_value=True), \
+         patch("src.routes.access_codes.provision_account", return_value={
+             "user_id": 42, "username": "ab234567", "display_name": "ab234567",
+             "email": "ab234567@demo.kis.local", "role": "staff", "custom_role_id": None,
+         }), \
+         patch("src.routes.access_codes.repo.set_user_access"), _sitzung():
+        r = client.post("/access-codes/redeem", json=GUELTIG)
+
+    assert r.status_code == 200
+    assert r.json()["password"] != ""
 
 
 def test_redeeming_with_an_unlimited_code_sets_no_deadline(client):
@@ -121,20 +137,21 @@ def test_redeeming_with_an_unlimited_code_sets_no_deadline(client):
 
 
 def test_redeeming_picks_a_free_user_name(client):
-    belegt = {"max.mustermann": {"id": 1}}
+    belegt = {"ab234567": {"id": 1}}
     with patch("src.routes.access_codes.repo.get_code_by_code", return_value=_code()), \
+         patch("src.routes.access_codes.new_username", return_value="ab234567"), \
          patch("src.routes.access_codes.database.get_user_by_username",
                side_effect=lambda u: belegt.get(u)), \
          patch("src.routes.access_codes.repo.claim_use", return_value=True), \
          patch("src.routes.access_codes.provision_account", return_value={
-             "user_id": 42, "username": "max.mustermann2", "display_name": "Max Mustermann",
-             "email": "max.mustermann2@demo.kis.local", "role": "staff", "custom_role_id": None,
+             "user_id": 42, "username": "ab2345672", "display_name": "ab2345672",
+             "email": "ab2345672@demo.kis.local", "role": "staff", "custom_role_id": None,
          }) as anlegen, \
          patch("src.routes.access_codes.repo.set_user_access"), _sitzung():
         r = client.post("/access-codes/redeem", json=GUELTIG)
 
     assert r.status_code == 200
-    assert anlegen.call_args.kwargs["uid"] == "max.mustermann2"
+    assert anlegen.call_args.kwargs["uid"] == "ab2345672"
 
 
 def test_an_unknown_code_is_refused(client):
@@ -247,24 +264,6 @@ def test_a_code_with_a_living_custom_role_still_works(client):
 
     assert r.status_code == 200
     assert anlegen.call_args.kwargs["custom_role_id"] == 9
-
-
-def test_a_name_without_usable_letters_is_refused(client):
-    with patch("src.routes.access_codes.repo.get_code_by_code", return_value=_code()), \
-         patch("src.routes.access_codes.provision_account") as anlegen:
-        r = client.post("/access-codes/redeem", json={**GUELTIG, "surname": "!!!"})
-
-    assert r.status_code == 400
-    anlegen.assert_not_called()
-
-
-def test_a_short_password_is_refused(client):
-    with patch("src.routes.access_codes.repo.get_code_by_code", return_value=_code()), \
-         patch("src.routes.access_codes.provision_account") as anlegen:
-        r = client.post("/access-codes/redeem", json={**GUELTIG, "password": "kurz"})
-
-    assert r.status_code == 400
-    anlegen.assert_not_called()
 
 
 VERLAENGERN = {"username": "max.mustermann", "password": "geheim123", "code": "4K2P-7RXM"}

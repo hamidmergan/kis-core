@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from src.features.access_codes.service import (
     demo_email,
     new_code,
+    new_username,
     normalize_code,
     status_of,
 )
@@ -26,6 +27,23 @@ def test_new_code_avoids_characters_that_look_alike():
 
 def test_new_code_is_not_the_same_twice():
     assert new_code() != new_code()
+
+
+def test_new_username_has_the_right_shape():
+    name = new_username()
+    assert len(name) == 8
+    assert name == name.lower()
+    assert name.isalnum()
+
+
+def test_new_username_avoids_characters_that_look_alike():
+    zusammen = "".join(new_username() for _ in range(50))
+    for zeichen in "01oil":
+        assert zeichen not in zusammen
+
+
+def test_new_username_is_not_the_same_twice():
+    assert new_username() != new_username()
 
 
 def test_normalize_code_repairs_sloppy_typing():

@@ -5,6 +5,7 @@ from datetime import datetime
 # No 0, O, 1, I or L, the code gets read out on the phone.
 _ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
 _BLOCK_LENGTH = 4
+_USERNAME_LENGTH = 8
 DEMO_MAIL_DOMAIN = "demo.kis.local"
 
 
@@ -15,6 +16,12 @@ def new_code() -> str:
         for _ in range(2)
     )
     return "-".join(bloecke)
+
+
+def new_username() -> str:
+    """Eight lowercase characters from the same unambiguous alphabet as the code."""
+    alphabet = _ALPHABET.lower()
+    return "".join(secrets.choice(alphabet) for _ in range(_USERNAME_LENGTH))
 
 
 def normalize_code(text: str) -> str:

@@ -13,14 +13,6 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Dieser Code gilt nicht mehr",
         "en": "This code is no longer valid",
     },
-    "access.nameUnusable": {
-        "de": "Aus diesem Namen laesst sich kein Benutzername bilden",
-        "en": "No usable user name can be derived from this name",
-    },
-    "access.passwordTooShort": {
-        "de": "Das Passwort braucht mindestens {min} Zeichen",
-        "en": "The password needs at least {min} characters",
-    },
     "access.createFailed": {
         "de": "Das Konto konnte nicht angelegt werden",
         "en": "The account could not be created",

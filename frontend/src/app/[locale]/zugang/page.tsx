@@ -4,39 +4,37 @@
 
 import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { Eye, EyeSlash } from "@phosphor-icons/react";
+import { Check, Copy } from "@phosphor-icons/react";
 import Header from "@/components/layout/Header";
-import { checkForm, MIN_PASSWORD_LENGTH } from "./checkForm";
+import IconButton from "@/components/ui/IconButton";
+import { copyTextFromPromise } from "@/lib/clipboard";
+import { checkForm } from "./checkForm";
 
-type Fertig = { username: string; expiresAt: string | null };
+type Fertig = { username: string; password: string; expiresAt: string | null };
+type Kopiert = "user" | "password" | null;
 
 export default function AccessCodePage() {
   const t = useTranslations("accessCode");
   const locale = useLocale();
 
   const [code, setCode] = useState("");
-  const [givenName, setGivenName] = useState("");
-  const [surname, setSurname] = useState("");
-  const [password, setPassword] = useState("");
-  const [repeat, setRepeat] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [fertig, setFertig] = useState<Fertig | null>(null);
+  const [kopiert, setKopiert] = useState<Kopiert>(null);
+
+  // Same checkmark-for-1500ms feedback as the admin's access-code list.
+  function kopieren(feld: Exclude<Kopiert, null>, text: string) {
+    copyTextFromPromise(Promise.resolve(text));
+    setKopiert(feld);
+    setTimeout(() => setKopiert(null), 1500);
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    const geprueft = checkForm({ code, givenName, surname, password, repeat });
+    const geprueft = checkForm({ code });
     if (!geprueft.ok) {
-      setError(
-        geprueft.reason === "codeMissing"
-          ? t("errorCodeMissing")
-          : geprueft.reason === "nameMissing"
-            ? t("errorNameMissing")
-            : geprueft.reason === "tooShort"
-              ? t("errorTooShort", { min: MIN_PASSWORD_LENGTH })
-              : t("errorMismatch"),
-      );
+      setError(t("errorCodeMissing"));
       return;
     }
 
@@ -47,12 +45,7 @@ export default function AccessCodePage() {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          code: code.trim(),
-          given_name: givenName.trim(),
-          surname: surname.trim(),
-          password,
-        }),
+        body: JSON.stringify({ code: code.trim() }),
       });
       if (!r.ok) {
         const body = await r.json().catch(() => ({}));
@@ -61,7 +54,7 @@ export default function AccessCodePage() {
       }
       const d = await r.json();
       // The session cookie already arrived with this answer, no extra login needed.
-      setFertig({ username: d.username, expiresAt: d.expires_at ?? null });
+      setFertig({ username: d.username, password: d.password, expiresAt: d.expires_at ?? null });
     } catch {
       setError(t("errorGeneric"));
     } finally {
@@ -91,9 +84,51 @@ export default function AccessCodePage() {
               className="bg-background rounded-xl shadow-sm border border-border-soft p-8 space-y-4"
             >
               <h2 className="text-lg font-semibold">{t("doneTitle")}</h2>
-              <p className="text-sm">{t("doneName", { uid: fertig.username })}</p>
+
+              <div>
+                <p className="text-xs font-medium text-foreground-soft mb-1">{t("doneUser")}</p>
+                <div className="flex items-center justify-between gap-2 rounded-md border border-border px-3 py-2">
+                  <span data-testid="access-code-username" className="font-mono text-sm break-all">
+                    {fertig.username}
+                  </span>
+                  <IconButton
+                    size="sm"
+                    onClick={() => kopieren("user", fertig.username)}
+                    aria-label={kopiert === "user" ? t("copied") : t("copyUser")}
+                  >
+                    {kopiert === "user" ? (
+                      <Check size={14} weight="bold" className="text-kb" />
+                    ) : (
+                      <Copy size={14} weight="bold" />
+                    )}
+                  </IconButton>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs font-medium text-foreground-soft mb-1">{t("donePassword")}</p>
+                <div className="flex items-center justify-between gap-2 rounded-md border border-border px-3 py-2">
+                  <span data-testid="access-code-password" className="font-mono text-sm break-all">
+                    {fertig.password}
+                  </span>
+                  <IconButton
+                    size="sm"
+                    onClick={() => kopieren("password", fertig.password)}
+                    aria-label={kopiert === "password" ? t("copied") : t("copyPassword")}
+                  >
+                    {kopiert === "password" ? (
+                      <Check size={14} weight="bold" className="text-kb" />
+                    ) : (
+                      <Copy size={14} weight="bold" />
+                    )}
+                  </IconButton>
+                </div>
+              </div>
+
+              <p className="text-xs text-muted-soft">{t("doneOnce")}</p>
+
               <p className="text-sm">{fertig.expiresAt ? t("doneUntil", { date: bisDatum }) : t("doneUnlimited")}</p>
-              <p className="text-xs text-muted-soft">{t("doneHint")}</p>
+
               <button
                 type="button"
                 onClick={() => window.location.assign("/")}
@@ -127,86 +162,6 @@ export default function AccessCodePage() {
                   <p className="mt-1.5 text-xs text-muted-soft">{t("codeHint")}</p>
                 </div>
 
-                <div>
-                  <label htmlFor="access-given-name" className="block text-sm font-medium text-foreground-soft mb-1">
-                    {t("givenName")}
-                  </label>
-                  <input
-                    id="access-given-name"
-                    type="text"
-                    value={givenName}
-                    onChange={(e) => setGivenName(e.target.value)}
-                    required
-                    disabled={sending}
-                    className="w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-kb focus:border-transparent disabled:opacity-50"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="access-surname" className="block text-sm font-medium text-foreground-soft mb-1">
-                    {t("surname")}
-                  </label>
-                  <input
-                    id="access-surname"
-                    type="text"
-                    value={surname}
-                    onChange={(e) => setSurname(e.target.value)}
-                    required
-                    disabled={sending}
-                    className="w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-kb focus:border-transparent disabled:opacity-50"
-                  />
-                  <p className="mt-1.5 text-xs text-muted-soft">{t("nameHint")}</p>
-                </div>
-
-                <div>
-                  <label htmlFor="access-password" className="block text-sm font-medium text-foreground-soft mb-1">
-                    {t("password")}
-                  </label>
-                  <div className="relative">
-                    <input
-                      id="access-password"
-                      type={showPassword ? "text" : "password"}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      autoComplete="new-password"
-                      required
-                      disabled={sending}
-                      className="w-full px-3 py-2 pr-10 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-kb focus:border-transparent disabled:opacity-50"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword((v) => !v)}
-                      aria-label={showPassword ? t("hidePassword") : t("showPassword")}
-                      className="absolute inset-y-0 right-0 flex items-center px-3 text-muted hover:text-kb transition-colors"
-                      tabIndex={-1}
-                    >
-                      {showPassword ? <EyeSlash size={16} weight="bold" /> : <Eye size={16} weight="bold" />}
-                    </button>
-                  </div>
-                  <p className="mt-1.5 text-xs text-muted-soft">
-                    {t("passwordHint", { min: MIN_PASSWORD_LENGTH })}
-                  </p>
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="access-password-repeat"
-                    className="block text-sm font-medium text-foreground-soft mb-1"
-                  >
-                    {t("passwordRepeat")}
-                  </label>
-                  <input
-                    id="access-password-repeat"
-                    type={showPassword ? "text" : "password"}
-                    value={repeat}
-                    onChange={(e) => setRepeat(e.target.value)}
-                    autoComplete="new-password"
-                    required
-                    disabled={sending}
-                    className="w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-kb focus:border-transparent disabled:opacity-50"
-                  />
-                </div>
-
                 {error && (
                   <p className="text-sm text-error" role="alert">
                     {error}
@@ -215,7 +170,7 @@ export default function AccessCodePage() {
 
                 <button
                   type="submit"
-                  disabled={sending || !code.trim() || !givenName.trim() || !surname.trim() || !password || !repeat}
+                  disabled={sending || !code.trim()}
                   className="w-full px-4 py-2 text-sm font-medium rounded-md btn-primary disabled:opacity-50"
                 >
                   {sending ? t("submitting") : t("submit")}
