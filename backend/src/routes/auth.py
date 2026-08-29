@@ -6,6 +6,8 @@ from pydantic import BaseModel
 
 from src import database
 from src.dependencies import get_settings, get_session_store
+from src.features.impersonation import repository as impersonation_repo
+from src.features.impersonation import service as impersonation
 from src.i18n import get_locale, t
 from src.ldap_auth import authenticate_user
 
@@ -123,9 +125,27 @@ async def logout(request: Request, response: Response):
     token = request.cookies.get("session")
     if token:
         store = get_session_store()
+        data = store.get_data(token) or {}
+        _close_impersonation(store, data)
         store.destroy(token)
     response.delete_cookie("session")
     return {"status": "ok"}
+
+
+def _close_impersonation(store, data: dict) -> None:
+    """Logging out of a borrowed account closes the record and the own session."""
+    marke = data.get(impersonation.SESSION_KEY)
+    if not marke:
+        return
+    log_id = marke.get("log_id")
+    if log_id:
+        try:
+            impersonation_repo.end_entry(int(log_id), "logout")
+        except Exception as e:
+            logger.error("Could not close impersonation record {}: {}", log_id, e)
+    parent = data.get(impersonation.SESSION_PARENT_TOKEN)
+    if parent:
+        store.destroy(parent)
 
 
 @router.get("/status")
@@ -208,7 +228,8 @@ async def auth_status(request: Request):
         },
     }
     # Preserve other session fields (display_name, username, etc.) without clobbering keys above.
+    # The token of the borrowed session stays on the server, it must never reach a browser.
     for k, v in data.items():
-        if k not in payload:
+        if k not in payload and k != impersonation.SESSION_PARENT_TOKEN:
             payload[k] = v
     return payload

@@ -391,6 +391,23 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                 "ALTER TABLE users ADD COLUMN IF NOT EXISTS access_code_id INTEGER "
                 "REFERENCES access_codes(id) ON DELETE SET NULL"
             )
+            # Wer war wann in wessen Konto, der Nachweis fuer den Datenschutz.
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS impersonation_log (
+                    id              SERIAL PRIMARY KEY,
+                    actor_user_id   INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                    actor_username  TEXT NOT NULL,
+                    target_user_id  INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                    target_username TEXT NOT NULL,
+                    started_at      TIMESTAMP NOT NULL DEFAULT NOW(),
+                    ended_at        TIMESTAMP,
+                    ended_reason    TEXT
+                )
+            """)
+            cur.execute(
+                "CREATE INDEX IF NOT EXISTS impersonation_log_started_idx "
+                "ON impersonation_log (started_at DESC)"
+            )
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS jobs (
                     id                  SERIAL PRIMARY KEY,
