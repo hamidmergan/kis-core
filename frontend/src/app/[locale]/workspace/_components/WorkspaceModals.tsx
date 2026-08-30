@@ -29,6 +29,7 @@ interface WorkspaceModalsProps {
   onCancelDelete: () => void;
   onConfirmDelete: () => void;
   deleting: boolean;
+  deleteParticipantCount: number | null;
   deleteLinkConfirm: AccessLink | null;
   onCancelDeleteLink: () => void;
   onConfirmDeleteLink: () => void;
@@ -42,7 +43,7 @@ export default function WorkspaceModals(props: WorkspaceModalsProps) {
     showParticipants, onCloseParticipants, onRolesChanged,
     editOpen, onCloseEdit, onSubmitEdit,
     showLinks, onCloseLinks, links, onLinkCreated, onRequestDeleteLink,
-    deleteConfirm, onCancelDelete, onConfirmDelete, deleting,
+    deleteConfirm, onCancelDelete, onConfirmDelete, deleting, deleteParticipantCount,
     deleteLinkConfirm, onCancelDeleteLink, onConfirmDeleteLink, deletingLink,
   } = props;
 
@@ -87,8 +88,13 @@ export default function WorkspaceModals(props: WorkspaceModalsProps) {
           <div className="bg-background rounded-xl shadow-xl max-w-sm w-full p-6">
             <h3 className="text-base font-semibold mb-2">{t("deleteTitle", { label: labels.singular })}</h3>
             <p className="text-sm text-foreground-soft mb-1"><span className="font-medium">{workspace.title}</span></p>
-            <p className="text-sm text-error mb-6">{t("deleteWarning")}</p>
-            <div className="flex gap-3 justify-end">
+            <p className="text-sm text-error mb-1">{t("deleteWarning")}</p>
+            {!!deleteParticipantCount && (
+              <p className="text-sm text-error mb-1">
+                {t("deleteParticipantsWarning", { count: deleteParticipantCount })}
+              </p>
+            )}
+            <div className="flex gap-3 justify-end mt-5">
               <button onClick={onCancelDelete} disabled={deleting} className="btn-cancel px-4 py-2 text-sm btn-secondary rounded-lg disabled:opacity-50">{t("cancel")}</button>
               <button onClick={onConfirmDelete} disabled={deleting} className="px-4 py-2 text-sm btn-danger rounded-lg disabled:opacity-50">{deleting ? "..." : t("delete")}</button>
             </div>

@@ -7,15 +7,41 @@ from typing import Any, Optional
 import psycopg2.extras
 
 from src.core.db.pool import get_connection
+from src.services import export_crypto
 
 _SELECT = """SELECT id, name, protocol, base_url, api_key, capabilities,
                     voices, enabled, last_probed_at, probe_status, probe_error,
                     created_at, updated_at"""
 
+# A fixed label, not the provider's own name: renaming a provider must not
+# break decrypting its stored key.
+_AAD = "providers.api_key"
+
+
+def _encrypt_key(raw: Optional[str]) -> Optional[str]:
+    """Wraps a key for storage; passes it through unchanged without KIS_SECRETS_KEY."""
+    if raw is None or not export_crypto.is_export_key_configured():
+        return raw
+    return json.dumps(export_crypto.wrap_api_key(raw, provider_name=_AAD))
+
+
+def _decrypt_key(stored: Optional[str]) -> Optional[str]:
+    """Reverses _encrypt_key; a plain (pre-migration) string passes through unchanged."""
+    if stored is None:
+        return None
+    try:
+        envelope = json.loads(stored)
+    except (TypeError, ValueError):
+        return stored
+    if not export_crypto.is_envelope(envelope):
+        return stored
+    return export_crypto.try_unwrap_api_key(envelope, provider_name=_AAD)
+
 
 def _row_to_dict(row) -> dict:
     """Coerce a DictRow (mixed types from psycopg2) into a JSON-friendly dict."""
     d = dict(row)
+    d["api_key"] = _decrypt_key(d.get("api_key"))
     for jsonb_col in ("capabilities", "voices"):
         v = d.get(jsonb_col)
         if isinstance(v, str):
@@ -86,7 +112,7 @@ def create_provider(
                     name,
                     protocol,
                     base_url,
-                    api_key,
+                    _encrypt_key(api_key),
                     json.dumps(capabilities or []),
                     json.dumps(voices or []),
                     enabled,
@@ -109,6 +135,9 @@ def update_provider(provider_id: int, **fields: Any) -> Optional[dict]:
         if key in ("capabilities", "voices"):
             sets.append(f"{key} = %s::jsonb")
             values.append(json.dumps(value or []))
+        elif key == "api_key":
+            sets.append(f"{key} = %s")
+            values.append(_encrypt_key(value))
         else:
             sets.append(f"{key} = %s")
             values.append(value)

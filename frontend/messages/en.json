@@ -1282,13 +1282,13 @@
           "chooseAnotherFile": "Choose another file",
           "confirmButton": "Confirm import",
           "apiKeyRestoreOk": "{count, plural, one {# encrypted API key will be restored.} other {# encrypted API keys will be restored.}}",
-          "apiKeyRestoreFailed": "{count, plural, one {# encrypted API key cannot be decrypted (different KIS_EXPORT_KEY).} other {# encrypted API keys cannot be decrypted (different KIS_EXPORT_KEY).}}"
+          "apiKeyRestoreFailed": "{count, plural, one {# encrypted API key cannot be decrypted (different KIS_SECRETS_KEY).} other {# encrypted API keys cannot be decrypted (different KIS_SECRETS_KEY).}}"
         },
         "exportButton": "Export",
         "importButton": "Import",
         "exportHint": "Includes endpoints, models, voices, capabilities and feature routes.",
-        "apiKeyEncryptionOn": "API keys are written encrypted into the backup (KIS_EXPORT_KEY) and can only be restored on this system.",
-        "apiKeyEncryptionOff": "API keys are NOT exported (KIS_EXPORT_KEY not set). Re-enter them manually on the target system.",
+        "apiKeyEncryptionOn": "API keys are written encrypted into the backup (KIS_SECRETS_KEY) and can only be restored on this system.",
+        "apiKeyEncryptionOff": "API keys are NOT exported (KIS_SECRETS_KEY not set). Re-enter them manually on the target system.",
         "preview": {
           "title": "Import configuration",
           "source": "Source: {filename}",
@@ -1820,8 +1820,8 @@
         "unitRequests": "requests to the AI"
       },
       "range": {
-        "all": "All",
         "year": "12 months",
+        "halfYear": "6 months",
         "days30": "30 days"
       },
       "tools": {
@@ -1838,7 +1838,7 @@
           "image_edit": "Image editing",
           "image_analyze": "Image analysis"
         },
-        "perToolHint": "How often each tool was started, over the whole period. Counted at the start: a job someone cancels or deletes stays in."
+        "perToolHint": "How often each tool was started, in the selected period. Counted at the start: a job someone cancels or deletes stays in."
       },
       "assistant": {
         "workspaces": "Modules",
@@ -1900,11 +1900,25 @@
         "trainerOff": "Not used for this module.",
         "noMaterials": "Nothing uploaded yet.",
         "noMembers": "Nobody in this module yet.",
+        "noToolsUsed": "No tool used yet.",
         "members": "Participants",
         "colFile": "File",
         "colState": "State",
         "colName": "Name",
-        "roleTutor": "Tutor"
+        "roleTutor": "Tutor",
+        "history": "History",
+        "historyHint": "Chat, tools, exercises and joins merged, newest first.",
+        "historyEmpty": "No activity yet.",
+        "historyMore": "Load more",
+        "kindChat": "Chat message",
+        "kindChatIn": "Chat message in {module}",
+        "kindTool": "Tool {tool}",
+        "kindExerciseIn": "Exercise answered in {module}",
+        "kindJoinIn": "Joined {module}",
+        "sessions": "Online sessions",
+        "sessionsHint": "Recorded per hour, contiguous hours count as one session.",
+        "sessionsEmpty": "No presence recorded.",
+        "sessionClock": ""
       },
       "eigene": {
         "workspaces": "Own modules",
@@ -2068,6 +2082,8 @@
       "item1": "Username",
       "item2": "Display name (full name)",
       "item3": "Email address",
+      "item4": "Language level (if determined via the AI chat test, deletable at any time)",
+      "item5": "Invite code or link used to gain access",
       "outro": "Passwords are not stored on this platform; authentication is handled exclusively against the directory service.\nLegal basis: Art. 6 (1) (e) GDPR (performance of a task carried out in the public interest).\nRetention period: until the user account is deleted."
     },
     "cookies": {
@@ -2088,15 +2104,32 @@
       "item4": "Processing status",
       "retention": "Uploaded files and the results derived from them remain stored in your module until you or a module administrator deletes them. Job metadata for individual processing jobs is retained <strong>only to a limited extent</strong>. The most recent jobs are kept and older ones are removed automatically."
     },
+    "adminAccess": {
+      "heading": "5. Access by administrators",
+      "intro": "People with the relevant permission — in particular administrators, as well as anyone assigned the \"User statistics\" right — can view the following data for individual user accounts:",
+      "item1": "Chat messages sent, verbatim, with module and time",
+      "item2": "Tools used, with status and file name",
+      "item3": "Exercises answered",
+      "item4": "Presence times on the platform (to the day)",
+      "item5": "Module memberships",
+      "item6": "For support: temporarily signing in as the affected person (\"takeover\"), start and end are logged",
+      "outro": "This access serves the technical administration of the platform, troubleshooting, and quality assurance. It is limited to the people who have been granted this permission as part of their duties.\nLegal basis: Art. 6 (1) (e) GDPR (performance of a task carried out in the public interest).\nRetention period: matches the retention of the underlying data (chat history and module membership persist until the module or user account is deleted; job metadata as described in section 4; the takeover log is kept indefinitely)."
+    },
     "thirdParty": {
-      "heading": "5. Third parties and external AI services",
-      "intro": "To provide the AI features, content is transmitted to external services:",
+      "heading": "6. Third parties and external services",
+      "intro": "Which AI providers are used is configured through the platform's administration. The following services are currently in use:",
       "kisskiLabel": "KISSKI / GWDG",
       "kisskiBody": "Language models and transcription services. Texts and audio content are processed in this context. KISSKI is a service of Gesellschaft für wissenschaftliche Datenverarbeitung mbH Göttingen (GWDG) and is subject to German data protection law. Processing takes place under a data processing agreement pursuant to Art. 28 GDPR.",
-      "outro": "Only the content required for the respective function is transmitted. The third-party providers do not retain the data beyond the duration of processing."
+      "mylabLabel": "THL myLab",
+      "mylabBody": "Language models operated by Hochschule Lübeck itself. Processing takes place on the university's own servers; no data is transmitted to external providers.",
+      "deeplLabel": "DeepL",
+      "deeplBody": "Translation service for automatic translations. Processing takes place at DeepL SE and is subject to European data protection law.",
+      "hetznerLabel": "Hetzner Object Storage",
+      "hetznerBody": "Cloud storage for uploaded files. Storage takes place at Hetzner Online GmbH on servers in Germany.",
+      "outro": "For the AI services, only the content required for the respective function is transmitted, and no further storage takes place there. Uploaded files remain in object storage until they are deleted."
     },
     "logs": {
-      "heading": "6. Server log files",
+      "heading": "7. Server log files",
       "intro": "When this website is accessed, the web server automatically records information in so-called server log files. This includes:",
       "item1": "IP address of the requesting device",
       "item2": "Date and time of access",
@@ -2105,15 +2138,15 @@
       "retention": "This data is automatically deleted after no more than <strong>7 days</strong>."
     },
     "ssl": {
-      "heading": "7. SSL/TLS encryption",
+      "heading": "8. SSL/TLS encryption",
       "body": "The platform uses SSL/TLS encryption to securely transmit data. You can recognise an encrypted connection by the browser address bar starting with \"https://\"."
     },
     "legalBasis": {
-      "heading": "8. Legal basis",
+      "heading": "9. Legal basis",
       "body": "Processing is based on <strong>Art. 6(1)(f) GDPR</strong> (legitimate interest) for server logs, and on <strong>Art. 6(1)(b) GDPR</strong> (performance of a contract) for user data and job processing within the scope of platform usage."
     },
     "rights": {
-      "heading": "9. Your rights as a data subject",
+      "heading": "10. Your rights as a data subject",
       "intro": "You have the following rights vis-à-vis the data controller regarding personal data concerning you:",
       "item1": "Right of access (Art. 15 GDPR)",
       "item2": "Right to rectification (Art. 16 GDPR)",
@@ -2124,7 +2157,7 @@
       "contact": "To exercise these rights, please contact:"
     },
     "complaint": {
-      "heading": "10. Right to lodge a complaint",
+      "heading": "11. Right to lodge a complaint",
       "body": "You have the right to lodge a complaint with a data protection supervisory authority. The competent authority is the <strong>Unabhängiges Landeszentrum für Datenschutz Schleswig-Holstein (ULD Kiel)</strong> (Independent State Data Protection Centre of Schleswig-Holstein)."
     }
   },
@@ -2930,6 +2963,7 @@
       "delete": "Delete",
       "deleteTitle": "Delete {label}?",
       "deleteWarning": "Will be deleted irreversibly along with all associated data.",
+      "deleteParticipantsWarning": "{count, plural, one {One other participant will also lose their own chat messages and notes.} other {# other participants will also lose their own chat messages and notes.}}",
       "cancel": "Cancel",
       "deleteLinkTitle": "Delete enrollment link?",
       "linkValidUntil": "valid until {date}",

@@ -18,7 +18,7 @@ export default function StatistikWerkzeugePage() {
   const t = useTranslations("admin.statistik");
   const [daten, setDaten] = useState<Daten | null>(null);
   const [fehler, setFehler] = useState(false);
-  const [zeitraum, setZeitraum] = useState("alles");
+  const [zeitraum, setZeitraum] = useState("30t");
   // The colour scale hangs off the highest value ever seen.
   const [skala, setSkala] = useState(1);
 

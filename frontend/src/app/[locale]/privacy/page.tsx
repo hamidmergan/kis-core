@@ -40,6 +40,8 @@ export default function DatenschutzPage() {
               <li>{t("auth.item1")}</li>
               <li>{t("auth.item2")}</li>
               <li>{t("auth.item3")}</li>
+              <li>{t("auth.item4")}</li>
+              <li>{t("auth.item5")}</li>
             </ul>
             <p className="text-foreground-soft mt-2 whitespace-pre-line">
               {t("auth.outro")}
@@ -88,6 +90,26 @@ export default function DatenschutzPage() {
 
           <section className="mb-6">
             <h2 className="text-lg font-semibold mb-2">
+              {t("adminAccess.heading")}
+            </h2>
+            <p className="text-foreground-soft mb-2">
+              {t("adminAccess.intro")}
+            </p>
+            <ul className="list-disc pl-6 text-foreground-soft space-y-1">
+              <li>{t("adminAccess.item1")}</li>
+              <li>{t("adminAccess.item2")}</li>
+              <li>{t("adminAccess.item3")}</li>
+              <li>{t("adminAccess.item4")}</li>
+              <li>{t("adminAccess.item5")}</li>
+              <li>{t("adminAccess.item6")}</li>
+            </ul>
+            <p className="text-foreground-soft mt-2 whitespace-pre-line">
+              {t("adminAccess.outro")}
+            </p>
+          </section>
+
+          <section className="mb-6">
+            <h2 className="text-lg font-semibold mb-2">
               {t("thirdParty.heading")}
             </h2>
             <p className="text-foreground-soft mb-2">
@@ -96,6 +118,15 @@ export default function DatenschutzPage() {
             <ul className="list-disc pl-6 text-foreground-soft space-y-1 mb-2">
               <li>
                 <strong>{t("thirdParty.kisskiLabel")}</strong> - {t("thirdParty.kisskiBody")}
+              </li>
+              <li>
+                <strong>{t("thirdParty.mylabLabel")}</strong> - {t("thirdParty.mylabBody")}
+              </li>
+              <li>
+                <strong>{t("thirdParty.deeplLabel")}</strong> - {t("thirdParty.deeplBody")}
+              </li>
+              <li>
+                <strong>{t("thirdParty.hetznerLabel")}</strong> - {t("thirdParty.hetznerBody")}
               </li>
             </ul>
             <p className="text-foreground-soft">

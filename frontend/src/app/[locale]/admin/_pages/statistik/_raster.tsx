@@ -85,8 +85,8 @@ export function ZeitraumChips({
 }) {
   const t = useTranslations("admin.statistik");
   const auswahl = [
-    ["alles", t("range.all")],
     ["jahr", t("range.year")],
+    ["halbjahr", t("range.halfYear")],
     ["30t", t("range.days30")],
   ] as const;
 

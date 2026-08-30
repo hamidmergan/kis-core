@@ -3,11 +3,14 @@ from psycopg2.extras import RealDictCursor
 
 from src.core.db.pool import get_connection
 
+ZEITRAEUME = {"jahr": 365, "halbjahr": 182, "30t": 30}
 
-def model_usage(days: int | None = None) -> dict:
-    """Requests and tokens, optionally only the last N days."""
-    wo = "WHERE ts >= NOW() - (%s || ' days')::interval" if days else ""
-    args = (days,) if days else ()
+
+def model_usage(zeitraum: str = "30t") -> dict:
+    """Requests and tokens, scoped to a period like the tools tab."""
+    tage = ZEITRAEUME.get(zeitraum, 30)
+    wo = "WHERE ts >= NOW() - (%s || ' days')::interval"
+    args = (tage,)
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             return {

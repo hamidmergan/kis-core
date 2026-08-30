@@ -1,6 +1,6 @@
 "use client";
 
-/** Who got counted in one bar of the hour or day chart. */
+/** Who got counted in one bar of the day chart. */
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
@@ -9,14 +9,11 @@ import { Ladeanzeige } from "./_bausteine";
 interface BucketNutzer { id: number; name: string }
 
 type Bucket =
-  | { art: "hour"; hour: number }
   | { art: "day"; day: string }
   | { art: "month"; month: string };
 
 function pfad(bucket: Bucket): string {
   switch (bucket.art) {
-    case "hour":
-      return `/api/admin/stats/users/today/${bucket.hour}`;
     case "day":
       return `/api/admin/stats/users/by-day/${bucket.day}`;
     case "month":
@@ -25,7 +22,7 @@ function pfad(bucket: Bucket): string {
 }
 
 function bucketSchluessel(bucket: Bucket): string {
-  return bucket.art === "hour" ? String(bucket.hour) : bucket.art === "day" ? bucket.day : bucket.month;
+  return bucket.art === "day" ? bucket.day : bucket.month;
 }
 
 export function BucketAnsicht({ bucket }: { bucket: Bucket }) {

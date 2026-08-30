@@ -1282,13 +1282,13 @@
           "chooseAnotherFile": "Andere Datei wählen",
           "confirmButton": "Import bestätigen",
           "apiKeyRestoreOk": "{count, plural, one {# verschlüsselter API-Key wird wiederhergestellt.} other {# verschlüsselte API-Keys werden wiederhergestellt.}}",
-          "apiKeyRestoreFailed": "{count, plural, one {# verschlüsselter API-Key kann nicht entschlüsselt werden (anderes KIS_EXPORT_KEY).} other {# verschlüsselte API-Keys können nicht entschlüsselt werden (anderes KIS_EXPORT_KEY).}}"
+          "apiKeyRestoreFailed": "{count, plural, one {# verschlüsselter API-Key kann nicht entschlüsselt werden (anderes KIS_SECRETS_KEY).} other {# verschlüsselte API-Keys können nicht entschlüsselt werden (anderes KIS_SECRETS_KEY).}}"
         },
         "exportButton": "Exportieren",
         "importButton": "Importieren",
         "exportHint": "Inkl. Endpoints, Modelle, Stimmen, Capabilities und Feature-Routen.",
-        "apiKeyEncryptionOn": "API-Keys werden verschlüsselt mit ins Backup geschrieben (KIS_EXPORT_KEY) und sind nur auf diesem System wiederherstellbar.",
-        "apiKeyEncryptionOff": "API-Keys werden NICHT exportiert (KIS_EXPORT_KEY nicht gesetzt). Auf dem Zielsystem manuell neu eintragen.",
+        "apiKeyEncryptionOn": "API-Keys werden verschlüsselt mit ins Backup geschrieben (KIS_SECRETS_KEY) und sind nur auf diesem System wiederherstellbar.",
+        "apiKeyEncryptionOff": "API-Keys werden NICHT exportiert (KIS_SECRETS_KEY nicht gesetzt). Auf dem Zielsystem manuell neu eintragen.",
         "preview": {
           "title": "Konfiguration importieren",
           "source": "Quelle: {filename}",
@@ -1820,8 +1820,8 @@
         "unitRequests": "Anfragen an die KI"
       },
       "range": {
-        "all": "Alles",
         "year": "12 Monate",
+        "halfYear": "6 Monate",
         "days30": "30 Tage"
       },
       "tools": {
@@ -1838,7 +1838,7 @@
           "image_edit": "Bild-Bearbeitung",
           "image_analyze": "Bild-Analyse"
         },
-        "perToolHint": "Wie oft jedes Werkzeug gestartet wurde, über die ganze Zeit. Gezählt wird beim Start: ein Auftrag, den jemand abbricht oder löscht, bleibt drin."
+        "perToolHint": "Wie oft jedes Werkzeug gestartet wurde, im gewählten Zeitraum. Gezählt wird beim Start: ein Auftrag, den jemand abbricht oder löscht, bleibt drin."
       },
       "assistant": {
         "workspaces": "Module",
@@ -1900,11 +1900,25 @@
         "trainerOff": "Für dieses Modul nicht benutzt.",
         "noMaterials": "Noch nichts hochgeladen.",
         "noMembers": "Noch niemand in diesem Modul.",
+        "noToolsUsed": "Noch kein Werkzeug benutzt.",
         "members": "Teilnehmer",
         "colFile": "Datei",
         "colState": "Stand",
         "colName": "Name",
-        "roleTutor": "Tutor"
+        "roleTutor": "Tutor",
+        "history": "Verlauf",
+        "historyHint": "Chat, Werkzeuge, Übungen und Beitritte gemischt, neueste zuerst.",
+        "historyEmpty": "Noch keine Aktivität.",
+        "historyMore": "Mehr laden",
+        "kindChat": "Chat-Nachricht",
+        "kindChatIn": "Chat-Nachricht in {module}",
+        "kindTool": "Werkzeug {tool}",
+        "kindExerciseIn": "Übung beantwortet in {module}",
+        "kindJoinIn": "{module} beigetreten",
+        "sessions": "Online-Sitzungen",
+        "sessionsHint": "Stundenweise erfasst, zusammenhängende Stunden gelten als eine Sitzung.",
+        "sessionsEmpty": "Keine Anwesenheit erfasst.",
+        "sessionClock": "Uhr"
       },
       "eigene": {
         "workspaces": "Eigene Module",
@@ -2068,6 +2082,8 @@
       "item1": "Benutzername",
       "item2": "Anzeigename (vollständiger Name)",
       "item3": "E-Mail-Adresse",
+      "item4": "Sprachniveau (falls per KI-Chat-Test ermittelt, jederzeit selbst löschbar)",
+      "item5": "Einladungscode oder -link, über den der Zugang erfolgte",
       "outro": "Passwörter werden nicht auf dieser Plattform gespeichert; die Anmeldung erfolgt ausschließlich gegen den Verzeichnisdienst.\nRechtsgrundlage: Art. 6 Abs. 1 lit. e DSGVO (Wahrnehmung einer Aufgabe im öffentlichen Interesse).\nSpeicherdauer: bis zur Löschung des Nutzerkontos."
     },
     "cookies": {
@@ -2088,15 +2104,32 @@
       "item4": "Verarbeitungsstatus",
       "retention": "Hochgeladene Dateien und die daraus erzeugten Ergebnisse bleiben in Ihrem Modul gespeichert, bis Sie oder ein Modul-Administrator sie löschen. Job-Metadaten zu einzelnen Verarbeitungsaufträgen werden nur <strong>in begrenztem Umfang</strong> vorgehalten. Gespeichert bleiben jeweils die neuesten Aufträge, ältere werden automatisch entfernt."
     },
+    "adminAccess": {
+      "heading": "5. Einsicht durch Administratorinnen und Administratoren",
+      "intro": "Personen mit einer entsprechenden Berechtigung — insbesondere Administratorinnen und Administratoren sowie Personen, denen die Berechtigung „Statistik: Nutzer“ zugewiesen wurde — können zu einzelnen Nutzerkonten folgende Daten einsehen:",
+      "item1": "Gestellte Chat-Nachrichten im Wortlaut, mit Modul und Zeitpunkt",
+      "item2": "Genutzte Werkzeuge mit Status und Dateiname",
+      "item3": "Beantwortete Übungen",
+      "item4": "Anwesenheitszeiten auf der Plattform (tagesgenau)",
+      "item5": "Mitgliedschaft in Modulen",
+      "item6": "Zur Unterstützung: vorübergehende Anmeldung als die betroffene Person (\"Übernahme\"), Start und Ende werden protokolliert",
+      "outro": "Diese Einsicht dient der technischen Betreuung der Plattform, der Aufklärung bei Störungen sowie der Qualitätssicherung. Sie ist auf den Kreis der Personen beschränkt, die diese Berechtigung im Rahmen ihrer Aufgaben erhalten haben.\nRechtsgrundlage: Art. 6 Abs. 1 lit. e DSGVO (Wahrnehmung einer Aufgabe im öffentlichen Interesse).\nSpeicherdauer: entspricht der Speicherdauer der zugrunde liegenden Daten (Chat-Verlauf und Modul-Mitgliedschaft bestehen bis zur Löschung des Moduls oder Nutzerkontos, Job-Metadaten wie in Abschnitt 4 beschrieben; das Übernahme-Protokoll ist unbegrenzt gespeichert)."
+    },
     "thirdParty": {
-      "heading": "5. Drittanbieter und externe KI-Dienste",
-      "intro": "Zur Bereitstellung der KI-Funktionen werden Inhalte an externe Dienste übermittelt:",
+      "heading": "6. Drittanbieter und externe Dienste",
+      "intro": "Welche KI-Anbieter zum Einsatz kommen, wird über die Administration der Plattform konfiguriert. Aktuell werden dabei folgende Dienste genutzt:",
       "kisskiLabel": "KISSKI / GWDG",
       "kisskiBody": "Sprachmodelle und Transkriptionsdienste. Dabei werden Texte und Audio-Inhalte verarbeitet. KISSKI ist ein Dienst der Gesellschaft für wissenschaftliche Datenverarbeitung mbH Göttingen (GWDG) und unterliegt deutschem Datenschutzrecht. Die Verarbeitung erfolgt im Rahmen einer Auftragsverarbeitung gemäß Art. 28 DSGVO.",
-      "outro": "Es werden nur die für die jeweilige Funktion notwendigen Inhalte übermittelt. Eine dauerhafte Speicherung bei den Drittanbietern über die Verarbeitungsdauer hinaus erfolgt nicht."
+      "mylabLabel": "THL myLab",
+      "mylabBody": "Sprachmodelle, von der Hochschule Lübeck selbst betrieben. Die Verarbeitung erfolgt auf hochschuleigenen Servern, eine Übermittlung an externe Anbieter findet dabei nicht statt.",
+      "deeplLabel": "DeepL",
+      "deeplBody": "Übersetzungsdienst für automatische Übersetzungen. Die Verarbeitung erfolgt bei der DeepL SE und unterliegt europäischem Datenschutzrecht.",
+      "hetznerLabel": "Hetzner Object Storage",
+      "hetznerBody": "Cloud-Speicher für hochgeladene Dateien. Die Speicherung erfolgt bei der Hetzner Online GmbH auf Servern in Deutschland.",
+      "outro": "Bei den KI-Diensten werden nur die für die jeweilige Funktion notwendigen Inhalte übermittelt, eine darüberhinausgehende Speicherung erfolgt dort nicht. Hochgeladene Dateien bleiben im Object Storage gespeichert, bis sie gelöscht werden."
     },
     "logs": {
-      "heading": "6. Server-Logfiles",
+      "heading": "7. Server-Logfiles",
       "intro": "Beim Aufruf dieser Webseite werden durch den Webserver automatisch Informationen in sogenannten Server-Logfiles erfasst. Dies umfasst:",
       "item1": "IP-Adresse des anfragenden Geräts",
       "item2": "Datum und Uhrzeit des Zugriffs",
@@ -2105,15 +2138,15 @@
       "retention": "Diese Daten werden nach spätestens <strong>7 Tagen</strong> automatisch gelöscht."
     },
     "ssl": {
-      "heading": "7. SSL-/TLS-Verschlüsselung",
+      "heading": "8. SSL-/TLS-Verschlüsselung",
       "body": "Die Plattform nutzt zur sicheren Übertragung von Daten eine SSL-/TLS-Verschlüsselung. Eine verschlüsselte Verbindung erkennen Sie an der Adresszeile des Browsers, die mit „https://“ beginnt."
     },
     "legalBasis": {
-      "heading": "8. Rechtsgrundlage",
+      "heading": "9. Rechtsgrundlage",
       "body": "Die Verarbeitung erfolgt auf Grundlage von <strong>Art. 6 Abs. 1 lit. f DSGVO</strong> (berechtigtes Interesse) für Server-Logs sowie auf Grundlage von <strong>Art. 6 Abs. 1 lit. b DSGVO</strong> (Vertragserfüllung) für die Nutzerdaten und Job-Verarbeitung im Rahmen der Plattformnutzung."
     },
     "rights": {
-      "heading": "9. Ihre Rechte als betroffene Person",
+      "heading": "10. Ihre Rechte als betroffene Person",
       "intro": "Sie haben gegenüber dem Verantwortlichen folgende Rechte hinsichtlich der Sie betreffenden personenbezogenen Daten:",
       "item1": "Recht auf Auskunft (Art. 15 DSGVO)",
       "item2": "Recht auf Berichtigung (Art. 16 DSGVO)",
@@ -2124,7 +2157,7 @@
       "contact": "Zur Ausübung dieser Rechte wenden Sie sich an:"
     },
     "complaint": {
-      "heading": "10. Beschwerderecht",
+      "heading": "11. Beschwerderecht",
       "body": "Sie haben das Recht, sich bei einer Datenschutz-Aufsichtsbehörde zu beschweren. Zuständig ist das <strong>Unabhängige Landeszentrum für Datenschutz Schleswig-Holstein (ULD Kiel)</strong>."
     }
   },
@@ -2930,6 +2963,7 @@
       "delete": "Löschen",
       "deleteTitle": "{label} löschen?",
       "deleteWarning": "Wird mit allen zugehörigen Daten unwiderruflich gelöscht.",
+      "deleteParticipantsWarning": "{count, plural, one {Außerdem verliert eine weitere teilnehmende Person ihre eigenen Chat-Nachrichten und Notizen.} other {Außerdem verlieren # weitere teilnehmende Personen ihre eigenen Chat-Nachrichten und Notizen.}}",
       "cancel": "Abbrechen",
       "deleteLinkTitle": "Einschreibelink löschen?",
       "linkValidUntil": "gültig bis {date}",

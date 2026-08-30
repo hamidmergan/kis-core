@@ -21,6 +21,7 @@ export function useWorkspaceActions({ workspace, onToggleActive, onDelete, onLin
   const [showLinks, setShowLinks] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [deleteParticipantCount, setDeleteParticipantCount] = useState<number | null>(null);
   const [deleteLinkConfirm, setDeleteLinkConfirm] = useState<AccessLink | null>(null);
   const [deletingLink, setDeletingLink] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -35,6 +36,22 @@ export function useWorkspaceActions({ workspace, onToggleActive, onDelete, onLin
     setToggling(true);
     await onToggleActive(workspace.uuid, newVal);
     setToggling(false);
+  }
+
+  async function handleDeleteClick() {
+    setDeleteConfirm(true);
+    setDeleteParticipantCount(null);
+    try {
+      const res = await fetch(`/api/ai-assistant/workspaces/${workspace.uuid}/lecturer-stats`, {
+        credentials: "include",
+      });
+      if (res.ok) {
+        const stats = await res.json();
+        setDeleteParticipantCount(stats.overview?.total_enrolled ?? 0);
+      }
+    } catch {
+      // Dialog just shows the generic warning without a count.
+    }
   }
 
   async function handleDeleteConfirm() {
@@ -70,10 +87,10 @@ export function useWorkspaceActions({ workspace, onToggleActive, onDelete, onLin
     toggling,
     showStats, setShowStats,
     showLinks, setShowLinks,
-    deleteConfirm, setDeleteConfirm, deleting,
+    deleteConfirm, setDeleteConfirm, deleting, deleteParticipantCount,
     deleteLinkConfirm, setDeleteLinkConfirm, deletingLink,
     editOpen, setEditOpen,
     handleOpen, handlePrefetch,
-    handleToggle, handleDeleteConfirm, handleDeleteLinkConfirm, handleLinkCreated,
+    handleToggle, handleDeleteClick, handleDeleteConfirm, handleDeleteLinkConfirm, handleLinkCreated,
   };
 }

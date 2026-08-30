@@ -11,14 +11,13 @@ import { NochNichts, Suche } from "./_suche";
 import { PersonAnsicht } from "./_person";
 import { BucketAnsicht, type Bucket } from "./_bucket";
 
-interface OnlineNutzer { id: number; name: string; minutes: number }
+interface OnlineNutzer { id: number; name: string }
 interface Person { id: number; name: string; role: string }
 interface Daten {
   online: { count: number; users: OnlineNutzer[] };
   people: Person[];
   totals: { total: number; active_30d: number; new_this_month: number };
   per_day: { day: string; users: number }[];
-  today_by_hour: { hour: number; users: number }[];
   new_per_month: { month: string; users: number }[];
   retention: { regular: number; occasional: number; once: number; threshold_days: number };
   roles: { role: string; users: number }[];
@@ -58,60 +57,44 @@ export default function StatistikNutzerPage() {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Karte titel={t("users.onlineNow")} hinweis={t("users.onlineHint")} marke={t("users.now")}>
-          <p className="text-4xl font-bold tabular-nums tracking-tight mt-2">{daten.online.count}</p>
-          {daten.online.users.length === 0 ? (
-            <p className="text-xs text-muted-soft mt-3">{t("users.nobodyOnline")}</p>
-          ) : (
-            <div className="mt-4 overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border-soft text-left text-2xs uppercase text-muted">
-                    <th className="py-2 pr-4">{t("detail.colName")}</th>
-                    <th className="py-2 text-right">{t("users.colSince")}</th>
+      <Karte titel={t("users.onlineNow")} hinweis={t("users.onlineHint")} marke={t("users.now")}>
+        <p className="text-4xl font-bold tabular-nums tracking-tight mt-2">{daten.online.count}</p>
+        {daten.online.users.length === 0 ? (
+          <p className="text-xs text-muted-soft mt-3">{t("users.nobodyOnline")}</p>
+        ) : (
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border-soft text-left text-2xs uppercase text-muted">
+                  <th className="py-2 pr-4">{t("detail.colName")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sichtbar.map((n) => (
+                  <tr key={n.id} className="border-b border-border-soft">
+                    <td className="py-2 pr-4 text-foreground-soft">{n.name}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {sichtbar.map((n) => (
-                    <tr key={n.id} className="border-b border-border-soft">
-                      <td className="py-2 pr-4 text-foreground-soft">{n.name}</td>
-                      <td className="py-2 text-right text-muted-soft tabular-nums">
-                        {t("users.sinceMinutes", { n: n.minutes })}
-                      </td>
-                    </tr>
-                  ))}
-                  {rest > 0 && (
-                    <tr>
-                      <td colSpan={2} className="p-0">
-                        <button
-                          type="button"
-                          onClick={() => setOffen(!offen)}
-                          aria-expanded={offen}
-                          className="flex w-full items-center gap-2 py-2 text-xs text-muted transition-colors hover:text-kb"
-                        >
-                          <CaretRight size={10} weight="bold" className={offen ? "rotate-90" : ""} />
-                          {offen ? t("users.showLess") : t("users.showMore", { n: rest })}
-                        </button>
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </Karte>
-
-        <Karte titel={t("users.today")} hinweis={t("users.todayHint")}>
-          <Saeulen
-            werte={daten.today_by_hour.map((h) => ({
-              label: String(h.hour).padStart(2, "0"),
-              wert: h.users,
-            }))}
-            aufKlick={(i) => setBucket({ art: "hour", hour: daten.today_by_hour[i].hour })}
-          />
-        </Karte>
-      </div>
+                ))}
+                {rest > 0 && (
+                  <tr>
+                    <td className="p-0">
+                      <button
+                        type="button"
+                        onClick={() => setOffen(!offen)}
+                        aria-expanded={offen}
+                        className="flex w-full items-center gap-2 py-2 text-xs text-muted transition-colors hover:text-kb"
+                      >
+                        <CaretRight size={10} weight="bold" className={offen ? "rotate-90" : ""} />
+                        {offen ? t("users.showLess") : t("users.showMore", { n: rest })}
+                      </button>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Karte>
 
       <Karte titel={t("users.perDay")} hinweis={t("users.perDayHint")}>
         <Saeulen
@@ -170,13 +153,11 @@ export default function StatistikNutzerPage() {
         open={bucket !== null}
         onClose={() => setBucket(null)}
         title={
-          bucket?.art === "hour"
-            ? t("users.bucketHour", { hour: String(bucket.hour).padStart(2, "0") })
-            : bucket?.art === "day"
-              ? t("users.bucketDay", { day: new Date(bucket.day).toLocaleDateString("de-DE") })
-              : bucket?.art === "month"
-                ? t("users.bucketMonth", { month: bucket.month })
-                : undefined
+          bucket?.art === "day"
+            ? t("users.bucketDay", { day: new Date(bucket.day).toLocaleDateString("de-DE") })
+            : bucket?.art === "month"
+              ? t("users.bucketMonth", { month: bucket.month })
+              : undefined
         }
       >
         {bucket !== null && <BucketAnsicht bucket={bucket} />}

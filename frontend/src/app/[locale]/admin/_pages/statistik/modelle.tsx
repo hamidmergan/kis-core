@@ -5,6 +5,7 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Kachel, Karte, Saeulen, Ladeanzeige } from "./_bausteine";
+import { ZeitraumChips } from "./_raster";
 
 interface Daten {
   totals: { requests: number; tokens_in: number; tokens_out: number };
@@ -22,13 +23,14 @@ export default function StatistikModellePage() {
   const t = useTranslations("admin.statistik");
   const [daten, setDaten] = useState<Daten | null>(null);
   const [fehler, setFehler] = useState(false);
+  const [zeitraum, setZeitraum] = useState("30t");
 
   useEffect(() => {
-    fetch("/api/admin/stats/models", { credentials: "include" })
+    fetch(`/api/admin/stats/models?range=${zeitraum}`, { credentials: "include" })
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then(setDaten)
       .catch(() => setFehler(true));
-  }, []);
+  }, [zeitraum]);
 
   if (fehler) return <p className="text-sm text-error">{t("loadError")}</p>;
   if (!daten) return <Ladeanzeige />;
@@ -59,6 +61,7 @@ export default function StatistikModellePage() {
       </div>
 
       <Karte titel={t("models.perMonth")}>
+        <ZeitraumChips wert={zeitraum} setzen={setZeitraum} />
         <Saeulen werte={daten.per_month.map((m) => ({ label: m.month, wert: m.requests }))} />
       </Karte>
 

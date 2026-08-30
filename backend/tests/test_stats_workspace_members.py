@@ -1,9 +1,13 @@
 """The participant list of a module, now with the role."""
 
+from datetime import datetime
+
 from src.features.stats import detail
 
 MODUL = "u-1"
 EIGNER = 7
+JONAS = 12
+MIRA = 25
 
 KOPF = {
     "id": 1, "uuid": MODUL, "title": "Werkstoffkunde 2",
@@ -12,17 +16,31 @@ KOPF = {
 }
 
 LEUTE = [
-    {"name": "Anke Reimers", "rolle": "owner", "uebungen": 0, "chat": 18},
-    {"name": "Jonas Petersen", "rolle": "tutor", "uebungen": 34, "chat": 61},
-    {"name": "Mira Kaltenbach", "rolle": "student", "uebungen": 218, "chat": 47},
+    {"user_id": EIGNER, "name": "Anke Reimers", "rolle": "owner", "uebungen": 0, "chat": 18},
+    {"user_id": JONAS, "name": "Jonas Petersen", "rolle": "tutor", "uebungen": 34, "chat": 61},
+    {"user_id": MIRA, "name": "Mira Kaltenbach", "rolle": "student", "uebungen": 218, "chat": 47},
+]
+
+# Zwei Werkzeuge fuer Mira, eins fuer Jonas, keins fuer die Eignerin.
+WERKZEUGE = [
+    {"user_id": MIRA, "tool": "flashcards", "n": 12},
+    {"user_id": MIRA, "tool": "karteikarten", "n": 4},
+    {"user_id": JONAS, "tool": "quiz", "n": 3},
+]
+
+# Mira: die Uebung ist neuer als ihr letzter Chat. Jonas: nur Chat. Die Eignerin: nichts.
+AKTIVITAET = [
+    {"user_id": MIRA, "zuletzt": datetime(2026, 8, 20, 9, 0)},
+    {"user_id": JONAS, "zuletzt": datetime(2026, 8, 10, 14, 30)},
 ]
 
 
 class _Cursor:
     """Answers by what was asked instead of by call order."""
 
-    def __init__(self, leute, calls):
-        self._leute, self._calls, self._sql = leute, calls, ""
+    def __init__(self, leute, werkzeuge, aktivitaet, calls):
+        self._leute, self._werkzeuge, self._aktivitaet = leute, werkzeuge, aktivitaet
+        self._calls, self._sql = calls, ""
 
     def __enter__(self):
         return self
@@ -40,14 +58,18 @@ class _Cursor:
         return {"n": 0, "zuletzt": None}
 
     def fetchall(self):
+        if "GROUP BY p.user_id, s.tool" in self._sql:
+            return [dict(w) for w in self._werkzeuge]
+        if "GROUP BY user_id" in self._sql:
+            return [dict(a) for a in self._aktivitaet]
         if "aia_enrollments" in self._sql:
             return [dict(p) for p in self._leute]
         return []
 
 
 class _Conn:
-    def __init__(self, leute, calls):
-        self._leute, self._calls = leute, calls
+    def __init__(self, leute, werkzeuge, aktivitaet, calls):
+        self._leute, self._werkzeuge, self._aktivitaet, self._calls = leute, werkzeuge, aktivitaet, calls
 
     def __enter__(self):
         return self
@@ -56,12 +78,12 @@ class _Conn:
         return False
 
     def cursor(self, **kwargs):
-        return _Cursor(self._leute, self._calls)
+        return _Cursor(self._leute, self._werkzeuge, self._aktivitaet, self._calls)
 
 
-def lauf(monkeypatch, leute=LEUTE):
+def lauf(monkeypatch, leute=LEUTE, werkzeuge=WERKZEUGE, aktivitaet=AKTIVITAET):
     calls: list[tuple] = []
-    monkeypatch.setattr(detail, "get_connection", lambda: _Conn(leute, calls))
+    monkeypatch.setattr(detail, "get_connection", lambda: _Conn(leute, werkzeuge, aktivitaet, calls))
     return detail.workspace_detail(MODUL), calls
 
 
@@ -72,11 +94,16 @@ def test_jede_person_traegt_ihre_rolle(monkeypatch):
 
 
 def test_die_zahlen_je_person_bleiben_daneben_stehen(monkeypatch):
-    """The role is added, it replaces nothing."""
+    """Die Rolle kam schon dazu, jetzt kommen Aktivitaet und Werkzeuge dazu."""
     daten, _ = lauf(monkeypatch)
 
     assert daten["members"][2] == {
         "name": "Mira Kaltenbach", "role": "student", "answered": 218, "chat": 47,
+        "last": "2026-08-20T09:00:00Z",
+        "tools": [
+            {"tool": "lernkarten", "answered": 12},
+            {"tool": "karteikarten", "answered": 4},
+        ],
     }
 
 
@@ -110,6 +137,54 @@ def test_mehrere_einschreibungen_blieben_eine_person(monkeypatch):
 
     assert "GROUP BY e.user_id" in sql
     assert "BOOL_OR(e.role = 'tutor')" in sql, "dann gewinnt die staerkere Rolle"
+
+
+# ── Zuletzt aktiv und genutzte Werkzeuge, beides nur in diesem Modul ────────
+
+def test_zuletzt_aktiv_ist_das_neuere_von_chat_und_uebung(monkeypatch):
+    daten, _ = lauf(monkeypatch)
+
+    mira = daten["members"][2]
+    assert mira["last"] == "2026-08-20T09:00:00Z"
+
+
+def test_person_ohne_aktivitaet_hat_last_none(monkeypatch):
+    daten, _ = lauf(monkeypatch)
+
+    eignerin = daten["members"][0]
+    assert eignerin["last"] is None
+
+
+def test_werkzeuge_je_person_zeigen_die_kachel_statt_des_rohen_namens(monkeypatch):
+    """flashcards in der DB, lernkarten auf der Kachel, das Frontend uebersetzt den Rest."""
+    daten, _ = lauf(monkeypatch)
+
+    jonas = daten["members"][1]
+    assert jonas["tools"] == [{"tool": "quiz", "answered": 3}]
+
+
+def test_person_ohne_werkzeugnutzung_hat_leere_liste(monkeypatch):
+    daten, _ = lauf(monkeypatch)
+
+    eignerin = daten["members"][0]
+    assert eignerin["tools"] == []
+
+
+def test_werkzeugabfrage_ist_auf_das_modul_beschraenkt(monkeypatch):
+    _, calls = lauf(monkeypatch)
+    sql = [s for s, _ in calls if "GROUP BY p.user_id, s.tool" in s][0]
+
+    assert "s.workspace_id = %s" in sql
+
+
+def test_aktivitaetsabfrage_verbindet_chat_und_uebungen(monkeypatch):
+    """Presence bleibt aussen vor, das waere plattformweit statt modulbezogen."""
+    _, calls = lauf(monkeypatch)
+    sql = [s for s, _ in calls if "GROUP BY user_id" in s][0]
+
+    assert "aia_messages" in sql
+    assert "aia_exercise_progress" in sql
+    assert "user_presence" not in sql
 
 
 # ── Dieselbe Zahl an beiden Stellen ──────────────────────────────────────────

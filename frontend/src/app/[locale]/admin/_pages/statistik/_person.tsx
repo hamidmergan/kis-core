@@ -5,6 +5,7 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Balken, Karte, Ladeanzeige } from "./_bausteine";
+import { VerlaufAnsicht } from "./_verlauf";
 
 interface Detail {
   id: number;
@@ -148,6 +149,8 @@ export function PersonAnsicht({ id }: { id: number }) {
           </div>
         )}
       </Karte>
+
+      <VerlaufAnsicht id={id} />
     </div>
   );
 }

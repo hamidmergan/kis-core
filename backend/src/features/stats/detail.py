@@ -7,6 +7,15 @@ from src.features.stats.assistant import FACHSPRACHE, KACHEL, SPRACHE
 # How many of the most recent jobs the detail view shows.
 LETZTE_JOBS = 5
 
+# How many merged events one page of the Verlauf shows.
+VERLAUF_SEITE = 50
+
+# How many recent online-sessions the Verlauf shows.
+SITZUNGEN_ANZAHL = 20
+
+# Chat-Vorschau: Aufsicht braucht den Wortlaut, nicht nur "Nachricht gesendet".
+VORSCHAU_LAENGE = 140
+
 
 def user_detail(user_id: int) -> dict | None:
     with get_connection() as conn:
@@ -142,7 +151,8 @@ def workspace_detail(uuid: str) -> dict | None:
 
             # The owner was missing entirely, enrollments are grouped per person.
             cur.execute(
-                """SELECT COALESCE(u.display_name, u.ldap_username, 'Unbekannt') AS name,
+                """SELECT u.id AS user_id,
+                          COALESCE(u.display_name, u.ldap_username, 'Unbekannt') AS name,
                           t.rolle,
                           (SELECT COUNT(*) FROM aia_exercise_progress p
                              JOIN aia_exercise_sets s ON s.id = p.set_id
@@ -165,11 +175,52 @@ def workspace_detail(uuid: str) -> dict | None:
                                          WHEN 'tutor' THEN 1 ELSE 2 END, 3 DESC""",
                 (mid, mid, kopf["owner_id"], mid, kopf["owner_id"]),
             )
-            leute = [
-                {"name": r["name"], "role": r["rolle"],
-                 "answered": r["uebungen"], "chat": r["chat"]}
-                for r in cur.fetchall()
-            ]
+            personen = cur.fetchall()
+
+            # Werkzeuge und letzte Aktivitaet bleiben eigene Abfragen, beide je Person gruppiert.
+            cur.execute(
+                """SELECT p.user_id, s.tool, COUNT(*) AS n
+                   FROM aia_exercise_progress p
+                   JOIN aia_exercise_sets s ON s.id = p.set_id
+                   WHERE s.workspace_id = %s
+                   GROUP BY p.user_id, s.tool""",
+                (mid,),
+            )
+            werkzeuge_je_person: dict[int, list[dict]] = {}
+            for r in cur.fetchall():
+                kachel = KACHEL.get(r["tool"])
+                if kachel is None:
+                    continue
+                werkzeuge_je_person.setdefault(r["user_id"], []).append(
+                    {"tool": kachel, "answered": r["n"]}
+                )
+            for zeilen in werkzeuge_je_person.values():
+                zeilen.sort(key=lambda x: x["answered"], reverse=True)
+
+            # Presence ist plattformweit, hier zaehlt nur Aktivitaet in diesem Modul.
+            cur.execute(
+                """SELECT user_id, MAX(wann) AS zuletzt FROM (
+                       SELECT user_id, created_at AS wann FROM aia_messages
+                        WHERE workspace_id = %s AND role = 'user'
+                       UNION ALL
+                       SELECT p.user_id, p.answered_at AS wann
+                         FROM aia_exercise_progress p
+                         JOIN aia_exercise_sets s ON s.id = p.set_id
+                        WHERE s.workspace_id = %s
+                   ) x GROUP BY user_id""",
+                (mid, mid),
+            )
+            letzte_je_person = {r["user_id"]: r["zuletzt"] for r in cur.fetchall()}
+
+            leute = []
+            for r in personen:
+                zuletzt = letzte_je_person.get(r["user_id"])
+                leute.append({
+                    "name": r["name"], "role": r["rolle"],
+                    "answered": r["uebungen"], "chat": r["chat"],
+                    "last": zuletzt.isoformat() + "Z" if zuletzt else None,
+                    "tools": werkzeuge_je_person.get(r["user_id"], []),
+                })
 
             cur.execute(
                 """SELECT COUNT(*) AS n, MAX(created_at) AS zuletzt
@@ -201,3 +252,83 @@ def workspace_detail(uuid: str) -> dict | None:
                 "materials": material,
                 "members": leute,
             }
+
+
+def user_verlauf(user_id: int, vor: str | None = None) -> dict:
+    """Chat, Werkzeuge, Uebungen und Beitritte gemischt, neueste zuerst, Sitzungen separat."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            grenze = "AND wann < %(vor)s" if vor else ""
+            cur.execute(
+                f"""SELECT * FROM (
+                        SELECT 'chat' AS art, m.title AS modul, msg.content AS text,
+                               NULL AS werkzeug, NULL AS status, msg.created_at AS wann
+                          FROM aia_messages msg JOIN aia_workspaces m ON m.id = msg.workspace_id
+                         WHERE msg.user_id = %(uid)s AND msg.role = 'user'
+                        UNION ALL
+                        SELECT 'werkzeug', NULL, j.original_filename,
+                               j.tool, j.status, j.created_at
+                          FROM jobs j WHERE j.user_id = %(uid)s
+                        UNION ALL
+                        SELECT 'uebung', m.title, NULL, s.tool, NULL, p.answered_at
+                          FROM aia_exercise_progress p
+                          JOIN aia_exercise_sets s ON s.id = p.set_id
+                          JOIN aia_workspaces m ON m.id = s.workspace_id
+                         WHERE p.user_id = %(uid)s
+                        UNION ALL
+                        SELECT 'beitritt', m.title, NULL, NULL, e.role, e.created_at
+                          FROM aia_enrollments e JOIN aia_workspaces m ON m.id = e.workspace_id
+                         WHERE e.user_id = %(uid)s
+                    ) x
+                    WHERE wann IS NOT NULL {grenze}
+                    ORDER BY wann DESC LIMIT {VERLAUF_SEITE}""",
+                {"uid": user_id, "vor": vor},
+            )
+            eintraege = [
+                {
+                    "kind": r["art"], "module": r["modul"], "text": _vorschau(r["text"]),
+                    "tool": r["werkzeug"], "status": r["status"],
+                    "when": r["wann"].isoformat() + "Z",
+                }
+                for r in cur.fetchall()
+            ]
+
+            # 500 Stunden reichen, um die letzten Sitzungen zu bilden, ohne die ganze Historie zu laden.
+            cur.execute(
+                """SELECT day, hour FROM user_presence
+                    WHERE user_id = %s ORDER BY day DESC, hour DESC LIMIT 500""",
+                (user_id,),
+            )
+            sitzungen = _sitzungen(cur.fetchall())[:SITZUNGEN_ANZAHL]
+
+            return {
+                "events": eintraege,
+                "has_more": len(eintraege) == VERLAUF_SEITE,
+                "sessions": sitzungen,
+            }
+
+
+def _vorschau(text: str | None) -> str | None:
+    if text is None or len(text) <= VORSCHAU_LAENGE:
+        return text
+    return text[:VORSCHAU_LAENGE].rstrip() + "…"
+
+
+def _sitzungen(zeilen: list[dict]) -> list[dict]:
+    """Fasst zusammenhaengende Stunden je Tag zu einer Sitzung zusammen."""
+    nach_tag: dict[str, list[int]] = {}
+    for r in zeilen:
+        nach_tag.setdefault(str(r["day"]), []).append(r["hour"])
+
+    bloecke = []
+    for tag, stunden in nach_tag.items():
+        stunden = sorted(set(stunden))
+        start = vorherige = stunden[0]
+        for h in stunden[1:] + [None]:
+            if h is None or h != vorherige + 1:
+                bloecke.append({"day": tag, "from": start, "to": vorherige})
+                start = h
+            vorherige = h
+
+    bloecke.sort(key=lambda b: (b["day"], b["from"]), reverse=True)
+    return bloecke

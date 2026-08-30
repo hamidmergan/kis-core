@@ -18,7 +18,10 @@ interface Detail {
   source_tools: Werkzeug[];
   glossary_tools: Werkzeug[];
   materials: { name: string; kind: string; chunks: number; status: string }[];
-  members: { name: string; role: string; answered: number; chat: number }[];
+  members: {
+    name: string; role: string; answered: number; chat: number;
+    last: string | null; tools: { tool: string; answered: number }[];
+  }[];
 }
 
 function KleineZahl({ titel, wert }: { titel: string; wert: number }) {
@@ -69,6 +72,7 @@ export function ModulAnsicht({
   basis?: string;
 }) {
   const t = useTranslations("admin.statistik");
+  const kachel = useTranslations("workspace.detail.studio.tiles");
   const [d, setD] = useState<Detail | null>(null);
   const [fehler, setFehler] = useState(false);
 
@@ -158,7 +162,8 @@ export function ModulAnsicht({
                     <th className="py-2 pr-4">{t("detail.colName")}</th>
                     <th className="py-2 pr-4">{t("detail.colRole")}</th>
                     <th className="py-2 pr-4 text-right">{t("assistant.colAnswered")}</th>
-                    <th className="py-2 text-right">{t("assistant.colChat")}</th>
+                    <th className="py-2 pr-4 text-right">{t("assistant.colChat")}</th>
+                    <th className="py-2 text-right">{t("assistant.colLast")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -167,7 +172,10 @@ export function ModulAnsicht({
                       <td className="py-2 pr-4 text-foreground-soft whitespace-nowrap">{p.name}</td>
                       <td className="py-2 pr-4 text-muted whitespace-nowrap">{rolle(p.role)}</td>
                       <td className="py-2 pr-4 text-right tabular-nums">{p.answered.toLocaleString("de-DE")}</td>
-                      <td className="py-2 text-right tabular-nums text-muted">{p.chat.toLocaleString("de-DE")}</td>
+                      <td className="py-2 pr-4 text-right tabular-nums text-muted">{p.chat.toLocaleString("de-DE")}</td>
+                      <td className="py-2 text-right text-muted-soft whitespace-nowrap">
+                        {p.last ? new Date(p.last).toLocaleDateString("de-DE") : "—"}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

@@ -47,7 +47,7 @@ export default function StatistikAssistentPage() {
   const [daten, setDaten] = useState<Daten | null>(null);
   const [fehler, setFehler] = useState(false);
   const [modul, setModul] = useState<string | null>(null);
-  const [zeitraum, setZeitraum] = useState("alles");
+  const [zeitraum, setZeitraum] = useState("jahr");
   const [ab, setAb] = useState(0);
 
   useEffect(() => {

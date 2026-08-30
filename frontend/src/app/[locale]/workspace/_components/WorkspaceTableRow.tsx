@@ -45,6 +45,7 @@ export default function WorkspaceTableRow({
         links={a.links} onLinkCreated={a.handleLinkCreated} onRequestDeleteLink={a.setDeleteLinkConfirm}
         deleteConfirm={a.deleteConfirm} onCancelDelete={() => a.setDeleteConfirm(false)}
         onConfirmDelete={a.handleDeleteConfirm} deleting={a.deleting}
+        deleteParticipantCount={a.deleteParticipantCount}
         deleteLinkConfirm={a.deleteLinkConfirm} onCancelDeleteLink={() => a.setDeleteLinkConfirm(null)}
         onConfirmDeleteLink={a.handleDeleteLinkConfirm} deletingLink={a.deletingLink}
       />
@@ -125,7 +126,7 @@ export default function WorkspaceTableRow({
               onParticipants={() => setShowParticipants(true)}
               onLinks={() => a.setShowLinks(true)}
               onEdit={() => a.setEditOpen(true)}
-              onDelete={isOwner ? () => a.setDeleteConfirm(true) : undefined}
+              onDelete={isOwner ? a.handleDeleteClick : undefined}
             />
           </div>
         </td>

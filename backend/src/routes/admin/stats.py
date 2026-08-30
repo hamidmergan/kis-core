@@ -12,8 +12,8 @@ from src.features.stats import (
     tool_overview,
     user_detail,
     user_overview,
+    user_verlauf,
     users_by_day,
-    users_by_hour,
     users_new_in_month,
     workspace_detail,
 )
@@ -88,16 +88,16 @@ async def get_user_stats(_admin=Depends(_require_stats_users)):
 
 @router.get("/stats/models")
 async def get_model_stats(
-    days: int | None = Query(default=None, ge=1, le=3650),
+    range: str = Query(default="30t", pattern="^(jahr|halbjahr|30t)$"),
     _admin=Depends(_require_stats_models),
 ):
-    """Requests and tokens per model, without ``days`` over all time."""
-    return model_usage(days)
+    """Requests and tokens per model, scoped to a period like the tools tab."""
+    return model_usage(range)
 
 
 @router.get("/stats/tools")
 async def get_tool_stats(
-    range: str = Query(default="alles", pattern="^(alles|jahr|30t)$"),
+    range: str = Query(default="30t", pattern="^(jahr|halbjahr|30t)$"),
     _admin=Depends(_require_tool_stats),
 ):
     """Tiles, bars per tool and the weekday by hour grid."""
@@ -108,12 +108,6 @@ async def get_tool_stats(
 async def get_assistant_stats(_admin=Depends(_require_aia_usage)):
     """Module, Materialien, Werkzeuge und Sprachniveau."""
     return assistant_overview()
-
-
-@router.get("/stats/users/today/{hour}")
-async def get_users_today_hour(hour: int, _admin=Depends(_require_stats_users)):
-    """Who was counted in this hour today, for the hourly chart's drill-down."""
-    return {"users": users_by_hour(hour)}
 
 
 @router.get("/stats/users/by-day/{day}")
@@ -138,6 +132,16 @@ async def get_user_detail(user_id: int, _admin=Depends(_require_stats_users)):
     if daten is None:
         raise HTTPException(status_code=404, detail="Unbekannter Nutzer")
     return daten
+
+
+@router.get("/stats/users/{user_id}/verlauf")
+async def get_user_verlauf(
+    user_id: int,
+    vor: str | None = Query(default=None),
+    _admin=Depends(_require_stats_users),
+):
+    """Chat, Werkzeuge, Uebungen und Beitritte gemischt, neueste zuerst, seitenweise nachladbar."""
+    return user_verlauf(user_id, vor)
 
 
 @router.get("/stats/workspaces/{uuid}")

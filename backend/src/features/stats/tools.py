@@ -3,8 +3,7 @@ from psycopg2.extras import RealDictCursor
 
 from src.core.db.pool import get_connection
 
-# Without an argument everything since the first entry counts.
-ZEITRAEUME = {"alles": None, "jahr": 365, "30t": 30}
+ZEITRAEUME = {"jahr": 365, "halbjahr": 182, "30t": 30}
 
 # Only the creation row counts as a job.
 GESTARTET = "status = 'started'"
@@ -19,7 +18,7 @@ WERKZEUGE = [
 ]
 
 
-def tool_overview(zeitraum: str = "alles") -> dict:
+def tool_overview(zeitraum: str = "30t") -> dict:
     """Tiles, bars per tool and the weekday by hour grid."""
     tage = ZEITRAEUME.get(zeitraum)
     with get_connection() as conn:
@@ -32,9 +31,7 @@ def tool_overview(zeitraum: str = "alles") -> dict:
             }
 
 
-def _wo(tage: int | None) -> tuple[str, tuple]:
-    if tage is None:
-        return f"WHERE {GESTARTET}", ()
+def _wo(tage: int) -> tuple[str, tuple]:
     return f"WHERE {GESTARTET} AND day >= CURRENT_DATE - %s::int", (tage,)
 
 
