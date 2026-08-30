@@ -90,6 +90,44 @@ def _today_by_hour(cur) -> list[dict]:
     return [{"hour": h, "users": gefunden.get(h, 0)} for h in range(letzte + 1)]
 
 
+def users_by_hour(hour: int) -> list[dict]:
+    """Who was counted in this hour today, mirrors _today_by_hour's bucket."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            return _users_by_hour(cur, hour)
+
+
+def _users_by_hour(cur, hour: int) -> list[dict]:
+    """LEFT JOIN, a deleted user's presence row stays and must still count."""
+    cur.execute(
+        """SELECT p.user_id AS id, COALESCE(u.display_name, u.ldap_username, 'Unbekannt') AS name
+           FROM user_presence p LEFT JOIN users u ON u.id = p.user_id
+           WHERE p.day = (NOW() AT TIME ZONE 'Europe/Berlin')::date AND p.hour = %s
+           ORDER BY 2""",
+        (hour,),
+    )
+    return [{"id": r["id"], "name": r["name"]} for r in cur.fetchall()]
+
+
+def users_by_day(day: str) -> list[dict]:
+    """Who was counted on this day, mirrors _per_day's bucket."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            return _users_by_day(cur, day)
+
+
+def _users_by_day(cur, day: str) -> list[dict]:
+    """DISTINCT because one user shows up once per hour, LEFT JOIN keeps deleted users' rows."""
+    cur.execute(
+        """SELECT DISTINCT p.user_id AS id, COALESCE(u.display_name, u.ldap_username, 'Unbekannt') AS name
+           FROM user_presence p LEFT JOIN users u ON u.id = p.user_id
+           WHERE p.day = %s
+           ORDER BY 2""",
+        (day,),
+    )
+    return [{"id": r["id"], "name": r["name"]} for r in cur.fetchall()]
+
+
 def _new_per_month(cur) -> list[dict]:
     cur.execute(
         """SELECT to_char(date_trunc('month', created_at), 'MM/YY') AS monat,

@@ -5,9 +5,11 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { CaretRight } from "@phosphor-icons/react";
+import Modal from "@/components/ui/Modal";
 import { AnteilsZeile, Balken, Kachel, Karte, Kurve, Saeulen, Ladeanzeige } from "./_bausteine";
 import { NochNichts, Suche } from "./_suche";
 import { PersonAnsicht } from "./_person";
+import { BucketAnsicht, type Bucket } from "./_bucket";
 
 interface OnlineNutzer { id: number; name: string; minutes: number }
 interface Person { id: number; name: string; role: string }
@@ -31,6 +33,7 @@ export default function StatistikNutzerPage() {
   const [fehler, setFehler] = useState(false);
   const [offen, setOffen] = useState(false);
   const [person, setPerson] = useState<number | null>(null);
+  const [bucket, setBucket] = useState<Bucket | null>(null);
 
   useEffect(() => {
     fetch("/api/admin/stats/users", { credentials: "include" })
@@ -105,12 +108,16 @@ export default function StatistikNutzerPage() {
               label: String(h.hour).padStart(2, "0"),
               wert: h.users,
             }))}
+            aufKlick={(i) => setBucket({ art: "hour", hour: daten.today_by_hour[i].hour })}
           />
         </Karte>
       </div>
 
       <Karte titel={t("users.perDay")} hinweis={t("users.perDayHint")}>
-        <Saeulen werte={daten.per_day.map((d) => ({ label: d.day.slice(5), wert: d.users }))} />
+        <Saeulen
+          werte={daten.per_day.map((d) => ({ label: d.day.slice(5), wert: d.users }))}
+          aufKlick={(i) => setBucket({ art: "day", day: daten.per_day[i].day })}
+        />
       </Karte>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -155,6 +162,20 @@ export default function StatistikNutzerPage() {
       </Karte>
 
       {person === null ? <NochNichts text={t("detail.pickPerson")} /> : <PersonAnsicht id={person} />}
+
+      <Modal
+        open={bucket !== null}
+        onClose={() => setBucket(null)}
+        title={
+          bucket?.art === "hour"
+            ? t("users.bucketHour", { hour: String(bucket.hour).padStart(2, "0") })
+            : bucket?.art === "day"
+              ? t("users.bucketDay", { day: new Date(bucket.day).toLocaleDateString("de-DE") })
+              : undefined
+        }
+      >
+        {bucket !== null && <BucketAnsicht bucket={bucket} />}
+      </Modal>
     </div>
   );
 }

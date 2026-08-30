@@ -106,9 +106,12 @@ const de = (n: number) => n.toLocaleString("de-DE");
 export function Saeulen({
   werte,
   hoehe = 200,
+  aufKlick,
 }: {
   werte: { label: string; wert: number }[];
   hoehe?: number;
+  /** Balken werden klickbar, aufgerufen mit dem Index in werte. */
+  aufKlick?: (index: number) => void;
 }) {
   const t = useTranslations("admin.statistik");
   const { rahmen, breite } = useBreite();
@@ -146,7 +149,12 @@ export function Saeulen({
           return (
             <g key={i}>
               {w.wert > 0 && (
-                <path d={kappe(x, y(w.wert), bw, O + ph - y(w.wert), 4, "oben")} className="fill-kb">
+                <path
+                  d={kappe(x, y(w.wert), bw, O + ph - y(w.wert), 4, "oben")}
+                  className={aufKlick ? "fill-kb cursor-pointer hover:fill-kb/80" : "fill-kb"}
+                  onClick={aufKlick ? () => aufKlick(i) : undefined}
+                  role={aufKlick ? "button" : undefined}
+                >
                   <title>{`${w.label}: ${de(w.wert)}`}</title>
                 </path>
               )}
