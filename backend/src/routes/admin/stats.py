@@ -14,6 +14,7 @@ from src.features.stats import (
     user_overview,
     users_by_day,
     users_by_hour,
+    users_new_in_month,
     workspace_detail,
 )
 from src.permissions_registry import (
@@ -119,6 +120,15 @@ async def get_users_today_hour(hour: int, _admin=Depends(_require_stats_users)):
 async def get_users_by_day(day: str, _admin=Depends(_require_stats_users)):
     """Who was counted on this day, for the daily chart's drill-down."""
     return {"users": users_by_day(day)}
+
+
+@router.get("/stats/users/by-month")
+async def get_users_by_month(
+    month: str = Query(..., pattern=r"^\d{2}/\d{2}$"),
+    _admin=Depends(_require_stats_users),
+):
+    """Who registered in this month, for the new-users chart's drill-down."""
+    return {"users": users_new_in_month(month)}
 
 
 @router.get("/stats/users/{user_id}")

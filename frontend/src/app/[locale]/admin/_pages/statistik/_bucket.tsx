@@ -8,12 +8,24 @@ import { Ladeanzeige } from "./_bausteine";
 
 interface BucketNutzer { id: number; name: string }
 
-type Bucket = { art: "hour"; hour: number } | { art: "day"; day: string };
+type Bucket =
+  | { art: "hour"; hour: number }
+  | { art: "day"; day: string }
+  | { art: "month"; month: string };
 
 function pfad(bucket: Bucket): string {
-  return bucket.art === "hour"
-    ? `/api/admin/stats/users/today/${bucket.hour}`
-    : `/api/admin/stats/users/by-day/${bucket.day}`;
+  switch (bucket.art) {
+    case "hour":
+      return `/api/admin/stats/users/today/${bucket.hour}`;
+    case "day":
+      return `/api/admin/stats/users/by-day/${bucket.day}`;
+    case "month":
+      return `/api/admin/stats/users/by-month?month=${encodeURIComponent(bucket.month)}`;
+  }
+}
+
+function bucketSchluessel(bucket: Bucket): string {
+  return bucket.art === "hour" ? String(bucket.hour) : bucket.art === "day" ? bucket.day : bucket.month;
 }
 
 export function BucketAnsicht({ bucket }: { bucket: Bucket }) {
@@ -28,7 +40,7 @@ export function BucketAnsicht({ bucket }: { bucket: Bucket }) {
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((d) => setNutzer(d.users))
       .catch(() => setFehler(true));
-  }, [bucket.art, bucket.art === "hour" ? bucket.hour : bucket.day]);
+  }, [bucket.art, bucketSchluessel(bucket)]);
 
   if (fehler) return <p className="text-sm text-error">{t("loadError")}</p>;
   if (!nutzer) return <Ladeanzeige />;

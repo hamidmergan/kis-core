@@ -1784,6 +1784,7 @@
         "bucketHour": "Nutzer um {hour} Uhr",
         "bucketDay": "Nutzer am {day}",
         "bucketEmpty": "Niemand gezählt.",
+        "bucketMonth": "Neue Nutzer im {month}",
         "newPerMonth": "Neue Nutzer je Monat",
         "retention": "Wer bleibt dabei",
         "retentionHint": "Tage, an denen jemand länger als fünf Minuten angemeldet war.",

@@ -1784,6 +1784,7 @@
         "bucketHour": "Users at {hour}:00",
         "bucketDay": "Users on {day}",
         "bucketEmpty": "Nobody was counted.",
+        "bucketMonth": "New users in {month}",
         "newPerMonth": "New users per month",
         "retention": "Who sticks around",
         "retentionHint": "Days on which someone was signed in for more than five minutes.",

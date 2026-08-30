@@ -81,6 +81,15 @@ def test_tages_liste_ohne_treffer_ist_leer():
     assert u._users_by_day(FakeCursor([]), "2026-08-27") == []
 
 
+def test_monats_liste_gibt_die_aufgeloesten_namen_zurueck():
+    cur = FakeCursor([{"id": 7, "name": "Timo"}])
+    assert u._users_new_in_month(cur, "08/26") == [{"id": 7, "name": "Timo"}]
+
+
+def test_monats_liste_ohne_treffer_ist_leer():
+    assert u._users_new_in_month(FakeCursor([]), "08/26") == []
+
+
 class CapturingCursor:
     def __init__(self):
         self.sql = None

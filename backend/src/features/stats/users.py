@@ -128,6 +128,23 @@ def _users_by_day(cur, day: str) -> list[dict]:
     return [{"id": r["id"], "name": r["name"]} for r in cur.fetchall()]
 
 
+def users_new_in_month(month: str) -> list[dict]:
+    """Who registered in this month, month as 'MM/YY' like the chart already shows it."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            return _users_new_in_month(cur, month)
+
+
+def _users_new_in_month(cur, month: str) -> list[dict]:
+    cur.execute(
+        """SELECT id, COALESCE(display_name, ldap_username, 'Unbekannt') AS name
+           FROM users WHERE date_trunc('month', created_at) = to_date(%s, 'MM/YY')
+           ORDER BY 2""",
+        (month,),
+    )
+    return [{"id": r["id"], "name": r["name"]} for r in cur.fetchall()]
+
+
 def _new_per_month(cur) -> list[dict]:
     cur.execute(
         """SELECT to_char(date_trunc('month', created_at), 'MM/YY') AS monat,

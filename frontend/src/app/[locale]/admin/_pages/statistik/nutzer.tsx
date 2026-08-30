@@ -131,7 +131,10 @@ export default function StatistikNutzerPage() {
           <Kurve werte={summiert} />
         </Karte>
         <Karte titel={t("users.newPerMonth")}>
-          <Saeulen werte={daten.new_per_month.map((m) => ({ label: m.month, wert: m.users }))} />
+          <Saeulen
+            werte={daten.new_per_month.map((m) => ({ label: m.month, wert: m.users }))}
+            aufKlick={(i) => setBucket({ art: "month", month: daten.new_per_month[i].month })}
+          />
         </Karte>
       </div>
 
@@ -171,7 +174,9 @@ export default function StatistikNutzerPage() {
             ? t("users.bucketHour", { hour: String(bucket.hour).padStart(2, "0") })
             : bucket?.art === "day"
               ? t("users.bucketDay", { day: new Date(bucket.day).toLocaleDateString("de-DE") })
-              : undefined
+              : bucket?.art === "month"
+                ? t("users.bucketMonth", { month: bucket.month })
+                : undefined
         }
       >
         {bucket !== null && <BucketAnsicht bucket={bucket} />}
