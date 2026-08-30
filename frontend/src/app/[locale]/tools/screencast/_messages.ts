@@ -10,7 +10,6 @@ export function renderFlowMessages(t: T, tCommon: T): RenderFlowMessages {
     queue: t("rendering.queue"),
     reconnected: t("rendering.reconnected"),
     renderError: t("error.renderError"),
-    errorWithCode: (code: number) => t("error.errorWithCode", { code }),
     retryFailed: t("error.retryFailed"),
     tooManyJobs: t("error.tooManyJobs"),
     jobFailed: t("error.jobFailed"),
@@ -41,7 +40,6 @@ export function renderFlowMessages(t: T, tCommon: T): RenderFlowMessages {
 export function translateFlowMessages(t: T, tCommon: T): TranslateFlowMessages {
   return {
     unknownError: tCommon("unknownError"),
-    errorWithCode: (code: number) => t("error.errorWithCode", { code }),
     uploadError: t("error.uploadError"),
     downloadFailed: t("error.downloadFailed"),
     jobInOtherTab: t("error.jobInOtherTab"),

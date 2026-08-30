@@ -1,3 +1,4 @@
+import { genericErrorMessage } from "@/lib/api";
 import type {
   ClearAllResult,
   Feature,
@@ -15,7 +16,7 @@ const BASE = "/api/admin";
 async function jsonOrThrow<T>(res: Response): Promise<T> {
   if (!res.ok) {
     const body = await res.text();
-    throw new Error(body || `HTTP ${res.status}`);
+    throw new Error(body || genericErrorMessage());
   }
   return res.json() as Promise<T>;
 }
@@ -170,7 +171,7 @@ export async function discoverVoices(
 export async function fetchExportConfig(): Promise<{ config: unknown; filename: string }> {
   const res = await fetch(`${BASE}/providers/export`, { credentials: "include" });
   if (!res.ok) {
-    throw new Error((await res.text()) || `HTTP ${res.status}`);
+    throw new Error((await res.text()) || genericErrorMessage());
   }
   const disposition = res.headers.get("Content-Disposition") || "";
   const match = /filename="?([^"]+)"?/.exec(disposition);

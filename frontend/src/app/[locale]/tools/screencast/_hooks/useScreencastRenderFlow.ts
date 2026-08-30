@@ -17,7 +17,6 @@ export interface RenderFlowMessages {
   queue: string;
   reconnected: string;
   renderError: string;
-  errorWithCode: (code: number) => string;
   retryFailed: string;
   tooManyJobs: string;
   jobFailed: string;
@@ -173,7 +172,7 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
           setTtsSettingsError(messages.previousRenderBusy);
           return;
         }
-        throw new Error(parseDetail(err.detail, messages.errorWithCode(uploadRes.status)));
+        throw new Error(parseDetail(err.detail, messages.unknownError));
       }
       const { job_uuid } = await uploadRes.json();
       currentJobUuidRef.current = job_uuid;

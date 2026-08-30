@@ -1,10 +1,18 @@
+import { genericErrorMessage, parseDetail } from "@/lib/api";
 import type { ScheduleData, ScheduleEntry, ScheduleEntryType } from "../_types";
 
 const base = (workspaceUuid: string) => `/api/ai-assistant/workspaces/${workspaceUuid}/schedule`;
 
+/** Never lets a raw status code reach the user - shows the backend's reason, or a friendly fallback. */
+async function throwIfNotOk(r: Response): Promise<void> {
+  if (r.ok) return;
+  const body = await r.json().catch(() => null);
+  throw new Error(parseDetail(body?.detail, genericErrorMessage()));
+}
+
 export async function fetchSchedule(workspaceUuid: string): Promise<ScheduleData> {
   const r = await fetch(base(workspaceUuid), { credentials: "include" });
-  if (!r.ok) throw new Error(`Zeitplan laden fehlgeschlagen: ${r.status}`);
+  await throwIfNotOk(r);
   return r.json();
 }
 
@@ -18,7 +26,7 @@ export async function generateSchedule(
     credentials: "include",
     body: JSON.stringify({ source_ids: sourceIds }),
   });
-  if (!r.ok) throw new Error(`Generieren fehlgeschlagen: ${r.status}`);
+  await throwIfNotOk(r);
   return r.json();
 }
 
@@ -37,7 +45,7 @@ export async function fetchScheduleJob(
   jobId: number
 ): Promise<ScheduleJob> {
   const r = await fetch(`${base(workspaceUuid)}/jobs/${jobId}`, { credentials: "include" });
-  if (!r.ok) throw new Error(`Job-Status laden fehlgeschlagen: ${r.status}`);
+  await throwIfNotOk(r);
   return r.json();
 }
 
@@ -50,7 +58,7 @@ export interface ActiveScheduleJob {
 
 export async function fetchActiveScheduleJob(workspaceUuid: string): Promise<ActiveScheduleJob> {
   const r = await fetch(`${base(workspaceUuid)}/jobs/active`, { credentials: "include" });
-  if (!r.ok) throw new Error(`Active-Job-Status laden fehlgeschlagen: ${r.status}`);
+  await throwIfNotOk(r);
   return r.json();
 }
 
@@ -71,7 +79,7 @@ export async function createEntry(workspaceUuid: string, input: {
     credentials: "include",
     body: JSON.stringify(input),
   });
-  if (!r.ok) throw new Error(`Eintrag anlegen fehlgeschlagen: ${r.status}`);
+  await throwIfNotOk(r);
   return r.json();
 }
 
@@ -82,7 +90,7 @@ export async function updateEntry(workspaceUuid: string, entryId: number, patch:
     credentials: "include",
     body: JSON.stringify(patch),
   });
-  if (!r.ok) throw new Error(`Aktualisieren fehlgeschlagen: ${r.status}`);
+  await throwIfNotOk(r);
   return r.json();
 }
 
@@ -91,7 +99,7 @@ export async function deleteEntry(workspaceUuid: string, entryId: number): Promi
     method: "DELETE",
     credentials: "include",
   });
-  if (!r.ok) throw new Error(`Löschen fehlgeschlagen: ${r.status}`);
+  await throwIfNotOk(r);
 }
 
 export async function deleteAllEntries(workspaceUuid: string): Promise<void> {
@@ -99,5 +107,5 @@ export async function deleteAllEntries(workspaceUuid: string): Promise<void> {
     method: "DELETE",
     credentials: "include",
   });
-  if (!r.ok) throw new Error(`Alles löschen fehlgeschlagen: ${r.status}`);
+  await throwIfNotOk(r);
 }

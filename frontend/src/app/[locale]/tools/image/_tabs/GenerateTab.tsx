@@ -41,7 +41,7 @@ export default function GenerateTab() {
       const response = await backendApi.fetch("/image/generate", { method: "POST", body: formData });
       if (!response.ok) {
         const err = await response.json().catch(() => ({ detail: tCommon("unknownError") }));
-        throw new Error(parseDetail(err.detail, `${tCommon("unknownError")}: ${response.status}`));
+        throw new Error(parseDetail(err.detail, tCommon("unknownError")));
       }
       const data = await response.json();
       window.dispatchEvent(new Event("kis-jobs-changed"));

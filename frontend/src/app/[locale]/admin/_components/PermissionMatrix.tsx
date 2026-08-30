@@ -6,6 +6,7 @@ import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Check, Plus } from "@phosphor-icons/react";
 
+import { genericErrorMessage, parseDetail } from "@/lib/api";
 import Checkbox from "@/components/ui/Checkbox";
 import Modal from "@/components/ui/Modal";
 import Spinner from "@/components/ui/Spinner";
@@ -72,7 +73,10 @@ export default function PermissionMatrix() {
     setLoading(true);
     try {
       const res = await fetch("/api/admin/roles", { credentials: "include" });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(parseDetail(body.detail, genericErrorMessage()));
+      }
       setData(await res.json());
       setError(null);
     } catch (e) {
@@ -119,7 +123,7 @@ export default function PermissionMatrix() {
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body.detail ?? `HTTP ${res.status}`);
+        throw new Error(parseDetail(body.detail, genericErrorMessage()));
       }
       const saved = await res.json();
       applyPermissions(role.id, saved.permissions);
@@ -161,7 +165,7 @@ export default function PermissionMatrix() {
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body.detail ?? `HTTP ${res.status}`);
+        throw new Error(parseDetail(body.detail, genericErrorMessage()));
       }
       setCreating(false);
       setNewName("");
@@ -180,9 +184,8 @@ export default function PermissionMatrix() {
       body: JSON.stringify({ name }),
     });
     if (!res.ok) {
-      // The reason from the server takes precedence, otherwise only an error code shows.
       const body = await res.json().catch(() => ({}));
-      throw new Error(body.detail ?? `HTTP ${res.status}`);
+      throw new Error(parseDetail(body.detail, genericErrorMessage()));
     }
     setData((d) =>
       d
@@ -203,7 +206,7 @@ export default function PermissionMatrix() {
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body.detail ?? `HTTP ${res.status}`);
+        throw new Error(parseDetail(body.detail, genericErrorMessage()));
       }
       setDeleting(null);
       await load();

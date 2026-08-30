@@ -250,7 +250,7 @@
     }
   },
   "common": {
-    "unknownError": "Unknown error",
+    "unknownError": "Unknown error. Please try again.",
     "downloadFailed": "Download failed",
     "processing": "Processing…",
     "downloadReady": "Done! Download ready",
@@ -532,7 +532,7 @@
         "slideZoomAria": "Enlarge slide {n}",
         "loadingImage": "Loading...",
         "noImage": "No image",
-        "unknownError": "Unknown error"
+        "unknownError": "Unknown error. Please try again."
       },
       "lightbox": {
         "prev": "← Previous",
@@ -1781,6 +1781,9 @@
         "todayHint": "The current hour is missing, it is not over yet.",
         "perDay": "Online per day",
         "perDayHint": "Distinct people, last 30 days.",
+        "bucketHour": "Users at {hour}:00",
+        "bucketDay": "Users on {day}",
+        "bucketEmpty": "Nobody was counted.",
         "newPerMonth": "New users per month",
         "retention": "Who sticks around",
         "retentionHint": "Days on which someone was signed in for more than five minutes.",
@@ -2893,7 +2896,7 @@
       "enrollAs": "You will be enrolled as {name}",
       "enrolling": "Enrolling …",
       "enrollInvalidCode": "Invalid code",
-      "unknownError": "Unknown error",
+      "unknownError": "Unknown error. Please try again.",
       "noEnrollments": "No enrollments yet.",
       "closedBadge": "Not open",
       "closedHint": "Your teacher has closed this module for now. Your enrollment stays in place.",

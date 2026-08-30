@@ -142,7 +142,7 @@ function ScreencastDemoPageInner() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: tDemo("loadDemoError") }));
-        throw new Error(parseDetail(err.detail, tDemo("errorWithCode", { code: res.status })));
+        throw new Error(parseDetail(err.detail, tCommon("unknownError")));
       }
       const data: TranslateResponse = await res.json();
       setTranslateJobUuid(data.translate_job_uuid ?? "demo");
@@ -173,7 +173,7 @@ function ScreencastDemoPageInner() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: tDemo("loadScriptsError") }));
-        throw new Error(parseDetail(err.detail, tDemo("errorWithCode", { code: res.status })));
+        throw new Error(parseDetail(err.detail, tCommon("unknownError")));
       }
       const data: GenerateScriptsResponse = await res.json();
       setSlides((prev) => prev.map((s, i) => ({ ...s, script: data.scripts[i] || "" })));
@@ -189,7 +189,7 @@ function ScreencastDemoPageInner() {
   const processRenderResponse = useCallback(async (response: Response) => {
     if (!response.ok) {
       const err = await response.json().catch(() => ({ detail: t("error.renderError") }));
-      throw new Error(parseDetail(err.detail, tDemo("errorWithCode", { code: response.status })));
+      throw new Error(parseDetail(err.detail, tCommon("unknownError")));
     }
     const blob = await response.blob();
     const aId = response.headers.get("X-Audio-Id");
@@ -199,7 +199,7 @@ function ScreencastDemoPageInner() {
     setVideoUrl(url);
     setLoading(false);
     setStep("done");
-  }, [t, tDemo]);
+  }, [t, tCommon]);
 
   const handleStartRender = useCallback(async () => {
     setTtsSettingsError("");

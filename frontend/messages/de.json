@@ -250,7 +250,7 @@
     }
   },
   "common": {
-    "unknownError": "Unbekannter Fehler",
+    "unknownError": "Unbekannter Fehler. Bitte versuche es erneut.",
     "downloadFailed": "Download fehlgeschlagen",
     "processing": "Wird verarbeitet…",
     "downloadReady": "Fertig! Download bereit",
@@ -532,7 +532,7 @@
         "slideZoomAria": "Folie {n} vergrößern",
         "loadingImage": "Wird geladen...",
         "noImage": "Kein Bild",
-        "unknownError": "Unbekannter Fehler"
+        "unknownError": "Unbekannter Fehler. Bitte versuche es erneut."
       },
       "lightbox": {
         "prev": "← Zurück",
@@ -1781,6 +1781,9 @@
         "todayHint": "Stunde für Stunde. Die laufende Stunde fehlt, sie ist noch nicht vorbei.",
         "perDay": "Online je Tag",
         "perDayHint": "Verschiedene Personen, letzte 30 Tage.",
+        "bucketHour": "Nutzer um {hour} Uhr",
+        "bucketDay": "Nutzer am {day}",
+        "bucketEmpty": "Niemand gezählt.",
         "newPerMonth": "Neue Nutzer je Monat",
         "retention": "Wer bleibt dabei",
         "retentionHint": "Tage, an denen jemand länger als fünf Minuten angemeldet war.",
@@ -2893,7 +2896,7 @@
       "enrollAs": "Du wirst eingeschrieben als {name}",
       "enrolling": "Wird eingeschrieben …",
       "enrollInvalidCode": "Ungültiger Code",
-      "unknownError": "Unbekannter Fehler",
+      "unknownError": "Unbekannter Fehler. Bitte versuche es erneut.",
       "noEnrollments": "Noch keine Einschreibung vorhanden.",
       "closedBadge": "Nicht freigegeben",
       "closedHint": "Die Lehrperson hat dieses Modul gerade geschlossen. Deine Einschreibung bleibt bestehen.",

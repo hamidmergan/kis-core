@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { genericErrorMessage, parseDetail } from "@/lib/api";
 import {
   toTranscript,
   DIAGNOSIS_ANSWER_MAX_CHARS,
@@ -93,7 +94,7 @@ export function useLanguageDiagnosis(
         });
         if (!res.ok) {
           const errBody = await res.json().catch(() => ({}));
-          throw new Error(errBody.detail || `HTTP ${res.status}`);
+          throw new Error(parseDetail(errBody.detail, genericErrorMessage()));
         }
         const data = (await res.json()) as DiagnosisTurnResponse;
         // A running turn is one question, the verdict carries none of these fields.

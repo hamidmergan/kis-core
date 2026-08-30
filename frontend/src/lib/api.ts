@@ -11,7 +11,8 @@ const FALLBACKS = {
     unknownError: "Unbekannter Fehler",
     translationError: "Übersetzungsfehler",
     jobStatusError: "Fehler beim Abrufen des Job-Status",
-    httpError: "Fehler",
+    // Shown whenever the backend gives no usable detail - never the raw status code.
+    genericError: "Da ist etwas schiefgelaufen. Bitte versuche es erneut oder wende dich an den Support, falls es weiter nicht klappt.",
     jobFailed: "Job fehlgeschlagen",
     downloadFailed: "Download fehlgeschlagen",
   },
@@ -20,7 +21,7 @@ const FALLBACKS = {
     unknownError: "Unknown error",
     translationError: "Translation error",
     jobStatusError: "Failed to load job status",
-    httpError: "Error",
+    genericError: "Something went wrong. Please try again, or contact support if it keeps happening.",
     jobFailed: "Job failed",
     downloadFailed: "Download failed",
   },
@@ -28,6 +29,11 @@ const FALLBACKS = {
 
 function fallback(key: keyof typeof FALLBACKS["de"]): string {
   return FALLBACKS[readLocaleFromCookie()][key];
+}
+
+/** Locale-aware fallback text for spots outside ApiClient that need one, never the raw status code. */
+export function genericErrorMessage(): string {
+  return fallback("genericError");
 }
 
 export class QuotaError extends Error {
@@ -76,8 +82,11 @@ function _parseErrorResponse(errorBody: { detail?: unknown }, fallbackStatus: nu
   if (detail && typeof detail === "object" && "message" in (detail as object)) {
     return new Error(String((detail as Record<string, unknown>).message));
   }
-  const msg = typeof detail === "string" ? detail : `${fallback("httpError")}: ${fallbackStatus}`;
-  return new Error(msg);
+  if (typeof detail === "string") return new Error(detail);
+  // Validation errors and bodies without a usable detail land here - log the status for debugging,
+  // but never put the raw code in front of the user.
+  console.error(`API error ${fallbackStatus}:`, detail);
+  return new Error(fallback("genericError"));
 }
 
 function readLocaleFromCookie(): "de" | "en" {
@@ -314,8 +323,12 @@ export async function pollJob(
 
     const res = await fetch(`/api/jobs/${jobUuid}`, { credentials: "include", signal });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ detail: fallback("jobStatusError") }));
-      throw new Error(err.detail || `${fallback("httpError")}: ${res.status}`);
+      const body = await res.json().catch(() => null);
+      if (!body) {
+        console.error(`Job status fetch failed with ${res.status}`);
+        throw new Error(fallback("jobStatusError"));
+      }
+      throw _parseErrorResponse(body, res.status);
     }
 
     const status: JobStatus = await res.json();
@@ -352,8 +365,12 @@ export async function downloadJobAsBlob(
 ): Promise<{ blob: Blob; filename: string }> {
   const res = await fetch(`/api/jobs/${jobUuid}/download`, { credentials: "include" });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: fallback("downloadFailed") }));
-    throw new Error(err.detail || `${fallback("downloadFailed")}: ${res.status}`);
+    const body = await res.json().catch(() => null);
+    if (!body) {
+      console.error(`Job download failed with ${res.status}`);
+      throw new Error(fallback("downloadFailed"));
+    }
+    throw _parseErrorResponse(body, res.status);
   }
 
   const blob = await res.blob();

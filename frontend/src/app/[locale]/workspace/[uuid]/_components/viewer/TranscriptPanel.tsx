@@ -3,6 +3,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { ArrowDown, ArrowsClockwise, ArrowUp, Check, NavigationArrow, NotePencil, X } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 import Select from "@/components/ui/Select";
+import { genericErrorMessage, parseDetail } from "@/lib/api";
 import { langLabel } from "../../_types";
 import type { AddNoteExtras } from "../../_hooks/useNotes";
 import { buildTranscriptModes, groupCues, resolveCitationFocus, type TranscriptMode } from "./_transcript";
@@ -420,7 +421,7 @@ export function TranscriptPanel({
       );
       if (!res.ok) {
         const detail = (await res.json().catch(() => null))?.detail;
-        throw new Error(detail || `HTTP ${res.status}`);
+        throw new Error(parseDetail(detail, genericErrorMessage()));
       }
       if (typeof window !== "undefined") {
         window.localStorage.setItem(regenStorageKey, String(Date.now()));

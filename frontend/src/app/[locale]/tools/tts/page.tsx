@@ -130,7 +130,7 @@ export default function TtsPage() {
       });
       if (!uploadRes.ok) {
         const err = await uploadRes.json().catch(() => ({ detail: tCommon("unknownError") }));
-        throw new Error(parseDetail(err.detail, `${tCommon("unknownError")}: ${uploadRes.status}`));
+        throw new Error(parseDetail(err.detail, tCommon("unknownError")));
       }
       const { job_uuid } = await uploadRes.json();
       currentJobUuidRef.current = job_uuid;

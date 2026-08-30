@@ -23,7 +23,6 @@ interface GenerateScriptsResponse {
 
 export interface TranslateFlowMessages {
   unknownError: string;
-  errorWithCode: (code: number) => string;
   uploadError: string;
   downloadFailed: string;
   jobInOtherTab: string;
@@ -105,7 +104,7 @@ export function useScreencastTranslateFlow(opts: UseScreencastTranslateFlowOptio
         });
         if (!response.ok) {
           const error = await response.json().catch(() => ({ detail: messages.unknownError }));
-          throw new Error(parseDetail(error.detail, messages.errorWithCode(response.status)));
+          throw new Error(parseDetail(error.detail, messages.unknownError));
         }
         const data: { translate_job_uuid: string; slide_texts: string[]; slide_images: string[] } =
           await response.json();
@@ -150,7 +149,7 @@ export function useScreencastTranslateFlow(opts: UseScreencastTranslateFlowOptio
       });
       if (!uploadRes.ok) {
         const error = await uploadRes.json().catch(() => ({ detail: messages.unknownError }));
-        throw new Error(parseDetail(error.detail, messages.errorWithCode(uploadRes.status)));
+        throw new Error(parseDetail(error.detail, messages.unknownError));
       }
       const { job_uuid } = await uploadRes.json();
       currentJobUuidRef.current = job_uuid;
@@ -218,7 +217,7 @@ export function useScreencastTranslateFlow(opts: UseScreencastTranslateFlowOptio
         });
         if (!response.ok) {
           const err = await response.json().catch(() => ({ detail: messages.uploadError }));
-          const text = parseDetail(err.detail, messages.errorWithCode(response.status));
+          const text = parseDetail(err.detail, messages.unknownError);
           if (response.status === 400) {
             setUploadFehler(text);
             dispatch({ type: "SET_LOADING", loading: false });
