@@ -216,6 +216,33 @@
     "body": "Die Plattform wird gerade aktualisiert. Bitte versuche es in wenigen Minuten erneut.",
     "backToLogin": "Zurück zur Anmeldung"
   },
+  "feedback": {
+    "title": "Feedback",
+    "intro": "Melde einen Fehler oder eine Idee. Der Eintrag wird standardmäßig ohne Bezug zu deinem Konto gespeichert. Wer eine Antwort möchte, hinterlässt unten freiwillig einen Kontaktweg.",
+    "categoryLabel": "Kategorie",
+    "categoryBug": "Fehler",
+    "categoryIdea": "Idee",
+    "categoryOther": "Sonstiges",
+    "messageLabel": "Nachricht",
+    "messagePlaceholder": "Was ist passiert, oder was schlägst du vor?",
+    "messageRequired": "Bitte einen Text eingeben",
+    "attachLabel": "Anhänge (optional)",
+    "attachButton": "Datei anhängen",
+    "attachHint": "Bis zu {max} Dateien, PNG, JPG oder PDF, je bis 15 MB.",
+    "tooManyFiles": "Höchstens {max} Dateien",
+    "fileTooLarge": "{name} ist größer als {max} MB",
+    "removeFile": "Datei entfernen",
+    "contactLabel": "Kontakt (optional)",
+    "contactPlaceholder": "E-Mail-Adresse, nur falls du eine Antwort möchtest",
+    "contactHint": "Bleibt leer, bleibt der Eintrag vollständig anonym.",
+    "includeUsernameLabel": "Meinen Nutzernamen anzeigen",
+    "includeUsernameHint": "Standardmäßig aus. Angehakt landet dein Nutzername statt \"anonym\" beim Eintrag.",
+    "submit": "Absenden",
+    "submitting": "Wird gesendet …",
+    "submitError": "Senden fehlgeschlagen. Bitte versuche es erneut.",
+    "thanksTitle": "Danke für dein Feedback",
+    "thanksBody": "Der Eintrag wurde anonym gespeichert."
+  },
   "pending": {
     "title": "Konto noch nicht freigeschaltet",
     "body1": "KIS befindet sich derzeit in der Testphase. Ihr Konto wurde erfolgreich erkannt, ist aber noch nicht für die Nutzung freigegeben.",
@@ -867,6 +894,10 @@
         "quota": {
           "label": "Kontingente",
           "sub": "Wie oft jemand ein Werkzeug benutzen darf."
+        },
+        "feedback": {
+          "label": "Feedback",
+          "sub": "Anonyme Rückmeldungen der Tester."
         }
       },
       "werkzeuge": {
@@ -1719,7 +1750,8 @@
           "whitelist": "Whitelist pflegen",
           "users": "Alle Nutzer und ihre Kontingente",
           "roles": "Rollen und Rechte vergeben",
-          "impersonate": "Sich als jemand anderes anmelden"
+          "impersonate": "Sich als jemand anderes anmelden",
+          "feedback": "Anonyme Rückmeldungen einsehen"
         },
         "system": "Wartung, Beschriftungen und Hinweis",
         "mascot": "Hilde und Francis",
@@ -1954,6 +1986,26 @@
       "withdrawError": "Zurückziehen fehlgeschlagen",
       "roleStaff": "Staff",
       "roleUser": "User"
+    },
+    "feedback": {
+      "summary": "{n, plural, one {# Rückmeldung} other {# Rückmeldungen}}, davon {offen} offen",
+      "empty": "Noch kein Feedback",
+      "loadError": "Feedback konnte nicht geladen werden",
+      "saveError": "Speichern fehlgeschlagen",
+      "deleteError": "Löschen fehlgeschlagen",
+      "colDate": "Datum",
+      "colCategory": "Kategorie",
+      "colMessage": "Nachricht",
+      "colFrom": "Von",
+      "colContact": "Kontakt",
+      "colDone": "Erledigt",
+      "colActions": "Aktion",
+      "categoryBug": "Fehler",
+      "categoryIdea": "Idee",
+      "categoryOther": "Sonstiges",
+      "anonymous": "anonym",
+      "doneAria": "Als erledigt markieren",
+      "delete": "Löschen"
     },
     "createInvite": {
       "title": "Nutzer einladen",
@@ -2511,7 +2563,6 @@
       },
       "settings": {
         "title": "Einstellungen",
-        "feedbackQuestion": "Feedback oder Probleme?",
         "sectionPersonalTitle": "Persönlich",
         "sectionPersonalDescription": "Gilt nur für dich. Andere im Modul sehen davon nichts.",
         "sectionWorkspaceTitle": "Modul",

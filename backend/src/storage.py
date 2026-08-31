@@ -347,6 +347,31 @@ def save_aia_source_from_path(
     return _store_from_path(aia_source_key(user_id, workspace_uuid, source_uuid, ext), local_path)
 
 
+# Attachments of a feedback entry, deliberately not under users/.
+
+
+def feedback_prefix(feedback_id: int) -> str:
+    """S3 prefix for one feedback entry's attachments. No trailing slash."""
+    return f"feedback/{feedback_id}"
+
+
+def feedback_attachment_key(feedback_id: int, attachment_uuid: str, ext: str) -> str:
+    """S3 key for one feedback attachment. ext must include the leading dot."""
+    return f"{feedback_prefix(feedback_id)}/{attachment_uuid}{ext}"
+
+
+def save_feedback_attachment_from_path(
+    feedback_id: int, attachment_uuid: str, ext: str, local_path: str
+) -> str:
+    """Store a feedback attachment, streaming from a file on disk."""
+    return _store_from_path(feedback_attachment_key(feedback_id, attachment_uuid, ext), local_path)
+
+
+def delete_feedback_attachments(feedback_id: int) -> int:
+    """Delete every attachment of one feedback entry, returns the count."""
+    return delete_prefix(feedback_prefix(feedback_id))
+
+
 # Storage of a job folder.
 
 # --- Job file I/O ---

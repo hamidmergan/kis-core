@@ -440,12 +440,13 @@ def _load_fragments() -> None:
             access_codes,
             admin,
             ai_assistant,
+            feedback,
             impersonation,
             invites,
             jobs,
         )
 
-        for module in (ai_assistant, jobs, admin, invites, access_codes, impersonation):
+        for module in (ai_assistant, jobs, admin, invites, access_codes, impersonation, feedback):
             entries = getattr(module, "MESSAGES", None)
             if entries:
                 register_messages(entries)

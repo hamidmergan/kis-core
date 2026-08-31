@@ -216,6 +216,33 @@
     "body": "The platform is being updated. Please try again in a few minutes.",
     "backToLogin": "Back to sign in"
   },
+  "feedback": {
+    "title": "Feedback",
+    "intro": "Report a bug or an idea. By default the entry is stored without any link to your account. If you would like a reply, leave a contact address below, entirely optional.",
+    "categoryLabel": "Category",
+    "categoryBug": "Bug",
+    "categoryIdea": "Idea",
+    "categoryOther": "Other",
+    "messageLabel": "Message",
+    "messagePlaceholder": "What happened, or what would you suggest?",
+    "messageRequired": "Please enter some text",
+    "attachLabel": "Attachments (optional)",
+    "attachButton": "Attach a file",
+    "attachHint": "Up to {max} files, PNG, JPG or PDF, up to 15 MB each.",
+    "tooManyFiles": "At most {max} files",
+    "fileTooLarge": "{name} is larger than {max} MB",
+    "removeFile": "Remove file",
+    "contactLabel": "Contact (optional)",
+    "contactPlaceholder": "Email address, only if you want a reply",
+    "contactHint": "Leave empty and the entry stays fully anonymous.",
+    "includeUsernameLabel": "Show my username",
+    "includeUsernameHint": "Off by default. Checked, your username replaces \"anonymous\" on the entry.",
+    "submit": "Send",
+    "submitting": "Sending…",
+    "submitError": "Sending failed. Please try again.",
+    "thanksTitle": "Thanks for your feedback",
+    "thanksBody": "The entry was saved anonymously."
+  },
   "pending": {
     "title": "Account not yet activated",
     "body1": "KIS is currently in a test phase. Your account was recognized but is not yet activated for use.",
@@ -867,6 +894,10 @@
         "quota": {
           "label": "Quotas",
           "sub": "How often someone may use a tool."
+        },
+        "feedback": {
+          "label": "Feedback",
+          "sub": "Anonymous feedback from testers."
         }
       },
       "werkzeuge": {
@@ -1719,7 +1750,8 @@
           "whitelist": "Maintain the whitelist",
           "users": "All users and their quotas",
           "roles": "Assign roles and permissions",
-          "impersonate": "Log in as somebody else"
+          "impersonate": "Log in as somebody else",
+          "feedback": "View anonymous feedback"
         },
         "system": "Maintenance, labels and notice",
         "mascot": "Hilde and Francis",
@@ -1954,6 +1986,26 @@
       "withdrawError": "Withdrawing failed",
       "roleStaff": "Staff",
       "roleUser": "User"
+    },
+    "feedback": {
+      "summary": "{n, plural, one {# entry} other {# entries}}, {offen} of them open",
+      "empty": "No feedback yet",
+      "loadError": "Feedback could not be loaded",
+      "saveError": "Save failed",
+      "deleteError": "Delete failed",
+      "colDate": "Date",
+      "colCategory": "Category",
+      "colMessage": "Message",
+      "colFrom": "From",
+      "colContact": "Contact",
+      "colDone": "Done",
+      "colActions": "Action",
+      "categoryBug": "Bug",
+      "categoryIdea": "Idea",
+      "categoryOther": "Other",
+      "anonymous": "anonymous",
+      "doneAria": "Mark as done",
+      "delete": "Delete"
     },
     "createInvite": {
       "title": "Invite user",
@@ -2511,7 +2563,6 @@
       },
       "settings": {
         "title": "Settings",
-        "feedbackQuestion": "Feedback or issues?",
         "sectionPersonalTitle": "Personal",
         "sectionPersonalDescription": "Applies to you only. Others in the module do not see any of this.",
         "sectionWorkspaceTitle": "Module",

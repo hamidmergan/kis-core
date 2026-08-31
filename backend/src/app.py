@@ -17,7 +17,7 @@ from src.modules import MODULE_AIA, MODULE_TOOLS, active_modules
 from src.security.auth import verify_auth
 from src.limits import REQUEST_THREAD_LIMIT
 from src.storage import USE_S3, init_storage
-from src.routes import access_codes, admin, auth, glossaries, health, image, invites, jobs, aia, ki_status, me, screencast, screencast_demo, summary, transcription, translate, tts
+from src.routes import access_codes, admin, auth, feedback, glossaries, health, image, invites, jobs, aia, ki_status, me, screencast, screencast_demo, summary, transcription, translate, tts
 
 # Routes that stay reachable during maintenance.
 _MAINTENANCE_OPEN_PATHS = {"/health", "/health/maintenance", "/health/labels"}
@@ -225,6 +225,7 @@ def create_app(modules=None) -> FastAPI:
     application.include_router(admin.router)
     application.include_router(ki_status.router)
     application.include_router(me.router)
+    application.include_router(feedback.router)
 
     if MODULE_TOOLS in aktiv:
         for modul in (translate, image, tts, transcription, screencast,

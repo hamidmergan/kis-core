@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
+import Link from "next/link";
 import Modal from "@/components/ui/Modal";
 import Select from "@/components/ui/Select";
 import type { MascotVariant } from "@/components/ui/Mascot";
@@ -113,6 +114,7 @@ export function SettingsMenu({
   const t = useTranslations("workspace.detail.settings");
   const tDiag = useTranslations("workspace.detail.languageTraining.diagnosis");
   const tLang = useTranslations("langLabels");
+  const tFooter = useTranslations("footer");
   const { variant: mascotVariant, setVariant: setMascotVariant } = useMascotPref();
 
   // The languages come from the backend, the names from our own labels.
@@ -254,19 +256,14 @@ export function SettingsMenu({
             />
           </div>
         )}
-        {/* Der Workspace hat keine Fusszeile, die Adresse stand deshalb unter der
-            Chat-Eingabe und hat dort dauerhaft Platz gekostet. Wer ein Problem
-            melden will, sucht ohnehin in den Einstellungen. */}
         <div className="mt-2 pt-4 border-t" style={{ borderColor: "var(--border)" }}>
-          <p className="text-xs" style={{ color: "var(--muted)" }}>
-            {t("feedbackQuestion")}{" "}
-            <a
-              href="mailto:hamid.mergan@th-luebeck.de"
-              className="hover:underline hover:text-[var(--kb)] transition-colors"
-            >
-              hamid.mergan@th-luebeck.de
-            </a>
-          </p>
+          <Link
+            href="/feedback"
+            className="text-xs hover:underline hover:text-[var(--kb)] transition-colors"
+            style={{ color: "var(--muted)" }}
+          >
+            {tFooter("feedback")}
+          </Link>
         </div>
       </div>
     </Modal>

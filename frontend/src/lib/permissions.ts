@@ -19,6 +19,7 @@ export const PERM = {
   usersRoles: "settings.nutzer.roles",
   // Sich als jemand anderes anmelden, um ein gemeldetes Problem selbst zu sehen.
   usersImpersonate: "settings.nutzer.impersonate",
+  usersFeedback: "settings.nutzer.feedback",
   system: "settings.system",
   mascot: "settings.mascot",
   // Two tabs keep their old key so existing roles lose nothing.
@@ -45,6 +46,7 @@ export const SETTINGS_PERMS: string[] = [
   PERM.usersAll,
   PERM.usersRoles,
   PERM.usersImpersonate,
+  PERM.usersFeedback,
   PERM.system,
   PERM.mascot,
   PERM.statsUsers,

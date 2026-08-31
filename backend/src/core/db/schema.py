@@ -408,6 +408,39 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                 "CREATE INDEX IF NOT EXISTS impersonation_log_started_idx "
                 "ON impersonation_log (started_at DESC)"
             )
+            # Anonym mit Absicht, kein Bezug zum meldenden Konto wird gespeichert,
+            # ausser die meldende Person kreuzt das freiwillig an.
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS feedback (
+                    id         SERIAL PRIMARY KEY,
+                    category   TEXT NOT NULL,
+                    message    TEXT NOT NULL,
+                    contact    TEXT,
+                    username   TEXT,
+                    page_path  TEXT,
+                    done       BOOLEAN NOT NULL DEFAULT FALSE,
+                    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+                )
+            """)
+            cur.execute("ALTER TABLE feedback ADD COLUMN IF NOT EXISTS username TEXT")
+            cur.execute(
+                "CREATE INDEX IF NOT EXISTS feedback_created_idx ON feedback (created_at DESC)"
+            )
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS feedback_attachments (
+                    id            SERIAL PRIMARY KEY,
+                    feedback_id   INTEGER NOT NULL REFERENCES feedback(id) ON DELETE CASCADE,
+                    filename      TEXT NOT NULL,
+                    content_type  TEXT NOT NULL,
+                    size_bytes    INTEGER NOT NULL,
+                    storage_key   TEXT NOT NULL,
+                    created_at    TIMESTAMP NOT NULL DEFAULT NOW()
+                )
+            """)
+            cur.execute(
+                "CREATE INDEX IF NOT EXISTS feedback_attachments_feedback_idx "
+                "ON feedback_attachments (feedback_id)"
+            )
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS jobs (
                     id                  SERIAL PRIMARY KEY,

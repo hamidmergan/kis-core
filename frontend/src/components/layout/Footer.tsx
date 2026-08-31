@@ -14,10 +14,9 @@ export default function Footer({ loggedIn }: { loggedIn?: boolean }) {
           <div className="w-full text-xs leading-relaxed mb-2 flex flex-col gap-1">
             <p className="w-full">{t("aiNotice")}</p>
             <p className="w-full">
-              {t("feedback")}{" "}
-              <a href="mailto:hamid.mergan@th-luebeck.de" className="link-footer">
-                hamid.mergan@th-luebeck.de
-              </a>
+              <Link href="/feedback" className="link-footer">
+                {t("feedback")}
+              </Link>
             </p>
           </div>
         )}

@@ -167,6 +167,10 @@ const nextConfig: NextConfig = {
         destination: `${backendUrl}/admin/:path*`,
       },
       {
+        source: "/api/feedback",
+        destination: `${backendUrl}/feedback`,
+      },
+      {
         source: "/api/invites/:path*",
         destination: `${backendUrl}/invites/:path*`,
       },
