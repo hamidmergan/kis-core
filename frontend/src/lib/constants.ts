@@ -28,3 +28,7 @@ export const TRANSLATE_LANGUAGES = ["DE", "EN-US", "FR", "ES", "IT", "TR", "AR",
 export const DEFAULT_TRANSLATE_TARGET: (typeof TRANSLATE_LANGUAGES)[number] = "EN-US";
 /** Screencast: only these languages the voice speaks cleanly, measured at the provider. */
 export const SCREENCAST_TARGET_LANGUAGES = ["DE", "EN-US"] as const;
+
+/** LocalStorage key + custom event so the header settings menu can re-show a dismissed HomeNotice. */
+export const HOME_NOTICE_DISMISS_KEY = "kis.home-notice.dismissed-text";
+export const HOME_NOTICE_SHOW_EVENT = "kis:home-notice-show";

@@ -18,7 +18,8 @@
     "settings": "Administration",
     "calendar": "Calendar",
     "settingsMenu": "Settings",
-    "sectionAppearance": "Appearance"
+    "sectionAppearance": "Appearance",
+    "homeNoticeShow": "Show home notice"
   },
   "footer": {
     "aiNotice": "This platform uses AI and may make mistakes. Please verify the responses.",
@@ -1436,7 +1437,7 @@
       "active": "Active - the notice is shown to all users on the start page above the upcoming dates.",
       "disabled": "Disabled - no notice is shown.",
       "placeholder": "Notice text for the start page, for example a note during a test phase.",
-      "hint": "Shown centered above the upcoming dates. Even with the toggle on, the notice stays hidden while the field is empty.",
+      "hint": "Shown centered above the upcoming dates. Even with the toggle on, the notice stays hidden while the field is empty. Links in the text: [label](address), for example [Give feedback](https://...).",
       "toggleAria": "Toggle notice",
       "saveFailed": "Save failed."
     },

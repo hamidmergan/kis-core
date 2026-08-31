@@ -3,10 +3,10 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { Check, Gear, Moon, Question, SignOut, Sun, UserCircleGear } from "@phosphor-icons/react";
+import { Check, Gear, Info, Moon, Question, SignOut, Sun, UserCircleGear } from "@phosphor-icons/react";
 import { useRouter, usePathname } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
-import { UI_LOCALES } from "@/lib/constants";
+import { HOME_NOTICE_DISMISS_KEY, HOME_NOTICE_SHOW_EVENT, UI_LOCALES } from "@/lib/constants";
 import { useTheme, type Theme } from "@/hooks/useTheme";
 
 const LOCALES = UI_LOCALES as readonly Locale[];
@@ -84,6 +84,18 @@ export default function HeaderSettingsMenu({ isAdmin = false, areaKey = "admin",
     setOpen(false);
     buttonRef.current?.focus();
     if (next !== theme) setTheme(next);
+  };
+
+  const showHomeNotice = () => {
+    setOpen(false);
+    buttonRef.current?.focus();
+    try {
+      localStorage.removeItem(HOME_NOTICE_DISMISS_KEY);
+    } catch {
+      /* ignore - private browsing etc. */
+    }
+    window.dispatchEvent(new Event(HOME_NOTICE_SHOW_EVENT));
+    router.push("/");
   };
 
   const moveFocus = (step: number) => {
@@ -193,6 +205,19 @@ export default function HeaderSettingsMenu({ isAdmin = false, areaKey = "admin",
             );
           })}
 
+          <button
+            data-row
+            type="button"
+            role="menuitem"
+            tabIndex={-1}
+            onClick={showHomeNotice}
+            className={rowClass}
+            style={{ color: "var(--foreground)", borderTop: "1px solid var(--border)", marginTop: 4 }}
+          >
+            <Info size={18} weight="bold" aria-hidden="true" />
+            <span className="flex-1">{t("homeNoticeShow")}</span>
+          </button>
+
           <Link
             data-row
             href="/manual"
@@ -200,7 +225,7 @@ export default function HeaderSettingsMenu({ isAdmin = false, areaKey = "admin",
             tabIndex={-1}
             onClick={() => setOpen(false)}
             className={rowClass}
-            style={{ color: "var(--foreground)", borderTop: "1px solid var(--border)", marginTop: 4 }}
+            style={{ color: "var(--foreground)" }}
           >
             <Question size={18} weight="bold" aria-hidden="true" />
             <span className="flex-1">{tManual("title")}</span>

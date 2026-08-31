@@ -18,7 +18,8 @@
     "settings": "Verwaltung",
     "calendar": "Kalender",
     "settingsMenu": "Einstellungen",
-    "sectionAppearance": "Ansicht"
+    "sectionAppearance": "Ansicht",
+    "homeNoticeShow": "Startseite-Hinweis anzeigen"
   },
   "footer": {
     "aiNotice": "Diese Plattform nutzt KI und kann Fehler machen. Überprüfen Sie die Antworten.",
@@ -1436,7 +1437,7 @@
       "active": "Aktiv - der Hinweis wird allen Nutzern auf der Startseite über den Terminen angezeigt.",
       "disabled": "Deaktiviert - es wird kein Hinweis angezeigt.",
       "placeholder": "Hinweistext für die Startseite, zum Beispiel ein Hinweis während einer Testphase.",
-      "hint": "Wird zentriert über den Terminen angezeigt. Auch bei aktivem Schalter bleibt der Hinweis verborgen, solange das Feld leer ist.",
+      "hint": "Wird zentriert über den Terminen angezeigt. Auch bei aktivem Schalter bleibt der Hinweis verborgen, solange das Feld leer ist. Links im Text: [Beschriftung](Adresse), zum Beispiel [Feedback geben](https://...).",
       "toggleAria": "Hinweis umschalten",
       "saveFailed": "Speichern fehlgeschlagen."
     },
