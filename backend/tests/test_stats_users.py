@@ -55,6 +55,23 @@ def test_die_drei_gruppen_teilen_die_nutzer_ohne_ueberschneidung():
     assert r["once"] + r["occasional"] + r["regular"] == 11
 
 
+def test_wie_lange_jemand_schon_da_ist():
+    """Measured from the first heartbeat, not from the last ping."""
+    import time
+    cur = FakeCursor([{"id": 1, "display_name": "Hans", "ldap_username": "h"}])
+    vor_zehn_minuten = int(time.time()) - 600
+    assert u._online_details(cur, {1: vor_zehn_minuten})["users"][0]["minutes"] == 10
+
+
+def test_stunden_liste_gibt_die_aufgeloesten_namen_zurueck():
+    cur = FakeCursor([{"id": 1, "name": "Hans"}, {"id": 2, "name": "Petra"}])
+    assert u._users_by_hour(cur, 14) == [{"id": 1, "name": "Hans"}, {"id": 2, "name": "Petra"}]
+
+
+def test_stunden_liste_ohne_treffer_ist_leer():
+    assert u._users_by_hour(FakeCursor([]), 3) == []
+
+
 def test_tages_liste_gibt_die_aufgeloesten_namen_zurueck():
     cur = FakeCursor([{"id": 5, "name": "Mo"}])
     assert u._users_by_day(cur, "2026-08-27") == [{"id": 5, "name": "Mo"}]
@@ -95,4 +112,10 @@ def test_tages_liste_verliert_geloeschte_nutzer_nicht():
     """user_presence behaelt Zeilen geloeschter Nutzer, die Zahl im Chart zaehlt sie mit."""
     cur = CapturingCursor()
     u._users_by_day(cur, "2026-08-28")
+    assert "LEFT JOIN" in cur.sql
+
+
+def test_stunden_liste_verliert_geloeschte_nutzer_nicht():
+    cur = CapturingCursor()
+    u._users_by_hour(cur, 10)
     assert "LEFT JOIN" in cur.sql

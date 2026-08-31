@@ -1,4 +1,6 @@
 """User numbers, based on presence instead of on jobs."""
+import time
+
 from psycopg2.extras import RealDictCursor
 
 from src.core.db.pool import get_connection
@@ -17,6 +19,7 @@ def user_overview() -> dict:
                 "online": _online_details(cur, seit),
                 "totals": _totals(cur),
                 "per_day": _per_day(cur),
+                "today_by_hour": _today_by_hour(cur),
                 "new_per_month": _new_per_month(cur),
                 "retention": _retention(cur),
                 "roles": _roles(cur),
@@ -28,15 +31,22 @@ def _online_details(cur, seit: dict[int, int]) -> dict:
     """Names for the ids, only those that can be resolved are counted."""
     if not seit:
         return {"count": 0, "users": []}
+    jetzt = int(time.time())
     cur.execute(
         """SELECT id, display_name, ldap_username
            FROM users WHERE id = ANY(%s) ORDER BY display_name""",
         (list(seit),),
     )
     users = [
-        {"id": r["id"], "name": r["display_name"] or r["ldap_username"] or "Unbekannt"}
+        {
+            "id": r["id"],
+            "name": r["display_name"] or r["ldap_username"] or "Unbekannt",
+            # Minutes since the first sign of life, not since the last.
+            "minutes": max(0, (jetzt - seit[r["id"]]) // 60),
+        }
         for r in cur.fetchall()
     ]
+    users.sort(key=lambda u: -u["minutes"])
     return {"count": len(users), "users": users}
 
 
@@ -64,6 +74,39 @@ def _per_day(cur) -> list[dict]:
            GROUP BY day ORDER BY day"""
     )
     return [{"day": str(r["day"]), "users": r["n"]} for r in cur.fetchall()]
+
+
+def _today_by_hour(cur) -> list[dict]:
+    """Today hour by hour, the current hour stays out."""
+    cur.execute(
+        """SELECT hour, COUNT(DISTINCT user_id) AS n
+           FROM user_presence
+           WHERE day = (NOW() AT TIME ZONE 'Europe/Berlin')::date
+             AND hour < EXTRACT(HOUR FROM (NOW() AT TIME ZONE 'Europe/Berlin'))
+           GROUP BY hour ORDER BY hour"""
+    )
+    gefunden = {int(r["hour"]): r["n"] for r in cur.fetchall()}
+    letzte = max(gefunden) if gefunden else -1
+    return [{"hour": h, "users": gefunden.get(h, 0)} for h in range(letzte + 1)]
+
+
+def users_by_hour(hour: int) -> list[dict]:
+    """Who was counted in this hour today, mirrors _today_by_hour's bucket."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            return _users_by_hour(cur, hour)
+
+
+def _users_by_hour(cur, hour: int) -> list[dict]:
+    """LEFT JOIN, a deleted user's presence row stays and must still count."""
+    cur.execute(
+        """SELECT p.user_id AS id, COALESCE(u.display_name, u.ldap_username, 'Unbekannt') AS name
+           FROM user_presence p LEFT JOIN users u ON u.id = p.user_id
+           WHERE p.day = (NOW() AT TIME ZONE 'Europe/Berlin')::date AND p.hour = %s
+           ORDER BY 2""",
+        (hour,),
+    )
+    return [{"id": r["id"], "name": r["name"]} for r in cur.fetchall()]
 
 
 def users_by_day(day: str) -> list[dict]:

@@ -14,6 +14,7 @@ from src.features.stats import (
     user_overview,
     user_verlauf,
     users_by_day,
+    users_by_hour,
     users_new_in_month,
     workspace_detail,
 )
@@ -108,6 +109,12 @@ async def get_tool_stats(
 async def get_assistant_stats(_admin=Depends(_require_aia_usage)):
     """Module, Materialien, Werkzeuge und Sprachniveau."""
     return assistant_overview()
+
+
+@router.get("/stats/users/today/{hour}")
+async def get_users_today_hour(hour: int, _admin=Depends(_require_stats_users)):
+    """Who was counted in this hour today, for the hourly chart's drill-down."""
+    return {"users": users_by_hour(hour)}
 
 
 @router.get("/stats/users/by-day/{day}")
