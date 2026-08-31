@@ -138,3 +138,59 @@ async def test_list_reachable_empty_when_no_models(monkeypatch):
 
     result = await svc.list_reachable_choices("stt")
     assert result == {"providers": [], "default_id": None}
+
+
+# ─── fallback_candidates ───────────────────────────────────────────────────
+
+
+def test_fallback_candidates_excludes_primary_keeps_db_order(monkeypatch):
+    providers = [_provider(20, caps=("chat",)), _provider(21, caps=("chat",)), _provider(22, caps=("chat",))]
+    monkeypatch.setattr(svc.db, "list_providers_with_capability", lambda cap: providers)
+    monkeypatch.setattr(svc.db, "get_route", lambda f: _route(20, "m", {"21": "m", "22": "m"}))
+
+    chain = svc.fallback_candidates("chat")
+    assert [b.provider["id"] for b in chain] == [21, 22]
+
+
+def test_fallback_candidates_chat_allows_different_model(monkeypatch):
+    providers = [_provider(20, caps=("chat",)), _provider(21, caps=("chat",))]
+    monkeypatch.setattr(svc.db, "list_providers_with_capability", lambda cap: providers)
+    # 21 has its own model, different from the primary's.
+    monkeypatch.setattr(svc.db, "get_route", lambda f: _route(20, "primary-model", {"21": "other-model"}))
+
+    chain = svc.fallback_candidates("chat")
+    assert [b.model for b in chain] == ["other-model"]
+
+
+def test_fallback_candidates_embedding_skips_different_model(monkeypatch):
+    providers = [_provider(20, caps=("embedding",)), _provider(21, caps=("embedding",))]
+    monkeypatch.setattr(svc.db, "list_providers_with_capability", lambda cap: providers)
+    # 21 HAS a model configured (so _candidates already keeps it) but it differs
+    # from the primary's -> fallback_candidates itself must be what filters it out.
+    monkeypatch.setattr(svc.db, "get_route", lambda f: _route(20, "bge-m3", {"21": "different-model"}))
+
+    assert svc.fallback_candidates("embedding") == []
+
+
+def test_fallback_candidates_embedding_keeps_same_model(monkeypatch):
+    providers = [_provider(20, caps=("embedding",)), _provider(21, caps=("embedding",))]
+    monkeypatch.setattr(svc.db, "list_providers_with_capability", lambda cap: providers)
+    # Both providers are explicitly configured with the identical model name.
+    monkeypatch.setattr(svc.db, "get_route", lambda f: _route(20, "bge-m3", {"21": "bge-m3"}))
+
+    chain = svc.fallback_candidates("embedding")
+    assert [(b.provider["id"], b.model) for b in chain] == [(21, "bge-m3")]
+
+
+def test_fallback_candidates_no_route_is_empty(monkeypatch):
+    monkeypatch.setattr(svc.db, "list_providers_with_capability", lambda cap: [_provider(20)])
+    monkeypatch.setattr(svc.db, "get_route", lambda f: None)
+
+    assert svc.fallback_candidates("chat") == []
+
+
+def test_fallback_candidates_no_other_providers_is_empty(monkeypatch):
+    monkeypatch.setattr(svc.db, "list_providers_with_capability", lambda cap: [_provider(20, caps=("chat",))])
+    monkeypatch.setattr(svc.db, "get_route", lambda f: _route(20, "m", {}))
+
+    assert svc.fallback_candidates("chat") == []

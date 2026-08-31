@@ -45,9 +45,9 @@ def run_index_source(self, source_uuid: str, locale: str = "de", _aia_job_uuid: 
 
         # The fingerprint is built without a probe, the size comes from the first vector.
         from src.services.aia_embeddings import (
-            get_embedding_provider, compute_fingerprint, fingerprint_from_dim,
+            get_embedding_provider_with_fallback, compute_fingerprint, fingerprint_from_dim,
         )
-        provider = get_embedding_provider()
+        provider = get_embedding_provider_with_fallback()
         fingerprint: str | None = None  # set from the first embedded batch (step 7)
 
         embedding_model = provider.model_name

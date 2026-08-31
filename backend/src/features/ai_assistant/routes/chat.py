@@ -16,7 +16,7 @@ from src.dependencies import get_current_user, get_llm_client
 from src.i18n import get_locale, t
 from src.limits import AIA_ATTRIBUTION_EMBED_TIMEOUT_SECONDS
 from src.services import model_limits
-from src.services.aia_embeddings import get_embedding_provider
+from src.services.aia_embeddings import get_embedding_provider, get_embedding_provider_with_fallback
 from src.security.rate_limit import enforce_burst
 from src.security.usage_log import log_request as _log_usage
 from src.features.ai_assistant.prompts.popup_prompts import (
@@ -35,6 +35,7 @@ from src.features.ai_assistant.prompts.refusal_prompts import (
     is_sentinel_refusal,
     refusal_reference_texts,
 )
+from . import _chat_failover
 from . import _followup
 from ._prewarm import start_prewarm
 from ._source_map import build_source_pages, build_source_qmap, load_transcripts
@@ -254,13 +255,13 @@ async def chat(
         logger.info("Fit-shortcut: {} chunks fit budget ({} chars), skipping retrieval | per-source: {}", len(chunks), context_budget, dict(_ps))
     elif intent in _UEBERBLICK_INTENTS:
         # Overview: one broad search plus round robin top-up across all sources.
-        provider = get_embedding_provider()
+        provider = get_embedding_provider_with_fallback()
         chunks = await _retrieve_generic_context(
             provider, workspace["id"], source_ids, rewritten_question, budget=context_budget,
         )
     else:
         # ── Retrieval path: per-source hybrid + neighbor expansion (SPECIFIC) ──
-        provider = get_embedding_provider()
+        provider = get_embedding_provider_with_fallback()
 
         embed_text = body.source_text if body.source_text else rewritten_question
         # A compound question is searched per clause.
@@ -419,103 +420,122 @@ async def chat(
                 max_eintraege=None if _overview else MAX_EINTRAEGE,
             ) if _felder else None
 
-            async def _open_stream(messages):
+            async def _open_stream(llm_client, messages):
                 # Long timeout until the first character so a cold model can still load.
-                return await llm._async_client.with_options(timeout=90.0, max_retries=0).chat.completions.create(
-                    model=llm._model,
+                return await llm_client._async_client.with_options(timeout=90.0, max_retries=0).chat.completions.create(
+                    model=llm_client._model,
                     messages=messages,
                     # 0.7 instead of 0.2, too narrow a choice encourages repetition loops.
-                    **llm.sampling(0.7),
+                    **llm_client.sampling(0.7),
                     # Without a ceiling a loop once ran up to 178,820 tokens.
                     max_tokens=model_limits.CHAT_MAX_OUTPUT_TOKENS,
                     stream=True,
                     **({"response_format": _ANTWORT_SCHEMA} if _felder else {}),
                     # Asks for a final chunk with the token counts for the log.
                     stream_options={"include_usage": True},
-                    **(llm._extra_body and {"extra_body": llm._extra_body} or {}),
+                    **(llm_client._extra_body and {"extra_body": llm_client._extra_body} or {}),
                 )
 
+            # Fallback chain for a hard provider error before any token went out: the
+            # admin default first (already `llm`), then same-capability providers in
+            # DB order. Building clients is cheap (no network), so this always runs.
+            _chat_clients = _chat_failover.build_client_chain(llm)
+
             try:
-                try:
-                    stream = await _open_stream(_final_messages)
-                except Exception as _limit_err:  # noqa: BLE001
-                    # If the refusal names the window size, it is shortened and sent again right away.
-                    _fenster = model_limits.learn_from_error(
-                        getattr(llm, "_provider_id", None), llm._model, _limit_err
-                    )
-                    if not _fenster:
-                        raise
-                    _final_messages = model_limits.fit_messages(
-                        _final_messages,
-                        model_limits.context_chars(_fenster, model_limits.CHAT_SHARE),
-                    )
-                    stream = await _open_stream(_final_messages)
-                # Once the stream runs, only this own silence timeout applies.
-                _CHUNK_INACTIVITY_SECONDS = 60.0
-                stream_iter = stream.__aiter__()
-                while True:
+                for _chain_idx, _llm in enumerate(_chat_clients):
+                    _is_last_provider = _chain_idx == len(_chat_clients) - 1
                     try:
-                        chunk_resp = await asyncio.wait_for(
-                            stream_iter.__anext__(),
-                            timeout=_CHUNK_INACTIVITY_SECONDS,
-                        )
-                    except StopAsyncIteration:
-                        break
-                    except asyncio.TimeoutError:
-                        logger.warning(
-                            "LLM stream inactive for {}s, aborting",
-                            _CHUNK_INACTIVITY_SECONDS,
-                        )
-                        raise
-                    if await request.is_disconnected():
-                        aborted = True
-                        break
-                    _ti, _to = _stream_usage_tokens(chunk_resp)
-                    if _ti is not None:
-                        tokens_in = _ti
-                    if _to is not None:
-                        tokens_out = _to
-                    delta = chunk_resp.choices[0].delta if chunk_resp.choices else None
-                    if delta and delta.content:
-                        _roh_tok = (_strom_bau.feed(delta.content)
-                                    if _strom_bau is not None else delta.content)
-                        # Without cancelling, the model would keep writing invisibly.
-                        if _strom_bau is not None and _strom_bau.genug:
-                            logger.info("Eintragsgrenze erreicht, Strom beendet")
-                            break
-                        # After that none of the brakes below sees anything.
-                        _nichts_mehr = _strom_bau is not None and _strom_bau.fertig
-                        if not _roh_tok:
+                        try:
+                            stream = await _open_stream(_llm, _final_messages)
+                        except Exception as _limit_err:  # noqa: BLE001
+                            # If the refusal names the window size, it is shortened and sent again right away.
+                            _fenster = model_limits.learn_from_error(
+                                getattr(_llm, "_provider_id", None), _llm._model, _limit_err
+                            )
+                            if not _fenster:
+                                raise
+                            _final_messages = model_limits.fit_messages(
+                                _final_messages,
+                                model_limits.context_chars(_fenster, model_limits.CHAT_SHARE),
+                            )
+                            stream = await _open_stream(_llm, _final_messages)
+                        # Once the stream runs, only this own silence timeout applies.
+                        _CHUNK_INACTIVITY_SECONDS = 60.0
+                        stream_iter = stream.__aiter__()
+                        while True:
+                            try:
+                                chunk_resp = await asyncio.wait_for(
+                                    stream_iter.__anext__(),
+                                    timeout=_CHUNK_INACTIVITY_SECONDS,
+                                )
+                            except StopAsyncIteration:
+                                break
+                            except asyncio.TimeoutError:
+                                logger.warning(
+                                    "LLM stream inactive for {}s, aborting",
+                                    _CHUNK_INACTIVITY_SECONDS,
+                                )
+                                raise
+                            if await request.is_disconnected():
+                                aborted = True
+                                break
+                            _ti, _to = _stream_usage_tokens(chunk_resp)
+                            if _ti is not None:
+                                tokens_in = _ti
+                            if _to is not None:
+                                tokens_out = _to
+                            delta = chunk_resp.choices[0].delta if chunk_resp.choices else None
+                            if delta and delta.content:
+                                _roh_tok = (_strom_bau.feed(delta.content)
+                                            if _strom_bau is not None else delta.content)
+                                # Without cancelling, the model would keep writing invisibly.
+                                if _strom_bau is not None and _strom_bau.genug:
+                                    logger.info("Eintragsgrenze erreicht, Strom beendet")
+                                    break
+                                # After that none of the brakes below sees anything.
+                                _nichts_mehr = _strom_bau is not None and _strom_bau.fertig
+                                if not _roh_tok:
+                                    if _nichts_mehr:
+                                        logger.info("Strom beendet, {}", _strom_bau.grund)
+                                        break
+                                    continue
+                                # Arrows drop out here already, the stream is what the learner reads.
+                                _tok = _strip_arrow_connectors(_roh_tok)
+                                answer_parts.append(_tok)
+                                yield f"data: {json.dumps({'token': _tok})}\n\n"
+                                _line_buf += _tok
+                                # Cuts a loop without a line break before it gets out of hand.
+                                if len(_line_buf) - _last_intra >= _INTRA_LINE_CHECK_EVERY:
+                                    _last_intra = len(_line_buf)
+                                    if _tail_repeats(_line_buf):
+                                        logger.warning("Intra-line repetition loop detected, stopping stream")
+                                        _loop_detected = True
+                                        break
+                                while "\n" in _line_buf:
+                                    _completed, _line_buf = _line_buf.split("\n", 1)
+                                    _last_intra = min(_last_intra, len(_line_buf))  # buffer shrank → re-baseline
+                                    if _prewarmer is not None:
+                                        _prewarmer.feed_line(_completed)
+                                    if _repeat_guard.is_loop(_completed):
+                                        logger.warning("Repetition loop detected, stopping stream")
+                                        _loop_detected = True
+                                        break
+                            if _loop_detected:
+                                break
                             if _nichts_mehr:
                                 logger.info("Strom beendet, {}", _strom_bau.grund)
                                 break
+                        break  # this provider served (or cleanly ended) the stream
+                    except Exception as e:
+                        if _chat_failover.should_failover(
+                            e, has_output=bool(answer_parts), is_last_provider=_is_last_provider
+                        ):
+                            logger.warning(
+                                "Chat-Anbieter {} gescheitert ({}), wechsle zu {}",
+                                _llm._provider, e, _chat_clients[_chain_idx + 1]._provider,
+                            )
                             continue
-                        # Arrows drop out here already, the stream is what the learner reads.
-                        _tok = _strip_arrow_connectors(_roh_tok)
-                        answer_parts.append(_tok)
-                        yield f"data: {json.dumps({'token': _tok})}\n\n"
-                        _line_buf += _tok
-                        # Cuts a loop without a line break before it gets out of hand.
-                        if len(_line_buf) - _last_intra >= _INTRA_LINE_CHECK_EVERY:
-                            _last_intra = len(_line_buf)
-                            if _tail_repeats(_line_buf):
-                                logger.warning("Intra-line repetition loop detected, stopping stream")
-                                _loop_detected = True
-                                break
-                        while "\n" in _line_buf:
-                            _completed, _line_buf = _line_buf.split("\n", 1)
-                            _last_intra = min(_last_intra, len(_line_buf))  # buffer shrank → re-baseline
-                            if _prewarmer is not None:
-                                _prewarmer.feed_line(_completed)
-                            if _repeat_guard.is_loop(_completed):
-                                logger.warning("Repetition loop detected, stopping stream")
-                                _loop_detected = True
-                                break
-                    if _loop_detected:
-                        break
-                    if _nichts_mehr:
-                        logger.info("Strom beendet, {}", _strom_bau.grund)
-                        break
+                        raise
             except Exception as e:
                 logger.error("LLM stream error: {}", e)
                 # Ein Denk-Modell reisst den Strom mit, bevor ein Zeichen ankommt.

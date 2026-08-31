@@ -132,6 +132,21 @@ class OpenAICompatEmbeddingProvider(EmbeddingProvider):
         return results
 
 
+def _provider_from_binding(binding, *, timeout: float, retry_on_timeout: bool) -> OpenAICompatEmbeddingProvider:
+    """Builds an embedding client for an already-resolved binding."""
+    provider = binding.provider
+    base_url = provider["base_url"].rstrip("/")
+    if not base_url.endswith("/v1"):
+        base_url = f"{base_url}/v1"
+    return OpenAICompatEmbeddingProvider(
+        base_url=base_url,
+        api_key=provider.get("api_key") or "not-needed",
+        model=binding.model or "",
+        timeout=timeout,
+        retry_on_timeout=retry_on_timeout,
+    )
+
+
 def get_embedding_provider(*, timeout: float = 60.0,
                            retry_on_timeout: bool = True) -> EmbeddingProvider:
     """The currently active embedding provider, without a route it raises."""
@@ -143,20 +158,49 @@ def get_embedding_provider(*, timeout: float = 60.0,
             "Kein Embedding-Anbieter aktiv. Bitte im Admin-Bereich unter 'KI' den "
             "Anbieter für das Feature 'Embedding' setzen. (" + str(e) + ")"
         )
+    return _provider_from_binding(binding, timeout=timeout, retry_on_timeout=retry_on_timeout)
 
-    provider = binding.provider
-    base_url = provider["base_url"].rstrip("/")
-    model = binding.model or ""
 
-    if not base_url.endswith("/v1"):
-        base_url = f"{base_url}/v1"
-    return OpenAICompatEmbeddingProvider(
-        base_url=base_url,
-        api_key=provider.get("api_key") or "not-needed",
-        model=model,
-        timeout=timeout,
-        retry_on_timeout=retry_on_timeout,
-    )
+class FallbackEmbeddingProvider(EmbeddingProvider):
+    """Tries each embedding provider in order, moves on after a hard failure."""
+
+    def __init__(self, providers: list[EmbeddingProvider]) -> None:
+        if not providers:
+            raise ValueError("FallbackEmbeddingProvider needs at least one provider")
+        self._providers = providers
+
+    @property
+    def model_name(self) -> str:
+        return self._providers[0].model_name
+
+    def embed(self, texts: list[str]) -> list[list[float]]:
+        last_err: Exception | None = None
+        for i, provider in enumerate(self._providers):
+            try:
+                return provider.embed(texts)
+            except RuntimeError as e:
+                last_err = e
+                is_last = i == len(self._providers) - 1
+                logger.warning(
+                    "Embedding-Anbieter gescheitert ({}), {}",
+                    e, "keine weiteren Anbieter" if is_last else "wechsle zu naechstem Anbieter",
+                )
+        raise last_err
+
+
+def get_embedding_provider_with_fallback(*, timeout: float = 60.0,
+                                         retry_on_timeout: bool = True) -> EmbeddingProvider:
+    """The active embedding provider, with same-model fallback providers behind it."""
+    from src.services import feature_provider_choices
+    primary = get_embedding_provider(timeout=timeout, retry_on_timeout=retry_on_timeout)
+    fallbacks = feature_provider_choices.fallback_candidates("embedding")
+    if not fallbacks:
+        return primary
+    providers = [primary] + [
+        _provider_from_binding(b, timeout=timeout, retry_on_timeout=retry_on_timeout)
+        for b in fallbacks
+    ]
+    return FallbackEmbeddingProvider(providers)
 
 
 def fingerprint_from_dim(provider: EmbeddingProvider, dim: int) -> str:

@@ -16,6 +16,7 @@ _FEATURE_CAPABILITY: dict[str, str] = {
     "image_gen": "image_gen",
     "image_edit": "image_edit",
     "chat": "chat",
+    "embedding": "embedding",
 }
 
 # Cap for a single reachability probe.
@@ -65,6 +66,30 @@ def resolve_binding(feature: str, provider_id: int) -> FeatureBinding:
     if not model:
         raise FeatureNotConfigured(f"provider {provider_id} has no model for {feature!r}")
     return FeatureBinding(feature=feature, provider=provider, model=model)
+
+
+def fallback_candidates(feature: str) -> list[FeatureBinding]:
+    """Other configured same-capability providers in DB order, primary excluded.
+
+    Extends an already-resolved primary binding into a retry chain for hard
+    provider errors. For 'embedding' the list is restricted to providers
+    serving the identical model name, so a fallback never crosses into a
+    different vector space mid-query.
+    """
+    rows, route = _candidates(feature)
+    if not route:
+        return []
+    primary_id = route.get("provider_id")
+    primary_model = _model_for(route, primary_id) if primary_id is not None else None
+    out: list[FeatureBinding] = []
+    for p in rows:
+        if p["id"] == primary_id:
+            continue
+        model = _model_for(route, p["id"])
+        if feature == "embedding" and model != primary_model:
+            continue
+        out.append(FeatureBinding(feature=feature, provider=p, model=model))
+    return out
 
 
 async def _is_reachable(provider: dict) -> bool:
