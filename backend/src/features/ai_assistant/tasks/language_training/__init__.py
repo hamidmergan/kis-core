@@ -15,7 +15,7 @@ from src.features.ai_assistant.tasks._helpers import (
 from src.services.aia_adaptive_tools import build_adaptive_tool_suffix
 from src.features.ai_assistant.repository.grammar_topics import catalog_entry
 from src.services.aia_grammar_formats import clean_kinds
-from src.services.aia_grammar_topic import derive_task_lines, derive_topic
+from src.services.aia_grammar_topic import derive_topic
 
 from src.features.ai_assistant.tasks.language_training._context import (
     build_source_context,
@@ -165,14 +165,7 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
                         db.fail_exercise_set(set_id)
                         return
                     spec = db.save_topic_spec(
-                        topic["id"], locale, derived["rule"], derived["examples"],
-                        derived.get("task_lines"))
-                elif not spec.get("task_lines"):
-                    # Instruction lines are backfilled, rule and pattern pair stay untouched.
-                    zeilen = derive_task_lines(client, model, topic["name"], language)
-                    if zeilen:
-                        spec = db.save_topic_spec(
-                            topic["id"], locale, spec["rule"], spec["examples"], zeilen)
+                        topic["id"], locale, derived["rule"], derived["examples"])
                 gtype = catalog_entry(topic, spec)
 
             def generate(from_ctx, how_many):

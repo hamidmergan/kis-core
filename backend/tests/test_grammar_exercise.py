@@ -299,6 +299,13 @@ def test_generation_asks_for_the_other_valid_wordings(attributed):
     assert "also_ok" in _system_of(calls)
 
 
+def test_generation_prompt_extends_also_ok_to_a_different_construction(attributed):
+    """also_ok must also cover a different construction, not only word-order variants."""
+    _, _, _, calls = _generate()
+    system = _system_of(calls)
+    assert "different construction" in system
+
+
 # ─── Checking: normalisation ─────────────────────────────────────────────────
 
 @pytest.mark.parametrize("given", [

@@ -2543,7 +2543,10 @@
           "needExample": "Bitte lass das Musterpaar stehen, beide Sätze und nicht zweimal denselben",
           "failed": "Das hat nicht geklappt, bitte nochmal versuchen",
           "deleteTopic": "Thema entfernen",
-          "deleteAsk": "„{name}“ für alle im Kurs entfernen?"
+          "deleteAsk": "„{name}“ für alle im Kurs entfernen?",
+          "deleteAskOwn": "„{name}“ entfernen?",
+          "courseSectionHeading": "Vom Kurs",
+          "ownSectionHeading": "Eigene Themen"
         }
       },
       "topbar": {

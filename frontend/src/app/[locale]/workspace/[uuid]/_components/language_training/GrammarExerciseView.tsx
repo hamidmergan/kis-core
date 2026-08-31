@@ -1,4 +1,4 @@
-import React, { useContext, useMemo, useRef, useState } from "react";
+import React, { useContext, useEffect, useRef, useState } from "react";
 import { CaretLeft, CaretRight, Check, Minus, SidebarSimple, X } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
@@ -8,6 +8,7 @@ import { ExerciseNav } from "./ExerciseNav";
 import { SetSourceLegend, sourceNumbers, sourceTag } from "./SetSourceLegend";
 import { MinimizeContext } from "../../_context";
 import { _getToolBadge, type BreadcrumbItem } from "../layout/SubviewHeader";
+import { shuffleOptions } from "./_shuffle";
 
 const TITLE_PREFIX_RE = /^(Grammatik-Übung|Grammar exercise)\s*(aus|von|from|of)\s*/i;
 
@@ -33,8 +34,18 @@ export function GrammarExerciseView({
   const tChip = useTranslations("sourceChip");
   const minimize = useContext(MinimizeContext);
 
-  // Grammar sets keep their order, they are a numbered worksheet.
-  const items: ExerciseItem[] = useMemo(() => exerciseSet.items || [], [exerciseSet.items]);
+  // Grammar sets keep their order, they are a numbered worksheet. Only the
+  // options within a choice/cloze card are shuffled, once, so the answer
+  // does not sit on the first option every time (the model tends to write it there).
+  const [items, setItems] = useState<ExerciseItem[]>([]);
+  const shuffledRef = useRef(false);
+  useEffect(() => {
+    const raw = exerciseSet.items || [];
+    if (raw.length > 0 && !shuffledRef.current) {
+      setItems(raw.map(shuffleOptions));
+      shuffledRef.current = true;
+    }
+  }, [exerciseSet.items]);
   const [index, setIndex] = useState(0);
   const [checking, setChecking] = useState(false);
   const [checkError, setCheckError] = useState(false);

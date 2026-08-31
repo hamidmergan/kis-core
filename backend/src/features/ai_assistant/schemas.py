@@ -144,8 +144,6 @@ class GrammarTopicCreateBody(BaseModel):
     name: str = Field(..., max_length=120)
     rule: str = Field(..., max_length=4000)
     examples: list[GrammarExamplePair]
-    # The four instruction lines from the preview, otherwise the first run backfills them.
-    task_lines: dict[str, str] | None = None
 
 
 class GrammarTopicUpdateBody(BaseModel):

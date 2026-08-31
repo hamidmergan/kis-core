@@ -2543,7 +2543,10 @@
           "needExample": "Please keep the example pair, both sentences and not the same one twice",
           "failed": "That did not work, please try again",
           "deleteTopic": "Remove topic",
-          "deleteAsk": "Remove “{name}” for everyone in this course?"
+          "deleteAsk": "Remove “{name}” for everyone in this course?",
+          "deleteAskOwn": "Remove “{name}”?",
+          "courseSectionHeading": "From the course",
+          "ownSectionHeading": "Your own topics"
         }
       },
       "topbar": {

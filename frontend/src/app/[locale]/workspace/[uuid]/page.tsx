@@ -662,6 +662,7 @@ export default function KiTutorWorkspacePage() {
           selectedSources={selectedSourcesForSet}
           workspaceUuid={uuid}
           canManage={isOwner}
+          currentUserId={me?.id ?? null}
           onClose={() => setShowCreateModal(false)}
           onCreate={async (mode, count, grammarTopicId, grammarKinds, flashcardSetId) => {
             setShowCreateModal(false);

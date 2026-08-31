@@ -38,15 +38,17 @@ function PickerOption({ selected, disabled, onClick, children }: {
 
 export function CreateSetModal({
   tool, glossaryCount, selectedSources, workspaceUuid,
-  onClose, onCreate, canManage = false,
+  onClose, onCreate, canManage = false, currentUserId = null,
 }: {
   tool: string; glossaryCount: number; selectedSources?: { uuid: string; filename: string }[] | null;
   workspaceUuid: string;
   onClose: () => void;
   onCreate: (mode: string, count: number, grammarTopicId?: number,
              grammarKinds?: string[], flashcardSetId?: number) => void;
-  /** Owner or tutor, only they may create topics. */
+  /** Owner or tutor, they may remove any topic and theirs is visible to everyone. */
   canManage?: boolean;
+  /** For telling apart your own topics from the course's official ones. */
+  currentUserId?: number | null;
 }) {
   const t = useTranslations("workspace.detail.languageTraining");
   const pickedSources = selectedSources ?? [];
@@ -215,8 +217,7 @@ export function CreateSetModal({
           <>
             <div className="text-3xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted)" }}>{t("createModal.grammarTypeHeading")}</div>
             <div className="flex flex-col gap-1.5 mb-3">
-              {canManage && !addingTopic && (
-                /** Creating is management work and sits above the list. */
+              {!addingTopic && (
                 <button type="button" onClick={() => setAddingTopic(true)}
                   className={`add-source-btn w-full flex items-center gap-2 px-3 py-2 rounded-lg text-2xs font-medium border-dashed text-[var(--kb)] border-[rgba(var(--kb-rgb),0.35)] hover:border-[var(--kb)] ${PICK_BOX}`}>
                   <Plus size={14} weight="bold" />
@@ -229,45 +230,76 @@ export function CreateSetModal({
               {!typesLoading && topics.length === 0 && !addingTopic && (
                 <p className="text-3xs" style={{ color: "#c4820e" }}>{t("createModal.noGrammarTypes")}</p>
               )}
-              {!addingTopic && topics.map((topic) => (
-                confirmTopicId === topic.id ? (
-                  /** The confirmation sits on the row it concerns. */
-                  <div key={topic.id} className={`flex flex-col gap-1.5 px-3 py-2 rounded-lg ${PICK_BOX} border-border bg-background`}>
-                    <span className="text-2xs text-foreground">
-                      {t("grammarTopics.deleteAsk", { name: topic.name })}
-                    </span>
-                    <div className="flex gap-1.5">
-                      <button type="button" disabled={deleting}
-                        onClick={() => removeTopic(topic)}
-                        className="px-3 py-1 rounded-full text-3xs font-semibold disabled:opacity-50"
-                        style={{ backgroundColor: "var(--error)", color: "var(--on-accent)" }}>
-                        {t("common.delete")}
-                      </button>
-                      <button type="button" onClick={() => setConfirmTopicId(null)}
-                        className="btn-cancel px-3 py-1 rounded-full text-3xs font-semibold"
-                        style={{ color: "var(--kb)", backgroundColor: "var(--surface)", border: "2px solid var(--border)" }}>
-                        {t("common.cancel")}
-                      </button>
+              {!addingTopic && (() => {
+                // Your own topic stays private to you, so it needs no "for everyone" warning.
+                const isOwn = (topic: GrammarTopic) => !canManage && topic.created_by === currentUserId;
+                const renderTopic = (topic: GrammarTopic) => {
+                  const own = isOwn(topic);
+                  const canRemove = canManage || own;
+                  return confirmTopicId === topic.id ? (
+                    /** The confirmation sits on the row it concerns. */
+                    <div key={topic.id} className={`flex flex-col gap-1.5 px-3 py-2 rounded-lg ${PICK_BOX} border-border bg-background`}>
+                      <span className="text-2xs text-foreground">
+                        {t(own ? "grammarTopics.deleteAskOwn" : "grammarTopics.deleteAsk", { name: topic.name })}
+                      </span>
+                      <div className="flex gap-1.5">
+                        <button type="button" disabled={deleting}
+                          onClick={() => removeTopic(topic)}
+                          className="px-3 py-1 rounded-full text-3xs font-semibold disabled:opacity-50"
+                          style={{ backgroundColor: "var(--error)", color: "var(--on-accent)" }}>
+                          {t("common.delete")}
+                        </button>
+                        <button type="button" onClick={() => setConfirmTopicId(null)}
+                          className="btn-cancel px-3 py-1 rounded-full text-3xs font-semibold"
+                          style={{ color: "var(--kb)", backgroundColor: "var(--surface)", border: "2px solid var(--border)" }}>
+                          {t("common.cancel")}
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  /** Only the name, the delete button sits above the row instead of inside it. */
-                  <div key={topic.id} className="relative">
-                    <PickerOption selected={topicId === topic.id}
-                      onClick={() => setTopicId(topic.id)}>
-                      <span className={`block font-semibold ${canManage ? "pr-6" : ""}`}>{topic.name}</span>
-                    </PickerOption>
-                    {canManage && (
-                      <button type="button" onClick={() => setConfirmTopicId(topic.id)}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full flex items-center justify-center btn-icon"
-                        style={{ backgroundColor: "var(--surface-dim)" }}
-                        title={t("grammarTopics.deleteTopic")}>
-                        <Trash size={12} />
-                      </button>
+                  ) : (
+                    /** Only the name, the delete button sits above the row instead of inside it. */
+                    <div key={topic.id} className="relative">
+                      <PickerOption selected={topicId === topic.id}
+                        onClick={() => setTopicId(topic.id)}>
+                        <span className={`block font-semibold ${canRemove ? "pr-6" : ""}`}>{topic.name}</span>
+                      </PickerOption>
+                      {canRemove && (
+                        <button type="button" onClick={() => setConfirmTopicId(topic.id)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full flex items-center justify-center btn-icon"
+                          style={{ backgroundColor: "var(--surface-dim)" }}
+                          title={t("grammarTopics.deleteTopic")}>
+                          <Trash size={12} />
+                        </button>
+                      )}
+                    </div>
+                  );
+                };
+                // Owner and tutor see one plain list, only a course has anything to compare against.
+                if (canManage) return topics.map(renderTopic);
+                const courseTopics = topics.filter((topic) => !isOwn(topic));
+                const ownTopics = topics.filter(isOwn);
+                const sectionHeading = (key: string) => (
+                  <p className="text-3xs font-semibold uppercase tracking-wide mt-1.5 first:mt-0" style={{ color: "var(--muted)" }}>
+                    {t(key)}
+                  </p>
+                );
+                return (
+                  <>
+                    {courseTopics.length > 0 && (
+                      <>
+                        {sectionHeading("grammarTopics.courseSectionHeading")}
+                        {courseTopics.map(renderTopic)}
+                      </>
                     )}
-                  </div>
-                )
-              ))}
+                    {ownTopics.length > 0 && (
+                      <>
+                        {sectionHeading("grammarTopics.ownSectionHeading")}
+                        {ownTopics.map(renderTopic)}
+                      </>
+                    )}
+                  </>
+                );
+              })()}
               {addingTopic && (
                 <GrammarTopicForm
                   workspaceUuid={workspaceUuid}

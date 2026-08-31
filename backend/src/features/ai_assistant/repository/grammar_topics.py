@@ -37,8 +37,6 @@ def catalog_entry(topic: dict, spec: dict) -> dict:
         "rule": spec.get("rule") or "",
         "example": examples[0] if examples else dict(_EMPTY_PAIR),
         "examples": examples,
-        # The instruction per format, empty for topics from before this field.
-        "task_lines": dict(spec.get("task_lines") or {}),
     }
 
 
@@ -59,7 +57,8 @@ def get_grammar_topic(topic_id) -> dict | None:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
-                "SELECT id, workspace_id, name FROM aia_grammar_topics WHERE id = %s",
+                "SELECT id, workspace_id, name, created_by FROM aia_grammar_topics "
+                "WHERE id = %s",
                 (topic_id,),
             )
             row = cur.fetchone()
@@ -92,7 +91,7 @@ def get_topic_spec(topic_id: int, language: str) -> dict | None:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
-                "SELECT rule, examples, task_lines FROM aia_grammar_topic_specs "
+                "SELECT rule, examples FROM aia_grammar_topic_specs "
                 "WHERE topic_id = %s AND language = %s",
                 (topic_id, language),
             )
@@ -100,22 +99,19 @@ def get_topic_spec(topic_id: int, language: str) -> dict | None:
             return dict(row) if row else None
 
 
-def save_topic_spec(topic_id: int, language: str, rule: str, examples: list,
-                    task_lines: dict | None = None) -> dict:
+def save_topic_spec(topic_id: int, language: str, rule: str, examples: list) -> dict:
     """Creates or replaces the elaboration, surplus pairs are dropped."""
     trimmed = list(examples)[:MAX_EXAMPLES]
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
                 "INSERT INTO aia_grammar_topic_specs "
-                "(topic_id, language, rule, examples, task_lines) "
-                "VALUES (%s, %s, %s, %s, %s) "
+                "(topic_id, language, rule, examples) "
+                "VALUES (%s, %s, %s, %s) "
                 "ON CONFLICT (topic_id, language) DO UPDATE "
-                "SET rule = EXCLUDED.rule, examples = EXCLUDED.examples, "
-                "    task_lines = EXCLUDED.task_lines "
-                "RETURNING rule, examples, task_lines",
-                (topic_id, language, rule, json.dumps(trimmed),
-                 json.dumps(task_lines) if task_lines else None),
+                "SET rule = EXCLUDED.rule, examples = EXCLUDED.examples "
+                "RETURNING rule, examples",
+                (topic_id, language, rule, json.dumps(trimmed)),
             )
             row = dict(cur.fetchone())
         conn.commit()

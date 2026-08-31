@@ -82,7 +82,7 @@ def _vorschau_ohne_modell(monkeypatch, derived):
 async def test_the_preview_hands_the_suggested_name_to_the_form(workspace, monkeypatch):
     """The form reads exactly this field."""
     _vorschau_ohne_modell(monkeypatch, {
-        "rule": "r", "task_lines": {}, "label": "Passiv Präsens",
+        "rule": "r", "label": "Passiv Präsens",
         "examples": [{"before": "Das Team schreibt.", "after": "Es wird geschrieben."}]})
 
     out = await grammar_topics.preview_topic(
@@ -96,7 +96,7 @@ async def test_the_preview_hands_the_suggested_name_to_the_form(workspace, monke
 async def test_a_missing_suggested_name_is_an_empty_field_and_not_an_error(
         workspace, monkeypatch):
     _vorschau_ohne_modell(monkeypatch, {
-        "rule": "r", "task_lines": {},
+        "rule": "r",
         "examples": [{"before": "Das Team schreibt.", "after": "Es wird geschrieben."}]})
 
     out = await grammar_topics.preview_topic(

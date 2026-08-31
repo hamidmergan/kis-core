@@ -70,16 +70,14 @@ _MIXED = json.dumps({"title": "Passiv üben", "exercises": [
     {"kind": "transform", "before": "Der Server speichert die Messwerte.",
      "after": "Die Messwerte werden vom Server gespeichert.", "page": 4},
     {"kind": "cloze", "sentence": "Die Messwerte werden vom Server gespeichert.",
-     "form_span": "werden", "options": ["werden", "wurden", "sind", "waren"],
-     "correct_idx": 0, "page": 4},
+     "form_span": "werden", "page": 4},
     {"kind": "statement", "statement": "Die Messwerte werden vom Server gespeichert.",
      "answer": True, "page": 4},
     {"kind": "choice", "task": "Bilden Sie das Passiv.",
      "sentence": "Die Software prüft die Eingaben.",
      "options": ["Die Eingaben werden von der Software geprüft.",
                  "Die Eingaben sind von der Software geprüft.",
-                 "Die Eingaben werden von der Software prüfen.",
-                 "Die Eingaben wurden von der Software geprüft."],
+                 "Die Eingaben werden von der Software prüfen."],
      "correct_idx": 0, "page": 4},
 ]})
 
@@ -125,19 +123,18 @@ def test_each_format_becomes_the_row_its_view_expects(attributed):
     assert transform["back"] == "Die Messwerte werden vom Server gespeichert."
     assert "options" not in transform
 
-    # Gap: the sentence with ___ comes first, plus four options to click.
+    # Gap: the sentence with ___ comes first, free text, no options.
     assert "___" in cloze["front"]
     assert cloze["back"] == "werden"
-    assert len(cloze["options"]) == 4
-    assert cloze["correct_idx"] == 0
+    assert "options" not in cloze
 
     # True/false: two fixed labels, not named by the model.
     assert statement["options"] == ["Richtig", "Falsch"]
     assert statement["correct_idx"] == 0
 
-    # Ankreuzen: Aufgabenzeile in front, vier Optionen.
-    assert choice["front"].startswith("**Welcher Satz ist korrekt? Zielform: Passiv Präsens.**")
-    assert len(choice["options"]) == 4
+    # Ankreuzen: Thema als Rahmen vor der Anweisung, drei Optionen.
+    assert choice["front"].startswith('**Thema: „Passiv Präsens".')
+    assert len(choice["options"]) == 3
     assert choice["back"] == choice["options"][choice["correct_idx"]]
 
 
@@ -179,16 +176,14 @@ _GOOD_FOUR = [
     {"kind": "transform", "before": "Der Server speichert die Messwerte.",
      "after": "Die Messwerte werden vom Server gespeichert."},
     {"kind": "cloze", "sentence": "Die Messwerte werden vom Server gespeichert.",
-     "form_span": "werden", "options": ["werden", "wurden", "sind", "waren"],
-     "correct_idx": 0},
+     "form_span": "werden"},
     {"kind": "statement", "statement": "Die Eingaben werden von der Software geprüft.",
      "answer": True},
     {"kind": "choice", "task": "Bilden Sie das Passiv.",
      "sentence": "Die Software prüft die Eingaben.",
      "options": ["Die Eingaben werden von der Software geprüft.",
                  "Die Eingaben sind von der Software geprüft.",
-                 "Die Eingaben werden von der Software prüfen.",
-                 "Die Eingaben wurden von der Software geprüft."],
+                 "Die Eingaben werden von der Software prüfen."],
      "correct_idx": 0},
 ]
 
@@ -197,7 +192,7 @@ _BAD_FOUR = [
     {"kind": "cloze", "sentence": "Ohne Ausschnitt geht es nicht.", "form_span": "fehlt"},
     {"kind": "statement", "statement": "Zu kurz", "answer": True},
     {"kind": "choice", "task": "T", "sentence": "Der Server speichert Werte.",
-     "options": ["a", "a", "b", "c"], "correct_idx": 0},
+     "options": ["a", "a", "b"], "correct_idx": 0},
 ]
 
 
@@ -276,8 +271,7 @@ def test_a_surplus_of_one_format_is_capped_at_the_plan(attributed):
     ]})
     rest = json.dumps({"title": "T", "exercises": [
         {"kind": "cloze", "sentence": f"Die Quelle {i} wird vom Team geprüft.",
-         "form_span": "wird", "options": ["wird", "werden", "wurde", "ist"],
-         "correct_idx": 0} for i in range(2)
+         "form_span": "wird"} for i in range(2)
     ] + [
         {"kind": "statement", "statement": f"Die Quelle {i} wird vom Team geprüft.",
          "answer": True} for i in range(2)
@@ -286,14 +280,13 @@ def test_a_surplus_of_one_format_is_capped_at_the_plan(attributed):
          "sentence": f"Die Akte {i} wird vom Team geprüft.",
          "options": [f"Die Akte {i} wird vom Team geprüft.",
                      f"Die Akte {i} wird vom Team prüfen.",
-                     f"Die Akte {i} ist vom Team geprüft.",
-                     f"Die Akte {i} wurde vom Team geprüft."],
+                     f"Die Akte {i} ist vom Team geprüft."],
          "correct_idx": 0} for i in range(2)
     ]})
     client, _ = _client_queue(many, rest)
     items, _, _ = generate_grammar_from_source(
         client, "m", _ctx(), _TOPIC, 8, locale="de")
-    umformungen = [i for i in items if "Forme den Satz" in i["front"]]
+    umformungen = [i for i in items if i.get("_kind") == "transform"]
     assert len(umformungen) == 2
     assert len(items) == 8
 
@@ -316,8 +309,7 @@ _BAD_CHOICE = {
     # The exercise sentence stands as a WRONG option, the filter discards that every time.
     "options": ["Die Messwerte werden vom Server gespeichert.",
                 "Der Server speichert die Messwerte.",
-                "Die Messwerte sind vom Server gespeichert.",
-                "Die Messwerte wurden vom Server gespeichert."],
+                "Die Messwerte sind vom Server gespeichert."],
     "correct_idx": 0,
 }
 
@@ -379,10 +371,7 @@ def test_the_example_is_also_blocked_for_the_other_formats(attributed):
     # As a gapped or multiple choice sentence it would still be the pattern sentence.
     ex = _TOPIC["example"]
     response = json.dumps({"title": "T", "exercises": [
-        # With four options, so the exercise really fails on the pattern sentence.
-        {"kind": "cloze", "sentence": ex["before"], "form_span": "erklärt",
-         "options": ["erklärt", "erklären", "erklärte", "erklärt hat"],
-         "correct_idx": 0},
+        {"kind": "cloze", "sentence": ex["before"], "form_span": "erklärt"},
         {"kind": "transform", "before": "Das Team schreibt den Bericht.",
          "after": "Der Bericht wird vom Team geschrieben."},
     ]})
@@ -396,8 +385,7 @@ def test_a_sentence_that_names_the_target_form_is_dropped(attributed):
         {"kind": "transform", "before": "Das Team schreibt den Bericht.",
          "after": "Der Bericht wird vom Team geschrieben."},
         {"kind": "cloze", "sentence": "Im Passiv steht das Objekt vorn.",
-         "form_span": "steht", "options": ["steht", "stehen", "stand", "gestanden"],
-         "correct_idx": 0},
+         "form_span": "steht"},
     ]})
     items, _, _, _ = _generate(response, count=2)
     assert len(items) == 1
@@ -478,56 +466,22 @@ def test_a_statement_that_asks_something_is_dropped():
 
 # ─── Cloze ───────────────────────────────────────────────────────────────────
 
-# The code sets exactly one gap, which dropped four old checks.
-_GAP_OPTIONS = ["der", "des", "dem", "den"]
-
-
-def test_a_gap_sentence_needs_a_span_and_four_options():
-    """Four options make the gap solvable and stay a decision about form."""
-    assert is_usable_cloze("Das Buch der Dozentin ist interessant.", "der",
-                           _GAP_OPTIONS, 0)
-
-
-def test_a_gap_without_options_is_dropped():
-    assert not is_usable_cloze("Das Buch der Dozentin ist interessant.", "der", [], None)
-
-
-def test_a_gap_needs_exactly_four_options():
-    assert not is_usable_cloze("Das Buch der Dozentin ist da.", "der", ["der", "des"], 0)
-
-
-def test_two_identical_options_drop_the_gap():
-    # The same answer twice: the learner can be right and wrong at once.
-    assert not is_usable_cloze("Das Buch der Dozentin ist da.", "der",
-                               ["der", "der", "des", "dem"], 0)
-
-
-def test_the_marked_option_must_be_the_span():
-    assert not is_usable_cloze("Das Buch der Dozentin ist da.", "der", _GAP_OPTIONS, 1)
-
-
-def test_gap_options_may_be_single_words():
-    """The word overlap filter explicitly does not apply to the gap."""
-    assert is_usable_cloze("Der Bericht wird geschrieben.", "wird",
-                           ["wird", "werden", "wurde", "ist"], 0)
+def test_a_gap_sentence_with_a_span_is_usable():
+    assert is_usable_cloze("Das Buch der Dozentin ist interessant.", "der")
 
 
 def test_a_sentence_without_a_span_is_dropped():
-    assert not is_usable_cloze("Das Buch der Dozentin ist interessant.", "  ",
-                               _GAP_OPTIONS, 0)
+    assert not is_usable_cloze("Das Buch der Dozentin ist interessant.", "  ")
 
 
 def test_a_span_that_swallows_the_whole_sentence_is_dropped():
     # Only a gap and nothing else is no exercise but an empty field.
-    assert not is_usable_cloze("Irgendwas", "Irgendwas",
-                               ["Irgendwas", "b", "c", "d"], 0)
+    assert not is_usable_cloze("Irgendwas", "Irgendwas")
 
 
 def test_the_gap_may_stand_at_the_end_of_the_sentence():
     # The excerpt may be the last word, the period stays behind it.
-    assert is_usable_cloze("Die Arbeit wird von der Dozentin korrigiert.", "korrigiert",
-                           ["korrigiert", "korrigieren", "korrigierte", "korrigiert hat"],
-                           0)
+    assert is_usable_cloze("Die Arbeit wird von der Dozentin korrigiert.", "korrigiert")
 
 
 # ─── The instruction on the exercise ─────────────────────────────────────────
@@ -555,8 +509,7 @@ def test_a_choice_that_asks_which_is_correct_does_not_repeat_the_sentence(attrib
         {"kind": "choice", "task": "Welche Form ist richtig?", "sentence": satz,
          "options": [satz,
                      "Die Ergebnisse sind von der Betreuerin überprüft.",
-                     "Die Ergebnisse werden von der Betreuerin überprüfen.",
-                     "Die Ergebnisse wurden von der Betreuerin überprüft."],
+                     "Die Ergebnisse werden von der Betreuerin überprüfen."],
          "correct_idx": 0},
     ]})
     items, _, _, _ = _generate(response, count=1)
@@ -570,17 +523,19 @@ def test_a_choice_that_transforms_keeps_its_sentence(attributed):
          "sentence": "Die Software prüft die Eingaben.",
          "options": ["Die Eingaben werden von der Software geprüft.",
                      "Die Eingaben sind von der Software geprüft.",
-                     "Die Eingaben werden von der Software prüfen.",
-                     "Die Eingaben wurden von der Software geprüft."],
+                     "Die Eingaben werden von der Software prüfen."],
          "correct_idx": 0},
     ]})
     items, _, _, _ = _generate(response, count=1)
     assert "Die Software prüft die Eingaben." in items[0]["front"]
 
 
-def test_an_unknown_language_falls_back_to_english():
-    from src.features.ai_assistant.tasks.language_training._source_grammar import task_line
-    assert task_line("transform", "fr", "X") == task_line("transform", "en", "X")
+def test_an_unknown_language_falls_back_to_english(monkeypatch):
+    from src.features.ai_assistant.tasks.language_training import _source_grammar
+    # The phrasing is picked at random, pin it so the comparison is not flaky.
+    monkeypatch.setattr(_source_grammar.random, "choice", lambda seq: seq[0])
+    assert _source_grammar.task_line("transform", "fr", "X") == \
+        _source_grammar.task_line("transform", "en", "X")
 
 
 # ─── The two inherited filters keep running ──────────────────────────────────
@@ -589,11 +544,11 @@ def test_the_free_text_filter_still_rejects_a_question():
     assert not is_usable_pair("Was bedeutet das?", "Etwas.")
 
 
-def test_the_choice_filter_still_rejects_four_content_options():
-    # Four different contents instead of four forms, that is what the filter is for.
+def test_the_choice_filter_still_rejects_three_content_options():
+    # Three different contents instead of three forms, that is what the filter is for.
     assert not is_usable_choice(
         "Welche Gerichte wurden gekocht?", "Am Samstag wurde gekocht.",
-        ["Pizza und Pasta", "Tacos und Fajitas", "Sushi und Tempura", "Suppe und Salat"],
+        ["Pizza und Pasta", "Tacos und Fajitas", "Sushi und Tempura"],
         0,
     )
 
@@ -605,8 +560,7 @@ def test_the_sentence_may_be_the_correct_option():
         "Welche Form ist richtig?", satz,
         [satz,
          "Die Arbeit wird von der Dozentin korrigieren.",
-         "Die Arbeit ist von der Dozentin korrigiert.",
-         "Die Arbeit wurde von der Dozentin korrigiert."],
+         "Die Arbeit ist von der Dozentin korrigiert."],
         0,
     )
 
@@ -618,18 +572,16 @@ def test_the_sentence_as_a_wrong_option_stays_forbidden():
         "Bilden Sie das Passiv.", satz,
         ["Die Messwerte werden vom Server gespeichert.",
          satz,
-         "Die Messwerte sind vom Server gespeichert.",
-         "Die Messwerte wurden vom Server gespeichert."],
+         "Die Messwerte sind vom Server gespeichert."],
         0,
     )
 
 
-def test_the_choice_filter_accepts_four_form_variants():
+def test_the_choice_filter_accepts_three_form_variants():
     assert is_usable_choice(
         "Bilden Sie das Passiv Präsens.", "Der Server speichert die Messwerte.",
         ["Die Messwerte werden vom Server gespeichert.",
          "Die Messwerte sind vom Server gespeichert.",
-         "Die Messwerte werden vom Server speichern.",
-         "Die Messwerte wurden vom Server gespeichert."],
+         "Die Messwerte werden vom Server speichern."],
         0,
     )

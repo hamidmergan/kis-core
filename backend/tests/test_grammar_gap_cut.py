@@ -9,7 +9,6 @@ from src.features.ai_assistant.tasks.language_training._source_grammar import (
 
 
 _SATZ = "Die Messwerte werden vom Server gespeichert."
-_OPTIONEN = ["werden", "wird", "worden", "waren"]
 
 
 def test_code_schneidet_die_luecke():
@@ -51,57 +50,18 @@ def test_leerer_ausschnitt_faellt_durch():
 
 
 def test_luecke_mit_ausschnitt_ist_brauchbar():
-    assert is_usable_cloze(_SATZ, "werden", _OPTIONEN, 0)
-
-
-def test_markierte_option_muss_der_ausschnitt_sein():
-    assert not is_usable_cloze(_SATZ, "werden", _OPTIONEN, 1)
-
-
-def test_vier_optionen_sind_pflicht():
-    assert not is_usable_cloze(_SATZ, "werden", ["werden", "wird"], 0)
-
-
-def test_zweimal_dieselbe_option_faellt_durch():
-    assert not is_usable_cloze(_SATZ, "werden", ["werden", "Werden", "wird", "waren"], 0)
+    assert is_usable_cloze(_SATZ, "werden")
 
 
 def test_satz_der_die_luecke_schon_mitbringt_faellt_durch():
     """Legacy: the prompt now orders the complete sentence."""
-    assert not is_usable_cloze("Die Messwerte ___ gespeichert.", "werden", _OPTIONEN, 0)
-
-
-def test_wort_in_allen_vier_optionen_faellt_durch():
-    """A word in all four options is context and belongs in the sentence."""
-    assert not is_usable_cloze(
-        "Das Gebäude hat ein sicheres Rettungssystem.", "ein sicheres Rettungssystem",
-        ["ein sicheres Rettungssystem", "einen sicheren Rettungssystem",
-         "ein sicher Rettungssystem", "einer sichere Rettungssystem"], 0)
-
-
-def test_gemeldeter_handfeuerloescher_faellt_durch():
-    """YS' Meldung 2, dieselbe Bauart."""
-    assert not is_usable_cloze(
-        "Man benutzt einen Handfeuerlöscher zur Brandbekämpfung.",
-        "einen Handfeuerlöscher",
-        ["einen Handfeuerlöscher", "ein Handfeuerlöscher",
-         "einem Handfeuerlöscher", "einer Handfeuerlöscher"], 0)
-
-
-def test_teilweise_gemeinsame_woerter_sind_erlaubt():
-    """Four forms share words, but none appears in all four."""
-    assert is_usable_cloze(
-        "Die Angabe muss weggelassen werden.", "muss weggelassen werden",
-        ["muss weggelassen werden", "wird weglassen",
-         "muss weglassen", "soll weggelassen sein"], 0)
+    assert not is_usable_cloze("Die Messwerte ___ gespeichert.", "werden")
 
 
 def test_vier_woerter_bleiben_erlaubt():
     """There are real four-word forms, the limit must not cut them off."""
     assert is_usable_cloze(
-        "Der Bericht hätte geschrieben werden können.", "hätte geschrieben werden können",
-        ["hätte geschrieben werden können", "wäre geschrieben worden",
-         "hat schreiben können", "würde schreiben können"], 0)
+        "Der Bericht hätte geschrieben werden können.", "hätte geschrieben werden können")
 
 
 def test_satz_der_die_zielform_nennt_faellt_durch():

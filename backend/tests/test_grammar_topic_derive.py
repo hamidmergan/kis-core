@@ -7,8 +7,6 @@ import pytest
 
 from src.services.aia_grammar_topic import (
     _PROMPT,
-    TASK_KINDS,
-    derive_task_lines,
     derive_topic,
     usable_label,
 )
@@ -183,52 +181,14 @@ def test_a_broken_pair_is_dropped_but_the_good_ones_stay():
     assert out["examples"][0]["before"] == "Er kommt morgen."
 
 
-# Topics from before the field get their lines backfilled.
-
-_MIT_ZEILEN = json.dumps({
-    "is_grammar": True,
-    "rule": "Input: two sentences. Output: one with a relative clause.",
-    "examples": [{"before": "Der Mann ist Lehrer.", "after": "Der Mann, der Lehrer ist."}],
-    "task_lines": {
-        "transform": "Forme den Satz nach dem Beispiel in einen Relativsatz um.",
-        "cloze": "Ergänze das fehlende Relativpronomen.",
-        "statement": "Ist der Relativsatz richtig gebildet?",
-        "choice": "Welcher Relativsatz ist richtig gebildet?",
-    },
-})
-
-
-def test_the_lines_can_be_fetched_on_their_own():
-    client, _ = _client(_MIT_ZEILEN)
-    zeilen = derive_task_lines(client, "m", "Relativsatz", "de")
-    assert zeilen["transform"] == "Forme den Satz nach dem Beispiel in einen Relativsatz um."
-    assert set(zeilen) == set(TASK_KINDS)
-
-
-def test_the_backfill_never_hands_back_rule_or_example():
-    """Only the four lines come back, rule and pattern stay untouched."""
-    client, _ = _client(_MIT_ZEILEN)
-    assert set(derive_task_lines(client, "m", "Relativsatz", "de")) == set(TASK_KINDS)
-
-
-def test_a_provider_hiccup_costs_the_lines_and_not_the_set():
-    """When backfilling, a disruption must not cost a whole set."""
-    def create(model, messages, **kwargs):
-        raise RuntimeError("Model Not Loaded")
-
-    client = types.SimpleNamespace(
-        chat=types.SimpleNamespace(completions=types.SimpleNamespace(create=create)))
-    assert derive_task_lines(client, "m", "Relativsatz", "de") == {}
-
-
-def test_a_topic_the_model_refuses_yields_no_lines():
-    client, _ = _client(json.dumps({"is_grammar": False, "rule": "", "examples": []}))
-    assert derive_task_lines(client, "m", "Photosynthese", "de") == {}
-
-
 def test_a_word_order_mnemonic_counts_as_grammar():
     """The question is whether the name says something about sentence structure, not whether the model knows it."""
     assert "tekamolo" in _PROMPT
     assert "not automatically nonsense" in _PROMPT
     # Subject topics still drop out, otherwise the loosening would be a free pass.
     assert "photosynthesis" in _PROMPT
+
+
+def test_the_rule_is_asked_to_name_every_standard_construction():
+    """The label narrows to one form, but the rule must still name sibling constructions."""
+    assert "more than one standard construction" in _PROMPT
