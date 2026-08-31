@@ -1874,6 +1874,7 @@
         "searchPerson": "Look at a single user",
         "searchPersonHint": "Type a name and pick it. Everything about that person appears below.",
         "searchPersonPlaceholder": "Search name",
+        "searchPersonClear": "Clear search",
         "pickPerson": "Nobody picked yet. Type a name in the field above.",
         "level": "Level {level}",
         "never": "never",

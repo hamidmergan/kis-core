@@ -1874,6 +1874,7 @@
         "searchPerson": "Einzelnen Nutzer ansehen",
         "searchPersonHint": "Namen eintippen und auswählen. Darunter steht alles zu dieser Person an einer Stelle.",
         "searchPersonPlaceholder": "Name suchen",
+        "searchPersonClear": "Suche leeren",
         "pickPerson": "Noch niemand ausgewählt. Tippe einen Namen in das Feld darüber.",
         "level": "Niveau {level}",
         "never": "nie",

@@ -4,9 +4,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Check } from "@phosphor-icons/react";
+import { Check, Trash } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 import Modal from "@/components/ui/Modal";
+import IconButton from "@/components/ui/IconButton";
 import StatusMark from "@/components/ui/StatusMark";
 import type { StatusTone } from "@/lib/jobStatusDisplay";
 import { copyTextFromPromise } from "@/lib/clipboard";
@@ -318,13 +319,14 @@ export default function AccessCodesTab() {
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <button
-                      type="button"
+                    <IconButton
+                      size="sm"
+                      title={t("delete")}
+                      aria-label={t("delete")}
                       onClick={() => setLoeschen(e)}
-                      className="text-xs text-error hover:underline"
                     >
-                      {t("delete")}
-                    </button>
+                      <Trash size={14} weight="bold" />
+                    </IconButton>
                   </td>
                 </tr>
               ))}
@@ -395,7 +397,6 @@ export default function AccessCodesTab() {
                     <th className="px-3 py-2 text-left">{t("colExpires")}</th>
                     <th className="px-3 py-2 text-left">{t("colState")}</th>
                     <th className="px-3 py-2 text-left">{t("resetPassword")}</th>
-                    <th className="px-3 py-2 text-left">{t("activityView")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border-soft bg-background">
@@ -450,16 +451,6 @@ export default function AccessCodesTab() {
                             {resettingId === k.id ? t("resetting") : t("resetPassword")}
                           </button>
                         )}
-                      </td>
-                      <td className="px-3 py-2">
-                        <button
-                          type="button"
-                          data-testid="access-code-activity"
-                          onClick={() => aktivitaetOeffnen(k)}
-                          className="px-3 py-1.5 text-xs border-2 border-border rounded-md hover:border-[var(--kb)] hover:text-[var(--kb)] whitespace-nowrap"
-                        >
-                          {t("activityView")}
-                        </button>
                       </td>
                     </tr>
                   ))}

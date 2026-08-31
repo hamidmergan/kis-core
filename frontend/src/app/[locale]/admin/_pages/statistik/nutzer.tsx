@@ -144,6 +144,7 @@ export default function StatistikNutzerPage() {
           gewaehlt={person === null ? null : String(person)}
           waehlen={(id) => setPerson(Number(id))}
           nichtsGefunden={t("assistant.nothingFound")}
+          leeren={t("detail.searchPersonClear")}
         />
       </Karte>
 

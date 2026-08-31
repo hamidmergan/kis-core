@@ -3,7 +3,7 @@
 /** Search field with a result list, shared by people and modules. */
 
 import { useEffect, useRef, useState } from "react";
-import { MagnifyingGlass } from "@phosphor-icons/react";
+import { MagnifyingGlass, X } from "@phosphor-icons/react";
 
 export interface Treffer {
   id: string;
@@ -17,16 +17,19 @@ export function Suche({
   gewaehlt,
   waehlen,
   nichtsGefunden,
+  leeren,
 }: {
   eintraege: Treffer[];
   platzhalter: string;
   gewaehlt: string | null;
   waehlen: (id: string) => void;
   nichtsGefunden: string;
+  leeren: string;
 }) {
   const [text, setText] = useState("");
   const [offen, setOffen] = useState(false);
   const rahmen = useRef<HTMLDivElement>(null);
+  const eingabe = useRef<HTMLInputElement>(null);
 
   // A click outside closes the list, otherwise it covers the content.
   useEffect(() => {
@@ -53,7 +56,8 @@ export function Suche({
         className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-soft pointer-events-none"
       />
       <input
-        type="search"
+        ref={eingabe}
+        type="text"
         value={text}
         onChange={(e) => {
           setText(e.target.value);
@@ -65,10 +69,23 @@ export function Suche({
         }}
         placeholder={platzhalter}
         aria-label={platzhalter}
-        className="w-full pl-9 pr-3 py-2.5 text-sm rounded-lg border border-border bg-background
+        className="w-full pl-9 pr-9 py-2.5 text-sm rounded-lg border border-border bg-background
                    text-foreground placeholder:text-muted-soft
                    focus:outline-none focus:border-kb focus:ring-3 focus:ring-kb/12"
       />
+      {text && (
+        <button
+          type="button"
+          onClick={() => {
+            setText("");
+            eingabe.current?.focus();
+          }}
+          className="absolute right-1.5 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-full btn-icon"
+          title={leeren}
+        >
+          <X size={14} weight="bold" />
+        </button>
+      )}
 
       {offen && (
         <div
