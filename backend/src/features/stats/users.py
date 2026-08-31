@@ -1,5 +1,7 @@
 """User numbers, based on presence instead of on jobs."""
 import time
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from psycopg2.extras import RealDictCursor
 
@@ -8,6 +10,8 @@ from src.security import presence
 
 # From how many days with presence someone counts as regular.
 REGELMAESSIG_AB_TAGEN = 10
+
+_TZ_BERLIN = ZoneInfo("Europe/Berlin")
 
 
 def user_overview() -> dict:
@@ -78,16 +82,17 @@ def _per_day(cur) -> list[dict]:
 
 def _today_by_hour(cur) -> list[dict]:
     """Today hour by hour, the current hour stays out."""
+    aktuelle_stunde = datetime.now(_TZ_BERLIN).hour
     cur.execute(
         """SELECT hour, COUNT(DISTINCT user_id) AS n
            FROM user_presence
            WHERE day = (NOW() AT TIME ZONE 'Europe/Berlin')::date
-             AND hour < EXTRACT(HOUR FROM (NOW() AT TIME ZONE 'Europe/Berlin'))
-           GROUP BY hour ORDER BY hour"""
+             AND hour < %s
+           GROUP BY hour ORDER BY hour""",
+        (aktuelle_stunde,),
     )
     gefunden = {int(r["hour"]): r["n"] for r in cur.fetchall()}
-    letzte = max(gefunden) if gefunden else -1
-    return [{"hour": h, "users": gefunden.get(h, 0)} for h in range(letzte + 1)]
+    return [{"hour": h, "users": gefunden.get(h, 0)} for h in range(aktuelle_stunde)]
 
 
 def users_by_hour(hour: int) -> list[dict]:

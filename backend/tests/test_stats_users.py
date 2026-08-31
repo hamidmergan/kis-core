@@ -1,5 +1,7 @@
 """The user numbers, checked where a number goes quietly wrong."""
+from datetime import datetime
 from unittest.mock import MagicMock, patch
+from zoneinfo import ZoneInfo
 
 from src.features.stats import users as u
 
@@ -61,6 +63,18 @@ def test_wie_lange_jemand_schon_da_ist():
     cur = FakeCursor([{"id": 1, "display_name": "Hans", "ldap_username": "h"}])
     vor_zehn_minuten = int(time.time()) - 600
     assert u._online_details(cur, {1: vor_zehn_minuten})["users"][0]["minutes"] == 10
+
+
+def test_tagesverlauf_geht_bis_zur_aktuellen_stunde_auch_ohne_spaete_aktivitaet():
+    """Niemand mehr online nach 18 Uhr darf den Verlauf nicht bei 18 Uhr abschneiden."""
+    cur = MagicMock()
+    cur.fetchall.return_value = [{"hour": 6, "n": 4}, {"hour": 18, "n": 3}]
+    mit_uhrzeit = datetime(2026, 8, 31, 22, 59, tzinfo=ZoneInfo("Europe/Berlin"))
+    with patch("src.features.stats.users.datetime") as fake_datetime:
+        fake_datetime.now.return_value = mit_uhrzeit
+        r = u._today_by_hour(cur)
+    assert r[-1] == {"hour": 21, "users": 0}
+    assert len(r) == 22
 
 
 def test_stunden_liste_gibt_die_aufgeloesten_namen_zurueck():
