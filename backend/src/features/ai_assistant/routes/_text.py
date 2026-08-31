@@ -294,15 +294,8 @@ def _clauses(line: str) -> list[str]:
 _SENT_BOUNDARY_RE = re.compile(r"[.!?]+\s+(?=[^\W\d_])")
 
 
-def _is_abbreviation_end(prefix: str) -> bool:
-    """Whether the final period ends an abbreviation or number instead of a sentence."""
-    tok = prefix.rstrip(".!?").split()
-    if not tok:
-        return False
-    # Strip brackets and quotes, inner periods stay.
-    tok = re.sub(r"^\W+|\W+$", "", tok[-1])
-    if not tok:
-        return False
+def _is_short_abbrev_part(tok: str) -> bool:
+    """Whether a single hyphen-free token reads as an abbreviation piece."""
     if len(tok) == 1:
         return True
     if tok.isdigit():
@@ -312,6 +305,22 @@ def _is_abbreviation_end(prefix: str) -> bool:
     if tok[0].isupper() and len(tok) <= 4:
         return True
     return False
+
+
+def _is_abbreviation_end(prefix: str) -> bool:
+    """Whether the final period ends an abbreviation or number instead of a sentence."""
+    tok = prefix.rstrip(".!?").split()
+    if not tok:
+        return False
+    # Strip brackets and quotes, inner periods stay.
+    tok = re.sub(r"^\W+|\W+$", "", tok[-1])
+    if not tok:
+        return False
+    if "-" in tok:
+        # A compound title like "Dr.-Ing" is one abbreviation, not two short words.
+        parts = [p for p in tok.split("-") if p]
+        return bool(parts) and all(_is_short_abbrev_part(p) for p in parts)
+    return _is_short_abbrev_part(tok)
 
 
 def _split_sentences(text: str) -> list[str]:

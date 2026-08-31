@@ -72,6 +72,14 @@ def test_no_split_on_capitalized_short_abbreviation():
     ]
 
 
+def test_no_split_on_hyphenated_academic_title():
+    # "Dr.-Ing." is one abbreviation, not two short tokens -> must not split before the name.
+    assert _split_sentences("Betreut von Prof. Dr.-Ing. Malte Kaltenbach im Seminar. Kontakt per Mail.") == [
+        "Betreut von Prof. Dr.-Ing. Malte Kaltenbach im Seminar.",
+        "Kontakt per Mail.",
+    ]
+
+
 def test_no_split_inside_email():
     assert _split_sentences("Schreib an lenka.kleinau@th-luebeck.de. Sie antwortet schnell.") == [
         "Schreib an lenka.kleinau@th-luebeck.de.",
