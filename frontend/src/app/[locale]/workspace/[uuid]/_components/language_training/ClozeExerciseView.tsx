@@ -1,5 +1,4 @@
 import React, { useMemo, useRef, useState } from "react";
-import { CaretRight } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
 import type { ExerciseSet } from "../../_types";
 import { checkGap, type ClozeVerdict } from "./_cloze";
@@ -27,11 +26,10 @@ export function ClozeExerciseView({
 }) {
   const t = useTranslations("workspace.detail.languageTraining");
 
-  // One text is exactly one exercise, instruction and example hang off it.
+  // One text is exactly one exercise, instruction hangs off it.
   const item = exerciseSet.items?.[0] ?? null;
   const gaps = useMemo(() => item?.extras?.gaps ?? [], [item]);
   const instruction = item?.extras?.instruction ?? "";
-  const example = item?.extras?.example ?? null;
 
   // The text split into pieces and gaps.
   const parts = useMemo(() => {
@@ -66,8 +64,6 @@ export function ClozeExerciseView({
 
   const [drafts, setDrafts] = useState<Record<number, string>>({});
   const [struck, setStruck] = useState<Record<number, boolean>>({});
-  // Collapsed, the example is help on demand.
-  const [showExample, setShowExample] = useState(false);
   const [verdicts, setVerdicts] = useState<ClozeVerdict[] | null>(null);
   // Whether it was checked really locks every field.
   const checked = verdicts !== null;
@@ -105,32 +101,6 @@ export function ClozeExerciseView({
         {instruction && (
           <p className="text-xs" style={{ color: "var(--muted)" }}>{instruction}</p>
         )}
-        {example?.gapped && example?.solved && (
-          <div>
-            <button type="button" onClick={() => setShowExample((v) => !v)}
-              aria-expanded={showExample}
-              className="inline-flex items-center gap-1 text-xs font-medium transition-colors hover:text-kb"
-              style={{ color: "var(--muted)" }}>
-              <CaretRight size={10} weight="bold"
-                className={`transition-transform ${showExample ? "rotate-90" : ""}`} />
-              {t("cloze.example")}
-            </button>
-            {showExample && (
-              <div className="mt-1.5 rounded-xl px-3 py-2" style={{ backgroundColor: "var(--surface-dim)" }}>
-                {/* Gleiche Groesse wie der Lueckentext selbst: alles, was der Lernende
-                    LIEST, liest sich auf einer Stufe. Klein bleiben nur die Bedienteile. */}
-                <p className="text-sm leading-relaxed" style={{ color: "var(--foreground-soft)" }}>{example.gapped}</p>
-                {/* Der Pfeil traegt die Richtung ohne Wort und braucht keine
-                    Uebersetzung. Fuer einen Screenreader nur Zierde. */}
-                <p className="text-sm leading-relaxed flex gap-1.5" style={{ color: "var(--foreground-soft)" }}>
-                  <span aria-hidden="true" className="shrink-0" style={{ color: "var(--kb)" }}>→</span>
-                  <span>{example.solved}</span>
-                </p>
-              </div>
-            )}
-          </div>
-        )}
-
         {/* Der Fliesstext ist modell-verfasst und wird als reine React-Textknoten
             gerendert, nie ueber dangerouslySetInnerHTML: das Modell schreibt hier
             frei formulierten Text und keine vertrauenswuerdige Auszeichnung. */}
