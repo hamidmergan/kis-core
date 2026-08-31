@@ -103,7 +103,7 @@ export default function FeedbackTab({ onOpen }: { onOpen: (id: number) => void }
             <li
               key={e.id}
               onClick={() => onOpen(e.id)}
-              className="px-5 py-4 bg-background flex items-center justify-between gap-4 cursor-pointer hover:bg-surface transition-colors"
+              className="px-5 py-4 bg-background flex items-stretch justify-between gap-4 cursor-pointer hover:bg-surface transition-colors"
             >
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 mb-1">
@@ -122,11 +122,14 @@ export default function FeedbackTab({ onOpen }: { onOpen: (id: number) => void }
                 <p className="text-sm text-foreground truncate">{e.message}</p>
                 <p className="text-xs text-muted-soft mt-0.5">{e.username || t("anonymous")}</p>
               </div>
-              <div className="flex items-center gap-2 shrink-0" onClick={(ev) => ev.stopPropagation()}>
-                <Checkbox checked={e.done} onChange={() => void toggleDone(e)} label={t("doneAria")} />
+              <div
+                className="flex flex-col items-end justify-between shrink-0"
+                onClick={(ev) => ev.stopPropagation()}
+              >
                 <IconButton size="sm" onClick={() => void loeschen(e)} aria-label={t("delete")}>
                   <Trash size={13} />
                 </IconButton>
+                <Checkbox checked={e.done} onChange={() => void toggleDone(e)} label={t("doneAria")} />
               </div>
             </li>
           ))}
