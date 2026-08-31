@@ -6,7 +6,8 @@ from io import BytesIO
 from pptx import Presentation
 from pptx.chart.data import CategoryChartData
 from pptx.enum.chart import XL_CHART_TYPE
-from pptx.util import Inches
+from pptx.enum.text import MSO_AUTO_SIZE
+from pptx.util import Inches, Pt
 
 SMARTART_TEXTS = ("Kategorien für Publikumsfragen", "Verständnisfrage", "Vertiefungsfrage")
 CHART_TITLE = "Umsatz pro Quartal"
@@ -167,4 +168,120 @@ def multi_run_paragraph_pptx() -> bytes:
     para = box.text_frame.paragraphs[0]
     for chunk in ("Der Vortrag ", "beginnt ", "um neun Uhr"):
         para.add_run().text = chunk
+    return _to_bytes(prs)
+
+
+def broken_linebreak_run_pptx() -> bytes:
+    """A run holding a bare newline with empty rPr, as some AI slide generators leave behind."""
+    prs = Presentation()
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    box = slide.shapes.add_textbox(Inches(1), Inches(1), Inches(6), Inches(1))
+    para = box.text_frame.paragraphs[0]
+
+    first = para.add_run()
+    first.text = "Product Design &"
+    first.font.size = Pt(43.5)
+
+    broken = para.add_run()
+    broken.text = "\n"
+    # No font/size set - mirrors the empty <a:rPr dirty="0"/> found in the wild.
+
+    last = para.add_run()
+    last.text = " Engineering"
+    last.font.size = Pt(43.5)
+
+    return _to_bytes(prs)
+
+
+def tight_line_spacing_pptx() -> bytes:
+    """A paragraph whose <a:spcPts> line height is smaller than its own font
+    size, as some AI slide generators produce - lines then overlap."""
+    prs = Presentation()
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    box = slide.shapes.add_textbox(Inches(1), Inches(1), Inches(6), Inches(2))
+    para = box.text_frame.paragraphs[0]
+    para.line_spacing = Pt(26.4)
+    run = para.add_run()
+    run.text = "Creating and validating early-stage engineering concepts"
+    run.font.size = Pt(40)
+    return _to_bytes(prs)
+
+
+def tight_line_spacing_percent_pptx() -> bytes:
+    """Same defect, expressed as a percentage <a:spcPct> below single spacing
+    instead of a fixed <a:spcPts>."""
+    prs = Presentation()
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    box = slide.shapes.add_textbox(Inches(1), Inches(1), Inches(6), Inches(2))
+    para = box.text_frame.paragraphs[0]
+    para.line_spacing = 0.5  # 50% - well below the 100% single-spacing floor
+    run = para.add_run()
+    run.text = "Creating and validating early-stage engineering concepts"
+    run.font.size = Pt(40)
+    return _to_bytes(prs)
+
+
+def spautofit_textbox_pptx() -> bytes:
+    """spAutoFit: the shape already grew to fit this text at its authored size."""
+    prs = Presentation()
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    box = slide.shapes.add_textbox(Inches(1), Inches(1), Inches(6), Inches(1))
+    box.text_frame.auto_size = MSO_AUTO_SIZE.SHAPE_TO_FIT_TEXT
+    run = box.text_frame.paragraphs[0].add_run()
+    run.text = "Some heading text"
+    run.font.size = Pt(40)
+    return _to_bytes(prs)
+
+
+def normautofit_textbox_pptx() -> bytes:
+    """normAutofit: the shape is fixed-size, PowerPoint shrinks the text to fit."""
+    prs = Presentation()
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    box = slide.shapes.add_textbox(Inches(1), Inches(1), Inches(6), Inches(1))
+    box.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+    run = box.text_frame.paragraphs[0].add_run()
+    run.text = "Some heading text"
+    run.font.size = Pt(40)
+    return _to_bytes(prs)
+
+
+def spautofit_overflow_pptx() -> bytes:
+    """Text that needs far more vertical space than the authored (too short)
+    spAutoFit box - as happens when the deck was authored against different
+    font metrics than what we render with."""
+    prs = Presentation()
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    box = slide.shapes.add_textbox(Inches(1), Inches(1), Inches(2), Inches(0.3))
+    box.text_frame.word_wrap = True
+    box.text_frame.auto_size = MSO_AUTO_SIZE.SHAPE_TO_FIT_TEXT
+    run = box.text_frame.paragraphs[0].add_run()
+    run.text = "This is a fairly long sentence that will wrap across several lines inside a narrow text box for the overflow test."
+    run.font.size = Pt(18)
+    run.font.name = "DejaVu Sans"
+    return _to_bytes(prs)
+
+
+def spautofit_fits_pptx() -> bytes:
+    """Same text, but the box is already tall enough - nothing should change."""
+    prs = Presentation()
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    box = slide.shapes.add_textbox(Inches(1), Inches(1), Inches(2), Inches(3))
+    box.text_frame.word_wrap = True
+    box.text_frame.auto_size = MSO_AUTO_SIZE.SHAPE_TO_FIT_TEXT
+    run = box.text_frame.paragraphs[0].add_run()
+    run.text = "This is a fairly long sentence that will wrap across several lines inside a narrow text box for the overflow test."
+    run.font.size = Pt(18)
+    run.font.name = "DejaVu Sans"
+    return _to_bytes(prs)
+
+
+def tight_line_spacing_no_run_size_pptx() -> bytes:
+    """Line height smaller than the theme default, on a run with no explicit
+    <a:rPr> size at all - the fallback size must still count."""
+    prs = Presentation()
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    box = slide.shapes.add_textbox(Inches(1), Inches(1), Inches(6), Inches(2))
+    para = box.text_frame.paragraphs[0]
+    para.line_spacing = Pt(6)  # far below the 18pt fallback used for sizeless runs
+    para.add_run().text = "Creating and validating early-stage engineering concepts"
     return _to_bytes(prs)
