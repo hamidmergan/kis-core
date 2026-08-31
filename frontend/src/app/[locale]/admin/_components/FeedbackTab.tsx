@@ -1,6 +1,6 @@
 "use client";
 
-/** Anonyme Rückmeldungen: Liste, erledigt markieren, löschen. */
+/** Anonyme Rückmeldungen: kompakte Liste, ein Klick führt zu den Details. */
 
 import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
@@ -40,7 +40,7 @@ function datum(wert: string): string {
   return new Date(wert).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" });
 }
 
-export default function FeedbackTab() {
+export default function FeedbackTab({ onOpen }: { onOpen: (id: number) => void }) {
   const t = useTranslations("admin.feedback");
   const [entries, setEntries] = useState<Entry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -98,67 +98,39 @@ export default function FeedbackTab() {
       ) : entries.length === 0 ? (
         <p className="text-sm text-muted-soft text-center py-8">{t("empty")}</p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm border border-border-soft rounded-xl overflow-hidden">
-            <thead className="bg-surface text-xs text-muted uppercase">
-              <tr>
-                <th className="px-4 py-3 text-left">{t("colDate")}</th>
-                <th className="px-4 py-3 text-left">{t("colCategory")}</th>
-                <th className="px-4 py-3 text-left">{t("colMessage")}</th>
-                <th className="px-4 py-3 text-left">{t("colFrom")}</th>
-                <th className="px-4 py-3 text-left">{t("colContact")}</th>
-                <th className="px-4 py-3 text-left">{t("colDone")}</th>
-                <th className="px-4 py-3 text-left">{t("colActions")}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border-soft bg-background">
-              {entries.map((e) => (
-                <tr key={e.id}>
-                  <td className="px-4 py-3 text-foreground-soft whitespace-nowrap">{datum(e.created_at)}</td>
-                  <td className="px-4 py-3">
-                    <StatusMark tone={TON[e.category]} className="text-xs">
-                      {t(`category${e.category[0].toUpperCase()}${e.category.slice(1)}` as
-                        "categoryBug" | "categoryIdea" | "categoryOther")}
-                    </StatusMark>
-                  </td>
-                  <td className="px-4 py-3 max-w-md">
-                    <p className="whitespace-pre-line break-words">{e.message}</p>
-                    {e.page_path && (
-                      <p className="text-2xs text-muted-soft mt-1">{e.page_path}</p>
-                    )}
-                    {e.attachments.length > 0 && (
-                      <ul className="mt-1.5 space-y-1">
-                        {e.attachments.map((a) => (
-                          <li key={a.id}>
-                            <a
-                              href={`/api/admin/feedback/attachments/${a.id}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 text-2xs text-kb hover:underline"
-                            >
-                              <Paperclip size={11} />
-                              {a.filename}
-                            </a>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-foreground-soft">{e.username || t("anonymous")}</td>
-                  <td className="px-4 py-3 text-foreground-soft">{e.contact || "—"}</td>
-                  <td className="px-4 py-3">
-                    <Checkbox checked={e.done} onChange={() => void toggleDone(e)} label={t("doneAria")} />
-                  </td>
-                  <td className="px-4 py-3">
-                    <IconButton size="sm" onClick={() => void loeschen(e)} aria-label={t("delete")}>
-                      <Trash size={13} />
-                    </IconButton>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <ul className="divide-y divide-border-soft border border-border-soft rounded-xl overflow-hidden">
+          {entries.map((e) => (
+            <li
+              key={e.id}
+              onClick={() => onOpen(e.id)}
+              className="px-5 py-4 bg-background flex items-center justify-between gap-4 cursor-pointer hover:bg-surface transition-colors"
+            >
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <StatusMark tone={TON[e.category]} className="text-xs">
+                    {t(`category${e.category[0].toUpperCase()}${e.category.slice(1)}` as
+                      "categoryBug" | "categoryIdea" | "categoryOther")}
+                  </StatusMark>
+                  <span className="text-xs text-muted-soft whitespace-nowrap">{datum(e.created_at)}</span>
+                  {e.attachments.length > 0 && (
+                    <span className="inline-flex items-center gap-1 text-xs text-muted-soft">
+                      <Paperclip size={11} />
+                      {e.attachments.length}
+                    </span>
+                  )}
+                </div>
+                <p className="text-sm text-foreground truncate">{e.message}</p>
+                <p className="text-xs text-muted-soft mt-0.5">{e.username || t("anonymous")}</p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0" onClick={(ev) => ev.stopPropagation()}>
+                <Checkbox checked={e.done} onChange={() => void toggleDone(e)} label={t("doneAria")} />
+                <IconButton size="sm" onClick={() => void loeschen(e)} aria-label={t("delete")}>
+                  <Trash size={13} />
+                </IconButton>
+              </div>
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );

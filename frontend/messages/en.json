@@ -241,7 +241,7 @@
     "submitting": "Sending…",
     "submitError": "Sending failed. Please try again.",
     "thanksTitle": "Thanks for your feedback",
-    "thanksBody": "The entry was saved anonymously."
+    "thanksBody": "The entry was submitted anonymously."
   },
   "pending": {
     "title": "Account not yet activated",
@@ -898,6 +898,9 @@
         "feedback": {
           "label": "Feedback",
           "sub": "Anonymous feedback from testers."
+        },
+        "feedbackDetail": {
+          "label": "Feedback"
         }
       },
       "werkzeuge": {
@@ -1993,19 +1996,14 @@
       "loadError": "Feedback could not be loaded",
       "saveError": "Save failed",
       "deleteError": "Delete failed",
-      "colDate": "Date",
-      "colCategory": "Category",
-      "colMessage": "Message",
-      "colFrom": "From",
-      "colContact": "Contact",
-      "colDone": "Done",
-      "colActions": "Action",
       "categoryBug": "Bug",
       "categoryIdea": "Idea",
       "categoryOther": "Other",
       "anonymous": "anonymous",
       "doneAria": "Mark as done",
-      "delete": "Delete"
+      "delete": "Delete",
+      "back": "← Back",
+      "notFound": "This entry no longer exists"
     },
     "createInvite": {
       "title": "Invite user",

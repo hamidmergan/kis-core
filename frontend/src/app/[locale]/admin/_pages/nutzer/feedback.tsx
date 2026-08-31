@@ -2,8 +2,12 @@
 
 /** Anonyme Rückmeldungen der Tester. */
 
+import { useRouter } from "@/i18n/navigation";
 import FeedbackTab from "../../_components/FeedbackTab";
 
 export default function FeedbackPage() {
-  return <FeedbackTab />;
+  const router = useRouter();
+  return (
+    <FeedbackTab onOpen={(id) => router.push(`/admin/users/feedback-detail?id=${id}`)} />
+  );
 }

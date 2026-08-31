@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { Paperclip, X } from "@phosphor-icons/react";
 import Select, { type SelectOption } from "@/components/ui/Select";
 import Checkbox from "@/components/ui/Checkbox";
+import IconButton from "@/components/ui/IconButton";
 
 type Category = "bug" | "idea" | "other";
 
@@ -136,7 +137,7 @@ export default function FeedbackPage() {
               maxLength={MAX_MESSAGE_CHARS}
               rows={6}
               placeholder={t("messagePlaceholder")}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground hover:border-kb focus:outline-none focus:border-kb resize-y"
+              className="w-full rounded-lg border-2 border-border bg-background px-3 py-2 text-sm text-foreground transition-colors hover:border-kb focus:outline-none focus:border-kb resize-y"
             />
           </label>
 
@@ -164,14 +165,13 @@ export default function FeedbackPage() {
                     <span className="truncate">{datei.name}</span>
                     <span className="flex items-center gap-2 shrink-0 text-muted-soft">
                       {formatSize(datei.size)}
-                      <button
-                        type="button"
+                      <IconButton
+                        size="sm"
                         onClick={() => removeFile(i)}
                         aria-label={t("removeFile")}
-                        className="hover:text-error transition-colors"
                       >
                         <X size={13} />
-                      </button>
+                      </IconButton>
                     </span>
                   </li>
                 ))}
@@ -186,7 +186,7 @@ export default function FeedbackPage() {
               value={contact}
               onChange={(e) => setContact(e.target.value)}
               placeholder={t("contactPlaceholder")}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground hover:border-kb focus:outline-none focus:border-kb"
+              className="w-full rounded-lg border-2 border-border bg-background px-3 py-2 text-sm text-foreground transition-colors hover:border-kb focus:outline-none focus:border-kb"
             />
             <span className="block text-xs text-muted-soft">{t("contactHint")}</span>
           </label>

@@ -241,7 +241,7 @@
     "submitting": "Wird gesendet …",
     "submitError": "Senden fehlgeschlagen. Bitte versuche es erneut.",
     "thanksTitle": "Danke für dein Feedback",
-    "thanksBody": "Der Eintrag wurde anonym gespeichert."
+    "thanksBody": "Der Eintrag wurde anonym übermittelt."
   },
   "pending": {
     "title": "Konto noch nicht freigeschaltet",
@@ -898,6 +898,9 @@
         "feedback": {
           "label": "Feedback",
           "sub": "Anonyme Rückmeldungen der Tester."
+        },
+        "feedbackDetail": {
+          "label": "Feedback"
         }
       },
       "werkzeuge": {
@@ -1993,19 +1996,14 @@
       "loadError": "Feedback konnte nicht geladen werden",
       "saveError": "Speichern fehlgeschlagen",
       "deleteError": "Löschen fehlgeschlagen",
-      "colDate": "Datum",
-      "colCategory": "Kategorie",
-      "colMessage": "Nachricht",
-      "colFrom": "Von",
-      "colContact": "Kontakt",
-      "colDone": "Erledigt",
-      "colActions": "Aktion",
       "categoryBug": "Fehler",
       "categoryIdea": "Idee",
       "categoryOther": "Sonstiges",
       "anonymous": "anonym",
       "doneAria": "Als erledigt markieren",
-      "delete": "Löschen"
+      "delete": "Löschen",
+      "back": "← Zurück",
+      "notFound": "Diese Rückmeldung gibt es nicht mehr"
     },
     "createInvite": {
       "title": "Nutzer einladen",

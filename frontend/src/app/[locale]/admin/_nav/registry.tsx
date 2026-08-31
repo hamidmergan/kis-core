@@ -92,6 +92,7 @@ import RolesPage from "../_pages/nutzer/roles";
 import ImpersonationPage from "../_pages/nutzer/impersonation";
 import QuotaPage from "../_pages/nutzer/quota";
 import FeedbackPage from "../_pages/nutzer/feedback";
+import FeedbackDetailPage from "../_pages/nutzer/feedback-detail";
 
 import SystemPage from "../_pages/system";
 import HildePage from "../_pages/mascot/hilde";
@@ -179,6 +180,8 @@ export const SECTIONS: AdminSection[] = [
       { slug: "roles", key: "roles", world: "both", perm: PERM.usersRoles, Component: RolesPage },
       { slug: "impersonation", key: "impersonation", world: "both", perm: PERM.usersImpersonate, Component: ImpersonationPage },
       { slug: "feedback", key: "feedback", world: "both", perm: PERM.usersFeedback, Component: FeedbackPage },
+      // No entry of its own, the page is a jump-off from the feedback list.
+      { slug: "feedback-detail", key: "feedbackDetail", world: "both", perm: PERM.usersFeedback, Component: FeedbackDetailPage, hidden: true },
       // No entry of its own, the page is a jump-off from the user list.
       { slug: "quotas", key: "quota", world: "both", perm: PERM.usersAll, Component: QuotaPage, hidden: true },
     ],
