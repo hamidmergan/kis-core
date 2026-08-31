@@ -18,6 +18,7 @@ class UpdateSettingsRequest(BaseModel):
     # Offers the language trainer platform wide, off by default.
     language_training_enabled: bool | None = None
     # Notice banner on the start page, a switch plus free text.
+    # Links can be embedded inline in the text as [label](url).
     home_notice_enabled: bool | None = None
     home_notice_text: str | None = None
     # Text recognition when ingesting image-heavy pages, on by default.
