@@ -26,6 +26,8 @@ export interface KiTutorWorkspace {
   access: WorkspaceAccess;
   /** Workspace is shared with tutors, or reached as one. Drives the shared icon. */
   shared: boolean;
+  /** Owned by the demo account, shown alongside the role badge. */
+  is_demo_workspace?: boolean;
   access_links?: AccessLink[];
   // Only set for enrolled courses, several links mean several histories.
   enrollment_id?: number | null;

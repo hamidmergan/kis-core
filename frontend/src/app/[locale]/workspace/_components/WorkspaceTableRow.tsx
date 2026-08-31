@@ -26,6 +26,7 @@ export default function WorkspaceTableRow({
   onRolesChanged,
 }: WorkspaceTableRowProps) {
   const t = useTranslations("workspace.list");
+  const tDemo = useTranslations("workspace.demo");
   const a = useWorkspaceActions({ workspace, onToggleActive, onDelete, onLinksChanged });
   const labels = useWorkspaceLabel();
   const [showParticipants, setShowParticipants] = useState(false);
@@ -68,6 +69,14 @@ export default function WorkspaceTableRow({
                 style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}
               >
                 {t("roleTutor")}
+              </span>
+            )}
+            {workspace.is_demo_workspace && (
+              <span
+                className="flex-shrink-0 text-3xs font-semibold px-1.5 py-0.5 rounded"
+                style={{ backgroundColor: "rgb(245, 158, 11)", color: "rgb(0, 0, 0)" }}
+              >
+                {tDemo("button")}
               </span>
             )}
           </span>

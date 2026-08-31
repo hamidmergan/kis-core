@@ -48,7 +48,11 @@ def get_aia_workspaces_by_user(user_id: int) -> list[dict]:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
-                "SELECT * FROM aia_workspaces WHERE user_id = %s ORDER BY last_visited_at DESC",
+                """SELECT m.*, u.is_demo AS owner_is_demo
+                   FROM aia_workspaces m
+                   JOIN users u ON u.id = m.user_id
+                   WHERE m.user_id = %s
+                   ORDER BY m.last_visited_at DESC""",
                 (user_id,),
             )
             rows = cur.fetchall()
@@ -79,10 +83,12 @@ def get_aia_workspaces_for_member(user_id: int) -> list[dict]:
             cur.execute(
                 """SELECT m.*, e.id AS enrollment_id, e.link_id, e.enrolled_until,
                           e.role AS member_role, e.via_demo,
-                          al.code AS link_code, al.expires_at AS link_expires_at
+                          al.code AS link_code, al.expires_at AS link_expires_at,
+                          owner_u.is_demo AS owner_is_demo
                    FROM aia_workspaces m
                    JOIN aia_enrollments e ON e.workspace_id = m.id
                    LEFT JOIN aia_access_links al ON al.id = e.link_id
+                   LEFT JOIN users owner_u ON owner_u.id = m.user_id
                    WHERE e.user_id = %s
                    ORDER BY e.created_at DESC""",
                 (user_id,),

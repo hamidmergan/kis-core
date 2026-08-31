@@ -91,6 +91,7 @@ def _managed_workspace_payload(m: dict, access: str, shared: bool) -> dict:
         "is_active": m["is_active"],
         "access": access,
         "shared": shared,
+        "is_demo_workspace": bool(m.get("owner_is_demo")),
         "source_count": len(sources),
         "access_links": [
             {
