@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { checkAuthStatus } from "@/lib/auth";
+import { isFullAdmin } from "@/lib/permissions";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { ArrowsCounterClockwise } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
@@ -39,7 +40,7 @@ export default function MeineJobsPage() {
   const router = useRouter();
 
   useEffect(() => {
-    checkAuthStatus().then((s) => setIsAdmin(s.is_admin ?? false));
+    checkAuthStatus().then((s) => setIsAdmin(isFullAdmin(s.permissions)));
   }, []);
 
   // Debounce q and reset offset
