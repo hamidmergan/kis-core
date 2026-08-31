@@ -53,19 +53,20 @@ def _as_item(row: dict) -> dict:
 
 
 def take(uuids: list[str], tool: str, level, user_id: int, count: int,
-         topic_id=None, kinds=None) -> list[dict]:
-    """Takes up to count exercises from the pools of the chosen sources."""
+         topic_id=None, kinds=None, exclude_ids=None, ignore_seen: bool = False) -> list[dict]:
+    """Takes up to count exercises, exclude_ids and ignore_seen serve the repeat fallback."""
     if not uuids or count <= 0 or not user_id:
         return []
     try:
-        return _take(uuids, tool, level, user_id, count, topic_id, kinds)
+        return _take(uuids, tool, level, user_id, count, topic_id, kinds,
+                     exclude_ids, ignore_seen)
     except Exception as e:  # noqa: BLE001
         logger.warning("KI Tutor: Vorrat nicht lesbar, es wird erzeugt: {}", e)
         return []
 
 
 def _take(uuids: list[str], tool: str, level, user_id: int, count: int,
-          topic_id=None, kinds=None) -> list[dict]:
+          topic_id=None, kinds=None, exclude_ids=None, ignore_seen: bool = False) -> list[dict]:
     quellen = [db.get_aia_source(u) for u in uuids]
     source_ids = [q["id"] for q in quellen if q and q.get("id")]
     if not source_ids:
@@ -73,7 +74,7 @@ def _take(uuids: list[str], tool: str, level, user_id: int, count: int,
     offen = count
     genommen: list[dict] = []
     # Marker for what this order already has, the query knows nothing of it.
-    geholt: list = []       # Vorrats-ids, gehen als Ausschluss in die naechste Abfrage
+    geholt: list = list(exclude_ids or [])  # Vorrats-ids, gehen als Ausschluss in die Abfrage
     texte: set[str] = set()  # deren Vergleichsformen, gegen Doppler ueber Quellen hinweg
     leer: set = set()        # Quellen, die weniger geliefert haben als bestellt
     # Two rounds: first an equal share per source, then the rest.
@@ -89,7 +90,8 @@ def _take(uuids: list[str], tool: str, level, user_id: int, count: int,
             else:
                 will = offen
             rows = db.take_from_pool(source_id, tool, level, user_id, will, topic_id,
-                                     exclude_ids=geholt or None, kinds=kinds)
+                                     exclude_ids=geholt or None, kinds=kinds,
+                                     ignore_seen=ignore_seen)
             if len(rows) < will:
                 # Fewer than ordered means this pool has no more.
                 leer.add(source_id)

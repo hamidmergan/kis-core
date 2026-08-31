@@ -173,6 +173,36 @@ def test_seen_fingerprints_reads_by_user_and_tool(fake_db):
     assert params[0] == 3 and params[1] == "quiz"
 
 
+# --- schon gesehen, dauerhaft ---------------------------------------------------
+
+def test_the_take_excludes_via_the_permanent_seen_table(fake_db):
+    """A deleted set must not free the exercise up again, so the live join is gone."""
+    calls = fake_db(rows=[])
+    repo.take_from_pool(9, "quiz", None, 3, 5)
+    sql, params = next((c[1], c[2]) for c in calls if c[0] == "execute")
+    assert "aia_exercise_pool_seen" in sql
+    assert "aia_exercise_sets" not in sql
+    assert 3 in params, "die Nutzer-Id muss noch in die Abfrage wandern"
+
+
+def test_ignoring_seen_drops_the_check_entirely(fake_db):
+    """The last-resort draw must be able to reach already-seen exercises too."""
+    calls = fake_db(rows=[])
+    repo.take_from_pool(9, "quiz", None, 3, 5, ignore_seen=True)
+    sql, params = next((c[1], c[2]) for c in calls if c[0] == "execute")
+    assert "aia_exercise_pool_seen" not in sql
+    assert 3 not in params, "ohne den Check braucht die Abfrage die Nutzer-Id nicht mehr"
+
+
+def test_seen_fingerprints_reads_from_the_permanent_table(fake_db):
+    """The fingerprint history must survive a deleted set just like the pool exclusion."""
+    calls = fake_db(rows=[("a",)])
+    repo.seen_fingerprints(3, "quiz")
+    sql = next(c[1] for c in calls if c[0] == "execute")
+    assert "aia_exercise_pool_seen" in sql
+    assert "aia_exercise_sets" not in sql
+
+
 # --- aufraeumen ----------------------------------------------------------------
 
 def test_clearing_writes_the_content_back_before_deleting(fake_db):

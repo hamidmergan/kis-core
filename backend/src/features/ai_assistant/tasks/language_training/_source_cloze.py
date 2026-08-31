@@ -307,7 +307,7 @@ def run_cloze_set(set_id, ex_set, user_id, count, client, model,
             logger.info("KI Tutor: Satz {} nimmt seinen Text aus dem Vorrat", set_id)
             # The title lives in extras.title, the set row still carries the placeholder here.
             titel = (aus_vorrat[0].get("extras") or {}).get("title") or "Lückentext"
-            db.finalize_exercise_set(set_id, titel, aus_vorrat)
+            db.finalize_exercise_set(set_id, titel, aus_vorrat, user_id=user_id)
             return
 
     # No count, the section quota would break the continuous text apart.
@@ -331,7 +331,7 @@ def run_cloze_set(set_id, ex_set, user_id, count, client, model,
     for item in items:
         item.pop("_kind", None)
     # No header, instruction and example hang in extras on the exercise.
-    db.finalize_exercise_set(set_id, title, items)
+    db.finalize_exercise_set(set_id, title, items, user_id=user_id)
 
 
 __all__ = ["clean_gaps", "generate_cloze_from_source", "placeholders",

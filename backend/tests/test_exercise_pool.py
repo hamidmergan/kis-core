@@ -53,8 +53,9 @@ def _stub_pool(monkeypatch, bestand: dict):
     """The stub stays stateless, like the real query."""
     gefragt = []
 
-    def take(source_id, tool, level, user_id, limit, topic_id=None, exclude_ids=None, kinds=None):
-        gefragt.append((source_id, limit, topic_id))
+    def take(source_id, tool, level, user_id, limit, topic_id=None, exclude_ids=None,
+             kinds=None, ignore_seen=False):
+        gefragt.append((source_id, limit, topic_id, ignore_seen))
         raus = set(exclude_ids or ())
         vorrat = [f for f in bestand.get(source_id, []) if f"{source_id}-{f}" not in raus]
         return [{"id": f"{source_id}-{f}", "front": f, "back": ""} for f in vorrat[:limit]]
@@ -141,6 +142,30 @@ def test_pool_rows_carry_their_reference(monkeypatch):
     _stub_pool(monkeypatch, {1: ["a"]})
     out = _pool.take(["u1"], "quiz", None, 1, 1)
     assert out[0]["pool_item_id"] == "1-a"
+
+
+# --- der Notfall-Nachschlag, wenn wirklich nichts Neues mehr da ist ------------
+
+def test_ignore_seen_reaches_the_query(monkeypatch):
+    """The last-resort draw must ask the pool to include already-seen exercises."""
+    gefragt = _stub_pool(monkeypatch, {1: list("abc")})
+    _pool.take(["u1"], "quiz", None, 1, 2, ignore_seen=True)
+    assert all(eintrag[3] is True for eintrag in gefragt)
+
+
+def test_without_the_flag_the_query_stays_as_it_was(monkeypatch):
+    gefragt = _stub_pool(monkeypatch, {1: list("abc")})
+    _pool.take(["u1"], "quiz", None, 1, 2)
+    assert all(eintrag[3] is False for eintrag in gefragt)
+
+
+def test_an_earlier_draws_ids_are_excluded_from_the_start(monkeypatch):
+    """A repeat-fallback must not hand back what this order already holds."""
+    _stub_pool(monkeypatch, {1: list("abc")})
+    out = _pool.take(["u1"], "quiz", None, 1, 3, exclude_ids=["1-a"])
+    fronts = [i["front"] for i in out]
+    assert "a" not in fronts
+    assert set(fronts) == {"b", "c"}
 
 
 # --- einlagern -----------------------------------------------------------------

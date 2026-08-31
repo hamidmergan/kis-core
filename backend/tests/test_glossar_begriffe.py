@@ -164,7 +164,7 @@ def glossar_stack(monkeypatch):
         def get_exercise_set_with_items(self, _id):
             return {"user_id": 1}
 
-        def finalize_exercise_set(self, _set_id, _title, items, header=None):
+        def finalize_exercise_set(self, _set_id, _title, items, header=None, user_id=None):
             seen["items"] = items
 
         def fail_exercise_set(self, _id):

@@ -37,8 +37,9 @@ def seen():
 @pytest.fixture(autouse=True)
 def _stub_db_and_titles(monkeypatch, seen):
     """What every test needs unchanged."""
-    def finalize(set_id, title, items, header=None):
-        seen["finalized"] = {"set_id": set_id, "title": title, "items": items}
+    def finalize(set_id, title, items, header=None, user_id=None):
+        seen["finalized"] = {"set_id": set_id, "title": title, "items": items,
+                             "user_id": user_id}
 
     def fail(_set_id):
         seen["failed"] = True
@@ -290,3 +291,28 @@ def test_quellenmodus_fragt_den_vorrat(monkeypatch, seen):
     _run({"mode": "source"})
 
     assert len(gefragt) == 1
+
+
+# ─── schon gesehen, dauerhaft ─────────────────────────────────────────────────
+
+def test_ein_vorrats_treffer_wird_dem_ziehenden_nutzer_zugeschrieben(monkeypatch, seen):
+    """Otherwise the pool would keep handing this same text back after a deleted set."""
+    aus_vorrat = [{"front": "Text {{1}}.", "back": "Text X.",
+                  "extras": {"title": "T", "gaps": [{"base": "a", "solution": "X"}]}}]
+    monkeypatch.setattr(_pool, "take", lambda *a, **k: aus_vorrat)
+
+    _run({"mode": "source"})
+
+    assert seen["finalized"]["user_id"] == 7
+
+
+def test_ein_frisch_erzeugter_text_wird_ebenfalls_zugeschrieben(monkeypatch, seen):
+    monkeypatch.setattr(_pool, "take", lambda *a, **k: [])
+    monkeypatch.setattr(_context, "build_source_context", lambda *a, **k: _ctx_stub())
+    monkeypatch.setattr(_source_cloze, "generate_cloze_from_source",
+                        lambda *a, **k: ([{"front": "f", "back": "b", "extras": {}}], "T"))
+    monkeypatch.setattr(_pool, "store", lambda *a, **k: None)
+
+    _run({"mode": "source"})
+
+    assert seen["finalized"]["user_id"] == 7

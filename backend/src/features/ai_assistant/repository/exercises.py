@@ -96,6 +96,7 @@ def reset_exercise_set_for_retry(set_id: int, user_id: int) -> dict | None:
 
 def finalize_exercise_set(
     set_id: int, title: str, items: list[dict], header: dict | None = None,
+    user_id: int | None = None,
 ) -> dict:
     """Attaches exercises to the placeholder set and marks it done."""
     with get_connection() as conn:
@@ -130,6 +131,13 @@ def finalize_exercise_set(
                         item.get("glossary_term"),
                     ),
                 )
+                # A permanent record, so a later deleted set cannot free the exercise up again.
+                if aus_vorrat and user_id:
+                    cur.execute(
+                        """INSERT INTO aia_exercise_pool_seen (pool_item_id, user_id)
+                           VALUES (%s, %s) ON CONFLICT DO NOTHING""",
+                        (item.get("pool_item_id"), user_id),
+                    )
             head = header or {}
             cur.execute(
                 """UPDATE aia_exercise_sets

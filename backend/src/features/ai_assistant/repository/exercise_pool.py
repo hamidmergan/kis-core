@@ -90,14 +90,22 @@ def pool_size(source_id: int, tool: str, level, topic_id=None) -> int:
 
 def take_from_pool(
     source_id: int, tool: str, level, user_id: int, limit: int, topic_id=None,
-    exclude_ids=None, kinds=None,
+    exclude_ids=None, kinds=None, ignore_seen: bool = False,
 ) -> list[dict]:
-    """Draws random exercises from the pool that this person has not had yet."""
+    """Draws random exercises, skipping what this person already had, unless told not to."""
     if limit <= 0:
         return []
+    # The seen-table is permanent, unlike the set it was first handed out in.
+    gesehen = "" if ignore_seen else (
+        " AND NOT EXISTS ("
+        "SELECT 1 FROM aia_exercise_pool_seen sn "
+        "WHERE sn.pool_item_id = p.id AND sn.user_id = %s)"
+    )
     ausschluss = " AND p.id <> ALL(%s)" if exclude_ids else ""
     formate = " AND p.kind = ANY(%s)" if kinds else ""
-    werte = [source_id, tool, level, topic_id, user_id]
+    werte = [source_id, tool, level, topic_id]
+    if not ignore_seen:
+        werte.append(user_id)
     if exclude_ids:
         werte.append(list(exclude_ids))
     if kinds:
@@ -110,11 +118,7 @@ def take_from_pool(
                    WHERE p.source_id = %s AND p.tool = %s
                      AND COALESCE(p.level, '') = COALESCE(%s, '')
                      AND COALESCE(p.topic_id, 0) = COALESCE(%s, 0)
-                     AND NOT EXISTS (
-                       SELECT 1 FROM aia_exercise_items i
-                       JOIN aia_exercise_sets s ON i.set_id = s.id
-                       WHERE i.pool_item_id = p.id AND s.user_id = %s
-                     ){ausschluss}{formate}
+                     {gesehen}{ausschluss}{formate}
                    ORDER BY random()
                    LIMIT %s""",
                 tuple(werte),
@@ -127,10 +131,10 @@ def seen_fingerprints(user_id: int, tool: str, limit: int = 2000) -> list[str]:
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                """SELECT i.front FROM aia_exercise_items i
-                   JOIN aia_exercise_sets s ON i.set_id = s.id
-                   WHERE s.user_id = %s AND s.tool = %s AND i.front <> ''
-                   ORDER BY s.created_at DESC
+                """SELECT p.front FROM aia_exercise_pool_seen sn
+                   JOIN aia_exercise_pool p ON p.id = sn.pool_item_id
+                   WHERE sn.user_id = %s AND p.tool = %s AND p.front <> ''
+                   ORDER BY sn.seen_at DESC
                    LIMIT %s""",
                 (user_id, tool, limit),
             )

@@ -1506,6 +1506,21 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                 CREATE INDEX IF NOT EXISTS idx_llm_usage_log_ts
                 ON aia_llm_usage_log(ts DESC)
             """)
+            # Permanent record of who has had which pool exercise, so a deleted set
+            # cannot free it up again for them.
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS aia_exercise_pool_seen (
+                    pool_item_id INTEGER NOT NULL
+                                   REFERENCES aia_exercise_pool(id) ON DELETE CASCADE,
+                    user_id      INTEGER NOT NULL,
+                    seen_at      TIMESTAMP NOT NULL DEFAULT NOW(),
+                    PRIMARY KEY (pool_item_id, user_id)
+                )
+            """)
+            cur.execute("""
+                CREATE INDEX IF NOT EXISTS idx_exercise_pool_seen_user
+                ON aia_exercise_pool_seen(user_id, seen_at DESC)
+            """)
         conn.commit()
 
     # tsvector switched to the simple parser so foreign language text gets hits too.

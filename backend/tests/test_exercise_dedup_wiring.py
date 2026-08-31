@@ -25,8 +25,9 @@ def stack(monkeypatch):
         def get_topic_spec(self, _tid, _locale):
             return {"rule": "Regel", "examples": []}
 
-        def finalize_exercise_set(self, set_id, title, items, header=None):
-            seen["finalized"] = {"title": title, "items": items, "header": header}
+        def finalize_exercise_set(self, set_id, title, items, header=None, user_id=None):
+            seen["finalized"] = {"title": title, "items": items, "header": header,
+                                 "user_id": user_id}
 
         def fail_exercise_set(self, _id):
             seen["failed"] = True
@@ -412,6 +413,89 @@ def test_a_stale_kind_in_the_column_does_not_break_the_run(stack, monkeypatch):
 
     assert lauf["kinds"] is None
     assert seen["failed"] is False
+
+
+# --- Notfall: schon gesehen kommt zurueck --------------------------------------
+
+def test_when_nothing_new_is_left_seen_exercises_fill_the_gap(stack, monkeypatch):
+    """The last resort: repeats beat a set that stays too short."""
+    mod, seen = stack
+
+    def _take(uuids, tool, level, user_id, count, topic_id=None, kinds=None,
+              exclude_ids=None, ignore_seen=False):
+        if ignore_seen:
+            return [{"front": "Abstract", "back": "ABSTRACT", "pool_item_id": 900}][:count]
+        return []
+
+    monkeypatch.setattr(mod, "take_from_pool", _take)
+    _generator(mod, monkeypatch, seen, _cards("a"), _cards("a"))  # top-up brings nothing new
+
+    _run(count=3)
+
+    assert {i["front"] for i in seen["finalized"]["items"]} == {"a", "Abstract"}
+
+
+def test_a_fully_satisfied_top_up_never_asks_for_repeats(stack, monkeypatch):
+    mod, seen = stack
+    gefragt = {"ignore_seen": "nie gerufen"}
+
+    def _take(uuids, tool, level, user_id, count, topic_id=None, kinds=None,
+              exclude_ids=None, ignore_seen=False):
+        gefragt["ignore_seen"] = ignore_seen
+        return []
+
+    monkeypatch.setattr(mod, "take_from_pool", _take)
+    _generator(mod, monkeypatch, seen, _cards("a", "b", "c"))
+
+    _run(count=3)
+
+    assert gefragt["ignore_seen"] is False, "voll bestueckt, der Notfall darf nicht laufen"
+
+
+def test_the_repeat_fallback_excludes_what_this_order_already_took(stack, monkeypatch):
+    mod, seen = stack
+
+    def _take(uuids, tool, level, user_id, count, topic_id=None, kinds=None,
+              exclude_ids=None, ignore_seen=False):
+        if ignore_seen:
+            assert exclude_ids == [500], "der frueh gezogene Vorratseintrag muss ausgeschlossen sein"
+            return []
+        return [{"front": "alt", "back": "ALT", "pool_item_id": 500}]
+
+    monkeypatch.setattr(mod, "take_from_pool", _take)
+    _generator(mod, monkeypatch, seen, _cards("neu"))
+
+    _run(count=3)
+
+
+def test_the_repeat_fallback_does_not_duplicate_what_the_model_just_generated(
+    stack, monkeypatch,
+):
+    """The fallback draw and the model's own output must not collide either."""
+    mod, seen = stack
+
+    def _take(uuids, tool, level, user_id, count, topic_id=None, kinds=None,
+              exclude_ids=None, ignore_seen=False):
+        if ignore_seen:
+            return [{"front": "a", "back": "A", "pool_item_id": 900}][:count]
+        return []
+
+    monkeypatch.setattr(mod, "take_from_pool", _take)
+    _generator(mod, monkeypatch, seen, _cards("a"), _cards("a"))  # top-up brings nothing new
+
+    _run(count=2)
+
+    fronts = [i["front"] for i in seen["finalized"]["items"]]
+    assert fronts == ["a"], f"das Modell hat 'a' schon geliefert, der Notfall darf nicht verdoppeln: {fronts}"
+
+
+def test_finalize_is_called_with_the_owning_user(stack, monkeypatch):
+    mod, seen = stack
+    _generator(mod, monkeypatch, seen, _cards("a"))
+
+    _run(count=1)
+
+    assert seen["finalized"]["user_id"] == 1
 
 
 def test_the_pool_gets_the_kind_the_finished_set_does_not(stack, monkeypatch):

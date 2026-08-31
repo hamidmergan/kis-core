@@ -261,6 +261,26 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
                     break
                 neu = rebalance_to_count(neu + mehr, zu_erzeugen)
 
+            # Truly nothing new left in the pool or from the model: a repeat still
+            # beats a set that stays short.
+            fehlt = zu_erzeugen - len(neu)
+            if fehlt > 0 and uses_pool(tool, mode):
+                wiederholt = take_from_pool(
+                    uuids, tool, level, user_id, fehlt, topic_id,
+                    exclude_ids=[i["pool_item_id"] for i in items if i.get("pool_item_id")],
+                    kinds=kinds, ignore_seen=True,
+                )
+                if wiederholt:
+                    # Must not collide with what the model just generated either.
+                    wiederholt, _ = drop_repeats(wiederholt, [i.get("front", "") for i in neu])
+                if wiederholt:
+                    logger.info(
+                        "KI Tutor: set {} füllt {} von {} fehlenden Plätzen mit bereits "
+                        "gesehenen Aufgaben, Vorrat und Modell reichen nicht mehr",
+                        set_id, len(wiederholt), fehlt,
+                    )
+                    items = items + wiederholt
+
             # Store them so the next call gets them for free.
             if neu and uses_pool(tool, mode):
                 store_in_pool(neu, ctx, tool, level, topic_id)
@@ -285,7 +305,7 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
         except Exception as e:
             logger.warning("KI Tutor: set {} keeps its provisional title: {}", set_id, e)
 
-        db.finalize_exercise_set(set_id, title, items, header=header)
+        db.finalize_exercise_set(set_id, title, items, header=header, user_id=user_id)
         logger.info("KI Tutor: exercise set {} generated ({} items)", set_id, len(items))
         if mode == "source" and len(items) < count:
             # A set still too short after the top-up is logged, source mode only.

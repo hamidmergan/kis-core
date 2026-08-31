@@ -24,6 +24,7 @@ SWEEP_BY_USER_ID = (
     "aia_glossary_entries",
     "aia_exercise_sets",
     "aia_exercise_progress",
+    "aia_exercise_pool_seen",
     "aia_schedule_entries",
     "aia_schedule_jobs",
     "aia_schedule_processed_sources",
