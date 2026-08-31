@@ -2475,8 +2475,7 @@
         },
         "cloze": {
           "check": "Check",
-          "score": "{correct} of {total} correct",
-          "example": "Example"
+          "score": "{correct} of {total} correct"
         },
         "grammarTopics": {
           "addTopic": "New topic",
@@ -2805,7 +2804,9 @@
           "titlePlaceholder": "Set a title…",
           "titleGenerating": "Generating title…",
           "titleEdit": "Edit title",
-          "titleSet": "Set title"
+          "titleSet": "Set title",
+          "titleSave": "Save",
+          "cancel": "Cancel"
         },
         "schedule": {
           "selection": {

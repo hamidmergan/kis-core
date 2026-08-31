@@ -2475,8 +2475,7 @@
         },
         "cloze": {
           "check": "Prüfen",
-          "score": "{correct} von {total} richtig",
-          "example": "Beispiel"
+          "score": "{correct} von {total} richtig"
         },
         "grammarTopics": {
           "addTopic": "Neues Thema",
@@ -2805,7 +2804,9 @@
           "titlePlaceholder": "Titel vergeben…",
           "titleGenerating": "Titel wird generiert…",
           "titleEdit": "Titel ändern",
-          "titleSet": "Titel vergeben"
+          "titleSet": "Titel vergeben",
+          "titleSave": "Speichern",
+          "cancel": "Abbrechen"
         },
         "schedule": {
           "selection": {

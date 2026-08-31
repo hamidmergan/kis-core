@@ -12,6 +12,7 @@ import { SubviewHeader, type BreadcrumbItem } from "../layout/SubviewHeader";
 import { StudioSourceLegend } from "./StudioSourceLegend";
 import Spinner from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
+import Modal from "@/components/ui/Modal";
 import { NOTE_TITLE_MAX, NOTE_BODY_MAX, NOTE_BODY_WARN_AT, KATEX_OPTIONS } from "../../_constants";
 
 export interface Note {
@@ -54,10 +55,18 @@ export function NotesStudio({
   const locale = useLocale();
   const [draft, setDraft] = useState("");
   const [expandedId, setExpandedId] = useState<number | null>(null);
-  const [editingTitleId, setEditingTitleId] = useState<number | null>(null);
-  const [titleDraft, setTitleDraft] = useState("");
-  const skipTitleCommitRef = useRef(false);
+  const [renameNoteId, setRenameNoteId] = useState<number | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  function commitRename() {
+    if (renameNoteId == null) return;
+    const current = notes.find((n) => n.id === renameNoteId);
+    const clean = renameDraft.trim();
+    const next = clean === "" ? null : clean;
+    if ((current?.title ?? null) !== next) onUpdateTitle?.(renameNoteId, next);
+    setRenameNoteId(null);
+  }
 
   const getFilename = (uuid: string) => sources?.find(s => s.uuid === uuid)?.filename ?? uuid;
   const onChipClick: CitationChipClickHandler = (uuid, page, filename, sourceText, startTime, isExact) =>
@@ -174,20 +183,6 @@ export function NotesStudio({
                 const hasCustomTitle = !!(note.title && note.title.trim());
                 const isTitlePending = !hasCustomTitle && !!pendingTitleIds?.has(note.id);
                 const rowLabel = hasCustomTitle ? note.title!.trim() : _notePreview(note.content, t("emptyPreview"));
-                const isEditingTitle = editingTitleId === note.id;
-
-                function commitTitle() {
-                  if (skipTitleCommitRef.current) {
-                    skipTitleCommitRef.current = false;
-                    setEditingTitleId(null);
-                    return;
-                  }
-                  if (!isEditingTitle) return;
-                  const clean = titleDraft.trim();
-                  const next = clean === "" ? null : clean;
-                  if ((note.title ?? null) !== next) onUpdateTitle?.(note.id, next);
-                  setEditingTitleId(null);
-                }
 
                 return (
                   <div key={note.id} style={{ borderBottom: isLast && !isExpanded ? "none" : "1px solid var(--border)" }}>
@@ -221,43 +216,6 @@ export function NotesStudio({
                         className="px-3 pb-3 pt-1"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        {/* Title — click to reveal edit mode */}
-                        {onUpdateTitle && (
-                          isEditingTitle ? (
-                            <input
-                              autoFocus
-                              type="text"
-                              value={titleDraft}
-                              onChange={(e) => setTitleDraft(e.target.value.slice(0, NOTE_TITLE_MAX))}
-                              onBlur={commitTitle}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") { e.preventDefault(); (e.currentTarget as HTMLInputElement).blur(); }
-                                else if (e.key === "Escape") { e.preventDefault(); skipTitleCommitRef.current = true; (e.currentTarget as HTMLInputElement).blur(); }
-                              }}
-                              placeholder={t("titlePlaceholder")}
-                              maxLength={NOTE_TITLE_MAX}
-                              className="w-full text-base font-medium mb-2 px-2 py-1 rounded-md focus:outline-none"
-                              style={{ backgroundColor: "var(--surface-dim)", color: "var(--foreground)", border: "1px solid var(--border)" }}
-                            />
-                          ) : (
-                            <button
-                              type="button"
-                              disabled={isTitlePending}
-                              onClick={() => { setTitleDraft(note.title ?? ""); setEditingTitleId(note.id); }}
-                              className="group w-full text-left text-base font-medium mb-2 px-2 py-1 rounded-md hover:bg-[var(--surface-dim)] transition-colors flex items-center gap-2 disabled:cursor-wait"
-                              style={hasCustomTitle ? { color: "var(--foreground)" } : { fontStyle: "italic", fontWeight: 400 }}
-                              title={isTitlePending ? t("titleGenerating") : hasCustomTitle ? t("titleEdit") : t("titleSet")}
-                            >
-                              <span className="flex-1 truncate">
-                                {isTitlePending ? t("titleGenerating") : hasCustomTitle ? note.title : t("titlePlaceholder")}
-                              </span>
-                              {isTitlePending
-                                ? <Spinner size="xs" color="current" />
-                                : <PencilSimple size={16} weight="bold" className="flex-shrink-0 opacity-60 group-hover:opacity-100 group-hover:text-[var(--kb)] group-focus:opacity-100 group-focus:text-[var(--kb)] transition-colors" />}
-                            </button>
-                          )
-                        )}
-
                         <div className="text-base ki-note-content" style={{ color: "var(--foreground)" }}>
                           <ReactMarkdown
                             remarkPlugins={[remarkGfm, remarkMath]}
@@ -313,14 +271,29 @@ export function NotesStudio({
                           <span className="text-xs" >
                             {note.created_at ? new Date(note.created_at).toLocaleString("de-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" }) : ""}
                           </span>
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); onDelete(note.id); }}
-                            className="w-6 h-6 rounded-full flex items-center justify-center btn-icon"
-                            style={{ backgroundColor: "var(--surface-dim)" }}
-                          >
-                            <Trash size={12} />
-                          </button>
+                          <div className="flex items-center gap-1.5">
+                            {onUpdateTitle && (
+                              <button
+                                type="button"
+                                disabled={isTitlePending}
+                                onClick={(e) => { e.stopPropagation(); setRenameDraft(note.title ?? ""); setRenameNoteId(note.id); }}
+                                className="w-6 h-6 rounded-full flex items-center justify-center btn-icon disabled:opacity-40 disabled:cursor-wait"
+                                style={{ backgroundColor: "var(--surface-dim)" }}
+                                title={isTitlePending ? t("titleGenerating") : t("titleEdit")}
+                                aria-label={t("titleEdit")}
+                              >
+                                <PencilSimple size={12} />
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); onDelete(note.id); }}
+                              className="w-6 h-6 rounded-full flex items-center justify-center btn-icon"
+                              style={{ backgroundColor: "var(--surface-dim)" }}
+                            >
+                              <Trash size={12} />
+                            </button>
+                          </div>
                         </div>
                       </div>
                     )}
@@ -331,6 +304,43 @@ export function NotesStudio({
           )}
         </div>
       </div>
+
+      <Modal
+        open={renameNoteId !== null}
+        onClose={() => setRenameNoteId(null)}
+        title={t("titleEdit")}
+        size="sm"
+        footer={
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setRenameNoteId(null)}
+              className="btn-cancel px-4 py-2 rounded-lg text-sm font-semibold text-[var(--muted)] bg-[var(--surface-dim)]"
+            >
+              {t("cancel")}
+            </button>
+            <button
+              type="button"
+              onClick={commitRename}
+              className="btn-fill-accent px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+            >
+              {t("titleSave")}
+            </button>
+          </div>
+        }
+      >
+        <input
+          autoFocus
+          type="text"
+          value={renameDraft}
+          onChange={(e) => setRenameDraft(e.target.value.slice(0, NOTE_TITLE_MAX))}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitRename(); } }}
+          placeholder={t("titlePlaceholder")}
+          maxLength={NOTE_TITLE_MAX}
+          className="w-full text-base font-medium px-2 py-1 rounded-md focus:outline-none"
+          style={{ backgroundColor: "var(--surface-dim)", color: "var(--foreground)", border: "1px solid var(--border)" }}
+        />
+      </Modal>
     </div>
   );
 }
