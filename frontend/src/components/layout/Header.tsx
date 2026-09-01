@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { CalendarBlank } from "@phosphor-icons/react";
 import { usePathname } from "@/i18n/navigation";
 import { checkAuthStatus, logout } from "@/lib/auth";
+import { api } from "@/lib/api";
 import { areaLabelKey } from "@/lib/permissions";
 import JobsPanel from "@/components/jobs/JobsPanel";
 import HeaderMobileMenu from "@/components/layout/HeaderMobileMenu";
@@ -29,6 +30,8 @@ export default function Header({ hasSession = true, showLogout = false, showTool
   const [hasTools, setHasTools] = useState(false);
   // A missing modules field means an older server, which always has both.
   const [hasAia, setHasAia] = useState(true);
+  // Only true with an admin-enabled, non-empty text — otherwise the menu row would be a dead click.
+  const [hasHomeNotice, setHasHomeNotice] = useState(false);
 
   useEffect(() => {
     if (!showLogout || !hasSession) return;
@@ -42,6 +45,25 @@ export default function Header({ hasSession = true, showLogout = false, showTool
     });
   }, [showLogout, hasSession]);
 
+  useEffect(() => {
+    if (!showLogout) return;
+    let cancelled = false;
+    api
+      .fetch("/api/health/labels", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (cancelled || !data) return;
+        const text = typeof data.home_notice_text === "string" ? data.home_notice_text : "";
+        setHasHomeNotice(data.home_notice_enabled === true && text.trim().length > 0);
+      })
+      .catch(() => {
+        /* ignore - menu row just stays hidden */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [showLogout]);
+
   const handleLogout = async () => {
     await logout();
     // Hard nav so the server layout re-reads the cleared session cookie.
@@ -49,7 +71,7 @@ export default function Header({ hasSession = true, showLogout = false, showTool
   };
 
   return (
-    <header style={{ backgroundColor: "var(--header-bg)", borderBottom: "1px solid var(--border)" }} className="py-3 hide-on-short">
+    <header style={{ backgroundColor: "var(--header-bg)", borderBottom: "1px solid var(--border)" }} className="py-3 compact-on-short">
       <div className="px-4 sm:px-6 flex items-center justify-between">
         <h1 className="text-3xl font-semibold tracking-tight flex items-center gap-2">
           <Link
@@ -86,6 +108,7 @@ export default function Header({ hasSession = true, showLogout = false, showTool
                 isAdmin={hasSession && isAdmin}
                 areaKey={areaKey}
                 showLogout={hasSession && !isLocalMode}
+                hasHomeNotice={hasHomeNotice}
                 onLogout={handleLogout}
               />
             </div>
@@ -98,6 +121,7 @@ export default function Header({ hasSession = true, showLogout = false, showTool
               hasAia={hasAia}
               isLocalMode={isLocalMode}
               showToolsToggle={showToolsToggle}
+              hasHomeNotice={hasHomeNotice}
               onLogout={handleLogout}
             />
           </div>

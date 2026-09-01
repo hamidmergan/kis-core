@@ -16,6 +16,7 @@ interface HeaderSettingsMenuProps {
   isAdmin?: boolean;
   areaKey?: "admin" | "settings";
   showLogout?: boolean;
+  hasHomeNotice?: boolean;
   onLogout?: () => void;
 }
 
@@ -31,7 +32,7 @@ async function persistLocale(locale: Locale) {
   }
 }
 
-export default function HeaderSettingsMenu({ isAdmin = false, areaKey = "admin", showLogout = false, onLogout }: HeaderSettingsMenuProps) {
+export default function HeaderSettingsMenu({ isAdmin = false, areaKey = "admin", showLogout = false, hasHomeNotice = false, onLogout }: HeaderSettingsMenuProps) {
   const t = useTranslations("header");
   const tLang = useTranslations("languageSwitch");
   const tManual = useTranslations("manual");
@@ -205,18 +206,20 @@ export default function HeaderSettingsMenu({ isAdmin = false, areaKey = "admin",
             );
           })}
 
-          <button
-            data-row
-            type="button"
-            role="menuitem"
-            tabIndex={-1}
-            onClick={showHomeNotice}
-            className={rowClass}
-            style={{ color: "var(--foreground)", borderTop: "1px solid var(--border)", marginTop: 4 }}
-          >
-            <Info size={18} weight="bold" aria-hidden="true" />
-            <span className="flex-1">{t("homeNoticeShow")}</span>
-          </button>
+          {hasHomeNotice && (
+            <button
+              data-row
+              type="button"
+              role="menuitem"
+              tabIndex={-1}
+              onClick={showHomeNotice}
+              className={rowClass}
+              style={{ color: "var(--foreground)", borderTop: "1px solid var(--border)", marginTop: 4 }}
+            >
+              <Info size={18} weight="bold" aria-hidden="true" />
+              <span className="flex-1">{t("homeNoticeShow")}</span>
+            </button>
+          )}
 
           <Link
             data-row
@@ -225,7 +228,7 @@ export default function HeaderSettingsMenu({ isAdmin = false, areaKey = "admin",
             tabIndex={-1}
             onClick={() => setOpen(false)}
             className={rowClass}
-            style={{ color: "var(--foreground)" }}
+            style={{ color: "var(--foreground)", ...(!hasHomeNotice ? { borderTop: "1px solid var(--border)", marginTop: 4 } : {}) }}
           >
             <Question size={18} weight="bold" aria-hidden="true" />
             <span className="flex-1">{tManual("title")}</span>

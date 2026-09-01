@@ -3,10 +3,10 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { CalendarBlank, CaretRight, Check, List, Moon, Question, Sidebar, SignOut, Stack, Sun, UserCircleGear, X } from "@phosphor-icons/react";
+import { CalendarBlank, CaretRight, Check, Info, List, Moon, Question, Sidebar, SignOut, Stack, Sun, UserCircleGear, X } from "@phosphor-icons/react";
 import { useRouter, usePathname } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
-import { UI_LOCALES } from "@/lib/constants";
+import { HOME_NOTICE_DISMISS_KEY, HOME_NOTICE_SHOW_EVENT, UI_LOCALES } from "@/lib/constants";
 import { useTheme, type Theme } from "@/hooks/useTheme";
 
 const LOCALES = UI_LOCALES as readonly Locale[];
@@ -20,6 +20,7 @@ interface HeaderMobileMenuProps {
   hasAia?: boolean;
   isLocalMode?: boolean;
   showToolsToggle?: boolean;
+  hasHomeNotice?: boolean;
   onLogout: () => void;
 }
 
@@ -35,7 +36,7 @@ async function persistLocale(locale: Locale) {
   }
 }
 
-export default function HeaderMobileMenu({ hasSession, isAdmin, areaKey = "admin", hasTools = false, hasAia = true, isLocalMode = false, showToolsToggle = false, onLogout }: HeaderMobileMenuProps) {
+export default function HeaderMobileMenu({ hasSession, isAdmin, areaKey = "admin", hasTools = false, hasAia = true, isLocalMode = false, showToolsToggle = false, hasHomeNotice = false, onLogout }: HeaderMobileMenuProps) {
   const t = useTranslations("header");
   const tLang = useTranslations("languageSwitch");
   const tManual = useTranslations("manual");
@@ -75,6 +76,17 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, areaKey = "admin
   const chooseTheme = (next: Theme) => {
     setOpen(false);
     if (next !== theme) setTheme(next);
+  };
+
+  const showHomeNotice = () => {
+    setOpen(false);
+    try {
+      localStorage.removeItem(HOME_NOTICE_DISMISS_KEY);
+    } catch {
+      /* ignore - private browsing etc. */
+    }
+    window.dispatchEvent(new Event(HOME_NOTICE_SHOW_EVENT));
+    router.push("/");
   };
 
   const rowClass =
@@ -201,12 +213,23 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, areaKey = "admin
             );
           })}
 
+          {hasSession && hasHomeNotice && (
+            <button
+              type="button"
+              onClick={showHomeNotice}
+              className={rowClass}
+              style={{ color: "var(--foreground)", borderTop: "1px solid var(--border)", marginTop: 4 }}
+            >
+              <Info size={20} weight="bold" />
+              <span>{t("homeNoticeShow")}</span>
+            </button>
+          )}
           {hasSession && (
             <Link
               href="/manual"
               onClick={() => setOpen(false)}
               className={rowClass}
-              style={{ color: "var(--foreground)", borderTop: "1px solid var(--border)", marginTop: 4 }}
+              style={{ color: "var(--foreground)", ...(!hasHomeNotice ? { borderTop: "1px solid var(--border)", marginTop: 4 } : {}) }}
             >
               <Question size={20} weight="bold" />
               <span>{tManual("title")}</span>
