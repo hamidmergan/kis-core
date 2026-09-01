@@ -175,6 +175,103 @@ def test_switching_an_unknown_code_reports_not_found(client):
     assert r.status_code == 404
 
 
+def test_editing_a_code_updates_every_field_but_the_code(client):
+    bestehend = {"id": 7, "code": "KIS-AAAA-BBBB", "label": "Alt", "role": "user",
+                 "custom_role_id": None, "max_uses": 50, "used_count": 3,
+                 "valid_until": MORGEN, "access_days": 14, "active": True}
+    with patch("src.routes.admin.access_codes.repo.get_code_by_id", return_value=bestehend), \
+         patch("src.routes.admin.access_codes.repo.update_code", return_value=True) as bearbeiten:
+        r = client.patch("/admin/access-codes/7", json={
+            "label": "Kollegen September", "max_uses": 25,
+            "valid_days": 14, "access_days": 21, "kis_role": "staff",
+        })
+
+    assert r.status_code == 200
+    assert bearbeiten.call_args.args[0] == 7
+    assert bearbeiten.call_args.kwargs["label"] == "Kollegen September"
+    assert bearbeiten.call_args.kwargs["max_uses"] == 25
+    assert bearbeiten.call_args.kwargs["access_days"] == 21
+    assert bearbeiten.call_args.kwargs["role"] == "staff"
+
+
+def test_editing_an_unknown_code_reports_not_found(client):
+    with patch("src.routes.admin.access_codes.repo.get_code_by_id", return_value=None), \
+         patch("src.routes.admin.access_codes.repo.update_code") as bearbeiten:
+        r = client.patch("/admin/access-codes/999", json={
+            "label": "Kollegen September", "max_uses": 25,
+            "valid_days": 14, "access_days": 21, "kis_role": "staff",
+        })
+
+    assert r.status_code == 404
+    bearbeiten.assert_not_called()
+
+
+def test_editing_to_reduce_max_uses_below_used_count_is_refused(client):
+    bestehend = {"id": 7, "code": "KIS-AAAA-BBBB", "label": "Alt", "role": "user",
+                 "custom_role_id": None, "max_uses": 50, "used_count": 10,
+                 "valid_until": MORGEN, "access_days": 14, "active": True}
+    with patch("src.routes.admin.access_codes.repo.get_code_by_id", return_value=bestehend), \
+         patch("src.routes.admin.access_codes.repo.update_code", return_value=False) as bearbeiten:
+        r = client.patch("/admin/access-codes/7", json={
+            "label": "Alt", "max_uses": 5,
+            "valid_days": 14, "access_days": 21, "kis_role": "staff",
+        })
+
+    assert r.status_code == 400
+    bearbeiten.assert_called_once()
+
+
+def test_editing_to_a_role_beyond_the_admins_own_permissions_is_refused(limited_client):
+    bestehend = {"id": 7, "code": "KIS-AAAA-BBBB", "label": "Alt", "role": "user",
+                 "custom_role_id": None, "max_uses": 50, "used_count": 3,
+                 "valid_until": MORGEN, "access_days": 14, "active": True}
+    with patch("src.routes.admin.access_codes.repo.get_code_by_id", return_value=bestehend), \
+         patch("src.routes.admin.access_codes.repo.update_code") as bearbeiten:
+        r = limited_client.patch("/admin/access-codes/7", json={
+            "label": "Zuviel", "max_uses": 5,
+            "valid_days": 30, "access_days": 14, "kis_role": "staff",
+        })
+
+    assert r.status_code == 403
+    bearbeiten.assert_not_called()
+
+
+def test_editing_needs_a_custom_role_that_exists(client):
+    bestehend = {"id": 7, "code": "KIS-AAAA-BBBB", "label": "Alt", "role": "user",
+                 "custom_role_id": None, "max_uses": 50, "used_count": 3,
+                 "valid_until": MORGEN, "access_days": 14, "active": True}
+    with patch("src.routes.admin.access_codes.repo.get_code_by_id", return_value=bestehend), \
+         patch("src.routes.admin.access_codes.database.get_custom_role", return_value=None), \
+         patch("src.routes.admin.access_codes.repo.update_code") as bearbeiten:
+        r = client.patch("/admin/access-codes/7", json={
+            "label": "Sprachenzentrum", "max_uses": 10, "valid_days": 30,
+            "access_days": 21, "kis_role": "custom", "custom_role_id": 99,
+        })
+
+    assert r.status_code == 400
+    bearbeiten.assert_not_called()
+
+
+def test_editing_without_all_the_edit_fields_together_is_refused(client):
+    with patch("src.routes.admin.access_codes.repo.get_code_by_id") as holen, \
+         patch("src.routes.admin.access_codes.repo.update_code") as bearbeiten:
+        r = client.patch("/admin/access-codes/7", json={"max_uses": 25})
+
+    assert r.status_code == 422
+    holen.assert_not_called()
+    bearbeiten.assert_not_called()
+
+
+def test_switching_a_code_off_still_needs_no_other_field(client):
+    with patch("src.routes.admin.access_codes.repo.get_code_by_id") as holen, \
+         patch("src.routes.admin.access_codes.repo.set_active", return_value=True) as um:
+        r = client.patch("/admin/access-codes/7", json={"active": False})
+
+    assert r.status_code == 200
+    um.assert_called_once_with(7, False)
+    holen.assert_not_called()
+
+
 def test_deleting_a_code(client):
     with patch("src.routes.admin.access_codes.repo.delete_code", return_value=True) as weg:
         r = client.delete("/admin/access-codes/7")

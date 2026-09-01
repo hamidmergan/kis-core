@@ -114,6 +114,56 @@ def test_deleting_a_code_never_touches_the_users_table(fake_db):
     assert not any("users" in a for a in anweisungen), "Loeschen darf nie ein Konto anfassen"
 
 
+def test_get_code_by_id_returns_none_when_missing(fake_db):
+    fake_db(rows=[])
+    assert repo.get_code_by_id(999) is None
+
+
+def test_get_code_by_id_returns_the_row(fake_db):
+    zeile = {"id": 7, "code": "KIS-4K2P-7RXM", "label": "Kollegen August", "max_uses": 50, "used_count": 3}
+    fake_db(rows=[zeile])
+    assert repo.get_code_by_id(7) == zeile
+
+
+def test_updating_a_code_commits_and_leaves_code_and_used_count_untouched(fake_db):
+    calls = fake_db(rows=[(7,)])
+
+    getroffen = repo.update_code(
+        7,
+        label="Neuer Titel",
+        role="user",
+        custom_role_id=None,
+        max_uses=25,
+        valid_until=ABLAUF,
+        access_days=None,
+    )
+
+    assert getroffen is True
+    anweisungen = [c[1] for c in calls if c[0] == "execute"]
+    assert any("UPDATE access_codes" in a for a in anweisungen)
+    assert not any("SET code" in a for a in anweisungen), "der Code selbst darf sich nie aendern"
+    assert not any("used_count = %s" in a for a in anweisungen), "der Zaehler gehoert claim_use, nicht dem Editieren"
+    assert ("commit", None, None) in calls
+
+
+def test_updating_a_code_refuses_to_drop_max_uses_below_used_count(fake_db):
+    calls = fake_db(rows=[])
+
+    getroffen = repo.update_code(
+        7,
+        label="Neuer Titel",
+        role="user",
+        custom_role_id=None,
+        max_uses=1,
+        valid_until=ABLAUF,
+        access_days=None,
+    )
+
+    assert getroffen is False
+    anweisungen = [c[1] for c in calls if c[0] == "execute"]
+    assert any(">= used_count" in a for a in anweisungen)
+
+
 def test_set_user_access_writes_both_columns(fake_db):
     calls = fake_db()
     frist = datetime(2026, 9, 11, 12, 0, 0)

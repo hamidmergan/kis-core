@@ -51,6 +51,41 @@ def get_code_by_code(code: str) -> dict | None:
             return dict(zeile) if zeile else None
 
 
+def get_code_by_id(code_id: int) -> dict | None:
+    """Looks up a code by its numeric id."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute("SELECT * FROM access_codes WHERE id = %s", (code_id,))
+            zeile = cur.fetchone()
+            return dict(zeile) if zeile else None
+
+
+def update_code(
+    code_id: int,
+    *,
+    label: str,
+    role: str,
+    custom_role_id: int | None,
+    max_uses: int,
+    valid_until: datetime,
+    access_days: int | None,
+) -> bool:
+    """Changes everything about a code except the code string and the used_count."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """UPDATE access_codes
+                       SET label = %s, role = %s, custom_role_id = %s, max_uses = %s,
+                           valid_until = %s, access_days = %s
+                   WHERE id = %s AND %s >= used_count
+                   RETURNING id""",
+                (label, role, custom_role_id, max_uses, valid_until, access_days, code_id, max_uses),
+            )
+            getroffen = cur.fetchone() is not None
+        conn.commit()
+        return getroffen
+
+
 def set_active(code_id: int, active: bool) -> bool:
     """Switches a code on or off, accounts stay untouched."""
     with get_connection() as conn:

@@ -2076,6 +2076,7 @@
       "copied": "Copied!",
       "disable": "Switch off",
       "enable": "Switch on",
+      "edit": "Edit",
       "delete": "Delete",
       "deleteTitle": "Delete access code",
       "deleteText": "The code disappears from the list. {n, plural, =0 {Nobody has used this code yet.} one {The # person who used it keeps their account, their deadline and their courses.} other {The # people who used it keep their account, their deadline and their courses.}}",
@@ -2140,6 +2141,13 @@
       "copied": "Copied!",
       "close": "Close",
       "errorGeneric": "The code could not be created"
+    },
+    "editAccessCode": {
+      "title": "Edit access code",
+      "code": "Code",
+      "submit": "Save",
+      "submitting": "Saving...",
+      "errorGeneric": "The change could not be saved"
     }
   },
   "permissions": {

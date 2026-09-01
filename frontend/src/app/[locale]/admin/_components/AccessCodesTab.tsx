@@ -4,7 +4,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Check, Trash } from "@phosphor-icons/react";
+import { Check, PencilSimple, Trash } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 import Modal from "@/components/ui/Modal";
 import IconButton from "@/components/ui/IconButton";
@@ -12,6 +12,7 @@ import StatusMark from "@/components/ui/StatusMark";
 import type { StatusTone } from "@/lib/jobStatusDisplay";
 import { copyTextFromPromise } from "@/lib/clipboard";
 import CreateAccessCodeDialog from "./CreateAccessCodeDialog";
+import EditAccessCodeDialog from "./EditAccessCodeDialog";
 
 type Zustand = "active" | "disabled" | "expired" | "full";
 type KontoZustand = "active" | "expired" | "disabled";
@@ -92,6 +93,7 @@ export default function AccessCodesTab() {
   const [error, setError] = useState("");
   const [dialogOffen, setDialogOffen] = useState(false);
   const [kopiert, setKopiert] = useState<number | null>(null);
+  const [bearbeiten, setBearbeiten] = useState<Code | null>(null);
   const [loeschen, setLoeschen] = useState<Code | null>(null);
   const [umschaltend, setUmschaltend] = useState<number | null>(null);
   const [kontenCode, setKontenCode] = useState<Code | null>(null);
@@ -319,14 +321,24 @@ export default function AccessCodesTab() {
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <IconButton
-                      size="sm"
-                      title={t("delete")}
-                      aria-label={t("delete")}
-                      onClick={() => setLoeschen(e)}
-                    >
-                      <Trash size={14} weight="bold" />
-                    </IconButton>
+                    <div className="flex items-center gap-1">
+                      <IconButton
+                        size="sm"
+                        title={t("edit")}
+                        aria-label={t("edit")}
+                        onClick={() => setBearbeiten(e)}
+                      >
+                        <PencilSimple size={14} weight="bold" />
+                      </IconButton>
+                      <IconButton
+                        size="sm"
+                        title={t("delete")}
+                        aria-label={t("delete")}
+                        onClick={() => setLoeschen(e)}
+                      >
+                        <Trash size={14} weight="bold" />
+                      </IconButton>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -550,6 +562,10 @@ export default function AccessCodesTab() {
 
       {dialogOffen && (
         <CreateAccessCodeDialog onClose={() => setDialogOffen(false)} onCreated={laden} />
+      )}
+
+      {bearbeiten && (
+        <EditAccessCodeDialog code={bearbeiten} onClose={() => setBearbeiten(null)} onSaved={laden} />
       )}
     </div>
   );
