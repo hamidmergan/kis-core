@@ -4,7 +4,6 @@ import json
 
 from loguru import logger
 
-from src.features.ai_assistant.repository.grammar_topics import MAX_EXAMPLES
 from src.services.aia_grammar_check import normalize
 
 
@@ -80,7 +79,9 @@ def derive_topic(client, model, name: str, language: str) -> dict | None:
     if not rule or not examples:
         logger.info("Grammatik-Thema {!r} abgelehnt, Regel oder Beispiel fehlt", name)
         return None
-    return {"rule": rule, "examples": examples[:MAX_EXAMPLES],
+    # The prompt asks for exactly one, further musterwege are the teacher's own
+    # addition afterwards, never something the model hands over unprompted.
+    return {"rule": rule, "examples": examples[:1],
             # Which form the model made out of the typed name.
             "label": usable_label(data.get("label"))}
 

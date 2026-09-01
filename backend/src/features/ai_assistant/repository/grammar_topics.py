@@ -22,8 +22,8 @@ SEED_TOPICS = [
     {"name": "Adjektivdeklination"},
 ]
 
-# Exactly one pair, the generator never read a second one.
-MAX_EXAMPLES = 1
+# A topic like Modalsätze has more than one correct construction.
+MAX_EXAMPLES = 3
 
 _EMPTY_PAIR = {"before": "", "after": ""}
 

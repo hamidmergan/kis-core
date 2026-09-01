@@ -4,10 +4,12 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { ArrowClockwise, Sparkle } from "@phosphor-icons/react";
+import { ArrowClockwise, Sparkle, X } from "@phosphor-icons/react";
 
+import IconButton from "@/components/ui/IconButton";
 import {
-  editedPair,
+  editedPairs,
+  MAX_EXAMPLES,
   shownSuggestion,
   usablePairs,
   type ExamplePair,
@@ -91,8 +93,18 @@ export function GrammarTopicForm({
     }
   }
 
-  function setPair(part: "before" | "after", value: string) {
-    setPairs([{ ...editedPair(pairs), [part]: value }]);
+  function setPair(index: number, part: "before" | "after", value: string) {
+    setPairs((prev) =>
+      editedPairs(prev).map((p, i) => (i === index ? { ...p, [part]: value } : p)),
+    );
+  }
+
+  function addPair() {
+    setPairs((prev) => [...editedPairs(prev), { before: "", after: "" }]);
+  }
+
+  function removePair(index: number) {
+    setPairs((prev) => editedPairs(prev).filter((_, i) => i !== index));
   }
 
   // The suggestion only appears when it says something other than what was typed.
@@ -144,21 +156,52 @@ export function GrammarTopicForm({
           <p className="text-3xs mt-1" style={{ color: "var(--muted)" }}>
             {t("grammarTopics.checkHint")}
           </p>
-          <div className="flex flex-col gap-1">
-            <input
-              value={editedPair(pairs).before}
-              onChange={(e) => setPair("before", e.target.value)}
-              placeholder={t("grammarTopics.beforePlaceholder")}
-              className={field}
-              style={fieldStyle}
-            />
-            <input
-              value={editedPair(pairs).after}
-              onChange={(e) => setPair("after", e.target.value)}
-              placeholder={t("grammarTopics.afterPlaceholder")}
-              className={field}
-              style={fieldStyle}
-            />
+          <div className="flex flex-col gap-2">
+            {editedPairs(pairs).map((pair, i) => (
+              <div key={i} className="flex items-start gap-1.5">
+                <div className="flex flex-col gap-1 flex-1">
+                  <input
+                    value={pair.before}
+                    onChange={(e) => setPair(i, "before", e.target.value)}
+                    placeholder={t("grammarTopics.beforePlaceholder")}
+                    className={field}
+                    style={fieldStyle}
+                  />
+                  <input
+                    value={pair.after}
+                    onChange={(e) => setPair(i, "after", e.target.value)}
+                    placeholder={t("grammarTopics.afterPlaceholder")}
+                    className={field}
+                    style={fieldStyle}
+                  />
+                </div>
+                {editedPairs(pairs).length > 1 && (
+                  <IconButton
+                    size="sm"
+                    className="mt-0.5"
+                    onClick={() => removePair(i)}
+                    title={t("grammarTopics.removePattern")}
+                    aria-label={t("grammarTopics.removePattern")}
+                  >
+                    <X size={11} weight="bold" />
+                  </IconButton>
+                )}
+              </div>
+            ))}
+            {editedPairs(pairs).length < MAX_EXAMPLES && (
+              <button
+                type="button"
+                onClick={addPair}
+                className="btn-cancel self-start px-2.5 py-1 rounded-full text-3xs font-semibold"
+                style={{
+                  color: "var(--kb)",
+                  backgroundColor: "var(--surface)",
+                  border: "2px solid var(--border)",
+                }}
+              >
+                {t("grammarTopics.addPattern")}
+              </button>
+            )}
           </div>
         </>
       )}

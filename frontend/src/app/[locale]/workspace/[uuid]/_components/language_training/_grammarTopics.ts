@@ -1,13 +1,16 @@
-/** A topic carries exactly one pattern pair, the generator never read more. */
+/** A topic carries up to MAX_EXAMPLES pattern pairs, one per musterweg. */
 
 export interface ExamplePair {
   before: string;
   after: string;
 }
 
-/** The pair the form shows, otherwise an empty one. */
-export function editedPair(pairs: ExamplePair[]): ExamplePair {
-  return pairs[0] ?? { before: "", after: "" };
+// Mirrors backend/src/features/ai_assistant/repository/grammar_topics.py.
+export const MAX_EXAMPLES = 3;
+
+/** The pairs the form shows, at least one empty row. */
+export function editedPairs(pairs: ExamplePair[]): ExamplePair[] {
+  return pairs.length > 0 ? pairs : [{ before: "", after: "" }];
 }
 
 /** A pair only counts when both halves are there and differ. */
@@ -15,7 +18,7 @@ export function usablePairs(pairs: ExamplePair[]): ExamplePair[] {
   return pairs
     .map((p) => ({ before: p.before.trim(), after: p.after.trim() }))
     .filter((p) => p.before && p.after && p.before !== p.after)
-    .slice(0, 1);
+    .slice(0, MAX_EXAMPLES);
 }
 
 /** Which topic is selected after the removal. */

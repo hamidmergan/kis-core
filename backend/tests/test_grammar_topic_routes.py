@@ -5,6 +5,7 @@ import types
 import pytest
 from fastapi import HTTPException
 
+from src.features.ai_assistant.repository.grammar_topics import MAX_EXAMPLES
 from src.features.ai_assistant.routes import _workspace_access
 from src.features.ai_assistant.routes.language_training import grammar_topics
 
@@ -103,3 +104,53 @@ async def test_a_missing_suggested_name_is_an_empty_field_and_not_an_error(
         "w-1", types.SimpleNamespace(name="Perfekt"), {"user_id": EIGENTUEMER}, "de")
 
     assert out["suggested_name"] == ""
+
+
+# ─── Mehrere Musterwege ──────────────────────────────────────────────────────
+
+def _create_body(name: str, pairs: list[dict]):
+    return types.SimpleNamespace(
+        name=name, rule="r",
+        examples=[types.SimpleNamespace(model_dump=lambda p=p: p) for p in pairs],
+    )
+
+
+async def test_create_topic_saves_more_than_one_pattern_pair(workspace, monkeypatch):
+    """A topic like Modalsätze has more than one correct construction."""
+    saved = {}
+    monkeypatch.setattr(grammar_topics.db, "list_grammar_topics", lambda ws_id: [])
+    monkeypatch.setattr(grammar_topics.db, "create_grammar_topic",
+                        lambda ws_id, name, uid: {"id": 42, "name": name, "created_by": uid})
+    monkeypatch.setattr(grammar_topics.db, "save_topic_spec",
+                        lambda topic_id, locale, rule, pairs: saved.setdefault("pairs", pairs))
+
+    pairs = [
+        {"before": "Er beruhigt sich. Er hört Musik.",
+         "after": "Er beruhigt sich, indem er Musik hört."},
+        {"before": "Er beruhigt sich. Er hört Musik.",
+         "after": "Er beruhigt sich dadurch, dass er Musik hört."},
+    ]
+    await grammar_topics.create_topic(
+        "w-1", _create_body("Modalsätze", pairs), {"user_id": EIGENTUEMER}, "de")
+
+    assert saved["pairs"] == pairs
+
+
+def test_max_examples_allows_more_than_one_musterweg():
+    # Pinned to a literal: the whole point is that this is no longer 1.
+    assert MAX_EXAMPLES == 3
+
+
+async def test_create_topic_still_caps_at_max_examples(workspace, monkeypatch):
+    saved = {}
+    monkeypatch.setattr(grammar_topics.db, "list_grammar_topics", lambda ws_id: [])
+    monkeypatch.setattr(grammar_topics.db, "create_grammar_topic",
+                        lambda ws_id, name, uid: {"id": 42, "name": name, "created_by": uid})
+    monkeypatch.setattr(grammar_topics.db, "save_topic_spec",
+                        lambda topic_id, locale, rule, pairs: saved.setdefault("pairs", pairs))
+
+    pairs = [{"before": f"Satz {i}.", "after": f"Anders {i}."} for i in range(MAX_EXAMPLES + 2)]
+    await grammar_topics.create_topic(
+        "w-1", _create_body("Viele Wege", pairs), {"user_id": EIGENTUEMER}, "de")
+
+    assert len(saved["pairs"]) == 3

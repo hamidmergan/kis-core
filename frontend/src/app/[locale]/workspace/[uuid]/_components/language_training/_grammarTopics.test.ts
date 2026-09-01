@@ -1,22 +1,23 @@
 import { describe, expect, it } from "vitest";
 import {
-  editedPair,
+  editedPairs,
+  MAX_EXAMPLES,
   nextTopicId,
   shownSuggestion,
   usablePairs,
 } from "./_grammarTopics";
 
-describe("editedPair", () => {
-  it("gives an empty pair when nothing came back", () => {
-    expect(editedPair([])).toEqual({ before: "", after: "" });
+describe("editedPairs", () => {
+  it("gives one empty pair when nothing came back", () => {
+    expect(editedPairs([])).toEqual([{ before: "", after: "" }]);
   });
 
-  it("takes the first pair, the only one the generator reads", () => {
+  it("hands back every pair, the form shows a row each", () => {
     const pairs = [
       { before: "Er kommt.", after: "Er käme." },
       { before: "Sie geht.", after: "Sie ginge." },
     ];
-    expect(editedPair(pairs)).toEqual(pairs[0]);
+    expect(editedPairs(pairs)).toEqual(pairs);
   });
 });
 
@@ -35,12 +36,32 @@ describe("usablePairs", () => {
     expect(out[0]).toEqual({ before: "Er kommt.", after: "Er käme." });
   });
 
-  it("never saves more than the one pair the form shows", () => {
-    const many = Array.from({ length: 5 }, (_, i) => ({
+  it("keeps several distinct musterwege", () => {
+    const pairs = [
+      { before: "Er beruhigt sich. Er hört Musik.", after: "Er beruhigt sich, indem er Musik hört." },
+      { before: "Er beruhigt sich. Er hört Musik.", after: "Er beruhigt sich dadurch, dass er Musik hört." },
+    ];
+    expect(usablePairs(pairs)).toHaveLength(2);
+  });
+
+  it("never saves more than MAX_EXAMPLES pairs", () => {
+    const many = Array.from({ length: MAX_EXAMPLES + 2 }, (_, i) => ({
       before: `Satz ${i}`,
       after: `Um ${i}`,
     }));
-    expect(usablePairs(many)).toHaveLength(1);
+    expect(usablePairs(many)).toHaveLength(MAX_EXAMPLES);
+  });
+
+  it("drops a half filled pair without breaking the ones around it", () => {
+    const pairs = [
+      { before: "Er kommt.", after: "Er käme." },
+      { before: "Sie geht.", after: "  " },
+      { before: "Wir sehen.", after: "Wir sähen." },
+    ];
+    expect(usablePairs(pairs)).toEqual([
+      { before: "Er kommt.", after: "Er käme." },
+      { before: "Wir sehen.", after: "Wir sähen." },
+    ]);
   });
 });
 

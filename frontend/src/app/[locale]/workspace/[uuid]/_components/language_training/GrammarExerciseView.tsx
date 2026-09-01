@@ -246,9 +246,11 @@ export function GrammarExerciseView({
                     const isRight = oi === card.correct_idx;
                     const chosen = picked === oi;
                     const show = answered && (isRight || chosen);
+                    const dotBg = show ? (isRight ? "#1a8a5c" : "#d4453a") : "var(--border)";
+                    const dotColor = show ? "#fff" : "var(--muted)";
                     return (
                       <button key={oi} type="button" onClick={() => pick(oi)} disabled={answered}
-                        className="text-left px-3 py-2 rounded-xl text-sm border-2 transition-colors disabled:cursor-default"
+                        className="text-left flex items-center gap-3 px-3 py-2 rounded-xl text-sm border-2 transition-colors disabled:cursor-default"
                         style={{
                           borderColor: show ? (isRight ? "#1a8a5c" : "#d4453a") : "var(--border)",
                           backgroundColor: show
@@ -256,6 +258,10 @@ export function GrammarExerciseView({
                             : "transparent",
                           color: "var(--foreground)",
                         }}>
+                        <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                          style={{ backgroundColor: dotBg, color: dotColor }}>
+                          {String.fromCharCode(65 + oi)}
+                        </span>
                         {opt}
                       </button>
                     );
