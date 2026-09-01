@@ -2,6 +2,8 @@ import type { UserPermissions } from "@/types";
 
 /** Mirror of the server's permission keys so the sidebar offers no 403. */
 export const PERM = {
+  generalWelcome: "general.welcome",
+
   aiaUse: "aia.use",
   aiaWorkspaceCreate: "aia.workspace.create",
 

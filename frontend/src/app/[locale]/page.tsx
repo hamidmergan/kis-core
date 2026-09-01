@@ -5,7 +5,7 @@ import { useRouter } from "@/i18n/navigation";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import LockedNotice from "@/components/auth/LockedNotice";
 import { checkAuthStatus } from "@/lib/auth";
-import { EMPTY_PERMS } from "@/lib/permissions";
+import { EMPTY_PERMS, PERM, hasPerm } from "@/lib/permissions";
 import { pickHomeTarget, enabledToolKeys, type HomeTarget } from "@/lib/modules";
 import { useEnabledTools } from "@/hooks/useEnabledTools";
 import type { AuthStatus } from "@/types";
@@ -47,7 +47,9 @@ export default function HomePage() {
   return (
     <ProtectedRoute>
       {/* Impersonation shows the target account's own view, not an onboarding dialog for the admin's session. */}
-      {!auth?.impersonator && <WelcomeModal userId={auth?.user_id} />}
+      {!auth?.impersonator && hasPerm(auth?.permissions, PERM.generalWelcome) && (
+        <WelcomeModal userId={auth?.user_id} />
+      )}
       {state === null || state.target.kind === "tool" ? null : state.target.kind === "aia" ? (
         <Suspense>
           <WorkspaceHome canCreate={state.canCreate} firstName={state.firstName} />

@@ -1717,6 +1717,7 @@
         "verwalten": "Verwalten"
       },
       "group": {
+        "general": "Allgemein",
         "aia": "KI-Assistent",
         "tools": "Werkzeuge",
         "set": {
@@ -1728,6 +1729,9 @@
           "system": "System",
           "mascot": "Maskottchen"
         }
+      },
+      "general": {
+        "welcome": "Begrüßungsfenster beim ersten Login sehen"
       },
       "aia": {
         "use": "Öffnen und geteilte {plural} lesen",

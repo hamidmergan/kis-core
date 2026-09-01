@@ -18,6 +18,12 @@ GROUP_SET_PROVIDERS = "set.anbieter"
 GROUP_SET_USERS = "set.nutzer"
 GROUP_SET_SYSTEM = "set.system"
 GROUP_SET_MASCOT = "set.mascot"
+GROUP_GENERAL = "general"
+
+# === Allgemein ================================================================
+PERM_GENERAL_WELCOME = "general.welcome"
+
+GENERAL_KEYS: tuple[str, ...] = (PERM_GENERAL_WELCOME,)
 
 # === KI-Assistent ============================================================
 PERM_AIA_USE = "aia.use"
@@ -102,10 +108,11 @@ SETTINGS_KEYS: tuple[str, ...] = (
 )
 
 # === The whole catalogue =====================================================
-ALL_PERMISSION_KEYS: tuple[str, ...] = AIA_KEYS + TOOL_KEYS + SETTINGS_KEYS
+ALL_PERMISSION_KEYS: tuple[str, ...] = GENERAL_KEYS + AIA_KEYS + TOOL_KEYS + SETTINGS_KEYS
 
 # Chapter, group and rows in display order, everything else is derived.
 MATRIX_LAYOUT: tuple[tuple[str, str, tuple[str, ...]], ...] = (
+    (CHAPTER_USE, GROUP_GENERAL, GENERAL_KEYS),
     (CHAPTER_USE, GROUP_AIA, AIA_KEYS),
     (CHAPTER_USE, GROUP_TOOLS, TOOL_KEYS),
     (CHAPTER_MANAGE, GROUP_SET_TOOLS, SET_TOOLS_KEYS),
@@ -174,7 +181,7 @@ SYSTEM_ROLES: tuple[str, ...] = ("admin", "staff", "user")
 # Lehrende bekommen zusaetzlich die Zahlen ihrer eigenen Module.
 SYSTEM_ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
     "admin": ALL_PERMISSION_KEYS,
-    "staff": AIA_KEYS + TOOL_KEYS + (PERM_SET_STATS_OWN,),
+    "staff": GENERAL_KEYS + AIA_KEYS + TOOL_KEYS + (PERM_SET_STATS_OWN,),
     "user": (PERM_AIA_USE,),
 }
 

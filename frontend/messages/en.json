@@ -1717,6 +1717,7 @@
         "verwalten": "Manage"
       },
       "group": {
+        "general": "General",
         "aia": "AI assistant",
         "tools": "Tools",
         "set": {
@@ -1728,6 +1729,9 @@
           "system": "System",
           "mascot": "Mascots"
         }
+      },
+      "general": {
+        "welcome": "See the welcome dialog on first login"
       },
       "aia": {
         "use": "Open and read shared {plural}",
