@@ -31,6 +31,7 @@ def test_no_group_is_empty():
 
 def test_groups_stand_in_two_chapters_in_display_order():
     assert [(GROUP_CHAPTER[g], g) for g in GROUPS] == [
+        (CHAPTER_USE, "general"),
         (CHAPTER_USE, "aia"),
         (CHAPTER_USE, "tools"),
         (CHAPTER_MANAGE, "set.werkzeuge"),
