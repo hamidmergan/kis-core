@@ -192,6 +192,8 @@ SETTING_FIELD_PERMISSIONS: dict[str, str] = {
     "workspace_label_plural_en": PERM_SET_SYSTEM,
     "home_notice_enabled": PERM_SET_SYSTEM,
     "home_notice_text": PERM_SET_SYSTEM,
+    "welcome_modal_enabled": PERM_SET_SYSTEM,
+    "welcome_modal_text": PERM_SET_SYSTEM,
     "language_training_enabled": PERM_SET_AIA_LEVEL,
     "ocr_enabled": PERM_SET_AIA_SOURCES,
     "aia_workspace_max_sources": PERM_SET_AIA_SOURCES,

@@ -21,6 +21,9 @@ class UpdateSettingsRequest(BaseModel):
     # Links can be embedded inline in the text as [label](url).
     home_notice_enabled: bool | None = None
     home_notice_text: str | None = None
+    # Welcome dialog on an account's very first login, a switch plus free text.
+    welcome_modal_enabled: bool | None = None
+    welcome_modal_text: str | None = None
     # Text recognition when ingesting image-heavy pages, on by default.
     ocr_enabled: bool | None = None
     # Per-workspace source upload cap (admin-tunable, default 30).

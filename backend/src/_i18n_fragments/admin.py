@@ -27,6 +27,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Hinweistext ist zu lang (max {max} Zeichen)",
         "en": "Notice text is too long (max {max} characters)",
     },
+    "admin.settings.welcomeModalTooLong": {
+        "de": "Text ist zu lang (max {max} Zeichen)",
+        "en": "Text is too long (max {max} characters)",
+    },
     "admin.settings.diagnosisPromptTooLong": {
         "de": "Diagnose-Prompt ist zu lang (max {max} Zeichen)",
         "en": "Diagnosis prompt is too long (max {max} characters)",

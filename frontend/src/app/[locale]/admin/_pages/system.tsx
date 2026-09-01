@@ -5,6 +5,7 @@
 import MaintenanceCard from "../_settings/MaintenanceCard";
 import WorkspaceLabelCard from "../_components/WorkspaceLabelCard";
 import HomeNoticeCard from "../_settings/HomeNoticeCard";
+import WelcomeModalCard from "../_settings/WelcomeModalCard";
 
 export default function SystemPage() {
   return (
@@ -12,6 +13,7 @@ export default function SystemPage() {
       <MaintenanceCard />
       <WorkspaceLabelCard />
       <HomeNoticeCard />
+      <WelcomeModalCard />
     </div>
   );
 }

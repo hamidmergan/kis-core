@@ -11,6 +11,7 @@ import { useEnabledTools } from "@/hooks/useEnabledTools";
 import type { AuthStatus } from "@/types";
 import WorkspaceHome from "./workspace/_components/WorkspaceHome";
 import HomeNotice from "./workspace/_components/HomeNotice";
+import WelcomeModal from "./workspace/_components/WelcomeModal";
 
 interface HomeState {
   target: HomeTarget;
@@ -45,6 +46,8 @@ export default function HomePage() {
 
   return (
     <ProtectedRoute>
+      {/* Impersonation shows the target account's own view, not an onboarding dialog for the admin's session. */}
+      {!auth?.impersonator && <WelcomeModal userId={auth?.user_id} />}
       {state === null || state.target.kind === "tool" ? null : state.target.kind === "aia" ? (
         <Suspense>
           <WorkspaceHome canCreate={state.canCreate} firstName={state.firstName} />

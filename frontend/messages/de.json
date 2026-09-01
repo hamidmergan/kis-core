@@ -1475,6 +1475,15 @@
       "toggleAria": "Hinweis umschalten",
       "saveFailed": "Speichern fehlgeschlagen."
     },
+    "welcomeModalCard": {
+      "title": "Begrüßungsfenster beim ersten Login",
+      "active": "Aktiv - wird jedem Konto einmalig beim allerersten Login angezeigt.",
+      "disabled": "Deaktiviert - kein Begrüßungsfenster.",
+      "placeholder": "Text des Begrüßungsfensters.",
+      "hint": "Erscheint einmalig direkt nach der ersten Anmeldung eines Kontos, danach nicht wieder.",
+      "toggleAria": "Begrüßungsfenster umschalten",
+      "saveFailed": "Speichern fehlgeschlagen."
+    },
     "languageDiagnosisCard": {
       "title": "Sprachdiagnose-Prompt",
       "description": "Steuert, wie die KI im Diagnose-Chat fragt, bewertet und einstuft. Gilt für alle Module. Aktuell nur Deutsch.",
@@ -3058,6 +3067,10 @@
       "unlimited": "unbegrenzt",
       "deleteLink": "Link löschen"
     }
+  },
+  "welcomeModal": {
+    "title": "Willkommen bei KIS",
+    "cta": "Los geht's"
   },
   "layoutMeta": {
     "title": "KIS",

@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from src import database as db
 from src.dependencies_rbac import permissions_of, require_any_settings
+from src.routes.health import DEFAULT_WELCOME_MODAL_TEXT
 from src.i18n import (
     DEFAULT_LEARNING_TOOLS_LANGUAGE,
     TRANSCRIPT_LANGUAGES,
@@ -97,6 +98,9 @@ async def get_settings(_admin=Depends(require_any_settings)):
         # Home page notice banner, shown to all users above the next appointments.
         "home_notice_enabled": _enabled("home_notice_enabled", "false"),
         "home_notice_text": db.get_setting("home_notice_text", ""),
+        # First-login welcome dialog, on by default so onboarding is never blank.
+        "welcome_modal_enabled": _enabled("welcome_modal_enabled"),
+        "welcome_modal_text": db.get_setting("welcome_modal_text", DEFAULT_WELCOME_MODAL_TEXT),
         # OCR on image-heavy pages during indexing (system-wide, default on)
         "ocr_enabled": _enabled("ocr_enabled"),
         # Workspace limits (admin-tunable)
@@ -205,6 +209,18 @@ async def update_settings(
                 detail=t("admin.settings.homeNoticeTooLong", locale, max=1000),
             )
         db.set_setting("home_notice_text", stripped)
+
+    if body.welcome_modal_enabled is not None:
+        db.set_setting("welcome_modal_enabled", "true" if body.welcome_modal_enabled else "false")
+
+    if body.welcome_modal_text is not None:
+        stripped = body.welcome_modal_text.strip()
+        if len(stripped) > 1000:
+            raise HTTPException(
+                status_code=400,
+                detail=t("admin.settings.welcomeModalTooLong", locale, max=1000),
+            )
+        db.set_setting("welcome_modal_text", stripped)
 
     if body.ocr_enabled is not None:
         db.set_setting("ocr_enabled", "true" if body.ocr_enabled else "false")

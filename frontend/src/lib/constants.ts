@@ -32,3 +32,6 @@ export const SCREENCAST_TARGET_LANGUAGES = ["DE", "EN-US"] as const;
 /** LocalStorage key + custom event so the header settings menu can re-show a dismissed HomeNotice. */
 export const HOME_NOTICE_DISMISS_KEY = "kis.home-notice.dismissed-text";
 export const HOME_NOTICE_SHOW_EVENT = "kis:home-notice-show";
+
+/** LocalStorage key prefix for the first-login welcome dialog, suffixed with the user id so a shared browser tracks each account separately. */
+export const WELCOME_MODAL_SEEN_KEY_PREFIX = "kis.welcome-modal.seen.";

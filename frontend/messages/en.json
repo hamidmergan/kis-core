@@ -1475,6 +1475,15 @@
       "toggleAria": "Toggle notice",
       "saveFailed": "Save failed."
     },
+    "welcomeModalCard": {
+      "title": "Welcome dialog on first login",
+      "active": "Active - shown once to every account on its very first login.",
+      "disabled": "Disabled - no welcome dialog.",
+      "placeholder": "Text of the welcome dialog.",
+      "hint": "Appears once right after an account's first login, then never again.",
+      "toggleAria": "Toggle welcome dialog",
+      "saveFailed": "Save failed."
+    },
     "languageDiagnosisCard": {
       "title": "Language diagnosis prompt",
       "description": "Controls how the AI asks, judges and grades in the diagnosis chat. Applies to every module. German only for now.",
@@ -3058,6 +3067,10 @@
       "unlimited": "unlimited",
       "deleteLink": "Delete link"
     }
+  },
+  "welcomeModal": {
+    "title": "Welcome to KIS",
+    "cta": "Get started"
   },
   "layoutMeta": {
     "title": "KIS",
