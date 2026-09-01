@@ -18,7 +18,7 @@ from src.features.ai_assistant.tasks.language_training._plan import (
     room_left,
     still_missing,
 )
-from src.services.aia_grammar_check import normalize, overlap_ratio
+from src.services.aia_grammar_check import normalize
 from src.services.aia_grammar_formats import KINDS
 from src.services.llm_context_healing import create_with_shrink
 
@@ -32,16 +32,18 @@ _SHAPE = (
     'just as correct"], "explanation": "...", "page": 12},\n'
     '  {"kind": "cloze", "sentence": "A complete, correct sentence showing the target '
     'form, with NO gap in it", "form_span": "The part of that sentence which carries '
-    'the form, copied out of it character for character", "also_ok": ["Another '
-    'filling of the same gap that is just as correct"], "explanation": "...", '
-    '"page": 12},\n'
+    'the form, copied out of it character for character", "base_form": "REQUIRED, '
+    'never empty: the dictionary form of the word in form_span, never the finished '
+    'answer", "also_ok": ["Another filling of the same gap that is just as correct"], '
+    '"explanation": "...", "page": 12},\n'
     '  {"kind": "statement", "statement": "A sentence that either shows the target '
     'form correctly or gets it wrong", "answer": true, "explanation": "...", '
     '"page": 12},\n'
-    '  {"kind": "choice", "task": "The form the learner has to produce", '
-    '"sentence": "The statement to transform", '
-    '"options": ["...", "...", "..."], "correct_idx": 0, '
-    '"explanation": "...", "page": 12}\n'
+    '  {"kind": "choice", "sentence": "A complete, correct sentence showing the target '
+    'form, with NO gap in it", "form_span": "The part of that sentence which carries '
+    'the form, copied out of it character for character", "base_form": "REQUIRED, '
+    'never empty: the dictionary form of the word in form_span, never the finished '
+    'answer", "explanation": "...", "page": 12}\n'
     ']}\n'
 )
 
@@ -73,10 +75,10 @@ _TASK_LINES = {
             "Prüfe den Satz: richtig oder falsch?",
         ],
         "choice": [
-            "Welche Option ist korrekt?",
-            "Kreuze die richtige Antwort an.",
-            "Welche Antwort passt?",
-            "Was ist richtig?",
+            "Ergänze die richtige Form.",
+            "Setze die passende Form ein.",
+            "Welche Form ist richtig?",
+            "Vervollständige den Satz mit der richtigen Form.",
         ],
     },
     "en": {
@@ -97,10 +99,10 @@ _TASK_LINES = {
             "Check the sentence: correct or wrong?",
         ],
         "choice": [
-            "Which option is correct?",
-            "Tick the correct answer.",
-            "Which answer fits?",
-            "What is correct?",
+            "Fill in the correct form.",
+            "Enter the matching form.",
+            "Which form is correct?",
+            "Complete the sentence with the right form.",
         ],
     },
 }
@@ -123,12 +125,6 @@ _MIN_USABLE_RATIO = 0.5
 
 # Up to three attempts so the ordered number comes together.
 _MAX_ATTEMPTS = 3
-
-# Three options in multiple choice, fewer looks wrong and more does not fit.
-_OPTION_COUNT = 3
-
-# From this word overlap on a wrong option counts as a form variant.
-_MIN_OPTION_OVERLAP = 0.5
 
 # This is how a gap is written, three underscores are recognisable in the text.
 GAP = "___"
@@ -162,14 +158,15 @@ def generate_grammar_from_source(
 ) -> tuple[list[dict], str, dict]:
     """Returns exercises, title and header, empty means the run is unusable."""
     target_form = grammar_type["label"]
-    shipped_example = grammar_type["example"]
+    # Every stored musterweg, not only the one the learner sees.
+    shipped_examples = grammar_type.get("examples") or [grammar_type["example"]]
     plan = item_plan(count, kinds)
     # No target language, the exercise sentences stay in the source language.
     user_msg = f"Sources:\n\n{ctx.context}"
 
     def messages_for(wanted: list[str]) -> list[dict]:
         prompt = (
-            _build_prompt(grammar_type, target_form, shipped_example, wanted)
+            _build_prompt(grammar_type, target_form, shipped_examples, wanted)
             + adaptive_suffix + title_avoidance + coverage
         )
         return [{"role": "system", "content": prompt},
@@ -194,7 +191,7 @@ def generate_grammar_from_source(
         data = json.loads(_clean_llm_json(response.choices[0].message.content or ""))
         exercises = list(data.get("exercises") or [])[:count]
         seen_exercises += len(exercises)
-        fresh, fresh_claims = _build_items(exercises, locale, shipped_example, target_form)
+        fresh, fresh_claims = _build_items(exercises, locale, shipped_examples, target_form)
         # Until the last attempt the per-format cap applies, after that the count counts.
         room = {} if last_try else room_left(plan, items)
         for item, claim in zip(fresh, fresh_claims):
@@ -252,25 +249,42 @@ def _fallback_kinds(have: list[dict], missing: list[str], kinds=None) -> list[st
     return [geklappt[i % len(geklappt)] for i in range(len(missing))]
 
 
-def _build_prompt(grammar_type: dict, target_form: str, example: dict,
+def _shape_block(examples: list[dict]) -> str:
+    """One worked pair to copy, or several equally correct musterwege."""
+    if len(examples) <= 1:
+        example = examples[0] if examples else {"before": "", "after": ""}
+        return (
+            "SHAPE TO COPY. Every exercise looks exactly like this pair:\n"
+            f'  before: "{example["before"]}"\n'
+            f'  after:  "{example["after"]}"\n\n'
+        )
+    numbered = "\n".join(
+        f'  {i}. before: "{ex["before"]}"\n     after:  "{ex["after"]}"'
+        for i, ex in enumerate(examples, start=1)
+    )
+    return (
+        "SHAPE TO COPY. These are DIFFERENT constructions for the SAME "
+        "transformation rule, every exercise looks exactly like ONE of them:\n"
+        f"{numbered}\n\n"
+        "Pick whichever shape fits the sentence for 'after'. When another shape "
+        "above also fits the same sentence, put it in 'also_ok' too, worded the "
+        "same way that shape is.\n\n"
+    )
+
+
+def _build_prompt(grammar_type: dict, target_form: str, examples: list[dict],
                   plan: list) -> str:
     # The pattern pair goes along as a form to imitate, a bare rule has no effect.
     shape = (
-        "SHAPE TO COPY. Every exercise looks exactly like this pair:\n"
-        f'  before: "{example["before"]}"\n'
-        f'  after:  "{example["after"]}"\n\n'
+        _shape_block(examples) +
         "NOT like these, they are all wrong here:\n"
         '  "Was bedeutet wissenschaftliches Arbeiten?"  (a question, cannot be transformed)\n'
         '  "Nennen Sie drei Beispiele."                 (an instruction, not a statement)\n'
         '  "Wissenschaftliches Arbeiten"                (not a sentence)\n\n'
-        # A separate example for multiple choice, the rule alone has no effect.
-        "OPTIONS TO COPY, for kind \"choice\". Note how all three say the SAME thing "
-        "about the SAME people and differ only in the verb form:\n"
-        '  "Der Bericht wird vom Team geschrieben."      <- the correct one\n'
-        '  "Der Bericht ist vom Team geschrieben."\n'
-        '  "Der Bericht wurde vom Team geschrieben."\n\n'
-        "NOT like this, it changes who does what instead of the form:\n"
-        '  "Das Team wird geschrieben."\n\n'
+        # A separate example for the gap with its base form named.
+        "GAP TO COPY, for kind \"cloze\" and kind \"choice\" alike:\n"
+        '  sentence "Der Bericht wird vom Team geschrieben.", form_span "wird", '
+        'base_form "werden"\n\n'
     )
     return (
         "You build a grammar drill from the given source text. "
@@ -285,25 +299,25 @@ def _build_prompt(grammar_type: dict, target_form: str, example: dict,
         "What each kind is:\n"
         "- transform: the learner rewrites 'before' into 'after' themselves.\n"
         # The code cuts the gap, the model delivers sentence plus excerpt.
-        "- cloze: write a COMPLETE, correct sentence that shows the target form, with "
-        "NO gap in it. 'form_span' is the part of that sentence which carries the form, "
-        "copied out of it character for character, at most three words. The software "
-        "cuts the gap, not you. Whatever stands in 'form_span' is what the learner "
-        "fills in, so the sentence has to read correctly with it:\n"
-        '    sentence "Die Messwerte werden vom Server gespeichert.", '
-        'form_span "werden"\n'
+        "- cloze and choice: the SAME shape, write a COMPLETE, correct sentence that "
+        "shows the target form, with NO gap in it. 'form_span' is the part of that "
+        "sentence which carries the form, copied out of it character for character, "
+        "at most three words. The software cuts the gap, not you. Whatever stands in "
+        "'form_span' is what the learner fills in, so the sentence has to read "
+        "correctly with it. 'base_form' is REQUIRED on every single one of these two "
+        "kinds, never left out and never empty: the dictionary/infinitive form of that "
+        "word, shown next to the gap as the learner's only hint at what to inflect. It "
+        "is almost always DIFFERENT from 'form_span', copying 'form_span' into it is "
+        "wrong:\n"
+        '    sentence "Die Messwerte wurden vom Server gespeichert.", '
+        'form_span "wurden", base_form "werden"\n'
         "  'also_ok' lists other fillings of the SAME gap that are just as correct, "
         "up to two, worked out the same way as 'also_ok' for transform below.\n"
         "- statement: a sentence that either shows the target form correctly or gets it "
         "wrong. 'answer' is true when it is correct. About half of them are false, and a "
         "false one is wrong in exactly ONE detail of the form. It is a sentence that "
         "USES the form, never a claim ABOUT grammar. Wrong here, it states a rule "
-        'instead of practising it: "Das Verb steht im Relativsatz immer am Ende."\n'
-        "- choice: three options that differ ONLY in form, same words, same content. "
-        "Every option is a COMPLETE SENTENCE, never a single word and never a bare "
-        "verb form, because the learner picks a finished sentence. Exactly one is "
-        "correct, the other two are mistakes a learner actually makes. "
-        "'correct_idx' counts from 0.\n\n"
+        'instead of practising it: "Das Verb steht im Relativsatz immer am Ende."\n\n'
         "How to build the sentences:\n"
         "- Take the FACTS, terms and topics from the source text and write NEW, simple "
         "sentences about them. Never copy a sentence from the source verbatim.\n"
@@ -408,49 +422,22 @@ def is_usable_cloze(sentence: str, form_span: str) -> bool:
     return cut_gap(sentence, form_span) is not None
 
 
-def is_usable_choice(task: str, sentence: str, options: list, correct_idx) -> bool:
-    """Whether a multiple choice exercise really practises a form."""
-    if not task or not sentence:
-        return False
-    # One or two words are a heading, not a sentence to reshape.
-    if len(sentence.split()) < 3:
-        return False
-    if not options or len(options) != _OPTION_COUNT:
-        return False
-    # bool is an int in Python, and True would quietly mean position 1.
-    if not isinstance(correct_idx, int) or isinstance(correct_idx, bool):
-        return False
-    if not 0 <= correct_idx < len(options):
-        return False
-
-    normalized = [normalize(opt) for opt in options]
-    if not all(normalized):
-        return False
-    # Two options that differ only in spelling are the same answer.
-    if len(set(normalized)) != len(normalized):
-        return False
-    # The sentence may be the right option, as a wrong one it stays forbidden.
-    if normalize(sentence) in normalized and normalized[correct_idx] != normalize(sentence):
-        return False
-
-    correct = options[correct_idx]
-    return all(
-        overlap_ratio(opt, correct) >= _MIN_OPTION_OVERLAP
-        for i, opt in enumerate(options) if i != correct_idx
-    )
-
-
-def _build_items(exercises: list[dict], locale: str, example: dict,
+def _build_items(exercises: list[dict], locale: str, examples: list[dict],
                  target_form: str) -> tuple[list[dict], list[str]]:
     """The exercise rows plus the text the source is matched by."""
     yes, no = _VERDICT_LABELS.get(locale, _VERDICT_LABELS["en"])
-    # Pattern sentence and pattern solution must not come back as an exercise.
-    banned = {normalize(example.get("before") or ""), normalize(example.get("after") or "")}
+    # Every stored musterweg is off limits, not only the one shown to the learner.
+    banned = set()
+    for ex in examples:
+        banned.add(normalize(ex.get("before") or ""))
+        banned.add(normalize(ex.get("after") or ""))
     banned.discard("")
+    # The learner's hint always shows the first musterweg.
+    primary = examples[0] if examples else {"before": "", "after": ""}
     items, claims = [], []
     for ex in exercises:
         kind = (ex.get("kind") or "transform").strip().lower()
-        built = _build_one(ex, kind, yes, no, example)
+        built = _build_one(ex, kind, yes, no, primary)
         if built is None:
             logger.debug("KI Tutor: Grammatik-Aufgabe verworfen ({}): {!r}", kind, ex)
             continue
@@ -490,6 +477,18 @@ def _repeats_example(front: str, banned: set) -> bool:
     return False
 
 
+def _collect_alt_fillings(span: str, also_ok) -> dict:
+    """Extra valid fillings of the same gap, they carry the check without a model."""
+    accepts, seen = [], {normalize(span)}
+    for alt in (also_ok or [])[:3]:
+        alt = str(alt).strip()
+        if not alt or normalize(alt) in seen:
+            continue
+        seen.add(normalize(alt))
+        accepts.append(alt)
+    return {"accepts": accepts} if accepts else {}
+
+
 def _build_one(ex: dict, kind: str, yes: str, no: str, example: dict):
     """One row for one format, or None when it fails the filter."""
     if kind == "transform":
@@ -512,22 +511,20 @@ def _build_one(ex: dict, kind: str, yes: str, no: str, example: dict):
             extras["accepts"] = accepts
         return {"front": before, "back": after, "extras": extras}, after
 
-    if kind == "cloze":
+    if kind in ("cloze", "choice"):
+        # Both are a gap, cloze and choice differ only in the base-form hint.
         sentence = (ex.get("sentence") or "").strip()
         span = (ex.get("form_span") or "").strip()
-        if not is_usable_cloze(sentence, span):
+        base_form = (ex.get("base_form") or "").strip()
+        # The hint is the whole point of a gap, one without it is not finished.
+        if not base_form or not is_usable_cloze(sentence, span):
             return None
-        # Further valid fillings, they carry the check without a model.
-        accepts, seen = [], {normalize(span)}
-        for alt in (ex.get("also_ok") or [])[:3]:
-            alt = str(alt).strip()
-            if not alt or normalize(alt) in seen:
-                continue
-            seen.add(normalize(alt))
-            accepts.append(alt)
-        extras = {"accepts": accepts} if accepts else {}
-        # The source hangs off the complete original sentence, not the gapped one.
-        return {"front": cut_gap(sentence, span), "back": span, "extras": extras}, sentence
+        extras = _collect_alt_fillings(span, ex.get("also_ok"))
+        gapped = cut_gap(sentence, span)
+        # The base form sits right after the gap, a hint a click could otherwise skip.
+        if normalize(base_form) != normalize(span):
+            gapped = gapped.replace(GAP, f"{GAP} ({base_form})", 1)
+        return {"front": gapped, "back": span, "extras": extras}, sentence
 
     if kind == "statement":
         text = (ex.get("statement") or "").strip()
@@ -536,18 +533,6 @@ def _build_one(ex: dict, kind: str, yes: str, no: str, example: dict):
             return None
         return {"front": text, "back": yes if verdict else no,
                 "options": [yes, no], "correct_idx": 0 if verdict else 1}, text
-
-    if kind == "choice":
-        task = (ex.get("task") or "").strip()
-        sentence = (ex.get("sentence") or "").strip()
-        options = [str(o).strip() for o in (ex.get("options") or [])]
-        idx = ex.get("correct_idx")
-        if not is_usable_choice(task, sentence, options, idx):
-            return None
-        # If the sentence is the right option it would otherwise appear twice.
-        asks_which = normalize(sentence) == normalize(options[idx])
-        return {"front": "" if asks_which else sentence, "back": options[idx],
-                "options": options, "correct_idx": idx}, options[idx]
 
     # A kind that does not exist, guessing would be worse than leaving it out.
     return None

@@ -9,7 +9,6 @@ from src.features.ai_assistant.tasks.language_training._context import QuelleCon
 from src.features.ai_assistant.tasks.language_training._source_grammar import (
     KINDS,
     generate_grammar_from_source,
-    is_usable_choice,
     is_usable_cloze,
     is_usable_pair,
     is_usable_statement,
@@ -70,15 +69,11 @@ _MIXED = json.dumps({"title": "Passiv üben", "exercises": [
     {"kind": "transform", "before": "Der Server speichert die Messwerte.",
      "after": "Die Messwerte werden vom Server gespeichert.", "page": 4},
     {"kind": "cloze", "sentence": "Die Messwerte werden vom Server gespeichert.",
-     "form_span": "werden", "page": 4},
+     "form_span": "werden", "base_form": "werden", "page": 4},
     {"kind": "statement", "statement": "Die Messwerte werden vom Server gespeichert.",
      "answer": True, "page": 4},
-    {"kind": "choice", "task": "Bilden Sie das Passiv.",
-     "sentence": "Die Software prüft die Eingaben.",
-     "options": ["Die Eingaben werden von der Software geprüft.",
-                 "Die Eingaben sind von der Software geprüft.",
-                 "Die Eingaben werden von der Software prüfen."],
-     "correct_idx": 0, "page": 4},
+    {"kind": "choice", "sentence": "Die Akte wurde vom Team geprüft.",
+     "form_span": "wurde", "base_form": "werden", "page": 4},
 ]})
 
 
@@ -132,10 +127,11 @@ def test_each_format_becomes_the_row_its_view_expects(attributed):
     assert statement["options"] == ["Richtig", "Falsch"]
     assert statement["correct_idx"] == 0
 
-    # Ankreuzen: Thema als Rahmen vor der Anweisung, drei Optionen.
-    assert choice["front"].startswith('**Thema: „Passiv Präsens".')
-    assert len(choice["options"]) == 3
-    assert choice["back"] == choice["options"][choice["correct_idx"]]
+    # Gap with a base-form hint: free text too, no options.
+    assert "___" in choice["front"]
+    assert "(werden)" in choice["front"]
+    assert choice["back"] == "wurde"
+    assert "options" not in choice
 
 
 def test_a_false_statement_points_at_falsch(attributed):
@@ -176,23 +172,18 @@ _GOOD_FOUR = [
     {"kind": "transform", "before": "Der Server speichert die Messwerte.",
      "after": "Die Messwerte werden vom Server gespeichert."},
     {"kind": "cloze", "sentence": "Die Messwerte werden vom Server gespeichert.",
-     "form_span": "werden"},
+     "form_span": "werden", "base_form": "werden"},
     {"kind": "statement", "statement": "Die Eingaben werden von der Software geprüft.",
      "answer": True},
-    {"kind": "choice", "task": "Bilden Sie das Passiv.",
-     "sentence": "Die Software prüft die Eingaben.",
-     "options": ["Die Eingaben werden von der Software geprüft.",
-                 "Die Eingaben sind von der Software geprüft.",
-                 "Die Eingaben werden von der Software prüfen."],
-     "correct_idx": 0},
+    {"kind": "choice", "sentence": "Die Eingaben werden von der Software geprüft.",
+     "form_span": "werden", "base_form": "werden"},
 ]
 
 _BAD_FOUR = [
     {"kind": "transform", "before": "Was heißt das?", "after": "Egal."},
     {"kind": "cloze", "sentence": "Ohne Ausschnitt geht es nicht.", "form_span": "fehlt"},
     {"kind": "statement", "statement": "Zu kurz", "answer": True},
-    {"kind": "choice", "task": "T", "sentence": "Der Server speichert Werte.",
-     "options": ["a", "a", "b"], "correct_idx": 0},
+    {"kind": "choice", "sentence": "Der Server speichert Werte.", "form_span": "fehlt"},
 ]
 
 
@@ -213,11 +204,11 @@ def test_a_run_where_most_items_fail_is_discarded_entirely(attributed):
     assert header == {}
 
 
-def test_the_prompt_demands_full_sentences_as_options(attributed):
-    """The requirement has to name the shape the filter expects."""
+def test_the_prompt_names_the_base_form_field_for_choice(attributed):
+    """The requirement has to name the field the hint is built from."""
     _, _, _, calls = _generate()
     system = calls[0][0]["content"]
-    assert "complete sentence" in system.lower()
+    assert "base_form" in system
 
 
 def test_the_same_sentence_never_appears_twice(attributed):
@@ -271,17 +262,13 @@ def test_a_surplus_of_one_format_is_capped_at_the_plan(attributed):
     ]})
     rest = json.dumps({"title": "T", "exercises": [
         {"kind": "cloze", "sentence": f"Die Quelle {i} wird vom Team geprüft.",
-         "form_span": "wird"} for i in range(2)
+         "form_span": "wird", "base_form": "werden"} for i in range(2)
     ] + [
         {"kind": "statement", "statement": f"Die Quelle {i} wird vom Team geprüft.",
          "answer": True} for i in range(2)
     ] + [
-        {"kind": "choice", "task": "Welche Form ist richtig?",
-         "sentence": f"Die Akte {i} wird vom Team geprüft.",
-         "options": [f"Die Akte {i} wird vom Team geprüft.",
-                     f"Die Akte {i} wird vom Team prüfen.",
-                     f"Die Akte {i} ist vom Team geprüft."],
-         "correct_idx": 0} for i in range(2)
+        {"kind": "choice", "sentence": f"Die Akte {i} wird vom Team geprüft.",
+         "form_span": "wird", "base_form": "werden"} for i in range(2)
     ]})
     client, _ = _client_queue(many, rest)
     items, _, _ = generate_grammar_from_source(
@@ -304,13 +291,9 @@ def test_the_last_draw_fills_up_with_whatever_it_gets(attributed):
 
 
 _BAD_CHOICE = {
-    "kind": "choice", "task": "Bilden Sie das Passiv.",
-    "sentence": "Der Server speichert die Messwerte.",
-    # The exercise sentence stands as a WRONG option, the filter discards that every time.
-    "options": ["Die Messwerte werden vom Server gespeichert.",
-                "Der Server speichert die Messwerte.",
-                "Die Messwerte sind vom Server gespeichert."],
-    "correct_idx": 0,
+    "kind": "choice", "sentence": "Der Server speichert die Messwerte.",
+    # The span does not occur in the sentence, the gap cannot be cut.
+    "form_span": "wird",
 }
 
 
@@ -371,7 +354,8 @@ def test_the_example_is_also_blocked_for_the_other_formats(attributed):
     # As a gapped or multiple choice sentence it would still be the pattern sentence.
     ex = _TOPIC["example"]
     response = json.dumps({"title": "T", "exercises": [
-        {"kind": "cloze", "sentence": ex["before"], "form_span": "erklärt"},
+        {"kind": "cloze", "sentence": ex["before"], "form_span": "erklärt",
+         "base_form": "erklären"},
         {"kind": "transform", "before": "Das Team schreibt den Bericht.",
          "after": "Der Bericht wird vom Team geschrieben."},
     ]})
@@ -385,7 +369,7 @@ def test_a_sentence_that_names_the_target_form_is_dropped(attributed):
         {"kind": "transform", "before": "Das Team schreibt den Bericht.",
          "after": "Der Bericht wird vom Team geschrieben."},
         {"kind": "cloze", "sentence": "Im Passiv steht das Objekt vorn.",
-         "form_span": "steht"},
+         "form_span": "steht", "base_form": "stehen"},
     ]})
     items, _, _, _ = _generate(response, count=2)
     assert len(items) == 1
@@ -396,6 +380,48 @@ def test_the_prompt_forbids_reusing_the_worked_example(attributed):
     _, _, _, calls = _generate()
     system = calls[0][0]["content"]
     assert "never reuse" in system.lower()
+
+
+# ─── More than one musterweg ─────────────────────────────────────────────────
+
+_MULTI_TOPIC = {
+    "id": 2,
+    "label": "Modalsätze",
+    "rule": "Input: an action and its means. Output: one sentence joining them, "
+            "an indem-clause or a dadurch-dass-clause are equally correct.",
+    "example": {"before": "Er beruhigt sich. Er hört Musik.",
+                "after": "Er beruhigt sich, indem er Musik hört."},
+    "examples": [
+        {"before": "Er beruhigt sich. Er hört Musik.",
+         "after": "Er beruhigt sich, indem er Musik hört."},
+        {"before": "Sie schont die Umwelt. Sie fährt Rad.",
+         "after": "Sie schont die Umwelt, indem sie Rad fährt."},
+    ],
+}
+
+
+def test_the_prompt_lists_every_musterweg_when_a_topic_has_more_than_one(attributed):
+    client, calls = _client(_MIXED)
+    generate_grammar_from_source(client, "m", _ctx(), _MULTI_TOPIC, 4, locale="de")
+    system = calls[0][0]["content"]
+    for pair in _MULTI_TOPIC["examples"]:
+        assert pair["before"] in system
+        assert pair["after"] in system
+
+
+def test_the_second_musterweg_sentence_is_also_blocked_as_an_exercise(attributed):
+    """Every stored pattern sentence is off limits, not only the first."""
+    second = _MULTI_TOPIC["examples"][1]
+    response = json.dumps({"title": "T", "exercises": [
+        {"kind": "transform", "before": second["before"], "after": second["after"]},
+        {"kind": "transform", "before": "Das Team schreibt den Bericht.",
+         "after": "Der Bericht wird vom Team geschrieben."},
+    ]})
+    client, _ = _client(response)
+    items, _, _ = generate_grammar_from_source(
+        client, "m", _ctx(), _MULTI_TOPIC, 2, locale="de")
+    assert len(items) == 1
+    assert items[0]["front"].endswith("Das Team schreibt den Bericht.")
 
 
 def test_an_unknown_kind_is_dropped_rather_than_guessed(attributed):
@@ -502,32 +528,26 @@ def test_every_task_line_names_the_target_form(kind):
     assert "Passive present" in task_line(kind, "en", "Passive present")
 
 
-def test_a_choice_that_asks_which_is_correct_does_not_repeat_the_sentence(attributed):
-    """In this construction the question carries everything, a sentence above would be ballast."""
-    satz = "Die Ergebnisse werden von der Betreuerin überprüft."
+@pytest.mark.parametrize("kind", ["cloze", "choice"])
+def test_a_gap_shows_the_base_form_next_to_it(attributed, kind):
+    """Cloze and choice share the same gap, both take the same base-form hint."""
     response = json.dumps({"title": "T", "exercises": [
-        {"kind": "choice", "task": "Welche Form ist richtig?", "sentence": satz,
-         "options": [satz,
-                     "Die Ergebnisse sind von der Betreuerin überprüft.",
-                     "Die Ergebnisse werden von der Betreuerin überprüfen."],
-         "correct_idx": 0},
+        {"kind": kind, "sentence": "Der Bericht wird vom Team geschrieben.",
+         "form_span": "wird", "base_form": "werden"},
     ]})
     items, _, _, _ = _generate(response, count=1)
-    assert satz not in items[0]["front"]
+    assert "___ (werden)" in items[0]["front"]
 
 
-def test_a_choice_that_transforms_keeps_its_sentence(attributed):
-    # Different construction: the sentence is the template and is needed.
+@pytest.mark.parametrize("kind", ["cloze", "choice"])
+def test_a_base_form_that_would_leak_the_answer_is_dropped(attributed, kind):
+    """A base form identical to the answer is not a hint, it is the solution."""
     response = json.dumps({"title": "T", "exercises": [
-        {"kind": "choice", "task": "Bilden Sie das Passiv.",
-         "sentence": "Die Software prüft die Eingaben.",
-         "options": ["Die Eingaben werden von der Software geprüft.",
-                     "Die Eingaben sind von der Software geprüft.",
-                     "Die Eingaben werden von der Software prüfen."],
-         "correct_idx": 0},
+        {"kind": kind, "sentence": "Der Bericht wird vom Team geschrieben.",
+         "form_span": "wird", "base_form": "wird"},
     ]})
     items, _, _, _ = _generate(response, count=1)
-    assert "Die Software prüft die Eingaben." in items[0]["front"]
+    assert "(wird)" not in items[0]["front"]
 
 
 def test_an_unknown_language_falls_back_to_english(monkeypatch):
@@ -538,50 +558,7 @@ def test_an_unknown_language_falls_back_to_english(monkeypatch):
         _source_grammar.task_line("transform", "en", "X")
 
 
-# ─── The two inherited filters keep running ──────────────────────────────────
+# ─── The inherited filter keeps running ──────────────────────────────────────
 
 def test_the_free_text_filter_still_rejects_a_question():
     assert not is_usable_pair("Was bedeutet das?", "Etwas.")
-
-
-def test_the_choice_filter_still_rejects_three_content_options():
-    # Three different contents instead of three forms, that is what the filter is for.
-    assert not is_usable_choice(
-        "Welche Gerichte wurden gekocht?", "Am Samstag wurde gekocht.",
-        ["Pizza und Pasta", "Tacos und Fajitas", "Sushi und Tempura"],
-        0,
-    )
-
-
-def test_the_sentence_may_be_the_correct_option():
-    """The sentence as the correct option is a valid construction."""
-    satz = "Die Arbeit wird von der Dozentin korrigiert."
-    assert is_usable_choice(
-        "Welche Form ist richtig?", satz,
-        [satz,
-         "Die Arbeit wird von der Dozentin korrigieren.",
-         "Die Arbeit ist von der Dozentin korrigiert."],
-        0,
-    )
-
-
-def test_the_sentence_as_a_wrong_option_stays_forbidden():
-    """As a wrong option it stays a giveaway."""
-    satz = "Der Server speichert die Messwerte."
-    assert not is_usable_choice(
-        "Bilden Sie das Passiv.", satz,
-        ["Die Messwerte werden vom Server gespeichert.",
-         satz,
-         "Die Messwerte sind vom Server gespeichert."],
-        0,
-    )
-
-
-def test_the_choice_filter_accepts_three_form_variants():
-    assert is_usable_choice(
-        "Bilden Sie das Passiv Präsens.", "Der Server speichert die Messwerte.",
-        ["Die Messwerte werden vom Server gespeichert.",
-         "Die Messwerte sind vom Server gespeichert.",
-         "Die Messwerte werden vom Server speichern."],
-        0,
-    )

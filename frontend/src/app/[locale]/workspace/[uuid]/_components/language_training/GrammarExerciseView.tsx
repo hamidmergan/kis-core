@@ -136,8 +136,9 @@ export function GrammarExerciseView({
   );
 
   const progressPct = ((index + 1) / total) * 100;
-  // Multiple choice or typing: exactly one feature decides it.
-  const isChoice = Boolean(card.options?.length);
+  // Only Richtig/Falsch stays a click, it always carries exactly two options.
+  // Everything else types its answer, old pool rows with leftover options included.
+  const isChoice = card.options?.length === 2;
   // The pattern hangs on the exercise that needs one, the reshaping.
   const pattern = card.extras?.pattern_front && card.extras?.pattern_back
     ? { front: card.extras.pattern_front, back: card.extras.pattern_back }
