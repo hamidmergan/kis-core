@@ -22,6 +22,7 @@ from src.services.tool_limits import max_upload_bytes
 from src.utils.file_validation import (
     ALLOWED_EXTENSIONS,
     TRANSLATE_MAX_CHARS,
+    sanitize_pasted_text,
     validate_or_raise,
 )
 from src.utils.text_extraction import EXTRACTORS
@@ -55,7 +56,8 @@ async def get_translate_config(
 @router.post("/translate")
 async def translate(
     request: Request,
-    file: UploadFile = File(...),
+    file: UploadFile | None = File(None),
+    text: str = Form(""),
     glossary: str = Form(""),
     provider_id: int | None = Form(None),
     source_lang: str = Form(""),
@@ -63,38 +65,67 @@ async def translate(
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    if not file.filename:
-        raise HTTPException(status_code=400, detail=t("file.nameMissing", locale))
-
-    ext = Path(file.filename).suffix.lower()
-    if ext not in ALLOWED_EXTENSIONS:
-        raise HTTPException(status_code=400, detail=t("translate.unsupportedFormat", locale))
+    has_file = bool(file and file.filename)
+    has_text = bool(text and text.strip())
+    if has_file and has_text:
+        raise HTTPException(status_code=400, detail=t("translate.bothInputs", locale))
+    if not has_file and not has_text:
+        raise HTTPException(status_code=400, detail=t("translate.noInput", locale))
 
     content_length = request.headers.get("content-length")
     if content_length is not None and int(content_length) > max_upload_bytes():
         raise HTTPException(status_code=413, detail=t("file.tooLargeMb", locale, max=max_upload_bytes() // (1024 * 1024)))
 
-    # Stream to a temp file instead of holding the body in memory.
+    # Both inputs end up as a file, the upload never sits in memory.
     with tempfile.TemporaryDirectory(prefix="translate_upload_") as tmpdir:
-        tmp_path = os.path.join(tmpdir, f"input{ext}")
-        total, head = await stream_upload_to_path(file, tmp_path, max_upload_bytes(), locale)
-        if not total:
-            raise HTTPException(status_code=400, detail=t("file.empty", locale))
-        validate_or_raise(head, ext, locale)
-
-        extractor = EXTRACTORS.get(ext)
-        if extractor is not None:
-            text = extractor(tmp_path)
-            if len(text) > TRANSLATE_MAX_CHARS:
+        if has_text:
+            cleaned = sanitize_pasted_text(text)
+            if not cleaned:
+                raise HTTPException(status_code=400, detail=t("translate.textEmpty", locale))
+            if len(cleaned) > TRANSLATE_MAX_CHARS:
                 raise HTTPException(
                     status_code=422,
                     detail=t(
-                        "translate.documentTooLong",
+                        "translate.textTooLong",
                         locale,
-                        chars=f"{len(text):,}".replace(",", "."),
+                        chars=f"{len(cleaned):,}".replace(",", "."),
                         maxChars=f"{TRANSLATE_MAX_CHARS:,}".replace(",", "."),
                     ),
                 )
+            ext = ".txt"
+            filename = "text.txt"
+            tmp_path = os.path.join(tmpdir, "input.txt")
+            with open(tmp_path, "wb") as out:
+                out.write(cleaned.encode("utf-8"))
+        else:
+            assert file is not None
+            if not file.filename:
+                raise HTTPException(status_code=400, detail=t("file.nameMissing", locale))
+
+            ext = Path(file.filename).suffix.lower()
+            if ext not in ALLOWED_EXTENSIONS:
+                raise HTTPException(status_code=400, detail=t("translate.unsupportedFormat", locale))
+
+            tmp_path = os.path.join(tmpdir, f"input{ext}")
+            total, head = await stream_upload_to_path(file, tmp_path, max_upload_bytes(), locale)
+            if not total:
+                raise HTTPException(status_code=400, detail=t("file.empty", locale))
+            validate_or_raise(head, ext, locale)
+
+            extractor = EXTRACTORS.get(ext)
+            if extractor is not None:
+                extracted = extractor(tmp_path)
+                if len(extracted) > TRANSLATE_MAX_CHARS:
+                    raise HTTPException(
+                        status_code=422,
+                        detail=t(
+                            "translate.documentTooLong",
+                            locale,
+                            chars=f"{len(extracted):,}".replace(",", "."),
+                            maxChars=f"{TRANSLATE_MAX_CHARS:,}".replace(",", "."),
+                        ),
+                    )
+            filename = file.filename
 
         effective_source = source_lang or ""
         effective_target = target_lang or DEFAULT_TRANSLATE_TARGET
@@ -104,7 +135,7 @@ async def translate(
         enforce_tool_burst(user_id, "translate", locale)
         enforce_quota(user_id, "translate", is_admin_user(current_user), locale)
 
-        db.create_job(job_uuid, user_id, "translation", file.filename, locale=locale)
+        db.create_job(job_uuid, user_id, "translation", filename, locale=locale)
         input_path = save_queue_file_from_path(user_id, job_uuid, ext, tmp_path)
         db.set_job_input_path(job_uuid, input_path)
 
@@ -112,12 +143,12 @@ async def translate(
     run_translate.delay(
         job_uuid,
         input_path,
-        file.filename,
+        filename,
         glossary,
         effective_source,
         effective_target,
         provider_id,
     )
 
-    logger.info("Translate job {} queued for '{}'", job_uuid, file.filename)
+    logger.info("Translate job {} queued for '{}'", job_uuid, filename)
     return {"job_uuid": job_uuid, "status": "pending"}

@@ -19,6 +19,9 @@ export const SCREENCAST_MAX_CHARS = 100_000;
 /** Max chars for direct text-to-speech input (mirrors backend TTS_MAX_CHARS in limits.py). */
 export const TTS_MAX_CHARS = 100_000;
 
+/** Max chars for direct translate text input (mirrors backend TRANSLATE_MAX_CHARS in limits.py). */
+export const TRANSLATE_MAX_CHARS = 100_000;
+
 /** UI locales for the header language switch (next-intl). */
 export const UI_LOCALES = ["de", "en"] as const;
 export const DEFAULT_UI_LOCALE: (typeof UI_LOCALES)[number] = "de";

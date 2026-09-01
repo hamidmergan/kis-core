@@ -12,7 +12,12 @@ from src.quotas import enforce_quota
 from src.security.rate_limit import enforce_tool_burst
 from src import database as db
 from src.storage import save_queue_file_from_path
-from src.utils.file_validation import TTS_EXTENSIONS, TTS_MAX_CHARS, validate_or_raise
+from src.utils.file_validation import (
+    TTS_EXTENSIONS,
+    TTS_MAX_CHARS,
+    sanitize_pasted_text,
+    validate_or_raise,
+)
 from src.services.tool_limits import max_upload_bytes
 from src.utils.text_extraction import EXTRACTORS
 from src.utils.upload_stream import stream_upload_to_path
@@ -63,16 +68,6 @@ def tts_provider_preview(
 # ─── TTS Job ───────────────────────────────────────────────────────────────
 
 
-def _sanitize_tts_text(raw: str) -> str:
-    """Normalize free-form text for safe pipeline use."""
-    cleaned = raw.replace("\r\n", "\n").replace("\r", "\n")
-    cleaned = "".join(
-        ch for ch in cleaned
-        if ch in ("\t", "\n") or (ord(ch) >= 32 and ord(ch) != 127)
-    )
-    return cleaned.strip()
-
-
 @router.post("/tts")
 async def text_to_speech(
     request: Request,
@@ -96,7 +91,7 @@ async def text_to_speech(
     # Both inputs end up as a file, the upload never sits in memory.
     with tempfile.TemporaryDirectory(prefix="tts_upload_") as tmpdir:
         if has_text:
-            cleaned = _sanitize_tts_text(text)
+            cleaned = sanitize_pasted_text(text)
             if not cleaned:
                 raise HTTPException(status_code=400, detail=t("tts.textEmpty", locale))
             if len(cleaned) > TTS_MAX_CHARS:

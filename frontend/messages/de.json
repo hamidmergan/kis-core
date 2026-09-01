@@ -312,7 +312,7 @@
       },
       "submit": "Transkription starten",
       "longRunning": "Läuft noch - lange Audiodateien können einige Minuten dauern…",
-      "downloadLabel": "Transkription",
+      "downloadLabel": "Herunterladen",
       "readyTitle": "Transkript fertig",
       "editorAria": "Transkript bearbeiten",
       "providerLabel": "STT-Anbieter",
@@ -325,18 +325,32 @@
       "selectFileAria": "Datei zur Zusammenfassung auswählen",
       "submit": "Zusammenfassung erstellen",
       "longRunning": "Läuft noch - umfangreiche Inhalte können einige Minuten dauern…",
-      "downloadLabel": "Zusammenfassung",
+      "downloadLabel": "Herunterladen",
       "providerLabel": "KI-Anbieter"
     },
     "translate": {
       "title": "Übersetzung",
       "intro": "Dokumente in andere Sprachen übersetzen. Layout und Formatierung bleiben erhalten.",
+      "inputMode": {
+        "text": "Text eingeben",
+        "file": "Datei hochladen"
+      },
       "targetLang": "Zielsprache",
       "autoDetectHint": "Die Quellsprache wird automatisch erkannt.",
-      "engine": "Übersetzungs-Engine",
+      "engine": "KI-Anbieter",
       "submit": "Übersetzen",
       "longRunning": "Läuft noch - große Dokumente können einige Minuten dauern…",
-      "downloadLabel": "Übersetzung"
+      "downloadLabel": "Herunterladen",
+      "textInput": {
+        "label": "Zu übersetzender Text",
+        "placeholder": "Text hier eingeben oder einfügen…",
+        "count": "{count} / {max} Zeichen"
+      },
+      "resultLabel": "Übersetzter Text",
+      "copyText": "Kopieren",
+      "copied": "Kopiert!",
+      "resetLabel": "Zurücksetzen",
+      "resultStale": "Text wurde geändert – für ein aktuelles Ergebnis erneut übersetzen."
     },
     "tts": {
       "title": "Text in Sprache",
@@ -531,7 +545,7 @@
         "spinner": "Wird bearbeitet…",
         "longRunning": "Läuft noch - Bildbearbeitung kann etwas länger dauern…",
         "resultAlt": "Bearbeitetes Bild",
-        "downloadLabel": "Bild",
+        "downloadLabel": "Herunterladen",
         "regenerate": "Neu bearbeiten"
       },
       "analyze": {

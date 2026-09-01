@@ -22,6 +22,22 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Dokument zu lang ({chars} Zeichen). Bitte aufteilen (max. {maxChars} Zeichen).",
         "en": "Document too long ({chars} characters). Please split (max {maxChars} characters).",
     },
+    "translate.textTooLong": {
+        "de": "Text zu lang ({chars} Zeichen). Bitte kürzen (max. {maxChars} Zeichen).",
+        "en": "Text too long ({chars} characters). Please shorten (max {maxChars} characters).",
+    },
+    "translate.textEmpty": {
+        "de": "Bitte Text eingeben.",
+        "en": "Please enter some text.",
+    },
+    "translate.noInput": {
+        "de": "Bitte Text eingeben oder Datei hochladen.",
+        "en": "Please enter text or upload a file.",
+    },
+    "translate.bothInputs": {
+        "de": "Bitte entweder Text eingeben oder eine Datei hochladen, nicht beides.",
+        "en": "Please provide either text or a file, not both.",
+    },
     "transcription.audioTooLong": {
         "de": "Aufnahme zu lang ({minutes} Minuten). Erlaubt sind höchstens {maxMinutes} Minuten.",
         "en": "Recording too long ({minutes} minutes). The maximum is {maxMinutes} minutes.",

@@ -312,7 +312,7 @@
       },
       "submit": "Start transcription",
       "longRunning": "Still running - long audio files may take a few minutes…",
-      "downloadLabel": "Transcription",
+      "downloadLabel": "Download",
       "readyTitle": "Transcript ready",
       "editorAria": "Edit transcript",
       "providerLabel": "STT provider",
@@ -325,18 +325,32 @@
       "selectFileAria": "Select file to summarize",
       "submit": "Create summary",
       "longRunning": "Still running - extensive content may take a few minutes…",
-      "downloadLabel": "Summary",
+      "downloadLabel": "Download",
       "providerLabel": "AI provider"
     },
     "translate": {
       "title": "Translation",
       "intro": "Translate documents into other languages. Layout and formatting are preserved.",
+      "inputMode": {
+        "text": "Enter text",
+        "file": "Upload file"
+      },
       "targetLang": "Target language",
       "autoDetectHint": "The source language is detected automatically.",
-      "engine": "Translation engine",
+      "engine": "AI provider",
       "submit": "Translate",
       "longRunning": "Still running - large documents may take a few minutes…",
-      "downloadLabel": "Translation"
+      "downloadLabel": "Download",
+      "textInput": {
+        "label": "Text to translate",
+        "placeholder": "Type or paste text here…",
+        "count": "{count} / {max} characters"
+      },
+      "resultLabel": "Translated text",
+      "copyText": "Copy",
+      "copied": "Copied!",
+      "resetLabel": "Reset",
+      "resultStale": "Text was changed – translate again for an up-to-date result."
     },
     "tts": {
       "title": "Text to speech",
@@ -531,7 +545,7 @@
         "spinner": "Editing…",
         "longRunning": "Still running - image editing may take a bit longer…",
         "resultAlt": "Edited image",
-        "downloadLabel": "Image",
+        "downloadLabel": "Download",
         "regenerate": "Edit again"
       },
       "analyze": {

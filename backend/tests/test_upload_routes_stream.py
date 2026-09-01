@@ -77,7 +77,7 @@ def _run_translate(monkeypatch, payload, filename):
     monkeypatch.setattr(gt, "run_translate", type("T", (), {"delay": staticmethod(lambda *a, **k: None)})())
 
     asyncio.run(route.translate(
-        request=_Request(), file=_ChunkOnlyUpload(payload, filename),
+        request=_Request(), file=_ChunkOnlyUpload(payload, filename), text="",
         glossary="", provider_id=None, source_lang="", target_lang="",
         current_user={"user_id": 1}, locale="de",
     ))

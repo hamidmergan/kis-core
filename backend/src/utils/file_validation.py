@@ -105,6 +105,16 @@ def validate_or_raise(content: bytes, ext: str, locale: str = "de") -> None:
         raise HTTPException(status_code=400, detail=t("file.contentMismatch", locale))
 
 
+def sanitize_pasted_text(raw: str) -> str:
+    """Normalize free-form pasted text for safe pipeline use."""
+    cleaned = raw.replace("\r\n", "\n").replace("\r", "\n")
+    cleaned = "".join(
+        ch for ch in cleaned
+        if ch in ("\t", "\n") or (ord(ch) >= 32 and ord(ch) != 127)
+    )
+    return cleaned.strip()
+
+
 def validate_content(content: bytes, ext: str) -> None:
     """Checks via the leading bytes whether the content matches the extension."""
     ext_lower = ext.lower()
