@@ -13,6 +13,7 @@ from src.features.ai_assistant.tasks.language_training._attribution import (
     attach_chips_cited,
 )
 from src.features.ai_assistant.tasks.language_training._context import QuelleContext
+from src.features.ai_assistant.tasks.language_training._grammar_verify import verdicts
 from src.features.ai_assistant.tasks.language_training._plan import (
     plan_sentence,
     room_left,
@@ -39,11 +40,10 @@ _SHAPE = (
     '  {"kind": "statement", "statement": "A sentence that either shows the target '
     'form correctly or gets it wrong", "answer": true, "explanation": "...", '
     '"page": 12},\n'
-    '  {"kind": "choice", "sentence": "A complete, correct sentence showing the target '
-    'form, with NO gap in it", "form_span": "The part of that sentence which carries '
-    'the form, copied out of it character for character", "base_form": "REQUIRED, '
-    'never empty: the dictionary form of the word in form_span, never the finished '
-    'answer", "explanation": "...", "page": 12}\n'
+    '  {"kind": "choice", "before": "Sentence in the original form", "after": "The '
+    'correct transformation of it", "wrong": ["An incorrect transformation of the SAME '
+    '\'before\'", "A second, different incorrect transformation"], "explanation": "...", '
+    '"page": 12}\n'
     ']}\n'
 )
 
@@ -75,10 +75,10 @@ _TASK_LINES = {
             "Prüfe den Satz: richtig oder falsch?",
         ],
         "choice": [
-            "Ergänze die richtige Form.",
-            "Setze die passende Form ein.",
-            "Welche Form ist richtig?",
-            "Vervollständige den Satz mit der richtigen Form.",
+            "Welche Option ist korrekt?",
+            "Kreuze die richtige Antwort an.",
+            "Welche Antwort passt?",
+            "Was ist richtig?",
         ],
     },
     "en": {
@@ -99,10 +99,10 @@ _TASK_LINES = {
             "Check the sentence: correct or wrong?",
         ],
         "choice": [
-            "Fill in the correct form.",
-            "Enter the matching form.",
-            "Which form is correct?",
-            "Complete the sentence with the right form.",
+            "Which option is correct?",
+            "Tick the correct answer.",
+            "Which answer fits?",
+            "What is correct?",
         ],
     },
 }
@@ -221,6 +221,15 @@ def generate_grammar_from_source(
                     attempt + 1, len(items), count)
     items, claims = items[:count], claims[:count]
 
+    # One verdict call for the whole throw, catches what no code filter can: a
+    # sentence that only reads wrong once the answer sits in it.
+    _, falsch = _VERDICT_LABELS.get(locale, _VERDICT_LABELS["en"])
+    wrong_on_purpose = [item.get("_kind") == "statement" and item.get("back") == falsch
+                        for item in items]
+    ok = verdicts(client, model, claims, target_form, grammar_type["rule"], wrong_on_purpose)
+    items = [item for item, usable in zip(items, ok) if usable]
+    claims = [claim for claim, usable in zip(claims, ok) if usable]
+
     # Too many comprehension questions and the whole run is thrown away.
     wanted = min(count, seen_exercises) or count
     if len(items) < max(1, int(wanted * _MIN_USABLE_RATIO)):
@@ -282,7 +291,7 @@ def _build_prompt(grammar_type: dict, target_form: str, examples: list[dict],
         '  "Nennen Sie drei Beispiele."                 (an instruction, not a statement)\n'
         '  "Wissenschaftliches Arbeiten"                (not a sentence)\n\n'
         # A separate example for the gap with its base form named.
-        "GAP TO COPY, for kind \"cloze\" and kind \"choice\" alike:\n"
+        "GAP TO COPY, for kind \"cloze\":\n"
         '  sentence "Der Bericht wird vom Team geschrieben.", form_span "wird", '
         'base_form "werden"\n\n'
     )
@@ -299,25 +308,47 @@ def _build_prompt(grammar_type: dict, target_form: str, examples: list[dict],
         "What each kind is:\n"
         "- transform: the learner rewrites 'before' into 'after' themselves.\n"
         # The code cuts the gap, the model delivers sentence plus excerpt.
-        "- cloze and choice: the SAME shape, write a COMPLETE, correct sentence that "
-        "shows the target form, with NO gap in it. 'form_span' is the part of that "
-        "sentence which carries the form, copied out of it character for character, "
-        "at most three words. The software cuts the gap, not you. Whatever stands in "
-        "'form_span' is what the learner fills in, so the sentence has to read "
-        "correctly with it. 'base_form' is REQUIRED on every single one of these two "
-        "kinds, never left out and never empty: the dictionary/infinitive form of that "
-        "word, shown next to the gap as the learner's only hint at what to inflect. It "
-        "is almost always DIFFERENT from 'form_span', copying 'form_span' into it is "
-        "wrong:\n"
+        "- cloze starts from a COMPLETE, correct sentence that shows the target form, "
+        "with NO gap in it. 'form_span' is the part of that sentence which carries "
+        "the form, copied out of it character for character, at most three words. "
+        "The software cuts the gap, not you. Whatever stands in 'form_span' is the "
+        "correct answer, so the sentence has to read correctly with it. The learner "
+        "TYPES the answer. 'base_form' is REQUIRED, never left out and never empty: "
+        "the dictionary/infinitive form of the word in 'form_span', shown next to "
+        "the gap as the learner's only hint at what to inflect. It is almost always "
+        "DIFFERENT from 'form_span', copying 'form_span' into it is wrong:\n"
         '    sentence "Die Messwerte wurden vom Server gespeichert.", '
         'form_span "wurden", base_form "werden"\n'
         "  'also_ok' lists other fillings of the SAME gap that are just as correct, "
-        "up to two, worked out the same way as 'also_ok' for transform below.\n"
+        "up to two, worked out the same way as 'also_ok' for transform above.\n"
+        "- choice: the SAME shape as transform, a 'before' and its correct 'after', "
+        "but the learner PICKS 'after' from three complete sentences instead of "
+        "typing it, so 'after' is NEVER shown with a gap. 'wrong' lists exactly TWO "
+        "other complete transformations of the SAME 'before', each one wrong in "
+        "exactly ONE detail of the target form, a plausible learner mistake, never a "
+        "nonsense sentence. The two must differ from each other and from 'after':\n"
+        '    before "Das Team prüft die Quelle genau.", after "Die Quelle wird vom '
+        'Team genau geprüft.", wrong ["Die Quelle wurde vom Team genau geprüft.", '
+        '"Die Quelle ist vom Team genau geprüft."]\n'
         "- statement: a sentence that either shows the target form correctly or gets it "
         "wrong. 'answer' is true when it is correct. About half of them are false, and a "
-        "false one is wrong in exactly ONE detail of the form. It is a sentence that "
-        "USES the form, never a claim ABOUT grammar. Wrong here, it states a rule "
-        'instead of practising it: "Das Verb steht im Relativsatz immer am Ende."\n\n'
+        "false one is wrong in exactly ONE detail of the TARGET FORM ITSELF, never a "
+        "different rule elsewhere in the sentence. If the target form were Konjunktiv "
+        "II, the error sits in the Konjunktiv-II form, never in the word order. If it "
+        "were Adjektivdeklination, the error sits in the ending, never in the "
+        "article's gender. A learner who already masters the target form must be able "
+        "to spot the error from that form alone. It is a sentence that USES the form, "
+        "never a claim ABOUT grammar. Wrong here, it states a rule instead of "
+        'practising it: "Das Verb steht im Relativsatz immer am Ende."\n'
+        "  A sentence marked 'answer': true must be exactly how a native speaker "
+        "would phrase it, never a plausible-looking guess: a wrong preposition or a "
+        "wrong fixed verb-preposition pairing makes it false, even when only one "
+        "word is off, e.g. 'sich bemühen zur Verlängerung' is wrong, only 'sich "
+        "bemühen um die Verlängerung' is correct. Its 'explanation' names only the "
+        "category the target form itself is, never a different, more impressive-"
+        "sounding one: a fixed verb + preposition + noun is a Präpositionalobjekt, "
+        "not a Finalsatz, unless it is actually built with 'um ... zu' plus "
+        "infinitive or 'damit'.\n\n"
         "How to build the sentences:\n"
         "- Take the FACTS, terms and topics from the source text and write NEW, simple "
         "sentences about them. Never copy a sentence from the source verbatim.\n"
@@ -332,6 +363,18 @@ def _build_prompt(grammar_type: dict, target_form: str, examples: list[dict],
         "learner, never a bare phrase.\n"
         "- Every 'before' MUST be a valid input for the transformation rule above. "
         "If the rule needs a modal verb, every sentence contains one.\n"
+        "- 'before' must be in the SAME tense as 'before' in the shape example(s) "
+        "above, not merely a grammatically valid input. If the shape's 'before' is "
+        "in the present tense, every new 'before' is in the present tense too, never "
+        "a past-tense fact from the source dressed up as if it still held now. "
+        "Drifting the tense changes what actually happened and makes 'after' claim "
+        "something the source never said.\n"
+        "- Every noun you invent, in 'before', 'after' and 'wrong' alike, keeps its "
+        "OWN grammatical gender, not the gender of a similar-sounding noun elsewhere "
+        "in the exercise. Check it before contracting a preposition with an article "
+        "(zum, zur, im, am, beim, ...): 'zur besseren Verständnis des Textes' is "
+        "wrong, because 'Verständnis' is neuter, only 'zum besseren Verständnis des "
+        "Textes' is correct.\n"
         "- 'after' is the expected solution, correct and complete, and it must "
         "differ from 'before'.\n"
         # Every valid version must be listed here, checking only compares.
@@ -489,6 +532,19 @@ def _collect_alt_fillings(span: str, also_ok) -> dict:
     return {"accepts": accepts} if accepts else {}
 
 
+def _collect_wrong_transforms(before: str, after: str, wrong) -> list[str]:
+    """Up to two distinct, usable incorrect transformations of 'before', fewer if the model repeats itself."""
+    seen = {normalize(after)}
+    out = []
+    for w in (wrong or [])[:2]:
+        w = str(w).strip()
+        if not is_usable_pair(before, w) or normalize(w) in seen:
+            continue
+        seen.add(normalize(w))
+        out.append(w)
+    return out
+
+
 def _build_one(ex: dict, kind: str, yes: str, no: str, example: dict):
     """One row for one format, or None when it fails the filter."""
     if kind == "transform":
@@ -511,8 +567,7 @@ def _build_one(ex: dict, kind: str, yes: str, no: str, example: dict):
             extras["accepts"] = accepts
         return {"front": before, "back": after, "extras": extras}, after
 
-    if kind in ("cloze", "choice"):
-        # Both are a gap, cloze and choice differ only in the base-form hint.
+    if kind == "cloze":
         sentence = (ex.get("sentence") or "").strip()
         span = (ex.get("form_span") or "").strip()
         base_form = (ex.get("base_form") or "").strip()
@@ -525,6 +580,19 @@ def _build_one(ex: dict, kind: str, yes: str, no: str, example: dict):
         if normalize(base_form) != normalize(span):
             gapped = gapped.replace(GAP, f"{GAP} ({base_form})", 1)
         return {"front": gapped, "back": span, "extras": extras}, sentence
+
+    if kind == "choice":
+        before = (ex.get("before") or "").strip()
+        after = (ex.get("after") or "").strip()
+        if not is_usable_pair(before, after):
+            return None
+        # Two distinct wrong transformations are the whole point, fewer means no real choice.
+        wrong = _collect_wrong_transforms(before, after, ex.get("wrong"))
+        if len(wrong) < 2:
+            return None
+        # The correct option sits first, the frontend shuffles before showing it.
+        return {"front": before, "back": after,
+                "options": [after] + wrong, "correct_idx": 0}, after
 
     if kind == "statement":
         text = (ex.get("statement") or "").strip()

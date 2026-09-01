@@ -72,8 +72,10 @@ _MIXED = json.dumps({"title": "Passiv üben", "exercises": [
      "form_span": "werden", "base_form": "werden", "page": 4},
     {"kind": "statement", "statement": "Die Messwerte werden vom Server gespeichert.",
      "answer": True, "page": 4},
-    {"kind": "choice", "sentence": "Die Akte wurde vom Team geprüft.",
-     "form_span": "wurde", "base_form": "werden", "page": 4},
+    {"kind": "choice", "before": "Das Team prüfte die Akte.",
+     "after": "Die Akte wurde vom Team geprüft.",
+     "wrong": ["Die Akte wird vom Team geprüft.", "Die Akte ist vom Team geprüft."],
+     "page": 4},
 ]})
 
 
@@ -127,11 +129,16 @@ def test_each_format_becomes_the_row_its_view_expects(attributed):
     assert statement["options"] == ["Richtig", "Falsch"]
     assert statement["correct_idx"] == 0
 
-    # Gap with a base-form hint: free text too, no options.
-    assert "___" in choice["front"]
-    assert "(werden)" in choice["front"]
-    assert choice["back"] == "wurde"
-    assert "options" not in choice
+    # Multiple choice: same before/after shape as transform, no gap, three options.
+    assert "___" not in choice["front"]
+    assert choice["front"].endswith("Das Team prüfte die Akte.")
+    assert choice["back"] == "Die Akte wurde vom Team geprüft."
+    assert choice["options"] == [
+        "Die Akte wurde vom Team geprüft.",
+        "Die Akte wird vom Team geprüft.",
+        "Die Akte ist vom Team geprüft.",
+    ]
+    assert choice["correct_idx"] == 0
 
 
 def test_a_false_statement_points_at_falsch(attributed):
@@ -175,15 +182,17 @@ _GOOD_FOUR = [
      "form_span": "werden", "base_form": "werden"},
     {"kind": "statement", "statement": "Die Eingaben werden von der Software geprüft.",
      "answer": True},
-    {"kind": "choice", "sentence": "Die Eingaben werden von der Software geprüft.",
-     "form_span": "werden", "base_form": "werden"},
+    {"kind": "choice", "before": "Die Software prüft die Eingaben.",
+     "after": "Die Eingaben werden von der Software geprüft.",
+     "wrong": ["Die Eingaben wurden von der Software geprüft.",
+               "Die Eingaben sind von der Software geprüft."]},
 ]
 
 _BAD_FOUR = [
     {"kind": "transform", "before": "Was heißt das?", "after": "Egal."},
     {"kind": "cloze", "sentence": "Ohne Ausschnitt geht es nicht.", "form_span": "fehlt"},
     {"kind": "statement", "statement": "Zu kurz", "answer": True},
-    {"kind": "choice", "sentence": "Der Server speichert Werte.", "form_span": "fehlt"},
+    {"kind": "choice", "before": "Was heißt das?", "after": "Egal."},
 ]
 
 
@@ -204,11 +213,48 @@ def test_a_run_where_most_items_fail_is_discarded_entirely(attributed):
     assert header == {}
 
 
-def test_the_prompt_names_the_base_form_field_for_choice(attributed):
+def test_the_prompt_names_the_base_form_field_for_cloze(attributed):
     """The requirement has to name the field the hint is built from."""
     _, _, _, calls = _generate()
     system = calls[0][0]["content"]
     assert "base_form" in system
+
+
+def test_the_prompt_names_the_wrong_field_for_choice(attributed):
+    """The requirement has to name the field the distractors are built from."""
+    _, _, _, calls = _generate()
+    system = calls[0][0]["content"]
+    assert "'wrong'" in system
+
+
+def test_the_prompt_ties_a_false_statement_to_the_target_form(attributed):
+    """A false statement's error must sit in the target form, not some other rule."""
+    _, _, _, calls = _generate()
+    system = calls[0][0]["content"]
+    assert "TARGET FORM ITSELF" in system
+
+
+def test_the_prompt_ties_before_to_the_shape_examples_tense(attributed):
+    """A new 'before' pulled from the source must not drift into a different tense than the shape."""
+    _, _, _, calls = _generate()
+    system = calls[0][0]["content"]
+    assert "SAME tense as 'before' in the shape example" in system
+
+
+def test_the_prompt_warns_against_an_invented_category_for_a_true_statement(attributed):
+    """A 'true' statement must be idiomatic, and its explanation must not invent a category."""
+    _, _, _, calls = _generate()
+    system = calls[0][0]["content"]
+    assert "Präpositionalobjekt" in system
+    assert "Finalsatz" in system
+
+
+def test_the_prompt_warns_against_a_gender_mismatched_preposition(attributed):
+    """A contracted preposition must match the noun's gender in every kind, not only statement."""
+    _, _, _, calls = _generate()
+    system = calls[0][0]["content"]
+    assert "zur besseren Verständnis" in system
+    assert "zum besseren Verständnis" in system
 
 
 def test_the_same_sentence_never_appears_twice(attributed):
@@ -267,8 +313,10 @@ def test_a_surplus_of_one_format_is_capped_at_the_plan(attributed):
         {"kind": "statement", "statement": f"Die Quelle {i} wird vom Team geprüft.",
          "answer": True} for i in range(2)
     ] + [
-        {"kind": "choice", "sentence": f"Die Akte {i} wird vom Team geprüft.",
-         "form_span": "wird", "base_form": "werden"} for i in range(2)
+        {"kind": "choice", "before": f"Das Team prüft die Akte {i}.",
+         "after": f"Die Akte {i} wird vom Team geprüft.",
+         "wrong": [f"Die Akte {i} wurde vom Team geprüft.",
+                   f"Die Akte {i} ist vom Team geprüft."]} for i in range(2)
     ]})
     client, _ = _client_queue(many, rest)
     items, _, _ = generate_grammar_from_source(
@@ -291,9 +339,9 @@ def test_the_last_draw_fills_up_with_whatever_it_gets(attributed):
 
 
 _BAD_CHOICE = {
-    "kind": "choice", "sentence": "Der Server speichert die Messwerte.",
-    # The span does not occur in the sentence, the gap cannot be cut.
-    "form_span": "wird",
+    "kind": "choice", "before": "Was heißt das?",
+    # A question cannot be transformed, same filter as transform.
+    "after": "Egal.",
 }
 
 
@@ -303,7 +351,8 @@ def test_the_last_draw_stops_asking_for_the_format_that_keeps_failing(attributed
     client, calls = _client_queue(dauerhaft_schlecht)
     generate_grammar_from_source(client, "m", _ctx(), _TOPIC, 4, locale="de")
 
-    assert len(calls) == 3
+    # Three generation attempts plus the one verdict call at the end.
+    assert len(calls) == 4
     dritter = calls[2][0]["content"]
     assert 'of kind "choice"' not in dritter, "diese Art scheitert, sie noch einmal zu bestellen bringt nichts"
     assert 'of kind "transform"' in dritter, "die Umformung hat geliefert, sie fuellt auf"
@@ -322,10 +371,30 @@ def test_the_count_stands_even_when_one_format_never_works(attributed):
     assert len(items) == 4
 
 
-def test_a_full_draw_costs_no_second_call(attributed):
+def test_a_full_draw_costs_no_second_generation_call(attributed):
+    """One generation call plus the one verdict call at the end, no top-up round."""
     client, calls = _client_queue(json.dumps({"title": "T", "exercises": _GOOD_FOUR}))
     generate_grammar_from_source(client, "m", _ctx(), _TOPIC, 4, locale="de")
-    assert len(calls) == 1
+    assert len(calls) == 2
+
+
+def test_an_item_the_verifier_rejects_is_dropped(attributed):
+    """The model-based check catches what no code filter can: a sentence that only
+    reads wrong once the answer sits in it."""
+    gen = json.dumps({"title": "T", "exercises": [
+        {"kind": "transform", "before": "Der Server speichert die Messwerte.",
+         "after": "Die Messwerte werden vom Server gespeichert."},
+        {"kind": "transform", "before": "Das Team prüft die Akte.",
+         "after": "Die Akte wird vom Team geprüft."},
+    ]})
+    verdict = json.dumps({"verdicts": [{"i": 0, "ok": False, "why": "kaputt"}]})
+    client, _ = _client_queue(gen, verdict)
+    # Both exercises share one kind, so the plan is met in a single generation
+    # call and the second call is unambiguously the verdict check.
+    items, _, _ = generate_grammar_from_source(
+        client, "m", _ctx(), _TOPIC, 2, locale="de", kinds=["transform"])
+    assert len(items) == 1
+    assert items[0]["front"].endswith("Das Team prüft die Akte.")
 
 
 def test_the_top_up_never_repeats_a_sentence(attributed):
@@ -528,26 +597,56 @@ def test_every_task_line_names_the_target_form(kind):
     assert "Passive present" in task_line(kind, "en", "Passive present")
 
 
-@pytest.mark.parametrize("kind", ["cloze", "choice"])
-def test_a_gap_shows_the_base_form_next_to_it(attributed, kind):
-    """Cloze and choice share the same gap, both take the same base-form hint."""
+def test_a_gap_shows_the_base_form_next_to_it(attributed):
+    """The base-form hint sits right after the gap, a hint a click could otherwise skip."""
     response = json.dumps({"title": "T", "exercises": [
-        {"kind": kind, "sentence": "Der Bericht wird vom Team geschrieben.",
+        {"kind": "cloze", "sentence": "Der Bericht wird vom Team geschrieben.",
          "form_span": "wird", "base_form": "werden"},
     ]})
     items, _, _, _ = _generate(response, count=1)
     assert "___ (werden)" in items[0]["front"]
 
 
-@pytest.mark.parametrize("kind", ["cloze", "choice"])
-def test_a_base_form_that_would_leak_the_answer_is_dropped(attributed, kind):
+def test_a_base_form_that_would_leak_the_answer_is_dropped(attributed):
     """A base form identical to the answer is not a hint, it is the solution."""
     response = json.dumps({"title": "T", "exercises": [
-        {"kind": kind, "sentence": "Der Bericht wird vom Team geschrieben.",
+        {"kind": "cloze", "sentence": "Der Bericht wird vom Team geschrieben.",
          "form_span": "wird", "base_form": "wird"},
     ]})
     items, _, _, _ = _generate(response, count=1)
     assert "(wird)" not in items[0]["front"]
+
+
+def test_a_choice_with_two_distinct_wrong_options_gets_three_options(attributed):
+    response = json.dumps({"title": "T", "exercises": [
+        {"kind": "choice", "before": "Das Team schreibt den Bericht.",
+         "after": "Der Bericht wird vom Team geschrieben.",
+         "wrong": ["Der Bericht wurde vom Team geschrieben.",
+                   "Der Bericht ist vom Team geschrieben."]},
+    ]})
+    items, _, _, _ = _generate(response, count=1)
+    assert items[0]["options"] == [
+        "Der Bericht wird vom Team geschrieben.",
+        "Der Bericht wurde vom Team geschrieben.",
+        "Der Bericht ist vom Team geschrieben.",
+    ]
+    assert items[0]["correct_idx"] == 0
+
+
+@pytest.mark.parametrize("wrong", [
+    [],
+    ["Der Bericht wird vom Team geschrieben."],  # repeats the correct answer
+    ["Egal.", "Egal."],  # the same wrong sentence twice is only one real option
+    ["Was schreibt das Team?", "Egal."],  # a question cannot be an option either
+])
+def test_a_choice_with_too_few_distinct_wrong_options_is_dropped(attributed, wrong):
+    """Fewer than two distinct, usable wrong options means no real choice to make."""
+    response = json.dumps({"title": "T", "exercises": [
+        {"kind": "choice", "before": "Das Team schreibt den Bericht.",
+         "after": "Der Bericht wird vom Team geschrieben.", "wrong": wrong},
+    ]})
+    items, _, _, _ = _generate(response, count=1)
+    assert items == []
 
 
 def test_an_unknown_language_falls_back_to_english(monkeypatch):

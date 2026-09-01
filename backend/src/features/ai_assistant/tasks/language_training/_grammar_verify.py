@@ -26,8 +26,8 @@ def _prompt(target_form: str, rule: str) -> str:
         f"Transformation rule: {rule}\n\n"
         "Mark an item ok=false ONLY when one of these three is true:\n"
         "1. With the solution in it, the sentence is not correct in its language: a word "
-        "is doubled, a verb is left over, a part is missing. Read it back before you "
-        "judge.\n"
+        "is doubled, a verb is left over, a part is missing, an adjective ending or word "
+        "order is wrong. Read it back before you judge.\n"
         "2. The sentence does not show the target form at all.\n"
         "3. The sentence only STATES a rule about grammar instead of using the form. "
         'For example "Das Verb steht im Relativsatz immer am Ende." is a claim about '
@@ -43,57 +43,20 @@ def _prompt(target_form: str, rule: str) -> str:
     )
 
 
-def solved_text(ex: dict) -> str:
-    """The sentence the learner is left with, or empty when there is none."""
-    # Fetched only here, an import at the module header would close a cycle.
-    from src.features.ai_assistant.tasks.language_training._source_grammar import GAP
-
-    kind = (ex.get("kind") or "").strip().lower()
-    if kind == "cloze":
-        sentence = (ex.get("sentence") or "").strip()
-        answer = ex.get("answer")
-        answer = answer.strip() if isinstance(answer, str) else ""
-        answer = answer or _marked_option(ex)
-        return sentence.replace(GAP, answer) if sentence and answer else ""
-    if kind == "statement":
-        return (ex.get("statement") or "").strip()
-    if kind == "transform":
-        return (ex.get("after") or "").strip()
-    if kind == "choice":
-        return _marked_option(ex)
-    return ""
-
-
-def _marked_option(ex: dict) -> str:
-    """The option marked correct, or empty."""
-    options = ex.get("options") or []
-    idx = ex.get("correct_idx")
-    if not isinstance(idx, int) or isinstance(idx, bool):
-        return ""
-    if not 0 <= idx < len(options):
-        return ""
-    return str(options[idx]).strip()
-
-
-def _wrong_on_purpose(ex: dict) -> bool:
-    """Whether the exercise deliberately shows an error."""
-    return (ex.get("kind") or "").strip().lower() == "statement" and \
-        ex.get("answer") is False
-
-
-def verdicts(client, model, exercises: list[dict], target_form: str,
-             rule: str) -> list[bool]:
-    """Per exercise, whether it is usable, True when in doubt."""
-    if not exercises:
+def verdicts(client, model, texts: list[str], target_form: str, rule: str,
+             wrong_on_purpose: list[bool] | None = None) -> list[bool]:
+    """Per sentence, whether it is usable, True when in doubt."""
+    if not texts:
         return []
-    urteile = [True] * len(exercises)
+    urteile = [True] * len(texts)
+    markers = wrong_on_purpose or [False] * len(texts)
 
     lines = []
-    for i, ex in enumerate(exercises):
-        text = solved_text(ex)
+    for i, text in enumerate(texts):
+        text = (text or "").strip()
         if not text:
             continue
-        mark = f" ({_ON_PURPOSE})" if _wrong_on_purpose(ex) else ""
+        mark = f" ({_ON_PURPOSE})" if markers[i] else ""
         lines.append(f"{i}.{mark} {text}")
     if not lines:
         return urteile
@@ -106,7 +69,7 @@ def verdicts(client, model, exercises: list[dict], target_form: str,
             model=model, messages=messages, temperature=0.2)
         data = json.loads(_clean_llm_json(response.choices[0].message.content or ""))
     except Exception as e:
-        logger.warning("KI Tutor: Grammatik-Prüfung ausgefallen, Aufgaben ungeprüft: {}", e)
+        logger.warning("KI Tutor: Grammatik-Pruefung ausgefallen, Aufgaben ungeprueft: {}", e)
         return urteile
 
     gemeldet = (data.get("verdicts") or []) if isinstance(data, dict) else []
@@ -114,13 +77,13 @@ def verdicts(client, model, exercises: list[dict], target_form: str,
         if not isinstance(entry, dict):
             continue
         i = entry.get("i")
-        if not isinstance(i, int) or isinstance(i, bool) or not 0 <= i < len(exercises):
+        if not isinstance(i, int) or isinstance(i, bool) or not 0 <= i < len(texts):
             continue
         if not _is_rejected(entry.get("ok")):
             continue
         urteile[i] = False
         logger.info("KI Tutor: Grammatik-Aufgabe verworfen ({}): {}",
-                    entry.get("why") or "kein Grund genannt", solved_text(exercises[i]))
+                    entry.get("why") or "kein Grund genannt", texts[i])
     return urteile
 
 

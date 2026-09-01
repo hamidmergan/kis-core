@@ -39,6 +39,12 @@ _PROMPT = (
     "No quotes and no sentence.\n"
     "- Give exactly ONE example. 'before' and 'after' are each ONE sentence and must "
     "differ from each other, otherwise there is nothing to practise.\n"
+    "- 'before' and 'after' must not say the same thing twice. If a word from "
+    "'before' stays in 'after' unchanged, do not also insert a re-inflected copy of "
+    "that same word elsewhere in 'after': \"Das Studienangebot ist groß.\" -> \"Das "
+    "große Studienangebot ist groß.\" keeps \"ist groß\" and adds \"große\", so it "
+    "says big twice. Rebuild the sentence so the predicate becomes the attribute "
+    "instead of sitting there twice: \"Wir bewerben das große Studienangebot.\"\n"
     "- Write the example in {language}, whatever language the topic name is written in.\n"
     "- Use no personal names. Write 'die Dozentin', 'das Team' or 'the lecturer' "
     "instead, matching the output language.\n"
@@ -108,4 +114,23 @@ def is_usable_pair(pair) -> bool:
     after = (pair.get("after") or "").strip()
     if not before or not after:
         return False
-    return normalize(before) != normalize(after)
+    if normalize(before) == normalize(after):
+        return False
+    return not _repeats_a_word(before, after)
+
+
+# Below this length a word (an article, a preposition) is too common to mean anything.
+_MIN_STEM_CHARS = 3
+
+
+def _repeats_a_word(before: str, after: str) -> bool:
+    """Whether 'after' adds a re-inflected copy of a word 'before' already carries unchanged."""
+    before_words = normalize(before).split()
+    after_words = normalize(after).split()
+    unchanged = [w for w in after_words if w in before_words]
+    inserted = [w for w in after_words if w not in before_words]
+    return any(
+        len(old) >= _MIN_STEM_CHARS and new != old
+        and (new.startswith(old) or old.startswith(new))
+        for new in inserted for old in unchanged
+    )

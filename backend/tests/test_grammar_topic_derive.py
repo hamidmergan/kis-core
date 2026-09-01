@@ -63,6 +63,28 @@ def test_an_example_that_changes_nothing_is_refused():
     assert derive_topic(client, "m", "Irgendwas", "de") is None
 
 
+def test_an_example_that_says_the_same_thing_twice_is_refused():
+    """Keeping the predicate and adding the same word again as an attribute is not a real change."""
+    client, _ = _client(json.dumps({
+        "is_grammar": True, "rule": "r",
+        "examples": [{"before": "Das Studienangebot ist groß.",
+                      "after": "Das große Studienangebot ist groß."}],
+    }))
+    assert derive_topic(client, "m", "Adjektivdeklination", "de") is None
+
+
+def test_a_genuine_restructuring_is_kept():
+    """A word moving from predicate to attribute is fine once the predicate is gone."""
+    client, _ = _client(json.dumps({
+        "is_grammar": True, "rule": "r",
+        "examples": [{"before": "Das Studienangebot ist groß.",
+                      "after": "Wir bewerben das große Studienangebot."}],
+    }))
+    out = derive_topic(client, "m", "Adjektivdeklination", "de")
+    assert out is not None
+    assert out["examples"][0]["after"] == "Wir bewerben das große Studienangebot."
+
+
 def test_an_answer_without_any_example_is_refused():
     client, _ = _client(json.dumps({"is_grammar": True, "rule": "r", "examples": []}))
     assert derive_topic(client, "m", "Konjunktiv II", "de") is None
@@ -192,3 +214,8 @@ def test_a_word_order_mnemonic_counts_as_grammar():
 def test_the_rule_is_asked_to_name_every_standard_construction():
     """The label narrows to one form, but the rule must still name sibling constructions."""
     assert "more than one standard construction" in _PROMPT
+
+
+def test_the_prompt_warns_against_saying_the_same_thing_twice():
+    """A worked pair that just re-inflects and repeats the same word teaches nothing."""
+    assert "same thing twice" in _PROMPT
