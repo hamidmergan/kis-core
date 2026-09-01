@@ -1581,7 +1581,7 @@
     },
     "toolContextBudgetCard": {
       "title": "Tools Kontext-Budget",
-      "hint": "Wie viel Text aus den Materialien (in Zeichen) die Lern-Tools (Mindmap, Datentabelle, Lernkarten, Karteikarten, Grammatikübungen, Wortschatzübungen, Quiz) ins Modell geben. Getrennt vom Chat-Budget, weil ein Tool ein ganzes Dokument in einem Aufruf verarbeitet. Der Wert wird durch die Anzahl der ausgewählten Materialien geteilt. Default 250000 ist für mittlere Modelle sicher. Höher setzen (z.B. 450000 oder 900000) nur, wenn ein Modell mit großem Kontext läuft. Der Wert wird zusätzlich auf das gemessene Kontextfenster des Modells gekürzt.",
+      "hint": "Wie viel Text aus den Materialien (in Zeichen) die Lern-Tools (Mindmap, Datentabelle, Lernkarten, Karteikarten, Grammatikübung, Wortschatzübung, Quiz) ins Modell geben. Getrennt vom Chat-Budget, weil ein Tool ein ganzes Dokument in einem Aufruf verarbeitet. Der Wert wird durch die Anzahl der ausgewählten Materialien geteilt. Default 250000 ist für mittlere Modelle sicher. Höher setzen (z.B. 450000 oder 900000) nur, wenn ein Modell mit großem Kontext läuft. Der Wert wird zusätzlich auf das gemessene Kontextfenster des Modells gekürzt.",
       "unit": "Zeichen",
       "approxTokens": "≈ {n}k Token",
       "outOfRange": "Wert muss zwischen 1000 und 1000000 liegen.",
@@ -2323,8 +2323,8 @@
         "tools": {
           "flashcards": "Lernkarten",
           "karteikarten": "Karteikarten",
-          "grammar": "Grammatikübungen",
-          "vocabulary": "Wortschatzübungen",
+          "grammar": "Grammatikübung",
+          "vocabulary": "Wortschatzübung",
           "quiz": "Quiz",
           "exerciseFallback": "Übung"
         },
@@ -2791,8 +2791,8 @@
           "dataTable": "Datentabelle",
           "mindmap": "Mindmap",
           "lernkarten": "Lernkarten",
-          "vocabulary": "Wortschatzübungen",
-          "grammar": "Grammatikübungen"
+          "vocabulary": "Wortschatzübung",
+          "grammar": "Grammatikübung"
         },
         "tileDescriptions": {
           "karteikarten": "Karten mit Frage und Antwort aus den ausgewählten Materialien erstellen",
@@ -2944,8 +2944,8 @@
       "langTools": {
         "flashcards": "Lernkarten",
         "karteikarten": "Karteikarten",
-        "grammatik": "Grammatikübungen",
-        "wortschatz": "Wortschatzübungen",
+        "grammatik": "Grammatikübung",
+        "wortschatz": "Wortschatzübung",
         "quiz": "Quiz"
       }
     },
