@@ -120,6 +120,12 @@ def redeem(payload: RedeemPayload, response: Response, locale: str = Depends(get
         database.remove_from_whitelist(sitzungsdaten["email"])
         raise HTTPException(status_code=500, detail=t("access.createFailed", locale))
     sitzungsdaten["access_expires_at"] = frist.isoformat() if frist else None
+
+    # Testers get a working example right away, without a demo account this is simply a no-op.
+    for kurs in database.get_demo_workspaces(sitzungsdaten["user_id"]):
+        if not kurs["joined"] and not kurs["owned"]:
+            database.enroll_student(kurs["id"], sitzungsdaten["user_id"], None, via_demo=True)
+
     _set_session(response, sitzungsdaten)
 
     logger.info("access code redeemed for uid={} until={}", uid, frist.date() if frist else "never")

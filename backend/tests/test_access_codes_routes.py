@@ -85,6 +85,7 @@ def test_redeeming_creates_the_account_and_sets_the_deadline(client):
              "email": "ab234567@demo.kis.local", "role": "staff", "custom_role_id": None,
          }) as anlegen, \
          patch("src.routes.access_codes.repo.set_user_access") as frist, \
+         patch("src.routes.access_codes.database.get_demo_workspaces", return_value=[]), \
          _sitzung() as sitzung:
         sitzung.return_value.create.return_value = "sitzungsschluessel"
         r = client.post("/access-codes/redeem", json=GUELTIG)
@@ -111,7 +112,9 @@ def test_redeeming_returns_a_generated_password_that_is_not_empty(client):
              "user_id": 42, "username": "ab234567", "display_name": "ab234567",
              "email": "ab234567@demo.kis.local", "role": "staff", "custom_role_id": None,
          }), \
-         patch("src.routes.access_codes.repo.set_user_access"), _sitzung():
+         patch("src.routes.access_codes.repo.set_user_access"), \
+         patch("src.routes.access_codes.database.get_demo_workspaces", return_value=[]), \
+         _sitzung():
         r = client.post("/access-codes/redeem", json=GUELTIG)
 
     assert r.status_code == 200
@@ -127,6 +130,7 @@ def test_redeeming_with_an_unlimited_code_sets_no_deadline(client):
              "email": "max.mustermann@demo.kis.local", "role": "staff", "custom_role_id": None,
          }), \
          patch("src.routes.access_codes.repo.set_user_access") as frist, \
+         patch("src.routes.access_codes.database.get_demo_workspaces", return_value=[]), \
          _sitzung() as sitzung:
         sitzung.return_value.create.return_value = "sitzungsschluessel"
         r = client.post("/access-codes/redeem", json=GUELTIG)
@@ -134,6 +138,66 @@ def test_redeeming_with_an_unlimited_code_sets_no_deadline(client):
     assert r.status_code == 200
     assert frist.call_args.kwargs["expires_at"] is None
     assert sitzung.return_value.create.call_args.kwargs["data"]["access_expires_at"] is None
+
+
+def test_redeeming_joins_the_open_demo_workspaces(client):
+    kurs = {"id": 5, "uuid": "w5", "joined": False, "owned": False}
+    with patch("src.routes.access_codes.repo.get_code_by_code", return_value=_code()), \
+         patch("src.routes.access_codes.database.get_user_by_username", return_value=None), \
+         patch("src.routes.access_codes.repo.claim_use", return_value=True), \
+         patch("src.routes.access_codes.provision_account", return_value={
+             "user_id": 42, "username": "ab234567", "display_name": "ab234567",
+             "email": "ab234567@demo.kis.local", "role": "staff", "custom_role_id": None,
+         }), \
+         patch("src.routes.access_codes.repo.set_user_access"), \
+         patch("src.routes.access_codes.database.get_demo_workspaces", return_value=[kurs]), \
+         patch("src.routes.access_codes.database.enroll_student") as einschreiben, \
+         _sitzung():
+        r = client.post("/access-codes/redeem", json=GUELTIG)
+
+    assert r.status_code == 200
+    einschreiben.assert_called_once_with(5, 42, None, via_demo=True)
+
+
+def test_redeeming_skips_a_workspace_already_joined_or_owned(client):
+    kurse = [
+        {"id": 5, "uuid": "w5", "joined": True, "owned": False},
+        {"id": 6, "uuid": "w6", "joined": False, "owned": True},
+    ]
+    with patch("src.routes.access_codes.repo.get_code_by_code", return_value=_code()), \
+         patch("src.routes.access_codes.database.get_user_by_username", return_value=None), \
+         patch("src.routes.access_codes.repo.claim_use", return_value=True), \
+         patch("src.routes.access_codes.provision_account", return_value={
+             "user_id": 42, "username": "ab234567", "display_name": "ab234567",
+             "email": "ab234567@demo.kis.local", "role": "staff", "custom_role_id": None,
+         }), \
+         patch("src.routes.access_codes.repo.set_user_access"), \
+         patch("src.routes.access_codes.database.get_demo_workspaces", return_value=kurse), \
+         patch("src.routes.access_codes.database.enroll_student") as einschreiben, \
+         _sitzung():
+        r = client.post("/access-codes/redeem", json=GUELTIG)
+
+    assert r.status_code == 200
+    einschreiben.assert_not_called()
+
+
+def test_redeeming_without_a_demo_module_still_succeeds(client):
+    """No demo account set up: the loop finds nothing, nobody gets assigned."""
+    with patch("src.routes.access_codes.repo.get_code_by_code", return_value=_code()), \
+         patch("src.routes.access_codes.database.get_user_by_username", return_value=None), \
+         patch("src.routes.access_codes.repo.claim_use", return_value=True), \
+         patch("src.routes.access_codes.provision_account", return_value={
+             "user_id": 42, "username": "ab234567", "display_name": "ab234567",
+             "email": "ab234567@demo.kis.local", "role": "staff", "custom_role_id": None,
+         }), \
+         patch("src.routes.access_codes.repo.set_user_access"), \
+         patch("src.routes.access_codes.database.get_demo_workspaces", return_value=[]), \
+         patch("src.routes.access_codes.database.enroll_student") as einschreiben, \
+         _sitzung():
+        r = client.post("/access-codes/redeem", json=GUELTIG)
+
+    assert r.status_code == 200
+    einschreiben.assert_not_called()
 
 
 def test_redeeming_picks_a_free_user_name(client):
@@ -147,7 +211,9 @@ def test_redeeming_picks_a_free_user_name(client):
              "user_id": 42, "username": "ab2345672", "display_name": "ab2345672",
              "email": "ab2345672@demo.kis.local", "role": "staff", "custom_role_id": None,
          }) as anlegen, \
-         patch("src.routes.access_codes.repo.set_user_access"), _sitzung():
+         patch("src.routes.access_codes.repo.set_user_access"), \
+         patch("src.routes.access_codes.database.get_demo_workspaces", return_value=[]), \
+         _sitzung():
         r = client.post("/access-codes/redeem", json=GUELTIG)
 
     assert r.status_code == 200
@@ -259,7 +325,9 @@ def test_a_code_with_a_living_custom_role_still_works(client):
              "user_id": 42, "username": "max.mustermann", "display_name": "Max Mustermann",
              "email": "max.mustermann@demo.kis.local", "role": "custom", "custom_role_id": 9,
          }) as anlegen, \
-         patch("src.routes.access_codes.repo.set_user_access"), _sitzung():
+         patch("src.routes.access_codes.repo.set_user_access"), \
+         patch("src.routes.access_codes.database.get_demo_workspaces", return_value=[]), \
+         _sitzung():
         r = client.post("/access-codes/redeem", json=GUELTIG)
 
     assert r.status_code == 200
