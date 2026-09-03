@@ -3224,6 +3224,13 @@
     "title": "Willkommen bei KIS",
     "cta": "Los geht's"
   },
+  "internationalPrompt": {
+    "title": "Internationaler Studierender?",
+    "body": "Lernst du die Kurssprache noch? Dann stellt KIS dir einen Sprachtrainer bereit. Er baut Lernkarten, Wortschatz- und Grammatikübungen aus den Materialien deiner Module und passt den Chat an dein Niveau an.\n\nWenn du Ja sagst, machst du jetzt einen kurzen Sprachtest. Du kannst das im Profil jederzeit ändern.",
+    "yes": "Ja, Sprachtest starten",
+    "no": "Nein",
+    "later": "Später"
+  },
   "layoutMeta": {
     "title": "KIS",
     "description": "KIS - Services der TH Lübeck",

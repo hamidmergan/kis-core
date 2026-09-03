@@ -3224,6 +3224,13 @@
     "title": "Welcome to KIS",
     "cta": "Get started"
   },
+  "internationalPrompt": {
+    "title": "International student?",
+    "body": "Are you still learning the course language? Then KIS offers you a language trainer. It builds vocabulary cards, vocabulary and grammar exercises from the materials of your modules and pitches the chat at your level.\n\nIf you say yes, you take a short language test now. You can change this in your profile at any time.",
+    "yes": "Yes, start the language test",
+    "no": "No",
+    "later": "Later"
+  },
   "layoutMeta": {
     "title": "KIS",
     "description": "KIS - Services of TH Lübeck",

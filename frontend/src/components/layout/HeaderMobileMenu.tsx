@@ -9,6 +9,7 @@ import type { Locale } from "@/i18n/routing";
 import { HOME_NOTICE_DISMISS_KEY, HOME_NOTICE_SHOW_EVENT, UI_LOCALES } from "@/lib/constants";
 import { useTheme, type Theme } from "@/hooks/useTheme";
 import { findeRundgangKurs, rundgangZiel } from "@/lib/tour";
+import { persistLocale, rememberLocaleCookie } from "@/lib/switchLocale";
 
 const LOCALES = UI_LOCALES as readonly Locale[];
 const THEMES: readonly Theme[] = ["light", "dark"];
@@ -23,18 +24,6 @@ interface HeaderMobileMenuProps {
   showToolsToggle?: boolean;
   hasHomeNotice?: boolean;
   onLogout: () => void;
-}
-
-async function persistLocale(locale: Locale) {
-  try {
-    await fetch("/api/me/locale", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ locale }),
-    });
-  } catch {
-    // Silently fall back to cookie/URL when backend is unavailable.
-  }
 }
 
 export default function HeaderMobileMenu({ hasSession, isAdmin, areaKey = "admin", hasTools = false, hasAia = true, isLocalMode = false, showToolsToggle = false, hasHomeNotice = false, onLogout }: HeaderMobileMenuProps) {
@@ -75,8 +64,7 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, areaKey = "admin
   const chooseLocale = (next: Locale) => {
     setOpen(false);
     if (next === currentLocale) return;
-    // next-intl sets the language cookie only after startup, then the middleware bounces the first request.
-    document.cookie = `NEXT_LOCALE=${next}; path=/; max-age=${60 * 60 * 24 * 365}; SameSite=Lax`;
+    rememberLocaleCookie(next);
     router.replace(pathname, { locale: next });
     void persistLocale(next);
   };
