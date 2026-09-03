@@ -3049,11 +3049,11 @@
           },
           "hinweis": {
             "title": "A note for everyone",
-            "text": "The pin creates a note with text and links. It appears at the top of the list, visible to everyone in the module."
+            "text": "The pin creates a note with text and links. Everyone in the module opens it through the same pin."
           },
           "hinweisStudi": {
             "title": "The note from your teachers",
-            "text": "A pinned note with text and links sits at the very top. It applies to everyone in the module, a click folds it open and shut."
+            "text": "The pin opens the note from your teachers with text and links. It applies to everyone in the module."
           },
           "auswahl": {
             "title": "Ticks decide what counts",

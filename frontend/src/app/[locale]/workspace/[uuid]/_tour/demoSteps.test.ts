@@ -43,7 +43,7 @@ describe("Studierende ohne das Recht Module anzulegen", () => {
     expect(keys).not.toContain("schluss");
   });
 
-  it("sehen beim Hinweis den angepinnten Kasten statt der Pinnnadel", () => {
+  it("sehen beim Hinweis ihre eigene Pinnnadel, die den Hinweis nur öffnet", () => {
     const gefragt = seiteMitschreiben();
     demoSchritte(false).find((s) => s.key === "hinweisStudi")?.ziel?.();
     expect(gefragt).toEqual(['[data-tour="staff-note"]']);

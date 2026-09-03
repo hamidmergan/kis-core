@@ -3049,11 +3049,11 @@
           },
           "hinweis": {
             "title": "Ein Hinweis für alle",
-            "text": "Mit der Pinnnadel legst du einen Hinweis mit Text und Links an. Er erscheint oben in der Liste, für alle im Modul sichtbar."
+            "text": "Mit der Pinnnadel legst du einen Hinweis mit Text und Links an. Alle im Modul öffnen ihn über dieselbe Pinnnadel."
           },
           "hinweisStudi": {
             "title": "Der Hinweis deiner Lehrenden",
-            "text": "Ganz oben steht ein angepinnter Hinweis mit Text und Links. Er gilt für alle im Modul, ein Klick klappt ihn auf und zu."
+            "text": "Über die Pinnnadel öffnest du den Hinweis deiner Lehrenden mit Text und Links. Er gilt für alle im Modul."
           },
           "auswahl": {
             "title": "Häkchen bestimmen die Auswahl",
