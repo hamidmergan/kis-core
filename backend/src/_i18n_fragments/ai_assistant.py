@@ -18,6 +18,14 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Der Sprachtrainer ist in diesem Modul ausgeschaltet",
         "en": "The language trainer is switched off in this module",
     },
+    "ai.languageTraining.disabled": {
+        "de": "Der Sprachtrainer ist auf dieser Plattform ausgeschaltet",
+        "en": "The language trainer is switched off on this platform",
+    },
+    "ai.languageTraining.off": {
+        "de": "Der Sprachtrainer ist für dich ausgeschaltet. Schalte ihn im Profil ein und mach den Sprachtest.",
+        "en": "The language trainer is switched off for you. Switch it on in your profile and take the language test.",
+    },
     "ai.userSettings.popupTranslateLangInvalid": {
         "de": "Ungültige Zielsprache für die Übersetzung in der Auswahlleiste",
         "en": "Invalid target language for the selection-bar translation",
