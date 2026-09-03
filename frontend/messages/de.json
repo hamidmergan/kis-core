@@ -1470,8 +1470,8 @@
     },
     "languageTrainerCard": {
       "title": "Sprachtrainer",
-      "description": "Der Sprachtrainer ist ein Übungsbereich im Studio für alle, die dem Kurs in einer Fremdsprache folgen. Er enthält Lernkarten für Fachbegriffe und eine Grammatik-Übung, jeweils aus den Materialien des Moduls gebaut. Ist er eingeschaltet, wird der Sprachstand einmalig eingestuft, und Chat-Antworten sowie Aufgaben werden auf dieses Niveau angepasst. Der Sprachtrainer arbeitet ausschließlich auf Deutsch.",
-      "disabled": "Aus. Der Sprachtrainer taucht nirgendwo auf. Bereits getroffene Entscheidungen bleiben gespeichert und gelten wieder, sobald du hier einschaltest.",
+      "description": "Der Sprachtrainer ist ein Übungsbereich im Studio für alle, die dem Kurs in einer Fremdsprache folgen. Er enthält Lernkarten, Wortschatz- und Grammatikübungen, jeweils aus den Materialien des Moduls gebaut. Ist er eingeschaltet, wird jede Person mit Rolle Studierende beim ersten Anmelden gefragt, ob sie internationaler Studierender ist. Ja führt in den Sprachtest, das Niveau gilt in allen Modulen, Chat und Aufgaben passen sich daran an. Jede Person schaltet den Trainer in ihrem Profil ein oder aus. Der Sprachtrainer arbeitet ausschließlich auf Deutsch.",
+      "disabled": "Aus. Niemand wird gefragt, und der Sprachtrainer taucht nirgendwo auf. Getroffene Entscheidungen und Niveaus bleiben gespeichert und gelten wieder, sobald du hier einschaltest.",
       "toggleAria": "Sprachtrainer umschalten"
     },
     "ocrCard": {

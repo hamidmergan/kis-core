@@ -3,7 +3,12 @@
 The language test estimates how well you already know the language. The result is a level from
 A1 to C2.
 
-![A question in the language test](/manual/de/language-test.png)
+![A question in the language test](/manual/{lang}/language-test.png)
+
+## When it comes
+
+At your first login KIS asks whether you are an international student. Yes starts the test at
+once. Whoever picks no or later catches up in the profile, through the language trainer switch.
 
 ## How it runs
 
@@ -15,13 +20,13 @@ At the end your level stands there with a short reasoning.
 
 ## In which language
 
-The administration sets the language of the test. The AI asks in that language and checks in
-that language too. German is the default.
+The test is in German. Questions and grading too, this cannot be changed.
 
 ## What the result does
 
-The level steers how hard the exercises in the language trainer turn out and how thoroughly the
-chat explains. It is not an examination.
+The level applies in every module. It steers how hard the exercises in the language trainer
+turn out and how thoroughly the chat explains. In the profile you can reset the level and take
+the test again. It is not an examination.
 
 ## How reliable it is
 

@@ -1470,8 +1470,8 @@
     },
     "languageTrainerCard": {
       "title": "Language trainer",
-      "description": "The language trainer is a practice area in the studio for everyone following the course in a foreign language. It holds vocabulary cards for technical terms and a grammar exercise, each built from the module sources. While it is on, every reader is assessed once and chat answers as well as exercises are pitched at that level. The language trainer works in German only.",
-      "disabled": "Off. The language trainer appears nowhere. Choices already made stay stored and apply again as soon as you switch this on.",
+      "description": "The language trainer is a practice area in the studio for everyone following the course in a foreign language. It holds vocabulary cards, vocabulary and grammar exercises, each built from the module materials. While it is on, every person with the student role is asked at first login whether they are an international student. Yes leads into the language test, the level applies in every module, chat and exercises are pitched at it. Everyone switches the trainer on or off in their profile. The language trainer works in German only.",
+      "disabled": "Off. Nobody is asked and the language trainer appears nowhere. Choices and levels already made stay stored and apply again as soon as you switch this on.",
       "toggleAria": "Toggle language trainer"
     },
     "ocrCard": {

@@ -5,6 +5,12 @@ von A1 bis C2.
 
 ![Eine Frage im Sprach-Test](/manual/{lang}/language-test.png)
 
+## Wann er kommt
+
+Beim ersten Anmelden fragt KIS, ob Sie internationaler Studierender sind. Mit Ja startet der
+Test sofort. Wer Nein oder Später wählt, holt ihn im Profil nach, über den Schalter
+Sprachtrainer.
+
 ## Wie er abläuft
 
 Die KI stellt nacheinander ein paar Fragen. Zwei Arten kommen vor: Fragen zum Anklicken und
@@ -15,13 +21,13 @@ Am Ende steht Ihre Stufe mit einer kurzen Begründung.
 
 ## In welcher Sprache
 
-Die Sprache des Tests stellt die Verwaltung ein. In dieser Sprache stellt die KI die Fragen und
-in dieser Sprache prüft sie auch. Voreingestellt ist Deutsch.
+Der Test ist auf Deutsch. Fragen und Bewertung ebenso, das lässt sich nicht umstellen.
 
 ## Was das Ergebnis bewirkt
 
-Die Stufe steuert, wie schwer die Übungen im Sprachtrainer ausfallen und wie ausführlich der
-Chat erklärt. Sie ist keine Prüfungsleistung.
+Die Stufe gilt in allen Modulen. Sie steuert, wie schwer die Übungen im Sprachtrainer ausfallen
+und wie ausführlich der Chat erklärt. Im Profil können Sie das Niveau zurücksetzen und den Test
+neu machen. Sie ist keine Prüfungsleistung.
 
 ## Wie verlässlich das ist
 

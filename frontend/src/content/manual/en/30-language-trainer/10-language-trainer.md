@@ -6,19 +6,15 @@ For everybody still learning the language of the course. Three tools in the stud
 cards, vocabulary exercises, grammar exercises. All built from the materials of the module,
 matched to your own level.
 
-## Two switches, not one
+## One switch, in the profile
 
-1. The administration releases it in the module
-2. Every person switches it on in their own settings
+The language trainer hangs on you, not on the module. You switch it on once in your profile,
+then it applies in every module. KIS asks you about it at your first login.
 
-Without the first nobody sees anything. After the first only those see it who flip the second
-themselves.
+Without the language test it stays closed. Only with a level do the three tools appear in the
+studio.
 
-## What the administration has to watch
+## What the administration decides
 
-Grammar exercises need fitting materials about the grammar of the course language. Without them
-the exercises are useless. So only release it once you know what sits in the module.
-
-## The placement
-
-The first time you switch it on you are placed once, if you have no level yet.
+Only whether the platform offers the language trainer at all. If it is off there, nobody is
+asked and nobody sees it.
