@@ -19,7 +19,8 @@
     "calendar": "Calendar",
     "settingsMenu": "Settings",
     "sectionAppearance": "Appearance",
-    "homeNoticeShow": "Show home notice"
+    "homeNoticeShow": "Show home notice",
+    "profile": "Profile"
   },
   "footer": {
     "aiNotice": "This platform uses AI and may make mistakes. Please verify the responses.",
@@ -3232,6 +3233,24 @@
     "later": "Later"
   },
   "profile": {
+    "title": "Profile",
+    "displayName": "Name",
+    "username": "Username",
+    "email": "Email",
+    "noEmail": "none",
+    "role": "Role",
+    "roleAdmin": "Administrator",
+    "roleStaff": "Lecturer",
+    "roleUser": "Student",
+    "languageTraining": {
+      "switchTitle": "Language trainer",
+      "switchDescription": "For everyone still learning the course language. Vocabulary cards, vocabulary and grammar exercises from the materials of your modules, plus a chat pitched at your level. Applies in every module.",
+      "levelLabel": "Your level",
+      "levelSince": "since {date}",
+      "redo": "Reset the level and take the test again",
+      "noLevel": "No level yet. You see the language trainer in the modules only after the language test.",
+      "takeTest": "Take the language test"
+    },
     "languageTest": {
       "notOffered": "The language trainer is switched off for you. Switch it on in your profile, then you can take the test.",
       "toProfile": "To the profile"

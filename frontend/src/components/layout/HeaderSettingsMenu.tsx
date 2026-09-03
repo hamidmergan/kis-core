@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { Check, Compass, Gear, Info, Moon, Question, SignOut, Sun, UserCircleGear } from "@phosphor-icons/react";
+import { Check, Compass, Gear, Info, Moon, Question, SignOut, Sun, UserCircle, UserCircleGear } from "@phosphor-icons/react";
 import { useRouter, usePathname } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
 import { HOME_NOTICE_DISMISS_KEY, HOME_NOTICE_SHOW_EVENT, UI_LOCALES } from "@/lib/constants";
@@ -234,12 +234,25 @@ export default function HeaderSettingsMenu({ isAdmin = false, areaKey = "admin",
 
           <Link
             data-row
-            href="/manual"
+            href="/profile"
             role="menuitem"
             tabIndex={-1}
             onClick={() => setOpen(false)}
             className={rowClass}
             style={{ color: "var(--foreground)", ...(!hasHomeNotice ? { borderTop: "1px solid var(--border)", marginTop: 4 } : {}) }}
+          >
+            <UserCircle size={18} weight="bold" aria-hidden="true" />
+            <span className="flex-1">{t("profile")}</span>
+          </Link>
+
+          <Link
+            data-row
+            href="/manual"
+            role="menuitem"
+            tabIndex={-1}
+            onClick={() => setOpen(false)}
+            className={rowClass}
+            style={{ color: "var(--foreground)" }}
           >
             <Question size={18} weight="bold" aria-hidden="true" />
             <span className="flex-1">{tManual("title")}</span>

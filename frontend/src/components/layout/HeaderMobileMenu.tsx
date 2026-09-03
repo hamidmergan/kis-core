@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { CalendarBlank, CaretRight, Check, Compass, Info, List, Moon, Question, Sidebar, SignOut, Stack, Sun, UserCircleGear, X } from "@phosphor-icons/react";
+import { CalendarBlank, CaretRight, Check, Compass, Info, List, Moon, Question, Sidebar, SignOut, Stack, Sun, UserCircle, UserCircleGear, X } from "@phosphor-icons/react";
 import { useRouter, usePathname } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
 import { HOME_NOTICE_DISMISS_KEY, HOME_NOTICE_SHOW_EVENT, UI_LOCALES } from "@/lib/constants";
@@ -236,10 +236,21 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, areaKey = "admin
           )}
           {hasSession && (
             <Link
-              href="/manual"
+              href="/profile"
               onClick={() => setOpen(false)}
               className={rowClass}
               style={{ color: "var(--foreground)", ...(!hasHomeNotice ? { borderTop: "1px solid var(--border)", marginTop: 4 } : {}) }}
+            >
+              <UserCircle size={20} weight="bold" />
+              <span>{t("profile")}</span>
+            </Link>
+          )}
+          {hasSession && (
+            <Link
+              href="/manual"
+              onClick={() => setOpen(false)}
+              className={rowClass}
+              style={{ color: "var(--foreground)" }}
             >
               <Question size={20} weight="bold" />
               <span>{tManual("title")}</span>

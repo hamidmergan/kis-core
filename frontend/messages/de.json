@@ -19,7 +19,8 @@
     "calendar": "Kalender",
     "settingsMenu": "Einstellungen",
     "sectionAppearance": "Ansicht",
-    "homeNoticeShow": "Startseite-Hinweis anzeigen"
+    "homeNoticeShow": "Startseite-Hinweis anzeigen",
+    "profile": "Profil"
   },
   "footer": {
     "aiNotice": "Diese Plattform nutzt KI und kann Fehler machen. Überprüfen Sie die Antworten.",
@@ -3232,6 +3233,24 @@
     "later": "Später"
   },
   "profile": {
+    "title": "Profil",
+    "displayName": "Name",
+    "username": "Kennung",
+    "email": "E-Mail",
+    "noEmail": "keine",
+    "role": "Rolle",
+    "roleAdmin": "Administration",
+    "roleStaff": "Lehrende",
+    "roleUser": "Studierende",
+    "languageTraining": {
+      "switchTitle": "Sprachtrainer",
+      "switchDescription": "Für alle, die die Kurssprache noch lernen. Lernkarten, Wortschatz- und Grammatikübungen aus den Materialien deiner Module, dazu ein Chat auf deinem Niveau. Gilt in allen Modulen.",
+      "levelLabel": "Dein Niveau",
+      "levelSince": "seit {date}",
+      "redo": "Niveau zurücksetzen und neu machen",
+      "noLevel": "Noch kein Niveau. Erst nach dem Sprachtest siehst du den Sprachtrainer in den Modulen.",
+      "takeTest": "Sprachtest machen"
+    },
     "languageTest": {
       "notOffered": "Der Sprachtrainer ist für dich ausgeschaltet. Schalte ihn im Profil ein, dann kannst du den Test machen.",
       "toProfile": "Zum Profil"
