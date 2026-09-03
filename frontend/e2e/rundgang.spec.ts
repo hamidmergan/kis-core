@@ -101,6 +101,18 @@ async function alsGastImDemoKurs(
   }
 }
 
+/**
+ * Clicks "Weiter" at a human pace.
+ *
+ * The demo tour drops a click that follows the last jump within half a
+ * second, that is how it swallows double clicks. A test that clicks the
+ * moment the next station appears would look like exactly that.
+ */
+async function weiterKlicken(page: import("@playwright/test").Page) {
+  await page.waitForTimeout(600);
+  await page.locator(".driver-popover-next-btn").click();
+}
+
 async function tourOeffnen(page: import("@playwright/test").Page, locale: "de" | "en") {
   // Der Rundgang startet ueber die Adresse, im Kopfmenue haengt derselbe Weg.
   await page.goto(`/${locale}/workspace/${WORKSPACE}?tour=1`, { waitUntil: "domcontentloaded" });
@@ -181,7 +193,7 @@ test("ein Abbruch mittendrin lässt die Einladung stehen", async ({ page, baseUR
 
     // Eine Station weiter und dann raus, so sieht ein ungeduldiger Abbruch aus.
     const stand = await page.locator(".driver-popover-progress-text").textContent();
-    await page.locator(".driver-popover-next-btn").click();
+    await weiterKlicken(page);
     await page.waitForFunction(
       (alt) => document.querySelector(".driver-popover-progress-text")?.textContent !== alt,
       stand,
@@ -257,7 +269,7 @@ test.describe("Rundgang im Demo-Modul", () => {
       if (!zeigtAufAnker) ohneZiel.push(titel[titel.length - 1]);
       const weiter = page.locator(".driver-popover-next-btn");
       const beschriftung = (await weiter.textContent())?.trim();
-      await weiter.click();
+      await weiterKlicken(page);
       if (beschriftung === "Fertig") break;
       await page
         .waitForFunction(
@@ -272,15 +284,101 @@ test.describe("Rundgang im Demo-Modul", () => {
     expect(titel[0]).toBe("Willkommen im Demo-Modul");
     expect(titel).toContain("Das Glossar");
     expect(titel).toContain("Video mit Transkript");
-    // Die Begruessung steht bewusst in der Mitte. Der Schluss ebenfalls, dort
-    // haengt aber noch die Markierung des vorigen Schrittes im Seitenbaum,
-    // deshalb taucht er hier nicht auf.
-    expect(ohneZiel).toEqual(["Willkommen im Demo-Modul"]);
+    // Begruessung und Schluss stehen bewusst in der Mitte, alles dazwischen zeigt auf etwas.
+    expect(ohneZiel).toEqual(["Willkommen im Demo-Modul", "Jetzt bist du dran"]);
     await expect(page.locator(POPOVER)).toHaveCount(0);
 
     // Bis zum Schluss durchgeklickt, das und nur das setzt den Merker.
     expect((await (await page.request.get("/api/me")).json()).tour_seen_at).not.toBeNull();
     await page.request.post("/api/me/tour-seen", { data: { seen: false } });
+  });
+
+  test("die Häkchen-Station findet die PDF auch in einem zugeklappten Kapitel", async ({ page }) => {
+    const kurse = await (await page.request.get("/api/ai-assistant/demo/workspaces")).json();
+    const kurs = kurse.find((k: { owned: boolean }) => !k.owned);
+    test.skip(!kurs, "In dieser Umgebung gibt es keinen fremden Demo-Kurs.");
+
+    await page.request.post("/api/ai-assistant/demo/enroll", { data: { workspace_uuid: kurs.uuid } });
+    const detail = await (await page.request.get(`/api/ai-assistant/workspaces/${kurs.uuid}`)).json();
+    const kapitel: string[] = (detail.chapters ?? []).map((c: { uuid: string }) => c.uuid);
+    test.skip(kapitel.length === 0, "Der Demo-Kurs hat keine Kapitel.");
+
+    // Alle Kapitel zu, so wie jemand die Liste beim letzten Besuch hinterlassen
+    // haben kann. Die Zeile der PDF steht dann gar nicht auf der Seite.
+    await page.addInitScript(
+      ([schluessel, wert]) => { localStorage.setItem(schluessel, wert); },
+      [`kis-chapters-closed-${kurs.uuid}`, JSON.stringify(kapitel)] as const,
+    );
+    await page.goto(`/de/workspace/${kurs.uuid}?tour=1`, { waitUntil: "domcontentloaded" });
+    await page.locator(POPOVER).waitFor({ timeout: 30_000 });
+
+    for (let i = 0; i < 20; i++) {
+      const titel = ((await page.locator(".driver-popover-title").textContent()) ?? "").trim();
+      if (titel.startsWith("Häkchen")) break;
+      const stand = await page.locator(".driver-popover-progress-text").textContent();
+      await weiterKlicken(page);
+      await page
+        .waitForFunction(
+          (alt) => document.querySelector(".driver-popover-progress-text")?.textContent !== alt,
+          stand,
+          { timeout: 20_000 },
+        )
+        .catch(() => {});
+    }
+
+    // Der Rundgang hat das Kapitel aufgeklappt und zeigt auf den Haken der PDF.
+    await expect(
+      page.getByRole("button", { name: "Kapitel zuklappen" }).filter({ hasText: "Einheit 1" }),
+    ).toHaveCount(1);
+    const haken = page
+      .locator('[data-tour="source-row"]', { hasText: "DEMO_Folien_01" })
+      .locator('[data-tour="source-check"]');
+    await expect(haken).toHaveClass(/driver-active-element/);
+    await expect(haken).toBeInViewport();
+    // Und nur diese eine PDF ist angehakt, so wie der Text der Station es sagt.
+    await expect(haken).toHaveAttribute("aria-label", "Material abwählen");
+    await expect(page.locator('[data-tour="source-check"][aria-label="Material abwählen"]')).toHaveCount(1);
+  });
+
+  test("ein Doppelklick auf Weiter überspringt keine Station", async ({ page }) => {
+    const kurse = await (await page.request.get("/api/ai-assistant/demo/workspaces")).json();
+    const kurs = kurse.find((k: { owned: boolean }) => !k.owned);
+    test.skip(!kurs, "In dieser Umgebung gibt es keinen fremden Demo-Kurs.");
+
+    await page.request.post("/api/ai-assistant/demo/enroll", { data: { workspace_uuid: kurs.uuid } });
+    await page.goto(`/de/workspace/${kurs.uuid}?tour=1`, { waitUntil: "domcontentloaded" });
+    await page.locator(POPOVER).waitFor({ timeout: 30_000 });
+
+    const weiter = page.locator(".driver-popover-next-btn");
+    const stand = page.locator(".driver-popover-progress-text");
+    // A real double click hits the same spot again blindly, without waiting for
+    // a button, so the second one goes in as raw mouse events.
+    const doppelklick = async () => {
+      const box = (await weiter.boundingBox())!;
+      await weiterKlicken(page);
+      await page.waitForTimeout(120);
+      await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    };
+
+    // Station 3 steht sofort, Station 7 oeffnet erst die PDF. Beide Male darf
+    // der zweite Klick keine Station ueberspringen, sonst fehlt deren Vorbereitung.
+    await doppelklick();
+    await expect(stand).toHaveText("Schritt 2 von 16");
+    await page.waitForTimeout(700);
+    await expect(stand).toHaveText("Schritt 2 von 16");
+    await doppelklick();
+    await expect(stand).toHaveText("Schritt 3 von 16");
+    for (let erwartet = 4; erwartet <= 6; erwartet++) {
+      await weiterKlicken(page);
+      await expect(stand).toHaveText(`Schritt ${erwartet} von 16`);
+    }
+    await doppelklick();
+    await expect(stand).toHaveText("Schritt 7 von 16");
+    await expect(page.locator(".driver-popover-title")).toHaveText("Text markieren");
+    await expect(page.locator('[data-tour="pdf-viewer"].driver-active-element')).toHaveCount(1);
+    await page.waitForTimeout(700);
+    await expect(stand).toHaveText("Schritt 7 von 16");
+    await expect(weiter).toBeEnabled();
   });
 
   test("auf schmalen Bildschirmen holt die Chat-Station den Chat nach vorn", async ({ page }) => {
@@ -299,7 +397,7 @@ test.describe("Rundgang im Demo-Modul", () => {
       const titel = ((await page.locator(".driver-popover-title").textContent()) ?? "").trim();
       if (titel.startsWith("Francis")) break;
       const stand = await page.locator(".driver-popover-progress-text").textContent();
-      await page.locator(".driver-popover-next-btn").click();
+      await weiterKlicken(page);
       await page
         .waitForFunction(
           (alt) => document.querySelector(".driver-popover-progress-text")?.textContent !== alt,
@@ -377,7 +475,7 @@ test.describe("Rundgang für Studierende", () => {
 
       for (let i = 0; i < 2; i++) {
         const stand = await page.locator(".driver-popover-progress-text").textContent();
-        await page.locator(".driver-popover-next-btn").click();
+        await weiterKlicken(page);
         await page
           .waitForFunction(
             (alt) => document.querySelector(".driver-popover-progress-text")?.textContent !== alt,
@@ -387,7 +485,7 @@ test.describe("Rundgang für Studierende", () => {
           .catch(() => {});
       }
 
-      // Statt der Pinnnadel zeigt der Rundgang den angepinnten Kasten selbst.
+      // Same station, but with the text written for readers.
       await expect(page.locator(".driver-popover-title")).toHaveText("Der Hinweis deiner Lehrenden");
       await expect(page.locator(".driver-popover")).not.toContainText("eigenes Modul");
     } finally {

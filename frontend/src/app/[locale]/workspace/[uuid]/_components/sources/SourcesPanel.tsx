@@ -23,8 +23,6 @@ import { groupState, isFullyReady, toggleGroupTargets } from "./_selection";
 import { EmptyState } from "@/components/ui/EmptyState";
 import IconButton from "@/components/ui/IconButton";
 
-const CLOSED_KEY_PREFIX = "kis-chapters-closed-";
-
 export function SourcesPanel({
   sources,
   selectedSourceIds,
@@ -51,6 +49,8 @@ export function SourcesPanel({
   onDeleteChapter,
   onMoveChapter,
   onSetSourceChapter,
+  closedChapters,
+  onToggleChapterOpen,
 }: {
   sources: Source[];
   selectedSourceIds: string[];
@@ -79,6 +79,9 @@ export function SourcesPanel({
   onDeleteChapter?: (uuid: string) => void;
   onMoveChapter?: (uuid: string, direction: "up" | "down") => void;
   onSetSourceChapter?: (sourceUuid: string, chapterUuid: string | null) => void;
+  /** Folded chapters, kept by the page so the tour can unfold one. */
+  closedChapters: string[];
+  onToggleChapterOpen: (chapterUuid: string) => void;
 }) {
   const t = useTranslations("workspace.detail.sources");
   const tPanels = useTranslations("workspace.detail.panels");
@@ -96,7 +99,6 @@ export function SourcesPanel({
   const [newChapterName, setNewChapterName] = useState("");
   const [newChapterError, setNewChapterError] = useState<string | null>(null);
   const [newChapterBusy, setNewChapterBusy] = useState(false);
-  const [closedChapters, setClosedChapters] = useState<string[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const noteLinks = staffNoteLinks ?? [];
   const hasNote = Boolean(staffNoteText?.trim()) || noteLinks.length > 0;
@@ -115,25 +117,9 @@ export function SourcesPanel({
     return () => ro.disconnect();
   }, []);
 
-  // Collapsed chapters survive a page change.
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(CLOSED_KEY_PREFIX + workspaceUuid);
-      if (saved) setClosedChapters(JSON.parse(saved));
-    } catch { /* ignore */ }
-  }, [workspaceUuid]);
-
   useEffect(() => {
     if (creatingChapter) newChapterRef.current?.focus();
   }, [creatingChapter]);
-
-  function toggleChapterOpen(uuid: string) {
-    setClosedChapters((prev) => {
-      const next = prev.includes(uuid) ? prev.filter((id) => id !== uuid) : [...prev, uuid];
-      try { localStorage.setItem(CLOSED_KEY_PREFIX + workspaceUuid, JSON.stringify(next)); } catch { /* ignore */ }
-      return next;
-    });
-  }
 
   const readySources = sources.filter(isFullyReady);
   const allSelected = readySources.length > 0 && readySources.every((s) => selectedSourceIds.includes(s.uuid));
@@ -473,7 +459,7 @@ export function SourcesPanel({
                     renaming={renameId === chapter.uuid}
                     onRenameStart={() => setRenameId(chapter.uuid)}
                     onRenameEnd={() => setRenameId(null)}
-                    onToggleOpen={() => toggleChapterOpen(chapter.uuid)}
+                    onToggleOpen={() => onToggleChapterOpen(chapter.uuid)}
                     onRename={onRenameChapter ?? (async () => {})}
                     onMove={onMoveChapter ?? (() => {})}
                     onDelete={setDeleteChapterTarget}

@@ -3037,7 +3037,7 @@
           },
           "materialien": {
             "title": "Der Materialbereich",
-            "text": "Hier liegen alle Materialien des Moduls. Studierende sehen dieselbe Liste, können aber nichts ändern."
+            "text": "Hier liegen alle Materialien des Moduls. Studierende sehen dieselbe Liste, können aber keine Materialien hinzufügen oder entfernen."
           },
           "materialienStudi": {
             "title": "Der Materialbereich",
@@ -3085,7 +3085,7 @@
           },
           "chat": {
             "title": "Francis, der Chat zum Modul",
-            "text": "Francis antwortet nur aus den angehakten Materialien, mit Beleg zu jeder Aussage."
+            "text": "Francis, dein KI-Assistent, antwortet nur aus den angehakten Materialien, mit Beleg zu jeder Aussage."
           },
           "werkzeuge": {
             "title": "Werkzeuge im Studio",
@@ -3093,11 +3093,11 @@
           },
           "statistik": {
             "title": "Statistik",
-            "text": "Hier siehst du, was geübt wurde und wie gut es sitzt. Ein paar Übungen sind schon für dich hinterlegt."
+            "text": "Hier siehst du, was geübt wurde und wie gut es sitzt. Ein paar Übungen sind beispielhaft hinterlegt."
           },
           "zeitplan": {
             "title": "Zeitplan",
-            "text": "Termine aus den Materialien sammeln sich hier. Über die Startseite siehst du im Kalender alle Termine aus all deinen Modulen."
+            "text": "Termine aus den Materialien sammeln sich hier. Über die Startseite erreichst du den Kalender mit allen Terminen aus all deinen Modulen."
           },
           "schluss": {
             "title": "Jetzt bist du dran",

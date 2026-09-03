@@ -1,7 +1,9 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { Chapter, Source } from "../_types";
+
+const CLOSED_KEY_PREFIX = "kis-chapters-closed-";
 
 interface UseChaptersOptions {
   uuid: string;
@@ -9,9 +11,38 @@ interface UseChaptersOptions {
   setSources: (updater: (prev: Source[]) => Source[]) => void;
 }
 
-/** Create, rename, move and delete chapters and assign files. */
+/** Create, rename, move and delete chapters, assign files, fold and unfold. */
 export function useChapters({ uuid, setSources }: UseChaptersOptions) {
   const [chapters, setChapters] = useState<Chapter[]>([]);
+  const [closedChapters, setClosedChapters] = useState<string[]>([]);
+
+  // Collapsed chapters survive a page change.
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(CLOSED_KEY_PREFIX + uuid);
+      setClosedChapters(saved ? JSON.parse(saved) : []);
+    } catch {
+      setClosedChapters([]);
+    }
+  }, [uuid]);
+
+  const merkeGeschlossen = useCallback((next: string[]) => {
+    try { localStorage.setItem(CLOSED_KEY_PREFIX + uuid, JSON.stringify(next)); } catch { /* ignore */ }
+    return next;
+  }, [uuid]);
+
+  const toggleChapterOpen = useCallback((chapterUuid: string) => {
+    setClosedChapters((prev) => merkeGeschlossen(
+      prev.includes(chapterUuid) ? prev.filter((id) => id !== chapterUuid) : [...prev, chapterUuid],
+    ));
+  }, [merkeGeschlossen]);
+
+  /** Unfolds one chapter, the tour needs a row that may sit in a folded one. */
+  const openChapter = useCallback((chapterUuid: string) => {
+    setClosedChapters((prev) =>
+      prev.includes(chapterUuid) ? merkeGeschlossen(prev.filter((id) => id !== chapterUuid)) : prev,
+    );
+  }, [merkeGeschlossen]);
 
   const createChapter = useCallback(async (name: string) => {
     const res = await fetch(`/api/ai-assistant/workspaces/${uuid}/chapters`, {
@@ -84,6 +115,7 @@ export function useChapters({ uuid, setSources }: UseChaptersOptions) {
 
   return {
     chapters, setChapters,
+    closedChapters, toggleChapterOpen, openChapter,
     createChapter, renameChapter, deleteChapter, moveChapter, setSourceChapter,
   };
 }

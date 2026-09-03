@@ -3037,7 +3037,7 @@
           },
           "materialien": {
             "title": "The materials area",
-            "text": "Every material of the module sits here. Students see the same list, they just cannot change it."
+            "text": "Every material of the module sits here. Students see the same list, but they cannot add or remove materials."
           },
           "materialienStudi": {
             "title": "The materials area",
@@ -3085,7 +3085,7 @@
           },
           "chat": {
             "title": "Francis, the chat for the module",
-            "text": "Francis answers only from the ticked materials, with a citation for every statement."
+            "text": "Francis, your AI assistant, answers only from the ticked materials, with a citation for every statement."
           },
           "werkzeuge": {
             "title": "Tools in the studio",

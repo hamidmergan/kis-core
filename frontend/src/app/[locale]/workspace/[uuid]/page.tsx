@@ -86,6 +86,7 @@ export default function KiTutorWorkspacePage() {
   // Chapters only structure the list, the selection stays the file's checkbox.
   const {
     chapters, setChapters,
+    closedChapters, toggleChapterOpen, openChapter,
     createChapter: handleCreateChapter,
     renameChapter: handleRenameChapter,
     deleteChapter: handleDeleteChapter,
@@ -376,7 +377,10 @@ export default function KiTutorWorkspacePage() {
   tourAktionenRef.current = {
     nurWaehlen: (dateiPraefix) => {
       const quelle = quelleNachName(dateiPraefix);
-      if (quelle) setSelectedSourceIds([quelle.uuid]);
+      if (!quelle) return;
+      // A row inside a folded chapter is not on the page, so its chapter opens first.
+      if (quelle.chapter_uuid) openChapter(quelle.chapter_uuid);
+      setSelectedSourceIds([quelle.uuid]);
     },
     oeffnen: (dateiPraefix) => {
       const quelle = quelleNachName(dateiPraefix);
@@ -389,6 +393,8 @@ export default function KiTutorWorkspacePage() {
       else setPanels((prev) => ({ ...prev, studio: true }));
     },
     materialListe: () => {
+      // The panel shows either the list or an opened viewer, the list needs both closed.
+      handleCloseViewer();
       if (isMobile) setActiveTab("quellen");
       else setPanels((prev) => ({ ...prev, quellen: true }));
     },
@@ -604,6 +610,8 @@ export default function KiTutorWorkspacePage() {
         onDeleteChapter={handleDeleteChapter}
         onMoveChapter={handleMoveChapter}
         onSetSourceChapter={handleSetSourceChapter}
+        closedChapters={closedChapters}
+        onToggleChapterOpen={toggleChapterOpen}
         {...(hh ? { hideHeader: true } : {})}
       />
     );

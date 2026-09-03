@@ -7,6 +7,14 @@ import { TOUR_STEPS } from "./steps";
 import { demoSchritte, type DemoSchritt, type TourAktionen } from "./demoSteps";
 import { merkeTourGesehen } from "./tourSeen";
 
+/** Longest wait for a station's target, after that the step shows anyway. */
+const ZIEL_HOECHSTENS_MS = 6000;
+/** Shortest pause after a preparation, a fresh tab needs a frame or two to draw. */
+const ZIEL_MINDESTENS_MS = 250;
+const ZIEL_TAKT_MS = 100;
+/** A click this soon after a jump is the tail of a double click, driver.js is still fading the new station in. */
+const DOPPELKLICK_MS = 500;
+
 /** Phosphor X in bold, the icon of the app, driver.js only offers a text times sign. */
 const SCHLIESSEN_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 256 256" aria-hidden="true"><path d="M208.49,191.51a12,12,0,0,1-17,17L128,145,64.49,208.49a12,12,0,0,1-17-17L111,128,47.51,64.49a12,12,0,0,1,17-17L128,111l63.51-63.52a12,12,0,0,1,17,17L145,128Z" /></svg>`;
 
@@ -128,27 +136,62 @@ export function useTour() {
     workspaceUuid?: string,
     darfModuleAnlegen = true,
   ) => {
-    // Glossary entry and note live per person, so they are put in place for
-    // whoever takes the tour. Without them two stations would stand empty.
+    // The examples live per person and no early station needs them, so the
+    // tour starts right away and fetches them once they exist.
     if (workspaceUuid) {
-      await fetch("/api/ai-assistant/demo/tour-content", {
+      fetch("/api/ai-assistant/demo/tour-content", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ workspace_uuid: workspaceUuid }),
-      }).catch(() => { /* Der Rundgang laeuft auch ohne die Beispiele. */ });
-      // Die Seite stand schon, als die Beispiele entstanden, also neu holen.
-      aktionen.beispieleLaden();
+      })
+        .then(() => aktionen.beispieleLaden())
+        .catch(() => { /* Der Rundgang laeuft auch ohne die Beispiele. */ });
     }
 
     const schritte = demoSchritte(darfModuleAnlegen);
     const ziel = (s: DemoSchritt) => (s.ziel ? (() => s.ziel!() ?? undefined) : undefined);
-    const springe = (s: DemoSchritt | undefined, weiter: () => void) => {
-      s?.vorbereiten?.(aktionen);
-      window.setTimeout(weiter, s?.vorbereiten ? s.wartezeit ?? 700 : 0);
-    };
 
     let fuehrung: Driver;
+    // One jump at a time, a second click while a station still loads would skip the next one.
+    let unterwegs = false;
+    let letzterSprung = 0;
+    /** Greys the footer buttons out while the next station loads, driver.js builds fresh ones for it. */
+    const knoepfeSperren = () => {
+      const popover = fuehrung.getState("popover") as PopoverDOM | undefined;
+      for (const knopf of [popover?.nextButton, popover?.previousButton]) {
+        if (!knopf) continue;
+        knopf.disabled = true;
+        knopf.classList.add("driver-popover-btn-disabled");
+      }
+    };
+    /** Prepares a station and moves on once its target stands on the page, capped so a missing anchor never stalls the tour. */
+    const springe = (s: DemoSchritt | undefined, weiter: () => void) => {
+      if (unterwegs || Date.now() - letzterSprung < DOPPELKLICK_MS) return;
+      const los = () => { letzterSprung = Date.now(); unterwegs = false; weiter(); };
+      if (!s || (!s.vorbereiten && !s.ziel)) { los(); return; }
+      unterwegs = true;
+      knoepfeSperren();
+      s.vorbereiten?.(aktionen);
+      const start = Date.now();
+      const pruefen = () => {
+        const el = s.ziel?.() ?? null;
+        const gewartet = Date.now() - start;
+        const bereit = !s.ziel || el !== null;
+        if ((bereit && gewartet >= (s.vorbereiten ? ZIEL_MINDESTENS_MS : 0)) || gewartet >= ZIEL_HOECHSTENS_MS) {
+          // driver.js scrolls only when the target leaves the viewport, a row deep
+          // in its list needs this so the popover has room beside it.
+          el?.scrollIntoView({ block: "center", inline: "nearest" });
+          los();
+          return;
+        }
+        window.setTimeout(pruefen, ZIEL_TAKT_MS);
+      };
+      pruefen();
+    };
+
+    // Whoever closed the tour while a station was still preparing gets no late jump.
+    const solangeAktiv = (weiter: () => void) => () => { if (fuehrung.isActive()) weiter(); };
     fuehrung = driver({
       ...grundEinstellungen(),
       steps: schritte.map((s, i) => ({
@@ -160,13 +203,13 @@ export function useTour() {
           align: "start" as const,
           // Each step opens what it points at, so the hook belongs to the step
           // being entered and not to the one being left. driver.js reads the
-          // presence of the key as "you handle it yourself", therefore it is
-          // only set where something has to be opened.
-          ...(schritte[i + 1]?.vorbereiten
-            ? { onNextClick: () => springe(schritte[i + 1], () => fuehrung.moveNext()) }
+          // presence of the key as "you handle it yourself", so the last step
+          // keeps none and its "done" still reaches onDoneClick.
+          ...(i + 1 < schritte.length
+            ? { onNextClick: () => springe(schritte[i + 1], solangeAktiv(() => fuehrung.moveNext())) }
             : {}),
-          ...(schritte[i - 1]?.vorbereiten
-            ? { onPrevClick: () => springe(schritte[i - 1], () => fuehrung.movePrevious()) }
+          ...(i > 0
+            ? { onPrevClick: () => springe(schritte[i - 1], solangeAktiv(() => fuehrung.movePrevious())) }
             : {}),
         },
       })),
@@ -174,6 +217,8 @@ export function useTour() {
 
     laufend.current = fuehrung;
     springe(schritte[0], () => fuehrung.drive());
+    // The start is no jump, the first click must not fall into the double click window.
+    letzterSprung = 0;
   }, [t, grundEinstellungen]);
 
   const start = useCallback((optionen?: StartOptionen) => {

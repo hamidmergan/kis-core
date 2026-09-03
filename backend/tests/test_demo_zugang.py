@@ -194,7 +194,7 @@ _QUELLEN = [
     {"id": 42, "uuid": "u-video", "filename": "DEMO_Vorlesung_01_Grundlagen.mp4"},
     # A third file, neither the script nor the video: proves the schedule job
     # takes every material, not just the two the tour itself opens.
-    {"id": 43, "uuid": "u-folien", "filename": "DEMO_Folien_06_Team_und_Methoden.pdf"},
+    {"id": 43, "uuid": "u-folien", "filename": "DEMO_Folien_01_Grundlagen.pdf"},
 ]
 
 
@@ -438,7 +438,7 @@ def test_rundgang_haelt_sich_aus_fremden_kursen_raus(client):
 from src.features.ai_assistant.routes._demo_tour_content import lege_chat_beispiel_an
 
 _CHAT_QUELLEN = [
-    {"id": 9, "uuid": "u-folien", "filename": "DEMO_Folien_06_Team_und_Methoden.pdf"},
+    {"id": 9, "uuid": "u-folien", "filename": "DEMO_Folien_01_Grundlagen.pdf"},
 ]
 
 
@@ -458,9 +458,9 @@ def test_chat_beispiel_legt_frage_und_antwort_an():
     # Der Beleg zeigt auf die richtige Quelle, nicht auf eine erfundene UUID.
     assert "u-folien" in antwort.args[3]
     assert antwort.kwargs["source_qmap"] == [
-        {"qnum": 1, "uuid": "u-folien", "filename": "DEMO_Folien_06_Team_und_Methoden.pdf", "is_media": False},
+        {"qnum": 1, "uuid": "u-folien", "filename": "DEMO_Folien_01_Grundlagen.pdf", "is_media": False},
     ]
-    assert {p["page_number"] for p in antwort.kwargs["source_pages"]} == {8, 9}
+    assert {p["page_number"] for p in antwort.kwargs["source_pages"]} == {16, 17}
 
 
 def test_chat_beispiel_ueberschreibt_keine_bestehende_unterhaltung():

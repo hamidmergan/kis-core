@@ -34,10 +34,8 @@ export interface DemoSchritt {
   /** Element the step points at, without one the window stands in the middle. */
   ziel?: () => Element | null;
   side?: "top" | "right" | "bottom" | "left";
-  /** Runs before the step, opens whatever it points at. */
+  /** Runs before the step, opens whatever it points at; the tour then waits for the target. */
   vorbereiten?: (a: TourAktionen) => void;
-  /** Milliseconds the preparation needs before the step is shown. */
-  wartezeit?: number;
   /**
    * What the step looks like for whoever may not create modules themselves.
    * `null` drops the step, an object overrides the named fields.
@@ -45,10 +43,8 @@ export interface DemoSchritt {
   studi?: Partial<DemoSchritt> | null;
 }
 
-/** The two materials the tour works with, named by the start of their file name.
- * The PDF sits at the very top of the list (newest upload first), so the tour
- * never has to scroll to reach it. */
-export const DEMO_PDF = "DEMO_Folien_06";
+/** The two materials the tour works with, both from the first unit and named by the start of their file name, nurWaehlen unfolds the chapter before the tour scrolls to the row. */
+export const DEMO_PDF = "DEMO_Folien_01";
 export const DEMO_VIDEO = "DEMO_Vorlesung_01";
 
 const anker = (name: string) => (): Element | null =>
@@ -74,41 +70,47 @@ export const DEMO_SCHRITTE: DemoSchritt[] = [
     studi: { key: "materialienStudi" },
   },
   // Both buttons belong to the owner side, which students never get to see.
-  { key: "hochladen", ziel: anker("add-source"), side: "bottom", studi: null },
+  {
+    key: "hochladen",
+    ziel: anker("add-source"),
+    side: "bottom",
+    // A later station opens a viewer that covers the list, going back needs it closed again.
+    vorbereiten: (a) => a.materialListe(),
+    studi: null,
+  },
   {
     key: "hinweis",
     ziel: anker("add-staff-note"),
     side: "bottom",
-    // Students cannot pin anything, but they read what was pinned for them.
-    studi: { key: "hinweisStudi", ziel: anker("staff-note"), side: "right" },
+    vorbereiten: (a) => a.materialListe(),
+    // Students cannot pin anything, their own pin only opens what was pinned for them.
+    studi: { key: "hinweisStudi", ziel: anker("staff-note") },
   },
   {
     key: "auswahl",
     ziel: () => zeilenHaken(DEMO_PDF),
-    side: "right",
-    vorbereiten: (a) => a.nurWaehlen(DEMO_PDF),
+    // Below the row, beside the tick the window would hide the file name it talks about.
+    side: "bottom",
+    vorbereiten: (a) => { a.materialListe(); a.nurWaehlen(DEMO_PDF); },
   },
-  { key: "quelleOeffnen", ziel: () => zeile(DEMO_PDF), side: "right" },
+  { key: "quelleOeffnen", ziel: () => zeile(DEMO_PDF), side: "right", vorbereiten: (a) => a.materialListe() },
   {
     key: "auswahlleiste",
     ziel: anker("pdf-viewer"),
     side: "right",
     vorbereiten: (a) => a.oeffnen(DEMO_PDF),
-    wartezeit: 1200,
   },
   {
     key: "glossar",
     ziel: anker("studio-panel"),
     side: "left",
     vorbereiten: (a) => a.studioReiter("glossary"),
-    wartezeit: 900,
   },
   {
     key: "video",
     ziel: anker("transcript-panel"),
     side: "right",
     vorbereiten: (a) => a.oeffnen(DEMO_VIDEO),
-    wartezeit: 1600,
   },
   { key: "transkriptNotiz", ziel: anker("transcript-note"), side: "right" },
   {
@@ -116,35 +118,30 @@ export const DEMO_SCHRITTE: DemoSchritt[] = [
     ziel: anker("studio-panel"),
     side: "left",
     vorbereiten: (a) => a.studioReiter("notes"),
-    wartezeit: 900,
   },
   {
     key: "chat",
     ziel: anker("chat-panel"),
     side: "left",
     vorbereiten: (a) => a.chatBeispielZeigen(),
-    wartezeit: 900,
   },
   {
     key: "werkzeuge",
     ziel: anker("tools-grid"),
     side: "left",
     vorbereiten: (a) => a.studioReiter("tools"),
-    wartezeit: 900,
   },
   {
     key: "statistik",
     ziel: anker("studio-panel"),
     side: "left",
     vorbereiten: (a) => a.studioReiter("statistik"),
-    wartezeit: 900,
   },
   {
     key: "zeitplan",
     ziel: anker("studio-panel"),
     side: "left",
     vorbereiten: (a) => a.studioReiter("schedule"),
-    wartezeit: 900,
   },
   { key: "schluss", studi: { key: "schlussStudi" } },
 ];

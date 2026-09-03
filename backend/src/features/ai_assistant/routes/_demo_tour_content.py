@@ -34,7 +34,7 @@ _VIDEO_DATEI = "DEMO_Vorlesung_01_Grundlagen.mp4"
 
 # Must match DEMO_PDF in the frontend's demoSteps.ts: the tour has this one
 # ticked by the time it reaches the chat step, the citation below has to match.
-_CHAT_QUELLE_DATEI = "DEMO_Folien_06_Team_und_Methoden.pdf"
+_CHAT_QUELLE_DATEI = "DEMO_Folien_01_Grundlagen.pdf"
 
 _GLOSSAR = {
     # Verbatim as it stands on page 2 ("1.4 Das magische Dreieck"), the jump-back
@@ -62,32 +62,33 @@ _NOTIZ_TEXT = (
 )
 _NOTIZ_ZEIT = "01:04"
 
-# Both verbatim from page 8/9 of the Folien-Deck, so the citation truly points
+# Both verbatim from page 16/17 of the Folien-Deck, so the citation truly points
 # at what it claims to.
-_CHAT_FRAGE = "Was bedeutet RACI?"
+_CHAT_FRAGE = "Welche Phasen durchläuft ein Projekt?"
 _CHAT_ANTWORT_VORLAGE = (
-    "RACI beschreibt vier Rollen in der Verantwortungsmatrix: R (Responsible) führt "
-    "die Arbeit aus, A (Accountable) steht für das Ergebnis gerade, C (Consulted) "
-    "wird vorher gefragt, und I (Informed) wird nachher unterrichtet "
-    "[Q1:{uuid}, S. 8]. Wichtig ist: Je Aufgabe darf es nur genau ein A geben, "
-    "sonst gibt es in der Praxis keinen echten Verantwortlichen [Q1:{uuid}, S. 9]."
+    "Ein Projekt durchläuft fünf Phasen: Initiierung (Idee prüfen), Definition "
+    "(Ziele festlegen), Planung (Struktur, Termine, Kosten), Steuerung (Abweichungen "
+    "ausgleichen) und Abschluss (übergeben und auswerten) [Q1:{uuid}, S. 16]. "
+    "Der Abschluss wird in der Praxis am häufigsten übergangen, obwohl gerade er "
+    "für künftige Projekte am wertvollsten wäre [Q1:{uuid}, S. 17]."
 )
 _CHAT_BELEGE = [
     {
-        "page": 8,
+        "page": 16,
         "text": (
-            "RACI, vier Buchstaben Buchstabe Bedeutung Anzahl je Aufgabe R Responsible "
-            "führt die Arbeit aus eine oder mehrere A Accountable steht für das Ergebnis "
-            "gerade genau eine C Consulted wird vorher gefragt beliebig, sparsam "
-            "einsetzen I Informed wird nachher unterrichtet beliebig"
+            "Fünf Phasen, fünf Ergebnisse Phase Zweck Wichtigstes Ergebnis Initiierung "
+            "Idee prüfen Entscheidung dafür oder dagegen Definition Ziele festlegen "
+            "unterschriebener Projektauftrag Planung Struktur, Termine, Kosten Struktur- "
+            "und Terminplan Steuerung Abweichungen ausgleichen Statusberichte, "
+            "Entscheidungen Abschluss übergeben und auswerten Abnahme und Erfahrungsbericht"
         ),
     },
     {
-        "page": 9,
+        "page": 17,
         "text": (
-            "Die eine Regel, die zählt Es darf je Aufgabe genau ein A geben. Zwei "
-            "Verantwortliche bedeuten in der Praxis keinen Verantwortlichen, weil "
-            "jeder auf den anderen verweisen kann."
+            "Der Abschluss wird in der Praxis am häufigsten übergangen. Ist das Ergebnis "
+            "übergeben, wenden sich alle der nächsten Aufgabe zu. Damit geht genau der "
+            "Teil verloren, der für künftige Projekte am wertvollsten wäre."
         ),
     },
 ]
