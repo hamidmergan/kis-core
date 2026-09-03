@@ -28,6 +28,7 @@ SWEEP_BY_USER_ID = (
     "aia_schedule_entries",
     "aia_schedule_jobs",
     "aia_schedule_processed_sources",
+    "aia_demo_tools_seeded",
 )
 
 # Tables with a user id that are deliberately not in the list above.
