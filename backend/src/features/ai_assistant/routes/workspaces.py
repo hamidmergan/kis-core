@@ -183,6 +183,8 @@ async def get_workspace(
     links = db.get_access_links_by_workspace(workspace["id"])
     # The interface follows can_manage, is_owner stays pure ownership.
     can_manage = is_owner or db.is_workspace_tutor(workspace["id"], current_user["user_id"])
+    # Only the demo course offers enrolled people the read-only owner preview.
+    owner = db.get_user_by_id(workspace["user_id"])
     return {
         "uuid": workspace["uuid"],
         "title": workspace["title"],
@@ -191,6 +193,7 @@ async def get_workspace(
         "is_active": workspace["is_active"],
         "is_owner": is_owner,
         "can_manage": can_manage,
+        "is_demo_workspace": bool(owner and owner.get("is_demo")),
         "transcript_target_lang": workspace.get("transcript_target_lang", "en"),
         "diagnosis_language": workspace.get("diagnosis_language", DEFAULT_DIAGNOSIS_LANGUAGE),
         # The course's decision only counts while the admin switch is on.
