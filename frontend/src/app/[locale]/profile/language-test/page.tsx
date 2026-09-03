@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { Link, useRouter } from "@/i18n/navigation";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import Spinner from "@/components/ui/Spinner";
+import { genericErrorMessage } from "@/lib/api";
 import { LanguageDiagnosisPanel } from "@/app/[locale]/workspace/[uuid]/_components/language_training/LanguageDiagnosisPanel";
 
 interface Me {
@@ -44,6 +45,14 @@ export default function LanguageTestPage() {
         {me === undefined ? (
           <div className="flex justify-center py-16">
             <Spinner size="lg" />
+          </div>
+        ) : me === null ? (
+          // A failed fetch must not read like a switched-off trainer.
+          <div className="max-w-xl mx-auto text-center">
+            <p className="text-sm" style={{ color: "var(--muted)" }}>{genericErrorMessage()}</p>
+            <Link href="/profile" className="btn-primary text-sm rounded-lg px-4 py-2 inline-block mt-4">
+              {t("toProfile")}
+            </Link>
           </div>
         ) : !offered ? (
           <div className="max-w-xl mx-auto text-center">
