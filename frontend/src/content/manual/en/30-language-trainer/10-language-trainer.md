@@ -6,9 +6,9 @@ For everybody still learning the language of the course. Three tools in the stud
 cards, vocabulary exercises, grammar exercises. All built from the materials of the module,
 matched to your own level.
 
-## One switch, in the profile
+## One switch, under Language level
 
-The language trainer hangs on you, not on the module. You switch it on once in your profile,
+The language trainer hangs on you, not on the module. You switch it on once under Language level,
 then it applies in every module. KIS asks you about it at your first login.
 
 Without the language test it stays closed. Only with a level do the three tools appear in the

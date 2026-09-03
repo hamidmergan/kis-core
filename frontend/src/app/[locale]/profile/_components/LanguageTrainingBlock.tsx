@@ -7,10 +7,6 @@ import ToggleRow from "@/components/ui/ToggleRow";
 
 export interface ProfileMe {
   id: number;
-  username: string;
-  display_name: string;
-  email: string | null;
-  role: string;
   language_level: string | null;
   language_level_set_at: string | null;
   language_training_enabled: boolean;
@@ -44,8 +40,8 @@ export function LanguageTrainingBlock({ me, onChanged }: { me: ProfileMe; onChan
     }
   };
 
-  // The stored level goes, then the test page starts a fresh run.
-  const redo = async () => {
+  // Just drops the stored level, the "Sprachtest machen" button below then takes over.
+  const resetLevel = async () => {
     if (busy) return;
     if (!window.confirm(tDiag("resetConfirmBody"))) return;
     setBusy(true);
@@ -54,7 +50,7 @@ export function LanguageTrainingBlock({ me, onChanged }: { me: ProfileMe; onChan
         method: "DELETE",
         credentials: "include",
       });
-      if (res.ok) router.push("/profile/language-test");
+      if (res.ok) onChanged();
     } catch {
       // A network error stays silent, the level just stays as it was.
     } finally {
@@ -96,7 +92,7 @@ export function LanguageTrainingBlock({ me, onChanged }: { me: ProfileMe; onChan
           </p>
           <button
             type="button"
-            onClick={() => void redo()}
+            onClick={() => void resetLevel()}
             disabled={busy}
             className="px-3 py-1.5 text-xs rounded-md text-foreground border-2 border-border transition-colors hover:border-kb"
           >

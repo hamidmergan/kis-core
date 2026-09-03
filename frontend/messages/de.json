@@ -20,7 +20,7 @@
     "settingsMenu": "Einstellungen",
     "sectionAppearance": "Ansicht",
     "homeNoticeShow": "Startseite-Hinweis anzeigen",
-    "profile": "Profil"
+    "profile": "Sprachlevel"
   },
   "footer": {
     "aiNotice": "Diese Plattform nutzt KI und kann Fehler machen. Überprüfen Sie die Antworten.",
@@ -1470,7 +1470,7 @@
     },
     "languageTrainerCard": {
       "title": "Sprachtrainer",
-      "description": "Der Sprachtrainer ist ein Übungsbereich im Studio für alle, die dem Kurs in einer Fremdsprache folgen. Er enthält Lernkarten, Wortschatz- und Grammatikübungen, jeweils aus den Materialien des Moduls gebaut. Ist er eingeschaltet, wird jede Person mit Rolle Studierende beim ersten Anmelden gefragt, ob sie internationaler Studierender ist. Ja führt in den Sprachtest, das Niveau gilt in allen Modulen, Chat und Aufgaben passen sich daran an. Jede Person schaltet den Trainer in ihrem Profil ein oder aus. Der Sprachtrainer arbeitet ausschließlich auf Deutsch.",
+      "description": "Der Sprachtrainer ist ein Übungsbereich im Studio für alle, die dem Kurs in einer Fremdsprache folgen. Er enthält Lernkarten, Wortschatz- und Grammatikübungen, jeweils aus den Materialien des Moduls gebaut. Ist er eingeschaltet, wird jede Person mit Rolle Studierende beim ersten Anmelden gefragt, ob sie internationaler Studierender ist. Ja führt in den Sprachtest, das Niveau gilt in allen Modulen, Chat und Aufgaben passen sich daran an. Jede Person schaltet den Trainer unter Sprachlevel ein oder aus. Der Sprachtrainer arbeitet ausschließlich auf Deutsch.",
       "disabled": "Aus. Niemand wird gefragt, und der Sprachtrainer taucht nirgendwo auf. Getroffene Entscheidungen und Niveaus bleiben gespeichert und gelten wieder, sobald du hier einschaltest.",
       "toggleAria": "Sprachtrainer umschalten"
     },
@@ -3222,33 +3222,26 @@
   },
   "internationalPrompt": {
     "title": "Internationaler Studierender?",
-    "body": "Lernst du die Kurssprache noch? Dann stellt KIS dir einen Sprachtrainer bereit. Er baut Lernkarten, Wortschatz- und Grammatikübungen aus den Materialien deiner Module und passt den Chat an dein Niveau an.\n\nWenn du Ja sagst, machst du jetzt einen kurzen Sprachtest. Du kannst das im Profil jederzeit ändern.",
+    "body": "Lernst du die Kurssprache noch? Dann stellt KIS dir einen Sprachtrainer bereit. Er baut Lernkarten, Wortschatz- und Grammatikübungen aus den Materialien deiner Module und passt den Chat an dein Niveau an.\n\nWenn du Ja sagst, machst du jetzt einen kurzen Sprachtest. Du kannst das unter Sprachlevel jederzeit ändern.",
     "yes": "Ja, Sprachtest starten",
     "no": "Nein",
     "later": "Später"
   },
   "profile": {
-    "title": "Profil",
-    "displayName": "Name",
-    "username": "Kennung",
-    "email": "E-Mail",
-    "noEmail": "keine",
-    "role": "Rolle",
-    "roleAdmin": "Administration",
-    "roleStaff": "Lehrende",
-    "roleUser": "Studierende",
+    "title": "Sprachlevel",
+    "notOffered": "Der Sprachtrainer wird auf dieser Plattform nicht angeboten.",
     "languageTraining": {
       "switchTitle": "Sprachtrainer",
-      "switchDescription": "Für alle, die die Kurssprache noch lernen. Lernkarten, Wortschatz- und Grammatikübungen aus den Materialien deiner Module, dazu ein Chat auf deinem Niveau. Gilt in allen Modulen.",
+      "switchDescription": "Übungen und Chat auf deinem Sprachniveau. Gilt für dich in allen Modulen.",
       "levelLabel": "Dein Niveau",
       "levelSince": "seit {date}",
-      "redo": "Niveau zurücksetzen und neu machen",
+      "redo": "Niveau zurücksetzen",
       "noLevel": "Noch kein Niveau. Erst nach dem Sprachtest siehst du den Sprachtrainer in den Modulen.",
       "takeTest": "Sprachtest machen"
     },
     "languageTest": {
-      "notOffered": "Der Sprachtrainer ist für dich ausgeschaltet. Schalte ihn im Profil ein, dann kannst du den Test machen.",
-      "toProfile": "Zum Profil"
+      "notOffered": "Der Sprachtrainer ist für dich ausgeschaltet. Schalte ihn unter Sprachlevel ein, dann kannst du den Test machen.",
+      "toProfile": "Zum Sprachlevel"
     }
   },
   "layoutMeta": {

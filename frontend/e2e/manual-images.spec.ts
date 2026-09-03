@@ -43,7 +43,7 @@ const LABELS = {
     expandBar: "Tools-Sidebar ausklappen",
     allMoods: "Alle Stimmungen nebeneinander",
     showAllCitations: "Alle Belege einblenden",
-    profileRedo: "Niveau zurücksetzen und neu machen",
+    profileRedo: "Niveau zurücksetzen",
     profileTakeTest: "Sprachtest machen",
     diagSkip: "Überspringen",
     diagContinue: "Weiter",
@@ -66,7 +66,7 @@ const LABELS = {
     expandBar: "Expand tools sidebar",
     allMoods: "All moods side by side",
     showAllCitations: "Show all citations",
-    profileRedo: "Reset the level and take the test again",
+    profileRedo: "Reset level",
     profileTakeTest: "Take the language test",
     diagSkip: "Skip",
     diagContinue: "Continue",
@@ -424,8 +424,8 @@ test.describe("Handbuch-Bilder", () => {
       await grid.screenshot({ path: shot(locale, "mascot-states") });
     });
 
-    // Turns the demo user's own switch on, then either resets an existing level or starts
-    // a fresh test, skips every question, and lands back on the profile with a level set.
+    // Turns the demo user's own switch on, drops an existing level, starts a fresh test,
+    // skips every question, and lands back on the level page with a level set.
     // The questions themselves are always German, regardless of the interface locale, so
     // one picture serves both articles (like mascot-states above).
     test(`sprachtest ${locale}`, async ({ page }) => {
@@ -440,9 +440,9 @@ test.describe("Handbuch-Bilder", () => {
       if (await redo.count()) {
         page.once("dialog", (dialog) => dialog.accept());
         await redo.first().click();
-      } else {
-        await page.getByRole("button", { name: LABELS[locale].profileTakeTest }).click();
       }
+      // Resetting only drops the level, the test starts from the button that then appears.
+      await page.getByRole("button", { name: LABELS[locale].profileTakeTest }).click();
       await page.waitForURL(new RegExp(`${prefix(locale)}/profile/language-test`));
 
       const skip = page.getByRole("button", { name: LABELS[locale].diagSkip });

@@ -8,7 +8,7 @@ von A1 bis C2.
 ## Wann er kommt
 
 Beim ersten Anmelden fragt KIS, ob Sie internationaler Studierender sind. Mit Ja startet der
-Test sofort. Wer Nein oder Später wählt, holt ihn im Profil nach, über den Schalter
+Test sofort. Wer Nein oder Später wählt, holt ihn unter Sprachlevel nach, über den Schalter
 Sprachtrainer.
 
 ## Wie er abläuft
@@ -26,8 +26,8 @@ Der Test ist auf Deutsch. Fragen und Bewertung ebenso, das lässt sich nicht ums
 ## Was das Ergebnis bewirkt
 
 Die Stufe gilt in allen Modulen. Sie steuert, wie schwer die Übungen im Sprachtrainer ausfallen
-und wie ausführlich der Chat erklärt. Im Profil können Sie das Niveau zurücksetzen und den Test
-neu machen. Sie ist keine Prüfungsleistung.
+und wie ausführlich der Chat erklärt. Unter Sprachlevel können Sie das Niveau zurücksetzen und den
+Test neu machen. Sie ist keine Prüfungsleistung.
 
 ## Wie verlässlich das ist
 

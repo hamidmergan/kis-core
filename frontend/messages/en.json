@@ -20,7 +20,7 @@
     "settingsMenu": "Settings",
     "sectionAppearance": "Appearance",
     "homeNoticeShow": "Show home notice",
-    "profile": "Profile"
+    "profile": "Language level"
   },
   "footer": {
     "aiNotice": "This platform uses AI and may make mistakes. Please verify the responses.",
@@ -1470,7 +1470,7 @@
     },
     "languageTrainerCard": {
       "title": "Language trainer",
-      "description": "The language trainer is a practice area in the studio for everyone following the course in a foreign language. It holds vocabulary cards, vocabulary and grammar exercises, each built from the module materials. While it is on, every person with the student role is asked at first login whether they are an international student. Yes leads into the language test, the level applies in every module, chat and exercises are pitched at it. Everyone switches the trainer on or off in their profile. The language trainer works in German only.",
+      "description": "The language trainer is a practice area in the studio for everyone following the course in a foreign language. It holds vocabulary cards, vocabulary and grammar exercises, each built from the module materials. While it is on, every person with the student role is asked at first login whether they are an international student. Yes leads into the language test, the level applies in every module, chat and exercises are pitched at it. Everyone switches the trainer on or off under Language level. The language trainer works in German only.",
       "disabled": "Off. Nobody is asked and the language trainer appears nowhere. Choices and levels already made stay stored and apply again as soon as you switch this on.",
       "toggleAria": "Toggle language trainer"
     },
@@ -3222,33 +3222,26 @@
   },
   "internationalPrompt": {
     "title": "International student?",
-    "body": "Are you still learning the course language? Then KIS offers you a language trainer. It builds vocabulary cards, vocabulary and grammar exercises from the materials of your modules and pitches the chat at your level.\n\nIf you say yes, you take a short language test now. You can change this in your profile at any time.",
+    "body": "Are you still learning the course language? Then KIS offers you a language trainer. It builds vocabulary cards, vocabulary and grammar exercises from the materials of your modules and pitches the chat at your level.\n\nIf you say yes, you take a short language test now. You can change this under Language level at any time.",
     "yes": "Yes, start the language test",
     "no": "No",
     "later": "Later"
   },
   "profile": {
-    "title": "Profile",
-    "displayName": "Name",
-    "username": "Username",
-    "email": "Email",
-    "noEmail": "none",
-    "role": "Role",
-    "roleAdmin": "Administrator",
-    "roleStaff": "Lecturer",
-    "roleUser": "Student",
+    "title": "Language level",
+    "notOffered": "The language trainer is not offered on this platform.",
     "languageTraining": {
       "switchTitle": "Language trainer",
-      "switchDescription": "For everyone still learning the course language. Vocabulary cards, vocabulary and grammar exercises from the materials of your modules, plus a chat pitched at your level. Applies in every module.",
+      "switchDescription": "Exercises and chat at your language level. Applies to you in every module.",
       "levelLabel": "Your level",
       "levelSince": "since {date}",
-      "redo": "Reset the level and take the test again",
+      "redo": "Reset level",
       "noLevel": "No level yet. You see the language trainer in the modules only after the language test.",
       "takeTest": "Take the language test"
     },
     "languageTest": {
-      "notOffered": "The language trainer is switched off for you. Switch it on in your profile, then you can take the test.",
-      "toProfile": "To the profile"
+      "notOffered": "The language trainer is switched off for you. Switch it on under Language level, then you can take the test.",
+      "toProfile": "To language level"
     }
   },
   "layoutMeta": {

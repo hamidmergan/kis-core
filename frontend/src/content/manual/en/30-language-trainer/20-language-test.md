@@ -8,7 +8,7 @@ A1 to C2.
 ## When it comes
 
 At your first login KIS asks whether you are an international student. Yes starts the test at
-once. Whoever picks no or later catches up in the profile, through the language trainer switch.
+once. Whoever picks no or later catches up under Language level, through the language trainer switch.
 
 ## How it runs
 
@@ -25,7 +25,7 @@ The test is in German. Questions and grading too, this cannot be changed.
 ## What the result does
 
 The level applies in every module. It steers how hard the exercises in the language trainer
-turn out and how thoroughly the chat explains. In the profile you can reset the level and take
+turn out and how thoroughly the chat explains. Under Language level you can reset the level and take
 the test again. It is not an examination.
 
 ## How reliable it is

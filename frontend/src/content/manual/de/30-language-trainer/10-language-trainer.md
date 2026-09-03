@@ -6,9 +6,9 @@ Für alle, die die Kurssprache noch lernen. Drei Werkzeuge im Studio: Lernkarten
 Wortschatzübungen, Grammatikübungen. Alles aus den Materialien des Moduls, passend zum eigenen
 Niveau.
 
-## Ein Schalter, im Profil
+## Ein Schalter, unter Sprachlevel
 
-Der Sprachtrainer hängt an Ihnen, nicht am Modul. Sie schalten ihn einmal im Profil ein, dann
+Der Sprachtrainer hängt an Ihnen, nicht am Modul. Sie schalten ihn einmal unter Sprachlevel ein, dann
 gilt er in allen Modulen. Beim ersten Anmelden fragt KIS Sie danach.
 
 Ohne Sprachtest bleibt er zu. Erst mit einem Niveau erscheinen die drei Werkzeuge im Studio.

@@ -7,7 +7,7 @@ import Spinner from "@/components/ui/Spinner";
 import { genericErrorMessage } from "@/lib/api";
 import { LanguageTrainingBlock, type ProfileMe } from "./_components/LanguageTrainingBlock";
 
-/** The person and their language trainer, everything from /api/me. */
+/** The person's language level and trainer switch, everything from /api/me. */
 export default function ProfilePage() {
   const t = useTranslations("profile");
   // undefined while loading, null when the request failed.
@@ -27,9 +27,6 @@ export default function ProfilePage() {
     load();
   }, [load]);
 
-  const roleLabel = (role: string) =>
-    role === "admin" ? t("roleAdmin") : role === "staff" ? t("roleStaff") : role === "user" ? t("roleUser") : role;
-
   return (
     <ProtectedRoute>
       <main className="page-shell py-8">
@@ -42,25 +39,12 @@ export default function ProfilePage() {
           <div className="max-w-xl mx-auto text-center">
             <p className="text-sm" style={{ color: "var(--muted)" }}>{genericErrorMessage()}</p>
           </div>
-        ) : (
-          <div className="flex flex-col gap-6 max-w-2xl">
-            <section
-              className="rounded-2xl p-5"
-              style={{ border: "1px solid var(--border)", backgroundColor: "var(--surface)" }}
-            >
-              <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
-                <dt style={{ color: "var(--muted)" }}>{t("displayName")}</dt>
-                <dd>{me.display_name}</dd>
-                <dt style={{ color: "var(--muted)" }}>{t("username")}</dt>
-                <dd>{me.username}</dd>
-                <dt style={{ color: "var(--muted)" }}>{t("email")}</dt>
-                <dd>{me.email ?? t("noEmail")}</dd>
-                <dt style={{ color: "var(--muted)" }}>{t("role")}</dt>
-                <dd>{roleLabel(me.role)}</dd>
-              </dl>
-            </section>
-            {me.language_training_enabled && <LanguageTrainingBlock me={me} onChanged={load} />}
+        ) : me.language_training_enabled ? (
+          <div className="max-w-2xl">
+            <LanguageTrainingBlock me={me} onChanged={load} />
           </div>
+        ) : (
+          <p className="text-sm" style={{ color: "var(--muted)" }}>{t("notOffered")}</p>
         )}
       </main>
     </ProtectedRoute>
