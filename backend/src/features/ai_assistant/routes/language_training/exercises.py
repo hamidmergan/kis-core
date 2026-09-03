@@ -13,6 +13,7 @@ from src.security.rate_limit import enforce_aia_burst
 
 from src.features.ai_assistant.routes._workspace_access import _resolve_source_ids
 from src.features.ai_assistant import schemas
+from src.features.ai_assistant.repository.stats import LANGUAGE_TRAINING_TOOLS
 from src.services.aia_grammar_formats import clean_kinds
 from src.services import aia_flashcard_speech as speech
 
@@ -20,9 +21,6 @@ router = APIRouter(tags=["ki-assistent: language-training"])
 
 # Maximum number of sources per set, the legend follows the same number.
 _MAX_SET_SOURCES = 5
-
-# The language trainer tools, flashcards and quiz stay usable without it.
-LANGUAGE_TRAINING_TOOLS: frozenset[str] = frozenset({"flashcards", "wortschatz", "grammatik"})
 
 
 def _numbered_sources(ex_set: dict) -> list[dict]:
@@ -58,9 +56,9 @@ async def create_exercise_set(
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
 
-    # With the trainer off, a window left open builds nothing any more.
-    if body.tool in LANGUAGE_TRAINING_TOOLS and not db.is_language_training_active(workspace["id"]):
-        raise HTTPException(status_code=403, detail=t("ai.workspace.languageTrainingOff", locale))
+    # Without switch and level for this person, a window left open builds nothing any more.
+    if body.tool in LANGUAGE_TRAINING_TOOLS and not db.is_language_training_ready(user_id):
+        raise HTTPException(status_code=403, detail=t("ai.languageTraining.off", locale))
 
     enforce_aia_burst(user_id, locale)
     enforce_quota(user_id, "aia_generate", is_admin_user(current_user), locale)
@@ -143,9 +141,9 @@ async def retry_exercise_set(
     if not meta or meta["user_id"] != user_id or meta["workspace_id"] != workspace["id"]:
         raise HTTPException(status_code=404, detail=t("set.notFound", locale))
 
-    # A switched-off trainer produces no second attempt either.
-    if meta["tool"] in LANGUAGE_TRAINING_TOOLS and not db.is_language_training_active(workspace["id"]):
-        raise HTTPException(status_code=403, detail=t("ai.workspace.languageTrainingOff", locale))
+    # A trainer that is not ready produces no second attempt either.
+    if meta["tool"] in LANGUAGE_TRAINING_TOOLS and not db.is_language_training_ready(user_id):
+        raise HTTPException(status_code=403, detail=t("ai.languageTraining.off", locale))
 
     # A second attempt costs the same and is therefore billed the same.
     enforce_aia_burst(user_id, locale)
