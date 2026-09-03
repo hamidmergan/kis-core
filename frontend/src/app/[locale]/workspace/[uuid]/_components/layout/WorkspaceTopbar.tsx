@@ -16,13 +16,6 @@ interface WorkspaceTopbarProps {
   onCloseSettings: () => void;
   studioEnabled: boolean;
   onToggleStudio: () => void;
-  language_trainingActive: boolean;
-  /** Sprachtrainer offered on this platform at all (admin setting). */
-  languageTrainingAvailable: boolean;
-  onToggleLanguageTraining: () => void;
-  /** Personal decision whether the released language trainer is shown. */
-  languageTrainingOptIn: boolean;
-  onToggleLanguageTrainingOptIn: () => void;
   isOwner: boolean;
   /** Switch offered at all: owners always, enrolled people only in the demo course. */
   canPreview: boolean;
@@ -38,9 +31,6 @@ interface WorkspaceTopbarProps {
   // Mobile tabs
   activeTab: PanelKey;
   setActiveTab: (k: PanelKey) => void;
-  // Language level diagnosis
-  languageLevel?: string | null;
-  onResetLanguageLevel?: () => void | Promise<void>;
 }
 
 export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
@@ -48,13 +38,10 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
     isMobile, title,
     showSettings, onToggleSettings, onCloseSettings,
     studioEnabled, onToggleStudio,
-    language_trainingActive, languageTrainingAvailable, onToggleLanguageTraining,
-    languageTrainingOptIn, onToggleLanguageTrainingOptIn,
     isOwner, canPreview, previewOn, previewsOwnerSide, onTogglePreview, onStartTour,
     transcriptTargetLang, onChangeTranscriptTargetLang,
     popupTranslateLang, onChangePopupTranslateLang,
     activeTab, setActiveTab,
-    languageLevel, onResetLanguageLevel,
   } = props;
   const t = useTranslations("workspace.detail.topbar");
   const tPanels = useTranslations("workspace.detail.panels");
@@ -66,19 +53,12 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
       onClose={onCloseSettings}
       studioEnabled={studioEnabled}
       onToggleStudio={onToggleStudio}
-      language_trainingActive={language_trainingActive}
-      languageTrainingAvailable={languageTrainingAvailable}
-      onToggleLanguageTraining={onToggleLanguageTraining}
-      languageTrainingOptIn={languageTrainingOptIn}
-      onToggleLanguageTrainingOptIn={onToggleLanguageTrainingOptIn}
       isOwner={isOwner}
       onStartTour={onStartTour}
       transcriptTargetLang={transcriptTargetLang}
       onChangeTranscriptTargetLang={onChangeTranscriptTargetLang}
       popupTranslateLang={popupTranslateLang}
       onChangePopupTranslateLang={onChangePopupTranslateLang}
-      languageLevel={languageLevel}
-      onResetLanguageLevel={onResetLanguageLevel}
     />
   );
 

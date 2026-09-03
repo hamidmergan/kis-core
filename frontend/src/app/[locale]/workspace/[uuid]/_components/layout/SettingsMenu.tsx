@@ -15,21 +15,12 @@ interface SettingsMenuProps {
   onClose: () => void;
   studioEnabled: boolean;
   onToggleStudio: () => void;
-  language_trainingActive: boolean;
-  /** Sprachtrainer offered on this platform at all (admin setting). */
-  languageTrainingAvailable: boolean;
-  onToggleLanguageTraining: () => void;
-  /** Personal decision whether the released language trainer is shown. */
-  languageTrainingOptIn: boolean;
-  onToggleLanguageTrainingOptIn: () => void;
   isOwner: boolean;
   onStartTour: () => void;
   transcriptTargetLang: string;
   onChangeTranscriptTargetLang: (lang: string) => void;
   popupTranslateLang: string;
   onChangePopupTranslateLang: (lang: string) => void;
-  languageLevel?: string | null;
-  onResetLanguageLevel?: () => void | Promise<void>;
 }
 
 // Personal and course settings need a visible separation.
@@ -63,22 +54,14 @@ export function SettingsMenu({
   onClose,
   studioEnabled,
   onToggleStudio,
-  language_trainingActive,
-  languageTrainingAvailable,
-  onToggleLanguageTraining,
-  languageTrainingOptIn,
-  onToggleLanguageTrainingOptIn,
   isOwner,
   onStartTour,
   transcriptTargetLang,
   onChangeTranscriptTargetLang,
   popupTranslateLang,
   onChangePopupTranslateLang,
-  languageLevel,
-  onResetLanguageLevel,
 }: SettingsMenuProps) {
   const t = useTranslations("workspace.detail.settings");
-  const tDiag = useTranslations("workspace.detail.languageTraining.diagnosis");
   const tLang = useTranslations("langLabels");
   const tFooter = useTranslations("footer");
   const tTour = useTranslations("workspace.detail.tour");
@@ -104,15 +87,6 @@ export function SettingsMenu({
     value: id,
     label: tLang(deepl),
   }));
-
-  const handleResetLanguageLevel = () => {
-    if (!onResetLanguageLevel) return;
-    if (!window.confirm(tDiag("resetConfirmBody"))) return;
-    void onResetLanguageLevel();
-  };
-
-  // Only course and person together show the trainer.
-  const languageTrainingVisible = language_trainingActive && languageTrainingOptIn;
 
   const MASCOT_OPTIONS = [
     { value: "hilde" as const, label: t("mascotHilde") },
@@ -143,37 +117,6 @@ export function SettingsMenu({
           checked={studioEnabled}
           onToggle={onToggleStudio}
         />
-        {/* Die Verwaltung des Kurses gibt den Trainer frei, hier entscheidet
-            jede Person fuer sich, ob sie ihn sieht. Ohne Freigabe ist die Zeile
-            ganz weg, sonst stuende hier ein Schalter, der nichts bewirkt. */}
-        {language_trainingActive && (
-          <ToggleRow
-            title={t("languageTrainingPersonalTitle")}
-            description={t("languageTrainingPersonalDescription")}
-            checked={languageTrainingOptIn}
-            onToggle={onToggleLanguageTrainingOptIn}
-          />
-        )}
-        {/* Das Niveau haengt am Nutzer, der Sprachtrainer am Workspace. Ist er
-            hier aus, wird das Niveau auch nirgends benutzt, dann hat es in den
-            Einstellungen dieses Kurses nichts zu suchen. Gespeichert bleibt es,
-            wer den Trainer wieder einschaltet, findet seine Einstufung vor. */}
-        {languageTrainingVisible && languageLevel && onResetLanguageLevel && (
-          <div className="flex items-center justify-between gap-4">
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>
-                {tDiag("resetSetting")} <span className="ml-1 px-1.5 py-0.5 rounded text-xs" style={{ backgroundColor: "var(--kb)", color: "var(--on-accent)" }}>{languageLevel}</span>
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={handleResetLanguageLevel}
-              className="px-3 py-1.5 text-xs rounded-md text-foreground border-2 border-border transition-colors hover:border-kb"
-            >
-              {tDiag("resetSetting")}
-            </button>
-          </div>
-        )}
         <div className="mt-3">
           <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{t("popupTranslateLangTitle")}</p>
           <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
@@ -209,20 +152,6 @@ export function SettingsMenu({
                 />
               </div>
             </div>
-            {/* Der Admin gibt den Sprachtrainer plattformweit frei, hier entscheidet
-                die Verwaltung des Workspace, ob der Kurs ihn anbietet. Ganz weg statt
-                gesperrt, solange die Plattform ihn nicht anbietet, ein toter Schalter
-                erklaert nichts. */}
-            {languageTrainingAvailable && (
-              <div className="mt-5">
-                <ToggleRow
-                  title={t("languageTrainingTitle")}
-                  description={t("languageTrainingDescription")}
-                  checked={language_trainingActive}
-                  onToggle={onToggleLanguageTraining}
-                />
-              </div>
-            )}
           </div>
         </OwnerOnly>
         <div className="mt-2 pt-4 border-t" style={{ borderColor: "var(--border)" }}>

@@ -2342,7 +2342,6 @@
           "abortConfirmKeep": "Weitermachen",
           "abortConfirmDiscard": "Abbrechen",
           "panelDisabledTooltip": "Das geht erst nach dem Test.",
-          "resetSetting": "Ergebnis löschen",
           "resetConfirmTitle": "Ergebnis löschen?",
           "resetConfirmBody": "Dann musst du den Test noch einmal machen. Erst danach kannst du wieder üben.",
           "skill": {
@@ -2617,10 +2616,6 @@
         "mascotFrancis": "Francis",
         "studioTitle": "Studio",
         "studioDescription": "Studio-Panel mit Mindmaps, Notizen und Tools einblenden.",
-        "languageTrainingPersonalTitle": "Sprachtrainer",
-        "languageTrainingPersonalDescription": "Blendet den Sprachtrainer für dich ein, mit Lernkarten und Grammatik-Übung. Beim Einschalten wirst du einmalig eingestuft, wenn du noch kein Sprachniveau hast. Gilt nur für dich und nur in diesem Modul.",
-        "languageTrainingTitle": "Sprachtrainer",
-        "languageTrainingDescription": "Gibt den Sprachtrainer im Modul frei, mit Lernkarten und Grammatik-Übung. Danach entscheidet jede Person in ihren eigenen Einstellungen, ob sie ihn nutzt. Alle Übungen werden aus den Materialien dieses Moduls gebaut. Dafür müssen passende Materialien zur Grammatik der Kurssprache hochgeladen sein, sonst sind die Übungen unbrauchbar. Gib das nur frei, wenn du weißt, welche Materialien hier liegen.",
         "translationModeTitle": "Übersetzung der Transkripte",
         "translationModeDescription": "Übersetzt Untertitel von Audio-/Video-Materialien in die unten gewählte Zielsprache. Die Quellsprache wird automatisch erkannt. Studierende können im Transkript-Panel zwischen Original und Übersetzung umschalten. Die Übersetzung läuft als Hintergrund-Job und kann ein paar Minuten dauern.",
         "translationModeOff": "Aus",

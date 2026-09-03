@@ -65,10 +65,6 @@ export interface WorkspaceDetail {
   transcript_target_lang?: string;
   /** Language the CEFR chat diagnosis is held in (ISO code, default "de"). */
   diagnosis_language?: string;
-  /** Sprachtrainer switched on for this workspace by its owner, admin switch included. */
-  language_training_active?: boolean;
-  /** Sprachtrainer offered on this platform at all (admin setting, off by default). */
-  language_training_enabled?: boolean;
   /** Text recognition on at all, otherwise the catch-up is dropped. */
   ocr_enabled?: boolean;
   staff_note_text?: string | null;
