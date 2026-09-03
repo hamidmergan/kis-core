@@ -43,8 +43,10 @@ const LABELS = {
     expandBar: "Tools-Sidebar ausklappen",
     allMoods: "Alle Stimmungen nebeneinander",
     showAllCitations: "Alle Belege einblenden",
-    diagResetLevel: "Ergebnis löschen",
+    profileRedo: "Niveau zurücksetzen und neu machen",
+    profileTakeTest: "Sprachtest machen",
     diagSkip: "Überspringen",
+    diagContinue: "Weiter",
   },
   en: {
     tabSchedule: "Schedule",
@@ -64,8 +66,10 @@ const LABELS = {
     expandBar: "Expand tools sidebar",
     allMoods: "All moods side by side",
     showAllCitations: "Show all citations",
-    diagResetLevel: "Delete result",
+    profileRedo: "Reset the level and take the test again",
+    profileTakeTest: "Take the language test",
     diagSkip: "Skip",
+    diagContinue: "Continue",
   },
 } as const;
 
@@ -420,29 +424,40 @@ test.describe("Handbuch-Bilder", () => {
       await grid.screenshot({ path: shot(locale, "mascot-states") });
     });
 
-    // Deletes the demo user's language level to reveal the test screen, then skips every
-    // question to restore a level afterwards — must stay the LAST test per locale so no
-    // other screenshot runs while the chat slot shows the diagnosis panel instead of chat.
+    // Turns the demo user's own switch on, then either resets an existing level or starts
+    // a fresh test, skips every question, and lands back on the profile with a level set.
     // The questions themselves are always German, regardless of the interface locale, so
     // one picture serves both articles (like mascot-states above).
     test(`sprachtest ${locale}`, async ({ page }) => {
       test.skip(locale !== "de", "ein Bild fuer beide Sprachen");
       await useLocale(page, locale);
-      await page.goto(`${prefix(locale)}/workspace/${WORKSPACE}`, { waitUntil: "domcontentloaded" });
-      await page.waitForTimeout(4000);
-      await page.locator('button[title="Einstellungen"].w-7, button[title="Settings"].w-7').first().click();
-      await page.waitForTimeout(500);
-      page.once("dialog", (dialog) => dialog.accept());
-      await page.getByRole("button", { name: LABELS[locale].diagResetLevel }).click();
-      await page.keyboard.press("Escape");
+      // The admin switch is already on, only the person's own switch needs flipping.
+      await page.request.patch("/api/me/language-training", { data: { active: true } });
+      await page.goto(`${prefix(locale)}/profile`, { waitUntil: "domcontentloaded" });
+      await settle(page);
+
+      const redo = page.getByRole("button", { name: LABELS[locale].profileRedo });
+      if (await redo.count()) {
+        page.once("dialog", (dialog) => dialog.accept());
+        await redo.first().click();
+      } else {
+        await page.getByRole("button", { name: LABELS[locale].profileTakeTest }).click();
+      }
+      await page.waitForURL(new RegExp(`${prefix(locale)}/profile/language-test`));
+
       const skip = page.getByRole("button", { name: LABELS[locale].diagSkip });
       await expect(skip.first()).toBeVisible({ timeout: 15_000 });
       await page.waitForTimeout(1000);
-      await page.locator(".rounded-2xl").nth(1).screenshot({ path: shot(locale, "language-test") });
+      await page.screenshot({ path: shot(locale, "language-test") });
       for (let i = 0; i < 12 && (await skip.count()); i++) {
         await skip.first().click();
         await page.waitForTimeout(1200);
       }
+
+      await page.getByRole("button", { name: LABELS[locale].diagContinue }).click();
+      await page.waitForURL(new RegExp(`${prefix(locale)}/profile$`));
+      await settle(page);
+      await page.screenshot({ path: shot(locale, "profile") });
     });
   }
 });

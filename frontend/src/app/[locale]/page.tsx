@@ -52,7 +52,7 @@ export default function HomePage() {
       {!auth?.impersonator && hasPerm(auth?.permissions, PERM.generalWelcome) && (
         <WelcomeModal userId={auth?.user_id} onSettled={() => setWelcomeSettled(true)} />
       )}
-      {auth && !auth.impersonator && (
+      {auth && !auth.impersonator && hasPerm(auth.permissions, PERM.aiaUse) && (
         <InternationalPromptModal
           userId={auth.user_id}
           role={auth.role}
