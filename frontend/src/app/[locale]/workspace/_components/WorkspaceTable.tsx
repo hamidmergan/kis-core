@@ -81,12 +81,11 @@ export default function WorkspaceTable({
                 return (
                   <React.Fragment key={`${m.uuid}-${m.access}-${m.enrollment_id ?? "o"}`}>
                     {heading && (
-                      <tr>
+                      <tr className="bg-surface border-b border-border-soft">
                         <th
                           colSpan={5}
                           scope="colgroup"
-                          className="px-4 pt-5 pb-2 text-left text-xs font-semibold uppercase tracking-wide"
-                          style={{ color: "var(--muted)" }}
+                          className="px-4 py-2.5 text-left text-sm font-semibold text-foreground"
                         >
                           {heading}
                         </th>
