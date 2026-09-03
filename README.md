@@ -12,7 +12,7 @@ AI platform for teaching at TH Lübeck: document translation, screencasts, trans
 - Document translation (DOCX, PPTX, MD, TEX, PDF) with glossary
 - Screencasts from PPTX (script, speech, video, subtitles)
 - Transcription, text to speech, summaries, image generation
-- Study assistant: modules, sources (PDF, audio, video, web), chat with citations, mindmaps, schedules, notes
+- Study assistant: modules, sources (PDF, DOCX, PPTX, audio, video), chat with citations, mindmaps, schedules, notes
 - Language training: flashcards, grammar and vocabulary exercises, quiz, placement
 
 ## Stack
