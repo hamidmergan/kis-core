@@ -240,20 +240,6 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                 if cur.fetchone():
                     cur.execute(f"ALTER TABLE {table} RENAME CONSTRAINT {old_constraint} TO {new_constraint}")
 
-            # Rename legacy German column "sprachtraining_active" to "language_training_active" (idempotent).
-            cur.execute(
-                """
-                SELECT 1 FROM information_schema.columns
-                WHERE table_schema = 'public'
-                  AND table_name = 'aia_user_settings'
-                  AND column_name = 'sprachtraining_active'
-                """
-            )
-            if cur.fetchone():
-                cur.execute(
-                    "ALTER TABLE aia_user_settings RENAME COLUMN sprachtraining_active TO language_training_active"
-                )
-
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS users (
                     id            SERIAL PRIMARY KEY,
@@ -660,10 +646,8 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             cur.execute(
                 "ALTER TABLE aia_workspaces ADD COLUMN IF NOT EXISTS diagnosis_language TEXT NOT NULL DEFAULT 'de'"
             )
-            # Whether the language trainer is offered in this course room at all.
-            cur.execute(
-                "ALTER TABLE aia_workspaces ADD COLUMN IF NOT EXISTS language_training_active BOOLEAN NOT NULL DEFAULT FALSE"
-            )
+            # The trainer hangs on the person since 2026-09, the course switch is gone.
+            cur.execute("ALTER TABLE aia_workspaces DROP COLUMN IF EXISTS language_training_active")
             # Owner-managed pinned note shown above the sources list. Plain text + structured links.
             cur.execute(
                 "ALTER TABLE aia_workspaces ADD COLUMN IF NOT EXISTS staff_note_text TEXT"
@@ -1003,15 +987,15 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                     user_id              INTEGER NOT NULL,
                     chat_lang            TEXT NOT NULL DEFAULT 'de',
                     studio_enabled       BOOLEAN NOT NULL DEFAULT TRUE,
-                    language_training_active BOOLEAN NOT NULL DEFAULT FALSE,
                     UNIQUE (workspace_id, user_id)
                 )
             """)
             cur.execute("ALTER TABLE aia_user_settings ADD COLUMN IF NOT EXISTS studio_enabled BOOLEAN NOT NULL DEFAULT TRUE")
             # Target language of the selection bar translation, per person and module.
             cur.execute("ALTER TABLE aia_user_settings ADD COLUMN IF NOT EXISTS popup_translate_lang TEXT NOT NULL DEFAULT 'en'")
-            # Each person decides per course whether the language trainer is shown.
-            cur.execute("ALTER TABLE aia_user_settings ADD COLUMN IF NOT EXISTS language_training_active BOOLEAN NOT NULL DEFAULT FALSE")
+            # The personal switch per course is gone, the profile switch replaced it.
+            cur.execute("ALTER TABLE aia_user_settings DROP COLUMN IF EXISTS language_training_active")
+            cur.execute("ALTER TABLE aia_user_settings DROP COLUMN IF EXISTS sprachtraining_active")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_notes (
                     id           SERIAL PRIMARY KEY,

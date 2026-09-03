@@ -93,20 +93,6 @@ def is_language_training_ready(user_id: int) -> bool:
     return bool(get_user_language_level(user_id)["language_level"])
 
 
-def is_language_training_active(workspace_id: int) -> bool:
-    """Whether the language trainer is on in this course room, admin switch included."""
-    if not is_language_training_enabled_globally():
-        return False
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT language_training_active FROM aia_workspaces WHERE id = %s",
-                (workspace_id,),
-            )
-            row = cur.fetchone()
-            return bool(row[0]) if row else False
-
-
 def clear_user_language_level(user_id: int) -> None:
     with get_connection() as conn:
         with conn.cursor() as cur:

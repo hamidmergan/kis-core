@@ -34,8 +34,6 @@ def kurs_mit(monkeypatch):
         monkeypatch.setattr(routes.db, "get_aia_sources_by_workspace", lambda ws_id: [])
         monkeypatch.setattr(routes.db, "get_aia_chapters_by_workspace", lambda ws_id: [])
         monkeypatch.setattr(routes.db, "get_access_links_by_workspace", lambda ws_id: [])
-        monkeypatch.setattr(routes.db, "is_language_training_enabled_globally", lambda: False)
-        monkeypatch.setattr(routes.db, "is_language_training_active", lambda ws_id: False)
         monkeypatch.setattr(routes.db, "get_setting", lambda key, default=None: default)
         monkeypatch.setattr(
             routes.db, "get_user_by_id",
