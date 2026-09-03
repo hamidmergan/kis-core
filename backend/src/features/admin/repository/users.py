@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 from zoneinfo import ZoneInfo
 
 import psycopg2
@@ -177,3 +178,37 @@ def ensure_local_admin() -> int:
         role="admin",
     )
 
+
+
+def set_user_tour_seen(user_id: int, seen: bool) -> None:
+    """Marks the tour as done, or releases it again so the invitation returns."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE users SET tour_seen_at = %s WHERE id = %s",
+                (datetime.now() if seen else None, user_id),
+            )
+        conn.commit()
+
+
+def demo_seeding_done(user_id: int) -> bool:
+    """Whether this account already had its one demo assignment."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT demo_seeded_at IS NOT NULL FROM users WHERE id = %s", (user_id,))
+            row = cur.fetchone()
+    return bool(row and row[0])
+
+
+def claim_demo_seeding(user_id: int) -> bool:
+    """Sets the mark and reports whether this call was the one that got it."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE users SET demo_seeded_at = %s "
+                "WHERE id = %s AND demo_seeded_at IS NULL RETURNING id",
+                (datetime.now(), user_id),
+            )
+            row = cur.fetchone()
+        conn.commit()
+    return row is not None

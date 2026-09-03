@@ -6,6 +6,7 @@ from pydantic import BaseModel
 
 from src import database
 from src.dependencies import get_settings, get_session_store
+from src.features.accounts.demo_onboarding import demo_module_zuweisen
 from src.features.impersonation import repository as impersonation_repo
 from src.features.impersonation import service as impersonation
 from src.i18n import get_locale, t
@@ -98,6 +99,9 @@ def login(body: LoginRequest, response: Response, locale: str = Depends(get_loca
             if abgelaufen:
                 logger.info("Login blocked for '{}' (test access expired)", ldap_username)
                 raise HTTPException(status_code=403, detail="access_expired")
+
+    # Step 5: The demo module, once per account, whichever way it was created.
+    demo_module_zuweisen(user_id)
 
     # Step 5: Create session
     store = get_session_store()

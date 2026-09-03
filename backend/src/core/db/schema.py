@@ -257,6 +257,10 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS language_level_set_at TIMESTAMP WITH TIME ZONE")
             # Demo account: its active courses appear on everyone's start page.
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT FALSE")
+            # Rundgang: haengt am Konto, nicht am Browser, sonst faengt jedes Geraet von vorn an.
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS tour_seen_at TIMESTAMP")
+            # Demo-Modul: einmal je Konto zugewiesen, NULL heisst noch nie.
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS demo_seeded_at TIMESTAMP")
             # The five single marks are gone, only the final value stays.
             cur.execute("ALTER TABLE users DROP COLUMN IF EXISTS language_level_skill_scores")
             # The level list walks the whole ladder again, old B1+ becomes B2.
@@ -1437,6 +1441,19 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                     candidates       JSONB NOT NULL,
                     classifications  JSONB NOT NULL,
                     extracted_at     TIMESTAMP NOT NULL DEFAULT NOW()
+                )
+            """)
+            # Marks that the guided tour already copied its 8 tool examples in for this
+            # person, so deleting them never brings them back. Separate from the
+            # examples themselves, which is the whole point: they can be gone and this
+            # row still stands.
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS aia_demo_tools_seeded (
+                    workspace_id  INTEGER NOT NULL
+                                    REFERENCES aia_workspaces(id) ON DELETE CASCADE,
+                    user_id       INTEGER NOT NULL,
+                    seeded_at     TIMESTAMP NOT NULL DEFAULT NOW(),
+                    PRIMARY KEY (workspace_id, user_id)
                 )
             """)
 

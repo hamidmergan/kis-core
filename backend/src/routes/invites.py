@@ -6,6 +6,7 @@ from loguru import logger
 from pydantic import BaseModel, Field
 
 from src.dependencies import get_session_store, get_settings
+from src.features.accounts.demo_onboarding import demo_module_zuweisen
 from src.features.accounts.provisioning import provision_account
 from src.ldap_admin import LdapUserExistsError
 from src.features.invites import repository as repo
@@ -83,6 +84,8 @@ def redeem_invite(
         logger.error("invite redeem failed for uid={}: {}", invite["uid"], fehler)
         code = 409 if isinstance(fehler, LdapUserExistsError) else 500
         raise HTTPException(status_code=code, detail=t("invite.createFailed", locale))
+
+    demo_module_zuweisen(sitzungsdaten["user_id"])
 
     display_name = sitzungsdaten["display_name"]
     store = get_session_store()

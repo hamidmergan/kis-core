@@ -9,6 +9,7 @@ from src import database
 from src.dependencies import get_session_store, get_settings
 from src.features.access_codes import repository as repo
 from src.features.access_codes.service import demo_email, new_username, normalize_code, status_of
+from src.features.accounts.demo_onboarding import demo_module_zuweisen
 from src.features.accounts.provisioning import provision_account
 from src.features.accounts.uid import unique_uid
 from src.i18n import get_locale, t
@@ -121,10 +122,8 @@ def redeem(payload: RedeemPayload, response: Response, locale: str = Depends(get
         raise HTTPException(status_code=500, detail=t("access.createFailed", locale))
     sitzungsdaten["access_expires_at"] = frist.isoformat() if frist else None
 
-    # Testers get a working example right away, without a demo account this is simply a no-op.
-    for kurs in database.get_demo_workspaces(sitzungsdaten["user_id"]):
-        if not kurs["joined"] and not kurs["owned"]:
-            database.enroll_student(kurs["id"], sitzungsdaten["user_id"], None, via_demo=True)
+    # Testers get a working example right away, without a demo module this is simply a no-op.
+    demo_module_zuweisen(sitzungsdaten["user_id"])
 
     _set_session(response, sitzungsdaten)
 

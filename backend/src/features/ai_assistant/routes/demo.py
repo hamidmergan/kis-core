@@ -8,6 +8,8 @@ from src import database as db
 from src.dependencies import get_current_user
 from src.i18n import get_locale, t
 
+from ._demo_tour_content import lege_rundgang_inhalte_an, lege_chat_beispiel_an
+
 router = APIRouter(tags=["ai-assistant: demo"])
 
 
@@ -73,3 +75,31 @@ async def leave_demo(
     geloescht = db.delete_demo_enrollment(kurs["id"], user_id)
     logger.info("Demo: Nutzer {} hat Kurs {} verlassen: {}", user_id, kurs["uuid"], geloescht)
     return {"left": geloescht}
+
+
+@router.post("/ai-assistant/demo/tour-content")
+async def prepare_tour_content(
+    body: DemoLeaveBody,
+    current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
+):
+    """Puts the glossary entry and the note the guided tour shows in place."""
+    user_id = current_user["user_id"]
+    kurs = next((k for k in db.get_demo_workspaces(user_id) if k["uuid"] == body.workspace_uuid), None)
+    if kurs is None:
+        raise HTTPException(status_code=404, detail=t("ai.demo.notFound", locale))
+    return lege_rundgang_inhalte_an(kurs["id"], user_id)
+
+
+@router.post("/ai-assistant/demo/tour-chat-example")
+async def prepare_tour_chat_example(
+    body: DemoLeaveBody,
+    current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
+):
+    """Puts the example question and answer in the chat, called only at that tour step."""
+    user_id = current_user["user_id"]
+    kurs = next((k for k in db.get_demo_workspaces(user_id) if k["uuid"] == body.workspace_uuid), None)
+    if kurs is None:
+        raise HTTPException(status_code=404, detail=t("ai.demo.notFound", locale))
+    return {"added": lege_chat_beispiel_an(kurs["id"], user_id)}

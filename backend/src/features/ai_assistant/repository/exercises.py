@@ -336,6 +336,42 @@ def bulk_record_exercise_progress(
         conn.commit()
 
 
+def seed_exercise_progress(rows: list[dict]) -> None:
+    """Backdated answers for the demo tour's default stats, real practice never needs this.
+
+    Each row: set_id, item_id, user_id, correct, run_no, answered_at.
+    """
+    if not rows:
+        return
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            for r in rows:
+                cur.execute(
+                    """INSERT INTO aia_exercise_progress
+                       (set_id, item_id, user_id, correct, run_no, answered_at)
+                       VALUES (%s, %s, %s, %s, %s, %s)""",
+                    (r["set_id"], r["item_id"], r["user_id"], r["correct"],
+                     r["run_no"], r["answered_at"]),
+                )
+        conn.commit()
+
+
+def hat_heute_geuebt(workspace_id: int, user_id: int) -> bool:
+    """Whether this person has any exercise answer today (Berlin time) in this workspace."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """SELECT 1 FROM aia_exercise_progress ep
+                   JOIN aia_exercise_sets s ON s.id = ep.set_id
+                   WHERE s.workspace_id = %s AND ep.user_id = %s
+                     AND (ep.answered_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Berlin')::date
+                       = (NOW() AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Berlin')::date
+                   LIMIT 1""",
+                (workspace_id, user_id),
+            )
+            return cur.fetchone() is not None
+
+
 def prune_old_exercise_progress() -> int:
     """Clears answers older than the calendar view reaches."""
     from src.features.ai_assistant.repository.stats import STATS_WINDOW_DAYS
@@ -417,6 +453,19 @@ def get_streak(workspace_id: int, user_id: int) -> dict:
             if not row:
                 return {"current_streak": 0, "max_streak": 0, "last_active_date": None}
             return dict(row)
+
+
+def seed_streak(workspace_id: int, user_id: int, current_streak: int, last_active_date) -> None:
+    """Sets a starting streak for the demo tour, only when there is none yet."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """INSERT INTO aia_streaks (workspace_id, user_id, current_streak, max_streak, last_active_date)
+                   VALUES (%s, %s, %s, %s, %s)
+                   ON CONFLICT (workspace_id, user_id) DO NOTHING""",
+                (workspace_id, user_id, current_streak, current_streak, last_active_date),
+            )
+        conn.commit()
 
 def get_glossary_count(workspace_id: int, user_id: int) -> int:
     """Get the user's glossary entry count for a workspace."""

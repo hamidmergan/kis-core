@@ -24,6 +24,7 @@ from src.features.ai_assistant.repository.notes import *  # noqa: F401,F403
 from src.features.ai_assistant.repository.mindmaps import *  # noqa: F401,F403
 from src.features.ai_assistant.repository.data_tables import *  # noqa: F401,F403
 from src.features.ai_assistant.repository.schedule import *  # noqa: F401,F403
+from src.features.ai_assistant.repository.demo_tour_seed import *  # noqa: F401,F403
 from src.features.ai_assistant.repository.glossary import *  # noqa: F401,F403
 from src.features.ai_assistant.repository.exercises import *  # noqa: F401,F403
 from src.features.ai_assistant.repository.context_cursors import *  # noqa: F401,F403

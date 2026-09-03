@@ -350,3 +350,15 @@ def test_eight_characters_are_enough_and_seven_are_not(client):
 
     assert gerade_genug.status_code == 200
     assert zu_kurz.status_code == 400
+
+
+def test_redeeming_an_invite_assigns_the_demo_module(client):
+    p = _redeem_patches()
+    with p["lesen"], p["stempeln"], p["ldap"], p["whitelist"], p["anlegen"], p["rolle"], \
+         p["sitzung"] as sitzung, \
+         patch("src.routes.invites.demo_module_zuweisen") as zuweisen:
+        sitzung.return_value.create.return_value = "sitzungsschluessel"
+        r = client.post("/invites/tok", json={"password": "ein-langes-passwort"})
+
+    assert r.status_code == 200
+    zuweisen.assert_called_once_with(42)
