@@ -37,6 +37,8 @@ export function LanguageTrainingBlock({ me, onChanged }: { me: ProfileMe; onChan
         body: JSON.stringify({ active: !me.language_training_active }),
       });
       if (res.ok) onChanged();
+    } catch {
+      // A network error stays silent, the switch just does not move.
     } finally {
       setBusy(false);
     }
@@ -44,12 +46,20 @@ export function LanguageTrainingBlock({ me, onChanged }: { me: ProfileMe; onChan
 
   // The stored level goes, then the test page starts a fresh run.
   const redo = async () => {
+    if (busy) return;
     if (!window.confirm(tDiag("resetConfirmBody"))) return;
-    const res = await fetch("/api/ai-assistant/language-diagnosis/me", {
-      method: "DELETE",
-      credentials: "include",
-    });
-    if (res.ok) router.push("/profile/language-test");
+    setBusy(true);
+    try {
+      const res = await fetch("/api/ai-assistant/language-diagnosis/me", {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (res.ok) router.push("/profile/language-test");
+    } catch {
+      // A network error stays silent, the level just stays as it was.
+    } finally {
+      setBusy(false);
+    }
   };
 
   const setAt = me.language_level_set_at
@@ -87,6 +97,7 @@ export function LanguageTrainingBlock({ me, onChanged }: { me: ProfileMe; onChan
           <button
             type="button"
             onClick={() => void redo()}
+            disabled={busy}
             className="px-3 py-1.5 text-xs rounded-md text-foreground border-2 border-border transition-colors hover:border-kb"
           >
             {t("redo")}
