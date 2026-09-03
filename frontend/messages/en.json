@@ -3231,6 +3231,12 @@
     "no": "No",
     "later": "Later"
   },
+  "profile": {
+    "languageTest": {
+      "notOffered": "The language trainer is switched off for you. Switch it on in your profile, then you can take the test.",
+      "toProfile": "To the profile"
+    }
+  },
   "layoutMeta": {
     "title": "KIS",
     "description": "KIS - Services of TH Lübeck",

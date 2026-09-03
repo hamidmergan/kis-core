@@ -3231,6 +3231,12 @@
     "no": "Nein",
     "later": "Später"
   },
+  "profile": {
+    "languageTest": {
+      "notOffered": "Der Sprachtrainer ist für dich ausgeschaltet. Schalte ihn im Profil ein, dann kannst du den Test machen.",
+      "toProfile": "Zum Profil"
+    }
+  },
   "layoutMeta": {
     "title": "KIS",
     "description": "KIS - Services der TH Lübeck",

@@ -12,7 +12,6 @@ import { type ChatTurn } from "./_diagnosis_types";
 
 interface Props {
   userId: number | null;
-  workspaceUuid: string;
   onComplete: () => void;
   onAbort: () => void;
   hideHeader?: boolean;
@@ -21,7 +20,6 @@ interface Props {
 /** The assessment as a short chat, method and language come from the admin area. */
 export function LanguageDiagnosisPanel({
   userId,
-  workspaceUuid,
   onComplete,
   onAbort,
   hideHeader,
@@ -33,7 +31,7 @@ export function LanguageDiagnosisPanel({
   const { variant } = useMascotPref();
 
   const { turns, status, result, errorMessage, send, retry, abort, questionCount, answerMaxChars } =
-    useLanguageDiagnosis(userId, workspaceUuid);
+    useLanguageDiagnosis(userId);
 
   // One question per model turn, capped because of the final turn.
   const askedCount = Math.min(

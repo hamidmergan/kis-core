@@ -623,7 +623,6 @@ export default function KiTutorWorkspacePage() {
       return (
         <LanguageDiagnosisPanel
           userId={me?.id ?? null}
-          workspaceUuid={uuid}
           hideHeader={hh}
           onComplete={() => {
             // Re-fetch /me so language_level reflects the persisted value

@@ -51,10 +51,7 @@ function clearDraft(userId: number | null | undefined) {
 }
 
 /** The history is the whole state and survives a reload. */
-export function useLanguageDiagnosis(
-  userId: number | null | undefined,
-  workspaceUuid: string,
-) {
+export function useLanguageDiagnosis(userId: number | null | undefined) {
   const [turns, setTurns] = useState<ChatTurn[]>([]);
   const [status, setStatus] = useState<Status>("loading");
   const [result, setResult] = useState<DiagnosisResult | null>(null);
@@ -87,10 +84,7 @@ export function useLanguageDiagnosis(
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({
-            workspace_uuid: workspaceUuid,
-            history: toTranscript(history),
-          }),
+          body: JSON.stringify({ history: toTranscript(history) }),
         });
         if (!res.ok) {
           const errBody = await res.json().catch(() => ({}));
@@ -129,12 +123,12 @@ export function useLanguageDiagnosis(
         setStatus("error");
       }
     },
-    [userId, workspaceUuid],
+    [userId],
   );
 
   // Kickoff: resume a saved transcript, or ask for the opening question.
   useEffect(() => {
-    if (startedRef.current || !workspaceUuid) return;
+    if (startedRef.current) return;
     startedRef.current = true;
     const draft = loadDraft(userId);
     if (draft) {
@@ -145,7 +139,7 @@ export function useLanguageDiagnosis(
       return;
     }
     void requestTurn([]);
-  }, [userId, workspaceUuid, requestTurn]);
+  }, [userId, requestTurn]);
 
   const send = useCallback(
     (text: string, selected?: string[]) => {
