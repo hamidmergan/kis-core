@@ -7,6 +7,7 @@ import Modal from "@/components/ui/Modal";
 import Select from "@/components/ui/Select";
 import type { MascotVariant } from "@/components/ui/Mascot";
 import { useMascotPref } from "@/hooks/useMascotPref";
+import { OwnerOnly } from "./OwnerOnly";
 
 interface SettingsMenuProps {
   open: boolean;
@@ -21,6 +22,7 @@ interface SettingsMenuProps {
   languageTrainingOptIn: boolean;
   onToggleLanguageTrainingOptIn: () => void;
   isOwner: boolean;
+  onStartTour: () => void;
   transcriptTargetLang: string;
   onChangeTranscriptTargetLang: (lang: string) => void;
   popupTranslateLang: string;
@@ -104,6 +106,7 @@ export function SettingsMenu({
   languageTrainingOptIn,
   onToggleLanguageTrainingOptIn,
   isOwner,
+  onStartTour,
   transcriptTargetLang,
   onChangeTranscriptTargetLang,
   popupTranslateLang,
@@ -115,6 +118,7 @@ export function SettingsMenu({
   const tDiag = useTranslations("workspace.detail.languageTraining.diagnosis");
   const tLang = useTranslations("langLabels");
   const tFooter = useTranslations("footer");
+  const tTour = useTranslations("workspace.detail.tour");
   const { variant: mascotVariant, setVariant: setMascotVariant } = useMascotPref();
 
   // The languages come from the backend, the names from our own labels.
@@ -220,42 +224,44 @@ export function SettingsMenu({
             />
           </div>
         </div>
-        {isOwner && (
-          <SectionHeading
-            title={t("sectionWorkspaceTitle")}
-            description={t("sectionWorkspaceDescription")}
-            divider
-          />
-        )}
-        {isOwner && (
-          <div className="mt-3">
-            <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{t("transcriptTargetLangTitle")}</p>
-            <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
-              {t("transcriptTargetLangDescription")}
-            </p>
-            <div className="mt-3">
-              <Select<string>
-                value={transcriptTargetLang}
-                onChange={onChangeTranscriptTargetLang}
-                options={targetLangOptions}
-              />
-            </div>
-          </div>
-        )}
-        {/* Der Admin gibt den Sprachtrainer plattformweit frei, hier entscheidet
-            die Verwaltung des Workspace, ob der Kurs ihn anbietet. Ganz weg statt
-            gesperrt, solange die Plattform ihn nicht anbietet, ein toter Schalter
-            erklaert nichts. */}
-        {isOwner && languageTrainingAvailable && (
-          <div className="mt-4">
-            <ToggleRow
-              title={t("languageTrainingTitle")}
-              description={t("languageTrainingDescription")}
-              checked={language_trainingActive}
-              onToggle={onToggleLanguageTraining}
+        {/* The line separates personal from course settings and is no control, so it stays unmarked. */}
+        {isOwner && <div className="mt-4 border-t" style={{ borderColor: "var(--border)" }} />}
+        {/* All course settings sit in one box, so the preview marks them once instead of three times. */}
+        <OwnerOnly show={isOwner}>
+          <div className="mt-4 p-4">
+            <SectionHeading
+              title={t("sectionWorkspaceTitle")}
+              description={t("sectionWorkspaceDescription")}
             />
+            <div className="mt-4">
+              <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{t("transcriptTargetLangTitle")}</p>
+              <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
+                {t("transcriptTargetLangDescription")}
+              </p>
+              <div className="mt-3">
+                <Select<string>
+                  value={transcriptTargetLang}
+                  onChange={onChangeTranscriptTargetLang}
+                  options={targetLangOptions}
+                />
+              </div>
+            </div>
+            {/* Der Admin gibt den Sprachtrainer plattformweit frei, hier entscheidet
+                die Verwaltung des Workspace, ob der Kurs ihn anbietet. Ganz weg statt
+                gesperrt, solange die Plattform ihn nicht anbietet, ein toter Schalter
+                erklaert nichts. */}
+            {languageTrainingAvailable && (
+              <div className="mt-5">
+                <ToggleRow
+                  title={t("languageTrainingTitle")}
+                  description={t("languageTrainingDescription")}
+                  checked={language_trainingActive}
+                  onToggle={onToggleLanguageTraining}
+                />
+              </div>
+            )}
           </div>
-        )}
+        </OwnerOnly>
         <div className="mt-2 pt-4 border-t" style={{ borderColor: "var(--border)" }}>
           <Link
             href="/feedback"

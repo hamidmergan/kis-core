@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { CalendarBlank, CaretRight, Check, Info, List, Moon, Question, Sidebar, SignOut, Stack, Sun, UserCircleGear, X } from "@phosphor-icons/react";
+import { CalendarBlank, CaretRight, Check, Compass, Info, List, Moon, Question, Sidebar, SignOut, Stack, Sun, UserCircleGear, X } from "@phosphor-icons/react";
 import { useRouter, usePathname } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
 import { HOME_NOTICE_DISMISS_KEY, HOME_NOTICE_SHOW_EVENT, UI_LOCALES } from "@/lib/constants";
 import { useTheme, type Theme } from "@/hooks/useTheme";
+import { findeRundgangKurs, rundgangZiel } from "@/lib/tour";
 
 const LOCALES = UI_LOCALES as readonly Locale[];
 const THEMES: readonly Theme[] = ["light", "dark"];
@@ -40,13 +41,20 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, areaKey = "admin
   const t = useTranslations("header");
   const tLang = useTranslations("languageSwitch");
   const tManual = useTranslations("manual");
+  const tTour = useTranslations("workspace.detail.tour");
   const router = useRouter();
   const pathname = usePathname();
   const currentLocale = useLocale() as Locale;
   const [open, setOpen] = useState(false);
   const [sheetTop, setSheetTop] = useState(0);
   const { theme, setTheme } = useTheme();
+  const [rundgangKurs, setRundgangKurs] = useState<Awaited<ReturnType<typeof findeRundgangKurs>>>(null);
   const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!hasSession) return;
+    void findeRundgangKurs().then(setRundgangKurs);
+  }, [hasSession]);
 
   useEffect(() => {
     if (!open) return;
@@ -222,6 +230,20 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, areaKey = "admin
             >
               <Info size={20} weight="bold" />
               <span>{t("homeNoticeShow")}</span>
+            </button>
+          )}
+          {hasSession && rundgangKurs && (
+            <button
+              type="button"
+              onClick={async () => {
+                setOpen(false);
+                router.push(await rundgangZiel(rundgangKurs));
+              }}
+              className={rowClass}
+              style={{ color: "var(--foreground)" }}
+            >
+              <Compass size={20} weight="bold" />
+              <span>{tTour("start")}</span>
             </button>
           )}
           {hasSession && (

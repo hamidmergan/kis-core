@@ -127,6 +127,17 @@ export function PdfViewer({
     // Corrects oversized highlights with inflated font metrics.
     wrapEngineGeometry(reg.getEngine?.());
 
+    // A transient permission hiccup (e.g. demo enrollment not yet visible
+    // server-side) can make the very first load fail; one silent retry
+    // clears it instead of leaving the viewer's cryptic native error screen up.
+    const docManager = reg.getPlugin?.("document-manager")?.provides?.();
+    let hasRetriedLoad = false;
+    docManager?.onDocumentError?.((evt: { documentId: string }) => {
+      if (hasRetriedLoad) return;
+      hasRetriedLoad = true;
+      setTimeout(() => docManager.retryDocument(evt.documentId), 600);
+    });
+
     // On a touch device the rectangles have to be drawn in pan mode too.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const selCap = reg.getPlugin?.("selection")?.provides?.() as any;
@@ -427,7 +438,7 @@ export function PdfViewer({
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="flex flex-col h-full relative viewer-short" ref={containerRef}>
+    <div data-tour="pdf-viewer" className="flex flex-col h-full relative viewer-short" ref={containerRef}>
       {/* Header */}
       <div className="flex items-center gap-2 px-4 py-3 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
         <button type="button" onClick={onClose}

@@ -17,6 +17,7 @@
   "dependencies": {
     "@embedpdf/react-pdf-viewer": "^2.10.0",
     "@phosphor-icons/react": "^2.1.10",
+    "driver.js": "^1.8.0",
     "katex": "^0.16.47",
     "mind-elixir": "^5.9.3",
     "next": "^15.1.0",

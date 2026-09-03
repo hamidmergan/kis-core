@@ -158,7 +158,7 @@ export function ChatPanel({
   );
 
   return (
-    <div className="flex flex-col h-full chat-60vh">
+    <div data-tour="chat-panel" className="flex flex-col h-full chat-60vh">
       {pageScrollable && (
         <button
           type="button"

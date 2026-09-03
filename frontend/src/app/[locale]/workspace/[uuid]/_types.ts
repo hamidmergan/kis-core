@@ -60,6 +60,8 @@ export interface WorkspaceDetail {
   is_owner?: boolean;
   /** Owner or tutor. Drives the UI, is_owner is literal ownership only. */
   can_manage?: boolean;
+  /** Demo course: enrolled people may preview the owner layout here, read only. */
+  is_demo_workspace?: boolean;
   transcript_target_lang?: string;
   /** Language the CEFR chat diagnosis is held in (ISO code, default "de"). */
   diagnosis_language?: string;

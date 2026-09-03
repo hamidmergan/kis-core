@@ -42,22 +42,12 @@ export function usePanelLayout({ uuid, viewerSource }: UsePanelLayoutOptions) {
     return window.matchMedia("(orientation: landscape)").matches;
   });
   const isPhoneLandscape = isPhone && isLandscape;
-  const [hideHeader, setHideHeader] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    try { return localStorage.getItem(`ki-assistent-hide-header-${uuid}`) === "1"; } catch { return false; }
-  });
-
   const panelContainerRef = useRef<HTMLDivElement>(null);
   const p1Ref = useRef<HTMLDivElement>(null);
   const p2Ref = useRef<HTMLDivElement>(null);
   const p3Ref = useRef<HTMLDivElement>(null);
   const panelsRef = useRef(panels);
   panelsRef.current = panels;
-
-  // Persist hideHeader
-  useEffect(() => {
-    try { localStorage.setItem(`ki-assistent-hide-header-${uuid}`, hideHeader ? "1" : "0"); } catch { /* ignore */ }
-  }, [hideHeader, uuid]);
 
   // Persist panels
   useEffect(() => {
@@ -193,7 +183,6 @@ export function usePanelLayout({ uuid, viewerSource }: UsePanelLayoutOptions) {
     p1Width, p2Width, p3Width,
     activeTab, setActiveTab,
     isMobile,
-    hideHeader, setHideHeader,
     panelContainerRef, p1Ref, p2Ref, p3Ref,
     togglePanel, startDrag,
   };

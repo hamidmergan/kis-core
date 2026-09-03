@@ -25,7 +25,6 @@ export default function WorkspaceList({ canCreate }: Props) {
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [showDemo, setShowDemo] = useState(false);
-  const tDemo = useTranslations("workspace.demo");
   const demo = useDemoWorkspaces();
 
   const load = useCallback(async () => {
@@ -122,26 +121,14 @@ export default function WorkspaceList({ canCreate }: Props) {
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-lg md:text-xl font-semibold">{heading}</h2>
           <div className="flex items-center gap-2">
-          {demo.items.some((m) => !m.owned) && (
-            <button
-              type="button"
-              data-testid="demo-open"
-              onClick={() => setShowDemo(true)}
-              className="whitespace-nowrap text-xs font-semibold px-3.5 py-1.5 rounded border-2 border-transparent hover:border-black transition-colors"
-              style={{ backgroundColor: "rgb(245, 158, 11)", color: "rgb(0, 0, 0)" }}
-            >
-              {tDemo("button")}
-            </button>
-          )}
           {canCreate && (
             <button
               type="button"
               onClick={() => setShowCreate(true)}
               aria-label={t("createAria", { label: labels.singular })}
-              className="whitespace-nowrap rounded-lg text-sm font-medium btn-primary w-9 h-9 flex items-center justify-center text-lg md:w-auto md:h-auto md:px-4 md:py-2 md:text-sm"
+              className="whitespace-nowrap rounded-lg text-sm font-medium btn-primary px-3 py-2 md:px-4"
             >
-              <span className="md:hidden">+</span>
-              <span className="hidden md:inline">+ {labels.singular}</span>
+              + {labels.singular}
             </button>
           )}
           </div>

@@ -1,4 +1,8 @@
+/* driver.js sits in its own layer between preflight and the app classes, so the
+   tour can wear the same button classes as the rest of the app. */
+@layer theme, base, vendor, components, utilities;
 @import "tailwindcss";
+@import "driver.js/dist/driver.css" layer(vendor);
 
 /* Tailwind v4 dark variant: aktiviert via <html data-theme="dark"> */
 @custom-variant dark (&:where(:root[data-theme="dark"] *, :root[data-theme="dark"]));
@@ -1186,6 +1190,99 @@ body.is-phone-landscape [title="Panel minimieren"] {
   0%, 100% { transform: scale(.7); opacity: .4; }
   20%      { transform: scale(1.1); opacity: 1; }
   40%      { transform: scale(.7); opacity: .4; }
+}
+
+/* ─── Rundgang (driver.js) ──────────────────────────────────────────────── */
+/* The note button in the transcript only shows on hover, the tour points at it. */
+.driver-active-element[data-tour="transcript-note"] {
+  opacity: 1 !important;
+}
+.driver-popover.kis-tour {
+  background-color: var(--background);
+  color: var(--foreground);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-hover);
+  max-width: 340px;
+}
+.driver-popover.kis-tour .driver-popover-title {
+  color: var(--foreground);
+  font-size: var(--text-base);
+  font-weight: 600;
+  /* Keeps a long title clear of the round close button. */
+  padding-right: 2rem;
+}
+.driver-popover.kis-tour .driver-popover-description {
+  color: var(--foreground-soft);
+  /* Same size as a chat answer, the tour sits next to it. */
+  font-size: var(--text-base);
+  line-height: 1.5;
+}
+.driver-popover.kis-tour .driver-popover-progress-text {
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+.driver-popover.kis-tour .driver-popover-arrow {
+  border-color: var(--background);
+}
+/* Buttons carry the app classes (see useTour), only their placement is set here. */
+.driver-popover.kis-tour .driver-popover-navigation-btns {
+  gap: 0.5rem;
+}
+.driver-popover.kis-tour .driver-popover-navigation-btns button + button {
+  margin-left: 0;
+}
+.driver-popover.kis-tour .driver-popover-close-btn {
+  top: 0.75rem;
+  right: 0.75rem;
+}
+
+/* ─── Owner-Vorschau ──────────────────────────────────────────────────────
+   Wer die Lehrenden-Ansicht nur vorschaut, sieht deren Bedienelemente
+   gestrichelt umrandet und kann sie nicht bedienen (inert sitzt am Wrapper).
+   Der Wrapper selbst ist display:contents und hat keine eigene Box, deshalb
+   traegt das Kind die Umrandung. Bewusst keine zusaetzliche Farbe: die
+   Badge-Palette ist bereits an die Studio-Bereiche vergeben, eine weitere
+   Farbe wuerde dort Bedeutung vortaeuschen. */
+.owner-preview {
+  display: contents;
+}
+/* The outline follows the shape of the element, so a box needs a radius of its
+   own to stop the mark from ending in a sharp corner. */
+.owner-preview > * {
+  outline: 1px dashed var(--muted-soft);
+  outline-offset: 2px;
+  border-radius: 8px;
+  opacity: 0.85;
+}
+/* Round buttons keep their ring, a fixed radius would make boxes out of them. */
+.owner-preview > .rounded-full {
+  border-radius: 9999px;
+}
+/* The ring sits outside the button, without this air two neighbours touch. */
+.owner-preview > .rounded-full,
+.owner-preview > * > .rounded-full,
+.owner-preview > * > .relative > .rounded-full {
+  margin-inline: 2px;
+}
+/* The switch stays usable and is therefore not owner-only, while the preview runs
+   it still carries the same dashes so the mode is readable at the switch itself. */
+[data-tour="preview-toggle"][aria-pressed="true"] {
+  outline: 1px dashed var(--muted-soft);
+  outline-offset: 2px;
+  margin-inline: 2px;
+}
+/* A wrapper that only places a round button carries no mark of its own, the ring
+   belongs around the button, otherwise the same control looks different per row. */
+.owner-preview > *:has(> .rounded-full),
+.owner-preview > *:has(> .relative > .rounded-full) {
+  outline: none;
+}
+.owner-preview > * > .rounded-full,
+.owner-preview > * > .relative > .rounded-full {
+  outline: 1px dashed var(--muted-soft);
+  outline-offset: 2px;
 }
 
 /* Citation site: normal inline flow, NOT inline-flex, so the site is not a box of

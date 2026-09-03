@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { Check, Gear, Info, Moon, Question, SignOut, Sun, UserCircleGear } from "@phosphor-icons/react";
+import { Check, Compass, Gear, Info, Moon, Question, SignOut, Sun, UserCircleGear } from "@phosphor-icons/react";
 import { useRouter, usePathname } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
 import { HOME_NOTICE_DISMISS_KEY, HOME_NOTICE_SHOW_EVENT, UI_LOCALES } from "@/lib/constants";
 import { useTheme, type Theme } from "@/hooks/useTheme";
+import { findeRundgangKurs, rundgangZiel } from "@/lib/tour";
 
 const LOCALES = UI_LOCALES as readonly Locale[];
 const THEMES: readonly Theme[] = ["light", "dark"];
@@ -36,6 +37,10 @@ export default function HeaderSettingsMenu({ isAdmin = false, areaKey = "admin",
   const t = useTranslations("header");
   const tLang = useTranslations("languageSwitch");
   const tManual = useTranslations("manual");
+  const tTour = useTranslations("workspace.detail.tour");
+  // Der Rundgang laeuft in einem Kurs, ohne Demo-Kurs gibt es nichts zu zeigen.
+  const [rundgangKurs, setRundgangKurs] = useState<Awaited<ReturnType<typeof findeRundgangKurs>>>(null);
+  useEffect(() => { void findeRundgangKurs().then(setRundgangKurs); }, []);
   const router = useRouter();
   const pathname = usePathname();
   const currentLocale = useLocale() as Locale;
@@ -218,6 +223,24 @@ export default function HeaderSettingsMenu({ isAdmin = false, areaKey = "admin",
             >
               <Info size={18} weight="bold" aria-hidden="true" />
               <span className="flex-1">{t("homeNoticeShow")}</span>
+            </button>
+          )}
+
+          {rundgangKurs && (
+            <button
+              data-row
+              type="button"
+              role="menuitem"
+              tabIndex={-1}
+              onClick={async () => {
+                setOpen(false);
+                router.push(await rundgangZiel(rundgangKurs));
+              }}
+              className={rowClass}
+              style={{ color: "var(--foreground)" }}
+            >
+              <Compass size={18} weight="bold" aria-hidden="true" />
+              <span className="flex-1">{tTour("start")}</span>
             </button>
           )}
 

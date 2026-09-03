@@ -6,6 +6,7 @@ import Select from "@/components/ui/Select";
 import { genericErrorMessage, parseDetail } from "@/lib/api";
 import { langLabel } from "../../_types";
 import type { AddNoteExtras } from "../../_hooks/useNotes";
+import { OwnerOnly } from "../layout/OwnerOnly";
 import { buildTranscriptModes, groupCues, resolveCitationFocus, type TranscriptMode } from "./_transcript";
 import { clearActiveChipTarget } from "../chat/_citations";
 
@@ -511,6 +512,7 @@ export function TranscriptPanel({
 
   return (
     <div
+      data-tour="transcript-panel"
       className="flex flex-col min-h-0 relative"
       style={{ borderTop: "1px solid var(--border)" }}
     >
@@ -557,7 +559,7 @@ export function TranscriptPanel({
             onChange={setMode}
             options={modeOptions}
           />
-          {canTranslate && (
+          <OwnerOnly show={canTranslate}>
             <button
               type="button"
               onClick={regenerateTranscript}
@@ -584,7 +586,7 @@ export function TranscriptPanel({
               )}
               <span>{regen === "running" ? t("regenEnRunning") : t("regenEnButton")}</span>
             </button>
-          )}
+          </OwnerOnly>
         </div>
       </div>
 
@@ -673,6 +675,7 @@ export function TranscriptPanel({
                 <div className="flex justify-end pr-1 mt-0.5 h-5">
                   <button
                     type="button"
+                    data-tour="transcript-note"
                     disabled={savingCueIdx === b.from}
                     onClick={(e) => { e.stopPropagation(); onSaveBlock(b.from, b.to); }}
                     title={t("saveAsNote")}

@@ -12,6 +12,7 @@ import {
   WarningCircle,
 } from "@phosphor-icons/react";
 import type { Chapter, Source } from "../../_types";
+import { OwnerOnly } from "../layout/OwnerOnly";
 import { splitFilename } from "../../_utils";
 import { FileIcon, SourceStatus } from "./FileIcon";
 
@@ -119,12 +120,14 @@ export function SourceRow({
 
   return (
     <div
+      data-tour="source-row"
       className="group relative flex items-center transition-colors hover:bg-[var(--surface-dim)]"
       style={{ borderBottom: "1px solid var(--border)" }}
     >
       <div className={`flex-shrink-0 py-2.5 ${nested ? "pl-7" : "pl-4"}`}>
         <button
           type="button"
+          data-tour="source-check"
           onClick={() => { if (ready) onToggle(src.uuid); }}
           disabled={!ready}
           aria-label={checked ? t("deselectSource") : t("selectSource")}
@@ -210,7 +213,7 @@ export function SourceRow({
 
       {!compact && (
         <>
-          {isOwner && src.status === "failed" && (
+          <OwnerOnly show={isOwner && src.status === "failed"}>
             <div className="flex-shrink-0 flex items-center justify-center px-1 py-2.5">
               <button
                 type="button"
@@ -222,8 +225,8 @@ export function SourceRow({
                 <ArrowCounterClockwise size={13} weight="bold" />
               </button>
             </div>
-          )}
-          {isOwner && (
+          </OwnerOnly>
+          <OwnerOnly show={isOwner}>
             <div className="flex-shrink-0 flex items-center justify-center pl-1 pr-2 py-2.5">
               <div className="relative">
                 <button
@@ -328,7 +331,7 @@ export function SourceRow({
                 )}
               </div>
             </div>
-          )}
+          </OwnerOnly>
         </>
       )}
     </div>

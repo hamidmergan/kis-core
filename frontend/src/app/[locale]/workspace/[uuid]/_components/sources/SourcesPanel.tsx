@@ -7,10 +7,12 @@ import {
   FileAudio,
   FileVideo,
   FolderSimplePlus,
+  PushPin,
   Check,
   X,
 } from "@phosphor-icons/react";
 import type { Chapter, Source, StaffNoteLink } from "../../_types";
+import { OwnerOnly } from "../layout/OwnerOnly";
 import { UploadErrorsBlock } from "./UploadErrorsBlock";
 import { StaffNoteBox } from "./StaffNoteBox";
 import { StaffNoteEditModal } from "./StaffNoteEditModal";
@@ -202,6 +204,7 @@ export function SourcesPanel({
   const ownerActions = isOwner ? (
     <>
       <IconButton
+        data-tour="add-source"
         onClick={() => fileInputRef.current?.click()}
         title={t("addSources")}
         aria-label={t("addSources")}
@@ -221,11 +224,24 @@ export function SourcesPanel({
           <FolderSimplePlus size={14} weight="bold" />
         </IconButton>
       )}
+      {/* Die Pinnnadel traegt den Hinweis schon in der Box, deshalb auch hier. */}
+      {onStaffNoteSave && (
+        <IconButton
+          data-tour="add-staff-note"
+          onClick={() => setStaffNoteModalOpen(true)}
+          title={t("addStaffNote")}
+          aria-label={t("addStaffNote")}
+          className="text-[var(--kb)]"
+          style={{ backgroundColor: "rgba(var(--kb-rgb),0.10)" }}
+        >
+          <PushPin size={14} weight="bold" />
+        </IconButton>
+      )}
     </>
   ) : null;
 
   return (
-    <div ref={panelRef} className="sources-panel flex flex-col h-full">
+    <div ref={panelRef} data-tour="sources-panel" className="sources-panel flex flex-col h-full">
       {/* Panel header. Anlegen sitzt hier, deshalb kostet es keine eigene Zeile. */}
       {!hideHeader && (
         <div
@@ -243,7 +259,8 @@ export function SourcesPanel({
           {isOwner && (
             <>
               {/* Ansicht bleibt grau. Der Strich zieht die Grenze. */}
-              {ownerActions}
+              {/* Nur die Bedienelemente werden markiert, der Trennstrich nicht. */}
+              <OwnerOnly show>{ownerActions}</OwnerOnly>
               <span className="mx-1 flex-shrink-0" style={{ width: 1, height: 18, backgroundColor: "var(--border)" }} />
             </>
           )}
@@ -311,9 +328,7 @@ export function SourcesPanel({
         <StaffNoteBox
           text={staffNoteText ?? null}
           links={noteLinks}
-          isOwner={isOwner}
           workspaceUuid={workspaceUuid}
-          onEdit={() => setStaffNoteModalOpen(true)}
         />
       )}
 
@@ -365,13 +380,13 @@ export function SourcesPanel({
 
       {/* Select all row */}
       {sources.length > 0 && (
-        <label
+        <div
+          onClick={toggleAll}
           className="sources-select-all flex items-center gap-3 px-4 py-2 flex-shrink-0 cursor-pointer"
           style={{ borderBottom: "1px solid var(--border)" }}
         >
           <button
             type="button"
-            onClick={toggleAll}
             aria-label={allSelected ? t("deselectAll") : t("selectAll")}
             className={`flex-shrink-0 w-5 h-5 rounded-md flex items-center justify-center transition-colors border-2 ${
               allSelected
@@ -385,7 +400,7 @@ export function SourcesPanel({
           <span className="text-sm">
             {t("selectAll")}
           </span>
-        </label>
+        </div>
       )}
 
       {/* Source list. Die ganze Liste nimmt gezogene Dateien an, den Rahmen

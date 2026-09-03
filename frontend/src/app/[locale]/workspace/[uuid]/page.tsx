@@ -40,6 +40,10 @@ import { CreateSetModal } from "./_components/language_training/CreateSetModal";
 import { GlossaryView } from "./_components/language_training/GlossaryView";
 import { LanguageDiagnosisPanel } from "./_components/language_training/LanguageDiagnosisPanel";
 import { WorkspaceTopbar } from "./_components/layout/WorkspaceTopbar";
+import { OwnerPreviewProvider } from "./_components/layout/OwnerOnly";
+import { resolvePreview } from "./_preview";
+import { useTour } from "./_tour/useTour";
+import type { TourAktionen } from "./_tour/demoSteps";
 import { WorkspacePanelsLayout } from "./_components/layout/WorkspacePanelsLayout";
 import { StudioPanelContent } from "./_components/studio/StudioPanelContent";
 import { LanguageTrainingContent } from "./_components/language_training/LanguageTrainingContent";
@@ -101,7 +105,6 @@ export default function KiTutorWorkspacePage() {
     p1Width, p2Width, p3Width,
     activeTab, setActiveTab,
     isMobile,
-    hideHeader, setHideHeader,
     panelContainerRef, p1Ref, p2Ref, p3Ref,
     togglePanel, startDrag,
   } = usePanelLayout({ uuid, viewerSource });
@@ -121,6 +124,9 @@ export default function KiTutorWorkspacePage() {
   } = chat;
 
   const [showSettings, setShowSettings] = useState(false);
+  // null means nobody pressed the switch yet, then the default per course counts.
+  const [previewOverride, setPreviewOverride] = useState<boolean | null>(null);
+  const { start: startTour } = useTour();
 
 
   const [studioEnabled, setStudioEnabled] = useState(true);
@@ -217,9 +223,15 @@ export default function KiTutorWorkspacePage() {
   } = ex;
   // statsVersion and glossaryCount come from the hooks below.
 
+  // Wer über die Einladung auf der Startseite kommt, landet direkt im Rundgang.
+  // Auch hierher gereicht, denn ohne Einschreibung weist der erste Abruf unten
+  // die Person ab, bevor der Rundgang ueberhaupt anlaeuft.
+  const tourAngefordert = searchParams.get("tour") === "1";
+
   // ─── Init (see useWorkspaceInit) ─────────────────────────────────────────
   const { auth, initialized, locked } = useWorkspaceInit({
     uuid,
+    tourAngefordert,
     setSources,
     setSelectedSourceIds,
     setWorkspaceDetail,
@@ -234,6 +246,42 @@ export default function KiTutorWorkspacePage() {
   });
 
   const { statsVersion, loadStreak, bumpStats } = useStats({ uuid, initialized });
+
+  // Der Rundgang im Demo-Modul bedient die Oberflaeche selbst, seine Griffe
+  // stehen weiter unten und liegen deshalb in einem Ref.
+  const tourAktionenRef = useRef<TourAktionen | null>(null);
+  const istDemoModul = moduleDetail?.is_demo_workspace ?? false;
+  const istDemoModulRef = useRef(istDemoModul);
+  istDemoModulRef.current = istDemoModul;
+  // Wer keine Module anlegen darf, bekommt weder die Lehrenden-Vorschau noch
+  // die Stationen, die auf deren Knoepfe zeigen.
+  const darfModuleAnlegen = auth?.permissions?.allow_workspace_create ?? false;
+  const darfModuleAnlegenRef = useRef(darfModuleAnlegen);
+  darfModuleAnlegenRef.current = darfModuleAnlegen;
+  const starteRundgang = useCallback(() => {
+    startTour({
+      demo: istDemoModulRef.current,
+      aktionen: tourAktionenRef.current ?? undefined,
+      workspaceUuid: uuid,
+      darfModuleAnlegen: darfModuleAnlegenRef.current,
+    });
+  }, [startTour, uuid]);
+
+  const tourGestartet = useRef(false);
+  useEffect(() => {
+    if (!initialized || !tourAngefordert || tourGestartet.current) return;
+    tourGestartet.current = true;
+    // Die Panels brauchen einen Moment, sonst zeigt der erste Schritt ins Leere.
+    const timer = window.setTimeout(() => {
+      starteRundgang();
+      // Marke erst jetzt aus der Adresse nehmen, sonst startet jedes Neuladen den
+      // Rundgang erneut und ein frueherer Griff danach loescht den Start-Timer.
+      const url = new URL(window.location.href);
+      url.searchParams.delete("tour");
+      window.history.replaceState({}, "", url.toString());
+    }, 700);
+    return () => window.clearTimeout(timer);
+  }, [initialized, tourAngefordert, starteRundgang]);
 
   // Reset mobile tab if studio is disabled
   useEffect(() => {
@@ -318,8 +366,57 @@ export default function KiTutorWorkspacePage() {
     langTrainingView, setSprachView,
     glossary, glossaryCount, glossaryExtracting, glossaryFeedback,
     deleteGlossaryEntry, deleteAllGlossaryEntries,
+    loadGlossary, loadGlossaryCount,
     extractGlossary, dismissFeedback,
   } = spr;
+
+  // What the guided tour is allowed to do: open, tick, switch. It never sends.
+  const quelleNachName = (dateiPraefix: string) =>
+    sources.find((s) => s.filename.startsWith(dateiPraefix));
+  tourAktionenRef.current = {
+    nurWaehlen: (dateiPraefix) => {
+      const quelle = quelleNachName(dateiPraefix);
+      if (quelle) setSelectedSourceIds([quelle.uuid]);
+    },
+    oeffnen: (dateiPraefix) => {
+      const quelle = quelleNachName(dateiPraefix);
+      if (quelle) handleOpenViewer(quelle);
+    },
+    studioReiter: (reiter) => {
+      setStudioView("overview");
+      setStudioTabRequest({ tab: reiter, nonce: Date.now() });
+      if (isMobile) setActiveTab("studio");
+      else setPanels((prev) => ({ ...prev, studio: true }));
+    },
+    materialListe: () => {
+      if (isMobile) setActiveTab("quellen");
+      else setPanels((prev) => ({ ...prev, quellen: true }));
+    },
+    beispieleLaden: () => {
+      void loadGlossary();
+      void loadGlossaryCount();
+      // Werkzeuge und Übungsverlauf entstehen ebenfalls erst nach dem Seitenaufbau.
+      bumpStats();
+      void loadStreak();
+      fetch(`/api/ai-assistant/workspaces/${uuid}/notes`, { credentials: "include" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((frisch) => { if (frisch) setNotes(frisch); })
+        .catch(() => { /* Ohne die Beispiele stehen die Bereiche eben leer da. */ });
+    },
+    chatBeispielZeigen: () => {
+      // On narrow screens the studio still covers the chat from the step before.
+      if (isMobile) setActiveTab("chat");
+      else setPanels((prev) => ({ ...prev, chat: true }));
+      fetch("/api/ai-assistant/demo/tour-chat-example", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ workspace_uuid: uuid }),
+      })
+        .then(() => loadMessages())
+        .catch(() => { /* Ohne das Beispiel bleibt der Chat leer, das ist kein Fehler. */ });
+    },
+  };
 
   // Studio navigation (see useStudioNavigation)
   const {
@@ -409,7 +506,12 @@ export default function KiTutorWorkspacePage() {
   // ─── Render ────────────────────────────────────────────────────────────────
 
   // The relationship to this course decides, never the role in the system.
-  const isOwner = moduleDetail?.can_manage ?? moduleDetail?.is_owner ?? false;
+  const { canPreview, previewOn, isOwner, ownerPreview, previewsOwnerSide } = resolvePreview({
+    realIsOwner: moduleDetail?.can_manage ?? moduleDetail?.is_owner ?? false,
+    isDemoWorkspace: moduleDetail?.is_demo_workspace ?? false,
+    darfModuleAnlegen,
+    override: previewOverride,
+  });
   // An opened source does not switch the others off.
   const activeSourceIds = selectedSourceIds;
 
@@ -430,6 +532,7 @@ export default function KiTutorWorkspacePage() {
 
   // Studio panel content (mobile + desktop identical, only the panel context differs)
   const renderStudioPanel = (onMinimize: () => void, hideHeader = false) => (
+    <div data-tour="studio-panel" className="h-full flex flex-col min-h-0">
     <StudioPanelContent
       studioView={studioView}
       setStudioView={setStudioView}
@@ -463,6 +566,7 @@ export default function KiTutorWorkspacePage() {
       hideHeader={hideHeader}
       chatLang={chatLang}
     />
+    </div>
   );
 
   // Sources panel content (viewer or source list): mobile + desktop shared
@@ -584,7 +688,6 @@ export default function KiTutorWorkspacePage() {
     return (
       <ProtectedRoute>
         <div className="aia-scale flex flex-col overflow-hidden" style={{ height: "100vh" }}>
-          {!hideHeader && <Header showLogout />}
           <div className="flex-1 flex items-center justify-center">
             <Spinner size="lg" />
           </div>
@@ -599,13 +702,21 @@ export default function KiTutorWorkspacePage() {
           siehe .aia-scale in globals.css. display:contents reicht die
           Variablen nach unten durch, ohne eine eigene Box zu bauen, und
           erwischt so auch das Modal ausserhalb des 100vh-Rahmens. */}
+      <OwnerPreviewProvider value={ownerPreview}>
       <div className="aia-scale" style={{ display: "contents" }}>
       <div className="flex flex-col overflow-hidden mobile-flow" style={{ height: "100vh" }}>
-        {!hideHeader && <Header showLogout />}
-
         <WorkspaceTopbar
           isMobile={isMobile}
           title={moduleDetail?.title ?? ""}
+          canPreview={canPreview}
+          previewOn={previewOn}
+          previewsOwnerSide={previewsOwnerSide}
+          onTogglePreview={() => setPreviewOverride(!previewOn)}
+          onStartTour={() => {
+            // Erst das Fenster zu, sonst verdeckt es genau die Stellen, auf die gezeigt wird.
+            setShowSettings(false);
+            setTimeout(starteRundgang, 250);
+          }}
           showSettings={showSettings}
           onToggleSettings={() => setShowSettings((v) => !v)}
           onCloseSettings={() => setShowSettings(false)}
@@ -617,8 +728,6 @@ export default function KiTutorWorkspacePage() {
           languageTrainingOptIn={languageTrainingOptIn}
           onToggleLanguageTrainingOptIn={() => setLanguageTrainingOptIn((v) => !v)}
           isOwner={isOwner}
-          hideHeader={hideHeader}
-          onToggleHideHeader={() => setHideHeader((v) => !v)}
           transcriptTargetLang={transcriptTargetLang}
           onChangeTranscriptTargetLang={handleChangeTranscriptTargetLang}
           popupTranslateLang={popupTranslateLang}
@@ -689,6 +798,7 @@ export default function KiTutorWorkspacePage() {
         />
       )}
       </div>
+      </OwnerPreviewProvider>
     </ProtectedRoute>
   );
 }

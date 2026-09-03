@@ -68,6 +68,7 @@ export function ChatInputBar({
             the focus ring comes from focus-within. Class, not inline style: an
             inline border would beat it. */}
         <div
+          data-tour="chat-input"
           className="flex items-center gap-2 rounded-2xl px-4 py-3 bg-surface border-2 border-border transition-colors focus-within:border-kb"
         >
           <textarea

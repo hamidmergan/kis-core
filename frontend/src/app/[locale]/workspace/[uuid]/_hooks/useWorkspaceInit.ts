@@ -17,6 +17,9 @@ interface WorkspaceSettings {
 
 interface UseWorkspaceInitOptions {
   uuid: string;
+  /** Arrived via the tour link (?tour=1): join the demo course first, the fetch
+   * below would otherwise turn away someone who never enrolled. */
+  tourAngefordert?: boolean;
   setSources: (srcs: Source[]) => void;
   setSelectedSourceIds: (ids: string[]) => void;
   setWorkspaceDetail: (m: WorkspaceDetail) => void;
@@ -26,7 +29,10 @@ interface UseWorkspaceInitOptions {
 }
 
 export function useWorkspaceInit(opts: UseWorkspaceInitOptions) {
-  const { uuid, setSources, setSelectedSourceIds, setWorkspaceDetail, setNotes, loadMessages, onSettingsLoaded } = opts;
+  const {
+    uuid, tourAngefordert, setSources, setSelectedSourceIds, setWorkspaceDetail,
+    setNotes, loadMessages, onSettingsLoaded,
+  } = opts;
   const router = useRouter();
 
   const [auth, setAuth] = useState<AuthStatus | null>(null);
@@ -43,6 +49,17 @@ export function useWorkspaceInit(opts: UseWorkspaceInitOptions) {
         if (cancelled) return;
         if (!authData.authenticated) { router.push("/login"); return; }
         setAuth(authData);
+
+        if (tourAngefordert) {
+          // Best-effort: on an already-owned or already-joined course this
+          // 404s or no-ops, the fetch below decides access either way.
+          await fetch("/api/ai-assistant/demo/enroll", {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ workspace_uuid: uuid }),
+          }).catch(() => { /* kein Demo-Kurs oder schon drin, die naechste Abfrage klaert es */ });
+        }
 
         const modRes = await fetch(`/api/ai-assistant/workspaces/${uuid}`, { credentials: "include" });
         if (cancelled) return;

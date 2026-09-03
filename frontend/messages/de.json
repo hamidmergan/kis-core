@@ -1482,10 +1482,10 @@
     },
     "homeNoticeCard": {
       "title": "Hinweis auf Startseite",
-      "active": "Aktiv - der Hinweis wird allen Nutzern auf der Startseite über den Terminen angezeigt.",
+      "active": "Aktiv - der Hinweis wird allen Nutzern auf der Startseite als Leiste über dem Menü angezeigt.",
       "disabled": "Deaktiviert - es wird kein Hinweis angezeigt.",
       "placeholder": "Hinweistext für die Startseite, zum Beispiel ein Hinweis während einer Testphase.",
-      "hint": "Wird zentriert über den Terminen angezeigt. Auch bei aktivem Schalter bleibt der Hinweis verborgen, solange das Feld leer ist. Links im Text: [Beschriftung](Adresse), zum Beispiel [Feedback geben](https://...).",
+      "hint": "Wird als Leiste ganz oben über dem Menü angezeigt, eingeklappt steht dort nur das Wort Hinweis. Auch bei aktivem Schalter bleibt der Hinweis verborgen, solange das Feld leer ist. Links im Text: [Beschriftung](Adresse), zum Beispiel [Feedback geben](https://...).",
       "toggleAria": "Hinweis umschalten",
       "saveFailed": "Speichern fehlgeschlagen."
     },
@@ -2590,8 +2590,13 @@
         "backToOverview": "Zurück zur Übersicht",
         "back": "Zurück",
         "settings": "Einstellungen",
-        "showHeader": "Header anzeigen",
-        "hideHeader": "Header ausblenden"
+        "previewStudent": "Vorschau: Studierenden-Ansicht",
+        "previewLeaveStudent": "Vorschau beenden",
+        "previewOwner": "Vorschau: Lehrenden-Ansicht",
+        "previewLeaveOwner": "Vorschau beenden",
+        "previewBannerStudent": "Vorschau: So sehen Studierende dieses Modul. Ihre eigenen Notizen und ihr Chatverlauf sind nicht sichtbar.",
+        "previewBannerOwner": "Vorschau: So sehen Lehrende dieses Modul. Gestrichelt umrandete Bedienelemente gehören der Verwaltung und haben hier keine Funktion.",
+        "previewBlocked": "In der Vorschau nicht sichtbar"
       },
       "panels": {
         "sources": "Materialien",
@@ -2651,9 +2656,6 @@
         "emptyHildeGreeting": "Hallo, ich bin Hilde.",
         "emptyFrancisGreeting": "Hallo, ich bin Francis.",
         "emptyHildeIntro": "Frag mich was zu deinen Materialien - ich helfe dir beim Verstehen, Zusammenfassen und Wiederholen.",
-        "emptyPromptOverview": "Gib mir einen Überblick über den Inhalt.",
-        "emptyPromptSummary": "Fasse die wichtigsten Punkte zusammen.",
-        "emptyPromptTerms": "Erkläre zentrale Begriffe kurz und verständlich.",
         "adaptiveLevel": "Niveau {level}",
         "adaptiveOff": "adaptiv aus",
         "hildeName": "Hilde",
@@ -2703,6 +2705,7 @@
         "deleteWarning": "Das Material wird vollständig entfernt und kann nicht wiederhergestellt werden.",
         "cancel": "Abbrechen",
         "addChapter": "Kapitel anlegen",
+        "addStaffNote": "Hinweis hinzufügen",
         "chapterNamePlaceholder": "Name des Kapitels",
         "chapterCreate": "Anlegen",
         "chapterCreateFailed": "Kapitel anlegen fehlgeschlagen.",
@@ -2982,6 +2985,129 @@
         "grammatik": "Grammatikübung",
         "wortschatz": "Wortschatzübung",
         "quiz": "Quiz"
+      },
+      "tour": {
+        "next": "Weiter",
+        "back": "Zurück",
+        "done": "Fertig",
+        "progress": "Schritt {current} von {total}",
+        "start": "Demo-Modul entdecken",
+        "inviteStart": "Starten",
+        "restart": "Rundgang erneut starten",
+        "dismiss": "Nicht jetzt",
+        "inviteTitle": "Demo-Modul entdecken",
+        "steps": {
+          "preview": {
+            "title": "Lehrenden- und Studierenden-Ansicht",
+            "text": "Über diesen Knopf wechselst du zwischen beiden Ansichten. Gestrichelt umrandete Bedienelemente sehen nur Lehrende."
+          },
+          "sources": {
+            "title": "Die Materialien des Kurses",
+            "text": "Über die Häkchen entscheidest du, welche Materialien für Antworten herangezogen werden. Ohne Häkchen bleibt eine Quelle außen vor."
+          },
+          "openSource": {
+            "title": "Öffne ein Material",
+            "text": "Klick auf eine Zeile in der Liste. Das Material öffnet sich daneben."
+          },
+          "selectionBar": {
+            "title": "Text markieren",
+            "text": "Markier ein paar Wörter im Text. Es erscheint eine Leiste, über die du dir die Stelle erklären oder übersetzen lassen und sie ins Glossar übernehmen kannst."
+          },
+          "chat": {
+            "title": "Stell Francis eine Frage",
+            "text": "Francis antwortet nur aus den Materialien dieses Kurses, nicht aus allgemeinem Wissen. Antworten und Transkript-Stellen kannst du als Notiz speichern."
+          },
+          "chips": {
+            "title": "Woher die Antwort kommt",
+            "text": "An den Sätzen hängen kleine Belege. Ein Klick springt an genau die Stelle im Material, aus der die Aussage stammt."
+          },
+          "studio": {
+            "title": "Aus dem Material lernen",
+            "text": "Hier entstehen aus dem Kursmaterial Karteikarten, Quizfragen, Lückentexte und eine Mindmap, mit denen Studierende sich vorbereiten."
+          }
+        },
+        "demo": {
+          "willkommen": {
+            "title": "Willkommen im Demo-Modul",
+            "text": "Ein Modul ist der Ort, an dem du die Materialien deiner Veranstaltung hochlädst. Deine Studierenden arbeiten direkt damit, sie stellen dem KI-Assistenten Francis Fragen dazu und lassen sich Karteikarten, Quiz und weitere Formate daraus erzeugen."
+          },
+          "willkommenStudi": {
+            "title": "Willkommen im Demo-Modul",
+            "text": "Ein Modul ist der Ort, an dem deine Lehrenden die Materialien der Veranstaltung hochladen. Du arbeitest direkt damit, du stellst dem KI-Assistenten Francis Fragen dazu und lässt dir Karteikarten, Quiz und weitere Formate daraus erzeugen."
+          },
+          "materialien": {
+            "title": "Der Materialbereich",
+            "text": "Hier liegen alle Materialien des Moduls. Studierende sehen dieselbe Liste, können aber nichts ändern."
+          },
+          "materialienStudi": {
+            "title": "Der Materialbereich",
+            "text": "Hier liegen alle Materialien des Moduls. Deine Lehrenden stellen sie ein, du arbeitest damit."
+          },
+          "hochladen": {
+            "title": "Materialien hinzufügen",
+            "text": "Über das Plus lädst du eigene Dateien hoch, etwa PDF, Word, PowerPoint, Audio oder Video. Aus Ton und Video entsteht automatisch ein Transkript."
+          },
+          "hinweis": {
+            "title": "Ein Hinweis für alle",
+            "text": "Mit der Pinnnadel legst du einen Hinweis mit Text und Links an. Er erscheint oben in der Liste, für alle im Modul sichtbar."
+          },
+          "hinweisStudi": {
+            "title": "Der Hinweis deiner Lehrenden",
+            "text": "Ganz oben steht ein angepinnter Hinweis mit Text und Links. Er gilt für alle im Modul, ein Klick klappt ihn auf und zu."
+          },
+          "auswahl": {
+            "title": "Häkchen bestimmen die Auswahl",
+            "text": "Aktuell ist nur ein Material angehakt. Chat und Werkzeuge nutzen immer genau das, was angehakt ist."
+          },
+          "quelleOeffnen": {
+            "title": "Ein Material öffnen",
+            "text": "Ein Klick auf die Zeile öffnet das Material."
+          },
+          "auswahlleiste": {
+            "title": "Text markieren",
+            "text": "Markierst du Text, erscheint eine Leiste. Du kannst dir die Stelle erklären oder übersetzen lassen, sie farbig markieren, als Notiz speichern oder ins Glossar übernehmen. Auch ein einzelnes Wort reicht."
+          },
+          "glossar": {
+            "title": "Das Glossar",
+            "text": "Übernommene Begriffe stehen hier mit Erklärung und Beispiel. Aus ihnen lassen sich Karteikarten und Lernkarten bauen. Ein Eintrag ist schon für dich da."
+          },
+          "video": {
+            "title": "Video mit Transkript",
+            "text": "Oben läuft das Video, darunter das Transkript. Es folgt automatisch mit, ein Klick auf eine Zeile springt im Video an diese Stelle. Eine Übersetzung des Transkripts steht zur Auswahl, falls vorhanden."
+          },
+          "transkriptNotiz": {
+            "title": "Abschnitt als Notiz",
+            "text": "Dieses Symbol speichert einen Abschnitt als Notiz, mit Sprungmarke zurück ins Video."
+          },
+          "notizen": {
+            "title": "Die Notizen",
+            "text": "Alle Notizen sammeln sich hier, egal woher sie stammen. Ein Klick auf den Beleg springt zur Stelle zurück."
+          },
+          "chat": {
+            "title": "Francis, der Chat zum Modul",
+            "text": "Francis antwortet nur aus den angehakten Materialien, mit Beleg zu jeder Aussage."
+          },
+          "werkzeuge": {
+            "title": "Werkzeuge im Studio",
+            "text": "Aus den Materialien entstehen hier Karteikarten, ein Quiz, Datentabellen oder eine Mindmap."
+          },
+          "statistik": {
+            "title": "Statistik",
+            "text": "Hier siehst du, was geübt wurde und wie gut es sitzt. Ein paar Übungen sind schon für dich hinterlegt."
+          },
+          "zeitplan": {
+            "title": "Zeitplan",
+            "text": "Termine aus den Materialien sammeln sich hier. Über die Startseite siehst du im Kalender alle Termine aus all deinen Modulen."
+          },
+          "schluss": {
+            "title": "Jetzt bist du dran",
+            "text": "Probier alles aus. Oder leg gleich dein eigenes Modul an und teile es mit deinen Studierenden."
+          },
+          "schlussStudi": {
+            "title": "Jetzt bist du dran",
+            "text": "Deine Module findest du jederzeit auf der Startseite."
+          }
+        }
       }
     },
     "demo": {
@@ -3203,5 +3329,11 @@
     "banner": "Angemeldet als {name}",
     "back": "Zurück zu meinem Konto",
     "backBusy": "Einen Moment"
+  },
+  "homeNotice": {
+    "label": "Hinweis",
+    "expand": "Hinweis ausklappen",
+    "collapse": "Hinweis einklappen",
+    "close": "Hinweis schließen"
   }
 }

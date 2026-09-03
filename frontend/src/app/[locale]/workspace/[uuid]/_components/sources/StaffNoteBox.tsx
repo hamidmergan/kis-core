@@ -2,20 +2,18 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { CaretDown, PushPin, PencilSimple, Globe } from "@phosphor-icons/react";
+import { CaretDown, PushPin, Globe } from "@phosphor-icons/react";
 import type { StaffNoteLink } from "../../_types";
 
 interface StaffNoteBoxProps {
   text: string | null | undefined;
   links: StaffNoteLink[];
-  isOwner: boolean;
   workspaceUuid: string;
-  onEdit: () => void;
 }
 
 const STORAGE_KEY_PREFIX = "kis-staff-note-open-";
 
-export function StaffNoteBox({ text, links, isOwner, workspaceUuid, onEdit }: StaffNoteBoxProps) {
+export function StaffNoteBox({ text, links, workspaceUuid }: StaffNoteBoxProps) {
   const t = useTranslations("workspace.detail.sources.staffNote");
   const storageKey = STORAGE_KEY_PREFIX + workspaceUuid;
   const hasContent = Boolean((text && text.trim()) || (links && links.length > 0));
@@ -33,31 +31,15 @@ export function StaffNoteBox({ text, links, isOwner, workspaceUuid, onEdit }: St
     try { localStorage.setItem(storageKey, open ? "1" : "0"); } catch { /* ignore */ }
   }, [storageKey, open]);
 
-  if (!hasContent && !isOwner) return null;
-
-  if (!hasContent && isOwner) {
-    return (
-      <div
-        className="px-4 py-2 flex-shrink-0"
-        style={{ borderBottom: "1px solid var(--border)" }}
-      >
-        <button
-          type="button"
-          onClick={onEdit}
-          /** Border from classes, an inline border beats every hover state. */
-          className="add-source-btn w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors border-2 border-dashed text-[var(--kb)] border-[rgba(var(--kb-rgb),0.35)] hover:border-[var(--kb)]"
-        >
-          <PushPin size={14} weight="bold" />
-          <span>{t("emptyOwnerHint")}</span>
-        </button>
-      </div>
-    );
-  }
+  // Ohne Inhalt keine Box, angelegt wird der Hinweis ueber den Knopf in der Kopfzeile.
+  if (!hasContent) return null;
 
   return (
     <div
       className="px-4 py-2 flex-shrink-0"
       style={{ borderBottom: "1px solid var(--border)" }}
+      // Der Rundgang zeigt Studierenden den Kasten, denn die Pinnnadel fehlt ihnen.
+      data-tour="staff-note"
     >
       <div
         className="rounded-lg overflow-hidden"
@@ -80,17 +62,6 @@ export function StaffNoteBox({ text, links, isOwner, workspaceUuid, onEdit }: St
             <PushPin size={14} weight="bold" style={{ color: "var(--accent)", flexShrink: 0 }} />
             <span className="truncate">{t("title")}</span>
           </button>
-          {isOwner && (
-            <button
-              type="button"
-              onClick={onEdit}
-              aria-label={t("edit")}
-              title={t("edit")}
-              className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
-            >
-              <PencilSimple size={13} weight="bold" />
-            </button>
-          )}
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}

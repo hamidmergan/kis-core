@@ -8,6 +8,7 @@ import {
   Trash,
 } from "@phosphor-icons/react";
 import type { Chapter } from "../../_types";
+import { OwnerOnly } from "../layout/OwnerOnly";
 import { MenuItem } from "./SourceRow";
 import { GroupCheckbox } from "./GroupCheckbox";
 
@@ -156,7 +157,7 @@ export function ChapterHead({
         </span>
       </button>
 
-      {isOwner && !compact && (
+      <OwnerOnly show={isOwner && !compact}>
         <div className="relative flex-shrink-0">
           <button
             type="button"
@@ -206,7 +207,7 @@ export function ChapterHead({
             </>
           )}
         </div>
-      )}
+      </OwnerOnly>
     </div>
   );
 }

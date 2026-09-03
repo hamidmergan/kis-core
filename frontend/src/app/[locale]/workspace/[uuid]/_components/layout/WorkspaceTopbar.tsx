@@ -2,7 +2,8 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { GearSix, CaretUp, CaretDown } from "@phosphor-icons/react";
+import { GearSix, Eye, EyeSlash } from "@phosphor-icons/react";
+import { Link } from "@/i18n/navigation";
 import { SettingsMenu } from "./SettingsMenu";
 import type { PanelKey } from "../../_types";
 
@@ -23,8 +24,13 @@ interface WorkspaceTopbarProps {
   languageTrainingOptIn: boolean;
   onToggleLanguageTrainingOptIn: () => void;
   isOwner: boolean;
-  hideHeader: boolean;
-  onToggleHideHeader: () => void;
+  /** Switch offered at all: owners always, enrolled people only in the demo course. */
+  canPreview: boolean;
+  previewOn: boolean;
+  /** true: previews the owner side, false: the owner previews the student side. */
+  previewsOwnerSide: boolean;
+  onTogglePreview: () => void;
+  onStartTour: () => void;
   transcriptTargetLang: string;
   onChangeTranscriptTargetLang: (lang: string) => void;
   popupTranslateLang: string;
@@ -44,7 +50,7 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
     studioEnabled, onToggleStudio,
     language_trainingActive, languageTrainingAvailable, onToggleLanguageTraining,
     languageTrainingOptIn, onToggleLanguageTrainingOptIn,
-    isOwner, hideHeader, onToggleHideHeader,
+    isOwner, canPreview, previewOn, previewsOwnerSide, onTogglePreview, onStartTour,
     transcriptTargetLang, onChangeTranscriptTargetLang,
     popupTranslateLang, onChangePopupTranslateLang,
     activeTab, setActiveTab,
@@ -52,6 +58,7 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
   } = props;
   const t = useTranslations("workspace.detail.topbar");
   const tPanels = useTranslations("workspace.detail.panels");
+  const tHeader = useTranslations("header");
 
   const settingsModal = (
     <SettingsMenu
@@ -65,6 +72,7 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
       languageTrainingOptIn={languageTrainingOptIn}
       onToggleLanguageTrainingOptIn={onToggleLanguageTrainingOptIn}
       isOwner={isOwner}
+      onStartTour={onStartTour}
       transcriptTargetLang={transcriptTargetLang}
       onChangeTranscriptTargetLang={onChangeTranscriptTargetLang}
       popupTranslateLang={popupTranslateLang}
@@ -78,6 +86,7 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
     <button
       type="button"
       onClick={onToggleSettings}
+      data-tour="module-settings"
       className={`w-7 h-7 flex items-center justify-center rounded-full ${showSettings ? "text-white" : "btn-icon"}`}
       style={{ backgroundColor: showSettings ? "var(--kb)" : "var(--surface-dim)" }}
       title={t("settings")}
@@ -86,34 +95,77 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
     </button>
   );
 
-  const headerToggleButton = isOwner ? (
+  // Says what you get after pressing, not what you are looking at now.
+  const previewLabel = previewsOwnerSide
+    ? previewOn ? t("previewLeaveOwner") : t("previewOwner")
+    : previewOn ? t("previewLeaveStudent") : t("previewStudent");
+
+  const previewButton = canPreview ? (
     <button
       type="button"
-      onClick={onToggleHideHeader}
-      className={`w-7 h-7 flex items-center justify-center rounded-full ${hideHeader ? "text-white" : "btn-icon"}`}
-      style={{ backgroundColor: hideHeader ? "var(--kb)" : "var(--surface-dim)" }}
-      title={hideHeader ? t("showHeader") : t("hideHeader")}
-      aria-label={hideHeader ? t("showHeader") : t("hideHeader")}
-      aria-pressed={hideHeader}
+      onClick={onTogglePreview}
+      className={`w-7 h-7 flex items-center justify-center rounded-full ${previewOn ? "text-white" : "btn-icon"}`}
+      style={{ backgroundColor: previewOn ? "var(--kb)" : "var(--surface-dim)" }}
+      title={previewLabel}
+      aria-label={previewLabel}
+      aria-pressed={previewOn}
+      data-tour="preview-toggle"
     >
-      {hideHeader ? <CaretDown size={16} weight="bold" /> : <CaretUp size={16} weight="bold" />}
+      {previewOn ? <EyeSlash size={16} weight="bold" /> : <Eye size={16} weight="bold" />}
     </button>
   ) : null;
+
+  // Without this line the inert controls read as a broken page.
+  const previewBanner = previewOn ? (
+    <div
+      className="px-5 py-1.5 text-xs flex items-center gap-2"
+      style={{
+        backgroundColor: "rgba(var(--kb-rgb),0.10)",
+        borderTop: "1px dashed var(--muted-soft)",
+        borderBottom: "1px dashed var(--muted-soft)",
+      }}
+      data-tour="preview-banner"
+    >
+      <Eye size={14} weight="bold" style={{ color: "var(--kb)", flexShrink: 0 }} />
+      <span>{previewsOwnerSide ? t("previewBannerOwner") : t("previewBannerStudent")}</span>
+    </div>
+  ) : null;
+
+  // A module has no blue bar any more, so the way back home hangs on the logo here.
+  const logo = (
+    <Link
+      href="/"
+      aria-label={tHeader("homeAria")}
+      title={tHeader("homeAria")}
+      className="flex items-center gap-1.5 flex-shrink-0 no-underline logo-link"
+      style={{ color: "var(--kb)" }}
+    >
+      <span className="text-xl font-semibold tracking-tight">KIS</span>
+      {process.env.NODE_ENV === "development" && (
+        <span className="text-2xs font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: "#532bdd", color: "#fff" }}>
+          DEV
+        </span>
+      )}
+    </Link>
+  );
 
   if (!isMobile) {
     return (
       <>
         <div className="flex items-center px-5 flex-shrink-0 relative" style={{ height: 48 }}>
+          {logo}
           <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <h1 className="text-lg font-bold truncate px-16 pointer-events-auto select-text cursor-text" style={{ color: "var(--kb)" }}>
+            {/* The centred title lies above the buttons, so it is capped short of them and no longer swallows their taps. */}
+            <h1 className="text-lg font-bold truncate pointer-events-auto select-text cursor-text" style={{ color: "var(--kb)", maxWidth: "calc(100% - 12rem)" }}>
               {title}
             </h1>
           </span>
           <div className="flex items-center gap-1.5 ml-auto">
-            {headerToggleButton}
+            {previewButton}
             {settingsButton}
           </div>
         </div>
+        {previewBanner}
         {settingsModal}
       </>
     );
@@ -122,16 +174,19 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
   return (
     <div className="flex-shrink-0" style={{ backgroundColor: "var(--surface)" }}>
       <div className="hide-on-short flex items-center gap-2 px-3 pt-2 pb-1 relative">
+        {logo}
         <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <span className="text-sm font-bold truncate px-12 pointer-events-auto select-text cursor-text" style={{ color: "var(--foreground)" }}>
+          {/* The centred title lies above the buttons, so it is capped short of them and no longer swallows their taps. */}
+          <span className="text-sm font-bold truncate pointer-events-auto select-text cursor-text" style={{ color: "var(--foreground)", maxWidth: "calc(100% - 11rem)" }}>
             {title}
           </span>
         </span>
         <div className="flex items-center gap-1.5 ml-auto">
-          {headerToggleButton}
+          {previewButton}
           {settingsButton}
         </div>
       </div>
+      {previewBanner}
       <div className="flex" style={{ borderBottom: "1px solid var(--border)" }}>
         {(["quellen", "chat", ...(studioEnabled ? ["studio"] : [])] as PanelKey[]).map((key) => (
           <button

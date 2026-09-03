@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname } from "@/i18n/navigation";
+import HomeNotice from "@/app/[locale]/workspace/_components/HomeNotice";
 import Header from "./Header";
 import ImpersonationBanner from "./ImpersonationBanner";
 import ToolsSidebar from "./ToolsSidebar";
@@ -37,6 +38,8 @@ export default function LayoutShell({
   const showHeader = !NO_HEADER_PATHS.has(pathname) && !matchesPrefix(pathname, NO_HEADER_PREFIXES);
   const showSidebar =
     hasSession && !NO_SIDEBAR_PATHS.has(pathname) && !matchesPrefix(pathname, NO_SIDEBAR_PREFIXES);
+  // The notice bar belongs to the start page only.
+  const showNotice = pathname === "/";
 
   // The banner sits above every early return, a borrowed account must never hide it.
   if (!showHeader && !showSidebar)
@@ -51,6 +54,7 @@ export default function LayoutShell({
     return (
       <>
         <ImpersonationBanner />
+        {showNotice && <HomeNotice />}
         {showHeader && <Header hasSession={hasSession} showLogout showToolsToggle={false} />}
         {children}
       </>
@@ -60,6 +64,7 @@ export default function LayoutShell({
   return (
     <>
       <ImpersonationBanner />
+      {showNotice && <HomeNotice />}
       {showHeader && <Header hasSession={hasSession} showLogout showToolsToggle />}
       <div className="flex items-stretch min-h-[calc(100vh-4rem)] overflow-x-hidden">
         <ToolsSidebar />

@@ -1482,10 +1482,10 @@
     },
     "homeNoticeCard": {
       "title": "Home page notice",
-      "active": "Active - the notice is shown to all users on the start page above the upcoming dates.",
+      "active": "Active - the notice is shown to all users on the start page as a bar above the menu.",
       "disabled": "Disabled - no notice is shown.",
       "placeholder": "Notice text for the start page, for example a note during a test phase.",
-      "hint": "Shown centered above the upcoming dates. Even with the toggle on, the notice stays hidden while the field is empty. Links in the text: [label](address), for example [Give feedback](https://...).",
+      "hint": "Shown as a bar at the very top above the menu, collapsed to just the word Notice. Even with the toggle on, the notice stays hidden while the field is empty. Links in the text: [label](address), for example [Give feedback](https://...).",
       "toggleAria": "Toggle notice",
       "saveFailed": "Save failed."
     },
@@ -2590,8 +2590,13 @@
         "backToOverview": "Back to overview",
         "back": "Back",
         "settings": "Settings",
-        "showHeader": "Show header",
-        "hideHeader": "Hide header"
+        "previewStudent": "Preview: student view",
+        "previewLeaveStudent": "Leave preview",
+        "previewOwner": "Preview: teacher view",
+        "previewLeaveOwner": "Leave preview",
+        "previewBannerStudent": "Preview: this is how students see this module. Their own notes and chat history are not shown.",
+        "previewBannerOwner": "Preview: this is how teachers see this module. Controls with a dashed outline belong to the module management and do nothing here.",
+        "previewBlocked": "Not shown in preview"
       },
       "panels": {
         "sources": "Sources",
@@ -2651,9 +2656,6 @@
         "emptyHildeGreeting": "Hi, I'm Hilde.",
         "emptyFrancisGreeting": "Hi, I'm Francis.",
         "emptyHildeIntro": "Ask me anything about your sources - I'll help you understand, summarize and review.",
-        "emptyPromptOverview": "Give me an overview of the content.",
-        "emptyPromptSummary": "Summarize the key points.",
-        "emptyPromptTerms": "Explain the central terms briefly and clearly.",
         "adaptiveLevel": "Level {level}",
         "adaptiveOff": "adaptive off",
         "hildeName": "Hilde",
@@ -2703,6 +2705,7 @@
         "deleteWarning": "The source will be removed completely and cannot be restored.",
         "cancel": "Cancel",
         "addChapter": "Add chapter",
+        "addStaffNote": "Add a note",
         "chapterNamePlaceholder": "Chapter name",
         "chapterCreate": "Create",
         "chapterCreateFailed": "Could not create the chapter.",
@@ -2982,6 +2985,129 @@
         "grammatik": "Grammar exercises",
         "wortschatz": "Vocabulary exercises",
         "quiz": "Quiz"
+      },
+      "tour": {
+        "next": "Next",
+        "back": "Back",
+        "done": "Done",
+        "progress": "Step {current} of {total}",
+        "start": "Explore the demo module",
+        "inviteStart": "Start",
+        "restart": "Start the tour again",
+        "dismiss": "Not now",
+        "inviteTitle": "Explore the demo module",
+        "steps": {
+          "preview": {
+            "title": "Teacher and student view",
+            "text": "This button switches between the two views. Controls with a dashed outline are only visible to teachers."
+          },
+          "sources": {
+            "title": "The course material",
+            "text": "The check marks decide which material is used for answers. Unchecked material is left out."
+          },
+          "openSource": {
+            "title": "Open a piece of material",
+            "text": "Click a row in the list. The material opens next to it."
+          },
+          "selectionBar": {
+            "title": "Select some text",
+            "text": "Select a few words in the text. A small bar appears that explains or translates the passage and adds it to your glossary."
+          },
+          "chat": {
+            "title": "Ask Francis a question",
+            "text": "Francis answers from this course's material only, not from general knowledge. You can save answers and transcript passages as a note."
+          },
+          "chips": {
+            "title": "Where the answer comes from",
+            "text": "Small references sit on the sentences. A click jumps to the exact passage the statement came from."
+          },
+          "studio": {
+            "title": "Turning material into practice",
+            "text": "This is where flashcards, quiz questions, cloze texts and a mind map are generated from the course material for students to prepare with."
+          }
+        },
+        "demo": {
+          "willkommen": {
+            "title": "Welcome to the demo module",
+            "text": "A module is the place where you upload the materials of your course. Your students work with them directly, they ask the AI assistant Francis about them and have flashcards, quizzes and other formats generated from those materials."
+          },
+          "willkommenStudi": {
+            "title": "Welcome to the demo module",
+            "text": "A module is the place where your teachers upload the materials of the course. You work with them directly, you ask the AI assistant Francis about them and have flashcards, quizzes and other formats generated from those materials."
+          },
+          "materialien": {
+            "title": "The materials area",
+            "text": "Every material of the module sits here. Students see the same list, they just cannot change it."
+          },
+          "materialienStudi": {
+            "title": "The materials area",
+            "text": "All materials of the module sit here. Your teachers add them, you work with them."
+          },
+          "hochladen": {
+            "title": "Adding materials",
+            "text": "The plus uploads your own files, such as PDF, Word, PowerPoint, audio or video. Audio and video automatically get a transcript."
+          },
+          "hinweis": {
+            "title": "A note for everyone",
+            "text": "The pin creates a note with text and links. It appears at the top of the list, visible to everyone in the module."
+          },
+          "hinweisStudi": {
+            "title": "The note from your teachers",
+            "text": "A pinned note with text and links sits at the very top. It applies to everyone in the module, a click folds it open and shut."
+          },
+          "auswahl": {
+            "title": "Ticks decide what counts",
+            "text": "Right now only one material is ticked. Chat and tools always use exactly what is ticked."
+          },
+          "quelleOeffnen": {
+            "title": "Opening a material",
+            "text": "A click on the row opens the material."
+          },
+          "auswahlleiste": {
+            "title": "Selecting text",
+            "text": "Select some text and a bar appears. You can have the spot explained or translated, highlight it, save it as a note or add it to the glossary. A single word is enough too."
+          },
+          "glossar": {
+            "title": "The glossary",
+            "text": "Terms you added sit here with an explanation and example. They can be turned into Flashcards and Vocab cards. One entry is already there for you."
+          },
+          "video": {
+            "title": "Video with transcript",
+            "text": "The video plays at the top, the transcript below. It follows along automatically, clicking a line jumps the video to that spot. A transcript translation can be selected if available."
+          },
+          "transkriptNotiz": {
+            "title": "A passage as a note",
+            "text": "This icon saves a passage as a note, with a link back to the spot in the video."
+          },
+          "notizen": {
+            "title": "The notes",
+            "text": "All notes gather here, wherever they came from. A click on the citation jumps back to the spot."
+          },
+          "chat": {
+            "title": "Francis, the chat for the module",
+            "text": "Francis answers only from the ticked materials, with a citation for every statement."
+          },
+          "werkzeuge": {
+            "title": "Tools in the studio",
+            "text": "Flashcards, a quiz, data tables or a mind map are built here from the materials."
+          },
+          "statistik": {
+            "title": "Statistics",
+            "text": "This shows what has been practised and how well it sticks. A few exercises are already in place for you."
+          },
+          "zeitplan": {
+            "title": "Schedule",
+            "text": "Dates found in the materials gather here. The start page shows every date from all your modules in a calendar."
+          },
+          "schluss": {
+            "title": "Your turn",
+            "text": "Try everything out. Or create your own module right away and share it with your students."
+          },
+          "schlussStudi": {
+            "title": "Your turn",
+            "text": "Your modules are always on the start page."
+          }
+        }
       }
     },
     "demo": {
@@ -3203,5 +3329,11 @@
     "banner": "Signed in as {name}",
     "back": "Back to my account",
     "backBusy": "One moment"
+  },
+  "homeNotice": {
+    "label": "Notice",
+    "expand": "Show notice",
+    "collapse": "Hide notice",
+    "close": "Dismiss notice"
   }
 }

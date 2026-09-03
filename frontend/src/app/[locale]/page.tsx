@@ -10,7 +10,6 @@ import { pickHomeTarget, enabledToolKeys, type HomeTarget } from "@/lib/modules"
 import { useEnabledTools } from "@/hooks/useEnabledTools";
 import type { AuthStatus } from "@/types";
 import WorkspaceHome from "./workspace/_components/WorkspaceHome";
-import HomeNotice from "./workspace/_components/HomeNotice";
 import WelcomeModal from "./workspace/_components/WelcomeModal";
 
 interface HomeState {
@@ -57,7 +56,6 @@ export default function HomePage() {
       ) : (
         <div className="px-4 sm:px-6 md:px-8 pt-10 pb-20">
           <div className="max-w-2xl mx-auto">
-            <HomeNotice />
             <LockedNotice variant="aia" />
           </div>
         </div>

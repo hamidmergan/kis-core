@@ -186,7 +186,9 @@ export function StudioOverview({
               {t("headings.learningTools")}
             </span>
           </div>
-          <LerntoolsGrid tiles={lerntoolsTiles} onSelect={(key) => onSelect(key as StudioView)} />
+          <div data-tour="tools-grid">
+            <LerntoolsGrid tiles={lerntoolsTiles} onSelect={(key) => onSelect(key as StudioView)} />
+          </div>
 
           {language_trainingActive && (
             <>

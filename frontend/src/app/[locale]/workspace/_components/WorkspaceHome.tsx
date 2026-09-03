@@ -6,7 +6,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { CalendarBlank, Lock } from "@phosphor-icons/react";
 import { useRouter } from "@/i18n/navigation";
 import Spinner from "@/components/ui/Spinner";
-import HomeNotice from "./HomeNotice";
+import { TourInvite } from "./TourInvite";
 import WorkspaceList from "./WorkspaceList";
 
 interface LinkPreview {
@@ -237,6 +237,8 @@ export default function WorkspaceHome({ canCreate, firstName }: Props) {
         </p>
       </div>
 
+      <TourInvite />
+
       {previewInvalid && (
         <div
           className="rounded-xl p-4 mb-8 text-sm"
@@ -254,8 +256,6 @@ export default function WorkspaceHome({ canCreate, firstName }: Props) {
           {t("closedJoinedNotice")}
         </div>
       )}
-
-      <HomeNotice />
 
       <WorkspaceList canCreate={canCreate} />
     </div>
