@@ -93,11 +93,10 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
             metadata={"provider": _provider, "base_url": _base_url, "model": model},
         )
 
-        # The course room comes from the sources, the level block hangs off its switch.
+        # The level block hangs on the person, not on the course room.
+        adaptive_suffix = build_adaptive_tool_suffix(user_id)
+        # Still needed below for the title's within-workspace deduplication.
         _first_source = db.get_aia_source(source_uuids[0]) if source_uuids else None
-        adaptive_suffix = build_adaptive_tool_suffix(
-            user_id, (_first_source or {}).get("workspace_id"),
-        )
         messages = [
             {"role": "system", "content": AIA_MINDMAP_PROMPT.replace("{language}", language) + adaptive_suffix},
             {"role": "user", "content": f"/no_think\nCreate a mind map from the following sources. Write topic and labels in {language}:\n\n{context}"},

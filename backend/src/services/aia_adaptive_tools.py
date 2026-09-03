@@ -70,23 +70,17 @@ def adaptive_tool_appendix(
     return "\n\n" + text, level
 
 
-def build_adaptive_tool_suffix(user_id: int | None, workspace_id: int | None = None) -> str:
-    """The suffix for this learner, gated on the course room."""
+def build_adaptive_tool_suffix(user_id: int | None) -> str:
+    """The suffix for this learner, gated on the person's switch and level."""
     if not user_id:
         return ""
     from src import database as db
 
-    if workspace_id is not None and not db.is_language_training_active(workspace_id):
+    if not db.is_language_training_ready(user_id):
         return ""
-
     level = db.get_user_language_level(user_id)["language_level"]
     if not level:
         return ""
-    # Second half of the same gate: the person turned the trainer off themselves.
-    if workspace_id is not None:
-        settings = db.get_aia_user_settings(workspace_id, user_id) or {}
-        if not settings.get("language_training_active", False):
-            return ""
     behavior = resolve_prompt_setting(
         db.get_setting(ADAPTIVE_TOOL_BEHAVIOR_SETTING, ""),
         _LEGACY_ADAPTIVE_TOOL_BEHAVIOR,

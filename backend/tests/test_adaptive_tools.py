@@ -91,12 +91,21 @@ def test_build_suffix_no_user_is_empty():
     assert build_adaptive_tool_suffix(0) == ""
 
 
+def test_build_suffix_is_gated_on_the_person(monkeypatch):
+    """Not ready means no block, whatever the stored level says."""
+    monkeypatch.setattr("src.database.is_language_training_ready", lambda uid: False)
+    monkeypatch.setattr("src.database.get_user_language_level", lambda uid: {"language_level": "A1"})
+    assert build_adaptive_tool_suffix(42) == ""
+
+
 def test_build_suffix_no_level_is_empty(monkeypatch):
+    monkeypatch.setattr("src.database.is_language_training_ready", lambda uid: True)
     monkeypatch.setattr("src.database.get_user_language_level", lambda uid: {"language_level": None})
     assert build_adaptive_tool_suffix(42) == ""
 
 
 def test_build_suffix_with_level_uses_default(monkeypatch):
+    monkeypatch.setattr("src.database.is_language_training_ready", lambda uid: True)
     monkeypatch.setattr("src.database.get_user_language_level", lambda uid: {"language_level": "A1"})
     # Every setting returns its shipped default, so the default behaviour text is used.
     monkeypatch.setattr("src.database.get_setting", lambda k, d="": d)
@@ -107,6 +116,7 @@ def test_build_suffix_with_level_uses_default(monkeypatch):
 
 
 def test_build_suffix_reads_admin_behavior_override(monkeypatch):
+    monkeypatch.setattr("src.database.is_language_training_ready", lambda uid: True)
     monkeypatch.setattr("src.database.get_user_language_level", lambda uid: {"language_level": "B2"})
 
     def fake_setting(key, default=""):
@@ -117,40 +127,6 @@ def test_build_suffix_reads_admin_behavior_override(monkeypatch):
     monkeypatch.setattr("src.database.get_setting", fake_setting)
     suffix = build_adaptive_tool_suffix(9)
     assert "Custom expert wording for B2." in suffix
-
-
-def test_build_suffix_is_gated_on_the_trainer_when_a_workspace_is_given(monkeypatch):
-    """The same gate as in the chat, with its two halves course and learner."""
-    monkeypatch.setattr("src.database.get_user_language_level", lambda uid: {"language_level": "A1"})
-    monkeypatch.setattr("src.database.get_setting", lambda k, d="": d)
-    monkeypatch.setattr(
-        "src.database.get_aia_user_settings",
-        lambda wid, uid: {"language_training_active": True},
-    )
-    monkeypatch.setattr("src.database.is_language_training_active", lambda wid: False)
-    assert build_adaptive_tool_suffix(7, 3) == ""
-
-    monkeypatch.setattr("src.database.is_language_training_active", lambda wid: True)
-    assert "A1" in build_adaptive_tool_suffix(7, 3)
-
-    # Released by the course, switched off by the person.
-    monkeypatch.setattr(
-        "src.database.get_aia_user_settings",
-        lambda wid, uid: {"language_training_active": False},
-    )
-    assert build_adaptive_tool_suffix(7, 3) == ""
-
-
-def test_build_suffix_without_a_workspace_stays_ungated(monkeypatch):
-    # Older queued jobs carry no course room and have to keep running.
-    monkeypatch.setattr("src.database.get_user_language_level", lambda uid: {"language_level": "A1"})
-    monkeypatch.setattr("src.database.get_setting", lambda k, d="": d)
-
-    def boom(wid):
-        raise AssertionError("gate must not be consulted without a workspace")
-
-    monkeypatch.setattr("src.database.is_language_training_active", boom)
-    assert "A1" in build_adaptive_tool_suffix(7)
 
 
 # --- wiring: the suffix reaches each tool's system prompt -------------------
@@ -258,18 +234,18 @@ def test_quiz_skips_items_with_a_broken_answer_index(monkeypatch):
     assert [i["front"] for i in items] == ["Gut?"]
 
 
-# --- wiring: the glossary route gates on the workspace ----------------------
+# --- wiring: the glossary route asks the gate for the person ----------------
 
-def test_glossary_extract_passes_the_workspace_to_the_gate(monkeypatch):
-    """The route has to pass the course room, otherwise the gate falls away."""
+def test_glossary_extract_asks_the_gate_for_the_person(monkeypatch):
+    """The route passes the person, the gate itself knows no module any more."""
     import asyncio
     import types as _types
     from src.features.ai_assistant.routes import glossary as mod
 
     seen = {}
 
-    def fake_suffix(user_id, workspace_id=None):
-        seen["args"] = (user_id, workspace_id)
+    def fake_suffix(user_id):
+        seen["args"] = (user_id,)
         return ""
 
     monkeypatch.setattr(mod, "build_adaptive_tool_suffix", fake_suffix)
@@ -294,7 +270,7 @@ def test_glossary_extract_passes_the_workspace_to_the_gate(monkeypatch):
     asyncio.run(mod.extract_glossary_from_selection(
         "ws-uuid", body, {"user_id": 7}, llm, "de",
     ))
-    assert seen["args"] == (7, 42)
+    assert seen["args"] == (7,)
 
 
 # ─── Level ladder: the description comes from the ladder ─────────────────────

@@ -84,7 +84,7 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
         client, model, _ = _get_llm_client()
 
         # The exercises are tuned to the stored language level.
-        adaptive_suffix = build_adaptive_tool_suffix(user_id, workspace_id)
+        adaptive_suffix = build_adaptive_tool_suffix(user_id)
 
         # The vocabulary cloze goes its own way, one sentence is one exercise.
         if tool == "wortschatz":

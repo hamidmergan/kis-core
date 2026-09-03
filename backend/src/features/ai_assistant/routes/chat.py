@@ -122,9 +122,9 @@ async def chat(
     _user_settings = db.get_aia_user_settings(workspace["id"], user_id) or {}
     chat_lang = _user_settings.get("chat_lang", "de")
 
-    # Level-appropriate answers need both switches, course and person.
+    # Level-appropriate answers need the person's switch and a stored level.
     _adaptive_suffix, _applied_level = "", None
-    if db.is_language_training_active(workspace["id"]) and _user_settings.get("language_training_active", False):
+    if db.is_language_training_ready(user_id):
         # The level block hangs on the user message, where it weighs most.
         _level = db.get_user_language_level(user_id)["language_level"]
         _example, _description = level_texts(_level)
