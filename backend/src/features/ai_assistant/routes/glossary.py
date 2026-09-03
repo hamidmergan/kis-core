@@ -103,7 +103,8 @@ Rules:
 - base_form: the dictionary base form (lemma) of the marked term, in the SAME language as the term (NOT a translation). Base form means: nouns in the singular nominative, verbs in the infinitive, adjectives uninflected. Return an EMPTY string when the term is already in its base form, is a multi-word phrase, or the language does not inflect it this way. Example: term "läuft" -> base_form "laufen"; term "Häusern" -> base_form "Haus"; term "Arbeitsmarkt" -> base_form "".
 - definition: a simple but ACCURATE explanation in German at B1 level. First name what the term IS (its category), then add the one or two features that truly distinguish it. If a CONTEXT excerpt from the document is provided below, base the definition on how the term is actually used THERE and stay consistent with it. Do NOT invent specifics the context does not support, do NOT narrow a general term down to one special case, and do NOT pad it with vague filler sentences.
 - definition_en: the same explanation in English at B1 level.
-- Respond ONLY with the JSON object, no array, no markdown fences."""
+- If the marked term is a pure function word (und, oder, aber, ist, der, die, das, ein, eine, er, sie, es, im, zu, mit, von, für, auf, etc.) or trivial A1/A2 everyday vocabulary (Haus, Tag, gehen, machen, gut, schön) that is not worth adding to a glossary, respond with an empty JSON array instead: []
+- Otherwise respond ONLY with the JSON object, no array, no markdown fences."""
 
 _GLOSSARY_EXTRACT_PROMPT = """You are a language expert for international students. Write the definitions at B1 level BY DEFAULT. If an adaptive block at the very end of this prompt names the learner's CEFR level, write the definitions at THAT level instead of B1. Analyze the highlighted text and extract words/phrases that a B1 learner should learn for university study.
 
