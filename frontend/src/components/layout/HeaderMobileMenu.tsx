@@ -1,14 +1,14 @@
 "use client";
 
+import type { AreaKey } from "@/lib/permissions";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { CalendarBlank, CaretRight, Check, Compass, Info, List, Moon, Question, Sidebar, SignOut, Stack, Sun, UserCircle, UserCircleGear, X } from "@phosphor-icons/react";
+import { CalendarBlank, CaretRight, Check, Compass, List, Medal, Moon, Question, Sidebar, SignOut, Stack, Sun, UserCircleGear, X } from "@phosphor-icons/react";
 import { useRouter, usePathname } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
-import { HOME_NOTICE_DISMISS_KEY, HOME_NOTICE_SHOW_EVENT, UI_LOCALES } from "@/lib/constants";
+import { UI_LOCALES } from "@/lib/constants";
 import { useTheme, type Theme } from "@/hooks/useTheme";
-import { findeRundgangKurs, rundgangZiel } from "@/lib/tour";
 import { persistLocale, rememberLocaleCookie } from "@/lib/switchLocale";
 
 const LOCALES = UI_LOCALES as readonly Locale[];
@@ -17,7 +17,11 @@ const THEMES: readonly Theme[] = ["light", "dark"];
 interface HeaderMobileMenuProps {
   hasSession: boolean;
   isAdmin: boolean;
-  areaKey?: "admin" | "settings";
+  canViewManual?: boolean;
+  showLanguageLevel?: boolean;
+  showTour?: boolean;
+  onStartTour?: () => void;
+  areaKey?: AreaKey;
   hasTools?: boolean;
   hasAia?: boolean;
   isLocalMode?: boolean;
@@ -26,24 +30,17 @@ interface HeaderMobileMenuProps {
   onLogout: () => void;
 }
 
-export default function HeaderMobileMenu({ hasSession, isAdmin, areaKey = "admin", hasTools = false, hasAia = true, isLocalMode = false, showToolsToggle = false, hasHomeNotice = false, onLogout }: HeaderMobileMenuProps) {
+export default function HeaderMobileMenu({ hasSession, isAdmin, canViewManual = false, showLanguageLevel = false, showTour = false, onStartTour, areaKey = "admin", hasTools = false, hasAia = true, isLocalMode = false, showToolsToggle = false, hasHomeNotice = false, onLogout }: HeaderMobileMenuProps) {
   const t = useTranslations("header");
   const tLang = useTranslations("languageSwitch");
   const tManual = useTranslations("manual");
-  const tTour = useTranslations("workspace.detail.tour");
   const router = useRouter();
   const pathname = usePathname();
   const currentLocale = useLocale() as Locale;
   const [open, setOpen] = useState(false);
   const [sheetTop, setSheetTop] = useState(0);
   const { theme, setTheme } = useTheme();
-  const [rundgangKurs, setRundgangKurs] = useState<Awaited<ReturnType<typeof findeRundgangKurs>>>(null);
   const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!hasSession) return;
-    void findeRundgangKurs().then(setRundgangKurs);
-  }, [hasSession]);
 
   useEffect(() => {
     if (!open) return;
@@ -74,17 +71,6 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, areaKey = "admin
     if (next !== theme) setTheme(next);
   };
 
-  const showHomeNotice = () => {
-    setOpen(false);
-    try {
-      localStorage.removeItem(HOME_NOTICE_DISMISS_KEY);
-    } catch {
-      /* ignore - private browsing etc. */
-    }
-    window.dispatchEvent(new Event(HOME_NOTICE_SHOW_EVENT));
-    router.push("/");
-  };
-
   const rowClass =
     "flex items-center gap-3 w-full px-4 py-3 text-sm font-medium hover:bg-[var(--surface-dim)] transition-colors no-underline text-left";
   // The row of the page you are currently on stays highlighted.
@@ -92,6 +78,9 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, areaKey = "admin
   const onCalendar = pathname === "/calendar" || pathname.startsWith("/calendar/");
   const onJobsPage = pathname.startsWith("/my-jobs");
   const headingClass = "px-4 pt-2.5 pb-1 text-2xs font-semibold uppercase tracking-wide";
+  // The first visible row of the lower block carries the divider.
+  const lowerBlock = [showLanguageLevel && "level", showTour && "tour", canViewManual && "manual", isAdmin && "admin", !isLocalMode && "logout"].filter(Boolean);
+  const dividerFor = (row: string) => (lowerBlock[0] === row ? { borderTop: "1px solid var(--border)", marginTop: 4 } : {});
   // Without a session no navigation rows sit above the language, then the divider is dropped.
 
   return (
@@ -209,48 +198,37 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, areaKey = "admin
             );
           })}
 
-          {hasSession && hasHomeNotice && (
-            <button
-              type="button"
-              onClick={showHomeNotice}
-              className={rowClass}
-              style={{ color: "var(--foreground)", borderTop: "1px solid var(--border)", marginTop: 4 }}
-            >
-              <Info size={20} weight="bold" />
-              <span>{t("homeNoticeShow")}</span>
-            </button>
-          )}
-          {hasSession && rundgangKurs && (
-            <button
-              type="button"
-              onClick={async () => {
-                setOpen(false);
-                router.push(await rundgangZiel(rundgangKurs));
-              }}
-              className={rowClass}
-              style={{ color: "var(--foreground)" }}
-            >
-              <Compass size={20} weight="bold" />
-              <span>{tTour("start")}</span>
-            </button>
-          )}
-          {hasSession && (
+          {hasSession && showLanguageLevel && (
             <Link
-              href="/profile"
+              href="/language-level"
               onClick={() => setOpen(false)}
               className={rowClass}
-              style={{ color: "var(--foreground)", ...(!hasHomeNotice ? { borderTop: "1px solid var(--border)", marginTop: 4 } : {}) }}
+              style={{ color: "var(--foreground)", ...dividerFor("level") }}
             >
-              <UserCircle size={20} weight="bold" />
-              <span>{t("profile")}</span>
+              <Medal size={20} weight="bold" />
+              <span>{t("languageLevel")}</span>
             </Link>
           )}
-          {hasSession && (
+          {hasSession && showTour && (
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                onStartTour?.();
+              }}
+              className={rowClass}
+              style={{ color: "var(--foreground)", ...dividerFor("tour") }}
+            >
+              <Compass size={20} weight="bold" />
+              <span>{t("tour")}</span>
+            </button>
+          )}
+          {hasSession && canViewManual && (
             <Link
               href="/manual"
               onClick={() => setOpen(false)}
               className={rowClass}
-              style={{ color: "var(--foreground)" }}
+              style={{ color: "var(--foreground)", ...dividerFor("manual") }}
             >
               <Question size={20} weight="bold" />
               <span>{tManual("title")}</span>
@@ -261,7 +239,7 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, areaKey = "admin
               href="/admin"
               onClick={() => setOpen(false)}
               className={rowClass}
-              style={{ color: "var(--foreground)" }}
+              style={{ color: "var(--foreground)", ...dividerFor("admin") }}
             >
               <UserCircleGear size={20} weight="bold" />
               <span>{t(areaKey)}</span>
@@ -276,7 +254,7 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, areaKey = "admin
               }}
               className={rowClass}
               // Help, admin and log out are one block, the divider sits above help.
-              style={{ color: "var(--foreground)" }}
+              style={{ color: "var(--foreground)", ...dividerFor("logout") }}
             >
               <SignOut size={20} weight="bold" />
               <span>{t("logout")}</span>

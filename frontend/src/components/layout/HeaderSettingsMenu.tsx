@@ -1,14 +1,14 @@
 "use client";
 
+import type { AreaKey } from "@/lib/permissions";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { Check, Compass, Gear, Info, Moon, Question, SignOut, Sun, UserCircle, UserCircleGear } from "@phosphor-icons/react";
+import { Check, Compass, Gear, Medal, Moon, Question, SignOut, Sun, UserCircleGear } from "@phosphor-icons/react";
 import { useRouter, usePathname } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
-import { HOME_NOTICE_DISMISS_KEY, HOME_NOTICE_SHOW_EVENT, UI_LOCALES } from "@/lib/constants";
+import { UI_LOCALES } from "@/lib/constants";
 import { useTheme, type Theme } from "@/hooks/useTheme";
-import { findeRundgangKurs, rundgangZiel } from "@/lib/tour";
 import { persistLocale, rememberLocaleCookie } from "@/lib/switchLocale";
 
 const LOCALES = UI_LOCALES as readonly Locale[];
@@ -16,20 +16,20 @@ const THEMES: readonly Theme[] = ["light", "dark"];
 
 interface HeaderSettingsMenuProps {
   isAdmin?: boolean;
-  areaKey?: "admin" | "settings";
+  canViewManual?: boolean;
+  showLanguageLevel?: boolean;
+  showTour?: boolean;
+  onStartTour?: () => void;
+  areaKey?: AreaKey;
   showLogout?: boolean;
   hasHomeNotice?: boolean;
   onLogout?: () => void;
 }
 
-export default function HeaderSettingsMenu({ isAdmin = false, areaKey = "admin", showLogout = false, hasHomeNotice = false, onLogout }: HeaderSettingsMenuProps) {
+export default function HeaderSettingsMenu({ isAdmin = false, canViewManual = false, showLanguageLevel = false, showTour = false, onStartTour, areaKey = "admin", showLogout = false, hasHomeNotice = false, onLogout }: HeaderSettingsMenuProps) {
   const t = useTranslations("header");
   const tLang = useTranslations("languageSwitch");
   const tManual = useTranslations("manual");
-  const tTour = useTranslations("workspace.detail.tour");
-  // Der Rundgang laeuft in einem Kurs, ohne Demo-Kurs gibt es nichts zu zeigen.
-  const [rundgangKurs, setRundgangKurs] = useState<Awaited<ReturnType<typeof findeRundgangKurs>>>(null);
-  useEffect(() => { void findeRundgangKurs().then(setRundgangKurs); }, []);
   const router = useRouter();
   const pathname = usePathname();
   const currentLocale = useLocale() as Locale;
@@ -80,18 +80,6 @@ export default function HeaderSettingsMenu({ isAdmin = false, areaKey = "admin",
     if (next !== theme) setTheme(next);
   };
 
-  const showHomeNotice = () => {
-    setOpen(false);
-    buttonRef.current?.focus();
-    try {
-      localStorage.removeItem(HOME_NOTICE_DISMISS_KEY);
-    } catch {
-      /* ignore - private browsing etc. */
-    }
-    window.dispatchEvent(new Event(HOME_NOTICE_SHOW_EVENT));
-    router.push("/");
-  };
-
   const moveFocus = (step: number) => {
     const list = rows();
     if (list.length === 0) return;
@@ -121,6 +109,9 @@ export default function HeaderSettingsMenu({ isAdmin = false, areaKey = "admin",
   const rowClass =
     "flex items-center gap-3 w-full px-4 py-2.5 text-sm font-medium text-left no-underline cursor-pointer outline-none hover:bg-[var(--surface-dim)] focus:bg-[var(--surface-dim)]";
   const headingClass = "px-4 pt-2.5 pb-1 text-2xs font-semibold uppercase tracking-wide";
+  // The first visible row of the lower block carries the divider.
+  const lowerBlock = [showLanguageLevel && "level", showTour && "tour", canViewManual && "manual", isAdmin && "admin", showLogout && "logout"].filter(Boolean);
+  const dividerFor = (row: string) => (lowerBlock[0] === row ? { borderTop: "1px solid var(--border)", marginTop: 4 } : {});
 
   return (
     <div ref={rootRef} className="relative" onKeyDown={onKeyDown}>
@@ -199,64 +190,53 @@ export default function HeaderSettingsMenu({ isAdmin = false, areaKey = "admin",
             );
           })}
 
-          {hasHomeNotice && (
-            <button
+          {showLanguageLevel && (
+            <Link
               data-row
-              type="button"
+              href="/language-level"
               role="menuitem"
               tabIndex={-1}
-              onClick={showHomeNotice}
+              onClick={() => setOpen(false)}
               className={rowClass}
-              style={{ color: "var(--foreground)", borderTop: "1px solid var(--border)", marginTop: 4 }}
+              style={{ color: "var(--foreground)", ...dividerFor("level") }}
             >
-              <Info size={18} weight="bold" aria-hidden="true" />
-              <span className="flex-1">{t("homeNoticeShow")}</span>
-            </button>
+              <Medal size={18} weight="bold" aria-hidden="true" />
+              <span className="flex-1">{t("languageLevel")}</span>
+            </Link>
           )}
 
-          {rundgangKurs && (
+          {showTour && (
             <button
               data-row
               type="button"
               role="menuitem"
               tabIndex={-1}
-              onClick={async () => {
+              onClick={() => {
                 setOpen(false);
-                router.push(await rundgangZiel(rundgangKurs));
+                onStartTour?.();
               }}
               className={rowClass}
-              style={{ color: "var(--foreground)" }}
+              style={{ color: "var(--foreground)", ...dividerFor("tour") }}
             >
               <Compass size={18} weight="bold" aria-hidden="true" />
-              <span className="flex-1">{tTour("start")}</span>
+              <span className="flex-1">{t("tour")}</span>
             </button>
           )}
 
-          <Link
-            data-row
-            href="/profile"
-            role="menuitem"
-            tabIndex={-1}
-            onClick={() => setOpen(false)}
-            className={rowClass}
-            style={{ color: "var(--foreground)", ...(!hasHomeNotice ? { borderTop: "1px solid var(--border)", marginTop: 4 } : {}) }}
-          >
-            <UserCircle size={18} weight="bold" aria-hidden="true" />
-            <span className="flex-1">{t("profile")}</span>
-          </Link>
-
-          <Link
-            data-row
-            href="/manual"
-            role="menuitem"
-            tabIndex={-1}
-            onClick={() => setOpen(false)}
-            className={rowClass}
-            style={{ color: "var(--foreground)" }}
-          >
-            <Question size={18} weight="bold" aria-hidden="true" />
-            <span className="flex-1">{tManual("title")}</span>
-          </Link>
+          {canViewManual && (
+            <Link
+              data-row
+              href="/manual"
+              role="menuitem"
+              tabIndex={-1}
+              onClick={() => setOpen(false)}
+              className={rowClass}
+              style={{ color: "var(--foreground)", ...dividerFor("manual") }}
+            >
+              <Question size={18} weight="bold" aria-hidden="true" />
+              <span className="flex-1">{tManual("title")}</span>
+            </Link>
+          )}
 
           {isAdmin && (
             <Link
@@ -266,7 +246,7 @@ export default function HeaderSettingsMenu({ isAdmin = false, areaKey = "admin",
               tabIndex={-1}
               onClick={() => setOpen(false)}
               className={rowClass}
-              style={{ color: "var(--foreground)" }}
+              style={{ color: "var(--foreground)", ...dividerFor("admin") }}
             >
               <UserCircleGear size={18} weight="bold" aria-hidden="true" />
               <span className="flex-1">{t(areaKey)}</span>
@@ -285,7 +265,7 @@ export default function HeaderSettingsMenu({ isAdmin = false, areaKey = "admin",
               }}
               className={rowClass}
               // Help, admin and log out are one block, the divider sits above help.
-              style={{ color: "var(--foreground)" }}
+              style={{ color: "var(--foreground)", ...dividerFor("logout") }}
             >
               <SignOut size={18} weight="bold" aria-hidden="true" />
               <span className="flex-1">{t("logout")}</span>

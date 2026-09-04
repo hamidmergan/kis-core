@@ -4,7 +4,7 @@
 
 - **Links**: die Werkzeuge
 - **Rechts oben**: Kalender, Jobs, Zahnrad (Sprache, Hell/Dunkel, Dokumentation, Abmelden, bei
-  Rechten zusätzlich Verwaltung)
+  Rechten zusätzlich Statistik oder Verwaltung)
 
 ## Aktiv und inaktiv
 

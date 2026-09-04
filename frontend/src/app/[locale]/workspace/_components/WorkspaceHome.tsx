@@ -7,6 +7,7 @@ import { CalendarBlank, Lock } from "@phosphor-icons/react";
 import { useRouter } from "@/i18n/navigation";
 import Spinner from "@/components/ui/Spinner";
 import { TourInvite } from "./TourInvite";
+import { LanguageTrainerInvite } from "./LanguageTrainerInvite";
 import WorkspaceList from "./WorkspaceList";
 
 interface LinkPreview {
@@ -33,10 +34,12 @@ interface Props {
   /** May own workspaces. Controls the owned block only, never the access link. */
   canCreate: boolean;
   firstName: string;
+  /** Only students get the language trainer offer, staff find it under Sprachlevel. */
+  languageInvite: boolean;
 }
 
 /** One start page for all roles, ownership decides the view. */
-export default function WorkspaceHome({ canCreate, firstName }: Props) {
+export default function WorkspaceHome({ canCreate, firstName, languageInvite }: Props) {
   const t = useTranslations("workspace.list");
   const locale = useLocale();
   const router = useRouter();
@@ -237,7 +240,10 @@ export default function WorkspaceHome({ canCreate, firstName }: Props) {
         </p>
       </div>
 
-      <TourInvite />
+      <div className="flex flex-col md:flex-row gap-4 mb-8 empty:hidden">
+        <TourInvite />
+        {languageInvite && <LanguageTrainerInvite />}
+      </div>
 
       {previewInvalid && (
         <div

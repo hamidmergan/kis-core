@@ -15,7 +15,7 @@ export interface DemoWorkspace {
 }
 
 /** Loads the demo courses and keeps joining and leaving in one place. */
-export function useDemoWorkspaces() {
+export function useDemoWorkspaces(enabled = true) {
   const [items, setItems] = useState<DemoWorkspace[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -26,7 +26,7 @@ export function useDemoWorkspaces() {
     } catch { /* ignore */ }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { if (enabled) load(); }, [load, enabled]);
 
   const ruf = useCallback(async (pfad: string, uuid: string | null, marke: string) => {
     setBusy(marke);

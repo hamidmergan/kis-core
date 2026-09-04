@@ -3,8 +3,7 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Compass } from "@phosphor-icons/react";
-import { useRouter } from "@/i18n/navigation";
-import { useDemoWorkspaces } from "./useDemoWorkspaces";
+import { useTourStart } from "./useTourStart";
 import { ladeTourGesehen, merkeTourGesehen } from "../[uuid]/_tour/tourSeen";
 
 /**
@@ -17,10 +16,8 @@ import { ladeTourGesehen, merkeTourGesehen } from "../[uuid]/_tour/tourSeen";
  */
 export function TourInvite() {
   const t = useTranslations("workspace.detail.tour");
-  const router = useRouter();
-  const { items, join } = useDemoWorkspaces();
+  const tour = useTourStart();
   const [sichtbar, setSichtbar] = useState(false);
-  const [laeuft, setLaeuft] = useState(false);
 
   useEffect(() => {
     let abgebrochen = false;
@@ -30,15 +27,7 @@ export function TourInvite() {
     return () => { abgebrochen = true; };
   }, []);
 
-  const kurs = items.find((m) => !m.owned);
-  if (!sichtbar || !kurs) return null;
-
-  const starten = async () => {
-    setLaeuft(true);
-    if (!kurs.joined) await join(kurs.uuid);
-    // No mark on start: only the last step or "later" takes the invitation away.
-    router.push(`/workspace/${kurs.uuid}?tour=1`);
-  };
+  if (!sichtbar || !tour.available) return null;
 
   const spaeter = () => {
     void merkeTourGesehen(true);
@@ -47,26 +36,27 @@ export function TourInvite() {
 
   return (
     <div
-      className="rounded-xl p-4 mb-8 flex items-start gap-3"
+      className="rounded-xl p-4 flex-1 flex items-start gap-3"
       style={{ backgroundColor: "var(--surface-dim)", border: "1px solid var(--border-soft)" }}
       data-tour="tour-invite"
     >
       <Compass size={20} weight="bold" style={{ color: "var(--kb)", flexShrink: 0, marginTop: 2 }} />
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{t("inviteTitle")}</p>
+        <p className="text-sm mt-1" style={{ color: "var(--foreground-soft)" }}>{t("inviteBody")}</p>
         <div className="flex items-center gap-2 mt-3">
           <button
             type="button"
-            onClick={starten}
-            disabled={laeuft}
+            onClick={() => void tour.start()}
+            disabled={tour.busy}
             className="btn-primary text-sm rounded-lg px-4 py-2 disabled:opacity-50"
           >
-            {laeuft ? "…" : t("inviteStart")}
+            {tour.busy ? "…" : t("inviteStart")}
           </button>
           <button
             type="button"
             onClick={spaeter}
-            className="btn-ghost text-sm rounded-lg px-3 py-2 text-foreground-soft border border-border"
+            className="text-sm rounded-lg px-3 py-2 text-foreground-soft border-2 border-border hover:border-kb transition-colors"
           >
             {t("dismiss")}
           </button>

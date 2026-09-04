@@ -16,11 +16,13 @@
     "themeToDarkAria": "Dark mode",
     "themeToLightAria": "Light mode",
     "settings": "Administration",
+    "stats": "Statistics",
     "calendar": "Calendar",
     "settingsMenu": "Settings",
     "sectionAppearance": "Appearance",
     "homeNoticeShow": "Show home notice",
-    "profile": "Language level"
+    "languageLevel": "Language level",
+    "tour": "Demo module tour"
   },
   "footer": {
     "aiNotice": "This platform uses AI and may make mistakes. Please verify the responses.",
@@ -821,7 +823,6 @@
     }
   },
   "admin": {
-    "title": "Admin",
     "menuOpen": "Open menu",
     "menuClose": "Close menu",
     "close": "Close",
@@ -1725,7 +1726,6 @@
       },
       "more": "More"
     },
-    "titleSettings": "Settings",
     "permissions": {
       "chapter": {
         "benutzen": "Use",
@@ -1746,13 +1746,15 @@
         }
       },
       "general": {
-        "welcome": "See the welcome dialog on first login"
+        "welcome": "See the welcome dialog on first login",
+        "manual": "View the manual"
       },
       "aia": {
         "use": "Open and read shared {plural}",
         "workspace": {
           "create": "Create and manage own {plural}"
-        }
+        },
+        "language_level": "Own language level and language test"
       },
       "tools": {
         "translation": "Translation",
@@ -2334,7 +2336,7 @@
           "resultTitle": "Your result",
           "skip": "Skip",
           "skipped": "Skipped",
-          "disclaimer": "This result comes from an AI. Experts have not checked it yet.",
+          "disclaimer": "Please keep in mind that this result was created by an AI, which can make mistakes.",
           "continue": "Continue",
           "abort": "Cancel",
           "abortConfirmTitle": "Stop the test?",
@@ -2606,8 +2608,6 @@
       },
       "settings": {
         "title": "Settings",
-        "sectionPersonalTitle": "Personal",
-        "sectionPersonalDescription": "Applies to you only. Others in the module do not see any of this.",
         "sectionWorkspaceTitle": "Module",
         "sectionWorkspaceDescription": "Applies to everyone in the module. Only module admins can change it.",
         "mascotTitle": "Mascot",
@@ -2773,14 +2773,18 @@
         "tabOff": "Off",
         "saveAsNote": "Save as note",
         "regenEnRunning": "running...",
-        "regenEnButton": "Translate",
         "regenEnRunningTitle": "Translation is running in the background...",
-        "regenEnIdleTitle": "Translate subtitles in the background",
         "regenEnErrorTitle": "Translation failed: {error}. Try again?",
         "regenEnTimeout": "Translation is taking too long. Check later or try again.",
         "regenEnUnknownError": "Unknown error",
         "tracksDe": "German",
-        "tracksEn": "English"
+        "tracksEn": "English",
+        "translateAddButton": "Translation",
+        "translateModalTitle": "Translate transcript",
+        "translateModalHint": "The language of the recording is detected automatically. There is exactly one translation.",
+        "translateModalLangLabel": "Into this language",
+        "translateModalStart": "Start translation",
+        "translateModalCancel": "Cancel"
       },
       "summary": {
         "header": "Page {page} - Summary",
@@ -2990,8 +2994,9 @@
         "start": "Explore the demo module",
         "inviteStart": "Start",
         "restart": "Start the tour again",
-        "dismiss": "Not now",
-        "inviteTitle": "Explore the demo module",
+        "dismiss": "Hide",
+        "inviteTitle": "Demo module tour",
+        "inviteBody": "A short tour through a sample module. Shows the materials, the AI assistant Francis and the learning tools in the study area.",
         "steps": {
           "preview": {
             "title": "Teacher and student view",
@@ -3220,28 +3225,64 @@
     "title": "Welcome to KIS",
     "cta": "Get started"
   },
-  "internationalPrompt": {
-    "title": "International student?",
-    "body": "Are you still learning the course language? Then KIS offers you a language trainer. It builds vocabulary cards, vocabulary and grammar exercises from the materials of your modules and pitches the chat at your level.\n\nIf you say yes, you take a short language test now. You can change this under Language level at any time.",
-    "yes": "Yes, start the language test",
-    "no": "No",
-    "later": "Later"
+  "languageTrainerInvite": {
+    "title": "Language trainer",
+    "body": "For learners of German. Practises subject vocabulary and grammar from your modules. Adapts wording and depth to your level.",
+    "start": "Start the language test",
+    "dismiss": "Hide"
   },
-  "profile": {
+  "languageLevel": {
     "title": "Language level",
-    "notOffered": "The language trainer is not offered on this platform.",
+    "notOffered": "The language trainer is not enabled for your account.",
     "languageTraining": {
-      "switchTitle": "Language trainer",
-      "switchDescription": "Exercises and chat at your language level. Applies to you in every module.",
       "levelLabel": "Your level",
       "levelSince": "since {date}",
-      "redo": "Reset level",
-      "noLevel": "No level yet. You see the language trainer in the modules only after the language test.",
-      "takeTest": "Take the language test"
+      "sourceTest": "Language test on {date}",
+      "sourceSelf": "Chosen yourself on {date}",
+      "change": "Change level",
+      "noLevel": "No language level yet. Start the language test or set your level yourself.",
+      "takeTest": "Start the language test",
+      "chooseSelf": "Set level yourself",
+      "apply": "Apply",
+      "cancel": "Cancel",
+      "current": "current",
+      "ratherTest": "Rather have it assessed?",
+      "levels": {
+        "A1": {
+          "name": "Beginner",
+          "short": "You can understand and use familiar everyday expressions and very basic phrases.",
+          "long": "You can understand and use familiar everyday expressions and very basic phrases. You can introduce yourself and others and interact in a simple way, provided the other person talks slowly and clearly."
+        },
+        "A2": {
+          "name": "Elementary",
+          "short": "You can understand sentences and frequently used expressions related to areas of most immediate relevance.",
+          "long": "You can understand sentences and frequently used expressions related to areas of most immediate relevance. You can communicate in simple, routine tasks and describe your background, immediate environment and immediate needs in simple terms."
+        },
+        "B1": {
+          "name": "Intermediate",
+          "short": "You can understand the main points of clear standard input on familiar matters.",
+          "long": "You can understand the main points of clear standard input on familiar matters from work, school and leisure. You can deal with most situations while travelling and talk about experiences, plans and goals in a connected way."
+        },
+        "B2": {
+          "name": "Upper intermediate",
+          "short": "You can understand the main ideas of complex text on both concrete and abstract topics.",
+          "long": "You can understand the main ideas of complex text on concrete and abstract topics, including technical discussions in your field. You can interact fluently and spontaneously enough that a regular conversation with native speakers is possible without strain."
+        },
+        "C1": {
+          "name": "Advanced",
+          "short": "You can understand a wide range of demanding, longer texts and recognise implicit meaning.",
+          "long": "You can understand a wide range of demanding, longer texts and recognise implicit meaning. You can express yourself fluently and spontaneously and use the language flexibly and effectively for work and study."
+        },
+        "C2": {
+          "name": "Proficient",
+          "short": "You can understand with ease virtually everything you hear or read.",
+          "long": "You can understand with ease virtually everything you hear or read. You can express yourself spontaneously, very fluently and precisely, differentiating finer shades of meaning even in complex situations."
+        }
+      }
     },
     "languageTest": {
-      "notOffered": "The language trainer is switched off for you. Switch it on under Language level, then you can take the test.",
-      "toProfile": "To language level"
+      "notOffered": "The language trainer is not enabled for your account.",
+      "toLevelPage": "To language level"
     }
   },
   "layoutMeta": {

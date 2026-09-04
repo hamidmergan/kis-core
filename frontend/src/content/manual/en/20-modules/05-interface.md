@@ -4,7 +4,7 @@
 
 - **Left**: the tools
 - **Top right**: calendar, jobs, gear (language, light/dark, documentation, sign out, plus
-  administration if you have the right)
+  statistics or administration if you have the right)
 
 ## Active and inactive
 

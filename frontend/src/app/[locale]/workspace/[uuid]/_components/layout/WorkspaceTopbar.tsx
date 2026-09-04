@@ -16,7 +16,6 @@ interface WorkspaceTopbarProps {
   onCloseSettings: () => void;
   studioEnabled: boolean;
   onToggleStudio: () => void;
-  isOwner: boolean;
   /** Switch offered at all: owners always, enrolled people only in the demo course. */
   canPreview: boolean;
   previewOn: boolean;
@@ -24,8 +23,6 @@ interface WorkspaceTopbarProps {
   previewsOwnerSide: boolean;
   onTogglePreview: () => void;
   onStartTour: () => void;
-  transcriptTargetLang: string;
-  onChangeTranscriptTargetLang: (lang: string) => void;
   popupTranslateLang: string;
   onChangePopupTranslateLang: (lang: string) => void;
   // Mobile tabs
@@ -38,8 +35,7 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
     isMobile, title,
     showSettings, onToggleSettings, onCloseSettings,
     studioEnabled, onToggleStudio,
-    isOwner, canPreview, previewOn, previewsOwnerSide, onTogglePreview, onStartTour,
-    transcriptTargetLang, onChangeTranscriptTargetLang,
+    canPreview, previewOn, previewsOwnerSide, onTogglePreview, onStartTour,
     popupTranslateLang, onChangePopupTranslateLang,
     activeTab, setActiveTab,
   } = props;
@@ -53,10 +49,7 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
       onClose={onCloseSettings}
       studioEnabled={studioEnabled}
       onToggleStudio={onToggleStudio}
-      isOwner={isOwner}
       onStartTour={onStartTour}
-      transcriptTargetLang={transcriptTargetLang}
-      onChangeTranscriptTargetLang={onChangeTranscriptTargetLang}
       popupTranslateLang={popupTranslateLang}
       onChangePopupTranslateLang={onChangePopupTranslateLang}
     />

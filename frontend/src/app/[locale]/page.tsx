@@ -11,7 +11,6 @@ import { useEnabledTools } from "@/hooks/useEnabledTools";
 import type { AuthStatus } from "@/types";
 import WorkspaceHome from "./workspace/_components/WorkspaceHome";
 import WelcomeModal from "./workspace/_components/WelcomeModal";
-import InternationalPromptModal from "./workspace/_components/InternationalPromptModal";
 
 interface HomeState {
   target: HomeTarget;
@@ -24,8 +23,6 @@ export default function HomePage() {
   const [auth, setAuth] = useState<AuthStatus | null>(null);
   const { loaded: toolsLoaded, tools: enabledTools } = useEnabledTools();
   const [state, setState] = useState<HomeState | null>(null);
-  // The welcome dialog goes first, the start question waits until it is settled.
-  const [welcomeSettled, setWelcomeSettled] = useState(false);
 
   useEffect(() => {
     checkAuthStatus().then(setAuth);
@@ -50,18 +47,15 @@ export default function HomePage() {
     <ProtectedRoute>
       {/* Impersonation shows the target account's own view, not an onboarding dialog for the admin's session. */}
       {!auth?.impersonator && hasPerm(auth?.permissions, PERM.generalWelcome) && (
-        <WelcomeModal userId={auth?.user_id} onSettled={() => setWelcomeSettled(true)} />
-      )}
-      {auth && !auth.impersonator && hasPerm(auth.permissions, PERM.aiaUse) && (
-        <InternationalPromptModal
-          userId={auth.user_id}
-          role={auth.role}
-          blocked={hasPerm(auth.permissions, PERM.generalWelcome) && !welcomeSettled}
-        />
+        <WelcomeModal userId={auth?.user_id} />
       )}
       {state === null || state.target.kind === "tool" ? null : state.target.kind === "aia" ? (
         <Suspense>
-          <WorkspaceHome canCreate={state.canCreate} firstName={state.firstName} />
+          <WorkspaceHome
+            canCreate={state.canCreate}
+            firstName={state.firstName}
+            languageInvite={hasPerm(auth?.permissions, PERM.aiaLanguageLevel)}
+          />
         </Suspense>
       ) : (
         <div className="px-4 sm:px-6 md:px-8 pt-10 pb-20">

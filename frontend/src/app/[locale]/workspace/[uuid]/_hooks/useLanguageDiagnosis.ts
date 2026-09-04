@@ -111,6 +111,7 @@ export function useLanguageDiagnosis(userId: number | null | undefined) {
           setResult({
             level: data.level,
             message: data.message,
+            aiGraded: data.aiGraded,
           });
           setStatus("done");
           clearDraft(userId);

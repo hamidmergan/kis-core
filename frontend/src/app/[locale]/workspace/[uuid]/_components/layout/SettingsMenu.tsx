@@ -8,45 +8,15 @@ import Select from "@/components/ui/Select";
 import ToggleRow from "@/components/ui/ToggleRow";
 import type { MascotVariant } from "@/components/ui/Mascot";
 import { useMascotPref } from "@/hooks/useMascotPref";
-import { OwnerOnly } from "./OwnerOnly";
 
 interface SettingsMenuProps {
   open: boolean;
   onClose: () => void;
   studioEnabled: boolean;
   onToggleStudio: () => void;
-  isOwner: boolean;
   onStartTour: () => void;
-  transcriptTargetLang: string;
-  onChangeTranscriptTargetLang: (lang: string) => void;
   popupTranslateLang: string;
   onChangePopupTranslateLang: (lang: string) => void;
-}
-
-// Personal and course settings need a visible separation.
-function SectionHeading({
-  title,
-  description,
-  divider,
-}: {
-  title: string;
-  description: string;
-  divider?: boolean;
-}) {
-  return (
-    <div
-      className={divider ? "pt-4 border-t" : undefined}
-      style={divider ? { borderColor: "var(--border)" } : undefined}
-    >
-      <p
-        className="text-xs font-semibold uppercase tracking-wide"
-        style={{ color: "var(--foreground)" }}
-      >
-        {title}
-      </p>
-      <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>{description}</p>
-    </div>
-  );
 }
 
 export function SettingsMenu({
@@ -54,10 +24,7 @@ export function SettingsMenu({
   onClose,
   studioEnabled,
   onToggleStudio,
-  isOwner,
   onStartTour,
-  transcriptTargetLang,
-  onChangeTranscriptTargetLang,
   popupTranslateLang,
   onChangePopupTranslateLang,
 }: SettingsMenuProps) {
@@ -96,10 +63,6 @@ export function SettingsMenu({
   return (
     <Modal open={open} onClose={onClose} title={t("title")} size="md">
       <div className="flex flex-col gap-4">
-        <SectionHeading
-          title={t("sectionPersonalTitle")}
-          description={t("sectionPersonalDescription")}
-        />
         <div>
           <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{t("mascotTitle")}</p>
           <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>{t("mascotDescription")}</p>
@@ -130,30 +93,6 @@ export function SettingsMenu({
             />
           </div>
         </div>
-        {/* The line separates personal from course settings and is no control, so it stays unmarked. */}
-        {isOwner && <div className="mt-4 border-t" style={{ borderColor: "var(--border)" }} />}
-        {/* All course settings sit in one box, so the preview marks them once instead of three times. */}
-        <OwnerOnly show={isOwner}>
-          <div className="mt-4 p-4">
-            <SectionHeading
-              title={t("sectionWorkspaceTitle")}
-              description={t("sectionWorkspaceDescription")}
-            />
-            <div className="mt-4">
-              <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{t("transcriptTargetLangTitle")}</p>
-              <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
-                {t("transcriptTargetLangDescription")}
-              </p>
-              <div className="mt-3">
-                <Select<string>
-                  value={transcriptTargetLang}
-                  onChange={onChangeTranscriptTargetLang}
-                  options={targetLangOptions}
-                />
-              </div>
-            </div>
-          </div>
-        </OwnerOnly>
         <div className="mt-2 pt-4 border-t" style={{ borderColor: "var(--border)" }}>
           <Link
             href="/feedback"

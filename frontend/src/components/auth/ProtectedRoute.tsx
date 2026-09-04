@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "@/i18n/navigation";
 import { checkAuthStatus } from "@/lib/auth";
 import Spinner from "@/components/ui/Spinner";
-import { EMPTY_PERMS } from "@/lib/permissions";
+import { EMPTY_PERMS, PERM, hasPerm } from "@/lib/permissions";
 
 const TOOL_KEY_BY_SLUG: Record<string, string> = {
   translate: "translation",
@@ -41,6 +41,7 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
       const perms = status.permissions ?? EMPTY_PERMS;
       const isWorkspacePath = pathname?.startsWith("/workspace/");
       const isAdminPath = pathname?.startsWith("/admin");
+      const isManualPath = pathname?.startsWith("/manual");
       const isToolPath = pathname?.startsWith("/tools/");
       const isJobsPath = pathname?.startsWith("/my-jobs");
       const isCalendarPath = pathname === "/calendar" || pathname?.startsWith("/calendar/");
@@ -52,6 +53,11 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
         return;
       }
       if (isAdminPath && !perms.allow_admin_panel) {
+        router.replace("/");
+        setLoading(false);
+        return;
+      }
+      if (isManualPath && !hasPerm(perms, PERM.manual)) {
         router.replace("/");
         setLoading(false);
         return;

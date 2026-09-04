@@ -43,8 +43,7 @@ const LABELS = {
     expandBar: "Tools-Sidebar ausklappen",
     allMoods: "Alle Stimmungen nebeneinander",
     showAllCitations: "Alle Belege einblenden",
-    profileRedo: "Niveau zurücksetzen",
-    profileTakeTest: "Sprachtest machen",
+    profileTakeTest: "Sprachtest starten",
     diagSkip: "Überspringen",
     diagContinue: "Weiter",
   },
@@ -66,8 +65,7 @@ const LABELS = {
     expandBar: "Expand tools sidebar",
     allMoods: "All moods side by side",
     showAllCitations: "Show all citations",
-    profileRedo: "Reset level",
-    profileTakeTest: "Take the language test",
+    profileTakeTest: "Start the language test",
     diagSkip: "Skip",
     diagContinue: "Continue",
   },
@@ -426,38 +424,33 @@ test.describe("Handbuch-Bilder", () => {
 
     // Turns the demo user's own switch on, drops an existing level, starts a fresh test,
     // skips every question, and lands back on the level page with a level set.
-    // The questions themselves are always German, regardless of the interface locale, so
-    // one picture serves both articles (like mascot-states above).
+    // The questions themselves are always German, so language-test.png is shot once, while
+    // the level page is fully translated and gets its own picture per language.
     test(`sprachtest ${locale}`, async ({ page }) => {
-      test.skip(locale !== "de", "ein Bild fuer beide Sprachen");
       await useLocale(page, locale);
       // The admin switch is already on, only the person's own switch needs flipping.
       await page.request.patch("/api/me/language-training", { data: { active: true } });
-      await page.goto(`${prefix(locale)}/profile`, { waitUntil: "domcontentloaded" });
+      // Without a level the page offers the test, so an old level is dropped first.
+      await page.request.delete("/api/ai-assistant/language-diagnosis/me");
+      await page.goto(`${prefix(locale)}/language-level`, { waitUntil: "domcontentloaded" });
       await settle(page);
 
-      const redo = page.getByRole("button", { name: LABELS[locale].profileRedo });
-      if (await redo.count()) {
-        page.once("dialog", (dialog) => dialog.accept());
-        await redo.first().click();
-      }
-      // Resetting only drops the level, the test starts from the button that then appears.
       await page.getByRole("button", { name: LABELS[locale].profileTakeTest }).click();
-      await page.waitForURL(new RegExp(`${prefix(locale)}/profile/language-test`));
+      await page.waitForURL(new RegExp(`${prefix(locale)}/language-level/test`));
 
       const skip = page.getByRole("button", { name: LABELS[locale].diagSkip });
       await expect(skip.first()).toBeVisible({ timeout: 15_000 });
       await page.waitForTimeout(1000);
-      await page.screenshot({ path: shot(locale, "language-test") });
+      if (locale === "de") await page.screenshot({ path: shot(locale, "language-test") });
       for (let i = 0; i < 12 && (await skip.count()); i++) {
         await skip.first().click();
         await page.waitForTimeout(1200);
       }
 
       await page.getByRole("button", { name: LABELS[locale].diagContinue }).click();
-      await page.waitForURL(new RegExp(`${prefix(locale)}/profile$`));
+      await page.waitForURL(new RegExp(`${prefix(locale)}/language-level$`));
       await settle(page);
-      await page.screenshot({ path: shot(locale, "profile") });
+      await page.screenshot({ path: shot(locale, "language-level") });
     });
   }
 });

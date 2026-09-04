@@ -7,9 +7,9 @@ import Spinner from "@/components/ui/Spinner";
 import { genericErrorMessage } from "@/lib/api";
 import { LanguageTrainingBlock, type ProfileMe } from "./_components/LanguageTrainingBlock";
 
-/** The person's language level and trainer switch, everything from /api/me. */
+/** The person's language level, everything from /api/me. */
 export default function ProfilePage() {
-  const t = useTranslations("profile");
+  const t = useTranslations("languageLevel");
   // undefined while loading, null when the request failed.
   const [me, setMe] = useState<ProfileMe | null | undefined>(undefined);
 
@@ -39,12 +39,12 @@ export default function ProfilePage() {
           <div className="max-w-xl mx-auto text-center">
             <p className="text-sm" style={{ color: "var(--muted)" }}>{genericErrorMessage()}</p>
           </div>
-        ) : me.language_training_enabled ? (
-          <div className="max-w-2xl">
+        ) : !me.language_training_enabled ? (
+          <p className="text-sm" style={{ color: "var(--muted)" }}>{t("notOffered")}</p>
+        ) : (
+          <div className="max-w-2xl mx-auto">
             <LanguageTrainingBlock me={me} onChanged={load} />
           </div>
-        ) : (
-          <p className="text-sm" style={{ color: "var(--muted)" }}>{t("notOffered")}</p>
         )}
       </main>
     </ProtectedRoute>

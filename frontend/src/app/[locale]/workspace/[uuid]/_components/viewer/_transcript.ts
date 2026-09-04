@@ -102,6 +102,43 @@ export function buildTranscriptModes(
   return modes;
 }
 
+/** The picker's last entry opens the language window instead of switching a track. */
+export const TRANSLATE_ACTION = "__translate__";
+
+export type TranscriptOption = TranscriptMode | typeof TRANSLATE_ACTION;
+
+/** The picker entries, the plus for a new translation always sits last. */
+export function buildTranscriptOptions(
+  { hasSource, hasTarget, canTranslate }:
+    { hasSource: boolean; hasTarget: boolean; canTranslate: boolean },
+): TranscriptOption[] {
+  const entries: TranscriptOption[] = buildTranscriptModes({ hasSource, hasTarget });
+  if (canTranslate) entries.push(TRANSLATE_ACTION);
+  return entries;
+}
+
+/** A translation started more than this long ago counts as lost. */
+export const PENDING_TRANSLATION_TTL_MS = 10 * 60 * 1000;
+
+/** The language a running translation waits for, null when there is none. */
+export function readPendingTranslation(raw: string | null, now: number): string | null {
+  if (!raw) return null;
+  try {
+    const note = JSON.parse(raw) as { ts?: number; lang?: string };
+    if (typeof note?.lang !== "string" || typeof note?.ts !== "number") return null;
+    return now - note.ts <= PENDING_TRANSLATION_TTL_MS ? note.lang : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The languages offered for a translation, the recording's own is no target. */
+export function chooseableTargetLangs(all: string[], sourceLang: string | null): string[] {
+  const own = (sourceLang ?? "").toLowerCase();
+  if (!own) return all;
+  return all.filter((c) => c.toLowerCase() !== own);
+}
+
 
 // Which line of a cited spot carries the claim, a comparison instead of a search.
 

@@ -7,9 +7,9 @@ von A1 bis C2.
 
 ## Wann er kommt
 
-Beim ersten Anmelden fragt KIS, ob Sie internationaler Studierender sind. Mit Ja startet der
-Test sofort. Wer Nein oder Später wählt, holt ihn unter Sprachlevel nach, über den Schalter
-Sprachtrainer.
+Auf der Startseite steht die Karte Sprachtrainer neben dem Demo-Modul, nur für Studierende.
+Sprachtest starten beginnt den Test sofort. Wer Ausblenden wählt, hat den Sprachtrainer aus und
+kann ihn aktuell noch nicht selbst wieder einschalten.
 
 ## Wie er abläuft
 
@@ -26,10 +26,11 @@ Der Test ist auf Deutsch. Fragen und Bewertung ebenso, das lässt sich nicht ums
 ## Was das Ergebnis bewirkt
 
 Die Stufe gilt in allen Modulen. Sie steuert, wie schwer die Übungen im Sprachtrainer ausfallen
-und wie ausführlich der Chat erklärt. Unter Sprachlevel können Sie das Niveau zurücksetzen und den
-Test neu machen. Sie ist keine Prüfungsleistung.
+und wie ausführlich der Chat erklärt. Unter Sprachlevel können Sie über Niveau ändern den Test neu
+machen oder die Stufe selbst festlegen. Sie ist keine Prüfungsleistung.
 
 ## Wie verlässlich das ist
 
-Das Ergebnis kommt von einer KI und ist von Fachleuten nicht geprüft. Es ist eine Einordnung
-für die Übungen, kein Zertifikat.
+Das Ergebnis kommt von einer KI, die Fehler machen kann. Es ist eine Einordnung für die
+Übungen, kein Zertifikat. Wer sich selbst anders einschätzt, legt die Stufe unter Sprachlevel
+selbst fest.

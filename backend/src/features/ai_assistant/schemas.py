@@ -38,6 +38,11 @@ class PatchWorkspaceBody(BaseModel):
     staff_note_links: Optional[list[StaffNoteLink]] = Field(None, max_length=30)
 
 
+class TranslateTranscriptBody(BaseModel):
+    """The target language is picked per source, not per module."""
+    target_lang: str = Field(..., max_length=5)
+
+
 class RenewCodeBody(BaseModel):
     # None means the link never expires, same as leaving the field empty in the UI.
     expires_at: Optional[str] = None  # ISO datetime string

@@ -11,12 +11,11 @@ import { LanguageDiagnosisPanel } from "@/app/[locale]/workspace/[uuid]/_compone
 interface Me {
   id: number;
   language_training_enabled: boolean;
-  language_training_active: boolean;
 }
 
-/** The language test on its own page, reachable from the profile. */
+/** The language test on its own page, reachable from the level page. */
 export default function LanguageTestPage() {
-  const t = useTranslations("profile.languageTest");
+  const t = useTranslations("languageLevel.languageTest");
   const router = useRouter();
   // undefined while loading, null when the request failed.
   const [me, setMe] = useState<Me | null | undefined>(undefined);
@@ -36,8 +35,8 @@ export default function LanguageTestPage() {
     };
   }, []);
 
-  const offered = !!me && me.language_training_enabled && me.language_training_active;
-  const toProfile = () => router.push("/profile");
+  const offered = !!me && me.language_training_enabled;
+  const toLevelPage = () => router.push("/language-level");
 
   return (
     <ProtectedRoute>
@@ -50,15 +49,15 @@ export default function LanguageTestPage() {
           // A failed fetch must not read like a switched-off trainer.
           <div className="max-w-xl mx-auto text-center">
             <p className="text-sm" style={{ color: "var(--muted)" }}>{genericErrorMessage()}</p>
-            <Link href="/profile" className="btn-primary text-sm rounded-lg px-4 py-2 inline-block mt-4">
-              {t("toProfile")}
+            <Link href="/language-level" className="mt-4 inline-block px-4 py-2 text-sm btn-primary rounded-lg">
+              {t("toLevelPage")}
             </Link>
           </div>
         ) : !offered ? (
           <div className="max-w-xl mx-auto text-center">
             <p className="text-sm" style={{ color: "var(--muted)" }}>{t("notOffered")}</p>
-            <Link href="/profile" className="btn-primary text-sm rounded-lg px-4 py-2 inline-block mt-4">
-              {t("toProfile")}
+            <Link href="/language-level" className="mt-4 inline-block px-4 py-2 text-sm btn-primary rounded-lg">
+              {t("toLevelPage")}
             </Link>
           </div>
         ) : (
@@ -66,7 +65,7 @@ export default function LanguageTestPage() {
             className="rounded-2xl overflow-hidden"
             style={{ border: "1px solid var(--border)", height: "calc(100vh - 12rem)", minHeight: 480 }}
           >
-            <LanguageDiagnosisPanel userId={me.id} onComplete={toProfile} onAbort={toProfile} />
+            <LanguageDiagnosisPanel userId={me.id} onComplete={toLevelPage} onAbort={toLevelPage} />
           </div>
         )}
       </main>

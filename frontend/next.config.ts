@@ -93,6 +93,12 @@ const nextConfig: NextConfig = {
       { source: "/admin/statistik/modelle", destination: "/admin/stats/models", permanent: false },
       { source: "/:locale(de|en)/admin/statistik/modelle", destination: "/:locale/admin/stats/models", permanent: false },
 
+      // Die Profilseite zeigt nur noch das Sprachlevel und heisst seit 04.09.2026 so.
+      { source: "/profile", destination: "/language-level", permanent: false },
+      { source: "/:locale(de|en)/profile", destination: "/:locale/language-level", permanent: false },
+      { source: "/profile/language-test", destination: "/language-level/test", permanent: false },
+      { source: "/:locale(de|en)/profile/language-test", destination: "/:locale/language-level/test", permanent: false },
+
       // Admin-Unterseiten, nur die Slugs wurden englisch, key/labelKey blieben unangetastet.
       { source: "/admin/nutzer/:path*", destination: "/admin/users/:path*", permanent: false },
       { source: "/:locale(de|en)/admin/nutzer/:path*", destination: "/:locale/admin/users/:path*", permanent: false },

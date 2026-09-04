@@ -259,6 +259,8 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             # Language level assessment, NULL means not done yet.
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS language_level TEXT CHECK (language_level IN ('A1','A2','B1','B2','C1','C2'))")
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS language_level_set_at TIMESTAMP WITH TIME ZONE")
+            # Where the level came from, the test or the person's own choice.
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS language_level_source TEXT CHECK (language_level_source IN ('test','self'))")
             # The one language trainer switch, per person since 2026-09.
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS language_training_active BOOLEAN NOT NULL DEFAULT FALSE")
             # NULL means the start question is still due.

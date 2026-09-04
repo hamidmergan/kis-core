@@ -1,13 +1,17 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { ArrowDown, ArrowsClockwise, ArrowUp, Check, NavigationArrow, NotePencil, X } from "@phosphor-icons/react";
+import { ArrowDown, ArrowUp, Check, NavigationArrow, NotePencil, Plus, X } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
-import Select from "@/components/ui/Select";
+import Select, { type SelectOption } from "@/components/ui/Select";
 import { genericErrorMessage, parseDetail } from "@/lib/api";
 import { langLabel } from "../../_types";
 import type { AddNoteExtras } from "../../_hooks/useNotes";
-import { OwnerOnly } from "../layout/OwnerOnly";
-import { buildTranscriptModes, groupCues, resolveCitationFocus, type TranscriptMode } from "./_transcript";
+import { useOwnerPreview } from "../layout/OwnerOnly";
+import {
+  buildTranscriptOptions, groupCues, readPendingTranslation, resolveCitationFocus,
+  TRANSLATE_ACTION, type TranscriptMode, type TranscriptOption,
+} from "./_transcript";
+import { TranslateLanguageModal } from "./TranslateLanguageModal";
 import { clearActiveChipTarget } from "../chat/_citations";
 
 interface Cue {
@@ -108,6 +112,8 @@ export function TranscriptPanel({
 }) {
   const t = useTranslations("workspace.detail.viewer");
   const locale = useLocale();
+  // In the owner preview the entry stays visible but must not fire anything.
+  const ownerPreview = useOwnerPreview();
   // Cues keyed by ISO language code (e.g. { de: [...], en: [...] }).
   const [cues, setCues] = useState<Record<string, Cue[]>>({});
   const [sourceLang, setSourceLang] = useState<string | null>(null);
@@ -143,6 +149,9 @@ export function TranscriptPanel({
   const [savingCueIdx, setSavingCueIdx] = useState<number | null>(null);
   const [regen, setRegen] = useState<"idle" | "running" | "error">("idle");
   const [regenError, setRegenError] = useState<string | null>(null);
+  // The language a running translation waits for, it exists before its file does.
+  const [pendingLang, setPendingLang] = useState<string | null>(null);
+  const [showTranslateModal, setShowTranslateModal] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   // The anchors hang off the sentence, not off the paragraph.
   const itemRefs = useRef<Record<number, HTMLElement | null>>({});
@@ -150,7 +159,6 @@ export function TranscriptPanel({
 
   // Records the start of a translation so the state survives a reload.
   const regenStorageKey = `kis:transcript-translate:${sourceUuid}`;
-  const REGEN_TTL_MS = 10 * 60 * 1000;
 
   const transcriptUrl = (lang: string) =>
     `/api/ai-assistant/workspaces/${workspaceUuid}/sources/${sourceUuid}/transcript?lang=${lang}`;
@@ -202,13 +210,14 @@ export function TranscriptPanel({
       else if (hasTarget) setMode(keep("target"));
 
       // Reattaches to a running translation job.
-      if (!hasTarget && info.target_lang && info.target_lang !== info.source_lang) {
-        const tsRaw = typeof window !== "undefined" ? window.localStorage.getItem(regenStorageKey) : null;
-        const ts = Number(tsRaw || 0);
-        if (ts > 0 && Date.now() - ts <= REGEN_TTL_MS) setRegen("running");
-        else if (ts > 0) window.localStorage.removeItem(regenStorageKey);
-      } else if (typeof window !== "undefined") {
-        window.localStorage.removeItem(regenStorageKey);
+      const raw = typeof window !== "undefined" ? window.localStorage.getItem(regenStorageKey) : null;
+      const wartet = readPendingTranslation(raw, Date.now());
+      if (wartet && !map[wartet]) {
+        setPendingLang(wartet);
+        setRegen("running");
+      } else {
+        setPendingLang(null);
+        if (typeof window !== "undefined") window.localStorage.removeItem(regenStorageKey);
       }
     })();
 
@@ -372,9 +381,10 @@ export function TranscriptPanel({
     clearActiveChipTarget();
   };
 
-  // Poll for the target VTT to appear after a translation task was dispatched.
+  // Poll for the chosen VTT to appear after a translation task was dispatched.
   useEffect(() => {
-    if (regen !== "running" || !targetLang) return;
+    if (regen !== "running" || !pendingLang) return;
+    const wartet = pendingLang;
     const started = Date.now();
     const TIMEOUT_MS = 5 * 60 * 1000;
     const INTERVAL_MS = 5000;
@@ -388,18 +398,20 @@ export function TranscriptPanel({
       }
       try {
         const probe = await fetch(
-          `/api/ai-assistant/workspaces/${workspaceUuid}/sources/${sourceUuid}/transcript/exists?lang=${targetLang}`,
+          `/api/ai-assistant/workspaces/${workspaceUuid}/sources/${sourceUuid}/transcript/exists?lang=${wartet}`,
           { credentials: "include" },
         );
         if (!probe.ok) return;
         const { exists } = (await probe.json()) as { exists: boolean };
         if (!exists) return;
-        const res = await fetch(transcriptUrl(targetLang), { credentials: "include" });
+        const res = await fetch(transcriptUrl(wartet), { credentials: "include" });
         if (res.ok) {
           const parsed = parseVtt(await res.text());
           clearInterval(timer);
           if (typeof window !== "undefined") window.localStorage.removeItem(regenStorageKey);
-          setCues((prev) => ({ ...prev, [targetLang]: parsed }));
+          setCues((prev) => ({ ...prev, [wartet]: parsed }));
+          setTargetLang(wartet);
+          setPendingLang(null);
           // A finished translation shows both tracks, unless the transcript is off.
           if (sourceLang && cues[sourceLang]) setMode((m) => (m === "off" ? m : "both"));
           setRegen("idle");
@@ -409,26 +421,34 @@ export function TranscriptPanel({
       }
     }, INTERVAL_MS);
     return () => clearInterval(timer);
-  }, [regen, workspaceUuid, sourceUuid, targetLang, sourceLang, cues, regenStorageKey, t]);
+  }, [regen, workspaceUuid, sourceUuid, pendingLang, sourceLang, cues, regenStorageKey, t]);
 
-  const regenerateTranscript = async () => {
+  const startTranslation = async (lang: string) => {
     if (regen === "running") return;
+    setShowTranslateModal(false);
+    setPendingLang(lang);
     setRegen("running");
     setRegenError(null);
     try {
       const res = await fetch(
         `/api/ai-assistant/workspaces/${workspaceUuid}/sources/${sourceUuid}/regenerate-transcript`,
-        { method: "POST", credentials: "include" },
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ target_lang: lang }),
+        },
       );
       if (!res.ok) {
         const detail = (await res.json().catch(() => null))?.detail;
         throw new Error(parseDetail(detail, genericErrorMessage()));
       }
       if (typeof window !== "undefined") {
-        window.localStorage.setItem(regenStorageKey, String(Date.now()));
+        window.localStorage.setItem(regenStorageKey, JSON.stringify({ ts: Date.now(), lang }));
       }
     } catch (e) {
       setRegen("error");
+      setPendingLang(null);
       setRegenError(e instanceof Error ? e.message : t("regenEnUnknownError"));
     }
   };
@@ -498,8 +518,8 @@ export function TranscriptPanel({
   const hasTargetTrack = !!targetCues && sourceLang !== targetLang;
   const showSource = (mode === "source" || mode === "both") && !!sourceCues;
   const showTarget = (mode === "target" || mode === "both") && !!targetCues;
-  const canTranslate = canManage && !!sourceCues && !!sourceLang
-    && !!targetLang && targetLang !== sourceLang && !targetCues;
+  // The tile invites as long as there is an original and no translation yet.
+  const canTranslate = canManage && !!sourceCues && !!sourceLang && !targetCues;
 
   const modeLabel = (m: ViewMode): string => {
     if (m === "off") return t("tabOff");
@@ -507,8 +527,30 @@ export function TranscriptPanel({
     // hasSourceTrack / hasTargetTrack guarantee the matching lang code is set.
     return m === "source" ? langLabel(sourceLang!, locale) : langLabel(targetLang!, locale);
   };
-  const modeOptions = buildTranscriptModes({ hasSource: hasSourceTrack, hasTarget: hasTargetTrack })
-    .map((m) => ({ value: m, label: modeLabel(m) }));
+  const laeuft = regen === "running";
+  const modeOptions: SelectOption<TranscriptOption>[] = buildTranscriptOptions({
+    hasSource: hasSourceTrack, hasTarget: hasTargetTrack, canTranslate,
+  }).map((m) =>
+    m === TRANSLATE_ACTION
+      ? {
+          value: m,
+          variant: "action" as const,
+          disabled: laeuft || ownerPreview,
+          label: (
+            <span className="flex items-center gap-1.5">
+              {laeuft ? <Spinner size="xs" color="current" /> : <Plus size={11} weight="bold" />}
+              {laeuft && pendingLang ? langLabel(pendingLang, locale) : t("translateAddButton")}
+            </span>
+          ),
+        }
+      : { value: m, label: modeLabel(m) },
+  );
+
+  // The action leaves the picked track alone, it only opens the window.
+  const onPickMode = (v: TranscriptOption) => {
+    if (v === TRANSLATE_ACTION) setShowTranslateModal(true);
+    else setMode(v);
+  };
 
   return (
     <div
@@ -545,48 +587,35 @@ export function TranscriptPanel({
             <NavigationArrow size={14} weight={followCurrent ? "fill" : "regular"} />
           </button>
         )}
-        <div className="flex-1" />
-        <div className="flex items-center gap-2">
+        <div className="flex-1 min-w-0" />
+        {/* min-w-0 lets the tile shrink instead of running past the narrow panel. */}
+        <div className="flex items-center gap-2 min-w-0">
           {/* The pill buttons this replaced were named by their own text; role="combobox"
               isn't, so it needs an explicit accessible name. */}
           <label htmlFor={`transcript-mode-${sourceUuid}`} className="sr-only">
             {t("transcriptModeLabel")}
           </label>
-          <Select<ViewMode>
+          <Select<TranscriptOption>
             id={`transcript-mode-${sourceUuid}`}
             size="sm"
             value={mode}
-            onChange={setMode}
+            onChange={onPickMode}
             options={modeOptions}
           />
-          <OwnerOnly show={canTranslate}>
-            <button
-              type="button"
-              onClick={regenerateTranscript}
-              disabled={regen === "running"}
+          {/* The running state has to show with the list closed too. */}
+          {laeuft && (
+            <span
+              className="flex-shrink-0 flex items-center"
+              style={{ color: "var(--muted)" }}
               title={
-                regen === "error"
-                  ? t("regenEnErrorTitle", { error: regenError ?? "" })
-                  : regen === "running"
-                  ? t("regenEnRunningTitle")
-                  : t("regenEnIdleTitle")
+                regenError
+                  ? t("regenEnErrorTitle", { error: regenError })
+                  : t("regenEnRunningTitle")
               }
-              className="flex-shrink-0 h-6 px-2 flex items-center gap-1 rounded-full transition-colors disabled:opacity-60 disabled:cursor-wait"
-              style={{
-                backgroundColor: regen === "error" ? "rgba(239, 68, 68, 0.12)" : "var(--surface-dim)",
-                color: regen === "error" ? "rgb(239, 68, 68)" : "var(--muted)",
-                border: "1px solid var(--border)",
-                fontSize: "10px",
-              }}
             >
-              {regen === "running" ? (
-                <Spinner size="xs" color="current" />
-              ) : (
-                <ArrowsClockwise size={10} weight="bold" />
-              )}
-              <span>{regen === "running" ? t("regenEnRunning") : t("regenEnButton")}</span>
-            </button>
-          </OwnerOnly>
+              <Spinner size="xs" color="current" />
+            </span>
+          )}
         </div>
       </div>
 
@@ -725,6 +754,13 @@ export function TranscriptPanel({
           </button>
         </div>
       )}
+
+      <TranslateLanguageModal
+        open={showTranslateModal}
+        onClose={() => setShowTranslateModal(false)}
+        sourceLang={sourceLang}
+        onStart={startTranslation}
+      />
     </div>
   );
 }

@@ -7,10 +7,11 @@ import { CalendarBlank } from "@phosphor-icons/react";
 import { usePathname } from "@/i18n/navigation";
 import { checkAuthStatus, logout } from "@/lib/auth";
 import { api } from "@/lib/api";
-import { areaLabelKey } from "@/lib/permissions";
+import { areaLabelKey, hasPerm, PERM, type AreaKey } from "@/lib/permissions";
 import JobsPanel from "@/components/jobs/JobsPanel";
 import HeaderMobileMenu from "@/components/layout/HeaderMobileMenu";
 import HeaderSettingsMenu from "@/components/layout/HeaderSettingsMenu";
+import { useTourStart } from "@/app/[locale]/workspace/_components/useTourStart";
 
 interface HeaderProps {
   hasSession?: boolean;
@@ -24,24 +25,31 @@ export default function Header({ hasSession = true, showLogout = false, showTool
   // The URL says where you are, the button in the header shows it.
   const onCalendar = pathname === "/calendar" || pathname.startsWith("/calendar/");
   const [isAdmin, setIsAdmin] = useState(false);
+  const [canViewManual, setCanViewManual] = useState(false);
   // Admin only for whoever may do everything, everyone else goes to their settings.
-  const [areaKey, setAreaKey] = useState<"admin" | "settings">("admin");
+  const [areaKey, setAreaKey] = useState<AreaKey>("admin");
   const [isLocalMode, setIsLocalMode] = useState(false);
   const [hasTools, setHasTools] = useState(false);
   // A missing modules field means an older server, which always has both.
   const [hasAia, setHasAia] = useState(true);
+  // The language level page hangs off its own permission, not off the role.
+  const [mayLanguageLevel, setMayLanguageLevel] = useState(false);
   // Only true with an admin-enabled, non-empty text — otherwise the menu row would be a dead click.
   const [hasHomeNotice, setHasHomeNotice] = useState(false);
+  // The tour lives in the demo course, the menu only offers it while one exists.
+  const tour = useTourStart(showLogout && hasSession);
 
   useEffect(() => {
     if (!showLogout || !hasSession) return;
     checkAuthStatus().then((s) => {
       setIsAdmin(s.is_admin ?? false);
+      setCanViewManual(hasPerm(s.permissions, PERM.manual));
       setAreaKey(areaLabelKey(s.permissions));
       setIsLocalMode(s.local_mode ?? false);
       // Jobs only come from tools, without a tool permission the list stays empty.
       setHasTools((s.permissions?.tools?.length ?? 0) > 0);
       setHasAia((s.modules ?? ["aia", "tools"]).includes("aia"));
+      setMayLanguageLevel(hasPerm(s.permissions, PERM.aiaLanguageLevel));
     });
   }, [showLogout, hasSession]);
 
@@ -106,6 +114,10 @@ export default function Header({ hasSession = true, showLogout = false, showTool
               {hasSession && hasTools && <JobsPanel />}
               <HeaderSettingsMenu
                 isAdmin={hasSession && isAdmin}
+                canViewManual={hasSession && canViewManual}
+                showLanguageLevel={hasSession && mayLanguageLevel}
+                showTour={hasSession && hasAia && tour.available}
+                onStartTour={tour.start}
                 areaKey={areaKey}
                 showLogout={hasSession && !isLocalMode}
                 hasHomeNotice={hasHomeNotice}
@@ -116,6 +128,10 @@ export default function Header({ hasSession = true, showLogout = false, showTool
             <HeaderMobileMenu
               hasSession={hasSession}
               isAdmin={isAdmin}
+              canViewManual={canViewManual}
+              showLanguageLevel={mayLanguageLevel}
+              showTour={hasAia && tour.available}
+              onStartTour={tour.start}
               areaKey={areaKey}
               hasTools={hasTools}
               hasAia={hasAia}

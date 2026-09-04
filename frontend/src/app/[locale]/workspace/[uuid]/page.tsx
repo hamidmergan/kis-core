@@ -130,7 +130,7 @@ export default function KiTutorWorkspacePage() {
 
 
   const [studioEnabled, setStudioEnabled] = useState(true);
-  // Ready means admin on, the person's switch on and a stored level, all from /api/me.
+  // Ready means offered to this person and a stored level, both from /api/me.
   const [language_trainingVisible, setLanguageTrainingVisible] = useState(false);
   useEffect(() => {
     let cancelled = false;
@@ -140,7 +140,6 @@ export default function KiTutorWorkspacePage() {
         if (cancelled || !data) return;
         setLanguageTrainingVisible(
           data.language_training_enabled === true
-            && data.language_training_active === true
             && typeof data.language_level === "string",
         );
       })
@@ -148,21 +147,6 @@ export default function KiTutorWorkspacePage() {
     return () => { cancelled = true; };
   }, []);
 
-  const [transcriptTargetLang, setTranscriptTargetLang] = useState<string>("en");
-  useEffect(() => {
-    if (moduleDetail?.transcript_target_lang) {
-      setTranscriptTargetLang(moduleDetail.transcript_target_lang);
-    }
-  }, [moduleDetail?.transcript_target_lang]);
-  const handleChangeTranscriptTargetLang = (lang: string) => {
-    setTranscriptTargetLang(lang);
-    fetch(`/api/ai-assistant/workspaces/${uuid}`, {
-      method: "PATCH",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ transcript_target_lang: lang }),
-    }).catch(() => { /* ignore */ });
-  };
   const handleStaffNoteSave = async (text: string | null, links: StaffNoteLink[]) => {
     const res = await fetch(`/api/ai-assistant/workspaces/${uuid}`, {
       method: "PATCH",
@@ -684,9 +668,6 @@ export default function KiTutorWorkspacePage() {
           onCloseSettings={() => setShowSettings(false)}
           studioEnabled={studioEnabled}
           onToggleStudio={() => setStudioEnabled((v) => !v)}
-          isOwner={isOwner}
-          transcriptTargetLang={transcriptTargetLang}
-          onChangeTranscriptTargetLang={handleChangeTranscriptTargetLang}
           popupTranslateLang={popupTranslateLang}
           onChangePopupTranslateLang={setPopupTranslateLang}
           activeTab={activeTab}

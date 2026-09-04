@@ -6,6 +6,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Ungültige Zielsprache für die Übersetzung",
         "en": "Invalid translation target language",
     },
+    "ai.transcript.targetEqualsSource": {
+        "de": "Die Zielsprache ist schon die Sprache der Aufnahme",
+        "en": "The target language already is the language of the recording",
+    },
     "ai.workspace.diagnosisLanguageInvalid": {
         "de": "Ungültige Sprache für die Sprachdiagnose",
         "en": "Invalid language for the language diagnosis",

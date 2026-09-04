@@ -8,7 +8,7 @@ right, where it gets stuck.
 ## Your own state only
 
 Even for teachers this tab shows only their own numbers, not the participants'. An overview of
-the whole group is under Statistics → My modules in the administration area.
+the whole group is under Statistics → My modules, reached through the gear at the top right.
 
 ## What it is not
 

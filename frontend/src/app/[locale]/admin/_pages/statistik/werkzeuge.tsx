@@ -37,6 +37,8 @@ export default function StatistikWerkzeugePage() {
 
   return (
     <div className="space-y-4">
+      <ZeitraumChips wert={zeitraum} setzen={setZeitraum} className="" />
+
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Kachel titel={t("tools.jobs")} wert={daten.totals.jobs} />
       </div>
@@ -52,7 +54,6 @@ export default function StatistikWerkzeugePage() {
       </Karte>
 
       <Karte titel={t("heat.title")} hinweis={t("heat.hint")}>
-        <ZeitraumChips wert={zeitraum} setzen={setZeitraum} />
         <Raster werte={daten.heat} einheit={t("heat.unitJobs")} max={skala} />
       </Karte>
     </div>

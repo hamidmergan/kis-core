@@ -119,7 +119,6 @@ async def test_nur_wirklich_vorhandene_sprachen_werden_gemeldet(quelle):
 
     assert antwort["available"] == ["de", "fr"]
     assert antwort["source_lang"] == "de"
-    assert antwort["target_lang"] == "en"
 
 
 async def test_ohne_untertitel_bleibt_die_liste_leer(quelle):
@@ -149,3 +148,91 @@ async def test_das_transkript_der_nachbarquelle_zaehlt_nicht_mit(quelle):
     antwort = await _langs()
 
     assert antwort["available"] == ["de"]
+
+
+# ─── Uebersetzung starten ──────────────────────────────────────────────────
+
+@pytest.fixture
+def auftraege(quelle, monkeypatch):
+    """Faengt den Celery-Auftrag ab und liefert die Liste der Aufrufe."""
+    from src.services import feature_router
+    from src.tasks import aia_tasks
+
+    gesendet: list[tuple] = []
+
+    class Auftrag:
+        @staticmethod
+        def delay(*args):
+            gesendet.append(args)
+
+    monkeypatch.setattr(_streaming, "_require_workspace_manage", lambda *a, **k: WORKSPACE)
+    monkeypatch.setattr(
+        feature_router, "resolve", lambda name: type("B", (), {"provider": {"id": 3}})()
+    )
+    monkeypatch.setattr(aia_tasks, "run_translate_transcript", Auftrag)
+    return gesendet
+
+
+async def _translate(target_lang: str):
+    from src.features.ai_assistant import schemas
+    return await _streaming.regenerate_transcript(
+        workspace_uuid="w1", source_uuid="s1",
+        body=schemas.TranslateTranscriptBody(target_lang=target_lang),
+        current_user={"user_id": 42}, locale="de",
+    )
+
+
+async def test_die_gewaehlte_sprache_landet_im_auftrag(quelle, auftraege):
+    """Die Sprache kommt aus dem Rumpf, nicht mehr aus dem Modul."""
+    _, vtt_anlegen, _ = quelle
+    vtt_anlegen("de")
+
+    antwort = await _translate("fr")
+
+    assert antwort["target_lang"] == "fr"
+    assert auftraege == [("s1", 3, "fr")]
+
+
+async def test_die_originalsprache_wird_abgewiesen(quelle, auftraege):
+    """In die eigene Sprache zu uebersetzen ergibt keinen Sinn."""
+    _, vtt_anlegen, _ = quelle
+    vtt_anlegen("de")
+
+    with pytest.raises(HTTPException) as fehler:
+        await _translate("de")
+
+    assert fehler.value.status_code == 400
+    assert auftraege == []
+
+
+async def test_eine_unbekannte_sprache_wird_abgewiesen(quelle, auftraege):
+    _, vtt_anlegen, _ = quelle
+    vtt_anlegen("de")
+
+    with pytest.raises(HTTPException) as fehler:
+        await _translate("xx")
+
+    assert fehler.value.status_code == 400
+    assert auftraege == []
+
+
+# ─── Zielsprache steht an der Quelle ───────────────────────────────────────
+
+async def test_die_zielsprache_kommt_aus_den_dateien(quelle):
+    """Die vorhandene Uebersetzung zaehlt, das Modul-Feld sagt 'en' und wird ignoriert."""
+    _, vtt_anlegen, _ = quelle
+    vtt_anlegen("de")
+    vtt_anlegen("fr")
+
+    antwort = await _langs()
+
+    assert antwort["target_lang"] == "fr"
+
+
+async def test_ohne_uebersetzung_gibt_es_keine_zielsprache(quelle):
+    _, vtt_anlegen, _ = quelle
+    vtt_anlegen("de")
+
+    antwort = await _langs()
+
+    assert antwort["target_lang"] is None

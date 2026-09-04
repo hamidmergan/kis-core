@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { EMPTY_PERMS, PERM, SETTINGS_PERMS, areaLabelKey, hasPerm, isFullAdmin } from "./permissions";
+import { EMPTY_PERMS, PERM, SETTINGS_PERMS, STATS_PERMS, areaLabelKey, hasPerm, isFullAdmin } from "./permissions";
 import type { UserPermissions } from "@/types";
 
 function perms(keys: string[]): UserPermissions {
@@ -57,10 +57,30 @@ describe("Statistik nur fuer eigene Module", () => {
   it("macht aus einer Lehrperson keinen Administrator", () => {
     const dozentin = perms([PERM.aiaUse, PERM.statsOwn]);
     expect(isFullAdmin(dozentin)).toBe(false);
-    expect(areaLabelKey(dozentin)).toBe("settings");
   });
 
   it("schliesst die globale Statistik nicht mit auf", () => {
     expect(hasPerm(perms([PERM.statsOwn]), PERM.aiaUsage, PERM.statsUsers)).toBe(false);
+  });
+});
+
+// The link says what is behind it, statistics alone is not an administration.
+describe("areaLabelKey", () => {
+  it("nennt den Bereich Statistik, wenn nur Statistik-Rechte da sind", () => {
+    expect(areaLabelKey(perms([PERM.aiaUse, PERM.statsOwn]))).toBe("stats");
+    expect(areaLabelKey(perms(STATS_PERMS))).toBe("stats");
+  });
+
+  it("nennt ihn Verwaltung, sobald ein anderes Recht dazukommt", () => {
+    expect(areaLabelKey(perms([PERM.statsOwn, PERM.aiaLevel]))).toBe("settings");
+  });
+
+  it("zaehlt den Wartungszugang nicht als Verwaltung", () => {
+    expect(areaLabelKey(perms([PERM.statsOwn, PERM.maintenanceAccess]))).toBe("stats");
+  });
+
+  it("laesst niemanden ohne Recht als Statistik durchgehen", () => {
+    expect(areaLabelKey(perms([PERM.aiaUse]))).toBe("settings");
+    expect(areaLabelKey(undefined)).toBe("settings");
   });
 });

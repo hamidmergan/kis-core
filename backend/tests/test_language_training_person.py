@@ -1,4 +1,4 @@
-"""The person's switch and level decide, the admin switch stays the outer gate."""
+"""The permission and the level decide, the admin switch stays the outer gate."""
 
 from src.features.ai_assistant.repository import language_level as ll
 
@@ -35,19 +35,16 @@ class _FakeConn:
         pass
 
 
-def _person(active: bool, level, monkeypatch, admin: bool = True):
+def _person(allowed: bool, level, monkeypatch, admin: bool = True):
     monkeypatch.setattr(ll, "is_language_training_enabled_globally", lambda: admin)
-    monkeypatch.setattr(
-        ll, "get_user_language_training",
-        lambda uid: {"language_training_active": active, "language_training_asked_at": None},
-    )
+    monkeypatch.setattr(ll, "may_use_language_training", lambda uid: allowed)
     monkeypatch.setattr(
         ll, "get_user_language_level",
         lambda uid: {"language_level": level, "language_level_set_at": None},
     )
 
 
-def test_offered_needs_admin_and_person(monkeypatch):
+def test_offered_needs_admin_and_permission(monkeypatch):
     _person(True, None, monkeypatch)
     assert ll.is_language_training_offered(3) is True
     _person(False, None, monkeypatch)

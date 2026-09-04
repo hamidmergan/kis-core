@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildTranscriptModes, claimLineIndex, claimLineIndices, claimOverlap, claimTokens, cueIndexAtTime, groupCues, resolveCitationFocus, type TextCue, type TimedCue } from "./_transcript";
+import { buildTranscriptModes, buildTranscriptOptions, chooseableTargetLangs, readPendingTranslation, TRANSLATE_ACTION, claimLineIndex, claimLineIndices, claimOverlap, claimTokens, cueIndexAtTime, groupCues, resolveCitationFocus, type TextCue, type TimedCue } from "./_transcript";
 
 // The time is the exact segment start, not the rounded display.
 const cues: TimedCue[] = [
@@ -422,5 +422,54 @@ describe("claimLineIndices — ein Satz aus zwei Momenten", () => {
     // A rare short word says nothing, that is what the length rule is for.
     const kurz = "In der Woche werden noch affine Schifren geübt.";
     expect(claimLineIndices(kurz, spanne, korpus)).toEqual([11]);
+  });
+});
+
+describe("chooseableTargetLangs", () => {
+  it("drops the language of the recording", () => {
+    expect(chooseableTargetLangs(["de", "en", "fr"], "de")).toEqual(["en", "fr"]);
+  });
+
+  it("keeps every language while the recording language is unknown", () => {
+    expect(chooseableTargetLangs(["de", "en"], null)).toEqual(["de", "en"]);
+  });
+
+  it("compares case-insensitively, the codes come from two sources", () => {
+    expect(chooseableTargetLangs(["de", "en"], "DE")).toEqual(["en"]);
+  });
+});
+
+describe("readPendingTranslation", () => {
+  const jetzt = 1_000_000;
+
+  it("returns the language while the note is still fresh", () => {
+    const roh = JSON.stringify({ ts: jetzt - 1000, lang: "fr" });
+    expect(readPendingTranslation(roh, jetzt)).toBe("fr");
+  });
+
+  it("returns null once the note is older than the timeout", () => {
+    const roh = JSON.stringify({ ts: jetzt - 11 * 60 * 1000, lang: "fr" });
+    expect(readPendingTranslation(roh, jetzt)).toBeNull();
+  });
+
+  it("returns null for a missing or unreadable note", () => {
+    expect(readPendingTranslation(null, jetzt)).toBeNull();
+    expect(readPendingTranslation("kaputt", jetzt)).toBeNull();
+  });
+
+  it("returns null for the old note that carried only a timestamp", () => {
+    expect(readPendingTranslation(String(jetzt - 1000), jetzt)).toBeNull();
+  });
+});
+
+describe("buildTranscriptOptions", () => {
+  it("hangs the plus entry below the tracks", () => {
+    expect(buildTranscriptOptions({ hasSource: true, hasTarget: false, canTranslate: true }))
+      .toEqual(["source", "off", TRANSLATE_ACTION]);
+  });
+
+  it("leaves the list untouched when nobody may translate", () => {
+    expect(buildTranscriptOptions({ hasSource: true, hasTarget: true, canTranslate: false }))
+      .toEqual(["source", "target", "both", "off"]);
   });
 });

@@ -144,6 +144,7 @@ async def turn(
             "done": True,
             "level": "A1",
             "message": t("ai.languageDiagnosis.allSkipped", locale),
+            "aiGraded": False,
         }
 
     # Once all questions are answered, the one grading call follows.
@@ -160,7 +161,7 @@ async def turn(
 
     db.set_user_language_level(user_id, result["level"])
     logger.info("Language diagnosis complete: user={} level={}", user_id, result["level"])
-    return result
+    return {**result, "aiGraded": True}
 
 
 @router.get("/ai-assistant/language-diagnosis/config")

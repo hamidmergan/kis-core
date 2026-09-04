@@ -6,15 +6,15 @@ For everybody still learning the language of the course. Three tools in the stud
 cards, vocabulary exercises, grammar exercises. All built from the materials of the module,
 matched to your own level.
 
-## One switch, under Language level
+## Accepted once, applies everywhere
 
-The language trainer hangs on you, not on the module. You switch it on once under Language level,
-then it applies in every module. KIS asks you about it at your first login.
+The language trainer hangs on you, not on the module. The start page carries a card for it next
+to the demo module. Start the language test accepts it, from then on it applies in every module. A switch to turn it on or off later does not exist yet.
 
-Without the language test it stays closed. Only with a level do the three tools appear in the
-studio.
+Without a level it stays closed. Only with a level, from the language test or set yourself under
+Language level, do the three tools appear in the studio.
 
 ## What the administration decides
 
-Only whether the platform offers the language trainer at all. If it is off there, nobody is
-asked and nobody sees it.
+Only whether the platform offers the language trainer at all. If it is off there, the card is
+missing from the start page and nobody sees it.

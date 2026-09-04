@@ -177,7 +177,8 @@ def parse_question_plan(raw: str) -> list[dict]:
 DEFAULT_GERMAN_QUESTION_PLAN = [
     {
         "type": FREE_TEXT_TYPE,
-        "text": "Setze das Wort in Klammern in der richtigen Form ein.\n\nIch ___ (gehen) jeden Tag zur Arbeit.",
+        "text": ("Setze das Wort in Klammern in der richtigen Form ein.\n\n"
+                 "Ich stehe früh auf und ___ (gehen) jeden Tag zur Arbeit."),
         "answers": ["gehe"],
     },
     {

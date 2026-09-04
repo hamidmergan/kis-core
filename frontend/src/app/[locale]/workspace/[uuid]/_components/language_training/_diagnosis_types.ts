@@ -41,6 +41,8 @@ export interface DiagnosisResult {
   level: CEFRLevel;
   /** Closing feedback, written in the workspace's diagnosis language. */
   message: string;
+  /** False when every question was skipped, the level is fixed to A1 in code, not graded by the model. */
+  aiGraded: boolean;
 }
 
 /** One turn of the diagnosis: the next question, or the final verdict. */
