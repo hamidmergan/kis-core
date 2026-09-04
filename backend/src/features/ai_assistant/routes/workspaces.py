@@ -196,9 +196,6 @@ async def get_workspace(
         "is_demo_workspace": bool(owner and owner.get("is_demo")),
         "transcript_target_lang": workspace.get("transcript_target_lang", "en"),
         "diagnosis_language": workspace.get("diagnosis_language", DEFAULT_DIAGNOSIS_LANGUAGE),
-        # The course's decision only counts while the admin switch is on.
-        "language_training_enabled": db.is_language_training_enabled_globally(),
-        "language_training_active": db.is_language_training_active(workspace["id"]),
         # Without the admin switch the catch-up entry would be a dead end.
         "ocr_enabled": db.get_setting("ocr_enabled", "true").lower() == "true",
         "staff_note_text": workspace.get("staff_note_text"),
@@ -285,12 +282,6 @@ async def patch_workspace(
         if body.diagnosis_language not in TRANSCRIPT_LANGUAGES:
             raise HTTPException(status_code=400, detail=t("ai.workspace.diagnosisLanguageInvalid", locale))
         db.set_aia_workspace_diagnosis_language(workspace_uuid, body.diagnosis_language)
-    if body.language_training_active is not None:
-        # Only writable while the admin has released the feature.
-        if not db.is_language_training_enabled_globally():
-            raise HTTPException(status_code=403, detail=t("ai.workspace.languageTrainingDisabled", locale))
-        # Whoever manages the course room decides whether it offers the trainer.
-        db.set_aia_workspace_language_training(workspace_uuid, body.language_training_active)
     if body.staff_note_text is not None or body.staff_note_links is not None:
         new_text = body.staff_note_text if body.staff_note_text is not None else workspace.get("staff_note_text")
         new_links_models = body.staff_note_links if body.staff_note_links is not None else []

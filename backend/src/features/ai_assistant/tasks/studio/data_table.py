@@ -75,11 +75,8 @@ def run_generate_data_table(self, data_table_id: int, source_ids: list[int],
         context = "\n\n---\n\n".join(context_parts)
 
         client, model, _ = _get_llm_client()
-        # The course room comes from the sources, the level block hangs off its switch.
-        _first_source = db.get_aia_source(source_uuids[0]) if source_uuids else None
-        adaptive_suffix = build_adaptive_tool_suffix(
-            user_id, (_first_source or {}).get("workspace_id"),
-        )
+        # The level block hangs on the person, not on the course room.
+        adaptive_suffix = build_adaptive_tool_suffix(user_id)
         messages = [
             {"role": "system", "content": AIA_DATENTABELLE_PROMPT.replace("{language}", language) + adaptive_suffix},
             {"role": "user", "content": (

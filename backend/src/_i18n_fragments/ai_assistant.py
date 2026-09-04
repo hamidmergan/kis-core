@@ -6,17 +6,21 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Ungültige Zielsprache für die Übersetzung",
         "en": "Invalid translation target language",
     },
+    "ai.transcript.targetEqualsSource": {
+        "de": "Die Zielsprache ist schon die Sprache der Aufnahme",
+        "en": "The target language already is the language of the recording",
+    },
     "ai.workspace.diagnosisLanguageInvalid": {
         "de": "Ungültige Sprache für die Sprachdiagnose",
         "en": "Invalid language for the language diagnosis",
     },
-    "ai.workspace.languageTrainingDisabled": {
+    "ai.languageTraining.disabled": {
         "de": "Der Sprachtrainer ist auf dieser Plattform ausgeschaltet",
         "en": "The language trainer is switched off on this platform",
     },
-    "ai.workspace.languageTrainingOff": {
-        "de": "Der Sprachtrainer ist in diesem Modul ausgeschaltet",
-        "en": "The language trainer is switched off in this module",
+    "ai.languageTraining.off": {
+        "de": "Der Sprachtrainer ist für dich ausgeschaltet. Schalte ihn im Profil ein und mach den Sprachtest.",
+        "en": "The language trainer is switched off for you. Switch it on in your profile and take the language test.",
     },
     "ai.userSettings.popupTranslateLangInvalid": {
         "de": "Ungültige Zielsprache für die Übersetzung in der Auswahlleiste",

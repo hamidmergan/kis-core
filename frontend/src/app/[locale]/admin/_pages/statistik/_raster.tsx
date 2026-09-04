@@ -75,13 +75,15 @@ export function Raster({
   );
 }
 
-/** The period buttons sit in the card, they only affect this grid. */
+/** The period buttons, at the top of a page they scope everything below. */
 export function ZeitraumChips({
   wert,
   setzen,
+  className = "mt-4",
 }: {
   wert: string;
   setzen: (w: string) => void;
+  className?: string;
 }) {
   const t = useTranslations("admin.statistik");
   const auswahl = [
@@ -91,7 +93,7 @@ export function ZeitraumChips({
   ] as const;
 
   return (
-    <div className="flex gap-1.5 mt-4">
+    <div className={`flex gap-1.5 ${className}`}>
       {auswahl.map(([k, label]) => (
         <button
           key={k}

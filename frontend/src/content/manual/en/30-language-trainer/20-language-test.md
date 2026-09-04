@@ -3,7 +3,13 @@
 The language test estimates how well you already know the language. The result is a level from
 A1 to C2.
 
-![A question in the language test](/manual/de/language-test.png)
+![A question in the language test](/manual/{lang}/language-test.png)
+
+## When it comes
+
+The start page carries the card Language trainer next to the demo module, for students only.
+Start the language test begins the test at once. Whoever picks Hide has the language trainer
+off and currently cannot switch it back on alone yet.
 
 ## How it runs
 
@@ -15,15 +21,15 @@ At the end your level stands there with a short reasoning.
 
 ## In which language
 
-The administration sets the language of the test. The AI asks in that language and checks in
-that language too. German is the default.
+The test is in German. Questions and grading too, this cannot be changed.
 
 ## What the result does
 
-The level steers how hard the exercises in the language trainer turn out and how thoroughly the
-chat explains. It is not an examination.
+The level applies in every module. It steers how hard the exercises in the language trainer
+turn out and how thoroughly the chat explains. Under Language level you can retake the test or set
+the grade yourself through Change level. It is not an examination.
 
 ## How reliable it is
 
-The result comes from an AI and has not been checked by experts. It is a placement for the
-exercises, not a certificate.
+The result comes from an AI, which can make mistakes. It is a placement for the exercises, not a
+certificate. Whoever rates themselves differently sets the grade under Language level.

@@ -23,6 +23,9 @@ _QUIZ_POOL_RESET_KEY = "quiz_pool_true_false_reset_done"
 # The same for grammar, see _reset_grammar_pool_once.
 _GRAMMAR_POOL_RESET_KEY = "grammar_pool_task_line_reset_done"
 
+# The trainer moved to the person, every level is assessed anew, see _reset_language_training_once.
+_LANGUAGE_TRAINING_RESET_KEY = "language_training_person_reset_done"
+
 
 def _reset_quiz_pool_once(cur) -> bool:
     """Drops the quiz pool once because true/false questions were added."""
@@ -68,6 +71,21 @@ def _reset_grammar_pool_once(cur) -> bool:
         """INSERT INTO settings (key, value) VALUES (%s, 'true')
            ON CONFLICT (key) DO UPDATE SET value = 'true'""",
         (_GRAMMAR_POOL_RESET_KEY,),
+    )
+    return True
+
+
+def _reset_language_training_once(cur) -> bool:
+    """Clears every stored level once because the trainer moved from the module to the person."""
+    cur.execute("SELECT value FROM settings WHERE key = %s", (_LANGUAGE_TRAINING_RESET_KEY,))
+    row = cur.fetchone()
+    if row and row[0] == "true":
+        return False
+    cur.execute("UPDATE users SET language_level = NULL, language_level_set_at = NULL")
+    cur.execute(
+        """INSERT INTO settings (key, value) VALUES (%s, 'true')
+           ON CONFLICT (key) DO UPDATE SET value = 'true'""",
+        (_LANGUAGE_TRAINING_RESET_KEY,),
     )
     return True
 
@@ -222,20 +240,6 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                 if cur.fetchone():
                     cur.execute(f"ALTER TABLE {table} RENAME CONSTRAINT {old_constraint} TO {new_constraint}")
 
-            # Rename legacy German column "sprachtraining_active" to "language_training_active" (idempotent).
-            cur.execute(
-                """
-                SELECT 1 FROM information_schema.columns
-                WHERE table_schema = 'public'
-                  AND table_name = 'aia_user_settings'
-                  AND column_name = 'sprachtraining_active'
-                """
-            )
-            if cur.fetchone():
-                cur.execute(
-                    "ALTER TABLE aia_user_settings RENAME COLUMN sprachtraining_active TO language_training_active"
-                )
-
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS users (
                     id            SERIAL PRIMARY KEY,
@@ -255,6 +259,12 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             # Language level assessment, NULL means not done yet.
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS language_level TEXT CHECK (language_level IN ('A1','A2','B1','B2','C1','C2'))")
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS language_level_set_at TIMESTAMP WITH TIME ZONE")
+            # Where the level came from, the test or the person's own choice.
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS language_level_source TEXT CHECK (language_level_source IN ('test','self'))")
+            # The one language trainer switch, per person since 2026-09.
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS language_training_active BOOLEAN NOT NULL DEFAULT FALSE")
+            # NULL means the start question is still due.
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS language_training_asked_at TIMESTAMP WITH TIME ZONE")
             # Demo account: its active courses appear on everyone's start page.
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT FALSE")
             # Rundgang: haengt am Konto, nicht am Browser, sonst faengt jedes Geraet von vorn an.
@@ -638,10 +648,8 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             cur.execute(
                 "ALTER TABLE aia_workspaces ADD COLUMN IF NOT EXISTS diagnosis_language TEXT NOT NULL DEFAULT 'de'"
             )
-            # Whether the language trainer is offered in this course room at all.
-            cur.execute(
-                "ALTER TABLE aia_workspaces ADD COLUMN IF NOT EXISTS language_training_active BOOLEAN NOT NULL DEFAULT FALSE"
-            )
+            # The trainer hangs on the person since 2026-09, the course switch is gone.
+            cur.execute("ALTER TABLE aia_workspaces DROP COLUMN IF EXISTS language_training_active")
             # Owner-managed pinned note shown above the sources list. Plain text + structured links.
             cur.execute(
                 "ALTER TABLE aia_workspaces ADD COLUMN IF NOT EXISTS staff_note_text TEXT"
@@ -981,15 +989,15 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                     user_id              INTEGER NOT NULL,
                     chat_lang            TEXT NOT NULL DEFAULT 'de',
                     studio_enabled       BOOLEAN NOT NULL DEFAULT TRUE,
-                    language_training_active BOOLEAN NOT NULL DEFAULT FALSE,
                     UNIQUE (workspace_id, user_id)
                 )
             """)
             cur.execute("ALTER TABLE aia_user_settings ADD COLUMN IF NOT EXISTS studio_enabled BOOLEAN NOT NULL DEFAULT TRUE")
             # Target language of the selection bar translation, per person and module.
             cur.execute("ALTER TABLE aia_user_settings ADD COLUMN IF NOT EXISTS popup_translate_lang TEXT NOT NULL DEFAULT 'en'")
-            # Each person decides per course whether the language trainer is shown.
-            cur.execute("ALTER TABLE aia_user_settings ADD COLUMN IF NOT EXISTS language_training_active BOOLEAN NOT NULL DEFAULT FALSE")
+            # The personal switch per course is gone, the profile switch replaced it.
+            cur.execute("ALTER TABLE aia_user_settings DROP COLUMN IF EXISTS language_training_active")
+            cur.execute("ALTER TABLE aia_user_settings DROP COLUMN IF EXISTS sprachtraining_active")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_notes (
                     id           SERIAL PRIMARY KEY,
@@ -1349,6 +1357,8 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             _reset_quiz_pool_once(cur)
             # The same for grammar, whose instruction line now sits in the exercise text.
             _reset_grammar_pool_once(cur)
+            # The trainer hangs on the person now, every level is assessed anew.
+            _reset_language_training_once(cur)
             # The round limit is gone, the ring now reads the last answer per card.
             cur.execute("ALTER TABLE aia_exercise_sets DROP COLUMN IF EXISTS last_run_start")
             # The wanted number of exercises, so a retry does not lose it.

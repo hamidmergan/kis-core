@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { api } from "@/lib/api";
 import { WELCOME_MODAL_SEEN_KEY_PREFIX } from "@/lib/constants";
@@ -9,13 +9,18 @@ import Modal from "@/components/ui/Modal";
 interface Props {
   /** Missing while auth is still loading, or during an admin impersonation. */
   userId?: number;
+  /** Fires once the dialog is out of the way, shown and closed or never due. */
+  onSettled?: () => void;
 }
 
 /** Shown once per account, right after its very first login. */
-export default function WelcomeModal({ userId }: Props) {
+export default function WelcomeModal({ userId, onSettled }: Props) {
   const t = useTranslations("welcomeModal");
   const [text, setText] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
+  // A ref, so a new callback identity does not restart the fetch.
+  const settledRef = useRef(onSettled);
+  settledRef.current = onSettled;
 
   useEffect(() => {
     if (!userId) return;
@@ -25,21 +30,28 @@ export default function WelcomeModal({ userId }: Props) {
       .fetch("/api/health/labels", { cache: "no-store" })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (cancelled || !data) return;
-        const body = typeof data.welcome_modal_text === "string" ? data.welcome_modal_text : "";
-        if (data.welcome_modal_enabled !== true || !body.trim()) return;
+        if (cancelled) return;
+        const body = data && typeof data.welcome_modal_text === "string" ? data.welcome_modal_text : "";
+        if (!data || data.welcome_modal_enabled !== true || !body.trim()) {
+          settledRef.current?.();
+          return;
+        }
         let seen = false;
         try {
           seen = localStorage.getItem(seenKey) !== null;
         } catch {
           /* ignore - private browsing etc. */
         }
-        if (seen) return;
+        if (seen) {
+          settledRef.current?.();
+          return;
+        }
         setText(body);
         setOpen(true);
       })
       .catch(() => {
-        /* ignore - dialog is non-critical */
+        // The dialog is non-critical, the next one must not wait for it.
+        if (!cancelled) settledRef.current?.();
       });
     return () => {
       cancelled = true;
@@ -54,6 +66,7 @@ export default function WelcomeModal({ userId }: Props) {
     } catch {
       /* ignore */
     }
+    settledRef.current?.();
   };
 
   return (

@@ -50,6 +50,8 @@ export default function StatistikModellePage() {
         </p>
       )}
 
+      <ZeitraumChips wert={zeitraum} setzen={setZeitraum} className="" />
+
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Kachel titel={t("models.requests")} wert={daten.totals.requests} />
         <Kachel titel={t("models.tokensIn")} wert={mio(daten.totals.tokens_in)} />
@@ -61,7 +63,6 @@ export default function StatistikModellePage() {
       </div>
 
       <Karte titel={t("models.perMonth")}>
-        <ZeitraumChips wert={zeitraum} setzen={setZeitraum} />
         <Saeulen werte={daten.per_month.map((m) => ({ label: m.month, wert: m.requests }))} />
       </Karte>
 

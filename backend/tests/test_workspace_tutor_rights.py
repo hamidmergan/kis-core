@@ -192,74 +192,26 @@ def test_datei_landet_beim_eigentuemer(lokal):
     assert storage.aia_workspace_prefix(MENTOR, "w-1") not in falsch
 
 
-# --- Whoever manages the workspace switches the language trainer -----------
+# --- The system rank opens no foreign workspace ------------------------------
 
-@pytest.fixture
-def sprachtrainer_bereit(workspace_mit, monkeypatch):
-    """Kursraum da, Trainer frei, Schreibzugriff mitgeschrieben."""
-    from src.features.ai_assistant.routes import _workspace_access
-    from src.features.ai_assistant.routes import workspaces as routes
-
-    workspace_mit(tutoren={TUTOR})
-    # The route reads fields the lean test object does not have.
-    voll = {**WORKSPACE, "title": "Kurs", "description": "", "is_active": True}
-    monkeypatch.setattr(_workspace_access.db, "get_aia_workspace", lambda uuid: voll)
-    geschrieben: list[bool] = []
-    monkeypatch.setattr(routes.db, "update_aia_workspace", lambda *a, **k: None)
-    monkeypatch.setattr(routes.db, "is_language_training_enabled_globally", lambda: True)
-    monkeypatch.setattr(
-        routes.db,
-        "set_aia_workspace_language_training",
-        lambda uuid, an: geschrieben.append(an),
-    )
-    return geschrieben
-
-
-def _sprachtrainer_schalten(nutzer: dict):
-    """Calls the PATCH route directly, without the HTTP layer."""
+def test_admin_ohne_verwaltungsrecht_kommt_gar_nicht_rein(workspace_mit, monkeypatch):
+    """The system rank opens no foreign workspace, and that stays."""
     import asyncio
 
     from src.features.ai_assistant import schemas
     from src.features.ai_assistant.routes import workspaces as routes
 
-    return asyncio.run(
-        routes.patch_workspace(
-            "w-1",
-            schemas.PatchWorkspaceBody(language_training_active=True),
-            current_user=nutzer,
-            locale="de",
+    workspace_mit(tutoren={TUTOR})
+    geschrieben: list = []
+    monkeypatch.setattr(routes.db, "update_aia_workspace", lambda *a, **k: geschrieben.append(a))
+    with pytest.raises(HTTPException) as fehler:
+        asyncio.run(
+            routes.patch_workspace(
+                "w-1",
+                schemas.PatchWorkspaceBody(title="Neu"),
+                current_user={"user_id": FREMDER, "role": "admin", "email": ""},
+                locale="de",
+            )
         )
-    )
-
-
-def test_eigentuemer_schaltet_den_sprachtrainer(sprachtrainer_bereit):
-    """The admin releases it platform wide, the owner decides per course."""
-    _sprachtrainer_schalten({"user_id": MENTOR, "role": "user", "email": ""})
-    assert sprachtrainer_bereit == [True]
-
-
-def test_tutor_schaltet_den_sprachtrainer(sprachtrainer_bereit):
-    """The tutor helps manage the workspace, so they may do this too."""
-    _sprachtrainer_schalten({"user_id": TUTOR, "role": "user", "email": ""})
-    assert sprachtrainer_bereit == [True]
-
-
-def test_sprachtrainer_bleibt_zu_wenn_die_plattform_ihn_nicht_anbietet(
-    sprachtrainer_bereit, monkeypatch
-):
-    """An old open window switches on nothing the admin has cleared away."""
-    from src.features.ai_assistant.routes import workspaces as routes
-
-    monkeypatch.setattr(routes.db, "is_language_training_enabled_globally", lambda: False)
-    with pytest.raises(HTTPException) as fehler:
-        _sprachtrainer_schalten({"user_id": MENTOR, "role": "user", "email": ""})
     assert fehler.value.status_code == 403
-    assert sprachtrainer_bereit == []
-
-
-def test_admin_ohne_verwaltungsrecht_kommt_gar_nicht_rein(sprachtrainer_bereit):
-    """The system rank opens no foreign workspace, and that stays."""
-    with pytest.raises(HTTPException) as fehler:
-        _sprachtrainer_schalten({"user_id": FREMDER, "role": "admin", "email": ""})
-    assert fehler.value.status_code == 403
-    assert sprachtrainer_bereit == []
+    assert geschrieben == []

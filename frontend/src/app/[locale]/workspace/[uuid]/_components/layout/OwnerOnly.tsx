@@ -9,6 +9,11 @@ export function OwnerPreviewProvider({ value, children }: { value: boolean; chil
   return <OwnerPreviewContext.Provider value={value}>{children}</OwnerPreviewContext.Provider>;
 }
 
+/** true while the viewer only previews the owner layout, so nothing may be triggered. */
+export function useOwnerPreview(): boolean {
+  return useContext(OwnerPreviewContext);
+}
+
 interface OwnerOnlyProps {
   /** Owner elements shown at all, real ownership or owner preview. */
   show: boolean;

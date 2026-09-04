@@ -198,8 +198,8 @@ async def extract_glossary_from_selection(
     tokens = [w for w in re.split(r"\s+", text) if w]
     is_single_term_selection = len(tokens) <= 3 and len(text) <= 60
 
-    # Definition at the learner's level, gated on the course room like every adaptive path.
-    adaptive_suffix = build_adaptive_tool_suffix(user_id, workspace["id"])
+    # Definition at the learner's level, gated on the person like every adaptive path.
+    adaptive_suffix = build_adaptive_tool_suffix(user_id)
 
     try:
         if is_single_term_selection:

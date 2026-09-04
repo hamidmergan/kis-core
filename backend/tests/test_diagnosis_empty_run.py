@@ -84,15 +84,13 @@ def _full_skip_history() -> list[dict]:
 
 
 def test_all_skipped_gives_a_fixed_a1_without_asking_the_model(client):
-    with patch(f"{ROUTE}._require_workspace_access",
-               return_value={"id": 7, "diagnosis_language": "de"}), \
-         patch(f"{ROUTE}.db.is_language_training_active", return_value=True), \
+    with patch(f"{ROUTE}.db.is_language_training_offered", return_value=True), \
          patch(f"{ROUTE}.db.get_setting", side_effect=lambda key, default="": default), \
          patch(f"{ROUTE}.db.set_user_language_level") as save, \
          patch(f"{ROUTE}._ask") as call_llm:
         response = client.post(
             "/ai-assistant/language-diagnosis/turn",
-            json={"workspace_uuid": "ws-1", "history": _full_skip_history()},
+            json={"history": _full_skip_history()},
         )
 
     assert response.status_code == 200
@@ -109,9 +107,7 @@ def test_a_single_answer_still_goes_to_the_model(client):
     history = _full_skip_history()
     history[1]["content"] = "Ich gehe ins Kino."
 
-    with patch(f"{ROUTE}._require_workspace_access",
-               return_value={"id": 7, "diagnosis_language": "de"}), \
-         patch(f"{ROUTE}.db.is_language_training_active", return_value=True), \
+    with patch(f"{ROUTE}.db.is_language_training_offered", return_value=True), \
          patch(f"{ROUTE}.db.get_setting", side_effect=lambda key, default="": default), \
          patch(f"{ROUTE}.db.set_user_language_level"), \
          patch(f"{ROUTE}.enforce_aia_burst"), \
@@ -120,9 +116,22 @@ def test_a_single_answer_still_goes_to_the_model(client):
          )) as call_llm:
         response = client.post(
             "/ai-assistant/language-diagnosis/turn",
-            json={"workspace_uuid": "ws-1", "history": history},
+            json={"history": history},
         )
 
     assert response.status_code == 200
     assert response.json()["level"] == "A2"
     assert call_llm.await_count == 1
+
+
+def test_a_person_without_the_trainer_gets_no_question(client):
+    """Offered decides, not a module, so the body carries no workspace any more."""
+    with patch(f"{ROUTE}.db.is_language_training_offered", return_value=False), \
+         patch(f"{ROUTE}._ask") as call_llm:
+        response = client.post(
+            "/ai-assistant/language-diagnosis/turn",
+            json={"history": []},
+        )
+
+    assert response.status_code == 403
+    call_llm.assert_not_called()

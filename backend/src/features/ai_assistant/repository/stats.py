@@ -8,7 +8,7 @@ _TZ_BERLIN = ZoneInfo("Europe/Berlin")
 _REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
 from src.core.db.pool import get_connection
 
-# Which tool belongs to which of the two statistics areas.
+# Which tool belongs to which of the two areas, the exercise routes read the same list.
 LANGUAGE_TRAINING_TOOLS = ("flashcards", "grammatik", "wortschatz")
 LERNTOOLS_TOOLS = ("karteikarten", "quiz")
 

@@ -3,9 +3,12 @@ import type { UserPermissions } from "@/types";
 /** Mirror of the server's permission keys so the sidebar offers no 403. */
 export const PERM = {
   generalWelcome: "general.welcome",
+  manual: "general.manual",
 
   aiaUse: "aia.use",
   aiaWorkspaceCreate: "aia.workspace.create",
+  // Own language level and test, held by the user role only.
+  aiaLanguageLevel: "aia.language_level",
 
   toolsRelease: "settings.werkzeuge.release",
   toolsJobs: "settings.werkzeuge.jobs",
@@ -32,6 +35,15 @@ export const PERM = {
   // Not a settings right but the right to keep working while everything is shut.
   maintenanceAccess: "settings.wartung.zugang",
 } as const;
+
+/** The five statistics tabs, the only settings rights that read without changing anything. */
+export const STATS_PERMS: string[] = [
+  PERM.statsOwn,
+  PERM.statsUsers,
+  PERM.toolsStats,
+  PERM.aiaUsage,
+  PERM.statsModels,
+];
 
 /** The settings group, everything that unlocks a page of the area. */
 export const SETTINGS_PERMS: string[] = [
@@ -78,7 +90,14 @@ export function isFullAdmin(perms: UserPermissions | undefined): boolean {
   return SETTINGS_PERMS.every((k) => perms.keys.includes(k));
 }
 
-/** Key under `header` for the name of the area. */
-export function areaLabelKey(perms: UserPermissions | undefined): "admin" | "settings" {
-  return isFullAdmin(perms) ? "admin" : "settings";
+/** The name of the area behind the gear menu, a key under `header`. */
+export type AreaKey = "admin" | "settings" | "stats";
+
+/** Whoever may only read numbers gets a link called statistics, not administration. */
+export function areaLabelKey(perms: UserPermissions | undefined): AreaKey {
+  if (isFullAdmin(perms)) return "admin";
+  // Maintenance access opens no page, so it does not make the area an administration.
+  const pages = (perms?.keys ?? []).filter((k) => SETTINGS_PERMS.includes(k) && k !== PERM.maintenanceAccess);
+  if (pages.length > 0 && pages.every((k) => STATS_PERMS.includes(k))) return "stats";
+  return "settings";
 }

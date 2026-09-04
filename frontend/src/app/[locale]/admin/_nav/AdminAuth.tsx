@@ -5,7 +5,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "@/i18n/navigation";
 import { checkAuthStatus } from "@/lib/auth";
-import { EMPTY_PERMS, isFullAdmin } from "@/lib/permissions";
+import { EMPTY_PERMS } from "@/lib/permissions";
 import type { UserPermissions } from "@/types";
 
 const AdminEmailCtx = createContext<string>("");
@@ -18,11 +18,6 @@ export function useAdminEmail(): string {
 /** The permissions of the logged-in person, never undefined, empty when in doubt. */
 export function useAdminPerms(): UserPermissions {
   return useContext(AdminPermsCtx);
-}
-
-/** Is the area called administration or settings for this person? */
-export function useIsFullAdmin(): boolean {
-  return isFullAdmin(useAdminPerms());
 }
 
 export default function AdminAuth({ children }: { children: ReactNode }) {

@@ -10,6 +10,7 @@ from ._shared import (
     _load_workspace_source,
     aia_transcript_prefix, aia_vtt_key,
 )
+from src.features.ai_assistant import schemas
 
 router = APIRouter(tags=["ki-assistent: sources"])
 
@@ -90,11 +91,13 @@ def stream_source_file(
 async def regenerate_transcript(
     workspace_uuid: str,
     source_uuid: str,
+    body: schemas.TranslateTranscriptBody,
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    """Queues a job that translates the transcript into the target language."""
+    """Queues a job that translates the transcript into the chosen language."""
     from src.services import feature_router
+    from src.i18n import TRANSCRIPT_LANGUAGES
 
     workspace = _require_workspace_manage(workspace_uuid, current_user["user_id"], locale=locale)
     source = _load_workspace_source(source_uuid, workspace, locale)
@@ -112,9 +115,16 @@ async def regenerate_transcript(
     if not any(k.endswith(".vtt") for k in keys):
         raise HTTPException(status_code=404, detail=t("ai.transcript.sourceMissing", locale))
 
-    target_lang = workspace.get("transcript_target_lang") or "en"
-    from src.tasks.aia_tasks import run_translate_transcript
-    run_translate_transcript.delay(source_uuid, binding.provider["id"], target_lang)
+    target_lang = (body.target_lang or "").strip().lower()
+    if target_lang not in TRANSCRIPT_LANGUAGES:
+        raise HTTPException(status_code=400, detail=t("ai.workspace.transcriptTargetLangInvalid", locale))
+    # Translating a recording into its own language would only delete the original.
+    source_lang = (source.get("language") or "").lower()
+    if source_lang and source_lang != "unknown" and target_lang == source_lang:
+        raise HTTPException(status_code=400, detail=t("ai.transcript.targetEqualsSource", locale))
+
+    from src.tasks import aia_tasks
+    aia_tasks.run_translate_transcript.delay(source_uuid, binding.provider["id"], target_lang)
     logger.info(
         "KI Tutor: manual {} translation dispatched for {} (provider_id={})",
         target_lang, source_uuid, binding.provider["id"],
@@ -215,7 +225,6 @@ async def get_transcript_langs(
     source = _load_workspace_source(source_uuid, workspace, locale)
 
     source_lang = (source.get("language") or "").lower() or None
-    target_lang = workspace.get("transcript_target_lang") or "en"
 
     # One listing instead of a request per language, outside the event loop.
     prefix = aia_transcript_prefix(source["file_path"])
@@ -230,8 +239,11 @@ async def get_transcript_langs(
     candidates.extend(c for c in TRANSCRIPT_LANGUAGES if c not in candidates)
     available = [c for c in candidates if c in found]
 
-    # Without a stored source language the first code that is not the target applies.
+    # Without a stored source language the first file found counts as the original.
     if not source_lang or source_lang == "unknown":
-        source_lang = next((c for c in available if c != target_lang), available[0] if available else None)
+        source_lang = available[0] if available else None
+
+    # The translation is whatever else lies there, there is at most one.
+    target_lang = next((c for c in available if c != source_lang), None)
 
     return {"source_lang": source_lang, "target_lang": target_lang, "available": available}

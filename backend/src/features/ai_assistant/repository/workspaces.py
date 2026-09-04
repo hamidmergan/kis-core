@@ -162,18 +162,6 @@ def set_aia_workspace_transcript_target_lang(uuid: str, lang: str) -> None:
             )
         conn.commit()
 
-def set_aia_workspace_language_training(uuid: str, active: bool) -> None:
-    """Whether the Sprachtrainer is offered in this workspace (owner decision)."""
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                """UPDATE aia_workspaces
-                   SET language_training_active = %s, updated_at = NOW()
-                   WHERE uuid = %s""",
-                (active, uuid),
-            )
-        conn.commit()
-
 def set_aia_workspace_diagnosis_language(uuid: str, lang: str) -> None:
     """The language the CEFR chat diagnosis is held in (ISO code)."""
     with get_connection() as conn:

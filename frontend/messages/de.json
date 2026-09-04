@@ -16,13 +16,16 @@
     "themeToDarkAria": "Dunkler Modus",
     "themeToLightAria": "Heller Modus",
     "settings": "Verwaltung",
+    "stats": "Statistik",
     "calendar": "Kalender",
     "settingsMenu": "Einstellungen",
     "sectionAppearance": "Ansicht",
-    "homeNoticeShow": "Startseite-Hinweis anzeigen"
+    "homeNoticeShow": "Startseite-Hinweis anzeigen",
+    "languageLevel": "Sprachlevel",
+    "tour": "Demo-Modul Rundgang"
   },
   "footer": {
-    "aiNotice": "Diese Plattform nutzt KI und kann Fehler machen. Überprüfen Sie die Antworten.",
+    "aiNotice": "Diese Plattform nutzt KI und kann Fehler machen. Prüfe die Antworten.",
     "feedback": "Feedback oder Probleme?",
     "imprint": "Impressum",
     "privacy": "Datenschutz"
@@ -245,8 +248,8 @@
   },
   "pending": {
     "title": "Konto noch nicht freigeschaltet",
-    "body1": "KIS befindet sich derzeit in der Testphase. Ihr Konto wurde erfolgreich erkannt, ist aber noch nicht für die Nutzung freigegeben.",
-    "body2": "Wenn Sie Zugang zu KIS benötigen, wenden Sie sich bitte an:",
+    "body1": "KIS befindet sich derzeit in der Testphase. Dein Konto wurde erfolgreich erkannt, ist aber noch nicht für die Nutzung freigegeben.",
+    "body2": "Wenn du Zugang zu KIS brauchst, wende dich bitte an:",
     "backToLogin": "Zurück zur Anmeldung"
   },
   "login": {
@@ -259,8 +262,8 @@
     "hidePassword": "Passwort verbergen",
     "submit": "Anmelden",
     "submitting": "Wird angemeldet...",
-    "invalidCredentials": "Ungültige Anmeldedaten. Bitte prüfen Sie Benutzername und Passwort.",
-    "maintenanceBanner": "Die Plattform wird gerade aktualisiert. Bitte versuchen Sie es in wenigen Minuten erneut.",
+    "invalidCredentials": "Ungültige Anmeldedaten. Bitte prüfe Benutzername und Passwort.",
+    "maintenanceBanner": "Die Plattform wird gerade aktualisiert. Bitte versuche es in wenigen Minuten erneut.",
     "accessCodeLink": "Ich habe einen Zugangscode"
   },
   "toolsSidebar": {
@@ -487,7 +490,7 @@
       "cancel": "Abbrechen",
       "deleteConfirm": "Glossar „{name}\" wirklich löschen?",
       "delete": "Löschen",
-      "empty": "Noch keine Glossare vorhanden. Erstellen Sie Ihr erstes Glossar.",
+      "empty": "Noch keine Glossare vorhanden. Erstelle dein erstes Glossar.",
       "entryCount": "{n} Einträge",
       "entryFooter": "{n} / {max} Einträge",
       "actionRename": "Umbenennen",
@@ -531,7 +534,7 @@
       "previewAlt": "Vorschau",
       "providerLabel": "KI-Anbieter",
       "generate": {
-        "promptPlaceholder": "Beschreiben Sie das gewünschte Bild ...",
+        "promptPlaceholder": "Beschreibe das gewünschte Bild ...",
         "size": "Größe",
         "submit": "Bild generieren",
         "spinner": "Wird generiert…",
@@ -540,7 +543,7 @@
         "regenerate": "Neu generieren"
       },
       "edit": {
-        "promptPlaceholder": "Beschreiben Sie die gewünschte Änderung.",
+        "promptPlaceholder": "Beschreibe die gewünschte Änderung.",
         "submit": "Bild bearbeiten",
         "spinner": "Wird bearbeitet…",
         "longRunning": "Läuft noch - Bildbearbeitung kann etwas länger dauern…",
@@ -581,13 +584,13 @@
         "next": "Weiter →"
       },
       "upload": {
-        "activeJobsTitle": "Sie haben bereits 5 Jobs in der Warteschlange, kein weiterer ist möglich.",
-        "activeJobsBodyPrefix": "Warten Sie bis ein Job abgeschlossen ist oder löschen Sie einen in der ",
+        "activeJobsTitle": "Du hast bereits 5 Jobs in der Warteschlange, kein weiterer ist möglich.",
+        "activeJobsBodyPrefix": "Warte bis ein Job abgeschlossen ist oder lösche einen in der ",
         "activeJobsBodyLink": "Jobliste",
         "activeJobsBodySuffix": ".",
         "dropPrefix": "Datei hierher ziehen oder ",
         "dropBrowse": "durchsuchen",
-        "replaceHint": "Klicken oder ziehen Sie eine andere Datei hierher",
+        "replaceHint": "Klicke oder ziehe eine andere Datei hierher",
         "onlyPptx": "Nur .pptx-Datei",
         "skipTranslation": "Übersetzung überspringen",
         "targetLang": "Zielsprache",
@@ -606,7 +609,7 @@
         "generate": "KI-Generierung",
         "generateDesc": "KI erstellt Skripte automatisch basierend auf den Folieninhalten.",
         "manual": "Manuell eingeben",
-        "manualDesc": "Alle Textfelder bleiben leer – Sie tippen die Skripte selbst ein.",
+        "manualDesc": "Alle Textfelder bleiben leer, du tippst die Skripte selbst ein.",
         "import": "Skript importieren",
         "importDesc": "JSON-Datei hochladen – Array von Strings, ein Eintrag pro Folie.",
         "jsonDropPrefix": "JSON-Datei hierher ziehen oder ",
@@ -618,7 +621,7 @@
       "translationReview": {
         "heading": "Übersetzung prüfen",
         "headingOhneUebersetzung": "Folien prüfen",
-        "intro": "Die Präsentation wurde übersetzt. Sie können die übersetzte PPTX herunterladen, prüfen und optional eine korrigierte Version hochladen.",
+        "intro": "Die Präsentation wurde übersetzt. Du kannst die übersetzte PPTX herunterladen, prüfen und optional eine korrigierte Version hochladen.",
         "introOhneUebersetzung": "Die Folien wurden übernommen. Du kannst die PPTX herunterladen, prüfen und eine korrigierte Fassung hochladen. Die Folienzahl muss dabei gleich bleiben.",
         "downloadPptx": "PPTX",
         "uploadCorrected": "Korrigierte PPTX hochladen (optional)",
@@ -637,14 +640,14 @@
       },
       "scriptReview": {
         "heading": "Skripte überprüfen und anpassen",
-        "intro": "Überprüfen Sie die generierten Skripte für jede Folie. Klicken Sie auf den Stift um zu bearbeiten.",
+        "intro": "Überprüfe die generierten Skripte für jede Folie. Klicke auf den Stift um zu bearbeiten.",
         "wordsApprox": "ca. {n} Wörter",
         "wordsAndDuration": "ca. {words} Wörter · ~{seconds} Sek",
         "emptyScript": "Kein Skript (leere Folie)",
         "regenAria": "Skript für Folie {n} per KI neu generieren",
         "regenTitle": "Mit KI neu generieren",
         "editAria": "Skript für Folie {n} bearbeiten",
-        "missingScripts": "{n} Folie(n) haben kein Skript. Bitte füllen Sie diese aus, bevor Sie fortfahren.",
+        "missingScripts": "{n} Folie(n) haben kein Skript. Bitte fülle diese aus, bevor du fortfährst.",
         "acceptAll": "Alle Skripte übernehmen"
       },
       "ttsSettings": {
@@ -671,7 +674,7 @@
         "qualityHighDesc": "Höchste Bildschärfe, ca. 4-5× längere Bearbeitungszeit",
         "summary": "<bold>{slides}</bold> Folien · ca. <bold>{words}</bold> Wörter · <charsTag>{chars}</charsTag> / {max} Zeichen",
         "scriptTooLong": "Skript zu lang",
-        "scriptTooLongBody": "Das Skript hat {chars} Zeichen (max. {max}). Bitte kürzen Sie die Folien-Texte.",
+        "scriptTooLongBody": "Das Skript hat {chars} Zeichen (max. {max}). Bitte kürze die Folien-Texte.",
         "backToEdit": "Zurück zum Skript bearbeiten",
         "back": "Zurück",
         "startRender": "Screencast erstellen",
@@ -736,8 +739,8 @@
         "subtitles": "Untertitel werden eingebettet…"
       },
       "done": {
-        "heading": "Fertig! Ihr Screencast ist bereit.",
-        "browserNoVideo": "Ihr Browser unterstützt kein HTML5-Video.",
+        "heading": "Fertig! Dein Screencast ist bereit.",
+        "browserNoVideo": "Dein Browser unterstützt kein HTML5-Video.",
         "downloadMp4Aria": "MP4",
         "downloadMp4Label": "MP4",
         "downloadAllZipAria": "Alles herunterladen (ZIP)",
@@ -757,13 +760,13 @@
         "retryFailed": "Retry fehlgeschlagen",
         "tooManyJobs": "Zu viele laufende Jobs. Bitte warten bis ein Job abgeschlossen ist.",
         "jobFailed": "Job fehlgeschlagen",
-        "jobInOtherTab": "Dieser Job wird bereits in einem anderen Tab verarbeitet. Bitte wechseln Sie zur Jobliste.",
-        "jobDeleted": "Der Job wurde gelöscht oder abgebrochen. Bitte starten Sie einen neuen Screencast.",
+        "jobInOtherTab": "Dieser Job wird bereits in einem anderen Tab verarbeitet. Bitte wechsle zur Jobliste.",
+        "jobDeleted": "Der Job wurde gelöscht oder abgebrochen. Bitte starte einen neuen Screencast.",
         "jobFolderMissing": "Job-Daten nicht mehr verfügbar - bitte neuen Screencast starten",
         "uploadError": "Fehler beim Hochladen",
         "downloadFailed": "Download fehlgeschlagen",
         "previousRenderBusy": "Der vorherige Render wird noch beendet. Bitte einen Moment warten und erneut versuchen.",
-        "resumeFailed": "Dieser Screencast lässt sich nicht mehr fortsetzen. Er ist abgelaufen, wurde gelöscht oder läuft gerade in einem anderen Tab. Sie können hier neu starten."
+        "resumeFailed": "Dieser Screencast lässt sich nicht mehr fortsetzen. Er ist abgelaufen, wurde gelöscht oder läuft gerade in einem anderen Tab. Du kannst hier neu starten."
       },
       "regenChat": {
         "headerTitle": "KI-Assistent · Folie {n}",
@@ -797,7 +800,7 @@
         "body": "Der aktuelle Screencast wird gelöscht, samt hochgeladener Datei, Übersetzung und Skripten.",
         "warning": "Das lässt sich nicht rückgängig machen.",
         "renderTitle": "Rendern abbrechen?",
-        "renderBody": "Der laufende Rendervorgang wird gestoppt. Sie kommen zurück zu den Einstellungen, Datei, Übersetzung und Skripte bleiben erhalten.",
+        "renderBody": "Der laufende Rendervorgang wird gestoppt. Du kommst zurück zu den Einstellungen, Datei, Übersetzung und Skripte bleiben erhalten.",
         "renderWarning": "Das bisher erstellte Video geht verloren.",
         "renderKeep": "Weiter rendern",
         "renderConfirm": "Rendern abbrechen",
@@ -820,7 +823,6 @@
     }
   },
   "admin": {
-    "title": "Admin",
     "menuOpen": "Menü öffnen",
     "menuClose": "Menü schließen",
     "close": "Schließen",
@@ -1469,8 +1471,8 @@
     },
     "languageTrainerCard": {
       "title": "Sprachtrainer",
-      "description": "Der Sprachtrainer ist ein Übungsbereich im Studio für alle, die dem Kurs in einer Fremdsprache folgen. Er enthält Lernkarten für Fachbegriffe und eine Grammatik-Übung, jeweils aus den Materialien des Moduls gebaut. Ist er eingeschaltet, wird der Sprachstand einmalig eingestuft, und Chat-Antworten sowie Aufgaben werden auf dieses Niveau angepasst. Der Sprachtrainer arbeitet ausschließlich auf Deutsch.",
-      "disabled": "Aus. Der Sprachtrainer taucht nirgendwo auf. Bereits getroffene Entscheidungen bleiben gespeichert und gelten wieder, sobald du hier einschaltest.",
+      "description": "Der Sprachtrainer ist ein Übungsbereich im Studio für alle, die dem Kurs in einer Fremdsprache folgen. Er enthält Lernkarten, Wortschatz- und Grammatikübungen, jeweils aus den Materialien des Moduls gebaut. Ist er eingeschaltet, wird jede Person mit Rolle Studierende beim ersten Anmelden gefragt, ob sie internationaler Studierender ist. Ja führt in den Sprachtest, das Niveau gilt in allen Modulen, Chat und Aufgaben passen sich daran an. Jede Person schaltet den Trainer unter Sprachlevel ein oder aus. Der Sprachtrainer arbeitet ausschließlich auf Deutsch.",
+      "disabled": "Aus. Niemand wird gefragt, und der Sprachtrainer taucht nirgendwo auf. Getroffene Entscheidungen und Niveaus bleiben gespeichert und gelten wieder, sobald du hier einschaltest.",
       "toggleAria": "Sprachtrainer umschalten"
     },
     "ocrCard": {
@@ -1724,7 +1726,6 @@
       },
       "more": "Mehr"
     },
-    "titleSettings": "Einstellungen",
     "permissions": {
       "chapter": {
         "benutzen": "Benutzen",
@@ -1745,13 +1746,15 @@
         }
       },
       "general": {
-        "welcome": "Begrüßungsfenster beim ersten Login sehen"
+        "welcome": "Begrüßungsfenster beim ersten Login sehen",
+        "manual": "Handbuch ansehen"
       },
       "aia": {
         "use": "Öffnen und geteilte {plural} lesen",
         "workspace": {
           "create": "Eigene {plural} anlegen und verwalten"
-        }
+        },
+        "language_level": "Eigenes Sprachniveau und Sprachtest"
       },
       "tools": {
         "translation": "Übersetzung",
@@ -2333,15 +2336,14 @@
           "resultTitle": "Dein Ergebnis",
           "skip": "Überspringen",
           "skipped": "Übersprungen",
-          "disclaimer": "Das Ergebnis kommt von einer KI. Fach-Leute haben es noch nicht geprüft.",
-          "continue": "Weiter zum Üben",
+          "disclaimer": "Bitte berücksichtige, dass dieses Ergebnis von einer KI stammt, die Fehler machen kann.",
+          "continue": "Weiter",
           "abort": "Abbrechen",
           "abortConfirmTitle": "Test abbrechen?",
           "abortConfirmBody": "Deine Antworten werden gelöscht. Du kannst den Test später noch einmal machen.",
           "abortConfirmKeep": "Weitermachen",
           "abortConfirmDiscard": "Abbrechen",
           "panelDisabledTooltip": "Das geht erst nach dem Test.",
-          "resetSetting": "Ergebnis löschen",
           "resetConfirmTitle": "Ergebnis löschen?",
           "resetConfirmBody": "Dann musst du den Test noch einmal machen. Erst danach kannst du wieder üben.",
           "skill": {
@@ -2606,8 +2608,6 @@
       },
       "settings": {
         "title": "Einstellungen",
-        "sectionPersonalTitle": "Persönlich",
-        "sectionPersonalDescription": "Gilt nur für dich. Andere im Modul sehen davon nichts.",
         "sectionWorkspaceTitle": "Modul",
         "sectionWorkspaceDescription": "Gilt für alle im Modul. Nur die Verwaltung kann das ändern.",
         "mascotTitle": "Maskottchen",
@@ -2616,10 +2616,6 @@
         "mascotFrancis": "Francis",
         "studioTitle": "Studio",
         "studioDescription": "Studio-Panel mit Mindmaps, Notizen und Tools einblenden.",
-        "languageTrainingPersonalTitle": "Sprachtrainer",
-        "languageTrainingPersonalDescription": "Blendet den Sprachtrainer für dich ein, mit Lernkarten und Grammatik-Übung. Beim Einschalten wirst du einmalig eingestuft, wenn du noch kein Sprachniveau hast. Gilt nur für dich und nur in diesem Modul.",
-        "languageTrainingTitle": "Sprachtrainer",
-        "languageTrainingDescription": "Gibt den Sprachtrainer im Modul frei, mit Lernkarten und Grammatik-Übung. Danach entscheidet jede Person in ihren eigenen Einstellungen, ob sie ihn nutzt. Alle Übungen werden aus den Materialien dieses Moduls gebaut. Dafür müssen passende Materialien zur Grammatik der Kurssprache hochgeladen sein, sonst sind die Übungen unbrauchbar. Gib das nur frei, wenn du weißt, welche Materialien hier liegen.",
         "translationModeTitle": "Übersetzung der Transkripte",
         "translationModeDescription": "Übersetzt Untertitel von Audio-/Video-Materialien in die unten gewählte Zielsprache. Die Quellsprache wird automatisch erkannt. Studierende können im Transkript-Panel zwischen Original und Übersetzung umschalten. Die Übersetzung läuft als Hintergrund-Job und kann ein paar Minuten dauern.",
         "translationModeOff": "Aus",
@@ -2652,7 +2648,7 @@
         "sourcesActive": "{n, plural, =1 {1 Material aktiv} other {# Materialien aktiv}}",
         "scrollToTop": "Nach oben scrollen",
         "scrollToBottom": "Nach unten scrollen",
-        "aiNotice": "Diese Plattform nutzt KI und kann Fehler machen. Überprüfen Sie die Antworten.",
+        "aiNotice": "Diese Plattform nutzt KI und kann Fehler machen. Prüfe die Antworten.",
         "emptyHildeGreeting": "Hallo, ich bin Hilde.",
         "emptyFrancisGreeting": "Hallo, ich bin Francis.",
         "emptyHildeIntro": "Frag mich was zu deinen Materialien - ich helfe dir beim Verstehen, Zusammenfassen und Wiederholen.",
@@ -2777,14 +2773,18 @@
         "tabOff": "Aus",
         "saveAsNote": "Als Notiz speichern",
         "regenEnRunning": "läuft...",
-        "regenEnButton": "Übersetzen",
         "regenEnRunningTitle": "Übersetzung läuft im Hintergrund...",
-        "regenEnIdleTitle": "Untertitel im Hintergrund übersetzen",
         "regenEnErrorTitle": "Übersetzung fehlgeschlagen: {error}. Nochmal versuchen?",
         "regenEnTimeout": "Übersetzung dauert zu lange. Später prüfen oder erneut versuchen.",
         "regenEnUnknownError": "Unbekannter Fehler",
         "tracksDe": "Deutsch",
-        "tracksEn": "English"
+        "tracksEn": "English",
+        "translateAddButton": "Übersetzung",
+        "translateModalTitle": "Transkript übersetzen",
+        "translateModalHint": "Die Sprache der Aufnahme erkennt das System selbst. Es gibt genau eine Übersetzung.",
+        "translateModalLangLabel": "In diese Sprache",
+        "translateModalStart": "Übersetzung starten",
+        "translateModalCancel": "Abbrechen"
       },
       "summary": {
         "header": "Seite {page} - Zusammenfassung",
@@ -2994,8 +2994,9 @@
         "start": "Demo-Modul entdecken",
         "inviteStart": "Starten",
         "restart": "Rundgang erneut starten",
-        "dismiss": "Nicht jetzt",
-        "inviteTitle": "Demo-Modul entdecken",
+        "dismiss": "Ausblenden",
+        "inviteTitle": "Demo-Modul Rundgang",
+        "inviteBody": "Ein kurzer Rundgang durch ein Beispielmodul. Zeigt Materialien, den KI-Assistenten Francis und die Lernwerkzeuge im Studienbereich.",
         "steps": {
           "preview": {
             "title": "Lehrenden- und Studierenden-Ansicht",
@@ -3223,6 +3224,66 @@
   "welcomeModal": {
     "title": "Willkommen bei KIS",
     "cta": "Los geht's"
+  },
+  "languageTrainerInvite": {
+    "title": "Sprachtrainer",
+    "body": "Für Deutsch als Fremdsprache. Übt Fachwortschatz und Grammatik aus deinen Modulen. Passt Sprache und Erklärtiefe an dein Niveau an.",
+    "start": "Sprachtest starten",
+    "dismiss": "Ausblenden"
+  },
+  "languageLevel": {
+    "title": "Sprachlevel",
+    "notOffered": "Der Sprachtrainer ist für dein Konto nicht freigeschaltet.",
+    "languageTraining": {
+      "levelLabel": "Dein Niveau",
+      "levelSince": "seit {date}",
+      "sourceTest": "Sprachtest vom {date}",
+      "sourceSelf": "Selbst gewählt am {date}",
+      "change": "Niveau ändern",
+      "noLevel": "Noch kein Sprachniveau. Mach den Sprachtest oder leg dein Niveau selbst fest.",
+      "takeTest": "Sprachtest starten",
+      "chooseSelf": "Niveau selbst festlegen",
+      "apply": "Übernehmen",
+      "cancel": "Abbrechen",
+      "current": "aktuell",
+      "ratherTest": "Lieber einschätzen lassen?",
+      "levels": {
+        "A1": {
+          "name": "Anfänger",
+          "short": "Du verstehst vertraute, alltägliche Ausdrücke und ganz einfache Sätze und kannst sie verwenden.",
+          "long": "Du verstehst vertraute, alltägliche Ausdrücke und ganz einfache Sätze. Du kannst dich und andere vorstellen und dich auf einfache Art verständigen, wenn langsam und deutlich gesprochen wird."
+        },
+        "A2": {
+          "name": "Grundlegende Kenntnisse",
+          "short": "Du verstehst Sätze und häufig gebrauchte Ausdrücke zu Dingen, die dich unmittelbar betreffen.",
+          "long": "Du verstehst Sätze und häufig gebrauchte Ausdrücke zu vertrauten Dingen. Du kannst dich in einfachen, routinemäßigen Situationen verständigen und deine Herkunft, Ausbildung und Umgebung mit einfachen Mitteln beschreiben."
+        },
+        "B1": {
+          "name": "Fortgeschrittene Sprachverwendung",
+          "short": "Du verstehst die Hauptpunkte, wenn klare Standardsprache verwendet wird und es um vertraute Dinge geht.",
+          "long": "Du verstehst die Hauptpunkte bei klarer Standardsprache zu vertrauten Themen aus Arbeit, Schule und Freizeit. Du bewältigst die meisten Situationen auf Reisen und kannst über Erfahrungen, Ziele und Pläne zusammenhängend sprechen."
+        },
+        "B2": {
+          "name": "Selbständige Sprachverwendung",
+          "short": "Du verstehst die Hauptinhalte komplexer Texte zu konkreten und abstrakten Themen.",
+          "long": "Du verstehst die Hauptinhalte komplexer Texte, auch Fachdiskussionen im eigenen Gebiet. Du kannst dich so spontan und fließend verständigen, dass ein normales Gespräch mit Muttersprachlern ohne größere Anstrengung möglich ist."
+        },
+        "C1": {
+          "name": "Fachkundige Sprachkenntnisse",
+          "short": "Du verstehst ein breites Spektrum anspruchsvoller, längerer Texte und erfasst auch implizite Bedeutungen.",
+          "long": "Du verstehst anspruchsvolle, längere Texte und erfasst auch implizite Bedeutungen. Du drückst dich spontan und fließend aus und nutzt die Sprache im Beruf und im Studium wirksam und flexibel."
+        },
+        "C2": {
+          "name": "Annähernd muttersprachliche Kenntnisse",
+          "short": "Du verstehst praktisch alles mühelos, was du liest oder hörst.",
+          "long": "Du verstehst praktisch alles mühelos, was du liest oder hörst. Du drückst dich spontan, sehr flüssig und genau aus und machst auch feine Bedeutungsnuancen deutlich."
+        }
+      }
+    },
+    "languageTest": {
+      "notOffered": "Der Sprachtrainer ist für dein Konto nicht freigeschaltet.",
+      "toLevelPage": "Zum Sprachlevel"
+    }
   },
   "layoutMeta": {
     "title": "KIS",

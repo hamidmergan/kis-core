@@ -6,7 +6,8 @@ import { CaretRight, X } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { RANKS, allowedSections, type AdminSection } from "./registry";
-import { useAdminPerms, useIsFullAdmin } from "./AdminAuth";
+import { areaLabelKey } from "@/lib/permissions";
+import { useAdminPerms } from "./AdminAuth";
 
 const ICON = { size: 18, weight: "bold" as const };
 
@@ -102,8 +103,9 @@ export default function AdminSidebar({
   onClose: () => void;
 }) {
   const t = useTranslations("admin");
+  // The area carries the same name here as in the gear menu.
+  const tHeader = useTranslations("header");
   const perms = useAdminPerms();
-  const fullAdmin = useIsFullAdmin();
 
   // Filter first, then group, empty ranks drop out with their divider.
   const visible = allowedSections(perms.keys);
@@ -122,7 +124,7 @@ export default function AdminSidebar({
         ${mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}`}
     >
       <div className="md:hidden flex items-center justify-between px-2 pt-1 pb-2">
-        <span className="text-sm font-semibold">{fullAdmin ? t("title") : t("titleSettings")}</span>
+        <span className="text-sm font-semibold">{tHeader(areaLabelKey(perms))}</span>
         <button
           onClick={onClose}
           className="w-8 h-8 rounded-lg flex items-center justify-center text-muted transition-colors hover:bg-surface-dim hover:text-kb"

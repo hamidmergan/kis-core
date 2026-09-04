@@ -29,16 +29,15 @@ export function DiagnosisResultScreen({
 
       {/* The level is a model estimate, not a certified test result. The note sits
           with the number rather than before the chat, so it qualifies the result
-          without making the entry look like an exam. */}
-      <p className="text-xs text-center max-w-md" style={{ color: "var(--muted)" }}>
-        {t("disclaimer")}
-      </p>
+          without making the entry look like an exam. Skipped runs get a fixed A1
+          from code, not a model verdict, so the note would be misleading there. */}
+      {result.aiGraded && (
+        <p className="text-xs text-center max-w-md" style={{ color: "var(--muted)" }}>
+          {t("disclaimer")}
+        </p>
+      )}
 
-      <button
-        onClick={onContinue}
-        className="mt-2 px-6 py-2 rounded-lg"
-        style={{ backgroundColor: "var(--kb)", color: "var(--on-accent)" }}
-      >
+      <button onClick={onContinue} className="mt-2 px-4 py-2 text-sm btn-primary rounded-lg">
         {t("continue")}
       </button>
     </div>

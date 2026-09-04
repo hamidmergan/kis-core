@@ -34,10 +34,13 @@ class PatchWorkspaceBody(BaseModel):
     is_active: Optional[bool] = None
     transcript_target_lang: Optional[str] = None
     diagnosis_language: Optional[str] = None
-    # Language trainer for everyone in this course room, a management decision.
-    language_training_active: Optional[bool] = None
     staff_note_text: Optional[str] = Field(None, max_length=2000)
     staff_note_links: Optional[list[StaffNoteLink]] = Field(None, max_length=30)
+
+
+class TranslateTranscriptBody(BaseModel):
+    """The target language is picked per source, not per module."""
+    target_lang: str = Field(..., max_length=5)
 
 
 class RenewCodeBody(BaseModel):
@@ -76,8 +79,6 @@ class UserSettingsBody(BaseModel):
     studio_enabled: bool = True
     # Target language of the selection bar translation, code from i18n.TRANSCRIPT_LANGUAGES.
     popup_translate_lang: str = "en"
-    # Personal decision whether the released language trainer is shown.
-    language_training_active: bool = False
 
 
 class NoteBody(BaseModel):

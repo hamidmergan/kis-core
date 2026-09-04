@@ -8,7 +8,7 @@ davon richtig war, wo es hakt.
 ## Nur der eigene Stand
 
 Auch für Lehrende zeigt dieser Reiter nur die eigenen Zahlen, nicht die der Teilnehmenden.
-Einen Überblick über die ganze Gruppe gibt Statistik → Meine Module im Verwaltungsbereich.
+Einen Überblick über die ganze Gruppe gibt Statistik → Meine Module, erreichbar über das Zahnrad oben rechts.
 
 ## Was es nicht ist
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PERM } from "@/lib/permissions";
+import { PERM, STATS_PERMS } from "@/lib/permissions";
 import { SECTIONS, allowedSections, allowedTabs, resolve } from "./registry";
 
 /** The tabs hang off their page's permission, not off the area. */
@@ -55,5 +55,13 @@ describe("Statistik einer Lehrperson", () => {
     const statistik = SECTIONS.find((s) => s.slug === "stats")!;
     const fremde = allowedTabs(statistik.tabs, statistik.perm, [PERM.statsUsers]);
     expect(fremde.map((t) => t.slug)).toEqual(["users"]);
+  });
+});
+
+/** The header names the area after its rights, so the two lists must not drift apart. */
+describe("Statistik-Rechte", () => {
+  it("sind genau die Reiter des Bereichs Statistik", () => {
+    const statistik = SECTIONS.find((s) => s.slug === "stats")!;
+    expect([...STATS_PERMS].sort()).toEqual(statistik.tabs!.map((t) => t.perm).sort());
   });
 });

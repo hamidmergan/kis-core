@@ -22,14 +22,26 @@ GROUP_GENERAL = "general"
 
 # === Allgemein ================================================================
 PERM_GENERAL_WELCOME = "general.welcome"
+PERM_GENERAL_MANUAL = "general.manual"
 
-GENERAL_KEYS: tuple[str, ...] = (PERM_GENERAL_WELCOME,)
+GENERAL_KEYS: tuple[str, ...] = (PERM_GENERAL_WELCOME, PERM_GENERAL_MANUAL)
 
 # === KI-Assistent ============================================================
 PERM_AIA_USE = "aia.use"
 PERM_AIA_WORKSPACE_CREATE = "aia.workspace.create"
+# The person's own language level and test, staff do not hold it.
+PERM_AIA_LANGUAGE_LEVEL = "aia.language_level"
 
-AIA_KEYS: tuple[str, ...] = (PERM_AIA_USE, PERM_AIA_WORKSPACE_CREATE)
+AIA_KEYS: tuple[str, ...] = (
+    PERM_AIA_USE,
+    PERM_AIA_WORKSPACE_CREATE,
+    PERM_AIA_LANGUAGE_LEVEL,
+)
+
+# Staff get everything of the assistant except the own language level.
+STAFF_AIA_KEYS: tuple[str, ...] = tuple(
+    k for k in AIA_KEYS if k != PERM_AIA_LANGUAGE_LEVEL
+)
 
 # Derived from the tool list so a new tool is registered only once.
 TOOL_PERM_PREFIX = "tools."
@@ -181,8 +193,8 @@ SYSTEM_ROLES: tuple[str, ...] = ("admin", "staff", "user")
 # Lehrende bekommen zusaetzlich die Zahlen ihrer eigenen Module.
 SYSTEM_ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
     "admin": ALL_PERMISSION_KEYS,
-    "staff": GENERAL_KEYS + AIA_KEYS + TOOL_KEYS + (PERM_SET_STATS_OWN,),
-    "user": (PERM_AIA_USE,),
+    "staff": GENERAL_KEYS + STAFF_AIA_KEYS + TOOL_KEYS + (PERM_SET_STATS_OWN,),
+    "user": (PERM_AIA_USE, PERM_AIA_LANGUAGE_LEVEL),
 }
 
 # Which settings field belongs to which right, unknown ones count as admin business.

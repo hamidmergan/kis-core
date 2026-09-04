@@ -6,19 +6,15 @@ For everybody still learning the language of the course. Three tools in the stud
 cards, vocabulary exercises, grammar exercises. All built from the materials of the module,
 matched to your own level.
 
-## Two switches, not one
+## Accepted once, applies everywhere
 
-1. The administration releases it in the module
-2. Every person switches it on in their own settings
+The language trainer hangs on you, not on the module. The start page carries a card for it next
+to the demo module. Start the language test accepts it, from then on it applies in every module. A switch to turn it on or off later does not exist yet.
 
-Without the first nobody sees anything. After the first only those see it who flip the second
-themselves.
+Without a level it stays closed. Only with a level, from the language test or set yourself under
+Language level, do the three tools appear in the studio.
 
-## What the administration has to watch
+## What the administration decides
 
-Grammar exercises need fitting materials about the grammar of the course language. Without them
-the exercises are useless. So only release it once you know what sits in the module.
-
-## The placement
-
-The first time you switch it on you are placed once, if you have no level yet.
+Only whether the platform offers the language trainer at all. If it is off there, the card is
+missing from the start page and nobody sees it.

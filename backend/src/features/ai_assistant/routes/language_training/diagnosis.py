@@ -1,4 +1,4 @@
-"""Language level assessment as a short chat, the history lives in the browser."""
+"""Language level assessment as a short chat, per person, the history lives in the browser."""
 
 from typing import Literal
 
@@ -15,7 +15,6 @@ from src.i18n import (
     t,
 )
 from src.security.rate_limit import enforce_aia_burst
-from src.features.ai_assistant.routes._workspace_access import _require_workspace_access
 from src.services.aia_diagnosis_chat import (
     ANSWER_MAX_CHARS_SETTING,
     DEFAULT_ANSWER_MAX_CHARS,
@@ -65,7 +64,6 @@ class TurnMessage(BaseModel):
 
 
 class TurnBody(BaseModel):
-    workspace_uuid: str
     history: list[TurnMessage] = Field(default_factory=list, max_length=MAX_HISTORY_MESSAGES)
 
 
@@ -113,10 +111,9 @@ async def turn(
     locale: str = Depends(get_locale),
 ):
     user_id = current_user["user_id"]
-    workspace = _require_workspace_access(body.workspace_uuid, user_id, locale=locale)
-    # A trainer switched off midway must not let the test finish.
-    if not db.is_language_training_active(workspace["id"]):
-        raise HTTPException(status_code=403, detail=t("ai.workspace.languageTrainingOff", locale))
+    # A trainer switched off midway must not let the test finish, the level is what it produces.
+    if not db.is_language_training_offered(user_id):
+        raise HTTPException(status_code=403, detail=t("ai.languageTraining.off", locale))
 
     plan = parse_question_plan(db.get_setting(QUESTION_PLAN_SETTING, ""))
     total = len(plan)
@@ -147,6 +144,7 @@ async def turn(
             "done": True,
             "level": "A1",
             "message": t("ai.languageDiagnosis.allSkipped", locale),
+            "aiGraded": False,
         }
 
     # Once all questions are answered, the one grading call follows.
@@ -163,7 +161,7 @@ async def turn(
 
     db.set_user_language_level(user_id, result["level"])
     logger.info("Language diagnosis complete: user={} level={}", user_id, result["level"])
-    return result
+    return {**result, "aiGraded": True}
 
 
 @router.get("/ai-assistant/language-diagnosis/config")

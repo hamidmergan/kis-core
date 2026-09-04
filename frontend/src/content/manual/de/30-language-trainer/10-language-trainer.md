@@ -6,19 +6,16 @@ Für alle, die die Kurssprache noch lernen. Drei Werkzeuge im Studio: Lernkarten
 Wortschatzübungen, Grammatikübungen. Alles aus den Materialien des Moduls, passend zum eigenen
 Niveau.
 
-## Zwei Schalter, nicht einer
+## Einmal angenommen, gilt überall
 
-1. Die Verwaltung gibt ihn im Modul frei
-2. Jede Person schaltet ihn in ihren eigenen Einstellungen ein
+Der Sprachtrainer hängt an Ihnen, nicht am Modul. Auf der Startseite steht dafür eine Karte neben
+dem Demo-Modul. Mit Sprachtest starten nehmen Sie ihn an, ab dann gilt er in allen Modulen. Einen Schalter zum späteren Ein- oder Ausschalten gibt es aktuell
+noch nicht.
 
-Ohne den ersten sieht niemand etwas. Nach dem ersten sieht ihn nur, wer den zweiten selbst
-umlegt.
+Ohne Niveau bleibt er zu. Erst mit einem Niveau, aus dem Sprachtest oder unter Sprachlevel selbst
+festgelegt, erscheinen die drei Werkzeuge im Studio.
 
-## Worauf die Verwaltung achten muss
+## Was die Verwaltung entscheidet
 
-Grammatikübungen brauchen passende Materialien zur Grammatik der Kurssprache. Fehlen sie, sind
-die Übungen unbrauchbar. Also erst freigeben, wenn Sie wissen, was im Modul liegt.
-
-## Die Einstufung
-
-Beim ersten Einschalten werden Sie einmalig eingestuft, falls Sie noch kein Niveau haben.
+Nur, ob die Plattform den Sprachtrainer überhaupt anbietet. Ist er dort aus, fehlt die Karte auf
+der Startseite und niemand sieht ihn.

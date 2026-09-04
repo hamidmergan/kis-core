@@ -51,7 +51,11 @@ export default function HomePage() {
       )}
       {state === null || state.target.kind === "tool" ? null : state.target.kind === "aia" ? (
         <Suspense>
-          <WorkspaceHome canCreate={state.canCreate} firstName={state.firstName} />
+          <WorkspaceHome
+            canCreate={state.canCreate}
+            firstName={state.firstName}
+            languageInvite={hasPerm(auth?.permissions, PERM.aiaLanguageLevel)}
+          />
         </Suspense>
       ) : (
         <div className="px-4 sm:px-6 md:px-8 pt-10 pb-20">

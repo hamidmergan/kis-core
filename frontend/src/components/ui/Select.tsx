@@ -9,6 +9,8 @@ export interface SelectOption<T extends string> {
   value: T;
   label: ReactNode;
   disabled?: boolean;
+  /** "action" opens something instead of picking a value: set off, dashed, never ticked. */
+  variant?: "action";
 }
 
 interface SelectProps<T extends string> {
@@ -59,7 +61,8 @@ export default function Select<T extends string>({
   const buttonRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
 
-  const selectedIdx = options.findIndex((o) => o.value === value);
+  // An action entry is no choice, so it never counts as the selected one.
+  const selectedIdx = options.findIndex((o) => o.value === value && o.variant !== "action");
   const selected = options[selectedIdx];
 
   useEffect(() => {
@@ -190,6 +193,7 @@ export default function Select<T extends string>({
           {options.map((opt, idx) => {
             const isSelected = idx === selectedIdx;
             const isHighlighted = idx === highlightIdx;
+            const isAction = opt.variant === "action";
             return (
               <li
                 key={opt.value}
@@ -198,11 +202,13 @@ export default function Select<T extends string>({
                 aria-disabled={opt.disabled}
                 onMouseEnter={() => !opt.disabled && setHighlightIdx(idx)}
                 onMouseDown={(e) => { e.preventDefault(); commit(idx); }}
-                className={`px-3 py-1.5 flex items-center gap-2 ${opt.disabled ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}
+                className={`px-3 py-1.5 flex items-center gap-2 ${opt.disabled ? "opacity-40 cursor-not-allowed" : "cursor-pointer"} ${isAction ? "mt-1" : ""}`}
                 style={{
                   backgroundColor: isHighlighted && !opt.disabled ? "var(--surface)" : "transparent",
-                  color: "var(--foreground)",
+                  color: isAction ? "var(--muted)" : "var(--foreground)",
                   fontWeight: isSelected ? 600 : 400,
+                  // The dashed line above sets the action off from the real choices.
+                  ...(isAction ? { borderTop: "1px dashed var(--border)" } : {}),
                 }}
               >
                 <span className="flex-1 truncate">{opt.label}</span>

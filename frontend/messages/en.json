@@ -16,10 +16,13 @@
     "themeToDarkAria": "Dark mode",
     "themeToLightAria": "Light mode",
     "settings": "Administration",
+    "stats": "Statistics",
     "calendar": "Calendar",
     "settingsMenu": "Settings",
     "sectionAppearance": "Appearance",
-    "homeNoticeShow": "Show home notice"
+    "homeNoticeShow": "Show home notice",
+    "languageLevel": "Language level",
+    "tour": "Demo module tour"
   },
   "footer": {
     "aiNotice": "This platform uses AI and may make mistakes. Please verify the responses.",
@@ -820,7 +823,6 @@
     }
   },
   "admin": {
-    "title": "Admin",
     "menuOpen": "Open menu",
     "menuClose": "Close menu",
     "close": "Close",
@@ -1469,8 +1471,8 @@
     },
     "languageTrainerCard": {
       "title": "Language trainer",
-      "description": "The language trainer is a practice area in the studio for everyone following the course in a foreign language. It holds vocabulary cards for technical terms and a grammar exercise, each built from the module sources. While it is on, every reader is assessed once and chat answers as well as exercises are pitched at that level. The language trainer works in German only.",
-      "disabled": "Off. The language trainer appears nowhere. Choices already made stay stored and apply again as soon as you switch this on.",
+      "description": "The language trainer is a practice area in the studio for everyone following the course in a foreign language. It holds vocabulary cards, vocabulary and grammar exercises, each built from the module materials. While it is on, every person with the student role is asked at first login whether they are an international student. Yes leads into the language test, the level applies in every module, chat and exercises are pitched at it. Everyone switches the trainer on or off under Language level. The language trainer works in German only.",
+      "disabled": "Off. Nobody is asked and the language trainer appears nowhere. Choices and levels already made stay stored and apply again as soon as you switch this on.",
       "toggleAria": "Toggle language trainer"
     },
     "ocrCard": {
@@ -1724,7 +1726,6 @@
       },
       "more": "More"
     },
-    "titleSettings": "Settings",
     "permissions": {
       "chapter": {
         "benutzen": "Use",
@@ -1745,13 +1746,15 @@
         }
       },
       "general": {
-        "welcome": "See the welcome dialog on first login"
+        "welcome": "See the welcome dialog on first login",
+        "manual": "View the manual"
       },
       "aia": {
         "use": "Open and read shared {plural}",
         "workspace": {
           "create": "Create and manage own {plural}"
-        }
+        },
+        "language_level": "Own language level and language test"
       },
       "tools": {
         "translation": "Translation",
@@ -2333,15 +2336,14 @@
           "resultTitle": "Your result",
           "skip": "Skip",
           "skipped": "Skipped",
-          "disclaimer": "This result comes from an AI. Experts have not checked it yet.",
-          "continue": "Start practising",
+          "disclaimer": "Please keep in mind that this result was created by an AI, which can make mistakes.",
+          "continue": "Continue",
           "abort": "Cancel",
           "abortConfirmTitle": "Stop the test?",
           "abortConfirmBody": "Your answers will be deleted. You can take the test again later.",
           "abortConfirmKeep": "Keep going",
           "abortConfirmDiscard": "Stop",
           "panelDisabledTooltip": "You can use this after the test.",
-          "resetSetting": "Delete result",
           "resetConfirmTitle": "Delete result?",
           "resetConfirmBody": "Then you have to take the test again. Only after that can you practise again.",
           "skill": {
@@ -2606,8 +2608,6 @@
       },
       "settings": {
         "title": "Settings",
-        "sectionPersonalTitle": "Personal",
-        "sectionPersonalDescription": "Applies to you only. Others in the module do not see any of this.",
         "sectionWorkspaceTitle": "Module",
         "sectionWorkspaceDescription": "Applies to everyone in the module. Only module admins can change it.",
         "mascotTitle": "Mascot",
@@ -2616,10 +2616,6 @@
         "mascotFrancis": "Francis",
         "studioTitle": "Studio",
         "studioDescription": "Show the studio panel with mind maps, notes and tools.",
-        "languageTrainingPersonalTitle": "Language trainer",
-        "languageTrainingPersonalDescription": "Shows the language trainer for you, with vocabulary cards and grammar exercise. Switching it on assesses your language level once if you do not have one yet. Applies to you only and only in this module.",
-        "languageTrainingTitle": "Language trainer",
-        "languageTrainingDescription": "Releases the language trainer in this module, with vocabulary cards and grammar exercise. Everyone then decides in their own settings whether to use it. Every exercise is built from the sources of this module. That needs suitable sources on the grammar of the course language, otherwise the exercises are useless. Only release this when you know which sources are here.",
         "translationModeTitle": "Transcript translation",
         "translationModeDescription": "Translates subtitles of audio/video sources into the target language chosen below. The source language is detected automatically. Students can switch between original and translation in the transcript panel. Translation runs as a background job and can take a few minutes.",
         "translationModeOff": "Off",
@@ -2777,14 +2773,18 @@
         "tabOff": "Off",
         "saveAsNote": "Save as note",
         "regenEnRunning": "running...",
-        "regenEnButton": "Translate",
         "regenEnRunningTitle": "Translation is running in the background...",
-        "regenEnIdleTitle": "Translate subtitles in the background",
         "regenEnErrorTitle": "Translation failed: {error}. Try again?",
         "regenEnTimeout": "Translation is taking too long. Check later or try again.",
         "regenEnUnknownError": "Unknown error",
         "tracksDe": "German",
-        "tracksEn": "English"
+        "tracksEn": "English",
+        "translateAddButton": "Translation",
+        "translateModalTitle": "Translate transcript",
+        "translateModalHint": "The language of the recording is detected automatically. There is exactly one translation.",
+        "translateModalLangLabel": "Into this language",
+        "translateModalStart": "Start translation",
+        "translateModalCancel": "Cancel"
       },
       "summary": {
         "header": "Page {page} - Summary",
@@ -2994,8 +2994,9 @@
         "start": "Explore the demo module",
         "inviteStart": "Start",
         "restart": "Start the tour again",
-        "dismiss": "Not now",
-        "inviteTitle": "Explore the demo module",
+        "dismiss": "Hide",
+        "inviteTitle": "Demo module tour",
+        "inviteBody": "A short tour through a sample module. Shows the materials, the AI assistant Francis and the learning tools in the study area.",
         "steps": {
           "preview": {
             "title": "Teacher and student view",
@@ -3223,6 +3224,66 @@
   "welcomeModal": {
     "title": "Welcome to KIS",
     "cta": "Get started"
+  },
+  "languageTrainerInvite": {
+    "title": "Language trainer",
+    "body": "For learners of German. Practises subject vocabulary and grammar from your modules. Adapts wording and depth to your level.",
+    "start": "Start the language test",
+    "dismiss": "Hide"
+  },
+  "languageLevel": {
+    "title": "Language level",
+    "notOffered": "The language trainer is not enabled for your account.",
+    "languageTraining": {
+      "levelLabel": "Your level",
+      "levelSince": "since {date}",
+      "sourceTest": "Language test on {date}",
+      "sourceSelf": "Chosen yourself on {date}",
+      "change": "Change level",
+      "noLevel": "No language level yet. Start the language test or set your level yourself.",
+      "takeTest": "Start the language test",
+      "chooseSelf": "Set level yourself",
+      "apply": "Apply",
+      "cancel": "Cancel",
+      "current": "current",
+      "ratherTest": "Rather have it assessed?",
+      "levels": {
+        "A1": {
+          "name": "Beginner",
+          "short": "You can understand and use familiar everyday expressions and very basic phrases.",
+          "long": "You can understand and use familiar everyday expressions and very basic phrases. You can introduce yourself and others and interact in a simple way, provided the other person talks slowly and clearly."
+        },
+        "A2": {
+          "name": "Elementary",
+          "short": "You can understand sentences and frequently used expressions related to areas of most immediate relevance.",
+          "long": "You can understand sentences and frequently used expressions related to areas of most immediate relevance. You can communicate in simple, routine tasks and describe your background, immediate environment and immediate needs in simple terms."
+        },
+        "B1": {
+          "name": "Intermediate",
+          "short": "You can understand the main points of clear standard input on familiar matters.",
+          "long": "You can understand the main points of clear standard input on familiar matters from work, school and leisure. You can deal with most situations while travelling and talk about experiences, plans and goals in a connected way."
+        },
+        "B2": {
+          "name": "Upper intermediate",
+          "short": "You can understand the main ideas of complex text on both concrete and abstract topics.",
+          "long": "You can understand the main ideas of complex text on concrete and abstract topics, including technical discussions in your field. You can interact fluently and spontaneously enough that a regular conversation with native speakers is possible without strain."
+        },
+        "C1": {
+          "name": "Advanced",
+          "short": "You can understand a wide range of demanding, longer texts and recognise implicit meaning.",
+          "long": "You can understand a wide range of demanding, longer texts and recognise implicit meaning. You can express yourself fluently and spontaneously and use the language flexibly and effectively for work and study."
+        },
+        "C2": {
+          "name": "Proficient",
+          "short": "You can understand with ease virtually everything you hear or read.",
+          "long": "You can understand with ease virtually everything you hear or read. You can express yourself spontaneously, very fluently and precisely, differentiating finer shades of meaning even in complex situations."
+        }
+      }
+    },
+    "languageTest": {
+      "notOffered": "The language trainer is not enabled for your account.",
+      "toLevelPage": "To language level"
+    }
   },
   "layoutMeta": {
     "title": "KIS",
