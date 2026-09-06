@@ -7,6 +7,8 @@ import { useTranslations } from "next-intl";
 import { Copy, Check } from "@phosphor-icons/react";
 import Select from "@/components/ui/Select";
 import { copyTextFromPromise } from "@/lib/clipboard";
+import SeatsField from "./SeatsField";
+import { choiceToSeats } from "./seats";
 
 type Props = {
   onClose: () => void;
@@ -17,7 +19,6 @@ type CustomRole = { id: number; name: string };
 
 type Erstellt = { code: string; label: string };
 
-const MAX_USES = [10, 25, 50, 100];
 const VALID_DAYS = [7, 14, 30, 60];
 const ACCESS_DAYS = [7, 14, 21, 30];
 
@@ -26,6 +27,7 @@ export default function CreateAccessCodeDialog({ onClose, onCreated }: Props) {
   const [label, setLabel] = useState("");
   const [role, setRole] = useState("staff");
   const [maxUses, setMaxUses] = useState("10");
+  const [customUses, setCustomUses] = useState("");
   const [validDays, setValidDays] = useState("7");
   const [accessDays, setAccessDays] = useState("7");
   const [customRoles, setCustomRoles] = useState<CustomRole[]>([]);
@@ -52,11 +54,6 @@ export default function CreateAccessCodeDialog({ onClose, onCreated }: Props) {
     [t, customRoles],
   );
 
-  const maxUsesOptions = useMemo(
-    () => MAX_USES.map((n) => ({ value: String(n), label: t("seats", { n }) })),
-    [t],
-  );
-
   const validDaysOptions = useMemo(
     () => VALID_DAYS.map((n) => ({ value: String(n), label: t("days", { n }) })),
     [t],
@@ -70,8 +67,11 @@ export default function CreateAccessCodeDialog({ onClose, onCreated }: Props) {
     [t],
   );
 
+  const plaetze = choiceToSeats(maxUses, customUses);
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (plaetze === null) return;
     setSubmitting(true);
     setError(null);
     const custom = role.startsWith("custom:");
@@ -82,7 +82,7 @@ export default function CreateAccessCodeDialog({ onClose, onCreated }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           label: label.trim(),
-          max_uses: Number(maxUses),
+          max_uses: plaetze,
           valid_days: Number(validDays),
           access_days: accessDays === "0" ? null : Number(accessDays),
           kis_role: custom ? "custom" : role,
@@ -166,10 +166,12 @@ export default function CreateAccessCodeDialog({ onClose, onCreated }: Props) {
               <p className="text-xs text-muted-soft">{t("labelHint")}</p>
             </div>
 
-            <div className="space-y-1">
-              <label className="text-xs uppercase tracking-wide text-muted">{t("maxUses")}</label>
-              <Select value={maxUses} onChange={setMaxUses} options={maxUsesOptions} className="w-full" />
-            </div>
+            <SeatsField
+              choice={maxUses}
+              custom={customUses}
+              onChoice={setMaxUses}
+              onCustom={setCustomUses}
+            />
 
             <div className="space-y-1">
               <label className="text-xs uppercase tracking-wide text-muted">{t("validDays")}</label>
@@ -200,7 +202,7 @@ export default function CreateAccessCodeDialog({ onClose, onCreated }: Props) {
               <button
                 type="submit"
                 data-testid="access-code-submit"
-                disabled={submitting || !label.trim()}
+                disabled={submitting || !label.trim() || plaetze === null}
                 className="px-4 py-2 text-sm bg-kb text-white rounded-md disabled:opacity-60"
               >
                 {submitting ? t("submitting") : t("submit")}

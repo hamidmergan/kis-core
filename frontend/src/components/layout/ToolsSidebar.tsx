@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { usePathname } from "@/i18n/navigation";
 import {
+  ArrowLeft,
   Sidebar,
   Translate,
   SpeakerHigh,
@@ -95,6 +96,13 @@ export default function ToolsSidebar() {
     try { localStorage.setItem(STORAGE_KEY, next ? "1" : "0"); } catch { /* ignore */ }
   }
 
+  // On a phone the tools list is reached through the burger menu, so back leads there again.
+  function backToMenu() {
+    setUserPref(true);
+    try { localStorage.setItem(STORAGE_KEY, "1"); } catch { /* ignore */ }
+    window.dispatchEvent(new Event("header-menu:open"));
+  }
+
   // Below 1024px the open sidebar covers the whole page, so it closes after picking a tool.
   function closeOnSmallScreen() {
     if (isLarge) return;
@@ -117,6 +125,17 @@ export default function ToolsSidebar() {
           className={`mb-4 flex items-center ${effectiveCollapsed ? "justify-center" : "justify-between"}`}
           style={{ minHeight: 28 }}
         >
+          {/* On a phone the open sidebar fills the page, so it needs a back control instead of a collapse toggle. */}
+          {isSmartphone && (
+            <button
+              type="button"
+              onClick={backToMenu}
+              className="flex items-center gap-1.5 px-2 py-1 text-sm text-kb hover:underline"
+            >
+              <ArrowLeft size={18} weight="bold" />
+              {t("back")}
+            </button>
+          )}
           {!effectiveCollapsed && (
             <h2
               className="text-base font-semibold tracking-tight px-2"
@@ -125,14 +144,16 @@ export default function ToolsSidebar() {
               {t("heading")}
             </h2>
           )}
-          <button
-            type="button"
-            onClick={toggle}
-            aria-label={effectiveCollapsed ? t("expand") : t("collapse")}
-            className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
-          >
-            <Sidebar size={18} weight="bold" />
-          </button>
+          {!isSmartphone && (
+            <button
+              type="button"
+              onClick={toggle}
+              aria-label={effectiveCollapsed ? t("expand") : t("collapse")}
+              className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
+            >
+              <Sidebar size={18} weight="bold" />
+            </button>
+          )}
         </div>
 
         <ul className="flex flex-col gap-1">

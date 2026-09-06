@@ -1,5 +1,6 @@
 import React, { useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import HelpTooltip from "@/components/ui/HelpTooltip";
 import type { ExerciseSet } from "../../_types";
 import { checkGap, type ClozeVerdict } from "./_cloze";
 import { SetSourceLegend } from "./SetSourceLegend";
@@ -117,7 +118,9 @@ export function ClozeExerciseView({
               solution={gaps[p.gap!]?.solution ?? ""}
               width={maxSolutionLen}
             />
-          ))}
+          ))}{" "}
+          {/* The text and the solutions are the model's wording, not a quote. */}
+          <HelpTooltip text={t("common.aiKnowledgeHint")} />
         </p>
 
         <div className="flex flex-wrap gap-1.5">

@@ -2,6 +2,7 @@ import React, { useContext, useEffect, useRef, useState } from "react";
 import { CaretLeft, CaretRight, Chat, Check, Lightbulb, SidebarSimple } from "@phosphor-icons/react";
 import { useLocale, useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
+import HelpTooltip from "@/components/ui/HelpTooltip";
 import type { ExerciseItem, ExerciseItemSource, ExerciseSet } from "../../_types";
 import { _chunkLabel, _getChipIcon, _md, _sourceChipKey } from "../../_utils";
 import { MinimizeContext } from "../../_context";
@@ -239,8 +240,11 @@ export function MCExerciseView({
                       the content quiz leaves it empty — and for a form exercise the
                       reason IS the learning, so it must not stay hidden. */}
                   {answered && card.explanation && (
-                    <p className="text-xs leading-relaxed -mt-2" style={{ color: "var(--muted)" }}
-                      dangerouslySetInnerHTML={{ __html: _md(card.explanation) }} />
+                    <p className="text-xs leading-relaxed -mt-2" style={{ color: "var(--muted)" }}>
+                      <span dangerouslySetInnerHTML={{ __html: _md(card.explanation) }} />{" "}
+                      {/* The rule comes from the model, the sentence came from the material. */}
+                      <HelpTooltip text={t("common.aiKnowledgeHint")} />
+                    </p>
                   )}
                   {/* Der Tipp steht ueber den Quellen und unter den Optionen, also da,
                       wo der Blick nach dem Lesen der Aufgabe schon ist. */}

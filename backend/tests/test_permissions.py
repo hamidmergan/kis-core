@@ -9,6 +9,7 @@ from src.permissions import (
 )
 from src.permissions_registry import (
     ALL_PERMISSION_KEYS,
+    PERM_AIA_LANGUAGE_LEVEL,
     PERM_AIA_USE,
     PERM_AIA_WORKSPACE_CREATE,
     PERM_SET_AIA_LEVEL,
@@ -65,6 +66,11 @@ def test_staff_gets_the_numbers_of_its_own_workspaces():
     # The area opens, but only for this one tab.
     assert perms.allow_admin_panel is True
     assert perms.settings_pages == (PERM_SET_STATS_OWN,)
+
+
+def test_staff_has_no_language_level_by_default():
+    perms = permissions_for_system_role("staff")
+    assert not perms.has(PERM_AIA_LANGUAGE_LEVEL)
 
 
 def test_user_has_only_aia_workspace_access_no_create():

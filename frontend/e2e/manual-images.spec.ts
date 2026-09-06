@@ -9,6 +9,17 @@ const SIZE = { width: 1440, height: 900 };
 const BASE = process.env.E2E_BASE_URL ?? "http://localhost:3000";
 // Das Demo-Modul "Projektmanagement", damit in den Bildern keine echten Kursdaten stehen.
 const WORKSPACE = process.env.E2E_WORKSPACE ?? "6f2d916b-94a3-403a-ab4d-9000699e5ef0";
+/**
+ * Die gespeicherte Sitzung gehoert einem Konto mit allen Rechten, das die beiden Einladungen auf
+ * der Startseite laengst beantwortet hat. Das Bild dazu braucht ein Studierenden-Konto, das noch
+ * nicht geantwortet hat, also meldet sich der eine Test selbst an. Sind die Karten weg, holt
+ * dieses SQL sie zurueck, sonst faellt der Test durch:
+ * UPDATE users SET tour_seen_at = NULL, language_training_asked_at = NULL WHERE ldap_username = 'b'
+ */
+const STUDENT = {
+  user: process.env.E2E_STUDENT_USER ?? "b",
+  pass: process.env.E2E_STUDENT_PASS ?? "b",
+};
 
 /** One picture per page that needs nothing but its address. */
 const PAGES: { name: string; path: string }[] = [
@@ -120,6 +131,35 @@ test.describe("Handbuch-Bilder", () => {
         await page.waitForSelector("#username");
         // The card alone, without the welcome heading above it and its empty space.
         await page.locator(".max-w-sm > div").last().screenshot({ path: shot(locale, "sign-in") });
+      });
+    }
+  });
+
+  // Die beiden Einladungen stehen nur bei einer Person, die noch nicht geantwortet hat.
+  test.describe("als Studierende", () => {
+    test.use({ storageState: { cookies: [], origins: [] } });
+
+    for (const locale of LOCALES) {
+      test(`erster-besuch ${locale}`, async ({ page }) => {
+        await useLocale(page, locale);
+        await page.goto("/", { waitUntil: "domcontentloaded" });
+        await page.waitForSelector("#username");
+        await page.fill("#username", STUDENT.user);
+        await page.fill("#password", STUDENT.pass);
+        await page.locator('button[type="submit"]').click();
+        await page.waitForURL((url) => !url.pathname.includes("login"), { timeout: 30_000 });
+        // Die Anmeldung springt immer auf "/", die englische Fassung braucht ihre Adresse zurueck.
+        await page.goto(`${prefix(locale)}/`, { waitUntil: "domcontentloaded" });
+        await settle(page);
+
+        const karten = page.locator('[data-tour="tour-invite"]').locator("..");
+        await expect(karten).toBeVisible();
+        const box = (await karten.boundingBox())!;
+        // Kopf, Begruessung und die beiden Karten, die Modulliste darunter hat ihr eigenes Bild.
+        await page.screenshot({
+          path: shot(locale, "first-login"),
+          clip: { x: 0, y: 0, width: SIZE.width, height: Math.ceil(box.y + box.height + 24) },
+        });
       });
     }
   });

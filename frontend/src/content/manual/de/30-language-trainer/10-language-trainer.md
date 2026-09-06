@@ -6,13 +6,21 @@ Für alle, die die Kurssprache noch lernen. Drei Werkzeuge im Studio: Lernkarten
 Wortschatzübungen, Grammatikübungen. Alles aus den Materialien des Moduls, passend zum eigenen
 Niveau.
 
+## Was das Niveau bewirkt
+
+- Der Assistent im Modul antwortet auf dieser Stufe
+- Alles Erzeugte ist so formuliert: Karteikarten, Quiz, Lernkarten, Wortschatz- und
+  Grammatikübungen, Mindmap, Datentabelle, Glossar
+- Inhalt, Anzahl der Aufgaben und Lösungen bleiben gleich, nur Wortwahl und Erklärtiefe ändern sich
+- Ohne Niveau ändert sich nichts davon
+
 ## Einmal angenommen, gilt überall
 
 Der Sprachtrainer hängt an Ihnen, nicht am Modul. Auf der Startseite steht dafür eine Karte neben
 dem Demo-Modul. Mit Sprachtest starten nehmen Sie ihn an, ab dann gilt er in allen Modulen. Einen Schalter zum späteren Ein- oder Ausschalten gibt es aktuell
 noch nicht.
 
-Ohne Niveau bleibt er zu. Erst mit einem Niveau, aus dem Sprachtest oder unter Sprachlevel selbst
+Ohne Niveau bleibt er zu. Erst mit einem Niveau, aus dem Sprachtest oder unter Sprachniveau selbst
 festgelegt, erscheinen die drei Werkzeuge im Studio.
 
 ## Was die Verwaltung entscheidet

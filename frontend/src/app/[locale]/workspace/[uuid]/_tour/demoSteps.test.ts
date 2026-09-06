@@ -43,7 +43,7 @@ describe("Studierende ohne das Recht Module anzulegen", () => {
     expect(keys).not.toContain("schluss");
   });
 
-  it("sehen beim Hinweis ihre eigene Pinnnadel, die den Hinweis nur öffnet", () => {
+  it("sehen beim Hinweis dasselbe Info-Zeichen, das den Hinweis nur öffnet", () => {
     const gefragt = seiteMitschreiben();
     demoSchritte(false).find((s) => s.key === "hinweisStudi")?.ziel?.();
     expect(gefragt).toEqual(['[data-tour="staff-note"]']);
@@ -61,9 +61,32 @@ describe("Aufbau der Schritte", () => {
     }
   });
 
-  it("Lehrende zeigen beim Hinweis weiterhin auf die Pinnnadel", () => {
+  it("Lehrende zeigen beim Hinweis auf dasselbe Info-Zeichen", () => {
     const gefragt = seiteMitschreiben();
     demoSchritte(true).find((s) => s.key === "hinweis")?.ziel?.();
-    expect(gefragt).toEqual(['[data-tour="add-staff-note"]']);
+    expect(gefragt).toEqual(['[data-tour="staff-note"]']);
+  });
+});
+
+describe("Der Hinweis oben rechts", () => {
+  it("steht bei beiden Fassungen direkt hinter der Begrüßung", () => {
+    // Das Info-Zeichen sitzt in der Kopfleiste, mitten in der Materialliste
+    // sprang der Rundgang dafür nach oben rechts und gleich wieder zurück.
+    expect(schluessel(true)[1]).toBe("hinweis");
+    expect(schluessel(false)[1]).toBe("hinweisStudi");
+  });
+});
+
+describe("Zurück auf dem Smartphone", () => {
+  it("jede Station mit Ziel holt ihren Bereich selbst nach vorn", () => {
+    // Auf dem Telefon bleiben alle drei Bereiche gebaut und werden nur
+    // unsichtbar geschaltet, das Ziel steht also auch im verdeckten Bereich
+    // noch auf der Seite. Ohne eigenes Vorbereiten zeigt der Rundgang beim
+    // Zurückgehen auf eine unsichtbare Stelle im falschen Bereich.
+    // Ausgenommen sind Ziele in der Kopfleiste, die kein Bereich je verdeckt.
+    const ohneVorbereitung = [...demoSchritte(true), ...demoSchritte(false)]
+      .filter((s) => s.ziel && !s.vorbereiten && !s.imKopf)
+      .map((s) => s.key);
+    expect(ohneVorbereitung).toEqual([]);
   });
 });

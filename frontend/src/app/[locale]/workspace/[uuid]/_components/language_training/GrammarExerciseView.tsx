@@ -2,6 +2,7 @@ import React, { useContext, useEffect, useRef, useState } from "react";
 import { CaretLeft, CaretRight, Check, Minus, SidebarSimple, X } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
+import HelpTooltip from "@/components/ui/HelpTooltip";
 import type { ExerciseItem, ExerciseItemSource, ExerciseSet, GrammarCheckResult } from "../../_types";
 import { _chunkLabel, _getChipIcon, _sourceChipKey } from "../../_utils";
 import { ExerciseNav } from "./ExerciseNav";
@@ -332,7 +333,13 @@ export function GrammarExerciseView({
                   {result.verdict !== "correct" && (
                     <p className="mt-1.5 font-semibold">{t("grammar.solution", { solution: result.solution })}</p>
                   )}
-                  {result.explanation && <p className="mt-1 opacity-90">{result.explanation}</p>}
+                  {result.explanation && (
+                    <p className="mt-1 opacity-90">
+                      {result.explanation}{" "}
+                      {/* The rule comes from the model, the sentence came from the material. */}
+                      <HelpTooltip text={t("common.aiKnowledgeHint")} />
+                    </p>
+                  )}
                 </div>
               )}
 

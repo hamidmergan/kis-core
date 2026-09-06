@@ -2,6 +2,7 @@ import React, { useContext, useEffect, useRef, useState } from "react";
 import { CaretLeft, CaretRight, Chat, Check, Lightbulb, Question, SidebarSimple, SpeakerHigh, XIcon } from "@phosphor-icons/react";
 import { useLocale, useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
+import HelpTooltip from "@/components/ui/HelpTooltip";
 import IconButton from "@/components/ui/IconButton";
 import { useVoicePlayer } from "@/hooks/useVoicePlayer";
 import type { ExerciseItem, ExerciseItemSource, ExerciseSet } from "../../_types";
@@ -269,7 +270,11 @@ export function FlashcardsLearnView({
                     </div>
                     {/* Definition */}
                     <div>
-                      <span className="text-3xs font-bold uppercase tracking-widest" >{t("flashcardsLearn.definition")}</span>
+                      <span className="inline-flex items-center gap-1">
+                        <span className="text-3xs font-bold uppercase tracking-widest" >{t("flashcardsLearn.definition")}</span>
+                        {/* Says the wording is the model's, not a quote from the material. */}
+                        <HelpTooltip text={t("common.aiKnowledgeHint")} />
+                      </span>
                       <p className="text-base leading-relaxed mt-1" style={{ color: "var(--foreground)" }}>{definition}</p>
                     </div>
                     {/* Word parts */}

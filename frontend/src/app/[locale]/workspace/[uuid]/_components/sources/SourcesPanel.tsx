@@ -7,15 +7,12 @@ import {
   FileAudio,
   FileVideo,
   FolderSimplePlus,
-  PushPin,
   Check,
   X,
 } from "@phosphor-icons/react";
-import type { Chapter, Source, StaffNoteLink } from "../../_types";
+import type { Chapter, Source } from "../../_types";
 import { OwnerOnly } from "../layout/OwnerOnly";
 import { UploadErrorsBlock } from "./UploadErrorsBlock";
-import { StaffNoteViewModal } from "./StaffNoteViewModal";
-import { StaffNoteEditModal } from "./StaffNoteEditModal";
 import { SourceRow } from "./SourceRow";
 import { ChapterHead } from "./ChapterHead";
 import { GroupCheckbox } from "./GroupCheckbox";
@@ -40,9 +37,6 @@ export function SourcesPanel({
   onMinimize,
   workspaceUuid,
   hideHeader,
-  staffNoteText,
-  staffNoteLinks,
-  onStaffNoteSave,
   chapters,
   onCreateChapter,
   onRenameChapter,
@@ -69,9 +63,6 @@ export function SourcesPanel({
   onMinimize: () => void;
   workspaceUuid: string;
   hideHeader?: boolean;
-  staffNoteText?: string | null;
-  staffNoteLinks?: StaffNoteLink[];
-  onStaffNoteSave?: (text: string | null, links: StaffNoteLink[]) => Promise<void>;
   /** Structure of the list, empty means one flat list as before. */
   chapters?: Chapter[];
   onCreateChapter?: (name: string) => Promise<void>;
@@ -94,14 +85,11 @@ export function SourcesPanel({
   const [menuMode, setMenuMode] = useState<"root" | "chapter">("root");
   const [renameId, setRenameId] = useState<string | null>(null);
   const [compact, setCompact] = useState(false);
-  const [staffNoteModalOpen, setStaffNoteModalOpen] = useState(false);
   const [creatingChapter, setCreatingChapter] = useState(false);
   const [newChapterName, setNewChapterName] = useState("");
   const [newChapterError, setNewChapterError] = useState<string | null>(null);
   const [newChapterBusy, setNewChapterBusy] = useState(false);
   const [dragOver, setDragOver] = useState(false);
-  const noteLinks = staffNoteLinks ?? [];
-  const hasNote = Boolean(staffNoteText?.trim()) || noteLinks.length > 0;
   const chapterList = useMemo(
     () => [...(chapters ?? [])].sort((a, b) => a.position - b.position),
     [chapters]
@@ -211,32 +199,7 @@ export function SourcesPanel({
           <FolderSimplePlus size={14} weight="bold" />
         </IconButton>
       )}
-      {/* Owners edit the note here, readers open it through their own pin. */}
-      {onStaffNoteSave && (
-        <IconButton
-          data-tour="add-staff-note"
-          onClick={() => setStaffNoteModalOpen(true)}
-          title={t("addStaffNote")}
-          aria-label={t("addStaffNote")}
-          className="text-[var(--kb)]"
-          style={{ backgroundColor: "rgba(var(--kb-rgb),0.10)" }}
-        >
-          <PushPin size={14} weight="bold" />
-        </IconButton>
-      )}
     </>
-  ) : null;
-
-  // Readers get the pin only while there is a note to open.
-  const noteButton = !isOwner && hasNote ? (
-    <IconButton
-      data-tour="staff-note"
-      onClick={() => setStaffNoteModalOpen(true)}
-      title={t("staffNote.expand")}
-      aria-label={t("staffNote.expand")}
-    >
-      <PushPin size={14} weight="bold" />
-    </IconButton>
   ) : null;
 
   return (
@@ -263,7 +226,6 @@ export function SourcesPanel({
               <span className="mx-1 flex-shrink-0" style={{ width: 1, height: 18, backgroundColor: "var(--border)" }} />
             </>
           )}
-          {noteButton}
           <IconButton onClick={onMinimize} title={tPanels("minimize")}>
             <SidebarSimple size={13} />
           </IconButton>
@@ -273,13 +235,12 @@ export function SourcesPanel({
       {/* Mobil: die Kopfzeile ist weg, den Titel traegt die Tab-Leiste. Die
           Anlegen-Knoepfe brauchen trotzdem einen Platz, also bekommen sie eine
           eigene schmale Zeile ohne Titel und ohne Minimieren. */}
-      {hideHeader && (ownerActions || noteButton) && (
+      {hideHeader && ownerActions && (
         <div
           className="flex items-center justify-end gap-1.5 px-3 py-1.5 flex-shrink-0"
           style={{ borderBottom: "1px solid var(--border)" }}
         >
-          {ownerActions}
-          {noteButton}
+          <OwnerOnly show>{ownerActions}</OwnerOnly>
         </div>
       )}
 
@@ -502,25 +463,6 @@ export function SourcesPanel({
           </>
         )}
       </div>
-
-      {/* Staff note edit modal (owner only) */}
-      {isOwner && onStaffNoteSave && (
-        <StaffNoteEditModal
-          open={staffNoteModalOpen}
-          initialText={staffNoteText ?? null}
-          initialLinks={noteLinks}
-          onClose={() => setStaffNoteModalOpen(false)}
-          onSave={onStaffNoteSave}
-        />
-      )}
-      {!isOwner && (
-        <StaffNoteViewModal
-          open={staffNoteModalOpen}
-          text={staffNoteText ?? null}
-          links={noteLinks}
-          onClose={() => setStaffNoteModalOpen(false)}
-        />
-      )}
 
       {/* Delete confirmation modal */}
       {deleteSourceId && (

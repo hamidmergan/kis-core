@@ -17,7 +17,11 @@ from src.limits import (
     GLOSSARY_LIMIT,
 )
 
-from src.features.ai_assistant.routes._text import _context_snippet, _term_appears_in_text
+from src.features.ai_assistant.routes._text import (
+    _context_snippet,
+    _term_appears_in_text,
+    _verbatim_or_empty,
+)
 from src.features.ai_assistant import schemas
 from src.services.aia_adaptive_tools import build_adaptive_tool_suffix
 
@@ -94,15 +98,16 @@ Respond ONLY with a JSON object describing this exact term. Do NOT split compoun
   "base_form": "Dictionary base form of the term (see rules), or empty string",
   "definition": "Short explanation in German (B1 level, 1-2 sentences)",
   "definition_en": "Short explanation in English (B1 level, 1-2 sentences)",
-  "example_sentence": "Example sentence using the term in its source language",
-  "example_sentence_en": "English translation of the example sentence"
+  "example_sentence": "A sentence copied WORD FOR WORD from the CONTEXT excerpt, or empty string",
+  "example_sentence_en": "Translation of that sentence into English, or empty string"
 }
 
 Rules:
 - term_en: if the input term is German, translate to English. If English, translate to German. Never the same language as the input.
 - base_form: the dictionary base form (lemma) of the marked term, in the SAME language as the term (NOT a translation). Base form means: nouns in the singular nominative, verbs in the infinitive, adjectives uninflected. Return an EMPTY string when the term is already in its base form, is a multi-word phrase, or the language does not inflect it this way. Example: term "läuft" -> base_form "laufen"; term "Häusern" -> base_form "Haus"; term "Arbeitsmarkt" -> base_form "".
 - definition: a simple but ACCURATE explanation in German at B1 level. First name what the term IS (its category), then add the one or two features that truly distinguish it. If a CONTEXT excerpt from the document is provided below, base the definition on how the term is actually used THERE and stay consistent with it. Do NOT invent specifics the context does not support, do NOT narrow a general term down to one special case, and do NOT pad it with vague filler sentences.
-- definition_en: the same explanation in English at B1 level.
+- example_sentence: copy ONE sentence WORD FOR WORD out of the CONTEXT excerpt below, namely the sentence in which the term appears. Do NOT shorten it, do NOT rephrase it, do NOT write one yourself. When no CONTEXT is given, or the term appears in none of its sentences, return an EMPTY string.
+- example_sentence_en: the English translation of that copied sentence, or an EMPTY string when example_sentence is empty.
 - If the marked term is a pure function word (und, oder, aber, ist, der, die, das, ein, eine, er, sie, es, im, zu, mit, von, für, auf, etc.) or trivial A1/A2 everyday vocabulary (Haus, Tag, gehen, machen, gut, schön) that is not worth adding to a glossary, respond with an empty JSON array instead: []
 - Otherwise respond ONLY with the JSON object, no array, no markdown fences."""
 
@@ -116,8 +121,8 @@ Respond ONLY with a JSON array:
     "base_form": "Dictionary base form of term_de (see rules), or empty string",
     "definition": "Short explanation in German (B1 level, 1-2 sentences)",
     "definition_en": "Short explanation in English (B1 level, 1-2 sentences)",
-    "example_sentence": "Example sentence using the term (source language)",
-    "example_sentence_en": "English translation of the example sentence"
+    "example_sentence": "A sentence copied WORD FOR WORD from the marked text, or empty string",
+    "example_sentence_en": "Translation of that sentence into English, or empty string"
   }
 ]
 
@@ -133,7 +138,8 @@ Rules:
 - base_form: the dictionary base form (lemma) of term_de, in the SAME language as term_de (NOT a translation). Base form means: nouns in the singular nominative, verbs in the infinitive, adjectives uninflected. Return an EMPTY string when term_de is already in its base form, is a multi-word phrase, or the language does not inflect it this way. Example: term_de "läuft" -> base_form "laufen"; term_de "Arbeitsmarkt" -> base_form "".
 - definition: a simple but ACCURATE explanation in German at B1 level. First name what the term IS (its category), then add the one or two features that truly distinguish it. Base it on how the term is used in the marked text. Do NOT invent specifics the text does not support, do NOT narrow a general term down to one special case, and do NOT pad it with vague filler sentences.
 - definition_en: the same explanation in English at B1 level.
-- example_sentence_en: English translation of the example sentence
+- example_sentence: copy ONE sentence WORD FOR WORD out of the marked text, namely the sentence in which the term appears. Do NOT shorten it, do NOT rephrase it, do NOT write one yourself. When the marked text holds no such full sentence, return an EMPTY string.
+- example_sentence_en: the English translation of that copied sentence, or an EMPTY string when example_sentence is empty
 - At most 5 terms per selection; prioritize the ones most difficult at B1
 - If the text really only contains function words / trivial vocabulary, respond with: []
 - Respond ONLY with the JSON array."""
@@ -234,14 +240,16 @@ async def extract_glossary_from_selection(
             if text.lower() in existing_terms:
                 return {"added": 0, "message": t("ai.glossary.alreadyKnown", locale)}
 
+            # The context sentence is only shown when it really stands in the document.
+            beleg = _verbatim_or_empty(parsed.get("example_sentence", ""), context)
             entry = {
                 "term_de": text,
                 "term_en": parsed.get("term_en", ""),
                 "base_form": _base_form(parsed.get("base_form"), text),
                 "definition": parsed.get("definition", ""),
                 "definition_en": parsed.get("definition_en", ""),
-                "example_sentence": parsed.get("example_sentence", ""),
-                "example_sentence_en": parsed.get("example_sentence_en", ""),
+                "example_sentence": beleg,
+                "example_sentence_en": parsed.get("example_sentence_en", "") if beleg else "",
                 "page_number": body.page_number,
             }
             db.bulk_create_glossary_entries(source["id"], user_id, [entry])
@@ -281,14 +289,15 @@ async def extract_glossary_from_selection(
                 continue
             if term.lower() in existing_terms:
                 continue
+            beleg = _verbatim_or_empty(term_obj.get("example_sentence", ""), text)
             new_entries.append({
                 "term_de": term_obj["term_de"],
                 "term_en": term_obj.get("term_en", ""),
                 "base_form": _base_form(term_obj.get("base_form"), term_obj["term_de"]),
                 "definition": term_obj.get("definition", ""),
                 "definition_en": term_obj.get("definition_en", ""),
-                "example_sentence": term_obj.get("example_sentence", ""),
-                "example_sentence_en": term_obj.get("example_sentence_en", ""),
+                "example_sentence": beleg,
+                "example_sentence_en": term_obj.get("example_sentence_en", "") if beleg else "",
                 "page_number": body.page_number,
             })
             existing_terms.add(term_obj["term_de"].lower())

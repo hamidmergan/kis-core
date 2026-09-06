@@ -5,6 +5,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import Select from "@/components/ui/Select";
+import SeatsField from "./SeatsField";
+import { choiceToSeats, seatsToChoice } from "./seats";
 
 type Code = {
   id: number;
@@ -26,7 +28,6 @@ type Props = {
 
 type CustomRole = { id: number; name: string };
 
-const MAX_USES = [10, 25, 50, 100];
 const VALID_DAYS = [7, 14, 30, 60];
 const ACCESS_DAYS = [7, 14, 21, 30];
 
@@ -40,7 +41,9 @@ export default function EditAccessCodeDialog({ code, onClose, onSaved }: Props) 
   const tCreate = useTranslations("admin.createAccessCode");
   const [label, setLabel] = useState(code.label);
   const [role, setRole] = useState(code.custom_role_id ? `custom:${code.custom_role_id}` : code.role);
-  const [maxUses, setMaxUses] = useState(String(code.max_uses));
+  const startPlaetze = seatsToChoice(code.max_uses);
+  const [maxUses, setMaxUses] = useState(startPlaetze.choice);
+  const [customUses, setCustomUses] = useState(startPlaetze.custom);
   const [validDays, setValidDays] = useState(String(verbleibendeTage(code.valid_until)));
   const [accessDays, setAccessDays] = useState(code.access_days == null ? "0" : String(code.access_days));
   const [customRoles, setCustomRoles] = useState<CustomRole[]>([]);
@@ -65,11 +68,6 @@ export default function EditAccessCodeDialog({ code, onClose, onSaved }: Props) 
     [tCreate, customRoles],
   );
 
-  const maxUsesOptions = useMemo(
-    () => MAX_USES.map((n) => ({ value: String(n), label: tCreate("seats", { n }) })),
-    [tCreate],
-  );
-
   const validDaysOptions = useMemo(() => {
     const werte = VALID_DAYS.includes(Number(validDays)) ? VALID_DAYS : [Number(validDays), ...VALID_DAYS];
     return werte.map((n) => ({ value: String(n), label: tCreate("days", { n }) }));
@@ -83,8 +81,11 @@ export default function EditAccessCodeDialog({ code, onClose, onSaved }: Props) 
     [tCreate],
   );
 
+  const plaetze = choiceToSeats(maxUses, customUses);
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (plaetze === null) return;
     setSubmitting(true);
     setError(null);
     const custom = role.startsWith("custom:");
@@ -95,7 +96,7 @@ export default function EditAccessCodeDialog({ code, onClose, onSaved }: Props) 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           label: label.trim(),
-          max_uses: Number(maxUses),
+          max_uses: plaetze,
           valid_days: Number(validDays),
           access_days: accessDays === "0" ? null : Number(accessDays),
           kis_role: custom ? "custom" : role,
@@ -142,10 +143,12 @@ export default function EditAccessCodeDialog({ code, onClose, onSaved }: Props) 
             />
           </div>
 
-          <div className="space-y-1">
-            <label className="text-xs uppercase tracking-wide text-muted">{tCreate("maxUses")}</label>
-            <Select value={maxUses} onChange={setMaxUses} options={maxUsesOptions} className="w-full" />
-          </div>
+          <SeatsField
+            choice={maxUses}
+            custom={customUses}
+            onChoice={setMaxUses}
+            onCustom={setCustomUses}
+          />
 
           <div className="space-y-1">
             <label className="text-xs uppercase tracking-wide text-muted">{tCreate("validDays")}</label>
@@ -176,7 +179,7 @@ export default function EditAccessCodeDialog({ code, onClose, onSaved }: Props) 
             <button
               type="submit"
               data-testid="access-code-edit-submit"
-              disabled={submitting || !label.trim()}
+              disabled={submitting || !label.trim() || plaetze === null}
               className="px-4 py-2 text-sm bg-kb text-white rounded-md disabled:opacity-60"
             >
               {submitting ? t("submitting") : t("submit")}

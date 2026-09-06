@@ -29,18 +29,13 @@ GENERAL_KEYS: tuple[str, ...] = (PERM_GENERAL_WELCOME, PERM_GENERAL_MANUAL)
 # === KI-Assistent ============================================================
 PERM_AIA_USE = "aia.use"
 PERM_AIA_WORKSPACE_CREATE = "aia.workspace.create"
-# The person's own language level and test, staff do not hold it.
+# The person's own language level and test.
 PERM_AIA_LANGUAGE_LEVEL = "aia.language_level"
 
 AIA_KEYS: tuple[str, ...] = (
     PERM_AIA_USE,
     PERM_AIA_WORKSPACE_CREATE,
     PERM_AIA_LANGUAGE_LEVEL,
-)
-
-# Staff get everything of the assistant except the own language level.
-STAFF_AIA_KEYS: tuple[str, ...] = tuple(
-    k for k in AIA_KEYS if k != PERM_AIA_LANGUAGE_LEVEL
 )
 
 # Derived from the tool list so a new tool is registered only once.
@@ -189,6 +184,9 @@ def valid_keys(keys) -> tuple[str, ...]:
 
 # System roles are fixed in code, the table shows them greyed out.
 SYSTEM_ROLES: tuple[str, ...] = ("admin", "staff", "user")
+
+# The own language level belongs to the learners, staff does not get it by default.
+STAFF_AIA_KEYS: tuple[str, ...] = tuple(k for k in AIA_KEYS if k != PERM_AIA_LANGUAGE_LEVEL)
 
 # Lehrende bekommen zusaetzlich die Zahlen ihrer eigenen Module.
 SYSTEM_ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {

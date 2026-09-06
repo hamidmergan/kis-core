@@ -113,6 +113,12 @@ async function weiterKlicken(page: import("@playwright/test").Page) {
   await page.locator(".driver-popover-next-btn").click();
 }
 
+/** Same pace for the way back, the tour swallows a quick second click there too. */
+async function zurueckKlicken(page: import("@playwright/test").Page) {
+  await page.waitForTimeout(600);
+  await page.locator(".driver-popover-prev-btn").click();
+}
+
 async function tourOeffnen(page: import("@playwright/test").Page, locale: "de" | "en") {
   // Der Rundgang startet ueber die Adresse, im Kopfmenue haengt derselbe Weg.
   await page.goto(`/${locale}/workspace/${WORKSPACE}?tour=1`, { waitUntil: "domcontentloaded" });
@@ -208,10 +214,10 @@ test("ein Abbruch mittendrin lässt die Einladung stehen", async ({ page, baseUR
   });
 });
 
-test("\"Nicht jetzt\" nimmt die Einladung weg", async ({ page, baseURL }) => {
-  await alsGastImDemoKurs(page, baseURL, "E2E Nicht-jetzt Kurs", async () => {
+test("\"Ausblenden\" nimmt die Einladung weg", async ({ page, baseURL }) => {
+  await alsGastImDemoKurs(page, baseURL, "E2E Ausblenden Kurs", async () => {
     await page.goto("/de", { waitUntil: "domcontentloaded" });
-    await page.getByRole("button", { name: "Nicht jetzt" }).click();
+    await page.locator('[data-tour="tour-invite"]').getByRole("button", { name: "Ausblenden" }).click();
     await expect(page.locator('[data-tour="tour-invite"]')).toHaveCount(0);
 
     await page.goto("/de", { waitUntil: "domcontentloaded" });
@@ -411,6 +417,44 @@ test.describe("Rundgang im Demo-Modul", () => {
     await expect(page.locator('[data-tour="chat-panel"]')).toBeVisible();
     await expect(page.locator('[data-tour="studio-panel"]')).toBeHidden();
   });
+
+  test("auf schmalen Bildschirmen holt der Weg zurück das Transkript wieder nach vorn", async ({ page }) => {
+    const kurse = await (await page.request.get("/api/ai-assistant/demo/workspaces")).json();
+    const kurs = kurse.find((k: { owned: boolean }) => !k.owned);
+    test.skip(!kurs, "In dieser Umgebung gibt es keinen fremden Demo-Kurs.");
+
+    await page.request.post("/api/ai-assistant/demo/enroll", { data: { workspace_uuid: kurs.uuid } });
+    await page.setViewportSize({ width: 700, height: 900 });
+    await page.goto(`/de/workspace/${kurs.uuid}?tour=1`, { waitUntil: "domcontentloaded" });
+    await page.locator(POPOVER).waitFor({ timeout: 30_000 });
+
+    // Bis zu den Notizen, die das Studio ueber das Transkript schieben.
+    for (let i = 0; i < 20; i++) {
+      const titel = ((await page.locator(".driver-popover-title").textContent()) ?? "").trim();
+      if (titel === "Die Notizen") break;
+      const stand = await page.locator(".driver-popover-progress-text").textContent();
+      await weiterKlicken(page);
+      await page
+        .waitForFunction(
+          (alt) => document.querySelector(".driver-popover-progress-text")?.textContent !== alt,
+          stand,
+          { timeout: 20_000 },
+        )
+        .catch(() => {});
+    }
+    await expect(page.locator('[data-tour="studio-panel"]')).toBeVisible();
+
+    await zurueckKlicken(page);
+
+    // Ohne eigenes Vorbereiten bliebe das Studio vorn und der Rundgang zeigte
+    // auf die Notiz im verdeckten Bereich, die auf dem Telefon niemand sieht.
+    await expect(page.locator(".driver-popover-title")).toHaveText("Abschnitt als Notiz");
+    await expect(page.locator('[data-tour="studio-panel"]')).toBeHidden();
+    // Das Symbol gibt es je Absatz, gemeint ist das eine, auf das gezeigt wird.
+    const notizSymbol = page.locator('[data-tour="transcript-note"].driver-active-element');
+    await expect(notizSymbol).toHaveCount(1);
+    await expect(notizSymbol).toBeVisible();
+  });
 });
 
 test.describe("Rundgang-Link ohne vorherige Einschreibung", () => {
@@ -469,21 +513,19 @@ test.describe("Rundgang für Studierende", () => {
       // Das Auge fuehrt auf die Lehrenden-Seite, die diese Person nie bekommt.
       await expect(page.locator('[data-tour="preview-toggle"]')).toHaveCount(0);
       await expect(page.locator('[data-tour="add-source"]')).toHaveCount(0);
-      await expect(page.locator('[data-tour="add-staff-note"]')).toHaveCount(0);
       // Eine Station weniger als bei Lehrenden, das Hochladen faellt weg.
       await expect(page.locator(".driver-popover-progress-text")).toHaveText("Schritt 1 von 15");
 
-      for (let i = 0; i < 2; i++) {
-        const stand = await page.locator(".driver-popover-progress-text").textContent();
-        await weiterKlicken(page);
-        await page
-          .waitForFunction(
-            (alt) => document.querySelector(".driver-popover-progress-text")?.textContent !== alt,
-            stand,
-            { timeout: 20_000 },
-          )
-          .catch(() => {});
-      }
+      // Der Hinweis steht als zweite Station, ein Klick reicht dorthin.
+      const stand = await page.locator(".driver-popover-progress-text").textContent();
+      await weiterKlicken(page);
+      await page
+        .waitForFunction(
+          (alt) => document.querySelector(".driver-popover-progress-text")?.textContent !== alt,
+          stand,
+          { timeout: 20_000 },
+        )
+        .catch(() => {});
 
       // Same station, but with the text written for readers.
       await expect(page.locator(".driver-popover-title")).toHaveText("Der Hinweis deiner Lehrenden");

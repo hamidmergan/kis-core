@@ -1,9 +1,9 @@
 "use client";
 
-/** Frame of the admin area: access check, sidebar, drawer for the phone. */
+/** Frame of the admin area: access check, sidebar, dropdown for the phone. */
 
 import { useState } from "react";
-import { List } from "@phosphor-icons/react";
+import { CaretDown } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
 import { usePathname } from "@/i18n/navigation";
 import AdminAuth from "./_nav/AdminAuth";
@@ -12,7 +12,6 @@ import { SettingsProvider } from "./_settings/SettingsProvider";
 import { resolve } from "./_nav/registry";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const t = useTranslations("admin");
   const ts = useTranslations("admin.sections");
   const pathname = usePathname();
   const [navOpen, setNavOpen] = useState(false);
@@ -22,9 +21,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const found = resolve(segments);
   const openSlug = found?.section.slug ?? "";
   const pageSlug = found?.page?.slug ?? "";
+  // On the phone this line replaces the page eyebrow, so it carries the area too.
   const crumb = found
     ? found.page
-      ? ts(`${found.section.key}.${found.page.key}.label`)
+      ? `${ts(`${found.section.key}.label`)} › ${ts(`${found.section.key}.${found.page.key}.label`)}`
       : ts(`${found.section.key}.label`)
     : "";
 
@@ -32,24 +32,23 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     <AdminAuth>
       <SettingsProvider>
         <div className="flex flex-col md:flex-row min-h-[calc(100vh-4rem)]">
-          <div className="md:hidden flex items-center gap-3 px-4 h-12 border-b border-border-soft bg-background sticky top-0 z-20">
+          <div className="md:hidden px-4 py-2 border-b border-border-soft bg-background sticky top-0 z-20">
             <button
-              onClick={() => setNavOpen(true)}
-              className="w-9 h-9 rounded-lg bg-surface border-2 border-transparent flex items-center justify-center text-muted transition-colors hover:border-kb hover:text-kb"
-              aria-label={t("menuOpen")}
+              type="button"
+              onClick={() => setNavOpen((v) => !v)}
+              aria-expanded={navOpen}
+              aria-controls="admin-nav"
+              className="w-full flex items-center gap-2 h-10 px-3 rounded-lg bg-surface border border-border text-sm font-medium text-foreground transition-colors hover:border-kb"
             >
-              <List size={18} weight="bold" />
+              <span className="flex-1 text-left truncate">{crumb}</span>
+              <CaretDown
+                size={14}
+                weight="bold"
+                aria-hidden
+                className={`shrink-0 opacity-60 transition-transform ${navOpen ? "rotate-180" : ""}`}
+              />
             </button>
-            <div className="text-sm font-medium text-foreground-soft truncate">{crumb}</div>
           </div>
-
-          {navOpen && (
-            <button
-              onClick={() => setNavOpen(false)}
-              aria-label={t("menuClose")}
-              className="md:hidden fixed inset-0 top-16 bg-black/40 z-30"
-            />
-          )}
 
           <AdminSidebar
             openSlug={openSlug}

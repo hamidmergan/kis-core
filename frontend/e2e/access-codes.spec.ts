@@ -66,3 +66,31 @@ test("Zugangscode: ein Konto einlösen und die Startseite erreichen", async ({ p
     await admin.dispose();
   }
 });
+
+test.describe("Zugangscode anlegen im Formular", () => {
+  test.use({ storageState: "e2e/.auth/state.json" });
+
+  test("eine eigene Platzzahl eintippen", async ({ page, baseURL }) => {
+    await page.goto("/de/admin/users/access-codes", { waitUntil: "load" });
+    await page.getByTestId("access-code-create").click();
+
+    await page.locator("#access-code-label").fill(`E2E Eigene Zahl ${SUFFIX}`);
+    await page.locator("#access-code-seats-choice").click();
+    await page.getByRole("option", { name: "Eigene Zahl" }).click();
+    await page.getByTestId("access-code-seats").fill("37");
+
+    const [antwort] = await Promise.all([
+      page.waitForResponse((r) => r.url().includes("/api/admin/access-codes") && r.request().method() === "POST"),
+      page.getByTestId("access-code-submit").click(),
+    ]);
+    expect(antwort.ok()).toBeTruthy();
+    const code = await antwort.json();
+    expect(code.max_uses).toBe(37);
+    await expect(page.getByTestId("access-code-value")).toHaveText(code.code);
+
+    const admin = await playwrightRequest.newContext({ baseURL });
+    await admin.post("/auth/login", { data: ADMIN });
+    await admin.delete(`/api/admin/access-codes/${code.id}`);
+    await admin.dispose();
+  });
+});

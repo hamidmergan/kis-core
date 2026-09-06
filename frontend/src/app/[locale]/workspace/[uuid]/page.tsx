@@ -130,7 +130,7 @@ export default function KiTutorWorkspacePage() {
 
 
   const [studioEnabled, setStudioEnabled] = useState(true);
-  // Ready means offered to this person and a stored level, both from /api/me.
+  // Ready means offered to this person, switched on and a stored level, all from /api/me.
   const [language_trainingVisible, setLanguageTrainingVisible] = useState(false);
   useEffect(() => {
     let cancelled = false;
@@ -140,6 +140,7 @@ export default function KiTutorWorkspacePage() {
         if (cancelled || !data) return;
         setLanguageTrainingVisible(
           data.language_training_enabled === true
+            && data.language_training_active === true
             && typeof data.language_level === "string",
         );
       })
@@ -557,9 +558,6 @@ export default function KiTutorWorkspacePage() {
         ocrEnabled={moduleDetail?.ocr_enabled ?? true}
         onMinimize={onMinimize}
         workspaceUuid={uuid}
-        staffNoteText={moduleDetail?.staff_note_text ?? null}
-        staffNoteLinks={moduleDetail?.staff_note_links ?? []}
-        onStaffNoteSave={handleStaffNoteSave}
         chapters={chapters}
         onCreateChapter={handleCreateChapter}
         onRenameChapter={handleRenameChapter}
@@ -658,6 +656,10 @@ export default function KiTutorWorkspacePage() {
           previewOn={previewOn}
           previewsOwnerSide={previewsOwnerSide}
           onTogglePreview={() => setPreviewOverride(!previewOn)}
+          isOwner={isOwner}
+          staffNoteText={moduleDetail?.staff_note_text ?? null}
+          staffNoteLinks={moduleDetail?.staff_note_links ?? []}
+          onStaffNoteSave={handleStaffNoteSave}
           onStartTour={() => {
             // Erst das Fenster zu, sonst verdeckt es genau die Stellen, auf die gezeigt wird.
             setShowSettings(false);

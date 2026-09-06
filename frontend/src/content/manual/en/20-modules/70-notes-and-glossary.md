@@ -15,8 +15,17 @@ The title is created from the content automatically, you can change it.
 
 ![The Glossary tab in the studio](/manual/{lang}/glossary-tab.png)
 
-Terms only arrive through the **selection bar in the PDF**: select text, **To glossary**. The AI
-pulls the technical words out of it, with translation, definition and page number.
+Terms only arrive through the **selection bar in the PDF**: select text, **To glossary**.
+
+- **Term, context sentence and page number** are taken word for word from the selected passage. A
+  sentence the AI rephrases is dropped, the entry then stays without a context sentence
+- **Translation and explanation** are written by the AI itself. When you select a single word or a
+  short phrase, it also reads the surrounding text on the page, so the explanation fits that use and
+  not the general dictionary meaning
+- Only the context sentence is checked, not the explanation. It is not a quote from the document,
+  even though the entry points to a page
+- How simple the explanation gets follows your language level from the language trainer. Without a
+  set level the AI writes at B1
 
 Sort by newest or A to Z. Clicking an entry unfolds the definition.
 

@@ -6,6 +6,7 @@ import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import Spinner from "@/components/ui/Spinner";
 import { genericErrorMessage } from "@/lib/api";
 import { LanguageTrainingBlock, type ProfileMe } from "./_components/LanguageTrainingBlock";
+import { LanguageTrainingSwitch } from "./_components/LanguageTrainingSwitch";
 
 /** The person's language level, everything from /api/me. */
 export default function ProfilePage() {
@@ -43,7 +44,10 @@ export default function ProfilePage() {
           <p className="text-sm" style={{ color: "var(--muted)" }}>{t("notOffered")}</p>
         ) : (
           <div className="max-w-2xl mx-auto">
-            <LanguageTrainingBlock me={me} onChanged={load} />
+            {/* Without this line the level sits there without saying what it acts on. */}
+            <p className="text-sm text-center" style={{ color: "var(--foreground-soft)" }}>{t("purpose")}</p>
+            {me.language_training_active && <LanguageTrainingBlock me={me} onChanged={load} />}
+            <LanguageTrainingSwitch active={me.language_training_active} onChanged={load} />
           </div>
         )}
       </main>

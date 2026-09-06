@@ -1,6 +1,6 @@
-# Sprachlevel
+# Sprachniveau
 
-![Die Seite Sprachlevel mit Niveau und Stufenleiter](/manual/{lang}/language-level.png)
+![Die Seite Sprachniveau mit Niveau und Stufenleiter](/manual/{lang}/language-level.png)
 
 Erreichbar über das Zahnrad oben rechts, für alle Rollen mit dem Recht Eigenes Sprachniveau und
 Sprachtest. Der Sprachtest lässt sich hier jederzeit starten, auch wenn Sie die Einladung auf der
@@ -15,5 +15,8 @@ Startseite weggeklickt haben.
   Sprachtest neu machen
 - **Ohne Niveau**: zwei Wege, Sprachtest starten oder Niveau selbst festlegen. Erst mit einem
   Niveau erscheint der Sprachtrainer in den Modulen
+- **Sprachtrainer nutzen**: der Schalter unten auf der Seite. Aus heißt keine Sprachübungen in den
+  Modulen, keine Übersetzung am Transkript und keine Anpassung an das Niveau. Solange er aus ist,
+  zeigt die Seite nur ihn
 
 Das Niveau gilt in allen Modulen. Es ist eine Einordnung für die Übungen, keine Prüfungsleistung.

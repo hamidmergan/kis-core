@@ -14,6 +14,7 @@ import {
   TextAlignLeft,
 } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
+import HelpTooltip from "@/components/ui/HelpTooltip";
 import type { Source, StudioView, LanguageTrainingView, StudentStats } from "../../_types";
 import { LerntoolsGrid } from "../language_training/LerntoolsGrid";
 import { RecentActivities } from "./RecentActivities";
@@ -192,10 +193,12 @@ export function StudioOverview({
 
           {language_trainingActive && (
             <>
-              <div className="px-3 pb-1">
+              <div className="px-3 pb-1 flex items-center gap-1.5">
                 <span className="text-xs font-semibold uppercase tracking-wider" >
                   {t("headings.languageTraining")}
                 </span>
+                {/* Says where the exercises come from: material for the terms, AI for the wording. */}
+                <HelpTooltip text={t("headings.languageTrainingHint")} />
               </div>
               <LerntoolsGrid
                 tiles={langTrainingTiles}

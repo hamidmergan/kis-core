@@ -6,12 +6,15 @@ export default function ToggleRow({
   checked,
   onToggle,
   disabled,
+  dataTour,
 }: {
   title: string;
   description: string;
   checked: boolean;
   onToggle: () => void;
   disabled?: boolean;
+  /** Anchor for the guided tour and the end to end tests. */
+  dataTour?: string;
 }) {
   return (
     <div className="flex items-center justify-between gap-4" style={{ opacity: disabled ? 0.4 : 1 }}>
@@ -24,6 +27,7 @@ export default function ToggleRow({
         role="switch"
         aria-checked={checked}
         aria-label={title}
+        data-tour={dataTour}
         onClick={() => !disabled && onToggle()}
         disabled={disabled}
         className="relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent hover:border-[var(--kb)] disabled:hover:border-transparent transition-colors duration-200"

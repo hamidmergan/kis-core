@@ -270,6 +270,7 @@
     "heading": "Tools",
     "expand": "Expand tools sidebar",
     "collapse": "Collapse tools sidebar",
+    "back": "Back",
     "items": {
       "translation": "Translation",
       "tts": "Text to speech",
@@ -2132,7 +2133,9 @@
       "role": "Role",
       "days": "{n, plural, one {# day} other {# days}}",
       "unlimited": "Unlimited",
-      "seats": "{n} seats",
+      "seats": "{n, plural, one {# seat} other {# seats}}",
+      "customSeats": "Custom number",
+      "customSeatsHint": "Between 1 and {max}",
       "roleStaff": "Staff",
       "roleUser": "User",
       "submit": "Create",
@@ -2392,6 +2395,7 @@
           "hint": "Hint",
           "hintFrom": "Tip from {name}:",
           "hintHide": "Hide hint",
+          "aiKnowledgeHint": "The AI writes this explanation from its own language knowledge. It is not in your materials in this form.",
           "learnMore": "Learn more",
           "sourcesToggle": "{count, plural, =1 {1 source} other {# sources}}",
           "rename": "Rename",
@@ -2459,7 +2463,7 @@
           "pendingBody": "You still have <kb>{count}</kb> {count, plural, =1 {open card} other {open cards}}.",
           "viewPending": "View open",
           "finishAnyway": "Finish anyway",
-          "definition": "Definition",
+          "definition": "AI explanation",
           "wordParts": "Word parts",
           "wordClass": "Word class:",
           "singular": "Singular:",
@@ -2487,7 +2491,7 @@
           "emptyTitle": "No terms in your glossary yet. Highlight words in a PDF and add them via the selection bar.",
           "baseForm": "Base form",
           "context": "Context",
-          "explanation": "Explanation",
+          "explanation": "AI explanation",
           "pageShort": "p. {page}",
           "sortRecent": "Newest",
           "sortAlpha": "A–Z",
@@ -2592,10 +2596,6 @@
         "backToOverview": "Back to overview",
         "back": "Back",
         "settings": "Settings",
-        "previewStudent": "Preview: student view",
-        "previewLeaveStudent": "Leave preview",
-        "previewOwner": "Preview: teacher view",
-        "previewLeaveOwner": "Leave preview",
         "previewBannerStudent": "Preview: this is how students see this module. Their own notes and chat history are not shown.",
         "previewBannerOwner": "Preview: this is how teachers see this module. Controls with a dashed outline belong to the module management and do nothing here.",
         "previewBlocked": "Not shown in preview"
@@ -2616,6 +2616,10 @@
         "mascotFrancis": "Francis",
         "studioTitle": "Studio",
         "studioDescription": "Show the studio panel with mind maps, notes and tools.",
+        "previewStudentTitle": "Student view",
+        "previewStudentDescription": "See the module the way students see it. Controls of the module management disappear.",
+        "previewOwnerTitle": "Teacher view",
+        "previewOwnerDescription": "See the module the way teachers see it. Controls of the module management stay visible but do nothing.",
         "translationModeTitle": "Transcript translation",
         "translationModeDescription": "Translates subtitles of audio/video sources into the target language chosen below. The source language is detected automatically. Students can switch between original and translation in the transcript panel. Translation runs as a background job and can take a few minutes.",
         "translationModeOff": "Off",
@@ -2821,7 +2825,8 @@
         },
         "headings": {
           "learningTools": "Technical language trainer",
-          "languageTraining": "Language trainer"
+          "languageTraining": "Language trainer",
+          "languageTrainingHint": "The exercises are built from the materials of this module. The AI writes the tasks, solutions and explanations itself, they are not in the materials in this form."
         },
         "tiles": {
           "karteikarten": "Flashcards",
@@ -3000,7 +3005,7 @@
         "steps": {
           "preview": {
             "title": "Teacher and student view",
-            "text": "This button switches between the two views. Controls with a dashed outline are only visible to teachers."
+            "text": "Settings is where you switch between the two views. Controls with a dashed outline are only visible to teachers."
           },
           "sources": {
             "title": "The course material",
@@ -3050,11 +3055,11 @@
           },
           "hinweis": {
             "title": "A note for everyone",
-            "text": "The pin creates a note with text and links. Everyone in the module opens it through the same pin."
+            "text": "The info button creates a note with text and links. Everyone in the module opens it through the same button."
           },
           "hinweisStudi": {
             "title": "The note from your teachers",
-            "text": "The pin opens the note from your teachers with text and links. It applies to everyone in the module."
+            "text": "The info button opens the note from your teachers with text and links. It applies to everyone in the module."
           },
           "auswahl": {
             "title": "Ticks decide what counts",
@@ -3227,14 +3232,17 @@
   },
   "languageTrainerInvite": {
     "title": "Language trainer",
-    "body": "For learners of German. Practises subject vocabulary and grammar from your modules. Adapts wording and depth to your level.",
+    "body": "For learners of German. Your level decides how the assistant in a module explains and how flashcards, quizzes and exercises are worded.",
     "start": "Start the language test",
     "dismiss": "Hide"
   },
   "languageLevel": {
     "title": "Language level",
+    "purpose": "Your level steers the wording, not the content. The assistant in a module explains at that level, and flashcards, quizzes and exercises are worded to match. In the studio you also get the language trainer, with vocab cards, vocabulary exercises and grammar exercises.",
     "notOffered": "The language trainer is not enabled for your account.",
     "languageTraining": {
+      "switchTitle": "Use the language trainer",
+      "switchDescription": "Off means no language exercises in the module and no adjustment to your level.",
       "levelLabel": "Your level",
       "levelSince": "since {date}",
       "sourceTest": "Language test on {date}",

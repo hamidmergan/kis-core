@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 
 import { backdropClose, newBackdropPress } from "./backdropClose";
@@ -24,6 +24,27 @@ const sizeClass: Record<NonNullable<ModalProps["size"]>, string> = {
   xl: "max-w-4xl",
 };
 
+type Area = { left: number; top: number; width: number; height: number };
+
+/** The layout viewport can be wider than the screen, so the dialog follows the visible area. */
+function useVisibleArea(open: boolean): Area | null {
+  const [area, setArea] = useState<Area | null>(null);
+  useEffect(() => {
+    const vv = typeof window === "undefined" ? null : window.visualViewport;
+    if (!open || !vv) return;
+    const read = () =>
+      setArea({ left: vv.offsetLeft, top: vv.offsetTop, width: vv.width, height: vv.height });
+    read();
+    vv.addEventListener("resize", read);
+    vv.addEventListener("scroll", read);
+    return () => {
+      vv.removeEventListener("resize", read);
+      vv.removeEventListener("scroll", read);
+    };
+  }, [open]);
+  return open ? area : null;
+}
+
 export default function Modal({
   open,
   onClose,
@@ -38,6 +59,7 @@ export default function Modal({
   const t = useTranslations("common");
   const dialogRef = useRef<HTMLDivElement>(null);
   const press = useRef(newBackdropPress()).current;
+  const area = useVisibleArea(open);
 
   useEffect(() => {
     if (!open || !closeOnEscape) return;
@@ -61,15 +83,20 @@ export default function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
+      className="fixed z-50 flex items-center justify-center p-4"
+      style={{
+        backgroundColor: "rgba(0, 0, 0, 0.5)",
+        ...(area
+          ? { left: area.left, top: area.top, width: area.width, height: area.height }
+          : { inset: 0 }),
+      }}
       {...backdropClose(press, onClose, closeOnBackdropClick)}
       role="dialog"
       aria-modal="true"
     >
       <div
         ref={dialogRef}
-        className={`w-full ${sizeClass[size]} rounded-xl shadow-lg flex flex-col max-h-[90vh] ${className}`}
+        className={`w-full ${sizeClass[size]} rounded-xl shadow-lg flex flex-col max-h-full ${className}`}
         style={{ backgroundColor: "var(--background)", border: "1px solid var(--border)" }}
         onClick={(e) => e.stopPropagation()}
       >

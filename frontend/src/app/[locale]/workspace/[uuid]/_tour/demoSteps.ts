@@ -36,6 +36,8 @@ export interface DemoSchritt {
   side?: "top" | "right" | "bottom" | "left";
   /** Runs before the step, opens whatever it points at; the tour then waits for the target. */
   vorbereiten?: (a: TourAktionen) => void;
+  /** Target sits in the top bar, which no panel ever covers, so nothing needs opening. */
+  imKopf?: boolean;
   /**
    * What the step looks like for whoever may not create modules themselves.
    * `null` drops the step, an object overrides the named fields.
@@ -63,13 +65,21 @@ function zeilenHaken(praefix: string): Element | null {
 export const DEMO_SCHRITTE: DemoSchritt[] = [
   { key: "willkommen", studi: { key: "willkommenStudi" } },
   {
+    key: "hinweis",
+    ziel: anker("staff-note"),
+    side: "bottom",
+    imKopf: true,
+    // One button for everyone, only the text differs because students cannot edit the note.
+    studi: { key: "hinweisStudi", ziel: anker("staff-note") },
+  },
+  {
     key: "materialien",
     ziel: anker("sources-panel"),
     side: "right",
     vorbereiten: (a) => a.materialListe(),
     studi: { key: "materialienStudi" },
   },
-  // Both buttons belong to the owner side, which students never get to see.
+  // The plus belongs to the owner side, which students never get to see.
   {
     key: "hochladen",
     ziel: anker("add-source"),
@@ -77,14 +87,6 @@ export const DEMO_SCHRITTE: DemoSchritt[] = [
     // A later station opens a viewer that covers the list, going back needs it closed again.
     vorbereiten: (a) => a.materialListe(),
     studi: null,
-  },
-  {
-    key: "hinweis",
-    ziel: anker("add-staff-note"),
-    side: "bottom",
-    vorbereiten: (a) => a.materialListe(),
-    // Students cannot pin anything, their own pin only opens what was pinned for them.
-    studi: { key: "hinweisStudi", ziel: anker("staff-note") },
   },
   {
     key: "auswahl",
@@ -112,7 +114,14 @@ export const DEMO_SCHRITTE: DemoSchritt[] = [
     side: "right",
     vorbereiten: (a) => a.oeffnen(DEMO_VIDEO),
   },
-  { key: "transkriptNotiz", ziel: anker("transcript-note"), side: "right" },
+  {
+    key: "transkriptNotiz",
+    ziel: anker("transcript-note"),
+    side: "right",
+    // On the phone the studio of the next station covers the transcript, and
+    // since the hidden panel stays on the page its target would still be found.
+    vorbereiten: (a) => a.oeffnen(DEMO_VIDEO),
+  },
   {
     key: "notizen",
     ziel: anker("studio-panel"),

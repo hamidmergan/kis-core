@@ -21,7 +21,7 @@
     "settingsMenu": "Einstellungen",
     "sectionAppearance": "Ansicht",
     "homeNoticeShow": "Startseite-Hinweis anzeigen",
-    "languageLevel": "Sprachlevel",
+    "languageLevel": "Sprachniveau",
     "tour": "Demo-Modul Rundgang"
   },
   "footer": {
@@ -270,6 +270,7 @@
     "heading": "Tools",
     "expand": "Tools-Sidebar ausklappen",
     "collapse": "Tools-Sidebar einklappen",
+    "back": "Zurück",
     "items": {
       "translation": "Übersetzung",
       "tts": "Text in Sprache",
@@ -1471,7 +1472,7 @@
     },
     "languageTrainerCard": {
       "title": "Sprachtrainer",
-      "description": "Der Sprachtrainer ist ein Übungsbereich im Studio für alle, die dem Kurs in einer Fremdsprache folgen. Er enthält Lernkarten, Wortschatz- und Grammatikübungen, jeweils aus den Materialien des Moduls gebaut. Ist er eingeschaltet, wird jede Person mit Rolle Studierende beim ersten Anmelden gefragt, ob sie internationaler Studierender ist. Ja führt in den Sprachtest, das Niveau gilt in allen Modulen, Chat und Aufgaben passen sich daran an. Jede Person schaltet den Trainer unter Sprachlevel ein oder aus. Der Sprachtrainer arbeitet ausschließlich auf Deutsch.",
+      "description": "Der Sprachtrainer ist ein Übungsbereich im Studio für alle, die dem Kurs in einer Fremdsprache folgen. Er enthält Lernkarten, Wortschatz- und Grammatikübungen, jeweils aus den Materialien des Moduls gebaut. Ist er eingeschaltet, wird jede Person mit Rolle Studierende beim ersten Anmelden gefragt, ob sie internationaler Studierender ist. Ja führt in den Sprachtest, das Niveau gilt in allen Modulen, Chat und Aufgaben passen sich daran an. Jede Person schaltet den Trainer unter Sprachniveau ein oder aus. Der Sprachtrainer arbeitet ausschließlich auf Deutsch.",
       "disabled": "Aus. Niemand wird gefragt, und der Sprachtrainer taucht nirgendwo auf. Getroffene Entscheidungen und Niveaus bleiben gespeichert und gelten wieder, sobald du hier einschaltest.",
       "toggleAria": "Sprachtrainer umschalten"
     },
@@ -2132,7 +2133,9 @@
       "role": "Rolle",
       "days": "{n, plural, one {# Tag} other {# Tage}}",
       "unlimited": "Unbegrenzt",
-      "seats": "{n} Plätze",
+      "seats": "{n, plural, one {# Platz} other {# Plätze}}",
+      "customSeats": "Eigene Zahl",
+      "customSeatsHint": "Zwischen 1 und {max}",
       "roleStaff": "Staff",
       "roleUser": "User",
       "submit": "Anlegen",
@@ -2392,6 +2395,7 @@
           "hint": "Tipp",
           "hintFrom": "Tipp von {name}:",
           "hintHide": "Tipp ausblenden",
+          "aiKnowledgeHint": "Diese Erklärung schreibt die KI aus ihrem eigenen Sprachwissen. Sie steht so nicht in deinen Materialien.",
           "learnMore": "Mehr erfahren",
           "sourcesToggle": "{count, plural, =1 {1 Material} other {# Materialien}}",
           "rename": "Umbenennen",
@@ -2459,7 +2463,7 @@
           "pendingBody": "Du hast noch <kb>{count}</kb> {count, plural, =1 {offene Karte} other {offene Karten}}.",
           "viewPending": "Offene ansehen",
           "finishAnyway": "Trotzdem abschließen",
-          "definition": "Definition",
+          "definition": "Erklärung der KI",
           "wordParts": "Wortzerlegung",
           "wordClass": "Wortart:",
           "singular": "Singular:",
@@ -2487,7 +2491,7 @@
           "emptyTitle": "Noch keine Begriffe im Glossar. Markiere Wörter in einer PDF und füge sie über die Auswahlleiste hinzu.",
           "baseForm": "Grundform",
           "context": "Kontext",
-          "explanation": "Erklärung",
+          "explanation": "Erklärung der KI",
           "pageShort": "S. {page}",
           "sortRecent": "Neueste",
           "sortAlpha": "A–Z",
@@ -2592,10 +2596,6 @@
         "backToOverview": "Zurück zur Übersicht",
         "back": "Zurück",
         "settings": "Einstellungen",
-        "previewStudent": "Vorschau: Studierenden-Ansicht",
-        "previewLeaveStudent": "Vorschau beenden",
-        "previewOwner": "Vorschau: Lehrenden-Ansicht",
-        "previewLeaveOwner": "Vorschau beenden",
         "previewBannerStudent": "Vorschau: So sehen Studierende dieses Modul. Ihre eigenen Notizen und ihr Chatverlauf sind nicht sichtbar.",
         "previewBannerOwner": "Vorschau: So sehen Lehrende dieses Modul. Gestrichelt umrandete Bedienelemente gehören der Verwaltung und haben hier keine Funktion.",
         "previewBlocked": "In der Vorschau nicht sichtbar"
@@ -2616,6 +2616,10 @@
         "mascotFrancis": "Francis",
         "studioTitle": "Studio",
         "studioDescription": "Studio-Panel mit Mindmaps, Notizen und Tools einblenden.",
+        "previewStudentTitle": "Studierenden-Ansicht",
+        "previewStudentDescription": "Sieh das Modul so, wie Studierende es sehen. Bedienelemente der Verwaltung verschwinden.",
+        "previewOwnerTitle": "Lehrenden-Ansicht",
+        "previewOwnerDescription": "Sieh das Modul so, wie Lehrende es sehen. Bedienelemente der Verwaltung sind sichtbar, aber ohne Funktion.",
         "translationModeTitle": "Übersetzung der Transkripte",
         "translationModeDescription": "Übersetzt Untertitel von Audio-/Video-Materialien in die unten gewählte Zielsprache. Die Quellsprache wird automatisch erkannt. Studierende können im Transkript-Panel zwischen Original und Übersetzung umschalten. Die Übersetzung läuft als Hintergrund-Job und kann ein paar Minuten dauern.",
         "translationModeOff": "Aus",
@@ -2821,7 +2825,8 @@
         },
         "headings": {
           "learningTools": "Fachsprachentrainer",
-          "languageTraining": "Sprachtrainer"
+          "languageTraining": "Sprachtrainer",
+          "languageTrainingHint": "Die Übungen bauen auf den Materialien des Moduls auf. Aufgaben, Lösungen und Erklärungen formuliert die KI selbst, sie stehen so nicht in den Materialien."
         },
         "tiles": {
           "karteikarten": "Karteikarten",
@@ -3000,7 +3005,7 @@
         "steps": {
           "preview": {
             "title": "Lehrenden- und Studierenden-Ansicht",
-            "text": "Über diesen Knopf wechselst du zwischen beiden Ansichten. Gestrichelt umrandete Bedienelemente sehen nur Lehrende."
+            "text": "Unter Einstellungen wechselst du zwischen beiden Ansichten. Gestrichelt umrandete Bedienelemente sehen nur Lehrende."
           },
           "sources": {
             "title": "Die Materialien des Kurses",
@@ -3050,11 +3055,11 @@
           },
           "hinweis": {
             "title": "Ein Hinweis für alle",
-            "text": "Mit der Pinnnadel legst du einen Hinweis mit Text und Links an. Alle im Modul öffnen ihn über dieselbe Pinnnadel."
+            "text": "Mit dem Info-Zeichen legst du einen Hinweis mit Text und Links an. Alle im Modul öffnen ihn über dasselbe Zeichen."
           },
           "hinweisStudi": {
             "title": "Der Hinweis deiner Lehrenden",
-            "text": "Über die Pinnnadel öffnest du den Hinweis deiner Lehrenden mit Text und Links. Er gilt für alle im Modul."
+            "text": "Über das Info-Zeichen öffnest du den Hinweis deiner Lehrenden mit Text und Links. Er gilt für alle im Modul."
           },
           "auswahl": {
             "title": "Häkchen bestimmen die Auswahl",
@@ -3227,14 +3232,17 @@
   },
   "languageTrainerInvite": {
     "title": "Sprachtrainer",
-    "body": "Für Deutsch als Fremdsprache. Übt Fachwortschatz und Grammatik aus deinen Modulen. Passt Sprache und Erklärtiefe an dein Niveau an.",
+    "body": "Für Deutsch als Fremdsprache. Dein Niveau bestimmt, wie der Assistent im Modul erklärt und wie Karteikarten, Quiz und Übungen formuliert sind.",
     "start": "Sprachtest starten",
     "dismiss": "Ausblenden"
   },
   "languageLevel": {
-    "title": "Sprachlevel",
+    "title": "Sprachniveau",
+    "purpose": "Dein Niveau steuert die Sprache, nicht den Inhalt. Der Assistent im Modul erklärt auf diesem Niveau, und Karteikarten, Quiz und Übungen sind entsprechend formuliert. Im Studio bekommst du zusätzlich den Sprachtrainer mit Lernkarten, Wortschatzübung und Grammatikübung.",
     "notOffered": "Der Sprachtrainer ist für dein Konto nicht freigeschaltet.",
     "languageTraining": {
+      "switchTitle": "Sprachtrainer nutzen",
+      "switchDescription": "Aus heißt keine Sprachübungen im Modul und keine Anpassung an dein Niveau.",
       "levelLabel": "Dein Niveau",
       "levelSince": "seit {date}",
       "sourceTest": "Sprachtest vom {date}",
@@ -3282,7 +3290,7 @@
     },
     "languageTest": {
       "notOffered": "Der Sprachtrainer ist für dein Konto nicht freigeschaltet.",
-      "toLevelPage": "Zum Sprachlevel"
+      "toLevelPage": "Zum Sprachniveau"
     }
   },
   "layoutMeta": {

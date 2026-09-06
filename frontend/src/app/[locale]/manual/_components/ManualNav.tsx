@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Link, usePathname } from "@/i18n/navigation";
-import { CaretDown, List } from "@phosphor-icons/react";
+import { CaretDown } from "@phosphor-icons/react";
 import { checkAuthStatus } from "@/lib/auth";
 import { filterTree } from "../_lib/filterTree";
 import type { ManualGroup } from "../_lib/articles";
@@ -43,7 +43,6 @@ export default function ManualNav({ tree }: { tree: ManualGroup[] }) {
           color: "var(--foreground)",
         }}
       >
-        <List size={16} weight="bold" aria-hidden="true" />
         <span className="flex-1 text-left truncate">{activeTitle ?? t("navLabel")}</span>
         <CaretDown
           size={14}

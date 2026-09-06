@@ -383,6 +383,15 @@ def _context_snippet(page_text: str, term: str, max_chars: int = 700) -> str:
     return ("… " if start > 0 else "") + snippet + (" …" if end < len(text) else "")
 
 
+def _verbatim_or_empty(sentence: str, haystack: str) -> str:
+    """Keeps an example sentence only when it stands word for word in the source text."""
+    candidate = re.sub(r"\s+", " ", (sentence or "")).strip().strip("\u201e\u201c\u201d\"'\u00ab\u00bb")
+    if not candidate:
+        return ""
+    source = re.sub(r"\s+", " ", (haystack or ""))
+    return candidate if candidate.lower() in source.lower() else ""
+
+
 def _term_appears_in_text(term: str, text_lower: str) -> bool:
     """Checks whether the term appears verbatim or as a word stem in the text."""
     t = term.lower().strip()

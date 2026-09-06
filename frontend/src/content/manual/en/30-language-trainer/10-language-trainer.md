@@ -6,6 +6,14 @@ For everybody still learning the language of the course. Three tools in the stud
 cards, vocabulary exercises, grammar exercises. All built from the materials of the module,
 matched to your own level.
 
+## What the level does
+
+- The assistant in a module answers at that level
+- Everything generated is worded to match: flashcards, quizzes, vocabulary cards, vocabulary and
+  grammar exercises, mind map, data table, glossary
+- Content, the number of items and the solutions stay the same, only wording and depth change
+- Without a level none of this happens
+
 ## Accepted once, applies everywhere
 
 The language trainer hangs on you, not on the module. The start page carries a card for it next

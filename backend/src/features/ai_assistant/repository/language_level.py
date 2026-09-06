@@ -6,7 +6,7 @@ from src.core.db.pool import get_connection
 
 
 def set_user_language_level(user_id: int, level: str, source: str = "test") -> None:
-    """Stores the level and switches the trainer on, source says who set it."""
+    """Stores the level, the first one also switches the trainer on."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -20,8 +20,9 @@ def set_user_language_level(user_id: int, level: str, source: str = "test") -> N
                 (level, source, user_id),
             )
         conn.commit()
-    # A stored level is the clearest yes, that also opens the tiles in the module.
-    set_user_language_training(user_id, True)
+    # Only the very first level counts as a yes, a later change must not undo a deliberate off.
+    if get_user_language_training(user_id)["language_training_asked_at"] is None:
+        set_user_language_training(user_id, True)
 
 
 def get_user_language_level(user_id: int) -> dict:
@@ -106,8 +107,10 @@ def is_language_training_offered(user_id: int) -> bool:
 
 
 def is_language_training_ready(user_id: int) -> bool:
-    """Offered plus a stored level, that opens the tiles and the level adaptation."""
+    """Offered plus the person's switch plus a stored level, that opens the tiles and the level adaptation."""
     if not is_language_training_offered(user_id):
+        return False
+    if not get_user_language_training(user_id)["language_training_active"]:
         return False
     return bool(get_user_language_level(user_id)["language_level"])
 

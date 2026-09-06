@@ -51,6 +51,23 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, canViewManual = 
 
   useEffect(() => {
     if (!open) return;
+    // The page behind must not scroll along while the sheet is open.
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
+  useEffect(() => {
+    // The tools sidebar sends the user back here after it closes itself.
+    const handler = () => setOpen(true);
+    window.addEventListener("header-menu:open", handler);
+    return () => window.removeEventListener("header-menu:open", handler);
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
     const handler = (e: PointerEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
@@ -97,7 +114,7 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, canViewManual = 
 
       {open && (
         <div
-          className="fixed left-0 right-0 bottom-0 z-50 py-1 overflow-y-auto"
+          className="fixed left-0 right-0 bottom-0 z-50 py-1 overflow-y-auto overscroll-contain"
           style={{
             top: sheetTop,
             backgroundColor: "var(--surface)",

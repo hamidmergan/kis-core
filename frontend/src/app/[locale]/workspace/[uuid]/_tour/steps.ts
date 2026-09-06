@@ -29,7 +29,7 @@ export interface TourStep {
 }
 
 export const TOUR_STEPS: TourStep[] = [
-  { anchor: "preview-toggle", key: "preview", side: "bottom" },
+  { anchor: "preview-entry", key: "preview", side: "bottom" },
   { anchor: "sources-panel", key: "sources", side: "right" },
   { anchor: "source-row", key: "openSource", interactive: true, side: "right" },
   { anchor: "pdf-viewer", key: "selectionBar", interactive: true, side: "left", opensOnDemand: true },

@@ -2,10 +2,12 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { GearSix, Eye, EyeSlash } from "@phosphor-icons/react";
+import { GearSix, Eye } from "@phosphor-icons/react";
 import { Link } from "@/i18n/navigation";
 import { SettingsMenu } from "./SettingsMenu";
-import type { PanelKey } from "../../_types";
+import { StaffNoteControl } from "./StaffNoteControl";
+import { OwnerOnly } from "./OwnerOnly";
+import type { PanelKey, StaffNoteLink } from "../../_types";
 
 interface WorkspaceTopbarProps {
   isMobile: boolean;
@@ -23,6 +25,11 @@ interface WorkspaceTopbarProps {
   previewsOwnerSide: boolean;
   onTogglePreview: () => void;
   onStartTour: () => void;
+  // Module note behind the pin, next to the gear because it belongs to the whole module.
+  isOwner: boolean;
+  staffNoteText: string | null;
+  staffNoteLinks: StaffNoteLink[];
+  onStaffNoteSave: (text: string | null, links: StaffNoteLink[]) => Promise<void>;
   popupTranslateLang: string;
   onChangePopupTranslateLang: (lang: string) => void;
   // Mobile tabs
@@ -36,6 +43,7 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
     showSettings, onToggleSettings, onCloseSettings,
     studioEnabled, onToggleStudio,
     canPreview, previewOn, previewsOwnerSide, onTogglePreview, onStartTour,
+    isOwner, staffNoteText, staffNoteLinks, onStaffNoteSave,
     popupTranslateLang, onChangePopupTranslateLang,
     activeTab, setActiveTab,
   } = props;
@@ -49,6 +57,10 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
       onClose={onCloseSettings}
       studioEnabled={studioEnabled}
       onToggleStudio={onToggleStudio}
+      canPreview={canPreview}
+      previewOn={previewOn}
+      previewsOwnerSide={previewsOwnerSide}
+      onTogglePreview={onTogglePreview}
       onStartTour={onStartTour}
       popupTranslateLang={popupTranslateLang}
       onChangePopupTranslateLang={onChangePopupTranslateLang}
@@ -68,25 +80,27 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
     </button>
   );
 
-  // Says what you get after pressing, not what you are looking at now.
-  const previewLabel = previewsOwnerSide
-    ? previewOn ? t("previewLeaveOwner") : t("previewOwner")
-    : previewOn ? t("previewLeaveStudent") : t("previewStudent");
+  // The preview lives in the settings now, so the tour points at the gear, but
+  // only where there is a switch behind it.
+  const settingsSlot = canPreview ? (
+    <span data-tour="preview-entry" className="inline-flex">{settingsButton}</span>
+  ) : settingsButton;
 
-  const previewButton = canPreview ? (
-    <button
-      type="button"
-      onClick={onTogglePreview}
-      className={`w-7 h-7 flex items-center justify-center rounded-full ${previewOn ? "text-white" : "btn-icon"}`}
-      style={{ backgroundColor: previewOn ? "var(--kb)" : "var(--surface-dim)" }}
-      title={previewLabel}
-      aria-label={previewLabel}
-      aria-pressed={previewOn}
-      data-tour="preview-toggle"
-    >
-      {previewOn ? <EyeSlash size={16} weight="bold" /> : <Eye size={16} weight="bold" />}
-    </button>
-  ) : null;
+  // Owners edit the note, so their button belongs behind the same preview gate as
+  // every other owner control. Readers only open it and keep it usable.
+  const staffNoteControl = (
+    <StaffNoteControl
+      isOwner={isOwner}
+      text={staffNoteText}
+      links={staffNoteLinks}
+      onSave={onStaffNoteSave}
+    />
+  );
+  const staffNoteButton = isOwner ? (
+    <OwnerOnly show>{staffNoteControl}</OwnerOnly>
+  ) : (
+    staffNoteControl
+  );
 
   // Without this line the inert controls read as a broken page.
   const previewBanner = previewOn ? (
@@ -134,8 +148,8 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
             </h1>
           </span>
           <div className="flex items-center gap-1.5 ml-auto">
-            {previewButton}
-            {settingsButton}
+            {staffNoteButton}
+            {settingsSlot}
           </div>
         </div>
         {previewBanner}
@@ -155,8 +169,8 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
           </span>
         </span>
         <div className="flex items-center gap-1.5 ml-auto">
-          {previewButton}
-          {settingsButton}
+          {staffNoteButton}
+          {settingsSlot}
         </div>
       </div>
       {previewBanner}

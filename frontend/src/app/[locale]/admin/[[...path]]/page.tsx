@@ -48,7 +48,7 @@ export default function AdminPage({ params }: { params: Promise<{ path?: string[
   return (
     <>
       {page && (
-        <p className="text-2xs font-semibold uppercase tracking-[0.09em] text-muted mb-1">
+        <p className="hidden md:block text-2xs font-semibold uppercase tracking-[0.09em] text-muted mb-1">
           {ts(`${section.key}.label`)}
         </p>
       )}

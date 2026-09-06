@@ -34,7 +34,7 @@ interface Props {
   /** May own workspaces. Controls the owned block only, never the access link. */
   canCreate: boolean;
   firstName: string;
-  /** Only students get the language trainer offer, staff find it under Sprachlevel. */
+  /** Everyone holding the language level right gets the trainer offer. */
   languageInvite: boolean;
 }
 

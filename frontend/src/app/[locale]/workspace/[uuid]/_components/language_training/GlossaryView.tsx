@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Book, CaretDown, CaretUp, ClockCounterClockwise, DotsThreeVertical, FilePdf, TextAa, Trash } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
+import HelpTooltip from "@/components/ui/HelpTooltip";
 import { EmptyState } from "@/components/ui/EmptyState";
 import type { GlossaryEntry } from "../../_types";
 import { _chunkLabel, _getChipIcon } from "../../_utils";
@@ -70,12 +71,6 @@ export function GlossaryView({
     <div className="flex flex-col h-full">
       {onBack && <SubviewHeader title={t("glossary.title")} toolKey="Glossary" onBack={onBack} breadcrumbs={breadcrumbs} category="language_training" />}
       <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
-        {entries.length > 0 && (
-          <div className="w-full px-1 flex items-center justify-end">
-            <GlossaryMenu onDeleteAll={onDeleteAll} />
-          </div>
-        )}
-
         <div className="mx-auto w-full px-1 pb-3 flex flex-col gap-3" style={{ maxWidth: 560 }}>
           {extracting && (
             <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-medium"
@@ -105,28 +100,33 @@ export function GlossaryView({
           )}
         </div>
 
-        {entries.length > 1 && (
-          <div className="w-full flex justify-end gap-1 px-1" role="group" aria-label={t("glossary.sortAriaLabel")}>
-            {(["recent", "alpha"] as const).map((mode) => {
-              const active = sortMode === mode;
-              const Icon = mode === "recent" ? ClockCounterClockwise : TextAa;
-              return (
-                <button
-                  key={mode}
-                  type="button"
-                  onClick={() => setSortMode(mode)}
-                  aria-pressed={active}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium transition-colors"
-                  style={{
-                    backgroundColor: active ? "var(--kb)" : "transparent",
-                    color: active ? "#fff" : "var(--muted)",
-                  }}
-                >
-                  <Icon size={12} weight="bold" />
-                  {t(mode === "recent" ? "glossary.sortRecent" : "glossary.sortAlpha")}
-                </button>
-              );
-            })}
+        {entries.length > 0 && (
+          <div className="w-full flex items-center justify-end gap-2 px-1">
+            {entries.length > 1 && (
+              <div className="flex gap-1" role="group" aria-label={t("glossary.sortAriaLabel")}>
+                {(["recent", "alpha"] as const).map((mode) => {
+                  const active = sortMode === mode;
+                  const Icon = mode === "recent" ? ClockCounterClockwise : TextAa;
+                  return (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => setSortMode(mode)}
+                      aria-pressed={active}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium transition-colors"
+                      style={{
+                        backgroundColor: active ? "var(--kb)" : "transparent",
+                        color: active ? "#fff" : "var(--muted)",
+                      }}
+                    >
+                      <Icon size={12} weight="bold" />
+                      {t(mode === "recent" ? "glossary.sortRecent" : "glossary.sortAlpha")}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            <GlossaryMenu onDeleteAll={onDeleteAll} />
           </div>
         )}
 
@@ -178,7 +178,7 @@ export function GlossaryView({
 
                     {isExpanded && (
                       <div className="px-3 pb-3 pt-1" onClick={(e) => e.stopPropagation()}>
-                        {entry.base_form && entry.base_form.trim().toLowerCase() !== entry.term_de.trim().toLowerCase() && (
+                        {showTranslation && entry.base_form && entry.base_form.trim().toLowerCase() !== entry.term_de.trim().toLowerCase() && (
                           <div className="mb-2">
                             <span className="text-3xs font-semibold uppercase tracking-wider" style={{ color: "var(--kb)" }}>{t("glossary.baseForm")}</span>
                             <p className="text-sm leading-relaxed mt-0.5" style={{ color: "var(--foreground)" }}>
@@ -195,7 +195,11 @@ export function GlossaryView({
                           </div>
                         )}
                         <div>
-                          <span className="text-3xs font-semibold uppercase tracking-wider" style={{ color: "var(--kb)" }}>{t("glossary.explanation")}</span>
+                          <span className="inline-flex items-center gap-1">
+                            <span className="text-3xs font-semibold uppercase tracking-wider" style={{ color: "var(--kb)" }}>{t("glossary.explanation")}</span>
+                            {/* Says the wording is the model's, not a quote from the material. */}
+                            <HelpTooltip text={t("common.aiKnowledgeHint")} />
+                          </span>
                           <p className="text-sm leading-relaxed mt-0.5" style={{ color: "var(--foreground)", opacity: 0.8 }}>
                             {entry.definition}
                           </p>

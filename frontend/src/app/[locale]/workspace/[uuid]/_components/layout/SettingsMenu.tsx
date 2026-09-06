@@ -14,6 +14,12 @@ interface SettingsMenuProps {
   onClose: () => void;
   studioEnabled: boolean;
   onToggleStudio: () => void;
+  /** Switch offered at all: owners always, enrolled people only in the demo course. */
+  canPreview: boolean;
+  previewOn: boolean;
+  /** true: previews the owner side, false: the owner previews the student side. */
+  previewsOwnerSide: boolean;
+  onTogglePreview: () => void;
   onStartTour: () => void;
   popupTranslateLang: string;
   onChangePopupTranslateLang: (lang: string) => void;
@@ -24,6 +30,10 @@ export function SettingsMenu({
   onClose,
   studioEnabled,
   onToggleStudio,
+  canPreview,
+  previewOn,
+  previewsOwnerSide,
+  onTogglePreview,
   onStartTour,
   popupTranslateLang,
   onChangePopupTranslateLang,
@@ -80,6 +90,16 @@ export function SettingsMenu({
           checked={studioEnabled}
           onToggle={onToggleStudio}
         />
+        {canPreview && (
+          <ToggleRow
+            title={previewsOwnerSide ? t("previewOwnerTitle") : t("previewStudentTitle")}
+            description={previewsOwnerSide ? t("previewOwnerDescription") : t("previewStudentDescription")}
+            checked={previewOn}
+            /* The window closes on switching, otherwise it covers the view it just changed. */
+            onToggle={() => { onTogglePreview(); onClose(); }}
+            dataTour="preview-toggle"
+          />
+        )}
         <div className="mt-3">
           <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{t("popupTranslateLangTitle")}</p>
           <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>

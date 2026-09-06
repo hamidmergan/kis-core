@@ -7,9 +7,9 @@ A1 to C2.
 
 ## When it comes
 
-The start page carries the card Language trainer next to the demo module, for students only.
-Start the language test begins the test at once. Whoever picks Hide has the language trainer
-off and currently cannot switch it back on alone yet.
+The start page carries the card Language trainer next to the demo module, for students and for
+teaching staff. Start the language test begins the test at once. Whoever picks Hide has the
+language trainer off and currently cannot switch it back on alone yet.
 
 ## How it runs
 

@@ -2,11 +2,10 @@
 
 /** Sidebar with a collapsible tree, the open area follows the URL. */
 
-import { CaretRight, X } from "@phosphor-icons/react";
+import { CaretRight } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { RANKS, allowedSections, type AdminSection } from "./registry";
-import { areaLabelKey } from "@/lib/permissions";
 import { useAdminPerms } from "./AdminAuth";
 
 const ICON = { size: 18, weight: "bold" as const };
@@ -102,9 +101,6 @@ export default function AdminSidebar({
   mobileOpen: boolean;
   onClose: () => void;
 }) {
-  const t = useTranslations("admin");
-  // The area carries the same name here as in the gear menu.
-  const tHeader = useTranslations("header");
   const perms = useAdminPerms();
 
   // Filter first, then group, empty ranks drop out with their divider.
@@ -115,25 +111,13 @@ export default function AdminSidebar({
 
   return (
     <aside
-      className={`bg-surface border-r border-border-soft p-3 flex flex-col gap-0.5 overflow-y-auto
-        fixed md:sticky top-16 md:top-0 left-0 bottom-0 md:bottom-auto
-        h-[calc(100vh-4rem)] md:h-screen
-        w-72 md:w-68 z-40
-        shadow-xl md:shadow-none
-        transition-transform duration-200
-        ${mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}`}
+      id="admin-nav"
+      // On the phone the tree sits inline under the dropdown, from md on it is the sticky column.
+      className={`bg-surface border-border-soft p-3 flex-col gap-0.5
+        w-full border-b
+        md:sticky md:top-0 md:h-screen md:w-68 md:border-b-0 md:border-r md:overflow-y-auto
+        ${mobileOpen ? "flex" : "hidden md:flex"}`}
     >
-      <div className="md:hidden flex items-center justify-between px-2 pt-1 pb-2">
-        <span className="text-sm font-semibold">{tHeader(areaLabelKey(perms))}</span>
-        <button
-          onClick={onClose}
-          className="w-8 h-8 rounded-lg flex items-center justify-center text-muted transition-colors hover:bg-surface-dim hover:text-kb"
-          aria-label={t("close")}
-        >
-          <X size={16} weight="bold" />
-        </button>
-      </div>
-
       {blocks.map((group, i) => (
         <div key={group[0].rank}>
           {i > 0 && <hr className="border-0 border-t border-border-soft mx-2 my-3" />}

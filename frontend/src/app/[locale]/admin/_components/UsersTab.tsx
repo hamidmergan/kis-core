@@ -228,7 +228,8 @@ export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number
           text={t("users.empty")}
         />
       ) : (
-        <div className="overflow-x-auto">
+        // Relative keeps absolute children like sr-only labels inside, otherwise they widen the page.
+        <div className="relative overflow-x-auto">
           <table className="w-full text-sm border border-border-soft rounded-xl overflow-hidden">
             <thead className="bg-surface text-xs text-muted uppercase">
               <tr>
