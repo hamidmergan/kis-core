@@ -791,13 +791,6 @@ me-tpc:hover .mm-src-chip {
   color: #FFFFFF !important;
 }
 
-/* Admin-Sidebar selected item — kontrastreicher BG, Light + Dark separat */
-.admin-nav-active {
-  background-color: rgba(var(--kb-rgb), 0.18);
-}
-:root[data-theme="dark"] .admin-nav-active {
-  background-color: rgba(255, 255, 255, 0.10);
-}
 
 /* Status mark in dark mode: the brand blue disappears on dark, just as with the
    citation above, and the border tone is too quiet. */

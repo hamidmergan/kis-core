@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { ChartBar } from "@phosphor-icons/react";
 import IconButton from "@/components/ui/IconButton";
+import Spinner from "@/components/ui/Spinner";
 import ActiveToggle from "./ActiveToggle";
 import WorkspaceMenu from "./WorkspaceMenu";
 import WorkspaceModals from "./WorkspaceModals";
@@ -61,6 +62,7 @@ export default function WorkspaceTableRow({
         >
           <span className="font-medium text-foreground-soft truncate flex items-center gap-1.5" title={workspace.title}>
             <span className="truncate">{workspace.title}</span>
+            {a.opening && <Spinner size="xs" color="current" className="flex-shrink-0" />}
             {/* The row looks the same whether it is owned or tutored, so say which. */}
             {!isOwner && (
               <span

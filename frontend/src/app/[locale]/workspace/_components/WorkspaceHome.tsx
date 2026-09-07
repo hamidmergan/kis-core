@@ -208,8 +208,9 @@ export default function WorkspaceHome({ canCreate, firstName, languageInvite }: 
                 onClick={handleEnrollLink}
                 data-testid="enroll-submit"
                 disabled={enrolling}
-                className="btn-primary px-8 py-3 rounded-lg text-base font-medium disabled:opacity-50"
+                className="btn-primary px-8 py-3 rounded-lg text-base font-medium inline-flex items-center gap-2 disabled:opacity-50"
               >
+                {enrolling && <Spinner size="sm" color="current" />}
                 {enrolling ? t("enrolling") : t("enroll")}
               </button>
             </div>

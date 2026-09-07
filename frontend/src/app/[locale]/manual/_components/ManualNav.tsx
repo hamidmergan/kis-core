@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Link, usePathname } from "@/i18n/navigation";
 import { CaretDown } from "@phosphor-icons/react";
+import LinkBusy from "@/components/ui/LinkBusy";
 import { checkAuthStatus } from "@/lib/auth";
 import { filterTree } from "../_lib/filterTree";
 import type { ManualGroup } from "../_lib/articles";
@@ -80,14 +81,17 @@ export default function ManualNav({ tree }: { tree: ManualGroup[] }) {
                     href={`/manual/${article.slug}`}
                     onClick={() => setOpenOnPhone(false)}
                     aria-current={active ? "page" : undefined}
-                    className="block pl-5 pr-3 py-1.5 rounded-lg text-sm transition-colors"
+                    // btn-ghost bringt den Hover-Ring, der offene Eintrag zeigt denselben Ring dauerhaft.
+                    // Der Ring liegt nach innen, sonst schneidet ihn die scrollende Nav links und rechts ab.
+                    className="btn-ghost flex items-center gap-2 pl-5 pr-3 py-1.5 rounded-lg text-sm -outline-offset-2"
                     style={{
                       color: active ? "var(--kb-dark)" : "var(--foreground)",
-                      backgroundColor: active ? "var(--surface-dim)" : "transparent",
+                      outlineColor: active ? "var(--kb)" : undefined,
                       fontWeight: active ? 600 : 400,
                     }}
                   >
-                    {article.title}
+                    <span className="truncate">{article.title}</span>
+                    <LinkBusy size="xs" />
                   </Link>
                 </li>
               );

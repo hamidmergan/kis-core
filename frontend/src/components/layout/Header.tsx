@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import LinkBusy from "@/components/ui/LinkBusy";
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { CalendarBlank } from "@phosphor-icons/react";
@@ -109,7 +110,9 @@ export default function Header({ hasSession = true, showLogout = false, showTool
                   aria-current={onCalendar ? "page" : undefined}
                   className={`flex items-center justify-center h-9 px-3 gap-1.5 rounded-full btn-on-dark${onCalendar ? " is-active" : ""}`}
                 >
-                  <CalendarBlank size={17} weight="bold" />
+                  <LinkBusy size="sm">
+                    <CalendarBlank size={17} weight="bold" />
+                  </LinkBusy>
                   <span className="text-sm font-medium">{t("calendar")}</span>
                 </Link>
               )}

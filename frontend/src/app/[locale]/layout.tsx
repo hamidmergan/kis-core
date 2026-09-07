@@ -10,7 +10,6 @@ import "katex/dist/katex.min.css";
 import FooterWrapper from "@/components/layout/FooterWrapper";
 import LayoutShell from "@/components/layout/LayoutShell";
 import MaintenanceGuard from "@/components/auth/MaintenanceGuard";
-import NextTopLoader from "nextjs-toploader";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist" });
 
@@ -61,7 +60,6 @@ export default async function RootLayout({ children, params }: Props) {
       </head>
       <body className={`${geist.variable} min-h-screen flex flex-col`} suppressHydrationWarning>
         <NextIntlClientProvider locale={locale} messages={messages}>
-          <NextTopLoader color="#265E79" showSpinner={false} height={3} />
           <MaintenanceGuard />
           <main className="flex-1">
             <LayoutShell hasSession={hasSession}>{children}</LayoutShell>

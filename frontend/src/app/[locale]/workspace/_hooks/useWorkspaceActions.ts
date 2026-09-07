@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useTopLoader } from "nextjs-toploader";
+import { useNavTransition } from "@/components/ui/useNavTransition";
 import type { AccessLink, KiTutorWorkspace } from "../_shared";
 
 interface UseWorkspaceActionsOptions {
@@ -14,7 +14,7 @@ interface UseWorkspaceActionsOptions {
 
 export function useWorkspaceActions({ workspace, onToggleActive, onDelete, onLinksChanged }: UseWorkspaceActionsOptions) {
   const router = useRouter();
-  const loader = useTopLoader();
+  const { pending: opening, navigate } = useNavTransition();
 
   const [toggling, setToggling] = useState(false);
   const [showStats, setShowStats] = useState(false);
@@ -27,7 +27,7 @@ export function useWorkspaceActions({ workspace, onToggleActive, onDelete, onLin
   const links = workspace.access_links ?? [];
   const moduleHref = `/workspace/${workspace.uuid}`;
 
-  const handleOpen = () => { loader.start(); router.push(moduleHref); };
+  const handleOpen = () => navigate(() => router.push(moduleHref));
   const handlePrefetch = () => router.prefetch(moduleHref);
 
   async function handleToggle(newVal: boolean) {
@@ -70,7 +70,7 @@ export function useWorkspaceActions({ workspace, onToggleActive, onDelete, onLin
     showLinks, setShowLinks,
     deleteConfirm, setDeleteConfirm, deleting, deleteParticipantCount,
     editOpen, setEditOpen,
-    handleOpen, handlePrefetch,
+    handleOpen, handlePrefetch, opening,
     handleToggle, handleDeleteClick, handleDeleteConfirm, handleLinksChanged,
   };
 }

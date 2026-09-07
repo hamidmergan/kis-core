@@ -7,6 +7,7 @@ import { usePathname } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { Stack } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
+import { useNavTransition } from "@/components/ui/useNavTransition";
 import { EmptyState } from "@/components/ui/EmptyState";
 import StatusMark from "@/components/ui/StatusMark";
 import { jobStatusDisplay } from "@/lib/jobStatusDisplay";
@@ -97,6 +98,7 @@ export default function JobsPanel() {
   const panelRef = useRef<HTMLDivElement>(null);
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
+  const { pending: toJobsPending, navigate } = useNavTransition();
   // The button leads to /my-jobs, so it also shows when you are already there.
   const onJobsPage = usePathname().startsWith("/my-jobs");
 
@@ -251,7 +253,7 @@ export default function JobsPanel() {
   const handleButtonClick = () => {
     if (open) {
       setOpen(false);
-      router.push("/my-jobs");
+      navigate(() => router.push("/my-jobs"));
     } else {
       setOpen(true);
     }
@@ -290,7 +292,7 @@ export default function JobsPanel() {
       }
       window.dispatchEvent(new Event("kis-jobs-status-changed"));
       setOpen(false);
-      router.push("/my-jobs");
+      navigate(() => router.push("/my-jobs"));
     } finally {
       setRetrying(null);
     }
@@ -298,7 +300,7 @@ export default function JobsPanel() {
 
   const handleJobClick = (_job: MyJob) => {
     setOpen(false);
-    router.push("/my-jobs");
+    navigate(() => router.push("/my-jobs"));
   };
 
   return (
@@ -312,7 +314,7 @@ export default function JobsPanel() {
         className={`relative flex items-center justify-center w-10 h-10 sm:w-auto sm:h-9 sm:px-3 sm:gap-1.5 rounded-full btn-on-dark${onJobsPage ? " is-active" : ""}`}
         data-tour="jobs-entry"
       >
-        <Stack size={17} weight="bold" aria-hidden="true" />
+        {toJobsPending ? <Spinner size="sm" color="current" /> : <Stack size={17} weight="bold" aria-hidden="true" />}
         <span className="hidden sm:inline text-sm font-medium">{tHeader("jobs")}</span>
         {hasFreshResult && (
           <>

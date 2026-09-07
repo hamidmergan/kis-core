@@ -5,6 +5,7 @@
 import { CaretRight } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
+import LinkBusy from "@/components/ui/LinkBusy";
 import { RANKS, allowedSections, type AdminSection } from "./registry";
 import { useAdminPerms } from "./AdminAuth";
 
@@ -39,19 +40,19 @@ function Group({
         onClick={onNavigate}
         aria-current={active ? "page" : undefined}
         aria-expanded={section.pages ? open : undefined}
-        className={`group w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg text-sm
-          font-medium text-left transition-colors ${
-            open
-              ? "admin-nav-active text-kb dark:text-white font-semibold"
-              : "text-foreground-soft hover:bg-surface-dim hover:text-kb dark:hover:text-white"
+        // btn-ghost brings the hover ring, the open page shows the same ring permanently.
+        // An area with subpages stays without a ring, that one belongs to the open subpage.
+        // The ring sits inwards, otherwise the scrolling sidebar clips it left and right.
+        className={`btn-ghost w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg text-sm
+          font-medium text-left -outline-offset-2 ${
+            open ? "text-kb dark:text-white font-semibold" : "text-foreground-soft"
           }`}
+        style={active ? { outlineColor: "var(--kb)" } : undefined}
       >
-        <span
-          className={`transition-colors ${
-            open ? "text-kb dark:text-white" : "text-muted group-hover:text-kb dark:group-hover:text-white"
-          }`}
-        >
-          <section.Icon {...ICON} />
+        <span className={open ? "text-kb dark:text-white" : "text-muted"}>
+          <LinkBusy size="sm">
+            <section.Icon {...ICON} />
+          </LinkBusy>
         </span>
         <span className="flex-1 min-w-0">{t(`${section.key}.label`)}</span>
         {section.pages && (
@@ -74,13 +75,13 @@ function Group({
                 href={`/admin/${section.slug}/${p.slug}`}
                 onClick={onNavigate}
                 aria-current={on ? "page" : undefined}
-                className={`px-3 py-1.5 rounded-md text-sm transition-colors ${
-                  on
-                    ? "admin-nav-active text-kb dark:text-white font-semibold"
-                    : "text-foreground-soft hover:bg-surface-dim hover:text-kb dark:hover:text-white"
+                className={`btn-ghost flex items-center gap-2 px-3 py-1.5 rounded-md text-sm -outline-offset-2 ${
+                  on ? "text-kb dark:text-white font-semibold" : "text-foreground-soft"
                 }`}
+                style={on ? { outlineColor: "var(--kb)" } : undefined}
               >
-                {t(`${section.key}.${p.key}.label`)}
+                <span className="truncate">{t(`${section.key}.${p.key}.label`)}</span>
+                <LinkBusy size="xs" />
               </Link>
             );
           })}

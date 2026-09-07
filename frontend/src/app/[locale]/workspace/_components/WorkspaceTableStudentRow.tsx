@@ -3,6 +3,8 @@
 import { useLocale, useTranslations } from "next-intl";
 import { CalendarBlank, Lock } from "@phosphor-icons/react";
 import { useRouter } from "@/i18n/navigation";
+import Spinner from "@/components/ui/Spinner";
+import { useNavTransition } from "@/components/ui/useNavTransition";
 import WorkspaceMenu from "./WorkspaceMenu";
 import type { KiTutorWorkspace } from "../_shared";
 
@@ -20,6 +22,7 @@ export default function WorkspaceTableStudentRow({
   const tDemo = useTranslations("workspace.demo");
   const locale = useLocale();
   const router = useRouter();
+  const { pending: opening, navigate } = useNavTransition();
   const closed = !workspace.is_active;
 
   const href = workspace.enrollment_id
@@ -35,7 +38,7 @@ export default function WorkspaceTableStudentRow({
       })
     : null;
 
-  const open = () => { if (!closed) router.push(href); };
+  const open = () => { if (!closed) navigate(() => router.push(href)); };
   // Every way in is dropped instead of only disabled, the new tab included.
   const zellenKlasse = closed ? "" : "cursor-pointer";
 
@@ -52,6 +55,7 @@ export default function WorkspaceTableStudentRow({
       >
         <span className="font-medium text-foreground-soft truncate flex items-center gap-1.5" title={workspace.title}>
           <span className="truncate">{workspace.title}</span>
+          {opening && <Spinner size="xs" color="current" className="flex-shrink-0" />}
           {isDemo && (
             <span
               className="flex-shrink-0 text-3xs font-semibold px-1.5 py-0.5 rounded"

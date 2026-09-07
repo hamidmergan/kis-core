@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import LinkBusy from "@/components/ui/LinkBusy";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { usePathname } from "@/i18n/navigation";
@@ -194,7 +195,9 @@ export default function ToolsSidebar() {
                   className={`tools-sidebar-item flex items-center gap-3 rounded-lg no-underline transition-colors ${isActive ? "is-active" : ""} ${effectiveCollapsed ? "justify-center px-1 py-2" : "px-2 py-2"}`}
                 >
                   <span className="tools-sidebar-item__box flex items-center justify-center flex-shrink-0 w-10 h-10 rounded-lg">
-                    <ToolIcon size={18} weight="bold" />
+                    <LinkBusy size="sm">
+                      <ToolIcon size={18} weight="bold" />
+                    </LinkBusy>
                   </span>
                   {!effectiveCollapsed && (
                     <span

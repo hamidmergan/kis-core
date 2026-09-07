@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Link, useRouter } from "@/i18n/navigation";
+import LinkBusy from "@/components/ui/LinkBusy";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import Spinner from "@/components/ui/Spinner";
 import { genericErrorMessage } from "@/lib/api";
@@ -49,14 +50,16 @@ export default function LanguageTestPage() {
           // A failed fetch must not read like a switched-off trainer.
           <div className="max-w-xl mx-auto text-center">
             <p className="text-sm" style={{ color: "var(--muted)" }}>{genericErrorMessage()}</p>
-            <Link href="/language-level" className="mt-4 inline-block px-4 py-2 text-sm btn-primary rounded-lg">
+            <Link href="/language-level" className="mt-4 inline-flex items-center gap-2 px-4 py-2 text-sm btn-primary rounded-lg">
+              <LinkBusy size="sm" />
               {t("toLevelPage")}
             </Link>
           </div>
         ) : !offered ? (
           <div className="max-w-xl mx-auto text-center">
             <p className="text-sm" style={{ color: "var(--muted)" }}>{t("notOffered")}</p>
-            <Link href="/language-level" className="mt-4 inline-block px-4 py-2 text-sm btn-primary rounded-lg">
+            <Link href="/language-level" className="mt-4 inline-flex items-center gap-2 px-4 py-2 text-sm btn-primary rounded-lg">
+              <LinkBusy size="sm" />
               {t("toLevelPage")}
             </Link>
           </div>

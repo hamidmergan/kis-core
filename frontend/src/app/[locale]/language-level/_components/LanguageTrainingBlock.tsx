@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
+import Spinner from "@/components/ui/Spinner";
+import { useNavTransition } from "@/components/ui/useNavTransition";
 import { type CefrLevel } from "@/lib/cefr";
 import { LevelLadder } from "./LevelLadder";
 import { LevelMedallion } from "./LevelMedallion";
@@ -26,9 +28,10 @@ export function LanguageTrainingBlock({ me, onChanged }: { me: ProfileMe; onChan
   const [picking, setPicking] = useState(false);
   const [preview, setPreview] = useState<CefrLevel | null>(null);
   const [busy, setBusy] = useState(false);
+  const { pending: toTestPending, navigate } = useNavTransition();
 
   const own = me.language_level;
-  const toTest = () => router.push("/language-level/test");
+  const toTest = () => navigate(() => router.push("/language-level/test"));
 
   const closePicker = () => {
     setPicking(false);
@@ -94,7 +97,9 @@ export function LanguageTrainingBlock({ me, onChanged }: { me: ProfileMe; onChan
         </>
       ) : (
         <div className="flex items-center gap-3">
-          <button type="button" onClick={toTest} className="px-4 py-2 text-sm btn-primary rounded-lg">
+          <button type="button" onClick={toTest} disabled={toTestPending}
+            className="px-4 py-2 text-sm btn-primary rounded-lg inline-flex items-center gap-2 disabled:opacity-50">
+            {toTestPending && <Spinner size="sm" color="current" />}
             {t("takeTest")}
           </button>
           <button

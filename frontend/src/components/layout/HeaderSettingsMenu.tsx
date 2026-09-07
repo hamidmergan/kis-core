@@ -2,6 +2,7 @@
 
 import type { AreaKey } from "@/lib/permissions";
 import Link from "next/link";
+import LinkBusy from "@/components/ui/LinkBusy";
 import { useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Check, Compass, Gear, Medal, Moon, Question, SignOut, Sun, Toolbox, UserCircleGear } from "@phosphor-icons/react";
@@ -41,6 +42,15 @@ export default function HeaderSettingsMenu({ isAdmin = false, canViewManual = fa
   const { theme, setTheme } = useTheme();
 
   const [open, setOpen] = useState(false);
+
+  // The menu stays open while the page loads, so the row can show its spinner.
+  useEffect(() => { setOpen(false); }, [pathname]);
+
+  // Clicking the page you already stand on never changes the path, so close right away.
+  const closeIfHere = (href: string) => () => {
+    if (pathname === href || pathname.startsWith(`${href}/`)) setOpen(false);
+  };
+
   const rootRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -204,11 +214,13 @@ export default function HeaderSettingsMenu({ isAdmin = false, canViewManual = fa
               href="/language-level"
               role="menuitem"
               tabIndex={-1}
-              onClick={() => setOpen(false)}
+              onClick={closeIfHere("/language-level")}
               className={rowClass}
               style={{ color: "var(--foreground)", ...dividerFor("level") }}
             >
-              <Medal size={18} weight="bold" aria-hidden="true" />
+              <LinkBusy size="sm">
+                <Medal size={18} weight="bold" aria-hidden="true" />
+              </LinkBusy>
               <span className="flex-1">{t("languageLevel")}</span>
             </Link>
           )}
@@ -256,11 +268,13 @@ export default function HeaderSettingsMenu({ isAdmin = false, canViewManual = fa
               href="/manual"
               role="menuitem"
               tabIndex={-1}
-              onClick={() => setOpen(false)}
+              onClick={closeIfHere("/manual")}
               className={rowClass}
               style={{ color: "var(--foreground)", ...dividerFor("manual") }}
             >
-              <Question size={18} weight="bold" aria-hidden="true" />
+              <LinkBusy size="sm">
+                <Question size={18} weight="bold" aria-hidden="true" />
+              </LinkBusy>
               <span className="flex-1">{tManual("title")}</span>
             </Link>
           )}
@@ -271,11 +285,13 @@ export default function HeaderSettingsMenu({ isAdmin = false, canViewManual = fa
               href="/admin"
               role="menuitem"
               tabIndex={-1}
-              onClick={() => setOpen(false)}
+              onClick={closeIfHere("/admin")}
               className={rowClass}
               style={{ color: "var(--foreground)", ...dividerFor("admin") }}
             >
-              <UserCircleGear size={18} weight="bold" aria-hidden="true" />
+              <LinkBusy size="sm">
+                <UserCircleGear size={18} weight="bold" aria-hidden="true" />
+              </LinkBusy>
               <span className="flex-1">{t(areaKey)}</span>
             </Link>
           )}

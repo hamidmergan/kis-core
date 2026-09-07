@@ -2,6 +2,7 @@
 
 import type { AreaKey } from "@/lib/permissions";
 import Link from "next/link";
+import LinkBusy from "@/components/ui/LinkBusy";
 import { useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { CalendarBlank, CaretRight, Check, Compass, List, Medal, Moon, Question, Sidebar, SignOut, Stack, Sun, Toolbox, UserCircleGear, X } from "@phosphor-icons/react";
@@ -43,6 +44,15 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, canViewManual = 
   const pathname = usePathname();
   const currentLocale = useLocale() as Locale;
   const [open, setOpen] = useState(false);
+
+  // The menu stays open while the page loads, so the row can show its spinner.
+  useEffect(() => { setOpen(false); }, [pathname]);
+
+  // Clicking the page you already stand on never changes the path, so close right away.
+  const closeIfHere = (href: string) => () => {
+    if (pathname === href || pathname.startsWith(`${href}/`)) setOpen(false);
+  };
+
   const [sheetTop, setSheetTop] = useState(0);
   const { theme, setTheme } = useTheme();
   const ref = useRef<HTMLDivElement>(null);
@@ -147,24 +157,28 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, canViewManual = 
           {hasSession && hasAia && (
             <Link
               href="/calendar"
-              onClick={() => setOpen(false)}
+              onClick={closeIfHere("/calendar")}
               aria-current={onCalendar ? "page" : undefined}
               className={rowClass}
               style={{ color: "var(--foreground)", ...(onCalendar ? activeRowStyle : {}) }}
             >
-              <CalendarBlank size={20} weight="bold" />
+              <LinkBusy size="sm">
+                <CalendarBlank size={20} weight="bold" />
+              </LinkBusy>
               <span>{t("calendar")}</span>
             </Link>
           )}
           {hasSession && hasTools && (
             <Link
               href="/my-jobs"
-              onClick={() => setOpen(false)}
+              onClick={closeIfHere("/my-jobs")}
               aria-current={onJobsPage ? "page" : undefined}
               className={rowClass}
               style={{ color: "var(--foreground)", ...(onJobsPage ? activeRowStyle : {}) }}
             >
-              <Stack size={20} weight="bold" />
+              <LinkBusy size="sm">
+                <Stack size={20} weight="bold" />
+              </LinkBusy>
               <span>{t("jobs")}</span>
             </Link>
           )}
@@ -225,11 +239,13 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, canViewManual = 
           {hasSession && showLanguageLevel && (
             <Link
               href="/language-level"
-              onClick={() => setOpen(false)}
+              onClick={closeIfHere("/language-level")}
               className={rowClass}
               style={{ color: "var(--foreground)", ...dividerFor("level") }}
             >
-              <Medal size={20} weight="bold" />
+              <LinkBusy size="sm">
+                <Medal size={20} weight="bold" />
+              </LinkBusy>
               <span>{t("languageLevel")}</span>
             </Link>
           )}
@@ -264,22 +280,26 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, canViewManual = 
           {hasSession && canViewManual && (
             <Link
               href="/manual"
-              onClick={() => setOpen(false)}
+              onClick={closeIfHere("/manual")}
               className={rowClass}
               style={{ color: "var(--foreground)", ...dividerFor("manual") }}
             >
-              <Question size={20} weight="bold" />
+              <LinkBusy size="sm">
+                <Question size={20} weight="bold" />
+              </LinkBusy>
               <span>{tManual("title")}</span>
             </Link>
           )}
           {hasSession && isAdmin && (
             <Link
               href="/admin"
-              onClick={() => setOpen(false)}
+              onClick={closeIfHere("/admin")}
               className={rowClass}
               style={{ color: "var(--foreground)", ...dividerFor("admin") }}
             >
-              <UserCircleGear size={20} weight="bold" />
+              <LinkBusy size="sm">
+                <UserCircleGear size={20} weight="bold" />
+              </LinkBusy>
               <span>{t(areaKey)}</span>
             </Link>
           )}
