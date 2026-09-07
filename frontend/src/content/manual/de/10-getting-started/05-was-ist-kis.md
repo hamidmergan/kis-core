@@ -1,8 +1,8 @@
 # Was ist KIS
 
-KIS ist die KI-Plattform der TH Lübeck für Lehre und Studium. Sie deckt zwei
-getrennte Bereiche ab: eigenständige Werkzeuge und Module mit einem
-KI-Studienassistenten.
+KIS ist ein Pilotprojekt an der TH Lübeck, eine KI-Plattform für Lehre und
+Studium. Sie deckt zwei getrennte Bereiche ab: eigenständige Werkzeuge und
+Module mit einem KI-Studienassistenten.
 
 ## Die Werkzeuge
 

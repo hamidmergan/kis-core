@@ -1,7 +1,8 @@
 # What KIS is
 
-KIS is the AI platform of TH Lübeck for teaching and study. It covers two
-separate areas: standalone tools and modules with an AI study assistant.
+KIS is a pilot project at TH Lübeck, an AI platform for teaching and study. It
+covers two separate areas: standalone tools and modules with an AI study
+assistant.
 
 ## The tools
 
