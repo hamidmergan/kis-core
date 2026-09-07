@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { driver, type Driver, type PopoverDOM } from "driver.js";
 import { useRouter } from "@/i18n/navigation";
 import type { ToolKey } from "@/lib/modules";
-import { knoepfeAngleichen } from "./popoverStil";
+import { knoepfeAngleichen, knoepfeWarten } from "./popoverStil";
 import { merkeWerkzeugTourGesehen } from "./toolsTourSeen";
 import { werkzeugRundgang, type RundgangSchritt } from "./toolsSteps";
 
@@ -73,23 +73,18 @@ export function useToolsTour() {
     let unterwegs = false;
     let letzterSprung = 0;
 
-    /** Greys the footer buttons out while the next station loads, driver.js builds fresh ones for it. */
-    const knoepfeSperren = () => {
-      const popover = fuehrung.getState("popover") as PopoverDOM | undefined;
-      for (const knopf of [popover?.nextButton, popover?.previousButton]) {
-        if (!knopf) continue;
-        knopf.disabled = true;
-        knopf.classList.add("driver-popover-btn-disabled");
-      }
-    };
-
     /** Opens what a station points at and moves on once it stands, capped so a missing anchor never stalls the tour. */
-    const springe = (s: RundgangSchritt | undefined, weiter: () => void) => {
+    const springe = (
+      s: RundgangSchritt | undefined,
+      weiter: () => void,
+      richtung: "next" | "prev" = "next",
+    ) => {
       if (unterwegs || Date.now() - letzterSprung < DOPPELKLICK_MS) return;
       const los = () => { letzterSprung = Date.now(); unterwegs = false; weiter(); };
       if (!s) { los(); return; }
       unterwegs = true;
-      knoepfeSperren();
+      // The station takes its time, so the clicked button says so until it stands.
+      knoepfeWarten(fuehrung.getState("popover") as PopoverDOM | undefined, richtung);
       vorbereiten(s);
       const start = Date.now();
       let seiteSeit: number | null = null;
@@ -152,7 +147,7 @@ export function useToolsTour() {
             ? { onNextClick: () => springe(schritte[i + 1], solangeAktiv(() => fuehrung.moveNext())) }
             : {}),
           ...(i > 0
-            ? { onPrevClick: () => springe(schritte[i - 1], solangeAktiv(() => fuehrung.movePrevious())) }
+            ? { onPrevClick: () => springe(schritte[i - 1], solangeAktiv(() => fuehrung.movePrevious()), "prev") }
             : {}),
         },
       })),

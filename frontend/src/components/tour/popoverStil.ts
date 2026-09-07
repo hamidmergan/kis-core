@@ -23,3 +23,34 @@ export function knoepfeAngleichen(popover: PopoverDOM, schliessenLabel: string) 
   popover.closeButton.setAttribute("aria-label", schliessenLabel);
   popover.closeButton.innerHTML = SCHLIESSEN_ICON;
 }
+
+/** The ring of ui/Spinner in size sm, built by hand because driver.js works outside React. */
+function spinnerRad(): HTMLSpanElement {
+  const rad = document.createElement("span");
+  rad.className =
+    "w-3.5 h-3.5 border-[1.5px] border-current border-t-transparent rounded-full animate-spin inline-block shrink-0";
+  rad.setAttribute("aria-hidden", "true");
+  return rad;
+}
+
+/** Turns the clicked footer button into a spinner while the next station loads, the other one only greys out. */
+export function knoepfeWarten(popover: PopoverDOM | undefined, geklickt: "next" | "prev") {
+  if (!popover) return;
+  const wartend = geklickt === "next" ? popover.nextButton : popover.previousButton;
+  const anderer = geklickt === "next" ? popover.previousButton : popover.nextButton;
+  if (anderer) {
+    anderer.disabled = true;
+    anderer.classList.add("driver-popover-btn-disabled");
+  }
+  if (!wartend) return;
+  // The measured size is pinned so the footer does not jump once the label goes.
+  wartend.style.minWidth = `${wartend.offsetWidth}px`;
+  wartend.style.minHeight = `${wartend.offsetHeight}px`;
+  wartend.setAttribute("aria-label", wartend.textContent ?? "");
+  wartend.setAttribute("aria-busy", "true");
+  wartend.disabled = true;
+  // driver.js sets the display as an inline style, which beats a class.
+  wartend.style.display = "inline-flex";
+  wartend.classList.add("items-center", "justify-center");
+  wartend.replaceChildren(spinnerRad());
+}

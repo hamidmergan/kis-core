@@ -6,7 +6,7 @@ import { driver, type Config, type Driver, type PopoverDOM } from "driver.js";
 import { TOUR_STEPS } from "./steps";
 import { demoSchritte, type DemoSchritt, type TourAktionen } from "./demoSteps";
 import { merkeTourGesehen } from "./tourSeen";
-import { knoepfeAngleichen } from "@/components/tour/popoverStil";
+import { knoepfeAngleichen, knoepfeWarten } from "@/components/tour/popoverStil";
 
 /** Longest wait for a station's target, after that the step shows anyway. */
 const ZIEL_HOECHSTENS_MS = 6000;
@@ -100,6 +100,7 @@ export function useTour() {
           ...(vorhanden[i + 1]?.opensOnDemand
             ? {
                 onNextClick: () => {
+                  knoepfeWarten(fuehrung.getState("popover") as PopoverDOM | undefined, "next");
                   erstePdfZeile()?.click();
                   window.setTimeout(() => fuehrung.moveNext(), 600);
                 },
@@ -138,22 +139,18 @@ export function useTour() {
     // One jump at a time, a second click while a station still loads would skip the next one.
     let unterwegs = false;
     let letzterSprung = 0;
-    /** Greys the footer buttons out while the next station loads, driver.js builds fresh ones for it. */
-    const knoepfeSperren = () => {
-      const popover = fuehrung.getState("popover") as PopoverDOM | undefined;
-      for (const knopf of [popover?.nextButton, popover?.previousButton]) {
-        if (!knopf) continue;
-        knopf.disabled = true;
-        knopf.classList.add("driver-popover-btn-disabled");
-      }
-    };
     /** Prepares a station and moves on once its target stands on the page, capped so a missing anchor never stalls the tour. */
-    const springe = (s: DemoSchritt | undefined, weiter: () => void) => {
+    const springe = (
+      s: DemoSchritt | undefined,
+      weiter: () => void,
+      richtung: "next" | "prev" = "next",
+    ) => {
       if (unterwegs || Date.now() - letzterSprung < DOPPELKLICK_MS) return;
       const los = () => { letzterSprung = Date.now(); unterwegs = false; weiter(); };
       if (!s || (!s.vorbereiten && !s.ziel)) { los(); return; }
       unterwegs = true;
-      knoepfeSperren();
+      // The station takes its time, so the clicked button says so until it stands.
+      knoepfeWarten(fuehrung.getState("popover") as PopoverDOM | undefined, richtung);
       s.vorbereiten?.(aktionen);
       const start = Date.now();
       const pruefen = () => {
@@ -191,7 +188,7 @@ export function useTour() {
             ? { onNextClick: () => springe(schritte[i + 1], solangeAktiv(() => fuehrung.moveNext())) }
             : {}),
           ...(i > 0
-            ? { onPrevClick: () => springe(schritte[i - 1], solangeAktiv(() => fuehrung.movePrevious())) }
+            ? { onPrevClick: () => springe(schritte[i - 1], solangeAktiv(() => fuehrung.movePrevious()), "prev") }
             : {}),
         },
       })),
