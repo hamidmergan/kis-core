@@ -152,7 +152,7 @@ export function ChapterHead({
         >
           {chapter.name}
         </span>
-        <span className="text-xs flex-shrink-0" style={{ color: "var(--foreground-soft)" }}>
+        <span className="text-xs flex-shrink-0" style={{ color: "var(--muted-soft)" }}>
           {count}
         </span>
       </button>

@@ -49,20 +49,26 @@ export function FilterBar({
         options={toolOptions}
         className="w-44"
       />
-      <input
-        type="date"
-        value={dateFrom}
-        onChange={(e) => onDateFromChange(e.target.value)}
-        title={t("from")}
-        className="text-sm border-2 border-border rounded-md px-3 py-2 transition-colors hover:border-kb focus:outline-none focus:ring-2 focus:ring-kb focus:border-kb"
-      />
-      <input
-        type="date"
-        value={dateTo}
-        onChange={(e) => onDateToChange(e.target.value)}
-        title={t("to")}
-        className="text-sm border-2 border-border rounded-md px-3 py-2 transition-colors hover:border-kb focus:outline-none focus:ring-2 focus:ring-kb focus:border-kb"
-      />
+      <div className="flex gap-2 min-w-0 max-w-full">
+        <div className="flex-1 min-w-0 flex items-center gap-1.5 text-sm border-2 border-border rounded-md px-2.5 py-2 bg-background transition-colors hover:border-kb focus-within:ring-2 focus-within:ring-kb focus-within:border-kb">
+          <span className="text-muted-soft whitespace-nowrap">{t("from")}</span>
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => onDateFromChange(e.target.value)}
+            className="w-full min-w-0 bg-transparent text-sm focus:outline-none"
+          />
+        </div>
+        <div className="flex-1 min-w-0 flex items-center gap-1.5 text-sm border-2 border-border rounded-md px-2.5 py-2 bg-background transition-colors hover:border-kb focus-within:ring-2 focus-within:ring-kb focus-within:border-kb">
+          <span className="text-muted-soft whitespace-nowrap">{t("to")}</span>
+          <input
+            type="date"
+            value={dateTo}
+            onChange={(e) => onDateToChange(e.target.value)}
+            className="w-full min-w-0 bg-transparent text-sm focus:outline-none"
+          />
+        </div>
+      </div>
       <select
         value={limit}
         onChange={(e) => onLimitChange(Number(e.target.value))}

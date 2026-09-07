@@ -548,58 +548,71 @@ me-tpc:hover .mm-src-chip {
      rule further down switches that off too. */
   .status-mark--pulse::before { animation: status-puls 1.8s ease-in-out infinite; }
 
-  /* Icon-Button: gray default, primary + outline on hover.
-     Pre-render outline as transparent 2px so the hover state only swaps the
-     color (no layout/border-width jolt on hover). */
+  /* ─── Hover ring ────────────────────────────────────────────────────
+     The one source for every control whose hover is a 2px accent ring.
+     The ring is pre-rendered transparent so hover only swaps the colour
+     and nothing jumps by a pixel. The classes below add nothing but their
+     own fill and text changes on top, never a second ring. btn-ghost and
+     chip-cite have no rule of their own at all: the ring is their whole
+     hover. */
+  .btn-icon,
+  .btn-primary,
+  .btn-danger,
+  .btn-ghost,
+  .chip-cite,
+  .btn-soft-accent {
+    outline: 2px solid transparent;
+  }
+  .btn-icon:hover:not(:disabled, [aria-disabled="true"]),
+  .btn-primary:hover:not(:disabled, [aria-disabled="true"]),
+  .btn-ghost:hover:not(:disabled, [aria-disabled="true"]),
+  .chip-cite:hover:not(:disabled, [aria-disabled="true"]),
+  .btn-soft-accent:hover:not(:disabled, [aria-disabled="true"]) {
+    outline-color: var(--kb);
+  }
+  /* btn-secondary draws its ring as a real border, so it recolors that one
+     instead. An outline on top of a border would read as a double ring. */
+  .btn-secondary:hover:not(:disabled, [aria-disabled="true"]) {
+    border-color: var(--kb);
+  }
+  /* btn-danger rings in the error colour rather than the accent. */
+  .btn-danger:hover:not(:disabled, [aria-disabled="true"]) {
+    outline-color: var(--error);
+  }
+
+  /* Icon button: gray at rest, accent text on hover. Ring comes from above. */
   .btn-icon {
     color: var(--muted);
-    outline: 2px solid transparent;
   }
   .btn-icon:hover:not(:disabled, [aria-disabled="true"]) {
     color: var(--kb);
-    outline-color: var(--kb);
   }
 
-  /* Solid Primary CTA: invert on hover (bg + text-kb + outline) */
+  /* Solid primary CTA: inverts its fill and text on hover. */
   .btn-primary {
     background-color: var(--kb);
     color: var(--on-accent);
-    outline: 2px solid transparent;
   }
   .btn-primary:hover:not(:disabled, [aria-disabled="true"]) {
     background-color: var(--background);
     color: var(--kb);
-    outline-color: var(--kb);
   }
 
-  /* Secondary CTA: bordered, soft text. Hover: subtle surface tint. */
+  /* Secondary CTA: bordered, soft text. Its ring is the border itself. */
   .btn-secondary {
     color: var(--foreground-soft);
-    border: 1px solid var(--border);
+    border: 2px solid var(--border);
     background-color: transparent;
   }
-  .btn-secondary:hover:not(:disabled, [aria-disabled="true"]) {
-    background-color: var(--surface);
-  }
 
-  /* Solid Danger CTA: invert on hover (background + error text + outline) */
+  /* Solid danger CTA: inverts its fill and text on hover. */
   .btn-danger {
     background-color: var(--error);
     color: var(--on-accent);
-    outline: 2px solid transparent;
   }
   .btn-danger:hover:not(:disabled, [aria-disabled="true"]) {
     background-color: var(--background);
     color: var(--error);
-    outline-color: var(--error);
-  }
-
-  /* Ghost / outlined button: outline on hover */
-  .btn-ghost {
-    outline: 2px solid transparent;
-  }
-  .btn-ghost:hover:not(:disabled, [aria-disabled="true"]) {
-    outline-color: var(--kb);
   }
 
   /* Button on dark blue header: full white default, opacity fade on hover (matches logo-link). */
@@ -626,14 +639,6 @@ me-tpc:hover .mm-src-chip {
   /* Logo link: subtle opacity fade */
   .logo-link:hover {
     opacity: 0.8;
-  }
-
-  /* Citation chip: outline on hover (bg/color stay inline-styled). */
-  .chip-cite {
-    outline: 2px solid transparent;
-  }
-  .chip-cite:hover:not(:disabled, [aria-disabled="true"]) {
-    outline-color: var(--kb);
   }
 
   /* Expand mark: no border, the hint is the mark itself, which gets stronger on
@@ -679,18 +684,15 @@ me-tpc:hover .mm-src-chip {
     color: var(--kb);
   }
 
-  /* Soft Accent CTA: tinted accent bg + accent text. Hover: outline ring. */
+  /* Soft accent CTA: tinted fill, accent text. The transparent border only
+     keeps it the same size as its 2px-bordered neighbours. */
   .btn-soft-accent {
     background-color: rgba(var(--kb-rgb), 0.07);
     color: var(--kb);
     border: 2px solid transparent;
-    outline: 2px solid transparent;
   }
   :root[data-theme="dark"] .btn-soft-accent {
     color: var(--on-accent);
-  }
-  .btn-soft-accent:hover:not(:disabled, [aria-disabled="true"]) {
-    outline-color: var(--kb);
   }
 
   /* Outlined semantic circle buttons (e.g. flashcard again/knew). Hover fills with the semantic color. */
@@ -820,6 +822,21 @@ me-tpc:hover .mm-src-chip {
 :root[data-theme="dark"] .tools-sidebar-item:hover .tools-sidebar-item__box,
 :root[data-theme="dark"] .tools-sidebar-item.is-active .tools-sidebar-item__box {
   color: var(--kb) !important;
+}
+
+/* Tools tour: the sidebar's sticky wrapper has its own stacking context
+   (position: sticky always creates one), which traps it below driver.js's
+   overlay regardless of z-index on the icons inside. Lifting the wrapper
+   itself above the overlay keeps the whole icon rail, active tool included,
+   visible instead of dimmed on every station after the first. */
+body.driver-active [data-tour="tools-sidebar"] > .sticky {
+  z-index: 10001;
+}
+/* On a tool's station the rail stays readable but only that tool is in focus,
+   so the other six step back. The sidebar's own station is exempt, there the
+   whole rail is the subject. */
+body.driver-active [data-tour="tools-sidebar"]:not(.driver-active-element) .tools-sidebar-item:not(.is-active) {
+  opacity: 0.45;
 }
 
 /* Dark mode: download links (jobs panel, my-jobs JobArtifacts) white instead of --kb, hover goes to --kb. */
