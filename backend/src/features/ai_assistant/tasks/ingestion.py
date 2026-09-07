@@ -266,18 +266,21 @@ def run_translate_transcript(
 
 def _resolve_source_vtt(file_path: str, source: dict) -> tuple[str | None, str | None]:
     """Returns key and language of the original transcript, via one listing."""
-    from src.i18n import TRANSCRIPT_LANGUAGES
+    import re
 
-    vorhanden = set(list_keys(aia_transcript_prefix(file_path)))
+    prefix = aia_transcript_prefix(file_path)
+    vorhanden = set(list_keys(prefix))
     source_lang = (source.get("language") or "").lower()
     if source_lang and source_lang != "unknown":
         cand = aia_vtt_key(file_path, source_lang)
         if cand in vorhanden:
             return cand, source_lang
-    for code in TRANSCRIPT_LANGUAGES:
-        cand = aia_vtt_key(file_path, code)
-        if cand in vorhanden:
-            return cand, code
+    # Whisper detects any language, not just the short list of offered
+    # translation targets, so the fallback must recognize any *.vtt file.
+    vtt_re = re.compile(re.escape(prefix) + r"([a-z]{2,5})\.vtt$")
+    for key in sorted(vorhanden):
+        if m := vtt_re.search(key):
+            return key, m.group(1)
     return None, None
 
 

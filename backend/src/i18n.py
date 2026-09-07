@@ -7,7 +7,7 @@ DEFAULT_LOCALE = "de"
 
 # Translate-tool language codes (DeepL format).
 TRANSLATE_LANGUAGES: tuple[str, ...] = (
-    "DE", "EN-US", "FR", "ES", "IT", "TR", "AR", "RU",
+    "DE", "EN-US",
 )
 DEFAULT_TRANSLATE_SOURCE = "DE"
 DEFAULT_TRANSLATE_TARGET = "EN-US"
@@ -16,12 +16,6 @@ DEFAULT_TRANSLATE_TARGET = "EN-US"
 TRANSCRIPT_LANGUAGES: dict[str, dict[str, str]] = {
     "de": {"deepl": "DE",    "name": "German"},
     "en": {"deepl": "EN-US", "name": "English"},
-    "fr": {"deepl": "FR",    "name": "French"},
-    "es": {"deepl": "ES",    "name": "Spanish"},
-    "it": {"deepl": "IT",    "name": "Italian"},
-    "tr": {"deepl": "TR",    "name": "Turkish"},
-    "ar": {"deepl": "AR",    "name": "Arabic"},
-    "ru": {"deepl": "RU",    "name": "Russian"},
 }
 DEFAULT_TRANSCRIPT_TARGET = "en"
 # The language a course room runs its assessment in, German by default.

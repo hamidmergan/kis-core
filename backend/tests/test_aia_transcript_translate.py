@@ -74,6 +74,17 @@ def test_die_erkannte_sprache_gewinnt(quelle):
 
 def test_ohne_erkannte_sprache_zaehlt_die_erste_vorhandene(quelle):
     ordner, file_path, vtt_anlegen = quelle
+    vtt_anlegen("en")
+
+    key, lang = ingestion._resolve_source_vtt(file_path, {"language": "unknown"})
+
+    assert lang == "en"
+    assert key == str(ordner / "abc_transcript.en.vtt")
+
+
+def test_eine_dritte_sprache_wird_trotzdem_gefunden(quelle):
+    """Whisper detects any language, only the offered translation targets are capped."""
+    ordner, file_path, vtt_anlegen = quelle
     vtt_anlegen("fr")
 
     key, lang = ingestion._resolve_source_vtt(file_path, {"language": "unknown"})
@@ -101,7 +112,7 @@ def test_ohne_jede_untertiteldatei_kommt_nichts_zurueck(quelle):
 def test_das_original_wird_mit_einer_einzigen_abfrage_gefunden(quelle, monkeypatch):
     """The point of the change, one listing instead of a query per language."""
     _, file_path, vtt_anlegen = quelle
-    vtt_anlegen("ru")  # letzte der acht Sprachen, frueher der teuerste Fall
+    vtt_anlegen("ru")  # any language the model detects, not just an offered target
     aufrufe: list[str] = []
     echt = ingestion.list_keys
     monkeypatch.setattr(
@@ -122,7 +133,6 @@ def test_zielsprache_gleich_quellsprache_wirft_alte_uebersetzungen_weg(
     ordner, file_path, vtt_anlegen = quelle
     vtt_anlegen("de")
     vtt_anlegen("en")
-    vtt_anlegen("fr")
     _db_stubs(monkeypatch, {"file_path": file_path, "workspace_id": 7, "language": "de"})
 
     ingestion._run_translate_transcript_inner("s1", provider_id=None, target_lang="de")
@@ -148,13 +158,18 @@ def test_uebersetzung_wird_geschrieben_und_das_original_bleibt(
 
 
 def test_eine_neue_zielsprache_verdraengt_die_alte(quelle, monkeypatch, uebersetzer):
-    """Exactly one translation per source, otherwise leftovers pile up."""
-    ordner, file_path, vtt_anlegen = quelle
-    vtt_anlegen("de")
-    vtt_anlegen("en")
-    _db_stubs(monkeypatch, {"file_path": file_path, "workspace_id": 7, "language": "de"})
+    """Exactly one translation per source, otherwise leftovers pile up.
 
-    ingestion._run_translate_transcript_inner("s1", provider_id=None, target_lang="fr")
+    The source itself can be recorded in any language Whisper detects, even
+    one outside the two offered translation targets, so this uses "fr" as
+    the original to still exercise a switch between the two real targets.
+    """
+    ordner, file_path, vtt_anlegen = quelle
+    vtt_anlegen("fr")
+    vtt_anlegen("en")
+    _db_stubs(monkeypatch, {"file_path": file_path, "workspace_id": 7, "language": "fr"})
+
+    ingestion._run_translate_transcript_inner("s1", provider_id=None, target_lang="de")
 
     assert sorted(p.name for p in ordner.iterdir()) == [
         "abc.mp4", "abc_transcript.de.vtt", "abc_transcript.fr.vtt",
@@ -169,12 +184,12 @@ def test_die_zielsprache_kommt_aus_dem_workspace_wenn_keine_genannt_ist(
     _db_stubs(
         monkeypatch,
         {"file_path": file_path, "workspace_id": 7, "language": "de"},
-        workspace={"transcript_target_lang": "it"},
+        workspace={"transcript_target_lang": "en"},
     )
 
     ingestion._run_translate_transcript_inner("s1", provider_id=None, target_lang=None)
 
-    assert (ordner / "abc_transcript.it.vtt").exists()
+    assert (ordner / "abc_transcript.en.vtt").exists()
 
 
 def test_aufraeumen_fasst_fremde_quellen_nicht_an(quelle, monkeypatch):

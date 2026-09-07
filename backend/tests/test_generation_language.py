@@ -22,19 +22,26 @@ def test_german_is_the_default():
 
 def test_the_workspace_decides(monkeypatch):
     monkeypatch.setattr("src.database.get_aia_workspace_by_id",
-                        lambda _id: {"id": 7, "diagnosis_language": "fr"})
-    assert tool_output_language(7) == ("fr", "French")
+                        lambda _id: {"id": 7, "diagnosis_language": "en"})
+    assert tool_output_language(7) == ("en", "English")
 
 
 @pytest.mark.parametrize("code,name", [
-    ("de", "German"), ("en", "English"), ("fr", "French"), ("es", "Spanish"),
-    ("it", "Italian"), ("tr", "Turkish"), ("ar", "Arabic"), ("ru", "Russian"),
+    ("de", "German"), ("en", "English"),
 ])
 def test_every_offered_language_resolves(monkeypatch, code, name):
-    """All eight from the dropdown have to arrive, not just the two common ones."""
+    """Both from the dropdown have to arrive, not just the default."""
     monkeypatch.setattr("src.database.get_aia_workspace_by_id",
                         lambda _id: {"id": 7, "diagnosis_language": code})
     assert tool_output_language(7) == (code, name)
+
+
+@pytest.mark.parametrize("code", ["fr", "es", "it", "tr", "ar", "ru"])
+def test_a_retired_language_falls_back(monkeypatch, code):
+    """These used to be offered, now they must behave like an unknown code."""
+    monkeypatch.setattr("src.database.get_aia_workspace_by_id",
+                        lambda _id: {"id": 7, "diagnosis_language": code})
+    assert tool_output_language(7) == ("de", "German")
 
 
 def test_a_workspace_without_a_setting_gets_the_default(monkeypatch):
@@ -87,8 +94,7 @@ def test_learning_tools_default_to_german(monkeypatch):
 
 
 @pytest.mark.parametrize("code,name", [
-    ("de", "German"), ("en", "English"), ("fr", "French"), ("es", "Spanish"),
-    ("it", "Italian"), ("tr", "Turkish"), ("ar", "Arabic"), ("ru", "Russian"),
+    ("de", "German"), ("en", "English"),
 ])
 def test_learning_tools_take_every_offered_language(monkeypatch, code, name):
     _setting(monkeypatch, code)
@@ -98,6 +104,13 @@ def test_learning_tools_take_every_offered_language(monkeypatch, code, name):
 def test_learning_tools_fall_back_on_an_unknown_code(monkeypatch):
     # Otherwise the code would sit verbatim in the instruction: 'Write it in kli.'
     _setting(monkeypatch, "kli")
+    assert learning_tools_language() == ("de", "German")
+
+
+@pytest.mark.parametrize("code", ["fr", "es", "it", "tr", "ar", "ru"])
+def test_learning_tools_fall_back_on_a_retired_language(monkeypatch, code):
+    """These used to be offered in the admin dropdown, now they must fall back too."""
+    _setting(monkeypatch, code)
     assert learning_tools_language() == ("de", "German")
 
 

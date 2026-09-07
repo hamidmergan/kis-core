@@ -8,7 +8,7 @@ from src.features.ai_assistant.routes.sources import _streaming
 
 SEGMENTE = [{"start": 0.0, "end": 2.0, "text": "Hallo Welt"}]
 
-WORKSPACE = {"id": 7, "uuid": "w1", "user_id": 42, "transcript_target_lang": "en"}
+WORKSPACE = {"id": 7, "uuid": "w1", "user_id": 42, "transcript_target_lang": "xx"}
 
 
 @pytest.fixture
@@ -113,11 +113,11 @@ async def test_vorhandensein_meldet_wahr_und_falsch(quelle):
 async def test_nur_wirklich_vorhandene_sprachen_werden_gemeldet(quelle):
     _, vtt_anlegen, _ = quelle
     vtt_anlegen("de")
-    vtt_anlegen("fr")
+    vtt_anlegen("en")
 
     antwort = await _langs()
 
-    assert antwort["available"] == ["de", "fr"]
+    assert antwort["available"] == ["de", "en"]
     assert antwort["source_lang"] == "de"
 
 
@@ -187,10 +187,10 @@ async def test_die_gewaehlte_sprache_landet_im_auftrag(quelle, auftraege):
     _, vtt_anlegen, _ = quelle
     vtt_anlegen("de")
 
-    antwort = await _translate("fr")
+    antwort = await _translate("en")
 
-    assert antwort["target_lang"] == "fr"
-    assert auftraege == [("s1", 3, "fr")]
+    assert antwort["target_lang"] == "en"
+    assert auftraege == [("s1", 3, "en")]
 
 
 async def test_die_originalsprache_wird_abgewiesen(quelle, auftraege):
@@ -219,14 +219,14 @@ async def test_eine_unbekannte_sprache_wird_abgewiesen(quelle, auftraege):
 # ─── Zielsprache steht an der Quelle ───────────────────────────────────────
 
 async def test_die_zielsprache_kommt_aus_den_dateien(quelle):
-    """Die vorhandene Uebersetzung zaehlt, das Modul-Feld sagt 'en' und wird ignoriert."""
+    """Die vorhandene Uebersetzung zaehlt, das Modul-Feld sagt 'xx' und wird ignoriert."""
     _, vtt_anlegen, _ = quelle
     vtt_anlegen("de")
-    vtt_anlegen("fr")
+    vtt_anlegen("en")
 
     antwort = await _langs()
 
-    assert antwort["target_lang"] == "fr"
+    assert antwort["target_lang"] == "en"
 
 
 async def test_ohne_uebersetzung_gibt_es_keine_zielsprache(quelle):

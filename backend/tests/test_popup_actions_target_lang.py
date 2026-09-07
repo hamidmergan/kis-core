@@ -12,15 +12,15 @@ async def _translate_prompt(**kwargs):
 
 
 @pytest.mark.asyncio
-async def test_spanisch_steht_im_prompt():
-    prompt = await _translate_prompt(locale="de", target="es")
-    assert "Spanish" in prompt
+async def test_deutsch_steht_im_prompt():
+    prompt = await _translate_prompt(locale="de", target="de")
+    assert "German" in prompt
 
 
 @pytest.mark.asyncio
-async def test_tuerkisch_steht_im_englischen_prompt():
-    prompt = await _translate_prompt(locale="en", target="tr")
-    assert "Turkish" in prompt
+async def test_deutsch_steht_im_englischen_prompt():
+    prompt = await _translate_prompt(locale="en", target="de")
+    assert "German" in prompt
 
 
 @pytest.mark.asyncio
