@@ -498,20 +498,26 @@ test.describe("Handbuch-Bilder", () => {
     });
 
     // Nur das Raster mit den fuenf Stimmungen, der Rest der Seite ist Werkstatt.
-    // Das Bild gibt es nur auf Deutsch, der englische Artikel zeigt dasselbe.
-    test(`maskottchen-zustaende ${locale}`, async ({ page }) => {
-      test.skip(locale !== "de", "ein Bild fuer beide Sprachen");
-      await useLocale(page, locale);
-      await page.goto(`${prefix(locale)}/admin/mascots/hilde`, { waitUntil: "domcontentloaded" });
-      await settle(page);
-      const section = page.locator("section").filter({ hasText: LABELS[locale].allMoods }).last();
-      // Nur die Kaesten, die Ueberschrift darueber gehoert zur Verwaltung.
-      const grid = section.locator("div.grid").first();
-      await expect(grid).toBeVisible();
-      // Die Figuren laufen beim Erscheinen eine Animation.
-      await page.waitForTimeout(3000);
-      await grid.screenshot({ path: shot(locale, "mascot-states") });
-    });
+    // Die Bilder gibt es nur auf Deutsch, der englische Artikel zeigt dieselben.
+    for (const mascot of ["hilde", "francis"] as const) {
+      test(`maskottchen-zustaende ${mascot} ${locale}`, async ({ page }) => {
+        test.skip(locale !== "de", "ein Bild fuer beide Sprachen");
+        await useLocale(page, locale);
+        const url = `${prefix(locale)}/admin/mascots/${mascot}`;
+        await page.goto(url, { waitUntil: "domcontentloaded" });
+        await settle(page);
+        const section = page.locator("section").filter({ hasText: LABELS[locale].allMoods }).last();
+        // Nur die Kaesten, die Ueberschrift darueber gehoert zur Verwaltung.
+        const grid = section.locator("div.grid").first();
+        await expect(grid).toBeVisible();
+        // Die Figuren laufen beim Erscheinen eine Animation.
+        await page.waitForTimeout(3000);
+        // Der Rahmen um die Kaesten gehoert zur Werkstatt, im Handbuch stoert er. Transparent
+        // statt none, sonst schrumpfen die Kaesten um die Rahmenbreite.
+        await page.addStyleTag({ content: ".grid > div { border-color: transparent }" });
+        await grid.screenshot({ path: shot(locale, `mascot-states-${mascot}`) });
+      });
+    }
 
     // Turns the demo user's own switch on, drops an existing level, starts a fresh test,
     // skips every question, and lands back on the level page with a level set.

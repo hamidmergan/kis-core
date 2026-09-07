@@ -58,7 +58,7 @@ export default function ManualPrintView({
       <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--foreground)" }}>
         {t("title")}
       </h1>
-      <p className="text-sm mb-10" style={{ color: "var(--muted)" }}>KIS</p>
+      <p className="text-sm mb-10" style={{ color: "var(--muted)" }}>{t("subtitle")}</p>
 
       <h2 className="text-lg font-semibold mb-3" style={{ color: "var(--foreground)" }}>
         {t("toc")}

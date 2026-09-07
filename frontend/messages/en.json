@@ -3399,6 +3399,7 @@
     "imageOpen": "{alt}, show larger",
     "imageClose": "Close image",
     "title": "Documentation",
+    "subtitle": "KIS - KInternationalisierung von Studiengängen",
     "navLabel": "Documentation articles",
     "filterPlaceholder": "Filter articles",
     "noMatch": "No article matches this filter."

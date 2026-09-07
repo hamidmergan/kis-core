@@ -1,8 +1,8 @@
 # What KIS is
 
-KIS is a pilot project at TH Lübeck, an AI platform for teaching and study. It
-covers two separate areas: standalone tools and modules with an AI study
-assistant.
+KIS stands for KInternationalisierung von Studiengängen and is a pilot project
+at TH Lübeck, an AI platform for teaching and study. It covers two separate
+areas: standalone tools and modules with an AI study assistant.
 
 ## The tools
 

@@ -88,7 +88,6 @@ export default function ManualArticleView({
                   width={size?.width}
                   height={size?.height}
                   className="max-w-full h-auto rounded-lg"
-                  style={{ border: "1px solid var(--border)" }}
                 />
               </button>
             );

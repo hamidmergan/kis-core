@@ -1,8 +1,9 @@
 # Was ist KIS
 
-KIS ist ein Pilotprojekt an der TH Lübeck, eine KI-Plattform für Lehre und
-Studium. Sie deckt zwei getrennte Bereiche ab: eigenständige Werkzeuge und
-Module mit einem KI-Studienassistenten.
+KIS steht für KInternationalisierung von Studiengängen und ist ein Pilotprojekt
+an der TH Lübeck, eine KI-Plattform für Lehre und Studium. Sie deckt zwei
+getrennte Bereiche ab: eigenständige Werkzeuge und Module mit einem
+KI-Studienassistenten.
 
 ## Die Werkzeuge
 

@@ -29,7 +29,9 @@ Der Verlauf bleibt je Modul und Person erhalten. Vor einer neuen, unabhängigen 
 
 Hilde oder Francis, Ihre Wahl in den Einstellungen des Moduls. Am Inhalt ändert das nichts.
 
-![Hilde in ihren fünf Stimmungen](/manual/{lang}/mascot-states.png)
+![Hilde in ihren fünf Stimmungen](/manual/{lang}/mascot-states-hilde.png)
+
+![Francis in denselben fünf Stimmungen](/manual/{lang}/mascot-states-francis.png)
 
 Über der neuesten Antwort steht das Bild und zeigt, woran der Chat gerade ist. Von links nach
 rechts:

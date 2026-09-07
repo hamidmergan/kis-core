@@ -30,7 +30,9 @@ The history is kept per module and person. Before a new, independent question it
 Hilde or Francis, your choice in the settings of the module. It changes nothing about the
 content.
 
-![Hilde in her five moods](/manual/de/mascot-states.png)
+![Hilde in her five moods](/manual/de/mascot-states-hilde.png)
+
+![Francis in the same five moods](/manual/de/mascot-states-francis.png)
 
 The picture sits above the newest answer and shows what the chat is up to. From left to right:
 
