@@ -8,7 +8,7 @@
     "admin": "Admin",
     "logout": "Abmelden",
     "jobs": "Jobs",
-    "tools": "Tools",
+    "tools": "Werkzeuge",
     "menuOpen": "Menü öffnen",
     "menuClose": "Menü schließen",
     "themeDark": "Dunkel",
@@ -52,7 +52,7 @@
       "results": "{count, plural, =1 {1 Ergebnis} other {# Ergebnisse}}",
       "reset": "Filter zurücksetzen",
       "tools": {
-        "all": "Alle Tools",
+        "all": "Alle Werkzeuge",
         "transcription": "Sprache in Text",
         "translation": "Übersetzung",
         "summary": "Zusammenfassung",
@@ -318,9 +318,9 @@
     }
   },
   "toolsSidebar": {
-    "heading": "Tools",
-    "expand": "Tools-Sidebar ausklappen",
-    "collapse": "Tools-Sidebar einklappen",
+    "heading": "Werkzeuge",
+    "expand": "Werkzeugleiste ausklappen",
+    "collapse": "Werkzeugleiste einklappen",
     "back": "Zurück",
     "items": {
       "translation": "Übersetzung",
@@ -894,7 +894,7 @@
     "nav": {
       "configuration": "Konfiguration",
       "users": "Nutzer",
-      "tools": "Tools",
+      "tools": "Werkzeuge",
       "operations": "Betrieb",
       "playground": "Spielwiese",
       "hilde": "Hilde",
@@ -905,7 +905,7 @@
       "pending": "Ausstehend",
       "whitelist": "Whitelist",
       "allUsers": "Alle User",
-      "toolsLabel": "Tools",
+      "toolsLabel": "Werkzeuge",
       "allJobs": "Alle Jobs",
       "jobStats": "Jobs Statistiken",
       "kiStats": "KI-Assistent Statistiken",
@@ -972,10 +972,10 @@
       },
       "werkzeuge": {
         "label": "Werkzeuge",
-        "sub": "Die globalen Tools auf der Startseite.",
+        "sub": "Die globalen Werkzeuge auf der Startseite.",
         "release": {
           "label": "Freigabe",
-          "sub": "Welche Tools auf der Startseite erscheinen."
+          "sub": "Welche Werkzeuge auf der Startseite erscheinen."
         },
         "jobs": {
           "label": "Aufträge"
@@ -1132,14 +1132,14 @@
       "errorGeneric": "Anlegen fehlgeschlagen"
     },
     "jobs": {
-      "searchPlaceholder": "Suche: User, Tool, Datei...",
+      "searchPlaceholder": "Suche: User, Werkzeug, Datei...",
       "from": "Von",
       "to": "Bis",
       "pageSize": "{n} pro Seite",
       "results": "{count, plural, =1 {1 Ergebnis} other {# Ergebnisse}}",
       "empty": "Keine Jobs gefunden",
       "colUser": "User",
-      "colTool": "Tool",
+      "colTool": "Werkzeug",
       "colFile": "Datei",
       "colStatus": "Status",
       "colCreated": "Erstellt",
@@ -1147,8 +1147,8 @@
       "cancel": "Abbrechen"
     },
     "tools": {
-      "title": "Tools ein-/ausschalten",
-      "subtitle": "Deaktivierte Tools werden auf der Startseite ausgeblendet.",
+      "title": "Werkzeuge ein-/ausschalten",
+      "subtitle": "Deaktivierte Werkzeuge werden auf der Startseite ausgeblendet.",
       "toggleAria": "{label} {action}",
       "actionEnable": "aktivieren",
       "actionDisable": "deaktivieren"
@@ -1168,7 +1168,7 @@
       "avgPrefix": "Ø {duration}",
       "lastActivity": "Letzte Aktivität",
       "colUser": "User",
-      "colTool": "Tool",
+      "colTool": "Werkzeug",
       "colStatus": "Status",
       "colDuration": "Dauer",
       "colDate": "Datum"
@@ -1200,7 +1200,7 @@
       "promptUserPath": "Alle User → Kontingente →",
       "promptUserSuffix": "auswählen.",
       "windowEnds": "Fenster bis {time} Uhr",
-      "colTool": "Tool",
+      "colTool": "Werkzeug",
       "colUsed": "Verbraucht",
       "colLimit": "Limit (Standard)",
       "colOverride": "Override",
@@ -1360,10 +1360,10 @@
         "vision": "Bildinhalt erkennen, beschreiben",
         "ocr": "Volltext aus PDFs, Layout-Erkennung",
         "stt": "Audio-Transkription, Whisper-basiert",
-        "tts": "Sprachausgabe für Screencast und Vorlesen. Nutzer wählt im Tool, welcher Anbieter verwendet wird.",
+        "tts": "Sprachausgabe für Screencast und Vorlesen. Nutzer wählt im Werkzeug, welcher Anbieter verwendet wird.",
         "image_gen": "Text-zu-Bild",
         "image_edit": "Bilder bearbeiten via Prompt",
-        "doc_translate": "Nutzer wählt im Tool, welcher Anbieter verwendet wird.",
+        "doc_translate": "Nutzer wählt im Werkzeug, welcher Anbieter verwendet wird.",
         "transcript_translate": "AIA-Modul: Transkript in die vom Owner gewählte Zielsprache übersetzen. Quellsprache wird automatisch erkannt. Anbieter und Modell werden vom Admin konfiguriert. Instruct-Modell empfohlen, keine Reasoning-Modelle."
       },
       "exportImport": {
@@ -1494,7 +1494,7 @@
     "reindexCard": {
       "staleNotice": "<strong>Hinweis:</strong> {n} {label} {n, plural, =1 {wurde} other {wurden}} mit einem anderen Embedding-Modell indexiert. Chat-Suche kann fehlschlagen, bis du unten \"Reindex starten\" ausführst.",
       "title": "Alle Materialien neu indexieren",
-      "description": "Berechnet alle Embeddings mit dem aktuellen Anbieter neu. Chips, Notes und Tools bleiben gültig (gleiche UUIDs). Nötig nach Wechsel des Embedding-Modells.",
+      "description": "Berechnet alle Embeddings mit dem aktuellen Anbieter neu. Chips, Notes und Werkzeuge bleiben gültig (gleiche UUIDs). Nötig nach Wechsel des Embedding-Modells.",
       "running": "Läuft: {current}",
       "progressCount": "{done}/{total} ({pct}%)",
       "errorsHint": "{n} Fehler - siehe Backend-Logs.",
@@ -1656,15 +1656,15 @@
       "saveFailed": "Speichern fehlgeschlagen."
     },
     "toolContextBudgetCard": {
-      "title": "Tools Kontext-Budget",
-      "hint": "Wie viel Text aus den Materialien (in Zeichen) die Lern-Tools (Mindmap, Datentabelle, Lernkarten, Karteikarten, Grammatikübung, Wortschatzübung, Quiz) ins Modell geben. Getrennt vom Chat-Budget, weil ein Tool ein ganzes Dokument in einem Aufruf verarbeitet. Der Wert wird durch die Anzahl der ausgewählten Materialien geteilt. Default 250000 ist für mittlere Modelle sicher. Höher setzen (z.B. 450000 oder 900000) nur, wenn ein Modell mit großem Kontext läuft. Der Wert wird zusätzlich auf das gemessene Kontextfenster des Modells gekürzt.",
+      "title": "Kontext-Budget der Werkzeuge",
+      "hint": "Wie viel Text aus den Materialien (in Zeichen) die Lern-Werkzeuge (Mindmap, Datentabelle, Lernkarten, Karteikarten, Grammatikübung, Wortschatzübung, Quiz) ins Modell geben. Getrennt vom Chat-Budget, weil ein Werkzeug ein ganzes Dokument in einem Aufruf verarbeitet. Der Wert wird durch die Anzahl der ausgewählten Materialien geteilt. Default 250000 ist für mittlere Modelle sicher. Höher setzen (z.B. 450000 oder 900000) nur, wenn ein Modell mit großem Kontext läuft. Der Wert wird zusätzlich auf das gemessene Kontextfenster des Modells gekürzt.",
       "unit": "Zeichen",
       "approxTokens": "≈ {n}k Token",
       "outOfRange": "Wert muss zwischen 1000 und 1000000 liegen.",
       "saveFailed": "Speichern fehlgeschlagen."
     },
     "learningToolsLanguageCard": {
-      "title": "Sprache der Lern-Tools",
+      "title": "Sprache der Lern-Werkzeuge",
       "hint": "In welcher Sprache Karteikarten, Quiz, Datentabelle und Mindmap geschrieben werden. Der Sprachtrainer folgt dieser Einstellung nicht, er bleibt auf Deutsch."
     },
     "summaryBatchCard": {
@@ -2210,7 +2210,7 @@
   "permissions": {
     "locked": {
       "aia": "Dieser Bereich ist für deinen Account gesperrt.",
-      "tool": "Dieses Tool ist für deinen Account gesperrt.",
+      "tool": "Dieses Werkzeug ist für deinen Account gesperrt.",
       "workspaceCreate": "Du kannst keine neuen Module erstellen. Du hast nur Zugriff auf zugewiesene Module."
     }
   },
@@ -2242,7 +2242,7 @@
     "jobs": {
       "heading": "4. Verarbeitung von Nutzer-Uploads und Job-Daten",
       "intro": "Bei der Nutzung der Plattform werden hochgeladene Dateien (z. B. Videos, PDFs, Präsentationen, Audio-Dateien) sowie die daraus erzeugten Ergebnisse (z. B. Transkripte, Zusammenfassungen) in Ihrem Modul gespeichert. Pro Verarbeitungsauftrag (Job) wird zusätzlich gespeichert:",
-      "item1": "Genutztes Tool (z. B. Transkription, Zusammenfassung)",
+      "item1": "Genutztes Werkzeug (z. B. Transkription, Zusammenfassung)",
       "item2": "Ursprünglicher Dateiname",
       "item3": "Zeitpunkt der Erstellung und Fertigstellung",
       "item4": "Verarbeitungsstatus",
@@ -2666,7 +2666,7 @@
         "mascotHilde": "Hilde",
         "mascotFrancis": "Francis",
         "studioTitle": "Studio",
-        "studioDescription": "Studio-Panel mit Mindmaps, Notizen und Tools einblenden.",
+        "studioDescription": "Studio-Panel mit Mindmaps, Notizen und Werkzeugen einblenden.",
         "previewStudentTitle": "Studierenden-Ansicht",
         "previewStudentDescription": "Sieh das Modul so, wie Studierende es sehen. Bedienelemente der Verwaltung verschwinden.",
         "previewOwnerTitle": "Lehrenden-Ansicht",
@@ -2868,7 +2868,7 @@
         "minimizePanel": "Panel minimieren",
         "sourcesToggle": "{count, plural, =1 {1 Material} other {# Materialien}}",
         "tabs": {
-          "tools": "Tools",
+          "tools": "Werkzeuge",
           "glossary": "Glossar",
           "notes": "Notizen",
           "statistik": "Statistik",

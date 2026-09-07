@@ -79,8 +79,9 @@ export function StudioTabs({ tabs, active, onSelect, accentColor }: {
 
   const cols = fits ? tabs.map(t => t.key === "language_training" ? "1.4fr" : "1fr").join(" ") : undefined;
 
+  // 560 is what the longest tab label needs, narrower panels still ellipsize.
   return (
-    <div ref={ref} className="flex-shrink-0 px-3 pt-6 pb-2 w-full mx-auto" style={{ maxWidth: 500 }}>
+    <div ref={ref} className="flex-shrink-0 px-3 pt-6 pb-2 w-full mx-auto" style={{ maxWidth: 560 }}>
       <div
         ref={scrollRef}
         className={fits ? "grid gap-1 p-1 rounded-xl" : "flex gap-1 p-1 rounded-xl overflow-x-auto scrollbar-hide cursor-grab select-none"}

@@ -44,7 +44,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "You may not create new modules.",
     },
     "auth.toolForbidden": {
-        "de": "Du darfst dieses Tool nicht nutzen.",
+        "de": "Du darfst dieses Werkzeug nicht nutzen.",
         "en": "You may not use this tool.",
     },
     "auth.permissionRequired": {
@@ -256,11 +256,11 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "Context budget must be between {min} and {max} characters.",
     },
     "admin.settings.toolContextBudgetOutOfRange": {
-        "de": "Tool-Kontext-Budget muss zwischen {min} und {max} Zeichen liegen.",
+        "de": "Das Kontext-Budget der Werkzeuge muss zwischen {min} und {max} Zeichen liegen.",
         "en": "Tool context budget must be between {min} and {max} characters.",
     },
     "admin.settings.learningToolsLanguageUnknown": {
-        "de": "Unbekannte Sprache für die Lern-Tools.",
+        "de": "Unbekannte Sprache für die Lern-Werkzeuge.",
         "en": "Unknown language for the learning tools.",
     },
     "admin.settings.summaryBatchOutOfRange": {

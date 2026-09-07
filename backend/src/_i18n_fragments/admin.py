@@ -3,7 +3,7 @@
 MESSAGES: dict[str, dict[str, str]] = {
     # Tool visibility
     "admin.tools.unknownKey": {
-        "de": "Unbekanntes Tool",
+        "de": "Unbekanntes Werkzeug",
         "en": "Unknown tool",
     },
     # Settings
