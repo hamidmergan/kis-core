@@ -10,6 +10,13 @@ const BASE = process.env.E2E_BASE_URL ?? "http://localhost:3000";
 // Das Demo-Modul "Projektmanagement", damit in den Bildern keine echten Kursdaten stehen.
 const WORKSPACE = process.env.E2E_WORKSPACE ?? "6f2d916b-94a3-403a-ab4d-9000699e5ef0";
 /**
+ * Das Demo-Modul gehoert dem Konto "demo", alle anderen sehen dort nur die Vorschau. Bilder, die
+ * echtes Eigentum brauchen, weil das Backend sonst 403 liefert (Freigeben, Modul-Statistik),
+ * nehmen darum ein eigenes Modul der angemeldeten Sitzung.
+ */
+const OWNED = process.env.E2E_OWNED_WORKSPACE ?? "1ea7b2fa-b237-4bbd-801b-c9793d388984";
+const OWNED_TITLE = process.env.E2E_OWNED_TITLE ?? "Wiss. Seminar";
+/**
  * Die gespeicherte Sitzung gehoert einem Konto mit allen Rechten, das die beiden Einladungen auf
  * der Startseite laengst beantwortet hat. Das Bild dazu braucht ein Studierenden-Konto, das noch
  * nicht geantwortet hat, also meldet sich der eine Test selbst an. Sind die Karten weg, holt
@@ -101,9 +108,22 @@ async function useLocale(page: Page, locale: string) {
   await page.context().addCookies([{ name: "NEXT_LOCALE", value: locale, url: BASE }]);
 }
 
+/** Shown once per browser profile and would otherwise sit on top of every start page picture. */
+async function closeWelcome(page: Page) {
+  const willkommen = page
+    .locator("[role=dialog]")
+    .filter({ hasText: /Willkommen bei KIS|Welcome to KIS/ });
+  if (await willkommen.count()) {
+    await willkommen.locator("button[aria-label]").first().click();
+    await expect(willkommen).toHaveCount(0);
+  }
+}
+
 async function settle(page: Page) {
   await expect(page.locator("header")).toBeVisible();
+  // The dialog only opens after its own fetch, so waiting has to come first.
   await page.waitForTimeout(2000);
+  await closeWelcome(page);
 }
 
 /** Opens the module, then a studio tile, then the first set inside it. */
@@ -219,6 +239,27 @@ test.describe("Handbuch-Bilder", () => {
       await page.locator("aside, nav").first().screenshot({ path: shot(locale, "tool-bar") });
     });
 
+    test(`modul-beitreten ${locale}`, async ({ page }) => {
+      await useLocale(page, locale);
+      await page.goto(`${prefix(locale)}/`, { waitUntil: "domcontentloaded" });
+      await settle(page);
+      await page.getByTestId("join-open").click();
+      await page.waitForTimeout(800);
+      await page.screenshot({ path: shot(locale, "join-module") });
+    });
+
+    test(`modul-statistik ${locale}`, async ({ page }) => {
+      await useLocale(page, locale);
+      await page.goto(`${prefix(locale)}/`, { waitUntil: "domcontentloaded" });
+      await settle(page);
+      await page.locator("tr", { hasText: OWNED_TITLE }).first()
+        .getByTestId("workspace-stats").click();
+      // Die Zahlen kommen nach, sonst steht die Ladeanzeige im Bild.
+      await expect(page.getByText(/Teilnehmer|Participants/).first()).toBeVisible({ timeout: 30_000 });
+      await page.waitForTimeout(1500);
+      await page.screenshot({ path: shot(locale, "module-stats") });
+    });
+
     test(`modul-anlegen ${locale}`, async ({ page }) => {
       await useLocale(page, locale);
       await page.goto(`${prefix(locale)}/`, { waitUntil: "domcontentloaded" });
@@ -327,6 +368,16 @@ test.describe("Handbuch-Bilder", () => {
       await page.getByRole("button", { name: /Erstellen|Create/ }).first().click();
       await page.waitForTimeout(1500);
       await page.screenshot({ path: shot(locale, "create-set") });
+    });
+
+    test(`modul-freigeben ${locale}`, async ({ page }) => {
+      await useLocale(page, locale);
+      await page.goto(`${prefix(locale)}/workspace/${OWNED}`, { waitUntil: "domcontentloaded" });
+      await page.waitForTimeout(4000);
+      await page.locator('[data-tour="share"]').first().click();
+      // Die Links werden erst beim Oeffnen geholt.
+      await page.waitForTimeout(2500);
+      await page.screenshot({ path: shot(locale, "share-module") });
     });
 
     test(`modul-einstellungen ${locale}`, async ({ page }) => {

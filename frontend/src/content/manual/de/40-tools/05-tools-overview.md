@@ -13,6 +13,19 @@ Modulen: Sie laden eine Datei hoch, bekommen ein Ergebnis und laden es herunter.
 - **Screencast** macht aus Folien ein vertontes Video
 - **Glossar** pflegt Begriffslisten für die Übersetzung
 
+## Rundgang durch die Werkzeuge
+
+Der Rundgang öffnet jedes Werkzeug selbst und sagt an Ort und Stelle, was es annimmt und wo das
+Ergebnis landet. Der Name in der Leiste verrät das nicht.
+
+- Beim ersten Besuch steht die Einladung als Karte auf der Startseite, danach starten Sie ihn
+  jederzeit über das Zahnrad oben rechts
+- Er führt nur durch die Werkzeuge, die für Sie freigeschaltet sind, und endet bei den Aufträgen
+- Mittendrin abgebrochen bleibt die Karte auf der Startseite stehen, erst die letzte Station oder
+  **Ausblenden** nimmt sie weg
+- Nur Lehrende bekommen ihn zu sehen, denn Studierende haben keine Werkzeuge. Umgekehrt ist die
+  Karte zum Sprachtrainer den Studierenden vorbehalten
+
 ## Was für alle gilt
 
 Sie sehen nur die Werkzeuge, die für Sie freigeschaltet sind. Fehlt eines, entscheidet darüber
