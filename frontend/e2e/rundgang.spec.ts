@@ -250,7 +250,7 @@ test.describe("Merker am Konto", () => {
 });
 
 test.describe("Rundgang im Demo-Modul", () => {
-  test("alle 16 Stationen finden ihr Ziel", async ({ page }) => {
+  test("alle 17 Stationen finden ihr Ziel", async ({ page }) => {
     const kurse = await (await page.request.get("/api/ai-assistant/demo/workspaces")).json();
     const kurs = kurse.find((k: { owned: boolean }) => !k.owned);
     test.skip(!kurs, "In dieser Umgebung gibt es keinen fremden Demo-Kurs.");
@@ -286,9 +286,10 @@ test.describe("Rundgang im Demo-Modul", () => {
         .catch(() => {});
     }
 
-    expect(titel).toHaveLength(16);
+    expect(titel).toHaveLength(17);
     expect(titel[0]).toBe("Willkommen im Demo-Modul");
     expect(titel).toContain("Das Glossar");
+    expect(titel).toContain("Zugang zum Modul");
     expect(titel).toContain("Video mit Transkript");
     // Begruessung und Schluss stehen bewusst in der Mitte, alles dazwischen zeigt auf etwas.
     expect(ohneZiel).toEqual(["Willkommen im Demo-Modul", "Jetzt bist du dran"]);
@@ -366,24 +367,24 @@ test.describe("Rundgang im Demo-Modul", () => {
       await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
     };
 
-    // Station 3 steht sofort, Station 7 oeffnet erst die PDF. Beide Male darf
+    // Station 3 steht sofort, Station 8 oeffnet erst die PDF. Beide Male darf
     // der zweite Klick keine Station ueberspringen, sonst fehlt deren Vorbereitung.
     await doppelklick();
-    await expect(stand).toHaveText("Schritt 2 von 16");
+    await expect(stand).toHaveText("Schritt 2 von 17");
     await page.waitForTimeout(700);
-    await expect(stand).toHaveText("Schritt 2 von 16");
+    await expect(stand).toHaveText("Schritt 2 von 17");
     await doppelklick();
-    await expect(stand).toHaveText("Schritt 3 von 16");
-    for (let erwartet = 4; erwartet <= 6; erwartet++) {
+    await expect(stand).toHaveText("Schritt 3 von 17");
+    for (let erwartet = 4; erwartet <= 7; erwartet++) {
       await weiterKlicken(page);
-      await expect(stand).toHaveText(`Schritt ${erwartet} von 16`);
+      await expect(stand).toHaveText(`Schritt ${erwartet} von 17`);
     }
     await doppelklick();
-    await expect(stand).toHaveText("Schritt 7 von 16");
+    await expect(stand).toHaveText("Schritt 8 von 17");
     await expect(page.locator(".driver-popover-title")).toHaveText("Text markieren");
     await expect(page.locator('[data-tour="pdf-viewer"].driver-active-element')).toHaveCount(1);
     await page.waitForTimeout(700);
-    await expect(stand).toHaveText("Schritt 7 von 16");
+    await expect(stand).toHaveText("Schritt 8 von 17");
     await expect(weiter).toBeEnabled();
   });
 
@@ -413,7 +414,7 @@ test.describe("Rundgang im Demo-Modul", () => {
         .catch(() => {});
     }
 
-    await expect(page.locator(".driver-popover-progress-text")).toHaveText("Schritt 12 von 16");
+    await expect(page.locator(".driver-popover-progress-text")).toHaveText("Schritt 13 von 17");
     await expect(page.locator('[data-tour="chat-panel"]')).toBeVisible();
     await expect(page.locator('[data-tour="studio-panel"]')).toBeHidden();
   });
@@ -513,7 +514,9 @@ test.describe("Rundgang für Studierende", () => {
       // Das Auge fuehrt auf die Lehrenden-Seite, die diese Person nie bekommt.
       await expect(page.locator('[data-tour="preview-toggle"]')).toHaveCount(0);
       await expect(page.locator('[data-tour="add-source"]')).toHaveCount(0);
-      // Eine Station weniger als bei Lehrenden, das Hochladen faellt weg.
+      // Zugang vergeben duerfen nur Besitz und Tutoren, das Zeichen fehlt hier.
+      await expect(page.locator('[data-tour="share"]')).toHaveCount(0);
+      // Zwei Stationen weniger als bei Lehrenden, Hochladen und Freigeben fallen weg.
       await expect(page.locator(".driver-popover-progress-text")).toHaveText("Schritt 1 von 15");
 
       // Der Hinweis steht als zweite Station, ein Klick reicht dorthin.

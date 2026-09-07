@@ -6,9 +6,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 from src.permissions_registry import (
+    PERM_SET_STATS_USERS,
     PERM_SET_USERS_ALL,
     PERM_SET_USERS_IMPERSONATE,
-    PERM_SET_STATS_OWN,
 )
 
 ADMIN = {"user_id": 1, "username": "chef", "display_name": "Chefin",
@@ -156,7 +156,7 @@ def test_eigene_rolle_ohne_nutzerverwaltung_ist_erreichbar(umgebung, monkeypatch
     from src import database
     monkeypatch.setattr(
         database, "get_custom_role",
-        lambda rid: {"id": rid, "name": "Zahlen", "permissions": [PERM_SET_STATS_OWN]},
+        lambda rid: {"id": rid, "name": "Zahlen", "permissions": [PERM_SET_STATS_USERS]},
     )
     umgebung["ziel"]["row"] = _user(role="custom", custom_role_id=6)
     assert _post(umgebung, "/admin/users/7/impersonate").status_code == 200

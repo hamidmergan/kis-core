@@ -25,21 +25,24 @@ describe("Lehrende, die selbst Module anlegen dürfen", () => {
 });
 
 describe("Studierende ohne das Recht Module anzulegen", () => {
-  it("bekommen die Station zum Hochladen gar nicht erst", () => {
-    // Ohne Lehrenden-Vorschau gibt es das Plus nicht, die Station zeigte ins Leere.
+  it("bekommen die Stationen zum Hochladen und Freigeben gar nicht erst", () => {
+    // Ohne Lehrenden-Vorschau gibt es weder Plus noch Freigabe-Zeichen, beide Stationen zeigten ins Leere.
     expect(schluessel(false)).not.toContain("hochladen");
-    expect(demoSchritte(false)).toHaveLength(DEMO_SCHRITTE.length - 1);
+    expect(schluessel(false)).not.toContain("freigeben");
+    expect(demoSchritte(false)).toHaveLength(DEMO_SCHRITTE.length - 2);
   });
 
-  it("bekommen für Begrüßung, Materialbereich, Hinweis und Schluss eigene Texte", () => {
+  it("bekommen für Begrüßung, Materialbereich, Hinweis, Statistik und Schluss eigene Texte", () => {
     const keys = schluessel(false);
     expect(keys).toContain("willkommenStudi");
     expect(keys).toContain("materialienStudi");
     expect(keys).toContain("hinweisStudi");
+    expect(keys).toContain("statistikStudi");
     expect(keys).toContain("schlussStudi");
     expect(keys).not.toContain("willkommen");
     expect(keys).not.toContain("materialien");
     expect(keys).not.toContain("hinweis");
+    expect(keys).not.toContain("statistik");
     expect(keys).not.toContain("schluss");
   });
 
@@ -65,6 +68,14 @@ describe("Aufbau der Schritte", () => {
     const gefragt = seiteMitschreiben();
     demoSchritte(true).find((s) => s.key === "hinweis")?.ziel?.();
     expect(gefragt).toEqual(['[data-tour="staff-note"]']);
+  });
+});
+
+describe("Die Statistik im Studio", () => {
+  it("spricht Lehrende und Studierende getrennt an", () => {
+    // Beide sehen dort nur die eigenen Zahlen, gesagt werden muss es der lehrenden Seite.
+    expect(schluessel(true)).toContain("statistik");
+    expect(schluessel(false)).toContain("statistikStudi");
   });
 });
 

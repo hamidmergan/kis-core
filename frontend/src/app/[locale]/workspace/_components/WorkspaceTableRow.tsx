@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
+import { ChartBar } from "@phosphor-icons/react";
+import IconButton from "@/components/ui/IconButton";
+import ActiveToggle from "./ActiveToggle";
 import WorkspaceMenu from "./WorkspaceMenu";
 import WorkspaceModals from "./WorkspaceModals";
 import { type AccessLink, type KiTutorWorkspace } from "../_shared";
 import { useWorkspaceActions } from "../_hooks/useWorkspaceActions";
-import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
 
 interface WorkspaceTableRowProps {
   workspace: KiTutorWorkspace;
@@ -28,7 +30,6 @@ export default function WorkspaceTableRow({
   const t = useTranslations("workspace.list");
   const tDemo = useTranslations("workspace.demo");
   const a = useWorkspaceActions({ workspace, onToggleActive, onDelete, onLinksChanged });
-  const labels = useWorkspaceLabel();
   const [showParticipants, setShowParticipants] = useState(false);
   // A tutor manages like the owner, only deleting stays with the owner.
   const isOwner = workspace.access === "owner";
@@ -43,12 +44,10 @@ export default function WorkspaceTableRow({
         editOpen={a.editOpen} onCloseEdit={() => a.setEditOpen(false)}
         onSubmitEdit={(t, d) => onEdit(workspace.uuid, t, d)}
         showLinks={a.showLinks} onCloseLinks={() => a.setShowLinks(false)}
-        links={a.links} onLinkCreated={a.handleLinkCreated} onRequestDeleteLink={a.setDeleteLinkConfirm}
+        links={a.links} onLinksChanged={a.handleLinksChanged}
         deleteConfirm={a.deleteConfirm} onCancelDelete={() => a.setDeleteConfirm(false)}
         onConfirmDelete={a.handleDeleteConfirm} deleting={a.deleting}
         deleteParticipantCount={a.deleteParticipantCount}
-        deleteLinkConfirm={a.deleteLinkConfirm} onCancelDeleteLink={() => a.setDeleteLinkConfirm(null)}
-        onConfirmDeleteLink={a.handleDeleteLinkConfirm} deletingLink={a.deletingLink}
       />
 
       <tr
@@ -104,33 +103,22 @@ export default function WorkspaceTableRow({
           className="pl-20 pr-4 py-3 cursor-pointer"
           onClick={() => !a.toggling && a.handleToggle(!workspace.is_active)}
         >
-          <div className="flex items-center gap-2.5">
-            <button
-              type="button"
-              role="switch"
-              aria-checked={workspace.is_active}
-              aria-label={workspace.is_active ? t("deactivate", { label: labels.singular }) : t("activate", { label: labels.singular })}
-              onClick={(e) => { e.stopPropagation(); a.handleToggle(!workspace.is_active); }}
-              disabled={a.toggling}
-              className="relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full border-2 border-transparent transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-offset-2 enabled:hover:border-kb"
-              style={{ backgroundColor: workspace.is_active ? "var(--kb)" : "var(--border)" }}
-            >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
-                  workspace.is_active ? "translate-x-[1.125rem]" : "translate-x-0.5"
-                }`}
-              />
-            </button>
-            <span
-              className="text-xs font-medium"
-              style={{ color: workspace.is_active ? "var(--kb)" : "var(--muted)" }}
-            >
-              {workspace.is_active ? t("active") : t("inactive")}
-            </span>
-          </div>
+          <ActiveToggle
+            active={workspace.is_active}
+            disabled={a.toggling}
+            onToggle={(v) => a.handleToggle(v)}
+          />
         </td>
         <td className="pl-20 pr-4 py-3">
-          <div className="flex justify-center">
+          <div className="flex items-center justify-center gap-1.5">
+            {/* Owner and tutor read the numbers of the whole module here, everybody else only their own. */}
+            <IconButton
+              onClick={(e: React.MouseEvent) => { e.stopPropagation(); a.setShowStats(true); }}
+              title={t("statsOpen")}
+              data-testid="workspace-stats"
+            >
+              <ChartBar size={13} weight="bold" />
+            </IconButton>
             <WorkspaceMenu
               onParticipants={() => setShowParticipants(true)}
               onLinks={() => a.setShowLinks(true)}

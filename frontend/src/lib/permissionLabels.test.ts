@@ -30,17 +30,12 @@ describe.each(SPRACHEN)("Beschriftungen der Rechte (%s)", (_sprache, messages) =
   });
 });
 
-describe("Die beiden Statistik-Rechte sind auseinanderzuhalten", () => {
-  it("das globale sagt im Text, dass es alle Module meint", () => {
-    // Otherwise two identically named rows appear, one of which opens everything.
+describe("Das Statistik-Recht zum KI-Assistenten", () => {
+  it("sagt im Text, dass es alle Module meint", () => {
     expect(label(de as Record<string, unknown>, PERM.aiaUsage)).toMatch(/alle Module/i);
   });
 
-  it("das eingeschraenkte sagt, worauf es sich beschraenkt", () => {
-    expect(label(de as Record<string, unknown>, PERM.statsOwn)).toMatch(/eigen|betreu/i);
-  });
-
-  it("beide zaehlen zu den Einstellungsrechten", () => {
-    expect(SETTINGS_PERMS).toEqual(expect.arrayContaining([PERM.aiaUsage, PERM.statsOwn]));
+  it("zaehlt zu den Einstellungsrechten", () => {
+    expect(SETTINGS_PERMS).toEqual(expect.arrayContaining([PERM.aiaUsage]));
   });
 });

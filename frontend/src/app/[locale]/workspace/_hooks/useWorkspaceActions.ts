@@ -22,8 +22,6 @@ export function useWorkspaceActions({ workspace, onToggleActive, onDelete, onLin
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteParticipantCount, setDeleteParticipantCount] = useState<number | null>(null);
-  const [deleteLinkConfirm, setDeleteLinkConfirm] = useState<AccessLink | null>(null);
-  const [deletingLink, setDeletingLink] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
 
   const links = workspace.access_links ?? [];
@@ -61,25 +59,8 @@ export function useWorkspaceActions({ workspace, onToggleActive, onDelete, onLin
     setDeleting(false);
   }
 
-  async function handleDeleteLinkConfirm() {
-    if (!deleteLinkConfirm) return;
-    setDeletingLink(true);
-    try {
-      const res = await fetch(`/api/ai-assistant/workspaces/${workspace.uuid}/access-links/${deleteLinkConfirm.id}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      if (res.ok) {
-        onLinksChanged(workspace.uuid, links.filter((l) => l.id !== deleteLinkConfirm.id));
-      }
-      setDeleteLinkConfirm(null);
-    } finally {
-      setDeletingLink(false);
-    }
-  }
-
-  function handleLinkCreated(newLink: AccessLink) {
-    onLinksChanged(workspace.uuid, [...links, newLink]);
+  function handleLinksChanged(next: AccessLink[]) {
+    onLinksChanged(workspace.uuid, next);
   }
 
   return {
@@ -88,9 +69,8 @@ export function useWorkspaceActions({ workspace, onToggleActive, onDelete, onLin
     showStats, setShowStats,
     showLinks, setShowLinks,
     deleteConfirm, setDeleteConfirm, deleting, deleteParticipantCount,
-    deleteLinkConfirm, setDeleteLinkConfirm, deletingLink,
     editOpen, setEditOpen,
     handleOpen, handlePrefetch,
-    handleToggle, handleDeleteClick, handleDeleteConfirm, handleDeleteLinkConfirm, handleLinkCreated,
+    handleToggle, handleDeleteClick, handleDeleteConfirm, handleLinksChanged,
   };
 }

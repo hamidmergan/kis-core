@@ -870,7 +870,6 @@
         "label": "Statistik",
         "sub": "Zahlen zum Lesen. Was hier steht, wird nicht eingestellt.",
         "tabs": {
-          "eigene": "Meine Module",
           "nutzer": "Nutzer",
           "werkzeuge": "Werkzeuge",
           "assistent": "KI-Assistent",
@@ -1791,8 +1790,7 @@
         "mascot": "Hilde und Francis",
         "statistik": {
           "nutzer": "Nutzer und Anwesenheit",
-          "modelle": "Modelle und Tokens",
-          "eigene": "KI-Assistent (nur eigene und betreute Module)"
+          "modelle": "Modelle und Tokens"
         },
         "wartung": {
           "zugang": "Zugriff während der Wartung"
@@ -1962,7 +1960,7 @@
         "colWhen": "Wann",
         "active": "aktiv",
         "inactive": "inaktiv",
-        "ownerSince": "von {owner} · angelegt {since}",
+        "ownerSince": "von {owner}, angelegt {since}",
         "lastUsed": "zuletzt {date}",
         "sourceHint": "Aus den Materialien dieses Moduls gebaut.",
         "trainerOff": "Für dieses Modul nicht benutzt.",
@@ -1974,6 +1972,8 @@
         "colState": "Stand",
         "colName": "Name",
         "roleTutor": "Tutor",
+        "withStaff": "Lehrende mitzählen",
+        "withStaffHint": "Eigentümer und Tutoren beantworten beim Aufbau ihre eigenen Aufgaben. Ohne Haken zählen nur die Studierenden.",
         "history": "Verlauf",
         "historyHint": "Chat, Werkzeuge, Übungen und Beitritte gemischt, neueste zuerst.",
         "historyEmpty": "Noch keine Aktivität.",
@@ -2991,6 +2991,9 @@
         "wortschatz": "Wortschatzübung",
         "quiz": "Quiz"
       },
+      "share": {
+        "title": "Freigeben"
+      },
       "tour": {
         "next": "Weiter",
         "back": "Zurück",
@@ -3061,6 +3064,10 @@
             "title": "Der Hinweis deiner Lehrenden",
             "text": "Über das Info-Zeichen öffnest du den Hinweis deiner Lehrenden mit Text und Links. Er gilt für alle im Modul."
           },
+          "freigeben": {
+            "title": "Zugang zum Modul",
+            "text": "Hinter diesem Zeichen legst du Einschreibelinks an und siehst, wer im Modul ist. Den Link gibst du deinen Studierenden, damit sie sich selbst einschreiben. Tutoren dürfen das Modul mitverwalten."
+          },
           "auswahl": {
             "title": "Häkchen bestimmen die Auswahl",
             "text": "Aktuell ist nur ein Material angehakt. Chat und Werkzeuge nutzen immer genau das, was angehakt ist."
@@ -3099,7 +3106,11 @@
           },
           "statistik": {
             "title": "Statistik",
-            "text": "Hier siehst du, was geübt wurde und wie gut es sitzt. Ein paar Übungen sind beispielhaft hinterlegt."
+            "text": "Hier siehst du deine eigenen Übungen und wie gut sie sitzen, ein paar sind beispielhaft hinterlegt. Jede Person sieht nur die eigene Statistik, du siehst hier also nichts von deinen Studierenden. Die Zahlen zum ganzen Modul findest du auf der Startseite."
+          },
+          "statistikStudi": {
+            "title": "Statistik",
+            "text": "Hier siehst du, was du geübt hast und wie gut es sitzt, ein paar Übungen sind beispielhaft hinterlegt. Die Statistik ist nur deine, jede Person sieht allein die eigene."
           },
           "zeitplan": {
             "title": "Zeitplan",
@@ -3155,7 +3166,17 @@
       "enrolling": "Wird eingeschrieben …",
       "enrollInvalidCode": "Ungültiger Code",
       "unknownError": "Unbekannter Fehler. Bitte versuche es erneut.",
-      "noEnrollments": "Noch keine Einschreibung vorhanden.",
+      "noEnrollments": "Du bist noch in keinem Modul.",
+      "noEnrollmentsText": "Setze den Link oder den Code ein, den du von deiner Lehrperson bekommen hast.",
+      "joinButton": "Beitreten",
+      "joinTitle": "{label} beitreten",
+      "joinBody": "Setze den Link oder den Code ein, den du von deiner Lehrperson bekommen hast.",
+      "joinField": "Link oder Code",
+      "joinHint": "Beides geht, der ganze Link oder nur der Code.",
+      "joinSubmit": "Weiter",
+      "joinChecking": "Wird geprüft …",
+      "joinUnreadable": "Das sieht nicht nach einem Link oder Code aus. Prüfe die Eingabe.",
+      "joinUnknown": "Diesen Code kennen wir nicht. Prüfe die Schreibweise oder frage nach einem neuen Link.",
       "closedBadge": "Nicht freigegeben",
       "closedHint": "Die Lehrperson hat dieses Modul gerade geschlossen. Deine Einschreibung bleibt bestehen.",
       "closedJoinHint": "Dieses Modul ist gerade nicht freigegeben. Du kannst dich einschreiben und kommst hinein, sobald die Lehrperson es öffnet.",
@@ -3212,6 +3233,7 @@
       "validUntilOptionalField": "Gültig bis (optional)",
       "validUntilHint": "Leer lassen, wenn der Link nicht ablaufen soll.",
       "statsTitle": "Statistik",
+      "statsOpen": "Statistik zum Modul ansehen",
       "statsLoadFailed": "Statistiken konnten nicht geladen werden.",
       "statsLoadError": "Fehler beim Laden",
       "loading": "Laden...",
@@ -3220,6 +3242,7 @@
       "chatRequests": "Chat-Anfragen",
       "exercisesCreated": "Erstellte Übungen",
       "clickToCopy": "Klicken zum Kopieren",
+      "clickToCopyCode": "Code klicken zum Kopieren",
       "copied": "Kopiert!",
       "expired": "abgelaufen",
       "unlimited": "unbegrenzt",

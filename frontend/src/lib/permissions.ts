@@ -30,15 +30,12 @@ export const PERM = {
   // Two tabs keep their old key so existing roles lose nothing.
   statsUsers: "settings.statistik.nutzer",
   statsModels: "settings.statistik.modelle",
-  // The only key of the group that shows just your own and tutored modules.
-  statsOwn: "settings.statistik.eigene",
   // Not a settings right but the right to keep working while everything is shut.
   maintenanceAccess: "settings.wartung.zugang",
 } as const;
 
-/** The five statistics tabs, the only settings rights that read without changing anything. */
+/** The four statistics tabs, the only settings rights that read without changing anything. */
 export const STATS_PERMS: string[] = [
-  PERM.statsOwn,
   PERM.statsUsers,
   PERM.toolsStats,
   PERM.aiaUsage,
@@ -65,7 +62,6 @@ export const SETTINGS_PERMS: string[] = [
   PERM.mascot,
   PERM.statsUsers,
   PERM.statsModels,
-  PERM.statsOwn,
   PERM.maintenanceAccess,
 ];
 

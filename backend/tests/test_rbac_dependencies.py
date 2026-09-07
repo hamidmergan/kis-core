@@ -45,9 +45,9 @@ def test_user_blocked_from_admin(user_client):
     assert r.status_code == 403
 
 
-def test_staff_allowed_in_admin_for_its_own_numbers(staff_client):
+def test_staff_blocked_from_admin_since_the_numbers_moved_to_the_module(staff_client):
     r = staff_client.get("/admin")
-    assert r.status_code == 200
+    assert r.status_code == 403
 
 
 def test_admin_allowed(admin_client):

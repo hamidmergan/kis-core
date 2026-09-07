@@ -74,7 +74,6 @@ import SourcesPage from "../_pages/assistent/sources";
 import LanguageLevelPage from "../_pages/assistent/language-level";
 import AiBehaviourPage from "../_pages/assistent/behaviour";
 
-import StatistikEigenePage from "../_pages/statistik/eigene";
 import StatistikNutzerPage from "../_pages/statistik/nutzer";
 import StatistikWerkzeugePage from "../_pages/statistik/werkzeuge";
 import StatistikAssistentPage from "../_pages/statistik/assistent";
@@ -142,9 +141,7 @@ export const SECTIONS: AdminSection[] = [
     Icon: ChartBar,
     world: "both",
     rank: "admin",
-    // My modules first, the only tab without platform-wide insight.
     tabs: [
-      { slug: "my-modules", labelKey: "eigene", perm: PERM.statsOwn, Component: StatistikEigenePage },
       { slug: "users", labelKey: "nutzer", perm: PERM.statsUsers, Component: StatistikNutzerPage },
       { slug: "tools", labelKey: "werkzeuge", perm: PERM.toolsStats, Component: StatistikWerkzeugePage },
       { slug: "ai-assistant", labelKey: "assistent", perm: PERM.aiaUsage, Component: StatistikAssistentPage },

@@ -13,7 +13,6 @@ from src.permissions_registry import (
     PERM_AIA_USE,
     PERM_AIA_WORKSPACE_CREATE,
     PERM_SET_AIA_LEVEL,
-    PERM_SET_STATS_OWN,
     PERM_SET_SYSTEM,
     PERM_SET_USERS_ALL,
     SETTING_FIELD_PERMISSIONS,
@@ -58,14 +57,14 @@ def test_admin_has_all_permissions():
     assert set(perms.keys) == set(ALL_PERMISSION_KEYS)
 
 
-def test_staff_gets_the_numbers_of_its_own_workspaces():
+def test_staff_reads_its_numbers_at_the_module_not_in_the_settings():
     perms = permissions_for_system_role("staff")
     assert perms.allow_aia is True
     assert perms.allow_workspace_create is True
     assert set(perms.tools) == set(ALL_TOOL_KEYS)
-    # The area opens, but only for this one tab.
-    assert perms.allow_admin_panel is True
-    assert perms.settings_pages == (PERM_SET_STATS_OWN,)
+    # Nothing in the settings is left for a teacher, so the area stays shut.
+    assert perms.allow_admin_panel is False
+    assert perms.settings_pages == ()
 
 
 def test_staff_has_no_language_level_by_default():

@@ -31,23 +31,16 @@ describe("Jeder Eintrag rendert etwas", () => {
   });
 });
 
-/** A teacher with their one permission may see exactly one tab. */
+/** Lehrende lesen ihre Zahlen am Modul selbst, in den Einstellungen bleibt nichts uebrig. */
 describe("Statistik einer Lehrperson", () => {
-  const dozentin = [PERM.statsOwn];
-
-  it("laesst genau den Bereich Statistik uebrig", () => {
-    expect(allowedSections(dozentin).map((s) => s.slug)).toEqual(["stats"]);
+  it("oeffnet ohne Verwaltungsrecht keinen Bereich in den Einstellungen", () => {
+    expect(allowedSections([PERM.aiaUse])).toEqual([]);
   });
 
-  it("zeigt darin nur Meine Module", () => {
-    const statistik = allowedSections(dozentin)[0];
-    expect(statistik.tabs?.map((t) => t.slug)).toEqual(["my-modules"]);
-  });
-
-  it("stellt Meine Module vor die vier globalen Reiter", () => {
+  it("laesst im Bereich Statistik nur die plattformweiten Reiter stehen", () => {
     const alle = SECTIONS.find((s) => s.slug === "stats");
     expect(alle?.tabs?.map((t) => t.slug)).toEqual([
-      "my-modules", "users", "tools", "ai-assistant", "models",
+      "users", "tools", "ai-assistant", "models",
     ]);
   });
 

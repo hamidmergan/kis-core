@@ -8,7 +8,6 @@ from src.permissions_registry import (
     GROUPS,
     PERM_SET_AIA_USAGE,
     PERM_SET_STATS_MODELS,
-    PERM_SET_STATS_OWN,
     PERM_SET_STATS_USERS,
     PERM_SET_TOOLS_STATS,
     PERMISSION_GROUPS,
@@ -44,10 +43,9 @@ def test_groups_stand_in_two_chapters_in_display_order():
     ]
 
 
-def test_the_statistics_rights_stand_together_scoped_one_first():
-    """Own modules first, the only key without platform-wide insight."""
+def test_the_statistics_rights_stand_together():
+    """Only platform-wide numbers are a right, own modules are read at the module."""
     assert PERMISSION_GROUPS["set.statistik"] == (
-        PERM_SET_STATS_OWN,
         PERM_SET_AIA_USAGE,
         PERM_SET_STATS_USERS,
         PERM_SET_TOOLS_STATS,

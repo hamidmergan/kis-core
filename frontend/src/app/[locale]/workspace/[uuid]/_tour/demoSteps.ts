@@ -72,6 +72,14 @@ export const DEMO_SCHRITTE: DemoSchritt[] = [
     // One button for everyone, only the text differs because students cannot edit the note.
     studi: { key: "hinweisStudi", ziel: anker("staff-note") },
   },
+  // Handing out access belongs to the owner side, students never see the button.
+  {
+    key: "freigeben",
+    ziel: anker("share"),
+    side: "bottom",
+    imKopf: true,
+    studi: null,
+  },
   {
     key: "materialien",
     ziel: anker("sources-panel"),
@@ -140,11 +148,13 @@ export const DEMO_SCHRITTE: DemoSchritt[] = [
     side: "left",
     vorbereiten: (a) => a.studioReiter("tools"),
   },
+  // Everyone reads their own numbers here, so the teaching side needs to hear that it sees no student.
   {
     key: "statistik",
     ziel: anker("studio-panel"),
     side: "left",
     vorbereiten: (a) => a.studioReiter("statistik"),
+    studi: { key: "statistikStudi" },
   },
   {
     key: "zeitplan",

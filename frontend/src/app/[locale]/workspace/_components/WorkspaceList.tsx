@@ -8,6 +8,8 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import CreateWorkspaceModal from "./CreateWorkspaceModal";
 import WorkspaceTable from "./WorkspaceTable";
 import DemoModal from "./DemoModal";
+import JoinModuleModal from "./JoinModuleModal";
+import JoinSection from "./JoinSection";
 import { useDemoWorkspaces } from "./useDemoWorkspaces";
 import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
 import { canManage, type AccessLink, type KiTutorWorkspace } from "../_shared";
@@ -25,6 +27,7 @@ export default function WorkspaceList({ canCreate }: Props) {
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [showDemo, setShowDemo] = useState(false);
+  const [showJoin, setShowJoin] = useState(false);
   const demo = useDemoWorkspaces();
 
   const load = useCallback(async () => {
@@ -117,10 +120,20 @@ export default function WorkspaceList({ canCreate }: Props) {
         />
       )}
 
+      {showJoin && <JoinModuleModal onClose={() => setShowJoin(false)} />}
+
       <section>
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-lg md:text-xl font-semibold">{heading}</h2>
           <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowJoin(true)}
+            data-testid="join-open"
+            className="whitespace-nowrap rounded-lg text-sm font-medium btn-secondary px-3 py-2 md:px-4"
+          >
+            {t("joinButton")}
+          </button>
           {canCreate && (
             <button
               type="button"
@@ -152,7 +165,14 @@ export default function WorkspaceList({ canCreate }: Props) {
             size="lg"
             icon={<Files size={40} weight="bold" />}
             title={canCreate ? t("emptyTitle", { label: labels.plural }) : t("noEnrollments")}
-            text={canCreate ? t("emptyText") : ""}
+            text={canCreate ? t("emptyText") : t("noEnrollmentsText")}
+            action={
+              canCreate ? undefined : (
+                <div className="w-full max-w-sm">
+                  <JoinSection compact />
+                </div>
+              )
+            }
           />
         ) : (
           <div className="mt-3 md:mt-10">

@@ -44,7 +44,7 @@ describe("gesperrteRollenIds", () => {
   it("findet die Rollen mit Nutzerverwaltung", () => {
     const rollen = [
       { id: 5, permissions: [PERM.usersAll] },
-      { id: 6, permissions: [PERM.statsOwn] },
+      { id: 6, permissions: [PERM.statsUsers] },
       { id: 7, permissions: [PERM.usersImpersonate] },
       { id: 8 },
     ];

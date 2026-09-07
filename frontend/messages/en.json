@@ -870,7 +870,6 @@
         "label": "Statistics",
         "sub": "Numbers to read. Nothing here is a setting.",
         "tabs": {
-          "eigene": "My modules",
           "nutzer": "Users",
           "werkzeuge": "Tools",
           "assistent": "AI assistant",
@@ -1791,8 +1790,7 @@
         "mascot": "Hilde and Francis",
         "statistik": {
           "nutzer": "Users and presence",
-          "modelle": "Models and tokens",
-          "eigene": "AI assistant (only own and tutored modules)"
+          "modelle": "Models and tokens"
         },
         "wartung": {
           "zugang": "Access during maintenance"
@@ -1962,7 +1960,7 @@
         "colWhen": "When",
         "active": "active",
         "inactive": "inactive",
-        "ownerSince": "by {owner} · created {since}",
+        "ownerSince": "by {owner}, created {since}",
         "lastUsed": "last {date}",
         "sourceHint": "Built from this module\\u2019s materials.",
         "trainerOff": "Not used for this module.",
@@ -1974,6 +1972,8 @@
         "colState": "State",
         "colName": "Name",
         "roleTutor": "Tutor",
+        "withStaff": "Count teaching staff",
+        "withStaffHint": "Owners and tutors answer their own exercises while building them. Unticked, only students count.",
         "history": "History",
         "historyHint": "Chat, tools, exercises and joins merged, newest first.",
         "historyEmpty": "No activity yet.",
@@ -2991,6 +2991,9 @@
         "wortschatz": "Vocabulary exercises",
         "quiz": "Quiz"
       },
+      "share": {
+        "title": "Share"
+      },
       "tour": {
         "next": "Next",
         "back": "Back",
@@ -3061,6 +3064,10 @@
             "title": "The note from your teachers",
             "text": "The info button opens the note from your teachers with text and links. It applies to everyone in the module."
           },
+          "freigeben": {
+            "title": "Access to the module",
+            "text": "Behind this button you create enrollment links and see who is in the module. You hand the link to your students so they can enroll themselves. Tutors may help manage the module."
+          },
           "auswahl": {
             "title": "Ticks decide what counts",
             "text": "Right now only one material is ticked. Chat and tools always use exactly what is ticked."
@@ -3099,7 +3106,11 @@
           },
           "statistik": {
             "title": "Statistics",
-            "text": "This shows what has been practised and how well it sticks. A few exercises are already in place for you."
+            "text": "This shows your own practice and how well it sticks, a few exercises are already in place for you. Everyone only ever sees their own statistics, so nothing your students do shows up here. The numbers for a whole module are on the start page."
+          },
+          "statistikStudi": {
+            "title": "Statistics",
+            "text": "This shows what you practised and how well it sticks, a few exercises are already in place for you. The statistics are yours alone, everyone only sees their own."
           },
           "zeitplan": {
             "title": "Schedule",
@@ -3155,7 +3166,17 @@
       "enrolling": "Enrolling …",
       "enrollInvalidCode": "Invalid code",
       "unknownError": "Unknown error. Please try again.",
-      "noEnrollments": "No enrollments yet.",
+      "noEnrollments": "You are not in any module yet.",
+      "noEnrollmentsText": "Paste the link or the code your teacher gave you.",
+      "joinButton": "Join",
+      "joinTitle": "Join a {label}",
+      "joinBody": "Paste the link or the code your teacher gave you.",
+      "joinField": "Link or code",
+      "joinHint": "Either works, the full link or just the code.",
+      "joinSubmit": "Continue",
+      "joinChecking": "Checking …",
+      "joinUnreadable": "That does not look like a link or a code. Please check your input.",
+      "joinUnknown": "We do not know this code. Check the spelling or ask for a new link.",
       "closedBadge": "Not open",
       "closedHint": "Your teacher has closed this module for now. Your enrollment stays in place.",
       "closedJoinHint": "This module is not open at the moment. You can still enroll and will get in as soon as your teacher opens it.",
@@ -3212,6 +3233,7 @@
       "validUntilOptionalField": "Valid until (optional)",
       "validUntilHint": "Leave empty if the link should never expire.",
       "statsTitle": "Statistics",
+      "statsOpen": "View the module statistics",
       "statsLoadFailed": "Could not load statistics.",
       "statsLoadError": "Could not load",
       "loading": "Loading...",
@@ -3220,6 +3242,7 @@
       "chatRequests": "Chat requests",
       "exercisesCreated": "Exercises created",
       "clickToCopy": "Click to copy",
+      "clickToCopyCode": "Click to copy the code",
       "copied": "Copied!",
       "expired": "expired",
       "unlimited": "unlimited",

@@ -1,10 +1,11 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { useTranslations } from "next-intl";
-import { GearSix, Eye } from "@phosphor-icons/react";
+import { GearSix, Eye, ShareNetwork } from "@phosphor-icons/react";
 import { Link } from "@/i18n/navigation";
 import { SettingsMenu } from "./SettingsMenu";
+import { ShareModal } from "./ShareModal";
 import { StaffNoteControl } from "./StaffNoteControl";
 import { OwnerOnly } from "./OwnerOnly";
 import type { PanelKey, StaffNoteLink } from "../../_types";
@@ -25,6 +26,12 @@ interface WorkspaceTopbarProps {
   previewsOwnerSide: boolean;
   onTogglePreview: () => void;
   onStartTour: () => void;
+  /** Sharing offered at all: owner or tutor, the same gate the module list uses. */
+  canManage: boolean;
+  workspaceUuid: string;
+  /** Active means students can enrol through a link and get in. */
+  isActive: boolean;
+  onToggleActive: (newVal: boolean) => Promise<void>;
   // Module note behind the pin, next to the gear because it belongs to the whole module.
   isOwner: boolean;
   staffNoteText: string | null;
@@ -43,6 +50,7 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
     showSettings, onToggleSettings, onCloseSettings,
     studioEnabled, onToggleStudio,
     canPreview, previewOn, previewsOwnerSide, onTogglePreview, onStartTour,
+    canManage, workspaceUuid, isActive, onToggleActive,
     isOwner, staffNoteText, staffNoteLinks, onStaffNoteSave,
     popupTranslateLang, onChangePopupTranslateLang,
     activeTab, setActiveTab,
@@ -50,6 +58,7 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
   const t = useTranslations("workspace.detail.topbar");
   const tPanels = useTranslations("workspace.detail.panels");
   const tHeader = useTranslations("header");
+  const tShare = useTranslations("workspace.detail.share");
 
   const settingsModal = (
     <SettingsMenu
@@ -67,6 +76,24 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
     />
   );
 
+  const [showShare, setShowShare] = useState(false);
+  // Only owners and tutors hand out access, so the button hangs in the owner gate.
+  const shareButton = (
+    <OwnerOnly show={canManage}>
+      <button
+        type="button"
+        onClick={() => setShowShare(true)}
+        data-tour="share"
+        className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
+        style={{ backgroundColor: "var(--surface-dim)" }}
+        title={tShare("title")}
+        aria-label={tShare("title")}
+      >
+        <ShareNetwork size={17} weight="regular" />
+      </button>
+    </OwnerOnly>
+  );
+
   const settingsButton = (
     <button
       type="button"
@@ -82,6 +109,16 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
 
   // The preview lives in the settings now, so the tour points at the gear, but
   // only where there is a switch behind it.
+  const shareModal = (
+    <ShareModal
+      open={showShare}
+      workspaceUuid={workspaceUuid}
+      isActive={isActive}
+      onToggleActive={onToggleActive}
+      onClose={() => setShowShare(false)}
+    />
+  );
+
   const settingsSlot = canPreview ? (
     <span data-tour="preview-entry" className="inline-flex">{settingsButton}</span>
   ) : settingsButton;
@@ -149,11 +186,13 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
           </span>
           <div className="flex items-center gap-1.5 ml-auto">
             {staffNoteButton}
+            {shareButton}
             {settingsSlot}
           </div>
         </div>
         {previewBanner}
         {settingsModal}
+        {shareModal}
       </>
     );
   }
@@ -170,6 +209,7 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
         </span>
         <div className="flex items-center gap-1.5 ml-auto">
           {staffNoteButton}
+          {shareButton}
           {settingsSlot}
         </div>
       </div>
@@ -191,6 +231,7 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
         ))}
       </div>
       {settingsModal}
+      {shareModal}
     </div>
   );
 }

@@ -12,6 +12,7 @@ from src.limits import (
 )
 
 from src.features.ai_assistant.routes._workspace_access import _require_workspace_manage
+from src.features.stats import workspace_detail
 
 router = APIRouter(tags=["ki-assistent: language-training"])
 
@@ -80,6 +81,20 @@ async def get_lecturer_workspace_stats(
 ):
     workspace = _require_workspace_manage(workspace_uuid, current_user["user_id"], locale=locale)
     return db.get_aia_workspace_stats(workspace["id"])
+
+
+@router.get("/ai-assistant/workspaces/{workspace_uuid}/module-stats")
+async def get_module_stats(
+    workspace_uuid: str,
+    current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
+):
+    """The whole module in numbers, reachable for owner and tutor without an admin right."""
+    _require_workspace_manage(workspace_uuid, current_user["user_id"], locale=locale)
+    daten = workspace_detail(workspace_uuid)
+    if daten is None:
+        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
+    return daten
 
 
 # ─── Glossary Count & Limit ───────────────────────────────────────────────────

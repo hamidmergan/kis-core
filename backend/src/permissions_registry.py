@@ -72,8 +72,6 @@ PERM_SET_MASCOT = "settings.mascot"
 # Two statistics tabs keep their old key so roles lose nothing.
 PERM_SET_STATS_USERS = "settings.statistik.nutzer"
 PERM_SET_STATS_MODELS = "settings.statistik.modelle"
-# The only key of the group that shows just your own modules.
-PERM_SET_STATS_OWN = "settings.statistik.eigene"
 # Not a settings right but the right to keep working during maintenance.
 PERM_MAINTENANCE_ACCESS = "settings.wartung.zugang"
 
@@ -84,9 +82,8 @@ SET_TOOLS_KEYS: tuple[str, ...] = (
     PERM_SET_TOOLS_LIMITS,
 )
 SET_AIA_KEYS: tuple[str, ...] = (PERM_SET_AIA_SOURCES, PERM_SET_AIA_LEVEL)
-# The module pair sits together, otherwise you tick both by accident.
+# Own modules are read at the module itself, so only the platform-wide numbers are a right.
 SET_STATS_KEYS: tuple[str, ...] = (
-    PERM_SET_STATS_OWN,
     PERM_SET_AIA_USAGE,
     PERM_SET_STATS_USERS,
     PERM_SET_TOOLS_STATS,
@@ -188,10 +185,10 @@ SYSTEM_ROLES: tuple[str, ...] = ("admin", "staff", "user")
 # The own language level belongs to the learners, staff does not get it by default.
 STAFF_AIA_KEYS: tuple[str, ...] = tuple(k for k in AIA_KEYS if k != PERM_AIA_LANGUAGE_LEVEL)
 
-# Lehrende bekommen zusaetzlich die Zahlen ihrer eigenen Module.
+# Lehrende lesen die Zahlen ihrer Module am Modul selbst, nicht in den Einstellungen.
 SYSTEM_ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
     "admin": ALL_PERMISSION_KEYS,
-    "staff": GENERAL_KEYS + STAFF_AIA_KEYS + TOOL_KEYS + (PERM_SET_STATS_OWN,),
+    "staff": GENERAL_KEYS + STAFF_AIA_KEYS + TOOL_KEYS,
     "user": (PERM_AIA_USE, PERM_AIA_LANGUAGE_LEVEL),
 }
 

@@ -9,6 +9,7 @@ import Spinner from "@/components/ui/Spinner";
 import Header from "@/components/layout/Header";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { Link } from "@/i18n/navigation";
+import { isFullAdmin } from "@/lib/permissions";
 
 import type {
   WorkspaceDetail,
@@ -157,6 +158,17 @@ export default function KiTutorWorkspacePage() {
     });
     if (!res.ok) throw new Error("save failed");
     setWorkspaceDetail((prev) => (prev ? { ...prev, staff_note_text: text, staff_note_links: links } : prev));
+  };
+  // The share window flips this, so the module list is not the only way in.
+  const handleToggleActive = async (newVal: boolean) => {
+    const res = await fetch(`/api/ai-assistant/workspaces/${uuid}`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ is_active: newVal }),
+    });
+    if (!res.ok) return;
+    setWorkspaceDetail((prev) => (prev ? { ...prev, is_active: newVal } : prev));
   };
   // popupActions from useChat
 
@@ -401,6 +413,8 @@ export default function KiTutorWorkspacePage() {
     .map((s) => ({ uuid: s.uuid, filename: s.filename }));
 
   const isAdmin = auth?.is_admin ?? false;
+  // The adaptive level line is a debug hint, is_admin is already true for any settings right.
+  const isFullAdminUser = isFullAdmin(auth?.permissions);
 
   const language_trainingContent = (
     <LanguageTrainingContent
@@ -577,7 +591,7 @@ export default function KiTutorWorkspacePage() {
         messages={messages}
         activeSourceIds={activeSourceIds}
         sources={sources}
-        isAdmin={isAdmin}
+        isAdmin={isFullAdminUser}
         popupActions={popupActions}
         loading={chatLoading}
         onSend={(v) => sendChatMessage(v)}
@@ -660,6 +674,10 @@ export default function KiTutorWorkspacePage() {
           staffNoteText={moduleDetail?.staff_note_text ?? null}
           staffNoteLinks={moduleDetail?.staff_note_links ?? []}
           onStaffNoteSave={handleStaffNoteSave}
+          canManage={isOwner}
+          workspaceUuid={uuid}
+          isActive={moduleDetail?.is_active ?? true}
+          onToggleActive={handleToggleActive}
           onStartTour={() => {
             // Erst das Fenster zu, sonst verdeckt es genau die Stellen, auf die gezeigt wird.
             setShowSettings(false);

@@ -9,7 +9,6 @@ from src.permissions_registry import (
     PERM_SET_AIA_SOURCES,
     PERM_SET_AIA_USAGE,
     PERM_SET_PROVIDERS,
-    PERM_SET_STATS_OWN,
     PERM_SET_SYSTEM,
     PERM_SET_TOOLS_JOBS,
     PERM_SET_TOOLS_LIMITS,
@@ -71,7 +70,6 @@ def test_gemeinsame_rechte_bleiben_in_jedem_profil():
         assert PERM_SET_SYSTEM in keys
         assert PERM_SET_PROVIDERS in keys
         assert PERM_SET_USERS_ROLES in keys
-        assert PERM_SET_STATS_OWN in keys
 
 
 def test_katalog_reihenfolge_bleibt_erhalten():
@@ -91,7 +89,6 @@ def test_matrix_behaelt_die_gemischte_statistik_gruppe():
     layout = {g: keys for _, g, keys in matrix_layout_for(NUR_AIA)}
     assert PERM_SET_TOOLS_STATS not in layout["set.statistik"]
     assert PERM_SET_AIA_USAGE in layout["set.statistik"]
-    assert PERM_SET_STATS_OWN in layout["set.statistik"]
 
 
 def test_matrix_mit_beiden_modulen_ist_unveraendert():

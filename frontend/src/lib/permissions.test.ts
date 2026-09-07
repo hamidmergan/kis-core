@@ -43,40 +43,34 @@ describe("isFullAdmin", () => {
   });
 });
 
-// The fifth statistics tab is the only one that does not open the whole platform.
-describe("Statistik nur fuer eigene Module", () => {
-  it("kennt den Schluessel aus dem Katalog des Servers", () => {
-    expect(PERM.statsOwn).toBe("settings.statistik.eigene");
+// Lehrende lesen die Zahlen ihrer Module am Modul selbst, nicht in den Einstellungen.
+describe("Statistik einer Lehrperson", () => {
+  it("kennt gar kein Recht mehr fuer eigene Module", () => {
+    expect(Object.values(PERM)).not.toContain("settings.statistik.eigene");
   });
 
-  it("zaehlt zu den Einstellungsrechten und oeffnet damit den Bereich", () => {
-    expect(SETTINGS_PERMS).toContain(PERM.statsOwn);
-    expect(perms([PERM.statsOwn]).allow_admin_panel).toBe(true);
+  it("oeffnet mit dem blossen Zugang zum Assistenten keinen Bereich", () => {
+    expect(perms([PERM.aiaUse]).allow_admin_panel).toBe(false);
   });
 
   it("macht aus einer Lehrperson keinen Administrator", () => {
-    const dozentin = perms([PERM.aiaUse, PERM.statsOwn]);
-    expect(isFullAdmin(dozentin)).toBe(false);
-  });
-
-  it("schliesst die globale Statistik nicht mit auf", () => {
-    expect(hasPerm(perms([PERM.statsOwn]), PERM.aiaUsage, PERM.statsUsers)).toBe(false);
+    expect(isFullAdmin(perms([PERM.aiaUse]))).toBe(false);
   });
 });
 
 // The link says what is behind it, statistics alone is not an administration.
 describe("areaLabelKey", () => {
   it("nennt den Bereich Statistik, wenn nur Statistik-Rechte da sind", () => {
-    expect(areaLabelKey(perms([PERM.aiaUse, PERM.statsOwn]))).toBe("stats");
+    expect(areaLabelKey(perms([PERM.aiaUse, PERM.statsUsers]))).toBe("stats");
     expect(areaLabelKey(perms(STATS_PERMS))).toBe("stats");
   });
 
   it("nennt ihn Verwaltung, sobald ein anderes Recht dazukommt", () => {
-    expect(areaLabelKey(perms([PERM.statsOwn, PERM.aiaLevel]))).toBe("settings");
+    expect(areaLabelKey(perms([PERM.statsUsers, PERM.aiaLevel]))).toBe("settings");
   });
 
   it("zaehlt den Wartungszugang nicht als Verwaltung", () => {
-    expect(areaLabelKey(perms([PERM.statsOwn, PERM.maintenanceAccess]))).toBe("stats");
+    expect(areaLabelKey(perms([PERM.statsUsers, PERM.maintenanceAccess]))).toBe("stats");
   });
 
   it("laesst niemanden ohne Recht als Statistik durchgehen", () => {

@@ -205,6 +205,7 @@ export default function WorkspaceHome({ canCreate, firstName, languageInvite }: 
               <button
                 type="button"
                 onClick={handleEnrollLink}
+                data-testid="enroll-submit"
                 disabled={enrolling}
                 className="btn-primary px-8 py-3 rounded-lg text-base font-medium disabled:opacity-50"
               >
