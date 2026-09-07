@@ -164,7 +164,7 @@ export default function GlossaryPage() {
               />
               <button
                 onClick={() => { setImportError(""); importRef.current?.click(); }}
-                className="px-3 py-1.5 text-sm border border-border rounded-md text-foreground-soft hover:bg-surface transition-colors"
+                className="px-3 py-1.5 text-sm btn-secondary rounded-md transition-colors"
               >
                 {t("import")}
               </button>
