@@ -44,3 +44,13 @@ export function enabledToolKeys(
   if (!tools || tools.length === 0) return undefined;
   return tools.filter((t) => t.enabled).map((t) => t.key);
 }
+
+/** The tools somebody actually sees, in the order of the sidebar, so list and tour never disagree. */
+export function sichtbareWerkzeuge(
+  permissions: UserPermissions,
+  isToolEnabled: (key: string) => boolean,
+): ToolKey[] {
+  return TOOL_ROUTES.filter((t) => isToolEnabled(t.key) && permissions.tools.includes(t.key)).map(
+    (t) => t.key,
+  );
+}

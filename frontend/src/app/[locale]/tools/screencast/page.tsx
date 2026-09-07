@@ -524,7 +524,7 @@ function ScreencastPageInner() {
 
   return (
     <ProtectedRoute>
-      <div className="max-w-4xl mx-auto px-4 py-10 sm:py-14">
+      <div className="max-w-4xl mx-auto px-4 py-10 sm:py-14" data-tour="tool-screencast">
         {/* Step indicator */}
         {showStepIndicator && (
           <>

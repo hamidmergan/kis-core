@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pickHomeTarget, enabledToolKeys } from "./modules";
+import { pickHomeTarget, enabledToolKeys, sichtbareWerkzeuge } from "./modules";
 import { EMPTY_PERMS } from "./permissions";
 
 const mitAia = { ...EMPTY_PERMS, allow_aia: true };
@@ -97,5 +97,24 @@ describe("enabledToolKeys", () => {
       { key: "tts", enabled: false },
     ];
     expect(enabledToolKeys(tools)).toEqual([]);
+  });
+});
+
+describe("sichtbareWerkzeuge", () => {
+  const allesAn = () => true;
+
+  it("gibt nur Werkzeuge zurueck, fuer die Recht und Schalter da sind", () => {
+    const perms = { ...EMPTY_PERMS, tools: ["tts", "screencast"] };
+    const schalter = (key: string) => key !== "screencast";
+    expect(sichtbareWerkzeuge(perms, schalter)).toEqual(["tts"]);
+  });
+
+  it("haelt die Reihenfolge der Leiste ein, nicht die der Rechte", () => {
+    const perms = { ...EMPTY_PERMS, tools: ["glossary", "translation"] };
+    expect(sichtbareWerkzeuge(perms, allesAn)).toEqual(["translation", "glossary"]);
+  });
+
+  it("gibt ohne jedes Recht nichts zurueck, so wie die Leiste dann verschwindet", () => {
+    expect(sichtbareWerkzeuge(EMPTY_PERMS, allesAn)).toEqual([]);
   });
 });

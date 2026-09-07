@@ -22,7 +22,8 @@
     "sectionAppearance": "Ansicht",
     "homeNoticeShow": "Startseite-Hinweis anzeigen",
     "languageLevel": "Sprachniveau",
-    "tour": "Demo-Modul Rundgang"
+    "tour": "Rundgang durchs Demo-Modul",
+    "toolsTour": "Rundgang durch die Werkzeuge"
   },
   "footer": {
     "aiNotice": "Diese Plattform nutzt KI und kann Fehler machen. Prüfe die Antworten.",
@@ -265,6 +266,56 @@
     "invalidCredentials": "Ungültige Anmeldedaten. Bitte prüfe Benutzername und Passwort.",
     "maintenanceBanner": "Die Plattform wird gerade aktualisiert. Bitte versuche es in wenigen Minuten erneut.",
     "accessCodeLink": "Ich habe einen Zugangscode"
+  },
+  "toolsTour": {
+    "inviteTitle": "Rundgang durch die Werkzeuge",
+    "inviteBody": "Ein kurzer Rundgang durch alle Werkzeuge.",
+    "inviteStart": "Starten",
+    "dismiss": "Ausblenden",
+    "next": "Weiter",
+    "back": "Zurück",
+    "done": "Fertig",
+    "progress": "Schritt {current} von {total}",
+    "seitenleiste": {
+      "title": "Deine Werkzeuge",
+      "text": "Hier findest du alle Werkzeuge, zum Beispiel für Übersetzungen oder Videos aus Folien. Das sind eigenständige Werkzeuge, du kannst jedes für sich direkt nutzen."
+    },
+    "translation": {
+      "title": "Übersetzung",
+      "text": "Du kannst Text direkt eintippen oder ein Dokument hochladen, beides wird übersetzt. Bei Dokumenten bleiben Aufbau und Formatierung erhalten, du bekommst dieselbe Datei zurück, nur in der neuen Sprache. Für deine Fachbegriffe kannst du hier eine eigene Liste auswählen, die legst du vorher im Werkzeug Glossar an."
+    },
+    "tts": {
+      "title": "Text in Sprache",
+      "text": "Du kannst Text eintippen oder eine Datei hochladen, beides wird vorgelesen. Die Stimme suchst du dir aus. Am Ende bekommst du eine Audiodatei, die du dir direkt anhören oder herunterladen kannst. Bei langen Texten dauert die Vertonung entsprechend länger."
+    },
+    "transcription": {
+      "title": "Sprache in Text",
+      "text": "Aus Ton oder Video wird Text, zum Bearbeiten in einem Textfeld. Wählst du SRT oder VTT als Format, hat das Ergebnis schon Zeitmarken und ist direkt als Untertitel einsetzbar."
+    },
+    "image": {
+      "title": "Bildgenerierung",
+      "text": "Du kannst dir ein Bild aus deiner Beschreibung erzeugen lassen, ein vorhandenes Bild ändern oder dir sagen lassen, was darauf zu sehen ist."
+    },
+    "summary": {
+      "title": "Zusammenfassung",
+      "text": "Kürzt Textdateien und Office-Dateien wie Word oder PowerPoint. Auch Untertitel gehen, du kannst also erst eine Aufzeichnung in Text wandeln und das Ergebnis hier kürzen."
+    },
+    "screencast": {
+      "title": "Screencast",
+      "text": "Aus deinen Folien wird ein vertontes Video, wahlweise in einer anderen Sprache. Erst Folien hochladen. Dann das Skript wählen, du lässt es von der KI schreiben, tippst es selbst ein oder importierst es aus einer Datei. Danach liest und änderst du das Skript, zuletzt wählst du die Stimme. Das Vertonen dauert am längsten, du kannst die Seite dabei verlassen."
+    },
+    "glossary": {
+      "title": "Glossar",
+      "text": "Hier legst du eigene Begriffslisten an, die kannst du dann in der Übersetzung und im Screencast auswählen, damit deine Fachbegriffe dort immer gleich heißen."
+    },
+    "auftraege": {
+      "title": "Deine Aufträge",
+      "text": "Alles, was länger dauert, läuft im Hintergrund weiter. Hier siehst du den Stand und holst die fertigen Dateien ab. Ein roter Punkt heißt, es ist etwas fertig geworden."
+    },
+    "abschluss": {
+      "title": "Los geht's",
+      "text": "Du kennst jetzt alle Werkzeuge. Probier sie einfach aus."
+    }
   },
   "toolsSidebar": {
     "heading": "Tools",
@@ -3003,7 +3054,7 @@
         "inviteStart": "Starten",
         "restart": "Rundgang erneut starten",
         "dismiss": "Ausblenden",
-        "inviteTitle": "Demo-Modul Rundgang",
+        "inviteTitle": "Rundgang durchs Demo-Modul",
         "inviteBody": "Ein kurzer Rundgang durch ein Beispielmodul. Zeigt Materialien, den KI-Assistenten Francis und die Lernwerkzeuge im Studienbereich.",
         "steps": {
           "preview": {

@@ -209,7 +209,7 @@ export default function TtsPage() {
   return (
     <ProtectedRoute>
       <div className="max-w-4xl mx-auto px-4 py-8">
-        <section>
+        <section data-tour="tool-tts">
           <h1 className="text-xl font-bold mb-1">{t("title")}</h1>
           <p className="text-sm text-muted mb-6">
             {t("intro")}
@@ -227,6 +227,7 @@ export default function TtsPage() {
             />
           </div>
 
+          <div>
           {inputMode === "text" ? (
             <TtsTextInput
               value={pendingText}
@@ -240,6 +241,7 @@ export default function TtsPage() {
               selectedFilename={ttsSelectedFile || undefined}
             />
           )}
+          </div>
           {noProvider && (
             <p className="mt-3 text-sm text-muted-soft">{t("noProvider")}</p>
           )}

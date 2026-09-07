@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { usePathname } from "@/i18n/navigation";
 import {
@@ -18,7 +18,8 @@ import {
 } from "@phosphor-icons/react";
 import { useEnabledTools } from "@/hooks/useEnabledTools";
 import { usePermissions } from "@/hooks/usePermissions";
-import { TOOL_ROUTES, type ToolKey } from "@/lib/modules";
+import { TOOL_ROUTES, sichtbareWerkzeuge, type ToolKey } from "@/lib/modules";
+import { useToolsTour } from "@/components/tour/useToolsTour";
 
 type SidebarItemKey = ToolKey;
 type SidebarTool = { key: SidebarItemKey; href: string; icon: Icon };
@@ -46,10 +47,19 @@ export default function ToolsSidebar() {
   const pathname = usePathname();
   const { loaded, isToolEnabled } = useEnabledTools();
   const { loaded: permsLoaded, permissions } = usePermissions();
+  // The sidebar outlives every jump between tool pages, so the tour can run from here.
+  const { start: startRundgang } = useToolsTour();
   const [userPref, setUserPref] = useState<boolean | null>(null);
   const [isLarge, setIsLarge] = useState(false);
   const [isSmartphone, setIsSmartphone] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  // The tool list is only known after the permissions arrive, the listener is registered before that.
+  const sichtbarRef = useRef<ToolKey[]>([]);
+
+  const schreibeEingeklappt = useCallback((next: boolean) => {
+    setUserPref(next);
+    try { localStorage.setItem(STORAGE_KEY, next ? "1" : "0"); } catch { /* ignore */ }
+  }, []);
 
   useEffect(() => {
     try {
@@ -81,9 +91,23 @@ export default function ToolsSidebar() {
     };
   }, []);
 
+  // The tour is started from the header menu but has to run here: the sidebar
+  // stays mounted across the tool pages, a driver inside a page would not.
+  useEffect(() => {
+    const los = () => {
+      schreibeEingeklappt(false);
+      startRundgang(sichtbarRef.current, { seitenleiste: (offen) => schreibeEingeklappt(!offen) });
+    };
+    window.addEventListener("tools-tour:start", los);
+    return () => window.removeEventListener("tools-tour:start", los);
+  }, [startRundgang, schreibeEingeklappt]);
+
+  const sichtbar = sichtbareWerkzeuge(permissions, isToolEnabled);
+  useEffect(() => { sichtbarRef.current = sichtbar; });
+
   if (!loaded || !permsLoaded || !hydrated) return null;
 
-  const tools = TOOLS.filter((t) => isToolEnabled(t.key) && permissions.tools.includes(t.key));
+  const tools = TOOLS.filter((t) => sichtbar.includes(t.key));
   if (tools.length === 0) return null;
 
   const effectiveCollapsed = userPref !== null ? userPref : true;
@@ -91,9 +115,7 @@ export default function ToolsSidebar() {
   if (isSmartphone && effectiveCollapsed) return null;
 
   function toggle() {
-    const next = !effectiveCollapsed;
-    setUserPref(next);
-    try { localStorage.setItem(STORAGE_KEY, next ? "1" : "0"); } catch { /* ignore */ }
+    schreibeEingeklappt(!effectiveCollapsed);
   }
 
   // On a phone the tools list is reached through the burger menu, so back leads there again.
@@ -119,6 +141,7 @@ export default function ToolsSidebar() {
         backgroundColor: "var(--surface)",
         borderRight: "1px solid var(--border)",
       }}
+      data-tour="tools-sidebar"
     >
       <div className="sticky top-0 px-3 pt-6 pb-4">
         <div

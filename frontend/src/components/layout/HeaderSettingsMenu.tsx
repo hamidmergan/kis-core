@@ -4,7 +4,7 @@ import type { AreaKey } from "@/lib/permissions";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { Check, Compass, Gear, Medal, Moon, Question, SignOut, Sun, UserCircleGear } from "@phosphor-icons/react";
+import { Check, Compass, Gear, Medal, Moon, Question, SignOut, Sun, Toolbox, UserCircleGear } from "@phosphor-icons/react";
 import { useRouter, usePathname } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
 import { UI_LOCALES } from "@/lib/constants";
@@ -13,6 +13,8 @@ import { persistLocale, rememberLocaleCookie } from "@/lib/switchLocale";
 
 const LOCALES = UI_LOCALES as readonly Locale[];
 const THEMES: readonly Theme[] = ["light", "dark"];
+// Row groups below the appearance section, in the order they are rendered.
+const BLOCKS: readonly (readonly string[])[] = [["level", "tour", "toolsTour", "manual"], ["admin"], ["logout"]];
 
 interface HeaderSettingsMenuProps {
   isAdmin?: boolean;
@@ -20,13 +22,16 @@ interface HeaderSettingsMenuProps {
   showLanguageLevel?: boolean;
   showTour?: boolean;
   onStartTour?: () => void;
+  /** Second tour, through the tools, only where the tools sidebar is on the page. */
+  showToolsTour?: boolean;
+  onStartToolsTour?: () => void;
   areaKey?: AreaKey;
   showLogout?: boolean;
   hasHomeNotice?: boolean;
   onLogout?: () => void;
 }
 
-export default function HeaderSettingsMenu({ isAdmin = false, canViewManual = false, showLanguageLevel = false, showTour = false, onStartTour, areaKey = "admin", showLogout = false, hasHomeNotice = false, onLogout }: HeaderSettingsMenuProps) {
+export default function HeaderSettingsMenu({ isAdmin = false, canViewManual = false, showLanguageLevel = false, showTour = false, onStartTour, showToolsTour = false, onStartToolsTour, areaKey = "admin", showLogout = false, hasHomeNotice = false, onLogout }: HeaderSettingsMenuProps) {
   const t = useTranslations("header");
   const tLang = useTranslations("languageSwitch");
   const tManual = useTranslations("manual");
@@ -106,12 +111,15 @@ export default function HeaderSettingsMenu({ isAdmin = false, canViewManual = fa
     else if (e.key === "Tab") { setOpen(false); }
   };
 
-  const rowClass =
-    "flex items-center gap-3 w-full px-4 py-2.5 text-sm font-medium text-left no-underline cursor-pointer outline-none hover:bg-[var(--surface-dim)] focus:bg-[var(--surface-dim)]";
+  const rowBase = "flex items-center gap-3 w-full px-4 py-2.5 text-sm font-medium text-left no-underline cursor-pointer outline-none";
+  const rowClass = `${rowBase} hover:bg-[var(--surface-dim)] focus:bg-[var(--surface-dim)]`;
+  // Log out rests on a grey band, so hover has to go one step darker to stay visible.
+  const logoutRowClass = `${rowBase} bg-[var(--border-soft)] hover:bg-[var(--border)] focus:bg-[var(--border)]`;
   const headingClass = "px-4 pt-2.5 pb-1 text-2xs font-semibold uppercase tracking-wide";
-  // The first visible row of the lower block carries the divider.
-  const lowerBlock = [showLanguageLevel && "level", showTour && "tour", canViewManual && "manual", isAdmin && "admin", showLogout && "logout"].filter(Boolean);
-  const dividerFor = (row: string) => (lowerBlock[0] === row ? { borderTop: "1px solid var(--border)", marginTop: 4 } : {});
+  // Own settings and help, then the admin area, then log out, each block opens with a divider.
+  const shown: Record<string, boolean> = { level: showLanguageLevel, tour: showTour, toolsTour: showToolsTour, manual: canViewManual, admin: isAdmin, logout: showLogout };
+  const blockStarts = new Set(BLOCKS.map((block) => block.find((row) => shown[row])).filter(Boolean));
+  const dividerFor = (row: string) => (blockStarts.has(row) ? { borderTop: "1px solid var(--border)", marginTop: 4 } : {});
 
   return (
     <div ref={rootRef} className="relative" onKeyDown={onKeyDown}>
@@ -223,6 +231,25 @@ export default function HeaderSettingsMenu({ isAdmin = false, canViewManual = fa
             </button>
           )}
 
+          {showToolsTour && (
+            <button
+              data-row
+              type="button"
+              role="menuitem"
+              tabIndex={-1}
+              onClick={() => {
+                setOpen(false);
+                onStartToolsTour?.();
+              }}
+              data-tour="tools-tour-start"
+              className={rowClass}
+              style={{ color: "var(--foreground)", ...dividerFor("toolsTour") }}
+            >
+              <Toolbox size={18} weight="bold" aria-hidden="true" />
+              <span className="flex-1">{t("toolsTour")}</span>
+            </button>
+          )}
+
           {canViewManual && (
             <Link
               data-row
@@ -263,8 +290,7 @@ export default function HeaderSettingsMenu({ isAdmin = false, canViewManual = fa
                 setOpen(false);
                 onLogout?.();
               }}
-              className={rowClass}
-              // Help, admin and log out are one block, the divider sits above help.
+              className={logoutRowClass}
               style={{ color: "var(--foreground)", ...dividerFor("logout") }}
             >
               <SignOut size={18} weight="bold" aria-hidden="true" />

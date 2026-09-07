@@ -7,6 +7,7 @@ import { CalendarBlank, Lock } from "@phosphor-icons/react";
 import { useRouter } from "@/i18n/navigation";
 import Spinner from "@/components/ui/Spinner";
 import { TourInvite } from "./TourInvite";
+import { ToolsTourInvite } from "./ToolsTourInvite";
 import { LanguageTrainerInvite } from "./LanguageTrainerInvite";
 import WorkspaceList from "./WorkspaceList";
 
@@ -243,6 +244,7 @@ export default function WorkspaceHome({ canCreate, firstName, languageInvite }: 
 
       <div className="flex flex-col md:flex-row gap-4 mb-8 empty:hidden">
         <TourInvite />
+        <ToolsTourInvite />
         {languageInvite && <LanguageTrainerInvite />}
       </div>
 

@@ -6,6 +6,7 @@ import { driver, type Config, type Driver, type PopoverDOM } from "driver.js";
 import { TOUR_STEPS } from "./steps";
 import { demoSchritte, type DemoSchritt, type TourAktionen } from "./demoSteps";
 import { merkeTourGesehen } from "./tourSeen";
+import { knoepfeAngleichen } from "@/components/tour/popoverStil";
 
 /** Longest wait for a station's target, after that the step shows anyway. */
 const ZIEL_HOECHSTENS_MS = 6000;
@@ -14,9 +15,6 @@ const ZIEL_MINDESTENS_MS = 250;
 const ZIEL_TAKT_MS = 100;
 /** A click this soon after a jump is the tail of a double click, driver.js is still fading the new station in. */
 const DOPPELKLICK_MS = 500;
-
-/** Phosphor X in bold, the icon of the app, driver.js only offers a text times sign. */
-const SCHLIESSEN_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 256 256" aria-hidden="true"><path d="M208.49,191.51a12,12,0,0,1-17,17L128,145,64.49,208.49a12,12,0,0,1-17-17L111,128,47.51,64.49a12,12,0,0,1,17-17L128,111l63.51-63.52a12,12,0,0,1,17,17L145,128Z" /></svg>`;
 
 interface StartOptionen {
   /** The demo course gets the long tour, it knows the files there. */
@@ -40,26 +38,10 @@ export function useTour() {
   const tAllgemein = useTranslations("common");
   const laufend = useRef<Driver | null>(null);
 
-  /** driver.js builds its own buttons, this hands them the app classes. */
-  const knoepfeAngleichen = useCallback((popover: PopoverDOM) => {
-    popover.nextButton.classList.remove("driver-popover-footer-btn");
-    popover.nextButton.classList.add("btn-primary", "text-sm", "rounded-lg", "px-4", "py-2");
-    popover.previousButton.classList.remove("driver-popover-footer-btn");
-    popover.previousButton.classList.add(
-      "btn-ghost", "text-sm", "rounded-lg", "px-4", "py-2",
-      "text-foreground-soft", "border", "border-border", "transition-colors",
-    );
-    popover.closeButton.classList.add(
-      "w-7", "h-7", "flex", "items-center", "justify-center",
-      "rounded-full", "btn-icon", "flex-shrink-0", "text-[var(--kb)]",
-    );
-    popover.closeButton.style.backgroundColor = "rgba(var(--kb-rgb),0.10)";
-    // driver.js sets display as an inline style, which beats the flex class and
-    // pushes the icon out of the middle. "none" means the step hides the button.
-    if (popover.closeButton.style.display !== "none") popover.closeButton.style.display = "flex";
-    popover.closeButton.setAttribute("aria-label", tAllgemein("close"));
-    popover.closeButton.innerHTML = SCHLIESSEN_ICON;
-  }, [tAllgemein]);
+  const knoepfeAnpassen = useCallback(
+    (popover: PopoverDOM) => knoepfeAngleichen(popover, tAllgemein("close")),
+    [tAllgemein],
+  );
 
   /** First PDF in the source list, the selection bar only exists on those. */
   const erstePdfZeile = useCallback((): HTMLElement | null => {
@@ -80,7 +62,7 @@ export function useTour() {
     doneBtnText: t("done"),
     progressText: t("progress", { current: "{{current}}", total: "{{total}}" }),
     popoverClass: "kis-tour",
-    onPopoverRender: knoepfeAngleichen,
+    onPopoverRender: knoepfeAnpassen,
     // Only the last step counts as done, so breaking off keeps the invitation
     // on the start page. driver.js hands the last step to this hook instead of
     // onNextClick, and taking the hook means closing up afterwards ourselves.
@@ -91,7 +73,7 @@ export function useTour() {
     onDestroyed: () => {
       laufend.current = null;
     },
-  }), [t, knoepfeAngleichen]);
+  }), [t, knoepfeAnpassen]);
 
   const startAllgemein = useCallback(() => {
     const vorhanden = TOUR_STEPS.filter((s) => {

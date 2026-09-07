@@ -38,6 +38,8 @@ export default function Header({ hasSession = true, showLogout = false, showTool
   const [hasHomeNotice, setHasHomeNotice] = useState(false);
   // The tour lives in the demo course, the menu only offers it while one exists.
   const tour = useTourStart(showLogout && hasSession);
+  // The tools tour runs in the sidebar, which is the only place that survives the jumps between tool pages.
+  const starteWerkzeugRundgang = () => window.dispatchEvent(new Event("tools-tour:start"));
 
   useEffect(() => {
     if (!showLogout || !hasSession) return;
@@ -118,6 +120,8 @@ export default function Header({ hasSession = true, showLogout = false, showTool
                 showLanguageLevel={hasSession && mayLanguageLevel}
                 showTour={hasSession && hasAia && tour.available}
                 onStartTour={tour.start}
+                showToolsTour={hasSession && hasTools && showToolsToggle}
+                onStartToolsTour={starteWerkzeugRundgang}
                 areaKey={areaKey}
                 showLogout={hasSession && !isLocalMode}
                 hasHomeNotice={hasHomeNotice}
@@ -132,6 +136,8 @@ export default function Header({ hasSession = true, showLogout = false, showTool
               showLanguageLevel={mayLanguageLevel}
               showTour={hasAia && tour.available}
               onStartTour={tour.start}
+              showToolsTour={hasTools && showToolsToggle}
+              onStartToolsTour={starteWerkzeugRundgang}
               areaKey={areaKey}
               hasTools={hasTools}
               hasAia={hasAia}

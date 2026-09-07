@@ -158,7 +158,7 @@ export default function UebersetzungPage() {
   return (
     <ProtectedRoute>
       <div className="max-w-4xl mx-auto px-4 py-8">
-        <section>
+        <section data-tour="tool-translation">
           <h1 className="text-xl font-bold mb-1">{t("title")}</h1>
           <p className="text-sm text-muted mb-6">
             {t("intro")}
@@ -176,6 +176,7 @@ export default function UebersetzungPage() {
             />
           </div>
 
+          <div>
           {inputMode === "text" ? (
             <TranslateTextInput
               value={pendingText}
@@ -185,6 +186,7 @@ export default function UebersetzungPage() {
           ) : (
             <FileUpload onFileSelected={handleFileSelected} disabled={processing} selectedFilename={selectedFile || undefined} />
           )}
+          </div>
 
           {languages.length > 0 && (
             <div className="mb-4 mt-6">

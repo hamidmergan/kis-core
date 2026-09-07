@@ -151,7 +151,7 @@ export default function GlossaryPage() {
   return (
     <ProtectedRoute>
       <div className="max-w-4xl mx-auto px-4 py-8">
-        <section>
+        <section data-tour="tool-glossary">
           <div className="flex items-center justify-between mb-1">
             <h2 className="text-xl font-bold">{t("title")}</h2>
             <div className="flex gap-2">

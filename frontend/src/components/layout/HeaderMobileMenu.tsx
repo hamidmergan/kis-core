@@ -4,7 +4,7 @@ import type { AreaKey } from "@/lib/permissions";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { CalendarBlank, CaretRight, Check, Compass, List, Medal, Moon, Question, Sidebar, SignOut, Stack, Sun, UserCircleGear, X } from "@phosphor-icons/react";
+import { CalendarBlank, CaretRight, Check, Compass, List, Medal, Moon, Question, Sidebar, SignOut, Stack, Sun, Toolbox, UserCircleGear, X } from "@phosphor-icons/react";
 import { useRouter, usePathname } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
 import { UI_LOCALES } from "@/lib/constants";
@@ -13,6 +13,8 @@ import { persistLocale, rememberLocaleCookie } from "@/lib/switchLocale";
 
 const LOCALES = UI_LOCALES as readonly Locale[];
 const THEMES: readonly Theme[] = ["light", "dark"];
+// Row groups below the appearance section, in the order they are rendered.
+const BLOCKS: readonly (readonly string[])[] = [["level", "tour", "toolsTour", "manual"], ["admin"], ["logout"]];
 
 interface HeaderMobileMenuProps {
   hasSession: boolean;
@@ -21,6 +23,9 @@ interface HeaderMobileMenuProps {
   showLanguageLevel?: boolean;
   showTour?: boolean;
   onStartTour?: () => void;
+  /** Second tour, through the tools, only where the tools sidebar is on the page. */
+  showToolsTour?: boolean;
+  onStartToolsTour?: () => void;
   areaKey?: AreaKey;
   hasTools?: boolean;
   hasAia?: boolean;
@@ -30,7 +35,7 @@ interface HeaderMobileMenuProps {
   onLogout: () => void;
 }
 
-export default function HeaderMobileMenu({ hasSession, isAdmin, canViewManual = false, showLanguageLevel = false, showTour = false, onStartTour, areaKey = "admin", hasTools = false, hasAia = true, isLocalMode = false, showToolsToggle = false, hasHomeNotice = false, onLogout }: HeaderMobileMenuProps) {
+export default function HeaderMobileMenu({ hasSession, isAdmin, canViewManual = false, showLanguageLevel = false, showTour = false, onStartTour, showToolsTour = false, onStartToolsTour, areaKey = "admin", hasTools = false, hasAia = true, isLocalMode = false, showToolsToggle = false, hasHomeNotice = false, onLogout }: HeaderMobileMenuProps) {
   const t = useTranslations("header");
   const tLang = useTranslations("languageSwitch");
   const tManual = useTranslations("manual");
@@ -88,17 +93,19 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, canViewManual = 
     if (next !== theme) setTheme(next);
   };
 
-  const rowClass =
-    "flex items-center gap-3 w-full px-4 py-3 text-sm font-medium hover:bg-[var(--surface-dim)] transition-colors no-underline text-left";
+  const rowBase = "flex items-center gap-3 w-full px-4 py-3 text-sm font-medium transition-colors no-underline text-left";
+  const rowClass = `${rowBase} hover:bg-[var(--surface-dim)]`;
+  // Log out rests on a grey band, so hover has to go one step darker to stay visible.
+  const logoutRowClass = `${rowBase} bg-[var(--border-soft)] hover:bg-[var(--border)]`;
   // The row of the page you are currently on stays highlighted.
   const activeRowStyle = { backgroundColor: "var(--surface-dim)", fontWeight: 600 };
   const onCalendar = pathname === "/calendar" || pathname.startsWith("/calendar/");
   const onJobsPage = pathname.startsWith("/my-jobs");
   const headingClass = "px-4 pt-2.5 pb-1 text-2xs font-semibold uppercase tracking-wide";
-  // The first visible row of the lower block carries the divider.
-  const lowerBlock = [showLanguageLevel && "level", showTour && "tour", canViewManual && "manual", isAdmin && "admin", !isLocalMode && "logout"].filter(Boolean);
-  const dividerFor = (row: string) => (lowerBlock[0] === row ? { borderTop: "1px solid var(--border)", marginTop: 4 } : {});
-  // Without a session no navigation rows sit above the language, then the divider is dropped.
+  // Own settings and help, then the admin area, then log out, each block opens with a divider.
+  const shown: Record<string, boolean> = { level: hasSession && showLanguageLevel, tour: hasSession && showTour, toolsTour: hasSession && showToolsTour, manual: hasSession && canViewManual, admin: hasSession && isAdmin, logout: hasSession && !isLocalMode };
+  const blockStarts = new Set(BLOCKS.map((block) => block.find((row) => shown[row])).filter(Boolean));
+  const dividerFor = (row: string) => (blockStarts.has(row) ? { borderTop: "1px solid var(--border)", marginTop: 4 } : {});
 
   return (
     <div className="sm:hidden relative" ref={ref}>
@@ -240,6 +247,20 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, canViewManual = 
               <span>{t("tour")}</span>
             </button>
           )}
+          {hasSession && showToolsTour && (
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                onStartToolsTour?.();
+              }}
+              className={rowClass}
+              style={{ color: "var(--foreground)", ...dividerFor("toolsTour") }}
+            >
+              <Toolbox size={20} weight="bold" />
+              <span>{t("toolsTour")}</span>
+            </button>
+          )}
           {hasSession && canViewManual && (
             <Link
               href="/manual"
@@ -269,8 +290,7 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, canViewManual = 
                 setOpen(false);
                 onLogout();
               }}
-              className={rowClass}
-              // Help, admin and log out are one block, the divider sits above help.
+              className={logoutRowClass}
               style={{ color: "var(--foreground)", ...dividerFor("logout") }}
             >
               <SignOut size={20} weight="bold" />

@@ -310,6 +310,7 @@ export default function JobsPanel() {
         title={tHeader("jobs")}
         aria-current={onJobsPage ? "page" : undefined}
         className={`relative flex items-center justify-center w-10 h-10 sm:w-auto sm:h-9 sm:px-3 sm:gap-1.5 rounded-full btn-on-dark${onJobsPage ? " is-active" : ""}`}
+        data-tour="jobs-entry"
       >
         <Stack size={17} weight="bold" aria-hidden="true" />
         <span className="hidden sm:inline text-sm font-medium">{tHeader("jobs")}</span>

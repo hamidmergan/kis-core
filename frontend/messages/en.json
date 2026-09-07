@@ -22,7 +22,8 @@
     "sectionAppearance": "Appearance",
     "homeNoticeShow": "Show home notice",
     "languageLevel": "Language level",
-    "tour": "Demo module tour"
+    "tour": "Tour through the demo module",
+    "toolsTour": "Tour through the tools"
   },
   "footer": {
     "aiNotice": "This platform uses AI and may make mistakes. Please verify the responses.",
@@ -265,6 +266,56 @@
     "invalidCredentials": "Invalid credentials. Please check username and password.",
     "maintenanceBanner": "The platform is being updated. Please try again in a few minutes.",
     "accessCodeLink": "I have an access code"
+  },
+  "toolsTour": {
+    "inviteTitle": "Tour through the tools",
+    "inviteBody": "A short tour through all the tools.",
+    "inviteStart": "Start",
+    "dismiss": "Hide",
+    "next": "Next",
+    "back": "Back",
+    "done": "Done",
+    "progress": "Step {current} of {total}",
+    "seitenleiste": {
+      "title": "Your tools",
+      "text": "Here you'll find all the tools, for example for translations or turning slides into a video. These are standalone tools, you can use each one on its own."
+    },
+    "translation": {
+      "title": "Translation",
+      "text": "You can type text directly or upload a document, both get translated. Documents keep their structure and formatting, so you get the same file back in the new language. For your technical terms you can pick your own list here, you set that up beforehand in the Glossary tool."
+    },
+    "tts": {
+      "title": "Text to speech",
+      "text": "You can type text or upload a file, both get read aloud. You pick the voice. At the end you get an audio file you can play right away or download. Long texts take longer to narrate accordingly."
+    },
+    "transcription": {
+      "title": "Speech to text",
+      "text": "Audio or video becomes text, ready to edit in a text box. Choose SRT or VTT as the format and the result already has time marks, ready to use as subtitles."
+    },
+    "image": {
+      "title": "Image generation",
+      "text": "You can have an image generated from your description, change an existing one, or have it described to you."
+    },
+    "summary": {
+      "title": "Summary",
+      "text": "Shortens text files and office files like Word or PowerPoint. Subtitles work too, so you can turn a recording into text first and shorten the result here."
+    },
+    "screencast": {
+      "title": "Screencast",
+      "text": "Your slides become a narrated video, in another language if you like. First upload the slides. Then choose how the script gets made, have the AI write it, type it yourself, or import it from a file. After that you read and edit the script, and finally pick the voice. The narration takes the longest and you can leave the page while it runs."
+    },
+    "glossary": {
+      "title": "Glossary",
+      "text": "Here you create your own term lists, which you can then pick in translation and in the screencast, so your technical terms are named the same way everywhere."
+    },
+    "auftraege": {
+      "title": "Your jobs",
+      "text": "Anything that takes longer keeps running in the background. This is where you see how far it got and pick up the finished files. A red dot means something is ready."
+    },
+    "abschluss": {
+      "title": "Off you go",
+      "text": "You now know every tool. Go ahead and try them out."
+    }
   },
   "toolsSidebar": {
     "heading": "Tools",
@@ -3003,7 +3054,7 @@
         "inviteStart": "Start",
         "restart": "Start the tour again",
         "dismiss": "Hide",
-        "inviteTitle": "Demo module tour",
+        "inviteTitle": "Tour through the demo module",
         "inviteBody": "A short tour through a sample module. Shows the materials, the AI assistant Francis and the learning tools in the study area.",
         "steps": {
           "preview": {
