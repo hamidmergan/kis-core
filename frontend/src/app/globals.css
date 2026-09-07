@@ -838,6 +838,16 @@ body.driver-active [data-tour="tools-sidebar"] > .sticky {
 body.driver-active [data-tour="tools-sidebar"]:not(.driver-active-element) .tools-sidebar-item:not(.is-active) {
   opacity: 0.45;
 }
+/* The mark sits on the whole entry, lit like the icon box so icon and label read as one target. */
+body.driver-active [data-tour="tools-sidebar"]:not(.driver-active-element) .tools-sidebar-item.is-active {
+  background-color: var(--background);
+  box-shadow: 0 0 0 1px var(--kb);
+}
+/* One frame is enough, the icon box drops its own while the entry carries it. */
+body.driver-active [data-tour="tools-sidebar"]:not(.driver-active-element) .tools-sidebar-item.is-active .tools-sidebar-item__box {
+  border-color: var(--border);
+  box-shadow: none;
+}
 
 /* Dark mode: download links (jobs panel, my-jobs JobArtifacts) white instead of --kb, hover goes to --kb. */
 :root[data-theme="dark"] .download-link {
