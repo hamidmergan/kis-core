@@ -1,0 +1,577 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spike Live-Untertitel</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #fff; --line: #dfe3e8; --fg: #1b1f24;
+    --soft: #6b7480; --kb: #1f6feb; --ok: #1a7f37; --warn: #9a6700; --bad: #cf222e;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #16191d; --card: #1e2227; --line: #333941; --fg: #e6e9ee;
+            --soft: #9aa4b0; --kb: #6ea8fe; --ok: #58d68d; --warn: #e3b341; --bad: #ff7b72; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 20px; background: var(--bg); color: var(--fg);
+         font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  .sub { color: var(--soft); font-size: 13px; margin: 0 0 18px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+          padding: 14px 16px; margin-bottom: 14px; }
+  .row { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; }
+  label { display: block; font-size: 12px; color: var(--soft); margin-bottom: 4px; }
+  select, input[type=number] { background: var(--bg); color: var(--fg);
+          border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font: inherit; }
+  input[type=number] { width: 84px; }
+  button { background: var(--card); color: var(--fg); border: 1px solid var(--line);
+           border-radius: 6px; padding: 7px 14px; font: inherit; cursor: pointer; }
+  button:hover:not(:disabled) { border-color: var(--kb); }
+  button:disabled { opacity: .45; cursor: default; }
+  button.primary { border-color: var(--kb); color: var(--kb); font-weight: 600; }
+  .lane { border-left: 3px solid var(--line); padding-left: 12px; margin-bottom: 14px; }
+  .lane b { font-size: 11px; letter-spacing: .06em; color: var(--soft); text-transform: uppercase; }
+  .text { font-size: 20px; line-height: 1.45; min-height: 3.2em; margin-top: 6px; }
+  .prov { color: var(--soft); font-style: italic; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+  .stat b { display: block; font-size: 22px; font-variant-numeric: tabular-nums; }
+  .stat span { font-size: 12px; color: var(--soft); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--soft); font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .scroll { max-height: 300px; overflow: auto; }
+  .pill { display: inline-block; padding: 1px 7px; border-radius: 99px; font-size: 11px; border: 1px solid var(--line); }
+  .pill.ok { color: var(--ok); border-color: var(--ok); }
+  .pill.bad { color: var(--bad); border-color: var(--bad); }
+  .pill.warn { color: var(--warn); border-color: var(--warn); }
+  .hint { font-size: 12px; color: var(--soft); margin-top: 8px; }
+  audio { width: 100%; margin-top: 10px; }
+</style>
+</head>
+<body>
+
+<h1>Spike Live-Untertitel</h1>
+<p class="sub">Wegwerf-Messgerät. Schiebt ein wachsendes Tonfenster gegen die vorhandene myLab-Batch-Schnittstelle und misst, was dabei herauskommt.</p>
+
+<div class="card">
+  <div class="row">
+    <div>
+      <label for="quelle">Tonquelle</label>
+      <select id="quelle">
+        <option value="mic">Mikrofon</option>
+        <option value="datei">Datei</option>
+      </select>
+    </div>
+    <div id="dateiFeld" hidden>
+      <label for="datei">Aufnahme</label>
+      <input type="file" id="datei" accept="audio/*,video/*">
+    </div>
+    <div>
+      <label for="fenster">Fenster max (s)</label>
+      <input type="number" id="fenster" value="10" min="3" max="60" step="1">
+    </div>
+    <div>
+      <label for="takt">Takt (ms)</label>
+      <input type="number" id="takt" value="500" min="250" max="5000" step="250">
+    </div>
+    <div>
+      <label for="parallel">Gleichzeitig max</label>
+      <input type="number" id="parallel" value="2" min="1" max="8" step="1">
+    </div>
+    <div>
+      <label for="ziel">Übersetzen nach</label>
+      <select id="ziel">
+        <option value="">aus</option>
+        <option value="Englisch" selected>Englisch</option>
+        <option value="Türkisch">Türkisch</option>
+        <option value="Spanisch">Spanisch</option>
+      </select>
+    </div>
+    <button id="start" class="primary">Start</button>
+    <button id="stop" disabled>Stop</button>
+    <button id="referenz" disabled>Referenz messen</button>
+  </div>
+  <div style="margin-top: 12px">
+    <label for="vorlage">Vorlesetext, gegen den gemessen wird (leer lassen wenn es keinen gibt)</label>
+    <textarea id="vorlage" rows="4" style="width: 100%; background: var(--bg); color: var(--fg);
+      border: 1px solid var(--line); border-radius: 6px; padding: 8px; font: inherit; resize: vertical"></textarea>
+  </div>
+  <div class="row" style="margin-top: 10px">
+    <button id="sichern" disabled>Lauf sichern</button>
+    <span class="hint" id="sicherHinweis"></span>
+  </div>
+  <audio id="player" controls hidden></audio>
+  <p class="hint" id="hinweis">Bereit. Bei Datei läuft die Aufnahme in Echtzeit, damit die Messung ehrlich bleibt.</p>
+</div>
+
+<div class="card">
+  <div class="lane" style="border-color: var(--kb)">
+    <b>Erkannt</b>
+    <div class="text" id="de"><span class="prov">wartet auf Ton</span></div>
+  </div>
+  <div class="lane" id="enLane">
+    <b>Übersetzt</b>
+    <div class="text" id="en"></div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="stats">
+    <div class="stat"><b id="sAntwort">–</b><span>Antwortzeit letzte</span></div>
+    <div class="stat"><b id="sSchnitt">–</b><span>Antwortzeit Schnitt</span></div>
+    <div class="stat"><b id="sMax">–</b><span>Antwortzeit Maximum</span></div>
+    <div class="stat"><b id="sFest">–</b><span>Wartezeit bis fest</span></div>
+    <div class="stat"><b id="sNach">–</b><span>Nachbesserungsquote</span></div>
+    <div class="stat"><b id="sStille">0</b><span>Stille-Müll</span></div>
+    <div class="stat"><b id="sAnfragen">0</b><span>Anfragen</span></div>
+    <div class="stat"><b id="sFehler">0</b><span>Fehler</span></div>
+    <div class="stat"><b id="sSkip">0</b><span>Übersprungen</span></div>
+    <div class="stat"><b id="sMt">–</b><span>Übersetzung Schnitt</span></div>
+    <div class="stat"><b id="sMtFehler">0</b><span>Übersetzung abgewiesen</span></div>
+  </div>
+  <p class="hint" id="wer"></p>
+</div>
+
+<div class="card">
+  <div class="scroll">
+    <table>
+      <thead><tr>
+        <th>#</th><th class="num">Fenster</th><th class="num">Pegel</th>
+        <th class="num">Antwort</th><th>Text</th>
+      </tr></thead>
+      <tbody id="protokoll"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const SR = 16000
+const STILLE_RMS = 0.004
+const $ = id => document.getElementById(id)
+
+let ctx = null, node = null, quellNode = null, stumm = null, einspeiser = null
+let puffer = new Float32Array(SR * 180)
+let len = 0
+let ankerZeit = 0
+let timer = null
+let laeuft = false
+let dateiObjekt = null
+
+// Hypothese des letzten Fensters, Wortliste.
+let hypothese = []
+// Wann ein Wort zum ersten Mal auftauchte, gleiche Reihenfolge wie hypothese.
+let hypotheseSeit = []
+let festWorte = []
+// Alles was vor dem letzten Anker festgeschrieben wurde, sonst geht es beim Kuerzen verloren.
+let gesamtText = ""
+let festText = ""
+let uebersetzt = ""
+let inFlight = 0
+let nr = 0
+let mtWarteschlange = []
+let mtLaeuft = false
+let mtPumpeTimer = null
+
+const protokollDaten = []
+let startZeit = 0
+const zeiten = []
+const mtZeiten = []
+const festWartezeiten = []
+let fehler = 0, uebersprungen = 0, stilleMuell = 0, mtFehler = 0
+let woerterGezeigt = 0, woerterGeaendert = 0
+
+const norm = w => w.toLowerCase().replace(/[.,!?;:„“"'»«()]/g, "")
+const worte = t => (t || "").trim().split(/\s+/).filter(Boolean)
+const mittel = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0
+
+function setzeHinweis(text, art) {
+  $("hinweis").innerHTML = art ? `<span class="pill ${art}">${text}</span>` : text
+}
+
+// ─── Ton einsammeln ────────────────────────────────────────────────────────
+
+function anhaengen(chunk) {
+  if (len + chunk.length > puffer.length) vorneKuerzen(chunk.length)
+  puffer.set(chunk, len)
+  len += chunk.length
+}
+
+function vorneKuerzen(anzahl) {
+  const n = Math.min(anzahl, len)
+  puffer.copyWithin(0, n, len)
+  len -= n
+  ankerZeit += n / SR
+}
+
+// Mikrofon haengt am Audio-Graf, die Datei wird dekodiert und im Echtzeit-Takt nachgeschoben.
+// Getrennte Wege, weil ein stockendes Audio-Element sonst die Messung verfaelscht.
+async function grafAufbauen(quelle) {
+  ctx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: SR })
+  if (quelle === "datei") return dateiEinspeisen()
+
+  const stream = await navigator.mediaDevices.getUserMedia({
+    audio: { channelCount: 1, echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+  })
+  quellNode = ctx.createMediaStreamSource(stream)
+  node = ctx.createScriptProcessor(4096, 1, 1)
+  node.onaudioprocess = e => { if (laeuft) anhaengen(e.inputBuffer.getChannelData(0).slice()) }
+  stumm = ctx.createGain()
+  stumm.gain.value = 0
+  quellNode.connect(node)
+  node.connect(stumm)
+  stumm.connect(ctx.destination)
+}
+
+async function dateiEinspeisen() {
+  const roh = await dateiObjekt.arrayBuffer()
+  const dekodiert = await ctx.decodeAudioData(roh)
+  const daten = dekodiert.getChannelData(0)
+  const player = $("player")
+  player.hidden = false
+  player.src = URL.createObjectURL(dateiObjekt)
+  player.play().catch(() => { /* Mithoeren ist Zugabe, die Messung laeuft ohne */ })
+
+  let gelesen = 0
+  const schritt = Math.round(SR * 0.1)
+  einspeiser = setInterval(() => {
+    if (!laeuft) return
+    if (gelesen >= daten.length) { setzeHinweis("Aufnahme durchgelaufen, Referenz ist jetzt messbar", "ok"); return }
+    const bis = Math.min(gelesen + schritt, daten.length)
+    anhaengen(daten.subarray(gelesen, bis))
+    gelesen = bis
+  }, 100)
+}
+
+// ─── WAV bauen ─────────────────────────────────────────────────────────────
+
+function wav(samples) {
+  const buf = new ArrayBuffer(44 + samples.length * 2)
+  const v = new DataView(buf)
+  const s = (o, t) => { for (let i = 0; i < t.length; i++) v.setUint8(o + i, t.charCodeAt(i)) }
+  s(0, "RIFF"); v.setUint32(4, 36 + samples.length * 2, true); s(8, "WAVE")
+  s(12, "fmt "); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true)
+  v.setUint32(24, SR, true); v.setUint32(28, SR * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true)
+  s(36, "data"); v.setUint32(40, samples.length * 2, true)
+  let o = 44
+  for (let i = 0; i < samples.length; i++, o += 2) {
+    const x = Math.max(-1, Math.min(1, samples[i]))
+    v.setInt16(o, x < 0 ? x * 0x8000 : x * 0x7fff, true)
+  }
+  return new Blob([buf], { type: "audio/wav" })
+}
+
+function pegel(samples) {
+  let summe = 0
+  for (let i = 0; i < samples.length; i++) summe += samples[i] * samples[i]
+  return Math.sqrt(summe / Math.max(1, samples.length))
+}
+
+// ─── Der Takt ──────────────────────────────────────────────────────────────
+
+async function takt() {
+  if (!laeuft || len < SR * 1.5) return
+  if (inFlight >= Number($("parallel").value)) { uebersprungen++; $("sSkip").textContent = uebersprungen; return }
+
+  const fenster = puffer.subarray(0, len)
+  const dauer = len / SR
+  const rms = pegel(fenster)
+  const blob = wav(fenster)
+  const eigeneNr = ++nr
+  const gesendet = performance.now()
+
+  inFlight++
+  try {
+    const form = new FormData()
+    form.append("audio", blob, "fenster.wav")
+    const res = await fetch("/spike/stt", { method: "POST", body: form, credentials: "same-origin" })
+    const antwort = Math.round(performance.now() - gesendet)
+    if (!res.ok) throw new Error(`${res.status} ${(await res.text()).slice(0, 160)}`)
+    const daten = await res.json()
+
+    zeiten.push(antwort)
+    if (rms < STILLE_RMS && daten.text) { stilleMuell++; $("sStille").textContent = stilleMuell }
+    protokollZeile(eigeneNr, dauer, rms, antwort, daten.text)
+    verarbeite(daten.text, gesendet)
+    statistik()
+  } catch (e) {
+    fehler++
+    $("sFehler").textContent = fehler
+    protokollZeile(eigeneNr, dauer, rms, null, String(e.message || e))
+    setzeHinweis(String(e.message || e), "bad")
+  } finally {
+    inFlight--
+  }
+}
+
+// Vergleicht die neue Hypothese mit der alten und schreibt den gemeinsamen Anfang fest.
+function verarbeite(text, gesendet) {
+  const neu = worte(text)
+  const jetzt = performance.now()
+
+  let gleich = 0
+  while (gleich < neu.length && gleich < hypothese.length
+         && norm(neu[gleich]) === norm(hypothese[gleich])) gleich++
+
+  // Alles was die alte Hypothese jenseits davon behauptet hat, wurde widerrufen.
+  const widerrufen = Math.max(0, hypothese.length - gleich)
+  woerterGeaendert += widerrufen
+  woerterGezeigt += Math.max(0, neu.length - festWorte.length)
+
+  const neuFest = neu.slice(festWorte.length, gleich)
+  if (neuFest.length) {
+    for (let i = festWorte.length; i < gleich; i++) {
+      const seit = hypotheseSeit[i]
+      if (seit) festWartezeiten.push(jetzt - seit)
+    }
+    festWorte = neu.slice(0, gleich)
+    festText = (gesamtText + " " + festWorte.join(" ")).trim()
+    mtWarteschlange.push(...neuFest)
+  }
+
+  const seitNeu = []
+  for (let i = 0; i < neu.length; i++) {
+    seitNeu.push(i < hypothese.length && norm(neu[i]) === norm(hypothese[i]) ? hypotheseSeit[i] : gesendet)
+  }
+  hypothese = neu
+  hypotheseSeit = seitNeu
+
+  const vorlaeufig = neu.slice(festWorte.length).join(" ")
+  $("de").innerHTML = escape(festText) + (vorlaeufig ? ` <span class="prov">${escape(vorlaeufig)}</span>` : "")
+
+  const maxSek = Number($("fenster").value)
+  if (len / SR > maxSek) neuVerankern(neu.length ? festWorte.length / neu.length : 1)
+}
+
+// Schneidet den Puffer dort ab, wo der festgeschriebene Teil endet.
+function neuVerankern(anteil) {
+  const dauer = len / SR
+  const schnitt = Math.min(Math.max(anteil * dauer, 1), dauer - 2)
+  vorneKuerzen(Math.floor(schnitt * SR))
+  gesamtText = (gesamtText + " " + festWorte.join(" ")).trim()
+  festText = gesamtText
+  hypothese = []
+  hypotheseSeit = []
+  festWorte = []
+}
+
+// Buendelt die festgeschriebenen Worte, ein Aufruf je Sekunde laeuft in das Limit des Anbieters.
+async function mtPumpe() {
+  const ziel = $("ziel").value
+  if (!ziel) { mtWarteschlange = []; return }
+  if (mtLaeuft || !mtWarteschlange.length) return
+
+  const schnipsel = mtWarteschlange.join(" ")
+  mtWarteschlange = []
+  mtLaeuft = true
+  const t0 = performance.now()
+  try {
+    const form = new FormData()
+    form.append("text", schnipsel)
+    form.append("target", ziel)
+    const res = await fetch("/spike/translate", { method: "POST", body: form, credentials: "same-origin" })
+    if (!res.ok) {
+      mtFehler++
+      $("sMtFehler").textContent = mtFehler
+      return
+    }
+    const daten = await res.json()
+    mtZeiten.push(Math.round(performance.now() - t0))
+    uebersetzt = (uebersetzt + " " + (daten.text || "")).trim()
+    $("en").textContent = uebersetzt
+    statistik()
+  } catch (e) {
+    mtFehler++
+    $("sMtFehler").textContent = mtFehler
+  } finally {
+    mtLaeuft = false
+  }
+}
+
+// ─── Anzeige ───────────────────────────────────────────────────────────────
+
+function escape(t) {
+  return String(t).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c])
+}
+
+function protokollZeile(n, dauer, rms, ms, text) {
+  protokollDaten.push({ nr: n, sekunde: +((performance.now() - startZeit) / 1000).toFixed(2),
+                        fenster_s: +dauer.toFixed(1), pegel: +rms.toFixed(5), antwort_ms: ms, text })
+  const tr = document.createElement("tr")
+  tr.innerHTML = `<td class="num">${n}</td><td class="num">${dauer.toFixed(1)}s</td>`
+    + `<td class="num">${rms.toFixed(4)}</td>`
+    + `<td class="num">${ms === null ? '<span class="pill bad">Fehler</span>' : ms + " ms"}</td>`
+    + `<td>${escape(text || "")}</td>`
+  $("protokoll").prepend(tr)
+  while ($("protokoll").children.length > 200) $("protokoll").lastChild.remove()
+}
+
+function statistik() {
+  $("sAnfragen").textContent = zeiten.length
+  if (zeiten.length) {
+    $("sAntwort").textContent = zeiten[zeiten.length - 1] + " ms"
+    $("sSchnitt").textContent = Math.round(mittel(zeiten)) + " ms"
+    $("sMax").textContent = Math.max(...zeiten) + " ms"
+  }
+  if (festWartezeiten.length) $("sFest").textContent = (mittel(festWartezeiten) / 1000).toFixed(1) + " s"
+  if (mtZeiten.length) $("sMt").textContent = Math.round(mittel(mtZeiten)) + " ms"
+  if (woerterGezeigt) {
+    $("sNach").textContent = Math.round(100 * woerterGeaendert / woerterGezeigt) + " %"
+  }
+}
+
+// ─── Referenzmessung ───────────────────────────────────────────────────────
+
+function wortAbstand(a, b) {
+  const A = a.map(norm), B = b.map(norm)
+  let vor = new Array(B.length + 1).fill(0).map((_, i) => i)
+  for (let i = 1; i <= A.length; i++) {
+    const jetzt = [i]
+    for (let j = 1; j <= B.length; j++) {
+      jetzt[j] = Math.min(vor[j] + 1, jetzt[j - 1] + 1, vor[j - 1] + (A[i - 1] === B[j - 1] ? 0 : 1))
+    }
+    vor = jetzt
+  }
+  return vor[B.length]
+}
+
+async function referenz() {
+  if (!dateiObjekt) return
+  setzeHinweis("Referenz läuft, die ganze Datei geht in einem Stück an myLab", "warn")
+  $("referenz").disabled = true
+  try {
+    const form = new FormData()
+    form.append("audio", dateiObjekt, dateiObjekt.name)
+    const res = await fetch("/spike/batch", { method: "POST", body: form, credentials: "same-origin" })
+    if (!res.ok) throw new Error(`${res.status} ${(await res.text()).slice(0, 160)}`)
+    const daten = await res.json()
+    const ref = worte(daten.text)
+    const live = worte(liveText())
+    const abstand = wortAbstand(live, ref)
+    const quote = ref.length ? Math.round(100 * abstand / ref.length) : 0
+    $("wer").innerHTML = `Referenz: ${ref.length} Wörter am Stück, live ${live.length} Wörter. `
+      + `Wortfehlerrate <b>${quote} %</b> gegenüber dem Batch-Transkript, `
+      + `Batch-Laufzeit ${daten.stt_ms} ms.`
+    setzeHinweis("Referenz fertig", "ok")
+  } catch (e) {
+    setzeHinweis("Referenz fehlgeschlagen: " + (e.message || e), "bad")
+  } finally {
+    $("referenz").disabled = false
+  }
+}
+
+// ─── Steuerung ─────────────────────────────────────────────────────────────
+
+$("quelle").addEventListener("change", () => {
+  const datei = $("quelle").value === "datei"
+  $("dateiFeld").hidden = !datei
+  $("player").hidden = !datei
+})
+
+$("datei").addEventListener("change", e => {
+  dateiObjekt = e.target.files[0] || null
+  $("referenz").disabled = !dateiObjekt
+})
+
+$("start").addEventListener("click", async () => {
+  if ($("quelle").value === "datei" && !dateiObjekt) {
+    setzeHinweis("Erst eine Aufnahme auswählen", "warn")
+    return
+  }
+  try {
+    await grafAufbauen($("quelle").value)
+  } catch (e) {
+    setzeHinweis("Ton nicht verfügbar: " + (e.message || e), "bad")
+    return
+  }
+  laeuft = true
+  startZeit = performance.now()
+  $("start").disabled = true
+  $("stop").disabled = false
+  setzeHinweis("Läuft", "ok")
+  timer = setInterval(takt, Number($("takt").value))
+  mtPumpeTimer = setInterval(mtPumpe, 2500)
+})
+
+$("stop").addEventListener("click", () => {
+  laeuft = false
+  clearInterval(timer)
+  clearInterval(einspeiser)
+  clearInterval(mtPumpeTimer)
+  $("player").pause()
+  if (node) node.disconnect()
+  if (quellNode) quellNode.disconnect()
+  if (ctx) ctx.close()
+  ctx = node = quellNode = null
+  $("start").disabled = false
+  $("stop").disabled = true
+  $("sichern").disabled = protokollDaten.length === 0
+  vorlageMessen()
+  setzeHinweis("Gestoppt. Bei einer Datei kannst du jetzt die Referenz messen.")
+})
+
+function liveText() {
+  return (festText + " " + hypothese.slice(festWorte.length).join(" ")).trim()
+}
+
+// Der Vorlesetext ist die Wahrheit, das Batch-Transkript nur ein zweiter Zeuge.
+function vorlageMessen() {
+  const soll = worte($("vorlage").value)
+  if (!soll.length) return null
+  const ist = worte(liveText())
+  const quote = Math.round(100 * wortAbstand(ist, soll) / soll.length)
+  $("wer").innerHTML = `Vorlage ${soll.length} Wörter, erkannt ${ist.length}. `
+    + `Wortfehlerrate <b>${quote} %</b> gegen den Vorlesetext.`
+  return quote
+}
+
+async function sichern() {
+  $("sichern").disabled = true
+  const lauf = {
+    zeitpunkt: new Date().toISOString(),
+    einstellungen: {
+      quelle: $("quelle").value,
+      fenster_max_s: Number($("fenster").value),
+      takt_ms: Number($("takt").value),
+      gleichzeitig_max: Number($("parallel").value),
+      ziel: $("ziel").value,
+    },
+    kennzahlen: {
+      anfragen: zeiten.length,
+      antwort_schnitt_ms: Math.round(mittel(zeiten)),
+      antwort_max_ms: zeiten.length ? Math.max(...zeiten) : 0,
+      bis_fest_s: +(mittel(festWartezeiten) / 1000).toFixed(2),
+      nachbesserung_prozent: woerterGezeigt ? Math.round(100 * woerterGeaendert / woerterGezeigt) : 0,
+      stille_muell: stilleMuell,
+      fehler: fehler,
+      uebersprungen: uebersprungen,
+      uebersetzung_schnitt_ms: mtZeiten.length ? Math.round(mittel(mtZeiten)) : null,
+      uebersetzung_abgewiesen: mtFehler,
+      wortfehlerrate_vorlage: vorlageMessen(),
+    },
+    vorlage: $("vorlage").value.trim(),
+    erkannt: liveText(),
+    uebersetzt: uebersetzt,
+    fenster: protokollDaten,
+  }
+  try {
+    const res = await fetch("/spike/lauf", {
+      method: "POST", credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(lauf),
+    })
+    const daten = await res.json()
+    $("sicherHinweis").textContent = res.ok ? "Gesichert unter " + daten.datei : "Sichern fehlgeschlagen"
+  } catch (e) {
+    $("sicherHinweis").textContent = "Sichern fehlgeschlagen: " + (e.message || e)
+  } finally {
+    $("sichern").disabled = false
+  }
+}
+
+$("referenz").addEventListener("click", referenz)
+$("sichern").addEventListener("click", sichern)
+</script>
+</body>
+</html>

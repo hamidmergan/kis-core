@@ -227,6 +227,10 @@ def create_app(modules=None) -> FastAPI:
     application.include_router(me.router)
     application.include_router(feedback.router)
 
+    # Throwaway spike, goes out together with routes/_spike_live_stt.py
+    from src.routes import _spike_live_stt
+    application.include_router(_spike_live_stt.router)
+
     if MODULE_TOOLS in aktiv:
         for modul in (translate, image, tts, transcription, screencast,
                       screencast_demo, summary, glossaries):
