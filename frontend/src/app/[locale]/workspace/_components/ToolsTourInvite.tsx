@@ -44,10 +44,10 @@ export function ToolsTourInvite() {
       data-tour="tools-tour-invite"
     >
       <Toolbox size={20} weight="bold" style={{ color: "var(--kb)", flexShrink: 0, marginTop: 2 }} />
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1 self-stretch flex flex-col">
         <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{t("inviteTitle")}</p>
         <p className="text-sm mt-1" style={{ color: "var(--foreground-soft)" }}>{t("inviteBody")}</p>
-        <div className="flex items-center gap-2 mt-3">
+        <div className="flex items-stretch gap-2 mt-auto pt-3">
           <button
             type="button"
             onClick={() => window.dispatchEvent(new Event("tools-tour:start"))}
