@@ -14,6 +14,7 @@ import type { Chapter, Source } from "../../_types";
 import { OwnerOnly } from "../layout/OwnerOnly";
 import { UploadErrorsBlock } from "./UploadErrorsBlock";
 import { SourceRow } from "./SourceRow";
+import { AddMaterialModal } from "./AddMaterialModal";
 import { ChapterHead } from "./ChapterHead";
 import { GroupCheckbox } from "./GroupCheckbox";
 import { groupState, isFullyReady, toggleGroupTargets } from "./_selection";
@@ -29,6 +30,7 @@ export function SourcesPanel({
   onRenameSource,
   onRetrySource,
   onUpload,
+  onAddLink,
   uploadProgress,
   uploadErrors,
   onDismissUploadErrors,
@@ -54,6 +56,8 @@ export function SourcesPanel({
   onRenameSource?: (uuid: string, name: string) => Promise<void>;
   onRetrySource: (uuid: string) => void;
   onUpload: (files: File[]) => void;
+  /** Reads in a web page by link, missing means the plus opens the file picker straight away. */
+  onAddLink?: (url: string) => Promise<void>;
   uploadProgress: { current: number; total: number; percent: number } | null;
   uploadErrors: { filename: string; message: string }[];
   onDismissUploadErrors: () => void;
@@ -77,6 +81,7 @@ export function SourcesPanel({
   const t = useTranslations("workspace.detail.sources");
   const tPanels = useTranslations("workspace.detail.panels");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [addOpen, setAddOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const newChapterRef = useRef<HTMLInputElement>(null);
   const [deleteSourceId, setDeleteSourceId] = useState<string | null>(null);
@@ -180,7 +185,7 @@ export function SourcesPanel({
     <>
       <IconButton
         data-tour="add-source"
-        onClick={() => fileInputRef.current?.click()}
+        onClick={() => (onAddLink ? setAddOpen(true) : fileInputRef.current?.click())}
         title={t("addSources")}
         aria-label={t("addSources")}
         className="text-[var(--kb)]"
@@ -257,6 +262,15 @@ export function SourcesPanel({
             const fs = Array.from(e.target.files ?? []);
             if (fs.length > 0) { onUpload(fs); e.target.value = ""; }
           }}
+        />
+      )}
+
+      {isOwner && onAddLink && (
+        <AddMaterialModal
+          open={addOpen}
+          onClose={() => setAddOpen(false)}
+          onPickFile={() => fileInputRef.current?.click()}
+          onAddLink={onAddLink}
         />
       )}
 

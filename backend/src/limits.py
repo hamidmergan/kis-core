@@ -92,6 +92,16 @@ AIA_SOURCE_MAX_PAGES                = 200     # max pages per PDF/DOCX/PPTX uplo
 # Very large documents are rejected so the overview does not become front-heavy.
 AIA_WORKSPACE_MAX_SOURCES              = 50      # max sources per workspace (admin-tunable 1..1000)
 
+# --- Web page as a source ---------------------------------------------------
+WEB_PAGE_MAX_URL_CHARS           = 2000
+WEB_PAGE_MAX_REDIRECTS           = 5
+WEB_PAGE_CONNECT_TIMEOUT_SECONDS = 5
+WEB_PAGE_TIMEOUT_SECONDS         = 15
+WEB_PAGE_MAX_HTML_BYTES          = 5 * 1024 * 1024
+WEB_PAGE_MAX_PDF_BYTES           = 50 * 1024 * 1024
+WEB_PAGE_MIN_WORDS               = 100     # fewer means the page carried no readable text
+WEB_PAGE_TITLE_MAX_CHARS         = 120
+
 # Hard limit for a single chat question, the search query is shortened on top.
 AIA_QUESTION_MAX_CHARS                 = 8000
 AIA_EMBED_QUERY_MAX_CHARS              = 2000

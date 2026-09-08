@@ -185,7 +185,7 @@ export function SourceRow({
           <span
             className="flex-1 text-sm leading-snug truncate min-w-0 font-medium"
             style={{ color: "var(--foreground)" }}
-            title={src.filename}
+            title={src.source_url ?? src.filename}
           >
             {src.filename}
           </span>

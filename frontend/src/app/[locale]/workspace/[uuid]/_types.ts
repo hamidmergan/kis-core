@@ -26,6 +26,8 @@ export interface Source {
   ocr_info?: OcrInfo | null;
   /** Chapter the source sits in within the list, null means no chapter. */
   chapter_uuid?: string | null;
+  /** The link a web page source came from, empty for uploaded files. */
+  source_url?: string | null;
 }
 
 /** Chapters only structure the display, the selection hangs off the file's checkbox. */

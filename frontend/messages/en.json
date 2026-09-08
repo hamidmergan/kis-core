@@ -2730,6 +2730,13 @@
       "sources": {
         "title": "Sources",
         "addSources": "Add sources",
+        "addModalTitle": "Add material",
+        "pickFile": "Choose a file",
+        "pickFileHint": "PDF, Word, PowerPoint, audio or video",
+        "linkHeading": "Read in a web page",
+        "linkPlaceholder": "https://",
+        "linkSubmit": "Read in",
+        "linkFailed": "The link could not be read in.",
         "uploadingMulti": "File {current}/{total} – {percent}%",
         "uploadingSingle": "Uploading… {percent}%",
         "selectAll": "Select all",
@@ -3105,7 +3112,7 @@
           },
           "hochladen": {
             "title": "Adding materials",
-            "text": "The plus uploads your own files, such as PDF, Word, PowerPoint, audio or video. Audio and video automatically get a transcript."
+            "text": "The plus uploads your own files, such as PDF, Word, PowerPoint, audio or video, or reads in a web page by link. Audio and video automatically get a transcript."
           },
           "hinweis": {
             "title": "A note for everyone",

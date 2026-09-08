@@ -12,10 +12,11 @@ from src.utils.upload_stream import stream_upload_to_path
 from ._shared import (
     Path, APIRouter, Depends, File, HTTPException, UploadFile, logger, db,
     get_current_user, get_locale, t,
-    AIA_MAX_CONCURRENT_UPLOADS, AIA_SOURCE_MAX_PAGES, AIA_WORKSPACE_MAX_SOURCES,
+    AIA_MAX_CONCURRENT_UPLOADS,
     delete_aia_source_files,
-    _convert_office_to_pdf_path, _mp4_faststart_path, _count_pages_path,
-    _require_workspace_manage, _load_workspace_source, _save_source_file_path,
+    _convert_office_to_pdf_path, _mp4_faststart_path,
+    _require_workspace_manage, _load_workspace_source,
+    _require_source_capacity, _register_source_file,
     _workspace_label,
     _ALLOWED_EXTENSIONS, _MAX_UPLOAD_BYTES,
 )
@@ -86,17 +87,7 @@ async def upload_source(
     # Existing filenames, normalized for a case-insensitive duplicate check below.
     existing_names = {(s["filename"] or "").strip().lower() for s in existing_sources}
 
-    # Limit from the admin area, otherwise the value from the code.
-    raw_limit = db.get_setting("aia_workspace_max_sources", str(AIA_WORKSPACE_MAX_SOURCES))
-    try:
-        max_sources = int(raw_limit)
-    except (TypeError, ValueError):
-        max_sources = AIA_WORKSPACE_MAX_SOURCES
-    if len(existing_sources) >= max_sources:
-        raise HTTPException(
-            status_code=409,
-            detail=t("ai.source.maxPerWorkspace", locale, max=max_sources, label=_workspace_label(locale)),
-        )
+    _require_source_capacity(existing_sources, locale)
 
     if not file.filename:
         raise HTTPException(status_code=400, detail=t("file.nameMissing", locale))
@@ -144,45 +135,15 @@ async def upload_source(
                 logger.info("KI Tutor: applying MP4 faststart ({})", file.filename)
                 final_path = await asyncio.to_thread(_mp4_faststart_path, raw_path, tmpdir)
 
-            page_count = await asyncio.to_thread(_count_pages_path, ext, final_path)
-            # Page limit from the admin area, otherwise the value from the code.
-            try:
-                max_pages = int(db.get_setting("aia_source_max_pages", str(AIA_SOURCE_MAX_PAGES)))
-            except (TypeError, ValueError):
-                max_pages = AIA_SOURCE_MAX_PAGES
-            if page_count is not None and page_count > max_pages:
-                raise HTTPException(
-                    status_code=413,
-                    detail=t("ai.source.tooManyPages", locale, pages=page_count, max=max_pages),
-                )
-
-            source_uuid = uuid.uuid4().hex
-            file_type = ext.lstrip(".")
-            # The file hangs off the owner, not off the uploader.
-            file_path = await asyncio.to_thread(
-                _save_source_file_path, workspace["user_id"], workspace_uuid, source_uuid, ext, final_path
+            result = await _register_source_file(
+                workspace, workspace_uuid, final_path, ext, stored_filename, current_user["user_id"], locale,
             )
-
-            db.create_aia_source(
-                workspace_id=workspace["id"],
-                uuid=source_uuid,
-                filename=stored_filename,
-                file_path=file_path,
-                file_type=file_type,
-            )
-
-            from src.features.ai_assistant.scheduling.service import scheduler_enabled, enqueue_task
-            if scheduler_enabled():
-                enqueue_task("aia.index_source", current_user["user_id"], args=[source_uuid, locale])
-            else:
-                from src.tasks.aia_tasks import run_index_source
-                run_index_source.delay(source_uuid, locale)
 
             # Only count now, every rejection above reversed it before.
             record_upload(current_user["user_id"])
 
-            logger.info("KI Tutor: source {} ({}) uploaded to workspace {}", source_uuid, stored_filename, workspace_uuid)
-            return {"uuid": source_uuid, "filename": stored_filename, "status": "pending"}
+            logger.info("KI Tutor: source {} ({}) uploaded to workspace {}", result["uuid"], stored_filename, workspace_uuid)
+            return result
     finally:
         _release_upload_slot(ticket)
 

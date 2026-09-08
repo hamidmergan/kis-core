@@ -227,6 +227,7 @@ async def get_workspace(
                 "error_message": s.get("error_message"),
                 "progress": s.get("progress"),
                 "ocr_info": s.get("ocr_info"),
+                "source_url": s.get("source_url"),
                 "chapter_uuid": chapter_uuid_by_id.get(s.get("chapter_id")),
                 "created_at": s["created_at"].isoformat() + "Z" if s["created_at"] else None,
             }

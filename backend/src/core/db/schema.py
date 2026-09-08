@@ -844,6 +844,10 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             cur.execute("""
                 ALTER TABLE aia_sources ADD COLUMN IF NOT EXISTS summary TEXT
             """)
+            # The link a web page source came from, NULL for uploaded files.
+            cur.execute("""
+                ALTER TABLE aia_sources ADD COLUMN IF NOT EXISTS source_url TEXT
+            """)
             # Chapters structure the source list but decide nothing about the chat.
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_chapters (

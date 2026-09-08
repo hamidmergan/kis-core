@@ -153,11 +153,40 @@ export function useSources({ uuid, onModuleUpdate }: UseSourcesOptions) {
     if (errors.length > 0) setUploadErrors(errors);
   }, [uuid, sources, t]);
 
+  const addLink = useCallback(async (url: string) => {
+    let res: Response;
+    try {
+      res = await fetch(`/api/ai-assistant/workspaces/${uuid}/sources/link`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      });
+    } catch {
+      throw new Error(t("networkError"));
+    }
+    if (!res.ok) {
+      let detail: string = t("uploadFailed");
+      try {
+        const body = await res.json();
+        // The reason arrives sometimes as an object and sometimes as text.
+        if (typeof body?.detail === "string") {
+          detail = body.detail;
+        } else if (body?.detail?.message) {
+          detail = body.detail.message;
+        }
+      } catch { /* ignore */ }
+      throw new Error(detail);
+    }
+    const newSrc: Source = await res.json();
+    setSources((prev) => [newSrc, ...prev]);
+  }, [uuid, t]);
+
   return {
     sources, setSources,
     selectedSourceIds, setSelectedSourceIds,
     uploadProgress,
     uploadErrors, setUploadErrors,
-    toggleSource, deleteSource, renameSource, retrySource, uploadFiles,
+    toggleSource, deleteSource, renameSource, retrySource, uploadFiles, addLink,
   };
 }

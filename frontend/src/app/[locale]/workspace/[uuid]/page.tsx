@@ -81,6 +81,7 @@ export default function KiTutorWorkspacePage() {
     renameSource: handleRenameSource,
     retrySource: handleRetrySource,
     uploadFiles: handleUpload,
+    addLink: handleAddLink,
   } = useSources({ uuid, onModuleUpdate: (mod) => setWorkspaceDetail(mod) });
 
   // Chapters only structure the list, the selection stays the file's checkbox.
@@ -565,6 +566,7 @@ export default function KiTutorWorkspacePage() {
         onRenameSource={handleRenameSource}
         onRetrySource={handleRetrySource}
         onUpload={handleUpload}
+        onAddLink={handleAddLink}
         uploadProgress={uploadProgress}
         uploadErrors={uploadErrors}
         onDismissUploadErrors={() => setUploadErrors([])}

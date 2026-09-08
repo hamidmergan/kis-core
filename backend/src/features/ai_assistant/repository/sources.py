@@ -13,16 +13,17 @@ from src.core.db.pool import get_connection
 
 
 def create_aia_source(
-    workspace_id: int, uuid: str, filename: str, file_path: str, file_type: str
+    workspace_id: int, uuid: str, filename: str, file_path: str, file_type: str,
+    source_url: str | None = None,
 ) -> int:
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """INSERT INTO aia_sources
-                   (workspace_id, uuid, filename, file_path, file_type)
-                   VALUES (%s, %s, %s, %s, %s)
+                   (workspace_id, uuid, filename, file_path, file_type, source_url)
+                   VALUES (%s, %s, %s, %s, %s, %s)
                    RETURNING id""",
-                (workspace_id, uuid, filename, file_path, file_type),
+                (workspace_id, uuid, filename, file_path, file_type, source_url),
             )
             source_id = cur.fetchone()[0]
         conn.commit()

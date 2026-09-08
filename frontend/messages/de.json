@@ -2730,6 +2730,13 @@
       "sources": {
         "title": "Materialien",
         "addSources": "Materialien hinzufügen",
+        "addModalTitle": "Material hinzufügen",
+        "pickFile": "Datei wählen",
+        "pickFileHint": "PDF, Word, PowerPoint, Audio oder Video",
+        "linkHeading": "Webseite einlesen",
+        "linkPlaceholder": "https://",
+        "linkSubmit": "Einlesen",
+        "linkFailed": "Der Link konnte nicht eingelesen werden.",
         "uploadingMulti": "Datei {current}/{total} – {percent}%",
         "uploadingSingle": "Hochladen… {percent}%",
         "selectAll": "Alle auswählen",
@@ -3105,7 +3112,7 @@
           },
           "hochladen": {
             "title": "Materialien hinzufügen",
-            "text": "Über das Plus lädst du eigene Dateien hoch, etwa PDF, Word, PowerPoint, Audio oder Video. Aus Ton und Video entsteht automatisch ein Transkript."
+            "text": "Über das Plus lädst du eigene Dateien hoch, etwa PDF, Word, PowerPoint, Audio oder Video, oder du liest eine Webseite per Link ein. Aus Ton und Video entsteht automatisch ein Transkript."
           },
           "hinweis": {
             "title": "Ein Hinweis für alle",

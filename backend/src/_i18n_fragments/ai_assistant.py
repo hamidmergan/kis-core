@@ -123,6 +123,51 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Konvertierung nach PDF fehlgeschlagen",
         "en": "Conversion to PDF failed",
     },
+    # Web page as a source.
+    "ai.link.invalid": {
+        "de": "Das ist kein gültiger Link.",
+        "en": "That is not a valid link.",
+    },
+    "ai.link.forbiddenAddress": {
+        "de": "Diese Adresse darf nicht abgerufen werden.",
+        "en": "This address must not be fetched.",
+    },
+    "ai.link.unreachable": {
+        "de": "Die Seite antwortet nicht.",
+        "en": "The page does not respond.",
+    },
+    "ai.link.loginRequired": {
+        "de": "Die Seite verlangt eine Anmeldung. Seiten hinter Login gehen nicht.",
+        "en": "The page requires a login. Pages behind a login do not work.",
+    },
+    "ai.link.httpError": {
+        "de": "Die Seite antwortet mit Fehler {status}.",
+        "en": "The page answers with error {status}.",
+    },
+    "ai.link.tooManyRedirects": {
+        "de": "Die Seite leitet zu oft weiter.",
+        "en": "The page redirects too often.",
+    },
+    "ai.link.tooLarge": {
+        "de": "Die Seite ist zu groß.",
+        "en": "The page is too large.",
+    },
+    "ai.link.unsupportedType": {
+        "de": "Der Link zeigt weder auf eine Textseite noch auf ein PDF.",
+        "en": "The link points neither to a text page nor to a PDF.",
+    },
+    "ai.link.noText": {
+        "de": "Die Seite liefert keinen lesbaren Text.",
+        "en": "The page yields no readable text.",
+    },
+    "ai.link.duplicate": {
+        "de": "Dieser Link ist schon im {label}.",
+        "en": "This link is already in the {label}.",
+    },
+    "ai.link.sourceLine": {
+        "de": "Quelle: {url}, abgerufen am {date}",
+        "en": "Source: {url}, fetched on {date}",
+    },
     # Vocabulary cloze built from flashcards.
     "ai.flashcardSet.invalid": {
         "de": "Das gewählte Lernkarten-Set gibt es nicht.",

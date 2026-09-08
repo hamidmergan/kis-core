@@ -84,7 +84,7 @@ def _count_pages(ext: str, data: bytes) -> int | None:
 
 
 def _convert_office_to_pdf_path(src_path: str, ext: str, out_dir: str, locale: str = DEFAULT_LOCALE) -> str:
-    """Converts a docx or pptx file to PDF via LibreOffice."""
+    """Converts a docx, pptx or html file to PDF via LibreOffice."""
     result = subprocess.run(
         ["libreoffice", "--headless", "--norestore", "--convert-to", "pdf",
          "--outdir", out_dir, src_path],
