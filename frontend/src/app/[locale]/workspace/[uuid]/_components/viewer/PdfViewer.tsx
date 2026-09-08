@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { ArrowDown, ArrowUp, CaretLeft, SidebarSimple, X } from "@phosphor-icons/react";
 import { PDFViewer, type PDFViewerRef } from "@embedpdf/react-pdf-viewer";
 import { LockModeType } from "@embedpdf/plugin-annotation";
@@ -30,6 +30,8 @@ export function PdfViewer({
   const t = useTranslations("workspace.detail.pdf");
   const tViewer = useTranslations("workspace.detail.viewer");
   const tPanels = useTranslations("workspace.detail.panels");
+  // The viewer speaks the language chosen in the settings.
+  const locale = useLocale();
   const [page, setPage] = useState(source.page);
   const [, setRegistryReady] = useState(false);
   const viewerRef = useRef<PDFViewerRef>(null);
@@ -458,13 +460,14 @@ export function PdfViewer({
       </div>
 
 
-      {/* PDF Viewer — key includes theme so a Light/Dark switch remounts EmbedPDF cleanly */}
-      <div key={`${source.uuid}-${theme}`} style={{ flex: 1, position: "relative", minHeight: 0 }}>
+      {/* The key includes theme and locale so a switch remounts EmbedPDF cleanly. */}
+      <div key={`${source.uuid}-${theme}-${locale}`} style={{ flex: 1, position: "relative", minHeight: 0 }}>
         <PDFViewer
           ref={viewerRef}
           config={{
             src: `/api/ai-assistant/workspaces/${workspaceUuid}/sources/${source.uuid}/file`,
             worker: true,
+            i18n: { defaultLocale: locale },
             search: { showAllResults: false },
             annotations: {
               locked: { type: LockModeType.All },
