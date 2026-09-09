@@ -22,7 +22,8 @@ def _code(**abweichungen):
         "max_uses": 50,
         "used_count": 3,
         "valid_until": MORGEN,
-        "access_days": 14,
+        "access_hours": 336,
+        "show_credentials": True,
         "active": True,
     }
     eintrag.update(abweichungen)
@@ -122,7 +123,7 @@ def test_redeeming_returns_a_generated_password_that_is_not_empty(client):
 
 
 def test_redeeming_with_an_unlimited_code_sets_no_deadline(client):
-    with patch("src.routes.access_codes.repo.get_code_by_code", return_value=_code(access_days=None)), \
+    with patch("src.routes.access_codes.repo.get_code_by_code", return_value=_code(access_hours=None)), \
          patch("src.routes.access_codes.database.get_user_by_username", return_value=None), \
          patch("src.routes.access_codes.repo.claim_use", return_value=True), \
          patch("src.routes.access_codes.provision_account", return_value={
@@ -141,6 +142,44 @@ def test_redeeming_with_an_unlimited_code_sets_no_deadline(client):
 
 
 
+
+
+def test_redeeming_sets_a_deadline_in_hours_not_days(client):
+    with patch("src.routes.access_codes.repo.get_code_by_code", return_value=_code(access_hours=12)), \
+         patch("src.routes.access_codes.database.get_user_by_username", return_value=None), \
+         patch("src.routes.access_codes.repo.claim_use", return_value=True), \
+         patch("src.routes.access_codes.provision_account", return_value={
+             "user_id": 42, "username": "max.mustermann", "display_name": "Max Mustermann",
+             "email": "max.mustermann@demo.kis.local", "role": "staff", "custom_role_id": None,
+         }), \
+         patch("src.routes.access_codes.repo.set_user_access") as frist, \
+         patch("src.routes.access_codes.demo_module_zuweisen"), \
+         _sitzung():
+        r = client.post("/access-codes/redeem", json=GUELTIG)
+
+    assert r.status_code == 200
+    erwartet = datetime.now() + timedelta(hours=12)
+    tatsaechlich = frist.call_args.kwargs["expires_at"]
+    assert abs((tatsaechlich - erwartet).total_seconds()) < 5, \
+        "eine Veranstaltung mit 12 Stunden darf nicht 12 Tage laufen"
+
+
+def test_redeeming_reports_whether_credentials_should_be_shown(client):
+    with patch("src.routes.access_codes.repo.get_code_by_code",
+               return_value=_code(show_credentials=False)), \
+         patch("src.routes.access_codes.database.get_user_by_username", return_value=None), \
+         patch("src.routes.access_codes.repo.claim_use", return_value=True), \
+         patch("src.routes.access_codes.provision_account", return_value={
+             "user_id": 42, "username": "max.mustermann", "display_name": "Max Mustermann",
+             "email": "max.mustermann@demo.kis.local", "role": "staff", "custom_role_id": None,
+         }), \
+         patch("src.routes.access_codes.repo.set_user_access"), \
+         patch("src.routes.access_codes.demo_module_zuweisen"), \
+         _sitzung():
+        r = client.post("/access-codes/redeem", json=GUELTIG)
+
+    assert r.status_code == 200
+    assert r.json()["show_credentials"] is False
 
 
 def test_redeeming_picks_a_free_user_name(client):
@@ -307,7 +346,7 @@ def test_renewing_with_an_unlimited_code_sets_no_deadline(client):
                return_value={"username": "max.mustermann", "fullname": "Max Mustermann",
                              "email": "max.mustermann@demo.kis.local", "role": "staff"}), \
          patch("src.routes.access_codes.database.get_user_by_username", return_value=konto), \
-         patch("src.routes.access_codes.repo.get_code_by_code", return_value=_code(access_days=None)), \
+         patch("src.routes.access_codes.repo.get_code_by_code", return_value=_code(access_hours=None)), \
          patch("src.routes.access_codes.repo.set_user_access") as frist, \
          _sitzung() as sitzung:
         sitzung.return_value.create.return_value = "sitzungsschluessel"

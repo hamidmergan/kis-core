@@ -35,7 +35,11 @@ describe("choiceToSeats", () => {
   });
 
   it("laesst nichts ueber der Obergrenze zu", () => {
-    expect(choiceToSeats("custom", "101")).toBeNull();
+    expect(choiceToSeats("custom", "501")).toBeNull();
+  });
+
+  it("laesst 500 Plaetze fuer eine grosse Veranstaltung zu", () => {
+    expect(choiceToSeats("custom", "500")).toBe(500);
   });
 
   it("laesst keine Kommazahl zu", () => {

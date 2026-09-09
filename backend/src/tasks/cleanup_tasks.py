@@ -3,6 +3,7 @@
 from loguru import logger
 
 from src.celery_app import celery_app
+from src.features.access_codes import repository as repo
 from src.storage import cleanup_expired_files
 
 
@@ -49,6 +50,19 @@ def run_cleanup_exercise_progress() -> int:
         return deleted
     except Exception as e:
         logger.warning("Cleanup Uebungsantworten fehlgeschlagen: {}", e)
+        return 0
+
+
+@celery_app.task(name="cleanup.lock_expired_access_accounts", queue="general")
+def run_lock_expired_access_accounts() -> int:
+    """Locks (never deletes) accounts whose access-code deadline has passed. Hourly."""
+    try:
+        gesperrt = repo.lock_expired_accounts()
+        if gesperrt:
+            logger.info("Cleanup: {} Testkonto/Testkonten wegen Ablauf gesperrt", gesperrt)
+        return gesperrt
+    except Exception as e:
+        logger.warning("Cleanup Testkonten-Sperrung fehlgeschlagen: {}", e)
         return 0
 
 

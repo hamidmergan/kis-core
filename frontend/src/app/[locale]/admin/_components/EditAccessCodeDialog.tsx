@@ -5,8 +5,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import Select from "@/components/ui/Select";
+import Checkbox from "@/components/ui/Checkbox";
 import SeatsField from "./SeatsField";
 import { choiceToSeats, seatsToChoice } from "./seats";
+import AccessHoursField from "./AccessHoursField";
+import { choiceToHours, hoursToChoice } from "./accessHours";
 
 type Code = {
   id: number;
@@ -17,7 +20,9 @@ type Code = {
   max_uses: number;
   used_count: number;
   valid_until: string;
-  access_days: number | null;
+  access_hours: number | null;
+  show_credentials: boolean;
+  show_evaluation: boolean;
 };
 
 type Props = {
@@ -29,7 +34,6 @@ type Props = {
 type CustomRole = { id: number; name: string };
 
 const VALID_DAYS = [7, 14, 30, 60];
-const ACCESS_DAYS = [7, 14, 21, 30];
 
 function verbleibendeTage(validUntil: string): number {
   const tage = Math.ceil((new Date(validUntil).getTime() - Date.now()) / 86_400_000);
@@ -45,7 +49,11 @@ export default function EditAccessCodeDialog({ code, onClose, onSaved }: Props) 
   const [maxUses, setMaxUses] = useState(startPlaetze.choice);
   const [customUses, setCustomUses] = useState(startPlaetze.custom);
   const [validDays, setValidDays] = useState(String(verbleibendeTage(code.valid_until)));
-  const [accessDays, setAccessDays] = useState(code.access_days == null ? "0" : String(code.access_days));
+  const startStunden = hoursToChoice(code.access_hours);
+  const [accessHours, setAccessHours] = useState(startStunden.choice);
+  const [customHours, setCustomHours] = useState(startStunden.custom);
+  const [showCredentials, setShowCredentials] = useState(code.show_credentials);
+  const [showEvaluation, setShowEvaluation] = useState(code.show_evaluation);
   const [customRoles, setCustomRoles] = useState<CustomRole[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -73,19 +81,12 @@ export default function EditAccessCodeDialog({ code, onClose, onSaved }: Props) 
     return werte.map((n) => ({ value: String(n), label: tCreate("days", { n }) }));
   }, [tCreate, validDays]);
 
-  const accessDaysOptions = useMemo(
-    () => [
-      ...ACCESS_DAYS.map((n) => ({ value: String(n), label: tCreate("days", { n }) })),
-      { value: "0", label: tCreate("unlimited") },
-    ],
-    [tCreate],
-  );
-
   const plaetze = choiceToSeats(maxUses, customUses);
+  const stunden = choiceToHours(accessHours, customHours);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (plaetze === null) return;
+    if (plaetze === null || stunden === undefined) return;
     setSubmitting(true);
     setError(null);
     const custom = role.startsWith("custom:");
@@ -98,7 +99,9 @@ export default function EditAccessCodeDialog({ code, onClose, onSaved }: Props) 
           label: label.trim(),
           max_uses: plaetze,
           valid_days: Number(validDays),
-          access_days: accessDays === "0" ? null : Number(accessDays),
+          access_hours: stunden,
+          show_credentials: showCredentials,
+          show_evaluation: showEvaluation,
           kis_role: custom ? "custom" : role,
           custom_role_id: custom ? Number(role.slice("custom:".length)) : null,
         }),
@@ -155,15 +158,31 @@ export default function EditAccessCodeDialog({ code, onClose, onSaved }: Props) 
             <Select value={validDays} onChange={setValidDays} options={validDaysOptions} className="w-full" />
           </div>
 
-          <div className="space-y-1">
-            <label className="text-xs uppercase tracking-wide text-muted">{tCreate("accessDays")}</label>
-            <Select value={accessDays} onChange={setAccessDays} options={accessDaysOptions} className="w-full" />
-          </div>
+          <AccessHoursField
+            choice={accessHours}
+            custom={customHours}
+            onChoice={setAccessHours}
+            onCustom={setCustomHours}
+          />
 
           <div className="space-y-1">
             <label className="text-xs uppercase tracking-wide text-muted">{tCreate("role")}</label>
             <Select value={role} onChange={setRole} options={roleOptions} className="w-full" />
           </div>
+
+          <Checkbox
+            checked={showCredentials}
+            onChange={setShowCredentials}
+            label={tCreate("showCredentials")}
+          />
+          <p className="text-xs text-muted-soft -mt-2">{tCreate("showCredentialsHint")}</p>
+
+          <Checkbox
+            checked={showEvaluation}
+            onChange={setShowEvaluation}
+            label={tCreate("showEvaluation")}
+          />
+          <p className="text-xs text-muted-soft -mt-2">{tCreate("showEvaluationHint")}</p>
 
           {error && <p className="text-sm text-error">{error}</p>}
 
@@ -179,8 +198,8 @@ export default function EditAccessCodeDialog({ code, onClose, onSaved }: Props) 
             <button
               type="submit"
               data-testid="access-code-edit-submit"
-              disabled={submitting || !label.trim() || plaetze === null}
-              className="px-4 py-2 text-sm bg-kb text-white rounded-md disabled:opacity-60"
+              disabled={submitting || !label.trim() || plaetze === null || stunden === undefined}
+              className="px-4 py-2 text-sm btn-primary rounded-md transition-colors disabled:opacity-60"
             >
               {submitting ? t("submitting") : t("submit")}
             </button>

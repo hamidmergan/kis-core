@@ -66,6 +66,12 @@ celery_app.conf.update(
             "schedule": 3600.0,  # stuendlich
             "options": {"queue": "general"},
         },
+        # Locks accounts whose access-code deadline passed, never deletes them.
+        "cleanup-lock-expired-access-accounts": {
+            "task": "cleanup.lock_expired_access_accounts",
+            "schedule": 3600.0,  # stuendlich
+            "options": {"queue": "general"},
+        },
         # A fixed time instead of an interval, so the backup runs at night.
         "backup-database": {
             "task": "backup.database",

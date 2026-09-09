@@ -1,8 +1,8 @@
 /** Seat counts an access code offers in the dropdown, everything else goes into the free field. */
-export const SEAT_PRESETS = [1, 10, 25, 50, 100] as const;
+export const SEAT_PRESETS = [1, 10, 25, 50, 100, 200, 500] as const;
 
 /** Mirrors MAX_SEATS in the backend route. */
-export const MAX_SEATS = 100;
+export const MAX_SEATS = 500;
 
 /** Dropdown entry that reveals the free number field. */
 export const SEATS_CUSTOM = "custom";

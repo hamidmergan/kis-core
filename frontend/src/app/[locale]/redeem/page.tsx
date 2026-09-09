@@ -2,11 +2,13 @@
 
 /** The public access-code page, a stranger redeems a code to get their own account. */
 
-import { useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { Check, Copy } from "@phosphor-icons/react";
 import Header from "@/components/layout/Header";
 import IconButton from "@/components/ui/IconButton";
+import Spinner from "@/components/ui/Spinner";
 import { copyTextFromPromise } from "@/lib/clipboard";
 import { checkForm } from "./checkForm";
 
@@ -14,10 +16,21 @@ type Fertig = { username: string; password: string; expiresAt: string | null };
 type Kopiert = "user" | "password" | null;
 
 export default function AccessCodePage() {
+  return (
+    <Suspense>
+      <AccessCodePageInner />
+    </Suspense>
+  );
+}
+
+function AccessCodePageInner() {
   const t = useTranslations("accessCode");
   const locale = useLocale();
+  const searchParams = useSearchParams();
 
-  const [code, setCode] = useState("");
+  // A QR code links here with the code already filled in.
+  const codeAusLink = useRef(searchParams.get("code") ?? "").current;
+  const [code, setCode] = useState(codeAusLink);
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [fertig, setFertig] = useState<Fertig | null>(null);
@@ -30,9 +43,8 @@ export default function AccessCodePage() {
     setTimeout(() => setKopiert(null), 1500);
   }
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    const geprueft = checkForm({ code });
+  async function redeem(wert: string) {
+    const geprueft = checkForm({ code: wert });
     if (!geprueft.ok) {
       setError(t("errorCodeMissing"));
       return;
@@ -45,7 +57,7 @@ export default function AccessCodePage() {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: code.trim() }),
+        body: JSON.stringify({ code: wert.trim() }),
       });
       if (!r.ok) {
         const body = await r.json().catch(() => ({}));
@@ -54,6 +66,11 @@ export default function AccessCodePage() {
       }
       const d = await r.json();
       // The session cookie already arrived with this answer, no extra login needed.
+      if (d.show_credentials === false) {
+        // An event code with credentials switched off: straight into the app, nothing to note down.
+        window.location.assign("/");
+        return;
+      }
       setFertig({ username: d.username, password: d.password, expiresAt: d.expires_at ?? null });
     } catch {
       setError(t("errorGeneric"));
@@ -61,6 +78,26 @@ export default function AccessCodePage() {
       setSending(false);
     }
   }
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    redeem(code);
+  }
+
+  // Scanning the QR code (or a shared link) with the code already in the URL needs no click at all.
+  const bereitsAusgeloest = useRef(false);
+  useEffect(() => {
+    if (codeAusLink && !bereitsAusgeloest.current) {
+      // React Strict Mode runs effects twice in dev, this must still redeem only once.
+      bereitsAusgeloest.current = true;
+      redeem(codeAusLink);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // A link with the code already tries the redeem right away, no form ever shows for it,
+  // only a failed attempt (wrong/expired code) falls back to the normal form with the error.
+  const autoLoeseEin = !!codeAusLink && !fertig && !error;
 
   const bisDatum = fertig?.expiresAt
     ? new Date(fertig.expiresAt).toLocaleDateString(locale === "en" ? "en-US" : "de-DE", {
@@ -137,6 +174,14 @@ export default function AccessCodePage() {
               >
                 {t("doneGo")}
               </button>
+            </div>
+          ) : autoLoeseEin ? (
+            <div
+              data-testid="access-code-auto"
+              className="bg-background rounded-xl shadow-sm border border-border-soft p-8 flex flex-col items-center gap-3 text-center"
+            >
+              <Spinner size="lg" />
+              <p className="text-sm text-foreground-soft">{t("autoRedeeming")}</p>
             </div>
           ) : (
             <div className="bg-background rounded-xl shadow-sm border border-border-soft p-8">

@@ -45,7 +45,9 @@ def konto_am_code(schema):
         custom_role_id=None,
         max_uses=5,
         valid_until=datetime.now() + timedelta(days=30),
-        access_days=14,
+        access_hours=336,
+        show_credentials=True,
+        show_evaluation=False,
         created_by=0,
     )
     with schema() as conn:
@@ -66,6 +68,54 @@ def konto_am_code(schema):
             cur.execute("DELETE FROM users WHERE id = %s", (user_id,))
             cur.execute("DELETE FROM access_codes WHERE id = %s", (code_id,))
         conn.commit()
+
+
+def test_the_schema_has_access_hours_not_access_days(schema):
+    with schema() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_name = 'access_codes' AND column_name IN "
+                "('access_days', 'access_hours', 'show_credentials')"
+            )
+            spalten = {zeile[0] for zeile in cur.fetchall()}
+    assert spalten == {"access_hours", "show_credentials"}, \
+        "die alte Tages-Spalte muss nach der Migration verschwunden sein"
+
+
+def test_an_old_install_gets_the_evaluation_column_switched_off(schema):
+    """The column has to arrive by migration too, and never switch itself on."""
+    with schema() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT column_default, is_nullable FROM information_schema.columns "
+                "WHERE table_name = 'access_codes' AND column_name = 'show_evaluation'"
+            )
+            zeile = cur.fetchone()
+    assert zeile is not None, "die Spalte fehlt, alte Installationen brechen"
+    vorgabe, nullbar = zeile
+    assert "false" in vorgabe.lower(), "bestehende Codes duerfen die Evaluation nicht ploetzlich zeigen"
+    assert nullbar == "NO"
+
+
+def test_the_switch_survives_the_round_trip_through_the_real_schema(schema, konto_am_code):
+    code_id, user_id, _ = konto_am_code
+
+    assert repo.shows_evaluation(user_id) is False
+
+    repo.update_code(
+        code_id,
+        label="Tag der Lehre",
+        role="user",
+        custom_role_id=None,
+        max_uses=50,
+        valid_until=datetime.now() + timedelta(days=1),
+        access_hours=12,
+        show_credentials=True,
+        show_evaluation=True,
+    )
+
+    assert repo.shows_evaluation(user_id) is True
 
 
 def test_deleting_the_code_keeps_the_account_and_its_deadline(schema, konto_am_code):

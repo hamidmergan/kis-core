@@ -393,14 +393,38 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                     max_uses       INTEGER NOT NULL,
                     used_count     INTEGER NOT NULL DEFAULT 0,
                     valid_until    TIMESTAMP NOT NULL,
-                    access_days    INTEGER DEFAULT 14,
+                    access_hours      INTEGER DEFAULT 336,
+                    show_credentials  BOOLEAN NOT NULL DEFAULT TRUE,
+                    show_evaluation   BOOLEAN NOT NULL DEFAULT FALSE,
                     active         BOOLEAN NOT NULL DEFAULT TRUE,
                     created_by     INTEGER,
                     created_at     TIMESTAMP NOT NULL DEFAULT NOW()
                 )
             """)
+            # Older installs still carry the day-based column, rename and convert it in
+            # place so a code that read "14 Tage" keeps meaning the same span, now in hours.
+            cur.execute("""
+                SELECT 1 FROM information_schema.columns
+                WHERE table_schema = 'public' AND table_name = 'access_codes'
+                  AND column_name = 'access_days'
+            """)
+            if cur.fetchone():
+                cur.execute("ALTER TABLE access_codes RENAME COLUMN access_days TO access_hours")
+                cur.execute(
+                    "UPDATE access_codes SET access_hours = access_hours * 24 "
+                    "WHERE access_hours IS NOT NULL"
+                )
+            cur.execute(
+                "ALTER TABLE access_codes ADD COLUMN IF NOT EXISTS "
+                "show_credentials BOOLEAN NOT NULL DEFAULT TRUE"
+            )
+            # Off by default, an existing code must not start showing the evaluation.
+            cur.execute(
+                "ALTER TABLE access_codes ADD COLUMN IF NOT EXISTS "
+                "show_evaluation BOOLEAN NOT NULL DEFAULT FALSE"
+            )
             # NULL means the accounts this code creates never expire.
-            cur.execute("ALTER TABLE access_codes ALTER COLUMN access_days DROP NOT NULL")
+            cur.execute("ALTER TABLE access_codes ALTER COLUMN access_hours DROP NOT NULL")
             # A test access runs out on its own, the two columns stay empty for everyone else.
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS access_expires_at TIMESTAMP")
             cur.execute(

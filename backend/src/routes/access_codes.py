@@ -104,8 +104,8 @@ def redeem(payload: RedeemPayload, response: Response, locale: str = Depends(get
         code = 409 if isinstance(fehler, LdapUserExistsError) else 500
         raise HTTPException(status_code=code, detail=t("access.createFailed", locale))
 
-    tage = eintrag["access_days"]
-    frist = datetime.now() + timedelta(days=tage) if tage else None
+    stunden = eintrag["access_hours"]
+    frist = datetime.now() + timedelta(hours=stunden) if stunden else None
     try:
         repo.set_user_access(sitzungsdaten["user_id"], expires_at=frist, code_id=eintrag["id"])
     except Exception as fehler:
@@ -127,12 +127,14 @@ def redeem(payload: RedeemPayload, response: Response, locale: str = Depends(get
 
     _set_session(response, sitzungsdaten)
 
-    logger.info("access code redeemed for uid={} until={}", uid, frist.date() if frist else "never")
+    logger.info("access code redeemed for uid={} until={}", uid, frist.isoformat() if frist else "never")
     return {
         "status": "ok",
         "username": uid,
         "password": password,
         "expires_at": frist,
+        # Lets the redeem page skip straight into the app for event codes with the switch off.
+        "show_credentials": eintrag["show_credentials"],
     }
 
 
@@ -162,8 +164,8 @@ def renew(payload: RenewPayload, response: Response, locale: str = Depends(get_l
         raise HTTPException(status_code=403, detail="account_not_activated")
 
     eintrag = _live_code(payload.code, locale, seat_needed=False)
-    tage = eintrag["access_days"]
-    frist = datetime.now() + timedelta(days=tage) if tage else None
+    stunden = eintrag["access_hours"]
+    frist = datetime.now() + timedelta(hours=stunden) if stunden else None
     repo.set_user_access(konto["id"], expires_at=frist, code_id=eintrag["id"])
 
     _set_session(response, {
@@ -176,5 +178,5 @@ def renew(payload: RenewPayload, response: Response, locale: str = Depends(get_l
         "access_expires_at": frist.isoformat() if frist else None,
     })
 
-    logger.info("access renewed for uid={} until={}", ldap_user["username"], frist.date() if frist else "never")
+    logger.info("access renewed for uid={} until={}", ldap_user["username"], frist.isoformat() if frist else "never")
     return {"status": "ok", "username": ldap_user["username"], "expires_at": frist}

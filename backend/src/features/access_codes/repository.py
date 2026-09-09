@@ -14,7 +14,9 @@ def create_code(
     custom_role_id: int | None,
     max_uses: int,
     valid_until: datetime,
-    access_days: int,
+    access_hours: int | None,
+    show_credentials: bool,
+    show_evaluation: bool,
     created_by: int,
 ) -> int:
     """Creates a code and returns its id."""
@@ -23,11 +25,12 @@ def create_code(
             cur.execute(
                 """INSERT INTO access_codes
                        (code, label, role, custom_role_id, max_uses,
-                        valid_until, access_days, created_by)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                        valid_until, access_hours, show_credentials, show_evaluation,
+                        created_by)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                    RETURNING id""",
                 (code, label, role, custom_role_id, max_uses,
-                 valid_until, access_days, created_by),
+                 valid_until, access_hours, show_credentials, show_evaluation, created_by),
             )
             code_id = cur.fetchone()[0]
         conn.commit()
@@ -68,7 +71,9 @@ def update_code(
     custom_role_id: int | None,
     max_uses: int,
     valid_until: datetime,
-    access_days: int | None,
+    access_hours: int | None,
+    show_credentials: bool,
+    show_evaluation: bool,
 ) -> bool:
     """Changes everything about a code except the code string and the used_count."""
     with get_connection() as conn:
@@ -76,14 +81,29 @@ def update_code(
             cur.execute(
                 """UPDATE access_codes
                        SET label = %s, role = %s, custom_role_id = %s, max_uses = %s,
-                           valid_until = %s, access_days = %s
+                           valid_until = %s, access_hours = %s, show_credentials = %s,
+                           show_evaluation = %s
                    WHERE id = %s AND %s >= used_count
                    RETURNING id""",
-                (label, role, custom_role_id, max_uses, valid_until, access_days, code_id, max_uses),
+                (label, role, custom_role_id, max_uses, valid_until, access_hours,
+                 show_credentials, show_evaluation, code_id, max_uses),
             )
             getroffen = cur.fetchone() is not None
         conn.commit()
         return getroffen
+
+
+def shows_evaluation(user_id: int) -> bool:
+    """Whether this account came from a code that asks its visitors for the evaluation."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """SELECT 1 FROM users u
+                       JOIN access_codes c ON c.id = u.access_code_id
+                   WHERE u.id = %s AND c.show_evaluation""",
+                (user_id,),
+            )
+            return cur.fetchone() is not None
 
 
 def set_active(code_id: int, active: bool) -> bool:
@@ -135,6 +155,22 @@ def release_use(code_id: int) -> None:
                 (code_id,),
             )
         conn.commit()
+
+
+def lock_expired_accounts() -> int:
+    """Switches off every account whose test access ran out, keeps the account itself."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """UPDATE users SET active = %s
+                   WHERE access_code_id IS NOT NULL AND active
+                     AND access_expires_at IS NOT NULL AND access_expires_at <= NOW()
+                   RETURNING id""",
+                (False,),
+            )
+            gesperrt = cur.fetchall()
+        conn.commit()
+        return len(gesperrt)
 
 
 def list_users_for_code(code_id: int) -> list[dict]:
