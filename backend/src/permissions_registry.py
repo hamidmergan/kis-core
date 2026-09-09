@@ -66,6 +66,7 @@ PERM_SET_USERS_ROLES = "settings.nutzer.roles"
 # Sich als jemand anderes anmelden, um ein gemeldetes Problem selbst zu sehen.
 PERM_SET_USERS_IMPERSONATE = "settings.nutzer.impersonate"
 PERM_SET_USERS_FEEDBACK = "settings.nutzer.feedback"
+PERM_SET_USERS_EVALUATION = "settings.nutzer.evaluation"
 # Label and hint now hang off PERM_SET_SYSTEM.
 PERM_SET_SYSTEM = "settings.system"
 PERM_SET_MASCOT = "settings.mascot"
@@ -97,6 +98,7 @@ SET_USER_KEYS: tuple[str, ...] = (
     PERM_SET_USERS_ROLES,
     PERM_SET_USERS_IMPERSONATE,
     PERM_SET_USERS_FEEDBACK,
+    PERM_SET_USERS_EVALUATION,
 )
 SET_SYSTEM_KEYS: tuple[str, ...] = (PERM_SET_SYSTEM, PERM_MAINTENANCE_ACCESS)
 SET_MASCOT_KEYS: tuple[str, ...] = (PERM_SET_MASCOT,)

@@ -481,6 +481,19 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                 "CREATE INDEX IF NOT EXISTS feedback_attachments_feedback_idx "
                 "ON feedback_attachments (feedback_id)"
             )
+            # The evaluation itself lives in settings as key/value, only the answers need a table.
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS evaluation_responses (
+                    id         SERIAL PRIMARY KEY,
+                    user_id    INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                    answers    JSONB NOT NULL,
+                    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+                )
+            """)
+            cur.execute(
+                "CREATE INDEX IF NOT EXISTS evaluation_responses_user_idx "
+                "ON evaluation_responses (user_id)"
+            )
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS jobs (
                     id                  SERIAL PRIMARY KEY,

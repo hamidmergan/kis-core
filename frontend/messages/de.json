@@ -23,7 +23,8 @@
     "homeNoticeShow": "Startseite-Hinweis anzeigen",
     "languageLevel": "Sprachniveau",
     "tour": "Rundgang durchs Demo-Modul",
-    "toolsTour": "Rundgang durch die Werkzeuge"
+    "toolsTour": "Rundgang durch die Werkzeuge",
+    "evaluation": "Evaluation"
   },
   "footer": {
     "aiNotice": "Diese Plattform nutzt KI und kann Fehler machen. Prüfe die Antworten.",
@@ -246,6 +247,20 @@
     "submitError": "Senden fehlgeschlagen. Bitte versuche es erneut.",
     "thanksTitle": "Danke für dein Feedback",
     "thanksBody": "Der Eintrag wurde anonym übermittelt."
+  },
+  "evaluationFlow": {
+    "notAvailable": "Gerade ist keine Evaluation aktiv.",
+    "backToHome": "Zurück zur Startseite",
+    "start": "Los geht's",
+    "progress": "Frage {current} von {total}",
+    "scaleLow": "gar nicht",
+    "scaleHigh": "sehr",
+    "back": "Zurück",
+    "next": "Weiter",
+    "submit": "Abschicken",
+    "submitting": "Wird gesendet …",
+    "submitError": "Senden fehlgeschlagen. Bitte versuche es erneut.",
+    "thanksTitle": "Geschafft!"
   },
   "pending": {
     "title": "Konto noch nicht freigeschaltet",
@@ -924,7 +939,8 @@
           "nutzer": "Nutzer",
           "werkzeuge": "Werkzeuge",
           "assistent": "KI-Assistent",
-          "modelle": "Modelle"
+          "modelle": "Modelle",
+          "evaluation": "Evaluation"
         }
       },
       "nutzer": {
@@ -968,6 +984,10 @@
         },
         "feedbackDetail": {
           "label": "Feedback"
+        },
+        "evaluation": {
+          "label": "Evaluation",
+          "sub": "Die Evaluation erstellen, bearbeiten und ein- oder ausschalten."
         }
       },
       "werkzeuge": {
@@ -1835,7 +1855,8 @@
           "users": "Alle Nutzer und ihre Kontingente",
           "roles": "Rollen und Rechte vergeben",
           "impersonate": "Sich als jemand anderes anmelden",
-          "feedback": "Anonyme Rückmeldungen einsehen"
+          "feedback": "Anonyme Rückmeldungen einsehen",
+          "evaluation": "Evaluation erstellen und ein-/ausschalten"
         },
         "system": "Wartung, Beschriftungen und Hinweis",
         "mascot": "Hilde und Francis",
@@ -1936,9 +1957,22 @@
         "unitRequests": "Anfragen an die KI"
       },
       "range": {
+        "all": "Alle",
         "year": "12 Monate",
         "halfYear": "6 Monate",
         "days30": "30 Tage"
+      },
+      "evaluation": {
+        "total": "Teilnahmen",
+        "totalHint": "Abgeschickte Antworten im gewählten Zeitraum.",
+        "scaleHint": "{answered} Antworten, Durchschnitt {average}",
+        "textHint": "{answered} Antworten",
+        "count": "Anzahl",
+        "noAnswers": "Noch nichts da.",
+        "single": "Einzelne Teilnahmen",
+        "singleHint": "Anonym und nur durchnummeriert. Ein Klick zeigt alle Antworten einer Teilnahme zusammen.",
+        "participant": "Teilnahme {number}",
+        "skipped": "übersprungen"
       },
       "tools": {
         "jobs": "Jobs",
@@ -2218,6 +2252,30 @@
     "accessCodeQr": {
       "alt": "QR-Code zum Einlösen",
       "download": "Als PNG herunterladen"
+    },
+    "evaluationEditor": {
+      "loading": "Wird geladen …",
+      "activeLabel": "Evaluation aktiv",
+      "activeHint": "Aus heißt, die Kachel und der Ausfüll-Link sind für niemanden sichtbar.",
+      "titleLabel": "Titel",
+      "introLegend": "Anfang",
+      "introTextPlaceholder": "Text, den die Person zuerst sieht",
+      "outroLegend": "Ende",
+      "outroTextPlaceholder": "Dank-Text am Schluss",
+      "linkLabelPlaceholder": "Link-Text (optional)",
+      "linkUrlPlaceholder": "Link-Adresse (optional)",
+      "questionsLabel": "Fragen",
+      "questionTextPlaceholder": "Fragetext",
+      "scaleLowPlaceholder": "Beschriftung links, z.B. gar nicht",
+      "scaleHighPlaceholder": "Beschriftung rechts, z.B. sehr",
+      "typeScale": "Skala 1-5",
+      "typeText": "Freitext",
+      "addQuestion": "Frage hinzufügen",
+      "removeQuestion": "Frage entfernen",
+      "save": "Speichern",
+      "saving": "Wird gespeichert …",
+      "savedHint": "Gespeichert",
+      "saveError": "Speichern fehlgeschlagen"
     }
   },
   "permissions": {
@@ -3349,6 +3407,12 @@
     "body": "Für Deutsch als Fremdsprache. Dein Niveau bestimmt, wie der Assistent im Modul erklärt und wie Karteikarten, Quiz und Übungen formuliert sind.",
     "start": "Sprachtest starten",
     "dismiss": "Ausblenden"
+  },
+  "evaluationInvite": {
+    "title": "Kurze Evaluation",
+    "body": "Du hast bereits alles getestet? Möchtest du eine kleine Evaluation machen?",
+    "start": "Los geht's",
+    "dismiss": "Nicht jetzt"
   },
   "languageLevel": {
     "title": "Sprachniveau",

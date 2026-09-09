@@ -78,6 +78,7 @@ import StatistikNutzerPage from "../_pages/statistik/nutzer";
 import StatistikWerkzeugePage from "../_pages/statistik/werkzeuge";
 import StatistikAssistentPage from "../_pages/statistik/assistent";
 import StatistikModellePage from "../_pages/statistik/modelle";
+import StatistikEvaluationPage from "../_pages/statistik/evaluation";
 
 import ProviderListPage from "../_pages/anbieter/list";
 import ProviderRoutesPage from "../_pages/anbieter/routes";
@@ -92,6 +93,7 @@ import ImpersonationPage from "../_pages/nutzer/impersonation";
 import QuotaPage from "../_pages/nutzer/quota";
 import FeedbackPage from "../_pages/nutzer/feedback";
 import FeedbackDetailPage from "../_pages/nutzer/feedback-detail";
+import EvaluationPage from "../_pages/nutzer/evaluation";
 
 import SystemPage from "../_pages/system";
 import HildePage from "../_pages/mascot/hilde";
@@ -146,6 +148,8 @@ export const SECTIONS: AdminSection[] = [
       { slug: "tools", labelKey: "werkzeuge", perm: PERM.toolsStats, Component: StatistikWerkzeugePage },
       { slug: "ai-assistant", labelKey: "assistent", perm: PERM.aiaUsage, Component: StatistikAssistentPage },
       { slug: "models", labelKey: "modelle", perm: PERM.statsModels, Component: StatistikModellePage },
+      // Hangs off the same right as creating the evaluation, no second one needed.
+      { slug: "evaluation", labelKey: "evaluation", perm: PERM.usersEvaluation, Component: StatistikEvaluationPage },
     ],
   },
   // Providers and features are two views of the same thing.
@@ -179,6 +183,7 @@ export const SECTIONS: AdminSection[] = [
       { slug: "feedback", key: "feedback", world: "both", perm: PERM.usersFeedback, Component: FeedbackPage },
       // No entry of its own, the page is a jump-off from the feedback list.
       { slug: "feedback-detail", key: "feedbackDetail", world: "both", perm: PERM.usersFeedback, Component: FeedbackDetailPage, hidden: true },
+      { slug: "evaluation", key: "evaluation", world: "both", perm: PERM.usersEvaluation, Component: EvaluationPage },
       // No entry of its own, the page is a jump-off from the user list.
       { slug: "quotas", key: "quota", world: "both", perm: PERM.usersAll, Component: QuotaPage, hidden: true },
     ],

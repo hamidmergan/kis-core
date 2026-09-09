@@ -23,7 +23,8 @@
     "homeNoticeShow": "Show home notice",
     "languageLevel": "Language level",
     "tour": "Tour through the demo module",
-    "toolsTour": "Tour through the tools"
+    "toolsTour": "Tour through the tools",
+    "evaluation": "Evaluation"
   },
   "footer": {
     "aiNotice": "This platform uses AI and may make mistakes. Please verify the responses.",
@@ -246,6 +247,20 @@
     "submitError": "Sending failed. Please try again.",
     "thanksTitle": "Thanks for your feedback",
     "thanksBody": "The entry was submitted anonymously."
+  },
+  "evaluationFlow": {
+    "notAvailable": "No evaluation is active right now.",
+    "backToHome": "Back to the start page",
+    "start": "Let's go",
+    "progress": "Question {current} of {total}",
+    "scaleLow": "not at all",
+    "scaleHigh": "very",
+    "back": "Back",
+    "next": "Next",
+    "submit": "Submit",
+    "submitting": "Sending …",
+    "submitError": "Sending failed. Please try again.",
+    "thanksTitle": "All done!"
   },
   "pending": {
     "title": "Account not yet activated",
@@ -924,7 +939,8 @@
           "nutzer": "Users",
           "werkzeuge": "Tools",
           "assistent": "AI assistant",
-          "modelle": "Models"
+          "modelle": "Models",
+          "evaluation": "Evaluation"
         }
       },
       "nutzer": {
@@ -968,6 +984,10 @@
         },
         "feedbackDetail": {
           "label": "Feedback"
+        },
+        "evaluation": {
+          "label": "Evaluation",
+          "sub": "Create, edit and switch the evaluation on or off."
         }
       },
       "werkzeuge": {
@@ -1835,7 +1855,8 @@
           "users": "All users and their quotas",
           "roles": "Assign roles and permissions",
           "impersonate": "Log in as somebody else",
-          "feedback": "View anonymous feedback"
+          "feedback": "View anonymous feedback",
+          "evaluation": "Create and switch the evaluation on or off"
         },
         "system": "Maintenance, labels and notice",
         "mascot": "Hilde and Francis",
@@ -1936,9 +1957,22 @@
         "unitRequests": "requests to the AI"
       },
       "range": {
+        "all": "All",
         "year": "12 months",
         "halfYear": "6 months",
         "days30": "30 days"
+      },
+      "evaluation": {
+        "total": "Participations",
+        "totalHint": "Submitted answers in the selected period.",
+        "scaleHint": "{answered} answers, average {average}",
+        "textHint": "{answered} answers",
+        "count": "Count",
+        "noAnswers": "Nothing here yet.",
+        "single": "Single participations",
+        "singleHint": "Anonymous and only numbered. One click shows all answers of one participation together.",
+        "participant": "Participation {number}",
+        "skipped": "skipped"
       },
       "tools": {
         "jobs": "Jobs",
@@ -2218,6 +2252,30 @@
     "accessCodeQr": {
       "alt": "QR code to redeem",
       "download": "Download as PNG"
+    },
+    "evaluationEditor": {
+      "loading": "Loading …",
+      "activeLabel": "Evaluation active",
+      "activeHint": "Off means the tile and the link to fill it out are hidden from everyone.",
+      "titleLabel": "Title",
+      "introLegend": "Start",
+      "introTextPlaceholder": "Text the person sees first",
+      "outroLegend": "End",
+      "outroTextPlaceholder": "Thank-you text at the end",
+      "linkLabelPlaceholder": "Link text (optional)",
+      "linkUrlPlaceholder": "Link address (optional)",
+      "questionsLabel": "Questions",
+      "questionTextPlaceholder": "Question text",
+      "scaleLowPlaceholder": "Left label, e.g. not at all",
+      "scaleHighPlaceholder": "Right label, e.g. very",
+      "typeScale": "Scale 1-5",
+      "typeText": "Free text",
+      "addQuestion": "Add question",
+      "removeQuestion": "Remove question",
+      "save": "Save",
+      "saving": "Saving …",
+      "savedHint": "Saved",
+      "saveError": "Saving failed"
     }
   },
   "permissions": {
@@ -3349,6 +3407,12 @@
     "body": "For learners of German. Your level decides how the assistant in a module explains and how flashcards, quizzes and exercises are worded.",
     "start": "Start the language test",
     "dismiss": "Hide"
+  },
+  "evaluationInvite": {
+    "title": "Quick evaluation",
+    "body": "Already tried everything out? Want to fill in a short evaluation?",
+    "start": "Let's go",
+    "dismiss": "Not now"
   },
   "languageLevel": {
     "title": "Language level",

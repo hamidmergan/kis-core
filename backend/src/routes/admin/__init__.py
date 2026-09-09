@@ -4,6 +4,7 @@ from fastapi import APIRouter
 
 from src.routes.admin.access_codes import router as _access_codes_router
 from src.routes.admin.diagnosis_plan import router as _diagnosis_plan_router
+from src.routes.admin.evaluation import router as _evaluation_router
 from src.routes.admin.feedback import router as _feedback_router
 from src.routes.admin.impersonation import router as _impersonation_router
 from src.routes.admin.invites import router as _invites_router
@@ -38,5 +39,6 @@ router.include_router(_quota_router)
 router.include_router(_roles_router)
 router.include_router(_impersonation_router)
 router.include_router(_feedback_router)
+router.include_router(_evaluation_router)
 
 __all__ = ["router"]
