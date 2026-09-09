@@ -278,7 +278,7 @@
     "progress": "Step {current} of {total}",
     "seitenleiste": {
       "title": "Your tools",
-      "text": "Here you'll find all the tools, for example for translations or turning slides into a video. These are standalone tools, you can use each one on its own."
+      "text": "Here you'll find all the tools, for example for translations or turning slides into a video. These are standalone tools, you can use each one on its own. Access to the tools is meant for teachers."
     },
     "translation": {
       "title": "Translation",
@@ -3116,11 +3116,11 @@
         "demo": {
           "willkommen": {
             "title": "Welcome to the demo module",
-            "text": "A module is the place where you upload the materials of your course. Your students work with them directly, they ask the AI assistant Francis about them and have flashcards, quizzes and other formats generated from those materials."
+            "text": "A module is the place where you upload the materials of your course. Your students work with them directly, they ask the AI assistant Francis about them and have flashcards, quizzes and other formats generated from those materials. This tour exists for both teachers and students, you're seeing your own version."
           },
           "willkommenStudi": {
             "title": "Welcome to the demo module",
-            "text": "A module is the place where your teachers upload the materials of the course. You work with them directly, you ask the AI assistant Francis about them and have flashcards, quizzes and other formats generated from those materials."
+            "text": "A module is the place where your teachers upload the materials of the course. You work with them directly, you ask the AI assistant Francis about them and have flashcards, quizzes and other formats generated from those materials. This tour exists for both teachers and students, you're seeing your own version."
           },
           "materialien": {
             "title": "The materials area",

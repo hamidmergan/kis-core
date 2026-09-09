@@ -278,7 +278,7 @@
     "progress": "Schritt {current} von {total}",
     "seitenleiste": {
       "title": "Deine Werkzeuge",
-      "text": "Hier findest du alle Werkzeuge, zum Beispiel für Übersetzungen oder Videos aus Folien. Das sind eigenständige Werkzeuge, du kannst jedes für sich direkt nutzen."
+      "text": "Hier findest du alle Werkzeuge, zum Beispiel für Übersetzungen oder Videos aus Folien. Das sind eigenständige Werkzeuge, du kannst jedes für sich direkt nutzen. Der Zugang zu den Werkzeugen ist für Lehrende gedacht."
     },
     "translation": {
       "title": "Übersetzung",
@@ -3116,11 +3116,11 @@
         "demo": {
           "willkommen": {
             "title": "Willkommen im Demo-Modul",
-            "text": "Ein Modul ist der Ort, an dem du die Materialien deiner Veranstaltung hochlädst. Deine Studierenden arbeiten direkt damit, sie stellen dem KI-Assistenten Francis Fragen dazu und lassen sich Karteikarten, Quiz und weitere Formate daraus erzeugen."
+            "text": "Ein Modul ist der Ort, an dem du die Materialien deiner Veranstaltung hochlädst. Deine Studierenden arbeiten direkt damit, sie stellen dem KI-Assistenten Francis Fragen dazu und lassen sich Karteikarten, Quiz und weitere Formate daraus erzeugen. Diesen Rundgang gibt es für Lehrende und für Studierende, du siehst deine eigene Fassung."
           },
           "willkommenStudi": {
             "title": "Willkommen im Demo-Modul",
-            "text": "Ein Modul ist der Ort, an dem deine Lehrenden die Materialien der Veranstaltung hochladen. Du arbeitest direkt damit, du stellst dem KI-Assistenten Francis Fragen dazu und lässt dir Karteikarten, Quiz und weitere Formate daraus erzeugen."
+            "text": "Ein Modul ist der Ort, an dem deine Lehrenden die Materialien der Veranstaltung hochladen. Du arbeitest direkt damit, du stellst dem KI-Assistenten Francis Fragen dazu und lässt dir Karteikarten, Quiz und weitere Formate daraus erzeugen. Diesen Rundgang gibt es für Lehrende und für Studierende, du siehst deine eigene Fassung."
           },
           "materialien": {
             "title": "Der Materialbereich",
