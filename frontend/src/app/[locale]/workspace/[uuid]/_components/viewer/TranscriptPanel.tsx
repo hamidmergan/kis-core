@@ -11,6 +11,7 @@ import {
   buildTranscriptOptions, groupCues, readPendingTranslation, resolveCitationFocus,
   TRANSLATE_ACTION, type TranscriptMode, type TranscriptOption,
 } from "./_transcript";
+import type { MediaController } from "./mediaController";
 import { TranslateLanguageModal } from "./TranslateLanguageModal";
 import { clearActiveChipTarget } from "../chat/_citations";
 
@@ -72,7 +73,7 @@ function fmtTs(sec: number): string {
 }
 
 export function TranscriptPanel({
-  mediaRef,
+  controller,
   workspaceUuid,
   sourceUuid,
   langInfo,
@@ -87,7 +88,8 @@ export function TranscriptPanel({
   onCitationFocusTime,
   startOff = false,
 }: {
-  mediaRef: React.RefObject<HTMLVideoElement | HTMLAudioElement | null>;
+  // The player behind the transcript, null until it is ready.
+  controller: MediaController | null;
   workspaceUuid: string;
   sourceUuid: string;
   // The languages come from the player, null means not loaded yet.
@@ -247,12 +249,11 @@ export function TranscriptPanel({
   // The highlighted line, everything pointing at it uses this value.
   const citationFocusIdx = citationClaimIdx >= 0 ? citationClaimIdx : citationIdx;
 
-  // Drive currentIdx from the media element's time updates.
+  // Drive currentIdx from the player's time updates.
   useEffect(() => {
-    const media = mediaRef.current;
-    if (!media || masterCues.length === 0) return;
+    if (!controller || masterCues.length === 0) return;
     const onTime = () => {
-      const time = media.currentTime;
+      const time = controller.currentTime();
       let lo = 0, hi = masterCues.length - 1, idx = -1;
       while (lo <= hi) {
         const mid = (lo + hi) >> 1;
@@ -268,10 +269,10 @@ export function TranscriptPanel({
       }
       setCurrentIdx((prev) => (prev === idx ? prev : idx));
     };
-    media.addEventListener("timeupdate", onTime);
+    const stop = controller.onTime(onTime);
     onTime();
-    return () => media.removeEventListener("timeupdate", onTime);
-  }, [mediaRef, masterCues]);
+    return stop;
+  }, [controller, masterCues]);
 
   // Auto-scroll the current cue into view while follow mode is active.
   useEffect(() => {
@@ -455,10 +456,9 @@ export function TranscriptPanel({
 
   // A click always plays from the card's timestamp, wherever in the card it lands.
   const onBlockClick = (start: number) => {
-    const media = mediaRef.current;
-    if (!media) return;
-    media.currentTime = start;
-    media.play().catch(() => { });
+    if (!controller) return;
+    controller.seek(start);
+    controller.play();
   };
 
   // One track's text for a block, its sentences joined back into a paragraph.

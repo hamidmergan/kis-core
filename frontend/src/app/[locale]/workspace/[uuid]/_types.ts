@@ -140,6 +140,8 @@ export interface ViewerState {
   chunkStart?: number;
   // The part of the answer the chip backs, weighting the lines of the span.
   citationClaim?: string;
+  // Set for a YouTube source, the viewer embeds the video instead of streaming a file.
+  youtubeId?: string;
 }
 
 export interface DataTableRowSource {

@@ -14,6 +14,7 @@ from src.services.web_page_extract import (
     safe_filename,
 )
 from src.services.web_page_fetch import LinkError, fetch_page, normalize_url, validate_url
+from src.services.youtube_link import is_youtube_url
 from src.utils.file_validation import validate_or_raise
 
 from . import _upload
@@ -23,6 +24,7 @@ from ._shared import (
     _convert_office_to_pdf_path,
     _require_workspace_manage, _workspace_label,
     _require_source_capacity, _register_source_file,
+    _unique_filename, _as_http,
 )
 
 router = APIRouter(tags=["ki-assistent: sources"])
@@ -30,22 +32,6 @@ router = APIRouter(tags=["ki-assistent: sources"])
 
 class LinkBody(BaseModel):
     url: str
-
-
-def _as_http(err: LinkError, locale: str) -> HTTPException:
-    """Turns a rejected link into the answer the browser shows."""
-    return HTTPException(status_code=err.status, detail=t(err.key, locale, **err.params))
-
-
-def _unique_filename(wanted: str, existing_names: set[str]) -> str:
-    """Appends (2), (3) and so on, because the person did not pick this name."""
-    if wanted.lower() not in existing_names:
-        return wanted
-    stem, ext = Path(wanted).stem, Path(wanted).suffix
-    n = 2
-    while f"{stem} ({n}){ext}".lower() in existing_names:
-        n += 1
-    return f"{stem} ({n}){ext}"
 
 
 @router.post("/ai-assistant/workspaces/{workspace_uuid}/sources/link")
@@ -60,6 +46,10 @@ async def add_link_source(
     check_upload_limit(current_user["user_id"], locale=locale)
     existing_sources = db.get_aia_sources_by_workspace(workspace["id"])
     _require_source_capacity(existing_sources, locale)
+
+    # A YouTube link has its own way in, a PDF of the YouTube page helps nobody.
+    if is_youtube_url(body.url):
+        raise HTTPException(status_code=400, detail=t("ai.link.useYoutube", locale))
 
     try:
         url = await asyncio.to_thread(validate_url, body.url)

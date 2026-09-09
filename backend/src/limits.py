@@ -102,6 +102,11 @@ WEB_PAGE_MAX_PDF_BYTES           = 50 * 1024 * 1024
 WEB_PAGE_MIN_WORDS               = 100     # fewer means the page carried no readable text
 WEB_PAGE_TITLE_MAX_CHARS         = 120
 
+# --- YouTube video as a source ----------------------------------------------
+YOUTUBE_TRANSCRIPT_MAX_CHARS     = 1_000_000
+YOUTUBE_OEMBED_TIMEOUT_SECONDS   = 5
+YOUTUBE_LAST_SEGMENT_SECONDS     = 5.0     # the pasted text names no end for the last line
+
 # Hard limit for a single chat question, the search query is shortened on top.
 AIA_QUESTION_MAX_CHARS                 = 8000
 AIA_EMBED_QUERY_MAX_CHARS              = 2000

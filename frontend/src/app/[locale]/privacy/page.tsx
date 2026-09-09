@@ -128,6 +128,9 @@ export default function DatenschutzPage() {
               <li>
                 <strong>{t("thirdParty.hetznerLabel")}</strong> - {t("thirdParty.hetznerBody")}
               </li>
+              <li>
+                <strong>{t("thirdParty.youtubeLabel")}</strong> - {t("thirdParty.youtubeBody")}
+              </li>
             </ul>
             <p className="text-foreground-soft">
               {t("thirdParty.outro")}

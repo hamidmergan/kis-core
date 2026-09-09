@@ -45,8 +45,9 @@ export function SourceStatus({
 
 export function FileIcon({ filename }: { filename: string }) {
   const kind = _fileKind(filename);
-  const bg = kind === "video" ? "#E0E7FF" : kind === "audio" ? "var(--warn-bg)" : kind === "pdf" ? "var(--error-bg)" : "var(--info-bg)";
-  const color = kind === "video" ? "#4338CA" : kind === "audio" ? "#B45309" : kind === "pdf" ? "var(--error-strong)" : "var(--info-strong)";
+  const isVideo = kind === "video" || kind === "youtube";
+  const bg = isVideo ? "#E0E7FF" : kind === "audio" ? "var(--warn-bg)" : kind === "pdf" ? "var(--error-bg)" : "var(--info-bg)";
+  const color = isVideo ? "#4338CA" : kind === "audio" ? "#B45309" : kind === "pdf" ? "var(--error-strong)" : "var(--info-strong)";
   const Icon = _getChipIcon(filename);
   return (
     <div

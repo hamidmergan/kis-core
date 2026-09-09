@@ -25,6 +25,25 @@ def _save_transcript_artifact(key: str, text: str) -> None:
     from src import storage
     storage.put_bytes(key, text.encode("utf-8"))
 
+
+def _store_transcript_artifacts(file_path_stored: str, segments: list[dict], lang_code: str) -> list[dict]:
+    """Writes the transcript text and the VTT next to the source and returns the chunks."""
+    from src.services import aia_chunker
+    from src.services.subtitle_converter import segments_to_vtt
+
+    chunks = aia_chunker.segments_to_chunks(segments)
+    transcript_text = "\n".join(
+        f"[{_format_ts(s['start'])} - {_format_ts(s['end'])}] {s['text']}" for s in segments
+    )
+    transcript_key = aia_transcript_key(file_path_stored)
+    _save_transcript_artifact(transcript_key, transcript_text)
+    logger.info("KI Tutor: transcript saved to {}", transcript_key)
+    vtt_key = aia_vtt_key(file_path_stored, lang_code)
+    _save_transcript_artifact(vtt_key, segments_to_vtt(segments))
+    logger.info("KI Tutor: VTT ({}) saved to {}", lang_code, vtt_key)
+    return chunks
+
+
 @celery_app.task(bind=True, name="aia.index_source", queue="aia")
 def run_index_source(self, source_uuid: str, locale: str = "de", _aia_job_uuid: str | None = None):
     try:
@@ -54,16 +73,35 @@ def run_index_source(self, source_uuid: str, locale: str = "de", _aia_job_uuid: 
 
         # 4. Fetch file from storage
         import os
+        from contextlib import nullcontext
         suffix = os.path.splitext(filename)[1] or f".{file_type}"
         media_language: str | None = None
-        with open_input_file(file_path_stored, suffix=suffix) as local_path:
-            # 5. Extract chunks (branch: media vs document)
+        # A YouTube source has no file, its transcript was pasted and stored as VTT.
+        opener = nullcontext(None) if file_type == "youtube" else open_input_file(file_path_stored, suffix=suffix)
+        with opener as local_path:
+            # 5. Extract chunks (branch: pasted transcript vs media vs document)
             from src.services import aia_chunker
             media_duration: float | None = None
 
-            if aia_chunker.is_media_file(file_type):
+            if file_type == "youtube":
+                from src.features.ai_assistant.tasks._provided_transcript import (
+                    FALLBACK_LANGUAGE, detect_language, load_provided_segments,
+                )
+                from src.features.ai_assistant.tasks._helpers import _get_llm_client
+                segments = load_provided_segments(file_path_stored)
+                if not segments:
+                    raise RuntimeError("No transcript stored for this YouTube source.")
+                try:
+                    _lang_client, _lang_model, _ = _get_llm_client()
+                    media_language = detect_language(segments, _lang_client, _lang_model)
+                except Exception as e:
+                    # No usable model must not cost the source, the language falls back.
+                    logger.warning("KI Tutor: language detection unavailable for {}: {}", source_uuid, e)
+                    media_language = FALLBACK_LANGUAGE
+                media_duration = float(segments[-1]["end"])
+                chunks = _store_transcript_artifacts(file_path_stored, segments, media_language)
+            elif aia_chunker.is_media_file(file_type):
                 # Audio/Video: transcribe with timestamps, then chunk
-                from src.services.subtitle_converter import segments_to_vtt
                 from src.dependencies import resolve_whisper_client
 
                 # Fragmented MP4 is rewritten losslessly, repeatable without damage.
@@ -90,23 +128,8 @@ def run_index_source(self, source_uuid: str, locale: str = "de", _aia_job_uuid: 
                         os.unlink(normalized_path)
                 if not segments:
                     raise RuntimeError("Whisper returned no segments for this audio/video file.")
-                chunks = aia_chunker.segments_to_chunks(segments)
-
-                # Save full transcript as .txt next to the source file
-                transcript_text = "\n".join(
-                    f"[{_format_ts(s['start'])} - {_format_ts(s['end'])}] {s['text']}"
-                    for s in segments
-                )
-                transcript_key = aia_transcript_key(file_path_stored)
-                _save_transcript_artifact(transcript_key, transcript_text)
-                logger.info("KI Tutor: transcript saved to {}", transcript_key)
-
-                # Save VTT in source language (e.g. _transcript.de.vtt)
                 lang_code = (media_language or "").lower() or "unknown"
-                source_vtt_key = aia_vtt_key(file_path_stored, lang_code)
-                _save_transcript_artifact(source_vtt_key, segments_to_vtt(segments))
-                logger.info("KI Tutor: VTT ({}) saved to {}", lang_code, source_vtt_key)
-
+                chunks = _store_transcript_artifacts(file_path_stored, segments, lang_code)
                 # Ingest never translates, a separate job does that on request.
             else:
                 def _progress_cb(stage: str, page: int | None = None, total: int | None = None) -> None:

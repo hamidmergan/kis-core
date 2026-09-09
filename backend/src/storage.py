@@ -62,6 +62,11 @@ def aia_transcript_prefix(file_path: str) -> str:
     return f"{aia_source_base(file_path)}_transcript."
 
 
+def aia_provided_vtt_key(file_path: str) -> str:
+    """The transcript a person pasted for a link-only source, read once by the ingest."""
+    return f"{aia_source_base(file_path)}_provided.vtt"
+
+
 def tmp_pptx_key(file_id: str) -> str:
     """S3 key for a temporary PPTX (translate -> render handoff). Lifecycle: 24h."""
     return f"{TMP_PPTX_PREFIX}/{file_id}.pptx"
@@ -345,6 +350,13 @@ def save_aia_source_from_path(
 ) -> str:
     """Store an AIA source, streaming from a file on disk."""
     return _store_from_path(aia_source_key(user_id, workspace_uuid, source_uuid, ext), local_path)
+
+
+def save_aia_provided_transcript(user_id: int, workspace_uuid: str, source_uuid: str, vtt: str) -> str:
+    """Stores the pasted transcript of a YouTube source and returns the file_path of the source itself."""
+    key = aia_source_key(user_id, workspace_uuid, source_uuid, ".youtube")
+    _store_bytes(aia_provided_vtt_key(key), vtt.encode("utf-8"))
+    return key if USE_S3 else str(_local_path(key))
 
 
 # Attachments of a feedback entry, deliberately not under users/.

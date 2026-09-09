@@ -1,5 +1,7 @@
 """AI assistant Celery tasks: mindmap generation."""
 
+from pathlib import Path
+
 from langfuse.decorators import langfuse_context, observe
 from loguru import logger
 
@@ -7,8 +9,15 @@ from src.celery_app import celery_app
 from src.limits import AIA_TOOL_SOFT_TIME_LIMIT, AIA_TOOL_TIME_LIMIT
 from src import database as db
 from src.features.ai_assistant.prompts.studio_prompts import AIA_MINDMAP_PROMPT
+from src.services import aia_chunker
 from src.services.aia_adaptive_tools import build_adaptive_tool_suffix
 from src.services.llm_context_healing import create_with_shrink
+
+
+def _is_media_source(filename: str) -> bool:
+    """True when the source's suffix carries a transcript with timestamps."""
+    return aia_chunker.is_media_file(Path(filename).suffix)
+
 
 @celery_app.task(bind=True, name="aia.generate_mindmap", queue="aia",
                  soft_time_limit=AIA_TOOL_SOFT_TIME_LIMIT, time_limit=AIA_TOOL_TIME_LIMIT)
@@ -28,9 +37,6 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
         logger.info("KI Tutor: generating mindmap {}", mindmap_id)
 
         # 1. Build context from chunks
-        from pathlib import Path as _Path
-        _MEDIA_EXTS = {".mp3", ".mp4", ".m4a", ".wav", ".ogg", ".webm", ".flac", ".aac"}
-
         def _fmt_time(seconds: float) -> str:
             s = int(seconds)
             h, s = divmod(s, 3600)
@@ -43,7 +49,7 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
         for sid, suuid in zip(source_ids, source_uuids):
             source = db.get_aia_source(suuid)
             source_label = source["filename"] if source else "Source"
-            is_media = _Path(source_label).suffix.lower() in _MEDIA_EXTS if source else False
+            is_media = _is_media_source(source_label) if source else False
 
             if is_media:
                 # For media: use chunks with start_time as label

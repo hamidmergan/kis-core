@@ -193,3 +193,15 @@ async def test_kein_platz_gibt_503(route, monkeypatch):
         await _aufruf("https://example.org/")
 
     assert exc.value.status_code == 503
+
+
+@pytest.mark.asyncio
+async def test_youtube_link_wird_mit_hinweis_abgewiesen(route, monkeypatch):
+    monkeypatch.setattr(_link, "fetch_page", lambda url: pytest.fail("darf nicht holen"))
+
+    with pytest.raises(HTTPException) as exc:
+        await _aufruf("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+
+    assert exc.value.status_code == 400
+    assert exc.value.detail == "Das ist ein YouTube-Link. Nutze dafür den Abschnitt YouTube-Video."
+    assert "recorded" not in route

@@ -1,5 +1,7 @@
 """KI-Assistent Celery tasks - data_table generation."""
 
+from pathlib import Path
+
 from langfuse.decorators import observe
 from loguru import logger
 
@@ -11,7 +13,14 @@ from src.features.ai_assistant.tasks._helpers import (
     _get_llm_client,
     _clean_llm_json,
 )
+from src.services import aia_chunker
 from src.services.llm_context_healing import create_with_shrink
+
+
+def _is_media_source(filename: str) -> bool:
+    """True when the source's suffix carries a transcript with timestamps."""
+    return aia_chunker.is_media_file(Path(filename).suffix)
+
 
 @celery_app.task(bind=True, name="aia.generate_data_table", queue="aia",
                  soft_time_limit=AIA_TOOL_SOFT_TIME_LIMIT, time_limit=AIA_TOOL_TIME_LIMIT)
@@ -39,7 +48,6 @@ def run_generate_data_table(self, data_table_id: int, source_ids: list[int],
             read_cursors,
             write_cursors,
         )
-        _MEDIA_EXTS = {".mp3", ".mp4", ".m4a", ".wav", ".ogg", ".webm", ".flac", ".aac"}
         budget_per_source = max(1000, tool_context_budget() // max(1, len(source_ids)))
         sweep_workspace_id = (db.get_aia_source(source_uuids[0]) or {}).get("workspace_id") \
             if source_uuids else None
@@ -52,7 +60,7 @@ def run_generate_data_table(self, data_table_id: int, source_ids: list[int],
             src_info = source_map.get(str(sid), {})
             filename = src_info.get("filename", f"Source {src_info.get('number', '?')}")
             source_id_to_label[sid] = filename
-            is_media = any(filename.lower().endswith(ext) for ext in _MEDIA_EXTS)
+            is_media = _is_media_source(filename)
             picked, resume = select_chunks_for_budget(
                 chunks, budget_per_source,
                 cursors=read_cursors(sweep_workspace_id, sid, "datatable"))

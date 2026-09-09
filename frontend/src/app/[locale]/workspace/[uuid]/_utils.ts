@@ -1,8 +1,9 @@
-import { FilePdf, FileDoc, FileVideo, FileAudio } from "@phosphor-icons/react";
+import { FilePdf, FileDoc, FileVideo, FileAudio, YoutubeLogo } from "@phosphor-icons/react";
 import type { LernKarte, QuizQuestion } from "./_types";
+import { isYoutubeSource, youtubeVideoId } from "@/lib/youtube";
 
-export const _MEDIA_EXTENSIONS = new Set([".mp3", ".mp4", ".wav", ".flac", ".m4a", ".webm"]);
-export const _VIDEO_EXTENSIONS = new Set([".mp4", ".webm"]);
+export const _MEDIA_EXTENSIONS = new Set([".mp3", ".mp4", ".wav", ".flac", ".m4a", ".webm", ".youtube"]);
+export const _VIDEO_EXTENSIONS = new Set([".mp4", ".webm", ".youtube"]);
 export const _AUDIO_EXTENSIONS = new Set([".mp3", ".wav", ".flac", ".m4a"]);
 
 export function _embedQmapIntoCitations(content: string, qmap: { qnum: number; uuid: string }[]): string {
@@ -32,12 +33,20 @@ export function _isMediaFile(filename: string): boolean {
   return _MEDIA_EXTENSIONS.has(ext);
 }
 
-export function _fileKind(filename: string): "pdf" | "video" | "audio" | "doc" {
+export function _fileKind(filename: string): "pdf" | "video" | "audio" | "doc" | "youtube" {
   const ext = filename.slice(filename.lastIndexOf(".")).toLowerCase();
   if (ext === ".pdf") return "pdf";
+  // A YouTube source is a video without a file, it gets its own icon.
+  if (ext === ".youtube") return "youtube";
   if (_VIDEO_EXTENSIONS.has(ext)) return "video";
   if (_AUDIO_EXTENSIONS.has(ext)) return "audio";
   return "doc";
+}
+
+/** The video id behind a YouTube source, undefined for every other source. */
+export function _youtubeIdOf(source: { filename: string; source_url?: string | null }): string | undefined {
+  if (!isYoutubeSource(source.filename)) return undefined;
+  return youtubeVideoId(source.source_url) ?? undefined;
 }
 
 /** Splits file name and extension, because renaming keeps the extension fixed. */
@@ -48,6 +57,7 @@ export function splitFilename(filename: string): [string, string] {
 
 export function _getChipIcon(filename: string) {
   const kind = _fileKind(filename);
+  if (kind === "youtube") return YoutubeLogo;
   if (kind === "video") return FileVideo;
   if (kind === "audio") return FileAudio;
   if (kind === "pdf") return FilePdf;

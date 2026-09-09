@@ -2270,6 +2270,8 @@
       "deeplBody": "Übersetzungsdienst für automatische Übersetzungen. Die Verarbeitung erfolgt bei der DeepL SE und unterliegt europäischem Datenschutzrecht.",
       "hetznerLabel": "Hetzner Object Storage",
       "hetznerBody": "Cloud-Speicher für hochgeladene Dateien. Die Speicherung erfolgt bei der Hetzner Online GmbH auf Servern in Deutschland.",
+      "youtubeLabel": "YouTube (Google)",
+      "youtubeBody": "Eingebettete Videos in Modulen. Der Player lädt erst nach einem Klick auf das Video, vorher fließen keine Daten. Beim Laden und Abspielen erhält Google LLC (USA) IP-Adresse und Gerätedaten. Die Einbettung nutzt den erweiterten Datenschutzmodus von YouTube (youtube-nocookie.com). Das Transkript eines Videos wird von der Lehrperson eingegeben und auf der Plattform gespeichert, es wird nicht von YouTube abgerufen.",
       "outro": "Bei den KI-Diensten werden nur die für die jeweilige Funktion notwendigen Inhalte übermittelt, eine darüberhinausgehende Speicherung erfolgt dort nicht. Hochgeladene Dateien bleiben im Object Storage gespeichert, bis sie gelöscht werden."
     },
     "logs": {
@@ -2737,6 +2739,20 @@
         "linkPlaceholder": "https://",
         "linkSubmit": "Einlesen",
         "linkFailed": "Der Link konnte nicht eingelesen werden.",
+        "youtubeHeading": "YouTube-Video",
+        "youtubeLinkPlaceholder": "https://www.youtube.com/watch?v=",
+        "youtubeTranscriptLabel": "Transkript",
+        "youtubeTranscriptPlaceholder": "Hier das kopierte Transkript einfügen",
+        "youtubeSubmit": "Hinzufügen",
+        "youtubeFailed": "Das Video konnte nicht hinzugefügt werden.",
+        "youtubeHowTitle": "So bekommst du das Transkript",
+        "youtubeHow1": "Öffne das Video auf YouTube.",
+        "youtubeHow2": "Klicke unter dem Video auf „mehr“ und dann auf „Transkript anzeigen“.",
+        "youtubeHow3": "Zeitstempel müssen sichtbar sein. Falls nicht: Drei-Punkte-Menü im Transkript und „Zeitstempel einblenden“.",
+        "youtubeHow4": "Markiere den ganzen Text im Transkript, kopiere ihn und füge ihn hier ein.",
+        "youtubeHow5": "Eigenes Video: in YouTube Studio unter Untertitel den Text öffnen und einfügen.",
+        "youtubeHowNoButton": "Fehlt der Knopf „Transkript anzeigen“, hat das Video keine Untertitel. Dann geht es nicht.",
+        "youtubeWhyHelp": "YouTube erlaubt keinen Download. Darum kann die Plattform den Ton nicht selbst transkribieren. Kopiere das Transkript aus YouTube und füge es hier ein.",
         "uploadingMulti": "Datei {current}/{total} – {percent}%",
         "uploadingSingle": "Hochladen… {percent}%",
         "selectAll": "Alle auswählen",
@@ -2826,6 +2842,10 @@
         "jumpToHighlightPage": "Zur Markierung springen (S. {page})",
         "jumpToHighlightTime": "Zur Markierung springen ({time})",
         "transcriptLabel": "Transkript",
+        "youtubeConsentText": "Beim Laden gehen deine IP-Adresse und Gerätedaten an YouTube (Google LLC, USA). Vorher wird nichts übertragen. Die Zustimmung gilt danach für alle Videos in diesem Browser.",
+        "youtubeConsentButton": "Video laden",
+        "youtubeConsentPrivacy": "Datenschutzerklärung",
+        "youtubeLoadFailed": "Der Player konnte nicht geladen werden. Prüfe Blocker im Browser und lade die Seite neu.",
         "transcriptLoading": "Transkript wird geladen...",
         "jumpToCurrent": "Zum aktuellen Transkript springen",
         "transcriptModeLabel": "Transkriptmodus",
@@ -3112,7 +3132,7 @@
           },
           "hochladen": {
             "title": "Materialien hinzufügen",
-            "text": "Über das Plus lädst du eigene Dateien hoch, etwa PDF, Word, PowerPoint, Audio oder Video, oder du liest eine Webseite per Link ein. Aus Ton und Video entsteht automatisch ein Transkript."
+            "text": "Über das Plus lädst du eigene Dateien hoch, etwa PDF, Word, PowerPoint, Audio oder Video, du liest eine Webseite per Link ein oder fügst ein YouTube-Video mit Transkript hinzu. Aus Ton und Video entsteht automatisch ein Transkript."
           },
           "hinweis": {
             "title": "Ein Hinweis für alle",

@@ -5,12 +5,15 @@ import { type ViewerState } from "../../_types";
 import type { AddNoteExtras } from "../../_hooks/useNotes";
 import { FileIcon } from "../sources/FileIcon";
 import { TranscriptPanel, type LangInfo } from "./TranscriptPanel";
+import { htmlMediaController, type MediaController } from "./mediaController";
+import { YoutubeEmbed } from "./YoutubeEmbed";
 
 // Without a language list the transcript leaves the loading state instead of waiting.
 const EMPTY_LANGS: LangInfo = { source_lang: null, target_lang: null, available: [] };
 
 export function MediaPlayer({
   source, onClose, workspaceUuid, onMinimize, canManage = false, onSaveNote,
+  youtubeConsent = false, onYoutubeConsent = () => { },
 }: {
   source: ViewerState;
   onClose: () => void;
@@ -18,13 +21,25 @@ export function MediaPlayer({
   onMinimize?: () => void;
   canManage?: boolean;
   onSaveNote?: (content: string, sourceUuids?: string[], extras?: AddNoteExtras) => void | Promise<void>;
+  // One click, ever, per browser: the page reads it from localStorage.
+  youtubeConsent?: boolean;
+  onYoutubeConsent?: () => void;
 }) {
   const t = useTranslations("workspace.detail.viewer");
   const tPanels = useTranslations("workspace.detail.panels");
   const mediaRef = useRef<HTMLVideoElement | HTMLAudioElement>(null);
   const ext = source.filename.slice(source.filename.lastIndexOf(".")).toLowerCase();
   const isVideo = [".mp4", ".webm"].includes(ext);
+  const isYoutube = !!source.youtubeId;
   const mediaUrl = `/api/ai-assistant/workspaces/${workspaceUuid}/sources/${source.uuid}/file`;
+
+  // The element exists only after the render and changes with the kind of source.
+  const [controller, setController] = useState<MediaController | null>(null);
+  useEffect(() => {
+    // A YouTube source gets its controller from the embed, never from a leftover element.
+    const el = isYoutube ? null : mediaRef.current;
+    setController(el ? htmlMediaController(el) : null);
+  }, [isVideo, isYoutube, source.uuid]);
 
   // The languages are fetched once per source and passed on.
   const [langInfo, setLangInfo] = useState<LangInfo | null>(null);
@@ -57,6 +72,7 @@ export function MediaPlayer({
 
   // Only seek once the new source is loaded and really seekable.
   useEffect(() => {
+    if (isYoutube) return;
     const media = mediaRef.current;
     if (seekTarget === undefined || !media) return;
     const target = seekTarget;
@@ -88,7 +104,7 @@ export function MediaPlayer({
     tick();
     return stop;
     // The refined time arrives one round later, hence this value.
-  }, [seekTarget, source.nonce, source.uuid]);
+  }, [isYoutube, seekTarget, source.nonce, source.uuid]);
 
   return (
     <div className="flex flex-col h-full viewer-short">
@@ -114,7 +130,17 @@ export function MediaPlayer({
       </div>
       {/* Player */}
       <div className="flex items-center justify-center p-4 flex-shrink-0" style={{ maxHeight: "55%" }}>
-        {isVideo ? (
+        {isYoutube ? (
+          <YoutubeEmbed
+            videoId={source.youtubeId as string}
+            title={source.filename}
+            consent={youtubeConsent}
+            onConsent={onYoutubeConsent}
+            seekTarget={seekTarget}
+            seekNonce={source.nonce}
+            onController={setController}
+          />
+        ) : isVideo ? (
           // No subtitle tracks and no download in the player menu.
           <video
             ref={mediaRef as React.RefObject<HTMLVideoElement>}
@@ -146,7 +172,7 @@ export function MediaPlayer({
         )}
       </div>
       <TranscriptPanel
-        mediaRef={mediaRef}
+        controller={controller}
         workspaceUuid={workspaceUuid}
         sourceUuid={source.uuid}
         langInfo={langInfo}

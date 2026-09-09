@@ -17,7 +17,7 @@ from ._shared import (
     _convert_office_to_pdf_path, _mp4_faststart_path,
     _require_workspace_manage, _load_workspace_source,
     _require_source_capacity, _register_source_file,
-    _workspace_label,
+    _workspace_label, _enqueue_index_source,
     _ALLOWED_EXTENSIONS, _MAX_UPLOAD_BYTES,
 )
 
@@ -167,12 +167,7 @@ async def retry_source(
     db.delete_aia_chunks_by_source(source["id"])
     db.reset_aia_source_for_retry(source_uuid)
 
-    from src.features.ai_assistant.scheduling.service import scheduler_enabled, enqueue_task
-    if scheduler_enabled():
-        enqueue_task("aia.index_source", current_user["user_id"], args=[source_uuid, locale])
-    else:
-        from src.tasks.aia_tasks import run_index_source
-        run_index_source.delay(source_uuid, locale)
+    _enqueue_index_source(source_uuid, current_user["user_id"], locale)
 
     logger.info("KI Tutor: source {} retry dispatched", source_uuid)
     return {"uuid": source_uuid, "status": "pending"}

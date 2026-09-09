@@ -153,14 +153,15 @@ export function useSources({ uuid, onModuleUpdate }: UseSourcesOptions) {
     if (errors.length > 0) setUploadErrors(errors);
   }, [uuid, sources, t]);
 
-  const addLink = useCallback(async (url: string) => {
+  // One JSON post for every link-based source, the answer is the new row.
+  const postSource = useCallback(async (path: string, payload: Record<string, string>) => {
     let res: Response;
     try {
-      res = await fetch(`/api/ai-assistant/workspaces/${uuid}/sources/link`, {
+      res = await fetch(`/api/ai-assistant/workspaces/${uuid}/sources/${path}`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url }),
+        body: JSON.stringify(payload),
       });
     } catch {
       throw new Error(t("networkError"));
@@ -182,11 +183,18 @@ export function useSources({ uuid, onModuleUpdate }: UseSourcesOptions) {
     setSources((prev) => [newSrc, ...prev]);
   }, [uuid, t]);
 
+  const addLink = useCallback((url: string) => postSource("link", { url }), [postSource]);
+
+  const addYoutube = useCallback(
+    (url: string, transcript: string) => postSource("youtube", { url, transcript }),
+    [postSource],
+  );
+
   return {
     sources, setSources,
     selectedSourceIds, setSelectedSourceIds,
     uploadProgress,
     uploadErrors, setUploadErrors,
-    toggleSource, deleteSource, renameSource, retrySource, uploadFiles, addLink,
+    toggleSource, deleteSource, renameSource, retrySource, uploadFiles, addLink, addYoutube,
   };
 }

@@ -32,8 +32,9 @@ def main() -> int:
                     help="Only detect & report which files are fragmented; change nothing.")
     args = ap.parse_args()
 
+    # A YouTube source has no file to read a byte range from, so it is skipped here.
     sources = [s for s in source_repo.get_all_aia_sources()
-               if aia_chunker.is_media_file(s.get("file_type", ""))]
+               if aia_chunker.is_media_file(s.get("file_type", "")) and s.get("file_type") != "youtube"]
     print(f"Media sources: {len(sources)}  (dry-run={args.dry_run})")
 
     fragmented = fixed = total_reqs = 0

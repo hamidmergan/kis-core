@@ -18,8 +18,9 @@ import type {
   LanguageTrainingView,
   StaffNoteLink,
 } from "./_types";
-import { _isMediaFile } from "./_utils";
+import { _isMediaFile, _youtubeIdOf } from "./_utils";
 import { NOTE_BODY_MAX } from "./_constants";
+import { readYoutubeConsent, writeYoutubeConsent } from "@/lib/youtubeConsent";
 import { usePanelLayout } from "./_hooks/usePanelLayout";
 import { useSources } from "./_hooks/useSources";
 import { useChapters } from "./_hooks/useChapters";
@@ -82,6 +83,7 @@ export default function KiTutorWorkspacePage() {
     retrySource: handleRetrySource,
     uploadFiles: handleUpload,
     addLink: handleAddLink,
+    addYoutube: handleAddYoutube,
   } = useSources({ uuid, onModuleUpdate: (mod) => setWorkspaceDetail(mod) });
 
   // Chapters only structure the list, the selection stays the file's checkbox.
@@ -101,6 +103,8 @@ export default function KiTutorWorkspacePage() {
   }, [moduleDetail?.chapters, setChapters]);
 
   const [viewerSource, setViewerSource] = useState<ViewerState | null>(null);
+  // One click, ever, per browser: the choice is remembered in localStorage.
+  const [youtubeConsent, setYoutubeConsent] = useState(readYoutubeConsent);
 
   const {
     panels, setPanels,
@@ -454,7 +458,7 @@ export default function KiTutorWorkspacePage() {
         if (!src) return;
         if (_isMediaFile(src.filename) && startTime != null) {
           // Do not narrow the selection, otherwise a single source sticks on reload.
-          setViewerSource({ uuid: src.uuid, filename: src.filename, page: 0, startTime, nonce: Date.now() });
+          setViewerSource({ uuid: src.uuid, filename: src.filename, page: 0, startTime, nonce: Date.now(), youtubeId: _youtubeIdOf(src) });
           setPanels((prev) => ({ ...prev, quellen: true }));
         } else {
           handleOpenViewer(src, page, highlightText, true);
@@ -551,7 +555,7 @@ export default function KiTutorWorkspacePage() {
   const renderQuellenContent = ({ onMinimize, hideHeader: hh }: { onMinimize: () => void; hideHeader: boolean }) => {
     if (viewerSource) {
       return _isMediaFile(viewerSource.filename) ? (
-        <MediaPlayer source={viewerSource} onClose={handleCloseViewer} workspaceUuid={uuid} onMinimize={onMinimize} canManage={isOwner} onSaveNote={addNote} />
+        <MediaPlayer source={viewerSource} onClose={handleCloseViewer} workspaceUuid={uuid} onMinimize={onMinimize} canManage={isOwner} onSaveNote={addNote} youtubeConsent={youtubeConsent} onYoutubeConsent={() => { writeYoutubeConsent(); setYoutubeConsent(true); }} />
       ) : (
         <PdfViewer source={viewerSource} onClose={handleCloseViewer} workspaceUuid={uuid} onAskWithSelection={handleAskWithSelection} onCustomQuestion={handleCustomQuestion} popupActions={popupActions} onAddToGlossary={handleAddToGlossary} onAddToNote={handleAddToNote} onMinimize={onMinimize} />
       );
@@ -567,6 +571,7 @@ export default function KiTutorWorkspacePage() {
         onRetrySource={handleRetrySource}
         onUpload={handleUpload}
         onAddLink={handleAddLink}
+        onAddYoutube={handleAddYoutube}
         uploadProgress={uploadProgress}
         uploadErrors={uploadErrors}
         onDismissUploadErrors={() => setUploadErrors([])}

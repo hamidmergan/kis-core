@@ -21,12 +21,12 @@ export default function CollapsibleCard({
   const [open, setOpen] = useState(defaultOpen);
 
   return (
-    <div className="border border-border-soft rounded-xl bg-background">
+    <div className="border-2 border-border-soft rounded-xl bg-background transition-colors hover:border-kb">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className={`w-full text-left flex items-start gap-2 px-5 pt-5 rounded-xl transition-colors hover:bg-surface ${
+        className={`w-full text-left flex items-start gap-2 px-5 pt-5 rounded-xl ${
           open ? "pb-4" : "pb-5"
         }`}
       >

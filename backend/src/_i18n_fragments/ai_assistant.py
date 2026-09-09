@@ -255,4 +255,43 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "You skipped every question. Your level is therefore set to A1. "
               "You can take the test again at any time.",
     },
+    # YouTube video as a source.
+    "ai.youtube.invalid": {
+        "de": "Das ist kein Link auf ein YouTube-Video.",
+        "en": "That is not a link to a YouTube video.",
+    },
+    "ai.youtube.duplicate": {
+        "de": "Dieses Video ist schon im {label}.",
+        "en": "This video is already in the {label}.",
+    },
+    "ai.youtube.notFound": {
+        "de": "Unter diesem Link gibt es kein Video.",
+        "en": "There is no video at this link.",
+    },
+    "ai.youtube.notEmbeddable": {
+        "de": "Das Video lässt sich nicht einbetten. Es ist privat oder das Einbetten ist gesperrt.",
+        "en": "The video cannot be embedded. It is private or embedding is disabled.",
+    },
+    "ai.youtube.noTimestamps": {
+        "de": "Im Transkript fehlen die Zeitstempel. Schalte sie im YouTube-Transkript über das "
+              "Drei-Punkte-Menü ein und kopiere den Text neu.",
+        "en": "The transcript has no timestamps. Turn them on in the YouTube transcript via the "
+              "three-dot menu and copy the text again.",
+    },
+    "ai.youtube.emptyTranscript": {
+        "de": "Das Transkript enthält keinen Text.",
+        "en": "The transcript contains no text.",
+    },
+    "ai.youtube.tooLong": {
+        "de": "Das Transkript ist zu lang.",
+        "en": "The transcript is too long.",
+    },
+    "ai.youtube.noFile": {
+        "de": "Zu einem YouTube-Video gibt es keine Datei.",
+        "en": "A YouTube video has no file.",
+    },
+    "ai.link.useYoutube": {
+        "de": "Das ist ein YouTube-Link. Nutze dafür den Abschnitt YouTube-Video.",
+        "en": "That is a YouTube link. Use the YouTube video section for it.",
+    },
 }

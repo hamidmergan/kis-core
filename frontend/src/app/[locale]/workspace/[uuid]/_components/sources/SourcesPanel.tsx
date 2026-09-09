@@ -31,6 +31,7 @@ export function SourcesPanel({
   onRetrySource,
   onUpload,
   onAddLink,
+  onAddYoutube,
   uploadProgress,
   uploadErrors,
   onDismissUploadErrors,
@@ -58,6 +59,8 @@ export function SourcesPanel({
   onUpload: (files: File[]) => void;
   /** Reads in a web page by link, missing means the plus opens the file picker straight away. */
   onAddLink?: (url: string) => Promise<void>;
+  /** Adds a YouTube video with its pasted transcript. */
+  onAddYoutube?: (url: string, transcript: string) => Promise<void>;
   uploadProgress: { current: number; total: number; percent: number } | null;
   uploadErrors: { filename: string; message: string }[];
   onDismissUploadErrors: () => void;
@@ -271,6 +274,7 @@ export function SourcesPanel({
           onClose={() => setAddOpen(false)}
           onPickFile={() => fileInputRef.current?.click()}
           onAddLink={onAddLink}
+          onAddYoutube={onAddYoutube}
         />
       )}
 

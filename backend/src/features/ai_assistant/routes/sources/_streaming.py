@@ -41,6 +41,9 @@ def stream_source_file(
         raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
 
     source = _load_workspace_source(source_uuid, workspace, locale)
+    # A YouTube source has no file, the player embeds the video instead.
+    if source.get("file_type") == "youtube":
+        raise HTTPException(status_code=404, detail=t("ai.youtube.noFile", locale))
 
     ext = Path(source["filename"]).suffix.lower()
     media_type_map = {

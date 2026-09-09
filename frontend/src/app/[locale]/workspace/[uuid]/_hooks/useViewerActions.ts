@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
-import { _isMediaFile } from "../_utils";
+import { _isMediaFile, _youtubeIdOf } from "../_utils";
 import type { PanelKey, Source, ViewerState } from "../_types";
 
 interface UseViewerActionsOptions {
@@ -27,7 +27,7 @@ export function useViewerActions(opts: UseViewerActionsOptions) {
 
   // An opened source does not narrow the selection, it used to stick when stored.
   const openViewer = useCallback((source: Source, page = 1, highlightText?: string, exactSelection?: boolean, isCitation = false) => {
-    setViewerSource({ uuid: source.uuid, filename: source.filename, page, highlightText, exactSelection, isCitation, nonce: Date.now() });
+    setViewerSource({ uuid: source.uuid, filename: source.filename, page, highlightText, exactSelection, isCitation, nonce: Date.now(), youtubeId: _youtubeIdOf(source) });
     setPanels((prev) => ({ ...prev, quellen: true }));
     if (isMobile) setActiveTab("quellen");
   }, [setViewerSource, setPanels, isMobile, setActiveTab]);
@@ -74,7 +74,7 @@ export function useViewerActions(opts: UseViewerActionsOptions) {
     const isMedia = _isMediaFile(filename);
     if (isMedia) {
       // isCitation marks the jump of a citation chip, sourceText is the claim and no search term.
-      setViewerSource({ uuid: sourceUuid, filename, page: 0, startTime, endTime, chunkStart, citationClaim: sourceText, isCitation: true, hideTranscript, nonce: Date.now() });
+      setViewerSource({ uuid: sourceUuid, filename, page: 0, startTime, endTime, chunkStart, citationClaim: sourceText, isCitation: true, hideTranscript, nonce: Date.now(), youtubeId: src ? _youtubeIdOf(src) : undefined });
       setPanels((prev) => ({ ...prev, quellen: true }));
       if (isMobile) setActiveTab("quellen");
       return;

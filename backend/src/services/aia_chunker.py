@@ -507,11 +507,13 @@ def _extract_text(file_path: str, chunk_size: int, overlap: int) -> list[dict]:
 # ── Audio/Video transcript chunking ─────────────────────────────────────────────
 
 _AUDIO_EXTENSIONS = {"mp3", "mp4", "wav", "flac", "m4a", "webm"}
+# A YouTube source has no file but a transcript, downstream it counts as media.
+_TRANSCRIPT_TYPES = _AUDIO_EXTENSIONS | {"youtube"}
 
 
 def is_media_file(file_type: str) -> bool:
-    """Check if file_type is an audio/video format."""
-    return file_type.lower().lstrip(".") in _AUDIO_EXTENSIONS
+    """True when the source carries a transcript with timestamps."""
+    return file_type.lower().lstrip(".") in _TRANSCRIPT_TYPES
 
 
 def segments_to_chunks(segments: list[dict]) -> list[dict]:

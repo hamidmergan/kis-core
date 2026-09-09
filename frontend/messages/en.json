@@ -2270,6 +2270,8 @@
       "deeplBody": "Translation service for automatic translations. Processing takes place at DeepL SE and is subject to European data protection law.",
       "hetznerLabel": "Hetzner Object Storage",
       "hetznerBody": "Cloud storage for uploaded files. Storage takes place at Hetzner Online GmbH on servers in Germany.",
+      "youtubeLabel": "YouTube (Google)",
+      "youtubeBody": "Embedded videos in modules. The player loads only after a click on the video, no data flows before that. When loading and playing, Google LLC (USA) receives the IP address and device data. The embed uses YouTube's privacy-enhanced mode (youtube-nocookie.com). The transcript of a video is entered by the teacher and stored on the platform, it is not fetched from YouTube.",
       "outro": "For the AI services, only the content required for the respective function is transmitted, and no further storage takes place there. Uploaded files remain in object storage until they are deleted."
     },
     "logs": {
@@ -2737,6 +2739,20 @@
         "linkPlaceholder": "https://",
         "linkSubmit": "Read in",
         "linkFailed": "The link could not be read in.",
+        "youtubeHeading": "YouTube video",
+        "youtubeLinkPlaceholder": "https://www.youtube.com/watch?v=",
+        "youtubeTranscriptLabel": "Transcript",
+        "youtubeTranscriptPlaceholder": "Paste the copied transcript here",
+        "youtubeSubmit": "Add",
+        "youtubeFailed": "The video could not be added.",
+        "youtubeHowTitle": "How to get the transcript",
+        "youtubeHow1": "Open the video on YouTube.",
+        "youtubeHow2": "Below the video click “more” and then “Show transcript”.",
+        "youtubeHow3": "Timestamps have to be visible. If not: three-dot menu in the transcript and “Toggle timestamps”.",
+        "youtubeHow4": "Select all the text in the transcript, copy it and paste it here.",
+        "youtubeHow5": "Your own video: in YouTube Studio open the text under Subtitles and paste it.",
+        "youtubeHowNoButton": "If there is no “Show transcript” button, the video has no subtitles. Then it cannot be added.",
+        "youtubeWhyHelp": "YouTube does not allow downloads. So the platform cannot transcribe the audio itself. Copy the transcript from YouTube and paste it here.",
         "uploadingMulti": "File {current}/{total} – {percent}%",
         "uploadingSingle": "Uploading… {percent}%",
         "selectAll": "Select all",
@@ -2826,6 +2842,10 @@
         "jumpToHighlightPage": "Jump to highlight (p. {page})",
         "jumpToHighlightTime": "Jump to highlight ({time})",
         "transcriptLabel": "Transcript",
+        "youtubeConsentText": "Loading sends your IP address and device data to YouTube (Google LLC, USA). Nothing is sent before that. This choice then applies to every video in this browser.",
+        "youtubeConsentButton": "Load video",
+        "youtubeConsentPrivacy": "Privacy policy",
+        "youtubeLoadFailed": "The player could not be loaded. Check blockers in your browser and reload the page.",
         "transcriptLoading": "Loading transcript...",
         "jumpToCurrent": "Jump to current transcript",
         "transcriptModeLabel": "Transcript mode",
@@ -3112,7 +3132,7 @@
           },
           "hochladen": {
             "title": "Adding materials",
-            "text": "The plus uploads your own files, such as PDF, Word, PowerPoint, audio or video, or reads in a web page by link. Audio and video automatically get a transcript."
+            "text": "The plus uploads your own files, such as PDF, Word, PowerPoint, audio or video, reads in a web page by link, or adds a YouTube video with its transcript. Audio and video automatically get a transcript."
           },
           "hinweis": {
             "title": "A note for everyone",

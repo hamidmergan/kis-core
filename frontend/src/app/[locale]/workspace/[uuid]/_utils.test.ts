@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { YoutubeLogo } from "@phosphor-icons/react";
 import {
   _embedQmapIntoCitations,
   _formatApiError,
@@ -11,6 +12,7 @@ import {
   _sourceChipKey,
   _chunkLabel,
   _getChipIcon,
+  _youtubeIdOf,
   splitFilename,
   parseFlashcards,
   parseQuiz,
@@ -65,7 +67,7 @@ describe("_formatApiError", () => {
 
 // ── _isMediaFile / _fileKind / _getChipIcon ──────────────────────────────────
 describe("_isMediaFile", () => {
-  it.each([".mp3", ".mp4", ".wav", ".flac", ".m4a", ".webm"])("is true for %s", (ext) => {
+  it.each([".mp3", ".mp4", ".wav", ".flac", ".m4a", ".webm", ".youtube"])("is true for %s", (ext) => {
     expect(_isMediaFile(`clip${ext}`)).toBe(true);
   });
   it("is case-insensitive", () => {
@@ -82,6 +84,7 @@ describe("_fileKind", () => {
     ["slides.pdf", "pdf"],
     ["lecture.mp4", "video"],
     ["talk.webm", "video"],
+    ["talk.youtube", "youtube"],
     ["audio.mp3", "audio"],
     ["sound.flac", "audio"],
     ["notes.docx", "doc"],
@@ -92,9 +95,21 @@ describe("_fileKind", () => {
 
 describe("_getChipIcon", () => {
   it("returns a component for every file kind", () => {
-    for (const f of ["a.pdf", "a.mp4", "a.mp3", "a.docx"]) {
+    for (const f of ["a.pdf", "a.mp4", "a.mp3", "a.docx", "a.youtube"]) {
       expect(_getChipIcon(f)).toBeTruthy();
     }
+  });
+  it("gives a YouTube source its own icon", () => {
+    expect(_getChipIcon("a.youtube")).toBe(YoutubeLogo);
+    expect(_getChipIcon("a.mp4")).not.toBe(YoutubeLogo);
+  });
+});
+
+describe("_youtubeIdOf", () => {
+  it("reads the id only for a YouTube source with a link", () => {
+    expect(_youtubeIdOf({ filename: "a.youtube", source_url: "https://youtu.be/dQw4w9WgXcQ" })).toBe("dQw4w9WgXcQ");
+    expect(_youtubeIdOf({ filename: "a.youtube", source_url: null })).toBeUndefined();
+    expect(_youtubeIdOf({ filename: "a.mp4", source_url: "https://youtu.be/dQw4w9WgXcQ" })).toBeUndefined();
   });
 });
 
