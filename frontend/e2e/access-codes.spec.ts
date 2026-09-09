@@ -18,7 +18,7 @@ test("Zugangscode: ein Konto einlösen und die Startseite erreichen", async ({ p
       label: `E2E Zugangscode ${SUFFIX}`,
       max_uses: 2,
       valid_days: 7,
-      access_days: 7,
+      access_hours: 168,
       kis_role: "staff",
       custom_role_id: null,
     },
@@ -67,6 +67,41 @@ test("Zugangscode: ein Konto einlösen und die Startseite erreichen", async ({ p
   }
 });
 
+test("Zugangscode ohne Zugangsdaten: Link allein meldet an, ganz ohne Klick", async ({ page, baseURL }) => {
+  const admin = await playwrightRequest.newContext({ baseURL });
+  await admin.post("/auth/login", { data: ADMIN });
+
+  const erstellt = await admin.post("/api/admin/access-codes", {
+    data: {
+      label: `E2E Veranstaltung ${SUFFIX}`,
+      max_uses: 2,
+      valid_days: 1,
+      access_hours: 12,
+      show_credentials: false,
+      kis_role: "user",
+      custom_role_id: null,
+    },
+  });
+  expect(erstellt.ok()).toBeTruthy();
+  const code = await erstellt.json();
+
+  try {
+    // Der Code kommt aus der URL, wie beim Scannen des QR-Codes, kein Klick noetig.
+    const [einloesung] = await Promise.all([
+      page.waitForResponse((r) => r.url().includes("/access-codes/redeem") && r.request().method() === "POST"),
+      page.goto(`/de/redeem?code=${code.code}`, { waitUntil: "load" }),
+    ]);
+    expect(einloesung.ok()).toBeTruthy();
+
+    // Kein Zwischenschritt mit Benutzername/Passwort, direkt auf die Startseite.
+    await expect(page).toHaveURL((url) => !url.pathname.includes("redeem"), { timeout: 10_000 });
+    await expect(page.getByTestId("access-code-done")).toHaveCount(0);
+  } finally {
+    await admin.delete(`/api/admin/access-codes/${code.id}`);
+    await admin.dispose();
+  }
+});
+
 test.describe("Zugangscode anlegen im Formular", () => {
   test.use({ storageState: "e2e/.auth/state.json" });
 
@@ -92,5 +127,77 @@ test.describe("Zugangscode anlegen im Formular", () => {
     await admin.post("/auth/login", { data: ADMIN });
     await admin.delete(`/api/admin/access-codes/${code.id}`);
     await admin.dispose();
+  });
+
+  test("Evaluation-Haken bleibt am Code und laesst sich nachtraeglich setzen", async ({ page, baseURL }) => {
+    await page.goto("/de/admin/users/access-codes", { waitUntil: "load" });
+    await page.getByTestId("access-code-create").click();
+
+    await page.locator("#access-code-label").fill(`E2E Evaluation ${SUFFIX}`);
+    await page.getByRole("checkbox", { name: "Evaluation anzeigen" }).click();
+
+    const [antwort] = await Promise.all([
+      page.waitForResponse((r) => r.url().includes("/api/admin/access-codes") && r.request().method() === "POST"),
+      page.getByTestId("access-code-submit").click(),
+    ]);
+    const code = await antwort.json();
+    expect(code.show_evaluation).toBe(true);
+    await page.getByRole("button", { name: "Schließen" }).click();
+
+    // Der Dialog stellt den Haken wieder her, sonst faellt er beim naechsten Speichern still um.
+    const zeile = page.locator("tr", { hasText: code.code });
+    await zeile.getByRole("button", { name: "Bearbeiten" }).click();
+    const haken = page.getByRole("checkbox", { name: "Evaluation anzeigen" });
+    await expect(haken).toBeChecked();
+
+    await haken.click();
+    const [gespeichert] = await Promise.all([
+      page.waitForResponse((r) => r.url().includes(`/api/admin/access-codes/${code.id}`) && r.request().method() === "PATCH"),
+      page.getByTestId("access-code-edit-submit").click(),
+    ]);
+    expect(gespeichert.ok()).toBeTruthy();
+
+    const admin = await playwrightRequest.newContext({ baseURL });
+    await admin.post("/auth/login", { data: ADMIN });
+    const liste = await (await admin.get("/api/admin/access-codes")).json();
+    const frisch = liste.codes.find((c: { id: number }) => c.id === code.id);
+    expect(frisch.show_evaluation).toBe(false);
+    await admin.delete(`/api/admin/access-codes/${code.id}`);
+    await admin.dispose();
+  });
+
+  test("QR-Code anzeigen und als PNG herunterladen", async ({ page, baseURL }) => {
+    const admin = await playwrightRequest.newContext({ baseURL });
+    await admin.post("/auth/login", { data: ADMIN });
+    const erstellt = await admin.post("/api/admin/access-codes", {
+      data: {
+        label: `E2E QR ${SUFFIX}`,
+        max_uses: 5,
+        valid_days: 7,
+        access_hours: 12,
+        kis_role: "user",
+        custom_role_id: null,
+      },
+    });
+    const code = await erstellt.json();
+
+    try {
+      await page.goto("/de/admin/users/access-codes", { waitUntil: "load" });
+      const zeile = page.locator("tr", { hasText: code.code });
+      await zeile.getByRole("button", { name: "QR-Code" }).click();
+
+      const modal = page.getByRole("dialog");
+      await expect(modal.locator("img")).toBeVisible();
+      await expect(modal.getByText(`/redeem?code=${code.code}`)).toBeVisible();
+
+      const [download] = await Promise.all([
+        page.waitForEvent("download"),
+        modal.getByRole("link", { name: "Als PNG herunterladen" }).click(),
+      ]);
+      expect(download.suggestedFilename()).toBe(`zugangscode-${code.code}.png`);
+    } finally {
+      await admin.delete(`/api/admin/access-codes/${code.id}`);
+      await admin.dispose();
+    }
   });
 });

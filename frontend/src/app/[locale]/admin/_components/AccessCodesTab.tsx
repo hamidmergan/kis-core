@@ -4,7 +4,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Check, PencilSimple, Trash } from "@phosphor-icons/react";
+import { Check, PencilSimple, QrCode, Trash } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 import Modal from "@/components/ui/Modal";
 import IconButton from "@/components/ui/IconButton";
@@ -13,6 +13,7 @@ import type { StatusTone } from "@/lib/jobStatusDisplay";
 import { copyTextFromPromise } from "@/lib/clipboard";
 import CreateAccessCodeDialog from "./CreateAccessCodeDialog";
 import EditAccessCodeDialog from "./EditAccessCodeDialog";
+import AccessCodeQr from "./AccessCodeQr";
 
 type Zustand = "active" | "disabled" | "expired" | "full";
 type KontoZustand = "active" | "expired" | "disabled";
@@ -64,7 +65,9 @@ type Code = {
   max_uses: number;
   used_count: number;
   valid_until: string;
-  access_days: number | null;
+  access_hours: number | null;
+  show_credentials: boolean;
+  show_evaluation: boolean;
   active: boolean;
   created_at: string;
   status: Zustand;
@@ -86,6 +89,12 @@ function datumZeit(wert: string): string {
   return new Date(wert).toLocaleString("de-DE");
 }
 
+/** 24 Stunden und mehr zeigen sich als ganze Tage, alles darunter bleibt in Stunden. */
+function zugangsdauer(stunden: number | null, t: ReturnType<typeof useTranslations>): string {
+  if (stunden == null) return t("accessUnlimited");
+  return stunden % 24 === 0 ? t("accessDays", { n: stunden / 24 }) : t("accessHours", { n: stunden });
+}
+
 export default function AccessCodesTab() {
   const t = useTranslations("admin.accessCodes");
   const [codes, setCodes] = useState<Code[]>([]);
@@ -95,6 +104,7 @@ export default function AccessCodesTab() {
   const [kopiert, setKopiert] = useState<number | null>(null);
   const [bearbeiten, setBearbeiten] = useState<Code | null>(null);
   const [loeschen, setLoeschen] = useState<Code | null>(null);
+  const [qrCode, setQrCode] = useState<Code | null>(null);
   const [umschaltend, setUmschaltend] = useState<number | null>(null);
   const [kontenCode, setKontenCode] = useState<Code | null>(null);
   const [konten, setKonten] = useState<Konto[]>([]);
@@ -238,7 +248,7 @@ export default function AccessCodesTab() {
           type="button"
           onClick={() => setDialogOffen(true)}
           data-testid="access-code-create"
-          className="px-3 py-2 text-sm bg-kb text-white rounded-md whitespace-nowrap"
+          className="px-3 py-2 text-sm btn-primary rounded-md transition-colors whitespace-nowrap"
         >
           {t("createButton")}
         </button>
@@ -291,7 +301,7 @@ export default function AccessCodesTab() {
                   <td className="px-4 py-3 text-foreground-soft">{e.used_count} / {e.max_uses}</td>
                   <td className="px-4 py-3 text-foreground-soft">{datum(e.valid_until)}</td>
                   <td className="px-4 py-3 text-foreground-soft">
-                    {e.access_days == null ? t("accessUnlimited") : t("accessDays", { n: e.access_days })}
+                    {zugangsdauer(e.access_hours, t)}
                   </td>
                   <td
                     className="px-4 py-3 cursor-pointer"
@@ -324,6 +334,14 @@ export default function AccessCodesTab() {
                     <div className="flex items-center gap-1">
                       <IconButton
                         size="sm"
+                        title={t("qrButton")}
+                        aria-label={t("qrButton")}
+                        onClick={() => setQrCode(e)}
+                      >
+                        <QrCode size={14} weight="bold" />
+                      </IconButton>
+                      <IconButton
+                        size="sm"
                         title={t("edit")}
                         aria-label={t("edit")}
                         onClick={() => setBearbeiten(e)}
@@ -346,6 +364,15 @@ export default function AccessCodesTab() {
           </table>
         </div>
       )}
+
+      <Modal
+        open={!!qrCode}
+        onClose={() => setQrCode(null)}
+        title={qrCode?.label}
+        size="sm"
+      >
+        {qrCode && <AccessCodeQr code={qrCode.code} />}
+      </Modal>
 
       <Modal
         open={!!loeschen}
@@ -458,7 +485,7 @@ export default function AccessCodesTab() {
                             data-testid="access-code-reset"
                             onClick={() => passwortZuruecksetzen(k)}
                             disabled={resettingId === k.id}
-                            className="px-3 py-1.5 text-xs bg-kb text-white rounded-md disabled:opacity-50 whitespace-nowrap"
+                            className="px-3 py-1.5 text-xs btn-primary rounded-md transition-colors disabled:opacity-50 whitespace-nowrap"
                           >
                             {resettingId === k.id ? t("resetting") : t("resetPassword")}
                           </button>

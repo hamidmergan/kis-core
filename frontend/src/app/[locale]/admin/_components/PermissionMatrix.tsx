@@ -229,7 +229,7 @@ export default function PermissionMatrix() {
         <button
           type="button"
           onClick={() => { setCreateError(null); setNewName(""); setCreating(true); }}
-          className="shrink-0 flex items-center gap-1.5 px-4 py-2 text-sm bg-kb text-white rounded-md"
+          className="shrink-0 flex items-center gap-1.5 px-4 py-2 text-sm btn-primary rounded-md transition-colors"
         >
           <Plus size={14} weight="bold" />
           {t("newRole")}
@@ -336,7 +336,7 @@ export default function PermissionMatrix() {
               type="button"
               onClick={createRole}
               disabled={!newName.trim()}
-              className="px-4 py-2 text-sm bg-kb text-white rounded-md disabled:opacity-60"
+              className="px-4 py-2 text-sm btn-primary rounded-md transition-colors disabled:opacity-60"
             >
               {t("save")}
             </button>

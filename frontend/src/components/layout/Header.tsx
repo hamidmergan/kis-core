@@ -37,6 +37,8 @@ export default function Header({ hasSession = true, showLogout = false, showTool
   const [mayLanguageLevel, setMayLanguageLevel] = useState(false);
   // Only true with an admin-enabled, non-empty text — otherwise the menu row would be a dead click.
   const [hasHomeNotice, setHasHomeNotice] = useState(false);
+  // The start-page card can be dismissed for good, the menu row is the way back to it.
+  const [evaluationActive, setEvaluationActive] = useState(false);
   // The tour lives in the demo course, the menu only offers it while one exists.
   const tour = useTourStart(showLogout && hasSession);
   // The tools tour runs in the sidebar, which is the only place that survives the jumps between tool pages.
@@ -74,6 +76,24 @@ export default function Header({ hasSession = true, showLogout = false, showTool
       cancelled = true;
     };
   }, [showLogout]);
+
+  useEffect(() => {
+    if (!showLogout || !hasSession) return;
+    let cancelled = false;
+    api
+      .fetch("/api/evaluation/active", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (cancelled || !data) return;
+        setEvaluationActive(data.active === true);
+      })
+      .catch(() => {
+        /* ignore - menu row just stays hidden */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [showLogout, hasSession]);
 
   const handleLogout = async () => {
     await logout();
@@ -125,6 +145,7 @@ export default function Header({ hasSession = true, showLogout = false, showTool
                 onStartTour={tour.start}
                 showToolsTour={hasSession && hasTools && showToolsToggle}
                 onStartToolsTour={starteWerkzeugRundgang}
+                showEvaluation={hasSession && evaluationActive}
                 areaKey={areaKey}
                 showLogout={hasSession && !isLocalMode}
                 hasHomeNotice={hasHomeNotice}
@@ -141,6 +162,7 @@ export default function Header({ hasSession = true, showLogout = false, showTool
               onStartTour={tour.start}
               showToolsTour={hasTools && showToolsToggle}
               onStartToolsTour={starteWerkzeugRundgang}
+              showEvaluation={evaluationActive}
               areaKey={areaKey}
               hasTools={hasTools}
               hasAia={hasAia}

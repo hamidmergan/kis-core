@@ -2,6 +2,7 @@
 
 /** Sidebar with a collapsible tree, the open area follows the URL. */
 
+import { useEffect, useState } from "react";
 import { CaretRight } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
@@ -10,6 +11,7 @@ import { RANKS, allowedSections, type AdminSection } from "./registry";
 import { useAdminPerms } from "./AdminAuth";
 
 const ICON = { size: 18, weight: "bold" as const };
+const PHONE = "(max-width: 767px)";
 
 /** The area name leads to the first visible subpage. */
 function firstPath(s: AdminSection): string {
@@ -20,24 +22,37 @@ function firstPath(s: AdminSection): string {
 
 function Group({
   section,
-  openSlug,
+  open,
+  current,
   pageSlug,
+  onToggle,
   onNavigate,
 }: {
   section: AdminSection;
-  openSlug: string;
+  open: boolean;
+  current: boolean;
   pageSlug: string;
+  onToggle: () => void;
   onNavigate: () => void;
 }) {
   const t = useTranslations("admin.sections");
-  const open = section.slug === openSlug;
-  const active = open && !section.pages;
+  const active = current && !section.pages;
+
+  // On the phone an area with subpages only unfolds, the jump belongs to the chosen subpage.
+  function handleClick(e: React.MouseEvent) {
+    if (section.pages && window.matchMedia(PHONE).matches) {
+      e.preventDefault();
+      onToggle();
+      return;
+    }
+    onNavigate();
+  }
 
   return (
     <div>
       <Link
         href={firstPath(section)}
-        onClick={onNavigate}
+        onClick={handleClick}
         aria-current={active ? "page" : undefined}
         aria-expanded={section.pages ? open : undefined}
         // btn-ghost brings the hover ring, the open page shows the same ring permanently.
@@ -45,11 +60,11 @@ function Group({
         // The ring sits inwards, otherwise the scrolling sidebar clips it left and right.
         className={`btn-ghost w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg text-sm
           font-medium text-left -outline-offset-2 ${
-            open ? "text-kb dark:text-white font-semibold" : "text-foreground-soft"
+            current ? "text-kb dark:text-white font-semibold" : "text-foreground-soft"
           }`}
         style={active ? { outlineColor: "var(--kb)" } : undefined}
       >
-        <span className={open ? "text-kb dark:text-white" : "text-muted"}>
+        <span className={current ? "text-kb dark:text-white" : "text-muted"}>
           <LinkBusy size="sm">
             <section.Icon {...ICON} />
           </LinkBusy>
@@ -68,7 +83,7 @@ function Group({
       {section.pages && open && (
         <div className="flex flex-col gap-px ml-[1.375rem] pl-[0.6875rem] mt-0.5 mb-1.5 border-l border-border-soft">
           {section.pages.filter((p) => !p.hidden).map((p) => {
-            const on = p.slug === pageSlug;
+            const on = current && p.slug === pageSlug;
             return (
               <Link
                 key={p.slug}
@@ -103,6 +118,12 @@ export default function AdminSidebar({
   onClose: () => void;
 }) {
   const perms = useAdminPerms();
+  const [expandedSlug, setExpandedSlug] = useState(openSlug);
+
+  // The unfolded area follows the URL, opening the phone dropdown shows the current one again.
+  useEffect(() => {
+    setExpandedSlug(openSlug);
+  }, [openSlug, mobileOpen]);
 
   // Filter first, then group, empty ranks drop out with their divider.
   const visible = allowedSections(perms.keys);
@@ -123,7 +144,15 @@ export default function AdminSidebar({
         <div key={group[0].rank}>
           {i > 0 && <hr className="border-0 border-t border-border-soft mx-2 my-3" />}
           {group.map((s) => (
-            <Group key={s.slug} section={s} openSlug={openSlug} pageSlug={pageSlug} onNavigate={onClose} />
+            <Group
+              key={s.slug}
+              section={s}
+              open={s.slug === expandedSlug}
+              current={s.slug === openSlug}
+              pageSlug={pageSlug}
+              onToggle={() => setExpandedSlug((v) => (v === s.slug ? "" : s.slug))}
+              onNavigate={onClose}
+            />
           ))}
         </div>
       ))}

@@ -274,7 +274,7 @@ export function VoicesEditor({ voices, onChange, baseUrl, apiKey, voicesPath, on
               type="button"
               onClick={handleAddConfirm}
               disabled={!newVoice.voice_id}
-              className="text-xs px-3 py-1.5 rounded-md bg-kb text-white disabled:opacity-50 disabled:cursor-not-allowed"
+              className="text-xs px-3 py-1.5 rounded-md btn-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {t("voices.add")}
             </button>

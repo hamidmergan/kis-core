@@ -39,6 +39,7 @@ SONDERFALL = {
     "aia_grammar_topics": "gehoert dem Arbeitsbereich, verliert nur den Urheber",
     "invites": "gehoert der eingeladenen Person, verliert nur den Urheber",
     "access_codes": "gehoert der Testrunde, verliert nur den Urheber",
+    "evaluation_responses": "Antworten bleiben anonym stehen, user_id faellt per Fremdschluessel automatisch weg",
 }
 
 

@@ -40,8 +40,9 @@ export default function WorkspaceTable({
     ),
     [workspaces],
   );
-  const hasBothGroups = sorted.some((m) => canManage(m.access))
-    && sorted.some((m) => !canManage(m.access));
+  // Links and status only concern owners and tutors, a pure learner never sees them.
+  const manageColumns = sorted.some((m) => canManage(m.access));
+  const hasBothGroups = manageColumns && sorted.some((m) => !canManage(m.access));
 
   const totalPages = Math.max(1, Math.ceil(sorted.length / MODULES_PER_PAGE));
   const safePage = Math.min(page, totalPages);
@@ -60,19 +61,23 @@ export default function WorkspaceTable({
     <>
       <div className="bg-background rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-190 text-sm">
+          <table className={`w-full text-sm ${manageColumns ? "min-w-190" : "min-w-80"}`}>
             <thead>
               <tr className="border-b border-border-soft text-left text-xs text-muted uppercase">
                 <th className="px-4 py-2">{labels.singular}</th>
-                <th className="pl-6 pr-4 py-2 text-right">{t("colSources")}</th>
-                <th className="pl-20 pr-4 py-2 text-right">{t("colLinks")}</th>
-                <th className="pl-20 pr-4 py-2">
-                  <span className="inline-flex items-center gap-1.5">
-                    {t("colStatus")}
-                    <HelpTooltip text={t("statusHelp")} />
-                  </span>
-                </th>
-                <th className="pl-20 pr-4 py-2"></th>
+                <th className={`pl-6 py-2 text-right ${manageColumns ? "pr-4" : "pr-1"}`}>{t("colSources")}</th>
+                {manageColumns && (
+                  <>
+                    <th className="pl-20 pr-4 py-2 text-right">{t("colLinks")}</th>
+                    <th className="pl-20 pr-4 py-2">
+                      <span className="inline-flex items-center gap-1.5">
+                        {t("colStatus")}
+                        <HelpTooltip text={t("statusHelp")} />
+                      </span>
+                    </th>
+                  </>
+                )}
+                <th className={`pr-4 py-2 ${manageColumns ? "pl-20" : "pl-3"}`}></th>
               </tr>
             </thead>
             <tbody>
@@ -104,6 +109,7 @@ export default function WorkspaceTable({
                       <WorkspaceTableStudentRow
                         workspace={m}
                         onLeave={onLeaveDemo}
+                        manageColumns={manageColumns}
                       />
                     )}
                   </React.Fragment>

@@ -7,7 +7,7 @@ import ImpersonationBanner from "./ImpersonationBanner";
 import ToolsSidebar from "./ToolsSidebar";
 
 // The access-code pages bring their own header, like the login page.
-const NO_HEADER_PATHS = new Set(["/login", "/maintenance", "/pending", "/redeem", "/redeem/expired"]);
+const NO_HEADER_PATHS = new Set(["/login", "/maintenance", "/pending", "/redeem", "/redeem/expired", "/evaluation"]);
 // An invitation carries its token in the path, so it is matched by prefix.
 const NO_HEADER_PREFIXES = ["/workspace/", "/invite/"];
 
@@ -19,6 +19,7 @@ const NO_SIDEBAR_PATHS = new Set([
   "/maintenance",
   "/redeem",
   "/redeem/expired",
+  "/evaluation",
 ]);
 const NO_SIDEBAR_PREFIXES = ["/workspace/", "/admin", "/invite/", "/manual"];
 

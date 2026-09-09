@@ -23,7 +23,8 @@
     "homeNoticeShow": "Show home notice",
     "languageLevel": "Language level",
     "tour": "Tour through the demo module",
-    "toolsTour": "Tour through the tools"
+    "toolsTour": "Tour through the tools",
+    "evaluation": "Evaluation"
   },
   "footer": {
     "aiNotice": "This platform uses AI and may make mistakes. Please verify the responses.",
@@ -247,6 +248,20 @@
     "thanksTitle": "Thanks for your feedback",
     "thanksBody": "The entry was submitted anonymously."
   },
+  "evaluationFlow": {
+    "notAvailable": "No evaluation is active right now.",
+    "backToHome": "Back to the start page",
+    "start": "Let's go",
+    "progress": "Question {current} of {total}",
+    "scaleLow": "not at all",
+    "scaleHigh": "very",
+    "back": "Back",
+    "next": "Next",
+    "submit": "Submit",
+    "submitting": "Sending …",
+    "submitError": "Sending failed. Please try again.",
+    "thanksTitle": "All done!"
+  },
   "pending": {
     "title": "Account not yet activated",
     "body1": "KIS is currently in a test phase. Your account was recognized but is not yet activated for use.",
@@ -278,7 +293,7 @@
     "progress": "Step {current} of {total}",
     "seitenleiste": {
       "title": "Your tools",
-      "text": "Here you'll find all the tools, for example for translations or turning slides into a video. These are standalone tools, you can use each one on its own."
+      "text": "Here you'll find all the tools, for example for translations or turning slides into a video. These are standalone tools, you can use each one on its own. Access to the tools is meant for teachers."
     },
     "translation": {
       "title": "Translation",
@@ -924,7 +939,8 @@
           "nutzer": "Users",
           "werkzeuge": "Tools",
           "assistent": "AI assistant",
-          "modelle": "Models"
+          "modelle": "Models",
+          "evaluation": "Evaluation"
         }
       },
       "nutzer": {
@@ -968,6 +984,10 @@
         },
         "feedbackDetail": {
           "label": "Feedback"
+        },
+        "evaluation": {
+          "label": "Evaluation",
+          "sub": "Create, edit and switch the evaluation on or off."
         }
       },
       "werkzeuge": {
@@ -1835,7 +1855,8 @@
           "users": "All users and their quotas",
           "roles": "Assign roles and permissions",
           "impersonate": "Log in as somebody else",
-          "feedback": "View anonymous feedback"
+          "feedback": "View anonymous feedback",
+          "evaluation": "Create and switch the evaluation on or off"
         },
         "system": "Maintenance, labels and notice",
         "mascot": "Hilde and Francis",
@@ -1936,9 +1957,22 @@
         "unitRequests": "requests to the AI"
       },
       "range": {
+        "all": "All",
         "year": "12 months",
         "halfYear": "6 months",
         "days30": "30 days"
+      },
+      "evaluation": {
+        "total": "Participations",
+        "totalHint": "Submitted answers in the selected period.",
+        "scaleHint": "{answered} answers, average {average}",
+        "textHint": "{answered} answers",
+        "count": "Count",
+        "noAnswers": "Nothing here yet.",
+        "single": "Single participations",
+        "singleHint": "Anonymous and only numbered. One click shows all answers of one participation together.",
+        "participant": "Participation {number}",
+        "skipped": "skipped"
       },
       "tools": {
         "jobs": "Jobs",
@@ -2126,12 +2160,14 @@
       "statusExpired": "Expired",
       "statusFull": "Full",
       "accessDays": "{n, plural, one {# day} other {# days}}",
+      "accessHours": "{n, plural, one {# hour} other {# hours}}",
       "accessUnlimited": "Unlimited",
       "copyCode": "Copy code",
       "copied": "Copied!",
       "disable": "Switch off",
       "enable": "Switch on",
       "edit": "Edit",
+      "qrButton": "QR code",
       "delete": "Delete",
       "deleteTitle": "Delete access code",
       "deleteText": "The code disappears from the list. {n, plural, =0 {Nobody has used this code yet.} one {The # person who used it keeps their account, their deadline and their courses.} other {The # people who used it keep their account, their deadline and their courses.}}",
@@ -2180,13 +2216,20 @@
       "labelHint": "For example Colleagues August",
       "maxUses": "How many times redeemable",
       "validDays": "Code valid",
-      "accessDays": "Access valid",
+      "accessHours": "Access valid",
       "role": "Role",
+      "showCredentials": "Show credentials",
+      "showCredentialsHint": "Off: the person is signed in right away, without ever seeing a username or password. Meant for events.",
+      "showEvaluation": "Show evaluation",
+      "showEvaluationHint": "On: accounts made from this code are offered the evaluation on the start page. Admins always see it.",
       "days": "{n, plural, one {# day} other {# days}}",
+      "hours": "{n, plural, one {# hour} other {# hours}}",
       "unlimited": "Unlimited",
       "seats": "{n, plural, one {# seat} other {# seats}}",
       "customSeats": "Custom number",
       "customSeatsHint": "Between 1 and {max}",
+      "customHours": "Custom number (hours)",
+      "customHoursHint": "Between 1 and {max} hours",
       "roleStaff": "Staff",
       "roleUser": "User",
       "submit": "Create",
@@ -2205,6 +2248,34 @@
       "submit": "Save",
       "submitting": "Saving...",
       "errorGeneric": "The change could not be saved"
+    },
+    "accessCodeQr": {
+      "alt": "QR code to redeem",
+      "download": "Download as PNG"
+    },
+    "evaluationEditor": {
+      "loading": "Loading …",
+      "activeLabel": "Evaluation active",
+      "activeHint": "Off means the tile and the link to fill it out are hidden from everyone.",
+      "titleLabel": "Title",
+      "introLegend": "Start",
+      "introTextPlaceholder": "Text the person sees first",
+      "outroLegend": "End",
+      "outroTextPlaceholder": "Thank-you text at the end",
+      "linkLabelPlaceholder": "Link text (optional)",
+      "linkUrlPlaceholder": "Link address (optional)",
+      "questionsLabel": "Questions",
+      "questionTextPlaceholder": "Question text",
+      "scaleLowPlaceholder": "Left label, e.g. not at all",
+      "scaleHighPlaceholder": "Right label, e.g. very",
+      "typeScale": "Scale 1-5",
+      "typeText": "Free text",
+      "addQuestion": "Add question",
+      "removeQuestion": "Remove question",
+      "save": "Save",
+      "saving": "Saving …",
+      "savedHint": "Saved",
+      "saveError": "Saving failed"
     }
   },
   "permissions": {
@@ -3116,11 +3187,11 @@
         "demo": {
           "willkommen": {
             "title": "Welcome to the demo module",
-            "text": "A module is the place where you upload the materials of your course. Your students work with them directly, they ask the AI assistant Francis about them and have flashcards, quizzes and other formats generated from those materials."
+            "text": "A module is the place where you upload the materials of your course. Your students work with them directly, they ask the AI assistant Francis about them and have flashcards, quizzes and other formats generated from those materials. This tour exists for both teachers and students, you're seeing your own version."
           },
           "willkommenStudi": {
             "title": "Welcome to the demo module",
-            "text": "A module is the place where your teachers upload the materials of the course. You work with them directly, you ask the AI assistant Francis about them and have flashcards, quizzes and other formats generated from those materials."
+            "text": "A module is the place where your teachers upload the materials of the course. You work with them directly, you ask the AI assistant Francis about them and have flashcards, quizzes and other formats generated from those materials. This tour exists for both teachers and students, you're seeing your own version."
           },
           "materialien": {
             "title": "The materials area",
@@ -3337,6 +3408,12 @@
     "start": "Start the language test",
     "dismiss": "Hide"
   },
+  "evaluationInvite": {
+    "title": "Quick evaluation",
+    "body": "Already tried everything out? Want to fill in a short evaluation?",
+    "start": "Let's go",
+    "dismiss": "Not now"
+  },
   "languageLevel": {
     "title": "Language level",
     "purpose": "Your level steers the wording, not the content. The assistant in a module explains at that level, and flashcards, quizzes and exercises are worded to match. In the studio you also get the language trainer, with vocab cards, vocabulary exercises and grammar exercises.",
@@ -3466,6 +3543,7 @@
     "intro": "Use the access code from your invitation to create your own account here.",
     "code": "Access code",
     "codeHint": "KIS-XXXX-XXXX",
+    "autoRedeeming": "Signing you in …",
     "showPassword": "Show password",
     "hidePassword": "Hide password",
     "submit": "Create account",

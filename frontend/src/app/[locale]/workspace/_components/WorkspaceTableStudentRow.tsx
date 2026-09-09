@@ -12,9 +12,12 @@ import type { KiTutorWorkspace } from "../_shared";
 export default function WorkspaceTableStudentRow({
   workspace,
   onLeave,
+  manageColumns = true,
 }: {
   workspace: KiTutorWorkspace;
   onLeave?: (uuid: string) => void;
+  /** Links and status columns exist, otherwise the status moves under the title. */
+  manageColumns?: boolean;
 }) {
   // Only whoever joined through the demo sees the badge and can leave here.
   const isDemo = !!workspace.via_demo;
@@ -36,6 +39,26 @@ export default function WorkspaceTableStudentRow({
         year: "numeric",
         timeZone: "Europe/Berlin",
       })
+    : null;
+
+  const status = closed ? (
+    <span
+      className="inline-flex items-center gap-1 text-xs whitespace-nowrap font-medium"
+      style={{ color: "var(--muted)" }}
+      title={t("closedHint")}
+    >
+      <Lock size={12} weight="fill" />
+      {t("closedBadge")}
+    </span>
+  ) : untilDate ? (
+    <span className="inline-flex items-center gap-1 text-xs whitespace-nowrap" style={{ color: "var(--muted)" }}>
+      <CalendarBlank size={12} />
+      {t("untilDate", { date: untilDate })}
+    </span>
+  ) : null;
+
+  const menu = isDemo && onLeave
+    ? <WorkspaceMenu testId="demo-row-menu" onLeave={() => onLeave(workspace.uuid)} />
     : null;
 
   const open = () => { if (!closed) navigate(() => router.push(href)); };
@@ -70,37 +93,24 @@ export default function WorkspaceTableStudentRow({
             {workspace.description}
           </span>
         )}
+        {!manageColumns && status && <span className="block mt-0.5">{status}</span>}
       </td>
       <td
-        className={`pl-6 pr-4 py-3 text-right tabular-nums text-foreground-soft ${zellenKlasse}`}
+        className={`pl-6 py-3 text-right tabular-nums text-foreground-soft ${manageColumns ? "pr-4" : "pr-1"} ${zellenKlasse}`}
         onClick={open}
       >
         {workspace.source_count}
       </td>
-      <td className="pl-20 pr-4 py-3" />
-      <td className={`pl-20 pr-4 py-3 ${zellenKlasse}`} onClick={open}>
-        {closed ? (
-          <span
-            className="inline-flex items-center gap-1 text-xs whitespace-nowrap font-medium"
-            style={{ color: "var(--muted)" }}
-            title={t("closedHint")}
-          >
-            <Lock size={12} weight="fill" />
-            {t("closedBadge")}
-          </span>
-        ) : untilDate && (
-          <span className="inline-flex items-center gap-1 text-xs whitespace-nowrap" style={{ color: "var(--muted)" }}>
-            <CalendarBlank size={12} />
-            {t("untilDate", { date: untilDate })}
-          </span>
-        )}
-      </td>
-      <td className="pl-20 pr-4 py-3">
-        {isDemo && onLeave && (
-          <div className="flex justify-center">
-            <WorkspaceMenu testId="demo-row-menu" onLeave={() => onLeave(workspace.uuid)} />
-          </div>
-        )}
+      {manageColumns && (
+        <>
+          <td className="pl-20 pr-4 py-3" />
+          <td className={`pl-20 pr-4 py-3 ${zellenKlasse}`} onClick={open}>
+            {status}
+          </td>
+        </>
+      )}
+      <td className={`pr-4 py-3 ${manageColumns ? "pl-20" : "pl-3"}`}>
+        {menu && <div className="flex justify-center">{menu}</div>}
       </td>
     </tr>
   );

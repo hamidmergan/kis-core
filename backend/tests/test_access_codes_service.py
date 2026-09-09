@@ -6,6 +6,7 @@ from src.features.access_codes.service import (
     new_username,
     normalize_code,
     status_of,
+    user_status_of,
 )
 
 JETZT = datetime(2026, 8, 28, 12, 0, 0)
@@ -79,3 +80,21 @@ def test_status_full_when_every_seat_is_taken():
     assert status_of(
         active=True, used_count=50, max_uses=50, valid_until=SPAETER, now=JETZT
     ) == "full"
+
+
+def test_user_status_active_when_everything_is_fine():
+    assert user_status_of(active=True, access_expires_at=None, now=JETZT) == "active"
+
+
+def test_user_status_expired_when_the_deadline_is_past():
+    assert user_status_of(active=True, access_expires_at=FRUEHER, now=JETZT) == "expired"
+
+
+def test_user_status_disabled_when_switched_off_before_its_deadline():
+    assert user_status_of(active=False, access_expires_at=SPAETER, now=JETZT) == "disabled"
+
+
+def test_user_status_stays_expired_once_the_lock_job_switches_it_off():
+    # The lock job flips active to False once the deadline passes, "expired" must still
+    # win over "disabled" here, otherwise an admin can no longer tell the two apart.
+    assert user_status_of(active=False, access_expires_at=FRUEHER, now=JETZT) == "expired"

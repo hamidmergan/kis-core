@@ -80,13 +80,17 @@ export function ZeitraumChips({
   wert,
   setzen,
   className = "mt-4",
+  mitAlle = false,
 }: {
   wert: string;
   setzen: (w: string) => void;
   className?: string;
+  /** Adds "all", for numbers that hang off one event instead of a running year. */
+  mitAlle?: boolean;
 }) {
   const t = useTranslations("admin.statistik");
   const auswahl = [
+    ...(mitAlle ? [["alle", t("range.all")] as const] : []),
     ["jahr", t("range.year")],
     ["halbjahr", t("range.halfYear")],
     ["30t", t("range.days30")],

@@ -53,9 +53,13 @@ def status_of(
 
 
 def user_status_of(*, active: bool, access_expires_at: datetime | None, now: datetime) -> str:
-    """State of one account made from a code: disabled, expired or active."""
-    if not active:
-        return "disabled"
+    """State of one account made from a code: disabled, expired or active.
+
+    Expiry wins over the active flag, so an account the lock job switched off
+    for running out of time still reads as "expired", not "disabled".
+    """
     if access_expires_at and access_expires_at <= now:
         return "expired"
+    if not active:
+        return "disabled"
     return "active"

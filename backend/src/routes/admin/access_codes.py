@@ -24,8 +24,8 @@ router = APIRouter(tags=["admin: access codes"])
 _require = require_permission(PERM_SET_USERS_ALL)
 
 MAX_VALID_DAYS = 60
-MAX_ACCESS_DAYS = 30
-MAX_SEATS = 100
+MAX_ACCESS_HOURS = 720  # 30 Tage
+MAX_SEATS = 500
 
 
 def _require_feature(locale: str) -> None:
@@ -38,7 +38,9 @@ class CreateCodePayload(BaseModel):
     label: str = Field(..., min_length=1, max_length=64)
     max_uses: int = Field(50, ge=1, le=MAX_SEATS)
     valid_days: int = Field(30, ge=1, le=MAX_VALID_DAYS)
-    access_days: int | None = Field(14)
+    access_hours: int | None = Field(336)
+    show_credentials: bool = True
+    show_evaluation: bool = False
     kis_role: str = Field("user", pattern="^(staff|user|custom)$")
     custom_role_id: int | None = None
 
@@ -47,8 +49,8 @@ class CreateCodePayload(BaseModel):
         if not self.label.strip():
             raise ValueError("label must not be blank")
         self.label = self.label.strip()
-        if self.access_days is not None and not (1 <= self.access_days <= MAX_ACCESS_DAYS):
-            raise ValueError(f"access_days must be between 1 and {MAX_ACCESS_DAYS}")
+        if self.access_hours is not None and not (1 <= self.access_hours <= MAX_ACCESS_HOURS):
+            raise ValueError(f"access_hours must be between 1 and {MAX_ACCESS_HOURS}")
         if self.kis_role == "custom" and self.custom_role_id is None:
             raise ValueError("custom_role_id required when kis_role is 'custom'")
         if self.kis_role != "custom":
@@ -61,7 +63,9 @@ class PatchCodePayload(BaseModel):
     label: str | None = Field(None, min_length=1, max_length=64)
     max_uses: int | None = Field(None, ge=1, le=MAX_SEATS)
     valid_days: int | None = Field(None, ge=1, le=MAX_VALID_DAYS)
-    access_days: int | None = None
+    access_hours: int | None = None
+    show_credentials: bool = True
+    show_evaluation: bool = False
     kis_role: str | None = Field(None, pattern="^(staff|user|custom)$")
     custom_role_id: int | None = None
 
@@ -74,8 +78,8 @@ class PatchCodePayload(BaseModel):
             if not self.label.strip():
                 raise ValueError("label must not be blank")
             self.label = self.label.strip()
-        if self.access_days is not None and not (1 <= self.access_days <= MAX_ACCESS_DAYS):
-            raise ValueError(f"access_days must be between 1 and {MAX_ACCESS_DAYS}")
+        if self.access_hours is not None and not (1 <= self.access_hours <= MAX_ACCESS_HOURS):
+            raise ValueError(f"access_hours must be between 1 and {MAX_ACCESS_HOURS}")
         if self.kis_role == "custom" and self.custom_role_id is None:
             raise ValueError("custom_role_id required when kis_role is 'custom'")
         if self.kis_role is not None and self.kis_role != "custom":
@@ -110,7 +114,9 @@ def create_access_code(
         custom_role_id=payload.custom_role_id,
         max_uses=payload.max_uses,
         valid_until=valid_until,
-        access_days=payload.access_days,
+        access_hours=payload.access_hours,
+        show_credentials=payload.show_credentials,
+        show_evaluation=payload.show_evaluation,
         created_by=admin.get("user_id", 0),
     )
     return {
@@ -119,7 +125,9 @@ def create_access_code(
         "label": payload.label,
         "max_uses": payload.max_uses,
         "valid_until": valid_until,
-        "access_days": payload.access_days,
+        "access_hours": payload.access_hours,
+        "show_credentials": payload.show_credentials,
+        "show_evaluation": payload.show_evaluation,
     }
 
 
@@ -132,7 +140,8 @@ def list_access_codes(admin: dict = Depends(_require), locale: str = Depends(get
             {
                 **{schluessel: eintrag[schluessel] for schluessel in (
                     "id", "code", "label", "role", "custom_role_id", "max_uses",
-                    "used_count", "valid_until", "access_days", "active", "created_at",
+                    "used_count", "valid_until", "access_hours", "show_credentials",
+                    "show_evaluation", "active", "created_at",
                 )},
                 "status": status_of(
                     active=eintrag["active"],
@@ -182,7 +191,9 @@ def patch_access_code(
             custom_role_id=payload.custom_role_id,
             max_uses=payload.max_uses,
             valid_until=valid_until,
-            access_days=payload.access_days,
+            access_hours=payload.access_hours,
+            show_credentials=payload.show_credentials,
+            show_evaluation=payload.show_evaluation,
         ):
             raise HTTPException(status_code=400, detail=t("access.maxUsesBelowUsed", locale))
 

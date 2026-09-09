@@ -206,7 +206,7 @@ export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number
           <button
             type="button"
             onClick={() => setShowCreateDialog(true)}
-            className="px-3 py-2 text-sm bg-kb text-white rounded-md whitespace-nowrap"
+            className="px-3 py-2 text-sm btn-primary rounded-md transition-colors whitespace-nowrap"
           >
             {t("createLdapUser.buttonLabel")}
           </button>

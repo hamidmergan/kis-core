@@ -69,12 +69,74 @@ def test_creating_a_code_commits(fake_db):
         custom_role_id=None,
         max_uses=50,
         valid_until=ABLAUF,
-        access_days=14,
+        access_hours=336,
+        show_credentials=True,
+        show_evaluation=False,
         created_by=1,
     )
 
     assert neu == 7
     assert ("commit", None, None) in calls, "ohne commit sieht der naechste Aufruf nichts"
+
+
+def test_creating_a_code_stores_the_hours_and_the_credentials_switch(fake_db):
+    calls = fake_db(rows=[(7,)])
+
+    repo.create_code(
+        code="KIS-4K2P-7RXM",
+        label="Tag der Lehre",
+        role="user",
+        custom_role_id=None,
+        max_uses=500,
+        valid_until=ABLAUF,
+        access_hours=12,
+        show_credentials=False,
+        show_evaluation=False,
+        created_by=1,
+    )
+
+    anweisung = [c for c in calls if c[0] == "execute"][0]
+    assert "access_hours" in anweisung[1]
+    assert "show_credentials" in anweisung[1]
+    assert 12 in anweisung[2]
+    assert False in anweisung[2]
+
+
+def test_creating_a_code_stores_the_evaluation_switch(fake_db):
+    calls = fake_db(rows=[(7,)])
+
+    repo.create_code(
+        code="KIS-4K2P-7RXM",
+        label="Tag der Lehre",
+        role="user",
+        custom_role_id=None,
+        max_uses=500,
+        valid_until=ABLAUF,
+        access_hours=12,
+        show_credentials=False,
+        show_evaluation=True,
+        created_by=1,
+    )
+
+    anweisung = [c for c in calls if c[0] == "execute"][0]
+    assert "show_evaluation" in anweisung[1]
+    assert True in anweisung[2]
+
+
+def test_shows_evaluation_asks_for_the_code_behind_the_account(fake_db):
+    calls = fake_db(rows=[(1,)])
+
+    assert repo.shows_evaluation(42) is True
+
+    anweisung = [c for c in calls if c[0] == "execute"][0]
+    assert "access_code_id" in anweisung[1]
+    assert "show_evaluation" in anweisung[1]
+    assert 42 in anweisung[2]
+
+
+def test_shows_evaluation_is_false_without_a_code(fake_db):
+    fake_db(rows=[])
+    assert repo.shows_evaluation(42) is False
 
 
 def test_claim_use_only_counts_up_while_the_code_has_room(fake_db):
@@ -135,15 +197,39 @@ def test_updating_a_code_commits_and_leaves_code_and_used_count_untouched(fake_d
         custom_role_id=None,
         max_uses=25,
         valid_until=ABLAUF,
-        access_days=None,
+        access_hours=None,
+        show_credentials=True,
+        show_evaluation=False,
     )
 
     assert getroffen is True
     anweisungen = [c[1] for c in calls if c[0] == "execute"]
     assert any("UPDATE access_codes" in a for a in anweisungen)
+    assert any("access_hours" in a for a in anweisungen)
+    assert any("show_credentials" in a for a in anweisungen)
     assert not any("SET code" in a for a in anweisungen), "der Code selbst darf sich nie aendern"
     assert not any("used_count = %s" in a for a in anweisungen), "der Zaehler gehoert claim_use, nicht dem Editieren"
     assert ("commit", None, None) in calls
+
+
+def test_updating_a_code_writes_the_evaluation_switch(fake_db):
+    calls = fake_db(rows=[(7,)])
+
+    repo.update_code(
+        7,
+        label="Tag der Lehre",
+        role="user",
+        custom_role_id=None,
+        max_uses=25,
+        valid_until=ABLAUF,
+        access_hours=12,
+        show_credentials=True,
+        show_evaluation=True,
+    )
+
+    anweisungen = [c for c in calls if c[0] == "execute"]
+    assert any("show_evaluation" in a[1] for a in anweisungen)
+    assert any(True in a[2] for a in anweisungen)
 
 
 def test_updating_a_code_refuses_to_drop_max_uses_below_used_count(fake_db):
@@ -156,12 +242,29 @@ def test_updating_a_code_refuses_to_drop_max_uses_below_used_count(fake_db):
         custom_role_id=None,
         max_uses=1,
         valid_until=ABLAUF,
-        access_days=None,
+        access_hours=None,
+        show_credentials=True,
+        show_evaluation=False,
     )
 
     assert getroffen is False
     anweisungen = [c[1] for c in calls if c[0] == "execute"]
     assert any(">= used_count" in a for a in anweisungen)
+
+
+def test_lock_expired_accounts_only_touches_active_ones_past_their_deadline(fake_db):
+    calls = fake_db(rows=[(42,), (43,)])
+
+    gesperrt = repo.lock_expired_accounts()
+
+    assert gesperrt == 2
+    anweisung = [c for c in calls if c[0] == "execute"][0]
+    assert "UPDATE users" in anweisung[1]
+    assert "SET active = false" in anweisung[1] or "SET active = %s" in anweisung[1]
+    assert "access_expires_at <= NOW()" in anweisung[1]
+    assert "access_code_id IS NOT NULL" in anweisung[1]
+    assert "active" in anweisung[1]
+    assert ("commit", None, None) in calls
 
 
 def test_set_user_access_writes_both_columns(fake_db):

@@ -10,7 +10,7 @@ DEFAULT_WELCOME_MODAL_TEXT = (
     "Studium. Sie bietet eigenständige Werkzeuge, etwa Übersetzung, Screencast und "
     "Zusammenfassung, sowie Module mit einem KI-Studienassistenten, der Fragen zu "
     "den Kursmaterialien beantwortet.\n\nMehr in der Dokumentation, oben rechts im "
-    "Zahnrad-Menü."
+    "Menü."
 )
 
 

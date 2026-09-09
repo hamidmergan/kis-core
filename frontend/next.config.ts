@@ -185,6 +185,10 @@ const nextConfig: NextConfig = {
         destination: `${backendUrl}/access-codes/:path*`,
       },
       {
+        source: "/api/evaluation/:path*",
+        destination: `${backendUrl}/evaluation/:path*`,
+      },
+      {
         source: "/api/me/:path*",
         destination: `${backendUrl}/me/:path*`,
       },

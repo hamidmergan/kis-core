@@ -9,6 +9,7 @@ import Spinner from "@/components/ui/Spinner";
 import { TourInvite } from "./TourInvite";
 import { ToolsTourInvite } from "./ToolsTourInvite";
 import { LanguageTrainerInvite } from "./LanguageTrainerInvite";
+import { EvaluationInvite } from "./EvaluationInvite";
 import WorkspaceList from "./WorkspaceList";
 
 interface LinkPreview {
@@ -247,6 +248,7 @@ export default function WorkspaceHome({ canCreate, firstName, languageInvite }: 
         <TourInvite />
         <ToolsTourInvite />
         {languageInvite && <LanguageTrainerInvite />}
+        <EvaluationInvite />
       </div>
 
       {previewInvalid && (

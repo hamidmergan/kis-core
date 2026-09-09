@@ -40,7 +40,7 @@ describe("Statistik einer Lehrperson", () => {
   it("laesst im Bereich Statistik nur die plattformweiten Reiter stehen", () => {
     const alle = SECTIONS.find((s) => s.slug === "stats");
     expect(alle?.tabs?.map((t) => t.slug)).toEqual([
-      "users", "tools", "ai-assistant", "models",
+      "users", "tools", "ai-assistant", "models", "evaluation",
     ]);
   });
 
@@ -55,6 +55,8 @@ describe("Statistik einer Lehrperson", () => {
 describe("Statistik-Rechte", () => {
   it("sind genau die Reiter des Bereichs Statistik", () => {
     const statistik = SECTIONS.find((s) => s.slug === "stats")!;
-    expect([...STATS_PERMS].sort()).toEqual(statistik.tabs!.map((t) => t.perm).sort());
+    // The evaluation numbers hang off the right to run it, which must not rename the area.
+    const reiter = statistik.tabs!.filter((t) => t.perm !== PERM.usersEvaluation);
+    expect([...STATS_PERMS].sort()).toEqual(reiter.map((t) => t.perm).sort());
   });
 });
