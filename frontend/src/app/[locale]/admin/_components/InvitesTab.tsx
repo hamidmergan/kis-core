@@ -96,7 +96,7 @@ export default function InvitesTab() {
         <button
           type="button"
           onClick={() => setDialogOffen(true)}
-          className="px-3 py-2 text-sm bg-kb text-white rounded-md whitespace-nowrap"
+          className="px-3 py-2 text-sm btn-primary rounded-md transition-colors whitespace-nowrap"
         >
           {t("createButton")}
         </button>

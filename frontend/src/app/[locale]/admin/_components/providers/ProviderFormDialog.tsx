@@ -331,7 +331,7 @@ export default function ProviderFormDialog({
             <button
               type="submit"
               disabled={submitting}
-              className="px-4 py-2 text-sm bg-kb text-white rounded-md disabled:opacity-60"
+              className="px-4 py-2 text-sm btn-primary rounded-md transition-colors disabled:opacity-60"
             >
               {submitting ? t("dialog.saving") : t("dialog.save")}
             </button>

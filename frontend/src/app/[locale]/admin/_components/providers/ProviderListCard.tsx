@@ -48,7 +48,7 @@ export default function ProviderListCard({
             <button
               type="button"
               onClick={onAdd}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-kb text-white rounded-md border-2 border-kb hover:bg-background hover:text-kb transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium btn-fill-accent rounded-md transition-colors"
             >
               <Plus size={14} weight="bold" />
               {t("list.add")}
@@ -95,7 +95,7 @@ function EmptyState({
         <button
           type="button"
           onClick={onAdd}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-kb text-white rounded-md border-2 border-kb hover:bg-background hover:text-kb transition-colors"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium btn-fill-accent rounded-md transition-colors"
         >
           <Plus size={14} weight="bold" />
           {t("list.add")}

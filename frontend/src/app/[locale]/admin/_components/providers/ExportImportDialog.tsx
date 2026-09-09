@@ -231,7 +231,7 @@ function ExportTab({
           type="button"
           onClick={handleExport}
           disabled={busy || count === 0}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-kb text-white rounded-md border-2 border-kb hover:bg-background hover:text-kb disabled:opacity-50 disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium btn-fill-accent rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {busy && <Spinner size="xs" color="current" />}
           {t("export.confirmButton", { count })}
@@ -346,7 +346,7 @@ function ImportTab({
             type="button"
             onClick={handleConfirm}
             disabled={confirming}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-kb text-white rounded-md border-2 border-kb hover:bg-background hover:text-kb disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium btn-fill-accent rounded-md transition-colors disabled:opacity-50"
           >
             {confirming && <Spinner size="xs" color="current" />}
             {t("import.confirmButton")}

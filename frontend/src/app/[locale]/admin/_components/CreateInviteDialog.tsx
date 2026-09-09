@@ -139,7 +139,7 @@ export default function CreateInviteDialog({ onClose, onCreated }: Props) {
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 text-sm bg-kb text-white rounded-md"
+                className="px-4 py-2 text-sm btn-primary rounded-md transition-colors"
               >
                 {t("close")}
               </button>
@@ -192,7 +192,7 @@ export default function CreateInviteDialog({ onClose, onCreated }: Props) {
               <button
                 type="submit"
                 disabled={submitting || !uidVorschau}
-                className="px-4 py-2 text-sm bg-kb text-white rounded-md disabled:opacity-60"
+                className="px-4 py-2 text-sm btn-primary rounded-md transition-colors disabled:opacity-60"
               >
                 {t("submit")}
               </button>
