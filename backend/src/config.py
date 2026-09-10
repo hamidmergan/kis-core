@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     # Must match the admin's LDAP address, it is unlocked at startup.
     admin_email: str = ""
 
+    # The admin's password, only read on start and never written back.
+    admin_password: str = ""
+
     # Set via start-nginx.sh / start-th.sh, never in .env
     production: bool = False
 
