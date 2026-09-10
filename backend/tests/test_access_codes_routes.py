@@ -31,7 +31,7 @@ def _code(**abweichungen):
 
 
 def _umgebung(monkeypatch):
-    monkeypatch.setenv("LDAP_USER_CREATION_ENABLED", "true")
+    monkeypatch.setenv("ACCOUNT_CREATION_ENABLED", "true")
     monkeypatch.setenv("LDAP_BASE_DN", "dc=th-luebeck,dc=de")
     monkeypatch.setenv("LDAP_BIND_DN", "cn=admin,dc=th-luebeck,dc=de")
     monkeypatch.setenv("LDAP_BIND_PASSWORD", "admin")

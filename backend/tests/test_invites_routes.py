@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 
 @pytest.fixture
 def client(monkeypatch):
-    monkeypatch.setenv("LDAP_USER_CREATION_ENABLED", "true")
+    monkeypatch.setenv("ACCOUNT_CREATION_ENABLED", "true")
     monkeypatch.setenv("LDAP_BASE_DN", "dc=th-luebeck,dc=de")
     monkeypatch.setenv("LDAP_BIND_DN", "cn=admin,dc=th-luebeck,dc=de")
     monkeypatch.setenv("LDAP_BIND_PASSWORD", "admin")
@@ -115,7 +115,7 @@ def test_a_second_open_invite_to_the_same_username_is_refused(client):
 def test_inviting_is_gone_when_the_switch_is_off(client):
     with patch("src.routes.admin.invites.get_settings") as settings, \
          patch("src.routes.admin.invites.repo.create_invite") as anlegen:
-        settings.return_value.ldap_user_creation_enabled = False
+        settings.return_value.account_creation_enabled = False
         r = client.post(
             "/admin/invites",
             json={"username": "max.mustermann", "kis_role": "user"},
@@ -343,7 +343,7 @@ def test_without_a_name_the_username_is_shown(client):
 
 @pytest.fixture
 def client_ohne_sitzung(monkeypatch):
-    monkeypatch.setenv("LDAP_USER_CREATION_ENABLED", "true")
+    monkeypatch.setenv("ACCOUNT_CREATION_ENABLED", "true")
     monkeypatch.setenv("LDAP_BASE_DN", "dc=th-luebeck,dc=de")
     monkeypatch.setenv("LDAP_BIND_DN", "cn=admin,dc=th-luebeck,dc=de")
     monkeypatch.setenv("LDAP_BIND_PASSWORD", "admin")

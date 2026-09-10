@@ -25,8 +25,8 @@ MAX_DAYS = 30
 
 
 def _require_feature(locale: str) -> None:
-    """Invitations hang off the same switch as creating LDAP users."""
-    if not get_settings().ldap_user_creation_enabled:
+    """Invitations hang off the same switch as creating accounts."""
+    if not get_settings().account_creation_enabled:
         raise HTTPException(status_code=404, detail=t("invite.featureDisabled", locale))
 
 

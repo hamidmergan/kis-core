@@ -51,7 +51,7 @@ def admin_create_ldap_user(
     locale: str = Depends(get_locale),
 ):
     settings = get_settings()
-    if not settings.ldap_user_creation_enabled:
+    if not settings.account_creation_enabled:
         raise HTTPException(status_code=404, detail=t("admin.ldap.featureDisabled", locale))
 
     if payload.kis_role == "custom":

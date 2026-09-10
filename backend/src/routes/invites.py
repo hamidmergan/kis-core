@@ -19,7 +19,7 @@ MIN_PASSWORD_LENGTH = 8
 
 def _open_invite_or_error(token: str, locale: str) -> dict:
     """Fetches the invitation and lets only an open one through."""
-    if not get_settings().ldap_user_creation_enabled:
+    if not get_settings().account_creation_enabled:
         raise HTTPException(status_code=404, detail=t("invite.featureDisabled", locale))
 
     invite = repo.get_invite_by_token(token)

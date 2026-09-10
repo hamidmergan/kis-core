@@ -22,8 +22,8 @@ SESSION_MAX_AGE = 86400
 
 
 def _require_feature(locale: str) -> None:
-    """Access codes hang off the same switch as creating LDAP users."""
-    if not get_settings().ldap_user_creation_enabled:
+    """Access codes hang off the same switch as creating accounts."""
+    if not get_settings().account_creation_enabled:
         raise HTTPException(status_code=404, detail=t("access.featureDisabled", locale))
 
 
@@ -63,7 +63,7 @@ def _set_session(response: Response, daten: dict) -> None:
 @router.get("/enabled")
 def feature_enabled():
     """Tells the public login page whether the link is worth showing."""
-    return {"enabled": bool(get_settings().ldap_user_creation_enabled)}
+    return {"enabled": bool(get_settings().account_creation_enabled)}
 
 
 class RedeemPayload(BaseModel):

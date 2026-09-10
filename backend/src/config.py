@@ -29,8 +29,8 @@ class Settings(BaseSettings):
     ldap_role_lecturer_values: str = "staff,faculty"
     ldap_use_ssl: bool = False
 
-    # Unlocks the interface for creating LDAP users.
-    ldap_user_creation_enabled: bool = False
+    # Unlocks invitations, access codes and creating accounts by hand.
+    account_creation_enabled: bool = False
 
     # Welche Module diese Anlage hat, Komma getrennt aus "aia" und "tools".
     modules: str = "aia,tools"

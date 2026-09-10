@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 
 @pytest.fixture
 def client(monkeypatch):
-    monkeypatch.setenv("LDAP_USER_CREATION_ENABLED", "true")
+    monkeypatch.setenv("ACCOUNT_CREATION_ENABLED", "true")
     monkeypatch.setenv("LDAP_BASE_DN", "dc=th-luebeck,dc=de")
     monkeypatch.setenv("LDAP_BIND_DN", "cn=admin,dc=th-luebeck,dc=de")
     monkeypatch.setenv("LDAP_BIND_PASSWORD", "admin")
@@ -224,7 +224,7 @@ def test_create_ldap_user_db_write_failure_returns_500(client):
 
 
 def test_create_ldap_user_404_when_flag_off(monkeypatch):
-    monkeypatch.delenv("LDAP_USER_CREATION_ENABLED", raising=False)
+    monkeypatch.delenv("ACCOUNT_CREATION_ENABLED", raising=False)
     from src.dependencies import get_current_user, get_settings
     from src.security.auth import verify_auth
     from src.app import app

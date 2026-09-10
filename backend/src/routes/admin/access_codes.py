@@ -25,7 +25,7 @@ MAX_SEATS = 500
 
 def _require_feature(locale: str) -> None:
     """Access codes hang off the same switch as creating LDAP users."""
-    if not get_settings().ldap_user_creation_enabled:
+    if not get_settings().account_creation_enabled:
         raise HTTPException(status_code=404, detail=t("access.featureDisabled", locale))
 
 
