@@ -3,6 +3,8 @@
 import { useCallback, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { CheckCircle, Lightning, Spinner, Warning, XCircle } from "@phosphor-icons/react";
+import Checkbox from "@/components/ui/Checkbox";
+import HelpTooltip from "@/components/ui/HelpTooltip";
 import { testFeatureRoute } from "./_api";
 import DefaultVoiceRow from "./DefaultVoiceRow";
 import type { Capability, Feature, FeatureRoute, Provider, ProviderMeta, Sampling } from "./_types";
@@ -67,6 +69,11 @@ function SamplingRow({
       />
     </div>
   );
+}
+
+// A set value stays visible even when the fine tuning is folded away.
+function hatWerte(werte: Sampling | undefined): boolean {
+  return werte?.temperature != null || werte?.top_p != null;
 }
 
 type ProviderTestStates = Record<number, TestState>;
@@ -136,6 +143,8 @@ export default function FeatureRoutingCard({
   const t = useTranslations("admin.providers");
   const [testStates, setTestStates] = useState<Record<string, TestState>>({});
   const [runAllBusy, setRunAllBusy] = useState(false);
+  // Empty sampling rows on every feature look like clutter, so they stay folded away.
+  const [feinAn, setFeinAn] = useState(false);
 
   const routeByFeature = useMemo(() => {
     const m = new Map<Feature, FeatureRoute>();
@@ -230,7 +239,17 @@ export default function FeatureRoutingCard({
           )}
         </button>
       </div>
-      <p className="text-xs text-muted-soft mb-4 max-w-2xl">{t("routes.hint")}</p>
+      <p className="text-xs text-muted-soft mb-2 max-w-2xl">{t("routes.hint")}</p>
+
+      <div className="flex items-center justify-end gap-1.5 mb-2">
+        <Checkbox
+          checked={feinAn}
+          onChange={setFeinAn}
+          label={t("routes.samplingToggle")}
+          labelClassName="text-xs text-muted-soft"
+        />
+        <HelpTooltip text={t("routes.samplingHelp")} />
+      </div>
 
       <div className="divide-y divide-border-soft">
         {FEATURE_ORDER.filter((f) => meta.features.includes(f)).map((feature) => {
@@ -265,6 +284,7 @@ export default function FeatureRoutingCard({
               onChangeProviderModel={(pid, model) => onChangeProviderModel(feature, pid, model)}
               onChangeSampling={(pid, werte) => onChangeSampling(feature, pid, werte)}
               onToggleUserChoice={(pid, on) => onToggleUserChoice(feature, pid, on)}
+              feinAn={feinAn}
             />
           );
         })}
@@ -289,6 +309,7 @@ function FeatureRow({
   onChangeProviderModel,
   onChangeSampling,
   onToggleUserChoice,
+  feinAn,
 }: {
   feature: Feature;
   route: FeatureRoute | undefined;
@@ -305,6 +326,7 @@ function FeatureRow({
   onChangeProviderModel: (providerId: number, model: string | null) => void;
   onChangeSampling: (providerId: number, werte: Sampling | null) => void;
   onToggleUserChoice: (id: number, on: boolean) => void;
+  feinAn: boolean;
 }) {
   const t = useTranslations("admin.providers");
   const providerId = route?.provider_id ?? null;
@@ -340,7 +362,8 @@ function FeatureRow({
                     />
                     <TestButton state={pState} disabled={testsLocked} onClick={() => onTestProvider(p.id)} />
                   </div>
-                  {CHAT_LIKE.has(feature) && p.protocol === "openai_compat" && (
+                  {CHAT_LIKE.has(feature) && p.protocol === "openai_compat" &&
+                    (feinAn || hatWerte(route?.provider_sampling?.[String(p.id)])) && (
                     <div className="flex justify-end pr-1">
                       <SamplingRow
                         werte={route?.provider_sampling?.[String(p.id)]}
@@ -416,7 +439,8 @@ function FeatureRow({
               </div>
             </div>
           )}
-          {primary && CHAT_LIKE.has(feature) && primary.protocol === "openai_compat" && (
+          {primary && CHAT_LIKE.has(feature) && primary.protocol === "openai_compat" &&
+            (feinAn || hatWerte(route?.provider_sampling?.[String(primary.id)])) && (
             <div className="flex justify-end pr-1">
               <SamplingRow
                 werte={route?.provider_sampling?.[String(primary.id)]}
@@ -465,7 +489,8 @@ function FeatureRow({
         />
         <TestButton state={testState} disabled={!canTest || testsLocked} onClick={onTest} />
       </div>
-      {CHAT_LIKE.has(feature) && provider?.protocol === "openai_compat" && (
+      {CHAT_LIKE.has(feature) && provider?.protocol === "openai_compat" &&
+        (feinAn || (providerId != null && hatWerte(route?.provider_sampling?.[String(providerId)]))) && (
         <div className="sm:col-start-3 sm:col-span-2 flex sm:justify-start">
           <SamplingRow
             werte={providerId != null ? route?.provider_sampling?.[String(providerId)] : undefined}

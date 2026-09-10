@@ -1289,7 +1289,9 @@
         "modelForPrimary": "Modell für {name}:",
         "modelOptional": "(optional)",
         "temperature": "Temperatur",
-        "samplingAuto": "auto"
+        "samplingAuto": "auto",
+        "samplingHelp": "Leer lassen heißt: Der Anbieter nimmt seinen eigenen Wert. Temperatur steuert, wie frei das Modell formuliert. 0 bleibt streng am Text, 1 formuliert locker. top_p begrenzt, aus wie vielen Wortvarianten das Modell wählt. 0,9 streicht die unwahrscheinlichen Wörter weg. Im Normalfall nur eins von beiden setzen.",
+        "samplingToggle": "Feinjustierung"
       },
       "delete": {
         "title": "Anbieter „{name}\" löschen?",

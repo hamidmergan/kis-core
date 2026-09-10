@@ -1289,7 +1289,9 @@
         "modelForPrimary": "Model for {name}:",
         "modelOptional": "(optional)",
         "temperature": "Temperature",
-        "samplingAuto": "auto"
+        "samplingAuto": "auto",
+        "samplingHelp": "Leave empty and the provider uses its own value. Temperature controls how freely the model writes. 0 stays close to the text, 1 is loose. top_p limits how many word candidates the model picks from. 0.9 drops the unlikely ones. As a rule, set only one of the two.",
+        "samplingToggle": "Fine tuning"
       },
       "delete": {
         "title": "Delete provider \"{name}\"?",
