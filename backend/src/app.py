@@ -24,7 +24,7 @@ _MAINTENANCE_OPEN_PATHS = {"/health", "/health/maintenance", "/health/labels"}
 _MAINTENANCE_OPEN_PREFIXES = ("/admin/", "/auth/")
 
 # The value shipped in .env.example, worthless as a real password.
-_BEISPIEL_ADMIN_PASSWORT = "change-me-in-production"
+_BEISPIEL_ADMIN_PASSWORT = "adminpw"
 
 # Cache the maintenance flag, otherwise every request waits on a database query.
 _MAINTENANCE_TTL_S = 5.0
@@ -101,7 +101,7 @@ async def lifespan(app: FastAPI):
         logger.info("Local mode: admin user ensured (id={})", user_id)
     else:
         from src.features.accounts.env_admin import ensure_env_admin
-        ensure_env_admin(settings.admin_email, settings.admin_password)
+        ensure_env_admin(settings.admin_email, settings.admin_password, settings.admin_username)
     if _broker_was_emptied():
         stuck = reset_stuck_jobs()
         if stuck:

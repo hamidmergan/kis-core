@@ -38,11 +38,15 @@ Then open `http://localhost:3000`. The defaults in `.env.example` already point 
 this stack, so nothing has to be filled in for a local run. The first start builds the images, which
 takes a few minutes.
 
-Log in with `ADMIN_EMAIL` and `ADMIN_PASSWORD` from `.env.example`. That account is created on the
-first start and holds every permission. The login field takes either a mail address or a user name,
-told apart by the `@`. Everybody else gets in through an invitation link or an access code, both
-made under **Admin → Nutzer**. Change `ADMIN_PASSWORD` before any real use, a production install
-refuses to start while it is still the example value.
+Log in as `admin` with the password `adminpw`, both from `.env.example`. The login field takes
+either that user name or the mail address next to it, told apart by the `@`. Everybody else gets in
+through an invitation link or an access code, both made under **Admin → Nutzer**.
+
+`ADMIN_USERNAME`, `ADMIN_EMAIL` and `ADMIN_PASSWORD` are written onto the admin account on every
+start, so changing one of them and recreating the container is how you rename the admin or reset
+its password. Note that `docker restart` is not enough, it keeps the environment the container was
+built with. Change `ADMIN_PASSWORD` before any real use, a production install refuses to start
+while it is still the example value.
 
 `AUTH_DISABLED=true` drops the login screen entirely. Startup creates an account named `local` and
 hands it every permission, so maintenance mode no longer applies. Useful for a quick look at the

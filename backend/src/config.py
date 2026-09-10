@@ -7,7 +7,8 @@ class Settings(BaseSettings):
     # Security
     session_secret: str = "change-me-in-production"
 
-    # The admin account, created on start and unlocked right away.
+    # The admin account, written onto the row on every start.
+    admin_username: str = ""
     admin_email: str = ""
 
     # The admin's password, only read on start and never written back.
