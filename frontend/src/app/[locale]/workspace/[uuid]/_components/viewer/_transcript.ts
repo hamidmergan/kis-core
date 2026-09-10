@@ -56,6 +56,72 @@ function endsSentence(text: string): boolean {
   return SENTENCE_END.test(text.trim());
 }
 
+// A sentence end anywhere in the text, not only at its very end. Scripts without
+// spaces close a sentence with the mark alone, the others need a space behind it.
+const SENTENCE_BREAK =
+  /[\u3002\uff01\uff1f]["'\u201d\u2019\u00bb)\]\u300d\u300f]*|[.!?\u2026\u061f\u0964\u0965\u0589]["'\u201d\u2019\u00bb)\]]*(?=\s|$)/gu;
+
+// How far the search may run when the cues carry no punctuation at all.
+const SPAN_MAX_CUES = 6;
+
+/** Where the running sentence starts and ends, cue borders included. */
+export interface SentenceSpan {
+  /** Index of the cue the sentence starts in. */
+  fromIdx: number;
+  /** Offset of its first character inside that cue. */
+  fromChar: number;
+  /** Index of the cue the sentence ends in. */
+  toIdx: number;
+  /** Offset just past its last character inside that cue. */
+  toChar: number;
+}
+
+/** Offsets just past every sentence end inside the text. */
+function sentenceBreaks(text: string): number[] {
+  const out: number[] = [];
+  SENTENCE_BREAK.lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = SENTENCE_BREAK.exec(text)) !== null) out.push(m.index + m[0].length);
+  return out;
+}
+
+/** The sentence a cue belongs to, so a mark can follow the sentence instead of the timed line. */
+export function sentenceSpan(cues: { text: string }[], idx: number): SentenceSpan | null {
+  if (idx < 0 || idx >= cues.length) return null;
+  const at = (i: number) => (cues[i]?.text ?? "").trim();
+
+  let fromIdx = idx;
+  let fromChar = 0;
+  while (fromIdx > 0 && idx - fromIdx < SPAN_MAX_CUES) {
+    const prev = at(fromIdx - 1);
+    const breaks = sentenceBreaks(prev);
+    const last = breaks.length > 0 ? breaks[breaks.length - 1] : -1;
+    if (last >= prev.length) break; // the cue before closes its sentence
+    fromIdx -= 1;
+    if (last < 0) { fromChar = 0; continue; }
+    // The sentence starts inside that cue, behind the space after the punctuation.
+    let start = last;
+    while (start < prev.length && /\s/u.test(prev[start])) start += 1;
+    fromChar = start;
+    break;
+  }
+
+  let toIdx = idx;
+  const own = at(idx);
+  let toChar = own.length;
+  const ownBreaks = sentenceBreaks(own);
+  const closed = ownBreaks.length > 0 && ownBreaks[ownBreaks.length - 1] >= own.length;
+  while (!closed && toIdx + 1 < cues.length && toIdx - idx < SPAN_MAX_CUES) {
+    const next = at(toIdx + 1);
+    const breaks = sentenceBreaks(next);
+    toIdx += 1;
+    if (breaks.length > 0) { toChar = breaks[0]; break; }
+    toChar = next.length;
+  }
+
+  return { fromIdx, fromChar, toIdx, toChar };
+}
+
 /** Groups the lines into paragraphs, every line stays included exactly once. */
 export function groupCues(cues: TextCue[]): CueBlock[] {
   const blocks: CueBlock[] = [];

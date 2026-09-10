@@ -30,6 +30,18 @@ _STAMP_GLUED = re.compile(rf"^\s*{_STAMP}{_LABEL}(.*)$", re.IGNORECASE)
 # A label in a language the list does not know stays in the text, the stamp still counts.
 _STAMP_DIGIT = re.compile(rf"^\s*{_STAMP}(?=\d)(.*)$")
 
+# Auto captions mark sounds in brackets, always short and never a whole sentence.
+_SOUND_LABEL = re.compile(r"\[[^\[\]\n.!?…]{0,40}\]")
+
+
+def _without_sound_labels(text: str) -> str:
+    """Drops the bracketed sound labels and closes the gap they leave."""
+    cleaned = _SOUND_LABEL.sub("", text)
+    if cleaned == text:
+        return text
+    cleaned = re.sub(r"[ \t]+([,.;:!?])", r"\1", cleaned)
+    return re.sub(r"[ \t]{2,}", " ", cleaned).strip()
+
 
 def parse_transcript(text: str) -> list[dict]:
     """Segments with start, end and text, or a LinkError naming what is wrong."""
@@ -40,6 +52,8 @@ def parse_transcript(text: str) -> list[dict]:
         raise LinkError("ai.youtube.emptyTranscript", 400)
     # A timing line with an arrow means SRT or VTT, the shared parser knows both.
     segments = vtt_to_segments(text) if _TIMING_LINE.search(text) else _parse_player_copy(text)
+    for s in segments:
+        s["text"] = _without_sound_labels(s["text"])
     segments = [s for s in segments if s["text"].strip()]
     if not segments:
         raise LinkError("ai.youtube.emptyTranscript", 400)

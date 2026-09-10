@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildTranscriptModes, buildTranscriptOptions, chooseableTargetLangs, readPendingTranslation, TRANSLATE_ACTION, claimLineIndex, claimLineIndices, claimOverlap, claimTokens, cueIndexAtTime, groupCues, resolveCitationFocus, type TextCue, type TimedCue } from "./_transcript";
+import { buildTranscriptModes, buildTranscriptOptions, chooseableTargetLangs, readPendingTranslation, TRANSLATE_ACTION, claimLineIndex, claimLineIndices, claimOverlap, claimTokens, cueIndexAtTime, groupCues, resolveCitationFocus, sentenceSpan, type TextCue, type TimedCue } from "./_transcript";
 
 // The time is the exact segment start, not the rounded display.
 const cues: TimedCue[] = [
@@ -471,5 +471,59 @@ describe("buildTranscriptOptions", () => {
   it("leaves the list untouched when nobody may translate", () => {
     expect(buildTranscriptOptions({ hasSource: true, hasTarget: true, canTranslate: false }))
       .toEqual(["source", "target", "both", "off"]);
+  });
+});
+
+describe("sentenceSpan — the mark follows the sentence, not the cue", () => {
+  const cue = (text: string) => ({ text });
+
+  it("keeps a cue that is a whole sentence to itself", () => {
+    const list = [cue("Erster Satz."), cue("Zweiter Satz."), cue("Dritter Satz.")];
+    expect(sentenceSpan(list, 1)).toEqual({
+      fromIdx: 1, fromChar: 0, toIdx: 1, toChar: "Zweiter Satz.".length,
+    });
+  });
+
+  it("reaches back into the cue before when the sentence starts there", () => {
+    const prev = "Das ist ein Satz. Und der naechste faengt hier an";
+    const list = [cue(prev), cue("und laeuft hier zu Ende.")];
+    expect(sentenceSpan(list, 1)).toEqual({
+      fromIdx: 0, fromChar: prev.indexOf("Und"), toIdx: 1, toChar: "und laeuft hier zu Ende.".length,
+    });
+  });
+
+  it("reaches forward into the next cue when the sentence ends there", () => {
+    const next = "und endet hier. Danach kommt mehr.";
+    const list = [cue("Ein Satz laeuft hier los"), cue(next)];
+    expect(sentenceSpan(list, 0)).toEqual({
+      fromIdx: 0, fromChar: 0, toIdx: 1, toChar: next.indexOf(".") + 1,
+    });
+  });
+
+  it("spans both sides at once", () => {
+    const prev = "Ende hier. Ein Satz beginnt";
+    const next = "und schliesst hier! Neuer Satz.";
+    const list = [cue(prev), cue("laeuft weiter"), cue(next)];
+    expect(sentenceSpan(list, 1)).toEqual({
+      fromIdx: 0, fromChar: prev.indexOf("Ein"), toIdx: 2, toChar: next.indexOf("!") + 1,
+    });
+  });
+
+  it("stops after a few cues when there is no punctuation at all", () => {
+    const list = Array.from({ length: 20 }, () => cue("wort wort wort"));
+    const span = sentenceSpan(list, 10);
+    expect(span?.fromIdx).toBe(4);
+    expect(span?.toIdx).toBe(16);
+  });
+
+  it("reads a sentence end outside the latin script too", () => {
+    const prev = "前の文。次の文はここから";
+    const list = [cue(prev), cue("ここで終わる。")];
+    expect(sentenceSpan(list, 1)?.fromIdx).toBe(0);
+    expect(sentenceSpan(list, 1)?.fromChar).toBe(prev.indexOf("次"));
+  });
+
+  it("has no span without a running cue", () => {
+    expect(sentenceSpan([cue("Ein Satz.")], -1)).toBeNull();
   });
 });

@@ -130,3 +130,35 @@ def test_unbekannte_sprache_behaelt_die_beschriftung_im_text():
 def test_kopfzeilen_der_youtube_seite_werden_verworfen():
     segments = parse_transcript("Transkript\nIm Transkript suchen\n0:066 SekundenHallo.\n")
     assert [s["text"] for s in segments] == ["Hallo."]
+
+
+def test_tonmarker_in_eckigen_klammern_fallen_weg():
+    # YouTube's auto captions glue sound labels into the spoken text.
+    text = (
+        "0:066 SekundenViele [musik] Lehrmaterialien liegen vor, [Musik] nur auf Deutsch.\n"
+        "0:1414 SekundenEin [Applause] zweiter Satz.\n"
+    )
+    segments = parse_transcript(text)
+    assert [s["text"] for s in segments] == [
+        "Viele Lehrmaterialien liegen vor, nur auf Deutsch.",
+        "Ein zweiter Satz.",
+    ]
+
+
+def test_zeile_nur_aus_einem_tonmarker_faellt_ganz_weg():
+    text = "0:066 SekundenErster Satz.\n0:1010 Sekunden[musik]\n0:1414 SekundenZweiter Satz.\n"
+    segments = parse_transcript(text)
+    assert [s["text"] for s in segments] == ["Erster Satz.", "Zweiter Satz."]
+    assert [s["start"] for s in segments] == [6.0, 14.0]
+
+
+def test_tonmarker_auch_im_vtt_format():
+    text = "WEBVTT\n\n00:00.000 --> 00:04.000\n[Musik] Hallo\n\n00:04.000 --> 00:09.000\n[Musik]\n"
+    assert [s["text"] for s in parse_transcript(text)] == ["Hallo"]
+
+
+def test_langer_klammerinhalt_bleibt_stehen():
+    # Only short labels go, a real bracketed remark stays part of the text.
+    text = "0:066 SekundenDer Satz [hier steht eine ganze Bemerkung die deutlich laenger ist als ein Marker] endet.\n"
+    segments = parse_transcript(text)
+    assert "ganze Bemerkung" in segments[0]["text"]

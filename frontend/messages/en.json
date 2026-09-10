@@ -2921,6 +2921,7 @@
         "youtubeLoadFailed": "The player could not be loaded. Check blockers in your browser and reload the page.",
         "transcriptLoading": "Loading transcript...",
         "jumpToCurrent": "Jump to current transcript",
+        "stopFollowing": "Stop following along",
         "transcriptModeLabel": "Transcript mode",
         "tabDe": "German",
         "tabEn": "English",

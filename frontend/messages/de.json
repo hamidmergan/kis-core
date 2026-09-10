@@ -2921,6 +2921,7 @@
         "youtubeLoadFailed": "Der Player konnte nicht geladen werden. Prüfe Blocker im Browser und lade die Seite neu.",
         "transcriptLoading": "Transkript wird geladen...",
         "jumpToCurrent": "Zum aktuellen Transkript springen",
+        "stopFollowing": "Mitlaufen ausschalten",
         "transcriptModeLabel": "Transkriptmodus",
         "tabDe": "Deutsch",
         "tabEn": "English",

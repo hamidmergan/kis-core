@@ -9,7 +9,8 @@ import type { AddNoteExtras } from "../../_hooks/useNotes";
 import { useOwnerPreview } from "../layout/OwnerOnly";
 import {
   buildTranscriptOptions, groupCues, readPendingTranslation, resolveCitationFocus,
-  TRANSLATE_ACTION, type TranscriptMode, type TranscriptOption,
+  sentenceSpan, TRANSLATE_ACTION,
+  type SentenceSpan, type TranscriptMode, type TranscriptOption,
 } from "./_transcript";
 import type { MediaController } from "./mediaController";
 import { TranslateLanguageModal } from "./TranslateLanguageModal";
@@ -131,8 +132,8 @@ export function TranscriptPanel({
     if (startOff) setMode("off");
   }, [sourceUuid, startOff]);
   const [currentIdx, setCurrentIdx] = useState<number>(-1);
-  // Following along is off by default, the user turns it on.
-  const [followCurrent, setFollowCurrent] = useState(false);
+  // Following along is on by default, the user can switch it off.
+  const [followCurrent, setFollowCurrent] = useState(true);
   const [jumpHover, setJumpHover] = useState(false);
   // The pinned spot, whether it is visible and in which direction it lies.
   const [citationIdx, setCitationIdx] = useState<number>(-1);
@@ -274,6 +275,13 @@ export function TranscriptPanel({
     return stop;
   }, [controller, masterCues]);
 
+  // The mark runs to the sentence end, the timed line may cut a sentence in half.
+  const boldSpans = useMemo(() => {
+    const out: Record<string, SentenceSpan | null> = {};
+    for (const [lang, track] of Object.entries(cues)) out[lang] = sentenceSpan(track, currentIdx);
+    return out;
+  }, [cues, currentIdx]);
+
   // Auto-scroll the current cue into view while follow mode is active.
   useEffect(() => {
     if (!followCurrent) return;
@@ -354,7 +362,12 @@ export function TranscriptPanel({
     };
   }, []);
 
-  const jumpToCurrent = () => {
+  // The button switches following along off and on, switching on also jumps.
+  const toggleFollow = () => {
+    if (followCurrent) {
+      setFollowCurrent(false);
+      return;
+    }
     const el = itemRefs.current[currentIdx];
     if (el) el.scrollIntoView({ block: "center", behavior: "smooth" });
     setFollowCurrent(true);
@@ -572,11 +585,12 @@ export function TranscriptPanel({
         {mode !== "off" && (
           <button
             type="button"
-            onClick={jumpToCurrent}
+            onClick={toggleFollow}
             onMouseEnter={() => setJumpHover(true)}
             onMouseLeave={() => setJumpHover(false)}
-            disabled={currentIdx < 0}
-            title={t("jumpToCurrent")}
+            aria-pressed={followCurrent}
+            disabled={!followCurrent && currentIdx < 0}
+            title={followCurrent ? t("stopFollowing") : t("jumpToCurrent")}
             className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             style={{
               backgroundColor: followCurrent ? "rgba(var(--kb-rgb), 0.12)" : "transparent",
@@ -634,21 +648,32 @@ export function TranscriptPanel({
           // Only one of the two tracks carries the scroll anchors.
           const anchorTrack = showSource ? sourceLang : targetLang;
 
-          const sentences = (lang: string | null, italic: boolean) => {
+          const sentences = (lang: string | null) => {
             if (!lang) return null;
             const track = cues[lang];
             if (!track) return null;
+            const span = boldSpans[lang] ?? null;
             const out: React.ReactNode[] = [];
             for (let i = b.from; i <= b.to; i++) {
               const text = track[i]?.text?.trim();
               if (!text) continue;
+              // The running sentence starts and ends inside a line as often as on its border.
+              const marked = !!span && i >= span.fromIdx && i <= span.toIdx;
+              const markFrom = marked && i === span.fromIdx ? span.fromChar : 0;
+              const markTo = marked && i === span.toIdx ? span.toChar : text.length;
               out.push(
                 <span
                   key={i}
                   ref={lang === anchorTrack ? (el) => { itemRefs.current[i] = el; } : undefined}
-                  style={{ fontWeight: !italic && i === currentIdx ? 600 : undefined }}
                 >
-                  {text}{i < b.to ? " " : ""}
+                  {marked ? (
+                    <>
+                      {text.slice(0, markFrom)}
+                      <span style={{ fontWeight: 600 }}>{text.slice(markFrom, markTo)}</span>
+                      {text.slice(markTo)}
+                    </>
+                  ) : text}
+                  {i < b.to ? " " : ""}
                 </span>,
               );
             }
@@ -688,7 +713,7 @@ export function TranscriptPanel({
                 </div>
                 {showSource && (
                   <div className="text-sm leading-snug" style={{ color: "var(--foreground)" }}>
-                    {sentences(sourceLang, false)}
+                    {sentences(sourceLang)}
                   </div>
                 )}
                 {showTarget && (
@@ -696,7 +721,7 @@ export function TranscriptPanel({
                     className="text-sm italic leading-snug mt-0.5"
                     style={{ color: "var(--muted)" }}
                   >
-                    {sentences(targetLang, true)}
+                    {sentences(targetLang)}
                   </div>
                 )}
               </div>
