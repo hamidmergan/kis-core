@@ -24,6 +24,7 @@ const TAGE = [7, 14, 30];
 export default function CreateInviteDialog({ onClose, onCreated }: Props) {
   const t = useTranslations("admin.createInvite");
   const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [role, setRole] = useState("staff");
   const [days, setDays] = useState("7");
   const [customRoles, setCustomRoles] = useState<CustomRole[]>([]);
@@ -70,6 +71,7 @@ export default function CreateInviteDialog({ onClose, onCreated }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           username: username.trim(),
+          email: email.trim() || null,
           kis_role: custom ? "custom" : role,
           custom_role_id: custom ? Number(role.slice("custom:".length)) : null,
           days: Number(days),
@@ -166,6 +168,20 @@ export default function CreateInviteDialog({ onClose, onCreated }: Props) {
               <p className="text-xs text-muted-soft">
                 {uidVorschau ? t("uidHint", { uid: uidVorschau }) : t("usernameHint")}
               </p>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs uppercase tracking-wide text-muted" htmlFor="invite-email">
+                {t("emailLabel")} <span className="normal-case">{t("emailOptional")}</span>
+              </label>
+              <input
+                id="invite-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-kb"
+              />
+              <p className="text-xs text-muted-soft">{t("emailHint")}</p>
             </div>
 
             <div className="space-y-1">

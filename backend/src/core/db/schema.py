@@ -384,6 +384,8 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             """)
             # The inviter may disappear, the invitation stays.
             cur.execute("ALTER TABLE invites ALTER COLUMN created_by DROP NOT NULL")
+            # An invitation without a mail address is normal now, LDAP no longer demands one.
+            cur.execute("ALTER TABLE invites ALTER COLUMN email DROP NOT NULL")
             cur.execute("CREATE INDEX IF NOT EXISTS invites_email_idx ON invites (LOWER(email))")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS access_codes (
