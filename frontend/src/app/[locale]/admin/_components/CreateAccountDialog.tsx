@@ -46,7 +46,7 @@ function roleFromSelectValue(value: string): RoleSelection {
   return { kind: "system", value: "staff" };
 }
 
-export default function CreateLdapUserDialog({ onClose }: Props) {
+export default function CreateAccountDialog({ onClose }: Props) {
   const t = useTranslations("admin.createLdapUser");
   const [form, setForm] = useState<FormState>(EMPTY);
   const [customRoles, setCustomRoles] = useState<CustomRole[]>([]);
@@ -87,19 +87,19 @@ export default function CreateLdapUserDialog({ onClose }: Props) {
             uid: form.uid,
             given_name: form.given_name,
             surname: form.surname,
-            email: form.email,
+            email: form.email.trim() || null,
             kis_role: form.role.value,
           }
         : {
             uid: form.uid,
             given_name: form.given_name,
             surname: form.surname,
-            email: form.email,
+            email: form.email.trim() || null,
             kis_role: "custom",
             custom_role_id: form.role.customRoleId,
           };
     try {
-      const r = await fetch("/api/admin/ldap-users", {
+      const r = await fetch("/api/admin/accounts", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -208,10 +208,11 @@ export default function CreateLdapUserDialog({ onClose }: Props) {
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs uppercase tracking-wide text-muted">{t("fieldEmail")}</label>
+              <label className="text-xs uppercase tracking-wide text-muted">
+                {t("fieldEmail")} <span className="normal-case">{t("emailOptional")}</span>
+              </label>
               <input
                 type="email"
-                required
                 value={form.email}
                 onChange={(e) => update("email", e.target.value)}
                 className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-kb"

@@ -1,19 +1,17 @@
-"""One account, created the same way for both ways in."""
+"""One account, created the same way for both ways in, now without a directory."""
 
 from unittest.mock import patch
 
-import pytest
-
+from src.features.accounts.passwords import verify_password
 from src.features.accounts.provisioning import provision_account
 
 
 def _anlegen(**abweichungen):
     argumente = dict(
-        settings=object(),
         uid="max.mustermann",
         given_name="Max",
         surname="Mustermann",
-        email="max.mustermann@demo.kis.local",
+        email=None,
         role="staff",
         custom_role_id=None,
         password="geheim123",
@@ -22,33 +20,43 @@ def _anlegen(**abweichungen):
     return provision_account(**argumente)
 
 
-def test_creates_ldap_user_whitelist_entry_and_row():
-    with patch("src.features.accounts.provisioning.create_ldap_user") as ldap, \
-         patch("src.features.accounts.provisioning.database.add_to_whitelist") as weiss, \
-         patch("src.features.accounts.provisioning.database.create_user", return_value=42):
+def test_the_row_carries_a_hash_of_the_password():
+    with patch("src.features.accounts.provisioning.database.create_user", return_value=42) as anlegen:
         daten = _anlegen()
 
-    assert ldap.call_args.kwargs["uid"] == "max.mustermann"
-    assert ldap.call_args.kwargs["employee_type"] == "staff"
-    weiss.assert_called_once_with("max.mustermann@demo.kis.local")
+    hash_wert = anlegen.call_args.kwargs["password_hash"]
+    assert verify_password("geheim123", hash_wert) is True
+    assert hash_wert.startswith("$2")
     assert daten["user_id"] == 42
     assert daten["username"] == "max.mustermann"
     assert daten["display_name"] == "Max Mustermann"
 
 
-def test_falls_back_to_the_user_name_when_no_name_was_given():
-    with patch("src.features.accounts.provisioning.create_ldap_user"), \
-         patch("src.features.accounts.provisioning.database.add_to_whitelist"), \
-         patch("src.features.accounts.provisioning.database.create_user", return_value=42):
-        daten = _anlegen(given_name="", surname="")
+def test_without_a_mail_address_nothing_lands_on_the_list():
+    with patch("src.features.accounts.provisioning.database.create_user", return_value=42), \
+         patch("src.features.accounts.provisioning.database.add_to_whitelist") as liste:
+        daten = _anlegen(email=None)
 
+    liste.assert_not_called()
+    assert daten["email"] is None
+
+
+def test_a_given_mail_address_lands_on_the_list():
+    with patch("src.features.accounts.provisioning.database.create_user", return_value=42), \
+         patch("src.features.accounts.provisioning.database.add_to_whitelist") as liste:
+        _anlegen(email="max@th-luebeck.de")
+
+    liste.assert_called_once_with("max@th-luebeck.de")
+
+
+def test_it_falls_back_to_the_user_name_when_no_name_was_given():
+    with patch("src.features.accounts.provisioning.database.create_user", return_value=42):
+        daten = _anlegen(given_name="", surname="")
     assert daten["display_name"] == "max.mustermann"
 
 
 def test_a_custom_role_is_set_afterwards():
-    with patch("src.features.accounts.provisioning.create_ldap_user"), \
-         patch("src.features.accounts.provisioning.database.add_to_whitelist"), \
-         patch("src.features.accounts.provisioning.database.create_user", return_value=42), \
+    with patch("src.features.accounts.provisioning.database.create_user", return_value=42), \
          patch("src.features.accounts.provisioning.database.set_user_role") as rolle:
         daten = _anlegen(role="custom", custom_role_id=3)
 
@@ -56,22 +64,7 @@ def test_a_custom_role_is_set_afterwards():
     assert daten["custom_role_id"] == 3
 
 
-def test_only_staff_becomes_staff_in_ldap():
-    with patch("src.features.accounts.provisioning.create_ldap_user") as ldap, \
-         patch("src.features.accounts.provisioning.database.add_to_whitelist"), \
-         patch("src.features.accounts.provisioning.database.create_user", return_value=42), \
-         patch("src.features.accounts.provisioning.database.set_user_role"):
-        _anlegen(role="custom", custom_role_id=3)
-
-    assert ldap.call_args.kwargs["employee_type"] == "user"
-
-
-def test_a_failing_ldap_call_stops_everything():
-    with patch("src.features.accounts.provisioning.create_ldap_user", side_effect=RuntimeError("ldap")), \
-         patch("src.features.accounts.provisioning.database.add_to_whitelist") as weiss, \
-         patch("src.features.accounts.provisioning.database.create_user") as anlegen:
-        with pytest.raises(RuntimeError):
-            _anlegen()
-
-    weiss.assert_not_called()
-    anlegen.assert_not_called()
+def test_the_account_starts_active():
+    with patch("src.features.accounts.provisioning.database.create_user", return_value=42) as anlegen:
+        _anlegen()
+    assert anlegen.call_args.kwargs["active"] == 1

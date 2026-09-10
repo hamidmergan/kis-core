@@ -4,7 +4,6 @@ import pytest
 
 from src.features.invites.service import (
     InviteValidationError,
-    invite_email,
     new_token,
     status_of,
     uid_from_username,
@@ -31,10 +30,6 @@ def test_uid_from_username_turns_a_full_name_into_one_word():
 def test_uid_from_username_rejects_what_is_left_unusable(eingabe):
     with pytest.raises(InviteValidationError):
         uid_from_username(eingabe)
-
-
-def test_invite_email_is_made_up_from_the_username():
-    assert invite_email("max.mustermann") == "max.mustermann@kis.local"
 
 
 def test_new_token_is_long_and_unique():

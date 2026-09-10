@@ -16,7 +16,7 @@ import { canDeleteUser } from "./canDeleteUser";
 import { canImpersonate, gesperrteRollenIds } from "./canImpersonate";
 import { clearAuthCache } from "@/lib/auth";
 import { PERM } from "@/lib/permissions";
-import CreateLdapUserDialog from "./CreateLdapUserDialog";
+import CreateAccountDialog from "./CreateAccountDialog";
 import DeleteUserConfirmDialog from "./DeleteUserConfirmDialog";
 
 export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number) => void }) {
@@ -412,7 +412,7 @@ export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number
       )}
 
       {showCreateDialog && (
-        <CreateLdapUserDialog onClose={() => {
+        <CreateAccountDialog onClose={() => {
           setShowCreateDialog(false);
           setRefreshKey((k) => k + 1);
         }} />

@@ -10,7 +10,6 @@ from src.dependencies_rbac import require_permission
 from src.features.invites import repository as repo
 from src.features.invites.service import (
     InviteValidationError,
-    invite_email,
     new_token,
     status_of,
     uid_from_username,
@@ -26,13 +25,14 @@ MAX_DAYS = 30
 
 
 def _require_feature(locale: str) -> None:
-    """Invitations hang off the same switch as creating LDAP users."""
-    if not get_settings().ldap_user_creation_enabled:
+    """Invitations hang off the same switch as creating accounts."""
+    if not get_settings().account_creation_enabled:
         raise HTTPException(status_code=404, detail=t("invite.featureDisabled", locale))
 
 
 class CreateInvitePayload(BaseModel):
     username: str = Field(..., min_length=1, max_length=64)
+    email: str | None = Field(None, max_length=254)
     kis_role: str = Field(..., pattern="^(staff|user|custom)$")
     custom_role_id: int | None = None
     days: int = Field(7, ge=1, le=MAX_DAYS)
@@ -59,13 +59,19 @@ def create_invite(
     except InviteValidationError:
         raise HTTPException(status_code=400, detail=t("invite.noUsableUid", locale))
 
-    # Nobody sends mail here, the address only exists because LDAP demands one.
-    email = invite_email(uid)
+    # The address is optional now, whoever has none logs in with the user name.
+    email = (payload.email or "").strip() or None
 
     if database.get_user_by_username(uid) is not None:
         raise HTTPException(status_code=409, detail=t("invite.userExists", locale))
 
-    if repo.open_invite_for_email(email) is not None:
+    if email is not None:
+        if "@" not in email:
+            raise HTTPException(status_code=400, detail=t("invite.invalidEmail", locale))
+        if database.get_user_by_email(email) is not None:
+            raise HTTPException(status_code=409, detail=t("invite.emailExists", locale))
+
+    if repo.open_invite_for_uid(uid) is not None:
         raise HTTPException(status_code=409, detail=t("invite.alreadyInvited", locale))
 
     if payload.kis_role == "custom" and database.get_custom_role(payload.custom_role_id) is None:

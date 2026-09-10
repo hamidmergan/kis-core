@@ -10,7 +10,7 @@ from src.routes.admin.impersonation import router as _impersonation_router
 from src.routes.admin.invites import router as _invites_router
 from src.routes.admin.jobs import router as _jobs_router
 from src.routes.admin.load import router as _load_router
-from src.routes.admin.ldap_users import router as _ldap_users_router
+from src.routes.admin.accounts import router as _accounts_router
 from src.routes.admin.maintenance import router as _maintenance_router
 from src.routes.admin.pools import router as _pools_router
 from src.routes.admin.providers import router as _providers_router
@@ -32,7 +32,7 @@ router.include_router(_users_router)
 router.include_router(_stats_router)
 router.include_router(_jobs_router)
 router.include_router(_load_router)
-router.include_router(_ldap_users_router)
+router.include_router(_accounts_router)
 router.include_router(_invites_router)
 router.include_router(_providers_router)
 router.include_router(_quota_router)

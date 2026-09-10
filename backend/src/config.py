@@ -7,29 +7,23 @@ class Settings(BaseSettings):
     # Security
     session_secret: str = "change-me-in-production"
 
-    # Must match the admin's LDAP address, it is unlocked at startup.
+    # The admin account, written onto the row on every start.
+    admin_username: str = ""
     admin_email: str = ""
+
+    # The admin's password, only read on start and never written back.
+    admin_password: str = ""
 
     # Set via start-nginx.sh / start-th.sh, never in .env
     production: bool = False
 
-    # LDAP
-    ldap_server: str = ""
-    ldap_port: int = 389
-    ldap_base_dn: str = ""
-    ldap_bind_dn: str = ""
-    ldap_bind_password: str = ""
-    ldap_attr_username: str = "uid"
-    ldap_attr_fullname: str = "cn"
-    ldap_attr_email: str = "mail"
-    ldap_attr_affiliation: str = "employeeType"
-    ldap_role_lecturer_values: str = "staff,faculty"
-    ldap_use_ssl: bool = False
+    # Unlocks invitations, access codes and creating accounts by hand.
+    account_creation_enabled: bool = False
 
-    # Unlocks the interface for creating LDAP users.
-    ldap_user_creation_enabled: bool = False
+    # No login screen at all, everybody is the local admin. Local use only.
+    auth_disabled: bool = False
 
-    # Welche Module diese Anlage hat, Komma getrennt aus "aia" und "tools".
+    # Which halves this installation has, comma separated from "aia" and "tools".
     modules: str = "aia,tools"
 
     # Key used to encrypt provider credentials on read and write.
@@ -37,6 +31,6 @@ class Settings(BaseSettings):
 
     @property
     def is_local_mode(self) -> bool:
-        return not bool(self.ldap_server.strip())
+        return self.auth_disabled
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "populate_by_name": True}

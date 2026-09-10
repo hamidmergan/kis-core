@@ -1,4 +1,4 @@
-"""Turns free text into a user name LDAP accepts."""
+"""Turns free text into a user name the login field can tell from a mail address."""
 import re
 from collections.abc import Callable
 
@@ -16,6 +16,11 @@ def slugify_uid(text: str) -> str | None:
     wert = wert.replace(" ", "-")
     wert = _UNERLAUBT.sub("", wert)
     return wert if _UID.match(wert) else None
+
+
+def ist_anmeldename(text: str) -> bool:
+    """True when the login field would read this as a name, never as a mail address."""
+    return bool(_UID.match(text or ""))
 
 
 def name_to_uid(given_name: str, surname: str) -> str | None:

@@ -10,7 +10,7 @@ from src.features.accounts.demo_onboarding import demo_module_zuweisen
 from src.features.impersonation import repository as impersonation_repo
 from src.features.impersonation import service as impersonation
 from src.i18n import get_locale, t
-from src.ldap_auth import authenticate_user
+from src.features.accounts.login import authenticate
 from src.modules import active_modules
 from src.security.auth import ACCESS_EXPIRED, access_expired_error
 
@@ -26,70 +26,35 @@ class LoginRequest(BaseModel):
 def login(body: LoginRequest, response: Response, locale: str = Depends(get_locale)):
     settings = get_settings()
 
-    # Step 1: LDAP authentication
-    try:
-        ldap_user = authenticate_user(body.username, body.password)
-    except RuntimeError as e:
-        logger.error("LDAP auth error for user '{}': {}", body.username, e)
-        raise HTTPException(status_code=500, detail=str(e))
-
-    if ldap_user is None:
-        logger.warning("Failed login attempt for user '{}' (invalid credentials)", body.username)
+    # Step 1: The password lives in the database, the field takes a name or a mail address.
+    db_user = authenticate(body.username, body.password)
+    if db_user is None:
+        logger.warning("Failed login attempt for '{}' (invalid credentials)", body.username)
         raise HTTPException(status_code=401, detail=t("auth.invalidCredentials", locale))
 
-    # Step 2: Determine active status via email whitelist (if enabled)
-    ldap_username = ldap_user["username"]  # confirmed by LDAP, not from body
-    display_name = ldap_user["fullname"] or ldap_username
-    email = ldap_user["email"] or None  # store NULL instead of empty string
-
-    # LDAP-supplied role used only as initial value for brand-new users.
-    raw_ldap_role = ldap_user.get("role", "user")
-    if raw_ldap_role == "lecturer":
-        ldap_role_default = "staff"
-    elif raw_ldap_role == "student":
-        ldap_role_default = "user"
-    elif raw_ldap_role in ("admin", "staff", "user"):
-        ldap_role_default = raw_ldap_role
-    else:
-        ldap_role_default = "user"
-
-    # Fetch the existing user up front so the maintenance check knows the role.
-    db_user = database.get_user_by_username(ldap_username)
+    ldap_username = db_user["ldap_username"]
+    display_name = db_user["display_name"] or ldap_username
+    email = db_user["email"] or None
+    user_id = db_user["id"]
+    effective_role = db_user["role"] or "user"
+    custom_role_id = db_user["custom_role_id"]
+    active = db_user["active"]
 
     # During maintenance only an admin may log in.
     maintenance_on = database.get_setting("maintenance_mode", "false").lower() == "true"
     is_admin_email = bool(email and settings.admin_email and email.lower() == settings.admin_email.lower())
-    is_db_admin = bool(db_user and (db_user.get("role") or "") == "admin")
+    is_db_admin = effective_role == "admin"
     if maintenance_on and not (is_admin_email or is_db_admin):
         logger.warning("Login blocked for '{}' (maintenance active, non-admin)", ldap_username)
         raise HTTPException(status_code=503, detail=t("maintenance.message", locale))
 
-    whitelist_enabled = database.get_setting("whitelist_enabled", "true").lower() == "true"
-    if whitelist_enabled:
-        active = 1 if (email and database.is_email_whitelisted(email)) else 0
-    else:
-        active = 1  # whitelist disabled - all LDAP-authenticated users are allowed
-
-    # Step 3: Sync user with database (create or update)
-    if db_user is None:
-        user_id = database.create_user(
-            ldap_username, display_name, email, active, ldap_role_default
-        )
-        effective_role = ldap_role_default
-        custom_role_id = None
-    else:
-        user_id = db_user["id"]
-        database.update_user(user_id, display_name, email, active)  # role left intact
-        effective_role = db_user.get("role") or "user"
-        custom_role_id = db_user.get("custom_role_id")
-
-    # Step 4: Check whitelist
+    # Step 2: The column decides, the whitelist only writes into it.
     if not active:
-        logger.warning("Login blocked for '{}' (not whitelisted)", ldap_username)
+        logger.warning("Login blocked for '{}' (not activated)", ldap_username)
         raise HTTPException(status_code=403, detail="account_not_activated")
 
-    # Step 4b: A test access whose deadline has passed gets no session.
-    ablauf = db_user.get("access_expires_at") if db_user else None
+    # Step 3: A test access whose deadline has passed gets no session.
+    ablauf = db_user["access_expires_at"]
     if ablauf is not None:
         try:
             abgelaufen = ablauf <= datetime.now()
@@ -101,7 +66,7 @@ def login(body: LoginRequest, response: Response, locale: str = Depends(get_loca
                 logger.info("Login blocked for '{}' (test access expired)", ldap_username)
                 raise access_expired_error()
 
-    # Step 5: The demo module, once per account, whichever way it was created.
+    # Step 4: The demo module, once per account, whichever way it was created.
     demo_module_zuweisen(user_id)
 
     # Step 5: Create session

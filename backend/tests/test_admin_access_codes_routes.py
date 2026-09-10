@@ -14,7 +14,7 @@ MORGEN = datetime.now() + timedelta(days=30)
 
 @pytest.fixture
 def client(monkeypatch):
-    monkeypatch.setenv("LDAP_USER_CREATION_ENABLED", "true")
+    monkeypatch.setenv("ACCOUNT_CREATION_ENABLED", "true")
     monkeypatch.setenv("LDAP_BASE_DN", "dc=th-luebeck,dc=de")
     monkeypatch.setenv("LDAP_SERVER", "ldap://openldap")
 
@@ -35,7 +35,7 @@ def client(monkeypatch):
 @pytest.fixture
 def limited_client(monkeypatch):
     """An admin whose custom role holds only user administration, nothing else."""
-    monkeypatch.setenv("LDAP_USER_CREATION_ENABLED", "true")
+    monkeypatch.setenv("ACCOUNT_CREATION_ENABLED", "true")
     monkeypatch.setenv("LDAP_BASE_DN", "dc=th-luebeck,dc=de")
     monkeypatch.setenv("LDAP_SERVER", "ldap://openldap")
 
@@ -62,7 +62,7 @@ def limited_client(monkeypatch):
 @pytest.fixture
 def client_ohne_recht(monkeypatch):
     """A caller with no admin rights at all, to prove the gate itself holds."""
-    monkeypatch.setenv("LDAP_USER_CREATION_ENABLED", "true")
+    monkeypatch.setenv("ACCOUNT_CREATION_ENABLED", "true")
     monkeypatch.setenv("LDAP_BASE_DN", "dc=th-luebeck,dc=de")
     monkeypatch.setenv("LDAP_SERVER", "ldap://openldap")
 
@@ -449,27 +449,30 @@ def test_the_user_list_carries_the_state_of_every_account(client):
         "eine leere Frist heisst unbegrenzt gueltig, nicht abgelaufen"
 
 
-def test_resetting_a_password_calls_ldap_with_the_right_uid(client):
+def test_resetting_a_password_writes_a_hash_of_the_new_one(client):
+    from src.features.accounts.passwords import verify_password
+
     konto = {"id": 42, "ldap_username": "abc12345", "access_code_id": 7}
     with patch("src.routes.admin.access_codes.database.get_user_by_id", return_value=konto), \
-         patch("src.routes.admin.access_codes.set_ldap_password") as ldap_call:
+         patch("src.routes.admin.access_codes.database.set_user_password") as setzen:
         r = client.post("/admin/access-codes/users/42/password")
 
     assert r.status_code == 200
     body = r.json()
     assert body["username"] == "abc12345"
     assert body["password"]
-    assert ldap_call.call_args.kwargs["uid"] == "abc12345"
+    assert setzen.call_args.args[0] == 42
+    assert verify_password(body["password"], setzen.call_args.args[1]) is True
 
 
 def test_resetting_a_password_for_an_account_without_a_code_is_refused(client):
     konto = {"id": 5, "ldap_username": "staffuser", "access_code_id": None}
     with patch("src.routes.admin.access_codes.database.get_user_by_id", return_value=konto), \
-         patch("src.routes.admin.access_codes.set_ldap_password") as ldap_call:
+         patch("src.routes.admin.access_codes.database.set_user_password") as setzen:
         r = client.post("/admin/access-codes/users/5/password")
 
     assert r.status_code == 403
-    ldap_call.assert_not_called()
+    setzen.assert_not_called()
 
 
 def test_the_activity_route_returns_modules_and_messages(client):

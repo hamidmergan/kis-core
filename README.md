@@ -38,16 +38,20 @@ Then open `http://localhost:3000`. The defaults in `.env.example` already point 
 this stack, so nothing has to be filled in for a local run. The first start builds the images, which
 takes a few minutes.
 
-Login runs against the bundled LDAP simulator, seeded from `docker/ldap/seed.ldif`. The admin
-account is uid `a` with password `a`, and the login field takes that uid, not the mail address. Its
-mail `admin@th-luebeck.de` matches `ADMIN_EMAIL` from `.env.example`, which is what gives it every
-permission. A real installation points `LDAP_SERVER` at its own directory and sets `ADMIN_EMAIL` to a
-real address.
+Log in as `admin` with the password `adminpw`, both from `.env.example`. The login field takes
+either that user name or the mail address next to it, told apart by the `@`. Everybody else gets in
+through an invitation link or an access code, both made under **Admin → Nutzer**.
 
-An empty `LDAP_SERVER` switches the stack to local mode, which drops the login screen entirely.
-Startup creates an account named `local` and hands it every permission, so maintenance mode no longer
-applies. Useful for a quick look at the app, unusable as a deployment: with `PRODUCTION=true` the
-backend refuses to start while `LDAP_SERVER` is empty.
+`ADMIN_USERNAME`, `ADMIN_EMAIL` and `ADMIN_PASSWORD` are written onto the admin account on every
+start, so changing one of them and recreating the container is how you rename the admin or reset
+its password. Note that `docker restart` is not enough, it keeps the environment the container was
+built with. Change `ADMIN_PASSWORD` before any real use, a production install refuses to start
+while it is still the example value.
+
+`AUTH_DISABLED=true` drops the login screen entirely. Startup creates an account named `local` and
+hands it every permission, so maintenance mode no longer applies. Useful for a quick look at the
+app, unusable as a deployment: with `PRODUCTION=true` the backend refuses to start while this is
+set.
 
 Everything is published to `127.0.0.1` only, nothing is reachable from the network. A server
 deployment is a different setup and uses `docker-compose.prod.yml`, which expects nginx, a domain and
@@ -62,8 +66,8 @@ For working on the code, the frontend runs from the Next.js dev server instead o
 cd frontend && npm install && npm run dev
 ```
 
-The script leaves the frontend container out, so port 3000 stays free, and it adds Adminer,
-phpLDAPadmin and Langfuse. The API docs are on `http://localhost:8000/docs`.
+The script leaves the frontend container out, so port 3000 stays free, and it adds Adminer
+and Langfuse. The API docs are on `http://localhost:8000/docs`.
 
 ### Modules
 

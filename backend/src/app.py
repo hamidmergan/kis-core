@@ -23,6 +23,9 @@ from src.routes import access_codes, admin, auth, evaluation, feedback, glossari
 _MAINTENANCE_OPEN_PATHS = {"/health", "/health/maintenance", "/health/labels"}
 _MAINTENANCE_OPEN_PREFIXES = ("/admin/", "/auth/")
 
+# The value shipped in .env.example, worthless as a real password.
+_BEISPIEL_ADMIN_PASSWORT = "adminpw"
+
 # Cache the maintenance flag, otherwise every request waits on a database query.
 _MAINTENANCE_TTL_S = 5.0
 _maintenance_cache: dict = {"enabled": False, "checked_at": -1e9}
@@ -75,11 +78,16 @@ async def lifespan(app: FastAPI):
     # Thread pool for def routes, deliberately smaller than the database pool.
     anyio.to_thread.current_default_thread_limiter().total_tokens = REQUEST_THREAD_LIMIT
     logger.info("Request thread pool: {} threads", REQUEST_THREAD_LIMIT)
-    # Do not start when production is set but LDAP is missing.
+    # Do not start when production is set but the login is switched off.
     if settings.production and settings.is_local_mode:
         raise RuntimeError(
-            "Refusing to start: production=True but LDAP_SERVER is empty. "
-            "Local mode would disable authentication entirely."
+            "Refusing to start: production=True but AUTH_DISABLED is set. "
+            "That would disable authentication entirely."
+        )
+    # A shipped example password on a real installation is the same as no password.
+    if settings.production and settings.admin_password == _BEISPIEL_ADMIN_PASSWORT:
+        raise RuntimeError(
+            "Refusing to start: production=True but ADMIN_PASSWORD is still the example value."
         )
     # Let only one process create the schema, the others skip it.
     with run_once_across_processes(_LOCK_INIT_DB) as am_first:
@@ -91,6 +99,9 @@ async def lifespan(app: FastAPI):
     if settings.is_local_mode:
         user_id = db.ensure_local_admin()
         logger.info("Local mode: admin user ensured (id={})", user_id)
+    else:
+        from src.features.accounts.env_admin import ensure_env_admin
+        ensure_env_admin(settings.admin_email, settings.admin_password, settings.admin_username)
     if _broker_was_emptied():
         stuck = reset_stuck_jobs()
         if stuck:

@@ -82,7 +82,7 @@ def resolve_user_permissions(
 ) -> Permissions:
     """Computes the effective permissions, with the LDAP switch on top."""
     base = _resolve_base_permissions(role, custom_role_id, is_env_admin)
-    if PERM_SET_USERS_ALL in base.keys and get_settings().ldap_user_creation_enabled:
+    if PERM_SET_USERS_ALL in base.keys and get_settings().account_creation_enabled:
         return Permissions(keys=base.keys, allow_ldap_user_create=True)
     return base
 

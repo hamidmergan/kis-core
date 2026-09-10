@@ -584,13 +584,12 @@ def test_die_anmeldung_weist_das_demo_modul_zu(monkeypatch):
     get_settings.cache_clear()
     app.dependency_overrides[verify_auth] = lambda: None
     try:
-        with patch("src.routes.auth.authenticate_user", return_value={
-                     "username": "max.mustermann", "fullname": "Max Mustermann",
-                     "email": "max.mustermann@demo.kis.local", "role": "staff"}), \
-             patch("src.routes.auth.database.get_user_by_username",
-                   return_value={"id": 42, "role": "staff", "custom_role_id": None,
+        with patch("src.routes.auth.authenticate",
+                   return_value={"id": 42, "ldap_username": "max.mustermann",
+                                 "display_name": "Max Mustermann",
+                                 "email": "max.mustermann@demo.kis.local", "active": 1,
+                                 "role": "staff", "custom_role_id": None,
                                  "access_expires_at": None}), \
-             patch("src.routes.auth.database.update_user"), \
              patch("src.routes.auth.database.get_setting", return_value="false"), \
              patch("src.routes.auth.demo_module_zuweisen") as zuweisen, \
              patch("src.routes.auth.get_session_store") as store:

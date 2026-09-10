@@ -10,13 +10,8 @@ from src.dependencies import get_settings
 from src.dependencies_rbac import assert_may_grant, permissions_of, require_permission
 from src.features.access_codes import repository as repo
 from src.features.access_codes.service import new_code, status_of, user_status_of
+from src.features.accounts.passwords import generate_password, hash_password
 from src.i18n import get_locale, t
-from src.ldap_admin import (
-    LdapServiceError,
-    LdapUserNotFoundError,
-    _generate_password,
-    set_ldap_password,
-)
 from src.permissions_registry import PERM_SET_USERS_ALL, SYSTEM_ROLE_PERMISSIONS
 
 router = APIRouter(tags=["admin: access codes"])
@@ -30,7 +25,7 @@ MAX_SEATS = 500
 
 def _require_feature(locale: str) -> None:
     """Access codes hang off the same switch as creating LDAP users."""
-    if not get_settings().ldap_user_creation_enabled:
+    if not get_settings().account_creation_enabled:
         raise HTTPException(status_code=404, detail=t("access.featureDisabled", locale))
 
 
@@ -248,14 +243,11 @@ def reset_access_code_user_password(
     if not konto or not konto.get("access_code_id"):
         raise HTTPException(status_code=403, detail=t("access.notFromCode", locale))
 
-    password = _generate_password()
+    password = generate_password()
     try:
-        set_ldap_password(settings=get_settings(), uid=konto["ldap_username"], password=password)
-    except LdapUserNotFoundError:
-        logger.error("password reset target missing in LDAP for user_id={}", user_id)
-        raise HTTPException(status_code=500, detail=t("access.passwordResetFailed", locale))
-    except LdapServiceError as e:
-        logger.error("LDAP password reset failed for user_id={}: {}", user_id, e)
+        database.set_user_password(user_id, hash_password(password))
+    except Exception as e:
+        logger.error("password reset failed for user_id={}: {}", user_id, e)
         raise HTTPException(status_code=500, detail=t("access.passwordResetFailed", locale))
 
     logger.info("admin {} reset the password for user_id={}", admin.get("email"), user_id)

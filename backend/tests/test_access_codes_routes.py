@@ -31,7 +31,7 @@ def _code(**abweichungen):
 
 
 def _umgebung(monkeypatch):
-    monkeypatch.setenv("LDAP_USER_CREATION_ENABLED", "true")
+    monkeypatch.setenv("ACCOUNT_CREATION_ENABLED", "true")
     monkeypatch.setenv("LDAP_BASE_DN", "dc=th-luebeck,dc=de")
     monkeypatch.setenv("LDAP_BIND_DN", "cn=admin,dc=th-luebeck,dc=de")
     monkeypatch.setenv("LDAP_BIND_PASSWORD", "admin")
@@ -78,12 +78,12 @@ GUELTIG = {"code": "kis-4k2p-7rxm"}
 def test_redeeming_creates_the_account_and_sets_the_deadline(client):
     with patch("src.routes.access_codes.repo.get_code_by_code", return_value=_code()) as suchen, \
          patch("src.routes.access_codes.new_username", return_value="ab234567"), \
-         patch("src.routes.access_codes._generate_password", return_value="s3cr3t-pw"), \
+         patch("src.routes.access_codes.generate_password", return_value="s3cr3t-pw"), \
          patch("src.routes.access_codes.database.get_user_by_username", return_value=None), \
          patch("src.routes.access_codes.repo.claim_use", return_value=True), \
          patch("src.routes.access_codes.provision_account", return_value={
              "user_id": 42, "username": "ab234567", "display_name": "ab234567",
-             "email": "ab234567@demo.kis.local", "role": "staff", "custom_role_id": None,
+             "email": None, "role": "staff", "custom_role_id": None,
          }) as anlegen, \
          patch("src.routes.access_codes.repo.set_user_access") as frist, \
          patch("src.routes.access_codes.demo_module_zuweisen"), \
@@ -96,7 +96,7 @@ def test_redeeming_creates_the_account_and_sets_the_deadline(client):
     assert r.json()["password"] == "s3cr3t-pw"
     # Sloppy typing gets repaired before the lookup.
     suchen.assert_called_once_with("KIS-4K2P-7RXM")
-    assert anlegen.call_args.kwargs["email"] == "ab234567@demo.kis.local"
+    assert anlegen.call_args.kwargs["email"] is None
     assert anlegen.call_args.kwargs["given_name"] == ""
     assert anlegen.call_args.kwargs["surname"] == ""
     assert anlegen.call_args.kwargs["password"] == "s3cr3t-pw"
@@ -111,7 +111,7 @@ def test_redeeming_returns_a_generated_password_that_is_not_empty(client):
          patch("src.routes.access_codes.repo.claim_use", return_value=True), \
          patch("src.routes.access_codes.provision_account", return_value={
              "user_id": 42, "username": "ab234567", "display_name": "ab234567",
-             "email": "ab234567@demo.kis.local", "role": "staff", "custom_role_id": None,
+             "email": None, "role": "staff", "custom_role_id": None,
          }), \
          patch("src.routes.access_codes.repo.set_user_access"), \
          patch("src.routes.access_codes.demo_module_zuweisen"), \
@@ -323,10 +323,7 @@ def test_renewing_moves_the_deadline_and_logs_in(client):
     konto = {"id": 42, "ldap_username": "max.mustermann", "display_name": "Max Mustermann",
              "email": "max.mustermann@demo.kis.local", "role": "staff", "custom_role_id": None,
              "access_expires_at": GESTERN}
-    with patch("src.routes.access_codes.authenticate_user",
-               return_value={"username": "max.mustermann", "fullname": "Max Mustermann",
-                             "email": "max.mustermann@demo.kis.local", "role": "staff"}), \
-         patch("src.routes.access_codes.database.get_user_by_username", return_value=konto), \
+    with patch("src.routes.access_codes.authenticate", return_value=konto), \
          patch("src.routes.access_codes.repo.get_code_by_code", return_value=_code()), \
          patch("src.routes.access_codes.repo.set_user_access") as frist, \
          _sitzung() as sitzung:
@@ -342,10 +339,7 @@ def test_renewing_with_an_unlimited_code_sets_no_deadline(client):
     konto = {"id": 42, "ldap_username": "max.mustermann", "display_name": "Max Mustermann",
              "email": "max.mustermann@demo.kis.local", "role": "staff", "custom_role_id": None,
              "access_expires_at": GESTERN}
-    with patch("src.routes.access_codes.authenticate_user",
-               return_value={"username": "max.mustermann", "fullname": "Max Mustermann",
-                             "email": "max.mustermann@demo.kis.local", "role": "staff"}), \
-         patch("src.routes.access_codes.database.get_user_by_username", return_value=konto), \
+    with patch("src.routes.access_codes.authenticate", return_value=konto), \
          patch("src.routes.access_codes.repo.get_code_by_code", return_value=_code(access_hours=None)), \
          patch("src.routes.access_codes.repo.set_user_access") as frist, \
          _sitzung() as sitzung:
@@ -361,10 +355,7 @@ def test_renewing_works_even_when_every_seat_is_taken(client):
     konto = {"id": 42, "ldap_username": "max.mustermann", "display_name": "Max Mustermann",
              "email": "max.mustermann@demo.kis.local", "role": "staff", "custom_role_id": None,
              "access_expires_at": GESTERN}
-    with patch("src.routes.access_codes.authenticate_user",
-               return_value={"username": "max.mustermann", "fullname": "Max Mustermann",
-                             "email": "max.mustermann@demo.kis.local", "role": "staff"}), \
-         patch("src.routes.access_codes.database.get_user_by_username", return_value=konto), \
+    with patch("src.routes.access_codes.authenticate", return_value=konto), \
          patch("src.routes.access_codes.repo.get_code_by_code", return_value=_code(used_count=50)), \
          patch("src.routes.access_codes.repo.set_user_access"), _sitzung():
         r = client.post("/access-codes/renew", json=VERLAENGERN)
@@ -373,10 +364,9 @@ def test_renewing_works_even_when_every_seat_is_taken(client):
 
 
 def test_renewing_a_switched_off_code_is_refused(client):
-    konto = {"id": 42, "access_expires_at": GESTERN}
-    with patch("src.routes.access_codes.authenticate_user",
-               return_value={"username": "max.mustermann", "fullname": "M", "email": "", "role": "staff"}), \
-         patch("src.routes.access_codes.database.get_user_by_username", return_value=konto), \
+    konto = {"id": 42, "ldap_username": "max.mustermann", "display_name": "M", "email": None,
+             "role": "staff", "custom_role_id": None, "active": 1, "access_expires_at": GESTERN}
+    with patch("src.routes.access_codes.authenticate", return_value=konto), \
          patch("src.routes.access_codes.repo.get_code_by_code", return_value=_code(active=False)), \
          patch("src.routes.access_codes.repo.set_user_access") as frist:
         r = client.post("/access-codes/renew", json=VERLAENGERN)
@@ -386,10 +376,9 @@ def test_renewing_a_switched_off_code_is_refused(client):
 
 
 def test_a_normal_account_cannot_give_itself_a_deadline(client):
-    konto = {"id": 5, "access_expires_at": None}
-    with patch("src.routes.access_codes.authenticate_user",
-               return_value={"username": "hamid", "fullname": "H", "email": "", "role": "admin"}), \
-         patch("src.routes.access_codes.database.get_user_by_username", return_value=konto), \
+    konto = {"id": 5, "ldap_username": "hamid", "display_name": "H", "email": None,
+             "role": "admin", "custom_role_id": None, "active": 1, "access_expires_at": None}
+    with patch("src.routes.access_codes.authenticate", return_value=konto), \
          patch("src.routes.access_codes.repo.set_user_access") as frist:
         r = client.post("/access-codes/renew", json=VERLAENGERN)
 
@@ -398,10 +387,9 @@ def test_a_normal_account_cannot_give_itself_a_deadline(client):
 
 
 def test_a_deactivated_account_cannot_renew_itself_back_in(client):
-    konto = {"id": 42, "access_expires_at": GESTERN, "active": 0}
-    with patch("src.routes.access_codes.authenticate_user",
-               return_value={"username": "max.mustermann", "fullname": "M", "email": "", "role": "staff"}), \
-         patch("src.routes.access_codes.database.get_user_by_username", return_value=konto), \
+    konto = {"id": 42, "ldap_username": "max.mustermann", "display_name": "M", "email": None,
+             "role": "staff", "custom_role_id": None, "active": 0, "access_expires_at": GESTERN}
+    with patch("src.routes.access_codes.authenticate", return_value=konto), \
          patch("src.routes.access_codes.repo.set_user_access") as frist:
         r = client.post("/access-codes/renew", json=VERLAENGERN)
 
@@ -411,7 +399,7 @@ def test_a_deactivated_account_cannot_renew_itself_back_in(client):
 
 
 def test_renewing_with_a_wrong_password_is_refused(client):
-    with patch("src.routes.access_codes.authenticate_user", return_value=None), \
+    with patch("src.routes.access_codes.authenticate", return_value=None), \
          patch("src.routes.access_codes.repo.set_user_access") as frist:
         r = client.post("/access-codes/renew", json=VERLAENGERN)
 
@@ -433,7 +421,7 @@ def test_redeeming_needs_no_session(client_ohne_sitzung):
 
 
 def test_renewing_needs_no_session(client_ohne_sitzung):
-    with patch("src.routes.access_codes.authenticate_user", return_value=None):
+    with patch("src.routes.access_codes.authenticate", return_value=None):
         r = client_ohne_sitzung.post("/access-codes/renew", json=VERLAENGERN)
     assert r.status_code == 401
     # The gate answers auth.notAuthenticated, the route answers this - proves the gate let it through.
@@ -447,7 +435,7 @@ def test_redeeming_hands_the_demo_module_to_the_shared_place(client):
          patch("src.routes.access_codes.repo.claim_use", return_value=True), \
          patch("src.routes.access_codes.provision_account", return_value={
              "user_id": 42, "username": "ab234567", "display_name": "ab234567",
-             "email": "ab234567@demo.kis.local", "role": "staff", "custom_role_id": None,
+             "email": None, "role": "staff", "custom_role_id": None,
          }), \
          patch("src.routes.access_codes.repo.set_user_access"), \
          patch("src.routes.access_codes.demo_module_zuweisen") as zuweisen, \
