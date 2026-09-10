@@ -24,12 +24,34 @@ def get_user_by_id(user_id: int):
             cur.execute("SELECT * FROM users WHERE id = %s", (user_id,))
             return cur.fetchone()
 
-def create_user(ldap_username: str, display_name: str, email: str, active: int, role: str = "user") -> int:
+def get_user_by_email(email: str):
+    """Finds the account by its mail address, an empty address matches nobody."""
+    wert = (email or "").strip()
+    if not wert:
+        return None
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute(
+                "SELECT * FROM users WHERE LOWER(email) = LOWER(%s) ORDER BY id LIMIT 1",
+                (wert,),
+            )
+            return cur.fetchone()
+
+
+def create_user(
+    ldap_username: str,
+    display_name: str,
+    email: str | None,
+    active: int,
+    role: str = "user",
+    password_hash: str | None = None,
+) -> int:
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "INSERT INTO users (ldap_username, display_name, email, active, role) VALUES (%s, %s, %s, %s, %s) RETURNING id",
-                (ldap_username, display_name, email, active, role),
+                "INSERT INTO users (ldap_username, display_name, email, active, role, password_hash) "
+                "VALUES (%s, %s, %s, %s, %s, %s) RETURNING id",
+                (ldap_username, display_name, email or None, active, role, password_hash),
             )
             user_id = cur.fetchone()[0]
         conn.commit()
@@ -133,6 +155,16 @@ def activate_user(user_id: int) -> None:
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("UPDATE users SET active = 1 WHERE id = %s", (user_id,))
+        conn.commit()
+
+
+def set_user_password(user_id: int, password_hash: str | None) -> None:
+    """Sets the hash, None takes the form login away from the account."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE users SET password_hash = %s WHERE id = %s", (password_hash, user_id)
+            )
         conn.commit()
 
 def set_user_demo(user_id: int, is_demo: bool) -> list[int]:

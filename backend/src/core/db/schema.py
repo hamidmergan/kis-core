@@ -252,6 +252,8 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                 )
             """)
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'lecturer'")
+            # The login checks against this column, NULL means no form login for this account.
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT")
             # Chat block after burst-limit trigger (survives backend restart, unlike Redis counter).
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS chat_blocked_until TIMESTAMP WITH TIME ZONE")
             # Interface language wish, shared across devices after login.
