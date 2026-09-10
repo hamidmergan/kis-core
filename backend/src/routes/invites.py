@@ -8,7 +8,6 @@ from pydantic import BaseModel, Field
 from src.dependencies import get_session_store, get_settings
 from src.features.accounts.demo_onboarding import demo_module_zuweisen
 from src.features.accounts.provisioning import provision_account
-from src.ldap_admin import LdapUserExistsError
 from src.features.invites import repository as repo
 from src.features.invites.service import status_of
 from src.i18n import get_locale, t
@@ -69,7 +68,6 @@ def redeem_invite(
 
     try:
         sitzungsdaten = provision_account(
-            settings=get_settings(),
             uid=invite["uid"],
             given_name=payload.given_name,
             surname=payload.surname,
@@ -82,8 +80,7 @@ def redeem_invite(
         # Whatever half got written, the link has to work again.
         repo.reopen_invite(invite["id"])
         logger.error("invite redeem failed for uid={}: {}", invite["uid"], fehler)
-        code = 409 if isinstance(fehler, LdapUserExistsError) else 500
-        raise HTTPException(status_code=code, detail=t("invite.createFailed", locale))
+        raise HTTPException(status_code=500, detail=t("invite.createFailed", locale))
 
     demo_module_zuweisen(sitzungsdaten["user_id"])
 

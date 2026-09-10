@@ -87,6 +87,20 @@ def open_invite_for_email(email: str) -> dict | None:
             return dict(zeile) if zeile else None
 
 
+def open_invite_for_uid(uid: str) -> dict | None:
+    """The still open invitation for this user name, if there is one."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute(
+                """SELECT * FROM invites
+                   WHERE uid = %s AND used_at IS NULL AND expires_at > NOW()
+                   ORDER BY created_at DESC LIMIT 1""",
+                (uid,),
+            )
+            zeile = cur.fetchone()
+            return dict(zeile) if zeile else None
+
+
 def reopen_invite(invite_id: int) -> None:
     """Takes the stamp back when creation failed afterwards."""
     with get_connection() as conn:

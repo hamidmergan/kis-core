@@ -28,9 +28,9 @@ def client(monkeypatch):
     get_settings.cache_clear()
 
 
-def test_creating_an_invite_makes_up_the_address_and_returns_a_token(client):
+def test_creating_an_invite_without_an_address_returns_a_token(client):
     with patch("src.routes.admin.invites.database.get_user_by_username", return_value=None), \
-         patch("src.routes.admin.invites.repo.open_invite_for_email", return_value=None), \
+         patch("src.routes.admin.invites.repo.open_invite_for_uid", return_value=None), \
          patch("src.routes.admin.invites.repo.create_invite", return_value=3) as anlegen:
         r = client.post(
             "/admin/invites",
@@ -40,15 +40,55 @@ def test_creating_an_invite_makes_up_the_address_and_returns_a_token(client):
     assert r.status_code == 200
     body = r.json()
     assert body["uid"] == "max.mustermann"
-    assert body["email"] == "max.mustermann@kis.local"
+    assert body["email"] is None
     assert len(body["token"]) >= 32
-    assert anlegen.call_args.kwargs["email"] == "max.mustermann@kis.local"
+    assert anlegen.call_args.kwargs["email"] is None
     assert anlegen.call_args.kwargs["role"] == "staff"
+
+
+def test_a_given_mail_address_is_kept(client):
+    with patch("src.routes.admin.invites.database.get_user_by_username", return_value=None), \
+         patch("src.routes.admin.invites.database.get_user_by_email", return_value=None), \
+         patch("src.routes.admin.invites.repo.open_invite_for_uid", return_value=None), \
+         patch("src.routes.admin.invites.repo.create_invite", return_value=3) as anlegen:
+        r = client.post(
+            "/admin/invites",
+            json={"username": "Max.Mustermann", "kis_role": "staff",
+                  "email": "max@th-luebeck.de"},
+        )
+
+    assert r.status_code == 200
+    assert anlegen.call_args.kwargs["email"] == "max@th-luebeck.de"
+
+
+def test_a_mail_address_without_an_at_sign_is_refused(client):
+    with patch("src.routes.admin.invites.database.get_user_by_username", return_value=None), \
+         patch("src.routes.admin.invites.repo.create_invite") as anlegen:
+        r = client.post(
+            "/admin/invites",
+            json={"username": "Max", "kis_role": "staff", "email": "kein-mail"},
+        )
+
+    assert r.status_code == 400
+    anlegen.assert_not_called()
+
+
+def test_a_mail_address_that_is_already_taken_is_refused(client):
+    with patch("src.routes.admin.invites.database.get_user_by_username", return_value=None), \
+         patch("src.routes.admin.invites.database.get_user_by_email", return_value={"id": 2}), \
+         patch("src.routes.admin.invites.repo.create_invite") as anlegen:
+        r = client.post(
+            "/admin/invites",
+            json={"username": "Max", "kis_role": "staff", "email": "max@th-luebeck.de"},
+        )
+
+    assert r.status_code == 409
+    anlegen.assert_not_called()
 
 
 def test_inviting_someone_who_already_has_an_account_is_refused(client):
     with patch("src.routes.admin.invites.database.get_user_by_username", return_value={"id": 4}), \
-         patch("src.routes.admin.invites.repo.open_invite_for_email", return_value=None), \
+         patch("src.routes.admin.invites.repo.open_invite_for_uid", return_value=None), \
          patch("src.routes.admin.invites.repo.create_invite") as anlegen:
         r = client.post(
             "/admin/invites",
@@ -61,7 +101,7 @@ def test_inviting_someone_who_already_has_an_account_is_refused(client):
 
 def test_a_second_open_invite_to_the_same_username_is_refused(client):
     with patch("src.routes.admin.invites.database.get_user_by_username", return_value=None), \
-         patch("src.routes.admin.invites.repo.open_invite_for_email", return_value={"id": 2}), \
+         patch("src.routes.admin.invites.repo.open_invite_for_uid", return_value={"id": 2}), \
          patch("src.routes.admin.invites.repo.create_invite") as anlegen:
         r = client.post(
             "/admin/invites",
@@ -97,7 +137,7 @@ def test_an_entry_without_a_usable_username_is_refused(client, eingabe):
 def test_an_unknown_role_is_refused(client):
     with patch("src.routes.admin.invites.database.get_user_by_username", return_value=None), \
          patch("src.routes.admin.invites.database.get_custom_role", return_value=None), \
-         patch("src.routes.admin.invites.repo.open_invite_for_email", return_value=None), \
+         patch("src.routes.admin.invites.repo.open_invite_for_uid", return_value=None), \
          patch("src.routes.admin.invites.repo.create_invite") as anlegen:
         r = client.post(
             "/admin/invites",
@@ -204,7 +244,6 @@ def _redeem_patches():
     return {
         "lesen": patch("src.routes.invites.repo.get_invite_by_token", return_value=_offene_einladung()),
         "stempeln": patch("src.routes.invites.repo.mark_invite_used", return_value=True),
-        "ldap": patch("src.features.accounts.provisioning.create_ldap_user", return_value="ein-langes-passwort"),
         "whitelist": patch("src.features.accounts.provisioning.database.add_to_whitelist"),
         "anlegen": patch("src.features.accounts.provisioning.database.create_user", return_value=42),
         "rolle": patch("src.features.accounts.provisioning.database.set_user_role"),
@@ -213,72 +252,74 @@ def _redeem_patches():
 
 
 def test_redeeming_creates_an_active_account_and_signs_in(client):
+    from src.features.accounts.passwords import verify_password
+
     p = _redeem_patches()
-    with p["lesen"], p["stempeln"] as stempeln, p["ldap"] as ldap_add, \
+    with p["lesen"], p["stempeln"] as stempeln, \
          p["whitelist"] as whitelist, p["anlegen"] as anlegen, p["rolle"], p["sitzung"] as sitzung:
         sitzung.return_value.create.return_value = "sitzungsschluessel"
         r = client.post("/invites/tok", json={"password": "ein-langes-passwort"})
 
     assert r.status_code == 200
-    assert ldap_add.call_args.kwargs["uid"] == "max.mustermann"
-    assert ldap_add.call_args.kwargs["password"] == "ein-langes-passwort"
+    kwargs = anlegen.call_args.kwargs
+    assert kwargs["ldap_username"] == "max.mustermann"
+    assert verify_password("ein-langes-passwort", kwargs["password_hash"]) is True
     whitelist.assert_called_once_with("max.mustermann@kis.local")
-    assert anlegen.call_args.kwargs["active"] == 1
-    assert anlegen.call_args.kwargs["role"] == "staff"
+    assert kwargs["active"] == 1
+    assert kwargs["role"] == "staff"
     stempeln.assert_called_once_with(1)
     assert r.cookies.get("session") == "sitzungsschluessel"
 
 
+def test_an_invite_without_an_address_creates_an_account_without_one(client):
+    p = _redeem_patches()
+    with patch("src.routes.invites.repo.get_invite_by_token",
+               return_value=_offene_einladung(email=None)), \
+         p["stempeln"], p["whitelist"] as whitelist, p["anlegen"] as anlegen, \
+         p["rolle"], p["sitzung"]:
+        r = client.post("/invites/tok", json={"password": "ein-langes-passwort"})
+
+    assert r.status_code == 200
+    whitelist.assert_not_called()
+    assert anlegen.call_args.kwargs["email"] is None
+
+
 def test_a_short_password_is_refused_before_anything_is_created(client):
     p = _redeem_patches()
-    with p["lesen"], p["stempeln"] as stempeln, p["ldap"] as ldap_add, \
-         p["whitelist"], p["anlegen"], p["rolle"], p["sitzung"]:
+    with p["lesen"], p["stempeln"] as stempeln, \
+         p["whitelist"], p["anlegen"] as anlegen, p["rolle"], p["sitzung"]:
         r = client.post("/invites/tok", json={"password": "kurz"})
 
     assert r.status_code == 400
-    ldap_add.assert_not_called()
+    anlegen.assert_not_called()
     stempeln.assert_not_called()
 
 
 def test_a_link_claimed_by_someone_else_does_not_create_a_second_account(client):
     p = _redeem_patches()
-    with p["lesen"], p["ldap"] as ldap_add, p["whitelist"], p["anlegen"], p["rolle"], p["sitzung"], \
+    with p["lesen"], p["whitelist"], p["anlegen"] as anlegen, p["rolle"], p["sitzung"], \
          patch("src.routes.invites.repo.mark_invite_used", return_value=False):
         r = client.post("/invites/tok", json={"password": "ein-langes-passwort"})
 
     assert r.status_code == 410
-    ldap_add.assert_not_called()
+    anlegen.assert_not_called()
 
 
 def test_a_failed_account_creation_leaves_the_link_usable(client):
-    from src.ldap_admin import LdapServiceError
-
     p = _redeem_patches()
-    with p["lesen"], p["stempeln"], p["whitelist"] as whitelist, p["anlegen"], p["rolle"], p["sitzung"], \
-         patch("src.features.accounts.provisioning.create_ldap_user", side_effect=LdapServiceError("weg")), \
+    with p["lesen"], p["stempeln"], p["whitelist"], p["rolle"], p["sitzung"], \
+         patch("src.features.accounts.provisioning.database.create_user",
+               side_effect=RuntimeError("Datenbank weg")), \
          patch("src.routes.invites.repo.reopen_invite") as wieder_oeffnen:
         r = client.post("/invites/tok", json={"password": "ein-langes-passwort"})
 
     assert r.status_code == 500
     wieder_oeffnen.assert_called_once_with(1)
-    whitelist.assert_not_called()
-
-
-def test_an_account_that_already_exists_reports_a_conflict(client):
-    from src.ldap_admin import LdapUserExistsError
-
-    p = _redeem_patches()
-    with p["lesen"], p["stempeln"], p["whitelist"], p["anlegen"], p["rolle"], p["sitzung"], \
-         patch("src.features.accounts.provisioning.create_ldap_user", side_effect=LdapUserExistsError("max.mustermann")), \
-         patch("src.routes.invites.repo.reopen_invite"):
-        r = client.post("/invites/tok", json={"password": "ein-langes-passwort"})
-
-    assert r.status_code == 409
 
 
 def test_given_names_become_the_display_name(client):
     p = _redeem_patches()
-    with p["lesen"], p["stempeln"], p["ldap"], p["whitelist"], p["anlegen"] as anlegen, \
+    with p["lesen"], p["stempeln"], p["whitelist"], p["anlegen"] as anlegen, \
          p["rolle"], p["sitzung"]:
         client.post("/invites/tok", json={
             "password": "ein-langes-passwort",
@@ -291,7 +332,7 @@ def test_given_names_become_the_display_name(client):
 
 def test_without_a_name_the_username_is_shown(client):
     p = _redeem_patches()
-    with p["lesen"], p["stempeln"], p["ldap"], p["whitelist"], p["anlegen"] as anlegen, \
+    with p["lesen"], p["stempeln"], p["whitelist"], p["anlegen"] as anlegen, \
          p["rolle"], p["sitzung"]:
         client.post("/invites/tok", json={"password": "ein-langes-passwort"})
 
@@ -326,7 +367,7 @@ def test_reading_an_invite_needs_no_session(client_ohne_sitzung):
 
 def test_redeeming_an_invite_needs_no_session(client_ohne_sitzung):
     p = _redeem_patches()
-    with p["lesen"], p["stempeln"], p["ldap"], p["whitelist"], p["anlegen"], p["rolle"], p["sitzung"] as sitzung:
+    with p["lesen"], p["stempeln"], p["whitelist"], p["anlegen"], p["rolle"], p["sitzung"] as sitzung:
         sitzung.return_value.create.return_value = "sitzungsschluessel"
         r = client_ohne_sitzung.post("/invites/tok", json={"password": "ein-langes-passwort"})
     assert r.status_code == 200
@@ -340,12 +381,12 @@ def test_the_admin_side_still_needs_a_session(client_ohne_sitzung):
 def test_eight_characters_are_enough_and_seven_are_not(client):
     """The limit is deliberately eight, moving it should be noticed."""
     p = _redeem_patches()
-    with p["lesen"], p["stempeln"], p["ldap"], p["whitelist"], p["anlegen"], p["rolle"], p["sitzung"] as sitzung:
+    with p["lesen"], p["stempeln"], p["whitelist"], p["anlegen"], p["rolle"], p["sitzung"] as sitzung:
         sitzung.return_value.create.return_value = "sitzungsschluessel"
         gerade_genug = client.post("/invites/tok", json={"password": "12345678"})
 
     p = _redeem_patches()
-    with p["lesen"], p["stempeln"], p["ldap"], p["whitelist"], p["anlegen"], p["rolle"], p["sitzung"]:
+    with p["lesen"], p["stempeln"], p["whitelist"], p["anlegen"], p["rolle"], p["sitzung"]:
         zu_kurz = client.post("/invites/tok", json={"password": "1234567"})
 
     assert gerade_genug.status_code == 200
@@ -354,7 +395,7 @@ def test_eight_characters_are_enough_and_seven_are_not(client):
 
 def test_redeeming_an_invite_assigns_the_demo_module(client):
     p = _redeem_patches()
-    with p["lesen"], p["stempeln"], p["ldap"], p["whitelist"], p["anlegen"], p["rolle"], \
+    with p["lesen"], p["stempeln"], p["whitelist"], p["anlegen"], p["rolle"], \
          p["sitzung"] as sitzung, \
          patch("src.routes.invites.demo_module_zuweisen") as zuweisen:
         sitzung.return_value.create.return_value = "sitzungsschluessel"

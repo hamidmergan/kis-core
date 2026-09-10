@@ -1,6 +1,7 @@
 """Password hashing for the database login, bcrypt for new hashes."""
 import base64
 import hashlib
+import secrets
 
 import bcrypt
 
@@ -12,6 +13,11 @@ _SHA1_DIGEST_BYTES = 20
 
 class PasswordTooLongError(ValueError):
     """The password does not fit into what bcrypt reads."""
+
+
+def generate_password() -> str:
+    """16-char URL-safe random token (~95 bits of entropy)."""
+    return secrets.token_urlsafe(12)
 
 
 def hash_password(password: str) -> str:

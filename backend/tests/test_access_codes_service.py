@@ -1,7 +1,6 @@
 from datetime import datetime, timedelta
 
 from src.features.access_codes.service import (
-    demo_email,
     new_code,
     new_username,
     normalize_code,
@@ -52,10 +51,6 @@ def test_new_username_is_not_the_same_twice():
 
 def test_normalize_code_repairs_sloppy_typing():
     assert normalize_code(" kis-4k2p-7rxm ") == "KIS-4K2P-7RXM"
-
-
-def test_demo_email_hangs_the_fixed_domain_on_the_user_name():
-    assert demo_email("max.mustermann") == "max.mustermann@demo.kis.local"
 
 
 def test_status_active_when_everything_is_fine():

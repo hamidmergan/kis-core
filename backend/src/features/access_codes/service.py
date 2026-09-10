@@ -6,7 +6,6 @@ from datetime import datetime
 _ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
 _BLOCK_LENGTH = 4
 _USERNAME_LENGTH = 8
-DEMO_MAIL_DOMAIN = "demo.kis.local"
 
 
 def new_code() -> str:
@@ -27,11 +26,6 @@ def new_username() -> str:
 def normalize_code(text: str) -> str:
     """What the user typed, in the shape the database holds."""
     return (text or "").strip().upper()
-
-
-def demo_email(uid: str) -> str:
-    """The made-up address, LDAP and the whitelist both demand one."""
-    return f"{uid}@{DEMO_MAIL_DOMAIN}"
 
 
 def status_of(

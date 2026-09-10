@@ -17,6 +17,14 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Zu diesem Benutzernamen ist schon eine Einladung offen",
         "en": "An invitation for this username is already open",
     },
+    "invite.invalidEmail": {
+        "de": "Das ist keine E-Mail-Adresse",
+        "en": "That is not a mail address",
+    },
+    "invite.emailExists": {
+        "de": "Diese Adresse gehoert schon zu einem Konto",
+        "en": "That address already belongs to an account",
+    },
     "invite.invalidCustomRole": {
         "de": "Rolle nicht gefunden",
         "en": "Role not found",

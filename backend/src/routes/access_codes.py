@@ -8,13 +8,13 @@ from pydantic import BaseModel, Field
 from src import database
 from src.dependencies import get_session_store, get_settings
 from src.features.access_codes import repository as repo
-from src.features.access_codes.service import demo_email, new_username, normalize_code, status_of
+from src.features.access_codes.service import new_username, normalize_code, status_of
 from src.features.accounts.demo_onboarding import demo_module_zuweisen
 from src.features.accounts.provisioning import provision_account
 from src.features.accounts.uid import unique_uid
 from src.i18n import get_locale, t
-from src.ldap_admin import LdapUserExistsError, _generate_password
-from src.ldap_auth import authenticate_user
+from src.features.accounts.passwords import generate_password
+from src.features.accounts.login import authenticate
 
 router = APIRouter(prefix="/access-codes", tags=["access codes"])
 
@@ -81,7 +81,7 @@ def redeem(payload: RedeemPayload, response: Response, locale: str = Depends(get
         raise HTTPException(status_code=410, detail=t("access.codeNotValid", locale))
 
     uid = unique_uid(new_username(), lambda name: database.get_user_by_username(name) is not None)
-    password = _generate_password()
+    password = generate_password()
 
     # Take the seat first, then create, otherwise the limit leaks under load.
     if not repo.claim_use(eintrag["id"]):
@@ -89,11 +89,10 @@ def redeem(payload: RedeemPayload, response: Response, locale: str = Depends(get
 
     try:
         sitzungsdaten = provision_account(
-            settings=get_settings(),
             uid=uid,
             given_name="",
             surname="",
-            email=demo_email(uid),
+            email=None,
             role=eintrag["role"],
             custom_role_id=eintrag["custom_role_id"],
             password=password,
@@ -101,8 +100,7 @@ def redeem(payload: RedeemPayload, response: Response, locale: str = Depends(get
     except Exception as fehler:
         repo.release_use(eintrag["id"])
         logger.error("access code redeem failed for uid={}: {}", uid, fehler)
-        code = 409 if isinstance(fehler, LdapUserExistsError) else 500
-        raise HTTPException(status_code=code, detail=t("access.createFailed", locale))
+        raise HTTPException(status_code=500, detail=t("access.createFailed", locale))
 
     stunden = eintrag["access_hours"]
     frist = datetime.now() + timedelta(hours=stunden) if stunden else None
@@ -118,7 +116,8 @@ def redeem(payload: RedeemPayload, response: Response, locale: str = Depends(get
             0,
         )
         # The whitelist has to go too, otherwise the next login switches the account back on.
-        database.remove_from_whitelist(sitzungsdaten["email"])
+        if sitzungsdaten["email"]:
+            database.remove_from_whitelist(sitzungsdaten["email"])
         raise HTTPException(status_code=500, detail=t("access.createFailed", locale))
     sitzungsdaten["access_expires_at"] = frist.isoformat() if frist else None
 
@@ -148,16 +147,11 @@ class RenewPayload(BaseModel):
 def renew(payload: RenewPayload, response: Response, locale: str = Depends(get_locale)):
     _require_feature(locale)
 
-    try:
-        ldap_user = authenticate_user(payload.username.strip(), payload.password)
-    except RuntimeError as fehler:
-        logger.error("LDAP error while renewing '{}': {}", payload.username, fehler)
-        raise HTTPException(status_code=500, detail=str(fehler))
-    if ldap_user is None:
+    konto = authenticate(payload.username.strip(), payload.password)
+    if konto is None:
         raise HTTPException(status_code=401, detail=t("access.invalidCredentials", locale))
 
-    konto = database.get_user_by_username(ldap_user["username"])
-    if konto is None or konto.get("access_expires_at") is None:
+    if konto["access_expires_at"] is None:
         raise HTTPException(status_code=403, detail=t("access.notATestAccount", locale))
     # A missing key means the row predates the active column and counts as active.
     if not konto.get("active", 1):
@@ -168,15 +162,16 @@ def renew(payload: RenewPayload, response: Response, locale: str = Depends(get_l
     frist = datetime.now() + timedelta(hours=stunden) if stunden else None
     repo.set_user_access(konto["id"], expires_at=frist, code_id=eintrag["id"])
 
+    name = konto["ldap_username"]
     _set_session(response, {
         "user_id": konto["id"],
-        "username": ldap_user["username"],
-        "display_name": konto.get("display_name") or ldap_user["username"],
-        "email": konto.get("email") or "",
-        "role": konto.get("role") or "user",
-        "custom_role_id": konto.get("custom_role_id"),
+        "username": name,
+        "display_name": konto["display_name"] or name,
+        "email": konto["email"] or "",
+        "role": konto["role"] or "user",
+        "custom_role_id": konto["custom_role_id"],
         "access_expires_at": frist.isoformat() if frist else None,
     })
 
-    logger.info("access renewed for uid={} until={}", ldap_user["username"], frist.isoformat() if frist else "never")
-    return {"status": "ok", "username": ldap_user["username"], "expires_at": frist}
+    logger.info("access renewed for uid={} until={}", name, frist.isoformat() if frist else "never")
+    return {"status": "ok", "username": name, "expires_at": frist}
