@@ -1140,6 +1140,7 @@
       "fieldGivenName": "Vorname",
       "fieldSurname": "Nachname",
       "fieldEmail": "E-Mail",
+      "emailOptional": "(freiwillig)",
       "fieldRole": "Rolle",
       "roleStaff": "Staff",
       "roleUser": "User",

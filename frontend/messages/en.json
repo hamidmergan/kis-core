@@ -1140,6 +1140,7 @@
       "fieldGivenName": "First name",
       "fieldSurname": "Last name",
       "fieldEmail": "Email",
+      "emailOptional": "(optional)",
       "fieldRole": "Role",
       "roleStaff": "Staff",
       "roleUser": "User",

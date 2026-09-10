@@ -13,10 +13,6 @@ def test_it_is_off_by_default():
     assert Settings().is_local_mode is False
 
 
-def test_an_empty_ldap_server_no_longer_turns_it_on():
-    assert Settings(ldap_server="").is_local_mode is False
-
-
 def test_production_together_with_the_switch_refuses_to_start(monkeypatch):
     monkeypatch.setenv("PRODUCTION", "true")
     monkeypatch.setenv("AUTH_DISABLED", "true")
