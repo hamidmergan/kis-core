@@ -93,9 +93,14 @@ def _hash_fuer(passwort: str) -> str | None:
     return hash_password(passwort)
 
 
-def uebernehmen(eintraege: list[dict]) -> dict:
-    """Writes the entries into the database, a usable hash is never overwritten."""
-    zahlen = {"angelegt": 0, "ergaenzt": 0, "uebersprungen": 0, "abgelehnt": 0}
+def uebernehmen(eintraege: list[dict], auch_neue: bool = False) -> dict:
+    """Fills in the passwords, a usable hash is never overwritten.
+
+    A directory entry without a row in users means the account was deleted, deleting
+    never touched the directory. Such an entry is left alone unless auch_neue is set.
+    """
+    zahlen = {"angelegt": 0, "ergaenzt": 0, "uebersprungen": 0,
+              "abgelehnt": 0, "ohne_zeile": 0}
     for eintrag in eintraege:
         uid = (eintrag.get("uid") or "").strip()
         passwort = (eintrag.get("password") or "").strip()
@@ -111,6 +116,10 @@ def uebernehmen(eintraege: list[dict]) -> dict:
             continue
 
         vorhanden = database.get_user_by_username(uid)
+        if vorhanden is None and not auch_neue:
+            print(f"ohne Zeile in users, uebersprungen: uid={uid!r}")
+            zahlen["ohne_zeile"] += 1
+            continue
         if vorhanden is None:
             mail = (eintrag.get("mail") or "").strip() or None
             if mail:
@@ -141,6 +150,11 @@ def main() -> int:
     parser.add_argument("--bind-dn", default="cn=admin,dc=th-luebeck,dc=de")
     parser.add_argument("--bind-password", default="admin")
     parser.add_argument("--base-dn", default="dc=th-luebeck,dc=de")
+    parser.add_argument(
+        "--auch-neue", action="store_true",
+        help="create a row for a directory entry that has none. Off by default, such an "
+             "entry usually belongs to an account somebody deleted.",
+    )
     args = parser.parse_args()
 
     if args.ldif:
@@ -151,14 +165,15 @@ def main() -> int:
     else:
         parser.error("either --ldif or --server is required")
 
-    zahlen = uebernehmen(eintraege)
+    zahlen = uebernehmen(eintraege, auch_neue=args.auch_neue)
     print(f"\nEintraege gelesen: {len(eintraege)}")
     for name, zahl in zahlen.items():
         print(f"  {name}: {zahl}")
 
     mit_passwort = _zeilen_mit_passwort()
     print(f"\nZeilen mit Passwort in users: {mit_passwort}")
-    if mit_passwort < len(eintraege) - zahlen["abgelehnt"]:
+    erwartet = len(eintraege) - zahlen["abgelehnt"] - zahlen["ohne_zeile"]
+    if mit_passwort < erwartet:
         print("ACHTUNG: weniger Zeilen mit Passwort als uebernommene Eintraege")
         return 1
     return 0

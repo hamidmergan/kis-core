@@ -54,7 +54,7 @@ def test_a_missing_person_is_created_with_the_hash():
     with patch("ldap_nach_db.database.get_user_by_username", return_value=None), \
          patch("ldap_nach_db.database.add_to_whitelist"), \
          patch("ldap_nach_db.database.create_user", return_value=1) as anlegen:
-        zahlen = uebernehmen([eintrag])
+        zahlen = uebernehmen([eintrag], auch_neue=True)
 
     assert zahlen["angelegt"] == 1
     kwargs = anlegen.call_args.kwargs
@@ -69,7 +69,7 @@ def test_a_student_becomes_a_plain_user():
     with patch("ldap_nach_db.database.get_user_by_username", return_value=None), \
          patch("ldap_nach_db.database.add_to_whitelist"), \
          patch("ldap_nach_db.database.create_user", return_value=2) as anlegen:
-        uebernehmen([eintrag])
+        uebernehmen([eintrag], auch_neue=True)
     assert anlegen.call_args.kwargs["role"] == "user"
 
 
@@ -126,7 +126,8 @@ def test_running_it_twice_changes_nothing_the_second_time():
          patch("ldap_nach_db.database.set_user_password") as setzen:
         zahlen = uebernehmen([eintrag])
     setzen.assert_not_called()
-    assert zahlen == {"angelegt": 0, "ergaenzt": 0, "uebersprungen": 1, "abgelehnt": 0}
+    assert zahlen == {"angelegt": 0, "ergaenzt": 0, "uebersprungen": 1,
+                      "abgelehnt": 0, "ohne_zeile": 0}
 
 
 def test_a_plain_text_password_is_hashed_on_the_way_in():
@@ -136,7 +137,7 @@ def test_a_plain_text_password_is_hashed_on_the_way_in():
     with patch("ldap_nach_db.database.get_user_by_username", return_value=None), \
          patch("ldap_nach_db.database.add_to_whitelist"), \
          patch("ldap_nach_db.database.create_user", return_value=1) as anlegen:
-        uebernehmen([eintrag])
+        uebernehmen([eintrag], auch_neue=True)
 
     from src.features.accounts.passwords import verify_password
     hash_wert = anlegen.call_args.kwargs["password_hash"]
@@ -172,3 +173,29 @@ def test_a_column_that_holds_no_usable_hash_is_replaced():
 
     setzen.assert_called_once_with(3, "{SSHA}abc")
     assert zahlen["ergaenzt"] == 1
+
+
+def test_by_default_nothing_is_created():
+    """A directory entry without a row means the account was deleted, it must not come back."""
+    eintrag = {"uid": "geloescht", "cn": "Weg", "mail": "", "password": "{SSHA}abc",
+               "employee_type": "user"}
+    with patch("ldap_nach_db.database.get_user_by_username", return_value=None), \
+         patch("ldap_nach_db.database.create_user") as anlegen:
+        zahlen = uebernehmen([eintrag])
+
+    anlegen.assert_not_called()
+    assert zahlen["ohne_zeile"] == 1
+    assert zahlen["angelegt"] == 0
+
+
+def test_with_the_flag_a_missing_row_is_created():
+    eintrag = {"uid": "neu", "cn": "Neu", "mail": "", "password": "{SSHA}abc",
+               "employee_type": "user"}
+    with patch("ldap_nach_db.database.get_user_by_username", return_value=None), \
+         patch("ldap_nach_db.database.add_to_whitelist"), \
+         patch("ldap_nach_db.database.create_user", return_value=5) as anlegen:
+        zahlen = uebernehmen([eintrag], auch_neue=True)
+
+    anlegen.assert_called_once()
+    assert zahlen["angelegt"] == 1
+    assert zahlen["ohne_zeile"] == 0
