@@ -27,6 +27,8 @@ export interface AuthStatus {
   modules?: string[];
   /** Set while somebody is logged in as this account. */
   impersonator?: Impersonator;
+  /** Why nobody is signed in, currently only "access_expired". */
+  reason?: string;
 }
 
 /** Who borrowed this account, shown in the banner above every page. */

@@ -3,7 +3,19 @@ const BACKEND_BASE = "/api";
 
 /** The backend sends exactly this detail when a test access has run out. */
 const ACCESS_EXPIRED_DETAIL = "access_expired";
-const EXPIRED_PATH = "/redeem/expired";
+/** The expired access lands on the login page, which says so and offers a fresh code. */
+const EXPIRED_PATH = "/login?expired=1";
+/** Pages that talk about the expiry themselves and must not be thrown around. */
+const EXPIRY_HOME = ["/login", "/redeem", "/redeem/expired"];
+
+// The first redirect wins, a 401 running behind it must not swallow the expiry hint.
+let umgeleitet = false;
+
+function verlassen(ziel: string) {
+  if (umgeleitet) return;
+  umgeleitet = true;
+  window.location.href = ziel;
+}
 
 const FALLBACKS = {
   de: {
@@ -117,7 +129,7 @@ class ApiClient {
     if (response.status === 401 && typeof window !== "undefined") {
       const currentPath = window.location.pathname;
       if (currentPath !== "/login") {
-        window.location.href = "/login";
+        verlassen("/login");
       }
     }
 
@@ -129,9 +141,10 @@ class ApiClient {
         .then((body) => (body as { detail?: unknown })?.detail)
         .catch(() => null);
       if (detail === ACCESS_EXPIRED_DETAIL) {
+        // endsWith covers the locale prefix, /en/login is the same page as /login.
         const currentPath = window.location.pathname;
-        if (currentPath !== EXPIRED_PATH) {
-          window.location.href = EXPIRED_PATH;
+        if (!EXPIRY_HOME.some((p) => currentPath === p || currentPath.endsWith(p))) {
+          verlassen(EXPIRED_PATH);
         }
       }
     }

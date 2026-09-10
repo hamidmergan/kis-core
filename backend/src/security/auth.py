@@ -1,14 +1,28 @@
 from datetime import datetime
 
-from fastapi import HTTPException, Request
+from fastapi import HTTPException, Request, Response
 from loguru import logger
 
 from src.dependencies import get_session_store, get_settings
 from src.i18n import parse_accept_language, t
 
+ACCESS_EXPIRED = "access_expired"
+
 _OPEN_PATHS = {"/health", "/health/maintenance", "/health/labels", "/docs", "/redoc", "/openapi.json"}
 # The invitation page and the access code page belong here, both carry their own credential.
 _OPEN_PREFIXES = ("/auth/", "/invites/", "/access-codes/")
+
+
+def access_expired_error() -> HTTPException:
+    """403 for a dead test access, taking the useless session cookie with it."""
+    # The session itself stays, dropping it would answer its parallel calls with 401.
+    blank = Response()
+    blank.delete_cookie("session")
+    return HTTPException(
+        status_code=403,
+        detail=ACCESS_EXPIRED,
+        headers={"set-cookie": blank.headers["set-cookie"]},
+    )
 
 
 async def verify_auth(request: Request):
@@ -36,7 +50,7 @@ async def verify_auth(request: Request):
                     logger.error("Unparseable access_expires_at '{}' on {}: {}", ablauf, path, e)
             if expired:
                 logger.info("Rejected expired test access on {}", path)
-                raise HTTPException(status_code=403, detail="access_expired")
+                raise access_expired_error()
             return
         logger.info("Rejected invalid/expired session on {}", path)
     else:

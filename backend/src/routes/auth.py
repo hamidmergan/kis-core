@@ -12,6 +12,7 @@ from src.features.impersonation import service as impersonation
 from src.i18n import get_locale, t
 from src.ldap_auth import authenticate_user
 from src.modules import active_modules
+from src.security.auth import ACCESS_EXPIRED, access_expired_error
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -98,7 +99,7 @@ def login(body: LoginRequest, response: Response, locale: str = Depends(get_loca
         else:
             if abgelaufen:
                 logger.info("Login blocked for '{}' (test access expired)", ldap_username)
-                raise HTTPException(status_code=403, detail="access_expired")
+                raise access_expired_error()
 
     # Step 5: The demo module, once per account, whichever way it was created.
     demo_module_zuweisen(user_id)
@@ -209,7 +210,8 @@ async def auth_status(request: Request):
                     logger.error("Unparseable access_expires_at '{}' for user {}: {}", ablauf, user_id, e)
                     expired = False
                 if expired:
-                    return {"authenticated": False}
+                    # The reason travels along so the login page can say what happened.
+                    return {"authenticated": False, "reason": ACCESS_EXPIRED}
             data["role"] = db_user.get("role") or data.get("role") or "user"
             data["custom_role_id"] = db_user.get("custom_role_id")
 

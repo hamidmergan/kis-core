@@ -175,6 +175,12 @@ export default function AccessExpiredPage() {
                 >
                   {sending ? t("expiredSubmitting") : t("expiredSubmit")}
                 </button>
+
+                <p className="text-center text-sm">
+                  <a href="/login" className="text-kb hover:underline">
+                    {t("toLogin")}
+                  </a>
+                </p>
               </form>
             </div>
           )}

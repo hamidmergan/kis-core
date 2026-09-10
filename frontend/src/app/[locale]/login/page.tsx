@@ -17,6 +17,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [maintenanceOn, setMaintenanceOn] = useState(false);
   const [zugangOffen, setZugangOffen] = useState(false);
+  const [abgelaufen, setAbgelaufen] = useState(false);
 
   useEffect(() => {
     checkAuthStatus().then((status) => {
@@ -45,6 +46,11 @@ export default function LoginPage() {
     return () => { cancelled = true; clearInterval(id); };
   }, []);
 
+  // Whoever was thrown out by an expired access arrives with this marker in the address.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("expired")) setAbgelaufen(true);
+  }, []);
+
   useEffect(() => {
     fetch("/api/access-codes/enabled", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
@@ -68,7 +74,7 @@ export default function LoginPage() {
       if (message === "account_not_activated") {
         router.push("/pending");
       } else if (message === "access_expired") {
-        router.push("/redeem/expired");
+        setAbgelaufen(true);
       } else if (maintenanceOn) {
         setError(t("maintenanceBanner"));
       } else {
@@ -89,6 +95,28 @@ export default function LoginPage() {
         <h1 className="text-2xl font-bold text-center mb-6">{t("welcome")}</h1>
         <div className="bg-background rounded-xl shadow-sm border border-border-soft p-8">
           <h2 className="text-lg font-semibold mb-4">{t("title")}</h2>
+
+          {abgelaufen && (
+            <div
+              role="status"
+              data-testid="login-expired"
+              className="mb-4 rounded-lg border p-4"
+              style={{
+                background: "var(--surface-dim)",
+                borderColor: "var(--border)",
+                color: "var(--foreground)",
+              }}
+            >
+              <p className="text-sm font-semibold">{t("expiredTitle")}</p>
+              <p className="mt-1 text-sm leading-relaxed text-foreground-soft">{t("expiredText")}</p>
+              <a
+                href="mailto:hamid.mergan@th-luebeck.de"
+                className="mt-2 inline-block text-sm text-kb hover:underline"
+              >
+                hamid.mergan@th-luebeck.de
+              </a>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} aria-label={t("formAria")} className="space-y-4">
             <div>

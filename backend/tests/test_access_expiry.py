@@ -55,6 +55,16 @@ def test_an_expired_test_access_cannot_log_in(client):
     anlegen.assert_not_called()
 
 
+def test_a_blocked_login_takes_the_dead_cookie_with_it(client):
+    konto = {"id": 42, "role": "staff", "custom_role_id": None,
+             "access_expires_at": GESTERN}
+    antwort, _ = _anmelden(client, konto)
+
+    keks = antwort.headers.get("set-cookie", "")
+    assert keks.startswith("session=")
+    assert "Max-Age=0" in keks
+
+
 def test_a_running_test_access_carries_its_deadline_into_the_session(client):
     konto = {"id": 42, "role": "staff", "custom_role_id": None,
              "access_expires_at": MORGEN}
@@ -81,10 +91,10 @@ class _Anfrage:
         self.headers = {}
 
 
-async def _torwaechter(sitzungsdaten):
+async def _torwaechter(sitzungsdaten, store=None):
     from src.security.auth import verify_auth
 
-    store = MagicMock()
+    store = store or MagicMock()
     store.get_data.return_value = sitzungsdaten
     with patch("src.security.auth.get_session_store", return_value=store), \
          patch("src.security.auth.get_settings", return_value=SimpleNamespace(is_local_mode=False)):
@@ -112,6 +122,24 @@ async def test_the_gate_throws_an_expired_test_access_out():
         await _torwaechter({"user_id": 42, "access_expires_at": GESTERN.isoformat()})
     assert fehler.value.status_code == 403
     assert fehler.value.detail == "access_expired"
+
+
+@pytest.mark.asyncio
+async def test_the_gate_keeps_the_session_so_every_parallel_call_says_the_same():
+    """Dropping it would answer the calls running next to this one with 401."""
+    store = MagicMock()
+    with pytest.raises(HTTPException):
+        await _torwaechter({"user_id": 42, "access_expires_at": GESTERN.isoformat()}, store)
+    store.destroy.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_the_gate_takes_the_dead_cookie_with_it():
+    with pytest.raises(HTTPException) as fehler:
+        await _torwaechter({"user_id": 42, "access_expires_at": GESTERN.isoformat()})
+    keks = (fehler.value.headers or {}).get("set-cookie", "")
+    assert keks.startswith("session=")
+    assert "Max-Age=0" in keks
 
 
 @pytest.mark.asyncio
@@ -143,6 +171,29 @@ def test_status_reports_an_expired_access_as_not_authenticated(client):
     antwort = _status(client, sitzungsdaten, konto)
 
     assert antwort.status_code == 200
+    assert antwort.json() == {"authenticated": False, "reason": "access_expired"}
+
+
+def test_status_leaves_the_session_alone(client):
+    """Only the gate ends it, otherwise the next call answers 401 and loses the reason."""
+    sitzungsdaten = {"user_id": 42, "email": "", "role": "staff", "custom_role_id": None}
+    konto = {"id": 42, "role": "staff", "custom_role_id": None, "access_expires_at": GESTERN}
+    client.cookies.set("session", "tok")
+    with patch("src.routes.auth.get_session_store") as store, \
+         patch("src.routes.auth.database.get_user_by_id", return_value=konto):
+        store.return_value = MagicMock()
+        store.return_value.validate.return_value = True
+        store.return_value.get_data.return_value = sitzungsdaten
+        antwort = client.get("/auth/status")
+        store.return_value.destroy.assert_not_called()
+
+    assert "set-cookie" not in antwort.headers
+
+
+def test_status_names_no_reason_without_a_session(client):
+    client.cookies.clear()
+    antwort = client.get("/auth/status")
+
     assert antwort.json() == {"authenticated": False}
 
 

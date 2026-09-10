@@ -34,7 +34,8 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
   useEffect(() => {
     checkAuthStatus().then((status) => {
       if (!status.authenticated) {
-        router.replace("/login");
+        // An expired access says so on the login page instead of landing there mute.
+        router.replace(status.reason === "access_expired" ? "/login?expired=1" : "/login");
         setLoading(false);
         return;
       }

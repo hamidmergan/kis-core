@@ -1,5 +1,13 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { backendApi } from "./api";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { backendApi as BackendApi } from "./api";
+
+// The client only ever leaves a page once, so every test needs its own module copy.
+let backendApi: typeof BackendApi;
+
+beforeEach(async () => {
+  vi.resetModules();
+  backendApi = (await import("./api")).backendApi;
+});
 
 // A window stub, only the parts the client reads.
 function fensterMit(pathname: string) {
@@ -22,13 +30,13 @@ afterEach(() => {
 });
 
 describe("403 aus dem Zugangsende", () => {
-  it("schickt auf die Abgelaufen-Seite", async () => {
+  it("schickt auf die Anmeldeseite mit Hinweis", async () => {
     const ort = fensterMit("/tools/translation");
     antwort(403, { detail: "access_expired" });
 
     await backendApi.fetch("/aia/workspaces");
 
-    expect(ort.href).toBe("/redeem/expired");
+    expect(ort.href).toBe("/login?expired=1");
   });
 
   it("laesst die Antwort trotzdem lesbar", async () => {
@@ -40,7 +48,36 @@ describe("403 aus dem Zugangsende", () => {
     expect(await r.json()).toEqual({ detail: "access_expired" });
   });
 
-  it("schickt nicht nochmal, wenn die Seite schon offen ist", async () => {
+  it("schickt nicht nochmal, wenn die Anmeldeseite schon offen ist", async () => {
+    const ort = fensterMit("/login");
+    antwort(403, { detail: "access_expired" });
+
+    await backendApi.fetch("/aia/workspaces");
+
+    expect(ort.href).toBe("unveraendert");
+  });
+
+  it("schickt auch aus der englischen Anmeldeseite nicht nochmal", async () => {
+    const ort = fensterMit("/en/login");
+    antwort(403, { detail: "access_expired" });
+
+    await backendApi.fetch("/aia/workspaces");
+
+    expect(ort.href).toBe("unveraendert");
+  });
+
+  it("laesst sich vom nachlaufenden 401 nicht ueberschreiben", async () => {
+    const ort = fensterMit("/");
+    antwort(403, { detail: "access_expired" });
+    await backendApi.fetch("/aia/workspaces");
+
+    antwort(401, { detail: "not authenticated" });
+    await backendApi.fetch("/aia/tools");
+
+    expect(ort.href).toBe("/login?expired=1");
+  });
+
+  it("laesst die Verlaengern-Seite in Ruhe", async () => {
     const ort = fensterMit("/redeem/expired");
     antwort(403, { detail: "access_expired" });
 
