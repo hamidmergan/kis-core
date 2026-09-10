@@ -10,7 +10,7 @@
 
 # Only load the GPU compose file when an NVIDIA driver is really there. This used
 # to be guessed via uname, which wrongly took every non-macOS for a GPU box.
-COMPOSE_FILES="-f docker-compose.yml -f docker-compose.dev.yml"
+COMPOSE_FILES="-f docker-compose.yml -f docker-compose.dev.yml -f docker-compose.app.yml"
 if command -v nvidia-smi >/dev/null 2>&1; then
     COMPOSE_FILES="$COMPOSE_FILES -f docker-compose.gpu.yml"
 fi

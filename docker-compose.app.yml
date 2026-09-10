@@ -1,0 +1,38 @@
+# The frontend container plus the object storage it needs, for running KIS locally.
+# The dev scripts load this file too, but without the "app" profile, so there the
+# frontend stays off and port 3000 is free for the Next.js dev server.
+
+services:
+  frontend:
+    profiles: ["app"]
+    build:
+      context: ./frontend
+      args:
+        BACKEND_URL: http://backend:8000
+    container_name: kis-frontend
+    environment:
+      BACKEND_URL: http://backend:8000
+    ports:
+      # localhost only, nothing is published to the network
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio
+    container_name: kis-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY}
+    ports:
+      # localhost only, nothing is published to the network
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+    volumes:
+      - kis-minio-data:/data
+    restart: unless-stopped
+
+volumes:
+  kis-minio-data:

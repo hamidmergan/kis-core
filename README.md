@@ -2,74 +2,92 @@
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
-AI platform for teaching at TH Lübeck: document translation, screencasts, transcription and an AI study assistant.
-
-> Built by **Hamid Mergan**, Institut für Interaktive Systeme (ISy), Technische Hochschule Lübeck.
-> Contact: hamid.mergan@th-luebeck.de
+A self hosted teaching platform with AI assisted tools for course material and study support.
+Developed at Institut für Interaktive Systeme (ISy), Technische Hochschule Lübeck.
 
 ## Features
 
 - Document translation (DOCX, PPTX, MD, TEX, PDF) with glossary
-- Screencasts from PPTX (script, speech, video, subtitles)
+- Screencasts from PPTX: script, speech, video, subtitles
 - Transcription, text to speech, summaries, image generation
 - Study assistant: modules, sources (PDF, DOCX, PPTX, audio, video), chat with citations, mindmaps, schedules, notes
-- Language training: flashcards, grammar and vocabulary exercises, quiz, placement
+- Language training: flashcards, grammar and vocabulary exercises, quiz, placement test
 
 ## Stack
 
 - Frontend: Next.js 15, React 19, TypeScript, Tailwind 4, next-intl (DE/EN)
 - Backend: FastAPI, Python 3.11, Celery, Redis
 - Data: PostgreSQL 16 with pgvector, S3 compatible storage
-- Login: LDAP, plus invite links
 - System tools: FFmpeg, LibreOffice, poppler-utils
 
 ## Requirements
 
 - Docker and Docker Compose v2
-- Node.js 20+ for the frontend dev server
+- Node.js 20+, only for the development setup below
 
-## Quick start
+## Run it locally
+
+The same two commands on macOS, Linux and Windows:
 
 ```bash
-cp .env.example .env      # fill in the values
-./start-local.sh          # start-local.bat on Windows
+cp .env.example .env
+docker compose up -d
+```
 
+Then open `http://localhost:3000`. The defaults in `.env.example` already point at the containers in
+this stack, so nothing has to be filled in for a local run. The first start builds the images, which
+takes a few minutes.
+
+Login runs against the bundled LDAP simulator, seeded from `docker/ldap/seed.ldif`. The admin
+account is uid `a` with password `a`, and the login field takes that uid, not the mail address. Its
+mail `admin@th-luebeck.de` matches `ADMIN_EMAIL` from `.env.example`, which is what gives it every
+permission. A real installation points `LDAP_SERVER` at its own directory and sets `ADMIN_EMAIL` to a
+real address.
+
+An empty `LDAP_SERVER` switches the stack to local mode, which drops the login screen entirely.
+Startup creates an account named `local` and hands it every permission, so maintenance mode no longer
+applies. Useful for a quick look at the app, unusable as a deployment: with `PRODUCTION=true` the
+backend refuses to start while `LDAP_SERVER` is empty.
+
+Everything is published to `127.0.0.1` only, nothing is reachable from the network. A server
+deployment is a different setup and uses `docker-compose.prod.yml`, which expects nginx, a domain and
+TLS certificates.
+
+## Development setup
+
+For working on the code, the frontend runs from the Next.js dev server instead of the container:
+
+```bash
+./start-local.sh          # start-local.bat on Windows
 cd frontend && npm install && npm run dev
 ```
 
-Frontend: http://localhost:3000
-API docs: http://localhost:8000/docs
+The script leaves the frontend container out, so port 3000 stays free, and it adds Adminer,
+phpLDAPadmin and Langfuse. The API docs are on `http://localhost:8000/docs`.
 
 ### Modules
 
-`MODULES` in `.env` picks the halves: `aia,tools` (default), `aia`, or `tools`. A disabled
-half is gone, not hidden — its routes answer 404 and its Celery worker does not start.
-Changing it needs a restart.
+`MODULES` in `.env` selects the halves: `aia,tools` (default), `aia`, or `tools`. A disabled half is
+not hidden but gone, its routes answer 404 and its Celery worker does not start. Changing the value
+needs a restart.
 
-`MODULES=aia` drops the global glossary, `MODULES=tools` drops the language trainer,
-flashcards and grammar exercises.
-
-`MODULES=tools` leaves the built-in `user` role with no permissions, since its only one
-belongs to the assistant. Give students a custom role with the tools you want.
+`MODULES=aia` drops the global glossary. `MODULES=tools` drops the language trainer, flashcards and
+grammar exercises, and leaves the built in `user` role without permissions, so students need a custom
+role.
 
 ## AI providers
 
-No API keys in `.env`. Log in as admin, add the providers under **Admin → KI** and route every feature to a model there. Any OpenAI compatible endpoint works, plus DeepL and Docling.
+The repository ships no API keys. Providers are added at runtime under **Admin → KI**, and every
+feature is routed to a model there. Any OpenAI compatible endpoint works, plus DeepL and Docling.
 
-Speech and local models run outside the stack and are reached by base URL, for example Kokoro at `http://host.docker.internal:8880/v1` or Ollama at `http://host.docker.internal:11434/v1` (start Ollama with `OLLAMA_HOST=0.0.0.0:11434`).
+Speech and local models run outside the stack and are reached by base URL, for example Ollama at
+`http://host.docker.internal:11434/v1`.
 
-For chat, models from about 25B upward work well. A thinking mode costs time without better answers.
-
-## Tests
-
-```bash
-make test        # backend and frontend unit tests
-make test-all    # plus E2E
-```
+The study assistant needs a model with a large context window. We run it with about 128k tokens.
 
 ## License
 
 Apache 2.0, Copyright 2026 Technische Hochschule Lübeck.
-See [LICENSE](LICENSE), [NOTICE](NOTICE), [AUTHORS](AUTHORS), [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt).
+See [LICENSE](LICENSE), [NOTICE](NOTICE), [AUTHORS](AUTHORS) and [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt).
 
-Regenerate notices after dependency changes: `python generate-licenses.py`
+Regenerate the notices after dependency changes with `python generate-licenses.py`.
