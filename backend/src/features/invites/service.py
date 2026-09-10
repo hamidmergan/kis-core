@@ -17,7 +17,7 @@ class InviteValidationError(ValueError):
 
 
 def uid_from_username(text: str) -> str:
-    """Turns what the inviting person typed into a user name LDAP accepts."""
+    """Turns what the inviting person typed into a user name the login accepts."""
     uid = slugify_uid(text)
     if uid is None:
         raise InviteValidationError("username", "yields no usable uid")

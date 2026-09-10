@@ -29,12 +29,8 @@ def client(monkeypatch):
 
 
 def _anmelden(client, konto):
-    """Logs in with LDAP and the whitelist out of the way."""
-    with patch("src.routes.auth.authenticate_user", return_value={
-             "username": "max.mustermann", "fullname": "Max Mustermann",
-             "email": "max.mustermann@demo.kis.local", "role": "staff"}), \
-         patch("src.routes.auth.database.get_user_by_username", return_value=konto), \
-         patch("src.routes.auth.database.update_user"), \
+    """Logs in with the password check out of the way."""
+    with patch("src.routes.auth.authenticate", return_value=konto), \
          patch("src.routes.auth.database.get_setting", return_value="false"), \
          patch("src.routes.auth.get_session_store") as store:
         store.return_value = MagicMock()
@@ -46,7 +42,9 @@ def _anmelden(client, konto):
 
 
 def test_an_expired_test_access_cannot_log_in(client):
-    konto = {"id": 42, "role": "staff", "custom_role_id": None,
+    konto = {"id": 42, "ldap_username": "max.mustermann",
+             "display_name": "Max Mustermann", "email": "max.mustermann@demo.kis.local",
+             "active": 1, "role": "staff", "custom_role_id": None,
              "access_expires_at": GESTERN}
     antwort, anlegen = _anmelden(client, konto)
 
@@ -56,7 +54,9 @@ def test_an_expired_test_access_cannot_log_in(client):
 
 
 def test_a_blocked_login_takes_the_dead_cookie_with_it(client):
-    konto = {"id": 42, "role": "staff", "custom_role_id": None,
+    konto = {"id": 42, "ldap_username": "max.mustermann",
+             "display_name": "Max Mustermann", "email": "max.mustermann@demo.kis.local",
+             "active": 1, "role": "staff", "custom_role_id": None,
              "access_expires_at": GESTERN}
     antwort, _ = _anmelden(client, konto)
 
@@ -66,7 +66,9 @@ def test_a_blocked_login_takes_the_dead_cookie_with_it(client):
 
 
 def test_a_running_test_access_carries_its_deadline_into_the_session(client):
-    konto = {"id": 42, "role": "staff", "custom_role_id": None,
+    konto = {"id": 42, "ldap_username": "max.mustermann",
+             "display_name": "Max Mustermann", "email": "max.mustermann@demo.kis.local",
+             "active": 1, "role": "staff", "custom_role_id": None,
              "access_expires_at": MORGEN}
     antwort, anlegen = _anmelden(client, konto)
 
@@ -75,7 +77,9 @@ def test_a_running_test_access_carries_its_deadline_into_the_session(client):
 
 
 def test_a_normal_account_carries_no_deadline(client):
-    konto = {"id": 5, "role": "admin", "custom_role_id": None, "access_expires_at": None}
+    konto = {"id": 5, "ldap_username": "chefin", "display_name": "Chefin",
+             "email": "chefin@th-luebeck.de", "active": 1,
+             "role": "admin", "custom_role_id": None, "access_expires_at": None}
     antwort, anlegen = _anmelden(client, konto)
 
     assert antwort.status_code == 200
@@ -148,7 +152,9 @@ async def test_the_gate_lets_a_session_through_when_the_deadline_is_unparseable(
 
 
 def test_login_lets_an_account_through_when_the_deadline_is_unparseable(client):
-    konto = {"id": 42, "role": "staff", "custom_role_id": None, "access_expires_at": "kaputt"}
+    konto = {"id": 42, "ldap_username": "max.mustermann", "display_name": "Max Mustermann",
+             "email": "max.mustermann@demo.kis.local", "active": 1,
+             "role": "staff", "custom_role_id": None, "access_expires_at": "kaputt"}
     antwort, anlegen = _anmelden(client, konto)
 
     assert antwort.status_code == 200
