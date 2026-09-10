@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     # Unlocks invitations, access codes and creating accounts by hand.
     account_creation_enabled: bool = False
 
+    # No login screen at all, everybody is the local admin. Local use only.
+    auth_disabled: bool = False
+
     # Welche Module diese Anlage hat, Komma getrennt aus "aia" und "tools".
     modules: str = "aia,tools"
 
@@ -40,6 +43,6 @@ class Settings(BaseSettings):
 
     @property
     def is_local_mode(self) -> bool:
-        return not bool(self.ldap_server.strip())
+        return self.auth_disabled
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "populate_by_name": True}

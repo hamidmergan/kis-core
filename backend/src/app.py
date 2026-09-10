@@ -78,11 +78,11 @@ async def lifespan(app: FastAPI):
     # Thread pool for def routes, deliberately smaller than the database pool.
     anyio.to_thread.current_default_thread_limiter().total_tokens = REQUEST_THREAD_LIMIT
     logger.info("Request thread pool: {} threads", REQUEST_THREAD_LIMIT)
-    # Do not start when production is set but LDAP is missing.
+    # Do not start when production is set but the login is switched off.
     if settings.production and settings.is_local_mode:
         raise RuntimeError(
-            "Refusing to start: production=True but LDAP_SERVER is empty. "
-            "Local mode would disable authentication entirely."
+            "Refusing to start: production=True but AUTH_DISABLED is set. "
+            "That would disable authentication entirely."
         )
     # A shipped example password on a real installation is the same as no password.
     if settings.production and settings.admin_password == _BEISPIEL_ADMIN_PASSWORT:
