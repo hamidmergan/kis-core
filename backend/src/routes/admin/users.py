@@ -89,6 +89,10 @@ async def add_whitelist(
             status_code=400, detail=t("admin.whitelist.invalidEmail", locale)
         )
     db.add_to_whitelist(body.email)
+    # The column is what the login reads, the list alone no longer opens anything.
+    konto = db.get_user_by_email(body.email)
+    if konto is not None:
+        db.activate_user(konto["id"])
     return {"ok": True}
 
 
