@@ -102,12 +102,16 @@ def test_token_budget_stays_within_the_cap():
     assert LLMTranslationClient._max_tokens_for("x" * 500_000, 500) <= 32768
 
 
-def test_missing_items_are_retranslated_individually():
+def test_partial_list_is_fully_retranslated_individually(monkeypatch):
+    """A model that skips a number has renumbered, so every item is fetched again."""
+    # One worker keeps the single calls in order, so the replies can be listed.
+    monkeypatch.setattr("src.services.llm_translation_client._BATCH_PARALLELISM", 1)
     client = _client([
-        ("1. one\n3. three", "stop"),  # Eintrag 2 fehlt
-        ("two", "stop"),               # Einzelabfrage
+        ("1. one\n3. three", "stop"),  # Eintrag 2 fehlt, die Nummern taugen nichts mehr
+        ("one", "stop"), ("two", "stop"), ("three", "stop"),
     ])
     assert client.translate_batch(["eins", "zwei", "drei"], "DE", "EN") == ["one", "two", "three"]
+    assert client._client.chat.completions.batch_sizes == [3, 1, 1, 1]
 
 
 def test_result_length_always_matches_input():

@@ -42,7 +42,8 @@ def test_parse_numbered_unparseable():
     assert missing == [0, 1, 2]
 
 
-def test_translate_chunk_retranslates_only_missing(monkeypatch):
+def test_translate_chunk_partial_list_redoes_the_whole_chunk(monkeypatch):
+    # A short list means the model renumbered its own paragraphs, so its numbers lie.
     c = _client()
     monkeypatch.setattr(c, "_completion_with_retry", lambda system, user, **kw: ("1. A\n3. C", "stop"))
     seen = {}
@@ -53,8 +54,19 @@ def test_translate_chunk_retranslates_only_missing(monkeypatch):
 
     monkeypatch.setattr(c, "_translate_each", fake_each)
     out = c._translate_chunk(["a", "b", "c"], "German", "French")
-    assert out == ["A", "FIX:b", "C"]
-    assert seen["texts"] == ["b"]  # only the missing item, not the whole chunk
+    assert out == ["FIX:a", "FIX:b", "FIX:c"]
+    assert seen["texts"] == ["a", "b", "c"]
+
+
+def test_zusammengefasste_antwort_verschiebt_nichts(monkeypatch):
+    """The reported bug: 20 lines came back as 10 merged paragraphs."""
+    c = _client()
+    quellen = [f"satz {i}" for i in range(1, 21)]
+    verschmolzen = "\n".join(f"{i}. absatz {i}" for i in range(1, 11))
+    monkeypatch.setattr(c, "_completion_with_retry", lambda system, user, **kw: (verschmolzen, "stop"))
+    monkeypatch.setattr(c, "_translate_each", lambda texts, src, tgt: [f"EN:{t}" for t in texts])
+    out = c._translate_chunk(quellen, "German", "English")
+    assert out == [f"EN:{t}" for t in quellen]
 
 
 def test_translate_chunk_unparseable_falls_back_whole(monkeypatch):

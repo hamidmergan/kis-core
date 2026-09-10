@@ -42,6 +42,7 @@ _BATCH_SYSTEM_PROMPT = (
     "Translate each numbered item {instruction}.\n"
     "Rules:\n"
     "- Return ONLY the numbered list in the exact same format, nothing else.\n"
+    "- Return exactly one numbered item per input item, in the same order. Never merge two items into one and never split one item into two, even when that reads better.\n"
     "- No explanations, no notes, no preamble, no commentary.\n"
     "- Use formal register appropriate for academic and educational materials.\n"
     "- Preserve all formatting, line breaks, whitespace, and special characters exactly.\n"
@@ -195,20 +196,11 @@ class LLMTranslationClient:
         if not missing:
             return results  # type: ignore[return-value]
 
-        if len(missing) == len(texts):
-            logger.warning(
-                "LLM chunk unparseable ({} items), per-item fallback.", len(texts),
-            )
-            return self._translate_each(texts, source_lang, target_lang)
-
+        # A short list means the model renumbered its own paragraphs, so no number can be trusted.
         logger.warning(
-            "LLM chunk: {}/{} items missing, retranslating those individually.",
-            len(missing), len(texts),
+            "LLM chunk: {}/{} items missing, whole chunk per-item.", len(missing), len(texts),
         )
-        fixes = self._translate_each([texts[i] for i in missing], source_lang, target_lang)
-        for idx, fixed in zip(missing, fixes):
-            results[idx] = fixed
-        return results  # type: ignore[return-value]
+        return self._translate_each(texts, source_lang, target_lang)
 
     def _translate_each(self, texts: list[str], source_lang: str, target_lang: str) -> list[str]:
         """Translate each text with an individual API call, in parallel."""
