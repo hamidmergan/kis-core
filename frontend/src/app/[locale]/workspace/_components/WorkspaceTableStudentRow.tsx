@@ -5,6 +5,7 @@ import { CalendarBlank, Lock } from "@phosphor-icons/react";
 import { useRouter } from "@/i18n/navigation";
 import Spinner from "@/components/ui/Spinner";
 import { useNavTransition } from "@/components/ui/useNavTransition";
+import WorkspaceDescription from "./WorkspaceDescription";
 import WorkspaceMenu from "./WorkspaceMenu";
 import type { KiTutorWorkspace } from "../_shared";
 
@@ -88,28 +89,22 @@ export default function WorkspaceTableStudentRow({
             </span>
           )}
         </span>
-        {workspace.description && (
-          <span className="text-xs truncate block" style={{ color: "var(--muted)" }} title={workspace.description}>
-            {workspace.description}
-          </span>
-        )}
-        {!manageColumns && status && <span className="block mt-0.5">{status}</span>}
+        {workspace.description && <WorkspaceDescription text={workspace.description} />}
+        {/* A phone has no status column, so the state lives under the title there. */}
+        {status && <span className={`block mt-0.5 ${manageColumns ? "sm:hidden" : ""}`}>{status}</span>}
       </td>
       <td
-        className={`pl-6 py-3 text-right tabular-nums text-foreground-soft ${manageColumns ? "pr-4" : "pr-1"} ${zellenKlasse}`}
+        className={`pl-2 pr-2 sm:pl-6 py-3 text-right tabular-nums text-foreground-soft ${manageColumns ? "sm:pr-4" : "sm:pr-1"} ${zellenKlasse}`}
         onClick={open}
       >
         {workspace.source_count}
       </td>
       {manageColumns && (
-        <>
-          <td className="pl-20 pr-4 py-3" />
-          <td className={`pl-20 pr-4 py-3 ${zellenKlasse}`} onClick={open}>
-            {status}
-          </td>
-        </>
+        <td className={`hidden sm:table-cell pl-20 pr-4 py-3 ${zellenKlasse}`} onClick={open}>
+          {status}
+        </td>
       )}
-      <td className={`pr-4 py-3 ${manageColumns ? "pl-20" : "pl-3"}`}>
+      <td className={`pl-2 pr-2 sm:pr-4 py-3 ${manageColumns ? "sm:pl-20" : "sm:pl-3"}`}>
         {menu && <div className="flex justify-center">{menu}</div>}
       </td>
     </tr>

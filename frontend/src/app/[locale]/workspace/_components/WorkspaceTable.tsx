@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
+import { Files } from "@phosphor-icons/react";
 import HelpTooltip from "@/components/ui/HelpTooltip";
 import WorkspaceTableRow from "./WorkspaceTableRow";
 import WorkspaceTableStudentRow from "./WorkspaceTableStudentRow";
@@ -61,23 +62,27 @@ export default function WorkspaceTable({
     <>
       <div className="bg-background rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
-          <table className={`w-full text-sm ${manageColumns ? "min-w-190" : "min-w-80"}`}>
+          <table className={`w-full text-sm ${manageColumns ? "sm:min-w-160" : "min-w-80"}`}>
             <thead>
               <tr className="border-b border-border-soft text-left text-xs text-muted uppercase">
                 <th className="px-4 py-2">{labels.singular}</th>
-                <th className={`pl-6 py-2 text-right ${manageColumns ? "pr-4" : "pr-1"}`}>{t("colSources")}</th>
+                {/* On a phone the long word would eat the module column, so it becomes its icon. */}
+                <th className={`pl-2 pr-2 sm:pl-6 py-2 text-right ${manageColumns ? "sm:pr-4" : "sm:pr-1"}`}>
+                  <span className="hidden sm:inline">{t("colSources")}</span>
+                  <span className="sm:hidden inline-flex align-middle" title={t("colSources")}>
+                    <Files size={14} weight="bold" />
+                    <span className="sr-only">{t("colSources")}</span>
+                  </span>
+                </th>
                 {manageColumns && (
-                  <>
-                    <th className="pl-20 pr-4 py-2 text-right">{t("colLinks")}</th>
-                    <th className="pl-20 pr-4 py-2">
-                      <span className="inline-flex items-center gap-1.5">
-                        {t("colStatus")}
-                        <HelpTooltip text={t("statusHelp")} />
-                      </span>
-                    </th>
-                  </>
+                  <th className="hidden sm:table-cell pl-20 pr-4 py-2">
+                    <span className="inline-flex items-center gap-1.5">
+                      {t("colStatus")}
+                      <HelpTooltip text={t("statusHelp")} />
+                    </span>
+                  </th>
                 )}
-                <th className={`pr-4 py-2 ${manageColumns ? "pl-20" : "pl-3"}`}></th>
+                <th className={`pl-2 pr-2 sm:pr-4 py-2 ${manageColumns ? "sm:pl-20" : "sm:pl-3"}`}></th>
               </tr>
             </thead>
             <tbody>
@@ -88,7 +93,7 @@ export default function WorkspaceTable({
                     {heading && (
                       <tr className="bg-surface border-b border-border-soft">
                         <th
-                          colSpan={5}
+                          colSpan={4}
                           scope="colgroup"
                           className="px-4 py-2.5 text-left text-sm font-semibold text-foreground"
                         >

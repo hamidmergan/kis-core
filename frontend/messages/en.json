@@ -3398,7 +3398,9 @@
       "copied": "Copied!",
       "expired": "expired",
       "unlimited": "unlimited",
-      "deleteLink": "Delete link"
+      "deleteLink": "Delete link",
+      "descriptionMore": "Show the full description",
+      "descriptionLess": "Collapse the description"
     }
   },
   "welcomeModal": {

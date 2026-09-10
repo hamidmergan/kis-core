@@ -3398,7 +3398,9 @@
       "copied": "Kopiert!",
       "expired": "abgelaufen",
       "unlimited": "unbegrenzt",
-      "deleteLink": "Link löschen"
+      "deleteLink": "Link löschen",
+      "descriptionMore": "Ganze Beschreibung zeigen",
+      "descriptionLess": "Beschreibung einklappen"
     }
   },
   "welcomeModal": {

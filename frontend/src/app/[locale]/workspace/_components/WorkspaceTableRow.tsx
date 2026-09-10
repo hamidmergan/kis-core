@@ -6,6 +6,7 @@ import { ChartBar } from "@phosphor-icons/react";
 import IconButton from "@/components/ui/IconButton";
 import Spinner from "@/components/ui/Spinner";
 import ActiveToggle from "./ActiveToggle";
+import WorkspaceDescription from "./WorkspaceDescription";
 import WorkspaceMenu from "./WorkspaceMenu";
 import WorkspaceModals from "./WorkspaceModals";
 import { type AccessLink, type KiTutorWorkspace } from "../_shared";
@@ -81,28 +82,29 @@ export default function WorkspaceTableRow({
               </span>
             )}
           </span>
-          {workspace.description && (
-            <span className="text-xs truncate block" style={{ color: "var(--muted)" }} title={workspace.description}>
-              {workspace.description}
-            </span>
-          )}
+          {workspace.description && <WorkspaceDescription text={workspace.description} />}
+          {/* Without a status column the switch still has to be reachable on a phone. */}
+          <span
+            className="mt-1.5 flex sm:hidden"
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <ActiveToggle
+              active={workspace.is_active}
+              disabled={a.toggling}
+              onToggle={(v) => a.handleToggle(v)}
+            />
+          </span>
         </td>
         <td
-          className="pl-6 pr-4 py-3 text-right tabular-nums text-foreground-soft cursor-pointer"
+          className="pl-2 pr-2 sm:pl-6 sm:pr-4 py-3 text-right tabular-nums text-foreground-soft cursor-pointer"
           onClick={a.handleOpen}
           onMouseDown={(e) => { if (e.button === 1) { e.preventDefault(); window.open(a.moduleHref, "_blank"); } }}
         >
           {workspace.source_count}
         </td>
         <td
-          className="pl-20 pr-4 py-3 text-right tabular-nums text-foreground-soft cursor-pointer"
-          onClick={a.handleOpen}
-          onMouseDown={(e) => { if (e.button === 1) { e.preventDefault(); window.open(a.moduleHref, "_blank"); } }}
-        >
-          {a.links.length}
-        </td>
-        <td
-          className="pl-20 pr-4 py-3 cursor-pointer"
+          className="hidden sm:table-cell pl-20 pr-4 py-3 cursor-pointer"
           onClick={() => !a.toggling && a.handleToggle(!workspace.is_active)}
         >
           <ActiveToggle
@@ -111,7 +113,7 @@ export default function WorkspaceTableRow({
             onToggle={(v) => a.handleToggle(v)}
           />
         </td>
-        <td className="pl-20 pr-4 py-3">
+        <td className="pl-2 pr-2 sm:pl-20 sm:pr-4 py-3">
           <div className="flex items-center justify-center gap-1.5">
             {/* Owner and tutor read the numbers of the whole module here, everybody else only their own. */}
             <IconButton

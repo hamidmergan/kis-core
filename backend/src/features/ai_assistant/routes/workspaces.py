@@ -32,7 +32,7 @@ router = APIRouter(tags=["ki-assistent: workspaces"])
 )
 async def create_workspace(
     title: str = Form(..., max_length=100),
-    description: Optional[str] = Form(None, max_length=300),
+    description: Optional[str] = Form(None, max_length=500),
     expires_at: Optional[str] = Form(None),
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
