@@ -14,14 +14,6 @@ daran, was Sie auf der Plattform dürfen. Jede ist nach einer Antwort endgültig
 - Wer selbst Module anlegen darf, bekommt zusätzlich die Stationen zu den Knöpfen für Lehrende
 - Mittendrin abgebrochen bleibt die Karte stehen, erst das Ende oder **Ausblenden** nimmt sie weg
 
-## Rundgang durch die Werkzeuge
-
-- Nur für Lehrende, Studierende haben keine Werkzeuge und bekommen die Karte deshalb nicht zu sehen
-- **Starten** öffnet ein Werkzeug nach dem anderen und erklärt an jedem, was es annimmt und wo das
-  Ergebnis landet
-- Führt nur durch die Werkzeuge, die für Sie freigeschaltet sind, und endet bei den Aufträgen
-- Mittendrin abgebrochen bleibt die Karte stehen, erst das Ende oder **Ausblenden** nimmt sie weg
-
 ## Sprachtrainer
 
 - Für Studierende, die auf Deutsch als Fremdsprache studieren. Lehrende sehen die Karte nicht

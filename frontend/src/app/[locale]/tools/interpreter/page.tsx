@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { ArrowCounterClockwise, ClockCounterClockwise, DownloadSimple, FileText, Gear, StopCircle, User, Users } from "@phosphor-icons/react";
+import { ArrowCounterClockwise, ClockCounterClockwise, FileText, Gear, StopCircle } from "@phosphor-icons/react";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import ToolBackLink from "@/components/ui/ToolBackLink";
 import IconButton from "@/components/ui/IconButton";
-import Tabs from "@/components/ui/Tabs";
 import { useGlossaries } from "@/hooks/useGlossaries";
 import ConversationView from "./_components/ConversationView";
 import ProtocolModal from "./_components/ProtocolModal";
@@ -15,14 +15,13 @@ import { createSession, deleteSession, fetchSession, listSessions, patchSession,
 import { createMirror } from "./_mirror";
 import { useConversation } from "./_hooks/useConversation";
 import { useInterpreterConfig } from "./_hooks/useInterpreterConfig";
-import { otherLang, otherSide, type LangCode, type LanguageOption, type Mode, type Side, type Turn } from "./_types";
+import { otherLang, otherSide, type LangCode, type LanguageOption, type Side, type Turn } from "./_types";
 
 const ACTION = "px-3 py-2 text-sm border-2 border-border rounded-md hover:border-[var(--kb)] hover:text-[var(--kb)] flex items-center gap-1 whitespace-nowrap";
 
 export default function InterpreterPage() {
   const t = useTranslations("tools.interpreter");
   const locale = useLocale();
-  const [mode, setMode] = useState<Mode>("solo");
 
   const fallbackLanguages = useMemo<LanguageOption[]>(
     () => [{ id: "DE", label: t("languages.de") }, { id: "EN-US", label: t("languages.en") }],
@@ -100,14 +99,7 @@ export default function InterpreterPage() {
   const onTurn = useCallback((turn: Turn) => mirror.push(turn), [mirror]);
 
   const langOf = useCallback((side: Side) => langsRef.current[side], []);
-  const solo = useConversation({ langOf, providerId: translationProviderId, sttProviderId, glossary });
-  const duo = useConversation({ langOf, providerId: translationProviderId, sttProviderId, glossary, onTurn });
-  const active = mode === "solo" ? solo : duo;
-
-  const changeMode = (next: Mode) => {
-    active.finish();
-    setMode(next);
-  };
+  const active = useConversation({ langOf, providerId: translationProviderId, sttProviderId, glossary, onTurn });
 
   // --- what the buttons do --------------------------------------------------------------------
 
@@ -136,8 +128,7 @@ export default function InterpreterPage() {
     if (!allowSetup || langs[side] === code) return;
     const next = { left: side === "left" ? code : otherLang(code), right: side === "right" ? code : otherLang(code) };
     setLangs(next);
-    solo.flipTexts();
-    duo.flipTexts();
+    active.flipTexts();
     patchIfRunning({ left_lang: next.left, right_lang: next.right });
   };
 
@@ -147,22 +138,21 @@ export default function InterpreterPage() {
     const nextNames = { left: names.right, right: names.left };
     setLangs(nextLangs);
     setNames(nextNames);
-    solo.flipSides();
-    duo.flipSides();
+    active.flipSides();
     patchIfRunning({ left_lang: nextLangs.left, right_lang: nextLangs.right, left_name: nextNames.left, right_name: nextNames.right });
   };
 
   const endConversation = async () => {
-    await duo.end();
+    await active.end();
     await mirror.flush();
     patchIfRunning({ ended: true });
   };
 
   const newConversation = useCallback(() => {
-    duo.reset();
+    active.reset();
     mirror.cancel();
     adopt(null);
-  }, [adopt, duo, mirror]);
+  }, [adopt, active, mirror]);
 
   const openSavedList = () => {
     setSavedOpen(true);
@@ -178,10 +168,9 @@ export default function InterpreterPage() {
       const state = await fetchSession(entry.id);
       mirror.cancel();
       adopt(state.id);
-      duo.load(state.turns, state.ended);
+      active.load(state.turns, state.ended);
       setLangs({ left: state.left_lang, right: state.right_lang });
       setNames({ left: state.left_name || namesRef.current.left, right: state.right_name || namesRef.current.right });
-      setMode("conversation");
       setSavedOpen(false);
     } catch {
       // The list stays open, the entry could not be loaded.
@@ -198,90 +187,44 @@ export default function InterpreterPage() {
     }
   };
 
-  const soloLines = solo.turns.filter((turn) => turn.original.trim());
-  const downloadSolo = () => {
-    const text = soloLines.map((turn) => `${turn.original}\n${turn.translation}`).join("\n\n");
-    const blob = new Blob([`${text}\n`], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${t("solo.filename")}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const tab = (icon: React.ReactNode, label: string) => (
-    <span title={label} className="inline-flex items-center">
-      {icon}
-      <span className="sr-only">{label}</span>
-    </span>
-  );
-
   return (
     <ProtectedRoute>
       <div className="max-w-5xl mx-auto px-4 py-8">
+        <ToolBackLink />
         <section data-tour="tool-interpreter">
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-1">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
             <h1 className="text-xl font-bold">{t("title")}</h1>
             <div className="flex flex-wrap items-center gap-2">
-              {mode === "solo" ? (
-                <>
-                  <button type="button" onClick={downloadSolo} disabled={soloLines.length === 0} className={`${ACTION} disabled:opacity-40`}>
-                    <DownloadSimple size={14} weight="bold" />
-                    {t("actions.download")}
-                  </button>
-                  <button type="button" onClick={solo.reset} disabled={solo.turns.length === 0} className={`${ACTION} disabled:opacity-40`}>
-                    <ArrowCounterClockwise size={14} weight="bold" />
-                    {t("actions.clear")}
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button type="button" onClick={() => setProtocolOpen(true)} className={ACTION}>
-                    <FileText size={14} weight="bold" />
-                    {t("actions.protocol")}
-                  </button>
-                  <button type="button" onClick={openSavedList} className={ACTION}>
-                    <ClockCounterClockwise size={14} weight="bold" />
-                    {t("actions.saved")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void endConversation()}
-                    disabled={duo.ended || duo.turns.length === 0}
-                    className={`${ACTION} disabled:opacity-40`}
-                  >
-                    <StopCircle size={14} weight="bold" />
-                    {t("actions.endConversation")}
-                  </button>
-                  <button type="button" onClick={newConversation} className={ACTION}>
-                    <ArrowCounterClockwise size={14} weight="bold" />
-                    {t("actions.newConversation")}
-                  </button>
-                </>
-              )}
+              <button type="button" onClick={() => setProtocolOpen(true)} className={ACTION}>
+                <FileText size={14} weight="bold" />
+                {t("actions.protocol")}
+              </button>
+              <button type="button" onClick={openSavedList} className={ACTION}>
+                <ClockCounterClockwise size={14} weight="bold" />
+                {t("actions.saved")}
+              </button>
+              <button
+                type="button"
+                onClick={() => void endConversation()}
+                disabled={active.ended || active.turns.length === 0}
+                className={`${ACTION} disabled:opacity-40`}
+              >
+                <StopCircle size={14} weight="bold" />
+                {t("actions.endConversation")}
+              </button>
+              <button type="button" onClick={newConversation} className={ACTION}>
+                <ArrowCounterClockwise size={14} weight="bold" />
+                {t("actions.newConversation")}
+              </button>
               <IconButton onClick={() => setSettingsOpen(true)} aria-label={t("actions.settings")} title={t("actions.settings")}>
                 <Gear size={16} weight="bold" />
               </IconButton>
             </div>
           </div>
-          <p className="text-sm text-muted mb-5">{t("intro")}</p>
-
-          <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2">
-            <Tabs<Mode>
-              variant="pill"
-              active={mode}
-              onChange={changeMode}
-              items={[
-                { key: "solo", label: tab(<User size={18} weight="bold" />, t("mode.solo")) },
-                { key: "conversation", label: tab(<Users size={18} weight="bold" />, t("mode.conversation")) },
-              ]}
-            />
-            <p className="text-sm text-muted">{mode === "solo" ? t("mode.soloHint") : t("mode.conversationHint")}</p>
-          </div>
+          <p className="text-sm text-muted mb-1">{t("intro")}</p>
+          <p className="text-sm text-muted mb-5">{t("hint")}</p>
 
           <ConversationView
-            key={mode}
             turns={active.turns}
             recording={active.recording}
             quiet={active.quiet}
@@ -290,7 +233,6 @@ export default function InterpreterPage() {
             notice={active.notice}
             langs={langs}
             names={names}
-            solo={mode === "solo"}
             allowSetup={allowSetup}
             onLanguage={changeLanguage}
             onRename={rename}
@@ -316,7 +258,7 @@ export default function InterpreterPage() {
         glossaryIds={glossaryIds}
         onGlossary={setGlossaryIds}
       />
-      <ProtocolModal open={protocolOpen} onClose={() => setProtocolOpen(false)} turns={duo.turns} names={names} formatTime={formatTime} />
+      <ProtocolModal open={protocolOpen} onClose={() => setProtocolOpen(false)} turns={active.turns} names={names} formatTime={formatTime} />
       <SavedConversationsModal
         open={savedOpen}
         onClose={() => setSavedOpen(false)}

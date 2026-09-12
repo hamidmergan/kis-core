@@ -64,7 +64,7 @@ test("Beitreten: Code von Hand einsetzen und im Modul landen", async ({ page, ba
     await page.waitForURL((url) => url.pathname.includes(angelegt.uuid), { timeout: 30_000 });
 
     // The course is in the list afterwards.
-    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await page.goto("/workspace", { waitUntil: "domcontentloaded" });
     await expect(page.locator("tbody tr").filter({ hasText: TITEL })).toHaveCount(1);
   } finally {
     await owner.delete(`/api/ai-assistant/workspaces/${angelegt.uuid}`);

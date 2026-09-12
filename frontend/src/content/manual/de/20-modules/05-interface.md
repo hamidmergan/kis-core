@@ -1,8 +1,9 @@
-# Startseite
+# Modulliste
 
-![Die Startseite mit den eigenen Modulen](/manual/{lang}/start-page.png)
+![Die Modulliste mit den eigenen Modulen](/manual/{lang}/module-list.png)
 
-- **Links**: die Werkzeuge
+- Erreichbar über die Kachel **KI-Assistent Francis** auf der Startseite. Wer außer dem
+  Assistenten nichts freigeschaltet hat, landet nach der Anmeldung direkt hier
 - **Rechts oben**: Kalender, Jobs, Zahnrad (Sprache, Hell/Dunkel, Dokumentation, Abmelden, bei
   Rechten zusätzlich Statistik oder Verwaltung)
 

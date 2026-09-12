@@ -8,7 +8,6 @@
     "admin": "Admin",
     "logout": "Sign out",
     "jobs": "Jobs",
-    "tools": "Tools",
     "menuOpen": "Open menu",
     "menuClose": "Close menu",
     "themeDark": "Dark",
@@ -18,12 +17,12 @@
     "settings": "Administration",
     "stats": "Statistics",
     "calendar": "Calendar",
+    "tools": "Tools",
     "settingsMenu": "Settings",
     "sectionAppearance": "Appearance",
     "homeNoticeShow": "Show home notice",
     "languageLevel": "Language level",
     "tour": "Tour through the demo module",
-    "toolsTour": "Tour through the tools",
     "evaluation": "Evaluation"
   },
   "footer": {
@@ -288,80 +287,60 @@
     "expiredTitle": "Your access has expired",
     "expiredText": "If you would like to carry on, get in touch."
   },
-  "toolsTour": {
-    "inviteTitle": "Tour through the tools",
-    "inviteBody": "A short tour through all the tools.",
-    "inviteStart": "Start",
-    "dismiss": "Hide",
-    "next": "Next",
-    "back": "Back",
-    "done": "Done",
-    "progress": "Step {current} of {total}",
-    "seitenleiste": {
-      "title": "Your tools",
-      "text": "Here you'll find all the tools, for example for translations or turning slides into a video. These are standalone tools, you can use each one on its own. Access to the tools is meant for teachers."
+  "startOverview": {
+    "groups": {
+      "aia": "AI assistant",
+      "tools": "Tools"
     },
-    "translation": {
-      "title": "Translation",
-      "text": "You can type text directly or upload a document, both get translated. Documents keep their structure and formatting, so you get the same file back in the new language. For your technical terms you can pick your own list here, you set that up beforehand in the Glossary tool."
+    "aia": {
+      "title": "AI assistant Francis",
+      "body": "Your modules with materials, chat and learning tools. The AI assistant answers from each module's own documents only."
     },
-    "interpreter": {
-      "title": "Interpreter",
-      "text": "For conversations across two languages, for example in office hours or at the student office. Each person presses Speak and talks in their own language, the other side reads the translation. Typing works too, and a misheard sentence can be corrected. At the end you get a transcript in both languages."
+    "tools": {
+      "translation": {
+        "title": "Translation",
+        "body": "Translate text and documents into other languages. Layout and formatting are preserved."
+      },
+      "interpreter": {
+        "title": "Interpreter",
+        "body": "Two languages, one conversation. Speak or type into your field, the translation runs alongside."
+      },
+      "tts": {
+        "title": "Text to speech",
+        "body": "Have texts and documents read aloud with natural-sounding voices."
+      },
+      "transcription": {
+        "title": "Speech to text",
+        "body": "Transcribe audio and video. Also as subtitles with timestamps."
+      },
+      "image": {
+        "title": "Image generation",
+        "body": "Create images, edit existing images, or have them described."
+      },
+      "summary": {
+        "title": "Summary",
+        "body": "Distill long documents, audio and video content to the essentials."
+      },
+      "glossary": {
+        "title": "Glossary",
+        "body": "Create your own term lists for consistent technical terminology in translations."
+      },
+      "screencast": {
+        "title": "Screencast",
+        "body": "Turn PowerPoint slides into a narrated video, optionally in another language."
+      },
+      "podcast": {
+        "title": "Podcast",
+        "body": "Your material becomes a conversation to listen to. You pick the content and the cast, check the script and have it voiced."
+      }
     },
-    "tts": {
-      "title": "Text to speech",
-      "text": "You can type text or upload a file, both get read aloud. You pick the voice. At the end you get an audio file you can play right away or download. Long texts take longer to narrate accordingly."
+    "coming": {
+      "slides": {
+        "title": "PowerPoint generation",
+        "body": "Your material becomes slides with speaker notes, ready for editing."
+      }
     },
-    "transcription": {
-      "title": "Speech to text",
-      "text": "Audio or video becomes text, ready to edit in a text box. Choose SRT or VTT as the format and the result already has time marks, ready to use as subtitles."
-    },
-    "image": {
-      "title": "Image generation",
-      "text": "You can have an image generated from your description, change an existing one, or have it described to you."
-    },
-    "summary": {
-      "title": "Summary",
-      "text": "Shortens text files and office files like Word or PowerPoint. Subtitles work too, so you can turn a recording into text first and shorten the result here."
-    },
-    "screencast": {
-      "title": "Screencast",
-      "text": "Your slides become a narrated video, in another language if you like. First upload the slides. Then choose how the script gets made, have the AI write it, type it yourself, or import it from a file. After that you read and edit the script, and finally pick the voice. The narration takes the longest and you can leave the page while it runs."
-    },
-    "podcast": {
-      "title": "Podcast",
-      "text": "Text, files or the sources of a module become a conversation to listen to, with one to four voices. You check the script before it is voiced. Voicing runs in the background, and every finished line stays saved even if something fails in between."
-    },
-    "glossary": {
-      "title": "Glossary",
-      "text": "Here you create your own term lists, which you can then pick in translation and in the screencast, so your technical terms are named the same way everywhere."
-    },
-    "auftraege": {
-      "title": "Your jobs",
-      "text": "Anything that takes longer keeps running in the background. This is where you see how far it got and pick up the finished files. A red dot means something is ready."
-    },
-    "abschluss": {
-      "title": "Off you go",
-      "text": "You now know every tool. Go ahead and try them out."
-    }
-  },
-  "toolsSidebar": {
-    "heading": "Tools",
-    "expand": "Expand tools sidebar",
-    "collapse": "Collapse tools sidebar",
-    "back": "Back",
-    "items": {
-      "translation": "Translation",
-      "interpreter": "Interpreter",
-      "tts": "Text to speech",
-      "transcription": "Speech to text",
-      "image": "Image generation",
-      "summary": "Summary",
-      "screencast": "Screencast",
-      "podcast": "Podcast",
-      "glossary": "Glossary"
-    }
+    "comingBadge": "Coming soon"
   },
   "common": {
     "unknownError": "Unknown error. Please try again.",
@@ -383,7 +362,8 @@
     "retry": "Retry",
     "retryJobAria": "Retry job",
     "add": "Add",
-    "close": "Close"
+    "close": "Close",
+    "backToOverview": "Overview"
   },
   "tools": {
     "stt": {
@@ -416,7 +396,7 @@
     },
     "translate": {
       "title": "Translation",
-      "intro": "Translate documents into other languages. Layout and formatting are preserved.",
+      "intro": "Translate text and documents into other languages. Layout and formatting are preserved.",
       "inputMode": {
         "text": "Enter text",
         "file": "Upload file"
@@ -441,12 +421,7 @@
     "interpreter": {
       "title": "Interpreter",
       "intro": "Two languages, one conversation. Speak or type into your field, the translation runs alongside. Everything stays in the history.",
-      "mode": {
-        "solo": "One person",
-        "soloHint": "You speak or type, the translation runs along on the right.",
-        "conversation": "Two people",
-        "conversationHint": "Both speak or type in turns, each side in its own language."
-      },
+      "hint": "Both speak or type in turns, each side in its own language.",
       "languages": {
         "de": "German",
         "en": "English",
@@ -478,12 +453,7 @@
         "protocol": "Transcript",
         "saved": "Past conversations",
         "settings": "Settings",
-        "endConversation": "End conversation",
-        "download": "Save as text",
-        "clear": "Clear"
-      },
-      "solo": {
-        "filename": "translation"
+        "endConversation": "End conversation"
       },
       "protocol": {
         "title": "Conversation transcript",

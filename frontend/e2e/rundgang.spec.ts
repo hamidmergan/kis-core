@@ -177,7 +177,7 @@ test("Einladung auf der Startseite führt in den Rundgang", async ({ page, baseU
   // Der Demo-Kurs wird hier selbst eingerichtet, sonst würde der Test nur
   // überspringen und damit gar nichts belegen.
   await alsGastImDemoKurs(page, baseURL, "E2E Rundgang Kurs", async () => {
-    await page.goto("/de", { waitUntil: "domcontentloaded" });
+    await page.goto("/de/workspace", { waitUntil: "domcontentloaded" });
 
     await expect(page.locator('[data-tour="tour-invite"]')).toBeVisible();
     await page.locator('[data-tour="tour-invite"]').getByRole("button", { name: "Starten", exact: true }).click();
@@ -192,7 +192,7 @@ test("ein Abbruch mittendrin lässt die Einladung stehen", async ({ page, baseUR
   // Wer den Rundgang wegklickt, hat ihn nicht gesehen: nur "Später" auf der
   // Startseite und die letzte Station nehmen die Einladung weg.
   await alsGastImDemoKurs(page, baseURL, "E2E Abbruch Kurs", async () => {
-    await page.goto("/de", { waitUntil: "domcontentloaded" });
+    await page.goto("/de/workspace", { waitUntil: "domcontentloaded" });
     await page.locator('[data-tour="tour-invite"]').getByRole("button", { name: "Starten", exact: true }).click();
     await page.waitForURL(/\/workspace\/.*tour=1/, { timeout: 30_000 });
     await expect(page.locator(POPOVER)).toBeVisible({ timeout: 30_000 });
@@ -209,18 +209,18 @@ test("ein Abbruch mittendrin lässt die Einladung stehen", async ({ page, baseUR
     await expect(page.locator(POPOVER)).toHaveCount(0);
 
     expect((await (await page.request.get("/api/me")).json()).tour_seen_at).toBeNull();
-    await page.goto("/de", { waitUntil: "domcontentloaded" });
+    await page.goto("/de/workspace", { waitUntil: "domcontentloaded" });
     await expect(page.locator('[data-tour="tour-invite"]')).toBeVisible();
   });
 });
 
 test("\"Ausblenden\" nimmt die Einladung weg", async ({ page, baseURL }) => {
   await alsGastImDemoKurs(page, baseURL, "E2E Ausblenden Kurs", async () => {
-    await page.goto("/de", { waitUntil: "domcontentloaded" });
+    await page.goto("/de/workspace", { waitUntil: "domcontentloaded" });
     await page.locator('[data-tour="tour-invite"]').getByRole("button", { name: "Ausblenden" }).click();
     await expect(page.locator('[data-tour="tour-invite"]')).toHaveCount(0);
 
-    await page.goto("/de", { waitUntil: "domcontentloaded" });
+    await page.goto("/de/workspace", { waitUntil: "domcontentloaded" });
     await expect(page.locator('[data-tour="tour-invite"]')).toHaveCount(0);
   });
 });

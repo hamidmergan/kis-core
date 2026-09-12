@@ -49,8 +49,8 @@ export default function DoneStep(props: DoneStepProps) {
   return (
     <section className="animate-[fadeIn_0.3s_ease-out] py-10">
       <div className="flex justify-center mb-4">
-        <div className="w-12 h-12 rounded-full bg-success-bg flex items-center justify-center">
-          <svg className="w-6 h-6 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+        <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: "var(--kb)" }}>
+          <svg className="w-6 h-6" style={{ color: "#fff" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
         </div>

@@ -14,6 +14,10 @@ describe("extractJoinCode", () => {
     );
   });
 
+  it("liest den Code aus dem Link zur Modulliste", () => {
+    expect(extractJoinCode("https://kis.th-luebeck.de/workspace?code=7f3a91c2")).toBe("7f3a91c2");
+  });
+
   it("kommt ohne Schema aus", () => {
     expect(extractJoinCode("kis.th-luebeck.de/?code=7f3a91c2")).toBe("7f3a91c2");
   });

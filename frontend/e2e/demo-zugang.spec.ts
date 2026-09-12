@@ -32,6 +32,7 @@ test("Demo-Fenster: einen Kurs betreten und wieder verlassen", async ({ page, ba
     await page.fill("#password", BESUCHER.password);
     await page.locator('button[type="submit"]').click();
     await page.waitForURL((url) => !url.pathname.includes("login"), { timeout: 30_000 });
+    await page.goto("/workspace", { waitUntil: "domcontentloaded" });
 
     // Enter from the dialog.
     await page.getByTestId("demo-open").click();

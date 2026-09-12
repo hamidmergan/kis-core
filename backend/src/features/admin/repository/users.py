@@ -222,14 +222,3 @@ def set_user_tour_seen(user_id: int, seen: bool) -> None:
         conn.commit()
 
 
-def set_user_tools_tour_seen(user_id: int, seen: bool) -> None:
-    """Same for the tour through the tools, kept apart so one does not silence the other."""
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                "UPDATE users SET tools_tour_seen_at = %s WHERE id = %s",
-                (datetime.now() if seen else None, user_id),
-            )
-        conn.commit()
-
-

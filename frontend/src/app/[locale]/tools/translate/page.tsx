@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Copy, Check } from "@phosphor-icons/react";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import ToolBackLink from "@/components/ui/ToolBackLink";
 import FileUpload from "@/components/jobs/FileUpload";
 import TranslateTextInput from "@/components/jobs/TranslateTextInput";
 import GlossarySelector from "@/components/glossary/GlossarySelector";
@@ -158,6 +159,7 @@ export default function UebersetzungPage() {
   return (
     <ProtectedRoute>
       <div className="max-w-4xl mx-auto px-4 py-8">
+        <ToolBackLink />
         <section data-tour="tool-translation">
           <h1 className="text-xl font-bold mb-1">{t("title")}</h1>
           <p className="text-sm text-muted mb-6">

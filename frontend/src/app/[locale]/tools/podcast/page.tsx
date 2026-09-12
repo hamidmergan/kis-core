@@ -5,20 +5,20 @@ import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { ArrowCounterClockwise } from "@phosphor-icons/react";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import ToolBackLink from "@/components/ui/ToolBackLink";
 import Spinner from "@/components/ui/Spinner";
 import { notifyJobsChanged } from "@/lib/jobs-events";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useVoices } from "@/hooks/useVoices";
-import PodcastStepper from "./_components/PodcastStepper";
 import CastStep from "./_steps/CastStep";
 import ContentStep from "./_steps/ContentStep";
 import DoneStep from "./_steps/DoneStep";
 import ScriptStep from "./_steps/ScriptStep";
 import VoicingStep from "./_steps/VoicingStep";
+import PodcastStepper from "./_components/PodcastStepper";
 import { cancelJob, fetchJob, fetchPodcast, rephraseLine, savePodcastParams, saveScript, startPodcast, startRender } from "./_api";
-import { isBusy, reachable } from "./_logic";
+import { closedForGood, isBusy, reachable } from "./_logic";
 import { INITIAL_STATE, defaultPersons, reducer } from "./_reducer";
-import { clearStored, loadStored, saveStored } from "./_store";
 import { STEPS, type Line, type Person, type PodcastState, type Step } from "./_types";
 
 const ACTION = "px-3 py-2 text-sm border-2 border-border rounded-md hover:border-[var(--kb)] hover:text-[var(--kb)] flex items-center gap-1 whitespace-nowrap";
@@ -33,7 +33,7 @@ function PodcastPageInner() {
   const [besetzungLaeuft, setBesetzungLaeuft] = useState(false);
   const { loaded, providers } = useVoices();
   const { permissions } = usePermissions();
-  // The jobs list links straight to one podcast, that wins over the last one seen here.
+  // Without it every visit starts fresh, only the jobs list links straight to one podcast.
   const ausListe = useSearchParams().get("job");
   const aenderung = useRef(0);
   const stateRef = useRef(state);
@@ -66,73 +66,33 @@ function PodcastPageInner() {
     return view;
   }, []);
 
-  // Whoever comes back finds their podcast, the server holds the truth.
+  // Every visit starts fresh, only the jobs list links straight to one podcast.
   useEffect(() => {
-    const stored = loadStored();
-    if (!stored && !ausListe) {
+    if (!ausListe) {
       setHydrated(true);
       return;
     }
-    const basis = stored ?? { ...INITIAL_STATE, jobUuid: null, step: "content" as const,
-                              mode: "text" as const, text: "", moduleId: "", sourceIds: [] };
-    const { step, mode, text, moduleId, sourceIds, ...rest } = basis as typeof basis & { jobUuid: string | null };
-    const jobUuid = ausListe ?? basis.jobUuid;
-    dispatch({
-      type: "RESTORE",
-      state: {
-        instructions: rest.instructions,
-        language: rest.language,
-        count: rest.count,
-        persons: rest.persons,
-        length: rest.length,
-        style: rest.style,
-        jobUuid,
-        step,
-        maxReached: STEPS.indexOf(step),
-        source: { mode, text, files: [], moduleId, sourceIds },
-      },
-    });
-    if (!jobUuid) {
-      setHydrated(true);
-      return;
-    }
-    holeStand(jobUuid)
+    dispatch({ type: "RESTORE", state: { jobUuid: ausListe } });
+    holeStand(ausListe)
       .then(async (view) => {
-        const meta = view.status === "success" ? await fetchJob(jobUuid).catch(() => null) : null;
+        const meta = view.status === "success" ? await fetchJob(ausListe).catch(() => null) : null;
         dispatch({ type: "JOB", status: view.status, progress: view.progress, error: view.error,
                    seconds: meta?.meta?.seconds ?? null });
-        // A running job decides the step, a finished one leaves the choice.
         if (view.status === "pending" || view.status === "running") {
           dispatch({ type: "GO", step: view.progress?.step === "script" ? "script" : "voicing" });
         } else if (view.status === "awaiting_user") {
           dispatch({ type: "GO", step: "script" });
         } else if (view.status === "success") {
-          dispatch({ type: "GO", step: step === "script" ? "script" : "done" });
+          dispatch({ type: "GO", step: "done" });
         } else if (view.status === "failed") {
           dispatch({ type: "GO", step: view.lines.length ? "voicing" : "script" });
         }
       })
-      .catch(() => clearStored())
+      .catch(() => {
+        // Job expired, deleted or still running elsewhere, the page falls back to a fresh start.
+      })
       .finally(() => setHydrated(true));
   }, [holeStand, ausListe]);
-
-  useEffect(() => {
-    if (!hydrated) return;
-    saveStored({
-      jobUuid: state.jobUuid,
-      step: state.step,
-      mode: state.source.mode,
-      text: state.source.text,
-      moduleId: state.source.moduleId,
-      sourceIds: state.source.sourceIds,
-      instructions: state.instructions,
-      language: state.language,
-      count: state.count,
-      persons: state.persons,
-      length: state.length,
-      style: state.style,
-    });
-  }, [state, hydrated]);
 
   // Empty voice fields get distinct voices once the list is there.
   useEffect(() => {
@@ -259,16 +219,17 @@ function PodcastPageInner() {
   };
 
   const neu = () => {
-    clearStored();
     dispatch({ type: "RESET" });
   };
 
   const gehe = (i: number) => dispatch({ type: "GO", step: STEPS[i] as Step });
   const begonnen = state.jobUuid !== null || state.step !== "content";
+  const showStepIndicator = state.step !== "content";
 
   return (
     <ProtectedRoute>
       <div className="max-w-4xl mx-auto px-4 py-10 sm:py-14" data-tour="tool-podcast">
+        <ToolBackLink />
         <div className="flex flex-wrap items-center justify-between gap-3 mb-1">
           <h1 className="text-xl font-bold">{t("title")}</h1>
           {begonnen && (
@@ -284,7 +245,14 @@ function PodcastPageInner() {
           <Spinner className="justify-center py-20" />
         ) : (
           <>
-            <PodcastStepper step={state.step} canEnter={(i) => reachable(i, state)} onStepClick={gehe} />
+            {showStepIndicator && (
+              <PodcastStepper
+                step={state.step}
+                canEnter={(i) => reachable(i, state)}
+                isClosedForGood={(i) => closedForGood(i, state)}
+                onStepClick={gehe}
+              />
+            )}
 
             {state.step === "content" && (
               <ContentStep

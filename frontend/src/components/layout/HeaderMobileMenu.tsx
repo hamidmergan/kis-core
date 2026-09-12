@@ -5,7 +5,7 @@ import Link from "next/link";
 import LinkBusy from "@/components/ui/LinkBusy";
 import { useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { CalendarBlank, CaretRight, Check, Compass, List, Medal, Moon, PencilSimple, Question, Sidebar, SignOut, Stack, Sun, Toolbox, UserCircleGear, X } from "@phosphor-icons/react";
+import { CalendarBlank, Check, Compass, List, Medal, Moon, PencilSimple, Question, SignOut, Stack, Sun, UserCircleGear, Wrench, X } from "@phosphor-icons/react";
 import { useRouter, usePathname } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
 import { UI_LOCALES } from "@/lib/constants";
@@ -15,7 +15,7 @@ import { persistLocale, rememberLocaleCookie } from "@/lib/switchLocale";
 const LOCALES = UI_LOCALES as readonly Locale[];
 const THEMES: readonly Theme[] = ["light", "dark"];
 // Row groups below the appearance section, in the order they are rendered.
-const BLOCKS: readonly (readonly string[])[] = [["level", "tour", "toolsTour", "evaluation", "manual"], ["admin"], ["logout"]];
+const BLOCKS: readonly (readonly string[])[] = [["level", "tour", "evaluation", "manual"], ["admin"], ["logout"]];
 
 interface HeaderMobileMenuProps {
   hasSession: boolean;
@@ -24,21 +24,17 @@ interface HeaderMobileMenuProps {
   showLanguageLevel?: boolean;
   showTour?: boolean;
   onStartTour?: () => void;
-  /** Second tour, through the tools, only where the tools sidebar is on the page. */
-  showToolsTour?: boolean;
-  onStartToolsTour?: () => void;
   /** The start-page card can be dismissed for good, this is the way back to it. */
   showEvaluation?: boolean;
   areaKey?: AreaKey;
   hasTools?: boolean;
   hasAia?: boolean;
   isLocalMode?: boolean;
-  showToolsToggle?: boolean;
   hasHomeNotice?: boolean;
   onLogout: () => void;
 }
 
-export default function HeaderMobileMenu({ hasSession, isAdmin, canViewManual = false, showLanguageLevel = false, showTour = false, onStartTour, showToolsTour = false, onStartToolsTour, showEvaluation = false, areaKey = "admin", hasTools = false, hasAia = true, isLocalMode = false, showToolsToggle = false, hasHomeNotice = false, onLogout }: HeaderMobileMenuProps) {
+export default function HeaderMobileMenu({ hasSession, isAdmin, canViewManual = false, showLanguageLevel = false, showTour = false, onStartTour, showEvaluation = false, areaKey = "admin", hasTools = false, hasAia = true, isLocalMode = false, hasHomeNotice = false, onLogout }: HeaderMobileMenuProps) {
   const t = useTranslations("header");
   const tLang = useTranslations("languageSwitch");
   const tManual = useTranslations("manual");
@@ -77,13 +73,6 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, canViewManual = 
   }, [open]);
 
   useEffect(() => {
-    // The tools sidebar sends the user back here after it closes itself.
-    const handler = () => setOpen(true);
-    window.addEventListener("header-menu:open", handler);
-    return () => window.removeEventListener("header-menu:open", handler);
-  }, []);
-
-  useEffect(() => {
     if (!open) return;
     const handler = (e: PointerEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
@@ -112,10 +101,11 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, canViewManual = 
   // The row of the page you are currently on stays highlighted.
   const activeRowStyle = { backgroundColor: "var(--surface-dim)", fontWeight: 600 };
   const onCalendar = pathname === "/calendar" || pathname.startsWith("/calendar/");
+  const onTools = pathname.startsWith("/tools/");
   const onJobsPage = pathname.startsWith("/my-jobs");
   const headingClass = "px-4 pt-2.5 pb-1 text-2xs font-semibold uppercase tracking-wide";
   // Own settings and help, then the admin area, then log out, each block opens with a divider.
-  const shown: Record<string, boolean> = { level: hasSession && showLanguageLevel, tour: hasSession && showTour, toolsTour: hasSession && showToolsTour, evaluation: hasSession && showEvaluation, manual: hasSession && canViewManual, admin: hasSession && isAdmin, logout: hasSession && !isLocalMode };
+  const shown: Record<string, boolean> = { level: hasSession && showLanguageLevel, tour: hasSession && showTour, evaluation: hasSession && showEvaluation, manual: hasSession && canViewManual, admin: hasSession && isAdmin, logout: hasSession && !isLocalMode };
   const blockStarts = new Set(BLOCKS.map((block) => block.find((row) => shown[row])).filter(Boolean));
   const dividerFor = (row: string) => (blockStarts.has(row) ? { borderTop: "1px solid var(--border)", marginTop: 4 } : {});
 
@@ -140,21 +130,19 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, canViewManual = 
             borderTop: "1px solid var(--border)",
           }}
         >
-          {hasSession && showToolsToggle && (
-            <button
-              type="button"
-              onClick={() => {
-                setOpen(false);
-                window.dispatchEvent(new Event("tools-sidebar:open"));
-              }}
+          {hasSession && hasTools && (
+            <Link
+              href="/"
+              onClick={closeIfHere("/")}
+              aria-current={onTools ? "page" : undefined}
               className={rowClass}
-              style={{ color: "var(--foreground)" }}
+              style={{ color: "var(--foreground)", ...(onTools ? activeRowStyle : {}) }}
             >
-              <Sidebar size={20} weight="bold" />
-              <span className="flex-1">{t("tools")}</span>
-              {/* Der Pfeil zeigt, dass hinter der Zeile die Werkzeugleiste aufgeht. */}
-              <CaretRight size={14} weight="bold" style={{ color: "var(--muted)" }} aria-hidden="true" />
-            </button>
+              <LinkBusy size="sm">
+                <Wrench size={20} weight="bold" />
+              </LinkBusy>
+              <span>{t("tools")}</span>
+            </Link>
           )}
           {hasSession && hasAia && (
             <Link
@@ -188,7 +176,7 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, canViewManual = 
             className={headingClass}
             style={{
               color: "var(--muted)",
-              ...(hasSession ? { borderTop: "1px solid var(--border)", marginTop: 4 } : {}),
+              ...(hasSession && (hasAia || hasTools) ? { borderTop: "1px solid var(--border)", marginTop: 4 } : {}),
             }}
           >
             {tLang("title")}
@@ -263,20 +251,6 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, canViewManual = 
             >
               <Compass size={20} weight="bold" />
               <span>{t("tour")}</span>
-            </button>
-          )}
-          {hasSession && showToolsTour && (
-            <button
-              type="button"
-              onClick={() => {
-                setOpen(false);
-                onStartToolsTour?.();
-              }}
-              className={rowClass}
-              style={{ color: "var(--foreground)", ...dividerFor("toolsTour") }}
-            >
-              <Toolbox size={20} weight="bold" />
-              <span>{t("toolsTour")}</span>
             </button>
           )}
           {hasSession && showEvaluation && (

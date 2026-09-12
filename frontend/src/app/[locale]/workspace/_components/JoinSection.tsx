@@ -45,8 +45,8 @@ export default function JoinSection({ onDone, compact = false }: JoinSectionProp
         setError(t("joinUnknown"));
         return;
       }
-      // The card on the start page takes over from here.
-      router.replace(`/?code=${encodeURIComponent(code)}`);
+      // The card on the module list takes over from here.
+      router.replace(`/workspace?code=${encodeURIComponent(code)}`);
       onDone?.();
     } catch {
       setError(t("unknownError"));

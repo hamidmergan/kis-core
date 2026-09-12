@@ -1,30 +1,23 @@
 # Die Werkzeuge im Überblick
 
-Die Leiste links auf der Startseite führt zu sieben Werkzeugen. Sie arbeiten unabhängig von den
-Modulen: Sie laden eine Datei hoch, bekommen ein Ergebnis und laden es herunter.
+Die Startseite zeigt jedes Werkzeug als Kachel mit einem Satz dazu, was es tut. Ein Klick auf die
+Kachel öffnet es. Die Werkzeuge arbeiten unabhängig von den Modulen: Sie laden eine Datei hoch,
+bekommen ein Ergebnis und laden es herunter.
 
-![Die Werkzeugleiste links](/manual/{lang}/tool-bar.png)
+![Die Startseite mit den Kacheln](/manual/{lang}/start-page.png)
 
 - **Übersetzung** übersetzt Dokumente und behält das Layout
+- **Dolmetscher** übersetzt ein Gespräch zwischen zwei Sprachen live mit
 - **Text in Sprache** liest Texte und Dokumente vor
 - **Sprache in Text** schreibt Audio und Video mit
-- **Zusammenfassung** kürzt lange Inhalte
 - **Bildgenerierung** erzeugt, ändert und beschreibt Bilder
-- **Screencast** macht aus Folien ein vertontes Video
+- **Zusammenfassung** kürzt lange Inhalte
 - **Glossar** pflegt Begriffslisten für die Übersetzung
+- **Screencast** macht aus Folien ein vertontes Video
+- **Podcast** macht aus Material ein Gespräch zum Anhören
 
-## Rundgang durch die Werkzeuge
-
-Der Rundgang öffnet jedes Werkzeug selbst und sagt an Ort und Stelle, was es annimmt und wo das
-Ergebnis landet. Der Name in der Leiste verrät das nicht.
-
-- Beim ersten Besuch steht die Einladung als Karte auf der Startseite, danach starten Sie ihn
-  jederzeit über das Zahnrad oben rechts
-- Er führt nur durch die Werkzeuge, die für Sie freigeschaltet sind, und endet bei den Aufträgen
-- Mittendrin abgebrochen bleibt die Karte auf der Startseite stehen, erst die letzte Station oder
-  **Ausblenden** nimmt sie weg
-- Nur Lehrende bekommen ihn zu sehen, denn Studierende haben keine Werkzeuge. Umgekehrt ist die
-  Karte zum Sprachtrainer den Studierenden vorbehalten
+Wer nur ein einziges Ziel hat, etwa Studierende mit dem KI-Assistenten allein, landet direkt dort
+und sieht die Kachelseite nicht. Zurück zur Startseite führt immer das KIS-Logo oben links.
 
 ## Was für alle gilt
 

@@ -3,6 +3,7 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import ToolBackLink from "@/components/ui/ToolBackLink";
 import { parseDetail } from "@/lib/api";
 import { SCREENCAST_MAX_CHARS } from "@/lib/constants";
 import { wordCount } from "@/lib/text";
@@ -284,6 +285,7 @@ function ScreencastDemoPageInner() {
   return (
     <ProtectedRoute>
       <div className="max-w-4xl mx-auto px-4 py-8">
+        <ToolBackLink />
         {showStepIndicator && (
           <>
             <ScreencastStepper

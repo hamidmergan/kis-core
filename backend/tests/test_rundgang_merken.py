@@ -52,3 +52,10 @@ def test_man_kann_den_rundgang_wieder_freischalten(monkeypatch):
     antwort = asyncio.run(routes.update_tour_seen(routes.TourSeenUpdate(seen=False), NUTZER, "de"))
     assert gemerkt == {"uid": 5, "seen": False}
     assert antwort["seen"] is False
+
+
+def test_der_werkzeug_rundgang_hat_keinen_merker_mehr(konto_mit):
+    """The tools tour is gone, the tile overview explains every tool itself."""
+    konto_mit(None)
+    assert "tools_tour_seen_at" not in asyncio.run(routes.get_me(NUTZER, "de"))
+    assert not hasattr(routes, "update_tools_tour_seen")
