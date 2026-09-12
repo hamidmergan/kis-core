@@ -36,7 +36,7 @@ export function reachable(index: number, state: PodcastState): boolean {
   if (index > state.maxReached) return false;
   if (index === stepIndex("voicing")) return state.progress?.fertig?.length ? true : state.jobStatus === "failed";
   if (index === stepIndex("done")) return state.jobStatus === "success";
-  // Content and cast are history once the job exists, the script stays open.
-  if (index <= stepIndex("cast")) return state.jobUuid === null;
+  // The material wrote the script and cannot be taken back, the cast can be recast.
+  if (index === stepIndex("content")) return state.jobUuid === null;
   return true;
 }

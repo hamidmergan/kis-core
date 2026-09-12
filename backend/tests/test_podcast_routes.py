@@ -193,6 +193,20 @@ class TestSkriptUndVertonung:
         antwort = client.put(f"/podcast/{UUID}/script", json={"lines": [{"id": "b0", "speaker": 0, "text": " "}]})
         assert antwort.status_code == 422
 
+    def test_gibt_den_fortschritt_als_objekt_zurueck(self, env):
+        """In der Datenbank steht der Fortschritt als Text, die Seite braucht ein Objekt."""
+        client, jobs, _g, _a = env
+        self._job(jobs, status="success")
+        jobs[UUID]["progress"] = json.dumps({"step": "done", "fertig": [0, 1]})
+        antwort = client.get(f"/podcast/{UUID}")
+        assert antwort.status_code == 200
+        assert antwort.json()["progress"] == {"step": "done", "fertig": [0, 1]}
+
+    def test_vertraegt_einen_auftrag_ohne_fortschritt(self, env):
+        client, jobs, _g, _a = env
+        self._job(jobs)
+        assert client.get(f"/podcast/{UUID}").json()["progress"] is None
+
     def test_laesst_das_skript_waehrend_der_arbeit_in_ruhe(self, env):
         client, jobs, _g, _a = env
         self._job(jobs, status="running")
@@ -237,3 +251,135 @@ class TestFremderAuftrag:
         jobs[UUID] = {"job_uuid": UUID, "user_id": 7, "tool": "tts", "status": "success",
                       "progress": None, "error_message": None, "result_path": None}
         assert client.get(f"/podcast/{UUID}").status_code == 404
+
+
+class TestBesetzungAendern:
+    """Die Besetzung nach dem Start: was gespeichert wird und was abgewiesen wird."""
+
+    def _job(self, jobs, status="success"):
+        jobs[UUID] = {"job_uuid": UUID, "user_id": 7, "tool": "podcast", "status": status,
+                      "progress": None, "error_message": None, "result_path": None}
+
+    def _vorher(self, personen=2):
+        from src.features.podcast import store
+        from src.features.podcast.schemas import Line, Person, PodcastParams
+
+        alle = [Person(name="Lena", role="host", voice_id="anna", provider_id=3),
+                Person(name="Jonas", role="expert", voice_id="ben", provider_id=3),
+                Person(name="Amira", role="student", voice_id="cara", provider_id=3)]
+        store.save_params(7, UUID, PodcastParams(language="de", instructions="Kurz halten.",
+                                                 persons=alle[:personen], length="medium",
+                                                 style="teaching", provider_id=3))
+        if personen == 4:
+            store.save_user_script(7, UUID, [Line(id=f"b{i}", speaker=i, text=f"Satz {i}.")
+                                             for i in range(4)])
+        else:
+            store.save_user_script(7, UUID, [Line(id="b0", speaker=0, text="Eins."),
+                                             Line(id="b1", speaker=personen - 1, text="Zwei.")])
+
+    def _neu(self, **kw):
+        grund = {
+            "persons": [{"name": "Lena", "role": "host", "voice_id": "dora", "provider_id": 5}],
+            "length": "medium",
+            "style": "teaching",
+        }
+        grund.update(kw)
+        return grund
+
+    def test_speichert_die_neue_besetzung(self, env):
+        client, jobs, _g, _a = env
+        self._job(jobs)
+        self._vorher()
+        antwort = client.put(f"/podcast/{UUID}/params", json=self._neu())
+        assert antwort.status_code == 200
+
+        from src.features.podcast import store
+        stand = store.load_params(7, UUID)
+        assert [p.voice_id for p in stand.persons] == ["dora"]
+        assert stand.provider_id == 5
+
+    def test_behaelt_sprache_und_hinweise_des_starts(self, env):
+        client, jobs, _g, _a = env
+        self._job(jobs)
+        self._vorher()
+        client.put(f"/podcast/{UUID}/params", json=self._neu())
+
+        from src.features.podcast import store
+        stand = store.load_params(7, UUID)
+        assert stand.language == "de"
+        assert stand.instructions == "Kurz halten."
+
+    def test_verteilt_beitraege_einer_entfernten_person_per_modulo(self, env):
+        """Kappen auf 0 gäbe den ganzen Rest des Gesprächs einer Stimme."""
+        client, jobs, _g, _a = env
+        self._job(jobs)
+        self._vorher(personen=4)
+        zwei = self._neu(persons=[
+            {"name": "Lena", "role": "host", "voice_id": "dora", "provider_id": 5},
+            {"name": "Jonas", "role": "expert", "voice_id": "emil", "provider_id": 5},
+        ])
+        assert client.put(f"/podcast/{UUID}/params", json=zwei).status_code == 200
+
+        from src.features.podcast import store
+        # Amira war 2 und wird 0, Tom war 3 und wird 1.
+        assert [l.speaker for l in store.load_lines(7, UUID)] == [0, 1, 0, 1]
+
+    def test_zieht_alles_auf_die_erste_person_wenn_nur_eine_bleibt(self, env):
+        client, jobs, _g, _a = env
+        self._job(jobs)
+        self._vorher(personen=3)
+        assert client.put(f"/podcast/{UUID}/params", json=self._neu()).status_code == 200
+
+        from src.features.podcast import store
+        assert [l.speaker for l in store.load_lines(7, UUID)] == [0, 0]
+
+    def test_laesst_beitraege_in_ruhe_die_ihre_person_behalten(self, env):
+        client, jobs, _g, _a = env
+        self._job(jobs)
+        self._vorher(personen=2)
+        zwei = self._neu(persons=[
+            {"name": "Lena", "role": "host", "voice_id": "dora", "provider_id": 5},
+            {"name": "Jonas", "role": "expert", "voice_id": "emil", "provider_id": 5},
+        ])
+        assert client.put(f"/podcast/{UUID}/params", json=zwei).status_code == 200
+
+        from src.features.podcast import store
+        assert [l.speaker for l in store.load_lines(7, UUID)] == [0, 1]
+
+    def test_laesst_die_besetzung_waehrend_der_arbeit_in_ruhe(self, env):
+        client, jobs, _g, _a = env
+        self._job(jobs, status="running")
+        self._vorher()
+        assert client.put(f"/podcast/{UUID}/params", json=self._neu()).status_code == 409
+
+    def test_weist_eine_person_ohne_stimme_ab(self, env):
+        client, jobs, _g, _a = env
+        self._job(jobs)
+        self._vorher()
+        ohne = self._neu(persons=[{"name": "Lena", "role": "host", "voice_id": "", "provider_id": 5}])
+        assert client.put(f"/podcast/{UUID}/params", json=ohne).status_code == 422
+
+    def test_weist_fuenf_personen_ab(self, env):
+        client, jobs, _g, _a = env
+        self._job(jobs)
+        self._vorher()
+        viele = self._neu(persons=[{"name": f"P{i}", "role": "host", "voice_id": "v", "provider_id": 5}
+                                   for i in range(5)])
+        assert client.put(f"/podcast/{UUID}/params", json=viele).status_code == 422
+
+    def test_weist_eine_leere_besetzung_ab(self, env):
+        client, jobs, _g, _a = env
+        self._job(jobs)
+        self._vorher()
+        assert client.put(f"/podcast/{UUID}/params", json=self._neu(persons=[])).status_code == 422
+
+    def test_weist_einen_unbekannten_stil_ab(self, env):
+        client, jobs, _g, _a = env
+        self._job(jobs)
+        self._vorher()
+        assert client.put(f"/podcast/{UUID}/params", json=self._neu(style="rap")).status_code == 422
+
+    def test_weist_einen_auftrag_ohne_einstellungen_ab(self, env):
+        client, jobs, _g, _a = env
+        self._job(jobs)
+        assert client.put(f"/podcast/{UUID}/params", json=self._neu()).status_code == 404

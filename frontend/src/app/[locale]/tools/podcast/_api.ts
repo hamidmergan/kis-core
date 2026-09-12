@@ -56,6 +56,23 @@ export async function startPodcast(state: PodcastState): Promise<string> {
   return (await res.json()).job_uuid as string;
 }
 
+/** A new cast for a podcast that already exists, material and language stay as they were. */
+export async function savePodcastParams(jobUuid: string, state: PodcastState): Promise<void> {
+  const persons = state.persons.slice(0, state.count).map((p) => ({
+    name: p.name.trim(),
+    role: p.role,
+    voice_id: p.voiceId,
+    provider_id: p.providerId,
+  }));
+  const res = await fetch(`/api/podcast/${jobUuid}/params`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ persons, length: state.length, style: state.style }),
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error(await fehlerText(res));
+}
+
 export async function fetchPodcast(jobUuid: string): Promise<PodcastView> {
   const res = await fetch(`/api/podcast/${jobUuid}`, { credentials: "include" });
   if (!res.ok) throw new Error(await fehlerText(res));

@@ -45,6 +45,9 @@
     "emptySearch": "No results for this search",
     "emptyAll": "No jobs",
     "retryFailed": "Retry failed",
+    "sources": {
+      "more": "{n, plural, =1 {+1 more} other {+# more}}"
+    },
     "filter": {
       "search": "Search",
       "from": "From",
@@ -1029,7 +1032,10 @@
           "interview": "Interview"
         },
         "next": "Write the script",
-        "noVoices": "No voice is configured. Without a voice nothing can be voiced."
+        "noVoices": "No voice is configured. Without a voice nothing can be voiced.",
+        "recastHint": "You can still swap the cast. Contributions with a different voice are voiced again afterwards, all others stay as they are.",
+        "writtenHint": "Length and style wrote the script and are therefore fixed. Single contributions you shorten or delete in the script.",
+        "nextRecast": "Apply cast"
       },
       "script": {
         "generating": "The script is being written",
@@ -1037,6 +1043,7 @@
         "heading": "Check the script",
         "intro": "Every line can be edited, rephrased or deleted. Voicing starts only when you are happy with it.",
         "summary": "{lines, plural, =1 {One line} other {# lines}}, {words} words, about {minutes, plural, =1 {one minute} other {# minutes}}",
+        "castLegend": "Cast",
         "changed": "changed",
         "voiced": "voiced",
         "wordsApprox": "about {n} words",
@@ -1047,7 +1054,9 @@
         "editAria": "Text of line {n}",
         "next": "Voice it",
         "nextChanged": "Voice {n, plural, =1 {one changed line} other {# changed lines}} again",
-        "nextDone": "To the finished podcast"
+        "nextDone": "To the finished podcast",
+        "speakerAria": "Person for contribution {n}",
+        "speakerFallback": "Person {n}"
       },
       "voicing": {
         "heading": "Voicing",
@@ -1088,9 +1097,8 @@
         "abspielen": "Listen to line {n}",
         "wartetKachel": "Line {n} is still to be voiced",
         "rueckblick": "Listen to every line on its own",
-        "rueckblickHinweis": "You can change any line here. Only the changed ones are voiced again, the others keep their audio.",
+        "rueckblickHinweis": "Here you can listen to every line on its own. To change them, go back to the script.",
         "zumErgebnis": "To the finished podcast",
-        "aendern": "Edit line",
         "geaendert": "Changed. On the next run only this line is voiced again.",
         "nachLinks": "Scroll lines to the left",
         "nachRechts": "Scroll lines to the right"

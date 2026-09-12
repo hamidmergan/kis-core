@@ -20,6 +20,8 @@ interface SelectProps<T extends string> {
   disabled?: boolean;
   placeholder?: string;
   id?: string;
+  /** For a select that stands without a visible label of its own. */
+  ariaLabel?: string;
   className?: string;
   // 'md' is the wide form control, 'sm' the narrow pill for toolbars.
   size?: "sm" | "md";
@@ -49,6 +51,7 @@ export default function Select<T extends string>({
   disabled = false,
   placeholder,
   id,
+  ariaLabel,
   className = "",
   size = "md",
 }: SelectProps<T>) {
@@ -158,6 +161,7 @@ export default function Select<T extends string>({
         id={id}
         type="button"
         role="combobox"
+        aria-label={ariaLabel}
         aria-expanded={open}
         aria-haspopup="listbox"
         disabled={disabled}

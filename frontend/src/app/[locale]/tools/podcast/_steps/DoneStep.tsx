@@ -2,7 +2,6 @@
 
 import { useTranslations } from "next-intl";
 import { MicrophoneStage } from "@phosphor-icons/react";
-import BeitragVorschau from "../_components/BeitragVorschau";
 import { resultUrl, transcriptUrl } from "../_api";
 import { linesToVoice, minutesOf } from "../_logic";
 import type { JobProgress, JobStatus, Line, Person, PersonCount } from "../_types";
@@ -24,7 +23,6 @@ interface DoneStepProps {
   jobStatus: JobStatus;
   progress: JobProgress | null;
   seconds: number | null;
-  onUpdate: (id: string, text: string) => void;
   onVoice: () => void;
   onEditScript: () => void;
   onReset: () => void;
@@ -32,9 +30,8 @@ interface DoneStepProps {
 
 export default function DoneStep(props: DoneStepProps) {
   const { jobUuid, lines, persons, count, voicedIds, jobStatus, progress, seconds,
-          onUpdate, onVoice, onEditScript, onReset } = props;
+          onVoice, onEditScript, onReset } = props;
   const t = useTranslations("tools.podcast.done");
-  const tv = useTranslations("tools.podcast.vorschau");
   const tScript = useTranslations("tools.podcast.script");
   const tPage = useTranslations("tools.podcast");
   // The measured length once it exists, the estimate from the words until then.
@@ -94,28 +91,13 @@ export default function DoneStep(props: DoneStepProps) {
         </button>
       </div>
 
-      <div className="mt-10">
-        <h3 className="text-base font-semibold">{tv("rueckblick")}</h3>
-        <p className="text-sm text-muted mt-1">{tv("rueckblickHinweis")}</p>
-        <BeitragVorschau
-          jobUuid={jobUuid}
-          lines={lines}
-          persons={persons}
-          voicedIds={voicedIds}
-          progress={progress}
-          running={jobStatus === "pending" || jobStatus === "running"}
-          failedIndex={-1}
-          rueckblick
-          onUpdate={onUpdate}
-        />
-        {offen > 0 && (
-          <div className="flex justify-center mt-6">
-            <button type="button" onClick={onVoice} className="px-6 py-2 text-sm btn-primary rounded-md transition-colors select-none">
-              {tScript("nextChanged", { n: offen })}
-            </button>
-          </div>
-        )}
-      </div>
+      {offen > 0 && (
+        <div className="flex justify-center mt-10">
+          <button type="button" onClick={onVoice} className="px-6 py-2 text-sm btn-primary rounded-md transition-colors select-none">
+            {tScript("nextChanged", { n: offen })}
+          </button>
+        </div>
+      )}
     </section>
   );
 }

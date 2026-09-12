@@ -448,10 +448,7 @@ MESSAGES: dict[str, dict[str, str]] = {
     },
     # Tool labels (shown in job listing)
     "tool.screencast_render": {"de": "Screencast", "en": "Screencast"},
-    "tool.screencast_translate": {
-        "de": "Screencast-Übersetzung",
-        "en": "Screencast translation",
-    },
+    "tool.screencast_translate": {"de": "Screencast", "en": "Screencast"},
     "tool.tts": {"de": "Text in Sprache", "en": "Text to speech"},
     "tool.translation": {"de": "Übersetzung", "en": "Translation"},
     "tool.transcription": {"de": "Transkription", "en": "Transcription"},
@@ -459,6 +456,7 @@ MESSAGES: dict[str, dict[str, str]] = {
     "tool.image_edit": {"de": "Bild-Bearbeitung", "en": "Image editing"},
     "tool.image_analyze": {"de": "Bild-Analyse", "en": "Image analysis"},
     "tool.summary": {"de": "Zusammenfassung", "en": "Summary"},
+    "tool.podcast": {"de": "Podcast", "en": "Podcast"},
     # Translate provider labels
     "translateProvider.deepl": {"de": "DeepL (schnell)", "en": "DeepL (fast)"},
     "translateProvider.llm": {"de": "LLM (langsam)", "en": "LLM (slow)"},

@@ -45,6 +45,9 @@
     "emptySearch": "Keine Ergebnisse für diese Suche",
     "emptyAll": "Keine Jobs vorhanden",
     "retryFailed": "Wiederholen fehlgeschlagen",
+    "sources": {
+      "more": "{n, plural, =1 {+1 weiteres} other {+# weitere}}"
+    },
     "filter": {
       "search": "Suche",
       "from": "Von",
@@ -1029,7 +1032,10 @@
           "interview": "Interview"
         },
         "next": "Skript schreiben lassen",
-        "noVoices": "Es ist keine Stimme eingerichtet. Ohne Stimme kann nichts vertont werden."
+        "noVoices": "Es ist keine Stimme eingerichtet. Ohne Stimme kann nichts vertont werden.",
+        "recastHint": "Du kannst die Besetzung noch austauschen. Beiträge mit einer anderen Stimme werden danach neu vertont, alle anderen bleiben wie sie sind.",
+        "writtenHint": "Länge und Stil haben das Skript geschrieben und stehen darum fest. Einzelne Beiträge kürzt oder löschst du im Skript.",
+        "nextRecast": "Besetzung übernehmen"
       },
       "script": {
         "generating": "Das Skript wird geschrieben",
@@ -1037,6 +1043,7 @@
         "heading": "Skript prüfen",
         "intro": "Jeder Beitrag lässt sich ändern, neu formulieren oder löschen. Vertont wird erst, wenn du zufrieden bist.",
         "summary": "{lines, plural, =1 {Ein Beitrag} other {# Beiträge}}, {words} Wörter, etwa {minutes, plural, =1 {eine Minute} other {# Minuten}}",
+        "castLegend": "Besetzung",
         "changed": "geändert",
         "voiced": "vertont",
         "wordsApprox": "etwa {n} Wörter",
@@ -1047,7 +1054,9 @@
         "editAria": "Text von Beitrag {n}",
         "next": "Vertonen",
         "nextChanged": "{n, plural, =1 {Einen geänderten Beitrag} other {# geänderte Beiträge}} neu vertonen",
-        "nextDone": "Zum fertigen Podcast"
+        "nextDone": "Zum fertigen Podcast",
+        "speakerAria": "Person für Beitrag {n}",
+        "speakerFallback": "Person {n}"
       },
       "voicing": {
         "heading": "Vertonung",
@@ -1088,9 +1097,8 @@
         "abspielen": "Beitrag {n} anhören",
         "wartetKachel": "Beitrag {n} wird noch vertont",
         "rueckblick": "Alle Beiträge einzeln anhören",
-        "rueckblickHinweis": "Du kannst jeden Beitrag hier ändern. Neu vertont werden nur die geänderten, die anderen behalten ihren Ton.",
+        "rueckblickHinweis": "Hier kannst du dir jeden Beitrag einzeln anhören. Ändern kannst du sie im Skript.",
         "zumErgebnis": "Zum fertigen Podcast",
-        "aendern": "Beitrag ändern",
         "geaendert": "Geändert. Beim nächsten Lauf wird nur dieser Beitrag neu vertont.",
         "nachLinks": "Beiträge nach links schieben",
         "nachRechts": "Beiträge nach rechts schieben"

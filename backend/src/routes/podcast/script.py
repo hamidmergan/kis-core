@@ -1,5 +1,7 @@
 """Reading the state and saving the checked script."""
 
+import json
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
@@ -12,6 +14,18 @@ from src.limits import PODCAST_MAX_LINE_CHARS, PODCAST_MAX_LINES
 from src.routes.podcast._shared import own_job
 
 router = APIRouter(tags=["podcast"])
+
+
+def _fortschritt(roh) -> dict | None:
+    """The database keeps the progress as text, the page needs the object."""
+    if not roh:
+        return None
+    if isinstance(roh, dict):
+        return roh
+    try:
+        return json.loads(roh)
+    except (TypeError, ValueError):
+        return None
 
 
 class ScriptRequest(BaseModel):
@@ -35,7 +49,7 @@ async def get_podcast(
     return {
         "job_uuid": job_uuid,
         "status": job["status"],
-        "progress": job.get("progress"),
+        "progress": _fortschritt(job.get("progress")),
         "error": job.get("error_message"),
         "params": params.model_dump() if params else None,
         "lines": [l.model_dump() for l in zeilen],

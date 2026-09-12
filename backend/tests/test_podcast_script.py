@@ -112,3 +112,14 @@ class TestUmformulieren:
 
     def test_faellt_bei_leerer_antwort_auf_den_alten_text_zurueck(self):
         assert clean_rephrased("   ", "der alte Satz") == "der alte Satz"
+
+    def test_schaelt_die_json_huelle_ab(self):
+        assert clean_rephrased('{"text": "Der neue Satz." }', "alt") == "Der neue Satz."
+
+    def test_nimmt_auch_einen_codeblock_um_das_json(self):
+        roh = '```json\n{"text": "Der neue Satz."}\n```'
+        assert clean_rephrased(roh, "alt") == "Der neue Satz."
+
+    def test_verlangt_die_json_huelle_im_auftrag(self):
+        nachricht = rephrase_messages(Line(id="b1", speaker=0, text="Der Satz."), _params(2), [])
+        assert '{"text"' in nachricht[0]["content"]

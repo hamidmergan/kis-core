@@ -6,8 +6,7 @@ import { useTranslations } from "next-intl";
 import IconButton from "@/components/ui/IconButton";
 import StatusMark from "@/components/ui/StatusMark";
 import { lineAudioUrl } from "../_api";
-import { needsVoice, wordCount } from "../_logic";
-import { FIELD } from "../_steps/ContentStep";
+import { needsVoice } from "../_logic";
 import Speaker from "./Speaker";
 import type { JobProgress, Line, Person } from "../_types";
 
@@ -21,21 +20,15 @@ interface Props {
   failedIndex: number;
   /** The run is done: no progress any more, but every contribution to listen to. */
   rueckblick?: boolean;
-  /** With this the shown contribution can be edited in place, only outside a run. */
-  onUpdate?: (id: string, text: string) => void;
 }
 
 /** The stage and the strip of the screencast, with speakers instead of slides. */
 export default function BeitragVorschau(props: Props) {
-  const { jobUuid, lines, persons, voicedIds, progress, running, failedIndex, rueckblick = false, onUpdate } = props;
+  const { jobUuid, lines, persons, voicedIds, progress, running, failedIndex, rueckblick = false } = props;
   const t = useTranslations("tools.podcast.vorschau");
-  const tScript = useTranslations("tools.podcast.script");
   const tCast = useTranslations("tools.podcast.cast");
-  const tCommon = useTranslations("tools.podcast.common");
   const streifenRef = useRef<HTMLDivElement>(null);
   const [gewaehlt, setGewaehlt] = useState<string | null>(null);
-  const [editing, setEditing] = useState(false);
-  const [buffer, setBuffer] = useState("");
   const [kannLinks, setKannLinks] = useState(false);
   const [kannRechts, setKannRechts] = useState(false);
 
@@ -96,7 +89,6 @@ export default function BeitragVorschau(props: Props) {
 
   if (!lines.length || !zeigt || !jobUuid) return null;
   const person = persons[zeigt.speaker] ?? persons[0];
-  const kannAendern = !!onUpdate && !running;
   // The audio changes with the text, so the player must not reuse an old one.
   const tonUrl = `${lineAudioUrl(jobUuid, zeigt.id)}?v=${voicedIds.length}`;
 
@@ -118,61 +110,21 @@ export default function BeitragVorschau(props: Props) {
         </div>
 
         <div>
-          <div className="flex items-baseline justify-between gap-4 mb-1">
-            <p className="text-xs uppercase tracking-wide text-muted-soft">{t("beitragVon", { n: zeigtIdx + 1, total: lines.length })}</p>
-            {kannAendern && !editing && (
-              <button
-                type="button"
-                onClick={() => {
-                  setBuffer(zeigt.text);
-                  setEditing(true);
-                }}
-                className="rounded-sm px-1 py-0.5 text-sm font-medium text-kb hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb"
-              >
-                {t("aendern")}
-              </button>
-            )}
-          </div>
-          {editing ? (
-            <>
-              <textarea value={buffer} onChange={(e) => setBuffer(e.target.value)} rows={5} className={`${FIELD} resize-y`} aria-label={tScript("editAria", { n: zeigtIdx + 1 })} autoFocus />
-              <div className="flex items-center justify-between mt-2">
-                <span className="text-xs text-muted-soft">{tScript("wordsApprox", { n: wordCount(buffer) })}</span>
-                <div className="flex gap-2">
-                  <button type="button" onClick={() => setEditing(false)} className="btn-cancel px-3 py-1 text-xs text-foreground-soft border border-border rounded transition-colors">
-                    {tCommon("cancel")}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!buffer.trim()}
-                    onClick={() => {
-                      onUpdate?.(zeigt.id, buffer.trim());
-                      setEditing(false);
-                    }}
-                    className="px-3 py-1 text-xs btn-primary rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                  >
-                    {tCommon("save")}
-                  </button>
-                </div>
-              </div>
-            </>
+          <p className="text-xs uppercase tracking-wide text-muted-soft mb-1">{t("beitragVon", { n: zeigtIdx + 1, total: lines.length })}</p>
+          <div className="bg-surface border border-border-soft rounded-lg p-3 text-sm text-foreground-soft max-h-40 overflow-y-auto whitespace-pre-wrap">{zeigt.text}</div>
+          {istGeaendert ? (
+            <p className="mt-3">
+              <StatusMark tone="warn" className="text-xs">{t("geaendert")}</StatusMark>
+            </p>
+          ) : istFertig ? (
+            <audio key={tonUrl} controls preload={rueckblick ? "metadata" : "none"} className="w-full mt-3" src={tonUrl} />
+          ) : zeigtIdx === failedIndex ? (
+            <p className="text-xs text-error mt-3">{t("fehler")}</p>
+          ) : zeigtIdx === laufend ? (
+            <p className="text-xs text-muted mt-3">{t("wirdVertont")}</p>
           ) : (
-            <div className="bg-surface border border-border-soft rounded-lg p-3 text-sm text-foreground-soft max-h-40 overflow-y-auto whitespace-pre-wrap">{zeigt.text}</div>
+            <p className="text-xs text-muted mt-3">{t("wartet")}</p>
           )}
-          {!editing &&
-            (istGeaendert ? (
-              <p className="mt-3">
-                <StatusMark tone="warn" className="text-xs">{t("geaendert")}</StatusMark>
-              </p>
-            ) : istFertig ? (
-              <audio key={tonUrl} controls preload={rueckblick ? "metadata" : "none"} className="w-full mt-3" src={tonUrl} />
-            ) : zeigtIdx === failedIndex ? (
-              <p className="text-xs text-error mt-3">{t("fehler")}</p>
-            ) : zeigtIdx === laufend ? (
-              <p className="text-xs text-muted mt-3">{t("wirdVertont")}</p>
-            ) : (
-              <p className="text-xs text-muted mt-3">{t("wartet")}</p>
-            ))}
         </div>
       </div>
 
@@ -193,11 +145,8 @@ export default function BeitragVorschau(props: Props) {
                 key={l.id}
                 type="button"
                 data-aktiv={aktiv}
-                disabled={!bereit && !kannAendern}
-                onClick={() => {
-                  setEditing(false);
-                  setGewaehlt(l.id);
-                }}
+                disabled={!bereit && !rueckblick}
+                onClick={() => setGewaehlt(l.id)}
                 aria-label={beschriftung}
                 className={`relative shrink-0 w-[74px] h-[52px] rounded-md border select-none flex items-center justify-center text-sm font-bold text-foreground-soft bg-background ${
                   aktiv ? "border-kb outline outline-2 outline-kb" : "border-border-soft"

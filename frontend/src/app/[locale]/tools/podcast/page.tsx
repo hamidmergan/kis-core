@@ -15,7 +15,7 @@ import ContentStep from "./_steps/ContentStep";
 import DoneStep from "./_steps/DoneStep";
 import ScriptStep from "./_steps/ScriptStep";
 import VoicingStep from "./_steps/VoicingStep";
-import { cancelJob, fetchJob, fetchPodcast, rephraseLine, saveScript, startPodcast, startRender } from "./_api";
+import { cancelJob, fetchJob, fetchPodcast, rephraseLine, savePodcastParams, saveScript, startPodcast, startRender } from "./_api";
 import { isBusy, reachable } from "./_logic";
 import { INITIAL_STATE, defaultPersons, reducer } from "./_reducer";
 import { clearStored, loadStored, saveStored } from "./_store";
@@ -30,6 +30,7 @@ function PodcastPageInner() {
   const tCommon = useTranslations("common");
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
   const [hydrated, setHydrated] = useState(false);
+  const [besetzungLaeuft, setBesetzungLaeuft] = useState(false);
   const { loaded, providers } = useVoices();
   const { permissions } = usePermissions();
   // The jobs list links straight to one podcast, that wins over the last one seen here.
@@ -227,6 +228,27 @@ function PodcastPageInner() {
     }
   };
 
+  /** Back from the cast: without a job this starts one, with a job it only recasts. */
+  const besetzungWeiter = async () => {
+    const uuid = stateRef.current.jobUuid;
+    if (!uuid) {
+      await starten();
+      return;
+    }
+    setBesetzungLaeuft(true);
+    try {
+      await savePodcastParams(uuid, stateRef.current);
+      // The server decides which contributions still match their voice.
+      await holeStand(uuid);
+      dispatch({ type: "GO", step: "script" });
+    } catch (e) {
+      dispatch({ type: "JOB", status: stateRef.current.jobStatus, progress: stateRef.current.progress,
+                 error: e instanceof Error ? e.message : tCommon("unknownError") });
+    } finally {
+      setBesetzungLaeuft(false);
+    }
+  };
+
   const abbrechen = async () => {
     if (!state.jobUuid) return;
     await cancelJob(state.jobUuid);
@@ -288,8 +310,11 @@ function PodcastPageInner() {
                 onPerson={(index, person) => dispatch({ type: "SET_PERSON", index, person })}
                 onLength={(length) => dispatch({ type: "SET_LENGTH", length })}
                 onStyle={(style) => dispatch({ type: "SET_STYLE", style })}
-                onBack={() => dispatch({ type: "GO", step: "content" })}
-                onNext={starten}
+                onBack={state.jobUuid ? null : () => dispatch({ type: "GO", step: "content" })}
+                onNext={besetzungWeiter}
+                hatAuftrag={state.jobUuid !== null}
+                busy={besetzungLaeuft}
+                error={state.error}
               />
             )}
             {state.step === "script" && (
@@ -301,10 +326,11 @@ function PodcastPageInner() {
                 busy={isBusy(state)}
                 error={state.error}
                 onUpdate={(id, text) => aendern({ type: "UPDATE_LINE", id, text })}
+                onSpeaker={(id, speaker) => aendern({ type: "SET_SPEAKER", id, speaker })}
                 onRephrase={umformulieren}
                 onDelete={(id) => aendern({ type: "DELETE_LINE", id })}
                 onAdd={() => aendern({ type: "ADD_LINE" })}
-                onBack={state.jobUuid ? null : () => dispatch({ type: "GO", step: "cast" })}
+                onBack={() => dispatch({ type: "GO", step: "cast" })}
                 onVoice={vertonen}
                 onToDone={() => dispatch({ type: "GO", step: "done" })}
                 allDone={state.jobStatus === "success"}
@@ -322,7 +348,6 @@ function PodcastPageInner() {
                 onResume={vertonen}
                 onCancel={abbrechen}
                 onBackToScript={() => dispatch({ type: "GO", step: "script" })}
-                onUpdate={(id, text) => aendern({ type: "UPDATE_LINE", id, text })}
                 onWeiter={() => dispatch({ type: "GO", step: "done" })}
               />
             )}
@@ -336,7 +361,6 @@ function PodcastPageInner() {
                 jobStatus={state.jobStatus}
                 progress={state.progress}
                 seconds={state.seconds}
-                onUpdate={(id, text) => aendern({ type: "UPDATE_LINE", id, text })}
                 onVoice={vertonen}
                 onEditScript={() => dispatch({ type: "GO", step: "script" })}
                 onReset={neu}

@@ -13,10 +13,11 @@ from pydantic import ValidationError
 from src import database as db
 from src.dependencies import get_current_user, is_admin_user
 from src.features.podcast import source_text, store
-from src.features.podcast.schemas import LANGUAGES, LENGTH_WORDS, ROLES, STYLES, PodcastParams
+from src.features.podcast.schemas import PodcastParams
 from src.i18n import get_locale, t
 from src.limits import MAX_QUEUED_PODCAST_JOBS, PODCAST_MAX_SOURCE_CHARS
 from src.quotas import enforce_quota
+from src.routes.podcast._shared import pruefe_params
 from src.security.rate_limit import enforce_tool_burst
 from src.services.tool_limits import max_upload_bytes
 from src.utils.file_validation import validate_or_raise
@@ -33,14 +34,7 @@ def _pruefe_params(roh: str, locale: str) -> PodcastParams:
     except (json.JSONDecodeError, ValidationError, TypeError) as e:
         logger.warning("Podcast: Einstellungen unlesbar: {}", e)
         raise HTTPException(status_code=422, detail=t("podcast.badParams", locale)) from e
-    if not 1 <= len(params.persons) <= 4:
-        raise HTTPException(status_code=422, detail=t("podcast.badCast", locale))
-    if params.language not in LANGUAGES or params.length not in LENGTH_WORDS or params.style not in STYLES:
-        raise HTTPException(status_code=422, detail=t("podcast.badParams", locale))
-    for person in params.persons:
-        if person.role not in ROLES or not person.voice_id or person.provider_id <= 0:
-            raise HTTPException(status_code=422, detail=t("podcast.badCast", locale))
-    return params
+    return pruefe_params(params, locale)
 
 
 def _wacht(user_id: int, current_user: dict, locale: str) -> None:

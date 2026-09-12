@@ -15,7 +15,7 @@ TOOLS_CONFIG = [
 
 TOOL_LABELS = {
     "screencast_render": "Screencast",
-    "screencast_translate": "Screencast-Übersetzung",
+    "screencast_translate": "Screencast",
     "podcast": "Podcast",
     "tts": "Text in Sprache",
     "translation": "Übersetzung",

@@ -17,7 +17,7 @@ export default function PodcastStepper({ step, canEnter, onStepClick }: PodcastS
 
   return (
     <nav aria-label={tStepper("ariaLabel")} className="mb-10 overflow-x-auto scrollbar-hide">
-      <ol className="flex items-center gap-1 sm:gap-2 w-max sm:w-full">
+      <ol className="flex items-center justify-center gap-1 sm:gap-2 w-max sm:w-full">
         {STEPS.map((key, i) => {
           const isDone = i < currentIdx;
           const isActive = i === currentIdx;

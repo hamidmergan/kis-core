@@ -24,13 +24,12 @@ interface VoicingStepProps {
   onResume: () => void;
   onCancel: () => void;
   onBackToScript: () => void;
-  onUpdate: (id: string, text: string) => void;
   onWeiter: () => void;
 }
 
 export default function VoicingStep(props: VoicingStepProps) {
   const { jobUuid, lines, persons, voicedIds, jobStatus, progress, error,
-          onResume, onCancel, onBackToScript, onUpdate, onWeiter } = props;
+          onResume, onCancel, onBackToScript, onWeiter } = props;
   const t = useTranslations("tools.podcast.voicing");
   const tv = useTranslations("tools.podcast.vorschau");
   const tScript = useTranslations("tools.podcast.script");
@@ -99,7 +98,6 @@ export default function VoicingStep(props: VoicingStepProps) {
         running={running}
         failedIndex={failedIndex}
         rueckblick={rueckblick}
-        onUpdate={rueckblick ? onUpdate : undefined}
       />
 
       <div className="flex justify-center mt-6">

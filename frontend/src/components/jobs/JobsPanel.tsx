@@ -15,6 +15,7 @@ import { formatElapsed, toMs } from "@/lib/format";
 import { hasUnseenDone } from "./_unseen";
 import { podcastJumpHref, podcastJumpKind } from "./_podcastJump";
 import { screencastJumpHref, screencastJumpKind } from "./_screencastJump";
+import { JobSources } from "./JobSources";
 
 interface MyJob {
   job_uuid: string;
@@ -366,7 +367,7 @@ export default function JobsPanel() {
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
                           <p className="text-xs font-medium text-foreground truncate mb-0.5">{job.tool_label}</p>
-                          <p className="text-xs text-muted-soft truncate mt-0.5">{job.original_filename}</p>
+                          <JobSources value={job.original_filename} />
                           {job.tts_params?.voice_label || job.tts_params?.provider ? (
                             <p className="text-xs text-muted-soft truncate mt-0.5">
                               {job.tts_params.provider}

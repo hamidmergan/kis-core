@@ -25,11 +25,17 @@ interface CastStepProps {
   onPerson: (index: number, person: Partial<Person>) => void;
   onLength: (length: Length) => void;
   onStyle: (style: Style) => void;
-  onBack: () => void;
+  onBack: (() => void) | null;
   onNext: () => void;
+  /** With a podcast already written this is a recast, not a start. */
+  hatAuftrag: boolean;
+  busy: boolean;
+  error: string;
 }
 
-export default function CastStep({ count, persons, length, style, voices, voicesLoaded, onCount, onPerson, onLength, onStyle, onBack, onNext }: CastStepProps) {
+export default function CastStep(props: CastStepProps) {
+  const { count, persons, length, style, voices, voicesLoaded, onCount, onPerson, onLength, onStyle,
+          onBack, onNext, hatAuftrag, busy, error } = props;
   const t = useTranslations("tools.podcast.cast");
   const voiceOptions = voices.flatMap((p) =>
     p.voices.map((v) => ({
@@ -46,6 +52,8 @@ export default function CastStep({ count, persons, length, style, voices, voices
   return (
     <section className="animate-[fadeIn_0.3s_ease-out]">
       <h2 className="text-lg font-bold mb-4">{t("heading")}</h2>
+
+      {hatAuftrag && <p className="mb-6 text-sm text-muted">{t("recastHint")}</p>}
 
       <div className="mb-6 flex flex-wrap items-center gap-x-4 gap-y-2" role="group" aria-label={t("countAria")}>
         <Tabs<CountKey>
@@ -103,15 +111,23 @@ export default function CastStep({ count, persons, length, style, voices, voices
           <label htmlFor="podcast-length" className="block text-sm font-medium text-foreground-soft mb-2">
             {t("lengthLabel")}
           </label>
-          <Select<Length> id="podcast-length" value={length} onChange={onLength} options={LENGTHS.map((l) => ({ value: l, label: t(`lengths.${l}`) }))} />
+          <Select<Length> id="podcast-length" value={length} onChange={onLength} disabled={hatAuftrag} options={LENGTHS.map((l) => ({ value: l, label: t(`lengths.${l}`) }))} />
         </div>
         <div>
           <label htmlFor="podcast-style" className="block text-sm font-medium text-foreground-soft mb-2">
             {t("styleLabel")}
           </label>
-          <Select<Style> id="podcast-style" value={style} onChange={onStyle} options={STYLES.map((s) => ({ value: s, label: t(`styles.${s}`) }))} />
+          <Select<Style> id="podcast-style" value={style} onChange={onStyle} disabled={hatAuftrag} options={STYLES.map((s) => ({ value: s, label: t(`styles.${s}`) }))} />
         </div>
       </div>
+
+      {hatAuftrag && <p className="mt-2 text-xs text-muted-soft">{t("writtenHint")}</p>}
+
+      {error && (
+        <p className="mt-6 rounded-md border border-warn-border bg-warn-bg px-3 py-2 text-sm text-warn-strong" role="alert">
+          {error}
+        </p>
+      )}
 
       {keineStimmen && (
         <p className="mt-6 rounded-md border border-warn-border bg-warn-bg px-3 py-2 text-sm text-warn-strong" role="alert">
@@ -119,7 +135,12 @@ export default function CastStep({ count, persons, length, style, voices, voices
         </p>
       )}
 
-      <StepFooter onBack={onBack} nextLabel={t("next")} onNext={onNext} nextDisabled={!complete} />
+      <StepFooter
+        onBack={onBack}
+        nextLabel={hatAuftrag ? t("nextRecast") : t("next")}
+        onNext={onNext}
+        nextDisabled={!complete || busy}
+      />
     </section>
   );
 }

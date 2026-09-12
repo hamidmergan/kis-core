@@ -26,6 +26,20 @@ describe("Eine Änderung am Beitrag", () => {
     expect(linesToVoice(nachher.lines, nachher.voicedIds).map((l) => l.id)).toEqual(["b1"]);
   });
 
+  it("nimmt den Ton, wenn der Beitrag eine andere Person bekommt", () => {
+    const vorher = state({ lines: [line(0), line(1)], voicedIds: ["b0", "b1"], count: 3 });
+    const nachher = reducer(vorher, { type: "SET_SPEAKER", id: "b1", speaker: 2 });
+    expect(nachher.lines.find((l) => l.id === "b1")?.speaker).toBe(2);
+    expect(nachher.voicedIds).toEqual(["b0"]);
+  });
+
+  it("lässt eine Person außerhalb der Besetzung nicht zu", () => {
+    const vorher = state({ lines: [line(0)], voicedIds: ["b0"], count: 2 });
+    const nachher = reducer(vorher, { type: "SET_SPEAKER", id: "b0", speaker: 3 });
+    expect(nachher.lines[0].speaker).toBe(0);
+    expect(nachher.voicedIds).toEqual(["b0"]);
+  });
+
   it("räumt beim Löschen auch den Ton weg", () => {
     const nachher = reducer(state({ lines: [line(0), line(1)], voicedIds: ["b0", "b1"] }),
                             { type: "DELETE_LINE", id: "b0" });
@@ -75,12 +89,21 @@ describe("Was in der Fortschrittsleiste anklickbar ist", () => {
     expect(reachable(2, laufend)).toBe(false);
   });
 
-  it("schließt Inhalt und Besetzung, sobald ein Auftrag läuft", () => {
+  it("schließt den Inhalt, sobald ein Auftrag existiert", () => {
     const mitAuftrag = state({ step: "script", maxReached: 2, jobUuid: "x", jobStatus: "awaiting_user" });
     expect(reachable(0, mitAuftrag)).toBe(false);
-    expect(reachable(1, mitAuftrag)).toBe(false);
     const ohne = state({ step: "cast", maxReached: 1 });
     expect(reachable(0, ohne)).toBe(true);
+  });
+
+  it("lässt zurück in die Besetzung, auch mit fertigem Podcast", () => {
+    const wartend = state({ step: "script", maxReached: 2, jobUuid: "x", jobStatus: "awaiting_user" });
+    expect(reachable(1, wartend)).toBe(true);
+    const fertig = state({ step: "done", maxReached: 4, jobUuid: "x", jobStatus: "success",
+                           progress: { fertig: [0, 1] } });
+    expect(reachable(1, fertig)).toBe(true);
+    const laufend = state({ step: "voicing", maxReached: 3, jobUuid: "x", jobStatus: "running" });
+    expect(reachable(1, laufend)).toBe(false);
   });
 
   it("öffnet Fertig erst nach dem Lauf und die Vertonung erst mit Ton", () => {

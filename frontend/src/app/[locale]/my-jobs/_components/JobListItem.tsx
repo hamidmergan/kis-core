@@ -6,7 +6,9 @@ import { StatusBadge } from "./StatusBadge";
 import { TimingInfo } from "./TimingInfo";
 import { JobArtifacts } from "./JobArtifacts";
 import { AdminDetails } from "./AdminDetails";
+import { podcastJumpHref, podcastJumpKind } from "@/components/jobs/_podcastJump";
 import { screencastJumpHref, screencastJumpKind } from "@/components/jobs/_screencastJump";
+import { JobSources } from "@/components/jobs/JobSources";
 
 
 interface JobListItemProps {
@@ -26,7 +28,11 @@ export function JobListItem({
 }: JobListItemProps) {
   const t = useTranslations("myJobs.actions");
   const expired = isExpired(job);
-  const resumeHref = screencastJumpKind(job) === "resume" ? screencastJumpHref(job.job_uuid) : undefined;
+  const resumeHref = screencastJumpKind(job) === "resume"
+    ? screencastJumpHref(job.job_uuid)
+    : podcastJumpKind(job) === "resume"
+      ? podcastJumpHref(job.job_uuid)
+      : undefined;
   const canRetry =
     (job.tool === "tts" || job.tool === "screencast_translate" || job.tool === "screencast_render")
     && job.status === "failed";
@@ -36,7 +42,7 @@ export function JobListItem({
       <div className="flex items-stretch justify-between gap-4">
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-foreground mb-0.5">{job.tool_label}</p>
-          <p className="text-xs text-muted-soft truncate mt-0.5">{job.original_filename}</p>
+          <JobSources value={job.original_filename} />
           {job.tts_params?.voice_label || job.tts_params?.provider ? (
             <p className="text-xs text-muted-soft mt-0.5">
               {job.tts_params.provider ?? ""}

@@ -54,6 +54,7 @@ export type Action =
   | { type: "JOB"; status: JobStatus; progress: JobProgress | null; error?: string | null; seconds?: number | null }
   | { type: "LINES"; lines: Line[]; voicedIds?: string[] }
   | { type: "UPDATE_LINE"; id: string; text: string }
+  | { type: "SET_SPEAKER"; id: string; speaker: number }
   | { type: "DELETE_LINE"; id: string }
   | { type: "ADD_LINE" }
   | { type: "FAIL"; error: string };
@@ -108,6 +109,15 @@ export function reducer(state: PodcastState, action: Action): PodcastState {
         lines: state.lines.map((l) => (l.id === action.id ? { ...l, text: action.text } : l)),
         voicedIds: ohneTon(state.voicedIds, action.id),
       };
+    case "SET_SPEAKER": {
+      // A person outside the cast has no voice, so that move is simply not made.
+      if (action.speaker < 0 || action.speaker >= state.count) return state;
+      return {
+        ...state,
+        lines: state.lines.map((l) => (l.id === action.id ? { ...l, speaker: action.speaker } : l)),
+        voicedIds: ohneTon(state.voicedIds, action.id),
+      };
+    }
     case "DELETE_LINE":
       return {
         ...state,

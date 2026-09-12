@@ -144,16 +144,18 @@ def rephrase_messages(line: Line, params: PodcastParams, nachbarn: list[str]) ->
     rollen = _ROLE_DE if params.language == "de" else _ROLE_EN
     umfeld = "\n".join(nachbarn)
     if params.language == "de":
-        system = ("Du formulierst einen einzelnen Podcast-Beitrag neu. Der Inhalt bleibt, "
-                  "die Wortwahl ändert sich. Du antwortest nur mit dem neuen Text.")
+        system = ('Du formulierst einen einzelnen Podcast-Beitrag neu. Der Inhalt bleibt, '
+                  'die Wortwahl ändert sich. Du antwortest mit einem JSON-Objekt der Form '
+                  '{"text": "..."} und mit nichts sonst.')
         auftrag = (f"Sprecher: {person.name} ({rollen.get(person.role, person.role)})\n"
                    f"Umfeld im Gespräch:\n{umfeld}\n\n"
                    f"Dieser Beitrag soll neu formuliert werden:\n{line.text}\n\n"
                    "Gleiche Länge, gleiche Aussage, keine Anführungszeichen, keine Namensnennung "
                    "vor dem Text.")
     else:
-        system = ("You rephrase a single podcast contribution. The content stays, the wording "
-                  "changes. You answer with the new text only.")
+        system = ('You rephrase a single podcast contribution. The content stays, the wording '
+                  'changes. You answer with a JSON object of the form '
+                  '{"text": "..."} and nothing else.')
         auftrag = (f"Speaker: {person.name} ({rollen.get(person.role, person.role)})\n"
                    f"Surrounding conversation:\n{umfeld}\n\n"
                    f"This contribution should be rephrased:\n{line.text}\n\n"
@@ -161,9 +163,25 @@ def rephrase_messages(line: Line, params: PodcastParams, nachbarn: list[str]) ->
     return [{"role": "system", "content": system}, {"role": "user", "content": auftrag}]
 
 
+def _aus_json(raw: str) -> str | None:
+    """The answer comes in JSON mode, so the bare sentence sits in a wrapper."""
+    text = raw.strip()
+    if text.startswith("```"):
+        text = text.split("```")[1] if "```" in text[3:] else text[3:]
+        text = text.removeprefix("json").strip()
+    start, end = text.find("{"), text.rfind("}")
+    if start < 0 or end <= start:
+        return None
+    try:
+        data = json.loads(text[start : end + 1])
+    except json.JSONDecodeError:
+        return None
+    return str(data.get("text") or "").strip() if isinstance(data, dict) else None
+
+
 def clean_rephrased(raw: str, fallback: str) -> str:
     """A model likes to add a frame, only the bare sentence is wanted."""
-    text = raw.strip().strip('"').strip()
+    text = (_aus_json(raw) or raw).strip().strip('"').strip()
     if ":" in text[:40] and "\n" not in text[: text.find(":")]:
         kopf, rest = text.split(":", 1)
         if len(kopf.split()) <= 3:
