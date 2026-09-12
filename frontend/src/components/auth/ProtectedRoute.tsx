@@ -42,7 +42,8 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
         return;
       }
       const perms = status.permissions ?? EMPTY_PERMS;
-      const isWorkspacePath = pathname?.startsWith("/workspace/");
+      // The list at /workspace and every module below it belong to the assistant.
+      const isWorkspacePath = pathname === "/workspace" || pathname?.startsWith("/workspace/");
       const isAdminPath = pathname?.startsWith("/admin");
       const isManualPath = pathname?.startsWith("/manual");
       const isToolPath = pathname?.startsWith("/tools/");

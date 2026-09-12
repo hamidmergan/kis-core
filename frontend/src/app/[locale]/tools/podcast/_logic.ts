@@ -40,3 +40,8 @@ export function reachable(index: number, state: PodcastState): boolean {
   if (index === stepIndex("content")) return state.jobUuid === null;
   return true;
 }
+
+/** Unlike a step that is merely locked while busy, this one never opens again. */
+export function closedForGood(index: number, state: PodcastState): boolean {
+  return index === stepIndex("content") && state.jobUuid !== null;
+}

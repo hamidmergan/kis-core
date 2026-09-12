@@ -15,14 +15,6 @@ reachable afterwards through the gear icon in the top right.
 - Anyone allowed to create modules also gets the stops about the teaching buttons
 - Broken off halfway the card stays, only the last stop or **Hide** takes it away
 
-## Tour through the tools
-
-- For teaching staff only, students have no tools and therefore never see the card
-- **Start** opens one tool after another and explains at each what it takes and where the result
-  ends up
-- It only walks through the tools released for you and ends at the jobs entry
-- Broken off halfway the card stays, only the last stop or **Hide** takes it away
-
 ## Language trainer
 
 - For students studying in German as a foreign language. Teaching staff do not see the card

@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useReducer, useRef, useState } from "
 import { Trash } from "@phosphor-icons/react";
 import { useLocale, useTranslations } from "next-intl";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import ToolBackLink from "@/components/ui/ToolBackLink";
 import { useGlossaries } from "@/hooks/useGlossaries";
 
 
@@ -525,6 +526,7 @@ function ScreencastPageInner() {
   return (
     <ProtectedRoute>
       <div className="max-w-4xl mx-auto px-4 py-10 sm:py-14" data-tour="tool-screencast">
+        <ToolBackLink />
         {/* Step indicator */}
         {showStepIndicator && (
           <>

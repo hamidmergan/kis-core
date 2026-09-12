@@ -6,8 +6,8 @@ import { useLocale, useTranslations } from "next-intl";
 import { CalendarBlank, Lock } from "@phosphor-icons/react";
 import { useRouter } from "@/i18n/navigation";
 import Spinner from "@/components/ui/Spinner";
+import { Greeting } from "./Greeting";
 import { TourInvite } from "./TourInvite";
-import { ToolsTourInvite } from "./ToolsTourInvite";
 import { LanguageTrainerInvite } from "./LanguageTrainerInvite";
 import { EvaluationInvite } from "./EvaluationInvite";
 import WorkspaceList from "./WorkspaceList";
@@ -38,10 +38,12 @@ interface Props {
   firstName: string;
   /** Everyone holding the language level right gets the trainer offer. */
   languageInvite: boolean;
+  /** Only who lands here directly gets greeted, the tile page already did it for everyone else. */
+  showGreeting: boolean;
 }
 
 /** One start page for all roles, ownership decides the view. */
-export default function WorkspaceHome({ canCreate, firstName, languageInvite }: Props) {
+export default function WorkspaceHome({ canCreate, firstName, languageInvite, showGreeting }: Props) {
   const t = useTranslations("workspace.list");
   const locale = useLocale();
   const router = useRouter();
@@ -104,7 +106,7 @@ export default function WorkspaceHome({ canCreate, firstName, languageInvite }: 
       // The way leads to the list, where the new row carries the notice.
       if (data.is_open === false) {
         setJoinedClosed(true);
-        router.replace("/");
+        router.replace("/workspace");
         return;
       }
       if (data.workspace_uuid) router.replace(`/workspace/${data.workspace_uuid}`);
@@ -229,24 +231,10 @@ export default function WorkspaceHome({ canCreate, firstName, languageInvite }: 
 
   return (
     <div className="page-shell pt-6 pb-20 lg:pt-15 lg:pb-30">
-      <div className="mb-10 lg:mb-16">
-        <h1 className="text-3xl font-bold min-h-[2.25rem]">
-          {firstName && t("headerTitle", { name: firstName })}
-        </h1>
-        <p className="text-sm text-foreground-soft mt-1">
-          {new Date().toLocaleDateString(locale === "en" ? "en-US" : "de-DE", {
-            weekday: "long",
-            day: "numeric",
-            month: "long",
-            year: "numeric",
-            timeZone: "Europe/Berlin",
-          })}
-        </p>
-      </div>
+      {showGreeting && <Greeting firstName={firstName} />}
 
       <div className="flex flex-col md:flex-row gap-4 mb-8 empty:hidden">
         <TourInvite />
-        <ToolsTourInvite />
         {languageInvite && <LanguageTrainerInvite />}
         <EvaluationInvite />
       </div>

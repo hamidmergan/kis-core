@@ -1,75 +1,89 @@
 import { describe, expect, it } from "vitest";
-import { pickHomeTarget, enabledToolKeys, sichtbareWerkzeuge } from "./modules";
+import { homeTargets, enabledToolKeys, sichtbareWerkzeuge } from "./modules";
 import { EMPTY_PERMS } from "./permissions";
 
 const mitAia = { ...EMPTY_PERMS, allow_aia: true };
 const mitTools = { ...EMPTY_PERMS, tools: ["tts", "translation"] };
+const AIA = { kind: "aia", href: "/workspace" };
 
-describe("pickHomeTarget", () => {
-  it("zeigt den Assistenten, wenn Modul und Recht da sind", () => {
-    expect(pickHomeTarget(["aia", "tools"], mitAia)).toEqual({ kind: "aia" });
+describe("homeTargets", () => {
+  it("liefert nur den Assistenten, wenn Modul und Recht da sind und kein Werkzeug", () => {
+    expect(homeTargets(["aia", "tools"], mitAia)).toEqual([AIA]);
   });
 
-  it("schickt ohne Assistenten-Modul auf das erste erlaubte Werkzeug", () => {
-    expect(pickHomeTarget(["tools"], mitTools)).toEqual({
-      kind: "tool",
-      href: "/tools/translate",
-    });
+  it("stellt den Assistenten vor die Werkzeuge", () => {
+    const perms = { ...EMPTY_PERMS, allow_aia: true, tools: ["tts", "translation"] };
+    expect(homeTargets(["aia", "tools"], perms)).toEqual([
+      AIA,
+      { kind: "tool", key: "translation", href: "/tools/translate" },
+      { kind: "tool", key: "tts", href: "/tools/tts" },
+    ]);
+  });
+
+  it("liefert ohne Assistenten-Modul nur die erlaubten Werkzeuge", () => {
+    expect(homeTargets(["tools"], mitTools)).toEqual([
+      { kind: "tool", key: "translation", href: "/tools/translate" },
+      { kind: "tool", key: "tts", href: "/tools/tts" },
+    ]);
   });
 
   it("haelt die Reihenfolge der Werkzeugliste ein, nicht die der Rechte", () => {
     const perms = { ...EMPTY_PERMS, tools: ["screencast", "tts"] };
-    expect(pickHomeTarget(["tools"], perms)).toEqual({
-      kind: "tool",
-      href: "/tools/tts",
-    });
+    expect(homeTargets(["tools"], perms).map((z) => z.href)).toEqual(["/tools/tts", "/tools/screencast"]);
   });
 
-  it("sperrt, wenn das Modul da ist aber das Recht fehlt", () => {
-    expect(pickHomeTarget(["aia", "tools"], EMPTY_PERMS)).toEqual({ kind: "locked" });
+  it("stellt das Glossar vor die mehrstufigen Werkzeuge", () => {
+    const perms = { ...EMPTY_PERMS, tools: ["podcast", "glossary", "screencast"] };
+    expect(homeTargets(["tools"], perms).map((z) => z.href)).toEqual([
+      "/tools/glossary",
+      "/tools/screencast",
+      "/tools/podcast",
+    ]);
   });
 
-  it("sperrt, wenn nur Werkzeuge da sind aber kein Werkzeug erlaubt ist", () => {
-    expect(pickHomeTarget(["tools"], EMPTY_PERMS)).toEqual({ kind: "locked" });
+  it("ist leer, wenn das Modul da ist aber das Recht fehlt", () => {
+    expect(homeTargets(["aia", "tools"], EMPTY_PERMS)).toEqual([]);
   });
 
-  it("nimmt den Assistenten, wenn beide Module und beide Rechte da sind", () => {
-    const perms = { ...EMPTY_PERMS, allow_aia: true, tools: ["tts"] };
-    expect(pickHomeTarget(["aia", "tools"], perms)).toEqual({ kind: "aia" });
+  it("ist leer, wenn nur Werkzeuge da sind aber kein Werkzeug erlaubt ist", () => {
+    expect(homeTargets(["tools"], EMPTY_PERMS)).toEqual([]);
   });
 
   it("faellt ohne Angabe auf beide Module zurueck", () => {
-    expect(pickHomeTarget(undefined, mitAia)).toEqual({ kind: "aia" });
+    expect(homeTargets(undefined, mitAia)).toEqual([AIA]);
   });
 
   it("ueberspringt ein global abgeschaltetes Werkzeug", () => {
     const perms = { ...EMPTY_PERMS, tools: ["translation", "tts"] };
-    expect(pickHomeTarget(["tools"], perms, ["tts"])).toEqual({
-      kind: "tool",
-      href: "/tools/tts",
-    });
+    expect(homeTargets(["tools"], perms, ["tts"])).toEqual([
+      { kind: "tool", key: "tts", href: "/tools/tts" },
+    ]);
   });
 
-  it("sperrt, wenn jedes erlaubte Werkzeug global abgeschaltet ist", () => {
+  it("ist leer, wenn jedes erlaubte Werkzeug global abgeschaltet ist", () => {
     const perms = { ...EMPTY_PERMS, tools: ["translation"] };
-    expect(pickHomeTarget(["tools"], perms, [])).toEqual({ kind: "locked" });
+    expect(homeTargets(["tools"], perms, [])).toEqual([]);
   });
 
   it("beruecksichtigt ohne Angabe der Freigaben alle erlaubten Werkzeuge", () => {
     const perms = { ...EMPTY_PERMS, tools: ["translation"] };
-    expect(pickHomeTarget(["tools"], perms)).toEqual({
-      kind: "tool",
-      href: "/tools/translate",
-    });
+    expect(homeTargets(["tools"], perms)).toEqual([
+      { kind: "tool", key: "translation", href: "/tools/translate" },
+    ]);
   });
 
-  it("sperrt bei leerer Modulliste statt auf beide Module zu fallen", () => {
-    expect(pickHomeTarget([], { ...EMPTY_PERMS, allow_aia: true })).toEqual({ kind: "locked" });
+  it("ist leer bei leerer Modulliste statt auf beide Module zu fallen", () => {
+    expect(homeTargets([], mitAia)).toEqual([]);
   });
 
-  it("sperrt in einer reinen Assistenten-Anlage ohne aia-Recht", () => {
-    const perms = { ...EMPTY_PERMS, tools: ["tts"] };
-    expect(pickHomeTarget(["aia"], perms)).toEqual({ kind: "locked" });
+  it("ignoriert Werkzeugrechte in einer reinen Assistenten-Anlage", () => {
+    const perms = { ...EMPTY_PERMS, allow_aia: true, tools: ["tts"] };
+    expect(homeTargets(["aia"], perms)).toEqual([AIA]);
+  });
+
+  it("ignoriert das Assistenten-Recht in einer reinen Werkzeug-Anlage", () => {
+    const perms = { ...EMPTY_PERMS, allow_aia: true, tools: ["tts"] };
+    expect(homeTargets(["tools"], perms)).toEqual([{ kind: "tool", key: "tts", href: "/tools/tts" }]);
   });
 });
 
@@ -109,12 +123,12 @@ describe("sichtbareWerkzeuge", () => {
     expect(sichtbareWerkzeuge(perms, schalter)).toEqual(["tts"]);
   });
 
-  it("haelt die Reihenfolge der Leiste ein, nicht die der Rechte", () => {
+  it("haelt die Reihenfolge der Uebersicht ein, nicht die der Rechte", () => {
     const perms = { ...EMPTY_PERMS, tools: ["glossary", "translation"] };
     expect(sichtbareWerkzeuge(perms, allesAn)).toEqual(["translation", "glossary"]);
   });
 
-  it("gibt ohne jedes Recht nichts zurueck, so wie die Leiste dann verschwindet", () => {
+  it("gibt ohne jedes Recht nichts zurueck", () => {
     expect(sichtbareWerkzeuge(EMPTY_PERMS, allesAn)).toEqual([]);
   });
 });

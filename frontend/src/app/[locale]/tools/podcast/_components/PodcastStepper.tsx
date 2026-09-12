@@ -6,11 +6,12 @@ import { STEPS, type Step } from "../_types";
 interface PodcastStepperProps {
   step: Step;
   canEnter: (index: number) => boolean;
+  isClosedForGood: (index: number) => boolean;
   onStepClick: (index: number) => void;
 }
 
 /** The same circles and lines as the screencast, only five of them and without the drag. */
-export default function PodcastStepper({ step, canEnter, onStepClick }: PodcastStepperProps) {
+export default function PodcastStepper({ step, canEnter, isClosedForGood, onStepClick }: PodcastStepperProps) {
   const t = useTranslations("tools.podcast.steps");
   const tStepper = useTranslations("stepper");
   const currentIdx = STEPS.indexOf(step);
@@ -22,6 +23,7 @@ export default function PodcastStepper({ step, canEnter, onStepClick }: PodcastS
           const isDone = i < currentIdx;
           const isActive = i === currentIdx;
           const isClickable = canEnter(i);
+          const istTot = !isActive && isClosedForGood(i);
           const Huelle = isClickable ? "button" : "span";
           return (
             <li key={key} data-active={isActive} className="flex items-center gap-1 sm:gap-2">
@@ -30,6 +32,7 @@ export default function PodcastStepper({ step, canEnter, onStepClick }: PodcastS
                 className={`
                   inline-flex items-center gap-1 sm:gap-1.5 rounded-sm px-1 py-0.5 transition-colors select-none
                   ${isClickable ? "group cursor-pointer" : "cursor-default"}
+                  ${istTot ? "opacity-50" : ""}
                 `}
               >
                 <span

@@ -8,7 +8,6 @@
     "admin": "Admin",
     "logout": "Abmelden",
     "jobs": "Jobs",
-    "tools": "Werkzeuge",
     "menuOpen": "Menü öffnen",
     "menuClose": "Menü schließen",
     "themeDark": "Dunkel",
@@ -18,12 +17,12 @@
     "settings": "Verwaltung",
     "stats": "Statistik",
     "calendar": "Kalender",
+    "tools": "Werkzeuge",
     "settingsMenu": "Einstellungen",
     "sectionAppearance": "Ansicht",
     "homeNoticeShow": "Startseite-Hinweis anzeigen",
     "languageLevel": "Sprachniveau",
     "tour": "Rundgang durchs Demo-Modul",
-    "toolsTour": "Rundgang durch die Werkzeuge",
     "evaluation": "Evaluation"
   },
   "footer": {
@@ -288,80 +287,60 @@
     "expiredTitle": "Dein Zugang ist abgelaufen",
     "expiredText": "Bei Interesse melde dich bei uns."
   },
-  "toolsTour": {
-    "inviteTitle": "Rundgang durch die Werkzeuge",
-    "inviteBody": "Ein kurzer Rundgang durch alle Werkzeuge.",
-    "inviteStart": "Starten",
-    "dismiss": "Ausblenden",
-    "next": "Weiter",
-    "back": "Zurück",
-    "done": "Fertig",
-    "progress": "Schritt {current} von {total}",
-    "seitenleiste": {
-      "title": "Deine Werkzeuge",
-      "text": "Hier findest du alle Werkzeuge, zum Beispiel für Übersetzungen oder Videos aus Folien. Das sind eigenständige Werkzeuge, du kannst jedes für sich direkt nutzen. Der Zugang zu den Werkzeugen ist für Lehrende gedacht."
+  "startOverview": {
+    "groups": {
+      "aia": "KI-Assistent",
+      "tools": "Werkzeuge"
     },
-    "translation": {
-      "title": "Übersetzung",
-      "text": "Du kannst Text direkt eintippen oder ein Dokument hochladen, beides wird übersetzt. Bei Dokumenten bleiben Aufbau und Formatierung erhalten, du bekommst dieselbe Datei zurück, nur in der neuen Sprache. Für deine Fachbegriffe kannst du hier eine eigene Liste auswählen, die legst du vorher im Werkzeug Glossar an."
+    "aia": {
+      "title": "KI-Assistent Francis",
+      "body": "Deine Module mit Materialien, Chat und Lernwerkzeugen. Der KI-Assistent antwortet nur aus den Unterlagen des jeweiligen Moduls."
     },
-    "interpreter": {
-      "title": "Dolmetscher",
-      "text": "Für Gespräche über zwei Sprachen hinweg, etwa in der Sprechstunde oder im Studierendensekretariat. Jede Person drückt auf Sprechen und redet in ihrer Sprache, die andere Seite liest die Übersetzung. Tippen geht auch, und ein falsch erkannter Satz lässt sich korrigieren. Am Ende bekommst du ein Protokoll in beiden Sprachen."
+    "tools": {
+      "translation": {
+        "title": "Übersetzung",
+        "body": "Texte und Dokumente in andere Sprachen übersetzen. Layout und Formatierung bleiben erhalten."
+      },
+      "interpreter": {
+        "title": "Dolmetscher",
+        "body": "Zwei Sprachen, ein Gespräch. Sprich oder tipp in dein Feld, daneben läuft die Übersetzung mit."
+      },
+      "tts": {
+        "title": "Text in Sprache",
+        "body": "Texte und Dokumente mit natürlich klingenden Stimmen vorlesen lassen."
+      },
+      "transcription": {
+        "title": "Sprache in Text",
+        "body": "Audio und Video transkribieren. Auch als Untertitel mit Zeitstempeln."
+      },
+      "image": {
+        "title": "Bildgenerierung",
+        "body": "Bilder erzeugen, bestehende Bilder anpassen oder beschreiben lassen."
+      },
+      "summary": {
+        "title": "Zusammenfassung",
+        "body": "Lange Dokumente, Audio- und Videoinhalte auf das Wesentliche bringen."
+      },
+      "glossary": {
+        "title": "Glossar",
+        "body": "Eigene Begriffslisten anlegen für konsistente Fachbegriffe in Übersetzungen."
+      },
+      "screencast": {
+        "title": "Screencast",
+        "body": "Aus PowerPoint-Folien ein vertontes Video erzeugen, wahlweise in einer anderen Sprache."
+      },
+      "podcast": {
+        "title": "Podcast",
+        "body": "Aus deinem Material wird ein Gespräch zum Anhören. Du wählst Inhalt und Besetzung, prüfst das Skript und lässt es vertonen."
+      }
     },
-    "tts": {
-      "title": "Text in Sprache",
-      "text": "Du kannst Text eintippen oder eine Datei hochladen, beides wird vorgelesen. Die Stimme suchst du dir aus. Am Ende bekommst du eine Audiodatei, die du dir direkt anhören oder herunterladen kannst. Bei langen Texten dauert die Vertonung entsprechend länger."
+    "coming": {
+      "slides": {
+        "title": "PowerPoint-Generierung",
+        "body": "Aus deinem Material werden Folien mit Sprechernotizen, fertig zum Nachbearbeiten."
+      }
     },
-    "transcription": {
-      "title": "Sprache in Text",
-      "text": "Aus Ton oder Video wird Text, zum Bearbeiten in einem Textfeld. Wählst du SRT oder VTT als Format, hat das Ergebnis schon Zeitmarken und ist direkt als Untertitel einsetzbar."
-    },
-    "image": {
-      "title": "Bildgenerierung",
-      "text": "Du kannst dir ein Bild aus deiner Beschreibung erzeugen lassen, ein vorhandenes Bild ändern oder dir sagen lassen, was darauf zu sehen ist."
-    },
-    "summary": {
-      "title": "Zusammenfassung",
-      "text": "Kürzt Textdateien und Office-Dateien wie Word oder PowerPoint. Auch Untertitel gehen, du kannst also erst eine Aufzeichnung in Text wandeln und das Ergebnis hier kürzen."
-    },
-    "screencast": {
-      "title": "Screencast",
-      "text": "Aus deinen Folien wird ein vertontes Video, wahlweise in einer anderen Sprache. Erst Folien hochladen. Dann das Skript wählen, du lässt es von der KI schreiben, tippst es selbst ein oder importierst es aus einer Datei. Danach liest und änderst du das Skript, zuletzt wählst du die Stimme. Das Vertonen dauert am längsten, du kannst die Seite dabei verlassen."
-    },
-    "podcast": {
-      "title": "Podcast",
-      "text": "Aus Text, Dateien oder den Quellen eines Moduls wird ein Gespräch zum Anhören, mit einer bis vier Stimmen. Du prüfst das Skript, bevor es vertont wird. Die Vertonung läuft im Hintergrund, und jeder fertige Beitrag bleibt gespeichert, auch wenn zwischendurch etwas schiefgeht."
-    },
-    "glossary": {
-      "title": "Glossar",
-      "text": "Hier legst du eigene Begriffslisten an, die kannst du dann in der Übersetzung und im Screencast auswählen, damit deine Fachbegriffe dort immer gleich heißen."
-    },
-    "auftraege": {
-      "title": "Deine Aufträge",
-      "text": "Alles, was länger dauert, läuft im Hintergrund weiter. Hier siehst du den Stand und holst die fertigen Dateien ab. Ein roter Punkt heißt, es ist etwas fertig geworden."
-    },
-    "abschluss": {
-      "title": "Los geht's",
-      "text": "Du kennst jetzt alle Werkzeuge. Probier sie einfach aus."
-    }
-  },
-  "toolsSidebar": {
-    "heading": "Werkzeuge",
-    "expand": "Werkzeugleiste ausklappen",
-    "collapse": "Werkzeugleiste einklappen",
-    "back": "Zurück",
-    "items": {
-      "translation": "Übersetzung",
-      "interpreter": "Dolmetscher",
-      "tts": "Text in Sprache",
-      "transcription": "Sprache in Text",
-      "image": "Bildgenerierung",
-      "summary": "Zusammenfassung",
-      "screencast": "Screencast",
-      "podcast": "Podcast",
-      "glossary": "Glossar"
-    }
+    "comingBadge": "Demnächst"
   },
   "common": {
     "unknownError": "Unbekannter Fehler. Bitte versuche es erneut.",
@@ -383,7 +362,8 @@
     "retry": "Wiederholen",
     "retryJobAria": "Job wiederholen",
     "add": "Hinzufügen",
-    "close": "Schließen"
+    "close": "Schließen",
+    "backToOverview": "Übersicht"
   },
   "tools": {
     "stt": {
@@ -416,7 +396,7 @@
     },
     "translate": {
       "title": "Übersetzung",
-      "intro": "Dokumente in andere Sprachen übersetzen. Layout und Formatierung bleiben erhalten.",
+      "intro": "Texte und Dokumente in andere Sprachen übersetzen. Layout und Formatierung bleiben erhalten.",
       "inputMode": {
         "text": "Text eingeben",
         "file": "Datei hochladen"
@@ -441,12 +421,7 @@
     "interpreter": {
       "title": "Dolmetscher",
       "intro": "Zwei Sprachen, ein Gespräch. Sprich oder tipp in dein Feld, daneben läuft die Übersetzung mit. Alles bleibt im Verlauf.",
-      "mode": {
-        "solo": "Eine Person",
-        "soloHint": "Du sprichst oder tippst, rechts läuft die Übersetzung mit.",
-        "conversation": "Zwei Personen",
-        "conversationHint": "Beide sprechen oder tippen im Wechsel, jede Seite in ihrer Sprache."
-      },
+      "hint": "Beide sprechen oder tippen im Wechsel, jede Seite in ihrer Sprache.",
       "languages": {
         "de": "Deutsch",
         "en": "Englisch",
@@ -478,12 +453,7 @@
         "protocol": "Protokoll",
         "saved": "Frühere Gespräche",
         "settings": "Einstellungen",
-        "endConversation": "Gespräch beenden",
-        "download": "Als Text speichern",
-        "clear": "Leeren"
-      },
-      "solo": {
-        "filename": "uebersetzung"
+        "endConversation": "Gespräch beenden"
       },
       "protocol": {
         "title": "Gesprächsprotokoll",

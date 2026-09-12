@@ -160,6 +160,10 @@
   --shadow:       0 1px 4px rgba(0,66,97,.10);
   --shadow-hover: 0 6px 20px rgba(0,66,97,.15);
 
+  /* Start page tiles: the brand blue mixed into white at 6% and 12%. */
+  --tile-bg:     #F0F4F6;
+  --tile-border: #E0E8EC;
+
   /* Citation: border of the chip, stroke and area of the marked paragraph. */
   --cite-border: var(--kb);
   --cite-bg:     rgba(0,66,97,0.16);
@@ -247,6 +251,10 @@
 
   --shadow:       0 1px 4px rgba(0,0,0,.4);
   --shadow-hover: 0 6px 20px rgba(0,0,0,.55);
+
+  /* Start page tiles: the mix would stay black here, so the card lifts off the background instead. */
+  --tile-bg:     #141519;
+  --tile-border: #23252B;
 
   /* Citation: the dark brand blue disappears on dark, hence the light tint. */
   --cite-border: #7BBDE5;
@@ -796,51 +804,6 @@ me-tpc:hover .mm-src-chip {
    citation above, and the border tone is too quiet. */
 :root[data-theme="dark"] .status-mark--brand { --status-bar: var(--kb-dark); }
 :root[data-theme="dark"] .status-mark--muted { --status-bar: var(--muted-soft); }
-
-/* Tools sidebar item: kb-tinted hover, consistent with the corporate design */
-.tools-sidebar-item__box {
-  background-color: var(--background);
-  border: 1px solid var(--border);
-  color: var(--kb);
-  transition: border-color 0.15s, box-shadow 0.15s;
-}
-.tools-sidebar-item:hover .tools-sidebar-item__box,
-.tools-sidebar-item.is-active .tools-sidebar-item__box {
-  border-color: var(--kb);
-  box-shadow: 0 0 0 1px var(--kb);
-}
-:root[data-theme="dark"] .tools-sidebar-item__box {
-  color: var(--muted) !important;
-}
-:root[data-theme="dark"] .tools-sidebar-item:hover .tools-sidebar-item__box,
-:root[data-theme="dark"] .tools-sidebar-item.is-active .tools-sidebar-item__box {
-  color: var(--kb) !important;
-}
-
-/* Tools tour: the sidebar's sticky wrapper has its own stacking context
-   (position: sticky always creates one), which traps it below driver.js's
-   overlay regardless of z-index on the icons inside. Lifting the wrapper
-   itself above the overlay keeps the whole icon rail, active tool included,
-   visible instead of dimmed on every station after the first. */
-body.driver-active [data-tour="tools-sidebar"] > .sticky {
-  z-index: 10001;
-}
-/* On a tool's station the rail stays readable but only that tool is in focus,
-   so the other six step back. The sidebar's own station is exempt, there the
-   whole rail is the subject. */
-body.driver-active [data-tour="tools-sidebar"]:not(.driver-active-element) .tools-sidebar-item:not(.is-active) {
-  opacity: 0.45;
-}
-/* The mark sits on the whole entry, lit like the icon box so icon and label read as one target. */
-body.driver-active [data-tour="tools-sidebar"]:not(.driver-active-element) .tools-sidebar-item.is-active {
-  background-color: var(--background);
-  box-shadow: 0 0 0 1px var(--kb);
-}
-/* One frame is enough, the icon box drops its own while the entry carries it. */
-body.driver-active [data-tour="tools-sidebar"]:not(.driver-active-element) .tools-sidebar-item.is-active .tools-sidebar-item__box {
-  border-color: var(--border);
-  box-shadow: none;
-}
 
 /* Dark mode: download links (jobs panel, my-jobs JobArtifacts) white instead of --kb, hover goes to --kb. */
 :root[data-theme="dark"] .download-link {

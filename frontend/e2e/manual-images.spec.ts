@@ -31,6 +31,7 @@ const STUDENT = {
 /** One picture per page that needs nothing but its address. */
 const PAGES: { name: string; path: string }[] = [
   { name: "start-page", path: "/" },
+  { name: "module-list", path: "/workspace" },
   { name: "tool-translation", path: "/tools/translate" },
   { name: "tool-text-to-speech", path: "/tools/tts" },
   { name: "tool-speech-to-text", path: "/tools/stt" },
@@ -58,7 +59,6 @@ const LABELS = {
     mindmapExpand: "Alle ausklappen",
     mindmapFull: "Vollbild",
     nextMonth: "Nächster Monat",
-    expandBar: "Tools-Sidebar ausklappen",
     allMoods: "Alle Stimmungen nebeneinander",
     showAllCitations: "Alle Belege einblenden",
     profileTakeTest: "Sprachtest starten",
@@ -80,7 +80,6 @@ const LABELS = {
     mindmapExpand: "Expand all",
     mindmapFull: "Fullscreen",
     nextMonth: "Next month",
-    expandBar: "Expand tools sidebar",
     allMoods: "All moods side by side",
     showAllCitations: "Show all citations",
     profileTakeTest: "Start the language test",
@@ -168,8 +167,8 @@ test.describe("Handbuch-Bilder", () => {
         await page.fill("#password", STUDENT.pass);
         await page.locator('button[type="submit"]').click();
         await page.waitForURL((url) => !url.pathname.includes("login"), { timeout: 30_000 });
-        // Die Anmeldung springt immer auf "/", die englische Fassung braucht ihre Adresse zurueck.
-        await page.goto(`${prefix(locale)}/`, { waitUntil: "domcontentloaded" });
+        // The login lands on "/", the student is sent on to the module list, the English version needs its address back.
+        await page.goto(`${prefix(locale)}/workspace`, { waitUntil: "domcontentloaded" });
         await settle(page);
 
         const karten = page.locator('[data-tour="tour-invite"]').locator("..");
@@ -225,23 +224,9 @@ test.describe("Handbuch-Bilder", () => {
       });
     }
 
-    test(`werkzeugleiste ${locale}`, async ({ page }) => {
-      await useLocale(page, locale);
-      await page.goto(`${prefix(locale)}/`, { waitUntil: "domcontentloaded" });
-      await settle(page);
-      // Unfolded, otherwise the picture is a column of icons without names.
-      const expand = page.getByRole("button", { name: LABELS[locale].expandBar });
-      if (await expand.count()) {
-        await expand.first().click();
-        await page.waitForTimeout(800);
-      }
-      // The bar alone, a whole page would drown it.
-      await page.locator("aside, nav").first().screenshot({ path: shot(locale, "tool-bar") });
-    });
-
     test(`modul-beitreten ${locale}`, async ({ page }) => {
       await useLocale(page, locale);
-      await page.goto(`${prefix(locale)}/`, { waitUntil: "domcontentloaded" });
+      await page.goto(`${prefix(locale)}/workspace`, { waitUntil: "domcontentloaded" });
       await settle(page);
       await page.getByTestId("join-open").click();
       await page.waitForTimeout(800);
@@ -250,7 +235,7 @@ test.describe("Handbuch-Bilder", () => {
 
     test(`modul-statistik ${locale}`, async ({ page }) => {
       await useLocale(page, locale);
-      await page.goto(`${prefix(locale)}/`, { waitUntil: "domcontentloaded" });
+      await page.goto(`${prefix(locale)}/workspace`, { waitUntil: "domcontentloaded" });
       await settle(page);
       await page.locator("tr", { hasText: OWNED_TITLE }).first()
         .getByTestId("workspace-stats").click();
@@ -262,7 +247,7 @@ test.describe("Handbuch-Bilder", () => {
 
     test(`modul-anlegen ${locale}`, async ({ page }) => {
       await useLocale(page, locale);
-      await page.goto(`${prefix(locale)}/`, { waitUntil: "domcontentloaded" });
+      await page.goto(`${prefix(locale)}/workspace`, { waitUntil: "domcontentloaded" });
       await settle(page);
       await page.locator('button:has-text("+")').last().click();
       await page.waitForTimeout(800);

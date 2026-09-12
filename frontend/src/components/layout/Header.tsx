@@ -4,7 +4,7 @@ import Link from "next/link";
 import LinkBusy from "@/components/ui/LinkBusy";
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { CalendarBlank } from "@phosphor-icons/react";
+import { CalendarBlank, Toolbox } from "@phosphor-icons/react";
 import { usePathname } from "@/i18n/navigation";
 import { checkAuthStatus, logout } from "@/lib/auth";
 import { api } from "@/lib/api";
@@ -17,14 +17,14 @@ import { useTourStart } from "@/app/[locale]/workspace/_components/useTourStart"
 interface HeaderProps {
   hasSession?: boolean;
   showLogout?: boolean;
-  showToolsToggle?: boolean;
 }
 
-export default function Header({ hasSession = true, showLogout = false, showToolsToggle = false }: HeaderProps) {
+export default function Header({ hasSession = true, showLogout = false }: HeaderProps) {
   const t = useTranslations("header");
   const pathname = usePathname();
   // The URL says where you are, the button in the header shows it.
   const onCalendar = pathname === "/calendar" || pathname.startsWith("/calendar/");
+  const onTools = pathname.startsWith("/tools/");
   const [isAdmin, setIsAdmin] = useState(false);
   const [canViewManual, setCanViewManual] = useState(false);
   // Admin only for whoever may do everything, everyone else goes to their settings.
@@ -41,8 +41,6 @@ export default function Header({ hasSession = true, showLogout = false, showTool
   const [evaluationActive, setEvaluationActive] = useState(false);
   // The tour lives in the demo course, the menu only offers it while one exists.
   const tour = useTourStart(showLogout && hasSession);
-  // The tools tour runs in the sidebar, which is the only place that survives the jumps between tool pages.
-  const starteWerkzeugRundgang = () => window.dispatchEvent(new Event("tools-tour:start"));
 
   useEffect(() => {
     if (!showLogout || !hasSession) return;
@@ -122,6 +120,20 @@ export default function Header({ hasSession = true, showLogout = false, showTool
         {showLogout && (
           <div className="flex items-center gap-1.5">
             <div className="hidden sm:flex items-center gap-1.5">
+              {hasSession && hasTools && (
+                <Link
+                  href="/"
+                  aria-label={t("tools")}
+                  title={t("tools")}
+                  aria-current={onTools ? "page" : undefined}
+                  className={`flex items-center justify-center h-9 px-3 gap-1.5 rounded-full btn-on-dark${onTools ? " is-active" : ""}`}
+                >
+                  <LinkBusy size="sm">
+                    <Toolbox size={17} weight="bold" />
+                  </LinkBusy>
+                  <span className="text-sm font-medium">{t("tools")}</span>
+                </Link>
+              )}
               {hasSession && hasAia && (
                 <Link
                   href="/calendar"
@@ -143,8 +155,6 @@ export default function Header({ hasSession = true, showLogout = false, showTool
                 showLanguageLevel={hasSession && mayLanguageLevel}
                 showTour={hasSession && hasAia && tour.available}
                 onStartTour={tour.start}
-                showToolsTour={hasSession && hasTools && showToolsToggle}
-                onStartToolsTour={starteWerkzeugRundgang}
                 showEvaluation={hasSession && evaluationActive}
                 areaKey={areaKey}
                 showLogout={hasSession && !isLocalMode}
@@ -160,14 +170,11 @@ export default function Header({ hasSession = true, showLogout = false, showTool
               showLanguageLevel={mayLanguageLevel}
               showTour={hasAia && tour.available}
               onStartTour={tour.start}
-              showToolsTour={hasTools && showToolsToggle}
-              onStartToolsTour={starteWerkzeugRundgang}
               showEvaluation={evaluationActive}
               areaKey={areaKey}
               hasTools={hasTools}
               hasAia={hasAia}
               isLocalMode={isLocalMode}
-              showToolsToggle={showToolsToggle}
               hasHomeNotice={hasHomeNotice}
               onLogout={handleLogout}
             />

@@ -1,8 +1,9 @@
-# Start page
+# Module list
 
-![The start page with your own modules](/manual/{lang}/start-page.png)
+![The module list with your own modules](/manual/{lang}/module-list.png)
 
-- **Left**: the tools
+- Reached through the **AI assistant Francis** tile on the start page. Anyone with nothing but the
+  assistant released lands here straight after signing in
 - **Top right**: calendar, jobs, gear (language, light/dark, documentation, sign out, plus
   statistics or administration if you have the right)
 

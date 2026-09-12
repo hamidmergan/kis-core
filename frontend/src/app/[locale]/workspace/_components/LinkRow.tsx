@@ -16,7 +16,7 @@ export default function LinkRow({ link, onRequestDelete }: LinkRowProps) {
   const t = useTranslations("workspace.list");
   const locale = useLocale();
   const [copied, setCopied] = useState<"link" | "code" | null>(null);
-  const enrollLink = `${typeof window !== "undefined" ? window.location.origin : ""}/?code=${link.code}`;
+  const enrollLink = `${typeof window !== "undefined" ? window.location.origin : ""}/workspace?code=${link.code}`;
   const expiresDate = link.expires_at
     ? new Date(link.expires_at).toLocaleDateString(locale === "en" ? "en-US" : "de-DE", {
         day: "2-digit",

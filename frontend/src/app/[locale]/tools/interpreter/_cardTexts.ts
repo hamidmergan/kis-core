@@ -5,7 +5,6 @@ import type { LangCode } from "./_types";
 export interface CardTexts {
   languages: Record<LangCode, string>;
   languageLabel: string;
-  translationLabel: string;
   rename: string;
   renameError: string;
   fieldAria: string;
@@ -21,7 +20,6 @@ export interface CardTexts {
   listening: string;
   live: string;
   listeningHint: string;
-  listeningHintSolo: string;
   noSound: string;
   waiting: (name: string) => string;
   ended: string;
@@ -39,7 +37,6 @@ export const CARD_TEXTS: Record<LangCode, CardTexts> = {
   DE: {
     languages: { DE: "Deutsch", "EN-US": "Englisch" },
     languageLabel: "Sprache",
-    translationLabel: "Übersetzung",
     rename: "Namen ändern",
     renameError: "Der Name konnte nicht gespeichert werden.",
     fieldAria: "Dein Text",
@@ -55,7 +52,6 @@ export const CARD_TEXTS: Record<LangCode, CardTexts> = {
     listening: "Hört zu",
     live: "Live-Übersetzung",
     listeningHint: "Auf Fertig drücken, oder die andere Seite drückt Sprechen",
-    listeningHintSolo: "Auf Fertig drücken, wenn du fertig bist",
     noSound: "Kein Ton. Sprich lauter oder prüf das Mikrofon.",
     waiting: (name) => `${name} spricht gerade. Sprechen übernimmt das Wort.`,
     ended: "Gespräch beendet.",
@@ -71,7 +67,6 @@ export const CARD_TEXTS: Record<LangCode, CardTexts> = {
   "EN-US": {
     languages: { DE: "German", "EN-US": "English" },
     languageLabel: "Language",
-    translationLabel: "Translation",
     rename: "Change name",
     renameError: "The name could not be saved.",
     fieldAria: "Your text",
@@ -87,7 +82,6 @@ export const CARD_TEXTS: Record<LangCode, CardTexts> = {
     listening: "Listening",
     live: "Live translation",
     listeningHint: "Press Done, or the other side presses Speak",
-    listeningHintSolo: "Press Done when you are finished",
     noSound: "No sound. Speak up or check the microphone.",
     waiting: (name) => `${name} is speaking. Speak takes over.`,
     ended: "Conversation ended.",

@@ -271,8 +271,8 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT FALSE")
             # Rundgang: haengt am Konto, nicht am Browser, sonst faengt jedes Geraet von vorn an.
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS tour_seen_at TIMESTAMP")
-            # Der Rundgang durch die Werkzeuge wird getrennt gemerkt, es sind zwei Einladungen.
-            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS tools_tour_seen_at TIMESTAMP")
+            # The tools tour is gone, the tile overview explains every tool itself.
+            cur.execute("ALTER TABLE users DROP COLUMN IF EXISTS tools_tour_seen_at")
             # The single mark per account is gone, aia_demo_seeded remembers per module.
             cur.execute("ALTER TABLE users DROP COLUMN IF EXISTS demo_seeded_at")
             # The five single marks are gone, only the final value stays.

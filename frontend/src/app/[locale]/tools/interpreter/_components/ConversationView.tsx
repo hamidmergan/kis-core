@@ -24,8 +24,6 @@ interface Props {
   notice: Notice | null;
   langs: Record<Side, LangCode>;
   names: Record<Side, string>;
-  /** One person: only the left card speaks, the right one shows the translation. */
-  solo: boolean;
   /** Languages and seats can only change while nothing was said. */
   allowSetup: boolean;
   onLanguage: (side: Side, code: LangCode) => void;
@@ -67,7 +65,6 @@ export default function ConversationView(p: Props) {
   }, [p.turns.length]);
   const hidden = showAll ? 0 : Math.max(0, history.length - HISTORY_LIMIT);
   const shown = hidden ? history.slice(0, HISTORY_LIMIT) : history;
-  const canSpeak = (side: Side) => !p.solo || side === "left";
 
   const stage = (side: Side): Stage => {
     const turn = (id: string | null) => (id ? p.turns.find((item) => item.id === id) : undefined);
@@ -90,11 +87,7 @@ export default function ConversationView(p: Props) {
         label={x.languageLabel}
         disabled={!p.allowSetup}
       />
-      {p.solo ? (
-        <span className="text-sm font-semibold text-foreground-soft truncate">{side === "right" ? x.translationLabel : ""}</span>
-      ) : (
-        <SpeakerName name={p.names[side]} onRename={(name) => p.onRename(side, name)} renameLabel={x.rename} errorText={x.renameError} />
-      )}
+      <SpeakerName name={p.names[side]} onRename={(name) => p.onRename(side, name)} renameLabel={x.rename} errorText={x.renameError} />
     </div>
   );
 
@@ -104,14 +97,14 @@ export default function ConversationView(p: Props) {
       return <StatusMark tone="brand" pulse className="text-xs">{x.live}</StatusMark>;
     }
     // The translation card names whose sentence it carries, the own card already says so in its head.
-    if (st.kind === "other" && !p.solo) return <span className="text-xs text-muted-soft">{p.names[st.turn.side]}</span>;
+    if (st.kind === "other") return <span className="text-xs text-muted-soft">{p.names[st.turn.side]}</span>;
     return null;
   };
 
   const status = (side: Side, st: Stage, x: CardTexts): ReactNode => {
     if (p.recording === side) {
       if (p.quiet) return <span className="text-warn">{x.noSound}</span>;
-      return p.solo ? x.listeningHintSolo : x.listeningHint;
+      return x.listeningHint;
     }
     if (p.recording) return x.waiting(p.names[p.recording]);
     if (p.ended) return x.ended;
@@ -125,7 +118,7 @@ export default function ConversationView(p: Props) {
       return st.turn.original.trim() ? x.editHint : x.idle;
     }
     if (st.kind === "other" && st.turn.status === "failed") return <span className="text-error">{x.failed}</span>;
-    return canSpeak(side) ? x.idle : null;
+    return x.idle;
   };
 
   const copy = (side: Side, text: string) => {
@@ -149,7 +142,7 @@ export default function ConversationView(p: Props) {
           id={`interpreter-field-${side}`}
           value={st.turn.translation}
           readOnly
-          onFocus={() => { if (canSpeak(side) && !p.ended) p.onBegin(side); }}
+          onFocus={() => { if (!p.ended) p.onBegin(side); }}
           placeholder={st.turn.original.trim() ? "…" : x.translationHere}
           aria-label={x.translationAria}
           aria-live="polite"
@@ -158,7 +151,7 @@ export default function ConversationView(p: Props) {
         />
       );
     }
-    const writable = canSpeak(side) && !p.ended && (st.kind === "blank" || st.turn.status !== "transcribing");
+    const writable = !p.ended && (st.kind === "blank" || st.turn.status !== "transcribing");
     return (
       <textarea
         id={`interpreter-field-${side}`}
@@ -172,8 +165,8 @@ export default function ConversationView(p: Props) {
         }}
         onBlur={() => p.onTranslate(side)}
         readOnly={!writable}
-        placeholder={canSpeak(side) ? x.empty : x.translationHere}
-        aria-label={canSpeak(side) ? x.fieldAria : x.translationAria}
+        placeholder={x.empty}
+        aria-label={x.fieldAria}
         spellCheck={false}
         className={`${FIELD} ${writable ? EDITABLE : READ_ONLY}`}
       />
@@ -200,10 +193,8 @@ export default function ConversationView(p: Props) {
           {mark(side, st, x)}
           {field(side, st, x)}
           <div className="flex items-center gap-3 min-h-[3rem]">
-            {canSpeak(side) && (
-              <MicButton recording={p.recording === side} disabled={p.ended} onClick={() => p.onMic(side)} startLabel={x.speak} stopLabel={x.stop} />
-            )}
-            {canSpeak(side) && st.kind === "own" && st.turn.status === "pending" && (
+            <MicButton recording={p.recording === side} disabled={p.ended} onClick={() => p.onMic(side)} startLabel={x.speak} stopLabel={x.stop} />
+            {st.kind === "own" && st.turn.status === "pending" && (
               <button type="button" onClick={() => p.onTranslate(side)} className="px-3 py-1.5 text-sm btn-primary rounded-md">
                 {x.translate}
               </button>
@@ -249,7 +240,7 @@ export default function ConversationView(p: Props) {
                   <div className="max-w-[72%] min-w-0">
                     <p className={`mb-1 flex gap-2 text-xs text-muted-soft ${right ? "justify-end" : ""}`}>
                       {right && <span>{p.formatTime(turn.at)}</span>}
-                      {!p.solo && <span className="font-semibold" style={{ color: NAME_COLOR[turn.side] }}>{p.names[turn.side]}</span>}
+                      <span className="font-semibold" style={{ color: NAME_COLOR[turn.side] }}>{p.names[turn.side]}</span>
                       {!right && <span>{p.formatTime(turn.at)}</span>}
                     </p>
                     <div className={`rounded-2xl px-4 py-2.5 text-sm ${right ? "rounded-br-sm" : "rounded-bl-sm"}`} style={{ backgroundColor: CARD_TINT[turn.side] }}>

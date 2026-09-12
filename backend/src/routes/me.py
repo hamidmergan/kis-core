@@ -71,7 +71,6 @@ async def get_me(
         "role": row["role"],
         "locale": row.get("locale", "de"),
         "tour_seen_at": row["tour_seen_at"].isoformat() if row.get("tour_seen_at") else None,
-        "tools_tour_seen_at": row["tools_tour_seen_at"].isoformat() if row.get("tools_tour_seen_at") else None,
         **_language_level_state(user_id),
         **_language_training_state(user_id),
     }
@@ -88,20 +87,6 @@ async def update_tour_seen(
     if not user_id:
         raise HTTPException(status_code=401, detail=t("auth.notAuthenticated", locale))
     db.set_user_tour_seen(user_id, payload.seen)
-    return {"seen": payload.seen}
-
-
-@router.post("/tools-tour-seen")
-async def update_tools_tour_seen(
-    payload: TourSeenUpdate,
-    user: dict = Depends(get_current_user),
-    locale: str = Depends(get_locale),
-):
-    """The same for the tour through the tools, which carries its own invitation."""
-    user_id = user.get("user_id")
-    if not user_id:
-        raise HTTPException(status_code=401, detail=t("auth.notAuthenticated", locale))
-    db.set_user_tools_tour_seen(user_id, payload.seen)
     return {"seen": payload.seen}
 
 

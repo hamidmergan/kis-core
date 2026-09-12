@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { BookOpen, PencilSimple, Trash, DownloadSimple } from "@phosphor-icons/react";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import ToolBackLink from "@/components/ui/ToolBackLink";
 import { useGlossaries, MAX_GLOSSARIES, MAX_ENTRIES_PER_GLOSSARY } from "@/hooks/useGlossaries";
 import { EmptyState } from "@/components/ui/EmptyState";
 
@@ -151,6 +152,7 @@ export default function GlossaryPage() {
   return (
     <ProtectedRoute>
       <div className="max-w-4xl mx-auto px-4 py-8">
+        <ToolBackLink />
         <section data-tour="tool-glossary">
           <div className="flex items-center justify-between mb-1">
             <h2 className="text-xl font-bold">{t("title")}</h2>

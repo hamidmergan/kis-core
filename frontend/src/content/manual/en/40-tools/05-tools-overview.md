@@ -1,29 +1,24 @@
 # The tools at a glance
 
-The bar on the left of the start page leads to seven tools. They work independently of the
-modules: you upload a file, get a result and download it.
+The start page shows every tool as a tile with one sentence on what it does. A click on the tile
+opens it. The tools work independently of the modules: you upload a file, get a result and
+download it.
 
-![The tool bar on the left](/manual/{lang}/tool-bar.png)
+![The start page with the tiles](/manual/{lang}/start-page.png)
 
 - **Translation** translates documents and keeps the layout
+- **Interpreter** translates a conversation between two languages as it happens
 - **Text to speech** reads texts and documents aloud
 - **Speech to text** writes audio and video down
-- **Summary** shortens long content
 - **Image generation** creates, changes and describes pictures
-- **Screencast** turns slides into a narrated video
+- **Summary** shortens long content
 - **Glossary** keeps term lists for translation
+- **Screencast** turns slides into a narrated video
+- **Podcast** turns material into a conversation to listen to
 
-## Tour through the tools
-
-The tour opens every tool itself and says on the spot what it takes and where the result ends up.
-The name in the bar does not tell you that.
-
-- On a first visit the invitation sits as a card on the start page, afterwards you start it any
-  time through the gear icon in the top right
-- It only walks through the tools released for you and ends at the jobs entry
-- Broken off halfway the card on the start page stays, only the last stop or **Hide** takes it away
-- Only teaching staff get to see it, because students have no tools. The other way round, the
-  language trainer card is reserved for students
+Anyone with a single destination only, such as students with just the AI assistant, lands there
+directly and never sees the tile page. The KIS logo in the top left always leads back to the
+start page.
 
 ## What applies to all of them
 

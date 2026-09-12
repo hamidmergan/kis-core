@@ -1,7 +1,5 @@
 export type Side = "left" | "right";
 export type LangCode = "DE" | "EN-US";
-/** One person with the translation beside them, or two people taking turns. */
-export type Mode = "solo" | "conversation";
 /** Pending: typed and not sent for translation yet. */
 export type TurnStatus = "transcribing" | "pending" | "translating" | "done" | "failed";
 

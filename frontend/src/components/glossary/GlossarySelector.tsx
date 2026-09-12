@@ -32,7 +32,7 @@ export default function GlossarySelector({ values, onChange }: Props) {
 
   if (glossaries.length === 0) {
     return (
-      <div className="mb-4">
+      <div className="mb-4 mt-6">
         <p className="text-sm text-muted-soft">
           {t("noneCreated")}{" "}
           <Link href="/tools/glossary" className="text-kb hover:underline">

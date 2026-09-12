@@ -2,7 +2,7 @@ import type { UserPermissions } from "@/types";
 
 export const ALL_MODULES = ["aia", "tools"] as const;
 
-/** Reihenfolge der Werkzeuge, geteilt mit der Seitenleiste. */
+/** Order of the tools on the start page: single-step tools first, the multi-step ones last. */
 export const TOOL_ROUTES = [
   { key: "translation", href: "/tools/translate" },
   { key: "interpreter", href: "/tools/interpreter" },
@@ -10,36 +10,36 @@ export const TOOL_ROUTES = [
   { key: "transcription", href: "/tools/stt" },
   { key: "image", href: "/tools/image" },
   { key: "summary", href: "/tools/summarize" },
+  { key: "glossary", href: "/tools/glossary" },
   { key: "screencast", href: "/tools/screencast" },
   { key: "podcast", href: "/tools/podcast" },
-  { key: "glossary", href: "/tools/glossary" },
 ] as const;
 
 export type ToolKey = (typeof TOOL_ROUTES)[number]["key"];
 
 export type HomeTarget =
-  | { kind: "aia" }
-  | { kind: "tool"; href: string }
-  | { kind: "locked" };
+  | { kind: "aia"; href: "/workspace" }
+  | { kind: "tool"; key: ToolKey; href: string };
 
-/** Wohin die Startseite fuehrt, abhaengig vom Profil, den Rechten und den global freigegebenen Werkzeugen. */
-export function pickHomeTarget(
+/** Everything the start page may offer, the assistant first. One target means a straight redirect, more means tiles. */
+export function homeTargets(
   modules: readonly string[] | undefined,
   permissions: UserPermissions,
   enabledKeys?: readonly string[],
-): HomeTarget {
+): HomeTarget[] {
   const aktiv = modules ?? ALL_MODULES;
-  if (aktiv.includes("aia") && permissions.allow_aia) return { kind: "aia" };
+  const ziele: HomeTarget[] = [];
+  if (aktiv.includes("aia") && permissions.allow_aia) ziele.push({ kind: "aia", href: "/workspace" });
   if (aktiv.includes("tools")) {
-    const ersteres = TOOL_ROUTES.find(
-      (t) => permissions.tools.includes(t.key) && (enabledKeys === undefined || enabledKeys.includes(t.key)),
-    );
-    if (ersteres) return { kind: "tool", href: ersteres.href };
+    const frei = (key: string) => enabledKeys === undefined || enabledKeys.includes(key);
+    for (const key of sichtbareWerkzeuge(permissions, frei)) {
+      ziele.push({ kind: "tool", key, href: TOOL_ROUTES.find((t) => t.key === key)!.href });
+    }
   }
-  return { kind: "locked" };
+  return ziele;
 }
 
-/** Ohne belastbare Antwort gilt jedes Werkzeug als frei, genau wie in der Seitenleiste. */
+/** Without a reliable answer every tool counts as released. */
 export function enabledToolKeys(
   tools: { key: string; enabled: boolean }[] | null,
 ): string[] | undefined {
@@ -47,7 +47,7 @@ export function enabledToolKeys(
   return tools.filter((t) => t.enabled).map((t) => t.key);
 }
 
-/** The tools somebody actually sees, in the order of the sidebar, so list and tour never disagree. */
+/** The tools somebody actually sees, in the order of the start page. */
 export function sichtbareWerkzeuge(
   permissions: UserPermissions,
   isToolEnabled: (key: string) => boolean,

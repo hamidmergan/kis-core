@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import ToolBackLink from "@/components/ui/ToolBackLink";
 import TtsFileUpload from "@/components/jobs/TtsFileUpload";
 import TtsTextInput from "@/components/jobs/TtsTextInput";
 import TtsStatus from "@/components/jobs/TtsStatus";
@@ -209,6 +210,7 @@ export default function TtsPage() {
   return (
     <ProtectedRoute>
       <div className="max-w-4xl mx-auto px-4 py-8">
+        <ToolBackLink />
         <section data-tour="tool-tts">
           <h1 className="text-xl font-bold mb-1">{t("title")}</h1>
           <p className="text-sm text-muted mb-6">
