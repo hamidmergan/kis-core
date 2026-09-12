@@ -135,7 +135,8 @@
       "resumeScreencast": "Screencast fortsetzen",
       "openScreencast": "Screencast öffnen",
       "downloadAllZip": "Alles herunterladen (ZIP)",
-      "fallbackFile": "Datei"
+      "fallbackFile": "Datei",
+      "openPodcast": "Podcast öffnen"
     },
     "duration": {
       "seconds": "{n} Sek.",
@@ -1027,7 +1028,8 @@
           "casual": "Locker",
           "interview": "Interview"
         },
-        "next": "Skript schreiben lassen"
+        "next": "Skript schreiben lassen",
+        "noVoices": "Es ist keine Stimme eingerichtet. Ohne Stimme kann nichts vertont werden."
       },
       "script": {
         "generating": "Das Skript wird geschrieben",
@@ -1062,7 +1064,10 @@
         "failedBody": "Der Anbieter hat nicht geantwortet. {done, plural, =1 {Ein Beitrag ist fertig und bleibt} other {# Beiträge sind fertig und bleiben}} erhalten.",
         "resume": "Ab Beitrag {n} fortsetzen",
         "backToScript": "Zurück zum Skript",
-        "cancelled": "Abgebrochen. Was schon vertont war, bleibt erhalten."
+        "cancelled": "Abgebrochen. Was schon vertont war, bleibt erhalten.",
+        "assembling": "Die Beiträge werden zusammengesetzt",
+        "failedGeneric": "Die Vertonung ist fehlgeschlagen",
+        "resumeGeneric": "Vertonung fortsetzen"
       },
       "done": {
         "heading": "Dein Podcast ist fertig",

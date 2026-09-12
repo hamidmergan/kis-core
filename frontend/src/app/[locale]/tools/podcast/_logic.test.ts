@@ -1,129 +1,115 @@
 import { describe, expect, it } from "vitest";
-import { FAIL_AT, hasContent, linesToVoice, nextTick, reachable, rephrase } from "./_logic";
+import { failedLineIndex, hasContent, isBusy, linesToVoice, minutesOf, needsVoice, reachable, wordsOf } from "./_logic";
 import { INITIAL_STATE, reducer } from "./_reducer";
-import { sampleScript } from "./_samples";
-import type { Line, Person, Run } from "./_types";
+import type { Line, PodcastState } from "./_types";
 
-const line = (i: number, voiced = false): Line => ({ id: `l${i}`, speaker: i % 2, text: `Satz ${i}.`, audioOf: voiced ? `Satz ${i}.` : null });
-const run = (over: Partial<Run> = {}): Run => ({ status: "running", failedId: null, failedOnce: false, voicedThisRun: 0, keptIds: [], cancelled: false, ...over });
-const persons = (roles: Person["role"][]): Person[] => roles.map((role, i) => ({ name: `P${i + 1}`, role, voiceId: "" }));
+const line = (n: number, text = `Satz ${n}.`): Line => ({ id: `b${n}`, speaker: n % 2, text });
+const state = (over: Partial<PodcastState> = {}): PodcastState => ({ ...INITIAL_STATE, ...over });
 
-describe("Welche Beiträge vertont werden", () => {
-  it("nimmt nur die ohne Ton oder mit geändertem Text", () => {
-    const lines = [line(0, true), { ...line(1, true), text: "Neu." }, line(2)];
-    expect(linesToVoice(lines).map((l) => l.id)).toEqual(["l1", "l2"]);
+describe("Welche Beiträge noch vertont werden müssen", () => {
+  it("nimmt die, für die der Server keinen Ton meldet", () => {
+    const lines = [line(0), line(1), line(2)];
+    expect(linesToVoice(lines, ["b0", "b2"]).map((l) => l.id)).toEqual(["b1"]);
+    expect(needsVoice(lines[0], ["b0"])).toBe(false);
   });
 
-  it("vertont der Reihe nach, einen Beitrag je Tick", () => {
-    const tick = nextTick([line(0), line(1)], run());
-    expect(tick.kind).toBe("voiced");
-    if (tick.kind === "voiced") expect(tick.lines.map((l) => l.audioOf)).toEqual(["Satz 0.", null]);
-  });
-
-  it("fällt im ersten Lauf genau einmal hin und behält das Fertige", () => {
-    let lines = Array.from({ length: 10 }, (_, i) => line(i));
-    let r = run();
-    for (let i = 0; i < FAIL_AT; i++) {
-      const tick = nextTick(lines, r);
-      if (tick.kind === "voiced") lines = tick.lines;
-      r = { ...r, voicedThisRun: r.voicedThisRun + 1 };
-    }
-    const fail = nextTick(lines, r);
-    expect(fail).toEqual({ kind: "fail", id: "l4" });
-    expect(linesToVoice(lines)).toHaveLength(10 - FAIL_AT);
-    const resumed = nextTick(lines, { ...r, failedOnce: true });
-    expect(resumed.kind).toBe("voiced");
-  });
-
-  it("meldet fertig, wenn nichts mehr offen ist", () => {
-    expect(nextTick([line(0, true)], run())).toEqual({ kind: "done" });
+  it("zählt beim ersten Lauf alle", () => {
+    expect(linesToVoice([line(0), line(1)], [])).toHaveLength(2);
   });
 });
 
-describe("Der Ablauf im Reducer", () => {
-  it("merkt sich beim Start, was schon Ton hatte, und meldet den Fehler mit Beitrag", () => {
-    const lines = [line(0, true), ...Array.from({ length: 8 }, (_, i) => line(i + 1))];
-    let state = reducer({ ...INITIAL_STATE, lines, step: "script", maxReached: 2 }, { type: "START_VOICING" });
-    expect(state.run.keptIds).toEqual(["l0"]);
-    for (let i = 0; i < FAIL_AT + 1; i++) state = reducer(state, { type: "TICK" });
-    expect(state.run.status).toBe("failed");
-    expect(state.run.failedId).toBe("l5");
-    state = reducer(state, { type: "RESUME" });
-    for (let i = 0; i < 10; i++) state = reducer(state, { type: "TICK" });
-    expect(state.run.status).toBe("done");
-    expect(state.step).toBe("done");
-    expect(linesToVoice(state.lines)).toHaveLength(0);
+describe("Eine Änderung am Beitrag", () => {
+  it("nimmt genau diesem Beitrag den Ton, den anderen nicht", () => {
+    const vorher = state({ lines: [line(0), line(1)], voicedIds: ["b0", "b1"] });
+    const nachher = reducer(vorher, { type: "UPDATE_LINE", id: "b1", text: "Anders." });
+    expect(nachher.voicedIds).toEqual(["b0"]);
+    expect(linesToVoice(nachher.lines, nachher.voicedIds).map((l) => l.id)).toEqual(["b1"]);
   });
 
-  it("vertont nach einer Änderung nur den geänderten Beitrag", () => {
-    const lines = [line(0, true), line(1, true), line(2, true)];
-    let state = reducer({ ...INITIAL_STATE, lines, step: "done", maxReached: 4, run: run({ status: "done", failedOnce: true }) }, { type: "UPDATE_LINE", id: "l1", text: "Anders." });
-    expect(linesToVoice(state.lines).map((l) => l.id)).toEqual(["l1"]);
-    state = reducer(state, { type: "START_VOICING" });
-    expect(state.run.keptIds).toEqual(["l0", "l2"]);
-    state = reducer(state, { type: "TICK" });
-    state = reducer(state, { type: "TICK" });
-    expect(state.run.status).toBe("done");
+  it("räumt beim Löschen auch den Ton weg", () => {
+    const nachher = reducer(state({ lines: [line(0), line(1)], voicedIds: ["b0", "b1"] }),
+                            { type: "DELETE_LINE", id: "b0" });
+    expect(nachher.lines.map((l) => l.id)).toEqual(["b1"]);
+    expect(nachher.voicedIds).toEqual(["b1"]);
   });
 
-  it("lässt beim Abbruch das Vertonte stehen", () => {
-    let state = reducer({ ...INITIAL_STATE, lines: [line(0, true), line(1)], step: "script", maxReached: 2 }, { type: "START_VOICING" });
-    state = reducer(state, { type: "CANCEL" });
-    expect(state.step).toBe("script");
-    expect(state.run.cancelled).toBe(true);
-    expect(state.lines[0].audioOf).toBe("Satz 0.");
+  it("hängt einen neuen Beitrag ohne Ton an und wechselt die Person", () => {
+    const nachher = reducer(state({ lines: [line(0)], count: 2, voicedIds: ["b0"] }), { type: "ADD_LINE" });
+    expect(nachher.lines).toHaveLength(2);
+    expect(nachher.lines[1].speaker).toBe(1);
+    expect(needsVoice(nachher.lines[1], nachher.voicedIds)).toBe(true);
+  });
+});
+
+describe("Der Auftrag treibt den Ablauf", () => {
+  it("räumt beim Start das alte Skript weg und geht zum Skript-Schritt", () => {
+    const nachher = reducer(state({ lines: [line(0)], voicedIds: ["b0"], error: "alt" }), { type: "STARTING" });
+    expect(nachher.step).toBe("script");
+    expect(nachher.lines).toEqual([]);
+    expect(nachher.voicedIds).toEqual([]);
+    expect(nachher.error).toBe("");
+    expect(isBusy(nachher)).toBe(true);
+  });
+
+  it("springt bei Erfolg auf Fertig", () => {
+    const nachher = reducer(state({ step: "voicing", jobUuid: "x" }),
+                            { type: "JOB", status: "success", progress: { step: "done" } });
+    expect(nachher.step).toBe("done");
+  });
+
+  it("bleibt beim Fehler stehen und merkt sich die Meldung", () => {
+    const nachher = reducer(state({ step: "voicing" }), { type: "FAIL", error: "Beitrag 5 ging nicht" });
+    expect(nachher.step).toBe("voicing");
+    expect(nachher.jobStatus).toBe("failed");
+    expect(failedLineIndex(nachher.error)).toBe(4);
+  });
+
+  it("liest aus einer Meldung ohne Zahl keinen Beitrag", () => {
+    expect(failedLineIndex("Die Vertonung ist fehlgeschlagen.")).toBe(-1);
   });
 });
 
 describe("Was in der Fortschrittsleiste anklickbar ist", () => {
-  it("sperrt Vertonung und Fertig, bis es sie gibt", () => {
-    const state = { ...INITIAL_STATE, step: "script" as const, maxReached: 2 };
-    expect(reachable(0, state)).toBe(true);
-    expect(reachable(3, state)).toBe(false);
-    expect(reachable(4, state)).toBe(false);
+  it("sperrt alles, solange der Auftrag arbeitet", () => {
+    const laufend = state({ step: "voicing", maxReached: 3, jobStatus: "running", jobUuid: "x" });
+    expect(reachable(2, laufend)).toBe(false);
   });
 
-  it("sperrt alles, solange die Vertonung läuft", () => {
-    const state = { ...INITIAL_STATE, step: "voicing" as const, maxReached: 3, run: run() };
-    expect(reachable(2, state)).toBe(false);
+  it("schließt Inhalt und Besetzung, sobald ein Auftrag läuft", () => {
+    const mitAuftrag = state({ step: "script", maxReached: 2, jobUuid: "x", jobStatus: "awaiting_user" });
+    expect(reachable(0, mitAuftrag)).toBe(false);
+    expect(reachable(1, mitAuftrag)).toBe(false);
+    const ohne = state({ step: "cast", maxReached: 1 });
+    expect(reachable(0, ohne)).toBe(true);
   });
 
-  it("öffnet Fertig erst nach dem Lauf, das Skript aber nach einem Fehler", () => {
-    const failed = { ...INITIAL_STATE, step: "voicing" as const, maxReached: 3, run: run({ status: "failed" }) };
-    expect(reachable(2, failed)).toBe(true);
-    expect(reachable(4, failed)).toBe(false);
-    const done = { ...failed, step: "script" as const, maxReached: 4, run: run({ status: "done" }) };
-    expect(reachable(4, done)).toBe(true);
-  });
-});
-
-describe("Das Beispielskript", () => {
-  it("verteilt die Beiträge nach Rollen und setzt die Namen ein", () => {
-    const lines = sampleScript("de", persons(["host", "expert"]));
-    expect(new Set(lines.map((l) => l.speaker))).toEqual(new Set([0, 1]));
-    expect(lines[0].text).toContain("P2");
+  it("öffnet Fertig erst nach dem Lauf und die Vertonung erst mit Ton", () => {
+    const offen = state({ step: "script", maxReached: 2, jobUuid: "x", jobStatus: "awaiting_user" });
+    expect(reachable(3, offen)).toBe(false);
+    expect(reachable(4, offen)).toBe(false);
+    const fertig = state({ step: "script", maxReached: 4, jobUuid: "x", jobStatus: "success",
+                           progress: { fertig: [0, 1] } });
+    expect(reachable(3, fertig)).toBe(true);
+    expect(reachable(4, fertig)).toBe(true);
   });
 
-  it("lässt bei einer Person einen Vortrag entstehen", () => {
-    const lines = sampleScript("de", persons(["host"]));
-    expect(lines.every((l) => l.speaker === 0)).toBe(true);
-  });
-
-  it("nimmt bei vier Personen alle vier Rollen mit", () => {
-    const lines = sampleScript("en", persons(["host", "expert", "student", "critic"]));
-    expect(new Set(lines.map((l) => l.speaker)).size).toBe(4);
+  it("lässt nach einem Fehler zurück in die Vertonung", () => {
+    const kaputt = state({ step: "script", maxReached: 3, jobUuid: "x", jobStatus: "failed" });
+    expect(reachable(3, kaputt)).toBe(true);
   });
 });
 
 describe("Kleine Helfer", () => {
-  it("stellt beim Umformulieren den letzten Satz nach vorn", () => {
-    expect(rephrase("Eins. Zwei. Drei.")).toBe("Drei. Eins. Zwei.");
-    expect(rephrase("Nur einer.")).toBe("Nur einer.");
-  });
-
   it("kennt Inhalt je nach Quelle", () => {
     expect(hasContent({ mode: "text", text: "  ", files: [], moduleId: "", sourceIds: [] })).toBe(false);
-    expect(hasContent({ mode: "files", text: "", files: ["a.pdf"], moduleId: "", sourceIds: [] })).toBe(true);
-    expect(hasContent({ mode: "module", text: "", files: [], moduleId: "et1", sourceIds: [] })).toBe(false);
+    expect(hasContent({ mode: "text", text: "Etwas", files: [], moduleId: "", sourceIds: [] })).toBe(true);
+    expect(hasContent({ mode: "module", text: "", files: [], moduleId: "m1", sourceIds: [] })).toBe(false);
+    expect(hasContent({ mode: "module", text: "", files: [], moduleId: "m1", sourceIds: ["s1"] })).toBe(true);
+  });
+
+  it("schätzt die Länge aus den Wörtern, mindestens eine Minute", () => {
+    expect(wordsOf([line(0, "eins zwei drei")])).toBe(3);
+    expect(minutesOf([line(0, "eins zwei drei")])).toBe(1);
+    expect(minutesOf([line(0, Array(700).fill("wort").join(" "))])).toBe(5);
   });
 });

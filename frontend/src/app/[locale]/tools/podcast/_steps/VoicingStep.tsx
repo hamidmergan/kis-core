@@ -4,8 +4,8 @@ import { useTranslations } from "next-intl";
 import { Info } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 import BeitragVorschau from "../_components/BeitragVorschau";
-import { linesToVoice, needsVoice } from "../_logic";
-import type { Line, Person, Run } from "../_types";
+import { failedLineIndex, linesToVoice, needsVoice } from "../_logic";
+import type { JobProgress, JobStatus, Line, Person } from "../_types";
 
 const cancelIcon = (
   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -14,27 +14,34 @@ const cancelIcon = (
 );
 
 interface VoicingStepProps {
+  jobUuid: string | null;
   lines: Line[];
   persons: Person[];
-  run: Run;
+  voicedIds: string[];
+  jobStatus: JobStatus;
+  progress: JobProgress | null;
+  error: string;
   onResume: () => void;
   onCancel: () => void;
   onBackToScript: () => void;
   onUpdate: (id: string, text: string) => void;
-  onVoice: () => void;
   onWeiter: () => void;
 }
 
-export default function VoicingStep({ lines, persons, run, onResume, onCancel, onBackToScript, onUpdate, onVoice, onWeiter }: VoicingStepProps) {
+export default function VoicingStep(props: VoicingStepProps) {
+  const { jobUuid, lines, persons, voicedIds, jobStatus, progress, error,
+          onResume, onCancel, onBackToScript, onUpdate, onWeiter } = props;
   const t = useTranslations("tools.podcast.voicing");
   const tv = useTranslations("tools.podcast.vorschau");
   const tScript = useTranslations("tools.podcast.script");
   const tCommon = useTranslations("tools.podcast.common");
-  const done = lines.filter((l) => !needsVoice(l)).length;
-  const failedIndex = lines.findIndex((l) => l.id === run.failedId);
-  // The run is over, the page only serves for listening again and changing single lines.
-  const rueckblick = run.status === "done";
-  const toVoice = linesToVoice(lines).length;
+
+  const running = jobStatus === "pending" || jobStatus === "running";
+  const rueckblick = !running && jobStatus !== "failed";
+  const done = running ? (progress?.fertig?.length ?? 0) : lines.filter((l) => !needsVoice(l, voicedIds)).length;
+  const failedIndex = jobStatus === "failed" ? failedLineIndex(error) : -1;
+  const offen = linesToVoice(lines, voicedIds).length;
+  const schritt = progress?.step ?? "";
 
   return (
     <section className="animate-[fadeIn_0.3s_ease-out] py-4" role="status" aria-live="polite">
@@ -46,26 +53,35 @@ export default function VoicingStep({ lines, persons, run, onResume, onCancel, o
           </>
         ) : (
           <>
-            {run.status === "running" && <Spinner size="lg" className="justify-center mb-4" />}
+            {running && <Spinner size="lg" className="justify-center mb-4" />}
             <h2 className="text-lg font-bold">{t("heading")}</h2>
+            {running && (
+              <p className="text-sm text-foreground-soft mt-1">
+                {schritt === "montage" || schritt === "saving"
+                  ? t("assembling")
+                  : t("progress", { done, total: lines.length })}
+              </p>
+            )}
           </>
         )}
       </div>
 
-      {run.status === "running" && (
+      {running && (
         <p className="mt-6 flex items-start gap-2 rounded-lg bg-surface px-4 py-3 text-sm text-foreground-soft">
           <Info size={14} className="mt-0.5 flex-shrink-0 text-muted-soft" aria-hidden="true" />
           {t("background")}
         </p>
       )}
 
-      {run.status === "failed" && (
+      {jobStatus === "failed" && (
         <div className="mt-6 rounded-lg border border-error-border bg-error-bg px-4 py-3" role="alert">
-          <p className="text-sm font-medium text-error-strong">{t("failedTitle", { n: failedIndex + 1 })}</p>
-          <p className="text-sm text-error mt-0.5">{t("failedBody", { done })}</p>
+          <p className="text-sm font-medium text-error-strong">
+            {failedIndex >= 0 ? t("failedTitle", { n: failedIndex + 1 }) : t("failedGeneric")}
+          </p>
+          <p className="text-sm text-error mt-0.5">{error || t("failedBody", { done })}</p>
           <div className="flex flex-wrap gap-3 mt-3">
             <button type="button" onClick={onResume} className="px-4 py-2 text-sm btn-primary rounded-lg">
-              {t("resume", { n: failedIndex + 1 })}
+              {failedIndex >= 0 ? t("resume", { n: failedIndex + 1 }) : t("resumeGeneric")}
             </button>
             <button type="button" onClick={onBackToScript} className="btn-cancel px-4 py-2 text-sm btn-secondary rounded-lg">
               {t("backToScript")}
@@ -74,17 +90,27 @@ export default function VoicingStep({ lines, persons, run, onResume, onCancel, o
         </div>
       )}
 
-      <BeitragVorschau lines={lines} persons={persons} run={run} rueckblick={rueckblick} onUpdate={rueckblick ? onUpdate : undefined} />
+      <BeitragVorschau
+        jobUuid={jobUuid}
+        lines={lines}
+        persons={persons}
+        voicedIds={voicedIds}
+        progress={progress}
+        running={running}
+        failedIndex={failedIndex}
+        rueckblick={rueckblick}
+        onUpdate={rueckblick ? onUpdate : undefined}
+      />
 
       <div className="flex justify-center mt-6">
-        {run.status === "running" ? (
+        {running ? (
           <button type="button" onClick={onCancel} className="btn-cancel px-4 py-2 text-sm text-error border border-error-border rounded-md transition-colors inline-flex items-center gap-2">
             {cancelIcon}
             {tCommon("cancel")}
           </button>
-        ) : rueckblick && toVoice > 0 ? (
-          <button type="button" onClick={onVoice} className="px-6 py-2 text-sm btn-primary rounded-md transition-colors select-none">
-            {tScript("nextChanged", { n: toVoice })}
+        ) : rueckblick && offen > 0 ? (
+          <button type="button" onClick={onResume} className="px-6 py-2 text-sm btn-primary rounded-md transition-colors select-none">
+            {tScript("nextChanged", { n: offen })}
           </button>
         ) : rueckblick ? (
           <button type="button" onClick={onWeiter} className="px-6 py-2 text-sm btn-primary rounded-md transition-colors select-none">

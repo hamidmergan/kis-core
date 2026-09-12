@@ -57,8 +57,9 @@ export default function ContentStep({ canUseModules, source, language, instructi
 
   const addFiles = (list: FileList | null) => {
     if (!list) return;
-    const names = Array.from(list).map((f) => f.name);
-    onSource({ files: Array.from(new Set([...source.files, ...names])) });
+    const dabei = new Set(source.files.map((f) => f.name));
+    const neue = Array.from(list).filter((f) => !dabei.has(f.name));
+    onSource({ files: [...source.files, ...neue] });
   };
   const onDrop = (e: DragEvent) => {
     e.preventDefault();
@@ -140,10 +141,14 @@ export default function ContentStep({ canUseModules, source, language, instructi
           </div>
           {source.files.length > 0 && (
             <ul className="space-y-2">
-              {source.files.map((name) => (
-                <li key={name} className="flex items-center justify-between gap-3 rounded-lg border border-border-soft px-3 py-2 text-sm">
-                  <span className="truncate">{name}</span>
-                  <IconButton size="sm" aria-label={t("removeFile", { name })} onClick={() => onSource({ files: source.files.filter((f) => f !== name) })}>
+              {source.files.map((datei) => (
+                <li key={datei.name} className="flex items-center justify-between gap-3 rounded-lg border border-border-soft px-3 py-2 text-sm">
+                  <span className="truncate">{datei.name}</span>
+                  <IconButton
+                    size="sm"
+                    aria-label={t("removeFile", { name: datei.name })}
+                    onClick={() => onSource({ files: source.files.filter((f) => f.name !== datei.name) })}
+                  >
                     <X size={12} weight="bold" />
                   </IconButton>
                 </li>

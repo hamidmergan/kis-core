@@ -26,6 +26,7 @@ QUOTA_DEFAULTS: dict[str, dict] = {
     "image_edit":     {"limit": 100, "window_hours": 4, "label": "Bild-Bearbeitung"},
     "image_analyze":  {"limit": 100, "window_hours": 4, "label": "Bild-Analyse"},
     "screencast":     {"limit": 100, "window_hours": 4, "label": "Screencast"},
+    "podcast":        {"limit": 100, "window_hours": 4, "label": "Podcast"},
     "aia_generate":   {"limit": 300, "window_hours": 4, "label": "KI-Tutor: Generierung"},
 }
 
@@ -68,6 +69,17 @@ RENDER_MAX_WORKERS = capacity().render_workers
 # How many slides are voiced at once, measured and applied per screencast.
 SCREENCAST_TTS_PARALLELISM = 8
 
+# --- Podcast ----------------------------------------------------------------
+# The material the model reads, measured as the budget a pointed question needs.
+PODCAST_MAX_SOURCE_CHARS = 60_000
+PODCAST_MAX_LINES        = 80
+PODCAST_MAX_LINE_CHARS   = 1200
+# One breath between two contributions so they do not run into each other.
+PODCAST_LINE_PAUSE       = 0.35
+# The same lever as the screencast: waiting on the provider, not own CPU.
+PODCAST_TTS_PARALLELISM  = 8
+MAX_QUEUED_PODCAST_JOBS  = 3
+
 # How many parts of a long recording go to the provider at once.
 STT_CHUNK_PARALLELISM = 2
 
@@ -76,6 +88,8 @@ TTS_SOFT_TIME_LIMIT             = 5400   # 90 min, SoftTimeLimitExceeded -> grac
 TTS_TIME_LIMIT                  = 5520   # 92 min, SIGKILL fallback
 
 # Only catches outliers, real hangs are caught by the heartbeat watchdog.
+PODCAST_SOFT_TIME_LIMIT = 3600
+PODCAST_TIME_LIMIT      = 3720
 SCREENCAST_SOFT_TIME_LIMIT      = 7200   # 120 min, SoftTimeLimitExceeded -> Job sauber auf failed
 SCREENCAST_TIME_LIMIT           = 7320   # 122 min, SIGKILL als letzte Instanz
 

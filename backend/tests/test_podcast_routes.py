@@ -1,0 +1,239 @@
+"""The guards of the podcast routes: what is refused before a job ever exists."""
+
+import json
+
+import pytest
+from fastapi.testclient import TestClient
+
+from src.permissions import Permissions
+
+
+def _out_of_local_mode(monkeypatch):
+    monkeypatch.setenv("AUTH_DISABLED", "false")
+    monkeypatch.setenv("LDAP_SERVER", "ldap://openldap")
+    monkeypatch.setenv("LDAP_BASE_DN", "dc=th-luebeck,dc=de")
+    monkeypatch.setenv("LDAP_BIND_DN", "cn=admin,dc=th-luebeck,dc=de")
+    monkeypatch.setenv("LDAP_BIND_PASSWORD", "admin")
+
+
+class FakeAblage:
+    """The job folder in memory, keyed the way the real one is."""
+
+    def __init__(self):
+        self.dateien: dict[tuple[int, str, str], bytes] = {}
+
+    def save_job_file(self, user_id, job_uuid, filename, data):
+        self.dateien[(user_id, job_uuid, filename)] = data
+        return f"users/{user_id}/jobs/{job_uuid}/{filename}"
+
+    def get_job_file(self, user_id, job_uuid, filename):
+        try:
+            return self.dateien[(user_id, job_uuid, filename)]
+        except KeyError as e:
+            raise FileNotFoundError(filename) from e
+
+    def job_file_exists(self, user_id, job_uuid, filename):
+        return (user_id, job_uuid, filename) in self.dateien
+
+
+UUID = "a" * 32
+
+
+@pytest.fixture
+def env(monkeypatch):
+    _out_of_local_mode(monkeypatch)
+    from src.app import app
+    from src.dependencies import get_current_user, get_settings
+    from src.dependencies_rbac import get_user_permissions
+    from src.features.podcast import store
+    from src.security.auth import verify_auth
+
+    ablage = FakeAblage()
+    monkeypatch.setattr(store, "save_job_file", ablage.save_job_file)
+    monkeypatch.setattr(store, "get_job_file", ablage.get_job_file)
+    monkeypatch.setattr(store, "job_file_exists", ablage.job_file_exists)
+    monkeypatch.setattr("src.dependencies_rbac.is_released_now", lambda key: True)
+
+    jobs: dict[str, dict] = {}
+    import src.routes.podcast.render as render_route
+    import src.routes.podcast.start as start_route
+    import src.routes.podcast._shared as shared
+
+    monkeypatch.setattr(shared.db, "get_job", lambda uuid: jobs.get(uuid))
+    monkeypatch.setattr(start_route.db, "count_all_jobs_for_tool", lambda uid, tools: 0)
+    monkeypatch.setattr(start_route.db, "create_job", lambda *a, **k: None)
+    monkeypatch.setattr(start_route.db, "set_job_celery_task_id", lambda *a, **k: None)
+    monkeypatch.setattr(start_route.db, "update_job_status", lambda *a, **k: None)
+    monkeypatch.setattr(start_route, "enforce_tool_burst", lambda *a, **k: None)
+    monkeypatch.setattr(start_route, "enforce_quota", lambda *a, **k: None)
+    monkeypatch.setattr(render_route, "enforce_tool_burst", lambda *a, **k: None)
+    monkeypatch.setattr(render_route, "enforce_quota", lambda *a, **k: None)
+    monkeypatch.setattr(render_route.db, "set_job_celery_task_id", lambda *a, **k: None)
+    monkeypatch.setattr(render_route.db, "update_job_status", lambda *a, **k: None)
+
+    gestartet: list[str] = []
+
+    class FakeTask:
+        id = "task-1"
+
+    import src.tasks.podcast_tasks as tasks
+
+    monkeypatch.setattr(tasks.run_podcast_script, "apply_async",
+                        lambda args=None, **k: (gestartet.append("script"), FakeTask())[1])
+    monkeypatch.setattr(tasks.run_podcast_render, "apply_async",
+                        lambda args=None, **k: (gestartet.append("render"), FakeTask())[1])
+
+    get_settings.cache_clear()
+    app.dependency_overrides[verify_auth] = lambda: None
+    app.dependency_overrides[get_current_user] = lambda: {"user_id": 7, "email": "a@th-luebeck.de", "role": "staff"}
+    app.dependency_overrides[get_user_permissions] = lambda: Permissions(keys=frozenset({"tools.podcast"}))
+    yield TestClient(app), jobs, gestartet, ablage
+    app.dependency_overrides.clear()
+    get_settings.cache_clear()
+
+
+def _params(**kw):
+    grund = {
+        "language": "de",
+        "instructions": "",
+        "persons": [{"name": "Lena", "role": "host", "voice_id": "anna", "provider_id": 3},
+                    {"name": "Jonas", "role": "expert", "voice_id": "ben", "provider_id": 3}],
+        "length": "medium",
+        "style": "teaching",
+    }
+    grund.update(kw)
+    return json.dumps(grund)
+
+
+class TestStart:
+    def test_legt_einen_auftrag_an_und_startet_das_skript(self, env):
+        client, _jobs, gestartet, ablage = env
+        antwort = client.post("/podcast/start",
+                              data={"params": _params(), "mode": "text", "text": "Über den Regelkreis."})
+        assert antwort.status_code == 200
+        uuid = antwort.json()["job_uuid"]
+        assert gestartet == ["script"]
+        assert ablage.get_job_file(7, uuid, "source.txt").decode() == "Über den Regelkreis."
+
+    def test_weist_material_ohne_inhalt_ab(self, env):
+        client, _j, gestartet, _a = env
+        antwort = client.post("/podcast/start", data={"params": _params(), "mode": "text", "text": "   "})
+        assert antwort.status_code == 422
+        assert gestartet == []
+
+    def test_weist_eine_person_ohne_stimme_ab(self, env):
+        client, _j, _g, _a = env
+        ohne = _params(persons=[{"name": "Lena", "role": "host", "voice_id": "", "provider_id": 3}])
+        assert client.post("/podcast/start", data={"params": ohne, "mode": "text", "text": "Text"}).status_code == 422
+
+    def test_weist_fuenf_personen_ab(self, env):
+        client, _j, _g, _a = env
+        viele = _params(persons=[{"name": f"P{i}", "role": "host", "voice_id": "v", "provider_id": 3} for i in range(5)])
+        assert client.post("/podcast/start", data={"params": viele, "mode": "text", "text": "Text"}).status_code == 422
+
+    def test_weist_eine_stimme_ohne_anbieter_ab(self, env):
+        client, _j, _g, _a = env
+        ohne = _params(persons=[{"name": "Lena", "role": "host", "voice_id": "anna", "provider_id": 0},
+                                {"name": "Jonas", "role": "expert", "voice_id": "ben", "provider_id": 3}])
+        assert client.post("/podcast/start", data={"params": ohne, "mode": "text", "text": "T"}).status_code == 422
+
+    def test_weist_eine_unbekannte_sprache_ab(self, env):
+        client, _j, _g, _a = env
+        fremd = _params(language="fr")
+        assert client.post("/podcast/start", data={"params": fremd, "mode": "text", "text": "Text"}).status_code == 422
+
+    def test_weist_kaputte_einstellungen_ab(self, env):
+        client, _j, _g, _a = env
+        assert client.post("/podcast/start", data={"params": "{kein json", "mode": "text", "text": "T"}).status_code == 422
+
+    def test_weist_ein_modul_ohne_quellen_ab(self, env):
+        client, _j, _g, _a = env
+        antwort = client.post("/podcast/start",
+                              data={"params": _params(), "mode": "module", "workspace_uuid": "w1", "source_uuids": "[]"})
+        assert antwort.status_code == 422
+
+    def test_haelt_die_grenze_offener_podcasts_ein(self, env, monkeypatch):
+        client, _j, _g, _a = env
+        import src.routes.podcast.start as start_route
+        from src.limits import MAX_QUEUED_PODCAST_JOBS
+
+        monkeypatch.setattr(start_route.db, "count_all_jobs_for_tool",
+                            lambda uid, tools: MAX_QUEUED_PODCAST_JOBS)
+        antwort = client.post("/podcast/start", data={"params": _params(), "mode": "text", "text": "Text"})
+        assert antwort.status_code == 409
+
+
+class TestSkriptUndVertonung:
+    def _job(self, jobs, status="awaiting_user"):
+        jobs[UUID] = {"job_uuid": UUID, "user_id": 7, "tool": "podcast", "status": status,
+                      "progress": None, "error_message": None, "result_path": None}
+
+    def test_speichert_das_geprueefte_skript_mit_echten_ids(self, env):
+        client, jobs, _g, _a = env
+        self._job(jobs)
+        antwort = client.put(f"/podcast/{UUID}/script", json={"lines": [
+            {"id": "", "speaker": 0, "text": "Eins."},
+            {"id": "neu3", "speaker": 1, "text": "Zwei."},
+        ]})
+        assert antwort.status_code == 200
+        assert [l["id"] for l in antwort.json()["lines"]] == ["b0", "b1"]
+
+    def test_wirft_leere_beitraege_weg(self, env):
+        client, jobs, _g, _a = env
+        self._job(jobs)
+        antwort = client.put(f"/podcast/{UUID}/script", json={"lines": [
+            {"id": "b0", "speaker": 0, "text": "Eins."},
+            {"id": "b1", "speaker": 0, "text": "   "},
+        ]})
+        assert len(antwort.json()["lines"]) == 1
+
+    def test_weist_ein_skript_ohne_jeden_beitrag_ab(self, env):
+        client, jobs, _g, _a = env
+        self._job(jobs)
+        antwort = client.put(f"/podcast/{UUID}/script", json={"lines": [{"id": "b0", "speaker": 0, "text": " "}]})
+        assert antwort.status_code == 422
+
+    def test_laesst_das_skript_waehrend_der_arbeit_in_ruhe(self, env):
+        client, jobs, _g, _a = env
+        self._job(jobs, status="running")
+        antwort = client.put(f"/podcast/{UUID}/script", json={"lines": [{"id": "b0", "speaker": 0, "text": "Eins."}]})
+        assert antwort.status_code == 409
+
+    def test_startet_die_vertonung_nur_mit_skript(self, env):
+        client, jobs, gestartet, _a = env
+        self._job(jobs)
+        assert client.post(f"/podcast/{UUID}/render").status_code == 422
+        client.put(f"/podcast/{UUID}/script", json={"lines": [{"id": "b0", "speaker": 0, "text": "Eins."}]})
+        assert client.post(f"/podcast/{UUID}/render").status_code == 200
+        assert gestartet == ["render"]
+
+    def test_startet_keine_zweite_vertonung_waehrend_der_ersten(self, env):
+        client, jobs, _g, _a = env
+        self._job(jobs, status="running")
+        assert client.post(f"/podcast/{UUID}/render").status_code == 409
+
+    def test_gibt_den_stand_zum_wiederaufnehmen(self, env):
+        client, jobs, _g, _a = env
+        self._job(jobs)
+        client.post("/podcast/start", data={"params": _params(), "mode": "text", "text": "Material"})
+        # Der Stand des Auftrags oben, mit eigenem Skript.
+        client.put(f"/podcast/{UUID}/script", json={"lines": [{"id": "b0", "speaker": 0, "text": "Eins."}]})
+        antwort = client.get(f"/podcast/{UUID}")
+        assert antwort.status_code == 200
+        assert antwort.json()["lines"][0]["text"] == "Eins."
+        assert antwort.json()["voiced"] == []
+
+
+class TestFremderAuftrag:
+    def test_bleibt_fuer_ein_anderes_konto_unsichtbar(self, env):
+        client, jobs, _g, _a = env
+        jobs[UUID] = {"job_uuid": UUID, "user_id": 99, "tool": "podcast", "status": "awaiting_user",
+                      "progress": None, "error_message": None, "result_path": None}
+        assert client.get(f"/podcast/{UUID}").status_code == 404
+        assert client.post(f"/podcast/{UUID}/render").status_code == 404
+
+    def test_weist_einen_auftrag_eines_anderen_werkzeugs_ab(self, env):
+        client, jobs, _g, _a = env
+        jobs[UUID] = {"job_uuid": UUID, "user_id": 7, "tool": "tts", "status": "success",
+                      "progress": None, "error_message": None, "result_path": None}
+        assert client.get(f"/podcast/{UUID}").status_code == 404

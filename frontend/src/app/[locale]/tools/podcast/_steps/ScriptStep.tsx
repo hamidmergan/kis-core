@@ -8,39 +8,40 @@ import Spinner from "@/components/ui/Spinner";
 import StatusMark from "@/components/ui/StatusMark";
 import Speaker from "../_components/Speaker";
 import StepFooter from "../_components/StepFooter";
-import { linesToVoice, minutesOf, wordCount, wordsOf } from "../_logic";
+import { linesToVoice, minutesOf, needsVoice, wordCount, wordsOf } from "../_logic";
 import { FIELD } from "./ContentStep";
-import type { Line, Person, PersonCount, Run } from "../_types";
+import type { Line, Person, PersonCount } from "../_types";
 
 const ACTION = "px-3 py-2 text-sm border-2 border-border rounded-md hover:border-[var(--kb)] hover:text-[var(--kb)] flex items-center gap-1 whitespace-nowrap";
-const REPHRASE_MS = 700;
 
 interface ScriptStepProps {
   lines: Line[];
   persons: Person[];
   count: PersonCount;
-  generating: boolean;
-  run: Run;
+  voicedIds: string[];
+  busy: boolean;
+  error: string;
+  allDone: boolean;
   onUpdate: (id: string, text: string) => void;
-  onRephrase: (id: string) => void;
+  onRephrase: (id: string) => Promise<void>;
   onDelete: (id: string) => void;
   onAdd: () => void;
-  onBack: () => void;
+  onBack: (() => void) | null;
   onVoice: () => void;
   onToDone: () => void;
 }
 
 export default function ScriptStep(props: ScriptStepProps) {
-  const { lines, persons, count, generating, run, onUpdate, onRephrase, onDelete, onAdd, onBack, onVoice, onToDone } = props;
+  const { lines, persons, count, voicedIds, busy, error, allDone,
+          onUpdate, onRephrase, onDelete, onAdd, onBack, onVoice, onToDone } = props;
   const t = useTranslations("tools.podcast.script");
-  const tVoicing = useTranslations("tools.podcast.voicing");
   const tCast = useTranslations("tools.podcast.cast");
   const tCommon = useTranslations("tools.podcast.common");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [buffer, setBuffer] = useState("");
   const [rephrasingId, setRephrasingId] = useState<string | null>(null);
 
-  if (generating) {
+  if (busy && lines.length === 0) {
     return (
       <section className="animate-[fadeIn_0.3s_ease-out] text-center py-20" role="status" aria-live="polite">
         <Spinner size="lg" className="justify-center mb-4" />
@@ -50,18 +51,27 @@ export default function ScriptStep(props: ScriptStepProps) {
     );
   }
 
-  const toVoice = linesToVoice(lines).length;
-  const anyVoiced = lines.some((l) => l.audioOf !== null);
-  const allDone = toVoice === 0 && run.status === "done";
-  const nextLabel = allDone ? t("nextDone") : anyVoiced ? t("nextChanged", { n: toVoice }) : t("next");
-  const incomplete = lines.length === 0 || lines.some((l) => !l.text.trim());
+  if (!lines.length) {
+    return (
+      <section className="animate-[fadeIn_0.3s_ease-out] text-center py-20">
+        <p className="text-sm text-error">{error || t("generating")}</p>
+      </section>
+    );
+  }
 
-  const rephrase = (id: string) => {
+  const offen = linesToVoice(lines, voicedIds).length;
+  const schonVertont = voicedIds.length > 0;
+  const fertig = offen === 0 && allDone;
+  const nextLabel = fertig ? t("nextDone") : schonVertont ? t("nextChanged", { n: offen }) : t("next");
+  const unvollstaendig = lines.some((l) => !l.text.trim());
+
+  const umformulieren = async (id: string) => {
     setRephrasingId(id);
-    window.setTimeout(() => {
-      onRephrase(id);
+    try {
+      await onRephrase(id);
+    } finally {
       setRephrasingId(null);
-    }, REPHRASE_MS);
+    }
   };
 
   return (
@@ -72,9 +82,9 @@ export default function ScriptStep(props: ScriptStepProps) {
       <div className="mb-4 rounded-lg bg-surface px-4 py-3 text-sm text-foreground-soft">
         {t("summary", { lines: lines.length, words: wordsOf(lines), minutes: minutesOf(lines) })}
       </div>
-      {run.cancelled && (
+      {error && (
         <p className="mb-4 rounded-md border border-warn-border bg-warn-bg px-3 py-2 text-sm text-warn-strong" role="status">
-          {tVoicing("cancelled")}
+          {error}
         </p>
       )}
 
@@ -82,14 +92,14 @@ export default function ScriptStep(props: ScriptStepProps) {
         {lines.map((line, i) => {
           const person = persons[line.speaker] ?? persons[0];
           const isEditing = editingId === line.id;
-          const changed = line.audioOf !== null && line.audioOf !== line.text;
+          const offenerBeitrag = needsVoice(line, voicedIds);
           return (
             <div key={line.id} className="border border-border-soft rounded-lg p-4">
               <div className="flex items-center gap-3 mb-2">
                 <span className="text-xs text-muted-soft w-5 shrink-0">{i + 1}</span>
                 <Speaker person={person} role={tCast(`roles.${person.role}`)} />
-                {changed && <StatusMark tone="warn" className="text-xs">{t("changed")}</StatusMark>}
-                {!changed && line.audioOf !== null && <StatusMark tone="success" className="text-xs">{t("voiced")}</StatusMark>}
+                {schonVertont && offenerBeitrag && <StatusMark tone="warn" className="text-xs">{t("changed")}</StatusMark>}
+                {!offenerBeitrag && <StatusMark tone="success" className="text-xs">{t("voiced")}</StatusMark>}
                 <span className="flex-1" />
                 {!isEditing && (
                   <>
@@ -104,7 +114,13 @@ export default function ScriptStep(props: ScriptStepProps) {
                     >
                       <PencilSimple size={12} weight="bold" />
                     </IconButton>
-                    <IconButton size="sm" aria-label={t("regen", { n: i + 1 })} title={t("regen", { n: i + 1 })} disabled={rephrasingId !== null} onClick={() => rephrase(line.id)}>
+                    <IconButton
+                      size="sm"
+                      aria-label={t("regen", { n: i + 1 })}
+                      title={t("regen", { n: i + 1 })}
+                      disabled={rephrasingId !== null}
+                      onClick={() => void umformulieren(line.id)}
+                    >
                       {rephrasingId === line.id ? <Spinner size="xs" color="current" /> : <ArrowsClockwise size={12} weight="bold" />}
                     </IconButton>
                     <IconButton size="sm" aria-label={t("delete", { n: i + 1 })} title={t("delete", { n: i + 1 })} onClick={() => onDelete(line.id)}>
@@ -148,7 +164,12 @@ export default function ScriptStep(props: ScriptStepProps) {
         {t("add")}
       </button>
 
-      <StepFooter onBack={onBack} nextLabel={nextLabel} onNext={allDone ? onToDone : onVoice} nextDisabled={incomplete || editingId !== null} />
+      <StepFooter
+        onBack={onBack}
+        nextLabel={nextLabel}
+        onNext={fertig ? onToDone : onVoice}
+        nextDisabled={busy || unvollstaendig || editingId !== null || (!fertig && offen === 0)}
+      />
     </section>
   );
 }

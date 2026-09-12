@@ -135,7 +135,8 @@
       "resumeScreencast": "Resume screencast",
       "openScreencast": "Open screencast",
       "downloadAllZip": "Download all (ZIP)",
-      "fallbackFile": "File"
+      "fallbackFile": "File",
+      "openPodcast": "Open podcast"
     },
     "duration": {
       "seconds": "{n} s",
@@ -1027,7 +1028,8 @@
           "casual": "Casual",
           "interview": "Interview"
         },
-        "next": "Write the script"
+        "next": "Write the script",
+        "noVoices": "No voice is configured. Without a voice nothing can be voiced."
       },
       "script": {
         "generating": "The script is being written",
@@ -1062,7 +1064,10 @@
         "failedBody": "The provider did not answer. {done, plural, =1 {One line is finished and stays} other {# lines are finished and stay}} saved.",
         "resume": "Continue from line {n}",
         "backToScript": "Back to the script",
-        "cancelled": "Cancelled. What was already voiced stays saved."
+        "cancelled": "Cancelled. What was already voiced stays saved.",
+        "assembling": "The contributions are being put together",
+        "failedGeneric": "The voicing failed",
+        "resumeGeneric": "Continue voicing"
       },
       "done": {
         "heading": "Your podcast is ready",

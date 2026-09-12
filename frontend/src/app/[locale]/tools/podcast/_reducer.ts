@@ -1,22 +1,22 @@
-import { nextTick, rephrase, stepIndex } from "./_logic";
-import { DEFAULT_NAMES } from "./_samples";
+import { stepIndex } from "./_logic";
 import {
   ROLES,
+  type JobProgress,
+  type JobStatus,
   type Language,
   type Length,
   type Line,
   type Person,
   type PersonCount,
   type PodcastState,
-  type Run,
   type Source,
   type Step,
   type Style,
 } from "./_types";
 
-export const defaultPersons = (): Person[] => ROLES.map((role, i) => ({ name: DEFAULT_NAMES[i], role, voiceId: "" }));
+const NAMES = ["Lena", "Jonas", "Amira", "Tom"] as const;
 
-const IDLE_RUN: Run = { status: "idle", failedId: null, failedOnce: false, voicedThisRun: 0, keptIds: [], cancelled: false };
+export const defaultPersons = (): Person[] => ROLES.map((role, i) => ({ name: NAMES[i], role, voiceId: "", providerId: 0 }));
 
 export const INITIAL_STATE: PodcastState = {
   step: "content",
@@ -28,13 +28,18 @@ export const INITIAL_STATE: PodcastState = {
   persons: defaultPersons(),
   length: "medium",
   style: "teaching",
-  generating: false,
+  jobUuid: null,
+  jobStatus: "idle",
+  progress: null,
+  error: "",
   lines: [],
-  run: IDLE_RUN,
+  voicedIds: [],
+  seconds: null,
+  starting: false,
 };
 
 export type Action =
-  | { type: "LOAD"; state: PodcastState }
+  | { type: "RESTORE"; state: Partial<PodcastState> }
   | { type: "RESET" }
   | { type: "GO"; step: Step }
   | { type: "SET_SOURCE"; source: Partial<Source> }
@@ -44,16 +49,14 @@ export type Action =
   | { type: "SET_PERSON"; index: number; person: Partial<Person> }
   | { type: "SET_LENGTH"; length: Length }
   | { type: "SET_STYLE"; style: Style }
-  | { type: "GENERATE_START" }
-  | { type: "GENERATE_DONE"; lines: Line[] }
+  | { type: "STARTING" }
+  | { type: "STARTED"; jobUuid: string }
+  | { type: "JOB"; status: JobStatus; progress: JobProgress | null; error?: string | null; seconds?: number | null }
+  | { type: "LINES"; lines: Line[]; voicedIds?: string[] }
   | { type: "UPDATE_LINE"; id: string; text: string }
-  | { type: "REPHRASE_LINE"; id: string }
   | { type: "DELETE_LINE"; id: string }
   | { type: "ADD_LINE" }
-  | { type: "START_VOICING" }
-  | { type: "TICK" }
-  | { type: "RESUME" }
-  | { type: "CANCEL" };
+  | { type: "FAIL"; error: string };
 
 const enter = (state: PodcastState, step: Step): PodcastState => ({
   ...state,
@@ -61,10 +64,13 @@ const enter = (state: PodcastState, step: Step): PodcastState => ({
   maxReached: Math.max(state.maxReached, stepIndex(step)),
 });
 
+/** An edited contribution loses its audio, that is what makes the next run short. */
+const ohneTon = (voicedIds: string[], id: string) => voicedIds.filter((v) => v !== id);
+
 export function reducer(state: PodcastState, action: Action): PodcastState {
   switch (action.type) {
-    case "LOAD":
-      return action.state;
+    case "RESTORE":
+      return { ...state, ...action.state };
     case "RESET":
       return { ...INITIAL_STATE, persons: defaultPersons() };
     case "GO":
@@ -83,46 +89,38 @@ export function reducer(state: PodcastState, action: Action): PodcastState {
       return { ...state, length: action.length };
     case "SET_STYLE":
       return { ...state, style: action.style };
-    case "GENERATE_START":
-      // A new script starts over, old audio belongs to old lines.
-      return { ...enter(state, "script"), generating: true, lines: [], run: { ...IDLE_RUN, failedOnce: state.run.failedOnce } };
-    case "GENERATE_DONE":
-      return { ...state, generating: false, lines: action.lines };
+    case "STARTING":
+      return { ...enter(state, "script"), starting: true, error: "", lines: [], voicedIds: [], progress: null, seconds: null };
+    case "STARTED":
+      return { ...state, starting: false, jobUuid: action.jobUuid, jobStatus: "pending" };
+    case "JOB": {
+      const next = { ...state, jobStatus: action.status, progress: action.progress, starting: false };
+      if (action.error) next.error = action.error;
+      if (action.seconds != null) next.seconds = action.seconds;
+      if (action.status === "success") return enter(next, "done");
+      return next;
+    }
+    case "LINES":
+      return { ...state, lines: action.lines, voicedIds: action.voicedIds ?? state.voicedIds };
     case "UPDATE_LINE":
-      return { ...state, lines: state.lines.map((l) => (l.id === action.id ? { ...l, text: action.text } : l)) };
-    case "REPHRASE_LINE":
-      return { ...state, lines: state.lines.map((l) => (l.id === action.id ? { ...l, text: rephrase(l.text) } : l)) };
+      return {
+        ...state,
+        lines: state.lines.map((l) => (l.id === action.id ? { ...l, text: action.text } : l)),
+        voicedIds: ohneTon(state.voicedIds, action.id),
+      };
     case "DELETE_LINE":
-      return { ...state, lines: state.lines.filter((l) => l.id !== action.id) };
+      return {
+        ...state,
+        lines: state.lines.filter((l) => l.id !== action.id),
+        voicedIds: ohneTon(state.voicedIds, action.id),
+      };
     case "ADD_LINE": {
       const last = state.lines[state.lines.length - 1];
       const speaker = last ? (last.speaker + 1) % state.count : 0;
-      const id = `l${Date.now().toString(36)}${state.lines.length.toString(36)}`;
-      return { ...state, lines: [...state.lines, { id, speaker, text: "", audioOf: null }] };
+      // The server hands out the real id on save, this one only holds the place.
+      return { ...state, lines: [...state.lines, { id: `neu${state.lines.length}`, speaker, text: "" }] };
     }
-    case "START_VOICING":
-      return {
-        ...enter(state, "voicing"),
-        run: {
-          status: "running",
-          failedId: null,
-          failedOnce: state.run.failedOnce,
-          voicedThisRun: 0,
-          keptIds: state.lines.filter((l) => l.audioOf === l.text).map((l) => l.id),
-          cancelled: false,
-        },
-      };
-    case "TICK": {
-      if (state.run.status !== "running") return state;
-      const tick = nextTick(state.lines, state.run);
-      if (tick.kind === "done") return { ...enter(state, "done"), run: { ...state.run, status: "done" } };
-      if (tick.kind === "fail") return { ...state, run: { ...state.run, status: "failed", failedId: tick.id, failedOnce: true } };
-      return { ...state, lines: tick.lines, run: { ...state.run, voicedThisRun: state.run.voicedThisRun + 1 } };
-    }
-    case "RESUME":
-      return { ...state, run: { ...state.run, status: "running", failedId: null } };
-    case "CANCEL":
-      // What is voiced stays voiced, only the run stops.
-      return { ...state, step: "script", run: { ...IDLE_RUN, failedOnce: state.run.failedOnce, cancelled: true } };
+    case "FAIL":
+      return { ...state, starting: false, jobStatus: "failed", error: action.error };
   }
 }

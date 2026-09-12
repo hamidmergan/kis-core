@@ -5,27 +5,29 @@ import { CaretLeft, CaretRight } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
 import IconButton from "@/components/ui/IconButton";
 import StatusMark from "@/components/ui/StatusMark";
-import { silentWavUrl } from "../_audio";
+import { lineAudioUrl } from "../_api";
 import { needsVoice, wordCount } from "../_logic";
 import { FIELD } from "../_steps/ContentStep";
 import Speaker from "./Speaker";
-import type { Line, Person, Run } from "../_types";
+import type { JobProgress, Line, Person } from "../_types";
 
 interface Props {
+  jobUuid: string | null;
   lines: Line[];
   persons: Person[];
-  run: Run;
-  /** The run is done: no progress any more, but every line to listen to again. */
+  voicedIds: string[];
+  progress: JobProgress | null;
+  running: boolean;
+  failedIndex: number;
+  /** The run is done: no progress any more, but every contribution to listen to. */
   rueckblick?: boolean;
-  /** With this the shown line can be edited in place, only outside a run. */
+  /** With this the shown contribution can be edited in place, only outside a run. */
   onUpdate?: (id: string, text: string) => void;
 }
 
-/** Seconds of stand-in audio for one line, from its words. */
-const secondsOf = (text: string) => Math.max(2, Math.round((wordCount(text) / 140) * 60));
-
-/** The stage and the strip of the screencast, only with speakers instead of slides. */
-export default function BeitragVorschau({ lines, persons, run, rueckblick = false, onUpdate }: Props) {
+/** The stage and the strip of the screencast, with speakers instead of slides. */
+export default function BeitragVorschau(props: Props) {
+  const { jobUuid, lines, persons, voicedIds, progress, running, failedIndex, rueckblick = false, onUpdate } = props;
   const t = useTranslations("tools.podcast.vorschau");
   const tScript = useTranslations("tools.podcast.script");
   const tCast = useTranslations("tools.podcast.cast");
@@ -36,28 +38,23 @@ export default function BeitragVorschau({ lines, persons, run, rueckblick = fals
   const [buffer, setBuffer] = useState("");
   const [kannLinks, setKannLinks] = useState(false);
   const [kannRechts, setKannRechts] = useState(false);
-  const [audioUrl, setAudioUrl] = useState("");
 
-  const fertig = lines.filter((l) => !needsVoice(l));
-  const laufend = run.status === "running" ? lines.find(needsVoice)?.id ?? null : null;
-  // Without a click the stage follows the latest finished line, a click pins it.
-  const hoechste = fertig.length ? fertig[fertig.length - 1].id : null;
-  const zeigtId = (gewaehlt && lines.some((l) => l.id === gewaehlt) ? gewaehlt : null) ?? (rueckblick ? lines[0]?.id : hoechste) ?? lines[0]?.id ?? null;
+  // While the job runs its progress is the truth, but only once it has one: at the
+  // very start of a run the kept contributions are already there to listen to.
+  const ausListe = lines.map((l, i) => (needsVoice(l, voicedIds) ? -1 : i));
+  const fertigeIdx = new Set(running && progress?.fertig ? progress.fertig : ausListe);
+  const hatTon = (i: number) => fertigeIdx.has(i);
+  const laufend = running ? lines.findIndex((_, i) => !fertigeIdx.has(i)) : -1;
+
+  const letzteFertig = [...fertigeIdx].filter((i) => i >= 0).sort((a, b) => a - b).pop();
+  const zeigtId = (gewaehlt && lines.some((l) => l.id === gewaehlt) ? gewaehlt : null)
+    ?? (rueckblick ? lines[0]?.id : letzteFertig !== undefined ? lines[letzteFertig]?.id : null)
+    ?? lines[0]?.id
+    ?? null;
   const zeigtIdx = lines.findIndex((l) => l.id === zeigtId);
   const zeigt = zeigtIdx >= 0 ? lines[zeigtIdx] : null;
-  const istFertig = !!zeigt && !needsVoice(zeigt);
-  const istGeaendert = !!zeigt && zeigt.audioOf !== null && zeigt.audioOf !== zeigt.text;
-
-  // The stand-in audio is silence in the length of the line, a new one per shown line.
-  useEffect(() => {
-    if (!zeigt || !istFertig) {
-      setAudioUrl("");
-      return;
-    }
-    const url = silentWavUrl(secondsOf(zeigt.text));
-    setAudioUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [zeigt, istFertig]);
+  const istFertig = zeigtIdx >= 0 && hatTon(zeigtIdx);
+  const istGeaendert = !!zeigt && !running && needsVoice(zeigt, voicedIds) && voicedIds.length > 0;
 
   const messen = useCallback(() => {
     const el = streifenRef.current;
@@ -97,14 +94,18 @@ export default function BeitragVorschau({ lines, persons, run, rueckblick = fals
     el.scrollBy({ left: richtung * (breite + 8), behavior: "smooth" });
   }, []);
 
-  if (!lines.length || !zeigt) return null;
+  if (!lines.length || !zeigt || !jobUuid) return null;
   const person = persons[zeigt.speaker] ?? persons[0];
-  const kannAendern = !!onUpdate && run.status !== "running";
+  const kannAendern = !!onUpdate && !running;
+  // The audio changes with the text, so the player must not reuse an old one.
+  const tonUrl = `${lineAudioUrl(jobUuid, zeigt.id)}?v=${voicedIds.length}`;
 
   return (
     <section className="mt-8" aria-label={t("ueberschrift")}>
       {!rueckblick && (
-        <p className="text-sm text-foreground-soft mb-3">{t("fortschritt", { fertig: fertig.length, total: lines.length })}</p>
+        <p className="text-sm text-foreground-soft mb-3">
+          {t("fortschritt", { fertig: [...fertigeIdx].filter((i) => i >= 0).length, total: lines.length })}
+        </p>
       )}
 
       <div className="grid gap-5 md:grid-cols-[1fr_1.6fr]">
@@ -163,11 +164,11 @@ export default function BeitragVorschau({ lines, persons, run, rueckblick = fals
               <p className="mt-3">
                 <StatusMark tone="warn" className="text-xs">{t("geaendert")}</StatusMark>
               </p>
-            ) : istFertig && audioUrl ? (
-              <audio key={audioUrl} controls preload={rueckblick ? "metadata" : "none"} className="w-full mt-3" src={audioUrl} />
-            ) : zeigt.id === run.failedId ? (
+            ) : istFertig ? (
+              <audio key={tonUrl} controls preload={rueckblick ? "metadata" : "none"} className="w-full mt-3" src={tonUrl} />
+            ) : zeigtIdx === failedIndex ? (
               <p className="text-xs text-error mt-3">{t("fehler")}</p>
-            ) : zeigt.id === laufend ? (
+            ) : zeigtIdx === laufend ? (
               <p className="text-xs text-muted mt-3">{t("wirdVertont")}</p>
             ) : (
               <p className="text-xs text-muted mt-3">{t("wartet")}</p>
@@ -183,7 +184,7 @@ export default function BeitragVorschau({ lines, persons, run, rueckblick = fals
         </span>
         <div ref={streifenRef} className="min-w-0 flex-1 flex gap-2 overflow-x-auto scrollbar-hide">
           {lines.map((l, i) => {
-            const bereit = !needsVoice(l);
+            const bereit = hatTon(i);
             const aktiv = l.id === zeigtId;
             const sprecher = persons[l.speaker] ?? persons[0];
             const beschriftung = bereit ? t("abspielen", { n: i + 1 }) : t("wartetKachel", { n: i + 1 });
@@ -200,7 +201,7 @@ export default function BeitragVorschau({ lines, persons, run, rueckblick = fals
                 aria-label={beschriftung}
                 className={`relative shrink-0 w-[74px] h-[52px] rounded-md border select-none flex items-center justify-center text-sm font-bold text-foreground-soft bg-background ${
                   aktiv ? "border-kb outline outline-2 outline-kb" : "border-border-soft"
-                } ${bereit ? "" : l.id === laufend ? "border-dashed" : "opacity-40 grayscale"}`}
+                } ${bereit ? "" : i === laufend ? "border-dashed" : "opacity-40 grayscale"}`}
               >
                 {sprecher.name.trim().charAt(0).toUpperCase() || "?"}
                 <span className="absolute left-1 top-1 text-3xs font-semibold px-1 rounded bg-background/90 text-muted">{i + 1}</span>

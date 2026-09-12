@@ -20,6 +20,7 @@ interface CastStepProps {
   length: Length;
   style: Style;
   voices: ProviderWithVoices[];
+  voicesLoaded: boolean;
   onCount: (count: PersonCount) => void;
   onPerson: (index: number, person: Partial<Person>) => void;
   onLength: (length: Length) => void;
@@ -28,7 +29,7 @@ interface CastStepProps {
   onNext: () => void;
 }
 
-export default function CastStep({ count, persons, length, style, voices, onCount, onPerson, onLength, onStyle, onBack, onNext }: CastStepProps) {
+export default function CastStep({ count, persons, length, style, voices, voicesLoaded, onCount, onPerson, onLength, onStyle, onBack, onNext }: CastStepProps) {
   const t = useTranslations("tools.podcast.cast");
   const voiceOptions = voices.flatMap((p) =>
     p.voices.map((v) => ({
@@ -36,8 +37,11 @@ export default function CastStep({ count, persons, length, style, voices, onCoun
       label: `${LANGUAGE_FLAG[v.language] ?? ""} ${v.name}${v.description ? `, ${v.description}` : ""}`.trim(),
     })),
   );
+  // A voice only works together with the provider it belongs to.
+  const anbieterVon = new Map(voices.flatMap((p) => p.voices.map((v) => [v.voice_id, p.id])));
   const active = persons.slice(0, count);
-  const complete = active.every((p) => p.name.trim().length > 0);
+  const keineStimmen = voicesLoaded && voiceOptions.length === 0;
+  const complete = active.every((p) => p.name.trim().length > 0 && p.voiceId && p.providerId > 0) && !keineStimmen;
 
   return (
     <section className="animate-[fadeIn_0.3s_ease-out]">
@@ -79,7 +83,12 @@ export default function CastStep({ count, persons, length, style, voices, onCoun
                 <label htmlFor={`podcast-voice-${i}`} className="block text-xs font-medium text-foreground-soft mb-1">
                   {t("voiceLabel")}
                 </label>
-                <Select id={`podcast-voice-${i}`} value={person.voiceId} onChange={(voiceId) => onPerson(i, { voiceId })} options={voiceOptions} />
+                <Select
+                  id={`podcast-voice-${i}`}
+                  value={person.voiceId}
+                  onChange={(voiceId) => onPerson(i, { voiceId, providerId: anbieterVon.get(voiceId) ?? 0 })}
+                  options={voiceOptions}
+                />
               </div>
             </div>
           </div>
@@ -103,6 +112,12 @@ export default function CastStep({ count, persons, length, style, voices, onCoun
           <Select<Style> id="podcast-style" value={style} onChange={onStyle} options={STYLES.map((s) => ({ value: s, label: t(`styles.${s}`) }))} />
         </div>
       </div>
+
+      {keineStimmen && (
+        <p className="mt-6 rounded-md border border-warn-border bg-warn-bg px-3 py-2 text-sm text-warn-strong" role="alert">
+          {t("noVoices")}
+        </p>
+      )}
 
       <StepFooter onBack={onBack} nextLabel={t("next")} onNext={onNext} nextDisabled={!complete} />
     </section>

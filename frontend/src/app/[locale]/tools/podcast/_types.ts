@@ -13,33 +13,35 @@ export interface Person {
   name: string;
   role: Role;
   voiceId: string;
+  /** Voices may come from different providers, so each person names their own. */
+  providerId: number;
 }
 
-/** audioOf keeps the text at the time of voicing, so an edit shows up as a difference. */
+/** One contribution of one person, the unit the backend voices. */
 export interface Line {
   id: string;
   speaker: number;
   text: string;
-  audioOf: string | null;
 }
 
-export type RunStatus = "idle" | "running" | "failed" | "done";
-
-export interface Run {
-  status: RunStatus;
-  failedId: string | null;
-  /** The mock fails exactly once, this remembers that it already did. */
-  failedOnce: boolean;
-  voicedThisRun: number;
-  /** Lines that already had audio when the run started. */
-  keptIds: string[];
-  cancelled: boolean;
+/** What the job reports while it works, straight from the task. */
+export interface JobProgress {
+  step?: string;
+  current?: number;
+  total?: number;
+  /** Indices of contributions that carry audio right now. */
+  fertig?: number[];
+  /** Indices that already had audio when this run started. */
+  behalten?: number[];
 }
+
+export type JobStatus = "idle" | "pending" | "running" | "awaiting_user" | "success" | "failed";
 
 export interface Source {
   mode: SourceMode;
   text: string;
-  files: string[];
+  /** Only alive until the job starts, files never reach the browser storage. */
+  files: File[];
   moduleId: string;
   sourceIds: string[];
 }
@@ -54,7 +56,15 @@ export interface PodcastState {
   persons: Person[];
   length: Length;
   style: Style;
-  generating: boolean;
+  jobUuid: string | null;
+  jobStatus: JobStatus;
+  progress: JobProgress | null;
+  error: string;
   lines: Line[];
-  run: Run;
+  /** Ids whose audio matches their current text, seeded by the server. */
+  voicedIds: string[];
+  /** Measured running time of the finished file, the estimate only stands in until then. */
+  seconds: number | null;
+  /** True while the start call is in flight, before there is a job to poll. */
+  starting: boolean;
 }
