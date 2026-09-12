@@ -7,7 +7,8 @@ import { useTranslations } from "next-intl";
 import { usePathname } from "@/i18n/navigation";
 import {
   ArrowLeft,
-  Sidebar,
+  CaretCircleLeft,
+  CaretCircleRight,
   Translate,
   ChatsCircle,
   SpeakerHigh,
@@ -16,6 +17,7 @@ import {
   TextAlignLeft,
   BookOpen,
   MonitorPlay,
+  MicrophoneStage,
   type Icon,
 } from "@phosphor-icons/react";
 import { useEnabledTools } from "@/hooks/useEnabledTools";
@@ -34,6 +36,7 @@ const ICONS: Record<SidebarItemKey, Icon> = {
   image: ImageIcon,
   summary: TextAlignLeft,
   screencast: MonitorPlay,
+  podcast: MicrophoneStage,
   glossary: BookOpen,
 };
 
@@ -177,7 +180,11 @@ export default function ToolsSidebar() {
               aria-label={effectiveCollapsed ? t("expand") : t("collapse")}
               className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
             >
-              <Sidebar size={18} weight="bold" />
+              {effectiveCollapsed ? (
+                <CaretCircleRight size={18} weight="bold" />
+              ) : (
+                <CaretCircleLeft size={18} weight="bold" />
+              )}
             </button>
           )}
         </div>

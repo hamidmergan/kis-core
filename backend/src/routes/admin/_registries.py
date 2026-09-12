@@ -2,6 +2,7 @@
 
 TOOLS_CONFIG = [
     {"key": "screencast",      "label": "Screencast"},
+    {"key": "podcast",       "label": "Podcast"},
     {"key": "translation",   "label": "Dokumentenübersetzung"},
     {"key": "interpreter",   "label": "Dolmetscher"},
     {"key": "tts",           "label": "Text in Sprache"},
@@ -14,7 +15,8 @@ TOOLS_CONFIG = [
 
 TOOL_LABELS = {
     "screencast_render": "Screencast",
-    "screencast_translate": "Screencast-Übersetzung",
+    "screencast_translate": "Screencast",
+    "podcast": "Podcast",
     "tts": "Text in Sprache",
     "translation": "Übersetzung",
     "transcription": "Transkription",

@@ -16,6 +16,7 @@ describe("Wer alle Werkzeuge sieht", () => {
       "image",
       "summary",
       "screencast",
+      "podcast",
       "glossary",
       "auftraege",
       "abschluss",

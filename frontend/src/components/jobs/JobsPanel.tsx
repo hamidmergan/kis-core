@@ -13,7 +13,9 @@ import StatusMark from "@/components/ui/StatusMark";
 import { jobStatusDisplay } from "@/lib/jobStatusDisplay";
 import { formatElapsed, toMs } from "@/lib/format";
 import { hasUnseenDone } from "./_unseen";
+import { podcastJumpHref, podcastJumpKind } from "./_podcastJump";
 import { screencastJumpHref, screencastJumpKind } from "./_screencastJump";
+import { JobSources } from "./JobSources";
 
 interface MyJob {
   job_uuid: string;
@@ -365,7 +367,7 @@ export default function JobsPanel() {
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
                           <p className="text-xs font-medium text-foreground truncate mb-0.5">{job.tool_label}</p>
-                          <p className="text-xs text-muted-soft truncate mt-0.5">{job.original_filename}</p>
+                          <JobSources value={job.original_filename} />
                           {job.tts_params?.voice_label || job.tts_params?.provider ? (
                             <p className="text-xs text-muted-soft truncate mt-0.5">
                               {job.tts_params.provider}
@@ -416,7 +418,13 @@ export default function JobsPanel() {
                             status={job.status}
                             expired={expired}
                             isGeneratingScripts={job.is_generating_scripts}
-                            resumeHref={screencastJumpKind(job) === "resume" ? screencastJumpHref(job.job_uuid) : undefined}
+                            resumeHref={
+                              screencastJumpKind(job) === "resume"
+                                ? screencastJumpHref(job.job_uuid)
+                                : podcastJumpKind(job) === "resume"
+                                  ? podcastJumpHref(job.job_uuid)
+                                  : undefined
+                            }
                             onResume={(e) => { e.stopPropagation(); setOpen(false); }}
                           />
                           {(job.tool === "tts" || job.tool === "screencast_translate" || job.tool === "screencast_render") && job.status === "failed" && (
@@ -439,6 +447,17 @@ export default function JobsPanel() {
                         </div>
                       )}
                       {/* "Fortsetzen" sitzt jetzt im Status-Abzeichen, hier bleibt nur das Oeffnen. */}
+                      {podcastJumpKind(job) === "open" && (
+                        <div className="mt-2">
+                          <a
+                            href={podcastJumpHref(job.job_uuid)}
+                            onClick={(e) => { e.stopPropagation(); setOpen(false); }}
+                            className="inline-flex items-center gap-1 text-xs text-kb-dark bg-kb20 border border-kb60 hover:outline-2 hover:outline-kb-dark transition-colors px-2.5 py-1 rounded-full"
+                          >
+                            {tArtifacts("openPodcast")}
+                          </a>
+                        </div>
+                      )}
                       {screencastJumpKind(job) === "open" && (
                         <div className="mt-2">
                           <a

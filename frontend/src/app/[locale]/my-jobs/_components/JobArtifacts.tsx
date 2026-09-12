@@ -3,6 +3,7 @@ import { useTranslations } from "next-intl";
 import { DownloadSimple } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 import { SCREENCAST_RENDER_TOOLS, type MyJob } from "../_types";
+import { podcastJumpHref, podcastJumpKind } from "@/components/jobs/_podcastJump";
 import { screencastJumpHref, screencastJumpKind } from "@/components/jobs/_screencastJump";
 
 
@@ -38,6 +39,18 @@ function DownloadChip({ onClick, href, filename, label }: { onClick?: () => void
   );
 }
 
+/** The way back into the tool that made the job, for screencast and podcast alike. */
+function OpenChip({ href, label }: { href: string; label: string }) {
+  return (
+    <a
+      href={href}
+      className="inline-flex items-center gap-1 text-xs text-kb-dark bg-kb20 border border-kb60 hover:outline-2 hover:outline-kb-dark transition-colors px-2.5 py-1 rounded-full"
+    >
+      {label}
+    </a>
+  );
+}
+
 function DisabledChip({ label }: { label: string }) {
   return (
     <span className="text-xs text-muted-soft flex items-center gap-1 cursor-not-allowed select-none">
@@ -57,12 +70,7 @@ export function JobArtifacts({ job }: { job: MyJob }) {
     // Resume now sits in the status badge, only opening remains here.
     const sprung = screencastJumpKind(job);
     const sprungChip = sprung === "open" && (
-      <a
-        href={screencastJumpHref(job.job_uuid)}
-        className="inline-flex items-center gap-1 text-xs text-kb-dark bg-kb20 border border-kb60 hover:outline-2 hover:outline-kb-dark transition-colors px-2.5 py-1 rounded-full"
-      >
-        {t("openScreencast")}
-      </a>
+      <OpenChip href={screencastJumpHref(job.job_uuid)} label={t("openScreencast")} />
     );
 
     if (job.status === "awaiting_user") {
@@ -135,6 +143,25 @@ export function JobArtifacts({ job }: { job: MyJob }) {
             />
           )}
         </div>
+      </div>
+    );
+  }
+
+  // Podcast: the finished MP3 plus the way back into the tool, resuming sits in the badge.
+  if (job.tool === "podcast") {
+    const sprung = podcastJumpKind(job);
+    const laedt = job.status === "success" && job.has_download;
+    if (!laedt && sprung !== "open") return null;
+    return (
+      <div className="mt-3 flex flex-wrap gap-2 items-center">
+        {laedt && (
+          <DownloadChip
+            href={`/api/jobs/${job.job_uuid}/download`}
+            filename={job.result_filename || "podcast.mp3"}
+            label="MP3"
+          />
+        )}
+        {sprung === "open" && <OpenChip href={podcastJumpHref(job.job_uuid)} label={t("openPodcast")} />}
       </div>
     );
   }

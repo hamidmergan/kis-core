@@ -45,6 +45,9 @@
     "emptySearch": "Keine Ergebnisse für diese Suche",
     "emptyAll": "Keine Jobs vorhanden",
     "retryFailed": "Wiederholen fehlgeschlagen",
+    "sources": {
+      "more": "{n, plural, =1 {+1 weiteres} other {+# weitere}}"
+    },
     "filter": {
       "search": "Suche",
       "from": "Von",
@@ -135,7 +138,8 @@
       "resumeScreencast": "Screencast fortsetzen",
       "openScreencast": "Screencast öffnen",
       "downloadAllZip": "Alles herunterladen (ZIP)",
-      "fallbackFile": "Datei"
+      "fallbackFile": "Datei",
+      "openPodcast": "Podcast öffnen"
     },
     "duration": {
       "seconds": "{n} Sek.",
@@ -325,6 +329,10 @@
       "title": "Screencast",
       "text": "Aus deinen Folien wird ein vertontes Video, wahlweise in einer anderen Sprache. Erst Folien hochladen. Dann das Skript wählen, du lässt es von der KI schreiben, tippst es selbst ein oder importierst es aus einer Datei. Danach liest und änderst du das Skript, zuletzt wählst du die Stimme. Das Vertonen dauert am längsten, du kannst die Seite dabei verlassen."
     },
+    "podcast": {
+      "title": "Podcast",
+      "text": "Aus Text, Dateien oder den Quellen eines Moduls wird ein Gespräch zum Anhören, mit einer bis vier Stimmen. Du prüfst das Skript, bevor es vertont wird. Die Vertonung läuft im Hintergrund, und jeder fertige Beitrag bleibt gespeichert, auch wenn zwischendurch etwas schiefgeht."
+    },
     "glossary": {
       "title": "Glossar",
       "text": "Hier legst du eigene Begriffslisten an, die kannst du dann in der Übersetzung und im Screencast auswählen, damit deine Fachbegriffe dort immer gleich heißen."
@@ -351,6 +359,7 @@
       "image": "Bildgenerierung",
       "summary": "Zusammenfassung",
       "screencast": "Screencast",
+      "podcast": "Podcast",
       "glossary": "Glossar"
     }
   },
@@ -946,6 +955,153 @@
         "renderKeep": "Weiter rendern",
         "renderConfirm": "Rendern abbrechen",
         "confirm": "Verwerfen"
+      }
+    },
+    "podcast": {
+      "title": "Podcast",
+      "intro": "Aus deinem Material wird ein Gespräch zum Anhören. Du wählst Inhalt und Besetzung, prüfst das Skript und lässt es vertonen.",
+      "newPodcast": "Neuer Podcast",
+      "mockNote": "Mockup: Skript und Vertonung sind simuliert, nichts geht an einen Anbieter. Dein Stand bleibt im Browser.",
+      "steps": {
+        "content": "Inhalt",
+        "cast": "Besetzung",
+        "script": "Skript",
+        "voicing": "Vertonung",
+        "done": "Fertig"
+      },
+      "common": {
+        "back": "Zurück",
+        "cancel": "Abbrechen",
+        "save": "Speichern"
+      },
+      "content": {
+        "heading": "Worum soll es gehen?",
+        "tabs": {
+          "text": "Text",
+          "files": "Dateien"
+        },
+        "textPlaceholder": "Vorlesungsnotizen, ein Kapitel, ein Artikel. Alles, was im Podcast vorkommen soll.",
+        "dropOrBrowse": "Dateien hierher ziehen oder",
+        "browse": "durchsuchen",
+        "filesHint": "PDF, Word, PowerPoint oder Textdateien, auch mehrere auf einmal.",
+        "removeFile": "{name} entfernen",
+        "sourcesLabel": "Quellen",
+        "languageLabel": "Sprache des Podcasts",
+        "languages": {
+          "de": "Deutsch",
+          "en": "Englisch"
+        },
+        "instructionsLabel": "Anweisung, optional",
+        "instructionsPlaceholder": "Zum Beispiel: Bleib bei den Grundlagen und bring ein Beispiel aus dem Labor.",
+        "empty": "Erst Inhalt eintragen, dann geht es weiter.",
+        "next": "Weiter zur Besetzung",
+        "noModules": "Du hast noch kein Modul mit Material. Nimm so lange Text oder Dateien.",
+        "noSources": "Hier ist noch keine Quelle fertig verarbeitet.",
+        "sourcesHint": "Fertig verarbeitete Quellen. Nimm die ab, die nicht vorkommen sollen."
+      },
+      "cast": {
+        "heading": "Wer spricht?",
+        "countAria": "Zahl der Personen",
+        "countHint": {
+          "1": "Eine Person erklärt das Thema als Vortrag.",
+          "2": "Moderation und Fachperson im Gespräch.",
+          "3": "Dazu eine Person, die nachfragt.",
+          "4": "Eine Runde mit vier Stimmen, auch Widerspruch."
+        },
+        "personTitle": "Person {n}",
+        "nameLabel": "Name",
+        "roleLabel": "Rolle",
+        "voiceLabel": "Stimme",
+        "roles": {
+          "host": "Moderation",
+          "expert": "Fachperson",
+          "student": "Studierende Person",
+          "critic": "Kritische Stimme"
+        },
+        "previewVoices": "Stimmen anhören →",
+        "lengthLabel": "Länge",
+        "lengths": {
+          "short": "Kurz, etwa 5 Minuten",
+          "medium": "Mittel, etwa 10 Minuten",
+          "long": "Lang, etwa 20 Minuten"
+        },
+        "styleLabel": "Stil",
+        "styles": {
+          "teaching": "Erklärend",
+          "casual": "Locker",
+          "interview": "Interview"
+        },
+        "next": "Skript schreiben lassen",
+        "noVoices": "Es ist keine Stimme eingerichtet. Ohne Stimme kann nichts vertont werden.",
+        "recastHint": "Du kannst die Besetzung noch austauschen. Beiträge mit einer anderen Stimme werden danach neu vertont, alle anderen bleiben wie sie sind.",
+        "writtenHint": "Länge und Stil haben das Skript geschrieben und stehen darum fest. Einzelne Beiträge kürzt oder löschst du im Skript.",
+        "nextRecast": "Besetzung übernehmen"
+      },
+      "script": {
+        "generating": "Das Skript wird geschrieben",
+        "generatingSubtle": "Das Modell liest dein Material und verteilt die Beiträge auf {n, plural, =1 {eine Stimme} other {# Stimmen}}.",
+        "heading": "Skript prüfen",
+        "intro": "Jeder Beitrag lässt sich ändern, neu formulieren oder löschen. Vertont wird erst, wenn du zufrieden bist.",
+        "summary": "{lines, plural, =1 {Ein Beitrag} other {# Beiträge}}, {words} Wörter, etwa {minutes, plural, =1 {eine Minute} other {# Minuten}}",
+        "castLegend": "Besetzung",
+        "changed": "geändert",
+        "voiced": "vertont",
+        "wordsApprox": "etwa {n} Wörter",
+        "edit": "Beitrag {n} bearbeiten",
+        "regen": "Beitrag {n} neu formulieren",
+        "delete": "Beitrag {n} löschen",
+        "add": "Beitrag anfügen",
+        "editAria": "Text von Beitrag {n}",
+        "next": "Vertonen",
+        "nextChanged": "{n, plural, =1 {Einen geänderten Beitrag} other {# geänderte Beiträge}} neu vertonen",
+        "nextDone": "Zum fertigen Podcast",
+        "speakerAria": "Person für Beitrag {n}",
+        "speakerFallback": "Person {n}"
+      },
+      "voicing": {
+        "heading": "Vertonung",
+        "progress": "{done} von {total} Beiträgen vertont",
+        "background": "Du kannst die Seite verlassen. Die Vertonung läuft im Hintergrund weiter, und jeder fertige Beitrag bleibt gespeichert. Den Auftrag findest du unter Aufträge.",
+        "state": {
+          "done": "fertig",
+          "running": "läuft",
+          "waiting": "wartet",
+          "failed": "Fehler",
+          "kept": "behalten"
+        },
+        "failedTitle": "Beitrag {n} konnte nicht vertont werden",
+        "failedBody": "Der Anbieter hat nicht geantwortet. {done, plural, =1 {Ein Beitrag ist fertig und bleibt} other {# Beiträge sind fertig und bleiben}} erhalten.",
+        "resume": "Ab Beitrag {n} fortsetzen",
+        "backToScript": "Zurück zum Skript",
+        "cancelled": "Abgebrochen. Was schon vertont war, bleibt erhalten.",
+        "assembling": "Die Beiträge werden zusammengesetzt",
+        "failedGeneric": "Die Vertonung ist fehlgeschlagen",
+        "resumeGeneric": "Vertonung fortsetzen"
+      },
+      "done": {
+        "heading": "Dein Podcast ist fertig",
+        "summary": "Etwa {minutes, plural, =1 {eine Minute} other {# Minuten}}, {lines} Beiträge, {count, plural, =1 {eine Stimme} other {# Stimmen}}",
+        "download": "MP3 herunterladen",
+        "transcript": "Transkript herunterladen",
+        "editScript": "Skript ändern",
+        "browserNoAudio": "Dein Browser kann die Datei nicht abspielen.",
+        "filename": "podcast"
+      },
+      "vorschau": {
+        "ueberschrift": "Schon fertig zum Anhören",
+        "beitragVon": "Beitrag {n} von {total}",
+        "fortschritt": "{fertig} von {total} Beiträgen vertont",
+        "wirdVertont": "Dieser Beitrag wird gerade vertont.",
+        "wartet": "Dieser Beitrag wird noch vertont.",
+        "fehler": "Dieser Beitrag konnte nicht vertont werden.",
+        "abspielen": "Beitrag {n} anhören",
+        "wartetKachel": "Beitrag {n} wird noch vertont",
+        "rueckblick": "Alle Beiträge einzeln anhören",
+        "rueckblickHinweis": "Hier kannst du dir jeden Beitrag einzeln anhören. Ändern kannst du sie im Skript.",
+        "zumErgebnis": "Zum fertigen Podcast",
+        "geaendert": "Geändert. Beim nächsten Lauf wird nur dieser Beitrag neu vertont.",
+        "nachLinks": "Beiträge nach links schieben",
+        "nachRechts": "Beiträge nach rechts schieben"
       }
     },
     "screencastDemo": {

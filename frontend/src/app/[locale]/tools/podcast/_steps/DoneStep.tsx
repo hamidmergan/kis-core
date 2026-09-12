@@ -1,0 +1,103 @@
+"use client";
+
+import { useTranslations } from "next-intl";
+import { MicrophoneStage } from "@phosphor-icons/react";
+import { resultUrl, transcriptUrl } from "../_api";
+import { linesToVoice, minutesOf } from "../_logic";
+import type { JobProgress, JobStatus, Line, Person, PersonCount } from "../_types";
+
+const downloadIcon = (
+  <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+  </svg>
+);
+const LINK = "px-6 py-2 btn-primary text-sm font-medium rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors flex items-center gap-2";
+const GHOST = "px-6 py-2 text-sm text-foreground-soft border border-border rounded-md btn-ghost focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors";
+
+interface DoneStepProps {
+  jobUuid: string | null;
+  lines: Line[];
+  persons: Person[];
+  count: PersonCount;
+  voicedIds: string[];
+  jobStatus: JobStatus;
+  progress: JobProgress | null;
+  seconds: number | null;
+  onVoice: () => void;
+  onEditScript: () => void;
+  onReset: () => void;
+}
+
+export default function DoneStep(props: DoneStepProps) {
+  const { jobUuid, lines, persons, count, voicedIds, jobStatus, progress, seconds,
+          onVoice, onEditScript, onReset } = props;
+  const t = useTranslations("tools.podcast.done");
+  const tScript = useTranslations("tools.podcast.script");
+  const tPage = useTranslations("tools.podcast");
+  // The measured length once it exists, the estimate from the words until then.
+  const minutes = seconds != null ? Math.max(1, Math.round(seconds / 60)) : minutesOf(lines);
+  const offen = linesToVoice(lines, voicedIds).length;
+
+  // The finished file is downloaded, not streamed: a link keeps the loader quiet.
+  const speichern = (url: string, name: string) => {
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    a.click();
+  };
+
+  return (
+    <section className="animate-[fadeIn_0.3s_ease-out] py-10">
+      <div className="flex justify-center mb-4">
+        <div className="w-12 h-12 rounded-full bg-success-bg flex items-center justify-center">
+          <svg className="w-6 h-6 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+      </div>
+      <h2 className="text-lg font-bold mb-1 text-center">{t("heading")}</h2>
+      <p className="text-sm text-muted text-center mb-6">{t("summary", { minutes, lines: lines.length, count })}</p>
+
+      {jobUuid && (
+        <div className="mb-6 rounded-lg border border-border-soft p-6">
+          <div className="w-full max-w-md mx-auto flex flex-col items-center gap-4">
+            <div className="w-24 h-24 rounded-full flex items-center justify-center" style={{ backgroundColor: "rgba(var(--kb-rgb),0.1)" }}>
+              <MicrophoneStage size={40} weight="bold" style={{ color: "var(--kb)" }} />
+            </div>
+            <audio key={`${jobUuid}-${voicedIds.length}`} controls className="w-full" src={resultUrl(jobUuid)}>
+              {t("browserNoAudio")}
+            </audio>
+          </div>
+        </div>
+      )}
+
+      <div className="flex flex-wrap justify-center gap-3 mb-4">
+        <button type="button" onClick={() => jobUuid && speichern(resultUrl(jobUuid), "podcast.mp3")} className={LINK}>
+          {downloadIcon}
+          {t("download")}
+        </button>
+        <button type="button" onClick={() => jobUuid && speichern(transcriptUrl(jobUuid), "podcast.txt")} className={LINK}>
+          {downloadIcon}
+          {t("transcript")}
+        </button>
+      </div>
+
+      <div className="flex flex-wrap justify-center gap-3">
+        <button type="button" onClick={onEditScript} className={GHOST}>
+          {t("editScript")}
+        </button>
+        <button type="button" onClick={onReset} className={GHOST}>
+          {tPage("newPodcast")}
+        </button>
+      </div>
+
+      {offen > 0 && (
+        <div className="flex justify-center mt-10">
+          <button type="button" onClick={onVoice} className="px-6 py-2 text-sm btn-primary rounded-md transition-colors select-none">
+            {tScript("nextChanged", { n: offen })}
+          </button>
+        </div>
+      )}
+    </section>
+  );
+}

@@ -23,6 +23,7 @@ const STATIONEN = [
   { anker: "tool-image", route: "/tools/image" },
   { anker: "tool-summary", route: "/tools/summarize" },
   { anker: "tool-screencast", route: "/tools/screencast" },
+  { anker: "tool-podcast", route: "/tools/podcast" },
   { anker: "tool-glossary", route: "/tools/glossary" },
   { anker: "jobs-entry", route: null },
 ];

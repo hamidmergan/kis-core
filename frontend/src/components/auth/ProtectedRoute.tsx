@@ -14,6 +14,7 @@ const TOOL_KEY_BY_SLUG: Record<string, string> = {
   image: "image",
   summarize: "summary",
   screencast: "screencast",
+  podcast: "podcast",
   glossary: "glossary",
 };
 

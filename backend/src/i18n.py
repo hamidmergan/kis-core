@@ -143,6 +143,7 @@ MESSAGES: dict[str, dict[str, str]] = {
     "quota.label.image_edit": {"de": "Bild-Bearbeitung", "en": "Image editing"},
     "quota.label.image_analyze": {"de": "Bild-Analyse", "en": "Image analysis"},
     "quota.label.screencast": {"de": "Screencast", "en": "Screencast"},
+    "quota.label.podcast": {"de": "Podcast", "en": "Podcast"},
     "quota.label.aia_generate": {"de": "KI-Tutor: Generierung", "en": "AI tutor: generation"},
     "source.notFound": {"de": "Source nicht gefunden", "en": "Source not found"},
     "entry.notFound": {"de": "Eintrag nicht gefunden", "en": "Entry not found"},
@@ -220,6 +221,55 @@ MESSAGES: dict[str, dict[str, str]] = {
     "scheduleEntry.invalidType": {
         "de": "Typ muss 'deadline' oder 'termin' sein",
         "en": "Type must be 'deadline' or 'termin'",
+    },
+    # Podcast
+    "podcast.badParams": {
+        "de": "Diese Einstellungen kann der Podcast nicht verwenden.",
+        "en": "The podcast cannot use these settings.",
+    },
+    "podcast.badCast": {
+        "de": "Jede Person braucht einen Namen, eine Rolle und eine Stimme.",
+        "en": "Every person needs a name, a role and a voice.",
+    },
+    "podcast.noContent": {
+        "de": "Ohne Material gibt es nichts zu erzählen.",
+        "en": "Without material there is nothing to tell.",
+    },
+    "podcast.unsupportedFormat": {
+        "de": "Nur {formats} lassen sich lesen.",
+        "en": "Only {formats} can be read.",
+    },
+    "podcast.fileUnreadable": {
+        "de": "Die Datei {name} lässt sich nicht lesen.",
+        "en": "The file {name} cannot be read.",
+    },
+    "podcast.queueFull": {
+        "de": "Du hast schon {max} Podcasts offen. Schließe einen ab, dann geht es weiter.",
+        "en": "You already have {max} podcasts open. Finish one, then you can continue.",
+    },
+    "podcast.running": {
+        "de": "Dieser Podcast arbeitet gerade.",
+        "en": "This podcast is working right now.",
+    },
+    "podcast.emptyScript": {
+        "de": "Das Skript hat keinen einzigen Beitrag.",
+        "en": "The script has no contribution at all.",
+    },
+    "podcast.scriptFailed": {
+        "de": "Das Skript ließ sich nicht schreiben. Versuch es mit weniger Material noch einmal.",
+        "en": "The script could not be written. Try again with less material.",
+    },
+    "podcast.rephraseFailed": {
+        "de": "Das Umformulieren hat nicht geklappt. Der Beitrag bleibt, wie er war.",
+        "en": "The rephrasing did not work. The contribution stays as it was.",
+    },
+    "podcast.renderFailed": {
+        "de": "Die Vertonung ist fehlgeschlagen.",
+        "en": "The voicing failed.",
+    },
+    "podcast.lineFailed": {
+        "de": "Beitrag {n} konnte nicht vertont werden. Alles davor bleibt erhalten.",
+        "en": "Line {n} could not be voiced. Everything before it stays.",
     },
     # Interpreter
     "interpreter.badTarget": {
@@ -398,10 +448,7 @@ MESSAGES: dict[str, dict[str, str]] = {
     },
     # Tool labels (shown in job listing)
     "tool.screencast_render": {"de": "Screencast", "en": "Screencast"},
-    "tool.screencast_translate": {
-        "de": "Screencast-Übersetzung",
-        "en": "Screencast translation",
-    },
+    "tool.screencast_translate": {"de": "Screencast", "en": "Screencast"},
     "tool.tts": {"de": "Text in Sprache", "en": "Text to speech"},
     "tool.translation": {"de": "Übersetzung", "en": "Translation"},
     "tool.transcription": {"de": "Transkription", "en": "Transcription"},
@@ -409,6 +456,7 @@ MESSAGES: dict[str, dict[str, str]] = {
     "tool.image_edit": {"de": "Bild-Bearbeitung", "en": "Image editing"},
     "tool.image_analyze": {"de": "Bild-Analyse", "en": "Image analysis"},
     "tool.summary": {"de": "Zusammenfassung", "en": "Summary"},
+    "tool.podcast": {"de": "Podcast", "en": "Podcast"},
     # Translate provider labels
     "translateProvider.deepl": {"de": "DeepL (schnell)", "en": "DeepL (fast)"},
     "translateProvider.llm": {"de": "LLM (langsam)", "en": "LLM (slow)"},

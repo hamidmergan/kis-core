@@ -11,6 +11,7 @@ celery_app = Celery(
         "src.tasks.tts_tasks",
         "src.tasks.general_tasks",
         "src.tasks.screencast_tasks",
+        "src.tasks.podcast_tasks",
         "src.tasks.watchdog_tasks",
         "src.tasks.cleanup_tasks",
         "src.tasks.backup_tasks",
@@ -36,6 +37,9 @@ celery_app.conf.update(
         "general.summary": {"queue": "general"},
         "screencast.translate": {"queue": "screencast"},
         "screencast.render": {"queue": "screencast"},
+        # Podcast waits on the voice provider, it does not compute: the general worker scales.
+        "podcast.script": {"queue": "general"},
+        "podcast.render": {"queue": "general"},
         "watchdog.check": {"queue": "general"},
         "cleanup.expired_files": {"queue": "general"},
         "cleanup.job_cap": {"queue": "general"},
