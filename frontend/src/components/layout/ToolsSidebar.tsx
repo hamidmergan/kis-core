@@ -16,6 +16,7 @@ import {
   TextAlignLeft,
   BookOpen,
   MonitorPlay,
+  MicrophoneStage,
   type Icon,
 } from "@phosphor-icons/react";
 import { useEnabledTools } from "@/hooks/useEnabledTools";
@@ -34,6 +35,7 @@ const ICONS: Record<SidebarItemKey, Icon> = {
   image: ImageIcon,
   summary: TextAlignLeft,
   screencast: MonitorPlay,
+  podcast: MicrophoneStage,
   glossary: BookOpen,
 };
 

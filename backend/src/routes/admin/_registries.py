@@ -2,6 +2,7 @@
 
 TOOLS_CONFIG = [
     {"key": "screencast",      "label": "Screencast"},
+    {"key": "podcast",       "label": "Podcast"},
     {"key": "translation",   "label": "Dokumentenübersetzung"},
     {"key": "interpreter",   "label": "Dolmetscher"},
     {"key": "tts",           "label": "Text in Sprache"},

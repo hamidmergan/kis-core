@@ -11,6 +11,7 @@ export const TOOL_ROUTES = [
   { key: "image", href: "/tools/image" },
   { key: "summary", href: "/tools/summarize" },
   { key: "screencast", href: "/tools/screencast" },
+  { key: "podcast", href: "/tools/podcast" },
   { key: "glossary", href: "/tools/glossary" },
 ] as const;
 

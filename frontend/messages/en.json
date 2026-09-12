@@ -325,6 +325,10 @@
       "title": "Screencast",
       "text": "Your slides become a narrated video, in another language if you like. First upload the slides. Then choose how the script gets made, have the AI write it, type it yourself, or import it from a file. After that you read and edit the script, and finally pick the voice. The narration takes the longest and you can leave the page while it runs."
     },
+    "podcast": {
+      "title": "Podcast",
+      "text": "Text, files or the sources of a module become a conversation to listen to, with one to four voices. You check the script before it is voiced. Voicing runs in the background, and every finished line stays saved even if something fails in between."
+    },
     "glossary": {
       "title": "Glossary",
       "text": "Here you create your own term lists, which you can then pick in translation and in the screencast, so your technical terms are named the same way everywhere."
@@ -351,6 +355,7 @@
       "image": "Image generation",
       "summary": "Summary",
       "screencast": "Screencast",
+      "podcast": "Podcast",
       "glossary": "Glossary"
     }
   },
@@ -946,6 +951,144 @@
         "renderKeep": "Keep rendering",
         "renderConfirm": "Cancel rendering",
         "confirm": "Discard"
+      }
+    },
+    "podcast": {
+      "title": "Podcast",
+      "intro": "Your material becomes a conversation to listen to. You pick the content and the cast, check the script and have it voiced.",
+      "newPodcast": "New podcast",
+      "mockNote": "Mockup: script and voicing are simulated, nothing is sent to a provider. Your progress stays in the browser.",
+      "steps": {
+        "content": "Content",
+        "cast": "Cast",
+        "script": "Script",
+        "voicing": "Voicing",
+        "done": "Done"
+      },
+      "common": {
+        "back": "Back",
+        "cancel": "Cancel",
+        "save": "Save"
+      },
+      "content": {
+        "heading": "What is it about?",
+        "tabs": {
+          "text": "Text",
+          "files": "Files"
+        },
+        "textPlaceholder": "Lecture notes, a chapter, an article. Everything the podcast should cover.",
+        "dropOrBrowse": "Drop files here or",
+        "browse": "browse",
+        "filesHint": "PDF, Word, PowerPoint or text files, several at once if you like.",
+        "removeFile": "Remove {name}",
+        "sourcesLabel": "Sources",
+        "languageLabel": "Podcast language",
+        "languages": {
+          "de": "German",
+          "en": "English"
+        },
+        "instructionsLabel": "Instruction, optional",
+        "instructionsPlaceholder": "For example: stick to the basics and bring an example from the lab.",
+        "empty": "Add content first, then continue.",
+        "next": "Continue to the cast",
+        "noModules": "You have no module with material yet. Use text or files in the meantime.",
+        "noSources": "No source has finished processing here yet.",
+        "sourcesHint": "Sources that finished processing. Untick the ones that should not appear."
+      },
+      "cast": {
+        "heading": "Who speaks?",
+        "countAria": "Number of people",
+        "countHint": {
+          "1": "One person explains the topic as a talk.",
+          "2": "Host and expert in conversation.",
+          "3": "Plus someone who asks questions.",
+          "4": "A round of four voices, including disagreement."
+        },
+        "personTitle": "Person {n}",
+        "nameLabel": "Name",
+        "roleLabel": "Role",
+        "voiceLabel": "Voice",
+        "roles": {
+          "host": "Host",
+          "expert": "Expert",
+          "student": "Student",
+          "critic": "Critical voice"
+        },
+        "previewVoices": "Listen to voices →",
+        "lengthLabel": "Length",
+        "lengths": {
+          "short": "Short, about 5 minutes",
+          "medium": "Medium, about 10 minutes",
+          "long": "Long, about 20 minutes"
+        },
+        "styleLabel": "Style",
+        "styles": {
+          "teaching": "Explanatory",
+          "casual": "Casual",
+          "interview": "Interview"
+        },
+        "next": "Write the script"
+      },
+      "script": {
+        "generating": "The script is being written",
+        "generatingSubtle": "The model reads your material and spreads the lines across {n, plural, =1 {one voice} other {# voices}}.",
+        "heading": "Check the script",
+        "intro": "Every line can be edited, rephrased or deleted. Voicing starts only when you are happy with it.",
+        "summary": "{lines, plural, =1 {One line} other {# lines}}, {words} words, about {minutes, plural, =1 {one minute} other {# minutes}}",
+        "changed": "changed",
+        "voiced": "voiced",
+        "wordsApprox": "about {n} words",
+        "edit": "Edit line {n}",
+        "regen": "Rephrase line {n}",
+        "delete": "Delete line {n}",
+        "add": "Add a line",
+        "editAria": "Text of line {n}",
+        "next": "Voice it",
+        "nextChanged": "Voice {n, plural, =1 {one changed line} other {# changed lines}} again",
+        "nextDone": "To the finished podcast"
+      },
+      "voicing": {
+        "heading": "Voicing",
+        "progress": "{done} of {total} lines voiced",
+        "background": "You can leave the page. The voicing keeps running in the background, and every finished line stays saved. You find the job under Jobs.",
+        "state": {
+          "done": "done",
+          "running": "running",
+          "waiting": "waiting",
+          "failed": "failed",
+          "kept": "kept"
+        },
+        "failedTitle": "Line {n} could not be voiced",
+        "failedBody": "The provider did not answer. {done, plural, =1 {One line is finished and stays} other {# lines are finished and stay}} saved.",
+        "resume": "Continue from line {n}",
+        "backToScript": "Back to the script",
+        "cancelled": "Cancelled. What was already voiced stays saved."
+      },
+      "done": {
+        "heading": "Your podcast is ready",
+        "summary": "About {minutes, plural, =1 {one minute} other {# minutes}}, {lines} lines, {count, plural, =1 {one voice} other {# voices}}",
+        "download": "Download MP3",
+        "transcript": "Download transcript",
+        "editScript": "Edit the script",
+        "browserNoAudio": "Your browser cannot play this file.",
+        "filename": "podcast"
+      },
+      "vorschau": {
+        "ueberschrift": "Ready to listen to",
+        "beitragVon": "Line {n} of {total}",
+        "fortschritt": "{fertig} of {total} lines voiced",
+        "wirdVertont": "This line is being voiced right now.",
+        "wartet": "This line is still to be voiced.",
+        "fehler": "This line could not be voiced.",
+        "abspielen": "Listen to line {n}",
+        "wartetKachel": "Line {n} is still to be voiced",
+        "rueckblick": "Listen to every line on its own",
+        "rueckblickHinweis": "You can change any line here. Only the changed ones are voiced again, the others keep their audio.",
+        "zumErgebnis": "To the finished podcast",
+        "aendern": "Edit line",
+        "geaendert": "Changed. On the next run only this line is voiced again.",
+        "nachLinks": "Scroll lines to the left",
+        "nachRechts": "Scroll lines to the right"
       }
     },
     "screencastDemo": {
