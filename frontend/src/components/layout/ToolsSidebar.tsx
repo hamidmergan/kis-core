@@ -9,6 +9,7 @@ import {
   ArrowLeft,
   Sidebar,
   Translate,
+  ChatsCircle,
   SpeakerHigh,
   Microphone,
   Image as ImageIcon,
@@ -27,6 +28,7 @@ type SidebarTool = { key: SidebarItemKey; href: string; icon: Icon };
 
 const ICONS: Record<SidebarItemKey, Icon> = {
   translation: Translate,
+  interpreter: ChatsCircle,
   tts: SpeakerHigh,
   transcription: Microphone,
   image: ImageIcon,

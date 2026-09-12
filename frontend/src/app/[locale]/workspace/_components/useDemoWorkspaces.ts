@@ -12,6 +12,8 @@ export interface DemoWorkspace {
   via_demo: boolean;
   /** The viewer owns the course, then there is nothing to enter. */
   owned: boolean;
+  /** The one demo course the guided tour runs in. */
+  tour: boolean;
 }
 
 /** Loads the demo courses and keeps joining and leaving in one place. */

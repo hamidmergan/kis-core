@@ -236,3 +236,24 @@ async def test_ohne_uebersetzung_gibt_es_keine_zielsprache(quelle):
     antwort = await _langs()
 
     assert antwort["target_lang"] is None
+
+
+# ─── A failed translation is reported, a new order clears it ───────────────
+
+async def test_vorhandensein_meldet_den_fehler(quelle):
+    ordner, _, _ = quelle
+    (ordner / "abc_transcript.fr.error").write_text("Internal Server Error", encoding="utf-8")
+
+    assert await _exists("fr") == {"exists": False, "error": "Internal Server Error"}
+
+
+async def test_ein_neuer_auftrag_raeumt_die_alte_marke_weg(quelle, auftraege):
+    """Otherwise the panel would report the old failure before the task even starts."""
+    ordner, vtt_anlegen, _ = quelle
+    vtt_anlegen("de")
+    (ordner / "abc_transcript.en.error").write_text("alt", encoding="utf-8")
+
+    await _translate("en")
+
+    assert not (ordner / "abc_transcript.en.error").exists()
+    assert auftraege == [("s1", 3, "en")]

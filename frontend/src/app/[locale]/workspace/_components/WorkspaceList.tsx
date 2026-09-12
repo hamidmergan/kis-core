@@ -75,16 +75,29 @@ export default function WorkspaceList({ canCreate }: Props) {
     } catch { /* ignore */ }
   }
 
-  async function handleEdit(uuid: string, newTitle: string, newDescription: string): Promise<boolean> {
+  async function handleEdit(uuid: string, newTitle: string, newDescription: string, tourModule: boolean | null): Promise<boolean> {
     try {
       const res = await fetch(`/api/ai-assistant/workspaces/${uuid}`, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: newTitle, description: newDescription }),
+        body: JSON.stringify({
+          title: newTitle,
+          description: newDescription,
+          ...(tourModule === null ? {} : { is_tour_module: tourModule }),
+        }),
       });
       if (res.ok) {
-        setWorkspaces((prev) => prev.map((m) => m.uuid === uuid ? { ...m, title: newTitle, description: newDescription || null } : m));
+        // The mark sits on exactly one module, so every other one loses it here too.
+        setWorkspaces((prev) => prev.map((m) => {
+          const rundgang = tourModule === null ? m.is_tour_module
+            : m.uuid === uuid ? tourModule
+            : tourModule ? false : m.is_tour_module;
+          return m.uuid === uuid
+            ? { ...m, title: newTitle, description: newDescription || null, is_tour_module: rundgang }
+            : { ...m, is_tour_module: rundgang };
+        }));
+        await demo.reload();
         return true;
       }
     } catch { /* ignore */ }

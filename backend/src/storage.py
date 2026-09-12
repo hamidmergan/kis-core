@@ -57,6 +57,11 @@ def aia_vtt_key(file_path: str, lang: str) -> str:
     return f"{aia_source_base(file_path)}_transcript.{lang}.vtt"
 
 
+def aia_vtt_error_key(file_path: str, lang: str) -> str:
+    """Note of a failed translation, the panel polls for it."""
+    return f"{aia_source_base(file_path)}_transcript.{lang}.error"
+
+
 def aia_transcript_prefix(file_path: str) -> str:
     """Prefix covering every transcript artifact of one source."""
     return f"{aia_source_base(file_path)}_transcript."

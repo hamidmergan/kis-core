@@ -198,6 +198,20 @@ export function readPendingTranslation(raw: string | null, now: number): string 
   }
 }
 
+export type TranslationProbe =
+  | { kind: "done" }
+  | { kind: "wait" }
+  | { kind: "failed"; error: string };
+
+/** What the poll answer means, an unreadable answer just keeps waiting. */
+export function translationProbeOutcome(data: unknown): TranslationProbe {
+  if (!data || typeof data !== "object") return { kind: "wait" };
+  const { exists, error } = data as { exists?: unknown; error?: unknown };
+  if (exists === true) return { kind: "done" };
+  if (typeof error === "string") return { kind: "failed", error };
+  return { kind: "wait" };
+}
+
 /** The languages offered for a translation, the recording's own is no target. */
 export function chooseableTargetLangs(all: string[], sourceLang: string | null): string[] {
   const own = (sourceLang ?? "").toLowerCase();

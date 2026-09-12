@@ -221,6 +221,39 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Typ muss 'deadline' oder 'termin' sein",
         "en": "Type must be 'deadline' or 'termin'",
     },
+    # Interpreter
+    "interpreter.badTarget": {
+        "de": "Diese Sprache kennt der Dolmetscher nicht.",
+        "en": "The interpreter does not know this language.",
+    },
+    "interpreter.noProvider": {
+        "de": "Kein Übersetzungsanbieter eingerichtet.",
+        "en": "No translation provider is configured.",
+    },
+    "interpreter.ended": {
+        "de": "Das Gespräch ist beendet.",
+        "en": "The conversation has ended.",
+    },
+    "interpreter.sessionUnknown": {
+        "de": "Dieses Gespräch gibt es nicht.",
+        "en": "This conversation does not exist.",
+    },
+    "interpreter.audioTooLarge": {
+        "de": "Die Aufnahme ist zu groß.",
+        "en": "The recording is too large.",
+    },
+    "interpreter.noStt": {
+        "de": "Kein Anbieter für Spracherkennung eingerichtet.",
+        "en": "No speech recognition provider is configured.",
+    },
+    "interpreter.sttFailed": {
+        "de": "Die Spracherkennung ist gerade nicht möglich.",
+        "en": "Speech recognition is not available right now.",
+    },
+    "interpreter.failed": {
+        "de": "Die Übersetzung ist gerade nicht möglich.",
+        "en": "Translation is not available right now.",
+    },
     "translate.invalidProvider": {
         "de": "Ungültiger Übersetzungs-Provider",
         "en": "Invalid translation provider",

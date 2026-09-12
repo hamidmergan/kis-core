@@ -28,6 +28,8 @@ export interface KiTutorWorkspace {
   shared: boolean;
   /** Owned by the demo account, shown alongside the role badge. */
   is_demo_workspace?: boolean;
+  /** The demo module the guided tour runs in, at most one carries this. */
+  is_tour_module?: boolean;
   access_links?: AccessLink[];
   // Only set for enrolled courses, several links mean several histories.
   enrollment_id?: number | null;

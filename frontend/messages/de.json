@@ -301,6 +301,10 @@
       "title": "Übersetzung",
       "text": "Du kannst Text direkt eintippen oder ein Dokument hochladen, beides wird übersetzt. Bei Dokumenten bleiben Aufbau und Formatierung erhalten, du bekommst dieselbe Datei zurück, nur in der neuen Sprache. Für deine Fachbegriffe kannst du hier eine eigene Liste auswählen, die legst du vorher im Werkzeug Glossar an."
     },
+    "interpreter": {
+      "title": "Dolmetscher",
+      "text": "Für Gespräche über zwei Sprachen hinweg, etwa in der Sprechstunde oder im Studierendensekretariat. Jede Person drückt auf Sprechen und redet in ihrer Sprache, die andere Seite liest die Übersetzung. Tippen geht auch, und ein falsch erkannter Satz lässt sich korrigieren. Am Ende bekommst du ein Protokoll in beiden Sprachen."
+    },
     "tts": {
       "title": "Text in Sprache",
       "text": "Du kannst Text eintippen oder eine Datei hochladen, beides wird vorgelesen. Die Stimme suchst du dir aus. Am Ende bekommst du eine Audiodatei, die du dir direkt anhören oder herunterladen kannst. Bei langen Texten dauert die Vertonung entsprechend länger."
@@ -341,6 +345,7 @@
     "back": "Zurück",
     "items": {
       "translation": "Übersetzung",
+      "interpreter": "Dolmetscher",
       "tts": "Text in Sprache",
       "transcription": "Sprache in Text",
       "image": "Bildgenerierung",
@@ -423,6 +428,73 @@
       "copied": "Kopiert!",
       "resetLabel": "Zurücksetzen",
       "resultStale": "Text wurde geändert – für ein aktuelles Ergebnis erneut übersetzen."
+    },
+    "interpreter": {
+      "title": "Dolmetscher",
+      "intro": "Zwei Sprachen, ein Gespräch. Sprich oder tipp in dein Feld, daneben läuft die Übersetzung mit. Alles bleibt im Verlauf.",
+      "mode": {
+        "solo": "Eine Person",
+        "soloHint": "Du sprichst oder tippst, rechts läuft die Übersetzung mit.",
+        "conversation": "Zwei Personen",
+        "conversationHint": "Beide sprechen oder tippen im Wechsel, jede Seite in ihrer Sprache."
+      },
+      "languages": {
+        "de": "Deutsch",
+        "en": "Englisch",
+        "swap": "Seiten tauschen",
+        "selectAria": "Sprache {side}"
+      },
+      "sides": {
+        "left": "links",
+        "right": "rechts"
+      },
+      "settings": {
+        "title": "Anbieter und Einstellungen",
+        "description": "KI-Anbieter für Spracherkennung und Übersetzung, Fachbegriffe aus dem Glossar.",
+        "sttProvider": "Spracherkennung",
+        "translationProvider": "Übersetzung",
+        "privacy": "Ton und Text gehen nur an die hier gewählten Anbieter. Die Spracherkennung des Browsers wird nicht genutzt.",
+        "close": "Schließen"
+      },
+      "speaker": {
+        "defaultLeft": "Person 1",
+        "defaultRight": "Person 2"
+      },
+      "history": {
+        "title": "Verlauf",
+        "showOlder": "Ältere anzeigen ({count})"
+      },
+      "actions": {
+        "newConversation": "Neues Gespräch",
+        "protocol": "Protokoll",
+        "saved": "Frühere Gespräche",
+        "settings": "Einstellungen",
+        "endConversation": "Gespräch beenden",
+        "download": "Als Text speichern",
+        "clear": "Leeren"
+      },
+      "solo": {
+        "filename": "uebersetzung"
+      },
+      "protocol": {
+        "title": "Gesprächsprotokoll",
+        "intro": "Beide Sprachen in der Reihenfolge des Gesprächs.",
+        "download": "Als Text herunterladen",
+        "empty": "Noch kein Gespräch, es gibt nichts zu protokollieren.",
+        "close": "Schließen",
+        "filename": "gespraechsprotokoll"
+      },
+      "saved": {
+        "title": "Frühere Gespräche",
+        "intro": "Jedes begonnene Gespräch wird gespeichert. Öffne eines, um es nachzulesen oder weiterzuführen.",
+        "empty": "Noch kein gespeichertes Gespräch.",
+        "current": "gerade offen",
+        "sentences": "{count, plural, =1 {ein Satz} other {# Sätze}}",
+        "delete": "Gespräch löschen",
+        "close": "Schließen",
+        "untitled": "Ohne Satz",
+        "ended": "beendet"
+      }
     },
     "tts": {
       "title": "Text in Sprache",
@@ -1834,6 +1906,7 @@
       },
       "tools": {
         "translation": "Übersetzung",
+        "interpreter": "Dolmetscher",
         "tts": "Text in Sprache",
         "transcription": "Sprache in Text",
         "image": "Bildgenerierung",
@@ -2265,6 +2338,8 @@
       "loading": "Wird geladen …",
       "activeLabel": "Evaluation aktiv",
       "activeHint": "Aus heißt, die Kachel und der Ausfüll-Link sind für niemanden sichtbar.",
+      "forAllLabel": "Für alle sichtbar",
+      "forAllHint": "An heißt, jedes Konto sieht Kachel und Ausfüll-Link, egal welche Rolle und egal ob es über einen Zugangscode kam. Einschalten holt auch die zurück, die die Kachel schon weggeklickt hatten.",
       "titleLabel": "Titel",
       "introLegend": "Anfang",
       "introTextPlaceholder": "Text, den die Person zuerst sieht",
@@ -3406,7 +3481,9 @@
       "unlimited": "unbegrenzt",
       "deleteLink": "Link löschen",
       "descriptionMore": "Ganze Beschreibung zeigen",
-      "descriptionLess": "Beschreibung einklappen"
+      "descriptionLess": "Beschreibung einklappen",
+      "tourModuleLabel": "Modul für den Rundgang",
+      "tourModuleHint": "Der Rundgang startet in diesem Modul. Jedes andere Demo-Modul verliert den Haken."
     }
   },
   "welcomeModal": {

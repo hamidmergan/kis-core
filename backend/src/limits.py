@@ -87,6 +87,10 @@ AIA_TOOL_TIME_LIMIT             = 360    # 6 min, SIGKILL als letzte Instanz
 AIA_SCHEDULE_SOFT_TIME_LIMIT    = 600    # 10 min
 AIA_SCHEDULE_TIME_LIMIT         = 720    # 12 min
 
+# Long recordings on a slow model take a while, a hanging provider must still end.
+AIA_TRANSLATE_SOFT_TIME_LIMIT   = 1800   # 30 min
+AIA_TRANSLATE_TIME_LIMIT        = 1860   # 31 min
+
 # --- AI tutor source limits -------------------------------------------------
 AIA_SOURCE_MAX_PAGES                = 200     # max pages per PDF/DOCX/PPTX upload;
 # Very large documents are rejected so the overview does not become front-heavy.
@@ -103,7 +107,10 @@ WEB_PAGE_MIN_WORDS               = 100     # fewer means the page carried no rea
 WEB_PAGE_TITLE_MAX_CHARS         = 120
 
 # --- YouTube video as a source ----------------------------------------------
+# Cheap guard against a huge paste, the duration below is the real cap.
 YOUTUBE_TRANSCRIPT_MAX_CHARS     = 1_000_000
+# A video may weigh about as much as the largest document a workspace accepts.
+YOUTUBE_MAX_DURATION_SECONDS     = 4 * 3600
 YOUTUBE_OEMBED_TIMEOUT_SECONDS   = 5
 YOUTUBE_LAST_SEGMENT_SECONDS     = 5.0     # the pasted text names no end for the last line
 

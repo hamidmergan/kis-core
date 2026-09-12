@@ -134,3 +134,26 @@ def test_a_valid_submission_is_stored_for_the_current_user(client):
         })
     assert r.status_code == 200
     speichern.assert_called_once_with(42, [{"question_id": frage_id, "value": 4}])
+
+
+def test_the_switch_for_everyone_lets_in_an_account_without_a_code(client):
+    with patch("src.features.evaluation.repository.get_config", return_value=_config(True, for_all=True)), \
+         patch("src.features.evaluation.repository.has_responded", return_value=False), \
+         patch("src.features.access_codes.repository.shows_evaluation", return_value=False) as fragen:
+        r = client.get("/evaluation/active")
+    assert r.json()["active"] is True
+    fragen.assert_not_called()
+
+
+def test_the_switch_for_everyone_also_accepts_their_submission(client):
+    config = _config(True, for_all=True)
+    frage_id = config["questions"][0]["id"]
+    with patch("src.features.evaluation.repository.get_config", return_value=config), \
+         patch("src.features.evaluation.repository.has_responded", return_value=False), \
+         patch("src.features.access_codes.repository.shows_evaluation", return_value=False), \
+         patch("src.features.evaluation.repository.create_response", return_value=9) as speichern:
+        r = client.post("/evaluation/submit", json={
+            "answers": [{"question_id": frage_id, "value": 3}],
+        })
+    assert r.status_code == 200
+    speichern.assert_called_once_with(42, [{"question_id": frage_id, "value": 3}])

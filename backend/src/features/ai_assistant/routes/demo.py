@@ -33,6 +33,7 @@ async def list_demo_workspaces(current_user: dict = Depends(get_current_user)):
             "joined": row["joined"],
             "via_demo": row["via_demo"],
             "owned": row["owned"],
+            "tour": row["tour"],
         }
         for row in db.get_demo_workspaces(current_user["user_id"])
     ]

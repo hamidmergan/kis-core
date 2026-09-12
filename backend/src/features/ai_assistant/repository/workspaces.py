@@ -115,7 +115,7 @@ def get_aia_workspaces_for_student(user_id: int) -> list[dict]:
     return [dict(row) for row in rows]
 
 def get_demo_workspaces(viewer_id: int) -> list[dict]:
-    """Active courses of all demo accounts, with a flag whether the viewer is already in."""
+    """Active courses of all demo accounts, flagged whether the viewer is in and was seeded."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
@@ -124,14 +124,18 @@ def get_demo_workspaces(viewer_id: int) -> list[dict]:
                             WHERE s.workspace_id = m.id) AS source_count,
                           (e.id IS NOT NULL) AS joined,
                           COALESCE(e.via_demo, FALSE) AS via_demo,
-                          (m.user_id = %s) AS owned
+                          (m.user_id = %s) AS owned,
+                          m.is_tour_module AS tour,
+                          (ds.user_id IS NOT NULL) AS seeded
                      FROM aia_workspaces m
                      JOIN users u ON u.id = m.user_id
                      LEFT JOIN aia_enrollments e
                             ON e.workspace_id = m.id AND e.user_id = %s
+                     LEFT JOIN aia_demo_seeded ds
+                            ON ds.workspace_id = m.id AND ds.user_id = %s
                     WHERE u.is_demo AND m.is_active
-                    ORDER BY m.title""",
-                (viewer_id, viewer_id),
+                    ORDER BY m.is_tour_module DESC, m.title""",
+                (viewer_id, viewer_id, viewer_id),
             )
             rows = cur.fetchall()
     return [dict(row) for row in rows]
@@ -148,6 +152,24 @@ def update_aia_workspace(
                    WHERE uuid = %s""",
                 (title, description, is_active, uuid),
             )
+        conn.commit()
+
+def set_aia_workspace_tour_module(uuid: str, on: bool) -> None:
+    """Marks the course the guided tour runs in, at most one at a time."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            if on:
+                cur.execute(
+                    "UPDATE aia_workspaces SET is_tour_module = (uuid = %s), updated_at = NOW() "
+                    "WHERE is_tour_module OR uuid = %s",
+                    (uuid, uuid),
+                )
+            else:
+                cur.execute(
+                    "UPDATE aia_workspaces SET is_tour_module = FALSE, updated_at = NOW() "
+                    "WHERE uuid = %s AND is_tour_module",
+                    (uuid,),
+                )
         conn.commit()
 
 def set_aia_workspace_transcript_target_lang(uuid: str, lang: str) -> None:

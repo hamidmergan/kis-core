@@ -19,7 +19,7 @@ interface WorkspaceModalsProps {
   onRolesChanged: () => void;
   editOpen: boolean;
   onCloseEdit: () => void;
-  onSubmitEdit: (title: string, description: string) => Promise<boolean>;
+  onSubmitEdit: (title: string, description: string, tourModule: boolean | null) => Promise<boolean>;
   showLinks: boolean;
   onCloseLinks: () => void;
   links: AccessLink[];
@@ -67,6 +67,8 @@ export default function WorkspaceModals(props: WorkspaceModalsProps) {
         <EditWorkspaceModal
           currentTitle={workspace.title}
           currentDescription={workspace.description ?? ""}
+          canBeTourModule={!!workspace.is_demo_workspace}
+          currentTourModule={!!workspace.is_tour_module}
           onClose={onCloseEdit}
           onSubmit={onSubmitEdit}
         />

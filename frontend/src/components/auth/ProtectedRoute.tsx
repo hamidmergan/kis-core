@@ -8,6 +8,7 @@ import { EMPTY_PERMS, PERM, hasPerm } from "@/lib/permissions";
 
 const TOOL_KEY_BY_SLUG: Record<string, string> = {
   translate: "translation",
+  interpreter: "interpreter",
   tts: "tts",
   stt: "transcription",
   image: "image",

@@ -24,6 +24,8 @@ def get_config() -> dict:
     gespeichert = bool(fragen_roh)
     return {
         "active": get_setting("evaluation_active") == "true",
+        "for_all": get_setting("evaluation_for_all") == "true",
+        "reveal_round": _reveal_round(),
         "title": get_setting("evaluation_title") if gespeichert else voreinstellung["title"],
         "intro_text": get_setting("evaluation_intro_text") if gespeichert else voreinstellung["intro_text"],
         "intro_link_label": get_setting("evaluation_intro_link_label"),
@@ -47,9 +49,29 @@ def save_config(config: dict) -> None:
     set_setting("evaluation_questions", json.dumps(config["questions"]))
 
 
+def _reveal_round() -> int:
+    """The round a dismissed invite is compared against, unset counts as zero."""
+    roh = get_setting("evaluation_reveal_round", "0")
+    return int(roh) if roh.isdigit() else 0
+
+
+def _start_new_round() -> None:
+    """A fresh round brings the invite back for everyone who clicked it away."""
+    set_setting("evaluation_reveal_round", str(_reveal_round() + 1))
+
+
 def set_active(active: bool) -> None:
     """The quick on/off switch, everything else about the evaluation stays untouched."""
+    if active and get_setting("evaluation_active") != "true":
+        _start_new_round()
     set_setting("evaluation_active", "true" if active else "false")
+
+
+def set_for_all(for_all: bool) -> None:
+    """Opens the evaluation to every account, no code and no permission needed."""
+    if for_all and get_setting("evaluation_for_all") != "true":
+        _start_new_round()
+    set_setting("evaluation_for_all", "true" if for_all else "false")
 
 
 def has_responded(user_id: int) -> bool:

@@ -273,8 +273,8 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS tour_seen_at TIMESTAMP")
             # Der Rundgang durch die Werkzeuge wird getrennt gemerkt, es sind zwei Einladungen.
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS tools_tour_seen_at TIMESTAMP")
-            # Demo-Modul: einmal je Konto zugewiesen, NULL heisst noch nie.
-            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS demo_seeded_at TIMESTAMP")
+            # The single mark per account is gone, aia_demo_seeded remembers per module.
+            cur.execute("ALTER TABLE users DROP COLUMN IF EXISTS demo_seeded_at")
             # The five single marks are gone, only the final value stays.
             cur.execute("ALTER TABLE users DROP COLUMN IF EXISTS language_level_skill_scores")
             # The level list walks the whole ladder again, old B1+ becomes B2.
@@ -405,6 +405,37 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                     created_at     TIMESTAMP NOT NULL DEFAULT NOW()
                 )
             """)
+            # Interpreter: one conversation per row, every sentence in both languages.
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS interpreter_sessions (
+                    id          TEXT PRIMARY KEY,
+                    owner_id    INTEGER NOT NULL,
+                    left_lang   TEXT NOT NULL DEFAULT 'DE',
+                    right_lang  TEXT NOT NULL DEFAULT 'EN-US',
+                    left_name   TEXT NOT NULL DEFAULT '',
+                    right_name  TEXT NOT NULL DEFAULT '',
+                    ended_at    TIMESTAMP,
+                    created_at  TIMESTAMP NOT NULL DEFAULT NOW(),
+                    updated_at  TIMESTAMP NOT NULL DEFAULT NOW()
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS interpreter_turns (
+                    id          TEXT PRIMARY KEY,
+                    session_id  TEXT NOT NULL REFERENCES interpreter_sessions(id) ON DELETE CASCADE,
+                    side        TEXT NOT NULL,
+                    source      TEXT NOT NULL DEFAULT 'spoken',
+                    original    TEXT NOT NULL,
+                    translation TEXT NOT NULL DEFAULT '',
+                    status      TEXT NOT NULL DEFAULT 'done',
+                    edited      BOOLEAN NOT NULL DEFAULT FALSE,
+                    at          BIGINT NOT NULL,
+                    created_at  TIMESTAMP NOT NULL DEFAULT NOW(),
+                    updated_at  TIMESTAMP NOT NULL DEFAULT NOW()
+                )
+            """)
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_interpreter_turns_session ON interpreter_turns (session_id, at)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_interpreter_sessions_owner ON interpreter_sessions (owner_id, updated_at DESC)")
             # Older installs still carry the day-based column, rename and convert it in
             # place so a code that read "14 Tage" keeps meaning the same span, now in hours.
             cur.execute("""
@@ -693,6 +724,10 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             )
             # The trainer hangs on the person since 2026-09, the course switch is gone.
             cur.execute("ALTER TABLE aia_workspaces DROP COLUMN IF EXISTS language_training_active")
+            # The one demo course the guided tour runs in, its stations point at that course's files.
+            cur.execute(
+                "ALTER TABLE aia_workspaces ADD COLUMN IF NOT EXISTS is_tour_module BOOLEAN NOT NULL DEFAULT FALSE"
+            )
             # Owner-managed pinned note shown above the sources list. Plain text + structured links.
             cur.execute(
                 "ALTER TABLE aia_workspaces ADD COLUMN IF NOT EXISTS staff_note_text TEXT"
@@ -1506,6 +1541,18 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             # row still stands.
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_demo_tools_seeded (
+                    workspace_id  INTEGER NOT NULL
+                                    REFERENCES aia_workspaces(id) ON DELETE CASCADE,
+                    user_id       INTEGER NOT NULL,
+                    seeded_at     TIMESTAMP NOT NULL DEFAULT NOW(),
+                    PRIMARY KEY (workspace_id, user_id)
+                )
+            """)
+
+            # Marks that this demo module was handed to this person once, so a module
+            # they left stays gone while a newly added one still reaches everybody.
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS aia_demo_seeded (
                     workspace_id  INTEGER NOT NULL
                                     REFERENCES aia_workspaces(id) ON DELETE CASCADE,
                     user_id       INTEGER NOT NULL,

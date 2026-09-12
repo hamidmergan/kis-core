@@ -17,6 +17,7 @@ const RUNDGANG_EINTRAG = '[data-tour="tools-tour-start"]';
 const STATIONEN = [
   { anker: "tools-sidebar", route: null },
   { anker: "tool-translation", route: "/tools/translate" },
+  { anker: "tool-interpreter", route: "/tools/interpreter" },
   { anker: "tool-tts", route: "/tools/tts" },
   { anker: "tool-transcription", route: "/tools/stt" },
   { anker: "tool-image", route: "/tools/image" },
@@ -83,7 +84,7 @@ test("der Rundgang läuft von der Leiste bis zu den Aufträgen durch", async ({ 
 test("der Weg zurück holt das vorherige Werkzeug wieder her", async ({ page }) => {
   await rundgangStarten(page);
   // Wait for each station, a click in the middle of a jump is swallowed on purpose.
-  for (const anker of ["tool-translation", "tool-tts", "tool-transcription"]) {
+  for (const anker of ["tool-translation", "tool-interpreter", "tool-tts", "tool-transcription"]) {
     await weiterKlicken(page);
     await stationErwarten(page, anker);
   }

@@ -3,7 +3,11 @@ from __future__ import annotations
 
 import re
 
-from src.limits import YOUTUBE_LAST_SEGMENT_SECONDS, YOUTUBE_TRANSCRIPT_MAX_CHARS
+from src.limits import (
+    YOUTUBE_LAST_SEGMENT_SECONDS,
+    YOUTUBE_MAX_DURATION_SECONDS,
+    YOUTUBE_TRANSCRIPT_MAX_CHARS,
+)
 from src.services.subtitle_converter import vtt_to_segments
 from src.services.web_page_fetch import LinkError
 
@@ -47,7 +51,7 @@ def parse_transcript(text: str) -> list[dict]:
     """Segments with start, end and text, or a LinkError naming what is wrong."""
     text = (text or "").replace("\r", "")
     if len(text) > YOUTUBE_TRANSCRIPT_MAX_CHARS:
-        raise LinkError("ai.youtube.tooLong", 400)
+        raise LinkError("ai.youtube.tooLong", 413)
     if not text.strip():
         raise LinkError("ai.youtube.emptyTranscript", 400)
     # A timing line with an arrow means SRT or VTT, the shared parser knows both.
@@ -57,6 +61,13 @@ def parse_transcript(text: str) -> list[dict]:
     segments = [s for s in segments if s["text"].strip()]
     if not segments:
         raise LinkError("ai.youtube.emptyTranscript", 400)
+    # The last stamp is the length of the video, the same brake a long document gets.
+    duration = max(s["end"] for s in segments)
+    if duration > YOUTUBE_MAX_DURATION_SECONDS:
+        raise LinkError(
+            "ai.youtube.videoTooLong", 413,
+            minutes=int(duration // 60), max=YOUTUBE_MAX_DURATION_SECONDS // 60,
+        )
     return segments
 
 

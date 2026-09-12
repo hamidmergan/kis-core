@@ -202,8 +202,11 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
       <div className="hide-on-short flex items-center gap-2 px-3 pt-2 pb-1 relative">
         {logo}
         <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          {/* The centred title lies above the buttons, so it is capped short of them and no longer swallows their taps. */}
-          <span className="text-sm font-bold truncate pointer-events-auto select-text cursor-text" style={{ color: "var(--foreground)", maxWidth: "calc(100% - 11rem)" }}>
+          {/* On a phone the title keeps a fixed band between logo and buttons and scrolls sideways instead of being cut off. */}
+          <span
+            className="text-sm font-bold whitespace-nowrap overflow-x-auto overscroll-x-contain scrollbar-hide pointer-events-auto select-text cursor-text"
+            style={{ color: "var(--foreground)", maxWidth: "calc(100% - 15rem)" }}
+          >
             {title}
           </span>
         </span>

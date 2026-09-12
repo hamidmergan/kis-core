@@ -217,3 +217,63 @@ def test_eine_unbekannte_zielsprache_aendert_nichts(quelle, monkeypatch):
 def test_alle_bekannten_sprachen_sind_zweistellig_klein():
     """Both paths rely on the code being part of the key."""
     assert all(c.isalpha() and c.islower() and 2 <= len(c) <= 5 for c in TRANSCRIPT_LANGUAGES)
+
+
+# ─── A failure leaves a note, a success removes it ──────────────────────────
+
+class _KaputterUebersetzer:
+    """Fails like a provider that answers with an error."""
+
+    def __init__(self, meldung: str):
+        self.meldung = meldung
+
+    def translate_batch(self, texts, source_lang, target_lang):
+        raise RuntimeError(self.meldung)
+
+
+def _uebersetzer_einbauen(monkeypatch, client) -> None:
+    from src import dependencies
+    monkeypatch.setattr(
+        dependencies, "get_translate_client_for_provider",
+        lambda provider_id, feature=None: (client, None),
+    )
+
+
+def test_ein_fehler_hinterlaesst_eine_marke_mit_der_meldung(quelle, monkeypatch):
+    """The panel polls for this note instead of waiting for a file that never comes."""
+    ordner, file_path, vtt_anlegen = quelle
+    vtt_anlegen("de")
+    _db_stubs(monkeypatch, {"file_path": file_path, "workspace_id": 7, "language": "de"})
+    _uebersetzer_einbauen(monkeypatch, _KaputterUebersetzer("Internal Server Error"))
+
+    with pytest.raises(RuntimeError):
+        ingestion.run_translate_transcript("s1", None, "en")
+
+    marke = ordner / "abc_transcript.en.error"
+    assert marke.read_text(encoding="utf-8") == "Internal Server Error"
+    assert not (ordner / "abc_transcript.en.vtt").exists()
+
+
+def test_ein_rate_limit_hinterlaesst_keine_marke(quelle, monkeypatch):
+    """A 429 is retried, so the panel has to keep waiting."""
+    ordner, file_path, vtt_anlegen = quelle
+    vtt_anlegen("de")
+    _db_stubs(monkeypatch, {"file_path": file_path, "workspace_id": 7, "language": "de"})
+    _uebersetzer_einbauen(monkeypatch, _KaputterUebersetzer("Error code: 429 rate limit"))
+
+    with pytest.raises(RuntimeError):
+        ingestion.run_translate_transcript("s1", None, "en")
+
+    assert not (ordner / "abc_transcript.en.error").exists()
+
+
+def test_ein_erfolg_raeumt_die_alte_marke_weg(quelle, monkeypatch, uebersetzer):
+    ordner, file_path, vtt_anlegen = quelle
+    vtt_anlegen("de")
+    (ordner / "abc_transcript.en.error").write_text("alt", encoding="utf-8")
+    _db_stubs(monkeypatch, {"file_path": file_path, "workspace_id": 7, "language": "de"})
+
+    ingestion.run_translate_transcript("s1", None, "en")
+
+    assert not (ordner / "abc_transcript.en.error").exists()
+    assert (ordner / "abc_transcript.en.vtt").exists()

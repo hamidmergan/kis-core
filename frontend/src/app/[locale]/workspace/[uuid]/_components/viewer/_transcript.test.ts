@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildTranscriptModes, buildTranscriptOptions, chooseableTargetLangs, readPendingTranslation, TRANSLATE_ACTION, claimLineIndex, claimLineIndices, claimOverlap, claimTokens, cueIndexAtTime, groupCues, resolveCitationFocus, sentenceSpan, type TextCue, type TimedCue } from "./_transcript";
+import { buildTranscriptModes, buildTranscriptOptions, chooseableTargetLangs, readPendingTranslation, translationProbeOutcome, TRANSLATE_ACTION, claimLineIndex, claimLineIndices, claimOverlap, claimTokens, cueIndexAtTime, groupCues, resolveCitationFocus, sentenceSpan, type TextCue, type TimedCue } from "./_transcript";
 
 // The time is the exact segment start, not the rounded display.
 const cues: TimedCue[] = [
@@ -525,5 +525,25 @@ describe("sentenceSpan — the mark follows the sentence, not the cue", () => {
 
   it("has no span without a running cue", () => {
     expect(sentenceSpan([cue("Ein Satz.")], -1)).toBeNull();
+  });
+});
+
+describe("translationProbeOutcome", () => {
+  it("reports done once the file exists", () => {
+    expect(translationProbeOutcome({ exists: true })).toEqual({ kind: "done" });
+  });
+
+  it("keeps waiting while nothing is there yet", () => {
+    expect(translationProbeOutcome({ exists: false })).toEqual({ kind: "wait" });
+  });
+
+  it("reports the failure with the provider's message", () => {
+    expect(translationProbeOutcome({ exists: false, error: "Internal Server Error" }))
+      .toEqual({ kind: "failed", error: "Internal Server Error" });
+  });
+
+  it("treats an unreadable answer as still waiting", () => {
+    expect(translationProbeOutcome(null)).toEqual({ kind: "wait" });
+    expect(translationProbeOutcome("kaputt")).toEqual({ kind: "wait" });
   });
 });

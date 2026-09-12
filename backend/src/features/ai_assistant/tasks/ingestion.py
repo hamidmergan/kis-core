@@ -6,10 +6,13 @@ from loguru import logger
 
 from src.celery_app import celery_app
 from src import database as db
+from src.limits import AIA_TRANSLATE_SOFT_TIME_LIMIT, AIA_TRANSLATE_TIME_LIMIT
 from src.storage import (
     aia_transcript_key,
     aia_transcript_prefix,
+    aia_vtt_error_key,
     aia_vtt_key,
+    delete_file,
     list_keys,
     open_input_file,
 )
@@ -266,7 +269,22 @@ def run_index_source(self, source_uuid: str, locale: str = "de", _aia_job_uuid: 
                 logger.error("KI Tutor: index_source dispatch on_complete failed: {}", exc)
 
 
-@celery_app.task(bind=True, name="aia.translate_transcript", queue="aia")
+class TranslateFailed(Exception):
+    """Carries the note's key so the task can leave it once it gives up."""
+
+    def __init__(self, error_key: str, cause: Exception):
+        super().__init__(str(cause))
+        self.error_key = error_key
+        self.cause = cause
+
+
+def _is_rate_limit(e: Exception) -> bool:
+    msg = str(e).lower()
+    return "429" in msg or "rate limit" in msg
+
+
+@celery_app.task(bind=True, name="aia.translate_transcript", queue="aia",
+                 soft_time_limit=AIA_TRANSLATE_SOFT_TIME_LIMIT, time_limit=AIA_TRANSLATE_TIME_LIMIT)
 def run_translate_transcript(
     self, source_uuid: str, provider_id: int | None = None, target_lang: str | None = None
 ):
@@ -274,17 +292,19 @@ def run_translate_transcript(
     try:
         return _run_translate_transcript_inner(source_uuid, provider_id, target_lang)
     except Exception as e:
-        msg = str(e).lower()
-        is_rate_limit = "429" in msg or "rate limit" in msg
-        if is_rate_limit and self.request.retries < 5:
+        cause = e.cause if isinstance(e, TranslateFailed) else e
+        if _is_rate_limit(cause) and self.request.retries < 5:
             countdown = min(30 * (2 ** self.request.retries), 120)  # 30s..2m capped
             logger.warning(
                 "KI Tutor translate: source {} hit rate limit (attempt {}/{}), retrying in {}s",
                 source_uuid, self.request.retries + 1, 5, countdown,
             )
-            raise self.retry(exc=e, countdown=countdown, max_retries=5)
-        logger.error("KI Tutor translate: source {} failed: {}", source_uuid, e)
-        raise
+            raise self.retry(exc=cause, countdown=countdown, max_retries=5)
+        if isinstance(e, TranslateFailed):
+            # The panel polls for this note and stops waiting.
+            _save_transcript_artifact(e.error_key, str(cause) or type(cause).__name__)
+        logger.error("KI Tutor translate: source {} failed: {}", source_uuid, cause)
+        raise cause from None
 
 
 def _resolve_source_vtt(file_path: str, source: dict) -> tuple[str | None, str | None]:
@@ -362,35 +382,41 @@ def _run_translate_transcript_inner(
         return
 
     texts = [s["text"] for s in segments]
-
-    client, _glossary = get_translate_client_for_provider(provider_id, feature="transcript_translate")
-    if client is None:
-        raise RuntimeError(
-            "transcript_translate: no translation provider configured — set one in the admin KI panel"
-        )
-
-    # DeepL wants codes, the language model wants the spelled-out names.
-    from src.services.deepl_client import DeepLClient
-
-    target_meta = TRANSCRIPT_LANGUAGES[target_lang]
-    if isinstance(client, DeepLClient):
-        translated: list[str] = client.translate_batch(
-            texts, source_lang=source_lang.upper(), target_lang=target_meta["deepl"],
-        )
-    else:
-        source_name = TRANSCRIPT_LANGUAGES.get(source_lang, {}).get("name", source_lang)
-        translated = client.translate_batch(
-            texts, source_lang=source_name, target_lang=target_meta["name"],
-        )
-
-    out_segments = [
-        {"start": s["start"], "end": s["end"], "text": t_text}
-        for s, t_text in zip(segments, translated)
-    ]
     target_key = aia_vtt_key(file_path, target_lang)
-    _save_transcript_artifact(target_key, segments_to_vtt(out_segments))
-    # Save the new transcript first, then delete the old one.
-    _cleanup_stale({source_lang, target_lang})
+    error_key = aia_vtt_error_key(file_path, target_lang)
+
+    try:
+        client, _glossary = get_translate_client_for_provider(provider_id, feature="transcript_translate")
+        if client is None:
+            raise RuntimeError(
+                "transcript_translate: no translation provider configured — set one in the admin KI panel"
+            )
+
+        # DeepL wants codes, the language model wants the spelled-out names.
+        from src.services.deepl_client import DeepLClient
+
+        target_meta = TRANSCRIPT_LANGUAGES[target_lang]
+        if isinstance(client, DeepLClient):
+            translated: list[str] = client.translate_batch(
+                texts, source_lang=source_lang.upper(), target_lang=target_meta["deepl"],
+            )
+        else:
+            source_name = TRANSCRIPT_LANGUAGES.get(source_lang, {}).get("name", source_lang)
+            translated = client.translate_batch(
+                texts, source_lang=source_name, target_lang=target_meta["name"],
+            )
+
+        out_segments = [
+            {"start": s["start"], "end": s["end"], "text": t_text}
+            for s, t_text in zip(segments, translated)
+        ]
+        _save_transcript_artifact(target_key, segments_to_vtt(out_segments))
+        # Save the new transcript first, then delete the old one.
+        _cleanup_stale({source_lang, target_lang})
+    except Exception as e:
+        raise TranslateFailed(error_key, e) from e
+    # A fresh file makes an old note stale.
+    delete_file(error_key)
     logger.info(
         "KI Tutor translate: saved {} ({} segments, {}->{}, provider_id={})",
         target_key, len(out_segments), source_lang, target_lang, provider_id,

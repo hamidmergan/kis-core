@@ -2,19 +2,25 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
+import Checkbox from "@/components/ui/Checkbox";
 import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
 import { WORKSPACE_TITLE_MAX, WORKSPACE_DESCRIPTION_MAX } from "../_shared";
 
 interface EditWorkspaceModalProps {
   currentTitle: string;
   currentDescription: string;
+  /** Offer the tour checkbox at all, only a demo account's module can carry it. */
+  canBeTourModule: boolean;
+  currentTourModule: boolean;
   onClose: () => void;
-  onSubmit: (newTitle: string, newDescription: string) => Promise<boolean>;
+  onSubmit: (newTitle: string, newDescription: string, tourModule: boolean | null) => Promise<boolean>;
 }
 
 export default function EditWorkspaceModal({
   currentTitle,
   currentDescription,
+  canBeTourModule,
+  currentTourModule,
   onClose,
   onSubmit,
 }: EditWorkspaceModalProps) {
@@ -22,6 +28,7 @@ export default function EditWorkspaceModal({
   const labels = useWorkspaceLabel();
   const [title, setTitle] = useState(currentTitle);
   const [description, setDescription] = useState(currentDescription);
+  const [tourModule, setTourModule] = useState(currentTourModule);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,13 +39,14 @@ export default function EditWorkspaceModal({
       setError(t("titleEmpty"));
       return;
     }
-    if (trimmedTitle === currentTitle && trimmedDesc === currentDescription) {
+    const tourGeaendert = canBeTourModule && tourModule !== currentTourModule;
+    if (trimmedTitle === currentTitle && trimmedDesc === currentDescription && !tourGeaendert) {
       onClose();
       return;
     }
     setSaving(true);
     setError(null);
-    const ok = await onSubmit(trimmedTitle, trimmedDesc);
+    const ok = await onSubmit(trimmedTitle, trimmedDesc, tourGeaendert ? tourModule : null);
     setSaving(false);
     if (ok) onClose();
     else setError(t("saveFailed"));
@@ -86,6 +94,20 @@ export default function EditWorkspaceModal({
           />
           <p className="text-xs text-muted-soft text-right mt-1">{description.length}/{WORKSPACE_DESCRIPTION_MAX}</p>
         </div>
+        {canBeTourModule && (
+          <div className="mt-4">
+            <Checkbox
+              checked={tourModule}
+              onChange={setTourModule}
+              disabled={saving}
+              label={t("tourModuleLabel")}
+              labelClassName="text-sm text-foreground"
+            />
+            <p className="text-xs mt-1 ml-7" style={{ color: "var(--muted)" }}>
+              {t("tourModuleHint")}
+            </p>
+          </div>
+        )}
         {error && <p className="text-xs text-error mt-2">{error}</p>}
         <div className="flex gap-3 justify-end mt-5">
           <button

@@ -9,7 +9,7 @@ import type { AddNoteExtras } from "../../_hooks/useNotes";
 import { useOwnerPreview } from "../layout/OwnerOnly";
 import {
   buildTranscriptOptions, groupCues, readPendingTranslation, resolveCitationFocus,
-  sentenceSpan, TRANSLATE_ACTION,
+  sentenceSpan, TRANSLATE_ACTION, translationProbeOutcome,
   type SentenceSpan, type TranscriptMode, type TranscriptOption,
 } from "./_transcript";
 import type { MediaController } from "./mediaController";
@@ -212,14 +212,16 @@ export function TranscriptPanel({
       if (hasSource) setMode(keep("source"));
       else if (hasTarget) setMode(keep("target"));
 
-      // Reattaches to a running translation job.
+      // Reattaches to a running translation job, an old failure belongs to the last source.
       const raw = typeof window !== "undefined" ? window.localStorage.getItem(regenStorageKey) : null;
       const wartet = readPendingTranslation(raw, Date.now());
+      setRegenError(null);
       if (wartet && !map[wartet]) {
         setPendingLang(wartet);
         setRegen("running");
       } else {
         setPendingLang(null);
+        setRegen("idle");
         if (typeof window !== "undefined") window.localStorage.removeItem(regenStorageKey);
       }
     })();
@@ -406,6 +408,7 @@ export function TranscriptPanel({
       if (Date.now() - started > TIMEOUT_MS) {
         clearInterval(timer);
         if (typeof window !== "undefined") window.localStorage.removeItem(regenStorageKey);
+        setPendingLang(null);
         setRegen("error");
         setRegenError(t("regenEnTimeout"));
         return;
@@ -416,8 +419,17 @@ export function TranscriptPanel({
           { credentials: "include" },
         );
         if (!probe.ok) return;
-        const { exists } = (await probe.json()) as { exists: boolean };
-        if (!exists) return;
+        const outcome = translationProbeOutcome(await probe.json());
+        if (outcome.kind === "wait") return;
+        if (outcome.kind === "failed") {
+          // The task gave up, so the wait ends now instead of at the timeout.
+          clearInterval(timer);
+          if (typeof window !== "undefined") window.localStorage.removeItem(regenStorageKey);
+          setPendingLang(null);
+          setRegen("error");
+          setRegenError(t("regenEnErrorTitle", { error: outcome.error || t("regenEnUnknownError") }));
+          return;
+        }
         const res = await fetch(transcriptUrl(wartet), { credentials: "include" });
         if (res.ok) {
           const parsed = parseVtt(await res.text());
@@ -621,17 +633,20 @@ export function TranscriptPanel({
             <span
               className="flex-shrink-0 flex items-center"
               style={{ color: "var(--muted)" }}
-              title={
-                regenError
-                  ? t("regenEnErrorTitle", { error: regenError })
-                  : t("regenEnRunningTitle")
-              }
+              title={t("regenEnRunningTitle")}
             >
               <Spinner size="xs" color="current" />
             </span>
           )}
         </div>
       </div>
+
+      {/* The failure has to be readable, the spinner it used to hang on is gone by then. */}
+      {regen === "error" && regenError && (
+        <p role="alert" className="flex-shrink-0 px-4 py-1.5 text-xs text-error">
+          {regenError}
+        </p>
+      )}
 
       {/* Cue list — hidden entirely when the student switched the transcript off. */}
       {mode !== "off" && (

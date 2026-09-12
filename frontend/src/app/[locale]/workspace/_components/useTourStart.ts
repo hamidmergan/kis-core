@@ -3,13 +3,14 @@
 import { useState } from "react";
 import { useRouter } from "@/i18n/navigation";
 import { useDemoWorkspaces } from "./useDemoWorkspaces";
+import { waehleRundgangModul } from "./rundgangModul";
 
 /** Finds the demo course and starts the guided tour in it, joining first if needed. */
 export function useTourStart(enabled = true) {
   const router = useRouter();
   const { items, join } = useDemoWorkspaces(enabled);
   const [busy, setBusy] = useState(false);
-  const kurs = items.find((m) => !m.owned);
+  const kurs = waehleRundgangModul(items);
 
   const start = async () => {
     if (!kurs || busy) return;

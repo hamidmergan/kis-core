@@ -40,12 +40,13 @@ def test_ein_unbekanntes_konto_gibt_vierhundertvier(client):
     setzen.assert_not_called()
 
 
-def _kurs(ws_id, uuid, joined=False, owned=False, via_demo=None,
-           titel="Sustainable Energy Systems"):
+def _kurs(ws_id, uuid, joined=False, owned=False, via_demo=None, seeded=False,
+           titel="Sustainable Energy Systems", tour=False):
     return {
         "id": ws_id, "uuid": uuid, "title": titel,
         "description": "Modul B.Eng.", "source_count": 7, "joined": joined,
         "via_demo": joined if via_demo is None else via_demo, "owned": owned,
+        "seeded": seeded, "tour": tour,
     }
 
 
@@ -57,7 +58,7 @@ def test_die_liste_reicht_nur_die_sichtbaren_felder_durch(client):
     assert r.json() == [{
         "uuid": "w5", "title": "Sustainable Energy Systems",
         "description": "Modul B.Eng.", "source_count": 7, "joined": False,
-        "via_demo": False, "owned": False,
+        "via_demo": False, "owned": False, "tour": False,
     }]
     # The internal id must not leave the route.
     assert "id" not in r.json()[0]
@@ -520,8 +521,7 @@ _DB = "src.features.accounts.demo_onboarding.database"
 def test_das_erste_mal_tritt_allen_offenen_demo_modulen_bei():
     kurse = [_kurs(5, "w5"), _kurs(6, "w6", joined=True),
              _kurs(7, "w7", owned=True), _kurs(8, "w8")]
-    with patch(f"{_DB}.demo_seeding_done", return_value=False), \
-         patch(f"{_DB}.get_demo_workspaces", return_value=kurse), \
+    with patch(f"{_DB}.get_demo_workspaces", return_value=kurse), \
          patch(f"{_DB}.claim_demo_seeding", return_value=True), \
          patch(f"{_DB}.enroll_student", side_effect=[11, 12]) as einschreiben:
         beigetreten = demo_module_zuweisen(4)
@@ -531,22 +531,22 @@ def test_das_erste_mal_tritt_allen_offenen_demo_modulen_bei():
     einschreiben.assert_any_call(8, 4, None, via_demo=True)
 
 
-def test_die_zuweisung_laeuft_nur_einmal():
-    """Wer das Modul spaeter verlaesst, soll es nicht beim naechsten Login zurueckbekommen."""
-    with patch(f"{_DB}.demo_seeding_done", return_value=True), \
-         patch(f"{_DB}.get_demo_workspaces") as kurse, \
-         patch(f"{_DB}.enroll_student") as einschreiben:
+def test_ein_neues_demo_modul_erreicht_auch_ein_altes_konto():
+    """Der eigentliche Fehler: frueher hielt eine Marke pro Konto das zweite Modul auf."""
+    kurse = [_kurs(5, "w5", joined=True, seeded=True), _kurs(9, "w9")]
+    with patch(f"{_DB}.get_demo_workspaces", return_value=kurse), \
+         patch(f"{_DB}.claim_demo_seeding", return_value=True) as merken, \
+         patch(f"{_DB}.enroll_student", return_value=13) as einschreiben:
         beigetreten = demo_module_zuweisen(4)
 
-    assert beigetreten == []
-    kurse.assert_not_called()
-    einschreiben.assert_not_called()
+    assert beigetreten == ["w9"]
+    merken.assert_called_once_with(9, 4)
+    einschreiben.assert_called_once_with(9, 4, None, via_demo=True)
 
 
-def test_ohne_demo_modul_bleibt_die_marke_leer():
-    """Sonst geht die Zuweisung ins Leere und kommt nie wieder."""
-    with patch(f"{_DB}.demo_seeding_done", return_value=False), \
-         patch(f"{_DB}.get_demo_workspaces", return_value=[]), \
+def test_ein_verlassenes_modul_kommt_nicht_zurueck():
+    """Die Marke bleibt stehen, auch wenn die Einschreibung geloescht wurde."""
+    with patch(f"{_DB}.get_demo_workspaces", return_value=[_kurs(5, "w5", seeded=True)]), \
          patch(f"{_DB}.claim_demo_seeding") as merken, \
          patch(f"{_DB}.enroll_student") as einschreiben:
         beigetreten = demo_module_zuweisen(4)
@@ -556,9 +556,32 @@ def test_ohne_demo_modul_bleibt_die_marke_leer():
     einschreiben.assert_not_called()
 
 
+def test_ohne_demo_modul_bleibt_die_marke_leer():
+    """Sonst geht die Zuweisung ins Leere und kommt nie wieder."""
+    with patch(f"{_DB}.get_demo_workspaces", return_value=[]), \
+         patch(f"{_DB}.claim_demo_seeding") as merken, \
+         patch(f"{_DB}.enroll_student") as einschreiben:
+        beigetreten = demo_module_zuweisen(4)
+
+    assert beigetreten == []
+    merken.assert_not_called()
+    einschreiben.assert_not_called()
+
+
+def test_wer_schon_drin_ist_bekommt_nur_die_marke():
+    """Von Hand beigetreten heisst erledigt, nicht ein zweites Mal anbieten."""
+    with patch(f"{_DB}.get_demo_workspaces", return_value=[_kurs(5, "w5", joined=True)]), \
+         patch(f"{_DB}.claim_demo_seeding", return_value=True) as merken, \
+         patch(f"{_DB}.enroll_student") as einschreiben:
+        beigetreten = demo_module_zuweisen(4)
+
+    assert beigetreten == []
+    merken.assert_called_once_with(5, 4)
+    einschreiben.assert_not_called()
+
+
 def test_ein_zweiter_gleichzeitiger_lauf_schreibt_nicht_doppelt_ein():
-    with patch(f"{_DB}.demo_seeding_done", return_value=False), \
-         patch(f"{_DB}.get_demo_workspaces", return_value=[_kurs(5, "w5")]), \
+    with patch(f"{_DB}.get_demo_workspaces", return_value=[_kurs(5, "w5")]), \
          patch(f"{_DB}.claim_demo_seeding", return_value=False), \
          patch(f"{_DB}.enroll_student") as einschreiben:
         beigetreten = demo_module_zuweisen(4)
@@ -568,7 +591,7 @@ def test_ein_zweiter_gleichzeitiger_lauf_schreibt_nicht_doppelt_ein():
 
 
 def test_ein_fehler_haelt_die_anmeldung_nicht_auf():
-    with patch(f"{_DB}.demo_seeding_done", side_effect=RuntimeError("Datenbank weg")):
+    with patch(f"{_DB}.get_demo_workspaces", side_effect=RuntimeError("Datenbank weg")):
         assert demo_module_zuweisen(4) == []
 
 

@@ -301,6 +301,10 @@
       "title": "Translation",
       "text": "You can type text directly or upload a document, both get translated. Documents keep their structure and formatting, so you get the same file back in the new language. For your technical terms you can pick your own list here, you set that up beforehand in the Glossary tool."
     },
+    "interpreter": {
+      "title": "Interpreter",
+      "text": "For conversations across two languages, for example in office hours or at the student office. Each person presses Speak and talks in their own language, the other side reads the translation. Typing works too, and a misheard sentence can be corrected. At the end you get a transcript in both languages."
+    },
     "tts": {
       "title": "Text to speech",
       "text": "You can type text or upload a file, both get read aloud. You pick the voice. At the end you get an audio file you can play right away or download. Long texts take longer to narrate accordingly."
@@ -341,6 +345,7 @@
     "back": "Back",
     "items": {
       "translation": "Translation",
+      "interpreter": "Interpreter",
       "tts": "Text to speech",
       "transcription": "Speech to text",
       "image": "Image generation",
@@ -423,6 +428,73 @@
       "copied": "Copied!",
       "resetLabel": "Reset",
       "resultStale": "Text was changed – translate again for an up-to-date result."
+    },
+    "interpreter": {
+      "title": "Interpreter",
+      "intro": "Two languages, one conversation. Speak or type into your field, the translation runs alongside. Everything stays in the history.",
+      "mode": {
+        "solo": "One person",
+        "soloHint": "You speak or type, the translation runs along on the right.",
+        "conversation": "Two people",
+        "conversationHint": "Both speak or type in turns, each side in its own language."
+      },
+      "languages": {
+        "de": "German",
+        "en": "English",
+        "swap": "Swap sides",
+        "selectAria": "Language {side}"
+      },
+      "sides": {
+        "left": "left",
+        "right": "right"
+      },
+      "settings": {
+        "title": "Providers and settings",
+        "description": "AI providers for speech recognition and translation, glossary terms.",
+        "sttProvider": "Speech recognition",
+        "translationProvider": "Translation",
+        "privacy": "Audio and text only go to the providers chosen here. The browser's own speech recognition is not used.",
+        "close": "Close"
+      },
+      "speaker": {
+        "defaultLeft": "Person 1",
+        "defaultRight": "Person 2"
+      },
+      "history": {
+        "title": "History",
+        "showOlder": "Show older ({count})"
+      },
+      "actions": {
+        "newConversation": "New conversation",
+        "protocol": "Transcript",
+        "saved": "Past conversations",
+        "settings": "Settings",
+        "endConversation": "End conversation",
+        "download": "Save as text",
+        "clear": "Clear"
+      },
+      "solo": {
+        "filename": "translation"
+      },
+      "protocol": {
+        "title": "Conversation transcript",
+        "intro": "Both languages in the order of the conversation.",
+        "download": "Download as text",
+        "empty": "No conversation yet, there is nothing to record.",
+        "close": "Close",
+        "filename": "conversation-transcript"
+      },
+      "saved": {
+        "title": "Past conversations",
+        "intro": "Every conversation you start is saved. Open one to read it again or to continue.",
+        "empty": "No saved conversation yet.",
+        "current": "open right now",
+        "sentences": "{count, plural, =1 {one sentence} other {# sentences}}",
+        "delete": "Delete conversation",
+        "close": "Close",
+        "untitled": "No sentence yet",
+        "ended": "ended"
+      }
     },
     "tts": {
       "title": "Text to speech",
@@ -1834,6 +1906,7 @@
       },
       "tools": {
         "translation": "Translation",
+        "interpreter": "Interpreter",
         "tts": "Text to speech",
         "transcription": "Speech to text",
         "image": "Image generation",
@@ -2265,6 +2338,8 @@
       "loading": "Loading …",
       "activeLabel": "Evaluation active",
       "activeHint": "Off means the tile and the link to fill it out are hidden from everyone.",
+      "forAllLabel": "Visible to everyone",
+      "forAllHint": "On means every account sees the tile and the link, whatever its role and whether or not it came from an access code. Switching it on also brings the tile back for anyone who dismissed it.",
       "titleLabel": "Title",
       "introLegend": "Start",
       "introTextPlaceholder": "Text the person sees first",
@@ -3406,7 +3481,9 @@
       "unlimited": "unlimited",
       "deleteLink": "Delete link",
       "descriptionMore": "Show the full description",
-      "descriptionLess": "Collapse the description"
+      "descriptionLess": "Collapse the description",
+      "tourModuleLabel": "Module for the guided tour",
+      "tourModuleHint": "The guided tour starts in this module. Every other demo module loses the tick."
     }
   },
   "welcomeModal": {

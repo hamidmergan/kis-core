@@ -1,7 +1,7 @@
 """Three pasted formats become the same segments, the rest is a clear refusal."""
 import pytest
 
-from src.limits import YOUTUBE_TRANSCRIPT_MAX_CHARS
+from src.limits import YOUTUBE_MAX_DURATION_SECONDS, YOUTUBE_TRANSCRIPT_MAX_CHARS
 from src.services.transcript_paste import parse_transcript
 from src.services.web_page_fetch import LinkError
 
@@ -68,6 +68,22 @@ def test_zu_lang_wird_abgewiesen():
     with pytest.raises(LinkError) as exc:
         parse_transcript("0:00 x\n" * (YOUTUBE_TRANSCRIPT_MAX_CHARS // 6 + 1))
     assert exc.value.key == "ai.youtube.tooLong"
+    assert exc.value.status == 413
+
+
+def test_zu_langes_video_wird_abgewiesen():
+    zu_spaet = YOUTUBE_MAX_DURATION_SECONDS + 60
+    with pytest.raises(LinkError) as exc:
+        parse_transcript(f"0:00 Anfang\n{zu_spaet // 3600}:{zu_spaet % 3600 // 60:02d}:00 Ende\n")
+    assert exc.value.key == "ai.youtube.videoTooLong"
+    assert exc.value.status == 413
+    assert exc.value.params["max"] == YOUTUBE_MAX_DURATION_SECONDS // 60
+
+
+def test_video_knapp_unter_der_grenze_geht_durch():
+    knapp = YOUTUBE_MAX_DURATION_SECONDS - 600
+    segments = parse_transcript(f"0:00 Anfang\n{knapp // 3600}:{knapp % 3600 // 60:02d}:00 Ende\n")
+    assert [s["text"] for s in segments] == ["Anfang", "Ende"]
 
 
 def test_pfeil_im_text_macht_kein_srt_daraus():

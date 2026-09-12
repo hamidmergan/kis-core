@@ -10,6 +10,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Die Zielsprache ist schon die Sprache der Aufnahme",
         "en": "The target language already is the language of the recording",
     },
+    "ai.workspace.tourModuleNotDemo": {
+        "de": "Nur ein Modul eines Demo-Kontos kann das Modul für den Rundgang sein",
+        "en": "Only a module of a demo account can be the module for the guided tour",
+    },
     "ai.workspace.diagnosisLanguageInvalid": {
         "de": "Ungültige Sprache für die Sprachdiagnose",
         "en": "Invalid language for the language diagnosis",
@@ -149,8 +153,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "The page redirects too often.",
     },
     "ai.link.tooLarge": {
-        "de": "Die Seite ist zu groß.",
-        "en": "The page is too large.",
+        "de": "Die Seite ist zu groß. Ein großes PDF kannst du direkt hochladen.",
+        "en": "The page is too large. A large PDF can be uploaded directly.",
     },
     "ai.link.unsupportedType": {
         "de": "Der Link zeigt weder auf eine Textseite noch auf ein PDF.",
@@ -285,6 +289,12 @@ MESSAGES: dict[str, dict[str, str]] = {
     "ai.youtube.tooLong": {
         "de": "Das Transkript ist zu lang.",
         "en": "The transcript is too long.",
+    },
+    "ai.youtube.videoTooLong": {
+        "de": "Das Video ist {minutes} Minuten lang, erlaubt sind höchstens {max} Minuten. "
+              "Bitte füge nur den Teil des Transkripts ein, um den es geht.",
+        "en": "The video is {minutes} minutes long, at most {max} minutes are allowed. "
+              "Please paste only the part of the transcript you need.",
     },
     "ai.youtube.noFile": {
         "de": "Zu einem YouTube-Video gibt es keine Datei.",

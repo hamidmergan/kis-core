@@ -3,6 +3,7 @@
 TOOLS_CONFIG = [
     {"key": "screencast",      "label": "Screencast"},
     {"key": "translation",   "label": "Dokumentenübersetzung"},
+    {"key": "interpreter",   "label": "Dolmetscher"},
     {"key": "tts",           "label": "Text in Sprache"},
     {"key": "transcription", "label": "Transkription"},
     {"key": "image",         "label": "Bild-KI"},

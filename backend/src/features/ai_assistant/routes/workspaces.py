@@ -92,6 +92,7 @@ def _managed_workspace_payload(m: dict, access: str, shared: bool) -> dict:
         "access": access,
         "shared": shared,
         "is_demo_workspace": bool(m.get("owner_is_demo")),
+        "is_tour_module": bool(m.get("is_tour_module")),
         "source_count": len(sources),
         "access_links": [
             {
@@ -271,6 +272,12 @@ async def patch_workspace(
     new_desc = body.description if body.description is not None else workspace["description"]
     new_active = body.is_active if body.is_active is not None else workspace["is_active"]
     db.update_aia_workspace(workspace_uuid, new_title, new_desc, new_active)
+    if body.is_tour_module is not None:
+        owner = db.get_user_by_id(workspace["user_id"])
+        # The tour's stations point at the demo files, any other course leads nowhere.
+        if not (owner and owner.get("is_demo")):
+            raise HTTPException(status_code=400, detail=t("ai.workspace.tourModuleNotDemo", locale))
+        db.set_aia_workspace_tour_module(workspace_uuid, body.is_tour_module)
     if body.transcript_target_lang is not None:
         if body.transcript_target_lang not in TRANSCRIPT_LANGUAGES:
             raise HTTPException(status_code=400, detail=t("ai.workspace.transcriptTargetLangInvalid", locale))

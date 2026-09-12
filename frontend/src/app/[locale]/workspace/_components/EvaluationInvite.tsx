@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { PencilSimple } from "@phosphor-icons/react";
 import { useRouter } from "@/i18n/navigation";
+import { EvaluationStand, merkerFuerRunde, zeigtEinladung } from "./evaluationEinladung";
 
 const DISMISS_KEY = "kis-evaluation-dismissed";
 
@@ -11,28 +12,29 @@ const DISMISS_KEY = "kis-evaluation-dismissed";
  * Invite into the evaluation, next to the tour invite on the start page.
  *
  * Only appears while an evaluation is switched on and this account has not
- * answered it yet. Declining hides it for this browser, an admin turning the
- * evaluation off and on again brings it back.
+ * answered it yet. Declining hides it for this browser until an admin starts a
+ * new round by switching the evaluation, or the whole platform, back on.
  */
 export function EvaluationInvite() {
   const t = useTranslations("evaluationInvite");
   const router = useRouter();
   const [visible, setVisible] = useState(false);
+  const [stand, setStand] = useState<EvaluationStand | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    let abgelehnt = false;
+    let merker: string | null = null;
     try {
-      abgelehnt = localStorage.getItem(DISMISS_KEY) === "true";
+      merker = localStorage.getItem(DISMISS_KEY);
     } catch {
       /* private mode or blocked storage, then it just shows every time */
     }
-    if (abgelehnt) return;
     fetch("/api/evaluation/active", { credentials: "include" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((d: { active?: boolean; already_responded?: boolean } | null) => {
+      .then((d: EvaluationStand | null) => {
         if (cancelled || !d) return;
-        setVisible(d.active === true && d.already_responded !== true);
+        setStand(d);
+        setVisible(zeigtEinladung(d, merker));
       })
       .catch(() => {
         /* the invite can wait for the next visit */
@@ -44,7 +46,7 @@ export function EvaluationInvite() {
 
   const spaeter = () => {
     try {
-      localStorage.setItem(DISMISS_KEY, "true");
+      localStorage.setItem(DISMISS_KEY, merkerFuerRunde(stand));
     } catch {
       /* nothing to persist then, the invite just shows again next time */
     }

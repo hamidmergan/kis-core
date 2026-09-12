@@ -5,6 +5,7 @@ export const ALL_MODULES = ["aia", "tools"] as const;
 /** Reihenfolge der Werkzeuge, geteilt mit der Seitenleiste. */
 export const TOOL_ROUTES = [
   { key: "translation", href: "/tools/translate" },
+  { key: "interpreter", href: "/tools/interpreter" },
   { key: "tts", href: "/tools/tts" },
   { key: "transcription", href: "/tools/stt" },
   { key: "image", href: "/tools/image" },

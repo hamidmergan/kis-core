@@ -141,6 +141,10 @@ const nextConfig: NextConfig = {
         destination: `${backendUrl}/translate/config`,
       },
       {
+        source: "/api/interpreter/:path*",
+        destination: `${backendUrl}/interpreter/:path*`,
+      },
+      {
         source: "/translate",
         destination: `${backendUrl}/translate`,
       },

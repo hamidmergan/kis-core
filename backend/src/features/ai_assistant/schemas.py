@@ -32,6 +32,7 @@ class PatchWorkspaceBody(BaseModel):
     title: Optional[str] = Field(None, max_length=100)
     description: Optional[str] = Field(None, max_length=500)
     is_active: Optional[bool] = None
+    is_tour_module: Optional[bool] = None
     transcript_target_lang: Optional[str] = None
     diagnosis_language: Optional[str] = None
     staff_note_text: Optional[str] = Field(None, max_length=2000)

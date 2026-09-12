@@ -16,6 +16,7 @@ type Frage = { id: string; type: FrageTyp; text: string; scale_low?: string; sca
 
 type Config = {
   active: boolean;
+  for_all: boolean;
   title: string;
   intro_text: string;
   intro_link_label: string;
@@ -58,6 +59,21 @@ export default function EvaluationTab() {
       });
     } catch {
       setConfig({ ...config, active: !active });
+    }
+  }
+
+  async function toggleForAll(for_all: boolean) {
+    if (!config) return;
+    setConfig({ ...config, for_all });
+    try {
+      await fetch("/api/admin/evaluation/for-all", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ for_all }),
+      });
+    } catch {
+      setConfig({ ...config, for_all: !for_all });
     }
   }
 
@@ -148,6 +164,14 @@ export default function EvaluationTab() {
           checked={config.active}
           onToggle={() => toggleActive(!config.active)}
         />
+        <div className="mt-4 pt-4" style={{ borderTop: "1px solid var(--border-soft)" }}>
+          <ToggleRow
+            title={t("forAllLabel")}
+            description={t("forAllHint")}
+            checked={config.for_all}
+            onToggle={() => toggleForAll(!config.for_all)}
+          />
+        </div>
       </div>
 
       <div className="space-y-1">

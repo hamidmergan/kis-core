@@ -13,8 +13,10 @@ from src.permissions_registry import PERM_SET_USERS_EVALUATION
 router = APIRouter(prefix="/evaluation", tags=["evaluation"])
 
 
-def _may_see(user: dict) -> bool:
-    """Visitors from a code with the switch, plus whoever runs the evaluation itself."""
+def _may_see(user: dict, config: dict) -> bool:
+    """Everyone while the switch says so, otherwise visitors from a code plus the admins."""
+    if config.get("for_all"):
+        return True
     if permissions_of(user).has(PERM_SET_USERS_EVALUATION):
         return True
     return access_repo.shows_evaluation(user["user_id"])
@@ -32,7 +34,7 @@ class SubmitPayload(BaseModel):
 @router.get("/active")
 def get_active_evaluation(user: dict = Depends(get_current_user)):
     config = repo.get_config()
-    if not config["active"] or not _may_see(user):
+    if not config["active"] or not _may_see(user, config):
         return {"active": False}
     return {**config, "already_responded": repo.has_responded(user["user_id"])}
 
@@ -44,7 +46,7 @@ def submit_evaluation(
     locale: str = Depends(get_locale),
 ):
     config = repo.get_config()
-    if not config["active"] or not _may_see(user):
+    if not config["active"] or not _may_see(user, config):
         raise HTTPException(status_code=404, detail=t("evaluation.notActive", locale))
 
     try:

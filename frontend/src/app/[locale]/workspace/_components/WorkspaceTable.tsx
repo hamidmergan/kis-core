@@ -15,7 +15,7 @@ interface WorkspaceTableProps {
   workspaces: KiTutorWorkspace[];
   onToggleActive: (uuid: string, newVal: boolean) => Promise<void>;
   onDelete: (uuid: string) => Promise<void>;
-  onEdit: (uuid: string, newTitle: string, newDescription: string) => Promise<boolean>;
+  onEdit: (uuid: string, newTitle: string, newDescription: string, tourModule: boolean | null) => Promise<boolean>;
   onLinksChanged: (uuid: string, links: AccessLink[]) => void;
   onRolesChanged: () => void;
   onLeaveDemo?: (uuid: string) => void;

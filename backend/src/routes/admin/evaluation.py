@@ -45,6 +45,10 @@ class ActivePayload(BaseModel):
     active: bool
 
 
+class ForAllPayload(BaseModel):
+    for_all: bool
+
+
 @router.get("")
 def get_evaluation(admin: dict = Depends(_require)):
     return repo.get_config()
@@ -71,13 +75,21 @@ def save_evaluation(
         "questions": fragen,
     }
     repo.save_config(config)
-    return {**config, "active": repo.get_config()["active"]}
+    # The tab rebuilds its state from this answer, so both switches ride along.
+    gespeichert = repo.get_config()
+    return {**config, "active": gespeichert["active"], "for_all": gespeichert["for_all"]}
 
 
 @router.patch("/active")
 def set_evaluation_active(payload: ActivePayload, admin: dict = Depends(_require)):
     repo.set_active(payload.active)
     return {"active": payload.active}
+
+
+@router.patch("/for-all")
+def set_evaluation_for_all(payload: ForAllPayload, admin: dict = Depends(_require)):
+    repo.set_for_all(payload.for_all)
+    return {"for_all": payload.for_all}
 
 
 # Same period keys as the other statistics pages, plus "alle" because an

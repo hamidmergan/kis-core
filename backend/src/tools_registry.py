@@ -3,6 +3,7 @@
 
 ALL_TOOL_KEYS: tuple[str, ...] = (
     "translation",
+    "interpreter",
     "tts",
     "transcription",
     "image",

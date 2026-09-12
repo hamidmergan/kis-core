@@ -11,6 +11,7 @@ from ._shared import (
     aia_transcript_prefix, aia_vtt_key,
 )
 from src.features.ai_assistant import schemas
+from src.storage import aia_vtt_error_key, delete_file
 
 router = APIRouter(tags=["ki-assistent: sources"])
 
@@ -126,6 +127,8 @@ async def regenerate_transcript(
     if source_lang and source_lang != "unknown" and target_lang == source_lang:
         raise HTTPException(status_code=400, detail=t("ai.transcript.targetEqualsSource", locale))
 
+    # An old note would end the new wait before the task even starts.
+    await asyncio.to_thread(delete_file, aia_vtt_error_key(source["file_path"], target_lang))
     from src.tasks import aia_tasks
     aia_tasks.run_translate_transcript.delay(source_uuid, binding.provider["id"], target_lang)
     logger.info(
@@ -202,7 +205,14 @@ async def get_transcript_exists(
         raise HTTPException(status_code=400, detail=t("ai.transcript.invalidLangCode", locale))
 
     vtt_key = aia_vtt_key(source["file_path"], lang_clean)
-    return {"exists": await asyncio.to_thread(file_exists, vtt_key)}
+    if await asyncio.to_thread(file_exists, vtt_key):
+        return {"exists": True}
+    # A failed run leaves a note, the panel stops waiting on it.
+    error_key = aia_vtt_error_key(source["file_path"], lang_clean)
+    if await asyncio.to_thread(file_exists, error_key):
+        note = await asyncio.to_thread(get_file, error_key)
+        return {"exists": False, "error": note.decode("utf-8", "replace")}
+    return {"exists": False}
 
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/sources/{source_uuid}/transcript/langs")

@@ -10,6 +10,7 @@ describe("Wer alle Werkzeuge sieht", () => {
     expect(schluessel(ALLE)).toEqual([
       "seitenleiste",
       "translation",
+      "interpreter",
       "tts",
       "transcription",
       "image",

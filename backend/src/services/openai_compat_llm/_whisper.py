@@ -13,17 +13,19 @@ class _WhisperMixin:
     """Erwartet: self._client (OpenAI), self._provider, self._base_url."""
 
     @observe(name="whisper-transcribe")
-    def transcribe(self, file_path: str, response_format: str = "text") -> str:
-        """Transcribe audio in its original language via the OpenAI-compat Whisper endpoint."""
+    def transcribe(self, file_path: str, response_format: str = "text", language: str | None = None) -> str:
+        """Transcribe audio in its original language via the OpenAI-compat Whisper endpoint, the language is optional."""
         langfuse_context.update_current_observation(
             metadata={"provider": self._provider, "base_url": self._base_url, "model": self._whisper_model},
         )
+        extra = {"language": language} if language else {}
         try:
             with open(file_path, "rb") as f:
                 result = str(self._client.audio.transcriptions.create(
                     model=self._whisper_model,
                     file=f,
                     response_format=response_format,
+                    **extra,
                 ))
             if not result:
                 raise RuntimeError("Whisper returned no output")

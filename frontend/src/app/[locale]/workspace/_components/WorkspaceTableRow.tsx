@@ -16,7 +16,7 @@ interface WorkspaceTableRowProps {
   workspace: KiTutorWorkspace;
   onToggleActive: (uuid: string, newVal: boolean) => Promise<void>;
   onDelete: (uuid: string) => Promise<void>;
-  onEdit: (uuid: string, newTitle: string, newDescription: string) => Promise<boolean>;
+  onEdit: (uuid: string, newTitle: string, newDescription: string, tourModule: boolean | null) => Promise<boolean>;
   onLinksChanged: (uuid: string, links: AccessLink[]) => void;
   onRolesChanged: () => void;
 }
@@ -44,7 +44,7 @@ export default function WorkspaceTableRow({
         showParticipants={showParticipants} onCloseParticipants={() => setShowParticipants(false)}
         onRolesChanged={onRolesChanged}
         editOpen={a.editOpen} onCloseEdit={() => a.setEditOpen(false)}
-        onSubmitEdit={(t, d) => onEdit(workspace.uuid, t, d)}
+        onSubmitEdit={(t, d, rundgang) => onEdit(workspace.uuid, t, d, rundgang)}
         showLinks={a.showLinks} onCloseLinks={() => a.setShowLinks(false)}
         links={a.links} onLinksChanged={a.handleLinksChanged}
         deleteConfirm={a.deleteConfirm} onCancelDelete={() => a.setDeleteConfirm(false)}
