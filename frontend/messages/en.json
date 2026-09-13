@@ -2938,6 +2938,7 @@
         }
       },
       "topbar": {
+        "toList": "{label}",
         "backToOverview": "Back to overview",
         "back": "Back",
         "settings": "Settings",
