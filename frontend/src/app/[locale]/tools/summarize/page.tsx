@@ -8,7 +8,6 @@ import { backendApi, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
 import { MAX_UPLOAD_MB, MAX_UPLOAD_BYTES } from "@/lib/constants";
 import Spinner from "@/components/ui/Spinner";
 import ProviderSelect from "@/components/tools/ProviderSelect";
-import AiHinweisText from "@/components/ui/AiHinweisText";
 import { useFeatureProviders } from "@/hooks/useFeatureProviders";
 
 const ACCEPTED_EXTENSIONS = [".srt", ".vtt", ".txt", ".md", ".pptx", ".docx"];
@@ -238,7 +237,6 @@ export default function ZusammenfassungPage() {
                     {tCommon("newFile")}
                   </button>
                 </div>
-                <AiHinweisText className="mt-2" />
               </div>
             </div>
           )}

@@ -6,7 +6,6 @@ import { backendApi, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
 import Spinner from "@/components/ui/Spinner";
 import ProviderSelect from "@/components/tools/ProviderSelect";
 import { useFeatureProviders } from "@/hooks/useFeatureProviders";
-import AiHinweisText from "@/components/ui/AiHinweisText";
 import { SIZES } from "../_utils";
 
 
@@ -132,7 +131,6 @@ export default function GenerateTab() {
             </svg>
             PNG
           </button>
-          <AiHinweisText className="mt-2 text-center" />
           <button
             onClick={() => setResult(null)}
             className="mt-4 px-4 py-2 text-sm text-foreground-soft border border-border rounded-md hover:bg-surface transition-colors"

@@ -2,7 +2,6 @@
 
 import { useTranslations } from "next-intl";
 import { MicrophoneStage } from "@phosphor-icons/react";
-import AiHinweisText from "@/components/ui/AiHinweisText";
 import { resultUrl, transcriptUrl } from "../_api";
 import { linesToVoice, minutesOf } from "../_logic";
 import type { JobProgress, JobStatus, Line, Person, PersonCount } from "../_types";
@@ -72,7 +71,7 @@ export default function DoneStep(props: DoneStepProps) {
         </div>
       )}
 
-      <div className="flex flex-wrap justify-center gap-3 mb-1">
+      <div className="flex flex-wrap justify-center gap-3 mb-4">
         <button type="button" onClick={() => jobUuid && speichern(resultUrl(jobUuid), "podcast.mp3")} className={LINK}>
           {downloadIcon}
           {t("download")}
@@ -82,7 +81,6 @@ export default function DoneStep(props: DoneStepProps) {
           {t("transcript")}
         </button>
       </div>
-      <AiHinweisText className="text-center mb-3" />
 
       <div className="flex flex-wrap justify-center gap-3">
         <button type="button" onClick={onEditScript} className={GHOST}>

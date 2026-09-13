@@ -4,7 +4,6 @@ import { useTranslations } from "next-intl";
 import { SpeakerHigh } from "@phosphor-icons/react";
 import type { TTSState } from "@/types";
 import Spinner from "@/components/ui/Spinner";
-import AiHinweisText from "@/components/ui/AiHinweisText";
 
 interface TtsStatusProps {
   state: TTSState;
@@ -80,7 +79,6 @@ export default function TtsStatus({
               {tCommon("newFile")}
             </button>
           </div>
-          <AiHinweisText />
         </div>
       )}
 

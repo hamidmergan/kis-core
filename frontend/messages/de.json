@@ -363,8 +363,7 @@
     "retryJobAria": "Job wiederholen",
     "add": "Hinzufügen",
     "close": "Schließen",
-    "backToOverview": "Übersicht",
-    "aiHinweis": "Diese Datei wurde mithilfe von KI erstellt."
+    "backToOverview": "Übersicht"
   },
   "tools": {
     "stt": {

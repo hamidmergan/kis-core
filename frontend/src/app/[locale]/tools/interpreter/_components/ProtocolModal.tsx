@@ -2,7 +2,6 @@
 
 import { useTranslations } from "next-intl";
 import Modal from "@/components/ui/Modal";
-import AiHinweisText from "@/components/ui/AiHinweisText";
 import { AI_HINWEIS_TEXT } from "@/lib/constants";
 import type { Side, Turn } from "../_types";
 
@@ -47,8 +46,7 @@ export default function ProtocolModal({ open, onClose, turns, names, formatTime 
         </>
       }
     >
-      <p className="text-sm text-muted mb-1">{t("intro")}</p>
-      <AiHinweisText className="mb-4" />
+      <p className="text-sm text-muted mb-4">{t("intro")}</p>
       {lines.length === 0 ? (
         <p className="text-sm text-muted-soft">{t("empty")}</p>
       ) : (

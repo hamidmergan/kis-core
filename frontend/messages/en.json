@@ -363,8 +363,7 @@
     "retryJobAria": "Retry job",
     "add": "Add",
     "close": "Close",
-    "backToOverview": "Overview",
-    "aiHinweis": "This file was created with AI assistance."
+    "backToOverview": "Overview"
   },
   "tools": {
     "stt": {
