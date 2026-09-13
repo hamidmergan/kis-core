@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { useTranslations } from "next-intl";
 import { api } from "@/lib/api";
+import { AI_HINWEIS_TEXT } from "@/lib/constants";
 import { _chunkLabel } from "../_utils";
 import type { ExerciseSet } from "../_types";
 
@@ -11,7 +11,6 @@ interface UseExercisesOptions {
 }
 
 export function useExercises({ uuid }: UseExercisesOptions) {
-  const tCommon = useTranslations("common");
   const [exerciseSets, setExerciseSets] = useState<ExerciseSet[]>([]);
   const [activeSet, setActiveSet] = useState<ExerciseSet | null>(null);
   const [createSetTool, setCreateSetTool] = useState<string>("flashcards");
@@ -129,7 +128,7 @@ export function useExercises({ uuid }: UseExercisesOptions) {
       const set = data.set as ExerciseSet;
       const items = set.items || [];
       const lines: string[] = [];
-      lines.push(tCommon("aiHinweis"));
+      lines.push(AI_HINWEIS_TEXT);
       lines.push("");
       lines.push(set.title);
       lines.push("=".repeat(set.title.length));
@@ -177,7 +176,7 @@ export function useExercises({ uuid }: UseExercisesOptions) {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch { /* ignore */ }
-  }, [uuid, tCommon]);
+  }, [uuid]);
 
   const submitSingleAnswer = useCallback(async (setId: number, itemId: number, correct: boolean, newRun: boolean) => {
     try {

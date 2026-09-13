@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 import Modal from "@/components/ui/Modal";
 import AiHinweisText from "@/components/ui/AiHinweisText";
+import { AI_HINWEIS_TEXT } from "@/lib/constants";
 import type { Side, Turn } from "../_types";
 
 interface Props {
@@ -16,12 +17,11 @@ interface Props {
 /** The whole conversation in both languages, to take along. */
 export default function ProtocolModal({ open, onClose, turns, names, formatTime }: Props) {
   const t = useTranslations("tools.interpreter.protocol");
-  const tCommon = useTranslations("common");
   const lines = turns.filter((turn) => turn.original.trim());
 
   const download = () => {
     const text = lines.map((turn) => `[${formatTime(turn.at)}] ${names[turn.side]}\n${turn.original}\n${turn.translation}`).join("\n\n");
-    const blob = new Blob([`${tCommon("aiHinweis")}\n\n${text}\n`], { type: "text/plain;charset=utf-8" });
+    const blob = new Blob([`${AI_HINWEIS_TEXT}\n\n${text}\n`], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
