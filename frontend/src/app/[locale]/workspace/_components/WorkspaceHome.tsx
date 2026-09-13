@@ -231,33 +231,35 @@ export default function WorkspaceHome({ canCreate, firstName, languageInvite, sh
 
   return (
     <div className="page-shell pt-6 pb-20 lg:pt-15 lg:pb-30">
-      {showGreeting && <Greeting firstName={firstName} />}
+      <div className="max-w-7xl mx-auto">
+        {showGreeting && <Greeting firstName={firstName} />}
 
-      <div className="flex flex-col md:flex-row gap-4 mb-8 empty:hidden">
-        <TourInvite />
-        {languageInvite && <LanguageTrainerInvite />}
-        <EvaluationInvite />
+        <div className="flex flex-col md:flex-row gap-4 mb-8 empty:hidden">
+          <TourInvite />
+          {languageInvite && <LanguageTrainerInvite />}
+          <EvaluationInvite />
+        </div>
+
+        {previewInvalid && (
+          <div
+            className="rounded-xl p-4 mb-8 text-sm"
+            style={{ backgroundColor: "var(--error-bg)", color: "var(--error)" }}
+          >
+            {t("enrollInvalidCode")}
+          </div>
+        )}
+
+        {joinedClosed && (
+          <div
+            className="rounded-xl p-4 mb-8 text-sm"
+            style={{ backgroundColor: "var(--surface-dim)", color: "var(--foreground-soft)" }}
+          >
+            {t("closedJoinedNotice")}
+          </div>
+        )}
+
+        <WorkspaceList canCreate={canCreate} />
       </div>
-
-      {previewInvalid && (
-        <div
-          className="rounded-xl p-4 mb-8 text-sm"
-          style={{ backgroundColor: "var(--error-bg)", color: "var(--error)" }}
-        >
-          {t("enrollInvalidCode")}
-        </div>
-      )}
-
-      {joinedClosed && (
-        <div
-          className="rounded-xl p-4 mb-8 text-sm"
-          style={{ backgroundColor: "var(--surface-dim)", color: "var(--foreground-soft)" }}
-        >
-          {t("closedJoinedNotice")}
-        </div>
-      )}
-
-      <WorkspaceList canCreate={canCreate} />
     </div>
   );
 }

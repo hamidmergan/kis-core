@@ -74,6 +74,25 @@ def set_for_all(for_all: bool) -> None:
     set_setting("evaluation_for_all", "true" if for_all else "false")
 
 
+def has_platform_activity(user_id: int) -> bool:
+    """Whether this account has ever done more than log in, so the invite reaches people who actually tried something."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """SELECT
+                       EXISTS(SELECT 1 FROM users WHERE id = %(uid)s AND tour_seen_at IS NOT NULL)
+                    OR EXISTS(SELECT 1 FROM jobs WHERE user_id = %(uid)s)
+                    OR EXISTS(
+                           SELECT 1 FROM aia_workspaces w
+                           JOIN aia_sources s ON s.workspace_id = w.id
+                           WHERE w.user_id = %(uid)s
+                       )
+                    OR EXISTS(SELECT 1 FROM aia_messages WHERE user_id = %(uid)s AND role = 'user')""",
+                {"uid": user_id},
+            )
+            return cur.fetchone()[0]
+
+
 def has_responded(user_id: int) -> bool:
     """Whether this account already sent in an answer, used to hide the invite afterwards."""
     with get_connection() as conn:

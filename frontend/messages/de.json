@@ -299,7 +299,7 @@
     "tools": {
       "translation": {
         "title": "Übersetzung",
-        "body": "Texte und Dokumente in andere Sprachen übersetzen. Layout und Formatierung bleiben erhalten."
+        "body": "Texte und Dokumente übersetzen, aktuell zwischen Deutsch und Englisch. Layout und Formatierung bleiben erhalten."
       },
       "interpreter": {
         "title": "Dolmetscher",
@@ -396,7 +396,7 @@
     },
     "translate": {
       "title": "Übersetzung",
-      "intro": "Texte und Dokumente in andere Sprachen übersetzen. Layout und Formatierung bleiben erhalten.",
+      "intro": "Texte und Dokumente übersetzen, aktuell zwischen Deutsch und Englisch. Layout und Formatierung bleiben erhalten.",
       "inputMode": {
         "text": "Text eingeben",
         "file": "Datei hochladen"

@@ -33,10 +33,16 @@ class SubmitPayload(BaseModel):
 
 @router.get("/active")
 def get_active_evaluation(user: dict = Depends(get_current_user)):
+    """The form itself is always reachable once eligible, `has_activity` only steers the tile's own pop-up."""
     config = repo.get_config()
     if not config["active"] or not _may_see(user, config):
         return {"active": False}
-    return {**config, "already_responded": repo.has_responded(user["user_id"])}
+    is_admin_preview = permissions_of(user).has(PERM_SET_USERS_EVALUATION)
+    return {
+        **config,
+        "already_responded": repo.has_responded(user["user_id"]),
+        "has_activity": is_admin_preview or repo.has_platform_activity(user["user_id"]),
+    }
 
 
 @router.post("/submit")

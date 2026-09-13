@@ -299,7 +299,7 @@
     "tools": {
       "translation": {
         "title": "Translation",
-        "body": "Translate text and documents into other languages. Layout and formatting are preserved."
+        "body": "Translate text and documents, currently between German and English. Layout and formatting are preserved."
       },
       "interpreter": {
         "title": "Interpreter",
@@ -396,7 +396,7 @@
     },
     "translate": {
       "title": "Translation",
-      "intro": "Translate text and documents into other languages. Layout and formatting are preserved.",
+      "intro": "Translate text and documents, currently between German and English. Layout and formatting are preserved.",
       "inputMode": {
         "text": "Enter text",
         "file": "Upload file"

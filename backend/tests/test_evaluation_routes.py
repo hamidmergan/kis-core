@@ -45,6 +45,13 @@ def code_zeigt_evaluation():
         yield
 
 
+@pytest.fixture(autouse=True)
+def hat_aktivitaet():
+    """Default for these tests: the account has already done something on the platform."""
+    with patch("src.features.evaluation.repository.has_platform_activity", return_value=True):
+        yield
+
+
 def _config(active: bool, **abweichungen):
     config = {**default_config(), "active": active}
     config.update(abweichungen)
@@ -143,6 +150,40 @@ def test_the_switch_for_everyone_lets_in_an_account_without_a_code(client):
         r = client.get("/evaluation/active")
     assert r.json()["active"] is True
     fragen.assert_not_called()
+
+
+def test_the_response_reports_whether_the_account_has_done_anything(client):
+    with patch("src.features.evaluation.repository.get_config", return_value=_config(True)), \
+         patch("src.features.evaluation.repository.has_responded", return_value=False), \
+         patch("src.features.evaluation.repository.has_platform_activity", return_value=False):
+        r = client.get("/evaluation/active")
+    assert r.json()["active"] is True
+    assert r.json()["has_activity"] is False
+
+
+def test_an_admin_always_counts_as_having_activity(client_admin):
+    """The permission is meant for previewing, an admin's own activity must never gate that."""
+    with patch("src.features.evaluation.repository.get_config", return_value=_config(True)), \
+         patch("src.features.evaluation.repository.has_responded", return_value=False), \
+         patch("src.features.evaluation.repository.has_platform_activity", return_value=False) as pruefen:
+        r = client_admin.get("/evaluation/active")
+    assert r.json()["has_activity"] is True
+    pruefen.assert_not_called()
+
+
+def test_no_activity_still_allows_the_deliberate_submission(client):
+    """Reachable through the settings menu, regardless of what steers the tile's own pop-up."""
+    config = _config(True)
+    frage_id = config["questions"][0]["id"]
+    with patch("src.features.evaluation.repository.get_config", return_value=config), \
+         patch("src.features.evaluation.repository.has_responded", return_value=False), \
+         patch("src.features.evaluation.repository.has_platform_activity", return_value=False), \
+         patch("src.features.evaluation.repository.create_response", return_value=9) as speichern:
+        r = client.post("/evaluation/submit", json={
+            "answers": [{"question_id": frage_id, "value": 2}],
+        })
+    assert r.status_code == 200
+    speichern.assert_called_once_with(42, [{"question_id": frage_id, "value": 2}])
 
 
 def test_the_switch_for_everyone_also_accepts_their_submission(client):
