@@ -143,7 +143,7 @@ async def get_settings(_admin=Depends(require_any_settings)):
         "transcription_max_minutes": tool_limits.max_transcription_seconds() // 60,
         "upload_max_mb": tool_limits.max_upload_bytes() // (1024 * 1024),
         "results_kept_per_user": tool_limits.results_kept_per_user(),
-        "screencast_max_open_jobs": tool_limits.max_open_screencast_jobs(),
+        "tool_max_open_jobs": tool_limits.max_open_jobs(),
         # The assessment prompt, a placeholder carries the language.
         "language_diagnosis_prompt": db.get_setting(
             "language_diagnosis_prompt", DEFAULT_DIAGNOSIS_PROMPT
@@ -442,7 +442,7 @@ async def update_settings(
         (body.transcription_max_minutes, "transcription_max_minutes", 5, 480, False),
         (body.upload_max_mb, "upload_max_mb", 10, 2000, False),
         (body.results_kept_per_user, "results_kept_per_user", 1, 10000, True),
-        (body.screencast_max_open_jobs, "screencast_max_open_jobs", 1, 100, True),
+        (body.tool_max_open_jobs, "tool_max_open_jobs", 1, 100, True),
     ):
         if feld is None:
             continue

@@ -50,7 +50,7 @@ class UpdateSettingsRequest(BaseModel):
     transcription_max_minutes: int | None = None
     upload_max_mb: int | None = None
     results_kept_per_user: int | None = None
-    screencast_max_open_jobs: int | None = None
+    tool_max_open_jobs: int | None = None
     # The assessment prompt, an empty text resets it to the default.
     language_diagnosis_prompt: str | None = None
     # The question plan as JSON, an empty text resets it.

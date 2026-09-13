@@ -59,9 +59,11 @@ BUNDLE_INCLUDE_IMAGES = False  # include slide images in ZIP
 # Longest recording that is accepted.
 MAX_AUDIO_SEC                  = 6000   # 100 min
 
+# Open jobs per person and tool, counting running, waiting and queued ones.
+MAX_OPEN_JOBS_PER_TOOL         = 5
+
 # --- Screencast -------------------------------------------------------------
 MAX_SCREENCAST_SLIDES          = 50
-MAX_QUEUED_SCREENCAST_JOBS     = 5  # max jobs in user queue (including running)
 
 # Threads for PDF to PNG and ffmpeg, sized by the machine's cores.
 RENDER_MAX_WORKERS = capacity().render_workers
@@ -70,15 +72,14 @@ RENDER_MAX_WORKERS = capacity().render_workers
 SCREENCAST_TTS_PARALLELISM = 8
 
 # --- Podcast ----------------------------------------------------------------
-# The material the model reads, measured as the budget a pointed question needs.
-PODCAST_MAX_SOURCE_CHARS = 60_000
+# More sources than this dilute every single one below a useful share.
+PODCAST_MAX_SOURCES      = 10
 PODCAST_MAX_LINES        = 80
 PODCAST_MAX_LINE_CHARS   = 1200
 # One breath between two contributions so they do not run into each other.
 PODCAST_LINE_PAUSE       = 0.35
 # The same lever as the screencast: waiting on the provider, not own CPU.
 PODCAST_TTS_PARALLELISM  = 8
-MAX_QUEUED_PODCAST_JOBS  = 3
 
 # How many parts of a long recording go to the provider at once.
 STT_CHUNK_PARALLELISM = 2
@@ -139,7 +140,8 @@ AIA_CONTEXT_HARD_CAP                    = 800000
 # Context of a specific question, more context made the measurement worse.
 AIA_SPECIFIC_MAX_CHARS                  = 60000
 # Separate context budget for the generating tools, apart from the chat.
-AIA_TOOL_CONTEXT_MAX_CHARS             = 250000
+# Set to the hard cap so the model window decides, this knob only dials down.
+AIA_TOOL_CONTEXT_MAX_CHARS             = 1_000_000
 # Hard ceiling for the tool budget, higher than the chat's.
 AIA_TOOL_CONTEXT_HARD_CAP              = 1_000_000
 # Characters per batch for the summary during ingest.

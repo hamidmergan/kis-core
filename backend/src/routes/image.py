@@ -13,6 +13,7 @@ from src.limits import MAX_IMAGE_BYTES
 from src.utils.file_validation import validate_or_raise
 from src.quotas import enforce_quota
 from src.security.rate_limit import enforce_tool_burst
+from src.services.open_jobs import enforce_open_jobs
 from src.dependencies_rbac import require_tool_access
 
 router = APIRouter(
@@ -56,6 +57,7 @@ async def generate_image(
 
     job_uuid = uuid.uuid4().hex
     user_id = current_user.get("user_id", 0)
+    enforce_open_jobs(user_id, locale)
     enforce_tool_burst(user_id, "image_generate", locale)
     enforce_quota(user_id, "image_generate", is_admin_user(current_user), locale)
 
@@ -95,6 +97,7 @@ async def edit_image(
 
     job_uuid = uuid.uuid4().hex
     user_id = current_user.get("user_id", 0)
+    enforce_open_jobs(user_id, locale)
     enforce_tool_burst(user_id, "image_edit", locale)
     enforce_quota(user_id, "image_edit", is_admin_user(current_user), locale)
 
@@ -135,6 +138,7 @@ async def analyze_image(
 
     job_uuid = uuid.uuid4().hex
     user_id = current_user.get("user_id", 0)
+    enforce_open_jobs(user_id, locale)
     enforce_tool_burst(user_id, "image_analyze", locale)
     enforce_quota(user_id, "image_analyze", is_admin_user(current_user), locale)
 

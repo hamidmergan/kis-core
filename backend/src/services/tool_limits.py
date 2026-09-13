@@ -4,8 +4,9 @@ from loguru import logger
 
 from src import database as db
 from src.limits import (
+    AIA_SOURCE_MAX_PAGES,
     MAX_AUDIO_SEC,
-    MAX_QUEUED_SCREENCAST_JOBS,
+    MAX_OPEN_JOBS_PER_TOOL,
     MAX_RESULT_FILES,
     MAX_SCREENCAST_SLIDES,
     MAX_UPLOAD_BYTES,
@@ -15,7 +16,7 @@ _BYTES_PER_MB = 1024 * 1024
 
 # Only these two may be unlimited.
 UNBEGRENZT = -1
-_DARF_UNBEGRENZT = frozenset({"results_kept_per_user", "screencast_max_open_jobs"})
+_DARF_UNBEGRENZT = frozenset({"results_kept_per_user", "tool_max_open_jobs"})
 
 
 def _zahl(key: str, vorgabe: int) -> int:
@@ -47,6 +48,11 @@ def max_transcription_seconds() -> int:
     return minuten * 60
 
 
+def max_source_pages() -> int:
+    """Pages per document, the same number for module material and for the tools."""
+    return _zahl("aia_source_max_pages", AIA_SOURCE_MAX_PAGES)
+
+
 def max_upload_bytes() -> int:
     """Size of an uploaded file, the admin area shows MB."""
     return _zahl("upload_max_mb", MAX_UPLOAD_BYTES // _BYTES_PER_MB) * _BYTES_PER_MB
@@ -57,6 +63,6 @@ def results_kept_per_user() -> int:
     return _zahl("results_kept_per_user", MAX_RESULT_FILES)
 
 
-def max_open_screencast_jobs() -> int:
-    """Open screencast jobs per user, ``-1`` means unlimited."""
-    return _zahl("screencast_max_open_jobs", MAX_QUEUED_SCREENCAST_JOBS)
+def max_open_jobs() -> int:
+    """Open jobs per person and tool, ``-1`` means unlimited."""
+    return _zahl("tool_max_open_jobs", MAX_OPEN_JOBS_PER_TOOL)

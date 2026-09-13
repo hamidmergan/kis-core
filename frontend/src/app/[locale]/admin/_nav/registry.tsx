@@ -9,6 +9,7 @@ import {
   ChartBar,
   GearSix,
   Notebook,
+  Ruler,
   Sparkle,
   Toolbox,
   Users,
@@ -68,7 +69,8 @@ export interface AdminSection {
 
 import ToolReleasePage from "../_pages/werkzeuge/release";
 import ToolJobsPage from "../_pages/werkzeuge/jobs";
-import ToolLimitsPage from "../_pages/werkzeuge/limits";
+import GrenzenMaterialPage from "../_pages/grenzen/material";
+import GrenzenKontextPage from "../_pages/grenzen/kontext";
 
 import SourcesPage from "../_pages/assistent/sources";
 import LanguageLevelPage from "../_pages/assistent/language-level";
@@ -110,7 +112,6 @@ export const SECTIONS: AdminSection[] = [
     pages: [
       { slug: "release", key: "release", world: "tools", perm: PERM.toolsRelease, Component: ToolReleasePage },
       { slug: "jobs", key: "jobs", world: "tools", perm: PERM.toolsJobs, Component: ToolJobsPage, home: true },
-      { slug: "limits", key: "limits", world: "tools", perm: PERM.toolsLimits, Component: ToolLimitsPage },
     ],
   },
   {
@@ -120,7 +121,7 @@ export const SECTIONS: AdminSection[] = [
     world: "aia",
     rank: "product",
     pages: [
-      // Sources also carries the two context budgets, both count source text.
+      // Only how material is processed, how much may come is set under Grenzen.
       { slug: "sources", key: "sources", world: "aia", perm: PERM.aiaSources, Component: SourcesPage },
       // Assessment and AI behaviour are one subject in two tabs.
       {
@@ -134,6 +135,19 @@ export const SECTIONS: AdminSection[] = [
           { slug: "behaviour", labelKey: "behaviour", Component: AiBehaviourPage },
         ],
       },
+    ],
+  },
+  // Below both products, because a limit belongs to no single one of them.
+  {
+    slug: "limits",
+    key: "grenzen",
+    Icon: Ruler,
+    world: "both",
+    rank: "product",
+    perm: PERM.toolsLimits,
+    tabs: [
+      { slug: "material", labelKey: "material", Component: GrenzenMaterialPage },
+      { slug: "context", labelKey: "kontext", Component: GrenzenKontextPage },
     ],
   },
   // Read-only numbers sit together, every tab carries its own permission.

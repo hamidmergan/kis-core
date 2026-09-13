@@ -1199,10 +1199,6 @@
         },
         "jobs": {
           "label": "Aufträge"
-        },
-        "limits": {
-          "label": "Grenzen",
-          "sub": "Wie groß und wie viel die Werkzeuge annehmen."
         }
       },
       "assistent": {
@@ -1210,7 +1206,7 @@
         "sub": "Der Assistent im Modul.",
         "sources": {
           "label": "Materialien",
-          "sub": "Was hochgeladen werden darf, wie es eingelesen wird und wie viel davon in eine Anfrage geht."
+          "sub": "Wie hochgeladenes Material eingelesen und verarbeitet wird."
         },
         "level": {
           "label": "Sprachniveau",
@@ -1243,6 +1239,13 @@
         "francis": {
           "label": "Francis",
           "sub": "Alle Posen und Zustände auf einen Blick."
+        }
+      },
+      "grenzen": {
+        "label": "Grenzen",
+        "tabs": {
+          "material": "Material",
+          "kontext": "Kontext"
         }
       }
     },
@@ -1900,7 +1903,7 @@
     },
     "sourceMaxPagesCard": {
       "title": "Maximale Seiten pro Material",
-      "hint": "Wie viele Seiten ein hochgeladenes Dokument (PDF/DOCX/PPTX) maximal haben darf. Größere werden abgelehnt, lange Skripte bitte kapitelweise hochladen. Default 200: bis dahin bleibt ein Material handhabbar, bei sehr großen Dokumenten wird der Überblick vorderlastig. Medien (mp3/mp4) sind nicht betroffen.",
+      "hint": "Wie viele Seiten ein hochgeladenes Dokument (PDF/DOCX/PPTX) maximal haben darf. Gilt für Materialien im Modul und für die Werkzeuge Podcast, Zusammenfassung und Übersetzung. Größere werden abgelehnt, lange Skripte bitte kapitelweise hochladen. Default 200: bis dahin bleibt ein Material handhabbar, bei sehr großen Dokumenten wird der Überblick vorderlastig. Medien (mp3/mp4) und Screencast sind nicht betroffen.",
       "unit": "Seiten",
       "outOfRange": "Wert muss zwischen 1 und 2000 liegen.",
       "saveFailed": "Speichern fehlgeschlagen."
@@ -2038,6 +2041,7 @@
         "image": "Bildgenerierung",
         "summary": "Zusammenfassung",
         "screencast": "Screencast",
+        "podcast": "Podcast",
         "glossary": "Glossar"
       },
       "settings": {
@@ -2048,7 +2052,7 @@
           "limits": "Grenzen ändern"
         },
         "assistent": {
-          "sources": "Materialien und Kontext-Budgets",
+          "sources": "Verarbeitung der Materialien",
           "level": "Sprachniveau, KI-Verhalten und Prompts",
           "usage": "KI-Assistent (alle Module)"
         },
@@ -2088,7 +2092,7 @@
       },
       "upload": {
         "title": "Größe einer Datei",
-        "hint": "Gilt für alle Uploads der Werkzeuge: Präsentationen, Videos, Tonaufnahmen und Dokumente. Die Quellen des KI-Assistenten haben ihre eigene Grenze.",
+        "hint": "Gilt für jede hochgeladene Datei, in den Werkzeugen wie bei den Materialien im Modul: Präsentationen, Videos, Tonaufnahmen und Dokumente. Beim Podcast gilt die Zahl für alle Dateien eines Podcasts zusammen.",
         "unit": "MB",
         "outOfRange": "Wert muss zwischen 10 und 2000 liegen."
       },
@@ -2099,8 +2103,8 @@
         "outOfRange": "Wert muss zwischen 1 und 10000 liegen, oder -1 für unbegrenzt."
       },
       "open": {
-        "title": "Offene Screencast-Aufträge je Person",
-        "hint": "Wie viele Screencasts jemand gleichzeitig in Arbeit haben darf, das Prüfen der Skripte zählt mit. Es läuft ohnehin nur einer nach dem anderen, eine höhere Zahl lässt nur mehr vorbereiten. Mit -1 unbegrenzt.",
+        "title": "Laufende Aufträge je Person",
+        "hint": "Wie viele Aufträge jemand gleichzeitig laufen haben darf, über alle Werkzeuge zusammen. Gezählt wird, was arbeitet oder in der Schlange steht. Ein Auftrag, der auf die eigene Prüfung wartet, zählt nicht mit, der liegt still. Mit -1 unbegrenzt.",
         "unit": "Aufträge",
         "outOfRange": "Wert muss zwischen 1 und 100 liegen, oder -1 für unbegrenzt."
       }
@@ -2485,6 +2489,11 @@
       "saving": "Wird gespeichert …",
       "savedHint": "Gespeichert",
       "saveError": "Speichern fehlgeschlagen"
+    },
+    "grenzen": {
+      "werkzeuge": "Werkzeuge",
+      "assistent": "KI-Assistent",
+      "gemeinsam": "Gemeinsam"
     }
   },
   "permissions": {

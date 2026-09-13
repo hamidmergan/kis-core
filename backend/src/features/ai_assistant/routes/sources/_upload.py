@@ -18,7 +18,7 @@ from ._shared import (
     _require_workspace_manage, _load_workspace_source,
     _require_source_capacity, _register_source_file,
     _workspace_label, _enqueue_index_source,
-    _ALLOWED_EXTENSIONS, _MAX_UPLOAD_BYTES,
+    _ALLOWED_EXTENSIONS,
 )
 
 router = APIRouter(tags=["ki-assistent: sources"])
@@ -113,7 +113,9 @@ async def upload_source(
         # Stream onto a temp file and keep every heavy step outside the event loop.
         with tempfile.TemporaryDirectory(prefix="aia_upload_") as tmpdir:
             raw_path = str(Path(tmpdir) / f"input{ext}")
-            total, head = await stream_upload_to_path(file, raw_path, _MAX_UPLOAD_BYTES, locale)
+            # The same size the tools use, one setting for the whole platform.
+            from src.services.tool_limits import max_upload_bytes
+            total, head = await stream_upload_to_path(file, raw_path, max_upload_bytes(), locale)
             if total == 0:
                 raise HTTPException(status_code=400, detail=t("file.empty", locale))
             validate_or_raise(head, ext, locale)

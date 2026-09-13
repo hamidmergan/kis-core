@@ -14,6 +14,7 @@ from ._queries import (
     count_active_jobs_for_tool,
     has_active_job_for_tool,
     count_all_jobs_for_tool,
+    count_working_jobs,
     get_next_queued_job,
     count_all_jobs_for_tool_excluding,
     get_all_results_for_user,
@@ -50,7 +51,7 @@ __all__ = [
     "delete_job", "update_job_status", "reset_job_to_awaiting", "update_job_result",
     # queries
     "get_jobs_by_user", "count_active_jobs_for_tool", "has_active_job_for_tool",
-    "count_all_jobs_for_tool", "get_next_queued_job", "count_all_jobs_for_tool_excluding",
+    "count_all_jobs_for_tool", "count_working_jobs", "get_next_queued_job", "count_all_jobs_for_tool_excluding",
     "get_all_results_for_user", "get_all_jobs",
     # retention
     "select_jobs_to_evict", "get_jobs_for_user_newest_first", "get_users_over_cap",

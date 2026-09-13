@@ -4,6 +4,14 @@ from fastapi import HTTPException
 
 from src.features.ai_assistant.repository import sources as repo
 from src.features.ai_assistant.routes.sources import _shared
+from src.services import tool_limits
+from src.utils import file_validation
+
+
+def _seiten(monkeypatch, zahl: int, grenze: int) -> None:
+    """Die Seitenzahl der Datei und die erlaubte Zahl, beide kommen von aussen."""
+    monkeypatch.setattr(file_validation, "count_pages", lambda ext, path: zahl)
+    monkeypatch.setattr(tool_limits, "max_source_pages", lambda: grenze)
 
 
 class _FakeCursor:
@@ -101,7 +109,7 @@ def schwanz(monkeypatch, tmp_path):
 @pytest.mark.asyncio
 async def test_schwanz_speichert_legt_an_und_reiht_ein(schwanz, monkeypatch):
     calls, pfad = schwanz
-    monkeypatch.setattr(_shared, "_count_pages_path", lambda ext, path: 3)
+    _seiten(monkeypatch, 3, 200)
 
     antwort = await _shared._register_source_file(
         WS, "w1", pfad, ".pdf", "Seite.pdf", 42, "de", source_url="https://example.org/a",
@@ -120,7 +128,7 @@ async def test_schwanz_speichert_legt_an_und_reiht_ein(schwanz, monkeypatch):
 @pytest.mark.asyncio
 async def test_schwanz_lehnt_zu_viele_seiten_ab(schwanz, monkeypatch):
     calls, pfad = schwanz
-    monkeypatch.setattr(_shared, "_count_pages_path", lambda ext, path: 999)
+    _seiten(monkeypatch, 999, 200)
 
     with pytest.raises(HTTPException) as exc:
         await _shared._register_source_file(WS, "w1", pfad, ".pdf", "Seite.pdf", 42, "de")

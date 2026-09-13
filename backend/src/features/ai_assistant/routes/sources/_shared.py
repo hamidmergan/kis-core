@@ -109,16 +109,9 @@ async def _register_source_file(
     source_url: str | None = None,
 ) -> dict:
     """Page cap, storage, table row and ingest job, the tail every new source goes through."""
-    page_count = await asyncio.to_thread(_count_pages_path, ext, final_path)
-    try:
-        max_pages = int(db.get_setting("aia_source_max_pages", str(AIA_SOURCE_MAX_PAGES)))
-    except (TypeError, ValueError):
-        max_pages = AIA_SOURCE_MAX_PAGES
-    if page_count is not None and page_count > max_pages:
-        raise HTTPException(
-            status_code=413,
-            detail=t("ai.source.tooManyPages", locale, pages=page_count, max=max_pages),
-        )
+    # The same page rule the tools use, reading it lives in one place.
+    from src.utils.file_validation import pages_or_raise
+    await asyncio.to_thread(pages_or_raise, ext, final_path, locale)
 
     source_uuid = _uuid.uuid4().hex
     # The file hangs off the owner, not off the person adding it.

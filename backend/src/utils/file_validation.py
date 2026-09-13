@@ -1,6 +1,7 @@
-"""Validates uploads by extension, size and the actual leading bytes."""
+"""Validates uploads by extension, size, page count and the actual leading bytes."""
 
 import filetype
+from loguru import logger
 
 # Unused here, but eight routes take these limits from here.
 from src.limits import (  # noqa: F401
@@ -103,6 +104,39 @@ def validate_or_raise(content: bytes, ext: str, locale: str = "de") -> None:
         raise HTTPException(status_code=400, detail=t("file.textNotUtf8", locale))
     except ContentTypeMismatch:
         raise HTTPException(status_code=400, detail=t("file.contentMismatch", locale))
+
+
+def count_pages(ext: str, path: str) -> int | None:
+    """Page or slide count of a file on disk, None where the format has no pages."""
+    try:
+        if ext == ".pdf":
+            import pypdfium2 as pdfium
+            doc = pdfium.PdfDocument(path)
+            try:
+                return len(doc)
+            finally:
+                doc.close()
+        if ext == ".pptx":
+            from pptx import Presentation
+            return len(Presentation(path).slides)
+    except Exception as e:  # noqa: BLE001 - an unreadable count must not fail the upload
+        logger.warning("Seitenzahl von {} nicht lesbar: {}", ext, e)
+    return None
+
+
+def pages_or_raise(ext: str, path: str, locale: str = "de") -> None:
+    """Rejects a document with more pages than the management allows."""
+    from fastapi import HTTPException  # local import - this module is also used outside HTTP context
+    from src.i18n import t
+    from src.services.tool_limits import max_source_pages
+
+    seiten = count_pages(ext, path)
+    grenze = max_source_pages()
+    if seiten is not None and seiten > grenze:
+        raise HTTPException(
+            status_code=413,
+            detail=t("ai.source.tooManyPages", locale, pages=seiten, max=grenze),
+        )
 
 
 def sanitize_pasted_text(raw: str) -> str:

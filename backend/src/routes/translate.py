@@ -17,12 +17,14 @@ from src.i18n import (
 )
 from src.quotas import enforce_quota
 from src.security.rate_limit import enforce_tool_burst
+from src.services.open_jobs import enforce_open_jobs
 from src.storage import save_queue_file_from_path
 from src.services.tool_limits import max_upload_bytes
 from src.utils.file_validation import (
     ALLOWED_EXTENSIONS,
     TRANSLATE_MAX_CHARS,
     sanitize_pasted_text,
+    pages_or_raise,
     validate_or_raise,
 )
 from src.utils.text_extraction import EXTRACTORS
@@ -111,6 +113,7 @@ async def translate(
             if not total:
                 raise HTTPException(status_code=400, detail=t("file.empty", locale))
             validate_or_raise(head, ext, locale)
+            pages_or_raise(ext, tmp_path, locale)
 
             extractor = EXTRACTORS.get(ext)
             if extractor is not None:
@@ -132,6 +135,7 @@ async def translate(
 
         job_uuid = uuid.uuid4().hex
         user_id = current_user.get("user_id", 0)
+        enforce_open_jobs(user_id, locale)
         enforce_tool_burst(user_id, "translate", locale)
         enforce_quota(user_id, "translate", is_admin_user(current_user), locale)
 
