@@ -8,7 +8,6 @@ from src.dependencies import get_current_user
 from src.features.podcast import store
 from src.i18n import get_locale, t
 from src.routes.podcast._shared import own_job
-from src.services.ai_hinweis import text_with_notice
 
 router = APIRouter(tags=["podcast"])
 
@@ -48,6 +47,6 @@ async def get_transcript(
         raise HTTPException(status_code=404, detail=t("job.notFound", locale))
     namen = [params.persons[l.speaker].name if l.speaker < len(params.persons)
              else params.persons[0].name for l in zeilen]
-    text = text_with_notice("\n\n".join(f"{n}: {l.text}" for n, l in zip(namen, zeilen))) + "\n"
+    text = "\n\n".join(f"{n}: {l.text}" for n, l in zip(namen, zeilen)) + "\n"
     return Response(content=text, media_type="text/plain; charset=utf-8",
                     headers={"Content-Disposition": 'attachment; filename="podcast.txt"'})

@@ -22,11 +22,6 @@ def ffmpeg_metadata_args() -> list[str]:
     return ["-metadata", f"comment={AI_HINWEIS_TEXT}"]
 
 
-def text_with_notice(text: str) -> str:
-    """Plain text output with the notice as a leading line."""
-    return f"{AI_HINWEIS_TEXT}\n\n{text}"
-
-
 def vtt_with_notice(vtt_text: str) -> str:
     """A WebVTT file with the notice as a single NOTE line right after the header.
 

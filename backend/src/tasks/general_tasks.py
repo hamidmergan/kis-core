@@ -14,7 +14,7 @@ from src.i18n import t
 from src.storage import delete_file, get_file, open_input_file, save_result_file, save_result_and_evict
 from src.utils.heartbeat import job_heartbeat
 from src.dependencies import get_translate_client_for_provider
-from src.services.ai_hinweis import png_info_with_notice, text_with_notice, vtt_with_notice
+from src.services.ai_hinweis import png_info_with_notice, vtt_with_notice
 from src.services.translation import TranslationService
 
 
@@ -127,7 +127,7 @@ def run_translate(
             if ext == ".txt":
                 text = content.decode("utf-8")
                 translated_text = service.translate_text(text, source_lang, target_lang)
-                result_bytes = text_with_notice(translated_text).encode("utf-8")
+                result_bytes = translated_text.encode("utf-8")
             elif ext == ".md":
                 from src.translators.markdown import translate_markdown_preserve_code_blocks
                 text = content.decode("utf-8")
@@ -205,11 +205,8 @@ def run_transcribe(
         else:
             output_name = f"{Path(filename).stem}{out_ext}"
 
-        if response_format == "text":
-            result_text = text_with_notice(result_text)
-        elif response_format == "vtt":
+        if response_format == "vtt":
             result_text = vtt_with_notice(result_text)
-        # SRT has no comment syntax, so the file itself stays unmarked — the UI hint covers it.
 
         result_path = save_result_file(user_id, job_uuid, out_ext, result_text.encode("utf-8"))
         save_result_and_evict(user_id, job_uuid, result_path, output_name)
@@ -426,7 +423,7 @@ def run_image_analyze(
         text: str = resp_data["choices"][0]["message"]["content"]
 
         result_filename = f"{Path(filename).stem}.txt"
-        result_path = save_result_file(user_id, job_uuid, ".txt", text_with_notice(text).encode("utf-8"))
+        result_path = save_result_file(user_id, job_uuid, ".txt", text.encode("utf-8"))
         save_result_and_evict(user_id, job_uuid, result_path, result_filename)
         db.update_job_status(job_uuid, "success")
         delete_file(input_path)
@@ -482,7 +479,7 @@ def run_summary(
             summary += t("summary.contentTooLongHint", locale)
 
         output_name = f"{Path(filename).stem}.txt"
-        result_path = save_result_file(user_id, job_uuid, ".txt", text_with_notice(summary).encode("utf-8"))
+        result_path = save_result_file(user_id, job_uuid, ".txt", summary.encode("utf-8"))
         save_result_and_evict(user_id, job_uuid, result_path, output_name)
         db.update_job_status(job_uuid, "success")
         delete_file(input_path)

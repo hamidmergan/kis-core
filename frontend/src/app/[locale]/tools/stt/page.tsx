@@ -10,7 +10,7 @@ import Spinner from "@/components/ui/Spinner";
 import ProviderSelect from "@/components/tools/ProviderSelect";
 import { useFeatureProviders } from "@/hooks/useFeatureProviders";
 import HelpTooltip from "@/components/ui/HelpTooltip";
-import { stripAiNoticeText, stripAiNoticeVtt, withAiNoticeText, withAiNoticeVtt } from "@/lib/aiNotice";
+import { stripAiNoticeVtt, withAiNoticeVtt } from "@/lib/aiNotice";
 
 export default function TranscriptionPage() {
   const t = useTranslations("tools.stt");
@@ -82,7 +82,7 @@ export default function TranscriptionPage() {
       const stem = pendingFile.name.replace(/\.[^.]+$/, "");
       const { blob, filename } = await downloadJobAsBlob(data.job_uuid, `${stem}.${ext}`);
       const rawText = await blob.text();
-      setTranscriptText(responseFormat === "vtt" ? stripAiNoticeVtt(rawText) : stripAiNoticeText(rawText));
+      setTranscriptText(responseFormat === "vtt" ? stripAiNoticeVtt(rawText) : rawText);
       setTranscriptFilename(filename);
       setDoneJobUuid(data.job_uuid);
     } catch (err) {
@@ -94,9 +94,7 @@ export default function TranscriptionPage() {
 
   const handleDownload = () => {
     if (!transcriptText) return;
-    const content = responseFormat === "vtt" ? withAiNoticeVtt(transcriptText)
-      : responseFormat === "text" ? withAiNoticeText(transcriptText)
-      : transcriptText;
+    const content = responseFormat === "vtt" ? withAiNoticeVtt(transcriptText) : transcriptText;
     const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");

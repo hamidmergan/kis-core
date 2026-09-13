@@ -2,7 +2,6 @@
 
 import { useCallback, useState } from "react";
 import { api } from "@/lib/api";
-import { AI_HINWEIS_TEXT } from "@/lib/constants";
 import { _chunkLabel } from "../_utils";
 import type { ExerciseSet } from "../_types";
 
@@ -128,8 +127,6 @@ export function useExercises({ uuid }: UseExercisesOptions) {
       const set = data.set as ExerciseSet;
       const items = set.items || [];
       const lines: string[] = [];
-      lines.push(AI_HINWEIS_TEXT);
-      lines.push("");
       lines.push(set.title);
       lines.push("=".repeat(set.title.length));
       lines.push("");

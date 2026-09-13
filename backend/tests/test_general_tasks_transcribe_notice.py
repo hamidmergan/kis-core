@@ -1,4 +1,4 @@
-"""The finished transcript carries the AI notice, except in SRT (no comment syntax there)."""
+"""The finished transcript carries the AI notice only in VTT (invisible to players and text extraction)."""
 
 import contextlib
 
@@ -42,9 +42,9 @@ def _run(monkeypatch, response_format: str, body: str) -> bytes:
     return saved["bytes"]
 
 
-def test_text_output_carries_the_notice(monkeypatch):
+def test_text_output_stays_unmarked(monkeypatch):
     result = _run(monkeypatch, "text", "Hallo")
-    assert AI_HINWEIS_TEXT.encode("utf-8") in result
+    assert AI_HINWEIS_TEXT.encode("utf-8") not in result
 
 
 def test_vtt_output_carries_the_notice_as_a_note_block(monkeypatch):

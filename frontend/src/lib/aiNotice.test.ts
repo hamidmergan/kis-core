@@ -1,21 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { AI_HINWEIS_TEXT } from "@/lib/constants";
-import { stripAiNoticeText, stripAiNoticeVtt, withAiNoticeText, withAiNoticeVtt } from "./aiNotice";
-
-describe("plain text notice", () => {
-  it("adds the notice as a leading line", () => {
-    expect(withAiNoticeText("Hallo Welt")).toBe(`${AI_HINWEIS_TEXT}\n\nHallo Welt`);
-  });
-
-  it("strips a notice that was added", () => {
-    const withNotice = withAiNoticeText("Hallo Welt");
-    expect(stripAiNoticeText(withNotice)).toBe("Hallo Welt");
-  });
-
-  it("leaves text without the notice untouched", () => {
-    expect(stripAiNoticeText("Hallo Welt")).toBe("Hallo Welt");
-  });
-});
+import { stripAiNoticeVtt, withAiNoticeVtt } from "./aiNotice";
 
 describe("vtt notice", () => {
   const vtt = "WEBVTT\n\n00:00:00.000 --> 00:00:01.000\nHallo\n";

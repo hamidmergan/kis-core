@@ -8,7 +8,6 @@ import ProviderSelect from "@/components/tools/ProviderSelect";
 import { useFeatureProviders } from "@/hooks/useFeatureProviders";
 import UploadZone from "../_components/UploadZone";
 import { validateImageFile } from "../_utils";
-import { stripAiNoticeText, withAiNoticeText } from "@/lib/aiNotice";
 
 
 export default function AnalyzeTab() {
@@ -66,7 +65,7 @@ export default function AnalyzeTab() {
       window.dispatchEvent(new Event("kis-jobs-changed"));
       const { blob } = await downloadJobAsBlob(data.job_uuid);
       const text = await blob.text();
-      setResultText(stripAiNoticeText(text));
+      setResultText(text);
     } catch (err) {
       setError(err instanceof Error ? err.message : tCommon("unknownError"));
     } finally {
@@ -135,7 +134,7 @@ export default function AnalyzeTab() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => {
-                const blob = new Blob([withAiNoticeText(resultText)], { type: "text/plain" });
+                const blob = new Blob([resultText], { type: "text/plain" });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement("a");
                 a.href = url;

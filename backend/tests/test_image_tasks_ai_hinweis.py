@@ -1,4 +1,4 @@
-"""Generated and edited images carry the AI notice as a PNG text chunk; analysis text carries it as a leading line."""
+"""Generated and edited images carry the AI notice as a PNG text chunk."""
 
 import base64
 import contextlib
@@ -78,17 +78,3 @@ def test_edited_image_carries_the_notice(monkeypatch):
 
     with Image.open(io.BytesIO(saved["bytes"])) as img:
         assert img.info.get("Comment") == AI_HINWEIS_TEXT
-
-
-def test_analysis_text_carries_the_notice(monkeypatch):
-    saved: dict = {}
-    _base_mocks(monkeypatch, saved)
-    monkeypatch.setattr(gt.db, "get_setting", lambda key, default: default)
-    monkeypatch.setattr(gt, "get_file", lambda p: b"image-bytes")
-    monkeypatch.setattr("src.tasks._errors.job_locale", lambda j: "de")
-    response = _StubResponse(200, data={"choices": [{"message": {"content": "Ein Baum im Wald."}}]})
-    monkeypatch.setattr(gt, "_image_http_client", lambda *a, **k: ("http://x", "some-model", _StubImageClient(response)))
-
-    gt.run_image_analyze.run.__func__(None, "job1", "ip", "cat.png", "", None)
-
-    assert AI_HINWEIS_TEXT.encode("utf-8") in saved["bytes"]

@@ -8,18 +8,12 @@ from src.services.ai_hinweis import (
     AI_HINWEIS_TEXT,
     ffmpeg_metadata_args,
     png_info_with_notice,
-    text_with_notice,
     vtt_with_notice,
 )
 
 
 def test_ffmpeg_metadata_args_carries_the_notice():
     assert ffmpeg_metadata_args() == ["-metadata", f"comment={AI_HINWEIS_TEXT}"]
-
-
-def test_text_with_notice_prepends_a_leading_line():
-    result = text_with_notice("Hallo Welt")
-    assert result == f"{AI_HINWEIS_TEXT}\n\nHallo Welt"
 
 
 def test_vtt_with_notice_inserts_a_single_line_note_after_the_header():
