@@ -6,6 +6,7 @@ import { backendApi, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
 import Spinner from "@/components/ui/Spinner";
 import ProviderSelect from "@/components/tools/ProviderSelect";
 import { useFeatureProviders } from "@/hooks/useFeatureProviders";
+import AiHinweisText from "@/components/ui/AiHinweisText";
 import UploadZone from "../_components/UploadZone";
 import { validateImageFile } from "../_utils";
 
@@ -157,6 +158,7 @@ export default function EditTab() {
               {t("regenerate")}
             </button>
           </div>
+          <AiHinweisText className="mt-2" />
         </div>
       )}
     </section>
