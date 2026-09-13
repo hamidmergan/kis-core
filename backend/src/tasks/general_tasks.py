@@ -12,6 +12,7 @@ from src.i18n import t
 from src.storage import delete_file, get_file, open_input_file, save_result_file, save_result_and_evict
 from src.utils.heartbeat import job_heartbeat
 from src.dependencies import get_translate_client_for_provider
+from src.services.ai_hinweis import text_with_notice, vtt_with_notice
 from src.services.translation import TranslationService
 
 
@@ -193,6 +194,12 @@ def run_transcribe(
             output_name = translate_output_filename(filename, output_ext=out_ext)
         else:
             output_name = f"{Path(filename).stem}{out_ext}"
+
+        if response_format == "text":
+            result_text = text_with_notice(result_text)
+        elif response_format == "vtt":
+            result_text = vtt_with_notice(result_text)
+        # SRT has no comment syntax, so the file itself stays unmarked — the UI hint covers it.
 
         result_path = save_result_file(user_id, job_uuid, out_ext, result_text.encode("utf-8"))
         save_result_and_evict(user_id, job_uuid, result_path, output_name)

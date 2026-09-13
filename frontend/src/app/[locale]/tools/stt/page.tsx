@@ -10,6 +10,7 @@ import Spinner from "@/components/ui/Spinner";
 import ProviderSelect from "@/components/tools/ProviderSelect";
 import { useFeatureProviders } from "@/hooks/useFeatureProviders";
 import HelpTooltip from "@/components/ui/HelpTooltip";
+import AiHinweisText from "@/components/ui/AiHinweisText";
 
 export default function TranscriptionPage() {
   const t = useTranslations("tools.stt");
@@ -221,6 +222,7 @@ export default function TranscriptionPage() {
                     {tCommon("newFile")}
                   </button>
                 </div>
+                <AiHinweisText />
               </div>
             </div>
           )}
