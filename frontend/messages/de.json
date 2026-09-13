@@ -1883,7 +1883,7 @@
     },
     "toolContextBudgetCard": {
       "title": "Kontext-Budget der Werkzeuge",
-      "hint": "Wie viel Text aus den Materialien (in Zeichen) die Lern-Werkzeuge (Mindmap, Datentabelle, Lernkarten, Karteikarten, Grammatikübung, Wortschatzübung, Quiz) ins Modell geben. Getrennt vom Chat-Budget, weil ein Werkzeug ein ganzes Dokument in einem Aufruf verarbeitet. Der Wert wird durch die Anzahl der ausgewählten Materialien geteilt. Default 250000 ist für mittlere Modelle sicher. Höher setzen (z.B. 450000 oder 900000) nur, wenn ein Modell mit großem Kontext läuft. Der Wert wird zusätzlich auf das gemessene Kontextfenster des Modells gekürzt.",
+      "hint": "Wie viel Text aus den Materialien (in Zeichen) die Werkzeuge ins Modell geben: Mindmap, Datentabelle, Lernkarten, Karteikarten, Grammatikübung, Wortschatzübung, Quiz und Podcast. Getrennt vom Chat-Budget, weil ein Werkzeug ein ganzes Dokument in einem Aufruf verarbeitet. Die meisten Werkzeuge teilen den Wert durch die Anzahl der gewählten Materialien, der Podcast füllt stattdessen der Reihe nach auf, bis der Platz voll ist. Dieser Wert gilt so wie er hier steht. Kann das eingestellte Modell so viel nicht, lehnt es den Auftrag mit einer Fehlermeldung ab, dann muss der Wert hier gesenkt werden.",
       "unit": "Zeichen",
       "approxTokens": "≈ {n}k Token",
       "outOfRange": "Wert muss zwischen 1000 und 1000000 liegen.",
@@ -2746,8 +2746,7 @@
         "sourceStatus": {
           "none": "Kein Material ausgewählt",
           "one": "1 Material ausgewählt",
-          "few": "{count} Materialien ausgewählt",
-          "many": "{count} Materialien vorhanden, es werden maximal 5 berücksichtigt"
+          "few": "{count} Materialien ausgewählt"
         },
         "createModal": {
           "title": "{tool} erstellen",
@@ -3226,8 +3225,7 @@
         "sources": {
           "none": "Kein Material ausgewählt",
           "one": "1 Material ausgewählt",
-          "few": "{n} Materialien ausgewählt",
-          "tooMany": "{n} Materialien vorhanden, es werden maximal 5 berücksichtigt"
+          "few": "{n} Materialien ausgewählt"
         },
         "generate": {
           "create": "Erstellen",

@@ -205,12 +205,12 @@ def test_full_context_none_for_empty_sources(monkeypatch):
 
 
 def _admin_sagt(monkeypatch, wert):
-    """Sets the setting and leaves the model unknown so only the admin number counts."""
+    """Sets the setting and gives the model room, so only the admin number counts."""
     from src import database as db
     from src.services import model_limits
 
     monkeypatch.setattr(db, "get_setting", lambda k, d=None: wert if wert is not None else d)
-    monkeypatch.setattr(model_limits, "profile_for_feature", lambda feature="chat": None)
+    _kenne_fenster(monkeypatch, 2_000_000)
 
 
 def test_context_budget_folgt_der_admin_einstellung(monkeypatch):
@@ -243,7 +243,7 @@ def test_unlesbare_zahl_faellt_auf_den_standard_zurueck(monkeypatch):
     assert _context_budget() == AIA_CONTEXT_MAX_CHARS
 
 
-# The admin number applies, but never beyond the measured model window.
+# Only the admin number counts, the model window does not shorten it any more.
 
 def _kenne_fenster(monkeypatch, fenster, quelle=None):
     from src.services import model_limits
@@ -256,14 +256,14 @@ def _kenne_fenster(monkeypatch, fenster, quelle=None):
     monkeypatch.setattr(model_limits, "profile_for_feature", lambda feature="chat": profil)
 
 
-def test_kleines_modell_deckelt_die_admin_zahl(monkeypatch):
+def test_ein_kleines_modell_aendert_die_admin_zahl_nicht(monkeypatch):
+    """Wer zu viel einstellt, bekommt einen Fehler vom Anbieter, keine stille Kuerzung."""
     from src.features.ai_assistant.tasks._context_budget import tool_context_budget
-    from src.services import model_limits
 
     monkeypatch.setattr(chat_mod.db, "get_setting", lambda k, d=None: "800000")
     _kenne_fenster(monkeypatch, 65536)
-    assert tool_context_budget() == model_limits.context_chars(65536, model_limits.TOOL_SHARE)
-    assert _context_budget() == model_limits.context_chars(65536, model_limits.CHAT_SHARE)
+    assert tool_context_budget() == 800000
+    assert _context_budget() == 800000
 
 
 def test_admin_zahl_bleibt_wenn_sie_unter_dem_modell_liegt(monkeypatch):
@@ -284,13 +284,13 @@ def test_ohne_wissen_ueber_das_modell_gilt_die_admin_zahl(monkeypatch):
     assert _context_budget() == 250000
 
 
-def test_gelerntes_fenster_deckelt_ebenfalls(monkeypatch):
-    """The number learned in operation is the most reliable and avoids the second failure."""
+def test_auch_ein_gelerntes_fenster_deckelt_nicht(monkeypatch):
+    """Gelernte Groessen kamen aus Fehlertexten, darauf verlassen wir uns nicht mehr."""
     from src.services import model_limits
 
     monkeypatch.setattr(chat_mod.db, "get_setting", lambda k, d=None: "800000")
     _kenne_fenster(monkeypatch, 65536, model_limits.QUELLE_GELERNT)
-    assert _context_budget() < 800000
+    assert _context_budget() == 800000
 
 
 # The specific question has its own cap from the measured window.
@@ -309,19 +309,10 @@ def test_gezielte_frage_wird_nach_oben_und_unten_begrenzt(monkeypatch):
     from src.features.ai_assistant.tasks._context_budget import specific_context_budget
     from src.limits import AIA_CONTEXT_HARD_CAP
 
-    from src.services import model_limits
-
-    # Without a measured window only the bracket around the admin number applies.
-    _kenne_fenster(monkeypatch, 0, model_limits.QUELLE_UNBEKANNT)
     monkeypatch.setattr(chat_mod.db, "get_setting", lambda k, d=None: "5")
     assert specific_context_budget() == 1000
     monkeypatch.setattr(chat_mod.db, "get_setting", lambda k, d=None: "99999999")
     assert specific_context_budget() == AIA_CONTEXT_HARD_CAP
-
-    # With a measured window the model shortens on top.
-    _kenne_fenster(monkeypatch, 262144)
-    assert specific_context_budget() == model_limits.context_chars(
-        262144, model_limits.SPECIFIC_SHARE)
 
 
 def test_grosses_modell_behaelt_die_volle_obergrenze(monkeypatch):
@@ -334,16 +325,14 @@ def test_grosses_modell_behaelt_die_volle_obergrenze(monkeypatch):
     assert specific_context_budget() == AIA_SPECIFIC_MAX_CHARS
 
 
-def test_kleines_modell_bekommt_weniger(monkeypatch):
-    """With a narrow window the limit comes down with it."""
+def test_auch_ein_schmales_fenster_aendert_nichts(monkeypatch):
+    """Passt der eingestellte Wert nicht zum Modell, muss der Admin ihn senken."""
     from src.features.ai_assistant.tasks._context_budget import specific_context_budget
-    from src.services import model_limits
+    from src.limits import AIA_SPECIFIC_MAX_CHARS
 
     monkeypatch.setattr(chat_mod.db, "get_setting", lambda k, d=None: d)
     _kenne_fenster(monkeypatch, 32768)
-    erwartet = model_limits.context_chars(32768, model_limits.SPECIFIC_SHARE)
-    assert specific_context_budget() == erwartet
-    assert erwartet < 60000
+    assert specific_context_budget() == AIA_SPECIFIC_MAX_CHARS
 
 
 def test_unbekanntes_fenster_aendert_die_obergrenze_nicht(monkeypatch):
@@ -358,14 +347,13 @@ def test_unbekanntes_fenster_aendert_die_obergrenze_nicht(monkeypatch):
 
 
 def test_gezielte_frage_liegt_unter_dem_chat_budget(monkeypatch):
-    """The chat may see more than a specific question."""
+    """The chat may see more than a specific question, das trennen jetzt die Felder."""
     from src.features.ai_assistant.tasks._context_budget import specific_context_budget
-    from src.services import model_limits
 
-    monkeypatch.setattr(chat_mod.db, "get_setting", lambda k, d=None: "250000")
-    _kenne_fenster(monkeypatch, 262144)
+    werte = {"aia_context_max_chars": "250000", "aia_specific_max_chars": "60000"}
+    monkeypatch.setattr(chat_mod.db, "get_setting", lambda k, d=None: werte.get(k, d))
+    assert specific_context_budget() == 60000
     assert specific_context_budget() < _context_budget()
-    assert model_limits.SPECIFIC_SHARE < model_limits.CHAT_SHARE
 
 
 # ── Shortcut: send everything without a search, but only in the overview ─────

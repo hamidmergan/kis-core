@@ -58,16 +58,14 @@ export function DataTableStudio({
         <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
           <div className="rounded-xl px-3 py-2 text-sm font-medium flex items-center gap-2"
             style={{
-              color: noSources ? "var(--error-strong)" : sourceCount > 5 ? "#c4820e" : "var(--kb)",
+              color: noSources ? "var(--error-strong)" : "var(--kb)",
             }}>
             <Files size={13} weight="bold" />
             {noSources
               ? t("sources.none")
               : sourceCount === 1
                 ? t("sources.one")
-                : sourceCount <= 5
-                  ? t("sources.few", { n: sourceCount })
-                  : t("sources.tooMany", { n: sourceCount })}
+                : t("sources.few", { n: sourceCount })}
           </div>
 
           {savedList.length === 0 && !loading ? (

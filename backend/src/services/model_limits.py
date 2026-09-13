@@ -18,8 +18,8 @@ CHARS_PER_TOKEN = 3.0
 
 # Share of the window that goes to the retrieved context.
 CHAT_SHARE = 0.60
-# A tool may take more of the window, it has no history.
-TOOL_SHARE = 0.75
+# A tool may take almost the whole window, it has no history and a small answer.
+TOOL_SHARE = 0.90
 # A specific question only needs the matching spots.
 SPECIFIC_SHARE = 0.20
 

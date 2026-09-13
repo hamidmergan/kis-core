@@ -14,7 +14,25 @@ from src.features.ai_assistant.tasks._helpers import (
     _clean_llm_json,
 )
 from src.services import aia_chunker
-from src.services.llm_context_healing import create_with_shrink
+from src.services.llm_call import create_logged
+
+
+def _collect_sources(source_ids: list[int], source_uuids: list[str],
+                     source_map: dict) -> list[tuple[int, str, list[dict]]]:
+    """Per source: id, label and the window that fits the budget."""
+    from src.features.ai_assistant.tasks._context_budget import fill_sources_greedy
+
+    vorhanden: list[tuple[int, str, list[dict]]] = []
+    workspace_id = (db.get_aia_source(source_uuids[0]) or {}).get("workspace_id") \
+        if source_uuids else None
+    for sid in source_ids:
+        chunks = db.get_chunks_by_source(sid)
+        if not chunks:
+            continue
+        src_info = source_map.get(str(sid), {})
+        vorhanden.append(
+            (sid, src_info.get("filename", f"Source {src_info.get('number', '?')}"), chunks))
+    return fill_sources_greedy(vorhanden, workspace_id, "datatable")
 
 
 def _is_media_source(filename: str) -> bool:
@@ -41,30 +59,13 @@ def run_generate_data_table(self, data_table_id: int, source_ids: list[int],
         db.update_aia_data_table(data_table_id, "running")
         logger.info("KI Tutor: generating data_table {}", data_table_id)
 
-        # Context with a budget per source, oversized sources are swept.
-        from src.features.ai_assistant.tasks._context_budget import (
-            tool_context_budget,
-            select_chunks_for_budget,
-            read_cursors,
-            write_cursors,
-        )
-        budget_per_source = max(1000, tool_context_budget() // max(1, len(source_ids)))
-        sweep_workspace_id = (db.get_aia_source(source_uuids[0]) or {}).get("workspace_id") \
-            if source_uuids else None
         context_parts: list[str] = []
         # Which pages the model saw, the chips are limited to them.
         source_id_to_label: dict[int, str] = {}
         seen_pages_by_source: dict[int, set] = {}
-        for sid, suuid in zip(source_ids, source_uuids):
-            chunks = db.get_chunks_by_source(sid)
-            src_info = source_map.get(str(sid), {})
-            filename = src_info.get("filename", f"Source {src_info.get('number', '?')}")
+        for sid, filename, picked in _collect_sources(source_ids, source_uuids, source_map):
             source_id_to_label[sid] = filename
             is_media = _is_media_source(filename)
-            picked, resume = select_chunks_for_budget(
-                chunks, budget_per_source,
-                cursors=read_cursors(sweep_workspace_id, sid, "datatable"))
-            write_cursors(sweep_workspace_id, sid, "datatable", resume)
             for chunk in picked:
                 if is_media and chunk.get("start_time") is not None:
                     st = chunk["start_time"]
@@ -95,7 +96,7 @@ def run_generate_data_table(self, data_table_id: int, source_ids: list[int],
         # A second attempt on broken JSON, a re-roll almost always works.
         table_data = None
         for attempt in range(2):
-            response = create_with_shrink(client, endpoint="datentabelle", model=model, messages=messages, temperature=0.2)
+            response = create_logged(client, endpoint="datentabelle", model=model, messages=messages, temperature=0.2)
             raw = response.choices[0].message.content
             if not raw:
                 continue

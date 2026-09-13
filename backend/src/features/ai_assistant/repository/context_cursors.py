@@ -43,4 +43,35 @@ def set_context_cursors(
         conn.commit()
 
 
-__all__ = ["get_context_cursors", "set_context_cursors"]
+def get_context_rotation(workspace_id: int, tool: str) -> int | None:
+    """The source the next run starts at, ``None`` means the front of the list."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """SELECT next_source_id FROM aia_context_rotation
+                   WHERE workspace_id = %s AND tool = %s""",
+                (workspace_id, tool),
+            )
+            row = cur.fetchone()
+    return int(row[0]) if row and row[0] is not None else None
+
+
+def set_context_rotation(workspace_id: int, tool: str, source_id: int | None) -> None:
+    """Store which source the next run starts at, ``None`` resets to the front."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """INSERT INTO aia_context_rotation
+                       (workspace_id, tool, next_source_id, updated_at)
+                   VALUES (%s, %s, %s, NOW())
+                   ON CONFLICT (workspace_id, tool) DO UPDATE
+                       SET next_source_id = EXCLUDED.next_source_id, updated_at = NOW()""",
+                (workspace_id, tool, source_id),
+            )
+        conn.commit()
+
+
+__all__ = [
+    "get_context_cursors", "set_context_cursors",
+    "get_context_rotation", "set_context_rotation",
+]

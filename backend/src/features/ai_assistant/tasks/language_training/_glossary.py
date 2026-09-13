@@ -15,7 +15,7 @@ from src.features.ai_assistant.prompts.language_training_prompts import (
 
 from src.features.ai_assistant.tasks.language_training._source_flashcards import flashcard_extras
 from src.features.ai_assistant.tasks.language_training._title import title_from_glossary_terms
-from src.services.llm_context_healing import create_with_shrink
+from src.services.llm_call import create_logged
 
 
 def _sources_for(e: dict) -> list[dict]:
@@ -135,7 +135,7 @@ def _generate_karteikarten(client, model, selected: list[dict], language: str,
                 f"Turn these {len(selected)} glossary entries into cards:\n\n{eintraege}"
             )},
         ]
-        response = create_with_shrink(client, endpoint="glossar", model=model, messages=messages, temperature=0.5)
+        response = create_logged(client, endpoint="glossar", model=model, messages=messages, temperature=0.5)
         cards = json.loads(_clean_llm_json(response.choices[0].message.content or "")).get("cards") or []
     except Exception as exc:  # noqa: BLE001 - eine feste Frage ist besser als ein Fehlschlag
         logger.warning("Karteikarten aus dem Glossar: Aufruf fehlgeschlagen, feste "
@@ -194,7 +194,7 @@ def _generate_flashcards(client, model, selected: list[dict], language: str,
             {"role": "system", "content": prompt},
             {"role": "user", "content": user},
         ]
-        response = create_with_shrink(client, endpoint="glossar", model=model, messages=messages, temperature=0.4)
+        response = create_logged(client, endpoint="glossar", model=model, messages=messages, temperature=0.4)
         answer = _clean_llm_json(response.choices[0].message.content or "")
         cards = json.loads(answer).get("cards") or []
     except Exception as exc:  # noqa: BLE001 - enrichment is best-effort, plain cards still work

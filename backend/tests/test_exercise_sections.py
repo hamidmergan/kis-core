@@ -2,7 +2,6 @@
 
 from src.features.ai_assistant.tasks.language_training._context import (
     QuelleContext,
-    _MIN_PER_SOURCE_CHARS,
     build_source_context,
     coverage_rule,
     missing_section_uuids,
@@ -18,7 +17,7 @@ def _chunks(source_id, n_pages, chars):
             for p in range(1, n_pages + 1)]
 
 
-def _install(monkeypatch, sizes):
+def _install(monkeypatch, sizes, budget=250000):
     """Fake workspace: ``sizes`` maps filename -> (pages, chars per page)."""
     by_uuid = {}
     by_id = {}
@@ -31,9 +30,11 @@ def _install(monkeypatch, sizes):
     # Every call is a first run, nothing is written back.
     monkeypatch.setattr("src.database.get_context_cursors", lambda w, s, t: [])
     monkeypatch.setattr("src.database.set_context_cursors", lambda w, s, t, c: None)
+    monkeypatch.setattr("src.database.get_context_rotation", lambda w, t: None)
+    monkeypatch.setattr("src.database.set_context_rotation", lambda w, t, s: None)
     monkeypatch.setattr(
-        "src.features.ai_assistant.tasks.language_training._context.tool_context_budget",
-        lambda: 250000)
+        "src.features.ai_assistant.tasks._context_budget.tool_context_budget",
+        lambda: budget)
     return list(by_uuid)
 
 
@@ -59,30 +60,46 @@ def test_fewer_entries_than_sections_still_asks_for_one():
 
 # --- equal sections ----------------------------------------------------------
 
-def test_a_long_source_no_longer_drowns_a_short_one(monkeypatch):
-    """The measured regression: one source held 39% of the context, another 8%."""
+def test_every_source_keeps_its_own_length(monkeypatch):
+    """Nothing is levelled down any more, a long source stays long."""
     uuids = _install(monkeypatch, {
         "lang.webm": (120, 500),   # 60k
         "kurz.pdf": (12, 500),     # 6k
-        "mittel.pdf": (40, 500),   # 20k
     })
     ctx = build_source_context(uuids, "quiz", count=6)
     sizes = _block_sizes(ctx)
-    smallest, largest = min(sizes.values()), max(sizes.values())
-    # Header lengths differ, so this is "the same order of magnitude", not byte equality.
-    assert largest <= smallest * 1.5, sizes
+    assert sizes["lang.webm"] > sizes["kurz.pdf"] * 5, sizes
 
 
-def test_a_tiny_source_cannot_starve_the_others(monkeypatch):
+def test_the_tail_falls_away_once_the_budget_is_full(monkeypatch):
     uuids = _install(monkeypatch, {
-        "winzig.pdf": (1, 200),    # 200 chars
-        "normal.pdf": (60, 500),   # 30k
-    })
-    ctx = build_source_context(uuids, "quiz", count=4)
-    sizes = _block_sizes(ctx)
-    # Without a floor the smallest source would squeeze all the others together.
-    assert sizes["normal.pdf"] > _MIN_PER_SOURCE_CHARS * 0.8, sizes
-    assert sizes["normal.pdf"] > sizes["winzig.pdf"] * 5, sizes
+        "erste.pdf": (60, 500),    # 30k
+        "zweite.pdf": (60, 500),
+        "dritte.pdf": (60, 500),
+    }, budget=32000)
+    ctx = build_source_context(uuids, "quiz", count=6)
+    assert list(ctx.sections.values()) == ["erste.pdf"]
+
+
+def test_the_label_names_only_the_sources_that_made_it(monkeypatch):
+    """Two sources fell away, the label must not still promise three."""
+    uuids = _install(monkeypatch, {
+        "erste.pdf": (60, 500),
+        "zweite.pdf": (60, 500),
+        "dritte.pdf": (60, 500),
+    }, budget=32000)
+    ctx = build_source_context(uuids, "quiz", count=6)
+    assert ctx.first_label == "erste.pdf"
+    assert ctx.multi_label == "erste.pdf"
+    assert ctx.source_hint == "folgender Source"
+
+
+def test_the_header_drops_the_quota_when_it_cannot_be_met(monkeypatch):
+    # Three sections and two entries: "at least one each" is impossible.
+    uuids = _install(monkeypatch, {"a.pdf": (5, 500), "b.pdf": (5, 500), "c.pdf": (5, 500)})
+    ctx = build_source_context(uuids, "quiz", count=2)
+    assert "take at least" not in ctx.context
+    assert "=== SECTION 1 OF 3 — a.pdf ===" in ctx.context
 
 
 def test_a_single_source_keeps_the_plain_header(monkeypatch):

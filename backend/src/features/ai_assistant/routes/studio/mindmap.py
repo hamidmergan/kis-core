@@ -36,7 +36,7 @@ async def generate_mindmap(
     enforce_aia_burst(user_id, locale)
     enforce_quota(user_id, "aia_generate", is_admin_user(current_user), locale)
 
-    source_ids = _resolve_source_ids(workspace, body.active_source_ids, max_count=5, locale=locale)
+    source_ids = _resolve_source_ids(workspace, body.active_source_ids, locale=locale)
 
     # Build uuid→id mapping for the task
     source_uuids = []

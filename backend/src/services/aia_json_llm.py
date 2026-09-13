@@ -19,31 +19,32 @@ def _rejects_json_mode(exc: Exception) -> bool:
     return "response_format" in text or "json" in text
 
 
-def _create(llm, messages: list[dict], *, json_mode: bool):
+def _create(llm, messages: list[dict], *, json_mode: bool, endpoint: str):
+    from src.services.llm_call import create_logged
+
     kwargs = {
-        "model": llm._model,
-        "messages": messages,
         "temperature": 0.4,
         **(llm._extra_body and {"extra_body": llm._extra_body} or {}),
     }
     if json_mode:
         kwargs["response_format"] = {"type": "json_object"}
-    return llm._client.chat.completions.create(**kwargs)
+    return create_logged(llm._client, model=llm._model, messages=messages,
+                              endpoint=endpoint, **kwargs)
 
 
-def call_json_llm(llm, messages: list[dict]):
+def call_json_llm(llm, messages: list[dict], *, endpoint: str = "tool"):
     """One run, in JSON mode where the provider can do it."""
     global _json_mode_supported
     if _json_mode_supported:
         try:
-            return _create(llm, messages, json_mode=True)
+            return _create(llm, messages, json_mode=True, endpoint=endpoint)
         except Exception as exc:
             if not _rejects_json_mode(exc):
                 raise
             logger.warning("JSON-Modus vom Anbieter abgelehnt, dieser Prozess "
                            "fragt ab jetzt ohne: {}", exc)
             _json_mode_supported = False
-    return _create(llm, messages, json_mode=False)
+    return _create(llm, messages, json_mode=False, endpoint=endpoint)
 
 
 async def ask_json(llm, messages: list[dict], *, locale: str, what: str) -> str:

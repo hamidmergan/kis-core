@@ -38,20 +38,20 @@ async def generate_flashcards(
     enforce_aia_burst(user_id, locale)
     enforce_quota(user_id, "aia_generate", is_admin_user(current_user), locale)
 
-    source_ids = _resolve_source_ids(workspace, body.active_source_ids, max_count=5, locale=locale)
+    source_ids = _resolve_source_ids(workspace, body.active_source_ids, locale=locale)
     first_uuid = body.active_source_ids[0] if body.active_source_ids else None
 
     placeholder = db.create_exercise_set_placeholder(
         workspace_id=workspace["id"], user_id=user_id, tool="flashcards",
         title="Wird generiert…", mode="source", source_uuid=first_uuid,
-        source_uuids=body.active_source_ids[:5],
+        source_uuids=body.active_source_ids,
         requested_count=body.count,
     )
 
     from src.tasks.aia_tasks import run_generate_exercise_set
     run_generate_exercise_set.delay(
         placeholder["id"], workspace["id"], "flashcards", "source", body.count,
-        source_uuids=body.active_source_ids[:5],
+        source_uuids=body.active_source_ids,
         locale=locale,
     )
     return {"set_id": placeholder["id"], "status": "generating"}

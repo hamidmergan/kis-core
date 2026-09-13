@@ -1883,7 +1883,7 @@
     },
     "toolContextBudgetCard": {
       "title": "Tools context budget",
-      "hint": "How much source text (in characters) the learning tools (mind map, data table, vocab cards, flashcards, grammar exercises, vocabulary exercises, quiz) send to the model. Separate from the chat budget because a tool processes a whole document in one call. The value is divided by the number of selected sources. The default 250000 is safe for mid-tier models. Raise it (e.g. 450000 or 900000) only when running a large-context model. The value is additionally capped by the model's measured context window.",
+      "hint": "How much material text (in characters) the tools send to the model: mind map, data table, vocab cards, flashcards, grammar exercises, vocabulary exercises, quiz and podcast. Separate from the chat budget because a tool processes a whole document in one call. Most tools divide the value by the number of selected materials, the podcast instead fills up in order until the room is gone. This value applies exactly as set. If the configured model cannot take that much it refuses the job with an error, and the value has to be lowered here.",
       "unit": "characters",
       "approxTokens": "≈ {n}k tokens",
       "outOfRange": "Value must be between 1000 and 1000000.",
@@ -2746,8 +2746,7 @@
         "sourceStatus": {
           "none": "No source selected",
           "one": "1 source selected",
-          "few": "{count} sources selected",
-          "many": "{count} sources available, only 5 are used"
+          "few": "{count} sources selected"
         },
         "createModal": {
           "title": "Create new {tool}",
@@ -3226,8 +3225,7 @@
         "sources": {
           "none": "No source selected",
           "one": "1 source selected",
-          "few": "{n} sources selected",
-          "tooMany": "{n} sources available, only 5 will be used"
+          "few": "{n} sources selected"
         },
         "generate": {
           "create": "Create",
