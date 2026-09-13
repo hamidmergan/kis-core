@@ -1,5 +1,7 @@
 """Celery task: Text-to-Speech synthesis."""
 
+import subprocess
+import tempfile
 from pathlib import Path
 
 import httpx
@@ -8,9 +10,26 @@ from loguru import logger
 from src.celery_app import celery_app
 from src import database as db
 from src.i18n import t
+from src.services.ai_hinweis import ffmpeg_metadata_args
 from src.storage import delete_file, get_file, get_job_file, save_job_file, save_result_file, save_result_and_evict
 from src.utils.heartbeat import job_heartbeat
 from src.limits import TTS_SOFT_TIME_LIMIT, TTS_TIME_LIMIT
+
+
+def _stamped_with_ai_notice(mp3_bytes: bytes) -> bytes:
+    """Remux the joined MP3 once, lossless, to stamp the AI notice into its metadata."""
+    with tempfile.TemporaryDirectory(prefix="tts_notice_") as tmpdir:
+        source = Path(tmpdir) / "raw.mp3"
+        target = Path(tmpdir) / "stamped.mp3"
+        source.write_bytes(mp3_bytes)
+        result = subprocess.run(
+            ["ffmpeg", "-y", "-i", str(source), "-c", "copy", *ffmpeg_metadata_args(), str(target)],
+            capture_output=True, timeout=120,
+        )
+        if result.returncode != 0:
+            logger.warning("TTS metadata stamp failed (rc={}): {}", result.returncode, result.stderr[-300:])
+            return mp3_bytes
+        return target.read_bytes()
 
 
 @celery_app.task(
@@ -97,7 +116,7 @@ def run_tts(
             save_job_file(user_id, job_uuid, chunk_filename, mp3)
             audio_parts.append(mp3)
 
-        result_path = save_result_file(user_id, job_uuid, ".mp3", b"".join(audio_parts))
+        result_path = save_result_file(user_id, job_uuid, ".mp3", _stamped_with_ai_notice(b"".join(audio_parts)))
         result_filename = f"{Path(filename).stem}.mp3"
         save_result_and_evict(user_id, job_uuid, result_path, result_filename)
         db.update_job_status(job_uuid, "success")
