@@ -22,6 +22,7 @@ export function ExerciseSetsOverview({
   category?: ToolCategory;
 }) {
   const t = useTranslations("workspace.detail.languageTraining");
+  const tCommon = useTranslations("common");
   const locale = useLocale();
   const dateLocale = locale === "en" ? "en-US" : "de-DE";
   // Which card is currently being renamed, only one, nobody needs more at once.
@@ -174,7 +175,7 @@ export function ExerciseSetsOverview({
                           <button type="button" onClick={(e) => { e.stopPropagation(); onDownload(s); }}
                             className="w-6 h-6 rounded-full flex items-center justify-center btn-icon"
                             style={{ backgroundColor: "var(--surface-dim)" }}
-                            title={t("common.downloadAsText")}>
+                            title={`${t("common.downloadAsText")}\n${tCommon("aiHinweis")}`}>
                             <DownloadSimple size={12} />
                           </button>
                         )}
