@@ -1289,6 +1289,18 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                     PRIMARY KEY (workspace_id, source_id, tool)
                 )
             """)
+            # Remembers per tool which source the next run starts at, so every one gets a turn.
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS aia_context_rotation (
+                    workspace_id   INTEGER NOT NULL
+                                     REFERENCES aia_workspaces(id) ON DELETE CASCADE,
+                    tool           TEXT NOT NULL,
+                    next_source_id INTEGER
+                                     REFERENCES aia_sources(id) ON DELETE SET NULL,
+                    updated_at     TIMESTAMP NOT NULL DEFAULT NOW(),
+                    PRIMARY KEY (workspace_id, tool)
+                )
+            """)
             # The separate cloze is gone, its sentences move into the quiz.
             cur.execute(
                 "UPDATE aia_exercise_sets SET tool = 'quiz' "

@@ -13,12 +13,14 @@ from src.dependencies import get_current_user, is_admin_user
 from src.i18n import get_locale, t
 from src.quotas import enforce_quota
 from src.security.rate_limit import enforce_tool_burst
+from src.services.open_jobs import enforce_open_jobs
 from src.services import feature_provider_choices
 from src.storage import save_queue_file_from_path
 from src.services.tool_limits import max_upload_bytes
 from src.utils.file_validation import (
     SUMMARY_EXTENSIONS,
     SUMMARY_MAX_CHARS,
+    pages_or_raise,
     validate_or_raise,
 )
 from src.utils.text_extraction import EXTRACTORS
@@ -75,6 +77,7 @@ async def summarize(
         if not total:
             raise HTTPException(status_code=400, detail=t("file.empty", locale))
         validate_or_raise(head, ext, locale)
+        pages_or_raise(ext, tmp_path, locale)
 
         extractor = EXTRACTORS.get(ext)
         if extractor is not None:
@@ -92,6 +95,7 @@ async def summarize(
 
         job_uuid = uuid.uuid4().hex
         user_id = current_user.get("user_id", 0)
+        enforce_open_jobs(user_id, locale)
         enforce_tool_burst(user_id, "summary", locale)
         enforce_quota(user_id, "summary", is_admin_user(current_user), locale)
 

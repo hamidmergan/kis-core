@@ -247,6 +247,18 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Du hast schon {max} Podcasts offen. Schließe einen ab, dann geht es weiter.",
         "en": "You already have {max} podcasts open. Finish one, then you can continue.",
     },
+    "job.tooManyOpen": {
+        "de": "Du hast gerade zu viele Aufträge laufen. Warte, bis einer fertig ist.",
+        "en": "Too many of your jobs are running. Wait until one is finished.",
+    },
+    "podcast.tooManySources": {
+        "de": "Höchstens {max} Quellen je Podcast.",
+        "en": "At most {max} sources per podcast.",
+    },
+    "podcast.uploadsTooLarge": {
+        "de": "Alle Dateien zusammen höchstens {max} MB.",
+        "en": "All files together at most {max} MB.",
+    },
     "podcast.running": {
         "de": "Dieser Podcast arbeitet gerade.",
         "en": "This podcast is working right now.",

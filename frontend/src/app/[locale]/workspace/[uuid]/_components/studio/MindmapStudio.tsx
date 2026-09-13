@@ -76,6 +76,16 @@ export function MindmapStudio({
     }
   }, [openInViewer, onViewerOpened]);
 
+  // Leaves the browser full screen too, not just the CSS overlay.
+  async function leaveFullscreen() {
+    if (document.fullscreenElement) {
+      try { await document.exitFullscreen(); } catch { /* ignore */ }
+    }
+    const orientation = screen.orientation as ScreenOrientation & { unlock?: () => void };
+    orientation?.unlock?.();
+    setFullscreen(false);
+  }
+
   // Full screen with an orientation lock, otherwise plain CSS full screen.
   async function handleFullscreenToggle() {
     const el = viewerRef.current;
@@ -89,12 +99,7 @@ export function MindmapStudio({
       }
       setFullscreen(true);
     } else {
-      if (document.fullscreenElement) {
-        try { await document.exitFullscreen(); } catch { /* ignore */ }
-      }
-      const orientation = screen.orientation as ScreenOrientation & { unlock?: () => void };
-      orientation?.unlock?.();
-      setFullscreen(false);
+      await leaveFullscreen();
     }
   }
 
@@ -339,16 +344,14 @@ export function MindmapStudio({
         <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
           <div className="rounded-xl px-3 py-2 text-sm font-medium flex items-center gap-2"
             style={{
-              color: noSources ? "var(--error-strong)" : sourceCount > 5 ? "#c4820e" : "var(--kb)",
+              color: noSources ? "var(--error-strong)" : "var(--kb)",
             }}>
             <Files size={13} weight="bold" />
             {noSources
               ? t("sources.none")
               : sourceCount === 1
                 ? t("sources.one")
-                : sourceCount <= 5
-                  ? t("sources.few", { n: sourceCount })
-                  : t("sources.tooMany", { n: sourceCount })}
+                : t("sources.few", { n: sourceCount })}
           </div>
 
           {savedList.length === 0 && !loading ? (
@@ -444,7 +447,7 @@ export function MindmapStudio({
         ...(fullscreen ? { position: "fixed" as const, inset: 0, zIndex: 9999, backgroundColor: "var(--background)" } : {}),
       }} className="flex-col h-full">
         <div className="flex items-center gap-2 px-4 py-3 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
-          <button type="button" onClick={() => { if (fullscreen) setFullscreen(false); else setView("list"); }}
+          <button type="button" onClick={() => { if (fullscreen) void leaveFullscreen(); else setView("list"); }}
             className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
             style={{ backgroundColor: "var(--surface-dim)" }}>
             <CaretLeft size={13} />
@@ -459,7 +462,7 @@ export function MindmapStudio({
                     <CaretRight size={10} weight="bold" style={{ opacity: 0.5 }} className="shrink-0" />
                   </React.Fragment>
                 ))}
-                <button type="button" onClick={() => { if (fullscreen) setFullscreen(false); setView("list"); }} className="font-medium shrink-0 px-1.5 py-0.5 rounded opacity-60 hover:opacity-100 transition-opacity" style={badge ? { color: badge.color } : {  }}>{tMm("title")}</button>
+                <button type="button" onClick={() => { if (fullscreen) void leaveFullscreen(); setView("list"); }} className="font-medium shrink-0 px-1.5 py-0.5 rounded opacity-60 hover:opacity-100 transition-opacity" style={badge ? { color: badge.color } : {  }}>{tMm("title")}</button>
                 <CaretRight size={10} weight="bold" style={{ opacity: 0.5 }} className="shrink-0" />
                 <span className="font-semibold truncate" style={{ color: "var(--foreground)" }}>{activeTopicName}</span>
               </div>

@@ -28,8 +28,8 @@ FAELLE = [
      limits.MAX_UPLOAD_BYTES, "800", 800 * 1024 * 1024),
     (tool_limits.results_kept_per_user, "results_kept_per_user",
      limits.MAX_RESULT_FILES, "20", 20),
-    (tool_limits.max_open_screencast_jobs, "screencast_max_open_jobs",
-     limits.MAX_QUEUED_SCREENCAST_JOBS, "12", 12),
+    (tool_limits.max_open_jobs, "tool_max_open_jobs",
+     limits.MAX_OPEN_JOBS_PER_TOOL, "12", 12),
 ]
 
 
@@ -55,9 +55,9 @@ def test_muell_faellt_auf_die_vorgabe_zurueck(gesetzt, fn, key, vorgabe, roh, er
 def test_unbegrenzt_nur_wo_es_erlaubt_ist(gesetzt):
     """-1 means unlimited, but only for the two count limits."""
     gesetzt["results_kept_per_user"] = "-1"
-    gesetzt["screencast_max_open_jobs"] = "-1"
+    gesetzt["tool_max_open_jobs"] = "-1"
     assert tool_limits.results_kept_per_user() == -1
-    assert tool_limits.max_open_screencast_jobs() == -1
+    assert tool_limits.max_open_jobs() == -1
 
     # For the other three unlimited would be a trap.
     for key, fn, vorgabe in (

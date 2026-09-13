@@ -15,10 +15,29 @@ _BATCH_PARALLELISM = 4
 _RETRY_ATTEMPTS = 3
 _RETRY_BASE_DELAY = 2.0  # seconds, exponential: 2, 4, 8 plus jitter
 
+# Below this a cut-off text is not split any further, the model is then the problem.
+_MIN_SPLIT_CHARS = 500
+# Where a long text may be cut, and how much of the mark stays on the left side.
+_SPLIT_MARKS = (("\n\n", 0), ("\n", 0), (". ", 1), (" ", 0))
+
 # Thinking models need room per entry, being generous costs nothing.
 _TOKENS_BASE = 4096
 _TOKENS_PER_ITEM = 1500
 _MAX_OUTPUT_TOKENS = 32768
+
+
+def _split_in_half(text: str) -> tuple[str, str, str] | None:
+    """Cuts at the mark closest to the middle, None when the text is too short to cut."""
+    if len(text) < _MIN_SPLIT_CHARS:
+        return None
+    mitte = len(text) // 2
+    for mark, bleibt_links in _SPLIT_MARKS:
+        stellen = [i for i in (text.rfind(mark, 0, mitte), text.find(mark, mitte)) if i > 0]
+        if not stellen:
+            continue
+        i = min(stellen, key=lambda x: abs(x - mitte))
+        return text[:i + bleibt_links], mark[bleibt_links:], text[i + len(mark):]
+    return None
 
 
 _SYSTEM_PROMPT = (
@@ -143,10 +162,22 @@ class LLMTranslationClient:
                 system, text, max_tokens=_MAX_OUTPUT_TOKENS
             )
         if finish_reason == "length":
-            # Cut off even with the full budget, then better to fail loudly.
-            raise RuntimeError(
-                f"Übersetzung wurde abgeschnitten ({len(text)} Zeichen Vorlage). "
-                "Text ist zu lang für das eingestellte Modell."
+            # Still cut off with the full budget, so halve the text and translate both parts.
+            haelften = _split_in_half(text)
+            if haelften is None:
+                raise RuntimeError(
+                    f"Übersetzung wurde abgeschnitten ({len(text)} Zeichen Vorlage). "
+                    "Text ist zu lang für das eingestellte Modell."
+                )
+            links, trenner, rechts = haelften
+            logger.warning(
+                "Übersetzung abgeschnitten ({} Zeichen), teile in {} und {}.",
+                len(text), len(links), len(rechts),
+            )
+            return (
+                self.translate_text(links, source_lang, target_lang)
+                + trenner
+                + self.translate_text(rechts, source_lang, target_lang)
             )
         return translated
 

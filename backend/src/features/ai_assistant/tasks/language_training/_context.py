@@ -1,19 +1,9 @@
 """Builds the context from several sources and sweeps a different window each run."""
 
-import random
 from dataclasses import dataclass, field
 
 from src import database as db
-from src.features.ai_assistant.tasks._context_budget import (
-    tool_context_budget,
-    select_chunks_for_budget,
-    read_cursors,
-    write_cursors,
-)
-
-
-# Minimum share per source, otherwise one tiny source shrinks all the others.
-_MIN_PER_SOURCE_CHARS = 3000
+from src.features.ai_assistant.tasks._context_budget import fill_sources_greedy
 
 
 @dataclass
@@ -37,9 +27,14 @@ def per_section_quota(n_sections: int, count: int) -> int:
     return max(1, count // n_sections) if n_sections else 0
 
 
+def quota_fits(ctx: "QuelleContext", count: int) -> bool:
+    """Whether a per-section quota is possible at all with this many entries."""
+    return 2 <= len(ctx.sections) <= count
+
+
 def coverage_rule(ctx: "QuelleContext", count: int) -> str:
     """Prompt block that spreads the exercises across all sections."""
-    if len(ctx.sections) < 2:
+    if not quota_fits(ctx, count):
         return ""
     quota = per_section_quota(len(ctx.sections), count)
     listing = "\n".join(f"  {num} = {label}" for num, label in sorted(ctx.sections.items()))
@@ -116,29 +111,9 @@ def rebalance_to_count(items: list[dict], count: int) -> list[dict]:
     return keep
 
 
-def _chunk_len(chunk: dict) -> int:
-    return len(chunk.get("content") or "") + 1
-
-
-def _trim_to_size(chunks: list[dict], cap: int, rng) -> list[dict]:
-    """Trims a source without favouring its beginning."""
-    if sum(_chunk_len(c) for c in chunks) <= cap:
-        return chunks
-    order = list(chunks)
-    rng.shuffle(order)
-    kept, size = [], 0
-    for chunk in order:
-        length = _chunk_len(chunk)
-        if size + length > cap:
-            continue
-        kept.append(chunk)
-        size += length
-    return sorted(kept, key=lambda c: c["page_number"])
-
-
 def build_source_context(uuids: list[str], tool: str,
                          count: int | None = None) -> QuelleContext | None:
-    """Builds the context from several sources, sweeping and with equally sized sections."""
+    """Builds the context from several sources, greedily and sweeping."""
     sources: list[tuple[str, list[dict]]] = []
     source_by_name: dict[str, dict] = {}
     first_label = ""
@@ -160,25 +135,18 @@ def build_source_context(uuids: list[str], tool: str,
         return None
 
     workspace_id = source_by_name[first_label].get("workspace_id")
-    budget_per_source = max(1000, tool_context_budget() // len(sources))
-    rng = random.Random()  # only for the equal-section trim below
+    # Every source takes what is left of the budget, whoever comes too late falls away.
+    gefuellt = fill_sources_greedy(
+        [(source_by_name[label]["id"], label, chunks) for label, chunks in sources],
+        workspace_id, tool)
+    picked_by_label = [(label, picked) for _sid, label, picked in gefuellt]
+    if not picked_by_label:
+        return None
 
-    picked_by_label: list[tuple[str, list[dict]]] = []
-    for label, chunks in sources:
-        source_id = source_by_name[label]["id"]
-        picked, resume = select_chunks_for_budget(
-            chunks, budget_per_source, cursors=read_cursors(workspace_id, source_id, tool))
-        write_cursors(workspace_id, source_id, tool, resume)
-        picked_by_label.append((label, picked))
-
-    # Equally sized sections, the smallest source sets the size with a floor.
-    if len(picked_by_label) > 1:
-        sizes = [sum(_chunk_len(c) for c in chunks) for _, chunks in picked_by_label if chunks]
-        cap = max(_MIN_PER_SOURCE_CHARS, min(sizes)) if sizes else _MIN_PER_SOURCE_CHARS
-        picked_by_label = [(label, _trim_to_size(chunks, cap, rng))
-                           for label, chunks in picked_by_label]
-
-    quota = per_section_quota(len(picked_by_label), count) if count else 0
+    # The material can name sources the selection lost to the budget.
+    first_label = picked_by_label[0][0]
+    quota = (per_section_quota(len(picked_by_label), count)
+             if count and count >= len(picked_by_label) else 0)
     trimmed: list[str] = []
     seen_pages_by_source: dict[int, set] = {}
     media_start_by_page: dict[int, dict] = {}
@@ -204,8 +172,9 @@ def build_source_context(uuids: list[str], tool: str,
         if times:
             media_start_by_page.setdefault(sid, {}).update(times)
 
-    multi_label = first_label if len(uuids) == 1 else f"{len(uuids)} Sources"
-    source_hint = "folgender Source" if len(uuids) == 1 else "folgenden Sources"
+    einzeln = len(picked_by_label) == 1
+    multi_label = first_label if einzeln else f"{len(picked_by_label)} Sources"
+    source_hint = "folgender Source" if einzeln else "folgenden Sources"
 
     return QuelleContext(
         context="\n\n".join(trimmed),

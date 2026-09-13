@@ -30,9 +30,16 @@ def extract_file(path: str, ext: str) -> str:
     return reader(path) if reader else ""
 
 
+def to_pieces(text: str) -> list[dict]:
+    """Plain text in chunk-shaped pieces, the budget picker needs units to choose from."""
+    from src.services.aia_chunker import CHUNK_OVERLAP, CHUNK_SIZE, _split_text
+
+    return [{"content": stueck} for stueck in _split_text(text, CHUNK_SIZE, CHUNK_OVERLAP)]
+
+
 def from_module(workspace_uuid: str, source_uuids: list[str], user_id: int,
-                locale: str = "de") -> tuple[str, str]:
-    """The indexed text of the chosen sources, plus a label for the job list.
+                locale: str = "de") -> tuple[list[tuple[str, list[dict]]], str]:
+    """The indexed pieces of the chosen sources, plus a label for the job list.
 
     The same gate the assistant itself uses, otherwise any module uuid would do.
     """
@@ -41,24 +48,43 @@ def from_module(workspace_uuid: str, source_uuids: list[str], user_id: int,
 
     workspace = _require_workspace_access(workspace_uuid, user_id, locale=locale)
     gewaehlt = set(source_uuids)
-    teile: list[str] = []
+    quellen: list[tuple[str, list[dict]]] = []
     namen: list[str] = []
     for source in db.get_aia_sources_by_workspace(workspace["id"]):
         if source["uuid"] not in gewaehlt or source["status"] != "ready":
             continue
         namen.append(source["filename"])
-        chunks = db.get_aia_chunks_by_source(source["id"])
-        text = "\n".join(c["content"].strip() for c in chunks if c.get("content"))
-        if text:
-            teile.append(f"# {source['filename']}\n{text}")
+        chunks = [c for c in db.get_aia_chunks_by_source(source["id"]) if c.get("content")]
+        if chunks:
+            quellen.append((source["filename"], chunks))
         else:
             logger.warning("Podcast: Quelle {} hat keine Abschnitte", source["uuid"])
-    return "\n\n".join(teile), ", ".join(namen)
+    return quellen, ", ".join(namen)
 
 
-def shorten(text: str, max_chars: int) -> str:
-    """Over the budget the tail is dropped, cut at a paragraph where possible."""
-    if len(text) <= max_chars:
-        return text
-    schnitt = text.rfind("\n\n", 0, max_chars)
-    return text[: schnitt if schnitt > max_chars // 2 else max_chars].rstrip()
+def fit_to_budget(sources: list[tuple[str, list[dict]]]) -> str:
+    """Fills the budget source by source, front to back. What does not fit is dropped.
+
+    The order is the user's choice, so whoever wants a source used puts it first.
+    """
+    from src.features.ai_assistant.tasks._context_budget import tool_context_budget
+
+    uebrig = tool_context_budget()
+    teile: list[str] = []
+    for label, chunks in sources:
+        kopf = f"# {label}\n" if label else ""
+        genommen: list[str] = []
+        platz = uebrig - len(kopf)
+        for chunk in chunks:
+            inhalt = (chunk.get("content") or "").strip()
+            if not inhalt:
+                continue
+            if len(inhalt) + 1 > platz:
+                break
+            genommen.append(inhalt)
+            platz -= len(inhalt) + 1
+        if not genommen:
+            break
+        teile.append(kopf + "\n".join(genommen))
+        uebrig = platz - 2  # the blank line between two sources
+    return "\n\n".join(teile)

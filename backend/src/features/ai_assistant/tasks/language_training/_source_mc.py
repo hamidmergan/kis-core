@@ -13,7 +13,7 @@ from src.features.ai_assistant.tasks.language_training._attribution import (
 from src.features.ai_assistant.tasks.language_training._context import QuelleContext
 from src.features.ai_assistant.tasks.language_training._hint import attach_hint
 from src.features.ai_assistant.tasks.language_training._title import title_from_items
-from src.services.llm_context_healing import create_with_shrink
+from src.services.llm_call import create_logged
 
 
 _SOURCE_RULE = (
@@ -107,7 +107,7 @@ def generate_mc_from_source(
         {"role": "user", "content": _build_user(ctx, language)},
     ]
     # 0.6 for some word variety, the real variation comes from the context.
-    response = create_with_shrink(client, endpoint="quiz", model=model, messages=messages, temperature=0.6)
+    response = create_logged(client, endpoint="quiz", model=model, messages=messages, temperature=0.6)
     answer = _clean_llm_json(response.choices[0].message.content or "")
     data = json.loads(answer)
     # Preferably the title comes along, a bare list works too.

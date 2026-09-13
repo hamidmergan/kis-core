@@ -22,8 +22,8 @@ from src.services.screencast import (
 )
 from src.storage import get_job_file, save_job_file, save_job_file_from_path, save_queue_file_from_path
 from src.utils.file_validation import validate_or_raise
+from src.services.open_jobs import enforce_open_jobs
 from src.services.tool_limits import (
-    max_open_screencast_jobs,
     max_screencast_slides,
     max_upload_bytes,
 )
@@ -35,13 +35,7 @@ router = APIRouter(tags=["screencast: translate"])
 
 
 def _enforce_queue_and_quota(user_id: int, current_user: dict, locale: str = "de") -> None:
-    # -1 means unlimited, then the queue check falls away entirely.
-    offene_grenze = max_open_screencast_jobs()
-    if offene_grenze >= 0 and db.count_all_jobs_for_tool(user_id, SCREENCAST_TOOLS) >= offene_grenze:
-        raise HTTPException(
-            status_code=409,
-            detail=t("screencast.queueFull", locale, max=offene_grenze),
-        )
+    enforce_open_jobs(user_id, locale)
     enforce_tool_burst(user_id, "screencast", locale)
     enforce_quota(user_id, "screencast", is_admin_user(current_user), locale)
 

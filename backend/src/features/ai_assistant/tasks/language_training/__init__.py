@@ -19,6 +19,7 @@ from src.services.aia_grammar_topic import derive_topic
 
 from src.features.ai_assistant.tasks.language_training._context import (
     build_source_context,
+    quota_fits,
     coverage_rule,
     missing_section_uuids,
     per_section_quota,
@@ -196,7 +197,7 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
             neu, title, header = generate(ctx, zu_erzeugen)
 
             # Sections left empty get a run of their own, and only those.
-            if neu and len(ctx.sections) > 1:
+            if neu and quota_fits(ctx, zu_erzeugen):
                 gap_uuids = missing_section_uuids(neu, ctx)
                 if gap_uuids:
                     logger.info(

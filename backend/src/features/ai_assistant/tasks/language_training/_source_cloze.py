@@ -13,7 +13,7 @@ from src.features.ai_assistant.tasks.language_training._attribution import (
     attach_chips_cited,
 )
 from src.features.ai_assistant.tasks.language_training._context import QuelleContext
-from src.services.llm_context_healing import create_with_shrink
+from src.services.llm_call import create_logged
 
 
 _PLACEHOLDER_RE = re.compile(r"\{\{(\d+)\}\}")
@@ -207,7 +207,7 @@ def generate_cloze_from_source(
                                     f"Sources:\n\n{ctx.context}"},
     ]
     try:
-        response = create_with_shrink(client, endpoint="wortschatz", model=model, messages=messages,
+        response = create_logged(client, endpoint="wortschatz", model=model, messages=messages,
                                       temperature=0.6)
         data = json.loads(_clean_llm_json(response.choices[0].message.content or ""))
     except Exception as e:  # noqa: BLE001

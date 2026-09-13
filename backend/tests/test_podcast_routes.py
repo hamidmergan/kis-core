@@ -121,6 +121,15 @@ class TestStart:
         assert antwort.status_code == 422
         assert gestartet == []
 
+    def test_nimmt_eine_sehr_lange_datei_an_und_fuellt_bis_zum_budget(self, env):
+        """Keine Absage wegen Laenge, was nicht ins Budget passt faellt still weg."""
+        client, _j, gestartet, _a = env
+        riesig = ("y" * 999 + "\n") * 3000
+        antwort = client.post("/podcast/start", data={"params": _params(), "mode": "files"},
+                              files={"files": ("gross.txt", riesig.encode(), "text/plain")})
+        assert antwort.status_code == 200
+        assert gestartet == ["script"]
+
     def test_weist_eine_person_ohne_stimme_ab(self, env):
         client, _j, _g, _a = env
         ohne = _params(persons=[{"name": "Lena", "role": "host", "voice_id": "", "provider_id": 3}])
@@ -154,11 +163,11 @@ class TestStart:
 
     def test_haelt_die_grenze_offener_podcasts_ein(self, env, monkeypatch):
         client, _j, _g, _a = env
-        import src.routes.podcast.start as start_route
-        from src.limits import MAX_QUEUED_PODCAST_JOBS
+        from src.limits import MAX_OPEN_JOBS_PER_TOOL
+        from src.services import open_jobs
 
-        monkeypatch.setattr(start_route.db, "count_all_jobs_for_tool",
-                            lambda uid, tools: MAX_QUEUED_PODCAST_JOBS)
+        monkeypatch.setattr(open_jobs.db, "count_working_jobs",
+                            lambda uid: MAX_OPEN_JOBS_PER_TOOL)
         antwort = client.post("/podcast/start", data={"params": _params(), "mode": "text", "text": "Text"})
         assert antwort.status_code == 409
 

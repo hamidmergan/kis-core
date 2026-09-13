@@ -1,4 +1,4 @@
-"""Checks active jobs and the storage limit for a tool group."""
+"""Checks working jobs and the storage limit before a form starts a job."""
 
 from fastapi import APIRouter, Depends
 
@@ -8,30 +8,19 @@ from src.dependencies import get_current_user
 
 router = APIRouter()
 
-_TOOL_GROUP_TOOLS = {
-    "screencast": ["screencast_translate", "screencast_render"],
-    "tts": ["tts"],
-    "podcast": ["podcast"],
-}
-
-
 @router.get("/check/{tool_group}")
 async def check_job_limit(
-    tool_group: str,
+    tool_group: str,  # noqa: ARG001 - the limit counts all tools, the path keeps its shape
     current_user: dict = Depends(get_current_user),
 ):
-    """Check if user can start a new job: active job exists? Storage limit reached?"""
+    """Check if user can start a new job: too many working? Storage limit reached?"""
     user_id = current_user.get("user_id", 0)
 
-    from src.services.tool_limits import max_open_screencast_jobs, results_kept_per_user
+    from src.services.open_jobs import at_limit
+    from src.services.tool_limits import results_kept_per_user
 
-    tools = _TOOL_GROUP_TOOLS.get(tool_group, [])
-    max_jobs = max_open_screencast_jobs() if tool_group == "screencast" else 1
-    # -1 means unlimited, then the way is always open.
-    has_active = (
-        bool(tools) and max_jobs >= 0
-        and db.count_all_jobs_for_tool(user_id, tools) >= max_jobs
-    )
+    # The same rule the start routes apply, so the form never promises too much.
+    has_active = at_limit(user_id)
 
     # cap - 1, because the new job takes a slot itself.
     vorrat = results_kept_per_user()

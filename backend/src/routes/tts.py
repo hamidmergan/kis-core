@@ -10,6 +10,7 @@ from src.dependencies import get_current_user, is_admin_user
 from src.i18n import get_locale, t
 from src.quotas import enforce_quota
 from src.security.rate_limit import enforce_tool_burst
+from src.services.open_jobs import enforce_open_jobs
 from src import database as db
 from src.storage import save_queue_file_from_path
 from src.utils.file_validation import (
@@ -160,6 +161,7 @@ async def text_to_speech(
             raise HTTPException(status_code=503, detail=t("tts.providerUnavailable", locale))
 
         user_id = current_user.get("user_id", 0)
+        enforce_open_jobs(user_id, locale)
         enforce_tool_burst(user_id, "tts", locale)
         enforce_quota(user_id, "tts", is_admin_user(current_user), locale)
 

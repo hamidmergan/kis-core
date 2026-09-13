@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type DragEvent } from "react";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 import { X } from "@phosphor-icons/react";
 import Checkbox from "@/components/ui/Checkbox";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -10,6 +10,7 @@ import Select from "@/components/ui/Select";
 import Spinner from "@/components/ui/Spinner";
 import Tabs from "@/components/ui/Tabs";
 import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
+import { MAX_UPLOAD_BYTES, MAX_UPLOAD_MB } from "@/lib/constants";
 import StepFooter from "../_components/StepFooter";
 import { useModules } from "../_hooks/useModules";
 import { hasContent } from "../_logic";
@@ -18,6 +19,10 @@ import type { Language, Source, SourceMode } from "../_types";
 export const FIELD =
   "w-full px-3 py-2 text-sm border-2 border-border rounded-md bg-background hover:border-kb focus:outline-none focus:border-kb placeholder:text-muted-soft";
 const ACCEPT = ".pdf,.docx,.pptx,.txt,.md";
+/** Mirrors PODCAST_MAX_SOURCES in the backend. */
+const MAX_QUELLEN = 10;
+
+const EIN_MB = 1024 * 1024;
 
 interface ContentStepProps {
   /** Without the assistant there are no modules, then the tab stays away. */
@@ -34,6 +39,12 @@ interface ContentStepProps {
 export default function ContentStep({ canUseModules, source, language, instructions, onSource, onLanguage, onInstructions, onNext }: ContentStepProps) {
   const t = useTranslations("tools.podcast.content");
   const tCommon = useTranslations("common");
+  const format = useFormatter();
+  /** Readable size, the decimal mark follows the display language. */
+  const groesse = (bytes: number): string =>
+    bytes < EIN_MB
+      ? `${format.number(Math.round(bytes / 1024))} KB`
+      : `${format.number(bytes / EIN_MB, { maximumFractionDigits: 1 })} MB`;
   const labels = useWorkspaceLabel();
   const fileRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -41,20 +52,17 @@ export default function ContentStep({ canUseModules, source, language, instructi
   const mode: SourceMode = canUseModules || source.mode !== "module" ? source.mode : "text";
   const { modules, sources } = useModules(mode === "module" ? source.moduleId : "");
 
-  // A fresh pick takes everything, later the choice stands, a deleted source drops out.
-  const abgeglichen = useRef<string | null>(null);
+  // Nothing is preselected, a deleted source drops out of the choice.
   useEffect(() => {
     if (!sources) return;
-    const frisch = abgeglichen.current !== source.moduleId;
-    abgeglichen.current = source.moduleId;
     const vorhanden = new Set(sources.map((s) => s.uuid));
     const geblieben = source.sourceIds.filter((id) => vorhanden.has(id));
-    const naechste = frisch && geblieben.length === 0 ? sources.map((s) => s.uuid) : geblieben;
-    if (naechste.length !== source.sourceIds.length || naechste.some((id, i) => id !== source.sourceIds[i])) {
-      onSource({ sourceIds: naechste });
+    if (geblieben.length !== source.sourceIds.length) {
+      onSource({ sourceIds: geblieben });
     }
-  }, [sources, source.sourceIds, source.moduleId, onSource]);
+  }, [sources, source.sourceIds, onSource]);
 
+  // Everything lands in the list, too much is marked instead of silently dropped.
   const addFiles = (list: FileList | null) => {
     if (!list) return;
     const dabei = new Set(source.files.map((f) => f.name));
@@ -67,14 +75,19 @@ export default function ContentStep({ canUseModules, source, language, instructi
     addFiles(e.dataTransfer.files);
   };
   const chooseModule = (uuid: string) => onSource({ moduleId: uuid, sourceIds: [] });
+  const voll = source.sourceIds.length >= MAX_QUELLEN;
   const toggleSource = (uuid: string) => {
     const set = new Set(source.sourceIds);
     if (set.has(uuid)) set.delete(uuid);
-    else set.add(uuid);
+    else if (!voll) set.add(uuid);
     onSource({ sourceIds: [...set] });
   };
 
-  const bereit = hasContent({ ...source, mode });
+  const bytes = source.files.reduce((n, f) => n + f.size, 0);
+  const zuViele = source.files.length > MAX_QUELLEN;
+  const zuGross = bytes > MAX_UPLOAD_BYTES;
+  const hatInhalt = hasContent({ ...source, mode });
+  const bereit = hatInhalt && !zuViele && !zuGross;
 
   return (
     <section className="animate-[fadeIn_0.3s_ease-out]">
@@ -140,20 +153,39 @@ export default function ContentStep({ canUseModules, source, language, instructi
             <p className="text-xs text-muted-soft mt-1">{t("filesHint")}</p>
           </div>
           {source.files.length > 0 && (
-            <ul className="space-y-2">
-              {source.files.map((datei) => (
-                <li key={datei.name} className="flex items-center justify-between gap-3 rounded-lg border border-border-soft px-3 py-2 text-sm">
-                  <span className="truncate">{datei.name}</span>
-                  <IconButton
-                    size="sm"
-                    aria-label={t("removeFile", { name: datei.name })}
-                    onClick={() => onSource({ files: source.files.filter((f) => f.name !== datei.name) })}
-                  >
-                    <X size={12} weight="bold" />
-                  </IconButton>
-                </li>
-              ))}
-            </ul>
+            <>
+              <ul className="space-y-2">
+                {source.files.map((datei) => (
+                  <li key={datei.name} className="flex items-center justify-between gap-3 rounded-lg border border-border-soft px-3 py-2 text-sm">
+                    <span className="truncate">{datei.name}</span>
+                    <span className="flex items-center gap-2 shrink-0">
+                      <span className="text-xs text-muted-soft">{groesse(datei.size)}</span>
+                      <IconButton
+                        size="sm"
+                        aria-label={t("removeFile", { name: datei.name })}
+                        onClick={() => onSource({ files: source.files.filter((f) => f.name !== datei.name) })}
+                      >
+                        <X size={12} weight="bold" />
+                      </IconButton>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 text-xs text-muted">
+                <span className={zuViele ? "text-error font-medium" : ""}>
+                  {t("filesCount", { n: source.files.length, max: MAX_QUELLEN })}
+                </span>
+                {", "}
+                <span className={zuGross ? "text-error font-medium" : ""}>
+                  {t("filesSize", { size: groesse(bytes), max: `${MAX_UPLOAD_MB} MB` })}
+                </span>
+              </p>
+              {(zuViele || zuGross) && (
+                <p className="mt-2 rounded-lg border border-error-border bg-error-bg px-3 py-2 text-sm text-error">
+                  {t(zuViele ? "tooManyFiles" : "tooLarge")}
+                </p>
+              )}
+            </>
           )}
         </>
       )}
@@ -190,6 +222,7 @@ export default function ContentStep({ canUseModules, source, language, instructi
                       <li key={s.uuid}>
                         <Checkbox
                           checked={source.sourceIds.includes(s.uuid)}
+                          disabled={voll && !source.sourceIds.includes(s.uuid)}
                           onChange={() => toggleSource(s.uuid)}
                           label={s.filename}
                           labelClassName="text-sm text-foreground"
@@ -197,7 +230,9 @@ export default function ContentStep({ canUseModules, source, language, instructi
                       </li>
                     ))}
                   </ul>
-                  <p className="mt-2 text-xs text-muted">{t("sourcesHint")}</p>
+                  <p className={`mt-2 text-xs ${voll ? "text-error font-medium" : "text-muted"}`}>
+                    {t(voll ? "sourcesFull" : "sourcesHint", { max: MAX_QUELLEN })}
+                  </p>
                 </div>
               ))}
           </div>
@@ -232,8 +267,6 @@ export default function ContentStep({ canUseModules, source, language, instructi
           className={`${FIELD} resize-y`}
         />
       </div>
-
-      {!bereit && <p className="mt-6 text-xs text-muted-soft">{t("empty")}</p>}
 
       <StepFooter onBack={null} nextLabel={t("next")} onNext={onNext} nextDisabled={!bereit} />
     </section>

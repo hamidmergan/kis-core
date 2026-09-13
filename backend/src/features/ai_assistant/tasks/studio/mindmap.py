@@ -11,12 +11,32 @@ from src import database as db
 from src.features.ai_assistant.prompts.studio_prompts import AIA_MINDMAP_PROMPT
 from src.services import aia_chunker
 from src.services.aia_adaptive_tools import build_adaptive_tool_suffix
-from src.services.llm_context_healing import create_with_shrink
+from src.services.llm_call import create_logged
 
 
 def _is_media_source(filename: str) -> bool:
     """True when the source's suffix carries a transcript with timestamps."""
     return aia_chunker.is_media_file(Path(filename).suffix)
+
+
+def _collect_sources(source_ids: list[int], source_uuids: list[str]
+                     ) -> list[tuple[int, str, list[dict], list[dict]]]:
+    """Per source: id, label, all its chunks and the window that fits the budget."""
+    from src.features.ai_assistant.tasks._context_budget import fill_sources_greedy
+
+    vorhanden: list[tuple[int, str, list[dict]]] = []
+    workspace_id = None
+    for sid, suuid in zip(source_ids, source_uuids):
+        source = db.get_aia_source(suuid)
+        if workspace_id is None and source:
+            workspace_id = source.get("workspace_id")
+        chunks = db.get_chunks_by_source(sid)
+        if chunks:
+            vorhanden.append((sid, source["filename"] if source else "Source", chunks))
+
+    alle = {sid: chunks for sid, _label, chunks in vorhanden}
+    return [(sid, label, alle[sid], picked)
+            for sid, label, picked in fill_sources_greedy(vorhanden, workspace_id, "mindmap")]
 
 
 @celery_app.task(bind=True, name="aia.generate_mindmap", queue="aia",
@@ -44,50 +64,24 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
             return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
 
         context_parts: list[str] = []
-        # Media sources keep their chunks so a node can get a timestamp later.
+        # Media sources keep all their chunks so a node can get a timestamp later.
         media_chunks_by_label: dict[str, list] = {}
-        for sid, suuid in zip(source_ids, source_uuids):
-            source = db.get_aia_source(suuid)
-            source_label = source["filename"] if source else "Source"
-            is_media = _is_media_source(source_label) if source else False
-
-            if is_media:
-                # For media: use chunks with start_time as label
-                chunks = db.get_chunks_by_source(sid)
-                if chunks:
-                    media_chunks_by_label[source_label] = chunks
-                    parts = []
-                    for c in chunks:
-                        st = c.get("start_time")
-                        time_label = _fmt_time(st) if st is not None else f"Teil {c['page_number']}"
-                        parts.append(f"[{source_label}, {time_label}] {c['content']}")
-                    context_parts.append(f"--- {source_label} ---\n" + "\n".join(parts))
+        for _sid, source_label, alle_chunks, gewaehlt in _collect_sources(source_ids, source_uuids):
+            if _is_media_source(source_label):
+                media_chunks_by_label[source_label] = alle_chunks
+                parts = []
+                for c in gewaehlt:
+                    st = c.get("start_time")
+                    time_label = _fmt_time(st) if st is not None else f"Teil {c['page_number']}"
+                    parts.append(f"[{source_label}, {time_label}] {c['content']}")
             else:
-                chunks = db.get_chunks_by_source(sid)
-                if chunks:
-                    parts = [f"[{source_label}, S. {c['page_number']}] {c['content']}" for c in chunks]
-                    context_parts.append(f"--- {source_label} ---\n" + "\n".join(parts))
+                parts = [f"[{source_label}, S. {c['page_number']}] {c['content']}" for c in gewaehlt]
+            context_parts.append(f"--- {source_label} ---\n" + "\n".join(parts))
 
         if not context_parts:
             db.update_aia_mindmap(mindmap_id, "failed", error="Keine Inhalte vorhanden")
             return
-
-        # Fair budget per source, no fixed chunk cap any more.
-        from src.features.ai_assistant.tasks._context_budget import tool_context_budget
-        budget_per_source = max(1000, tool_context_budget() // max(1, len(source_ids)))
-        trimmed_parts: list[str] = []
-        for part in context_parts:
-            lines = part.split("\n")
-            header = lines[0]  # "--- filename ---"
-            kept = [header]
-            size = len(header)
-            for line in lines[1:]:
-                if size + len(line) + 1 > budget_per_source:
-                    break
-                kept.append(line)
-                size += len(line) + 1
-            trimmed_parts.append("\n".join(kept))
-        context = "\n\n".join(trimmed_parts)
+        context = "\n\n".join(context_parts)
 
         # 2. Call LLM
         from langfuse.openai import OpenAI
@@ -111,7 +105,7 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
         # A second attempt on broken JSON, a re-roll almost always works.
         mindmap = None
         for attempt in range(2):
-            response = create_with_shrink(client, endpoint="mindmap", model=model,
+            response = create_logged(client, endpoint="mindmap", model=model,
                 messages=messages,
                 temperature=0.2,
             )

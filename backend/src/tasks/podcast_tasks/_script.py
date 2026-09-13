@@ -37,7 +37,8 @@ def run_podcast_script(self, job_uuid: str, user_id: int, locale: str = "de"):
         with job_heartbeat(job_uuid):
             for versuch in range(1, _VERSUCHE + 1):
                 assert_not_cancelled(job_uuid)
-                antwort = call_json_llm(llm, nachrichten).choices[0].message.content or ""
+                antwort = call_json_llm(
+                    llm, nachrichten, endpoint="podcast").choices[0].message.content or ""
                 try:
                     zeilen = skript.parse_answer(antwort, len(params.persons))
                     break

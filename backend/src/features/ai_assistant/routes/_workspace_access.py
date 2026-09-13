@@ -59,11 +59,11 @@ def _delete_workspace_files(workspace: dict) -> None:
 
 
 def _resolve_source_ids(
-    workspace: dict, source_uuids: list[str], max_count: int = 3,
+    workspace: dict, source_uuids: list[str], max_count: int | None = None,
     locale: str = DEFAULT_LOCALE,
 ) -> list[int]:
-    """Resolve source UUIDs to DB IDs, enforce max count."""
-    if len(source_uuids) > max_count:
+    """Resolve source UUIDs to DB IDs, without a cap unless one is asked for."""
+    if max_count is not None and len(source_uuids) > max_count:
         raise HTTPException(status_code=400, detail=t("ai.source.maxAllowed", locale, max=max_count))
     ids = []
     for suuid in source_uuids:

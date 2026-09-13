@@ -68,7 +68,7 @@ async def create_exercise_set(
     if body.mode == "source":
         if not source_uuids:
             raise HTTPException(status_code=400, detail=t("ai.source.notSelected", locale))
-        _resolve_source_ids(workspace, source_uuids, max_count=5, locale=locale)
+        _resolve_source_ids(workspace, source_uuids, locale=locale)
 
     grammar_topic_id = None
     grammar_kinds = None
@@ -92,7 +92,7 @@ async def create_exercise_set(
         # The text always comes from the sources, on the card path too.
         if body.mode not in ("source", "cards") or not source_uuids:
             raise HTTPException(status_code=400, detail=t("ai.source.notSelected", locale))
-        _resolve_source_ids(workspace, source_uuids, max_count=5, locale=locale)
+        _resolve_source_ids(workspace, source_uuids, locale=locale)
         if body.mode == "cards":
             karten = (db.get_exercise_set_with_items(body.flashcard_set_id)
                       if body.flashcard_set_id else None)

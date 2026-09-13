@@ -953,7 +953,7 @@
         "textPlaceholder": "Lecture notes, a chapter, an article. Everything the podcast should cover.",
         "dropOrBrowse": "Drop files here or",
         "browse": "browse",
-        "filesHint": "PDF, Word, PowerPoint or text files, several at once if you like.",
+        "filesHint": "PDF, Word, PowerPoint or text files, at most 10 at a time.",
         "removeFile": "Remove {name}",
         "sourcesLabel": "Sources",
         "languageLabel": "Podcast language",
@@ -963,11 +963,15 @@
         },
         "instructionsLabel": "Instruction, optional",
         "instructionsPlaceholder": "For example: stick to the basics and bring an example from the lab.",
-        "empty": "Add content first, then continue.",
         "next": "Continue to the cast",
         "noModules": "You have no module with material yet. Use text or files in the meantime.",
         "noSources": "No source has finished processing here yet.",
-        "sourcesHint": "Sources that finished processing. Untick the ones that should not appear."
+        "sourcesHint": "Choose up to {max} sources.",
+        "filesCount": "{n} of {max} files",
+        "filesSize": "{size} of {max}",
+        "tooManyFiles": "That is too many files. Remove some to continue.",
+        "tooLarge": "The files are too large together. Remove one to continue.",
+        "sourcesFull": "No more than {max} sources."
       },
       "cast": {
         "heading": "Who speaks?",
@@ -1199,10 +1203,6 @@
         },
         "jobs": {
           "label": "Jobs"
-        },
-        "limits": {
-          "label": "Limits",
-          "sub": "How large and how much the tools accept."
         }
       },
       "assistent": {
@@ -1210,7 +1210,7 @@
         "sub": "The assistant inside a module.",
         "sources": {
           "label": "Sources",
-          "sub": "What may be uploaded, how it is indexed and how much of it goes into a request."
+          "sub": "How uploaded material is read in and processed."
         },
         "level": {
           "label": "Language level",
@@ -1243,6 +1243,13 @@
         "francis": {
           "label": "Francis",
           "sub": "Every pose and state at a glance."
+        }
+      },
+      "grenzen": {
+        "label": "Limits",
+        "tabs": {
+          "material": "Material",
+          "kontext": "Context"
         }
       }
     },
@@ -1880,7 +1887,7 @@
     },
     "toolContextBudgetCard": {
       "title": "Tools context budget",
-      "hint": "How much source text (in characters) the learning tools (mind map, data table, vocab cards, flashcards, grammar exercises, vocabulary exercises, quiz) send to the model. Separate from the chat budget because a tool processes a whole document in one call. The value is divided by the number of selected sources. The default 250000 is safe for mid-tier models. Raise it (e.g. 450000 or 900000) only when running a large-context model. The value is additionally capped by the model's measured context window.",
+      "hint": "How much material text (in characters) the tools send to the model: mind map, data table, vocab cards, flashcards, grammar exercises, vocabulary exercises, quiz and podcast. Separate from the chat budget because a tool processes a whole document in one call. Most tools divide the value by the number of selected materials, the podcast instead fills up in order until the room is gone. This value applies exactly as set. If the configured model cannot take that much it refuses the job with an error, and the value has to be lowered here.",
       "unit": "characters",
       "approxTokens": "≈ {n}k tokens",
       "outOfRange": "Value must be between 1000 and 1000000.",
@@ -1900,7 +1907,7 @@
     },
     "sourceMaxPagesCard": {
       "title": "Max. pages per source",
-      "hint": "Maximum number of pages an uploaded document (PDF/DOCX/PPTX) may have. Larger ones are rejected, please upload long scripts chapter by chapter. Default 200: up to that size a source stays manageable, with very large documents the overview becomes front-heavy. Media (mp3/mp4) is not affected.",
+      "hint": "Maximum number of pages an uploaded document (PDF/DOCX/PPTX) may have. Applies to module material and to the Podcast, Summary and Translation tools. Larger ones are rejected, please upload long scripts chapter by chapter. Default 200: up to that size a source stays manageable, with very large documents the overview becomes front-heavy. Media (mp3/mp4) and Screencast are not affected.",
       "unit": "pages",
       "outOfRange": "Value must be between 1 and 2000.",
       "saveFailed": "Save failed."
@@ -2038,6 +2045,7 @@
         "image": "Image generation",
         "summary": "Summary",
         "screencast": "Screencast",
+        "podcast": "Podcast",
         "glossary": "Glossary"
       },
       "settings": {
@@ -2048,7 +2056,7 @@
           "limits": "Change limits"
         },
         "assistent": {
-          "sources": "Sources and context budgets",
+          "sources": "Processing of material",
           "level": "Language level, AI behaviour and prompts",
           "usage": "AI assistant (all modules)"
         },
@@ -2088,7 +2096,7 @@
       },
       "upload": {
         "title": "Size of a file",
-        "hint": "Applies to all tool uploads: presentations, videos, audio and documents. Sources of the AI assistant have their own limit.",
+        "hint": "Applies to every uploaded file, in the tools as well as for module material: presentations, videos, audio and documents. For the podcast the number counts all files of one podcast together.",
         "unit": "MB",
         "outOfRange": "Value must be between 10 and 2000."
       },
@@ -2099,8 +2107,8 @@
         "outOfRange": "Value must be between 1 and 10000, or -1 for unlimited."
       },
       "open": {
-        "title": "Open screencast jobs per person",
-        "hint": "How many screencasts someone may have in progress at once, script review included. Only one runs at a time anyway, so a higher number just allows more preparation. Use -1 for unlimited.",
+        "title": "Running jobs per person",
+        "hint": "How many jobs someone may have running at the same time, across all tools together. Counted is what is working or queued. A job awaiting the person's own review does not count, it lies still. Use -1 for unlimited.",
         "unit": "jobs",
         "outOfRange": "Value must be between 1 and 100, or -1 for unlimited."
       }
@@ -2485,6 +2493,11 @@
       "saving": "Saving …",
       "savedHint": "Saved",
       "saveError": "Saving failed"
+    },
+    "grenzen": {
+      "werkzeuge": "Tools",
+      "assistent": "AI assistant",
+      "gemeinsam": "Shared"
     }
   },
   "permissions": {
@@ -2737,8 +2750,7 @@
         "sourceStatus": {
           "none": "No source selected",
           "one": "1 source selected",
-          "few": "{count} sources selected",
-          "many": "{count} sources available, only 5 are used"
+          "few": "{count} sources selected"
         },
         "createModal": {
           "title": "Create new {tool}",
@@ -2926,6 +2938,7 @@
         }
       },
       "topbar": {
+        "toList": "{label}",
         "backToOverview": "Back to overview",
         "back": "Back",
         "settings": "Settings",
@@ -3217,8 +3230,7 @@
         "sources": {
           "none": "No source selected",
           "one": "1 source selected",
-          "few": "{n} sources selected",
-          "tooMany": "{n} sources available, only 5 will be used"
+          "few": "{n} sources selected"
         },
         "generate": {
           "create": "Create",

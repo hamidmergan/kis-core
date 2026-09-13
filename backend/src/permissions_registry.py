@@ -201,7 +201,7 @@ SETTING_FIELD_PERMISSIONS: dict[str, str] = {
     "transcription_max_minutes": PERM_SET_TOOLS_LIMITS,
     "upload_max_mb": PERM_SET_TOOLS_LIMITS,
     "results_kept_per_user": PERM_SET_TOOLS_LIMITS,
-    "screencast_max_open_jobs": PERM_SET_TOOLS_LIMITS,
+    "tool_max_open_jobs": PERM_SET_TOOLS_LIMITS,
     "workspace_label_singular_de": PERM_SET_SYSTEM,
     "workspace_label_plural_de": PERM_SET_SYSTEM,
     "workspace_label_singular_en": PERM_SET_SYSTEM,

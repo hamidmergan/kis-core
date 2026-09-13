@@ -4,9 +4,10 @@ from pathlib import Path
 
 from PIL import Image
 
+from src.services.ai_hinweis import AI_HINWEIS_TEXT as KI_HINWEIS
+
 ASSETS_DIR = Path(__file__).parent / "assets"
 OUTRO_SOURCE = ASSETS_DIR / "screencast-outro.png"
-
 
 def create_outro_image(width: int, height: int, output_path: Path) -> None:
     """Puts the notice slide at exactly this size, with a white border."""
@@ -29,9 +30,6 @@ def get_image_dimensions(image_path: Path) -> tuple[int, int]:
     """Return (width, height) of the given image."""
     with Image.open(image_path) as img:
         return img.size
-
-
-KI_HINWEIS = "Dieses Video wurde mithilfe von KI erstellt. This video was created with AI assistance."
 
 
 def rahme_clips(

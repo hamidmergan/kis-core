@@ -2,9 +2,11 @@
 
 import base64
 import json
+from io import BytesIO
 from pathlib import Path
 
 from loguru import logger
+from PIL import Image as PILImage
 
 from src.celery_app import celery_app
 from src import database as db
@@ -12,6 +14,7 @@ from src.i18n import t
 from src.storage import delete_file, get_file, open_input_file, save_result_file, save_result_and_evict
 from src.utils.heartbeat import job_heartbeat
 from src.dependencies import get_translate_client_for_provider
+from src.services.ai_hinweis import png_info_with_notice, vtt_with_notice
 from src.services.translation import TranslationService
 
 
@@ -23,6 +26,14 @@ def _resolve_user_id(job_uuid: str) -> int:
     if not row:
         raise RuntimeError(f"Job {job_uuid} not found")
     return row["user_id"]
+
+
+def _png_with_notice(img_bytes: bytes) -> bytes:
+    """Re-saves the PNG with the AI notice stamped in as a text chunk."""
+    with PILImage.open(BytesIO(img_bytes)) as img:
+        buf = BytesIO()
+        img.save(buf, format="PNG", pnginfo=png_info_with_notice())
+        return buf.getvalue()
 
 
 def _get_llm_client(provider_id: int | None = None):
@@ -194,6 +205,9 @@ def run_transcribe(
         else:
             output_name = f"{Path(filename).stem}{out_ext}"
 
+        if response_format == "vtt":
+            result_text = vtt_with_notice(result_text)
+
         result_path = save_result_file(user_id, job_uuid, out_ext, result_text.encode("utf-8"))
         save_result_and_evict(user_id, job_uuid, result_path, output_name)
         db.update_job_status(job_uuid, "success")
@@ -253,7 +267,7 @@ def run_image_generate(
             raise RuntimeError("Keine Bilder generiert")
 
         label = prompt[:40].strip().replace(" ", "_")
-        img_bytes = base64.b64decode(images[0]["b64_json"])
+        img_bytes = _png_with_notice(base64.b64decode(images[0]["b64_json"]))
         result_filename = f"image_{label}.png"
         result_path = save_result_file(user_id, job_uuid, ".png", img_bytes)
         save_result_and_evict(user_id, job_uuid, result_path, result_filename)
@@ -329,6 +343,7 @@ def run_image_edit(
                 raise RuntimeError(f"Unerwartetes Antwortformat (keys: {keys}): {str(resp_data)[:300]}")
             img_bytes = base64.b64decode(b64)
 
+        img_bytes = _png_with_notice(img_bytes)
         result_filename = f"{Path(filename).stem}.png"
         result_path = save_result_file(user_id, job_uuid, ".png", img_bytes)
         save_result_and_evict(user_id, job_uuid, result_path, result_filename)
