@@ -953,7 +953,7 @@
         "textPlaceholder": "Lecture notes, a chapter, an article. Everything the podcast should cover.",
         "dropOrBrowse": "Drop files here or",
         "browse": "browse",
-        "filesHint": "PDF, Word, PowerPoint or text files, several at once if you like.",
+        "filesHint": "PDF, Word, PowerPoint or text files, at most 10 at a time.",
         "removeFile": "Remove {name}",
         "sourcesLabel": "Sources",
         "languageLabel": "Podcast language",
@@ -963,11 +963,15 @@
         },
         "instructionsLabel": "Instruction, optional",
         "instructionsPlaceholder": "For example: stick to the basics and bring an example from the lab.",
-        "empty": "Add content first, then continue.",
         "next": "Continue to the cast",
         "noModules": "You have no module with material yet. Use text or files in the meantime.",
         "noSources": "No source has finished processing here yet.",
-        "sourcesHint": "Sources that finished processing. Untick the ones that should not appear."
+        "sourcesHint": "Choose up to {max} sources.",
+        "filesCount": "{n} of {max} files",
+        "filesSize": "{size} of {max}",
+        "tooManyFiles": "That is too many files. Remove some to continue.",
+        "tooLarge": "The files are too large together. Remove one to continue.",
+        "sourcesFull": "No more than {max} sources."
       },
       "cast": {
         "heading": "Who speaks?",

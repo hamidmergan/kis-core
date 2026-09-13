@@ -953,7 +953,7 @@
         "textPlaceholder": "Vorlesungsnotizen, ein Kapitel, ein Artikel. Alles, was im Podcast vorkommen soll.",
         "dropOrBrowse": "Dateien hierher ziehen oder",
         "browse": "durchsuchen",
-        "filesHint": "PDF, Word, PowerPoint oder Textdateien, auch mehrere auf einmal.",
+        "filesHint": "PDF, Word, PowerPoint oder Textdateien, höchstens 10 auf einmal.",
         "removeFile": "{name} entfernen",
         "sourcesLabel": "Quellen",
         "languageLabel": "Sprache des Podcasts",
@@ -963,11 +963,15 @@
         },
         "instructionsLabel": "Anweisung, optional",
         "instructionsPlaceholder": "Zum Beispiel: Bleib bei den Grundlagen und bring ein Beispiel aus dem Labor.",
-        "empty": "Erst Inhalt eintragen, dann geht es weiter.",
         "next": "Weiter zur Besetzung",
         "noModules": "Du hast noch kein Modul mit Material. Nimm so lange Text oder Dateien.",
         "noSources": "Hier ist noch keine Quelle fertig verarbeitet.",
-        "sourcesHint": "Fertig verarbeitete Quellen. Nimm die ab, die nicht vorkommen sollen."
+        "sourcesHint": "Wähle bis zu {max} Quellen aus.",
+        "filesCount": "{n} von {max} Dateien",
+        "filesSize": "{size} von {max}",
+        "tooManyFiles": "Das sind zu viele Dateien. Nimm welche raus, dann geht es weiter.",
+        "tooLarge": "Zusammen sind die Dateien zu groß. Nimm eine raus, dann geht es weiter.",
+        "sourcesFull": "Mehr als {max} Quellen gehen nicht."
       },
       "cast": {
         "heading": "Wer spricht?",

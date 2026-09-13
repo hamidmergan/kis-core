@@ -15,12 +15,13 @@ from src.dependencies import get_current_user, is_admin_user
 from src.features.podcast import source_text, store
 from src.features.podcast.schemas import PodcastParams
 from src.i18n import get_locale, t
-from src.limits import MAX_QUEUED_PODCAST_JOBS, PODCAST_MAX_SOURCE_CHARS
+from src.limits import PODCAST_MAX_SOURCES
 from src.quotas import enforce_quota
+from src.services.open_jobs import enforce_open_jobs
 from src.routes.podcast._shared import pruefe_params
 from src.security.rate_limit import enforce_tool_burst
 from src.services.tool_limits import max_upload_bytes
-from src.utils.file_validation import validate_or_raise
+from src.utils.file_validation import pages_or_raise, validate_or_raise
 from src.utils.upload_stream import stream_upload_to_path
 
 router = APIRouter(tags=["podcast"])
@@ -39,16 +40,32 @@ def _pruefe_params(roh: str, locale: str) -> PodcastParams:
 
 def _wacht(user_id: int, current_user: dict, locale: str) -> None:
     """A person may have a few podcasts open, not a hundred."""
-    if db.count_all_jobs_for_tool(user_id, _TOOLS) >= MAX_QUEUED_PODCAST_JOBS:
-        raise HTTPException(status_code=409,
-                            detail=t("podcast.queueFull", locale, max=MAX_QUEUED_PODCAST_JOBS))
+    enforce_open_jobs(user_id, locale)
     enforce_tool_burst(user_id, "podcast", locale)
     enforce_quota(user_id, "podcast", is_admin_user(current_user), locale)
 
 
-async def _aus_dateien(files: list[UploadFile], locale: str) -> tuple[str, str]:
-    teile: list[str] = []
+def _pruefe_anzahl(anzahl: int, locale: str) -> None:
+    """More sources than this leave every single one with a useless share."""
+    if anzahl > PODCAST_MAX_SOURCES:
+        raise HTTPException(status_code=422, detail=t(
+            "podcast.tooManySources", locale, max=PODCAST_MAX_SOURCES))
+
+
+def _pruefe_gesamtgroesse(request: Request, locale: str) -> None:
+    """The size applies to all files together, not to each one on its own."""
+    laenge = request.headers.get("content-length")
+    grenze = max_upload_bytes()
+    if laenge is not None and int(laenge) > grenze:
+        raise HTTPException(status_code=413, detail=t(
+            "podcast.uploadsTooLarge", locale, max=grenze // (1024 * 1024)))
+
+
+async def _aus_dateien(files: list[UploadFile], locale: str
+                       ) -> tuple[list[tuple[str, list[dict]]], str]:
+    quellen: list[tuple[str, list[dict]]] = []
     namen: list[str] = []
+    _pruefe_anzahl(len(files), locale)
     with tempfile.TemporaryDirectory(prefix="podcast_upload_") as tmpdir:
         for datei in files:
             ext = Path(datei.filename or "").suffix.lower()
@@ -61,6 +78,7 @@ async def _aus_dateien(files: list[UploadFile], locale: str) -> tuple[str, str]:
             if not groesse:
                 raise HTTPException(status_code=400, detail=t("file.empty", locale))
             validate_or_raise(kopf, ext, locale)
+            pages_or_raise(ext, ziel, locale)
             try:
                 text = source_text.extract_file(ziel, ext)
             except Exception as e:  # noqa: BLE001 — eine kaputte Datei ist kein Serverfehler
@@ -68,9 +86,9 @@ async def _aus_dateien(files: list[UploadFile], locale: str) -> tuple[str, str]:
                 raise HTTPException(status_code=422, detail=t(
                     "podcast.fileUnreadable", locale, name=datei.filename or "?")) from e
             if text.strip():
-                teile.append(f"# {datei.filename}\n{text.strip()}")
+                quellen.append((datei.filename or "?", source_text.to_pieces(text)))
                 namen.append(datei.filename or "?")
-    return "\n\n".join(teile), ", ".join(namen)
+    return quellen, ", ".join(namen)
 
 
 @router.post("/podcast/start")
@@ -90,7 +108,8 @@ async def start_podcast(
     einstellungen = _pruefe_params(params, locale)
 
     if mode == "files":
-        quelle, label = await _aus_dateien(files, locale)
+        _pruefe_gesamtgroesse(request, locale)
+        quellen, label = await _aus_dateien(files, locale)
     elif mode == "module":
         try:
             uuids = json.loads(source_uuids)
@@ -98,13 +117,14 @@ async def start_podcast(
             uuids = []
         if not workspace_uuid or not uuids:
             raise HTTPException(status_code=422, detail=t("podcast.noContent", locale))
-        quelle, label = source_text.from_module(workspace_uuid, uuids, user_id, locale)
+        _pruefe_anzahl(len(uuids), locale)
+        quellen, label = source_text.from_module(workspace_uuid, uuids, user_id, locale)
     else:
-        quelle, label = text.strip(), ""
+        quellen, label = [("", source_text.to_pieces(text.strip()))], ""
 
+    quelle = source_text.fit_to_budget(quellen)
     if not quelle.strip():
         raise HTTPException(status_code=422, detail=t("podcast.noContent", locale))
-    quelle = source_text.shorten(quelle, PODCAST_MAX_SOURCE_CHARS)
 
     # Checked first, charged second: a refused start costs no quota.
     _wacht(user_id, current_user, locale)
