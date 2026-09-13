@@ -118,3 +118,15 @@ def test_result_length_always_matches_input():
     client = _client([("völlig anderes Format", "stop")] + [("x", "stop")] * 10)
     out = client.translate_batch(["a", "b", "c", "d"], "DE", "EN")
     assert len(out) == 4
+
+
+def test_long_single_text_is_halved_instead_of_failing():
+    """A long text has no batch to split, so the text itself is halved."""
+    client = _client([
+        ("angefangen", "length"),   # erster Aufruf, Budget zu knapp
+        ("angefangen", "length"),   # zweiter Aufruf mit vollem Budget
+        ("first half", "stop"),
+        ("second half", "stop"),
+    ])
+    text = ("Erster Absatz. " * 25).strip() + "\n\n" + ("Zweiter Absatz. " * 25).strip()
+    assert client.translate_text(text, "DE", "EN") == "first half\n\nsecond half"
