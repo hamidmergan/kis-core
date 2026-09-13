@@ -15,6 +15,7 @@ import Spinner from "@/components/ui/Spinner";
 import Select from "@/components/ui/Select";
 import Tabs from "@/components/ui/Tabs";
 import { TRANSLATE_MAX_CHARS } from "@/lib/constants";
+import { stripAiNoticeText } from "@/lib/aiNotice";
 
 type InputMode = "text" | "file";
 
@@ -110,7 +111,7 @@ export default function UebersetzungPage() {
       if (inputMode === "text") {
         try {
           const { blob } = await downloadJobAsBlob(data.job_uuid, "text.txt");
-          setTranslatedText(await blob.text());
+          setTranslatedText(stripAiNoticeText(await blob.text()));
           setTranslatedSourceText(pendingText);
         } catch {
           // Preview is a bonus, the download button below still works.
