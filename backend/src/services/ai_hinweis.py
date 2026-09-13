@@ -7,9 +7,14 @@ private/superpowers/specs/2026-09-13-ai-act-kennzeichnung-design.md for why
 some formats (SRT, Markdown, LaTeX, DOCX, PPTX) are intentionally skipped.
 """
 
+import re
+
+from loguru import logger
 from PIL import PngImagePlugin
 
 AI_HINWEIS_TEXT = "Diese Datei wurde mithilfe von KI erstellt. This file was created with AI assistance."
+
+_VTT_HEADER_SEPARATOR = re.compile(r"\r?\n\r?\n")
 
 
 def ffmpeg_metadata_args() -> list[str]:
@@ -23,12 +28,23 @@ def text_with_notice(text: str) -> str:
 
 
 def vtt_with_notice(vtt_text: str) -> str:
-    """A WebVTT file with the notice as a NOTE block right after the WEBVTT header.
+    """A WebVTT file with the notice as a single NOTE line right after the header.
 
-    NOTE blocks are ignored by every player and by our own VTT text extractor
-    (src/utils/text_extraction.py), so this never shows up as a caption.
+    Tolerant of CRLF and extra header metadata lines between WEBVTT and the
+    first cue, since real STT providers don't always match this project's
+    own WEBVTT\\n\\n-prefixed generator. NOTE lines are ignored by every
+    player and by our own VTT text extractor (src/utils/text_extraction.py),
+    so this never shows up as a caption or leaks into re-extracted text.
     """
-    return vtt_text.replace("WEBVTT\n\n", f"WEBVTT\n\nNOTE\n{AI_HINWEIS_TEXT}\n\n", 1)
+    if not vtt_text.startswith("WEBVTT"):
+        logger.warning("vtt_with_notice: text does not start with WEBVTT, leaving unstamped")
+        return vtt_text
+    match = _VTT_HEADER_SEPARATOR.search(vtt_text)
+    if not match:
+        logger.warning("vtt_with_notice: no header/body separator found, leaving unstamped")
+        return vtt_text
+    end = match.end()
+    return f"{vtt_text[:end]}NOTE {AI_HINWEIS_TEXT}\n\n{vtt_text[end:]}"
 
 
 def png_info_with_notice() -> PngImagePlugin.PngInfo:

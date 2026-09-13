@@ -50,7 +50,7 @@ def test_text_output_carries_the_notice(monkeypatch):
 def test_vtt_output_carries_the_notice_as_a_note_block(monkeypatch):
     vtt = "WEBVTT\n\n00:00:00.000 --> 00:00:01.000\nHallo\n"
     result = _run(monkeypatch, "vtt", vtt)
-    assert b"NOTE\n" + AI_HINWEIS_TEXT.encode("utf-8") in result
+    assert b"NOTE " + AI_HINWEIS_TEXT.encode("utf-8") in result
 
 
 def test_srt_output_stays_unmarked(monkeypatch):
