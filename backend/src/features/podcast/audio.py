@@ -5,6 +5,7 @@ from pathlib import Path
 
 from loguru import logger
 
+from src.services.ai_hinweis import ffmpeg_metadata_args
 from src.services.screencast.process import run_proc
 from src.services.screencast.video import get_audio_duration
 
@@ -47,7 +48,8 @@ def kleben(stuecke: list[bytes], pause: float, job_uuid: str | None = None) -> t
         ziel = ordner / "podcast.mp3"
         ergebnis = run_proc(
             ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(liste),
-             "-ac", "2", "-ar", "44100", "-c:a", "libmp3lame", "-q:a", "4", str(ziel)],
+             "-ac", "2", "-ar", "44100", "-c:a", "libmp3lame", "-q:a", "4",
+             *ffmpeg_metadata_args(), str(ziel)],
             timeout=900, job_uuid=job_uuid,
         )
         if ergebnis.returncode != 0 or not ziel.exists():
