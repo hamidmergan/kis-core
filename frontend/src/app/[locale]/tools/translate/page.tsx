@@ -14,6 +14,7 @@ import { copyTextFromPromise } from "@/lib/clipboard";
 import Spinner from "@/components/ui/Spinner";
 import Select from "@/components/ui/Select";
 import Tabs from "@/components/ui/Tabs";
+import AiHinweisText from "@/components/ui/AiHinweisText";
 import { TRANSLATE_MAX_CHARS } from "@/lib/constants";
 
 type InputMode = "text" | "file";
@@ -292,6 +293,7 @@ export default function UebersetzungPage() {
                     {t("resetLabel")}
                   </button>
                 </div>
+                <AiHinweisText className="mt-2" />
               </div>
             </div>
           )}

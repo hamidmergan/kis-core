@@ -117,7 +117,7 @@ def run_translate(
             if ext == ".txt":
                 text = content.decode("utf-8")
                 translated_text = service.translate_text(text, source_lang, target_lang)
-                result_bytes = translated_text.encode("utf-8")
+                result_bytes = text_with_notice(translated_text).encode("utf-8")
             elif ext == ".md":
                 from src.translators.markdown import translate_markdown_preserve_code_blocks
                 text = content.decode("utf-8")
