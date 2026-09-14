@@ -27,7 +27,7 @@
   },
   "footer": {
     "aiNotice": "Diese Plattform nutzt KI und kann Fehler machen. Prüfe die Antworten.",
-    "feedback": "Feedback oder Probleme?",
+    "feedback": "Fehler melden oder Idee teilen",
     "imprint": "Impressum",
     "privacy": "Datenschutz"
   },
@@ -1886,8 +1886,16 @@
       "saveFailed": "Speichern fehlgeschlagen."
     },
     "toolContextBudgetCard": {
-      "title": "Kontext-Budget der Werkzeuge",
-      "hint": "Wie viel Text aus den Materialien (in Zeichen) die Werkzeuge ins Modell geben: Mindmap, Datentabelle, Lernkarten, Karteikarten, Grammatikübung, Wortschatzübung, Quiz und Podcast. Getrennt vom Chat-Budget, weil ein Werkzeug ein ganzes Dokument in einem Aufruf verarbeitet. Die meisten Werkzeuge teilen den Wert durch die Anzahl der gewählten Materialien, der Podcast füllt stattdessen der Reihe nach auf, bis der Platz voll ist. Dieser Wert gilt so wie er hier steht. Kann das eingestellte Modell so viel nicht, lehnt es den Auftrag mit einer Fehlermeldung ab, dann muss der Wert hier gesenkt werden.",
+      "title": "Kontext-Budget der Überblick-Werkzeuge",
+      "hint": "Wie viel Text aus den Materialien (in Zeichen) die Überblick-Werkzeuge ins Modell geben. Die Werkzeuge nehmen unterschiedliche Anteile davon: die Mindmap den ganzen Wert, Zeitplan und Datentabelle vier Fünftel, der Podcast die Hälfte. Die Mindmap teilt ihren Anteil auf die gewählten Materialien auf, der Podcast füllt der Reihe nach auf, Zeitplan und Datentabelle schneiden ihr Material in Pakete dieser Größe und machen je Paket einen Aufruf. Kann das eingestellte Modell so viel nicht, lehnt es den Auftrag mit einer Fehlermeldung ab, dann muss der Wert hier gesenkt werden.",
+      "unit": "Zeichen",
+      "approxTokens": "≈ {n}k Token",
+      "outOfRange": "Wert muss zwischen 1000 und 1000000 liegen.",
+      "saveFailed": "Speichern fehlgeschlagen."
+    },
+    "exerciseContextBudgetCard": {
+      "title": "Kontext-Budget der Aufgaben",
+      "hint": "Wie viel Text aus den Materialien (in Zeichen) Karteikarten, Lernkarten, Quiz, Wortschatzübung und Grammatikübung für einen Satz Aufgaben ins Modell geben. Die Materialien füllen den Platz der Reihe nach, was nicht mehr hineinpasst, kommt beim nächsten Satz dran, ein Merker je Werkzeug setzt dort wieder an. Für 15 Aufgaben reichen 100.000 Zeichen, mehr macht den Aufruf nur langsamer.",
       "unit": "Zeichen",
       "approxTokens": "≈ {n}k Token",
       "outOfRange": "Wert muss zwischen 1000 und 1000000 liegen.",
@@ -2784,10 +2792,6 @@
           "cardsCount": "{count, plural, =1 {1 Karte} other {# Karten}}",
           "sourcesCount": "{count, plural, =1 {1 Material} other {# Materialien}}",
           "modeLabel": "{mode}",
-          "modeGlossary": "Glossar",
-          "modeQuiz": "Quiz",
-          "modeGrammar": "Grammatik",
-          "modeFlashcards": "Lernkarten",
           "failed": "Fehlgeschlagen",
           "retry": "Nochmal versuchen",
           "fromGlossarySuffix": " · Glossar"
@@ -3287,6 +3291,7 @@
           },
           "edit": "Bearbeiten",
           "extract": "Termine extrahieren",
+          "extractHelp": "Extrahiert werden Termine, die du im Kurs wahrnehmen oder einhalten musst: Prüfungen, Abgaben, Sitzungen, Sprechstunden, Anmeldefristen und Zeiträume wie die Vorlesungszeit. Weggelassen werden Daten ohne Kursbezug: Inkrafttreten, Änderungsstände, Kopf- und Fußzeilen, Zitate und Lebensdaten.",
           "extracting": "Termine werden extrahiert...",
           "msg": {
             "added": "{n} neue Einträge hinzugefügt",

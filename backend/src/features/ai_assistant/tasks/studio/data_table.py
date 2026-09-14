@@ -6,25 +6,27 @@ from langfuse.decorators import observe
 from loguru import logger
 
 from src.celery_app import celery_app
-from src.limits import AIA_TOOL_SOFT_TIME_LIMIT, AIA_TOOL_TIME_LIMIT
+from src.limits import (
+    AIA_TABLE_MAX_PACKETS,
+    AIA_TABLE_SOFT_TIME_LIMIT,
+    AIA_TABLE_TIME_LIMIT,
+)
 from src import database as db
 
 from src.features.ai_assistant.tasks._helpers import (
     _get_llm_client,
     _clean_llm_json,
 )
+from src.features.ai_assistant.tasks._context_budget import tool_context_budget
+from src.features.ai_assistant.tasks.studio import _table_packets
 from src.services import aia_chunker
 from src.services.llm_call import create_logged
 
 
-def _collect_sources(source_ids: list[int], source_uuids: list[str],
+def _collect_sources(source_ids: list[int],
                      source_map: dict) -> list[tuple[int, str, list[dict]]]:
-    """Per source: id, label and the window that fits the budget."""
-    from src.features.ai_assistant.tasks._context_budget import fill_sources_greedy
-
+    """Per source: id, label and all of its chunks, the packets do the cutting."""
     vorhanden: list[tuple[int, str, list[dict]]] = []
-    workspace_id = (db.get_aia_source(source_uuids[0]) or {}).get("workspace_id") \
-        if source_uuids else None
     for sid in source_ids:
         chunks = db.get_chunks_by_source(sid)
         if not chunks:
@@ -32,7 +34,7 @@ def _collect_sources(source_ids: list[int], source_uuids: list[str],
         src_info = source_map.get(str(sid), {})
         vorhanden.append(
             (sid, src_info.get("filename", f"Source {src_info.get('number', '?')}"), chunks))
-    return fill_sources_greedy(vorhanden, workspace_id, "datatable")
+    return vorhanden
 
 
 def _is_media_source(filename: str) -> bool:
@@ -41,14 +43,17 @@ def _is_media_source(filename: str) -> bool:
 
 
 @celery_app.task(bind=True, name="aia.generate_data_table", queue="aia",
-                 soft_time_limit=AIA_TOOL_SOFT_TIME_LIMIT, time_limit=AIA_TOOL_TIME_LIMIT)
+                 soft_time_limit=AIA_TABLE_SOFT_TIME_LIMIT, time_limit=AIA_TABLE_TIME_LIMIT)
 @observe(name="aia-data_table")
 def run_generate_data_table(self, data_table_id: int, source_ids: list[int],
                               source_uuids: list[str], source_map: dict,
                               locale: str = "de", user_id: int | None = None):
     """Generates a data table from the sources as a background job."""
     import json as _json
-    from src.features.ai_assistant.prompts.studio_prompts import AIA_DATENTABELLE_PROMPT
+    from src.features.ai_assistant.prompts.studio_prompts import (
+        AIA_DATENTABELLE_PROMPT,
+        AIA_DATENTABELLE_WEITERE_PAKETE,
+    )
     from src.services.aia_adaptive_tools import build_adaptive_tool_suffix
 
     from src.features.ai_assistant.tasks._helpers import learning_tools_language
@@ -63,7 +68,7 @@ def run_generate_data_table(self, data_table_id: int, source_ids: list[int],
         # Which pages the model saw, the chips are limited to them.
         source_id_to_label: dict[int, str] = {}
         seen_pages_by_source: dict[int, set] = {}
-        for sid, filename, picked in _collect_sources(source_ids, source_uuids, source_map):
+        for sid, filename, picked in _collect_sources(source_ids, source_map):
             source_id_to_label[sid] = filename
             is_media = _is_media_source(filename)
             for chunk in picked:
@@ -81,30 +86,47 @@ def run_generate_data_table(self, data_table_id: int, source_ids: list[int],
             db.update_aia_data_table(data_table_id, "failed", error="Keine Chunks vorhanden")
             return
 
-        context = "\n\n---\n\n".join(context_parts)
-
         client, model, _ = _get_llm_client()
         # The level block hangs on the person, not on the course room.
         adaptive_suffix = build_adaptive_tool_suffix(user_id)
-        messages = [
-            {"role": "system", "content": AIA_DATENTABELLE_PROMPT.replace("{language}", language) + adaptive_suffix},
-            {"role": "user", "content": (
-                f"Create a structured data table from the following text (write it in {language}):\n\n{context}"
-            )},
-        ]
+        system = AIA_DATENTABELLE_PROMPT.replace("{language}", language) + adaptive_suffix
 
-        # A second attempt on broken JSON, a re-roll almost always works.
-        table_data = None
-        for attempt in range(2):
-            response = create_logged(client, endpoint="datentabelle", model=model, messages=messages, temperature=0.2)
-            raw = response.choices[0].message.content
-            if not raw:
-                continue
-            try:
-                table_data = _json.loads(_clean_llm_json(raw))
-                break
-            except _json.JSONDecodeError as e:
-                logger.warning("data_table {} JSON parse failed (attempt {}/2): {}", data_table_id, attempt + 1, e)
+        def _ask(context: str, columns) -> dict | None:
+            """One packet: the first names the columns, every further one joins them."""
+            anweisung = system
+            if columns:
+                anweisung += AIA_DATENTABELLE_WEITERE_PAKETE.format(
+                    columns=", ".join(str(c) for c in columns), count=len(columns))
+            messages = [
+                {"role": "system", "content": anweisung},
+                {"role": "user", "content": (
+                    f"Create a structured data table from the following text "
+                    f"(write it in {language}):\n\n{context}"
+                )},
+            ]
+            # A second attempt on broken JSON, a re-roll almost always works.
+            for attempt in range(2):
+                response = create_logged(client, endpoint="datentabelle", model=model,
+                                         messages=messages, temperature=0.2)
+                if getattr(response.choices[0], "finish_reason", None) == "length":
+                    logger.warning("data_table {}: Antwort abgeschnitten, Paket zu gross",
+                                   data_table_id)
+                    continue
+                raw = response.choices[0].message.content
+                if not raw:
+                    continue
+                try:
+                    return _json.loads(_clean_llm_json(raw))
+                except _json.JSONDecodeError as e:
+                    logger.warning("data_table {} JSON parse failed (attempt {}/2): {}",
+                                   data_table_id, attempt + 1, e)
+            return None
+
+        pakete = _table_packets.packets(context_parts, tool_context_budget("data_table"),
+                                        AIA_TABLE_MAX_PACKETS)
+        logger.info("data_table {}: {} Teile in {} Paketen", data_table_id,
+                    len(context_parts), len(pakete))
+        table_data = _table_packets.run_packets(pakete, _ask)
 
         if table_data is None:
             db.update_aia_data_table(data_table_id, "failed", error="LLM returned unparseable JSON")

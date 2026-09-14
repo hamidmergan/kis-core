@@ -80,12 +80,15 @@ export function ExerciseSetsOverview({
               {sets.map((s) => {
                 const generating = s.status === "generating";
                 const failed = s.status === "failed";
-                const modeLabel = (() => {
-                  switch (s.mode) {
-                    case "glossary": return t("exerciseSets.modeGlossary");
-                    case "quiz": return t("exerciseSets.modeQuiz");
-                    case "grammatik": return t("exerciseSets.modeGrammar");
-                    default: return t("exerciseSets.modeFlashcards");
+                // The tool names the set while it generates, the mode would call Karteikarten "Lernkarten".
+                const toolLabel = (() => {
+                  switch (s.tool) {
+                    case "karteikarten": return t("tools.karteikarten");
+                    case "flashcards": return t("tools.flashcards");
+                    case "grammatik": return t("tools.grammar");
+                    case "quiz": return t("tools.quiz");
+                    case "wortschatz": return t("tools.vocabulary");
+                    default: return t("tools.exerciseFallback");
                   }
                 })();
                 // Exactly the name shown on the card is renamed.
@@ -146,10 +149,8 @@ export function ExerciseSetsOverview({
                     {/* Bottom row: meta left, delete right */}
                     <div className="flex items-center justify-between mt-auto pt-1">
                       <span className="text-xs font-medium" >
-                        {/* Nothing but the date on a failed set: it has no cards to count,
-                            and modeLabel reads off mode rather than tool, so it would name
-                            the wrong exercise type next to the failure. */}
-                        {generating ? modeLabel : failed ? null : t("exerciseSets.cardsCount", { count: s.card_count })}
+                        {/* Nothing but the date on a failed set, it has no cards to count. */}
+                        {generating ? toolLabel : failed ? null : t("exerciseSets.cardsCount", { count: s.card_count })}
                         {!generating && !failed && s.mode === "glossary" && t("exerciseSets.fromGlossarySuffix")}
                         {/* Only in source mode: a glossary set has no sources to count. */}
                         {!generating && !failed && s.mode !== "glossary" && (s.sources?.length ?? 0) > 0

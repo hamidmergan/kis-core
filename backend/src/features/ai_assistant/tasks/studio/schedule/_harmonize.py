@@ -10,6 +10,9 @@ from src.features.ai_assistant.tasks._helpers import _clean_llm_json
 from src.features.ai_assistant.prompts.schedule_prompts import AIA_SCHEDULE_HARMONIZE_PROMPT
 
 from src.features.ai_assistant.tasks.studio.schedule._classify import _CLASSIFY_TIMEOUT_SECS
+
+# Room for one group per item across every day of the request.
+_MAX_TOKENS = 8000
 from src.features.ai_assistant.tasks.studio.schedule._parse import (
     _range_end_date,
     _parse_date,
@@ -21,7 +24,7 @@ def _harmonize_same_date_titles(
     client, model, all_candidates: list[dict], classifications: list[dict],
     today_d: date, existing_entries: list[dict],
 ) -> None:
-    """Harmonises the titles of one day, appointments without a date form their own group."""
+    """Harmonises the titles day by day in one request, undated appointments are a day of their own."""
     # The group key is day plus precision, 'in July' is not the 1st of July.
     cand_groups: dict[tuple, list[int]] = defaultdict(list)
     for idx, (cand, cls) in enumerate(zip(all_candidates, classifications)):
@@ -43,6 +46,14 @@ def _harmonize_same_date_titles(
         existing_by_date[(e.get("due_date"), e.get("end_date"),
                           e.get("date_precision") or "day")].append(e)
 
+    rollen = (
+        "Some items are NEW candidates (role=candidate, title can be rewritten).\n"
+        "Others are EXISTING entries in the DB (role=existing, title is fixed).\n"
+        "If a candidate describes the SAME event as an existing entry, put them\n"
+        "in the same group AND set canonical_title = the existing entry's title.\n\n"
+    )
+    abschnitte: list[str] = []
+    tag_von_kandidat: dict[int, tuple] = {}
     for (d, ende, precision), indices in cand_groups.items():
         existing_at_d = existing_by_date.get((d, ende, precision), [])
         titles = {classifications[i]["title"] for i in indices}
@@ -52,6 +63,7 @@ def _harmonize_same_date_titles(
 
         items: list[dict] = []
         for i in indices:
+            tag_von_kandidat[i] = (d, ende, precision)
             items.append({
                 "id": f"c{i}",  # 'c' prefix = candidate (rewritable)
                 "role": "candidate",
@@ -69,70 +81,63 @@ def _harmonize_same_date_titles(
             })
 
         if d is None:
-            label = "ohne Datum"
-        elif precision == "month":
-            label = d.strftime("%Y-%m") + " (nur Monat)"
-        else:
-            label = d.isoformat()
-        rollen = (
-            "Some items are NEW candidates (role=candidate, title can be rewritten).\n"
-            "Others are EXISTING entries in the DB (role=existing, title is fixed).\n"
-            "If a candidate describes the SAME event as an existing entry, put them\n"
-            "in the same group AND set canonical_title = the existing entry's title.\n\n"
-        )
-        if d is None:
-            user_msg = (
-                "These events have NO fixed date, their date is still to be arranged.\n"
+            abschnitte.append(
+                "Events with NO fixed date, their date is still to be arranged.\n"
                 "IMPORTANT: the missing date is NOT shared evidence. The rule 'bias toward "
                 "merging on the same date' does NOT apply here. Group two items ONLY when "
                 "they clearly name the SAME real event; when in doubt, leave each in its "
-                "own group.\n\n"
-                + rollen
-                + f"Events without a fixed date:\n{json.dumps(items, ensure_ascii=False)}"
+                "own group.\n"
+                + json.dumps(items, ensure_ascii=False)
             )
         elif precision == "month":
-            user_msg = (
+            abschnitte.append(
                 f"Month: {d.strftime('%Y-%m')}. The sources name only this month for all "
-                "of these events, no day.\n"
-                + rollen
-                + f"Events in this month:\n{json.dumps(items, ensure_ascii=False)}"
+                "of these events, no day.\n" + json.dumps(items, ensure_ascii=False)
             )
         else:
-            user_msg = (
-                f"Date: {d.isoformat()}\n"
-                + rollen
-                + f"Events on this date:\n{json.dumps(items, ensure_ascii=False)}"
-            )
-        try:
-            response = client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "system", "content": AIA_SCHEDULE_HARMONIZE_PROMPT},
-                    {"role": "user", "content": user_msg},
-                ],
-                temperature=0.0,
-                max_tokens=2000,
-                response_format={"type": "json_object"},
-                timeout=_CLASSIFY_TIMEOUT_SECS,
-            )
-            raw = _clean_llm_json((response.choices[0].message.content or "").strip())
-            parsed = json.loads(raw)
-            groups_out = parsed.get("groups") or []
-            for g in groups_out:
-                ids = g.get("ids") or []
-                canonical = (g.get("canonical_title") or "").strip()
-                if not canonical:
-                    continue
-                # Only rewrite candidates (c-prefixed); existing entries stay fixed.
-                cand_ids = [int(i[1:]) for i in ids if isinstance(i, str) and i.startswith("c") and i[1:].isdigit()]
-                if not cand_ids:
-                    continue
-                for i in cand_ids:
-                    if 0 <= i < len(classifications):
-                        classifications[i]["title"] = canonical
-                logger.info(
-                    "Schedule harmonize: date {} - candidates {} aligned to '{}'",
-                    label, cand_ids, canonical,
-                )
-        except Exception as e:
-            logger.warning("Schedule harmonize failed for {}: {}", label, e)
+            abschnitte.append(f"Date: {d.isoformat()}\n" + json.dumps(items, ensure_ascii=False))
+
+    if not abschnitte:
+        return
+
+    # One request for every day, the sections keep the days apart.
+    user_msg = (
+        f"{len(abschnitte)} day sections follow. Group items ONLY within their own section, "
+        "never across sections.\n\n" + rollen
+        + "\n\n".join(f"### Section {n}\n{a}" for n, a in enumerate(abschnitte, 1))
+    )
+    try:
+        response = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": AIA_SCHEDULE_HARMONIZE_PROMPT},
+                {"role": "user", "content": user_msg},
+            ],
+            temperature=0.0,
+            max_tokens=_MAX_TOKENS,
+            response_format={"type": "json_object"},
+            timeout=_CLASSIFY_TIMEOUT_SECS,
+        )
+        raw = _clean_llm_json((response.choices[0].message.content or "").strip())
+        parsed = json.loads(raw)
+        groups_out = parsed.get("groups") or []
+        for g in groups_out:
+            ids = g.get("ids") or []
+            canonical = (g.get("canonical_title") or "").strip()
+            if not canonical:
+                continue
+            # Only rewrite candidates (c-prefixed); existing entries stay fixed.
+            cand_ids = [int(i[1:]) for i in ids
+                        if isinstance(i, str) and i.startswith("c") and i[1:].isdigit()]
+            cand_ids = [i for i in cand_ids if i in tag_von_kandidat]
+            if not cand_ids:
+                continue
+            # A group that mixes days is a model slip, the titles stay as they are.
+            if len({tag_von_kandidat[i] for i in cand_ids}) > 1:
+                logger.warning("Schedule harmonize: group {} spans several days, ignored", ids)
+                continue
+            for i in cand_ids:
+                classifications[i]["title"] = canonical
+            logger.info("Schedule harmonize: candidates {} aligned to '{}'", cand_ids, canonical)
+    except Exception as e:
+        logger.warning("Schedule harmonize failed: {}", e)

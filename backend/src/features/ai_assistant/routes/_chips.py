@@ -113,6 +113,21 @@ def _is_heading_line(line: str) -> bool:
     return line.lstrip().startswith("#") or bool(_BOLD_HEADING_RE.match(line.strip()))
 
 
+def _lead_in_lines(lines: list[str]) -> set:
+    """The lines of an overview that lead in to the sections instead of claiming anything.
+
+    An overview opens with a sentence about the material as a whole, and no single spot can
+    back that. Measured against a real overview over 30 statutes: every word based rule
+    puts a chip there anyway, because the lead-in reuses ordinary words of the material.
+    What gives it away is not its words but its place, in front of the first section."""
+    heads = [i for i, ln in enumerate(lines) if _is_heading_line(ln)]
+    if not heads:
+        return set()            # no sections, so no lead-in either
+    if not any(lines[i].strip() for i in range(heads[0])):
+        heads = heads[1:]       # a title at the very top names the answer, not a section
+    return set(range(heads[0])) if heads else set()
+
+
 # A line already has evidence when it ends with a chip.
 _HAS_CITE = re.compile(r"\[(?:Q?\d+,\s*)?(?:S\.\s*\d+|\d{1,2}:\d{2}(?::\d{2})?)[^\]]*\]\s*\|?\s*$")
 

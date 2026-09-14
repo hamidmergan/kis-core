@@ -12,7 +12,7 @@ from pydantic import ValidationError
 
 from src import database as db
 from src.dependencies import get_current_user, is_admin_user
-from src.features.podcast import source_text, store
+from src.features.podcast import instruction, source_store, source_text, store
 from src.features.podcast.schemas import PodcastParams
 from src.i18n import get_locale, t
 from src.limits import PODCAST_MAX_SOURCES
@@ -61,10 +61,20 @@ def _pruefe_gesamtgroesse(request: Request, locale: str) -> None:
             "podcast.uploadsTooLarge", locale, max=grenze // (1024 * 1024)))
 
 
-async def _aus_dateien(files: list[UploadFile], locale: str
-                       ) -> tuple[list[tuple[str, list[dict]]], str]:
+def _store_upload(user_id: int, name: str, pfad: str, ext: str, locale: str) -> str | None:
+    """Files the upload for later runs, a failed filing never stops the podcast."""
+    try:
+        return source_store.put(user_id, name, pfad, ext, locale)
+    except Exception as e:  # noqa: BLE001 — der Vorrat ist Beiwerk, nicht der Auftrag
+        logger.warning("Podcast: {} nicht eingelagert: {}", name, e)
+        return None
+
+
+async def _aus_dateien(files: list[UploadFile], user_id: int, locale: str
+                       ) -> tuple[list[tuple[str, list[dict]]], str, list[str]]:
     quellen: list[tuple[str, list[dict]]] = []
     namen: list[str] = []
+    eingelagert: list[str] = []
     _pruefe_anzahl(len(files), locale)
     with tempfile.TemporaryDirectory(prefix="podcast_upload_") as tmpdir:
         for datei in files:
@@ -86,9 +96,14 @@ async def _aus_dateien(files: list[UploadFile], locale: str
                 raise HTTPException(status_code=422, detail=t(
                     "podcast.fileUnreadable", locale, name=datei.filename or "?")) from e
             if text.strip():
-                quellen.append((datei.filename or "?", source_text.to_pieces(text)))
-                namen.append(datei.filename or "?")
-    return quellen, ", ".join(namen)
+                name = datei.filename or "?"
+                quellen.append((name, source_text.to_pieces(text)))
+                namen.append(name)
+                # The run itself uses the text above, the embedding happens in the background.
+                gelagert = _store_upload(user_id, name, ziel, ext, locale)
+                if gelagert:
+                    eingelagert.append(gelagert)
+    return quellen, ", ".join(namen), eingelagert
 
 
 @router.post("/podcast/start")
@@ -107,9 +122,15 @@ async def start_podcast(
     user_id = current_user.get("user_id", 0)
     einstellungen = _pruefe_params(params, locale)
 
+    # Where the material also lies embedded, so a precise instruction can search it.
+    durchsuchbar: tuple[int | None, list[str]] = (None, [])
+
     if mode == "files":
         _pruefe_gesamtgroesse(request, locale)
-        quellen, label = await _aus_dateien(files, locale)
+        quellen, label, eingelagert = await _aus_dateien(files, user_id, locale)
+        vorrat = source_store.store_of(user_id) if eingelagert else None
+        if vorrat:
+            durchsuchbar = (vorrat["id"], eingelagert)
     elif mode == "module":
         try:
             uuids = json.loads(source_uuids)
@@ -119,10 +140,14 @@ async def start_podcast(
             raise HTTPException(status_code=422, detail=t("podcast.noContent", locale))
         _pruefe_anzahl(len(uuids), locale)
         quellen, label = source_text.from_module(workspace_uuid, uuids, user_id, locale)
+        modul = db.get_aia_workspace(workspace_uuid)
+        if modul:
+            durchsuchbar = (modul["id"], uuids)
     else:
         quellen, label = [("", source_text.to_pieces(text.strip()))], ""
 
-    quelle = source_text.fit_to_budget(quellen)
+    quelle = await instruction.build_context(
+        quellen, einstellungen.instructions, durchsuchbar[0], durchsuchbar[1])
     if not quelle.strip():
         raise HTTPException(status_code=422, detail=t("podcast.noContent", locale))
 

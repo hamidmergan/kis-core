@@ -8,11 +8,17 @@ from src.i18n import DEFAULT_LOCALE, t
 from src.storage import delete_aia_workspace_folder, save_aia_source_from_path
 
 
+def _visible_workspace(workspace_uuid: str, locale: str) -> dict:
+    """The podcast store is no course room, every route treats it as absent."""
+    workspace = db.get_aia_workspace(workspace_uuid)
+    if not workspace or workspace.get("is_podcast_store"):
+        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
+    return workspace
+
+
 def _require_workspace_owner(workspace_uuid: str, user_id: int, locale: str = DEFAULT_LOCALE) -> dict:
     """Owner only: deleting and granting tutor rights."""
-    workspace = db.get_aia_workspace(workspace_uuid)
-    if not workspace:
-        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
+    workspace = _visible_workspace(workspace_uuid, locale)
     if workspace["user_id"] != user_id:
         raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
     return workspace
@@ -20,9 +26,7 @@ def _require_workspace_owner(workspace_uuid: str, user_id: int, locale: str = DE
 
 def _require_workspace_manage(workspace_uuid: str, user_id: int, locale: str = DEFAULT_LOCALE) -> dict:
     """Allows owner or tutor, for everything that changes a course room."""
-    workspace = db.get_aia_workspace(workspace_uuid)
-    if not workspace:
-        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
+    workspace = _visible_workspace(workspace_uuid, locale)
     if workspace["user_id"] == user_id:
         return workspace
     if db.is_workspace_tutor(workspace["id"], user_id):
@@ -32,9 +36,7 @@ def _require_workspace_manage(workspace_uuid: str, user_id: int, locale: str = D
 
 def _require_workspace_access(workspace_uuid: str, user_id: int, locale: str = DEFAULT_LOCALE) -> dict:
     """Allows owner or enrolled people, an inactive course room answers with 423."""
-    workspace = db.get_aia_workspace(workspace_uuid)
-    if not workspace:
-        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
+    workspace = _visible_workspace(workspace_uuid, locale)
     if workspace["user_id"] == user_id:
         return workspace
     if db.is_student_enrolled(workspace["id"], user_id):

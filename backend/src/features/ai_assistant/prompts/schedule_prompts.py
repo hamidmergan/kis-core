@@ -149,7 +149,14 @@ AIA_SCHEDULE_CLASSIFY_PROMPT = (
     "- Plain double quotes only; no markdown, no German „..\" quotes, no emphasis.\n"
     "- results array length MUST equal the input candidates length; use same ids.\n"
     "- Do not invent dates; operate only on the given candidates.\n"
-    "- Output compact JSON (no unnecessary whitespace or indentation).\n"
+    "- Output compact JSON (no unnecessary whitespace or indentation).\n\n"
+    # Measured: same verdicts and times as the spelled-out form, a third of the tokens.
+    "COMPACT OUTPUT: for every candidate emit \"id\" plus ONLY the fields whose value "
+    "differs from the default. Defaults: keep=false, is_footer=false, is_header=false, "
+    "is_historical=false, is_range=false, is_open_ended=false, is_optional=false, and "
+    "type/title/description/due_time/end_time = null. A dropped candidate that is neither "
+    "footer nor header nor historical is exactly {\"id\": N}. Never omit an id, never repeat "
+    "a default value."
 )
 
 
@@ -229,9 +236,10 @@ AIA_SCHEDULE_TBD_DISCOVER_PROMPT = (
 
 
 AIA_SCHEDULE_HARMONIZE_PROMPT = (
-    "You receive a list of events that all occur on the SAME date. They come from "
-    "different sources (PDFs, video transcripts) and may be worded differently even "
-    "though they describe the SAME real-world event.\n\n"
+    "You receive events sorted into day sections. The events of one section all occur "
+    "on the SAME date. They come from different sources (PDFs, video transcripts) and "
+    "may be worded differently even though they describe the SAME real-world event. "
+    "Never put events of different sections into one group.\n\n"
     "Each item has a `role` field:\n"
     "- role='existing' → already in the database, title is FIXED, do NOT invent a new one.\n"
     "- role='candidate' → newly extracted, title can be rewritten.\n"
@@ -264,4 +272,65 @@ AIA_SCHEDULE_HARMONIZE_PROMPT = (
     "Respond ONLY with a JSON object:\n"
     '{ "groups": [ { "ids": ["c0", "e42", ...], "canonical_title": "..." }, ... ] }\n\n'
     "Every input id must appear in exactly ONE group. Plain double quotes only, no markdown."
+)
+
+
+AIA_SCHEDULE_EXTRACT_PROMPT = (
+    "You read text blocks from course documents and return every REAL appointment or "
+    "deadline a student must see on the course schedule. Most blocks hold none.\n\n"
+    "WHAT COUNTS (return it):\n"
+    "- An organisational event or deadline the student acts on or attends: exam, "
+    "submission, hand-in, lecture session, meeting, web conference, office hour, "
+    "excursion, guest talk, registration window. A scheduling verb or preposition "
+    "belongs to it ('am X findet', 'bis X abgeben', 'deadline on X', 'Abgabe:', "
+    "'submission by').\n"
+    "- A NAMED period of the academic calendar ('Vorlesungszeit', 'Prüfungszeitraum', "
+    "'unterrichtsfreie Zeit', 'semester runs from'), with the name from the source as "
+    "its title.\n"
+    "- An event whose date is deliberately not fixed yet ('nach Vereinbarung', 'wird "
+    "noch bekannt gegeben', 'to be announced'): date=null.\n"
+    "- 'Ab <date>' as a start with no end ('ab 15.09.2026 freigeschaltet', 'available "
+    "from'): open_ended=true.\n"
+    "- Past dates of the CURRENT course stay: last week's lecture or a submission that "
+    "just closed belongs on the schedule.\n\n"
+    "WHAT DOES NOT COUNT (leave it out):\n"
+    "- Page chrome: footer or header dates, 'Stand:', version, author lines, slide or "
+    "page numbers, cover sheets, the same document date printed on every page.\n"
+    "- Historical facts and references: when a law or rule came into force, 'seit "
+    "2019', a previous run of the course ('letztes Semester'), citations, birthdays, "
+    "one-time obligations whose date lies years back.\n"
+    "- Relative or recurring-only phrases ('in drei Wochen', 'jeden Dienstag') and "
+    "dates that are only referenced ('siehe Termin vom').\n"
+    "- A number that only looks like a date: section numbers ('3.6.26 "
+    "Zusammenfassung'), versions, page numbers, decimals.\n\n"
+    "OUTPUT, compact JSON only:\n"
+    '{"appointments": [{"id": block id, "date": ..., "end_date": ..., "time": "HH:MM" '
+    'or null, "end_time": "HH:MM" or null, "type": "deadline" or "termin", "title": '
+    '"...", "description": "..." or null, "quote": "...", "open_ended": bool, '
+    '"optional": bool}]}\n'
+    "- date: 'YYYY-MM-DD' when day, month and year are written; 'YYYY-MM' when only "
+    "month and year are written; 'MM-DD' when the year is not written; 'MM' when only "
+    "the month is written ('Ende Mai', 'Anfang Juli', 'late May'); null only for an "
+    "event without any date.\n"
+    "- A deadline 'bis X' has date = X and no end_date. end_date is only the end of ONE "
+    "window that also has a start ('vom 3. bis 17. Juli', '28.09.2026 bis 02.11.2026 "
+    "Anmeldung'). Two separate events standing close together are two items.\n"
+    "- Never invent a date: the year must be written in the block, otherwise the date "
+    "has no year ('MM-DD'). Never shift a date into another year.\n"
+    "- quote: the sentence fragment with the date, CHARACTER FOR CHARACTER as it stands "
+    "in the block, so the system can find it again.\n"
+    "- id: the block id from the input, never another one. A block may yield several "
+    "items.\n"
+    "- type: 'deadline' for submissions, hand-ins and filings tied to a due date; "
+    "'termin' for events that take place.\n"
+    "- title: short, complete, in the SOURCE language, with the event noun ('Abgabe "
+    "Hausarbeit', 'Klausur: Wirtschaftsrecht', 'Webkonferenz: Kick-off'). Never a bare "
+    "adjective, never 'Termin:' as a prefix, never the date itself. The same event "
+    "mentioned twice gets the EXACT same title.\n"
+    "- description: extra details or null, never a time, time and end_time carry it.\n"
+    "- time and end_time: a time range within one day fills both; a time listed once "
+    "for a table or a series of rows applies to every row of that series.\n"
+    "- optional: true only for 'freiwillig', 'optional', 'nach Wahl', 'voluntary'.\n"
+    "Plain double quotes, no markdown, no comments, nothing outside the JSON object. "
+    "An empty list is a valid answer."
 )

@@ -75,7 +75,7 @@ export function useMindmap({ uuid, selectedSourceIds }: UseMindmapOptions) {
       const res = await api.fetch(`/api/ai-assistant/workspaces/${uuid}/mindmap/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ active_source_ids: selectedSourceIds.slice(0, 5) }),
+        body: JSON.stringify({ active_source_ids: selectedSourceIds }),
       });
       if (res.ok) {
         const data = await res.json();

@@ -216,6 +216,7 @@ SETTING_FIELD_PERMISSIONS: dict[str, str] = {
     "aia_context_max_chars": PERM_SET_AIA_SOURCES,
     "aia_specific_max_chars": PERM_SET_AIA_SOURCES,
     "aia_tool_context_max_chars": PERM_SET_AIA_SOURCES,
+    "aia_exercise_context_max_chars": PERM_SET_AIA_SOURCES,
     "aia_learning_tools_language": PERM_SET_AIA_SOURCES,
     "aia_summary_batch_max_chars": PERM_SET_AIA_SOURCES,
     "aia_source_max_pages": PERM_SET_AIA_SOURCES,

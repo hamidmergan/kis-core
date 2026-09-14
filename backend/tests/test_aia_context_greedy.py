@@ -15,7 +15,7 @@ def welt(monkeypatch):
     """A fake module: budget, per-source marks and the rotation mark live in dicts."""
     state = {"budget": 100000, "cursors": {}, "rotation": {}}
 
-    monkeypatch.setattr(cb, "tool_context_budget", lambda: state["budget"])
+    monkeypatch.setattr(cb, "exercise_context_budget", lambda: state["budget"])
     monkeypatch.setattr("src.database.get_context_cursors",
                         lambda w, s, t: state["cursors"].get((w, s, t), []))
     monkeypatch.setattr("src.database.set_context_cursors",

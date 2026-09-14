@@ -1,7 +1,10 @@
-"""Find appointments: search patterns, classify in one call, harmonise, merge."""
+"""Find appointments: patterns pick the blocks, one model call per packet, harmonise, merge."""
 
+import contextvars
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date as _date_cls
 
+from celery.exceptions import SoftTimeLimitExceeded
 from langfuse.decorators import observe
 from loguru import logger
 
@@ -10,12 +13,17 @@ from src.celery_app import celery_app
 from src.limits import AIA_SCHEDULE_SOFT_TIME_LIMIT, AIA_SCHEDULE_TIME_LIMIT
 from src.features.ai_assistant.tasks._helpers import _get_llm_client
 
+from src.features.ai_assistant.tasks._context_budget import tool_context_budget
 from src.features.ai_assistant.tasks.studio.schedule._candidates import (
-    _build_candidates_for_source,
+    _fundstelle_zeit,
+    _load_source_chunks,
+    _transcript_index,
 )
-from src.features.ai_assistant.tasks.studio.schedule._classify import (
-    _classify_candidates,
-    _dated_month_days,
+from src.features.ai_assistant.tasks.studio.schedule._extract import (
+    extract_packet,
+    hit_blocks,
+    items_to_pairs,
+    packets,
 )
 from src.features.ai_assistant.tasks.studio.schedule._harmonize import (
     _harmonize_same_date_titles,
@@ -49,12 +57,16 @@ def _split_rejected_ranges(candidates: list[dict],
     return cands, cls_out
 
 
+# Measured: the provider runs two big requests side by side, a third slows all of them.
+_PARALLEL_PACKETS = 2
+
+
 @celery_app.task(bind=True, name="aia.generate_schedule", queue="aia",
                  soft_time_limit=AIA_SCHEDULE_SOFT_TIME_LIMIT, time_limit=AIA_SCHEDULE_TIME_LIMIT)
 @observe(name="aia-schedule")
 def run_generate_schedule(self, job_id: int, workspace_id: int, user_id: int,
                           source_uuids: list[str]):
-    """Finds candidates by pattern, classifies them in one call and merges them."""
+    """Patterns pick the blocks, the model returns the appointments, the rest is merging."""
     try:
         db.update_schedule_job(job_id, "running")
         logger.info("Schedule job {} started", job_id)
@@ -76,15 +88,37 @@ def run_generate_schedule(self, job_id: int, workspace_id: int, user_id: int,
         # Per open source, use the stored analysis or analyse again.
         today_d = _date_cls.today()
         per_source: dict[int, tuple[list[dict], list[dict]]] = {}
-        sources_needing_classify: list[tuple[dict, list[dict]]] = []
 
-        # The client is ready before the candidate search, which asks for it itself.
+        # Without a model only the stored analyses can be used.
         try:
             client, model, _ = _get_llm_client()
         except Exception as e:  # noqa: BLE001 - der Zwischenspeicher-Weg braucht kein Modell
             logger.warning("Schedule job {}: kein LLM-Client ({})", job_id, e)
             client, model = None, None
 
+        # Open appointments have no pattern, one search covers the whole module.
+        open_spots: dict = {}
+        try:
+            from src.features.ai_assistant.tasks.studio.schedule._open_search import (
+                open_spots_for_workspace,
+            )
+            from src.services.aia_embeddings import get_embedding_provider_with_fallback
+            provider = get_embedding_provider_with_fallback()
+            open_spots = open_spots_for_workspace(
+                workspace_id, [s["id"] for s in pending],
+                embed=provider.embed_one,
+                search=lambda wid, q, vec, sids, limit: db.hybrid_search_chunks(
+                    wid, q, vec, source_ids=sids, limit=limit),
+            )
+            logger.info("Schedule job {}: Suche fand {} offene Stellen", job_id, len(open_spots))
+        except Exception as e:  # noqa: BLE001 - der Zeitplan entsteht auch ohne diese Suche
+            logger.warning("Schedule job {}: Suche nach offenen Terminen fehlgeschlagen: {}",
+                           job_id, e)
+
+        # Per source: the stored analysis, or its hit blocks for the model.
+        blocks: list[dict] = []
+        zeitachsen: dict[int, object] = {}
+        last_block_of: dict[int, int] = {}
         for src in pending:
             stored = db.get_source_extraction(src["id"])
             if stored is not None:
@@ -94,48 +128,82 @@ def run_generate_schedule(self, job_id: int, workspace_id: int, user_id: int,
                     job_id, src.get("filename", src["id"]),
                     len(stored["candidates"]),
                 )
-            else:
-                cands = _build_candidates_for_source(src, client=client, model=model)
-                logger.info(
-                    "Schedule job {}: source '{}' -> {} date candidates (will classify)",
-                    job_id, src.get("filename", src["id"]), len(cands),
-                )
-                sources_needing_classify.append((src, cands))
+                continue
+            chunks = _load_source_chunks(src["id"])
+            eigene = hit_blocks(src, chunks, open_spots)
+            zeitachsen[src["id"]] = _transcript_index(src, chunks)
+            logger.info("Schedule job {}: source '{}' -> {} of {} blocks carry a date",
+                        job_id, src.get("filename", src["id"]), len(eigene), len(chunks))
+            if not eigene:
+                per_source[src["id"]] = ([], [])
+                db.upsert_source_extraction(src["id"], [], [])
+                continue
+            last_block_of[src["id"]] = len(blocks) + len(eigene) - 1
+            blocks.extend(eigene)
 
-        # The entries already there, also so the classification knows the taken days.
+        # The entries already there, also as anchors for consistent naming.
         existing_entries: list[dict] = list(db.get_schedule_entries(workspace_id, user_id))
         workspace_entries: list[dict] = list(db.get_schedule_entries_for_workspace(workspace_id))
 
-        if sources_needing_classify:
-            to_classify: list[dict] = []
-            for _src, cands in sources_needing_classify:
-                to_classify.extend(cands)
+        def zeit_bei(block: dict, offset: int):
+            return _fundstelle_zeit(zeitachsen.get(block["source_id"]), block["chunk"], offset)
 
-            # Without this hint the classification discards spoken appointments as past.
-            dated_days = _dated_month_days(to_classify, workspace_entries)
+        # Two packets at a time, a source is saved as soon as all its packets are through.
+        pakete = packets(blocks, tool_context_budget("schedule"))
+        quellen_je_paket = [{b["source_id"] for b in p} for p in pakete]
+        pakete_je_quelle: dict[int, set[int]] = {}
+        for pi, sids in enumerate(quellen_je_paket):
+            for sid in sids:
+                pakete_je_quelle.setdefault(sid, set()).add(pi)
+        ergebnis: dict[int, dict[int, tuple[list[dict], list[dict]]]] = {}
+        fehler: Exception | None = None
+        pool = ThreadPoolExecutor(max_workers=_PARALLEL_PACKETS)
+        try:
+            # Each packet keeps the trace context of the task in its thread.
+            futures = {
+                pool.submit(contextvars.copy_context().run, extract_packet,
+                            client, model, p, today_d): pi
+                for pi, p in enumerate(pakete)
+            }
+            for fut in as_completed(futures):
+                pi = futures[fut]
+                try:
+                    neu = fut.result()
+                except SoftTimeLimitExceeded:
+                    raise
+                except Exception as e:  # noqa: BLE001 - the other packets go on
+                    fehler = e
+                    logger.error("Schedule job {}: Terminsuche fehlgeschlagen: {}", job_id, e)
+                    continue
+                logger.info("Schedule job {}: packet of {} blocks -> {} appointments",
+                            job_id, len(pakete[pi]), len(neu))
+                ergebnis[pi] = items_to_pairs(neu, pakete[pi], today_d, time_at=zeit_bei)
+                for sid in quellen_je_paket[pi]:
+                    if sid in per_source or not pakete_je_quelle[sid].issubset(ergebnis):
+                        continue
+                    cands: list[dict] = []
+                    cls: list[dict] = []
+                    for pj in sorted(pakete_je_quelle[sid]):
+                        c, v = ergebnis[pj].get(sid, ([], []))
+                        cands.extend(c)
+                        cls.extend(v)
+                    per_source[sid] = (cands, cls)
+                    db.upsert_source_extraction(sid, cands, cls)
+        except SoftTimeLimitExceeded:
+            logger.warning("Schedule job {}: Zeit abgelaufen, {} Quellen sind gesichert",
+                           job_id, len(per_source))
+        finally:
+            pool.shutdown(wait=False, cancel_futures=True)
 
-            try:
-                fresh = _classify_candidates(client, model, to_classify, today_d, dated_days)
-            except Exception as e:
-                logger.error("Schedule job {}: classify failed: {}", job_id, e)
-                db.update_schedule_job(
-                    job_id, "failed",
-                    error=f"Klassifikation fehlgeschlagen: {e}",
-                )
-                return
-
-            idx = 0
-            for src, cands in sources_needing_classify:
-                n = len(cands)
-                slice_ = fresh[idx : idx + n]
-                per_source[src["id"]] = (cands, slice_)
-                db.upsert_source_extraction(src["id"], cands, slice_)
-                idx += n
+        if fehler is not None and not per_source:
+            db.update_schedule_job(job_id, "failed", error=f"Terminsuche fehlgeschlagen: {fehler}")
+            return
 
         # Assemble final flat lists in pending order.
+        fertig = [src for src in pending if src["id"] in per_source]
         all_candidates: list[dict] = []
         classifications: list[dict] = []
-        for src in pending:
+        for src in fertig:
             cands, cls = per_source[src["id"]]
             all_candidates.extend(cands)
             classifications.extend(cls)
@@ -144,7 +212,7 @@ def run_generate_schedule(self, job_id: int, workspace_id: int, user_id: int,
         all_candidates, classifications = _split_rejected_ranges(all_candidates, classifications)
 
         if not all_candidates:
-            for src in pending:
+            for src in fertig:
                 db.mark_source_processed(workspace_id, user_id, src["id"])
             db.update_schedule_job(job_id, "success", added_count=0)
             logger.info("Schedule job {}: no candidates found", job_id)
@@ -238,7 +306,7 @@ def run_generate_schedule(self, job_id: int, workspace_id: int, user_id: int,
             added += 1
 
         # STAGE 4: mark sources processed
-        for src in pending:
+        for src in fertig:
             db.mark_source_processed(workspace_id, user_id, src["id"])
 
         db.update_schedule_job(job_id, "success", added_count=added)

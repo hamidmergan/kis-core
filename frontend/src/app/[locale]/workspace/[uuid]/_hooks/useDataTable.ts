@@ -78,7 +78,7 @@ export function useDataTable({ uuid, selectedSourceIds }: UseDataTableOptions) {
       const res = await api.fetch(`/api/ai-assistant/workspaces/${uuid}/data_table/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ active_source_ids: selectedSourceIds.slice(0, 5) }),
+        body: JSON.stringify({ active_source_ids: selectedSourceIds }),
       });
       if (res.ok) {
         const data = await res.json();

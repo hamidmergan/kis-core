@@ -2,10 +2,7 @@
 
 import pytest
 
-from src.features.ai_assistant.routes.language_training.exercises import (
-    _MAX_SET_SOURCES,
-    _numbered_sources,
-)
+from src.features.ai_assistant.routes.language_training.exercises import _numbered_sources
 
 FILES = {
     "uuid-a": "01_Einfuehrung.pdf",
@@ -44,10 +41,11 @@ def test_a_set_from_before_the_column_falls_back_to_its_single_source():
     assert out == [{"number": 1, "filename": "02_Publizieren.pdf"}]
 
 
-def test_the_legend_is_capped():
+def test_the_legend_lists_every_source_the_set_used():
+    # The numbers in the exercises count all sources, so the legend must not stop earlier.
     out = _numbered_sources({"source_uuids": list(FILES)})
-    assert len(out) == _MAX_SET_SOURCES
-    assert [e["number"] for e in out] == list(range(1, _MAX_SET_SOURCES + 1))
+    assert len(out) == len(FILES)
+    assert [e["number"] for e in out] == list(range(1, len(FILES) + 1))
 
 
 def test_a_deleted_source_drops_out_and_the_numbers_close_the_gap():

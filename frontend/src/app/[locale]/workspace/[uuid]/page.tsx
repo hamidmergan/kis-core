@@ -410,8 +410,8 @@ export default function KiTutorWorkspacePage() {
     loadStreak, bumpStats,
   });
 
-  // All chosen sources, the same limit of 5 as for mind map and table.
-  const setSourceUuids = selectedSourceIds.slice(0, 5);
+  // All chosen sources, the backend spreads the budget over every one of them.
+  const setSourceUuids = selectedSourceIds;
   const selectedSourcesForSet = setSourceUuids
     .map((id) => sources.find((s) => s.uuid === id))
     .filter((s): s is NonNullable<typeof s> => Boolean(s))

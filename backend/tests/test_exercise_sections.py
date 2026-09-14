@@ -33,7 +33,7 @@ def _install(monkeypatch, sizes, budget=250000):
     monkeypatch.setattr("src.database.get_context_rotation", lambda w, t: None)
     monkeypatch.setattr("src.database.set_context_rotation", lambda w, t, s: None)
     monkeypatch.setattr(
-        "src.features.ai_assistant.tasks._context_budget.tool_context_budget",
+        "src.features.ai_assistant.tasks._context_budget.exercise_context_budget",
         lambda: budget)
     return list(by_uuid)
 

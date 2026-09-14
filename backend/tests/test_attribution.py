@@ -1,5 +1,5 @@
 """After-the-fact evidence search for overview answers, with a distance threshold."""
-from src.features.ai_assistant.routes._chips import _attribution_chip
+from src.features.ai_assistant.routes._chips import _attribution_chip, _lead_in_lines
 from src.features.ai_assistant.routes._evidence import (
     _attribute_generic_text,
     _attribution_subunits,
@@ -1115,3 +1115,50 @@ def test_without_a_lookup_nothing_changes():
     hits = [_talk(0, 0.398), _talk(1, 0.420)]
     assert _line_candidates(_LINE, lambda _l: hits, None, None, None) == sorted(
         hits, key=lambda h: h["vec_distance"])
+
+
+# ── lead-in of an overview (no chip on the sentence about the whole material) ─
+
+def test_lead_in_ohne_ueberschrift_gibt_es_nicht():
+    assert _lead_in_lines(["Ein Satz.", "Noch ein Satz."]) == set()
+
+
+def test_lead_in_reicht_bis_zur_ersten_abschnitts_ueberschrift():
+    zeilen = ["Die Materialien umfassen vieles.", "", "## Arbeitsrecht", "Das Gesetz regelt."]
+    assert _lead_in_lines(zeilen) == {0, 1}
+
+
+def test_eine_titelzeile_oben_zaehlt_nicht_als_abschnitt():
+    """Steht die Überschrift ganz oben, ist sie der Titel der Antwort, nicht ein Abschnitt."""
+    zeilen = ["**Überblick über die Materialien**", "Die Materialien umfassen vieles.",
+              "**Gesellschaftsrecht (GmbHG)**", "Das Gesetz regelt."]
+    assert _lead_in_lines(zeilen) == {0, 1}
+
+
+def test_lead_in_ohne_zweite_ueberschrift_ist_leer():
+    zeilen = ["## Überblick", "Die Materialien umfassen vieles."]
+    assert _lead_in_lines(zeilen) == set()
+
+
+_LEAD_TEXT = ("Die Materialien behandeln viele Bereiche des deutschen Rechts.\n"
+              "\n"
+              "## Arbeitsrecht\n"
+              "\n"
+              "Das Arbeitszeitgesetz regelt die tägliche Höchstarbeitszeit.")
+
+_LEAD_SEARCH = {"Materialien": [_hit(1, 3, "Materialien und Bereiche des Rechts", 0.2)],
+                "Arbeitszeitgesetz": [_hit(2, 5, "Arbeitszeitgesetz Höchstarbeitszeit", 0.2)]}
+
+
+def test_einleitungssatz_eines_ueberblicks_bekommt_keinen_chip():
+    out = _attribute_generic_text(_LEAD_TEXT, _searcher(_LEAD_SEARCH), {1: 1, 2: 2},
+                                  max_distance=0.6, overview=True)
+    zeilen = out.split("\n")
+    assert zeilen[0] == "Die Materialien behandeln viele Bereiche des deutschen Rechts."
+    assert zeilen[-1].endswith("[2, S. 5].")
+
+
+def test_ausserhalb_des_ueberblicks_behaelt_der_erste_satz_seinen_chip():
+    out = _attribute_generic_text(_LEAD_TEXT, _searcher(_LEAD_SEARCH), {1: 1, 2: 2},
+                                  max_distance=0.6, overview=False)
+    assert out.split("\n")[0].endswith("[1, S. 3].")

@@ -728,6 +728,10 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             cur.execute(
                 "ALTER TABLE aia_workspaces ADD COLUMN IF NOT EXISTS is_tour_module BOOLEAN NOT NULL DEFAULT FALSE"
             )
+            # The hidden per-person module the podcast keeps its uploaded files in.
+            cur.execute(
+                "ALTER TABLE aia_workspaces ADD COLUMN IF NOT EXISTS is_podcast_store BOOLEAN NOT NULL DEFAULT FALSE"
+            )
             # Owner-managed pinned note shown above the sources list. Plain text + structured links.
             cur.execute(
                 "ALTER TABLE aia_workspaces ADD COLUMN IF NOT EXISTS staff_note_text TEXT"
@@ -923,6 +927,18 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             # The link a web page source came from, NULL for uploaded files.
             cur.execute("""
                 ALTER TABLE aia_sources ADD COLUMN IF NOT EXISTS source_url TEXT
+            """)
+            # Content hash of the uploaded file, so the podcast store recognises a re-upload.
+            cur.execute("""
+                ALTER TABLE aia_sources ADD COLUMN IF NOT EXISTS content_hash TEXT
+            """)
+            cur.execute("""
+                CREATE INDEX IF NOT EXISTS idx_aia_sources_workspace_hash
+                ON aia_sources (workspace_id, content_hash)
+            """)
+            # Last run that used this source, the podcast store evicts by this.
+            cur.execute("""
+                ALTER TABLE aia_sources ADD COLUMN IF NOT EXISTS last_used_at TIMESTAMP NOT NULL DEFAULT NOW()
             """)
             # Chapters structure the source list but decide nothing about the chat.
             cur.execute("""

@@ -12,10 +12,12 @@ from src.features.ai_assistant.prompts.schedule_prompts import AIA_SCHEDULE_CLAS
 
 
 # Generous timeout plus a second attempt, the answers get long.
-_CLASSIFY_TIMEOUT_SECS = 180
+# A packet of 120 verdicts measured 171 s, a slow provider needs the rest.
+_CLASSIFY_TIMEOUT_SECS = 600
 _CLASSIFY_RETRY_WAIT_SECS = 5
 
-_CLASSIFY_BATCH_SIZE = 30  # safe size so a ~10k-token response stays within limits
+# Measured: compact verdicts stay correct at 60 and collapse at 120.
+_CLASSIFY_BATCH_SIZE = 60
 
 
 def _dated_month_days(candidates: list[dict], entries: list[dict]) -> set[tuple[int, int]]:
@@ -34,8 +36,9 @@ def _dated_month_days(candidates: list[dict], entries: list[dict]) -> set[tuple[
 
 
 def _classify_candidates_batch(client, model, batch: list[dict], today_d: date,
-                               dated_month_days: set[tuple[int, int]] | None = None) -> list[dict]:
-    """One LLM call for up to ~30 candidates. Returns classifications aligned to batch order."""
+                               dated_month_days: set[tuple[int, int]] | None = None,
+                               *, _nachfrage: bool = False) -> list[dict]:
+    """One LLM call for a packet of candidates, verdicts aligned to the batch order."""
     dated_month_days = dated_month_days or set()
     payload = []
     for i, c in enumerate(batch):
@@ -79,7 +82,7 @@ def _classify_candidates_batch(client, model, batch: list[dict], today_d: date,
                     {"role": "user", "content": user_msg},
                 ],
                 temperature=0.0,
-                max_tokens=10000,
+                max_tokens=20000,
                 response_format={"type": "json_object"},
                 timeout=_CLASSIFY_TIMEOUT_SECS,
             )
@@ -106,8 +109,23 @@ def _classify_candidates_batch(client, model, batch: list[dict], today_d: date,
         raise ValueError("Classifier did not return a 'results' array")
 
     by_id = {r.get("id"): r for r in results if isinstance(r, dict)}
+    # A forgotten id looks like a dropped one, so it is asked about once more.
+    fehlend = [i for i in range(len(batch)) if i not in by_id]
+    nachgefragt: dict[int, dict] = {}
+    if fehlend and not _nachfrage:
+        logger.warning("Schedule classify: {} of {} verdicts missing, asking again",
+                       len(fehlend), len(batch))
+        zweite = _classify_candidates_batch(client, model, [batch[i] for i in fehlend],
+                                            today_d, dated_month_days, _nachfrage=True)
+        nachgefragt = dict(zip(fehlend, zweite))
+    elif fehlend:
+        logger.warning("Schedule classify: {} verdicts still missing, counted as dropped",
+                       len(fehlend))
     out: list[dict] = []
     for i in range(len(batch)):
+        if i in nachgefragt:
+            out.append(nachgefragt[i])
+            continue
         r = by_id.get(i) or {}
         keep = bool(r.get("keep"))
         is_footer = bool(r.get("is_footer"))

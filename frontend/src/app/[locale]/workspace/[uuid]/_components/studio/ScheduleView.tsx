@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { CalendarBlank, CheckCircle, Files, PencilSimple, Plus, Sparkle, Trash } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
+import HelpTooltip from "@/components/ui/HelpTooltip";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { backdropClose, newBackdropPress } from "@/components/ui/backdropClose";
 import type { ScheduleEntry, ScheduleData } from "../../_types";
@@ -261,15 +262,19 @@ export function ScheduleView({
 
       {/* Generate-Button */}
       <div className="px-3 pb-2 flex flex-col items-center gap-1.5">
-        <button
-          type="button"
-          onClick={handleGenerate}
-          disabled={!canGenerate}
-          className="btn-outline-accent inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all disabled:opacity-40"
-        >
-          {generating ? <Spinner size="xs" color="current" /> : <Sparkle size={12} weight="bold" />}
-          {generating ? t("extracting") : t("extract")}
-        </button>
+        <span className="inline-flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={handleGenerate}
+            disabled={!canGenerate}
+            className="btn-outline-accent inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all disabled:opacity-40"
+          >
+            {generating ? <Spinner size="xs" color="current" /> : <Sparkle size={12} weight="bold" />}
+            {generating ? t("extracting") : t("extract")}
+          </button>
+          {/* Says which dates the extraction keeps and which it leaves out. */}
+          <HelpTooltip text={t("extractHelp")} />
+        </span>
         {generateMsg && (
           <div
             className="mt-1 px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2"

@@ -14,6 +14,7 @@ from ._chips import (
     _attr_blocks,
     _attribution_chip,
     _is_prose_line,
+    _lead_in_lines,
     _needs_attribution,
     _place_chip,
 )
@@ -452,6 +453,8 @@ def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offs
                             transcript_by_source: Optional[dict[int, list[dict]]] = None) -> str:
     """Backs every content-bearing line of an overview answer after the fact."""
     lines = text.split("\n")
+    # The lead-in of an overview talks about the whole material, no single spot backs it.
+    lead_in = _lead_in_lines(lines) if overview else set()
     # An explicit page or time reference brackets the evidence.
     scope_ids = _scope_chunk_ids(scope_chunks)
     # Measured against everything the answer was written from.
@@ -461,7 +464,7 @@ def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offs
     clause_cands_by_idx: dict[int, list[list[dict]]] = {}
     grounded = False
     for i, line in enumerate(lines):
-        if not _needs_attribution(line):
+        if i in lead_in or not _needs_attribution(line):
             continue
         # A refusal is not a claim and never gets evidence.
         if refusal_lines and line in refusal_lines:
@@ -493,6 +496,8 @@ def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offs
         guarantee = max_distance if overview else _GUARANTEE_MAX_DIST
         # Chips are not deduplicated across blocks, two claims may name the same spot.
         for blk in _attr_blocks(lines):
+            if blk[0] in lead_in:
+                continue
             # A prose block gets its chips per sentence instead of once at the end.
             if _is_prose_line(lines[blk[0]]):
                 for _i in blk:

@@ -202,7 +202,7 @@ def list_workspaces_for_user(user_id: int) -> list[dict]:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
                 """SELECT id AS workspace_id, title, created_at AS since
-                   FROM aia_workspaces WHERE user_id = %s""",
+                   FROM aia_workspaces WHERE user_id = %s AND NOT is_podcast_store""",
                 (user_id,),
             )
             eintraege = {zeile["workspace_id"]: {**dict(zeile), "relation": "owner"} for zeile in cur.fetchall()}

@@ -14,20 +14,60 @@ from src.core.db.pool import get_connection
 
 def create_aia_source(
     workspace_id: int, uuid: str, filename: str, file_path: str, file_type: str,
-    source_url: str | None = None,
+    source_url: str | None = None, content_hash: str | None = None,
 ) -> int:
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """INSERT INTO aia_sources
-                   (workspace_id, uuid, filename, file_path, file_type, source_url)
-                   VALUES (%s, %s, %s, %s, %s, %s)
+                   (workspace_id, uuid, filename, file_path, file_type, source_url, content_hash)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s)
                    RETURNING id""",
-                (workspace_id, uuid, filename, file_path, file_type, source_url),
+                (workspace_id, uuid, filename, file_path, file_type, source_url, content_hash),
             )
             source_id = cur.fetchone()[0]
         conn.commit()
     return source_id
+
+
+def get_aia_source_by_content_hash(workspace_id: int, content_hash: str) -> dict | None:
+    """The same file already lies in this course room, recognised by its content."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute(
+                """SELECT * FROM aia_sources
+                   WHERE workspace_id = %s AND content_hash = %s
+                   ORDER BY id LIMIT 1""",
+                (workspace_id, content_hash),
+            )
+            row = cur.fetchone()
+    return dict(row) if row else None
+
+
+def get_aia_sources_by_last_used(workspace_id: int) -> list[dict]:
+    """Least recently used first, the order the podcast store evicts in."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute(
+                """SELECT * FROM aia_sources WHERE workspace_id = %s
+                   ORDER BY last_used_at ASC, id ASC""",
+                (workspace_id,),
+            )
+            rows = cur.fetchall()
+    return [dict(row) for row in rows]
+
+
+def touch_aia_sources_used(uuids: list[str]) -> None:
+    """Marks sources as used by this run so eviction takes the forgotten ones."""
+    if not uuids:
+        return
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE aia_sources SET last_used_at = NOW() WHERE uuid = ANY(%s)",
+                (list(uuids),),
+            )
+        conn.commit()
 
 def get_aia_source(uuid: str) -> dict | None:
     with get_connection() as conn:

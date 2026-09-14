@@ -27,7 +27,7 @@
   },
   "footer": {
     "aiNotice": "This platform uses AI and may make mistakes. Please verify the responses.",
-    "feedback": "Feedback or issues?",
+    "feedback": "Report a bug or share an idea",
     "imprint": "Imprint",
     "privacy": "Privacy"
   },
@@ -1886,8 +1886,16 @@
       "saveFailed": "Save failed."
     },
     "toolContextBudgetCard": {
-      "title": "Tools context budget",
-      "hint": "How much material text (in characters) the tools send to the model: mind map, data table, vocab cards, flashcards, grammar exercises, vocabulary exercises, quiz and podcast. Separate from the chat budget because a tool processes a whole document in one call. Most tools divide the value by the number of selected materials, the podcast instead fills up in order until the room is gone. This value applies exactly as set. If the configured model cannot take that much it refuses the job with an error, and the value has to be lowered here.",
+      "title": "Overview tools context budget",
+      "hint": "How much text from the material (in characters) the overview tools hand to the model. The tools take different shares of it: the mind map the whole value, schedule and data table four fifths, the podcast half. The mind map splits its share across the chosen material, the podcast fills up one by one, schedule and data table cut their material into packets of this size and make one call per packet. If the configured model cannot take that much, it refuses the job with an error, then this value has to come down.",
+      "unit": "characters",
+      "approxTokens": "≈ {n}k tokens",
+      "outOfRange": "Value must be between 1000 and 1000000.",
+      "saveFailed": "Save failed."
+    },
+    "exerciseContextBudgetCard": {
+      "title": "Exercise tools context budget",
+      "hint": "How much material text (in characters) flashcards, vocab cards, quiz, vocabulary and grammar exercises send to the model for one set of exercises. The materials fill the room in order, whatever does not fit comes up in the next set, a mark per tool continues there. 100,000 characters are enough for 15 exercises, more only slows the call down.",
       "unit": "characters",
       "approxTokens": "≈ {n}k tokens",
       "outOfRange": "Value must be between 1000 and 1000000.",
@@ -2784,10 +2792,6 @@
           "cardsCount": "{count, plural, =1 {1 card} other {# cards}}",
           "sourcesCount": "{count, plural, =1 {1 source} other {# sources}}",
           "modeLabel": "{mode}",
-          "modeGlossary": "Glossary",
-          "modeQuiz": "Quiz",
-          "modeGrammar": "Grammar",
-          "modeFlashcards": "Vocab cards",
           "failed": "Failed",
           "retry": "Try again",
           "fromGlossarySuffix": " · Glossary"
@@ -3287,6 +3291,7 @@
           },
           "edit": "Edit",
           "extract": "Extract dates",
+          "extractHelp": "Extracted are appointments you must attend or meet in the course: exams, submissions, sessions, office hours, registration windows and periods like the lecture period. Left out are dates without course relevance: entry into force, revision dates, headers and footers, citations and life dates.",
           "extracting": "Extracting dates...",
           "msg": {
             "added": "{n} new entries added",

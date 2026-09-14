@@ -30,6 +30,38 @@ def create_aia_workspace(user_id: int, title: str, description: str | None) -> s
     seed_grammar_topics(new_id, user_id)
     return workspace_uuid
 
+def get_podcast_store_workspace(user_id: int) -> dict | None:
+    """The hidden module the podcast keeps a person's uploaded files in."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute(
+                """SELECT * FROM aia_workspaces
+                   WHERE user_id = %s AND is_podcast_store
+                   ORDER BY id LIMIT 1""",
+                (user_id,),
+            )
+            row = cur.fetchone()
+    return dict(row) if row else None
+
+
+def create_podcast_store_workspace(user_id: int, title: str) -> dict:
+    """Creates that hidden module, ready to hold sources and without the grammar seed."""
+    import uuid as _uuid
+    workspace_uuid = str(_uuid.uuid4())
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute(
+                """INSERT INTO aia_workspaces (uuid, user_id, title, is_podcast_store, is_active, status)
+                   VALUES (%s, %s, %s, TRUE, TRUE, 'ready')
+                   ON CONFLICT DO NOTHING
+                   RETURNING *""",
+                (workspace_uuid, user_id, title),
+            )
+            row = cur.fetchone()
+        conn.commit()
+    return dict(row) if row else get_podcast_store_workspace(user_id)
+
+
 def get_aia_workspace(uuid: str) -> dict | None:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
@@ -51,7 +83,7 @@ def get_aia_workspaces_by_user(user_id: int) -> list[dict]:
                 """SELECT m.*, u.is_demo AS owner_is_demo
                    FROM aia_workspaces m
                    JOIN users u ON u.id = m.user_id
-                   WHERE m.user_id = %s
+                   WHERE m.user_id = %s AND NOT m.is_podcast_store
                    ORDER BY m.last_visited_at DESC""",
                 (user_id,),
             )
@@ -133,7 +165,7 @@ def get_demo_workspaces(viewer_id: int) -> list[dict]:
                             ON e.workspace_id = m.id AND e.user_id = %s
                      LEFT JOIN aia_demo_seeded ds
                             ON ds.workspace_id = m.id AND ds.user_id = %s
-                    WHERE u.is_demo AND m.is_active
+                    WHERE u.is_demo AND m.is_active AND NOT m.is_podcast_store
                     ORDER BY m.is_tour_module DESC, m.title""",
                 (viewer_id, viewer_id, viewer_id),
             )

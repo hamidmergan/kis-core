@@ -80,6 +80,8 @@ PODCAST_MAX_LINE_CHARS   = 1200
 PODCAST_LINE_PAUSE       = 0.35
 # The same lever as the screencast: waiting on the provider, not own CPU.
 PODCAST_TTS_PARALLELISM  = 8
+# How many uploaded files the hidden per-person store keeps before evicting the least recently used.
+PODCAST_STORE_MAX_SOURCES = 20
 
 # How many parts of a long recording go to the provider at once.
 STT_CHUNK_PARALLELISM = 2
@@ -98,9 +100,16 @@ SCREENCAST_TIME_LIMIT           = 7320   # 122 min, SIGKILL als letzte Instanz
 AIA_TOOL_SOFT_TIME_LIMIT        = 300    # 5 min, SoftTimeLimitExceeded -> Set sauber auf failed
 AIA_TOOL_TIME_LIMIT             = 360    # 6 min, SIGKILL als letzte Instanz
 
+# How many packets one table may cost, measured against its own time limit.
+AIA_TABLE_MAX_PACKETS           = 10
+
+# The table asks packet by packet, several calls need more room than a single one.
+AIA_TABLE_SOFT_TIME_LIMIT       = 600    # 10 min
+AIA_TABLE_TIME_LIMIT            = 720    # 12 min
+
 # The schedule spans the whole course and needs more room.
-AIA_SCHEDULE_SOFT_TIME_LIMIT    = 600    # 10 min
-AIA_SCHEDULE_TIME_LIMIT         = 720    # 12 min
+AIA_SCHEDULE_SOFT_TIME_LIMIT    = 1200   # 20 min
+AIA_SCHEDULE_TIME_LIMIT         = 1320   # 22 min
 
 # Long recordings on a slow model take a while, a hanging provider must still end.
 AIA_TRANSLATE_SOFT_TIME_LIMIT   = 1800   # 30 min
@@ -139,11 +148,12 @@ AIA_CONTEXT_MAX_CHARS                  = 250000
 AIA_CONTEXT_HARD_CAP                    = 800000
 # Context of a specific question, more context made the measurement worse.
 AIA_SPECIFIC_MAX_CHARS                  = 60000
-# Separate context budget for the generating tools, apart from the chat.
-# Set to the hard cap so the model window decides, this knob only dials down.
-AIA_TOOL_CONTEXT_MAX_CHARS             = 1_000_000
-# Hard ceiling for the tool budget, higher than the chat's.
+# Budget of the overview tools (mind map, data table, schedule, podcast), measured: 600k still pass, 700k are refused.
+AIA_TOOL_CONTEXT_MAX_CHARS             = 500_000
+# Hard ceiling for both tool budgets, higher than the chat's.
 AIA_TOOL_CONTEXT_HARD_CAP              = 1_000_000
+# Budget of the exercise tools (flashcards, quiz, cloze, grammar), one set of 15 needs no more.
+AIA_EXERCISE_CONTEXT_MAX_CHARS         = 100_000
 # Characters per batch for the summary during ingest.
 AIA_SUMMARY_BATCH_MAX_CHARS            = 360000
 # Chunks per embedding request, the client halves it on a refusal itself.

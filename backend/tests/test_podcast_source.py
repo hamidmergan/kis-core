@@ -7,7 +7,7 @@ from src.features.podcast import source_text
 
 def _budget(monkeypatch, chars: int) -> None:
     import src.features.ai_assistant.tasks._context_budget as budget
-    monkeypatch.setattr(budget, "tool_context_budget", lambda: chars)
+    monkeypatch.setattr(budget, "tool_context_budget", lambda tool="": chars)
 
 
 class TestStuecke:

@@ -6,9 +6,9 @@ from typing import Optional
 
 
 _MONTHS = {
-    "januar": 1, "jan": 1,
-    "februar": 2, "feb": 2,
-    "märz": 3, "maerz": 3, "mär": 3, "mar": 3,
+    "januar": 1, "january": 1, "jan": 1,
+    "februar": 2, "february": 2, "feb": 2,
+    "märz": 3, "maerz": 3, "march": 3, "mär": 3, "mar": 3,
     "april": 4, "apr": 4,
     "mai": 5, "may": 5,
     "juni": 6, "june": 6, "jun": 6,
@@ -19,6 +19,47 @@ _MONTHS = {
     "november": 11, "nov": 11,
     "dezember": 12, "december": 12, "dez": 12, "dec": 12,
 }
+
+
+# Days written out in words, so a spoken date is found without the model.
+_ORDINALS_DE = {
+    "erste": 1, "zweite": 2, "dritte": 3, "vierte": 4, "fünfte": 5, "fuenfte": 5,
+    "sechste": 6, "siebte": 7, "siebente": 7, "achte": 8, "neunte": 9, "zehnte": 10,
+    "elfte": 11, "zwölfte": 12, "zwoelfte": 12, "dreizehnte": 13, "vierzehnte": 14,
+    "fünfzehnte": 15, "fuenfzehnte": 15, "sechzehnte": 16, "siebzehnte": 17,
+    "achtzehnte": 18, "neunzehnte": 19, "zwanzigste": 20,
+    "dreißigste": 30, "dreissigste": 30,
+}
+_ORDINALS_EN = {
+    "first": 1, "second": 2, "third": 3, "fourth": 4, "fifth": 5, "sixth": 6,
+    "seventh": 7, "eighth": 8, "ninth": 9, "tenth": 10, "eleventh": 11,
+    "twelfth": 12, "thirteenth": 13, "fourteenth": 14, "fifteenth": 15,
+    "sixteenth": 16, "seventeenth": 17, "eighteenth": 18, "nineteenth": 19,
+    "twentieth": 20, "thirtieth": 30,
+}
+ORDINAL_DAYS: dict[str, int] = {**_ORDINALS_DE, **_ORDINALS_EN}
+# The twenties and 31 are built from the ones in front of the tens.
+for _tens_word, _tens in (("zwanzigste", 20), ("dreißigste", 30), ("dreissigste", 30)):
+    for _ones_word, _ones in (("einund", 1), ("zweiund", 2), ("dreiund", 3), ("vierund", 4),
+                              ("fünfund", 5), ("fuenfund", 5), ("sechsund", 6),
+                              ("siebenund", 7), ("achtund", 8), ("neunund", 9)):
+        if _tens + _ones <= 31:
+            ORDINAL_DAYS[_ones_word + _tens_word] = _tens + _ones
+for _tens_word, _tens in (("twenty-", 20), ("thirty-", 30)):
+    for _ones_word, _ones in tuple(_ORDINALS_EN.items())[:9]:
+        if _tens + _ones <= 31:
+            ORDINAL_DAYS[_tens_word + _ones_word] = _tens + _ones
+
+
+def ordinal_day(word: str) -> Optional[int]:
+    """The day a written-out ordinal stands for, None when it is not one."""
+    w = word.strip().lower()
+    if w in ORDINAL_DAYS:
+        return ORDINAL_DAYS[w]
+    # German carries a case ending, "dritten" is the same day as "dritte".
+    if w[-1:] in "nmrs" and w[:-1] in ORDINAL_DAYS:
+        return ORDINAL_DAYS[w[:-1]]
+    return None
 
 
 def _parse_date(s: Optional[str]) -> Optional[date]:
@@ -52,6 +93,26 @@ def _normalize_date(raw: str) -> Optional[str]:
     if m:
         d, mo, y = m.groups()
         return f"{int(y):04d}-{int(mo):02d}-{int(d):02d}"
+    # DD.MM.YY, a course document lives in this century.
+    m = re.fullmatch(r"(\d{1,2})\.(\d{1,2})\.(\d{2})", s)
+    if m:
+        d, mo, y = (int(g) for g in m.groups())
+        if 1 <= mo <= 12 and 1 <= d <= 31:
+            return f"{2000 + y:04d}-{mo:02d}-{d:02d}"
+    # DD/MM/YYYY or DD-MM-YYYY
+    m = re.fullmatch(r"(\d{1,2})[/-](\d{1,2})[/-](\d{4})", s)
+    if m:
+        d, mo, y = (int(g) for g in m.groups())
+        if 1 <= mo <= 12 and 1 <= d <= 31:
+            return f"{y:04d}-{mo:02d}-{d:02d}"
+    # "3 July 2026", "3rd of July 2026"
+    m = re.fullmatch(r"(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?([A-Za-zÄäÖöÜüß]+)\s+(\d{4})",
+                     s, re.IGNORECASE)
+    if m:
+        d, mo_str, y = m.groups()
+        mo = _MONTHS.get(mo_str.lower())
+        if mo and 1 <= int(d) <= 31:
+            return f"{int(y):04d}-{mo:02d}-{int(d):02d}"
     # A space or a period may stand before the year.
     m = re.fullmatch(r"(\d{1,2})\.\s*([A-Za-zÄäÖöÜüß]+)(?:\s+|\.\s*)(\d{4})", s)
     if m:
@@ -66,6 +127,14 @@ def _normalize_date(raw: str) -> Optional[str]:
         mo = _MONTHS.get(mo_str.lower())
         if mo:
             return f"{int(y):04d}-{mo:02d}-{int(d):02d}"
+    # Written out, e.g. "dritten Februar 2026" or "the third of February 2026".
+    m = re.fullmatch(r"(?:the\s+)?([\w-]+)\s+(?:of\s+)?([A-Za-zÄäÖöÜüß]+),?\s*(\d{4})",
+                     s, re.IGNORECASE)
+    if m:
+        day = ordinal_day(m.group(1))
+        mo = _MONTHS.get(m.group(2).lower())
+        if day and mo and 1 <= day <= 31:
+            return f"{int(m.group(3)):04d}-{mo:02d}-{day:02d}"
     return None
 
 
@@ -105,6 +174,20 @@ def _normalize_partial_date(raw: str) -> Optional[tuple[int, int]]:
         d = int(m.group(2))
         if mo and 1 <= d <= 31:
             return (mo, d)
+    # "3 July", "3rd of July"
+    m = re.fullmatch(r"(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?([A-Za-zÄäÖöÜüß]+)", s, re.IGNORECASE)
+    if m:
+        d = int(m.group(1))
+        mo = _MONTHS.get(m.group(2).lower())
+        if mo and 1 <= d <= 31:
+            return (mo, d)
+    # Written out without a year, e.g. "dritten Februar".
+    m = re.fullmatch(r"(?:the\s+)?([\w-]+)\s+(?:of\s+)?([A-Za-zÄäÖöÜüß]+)", s, re.IGNORECASE)
+    if m:
+        day = ordinal_day(m.group(1))
+        mo = _MONTHS.get(m.group(2).lower())
+        if day and mo and 1 <= day <= 31:
+            return (mo, day)
     return None
 
 

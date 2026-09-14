@@ -22,21 +22,18 @@ def _is_media_source(filename: str) -> bool:
 def _collect_sources(source_ids: list[int], source_uuids: list[str]
                      ) -> list[tuple[int, str, list[dict], list[dict]]]:
     """Per source: id, label, all its chunks and the window that fits the budget."""
-    from src.features.ai_assistant.tasks._context_budget import fill_sources_greedy
+    from src.features.ai_assistant.tasks._context_budget import fill_sources_with_outline
 
     vorhanden: list[tuple[int, str, list[dict]]] = []
-    workspace_id = None
     for sid, suuid in zip(source_ids, source_uuids):
         source = db.get_aia_source(suuid)
-        if workspace_id is None and source:
-            workspace_id = source.get("workspace_id")
         chunks = db.get_chunks_by_source(sid)
         if chunks:
             vorhanden.append((sid, source["filename"] if source else "Source", chunks))
 
     alle = {sid: chunks for sid, _label, chunks in vorhanden}
     return [(sid, label, alle[sid], picked)
-            for sid, label, picked in fill_sources_greedy(vorhanden, workspace_id, "mindmap")]
+            for sid, label, picked in fill_sources_with_outline(vorhanden, "mindmap")]
 
 
 @celery_app.task(bind=True, name="aia.generate_mindmap", queue="aia",

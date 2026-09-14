@@ -15,10 +15,12 @@ export default function GrenzenKontextPage() {
   const tChat = useTranslations("admin.contextBudgetCard");
   const tSpecific = useTranslations("admin.specificBudgetCard");
   const tTools = useTranslations("admin.toolContextBudgetCard");
+  const tExercise = useTranslations("admin.exerciseContextBudgetCard");
 
   const chat = useSetting<number>("aia_context_max_chars", 250000);
   const specific = useSetting<number>("aia_specific_max_chars", 60000);
-  const tools = useSetting<number>("aia_tool_context_max_chars", 250000);
+  const tools = useSetting<number>("aia_tool_context_max_chars", 500000);
+  const exercise = useSetting<number>("aia_exercise_context_max_chars", 100000);
 
   const tokenHint = (label: (key: string, values: Record<string, number>) => string) =>
     (v: number) => (
@@ -53,7 +55,7 @@ export default function GrenzenKontextPage() {
       </Block>
 
       <Block title={t("gemeinsam")}>
-        {/* Die Lern-Werkzeuge des Assistenten und der Podcast teilen sich diesen Wert. */}
+        {/* Mind map, data table, schedule and podcast share this value. */}
         <NumberSetting
           field={tools}
           title={tTools("title")}
@@ -63,6 +65,17 @@ export default function GrenzenKontextPage() {
           max={1000000}
           outOfRange={tTools("outOfRange")}
           suffix={tokenHint(tTools)}
+        />
+        {/* The exercise tools of the assistant and the language trainer share this one. */}
+        <NumberSetting
+          field={exercise}
+          title={tExercise("title")}
+          hint={tExercise("hint")}
+          unit={tExercise("unit")}
+          min={1000}
+          max={1000000}
+          outOfRange={tExercise("outOfRange")}
+          suffix={tokenHint(tExercise)}
         />
       </Block>
     </div>

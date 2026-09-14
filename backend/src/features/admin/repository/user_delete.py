@@ -50,10 +50,11 @@ def count_user_footprint(user_id: int) -> dict:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
                 """SELECT
-                     (SELECT COUNT(*) FROM aia_workspaces WHERE user_id = %(id)s) AS workspaces,
+                     (SELECT COUNT(*) FROM aia_workspaces
+                       WHERE user_id = %(id)s AND NOT is_podcast_store) AS workspaces,
                      (SELECT COUNT(*) FROM aia_sources s
                         JOIN aia_workspaces w ON w.id = s.workspace_id
-                       WHERE w.user_id = %(id)s) AS sources,
+                       WHERE w.user_id = %(id)s AND NOT w.is_podcast_store) AS sources,
                      (SELECT COUNT(*) FROM aia_messages WHERE user_id = %(id)s) AS messages,
                      (SELECT COUNT(*) FROM jobs WHERE user_id = %(id)s) AS jobs,
                      (SELECT COUNT(*) FROM aia_enrollments WHERE user_id = %(id)s) AS enrollments""",

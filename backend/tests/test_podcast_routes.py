@@ -71,6 +71,16 @@ def env(monkeypatch):
     monkeypatch.setattr(render_route.db, "set_job_celery_task_id", lambda *a, **k: None)
     monkeypatch.setattr(render_route.db, "update_job_status", lambda *a, **k: None)
 
+    # Ohne das legt jeder Lauf der Suite einen echten Vorrat samt Datei an.
+    ablage.eingelagert = []
+    monkeypatch.setattr(
+        start_route.source_store, "put",
+        lambda uid, name, pfad, ext, loc="de": (ablage.eingelagert.append(name), f"src-{name}")[1])
+    # Der Vor-Call darf in einem Routen-Test nie ein Modell fragen.
+    async def _kein_vorcall(llm, anweisung):
+        return start_route.instruction.FILL
+    monkeypatch.setattr(start_route.instruction, "_classify", _kein_vorcall)
+
     gestartet: list[str] = []
 
     class FakeTask:
@@ -129,6 +139,21 @@ class TestStart:
                               files={"files": ("gross.txt", riesig.encode(), "text/plain")})
         assert antwort.status_code == 200
         assert gestartet == ["script"]
+
+    def test_legt_hochgeladene_dateien_in_den_vorrat(self, env):
+        """Der Lauf nimmt den Text sofort, das Einbetten laeuft nebenher."""
+        client, _j, gestartet, ablage = env
+        antwort = client.post("/podcast/start", data={"params": _params(), "mode": "files"},
+                              files={"files": ("kapitel.txt", b"Ueber den Regelkreis.", "text/plain")})
+        assert antwort.status_code == 200
+        assert ablage.eingelagert == ["kapitel.txt"]
+        assert gestartet == ["script"]
+
+    def test_getippter_text_landet_nicht_im_vorrat(self, env):
+        client, _j, _g, ablage = env
+        client.post("/podcast/start",
+                    data={"params": _params(), "mode": "text", "text": "Ueber den Regelkreis."})
+        assert ablage.eingelagert == []
 
     def test_weist_eine_person_ohne_stimme_ab(self, env):
         client, _j, _g, _a = env

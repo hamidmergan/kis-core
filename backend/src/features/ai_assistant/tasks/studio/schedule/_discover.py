@@ -12,13 +12,11 @@ from src.features.ai_assistant.prompts.schedule_prompts import AIA_SCHEDULE_TBD_
 
 
 # So viele Zeichen gehen je Anfrage raus.
-_MAX_CHARS_PER_CALL = 24000
-_MAX_BLOCKS_PER_CALL = 30
+_MAX_CHARS_PER_CALL = 100000
+_MAX_BLOCKS_PER_CALL = 120
 # A single block that is out of line must not blow up the request.
 _MAX_BLOCK_CHARS = 4000
-# Emergency brake for very long sources, beyond this nothing is searched.
-_MAX_CALLS_PER_SOURCE = 12
-# Same values as in _classify: 120s is too tight for slow providers.
+# The answers here are short, 180 s is only for a slow provider.
 _TIMEOUT_SECS = 180
 _RETRY_WAIT_SECS = 5
 # Shorter blocks cannot carry an announcement.
@@ -127,7 +125,7 @@ def _discover_batch(client, model, batch: list[tuple[int, str]]) -> dict[int, di
                     {"role": "user", "content": user_msg},
                 ],
                 temperature=0.0,
-                max_tokens=2000,
+                max_tokens=8000,
                 response_format={"type": "json_object"},
                 timeout=_TIMEOUT_SECS,
             )
@@ -147,10 +145,9 @@ def _discover_batch(client, model, batch: list[tuple[int, str]]) -> dict[int, di
     parsed = json.loads(raw)
     if not isinstance(parsed, dict):
         raise ValueError("Terminsuche lieferte kein JSON-Objekt")
+    # An empty object is a valid answer, it means this packet holds nothing.
     results = parsed.get("results")
     dates = parsed.get("dates")
-    if not isinstance(results, list) and not isinstance(dates, list):
-        raise ValueError("Terminsuche lieferte weder 'results' noch 'dates'")
 
     valid_ids = {bid for bid, _ in batch}
     found: dict[int, dict] = {bid: {"tbd": None, "dates": []} for bid, _ in batch}
@@ -204,24 +201,20 @@ def _discover_in_blocks(client, model, blocks: list[tuple[int, str]]) -> dict[in
         return {}
 
     batches = _batches(usable)
-    if len(batches) > _MAX_CALLS_PER_SOURCE:
-        skipped = sum(len(b) for b in batches[_MAX_CALLS_PER_SOURCE:])
-        logger.warning(
-            "Terminsuche: Quelle zu lang, {} von {} Bloecken werden nicht durchsucht",
-            skipped, len(usable),
-        )
-        batches = batches[:_MAX_CALLS_PER_SOURCE]
 
     found: dict[int, dict] = {}
     for i, batch in enumerate(batches):
         try:
             found.update(_discover_batch(client, model, batch))
         except Exception as e:  # noqa: BLE001 - der Zeitplan entsteht auch ohne diese Suche
-            logger.warning(
-                "Terminsuche: Anfrage {}/{} fehlgeschlagen, Rest wird uebersprungen: {}",
-                i + 1, len(batches), e,
-            )
-            break
+            if "429" in str(e):
+                logger.warning("Terminsuche: Anfrage {}/{} abgewiesen, Quelle wird abgebrochen: {}",
+                               i + 1, len(batches), e)
+                break
+            # One bad packet must not cost the pages behind it.
+            logger.warning("Terminsuche: Anfrage {}/{} fehlgeschlagen, wird uebersprungen: {}",
+                           i + 1, len(batches), e)
+            continue
     offene = sum(1 for v in found.values() if v["tbd"])
     daten = sum(len(v["dates"]) for v in found.values())
     logger.info("Terminsuche: {} Bloecke in {} Anfragen, {} offene Stellen, {} Daten",

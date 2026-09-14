@@ -32,7 +32,7 @@ def assistant_overview() -> dict:
 
 
 def _totals(cur) -> dict:
-    cur.execute("SELECT COUNT(*) AS n FROM aia_workspaces")
+    cur.execute("SELECT COUNT(*) AS n FROM aia_workspaces WHERE NOT is_podcast_store")
     module = cur.fetchone()["n"]
     cur.execute("SELECT COUNT(*) AS n FROM aia_exercise_progress")
     beantwortet = cur.fetchone()["n"]
@@ -132,6 +132,7 @@ def _workspaces(cur) -> list[dict]:
                     WHERE msg2.workspace_id = m.id) AS zuletzt
            FROM aia_workspaces m
            JOIN users u ON m.user_id = u.id
+          WHERE NOT m.is_podcast_store
            ORDER BY 10 DESC NULLS LAST, m.created_at DESC"""
     )
     return [

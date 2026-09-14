@@ -75,7 +75,7 @@ def test_anlegen_schreibt_den_link_mit(monkeypatch):
     assert neu == 99
     sql, params = calls[0]
     assert "source_url" in sql
-    assert params == (7, "abc", "Seite.pdf", "u/7/x.pdf", "pdf", "https://example.org/a")
+    assert params == (7, "abc", "Seite.pdf", "u/7/x.pdf", "pdf", "https://example.org/a", None)
     assert conn.committed
 
 

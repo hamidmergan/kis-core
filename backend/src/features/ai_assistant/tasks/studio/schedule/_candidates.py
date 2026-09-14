@@ -52,8 +52,9 @@ def _load_source_chunks(source_id: int) -> list[dict]:
     )
 
 
-def _model_finds_by_chunk(chunks: list[dict], client, model):
-    """What the model finds: open appointments and spelled-out dates."""
+def _spots_and_model_dates(chunks: list[dict], client, model,
+                          open_spots: dict[int, tuple[int, int, str]] | None = None):
+    """What the patterns, the search and the model find: open spots and spelled-out dates."""
     spans: dict[int, tuple[int, int, str]] = {}
     daten: dict[int, list[dict]] = {}
     blocks: list[tuple[int, str]] = []
@@ -72,6 +73,9 @@ def _model_finds_by_chunk(chunks: list[dict], client, model):
                 break
             if hit:
                 break
+        if hit is None and open_spots:
+            # Found by meaning, not by pattern, so free wordings come along too.
+            hit = open_spots.get(c.get("id"))
         if hit:
             spans[i] = hit
 
@@ -125,11 +129,12 @@ def _fundstelle_zeit(index: TranscriptIndex | None, chunk: dict,
     return genau if genau is not None else st
 
 
-def _build_candidates_for_source(src: dict, client=None, model=None) -> list[dict]:
+def _build_candidates_for_source(src: dict, client=None, model=None,
+                                 open_spots: dict | None = None) -> list[dict]:
     """Finds all date candidates of a source, with precision and open appointments."""
     candidates: list[dict] = []
     chunks = _load_source_chunks(src["id"])
-    tbd_spans, modell_daten = _model_finds_by_chunk(chunks, client, model)
+    tbd_spans, modell_daten = _spots_and_model_dates(chunks, client, model, open_spots)
     zeitachse = _transcript_index(src, chunks)
     for chunk_idx, c in enumerate(chunks):
         content = c.get("content") or ""

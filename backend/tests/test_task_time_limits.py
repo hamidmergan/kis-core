@@ -5,6 +5,8 @@ import pytest
 from src.limits import (
     AIA_SCHEDULE_SOFT_TIME_LIMIT,
     AIA_SCHEDULE_TIME_LIMIT,
+    AIA_TABLE_SOFT_TIME_LIMIT,
+    AIA_TABLE_TIME_LIMIT,
     AIA_TOOL_SOFT_TIME_LIMIT,
     AIA_TOOL_TIME_LIMIT,
 )
@@ -25,12 +27,18 @@ def _tasks():
     }
 
 
-@pytest.mark.parametrize("name", ["exercise_set", "data_table", "mindmap"])
-def test_every_tool_job_gets_the_same_five_minutes(name):
+@pytest.mark.parametrize("name", ["exercise_set", "mindmap"])
+def test_a_single_call_tool_gets_five_minutes(name):
     """An exercise set is a chain, and the writing speed varies a lot."""
     soft, hard = _limits(_tasks()[name])
     assert soft == AIA_TOOL_SOFT_TIME_LIMIT == 300
     assert hard == AIA_TOOL_TIME_LIMIT == 360
+
+
+def test_the_table_gets_room_for_several_packets():
+    # It asks packet by packet now, one window of five minutes no longer covers that.
+    assert _limits(_tasks()["data_table"]) == (AIA_TABLE_SOFT_TIME_LIMIT, AIA_TABLE_TIME_LIMIT)
+    assert AIA_TABLE_SOFT_TIME_LIMIT > AIA_TOOL_SOFT_TIME_LIMIT
 
 
 def test_the_schedule_keeps_its_longer_window():

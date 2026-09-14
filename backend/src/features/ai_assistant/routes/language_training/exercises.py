@@ -19,17 +19,13 @@ from src.services import aia_flashcard_speech as speech
 
 router = APIRouter(tags=["ki-assistent: language-training"])
 
-# Maximum number of sources per set, the legend follows the same number.
-_MAX_SET_SOURCES = 5
-
-
 def _numbered_sources(ex_set: dict) -> list[dict]:
     """The sources of a set, numbered in the order they were picked."""
     uuids = ex_set.get("source_uuids") or []
     if not uuids and ex_set.get("source_uuid"):
         uuids = [ex_set["source_uuid"]]
     out: list[dict] = []
-    for suuid in uuids[:_MAX_SET_SOURCES]:
+    for suuid in uuids:
         source = db.get_aia_source(suuid)
         if not source:
             continue

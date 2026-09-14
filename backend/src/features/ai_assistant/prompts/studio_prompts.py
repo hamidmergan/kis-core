@@ -52,6 +52,14 @@ AIA_MINDMAP_PROMPT = (
 )
 
 
+# Every packet after the first joins an existing table instead of inventing its own.
+AIA_DATENTABELLE_WEITERE_PAKETE = (
+    "\n\nThe table already exists and its columns are FIXED: {columns}. "
+    "Repeat 'title' and 'columns' unchanged and return in 'rows' ONLY what the text below adds, "
+    "every row with exactly {count} cells in that order. "
+    "A text that adds nothing gives an empty 'rows' list."
+)
+
 AIA_DATENTABELLE_PROMPT = (
     "You are an expert in data extraction and structuring. "
     "Analyze the given text and create a structured data table. "

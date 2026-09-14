@@ -48,10 +48,10 @@ def test_das_ganze_datum_schlaegt_den_monat_darin():
     assert _funde("Abgabe am 03.07.2026") == [("03.07.2026", True, "day")]
 
 
-def test_zweistellige_jahre_bleiben_dem_modell_ueberlassen():
-    """A pattern here would also collect every section number."""
-    assert _funde("Klausur am 3.6.26") == []
-    assert _funde("Gliederung 3.6.26 Zusammenfassung") == []
+def test_zweistellige_jahre_werden_gefunden_das_modell_sortiert_gliederungen_aus():
+    """The pattern also collects section numbers, the model sees the block and decides."""
+    assert _funde("Klausur am 3.6.26") == [("3.6.26", True, "day")]
+    assert _funde("Gliederung 3.6.26 Zusammenfassung") == [("3.6.26", True, "day")]
 
 
 def test_sechs_punkt_sechsundzwanzig_wird_bewusst_nicht_erkannt():
