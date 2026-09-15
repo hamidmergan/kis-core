@@ -549,10 +549,17 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                     expires_at          TIMESTAMP,
                     progress_updated_at TIMESTAMP,
                     render_started_at   TIMESTAMP,
-                    render_queued_at    TIMESTAMP
+                    render_queued_at    TIMESTAMP,
+                    attempts            INTEGER NOT NULL DEFAULT 0,
+                    next_attempt_at     TIMESTAMP
                 )
             """)
             cur.execute("ALTER TABLE jobs ADD COLUMN IF NOT EXISTS render_queued_at TIMESTAMP")
+            # How often a failed stage already resumed by itself, and when the next try is due.
+            cur.execute("ALTER TABLE jobs ADD COLUMN IF NOT EXISTS attempts INTEGER NOT NULL DEFAULT 0")
+            cur.execute("ALTER TABLE jobs ADD COLUMN IF NOT EXISTS next_attempt_at TIMESTAMP")
+            # The supervisor asks for due and stuck jobs every few seconds.
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs (status)")
 
             # Counters for the statistics, one row per day, hour, tool and outcome.
             cur.execute("""

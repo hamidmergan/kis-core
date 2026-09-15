@@ -2,8 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import Francis from "@/components/ui/Francis";
+import IconButton from "@/components/ui/IconButton";
 import Spinner from "@/components/ui/Spinner";
-import { api } from "@/lib/api";
+import type { RegenApplyMode } from "./apply";
 
 const MAX_REGEN_TEXTAREA_HEIGHT = 480;
 
@@ -37,34 +39,36 @@ function RegenTextarea({
   );
 }
 
-export type RegenApplyMode = "replace-selection" | "insert-before" | "insert-after" | "replace-all";
+export interface RegenTurn {
+  role: "user" | "assistant";
+  content: string;
+}
 
 interface RegenChatModalProps {
-  slideIndex: number;
-  slideExtractedText?: string;
-  currentScript?: string;
+  /** Only for the heading: slide or contribution number. */
+  index: number;
+  /** Where the texts of this window come from, the two tools mirror the keys. */
+  namespace?: string;
   anchorText?: string;
-  targetLang?: string;
-  glossaryJson?: string;
   demo?: boolean;
+  onSend: (messages: RegenTurn[]) => Promise<string>;
   onApply?: (mode: RegenApplyMode, content: string) => void;
   onClose: () => void;
 }
 
 export default function RegenChatModal({
-  slideIndex,
-  slideExtractedText = "",
-  currentScript = "",
+  index,
+  namespace = "tools.screencast.regenChat",
   anchorText = "",
-  targetLang = "",
-  glossaryJson = "",
   demo = false,
+  onSend,
   onApply,
   onClose,
 }: RegenChatModalProps) {
-  const t = useTranslations("tools.screencast.regenChat");
+  const t = useTranslations(namespace);
+  const tCommon = useTranslations("common");
   const [prompt, setPrompt] = useState("");
-  const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
+  const [messages, setMessages] = useState<RegenTurn[]>([]);
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -76,23 +80,13 @@ export default function RegenChatModal({
     if (demo) return;
     const userText = prompt.trim();
     if (!userText) return;
-    const newMessages: { role: "user" | "assistant"; content: string }[] = [
-      ...messages,
-      { role: "user", content: userText },
-    ];
+    const newMessages: RegenTurn[] = [...messages, { role: "user", content: userText }];
     setMessages(newMessages);
     setPrompt("");
     setLoading(true);
     try {
-      const result = await api.postJson<{ script: string }>("/api/screencast/regenerate-slide-script", {
-        slide_text: slideExtractedText,
-        current_script: currentScript,
-        messages: newMessages,
-        selected_text: anchorText || null,
-        target_lang: targetLang,
-        glossary_json: glossaryJson,
-      });
-      setMessages([...newMessages, { role: "assistant", content: result.script }]);
+      const antwort = await onSend(newMessages);
+      setMessages([...newMessages, { role: "assistant", content: antwort }]);
     } catch {
       setMessages([...newMessages, { role: "assistant", content: t("errorMessage") }]);
     } finally {
@@ -112,25 +106,26 @@ export default function RegenChatModal({
           style={{ borderBottom: "1px solid var(--border)" }}
         >
           <div className="flex items-center gap-2">
-            <div
-              className="w-5 h-5 rounded-full flex items-center justify-center text-3xs font-bold text-white flex-shrink-0"
-              style={{ backgroundColor: "var(--kb)" }}
-            >
-              KI
-            </div>
+            <Francis size={40} state="idle" className="flex-shrink-0" />
             <span className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
-              {t("headerTitle", { n: slideIndex + 1 })}
+              {t("headerTitle", { n: index + 1 })}
             </span>
           </div>
-          <button
-            onClick={onClose}
-            className="w-7 h-7 flex items-center justify-center rounded-full transition-colors hover:bg-[var(--surface-dim)] hover:text-kb"
-            style={{ backgroundColor: "var(--border)", color: "var(--muted)" }}
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          <IconButton onClick={onClose} aria-label={tCommon("close")}>
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M18 6L6 18M6 6l12 12" />
             </svg>
-          </button>
+          </IconButton>
         </div>
 
         <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4 min-h-0">
@@ -154,14 +149,10 @@ export default function RegenChatModal({
             const isLastAssistant = !isUser && idx === messages.length - 1;
             return (
               <div key={idx} className={`flex flex-col gap-1.5 ${isUser ? "items-end" : "items-start"}`}>
-                {!isUser && (
+                {/* Only the newest answer wears the head, repeating it on every turn is noise. */}
+                {isLastAssistant && (
                   <div className="flex items-center gap-2 mb-0.5">
-                    <div
-                      className="w-5 h-5 rounded-full flex items-center justify-center text-3xs font-bold text-white flex-shrink-0"
-                      style={{ backgroundColor: "var(--kb)" }}
-                    >
-                      KI
-                    </div>
+                    <Francis size={56} state="idle" className="flex-shrink-0" />
                     <span className="text-2xs font-medium" style={{ color: "var(--muted)" }}>
                       {t("assistant")}
                     </span>
@@ -251,39 +242,8 @@ export default function RegenChatModal({
             );
           })}
 
-          {loading && (
-            <div className="flex items-start gap-2">
-              <div
-                className="w-5 h-5 rounded-full flex items-center justify-center text-3xs font-bold text-white flex-shrink-0"
-                style={{ backgroundColor: "var(--kb)" }}
-              >
-                KI
-              </div>
-              <div
-                className="px-4 py-3 rounded-2xl text-sm"
-                style={{
-                  backgroundColor: "var(--surface)",
-                  border: "1px solid var(--border)",
-                  borderTopLeftRadius: 6,
-                }}
-              >
-                <span className="inline-flex items-center gap-2">
-                  <span className="inline-flex gap-1">
-                    {[0, 1, 2].map((n) => (
-                      <span
-                        key={n}
-                        className="inline-block w-1.5 h-1.5 rounded-full animate-bounce"
-                        style={{ backgroundColor: "var(--muted)", animationDelay: `${n * 0.15}s` }}
-                      />
-                    ))}
-                  </span>
-                  <span className="text-xs" style={{ color: "var(--muted)" }}>
-                    {t("thinking")}
-                  </span>
-                </span>
-              </div>
-            </div>
-          )}
+          {/* Francis thinks with his own dots, a second bubble of dots next to it says nothing new. */}
+          {loading && <Francis size={56} state="thinking" className="flex-shrink-0" />}
 
           <div ref={bottomRef} />
         </div>

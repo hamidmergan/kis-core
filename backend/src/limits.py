@@ -37,8 +37,12 @@ GLOSSARY_NAME_MAX    = 120   # max chars for a glossary name
 
 # The pool is the only retention rule, there is no deadline.
 MAX_RESULT_FILES            = 100   # jobs kept per user (oldest beyond this is evicted)
-JOB_WATCHDOG_MINUTES        = 5     # job is stuck when no heartbeat for X minutes (heartbeat fires every 10 s)
-AWAITING_USER_TIMEOUT_HOURS = 168   # awaiting_user jobs older than this are abandoned and cleaned up
+JOB_WATCHDOG_MINUTES        = 10    # job is stuck when no finished unit reported it for X minutes
+AWAITING_USER_TIMEOUT_HOURS = 168   # awaiting_user and paused jobs idle for longer are abandoned
+
+# A failed stage resumes by itself this often, then the job pauses and waits for the person.
+MAX_AUTO_RESUMES       = 3
+RETRY_BACKOFF_SECONDS  = (60, 180, 600)
 
 # --- Upload sizes ------------------------------------------------------------
 MAX_UPLOAD_BYTES           = 500 * 1024 * 1024   # general (500 MB)
@@ -74,7 +78,9 @@ SCREENCAST_TTS_PARALLELISM = 8
 # --- Podcast ----------------------------------------------------------------
 # More sources than this dilute every single one below a useful share.
 PODCAST_MAX_SOURCES      = 10
-PODCAST_MAX_LINES        = 80
+# The same ceiling every other tool uses, the line count only catches a runaway model.
+PODCAST_MAX_CHARS        = 100_000
+PODCAST_MAX_LINES        = 250
 PODCAST_MAX_LINE_CHARS   = 1200
 # One breath between two contributions so they do not run into each other.
 PODCAST_LINE_PAUSE       = 0.35
@@ -87,14 +93,11 @@ PODCAST_STORE_MAX_SOURCES = 20
 STT_CHUNK_PARALLELISM = 2
 
 # --- Celery task timeouts (in seconds) --------------------------------------
-TTS_SOFT_TIME_LIMIT             = 5400   # 90 min, SoftTimeLimitExceeded -> graceful DB update
-TTS_TIME_LIMIT                  = 5520   # 92 min, SIGKILL fallback
-
-# Only catches outliers, real hangs are caught by the heartbeat watchdog.
-PODCAST_SOFT_TIME_LIMIT = 3600
-PODCAST_TIME_LIMIT      = 3720
-SCREENCAST_SOFT_TIME_LIMIT      = 7200   # 120 min, SoftTimeLimitExceeded -> Job sauber auf failed
-SCREENCAST_TIME_LIMIT           = 7320   # 122 min, SIGKILL als letzte Instanz
+# A long job works in stages: it stops after STAGE_SECONDS, saves, and re-queues itself,
+# so no single task run can outlast the limits below however long the result gets.
+STAGE_SECONDS           = 600    # 10 min of work per stage, checked before each unit
+STAGE_SOFT_TIME_LIMIT   = 1200   # 20 min, SoftTimeLimitExceeded -> one failed attempt
+STAGE_TIME_LIMIT        = 1320   # 22 min, SIGKILL fallback, the watchdog picks the job up
 
 # Timeouts of the tutor tools, generous because an overrun throws everything away.
 AIA_TOOL_SOFT_TIME_LIMIT        = 300    # 5 min, SoftTimeLimitExceeded -> Set sauber auf failed

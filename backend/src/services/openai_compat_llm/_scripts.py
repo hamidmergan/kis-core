@@ -125,6 +125,22 @@ def build_length_and_format_rules(
     )
 
 
+def _place_rules(position: tuple[int, int] | None, add_greeting: bool, add_closing: bool) -> str:
+    """Where the slide sits in the deck, plus the rule its end carries."""
+    if not position:
+        return ""
+    nummer, gesamt = position
+    text = f"\nThis is slide {nummer} of {gesamt}.\n"
+    if nummer == 1:
+        text += (
+            "Begin the script with a time-neutral greeting such as 'Welcome' or 'Hello everyone' (never time-specific like 'Good morning').\n"
+            if add_greeting else "Do not use any greeting or welcome phrase.\n"
+        )
+    elif nummer == gesamt and not add_closing:
+        text += "Do not add any closing statement or thank-you.\n"
+    return text
+
+
 class _ScriptsMixin:
     """Expects client, model and the batch settings on the object."""
 
@@ -137,11 +153,15 @@ class _ScriptsMixin:
         selected_text: str | None = None,
         messages: list[dict] | None = None,
         glossary: dict[str, str] | None = None,
+        position: tuple[int, int] | None = None,
+        add_greeting: bool = True,
+        add_closing: bool = False,
     ) -> str:
         """Rewrites the script of a single slide following an instruction."""
         current_script_content = current_script.strip() or slide_text.strip()
         is_followup = messages is not None and len(messages) > 1
         glossary_hint = _glossary_hint(glossary)
+        stelle = _place_rules(position, add_greeting, add_closing)
         if selected_text and selected_text.strip():
             instruction = user_prompt.strip() or "Improve this excerpt."
             if is_followup:
@@ -152,7 +172,10 @@ class _ScriptsMixin:
                     f"Output ONLY the refined text. Do not repeat the instruction. Do not add labels or explanations. "
                     f"Write in flowing spoken language suitable for a university lecture. "
                     f"Never exceed 600 words. "
-                    f"Output must be in {target_lang}, unless the task explicitly requests a translation to a different language.\n\n"
+                    f"Output must be in {target_lang}, unless the task explicitly requests a translation to a different language.\n"
+                    f"Never add facts that are not in the slide content below.\n\n"
+                    f"Slide content:\n{slide_text.strip()}\n"
+                    f"{stelle}\n"
                     f"Original excerpt for context: «{selected_text.strip()}»"
                 )
             else:
@@ -164,7 +187,10 @@ class _ScriptsMixin:
                     f"Do not repeat the instruction. Do not add labels or explanations. "
                     f"Write in flowing spoken language suitable for a university lecture. "
                     f"Never exceed 600 words. "
-                    f"Output must be in {target_lang}, unless the task explicitly requests a translation to a different language.\n\n"
+                    f"Output must be in {target_lang}, unless the task explicitly requests a translation to a different language.\n"
+                    f"Never add facts that are not in the slide content below.\n\n"
+                    f"Slide content:\n{slide_text.strip()}\n"
+                    f"{stelle}\n"
                     f"Selected excerpt: «{selected_text.strip()}»\n\n"
                     f"Task: {instruction}"
                 )
@@ -173,7 +199,7 @@ class _ScriptsMixin:
                 TARGET_LANG=target_lang,
                 CURRENT_SCRIPT=current_script_content,
                 USER_INSTRUCTION=user_prompt.strip(),
-            )
+            ) + stelle
 
         # Build message history: system + prior turns + final user message
         chat_messages: list[dict] = [{"role": "system", "content": system_prompt}]

@@ -307,9 +307,17 @@ export const backendApi = new ApiClient(BACKEND_BASE);
 
 // ── Job polling helpers ────────────────────────────────────────────────────
 
+/** The job stopped after its automatic attempts and waits for a click. */
+export class JobPausedError extends Error {
+  constructor(public readonly jobUuid: string, message: string) {
+    super(message);
+    this.name = "JobPausedError";
+  }
+}
+
 export interface JobStatus {
   job_uuid: string;
-  status: "pending" | "running" | "success" | "failed" | "awaiting_user";
+  status: "pending" | "running" | "success" | "failed" | "awaiting_user" | "queued" | "waiting_retry" | "paused";
   tool: string;
   original_filename: string;
   progress: Record<string, unknown> | null;
@@ -359,6 +367,7 @@ export async function pollJob(
 
     if (status.status === "success") return status;
     if (status.status === "awaiting_user") return status;
+    if (status.status === "paused") throw new JobPausedError(jobUuid, status.error || fallback("jobFailed"));
     if (status.status === "failed") throw new Error(status.error || fallback("jobFailed"));
 
     await new Promise<void>((resolve, reject) => {

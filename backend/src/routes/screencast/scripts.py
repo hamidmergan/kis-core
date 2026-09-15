@@ -1,6 +1,7 @@
 """Skript-Endpoints: Auto-Save, Batch-Generierung, Einzel-Folien-Refinement."""
 
 import asyncio
+from functools import partial
 import json
 import re
 
@@ -181,15 +182,24 @@ async def screencast_regenerate_slide_script(
             pass
 
     try:
+        position = (
+            (body.slide_index + 1, body.slide_count)
+            if body.slide_index is not None and body.slide_count else None
+        )
         script = await asyncio.to_thread(
-            llm_client.refine_script,
-            user_prompt,
-            body.current_script or "",
-            body.slide_text,
-            body.target_lang,
-            body.selected_text or None,
-            [{"role": m.role, "content": m.content} for m in body.messages],
-            glossary_dict,
+            partial(
+                llm_client.refine_script,
+                user_prompt,
+                body.current_script or "",
+                body.slide_text,
+                body.target_lang,
+                body.selected_text or None,
+                [{"role": m.role, "content": m.content} for m in body.messages],
+                glossary_dict,
+                position=position,
+                add_greeting=body.add_greeting,
+                add_closing=body.add_closing,
+            )
         )
     except RuntimeError as e:
         raise HTTPException(status_code=502, detail=t("screencast.scriptGenerationFailed", locale, error=str(e)))

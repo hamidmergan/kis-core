@@ -9,7 +9,7 @@ from loguru import logger
 from src.celery_app import celery_app
 from src import database as db
 from src.i18n import t
-from src.limits import SCREENCAST_SOFT_TIME_LIMIT, SCREENCAST_TIME_LIMIT
+from src.limits import STAGE_SOFT_TIME_LIMIT, STAGE_TIME_LIMIT
 from src.storage import (
     clear_render_cache,
     get_job_file,
@@ -19,9 +19,11 @@ from src.storage import (
     save_result_meta,
 )
 from src.utils.heartbeat import job_heartbeat
+from src.services.job_recovery import attempt_failed, still_mine
 from src.services.screencast.naming import build_artifact_stem
 
 from src.tasks._errors import handle_task_exception, is_upstream_busy, job_locale
+from src.tasks._stage import StageClock, StageContinue, StageLost, continue_stage
 from src.tasks.screencast_tasks._pipeline import _run_render_pipeline
 from src.tasks.screencast_tasks._queue import _maybe_dispatch_next
 from src.tasks.screencast_tasks._shared import _JobCancelled
@@ -61,9 +63,8 @@ def _merke_vertonten_stand(
     name="screencast.render",
     queue="screencast",
     acks_late=True,
-    max_retries=7,
-    soft_time_limit=SCREENCAST_SOFT_TIME_LIMIT,
-    time_limit=SCREENCAST_TIME_LIMIT,
+    soft_time_limit=STAGE_SOFT_TIME_LIMIT,
+    time_limit=STAGE_TIME_LIMIT,
 )
 def run_screencast_render(
     self,
@@ -80,11 +81,15 @@ def run_screencast_render(
     subtitles: bool = False,
     video_folien: list[int] | None = None,
     neu_vertonen: list[int] | None = None,
+    versuch: int = 0,
 ):
     """Renders the finished MP4 from the scripts and the stored PPTX."""
-    from celery.exceptions import Retry, SoftTimeLimitExceeded
+    from celery.exceptions import SoftTimeLimitExceeded
     from fastapi import HTTPException
     try:
+        if not still_mine(translate_job_uuid, versuch):
+            raise StageLost(translate_job_uuid)
+        clock = StageClock()
         db.update_job_status(translate_job_uuid, "running", progress={
             "step": "render", "voice_id": voice_id, "voice_label": voice_label, "provider_id": provider_id,
         })
@@ -92,21 +97,22 @@ def run_screencast_render(
         if not job_row:
             raise RuntimeError(f"Job {translate_job_uuid} not found")
         user_id = job_row["user_id"]
-        with job_heartbeat(translate_job_uuid):
-            result = _run_render_pipeline(
-                job_uuid=translate_job_uuid,
-                scripts=scripts,
-                voice_id=voice_id,
-                speed=speed,
-                slide_pause=slide_pause,
-                dpi=dpi,
-                provider_id=provider_id,
-                is_admin=is_admin,
-                subtitles=subtitles,
-                voice_label=voice_label,
-                video_folien=video_folien,
-                neu_vertonen=neu_vertonen,
-            )
+        result = _run_render_pipeline(
+            job_uuid=translate_job_uuid,
+            scripts=scripts,
+            voice_id=voice_id,
+            speed=speed,
+            slide_pause=slide_pause,
+            dpi=dpi,
+            provider_id=provider_id,
+            is_admin=is_admin,
+            subtitles=subtitles,
+            voice_label=voice_label,
+            video_folien=video_folien,
+            neu_vertonen=neu_vertonen,
+            clock=clock,
+            token=versuch,
+        )
 
         meta_existing = load_result_meta(user_id, translate_job_uuid) or {}
         translated_stem = meta_existing.get("translated_stem") or (
@@ -132,6 +138,16 @@ def run_screencast_render(
         logger.info("Screencast render task {} completed", translate_job_uuid)
         _maybe_dispatch_next(translate_job_uuid)
 
+    except StageContinue:
+        # The row stays running and keeps the slot, only the work moves on.
+        args = [translate_job_uuid, scripts, voice_id, speed, slide_pause, original_filename,
+                dpi, provider_id, voice_label, is_admin, subtitles,
+                video_folien, neu_vertonen, versuch]
+        continue_stage(self, args, translate_job_uuid)
+
+    except StageLost:
+        logger.info("Screencast {}: Etappe gehoert nicht mehr uns, nichts getan", translate_job_uuid)
+
     except _JobCancelled:
         logger.info("Screencast render task {} cancelled by user", translate_job_uuid)
         db.reset_job_to_awaiting(translate_job_uuid)
@@ -141,36 +157,18 @@ def run_screencast_render(
         logger.warning("Screencast render task {} hit soft time limit", translate_job_uuid)
         job = db.get_job(translate_job_uuid)
         locale = (job and job.get("creator_locale")) or "de"
-        db.update_job_status(translate_job_uuid, "failed", error_message=t("job.timeoutRetry", locale))
+        attempt_failed(translate_job_uuid, t("job.timeoutRetry", locale))
         _maybe_dispatch_next(translate_job_uuid)
 
     except HTTPException as e:
-        # Temporary voicing errors re-queue, finished slides stay.
         detail = str(getattr(e, "detail", e))
-        is_tts_transient = e.status_code == 502 and "TTS" in detail
-        if is_tts_transient and self.request.retries < 5:
-            countdown = 60 * (2 ** self.request.retries)  # 1m, 2m, 4m, 8m, 16m
-            logger.warning(
-                "Screencast {}: TTS upstream error (attempt {}/{}), retrying in {}s — {}",
-                translate_job_uuid, self.request.retries + 1, 5, countdown, detail,
-            )
-            db.update_job_status(translate_job_uuid, "running", progress={
-                "step": "tts_retry_pending",
-                "retry_in_seconds": countdown,
-                "attempt": self.request.retries + 1,
-                "max_attempts": 5,
-            })
-            raise self.retry(exc=e, countdown=countdown, max_retries=5)
         logger.error("Screencast render task {} failed (HTTPException {}): {}", translate_job_uuid, e.status_code, detail)
-        # Otherwise the raw provider message ends up on screen after the last attempt.
+        # Otherwise the raw provider message ends up on screen.
         if is_upstream_busy(detail):
             detail = t("job.upstreamBusy", job_locale(translate_job_uuid))
-        db.update_job_status(translate_job_uuid, "failed", error_message=detail)
+        attempt_failed(translate_job_uuid, detail)
         _maybe_dispatch_next(translate_job_uuid)
         raise
-
-    except Retry:
-        raise  # Celery's own retry signal — let it propagate without overwriting status
 
     except Exception as e:
         handle_task_exception(translate_job_uuid, e, task_label="Screencast render")

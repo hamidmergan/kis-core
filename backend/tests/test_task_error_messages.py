@@ -22,6 +22,14 @@ class FakeDb:
 def db(monkeypatch):
     fake = FakeDb()
     monkeypatch.setattr(_errors, "db", fake)
+    # A transient error no longer fails the job, it counts one attempt. Same text either way.
+    from src.services import job_recovery
+
+    def anlauf(job_uuid, message, **kwargs):
+        fake.geschrieben = ("attempt", message)
+        return "waiting_retry"
+
+    monkeypatch.setattr(job_recovery, "attempt_failed", anlauf)
     return fake
 
 
@@ -58,7 +66,8 @@ def test_ueberlastung_wird_zu_klartext(db):
         task_label="TTS",
     )
     status, text = db.geschrieben
-    assert status == "failed"
+    # Transient: the job resumes by itself instead of failing.
+    assert status == "attempt"
     assert "500" not in text
     assert "Internal Server Error" not in text
     assert "überlastet" in text

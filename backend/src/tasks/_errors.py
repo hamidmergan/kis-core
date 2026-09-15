@@ -27,10 +27,13 @@ def audio_too_long_message(e, locale: str) -> str:
 
 
 def handle_task_exception(job_uuid: str, e: Exception, *, task_label: str) -> None:
-    """Translates the errors a user can act on and marks the job as failed."""
+    """Translates the errors a user can act on, then fails or counts one attempt."""
     from src.services.feature_router import FeatureNotConfigured
     from src.services.openai_compat_llm._chunking import AudioTooLongError
+    from src.services import job_recovery
 
+    # Trying these again changes nothing, the input or the setup is wrong.
+    dauerhaft = isinstance(e, (FeatureNotConfigured, AudioTooLongError, ValueError))
     if isinstance(e, FeatureNotConfigured):
         msg = t("job.featureNotConfigured", job_locale(job_uuid))
     elif isinstance(e, AudioTooLongError):
@@ -40,4 +43,7 @@ def handle_task_exception(job_uuid: str, e: Exception, *, task_label: str) -> No
     else:
         msg = str(e)
     logger.error("{} task {} failed: {}", task_label, job_uuid, e)
-    db.update_job_status(job_uuid, "failed", error_message=msg)
+    if dauerhaft:
+        db.update_job_status(job_uuid, "failed", error_message=msg)
+    else:
+        job_recovery.attempt_failed(job_uuid, msg)

@@ -71,8 +71,11 @@
       "failed": "Fehler",
       "running": "Läuft",
       "awaitingUser": "Fortsetzen",
+      "waitingRetry": "Neuer Anlauf",
+      "paused": "Weiter",
       "queued": "In der Warteschlange",
-      "pending": "Wartend"
+      "pending": "Wartend",
+      "pausedMark": "Angehalten"
     },
     "timing": {
       "submitted": "Eingereicht:",
@@ -158,7 +161,8 @@
     "actions": {
       "cancel": "Abbrechen",
       "retry": "Wiederholen",
-      "deleteJob": "Job löschen"
+      "deleteJob": "Job löschen",
+      "continue": "Weiter"
     },
     "deleteModal": {
       "title": "Job löschen?",
@@ -488,8 +492,7 @@
         "newConversation": "Neues Gespräch",
         "protocol": "Protokoll",
         "saved": "Frühere Gespräche",
-        "settings": "Einstellungen",
-        "endConversation": "Gespräch beenden"
+        "settings": "Einstellungen"
       },
       "protocol": {
         "title": "Gesprächsprotokoll",
@@ -545,7 +548,10 @@
         "readyToPlay": "Audio fertig",
         "errorTitle": "Fehler bei der Audiogenerierung",
         "tryAgain": "Erneut versuchen",
-        "newFileAria": "Neue Datei hochladen"
+        "newFileAria": "Neue Datei hochladen",
+        "pausedTitle": "Angehalten",
+        "pausedHint": "Schon vertonte Teile bleiben erhalten. Weiter macht dort weiter, wo es aufgehört hat.",
+        "continue": "Weiter"
       },
       "upload": {
         "selectFileAria": "Datei zum Vorlesen auswählen"
@@ -922,11 +928,13 @@
         "uploadError": "Fehler beim Hochladen",
         "downloadFailed": "Download fehlgeschlagen",
         "previousRenderBusy": "Der vorherige Render wird noch beendet. Bitte einen Moment warten und erneut versuchen.",
-        "resumeFailed": "Dieser Screencast lässt sich nicht mehr fortsetzen. Er ist abgelaufen, wurde gelöscht oder läuft gerade in einem anderen Tab. Du kannst hier neu starten."
+        "resumeFailed": "Dieser Screencast lässt sich nicht mehr fortsetzen. Er ist abgelaufen, wurde gelöscht oder läuft gerade in einem anderen Tab. Du kannst hier neu starten.",
+        "pausedHeading": "Angehalten",
+        "continue": "Weiter"
       },
       "regenChat": {
-        "headerTitle": "KI-Assistent · Folie {n}",
-        "assistant": "KI-Assistent",
+        "headerTitle": "Francis zu Folie {n}",
+        "assistant": "Francis",
         "thinking": "Denkt nach…",
         "promptPlaceholder": "Text eingeben…",
         "promptPlaceholderDemo": "Nicht in der Demo verfügbar",
@@ -1077,7 +1085,7 @@
         "voiced": "vertont",
         "wordsApprox": "etwa {n} Wörter",
         "edit": "Beitrag {n} bearbeiten",
-        "regen": "Beitrag {n} neu formulieren",
+        "regen": "Beitrag {n} mit Francis überarbeiten",
         "delete": "Beitrag {n} löschen",
         "add": "Beitrag anfügen",
         "editAria": "Text von Beitrag {n}",
@@ -1090,6 +1098,21 @@
         "blankIntro": "Leg Beiträge an, wähle die sprechende Person und tippe den Text. Vertont wird erst, wenn du zufrieden bist.",
         "blankEmpty": "Noch kein Beitrag. Leg den ersten an.",
         "emptyLine": "Noch nichts geschrieben"
+      },
+      "regenChat": {
+        "headerTitle": "Francis zu Beitrag {n}",
+        "assistant": "Francis",
+        "thinking": "Denkt nach…",
+        "promptPlaceholder": "Text eingeben…",
+        "promptPlaceholderDemo": "Nicht in der Demo verfügbar",
+        "errorMessage": "Fehler beim Überarbeiten.",
+        "actions": {
+          "replaceSelection": "Markierung ersetzen",
+          "insertBefore": "Davor",
+          "insertAfter": "Danach",
+          "wholeScript": "Ganzer Beitrag",
+          "replace": "Ersetzen"
+        }
       },
       "voicing": {
         "heading": "Vertonung",
@@ -1108,7 +1131,10 @@
         "cancelled": "Abgebrochen. Was schon vertont war, bleibt erhalten.",
         "assembling": "Die Beiträge werden zusammengesetzt",
         "failedGeneric": "Die Vertonung ist fehlgeschlagen",
-        "resumeGeneric": "Vertonung fortsetzen"
+        "resumeGeneric": "Vertonung fortsetzen",
+        "waitingRetry": "Es gab eine Störung. Der Podcast läuft gleich von selbst weiter.",
+        "pausedTitle": "Angehalten",
+        "continue": "Weiter vertonen"
       },
       "done": {
         "heading": "Dein Podcast ist fertig",

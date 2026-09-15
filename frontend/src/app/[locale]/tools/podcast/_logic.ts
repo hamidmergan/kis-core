@@ -1,4 +1,7 @@
-import { STEPS, type Line, type PodcastState, type Source, type Step } from "./_types";
+import { STEPS, type JobStatus, type Line, type PodcastState, type Source, type Step } from "./_types";
+
+/** States in which the job moves on by itself, so the page keeps asking. */
+export const LAEUFT: ReadonlySet<JobStatus> = new Set<JobStatus>(["pending", "running", "waiting_retry"]);
 
 /** Spoken words per minute, the same figure the backend plans the length with. */
 const WORDS_PER_MINUTE = 140;
@@ -28,7 +31,7 @@ export const ohneKi = (state: PodcastState): boolean =>
 export const hatErgebnisse = (state: PodcastState): boolean => state.lines.length > 0;
 
 export const isBusy = (state: PodcastState): boolean =>
-  state.starting || state.jobStatus === "pending" || state.jobStatus === "running";
+  state.starting || LAEUFT.has(state.jobStatus);
 
 /** The number in "Beitrag 5 konnte nicht vertont werden", read back from the message. */
 export function failedLineIndex(error: string): number {
@@ -41,7 +44,8 @@ export function reachable(index: number, state: PodcastState): boolean {
   if (index === stepIndex(state.step)) return false;
   if (isBusy(state)) return false;
   if (index > state.maxReached) return false;
-  if (index === stepIndex("voicing")) return state.progress?.fertig?.length ? true : state.jobStatus === "failed";
+  if (index === stepIndex("voicing"))
+    return state.progress?.fertig?.length ? true : state.jobStatus === "failed" || state.jobStatus === "paused";
   if (index === stepIndex("done")) return state.jobStatus === "success";
   // The material wrote the script and cannot be taken back, the cast can be recast.
   if (index === stepIndex("content")) return state.jobUuid === null;

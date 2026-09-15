@@ -2,7 +2,9 @@
 
 import type { SlideData } from "@/types";
 import Lightbox from "./Lightbox";
-import RegenChatModal, { type RegenApplyMode } from "./RegenChatModal";
+import RegenChatModal, { type RegenTurn } from "@/components/regen/RegenChatModal";
+import type { RegenApplyMode } from "@/components/regen/apply";
+import { api } from "@/lib/api";
 import ExitConfirmModal from "./ExitConfirmModal";
 
 interface Props {
@@ -47,12 +49,24 @@ export default function ScreencastOverlays({
 
       {regeneratingSlide !== null && slides[regeneratingSlide] && (
         <RegenChatModal
-          slideIndex={regeneratingSlide}
-          slideExtractedText={slides[regeneratingSlide].extractedText}
-          currentScript={slides[regeneratingSlide].script || ""}
+          index={regeneratingSlide}
           anchorText={regenAnchorText}
-          targetLang={targetLang}
-          glossaryJson={glossaryJson}
+          onSend={async (messages: RegenTurn[]) => {
+            const result = await api.postJson<{ script: string }>("/api/screencast/regenerate-slide-script", {
+              slide_text: slides[regeneratingSlide].extractedText,
+              current_script: slides[regeneratingSlide].script || "",
+              messages,
+              selected_text: regenAnchorText || null,
+              target_lang: targetLang,
+              glossary_json: glossaryJson,
+              slide_index: regeneratingSlide,
+              slide_count: slides.length,
+              add_greeting: true,
+              // Same policy as the generation: no closing platitude at the end.
+              add_closing: false,
+            });
+            return result.script;
+          }}
           onApply={(mode, content) => onRegenApply(regeneratingSlide, mode, content)}
           onClose={onRegenClose}
         />

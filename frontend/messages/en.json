@@ -71,8 +71,11 @@
       "failed": "Failed",
       "running": "Running",
       "awaitingUser": "Resume",
+      "waitingRetry": "Retrying",
+      "paused": "Continue",
       "queued": "Queued",
-      "pending": "Pending"
+      "pending": "Pending",
+      "pausedMark": "Paused"
     },
     "timing": {
       "submitted": "Submitted:",
@@ -158,7 +161,8 @@
     "actions": {
       "cancel": "Cancel",
       "retry": "Retry",
-      "deleteJob": "Delete job"
+      "deleteJob": "Delete job",
+      "continue": "Continue"
     },
     "deleteModal": {
       "title": "Delete job?",
@@ -488,8 +492,7 @@
         "newConversation": "New conversation",
         "protocol": "Transcript",
         "saved": "Past conversations",
-        "settings": "Settings",
-        "endConversation": "End conversation"
+        "settings": "Settings"
       },
       "protocol": {
         "title": "Conversation transcript",
@@ -545,7 +548,10 @@
         "readyToPlay": "Audio ready",
         "errorTitle": "Audio generation failed",
         "tryAgain": "Try again",
-        "newFileAria": "Upload new file"
+        "newFileAria": "Upload new file",
+        "pausedTitle": "Paused",
+        "pausedHint": "The parts already voiced are kept. Continue picks up where it stopped.",
+        "continue": "Continue"
       },
       "upload": {
         "selectFileAria": "Select file to read aloud"
@@ -922,11 +928,13 @@
         "uploadError": "Upload failed",
         "downloadFailed": "Download failed",
         "previousRenderBusy": "The previous render is still finishing. Please wait a moment and try again.",
-        "resumeFailed": "This screencast can no longer be resumed. It has expired, was deleted, or is running in another tab. You can start over here."
+        "resumeFailed": "This screencast can no longer be resumed. It has expired, was deleted, or is running in another tab. You can start over here.",
+        "pausedHeading": "Paused",
+        "continue": "Continue"
       },
       "regenChat": {
-        "headerTitle": "AI assistant · Slide {n}",
-        "assistant": "AI assistant",
+        "headerTitle": "Francis on slide {n}",
+        "assistant": "Francis",
         "thinking": "Thinking…",
         "promptPlaceholder": "Enter text…",
         "promptPlaceholderDemo": "Not available in the demo",
@@ -1077,7 +1085,7 @@
         "voiced": "voiced",
         "wordsApprox": "about {n} words",
         "edit": "Edit line {n}",
-        "regen": "Rephrase line {n}",
+        "regen": "Rework line {n} with Francis",
         "delete": "Delete line {n}",
         "add": "Add a line",
         "editAria": "Text of line {n}",
@@ -1090,6 +1098,21 @@
         "blankIntro": "Add contributions, pick who speaks and type the text. The voicing only happens once you are happy.",
         "blankEmpty": "No contribution yet. Add the first one.",
         "emptyLine": "Nothing written yet"
+      },
+      "regenChat": {
+        "headerTitle": "Francis on line {n}",
+        "assistant": "Francis",
+        "thinking": "Thinking…",
+        "promptPlaceholder": "Enter text…",
+        "promptPlaceholderDemo": "Not available in the demo",
+        "errorMessage": "Error while reworking.",
+        "actions": {
+          "replaceSelection": "Replace selection",
+          "insertBefore": "Before",
+          "insertAfter": "After",
+          "wholeScript": "Whole line",
+          "replace": "Replace"
+        }
       },
       "voicing": {
         "heading": "Voicing",
@@ -1108,7 +1131,10 @@
         "cancelled": "Cancelled. What was already voiced stays saved.",
         "assembling": "The contributions are being put together",
         "failedGeneric": "The voicing failed",
-        "resumeGeneric": "Continue voicing"
+        "resumeGeneric": "Continue voicing",
+        "waitingRetry": "Something went wrong. The podcast continues by itself in a moment.",
+        "pausedTitle": "Paused",
+        "continue": "Continue voicing"
       },
       "done": {
         "heading": "Your podcast is ready",

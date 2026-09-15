@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { ArrowsClockwise, PencilSimple, Plus, Trash } from "@phosphor-icons/react";
+import { PencilSimple, Plus, Trash } from "@phosphor-icons/react";
 import IconButton from "@/components/ui/IconButton";
+import SparkleIcon from "@/components/ui/SparkleIcon";
 import Select from "@/components/ui/Select";
 import Spinner from "@/components/ui/Spinner";
 import StatusMark from "@/components/ui/StatusMark";
@@ -28,9 +29,13 @@ interface ScriptStepProps {
   selfWritten: boolean;
   /** The instruction named something the material does not cover. */
   instructionUnmatched: boolean;
+  /** The contribution whose text is marked, so the chat can work on that spot. */
+  regenAnchorIndex: number | null;
+  regenAnchorText: string;
   onUpdate: (id: string, text: string) => void;
   onSpeaker: (id: string, speaker: number) => void;
-  onRephrase: (id: string) => Promise<void>;
+  onRegenAnchor: (index: number | null, text: string) => void;
+  onOpenRegen: (index: number) => void;
   onDelete: (id: string) => void;
   onAdd: () => void;
   onBack: (() => void) | null;
@@ -40,14 +45,13 @@ interface ScriptStepProps {
 
 export default function ScriptStep(props: ScriptStepProps) {
   const { lines, persons, count, voicedIds, busy, error, allDone, selfWritten,
-          instructionUnmatched,
-          onUpdate, onSpeaker, onRephrase, onDelete, onAdd, onBack, onVoice, onToDone } = props;
+          instructionUnmatched, regenAnchorIndex, regenAnchorText,
+          onUpdate, onSpeaker, onRegenAnchor, onOpenRegen, onDelete, onAdd, onBack, onVoice, onToDone } = props;
   const t = useTranslations("tools.podcast.script");
   const tCast = useTranslations("tools.podcast.cast");
   const tCommon = useTranslations("tools.podcast.common");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [buffer, setBuffer] = useState("");
-  const [rephrasingId, setRephrasingId] = useState<string | null>(null);
 
   if (busy && lines.length === 0 && !selfWritten) {
     return (
@@ -83,15 +87,6 @@ export default function ScriptStep(props: ScriptStepProps) {
   const fertig = offen === 0 && allDone;
   const nextLabel = fertig ? t("nextDone") : schonVertont ? t("nextChanged", { n: offen }) : t("next");
   const unvollstaendig = lines.some((l) => !l.text.trim());
-
-  const umformulieren = async (id: string) => {
-    setRephrasingId(id);
-    try {
-      await onRephrase(id);
-    } finally {
-      setRephrasingId(null);
-    }
-  };
 
   return (
     <section className="animate-[fadeIn_0.3s_ease-out]">
@@ -164,10 +159,10 @@ export default function ScriptStep(props: ScriptStepProps) {
                         size="sm"
                         aria-label={t("regen", { n: i + 1 })}
                         title={t("regen", { n: i + 1 })}
-                        disabled={rephrasingId !== null}
-                        onClick={() => void umformulieren(line.id)}
+                        className={regenAnchorIndex === i && regenAnchorText ? "text-kb" : undefined}
+                        onClick={() => onOpenRegen(i)}
                       >
-                        {rephrasingId === line.id ? <Spinner size="xs" color="current" /> : <ArrowsClockwise size={12} weight="bold" />}
+                        <SparkleIcon className="w-3 h-3" />
                       </IconButton>
                     )}
                     <IconButton size="sm" aria-label={t("delete", { n: i + 1 })} title={t("delete", { n: i + 1 })} onClick={() => onDelete(line.id)}>
@@ -199,7 +194,13 @@ export default function ScriptStep(props: ScriptStepProps) {
                   </div>
                 </>
               ) : (
-                <p className={`text-sm leading-relaxed whitespace-pre-wrap ${line.text ? "text-foreground" : "text-muted-soft italic"}`}>
+                <p
+                  className={`text-sm leading-relaxed whitespace-pre-wrap ${line.text ? "text-foreground" : "text-muted-soft italic"}`}
+                  onMouseUp={() => {
+                    const markiert = window.getSelection()?.toString().trim();
+                    onRegenAnchor(markiert ? i : null, markiert || "");
+                  }}
+                >
                   {line.text || t("emptyLine")}
                 </p>
               )}

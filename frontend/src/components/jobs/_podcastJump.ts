@@ -10,7 +10,7 @@ interface JumpJob {
 export function podcastJumpKind(job: JumpJob): "resume" | "open" | null {
   if (job.tool !== "podcast") return null;
   // The script waits for the person, and a failed run waits to be continued.
-  if (job.status === "awaiting_user" || job.status === "failed") return "resume";
+  if (job.status === "awaiting_user" || job.status === "failed" || job.status === "paused") return "resume";
   // An expired job has no files left, there is nothing to show.
   if (job.status === "success") return job.has_download ? "open" : null;
   if (job.status === "queued" || job.status === "running" || job.status === "pending") return "open";

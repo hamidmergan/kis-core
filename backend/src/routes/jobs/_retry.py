@@ -46,7 +46,7 @@ def retry_job(
         raise HTTPException(status_code=400, detail=t("job.retryOnlyTtsScreencast", locale))
     if job["status"] == "success":
         raise HTTPException(status_code=409, detail=t("job.alreadySuccessful", locale))
-    if job["status"] in ("running", "pending"):
+    if job["status"] not in ("failed", "paused"):
         raise HTTPException(status_code=409, detail=t("job.alreadyRunning", locale))
     progress = json.loads(job["progress"] or "{}")
 
@@ -54,7 +54,11 @@ def retry_job(
     if job["tool"] == "tts":
         if not job["input_path"]:
             raise HTTPException(status_code=400, detail=t("job.inputFileExpired", locale))
-        params = progress.get("tts_params")
+        # The folder is the reliable source, the progress gets overwritten while running.
+        try:
+            params = json.loads(get_job_file(job["user_id"], job_uuid, "tts_params.json"))
+        except Exception:
+            params = progress.get("tts_params")
         if not params:
             raise HTTPException(status_code=400, detail=t("job.paramsNotSaved", locale))
 
@@ -80,6 +84,7 @@ def retry_job(
             params["speed"],
             provider_id,
             params.get("voice_label", ""),
+            0,
         ])
         try:
             import redis as _redis
@@ -92,8 +97,10 @@ def retry_job(
     else:  # screencast_translate / screencast_render
         save_job_file(job["user_id"], job_uuid, "queue_params.json",
                       json.dumps(_queue_params_from_render(render_params)).encode())
-        if not db.transition_job_to_queued(job_uuid, job["user_id"], from_statuses=("failed",)):
+        if not db.transition_job_to_queued(job_uuid, job["user_id"],
+                                           from_statuses=("failed", "paused")):
             raise HTTPException(status_code=409, detail=t("job.parallelRunning", locale))
+        db.reset_attempts(job_uuid)
         from src.tasks.screencast_tasks import dispatch_next_screencast_job_for_user
         dispatch_next_screencast_job_for_user(job["user_id"])
 

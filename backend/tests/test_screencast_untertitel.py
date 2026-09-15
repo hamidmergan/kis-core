@@ -261,7 +261,7 @@ def test_die_argumente_passen_zur_task_signatur():
               "provider_id": 2, "voice_label": "L", "is_admin": False, "subtitles": True}
     felder = list(inspect.signature(run_screencast_render.run).parameters)
     assert felder[0] == "translate_job_uuid"
-    assert felder[-1] == "neu_vertonen"
+    assert felder[-2:] == ["neu_vertonen", "versuch"]
     assert len(_render_args("job", ["Text"], params, "datei.pptx")) == len(felder)
 
 

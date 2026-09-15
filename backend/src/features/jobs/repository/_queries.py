@@ -62,13 +62,14 @@ def has_active_job_for_tool(user_id: int, tools: list[str]) -> bool:
 def count_working_jobs(user_id: int) -> int:
     """Jobs across all tools that occupy a worker or are about to.
 
-    A job waiting for the person (``awaiting_user``) lies still and is not counted.
+    A job waiting for the person (``awaiting_user``, ``paused``) lies still and is not counted,
+    one that resumes by itself (``waiting_retry``) is.
     """
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """SELECT COUNT(*) FROM jobs
-                   WHERE user_id = %s AND status IN ('pending', 'running', 'queued')""",
+                   WHERE user_id = %s AND status IN ('pending', 'running', 'queued', 'waiting_retry')""",
                 (user_id,),
             )
             row = cur.fetchone()

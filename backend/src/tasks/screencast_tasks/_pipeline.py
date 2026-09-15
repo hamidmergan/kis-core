@@ -11,7 +11,10 @@ from pathlib import Path
 from loguru import logger
 
 from src import database as db
-from src.limits import RENDER_MAX_WORKERS
+from src.limits import RENDER_MAX_WORKERS, STAGE_SECONDS
+from src.services.job_recovery import still_mine
+from src.tasks._stage import StageContinue, StageLost
+from src.utils.heartbeat import job_heartbeat
 from src.storage import (
     audio_folien_mit_ton,
     load_result_meta,
@@ -67,6 +70,8 @@ def _run_render_pipeline(
     voice_label: str = "",
     video_folien: list[int] | None = None,
     neu_vertonen: list[int] | None = None,
+    clock=None,
+    token: int = 0,
 ) -> dict:
     """The render path: reads the PPTX from the job folder and stores everything there."""
     (
@@ -150,7 +155,10 @@ def _run_render_pipeline(
                     pptx_path.write_bytes(pptx_data)
                     img_dir = tmp / "images"
                     img_dir.mkdir()
-                    slide_images = asyncio.run(_convert_slides_to_images_async(pptx_path, img_dir, dpi))
+                    # No units here, so the clock has to speak for this phase.
+                    with job_heartbeat(job_uuid):
+                        slide_images = asyncio.run(
+                            _convert_slides_to_images_async(pptx_path, img_dir, dpi))
             bild_zahlen["folien"] = len(slide_images)
 
         _assert_not_cancelled(job_uuid)
@@ -170,6 +178,8 @@ def _run_render_pipeline(
             if _cancelled_by_watcher.is_set():
                 raise _JobCancelled()
             _assert_not_cancelled(job_uuid)
+            if not still_mine(job_uuid, token):
+                raise StageLost(job_uuid)
             if folie in auswahl.ausgeschlossen:
                 return
             if folie not in fertige_folien and scripts[folie].strip():
@@ -187,9 +197,15 @@ def _run_render_pipeline(
             ton_zahlen["stimme_name"] = voice_label
             ton_zahlen["tempo"] = speed
             ton_zahlen["sprache"] = target_lang
-            tts_results = asyncio.run(_generate_all_tts(scripts, tts_client, tmp, speed, voice_id, on_slide_done=_tts_progress, job_uuid=job_uuid, user_id=user_id, provider_id=provider_id, target_lang=target_lang, zaehler=ton_zahlen, ausgeschlossen=auswahl.ausgeschlossen, alter_ton_erlaubt=auswahl.alter_ton_erlaubt))
+            tts_results = asyncio.run(_generate_all_tts(scripts, tts_client, tmp, speed, voice_id, on_slide_done=_tts_progress, job_uuid=job_uuid, user_id=user_id, provider_id=provider_id, target_lang=target_lang, zaehler=ton_zahlen, ausgeschlossen=auswahl.ausgeschlossen, alter_ton_erlaubt=auswahl.alter_ton_erlaubt, clock=clock, on_beat=lambda: db.touch_job_heartbeat(job_uuid)))
         audio_paths = [r[0] for r in tts_results]
         alignments = [r[1] for r in tts_results]
+
+        # Slides the stage did not reach, plus the montage, belong to the next stage.
+        offen = [i for i, p in enumerate(audio_paths) if p is not None and not p.exists()]
+        if offen or (clock is not None and clock.spent() > STAGE_SECONDS / 2):
+            logger.info("Screencast {}: {} Folien offen, naechste Etappe", job_uuid, len(offen))
+            raise StageContinue
 
         num_slides = min(len(slide_images), len(audio_paths))
         if num_slides == 0:
@@ -280,7 +296,8 @@ def _run_render_pipeline(
             raise _JobCancelled()
         db.update_job_status(job_uuid, "running", progress={"step": "concat"})
         concat_path = tmp / "concat.mp4"
-        with messe(user_id, job_uuid, "zusammenfuegen") as fuege_zahlen:
+        # Two long ffmpeg runs without units of their own, so the clock speaks for them.
+        with job_heartbeat(job_uuid), messe(user_id, job_uuid, "zusammenfuegen") as fuege_zahlen:
             fuege_zahlen["clips"] = len(clip_paths)
             _concatenate_videos(clip_paths, concat_path)
 

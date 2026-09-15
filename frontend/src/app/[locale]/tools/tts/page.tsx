@@ -7,7 +7,7 @@ import ToolBackLink from "@/components/ui/ToolBackLink";
 import TtsFileUpload from "@/components/jobs/TtsFileUpload";
 import TtsTextInput from "@/components/jobs/TtsTextInput";
 import TtsStatus from "@/components/jobs/TtsStatus";
-import { pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
+import { JobPausedError, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
 import { TTS_MAX_CHARS } from "@/lib/constants";
 import type { TTSState } from "@/types";
 import Select from "@/components/ui/Select";
@@ -65,6 +65,8 @@ export default function TtsPage() {
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const currentJobUuidRef = useRef<string | null>(null);
+  // Kept across a pause, the file name must survive a cleared form.
+  const dateiStammRef = useRef("text");
 
   useEffect(() => {
     return () => { abortControllerRef.current?.abort(); setTtsState("idle"); };
@@ -137,9 +139,23 @@ export default function TtsPage() {
       currentJobUuidRef.current = job_uuid;
       window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
 
-      setTtsState("processing");
-      setTtsProgressLabel(tProgress("queued"));
+      dateiStammRef.current = inputMode === "file" && pendingFile
+        ? pendingFile.name.replace(/\.[^.]+$/, "")
+        : "text";
+      await verfolgeJob(job_uuid, signal);
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") return;
+      currentJobUuidRef.current = null;
+      setTtsErrorMessage(err instanceof Error ? err.message : tCommon("unknownError"));
+      setTtsState("error");
+    }
+  };
 
+  /** Follows one job to the end and downloads it, used by the first run and by Weiter. */
+  const verfolgeJob = async (job_uuid: string, signal: AbortSignal) => {
+    setTtsState("processing");
+    setTtsProgressLabel(tProgress("queued"));
+    try {
       const jobResult = await pollJob(
         job_uuid,
         (status) => {
@@ -158,12 +174,9 @@ export default function TtsPage() {
 
       window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
       setTtsProgressLabel(tProgress("downloading"));
-      const fallbackStem = inputMode === "file" && pendingFile
-        ? pendingFile.name.replace(/\.[^.]+$/, "")
-        : "text";
       const { blob, filename } = await downloadJobAsBlob(
         jobResult.job_uuid,
-        `${fallbackStem}.mp3`,
+        `${dateiStammRef.current}.mp3`,
       );
       setTtsDownloadBlob(blob);
       setTtsDownloadName(filename);
@@ -171,7 +184,33 @@ export default function TtsPage() {
       setTtsState("done");
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
-      currentJobUuidRef.current = null;
+      window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
+      // Paused keeps the job, the person decides whether it carries on.
+      if (err instanceof JobPausedError) {
+        currentJobUuidRef.current = err.jobUuid;
+        setTtsErrorMessage(err.message);
+        setTtsState("paused");
+        return;
+      }
+      throw err;
+    }
+  };
+
+  /** Weiter on a paused job: the finished pieces stay, only the rest is voiced. */
+  const handleTtsContinue = async () => {
+    const uuid = currentJobUuidRef.current;
+    if (!uuid) return;
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = new AbortController();
+    try {
+      const res = await fetch(`/api/jobs/${uuid}/retry`, { method: "POST", credentials: "include" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: tCommon("unknownError") }));
+        throw new Error(parseDetail(err.detail, tCommon("unknownError")));
+      }
+      await verfolgeJob(uuid, abortControllerRef.current.signal);
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") return;
       setTtsErrorMessage(err instanceof Error ? err.message : tCommon("unknownError"));
       setTtsState("error");
     }
@@ -357,6 +396,7 @@ export default function TtsPage() {
             errorMessage={ttsErrorMessage}
             onDownload={handleTtsDownload}
             onReset={handleTtsReset}
+            onContinue={handleTtsContinue}
           />
         </section>
       </div>

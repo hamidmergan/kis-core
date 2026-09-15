@@ -13,7 +13,7 @@ interface Props {
 
 export default function GlossarySelector({ values, onChange }: Props) {
   const t = useTranslations("tools.glossarySelector");
-  const { glossaries } = useGlossaries();
+  const { glossaries, loading } = useGlossaries();
   const [open, setOpen] = useState(false);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
@@ -30,7 +30,7 @@ export default function GlossarySelector({ values, onChange }: Props) {
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
-  if (glossaries.length === 0) {
+  if (!loading && glossaries.length === 0) {
     return (
       <div className="mb-4 mt-6">
         <p className="text-sm text-muted-soft">

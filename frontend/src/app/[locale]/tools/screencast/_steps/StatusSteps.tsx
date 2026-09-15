@@ -218,11 +218,13 @@ export function DoneStep({
 export function ErrorStep({
   errorMessage,
   failedRenderJobUuid,
+  paused = false,
   onRetry,
   onReset,
 }: {
   errorMessage: string;
   failedRenderJobUuid: string | null;
+  paused?: boolean;
   onRetry: () => void;
   onReset: () => void;
 }) {
@@ -236,7 +238,9 @@ export function ErrorStep({
           </svg>
         </div>
       </div>
-      <h2 className="text-lg font-bold text-error-strong mb-2">{t("error.heading")}</h2>
+      <h2 className="text-lg font-bold text-error-strong mb-2">
+        {paused ? t("error.pausedHeading") : t("error.heading")}
+      </h2>
       {errorMessage && <p className="text-sm text-error mb-3">{errorMessage}</p>}
       {failedRenderJobUuid && (
         <p className="text-xs text-muted mb-5">
@@ -250,7 +254,7 @@ export function ErrorStep({
             aria-label={t("error.retryAria")}
             className="px-6 py-2 text-sm text-white bg-kb rounded-md hover:outline-2 hover:outline-kb focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors"
           >
-            {t("error.retry")}
+            {paused ? t("error.continue") : t("error.retry")}
           </button>
         )}
         <button

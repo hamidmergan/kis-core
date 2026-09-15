@@ -108,7 +108,7 @@ def _format_job_rows(
                 pass
 
         meta = None
-        if job["status"] in ("success", "failed") and tool in _META_TOOLS:
+        if job["status"] in ("success", "failed", "paused") and tool in _META_TOOLS:
             meta = load_result_meta(job["user_id"], job["job_uuid"])
             # The run numbers are operational information and go to admins only.
             if meta and not is_admin:
@@ -132,6 +132,8 @@ def _format_job_rows(
             "folder_name": folder_name,
             "tts_params": tts_params or None,
             "is_generating_scripts": is_generating_scripts,
+            "attempts": job.get("attempts") or 0,
+            "next_attempt_at": _dt(job.get("next_attempt_at")),
             "meta": meta,
         })
     return result

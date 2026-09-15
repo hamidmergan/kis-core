@@ -36,9 +36,12 @@ export default function VoicingStep(props: VoicingStepProps) {
   const tCommon = useTranslations("tools.podcast.common");
 
   const running = jobStatus === "pending" || jobStatus === "running";
-  const rueckblick = !running && jobStatus !== "failed";
+  const wartet = jobStatus === "waiting_retry";
+  const angehalten = jobStatus === "paused";
+  const gestoert = jobStatus === "failed" || angehalten;
+  const rueckblick = !running && !wartet && !gestoert;
   const done = running ? (progress?.fertig?.length ?? 0) : lines.filter((l) => !needsVoice(l, voicedIds)).length;
-  const failedIndex = jobStatus === "failed" ? failedLineIndex(error) : -1;
+  const failedIndex = gestoert ? failedLineIndex(error) : -1;
   const offen = linesToVoice(lines, voicedIds).length;
   const schritt = progress?.step ?? "";
 
@@ -52,7 +55,7 @@ export default function VoicingStep(props: VoicingStepProps) {
           </>
         ) : (
           <>
-            {running && <Spinner size="lg" className="justify-center mb-4" />}
+            {(running || wartet) && <Spinner size="lg" className="justify-center mb-4" />}
             <h2 className="text-lg font-bold">{t("heading")}</h2>
             {running && (
               <p className="text-sm text-foreground-soft mt-1">
@@ -61,21 +64,26 @@ export default function VoicingStep(props: VoicingStepProps) {
                   : t("progress", { done, total: lines.length })}
               </p>
             )}
+            {wartet && <p className="text-sm text-foreground-soft mt-1">{t("waitingRetry")}</p>}
           </>
         )}
       </div>
 
-      {running && <BackgroundHint />}
+      {(running || wartet) && <BackgroundHint />}
 
-      {jobStatus === "failed" && (
+      {gestoert && (
         <div className="mt-6 rounded-lg border border-error-border bg-error-bg px-4 py-3" role="alert">
           <p className="text-sm font-medium text-error-strong">
-            {failedIndex >= 0 ? t("failedTitle", { n: failedIndex + 1 }) : t("failedGeneric")}
+            {angehalten
+              ? t("pausedTitle")
+              : failedIndex >= 0 ? t("failedTitle", { n: failedIndex + 1 }) : t("failedGeneric")}
           </p>
           <p className="text-sm text-error mt-0.5">{error || t("failedBody", { done })}</p>
           <div className="flex flex-wrap gap-3 mt-3">
             <button type="button" onClick={onResume} className="px-4 py-2 text-sm btn-primary rounded-lg">
-              {failedIndex >= 0 ? t("resume", { n: failedIndex + 1 }) : t("resumeGeneric")}
+              {angehalten
+                ? t("continue")
+                : failedIndex >= 0 ? t("resume", { n: failedIndex + 1 }) : t("resumeGeneric")}
             </button>
             <button type="button" onClick={onBackToScript} className="btn-cancel px-4 py-2 text-sm btn-secondary rounded-lg">
               {t("backToScript")}

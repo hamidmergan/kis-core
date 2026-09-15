@@ -23,6 +23,10 @@ describe("Der Rücksprung aus der Auftragsliste", () => {
     expect(podcastJumpKind(job({ has_download: false }))).toBeNull();
   });
 
+  it("führt einen angehaltenen Podcast zurück zum Weitermachen", () => {
+    expect(podcastJumpKind(job({ status: "paused" }))).toBe("resume");
+  });
+
   it("lässt fremde Werkzeuge in Ruhe", () => {
     expect(podcastJumpKind(job({ tool: "screencast_translate" }))).toBeNull();
     expect(podcastJumpKind(job({ tool: "tts" }))).toBeNull();

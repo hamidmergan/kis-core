@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 import type { Glossary } from "@/types";
 import { api } from "@/lib/api";
+import { cached, load, publish, subscribe } from "./_glossaryStore";
 
 // Glossaries for translation, per person in the database.
 
@@ -43,32 +44,35 @@ async function migrateLegacyGlossaries(serverGlossaries: Glossary[]): Promise<Gl
   return serverGlossaries;
 }
 
+async function fetchGlossaries(): Promise<Glossary[]> {
+  const data = await api.getJson<Glossary[]>("/api/glossaries");
+  return migrateLegacyGlossaries(data);
+}
+
 export function useGlossaries() {
-  const [glossaries, setGlossaries] = useState<Glossary[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [glossaries, setGlossaries] = useState<Glossary[]>(() => cached() ?? []);
+  const [loading, setLoading] = useState(() => cached() === null);
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      try {
-        let data = await api.getJson<Glossary[]>("/api/glossaries");
-        data = await migrateLegacyGlossaries(data);
-        if (!cancelled) setGlossaries(data);
-      } catch {
-        if (!cancelled) setGlossaries([]);
-      } finally {
+    const stop = subscribe((list) => {
+      if (!cancelled) setGlossaries(list);
+    });
+    load(fetchGlossaries)
+      .catch(() => [] as Glossary[])
+      .finally(() => {
         if (!cancelled) setLoading(false);
-      }
-    })();
+      });
     return () => {
       cancelled = true;
+      stop();
     };
   }, []);
 
   const createGlossary = useCallback(
     async (name: string, entries: Record<string, string> = {}): Promise<string> => {
       const created = await api.postJson<Glossary>("/api/glossaries", { name, entries });
-      setGlossaries(prev => [...prev, created]);
+      publish([...(cached() ?? []), created]);
       return created.id;
     },
     [],
@@ -77,7 +81,7 @@ export function useGlossaries() {
   const updateGlossary = useCallback(
     async (id: string, updates: Partial<Pick<Glossary, "name" | "entries">>): Promise<void> => {
       const updated = await api.patchJson<Glossary>(`/api/glossaries/${id}`, updates);
-      setGlossaries(prev => prev.map(g => (g.id === id ? updated : g)));
+      publish((cached() ?? []).map(g => (g.id === id ? updated : g)));
     },
     [],
   );
@@ -85,7 +89,7 @@ export function useGlossaries() {
   const deleteGlossary = useCallback(async (id: string): Promise<void> => {
     const res = await api.fetch(`/api/glossaries/${id}`, { method: "DELETE" });
     if (!res.ok) throw new Error("delete failed");
-    setGlossaries(prev => prev.filter(g => g.id !== id));
+    publish((cached() ?? []).filter(g => g.id !== id));
   }, []);
 
   // Up to three glossaries in one call, the first beats the others.

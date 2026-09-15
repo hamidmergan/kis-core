@@ -9,8 +9,9 @@ const CHANGE_EVENT = "ki-assistent-mascot-pref:change";
 // Francis is the default character for everyone who has not picked one.
 const DEFAULT_VARIANT: MascotVariant = "francis";
 
+// Francis is the only character on offer, every other stored value lands on him.
 function isVariant(v: unknown): v is MascotVariant {
-  return v === "hilde" || v === "francis";
+  return v === "francis";
 }
 
 function readLocalVariant(): MascotVariant {

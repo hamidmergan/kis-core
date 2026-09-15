@@ -32,7 +32,7 @@ async def put_params(
     """A new cast, saved so the next voicing speaks the changed contributions again."""
     job = own_job(job_uuid, current_user, locale)
     user_id = job["user_id"]
-    if job["status"] in ("running", "pending", "queued"):
+    if job["status"] in ("running", "pending", "queued", "waiting_retry"):
         raise HTTPException(status_code=409, detail=t("podcast.running", locale))
 
     alt = store.load_params(user_id, job_uuid)

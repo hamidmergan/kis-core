@@ -10,7 +10,9 @@ from src.features.podcast.script import (
     build_messages,
     clean_rephrased,
     parse_answer,
+    refine_messages,
     rephrase_messages,
+    source_excerpt,
 )
 
 
@@ -144,3 +146,120 @@ class TestUmformulieren:
     def test_verlangt_die_json_huelle_im_auftrag(self):
         nachricht = rephrase_messages(Line(id="b1", speaker=0, text="Der Satz."), _params(2), [])
         assert '{"text"' in nachricht[0]["content"]
+
+
+class TestQuellenAusschnitt:
+    QUELLE = (
+        "Kapitel eins: Einleitung in die Veranstaltung und ihre Ziele.\n\n"
+        "Das ohmsche Gesetz verbindet Spannung, Widerstand und Stromstaerke.\n\n"
+        "Zur Anmeldung nutzen Studierende das Portal der Hochschule.\n\n"
+        "Die Spannung wird in Volt gemessen, der Widerstand in Ohm.\n"
+    )
+
+    def test_waehlt_den_absatz_mit_den_passenden_woertern(self):
+        text = source_excerpt(self.QUELLE, ["Wie hoch ist die Spannung am Widerstand?"], 200)
+        assert "Volt" in text or "ohmsche" in text
+        assert "Portal der Hochschule" not in text
+
+    def test_haelt_die_zeichengrenze_ein(self):
+        text = source_excerpt(self.QUELLE, ["Spannung"], 80)
+        assert len(text) <= 80
+
+    def test_nimmt_den_anfang_wenn_nichts_passt(self):
+        text = source_excerpt(self.QUELLE, ["Photosynthese"], 120)
+        assert text.startswith("Kapitel eins")
+
+    def test_behaelt_die_reihenfolge_der_absaetze(self):
+        text = source_excerpt(self.QUELLE, ["Spannung Widerstand ohmsche Volt"], 400)
+        assert text.index("ohmsche") < text.index("Volt")
+
+    def test_bleibt_bei_leerem_material_leer(self):
+        assert source_excerpt("", ["Spannung"], 200) == ""
+
+
+class TestChatUmformulieren:
+    def _nachricht(self, **kw):
+        daten = dict(
+            line=Line(id="b1", speaker=0, text="Der Satz."),
+            params=_params(2),
+            nachbarn=["Davor.", "Danach."],
+            quelle="Die Spannung wird in Volt gemessen.",
+            verlauf=[{"role": "user", "content": "Mach ihn kuerzer"}],
+        )
+        daten.update(kw)
+        return refine_messages(**daten)
+
+    def test_nennt_den_wunsch_und_das_material(self):
+        text = self._nachricht()[1]["content"]
+        assert "Mach ihn kuerzer" in text
+        assert "Volt" in text
+
+    def test_bindet_die_fakten_an_das_material(self):
+        system = self._nachricht()[0]["content"]
+        assert "Material" in system and "erfindest nichts" in system
+
+    def test_nennt_die_markierte_stelle(self):
+        text = self._nachricht(markiert="in Volt")[1]["content"]
+        assert "in Volt" in text
+
+    def test_traegt_den_bisherigen_austausch_mit(self):
+        verlauf = [
+            {"role": "user", "content": "Mach ihn kuerzer"},
+            {"role": "assistant", "content": "Der kurze Satz."},
+            {"role": "user", "content": "Jetzt freundlicher"},
+        ]
+        text = self._nachricht(verlauf=verlauf)[1]["content"]
+        assert "Der kurze Satz." in text and "Jetzt freundlicher" in text
+
+    def test_verlangt_die_json_huelle(self):
+        assert '{"text"' in self._nachricht()[0]["content"]
+
+    def test_folgt_der_sprache_des_podcasts(self):
+        system = self._nachricht(params=_params(2, sprache="en"))[0]["content"]
+        assert "material" in system.lower() and "invent" in system.lower()
+
+
+class TestLeererBeitrag:
+    """Ein Beitrag ohne Text muss geschrieben werden, nicht überarbeitet."""
+
+    def _nachricht(self, text="", **kw):
+        daten = dict(
+            line=Line(id="b1", speaker=0, text=text),
+            params=_params(2),
+            nachbarn=["P2: Danke, dass ich da sein darf."],
+            quelle="Die Spannung wird in Volt gemessen.",
+            verlauf=[{"role": "user", "content": "Begruess kurz und sag worum es geht"}],
+        )
+        daten.update(kw)
+        return refine_messages(**daten)
+
+    def test_sagt_dass_der_beitrag_noch_leer_ist(self):
+        text = self._nachricht()[1]["content"]
+        assert "noch leer" in text
+        assert "steht zur Überarbeitung" not in text
+
+    def test_verlangt_nur_diesen_einen_beitrag(self):
+        text = self._nachricht()[1]["content"]
+        assert "nicht die Antwort darauf" in text
+
+    def test_nennt_die_stelle_im_gespraech(self):
+        text = self._nachricht(position=(1, 20))[1]["content"]
+        assert "Beitrag 1 von 20" in text
+
+    def test_weist_den_ersten_beitrag_auf_die_begruessung_hin(self):
+        assert "begrüßt" in self._nachricht(position=(1, 20))[1]["content"]
+
+    def test_weist_den_letzten_beitrag_auf_den_abschied_hin(self):
+        assert "verabschiedet" in self._nachricht(position=(20, 20))[1]["content"]
+
+    def test_laesst_die_mitte_ohne_zusatzregel(self):
+        text = self._nachricht(position=(10, 20))[1]["content"]
+        assert "begrüßt" not in text and "verabschiedet" not in text
+
+    def test_behaelt_den_gefuellten_beitrag_beim_ueberarbeiten(self):
+        text = self._nachricht(text="Der Satz.")[1]["content"]
+        assert "steht zur Überarbeitung" in text and "noch leer" not in text
+
+    def test_englisch_sagt_es_genauso(self):
+        text = self._nachricht(params=_params(2, sprache="en"), position=(1, 20))[1]["content"]
+        assert "still empty" in text and "contribution 1 of 20" in text.lower()

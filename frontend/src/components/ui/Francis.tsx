@@ -185,10 +185,10 @@ export default function Francis({ size = 120, state = "idle", className }: Franc
       {/* Thinking: speech bubble with animated dots — fixed, does not breathe */}
       {isThink && (
         <g>
-          <rect x="88" y="6" width="30" height="20" rx="10" fill="#fff" stroke={ACCENT} strokeWidth={1.2} />
-          <circle cx="97" cy="16" r="1.8" fill={ACCENT} style={{ transformOrigin: "97px 16px", animation: "francis-think-dot 1.4s ease-in-out infinite" }} />
-          <circle cx="103" cy="16" r="1.8" fill={ACCENT} style={{ transformOrigin: "103px 16px", animation: "francis-think-dot 1.4s ease-in-out infinite", animationDelay: "0.2s" }} />
-          <circle cx="109" cy="16" r="1.8" fill={ACCENT} style={{ transformOrigin: "109px 16px", animation: "francis-think-dot 1.4s ease-in-out infinite", animationDelay: "0.4s" }} />
+          <rect x="78" y="-6" width="50" height="32" rx="16" fill="#fff" stroke={ACCENT} strokeWidth={1.6} />
+          <circle cx="93" cy="10" r="3" fill={ACCENT} style={{ transformOrigin: "93px 10px", animation: "francis-think-dot 1.4s ease-in-out infinite" }} />
+          <circle cx="103" cy="10" r="3" fill={ACCENT} style={{ transformOrigin: "103px 10px", animation: "francis-think-dot 1.4s ease-in-out infinite", animationDelay: "0.2s" }} />
+          <circle cx="113" cy="10" r="3" fill={ACCENT} style={{ transformOrigin: "113px 10px", animation: "francis-think-dot 1.4s ease-in-out infinite", animationDelay: "0.4s" }} />
         </g>
       )}
 

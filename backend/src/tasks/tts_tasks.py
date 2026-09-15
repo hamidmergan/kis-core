@@ -1,19 +1,20 @@
 """Celery task: Text-to-Speech synthesis."""
 
+import json
 import subprocess
 import tempfile
 from pathlib import Path
 
-import httpx
 from loguru import logger
 
 from src.celery_app import celery_app
 from src import database as db
 from src.i18n import t
 from src.services.ai_hinweis import ffmpeg_metadata_args
+from src.services.job_recovery import attempt_failed, still_mine
 from src.storage import delete_file, get_file, get_job_file, save_job_file, save_result_file, save_result_and_evict
-from src.utils.heartbeat import job_heartbeat
-from src.limits import TTS_SOFT_TIME_LIMIT, TTS_TIME_LIMIT
+from src.tasks._stage import StageClock, StageContinue, StageLost, continue_stage
+from src.limits import STAGE_SOFT_TIME_LIMIT, STAGE_TIME_LIMIT
 
 
 def _stamped_with_ai_notice(mp3_bytes: bytes) -> bytes:
@@ -37,9 +38,8 @@ def _stamped_with_ai_notice(mp3_bytes: bytes) -> bytes:
     name="tts.run",
     queue="tts",
     acks_late=True,
-    max_retries=7,
-    soft_time_limit=TTS_SOFT_TIME_LIMIT,
-    time_limit=TTS_TIME_LIMIT,
+    soft_time_limit=STAGE_SOFT_TIME_LIMIT,
+    time_limit=STAGE_TIME_LIMIT,
 )
 def run_tts(
     self,
@@ -50,9 +50,13 @@ def run_tts(
     speed: float,
     provider_id: int,
     voice_label: str = "",
+    versuch: int = 0,
 ):
     """Voices an uploaded document, every part is saved right away."""
     try:
+        if not still_mine(job_uuid, versuch):
+            raise StageLost(job_uuid)
+        clock = StageClock()
         tts_params = {
             "voice_id": voice_id,
             "voice_label": voice_label,
@@ -64,6 +68,8 @@ def run_tts(
         if not job_row:
             raise RuntimeError(f"Job {job_uuid} not found")
         user_id = job_row["user_id"]
+        # In the folder, not only in the progress: the next status write wipes the progress.
+        save_job_file(user_id, job_uuid, "tts_params.json", json.dumps(tts_params).encode())
 
         content = get_file(input_path)
         ext = Path(filename).suffix.lower()
@@ -103,18 +109,26 @@ def run_tts(
             except Exception:
                 pass
 
-            db.update_job_status(job_uuid, "running", progress={"step": "synthesize", "chunk": i + 1, "total": n})
+            # The stage did its share, the rest belongs to the next one.
+            if clock.over():
+                raise StageContinue
+            if not still_mine(job_uuid, versuch):
+                raise StageLost(job_uuid)
 
-            with job_heartbeat(job_uuid):
-                mp3 = client.synthesize_chunk(
-                    chunk,
-                    voice_id=voice_id,
-                    speed=speed,
-                    language=language,
-                )
+            db.update_job_status(job_uuid, "running", progress={
+                "step": "synthesize", "chunk": i + 1, "total": n, "tts_params": tts_params})
+
+            mp3 = client.synthesize_chunk(
+                chunk,
+                voice_id=voice_id,
+                speed=speed,
+                language=language,
+            )
 
             save_job_file(user_id, job_uuid, chunk_filename, mp3)
             audio_parts.append(mp3)
+            # A finished piece is the liveness sign, no clock thread ticks for us.
+            db.touch_job_heartbeat(job_uuid)
 
         result_path = save_result_file(user_id, job_uuid, ".mp3", _stamped_with_ai_notice(b"".join(audio_parts)))
         result_filename = f"{Path(filename).stem}.mp3"
@@ -125,24 +139,20 @@ def run_tts(
 
         logger.info("TTS task {} completed: {} ({} chunk(s))", job_uuid, result_filename, n)
 
-    except (httpx.NetworkError, httpx.TimeoutException) as e:
-        if self.request.retries < self.max_retries:
-            wait = min(30 * (2 ** self.request.retries), 3600)
-            logger.warning("TTS {} network error, retry {}/{} in {}s: {}", job_uuid, self.request.retries + 1, self.max_retries, wait, e)
-            raise self.retry(exc=e, countdown=wait)
-        logger.error("TTS {} gave up after {} retries: {}", job_uuid, self.max_retries, e)
-        job = db.get_job(job_uuid)
-        locale = (job and job.get("creator_locale")) or "de"
-        db.update_job_status(job_uuid, "failed", error_message=t("job.providerUnreachableRetry", locale, provider=f"Provider {provider_id}"))
-        raise
-
+    except StageContinue:
+        continue_stage(self, [job_uuid, input_path, filename, voice_id, speed,
+                              provider_id, voice_label, versuch], job_uuid)
+        return
+    except StageLost:
+        logger.info("TTS {}: Etappe gehoert nicht mehr uns, nichts getan", job_uuid)
+        return
     except Exception as e:
         from celery.exceptions import SoftTimeLimitExceeded
         if isinstance(e, SoftTimeLimitExceeded):
             logger.warning("TTS task {} hit soft time limit", job_uuid)
             job = db.get_job(job_uuid)
             locale = (job and job.get("creator_locale")) or "de"
-            db.update_job_status(job_uuid, "failed", error_message=t("job.timeoutRetry", locale))
+            attempt_failed(job_uuid, t("job.timeoutRetry", locale))
             return
         from src.tasks._errors import handle_task_exception
         handle_task_exception(job_uuid, e, task_label="TTS")

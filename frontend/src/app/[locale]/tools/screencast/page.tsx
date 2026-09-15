@@ -25,7 +25,7 @@ import ScriptReviewStep from "./_steps/ScriptReviewStep";
 import TtsSettingsStep from "./_steps/TtsSettingsStep";
 import RenderVorschau from "./_components/RenderVorschau";
 import ScreencastOverlays from "./_components/ScreencastOverlays";
-import { type RegenApplyMode } from "./_components/RegenChatModal";
+import { applyRegen, type RegenApplyMode } from "@/components/regen/apply";
 import { parseScriptJsonFile, checkHasActiveJob, checkJobValidity, checkJobFolderExists, computeVoiceLabel, laufWaereUmsonst, stimmwechselOhneWirkung, ausgeschlosseneFolien, sprachIdFuerLocale, type LaufStand } from "./_utils";
 import { flowReducer, INITIAL_FLOW_STATE } from "./_reducer";
 import { renderFlowMessages, translateFlowMessages } from "./_messages";
@@ -61,7 +61,7 @@ function ScreencastPageInner() {
   // Both buttons delete the job with its files, now with a confirmation.
   const [pendingExit, setPendingExit] = useState<"restart" | "cancel" | "render" | null>(null);
   const failedRender = useFailedRender();
-  const { jobUuid: failedRenderJobUuid } = failedRender;
+  const { jobUuid: failedRenderJobUuid, paused: renderAngehalten } = failedRender;
   const [ttsSettingsError, setTtsSettingsError] = useState("");
   const [uploadFehler, setUploadFehler] = useState<string>("");
 
@@ -475,18 +475,8 @@ function ScreencastPageInner() {
   const openRegen = regen.open;
   const closeRegen = regen.close;
 
-  const applyRegen = (index: number, mode: RegenApplyMode, content: string) => {
-    const current = slides[index].script || "";
-    let newScript = current;
-    if (mode === "replace-all" || !regenAnchorText) {
-      newScript = content;
-    } else if (mode === "replace-selection") {
-      newScript = current.replace(regenAnchorText, content);
-    } else if (mode === "insert-before") {
-      newScript = current.replace(regenAnchorText, content + " " + regenAnchorText);
-    } else if (mode === "insert-after") {
-      newScript = current.replace(regenAnchorText, regenAnchorText + " " + content);
-    }
+  const handleApplyRegen = (index: number, mode: RegenApplyMode, content: string) => {
+    const newScript = applyRegen(slides[index].script || "", regenAnchorText, mode, content);
     dispatch({ type: "UPDATE_SLIDE_SCRIPT", index, script: newScript });
     const updated = slides.map((s, i) => i === index ? { ...s, script: newScript } : s);
     autosaveScripts(updated.map((s) => s.script));
@@ -792,6 +782,7 @@ function ScreencastPageInner() {
           <ErrorStep
             errorMessage={errorMessage}
             failedRenderJobUuid={failedRenderJobUuid}
+            paused={renderAngehalten}
             onRetry={handleRetryRender}
             onReset={() => resetAll()}
           />
@@ -817,7 +808,7 @@ function ScreencastPageInner() {
           onLightboxIndexChange={(idx) => dispatch({ type: "SET_LIGHTBOX", index: idx })}
           regeneratingSlide={regeneratingSlide}
           regenAnchorText={regenAnchorText}
-          onRegenApply={applyRegen}
+          onRegenApply={handleApplyRegen}
           onRegenClose={closeRegen}
         />
       </div>

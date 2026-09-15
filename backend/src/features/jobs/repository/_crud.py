@@ -89,7 +89,7 @@ def update_job_status(
                        SET status = %s, error_message = %s, progress = %s,
                            progress_updated_at = %s,
                            started_at = COALESCE(started_at, %s)
-                       WHERE job_uuid = %s AND status != 'awaiting_user'""",
+                       WHERE job_uuid = %s AND status IN ('pending', 'running')""",
                     (status, error_message, progress_json, now, now, job_uuid),
                 )
             elif status in ("success", "failed"):
@@ -103,7 +103,8 @@ def update_job_status(
                 cur.execute(
                     """UPDATE jobs
                        SET status = %s, error_message = %s, progress = %s,
-                           progress_updated_at = %s, completed_at = %s
+                           progress_updated_at = %s, completed_at = %s,
+                           attempts = 0, next_attempt_at = NULL
                        WHERE job_uuid = %s AND status != 'awaiting_user'""",
                     (status, error_message, progress_json, now, now, job_uuid),
                 )
@@ -133,7 +134,8 @@ def reset_job_to_awaiting(job_uuid: str) -> None:
             cur.execute(
                 """UPDATE jobs
                    SET status = 'awaiting_user', celery_task_id = NULL,
-                       progress = NULL, progress_updated_at = %s
+                       progress = NULL, progress_updated_at = %s,
+                       attempts = 0, next_attempt_at = NULL
                    WHERE job_uuid = %s""",
                 (now, job_uuid),
             )

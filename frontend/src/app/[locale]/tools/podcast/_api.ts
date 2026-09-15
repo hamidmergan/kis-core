@@ -95,12 +95,14 @@ export async function saveScript(jobUuid: string, lines: Line[]): Promise<Line[]
   return (await res.json()).lines as Line[];
 }
 
-/** One contribution said differently, the answer is only the new text. */
-export async function rephraseLine(jobUuid: string, lineId: string): Promise<string> {
+/** One contribution reworked to a wish, the answer is only the new text. */
+export async function rephraseLine(jobUuid: string, lineId: string,
+                                   messages: { role: string; content: string }[] = [],
+                                   selectedText = ""): Promise<string> {
   const res = await fetch(`/api/podcast/${jobUuid}/rephrase`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ line_id: lineId }),
+    body: JSON.stringify({ line_id: lineId, messages, selected_text: selectedText }),
     credentials: "include",
   });
   if (!res.ok) throw new Error(await fehlerText(res));

@@ -31,7 +31,7 @@ def _load_scripts_from_job(user_id: int, translate_job_uuid: str) -> tuple[list[
     return [], None
 
 
-_LAUFEND = ("queued", "running")
+_LAUFEND = ("queued", "running", "waiting_retry")
 
 
 def _phase_ist_vertonung(user_id: int, translate_job_uuid: str) -> bool:
@@ -70,12 +70,12 @@ def get_resume_data(
     status = job["status"]
     tool = job["tool"]
     user_id = job["user_id"]
-    if status not in ("awaiting_user", "failed", "success", *_LAUFEND):
+    if status not in ("awaiting_user", "failed", "success", "paused", *_LAUFEND):
         raise HTTPException(status_code=409, detail=t("job.notInputState", locale))
     if status in _LAUFEND and not _phase_ist_vertonung(user_id, translate_job_uuid):
         raise HTTPException(status_code=409, detail=t("job.notInputState", locale))
 
-    ist_eingabeschritt = status in ("awaiting_user", "failed")
+    ist_eingabeschritt = status in ("awaiting_user", "failed", "paused")
     slide_texts: list[str] = []
 
     try:

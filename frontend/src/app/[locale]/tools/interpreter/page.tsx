@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { ArrowCounterClockwise, ClockCounterClockwise, FileText, Gear, StopCircle } from "@phosphor-icons/react";
+import { ArrowCounterClockwise, ClockCounterClockwise, FileText, Gear } from "@phosphor-icons/react";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import ToolBackLink from "@/components/ui/ToolBackLink";
 import IconButton from "@/components/ui/IconButton";
@@ -142,12 +142,6 @@ export default function InterpreterPage() {
     patchIfRunning({ left_lang: nextLangs.left, right_lang: nextLangs.right, left_name: nextNames.left, right_name: nextNames.right });
   };
 
-  const endConversation = async () => {
-    await active.end();
-    await mirror.flush();
-    patchIfRunning({ ended: true });
-  };
-
   const newConversation = useCallback(() => {
     active.reset();
     mirror.cancel();
@@ -202,15 +196,6 @@ export default function InterpreterPage() {
               <button type="button" onClick={openSavedList} className={ACTION}>
                 <ClockCounterClockwise size={14} weight="bold" />
                 {t("actions.saved")}
-              </button>
-              <button
-                type="button"
-                onClick={() => void endConversation()}
-                disabled={active.ended || active.turns.length === 0}
-                className={`${ACTION} disabled:opacity-40`}
-              >
-                <StopCircle size={14} weight="bold" />
-                {t("actions.endConversation")}
               </button>
               <button type="button" onClick={newConversation} className={ACTION}>
                 <ArrowCounterClockwise size={14} weight="bold" />

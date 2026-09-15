@@ -41,6 +41,7 @@ def dispatch_next_screencast_job_for_user(user_id: int) -> None:
                 pass
             task = run_screencast_render.apply_async(args=_render_args(
                 job_uuid, scripts, params, job["original_filename"] or "screencast.pptx",
+                job.get("attempts") or 0,
             ))
             db.set_render_queued_at(job_uuid)
         else:
@@ -54,7 +55,8 @@ def dispatch_next_screencast_job_for_user(user_id: int) -> None:
         db.update_job_status(job_uuid, "failed", error_message=f"Konnte nicht aus der Warteschlange gestartet werden: {e}")
 
 
-def _render_args(job_uuid: str, scripts: list, params: dict, original_filename: str) -> list:
+def _render_args(job_uuid: str, scripts: list, params: dict, original_filename: str,
+                 versuch: int = 0) -> list:
     """Arguments for the render task, in the order of the task signature."""
     return [
         job_uuid, scripts,
@@ -63,6 +65,7 @@ def _render_args(job_uuid: str, scripts: list, params: dict, original_filename: 
         params["dpi"], int(params.get("provider_id", 0)), params["voice_label"],
         params["is_admin"], bool(params.get("subtitles", False)),
         params.get("video_folien"), params.get("neu_vertonen") or [],
+        versuch,
     ]
 
 

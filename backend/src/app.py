@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse
 from loguru import logger
 
 from src import database as db
-from src.database import init_db, reset_stuck_jobs
+from src.database import init_db
 from src.core.db.pool import run_once_across_processes
 from src.dependencies import get_session_store, get_settings, is_admin_user
 from src.modules import MODULE_AIA, MODULE_TOOLS, active_modules
@@ -103,9 +103,10 @@ async def lifespan(app: FastAPI):
         from src.features.accounts.env_admin import ensure_env_admin
         ensure_env_admin(settings.admin_email, settings.admin_password, settings.admin_username)
     if _broker_was_emptied():
-        stuck = reset_stuck_jobs()
+        from src.services.job_recovery import recover_after_restart
+        stuck = recover_after_restart()
         if stuck:
-            logger.warning("Startup: {} stuck job(s) reset to failed (broker was empty)", stuck)
+            logger.warning("Startup: {} orphaned job(s) handed to the resume path", stuck)
     init_storage()
     logger.info("Storage initialised (mode={})", "s3" if USE_S3 else "local")
     if settings.admin_email:

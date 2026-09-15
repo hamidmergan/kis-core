@@ -10,7 +10,7 @@ from src.dependencies import get_current_user
 from src.features.podcast import store
 from src.features.podcast.schemas import Line
 from src.i18n import get_locale, t
-from src.limits import PODCAST_MAX_LINE_CHARS, PODCAST_MAX_LINES
+from src.limits import PODCAST_MAX_CHARS, PODCAST_MAX_LINE_CHARS, PODCAST_MAX_LINES
 from src.routes.podcast._shared import own_job
 
 router = APIRouter(tags=["podcast"])
@@ -75,13 +75,24 @@ async def put_script(
 ):
     """Saved on every change, so a closed tab loses nothing."""
     job = own_job(job_uuid, current_user, locale)
-    if job["status"] in ("running", "pending", "queued"):
+    if job["status"] in ("running", "pending", "queued", "waiting_retry"):
         raise HTTPException(status_code=409, detail=t("podcast.running", locale))
+
+    # Say it out loud, quietly dropping the 251st contribution loses somebody's work.
+    if len(body.lines) > PODCAST_MAX_LINES:
+        raise HTTPException(status_code=422, detail=t(
+            "podcast.tooManyLines", locale, lines=len(body.lines), max=PODCAST_MAX_LINES))
+    zeichen = sum(len(l.text.strip()) for l in body.lines)
+    if zeichen > PODCAST_MAX_CHARS:
+        raise HTTPException(status_code=422, detail=t(
+            "podcast.scriptTooLong", locale,
+            chars=f"{zeichen:,}".replace(",", "."),
+            maxChars=f"{PODCAST_MAX_CHARS:,}".replace(",", ".")))
 
     params = store.load_params(job["user_id"], job_uuid)
     personen = len(params.persons) if params else 1
     sauber: list[Line] = []
-    for line in body.lines[:PODCAST_MAX_LINES]:
+    for line in body.lines:
         # A contribution just added is still empty, only the voicing insists on text.
         text = line.text.strip()[:PODCAST_MAX_LINE_CHARS]
         sprecher = line.speaker if 0 <= line.speaker < personen else 0

@@ -9,6 +9,9 @@ import ToolBackLink from "@/components/ui/ToolBackLink";
 import Spinner from "@/components/ui/Spinner";
 import { notifyJobsChanged } from "@/lib/jobs-events";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useRegenAnchor } from "@/hooks/useRegenAnchor";
+import RegenChatModal, { type RegenTurn } from "@/components/regen/RegenChatModal";
+import { applyRegen, type RegenApplyMode } from "@/components/regen/apply";
 import { useVoices } from "@/hooks/useVoices";
 import { useGlossaries } from "@/hooks/useGlossaries";
 import CastStep from "./_steps/CastStep";
@@ -19,7 +22,7 @@ import VoicingStep from "./_steps/VoicingStep";
 import PodcastStepper from "./_components/PodcastStepper";
 import BestaetigungModal from "./_components/BestaetigungModal";
 import { cancelJob, fetchJob, fetchPodcast, rephraseLine, savePodcastParams, saveScript, startPodcast, startRender } from "./_api";
-import { closedForGood, hatErgebnisse, isBusy, ohneKi, reachable } from "./_logic";
+import { LAEUFT, closedForGood, hatErgebnisse, isBusy, ohneKi, reachable } from "./_logic";
 import { INITIAL_STATE, defaultPersons, reducer } from "./_reducer";
 import { STEPS, type Line, type Person, type PodcastState, type Step } from "./_types";
 
@@ -42,6 +45,7 @@ function PodcastPageInner() {
   const { permissions } = usePermissions();
   // Without it every visit starts fresh, only the jobs list links straight to one podcast.
   const ausListe = useSearchParams().get("job");
+  const regen = useRegenAnchor();
   const aenderung = useRef(0);
   const stateRef = useRef(state);
   stateRef.current = state;
@@ -88,13 +92,13 @@ function PodcastPageInner() {
         const meta = view.status === "success" ? await fetchJob(ausListe).catch(() => null) : null;
         dispatch({ type: "JOB", status: view.status, progress: view.progress, error: view.error,
                    seconds: meta?.meta?.seconds ?? null });
-        if (view.status === "pending" || view.status === "running") {
+        if (view.status === "pending" || view.status === "running" || view.status === "waiting_retry") {
           dispatch({ type: "GO", step: view.progress?.step === "script" ? "script" : "voicing" });
         } else if (view.status === "awaiting_user") {
           dispatch({ type: "GO", step: "script" });
         } else if (view.status === "success") {
           dispatch({ type: "GO", step: "done" });
-        } else if (view.status === "failed") {
+        } else if (view.status === "failed" || view.status === "paused") {
           dispatch({ type: "GO", step: view.lines.length ? "voicing" : "script" });
         }
       })
@@ -107,7 +111,7 @@ function PodcastPageInner() {
   // While the job works, the page asks every two seconds, like every other tool.
   useEffect(() => {
     const uuid = state.jobUuid;
-    if (!uuid || !(state.jobStatus === "pending" || state.jobStatus === "running")) return;
+    if (!uuid || !LAEUFT.has(state.jobStatus)) return;
     let abgebrochen = false;
     const id = window.setInterval(async () => {
       try {
@@ -115,7 +119,7 @@ function PodcastPageInner() {
         if (abgebrochen) return;
         dispatch({ type: "JOB", status: job.status, progress: job.progress, error: job.error,
                    seconds: job.meta?.seconds ?? null });
-        if (job.status !== "pending" && job.status !== "running") {
+        if (!LAEUFT.has(job.status)) {
           await holeStand(uuid);
           notifyJobsChanged();
         }
@@ -152,16 +156,19 @@ function PodcastPageInner() {
     speichern(naechster.lines);
   };
 
-  const umformulieren = async (id: string) => {
+  /** The chat window at one contribution, the same one the screencast uses. */
+  const regenLine = regen.regeneratingSlide !== null ? state.lines[regen.regeneratingSlide] : null;
+
+  const umformulieren = async (messages: RegenTurn[]) => {
     const uuid = stateRef.current.jobUuid;
-    if (!uuid) return;
-    try {
-      const text = await rephraseLine(uuid, id);
-      aendern({ type: "UPDATE_LINE", id, text });
-    } catch (e) {
-      dispatch({ type: "JOB", status: stateRef.current.jobStatus, progress: stateRef.current.progress,
-                 error: e instanceof Error ? e.message : tCommon("unknownError") });
-    }
+    if (!uuid || !regenLine) return "";
+    return rephraseLine(uuid, regenLine.id, messages, regen.anchorText);
+  };
+
+  const uebernehmen = (mode: RegenApplyMode, content: string) => {
+    if (!regenLine) return;
+    aendern({ type: "UPDATE_LINE", id: regenLine.id, text: applyRegen(regenLine.text, regen.anchorText, mode, content) });
+    regen.close();
   };
 
   const starten = async () => {
@@ -308,7 +315,10 @@ function PodcastPageInner() {
                 error={state.error}
                 onUpdate={(id, text) => aendern({ type: "UPDATE_LINE", id, text })}
                 onSpeaker={(id, speaker) => aendern({ type: "SET_SPEAKER", id, speaker })}
-                onRephrase={umformulieren}
+                onRegenAnchor={regen.setAnchor}
+                onOpenRegen={regen.open}
+                regenAnchorIndex={regen.anchorSlide}
+                regenAnchorText={regen.anchorText}
                 onDelete={(id) => aendern({ type: "DELETE_LINE", id })}
                 onAdd={() => aendern({ type: "ADD_LINE" })}
                 onBack={() => dispatch({ type: "GO", step: "cast" })}
@@ -350,6 +360,17 @@ function PodcastPageInner() {
               />
             )}
           </>
+        )}
+
+        {regenLine && (
+          <RegenChatModal
+            index={regen.regeneratingSlide ?? 0}
+            namespace="tools.podcast.regenChat"
+            anchorText={regen.anchorText}
+            onSend={umformulieren}
+            onApply={uebernehmen}
+            onClose={regen.close}
+          />
         )}
 
         {nachfrage && (

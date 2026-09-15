@@ -91,20 +91,24 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "Job data no longer available - please start a new screencast",
     },
     "job.timeoutRetry": {
-        "de": "Zeitlimit überschritten. Bitte 'Wiederholen' klicken.",
-        "en": "Time limit exceeded. Please click 'Retry'.",
-    },
-    "job.providerUnreachableRetry": {
-        "de": "{provider} war ~90 Minuten nicht erreichbar. Bitte 'Wiederholen' klicken wenn der Dienst wieder verfügbar ist.",
-        "en": "{provider} was unreachable for ~90 minutes. Please click 'Retry' once the service is back.",
+        "de": "Zeitlimit überschritten.",
+        "en": "Time limit exceeded.",
     },
     "job.watchdogStuck": {
-        "de": "Job hat sich nicht mehr gemeldet (möglicher Absturz oder Hänger). Bitte Wiederholen klicken.",
-        "en": "Job stopped reporting progress (possible crash or hang). Please click 'Retry'.",
+        "de": "Der Auftrag hat sich nicht mehr gemeldet.",
+        "en": "The job stopped reporting progress.",
+    },
+    "job.pausedAfterAttempts": {
+        "de": "Nach {n} Anläufen angehalten. Letzter Fehler: {error}",
+        "en": "Paused after {n} attempts. Last error: {error}",
+    },
+    "job.serverRestarted": {
+        "de": "Der Server wurde neu gestartet.",
+        "en": "The server was restarted.",
     },
     "job.watchdogStaleAwaiting": {
-        "de": "Job abgelaufen (keine Eingabe erfolgt). Bitte neuen Screencast starten.",
-        "en": "Job expired (no input received). Please start a new screencast.",
+        "de": "Auftrag abgelaufen, es kam keine Eingabe mehr.",
+        "en": "Job expired, no further input was received.",
     },
     "job.upstreamBusy": {
         "de": "Der KI-Dienst dahinter war gerade überlastet oder nicht erreichbar. Bitte versuche es später noch einmal.",
@@ -266,6 +270,14 @@ MESSAGES: dict[str, dict[str, str]] = {
     "podcast.emptyScript": {
         "de": "Das Skript hat keinen einzigen Beitrag.",
         "en": "The script has no contribution at all.",
+    },
+    "podcast.tooManyLines": {
+        "de": "Zu viele Beiträge ({lines}). Erlaubt sind höchstens {max}.",
+        "en": "Too many contributions ({lines}). At most {max} are allowed.",
+    },
+    "podcast.scriptTooLong": {
+        "de": "Das Skript ist zu lang ({chars} Zeichen). Erlaubt sind höchstens {maxChars}.",
+        "en": "The script is too long ({chars} characters). At most {maxChars} are allowed.",
     },
     "podcast.selfWritten": {
         "de": "Eigenes Skript",

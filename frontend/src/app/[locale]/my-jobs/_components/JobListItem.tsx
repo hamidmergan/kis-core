@@ -35,7 +35,7 @@ export function JobListItem({
       : undefined;
   const canRetry =
     (job.tool === "tts" || job.tool === "screencast_translate" || job.tool === "screencast_render")
-    && job.status === "failed";
+    && (job.status === "failed" || job.status === "paused");
 
   return (
     <li className={`px-5 py-4 hover:bg-surface transition ${expired ? "opacity-50" : ""}`}>
@@ -54,7 +54,7 @@ export function JobListItem({
           )}
           <TimingInfo job={job} isAdmin={isAdmin} />
           {isAdmin && job.meta?.stats && <AdminDetails stats={job.meta.stats} />}
-          {job.status === "failed" && job.error && (
+          {(job.status === "failed" || job.status === "paused") && job.error && (
             <p className="text-xs text-error mt-1">{job.error}</p>
           )}
           {!expired && <JobArtifacts job={job} />}
@@ -77,7 +77,7 @@ export function JobListItem({
               disabled={retrying === job.job_uuid}
               className="text-xs text-info hover:underline disabled:opacity-50"
             >
-              {retrying === job.job_uuid ? "..." : t("retry")}
+              {retrying === job.job_uuid ? "..." : t(job.status === "paused" ? "continue" : "retry")}
             </button>
           )}
           {!isActive(job.status) && (

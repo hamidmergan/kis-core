@@ -6,7 +6,7 @@ export interface MyJob {
   tool: string;
   tool_label: string;
   original_filename: string;
-  status: "pending" | "running" | "success" | "failed" | "awaiting_user" | "queued";
+  status: "pending" | "running" | "success" | "failed" | "awaiting_user" | "queued" | "waiting_retry" | "paused";
   error: string | null;
   created_at: string;
   started_at: string | null;
@@ -36,7 +36,7 @@ export const SCREENCAST_TOOLS = new Set([
 
 
 export const isActive = (s: MyJob["status"]): boolean =>
-  s === "pending" || s === "running" || s === "awaiting_user" || s === "queued";
+  s === "pending" || s === "running" || s === "awaiting_user" || s === "queued" || s === "waiting_retry";
 
 
 export const isExpired = (job: MyJob): boolean =>

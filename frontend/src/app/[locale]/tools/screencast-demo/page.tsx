@@ -21,7 +21,7 @@ import { TranslationReviewStep } from "./_steps/TranslationReviewStep";
 import { ScriptReviewStep } from "./_steps/ScriptReviewStep";
 import { TtsSettingsStep } from "./_steps/TtsSettingsStep";
 import { DoneStep } from "./_steps/DoneStep";
-import RegenChatModal from "@/app/[locale]/tools/screencast/_components/RegenChatModal";
+import RegenChatModal from "@/components/regen/RegenChatModal";
 import { useDemoRegen } from "./_hooks/useDemoRegen";
 import { useDemoScriptEditing } from "./_hooks/useDemoScriptEditing";
 
@@ -433,8 +433,9 @@ function ScreencastDemoPageInner() {
 
         {regeneratingSlide !== null && slides[regeneratingSlide] && (
           <RegenChatModal
-            slideIndex={regeneratingSlide}
+            index={regeneratingSlide}
             demo
+            onSend={async () => ""}
             onClose={closeRegen}
           />
         )}

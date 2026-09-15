@@ -2,7 +2,7 @@
 from ._shared import psycopg2, get_connection
 
 # Running jobs are never cleared, hanging ones are caught by the watchdog.
-ACTIVE_STATUSES = ("pending", "queued", "running", "awaiting_user")
+ACTIVE_STATUSES = ("pending", "queued", "running", "awaiting_user", "waiting_retry", "paused")
 
 
 def select_jobs_to_evict(

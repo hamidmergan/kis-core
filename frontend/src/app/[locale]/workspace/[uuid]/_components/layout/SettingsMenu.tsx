@@ -6,8 +6,6 @@ import Link from "next/link";
 import Modal from "@/components/ui/Modal";
 import Select from "@/components/ui/Select";
 import ToggleRow from "@/components/ui/ToggleRow";
-import type { MascotVariant } from "@/components/ui/Mascot";
-import { useMascotPref } from "@/hooks/useMascotPref";
 
 interface SettingsMenuProps {
   open: boolean;
@@ -42,7 +40,6 @@ export function SettingsMenu({
   const tLang = useTranslations("langLabels");
   const tFooter = useTranslations("footer");
   const tTour = useTranslations("workspace.detail.tour");
-  const { variant: mascotVariant, setVariant: setMascotVariant } = useMascotPref();
 
   // The languages come from the backend, the names from our own labels.
   const [targetLangCodes, setTargetLangCodes] = useState<{ id: string; deepl: string }[]>([]);
@@ -65,25 +62,9 @@ export function SettingsMenu({
     label: tLang(deepl),
   }));
 
-  const MASCOT_OPTIONS = [
-    { value: "hilde" as const, label: t("mascotHilde") },
-    { value: "francis" as const, label: t("mascotFrancis") },
-  ];
-
   return (
     <Modal open={open} onClose={onClose} title={t("title")} size="md">
       <div className="flex flex-col gap-4">
-        <div>
-          <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{t("mascotTitle")}</p>
-          <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>{t("mascotDescription")}</p>
-          <div className="mt-2">
-            <Select<MascotVariant>
-              value={mascotVariant}
-              onChange={setMascotVariant}
-              options={MASCOT_OPTIONS}
-            />
-          </div>
-        </div>
         <ToggleRow
           title={t("studioTitle")}
           description={t("studioDescription")}

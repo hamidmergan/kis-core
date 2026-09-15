@@ -8,6 +8,19 @@ describe("jobStatusDisplay", () => {
     expect(jobStatusDisplay("awaiting_user", {})).toEqual({ kind: "action", key: "awaitingUser" });
   });
 
+  it("zeigt Angehalten als Handlung, nicht als Fehler", () => {
+    expect(jobStatusDisplay("paused", {})).toEqual({ kind: "action", key: "paused" });
+  });
+
+  it("zeigt den wartenden Wiederanlauf als Zustand mit Bewegung", () => {
+    expect(jobStatusDisplay("waiting_retry", {})).toEqual({
+      kind: "mark",
+      key: "waitingRetry",
+      tone: "warn",
+      pulse: true,
+    });
+  });
+
   it("gibt laufender Arbeit die Hausfarbe und eine Bewegung", () => {
     expect(jobStatusDisplay("running", {})).toEqual({
       kind: "mark",

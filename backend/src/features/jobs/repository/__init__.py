@@ -32,12 +32,19 @@ from ._lifecycle import (
     transition_job_to_pending,
     transition_job_to_queued,
     claim_job_for_retry,
-    reset_stuck_jobs,
     set_render_started_at,
     set_render_queued_at,
     touch_job_heartbeat,
     get_stale_awaiting_user_jobs,
     get_stuck_running_jobs,
+)
+from ._recovery import (
+    record_failed_attempt,
+    claim_due_retries,
+    job_claim,
+    reset_attempts,
+    expire_parked_job,
+    jobs_in_flight,
 )
 from ._counts import get_counts
 from ._stats import (
@@ -58,8 +65,11 @@ __all__ = [
     # lifecycle
     "set_job_celery_task_id", "get_job_by_celery_task_id", "set_generating_scripts_flag",
     "transition_job_to_pending", "transition_job_to_queued", "claim_job_for_retry",
-    "reset_stuck_jobs", "set_render_started_at", "set_render_queued_at",
+    "set_render_started_at", "set_render_queued_at",
     "touch_job_heartbeat", "get_stale_awaiting_user_jobs", "get_stuck_running_jobs",
+    # recovery
+    "record_failed_attempt", "claim_due_retries", "job_claim", "reset_attempts",
+    "expire_parked_job", "jobs_in_flight",
     # stats
     "get_job_stats", "get_job_activity_log", "get_counts",
 ]

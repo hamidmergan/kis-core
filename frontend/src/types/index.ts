@@ -45,7 +45,7 @@ export interface LoginResponse {
   display_name: string;
 }
 
-export type TTSState = "idle" | "uploading" | "processing" | "done" | "error";
+export type TTSState = "idle" | "uploading" | "processing" | "done" | "error" | "paused";
 
 export type ScreencastStep =
   | "upload"

@@ -275,6 +275,50 @@ class TestSkriptUndVertonung:
         self._job(jobs)
         assert client.put(f"/podcast/{UUID}/script", json={"lines": []}).status_code == 422
 
+    def test_weist_zu_viele_beitraege_mit_meldung_ab(self, env):
+        """Frueher verschwand der 251. Beitrag still, jetzt sagt es die Oberflaeche."""
+        from src.limits import PODCAST_MAX_LINES
+
+        client, jobs, _g, _a = env
+        self._job(jobs)
+        zeilen = [{"id": "", "speaker": 0, "text": "Text."} for _ in range(PODCAST_MAX_LINES + 1)]
+        antwort = client.put(f"/podcast/{UUID}/script", json={"lines": zeilen})
+        assert antwort.status_code == 422
+        assert str(PODCAST_MAX_LINES) in antwort.json()["detail"]
+
+    def test_nimmt_genau_die_erlaubte_zahl_an_beitraegen(self, env):
+        from src.limits import PODCAST_MAX_LINES
+
+        client, jobs, _g, _a = env
+        self._job(jobs)
+        zeilen = [{"id": "", "speaker": 0, "text": "Text."} for _ in range(PODCAST_MAX_LINES)]
+        assert client.put(f"/podcast/{UUID}/script", json={"lines": zeilen}).status_code == 200
+
+    def test_weist_ein_zu_langes_skript_ab(self, env):
+        """Dieselbe Zeichengrenze wie bei Text zu Sprache, Screencast und Uebersetzen."""
+        from src.limits import PODCAST_MAX_CHARS
+
+        client, jobs, _g, _a = env
+        self._job(jobs)
+        zeilen = [{"id": "", "speaker": 0, "text": "x" * 1000} for _ in range(PODCAST_MAX_CHARS // 1000 + 1)]
+        antwort = client.put(f"/podcast/{UUID}/script", json={"lines": zeilen})
+        assert antwort.status_code == 422
+        assert "100.000" in antwort.json()["detail"]
+
+    def test_ein_angehaltener_auftrag_darf_wieder_starten(self, env):
+        client, jobs, _g, _a = env
+        self._job(jobs, status="paused")
+        assert client.put(f"/podcast/{UUID}/script", json={"lines": [
+            {"id": "b0", "speaker": 0, "text": "Eins."},
+        ]}).status_code == 200
+
+    def test_waehrend_des_wiederanlaufs_bleibt_das_skript_gesperrt(self, env):
+        client, jobs, _g, _a = env
+        self._job(jobs, status="waiting_retry")
+        assert client.put(f"/podcast/{UUID}/script", json={"lines": [
+            {"id": "b0", "speaker": 0, "text": "Eins."},
+        ]}).status_code == 409
+
     def test_gibt_den_fortschritt_als_objekt_zurueck(self, env):
         """In der Datenbank steht der Fortschritt als Text, die Seite braucht ein Objekt."""
         client, jobs, _g, _a = env
@@ -493,3 +537,103 @@ class TestBesetzungAendern:
         client, jobs, _g, _a = env
         self._job(jobs)
         assert client.put(f"/podcast/{UUID}/params", json=self._neu()).status_code == 404
+
+
+class TestUmformulierenMitChat:
+    """Das Chat-Fenster am Beitrag: Wunsch rein, Material gebunden, Text raus."""
+
+    def _job(self, jobs, status="success"):
+        jobs[UUID] = {"job_uuid": UUID, "user_id": 7, "tool": "podcast", "status": status,
+                      "progress": None, "error_message": None, "result_path": None}
+
+    def _vorbereiten(self, jobs, monkeypatch, antwort='{"text": "Der kurze Satz."}'):
+        from src.features.podcast import store
+        from src.features.podcast.schemas import Line, PodcastParams
+
+        self._job(jobs)
+        store.save_params(7, UUID, PodcastParams(**json.loads(_params())))
+        store.save_user_script(7, UUID, [Line(id="b0", speaker=0, text="Die Spannung liegt an."),
+                                         Line(id="b1", speaker=1, text="Und der Widerstand?")])
+        store.save_source(7, UUID, "Die Spannung wird in Volt gemessen.\n\n"
+                                   "Zur Anmeldung dient das Portal.")
+
+        gesehen: list[list[dict]] = []
+
+        class FakeAntwort:
+            class _W:
+                class _N:
+                    content = antwort
+                message = _N()
+            choices = [_W()]
+
+        def _call(llm, messages, **kw):
+            gesehen.append(messages)
+            return FakeAntwort()
+
+        import src.services.aia_json_llm as json_llm
+        from src.services import feature_router
+
+        monkeypatch.setattr(json_llm, "call_json_llm", _call)
+        monkeypatch.setattr(feature_router, "resolve", lambda name: {"model": "m"})
+        monkeypatch.setattr(feature_router, "make_llm_client", lambda binding: object())
+        return gesehen
+
+    def test_nimmt_den_wunsch_aus_dem_chat_mit(self, env, monkeypatch):
+        client, jobs, _g, _a = env
+        gesehen = self._vorbereiten(jobs, monkeypatch)
+        antwort = client.post(f"/podcast/{UUID}/rephrase", json={
+            "line_id": "b0",
+            "messages": [{"role": "user", "content": "Mach ihn kuerzer"}],
+        })
+        assert antwort.status_code == 200
+        assert antwort.json()["text"] == "Der kurze Satz."
+        auftrag = gesehen[0][1]["content"]
+        assert "Mach ihn kuerzer" in auftrag
+
+    def test_legt_dem_modell_das_material_vor(self, env, monkeypatch):
+        client, jobs, _g, _a = env
+        gesehen = self._vorbereiten(jobs, monkeypatch)
+        client.post(f"/podcast/{UUID}/rephrase", json={
+            "line_id": "b0",
+            "messages": [{"role": "user", "content": "Erklaer die Einheit"}],
+        })
+        auftrag = gesehen[0][1]["content"]
+        assert "Volt" in auftrag
+        assert "erfindest nichts" in gesehen[0][0]["content"]
+
+    def test_reicht_die_markierte_stelle_durch(self, env, monkeypatch):
+        client, jobs, _g, _a = env
+        gesehen = self._vorbereiten(jobs, monkeypatch)
+        client.post(f"/podcast/{UUID}/rephrase", json={
+            "line_id": "b0",
+            "messages": [{"role": "user", "content": "einfacher"}],
+            "selected_text": "liegt an",
+        })
+        auftrag = gesehen[0][1]["content"]
+        assert "liegt an" in auftrag
+        assert "der diese Stelle ersetzt" in auftrag
+
+    def test_bleibt_ohne_chat_beim_alten_weg(self, env, monkeypatch):
+        client, jobs, _g, _a = env
+        gesehen = self._vorbereiten(jobs, monkeypatch)
+        antwort = client.post(f"/podcast/{UUID}/rephrase", json={"line_id": "b0"})
+        assert antwort.status_code == 200
+        assert "neu formuliert" in gesehen[0][1]["content"]
+
+    def test_sagt_dem_modell_die_stelle_im_gespraech(self, env, monkeypatch):
+        client, jobs, _g, _a = env
+        gesehen = self._vorbereiten(jobs, monkeypatch)
+        client.post(f"/podcast/{UUID}/rephrase", json={
+            "line_id": "b0",
+            "messages": [{"role": "user", "content": "Begruess kurz"}],
+        })
+        assert "Beitrag 1 von 2" in gesehen[0][1]["content"]
+
+    def test_nennt_die_sprecher_im_umfeld(self, env, monkeypatch):
+        client, jobs, _g, _a = env
+        gesehen = self._vorbereiten(jobs, monkeypatch)
+        client.post(f"/podcast/{UUID}/rephrase", json={
+            "line_id": "b0",
+            "messages": [{"role": "user", "content": "Begruess kurz"}],
+        })
+        assert "Jonas: Und der Widerstand?" in gesehen[0][1]["content"]

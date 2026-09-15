@@ -7,6 +7,7 @@ from src.celery_app import celery_app
 from src.features.podcast import script as skript
 from src.features.podcast import store
 from src.i18n import t
+from src.limits import STAGE_SOFT_TIME_LIMIT, STAGE_TIME_LIMIT
 from src.services.job_statistik import messe, route_kennung
 from src.tasks.podcast_tasks._shared import JobCancelled, assert_not_cancelled
 from src.utils.heartbeat import job_heartbeat
@@ -15,7 +16,13 @@ from src.utils.heartbeat import job_heartbeat
 _VERSUCHE = 2
 
 
-@celery_app.task(bind=True, name="podcast.script", queue="general")
+@celery_app.task(
+    bind=True,
+    name="podcast.script",
+    queue="general",
+    soft_time_limit=STAGE_SOFT_TIME_LIMIT,
+    time_limit=STAGE_TIME_LIMIT,
+)
 def run_podcast_script(self, job_uuid: str, user_id: int, locale: str = "de"):
     """Writes script.json and hands the job back to the person."""
     try:

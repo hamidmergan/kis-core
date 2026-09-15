@@ -35,7 +35,7 @@ export interface JobProgress {
   behalten?: number[];
 }
 
-export type JobStatus = "idle" | "pending" | "running" | "awaiting_user" | "success" | "failed";
+export type JobStatus = "idle" | "pending" | "running" | "awaiting_user" | "success" | "failed" | "waiting_retry" | "paused";
 
 export interface Source {
   mode: SourceMode;

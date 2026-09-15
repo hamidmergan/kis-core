@@ -22,7 +22,7 @@ interface MyJob {
   tool: string;
   tool_label: string;
   original_filename: string;
-  status: "pending" | "running" | "success" | "failed" | "awaiting_user" | "queued";
+  status: "pending" | "running" | "success" | "failed" | "awaiting_user" | "queued" | "waiting_retry" | "paused";
   error: string | null;
   created_at: string;
   started_at: string | null;
@@ -71,15 +71,17 @@ function StatusBadge({ status, expired, isGeneratingScripts, resumeHref, onResum
     if (resumeHref)
       return (
         <a href={resumeHref} onClick={onResume} className="btn-primary inline-flex text-xs font-medium px-2.5 py-1 rounded-md">
-          {t("awaitingUser")}
+          {t(anzeige.key)}
         </a>
       );
-    return <StatusMark tone="brand" className="text-xs">{t("awaitingUser")}</StatusMark>;
+    // Without a page to jump to it is only a state, the action sits next to it.
+    const ruhend = anzeige.key === "paused" ? "pausedMark" : "awaitingUser";
+    return <StatusMark tone="brand" className="text-xs">{t(ruhend)}</StatusMark>;
   }
 
   return (
     <StatusMark tone={anzeige.tone} pulse={anzeige.pulse} className="text-xs">
-      {t(anzeige.key as "expired" | "success" | "failed" | "running" | "queued" | "pending")}
+      {t(anzeige.key as "expired" | "success" | "failed" | "running" | "queued" | "pending" | "waitingRetry")}
     </StatusMark>
   );
 }
@@ -427,13 +429,13 @@ export default function JobsPanel() {
                             }
                             onResume={(e) => { e.stopPropagation(); setOpen(false); }}
                           />
-                          {(job.tool === "tts" || job.tool === "screencast_translate" || job.tool === "screencast_render") && job.status === "failed" && (
+                          {(job.tool === "tts" || job.tool === "screencast_translate" || job.tool === "screencast_render") && (job.status === "failed" || job.status === "paused") && (
                             <button
                               onClick={(e) => handleRetry(e, job)}
                               disabled={retrying === job.job_uuid}
                               className="text-xs text-info hover:underline disabled:opacity-50"
                             >
-                              {retrying === job.job_uuid ? "..." : tActions("retry")}
+                              {retrying === job.job_uuid ? "..." : tActions(job.status === "paused" ? "continue" : "retry")}
                             </button>
                           )}
                         </div>

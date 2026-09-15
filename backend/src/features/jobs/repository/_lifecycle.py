@@ -104,36 +104,19 @@ def transition_job_to_queued(
 
 
 def claim_job_for_retry(job_uuid: str) -> bool:
-    """Moves a job from 'failed' to 'running' for the second attempt."""
+    """Moves a job the person restarts to 'running', with a fresh set of automatic tries."""
     now = datetime.now(timezone.utc)
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                """UPDATE jobs SET status = 'running', progress_updated_at = %s, error_message = NULL
-                   WHERE job_uuid = %s AND status = 'failed'""",
+                """UPDATE jobs SET status = 'running', progress_updated_at = %s, error_message = NULL,
+                       attempts = 0, next_attempt_at = NULL
+                   WHERE job_uuid = %s AND status IN ('failed', 'paused')""",
                 (now, job_uuid),
             )
             affected = cur.rowcount
         conn.commit()
         return affected == 1
-
-
-def reset_stuck_jobs() -> int:
-    """Marks all hanging jobs as failed at startup."""
-    now = datetime.now(timezone.utc)
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                """UPDATE jobs
-                   SET status = 'failed',
-                       error_message = 'Server wurde neugestartet - bitte Wiederholen klicken.',
-                       completed_at = %s
-                   WHERE status IN ('pending', 'running')""",
-                (now,),
-            )
-            affected = cur.rowcount
-        conn.commit()
-        return affected
 
 
 def set_render_started_at(job_uuid: str) -> None:
@@ -173,12 +156,14 @@ def touch_job_heartbeat(job_uuid: str) -> None:
 
 
 def get_stale_awaiting_user_jobs(threshold_hours: int = 2) -> list[dict]:
-    """Return awaiting_user jobs older than threshold_hours (user never came back to resume)."""
+    """Return parked jobs idle for longer than threshold_hours (user never came back)."""
     cutoff = datetime.now(timezone.utc) - timedelta(hours=threshold_hours)
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
-                "SELECT job_uuid, tool, creator_locale FROM jobs WHERE status = 'awaiting_user' AND created_at <= %s",
+                """SELECT job_uuid, tool, creator_locale FROM jobs
+                   WHERE status IN ('awaiting_user', 'paused')
+                   AND COALESCE(progress_updated_at, created_at) <= %s""",
                 (cutoff,),
             )
             rows = cur.fetchall()
@@ -191,15 +176,11 @@ def get_stuck_running_jobs(threshold_minutes: int) -> list[dict]:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
-                """SELECT job_uuid, tool, progress, progress_updated_at, creator_locale FROM jobs
-                   WHERE (
-                       (status = 'running' AND progress_updated_at IS NOT NULL AND progress_updated_at <= %s)
-                       OR
-                       (status = 'running' AND progress_updated_at IS NULL AND created_at <= %s)
-                       OR
-                       (status = 'pending' AND created_at <= %s)
-                   )""",
-                (cutoff, cutoff, cutoff),
+                """SELECT job_uuid, user_id, tool, progress, progress_updated_at,
+                          creator_locale, celery_task_id FROM jobs
+                   WHERE status IN ('pending', 'running')
+                   AND COALESCE(progress_updated_at, created_at) <= %s""",
+                (cutoff,),
             )
             rows = cur.fetchall()
         return [dict(row) for row in rows]

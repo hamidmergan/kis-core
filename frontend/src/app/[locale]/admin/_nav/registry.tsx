@@ -219,8 +219,8 @@ export const SECTIONS: AdminSection[] = [
     world: "dev",
     rank: "dev",
     pages: [
-      { slug: "hilde", key: "hilde", world: "dev", perm: PERM.mascot, Component: HildePage },
       { slug: "francis", key: "francis", world: "dev", perm: PERM.mascot, Component: FrancisPage },
+      { slug: "hilde", key: "hilde", world: "dev", perm: PERM.mascot, Component: HildePage },
     ],
   },
 ];

@@ -26,15 +26,17 @@ export function StatusBadge({ status, expired, isGeneratingScripts, resumeHref, 
           onClick={onResume}
           className="btn-primary inline-flex text-xs font-medium px-2.5 py-1 rounded-md"
         >
-          {t("awaitingUser")}
+          {t(anzeige.key)}
         </a>
       );
-    return <StatusMark tone="brand" className="text-xs">{t("awaitingUser")}</StatusMark>;
+    // Without a page to jump to it is only a state, the action sits next to it.
+    const ruhend = anzeige.key === "paused" ? "pausedMark" : "awaitingUser";
+    return <StatusMark tone="brand" className="text-xs">{t(ruhend)}</StatusMark>;
   }
 
   return (
     <StatusMark tone={anzeige.tone} pulse={anzeige.pulse} className="text-xs">
-      {t(anzeige.key as "expired" | "success" | "failed" | "running" | "queued" | "pending")}
+      {t(anzeige.key as "expired" | "success" | "failed" | "running" | "queued" | "pending" | "waitingRetry")}
     </StatusMark>
   );
 }

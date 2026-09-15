@@ -70,6 +70,8 @@ async def generate_all_tts(
     zaehler: dict | None = None,
     ausgeschlossen: set[int] | None = None,
     alter_ton_erlaubt: set[int] | None = None,
+    clock=None,
+    on_beat: Callable[[], None] | None = None,
 ) -> list[tuple[Path, dict | None]]:
     """Voices all slides, the pieces run concurrently, reporting in slide order."""
     parallelism = resolve_tts_parallelism()
@@ -91,10 +93,14 @@ async def generate_all_tts(
         nonlocal freigegeben
         async with melde_lock:
             fertige.add(i)
+            vorher = freigegeben
             while freigegeben in fertige:
                 if on_slide_done:
                     on_slide_done(len(fertige), total, freigegeben)
                 freigegeben += 1
+            # A slide finished out of order releases nothing, but it is still a sign of life.
+            if freigegeben == vorher and on_beat:
+                on_beat()
 
     async def _zerlegen(i: int, script_text: str) -> list[str]:
         """Whatever need not be spoken is dropped here."""
@@ -193,6 +199,8 @@ async def generate_all_tts(
         naechster = 0
         pos_lock = asyncio.Lock()
 
+        begonnen: set[int] = set()
+
         async def _arbeiter() -> None:
             nonlocal naechster
             while True:
@@ -200,6 +208,10 @@ async def generate_all_tts(
                     if naechster >= len(auftraege):
                         return
                     i, k = auftraege[naechster]
+                    # Once the stage is over only started slides are finished, no new ones begin.
+                    if clock is not None and clock.over() and i not in begonnen:
+                        return
+                    begonnen.add(i)
                     naechster += 1
                 stuecke[i][k] = await _hole_stueck(i, k, zerlegt[i][k], len(zerlegt[i]))
                 # No await between storing and checking, so exactly one worker reports.

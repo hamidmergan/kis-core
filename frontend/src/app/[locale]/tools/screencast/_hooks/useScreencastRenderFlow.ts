@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, type Dispatch, type MutableRefObject } from "react";
-import { parseDetail, pollJob, type JobStatus } from "@/lib/api";
+import { JobPausedError, parseDetail, pollJob, type JobStatus } from "@/lib/api";
 import { notifyJobsChanged } from "@/lib/jobs-events";
 import type { SlideData } from "@/types";
 import type { ProviderWithVoices } from "@/hooks/useVoices";
@@ -198,7 +198,7 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
       sessionStorage.removeItem(RENDER_SESSION_KEY);
-      failedRender.mark(currentJobUuidRef.current);
+      failedRender.mark(currentJobUuidRef.current, err instanceof JobPausedError);
       goError(err instanceof Error ? err.message : messages.unknownError);
     }
   }, [
@@ -256,7 +256,7 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
       if (err instanceof Error && err.name === "AbortError") return;
       sessionStorage.removeItem(RENDER_SESSION_KEY);
       const msg = err instanceof Error ? err.message : messages.retryFailed;
-      failedRender.mark(uuid);
+      failedRender.mark(uuid, err instanceof JobPausedError);
       goError(msg);
     }
   }, [
@@ -284,9 +284,9 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
           processRenderResultFromJob(job).catch(() => {});
           return;
         }
-        if (job.status === "failed") {
+        if (job.status === "failed" || job.status === "paused") {
           sessionStorage.removeItem(RENDER_SESSION_KEY);
-          failedRender.mark(uuid);
+          failedRender.mark(uuid, job.status === "paused");
           goError(job.error || messages.jobFailed);
           return;
         }
@@ -308,7 +308,7 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
           .catch((err) => {
             if (err instanceof Error && err.name === "AbortError") return;
             sessionStorage.removeItem(RENDER_SESSION_KEY);
-            failedRender.mark(uuid);
+            failedRender.mark(uuid, err instanceof JobPausedError);
             goError(err.message);
           });
       })

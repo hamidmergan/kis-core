@@ -11,6 +11,9 @@ _SEARCH_FROM = 0.6
 
 _SENTENCE_ENDS = (". ", "! ", "? ", ".\n", "!\n", "?\n")
 
+# myLab gives up on a request after 60 s, so waiting five minutes only burns a slot.
+_REQUEST_TIMEOUT = 90.0
+
 
 def _resolve_chunk_limit() -> int:
     """Ceiling per request, changeable at runtime in the admin area."""
@@ -85,7 +88,7 @@ class OpenAICompatTTSClient:
         chunks = _split_text(text)
         audio_parts: list[bytes] = []
 
-        with httpx.Client(timeout=300.0) as client:
+        with httpx.Client(timeout=_REQUEST_TIMEOUT) as client:
             for chunk in chunks:
                 audio_parts.append(
                     self._synthesize_one(client, chunk, voice_id=voice_id, speed=speed, language=language)
@@ -103,7 +106,7 @@ class OpenAICompatTTSClient:
         **kwargs,
     ) -> bytes:
         """Synthesize a single chunk (for crash recovery in tts_tasks)."""
-        with httpx.Client(timeout=300.0) as client:
+        with httpx.Client(timeout=_REQUEST_TIMEOUT) as client:
             return self._synthesize_one(client, text, voice_id=voice_id, speed=speed, language=language)
 
     def _synthesize_one(

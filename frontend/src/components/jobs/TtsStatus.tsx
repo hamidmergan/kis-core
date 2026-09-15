@@ -13,6 +13,7 @@ interface TtsStatusProps {
   errorMessage?: string;
   onDownload?: () => void;
   onReset?: () => void;
+  onContinue?: () => void;
 }
 
 export default function TtsStatus({
@@ -22,6 +23,7 @@ export default function TtsStatus({
   errorMessage,
   onDownload,
   onReset,
+  onContinue,
 }: TtsStatusProps) {
   const t = useTranslations("tools.tts.status");
   const tCommon = useTranslations("common");
@@ -78,6 +80,30 @@ export default function TtsStatus({
             <button
               onClick={onReset}
               aria-label={t("newFileAria")}
+              className="px-4 py-2 text-sm text-foreground-soft border border-border rounded-md hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors"
+            >
+              {tCommon("newFile")}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {state === "paused" && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-foreground">{t("pausedTitle")}</span>
+          </div>
+          {errorMessage && <p className="text-xs text-error">{errorMessage}</p>}
+          <p className="text-xs text-muted">{t("pausedHint")}</p>
+          <div className="flex gap-3">
+            <button
+              onClick={onContinue}
+              className="px-4 py-2 text-sm text-white bg-kb rounded-md hover:outline-2 hover:outline-kb focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors"
+            >
+              {t("continue")}
+            </button>
+            <button
+              onClick={onReset}
               className="px-4 py-2 text-sm text-foreground-soft border border-border rounded-md hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors"
             >
               {tCommon("newFile")}

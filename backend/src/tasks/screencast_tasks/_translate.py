@@ -23,12 +23,19 @@ from src.services.screencast.naming import translate_stem
 from src.services.job_statistik import anbieter_und_modell, messe, notiere
 from src.utils.heartbeat import job_heartbeat
 
+from src.limits import STAGE_SOFT_TIME_LIMIT, STAGE_TIME_LIMIT
 from src.tasks._errors import handle_task_exception
 from src.tasks.screencast_tasks._queue import _maybe_dispatch_next
 from src.tasks.screencast_tasks._shared import _get_screencast_helpers
 
 
-@celery_app.task(bind=True, name="screencast.translate", queue="screencast")
+@celery_app.task(
+    bind=True,
+    name="screencast.translate",
+    queue="screencast",
+    soft_time_limit=STAGE_SOFT_TIME_LIMIT,
+    time_limit=STAGE_TIME_LIMIT,
+)
 def run_screencast_translate(
     self,
     job_uuid: str,

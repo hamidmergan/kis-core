@@ -122,7 +122,7 @@ def screencast_render(
         raise HTTPException(status_code=404, detail=t("screencast.translateJobNotFound", locale))
     if translate_job["user_id"] != user_id:
         raise HTTPException(status_code=403, detail=t("job.accessDenied", locale))
-    if translate_job["status"] not in ("awaiting_user", "failed", "success"):
+    if translate_job["status"] not in ("awaiting_user", "failed", "success", "paused"):
         raise HTTPException(status_code=409, detail=t("screencast.notReadyForRender", locale))
     if not job_file_exists(user_id, body.translate_job_uuid, "translated.pptx"):
         delete_job_folder(user_id, body.translate_job_uuid)
@@ -156,10 +156,11 @@ def screencast_render(
     transitioned = db.transition_job_to_queued(
         body.translate_job_uuid,
         user_id,
-        from_statuses=("awaiting_user", "failed", "success"),
+        from_statuses=("awaiting_user", "failed", "success", "paused"),
     )
     if not transitioned:
         raise HTTPException(status_code=409, detail=t("screencast.alreadyProcessing", locale))
+    db.reset_attempts(body.translate_job_uuid)
 
     from src.tasks.screencast_tasks import dispatch_next_screencast_job_for_user
     dispatch_next_screencast_job_for_user(user_id)

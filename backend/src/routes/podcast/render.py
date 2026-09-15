@@ -13,7 +13,7 @@ from src.security.rate_limit import enforce_tool_burst
 
 router = APIRouter(tags=["podcast"])
 
-_STARTBAR = ("awaiting_user", "failed", "success")
+_STARTBAR = ("awaiting_user", "failed", "success", "paused")
 
 
 @router.post("/podcast/{job_uuid}/render")
@@ -38,8 +38,10 @@ async def start_render(
 
     # Whoever cancelled and starts again must not run into their own mark.
     clear_cancel(job_uuid)
-    task = run_podcast_render.apply_async(args=[job_uuid, user_id, locale])
-    db.set_job_celery_task_id(job_uuid, task.id)
+    db.reset_attempts(job_uuid)
+    # Pending first: the task checks the row and must not find the old state.
     db.update_job_status(job_uuid, "pending", progress={"step": "tts"})
+    task = run_podcast_render.apply_async(args=[job_uuid, user_id, locale, 1, 0])
+    db.set_job_celery_task_id(job_uuid, task.id)
     logger.info("Podcast {}: Vertonung gestartet", job_uuid[:8])
     return {"job_uuid": job_uuid}

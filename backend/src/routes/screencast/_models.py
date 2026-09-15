@@ -28,6 +28,11 @@ class RegenerateSlideScriptRequest(BaseModel):
     selected_text: str | None = None
     target_lang: str = "EN-US"
     glossary_json: str = ""
+    # Without these the model does not know whether this slide opens or ends the deck.
+    slide_index: int | None = None
+    slide_count: int | None = None
+    add_greeting: bool = True
+    add_closing: bool = False
 
 
 class RenderRequest(BaseModel):

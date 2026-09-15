@@ -115,10 +115,11 @@ def on_worker_ready(**kwargs):
 
 
 def _mark_task_failed(task_id: str, reason: str) -> None:
-    """Marks a running job as failed via its Celery id."""
+    """Counts one failed attempt for a running job, found via its Celery id."""
     try:
         from src import database as db
         from src.i18n import t
+        from src.services import job_recovery
         job = db.get_job_by_celery_task_id(task_id)
         if not job:
             return
@@ -130,8 +131,8 @@ def _mark_task_failed(task_id: str, reason: str) -> None:
             message = t(reason, locale)
         else:
             message = reason
-        db.update_job_status(job["job_uuid"], "failed", error_message=message)
-        logger.warning("Signal: job {} marked failed - {}", job["job_uuid"][:8], message)
+        status = job_recovery.attempt_failed(job["job_uuid"], message)
+        logger.warning("Signal: job {} now {} - {}", job["job_uuid"][:8], status, message)
     except Exception as e:
         logger.error("Signal handler error: {}", e)
 

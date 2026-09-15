@@ -76,7 +76,7 @@ export async function checkJobValidity(jobUuid: string): Promise<"ok" | "running
     const res = await fetch(`/api/jobs/${jobUuid}`, { credentials: "include" });
     if (!res.ok) return "deleted";
     const job = await res.json();
-    if (job.status === "awaiting_user" || job.status === "success" || job.status === "failed") return "ok";
+    if (job.status === "awaiting_user" || job.status === "success" || job.status === "failed" || job.status === "paused") return "ok";
     if (job.status === "pending" || job.status === "running") return "running";
     return "deleted";
   } catch {

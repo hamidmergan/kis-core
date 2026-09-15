@@ -1,4 +1,8 @@
-"""A heartbeat during long external calls so the watchdog stays quiet."""
+"""A heartbeat for phases without units, where no finished piece can report instead.
+
+A loop over units must call ``db.touch_job_heartbeat`` per finished unit rather than
+use this, otherwise a job that hangs keeps breathing and the watchdog never sees it.
+"""
 
 import threading
 from contextlib import contextmanager
