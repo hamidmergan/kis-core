@@ -89,7 +89,7 @@ export function useGlossaries() {
   }, []);
 
   // Up to three glossaries in one call, the first beats the others.
-  const mergeToApiJson = useCallback((ids: string[]): string => {
+  const mergeEntries = useCallback((ids: string[]): Record<string, string> => {
     const merged: Record<string, string> = {};
     // Iterate from lowest to highest priority so higher-priority entries overwrite
     for (let i = ids.length - 1; i >= 0; i--) {
@@ -99,9 +99,14 @@ export function useGlossaries() {
       if (!g || Object.keys(g.entries).length === 0) continue;
       Object.assign(merged, g.entries);
     }
-    if (Object.keys(merged).length === 0) return "";
-    return JSON.stringify(merged);
+    return merged;
   }, [glossaries]);
 
-  return { glossaries, loading, createGlossary, updateGlossary, deleteGlossary, mergeToApiJson };
+  const mergeToApiJson = useCallback((ids: string[]): string => {
+    const merged = mergeEntries(ids);
+    if (Object.keys(merged).length === 0) return "";
+    return JSON.stringify(merged);
+  }, [mergeEntries]);
+
+  return { glossaries, loading, createGlossary, updateGlossary, deleteGlossary, mergeEntries, mergeToApiJson };
 }

@@ -12,6 +12,7 @@ from pydantic import ValidationError
 
 from src import database as db
 from src.dependencies import get_current_user, is_admin_user
+from src.features.podcast import glossary as glossar
 from src.features.podcast import instruction, source_store, source_text, store
 from src.features.podcast.schemas import Line, PodcastParams
 from src.i18n import get_locale, t
@@ -113,6 +114,8 @@ def _leerer_auftrag(user_id: int, einstellungen: PodcastParams,
     _wacht(user_id, current_user, locale)
     job_uuid = uuid.uuid4().hex
     einstellungen.self_written = True
+    # Nothing is written and nothing is rephrased here, so no glossary needs to travel along.
+    einstellungen.glossary = {}
     einstellungen.provider_id = einstellungen.persons[0].provider_id
     einstellungen.source_label = t("podcast.selfWritten", locale)
     db.create_job(job_uuid, user_id, "podcast", einstellungen.source_label, locale=locale)
@@ -187,6 +190,7 @@ async def start_podcast(
     job_uuid = uuid.uuid4().hex
     einstellungen.source_label = label
     einstellungen.instruction_unmatched = bool(zahlen.get("daneben"))
+    einstellungen.glossary = glossar.sift(einstellungen.glossary, quelle)
     einstellungen.provider_id = einstellungen.persons[0].provider_id
     anzeige = label or (quelle[:60].replace("\n", " ") + "…")
     db.create_job(job_uuid, user_id, "podcast", anzeige, locale=locale)

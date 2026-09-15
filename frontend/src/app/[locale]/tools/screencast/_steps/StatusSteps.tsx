@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
+import BackgroundHint from "@/components/tools/BackgroundHint";
 import { mitLaufStempel } from "../_utils";
 
 const cancelIcon = (
@@ -25,6 +26,7 @@ export function TranslatingStep({
         {skipTranslation ? t("translating.preparing") : t("translating.translating")}
       </p>
       <p className="text-xs text-muted-soft mt-2">{t("translating.subtle")}</p>
+      <BackgroundHint />
       <button
         onClick={onCancel}
         className="btn-cancel mt-6 px-4 py-2 text-sm text-error border border-error-border rounded-md transition-colors inline-flex items-center gap-2"
@@ -49,6 +51,7 @@ export function GeneratingScriptsStep({
       <Spinner size="lg" className="justify-center mb-4" />
       <p className="text-sm text-foreground-soft animate-pulse">{t("generatingScripts.title")}</p>
       <p className="text-xs text-muted-soft mt-2">{t("generatingScripts.subtle", { n: slideCount })}</p>
+      <BackgroundHint />
       <button
         onClick={onCancel}
         className="btn-cancel mt-6 px-4 py-2 text-sm text-error border border-error-border rounded-md transition-colors inline-flex items-center gap-2"
@@ -90,6 +93,7 @@ export function RenderingStep({
             )}
           </>
         )}
+        {!rueckblick && <BackgroundHint />}
       </div>
 
       {vorschau}

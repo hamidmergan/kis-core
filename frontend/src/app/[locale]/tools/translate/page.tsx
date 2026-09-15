@@ -12,6 +12,7 @@ import { useGlossaries } from "@/hooks/useGlossaries";
 import { api, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
 import { copyTextFromPromise } from "@/lib/clipboard";
 import Spinner from "@/components/ui/Spinner";
+import BackgroundHint from "@/components/tools/BackgroundHint";
 import Select from "@/components/ui/Select";
 import Tabs from "@/components/ui/Tabs";
 import { TRANSLATE_MAX_CHARS } from "@/lib/constants";
@@ -233,6 +234,8 @@ export default function UebersetzungPage() {
               {processing ? tCommon("processing") : t("submit")}
             </button>
           </div>
+
+          {processing && <BackgroundHint className="mb-6" />}
 
           {stallMessage && !errorMessage && (
             <p className="text-sm text-warn" role="status">{stallMessage}</p>

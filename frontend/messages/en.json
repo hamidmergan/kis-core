@@ -398,7 +398,8 @@
     "retryJobAria": "Retry job",
     "add": "Add",
     "close": "Close",
-    "backToOverview": "Overview"
+    "backToOverview": "Overview",
+    "jobBackgroundHint": "You can leave the page. The job keeps running in the background. You find the result under My jobs."
   },
   "tools": {
     "stt": {
@@ -1007,6 +1008,8 @@
           "de": "German",
           "en": "English"
         },
+        "glossaryLabel": "Glossary, optional",
+        "glossaryHint": "Terms from your lists that appear in the material are handed to the AI as a guideline. It usually keeps to them, but there is no guarantee.",
         "instructionsLabel": "Instruction, optional",
         "instructionsPlaceholder": "Narrow down a topic or chapter, set tone and level, name the audience.",
         "next": "Continue to the cast",
@@ -1091,7 +1094,6 @@
       "voicing": {
         "heading": "Voicing",
         "progress": "{done} of {total} lines voiced",
-        "background": "You can leave the page. The voicing keeps running in the background, and every finished line stays saved. You find the job under Jobs.",
         "state": {
           "done": "done",
           "running": "running",
@@ -2843,7 +2845,8 @@
         },
         "exerciseSets": {
           "emptyText": "Select sources and press Create.",
-          "createButton": "Create ({current}/{max})",
+          "createButton": "Create",
+          "limitReached": "Limit reached, delete an exercise first",
           "exercisesCount": "{count, plural, =1 {1 exercise} other {# exercises}}",
           "cardsCount": "{count, plural, =1 {1 card} other {# cards}}",
           "sourcesCount": "{count, plural, =1 {1 source} other {# sources}}",
@@ -3300,7 +3303,7 @@
         },
         "generate": {
           "create": "Create",
-          "createCount": "Create ({current}/{max})",
+          "limitReached": "Limit reached, delete an entry first",
           "generating": "Generating…"
         },
         "dataTable": {

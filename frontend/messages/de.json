@@ -398,7 +398,8 @@
     "retryJobAria": "Job wiederholen",
     "add": "Hinzufügen",
     "close": "Schließen",
-    "backToOverview": "Übersicht"
+    "backToOverview": "Übersicht",
+    "jobBackgroundHint": "Du kannst die Seite verlassen. Der Auftrag läuft im Hintergrund weiter. Das Ergebnis findest du unter Meine Jobs."
   },
   "tools": {
     "stt": {
@@ -1007,6 +1008,8 @@
           "de": "Deutsch",
           "en": "Englisch"
         },
+        "glossaryLabel": "Glossar, optional",
+        "glossaryHint": "Begriffe aus deinen Listen, die im Material vorkommen, bekommt die KI als Vorgabe. Sie hält sich meistens daran, sicher ist es nicht.",
         "instructionsLabel": "Anweisung, optional",
         "instructionsPlaceholder": "Thema oder Kapitel eingrenzen, Ton und Schwierigkeit vorgeben, Zielgruppe nennen.",
         "next": "Weiter zur Besetzung",
@@ -1091,7 +1094,6 @@
       "voicing": {
         "heading": "Vertonung",
         "progress": "{done} von {total} Beiträgen vertont",
-        "background": "Du kannst die Seite verlassen. Die Vertonung läuft im Hintergrund weiter, und jeder fertige Beitrag bleibt gespeichert. Den Auftrag findest du unter Aufträge.",
         "state": {
           "done": "fertig",
           "running": "läuft",
@@ -2843,7 +2845,8 @@
         },
         "exerciseSets": {
           "emptyText": "Wähle Materialien aus und drücke auf Erstellen.",
-          "createButton": "Erstellen ({current}/{max})",
+          "createButton": "Erstellen",
+          "limitReached": "Grenze erreicht, lösche zuerst eine Übung",
           "exercisesCount": "{count, plural, =1 {1 Übung} other {# Übungen}}",
           "cardsCount": "{count, plural, =1 {1 Karte} other {# Karten}}",
           "sourcesCount": "{count, plural, =1 {1 Material} other {# Materialien}}",
@@ -3300,7 +3303,7 @@
         },
         "generate": {
           "create": "Erstellen",
-          "createCount": "Erstellen ({current}/{max})",
+          "limitReached": "Grenze erreicht, lösche zuerst einen Eintrag",
           "generating": "Wird generiert…"
         },
         "dataTable": {

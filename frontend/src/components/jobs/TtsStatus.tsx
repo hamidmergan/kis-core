@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import { SpeakerHigh } from "@phosphor-icons/react";
 import type { TTSState } from "@/types";
 import Spinner from "@/components/ui/Spinner";
+import BackgroundHint from "@/components/tools/BackgroundHint";
 
 interface TtsStatusProps {
   state: TTSState;
@@ -29,12 +30,15 @@ export default function TtsStatus({
   return (
     <div className="mt-6 rounded-lg border border-border-soft bg-background p-6" role="status" aria-live="polite">
       {(state === "uploading" || state === "processing") && (
-        <div className="flex items-center gap-3">
-          <Spinner />
-          <span className="text-sm text-foreground-soft">
-            {state === "uploading" ? t("uploadingFile") : t("generatingAudio")}
-          </span>
-        </div>
+        <>
+          <div className="flex items-center gap-3">
+            <Spinner />
+            <span className="text-sm text-foreground-soft">
+              {state === "uploading" ? t("uploadingFile") : t("generatingAudio")}
+            </span>
+          </div>
+          <BackgroundHint />
+        </>
       )}
 
       {state === "done" && (

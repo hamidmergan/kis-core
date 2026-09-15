@@ -17,5 +17,8 @@ export const NOTE_BODY_WARN_AT = 1800;  // shows char counter when draft length 
 export const SCHEDULE_TITLE_MAX = 200;
 export const SCHEDULE_DESCRIPTION_MAX = 2000;
 
+// How many saved items one studio tool may hold, a guard against endless clicking rather than a quota.
+export const STUDIO_ITEM_MAX = 100;
+
 // A broken formula must never blow up the answer.
 export const KATEX_OPTIONS = { throwOnError: false, strict: false as const, errorColor: "var(--muted)" };

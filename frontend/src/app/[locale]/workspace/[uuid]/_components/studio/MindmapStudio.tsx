@@ -23,6 +23,7 @@ import { InlineRename } from "@/components/ui/InlineRename";
 import type { Source } from "../../_types";
 import { _isMediaFile } from "../../_utils";
 import { MinimizeContext } from "../../_context";
+import { STUDIO_ITEM_MAX } from "../../_constants";
 import { SubviewHeader, _getToolBadge, type BreadcrumbItem } from "../layout/SubviewHeader";
 import { chipTargetKey, getActiveChipTarget, setActiveChipTarget, subscribeActiveChip } from "../chat/_citations";
 import { StudioSourceLegend } from "./StudioSourceLegend";
@@ -374,7 +375,7 @@ export function MindmapStudio({
 
   const activeTopicName = mindmap?.topic ?? tMm("fallbackTopic");
   const noSources = sourceCount === 0;
-  const atLimit = savedList.length >= 20;
+  const atLimit = savedList.length >= STUDIO_ITEM_MAX;
 
   return (
     <div className="flex flex-col h-full">
@@ -401,21 +402,25 @@ export function MindmapStudio({
               icon={<TreeStructure size={48} weight="bold" />}
               text={tMm("emptyHint")}
               action={
-                <button type="button" onClick={() => onGenerate()}
-                  disabled={noSources || loading || atLimit}
-                  className="btn-outline-accent inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all disabled:opacity-40">
-                  <Sparkle size={12} weight="bold" /> {t("generate.createCount", { current: savedList.length, max: 20 })}
-                </button>
+                <span title={atLimit ? t("generate.limitReached") : undefined}>
+                  <button type="button" onClick={() => onGenerate()}
+                    disabled={noSources || loading || atLimit}
+                    className="btn-outline-accent inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all disabled:opacity-40">
+                    <Sparkle size={12} weight="bold" /> {t("generate.create")}
+                  </button>
+                </span>
               }
             />
           ) : (
             <>
               <div className="flex justify-center">
-                <button type="button" onClick={() => onGenerate()}
-                  disabled={noSources || loading || atLimit}
-                  className="btn-outline-accent inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all disabled:opacity-40">
-                  <Sparkle size={12} weight="bold" /> {t("generate.createCount", { current: savedList.length, max: 20 })}
-                </button>
+                <span title={atLimit ? t("generate.limitReached") : undefined}>
+                  <button type="button" onClick={() => onGenerate()}
+                    disabled={noSources || loading || atLimit}
+                    className="btn-outline-accent inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all disabled:opacity-40">
+                    <Sparkle size={12} weight="bold" /> {t("generate.create")}
+                  </button>
+                </span>
               </div>
               <div className="flex items-center justify-between px-1">
                 <span className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>{savedList.length} {savedList.length === 1 ? tMm("countOne") : tMm("countMany")}</span>

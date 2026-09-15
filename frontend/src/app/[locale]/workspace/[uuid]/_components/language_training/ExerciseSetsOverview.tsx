@@ -5,6 +5,7 @@ import Spinner from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { InlineRename } from "@/components/ui/InlineRename";
 import type { ExerciseSet } from "../../_types";
+import { STUDIO_ITEM_MAX } from "../../_constants";
 import { SubviewHeader, type BreadcrumbItem, type ToolCategory } from "../layout/SubviewHeader";
 import { setProgressPct } from "./_progress";
 
@@ -28,7 +29,7 @@ export function ExerciseSetsOverview({
   const [umbenennt, setUmbenennt] = useState<number | null>(null);
 
   const noSources = sourceCount === 0;
-  const atLimit = sets.length >= 20;
+  const atLimit = sets.length >= STUDIO_ITEM_MAX;
   const isGenerating = sets.some((s) => s.status === "generating");
   const generatingLabel = t("common.generating");
   return (
@@ -56,21 +57,25 @@ export function ExerciseSetsOverview({
             icon={<Cards size={48} weight="bold" />}
             text={t("exerciseSets.emptyText")}
             action={
-              <button type="button" onClick={onCreate}
-                disabled={noSources || atLimit || isGenerating}
-                className="btn-outline-accent inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all disabled:opacity-40">
-                <Sparkle size={12} weight="bold" /> {isGenerating ? generatingLabel : t("exerciseSets.createButton", { current: sets.length, max: 20 })}
-              </button>
+              <span title={atLimit ? t("exerciseSets.limitReached") : undefined}>
+                <button type="button" onClick={onCreate}
+                  disabled={noSources || atLimit || isGenerating}
+                  className="btn-outline-accent inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all disabled:opacity-40">
+                  <Sparkle size={12} weight="bold" /> {isGenerating ? generatingLabel : t("exerciseSets.createButton")}
+                </button>
+              </span>
             }
           />
         ) : (
           <>
             <div className="flex justify-center">
-              <button type="button" onClick={onCreate}
-                disabled={noSources || atLimit || isGenerating}
-                className="btn-outline-accent inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all disabled:opacity-40">
-                <Sparkle size={12} weight="bold" /> {isGenerating ? generatingLabel : t("exerciseSets.createButton", { current: sets.length, max: 20 })}
-              </button>
+              <span title={atLimit ? t("exerciseSets.limitReached") : undefined}>
+                <button type="button" onClick={onCreate}
+                  disabled={noSources || atLimit || isGenerating}
+                  className="btn-outline-accent inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all disabled:opacity-40">
+                  <Sparkle size={12} weight="bold" /> {isGenerating ? generatingLabel : t("exerciseSets.createButton")}
+                </button>
+              </span>
             </div>
             <div className="flex items-center justify-between px-1">
               <span className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>{t("exerciseSets.exercisesCount", { count: sets.length })}</span>

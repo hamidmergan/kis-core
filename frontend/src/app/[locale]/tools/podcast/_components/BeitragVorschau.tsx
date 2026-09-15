@@ -7,7 +7,7 @@ import IconButton from "@/components/ui/IconButton";
 import StatusMark from "@/components/ui/StatusMark";
 import { lineAudioUrl } from "../_api";
 import { needsVoice } from "../_logic";
-import Speaker from "./Speaker";
+import { speakerColor } from "../_colors";
 import type { JobProgress, Line, Person } from "../_types";
 
 interface Props {
@@ -88,7 +88,9 @@ export default function BeitragVorschau(props: Props) {
   }, []);
 
   if (!lines.length || !zeigt || !jobUuid) return null;
-  const person = persons[zeigt.speaker] ?? persons[0];
+  const sprecherIdx = persons[zeigt.speaker] ? zeigt.speaker : 0;
+  const person = persons[sprecherIdx];
+  const farbe = speakerColor(sprecherIdx);
   // The audio changes with the text, so the player must not reuse an old one.
   const tonUrl = `${lineAudioUrl(jobUuid, zeigt.id)}?v=${voicedIds.length}`;
 
@@ -101,11 +103,14 @@ export default function BeitragVorschau(props: Props) {
       )}
 
       <div className="grid gap-5 md:grid-cols-[1fr_1.6fr]">
-        <div className="rounded-lg border border-border-soft bg-background p-5 flex flex-col items-center justify-center gap-3 text-center">
-          <span className="w-16 h-16 rounded-full border-2 border-border flex items-center justify-center text-2xl font-bold text-foreground-soft">
+        <div className="rounded-lg border border-border-soft p-5 flex flex-col items-center justify-center gap-3 text-center" style={{ backgroundColor: farbe.bg }}>
+          <span
+            className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold"
+            style={{ backgroundColor: farbe.fg, color: "var(--background)" }}
+          >
             {person.name.trim().charAt(0).toUpperCase() || "?"}
           </span>
-          <span className="text-sm font-medium text-foreground">{person.name}</span>
+          <span className="text-sm font-semibold" style={{ color: farbe.fg }}>{person.name}</span>
           <span className="text-xs text-muted-soft">{tCast(`roles.${person.role}`)}</span>
         </div>
 
@@ -138,7 +143,9 @@ export default function BeitragVorschau(props: Props) {
           {lines.map((l, i) => {
             const bereit = hatTon(i);
             const aktiv = l.id === zeigtId;
-            const sprecher = persons[l.speaker] ?? persons[0];
+            const kachelIdx = persons[l.speaker] ? l.speaker : 0;
+            const sprecher = persons[kachelIdx];
+            const kachelFarbe = speakerColor(kachelIdx);
             const beschriftung = bereit ? t("abspielen", { n: i + 1 }) : t("wartetKachel", { n: i + 1 });
             return (
               <button
@@ -148,12 +155,13 @@ export default function BeitragVorschau(props: Props) {
                 disabled={!bereit && !rueckblick}
                 onClick={() => setGewaehlt(l.id)}
                 aria-label={beschriftung}
-                className={`relative shrink-0 w-[74px] h-[52px] rounded-md border select-none flex items-center justify-center text-sm font-bold text-foreground-soft bg-background ${
+                style={{ backgroundColor: kachelFarbe.bg, color: kachelFarbe.fg }}
+                className={`relative shrink-0 w-[74px] h-[52px] rounded-md border select-none flex items-center justify-center text-sm font-bold ${
                   aktiv ? "border-kb outline outline-2 outline-kb" : "border-border-soft"
                 } ${bereit ? "" : i === laufend ? "border-dashed" : "opacity-40 grayscale"}`}
               >
                 {sprecher.name.trim().charAt(0).toUpperCase() || "?"}
-                <span className="absolute left-1 top-1 text-3xs font-semibold px-1 rounded bg-background/90 text-muted">{i + 1}</span>
+                <span className="absolute left-1 top-1 text-3xs font-semibold px-1 rounded opacity-70">{i + 1}</span>
               </button>
             );
           })}

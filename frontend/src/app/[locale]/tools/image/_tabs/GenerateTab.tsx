@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { backendApi, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
 import Spinner from "@/components/ui/Spinner";
+import BackgroundHint from "@/components/tools/BackgroundHint";
 import ProviderSelect from "@/components/tools/ProviderSelect";
 import { useFeatureProviders } from "@/hooks/useFeatureProviders";
 import { SIZES } from "../_utils";
@@ -109,6 +110,7 @@ export default function GenerateTab() {
       )}
 
       {loading && <Spinner label={spinnerLabel} className="justify-center mt-6" />}
+      {loading && <BackgroundHint />}
       {error && <p className="mt-4 text-sm text-error" role="alert">{error}</p>}
       {result && (
         <div className="mt-6">

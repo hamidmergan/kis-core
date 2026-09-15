@@ -7,6 +7,7 @@ import ToolBackLink from "@/components/ui/ToolBackLink";
 import TranscriptionFileUpload from "@/components/jobs/TranscriptionFileUpload";
 import { backendApi, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
 import Spinner from "@/components/ui/Spinner";
+import BackgroundHint from "@/components/tools/BackgroundHint";
 import ProviderSelect from "@/components/tools/ProviderSelect";
 import { useFeatureProviders } from "@/hooks/useFeatureProviders";
 import HelpTooltip from "@/components/ui/HelpTooltip";
@@ -177,6 +178,7 @@ export default function TranscriptionPage() {
                   {t("chunkProgress", { current: chunkProgress.current, total: chunkProgress.total })}
                 </p>
               )}
+              {processing && <BackgroundHint />}
             </div>
           )}
 

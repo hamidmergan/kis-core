@@ -1,8 +1,8 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Info } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
+import BackgroundHint from "@/components/tools/BackgroundHint";
 import BeitragVorschau from "../_components/BeitragVorschau";
 import { failedLineIndex, linesToVoice, needsVoice } from "../_logic";
 import type { JobProgress, JobStatus, Line, Person } from "../_types";
@@ -65,12 +65,7 @@ export default function VoicingStep(props: VoicingStepProps) {
         )}
       </div>
 
-      {running && (
-        <p className="mt-6 flex items-start gap-2 rounded-lg bg-surface px-4 py-3 text-sm text-foreground-soft">
-          <Info size={14} className="mt-0.5 flex-shrink-0 text-muted-soft" aria-hidden="true" />
-          {t("background")}
-        </p>
-      )}
+      {running && <BackgroundHint />}
 
       {jobStatus === "failed" && (
         <div className="mt-6 rounded-lg border border-error-border bg-error-bg px-4 py-3" role="alert">

@@ -5,7 +5,7 @@ from typing import Dict, List, Tuple
 class GlossaryService:
     def __init__(self):
         self._entries: Dict[str, str] = {}
-        self._patterns: List[Tuple[re.Pattern, str, str]] = []
+        self._patterns: List[Tuple[re.Pattern, str, str, str]] = []
 
     @property
     def entries(self) -> Dict[str, str]:
@@ -25,11 +25,16 @@ class GlossaryService:
             return text, {}
         updated = text
         replacements: Dict[str, str] = {}
-        for pattern, token, target in self._patterns:
+        for pattern, token, target, _source in self._patterns:
             if pattern.search(updated):
                 updated = pattern.sub(token, updated)
                 replacements[token] = target
         return updated, replacements
+
+    def terms_in(self, text: str) -> List[str]:
+        """The source terms that really occur in the text, longest first."""
+        return [source for pattern, _token, _target, source in self._patterns
+                if pattern.search(text)]
 
     def restore_text(self, text: str, replacements: Dict[str, str]) -> str:
         restored = text
@@ -50,8 +55,8 @@ class GlossaryService:
         return normalized
 
     @staticmethod
-    def _build_patterns(glossary: Dict[str, str]) -> List[Tuple[re.Pattern, str, str]]:
-        entries: List[Tuple[re.Pattern, str, str]] = []
+    def _build_patterns(glossary: Dict[str, str]) -> List[Tuple[re.Pattern, str, str, str]]:
+        entries: List[Tuple[re.Pattern, str, str, str]] = []
         sorted_items = sorted(glossary.items(), key=lambda item: len(item[0]), reverse=True)
         for index, (source, target) in enumerate(sorted_items):
             if not source or not target:
@@ -62,5 +67,5 @@ class GlossaryService:
                 pattern = r"\b" + pattern
             if re.match(r"\w", source[-1]):
                 pattern = pattern + r"\b"
-            entries.append((re.compile(pattern), token, target))
+            entries.append((re.compile(pattern), token, target, source))
         return entries

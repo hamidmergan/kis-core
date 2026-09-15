@@ -187,6 +187,26 @@ class TestStart:
                            data={"params": _params(), "mode": "blank"}).json()["job_uuid"]
         assert json.loads(ablage.get_job_file(7, uuid, "params.json"))["speed"] == 0.9
 
+    def test_siebt_das_glossar_auf_das_was_im_material_steht(self, env):
+        """Was der Text nicht enthaelt, hat im Prompt nichts verloren."""
+        client, _j, _g, ablage = env
+        glossar = {"Regelkreis": "control loop", "Lastenheft": "requirements document"}
+        antwort = client.post("/podcast/start",
+                              data={"params": _params(glossary=glossar), "mode": "files"},
+                              files={"files": ("kapitel.txt", "Ueber den Regelkreis.".encode(), "text/plain")})
+        assert antwort.status_code == 200
+        uuid = antwort.json()["job_uuid"]
+        gespeichert = json.loads(ablage.get_job_file(7, uuid, "params.json"))["glossary"]
+        assert gespeichert == {"Regelkreis": "control loop"}
+
+    def test_traegt_kein_glossar_in_den_leeren_auftrag(self, env):
+        """Ohne Modell schreibt hier niemand, also reist auch keine Begriffsliste mit."""
+        client, _j, _g, ablage = env
+        uuid = client.post("/podcast/start",
+                           data={"params": _params(glossary={"Modul": "module"}), "mode": "blank"},
+                           ).json()["job_uuid"]
+        assert json.loads(ablage.get_job_file(7, uuid, "params.json"))["glossary"] == {}
+
     def test_weist_kaputte_einstellungen_ab(self, env):
         client, _j, _g, _a = env
         assert client.post("/podcast/start", data={"params": "{kein json", "mode": "files"}).status_code == 422

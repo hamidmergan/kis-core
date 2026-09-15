@@ -10,6 +10,7 @@ import Spinner from "@/components/ui/Spinner";
 import { notifyJobsChanged } from "@/lib/jobs-events";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useVoices } from "@/hooks/useVoices";
+import { useGlossaries } from "@/hooks/useGlossaries";
 import CastStep from "./_steps/CastStep";
 import ContentStep from "./_steps/ContentStep";
 import DoneStep from "./_steps/DoneStep";
@@ -32,6 +33,7 @@ function PodcastPageInner() {
   const tCommon = useTranslations("common");
   const tNachfrage = useTranslations("tools.podcast.nachfrage");
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
+  const { mergeEntries } = useGlossaries();
   const [hydrated, setHydrated] = useState(false);
   const [besetzungLaeuft, setBesetzungLaeuft] = useState(false);
   // Both of these clicks throw work away, so neither happens without a question.
@@ -102,16 +104,6 @@ function PodcastPageInner() {
       .finally(() => setHydrated(true));
   }, [holeStand, ausListe]);
 
-  // Empty voice fields get distinct voices once the list is there.
-  useEffect(() => {
-    if (!loaded) return;
-    const alle = providers.flatMap((p) => p.voices.map((v) => ({ voiceId: v.voice_id, providerId: p.id })));
-    if (!alle.length) return;
-    state.persons.forEach((p, i) => {
-      if (!p.voiceId || !p.providerId) dispatch({ type: "SET_PERSON", index: i, person: alle[i % alle.length] });
-    });
-  }, [loaded, providers, state.persons]);
-
   // While the job works, the page asks every two seconds, like every other tool.
   useEffect(() => {
     const uuid = state.jobUuid;
@@ -175,7 +167,7 @@ function PodcastPageInner() {
   const starten = async () => {
     dispatch({ type: "STARTING" });
     try {
-      const uuid = await startPodcast(stateRef.current);
+      const uuid = await startPodcast(stateRef.current, mergeEntries(stateRef.current.glossaryIds));
       dispatch({ type: "STARTED", jobUuid: uuid });
       if (stateRef.current.source.mode === "blank") {
         const view = await holeStand(uuid);
@@ -278,6 +270,8 @@ function PodcastPageInner() {
                 instructions={state.instructions}
                 onSource={(source) => dispatch({ type: "SET_SOURCE", source })}
                 onLanguage={(language) => dispatch({ type: "SET_LANGUAGE", language })}
+                glossaryIds={state.glossaryIds}
+                onGlossaryIds={(ids) => dispatch({ type: "SET_GLOSSARIES", ids })}
                 onInstructions={(text) => dispatch({ type: "SET_INSTRUCTIONS", text })}
                 onNext={() => dispatch({ type: "GO", step: "cast" })}
               />

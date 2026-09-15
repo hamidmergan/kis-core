@@ -7,6 +7,7 @@ import ToolBackLink from "@/components/ui/ToolBackLink";
 import { backendApi, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
 import { MAX_UPLOAD_MB, MAX_UPLOAD_BYTES } from "@/lib/constants";
 import Spinner from "@/components/ui/Spinner";
+import BackgroundHint from "@/components/tools/BackgroundHint";
 import ProviderSelect from "@/components/tools/ProviderSelect";
 import { useFeatureProviders } from "@/hooks/useFeatureProviders";
 
@@ -201,6 +202,8 @@ export default function ZusammenfassungPage() {
               </button>
             </div>
           )}
+
+          {processing && <BackgroundHint />}
 
           {stallMessage && !errorMessage && (
             <p className="mt-3 text-sm text-warn" role="status">{stallMessage}</p>

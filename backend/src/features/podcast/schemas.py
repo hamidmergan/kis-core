@@ -49,3 +49,5 @@ class PodcastParams(BaseModel):
     self_written: bool = False
     # The instruction named something the material does not cover, so the search was skipped.
     instruction_unmatched: bool = False
+    # Sifted down to what the material contains at the start, so every later call can use it.
+    glossary: dict[str, str] = Field(default_factory=dict)

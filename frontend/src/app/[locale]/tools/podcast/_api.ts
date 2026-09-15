@@ -32,7 +32,7 @@ async function fehlerText(res: Response): Promise<string> {
 }
 
 /** Step one: material and cast go out, a job comes back. */
-export async function startPodcast(state: PodcastState): Promise<string> {
+export async function startPodcast(state: PodcastState, glossary: Record<string, string>): Promise<string> {
   const persons = state.persons.slice(0, state.count).map((p) => ({
     name: p.name.trim(),
     role: p.role,
@@ -47,6 +47,7 @@ export async function startPodcast(state: PodcastState): Promise<string> {
     length: state.length,
     style: state.style,
     speed: state.speed,
+    glossary,
   }));
   form.append("mode", state.source.mode);
   if (state.source.mode === "files") state.source.files.forEach((f) => form.append("files", f));

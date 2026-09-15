@@ -4,6 +4,7 @@ import json
 
 from loguru import logger
 
+from src.features.podcast import glossary as glossar
 from src.features.podcast.schemas import LENGTH_PLAN, Line, PodcastParams
 from src.limits import PODCAST_MAX_LINES, PODCAST_MAX_LINE_CHARS
 
@@ -87,6 +88,7 @@ def build_messages(source: str, params: PodcastParams) -> list[dict]:
             "- No stage directions, no names before the text, no headings.\n"
             "- Spell out numbers and formulas, the text is read aloud.\n"
         )
+    aufgabe += glossar.block(params.glossary, params.language)
     if params.instructions.strip():
         label = "Zusätzliche Anweisung" if params.language == "de" else "Additional instruction"
         aufgabe += f"\n{label}: {params.instructions.strip()}\n"
@@ -161,6 +163,7 @@ def rephrase_messages(line: Line, params: PodcastParams, nachbarn: list[str]) ->
                    f"Surrounding conversation:\n{umfeld}\n\n"
                    f"This contribution should be rephrased:\n{line.text}\n\n"
                    "Same length, same statement, no quotation marks, no name in front of the text.")
+    auftrag += glossar.block(params.glossary, params.language)
     return [{"role": "system", "content": system}, {"role": "user", "content": auftrag}]
 
 

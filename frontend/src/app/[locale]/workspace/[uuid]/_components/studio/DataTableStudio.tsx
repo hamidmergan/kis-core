@@ -7,6 +7,7 @@ import { InlineRename } from "@/components/ui/InlineRename";
 import type { DataTableData, DataTableRowSource, DataTableSource, Source } from "../../_types";
 import { _getChipIcon, _isMediaFile, _sourceChipKey } from "../../_utils";
 import { MinimizeContext } from "../../_context";
+import { STUDIO_ITEM_MAX } from "../../_constants";
 import { SubviewHeader, _getToolBadge, type BreadcrumbItem } from "../layout/SubviewHeader";
 import { StudioSourceLegend } from "./StudioSourceLegend";
 
@@ -47,7 +48,7 @@ export function DataTableStudio({
     }
   }, [openInViewer, onViewerOpened]);
   const noSources = sourceCount === 0;
-  const atLimit = savedList.length >= 20;
+  const atLimit = savedList.length >= STUDIO_ITEM_MAX;
   const activeTitle = table?.title || tDt("fallbackTitle");
 
   return (
@@ -75,21 +76,25 @@ export function DataTableStudio({
               icon={<Table size={48} weight="bold" />}
               text={tDt("emptyHint")}
               action={
-                <button type="button" onClick={() => onGenerate()}
-                  disabled={noSources || loading || atLimit}
-                  className="btn-outline-accent inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all disabled:opacity-40">
-                  <Sparkle size={12} weight="bold" /> {t("generate.createCount", { current: savedList.length, max: 20 })}
-                </button>
+                <span title={atLimit ? t("generate.limitReached") : undefined}>
+                  <button type="button" onClick={() => onGenerate()}
+                    disabled={noSources || loading || atLimit}
+                    className="btn-outline-accent inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all disabled:opacity-40">
+                    <Sparkle size={12} weight="bold" /> {t("generate.create")}
+                  </button>
+                </span>
               }
             />
           ) : (
             <>
               <div className="flex justify-center">
-                <button type="button" onClick={() => onGenerate()}
-                  disabled={noSources || loading || atLimit}
-                  className="btn-outline-accent inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all disabled:opacity-40">
-                  <Sparkle size={12} weight="bold" /> {t("generate.createCount", { current: savedList.length, max: 20 })}
-                </button>
+                <span title={atLimit ? t("generate.limitReached") : undefined}>
+                  <button type="button" onClick={() => onGenerate()}
+                    disabled={noSources || loading || atLimit}
+                    className="btn-outline-accent inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all disabled:opacity-40">
+                    <Sparkle size={12} weight="bold" /> {t("generate.create")}
+                  </button>
+                </span>
               </div>
               <div className="flex items-center justify-between px-1">
                 <span className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>{savedList.length} {savedList.length === 1 ? tDt("countOne") : tDt("countMany")}</span>

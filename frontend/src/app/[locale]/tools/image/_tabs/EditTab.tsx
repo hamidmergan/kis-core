@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { backendApi, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
 import Spinner from "@/components/ui/Spinner";
+import BackgroundHint from "@/components/tools/BackgroundHint";
 import ProviderSelect from "@/components/tools/ProviderSelect";
 import { useFeatureProviders } from "@/hooks/useFeatureProviders";
 import UploadZone from "../_components/UploadZone";
@@ -136,6 +137,7 @@ export default function EditTab() {
       )}
 
       {loading && <Spinner label={spinnerLabel} className="justify-center mt-6" />}
+      {loading && <BackgroundHint />}
       {error && <p className="mt-4 text-sm text-error" role="alert">{error}</p>}
       {resultUrl && (
         <div className="mt-6">
