@@ -91,10 +91,31 @@ class TestPrompt:
         text = build_messages("M", _params(2, instructions="Bleib bei den Grundlagen"))[1]["content"]
         assert "Bleib bei den Grundlagen" in text
 
+    def test_nennt_eine_beitragszahl_statt_nur_einer_gesamtsumme(self):
+        from src.features.podcast.schemas import LENGTH_PLAN
+
+        for name, (anzahl, je) in LENGTH_PLAN.items():
+            text = build_messages("M", _params(2, length=name))[1]["content"]
+            assert f"{anzahl} Beitr" in text, name
+            assert str(je) in text, name
+
     def test_zielumfang_haengt_an_der_laenge(self):
         kurz = build_messages("M", _params(2, length="short"))[1]["content"]
         lang = build_messages("M", _params(2, length="long"))[1]["content"]
         assert "700" in kurz and "2800" in lang
+
+    def test_englischer_auftrag_nennt_die_beitragszahl_auch(self):
+        from src.features.podcast.schemas import LENGTH_PLAN
+
+        anzahl, je = LENGTH_PLAN["medium"]
+        text = build_messages("M", _params(2, sprache="en", length="medium"))[1]["content"]
+        assert f"{anzahl} contributions" in text and str(je) in text
+
+    def test_keine_laenge_sprengt_den_deckel_der_beitraege(self):
+        from src.features.podcast.schemas import LENGTH_PLAN
+        from src.limits import PODCAST_MAX_LINES
+
+        assert all(anzahl <= PODCAST_MAX_LINES for anzahl, _ in LENGTH_PLAN.values())
 
 
 class TestUmformulieren:

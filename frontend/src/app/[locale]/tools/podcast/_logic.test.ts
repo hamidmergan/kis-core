@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { failedLineIndex, hasContent, isBusy, linesToVoice, minutesOf, needsVoice, reachable, wordsOf } from "./_logic";
+import { failedLineIndex, hasContent, hatErgebnisse, isBusy, linesToVoice, minutesOf, needsVoice, ohneKi, reachable, wordsOf } from "./_logic";
 import { INITIAL_STATE, reducer } from "./_reducer";
 import type { Line, PodcastState } from "./_types";
 
@@ -124,15 +124,43 @@ describe("Was in der Fortschrittsleiste anklickbar ist", () => {
 
 describe("Kleine Helfer", () => {
   it("kennt Inhalt je nach Quelle", () => {
-    expect(hasContent({ mode: "text", text: "  ", files: [], moduleId: "", sourceIds: [] })).toBe(false);
-    expect(hasContent({ mode: "text", text: "Etwas", files: [], moduleId: "", sourceIds: [] })).toBe(true);
-    expect(hasContent({ mode: "module", text: "", files: [], moduleId: "m1", sourceIds: [] })).toBe(false);
-    expect(hasContent({ mode: "module", text: "", files: [], moduleId: "m1", sourceIds: ["s1"] })).toBe(true);
+    expect(hasContent({ mode: "files", files: [], moduleId: "", sourceIds: [] })).toBe(false);
+    // Der leere Weg braucht kein Material, das Skript entsteht von Hand.
+    expect(hasContent({ mode: "blank", files: [], moduleId: "", sourceIds: [] })).toBe(true);
+    expect(hasContent({ mode: "module", files: [], moduleId: "m1", sourceIds: [] })).toBe(false);
+    expect(hasContent({ mode: "module", files: [], moduleId: "m1", sourceIds: ["s1"] })).toBe(true);
+  });
+
+  it("kennt den Weg ohne KI vor und nach dem Start", () => {
+    expect(ohneKi(state({}))).toBe(false);
+    expect(ohneKi(state({ source: { mode: "blank", files: [], moduleId: "", sourceIds: [] } }))).toBe(true);
+    // Aus der Jobliste zurueck steht der Weg nur noch in den Einstellungen.
+    expect(ohneKi(state({ selfWritten: true }))).toBe(true);
   });
 
   it("schätzt die Länge aus den Wörtern, mindestens eine Minute", () => {
     expect(wordsOf([line(0, "eins zwei drei")])).toBe(3);
     expect(minutesOf([line(0, "eins zwei drei")])).toBe(1);
     expect(minutesOf([line(0, Array(700).fill("wort").join(" "))])).toBe(5);
+  });
+});
+
+describe("Wann ein neuer Podcast nachfragen muss", () => {
+  it("fragt nicht, solange es kein Skript gibt", () => {
+    expect(hatErgebnisse(state())).toBe(false);
+    expect(hatErgebnisse(state({ step: "cast", maxReached: 1 }))).toBe(false);
+  });
+
+  it("fragt nicht, solange der Auftrag das Skript noch schreibt", () => {
+    expect(hatErgebnisse(state({ step: "script", jobUuid: "x", jobStatus: "running", lines: [] }))).toBe(false);
+  });
+
+  it("fragt, sobald das Skript da ist", () => {
+    expect(hatErgebnisse(state({ step: "script", jobUuid: "x", lines: [line(0)] }))).toBe(true);
+  });
+
+  it("fragt auch beim fertigen Podcast", () => {
+    expect(hatErgebnisse(state({ step: "done", jobUuid: "x", jobStatus: "success",
+                                 lines: [line(0)], voicedIds: ["b0"] }))).toBe(true);
   });
 });

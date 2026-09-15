@@ -12,7 +12,6 @@ from src.features.ai_assistant.tasks.language_training._attribution import (
 )
 from src.features.ai_assistant.tasks.language_training._context import QuelleContext
 from src.features.ai_assistant.tasks.language_training._hint import attach_hint
-from src.features.ai_assistant.tasks.language_training._title import title_from_items
 from src.services.llm_call import create_logged
 
 
@@ -22,7 +21,7 @@ _SOURCE_RULE = (
 _PERSONAL_RULE = (
     "IMPORTANT:\n- Do NOT use personal names in questions. Instead of 'laut Prof. X', write 'laut Material' (German) or 'according to the source' (English), matching the output language.\n"
 )
-# The title comes with the answer, that saves a second call.
+# The title comes with the answer, the set costs no title call of its own.
 _TITLE_RULE = (
     "- title: a short, concrete topic title in {language} (max 6 words), no quotation marks, "
     "never a filename.\n"
@@ -124,7 +123,7 @@ def generate_mc_from_source(
     # Attribution after the fact, every exercise names where its answer sits.
     _attach_by_kind(items, claims, ctx)
 
-    title = json_title or title_from_items(client, model, items, ctx.multi_label)
+    title = json_title or ctx.multi_label
     return items, title
 
 

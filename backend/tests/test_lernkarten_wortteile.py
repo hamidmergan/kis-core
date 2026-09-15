@@ -163,7 +163,7 @@ def test_karte_aus_dem_glossar_verliert_die_erfundene_zerlegung():
     eintraege = [{"term_de": "Einstieg", "term_en": "start", "definition": "Der Beginn.",
                   "filename": "Studienstart.pdf", "page_number": 3}]
 
-    items = _generate_flashcards(client, "modell", eintraege, "German")
+    items, _titel = _generate_flashcards(client, "modell", eintraege, "German")
 
     assert "word_parts" not in items[0].get("extras", {})
     assert items[0]["extras"]["word_class"] == "Nomen"

@@ -25,20 +25,14 @@ def context_budget() -> int:
     return max(1000, min(value, AIA_CONTEXT_HARD_CAP))
 
 
-# What each overview tool takes of the one admin field: synthesis needs it whole,
-# the packet tools leave room for their answer, one podcast episode is one topic.
-_TOOL_SHARES = {"mindmap": 1.0, "schedule": 0.8, "data_table": 0.8, "podcast": 0.5}
-
-
-def tool_context_budget(tool: str = "") -> int:
-    """The share of the overview budget this tool takes, the whole field when unnamed."""
+def tool_context_budget() -> int:
+    """Character budget of the overview tools, the same admin field for all of them."""
     from src import database as db
     try:
         value = int(db.get_setting("aia_tool_context_max_chars", str(AIA_TOOL_CONTEXT_MAX_CHARS)))
     except (ValueError, TypeError):
         value = AIA_TOOL_CONTEXT_MAX_CHARS
-    ganz = min(value, AIA_TOOL_CONTEXT_HARD_CAP)
-    return max(1000, int(ganz * _TOOL_SHARES.get(tool, 1.0)))
+    return max(1000, min(value, AIA_TOOL_CONTEXT_HARD_CAP))
 
 
 def exercise_context_budget() -> int:
@@ -170,10 +164,10 @@ def fill_sources_greedy(
 
 
 def fill_sources_evenly(
-    sources: list[tuple[int, str, list[dict]]], tool: str = "",
+    sources: list[tuple[int, str, list[dict]]],
 ) -> list[tuple[int, str, list[dict]]]:
     """Every source gets its share of the budget, whoever needs less passes the rest on."""
-    budget = tool_context_budget(tool)
+    budget = tool_context_budget()
     with_content = [(sid, label, chunks) for sid, label, chunks in sources if chunks]
     taken: dict[int, list[dict]] = {}
     left = budget
@@ -258,10 +252,10 @@ def _cut_to(chunks: list[dict], budget: int) -> list[dict]:
 
 
 def fill_sources_with_outline(
-    sources: list[tuple[int, str, list[dict]]], tool: str = "",
+    sources: list[tuple[int, str, list[dict]]],
 ) -> list[tuple[int, str, list[dict]]]:
     """Every source contributes its outline, the rest of the budget goes into depth."""
-    budget = tool_context_budget(tool)
+    budget = tool_context_budget()
     with_content = [(sid, label, chunks) for sid, label, chunks in sources if chunks]
     if not with_content:
         return []

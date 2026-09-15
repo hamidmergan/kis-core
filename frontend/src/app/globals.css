@@ -486,10 +486,15 @@ td, th, p, span, li, h1, h2, h3, h4, h5, h6, div {
   vertical-align: middle;
   line-height: 1.5;
   white-space: nowrap;
+  outline: 2px solid transparent;
   transition: outline-color 0.15s;
 }
 me-tpc:hover .mm-src-chip {
-  outline: 2px solid var(--kb);
+  outline-color: var(--kb);
+}
+/* The chip clicked last keeps its frame, the same mark the chat chips carry. */
+.mm-src-chip--active {
+  outline-color: var(--cite-border);
 }
 
 /* Black tooltip for truncated card titles */

@@ -109,7 +109,17 @@ def test_json_fields_are_serialised(fake_db):
     params = next(c[2] for c in calls if c[0] == "execute")
     assert params[:5] == (9, "quiz", "B1", None, None)  # ohne Thema, kind ist auch None
     assert params[5] == "a"                              # fingerprint
-    assert json.loads(params[9]) == ["x", "y"]          # options
+    assert json.loads(params[10]) == ["x", "y"]          # options
+
+
+def test_the_set_name_is_written_with_the_exercise(fake_db):
+    # A set drawn purely from the pool reads its name from here, not from a model.
+    calls = fake_db(rows=[(1,)])
+    repo.add_pool_items(9, "quiz", "B1", [{"front": "a", "back": "A"}], ["a"],
+                        set_title="Passiv im Labor")
+    anweisung, params = next((c[1], c[2]) for c in calls if c[0] == "execute")
+    assert "set_title" in anweisung
+    assert params[6] == "Passiv im Labor"
 
 
 def test_storing_nothing_touches_no_connection(monkeypatch):

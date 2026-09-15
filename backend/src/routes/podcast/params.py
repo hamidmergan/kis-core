@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 from src.dependencies import get_current_user
 from src.features.podcast import store
-from src.features.podcast.schemas import Person
+from src.features.podcast.schemas import SPEED_DEFAULT, Person
 from src.i18n import get_locale, t
 from src.routes.podcast._shared import own_job, pruefe_params
 
@@ -19,6 +19,7 @@ class ParamsRequest(BaseModel):
     persons: list[Person]
     length: str = "medium"
     style: str = "teaching"
+    speed: float = SPEED_DEFAULT
 
 
 @router.put("/podcast/{job_uuid}/params")
@@ -43,6 +44,7 @@ async def put_params(
         "persons": body.persons,
         "length": body.length,
         "style": body.style,
+        "speed": body.speed,
         "provider_id": body.persons[0].provider_id if body.persons else alt.provider_id,
     })
     pruefe_params(neu, locale)

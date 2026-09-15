@@ -13,10 +13,11 @@ from pydantic import ValidationError
 from src import database as db
 from src.dependencies import get_current_user, is_admin_user
 from src.features.podcast import instruction, source_store, source_text, store
-from src.features.podcast.schemas import PodcastParams
+from src.features.podcast.schemas import Line, PodcastParams
 from src.i18n import get_locale, t
 from src.limits import PODCAST_MAX_SOURCES
 from src.quotas import enforce_quota
+from src.services.job_statistik import messe_vorab, notiere
 from src.services.open_jobs import enforce_open_jobs
 from src.routes.podcast._shared import pruefe_params
 from src.security.rate_limit import enforce_tool_burst
@@ -106,12 +107,29 @@ async def _aus_dateien(files: list[UploadFile], user_id: int, locale: str
     return quellen, ", ".join(namen), eingelagert
 
 
+def _leerer_auftrag(user_id: int, einstellungen: PodcastParams,
+                    current_user: dict, locale: str) -> str:
+    """The way without AI: a job, one empty contribution, straight back to the person."""
+    _wacht(user_id, current_user, locale)
+    job_uuid = uuid.uuid4().hex
+    einstellungen.self_written = True
+    einstellungen.provider_id = einstellungen.persons[0].provider_id
+    einstellungen.source_label = t("podcast.selfWritten", locale)
+    db.create_job(job_uuid, user_id, "podcast", einstellungen.source_label, locale=locale)
+    notiere(user_id, job_uuid, "material",
+            {"herkunft": "blank", "quellen": 0, "zeichen": 0, "anweisung": False})
+    store.save_params(user_id, job_uuid, einstellungen)
+    store.save_user_script(user_id, job_uuid, store.next_ids([Line()]))
+    db.update_job_status(job_uuid, "awaiting_user", progress={"step": "script_done"})
+    logger.info("Podcast {} leer gestartet", job_uuid[:8])
+    return job_uuid
+
+
 @router.post("/podcast/start")
 async def start_podcast(
     request: Request,
     params: str = Form(...),
-    mode: str = Form("text"),
-    text: str = Form(""),
+    mode: str = Form("files"),
     workspace_uuid: str = Form(""),
     source_uuids: str = Form("[]"),
     files: list[UploadFile] = File(default=[]),
@@ -119,35 +137,47 @@ async def start_podcast(
     locale: str = Depends(get_locale),
 ):
     """Collects the material, writes it into the job folder and starts the script."""
+    from src.features.ai_assistant.tasks._context_budget import tool_context_budget
+
     user_id = current_user.get("user_id", 0)
     einstellungen = _pruefe_params(params, locale)
+    if mode == "blank":
+        return {"job_uuid": _leerer_auftrag(user_id, einstellungen, current_user, locale)}
 
     # Where the material also lies embedded, so a precise instruction can search it.
     durchsuchbar: tuple[int | None, list[str]] = (None, [])
+    # The job does not exist yet, so the numbers are recorded once it does.
+    zahlen: dict = {"herkunft": mode, "anweisung": bool(einstellungen.instructions.strip())}
 
-    if mode == "files":
-        _pruefe_gesamtgroesse(request, locale)
-        quellen, label, eingelagert = await _aus_dateien(files, user_id, locale)
-        vorrat = source_store.store_of(user_id) if eingelagert else None
-        if vorrat:
-            durchsuchbar = (vorrat["id"], eingelagert)
-    elif mode == "module":
-        try:
-            uuids = json.loads(source_uuids)
-        except json.JSONDecodeError:
-            uuids = []
-        if not workspace_uuid or not uuids:
+    with messe_vorab(zahlen):
+        if mode == "files":
+            _pruefe_gesamtgroesse(request, locale)
+            quellen, label, eingelagert = await _aus_dateien(files, user_id, locale)
+            vorrat = source_store.store_of(user_id) if eingelagert else None
+            if vorrat:
+                durchsuchbar = (vorrat["id"], eingelagert)
+            zahlen["eingelagert"] = len(eingelagert)
+        elif mode == "module":
+            try:
+                uuids = json.loads(source_uuids)
+            except json.JSONDecodeError:
+                uuids = []
+            if not workspace_uuid or not uuids:
+                raise HTTPException(status_code=422, detail=t("podcast.noContent", locale))
+            _pruefe_anzahl(len(uuids), locale)
+            quellen, label = source_text.from_module(workspace_uuid, uuids, user_id, locale)
+            modul = db.get_aia_workspace(workspace_uuid)
+            if modul:
+                durchsuchbar = (modul["id"], uuids)
+        else:
             raise HTTPException(status_code=422, detail=t("podcast.noContent", locale))
-        _pruefe_anzahl(len(uuids), locale)
-        quellen, label = source_text.from_module(workspace_uuid, uuids, user_id, locale)
-        modul = db.get_aia_workspace(workspace_uuid)
-        if modul:
-            durchsuchbar = (modul["id"], uuids)
-    else:
-        quellen, label = [("", source_text.to_pieces(text.strip()))], ""
 
-    quelle = await instruction.build_context(
-        quellen, einstellungen.instructions, durchsuchbar[0], durchsuchbar[1])
+        zahlen["quellen"] = len(quellen)
+        quelle = await instruction.build_context(
+            quellen, einstellungen.instructions, durchsuchbar[0], durchsuchbar[1], zahlen)
+        zahlen["zeichen"] = len(quelle)
+        zahlen["budget"] = tool_context_budget()
+
     if not quelle.strip():
         raise HTTPException(status_code=422, detail=t("podcast.noContent", locale))
 
@@ -156,9 +186,11 @@ async def start_podcast(
 
     job_uuid = uuid.uuid4().hex
     einstellungen.source_label = label
+    einstellungen.instruction_unmatched = bool(zahlen.get("daneben"))
     einstellungen.provider_id = einstellungen.persons[0].provider_id
     anzeige = label or (quelle[:60].replace("\n", " ") + "…")
     db.create_job(job_uuid, user_id, "podcast", anzeige, locale=locale)
+    notiere(user_id, job_uuid, "material", zahlen)
     store.save_source(user_id, job_uuid, quelle)
     store.save_params(user_id, job_uuid, einstellungen)
 

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { CaretDown } from "@phosphor-icons/react";
 import { _getChipIcon } from "../../_utils";
-import type { ExerciseSetSource } from "../../_types";
+import type { ExerciseItem, ExerciseSetSource } from "../../_types";
 
 /** The numbered source list, the numbers belong to the set. */
 
@@ -12,6 +12,16 @@ import type { ExerciseSetSource } from "../../_types";
 export function sourceNumbers(sources?: ExerciseSetSource[] | null): Record<string, number> {
   const out: Record<string, number> = {};
   for (const s of sources || []) out[s.filename] = s.number;
+  return out;
+}
+
+/** Which files the items really cite, the rest of the picked list is only dimmed. */
+export function usedFilenames(items?: ExerciseItem[] | null): Set<string> {
+  const out = new Set<string>();
+  for (const item of items || []) {
+    if (item.source_label) out.add(item.source_label);
+    for (const s of item.sources || []) if (s.source_label) out.add(s.source_label);
+  }
   return out;
 }
 
@@ -23,9 +33,11 @@ export function sourceTag(filename: string, numbers: Record<string, number>): st
 }
 
 export function SetSourceLegend({
-  sources, onSourceClick, className = "",
+  sources, items, onSourceClick, className = "",
 }: {
   sources?: ExerciseSetSource[] | null;
+  /** The items of the set, only to tell used sources from unused ones. */
+  items?: ExerciseItem[] | null;
   onSourceClick?: (filename: string) => void;
   className?: string;
 }) {
@@ -34,6 +46,8 @@ export function SetSourceLegend({
   const [open, setOpen] = useState(false);
 
   if (!sources || sources.length === 0) return null;
+  // Without items nothing is dimmed, an empty set would grey out everything.
+  const benutzt = items && items.length > 0 ? usedFilenames(items) : null;
   /** The list is a footnote and reads like one. */
   return (
     <div className={`flex flex-col gap-1 ${className}`}>
@@ -53,7 +67,9 @@ export function SetSourceLegend({
         <span className="truncate">{t("sourcesToggle", { count: sources.length })}</span>
       </button>
 
-      {open && sources.map((s) => {
+      {/* A long pick list scrolls inside itself, the card around it does not grow. */}
+      {open && <div className="flex flex-col gap-1 max-h-48 overflow-y-auto">
+      {sources.map((s) => {
         const Icon = _getChipIcon(s.filename);
         return (
           <button
@@ -61,7 +77,7 @@ export function SetSourceLegend({
             type="button"
             onClick={() => onSourceClick?.(s.filename)}
             disabled={!onSourceClick}
-            className="flex items-center gap-1.5 pl-4 text-xs leading-snug text-left min-w-0 disabled:cursor-default hover-lighten transition-colors"
+            className={`flex items-center gap-1.5 pl-4 text-xs leading-snug text-left min-w-0 disabled:cursor-default hover-lighten transition-colors${benutzt && !benutzt.has(s.filename) ? " opacity-60" : ""}`}
             style={{ color: "var(--muted)" }}
           >
             <Icon size={13} weight="regular" className="shrink-0" />
@@ -70,6 +86,7 @@ export function SetSourceLegend({
           </button>
         );
       })}
+      </div>}
     </div>
   );
 }

@@ -36,7 +36,10 @@ export function StudioSourceLegend({
         <span className="truncate">{t("sourcesToggle", { count })}</span>
       </button>
 
-      {open && <div className={listClassName}>{children}</div>}
+      {/* A long pick list scrolls inside itself, the panel around it does not grow. */}
+      {open && (
+        <div className={`${listClassName} max-h-48 overflow-y-auto`}>{children}</div>
+      )}
     </div>
   );
 }

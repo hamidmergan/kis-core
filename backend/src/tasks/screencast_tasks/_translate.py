@@ -20,7 +20,7 @@ from src.storage import (
     save_result_meta,
 )
 from src.services.screencast.naming import translate_stem
-from src.services.screencast.statistik import anbieter_und_modell, messe, notiere
+from src.services.job_statistik import anbieter_und_modell, messe, notiere
 from src.utils.heartbeat import job_heartbeat
 
 from src.tasks._errors import handle_task_exception

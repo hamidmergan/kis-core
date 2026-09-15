@@ -1,7 +1,6 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { MicrophoneStage } from "@phosphor-icons/react";
 import { resultUrl, transcriptUrl } from "../_api";
 import { linesToVoice, minutesOf } from "../_logic";
 import type { JobProgress, JobStatus, Line, Person, PersonCount } from "../_types";
@@ -59,11 +58,8 @@ export default function DoneStep(props: DoneStepProps) {
       <p className="text-sm text-muted text-center mb-6">{t("summary", { minutes, lines: lines.length, count })}</p>
 
       {jobUuid && (
-        <div className="mb-6 rounded-lg border border-border-soft p-6">
-          <div className="w-full max-w-md mx-auto flex flex-col items-center gap-4">
-            <div className="w-24 h-24 rounded-full flex items-center justify-center" style={{ backgroundColor: "rgba(var(--kb-rgb),0.1)" }}>
-              <MicrophoneStage size={40} weight="bold" style={{ color: "var(--kb)" }} />
-            </div>
+        <div className="mb-6">
+          <div className="w-full max-w-md mx-auto">
             <audio key={`${jobUuid}-${voicedIds.length}`} controls className="w-full" src={resultUrl(jobUuid)}>
               {t("browserNoAudio")}
             </audio>

@@ -62,6 +62,22 @@ async def generate_mindmap(
 
     return {"mindmap_id": mindmap_id, "status": "pending"}
 
+def _gewaehlte_quellen(source_ids) -> list[dict]:
+    """The sources the user ticked, so the legend can show the unused ones too."""
+    import json as _json
+    if isinstance(source_ids, str):
+        try:
+            source_ids = _json.loads(source_ids)
+        except _json.JSONDecodeError:
+            return []
+    out = []
+    for nummer, sid in enumerate(source_ids or [], 1):
+        quelle = db.get_aia_source_by_id(sid)
+        if quelle:
+            out.append({"number": nummer, "filename": quelle["filename"]})
+    return out
+
+
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/mindmap/{mindmap_id}")
 async def get_mindmap(
     workspace_uuid: str,
@@ -89,6 +105,7 @@ async def get_mindmap(
         "status": mindmap["status"],
         "mindmap": mindmap["mindmap"],
         "error": mindmap["error"],
+        "sources": _gewaehlte_quellen(mindmap.get("source_ids")),
     }
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/mindmap")
@@ -110,13 +127,14 @@ async def get_latest_mindmap(
 
     mindmap = db.get_latest_aia_mindmap(workspace["id"], user_id)
     if not mindmap:
-        return {"id": None, "status": None, "mindmap": None, "error": None}
+        return {"id": None, "status": None, "mindmap": None, "error": None, "sources": []}
 
     return {
         "id": mindmap["id"],
         "status": mindmap["status"],
         "mindmap": mindmap["mindmap"],
         "error": mindmap["error"],
+        "sources": _gewaehlte_quellen(mindmap.get("source_ids")),
     }
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/mindmaps")

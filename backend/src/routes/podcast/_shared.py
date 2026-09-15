@@ -5,7 +5,15 @@ import re
 from fastapi import HTTPException
 
 from src import database as db
-from src.features.podcast.schemas import LANGUAGES, LENGTH_WORDS, ROLES, STYLES, PodcastParams
+from src.features.podcast.schemas import (
+    LANGUAGES,
+    LENGTH_WORDS,
+    ROLES,
+    SPEED_MAX,
+    SPEED_MIN,
+    STYLES,
+    PodcastParams,
+)
 from src.i18n import t
 
 _UUID = re.compile(r"^[a-f0-9]{32}$")
@@ -26,6 +34,8 @@ def pruefe_params(params: PodcastParams, locale: str) -> PodcastParams:
     if not 1 <= len(params.persons) <= 4:
         raise HTTPException(status_code=422, detail=t("podcast.badCast", locale))
     if params.language not in LANGUAGES or params.length not in LENGTH_WORDS or params.style not in STYLES:
+        raise HTTPException(status_code=422, detail=t("podcast.badParams", locale))
+    if not SPEED_MIN <= params.speed <= SPEED_MAX:
         raise HTTPException(status_code=422, detail=t("podcast.badParams", locale))
     for person in params.persons:
         if person.role not in ROLES or not person.voice_id or person.provider_id <= 0:

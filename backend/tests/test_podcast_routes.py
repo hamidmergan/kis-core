@@ -118,16 +118,16 @@ def _params(**kw):
 class TestStart:
     def test_legt_einen_auftrag_an_und_startet_das_skript(self, env):
         client, _jobs, gestartet, ablage = env
-        antwort = client.post("/podcast/start",
-                              data={"params": _params(), "mode": "text", "text": "Über den Regelkreis."})
+        antwort = client.post("/podcast/start", data={"params": _params(), "mode": "files"},
+                              files={"files": ("kapitel.txt", "Über den Regelkreis.".encode(), "text/plain")})
         assert antwort.status_code == 200
         uuid = antwort.json()["job_uuid"]
         assert gestartet == ["script"]
-        assert ablage.get_job_file(7, uuid, "source.txt").decode() == "Über den Regelkreis."
+        assert "Über den Regelkreis." in ablage.get_job_file(7, uuid, "source.txt").decode()
 
     def test_weist_material_ohne_inhalt_ab(self, env):
         client, _j, gestartet, _a = env
-        antwort = client.post("/podcast/start", data={"params": _params(), "mode": "text", "text": "   "})
+        antwort = client.post("/podcast/start", data={"params": _params(), "mode": "files"})
         assert antwort.status_code == 422
         assert gestartet == []
 
@@ -149,36 +149,63 @@ class TestStart:
         assert ablage.eingelagert == ["kapitel.txt"]
         assert gestartet == ["script"]
 
-    def test_getippter_text_landet_nicht_im_vorrat(self, env):
-        client, _j, _g, ablage = env
-        client.post("/podcast/start",
-                    data={"params": _params(), "mode": "text", "text": "Ueber den Regelkreis."})
-        assert ablage.eingelagert == []
-
     def test_weist_eine_person_ohne_stimme_ab(self, env):
         client, _j, _g, _a = env
         ohne = _params(persons=[{"name": "Lena", "role": "host", "voice_id": "", "provider_id": 3}])
-        assert client.post("/podcast/start", data={"params": ohne, "mode": "text", "text": "Text"}).status_code == 422
+        assert client.post("/podcast/start", data={"params": ohne, "mode": "files"}).status_code == 422
 
     def test_weist_fuenf_personen_ab(self, env):
         client, _j, _g, _a = env
         viele = _params(persons=[{"name": f"P{i}", "role": "host", "voice_id": "v", "provider_id": 3} for i in range(5)])
-        assert client.post("/podcast/start", data={"params": viele, "mode": "text", "text": "Text"}).status_code == 422
+        assert client.post("/podcast/start", data={"params": viele, "mode": "files"}).status_code == 422
 
     def test_weist_eine_stimme_ohne_anbieter_ab(self, env):
         client, _j, _g, _a = env
         ohne = _params(persons=[{"name": "Lena", "role": "host", "voice_id": "anna", "provider_id": 0},
                                 {"name": "Jonas", "role": "expert", "voice_id": "ben", "provider_id": 3}])
-        assert client.post("/podcast/start", data={"params": ohne, "mode": "text", "text": "T"}).status_code == 422
+        assert client.post("/podcast/start", data={"params": ohne, "mode": "files"}).status_code == 422
 
     def test_weist_eine_unbekannte_sprache_ab(self, env):
         client, _j, _g, _a = env
         fremd = _params(language="fr")
-        assert client.post("/podcast/start", data={"params": fremd, "mode": "text", "text": "Text"}).status_code == 422
+        assert client.post("/podcast/start", data={"params": fremd, "mode": "files"}).status_code == 422
+
+    def test_weist_ein_tempo_ausserhalb_der_grenzen_ab(self, env):
+        client, _j, _g, _a = env
+        schnell = _params(speed=2.0)
+        assert client.post("/podcast/start", data={"params": schnell, "mode": "files"}).status_code == 422
+
+    def test_merkt_sich_das_gewaehlte_tempo(self, env):
+        client, _j, _g, ablage = env
+        uuid = client.post("/podcast/start",
+                           data={"params": _params(speed=0.7), "mode": "blank"}).json()["job_uuid"]
+        assert json.loads(ablage.get_job_file(7, uuid, "params.json"))["speed"] == 0.7
+
+    def test_nimmt_ohne_angabe_das_tempo_des_screencasts(self, env):
+        client, _j, _g, ablage = env
+        uuid = client.post("/podcast/start",
+                           data={"params": _params(), "mode": "blank"}).json()["job_uuid"]
+        assert json.loads(ablage.get_job_file(7, uuid, "params.json"))["speed"] == 0.9
 
     def test_weist_kaputte_einstellungen_ab(self, env):
         client, _j, _g, _a = env
-        assert client.post("/podcast/start", data={"params": "{kein json", "mode": "text", "text": "T"}).status_code == 422
+        assert client.post("/podcast/start", data={"params": "{kein json", "mode": "files"}).status_code == 422
+
+    def test_legt_einen_leeren_auftrag_ohne_skript_an(self, env):
+        """Der leere Weg fragt kein Modell, er wartet sofort auf die Person."""
+        client, _j, gestartet, ablage = env
+        antwort = client.post("/podcast/start", data={"params": _params(), "mode": "blank"})
+        assert antwort.status_code == 200
+        uuid = antwort.json()["job_uuid"]
+        assert gestartet == []
+        zeilen = json.loads(ablage.get_job_file(7, uuid, "user_script.json"))
+        assert len(zeilen) == 1 and zeilen[0]["text"] == ""
+
+    def test_merkt_sich_den_leeren_weg_in_den_einstellungen(self, env):
+        client, _j, _g, ablage = env
+        uuid = client.post("/podcast/start",
+                           data={"params": _params(), "mode": "blank"}).json()["job_uuid"]
+        assert json.loads(ablage.get_job_file(7, uuid, "params.json"))["self_written"] is True
 
     def test_weist_ein_modul_ohne_quellen_ab(self, env):
         client, _j, _g, _a = env
@@ -193,7 +220,8 @@ class TestStart:
 
         monkeypatch.setattr(open_jobs.db, "count_working_jobs",
                             lambda uid: MAX_OPEN_JOBS_PER_TOOL)
-        antwort = client.post("/podcast/start", data={"params": _params(), "mode": "text", "text": "Text"})
+        antwort = client.post("/podcast/start", data={"params": _params(), "mode": "files"},
+                              files={"files": ("kapitel.txt", b"Ueber den Regelkreis.", "text/plain")})
         assert antwort.status_code == 409
 
 
@@ -212,20 +240,20 @@ class TestSkriptUndVertonung:
         assert antwort.status_code == 200
         assert [l["id"] for l in antwort.json()["lines"]] == ["b0", "b1"]
 
-    def test_wirft_leere_beitraege_weg(self, env):
+    def test_behaelt_einen_noch_leeren_beitrag(self, env):
+        """Ein frisch angelegter Beitrag ist leer, das Speichern darf ihn nicht wegraeumen."""
         client, jobs, _g, _a = env
         self._job(jobs)
         antwort = client.put(f"/podcast/{UUID}/script", json={"lines": [
             {"id": "b0", "speaker": 0, "text": "Eins."},
             {"id": "b1", "speaker": 0, "text": "   "},
         ]})
-        assert len(antwort.json()["lines"]) == 1
+        assert [l["text"] for l in antwort.json()["lines"]] == ["Eins.", ""]
 
-    def test_weist_ein_skript_ohne_jeden_beitrag_ab(self, env):
+    def test_weist_ein_skript_ganz_ohne_zeilen_ab(self, env):
         client, jobs, _g, _a = env
         self._job(jobs)
-        antwort = client.put(f"/podcast/{UUID}/script", json={"lines": [{"id": "b0", "speaker": 0, "text": " "}]})
-        assert antwort.status_code == 422
+        assert client.put(f"/podcast/{UUID}/script", json={"lines": []}).status_code == 422
 
     def test_gibt_den_fortschritt_als_objekt_zurueck(self, env):
         """In der Datenbank steht der Fortschritt als Text, die Seite braucht ein Objekt."""
@@ -255,6 +283,24 @@ class TestSkriptUndVertonung:
         assert client.post(f"/podcast/{UUID}/render").status_code == 200
         assert gestartet == ["render"]
 
+    def test_vertont_ein_skript_aus_lauter_leeren_beitraegen_nicht(self, env):
+        client, jobs, gestartet, _a = env
+        self._job(jobs)
+        client.put(f"/podcast/{UUID}/script", json={"lines": [{"id": "b0", "speaker": 0, "text": ""}]})
+        assert client.post(f"/podcast/{UUID}/render").status_code == 422
+        assert gestartet == []
+
+    def test_formuliert_im_selbst_geschriebenen_podcast_nicht_um(self, env):
+        client, jobs, _g, _a = env
+        self._job(jobs)
+        from src.features.podcast import store
+        from src.features.podcast.schemas import Line, PodcastParams
+
+        store.save_params(7, UUID, PodcastParams(**json.loads(_params()), self_written=True))
+        store.save_user_script(7, UUID, [Line(id="b0", speaker=0, text="Eins.")])
+        antwort = client.post(f"/podcast/{UUID}/rephrase", json={"line_id": "b0"})
+        assert antwort.status_code == 409
+
     def test_startet_keine_zweite_vertonung_waehrend_der_ersten(self, env):
         client, jobs, _g, _a = env
         self._job(jobs, status="running")
@@ -263,7 +309,8 @@ class TestSkriptUndVertonung:
     def test_gibt_den_stand_zum_wiederaufnehmen(self, env):
         client, jobs, _g, _a = env
         self._job(jobs)
-        client.post("/podcast/start", data={"params": _params(), "mode": "text", "text": "Material"})
+        client.post("/podcast/start", data={"params": _params(), "mode": "files"},
+                    files={"files": ("kapitel.txt", b"Material", "text/plain")})
         # Der Stand des Auftrags oben, mit eigenem Skript.
         client.put(f"/podcast/{UUID}/script", json={"lines": [{"id": "b0", "speaker": 0, "text": "Eins."}]})
         antwort = client.get(f"/podcast/{UUID}")
@@ -331,6 +378,15 @@ class TestBesetzungAendern:
         stand = store.load_params(7, UUID)
         assert [p.voice_id for p in stand.persons] == ["dora"]
         assert stand.provider_id == 5
+
+    def test_speichert_das_neue_tempo(self, env):
+        client, jobs, _g, _a = env
+        self._job(jobs)
+        self._vorher()
+        assert client.put(f"/podcast/{UUID}/params", json=self._neu(speed=1.2)).status_code == 200
+
+        from src.features.podcast import store
+        assert store.load_params(7, UUID).speed == 1.2
 
     def test_behaelt_sprache_und_hinweise_des_starts(self, env):
         client, jobs, _g, _a = env

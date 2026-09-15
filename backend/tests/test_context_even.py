@@ -24,7 +24,7 @@ def _labels(picked) -> list[str]:
 def budget(monkeypatch):
     """The tool budget under test control."""
     state = {"budget": 100000}
-    monkeypatch.setattr(cb, "tool_context_budget", lambda tool="": state["budget"])
+    monkeypatch.setattr(cb, "tool_context_budget", lambda: state["budget"])
     return state
 
 

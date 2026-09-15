@@ -15,10 +15,17 @@ export const linesToVoice = (lines: Line[], voicedIds: readonly string[]): Line[
   lines.filter((l) => needsVoice(l, voicedIds));
 
 export function hasContent(source: Source): boolean {
-  if (source.mode === "text") return source.text.trim().length > 0;
+  if (source.mode === "blank") return true;
   if (source.mode === "files") return source.files.length > 0;
   return source.moduleId !== "" && source.sourceIds.length > 0;
 }
+
+/** No model is asked in this podcast, neither before the start nor after it. */
+export const ohneKi = (state: PodcastState): boolean =>
+  state.selfWritten || state.source.mode === "blank";
+
+/** Starting over throws away real work only once the script exists. */
+export const hatErgebnisse = (state: PodcastState): boolean => state.lines.length > 0;
 
 export const isBusy = (state: PodcastState): boolean =>
   state.starting || state.jobStatus === "pending" || state.jobStatus === "running";

@@ -240,6 +240,7 @@ export function StudioPanelContent(props: StudioPanelContentProps) {
         onRename={mm.rename}
         sourceCount={selectedSourceIds.length}
         sources={sources}
+        pickedSources={mm.mindmapSources}
         onPillClick={onPillClick}
         breadcrumbs={setsCrumb}
         openInViewer={openMindmapInViewer}

@@ -19,23 +19,27 @@ interface CastStepProps {
   persons: Person[];
   length: Length;
   style: Style;
+  speed: number;
   voices: ProviderWithVoices[];
   voicesLoaded: boolean;
   onCount: (count: PersonCount) => void;
   onPerson: (index: number, person: Partial<Person>) => void;
   onLength: (length: Length) => void;
   onStyle: (style: Style) => void;
+  onSpeed: (speed: number) => void;
   onBack: (() => void) | null;
   onNext: () => void;
   /** With a podcast already written this is a recast, not a start. */
   hatAuftrag: boolean;
+  /** Length and style only steer the prompt, a hand-written podcast has none. */
+  ohneKi: boolean;
   busy: boolean;
   error: string;
 }
 
 export default function CastStep(props: CastStepProps) {
-  const { count, persons, length, style, voices, voicesLoaded, onCount, onPerson, onLength, onStyle,
-          onBack, onNext, hatAuftrag, busy, error } = props;
+  const { count, persons, length, style, speed, voices, voicesLoaded, onCount, onPerson, onLength,
+          onStyle, onSpeed, onBack, onNext, hatAuftrag, ohneKi, busy, error } = props;
   const t = useTranslations("tools.podcast.cast");
   const voiceOptions = voices.flatMap((p) =>
     p.voices.map((v) => ({
@@ -106,22 +110,47 @@ export default function CastStep(props: CastStepProps) {
         {t("previewVoices")}
       </a>
 
-      <div className="grid gap-4 sm:grid-cols-2 mt-6">
-        <div>
-          <label htmlFor="podcast-length" className="block text-sm font-medium text-foreground-soft mb-2">
-            {t("lengthLabel")}
-          </label>
-          <Select<Length> id="podcast-length" value={length} onChange={onLength} disabled={hatAuftrag} options={LENGTHS.map((l) => ({ value: l, label: t(`lengths.${l}`) }))} />
+      <div className="mt-6">
+        <label htmlFor="podcast-speed" className="block text-sm font-medium text-foreground-soft mb-2">
+          {t("speedLabel", { speed: speed.toFixed(1) })}
+        </label>
+        <input
+          id="podcast-speed"
+          type="range"
+          min="0.7"
+          max="1.2"
+          step="0.1"
+          value={speed}
+          onChange={(e) => onSpeed(parseFloat(e.target.value))}
+          className="w-full h-2 bg-surface-dim rounded-lg appearance-none cursor-pointer accent-kb"
+        />
+        <div className="flex justify-between text-xs text-muted-soft mt-1">
+          <span>{t("speedSlow")}</span>
+          <span>{t("speedFast")}</span>
         </div>
-        <div>
-          <label htmlFor="podcast-style" className="block text-sm font-medium text-foreground-soft mb-2">
-            {t("styleLabel")}
-          </label>
-          <Select<Style> id="podcast-style" value={style} onChange={onStyle} disabled={hatAuftrag} options={STYLES.map((s) => ({ value: s, label: t(`styles.${s}`) }))} />
-        </div>
+        {hatAuftrag && <p className="text-xs text-muted-soft mt-2">{t("speedRecastHint")}</p>}
       </div>
 
-      {hatAuftrag && <p className="mt-2 text-xs text-muted-soft">{t("writtenHint")}</p>}
+      {!ohneKi && (
+        <>
+          <div className="grid gap-4 sm:grid-cols-2 mt-6">
+            <div>
+              <label htmlFor="podcast-length" className="block text-sm font-medium text-foreground-soft mb-2">
+                {t("lengthLabel")}
+              </label>
+              <Select<Length> id="podcast-length" value={length} onChange={onLength} disabled={hatAuftrag} options={LENGTHS.map((l) => ({ value: l, label: t(`lengths.${l}`) }))} />
+            </div>
+            <div>
+              <label htmlFor="podcast-style" className="block text-sm font-medium text-foreground-soft mb-2">
+                {t("styleLabel")}
+              </label>
+              <Select<Style> id="podcast-style" value={style} onChange={onStyle} disabled={hatAuftrag} options={STYLES.map((s) => ({ value: s, label: t(`styles.${s}`) }))} />
+            </div>
+          </div>
+
+          {hatAuftrag && <p className="mt-2 text-xs text-muted-soft">{t("writtenHint")}</p>}
+        </>
+      )}
 
       {error && (
         <p className="mt-6 rounded-md border border-warn-border bg-warn-bg px-3 py-2 text-sm text-warn-strong" role="alert">
@@ -137,7 +166,7 @@ export default function CastStep(props: CastStepProps) {
 
       <StepFooter
         onBack={onBack}
-        nextLabel={hatAuftrag ? t("nextRecast") : t("next")}
+        nextLabel={hatAuftrag ? t("nextRecast") : t(ohneKi ? "nextBlank" : "next")}
         onNext={onNext}
         nextDisabled={!complete || busy}
       />

@@ -44,7 +44,7 @@ def test_a_generated_karteikarte_carries_the_glossary_term_not_the_models():
         {"term": "abstract", "question": "Was ist ein Abstract?",
          "answer": "Eine Zusammenfassung."},
     ]})
-    items = _glossary._generate_karteikarten(
+    items, _titel = _glossary._generate_karteikarten(
         _client(antwort), "m", _eintraege("Abstract"), "German")
     assert items[0]["glossary_term"] == "Abstract"
 
@@ -53,7 +53,7 @@ def test_a_generated_flashcard_carries_its_term():
     antwort = json.dumps({"cards": [
         {"begriff": "Abstract", "definition": "Eine kurze Zusammenfassung."},
     ]})
-    items = _glossary._generate_flashcards(
+    items, _titel = _glossary._generate_flashcards(
         _client(antwort), "m", _eintraege("Abstract"), "German")
     assert items[0]["glossary_term"] == "Abstract"
 
@@ -133,13 +133,24 @@ def test_the_set_avoids_the_terms_this_person_already_had(monkeypatch):
                         lambda *_a, **_k: glossar)
     monkeypatch.setattr("src.database.glossary_terms_used",
                         lambda *_a, **_k: [f"B{i}" for i in range(6)])
-    monkeypatch.setattr(_glossary, "title_from_glossary_terms", lambda *_a, **_k: "Titel")
-
     items, titel = _glossary.generate_from_glossary(
-        _client(json.dumps({"cards": []})), "m", 7, 1, "flashcards", 4)
+        _client(json.dumps({"title": "Titel", "cards": []})), "m", 7, 1, "flashcards", 4)
 
+    # The name rides along in the same answer, the set costs no title call.
     assert titel == "Titel"
     assert {i["glossary_term"] for i in items} == {"B6", "B7", "B8", "B9"}
+
+
+def test_without_a_title_in_the_answer_the_terms_name_the_set(monkeypatch):
+    glossar = _eintraege("Abstract", "Peer Review")
+    monkeypatch.setattr("src.database.get_aia_glossary_by_workspace",
+                        lambda *_a, **_k: glossar)
+    monkeypatch.setattr("src.database.glossary_terms_used", lambda *_a, **_k: [])
+
+    _items, titel = _glossary.generate_from_glossary(
+        _client("kein JSON"), "m", 7, 1, "flashcards", 2)
+
+    assert sorted(titel.split(", ")) == ["Abstract", "Peer Review"]
 
 
 def test_an_empty_glossary_still_returns_none(monkeypatch):

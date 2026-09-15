@@ -2,7 +2,7 @@
 
 import pytest
 
-from src.services.screencast.statistik import messe, notiere
+from src.services.job_statistik import messe, notiere
 from src.storage import load_result_meta, save_result_meta
 
 
@@ -65,7 +65,7 @@ def test_messe_schreibt_auch_bei_fehler(lokal):
 
 
 def test_notiere_schluckt_speicherfehler(lokal, monkeypatch):
-    from src.services.screencast import statistik
+    from src.services import job_statistik as statistik
 
     def _kaputt(*_args, **_kwargs):
         raise OSError("Speicher weg")
@@ -82,7 +82,7 @@ def _stelle_anbieter(monkeypatch, provider: dict | None, route: dict | None) -> 
 
 
 def test_anbieter_und_modell_nimmt_das_anbieterspezifische_modell(monkeypatch):
-    from src.services.screencast.statistik import anbieter_und_modell
+    from src.services.job_statistik import anbieter_und_modell
 
     _stelle_anbieter(
         monkeypatch,
@@ -96,7 +96,7 @@ def test_anbieter_und_modell_nimmt_das_anbieterspezifische_modell(monkeypatch):
 
 
 def test_anbieter_und_modell_faellt_auf_das_routenmodell_zurueck(monkeypatch):
-    from src.services.screencast.statistik import anbieter_und_modell
+    from src.services.job_statistik import anbieter_und_modell
 
     _stelle_anbieter(monkeypatch, {"name": "myLab"}, {"model_name": "allgemein", "provider_models": {}})
 
@@ -106,7 +106,7 @@ def test_anbieter_und_modell_faellt_auf_das_routenmodell_zurueck(monkeypatch):
 
 
 def test_anbieter_und_modell_bleibt_leer_wenn_es_den_anbieter_nicht_gibt(monkeypatch):
-    from src.services.screencast.statistik import anbieter_und_modell
+    from src.services.job_statistik import anbieter_und_modell
 
     _stelle_anbieter(monkeypatch, None, None)
 
@@ -116,7 +116,7 @@ def test_anbieter_und_modell_bleibt_leer_wenn_es_den_anbieter_nicht_gibt(monkeyp
 
 
 def test_zeichen_zahlen_zaehlt_folien_zeichen_und_leere():
-    from src.services.screencast.statistik import zeichen_zahlen
+    from src.services.job_statistik import zeichen_zahlen
 
     assert zeichen_zahlen(["Hallo", "", "  ", "Guten Tag zusammen"]) == {
         "folien": 4,
@@ -127,7 +127,7 @@ def test_zeichen_zahlen_zaehlt_folien_zeichen_und_leere():
 
 
 def test_zeichen_zahlen_vertraegt_null_folien():
-    from src.services.screencast.statistik import zeichen_zahlen
+    from src.services.job_statistik import zeichen_zahlen
 
     assert zeichen_zahlen([]) == {
         "folien": 0,
@@ -173,7 +173,7 @@ def test_zaehler_meldet_die_folien_aus_dem_zwischenspeicher(lokal, tmp_path):
 
 def test_route_kennung_nennt_anbieter_und_modell_der_route(monkeypatch):
     from src.services import feature_router
-    from src.services.screencast.statistik import route_kennung
+    from src.services.job_statistik import route_kennung
 
     binding = feature_router.FeatureBinding(
         feature="chat", provider={"name": "myLab", "protocol": "openai_compat"}, model="qwen3-32b",
@@ -185,7 +185,7 @@ def test_route_kennung_nennt_anbieter_und_modell_der_route(monkeypatch):
 
 def test_route_kennung_bleibt_leer_wenn_keine_route_gesetzt_ist(monkeypatch):
     from src.services import feature_router
-    from src.services.screencast.statistik import route_kennung
+    from src.services.job_statistik import route_kennung
 
     def _keine(_feature):
         raise RuntimeError("keine Route")

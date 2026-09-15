@@ -82,9 +82,8 @@ async def put_script(
     personen = len(params.persons) if params else 1
     sauber: list[Line] = []
     for line in body.lines[:PODCAST_MAX_LINES]:
+        # A contribution just added is still empty, only the voicing insists on text.
         text = line.text.strip()[:PODCAST_MAX_LINE_CHARS]
-        if not text:
-            continue
         sprecher = line.speaker if 0 <= line.speaker < personen else 0
         sauber.append(Line(id=line.id, speaker=sprecher, text=text))
     if not sauber:

@@ -177,8 +177,9 @@ def _ctx(**quellen):
 def _stub_store(monkeypatch, platz=100):
     gespeichert = []
 
-    def add(source_id, tool, level, items, fingerprints, topic_id=None):
-        gespeichert.append((source_id, tool, level, [i["front"] for i in items], topic_id))
+    def add(source_id, tool, level, items, fingerprints, topic_id=None, set_title=None):
+        gespeichert.append((source_id, tool, level, [i["front"] for i in items], topic_id,
+                            set_title))
         return [f"neu-{f}" for f in fingerprints]
 
     monkeypatch.setattr("src.database.add_pool_items", add)
@@ -193,8 +194,8 @@ def test_generated_items_go_into_the_pool_of_their_source(monkeypatch):
              {"front": "b", "source_label": "B.pdf"}]
     _pool.store(items, _ctx(**{"A.pdf": {"id": 1}, "B.pdf": {"id": 2}}), "quiz", "B1")
 
-    assert sorted(gespeichert) == [(1, "quiz", "B1", ["a"], None),
-                                  (2, "quiz", "B1", ["b"], None)]
+    assert sorted(gespeichert) == [(1, "quiz", "B1", ["a"], None, None),
+                                  (2, "quiz", "B1", ["b"], None, None)]
     assert items[0]["pool_item_id"] == "neu-a"
 
 
@@ -217,8 +218,10 @@ def test_what_came_from_the_pool_is_not_stored_again(monkeypatch):
 
 def test_a_full_pool_stops_taking_more(monkeypatch):
     gespeichert = []
-    monkeypatch.setattr("src.database.add_pool_items",
-                        lambda s, t, l, items, f, tid=None: gespeichert.append(len(items)) or [1] * len(items))
+    monkeypatch.setattr(
+        "src.database.add_pool_items",
+        lambda s, t, l, items, f, tid=None, set_title=None:
+            gespeichert.append(len(items)) or [1] * len(items))
     monkeypatch.setattr("src.database.pool_size", lambda *a: 1000)
     items = [{"front": "a", "source_label": "A.pdf"}]
     _pool.store(items, _ctx(**{"A.pdf": {"id": 1}}), "quiz", None)
@@ -255,7 +258,7 @@ def test_grammar_items_are_stored_under_their_topic(monkeypatch):
     gespeichert = _stub_store(monkeypatch)
     items = [{"front": "Der Satz wird gebildet.", "source_label": "A.pdf"}]
     _pool.store(items, _ctx(**{"A.pdf": {"id": 1}}), "grammatik", "B1", topic_id=42)
-    assert gespeichert == [(1, "grammatik", "B1", ["Der Satz wird gebildet."], 42)]
+    assert gespeichert == [(1, "grammatik", "B1", ["Der Satz wird gebildet."], 42, None)]
 
 
 def test_a_tool_without_a_topic_stores_none(monkeypatch):
@@ -271,7 +274,7 @@ def test_a_very_long_front_still_gets_a_storable_fingerprint(monkeypatch):
     # Without truncation a long text blows the index limit and the pool stays empty.
     fingerprints_gesehen = []
 
-    def add(source_id, tool, level, items, fingerprints, topic_id=None):
+    def add(source_id, tool, level, items, fingerprints, topic_id=None, set_title=None):
         fingerprints_gesehen.extend(fingerprints)
         return [f"neu-{f}" for f in fingerprints]
 
@@ -292,3 +295,25 @@ def test_a_short_front_keeps_its_established_fingerprint():
     # Short fronts have to keep the same fingerprint as before.
     kurz = "Der Satz wird gebildet."
     assert _pool._fingerprint(kurz) == _pool.item_key(kurz)
+
+
+# --- the set name travels with the exercises ----------------------------------
+
+def test_the_set_name_is_stored_next_to_the_exercises(monkeypatch):
+    gespeichert = _stub_store(monkeypatch)
+    items = [{"front": "a", "source_label": "A.pdf"}]
+    _pool.store(items, _ctx(**{"A.pdf": {"id": 1}}), "quiz", None,
+                set_title="Passiv im Labor")
+    assert gespeichert[0][5] == "Passiv im Labor"
+
+
+def test_a_pooled_set_inherits_the_most_common_name():
+    items = [{"set_title": "Passiv im Labor"}, {"set_title": "Passiv im Labor"},
+             {"set_title": "Anderes Thema"}]
+    assert _pool.title_from_items(items) == "Passiv im Labor"
+
+
+def test_exercises_without_a_stored_name_yield_nothing():
+    # Everything generated before the column existed, the caller keeps its placeholder.
+    assert _pool.title_from_items([{"front": "a"}, {"set_title": "   "}]) == ""
+    assert _pool.title_from_items([]) == ""

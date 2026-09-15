@@ -22,7 +22,7 @@ from src.storage import (
 )
 
 from src.services.screencast.auswahl import clip_paare, folien_auswahl, ton_plaetze, zu_sprechende_folien
-from src.services.screencast.statistik import (
+from src.services.job_statistik import (
     anbieter_und_modell,
     messe,
     zeichen_zahlen,

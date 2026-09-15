@@ -11,7 +11,7 @@ from src import database as db
 from src.dependencies import get_current_user, get_llm_client
 from src.i18n import get_locale, t
 from src.services.screencast import generate_all_scripts
-from src.services.screencast.statistik import messe, route_kennung, zeichen_zahlen
+from src.services.job_statistik import messe, route_kennung, zeichen_zahlen
 from src.storage import get_job_file, load_result_meta, save_job_file, save_result_meta
 from src.services.tool_limits import max_screencast_slides
 

@@ -8,6 +8,9 @@ export interface PodcastParamsView {
   persons: { name: string; role: string; voice_id: string; provider_id: number }[];
   length: string;
   style: string;
+  speed: number;
+  self_written: boolean;
+  instruction_unmatched: boolean;
 }
 
 export interface PodcastView {
@@ -43,9 +46,9 @@ export async function startPodcast(state: PodcastState): Promise<string> {
     persons,
     length: state.length,
     style: state.style,
+    speed: state.speed,
   }));
   form.append("mode", state.source.mode);
-  if (state.source.mode === "text") form.append("text", state.source.text);
   if (state.source.mode === "files") state.source.files.forEach((f) => form.append("files", f));
   if (state.source.mode === "module") {
     form.append("workspace_uuid", state.source.moduleId);
@@ -67,7 +70,7 @@ export async function savePodcastParams(jobUuid: string, state: PodcastState): P
   const res = await fetch(`/api/podcast/${jobUuid}/params`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ persons, length: state.length, style: state.style }),
+    body: JSON.stringify({ persons, length: state.length, style: state.style, speed: state.speed }),
     credentials: "include",
   });
   if (!res.ok) throw new Error(await fehlerText(res));

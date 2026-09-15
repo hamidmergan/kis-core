@@ -229,6 +229,8 @@ async def get_workspace(
                 "progress": s.get("progress"),
                 "ocr_info": s.get("ocr_info"),
                 "source_url": s.get("source_url"),
+                # Only whether there is one, the text itself is fetched when opened.
+                "has_summary": bool((s.get("summary") or "").strip()),
                 "chapter_uuid": chapter_uuid_by_id.get(s.get("chapter_id")),
                 "created_at": s["created_at"].isoformat() + "Z" if s["created_at"] else None,
             }

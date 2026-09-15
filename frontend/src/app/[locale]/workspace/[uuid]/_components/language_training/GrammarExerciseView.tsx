@@ -376,6 +376,7 @@ export function GrammarExerciseView({
 
           <SetSourceLegend
             sources={exerciseSet.sources}
+            items={exerciseSet.items}
             onSourceClick={(f) => onSourceClick?.(f, 1)}
             className="pt-1"
           />

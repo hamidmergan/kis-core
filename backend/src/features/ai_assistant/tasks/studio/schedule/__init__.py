@@ -149,7 +149,7 @@ def run_generate_schedule(self, job_id: int, workspace_id: int, user_id: int,
             return _fundstelle_zeit(zeitachsen.get(block["source_id"]), block["chunk"], offset)
 
         # Two packets at a time, a source is saved as soon as all its packets are through.
-        pakete = packets(blocks, tool_context_budget("schedule"))
+        pakete = packets(blocks, tool_context_budget())
         quellen_je_paket = [{b["source_id"] for b in p} for p in pakete]
         pakete_je_quelle: dict[int, set[int]] = {}
         for pi, sids in enumerate(quellen_je_paket):

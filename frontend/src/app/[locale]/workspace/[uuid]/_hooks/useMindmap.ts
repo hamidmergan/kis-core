@@ -13,6 +13,8 @@ export function useMindmap({ uuid, selectedSourceIds }: UseMindmapOptions) {
   const [mindmapData, setMindmapData] = useState<MindmapNodeData | null>(null);
   const [mindmapLoading, setMindmapLoading] = useState(false);
   const [mindmapList, setMindmapList] = useState<{ id: number; created_at: string | null; topic: string }[]>([]);
+  // What the user ticked, so the legend can also show what did not make it into the map.
+  const [mindmapSources, setMindmapSources] = useState<{ number: number; filename: string }[]>([]);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const stopPolling = useCallback(() => {
@@ -36,6 +38,7 @@ export function useMindmap({ uuid, selectedSourceIds }: UseMindmapOptions) {
         const data = await res.json();
         if (data.status === "success" && data.mindmap) {
           setMindmapData(data.mindmap);
+          setMindmapSources(data.sources || []);
           setMindmapLoading(false);
           stopPolling();
           refreshList();
@@ -57,6 +60,7 @@ export function useMindmap({ uuid, selectedSourceIds }: UseMindmapOptions) {
         const data = await res.json();
         if (data.status === "success" && data.mindmap) {
           setMindmapData(data.mindmap);
+          setMindmapSources(data.sources || []);
         } else if (data.id && (data.status === "pending" || data.status === "running")) {
           startPolling(data.id);
         }
@@ -95,7 +99,10 @@ export function useMindmap({ uuid, selectedSourceIds }: UseMindmapOptions) {
       const res = await fetch(`/api/ai-assistant/workspaces/${uuid}/mindmap/${id}`, { credentials: "include" });
       if (!res.ok) return;
       const data = await res.json();
-      if (data.status === "success" && data.mindmap) setMindmapData(data.mindmap);
+      if (data.status === "success" && data.mindmap) {
+        setMindmapData(data.mindmap);
+        setMindmapSources(data.sources || []);
+      }
     } catch { /* ignore */ }
   }, [uuid]);
 
@@ -121,7 +128,7 @@ export function useMindmap({ uuid, selectedSourceIds }: UseMindmapOptions) {
   }, [uuid]);
 
   return {
-    mindmapData, mindmapLoading, mindmapList,
+    mindmapData, mindmapLoading, mindmapList, mindmapSources,
     generate, select, remove, rename,
   };
 }

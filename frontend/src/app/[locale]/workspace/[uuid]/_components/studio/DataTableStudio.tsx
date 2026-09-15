@@ -314,15 +314,23 @@ export function DataTableStudio({
                 );
               })()}
 
-              {sources.length > 0 && (
+              {sources.length > 0 && (() => {
+                // A number nobody finds in the table only confuses, so say it plainly.
+                const benutzt = new Set(
+                  (table.rows || []).flatMap((r) => (r.sources || [])
+                    .map((x) => (typeof x === "number" ? sources.find((s) => s.number === x)?.filename : x.source_label))
+                    .filter((n): n is string => !!n)));
+                return (
                 <StudioSourceLegend count={sources.length} className="pt-2">
                   {sources.map((s) => (
-                    <p key={s.number} className="text-xs leading-snug pl-4 text-[var(--muted)]">
+                    <p key={s.number}
+                       className={`text-xs leading-snug pl-4 text-[var(--muted)]${benutzt.has(s.filename) ? "" : " opacity-60"}`}>
                       [{s.number}] {s.filename}
                     </p>
                   ))}
                 </StudioSourceLegend>
-              )}
+                );
+              })()}
             </div>
           )}
         </div>

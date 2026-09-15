@@ -18,6 +18,7 @@ from src.features.ai_assistant.tasks._helpers import (
     _clean_llm_json,
 )
 from src.features.ai_assistant.tasks._context_budget import tool_context_budget
+from src.features.ai_assistant.tasks.studio import _table_condensed as _condensed
 from src.features.ai_assistant.tasks.studio import _table_packets
 from src.services import aia_chunker
 from src.services.llm_call import create_logged
@@ -87,6 +88,21 @@ def run_generate_data_table(self, data_table_id: int, source_ids: list[int],
             return
 
         client, model, _ = _get_llm_client()
+        def _ask_json(messages) -> dict | None:
+            """One request that must answer JSON, with a second try on a broken answer."""
+            for attempt in range(2):
+                response = create_logged(client, endpoint="datentabelle", model=model,
+                                         messages=messages, temperature=0.2)
+                raw = response.choices[0].message.content
+                if not raw:
+                    continue
+                try:
+                    return _json.loads(_clean_llm_json(raw))
+                except _json.JSONDecodeError as e:
+                    logger.warning("data_table {} JSON parse failed (attempt {}/2): {}",
+                                   data_table_id, attempt + 1, e)
+            return None
+
         # The level block hangs on the person, not on the course room.
         adaptive_suffix = build_adaptive_tool_suffix(user_id)
         system = AIA_DATENTABELLE_PROMPT.replace("{language}", language) + adaptive_suffix
@@ -122,11 +138,40 @@ def run_generate_data_table(self, data_table_id: int, source_ids: list[int],
                                    data_table_id, attempt + 1, e)
             return None
 
-        pakete = _table_packets.packets(context_parts, tool_context_budget("data_table"),
-                                        AIA_TABLE_MAX_PACKETS)
-        logger.info("data_table {}: {} Teile in {} Paketen", data_table_id,
-                    len(context_parts), len(pakete))
-        table_data = _table_packets.run_packets(pakete, _ask)
+        # Whoever fits is read in full, only the rest goes through the summaries.
+        gesamt = sum(len(p) for p in context_parts)
+        quellen = [{"id": sid, "label": source_id_to_label[sid],
+                    "summary": (db.get_aia_source(u) or {}).get("summary")}
+                   for sid, u in zip(source_ids, source_uuids)
+                   if sid in source_id_to_label]
+        verdichtet = _condensed.should_condense(
+            gesamt, tool_context_budget(), quellen)
+        logger.info("data_table {}: {} Zeichen Material, Weg {}", data_table_id, gesamt,
+                    "verdichtet" if verdichtet else "Pakete")
+
+        if verdichtet:
+            from src.services.aia_embeddings import get_embedding_provider_with_fallback
+            _emb = get_embedding_provider_with_fallback()
+            _ws = (db.get_aia_source(source_uuids[0]) or {}).get("workspace_id")
+
+            def _suche(frage: str, vektor, limit: int) -> list[dict]:
+                """The passages for one row, each tagged with the file it stands in."""
+                treffer = db.hybrid_search_chunks(
+                    _ws, frage, vektor, source_ids=source_ids, limit=limit) or []
+                for c in treffer:
+                    c["source_label"] = source_id_to_label.get(c.get("source_id"), "")
+                return treffer
+
+            table_data = _condensed.build(
+                sources=quellen, language=language, adaptive_suffix=adaptive_suffix,
+                ask=lambda n: _ask_json(n), embed=_emb.embed_one, search=_suche,
+            )
+        else:
+            pakete = _table_packets.packets(context_parts, tool_context_budget(),
+                                            AIA_TABLE_MAX_PACKETS)
+            logger.info("data_table {}: {} Teile in {} Paketen", data_table_id,
+                        len(context_parts), len(pakete))
+            table_data = _table_packets.run_packets(pakete, _ask)
 
         if table_data is None:
             db.update_aia_data_table(data_table_id, "failed", error="LLM returned unparseable JSON")

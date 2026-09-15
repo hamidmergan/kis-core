@@ -14,6 +14,7 @@ import type { Chapter, Source } from "../../_types";
 import { OwnerOnly } from "../layout/OwnerOnly";
 import { UploadErrorsBlock } from "./UploadErrorsBlock";
 import { SourceRow } from "./SourceRow";
+import { SourceSummaryModal } from "./SourceSummaryModal";
 import { AddMaterialModal } from "./AddMaterialModal";
 import { ChapterHead } from "./ChapterHead";
 import { GroupCheckbox } from "./GroupCheckbox";
@@ -90,6 +91,7 @@ export function SourcesPanel({
   const [deleteSourceId, setDeleteSourceId] = useState<string | null>(null);
   const [deleteChapterTarget, setDeleteChapterTarget] = useState<Chapter | null>(null);
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+  const [summarySource, setSummarySource] = useState<Source | null>(null);
   const [menuMode, setMenuMode] = useState<"root" | "chapter">("root");
   const [renameId, setRenameId] = useState<string | null>(null);
   const [compact, setCompact] = useState(false);
@@ -179,6 +181,7 @@ export function SourcesPanel({
         onRename={onRenameSource}
         onRetry={onRetrySource}
         onMoveToChapter={onSetSourceChapter}
+        onShowSummary={setSummarySource}
       />
     );
   }
@@ -267,6 +270,8 @@ export function SourcesPanel({
           }}
         />
       )}
+
+      <SourceSummaryModal source={summarySource} onClose={() => setSummarySource(null)} />
 
       {isOwner && onAddLink && (
         <AddMaterialModal

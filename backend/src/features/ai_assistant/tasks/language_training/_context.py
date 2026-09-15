@@ -186,3 +186,16 @@ def build_source_context(uuids: list[str], tool: str,
         seen_pages_by_source=seen_pages_by_source,
         media_start_by_page=media_start_by_page,
     )
+
+
+def label_for_sources(uuids: list[str]) -> str:
+    """The same name as ``multi_label``, for callers that build no context."""
+    from src import database as db
+    try:
+        namen = [(db.get_aia_source(u) or {}).get("filename") or "" for u in uuids]
+    except Exception:  # noqa: BLE001 - a name is worth no failed set
+        return ""
+    namen = [n for n in namen if n]
+    if not namen:
+        return ""
+    return namen[0] if len(namen) == 1 else f"{len(namen)} Sources"

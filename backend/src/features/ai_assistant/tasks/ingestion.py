@@ -6,7 +6,12 @@ from loguru import logger
 
 from src.celery_app import celery_app
 from src import database as db
-from src.limits import AIA_TRANSLATE_SOFT_TIME_LIMIT, AIA_TRANSLATE_TIME_LIMIT
+from src.limits import (
+    AIA_TOOL_SOFT_TIME_LIMIT,
+    AIA_TOOL_TIME_LIMIT,
+    AIA_TRANSLATE_SOFT_TIME_LIMIT,
+    AIA_TRANSLATE_TIME_LIMIT,
+)
 from src.storage import (
     aia_transcript_key,
     aia_transcript_prefix,
@@ -19,8 +24,33 @@ from src.storage import (
 
 from src.features.ai_assistant.tasks._helpers import _format_ts
 
-# The summary during ingest is deliberately off, nobody reads it.
-_BUILD_INGEST_SUMMARY = False
+# The overview tools read the summary, so it is built with every source.
+_BUILD_INGEST_SUMMARY = True
+
+
+def _build_source_summary_safely(source_uuid: str, chunks: list[dict]) -> None:
+    """The summary is a bonus, a failure here must never cost the finished source."""
+    if not chunks:
+        return
+    from src import database as db
+    from src.limits import AIA_SUMMARY_BATCH_MAX_CHARS
+    try:
+        db.update_aia_source_progress(source_uuid, "summarizing")
+        from src.services.aia_summarizer import build_source_summary
+        from src.features.ai_assistant.tasks._helpers import _get_llm_client
+        cap = int(db.get_setting("aia_summary_batch_max_chars",
+                                 str(AIA_SUMMARY_BATCH_MAX_CHARS)))
+        client, model, _ = _get_llm_client()
+        beginn = time.monotonic()
+        summary = build_source_summary(chunks, client, model, cap)
+        db.update_aia_source_summary(source_uuid, summary)
+        logger.info("KI Tutor: summary built for source {} ({} chars) in {:.1f}s",
+                    source_uuid, len(summary), time.monotonic() - beginn)
+    except Exception as e:  # noqa: BLE001 - chunks and embeddings are already done
+        logger.warning("KI Tutor: no summary for source {}: {}", source_uuid, e)
+    finally:
+        # A source left on "summarizing" spins in the interface for ever.
+        db.clear_aia_source_progress(source_uuid)
 
 
 def _save_transcript_artifact(key: str, text: str) -> None:
@@ -45,6 +75,17 @@ def _store_transcript_artifacts(file_path_stored: str, segments: list[dict], lan
     _save_transcript_artifact(vtt_key, segments_to_vtt(segments))
     logger.info("KI Tutor: VTT ({}) saved to {}", lang_code, vtt_key)
     return chunks
+
+
+@celery_app.task(name="aia.summarize_source", queue="aia",
+                 soft_time_limit=AIA_TOOL_SOFT_TIME_LIMIT, time_limit=AIA_TOOL_TIME_LIMIT)
+def run_summarize_source(source_uuid: str):
+    """Builds the summary of a source that was indexed before summaries existed."""
+    source = db.get_aia_source(source_uuid)
+    if not source:
+        logger.warning("KI Tutor: summary skipped, source {} is gone", source_uuid)
+        return
+    _build_source_summary_safely(source_uuid, db.get_chunks_by_source(source["id"]))
 
 
 @celery_app.task(bind=True, name="aia.index_source", queue="aia")
@@ -186,23 +227,8 @@ def run_index_source(self, source_uuid: str, locale: str = "de", _aia_job_uuid: 
             if fingerprint is None and chunks:
                 fingerprint = compute_fingerprint(provider)
 
-        # The per-source summary is off by a switch, the code stays.
         if _BUILD_INGEST_SUMMARY:
-            db.update_aia_source_progress(source_uuid, "summarizing")
-            from src.services.aia_summarizer import build_source_summary
-            from src.features.ai_assistant.tasks._helpers import _get_llm_client
-            from src.limits import AIA_SUMMARY_BATCH_MAX_CHARS
-            summary_cap = int(
-                db.get_setting("aia_summary_batch_max_chars", str(AIA_SUMMARY_BATCH_MAX_CHARS))
-            )
-            _t_sum = time.monotonic()
-            _sum_client, _sum_model, _ = _get_llm_client()
-            summary = build_source_summary(chunks, _sum_client, _sum_model, summary_cap)
-            db.update_aia_source_summary(source_uuid, summary)
-            logger.info(
-                "KI Tutor: summary built for source {} ({} chars) in {:.1f}s",
-                source_uuid, len(summary), time.monotonic() - _t_sum,
-            )
+            _build_source_summary_safely(source_uuid, chunks)
 
         # 8. Source status → ready
         db.update_aia_source_status(

@@ -12,6 +12,17 @@ describe("phasenzeilen", () => {
     expect(zeilen.map((z) => z.phase)).toEqual(["uebersetzung", "bilder", "vertonung"]);
   });
 
+  it("ordnet auch die Podcast-Phasen", () => {
+    const zeilen = phasenzeilen({
+      montage: { dauer_s: 4 },
+      vertonung: { dauer_s: 3 },
+      material: { dauer_s: 1 },
+      skript: { dauer_s: 2 },
+    });
+
+    expect(zeilen.map((z) => z.phase)).toEqual(["material", "skript", "vertonung", "montage"]);
+  });
+
   it("haengt unbekannte Phasen hinten an", () => {
     const zeilen = phasenzeilen({ neu: { dauer_s: 1 }, bilder: { dauer_s: 2 } });
 
@@ -65,6 +76,10 @@ describe("wertText", () => {
 
   it("rechnet die Videogroesse in Megabyte um", () => {
     expect(wertText("video_bytes", 44_040_192, "de", woerter)).toBe("42,0 MB");
+  });
+
+  it("rechnet jede Groesse auf _bytes in Megabyte um", () => {
+    expect(wertText("mp3_bytes", 44_040_192, "de", woerter)).toBe("42,0 MB");
   });
 
   it("gruppiert grosse Zahlen nach Gebietsschema", () => {

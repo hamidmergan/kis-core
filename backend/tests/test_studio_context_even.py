@@ -29,7 +29,7 @@ def welt(monkeypatch):
                         lambda w, t, s: state["rotation"].__setitem__((w, t), s))
     monkeypatch.setattr(
         "src.features.ai_assistant.tasks._context_budget.tool_context_budget",
-        lambda tool="": state["budget"])
+        lambda: state["budget"])
     return state
 
 

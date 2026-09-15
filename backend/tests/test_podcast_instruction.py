@@ -34,9 +34,14 @@ def _quellen():
     return [("a.pdf", [{"content": "Erster Abschnitt"}, {"content": "Zweiter Abschnitt"}])]
 
 
+def _nah(monkeypatch, abstand=0.0):
+    """Die Anweisung steckt im Material, die Abstandsmessung haelt nicht auf."""
+    monkeypatch.setattr(instruction, "_probe", lambda ws, ids, anweisung: abstand)
+
+
 def _budget(monkeypatch, chars=100_000):
     import src.features.ai_assistant.tasks._context_budget as budget
-    monkeypatch.setattr(budget, "tool_context_budget", lambda tool="": chars)
+    monkeypatch.setattr(budget, "tool_context_budget", lambda: chars)
 
 
 class TestWegwahl:
@@ -97,6 +102,7 @@ class TestKontext:
     async def test_gezielte_anweisung_nimmt_die_gefundenen_stellen(self, monkeypatch):
         _budget(monkeypatch)
         _vorcall(monkeypatch, instruction.SEARCH)
+        _nah(monkeypatch)
         monkeypatch.setattr(instruction, "_ready_ids", lambda ws, uuids: [7])
 
         async def _treffer(workspace_id, ids, anweisung):
@@ -114,6 +120,7 @@ class TestKontext:
     async def test_suche_ohne_treffer_faellt_zurueck(self, monkeypatch):
         _budget(monkeypatch)
         _vorcall(monkeypatch, instruction.SEARCH)
+        _nah(monkeypatch)
         monkeypatch.setattr(instruction, "_ready_ids", lambda ws, uuids: [7])
 
         async def _nichts(workspace_id, ids, anweisung):
@@ -127,6 +134,7 @@ class TestKontext:
     async def test_kaputte_suche_wirft_den_podcast_nicht_weg(self, monkeypatch):
         _budget(monkeypatch)
         _vorcall(monkeypatch, instruction.SEARCH)
+        _nah(monkeypatch)
         monkeypatch.setattr(instruction, "_ready_ids", lambda ws, uuids: [7])
 
         async def _kaputt(workspace_id, ids, anweisung):
@@ -173,3 +181,86 @@ class TestFertigeQuellen:
         }
         monkeypatch.setattr(instruction.db, "get_aia_source", lambda u: zeilen.get(u))
         assert instruction._ready_ids(42, ["fertig", "laeuft", "fremd", "weg"]) == [1]
+
+
+class TestAbstand:
+    """Eine Anweisung, zu der nichts im Material steht, darf keine Zufallsstellen ziehen."""
+
+    @pytest.mark.asyncio
+    async def test_anweisung_neben_dem_material_fuellt_auf(self, monkeypatch):
+        _budget(monkeypatch)
+        _vorcall(monkeypatch, instruction.SEARCH)
+        _nah(monkeypatch, instruction.MAX_DIST + 0.05)
+        monkeypatch.setattr(instruction, "_ready_ids", lambda ws, uuids: [7])
+        gesucht = []
+        monkeypatch.setattr(instruction, "_search", lambda *a: gesucht.append(a))
+        notiz: dict = {}
+        text = await instruction.build_context(
+            _quellen(), "Sprich ueber Katzen und Hunde", 42, ["s1"], notiz)
+        assert "Erster Abschnitt" in text and "Zweiter Abschnitt" in text
+        assert gesucht == [], "liegt die Anweisung daneben, darf keine Suche starten"
+        assert notiz["weg"] == instruction.FILL
+        assert notiz["daneben"] is True
+
+    @pytest.mark.asyncio
+    async def test_anweisung_im_material_sucht_weiter(self, monkeypatch):
+        _budget(monkeypatch)
+        _vorcall(monkeypatch, instruction.SEARCH)
+        _nah(monkeypatch, instruction.MAX_DIST - 0.05)
+        monkeypatch.setattr(instruction, "_ready_ids", lambda ws, uuids: [7])
+
+        async def _treffer(workspace_id, ids, anweisung):
+            return [{"source_id": 7, "content": "Die Stelle zur Kuehlung"}]
+
+        monkeypatch.setattr(instruction, "_search", _treffer)
+        monkeypatch.setattr(instruction.db, "get_aia_source_by_id",
+                            lambda sid: {"filename": "a.pdf"})
+        notiz: dict = {}
+        text = await instruction.build_context(_quellen(), "Kuehlung", 42, ["s1"], notiz)
+        assert "Die Stelle zur Kuehlung" in text
+        assert notiz["weg"] == instruction.SEARCH
+        assert notiz.get("daneben") is None
+
+    @pytest.mark.asyncio
+    async def test_kaputte_messung_sucht_trotzdem(self, monkeypatch):
+        _budget(monkeypatch)
+        _vorcall(monkeypatch, instruction.SEARCH)
+        monkeypatch.setattr(instruction, "_ready_ids", lambda ws, uuids: [7])
+
+        def _kaputt(ws, ids, anweisung):
+            raise RuntimeError("Einbettungsdienst weg")
+
+        monkeypatch.setattr(instruction, "_probe", _kaputt)
+
+        async def _treffer(workspace_id, ids, anweisung):
+            return [{"source_id": 7, "content": "Die Stelle zur Kuehlung"}]
+
+        monkeypatch.setattr(instruction, "_search", _treffer)
+        monkeypatch.setattr(instruction.db, "get_aia_source_by_id",
+                            lambda sid: {"filename": "a.pdf"})
+        text = await instruction.build_context(_quellen(), "Kuehlung", 42, ["s1"])
+        assert "Die Stelle zur Kuehlung" in text, "eine kaputte Messung darf nicht sperren"
+
+
+class TestAbstandMessen:
+    """Gemessen wird der Schnitt der besten Stellen, nicht die eine beste."""
+
+    def _rows(self, *dists):
+        return [{"vec_distance": d} for d in dists]
+
+    def test_schnitt_der_besten_fuenf(self, monkeypatch):
+        monkeypatch.setattr(instruction, "_embedder", lambda: (lambda t: [0.0]))
+        monkeypatch.setattr(instruction.db, "hybrid_search_chunks",
+                            lambda *a, **k: self._rows(0.1, 0.2, 0.3, 0.4, 0.5, 0.9, 0.9))
+        assert instruction._probe(42, [7], "Kuehlung") == pytest.approx(0.3)
+
+    def test_ohne_treffer_ist_der_abstand_hoechstens(self, monkeypatch):
+        monkeypatch.setattr(instruction, "_embedder", lambda: (lambda t: [0.0]))
+        monkeypatch.setattr(instruction.db, "hybrid_search_chunks", lambda *a, **k: [])
+        assert instruction._probe(42, [7], "Kuehlung") == 1.0
+
+    def test_stellen_ohne_abstand_zaehlen_nicht_mit(self, monkeypatch):
+        monkeypatch.setattr(instruction, "_embedder", lambda: (lambda t: [0.0]))
+        monkeypatch.setattr(instruction.db, "hybrid_search_chunks",
+                            lambda *a, **k: [{"vec_distance": None}, {"vec_distance": 0.4}])
+        assert instruction._probe(42, [7], "Kuehlung") == pytest.approx(0.4)

@@ -45,8 +45,9 @@ def stack(monkeypatch):
     monkeypatch.setattr(mod, "seen_by_user", lambda *a, **k: [])
     monkeypatch.setattr(
         mod, "store_in_pool",
-        lambda items, ctx, tool, level, topic_id=None:
-            seen["eingelagert"].append((tool, level, [dict(i) for i in items], topic_id)))
+        lambda items, ctx, tool, level, topic_id=None, set_title=None:
+            seen["eingelagert"].append(
+                (tool, level, [dict(i) for i in items], topic_id, set_title)))
 
     class _Ctx:
         sections = {1: "A.pdf"}
@@ -154,7 +155,7 @@ def test_what_was_generated_goes_into_the_pool(stack, monkeypatch):
     _run(count=2)
 
     assert len(seen["eingelagert"]) == 1
-    tool, level, eingelagert, thema = seen["eingelagert"][0]
+    tool, level, eingelagert, thema, _name = seen["eingelagert"][0]
     assert tool == "quiz"
     assert level is None, "ohne Sprachniveau gehoert es in den niveaulosen Vorrat"
     assert [i["front"] for i in eingelagert] == ["a", "b"]
@@ -509,3 +510,60 @@ def test_the_pool_gets_the_kind_the_finished_set_does_not(stack, monkeypatch):
     eingelagert = seen["eingelagert"][0][2]
     assert eingelagert[0]["_kind"] == "transform", "der Vorrat braucht die Art"
     assert all("_kind" not in i for i in seen["finalized"]["items"])
+
+
+# --- the set name: one call delivers exercises and title together --------------
+
+def _named_generator(mod, monkeypatch, fronts, title):
+    monkeypatch.setattr(mod, "generate_mc_from_source",
+                        lambda *a, **k: (_cards(*fronts), title))
+
+
+def test_the_name_of_the_generation_call_is_the_name_of_the_set(stack, monkeypatch):
+    """No title call of its own, the generation answer already carries the name."""
+    mod, seen = stack
+    monkeypatch.setattr(mod, "resolve_set_title", lambda w, t, title: title)
+    _named_generator(mod, monkeypatch, ("a", "b", "c"), "Passiv im Labor")
+
+    _run(count=3)
+
+    assert seen["finalized"]["title"] == "Passiv im Labor"
+
+
+def test_the_name_travels_into_the_pool_with_the_exercises(stack, monkeypatch):
+    mod, seen = stack
+    monkeypatch.setattr(mod, "resolve_set_title", lambda w, t, title: title)
+    _named_generator(mod, monkeypatch, ("a",), "Passiv im Labor")
+
+    _run(count=1)
+
+    assert seen["eingelagert"][0][4] == "Passiv im Labor"
+
+
+def test_a_set_made_purely_from_the_pool_inherits_its_name(stack, monkeypatch):
+    """Nothing is generated here, so the name has to come out of the pool."""
+    mod, seen = stack
+    monkeypatch.setattr(mod, "resolve_set_title", lambda w, t, title: title)
+    aus_vorrat = _pool_cards("a", "b")
+    for karte in aus_vorrat:
+        karte["set_title"] = "Passiv im Labor"
+    monkeypatch.setattr(mod, "take_from_pool", lambda *a, **k: aus_vorrat)
+    lauf = _generator(mod, monkeypatch, seen, _cards("x"))
+
+    _run(count=2)
+
+    assert lauf["n"] == 0, "der Vorrat hat gereicht, es darf nichts erzeugt werden"
+    assert seen["finalized"]["title"] == "Passiv im Labor"
+
+
+def test_a_pooled_set_without_a_stored_name_falls_back_to_the_source(stack, monkeypatch):
+    """Everything pooled before the name was stored, the placeholder must not survive."""
+    mod, seen = stack
+    monkeypatch.setattr(mod, "resolve_set_title", lambda w, t, title: title)
+    monkeypatch.setattr(mod, "label_for_sources", lambda _u: "Skript.pdf")
+    monkeypatch.setattr(mod, "take_from_pool", lambda *a, **k: _pool_cards("a", "b"))
+    _generator(mod, monkeypatch, seen, _cards("x"))
+
+    _run(count=2)
+
+    assert seen["finalized"]["title"] == "Skript.pdf"

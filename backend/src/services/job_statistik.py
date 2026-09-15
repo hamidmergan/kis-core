@@ -1,4 +1,4 @@
-"""Numbers about the screencast run, phase by phase into the job's meta.json."""
+"""Numbers about a job run, phase by phase into the job's meta.json."""
 
 import time
 from contextlib import contextmanager
@@ -20,9 +20,8 @@ def notiere(user_id: int, job_uuid: str, phase: str, werte: dict) -> None:
 
 
 @contextmanager
-def messe(user_id: int, job_uuid: str, phase: str):
-    """Measures the phase duration and records it, even when it fails."""
-    werte: dict = {}
+def messe_vorab(werte: dict):
+    """Measures a phase that runs before the job exists, ``notiere`` records it afterwards."""
     start = time.monotonic()
     try:
         yield werte
@@ -31,6 +30,16 @@ def messe(user_id: int, job_uuid: str, phase: str):
         raise
     finally:
         werte["dauer_s"] = round(time.monotonic() - start, 2)
+
+
+@contextmanager
+def messe(user_id: int, job_uuid: str, phase: str):
+    """Measures the phase duration and records it, even when it fails."""
+    werte: dict = {}
+    try:
+        with messe_vorab(werte):
+            yield werte
+    finally:
         notiere(user_id, job_uuid, phase, werte)
 
 
@@ -46,6 +55,16 @@ def anbieter_und_modell(provider_id: int, feature: str) -> dict:
         "modell": je_anbieter.get(str(provider_id)) or route.get("model_name") or "",
         "route": feature,
     }
+
+
+def anbieter_und_modelle(provider_ids: list[int], feature: str) -> dict:
+    """Like ``anbieter_und_modell``, but for a run that spreads over several providers."""
+    einzeln = [anbieter_und_modell(pid, feature) for pid in dict.fromkeys(provider_ids)]
+
+    def verbinde(schluessel: str) -> str:
+        return ", ".join(dict.fromkeys(e[schluessel] for e in einzeln if e[schluessel]))
+
+    return {"anbieter": verbinde("anbieter"), "modell": verbinde("modell"), "route": feature}
 
 
 def route_kennung(feature: str) -> dict:

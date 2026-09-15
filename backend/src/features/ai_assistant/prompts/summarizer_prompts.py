@@ -11,12 +11,13 @@ def aia_summary_system() -> str:
         "2. Base it ONLY on the provided content. Never add or invent information.\n"
         "3. Be CONCISE: capture the main topics. Keep key named terms, definitions, names and dates spelled exactly as written (do not invent sub-numbers). Brevity over detail — do NOT enumerate every single item.\n"
         "4. Output ONLY the summary (short bullet points or a short paragraph). No preamble, no closing remarks.\n"
+        "5. NEVER comment on your own writing and never correct yourself in the answer. No 'wait', no 'let me rephrase', no rows of dashes or slashes. Write the summary once, straight through.\n"
     )
 
 
 def aia_summary_user(content: str) -> str:
     """User message for a single summary (map) call."""
-    return f"Content to summarize:\n\n{content}"
+    return f"/no_think\nContent to summarize:\n\n{content}"
 
 
 def aia_summary_combine_system() -> str:
@@ -29,6 +30,7 @@ def aia_summary_combine_system() -> str:
         "3. Be CONCISE: ONE coherent summary of the whole document, main topics in document order, overlaps stated once (no repetition). Brevity over detail.\n"
         "4. SECTION NUMBERS (e.g. '§ 211', 'Art. 5', 'Kapitel 3'): carry a number over ONLY if a partial explicitly attaches it to that exact term. NEVER assign, guess, or attach a number yourself, and never infer one from order or proximity. If a topic has no number in the partials, name it WITHOUT a number.\n"
         "5. Output ONLY the merged summary. No preamble, no mention of 'partials', 'parts', or that a merge happened.\n"
+        "6. NEVER comment on your own writing and never correct yourself in the answer. No 'wait', no 'let me rephrase', no rows of dashes or slashes. Write the summary once, straight through.\n"
     )
 
 
@@ -38,6 +40,7 @@ def aia_summary_combine_user(partials: list[str]) -> str:
         f"--- Part {i} ---\n{p}" for i, p in enumerate(partials, 1)
     )
     return (
+        "/no_think\n"
         "Below are partial summaries of consecutive parts of the SAME document. "
         "Merge them into ONE coherent document summary following the rules.\n\n"
         f"{blocks}"

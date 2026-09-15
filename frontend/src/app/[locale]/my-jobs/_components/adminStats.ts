@@ -1,14 +1,17 @@
-/** The numbers the screencast records during the run, for admins only. */
+/** The numbers a tool records during the run, for admins only. */
 export type JobStats = Record<string, Record<string, unknown>>;
 
-/** A screencast runs through in this order, and it is displayed that way too. */
+/** Screencast and podcast phases in one order, a job only ever carries its own. */
 const REIHENFOLGE = [
+  "material",
   "uebersetzung",
+  "skript",
   "skripte",
   "bilder",
   "vertonung",
   "clips",
   "untertitel",
+  "montage",
   "zusammenfuegen",
 ];
 
@@ -60,7 +63,7 @@ export function wertText(
 ): string {
   if (typeof wert === "boolean") return wert ? woerter.ja : woerter.nein;
   const tag = locale === "en" ? "en-GB" : "de-DE";
-  if (schluessel === "video_bytes" && typeof wert === "number") {
+  if (schluessel.endsWith("_bytes") && typeof wert === "number") {
     return `${(wert / 1048576).toLocaleString(tag, {
       minimumFractionDigits: 1, maximumFractionDigits: 1,
     })} MB`;

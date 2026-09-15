@@ -1228,6 +1228,7 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                     start_time  REAL,
                     sources     JSONB,
                     extras      JSONB,
+                    set_title   TEXT,
                     fingerprint TEXT NOT NULL,
                     created_at  TIMESTAMP NOT NULL DEFAULT NOW()
                 )
@@ -1241,6 +1242,9 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             )
             # Presentation format of a grammar exercise, empty otherwise.
             cur.execute("ALTER TABLE aia_exercise_pool ADD COLUMN IF NOT EXISTS kind TEXT")
+            # Name of the set this exercise was generated for, so a set drawn purely
+            # from the pool gets a title without a model call of its own.
+            cur.execute("ALTER TABLE aia_exercise_pool ADD COLUMN IF NOT EXISTS set_title TEXT")
             # COALESCE, because two NULLs do not count as equal in Postgres.
             cur.execute("DROP INDEX IF EXISTS uq_exercise_pool_item")
             cur.execute(

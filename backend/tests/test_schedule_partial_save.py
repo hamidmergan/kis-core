@@ -54,7 +54,7 @@ def welt(monkeypatch):
     monkeypatch.setattr(job, "_load_source_chunks",
                         lambda sid: [_chunk(sid * 10 + 1), _chunk(sid * 10 + 2)])
     monkeypatch.setattr(job, "_transcript_index", lambda src, chunks: None)
-    monkeypatch.setattr(job, "tool_context_budget", lambda tool="": 3 * len(BLOCK) + 2)
+    monkeypatch.setattr(job, "tool_context_budget", lambda: 3 * len(BLOCK) + 2)
     monkeypatch.setattr(job, "_harmonize_same_date_titles", lambda *a, **k: None)
 
     def extract(client, model, paket, today):
@@ -155,7 +155,7 @@ def test_found_appointments_are_saved_with_their_source_in_packet_order(welt, mo
 
 
 def test_at_most_two_packets_run_at_the_same_time(welt, monkeypatch):
-    monkeypatch.setattr(job, "tool_context_budget", lambda tool="": len(BLOCK))
+    monkeypatch.setattr(job, "tool_context_budget", lambda: len(BLOCK))
     zaehler = {"jetzt": 0, "hoechst": 0}
     lock = threading.Lock()
 

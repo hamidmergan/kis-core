@@ -4,7 +4,7 @@ import json
 
 from loguru import logger
 
-from src.features.podcast.schemas import LENGTH_WORDS, Line, PodcastParams
+from src.features.podcast.schemas import LENGTH_PLAN, Line, PodcastParams
 from src.limits import PODCAST_MAX_LINES, PODCAST_MAX_LINE_CHARS
 
 _ROLE_DE = {
@@ -40,7 +40,8 @@ def _besetzung(params: PodcastParams) -> str:
 
 def build_messages(source: str, params: PodcastParams) -> list[dict]:
     """One call, the answer is a JSON object with the list of contributions."""
-    woerter = LENGTH_WORDS.get(params.length, LENGTH_WORDS["medium"])
+    anzahl, je = LENGTH_PLAN.get(params.length, LENGTH_PLAN["medium"])
+    woerter = anzahl * je
     allein = len(params.persons) == 1
     if params.language == "de":
         system = (
@@ -53,13 +54,13 @@ def build_messages(source: str, params: PodcastParams) -> list[dict]:
             f"Material:\n---\n{source}\n---\n\n"
             f"Besetzung, die Zahl ist der Wert für speaker:\n{_besetzung(params)}\n\n"
             f"Stil: {_STYLE_DE.get(params.style, params.style)}\n"
-            f"Umfang: rund {woerter} Wörter insgesamt.\n\n"
+            f"Umfang: genau {anzahl} Beiträge mit je etwa {je} Wörtern, zusammen rund {woerter} Wörter.\n\n"
             "Regeln:\n"
             "- Sprache des Skripts: Deutsch.\n"
             + ("- Es spricht nur eine Person, speaker ist immer 0.\n" if allein else
                "- Die Personen wechseln sich ab, niemand spricht zweimal hintereinander.\n"
                "- Jede Person kommt vor und behält ihre Rolle.\n")
-            + "- Ein Beitrag ist ein gesprochener Absatz, höchstens 90 Wörter.\n"
+            + f"- Ein Beitrag ist ein gesprochener Absatz von etwa {je} Wörtern, nie mehr als 90.\n"
             "- Der erste Beitrag begrüßt und nennt das Thema, der letzte verabschiedet.\n"
             "- Keine Regieanweisungen, keine Namen vor dem Text, keine Zwischenüberschriften.\n"
             "- Zahlen und Formeln ausschreiben, der Text wird vorgelesen.\n"
@@ -75,13 +76,13 @@ def build_messages(source: str, params: PodcastParams) -> list[dict]:
             f"Material:\n---\n{source}\n---\n\n"
             f"Cast, the number is the value for speaker:\n{_besetzung(params)}\n\n"
             f"Style: {_STYLE_EN.get(params.style, params.style)}\n"
-            f"Length: about {woerter} words in total.\n\n"
+            f"Length: exactly {anzahl} contributions of about {je} words each, {woerter} words in total.\n\n"
             "Rules:\n"
             "- Language of the script: English.\n"
             + ("- Only one person speaks, speaker is always 0.\n" if allein else
                "- The people take turns, nobody speaks twice in a row.\n"
                "- Every person appears and keeps their role.\n")
-            + "- One contribution is one spoken paragraph, at most 90 words.\n"
+            + f"- One contribution is one spoken paragraph of about {je} words, never more than 90.\n"
             "- The first contribution greets and names the topic, the last says goodbye.\n"
             "- No stage directions, no names before the text, no headings.\n"
             "- Spell out numbers and formulas, the text is read aloud.\n"

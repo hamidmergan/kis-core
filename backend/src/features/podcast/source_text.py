@@ -1,4 +1,4 @@
-"""Where the material comes from: typed text, uploaded files or a module."""
+"""Where the material comes from: uploaded files or a module."""
 
 from pathlib import Path
 
@@ -69,7 +69,7 @@ def fit_to_budget(sources: list[tuple[str, list[dict]]]) -> str:
     """
     from src.features.ai_assistant.tasks._context_budget import tool_context_budget
 
-    uebrig = tool_context_budget("podcast")
+    uebrig = tool_context_budget()
     teile: list[str] = []
     for label, chunks in sources:
         kopf = f"# {label}\n" if label else ""

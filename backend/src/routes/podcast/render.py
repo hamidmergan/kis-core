@@ -27,14 +27,17 @@ async def start_render(
     user_id = job["user_id"]
     if job["status"] not in _STARTBAR:
         raise HTTPException(status_code=409, detail=t("podcast.running", locale))
-    if not store.load_lines(user_id, job_uuid):
+    if not any(l.text.strip() for l in store.load_lines(user_id, job_uuid)):
         raise HTTPException(status_code=422, detail=t("podcast.emptyScript", locale))
 
     enforce_tool_burst(user_id, "podcast", locale)
     enforce_quota(user_id, "podcast", is_admin_user(current_user), locale)
 
     from src.tasks.podcast_tasks import run_podcast_render
+    from src.tasks.podcast_tasks._shared import clear_cancel
 
+    # Whoever cancelled and starts again must not run into their own mark.
+    clear_cancel(job_uuid)
     task = run_podcast_render.apply_async(args=[job_uuid, user_id, locale])
     db.set_job_celery_task_id(job_uuid, task.id)
     db.update_job_status(job_uuid, "pending", progress={"step": "tts"})

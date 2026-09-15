@@ -20,7 +20,8 @@ _ITEM_FIELDS = (
 _JSON_FIELDS = ("options", "sources", "extras")
 
 
-def _as_row(item: dict, source_id: int, tool: str, level, topic_id, fingerprint: str) -> tuple:
+def _as_row(item: dict, source_id: int, tool: str, level, topic_id, fingerprint: str,
+            set_title) -> tuple:
     values = []
     for field in _ITEM_FIELDS:
         value = item.get(field)
@@ -29,12 +30,13 @@ def _as_row(item: dict, source_id: int, tool: str, level, topic_id, fingerprint:
         else:
             values.append(value)
     # The kind sits on the item under _kind and still belongs in the pool.
-    return (source_id, tool, level, topic_id, item.get("_kind"), fingerprint, *values)
+    return (source_id, tool, level, topic_id, item.get("_kind"), fingerprint, set_title,
+            *values)
 
 
 def add_pool_items(
     source_id: int, tool: str, level, items: list[dict], fingerprints: list[str],
-    topic_id=None,
+    topic_id=None, set_title: str | None = None,
 ) -> list[int]:
     """Stores exercises and returns the pool ids in the same order."""
     if not items:
@@ -48,14 +50,14 @@ def add_pool_items(
                     continue
                 cur.execute(
                     f"""INSERT INTO aia_exercise_pool
-                        (source_id, tool, level, topic_id, kind, fingerprint,
+                        (source_id, tool, level, topic_id, kind, fingerprint, set_title,
                          {", ".join(_ITEM_FIELDS)})
-                        VALUES ({", ".join(["%s"] * (6 + len(_ITEM_FIELDS)))})
+                        VALUES ({", ".join(["%s"] * (7 + len(_ITEM_FIELDS)))})
                         ON CONFLICT (source_id, tool, COALESCE(level, ''),
                                      COALESCE(topic_id, 0), fingerprint)
                         DO NOTHING
                         RETURNING id""",
-                    _as_row(item, source_id, tool, level, topic_id, fingerprint),
+                    _as_row(item, source_id, tool, level, topic_id, fingerprint, set_title),
                 )
                 row = cur.fetchone()
                 if row is None:

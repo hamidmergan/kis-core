@@ -61,7 +61,8 @@
         "summary": "Summary",
         "tts": "Text to speech",
         "screencast": "Screencast",
-        "image": "Image"
+        "image": "Image",
+        "podcast": "Podcast"
       }
     },
     "status": {
@@ -93,7 +94,10 @@
         "vertonung": "Speech",
         "clips": "Video clips",
         "untertitel": "Subtitles",
-        "zusammenfuegen": "Joining"
+        "zusammenfuegen": "Joining",
+        "material": "Material",
+        "skript": "Script",
+        "montage": "Assembly"
       },
       "field": {
         "anbieter": "Provider",
@@ -117,7 +121,38 @@
         "gleichzeitig": "in parallel",
         "folien_mit_ton": "slides with audio",
         "video_bytes": "Video size",
-        "clips": "Clips"
+        "clips": "Clips",
+        "herkunft": "Source",
+        "quellen": "Sources",
+        "weg": "Path",
+        "anweisung": "Instruction",
+        "budget": "Budget",
+        "eingelagert": "filed",
+        "stellen": "Passages",
+        "daneben": "beside the material",
+        "personen": "People",
+        "beitraege": "Contributions",
+        "versuche": "Attempts",
+        "stimmen": "Voices",
+        "neu_vertont": "newly voiced",
+        "behalten": "kept",
+        "stuecke": "Pieces",
+        "tondauer_s": "Audio length",
+        "mp3_bytes": "MP3 size",
+        "beitragspause": "Gap between contributions",
+        "besetzung": "Cast",
+        "rollen": "Roles"
+      },
+      "herkunftWert": {
+        "files": "Files",
+        "module": "Module",
+        "text": "Text",
+        "blank": "Own script"
+      },
+      "wegWert": {
+        "fill": "filled up",
+        "search": "searched",
+        "outline": "via the outline"
       }
     },
     "actions": {
@@ -336,7 +371,7 @@
     },
     "coming": {
       "slides": {
-        "title": "PowerPoint generation",
+        "title": "Presentation",
         "body": "Your material becomes slides with speaker notes, ready for editing."
       }
     },
@@ -931,6 +966,7 @@
       "title": "Podcast",
       "intro": "Your material becomes a conversation to listen to. You pick the content and the cast, check the script and have it voiced.",
       "newPodcast": "New podcast",
+      "discardPodcast": "Discard podcast",
       "mockNote": "Mockup: script and voicing are simulated, nothing is sent to a provider. Your progress stays in the browser.",
       "steps": {
         "content": "Content",
@@ -944,13 +980,23 @@
         "cancel": "Cancel",
         "save": "Save"
       },
+      "nachfrage": {
+        "abbrechenTitel": "Cancel the voicing?",
+        "abbrechenText": "Lines that are already voiced stay saved. You can continue the voicing later.",
+        "abbrechenWeiter": "Keep voicing",
+        "abbrechenJa": "Cancel the voicing",
+        "neuTitel": "Start a new podcast?",
+        "neuText": "The script and the voiced lines disappear from this view. The job stays reachable under Jobs.",
+        "neuZurueck": "Back",
+        "neuJa": "Start over"
+      },
       "content": {
         "heading": "What is it about?",
         "tabs": {
-          "text": "Text",
-          "files": "Files"
+          "files": "Files",
+          "blank": "Your own script"
         },
-        "textPlaceholder": "Lecture notes, a chapter, an article. Everything the podcast should cover.",
+        "blankHint": "The script comes from you, with no AI at all. Next you pick the cast, then you add the contributions and type them in. The voicing works as always at the end.",
         "dropOrBrowse": "Drop files here or",
         "browse": "browse",
         "filesHint": "PDF, Word, PowerPoint or text files, at most 10 at a time.",
@@ -962,16 +1008,16 @@
           "en": "English"
         },
         "instructionsLabel": "Instruction, optional",
-        "instructionsPlaceholder": "For example: stick to the basics and bring an example from the lab.",
+        "instructionsPlaceholder": "Narrow down a topic or chapter, set tone and level, name the audience.",
         "next": "Continue to the cast",
-        "noModules": "You have no module with material yet. Use text or files in the meantime.",
+        "noModules": "You have no module with material yet. Use files in the meantime.",
         "noSources": "No source has finished processing here yet.",
         "sourcesHint": "Choose up to {max} sources.",
         "filesCount": "{n} of {max} files",
         "filesSize": "{size} of {max}",
         "tooManyFiles": "That is too many files. Remove some to continue.",
         "tooLarge": "The files are too large together. Remove one to continue.",
-        "sourcesFull": "No more than {max} sources."
+        "sourcesFull": "Maximum {max} sources."
       },
       "cast": {
         "heading": "Who speaks?",
@@ -993,6 +1039,10 @@
           "critic": "Critical voice"
         },
         "previewVoices": "Listen to voices →",
+        "speedLabel": "Speed: {speed}x",
+        "speedSlow": "Slow (0.7x)",
+        "speedFast": "Fast (1.2x)",
+        "speedRecastHint": "A different tempo voices every contribution again.",
         "lengthLabel": "Length",
         "lengths": {
           "short": "Short, about 5 minutes",
@@ -1006,6 +1056,7 @@
           "interview": "Interview"
         },
         "next": "Write the script",
+        "nextBlank": "Continue to the script",
         "noVoices": "No voice is configured. Without a voice nothing can be voiced.",
         "recastHint": "You can still swap the cast. Contributions with a different voice are voiced again afterwards, all others stay as they are.",
         "writtenHint": "Length and style wrote the script and are therefore fixed. Single contributions you shorten or delete in the script.",
@@ -1017,6 +1068,7 @@
         "heading": "Check the script",
         "intro": "Every line can be edited, rephrased or deleted. Voicing starts only when you are happy with it.",
         "summary": "{lines, plural, =1 {One line} other {# lines}}, {words} words, about {minutes, plural, =1 {one minute} other {# minutes}}",
+        "instructionUnmatched": "Your instruction is not covered by the sources. The episode uses all of the material instead.",
         "castLegend": "Cast",
         "changed": "changed",
         "voiced": "voiced",
@@ -1030,7 +1082,11 @@
         "nextChanged": "Voice {n, plural, =1 {one changed line} other {# changed lines}} again",
         "nextDone": "To the finished podcast",
         "speakerAria": "Person for contribution {n}",
-        "speakerFallback": "Person {n}"
+        "speakerFallback": "Person {n}",
+        "blankHeading": "Your own script",
+        "blankIntro": "Add contributions, pick who speaks and type the text. The voicing only happens once you are happy.",
+        "blankEmpty": "No contribution yet. Add the first one.",
+        "emptyLine": "Nothing written yet"
       },
       "voicing": {
         "heading": "Voicing",
@@ -1887,7 +1943,7 @@
     },
     "toolContextBudgetCard": {
       "title": "Overview tools context budget",
-      "hint": "How much text from the material (in characters) the overview tools hand to the model. The tools take different shares of it: the mind map the whole value, schedule and data table four fifths, the podcast half. The mind map splits its share across the chosen material, the podcast fills up one by one, schedule and data table cut their material into packets of this size and make one call per packet. If the configured model cannot take that much, it refuses the job with an error, then this value has to come down.",
+      "hint": "How much text from the material (in characters) the overview tools hand to the model. The value is the same for all four: the mind map splits it across the chosen material, the podcast fills up one by one, schedule and data table cut their material into packets of this size and make one call per packet. If the configured model cannot take that much, it refuses the job with an error, then this value has to come down.",
       "unit": "characters",
       "approxTokens": "≈ {n}k tokens",
       "outOfRange": "Value must be between 1000 and 1000000.",
@@ -3131,6 +3187,12 @@
           "saveError": "Saving failed. Please try again.",
           "linkUrlInvalid": "URL must start with http(s):// or mailto:",
           "linkLabelMissing": "Label is missing."
+        },
+        "summary": {
+          "open": "What this is about",
+          "title": "What this is about",
+          "failed": "The summary could not be loaded.",
+          "empty": "There is no summary for this material yet."
         }
       },
       "viewer": {
@@ -3514,7 +3576,7 @@
       "joinAll": "Join all"
     },
     "list": {
-      "headerTitle": "Hello, {name}",
+      "headerTitle": "Hello {name}!",
       "myWorkspaces": "My {label}",
       "allWorkspaces": "All {label}",
       "groupEnrolled": "Enrolled",

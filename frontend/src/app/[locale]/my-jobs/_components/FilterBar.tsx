@@ -32,6 +32,7 @@ export function FilterBar({
     { value: "summary", label: tt("summary") },
     { value: "tts", label: tt("tts") },
     { value: "screencast", label: tt("screencast") },
+    { value: "podcast", label: tt("podcast") },
     { value: "image", label: tt("image") },
   ];
   return (

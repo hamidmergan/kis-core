@@ -38,6 +38,7 @@ interface ContentStepProps {
 
 export default function ContentStep({ canUseModules, source, language, instructions, onSource, onLanguage, onInstructions, onNext }: ContentStepProps) {
   const t = useTranslations("tools.podcast.content");
+  const tTool = useTranslations("tools.podcast");
   const tCommon = useTranslations("common");
   const format = useFormatter();
   /** Readable size, the decimal mark follows the display language. */
@@ -49,7 +50,7 @@ export default function ContentStep({ canUseModules, source, language, instructi
   const fileRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   // Whoever loses the assistant must not stay stuck in a tab that is gone.
-  const mode: SourceMode = canUseModules || source.mode !== "module" ? source.mode : "text";
+  const mode: SourceMode = canUseModules || source.mode !== "module" ? source.mode : "files";
   const { modules, sources } = useModules(mode === "module" ? source.moduleId : "");
 
   // Nothing is preselected, a deleted source drops out of the choice.
@@ -91,6 +92,8 @@ export default function ContentStep({ canUseModules, source, language, instructi
 
   return (
     <section className="animate-[fadeIn_0.3s_ease-out]">
+      <h1 className="text-xl font-bold mb-1">{tTool("title")}</h1>
+      <p className="text-sm text-muted mb-8">{tTool("intro")}</p>
       <h2 className="text-lg font-bold mb-4">{t("heading")}</h2>
 
       <Tabs<SourceMode>
@@ -98,21 +101,16 @@ export default function ContentStep({ canUseModules, source, language, instructi
         active={mode}
         onChange={(next) => onSource({ mode: next })}
         items={[
-          { key: "text", label: t("tabs.text") },
           { key: "files", label: t("tabs.files") },
           ...(canUseModules ? [{ key: "module" as const, label: labels.singular }] : []),
+          { key: "blank", label: t("tabs.blank") },
         ]}
       />
 
-      {mode === "text" && (
-        <textarea
-          value={source.text}
-          onChange={(e) => onSource({ text: e.target.value })}
-          rows={8}
-          placeholder={t("textPlaceholder")}
-          className={`${FIELD} resize-y`}
-          aria-label={t("tabs.text")}
-        />
+      {mode === "blank" && (
+        <p className="rounded-lg border border-border-soft px-4 py-3 text-sm text-foreground-soft">
+          {t("blankHint")}
+        </p>
       )}
 
       {mode === "files" && (
@@ -239,34 +237,38 @@ export default function ContentStep({ canUseModules, source, language, instructi
         )
       )}
 
-      <div className="mt-6">
-        <label htmlFor="podcast-language" className="block text-sm font-medium text-foreground-soft mb-2">
-          {t("languageLabel")}
-        </label>
-        <Select<Language>
-          id="podcast-language"
-          value={language}
-          onChange={onLanguage}
-          options={[
-            { value: "de", label: t("languages.de") },
-            { value: "en", label: t("languages.en") },
-          ]}
-        />
-      </div>
+      {mode !== "blank" && (
+        <>
+        <div className="mt-6">
+          <label htmlFor="podcast-language" className="block text-sm font-medium text-foreground-soft mb-2">
+            {t("languageLabel")}
+          </label>
+          <Select<Language>
+            id="podcast-language"
+            value={language}
+            onChange={onLanguage}
+            options={[
+              { value: "de", label: t("languages.de") },
+              { value: "en", label: t("languages.en") },
+            ]}
+          />
+        </div>
 
-      <div className="mt-4">
-        <label htmlFor="podcast-instructions" className="block text-sm font-medium text-foreground-soft mb-2">
-          {t("instructionsLabel")}
-        </label>
-        <textarea
-          id="podcast-instructions"
-          value={instructions}
-          onChange={(e) => onInstructions(e.target.value)}
-          rows={3}
-          placeholder={t("instructionsPlaceholder")}
-          className={`${FIELD} resize-y`}
-        />
-      </div>
+        <div className="mt-4">
+          <label htmlFor="podcast-instructions" className="block text-sm font-medium text-foreground-soft mb-2">
+            {t("instructionsLabel")}
+          </label>
+          <textarea
+            id="podcast-instructions"
+            value={instructions}
+            onChange={(e) => onInstructions(e.target.value)}
+            rows={3}
+            placeholder={t("instructionsPlaceholder")}
+            className={`${FIELD} resize-y`}
+          />
+        </div>
+        </>
+      )}
 
       <StepFooter onBack={null} nextLabel={t("next")} onNext={onNext} nextDisabled={!bereit} />
     </section>

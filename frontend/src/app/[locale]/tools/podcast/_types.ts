@@ -1,7 +1,7 @@
 export type Step = "content" | "cast" | "script" | "voicing" | "done";
 export const STEPS = ["content", "cast", "script", "voicing", "done"] as const;
 
-export type SourceMode = "text" | "files" | "module";
+export type SourceMode = "files" | "module" | "blank";
 export type Language = "de" | "en";
 export type Length = "short" | "medium" | "long";
 export type Style = "teaching" | "casual" | "interview";
@@ -39,7 +39,6 @@ export type JobStatus = "idle" | "pending" | "running" | "awaiting_user" | "succ
 
 export interface Source {
   mode: SourceMode;
-  text: string;
   /** Only alive until the job starts, files never reach the browser storage. */
   files: File[];
   moduleId: string;
@@ -56,11 +55,17 @@ export interface PodcastState {
   persons: Person[];
   length: Length;
   style: Style;
+  /** Speaking tempo of every voice, the same range the screencast offers. */
+  speed: number;
   jobUuid: string | null;
   jobStatus: JobStatus;
   progress: JobProgress | null;
   error: string;
   lines: Line[];
+  /** Written by hand from an empty script, so no model is asked anywhere. */
+  selfWritten: boolean;
+  /** The instruction named something the material does not cover. */
+  instructionUnmatched: boolean;
   /** Ids whose audio matches their current text, seeded by the server. */
   voicedIds: string[];
   /** Measured running time of the finished file, the estimate only stands in until then. */

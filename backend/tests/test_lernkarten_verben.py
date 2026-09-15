@@ -135,7 +135,7 @@ def test_glossar_verbformen_landen_in_extras():
         "page_number": 5,
     }]
 
-    items = _generate_flashcards(client, "modell", glossary_entries, "German")
+    items, _titel = _generate_flashcards(client, "modell", glossary_entries, "German")
 
     # All three verb forms have to land in extras
     assert items[0]["extras"]["verb_present"] == "schreibt"
@@ -168,7 +168,7 @@ def test_glossar_leere_verbformen_erzeugen_keine_schluessel():
         "page_number": 10,
     }]
 
-    items = _generate_flashcards(client, "modell", glossary_entries, "German")
+    items, _titel = _generate_flashcards(client, "modell", glossary_entries, "German")
 
     # Empty verb forms must not be in extras
     extras = items[0].get("extras", {})

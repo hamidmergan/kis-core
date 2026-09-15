@@ -12,6 +12,13 @@ from src.services import model_limits
 
 FILL = "fill"
 SEARCH = "search"
+OUTLINE = "outline"
+
+# Cosine distance to the material, measured 15.09.2026 on a law module: a topic that is in
+# it lands at 0.39 to 0.56, one that is not at 0.65 and up.
+MAX_DIST = 0.60
+_PROBE_LIMIT = 30
+_PROBE_TOP = 5
 
 # The assistant's pre-call asks whether a QUESTION is pointed or broad. A podcast
 # instruction is mostly no question at all, so it gets its own one.
@@ -104,6 +111,28 @@ def _ready_ids(workspace_id: int, source_uuids: list[str]) -> list[int]:
     return ids
 
 
+def _embedder():
+    """The embedding call, in one place so a test can stand in for it."""
+    from src.services.aia_embeddings import get_embedding_provider_with_fallback
+    return get_embedding_provider_with_fallback().embed_one
+
+
+def _probe(workspace_id: int, source_ids: list[int], instruction: str) -> float:
+    """Mean distance of the best spots, the search itself has no such floor."""
+    from src.features.ai_assistant.routes._retrieval import _truncate_query_for_embedding
+
+    frage = _truncate_query_for_embedding(instruction)
+    treffer = db.hybrid_search_chunks(
+        workspace_id, frage, _embedder()(frage), source_ids=source_ids,
+        limit=_PROBE_LIMIT, mode="dense") or []
+    abstaende = sorted(float(t["vec_distance"]) for t in treffer
+                       if t.get("vec_distance") is not None)
+    if not abstaende:
+        return 1.0
+    beste = abstaende[:_PROBE_TOP]
+    return sum(beste) / len(beste)
+
+
 async def _search(workspace_id: int, source_ids: list[int], instruction: str) -> list[dict]:
     from src.features.ai_assistant.routes._retrieval import _retrieve_specific_context
     from src.features.ai_assistant.tasks._context_budget import tool_context_budget
@@ -111,7 +140,7 @@ async def _search(workspace_id: int, source_ids: list[int], instruction: str) ->
 
     provider = get_embedding_provider_with_fallback()
     return await _retrieve_specific_context(
-        provider, workspace_id, source_ids, [instruction], instruction, tool_context_budget("podcast"),
+        provider, workspace_id, source_ids, [instruction], instruction, tool_context_budget(),
     )
 
 
@@ -135,20 +164,110 @@ def _as_text(chunks: list[dict]) -> str:
     return "\n\n".join(teile)
 
 
+def _quellen_mit_zusammenfassung(source_uuids: list[str]) -> list[dict]:
+    """Per source its file name and its summary, that is what the outline is built from."""
+    quellen = []
+    for suuid in source_uuids:
+        source = db.get_aia_source(suuid)
+        if source:
+            quellen.append({"id": source["id"], "label": source["filename"],
+                            "summary": source.get("summary")})
+    return quellen
+
+
+async def _broad_context(sources, workspace_id: int | None,
+                         source_uuids: list[str] | None) -> str:
+    """The outline way, only when the material does not fit and every source is summarised."""
+    from src.features.ai_assistant.tasks._context_budget import tool_context_budget
+    from src.features.podcast import outline
+
+    gesamt = sum(len((c.get("content") or "")) for _label, chunks in sources for c in chunks)
+    if gesamt <= tool_context_budget() or not workspace_id or not source_uuids:
+        return ""
+
+    quellen = _quellen_mit_zusammenfassung(source_uuids)
+    if not outline.usable(quellen):
+        logger.info("Podcast: Material zu gross, aber nicht alles zusammengefasst, es wird aufgefuellt")
+        return ""
+
+    ids = _ready_ids(workspace_id, source_uuids)
+    if not ids:
+        return ""
+
+    from src.services.aia_embeddings import get_embedding_provider_with_fallback
+    provider = get_embedding_provider_with_fallback()
+    namen = {q["id"]: q["label"] for q in quellen}
+
+    def _suche(thema: str, limit: int) -> list[dict]:
+        treffer = db.hybrid_search_chunks(
+            workspace_id, thema, provider.embed_one(thema), source_ids=ids, limit=limit) or []
+        for c in treffer:
+            c["source_label"] = namen.get(c.get("source_id"), "")
+        return treffer
+
+    llm = _llm()
+
+    async def _frage(messages):
+        """The same client and shape the pre-call uses, it must answer JSON."""
+        def _call():
+            return llm._client.with_options(timeout=120.0, max_retries=0).chat.completions.create(
+                model=llm._model, messages=messages, temperature=0.2,
+                response_format={"type": "json_object"},
+                **(llm._extra_body and {"extra_body": llm._extra_body} or {}),
+            )
+
+        antwort = await asyncio.to_thread(_call)
+        roh = (antwort.choices[0].message.content or "").strip()
+        if roh.startswith("```"):
+            roh = roh.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+        try:
+            return json.loads(roh)
+        except json.JSONDecodeError:
+            return {}
+
+    try:
+        return await outline.build(sources=quellen, ask=_frage, search=_suche)
+    except Exception as e:  # noqa: BLE001 - a failed outline is no reason to drop the podcast
+        logger.warning("Podcast: Gliederung fehlgeschlagen, es wird aufgefuellt: {}", e)
+        return ""
+
+
 async def build_context(
     sources: list[tuple[str, list[dict]]],
     instruction: str,
     workspace_id: int | None = None,
     source_uuids: list[str] | None = None,
+    zahlen: dict | None = None,
 ) -> str:
     """Fills the budget, unless a precise instruction and embedded material allow a search."""
+    # Every fallback below lands on filling, only the two ways that work say so themselves.
+    notiz = zahlen if zahlen is not None else {}
+    notiz["weg"] = FILL
     weg = await route(instruction)
-    if weg != SEARCH or not workspace_id or not source_uuids:
+    if weg != SEARCH:
+        breit = await _broad_context(sources, workspace_id, source_uuids)
+        if breit:
+            notiz["weg"] = OUTLINE
+            return breit
+        return source_text.fit_to_budget(sources)
+    if not workspace_id or not source_uuids:
         return source_text.fit_to_budget(sources)
 
     ids = _ready_ids(workspace_id, source_uuids)
     if not ids:
         logger.info("Podcast: gezielte Anweisung, aber noch nichts eingebettet, es wird aufgefuellt")
+        return source_text.fit_to_budget(sources)
+
+    try:
+        abstand = await asyncio.to_thread(_probe, workspace_id, ids, instruction)
+    except Exception as e:  # noqa: BLE001 — eine misslungene Messung darf nicht sperren
+        logger.warning("Podcast: Abstand der Anweisung nicht messbar: {}", e)
+        abstand = 0.0
+    if abstand > MAX_DIST:
+        logger.info(
+            "Podcast: Anweisung liegt neben dem Material (Abstand {:.2f}), es wird aufgefuellt",
+            abstand)
+        notiz["daneben"] = True
         return source_text.fit_to_budget(sources)
 
     try:
@@ -163,4 +282,6 @@ async def build_context(
         return source_text.fit_to_budget(sources)
     logger.info("Podcast: Anweisung gezielt, {} Stellen aus {} Quellen, {} Zeichen",
                 len(chunks), len(ids), len(text))
+    notiz["weg"] = SEARCH
+    notiz["stellen"] = len(chunks)
     return text

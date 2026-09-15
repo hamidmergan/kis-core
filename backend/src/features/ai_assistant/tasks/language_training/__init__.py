@@ -19,6 +19,7 @@ from src.services.aia_grammar_topic import derive_topic
 
 from src.features.ai_assistant.tasks.language_training._context import (
     build_source_context,
+    label_for_sources,
     quota_fits,
     coverage_rule,
     missing_section_uuids,
@@ -34,6 +35,7 @@ from src.features.ai_assistant.tasks.language_training._pool import (
     pool_level,
     store as store_in_pool,
     take as take_from_pool,
+    title_from_items as pool_title,
     uses_pool,
 )
 from src.features.ai_assistant.tasks.language_training._glossary import generate_from_glossary
@@ -56,6 +58,9 @@ from src.features.ai_assistant.tasks.language_training._variation import (
 
 # This many top-up rounds, at most two.
 _NACHSCHLAG_RUNDEN = 2
+
+# Stands in the title column until the generation call or the pool names the set.
+_PLATZHALTER = "Wird generiert…"
 
 
 @celery_app.task(bind=True, name="aia.generate_exercise_set", queue="aia",
@@ -98,7 +103,7 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
         title_avoidance = build_title_avoidance_block(workspace_id, tool)
 
         items: list[dict] = []
-        title = "Wird generiert…"
+        title = _PLATZHALTER
         # Set-level text (instruction + worked example). Only the grammar tool fills it.
         header: dict | None = None
         # Stays None in glossary mode, which has no sources and therefore no sections.
@@ -275,9 +280,10 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
                     )
                     items = items + wiederholt
 
-            # Store them so the next call gets them for free.
+            # Store them so the next call gets them for free, the name comes along
+            # so a later set drawn purely from the pool needs no call to be named.
             if neu and uses_pool(tool, mode):
-                store_in_pool(neu, ctx, tool, level, topic_id)
+                store_in_pool(neu, ctx, tool, level, topic_id, set_title=title)
 
             # The presentation format now lives in the pool and has no place in the set.
             for item in neu:
@@ -293,9 +299,15 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
             db.fail_exercise_set(set_id)
             return
 
-        # The title is built here from the finished exercises, not in the generation call.
+        # The name comes out of the generation call itself, see _variation. Only a set
+        # drawn entirely from the pool never had one and inherits it from its exercises,
+        # falling back to the source for what was pooled before the name was stored.
+        if title == _PLATZHALTER:
+            title = (pool_title(items)
+                     or label_for_sources(source_uuids or ([source_uuid] if source_uuid else []))
+                     or title)
         try:
-            title = resolve_set_title(client, model, workspace_id, tool, title, items)
+            title = resolve_set_title(workspace_id, tool, title)
         except Exception as e:
             logger.warning("KI Tutor: set {} keeps its provisional title: {}", set_id, e)
 

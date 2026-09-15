@@ -21,18 +21,21 @@ export const defaultPersons = (): Person[] => ROLES.map((role, i) => ({ name: NA
 export const INITIAL_STATE: PodcastState = {
   step: "content",
   maxReached: 0,
-  source: { mode: "text", text: "", files: [], moduleId: "", sourceIds: [] },
+  source: { mode: "files", files: [], moduleId: "", sourceIds: [] },
   instructions: "",
   language: "de",
   count: 2,
   persons: defaultPersons(),
   length: "medium",
   style: "teaching",
+  speed: 0.9,
   jobUuid: null,
   jobStatus: "idle",
   progress: null,
   error: "",
   lines: [],
+  selfWritten: false,
+  instructionUnmatched: false,
   voicedIds: [],
   seconds: null,
   starting: false,
@@ -49,6 +52,7 @@ export type Action =
   | { type: "SET_PERSON"; index: number; person: Partial<Person> }
   | { type: "SET_LENGTH"; length: Length }
   | { type: "SET_STYLE"; style: Style }
+  | { type: "SET_SPEED"; speed: number }
   | { type: "STARTING" }
   | { type: "STARTED"; jobUuid: string }
   | { type: "JOB"; status: JobStatus; progress: JobProgress | null; error?: string | null; seconds?: number | null }
@@ -90,6 +94,8 @@ export function reducer(state: PodcastState, action: Action): PodcastState {
       return { ...state, length: action.length };
     case "SET_STYLE":
       return { ...state, style: action.style };
+    case "SET_SPEED":
+      return { ...state, speed: action.speed };
     case "STARTING":
       return { ...enter(state, "script"), starting: true, error: "", lines: [], voicedIds: [], progress: null, seconds: null };
     case "STARTED":

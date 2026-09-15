@@ -148,6 +148,7 @@ export function ClozeExerciseView({
             Dateinamen bekommt. Die Seite steht am Chip und nicht an der Legende. */}
         <SetSourceLegend
           sources={exerciseSet.sources}
+          items={exerciseSet.items}
           onSourceClick={(filename) => onSourceClick?.(filename, item.page_number ?? 1)}
         />
       </div>

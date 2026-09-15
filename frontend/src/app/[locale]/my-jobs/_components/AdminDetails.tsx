@@ -28,10 +28,15 @@ export function AdminDetails({ stats }: { stats: JobStats }) {
     const pfad = `${bereich}.${schluessel}`;
     return t.has(pfad) ? t(pfad) : schluessel;
   };
-  const feldwert = (schluessel: string, wert: string | number | boolean) =>
-    schluessel === "route" && typeof wert === "string" && tr.has(wert)
-      ? tr(wert)
-      : wertText(schluessel, wert, locale, woerter);
+  const feldwert = (schluessel: string, wert: string | number | boolean) => {
+    if (schluessel === "route" && typeof wert === "string" && tr.has(wert)) return tr(wert);
+    // Herkunft and Weg are stored as keys so both languages read properly.
+    if (typeof wert === "string" && t.has(`${schluessel}Wert.${wert}`)) {
+      return t(`${schluessel}Wert.${wert}`);
+    }
+    if (schluessel.endsWith("_s") && typeof wert === "number") return dauer(wert);
+    return wertText(schluessel, wert, locale, woerter);
+  };
 
   return (
     <div className="mt-1.5">
@@ -60,14 +65,16 @@ export function AdminDetails({ stats }: { stats: JobStats }) {
                 )}
               </dt>
               <dd className="flex flex-wrap gap-x-3 text-muted-soft">
-                {zeile.felder.map((feld) => (
-                  <span key={feld.schluessel} className="whitespace-nowrap">
-                    {beschriftung("field", feld.schluessel)}{" "}
-                    <span className="text-muted">
-                      {feldwert(feld.schluessel, feld.wert)}
+                {zeile.felder.map((feld) => {
+                  const wert = feldwert(feld.schluessel, feld.wert);
+                  // A cast of four people is too long for one unbreakable line.
+                  return (
+                    <span key={feld.schluessel} className={wert.length > 30 ? "" : "whitespace-nowrap"}>
+                      {beschriftung("field", feld.schluessel)}{" "}
+                      <span className="text-muted">{wert}</span>
                     </span>
-                  </span>
-                ))}
+                  );
+                })}
               </dd>
               {zeile.fehler && (
                 <dd className="text-error">{t("error")} {zeile.fehler}</dd>

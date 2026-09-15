@@ -3,7 +3,7 @@
 from datetime import datetime
 
 from src.routes.jobs._shared import _format_job_rows
-from src.services.screencast.statistik import notiere
+from src.services.job_statistik import notiere
 from src.storage import save_result_meta
 
 

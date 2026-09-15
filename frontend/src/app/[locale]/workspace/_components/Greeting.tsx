@@ -2,7 +2,7 @@
 
 import { useLocale, useTranslations } from "next-intl";
 
-/** "Hallo, Name" plus today's date, shared by the start page and the module list. */
+/** "Hallo Name!" plus today's date, shared by the start page and the module list. */
 export function Greeting({ firstName }: { firstName: string }) {
   const t = useTranslations("workspace.list");
   const locale = useLocale();

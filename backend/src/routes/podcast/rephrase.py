@@ -37,6 +37,8 @@ async def rephrase_line(
     stelle = next((i for i, l in enumerate(zeilen) if l.id == body.line_id), -1)
     if stelle < 0 or not params:
         raise HTTPException(status_code=404, detail=t("job.notFound", locale))
+    if params.self_written:
+        raise HTTPException(status_code=409, detail=t("podcast.selfWrittenNoAi", locale))
 
     umfeld = [l.text for l in zeilen[max(0, stelle - _UMFELD) : stelle + _UMFELD + 1] if l.id != body.line_id]
     try:

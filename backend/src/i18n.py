@@ -267,6 +267,14 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Das Skript hat keinen einzigen Beitrag.",
         "en": "The script has no contribution at all.",
     },
+    "podcast.selfWritten": {
+        "de": "Eigenes Skript",
+        "en": "Own script",
+    },
+    "podcast.selfWrittenNoAi": {
+        "de": "Dieses Skript kommt von dir, hier hilft keine KI mit.",
+        "en": "This script comes from you, no AI helps out here.",
+    },
     "podcast.scriptFailed": {
         "de": "Das Skript ließ sich nicht schreiben. Versuch es mit weniger Material noch einmal.",
         "en": "The script could not be written. Try again with less material.",

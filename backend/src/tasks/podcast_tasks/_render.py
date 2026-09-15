@@ -17,7 +17,13 @@ from src.limits import (
     PODCAST_TIME_LIMIT,
     PODCAST_TTS_PARALLELISM,
 )
-from src.storage import save_result_and_evict, save_result_file, save_result_meta
+from src.services.job_statistik import anbieter_und_modelle, messe
+from src.storage import (
+    load_result_meta,
+    save_result_and_evict,
+    save_result_file,
+    save_result_meta,
+)
 from src.tasks.podcast_tasks._shared import JobCancelled, assert_not_cancelled, tts_client
 from src.utils.heartbeat import job_heartbeat
 
@@ -33,18 +39,33 @@ def _stimme(params: PodcastParams, line: Line) -> str:
     return _person(params, line).voice_id
 
 
-def _sprich(client, text: str, voice_id: str, sprache: str) -> bytes:
+def _besetzung(params: PodcastParams) -> str:
+    """Who speaks with which role, which voice and from which provider."""
+    from src import database as db
+
+    namen: dict[int, str] = {}
+    teile = []
+    for person in params.persons:
+        pid = person.provider_id or params.provider_id
+        if pid not in namen:
+            namen[pid] = (db.get_provider(pid) or {}).get("name") or ""
+        angaben = [person.role, person.voice_id, namen[pid]]
+        teile.append(f"{person.name} ({', '.join(a for a in angaben if a)})")
+    return ", ".join(teile)
+
+
+def _sprich(client, text: str, voice_id: str, sprache: str, tempo: float) -> bytes:
     """One contribution, split into pieces the provider can hold in 60 seconds."""
     from src.services.openai_compat_tts import _split_text
 
     teile = _split_text(text)
     return b"".join(
-        client.synthesize_chunk(teil, voice_id=voice_id, speed=1.0, language=sprache)
+        client.synthesize_chunk(teil, voice_id=voice_id, speed=tempo, language=sprache)
         for teil in teile
     )
 
 
-def _mit_wiederholung(client, text: str, voice_id: str, sprache: str) -> bytes:
+def _mit_wiederholung(client, text: str, voice_id: str, sprache: str, tempo: float) -> bytes:
     import time
 
     letzter: Exception | None = None
@@ -52,7 +73,7 @@ def _mit_wiederholung(client, text: str, voice_id: str, sprache: str) -> bytes:
         if pause:
             time.sleep(pause)
         try:
-            return _sprich(client, text, voice_id, sprache)
+            return _sprich(client, text, voice_id, sprache, tempo)
         except Exception as e:  # noqa: BLE001 — jeder Anbieterfehler wird gleich behandelt
             letzter = e
             logger.warning("Podcast: Vertonung gescheitert, neuer Versuch in {}s: {}", pause, e)
@@ -80,7 +101,7 @@ def run_podcast_render(self, job_uuid: str, user_id: int, locale: str = "de"):
         vertont = store.load_voiced(user_id, job_uuid)
         # A contribution keeps its audio as long as text, voice and tempo match.
         behalten = [i for i, l in enumerate(zeilen)
-                    if not store.needs_voice(l, vertont, _stimme(params, l), 1.0)
+                    if not store.needs_voice(l, vertont, _stimme(params, l), params.speed)
                     and store.has_line_audio(user_id, job_uuid, l.id)]
         offen = [i for i in range(len(zeilen)) if i not in set(behalten)]
         fertig = set(behalten)
@@ -113,35 +134,55 @@ def run_podcast_render(self, job_uuid: str, user_id: int, locale: str = "de"):
                 raise RuntimeError(f"Beitrag {i + 1} hat keine Stimme")
             stimme = person.voice_id
             ton = _mit_wiederholung(client_fuer(person.provider_id or params.provider_id),
-                                    line.text, stimme, params.language)
+                                    line.text, stimme, params.language, params.speed)
             store.save_line_audio(user_id, job_uuid, line.id, ton)
             with sperre:
-                vertont[line.id] = store.fingerprint(line, stimme, 1.0)
+                vertont[line.id] = store.fingerprint(line, stimme, params.speed)
                 store.save_voiced(user_id, job_uuid, vertont)
                 fertig.add(i)
                 melde()
             return i
 
         with job_heartbeat(job_uuid):
-            if offen:
-                with ThreadPoolExecutor(max_workers=min(PODCAST_TTS_PARALLELISM, len(offen))) as pool:
-                    auftraege = {pool.submit(eine, i): i for i in offen}
-                    for future, i in auftraege.items():
-                        try:
-                            future.result()
-                        except JobCancelled:
-                            raise
-                        except Exception:
-                            # The first failing contribution names the place to continue from.
-                            if offen_idx < 0 or i < offen_idx:
-                                offen_idx = i
-                if offen_idx >= 0:
-                    raise RuntimeError(f"Beitrag {offen_idx + 1} konnte nicht vertont werden")
+            with messe(user_id, job_uuid, "vertonung") as ton_zahlen:
+                ton_zahlen.update(anbieter_und_modelle(
+                    [p.provider_id or params.provider_id for p in params.persons], "tts"))
+                ton_zahlen["sprache"] = params.language
+                ton_zahlen["tempo"] = params.speed
+                ton_zahlen["personen"] = len(params.persons)
+                ton_zahlen["besetzung"] = _besetzung(params)
+                ton_zahlen["stimmen"] = len({_stimme(params, l) for l in zeilen})
+                ton_zahlen["beitraege"] = len(zeilen)
+                ton_zahlen["neu_vertont"] = len(offen)
+                ton_zahlen["behalten"] = len(behalten)
+                ton_zahlen["zeichen"] = sum(len(l.text) for l in zeilen)
+                if offen:
+                    ton_zahlen["gleichzeitig"] = min(PODCAST_TTS_PARALLELISM, len(offen))
+                    with ThreadPoolExecutor(
+                            max_workers=min(PODCAST_TTS_PARALLELISM, len(offen))) as pool:
+                        auftraege = {pool.submit(eine, i): i for i in offen}
+                        for future, i in auftraege.items():
+                            try:
+                                future.result()
+                            except JobCancelled:
+                                raise
+                            except Exception:
+                                # The first failing contribution names the place to continue from.
+                                if offen_idx < 0 or i < offen_idx:
+                                    offen_idx = i
+                    if offen_idx >= 0:
+                        raise RuntimeError(f"Beitrag {offen_idx + 1} konnte nicht vertont werden")
 
             assert_not_cancelled(job_uuid)
             db.update_job_status(job_uuid, "running", progress={"step": "montage"})
             stuecke = [store.get_line_audio(user_id, job_uuid, l.id) for l in zeilen]
-            ton, dauer = montage.kleben([s for s in stuecke if s], PODCAST_LINE_PAUSE, job_uuid)
+            with messe(user_id, job_uuid, "montage") as montage_zahlen:
+                ton, dauer = montage.kleben(
+                    [s for s in stuecke if s], PODCAST_LINE_PAUSE, job_uuid)
+                montage_zahlen["stuecke"] = len([s for s in stuecke if s])
+                montage_zahlen["tondauer_s"] = round(dauer, 1)
+                montage_zahlen["mp3_bytes"] = len(ton)
+                montage_zahlen["beitragspause"] = PODCAST_LINE_PAUSE
 
         db.update_job_status(job_uuid, "running", progress={"step": "saving"})
         namen = [params.persons[l.speaker].name if l.speaker < len(params.persons)
@@ -149,7 +190,9 @@ def run_podcast_render(self, job_uuid: str, user_id: int, locale: str = "de"):
         store.save_transcript(user_id, job_uuid,
                               "\n\n".join(f"{n}: {l.text}" for n, l in zip(namen, zeilen)) + "\n")
         pfad = save_result_file(user_id, job_uuid, ".mp3", ton)
+        # Load first: the run numbers already sit in this file and must survive.
         save_result_meta(user_id, job_uuid, {
+            **(load_result_meta(user_id, job_uuid) or {}),
             "seconds": round(dauer, 1),
             "lines": len(zeilen),
             "voices": len({l.speaker for l in zeilen}),

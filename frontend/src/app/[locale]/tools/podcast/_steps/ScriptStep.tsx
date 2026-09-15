@@ -24,6 +24,10 @@ interface ScriptStepProps {
   busy: boolean;
   error: string;
   allDone: boolean;
+  /** Written by hand, so the script step offers no model anywhere. */
+  selfWritten: boolean;
+  /** The instruction named something the material does not cover. */
+  instructionUnmatched: boolean;
   onUpdate: (id: string, text: string) => void;
   onSpeaker: (id: string, speaker: number) => void;
   onRephrase: (id: string) => Promise<void>;
@@ -35,7 +39,8 @@ interface ScriptStepProps {
 }
 
 export default function ScriptStep(props: ScriptStepProps) {
-  const { lines, persons, count, voicedIds, busy, error, allDone,
+  const { lines, persons, count, voicedIds, busy, error, allDone, selfWritten,
+          instructionUnmatched,
           onUpdate, onSpeaker, onRephrase, onDelete, onAdd, onBack, onVoice, onToDone } = props;
   const t = useTranslations("tools.podcast.script");
   const tCast = useTranslations("tools.podcast.cast");
@@ -44,7 +49,7 @@ export default function ScriptStep(props: ScriptStepProps) {
   const [buffer, setBuffer] = useState("");
   const [rephrasingId, setRephrasingId] = useState<string | null>(null);
 
-  if (busy && lines.length === 0) {
+  if (busy && lines.length === 0 && !selfWritten) {
     return (
       <section className="animate-[fadeIn_0.3s_ease-out] text-center py-20" role="status" aria-live="polite">
         <Spinner size="lg" className="justify-center mb-4" />
@@ -57,7 +62,17 @@ export default function ScriptStep(props: ScriptStepProps) {
   if (!lines.length) {
     return (
       <section className="animate-[fadeIn_0.3s_ease-out] text-center py-20">
-        <p className="text-sm text-error">{error || t("generating")}</p>
+        {selfWritten ? (
+          <>
+            <p className="text-sm text-muted mb-4">{t("blankEmpty")}</p>
+            <button type="button" onClick={onAdd} className={`${ACTION} mx-auto`}>
+              <Plus size={14} weight="bold" />
+              {t("add")}
+            </button>
+          </>
+        ) : (
+          <p className="text-sm text-error">{error || t("generating")}</p>
+        )}
       </section>
     );
   }
@@ -80,12 +95,18 @@ export default function ScriptStep(props: ScriptStepProps) {
 
   return (
     <section className="animate-[fadeIn_0.3s_ease-out]">
-      <h2 className="text-lg font-bold mb-2">{t("heading")}</h2>
-      <p className="text-sm text-muted mb-4">{t("intro")}</p>
+      <h2 className="text-lg font-bold mb-2">{t(selfWritten ? "blankHeading" : "heading")}</h2>
+      <p className="text-sm text-muted mb-4">{t(selfWritten ? "blankIntro" : "intro")}</p>
 
       <div className="mb-4 rounded-lg bg-surface px-4 py-3 text-sm text-foreground-soft">
         {t("summary", { lines: lines.length, words: wordsOf(lines), minutes: minutesOf(lines) })}
       </div>
+
+      {instructionUnmatched && (
+        <p className="mb-4 rounded-md border border-warn-border bg-warn-bg px-3 py-2 text-sm text-warn-strong" role="status">
+          {t("instructionUnmatched")}
+        </p>
+      )}
 
       <div className="mb-4 flex flex-wrap items-center gap-2" role="group" aria-label={t("castLegend")}>
         {persons.slice(0, count).map((person, i) => (
@@ -138,15 +159,17 @@ export default function ScriptStep(props: ScriptStepProps) {
                     >
                       <PencilSimple size={12} weight="bold" />
                     </IconButton>
-                    <IconButton
-                      size="sm"
-                      aria-label={t("regen", { n: i + 1 })}
-                      title={t("regen", { n: i + 1 })}
-                      disabled={rephrasingId !== null}
-                      onClick={() => void umformulieren(line.id)}
-                    >
-                      {rephrasingId === line.id ? <Spinner size="xs" color="current" /> : <ArrowsClockwise size={12} weight="bold" />}
-                    </IconButton>
+                    {!selfWritten && (
+                      <IconButton
+                        size="sm"
+                        aria-label={t("regen", { n: i + 1 })}
+                        title={t("regen", { n: i + 1 })}
+                        disabled={rephrasingId !== null}
+                        onClick={() => void umformulieren(line.id)}
+                      >
+                        {rephrasingId === line.id ? <Spinner size="xs" color="current" /> : <ArrowsClockwise size={12} weight="bold" />}
+                      </IconButton>
+                    )}
                     <IconButton size="sm" aria-label={t("delete", { n: i + 1 })} title={t("delete", { n: i + 1 })} onClick={() => onDelete(line.id)}>
                       <Trash size={12} weight="bold" />
                     </IconButton>
@@ -176,7 +199,9 @@ export default function ScriptStep(props: ScriptStepProps) {
                   </div>
                 </>
               ) : (
-                <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{line.text}</p>
+                <p className={`text-sm leading-relaxed whitespace-pre-wrap ${line.text ? "text-foreground" : "text-muted-soft italic"}`}>
+                  {line.text || t("emptyLine")}
+                </p>
               )}
             </div>
           );

@@ -32,7 +32,7 @@ def _labels(picked) -> list[str]:
 @pytest.fixture
 def budget(monkeypatch):
     state = {"budget": 20000}
-    monkeypatch.setattr(cb, "tool_context_budget", lambda tool="": state["budget"])
+    monkeypatch.setattr(cb, "tool_context_budget", lambda: state["budget"])
     return state
 
 
@@ -60,45 +60,43 @@ def test_a_very_long_line_is_no_heading():
 def test_every_source_is_represented_even_when_the_budget_is_tiny(budget):
     budget["budget"] = 3000
     picked = cb.fill_sources_with_outline(_sources(_with_headings(40), _with_headings(40),
-                                                   _with_headings(40)), "mindmap")
+                                                   _with_headings(40)))
     assert _labels(picked) == ["q1.pdf", "q2.pdf", "q3.pdf"]
 
 
 def test_a_source_without_headings_still_contributes_its_beginning(budget):
     budget["budget"] = 3000
-    picked = cb.fill_sources_with_outline(_sources(_with_headings(40), _prose(40)), "mindmap")
+    picked = cb.fill_sources_with_outline(_sources(_with_headings(40), _prose(40)))
     letzte = [chunks for _sid, label, chunks in picked if label == "q2.pdf"][0]
     assert letzte and letzte[0]["page_number"] == 1
 
 
 def test_the_rest_of_the_budget_goes_into_depth_from_the_front(budget):
     budget["budget"] = 30000
-    picked = cb.fill_sources_with_outline(_sources(_with_headings(40), _with_headings(40)),
-                                          "mindmap")
+    picked = cb.fill_sources_with_outline(_sources(_with_headings(40), _with_headings(40)))
     erste, zweite = [len(chunks) for _sid, _label, chunks in picked]
     assert erste > zweite
 
 
 def test_the_result_keeps_the_selection_order(budget):
-    picked = cb.fill_sources_with_outline(_sources(_with_headings(5), _with_headings(40)),
-                                          "mindmap")
+    picked = cb.fill_sources_with_outline(_sources(_with_headings(5), _with_headings(40)))
     assert _labels(picked) == ["q1.pdf", "q2.pdf"]
 
 
 def test_a_source_that_fits_whole_is_not_reduced_to_its_outline(budget):
     budget["budget"] = 100000
-    picked = cb.fill_sources_with_outline(_sources(_with_headings(3)), "mindmap")
+    picked = cb.fill_sources_with_outline(_sources(_with_headings(3)))
     assert len(picked[0][2]) == 3
 
 
 def test_no_sources_means_no_context(budget):
-    assert cb.fill_sources_with_outline([], "mindmap") == []
+    assert cb.fill_sources_with_outline([]) == []
 
 
 def test_a_source_without_headings_is_not_sent_twice(budget):
     # Its base is the front of the source, and depth starts at the front too.
     budget["budget"] = 10000
-    picked = cb.fill_sources_with_outline(_sources(_prose(40)), "mindmap")
+    picked = cb.fill_sources_with_outline(_sources(_prose(40)))
     seiten = [c["page_number"] for c in picked[0][2]]
     assert len(seiten) == len(set(seiten))
 

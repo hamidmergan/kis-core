@@ -28,6 +28,8 @@ export interface Source {
   chapter_uuid?: string | null;
   /** The link a web page source came from, empty for uploaded files. */
   source_url?: string | null;
+  /** Whether a summary exists, the text itself is fetched when opened. */
+  has_summary?: boolean;
 }
 
 /** Chapters only structure the display, the selection hangs off the file's checkbox. */

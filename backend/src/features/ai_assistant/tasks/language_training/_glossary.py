@@ -14,7 +14,6 @@ from src.features.ai_assistant.prompts.language_training_prompts import (
 )
 
 from src.features.ai_assistant.tasks.language_training._source_flashcards import flashcard_extras
-from src.features.ai_assistant.tasks.language_training._title import title_from_glossary_terms
 from src.services.llm_call import create_logged
 
 
@@ -69,13 +68,14 @@ def generate_from_glossary(
     selected = _pick_terms(glossary, _terms_used(workspace_id, user_id, tool), count)
     items: list[dict] = []
 
+    title = ""
     if tool == "flashcards":
-        items = _generate_flashcards(client, model, selected, language, adaptive_suffix)
+        items, title = _generate_flashcards(client, model, selected, language, adaptive_suffix)
     elif tool == "karteikarten":
-        items = _generate_karteikarten(client, model, selected, language, adaptive_suffix)
+        items, title = _generate_karteikarten(client, model, selected, language, adaptive_suffix)
 
-    title = title_from_glossary_terms(client, model, [e["term_de"] for e in selected])
-    return items, title
+    # The title comes out of the generation call, the bare term list is the safety net.
+    return items, title or ", ".join(e["term_de"] for e in selected)
 
 
 def _plain_flashcard(e: dict) -> dict:
@@ -119,8 +119,8 @@ def _fallback_karteikarte(e: dict, language: str) -> dict:
 
 
 def _generate_karteikarten(client, model, selected: list[dict], language: str,
-                           adaptive_suffix: str = "") -> list[dict]:
-    """Turns glossary terms into real question and answer cards, in one batched call."""
+                           adaptive_suffix: str = "") -> tuple[list[dict], str]:
+    """Turns glossary terms into cards and names the set, in one batched call."""
     fallback = [_fallback_karteikarte(e, language) for e in selected]
     try:
         eintraege = "\n".join(
@@ -136,11 +136,13 @@ def _generate_karteikarten(client, model, selected: list[dict], language: str,
             )},
         ]
         response = create_logged(client, endpoint="glossar", model=model, messages=messages, temperature=0.5)
-        cards = json.loads(_clean_llm_json(response.choices[0].message.content or "")).get("cards") or []
+        data = json.loads(_clean_llm_json(response.choices[0].message.content or ""))
+        cards = data.get("cards") or []
+        title = (data.get("title") or "").strip()
     except Exception as exc:  # noqa: BLE001 - eine feste Frage ist besser als ein Fehlschlag
         logger.warning("Karteikarten aus dem Glossar: Aufruf fehlgeschlagen, feste "
                        "Formulierung greift: {}", exc)
-        return fallback
+        return fallback, ""
 
     nach_begriff: dict[str, dict] = {}
     for c in cards:
@@ -165,12 +167,12 @@ def _generate_karteikarten(client, model, selected: list[dict], language: str,
             # The term comes from the glossary, not from the model's answer.
             "glossary_term": e["term_de"],
         })
-    return items
+    return items, title
 
 
 def _generate_flashcards(client, model, selected: list[dict], language: str,
-                         adaptive_suffix: str = "") -> list[dict]:
-    """Adds word parts, word class, forms and an example sentence to glossary cards."""
+                         adaptive_suffix: str = "") -> tuple[list[dict], str]:
+    """Enriches glossary cards and names the set, in one batched call."""
     plain = [_plain_flashcard(e) for e in selected]
     try:
         terms_text = "\n".join(
@@ -196,10 +198,12 @@ def _generate_flashcards(client, model, selected: list[dict], language: str,
         ]
         response = create_logged(client, endpoint="glossar", model=model, messages=messages, temperature=0.4)
         answer = _clean_llm_json(response.choices[0].message.content or "")
-        cards = json.loads(answer).get("cards") or []
+        data = json.loads(answer)
+        cards = data.get("cards") or []
+        title = (data.get("title") or "").strip()
     except Exception as exc:  # noqa: BLE001 - enrichment is best-effort, plain cards still work
         logger.warning("Glossary flashcard enrichment failed, using plain cards: {}", exc)
-        return plain
+        return plain, ""
 
     by_term = {}
     for c in cards:
@@ -226,4 +230,4 @@ def _generate_flashcards(client, model, selected: list[dict], language: str,
         if extras:
             item["extras"] = extras
         items.append(item)
-    return items
+    return items, title

@@ -4,6 +4,7 @@ import json
 import types
 
 from src.features.ai_assistant.tasks.language_training._variation import (
+    _NAMING_RULE,
     build_title_avoidance_block,
     is_title_taken,
     resolve_set_title,
@@ -50,9 +51,16 @@ def _ctx():
 
 # --- the prompt block --------------------------------------------------------
 
-def test_no_titles_means_no_block():
-    assert title_avoidance_block([]) == ""
-    assert title_avoidance_block(["", "   "]) == ""
+def test_without_taken_titles_only_the_naming_rule_remains():
+    """The rule always travels, it is what replaced the separate title call."""
+    assert title_avoidance_block([]) == _NAMING_RULE
+    assert title_avoidance_block(["", "   "]) == _NAMING_RULE
+
+
+def test_the_block_always_says_to_name_the_set_not_the_document():
+    for block in (title_avoidance_block([]), title_avoidance_block(USED)):
+        assert "TITLE OF THIS SET" in block
+        assert "NEVER the document" in block
 
 
 def test_block_lists_every_title_and_demands_a_different_one():
@@ -79,10 +87,10 @@ def test_block_shortens_an_overlong_title():
     assert "x" * 90 in block
 
 
-def test_no_workspace_yields_no_block():
-    # Older queued tasks carry no workspace; they must keep generating.
-    assert build_title_avoidance_block(None, "quiz") == ""
-    assert build_title_avoidance_block(0, "quiz") == ""
+def test_no_workspace_still_yields_the_naming_rule():
+    # Older queued tasks carry no workspace; they must still name the set.
+    assert build_title_avoidance_block(None, "quiz") == _NAMING_RULE
+    assert build_title_avoidance_block(0, "quiz") == _NAMING_RULE
 
 
 def test_a_failing_query_never_breaks_generation(monkeypatch):
@@ -90,7 +98,7 @@ def test_a_failing_query_never_breaks_generation(monkeypatch):
         raise RuntimeError("db down")
 
     monkeypatch.setattr("src.database.get_recent_exercise_titles", boom)
-    assert build_title_avoidance_block(3, "quiz") == ""
+    assert build_title_avoidance_block(3, "quiz") == _NAMING_RULE
 
 
 def test_block_is_read_per_workspace_and_tool(monkeypatch):
@@ -144,69 +152,45 @@ def test_nothing_is_taken_against_an_empty_history():
 
 
 # --- resolving the final title -----------------------------------------------
+# The title comes out of the generation call, so resolving it costs no model call.
 
-def test_the_title_comes_from_the_items_not_from_the_generation_call(monkeypatch):
-    """The generation call names the document, its title is only a fallback."""
+def test_the_title_of_the_generation_call_is_kept(monkeypatch):
     monkeypatch.setattr("src.database.get_recent_exercise_titles", lambda w, t, limit=100: [])
-    client, calls = _make_client("Zitate richtig setzen")
-    out = resolve_set_title(client, "m", 3, "grammatik", SEEN, ITEMS)
-    assert out == "Zitate richtig setzen"
-    assert len(calls) == 1
+    assert resolve_set_title(3, "grammatik", "Zitate richtig setzen") == "Zitate richtig setzen"
 
 
-def test_the_proposed_title_is_used_when_the_title_call_gives_nothing(monkeypatch):
-    monkeypatch.setattr("src.database.get_recent_exercise_titles", lambda w, t, limit=100: [])
-    client, _ = _make_client("")
-    assert resolve_set_title(client, "m", 3, "grammatik", SEEN, ITEMS) == SEEN
-
-
-def test_a_taken_title_triggers_exactly_one_retry(monkeypatch):
+def test_a_taken_title_is_numbered_instead_of_asked_again(monkeypatch):
     monkeypatch.setattr("src.database.get_recent_exercise_titles", lambda w, t, limit=100: [SEEN])
-    client, calls = _make_client(NEAR, "Meine Aufgaben vor der Abgabe")
-    out = resolve_set_title(client, "m", 3, "grammatik", SEEN, ITEMS)
-    assert out == "Meine Aufgaben vor der Abgabe"
-    assert len(calls) == 2
-
-
-def test_the_retry_is_told_which_titles_are_taken(monkeypatch):
-    monkeypatch.setattr("src.database.get_recent_exercise_titles", lambda w, t, limit=100: [SEEN])
-    client, calls = _make_client(NEAR, "Etwas ganz Anderes")
-    resolve_set_title(client, "m", 3, "grammatik", SEEN, ITEMS)
-    assert SEEN in calls[1][0]["content"]
+    assert resolve_set_title(3, "grammatik", NEAR) == f"{NEAR} (2)"
 
 
 def test_the_counter_looks_at_the_whole_family_not_at_exact_matches(monkeypatch):
     """Two titles differing by one letter are one family."""
     monkeypatch.setattr("src.database.get_recent_exercise_titles",
                         lambda w, t, limit=100: [SEEN, f"{SEEN} (2)"])
-    client, _ = _make_client(NEAR, NEAR)  # both attempts land on a taken title
-    assert resolve_set_title(client, "m", 3, "grammatik", SEEN, ITEMS) == f"{NEAR} (3)"
+    assert resolve_set_title(3, "grammatik", NEAR) == f"{NEAR} (3)"
 
 
-def test_the_counter_always_terminates(monkeypatch):
+def test_a_more_specific_title_keeps_its_own_name(monkeypatch):
     monkeypatch.setattr("src.database.get_recent_exercise_titles", lambda w, t, limit=100: [SEEN])
-    client, _ = _make_client(SEEN, SEEN)
-    assert resolve_set_title(client, "m", 3, "grammatik", SEEN, ITEMS) == f"{SEEN} (2)"
+    assert resolve_set_title(3, "grammatik", SPECIFIC) == SPECIFIC
 
 
-def test_no_workspace_and_no_items_leave_the_proposed_title_alone(monkeypatch):
+def test_no_workspace_and_no_title_leave_the_name_alone(monkeypatch):
     def boom(*a, **k):
         raise AssertionError("must not query without a workspace")
 
     monkeypatch.setattr("src.database.get_recent_exercise_titles", boom)
-    client, calls = _make_client("x")
-    assert resolve_set_title(client, "m", None, "quiz", "Titel", ITEMS) == "Titel"
-    assert resolve_set_title(client, "m", 3, "quiz", "Titel", []) == "Titel"
-    assert not calls
+    assert resolve_set_title(None, "quiz", "Titel") == "Titel"
+    assert resolve_set_title(3, "quiz", "   ") == ""
 
 
-def test_a_failing_query_keeps_the_proposed_title(monkeypatch):
+def test_a_failing_query_keeps_the_generated_title(monkeypatch):
     def boom(*a, **k):
         raise RuntimeError("db down")
 
     monkeypatch.setattr("src.database.get_recent_exercise_titles", boom)
-    client, _ = _make_client("x")
-    assert resolve_set_title(client, "m", 3, "quiz", "Titel", ITEMS) == "Titel"
+    assert resolve_set_title(3, "quiz", "Titel") == "Titel"
 
 
 # --- wiring: the block reaches every generator's system prompt ---------------

@@ -1,7 +1,6 @@
 import "mind-elixir/style.css";
 import React, { useContext, useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { renderToStaticMarkup } from "react-dom/server";
 import {
   ArrowsInLineVertical,
   ArrowsOutLineVertical,
@@ -22,10 +21,36 @@ import Spinner from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { InlineRename } from "@/components/ui/InlineRename";
 import type { Source } from "../../_types";
-import { _getChipIcon, _isMediaFile } from "../../_utils";
+import { _isMediaFile } from "../../_utils";
 import { MinimizeContext } from "../../_context";
 import { SubviewHeader, _getToolBadge, type BreadcrumbItem } from "../layout/SubviewHeader";
+import { chipTargetKey, getActiveChipTarget, setActiveChipTarget, subscribeActiveChip } from "../chat/_citations";
 import { StudioSourceLegend } from "./StudioSourceLegend";
+
+// A source label rarely matches a filename exactly, so fall back to a loose match.
+function _findSource(sources: Source[], label: string): Source | undefined {
+  const lower = label.toLowerCase();
+  return sources.find((s) => s.filename === label)
+    ?? sources.find((s) => s.filename.toLowerCase() === lower)
+    ?? sources.find((s) => lower.includes(s.filename.toLowerCase()) || s.filename.toLowerCase().includes(lower));
+}
+
+// Turns a timestamp label "M:SS" or "H:MM:SS" into seconds.
+function _labelSeconds(label: string): number {
+  const parts = label.split(":").map(Number);
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  if (parts.length === 2) return parts[0] * 60 + parts[1];
+  return 0;
+}
+
+// The chip key has to match the one the chat chips use, both mark the same target.
+function _chipKey(src: Source, pageNumber: number | string | undefined): string {
+  if (_isMediaFile(src.filename) && typeof pageNumber === "string") {
+    return chipTargetKey(src.uuid, 0, _labelSeconds(pageNumber));
+  }
+  const page = typeof pageNumber === "number" ? pageNumber : parseInt(String(pageNumber), 10) || 0;
+  return chipTargetKey(src.uuid, page, undefined);
+}
 
 export interface MindmapNodeData {
   topic: string;
@@ -38,7 +63,7 @@ export interface MindmapNodeData {
 export function MindmapStudio({
   mindmap, loading, onGenerate, onBack,
   savedList, onSelect, onDelete, onRename, sourceCount,
-  sources, onPillClick, breadcrumbs,
+  sources, pickedSources, onPillClick, breadcrumbs,
   openInViewer, onViewerOpened,
 }: {
   mindmap: MindmapNodeData | null;
@@ -51,6 +76,8 @@ export function MindmapStudio({
   onRename?: (id: number, title: string) => Promise<void>;
   sourceCount: number;
   sources?: Source[];
+  /** What the user ticked when this map was made, used ones and unused ones. */
+  pickedSources?: { number: number; filename: string }[];
   onPillClick?: (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number) => void;
   breadcrumbs?: BreadcrumbItem[];
   openInViewer?: boolean;
@@ -129,8 +156,19 @@ export function MindmapStudio({
   const nodeClickCleanupRef = useRef<(() => void) | null>(null);
   const setFullscreenRef = useRef(setFullscreen);
   setFullscreenRef.current = setFullscreen;
-  const nodeSourceMapRef = useRef(new Map<string, { source_label: string; page_number: number | string; keyword?: string }>());
+  const nodeSourceMapRef = useRef(new Map<string, { source_label: string; page_number?: number | string; keyword?: string }>());
   const sourceIndexRef = useRef(new Map<string, number>());
+  const usedNamesRef = useRef(new Set<string>());
+
+  // Frames the chip that was clicked last, the same mark the chat chips carry.
+  function paintActiveChip() {
+    const active = getActiveChipTarget();
+    containerRef.current?.querySelectorAll<HTMLElement>(".mm-src-chip").forEach((chip) => {
+      chip.classList.toggle("mm-src-chip--active", !!active && chip.dataset.chipTarget === active);
+    });
+  }
+
+  useEffect(() => subscribeActiveChip(() => paintActiveChip()), []);
 
   function expandAll(node: any) {
     if (node.children && node.children.length > 0) {
@@ -161,6 +199,7 @@ export function MindmapStudio({
     }
     me.refresh();
     me.toCenter();
+    paintActiveChip();
     setAllExpanded(!allExpanded);
   }
 
@@ -186,42 +225,49 @@ export function MindmapStudio({
       if (cancelled || !containerRef.current) return;
 
       // Build source index: filename → [N]
+      // Numbered the way the user ticked, the same rule the data table follows.
       const sourceIndexMap = new Map<string, number>();
+      for (const s of pickedSources || []) {
+        if (!sourceIndexMap.has(s.filename)) sourceIndexMap.set(s.filename, s.number);
+      }
+      const benutzteNamen = new Set<string>();
       function collectSources(node: MindmapNodeData) {
-        if (node.source_label && !sourceIndexMap.has(node.source_label)) {
-          sourceIndexMap.set(node.source_label, sourceIndexMap.size + 1);
+        if (node.source_label) {
+          benutzteNamen.add(node.source_label);
+          // Older maps carry no picked list, then the tree order numbers them.
+          if (!sourceIndexMap.has(node.source_label)) {
+            sourceIndexMap.set(node.source_label, sourceIndexMap.size + 1);
+          }
         }
         node.children?.forEach(collectSources);
       }
       collectSources(mindmap);
       sourceIndexRef.current = sourceIndexMap;
+      usedNamesRef.current = benutzteNamen;
 
       let nid = 0;
       nodeSourceMapRef.current = new Map();
       function convert(node: MindmapNodeData): any {
         const id = `node-${nid++}`;
         const result: any = { id, topic: node.topic };
-        if (node.source_label && node.page_number != null) {
+        if (node.source_label) {
           nodeSourceMapRef.current.set(id, { source_label: node.source_label, page_number: node.page_number, keyword: node.keyword });
           const srcNum = sourceIndexMap.get(node.source_label);
           if (srcNum) {
+            // Without a verified spot the chip names the file alone, it still opens it.
             const isMedia = _isMediaFile(node.source_label);
-            const rawLabel = isMedia && typeof node.page_number === "string"
-              ? node.page_number
-              : tMm("pageLabel", { page: node.page_number ?? 0 });
+            const rawLabel = node.page_number == null
+              ? ""
+              : isMedia && typeof node.page_number === "string"
+                ? node.page_number
+                : tMm("pageLabel", { page: node.page_number });
             const esc = node.topic.replace(/&/g, "&amp;").replace(/</g, "&lt;");
             // The chip label is escaped too, it ends up in innerHTML.
             const label = String(rawLabel).replace(/&/g, "&amp;").replace(/</g, "&lt;");
-            const IconComp = _getChipIcon(node.source_label);
-            const icon = renderToStaticMarkup(
-              React.createElement(IconComp, {
-                size: 8,
-                weight: "bold",
-                style: { verticalAlign: "-1px", flexShrink: 0 },
-              })
-            );
+            const chipSrc = sourcesRef.current ? _findSource(sourcesRef.current, node.source_label) : undefined;
+            const keyAttr = chipSrc ? ` data-chip-target="${_chipKey(chipSrc, node.page_number)}"` : "";
             result.dangerouslySetInnerHTML =
-              `${esc} <span class="mm-src-chip">${icon} [${srcNum}] ${label}</span>`;
+              `${esc} <span class="mm-src-chip"${keyAttr}>[${srcNum}]${label ? ` ${label}` : ""}</span>`;
           }
         }
         if (node.children && node.children.length > 0) {
@@ -283,11 +329,10 @@ export function MindmapStudio({
         const srcs = sourcesRef.current;
         const cb = onPillClickRef.current;
         if (!srcs || !cb) return;
-        const label = srcInfo.source_label.toLowerCase();
-        const src = srcs.find((s) => s.filename === srcInfo.source_label)
-          ?? srcs.find((s) => s.filename.toLowerCase() === label)
-          ?? srcs.find((s) => label.includes(s.filename.toLowerCase()) || s.filename.toLowerCase().includes(label));
+        const src = _findSource(srcs, srcInfo.source_label);
         if (src) {
+          setActiveChipTarget(_chipKey(src, srcInfo.page_number));
+          paintActiveChip();
           // Leave full screen, otherwise the sources panel stays invisible.
           if (document.fullscreenElement) {
             try { await document.exitFullscreen(); } catch { /* ignore */ }
@@ -297,12 +342,7 @@ export function MindmapStudio({
           setFullscreenRef.current(false);
           const isMedia = _isMediaFile(src.filename);
           if (isMedia && typeof srcInfo.page_number === "string") {
-            // Parse timestamp string "M:SS" or "H:MM:SS" → seconds
-            const parts = srcInfo.page_number.split(":").map(Number);
-            let startTime = 0;
-            if (parts.length === 3) startTime = parts[0] * 3600 + parts[1] * 60 + parts[2];
-            else if (parts.length === 2) startTime = parts[0] * 60 + parts[1];
-            cb(src.uuid, 0, src.filename, undefined, startTime);
+            cb(src.uuid, 0, src.filename, undefined, _labelSeconds(srcInfo.page_number));
           } else {
             const pageNum = typeof srcInfo.page_number === "number" ? srcInfo.page_number : parseInt(String(srcInfo.page_number), 10) || 0;
             cb(src.uuid, pageNum, src.filename, undefined);
@@ -330,7 +370,7 @@ export function MindmapStudio({
       if (containerRef.current) containerRef.current.innerHTML = "";
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mindmap, view]);
+  }, [mindmap, view, pickedSources]);
 
   const activeTopicName = mindmap?.topic ?? tMm("fallbackTopic");
   const noSources = sourceCount === 0;
@@ -514,20 +554,28 @@ export function MindmapStudio({
                 className="flex-1"
                 style={{ minHeight: 300 }}
               />
-              {sourceIndexRef.current.size > 0 && (
+              {(() => {
+                const eintraege = (pickedSources && pickedSources.length > 0)
+                  ? pickedSources
+                  : Array.from(sourceIndexRef.current.entries())
+                      .map(([filename, number]) => ({ number, filename }));
+                if (eintraege.length === 0) return null;
+                return (
                 <StudioSourceLegend
-                  count={sourceIndexRef.current.size}
+                  count={eintraege.length}
                   className="px-4 py-2 flex-shrink-0"
                   listClassName="flex flex-wrap gap-x-4 gap-y-1 pl-4"
                   style={{ borderTop: "1px solid var(--border)" }}
                 >
-                  {Array.from(sourceIndexRef.current.entries()).map(([filename, num]) => (
-                    <span key={num} className="text-xs leading-snug text-[var(--muted)]">
-                      [{num}] {filename}
+                  {eintraege.map((s) => (
+                    <span key={s.number}
+                          className={`text-xs leading-snug text-[var(--muted)]${usedNamesRef.current.has(s.filename) ? "" : " opacity-60"}`}>
+                      [{s.number}] {s.filename}
                     </span>
                   ))}
                 </StudioSourceLegend>
-              )}
+                );
+              })()}
             </>
           )}
         </div>

@@ -6,8 +6,13 @@ ROLES: tuple[str, ...] = ("host", "expert", "student", "critic")
 STYLES: tuple[str, ...] = ("teaching", "casual", "interview")
 LANGUAGES: tuple[str, ...] = ("de", "en")
 
-# Target length in words, spoken at roughly 140 words per minute.
-LENGTH_WORDS: dict[str, int] = {"short": 700, "medium": 1400, "long": 2800}
+# Speaking tempo, the same range and default the screencast offers.
+SPEED_MIN, SPEED_MAX, SPEED_DEFAULT = 0.7, 1.2, 0.9
+
+# A model keeps a count of paragraphs far better than a total word count, so the target
+# is stated as (contributions, words each) and the sum only follows from it.
+LENGTH_PLAN: dict[str, tuple[int, int]] = {"short": (10, 70), "medium": (20, 70), "long": (40, 70)}
+LENGTH_WORDS: dict[str, int] = {name: n * je for name, (n, je) in LENGTH_PLAN.items()}
 
 
 class Person(BaseModel):
@@ -33,9 +38,14 @@ class PodcastParams(BaseModel):
 
     language: str = "de"
     instructions: str = ""
+    speed: float = SPEED_DEFAULT
     persons: list[Person]
     length: str = "medium"
     style: str = "teaching"
     provider_id: int = 0
     voice_label: str = ""
     source_label: str = ""
+    # Written by hand from an empty script, so no model is ever asked for this one.
+    self_written: bool = False
+    # The instruction named something the material does not cover, so the search was skipped.
+    instruction_unmatched: bool = False

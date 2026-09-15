@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   Check,
   DotsThreeVertical,
+  TextAlignLeft,
   FolderSimple,
   PencilSimple,
   TextT,
@@ -38,6 +39,7 @@ export function SourceRow({
   onRename,
   onRetry,
   onMoveToChapter,
+  onShowSummary,
 }: {
   src: Source;
   checked: boolean;
@@ -62,6 +64,7 @@ export function SourceRow({
   onRename?: (uuid: string, name: string) => Promise<void>;
   onRetry: (uuid: string) => void;
   onMoveToChapter?: (sourceUuid: string, chapterUuid: string | null) => void;
+  onShowSummary?: (source: Source) => void;
 }) {
   const t = useTranslations("workspace.detail.sources");
   const [renameValue, setRenameValue] = useState("");
@@ -213,6 +216,19 @@ export function SourceRow({
 
       {!compact && (
         <>
+          {src.has_summary && onShowSummary && (
+            <div className="flex-shrink-0 flex items-center justify-center px-1 py-2.5">
+              <button
+                type="button"
+                onClick={() => onShowSummary(src)}
+                className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
+                style={{ backgroundColor: "var(--surface-dim)" }}
+                title={t("summary.open")}
+              >
+                <TextAlignLeft size={14} weight="bold" />
+              </button>
+            </div>
+          )}
           <OwnerOnly show={isOwner && src.status === "failed"}>
             <div className="flex-shrink-0 flex items-center justify-center px-1 py-2.5">
               <button

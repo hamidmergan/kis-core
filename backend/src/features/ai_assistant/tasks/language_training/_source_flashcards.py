@@ -9,7 +9,6 @@ from src.features.ai_assistant.prompts.language_training_prompts import AIA_LERN
 
 from src.features.ai_assistant.tasks.language_training._attribution import attach_chips
 from src.features.ai_assistant.tasks.language_training._context import QuelleContext
-from src.features.ai_assistant.tasks.language_training._title import title_from_items
 from src.features.ai_assistant.tasks.language_training._wortteile import clean_word_parts
 from src.services.llm_call import create_logged
 
@@ -75,10 +74,8 @@ def generate_flashcards_from_source(
     items = [_format_lernkarte(c) for c in cards]
     # One batched attribution for the whole set, exactly one source per card.
     attach_chips(items, [_card_claim(c) for c in cards], ctx, multi=False)
-    # The title comes from the same answer, that saves a second call.
-    title = (data.get("title") or "").strip()
-    if not title:
-        title = title_from_items(client, model, items, ctx.multi_label)
+    # The title comes out of the same answer, the set costs no title call of its own.
+    title = (data.get("title") or "").strip() or ctx.multi_label
     return items, title
 
 

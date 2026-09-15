@@ -36,7 +36,7 @@ def test_the_front_is_a_question_not_the_term():
          "answer": "Sie findet Quellen zum eigenen Thema."},
     ]})
     client, _ = _client(antwort)
-    items = _glossary._generate_karteikarten(
+    items, _titel = _glossary._generate_karteikarten(
         client, "m", _eintraege("Literaturrecherche"), "German")
 
     assert items[0]["front"] == "Wozu dient die Literaturrecherche?"
@@ -51,7 +51,7 @@ def test_one_call_for_the_whole_set():
         for b in ("Abstract", "Peer Review", "Exposé")
     ]})
     client, calls = _client(antwort)
-    items = _glossary._generate_karteikarten(
+    items, _titel = _glossary._generate_karteikarten(
         client, "m", _eintraege("Abstract", "Peer Review", "Exposé"), "German")
 
     assert len(calls) == 1
@@ -64,7 +64,7 @@ def test_the_source_page_stays_with_the_card():
         {"term": "Abstract", "question": "Was ist ein Abstract?", "answer": "Eine Zusammenfassung."},
     ]})
     client, _ = _client(antwort)
-    items = _glossary._generate_karteikarten(client, "m", _eintraege("Abstract"), "German")
+    items, _titel = _glossary._generate_karteikarten(client, "m", _eintraege("Abstract"), "German")
 
     assert items[0]["page_number"] == 3
     assert items[0]["source_label"] == "Skript.pdf"
@@ -77,7 +77,7 @@ def test_a_failing_call_still_yields_questions():
 
     client = types.SimpleNamespace(
         chat=types.SimpleNamespace(completions=types.SimpleNamespace(create=boom)))
-    items = _glossary._generate_karteikarten(client, "m", _eintraege("Abstract"), "German")
+    items, _titel = _glossary._generate_karteikarten(client, "m", _eintraege("Abstract"), "German")
 
     assert items[0]["front"] == "Was bedeutet „Abstract\"?"
     assert items[0]["back"] == "Das ist Abstract."
@@ -88,7 +88,7 @@ def test_a_term_the_model_skipped_falls_back():
         {"term": "Abstract", "question": "Was ist ein Abstract?", "answer": "Eine Zusammenfassung."},
     ]})
     client, _ = _client(antwort)
-    items = _glossary._generate_karteikarten(
+    items, _titel = _glossary._generate_karteikarten(
         client, "m", _eintraege("Abstract", "Exposé"), "German")
 
     assert len(items) == 2
@@ -101,13 +101,13 @@ def test_an_empty_question_counts_as_missing():
         {"term": "Abstract", "question": "   ", "answer": "Eine Zusammenfassung."},
     ]})
     client, _ = _client(antwort)
-    items = _glossary._generate_karteikarten(client, "m", _eintraege("Abstract"), "German")
+    items, _titel = _glossary._generate_karteikarten(client, "m", _eintraege("Abstract"), "German")
     assert items[0]["front"] == "Was bedeutet „Abstract\"?"
 
 
 def test_broken_json_falls_back_instead_of_failing():
     client, _ = _client("kein JSON weit und breit")
-    items = _glossary._generate_karteikarten(client, "m", _eintraege("Abstract"), "German")
+    items, _titel = _glossary._generate_karteikarten(client, "m", _eintraege("Abstract"), "German")
     assert items[0]["front"] == "Was bedeutet „Abstract\"?"
 
 

@@ -185,11 +185,13 @@ AIA_KARTEIKARTEN_GLOSSAR_PROMPT = (
     "Write everything in {language}.\n\n"
     "Respond ONLY with a JSON object in exactly this format:\n"
     "{\n"
+    '  "title": "Short title naming what these entries have in common (in {language})",\n'
     '  "cards": [{"term": "the term, VERBATIM as given", "question": "Question?", '
     '"answer": "Answer in 1-3 short sentences."}]\n'
     "}\n\n"
     "Rules:\n"
     "- EXACTLY one card per given entry, in the same order, and no others\n"
+    "- 'title': max 6 words, naming the matter the entries share, never a filename\n"
     "- 'term' is copied VERBATIM from the input; it is how the card is matched back\n"
     "- The question must be answerable by the given definition and by nothing else. Do NOT add "
     "facts, examples or specifics that are not in the definition\n"

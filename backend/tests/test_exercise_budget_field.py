@@ -17,7 +17,7 @@ def _picked_chars(picked) -> int:
 @pytest.fixture
 def zwei_budgets(monkeypatch):
     """Two clearly different budgets, so a mix-up shows up in the picked size."""
-    monkeypatch.setattr(cb, "tool_context_budget", lambda tool="": 50000)
+    monkeypatch.setattr(cb, "tool_context_budget", lambda: 50000)
     monkeypatch.setattr(cb, "exercise_context_budget", lambda: 10000)
     monkeypatch.setattr("src.database.get_context_cursors", lambda w, s, t: [])
     monkeypatch.setattr("src.database.set_context_cursors", lambda w, s, t, c: None)

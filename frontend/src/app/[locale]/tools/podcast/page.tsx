@@ -3,7 +3,7 @@
 import { Suspense, useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { ArrowCounterClockwise } from "@phosphor-icons/react";
+import { Trash } from "@phosphor-icons/react";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import ToolBackLink from "@/components/ui/ToolBackLink";
 import Spinner from "@/components/ui/Spinner";
@@ -16,21 +16,26 @@ import DoneStep from "./_steps/DoneStep";
 import ScriptStep from "./_steps/ScriptStep";
 import VoicingStep from "./_steps/VoicingStep";
 import PodcastStepper from "./_components/PodcastStepper";
+import BestaetigungModal from "./_components/BestaetigungModal";
 import { cancelJob, fetchJob, fetchPodcast, rephraseLine, savePodcastParams, saveScript, startPodcast, startRender } from "./_api";
-import { closedForGood, isBusy, reachable } from "./_logic";
+import { closedForGood, hatErgebnisse, isBusy, ohneKi, reachable } from "./_logic";
 import { INITIAL_STATE, defaultPersons, reducer } from "./_reducer";
 import { STEPS, type Line, type Person, type PodcastState, type Step } from "./_types";
 
-const ACTION = "px-3 py-2 text-sm border-2 border-border rounded-md hover:border-[var(--kb)] hover:text-[var(--kb)] flex items-center gap-1 whitespace-nowrap";
+// Same quiet discard link as the screencast tool.
+const DISCARD = "inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-soft transition-colors hover:text-error focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb";
 const POLL_MS = 2000;
 const SAVE_MS = 800;
 
 function PodcastPageInner() {
   const t = useTranslations("tools.podcast");
   const tCommon = useTranslations("common");
+  const tNachfrage = useTranslations("tools.podcast.nachfrage");
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
   const [hydrated, setHydrated] = useState(false);
   const [besetzungLaeuft, setBesetzungLaeuft] = useState(false);
+  // Both of these clicks throw work away, so neither happens without a question.
+  const [nachfrage, setNachfrage] = useState<"abbrechen" | "neu" | null>(null);
   const { loaded, providers } = useVoices();
   const { permissions } = usePermissions();
   // Without it every visit starts fresh, only the jobs list links straight to one podcast.
@@ -57,7 +62,10 @@ function PodcastPageInner() {
           instructions: view.params.instructions,
           length: view.params.length as PodcastState["length"],
           style: view.params.style as PodcastState["style"],
+          speed: view.params.speed,
           count: Math.min(4, Math.max(1, personen.length)) as PodcastState["count"],
+          selfWritten: view.params.self_written,
+          instructionUnmatched: view.params.instruction_unmatched,
           // The saved cast first, the rest keeps its defaults so four cards stay fillable.
           persons: [...personen, ...defaultPersons().slice(personen.length)],
         },
@@ -169,6 +177,10 @@ function PodcastPageInner() {
     try {
       const uuid = await startPodcast(stateRef.current);
       dispatch({ type: "STARTED", jobUuid: uuid });
+      if (stateRef.current.source.mode === "blank") {
+        const view = await holeStand(uuid);
+        dispatch({ type: "JOB", status: view.status, progress: view.progress, error: view.error });
+      }
       notifyJobsChanged();
     } catch (e) {
       dispatch({ type: "FAIL", error: e instanceof Error ? e.message : tCommon("unknownError") });
@@ -210,6 +222,7 @@ function PodcastPageInner() {
   };
 
   const abbrechen = async () => {
+    setNachfrage(null);
     if (!state.jobUuid) return;
     await cancelJob(state.jobUuid);
     dispatch({ type: "JOB", status: "awaiting_user", progress: null, error: null });
@@ -219,8 +232,12 @@ function PodcastPageInner() {
   };
 
   const neu = () => {
+    setNachfrage(null);
     dispatch({ type: "RESET" });
   };
+
+  /** Without a script there is nothing to lose, the reset then goes straight through. */
+  const neuGefragt = () => (hatErgebnisse(state) ? setNachfrage("neu") : neu());
 
   const gehe = (i: number) => dispatch({ type: "GO", step: STEPS[i] as Step });
   const begonnen = state.jobUuid !== null || state.step !== "content";
@@ -230,16 +247,15 @@ function PodcastPageInner() {
     <ProtectedRoute>
       <div className="max-w-4xl mx-auto px-4 py-10 sm:py-14" data-tour="tool-podcast">
         <ToolBackLink />
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-1">
-          <h1 className="text-xl font-bold">{t("title")}</h1>
-          {begonnen && (
-            <button type="button" onClick={neu} className={ACTION}>
-              <ArrowCounterClockwise size={14} weight="bold" />
-              {t("newPodcast")}
+
+        {begonnen && (
+          <div className="flex justify-end mb-8">
+            <button type="button" onClick={neuGefragt} className={DISCARD}>
+              <Trash size={14} aria-hidden="true" />
+              {t("discardPodcast")}
             </button>
-          )}
-        </div>
-        <p className="text-sm text-muted mb-8">{t("intro")}</p>
+          </div>
+        )}
 
         {!hydrated ? (
           <Spinner className="justify-center py-20" />
@@ -272,15 +288,18 @@ function PodcastPageInner() {
                 persons={state.persons}
                 length={state.length}
                 style={state.style}
+                speed={state.speed}
                 voices={providers}
                 voicesLoaded={loaded}
                 onCount={(count) => dispatch({ type: "SET_COUNT", count })}
                 onPerson={(index, person) => dispatch({ type: "SET_PERSON", index, person })}
                 onLength={(length) => dispatch({ type: "SET_LENGTH", length })}
                 onStyle={(style) => dispatch({ type: "SET_STYLE", style })}
+                onSpeed={(speed) => dispatch({ type: "SET_SPEED", speed })}
                 onBack={state.jobUuid ? null : () => dispatch({ type: "GO", step: "content" })}
                 onNext={besetzungWeiter}
                 hatAuftrag={state.jobUuid !== null}
+                ohneKi={ohneKi(state)}
                 busy={besetzungLaeuft}
                 error={state.error}
               />
@@ -302,6 +321,8 @@ function PodcastPageInner() {
                 onVoice={vertonen}
                 onToDone={() => dispatch({ type: "GO", step: "done" })}
                 allDone={state.jobStatus === "success"}
+                selfWritten={ohneKi(state)}
+                instructionUnmatched={state.instructionUnmatched}
               />
             )}
             {state.step === "voicing" && (
@@ -314,7 +335,7 @@ function PodcastPageInner() {
                 progress={state.progress}
                 error={state.error}
                 onResume={vertonen}
-                onCancel={abbrechen}
+                onCancel={() => setNachfrage("abbrechen")}
                 onBackToScript={() => dispatch({ type: "GO", step: "script" })}
                 onWeiter={() => dispatch({ type: "GO", step: "done" })}
               />
@@ -331,10 +352,21 @@ function PodcastPageInner() {
                 seconds={state.seconds}
                 onVoice={vertonen}
                 onEditScript={() => dispatch({ type: "GO", step: "script" })}
-                onReset={neu}
+                onReset={neuGefragt}
               />
             )}
           </>
+        )}
+
+        {nachfrage && (
+          <BestaetigungModal
+            title={nachfrage === "abbrechen" ? tNachfrage("abbrechenTitel") : tNachfrage("neuTitel")}
+            body={nachfrage === "abbrechen" ? tNachfrage("abbrechenText") : tNachfrage("neuText")}
+            dismissLabel={nachfrage === "abbrechen" ? tNachfrage("abbrechenWeiter") : tNachfrage("neuZurueck")}
+            confirmLabel={nachfrage === "abbrechen" ? tNachfrage("abbrechenJa") : tNachfrage("neuJa")}
+            onDismiss={() => setNachfrage(null)}
+            onConfirm={nachfrage === "abbrechen" ? abbrechen : neu}
+          />
         )}
       </div>
     </ProtectedRoute>

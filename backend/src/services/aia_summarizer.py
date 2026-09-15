@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import random
+import re
 import time
 from typing import Any, Optional
 
@@ -26,6 +27,21 @@ def _is_rate_limit(e: Exception) -> bool:
 
 # Ceiling of the output, short enough for many sources in one window.
 _MAX_OUTPUT_TOKENS = 1280
+
+# The same sign eight times in a row, spaced out or not, is no wording any more.
+_RUN = re.compile(r"(\S ?)\1{7,}")
+# The model thinking out loud instead of answering, seen in the wild.
+_SELF_TALK = ("wait, let me", "let me rephrase", "let me restart", "let me try again")
+
+
+def _is_derailed(text: str) -> bool:
+    """True when the answer ran into a loop or the model started talking to itself."""
+    if not text:
+        return False
+    if _RUN.search(text):
+        return True
+    low = text.lower()
+    return any(marke in low for marke in _SELF_TALK)
 
 
 def _batch_by_chars(chunks: list[dict], cap_chars: int) -> list[list[str]]:
@@ -62,13 +78,21 @@ def _call(
                     {"role": "user", "content": user},
                 ],
                 temperature=temperature,
-                frequency_penalty=0.5,  # discourage degenerate repetition loops
+                # No frequency penalty: measured on a schedule full of dates it punishes
+                # the very words the text has to repeat, and the answer derails.
                 max_tokens=_MAX_OUTPUT_TOKENS,
             )
             text = (resp.choices[0].message.content or "").strip()
-            if text:
+            if text and not _is_derailed(text):
                 return text
-            last = RuntimeError("empty summary response")
+            if text:
+                # The last attempt hands its answer over anyway, half is better than none.
+                logger.warning("Summary answer derailed (attempt {}/{})", attempt + 1, retries + 1)
+                if attempt == retries:
+                    return text
+                last = RuntimeError("derailed summary response")
+            else:
+                last = RuntimeError("empty summary response")
         except Exception as e:  # retried below, re-raised if all attempts fail
             last = e
             rate_limited = _is_rate_limit(e)

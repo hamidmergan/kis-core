@@ -43,6 +43,11 @@ class TestFingerabdruck:
         vertont = {"b0": store.fingerprint(line, "anna", 1.0)}
         assert store.needs_voice(line, vertont, "ben", 1.0) is True
 
+    def test_anderes_tempo_braucht_neuen_ton(self):
+        line = _line(0)
+        vertont = {"b0": store.fingerprint(line, "anna", 0.9)}
+        assert store.needs_voice(line, vertont, "anna", 1.2) is True
+
     def test_reine_randleerzeichen_aendern_nichts(self):
         vertont = {"b0": store.fingerprint(_line(0, "Ein Satz."), "anna", 1.0)}
         assert store.needs_voice(_line(0, "  Ein Satz.  "), vertont, "anna", 1.0) is False

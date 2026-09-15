@@ -7,6 +7,7 @@ from src.celery_app import celery_app
 from src.features.podcast import script as skript
 from src.features.podcast import store
 from src.i18n import t
+from src.services.job_statistik import messe, route_kennung
 from src.tasks.podcast_tasks._shared import JobCancelled, assert_not_cancelled
 from src.utils.heartbeat import job_heartbeat
 
@@ -34,9 +35,14 @@ def run_podcast_script(self, job_uuid: str, user_id: int, locale: str = "de"):
         llm = feature_router.make_llm_client(binding)
 
         letzter = ""
-        with job_heartbeat(job_uuid):
+        with job_heartbeat(job_uuid), messe(user_id, job_uuid, "skript") as zahlen:
+            zahlen.update(route_kennung("chat"))
+            zahlen["zeichen"] = len(quelle)
+            zahlen["personen"] = len(params.persons)
+            zahlen["rollen"] = ", ".join(person.role for person in params.persons)
             for versuch in range(1, _VERSUCHE + 1):
                 assert_not_cancelled(job_uuid)
+                zahlen["versuche"] = versuch
                 antwort = call_json_llm(
                     llm, nachrichten, endpoint="podcast").choices[0].message.content or ""
                 try:
@@ -47,6 +53,7 @@ def run_podcast_script(self, job_uuid: str, user_id: int, locale: str = "de"):
                     logger.warning("Podcast-Skript Versuch {} unbrauchbar: {}", versuch, e)
             else:
                 raise RuntimeError(letzter or "Das Modell lieferte kein brauchbares Skript")
+            zahlen["beitraege"] = len(zeilen)
 
         zeilen = store.next_ids(zeilen)
         store.save_script(user_id, job_uuid, zeilen)

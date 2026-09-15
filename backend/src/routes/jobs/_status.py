@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from loguru import logger
 
 from src import database as db
-from src.dependencies import get_current_user
+from src.dependencies import get_current_user, is_admin_user
 from src.i18n import get_locale, t
 from src.storage import load_result_json, load_result_meta
 
@@ -62,6 +62,9 @@ def get_job_status(
             # For render jobs: load subtitle + audio metadata
             meta = load_result_meta(job["user_id"], job_uuid)
             if meta is not None:
+                # The run numbers are operational information and go to admins only.
+                if not is_admin_user(current_user):
+                    meta = {k: v for k, v in meta.items() if k != "stats"}
                 response["meta"] = meta
 
     return response

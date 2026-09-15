@@ -20,6 +20,14 @@ def assert_not_cancelled(job_uuid: str) -> None:
         logger.warning("Abbruchmarke nicht lesbar: {}", e)
 
 
+def clear_cancel(job_uuid: str) -> None:
+    """A new run starts clean, the mark of the cancelled one lives 10 minutes otherwise."""
+    try:
+        _r.delete(f"job:cancel:{job_uuid}")
+    except redis.RedisError as e:
+        logger.warning("Abbruchmarke nicht loeschbar: {}", e)
+
+
 def tts_client(provider_id: int):
     """The voice provider of this run, the same resolver the screencast uses."""
     from src.dependencies import get_tts_client_for_provider

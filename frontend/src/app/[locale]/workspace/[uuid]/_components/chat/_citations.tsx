@@ -9,14 +9,24 @@ let _activeChipTarget: string | null = null;
 const _activeChipSubs = new Set<() => void>();
 
 // The id of a chip: source plus page or second.
-function chipTargetKey(uuid: string, page: number, seconds: number | undefined): string {
+export function chipTargetKey(uuid: string, page: number, seconds: number | undefined): string {
   return seconds != null ? `${uuid}@t${seconds}` : `${uuid}@p${page}`;
 }
 
-function setActiveChipTarget(key: string): void {
+export function setActiveChipTarget(key: string): void {
   if (_activeChipTarget === key) return;
   _activeChipTarget = key;
   _activeChipSubs.forEach((fn) => fn());
+}
+
+// For chips outside React, the mindmap draws its own frame from this.
+export function getActiveChipTarget(): string | null {
+  return _activeChipTarget;
+}
+
+export function subscribeActiveChip(cb: () => void): () => void {
+  _activeChipSubs.add(cb);
+  return () => { _activeChipSubs.delete(cb); };
 }
 
 // Takes the frame off the active chip when the viewer drops its own frame.

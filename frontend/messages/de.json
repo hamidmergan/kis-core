@@ -61,7 +61,8 @@
         "summary": "Zusammenfassung",
         "tts": "Text in Sprache",
         "screencast": "Screencast",
-        "image": "Bild"
+        "image": "Bild",
+        "podcast": "Podcast"
       }
     },
     "status": {
@@ -93,7 +94,10 @@
         "vertonung": "Vertonung",
         "clips": "Videoclips",
         "untertitel": "Untertitel",
-        "zusammenfuegen": "Zusammenfügen"
+        "zusammenfuegen": "Zusammenfügen",
+        "material": "Material",
+        "skript": "Skript",
+        "montage": "Montage"
       },
       "field": {
         "anbieter": "Anbieter",
@@ -117,7 +121,38 @@
         "gleichzeitig": "gleichzeitig",
         "folien_mit_ton": "Folien mit Ton",
         "video_bytes": "Videogröße",
-        "clips": "Clips"
+        "clips": "Clips",
+        "herkunft": "Herkunft",
+        "quellen": "Quellen",
+        "weg": "Weg",
+        "anweisung": "Anweisung",
+        "budget": "Budget",
+        "eingelagert": "eingelagert",
+        "stellen": "Fundstellen",
+        "daneben": "neben dem Material",
+        "personen": "Personen",
+        "beitraege": "Beiträge",
+        "versuche": "Versuche",
+        "stimmen": "Stimmen",
+        "neu_vertont": "neu vertont",
+        "behalten": "behalten",
+        "stuecke": "Stücke",
+        "tondauer_s": "Tondauer",
+        "mp3_bytes": "MP3-Größe",
+        "beitragspause": "Beitragspause",
+        "besetzung": "Besetzung",
+        "rollen": "Rollen"
+      },
+      "herkunftWert": {
+        "files": "Dateien",
+        "module": "Modul",
+        "text": "Text",
+        "blank": "Eigenes Skript"
+      },
+      "wegWert": {
+        "fill": "aufgefüllt",
+        "search": "gesucht",
+        "outline": "über die Gliederung"
       }
     },
     "actions": {
@@ -336,7 +371,7 @@
     },
     "coming": {
       "slides": {
-        "title": "PowerPoint-Generierung",
+        "title": "Präsentation",
         "body": "Aus deinem Material werden Folien mit Sprechernotizen, fertig zum Nachbearbeiten."
       }
     },
@@ -931,6 +966,7 @@
       "title": "Podcast",
       "intro": "Aus deinem Material wird ein Gespräch zum Anhören. Du wählst Inhalt und Besetzung, prüfst das Skript und lässt es vertonen.",
       "newPodcast": "Neuer Podcast",
+      "discardPodcast": "Podcast verwerfen",
       "mockNote": "Mockup: Skript und Vertonung sind simuliert, nichts geht an einen Anbieter. Dein Stand bleibt im Browser.",
       "steps": {
         "content": "Inhalt",
@@ -944,13 +980,23 @@
         "cancel": "Abbrechen",
         "save": "Speichern"
       },
+      "nachfrage": {
+        "abbrechenTitel": "Vertonung abbrechen?",
+        "abbrechenText": "Schon vertonte Beiträge bleiben erhalten. Du kannst die Vertonung später fortsetzen.",
+        "abbrechenWeiter": "Weiter vertonen",
+        "abbrechenJa": "Vertonung abbrechen",
+        "neuTitel": "Neuen Podcast starten?",
+        "neuText": "Skript und vertonte Beiträge verschwinden aus der Ansicht. Der Auftrag bleibt unter Aufträge erreichbar.",
+        "neuZurueck": "Zurück",
+        "neuJa": "Neu starten"
+      },
       "content": {
         "heading": "Worum soll es gehen?",
         "tabs": {
-          "text": "Text",
-          "files": "Dateien"
+          "files": "Dateien",
+          "blank": "Eigenes Skript"
         },
-        "textPlaceholder": "Vorlesungsnotizen, ein Kapitel, ein Artikel. Alles, was im Podcast vorkommen soll.",
+        "blankHint": "Das Skript kommt von dir, ganz ohne KI. Als Nächstes wählst du die Besetzung, danach legst du die Beiträge an und tippst sie ein. Vertont wird am Ende wie immer.",
         "dropOrBrowse": "Dateien hierher ziehen oder",
         "browse": "durchsuchen",
         "filesHint": "PDF, Word, PowerPoint oder Textdateien, höchstens 10 auf einmal.",
@@ -962,16 +1008,16 @@
           "en": "Englisch"
         },
         "instructionsLabel": "Anweisung, optional",
-        "instructionsPlaceholder": "Zum Beispiel: Bleib bei den Grundlagen und bring ein Beispiel aus dem Labor.",
+        "instructionsPlaceholder": "Thema oder Kapitel eingrenzen, Ton und Schwierigkeit vorgeben, Zielgruppe nennen.",
         "next": "Weiter zur Besetzung",
-        "noModules": "Du hast noch kein Modul mit Material. Nimm so lange Text oder Dateien.",
+        "noModules": "Du hast noch kein Modul mit Material. Nimm so lange Dateien.",
         "noSources": "Hier ist noch keine Quelle fertig verarbeitet.",
         "sourcesHint": "Wähle bis zu {max} Quellen aus.",
         "filesCount": "{n} von {max} Dateien",
         "filesSize": "{size} von {max}",
         "tooManyFiles": "Das sind zu viele Dateien. Nimm welche raus, dann geht es weiter.",
         "tooLarge": "Zusammen sind die Dateien zu groß. Nimm eine raus, dann geht es weiter.",
-        "sourcesFull": "Mehr als {max} Quellen gehen nicht."
+        "sourcesFull": "Maximal {max} Quellen."
       },
       "cast": {
         "heading": "Wer spricht?",
@@ -993,6 +1039,10 @@
           "critic": "Kritische Stimme"
         },
         "previewVoices": "Stimmen anhören →",
+        "speedLabel": "Geschwindigkeit: {speed}x",
+        "speedSlow": "Langsam (0.7x)",
+        "speedFast": "Schnell (1.2x)",
+        "speedRecastHint": "Ein anderes Tempo vertont alle Beiträge neu.",
         "lengthLabel": "Länge",
         "lengths": {
           "short": "Kurz, etwa 5 Minuten",
@@ -1006,6 +1056,7 @@
           "interview": "Interview"
         },
         "next": "Skript schreiben lassen",
+        "nextBlank": "Weiter zum Skript",
         "noVoices": "Es ist keine Stimme eingerichtet. Ohne Stimme kann nichts vertont werden.",
         "recastHint": "Du kannst die Besetzung noch austauschen. Beiträge mit einer anderen Stimme werden danach neu vertont, alle anderen bleiben wie sie sind.",
         "writtenHint": "Länge und Stil haben das Skript geschrieben und stehen darum fest. Einzelne Beiträge kürzt oder löschst du im Skript.",
@@ -1017,6 +1068,7 @@
         "heading": "Skript prüfen",
         "intro": "Jeder Beitrag lässt sich ändern, neu formulieren oder löschen. Vertont wird erst, wenn du zufrieden bist.",
         "summary": "{lines, plural, =1 {Ein Beitrag} other {# Beiträge}}, {words} Wörter, etwa {minutes, plural, =1 {eine Minute} other {# Minuten}}",
+        "instructionUnmatched": "Zu deiner Anweisung steht nichts in den Quellen. Die Folge nutzt deshalb das gesamte Material.",
         "castLegend": "Besetzung",
         "changed": "geändert",
         "voiced": "vertont",
@@ -1030,7 +1082,11 @@
         "nextChanged": "{n, plural, =1 {Einen geänderten Beitrag} other {# geänderte Beiträge}} neu vertonen",
         "nextDone": "Zum fertigen Podcast",
         "speakerAria": "Person für Beitrag {n}",
-        "speakerFallback": "Person {n}"
+        "speakerFallback": "Person {n}",
+        "blankHeading": "Eigenes Skript",
+        "blankIntro": "Leg Beiträge an, wähle die sprechende Person und tippe den Text. Vertont wird erst, wenn du zufrieden bist.",
+        "blankEmpty": "Noch kein Beitrag. Leg den ersten an.",
+        "emptyLine": "Noch nichts geschrieben"
       },
       "voicing": {
         "heading": "Vertonung",
@@ -1887,7 +1943,7 @@
     },
     "toolContextBudgetCard": {
       "title": "Kontext-Budget der Überblick-Werkzeuge",
-      "hint": "Wie viel Text aus den Materialien (in Zeichen) die Überblick-Werkzeuge ins Modell geben. Die Werkzeuge nehmen unterschiedliche Anteile davon: die Mindmap den ganzen Wert, Zeitplan und Datentabelle vier Fünftel, der Podcast die Hälfte. Die Mindmap teilt ihren Anteil auf die gewählten Materialien auf, der Podcast füllt der Reihe nach auf, Zeitplan und Datentabelle schneiden ihr Material in Pakete dieser Größe und machen je Paket einen Aufruf. Kann das eingestellte Modell so viel nicht, lehnt es den Auftrag mit einer Fehlermeldung ab, dann muss der Wert hier gesenkt werden.",
+      "hint": "Wie viel Text aus den Materialien (in Zeichen) die Überblick-Werkzeuge ins Modell geben. Der Wert gilt für alle vier gleich: die Mindmap teilt ihn auf die gewählten Materialien auf, der Podcast füllt der Reihe nach auf, Zeitplan und Datentabelle schneiden ihr Material in Pakete dieser Größe und machen je Paket einen Aufruf. Kann das eingestellte Modell so viel nicht, lehnt es den Auftrag mit einer Fehlermeldung ab, dann muss der Wert hier gesenkt werden.",
       "unit": "Zeichen",
       "approxTokens": "≈ {n}k Token",
       "outOfRange": "Wert muss zwischen 1000 und 1000000 liegen.",
@@ -3131,6 +3187,12 @@
           "saveError": "Speichern fehlgeschlagen. Bitte erneut versuchen.",
           "linkUrlInvalid": "URL muss mit http(s):// oder mailto: beginnen.",
           "linkLabelMissing": "Beschriftung fehlt."
+        },
+        "summary": {
+          "open": "Worum es geht",
+          "title": "Worum es geht",
+          "failed": "Die Zusammenfassung konnte nicht geladen werden.",
+          "empty": "Für dieses Material gibt es noch keine Zusammenfassung."
         }
       },
       "viewer": {
@@ -3514,7 +3576,7 @@
       "joinAll": "Allen beitreten"
     },
     "list": {
-      "headerTitle": "Hallo, {name}",
+      "headerTitle": "Hallo {name}!",
       "myWorkspaces": "Meine {label}",
       "allWorkspaces": "Alle {label}",
       "groupEnrolled": "Eingeschrieben",

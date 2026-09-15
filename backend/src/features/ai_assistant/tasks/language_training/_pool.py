@@ -49,7 +49,22 @@ def _as_item(row: dict) -> dict:
     """Puts a pool row into the shape the set stores."""
     item = {feld: row.get(feld) for feld in _CARRIED}
     item["pool_item_id"] = row["id"]
+    # Travels alongside for the set name, finalize_exercise_set ignores it.
+    item["set_title"] = row.get("set_title")
     return item
+
+
+def title_from_items(items: list[dict]) -> str:
+    """The set name a purely pooled set inherits, the most common one wins."""
+    from collections import Counter
+    namen = [
+        " ".join((i.get("set_title") or "").split())
+        for i in items
+        if (i.get("set_title") or "").strip()
+    ]
+    if not namen:
+        return ""
+    return Counter(namen).most_common(1)[0][0]
 
 
 def take(uuids: list[str], tool: str, level, user_id: int, count: int,
@@ -110,7 +125,8 @@ def _take(uuids: list[str], tool: str, level, user_id: int, count: int,
     return genommen[:count]
 
 
-def store(items: list[dict], ctx, tool: str, level, topic_id=None) -> None:
+def store(items: list[dict], ctx, tool: str, level, topic_id=None,
+          set_title: str | None = None) -> None:
     """Stores freshly generated items and records the pool id on them."""
     if not items:
         return
@@ -132,7 +148,7 @@ def store(items: list[dict], ctx, tool: str, level, topic_id=None) -> None:
             ids = db.add_pool_items(
                 source_id, tool, level, gruppe,
                 [_fingerprint(i.get("front", "")) for i in gruppe],
-                topic_id,
+                topic_id, set_title,
             )
             for item, pool_id in zip(gruppe, ids):
                 if pool_id:
@@ -142,4 +158,4 @@ def store(items: list[dict], ctx, tool: str, level, topic_id=None) -> None:
             logger.warning("KI Tutor: Vorrat der Quelle {} nicht gefuellt: {}", source_id, e)
 
 
-__all__ = ["POOL_TOOLS", "pool_level", "store", "take", "uses_pool"]
+__all__ = ["POOL_TOOLS", "pool_level", "store", "take", "title_from_items", "uses_pool"]
