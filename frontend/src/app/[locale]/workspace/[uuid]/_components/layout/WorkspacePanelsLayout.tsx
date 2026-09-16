@@ -70,24 +70,24 @@ export function WorkspacePanelsLayout(props: WorkspacePanelsLayoutProps) {
     return (
       <div
         ref={panelContainerRef}
-        className="flex flex-1 overflow-hidden mobile-flow"
+        className="flex flex-1 overflow-hidden"
         style={{ position: "relative", backgroundColor: "var(--background)" }}
       >
         <MinimizeContext.Provider value={switchToChat}>
           <div
-            className="flex flex-col overflow-hidden rounded-2xl mobile-flow mobile-center"
+            className="flex flex-col overflow-hidden rounded-2xl"
             style={{ ...panelBaseStyle, ...layerStyle("quellen") }}
           >
             {renderQuellen({ onMinimize: switchToChat, hideHeader: true })}
           </div>
           <div
-            className="flex flex-col overflow-hidden rounded-2xl mobile-flow mobile-center"
+            className="flex flex-col overflow-hidden rounded-2xl"
             style={{ ...panelBaseStyle, ...layerStyle("chat") }}
           >
             {renderChat({ onMinimize: switchToChat, hideHeader: true })}
           </div>
           <div
-            className="flex flex-col overflow-hidden rounded-2xl mobile-flow mobile-center"
+            className="flex flex-col overflow-hidden rounded-2xl"
             style={{ ...panelBaseStyle, ...layerStyle("studio") }}
           >
             {renderStudio({ onMinimize: switchToChat, hideHeader: true })}
@@ -100,7 +100,7 @@ export function WorkspacePanelsLayout(props: WorkspacePanelsLayoutProps) {
   return (
     <div
       ref={panelContainerRef}
-      className="flex flex-1 overflow-hidden mobile-flow"
+      className="flex flex-1 overflow-hidden"
       style={{ padding: 8, gap: 0, backgroundColor: "var(--background)" }}
     >
       <div ref={p1Ref} className={panelBaseClass} style={{ ...p1Style, ...panelBaseStyle }}>

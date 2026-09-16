@@ -820,7 +820,8 @@ me-tpc:hover .mm-src-chip {
 
 /* Hide non-critical elements (disclaimers, labels) on phones in landscape
    so the chat/panel area keeps useful height. Scoped to touch devices so
-   a narrow desktop window is unaffected. */
+   a narrow desktop window is unaffected. The single-panel tab layout stays
+   fixed to the viewport in both orientations. */
 @media (max-height: 500px) and (pointer: coarse) {
   .hide-on-short {
     display: none !important;
@@ -828,44 +829,6 @@ me-tpc:hover .mm-src-chip {
   .compact-on-short {
     padding-top: 0.25rem !important;
     padding-bottom: 0.25rem !important;
-  }
-  /* Turn fixed-viewport flex shells into natural flow so the whole page
-     scrolls — fixed chat input/header become inline and scroll with content. */
-  .mobile-flow {
-    height: auto !important;
-    min-height: 0 !important;
-    max-height: none !important;
-    overflow: visible !important;
-    flex: initial !important;
-  }
-  /* On wide landscape phones, center the panel instead of stretching it
-     edge-to-edge across the wider viewport. */
-  .mobile-center {
-    max-width: 560px !important;
-    margin-left: auto !important;
-    margin-right: auto !important;
-    width: 100% !important;
-  }
-  .show-on-short {
-    display: flex !important;
-  }
-  /* Cap the chat panel to 60% of the viewport on landscape phones so the
-     input stays near the top of the scroll and the rest of the page can
-     still flow below. Internal scroll (overflow-y-auto on messages) stays. */
-  .chat-60vh {
-    height: 500px !important;
-    max-height: 500px !important;
-    overflow: hidden !important;
-    flex: initial !important;
-  }
-  /* PDF/Media viewer gets the full dynamic viewport height on landscape
-     phones. The mobile-flow ancestors are content-sized, so we set a
-     concrete height here so embedpdf has a real viewport to render into.
-     Internal embedpdf scroll handles multi-page documents. */
-  .viewer-short {
-    height: 120svh !important;
-    max-height: 120svh !important;
-    flex: initial !important;
   }
 }
 .show-on-short {
@@ -885,40 +848,13 @@ me-tpc:hover .mm-src-chip {
    usePanelLayout sets body.is-phone-landscape on UA-detected phones in
    landscape orientation. Needed because pointer:coarse misreads in DevTools
    and on some hybrid browsers, leaving real iPhones with header/title still
-   visible and the panel stretched edge-to-edge. */
+   visible. */
 body.is-phone-landscape .hide-on-short {
   display: none !important;
 }
 body.is-phone-landscape .compact-on-short {
   padding-top: 0.25rem !important;
   padding-bottom: 0.25rem !important;
-}
-body.is-phone-landscape .mobile-flow {
-  height: auto !important;
-  min-height: 0 !important;
-  max-height: none !important;
-  overflow: visible !important;
-  flex: initial !important;
-}
-body.is-phone-landscape .mobile-center {
-  max-width: 560px !important;
-  margin-left: auto !important;
-  margin-right: auto !important;
-  width: 100% !important;
-}
-body.is-phone-landscape .show-on-short {
-  display: flex !important;
-}
-body.is-phone-landscape .chat-60vh {
-  height: 500px !important;
-  max-height: 500px !important;
-  overflow: hidden !important;
-  flex: initial !important;
-}
-body.is-phone-landscape .viewer-short {
-  height: 120svh !important;
-  max-height: 120svh !important;
-  flex: initial !important;
 }
 body.is-phone-landscape [title="Panel minimieren"] {
   display: none !important;
