@@ -3,10 +3,12 @@ import {
   CHAR_WARN_AT,
   ENDING_SOON_MS,
   MAX_RECORDING_MS,
+  MAX_SESSIONS,
   SESSION_CHAR_LIMIT,
   charState,
   countChars,
   recordingPhase,
+  sessionsFull,
 } from "./_limits";
 
 const said = (...texts: string[]) => texts.map((original) => ({ original, translation: "x".repeat(500) }));
@@ -50,5 +52,16 @@ describe("Zeichen eines Gesprächs", () => {
   it("ist an der Grenze voll", () => {
     expect(charState(SESSION_CHAR_LIMIT)).toBe("full");
     expect(charState(SESSION_CHAR_LIMIT + 5000)).toBe("full");
+  });
+});
+
+describe("Vorrat an Gesprächen", () => {
+  it("schweigt, solange noch Platz ist", () => {
+    expect(sessionsFull(0)).toBe(false);
+    expect(sessionsFull(MAX_SESSIONS - 1)).toBe(false);
+  });
+
+  it("warnt, sobald der Vorrat voll ist", () => {
+    expect(sessionsFull(MAX_SESSIONS)).toBe(true);
   });
 });
