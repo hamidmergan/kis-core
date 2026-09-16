@@ -11,6 +11,7 @@ from src.modules import active_modules
 from src.permissions_registry import (
     ALL_PERMISSION_KEYS,
     PERM_SET_USERS_ROLES,
+    ROLE_ONLY_KEYS,
     SYSTEM_ROLE_PERMISSIONS,
     SYSTEM_ROLES,
     keys_for_modules,
@@ -58,8 +59,8 @@ async def list_roles(admin=Depends(_require)):
             for r in SYSTEM_ROLES
         ],
         "custom_roles": db.list_custom_roles(),
-        # What the caller does not hold themselves the table shows locked.
-        "grantable": list(perms.keys & katalog),
+        # What the caller does not hold themselves the table shows locked, role-only keys stay open.
+        "grantable": list((perms.keys | set(ROLE_ONLY_KEYS)) & katalog),
     }
 
 

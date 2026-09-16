@@ -4,7 +4,7 @@ from fastapi import Depends, HTTPException, Request
 from src.dependencies import get_current_user, get_settings
 from src.i18n import get_locale, t
 from src.permissions import Permissions, resolve_user_permissions
-from src.permissions_registry import is_settings_key
+from src.permissions_registry import ROLE_ONLY_KEYS, is_settings_key
 from src.services.tool_release import is_released_now
 
 
@@ -55,8 +55,8 @@ async def require_any_settings(
 
 
 def assert_may_grant(actor: Permissions, keys, locale: str) -> None:
-    """You can only grant what you hold yourself."""
-    beyond = [k for k in keys if k not in actor.keys]
+    """You can only grant what you hold yourself, the role-only keys are the exception."""
+    beyond = [k for k in keys if k not in actor.keys and k not in ROLE_ONLY_KEYS]
     if beyond:
         raise HTTPException(status_code=403, detail=t("auth.grantBeyondOwn", locale))
 

@@ -184,14 +184,16 @@ def valid_keys(keys) -> tuple[str, ...]:
 # System roles are fixed in code, the table shows them greyed out.
 SYSTEM_ROLES: tuple[str, ...] = ("admin", "staff", "user")
 
-# The own language level belongs to the learners, staff does not get it by default.
-STAFF_AIA_KEYS: tuple[str, ...] = tuple(k for k in AIA_KEYS if k != PERM_AIA_LANGUAGE_LEVEL)
+# No system role carries these, only a custom role, and anyone handing out roles may grant them.
+ROLE_ONLY_KEYS: tuple[str, ...] = (PERM_AIA_LANGUAGE_LEVEL,)
+
+STAFF_AIA_KEYS: tuple[str, ...] = tuple(k for k in AIA_KEYS if k not in ROLE_ONLY_KEYS)
 
 # Lehrende lesen die Zahlen ihrer Module am Modul selbst, nicht in den Einstellungen.
 SYSTEM_ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
-    "admin": ALL_PERMISSION_KEYS,
+    "admin": tuple(k for k in ALL_PERMISSION_KEYS if k not in ROLE_ONLY_KEYS),
     "staff": GENERAL_KEYS + STAFF_AIA_KEYS + TOOL_KEYS,
-    "user": (PERM_AIA_USE, PERM_AIA_LANGUAGE_LEVEL),
+    "user": (PERM_AIA_USE,),
 }
 
 # Which settings field belongs to which right, unknown ones count as admin business.

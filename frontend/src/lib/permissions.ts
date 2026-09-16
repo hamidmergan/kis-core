@@ -7,7 +7,7 @@ export const PERM = {
 
   aiaUse: "aia.use",
   aiaWorkspaceCreate: "aia.workspace.create",
-  // Own language level and test, held by the user role only.
+  // Own language level and test, no system role holds it, only a custom role.
   aiaLanguageLevel: "aia.language_level",
 
   toolsRelease: "settings.werkzeuge.release",

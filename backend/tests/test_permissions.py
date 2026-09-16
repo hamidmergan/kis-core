@@ -15,6 +15,7 @@ from src.permissions_registry import (
     PERM_SET_AIA_LEVEL,
     PERM_SET_SYSTEM,
     PERM_SET_USERS_ALL,
+    ROLE_ONLY_KEYS,
     SETTING_FIELD_PERMISSIONS,
     keys_from_legacy,
     valid_keys,
@@ -49,12 +50,12 @@ def test_system_roles_constant_lists_three_fixed_roles():
     assert SYSTEM_ROLES == ("admin", "staff", "user")
 
 
-def test_admin_has_all_permissions():
+def test_admin_has_every_permission_except_the_role_only_ones():
     perms = permissions_for_system_role("admin")
     assert perms.allow_admin_panel is True
     assert perms.allow_aia is True
     assert set(perms.tools) == set(ALL_TOOL_KEYS)
-    assert set(perms.keys) == set(ALL_PERMISSION_KEYS)
+    assert set(perms.keys) == set(ALL_PERMISSION_KEYS) - set(ROLE_ONLY_KEYS)
 
 
 def test_staff_reads_its_numbers_at_the_module_not_in_the_settings():
@@ -67,13 +68,15 @@ def test_staff_reads_its_numbers_at_the_module_not_in_the_settings():
     assert perms.settings_pages == ()
 
 
-def test_staff_has_no_language_level_by_default():
-    perms = permissions_for_system_role("staff")
-    assert not perms.has(PERM_AIA_LANGUAGE_LEVEL)
+def test_no_system_role_holds_the_language_level():
+    """The trainer hangs on a custom role, no preset hands it out."""
+    for role in SYSTEM_ROLES:
+        assert not permissions_for_system_role(role).has(PERM_AIA_LANGUAGE_LEVEL), role
 
 
 def test_user_has_only_aia_workspace_access_no_create():
     perms = permissions_for_system_role("user")
+    assert set(perms.keys) == {PERM_AIA_USE}
     assert perms.allow_admin_panel is False
     assert perms.allow_aia is True   # can OPEN assigned workspaces
     assert perms.allow_workspace_create is False
