@@ -32,12 +32,12 @@ describe("homeTargets", () => {
     expect(homeTargets(["tools"], perms).map((z) => z.href)).toEqual(["/tools/tts", "/tools/screencast"]);
   });
 
-  it("stellt das Glossar vor die mehrstufigen Werkzeuge", () => {
+  it("stellt die Dienste für die Lehre vor das Glossar", () => {
     const perms = { ...EMPTY_PERMS, tools: ["podcast", "glossary", "screencast"] };
     expect(homeTargets(["tools"], perms).map((z) => z.href)).toEqual([
-      "/tools/glossary",
       "/tools/screencast",
       "/tools/podcast",
+      "/tools/glossary",
     ]);
   });
 

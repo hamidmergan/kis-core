@@ -2,17 +2,17 @@ import type { UserPermissions } from "@/types";
 
 export const ALL_MODULES = ["aia", "tools"] as const;
 
-/** Order of the tools on the start page: single-step tools first, the multi-step ones last. */
+/** Order of the tools on the start page, nach Wichtigkeit für die Lehre. */
 export const TOOL_ROUTES = [
   { key: "translation", href: "/tools/translate" },
-  { key: "interpreter", href: "/tools/interpreter" },
   { key: "tts", href: "/tools/tts" },
   { key: "transcription", href: "/tools/stt" },
-  { key: "image", href: "/tools/image" },
   { key: "summary", href: "/tools/summarize" },
-  { key: "glossary", href: "/tools/glossary" },
   { key: "screencast", href: "/tools/screencast" },
   { key: "podcast", href: "/tools/podcast" },
+  { key: "image", href: "/tools/image" },
+  { key: "interpreter", href: "/tools/interpreter" },
+  { key: "glossary", href: "/tools/glossary" },
 ] as const;
 
 export type ToolKey = (typeof TOOL_ROUTES)[number]["key"];
