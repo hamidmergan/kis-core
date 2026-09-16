@@ -669,7 +669,7 @@ export default function KiTutorWorkspacePage() {
           erwischt so auch das Modal ausserhalb des 100vh-Rahmens. */}
       <OwnerPreviewProvider value={ownerPreview}>
       <div className="aia-scale" style={{ display: "contents" }}>
-      <div className="flex flex-col overflow-hidden mobile-flow" style={{ height: "100vh" }}>
+      <div className="flex flex-col overflow-hidden" style={{ height: "100vh" }}>
         <WorkspaceTopbar
           isMobile={isMobile}
           title={moduleDetail?.title ?? ""}
