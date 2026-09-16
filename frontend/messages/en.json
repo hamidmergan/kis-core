@@ -3846,6 +3846,97 @@
     "filterPlaceholder": "Filter articles",
     "noMatch": "No article matches this filter."
   },
+  "faq": {
+    "title": "FAQ",
+    "intro": "Short answers to what comes up most often. The full detail is in the documentation.",
+    "todoLabel": "Still open",
+    "groups": {
+      "basics": "Basics",
+      "data": "Data and law",
+      "francis": "The AI assistant Francis",
+      "operation": "Day to day"
+    },
+    "closer": {
+      "heading": "Question not covered?",
+      "body": "The full detail is in the <manual>documentation</manual>, or write to us through the <feedback>feedback form</feedback>."
+    },
+    "items": {
+      "whatIsKis": {
+        "q": "What is KIS and what is it for?",
+        "a": "KIS is a pilot project at TH Lübeck. It brings together two things: the AI assistant Francis, who answers from the materials stored in a module, and the services you use to produce teaching material."
+      },
+      "vsChatgpt": {
+        "q": "How is KIS different from ChatGPT?",
+        "a": "Francis answers only from the materials in your module and attaches a source to every sentence, which opens the exact spot in the document. Anything beyond that he turns down.\n\nOn top of that, processing runs with providers in Germany, not in the US.\n\nTo be fair about the other side: the model behind it is smaller than the one in ChatGPT, and answers take longer.",
+        "todo": "Whether the providers may train on our content has not been checked yet."
+      },
+      "moduleServiceTool": {
+        "q": "What is the difference between a module, a service and a tool?",
+        "a": "A module is a course room with materials and chat. A service stands on its own, such as translation or screencast. A tool sits in the studio inside a module, such as flashcards or quizzes."
+      },
+      "costs": {
+        "q": "Does this cost anything, is there a limit?",
+        "todo": "The GWDG quota list is still outstanding, and the link to the myLab page is still missing."
+      },
+      "gdpr": {
+        "q": "Is my data safe and GDPR-compliant?",
+        "a": "The platform processes personal data on the basis of Art. 6 (1) (e) GDPR. The AI services run under a data processing agreement pursuant to Art. 28 GDPR. What is stored in detail, and for how long, is set out in the privacy policy."
+      },
+      "hosting": {
+        "q": "Who runs the platform, where are the servers?",
+        "a": "The platform runs at Hetzner in Germany, uploaded files are held in Hetzner Object Storage."
+      },
+      "models": {
+        "q": "Which AI models are used and who decides that?",
+        "a": "The KIS team picks the models, not the individual user. They run at three providers: THL myLab at TH Lübeck, KISSKI / GWDG in Göttingen, and DeepL for translating files.\n\nIn the chat with Francis, gemma4-31b answers. Which model sits behind the other services changes from time to time, and nothing changes for you."
+      },
+      "whoSees": {
+        "q": "Who can see my materials and my chat?",
+        "a": "Materials and chat belong to the module and are visible to its members. A small circle of people with the corresponding permission may inspect them for technical support, as set out in the privacy policy."
+      },
+      "upload": {
+        "q": "May I upload personal data or examination material?",
+        "todo": "There is no established rule for this in KIS yet."
+      },
+      "afterPilot": {
+        "q": "What happens to my data once the pilot project ends?",
+        "todo": "What happens to modules and uploaded files after the pilot project has not been decided."
+      },
+      "notFound": {
+        "q": "Why does Francis not know something that is in the document?",
+        "a": "Francis does not search a whole document at once, he searches it in sections. If the answer is spread across many places, or sits only in a table or a graphic, he may not find it.\n\nWhat helps: narrow the question, name the chapter, or leave only that one document active in the source selection."
+      },
+      "generalQuestions": {
+        "q": "Why does he not answer general questions?",
+        "a": "That is deliberate. Francis is tied to the materials of the module so that nothing enters an answer that is not in them. He is not meant for anything else."
+      },
+      "trust": {
+        "q": "Can I trust the answers, and what are the sources on each sentence for?",
+        "a": "The small sources behind a sentence lead to the spot in the document it came from. One click opens and highlights it. Use them to check anything that matters, AI answers can be wrong."
+      },
+      "language": {
+        "q": "Why does he answer in English when I asked in German?",
+        "a": "He answers in the language of your question.",
+        "todo": "Where language detection fails in practice, and what helps then, has not been measured yet."
+      },
+      "duration": {
+        "q": "Why does a screencast or podcast take so long?",
+        "a": "The longest part is the narration, every sentence is spoken separately. You can leave the page, the job keeps running and shows up under Jobs."
+      },
+      "missingService": {
+        "q": "Why do I not see a service a colleague has?",
+        "a": "Services are released individually. The start page shows only what is enabled for your account."
+      },
+      "studentView": {
+        "q": "What do students see when I give them access to a module?",
+        "a": "Materials, chat and the tools in the studio. Not visible are the module settings, the participant management and the figures for the whole module. You can check this yourself in the student view."
+      },
+      "bugReport": {
+        "q": "Where do I report a problem?",
+        "a": "Through the feedback form. Say what you did and what happened, that saves a follow-up question."
+      }
+    }
+  },
   "invite": {
     "welcome": "Welcome to KIS",
     "title": "Set up your account",

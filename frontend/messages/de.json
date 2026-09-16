@@ -3846,6 +3846,97 @@
     "filterPlaceholder": "Artikel filtern",
     "noMatch": "Kein Artikel passt zu diesem Filter."
   },
+  "faq": {
+    "title": "FAQ",
+    "intro": "Kurze Antworten auf das, was am häufigsten gefragt wird. Ausführlich steht alles in der Dokumentation.",
+    "todoLabel": "Noch offen",
+    "groups": {
+      "basics": "Grundsätzliches",
+      "data": "Daten und Recht",
+      "francis": "Der KI-Assistent Francis",
+      "operation": "Im Betrieb"
+    },
+    "closer": {
+      "heading": "Frage nicht dabei?",
+      "body": "Ausführlich steht alles in der <manual>Dokumentation</manual>, oder schreib uns über das <feedback>Feedback-Formular</feedback>."
+    },
+    "items": {
+      "whatIsKis": {
+        "q": "Was ist KIS und wofür ist es da?",
+        "a": "KIS ist ein Pilotprojekt an der TH Lübeck. Es bündelt zwei Dinge: den KI-Assistenten Francis, der in einem Modul aus den hinterlegten Materialien antwortet, und die Dienste, mit denen sich Lehrmaterial erzeugen lässt."
+      },
+      "vsChatgpt": {
+        "q": "Was unterscheidet KIS von ChatGPT?",
+        "a": "Francis antwortet nur aus den Materialien deines Moduls und hängt an jeden Satz einen Beleg, mit dem du die Stelle im Dokument aufschlägst. Alles darüber hinaus lehnt er ab.\n\nDazu läuft die Verarbeitung bei Anbietern in Deutschland, nicht in den USA.\n\nEhrlicherweise dagegen: das Modell dahinter ist kleiner als das von ChatGPT, und die Antwort kommt langsamer.",
+        "todo": "Ob die Anbieter mit unseren Inhalten trainieren dürfen, ist noch nicht geprüft."
+      },
+      "moduleServiceTool": {
+        "q": "Was ist der Unterschied zwischen Modul, Dienst und Tool?",
+        "a": "Ein Modul ist ein Kursraum mit Materialien und Chat. Ein Dienst steht für sich allein, etwa Übersetzung oder Screencast. Ein Tool sitzt im Studio innerhalb eines Moduls, etwa Karteikarten oder Quiz."
+      },
+      "costs": {
+        "q": "Kostet das etwas, gibt es ein Limit?",
+        "todo": "Die Kontingent-Liste der GWDG steht noch aus, der Link auf die myLab-Seite fehlt noch."
+      },
+      "gdpr": {
+        "q": "Sind meine Daten sicher und DSGVO-konform?",
+        "a": "Die Plattform verarbeitet personenbezogene Daten auf Grundlage von Art. 6 Abs. 1 lit. e DSGVO. Die KI-Dienste laufen im Rahmen einer Auftragsverarbeitung nach Art. 28 DSGVO. Was im Einzelnen gespeichert wird und wie lange, steht in der Datenschutzerklärung."
+      },
+      "hosting": {
+        "q": "Wer betreibt die Plattform, wo stehen die Server?",
+        "a": "Die Plattform läuft bei Hetzner in Deutschland, die hochgeladenen Dateien liegen im Hetzner Object Storage."
+      },
+      "models": {
+        "q": "Welche KI-Modelle werden genutzt und wer entscheidet das?",
+        "a": "Die Modelle wählt das KIS-Team aus, nicht der einzelne Nutzer. Sie laufen bei drei Anbietern: THL myLab an der TH Lübeck, KISSKI / GWDG in Göttingen und DeepL für die Übersetzung von Dateien.\n\nIm Chat mit Francis antwortet gemma4-31b. Welches Modell hinter den übrigen Diensten steckt, wechselt gelegentlich, für dich ändert sich dabei nichts."
+      },
+      "whoSees": {
+        "q": "Wer sieht meine Materialien und meinen Chat?",
+        "a": "Materialien und Chat gehören zum Modul und sind für dessen Mitglieder sichtbar. Ein kleiner Kreis von Personen mit der entsprechenden Berechtigung kann zur technischen Betreuung Einsicht nehmen, das steht in der Datenschutzerklärung."
+      },
+      "upload": {
+        "q": "Darf ich personenbezogene Daten oder Prüfungsunterlagen hochladen?",
+        "todo": "Dazu gibt es in KIS bisher keine festgelegte Regel."
+      },
+      "afterPilot": {
+        "q": "Was passiert mit meinen Daten, wenn das Pilotprojekt endet?",
+        "todo": "Was mit Modulen und hochgeladenen Dateien nach dem Pilotprojekt passiert, ist nicht entschieden."
+      },
+      "notFound": {
+        "q": "Warum weiß Francis etwas nicht, obwohl es im Dokument steht?",
+        "a": "Francis sucht nicht im ganzen Dokument auf einmal, sondern in Abschnitten. Steht die Antwort verteilt über viele Stellen oder nur in einer Tabelle oder Grafik, findet er sie unter Umständen nicht.\n\nWas hilft: die Frage enger stellen, den Kapitelnamen nennen, oder in der Quellenauswahl nur das eine Dokument aktiv lassen."
+      },
+      "generalQuestions": {
+        "q": "Warum antwortet er nicht auf allgemeine Fragen?",
+        "a": "Das ist Absicht. Francis ist an die Materialien des Moduls gebunden, damit nichts in die Antwort gerät, was dort nicht steht. Für alles andere ist er nicht gedacht."
+      },
+      "trust": {
+        "q": "Kann ich den Antworten trauen, und wofür sind die Belege am Satz?",
+        "a": "Die kleinen Belege hinter einem Satz führen auf die Stelle im Dokument, aus der er stammt. Ein Klick öffnet sie und hebt sie hervor. Prüfe damit alles, worauf es ankommt, KI-Antworten können falsch sein."
+      },
+      "language": {
+        "q": "Warum antwortet er auf Englisch, obwohl ich deutsch gefragt habe?",
+        "a": "Er antwortet in der Sprache deiner Frage.",
+        "todo": "Woran die Spracherkennung in der Praxis scheitert und was dann hilft, ist noch nicht nachgemessen."
+      },
+      "duration": {
+        "q": "Warum dauert ein Screencast oder Podcast so lange?",
+        "a": "Der längste Teil ist die Vertonung, jeder Satz wird einzeln gesprochen. Du kannst die Seite verlassen, der Auftrag läuft weiter und taucht unter Jobs auf."
+      },
+      "missingService": {
+        "q": "Warum sehe ich einen Dienst nicht, den eine Kollegin hat?",
+        "a": "Dienste werden einzeln freigegeben. Auf der Startseite steht nur, was für dein Konto freigeschaltet ist."
+      },
+      "studentView": {
+        "q": "Was sehen Studierende, wenn ich ihnen ein Modul freigebe?",
+        "a": "Materialien, Chat und die Tools im Studio. Nicht sichtbar sind die Einstellungen des Moduls, die Teilnehmerverwaltung und die Zahlen zum ganzen Modul. In der Studierenden-Ansicht kannst du das selbst nachsehen."
+      },
+      "bugReport": {
+        "q": "Wo melde ich einen Fehler?",
+        "a": "Über das Feedback-Formular. Schreib dazu, was du gemacht hast und was passiert ist, das spart eine Rückfrage."
+      }
+    }
+  },
   "invite": {
     "welcome": "Willkommen bei KIS",
     "title": "Konto einrichten",
