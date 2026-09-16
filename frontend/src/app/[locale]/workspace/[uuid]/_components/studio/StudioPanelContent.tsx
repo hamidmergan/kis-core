@@ -132,10 +132,10 @@ export function StudioPanelContent(props: StudioPanelContentProps) {
 
   const { activeSet, setActiveSet, exerciseSets, loadExerciseSet, deleteExerciseSet, renameExerciseSet, retryExerciseSet, downloadExerciseSet, setCreateSetTool, setShowCreateModal, submitSingleAnswer } = ex;
 
-  const onSourceClick = (filename: string, page: number, startTime?: number) => {
-    // Tool chips only jump, only a selection of your own is highlighted.
+  const onSourceClick = (filename: string, page: number, startTime?: number, claim?: string) => {
+    // The claim lets the viewer mark the passage, never a verbatim highlight.
     const src = sources.find((s) => s.filename === filename);
-    if (src) onPillClick(src.uuid, page, filename, undefined, startTime, false);
+    if (src) onPillClick(src.uuid, page, filename, claim, startTime, false);
   };
 
   if (activeSet && activeSet.tool === "karteikarten") {

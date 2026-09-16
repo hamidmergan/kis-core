@@ -20,7 +20,7 @@ export function MCExerciseView({
   onBack: () => void;
   onAnswer: (itemId: number, correct: boolean, newRun: boolean) => void;
   onAskChat: (text: string) => void;
-  onSourceClick?: (filename: string, page: number, startTime?: number) => void;
+  onSourceClick?: (filename: string, page: number, startTime?: number, claim?: string) => void;
   breadcrumbs?: BreadcrumbItem[];
   chatLang?: "de" | "en";
   // The view also serves the grammar quiz with its own colour.
@@ -270,7 +270,7 @@ export function MCExerciseView({
                                 const ChipIcon = _getChipIcon(s.source_label);
                                 return (
                                   <button key={si} type="button"
-                                    onClick={() => { if (onSourceClick) onSourceClick(s.source_label, s.page_number ?? 1, s.start_time); }}
+                                    onClick={() => { if (onSourceClick) onSourceClick(s.source_label, s.page_number ?? 1, s.start_time, s.highlight_text || `${card.front} ${card.back}`); }}
                                     className="chip-cite inline-flex items-center gap-0.5 text-3xs font-medium px-2 py-1 rounded-full border-none cursor-pointer transition-colors"
                                     style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
                                     <ChipIcon size={10} weight="bold" /> {sourceTag(s.source_label, srcNumbers)}{_chunkLabel(s.source_label, s.page_number, s.start_time, (key, vals) => tChip(key, vals))}

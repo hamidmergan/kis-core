@@ -151,8 +151,8 @@ export function ScheduleEntryCard({
                     tabIndex={0}
                     onClick={(e) => {
                       e.stopPropagation();
-                      // Only jump, no highlighting, as with the other studio tools.
-                      onPillClick?.(ref.source_uuid, page, filename, undefined, startTime);
+                      // Title and text of the entry name the passage to mark.
+                      onPillClick?.(ref.source_uuid, page, filename, [entry.title, entry.description].filter(Boolean).join(" "), startTime);
                     }}
                     onKeyDown={(e) => { if (e.key === "Enter") (e.currentTarget as HTMLElement).click(); }}
                     className="inline-flex items-center gap-0.5 text-xs px-1.5 py-0.5 rounded-full font-medium chip-cite whitespace-nowrap cursor-pointer"

@@ -157,7 +157,7 @@ export function MindmapStudio({
   const nodeClickCleanupRef = useRef<(() => void) | null>(null);
   const setFullscreenRef = useRef(setFullscreen);
   setFullscreenRef.current = setFullscreen;
-  const nodeSourceMapRef = useRef(new Map<string, { source_label: string; page_number?: number | string; keyword?: string }>());
+  const nodeSourceMapRef = useRef(new Map<string, { source_label: string; page_number?: number | string; keyword?: string; topic: string }>());
   const sourceIndexRef = useRef(new Map<string, number>());
   const usedNamesRef = useRef(new Set<string>());
 
@@ -252,7 +252,7 @@ export function MindmapStudio({
         const id = `node-${nid++}`;
         const result: any = { id, topic: node.topic };
         if (node.source_label) {
-          nodeSourceMapRef.current.set(id, { source_label: node.source_label, page_number: node.page_number, keyword: node.keyword });
+          nodeSourceMapRef.current.set(id, { source_label: node.source_label, page_number: node.page_number, keyword: node.keyword, topic: node.topic });
           const srcNum = sourceIndexMap.get(node.source_label);
           if (srcNum) {
             // Without a verified spot the chip names the file alone, it still opens it.
@@ -346,7 +346,8 @@ export function MindmapStudio({
             cb(src.uuid, 0, src.filename, undefined, _labelSeconds(srcInfo.page_number));
           } else {
             const pageNum = typeof srcInfo.page_number === "number" ? srcInfo.page_number : parseInt(String(srcInfo.page_number), 10) || 0;
-            cb(src.uuid, pageNum, src.filename, undefined);
+            // Keyword and topic together name the passage to mark.
+            cb(src.uuid, pageNum, src.filename, [srcInfo.keyword, srcInfo.topic].filter(Boolean).join(" "));
           }
         }
       };

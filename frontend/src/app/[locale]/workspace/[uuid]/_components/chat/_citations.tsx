@@ -93,8 +93,8 @@ export function chipClickArgs(desc: {
   return {
     istMedien,
     page: istMedien ? 0 : desc.clickPage,
-    // For PDF the text to highlight, for media the backed answer text.
-    sourceText: istMedien ? desc.claim : desc.clickHighlight,
+    // The verbatim text of a selection of your own, otherwise the backed answer text.
+    sourceText: istMedien ? desc.claim : (desc.clickHighlight ?? desc.claim),
     endTime: istMedien ? desc.clickEndSeconds : undefined,
     chunkStart: istMedien ? desc.clickChunkStart : undefined,
   };

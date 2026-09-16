@@ -1,4 +1,6 @@
-// The only remaining programmatic highlight: a selection of your own in the PDF.
+// Programmatic highlights: a selection of your own, and the spot a chip claim rests on.
+
+import { findClaimSpot, normalizePageText } from "./_claim_match";
 
 export type HighlightRefs = {
   // The current transient highlight, with its position for jumping back.
@@ -7,8 +9,8 @@ export type HighlightRefs = {
   onHighlightActive?: (active: boolean) => void;
 };
 
-// Controls whether it scrolls to the highlight after drawing.
-type DrawOpts = { scroll?: boolean };
+// Controls whether it scrolls after drawing and whether it keeps the current marks.
+type DrawOpts = { scroll?: boolean; append?: boolean };
 
 // A passive light blue mark, not a text selection.
 export const CITATION_HL_COLOR = "#9BD2F0";   // helles CD-Blau, dasselbe wie beim Markieren-Werkzeug
@@ -143,6 +145,80 @@ export function flashPageBorder(refs: HighlightRefs, reg: unknown, page: number)
 }
 
 
+// Loads geometry and text of one page, null when the page carries no text.
+function loadPageText(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  r: any, doc: any, engine: any, pageIndex: number,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+): Promise<{ g: any; totalChars: number; rawText: string } | null> {
+  const pageObj = doc.pages?.[pageIndex];
+  if (!pageObj) return Promise.resolve(null);
+  const selection = r.getPlugin?.("selection")?.provides?.();
+  const cachedGeo = selection?.getState?.()?.geometry?.[pageIndex];
+  const geoPromise: Promise<unknown> = cachedGeo
+    ? Promise.resolve(cachedGeo)
+    : (engine.getPageGeometry?.(doc, pageObj)?.toPromise?.() ?? Promise.resolve(null));
+  return geoPromise.then((geo: unknown) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const g = geo as any;
+    if (!g?.runs?.length) return null;
+    const lastRun = g.runs[g.runs.length - 1];
+    const totalChars = lastRun.charStart + lastRun.glyphs.length;
+    if (totalChars < 50) return null;
+    const sliceTask = engine.getTextSlices?.(doc, [{ pageIndex, charIndex: 0, charCount: totalChars }]);
+    const slicePromise: Promise<unknown> = sliceTask?.toPromise?.() ?? Promise.resolve(null);
+    return slicePromise.then((slices: unknown) => {
+      const rawText = (slices as string[] | null)?.[0];
+      return rawText ? { g, totalChars, rawText } : null;
+    });
+  });
+}
+
+
+// Draws the page frame and marks the passage the claim rests on, both go with the X.
+export function markCitationSpot(refs: HighlightRefs, reg: unknown, page: number, claim?: string, title?: string) {
+  flashPageBorder(refs, reg, page);
+  const frameIds = refs.citationHighlightRef.current?.ids;
+  if (!claim?.trim() || !frameIds?.length) return;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const r = reg as any;
+  const engine = r.getEngine?.();
+  const docMgr = r.getPlugin?.("document-manager")?.provides?.();
+  const scroll = r.getPlugin?.("scroll")?.provides?.();
+  const doc = docMgr?.getActiveDocument?.();
+  if (!engine || !docMgr || !doc) return;
+  const pageIndex = page - 1;
+  // A later jump replaces the frame, then this result is stale.
+  const stillCurrent = () => refs.citationHighlightRef.current?.ids[0] === frameIds[0];
+
+  loadPageText(r, doc, engine, pageIndex).then((loaded) => {
+    if (!loaded || !stillCurrent()) return;
+    const { g, totalChars, rawText } = loaded;
+    const { text, toRaw } = normalizePageText(rawText);
+    const hit = findClaimSpot(text, claim, title);
+    if (!hit) return;
+    const findGeo = makeFindGeo(engine, doc, pageIndex, totalChars, rawText.length);
+    const draws = hit.spans.map((span) =>
+      Promise.all([findGeo(toRaw[span.start]), findGeo(toRaw[span.end - 1])]),
+    );
+    return Promise.all(draws).then((ranges) => {
+      if (!stillCurrent()) return;
+      let first = true;
+      for (const [geoStart, geoEnd] of ranges) {
+        if (geoEnd < geoStart) continue;
+        // Only the first mark scrolls, the rest join it on the page.
+        const ok = drawCitationHighlight(refs, r, docMgr, scroll, pageIndex, geoStart, geoEnd, g, { append: true, scroll: first });
+        if (ok && first) {
+          const rect = buildSegmentRects(g, geoStart, geoEnd).bbox;
+          if (rect && refs.citationHighlightRef.current) refs.citationHighlightRef.current.scrollY = rect.origin.y;
+        }
+        if (ok) first = false;
+      }
+    });
+  }).catch(() => { /* the frame alone is still a result */ });
+}
+
+
 // Scrolls the active highlight back into view, with its position.
 export function scrollToCitationPage(refs: HighlightRefs, reg: unknown) {
   const cur = refs.citationHighlightRef.current;
@@ -172,7 +248,9 @@ export function drawCitationHighlight(
   const anno = r.getPlugin?.("annotation")?.provides?.();
   const docId = docMgr.getActiveDocumentId?.();
   if (!anno?.createAnnotation || !docId) return false;
-  clearCitationHighlight(refs, r);   // one highlight at a time
+  const cur = refs.citationHighlightRef.current;
+  const keep = opts.append && cur?.pageIndex === targetPageIndex;
+  if (!keep) clearCitationHighlight(refs, r);   // one highlight at a time
   const id = `kis-cite-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   try {
     anno.createAnnotation(targetPageIndex, {
@@ -189,7 +267,12 @@ export function drawCitationHighlight(
       created: new Date(),
     });
     anno.deselectAnnotation?.();      // no selection handles on the fresh annotation
-    refs.citationHighlightRef.current = { pageIndex: targetPageIndex, ids: [id], scrollY: bbox.origin.y };
+    const prev = keep && cur ? cur : null;
+    refs.citationHighlightRef.current = {
+      pageIndex: targetPageIndex,
+      ids: [...(prev?.ids ?? []), id],
+      scrollY: prev?.scrollY ?? bbox.origin.y,
+    };
     refs.onHighlightActive?.(true);
   } catch {
     return false;
