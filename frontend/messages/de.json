@@ -331,6 +331,10 @@
       "aia": "KI-Assistent",
       "tools": "Werkzeuge"
     },
+    "audience": {
+      "lehrende": "Lehrende",
+      "studierende": "Studierende"
+    },
     "aia": {
       "title": "KI-Assistent Francis",
       "body": "Deine Module mit Materialien, Chat und Lernwerkzeugen. Der KI-Assistent antwortet nur aus den Unterlagen des jeweiligen Moduls."

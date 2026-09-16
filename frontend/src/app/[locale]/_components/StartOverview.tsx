@@ -2,7 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { ChatCircleDots, Presentation } from "@phosphor-icons/react";
-import type { HomeTarget } from "@/lib/modules";
+import { AIA_AUDIENCE, TOOL_AUDIENCE, type Audience, type HomeTarget } from "@/lib/modules";
 import { TOOL_ICONS } from "@/lib/toolIcons";
 import { Greeting } from "@/app/[locale]/workspace/_components/Greeting";
 import { EvaluationInvite } from "@/app/[locale]/workspace/_components/EvaluationInvite";
@@ -20,6 +20,7 @@ export default function StartOverview({ firstName, targets }: { firstName: strin
   const tools = targets.filter((z): z is ToolTarget => z.kind === "tool");
   const headingClass = "text-xs font-semibold uppercase tracking-wider";
   const gridClass = "grid gap-4 sm:grid-cols-2 lg:grid-cols-3";
+  const audienceLabels = (audience: readonly Audience[]) => audience.map((a) => t(`audience.${a}`));
 
   return (
     <div className="page-shell pt-6 pb-20 lg:pt-15 lg:pb-30">
@@ -40,6 +41,7 @@ export default function StartOverview({ firstName, targets }: { firstName: strin
                   icon={ChatCircleDots}
                   title={t("aia.title")}
                   body={t("aia.body")}
+                  audience={audienceLabels(AIA_AUDIENCE)}
                   testId="start-tile-aia"
                 />
               </div>
@@ -57,6 +59,7 @@ export default function StartOverview({ firstName, targets }: { firstName: strin
                     icon={TOOL_ICONS[z.key]}
                     title={t(`tools.${z.key}.title`)}
                     body={t(`tools.${z.key}.body`)}
+                    audience={audienceLabels(TOOL_AUDIENCE[z.key])}
                     testId={`start-tile-${z.key}`}
                   />
                 ))}
