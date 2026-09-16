@@ -2829,6 +2829,7 @@
           "showAnswer": "Show answer",
           "showQuestion": "Show question",
           "knew": "Knew it",
+          "notKnew": "Didn't know",
           "know": "Knew it!",
           "minimizePanel": "Minimize panel",
           "correctShort": "Correct!",

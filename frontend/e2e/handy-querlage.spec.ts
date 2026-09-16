@@ -35,3 +35,18 @@ test("Handy in Querlage: Chat, Materialien und Viewer behalten ihre Höhe", asyn
   const scrollH = await page.evaluate(() => document.documentElement.scrollHeight);
   expect(scrollH).toBeLessThanOrEqual(page.viewportSize()!.height);
 });
+
+test("Handy: die Seitenhuelle folgt der sichtbaren Hoehe, sonst liegt der X-Knopf hinter der Browserleiste", async ({ page }) => {
+  await page.goto(`/workspace/${WORKSPACE}`, { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("button", { name: "Chat", exact: true })).toBeVisible({ timeout: 30_000 });
+  const shell = await page.evaluate(() => {
+    const el = document.querySelector(".viewport-shell");
+    const rule = Array.from(document.styleSheets)
+      .flatMap((s) => { try { return Array.from(s.cssRules); } catch { return []; } })
+      .find((r): r is CSSStyleRule => r instanceof CSSStyleRule && r.selectorText === ".viewport-shell");
+    return { height: rule?.style.height ?? null, bottom: el?.getBoundingClientRect().bottom ?? -1, inner: window.innerHeight };
+  });
+  // 100dvh wins where supported, 100vh stays as the fallback.
+  expect(shell.height).toBe("100dvh");
+  expect(shell.bottom).toBe(shell.inner);
+});

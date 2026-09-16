@@ -102,7 +102,7 @@ export function chipClickArgs(desc: {
 
 
 // Draws a single chip that leads back to the source.
-function CitationChip({ desc, onChipClick }: { desc: ChipDesc; onChipClick: CitationChipClickHandler }) {
+function CitationChip({ desc, onChipClick, onPin }: { desc: ChipDesc; onChipClick: CitationChipClickHandler; onPin?: () => void }) {
   const { filename, displayQNum, label, clickUuid, clickSeconds, isExactSelection } = desc;
   const args = chipClickArgs(desc);
   const targetKey = chipTargetKey(clickUuid, args.page, clickSeconds);
@@ -111,6 +111,8 @@ function CitationChip({ desc, onChipClick }: { desc: ChipDesc; onChipClick: Cita
   const activate = () => {
     // Marks this chip as active, matching the frame in the viewer.
     setActiveChipTarget(targetKey);
+    // Picking a chip keeps its group open, hovering away must not hide the one just picked.
+    onPin?.();
     onChipClick(clickUuid, args.page, filename, args.sourceText, clickSeconds,
                 isExactSelection, args.endTime, args.chunkStart);
   };
@@ -188,6 +190,12 @@ export function ChipToggleMark({ open, size = 10, opacity = 0.55, strokeWidth = 
 }
 
 
+// How far the hand has to travel before a hovered stop may close, and how much slack
+// the stop keeps around itself while the pointer is still on it.
+const CLOSE_TRAVEL_PX = 24;
+const CLOSE_PAD_PX = 8;
+
+
 // One chip site: all chips sit behind the mark and run along in the sentence.
 function CitationChipGroup({ groupId, chips, onChipClick, tail }: { groupId: string; chips: ChipDesc[]; onChipClick: CitationChipClickHandler; tail?: string }) {
   // Three ways to be open: pinned, hovered, and the message toggle.
@@ -198,17 +206,44 @@ function CitationChipGroup({ groupId, chips, onChipClick, tail }: { groupId: str
   const open = allOpen || pinned || hovered;
   const pin = () => { _openChipGroups.add(groupId); notifyChipState(); };
   const unpin = () => { _openChipGroups.delete(groupId); notifyChipState(); };
+  // Opening rewraps the line and in a table cell even widens the column, so the mark
+  // slides out from under a pointer that never moved: mouseleave then closed the stop,
+  // the old layout put the mark right back under the pointer and both states flipped
+  // ~70 times a second. Closing therefore waits for the hand to travel, never for the
+  // layout to move, and mouseleave is deliberately not listened to at all.
+  const stopRef = React.useRef<HTMLSpanElement>(null);
+  const openedAt = React.useRef<{ x: number; y: number } | null>(null);
+  const handleEnter = (e: React.MouseEvent) => {
+    openedAt.current = { x: e.clientX, y: e.clientY };
+    setHovered(true);
+  };
+  React.useEffect(() => {
+    if (!hovered) return;
+    const onMove = (e: PointerEvent) => {
+      const from = openedAt.current;
+      if (from && Math.hypot(e.clientX - from.x, e.clientY - from.y) < CLOSE_TRAVEL_PX) return;
+      const rects = stopRef.current?.getClientRects();
+      if (!rects) return;
+      // An inline stop has one rect per line, the pointer only has to be on one of them.
+      const onStop = Array.from(rects).some((r) =>
+        e.clientX >= r.left - CLOSE_PAD_PX && e.clientX <= r.right + CLOSE_PAD_PX
+        && e.clientY >= r.top - CLOSE_PAD_PX && e.clientY <= r.bottom + CLOSE_PAD_PX);
+      if (!onStop) setHovered(false);
+    };
+    document.addEventListener("pointermove", onMove);
+    return () => document.removeEventListener("pointermove", onMove);
+  }, [hovered]);
   // No background and no border, the mark is not a pill.
   const toggleCls = "chip-toggle inline-flex items-center justify-center w-4 h-4 align-middle mx-px cursor-pointer select-none";
   // The mark stays grey, the chips keep the house colour.
   const toggleStyle = { color: "var(--muted)" } as const;
   const action = pinned ? unpin : pin;
   return (
-    // The pointer handlers sit on the frame, otherwise moving to the chip counts as leaving.
+    // Enter sits on the frame, so a pointer moving on to a chip is still on the stop.
     <span
+      ref={stopRef}
       className="chip-stop"
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onMouseEnter={handleEnter}
     >
       {/* The mark comes FIRST and therefore never moves: opening grows the chips to its
           right instead of pushing it along, so the pointer stays on the thing it just
@@ -228,7 +263,7 @@ function CitationChipGroup({ groupId, chips, onChipClick, tail }: { groupId: str
       {/* Die Chips gibt es nur, solange die Stelle offen ist. Zu ist der Satz reiner Text,
           kein reservierter Platz und keine Luecke darin. Der Preis ist bekannt und so
           gewollt: die Chips brauchen beim Aufklappen Platz und schieben den Text weiter. */}
-      {open && chips.map(c => <CitationChip key={c.key} desc={c} onChipClick={onChipClick} />)}
+      {open && chips.map(c => <CitationChip key={c.key} desc={c} onChipClick={onChipClick} onPin={pin} />)}
     </span>
   );
 }

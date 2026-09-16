@@ -82,7 +82,7 @@ function StudioSkeleton() {
 
 export default function Loading() {
   return (
-    <div className="flex flex-col overflow-hidden" style={{ height: "100vh" }}>
+    <div className="flex flex-col overflow-hidden viewport-shell">
       <Header showLogout />
 
       {/* Topbar (desktop) */}

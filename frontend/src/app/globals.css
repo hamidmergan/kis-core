@@ -818,6 +818,12 @@ me-tpc:hover .mm-src-chip {
   color: var(--kb) !important;
 }
 
+/* The app shell follows the visible viewport, on phones 100vh reaches behind the browser bar. */
+.viewport-shell {
+  height: 100vh;
+  height: 100dvh;
+}
+
 /* Hide non-critical elements (disclaimers, labels) on phones in landscape
    so the chat/panel area keeps useful height. Scoped to touch devices so
    a narrow desktop window is unaffected. The single-panel tab layout stays
@@ -1211,19 +1217,17 @@ body.is-phone-landscape [title="Panel minimieren"] {
 
 /* Citation site: normal inline flow, NOT inline-flex, so the site is not a box of
    its own inside the sentence.
-   
-   The chips are ALWAYS in the layout and are only invisible while the site is
-   closed (see CitationChip, reserved). That is why nothing moves on hover. They
-   used to be created on hover: a pointer on a single site then shifted 54 of 58
-   text pieces of the answer, pushed 25 of them onto another line and moved table
-   columns by up to 460px.
-   
-   The site itself may wrap. As an unbreakable block (nowrap) it jumped, together
-   with the reserved space, entirely onto the next line as soon as the sentence
-   nearly filled the line, and that line then carried only the mark. This way the
-   mark stays at the sentence end and only the invisible reserve slides on, exactly
-   to where the chips appear on hover. Only mark and punctuation have to stay
-   together, chip-stop-head takes care of that. */
+
+   The chips exist only while the site is open, so opening them DOES move the text:
+   a pointer on a single site shifts 54 of 58 text pieces of the answer, pushes 25 of
+   them onto another line and moves table columns by up to 460px. That is the known
+   price of having no reserved space; CitationChipGroup keeps the mark from flickering
+   while the layout jumps.
+
+   The site itself may wrap. As an unbreakable block (nowrap) it jumped entirely onto
+   the next line as soon as the sentence nearly filled the line, and that line then
+   carried only the mark. Only mark and punctuation have to stay together,
+   chip-stop-head takes care of that. */
 .chip-stop {
   display: inline;
 }

@@ -278,3 +278,54 @@ def test_durchgaenge_stehen_in_der_reihenfolge_ihres_laufs(verbindung, arbeitsra
     satz = next(s for s in _heute(arbeitsraum)["sets"] if s["set_id"] == satz_id)
 
     assert [r["run_no"] for r in satz["runs"]] == [None, 1, 2]
+
+
+def _urteile(verbindung, satz_id: int) -> list[tuple]:
+    """Item and verdict of every stored answer, in insertion order."""
+    with verbindung() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT item_id, correct FROM aia_exercise_progress "
+                "WHERE set_id = %s ORDER BY id",
+                (satz_id,),
+            )
+            return [(zeile[0], zeile[1]) for zeile in cur.fetchall()]
+
+
+def test_korrigierte_antwort_ersetzt_die_alte(verbindung, arbeitsraum):
+    """Paging back and changing the verdict must not count the card twice."""
+    satz_id, karten = _satz_anlegen(verbindung, arbeitsraum)
+    repo.bulk_record_exercise_progress(
+        satz_id, NUTZER, [{"item_id": karten[0], "correct": False}], new_run=True,
+    )
+    repo.bulk_record_exercise_progress(
+        satz_id, NUTZER, [{"item_id": karten[0], "correct": True}], new_run=False,
+    )
+
+    assert _urteile(verbindung, satz_id) == [(karten[0], True)]
+
+
+def test_korrektur_laesst_die_anderen_karten_stehen(verbindung, arbeitsraum):
+    """Only the corrected card is replaced, its neighbours stay untouched."""
+    satz_id, karten = _satz_anlegen(verbindung, arbeitsraum)
+    _durchgang_antworten(satz_id, karten[:3], richtige=0)
+    repo.bulk_record_exercise_progress(
+        satz_id, NUTZER, [{"item_id": karten[1], "correct": True}], new_run=False,
+    )
+
+    assert _urteile(verbindung, satz_id) == [
+        (karten[0], False), (karten[2], False), (karten[1], True),
+    ]
+
+
+def test_korrektur_im_neuen_durchgang_laesst_den_alten_stehen(verbindung, arbeitsraum):
+    """A new round is its own history, correcting there never touches round one."""
+    satz_id, karten = _satz_anlegen(verbindung, arbeitsraum)
+    _durchgang_antworten(satz_id, karten[:1], richtige=0)
+    _durchgang_antworten(satz_id, karten[:1], richtige=0)
+    repo.bulk_record_exercise_progress(
+        satz_id, NUTZER, [{"item_id": karten[0], "correct": True}], new_run=False,
+    )
+
+    assert _nummern(verbindung, satz_id) == [1, 2]
+    assert _urteile(verbindung, satz_id) == [(karten[0], False), (karten[0], True)]

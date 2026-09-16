@@ -5,9 +5,9 @@ import { ButtonHTMLAttributes, forwardRef } from "react";
 /** One consistent icon button for the whole app. */
 const IconButton = forwardRef<
   HTMLButtonElement,
-  ButtonHTMLAttributes<HTMLButtonElement> & { size?: "sm" | "md" }
+  ButtonHTMLAttributes<HTMLButtonElement> & { size?: "sm" | "md" | "lg" }
 >(({ size = "md", className = "", style, children, ...props }, ref) => {
-  const sizeClass = size === "sm" ? "w-6 h-6" : "w-7 h-7";
+  const sizeClass = size === "sm" ? "w-6 h-6" : size === "lg" ? "w-10 h-10" : "w-7 h-7";
   return (
     <button
       ref={ref}

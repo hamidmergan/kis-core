@@ -82,11 +82,17 @@ export function FlashcardsLearnView({
   // The numbering belongs to the set so it matches the legend.
   const srcNumbers = sourceNumbers(exerciseSet.sources);
 
-  useEffect(() => { setFlipped(false); setShowHint(false); }, [index]);
+  // Eine schon bewertete Karte liegt gleich auf der Antwortseite: wer
+  // zurueckblaettert, will die Bewertung sehen und aendern, nicht erneut raten.
+  useEffect(() => {
+    const offen = items[index];
+    setFlipped(Boolean(!isVocab && offen && answeredRef.current.has(offen.id)));
+    setShowHint(false);
+  }, [index, items, isVocab]);
 
   function answer(correct: boolean) {
-    // A graded card stays graded.
-    if (!card || card.id in results) return;
+    // Dieselbe Bewertung nochmal ist nichts Neues, eine andere ersetzt die alte.
+    if (!card || results[card.id] === correct) return;
     answeredRef.current.add(card.id);
     setResults((r) => ({ ...r, [card.id]: correct }));
     if (correct) setStreak((s) => s + 1);
@@ -96,9 +102,9 @@ export function FlashcardsLearnView({
     onAnswer(card.id, correct, neuerDurchgang);
   }
 
+  /** Welche Seite oben liegt, entscheidet der Effekt am Index. */
   function goTo(next: number) {
     setIndex(next);
-    setFlipped(false);
   }
 
   function advance() {
@@ -113,10 +119,7 @@ export function FlashcardsLearnView({
 
   function goToFirstPending() {
     const firstPendingIdx = items.findIndex(it => !answeredRef.current.has(it.id));
-    if (firstPendingIdx >= 0) {
-      setIndex(firstPendingIdx);
-      setFlipped(false);
-    }
+    if (firstPendingIdx >= 0) setIndex(firstPendingIdx);
     setShowPendingPrompt(false);
   }
 
@@ -452,9 +455,21 @@ export function FlashcardsLearnView({
         }
 
         // ── Karteikarten: flip card ──
+        // Die Chips sitzen auf der Rueckseite, die Liste wird darum vor dem Bauen gebraucht.
+        const rawSrcs: ExerciseItemSource[] = card.sources?.length ? card.sources as ExerciseItemSource[] : cardSource ? [cardSource] : [];
+        const seenKeys = new Set<string>();
+        const srcs = rawSrcs.filter((s) => {
+          const k = _sourceChipKey(s.source_label, s.page_number, s.start_time, s.highlight_text);
+          if (seenKeys.has(k)) return false;
+          seenKeys.add(k);
+          return true;
+        });
         return <>
-          <div className="flex-1 flex flex-col items-center px-3 sm:px-4 pt-4 sm:pt-6 pb-3 gap-3">
-            <div className="w-full" style={{ perspective: 1200, maxWidth: 560, userSelect: "none" }}>
+          {/* Gescrollt wird aussen, zentriert innen: der Block waechst bei langem
+              Inhalt mit, statt oben abgeschnitten zu werden. */}
+          <div className="flex-1 overflow-y-auto flex flex-col items-center px-3 sm:px-4 pt-4 sm:pt-6 pb-3">
+            <div className="flex-1 w-full flex flex-col items-center justify-center gap-3" style={{ maxWidth: 560 }}>
+            <div className="w-full" style={{ perspective: 1200, userSelect: "none" }}>
               <div style={{
                 position: "relative", width: "100%", minHeight: 300, transformStyle: "preserve-3d",
                 transition: "transform 0.5s cubic-bezier(0.4,0,0.2,1)",
@@ -497,13 +512,29 @@ export function FlashcardsLearnView({
                 }}>
                   <span className="text-3xs font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.35)" }}>{t("flashcardsLearn.answerLabel")}</span>
                   <p className="text-sm text-center leading-relaxed font-semibold" style={{ color: "white" }} dangerouslySetInnerHTML={{ __html: _md(card.back) }} />
-                  {/* Chat button */}
-                  <div className="absolute bottom-3 left-4 right-4 flex items-center justify-end">
+                  {/* Quelle links, Chat rechts. Der Chip sitzt auf der Karte, weil er
+                      zur Antwort gehoert, und traegt darum die helle Fassung. */}
+                  <div className="absolute bottom-3 left-4 right-4 flex items-end justify-between gap-2">
+                    <div className="flex items-center gap-1 flex-wrap min-w-0" style={{ maxWidth: "60%" }}>
+                      {srcs.map((s, si) => {
+                        const ChipIcon = _getChipIcon(s.source_label);
+                        return (
+                          <button key={si} type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (onSourceClick) onSourceClick(s.source_label, s.page_number ?? 1, s.start_time, s.highlight_text || `${card.front} ${card.back}`);
+                            }}
+                            className="inline-flex items-center gap-0.5 text-3xs font-medium px-2 py-1 rounded-full border-none cursor-pointer transition-all text-white/75 bg-white/15 hover:text-white hover:bg-white/25">
+                            <ChipIcon size={10} weight="bold" /> {sourceTag(s.source_label, srcNumbers)}{_chunkLabel(s.source_label, s.page_number ?? 1, s.start_time, (key, vals) => tChip(key, vals))}
+                          </button>
+                        );
+                      })}
+                    </div>
                     {onAskChat && (
                       <button type="button" onClick={(e) => {
                         e.stopPropagation(); onAskChat(promptTopicDeep(card.front));
                       }}
-                        className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border-none cursor-pointer transition-all text-white/55 bg-white/10 hover:text-white hover:bg-white/20">
+                        className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border-none cursor-pointer transition-all shrink-0 text-white/55 bg-white/10 hover:text-white hover:bg-white/20">
                         <Chat size={13} weight="bold" /> {t("common.learnMore")}
                       </button>
                     )}
@@ -519,72 +550,56 @@ export function FlashcardsLearnView({
                 <HintCard text={card.extras.tip} />
               </div>
             )}
-            {/* Actions */}
-            <div className="flex flex-wrap items-center justify-center gap-3 min-h-12">
+            {/* Bewertung. Beschriftet statt bloss zwei Kreise, und immer klickbar:
+                wer zurueckblaettert, soll seine Einschaetzung aendern koennen. Die
+                getroffene Wahl ist gefuellt, die andere tritt zurueck. */}
+            <div className="w-full flex flex-wrap items-center justify-center gap-3 min-h-12">
               {flipped ? (
-                <>
-                  <button key="again" type="button" onClick={() => answer(false)} title={t("common.again")}
-                    disabled={rated}
-                    className="btn-outline-danger w-11 h-11 rounded-full flex items-center justify-center disabled:opacity-40">
-                    <XIcon size={18} weight="bold" />
+                <div className="w-full flex items-center gap-2.5">
+                  <button key="again" type="button" onClick={() => answer(false)}
+                    aria-pressed={rated && results[card.id] === false}
+                    className={`btn-outline-danger flex-1 min-w-0 px-3 py-2.5 rounded-full text-xs font-semibold flex items-center justify-center gap-1.5 transition-all${results[card.id] === false ? " is-picked" : ""}${results[card.id] === true ? " opacity-50" : ""}`}>
+                    <XIcon size={14} weight="bold" className="shrink-0" />
+                    <span className="truncate">{t("common.notKnew")}</span>
                   </button>
-                  <button key="back-to-question" type="button" onClick={() => setFlipped(false)}
-                    className="btn-soft-accent px-5 py-2 rounded-full text-xs font-semibold transition-all">
-                    {t("common.showQuestion")}
+                  <button key="knew" type="button" onClick={() => answer(true)}
+                    aria-pressed={rated && results[card.id] === true}
+                    className={`btn-outline-success flex-1 min-w-0 px-3 py-2.5 rounded-full text-xs font-semibold flex items-center justify-center gap-1.5 transition-all${results[card.id] === true ? " is-picked" : ""}${results[card.id] === false ? " opacity-50" : ""}`}>
+                    <Check size={14} weight="bold" className="shrink-0" />
+                    <span className="truncate">{t("common.knew")}</span>
                   </button>
-                  <button key="knew" type="button" onClick={() => answer(true)} title={t("common.know")}
-                    disabled={rated}
-                    className="btn-outline-success w-11 h-11 rounded-full flex items-center justify-center disabled:opacity-40">
-                    <Check size={18} weight="bold" />
-                  </button>
-                </>
+                </div>
               ) : (
                 <button key="show-answer" type="button" onClick={() => setFlipped(true)}
-                  className="btn-soft-accent px-6 py-2 rounded-full text-xs font-semibold transition-all">
+                  className="btn-ghost px-4 py-1.5 rounded-full text-xs font-semibold text-kb-dark transition-colors">
                   {t("common.showAnswer")}
                 </button>
               )}
             </div>
+            {/* Umdrehen gehoert zur Karte und steht darum ueber dem Blaettern, nur
+                nicht in der Knopfzeile: es ist keine Bewertung. Gleiche Machart wie
+                "Antwort zeigen", btn-ghost bringt den 2px-Ring. */}
+            {/* Kein Platzhalter auf der Vorderseite: die leere Zeile fiel staerker
+                auf als das bisschen Versatz, das ihr Fehlen beim Umdrehen kostet. */}
+            {flipped && (
+              <button type="button" onClick={() => setFlipped(false)}
+                className="btn-ghost px-4 py-1.5 rounded-full text-xs font-semibold text-kb-dark transition-colors">
+                {t("common.showQuestion")}
+              </button>
+            )}
             {/* Zurueck und Weiter stehen immer da. Wer eine Karte nicht bewerten will,
                 blaettert weiter und kommt spaeter zurueck. */}
             <ExerciseNav index={index} total={total}
               onPrev={() => goTo(index - 1)} onNext={advance}
               backLabel={t("common.back")} nextLabel={t("common.next")} finishLabel={t("common.finish")} />
-            {/* Source chips + filename legend */}
-            {(() => {
-              const rawSrcs: ExerciseItemSource[] = card.sources?.length ? card.sources as ExerciseItemSource[] : cardSource ? [cardSource] : [];
-              const seenKeys = new Set<string>();
-              const srcs = rawSrcs.filter((s) => {
-                const k = _sourceChipKey(s.source_label, s.page_number, s.start_time, s.highlight_text);
-                if (seenKeys.has(k)) return false;
-                seenKeys.add(k);
-                return true;
-              });
-              if (!srcs.length) return null;
-              return (
-                <div className="flex flex-col gap-1 w-full mt-4" style={{ maxWidth: 560 }}>
-                  <div className="flex items-center gap-1 flex-wrap">
-                    {srcs.map((s, si) => {
-                      const ChipIcon = _getChipIcon(s.source_label);
-                      return (
-                      <button key={si} type="button"
-                        onClick={() => { if (onSourceClick) onSourceClick(s.source_label, s.page_number ?? 1, s.start_time, s.highlight_text || `${card.front} ${card.back}`); }}
-                        className="chip-cite inline-flex items-center gap-0.5 text-3xs font-medium px-2 py-1 rounded-full border-none cursor-pointer transition-colors"
-                        style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
-                        <ChipIcon size={10} weight="bold" /> {sourceTag(s.source_label, srcNumbers)}{_chunkLabel(s.source_label, s.page_number ?? 1, s.start_time, (key, vals) => tChip(key, vals))}
-                      </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })()}
+            </div>
 
+            {/* Steht hinter dem wachsenden Block und landet dadurch immer unten. */}
             <SetSourceLegend
               sources={exerciseSet.sources}
               items={exerciseSet.items}
               onSourceClick={(f) => onSourceClick?.(f, 1)}
-              className="w-full mt-3"
+              className="w-full shrink-0 pt-5"
             />
           </div>
         </>;
