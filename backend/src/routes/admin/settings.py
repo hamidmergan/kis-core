@@ -13,6 +13,7 @@ from src.i18n import (
 )
 from src.permissions_registry import SETTING_FIELD_PERMISSIONS
 from src.limits import (
+    ACCESS_ACCOUNT_DELETE_AFTER_DAYS,
     TTS_MAX_CHARS_PER_REQUEST,
     AIA_CONTEXT_MAX_CHARS,
     AIA_CONTEXT_HARD_CAP,
@@ -62,6 +63,9 @@ from src.services.aia_level_ladder import (
 
 router = APIRouter(tags=["admin: settings"])
 
+# Ten years, anything beyond that is a typo rather than a retention rule.
+MAX_DELETE_AFTER_DAYS = 3650
+
 
 def _assert_fields_allowed(body: UpdateSettingsRequest, perms, locale: str) -> None:
     """Checks every submitted field against the right of its page."""
@@ -83,6 +87,11 @@ async def get_settings(_admin=Depends(require_any_settings)):
 
     return {
         "whitelist_enabled": _enabled("whitelist_enabled"),
+        # Days a locked test account stays readable, 0 switches the sweep off.
+        "access_account_delete_after_days": int(
+            db.get_setting("access_account_delete_after_days", str(ACCESS_ACCOUNT_DELETE_AFTER_DAYS))
+            or ACCESS_ACCOUNT_DELETE_AFTER_DAYS
+        ),
         # UI labels (per locale; legacy unsuffixed keys fall back as DE defaults)
         "workspace_label_singular_de": db.get_setting(
             "workspace_label_singular_de",
@@ -195,6 +204,17 @@ async def update_settings(
 
     if body.whitelist_enabled is not None:
         db.set_setting("whitelist_enabled", "true" if body.whitelist_enabled else "false")
+
+    # Grace period before an expired test account is deleted, capped against typos.
+    if body.access_account_delete_after_days is not None:
+        value = body.access_account_delete_after_days
+        if value < 0 or value > MAX_DELETE_AFTER_DAYS:
+            raise HTTPException(
+                status_code=400,
+                detail=t("admin.settings.deleteAfterDaysOutOfRange", locale,
+                         min=0, max=MAX_DELETE_AFTER_DAYS),
+            )
+        db.set_setting("access_account_delete_after_days", str(value))
 
     # The language trainer off hides it everywhere, the per-course choice stays.
     if body.language_training_enabled is not None:

@@ -925,6 +925,12 @@ body.is-phone-landscape [title="Panel minimieren"] {
   50%      { opacity: 0.35; }
 }
 
+/* The soft cousin of status-puls, for waiting text that should breathe without blinking. */
+@keyframes phase-puls {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.65; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   :where(*) {
     transition-duration: 0ms !important;

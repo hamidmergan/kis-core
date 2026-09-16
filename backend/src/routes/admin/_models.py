@@ -10,6 +10,8 @@ class AddWhitelistRequest(BaseModel):
 class UpdateSettingsRequest(BaseModel):
     """The settings of the system tab, providers and models live in the AI tab."""
     whitelist_enabled: bool | None = None
+    # Days a locked test account stays readable before the nightly sweep removes it.
+    access_account_delete_after_days: int | None = None
     # UI label for "Workspace" (singular + plural), per UI locale.
     workspace_label_singular_de: str | None = None
     workspace_label_plural_de: str | None = None

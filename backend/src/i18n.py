@@ -366,6 +366,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Stunden-Limit erreicht ({limit} Uploads pro Stunde). Erneut versuchen in ~{minutes} Min.",
         "en": "Hourly limit reached ({limit} uploads per hour). Try again in ~{minutes} min.",
     },
+    "admin.settings.deleteAfterDaysOutOfRange": {
+        "de": "Die Frist bis zum Löschen muss zwischen {min} und {max} Tagen liegen.",
+        "en": "The grace period before deletion must be between {min} and {max} days.",
+    },
     "admin.settings.maxSourcesOutOfRange": {
         "de": "Materialien-Limit muss zwischen {min} und {max} liegen.",
         "en": "Source limit must be between {min} and {max}.",

@@ -173,6 +173,23 @@ def lock_expired_accounts() -> int:
         return len(gesperrt)
 
 
+def list_accounts_due_for_deletion(days: int) -> list[int]:
+    """Accounts from a code whose deadline passed longer ago than the grace period."""
+    if days <= 0:
+        return []
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """SELECT id FROM users
+                   WHERE access_code_id IS NOT NULL
+                     AND access_expires_at IS NOT NULL
+                     AND access_expires_at + make_interval(days => %s) <= NOW()
+                   ORDER BY id""",
+                (days,),
+            )
+            return [zeile[0] for zeile in cur.fetchall()]
+
+
 def list_users_for_code(code_id: int) -> list[dict]:
     """Every account a code created, newest first."""
     with get_connection() as conn:

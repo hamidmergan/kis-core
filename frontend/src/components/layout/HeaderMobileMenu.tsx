@@ -5,7 +5,7 @@ import Link from "next/link";
 import LinkBusy from "@/components/ui/LinkBusy";
 import { useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { CalendarBlank, Check, Compass, List, Medal, Moon, PencilSimple, Question, SignOut, Stack, SquaresFour, Sun, UserCircleGear, X } from "@phosphor-icons/react";
+import { CalendarBlank, ChatCircleText, Check, Compass, List, Medal, Moon, PencilSimple, Question, SignOut, Stack, SquaresFour, Sun, UserCircleGear, X } from "@phosphor-icons/react";
 import { useRouter, usePathname } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
 import { UI_LOCALES } from "@/lib/constants";
@@ -15,7 +15,7 @@ import { persistLocale, rememberLocaleCookie } from "@/lib/switchLocale";
 const LOCALES = UI_LOCALES as readonly Locale[];
 const THEMES: readonly Theme[] = ["light", "dark"];
 // Row groups below the appearance section, in the order they are rendered.
-const BLOCKS: readonly (readonly string[])[] = [["level", "tour", "evaluation", "manual"], ["admin"], ["logout"]];
+const BLOCKS: readonly (readonly string[])[] = [["level", "tour", "evaluation", "faq", "manual"], ["admin"], ["logout"]];
 
 interface HeaderMobileMenuProps {
   hasSession: boolean;
@@ -38,6 +38,7 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, canViewManual = 
   const t = useTranslations("header");
   const tLang = useTranslations("languageSwitch");
   const tManual = useTranslations("manual");
+  const tFaq = useTranslations("faq");
   const router = useRouter();
   const pathname = usePathname();
   const currentLocale = useLocale() as Locale;
@@ -106,7 +107,7 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, canViewManual = 
   const onJobsPage = pathname.startsWith("/my-jobs");
   const headingClass = "px-4 pt-2.5 pb-1 text-2xs font-semibold uppercase tracking-wide";
   // Own settings and help, then the admin area, then log out, each block opens with a divider.
-  const shown: Record<string, boolean> = { level: hasSession && showLanguageLevel, tour: hasSession && showTour, evaluation: hasSession && showEvaluation, manual: hasSession && canViewManual, admin: hasSession && isAdmin, logout: hasSession && !isLocalMode };
+  const shown: Record<string, boolean> = { level: hasSession && showLanguageLevel, tour: hasSession && showTour, evaluation: hasSession && showEvaluation, faq: hasSession, manual: hasSession && canViewManual, admin: hasSession && isAdmin, logout: hasSession && !isLocalMode };
   const blockStarts = new Set(BLOCKS.map((block) => block.find((row) => shown[row])).filter(Boolean));
   const dividerFor = (row: string) => (blockStarts.has(row) ? { borderTop: "1px solid var(--border)", marginTop: 4 } : {});
 
@@ -265,6 +266,19 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, canViewManual = 
                 <PencilSimple size={20} weight="bold" />
               </LinkBusy>
               <span>{t("evaluation")}</span>
+            </Link>
+          )}
+          {hasSession && (
+            <Link
+              href="/faq"
+              onClick={closeIfHere("/faq")}
+              className={rowClass}
+              style={{ color: "var(--foreground)", ...dividerFor("faq") }}
+            >
+              <LinkBusy size="sm">
+                <ChatCircleText size={20} weight="bold" />
+              </LinkBusy>
+              <span>{tFaq("title")}</span>
             </Link>
           )}
           {hasSession && canViewManual && (

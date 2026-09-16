@@ -13,6 +13,7 @@ import type { ChatMessage as ChatMessageType } from "../../_types";
 import type { AddNoteExtras } from "../../_hooks/useNotes";
 import { ChipToggleMark, copyMessageText, toggleAllChips, useAllChipsOpen, withCitations, type CitationChipClickHandler } from "./_citations";
 import { hasCitations, sanitizeCitationsForMarkdown } from "./_citation_parse";
+import ChatPhaseLine from "./ChatPhaseLine";
 
 
 const POPUP_ACTION_ICONS: Record<string, PhosphorIconType> = {
@@ -230,6 +231,12 @@ function ChatMessageImpl({
         </span>
       ) : null}
       <div className="flex flex-col max-w-[96%] w-fit">
+        {waitingForFirstWord && (
+          <ChatPhaseLine
+            qmapArrived={msg.source_qmap !== undefined}
+            isPopup={!!msg.popup_selection}
+          />
+        )}
         {!waitingForFirstWord && (
           <div
             className="px-4 py-2 rounded-2xl text-base leading-snug break-words"
