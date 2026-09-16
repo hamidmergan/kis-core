@@ -84,8 +84,9 @@ export default function WorkspaceTableRow({
           </span>
           {workspace.description && <WorkspaceDescription text={workspace.description} />}
           {/* Without a status column the switch still has to be reachable on a phone. */}
+          {/* w-fit keeps the click blocker on the switch, the rest of the line still opens the module. */}
           <span
-            className="mt-1.5 flex sm:hidden"
+            className="mt-1.5 flex w-fit sm:hidden"
             onClick={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
           >
