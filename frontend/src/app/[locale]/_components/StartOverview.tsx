@@ -14,22 +14,21 @@ const COMING_TOOLS = [{ key: "slides", icon: Presentation }] as const;
 
 type ToolTarget = Extract<HomeTarget, { kind: "tool" }>;
 
-/** Who a group addresses, shown once next to its heading; hover explains what that means. */
-function AudienceTags({ labels, explanation }: { labels: string[]; explanation: string }) {
+/** Who a group addresses, shown once next to its heading. Each tag has its own hover explanation. */
+function AudienceTags({ tags }: { tags: { label: string; hint: string }[] }) {
   return (
-    <HoverTooltip text={explanation}>
-      <span className="flex gap-1">
-        {labels.map((label) => (
+    <span className="flex gap-1">
+      {tags.map((tag) => (
+        <HoverTooltip key={tag.label} text={tag.hint}>
           <span
-            key={label}
             className="text-2xs font-medium px-1.5 py-0.5 rounded-full border border-border-soft"
             style={{ backgroundColor: "var(--badge-slate-bg)", color: "var(--badge-slate-fg)" }}
           >
-            {label}
+            {tag.label}
           </span>
-        ))}
-      </span>
-    </HoverTooltip>
+        </HoverTooltip>
+      ))}
+    </span>
   );
 }
 
@@ -40,7 +39,8 @@ export default function StartOverview({ firstName, targets }: { firstName: strin
   const tools = targets.filter((z): z is ToolTarget => z.kind === "tool");
   const headingClass = "text-sm font-semibold uppercase tracking-wider";
   const gridClass = "grid gap-4 sm:grid-cols-2 lg:grid-cols-3";
-  const audienceLabels = (audience: readonly Audience[]) => audience.map((a) => t(`audience.${a}`));
+  const audienceTags = (audience: readonly Audience[], section: "tools" | "aia") =>
+    audience.map((a) => ({ label: t(`audience.${a}`), hint: t(`audienceHint.${section}.${a}`) }));
 
   return (
     <div className="page-shell pt-6 pb-20 lg:pt-15 lg:pb-30">
@@ -56,7 +56,7 @@ export default function StartOverview({ firstName, targets }: { firstName: strin
             <section className="flex flex-col gap-2">
               <div className="flex items-center gap-2">
                 <h2 className={headingClass}>{t("groups.aia")}</h2>
-                <AudienceTags labels={audienceLabels(AIA_AUDIENCE)} explanation={t("audienceHint.aia")} />
+                <AudienceTags tags={audienceTags(AIA_AUDIENCE, "aia")} />
               </div>
               <div className={gridClass}>
                 <StartTile
@@ -74,7 +74,7 @@ export default function StartOverview({ firstName, targets }: { firstName: strin
             <section className="flex flex-col gap-2">
               <div className="flex items-center gap-2">
                 <h2 className={headingClass}>{t("groups.tools")}</h2>
-                <AudienceTags labels={audienceLabels(TOOLS_AUDIENCE)} explanation={t("audienceHint.tools")} />
+                <AudienceTags tags={audienceTags(TOOLS_AUDIENCE, "tools")} />
               </div>
               <div className={gridClass}>
                 {tools.map((z) => (
