@@ -123,27 +123,6 @@ export function ClozeExerciseView({
           <HelpTooltip text={t("common.aiKnowledgeHint")} />
         </p>
 
-        <div className="flex flex-wrap gap-1.5">
-          {chips.map((c) => (
-            <button
-              key={c.key}
-              type="button"
-              onClick={() => setStruck((s) => ({ ...s, [c.key]: !s[c.key] }))}
-              className="px-2.5 py-1 rounded-full text-2xs font-medium border-2 transition-colors"
-              // Neutral grey, a chip is material and not a judgement.
-              style={{
-                backgroundColor: "var(--surface-dim)",
-                color: "var(--foreground)",
-                borderColor: "var(--border)",
-                textDecoration: struck[c.key] ? "line-through" : "none",
-                opacity: struck[c.key] ? 0.5 : 1,
-              }}
-            >
-              {c.base}
-            </button>
-          ))}
-        </div>
-
         {/* Signatur aus dem Bestand: sources und ein onSourceClick, das NUR den
             Dateinamen bekommt. Die Seite steht am Chip und nicht an der Legende. */}
         <SetSourceLegend
@@ -151,6 +130,29 @@ export function ClozeExerciseView({
           items={exerciseSet.items}
           onSourceClick={(filename) => onSourceClick?.(filename, item.page_number ?? 1)}
         />
+      </div>
+
+      {/* Outside the scroll area so the word bank stays visible while the text scrolls. */}
+      <div className="px-4 py-3 flex flex-wrap gap-1.5"
+        style={{ borderTop: "1px solid var(--border)" }}>
+        {chips.map((c) => (
+          <button
+            key={c.key}
+            type="button"
+            onClick={() => setStruck((s) => ({ ...s, [c.key]: !s[c.key] }))}
+            className="px-2.5 py-1 rounded-full text-2xs font-medium border-2 transition-colors"
+            // Neutral grey, a chip is material and not a judgement.
+            style={{
+              backgroundColor: "var(--surface-dim)",
+              color: "var(--foreground)",
+              borderColor: "var(--border)",
+              textDecoration: struck[c.key] ? "line-through" : "none",
+              opacity: struck[c.key] ? 0.5 : 1,
+            }}
+          >
+            {c.base}
+          </button>
+        ))}
       </div>
 
       <div className="px-4 py-3 flex items-center gap-3"
