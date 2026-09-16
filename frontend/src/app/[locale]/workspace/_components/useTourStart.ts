@@ -5,7 +5,7 @@ import { useRouter } from "@/i18n/navigation";
 import { useDemoWorkspaces } from "./useDemoWorkspaces";
 import { waehleRundgangModul } from "./rundgangModul";
 
-/** Finds the demo course and starts the guided tour in it, joining first if needed. */
+/** Joins every demo course, then starts the guided tour in the one it runs in. */
 export function useTourStart(enabled = true) {
   const router = useRouter();
   const { items, join } = useDemoWorkspaces(enabled);
@@ -15,7 +15,8 @@ export function useTourStart(enabled = true) {
   const start = async () => {
     if (!kurs || busy) return;
     setBusy(true);
-    if (!kurs.joined) await join(kurs.uuid);
+    // Everything the demo account offers, not only the course the tour runs in.
+    if (items.some((m) => !m.owned && !m.joined)) await join(null);
     // No mark on start: only the last step or the card's hide button takes the invitation away.
     router.push(`/workspace/${kurs.uuid}?tour=1`);
     setBusy(false);

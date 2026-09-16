@@ -1,4 +1,5 @@
 import { test, expect, request as playwrightRequest } from "@playwright/test";
+import { demoKontoUebernehmen } from "./_demoKonto";
 
 /**
  * The guided tour through a course.
@@ -11,29 +12,6 @@ import { test, expect, request as playwrightRequest } from "@playwright/test";
 const OWNER = { username: process.env.E2E_USER ?? "a", password: process.env.E2E_PASS ?? "a" };
 const WORKSPACE = process.env.E2E_WORKSPACE ?? "1ea7b2fa-b237-4bbd-801b-c9793d388984";
 const POPOVER = ".driver-popover";
-
-/**
- * Sets the demo account and hands back a function that restores the state.
- *
- * Necessary because only ONE account can be the demo account: whoever sets the
- * flag takes it away from whoever had it. Without restoring, every test run
- * would silently wipe the demo course out of the local dev environment.
- */
-async function demoKontoUebernehmen(
-  admin: import("@playwright/test").APIRequestContext,
-  username: string,
-) {
-  const liste = await (await admin.get("/api/admin/users?limit=100")).json();
-  const vorher = liste.users.find((u: { is_demo?: boolean }) => u.is_demo);
-  const konto = liste.users.find((u: { ldap_username: string }) => u.ldap_username === username);
-  await admin.post(`/api/admin/users/${konto.id}/demo`, { data: { is_demo: true } });
-  return async () => {
-    await admin.post(`/api/admin/users/${konto.id}/demo`, { data: { is_demo: false } });
-    if (vorher && vorher.id !== konto.id) {
-      await admin.post(`/api/admin/users/${vorher.id}/demo`, { data: { is_demo: true } });
-    }
-  };
-}
 
 /**
  * Puts an account on a system role and hands back a function that restores it.

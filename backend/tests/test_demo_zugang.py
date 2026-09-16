@@ -138,6 +138,7 @@ def test_der_haken_weg_raeumt_die_demo_einschreibungen_ab(client):
     """Whoever loses the flag loses their demo participants from the course."""
     with patch("src.routes.admin.users.db.get_user_by_id", return_value={"id": 7}), \
          patch("src.routes.admin.users.db.set_user_demo", return_value=[7]), \
+         patch("src.routes.admin.users.db.delete_demo_seed_marks_of_owner", return_value=0), \
          patch("src.routes.admin.users.db.delete_demo_enrollments_of_owner",
                return_value=3) as abraeumen:
         r = client.post("/admin/users/7/demo", json={"is_demo": False})
@@ -149,11 +150,24 @@ def test_das_vorige_demo_konto_wird_mit_abgeraeumt(client):
     """On switching, the old account loses the flag and with it its participants."""
     with patch("src.routes.admin.users.db.get_user_by_id", return_value={"id": 9}), \
          patch("src.routes.admin.users.db.set_user_demo", return_value=[7]), \
+         patch("src.routes.admin.users.db.delete_demo_seed_marks_of_owner", return_value=0), \
          patch("src.routes.admin.users.db.delete_demo_enrollments_of_owner",
                return_value=2) as abraeumen:
         r = client.post("/admin/users/9/demo", json={"is_demo": True})
     assert r.status_code == 200
     abraeumen.assert_called_once_with(7)
+
+
+def test_der_haken_weg_loescht_auch_die_merker(client):
+    """Without this the flag can come back and still reach nobody, the mark blocks every retry."""
+    with patch("src.routes.admin.users.db.get_user_by_id", return_value={"id": 7}), \
+         patch("src.routes.admin.users.db.set_user_demo", return_value=[7]), \
+         patch("src.routes.admin.users.db.delete_demo_enrollments_of_owner", return_value=3), \
+         patch("src.routes.admin.users.db.delete_demo_seed_marks_of_owner",
+               return_value=3) as merker_weg:
+        r = client.post("/admin/users/7/demo", json={"is_demo": False})
+    assert r.status_code == 200
+    merker_weg.assert_called_once_with(7)
 
 
 def test_beitreten_merkt_sich_den_weg_ueber_die_demo(client):

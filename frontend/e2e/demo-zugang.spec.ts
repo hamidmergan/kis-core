@@ -1,4 +1,5 @@
 import { test, expect, request as playwrightRequest } from "@playwright/test";
+import { demoKontoUebernehmen } from "./_demoKonto";
 
 /** The whole demo path, the setup runs through the API and cleans up after itself. */
 
@@ -13,11 +14,7 @@ test("Demo-Fenster: einen Kurs betreten und wieder verlassen", async ({ page, ba
   const anmeldung = await admin.post("/auth/login", { data: DEMO_KONTO });
   expect(anmeldung.ok()).toBeTruthy();
 
-  const liste = await (await admin.get("/api/admin/users?limit=100")).json();
-  const konto = liste.users.find((u: { ldap_username: string }) => u.ldap_username === DEMO_KONTO.username);
-  expect(konto).toBeTruthy();
-
-  await admin.post(`/api/admin/users/${konto.id}/demo`, { data: { is_demo: true } });
+  const demoZurueck = await demoKontoUebernehmen(admin, DEMO_KONTO.username);
 
   const angelegt = await (await admin.post("/api/ai-assistant/workspaces", {
     form: { title: TITEL },
@@ -52,7 +49,7 @@ test("Demo-Fenster: einen Kurs betreten und wieder verlassen", async ({ page, ba
     await expect(page.locator("tbody tr").filter({ hasText: TITEL })).toHaveCount(0);
   } finally {
     await admin.delete(`/api/ai-assistant/workspaces/${angelegt.uuid}`);
-    await admin.post(`/api/admin/users/${konto.id}/demo`, { data: { is_demo: false } });
+    await demoZurueck();
     await admin.dispose();
   }
 });

@@ -166,7 +166,12 @@ async def update_user_demo(
     # Whoever loses the flag also loses their participants who joined via the demo.
     for verlorenes_konto in db.set_user_demo(user_id, body.is_demo):
         anzahl = db.delete_demo_enrollments_of_owner(verlorenes_konto)
-        logger.info("Demo-Konto {} abgeraeumt: {} Einschreibungen", verlorenes_konto, anzahl)
+        # The marks have to go with them, otherwise a comeback of the flag reaches nobody.
+        marken = db.delete_demo_seed_marks_of_owner(verlorenes_konto)
+        logger.info(
+            "Demo-Konto {} abgeraeumt: {} Einschreibungen, {} Merker",
+            verlorenes_konto, anzahl, marken,
+        )
     logger.info("Demo-Konto {}: is_demo={}", user_id, body.is_demo)
     return {"is_demo": body.is_demo}
 
