@@ -1,12 +1,14 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { ChatCircleDots, Presentation } from "@phosphor-icons/react";
+import { Presentation } from "@phosphor-icons/react";
 import { AIA_AUDIENCE, TOOLS_AUDIENCE, type Audience, type HomeTarget } from "@/lib/modules";
 import { TOOL_ICONS } from "@/lib/toolIcons";
 import { Greeting } from "@/app/[locale]/workspace/_components/Greeting";
 import { EvaluationInvite } from "@/app/[locale]/workspace/_components/EvaluationInvite";
 import HoverTooltip from "@/components/ui/HoverTooltip";
+import Mascot from "@/components/ui/Mascot";
+import { useMascotPref } from "@/hooks/useMascotPref";
 import { StartTile } from "./StartTile";
 
 /** Announced tools without a route yet. Not permission keys, so they live here and not in TOOL_ROUTES. */
@@ -35,6 +37,7 @@ function AudienceTags({ tags }: { tags: { label: string; hint: string }[] }) {
 /** The start page for everyone with more than one place to go: the assistant first, then every tool. */
 export default function StartOverview({ firstName, targets }: { firstName: string; targets: HomeTarget[] }) {
   const t = useTranslations("startOverview");
+  const { variant: mascotVariant } = useMascotPref();
   const aia = targets.find((z) => z.kind === "aia");
   const tools = targets.filter((z): z is ToolTarget => z.kind === "tool");
   const headingClass = "text-sm font-semibold uppercase tracking-wider";
@@ -45,30 +48,32 @@ export default function StartOverview({ firstName, targets }: { firstName: strin
   return (
     <div className="page-shell pt-6 pb-20 lg:pt-15 lg:pb-30">
       <div className="max-w-7xl mx-auto">
-        <Greeting firstName={firstName} />
-
-        <div className="flex flex-col md:flex-row gap-4 mb-8 empty:hidden">
-          <EvaluationInvite />
-        </div>
-
         <div className="flex flex-col gap-8" data-testid="start-overview">
-          {aia && (
-            <section className="flex flex-col gap-2">
-              <div className="flex items-center gap-2">
-                <h2 className={headingClass}>{t("groups.aia")}</h2>
-                <AudienceTags tags={audienceTags(AIA_AUDIENCE)} />
-              </div>
-              <div className={gridClass}>
+          {/* Same columns as the tiles below, so the assistant keeps their width. */}
+          <div className={gridClass}>
+            <div className="sm:col-span-2">
+              <Greeting firstName={firstName} />
+            </div>
+            {aia && (
+              <section className="flex flex-col gap-2 lg:col-start-1 lg:row-start-2">
+                <div className="flex items-center gap-2">
+                  <h2 className={headingClass}>{t("groups.aia")}</h2>
+                  <AudienceTags tags={audienceTags(AIA_AUDIENCE)} />
+                </div>
                 <StartTile
                   href={aia.href}
-                  icon={ChatCircleDots}
+                  avatar={<Mascot variant={mascotVariant} size={52} state="idle" />}
                   title={t("aia.title")}
                   body={t("aia.body")}
                   testId="start-tile-aia"
                 />
-              </div>
-            </section>
-          )}
+              </section>
+            )}
+          </div>
+
+          <div className="flex flex-col md:flex-row gap-4 empty:hidden">
+            <EvaluationInvite />
+          </div>
 
           {tools.length > 0 && (
             <section className="flex flex-col gap-2">

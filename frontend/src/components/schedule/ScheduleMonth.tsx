@@ -11,7 +11,8 @@ import ScheduleEntryModal from "./ScheduleEntryModal";
 import ScheduleBars, { barsSpace, BAR_TOP, BAR_GAP } from "./ScheduleBars";
 import { laneCount, weekSegments, type RangeEntry } from "./_ranges";
 import { useHiddenIds } from "./_hidden";
-import { todayISO } from "./utils";
+import { parseYMD, todayISO, ymd } from "./utils";
+import { fetchAllEntries } from "./_api";
 
 /** A small fixed palette so several workspaces stay distinguishable in the grid. */
 const WS_COLORS = ["var(--kb)", "#B45309", "#6D28D9", "#0F766E", "#9D174D", "#1D4ED8"];
@@ -25,46 +26,19 @@ const MAX_CHIPS = 2;
 /** At most this many bars on top of each other, the rest counts into '+N more'. */
 const MAX_LANES = 2;
 
-/** Today only carries four corners, no full border and no fill. */
-const ECK_STRICH = "2px solid var(--kb)";
-const ECKEN: React.CSSProperties[] = [
-  { top: 0, left: 0, borderTop: ECK_STRICH, borderLeft: ECK_STRICH },
-  { top: 0, right: 0, borderTop: ECK_STRICH, borderRight: ECK_STRICH },
-  { bottom: 0, left: 0, borderBottom: ECK_STRICH, borderLeft: ECK_STRICH },
-  { bottom: 0, right: 0, borderBottom: ECK_STRICH, borderRight: ECK_STRICH },
-];
-
-function parseYMD(s: string): Date {
-  const [y, m, d] = s.split("-").map(Number);
-  return new Date(y, m - 1, d);
-}
-
-function ymd(y: number, m: number, d: number): string {
-  return `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-}
+/** Today only carries a top edge, the same mark the mini calendar uses. */
+const HEUTE_KANTE: React.CSSProperties = {
+  top: 0,
+  left: 0,
+  right: 0,
+  height: 2,
+  backgroundColor: "var(--kb)",
+};
 
 /** Like ymd, but the day may run past the month, Date converts that. */
 function ymdShift(y: number, m: number, dayOffset: number): string {
   const dt = new Date(y, m, dayOffset);
   return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
-}
-
-/** The calendar always shows everything, a month with holes would be no calendar. */
-async function fetchAll(): Promise<ScheduleListEntry[] | null> {
-  const params = new URLSearchParams({
-    include_past_open: "true",
-    include_checked: "true",
-  });
-  try {
-    const r = await fetch(`/api/ai-assistant/schedule/upcoming?${params.toString()}`, {
-      credentials: "include",
-    });
-    if (!r.ok) return null;
-    const data = await r.json();
-    return data.entries || [];
-  } catch {
-    return null;
-  }
 }
 
 async function putChecked(
@@ -92,20 +66,25 @@ async function putChecked(
   }
 }
 
+const ISO_TAG = /^\d{4}-\d{2}-\d{2}$/;
+
 /** Month grid across all courses, a click opens the day's appointments below. */
-export default function ScheduleMonth() {
+export default function ScheduleMonth({ initialDate }: { initialDate?: string }) {
   const t = useTranslations("schedule");
   const locale = useLocale();
   const tag = locale === "en" ? "en-US" : "de-DE";
 
   const [entries, setEntries] = useState<ScheduleListEntry[] | null>(null);
   const [error, setError] = useState(false);
-  // The calendar always starts in the current month so today is in view.
+  // The calendar starts in the current month so today is in view, a day from the
+  // start page overrides that and opens its own month.
   const [cursor, setCursor] = useState(() => {
-    const d = new Date();
+    const d = initialDate && ISO_TAG.test(initialDate) ? parseYMD(initialDate) : new Date();
     return { y: d.getFullYear(), m: d.getMonth() };
   });
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(
+    initialDate && ISO_TAG.test(initialDate) ? initialDate : null,
+  );
   const [modalOpen, setModalOpen] = useState(false);
   // Prefilled date for a new appointment, empty for the button in the bar.
   const [modalDate, setModalDate] = useState("");
@@ -116,7 +95,7 @@ export default function ScheduleMonth() {
 
   useEffect(() => {
     let cancelled = false;
-    fetchAll().then((items) => {
+    fetchAllEntries().then((items) => {
       if (cancelled) return;
       if (items === null) {
         setError(true);
@@ -141,7 +120,7 @@ export default function ScheduleMonth() {
 
   const reload = useCallback(() => {
     setEntries(null);
-    fetchAll().then((items) => { if (items !== null) setEntries(items); });
+    fetchAllEntries().then((items) => { if (items !== null) setEntries(items); });
   }, []);
 
   const handleDelete = useCallback(async (entry: ScheduleListEntry) => {
@@ -429,15 +408,15 @@ export default function ScheduleMonth() {
               className="relative min-h-13 md:min-h-19 px-1.5 py-1 flex flex-col text-left transition-colors cursor-pointer hover:bg-[var(--surface-dim)] hover:outline-2 hover:outline-[var(--kb)]"
               style={{
                 borderLeft: i === 0 ? undefined : "1px solid var(--border-soft)",
-                // The selected day gets the full outline, today only the corners below.
+                // The selected day gets the full outline, today only the top edge below.
                 outline: isSelected ? "2px solid var(--kb)" : undefined,
                 outlineOffset: -2,
                 backgroundColor: "var(--background)",
               }}
             >
-              {isToday && ECKEN.map((eck, k) => (
-                <span key={k} aria-hidden="true" className="absolute pointer-events-none" style={{ ...eck, width: 9, height: 9 }} />
-              ))}
+              {isToday && (
+                <span aria-hidden="true" className="absolute pointer-events-none" style={HEUTE_KANTE} />
+              )}
               <span
                 className="text-2xs font-semibold"
                 // Fixed height, otherwise the gap is off by a pixel.

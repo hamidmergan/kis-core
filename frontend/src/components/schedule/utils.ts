@@ -75,9 +75,15 @@ export function cleanScheduleDescription(
   return stripped || null;
 }
 
-function parseYMD(s: string): Date {
+/** The day as a local Date, the plain Date constructor would read UTC. */
+export function parseYMD(s: string): Date {
   const [y, m, d] = s.split("-").map(Number);
   return new Date(y, m - 1, d);
+}
+
+/** The counterpart to parseYMD, month is zero based like in Date. */
+export function ymd(y: number, m: number, d: number): string {
+  return `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
 /** The really due day, for a span the last one. */

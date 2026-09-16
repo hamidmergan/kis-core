@@ -337,7 +337,7 @@
     },
     "audienceHint": {
       "lehrende": "Available to teachers.",
-      "studierende": "Available to students."
+      "studierende": "Students work in the modules their teachers have invited them to."
     },
     "aia": {
       "title": "AI assistant Francis",

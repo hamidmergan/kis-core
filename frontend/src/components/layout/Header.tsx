@@ -24,7 +24,8 @@ export default function Header({ hasSession = true, showLogout = false }: Header
   const pathname = usePathname();
   // The URL says where you are, the button in the header shows it.
   const onCalendar = pathname === "/calendar" || pathname.startsWith("/calendar/");
-  const onTools = pathname.startsWith("/tools/");
+  // The button points at the start page, so standing there counts as being on Dienste.
+  const onTools = pathname === "/" || pathname.startsWith("/tools/");
   const [isAdmin, setIsAdmin] = useState(false);
   const [canViewManual, setCanViewManual] = useState(false);
   // Admin only for whoever may do everything, everyone else goes to their settings.
