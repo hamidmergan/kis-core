@@ -766,6 +766,58 @@ me-tpc:hover .mm-src-chip {
   color: var(--kb);
 }
 
+/* FAQ register: the group name stands in the left margin and stays put while
+   its questions scroll past. One continuous list, the margin name is the only
+   section break, so no rule sits above a group. The open question lifts onto
+   the start-page tile tone. --kb keeps the THL original in dark mode, so the
+   accent text there has to come from --kb-dark instead. */
+.faq-list { border-bottom: 1px solid var(--border-soft); }
+.faq-group {
+  display: grid;
+  gap: 0 2rem;
+  grid-template-columns: 1fr;
+}
+.faq-label {
+  font-size: 0.875rem;
+  color: var(--muted);
+  padding-top: 0.9rem;
+  align-self: start;
+}
+@media (min-width: 48rem) {
+  .faq-group { grid-template-columns: 9.5rem 1fr; }
+  .faq-label { position: sticky; top: 1rem; text-align: right; }
+}
+/* The rule sits on top of each row, not below it, so an open row can switch off
+   the line above itself. As a bottom border that line would belong to the
+   previous row, and across a group boundary it would sit in another parent
+   where no sibling selector reaches it. The list closes with one rule under
+   .faq-list. */
+.faq-item {
+  border-top: 1px solid var(--border-soft);
+  padding-inline: 0.75rem;
+  margin-inline: -0.75rem;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+.faq-item:first-child,
+.faq-item[open],
+.faq-item[open] + .faq-item {
+  border-top-color: transparent;
+}
+.faq-item[open] {
+  background: var(--tile-bg);
+  border-radius: 0.5rem;
+}
+.faq-q { flex: 1; transition: color 0.15s ease; }
+.faq-item:hover .faq-q,
+.faq-item[open] .faq-q { color: var(--kb); }
+.faq-item[open] .faq-q { font-weight: 600; }
+.faq-item:hover .row-caret,
+.faq-item[open] .row-caret { color: var(--kb); }
+:root[data-theme="dark"] .faq-item:hover .faq-q,
+:root[data-theme="dark"] .faq-item[open] .faq-q,
+:root[data-theme="dark"] .faq-item:hover .row-caret,
+:root[data-theme="dark"] .faq-item[open] .row-caret { color: var(--kb-dark); }
+
 /* MiniStrip: hovering the full vertical strip turns icon + label blue, with outline on the icon. */
 .mini-strip-btn {
   color: var(--muted);
