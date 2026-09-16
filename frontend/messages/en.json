@@ -331,6 +331,10 @@
       "aia": "AI assistant",
       "tools": "Tools"
     },
+    "audience": {
+      "lehrende": "Teachers",
+      "studierende": "Students"
+    },
     "aia": {
       "title": "AI assistant Francis",
       "body": "Your modules with materials, chat and learning tools. The AI assistant answers from each module's own documents only."
