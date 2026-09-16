@@ -7,6 +7,7 @@ from src.dependencies_rbac import assert_may_grant, permissions_of
 from src.permissions import custom_role_permissions, permissions_for_system_role
 from src.permissions_registry import (
     ALL_PERMISSION_KEYS,
+    PERM_AIA_LANGUAGE_LEVEL,
     PERM_AIA_USE,
     PERM_SET_AIA_LEVEL,
     PERM_SET_SYSTEM,
@@ -123,6 +124,12 @@ def test_the_admin_may_grant_anything():
     assert_may_grant(permissions_for_system_role("admin"), [PERM_SET_SYSTEM], "de")
 
 
+def test_the_language_level_may_be_granted_without_holding_it():
+    """No system role carries it, whoever hands out roles may still tick the box."""
+    actor = custom_role_permissions([PERM_AIA_USE, PERM_SET_USERS_ROLES])
+    assert_may_grant(actor, [PERM_AIA_LANGUAGE_LEVEL], "de")
+
+
 # The endpoints are called directly, without a test client and middleware.
 
 from src.routes.admin import roles as roles_route  # noqa: E402
@@ -166,8 +173,21 @@ async def test_a_role_manager_only_sees_its_own_rights_as_grantable(monkeypatch)
     monkeypatch.setattr(roles_route.db, "list_custom_roles", lambda: [])
 
     body = await roles_route.list_roles(admin=actor)
-    assert set(body["grantable"]) == set(keys)
+    # The language level belongs to nobody, so it comes on top of the own rights.
+    assert set(body["grantable"]) == set(keys) | {PERM_AIA_LANGUAGE_LEVEL}
     assert PERM_SET_SYSTEM not in body["grantable"]
+
+
+async def test_the_language_level_stays_tickable_although_nobody_holds_it(monkeypatch):
+    """Otherwise the checkbox is grey everywhere and no role could ever get the trainer."""
+    actor = _as_role(monkeypatch, [PERM_AIA_USE, PERM_SET_USERS_ROLES])
+    monkeypatch.setattr(roles_route.db, "list_custom_roles", lambda: [])
+
+    body = await roles_route.list_roles(admin=actor)
+    assert PERM_AIA_LANGUAGE_LEVEL in body["grantable"]
+    assert all(
+        PERM_AIA_LANGUAGE_LEVEL not in r["permissions"] for r in body["system_roles"]
+    )
 
 
 async def test_toggle_saves_a_single_checkbox(monkeypatch):
