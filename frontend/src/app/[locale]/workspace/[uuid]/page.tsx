@@ -625,7 +625,7 @@ export default function KiTutorWorkspacePage() {
   if (locked) {
     return (
       <ProtectedRoute>
-        <div className="aia-scale flex flex-col overflow-hidden" style={{ height: "100vh" }}>
+        <div className="aia-scale flex flex-col overflow-hidden viewport-shell">
           <Header showLogout />
           <div className="flex-1 flex items-center justify-center px-6">
             <div
@@ -652,7 +652,7 @@ export default function KiTutorWorkspacePage() {
   if (!initialized) {
     return (
       <ProtectedRoute>
-        <div className="aia-scale flex flex-col overflow-hidden" style={{ height: "100vh" }}>
+        <div className="aia-scale flex flex-col overflow-hidden viewport-shell">
           <div className="flex-1 flex items-center justify-center">
             <Spinner size="lg" />
           </div>
@@ -669,7 +669,7 @@ export default function KiTutorWorkspacePage() {
           erwischt so auch das Modal ausserhalb des 100vh-Rahmens. */}
       <OwnerPreviewProvider value={ownerPreview}>
       <div className="aia-scale" style={{ display: "contents" }}>
-      <div className="flex flex-col overflow-hidden" style={{ height: "100vh" }}>
+      <div className="flex flex-col overflow-hidden viewport-shell">
         <WorkspaceTopbar
           isMobile={isMobile}
           title={moduleDetail?.title ?? ""}
