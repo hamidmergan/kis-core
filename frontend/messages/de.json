@@ -462,6 +462,10 @@
       "title": "Dolmetscher",
       "intro": "Zwei Sprachen, ein Gespräch. Sprich oder tipp in dein Feld, daneben läuft die Übersetzung mit. Alles bleibt im Verlauf.",
       "hint": "Beide sprechen oder tippen im Wechsel, jede Seite in ihrer Sprache.",
+      "limits": {
+        "near": "Das Gespräch ist gleich voll und endet dann von selbst. Mit Neues Gespräch geht es sofort weiter.",
+        "full": "Das Gespräch ist voll und wurde beendet. Es bleibt lesbar, für neue Sätze starte ein neues Gespräch."
+      },
       "languages": {
         "de": "Deutsch",
         "en": "Englisch",

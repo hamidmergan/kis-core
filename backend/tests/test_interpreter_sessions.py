@@ -156,6 +156,29 @@ def test_beendetes_gespraech_nimmt_keinen_satz_mehr(env):
     assert client.put(f"/interpreter/sessions/{sid}/turns/t9", json=_turn("left", "Noch was")).status_code == 409
 
 
+def _fuellen(client, sid):
+    """Five sentences of four thousand characters, that is exactly the limit."""
+    for i in range(5):
+        r = client.put(f"/interpreter/sessions/{sid}/turns/t{i}", json=_turn("left", "a" * 4000, at=i))
+        assert r.status_code == 200, r.text
+
+
+def test_volles_gespraech_nimmt_keinen_satz_mehr_an(env):
+    client, _ = env
+    sid = client.post("/interpreter/sessions", json={}).json()["id"]
+    _fuellen(client, sid)
+    assert client.put(f"/interpreter/sessions/{sid}/turns/t9", json=_turn("left", "Noch was", at=9)).status_code == 409
+
+
+def test_korrektur_zaehlt_nicht_zusaetzlich(env):
+    client, _ = env
+    sid = client.post("/interpreter/sessions", json={}).json()["id"]
+    _fuellen(client, sid)
+    # The old version of this sentence leaves the count, so a correction always fits.
+    assert client.put(f"/interpreter/sessions/{sid}/turns/t0", json=_turn("left", "a" * 4000, at=0)).status_code == 200
+    assert client.put(f"/interpreter/sessions/{sid}/turns/t0", json=_turn("left", "Kurz", at=0)).status_code == 200
+
+
 def test_fremdes_gespraech_bleibt_unsichtbar(env):
     client, fake = env
     fake.create_session(99, "DE", "EN-US", "", "")

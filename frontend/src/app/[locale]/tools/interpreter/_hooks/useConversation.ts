@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { translateText, type Glossary } from "../_api";
+import { charState, countChars } from "../_limits";
 import { createLiveTranslator, type LiveTranslator } from "../_liveTranslator";
 import { localeOf, newId, otherSide, type LangCode, type Side, type Turn } from "../_types";
 import { useRecorder, type RecorderError } from "./useRecorder";
@@ -36,6 +37,7 @@ export function useConversation(options: Options) {
   const [ended, setEndedState] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [quiet, setQuiet] = useState(false);
+  const [endingSoon, setEndingSoon] = useState(false);
 
   const recorder = useRecorder();
   const turnsRef = useRef<Turn[]>([]);
@@ -151,6 +153,7 @@ export function useConversation(options: Options) {
     recordingRef.current = null;
     setRecording(null);
     setQuiet(false);
+    setEndingSoon(false);
     // The microphone finishes on its own, the sentence waits for the complete transcript.
     recorder.stop();
   }, [recorder]);
@@ -180,6 +183,7 @@ export function useConversation(options: Options) {
     const current = floorRef.current;
     if (current?.id) settle(current.id);
     setNotice(null);
+    setEndingSoon(false);
     const { sttProviderId, langOf } = optionsRef.current;
     const id = newId();
     addTurn({ id, side, source: "spoken", original: "", translation: "", status: "transcribing", at: Date.now(), edited: false });
@@ -199,11 +203,15 @@ export function useConversation(options: Options) {
       onQuiet: (isQuiet) => {
         if (recordingRef.current === side) setQuiet(isQuiet);
       },
+      onEndingSoon: () => {
+        if (recordingRef.current === side) setEndingSoon(true);
+      },
       onAutoStop: () => {
         if (recordingRef.current !== side) return;
         recordingRef.current = null;
         setRecording(null);
         setQuiet(false);
+        setEndingSoon(false);
       },
       onError: (kind) => {
         setNotice({ side, kind });
@@ -211,6 +219,7 @@ export function useConversation(options: Options) {
           recordingRef.current = null;
           setRecording(null);
           setQuiet(false);
+          setEndingSoon(false);
           patch(id, { status: "done" });
         }
       },
@@ -285,6 +294,7 @@ export function useConversation(options: Options) {
     recordingRef.current = null;
     setRecording(null);
     setQuiet(false);
+    setEndingSoon(false);
   }, [recorder]);
 
   /** Ends the conversation, everything stays readable, nobody speaks any more. */
@@ -302,6 +312,15 @@ export function useConversation(options: Options) {
     // A sentence cut off by the end still gets its complete translation.
     await translate(turn.id, text, turn.side);
   }, [patch, setEnded, stopEverything, translate]);
+
+  // How full the conversation is, the translation does not count against anyone.
+  const chars = countChars(turns);
+  const fill = charState(chars);
+
+  // A full conversation ends by itself, everything stays readable and a new one is one click away.
+  useEffect(() => {
+    if (fill === "full" && !endedRef.current) void end();
+  }, [fill, end]);
 
   const reset = useCallback(() => {
     stopEverything();
@@ -338,5 +357,5 @@ export function useConversation(options: Options) {
     commit(turnsRef.current.map((turn) => ({ ...turn, original: turn.translation, translation: turn.original })));
   }, [commit, setFloor, stopEverything]);
 
-  return { turns, recording, quiet, floor, ended, notice, begin, type, translateTyped, toggleMic, finish: finishListening, end, reset, load, flipSides, flipTexts };
+  return { turns, recording, quiet, endingSoon, fill, floor, ended, notice, begin, type, translateTyped, toggleMic, finish: finishListening, end, reset, load, flipSides, flipTexts };
 }

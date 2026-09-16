@@ -209,10 +209,17 @@ export default function InterpreterPage() {
           <p className="text-sm text-muted mb-1">{t("intro")}</p>
           <p className="text-sm text-muted mb-5">{t("hint")}</p>
 
+          {active.fill !== "ok" && (
+            <p className="mb-5 rounded-md border border-warn-border bg-warn-bg px-3 py-2 text-sm text-warn-strong" role="alert">
+              {t(active.fill === "full" ? "limits.full" : "limits.near")}
+            </p>
+          )}
+
           <ConversationView
             turns={active.turns}
             recording={active.recording}
             quiet={active.quiet}
+            endingSoon={active.endingSoon}
             floor={active.floor}
             ended={active.ended}
             notice={active.notice}
