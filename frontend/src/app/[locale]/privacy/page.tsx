@@ -38,6 +38,7 @@ export default function DatenschutzPage() {
             </p>
             <ul className="list-disc pl-6 text-foreground-soft space-y-1">
               <li>{t("auth.item1")}</li>
+              <li>{t("auth.itemPassword")}</li>
               <li>{t("auth.item2")}</li>
               <li>{t("auth.item3")}</li>
               <li>{t("auth.item4")}</li>

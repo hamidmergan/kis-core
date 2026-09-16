@@ -2622,13 +2622,14 @@
     },
     "auth": {
       "heading": "2. Authentication and user account",
-      "intro": "Access to the platform is provided via a directory service. The following data is stored in our database:",
+      "intro": "Access to the platform is provided through an account on this platform. The following data is stored in our database:",
       "item1": "Username",
+      "itemPassword": "Password, stored only as a bcrypt hash, never in plain text",
       "item2": "Display name (full name)",
       "item3": "Email address",
       "item4": "Language level (if determined via the AI chat test, deletable at any time)",
       "item5": "Invite code or link used to gain access",
-      "outro": "Passwords are not stored on this platform; authentication is handled exclusively against the directory service.\nLegal basis: Art. 6 (1) (e) GDPR (performance of a task carried out in the public interest).\nRetention period: until the user account is deleted."
+      "outro": "Sign-in currently runs against an account on this platform. The password is stored as a hash only and cannot be derived from it. A connection to the central sign-in of TH Lübeck is planned, after which this platform will hold no password.\nLegal basis: Art. 6 (1) (e) GDPR (performance of a task carried out in the public interest).\nRetention period: until the user account is deleted."
     },
     "cookies": {
       "heading": "3. Cookies and local storage",
