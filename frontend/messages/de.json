@@ -335,6 +335,10 @@
       "lehrende": "Lehrende",
       "studierende": "Studierende"
     },
+    "audienceHint": {
+      "tools": "Die Werkzeuge stehen nur Lehrenden zur Verfügung.",
+      "aia": "Lehrende erstellen Module, die sie mit ihren Studierenden teilen können."
+    },
     "aia": {
       "title": "KI-Assistent Francis",
       "body": "Deine Module mit Materialien, Chat und Lernwerkzeugen. Der KI-Assistent antwortet nur aus den Unterlagen des jeweiligen Moduls."

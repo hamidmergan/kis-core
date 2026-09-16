@@ -335,6 +335,10 @@
       "lehrende": "Teachers",
       "studierende": "Students"
     },
+    "audienceHint": {
+      "tools": "The tools are only available to teachers.",
+      "aia": "Teachers create modules they can share with their students."
+    },
     "aia": {
       "title": "AI assistant Francis",
       "body": "Your modules with materials, chat and learning tools. The AI assistant answers from each module's own documents only."

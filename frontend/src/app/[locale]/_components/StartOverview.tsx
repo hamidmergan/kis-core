@@ -6,6 +6,7 @@ import { AIA_AUDIENCE, TOOLS_AUDIENCE, type Audience, type HomeTarget } from "@/
 import { TOOL_ICONS } from "@/lib/toolIcons";
 import { Greeting } from "@/app/[locale]/workspace/_components/Greeting";
 import { EvaluationInvite } from "@/app/[locale]/workspace/_components/EvaluationInvite";
+import HoverTooltip from "@/components/ui/HoverTooltip";
 import { StartTile } from "./StartTile";
 
 /** Announced tools without a route yet. Not permission keys, so they live here and not in TOOL_ROUTES. */
@@ -13,20 +14,22 @@ const COMING_TOOLS = [{ key: "slides", icon: Presentation }] as const;
 
 type ToolTarget = Extract<HomeTarget, { kind: "tool" }>;
 
-/** Who a group addresses, shown once next to its heading. */
-function AudienceTags({ labels }: { labels: string[] }) {
+/** Who a group addresses, shown once next to its heading; hover explains what that means. */
+function AudienceTags({ labels, explanation }: { labels: string[]; explanation: string }) {
   return (
-    <>
-      {labels.map((label) => (
-        <span
-          key={label}
-          className="text-2xs font-medium px-1.5 py-0.5 rounded-full border border-border-soft"
-          style={{ backgroundColor: "var(--badge-slate-bg)", color: "var(--badge-slate-fg)" }}
-        >
-          {label}
-        </span>
-      ))}
-    </>
+    <HoverTooltip text={explanation}>
+      <span className="flex gap-1">
+        {labels.map((label) => (
+          <span
+            key={label}
+            className="text-2xs font-medium px-1.5 py-0.5 rounded-full border border-border-soft"
+            style={{ backgroundColor: "var(--badge-slate-bg)", color: "var(--badge-slate-fg)" }}
+          >
+            {label}
+          </span>
+        ))}
+      </span>
+    </HoverTooltip>
   );
 }
 
@@ -53,7 +56,7 @@ export default function StartOverview({ firstName, targets }: { firstName: strin
             <section className="flex flex-col gap-2">
               <div className="flex items-center gap-2">
                 <h2 className={headingClass}>{t("groups.aia")}</h2>
-                <AudienceTags labels={audienceLabels(AIA_AUDIENCE)} />
+                <AudienceTags labels={audienceLabels(AIA_AUDIENCE)} explanation={t("audienceHint.aia")} />
               </div>
               <div className={gridClass}>
                 <StartTile
@@ -71,7 +74,7 @@ export default function StartOverview({ firstName, targets }: { firstName: strin
             <section className="flex flex-col gap-2">
               <div className="flex items-center gap-2">
                 <h2 className={headingClass}>{t("groups.tools")}</h2>
-                <AudienceTags labels={audienceLabels(TOOLS_AUDIENCE)} />
+                <AudienceTags labels={audienceLabels(TOOLS_AUDIENCE)} explanation={t("audienceHint.tools")} />
               </div>
               <div className={gridClass}>
                 {tools.map((z) => (
