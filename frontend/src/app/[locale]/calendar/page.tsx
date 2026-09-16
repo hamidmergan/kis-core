@@ -1,5 +1,7 @@
 "use client";
 
+import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { CalendarBlank } from "@phosphor-icons/react";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
@@ -18,8 +20,17 @@ export default function SchedulePage() {
           {t("title")}
         </h1>
 
-        <ScheduleMonth />
+        {/* The query string is only readable inside a Suspense boundary. */}
+        <Suspense fallback={null}>
+          <MonthFromQuery />
+        </Suspense>
       </div>
     </ProtectedRoute>
   );
+}
+
+/** A day from the start page calendar opens right here. */
+function MonthFromQuery() {
+  const date = useSearchParams().get("date");
+  return <ScheduleMonth key={date ?? ""} initialDate={date ?? undefined} />;
 }
