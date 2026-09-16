@@ -35,7 +35,7 @@ export default function StartOverview({ firstName, targets }: { firstName: strin
   const t = useTranslations("startOverview");
   const aia = targets.find((z) => z.kind === "aia");
   const tools = targets.filter((z): z is ToolTarget => z.kind === "tool");
-  const headingClass = "text-xs font-semibold uppercase tracking-wider";
+  const headingClass = "text-sm font-semibold uppercase tracking-wider";
   const gridClass = "grid gap-4 sm:grid-cols-2 lg:grid-cols-3";
   const audienceLabels = (audience: readonly Audience[]) => audience.map((a) => t(`audience.${a}`));
 
