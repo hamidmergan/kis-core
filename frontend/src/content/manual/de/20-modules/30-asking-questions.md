@@ -22,7 +22,7 @@ zur Grammatik bleibt also unbeantwortet, solange kein Grammatikmaterial hochgela
 
 ## Das Protokoll
 
-Der Verlauf bleibt je Modul und Person erhalten. Vor einer neuen, unabhängigen Frage lohnt sich
+Der Verlauf bleibt je Workspace und Person erhalten. Vor einer neuen, unabhängigen Frage lohnt sich
 **Chatprotokoll löschen** über die drei Punkte, sonst denkt der Chat die alte Frage mit.
 
 ## Das Maskottchen

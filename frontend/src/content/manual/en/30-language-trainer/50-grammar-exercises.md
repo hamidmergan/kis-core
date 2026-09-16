@@ -3,7 +3,7 @@
 A grammar exercise takes sentences from the ticked materials and has them reshaped after a
 pattern, for example from active into passive.
 
-![The grammar exercises in the module](/manual/{lang}/grammar-sets.png)
+![The grammar exercises in the workspace](/manual/{lang}/grammar-sets.png)
 
 ## Four task formats
 
@@ -26,7 +26,7 @@ Close means the direction is correct but something else is off, for example a ca
 
 ## Where the topics come from
 
-The owner or a tutor creates them in the module, with a free name like "subjunctive II". The AI
+The owner or a tutor creates them in the workspace, with a free name like "subjunctive II". The AI
 suggests a rule and an example pair for it, still editable before saving. Eight topics are
 there from the start: present passive, passive with a modal verb, perfect, simple past,
 subjunctive II, relative clauses, subordinate clauses and adjective declension.

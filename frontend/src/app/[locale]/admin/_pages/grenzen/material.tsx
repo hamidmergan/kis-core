@@ -3,7 +3,6 @@
 /** How much may come in, grouped by who the limit applies to. */
 
 import { useTranslations } from "next-intl";
-import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
 import { useSetting } from "../../_settings/SettingsProvider";
 import { NumberSetting } from "../../_settings/fields";
 import Block from "./_block";
@@ -16,7 +15,6 @@ export default function GrenzenMaterialPage() {
   const tLimits = useTranslations("admin.workspaceLimitsCard");
   const tPages = useTranslations("admin.sourceMaxPagesCard");
   const tTool = useTranslations("admin.toolLimits");
-  const labels = useWorkspaceLabel();
 
   const maxSources = useSetting<number>("aia_workspace_max_sources", 50);
   const maxPages = useSetting<number>("aia_source_max_pages", 200);
@@ -63,8 +61,8 @@ export default function GrenzenMaterialPage() {
       <Block title={t("assistent")}>
         <NumberSetting
           field={maxSources}
-          title={tLimits("title", { label: labels.singular })}
-          hint={tLimits("hint", { label: labels.singular })}
+          title={tLimits("title", { label: "Workspace" })}
+          hint={tLimits("hint", { label: "Workspace" })}
           unit={tLimits("unit")}
           min={1}
           max={1000}

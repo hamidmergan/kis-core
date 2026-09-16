@@ -1,11 +1,11 @@
 # Das Studio
 
-Rechts im Modul steht das Studio. Es ist die Werkbank neben dem Chat und hat fünf Reiter.
+Rechts im Workspace steht das Studio. Es ist die Werkbank neben dem Chat und hat fünf Reiter.
 
 ![Das Studio mit den Kacheln der Tools](/manual/{lang}/module-view.png)
 
 - **Tools** enthält die Kacheln, aus denen Übungen und Übersichten entstehen
-- **Glossar** sammelt Fachbegriffe des Moduls
+- **Glossar** sammelt Fachbegriffe des Workspaces
 - **Notizen** hält fest, was Sie behalten wollen
 - **Statistik** zeigt, wie weit die Teilnehmenden mit den Übungen sind
 - **Zeitplan** listet die Termine, die in den Materialien stecken
@@ -15,5 +15,5 @@ und Sie kommen mit einem Klick wieder hin.
 
 ## Ausblenden
 
-Wer das Studio nicht braucht, blendet es in den Einstellungen des Moduls für sich aus. Chat und
+Wer das Studio nicht braucht, blendet es in den Einstellungen des Workspaces für sich aus. Chat und
 Materialien bekommen dann den ganzen Platz.

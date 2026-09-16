@@ -19,7 +19,7 @@ Select text and seven buttons appear:
 - **Translate** from one word up
 - **Explain** from three words up, puts it in simpler terms
 
-You set the target language for translate in the gear of the module.
+You set the target language for translate in the gear of the workspace.
 
 ## Audio and video
 
@@ -29,7 +29,7 @@ The transcript below the player runs along, every passage with a time mark. Abov
 choose: original language, translation, both or nothing.
 
 As long as there is no translation, an entry with a plus hangs at the bottom of that same list. It
-opens a window for picking the language and is visible only to the administration of the module.
+opens a window for picking the language and is visible only to the administration of the workspace.
 The translation runs in the background and can take a few minutes, a spinner turns next to the
 list meanwhile and the entry names the chosen language. There is exactly one translation per
 material, a new language replaces the previous one.

@@ -22,7 +22,7 @@
     "sectionAppearance": "Appearance",
     "homeNoticeShow": "Show home notice",
     "languageLevel": "Language level",
-    "tour": "Tour through the demo module",
+    "tour": "Tour through the demo workspace",
     "evaluation": "Evaluation"
   },
   "footer": {
@@ -148,7 +148,7 @@
       },
       "herkunftWert": {
         "files": "Files",
-        "module": "Module",
+        "module": "Workspace",
         "text": "Text",
         "blank": "Own script"
       },
@@ -209,8 +209,8 @@
     "card": {
       "uncheckAria": "Mark as not done",
       "checkAria": "Mark as done",
-      "ownTooltip": "Own module",
-      "sharedTooltip": "Shared module"
+      "ownTooltip": "Own workspace",
+      "sharedTooltip": "Shared workspace"
     },
     "month": {
       "prev": "Previous month",
@@ -241,7 +241,7 @@
       "to": "To",
       "time": "Time, if there is one",
       "note": "Description (optional)",
-      "hint": "Your own entries belong to you alone. They show up in the calendar, in the list and in the home page panel, but in no module.",
+      "hint": "Your own entries belong to you alone. They show up in the calendar, in the list and in the home page panel, but in no workspace.",
       "cancel": "Cancel",
       "save": "Add",
       "saveError": "The entry could not be saved."
@@ -337,11 +337,11 @@
     },
     "audienceHint": {
       "lehrende": "Available to teachers.",
-      "studierende": "Students work in the modules their teachers have invited them to."
+      "studierende": "Students work in the workspaces their teachers have invited them to."
     },
     "aia": {
       "title": "AI assistant Francis",
-      "body": "Your modules with materials, chat and tools. The AI assistant answers from each module's own documents only."
+      "body": "Your workspaces with materials, chat and tools. The AI assistant answers from each workspace's own documents only."
     },
     "tools": {
       "translation": {
@@ -1036,7 +1036,7 @@
         "instructionsLabel": "Instruction, optional",
         "instructionsPlaceholder": "Narrow down a topic or chapter, set tone and level, name the audience.",
         "next": "Continue to the cast",
-        "noModules": "You have no module with material yet. Use files in the meantime.",
+        "noModules": "You have no workspace with material yet. Use files in the meantime.",
         "noSources": "No source has finished processing here yet.",
         "sourcesHint": "Choose up to {max} sources.",
         "filesCount": "{n} of {max} files",
@@ -1306,7 +1306,7 @@
       },
       "assistent": {
         "label": "AI assistant",
-        "sub": "The assistant inside a module.",
+        "sub": "The assistant inside a workspace.",
         "sources": {
           "label": "Sources",
           "sub": "How uploaded material is read in and processed."
@@ -1406,13 +1406,13 @@
         "title": "Delete account “{name}”?",
         "loading": "Checking what belongs to this account...",
         "intro": "Deleting the account also removes everything attached to it:",
-        "workspaces": "{n, plural, one {# module with all uploaded files} other {# modules with all uploaded files}}",
+        "workspaces": "{n, plural, one {# workspace with all uploaded files} other {# workspaces with all uploaded files}}",
         "sources": "{n, plural, one {# source including transcript and subtitles} other {# sources including transcripts and subtitles}}",
         "messages": "{n, plural, one {# chat message} other {# chat messages}}",
         "jobs": "{n, plural, one {# service result} other {# service results}}",
-        "enrollments": "{n, plural, one {# enrolment in someone else's module} other {# enrolments in other people's modules}}",
+        "enrollments": "{n, plural, one {# enrolment in someone else's workspace} other {# enrolments in other people's workspaces}}",
         "nothing": "Nothing is attached to this account.",
-        "participantsWarning": "Everyone working in those modules loses access.",
+        "participantsWarning": "Everyone working in those workspaces loses access.",
         "warningIrreversible": "This action can NOT be undone.",
         "confirm": "Delete",
         "cancel": "Cancel",
@@ -1693,7 +1693,7 @@
         "image_gen": "Text-to-image",
         "image_edit": "Edit images via prompt",
         "doc_translate": "The user picks a provider inside the service. (Document Translation, Screencast Translation)",
-        "transcript_translate": "AIA module: translate a transcript into the owner-chosen target language. Source language is detected automatically. Provider and model are admin-configured. Use an instruct model, not a reasoning model."
+        "transcript_translate": "AIA workspace: translate a transcript into the owner-chosen target language. Source language is detected automatically. Provider and model are admin-configured. Use an instruct model, not a reasoning model."
       },
       "exportImport": {
         "modal": {
@@ -1836,7 +1836,7 @@
     },
     "poolClearCard": {
       "title": "Clear stocks",
-      "description": "Exercises and schedule extractions build up through use and belong to the source, not the module. This clears them platform-wide. Finished exercise sets, progress and scheduled dates stay.",
+      "description": "Exercises and schedule extractions build up through use and belong to the source, not the workspace. This clears them platform-wide. Finished exercise sets, progress and scheduled dates stay.",
       "schedule": "Schedule extractions",
       "items": "{n, plural, =0 {empty} =1 {1 exercise} other {# exercises}}",
       "sources": "{n, plural, =0 {empty} =1 {1 source} other {# sources}}",
@@ -1851,7 +1851,7 @@
     },
     "languageTrainerCard": {
       "title": "Language trainer",
-      "description": "The language trainer is a practice area in the studio for everyone following the course in a foreign language. It holds vocabulary cards, vocabulary and grammar exercises, each built from the module materials. While it is on, every person with the student role is asked at first login whether they are an international student. Yes leads into the language test, the level applies in every module, chat and exercises are pitched at it. Everyone switches the trainer on or off under Language level. The language trainer works in German only.",
+      "description": "The language trainer is a practice area in the studio for everyone following the course in a foreign language. It holds vocabulary cards, vocabulary and grammar exercises, each built from the workspace materials. While it is on, every person with the student role is asked at first login whether they are an international student. Yes leads into the language test, the level applies in every workspace, chat and exercises are pitched at it. Everyone switches the trainer on or off under Language level. The language trainer works in German only.",
       "disabled": "Off. Nobody is asked and the language trainer appears nowhere. Choices and levels already made stay stored and apply again as soon as you switch this on.",
       "toggleAria": "Toggle language trainer"
     },
@@ -1859,7 +1859,7 @@
       "title": "OCR for scans & image pages",
       "active": "Active - image/scan-heavy pages are captured via OCR during indexing (slower, costs one vision call per page).",
       "disabled": "Disabled - OCR is skipped system-wide. Indexing is faster and cheaper, but pure scan/image pages stay empty for search.",
-      "hint": "Applies to all modules and new indexing. Existing documents are only affected after re-indexing.",
+      "hint": "Applies to all workspaces and new indexing. Existing documents are only affected after re-indexing.",
       "toggleAria": "Toggle OCR"
     },
     "homeNoticeCard": {
@@ -1882,7 +1882,7 @@
     },
     "languageDiagnosisCard": {
       "title": "Language diagnosis prompt",
-      "description": "Controls how the AI asks, judges and grades in the diagnosis chat. Applies to every module. German only for now.",
+      "description": "Controls how the AI asks, judges and grades in the diagnosis chat. Applies to every workspace. German only for now.",
       "hint": "Controls the flow, the question style and the output format of the test. Four placeholders in the text are filled in: '{language}' with the language of the test, '{grading}' with the grading rules below, '{levels}' with the descriptions from the Levels A1 to C2 card and '{examples}' with the example sentences from there. A placeholder you delete is appended at the end, so the AI never loses it.",
       "reset": "Restore default",
       "saveFailed": "Saving failed"
@@ -2014,18 +2014,10 @@
     },
     "sourceMaxPagesCard": {
       "title": "Max. pages per source",
-      "hint": "Maximum number of pages an uploaded document (PDF/DOCX/PPTX) may have. Applies to module material and to Podcast, Summary and Translation. Larger ones are rejected, please upload long scripts chapter by chapter. Default 200: up to that size a source stays manageable, with very large documents the overview becomes front-heavy. Media (mp3/mp4) and Screencast are not affected.",
+      "hint": "Maximum number of pages an uploaded document (PDF/DOCX/PPTX) may have. Applies to workspace material and to Podcast, Summary and Translation. Larger ones are rejected, please upload long scripts chapter by chapter. Default 200: up to that size a source stays manageable, with very large documents the overview becomes front-heavy. Media (mp3/mp4) and Screencast are not affected.",
       "unit": "pages",
       "outOfRange": "Value must be between 1 and 2000.",
       "saveFailed": "Save failed."
-    },
-    "workspaceLabel": {
-      "title": "\"Module\" label",
-      "description": "How the term is shown in the frontend (e.g. \"course\" / \"courses\" or \"workspace\" / \"workspaces\"). Default: Module / Modules. Configured per language.",
-      "singular": "Singular",
-      "plural": "Plural",
-      "deSection": "German",
-      "enSection": "English"
     },
     "hilde": {
       "stateIdle": "Idle",
@@ -2109,8 +2101,8 @@
       },
       "systemRoleHint": {
         "admin": "The administrator may do everything. Not editable.",
-        "staff": "Staff uses the AI assistant with own modules and all services, but no settings. Not editable.",
-        "user": "User only opens shared modules. Not editable."
+        "staff": "Staff uses the AI assistant with own workspaces and all services, but no settings. Not editable.",
+        "user": "User only opens shared workspaces. Not editable."
       },
       "more": "More"
     },
@@ -2165,7 +2157,7 @@
         "assistent": {
           "sources": "Processing of material",
           "level": "Language level, AI behaviour and prompts",
-          "usage": "AI assistant (all modules)"
+          "usage": "AI assistant (all workspaces)"
         },
         "anbieter": "Add models and route features",
         "nutzer": {
@@ -2203,7 +2195,7 @@
       },
       "upload": {
         "title": "Size of a file",
-        "hint": "Applies to every uploaded file, in the services as well as for module material: presentations, videos, audio and documents. For the podcast the number counts all files of one podcast together.",
+        "hint": "Applies to every uploaded file, in the services as well as for workspace material: presentations, videos, audio and documents. For the podcast the number counts all files of one podcast together.",
         "unit": "MB",
         "outOfRange": "Value must be between 10 and 2000."
       },
@@ -2310,7 +2302,7 @@
         "perToolHint": "How often each service was started, in the selected period. Counted at the start: a job someone cancels or deletes stays in."
       },
       "assistant": {
-        "workspaces": "Modules",
+        "workspaces": "Workspaces",
         "answered": "Exercises answered",
         "chat": "Questions in chat",
         "levels": "Language level of participants",
@@ -2320,8 +2312,8 @@
         "tools": "Tools in the assistant",
         "groupSource": "Subject language trainer",
         "groupGlossary": "Language trainer",
-        "modules": "Modules",
-        "modulesHint": "Click a row to see everything about that module.",
+        "modules": "Workspaces",
+        "modulesHint": "Click a row to see everything about that workspace.",
         "nothingFound": "Nothing found.",
         "total": "Total",
         "colTool": "Tool",
@@ -2330,7 +2322,7 @@
         "colKind": "Kind",
         "colCount": "Count",
         "colChunks": "Chunks",
-        "colModule": "Module",
+        "colModule": "Workspace",
         "colOwner": "Created by",
         "colSources": "Sources",
         "colMembers": "Participants",
@@ -2353,8 +2345,8 @@
         "chat": "Questions in chat",
         "tools": "Services used",
         "toolsHint": "Only reaches back as far as this person\\u2019s retained jobs.",
-        "modules": "Modules",
-        "noModules": "In no module.",
+        "modules": "Workspaces",
+        "noModules": "In no workspace.",
         "colRole": "Role",
         "roleOwner": "Owner",
         "roleMember": "Participant",
@@ -2366,10 +2358,10 @@
         "inactive": "inactive",
         "ownerSince": "by {owner}, created {since}",
         "lastUsed": "last {date}",
-        "sourceHint": "Built from this module\\u2019s materials.",
-        "trainerOff": "Not used for this module.",
+        "sourceHint": "Built from this workspace\\u2019s materials.",
+        "trainerOff": "Not used for this workspace.",
         "noMaterials": "Nothing uploaded yet.",
-        "noMembers": "Nobody in this module yet.",
+        "noMembers": "Nobody in this workspace yet.",
         "noToolsUsed": "No service used yet.",
         "members": "Participants",
         "colFile": "File",
@@ -2393,11 +2385,11 @@
         "sessionClock": ""
       },
       "eigene": {
-        "workspaces": "Own modules",
+        "workspaces": "Own workspaces",
         "ownAndTutored": "{own} own, {tutored} tutored",
-        "modules": "My modules",
-        "modulesHint": "Click a row to see everything about that module. Only modules you own or tutor are listed here.",
-        "none": "You do not own or tutor a module yet.",
+        "modules": "My workspaces",
+        "modulesHint": "Click a row to see everything about that workspace. Only workspaces you own or tutor are listed here.",
+        "none": "You do not own or tutor a workspace yet.",
         "groupOwned": "I own",
         "groupTutored": "I tutor"
       }
@@ -2520,8 +2512,8 @@
       "activityView": "View",
       "activityLoadError": "Activity could not be loaded",
       "activityEmpty": "This account has not used the platform yet.",
-      "activityModulesTitle": "Modules",
-      "activityModulesEmpty": "This person has not opened a module yet.",
+      "activityModulesTitle": "Workspaces",
+      "activityModulesEmpty": "This person has not opened a workspace yet.",
       "activityRelationOwner": "Owner",
       "activityRelationJoined": "Joined",
       "activityMessagesTitle": "Chat history",
@@ -2534,7 +2526,7 @@
       "colDeleteAt": "Deletion on",
       "deleteNever": "no date",
       "deleteAfterTitle": "Delete expired test accounts",
-      "deleteAfterHint": "Once the lifetime runs out a test account is locked and stays readable for you. After this grace period a nightly run deletes the account together with its modules, chats and files. Evaluation answers stay on anonymously. Zero never deletes.",
+      "deleteAfterHint": "Once the lifetime runs out a test account is locked and stays readable for you. After this grace period a nightly run deletes the account together with its workspaces, chats and files. Evaluation answers stay on anonymously. Zero never deletes.",
       "deleteAfterUnit": "days after expiry",
       "deleteAfterOutOfRange": "The grace period must be between 0 and 3650 days."
     },
@@ -2617,7 +2609,7 @@
     "locked": {
       "aia": "This area is locked for your account.",
       "tool": "This service is locked for your account.",
-      "workspaceCreate": "You cannot create new modules. You only have access to assigned modules."
+      "workspaceCreate": "You cannot create new workspaces. You only have access to assigned workspaces."
     }
   },
   "privacy": {
@@ -2648,23 +2640,23 @@
     },
     "jobs": {
       "heading": "4. Processing of user uploads and job data",
-      "intro": "When you use the platform, uploaded files (e.g. videos, PDFs, presentations, audio files) and the results derived from them (e.g. transcripts, summaries) are stored in your module. For each processing job, the following metadata is also stored:",
+      "intro": "When you use the platform, uploaded files (e.g. videos, PDFs, presentations, audio files) and the results derived from them (e.g. transcripts, summaries) are stored in your workspace. For each processing job, the following metadata is also stored:",
       "item1": "Service used (e.g. transcription, summary)",
       "item2": "Original file name",
       "item3": "Time of creation and completion",
       "item4": "Processing status",
-      "retention": "Uploaded files and the results derived from them remain stored in your module until you or a module administrator deletes them. Job metadata for individual processing jobs is retained <strong>only to a limited extent</strong>. The most recent jobs are kept and older ones are removed automatically."
+      "retention": "Uploaded files and the results derived from them remain stored in your workspace until you or a workspace administrator deletes them. Job metadata for individual processing jobs is retained <strong>only to a limited extent</strong>. The most recent jobs are kept and older ones are removed automatically. At the latest when the pilot project ends, all workspaces and the files in them are deleted. If you want that earlier, an email to the address above or a message through the feedback form is enough."
     },
     "adminAccess": {
       "heading": "5. Access by administrators",
       "intro": "People with the relevant permission — in particular administrators, as well as anyone assigned the \"User statistics\" right — can view the following data for individual user accounts:",
-      "item1": "Chat messages sent, verbatim, with module and time",
+      "item1": "Chat messages sent, verbatim, with workspace and time",
       "item2": "Services used, with status and file name",
       "item3": "Exercises answered",
       "item4": "Presence times on the platform (to the day)",
-      "item5": "Module memberships",
+      "item5": "Workspace memberships",
       "item6": "For support: temporarily signing in as the affected person (\"takeover\"), start and end are logged",
-      "outro": "This access serves the technical administration of the platform, troubleshooting, and quality assurance. It is limited to the people who have been granted this permission as part of their duties.\nLegal basis: Art. 6 (1) (e) GDPR (performance of a task carried out in the public interest).\nRetention period: matches the retention of the underlying data (chat history and module membership persist until the module or user account is deleted; job metadata as described in section 4; the takeover log is kept indefinitely)."
+      "outro": "This access serves the technical administration of the platform, troubleshooting, and quality assurance. It is limited to the people who have been granted this permission as part of their duties.\nLegal basis: Art. 6 (1) (e) GDPR (performance of a task carried out in the public interest).\nRetention period: matches the retention of the underlying data (chat history and workspace membership persist until the workspace or user account is deleted; job metadata as described in section 4; the takeover log is kept indefinitely)."
     },
     "thirdParty": {
       "heading": "6. Third parties and external services",
@@ -2678,7 +2670,7 @@
       "hetznerLabel": "Hetzner Object Storage",
       "hetznerBody": "Cloud storage for uploaded files. Storage takes place at Hetzner Online GmbH on servers in Germany.",
       "youtubeLabel": "YouTube (Google)",
-      "youtubeBody": "Embedded videos in modules. The player loads only after a click on the video, no data flows before that. When loading and playing, Google LLC (USA) receives the IP address and device data. The embed uses YouTube's privacy-enhanced mode (youtube-nocookie.com). The transcript of a video is entered by the teacher and stored on the platform, it is not fetched from YouTube.",
+      "youtubeBody": "Embedded videos in workspaces. The player loads only after a click on the video, no data flows before that. When loading and playing, Google LLC (USA) receives the IP address and device data. The embed uses YouTube's privacy-enhanced mode (youtube-nocookie.com). The transcript of a video is entered by the teacher and stored on the platform, it is not fetched from YouTube.",
       "outro": "For the external services, only the content required for the respective function is transmitted, and no further storage takes place there. Uploaded files remain in object storage until they are deleted."
     },
     "logs": {
@@ -2778,7 +2770,7 @@
   "workspace": {
     "detail": {
       "closed": {
-        "title": "This module is closed",
+        "title": "This workspace is closed",
         "text": "Your teacher has set it to inactive for now. Your enrollment stays in place, and you will get back in as soon as it is open again.",
         "back": "Back to overview"
       },
@@ -3054,8 +3046,8 @@
         "backToOverview": "Back to overview",
         "back": "Back",
         "settings": "Settings",
-        "previewBannerStudent": "Preview: this is how students see this module. Their own notes and chat history are not shown.",
-        "previewBannerOwner": "Preview: this is how teachers see this module. Controls with a dashed outline belong to the module management and do nothing here.",
+        "previewBannerStudent": "Preview: this is how students see this workspace. Their own notes and chat history are not shown.",
+        "previewBannerOwner": "Preview: this is how teachers see this workspace. Controls with a dashed outline belong to the workspace management and do nothing here.",
         "previewBlocked": "Not shown in preview"
       },
       "panels": {
@@ -3066,8 +3058,8 @@
       },
       "settings": {
         "title": "Settings",
-        "sectionWorkspaceTitle": "Module",
-        "sectionWorkspaceDescription": "Applies to everyone in the module. Only module admins can change it.",
+        "sectionWorkspaceTitle": "Workspace",
+        "sectionWorkspaceDescription": "Applies to everyone in the workspace. Only workspace admins can change it.",
         "mascotTitle": "Mascot",
         "mascotDescription": "Pick your companion in chat.",
         "mascotHilde": "Hilde",
@@ -3075,9 +3067,9 @@
         "studioTitle": "Studio",
         "studioDescription": "Show the studio panel with mind maps, notes and tools.",
         "previewStudentTitle": "Student view",
-        "previewStudentDescription": "See the module the way students see it. Controls of the module management disappear.",
+        "previewStudentDescription": "See the workspace the way students see it. Controls of the workspace management disappear.",
         "previewOwnerTitle": "Teacher view",
-        "previewOwnerDescription": "See the module the way teachers see it. Controls of the module management stay visible but do nothing.",
+        "previewOwnerDescription": "See the workspace the way teachers see it. Controls of the workspace management stay visible but do nothing.",
         "translationModeTitle": "Transcript translation",
         "translationModeDescription": "Translates subtitles of audio/video sources into the target language chosen below. The source language is detected automatically. Students can switch between original and translation in the transcript panel. Translation runs as a background job and can take a few minutes.",
         "translationModeOff": "Off",
@@ -3129,7 +3121,7 @@
         "collapse": "Collapse",
         "sourcesCount": "{n, plural, =1 {1 source} other {# sources}}",
         "phases": {
-          "searching": "Searching the module",
+          "searching": "Searching the workspace",
           "generating": "Generating the answer"
         },
         "indexingInProgress": "{label} is still being indexed. Please wait a moment and try again.",
@@ -3320,7 +3312,7 @@
         "headings": {
           "learningTools": "Technical language trainer",
           "languageTraining": "Language trainer",
-          "languageTrainingHint": "The exercises are built from the materials of this module. The AI writes the tasks, solutions and explanations itself, they are not in the materials in this form."
+          "languageTrainingHint": "The exercises are built from the materials of this workspace. The AI writes the tasks, solutions and explanations itself, they are not in the materials in this form."
         },
         "tiles": {
           "karteikarten": "Flashcards",
@@ -3493,12 +3485,12 @@
         "back": "Back",
         "done": "Done",
         "progress": "Step {current} of {total}",
-        "start": "Explore the demo module",
+        "start": "Explore the demo workspace",
         "inviteStart": "Start",
         "restart": "Start the tour again",
         "dismiss": "Hide",
-        "inviteTitle": "Tour through the demo module",
-        "inviteBody": "A short tour through a sample module. Shows the materials, the AI assistant Francis and the tools in the study area.",
+        "inviteTitle": "Tour through the demo workspace",
+        "inviteBody": "A short tour through a sample workspace. Shows the materials, the AI assistant Francis and the tools in the study area.",
         "steps": {
           "preview": {
             "title": "Teacher and student view",
@@ -3531,20 +3523,20 @@
         },
         "demo": {
           "willkommen": {
-            "title": "Welcome to the demo module",
-            "text": "A module is the place where you upload the materials of your course. Your students work with them directly, they ask the AI assistant Francis about them and have flashcards, quizzes and other formats generated from those materials. This tour exists for both teachers and students, you're seeing your own version."
+            "title": "Welcome to the demo workspace",
+            "text": "A workspace is the place where you upload the materials of your course. Your students work with them directly, they ask the AI assistant Francis about them and have flashcards, quizzes and other formats generated from those materials. This tour exists for both teachers and students, you're seeing your own version."
           },
           "willkommenStudi": {
-            "title": "Welcome to the demo module",
-            "text": "A module is the place where your teachers upload the materials of the course. You work with them directly, you ask the AI assistant Francis about them and have flashcards, quizzes and other formats generated from those materials. This tour exists for both teachers and students, you're seeing your own version."
+            "title": "Welcome to the demo workspace",
+            "text": "A workspace is the place where your teachers upload the materials of the course. You work with them directly, you ask the AI assistant Francis about them and have flashcards, quizzes and other formats generated from those materials. This tour exists for both teachers and students, you're seeing your own version."
           },
           "materialien": {
             "title": "The materials area",
-            "text": "Every material of the module sits here. Students see the same list, but they cannot add or remove materials."
+            "text": "Every material of the workspace sits here. Students see the same list, but they cannot add or remove materials."
           },
           "materialienStudi": {
             "title": "The materials area",
-            "text": "All materials of the module sit here. Your teachers add them, you work with them."
+            "text": "All materials of the workspace sit here. Your teachers add them, you work with them."
           },
           "hochladen": {
             "title": "Adding materials",
@@ -3552,15 +3544,15 @@
           },
           "hinweis": {
             "title": "A note for everyone",
-            "text": "The info button creates a note with text and links. Everyone in the module opens it through the same button."
+            "text": "The info button creates a note with text and links. Everyone in the workspace opens it through the same button."
           },
           "hinweisStudi": {
             "title": "The note from your teachers",
-            "text": "The info button opens the note from your teachers with text and links. It applies to everyone in the module."
+            "text": "The info button opens the note from your teachers with text and links. It applies to everyone in the workspace."
           },
           "freigeben": {
-            "title": "Access to the module",
-            "text": "Behind this button you create enrollment links and see who is in the module. You hand the link to your students so they can enroll themselves. Tutors may help manage the module."
+            "title": "Access to the workspace",
+            "text": "Behind this button you create enrollment links and see who is in the workspace. You hand the link to your students so they can enroll themselves. Tutors may help manage the workspace."
           },
           "auswahl": {
             "title": "Ticks decide what counts",
@@ -3591,7 +3583,7 @@
             "text": "All notes gather here, wherever they came from. A click on the citation jumps back to the spot."
           },
           "chat": {
-            "title": "Francis, the chat for the module",
+            "title": "Francis, the chat for the workspace",
             "text": "Francis, your AI assistant, answers only from the ticked materials, with a citation for every statement."
           },
           "werkzeuge": {
@@ -3600,7 +3592,7 @@
           },
           "statistik": {
             "title": "Statistics",
-            "text": "This shows your own practice and how well it sticks, a few exercises are already in place for you. Everyone only ever sees their own statistics, so nothing your students do shows up here. The numbers for a whole module are on the start page."
+            "text": "This shows your own practice and how well it sticks, a few exercises are already in place for you. Everyone only ever sees their own statistics, so nothing your students do shows up here. The numbers for a whole workspace are on the start page."
           },
           "statistikStudi": {
             "title": "Statistics",
@@ -3608,15 +3600,15 @@
           },
           "zeitplan": {
             "title": "Schedule",
-            "text": "Dates found in the materials gather here. The start page shows every date from all your modules in a calendar."
+            "text": "Dates found in the materials gather here. The start page shows every date from all your workspaces in a calendar."
           },
           "schluss": {
             "title": "Your turn",
-            "text": "Try everything out. Or create your own module right away and share it with your students."
+            "text": "Try everything out. Or create your own workspace right away and share it with your students."
           },
           "schlussStudi": {
             "title": "Your turn",
-            "text": "Your modules are always on the start page."
+            "text": "Your workspaces are always on the start page."
           }
         }
       }
@@ -3660,7 +3652,7 @@
       "enrolling": "Enrolling …",
       "enrollInvalidCode": "Invalid code",
       "unknownError": "Unknown error. Please try again.",
-      "noEnrollments": "You are not in any module yet.",
+      "noEnrollments": "You are not in any workspace yet.",
       "noEnrollmentsText": "Paste the link or the code your teacher gave you.",
       "joinButton": "Join",
       "joinTitle": "Join a {label}",
@@ -3672,9 +3664,9 @@
       "joinUnreadable": "That does not look like a link or a code. Please check your input.",
       "joinUnknown": "We do not know this code. Check the spelling or ask for a new link.",
       "closedBadge": "Not open",
-      "closedHint": "Your teacher has closed this module for now. Your enrollment stays in place.",
-      "closedJoinHint": "This module is not open at the moment. You can still enroll and will get in as soon as your teacher opens it.",
-      "closedJoinedNotice": "You are enrolled. The module is not open at the moment, you can see it in your list and will get in as soon as your teacher opens it.",
+      "closedHint": "Your teacher has closed this workspace for now. Your enrollment stays in place.",
+      "closedJoinHint": "This workspace is not open at the moment. You can still enroll and will get in as soon as your teacher opens it.",
+      "closedJoinedNotice": "You are enrolled. The workspace is not open at the moment, you can see it in your list and will get in as soon as your teacher opens it.",
       "untilDate": "until {date}",
       "open": "Open",
       "upcomingTitle": "Upcoming dates",
@@ -3727,7 +3719,7 @@
       "validUntilOptionalField": "Valid until (optional)",
       "validUntilHint": "Leave empty if the link should never expire.",
       "statsTitle": "Statistics",
-      "statsOpen": "View the module statistics",
+      "statsOpen": "View the workspace statistics",
       "statsLoadFailed": "Could not load statistics.",
       "statsLoadError": "Could not load",
       "loading": "Loading...",
@@ -3743,15 +3735,15 @@
       "deleteLink": "Delete link",
       "descriptionMore": "Show the full description",
       "descriptionLess": "Collapse the description",
-      "tourModuleLabel": "Module for the guided tour",
-      "tourModuleHint": "The guided tour starts in this module. Every other demo module loses the tick."
+      "tourModuleLabel": "Workspace for the guided tour",
+      "tourModuleHint": "The guided tour starts in this workspace. Every other demo workspace loses the tick."
     },
     "demoHint": {
-      "title": "No module yet",
-      "body": "Your module list is empty. Add the demo module and take your time trying it out. It comes with ready-made materials, the AI assistant Francis and the tools in the study area.",
-      "join": "Add demo module",
-      "dialogTitle": "Add demo module",
-      "dialogBody": "You will be enrolled in the demo module and find it in your module list afterwards. You can leave it any time from the menu in its row.",
+      "title": "No workspace yet",
+      "body": "Your workspace list is empty. Add the demo workspace and take your time trying it out. It comes with ready-made materials, the AI assistant Francis and the tools in the study area.",
+      "join": "Add demo workspace",
+      "dialogTitle": "Add demo workspace",
+      "dialogBody": "You will be enrolled in the demo workspace and find it in your workspace list afterwards. You can leave it any time from the menu in its row.",
       "confirm": "Add",
       "cancel": "Cancel"
     }
@@ -3762,7 +3754,7 @@
   },
   "languageTrainerInvite": {
     "title": "Language trainer",
-    "body": "For learners of German. Your level decides how the assistant in a module explains and how flashcards, quizzes and exercises are worded.",
+    "body": "For learners of German. Your level decides how the assistant in a workspace explains and how flashcards, quizzes and exercises are worded.",
     "start": "Start the language test",
     "dismiss": "Hide"
   },
@@ -3774,11 +3766,11 @@
   },
   "languageLevel": {
     "title": "Language level",
-    "purpose": "Your level steers the wording, not the content. The assistant in a module explains at that level, and flashcards, quizzes and exercises are worded to match. In the studio you also get the language trainer, with vocab cards, vocabulary exercises and grammar exercises.",
+    "purpose": "Your level steers the wording, not the content. The assistant in a workspace explains at that level, and flashcards, quizzes and exercises are worded to match. In the studio you also get the language trainer, with vocab cards, vocabulary exercises and grammar exercises.",
     "notOffered": "The language trainer is not enabled for your account.",
     "languageTraining": {
       "switchTitle": "Use the language trainer",
-      "switchDescription": "Off means no language exercises in the module and no adjustment to your level.",
+      "switchDescription": "Off means no language exercises in the workspace and no adjustment to your level.",
       "levelLabel": "Your level",
       "levelSince": "since {date}",
       "sourceTest": "Language test on {date}",
@@ -3883,24 +3875,23 @@
     "items": {
       "whatIsKis": {
         "q": "What is KIS and what is it for?",
-        "a": "KIS is a pilot project at TH Lübeck. It brings together two things: the AI assistant Francis, who answers from the materials stored in a module, and the services you use to produce teaching material."
+        "a": "KIS is a pilot project at TH Lübeck. It brings together two things: the AI assistant Francis, who answers from the materials stored in a workspace, and the services you use to produce teaching material."
       },
       "vsChatgpt": {
-        "q": "How is KIS different from ChatGPT?",
-        "a": "Francis answers only from the materials in your module and attaches a source to every sentence, which opens the exact spot in the document. Anything beyond that he turns down.\n\nOn top of that, processing runs with providers in Germany, not in the US.\n\nTo be fair about the other side: the model behind it is smaller than the one in ChatGPT, and answers take longer.",
-        "todo": "Whether the providers may train on our content has not been checked yet."
+        "q": "How is the AI assistant Francis different from ChatGPT?",
+        "a": "The AI assistant Francis is built on RAG (Retrieval-Augmented Generation): it looks up the matching passages in your workspace's materials and answers only from those, attaching a source to every sentence, which opens the exact spot in the document. Anything beyond that he turns down. The closer comparison is Gemini Notebook by Google (formerly NotebookLM), not ChatGPT.\n\nOn top of that, processing runs with providers in Germany, not in the US. Our data is not used for training.\n\nKIS itself is open source under the Apache 2.0 license."
       },
       "moduleServiceTool": {
-        "q": "What is the difference between a module, a service and a tool?",
-        "a": "A module is a course room with materials and chat. A service stands on its own, such as translation or screencast. A tool sits in the studio inside a module, such as flashcards or quizzes."
+        "q": "What is the difference between a workspace, a service and a tool?",
+        "a": "A workspace is a course room with materials and chat. A service stands on its own, such as translation or screencast. A tool sits in the studio inside a workspace, such as flashcards or quizzes."
       },
       "costs": {
         "q": "Does this cost anything, is there a limit?",
-        "todo": "The GWDG quota list is still outstanding, and the link to the myLab page is still missing."
+        "a": "Using it costs you nothing.\n\nPart of the models run through KISSKI at GWDG, under a strict quota shared across the whole university: 2 requests per second, 15 per minute, 900 per hour, 21,000 per day and 350,000 per month. If other people have that quota busy right now, a request can come back with an error.\n\nTHL myLab, the second provider, has no fixed limit at the moment. On the second Thursday of each month from 8 pm, its systems get updated, and it can be unreachable during that window."
       },
       "gdpr": {
         "q": "Is my data safe and GDPR-compliant?",
-        "a": "The platform processes personal data on the basis of Art. 6 (1) (e) GDPR. The AI services run under a data processing agreement pursuant to Art. 28 GDPR. What is stored in detail, and for how long, is set out in the privacy policy."
+        "a": "Yes. Processing happens at THL myLab, GWDG/KISSKI and DeepL, all in Germany or the EU. None of them train on the data.\n\nWhat is stored in detail, and for how long, is set out in the privacy policy."
       },
       "hosting": {
         "q": "Who runs the platform, where are the servers?",
@@ -3908,48 +3899,31 @@
       },
       "models": {
         "q": "Which AI models are used and who decides that?",
-        "a": "The KIS team picks the models, not the individual user. They run at three providers: THL myLab at TH Lübeck, KISSKI / GWDG in Göttingen, and DeepL for translating files.\n\nIn the chat with Francis, gemma4-31b answers. Which model sits behind the other services changes from time to time, and nothing changes for you."
+        "a": "The KIS team configures the models centrally. They run at three providers: THL myLab at TH Lübeck, KISSKI from GWDG in Göttingen, and DeepL for translating files.\n\nIn the chat with the AI assistant Francis, gemma4-31b answers. Which model sits behind the other services changes from time to time. When a service has more than one provider set up, for example translation, speech output or the image generator, you pick it yourself in the form."
       },
       "whoSees": {
         "q": "Who can see my materials and my chat?",
-        "a": "Materials and chat belong to the module and are visible to its members. A small circle of people with the corresponding permission may inspect them for technical support, as set out in the privacy policy."
-      },
-      "upload": {
-        "q": "May I upload personal data or examination material?",
-        "todo": "There is no established rule for this in KIS yet."
+        "a": "Materials and chat belong to the workspace and are visible to its members. A small circle of people with the corresponding permission may inspect them for technical support, as set out in the privacy policy."
       },
       "afterPilot": {
         "q": "What happens to my data once the pilot project ends?",
-        "todo": "What happens to modules and uploaded files after the pilot project has not been decided."
+        "a": "At the latest when the pilot project ends, your workspaces and uploaded files are deleted. If you want that sooner, send us an email or a message through the feedback form."
       },
       "notFound": {
-        "q": "Why does Francis not know something that is in the document?",
-        "a": "Francis does not search a whole document at once, he searches it in sections. If the answer is spread across many places, or sits only in a table or a graphic, he may not find it.\n\nWhat helps: narrow the question, name the chapter, or leave only that one document active in the source selection."
+        "q": "Why does the AI assistant Francis not know something that is in the document?",
+        "a": "The AI assistant Francis does not search a whole document at once, he searches it in sections. If the answer is spread across many places, or sits only in a table or a graphic, he may not find it.\n\nWhat helps: narrow the question, name the chapter, or leave only that one document active in the source selection."
       },
       "generalQuestions": {
         "q": "Why does he not answer general questions?",
-        "a": "That is deliberate. Francis is tied to the materials of the module so that nothing enters an answer that is not in them. He is not meant for anything else."
+        "a": "That is deliberate. The AI assistant Francis is tied to the materials of the workspace so that nothing enters an answer that is not in them. He is not meant for anything else."
       },
       "trust": {
         "q": "Can I trust the answers, and what are the sources on each sentence for?",
         "a": "The small sources behind a sentence lead to the spot in the document it came from. One click opens and highlights it. Use them to check anything that matters, AI answers can be wrong."
       },
-      "language": {
-        "q": "Why does he answer in English when I asked in German?",
-        "a": "He answers in the language of your question.",
-        "todo": "Where language detection fails in practice, and what helps then, has not been measured yet."
-      },
-      "duration": {
-        "q": "Why does a screencast or podcast take so long?",
-        "a": "The longest part is the narration, every sentence is spoken separately. You can leave the page, the job keeps running and shows up under Jobs."
-      },
-      "missingService": {
-        "q": "Why do I not see a service a colleague has?",
-        "a": "Services are released individually. The start page shows only what is enabled for your account."
-      },
       "studentView": {
-        "q": "What do students see when I give them access to a module?",
-        "a": "Materials, chat and the tools in the studio. Not visible are the module settings, the participant management and the figures for the whole module. You can check this yourself in the student view."
+        "q": "What do students see when I give them access to a workspace?",
+        "a": "Materials, chat and the tools in the studio. Not visible are the workspace settings, the participant management and the figures for the whole workspace. You can check this yourself in the student view."
       },
       "bugReport": {
         "q": "Where do I report a problem?",

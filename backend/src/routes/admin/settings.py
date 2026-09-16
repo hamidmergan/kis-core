@@ -92,17 +92,6 @@ async def get_settings(_admin=Depends(require_any_settings)):
             db.get_setting("access_account_delete_after_days", str(ACCESS_ACCOUNT_DELETE_AFTER_DAYS))
             or ACCESS_ACCOUNT_DELETE_AFTER_DAYS
         ),
-        # UI labels (per locale; legacy unsuffixed keys fall back as DE defaults)
-        "workspace_label_singular_de": db.get_setting(
-            "workspace_label_singular_de",
-            db.get_setting("workspace_label_singular", "Modul"),
-        ),
-        "workspace_label_plural_de": db.get_setting(
-            "workspace_label_plural_de",
-            db.get_setting("workspace_label_plural", "Module"),
-        ),
-        "workspace_label_singular_en": db.get_setting("workspace_label_singular_en", "Module"),
-        "workspace_label_plural_en": db.get_setting("workspace_label_plural_en", "Modules"),
         # The language trainer platform wide, without it no course can turn it on.
         "language_training_enabled": _enabled("language_training_enabled", "false"),
         # Home page notice banner, shown to all users above the next appointments.
@@ -366,28 +355,6 @@ async def update_settings(
                     detail=t("admin.settings.diagnosisExamplesInvalid", locale),
                 )
             db.set_setting(LEVEL_DESCRIPTIONS_SETTING, stripped)
-
-    # UI label overrides for "Workspace" (per UI locale)
-    for label_key in (
-        "workspace_label_singular_de",
-        "workspace_label_plural_de",
-        "workspace_label_singular_en",
-        "workspace_label_plural_en",
-    ):
-        value = getattr(body, label_key)
-        if value is not None:
-            stripped = value.strip()
-            if not stripped:
-                raise HTTPException(
-                    status_code=400,
-                    detail=t("admin.settings.labelEmpty", locale, label=label_key),
-                )
-            if len(stripped) > 40:
-                raise HTTPException(
-                    status_code=400,
-                    detail=t("admin.settings.labelTooLong", locale, label=label_key),
-                )
-            db.set_setting(label_key, stripped)
 
     # Limit of sources per course room, capped against typos.
     if body.aia_workspace_max_sources is not None:

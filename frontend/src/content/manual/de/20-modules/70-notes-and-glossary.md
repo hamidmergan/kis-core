@@ -34,5 +34,5 @@ Das Glossar ist die Grundlage für Lernkarten und Wortschatzübungen. Erst saube
 
 ## Nicht verwechseln
 
-Dieses Glossar gehört zum Modul. Der **Dienst Glossar** auf der Startseite ist etwas anderes:
+Dieses Glossar gehört zum Workspace. Der **Dienst Glossar** auf der Startseite ist etwas anderes:
 Begriffslisten für Übersetzungen.

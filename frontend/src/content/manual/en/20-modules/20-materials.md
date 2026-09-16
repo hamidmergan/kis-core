@@ -1,6 +1,6 @@
 # Uploading materials
 
-![An opened module with its three areas](/manual/{lang}/module-view.png)
+![An opened workspace with its three areas](/manual/{lang}/module-view.png)
 
 The list of materials sits on the left. The **plus** opens a dialog: pick a file there, read in a
 web page by link, or add a YouTube video with its transcript. Files can also be dragged straight
@@ -47,7 +47,7 @@ What does not work:
 
 The viewer asks once for the first YouTube video. Only after that click does the player load from
 YouTube, no data goes to Google before. The click then holds for every YouTube video in this
-browser, in other modules too.
+browser, in other workspaces too.
 
 ## After the upload
 

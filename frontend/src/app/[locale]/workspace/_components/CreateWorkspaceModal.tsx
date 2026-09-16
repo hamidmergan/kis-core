@@ -2,7 +2,6 @@
 
 import { useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
 import { backdropClose, newBackdropPress } from "@/components/ui/backdropClose";
 import { WORKSPACE_TITLE_MAX, WORKSPACE_DESCRIPTION_MAX, type KiTutorWorkspace } from "../_shared";
 
@@ -13,7 +12,6 @@ interface CreateWorkspaceModalProps {
 
 export default function CreateWorkspaceModal({ onClose, onCreated }: CreateWorkspaceModalProps) {
   const t = useTranslations("workspace.list");
-  const labels = useWorkspaceLabel();
   const press = useRef(newBackdropPress()).current;
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -73,7 +71,7 @@ export default function CreateWorkspaceModal({ onClose, onCreated }: CreateWorks
         className="w-full max-w-md rounded-xl p-4 sm:p-6 shadow-xl"
         style={{ backgroundColor: "var(--surface)" }}
       >
-        <h2 className="text-lg font-semibold mb-5">{t("createTitle", { label: labels.singular })}</h2>
+        <h2 className="text-lg font-semibold mb-5">{t("createTitle", { label: "Workspace" })}</h2>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
             <label className="block text-sm font-medium mb-1" style={{ color: "var(--foreground)" }}>

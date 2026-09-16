@@ -1,8 +1,8 @@
-# Creating a module
+# Creating a workspace
 
-![Creating a new module](/manual/{lang}/create-module.png)
+![Creating a new workspace](/manual/{lang}/create-module.png)
 
-On the start page through **+ Module**, with a name and a short description.
+On the start page through **+ Workspace**, with a name and a short description.
 
 ## Getting participants in
 
@@ -13,18 +13,18 @@ Every link is shown twice, as the full address and as a short code next to it, b
 click. The code is for the ways without a click, on a slide, on the board, read out in class. With
 it people get in through **Join** on the start page.
 
-## Sharing from inside the module
+## Sharing from inside the workspace
 
-![Sharing inside an opened module](/manual/{lang}/share-module.png)
+![Sharing inside an opened workspace](/manual/{lang}/share-module.png)
 
-Inside an opened module a **Share** button sits next to the gear. It puts the enrolment links and
+Inside an opened workspace a **Share** button sits next to the gear. It puts the enrolment links and
 the participant list into one window, together with the active switch, so a link never leads
 nowhere. Owners and tutors see it, nobody else.
 
 Under participants you make single people **tutors**. Tutors may do everything except deleting
 and appointing further tutors.
 
-## The menu of the module row
+## The menu of the workspace row
 
 - **Participants**: list, appointing tutors
 - **Enrolment links**: create and withdraw access

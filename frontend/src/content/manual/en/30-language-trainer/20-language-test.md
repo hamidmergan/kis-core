@@ -7,7 +7,7 @@ A1 to C2.
 
 ## When it comes
 
-The start page carries the card Language trainer next to the demo module, for students and for
+The start page carries the card Language trainer next to the demo workspace, for students and for
 teaching staff. Start the language test begins the test at once. Whoever picks Hide has the
 language trainer off and currently cannot switch it back on alone yet.
 
@@ -25,7 +25,7 @@ The test is in German. Questions and grading too, this cannot be changed.
 
 ## What the result does
 
-The level applies in every module. It steers how hard the exercises in the language trainer
+The level applies in every workspace. It steers how hard the exercises in the language trainer
 turn out and how thoroughly the chat explains. Under Language level you can retake the test or set
 the grade yourself through Change level. It is not an examination.
 

@@ -7,7 +7,7 @@ von A1 bis C2.
 
 ## Wann er kommt
 
-Auf der Startseite steht die Karte Sprachtrainer neben dem Demo-Modul, für Studierende und für
+Auf der Startseite steht die Karte Sprachtrainer neben dem Demo-Workspace, für Studierende und für
 Lehrende. Sprachtest starten beginnt den Test sofort. Wer Ausblenden wählt, hat den
 Sprachtrainer aus und kann ihn aktuell noch nicht selbst wieder einschalten.
 
@@ -25,7 +25,7 @@ Der Test ist auf Deutsch. Fragen und Bewertung ebenso, das lässt sich nicht ums
 
 ## Was das Ergebnis bewirkt
 
-Die Stufe gilt in allen Modulen. Sie steuert, wie schwer die Übungen im Sprachtrainer ausfallen
+Die Stufe gilt in allen Workspaces. Sie steuert, wie schwer die Übungen im Sprachtrainer ausfallen
 und wie ausführlich der Chat erklärt. Unter Sprachniveau können Sie über Niveau ändern den Test neu
 machen oder die Stufe selbst festlegen. Sie ist keine Prüfungsleistung.
 

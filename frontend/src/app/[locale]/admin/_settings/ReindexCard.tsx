@@ -4,7 +4,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
 
 interface ReindexProgress {
   total: number;
@@ -16,7 +15,6 @@ interface ReindexProgress {
 
 export default function ReindexCard() {
   const t = useTranslations("admin.reindexCard");
-  const labels = useWorkspaceLabel();
   const [maintenanceEnabled, setMaintenanceEnabled] = useState<boolean | null>(null);
   const [progress, setProgress] = useState<ReindexProgress | null>(null);
   const [staleModules, setStaleModules] = useState<{ uuid: string; title: string; owner: string | null }[]>([]);
@@ -83,7 +81,7 @@ export default function ReindexCard() {
           <div>
             {t.rich("staleNotice", {
               n: staleModules.length,
-              label: staleModules.length === 1 ? labels.singular : labels.plural,
+              label: staleModules.length === 1 ? "Workspace" : "Workspaces",
               strong: (chunks) => <strong>{chunks}</strong>,
             })}
           </div>

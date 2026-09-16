@@ -1,7 +1,7 @@
 # The services at a glance
 
 The start page shows every service as a tile with one sentence on what it does. A click on the tile
-opens it. The services work independently of the modules: you upload a file, get a result and
+opens it. The services work independently of the workspaces: you upload a file, get a result and
 download it.
 
 ![The start page with the tiles](/manual/{lang}/start-page.png)

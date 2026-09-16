@@ -1,8 +1,8 @@
 # Materialien hochladen
 
-![Ein geöffnetes Modul mit den drei Bereichen](/manual/{lang}/module-view.png)
+![Ein geöffneter Workspace mit den drei Bereichen](/manual/{lang}/module-view.png)
 
-Links im Modul steht die Materialliste. Das **Plus** öffnet ein Fenster: dort wählen Sie eine
+Links im Workspace steht die Materialliste. Das **Plus** öffnet ein Fenster: dort wählen Sie eine
 Datei, lesen eine Webseite per Link ein oder fügen ein YouTube-Video mit Transkript hinzu. Dateien
 lassen sich auch direkt in die Liste ziehen. Das **Ordner-Symbol** legt Gruppen an.
 
@@ -48,7 +48,7 @@ Was nicht geht:
 
 Beim ersten YouTube-Video fragt der Viewer einmal nach. Erst nach dem Klick lädt der Player von
 YouTube, vorher fließen keine Daten an Google. Der Klick gilt danach für alle YouTube-Videos in
-diesem Browser, auch in anderen Modulen.
+diesem Browser, auch in anderen Workspaces.
 
 ## Nach dem Hochladen
 

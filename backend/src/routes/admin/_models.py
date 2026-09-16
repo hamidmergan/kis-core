@@ -12,11 +12,6 @@ class UpdateSettingsRequest(BaseModel):
     whitelist_enabled: bool | None = None
     # Days a locked test account stays readable before the nightly sweep removes it.
     access_account_delete_after_days: int | None = None
-    # UI label for "Workspace" (singular + plural), per UI locale.
-    workspace_label_singular_de: str | None = None
-    workspace_label_plural_de: str | None = None
-    workspace_label_singular_en: str | None = None
-    workspace_label_plural_en: str | None = None
     # Offers the language trainer platform wide, off by default.
     language_training_enabled: bool | None = None
     # Notice banner on the start page, a switch plus free text.

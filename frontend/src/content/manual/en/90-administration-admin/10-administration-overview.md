@@ -5,7 +5,7 @@ the left.
 
 
 - **Services** with release, jobs and limits
-- **AI assistant** with the settings for the chat inside the modules
+- **AI assistant** with the settings for the chat inside the workspaces
 - **Statistics** with numbers to read
 - **Providers and models** with the access to the AI providers
 - **Users** with access, roles and quotas

@@ -14,9 +14,9 @@ Startseite weggeklickt haben.
   oben sofort als Vorschau, gespeichert wird erst mit Übernehmen. Von dort aus lässt sich auch der
   Sprachtest neu machen
 - **Ohne Niveau**: zwei Wege, Sprachtest starten oder Niveau selbst festlegen. Erst mit einem
-  Niveau erscheint der Sprachtrainer in den Modulen
+  Niveau erscheint der Sprachtrainer in den Workspaces
 - **Sprachtrainer nutzen**: der Schalter unten auf der Seite. Aus heißt keine Sprachübungen in den
-  Modulen, keine Übersetzung am Transkript und keine Anpassung an das Niveau. Solange er aus ist,
+  Workspaces, keine Übersetzung am Transkript und keine Anpassung an das Niveau. Solange er aus ist,
   zeigt die Seite nur ihn
 
-Das Niveau gilt in allen Modulen. Es ist eine Einordnung für die Übungen, keine Prüfungsleistung.
+Das Niveau gilt in allen Workspaces. Es ist eine Einordnung für die Übungen, keine Prüfungsleistung.

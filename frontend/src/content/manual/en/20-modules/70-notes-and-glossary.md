@@ -34,5 +34,5 @@ then practise.
 
 ## Do not mix them up
 
-This glossary belongs to the module. The **glossary service** on the start page is something else:
+This glossary belongs to the workspace. The **glossary service** on the start page is something else:
 term lists for translations.

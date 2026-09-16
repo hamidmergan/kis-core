@@ -1,4 +1,4 @@
-# Statistics inside the module
+# Statistics inside the workspace
 
 The Statistics tab shows your own state: how many sets you worked through, how much of it was
 right, where it gets stuck.
@@ -11,14 +11,14 @@ Even for teachers this tab shows only their own numbers, not the participants'.
 
 ## The numbers of the whole group
 
-![The statistics of one module](/manual/{lang}/module-stats.png)
+![The statistics of one workspace](/manual/{lang}/module-stats.png)
 
-The chart icon in the module row on the start page opens the numbers of the whole module. Owners
+The chart icon in the workspace row on the start page opens the numbers of the whole workspace. Owners
 and tutors get in there, no admin right is needed for it.
 
 - **Count teaching staff** is ticked by default. Unticked, owners and tutors stay out, because
   while building they answer their own exercises and bend every number
-- Created and answered are kept apart. Created belongs to the module and stays the same without
+- Created and answered are kept apart. Created belongs to the workspace and stays the same without
   the teaching staff
 - The material list shows how far the files are processed, not just their names
 

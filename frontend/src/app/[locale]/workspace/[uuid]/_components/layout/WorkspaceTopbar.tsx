@@ -4,7 +4,6 @@ import React, { useState } from "react";
 import { useTranslations } from "next-intl";
 import { GearSix, Eye, ShareNetwork, CaretLeft } from "@phosphor-icons/react";
 import { Link } from "@/i18n/navigation";
-import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
 import { useHasStartTiles } from "@/hooks/useHasStartTiles";
 import { SettingsMenu } from "./SettingsMenu";
 import { ShareModal } from "./ShareModal";
@@ -61,7 +60,6 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
   const tPanels = useTranslations("workspace.detail.panels");
   const tHeader = useTranslations("header");
   const tShare = useTranslations("workspace.detail.share");
-  const labels = useWorkspaceLabel();
   // Without the tiles the logo already leads to the module list, so a second way there would be noise.
   const hasStartTiles = useHasStartTiles();
 
@@ -179,7 +177,7 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
   );
 
   // The logo leads home to the tiles, so the module list needs a link of its own.
-  const toListLabel = t("toList", { label: labels.plural });
+  const toListLabel = t("toList", { label: "Workspaces" });
   const backToListWide = !hasStartTiles ? null : (
     <Link
       href="/workspace"

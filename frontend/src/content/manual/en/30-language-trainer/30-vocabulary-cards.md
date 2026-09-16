@@ -3,7 +3,7 @@
 Vocabulary cards explain the technical words from the ticked materials. Every card shows a term,
 its base form and an example.
 
-![The sets of vocabulary cards in the module](/manual/{lang}/vocabulary-card-sets.png)
+![The sets of vocabulary cards in the workspace](/manual/{lang}/vocabulary-card-sets.png)
 
 ## Do not mix them up with flashcards
 
@@ -22,7 +22,7 @@ parts, plus word class, singular and plural, and for verbs the tenses.
 
 ## Where the words come from
 
-From the ticked materials or from the glossary of the module. The second way pays off when you
+From the ticked materials or from the glossary of the workspace. The second way pays off when you
 collected terms while reading anyway.
 
 The same rule applies here: at most five materials are read per creation, no matter how many are

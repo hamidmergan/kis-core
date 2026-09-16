@@ -1,12 +1,12 @@
 # Calendar
 
-The calendar in the header collects the dates from all your modules in one place.
+The calendar in the header collects the dates from all your workspaces in one place.
 
 ![The calendar](/manual/{lang}/calendar.png)
 
 ## What is in it
 
-All dates from the schedules of your modules, plus your own entries. Where a date comes from is
+All dates from the schedules of your workspaces, plus your own entries. Where a date comes from is
 stated on the card.
 
 ## Using it

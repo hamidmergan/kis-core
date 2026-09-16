@@ -2,24 +2,24 @@
 
 ![The start page on a first visit, here as students see it](/manual/{lang}/first-login.png)
 
-On a first visit cards with offers sit above the module list. Which of them you see depends on what
+On a first visit cards with offers sit above the workspace list. Which of them you see depends on what
 you are allowed to do on the platform. Each one is gone for good once you answer and stays
 reachable afterwards through the gear icon in the top right.
 
-## Tour through the demo module
+## Tour through the demo workspace
 
 - For everyone, students and teaching staff alike, as long as the administration provides a demo
-  module
-- Walks through an invented sample module, no real course data
-- **Start** enrols you in the demo module, it stays in your module list afterwards
-- Anyone allowed to create modules also gets the stops about the teaching buttons
+  workspace
+- Walks through an invented sample workspace, no real course data
+- **Start** enrols you in the demo workspace, it stays in your workspace list afterwards
+- Anyone allowed to create workspaces also gets the stops about the teaching buttons
 - Broken off halfway the card stays, only the last stop or **Hide** takes it away
 
 ## Language trainer
 
 - For students studying in German as a foreign language. Teaching staff do not see the card
 - **Start the language test** leads straight into the test, the result becomes your language level
-- The level then decides how the assistant in a module explains and how flashcards, quizzes and
+- The level then decides how the assistant in a workspace explains and how flashcards, quizzes and
   exercises are worded
 - **Hide** only records the answer, you can take the test later under Language level
 

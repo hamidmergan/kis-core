@@ -13,7 +13,6 @@ import { DemoInvite } from "./DemoInvite";
 import JoinModuleModal from "./JoinModuleModal";
 import JoinSection from "./JoinSection";
 import { useDemoWorkspaces } from "./useDemoWorkspaces";
-import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
 import { canManage, type AccessLink, type KiTutorWorkspace } from "../_shared";
 
 interface Props {
@@ -24,7 +23,6 @@ interface Props {
 /** One list for owned, tutored and enrolled courses, every row carries its level. */
 export default function WorkspaceList({ canCreate }: Props) {
   const t = useTranslations("workspace.list");
-  const labels = useWorkspaceLabel();
   const [workspaces, setWorkspaces] = useState<KiTutorWorkspace[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
@@ -127,8 +125,8 @@ export default function WorkspaceList({ canCreate }: Props) {
   const demoOffen = demo.items.filter((m) => !m.owned && !m.joined);
 
   const heading = workspaces.some((m) => !canManage(m.access))
-    ? t("allWorkspaces", { label: labels.plural })
-    : t("myWorkspaces", { label: labels.plural });
+    ? t("allWorkspaces", { label: "Workspaces" })
+    : t("myWorkspaces", { label: "Workspaces" });
 
   return (
     <>
@@ -157,10 +155,10 @@ export default function WorkspaceList({ canCreate }: Props) {
             <button
               type="button"
               onClick={() => setShowCreate(true)}
-              aria-label={t("createAria", { label: labels.singular })}
+              aria-label={t("createAria", { label: "Workspace" })}
               className="whitespace-nowrap rounded-lg text-sm font-medium btn-primary px-3 py-2 md:px-4"
             >
-              + {labels.singular}
+              + Workspace
             </button>
           )}
           </div>
@@ -190,7 +188,7 @@ export default function WorkspaceList({ canCreate }: Props) {
           <EmptyState
             size="lg"
             icon={<Files size={40} weight="bold" />}
-            title={canCreate ? t("emptyTitle", { label: labels.plural }) : t("noEnrollments")}
+            title={canCreate ? t("emptyTitle", { label: "Workspaces" }) : t("noEnrollments")}
             text={canCreate ? t("emptyText") : t("noEnrollmentsText")}
             action={
               <div className="w-full max-w-sm flex flex-col gap-4">

@@ -7,9 +7,9 @@ router = APIRouter(tags=["health"])
 # Shipped default for the first-login welcome dialog, editable in Admin -> System.
 DEFAULT_WELCOME_MODAL_TEXT = (
     "KIS ist ein Pilotprojekt an der TH Lübeck, eine KI-Plattform für Lehre und "
-    "Studium.\n\nDer KI-Assistent Francis steht allen offen. Lehrende legen Module "
+    "Studium.\n\nDer KI-Assistent Francis steht allen offen. Lehrende legen Workspaces "
     "an und laden dort ihre Kursmaterialien hoch, Studierende arbeiten in den "
-    "Modulen, zu denen ihre Lehrenden sie eingeladen haben. Darin beantwortet "
+    "Workspaces, zu denen ihre Lehrenden sie eingeladen haben. Darin beantwortet "
     "Francis Fragen aus genau diesen Materialien. Lehrende finden daneben die "
     "Dienste, mit denen sich Lehrmaterial erzeugen lässt, etwa Übersetzung, "
     "Screencast, Podcast und Zusammenfassung.\n\nMehr in der Dokumentation, oben "
@@ -33,16 +33,6 @@ async def maintenance_status():
 async def ui_labels():
     """Public labels, both languages at once."""
     return {
-        "workspace_singular_de": db.get_setting(
-            "workspace_label_singular_de",
-            db.get_setting("workspace_label_singular", "Modul"),
-        ),
-        "workspace_plural_de": db.get_setting(
-            "workspace_label_plural_de",
-            db.get_setting("workspace_label_plural", "Module"),
-        ),
-        "workspace_singular_en": db.get_setting("workspace_label_singular_en", "Module"),
-        "workspace_plural_en": db.get_setting("workspace_label_plural_en", "Modules"),
         # The notice banner is read publicly so the start page can show it without rights.
         "home_notice_enabled": db.get_setting("home_notice_enabled", "false").lower() == "true",
         "home_notice_text": db.get_setting("home_notice_text", ""),

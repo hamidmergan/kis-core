@@ -14,9 +14,9 @@ the invitation on the start page.
   right away as a preview, it is stored only with Apply. From there you can also retake the
   language test
 - **Without a level**: two ways, take the language test or set the level yourself. Only with a
-  level does the language trainer appear in the modules
+  level does the language trainer appear in the workspaces
 - **Use the language trainer**: the switch at the bottom of the page. Off means no language
-  exercises in the modules, no translation on the transcript and no adjustment to the level. While
+  exercises in the workspaces, no translation on the transcript and no adjustment to the level. While
   it is off the page shows nothing but the switch
 
-The level applies in every module. It is a placement for the exercises, not an exam result.
+The level applies in every workspace. It is a placement for the exercises, not an exam result.

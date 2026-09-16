@@ -10,7 +10,6 @@ import IconButton from "@/components/ui/IconButton";
 import Select from "@/components/ui/Select";
 import Spinner from "@/components/ui/Spinner";
 import Tabs from "@/components/ui/Tabs";
-import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
 import { MAX_UPLOAD_BYTES, MAX_UPLOAD_MB } from "@/lib/constants";
 import StepFooter from "../_components/StepFooter";
 import { useModules } from "../_hooks/useModules";
@@ -49,7 +48,6 @@ export default function ContentStep({ canUseModules, source, language, instructi
     bytes < EIN_MB
       ? `${format.number(Math.round(bytes / 1024))} KB`
       : `${format.number(bytes / EIN_MB, { maximumFractionDigits: 1 })} MB`;
-  const labels = useWorkspaceLabel();
   const fileRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   // Whoever loses the assistant must not stay stuck in a tab that is gone.
@@ -105,7 +103,7 @@ export default function ContentStep({ canUseModules, source, language, instructi
         onChange={(next) => onSource({ mode: next })}
         items={[
           { key: "files", label: t("tabs.files") },
-          ...(canUseModules ? [{ key: "module" as const, label: labels.singular }] : []),
+          ...(canUseModules ? [{ key: "module" as const, label: "Workspace" }] : []),
           { key: "blank", label: t("tabs.blank") },
         ]}
       />
@@ -200,7 +198,7 @@ export default function ContentStep({ canUseModules, source, language, instructi
           <div className="space-y-4">
             <div>
               <label htmlFor="podcast-module" className="block text-sm font-medium text-foreground-soft mb-2">
-                {labels.singular}
+                Workspace
               </label>
               <Select
                 id="podcast-module"

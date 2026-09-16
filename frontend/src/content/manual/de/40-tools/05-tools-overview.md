@@ -1,7 +1,7 @@
 # Die Dienste im Überblick
 
 Die Startseite zeigt jeden Dienst als Kachel mit einem Satz dazu, was es tut. Ein Klick auf die
-Kachel öffnet es. Die Dienste arbeiten unabhängig von den Modulen: Sie laden eine Datei hoch,
+Kachel öffnet es. Die Dienste arbeiten unabhängig von den Workspaces: Sie laden eine Datei hoch,
 bekommen ein Ergebnis und laden es herunter.
 
 ![Die Startseite mit den Kacheln](/manual/{lang}/start-page.png)

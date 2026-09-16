@@ -31,8 +31,8 @@ describe.each(SPRACHEN)("Beschriftungen der Rechte (%s)", (_sprache, messages) =
 });
 
 describe("Das Statistik-Recht zum KI-Assistenten", () => {
-  it("sagt im Text, dass es alle Module meint", () => {
-    expect(label(de as Record<string, unknown>, PERM.aiaUsage)).toMatch(/alle Module/i);
+  it("sagt im Text, dass es alle Workspaces meint", () => {
+    expect(label(de as Record<string, unknown>, PERM.aiaUsage)).toMatch(/alle Workspaces/i);
   });
 
   it("zaehlt zu den Einstellungsrechten", () => {

@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import type { ChatMessage, ViewerState } from "../_types";
-import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
 import { api } from "@/lib/api";
 import { popupActionsUrl } from "./_popupActionsUrl";
 
@@ -27,7 +26,6 @@ interface UseChatOptions {
 export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, chatLang, popupTranslateLang }: UseChatOptions) {
   void chatLang; // popup labels now follow UI locale (Accept-Language); chatLang stays in the API for callers
   void viewerSource; // the open source no longer scopes the chat, see sendChatMessage
-  const labels = useWorkspaceLabel();
   const tChat = useTranslations("workspace.detail.chat");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatLoading, setChatLoading] = useState(false);
@@ -228,7 +226,7 @@ export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, c
         clearInactivity();
         flushTokens();
       } else if (res.status === 409) {
-        updateLast({ content: tChat("indexingInProgress", { label: labels.singular }) });
+        updateLast({ content: tChat("indexingInProgress", { label: "Workspace" }) });
       } else if (res.status === 429) {
         // The block names the concrete time.
         let msg = tChat("tooManyRequests");

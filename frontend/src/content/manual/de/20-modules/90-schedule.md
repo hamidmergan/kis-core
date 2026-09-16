@@ -21,4 +21,4 @@ und werden erst nach dem Ende grau.
 
 ## Im Kalender
 
-Jeder Termin lässt sich ein- oder ausblenden. Der Kalender oben zeigt dann alle Module zusammen.
+Jeder Termin lässt sich ein- oder ausblenden. Der Kalender oben zeigt dann alle Workspaces zusammen.

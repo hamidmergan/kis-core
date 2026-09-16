@@ -3,7 +3,7 @@
 A vocabulary exercise is a text from the materials with the technical terms missing. You fill
 the missing words in.
 
-![The vocabulary exercises in the module](/manual/{lang}/vocabulary-exercise-sets.png)
+![The vocabulary exercises in the workspace](/manual/{lang}/vocabulary-exercise-sets.png)
 
 ## Two ways to an exercise
 

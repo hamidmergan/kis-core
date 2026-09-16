@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import Checkbox from "@/components/ui/Checkbox";
-import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
 import { WORKSPACE_TITLE_MAX, WORKSPACE_DESCRIPTION_MAX } from "../_shared";
 
 interface EditWorkspaceModalProps {
@@ -25,7 +24,6 @@ export default function EditWorkspaceModal({
   onSubmit,
 }: EditWorkspaceModalProps) {
   const t = useTranslations("workspace.list");
-  const labels = useWorkspaceLabel();
   const [title, setTitle] = useState(currentTitle);
   const [description, setDescription] = useState(currentDescription);
   const [tourModule, setTourModule] = useState(currentTourModule);
@@ -60,7 +58,7 @@ export default function EditWorkspaceModal({
       }}
     >
       <div className="bg-background shadow-xl rounded-xl w-full max-h-[90vh] sm:max-w-xl lg:max-w-3xl p-6 flex flex-col">
-        <h3 className="text-base font-semibold mb-4">{t("editTitle", { label: labels.singular })}</h3>
+        <h3 className="text-base font-semibold mb-4">{t("editTitle", { label: "Workspace" })}</h3>
         <div className="mb-4">
           <label className="block text-sm font-medium mb-1" style={{ color: "var(--foreground)" }}>
             {t("titleField")} <span style={{ color: "var(--error)" }}>*</span>

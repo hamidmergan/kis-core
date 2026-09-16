@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Plus, Trash, X } from "@phosphor-icons/react";
-import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
 import type { StaffNoteLink } from "../../_types";
 
 const MAX_TEXT_LENGTH = 2000;
@@ -26,7 +25,6 @@ interface DraftLink {
 
 export function StaffNoteEditModal({ open, initialText, initialLinks, onClose, onSave }: StaffNoteEditModalProps) {
   const t = useTranslations("workspace.detail.sources.staffNote");
-  const labels = useWorkspaceLabel();
   const [text, setText] = useState("");
   const [links, setLinks] = useState<DraftLink[]>([]);
   const [errors, setErrors] = useState<Record<number, { url?: string; label?: string }>>({});
@@ -127,7 +125,7 @@ export function StaffNoteEditModal({ open, initialText, initialLinks, onClose, o
               {t("modalTitle")}
             </h3>
             <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
-              {t("modalSubtitle", { label: labels.singular })}
+              {t("modalSubtitle", { label: "Workspace" })}
             </p>
           </div>
           <button

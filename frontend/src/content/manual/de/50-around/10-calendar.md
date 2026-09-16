@@ -1,12 +1,12 @@
 # Kalender
 
-Der Kalender oben in der Kopfleiste sammelt die Termine aus allen Ihren Modulen an einer Stelle.
+Der Kalender oben in der Kopfleiste sammelt die Termine aus allen Ihren Workspaces an einer Stelle.
 
 ![Der Kalender](/manual/{lang}/calendar.png)
 
 ## Was drinsteht
 
-Alle Termine aus den Zeitplänen Ihrer Module, dazu eigene Einträge. Woher ein Termin kommt,
+Alle Termine aus den Zeitplänen Ihrer Workspaces, dazu eigene Einträge. Woher ein Termin kommt,
 steht an der Karte.
 
 ## Bedienen

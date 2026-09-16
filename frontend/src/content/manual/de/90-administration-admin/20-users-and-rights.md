@@ -15,10 +15,10 @@ Unter Nutzer entscheiden Sie, wer hereinkommt und wer was darf.
 - **Reiter „Rollen"**: die System-Rollen sind fest, eigene Rollen stellen Sie frei zusammen
 - **Reiter „Kontingente"**: wie oft jemand einen Dienst benutzen darf
 
-## Rollen und Module
+## Rollen und Workspaces
 
-Die Rolle regelt, was jemand auf der Plattform darf. Wem ein Modul gehört und wer darin Tutor
-ist, regelt das Modul selbst. Beides ist unabhängig voneinander.
+Die Rolle regelt, was jemand auf der Plattform darf. Wem ein Workspace gehört und wer darin Tutor
+ist, regelt der Workspace selbst. Beides ist unabhängig voneinander.
 
 ## Löschen
 

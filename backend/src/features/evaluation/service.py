@@ -41,7 +41,7 @@ def default_config() -> dict:
              "scale_low": "nicht hilfreich", "scale_high": "sehr hilfreich"},
             {"id": "seed-3", "type": "scale", "text": "Wie gut konntest du nachvollziehen, woher eine Antwort von Francis stammt?",
              "scale_low": "gar nicht", "scale_high": "sehr gut"},
-            {"id": "seed-4", "type": "scale", "text": "Wie leicht war es, eigenes Material in ein Modul zu laden?",
+            {"id": "seed-4", "type": "scale", "text": "Wie leicht war es, eigenes Material in einen Workspace zu laden?",
              "scale_low": "sehr mühsam", "scale_high": "sehr leicht"},
             {"id": "seed-5", "type": "text", "text": "Welcher Dienst für Lehrende war für dich der nützlichste und welcher der schwächste (z.B. Screencast, Übersetzung, Zusammenfassung, Glossar), und warum?"},
             {"id": "seed-6", "type": "text", "text": "Welches Tool im KI-Assistenten war für dich das beste und welches das schlechteste (z.B. Karteikarten, Quiz, Datentabelle, Mindmap), und warum?"},

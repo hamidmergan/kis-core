@@ -13,7 +13,6 @@ import Spinner from "@/components/ui/Spinner";
 import { InlineRename } from "@/components/ui/InlineRename";
 import RoleMenu from "./RoleMenu";
 import { byChapter } from "./_chapters";
-import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
 
 interface Group {
   key: string;
@@ -48,13 +47,11 @@ type Column =
 export default function PermissionMatrix() {
   const t = useTranslations("admin.roles");
   const tp = useTranslations("admin.permissions");
-  // Two rows speak of course rooms, whose label the operator sets.
-  const ws = useWorkspaceLabel();
   // The catalogue comes from the server, the keys are only known at runtime.
   const permLabel = (key: string) =>
     (tp as unknown as (k: string, v?: Record<string, string>) => string)(key, {
-      label: ws.singular,
-      plural: ws.plural,
+      label: "Workspace",
+      plural: "Workspaces",
     });
 
   const [data, setData] = useState<MatrixResponse | null>(null);

@@ -22,7 +22,7 @@ grammar therefore stays unanswered as long as no grammar material is uploaded.
 
 ## The history
 
-The history is kept per module and person. Before a new, independent question it pays to
+The history is kept per workspace and person. Before a new, independent question it pays to
 **clear the chat log** through the three dots, otherwise the chat keeps the old question in mind.
 
 ## The mascot

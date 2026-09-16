@@ -15,14 +15,6 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Mindestens ein {group}-Anbieter muss aktiv bleiben. Aktiviere zuerst einen anderen.",
         "en": "At least one {group} provider must remain active. Enable another one first.",
     },
-    "admin.settings.labelEmpty": {
-        "de": "{label} darf nicht leer sein",
-        "en": "{label} must not be empty",
-    },
-    "admin.settings.labelTooLong": {
-        "de": "{label} ist zu lang (max 40 Zeichen)",
-        "en": "{label} is too long (max 40 characters)",
-    },
     "admin.settings.homeNoticeTooLong": {
         "de": "Hinweistext ist zu lang (max {max} Zeichen)",
         "en": "Notice text is too long (max {max} characters)",

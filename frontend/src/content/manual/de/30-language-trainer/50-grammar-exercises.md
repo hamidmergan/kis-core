@@ -3,7 +3,7 @@
 Eine Grammatikübung nimmt Sätze aus den angehakten Materialien und lässt sie nach einem Muster
 umformen, etwa vom Aktiv ins Passiv.
 
-![Die Grammatikuebungen im Modul](/manual/{lang}/grammar-sets.png)
+![Die Grammatikuebungen im Workspace](/manual/{lang}/grammar-sets.png)
 
 ## Vier Aufgabenformate
 
@@ -26,7 +26,7 @@ Endung.
 
 ## Woher die Themen kommen
 
-Eigentümer oder Tutor legen sie im Modul an, mit einem freien Namen wie „Konjunktiv II". Die KI
+Eigentümer oder Tutor legen sie im Workspace an, mit einem freien Namen wie „Konjunktiv II". Die KI
 schlägt dazu Regel und ein Beispielpaar vor, vor dem Speichern noch änderbar. Acht Themen sind
 von Anfang an da: Passiv Präsens, Passiv mit Modalverb, Perfekt, Präteritum, Konjunktiv II,
 Relativsätze, Nebensätze und Adjektivdeklination.

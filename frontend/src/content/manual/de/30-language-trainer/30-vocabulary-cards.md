@@ -3,7 +3,7 @@
 Lernkarten erklären die Fachwörter aus den angehakten Materialien. Jede Karte zeigt einen
 Begriff, seine Grundform und ein Beispiel.
 
-![Die Lernkarten-Saetze im Modul](/manual/{lang}/vocabulary-card-sets.png)
+![Die Lernkarten-Saetze im Workspace](/manual/{lang}/vocabulary-card-sets.png)
 
 ## Nicht mit Karteikarten verwechseln
 
@@ -21,7 +21,7 @@ Karte die Bestandteile, dazu Wortart, Singular und Plural, bei Verben die Zeitfo
 
 ## Woher die Wörter kommen
 
-Aus den angehakten Materialien oder aus dem Glossar des Moduls. Der zweite Weg lohnt sich, wenn
+Aus den angehakten Materialien oder aus dem Glossar des Workspaces. Der zweite Weg lohnt sich, wenn
 Sie beim Lesen ohnehin schon Begriffe gesammelt haben.
 
 Auch hier gilt: Es werden höchstens fünf Materialien je Erzeugung gelesen, egal wie viele

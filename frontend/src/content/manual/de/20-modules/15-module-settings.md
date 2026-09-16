@@ -1,8 +1,8 @@
-# Einstellungen im Modul
+# Einstellungen im Workspace
 
-![Die Einstellungen im Modul](/manual/{lang}/module-settings.png)
+![Die Einstellungen im Workspace](/manual/{lang}/module-settings.png)
 
-Das Zahnrad im geöffneten Modul gilt nur für Sie, andere im Modul sehen davon nichts:
+Das Zahnrad im geöffneten Workspace gilt nur für Sie, andere im Workspace sehen davon nichts:
 
 - welches Maskottchen Sie im Chat begleitet
 - ob das Studio eingeblendet ist

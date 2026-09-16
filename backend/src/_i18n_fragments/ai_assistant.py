@@ -11,8 +11,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "The target language already is the language of the recording",
     },
     "ai.workspace.tourModuleNotDemo": {
-        "de": "Nur ein Modul eines Demo-Kontos kann das Modul für den Rundgang sein",
-        "en": "Only a module of a demo account can be the module for the guided tour",
+        "de": "Nur ein Workspace eines Demo-Kontos kann der Workspace für den Rundgang sein",
+        "en": "Only a workspace of a demo account can be the workspace for the guided tour",
     },
     "ai.workspace.diagnosisLanguageInvalid": {
         "de": "Ungültige Sprache für die Sprachdiagnose",
@@ -39,8 +39,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "This course is not part of the demo",
     },
     "ai.workspace.maxAccessLinks": {
-        "de": "Maximal {max} Einschreibelinks pro Modul erlaubt. Bitte lösche zuerst einen alten Link.",
-        "en": "Maximum {max} enrollment links per module allowed. Please delete an old link first.",
+        "de": "Maximal {max} Einschreibelinks pro Workspace erlaubt. Bitte lösche zuerst einen alten Link.",
+        "en": "Maximum {max} enrollment links per workspace allowed. Please delete an old link first.",
     },
     # Sources
     "ai.source.maxPerWorkspace": {
@@ -189,8 +189,8 @@ MESSAGES: dict[str, dict[str, str]] = {
     },
     # Notes
     "ai.notes.maxPerWorkspace": {
-        "de": "Maximal {max} Notizen pro Modul erlaubt. Bitte lösche nicht mehr benötigte Notizen.",
-        "en": "Maximum {max} notes per module allowed. Please delete notes you no longer need.",
+        "de": "Maximal {max} Notizen pro Workspace erlaubt. Bitte lösche nicht mehr benötigte Notizen.",
+        "en": "Maximum {max} notes per workspace allowed. Please delete notes you no longer need.",
     },
     # Schedule
     "ai.schedule.invalidDate": {

@@ -53,9 +53,8 @@ def _load_workspace_source(source_uuid: str, workspace: dict, locale: str) -> di
 
 
 def _workspace_label(locale: str) -> str:
-    """The label the admin set for a course room."""
-    key = "workspace_label_singular_en" if locale == "en" else "workspace_label_singular_de"
-    return db.get_setting(key, db.get_setting("workspace_label_singular", "Modul"))
+    """The fixed name for a course room, same word in both UI languages."""
+    return "Workspace"
 
 
 def _require_source_capacity(existing_sources: list[dict], locale: str) -> None:

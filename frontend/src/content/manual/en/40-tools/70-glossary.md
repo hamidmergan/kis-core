@@ -26,6 +26,6 @@ the list shows the state.
 
 ## Do not mix them up
 
-This glossary serves the translation. The glossary in the studio of a module is something else:
-it collects the technical terms of the module and is the basis for vocabulary cards and
+This glossary serves the translation. The glossary in the studio of a workspace is something else:
+it collects the technical terms of the workspace and is the basis for vocabulary cards and
 vocabulary exercises.

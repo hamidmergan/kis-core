@@ -7,7 +7,6 @@ import ModuleStatsModal from "./ModuleStatsModal";
 import EditWorkspaceModal from "./EditWorkspaceModal";
 import LinksModal from "./LinksModal";
 import ParticipantsModal from "./ParticipantsModal";
-import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
 import type { AccessLink, KiTutorWorkspace } from "../_shared";
 
 interface WorkspaceModalsProps {
@@ -42,7 +41,6 @@ export default function WorkspaceModals(props: WorkspaceModalsProps) {
   } = props;
 
   const t = useTranslations("workspace.list");
-  const labels = useWorkspaceLabel();
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   if (!mounted) return null;
@@ -84,7 +82,7 @@ export default function WorkspaceModals(props: WorkspaceModalsProps) {
       {deleteConfirm && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <div className="bg-background rounded-xl shadow-xl max-w-sm w-full p-6">
-            <h3 className="text-base font-semibold mb-2">{t("deleteTitle", { label: labels.singular })}</h3>
+            <h3 className="text-base font-semibold mb-2">{t("deleteTitle", { label: "Workspace" })}</h3>
             <p className="text-sm text-foreground-soft mb-1"><span className="font-medium">{workspace.title}</span></p>
             <p className="text-sm text-error mb-1">{t("deleteWarning")}</p>
             {!!deleteParticipantCount && (

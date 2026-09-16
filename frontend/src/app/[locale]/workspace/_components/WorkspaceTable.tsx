@@ -6,7 +6,6 @@ import { Files } from "@phosphor-icons/react";
 import HelpTooltip from "@/components/ui/HelpTooltip";
 import WorkspaceTableRow from "./WorkspaceTableRow";
 import WorkspaceTableStudentRow from "./WorkspaceTableStudentRow";
-import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
 import { canManage, type AccessLink, type KiTutorWorkspace } from "../_shared";
 
 const MODULES_PER_PAGE = 20;
@@ -31,7 +30,6 @@ export default function WorkspaceTable({
   onLeaveDemo,
 }: WorkspaceTableProps) {
   const t = useTranslations("workspace.list");
-  const labels = useWorkspaceLabel();
   const [page, setPage] = useState(1);
 
   // Sort first, then paginate, otherwise the two groups mix across pages.
@@ -55,7 +53,7 @@ export default function WorkspaceTable({
     if (!hasBothGroups) return null;
     const current = canManage(visibleModules[index].access);
     if (index > 0 && canManage(visibleModules[index - 1].access) === current) return null;
-    return current ? t("myWorkspaces", { label: labels.plural }) : t("groupEnrolled");
+    return current ? t("myWorkspaces", { label: "Workspaces" }) : t("groupEnrolled");
   };
 
   return (
@@ -66,7 +64,7 @@ export default function WorkspaceTable({
             <thead>
               {/* The head follows the two-line row of a phone: name left, material count right. */}
               <tr className="grid grid-cols-[minmax(0,1fr)_auto] border-b border-border-soft text-left text-xs text-muted uppercase sm:table-row">
-                <th className="col-start-1 row-start-1 px-4 py-2">{labels.singular}</th>
+                <th className="col-start-1 row-start-1 px-4 py-2">Workspace</th>
                 {/* On a phone the long word would eat the module column, so it becomes its icon. */}
                 <th className={`col-start-2 row-start-1 pl-2 pr-4 sm:pl-6 py-2 text-right ${manageColumns ? "sm:pr-4" : "sm:pr-1"}`}>
                   <span className="hidden sm:inline">{t("colSources")}</span>
@@ -134,7 +132,7 @@ export default function WorkspaceTable({
               from: startIdx + 1,
               to: Math.min(startIdx + MODULES_PER_PAGE, workspaces.length),
               total: workspaces.length,
-              label: labels.plural,
+              label: "Workspaces",
             })}
           </p>
           <div className="flex items-center gap-1">

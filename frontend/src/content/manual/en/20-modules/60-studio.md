@@ -1,12 +1,12 @@
 # The studio
 
-The studio sits on the right inside the module. It is the workbench next to the chat and has
+The studio sits on the right inside the workspace. It is the workbench next to the chat and has
 five tabs.
 
 ![The studio with the tiles of the tools](/manual/{lang}/module-view.png)
 
 - **Tools** holds the tiles that exercises and overviews are built from
-- **Glossary** collects the technical terms of the module
+- **Glossary** collects the technical terms of the workspace
 - **Notes** keeps what you want to hold on to
 - **Statistics** shows how far the participants got with the exercises
 - **Schedule** lists the dates that sit inside the materials
@@ -16,5 +16,5 @@ takes you back to it.
 
 ## Hiding it
 
-Whoever does not need the studio hides it in the settings of the module for themselves. Chat and
+Whoever does not need the studio hides it in the settings of the workspace for themselves. Chat and
 materials then get the whole space.

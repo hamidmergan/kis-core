@@ -1,8 +1,8 @@
-# Settings inside a module
+# Settings inside a workspace
 
-![The settings inside a module](/manual/{lang}/module-settings.png)
+![The settings inside a workspace](/manual/{lang}/module-settings.png)
 
-The gear inside an opened module applies to you alone, others in the module see nothing of it:
+The gear inside an opened workspace applies to you alone, others in the workspace see nothing of it:
 
 - which mascot accompanies you in the chat
 - whether the studio is shown

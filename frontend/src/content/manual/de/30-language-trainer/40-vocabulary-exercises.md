@@ -3,7 +3,7 @@
 Eine Wortschatzübung ist ein Text aus den Materialien, in dem die Fachbegriffe fehlen. Sie
 setzen die fehlenden Wörter ein.
 
-![Die Wortschatzübungen im Modul](/manual/{lang}/vocabulary-exercise-sets.png)
+![Die Wortschatzübungen im Workspace](/manual/{lang}/vocabulary-exercise-sets.png)
 
 ## Zwei Wege zu einer Übung
 

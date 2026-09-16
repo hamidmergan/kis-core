@@ -5,7 +5,7 @@ Bereichen.
 
 
 - **Dienste** mit Freigabe, Aufträgen und Grenzen
-- **KI-Assistent** mit den Einstellungen für den Chat in den Modulen
+- **KI-Assistent** mit den Einstellungen für den Chat in den Workspaces
 - **Statistik** mit Zahlen zum Lesen
 - **Anbieter und Modelle** mit den Zugängen zu den KI-Anbietern
 - **Nutzer** mit Zugang, Rollen und Kontingenten

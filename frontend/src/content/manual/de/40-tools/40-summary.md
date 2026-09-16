@@ -13,8 +13,8 @@ Umfangreiche Inhalte dauern einige Minuten, danach steht das Ergebnis zum Herunt
 Eine Zusammenfassung ist eine Verkürzung und lässt zwangsläufig etwas weg. Sie ersetzt das
 Original nicht, wenn es auf Genauigkeit ankommt.
 
-## Der Unterschied zum Chat im Modul
+## Der Unterschied zum Chat im Workspace
 
 Der Dienst arbeitet mit einer einzelnen Datei und liefert einen Text zum Herunterladen. Der
-Chat im Modul arbeitet über alle angehakten Materialien und belegt jede Aussage mit der Stelle,
+Chat im Workspace arbeitet über alle angehakten Materialien und belegt jede Aussage mit der Stelle,
 aus der sie stammt.

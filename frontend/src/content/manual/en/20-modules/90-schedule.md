@@ -20,4 +20,4 @@ turn grey after the end.
 
 ## In the calendar
 
-Every date can be shown or hidden. The calendar on top then shows all modules together.
+Every date can be shown or hidden. The calendar on top then shows all workspaces together.

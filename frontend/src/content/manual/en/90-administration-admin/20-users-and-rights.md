@@ -15,10 +15,10 @@ Under Users you decide who gets in and who may do what.
 - **"Roles" tab**: the system roles are fixed, your own roles are put together freely
 - **"Quotas" tab**: how often somebody may use a service
 
-## Roles and modules
+## Roles and workspaces
 
-The role governs what somebody may do on the platform. Who owns a module and who is a tutor in
-it is governed by the module itself. The two are independent of each other.
+The role governs what somebody may do on the platform. Who owns a workspace and who is a tutor in
+it is governed by the workspace itself. The two are independent of each other.
 
 ## Deleting
 

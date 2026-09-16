@@ -27,6 +27,6 @@ Liste zeigt den Stand.
 
 ## Nicht verwechseln
 
-Dieses Glossar dient der Übersetzung. Das Glossar im Studio eines Moduls ist etwas anderes: Es
-sammelt die Fachbegriffe des Moduls und ist die Grundlage für Lernkarten und
+Dieses Glossar dient der Übersetzung. Das Glossar im Studio eines Workspaces ist etwas anderes: Es
+sammelt die Fachbegriffe des Workspaces und ist die Grundlage für Lernkarten und
 Wortschatzübungen.

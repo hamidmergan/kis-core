@@ -3,12 +3,12 @@
 ![Die drei Tools des Sprachtrainers im Studio](/manual/{lang}/studio.png)
 
 Für alle, die die Kurssprache noch lernen. Drei Tools im Studio: Lernkarten,
-Wortschatzübungen, Grammatikübungen. Alles aus den Materialien des Moduls, passend zum eigenen
+Wortschatzübungen, Grammatikübungen. Alles aus den Materialien des Workspaces, passend zum eigenen
 Niveau.
 
 ## Was das Niveau bewirkt
 
-- Der Assistent im Modul antwortet auf dieser Stufe
+- Der Assistent im Workspace antwortet auf dieser Stufe
 - Alles Erzeugte ist so formuliert: Karteikarten, Quiz, Lernkarten, Wortschatz- und
   Grammatikübungen, Mindmap, Datentabelle, Glossar
 - Inhalt, Anzahl der Aufgaben und Lösungen bleiben gleich, nur Wortwahl und Erklärtiefe ändern sich
@@ -16,8 +16,8 @@ Niveau.
 
 ## Einmal angenommen, gilt überall
 
-Der Sprachtrainer hängt an Ihnen, nicht am Modul. Auf der Startseite steht dafür eine Karte neben
-dem Demo-Modul. Mit Sprachtest starten nehmen Sie ihn an, ab dann gilt er in allen Modulen. Einen Schalter zum späteren Ein- oder Ausschalten gibt es aktuell
+Der Sprachtrainer hängt an Ihnen, nicht am Workspace. Auf der Startseite steht dafür eine Karte neben
+dem Demo-Workspace. Mit Sprachtest starten nehmen Sie ihn an, ab dann gilt er in allen Workspaces. Einen Schalter zum späteren Ein- oder Ausschalten gibt es aktuell
 noch nicht.
 
 Ohne Niveau bleibt er zu. Erst mit einem Niveau, aus dem Sprachtest oder unter Sprachniveau selbst

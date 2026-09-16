@@ -19,7 +19,7 @@ Text markieren, dann erscheinen sieben Knöpfe:
 - **Übersetzen** ab einem Wort
 - **Erklären** ab drei Wörtern, formuliert einfacher
 
-Die Zielsprache für Übersetzen stellen Sie im Zahnrad des Moduls ein.
+Die Zielsprache für Übersetzen stellen Sie im Zahnrad des Workspaces ein.
 
 ## Audio und Video
 
@@ -29,7 +29,7 @@ Das Transkript unter dem Abspieler läuft mit, jeder Abschnitt mit Zeitmarke. Ü
 wählen Sie: Originalsprache, Übersetzung, beide oder nichts.
 
 Solange es keine Übersetzung gibt, hängt unten in derselben Liste ein Eintrag mit Plus. Er öffnet
-ein Fenster zur Sprachwahl und ist nur für die Verwaltung des Moduls sichtbar. Die Übersetzung
+ein Fenster zur Sprachwahl und ist nur für die Verwaltung des Workspaces sichtbar. Die Übersetzung
 läuft im Hintergrund und kann ein paar Minuten dauern, solange dreht sich ein Kreisel neben der
 Liste und der Eintrag nennt die gewählte Sprache. Es gibt genau eine Übersetzung je Material, eine
 neue Sprache ersetzt die vorherige.

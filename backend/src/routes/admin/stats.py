@@ -152,6 +152,6 @@ async def get_workspace_detail(uuid: str, _admin=Depends(_require_aia_usage)):
     """Everything about one module in one place."""
     daten = workspace_detail(uuid)
     if daten is None:
-        raise HTTPException(status_code=404, detail="Unbekanntes Modul")
+        raise HTTPException(status_code=404, detail="Unbekannter Workspace")
     return daten
 

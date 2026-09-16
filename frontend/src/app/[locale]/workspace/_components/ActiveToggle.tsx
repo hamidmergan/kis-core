@@ -1,7 +1,6 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
 
 interface ActiveToggleProps {
   active: boolean;
@@ -12,7 +11,6 @@ interface ActiveToggleProps {
 /** The active switch of a module, shared by the module list and the sharing window. */
 export default function ActiveToggle({ active, disabled, onToggle }: ActiveToggleProps) {
   const t = useTranslations("workspace.list");
-  const labels = useWorkspaceLabel();
 
   return (
     <div className="flex items-center gap-2.5">
@@ -20,7 +18,7 @@ export default function ActiveToggle({ active, disabled, onToggle }: ActiveToggl
         type="button"
         role="switch"
         aria-checked={active}
-        aria-label={active ? t("deactivate", { label: labels.singular }) : t("activate", { label: labels.singular })}
+        aria-label={active ? t("deactivate", { label: "Workspace" }) : t("activate", { label: "Workspace" })}
         onClick={(e) => { e.stopPropagation(); onToggle(!active); }}
         disabled={disabled}
         className="relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full border-2 border-transparent transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-offset-2 enabled:hover:border-kb"
