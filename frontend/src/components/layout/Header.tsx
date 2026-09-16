@@ -4,7 +4,7 @@ import Link from "next/link";
 import LinkBusy from "@/components/ui/LinkBusy";
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { CalendarBlank, Toolbox } from "@phosphor-icons/react";
+import { CalendarBlank, SquaresFour } from "@phosphor-icons/react";
 import { usePathname } from "@/i18n/navigation";
 import { checkAuthStatus, logout } from "@/lib/auth";
 import { api } from "@/lib/api";
@@ -129,7 +129,7 @@ export default function Header({ hasSession = true, showLogout = false }: Header
                   className={`flex items-center justify-center h-9 px-3 gap-1.5 rounded-full btn-on-dark${onTools ? " is-active" : ""}`}
                 >
                   <LinkBusy size="sm">
-                    <Toolbox size={17} weight="bold" />
+                    <SquaresFour size={17} weight="bold" />
                   </LinkBusy>
                   <span className="text-sm font-medium">{t("tools")}</span>
                 </Link>

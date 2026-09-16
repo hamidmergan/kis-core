@@ -11,7 +11,7 @@ import {
   Notebook,
   Ruler,
   Sparkle,
-  Toolbox,
+  SquaresFour,
   Users,
   type Icon,
 } from "@phosphor-icons/react";
@@ -106,7 +106,7 @@ export const SECTIONS: AdminSection[] = [
   {
     slug: "tools",
     key: "werkzeuge",
-    Icon: Toolbox,
+    Icon: SquaresFour,
     world: "tools",
     rank: "product",
     pages: [

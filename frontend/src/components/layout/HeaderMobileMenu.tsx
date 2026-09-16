@@ -5,7 +5,7 @@ import Link from "next/link";
 import LinkBusy from "@/components/ui/LinkBusy";
 import { useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { CalendarBlank, Check, Compass, List, Medal, Moon, PencilSimple, Question, SignOut, Stack, Sun, UserCircleGear, Wrench, X } from "@phosphor-icons/react";
+import { CalendarBlank, Check, Compass, List, Medal, Moon, PencilSimple, Question, SignOut, Stack, SquaresFour, Sun, UserCircleGear, X } from "@phosphor-icons/react";
 import { useRouter, usePathname } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
 import { UI_LOCALES } from "@/lib/constants";
@@ -139,7 +139,7 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, canViewManual = 
               style={{ color: "var(--foreground)", ...(onTools ? activeRowStyle : {}) }}
             >
               <LinkBusy size="sm">
-                <Wrench size={20} weight="bold" />
+                <SquaresFour size={20} weight="bold" />
               </LinkBusy>
               <span>{t("tools")}</span>
             </Link>
