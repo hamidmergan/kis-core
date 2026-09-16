@@ -9,7 +9,13 @@ from src import database
 from src.dependencies import get_settings
 from src.dependencies_rbac import assert_may_grant, permissions_of, require_permission
 from src.features.access_codes import repository as repo
-from src.features.access_codes.service import new_code, status_of, user_status_of
+from src.features.access_codes.retention import grace_period_days
+from src.features.access_codes.service import (
+    deletion_due_at,
+    new_code,
+    status_of,
+    user_status_of,
+)
 from src.features.accounts.passwords import generate_password, hash_password
 from src.i18n import get_locale, t
 from src.permissions_registry import PERM_SET_USERS_ALL, SYSTEM_ROLE_PERMISSIONS
@@ -216,6 +222,7 @@ def list_access_code_users(
 ):
     _require_feature(locale)
     jetzt = datetime.now()
+    frist = grace_period_days()
     return {
         "users": [
             {
@@ -224,6 +231,10 @@ def list_access_code_users(
                     active=eintrag["active"],
                     access_expires_at=eintrag["access_expires_at"],
                     now=jetzt,
+                ),
+                "delete_at": deletion_due_at(
+                    access_expires_at=eintrag["access_expires_at"],
+                    grace_days=frist,
                 ),
             }
             for eintrag in repo.list_users_for_code(code_id)

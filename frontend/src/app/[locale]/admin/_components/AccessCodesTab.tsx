@@ -11,6 +11,8 @@ import IconButton from "@/components/ui/IconButton";
 import StatusMark from "@/components/ui/StatusMark";
 import type { StatusTone } from "@/lib/jobStatusDisplay";
 import { copyTextFromPromise } from "@/lib/clipboard";
+import { useSetting } from "../_settings/SettingsProvider";
+import { NumberSetting } from "../_settings/fields";
 import CreateAccessCodeDialog from "./CreateAccessCodeDialog";
 import EditAccessCodeDialog from "./EditAccessCodeDialog";
 import AccessCodeQr from "./AccessCodeQr";
@@ -25,6 +27,8 @@ type Konto = {
   access_expires_at: string | null;
   active: boolean;
   status: KontoZustand;
+  /** When the nightly sweep removes the account, null while nothing removes it. */
+  delete_at: string | null;
 };
 
 const TON_KONTO: Record<KontoZustand, StatusTone> = {
@@ -97,6 +101,7 @@ function zugangsdauer(stunden: number | null, t: ReturnType<typeof useTranslatio
 
 export default function AccessCodesTab() {
   const t = useTranslations("admin.accessCodes");
+  const loeschfrist = useSetting<number>("access_account_delete_after_days", 30);
   const [codes, setCodes] = useState<Code[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -242,6 +247,16 @@ export default function AccessCodesTab() {
 
   return (
     <div className="space-y-3" data-testid="access-codes-tab">
+      <NumberSetting
+        field={loeschfrist}
+        title={t("deleteAfterTitle")}
+        hint={t("deleteAfterHint")}
+        unit={t("deleteAfterUnit")}
+        min={0}
+        max={3650}
+        outOfRange={t("deleteAfterOutOfRange")}
+      />
+
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-xs text-muted-soft">{t("summary", { n: codes.length, aktiv })}</span>
         <button
@@ -434,6 +449,7 @@ export default function AccessCodesTab() {
                     <th className="px-3 py-2 text-left">{t("colUser")}</th>
                     <th className="px-3 py-2 text-left">{t("colCreated")}</th>
                     <th className="px-3 py-2 text-left">{t("colExpires")}</th>
+                    <th className="px-3 py-2 text-left">{t("colDeleteAt")}</th>
                     <th className="px-3 py-2 text-left">{t("colState")}</th>
                     <th className="px-3 py-2 text-left">{t("resetPassword")}</th>
                   </tr>
@@ -455,6 +471,9 @@ export default function AccessCodesTab() {
                       <td className="px-3 py-2 text-foreground-soft">{datum(k.created_at)}</td>
                       <td className="px-3 py-2 text-foreground-soft">
                         {k.access_expires_at == null ? t("accessUnlimited") : datum(k.access_expires_at)}
+                      </td>
+                      <td className="px-3 py-2 text-foreground-soft">
+                        {k.delete_at == null ? t("deleteNever") : datum(k.delete_at)}
                       </td>
                       <td className="px-3 py-2">
                         <StatusMark tone={TON_KONTO[k.status]} className="text-xs">

@@ -2530,7 +2530,13 @@
       "activityNoContent": "(kein Inhalt)",
       "activityFailed": "Fehlgeschlagen",
       "activityAborted": "Abgebrochen",
-      "close": "Schließen"
+      "close": "Schließen",
+      "colDeleteAt": "Löschung am",
+      "deleteNever": "kein Termin",
+      "deleteAfterTitle": "Abgelaufene Testkonten löschen",
+      "deleteAfterHint": "Nach Ablauf der Lebensdauer wird ein Testkonto gesperrt und bleibt für dich lesbar. Nach dieser Frist löscht ein nächtlicher Lauf das Konto samt Modulen, Chats und Dateien. Antworten aus der Evaluation bleiben anonym erhalten. Mit 0 wird nie gelöscht.",
+      "deleteAfterUnit": "Tage nach Ablauf",
+      "deleteAfterOutOfRange": "Die Frist muss zwischen 0 und 3650 Tagen liegen."
     },
     "createAccessCode": {
       "title": "Zugangscode anlegen",

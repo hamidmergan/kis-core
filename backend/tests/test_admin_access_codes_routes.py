@@ -562,3 +562,32 @@ def test_the_message_cap_is_fifty(monkeypatch):
     sql, params = cursor.calls[0]
     assert "LIMIT %s" in sql
     assert params[-1] == 50, "die Obergrenze muss bei 50 liegen, sonst waechst die Abfrage unbegrenzt"
+
+
+def test_the_user_list_says_when_every_account_will_be_deleted(client):
+    """The admin needs to see how long the evaluation data is still there."""
+    konten = [
+        {"id": 1, "ldap_username": "abc12345", "created_at": MORGEN,
+         "access_expires_at": datetime(2026, 9, 1, 12, 0), "active": False},
+        {"id": 2, "ldap_username": "def67890", "created_at": MORGEN,
+         "access_expires_at": None, "active": True},
+    ]
+    with patch("src.routes.admin.access_codes.repo.list_users_for_code", return_value=konten), \
+         patch("src.features.access_codes.retention.get_setting", return_value="30"):
+        r = client.get("/admin/access-codes/7/users")
+
+    assert r.status_code == 200
+    termine = [u["delete_at"] for u in r.json()["users"]]
+    assert termine == [datetime(2026, 10, 1, 12, 0).isoformat(), None]
+
+
+def test_the_user_list_promises_no_deletion_while_the_sweep_is_off(client):
+    konten = [
+        {"id": 1, "ldap_username": "abc12345", "created_at": MORGEN,
+         "access_expires_at": datetime(2026, 9, 1, 12, 0), "active": False},
+    ]
+    with patch("src.routes.admin.access_codes.repo.list_users_for_code", return_value=konten), \
+         patch("src.features.access_codes.retention.get_setting", return_value="0"):
+        r = client.get("/admin/access-codes/7/users")
+
+    assert r.json()["users"][0]["delete_at"] is None
