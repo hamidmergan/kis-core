@@ -105,14 +105,15 @@ export default function Modal({
             className="px-5 py-4 flex items-center justify-between gap-4"
             style={{ borderBottom: "1px solid var(--border)" }}
           >
-            <div className="text-base font-semibold" style={{ color: "var(--foreground)" }}>
+            {/* min-w-0 plus the break: a long file name must not push the close button out of the dialog. */}
+            <div className="min-w-0 break-words text-base font-semibold" style={{ color: "var(--foreground)" }}>
               {title}
             </div>
             <button
               type="button"
               onClick={onClose}
               aria-label={t("close")}
-              className="w-7 h-7 inline-flex items-center justify-center rounded-full btn-icon transition-colors"
+              className="w-7 h-7 flex-shrink-0 inline-flex items-center justify-center rounded-full btn-icon transition-colors"
               style={{ backgroundColor: "var(--surface-dim)" }}
             >
               <svg
