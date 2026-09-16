@@ -102,7 +102,7 @@ def dispatch_resume(job: dict) -> None:
 
         dispatch_next_screencast_job_for_user(user_id)
     else:
-        raise RuntimeError(f"Kein Wiederanlauf fuer Werkzeug {job.get('tool')}")
+        raise RuntimeError(f"Kein Wiederanlauf fuer Dienst {job.get('tool')}")
 
 
 def _tts_params(job: dict) -> dict:

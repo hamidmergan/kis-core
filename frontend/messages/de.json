@@ -17,7 +17,7 @@
     "settings": "Verwaltung",
     "stats": "Statistik",
     "calendar": "Kalender",
-    "tools": "Werkzeuge",
+    "tools": "Dienste",
     "settingsMenu": "Einstellungen",
     "sectionAppearance": "Ansicht",
     "homeNoticeShow": "Startseite-Hinweis anzeigen",
@@ -55,7 +55,7 @@
       "results": "{count, plural, =1 {1 Ergebnis} other {# Ergebnisse}}",
       "reset": "Filter zurücksetzen",
       "tools": {
-        "all": "Alle Werkzeuge",
+        "all": "Alle Dienste",
         "transcription": "Sprache in Text",
         "translation": "Übersetzung",
         "summary": "Zusammenfassung",
@@ -329,11 +329,11 @@
   "startOverview": {
     "groups": {
       "aia": "KI-Assistent",
-      "tools": "Werkzeuge"
+      "tools": "Dienste"
     },
     "aia": {
       "title": "KI-Assistent Francis",
-      "body": "Deine Module mit Materialien, Chat und Lernwerkzeugen. Der KI-Assistent antwortet nur aus den Unterlagen des jeweiligen Moduls."
+      "body": "Deine Module mit Materialien, Chat und Tools. Der KI-Assistent antwortet nur aus den Unterlagen des jeweiligen Moduls."
     },
     "tools": {
       "translation": {
@@ -1204,7 +1204,7 @@
     "nav": {
       "configuration": "Konfiguration",
       "users": "Nutzer",
-      "tools": "Werkzeuge",
+      "tools": "Dienste",
       "operations": "Betrieb",
       "playground": "Spielwiese",
       "hilde": "Hilde",
@@ -1215,7 +1215,7 @@
       "pending": "Ausstehend",
       "whitelist": "Whitelist",
       "allUsers": "Alle User",
-      "toolsLabel": "Werkzeuge",
+      "toolsLabel": "Dienste",
       "allJobs": "Alle Jobs",
       "jobStats": "Jobs Statistiken",
       "kiStats": "KI-Assistent Statistiken",
@@ -1232,7 +1232,7 @@
         "sub": "Zahlen zum Lesen. Was hier steht, wird nicht eingestellt.",
         "tabs": {
           "nutzer": "Nutzer",
-          "werkzeuge": "Werkzeuge",
+          "werkzeuge": "Dienste",
           "assistent": "KI-Assistent",
           "modelle": "Modelle",
           "evaluation": "Evaluation"
@@ -1271,7 +1271,7 @@
         },
         "quota": {
           "label": "Kontingente",
-          "sub": "Wie oft jemand ein Werkzeug benutzen darf."
+          "sub": "Wie oft jemand einen Dienst benutzen darf."
         },
         "feedback": {
           "label": "Feedback",
@@ -1286,11 +1286,11 @@
         }
       },
       "werkzeuge": {
-        "label": "Werkzeuge",
-        "sub": "Die globalen Werkzeuge auf der Startseite.",
+        "label": "Dienste",
+        "sub": "Die globalen Dienste auf der Startseite.",
         "release": {
           "label": "Freigabe",
-          "sub": "Welche Werkzeuge auf der Startseite erscheinen."
+          "sub": "Welche Dienste auf der Startseite erscheinen."
         },
         "jobs": {
           "label": "Aufträge"
@@ -1401,7 +1401,7 @@
         "workspaces": "{n, plural, one {# Modul mit allen hochgeladenen Dateien} other {# Module mit allen hochgeladenen Dateien}}",
         "sources": "{n, plural, one {# Quelle samt Transkript und Untertiteln} other {# Quellen samt Transkripten und Untertiteln}}",
         "messages": "{n, plural, one {# Chat-Nachricht} other {# Chat-Nachrichten}}",
-        "jobs": "{n, plural, one {# Ergebnis aus den Werkzeugen} other {# Ergebnisse aus den Werkzeugen}}",
+        "jobs": "{n, plural, one {# Ergebnis aus den Diensten} other {# Ergebnisse aus den Diensten}}",
         "enrollments": "{n, plural, one {# Teilnahme in einem fremden Modul} other {# Teilnahmen in fremden Modulen}}",
         "nothing": "An diesem Konto hängen keine Daten.",
         "participantsWarning": "Wer in diesen Modulen mitarbeitet, verliert den Zugang.",
@@ -1451,14 +1451,14 @@
       "errorGeneric": "Anlegen fehlgeschlagen"
     },
     "jobs": {
-      "searchPlaceholder": "Suche: User, Werkzeug, Datei...",
+      "searchPlaceholder": "Suche: User, Dienst, Datei...",
       "from": "Von",
       "to": "Bis",
       "pageSize": "{n} pro Seite",
       "results": "{count, plural, =1 {1 Ergebnis} other {# Ergebnisse}}",
       "empty": "Keine Jobs gefunden",
       "colUser": "User",
-      "colTool": "Werkzeug",
+      "colTool": "Dienst",
       "colFile": "Datei",
       "colStatus": "Status",
       "colCreated": "Erstellt",
@@ -1466,8 +1466,8 @@
       "cancel": "Abbrechen"
     },
     "tools": {
-      "title": "Werkzeuge ein-/ausschalten",
-      "subtitle": "Deaktivierte Werkzeuge werden auf der Startseite ausgeblendet.",
+      "title": "Dienste ein-/ausschalten",
+      "subtitle": "Deaktivierte Dienste werden auf der Startseite ausgeblendet.",
       "toggleAria": "{label} {action}",
       "actionEnable": "aktivieren",
       "actionDisable": "deaktivieren"
@@ -1487,7 +1487,7 @@
       "avgPrefix": "Ø {duration}",
       "lastActivity": "Letzte Aktivität",
       "colUser": "User",
-      "colTool": "Werkzeug",
+      "colTool": "Dienst",
       "colStatus": "Status",
       "colDuration": "Dauer",
       "colDate": "Datum"
@@ -1519,7 +1519,7 @@
       "promptUserPath": "Alle User → Kontingente →",
       "promptUserSuffix": "auswählen.",
       "windowEnds": "Fenster bis {time} Uhr",
-      "colTool": "Werkzeug",
+      "colTool": "Dienst",
       "colUsed": "Verbraucht",
       "colLimit": "Limit (Standard)",
       "colOverride": "Override",
@@ -1676,15 +1676,15 @@
         "transcript_translate": "Transkript-Übersetzung"
       },
       "featureDesc": {
-        "chat": "Konversation, Zusammenfassungen, Werkzeug-Aufrufe",
+        "chat": "Konversation, Zusammenfassungen, Dienste und Tools",
         "embedding": "Vektor-Suche, semantische Indexierung",
         "vision": "Bildinhalt erkennen, beschreiben",
         "ocr": "Volltext aus PDFs, Layout-Erkennung",
         "stt": "Audio-Transkription, Whisper-basiert",
-        "tts": "Sprachausgabe für Screencast und Vorlesen. Nutzer wählt im Werkzeug, welcher Anbieter verwendet wird.",
+        "tts": "Sprachausgabe für Screencast und Vorlesen. Nutzer wählt im Dienst, welcher Anbieter verwendet wird.",
         "image_gen": "Text-zu-Bild",
         "image_edit": "Bilder bearbeiten via Prompt",
-        "doc_translate": "Nutzer wählt im Werkzeug, welcher Anbieter verwendet wird.",
+        "doc_translate": "Nutzer wählt im Dienst, welcher Anbieter verwendet wird.",
         "transcript_translate": "AIA-Modul: Transkript in die vom Owner gewählte Zielsprache übersetzen. Quellsprache wird automatisch erkannt. Anbieter und Modell werden vom Admin konfiguriert. Instruct-Modell empfohlen, keine Reasoning-Modelle."
       },
       "exportImport": {
@@ -1815,7 +1815,7 @@
     "reindexCard": {
       "staleNotice": "<strong>Hinweis:</strong> {n} {label} {n, plural, =1 {wurde} other {wurden}} mit einem anderen Embedding-Modell indexiert. Chat-Suche kann fehlschlagen, bis du unten \"Reindex starten\" ausführst.",
       "title": "Alle Materialien neu indexieren",
-      "description": "Berechnet alle Embeddings mit dem aktuellen Anbieter neu. Chips, Notes und Werkzeuge bleiben gültig (gleiche UUIDs). Nötig nach Wechsel des Embedding-Modells.",
+      "description": "Berechnet alle Embeddings mit dem aktuellen Anbieter neu. Chips, Notes und Tools bleiben gültig (gleiche UUIDs). Nötig nach Wechsel des Embedding-Modells.",
       "running": "Läuft: {current}",
       "progressCount": "{done}/{total} ({pct}%)",
       "errorsHint": "{n} Fehler - siehe Backend-Logs.",
@@ -1941,7 +1941,7 @@
     },
     "diagnosisAdvanced": {
       "title": "Erweitert",
-      "description": "Prompt-Texte für Test, Chat und Werkzeuge. Nur ändern, wenn entsprechende Kenntnisse vorhanden sind."
+      "description": "Prompt-Texte für Test, Chat, Dienste und Tools. Nur ändern, wenn entsprechende Kenntnisse vorhanden sind."
     },
     "workspaceLimitsCard": {
       "title": "Maximale Materialien pro {label}",
@@ -1977,8 +1977,8 @@
       "saveFailed": "Speichern fehlgeschlagen."
     },
     "toolContextBudgetCard": {
-      "title": "Kontext-Budget der Überblick-Werkzeuge",
-      "hint": "Wie viel Text aus den Materialien (in Zeichen) die Überblick-Werkzeuge ins Modell geben. Der Wert gilt für alle vier gleich: die Mindmap teilt ihn auf die gewählten Materialien auf, der Podcast füllt der Reihe nach auf, Zeitplan und Datentabelle schneiden ihr Material in Pakete dieser Größe und machen je Paket einen Aufruf. Kann das eingestellte Modell so viel nicht, lehnt es den Auftrag mit einer Fehlermeldung ab, dann muss der Wert hier gesenkt werden.",
+      "title": "Kontext-Budget der Überblick-Tools",
+      "hint": "Wie viel Text aus den Materialien (in Zeichen) die Überblick-Tools ins Modell geben. Der Wert gilt für alle vier gleich: die Mindmap teilt ihn auf die gewählten Materialien auf, der Podcast füllt der Reihe nach auf, Zeitplan und Datentabelle schneiden ihr Material in Pakete dieser Größe und machen je Paket einen Aufruf. Kann das eingestellte Modell so viel nicht, lehnt es den Auftrag mit einer Fehlermeldung ab, dann muss der Wert hier gesenkt werden.",
       "unit": "Zeichen",
       "approxTokens": "≈ {n}k Token",
       "outOfRange": "Wert muss zwischen 1000 und 1000000 liegen.",
@@ -1986,14 +1986,14 @@
     },
     "exerciseContextBudgetCard": {
       "title": "Kontext-Budget der Aufgaben",
-      "hint": "Wie viel Text aus den Materialien (in Zeichen) Karteikarten, Lernkarten, Quiz, Wortschatzübung und Grammatikübung für einen Satz Aufgaben ins Modell geben. Die Materialien füllen den Platz der Reihe nach, was nicht mehr hineinpasst, kommt beim nächsten Satz dran, ein Merker je Werkzeug setzt dort wieder an. Für 15 Aufgaben reichen 100.000 Zeichen, mehr macht den Aufruf nur langsamer.",
+      "hint": "Wie viel Text aus den Materialien (in Zeichen) Karteikarten, Lernkarten, Quiz, Wortschatzübung und Grammatikübung für einen Satz Aufgaben ins Modell geben. Die Materialien füllen den Platz der Reihe nach, was nicht mehr hineinpasst, kommt beim nächsten Satz dran, ein Merker je Tool setzt dort wieder an. Für 15 Aufgaben reichen 100.000 Zeichen, mehr macht den Aufruf nur langsamer.",
       "unit": "Zeichen",
       "approxTokens": "≈ {n}k Token",
       "outOfRange": "Wert muss zwischen 1000 und 1000000 liegen.",
       "saveFailed": "Speichern fehlgeschlagen."
     },
     "learningToolsLanguageCard": {
-      "title": "Sprache der Lern-Werkzeuge",
+      "title": "Sprache der Tools",
       "hint": "In welcher Sprache Karteikarten, Quiz, Datentabelle und Mindmap geschrieben werden. Der Sprachtrainer folgt dieser Einstellung nicht, er bleibt auf Deutsch."
     },
     "summaryBatchCard": {
@@ -2006,7 +2006,7 @@
     },
     "sourceMaxPagesCard": {
       "title": "Maximale Seiten pro Material",
-      "hint": "Wie viele Seiten ein hochgeladenes Dokument (PDF/DOCX/PPTX) maximal haben darf. Gilt für Materialien im Modul und für die Werkzeuge Podcast, Zusammenfassung und Übersetzung. Größere werden abgelehnt, lange Skripte bitte kapitelweise hochladen. Default 200: bis dahin bleibt ein Material handhabbar, bei sehr großen Dokumenten wird der Überblick vorderlastig. Medien (mp3/mp4) und Screencast sind nicht betroffen.",
+      "hint": "Wie viele Seiten ein hochgeladenes Dokument (PDF/DOCX/PPTX) maximal haben darf. Gilt für Materialien im Modul und für Podcast, Zusammenfassung und Übersetzung. Größere werden abgelehnt, lange Skripte bitte kapitelweise hochladen. Default 200: bis dahin bleibt ein Material handhabbar, bei sehr großen Dokumenten wird der Überblick vorderlastig. Medien (mp3/mp4) und Screencast sind nicht betroffen.",
       "unit": "Seiten",
       "outOfRange": "Wert muss zwischen 1 und 2000 liegen.",
       "saveFailed": "Speichern fehlgeschlagen."
@@ -2101,7 +2101,7 @@
       },
       "systemRoleHint": {
         "admin": "Der Administrator darf alles. Nicht änderbar.",
-        "staff": "Staff nutzt den KI-Assistenten mit eigenen Modulen und alle Werkzeuge, aber keine Einstellungen. Nicht änderbar.",
+        "staff": "Staff nutzt den KI-Assistenten mit eigenen Modulen und alle Dienste, aber keine Einstellungen. Nicht änderbar.",
         "user": "User öffnet nur geteilte Module. Nicht änderbar."
       },
       "more": "Mehr"
@@ -2114,9 +2114,9 @@
       "group": {
         "general": "Allgemein",
         "aia": "KI-Assistent",
-        "tools": "Werkzeuge",
+        "tools": "Dienste",
         "set": {
-          "werkzeuge": "Werkzeuge",
+          "werkzeuge": "Dienste",
           "assistent": "KI-Assistent",
           "statistik": "Statistik",
           "anbieter": "Anbieter",
@@ -2151,7 +2151,7 @@
         "werkzeuge": {
           "release": "Freigeben und sperren",
           "jobs": "Aufträge aller Nutzer sehen",
-          "stats": "Werkzeuge",
+          "stats": "Dienste",
           "limits": "Grenzen ändern"
         },
         "assistent": {
@@ -2195,7 +2195,7 @@
       },
       "upload": {
         "title": "Größe einer Datei",
-        "hint": "Gilt für jede hochgeladene Datei, in den Werkzeugen wie bei den Materialien im Modul: Präsentationen, Videos, Tonaufnahmen und Dokumente. Beim Podcast gilt die Zahl für alle Dateien eines Podcasts zusammen.",
+        "hint": "Gilt für jede hochgeladene Datei, in den Diensten wie bei den Materialien im Modul: Präsentationen, Videos, Tonaufnahmen und Dokumente. Beim Podcast gilt die Zahl für alle Dateien eines Podcasts zusammen.",
         "unit": "MB",
         "outOfRange": "Wert muss zwischen 10 und 2000 liegen."
       },
@@ -2207,7 +2207,7 @@
       },
       "open": {
         "title": "Laufende Aufträge je Person",
-        "hint": "Wie viele Aufträge jemand gleichzeitig laufen haben darf, über alle Werkzeuge zusammen. Gezählt wird, was arbeitet oder in der Schlange steht. Ein Auftrag, der auf die eigene Prüfung wartet, zählt nicht mit, der liegt still. Mit -1 unbegrenzt.",
+        "hint": "Wie viele Aufträge jemand gleichzeitig laufen haben darf, über alle Dienste zusammen. Gezählt wird, was arbeitet oder in der Schlange steht. Ein Auftrag, der auf die eigene Prüfung wartet, zählt nicht mit, der liegt still. Mit -1 unbegrenzt.",
         "unit": "Aufträge",
         "outOfRange": "Wert muss zwischen 1 und 100 liegen, oder -1 für unbegrenzt."
       }
@@ -2287,7 +2287,7 @@
       },
       "tools": {
         "jobs": "Jobs",
-        "perTool": "Jobs je Werkzeug",
+        "perTool": "Jobs je Dienst",
         "colJobs": "Jobs",
         "names": {
           "screencast": "Screencast",
@@ -2299,7 +2299,7 @@
           "image_edit": "Bild-Bearbeitung",
           "image_analyze": "Bild-Analyse"
         },
-        "perToolHint": "Wie oft jedes Werkzeug gestartet wurde, im gewählten Zeitraum. Gezählt wird beim Start: ein Auftrag, den jemand abbricht oder löscht, bleibt drin."
+        "perToolHint": "Wie oft jeder Dienst gestartet wurde, im gewählten Zeitraum. Gezählt wird beim Start: ein Auftrag, den jemand abbricht oder löscht, bleibt drin."
       },
       "assistant": {
         "workspaces": "Module",
@@ -2309,14 +2309,14 @@
         "levelsHint": "Kommt fertig aus der Einstufung. Sagt, für welches Niveau die Aufgaben gebaut werden müssen.",
         "materials": "Materialien",
         "materialsHint": "Word und PowerPoint werden beim Hochladen in PDF umgewandelt und zählen deshalb dort mit.",
-        "tools": "Werkzeuge im Assistenten",
+        "tools": "Tools im Assistenten",
         "groupSource": "Fachsprachentrainer",
         "groupGlossary": "Sprachtrainer",
         "modules": "Module",
         "modulesHint": "Auf eine Zeile klicken, um alles zu diesem Modul zu sehen.",
         "nothingFound": "Nichts gefunden.",
         "total": "Gesamt",
-        "colTool": "Werkzeug",
+        "colTool": "Tool",
         "colCreated": "Übungen erzeugt",
         "colAnswered": "Übungen beantwortet",
         "colKind": "Art",
@@ -2328,7 +2328,7 @@
         "colMembers": "Teilnehmer",
         "colChat": "Chat",
         "colLast": "Zuletzt",
-        "toolsHint": "Wie oft jedes der sieben Werkzeuge benutzt wurde.",
+        "toolsHint": "Wie oft jedes der sieben Tools benutzt wurde.",
         "groupEmpty": "Noch nichts benutzt."
       },
       "detail": {
@@ -2343,7 +2343,7 @@
         "jobs": "Jobs",
         "answered": "Übungen",
         "chat": "Fragen im Chat",
-        "tools": "Benutzte Werkzeuge",
+        "tools": "Benutzte Dienste",
         "toolsHint": "Reicht nur so weit zurück wie der Vorrat dieser Person.",
         "modules": "Module",
         "noModules": "In keinem Modul.",
@@ -2362,7 +2362,7 @@
         "trainerOff": "Für dieses Modul nicht benutzt.",
         "noMaterials": "Noch nichts hochgeladen.",
         "noMembers": "Noch niemand in diesem Modul.",
-        "noToolsUsed": "Noch kein Werkzeug benutzt.",
+        "noToolsUsed": "Noch keinen Dienst benutzt.",
         "members": "Teilnehmer",
         "colFile": "Datei",
         "colState": "Stand",
@@ -2371,12 +2371,12 @@
         "withStaff": "Lehrende mitzählen",
         "withStaffHint": "Eigentümer und Tutoren beantworten beim Aufbau ihre eigenen Aufgaben. Ohne Haken zählen nur die Studierenden.",
         "history": "Verlauf",
-        "historyHint": "Chat, Werkzeuge, Übungen und Beitritte gemischt, neueste zuerst.",
+        "historyHint": "Chat, Dienste, Übungen und Beitritte gemischt, neueste zuerst.",
         "historyEmpty": "Noch keine Aktivität.",
         "historyMore": "Mehr laden",
         "kindChat": "Chat-Nachricht",
         "kindChatIn": "Chat-Nachricht in {module}",
-        "kindTool": "Werkzeug {tool}",
+        "kindTool": "Dienst {tool}",
         "kindExerciseIn": "Übung beantwortet in {module}",
         "kindJoinIn": "{module} beigetreten",
         "sessions": "Online-Sitzungen",
@@ -2594,7 +2594,7 @@
       "saveError": "Speichern fehlgeschlagen"
     },
     "grenzen": {
-      "werkzeuge": "Werkzeuge",
+      "werkzeuge": "Dienste",
       "assistent": "KI-Assistent",
       "gemeinsam": "Gemeinsam"
     }
@@ -2602,7 +2602,7 @@
   "permissions": {
     "locked": {
       "aia": "Dieser Bereich ist für deinen Account gesperrt.",
-      "tool": "Dieses Werkzeug ist für deinen Account gesperrt.",
+      "tool": "Dieser Dienst ist für deinen Account gesperrt.",
       "workspaceCreate": "Du kannst keine neuen Module erstellen. Du hast nur Zugriff auf zugewiesene Module."
     }
   },
@@ -2634,7 +2634,7 @@
     "jobs": {
       "heading": "4. Verarbeitung von Nutzer-Uploads und Job-Daten",
       "intro": "Bei der Nutzung der Plattform werden hochgeladene Dateien (z. B. Videos, PDFs, Präsentationen, Audio-Dateien) sowie die daraus erzeugten Ergebnisse (z. B. Transkripte, Zusammenfassungen) in Ihrem Modul gespeichert. Pro Verarbeitungsauftrag (Job) wird zusätzlich gespeichert:",
-      "item1": "Genutztes Werkzeug (z. B. Transkription, Zusammenfassung)",
+      "item1": "Genutzter Dienst (z. B. Transkription, Zusammenfassung)",
       "item2": "Ursprünglicher Dateiname",
       "item3": "Zeitpunkt der Erstellung und Fertigstellung",
       "item4": "Verarbeitungsstatus",
@@ -2644,7 +2644,7 @@
       "heading": "5. Einsicht durch Administratorinnen und Administratoren",
       "intro": "Personen mit einer entsprechenden Berechtigung — insbesondere Administratorinnen und Administratoren sowie Personen, denen die Berechtigung „Statistik: Nutzer“ zugewiesen wurde — können zu einzelnen Nutzerkonten folgende Daten einsehen:",
       "item1": "Gestellte Chat-Nachrichten im Wortlaut, mit Modul und Zeitpunkt",
-      "item2": "Genutzte Werkzeuge mit Status und Dateiname",
+      "item2": "Genutzte Dienste mit Status und Dateiname",
       "item3": "Beantwortete Übungen",
       "item4": "Anwesenheitszeiten auf der Plattform (tagesgenau)",
       "item5": "Mitgliedschaft in Modulen",
@@ -2653,7 +2653,7 @@
     },
     "thirdParty": {
       "heading": "6. Drittanbieter und externe Dienste",
-      "intro": "Welche KI-Anbieter zum Einsatz kommen, wird über die Administration der Plattform konfiguriert. Aktuell werden dabei folgende Dienste genutzt:",
+      "intro": "Welche KI-Anbieter zum Einsatz kommen, wird über die Administration der Plattform konfiguriert. Aktuell werden dabei folgende externen Dienste genutzt:",
       "kisskiLabel": "KISSKI / GWDG",
       "kisskiBody": "Sprachmodelle und Transkriptionsdienste. Dabei werden Texte und Audio-Inhalte verarbeitet. KISSKI ist ein Dienst der Gesellschaft für wissenschaftliche Datenverarbeitung mbH Göttingen (GWDG) und unterliegt deutschem Datenschutzrecht. Die Verarbeitung erfolgt im Rahmen einer Auftragsverarbeitung gemäß Art. 28 DSGVO.",
       "mylabLabel": "THL myLab",
@@ -2664,7 +2664,7 @@
       "hetznerBody": "Cloud-Speicher für hochgeladene Dateien. Die Speicherung erfolgt bei der Hetzner Online GmbH auf Servern in Deutschland.",
       "youtubeLabel": "YouTube (Google)",
       "youtubeBody": "Eingebettete Videos in Modulen. Der Player lädt erst nach einem Klick auf das Video, vorher fließen keine Daten. Beim Laden und Abspielen erhält Google LLC (USA) IP-Adresse und Gerätedaten. Die Einbettung nutzt den erweiterten Datenschutzmodus von YouTube (youtube-nocookie.com). Das Transkript eines Videos wird von der Lehrperson eingegeben und auf der Plattform gespeichert, es wird nicht von YouTube abgerufen.",
-      "outro": "Bei den KI-Diensten werden nur die für die jeweilige Funktion notwendigen Inhalte übermittelt, eine darüberhinausgehende Speicherung erfolgt dort nicht. Hochgeladene Dateien bleiben im Object Storage gespeichert, bis sie gelöscht werden."
+      "outro": "Bei den externen Diensten werden nur die für die jeweilige Funktion notwendigen Inhalte übermittelt, eine darüberhinausgehende Speicherung erfolgt dort nicht. Hochgeladene Dateien bleiben im Object Storage gespeichert, bis sie gelöscht werden."
     },
     "logs": {
       "heading": "7. Server-Logfiles",
@@ -3058,7 +3058,7 @@
         "mascotHilde": "Hilde",
         "mascotFrancis": "Francis",
         "studioTitle": "Studio",
-        "studioDescription": "Studio-Panel mit Mindmaps, Notizen und Werkzeugen einblenden.",
+        "studioDescription": "Studio-Panel mit Mindmaps, Notizen und Tools einblenden.",
         "previewStudentTitle": "Studierenden-Ansicht",
         "previewStudentDescription": "Sieh das Modul so, wie Studierende es sehen. Bedienelemente der Verwaltung verschwinden.",
         "previewOwnerTitle": "Lehrenden-Ansicht",
@@ -3116,7 +3116,7 @@
         "indexingInProgress": "{label} wird noch indiziert. Bitte warte einen Moment und versuche es erneut.",
         "tooManyRequests": "Zu viele Anfragen. Bitte einen Moment warten und erneut senden.",
         "genericError": "Es ist ein Fehler aufgetreten.",
-        "upstreamBusy": "Der KI-Dienst dahinter war gerade überlastet oder nicht erreichbar. Bitte versuche es später noch einmal.",
+        "upstreamBusy": "Der KI-Anbieter dahinter war gerade überlastet oder nicht erreichbar. Bitte versuche es später noch einmal.",
         "translateFailed": "Diese Passage konnte nicht übersetzt werden."
       },
       "sources": {
@@ -3292,7 +3292,7 @@
         "minimizePanel": "Panel minimieren",
         "sourcesToggle": "{count, plural, =1 {1 Material} other {# Materialien}}",
         "tabs": {
-          "tools": "Werkzeuge",
+          "tools": "Tools",
           "glossary": "Glossar",
           "notes": "Notizen",
           "statistik": "Statistik",
@@ -3479,7 +3479,7 @@
         "restart": "Rundgang erneut starten",
         "dismiss": "Ausblenden",
         "inviteTitle": "Rundgang durchs Demo-Modul",
-        "inviteBody": "Ein kurzer Rundgang durch ein Beispielmodul. Zeigt Materialien, den KI-Assistenten Francis und die Lernwerkzeuge im Studienbereich.",
+        "inviteBody": "Ein kurzer Rundgang durch ein Beispielmodul. Zeigt Materialien, den KI-Assistenten Francis und die Tools im Studienbereich.",
         "steps": {
           "preview": {
             "title": "Lehrenden- und Studierenden-Ansicht",
@@ -3545,7 +3545,7 @@
           },
           "auswahl": {
             "title": "Häkchen bestimmen die Auswahl",
-            "text": "Aktuell ist nur ein Material angehakt. Chat und Werkzeuge nutzen immer genau das, was angehakt ist."
+            "text": "Aktuell ist nur ein Material angehakt. Chat und Tools nutzen immer genau das, was angehakt ist."
           },
           "quelleOeffnen": {
             "title": "Ein Material öffnen",
@@ -3576,7 +3576,7 @@
             "text": "Francis, dein KI-Assistent, antwortet nur aus den angehakten Materialien, mit Beleg zu jeder Aussage."
           },
           "werkzeuge": {
-            "title": "Werkzeuge im Studio",
+            "title": "Tools im Studio",
             "text": "Aus den Materialien entstehen hier Karteikarten, ein Quiz, Datentabellen oder eine Mindmap."
           },
           "statistik": {

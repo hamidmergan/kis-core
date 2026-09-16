@@ -1,13 +1,13 @@
-# Releasing and limiting tools
+# Releasing and limiting services
 
-Under Tools you steer the seven tools of the start page.
+Under Services you steer the seven services of the start page.
 
-![The release of the tools](/manual/{lang}/admin-tool-release.png)
+![The release of the services](/manual/{lang}/admin-tool-release.png)
 
 ## Release
 
-Here you switch a tool on or off for the whole platform. While it is off it appears in nobody's
-left bar. On top of that the role of a person decides whether they see a released tool.
+Here you switch a service on or off for the whole platform. While it is off it appears on nobody's
+start page. On top of that the role of a person decides whether they see a released service.
 
 ## Jobs
 
@@ -21,4 +21,4 @@ them should know how much the machine carries.
 
 ## Quotas
 
-How often somebody may use a tool does not stand here but under Users with the quotas.
+How often somebody may use a service does not stand here but under Users with the quotas.

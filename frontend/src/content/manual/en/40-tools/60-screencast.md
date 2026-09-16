@@ -2,7 +2,7 @@
 
 Turns a PowerPoint file into a narrated video, in another language if you want.
 
-![The screencast tool](/manual/{lang}/tool-screencast.png)
+![The screencast service](/manual/{lang}/tool-screencast.png)
 
 ## The steps
 

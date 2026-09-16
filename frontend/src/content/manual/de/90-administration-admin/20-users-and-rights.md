@@ -13,7 +13,7 @@ Unter Nutzer entscheiden Sie, wer hereinkommt und wer was darf.
 
 - **Reiter „Alle Nutzer"**: suchen, Rolle setzen, Kontingente öffnen
 - **Reiter „Rollen"**: die System-Rollen sind fest, eigene Rollen stellen Sie frei zusammen
-- **Reiter „Kontingente"**: wie oft jemand ein Werkzeug benutzen darf
+- **Reiter „Kontingente"**: wie oft jemand einen Dienst benutzen darf
 
 ## Rollen und Module
 

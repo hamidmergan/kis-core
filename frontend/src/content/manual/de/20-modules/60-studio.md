@@ -2,9 +2,9 @@
 
 Rechts im Modul steht das Studio. Es ist die Werkbank neben dem Chat und hat fünf Reiter.
 
-![Das Studio mit den Kacheln der Lernwerkzeuge](/manual/{lang}/module-view.png)
+![Das Studio mit den Kacheln der Tools](/manual/{lang}/module-view.png)
 
-- **Werkzeuge** enthält die Kacheln, aus denen Übungen und Übersichten entstehen
+- **Tools** enthält die Kacheln, aus denen Übungen und Übersichten entstehen
 - **Glossar** sammelt Fachbegriffe des Moduls
 - **Notizen** hält fest, was Sie behalten wollen
 - **Statistik** zeigt, wie weit die Teilnehmenden mit den Übungen sind

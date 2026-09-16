@@ -1,14 +1,14 @@
-# Werkzeuge freigeben und begrenzen
+# Dienste freigeben und begrenzen
 
-Unter Werkzeuge steuern Sie die sieben Werkzeuge der Startseite.
+Unter Dienste steuern Sie die sieben Dienste der Startseite.
 
-![Die Freigabe der Werkzeuge](/manual/{lang}/admin-tool-release.png)
+![Die Freigabe der Dienste](/manual/{lang}/admin-tool-release.png)
 
 ## Freigabe
 
-Hier schalten Sie ein Werkzeug für die ganze Plattform an oder aus. Ist es aus, taucht es in der
-Leiste links bei niemandem auf. Zusätzlich entscheidet die Rolle einer Person, ob sie ein
-freigegebenes Werkzeug sieht.
+Hier schalten Sie einen Dienst für die ganze Plattform an oder aus. Ist er aus, taucht er auf der
+Startseite bei niemandem auf. Zusätzlich entscheidet die Rolle einer Person, ob sie einen
+freigegebenen Dienst sieht.
 
 ## Aufträge
 
@@ -22,5 +22,5 @@ sollte wissen, wie viel die Maschine trägt.
 
 ## Kontingente
 
-Wie oft jemand ein Werkzeug benutzen darf, steht nicht hier, sondern unter Nutzer bei den
+Wie oft jemand einen Dienst benutzen darf, steht nicht hier, sondern unter Nutzer bei den
 Kontingenten.

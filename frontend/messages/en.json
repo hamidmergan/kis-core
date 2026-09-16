@@ -17,7 +17,7 @@
     "settings": "Administration",
     "stats": "Statistics",
     "calendar": "Calendar",
-    "tools": "Tools",
+    "tools": "Services",
     "settingsMenu": "Settings",
     "sectionAppearance": "Appearance",
     "homeNoticeShow": "Show home notice",
@@ -55,7 +55,7 @@
       "results": "{count, plural, =1 {1 result} other {# results}}",
       "reset": "Reset filters",
       "tools": {
-        "all": "All tools",
+        "all": "All services",
         "transcription": "Speech to text",
         "translation": "Translation",
         "summary": "Summary",
@@ -329,11 +329,11 @@
   "startOverview": {
     "groups": {
       "aia": "AI assistant",
-      "tools": "Tools"
+      "tools": "Services"
     },
     "aia": {
       "title": "AI assistant Francis",
-      "body": "Your modules with materials, chat and learning tools. The AI assistant answers from each module's own documents only."
+      "body": "Your modules with materials, chat and tools. The AI assistant answers from each module's own documents only."
     },
     "tools": {
       "translation": {
@@ -1204,7 +1204,7 @@
     "nav": {
       "configuration": "Configuration",
       "users": "Users",
-      "tools": "Tools",
+      "tools": "Services",
       "operations": "Operations",
       "playground": "Playground",
       "hilde": "Hilde",
@@ -1215,7 +1215,7 @@
       "pending": "Pending",
       "whitelist": "Whitelist",
       "allUsers": "All users",
-      "toolsLabel": "Tools",
+      "toolsLabel": "Services",
       "allJobs": "All jobs",
       "jobStats": "Job statistics",
       "kiStats": "AI assistant statistics",
@@ -1232,7 +1232,7 @@
         "sub": "Numbers to read. Nothing here is a setting.",
         "tabs": {
           "nutzer": "Users",
-          "werkzeuge": "Tools",
+          "werkzeuge": "Services",
           "assistent": "AI assistant",
           "modelle": "Models",
           "evaluation": "Evaluation"
@@ -1271,7 +1271,7 @@
         },
         "quota": {
           "label": "Quotas",
-          "sub": "How often someone may use a tool."
+          "sub": "How often someone may use a service."
         },
         "feedback": {
           "label": "Feedback",
@@ -1286,11 +1286,11 @@
         }
       },
       "werkzeuge": {
-        "label": "Tools",
-        "sub": "The global tools on the home page.",
+        "label": "Services",
+        "sub": "The global services on the home page.",
         "release": {
           "label": "Availability",
-          "sub": "Which tools show up on the home page."
+          "sub": "Which services show up on the home page."
         },
         "jobs": {
           "label": "Jobs"
@@ -1401,7 +1401,7 @@
         "workspaces": "{n, plural, one {# module with all uploaded files} other {# modules with all uploaded files}}",
         "sources": "{n, plural, one {# source including transcript and subtitles} other {# sources including transcripts and subtitles}}",
         "messages": "{n, plural, one {# chat message} other {# chat messages}}",
-        "jobs": "{n, plural, one {# tool result} other {# tool results}}",
+        "jobs": "{n, plural, one {# service result} other {# service results}}",
         "enrollments": "{n, plural, one {# enrolment in someone else's module} other {# enrolments in other people's modules}}",
         "nothing": "Nothing is attached to this account.",
         "participantsWarning": "Everyone working in those modules loses access.",
@@ -1451,14 +1451,14 @@
       "errorGeneric": "Creation failed"
     },
     "jobs": {
-      "searchPlaceholder": "Search: user, tool, file...",
+      "searchPlaceholder": "Search: user, service, file...",
       "from": "From",
       "to": "To",
       "pageSize": "{n} per page",
       "results": "{count, plural, =1 {1 result} other {# results}}",
       "empty": "No jobs found",
       "colUser": "User",
-      "colTool": "Tool",
+      "colTool": "Service",
       "colFile": "File",
       "colStatus": "Status",
       "colCreated": "Created",
@@ -1466,8 +1466,8 @@
       "cancel": "Cancel"
     },
     "tools": {
-      "title": "Enable / disable tools",
-      "subtitle": "Disabled tools are hidden on the homepage.",
+      "title": "Enable / disable services",
+      "subtitle": "Disabled services are hidden on the homepage.",
       "toggleAria": "{action} {label}",
       "actionEnable": "Enable",
       "actionDisable": "Disable"
@@ -1487,7 +1487,7 @@
       "avgPrefix": "avg {duration}",
       "lastActivity": "Recent activity",
       "colUser": "User",
-      "colTool": "Tool",
+      "colTool": "Service",
       "colStatus": "Status",
       "colDuration": "Duration",
       "colDate": "Date"
@@ -1519,7 +1519,7 @@
       "promptUserPath": "All users → Quotas →",
       "promptUserSuffix": ".",
       "windowEnds": "Window until {time}",
-      "colTool": "Tool",
+      "colTool": "Service",
       "colUsed": "Used",
       "colLimit": "Limit (default)",
       "colOverride": "Override",
@@ -1676,15 +1676,15 @@
         "transcript_translate": "Transcript translation"
       },
       "featureDesc": {
-        "chat": "Chat, summaries, tool calls",
+        "chat": "Chat, summaries, services and tools",
         "embedding": "Vector search, semantic indexing",
         "vision": "Recognize and describe image content",
         "ocr": "Full text from PDFs, layout extraction",
         "stt": "Audio transcription, Whisper-based",
-        "tts": "Voice output for screencast / read-aloud. The user picks a provider inside the tool.",
+        "tts": "Voice output for screencast / read-aloud. The user picks a provider inside the service.",
         "image_gen": "Text-to-image",
         "image_edit": "Edit images via prompt",
-        "doc_translate": "The user picks a provider inside the tool. (Document Translation, Screencast Translation)",
+        "doc_translate": "The user picks a provider inside the service. (Document Translation, Screencast Translation)",
         "transcript_translate": "AIA module: translate a transcript into the owner-chosen target language. Source language is detected automatically. Provider and model are admin-configured. Use an instruct model, not a reasoning model."
       },
       "exportImport": {
@@ -1941,7 +1941,7 @@
     },
     "diagnosisAdvanced": {
       "title": "Advanced",
-      "description": "Prompt texts for test, chat and tools. Only change these with the relevant knowledge."
+      "description": "Prompt texts for test, chat, services and tools. Only change these with the relevant knowledge."
     },
     "workspaceLimitsCard": {
       "title": "Max sources per {label}",
@@ -1993,7 +1993,7 @@
       "saveFailed": "Save failed."
     },
     "learningToolsLanguageCard": {
-      "title": "Language of the learning tools",
+      "title": "Language of the tools",
       "hint": "The language flashcards, quiz, data table and mind map are written in. The language trainer does not follow this setting, it stays German."
     },
     "summaryBatchCard": {
@@ -2006,7 +2006,7 @@
     },
     "sourceMaxPagesCard": {
       "title": "Max. pages per source",
-      "hint": "Maximum number of pages an uploaded document (PDF/DOCX/PPTX) may have. Applies to module material and to the Podcast, Summary and Translation tools. Larger ones are rejected, please upload long scripts chapter by chapter. Default 200: up to that size a source stays manageable, with very large documents the overview becomes front-heavy. Media (mp3/mp4) and Screencast are not affected.",
+      "hint": "Maximum number of pages an uploaded document (PDF/DOCX/PPTX) may have. Applies to module material and to Podcast, Summary and Translation. Larger ones are rejected, please upload long scripts chapter by chapter. Default 200: up to that size a source stays manageable, with very large documents the overview becomes front-heavy. Media (mp3/mp4) and Screencast are not affected.",
       "unit": "pages",
       "outOfRange": "Value must be between 1 and 2000.",
       "saveFailed": "Save failed."
@@ -2101,7 +2101,7 @@
       },
       "systemRoleHint": {
         "admin": "The administrator may do everything. Not editable.",
-        "staff": "Staff uses the AI assistant with own modules and all tools, but no settings. Not editable.",
+        "staff": "Staff uses the AI assistant with own modules and all services, but no settings. Not editable.",
         "user": "User only opens shared modules. Not editable."
       },
       "more": "More"
@@ -2114,9 +2114,9 @@
       "group": {
         "general": "General",
         "aia": "AI assistant",
-        "tools": "Tools",
+        "tools": "Services",
         "set": {
-          "werkzeuge": "Tools",
+          "werkzeuge": "Services",
           "assistent": "AI assistant",
           "statistik": "Statistics",
           "anbieter": "Providers",
@@ -2151,7 +2151,7 @@
         "werkzeuge": {
           "release": "Release and block",
           "jobs": "See everyone's jobs",
-          "stats": "Tools",
+          "stats": "Services",
           "limits": "Change limits"
         },
         "assistent": {
@@ -2195,7 +2195,7 @@
       },
       "upload": {
         "title": "Size of a file",
-        "hint": "Applies to every uploaded file, in the tools as well as for module material: presentations, videos, audio and documents. For the podcast the number counts all files of one podcast together.",
+        "hint": "Applies to every uploaded file, in the services as well as for module material: presentations, videos, audio and documents. For the podcast the number counts all files of one podcast together.",
         "unit": "MB",
         "outOfRange": "Value must be between 10 and 2000."
       },
@@ -2207,7 +2207,7 @@
       },
       "open": {
         "title": "Running jobs per person",
-        "hint": "How many jobs someone may have running at the same time, across all tools together. Counted is what is working or queued. A job awaiting the person's own review does not count, it lies still. Use -1 for unlimited.",
+        "hint": "How many jobs someone may have running at the same time, across all services together. Counted is what is working or queued. A job awaiting the person's own review does not count, it lies still. Use -1 for unlimited.",
         "unit": "jobs",
         "outOfRange": "Value must be between 1 and 100, or -1 for unlimited."
       }
@@ -2287,7 +2287,7 @@
       },
       "tools": {
         "jobs": "Jobs",
-        "perTool": "Jobs per tool",
+        "perTool": "Jobs per service",
         "colJobs": "Jobs",
         "names": {
           "screencast": "Screencast",
@@ -2299,7 +2299,7 @@
           "image_edit": "Image editing",
           "image_analyze": "Image analysis"
         },
-        "perToolHint": "How often each tool was started, in the selected period. Counted at the start: a job someone cancels or deletes stays in."
+        "perToolHint": "How often each service was started, in the selected period. Counted at the start: a job someone cancels or deletes stays in."
       },
       "assistant": {
         "workspaces": "Modules",
@@ -2343,7 +2343,7 @@
         "jobs": "Jobs",
         "answered": "Exercises",
         "chat": "Questions in chat",
-        "tools": "Tools used",
+        "tools": "Services used",
         "toolsHint": "Only reaches back as far as this person\\u2019s retained jobs.",
         "modules": "Modules",
         "noModules": "In no module.",
@@ -2362,7 +2362,7 @@
         "trainerOff": "Not used for this module.",
         "noMaterials": "Nothing uploaded yet.",
         "noMembers": "Nobody in this module yet.",
-        "noToolsUsed": "No tool used yet.",
+        "noToolsUsed": "No service used yet.",
         "members": "Participants",
         "colFile": "File",
         "colState": "State",
@@ -2371,12 +2371,12 @@
         "withStaff": "Count teaching staff",
         "withStaffHint": "Owners and tutors answer their own exercises while building them. Unticked, only students count.",
         "history": "History",
-        "historyHint": "Chat, tools, exercises and joins merged, newest first.",
+        "historyHint": "Chat, services, exercises and joins merged, newest first.",
         "historyEmpty": "No activity yet.",
         "historyMore": "Load more",
         "kindChat": "Chat message",
         "kindChatIn": "Chat message in {module}",
-        "kindTool": "Tool {tool}",
+        "kindTool": "Service {tool}",
         "kindExerciseIn": "Exercise answered in {module}",
         "kindJoinIn": "Joined {module}",
         "sessions": "Online sessions",
@@ -2594,7 +2594,7 @@
       "saveError": "Saving failed"
     },
     "grenzen": {
-      "werkzeuge": "Tools",
+      "werkzeuge": "Services",
       "assistent": "AI assistant",
       "gemeinsam": "Shared"
     }
@@ -2602,7 +2602,7 @@
   "permissions": {
     "locked": {
       "aia": "This area is locked for your account.",
-      "tool": "This tool is locked for your account.",
+      "tool": "This service is locked for your account.",
       "workspaceCreate": "You cannot create new modules. You only have access to assigned modules."
     }
   },
@@ -2634,7 +2634,7 @@
     "jobs": {
       "heading": "4. Processing of user uploads and job data",
       "intro": "When you use the platform, uploaded files (e.g. videos, PDFs, presentations, audio files) and the results derived from them (e.g. transcripts, summaries) are stored in your module. For each processing job, the following metadata is also stored:",
-      "item1": "Tool used (e.g. transcription, summary)",
+      "item1": "Service used (e.g. transcription, summary)",
       "item2": "Original file name",
       "item3": "Time of creation and completion",
       "item4": "Processing status",
@@ -2644,7 +2644,7 @@
       "heading": "5. Access by administrators",
       "intro": "People with the relevant permission — in particular administrators, as well as anyone assigned the \"User statistics\" right — can view the following data for individual user accounts:",
       "item1": "Chat messages sent, verbatim, with module and time",
-      "item2": "Tools used, with status and file name",
+      "item2": "Services used, with status and file name",
       "item3": "Exercises answered",
       "item4": "Presence times on the platform (to the day)",
       "item5": "Module memberships",
@@ -2653,7 +2653,7 @@
     },
     "thirdParty": {
       "heading": "6. Third parties and external services",
-      "intro": "Which AI providers are used is configured through the platform's administration. The following services are currently in use:",
+      "intro": "Which AI providers are used is configured through the platform's administration. The following external services are currently in use:",
       "kisskiLabel": "KISSKI / GWDG",
       "kisskiBody": "Language models and transcription services. Texts and audio content are processed in this context. KISSKI is a service of Gesellschaft für wissenschaftliche Datenverarbeitung mbH Göttingen (GWDG) and is subject to German data protection law. Processing takes place under a data processing agreement pursuant to Art. 28 GDPR.",
       "mylabLabel": "THL myLab",
@@ -2664,7 +2664,7 @@
       "hetznerBody": "Cloud storage for uploaded files. Storage takes place at Hetzner Online GmbH on servers in Germany.",
       "youtubeLabel": "YouTube (Google)",
       "youtubeBody": "Embedded videos in modules. The player loads only after a click on the video, no data flows before that. When loading and playing, Google LLC (USA) receives the IP address and device data. The embed uses YouTube's privacy-enhanced mode (youtube-nocookie.com). The transcript of a video is entered by the teacher and stored on the platform, it is not fetched from YouTube.",
-      "outro": "For the AI services, only the content required for the respective function is transmitted, and no further storage takes place there. Uploaded files remain in object storage until they are deleted."
+      "outro": "For the external services, only the content required for the respective function is transmitted, and no further storage takes place there. Uploaded files remain in object storage until they are deleted."
     },
     "logs": {
       "heading": "7. Server log files",
@@ -3116,7 +3116,7 @@
         "indexingInProgress": "{label} is still being indexed. Please wait a moment and try again.",
         "tooManyRequests": "Too many requests. Please wait a moment and try again.",
         "genericError": "An error occurred.",
-        "upstreamBusy": "The AI service behind this was busy or unreachable. Please try again later.",
+        "upstreamBusy": "The AI provider behind this was busy or unreachable. Please try again later.",
         "translateFailed": "This passage could not be translated."
       },
       "sources": {
@@ -3479,7 +3479,7 @@
         "restart": "Start the tour again",
         "dismiss": "Hide",
         "inviteTitle": "Tour through the demo module",
-        "inviteBody": "A short tour through a sample module. Shows the materials, the AI assistant Francis and the learning tools in the study area.",
+        "inviteBody": "A short tour through a sample module. Shows the materials, the AI assistant Francis and the tools in the study area.",
         "steps": {
           "preview": {
             "title": "Teacher and student view",

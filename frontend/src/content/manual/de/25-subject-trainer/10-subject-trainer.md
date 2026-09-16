@@ -2,7 +2,7 @@
 
 ![Die Kacheln im Studio](/manual/{lang}/studio.png)
 
-Vier Kacheln im Reiter Werkzeuge des Studios. Jede baut aus den angehakten Materialien etwas
+Vier Kacheln im Reiter Tools des Studios. Jede baut aus den angehakten Materialien etwas
 anderes: Karteikarten, Quiz, Datentabelle, Mindmap.
 
 Anders als der Sprachtrainer geht es hier um den **Inhalt** des Fachs, nicht um die Sprache. Er

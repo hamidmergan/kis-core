@@ -3,7 +3,7 @@
 The studio sits on the right inside the module. It is the workbench next to the chat and has
 five tabs.
 
-![The studio with the tiles of the learning tools](/manual/{lang}/module-view.png)
+![The studio with the tiles of the tools](/manual/{lang}/module-view.png)
 
 - **Tools** holds the tiles that exercises and overviews are built from
 - **Glossary** collects the technical terms of the module

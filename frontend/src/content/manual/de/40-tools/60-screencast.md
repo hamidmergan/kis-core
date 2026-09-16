@@ -2,7 +2,7 @@
 
 Macht aus einer PowerPoint-Datei ein vertontes Video, auf Wunsch in einer anderen Sprache.
 
-![Das Werkzeug Screencast](/manual/{lang}/tool-screencast.png)
+![Der Dienst Screencast](/manual/{lang}/tool-screencast.png)
 
 ## Der Ablauf
 

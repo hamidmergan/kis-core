@@ -7,7 +7,7 @@ Begriff, seine Grundform und ein Beispiel.
 
 ## Nicht mit Karteikarten verwechseln
 
-Zwei Werkzeuge klingen ähnlich.
+Zwei Tools klingen ähnlich.
 
 - **Karteikarten** im Fachsprachentrainer stellen eine Frage zum Inhalt und geben die Antwort
 - **Lernkarten** im Sprachtrainer erklären ein Fachwort sprachlich

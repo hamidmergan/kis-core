@@ -2,12 +2,12 @@
 
 KIS steht für KInternationalisierung von Studiengängen und ist ein Pilotprojekt
 an der TH Lübeck, eine KI-Plattform für Lehre und Studium. Sie deckt zwei
-getrennte Bereiche ab: eigenständige Werkzeuge und Module mit einem
+getrennte Bereiche ab: eigenständige Dienste und Module mit einem
 KI-Studienassistenten.
 
-## Die Werkzeuge
+## Die Dienste
 
-Sieben Werkzeuge für einzelne Aufgaben, unabhängig von Modulen: Datei hochladen,
+Sieben Dienste für einzelne Aufgaben, unabhängig von Modulen: Datei hochladen,
 Ergebnis herunterladen.
 
 - **Übersetzung** überträgt Dokumente in eine andere Sprache und behält das Layout
@@ -26,5 +26,5 @@ noch lernen.
 
 ## Für wen
 
-Lehrende legen Module an und laden über einen Link ein. Die Werkzeuge stehen
+Lehrende legen Module an und laden über einen Link ein. Die Dienste stehen
 jedem Konto offen, welche davon, entscheidet die Verwaltung der Hochschule.

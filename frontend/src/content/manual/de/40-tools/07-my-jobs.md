@@ -1,6 +1,6 @@
 # Meine Jobs
 
-Jeder Auftrag an ein Werkzeug ist ein Job. Die Jobliste zeigt, was läuft, was fertig ist und was
+Jeder Auftrag an einen Dienst ist ein Job. Die Jobliste zeigt, was läuft, was fertig ist und was
 schiefging.
 
 ![Die Jobliste](/manual/{lang}/my-jobs.png)
@@ -12,7 +12,7 @@ Aufmerksamkeit braucht.
 
 ## Was Sie dort tun
 
-Nach Werkzeug, Zeitraum oder Dateinamen filtern. Fertige Ergebnisse herunterladen.
+Nach Dienst, Zeitraum oder Dateinamen filtern. Fertige Ergebnisse herunterladen.
 Fehlgeschlagene Aufträge wiederholen.
 
 ## Zustände

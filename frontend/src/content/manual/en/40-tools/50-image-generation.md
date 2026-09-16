@@ -1,8 +1,8 @@
 # Image generation
 
-Three things in one tool, switched with the tabs on top.
+Three things in one service, switched with the tabs on top.
 
-![The image generation tool](/manual/{lang}/tool-image.png)
+![The image generation service](/manual/{lang}/tool-image.png)
 
 - **Text to image**: you describe a picture and it is created
 - **Edit image**: you upload a picture and describe the change you want

@@ -3,8 +3,8 @@
 MESSAGES: dict[str, dict[str, str]] = {
     # Tool visibility
     "admin.tools.unknownKey": {
-        "de": "Unbekanntes Werkzeug",
-        "en": "Unknown tool",
+        "de": "Unbekannter Dienst",
+        "en": "Unknown service",
     },
     # Settings
     "admin.settings.unknownPingService": {
