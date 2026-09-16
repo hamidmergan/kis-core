@@ -39,8 +39,8 @@ export default function StartOverview({ firstName, targets }: { firstName: strin
   const tools = targets.filter((z): z is ToolTarget => z.kind === "tool");
   const headingClass = "text-sm font-semibold uppercase tracking-wider";
   const gridClass = "grid gap-4 sm:grid-cols-2 lg:grid-cols-3";
-  const audienceTags = (audience: readonly Audience[], section: "tools" | "aia") =>
-    audience.map((a) => ({ label: t(`audience.${a}`), hint: t(`audienceHint.${section}.${a}`) }));
+  const audienceTags = (audience: readonly Audience[]) =>
+    audience.map((a) => ({ label: t(`audience.${a}`), hint: t(`audienceHint.${a}`) }));
 
   return (
     <div className="page-shell pt-6 pb-20 lg:pt-15 lg:pb-30">
@@ -56,7 +56,7 @@ export default function StartOverview({ firstName, targets }: { firstName: strin
             <section className="flex flex-col gap-2">
               <div className="flex items-center gap-2">
                 <h2 className={headingClass}>{t("groups.aia")}</h2>
-                <AudienceTags tags={audienceTags(AIA_AUDIENCE, "aia")} />
+                <AudienceTags tags={audienceTags(AIA_AUDIENCE)} />
               </div>
               <div className={gridClass}>
                 <StartTile
@@ -74,7 +74,7 @@ export default function StartOverview({ firstName, targets }: { firstName: strin
             <section className="flex flex-col gap-2">
               <div className="flex items-center gap-2">
                 <h2 className={headingClass}>{t("groups.tools")}</h2>
-                <AudienceTags tags={audienceTags(TOOLS_AUDIENCE, "tools")} />
+                <AudienceTags tags={audienceTags(TOOLS_AUDIENCE)} />
               </div>
               <div className={gridClass}>
                 {tools.map((z) => (
