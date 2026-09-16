@@ -509,13 +509,16 @@
       "saved": {
         "title": "Past conversations",
         "intro": "Every conversation you start is saved. Open one to read it again or to continue.",
+        "rule": "The last {max} conversations are kept. When a new one starts, the one untouched longest drops out.",
+        "full": "{max} of {max} conversations. The next new conversation deletes the bottom entry of this list.",
         "empty": "No saved conversation yet.",
         "current": "open right now",
         "sentences": "{count, plural, =1 {one sentence} other {# sentences}}",
         "delete": "Delete conversation",
         "close": "Close",
         "untitled": "No sentence yet",
-        "ended": "ended"
+        "ended": "ended",
+        "nextOut": "drops out next"
       }
     },
     "tts": {

@@ -34,3 +34,11 @@ export function charState(chars: number): CharState {
   if (chars >= CHAR_WARN_AT) return "near";
   return "ok";
 }
+
+/** How many conversations stay at the account, the one untouched longest drops out. */
+export const MAX_SESSIONS = 100;
+
+/** True once the next new conversation pushes the last entry of the list out. */
+export function sessionsFull(count: number): boolean {
+  return count >= MAX_SESSIONS;
+}

@@ -6,11 +6,13 @@ from datetime import datetime
 import psycopg2.extras
 
 from src.core.db.pool import get_connection
+from src.limits import MAX_INTERPRETER_SESSIONS
 
 SESSION_FIELDS = ("left_lang", "right_lang", "left_name", "right_name", "ended_at")
 
 
 def create_session(owner_id: int, left_lang: str, right_lang: str, left_name: str, right_name: str) -> dict:
+    """The new conversation is written, then the owner is trimmed back to the pool."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
@@ -20,8 +22,21 @@ def create_session(owner_id: int, left_lang: str, right_lang: str, left_name: st
                 (uuid.uuid4().hex, owner_id, left_lang, right_lang, left_name, right_name),
             )
             row = dict(cur.fetchone())
+            _evict_oldest(cur, owner_id)
         conn.commit()
         return row
+
+
+def _evict_oldest(cur, owner_id: int, cap: int = MAX_INTERPRETER_SESSIONS) -> int:
+    """Everything past the newest cap conversations goes, sentences follow by cascade."""
+    cur.execute(
+        """DELETE FROM interpreter_sessions
+            WHERE owner_id = %s
+              AND id NOT IN (SELECT id FROM interpreter_sessions
+                             WHERE owner_id = %s ORDER BY updated_at DESC LIMIT %s)""",
+        (owner_id, owner_id, cap),
+    )
+    return cur.rowcount
 
 
 def get_session(session_id: str) -> dict | None:
@@ -32,7 +47,7 @@ def get_session(session_id: str) -> dict | None:
             return dict(row) if row else None
 
 
-def list_sessions(owner_id: int, limit: int = 50) -> list[dict]:
+def list_sessions(owner_id: int, limit: int = MAX_INTERPRETER_SESSIONS) -> list[dict]:
     """The owner's conversations, newest first, with the first sentence and the count."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:

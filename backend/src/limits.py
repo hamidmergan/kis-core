@@ -40,6 +40,9 @@ MAX_RESULT_FILES            = 100   # jobs kept per user (oldest beyond this is 
 JOB_WATCHDOG_MINUTES        = 10    # job is stuck when no finished unit reported it for X minutes
 AWAITING_USER_TIMEOUT_HOURS = 168   # awaiting_user and paused jobs idle for longer are abandoned
 
+# Conversations of the interpreter, kept at the account, the least recently used drops out.
+MAX_INTERPRETER_SESSIONS    = 100
+
 # A failed stage resumes by itself this often, then the job pauses and waits for the person.
 MAX_AUTO_RESUMES       = 3
 RETRY_BACKOFF_SECONDS  = (60, 180, 600)

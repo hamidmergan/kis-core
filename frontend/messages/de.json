@@ -509,13 +509,16 @@
       "saved": {
         "title": "Frühere Gespräche",
         "intro": "Jedes begonnene Gespräch wird gespeichert. Öffne eines, um es nachzulesen oder weiterzuführen.",
+        "rule": "Behalten werden die letzten {max} Gespräche. Kommt ein neues dazu, fällt das am längsten unbenutzte heraus.",
+        "full": "{max} von {max} Gesprächen. Das nächste neue Gespräch löscht den untersten Eintrag dieser Liste.",
         "empty": "Noch kein gespeichertes Gespräch.",
         "current": "gerade offen",
         "sentences": "{count, plural, =1 {ein Satz} other {# Sätze}}",
         "delete": "Gespräch löschen",
         "close": "Schließen",
         "untitled": "Ohne Satz",
-        "ended": "beendet"
+        "ended": "beendet",
+        "nextOut": "fällt als Nächstes heraus"
       }
     },
     "tts": {
