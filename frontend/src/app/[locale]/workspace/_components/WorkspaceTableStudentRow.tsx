@@ -62,18 +62,20 @@ export default function WorkspaceTableStudentRow({
     ? <WorkspaceMenu testId="demo-row-menu" onLeave={() => onLeave(workspace.uuid)} />
     : null;
 
+  // On a phone the second line only exists when it carries something.
+  const zweiteZeile = Boolean(status) || Boolean(menu);
   const open = () => { if (!closed) navigate(() => router.push(href)); };
   // Every way in is dropped instead of only disabled, the new tab included.
   const zellenKlasse = closed ? "" : "cursor-pointer";
 
   return (
     <tr
-      className={`border-b border-border-soft transition-colors ${closed ? "" : "hover:bg-surface"}`}
+      className={`grid grid-cols-[minmax(0,1fr)_auto] border-b border-border-soft transition-colors sm:table-row ${closed ? "" : "hover:bg-surface"}`}
       style={closed ? { opacity: 0.55 } : undefined}
       onMouseEnter={() => { if (!closed) router.prefetch(href); }}
     >
       <td
-        className={`px-4 py-3 w-full max-w-0 ${zellenKlasse}`}
+        className={`col-start-1 row-start-1 min-w-0 px-4 pt-3 ${zweiteZeile ? "pb-0" : "pb-3"} sm:w-full sm:max-w-0 sm:pb-3 ${zellenKlasse}`}
         onClick={open}
         onMouseDown={(e) => { if (!closed && e.button === 1) { e.preventDefault(); window.open(`/${locale}${href}`, "_blank"); } }}
       >
@@ -90,11 +92,11 @@ export default function WorkspaceTableStudentRow({
           )}
         </span>
         {workspace.description && <WorkspaceDescription text={workspace.description} />}
-        {/* A phone has no status column, so the state lives under the title there. */}
-        {status && <span className={`block mt-0.5 ${manageColumns ? "sm:hidden" : ""}`}>{status}</span>}
+        {/* Without a status column the state keeps its old place under the title on a desktop. */}
+        {!manageColumns && status && <span className="hidden sm:block mt-0.5">{status}</span>}
       </td>
       <td
-        className={`pl-2 pr-2 sm:pl-6 py-3 text-right tabular-nums text-foreground-soft ${manageColumns ? "sm:pr-4" : "sm:pr-1"} ${zellenKlasse}`}
+        className={`col-start-2 row-start-1 pl-2 pr-4 pt-3 ${zweiteZeile ? "pb-0" : "pb-3"} sm:pl-6 sm:pb-3 text-right tabular-nums text-foreground-soft ${manageColumns ? "sm:pr-4" : "sm:pr-1"} ${zellenKlasse}`}
         onClick={open}
       >
         {workspace.source_count}
@@ -104,8 +106,14 @@ export default function WorkspaceTableStudentRow({
           {status}
         </td>
       )}
-      <td className={`pl-2 pr-2 sm:pr-4 py-3 ${manageColumns ? "sm:pl-20" : "sm:pl-3"}`}>
-        {menu && <div className="flex justify-center">{menu}</div>}
+      <td
+        className={`col-span-2 row-start-2 pl-4 pr-4 ${zweiteZeile ? "pt-1.5 pb-3" : "pt-0 pb-0"} sm:pt-3 sm:pb-3 sm:pr-4 ${manageColumns ? "sm:pl-20" : "sm:pl-3"}`}
+      >
+        <div className="flex items-center justify-between gap-1.5 sm:justify-center">
+          {/* A phone has no status column, so the state stands next to the menu instead. */}
+          <span className="sm:hidden">{status}</span>
+          <span className="flex items-center">{menu}</span>
+        </div>
       </td>
     </tr>
   );

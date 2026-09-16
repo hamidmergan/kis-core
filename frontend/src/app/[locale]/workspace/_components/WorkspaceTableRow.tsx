@@ -52,12 +52,13 @@ export default function WorkspaceTableRow({
         deleteParticipantCount={a.deleteParticipantCount}
       />
 
+      {/* On a phone the row is two lines: title and material count on top, switch and buttons below. */}
       <tr
-        className="border-b border-border-soft transition-colors hover:bg-surface"
+        className="grid grid-cols-[minmax(0,1fr)_auto] border-b border-border-soft transition-colors hover:bg-surface sm:table-row"
         onMouseEnter={a.handlePrefetch}
       >
         <td
-          className="px-4 py-3 cursor-pointer w-full max-w-0"
+          className="col-start-1 row-start-1 min-w-0 px-4 pt-3 pb-0 cursor-pointer sm:w-full sm:max-w-0 sm:pb-3"
           onClick={a.handleOpen}
           onMouseDown={(e) => { if (e.button === 1) { e.preventDefault(); window.open(a.moduleHref, "_blank"); } }}
         >
@@ -83,22 +84,9 @@ export default function WorkspaceTableRow({
             )}
           </span>
           {workspace.description && <WorkspaceDescription text={workspace.description} />}
-          {/* Without a status column the switch still has to be reachable on a phone. */}
-          {/* w-fit keeps the click blocker on the switch, the rest of the line still opens the module. */}
-          <span
-            className="mt-1.5 flex w-fit sm:hidden"
-            onClick={(e) => e.stopPropagation()}
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            <ActiveToggle
-              active={workspace.is_active}
-              disabled={a.toggling}
-              onToggle={(v) => a.handleToggle(v)}
-            />
-          </span>
         </td>
         <td
-          className="pl-2 pr-2 sm:pl-6 sm:pr-4 py-3 text-right tabular-nums text-foreground-soft cursor-pointer"
+          className="col-start-2 row-start-1 pl-2 pr-4 pt-3 pb-0 sm:pl-6 sm:pr-4 sm:pb-3 text-right tabular-nums text-foreground-soft cursor-pointer"
           onClick={a.handleOpen}
           onMouseDown={(e) => { if (e.button === 1) { e.preventDefault(); window.open(a.moduleHref, "_blank"); } }}
         >
@@ -114,22 +102,37 @@ export default function WorkspaceTableRow({
             onToggle={(v) => a.handleToggle(v)}
           />
         </td>
-        <td className="pl-2 pr-2 sm:pl-20 sm:pr-4 py-3">
-          <div className="flex items-center justify-center gap-1.5">
-            {/* Owner and tutor read the numbers of the whole module here, everybody else only their own. */}
-            <IconButton
-              onClick={(e: React.MouseEvent) => { e.stopPropagation(); a.setShowStats(true); }}
-              title={t("statsOpen")}
-              data-testid="workspace-stats"
+        <td className="col-span-2 row-start-2 pl-4 pr-4 pt-1.5 pb-3 sm:pl-20 sm:pr-4 sm:pt-3 sm:pb-3">
+          <div className="flex items-center justify-between gap-1.5 sm:justify-center">
+            {/* Without a status column the switch still has to be reachable on a phone. */}
+            {/* w-fit keeps the click blocker on the switch, the rest of the line still opens the module. */}
+            <span
+              className="flex w-fit sm:hidden"
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
             >
-              <ChartBar size={13} weight="bold" />
-            </IconButton>
-            <WorkspaceMenu
-              onParticipants={() => setShowParticipants(true)}
-              onLinks={() => a.setShowLinks(true)}
-              onEdit={() => a.setEditOpen(true)}
-              onDelete={isOwner ? a.handleDeleteClick : undefined}
-            />
+              <ActiveToggle
+                active={workspace.is_active}
+                disabled={a.toggling}
+                onToggle={(v) => a.handleToggle(v)}
+              />
+            </span>
+            <span className="flex items-center gap-1.5">
+              {/* Owner and tutor read the numbers of the whole module here, everybody else only their own. */}
+              <IconButton
+                onClick={(e: React.MouseEvent) => { e.stopPropagation(); a.setShowStats(true); }}
+                title={t("statsOpen")}
+                data-testid="workspace-stats"
+              >
+                <ChartBar size={13} weight="bold" />
+              </IconButton>
+              <WorkspaceMenu
+                onParticipants={() => setShowParticipants(true)}
+                onLinks={() => a.setShowLinks(true)}
+                onEdit={() => a.setEditOpen(true)}
+                onDelete={isOwner ? a.handleDeleteClick : undefined}
+              />
+            </span>
           </div>
         </td>
       </tr>

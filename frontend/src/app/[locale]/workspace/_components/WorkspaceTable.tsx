@@ -64,10 +64,11 @@ export default function WorkspaceTable({
         <div className="overflow-x-auto">
           <table className={`w-full text-sm ${manageColumns ? "sm:min-w-160" : "min-w-80"}`}>
             <thead>
-              <tr className="border-b border-border-soft text-left text-xs text-muted uppercase">
-                <th className="px-4 py-2">{labels.singular}</th>
+              {/* The head follows the two-line row of a phone: name left, material count right. */}
+              <tr className="grid grid-cols-[minmax(0,1fr)_auto] border-b border-border-soft text-left text-xs text-muted uppercase sm:table-row">
+                <th className="col-start-1 row-start-1 px-4 py-2">{labels.singular}</th>
                 {/* On a phone the long word would eat the module column, so it becomes its icon. */}
-                <th className={`pl-2 pr-2 sm:pl-6 py-2 text-right ${manageColumns ? "sm:pr-4" : "sm:pr-1"}`}>
+                <th className={`col-start-2 row-start-1 pl-2 pr-4 sm:pl-6 py-2 text-right ${manageColumns ? "sm:pr-4" : "sm:pr-1"}`}>
                   <span className="hidden sm:inline">{t("colSources")}</span>
                   <span className="sm:hidden inline-flex align-middle" title={t("colSources")}>
                     <Files size={14} weight="bold" />
@@ -82,7 +83,7 @@ export default function WorkspaceTable({
                     </span>
                   </th>
                 )}
-                <th className={`pl-2 pr-2 sm:pr-4 py-2 ${manageColumns ? "sm:pl-20" : "sm:pl-3"}`}></th>
+                <th className={`hidden sm:table-cell pr-4 py-2 ${manageColumns ? "sm:pl-20" : "sm:pl-3"}`}></th>
               </tr>
             </thead>
             <tbody>
@@ -91,7 +92,7 @@ export default function WorkspaceTable({
                 return (
                   <React.Fragment key={`${m.uuid}-${m.access}-${m.enrollment_id ?? "o"}`}>
                     {heading && (
-                      <tr className="bg-surface border-b border-border-soft">
+                      <tr className="grid bg-surface border-b border-border-soft sm:table-row">
                         <th
                           colSpan={4}
                           scope="colgroup"
