@@ -2,7 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { ChatCircleDots, Presentation } from "@phosphor-icons/react";
-import { AIA_AUDIENCE, TOOL_AUDIENCE, type Audience, type HomeTarget } from "@/lib/modules";
+import { AIA_AUDIENCE, TOOLS_AUDIENCE, type Audience, type HomeTarget } from "@/lib/modules";
 import { TOOL_ICONS } from "@/lib/toolIcons";
 import { Greeting } from "@/app/[locale]/workspace/_components/Greeting";
 import { EvaluationInvite } from "@/app/[locale]/workspace/_components/EvaluationInvite";
@@ -12,6 +12,23 @@ import { StartTile } from "./StartTile";
 const COMING_TOOLS = [{ key: "slides", icon: Presentation }] as const;
 
 type ToolTarget = Extract<HomeTarget, { kind: "tool" }>;
+
+/** Who a group addresses, shown once next to its heading. */
+function AudienceTags({ labels }: { labels: string[] }) {
+  return (
+    <>
+      {labels.map((label) => (
+        <span
+          key={label}
+          className="text-2xs font-medium px-1.5 py-0.5 rounded-full border border-border-soft"
+          style={{ backgroundColor: "var(--badge-slate-bg)", color: "var(--badge-slate-fg)" }}
+        >
+          {label}
+        </span>
+      ))}
+    </>
+  );
+}
 
 /** The start page for everyone with more than one place to go: the assistant first, then every tool. */
 export default function StartOverview({ firstName, targets }: { firstName: string; targets: HomeTarget[] }) {
@@ -34,14 +51,16 @@ export default function StartOverview({ firstName, targets }: { firstName: strin
         <div className="flex flex-col gap-8" data-testid="start-overview">
           {aia && (
             <section className="flex flex-col gap-2">
-              <h2 className={headingClass}>{t("groups.aia")}</h2>
+              <div className="flex items-center gap-2">
+                <h2 className={headingClass}>{t("groups.aia")}</h2>
+                <AudienceTags labels={audienceLabels(AIA_AUDIENCE)} />
+              </div>
               <div className={gridClass}>
                 <StartTile
                   href={aia.href}
                   icon={ChatCircleDots}
                   title={t("aia.title")}
                   body={t("aia.body")}
-                  audience={audienceLabels(AIA_AUDIENCE)}
                   testId="start-tile-aia"
                 />
               </div>
@@ -50,7 +69,10 @@ export default function StartOverview({ firstName, targets }: { firstName: strin
 
           {tools.length > 0 && (
             <section className="flex flex-col gap-2">
-              <h2 className={headingClass}>{t("groups.tools")}</h2>
+              <div className="flex items-center gap-2">
+                <h2 className={headingClass}>{t("groups.tools")}</h2>
+                <AudienceTags labels={audienceLabels(TOOLS_AUDIENCE)} />
+              </div>
               <div className={gridClass}>
                 {tools.map((z) => (
                   <StartTile
@@ -59,7 +81,6 @@ export default function StartOverview({ firstName, targets }: { firstName: strin
                     icon={TOOL_ICONS[z.key]}
                     title={t(`tools.${z.key}.title`)}
                     body={t(`tools.${z.key}.body`)}
-                    audience={audienceLabels(TOOL_AUDIENCE[z.key])}
                     testId={`start-tile-${z.key}`}
                   />
                 ))}

@@ -11,13 +11,11 @@ interface Props {
   title: string;
   body: string;
   badge?: string;
-  /** Already-translated labels for who the tile addresses, e.g. "Lehrende". */
-  audience?: string[];
   testId: string;
 }
 
 /** The whole tile is the link, hover only recolours the border. */
-export function StartTile({ href, icon: Icon, title, body, badge, audience, testId }: Props) {
+export function StartTile({ href, icon: Icon, title, body, badge, testId }: Props) {
   const shell =
     "flex items-center gap-4 border-2 border-[var(--tile-border)] rounded-2xl bg-[var(--tile-bg)] p-5 text-foreground";
   const inner = (
@@ -48,19 +46,6 @@ export function StartTile({ href, icon: Icon, title, body, badge, audience, test
           )}
         </div>
         <p className="text-sm leading-[21px] text-foreground-soft mt-1">{body}</p>
-        {audience && audience.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-2">
-            {audience.map((label) => (
-              <span
-                key={label}
-                className="text-2xs font-medium px-1.5 py-0.5 rounded-full border border-border-soft"
-                style={{ backgroundColor: "var(--badge-slate-bg)", color: "var(--badge-slate-fg)" }}
-              >
-                {label}
-              </span>
-            ))}
-          </div>
-        )}
       </div>
     </>
   );

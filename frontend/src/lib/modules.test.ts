@@ -1,12 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  AIA_AUDIENCE,
-  TOOL_AUDIENCE,
-  TOOL_ROUTES,
-  homeTargets,
-  enabledToolKeys,
-  sichtbareWerkzeuge,
-} from "./modules";
+import { AIA_AUDIENCE, TOOLS_AUDIENCE, homeTargets, enabledToolKeys, sichtbareWerkzeuge } from "./modules";
 import { EMPTY_PERMS } from "./permissions";
 
 const mitAia = { ...EMPTY_PERMS, allow_aia: true };
@@ -121,11 +114,9 @@ describe("enabledToolKeys", () => {
   });
 });
 
-describe("TOOL_AUDIENCE", () => {
-  it("nennt fuer jedes Werkzeug nur Lehrende", () => {
-    for (const { key } of TOOL_ROUTES) {
-      expect(TOOL_AUDIENCE[key]).toEqual(["lehrende"]);
-    }
+describe("TOOLS_AUDIENCE", () => {
+  it("nennt nur Lehrende", () => {
+    expect(TOOLS_AUDIENCE).toEqual(["lehrende"]);
   });
 });
 

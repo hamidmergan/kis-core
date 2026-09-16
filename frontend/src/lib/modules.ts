@@ -17,23 +17,13 @@ export const TOOL_ROUTES = [
 
 export type ToolKey = (typeof TOOL_ROUTES)[number]["key"];
 
-/** Who a tool addresses: teaching staff, students, or both. */
+/** Who a start page group addresses: teaching staff, students, or both. */
 export type Audience = "lehrende" | "studierende";
 
-/** Every standalone tool addresses teaching staff only for now. */
-export const TOOL_AUDIENCE: Record<ToolKey, readonly Audience[]> = {
-  translation: ["lehrende"],
-  interpreter: ["lehrende"],
-  tts: ["lehrende"],
-  transcription: ["lehrende"],
-  image: ["lehrende"],
-  summary: ["lehrende"],
-  glossary: ["lehrende"],
-  screencast: ["lehrende"],
-  podcast: ["lehrende"],
-};
+/** The tools group addresses teaching staff only for now. */
+export const TOOLS_AUDIENCE: readonly Audience[] = ["lehrende"];
 
-/** The assistant is the only target reaching teaching staff and students alike. */
+/** The assistant is the only group reaching teaching staff and students alike. */
 export const AIA_AUDIENCE: readonly Audience[] = ["lehrende", "studierende"];
 
 export type HomeTarget =
