@@ -3121,6 +3121,10 @@
         "expand": "Mehr anzeigen",
         "collapse": "Einklappen",
         "sourcesCount": "{n, plural, =1 {1 Material} other {# Materialien}}",
+        "phases": {
+          "searching": "Modul wird durchsucht",
+          "generating": "Antwort wird erstellt"
+        },
         "indexingInProgress": "{label} wird noch indiziert. Bitte warte einen Moment und versuche es erneut.",
         "tooManyRequests": "Zu viele Anfragen. Bitte einen Moment warten und erneut senden.",
         "genericError": "Es ist ein Fehler aufgetreten.",
