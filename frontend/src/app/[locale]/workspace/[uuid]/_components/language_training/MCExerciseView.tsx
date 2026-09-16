@@ -178,8 +178,10 @@ export function MCExerciseView({
             <div className="h-full transition-all duration-500 rounded-r-full" style={{ width: `${progressPct}%`, backgroundColor: "var(--kb)" }} />
           </div>
           {/* Question Card */}
-          <div className="flex-1 overflow-y-auto p-4">
-            <div className="mx-auto mt-4 sm:mt-6 w-full flex flex-col gap-3" style={{ maxWidth: 560 }}>
+          {/* Gescrollt wird aussen, zentriert innen: der Block waechst bei langer
+              Aufgabe mit, statt oben abgeschnitten zu werden. */}
+          <div className="flex-1 overflow-y-auto p-4 flex flex-col">
+            <div className="flex-1 mx-auto w-full flex flex-col justify-center gap-3" style={{ maxWidth: 560 }}>
               <div className="rounded-2xl flex flex-col gap-4 overflow-hidden" style={{ backgroundColor: "var(--surface)", boxShadow: "0 4px 20px rgba(0,40,60,0.08)" }}>
                 <div className="px-6 pt-5 pb-6 flex flex-col gap-4">
                   {/* Question text */}
@@ -316,12 +318,14 @@ export function MCExerciseView({
               <ExerciseNav index={index} total={total}
                 onPrev={() => goTo(index - 1)} onNext={advance}
                 backLabel={t("common.back")} nextLabel={t("common.next")} finishLabel={t("common.finish")} />
+            </div>
 
+            {/* Steht hinter dem wachsenden Block und landet dadurch immer unten. */}
+            <div className="mx-auto w-full shrink-0 pt-5" style={{ maxWidth: 560 }}>
               <SetSourceLegend
                 sources={exerciseSet.sources}
                 items={exerciseSet.items}
                 onSourceClick={(f) => onSourceClick?.(f, 1)}
-                className="pt-1"
               />
             </div>
           </div>

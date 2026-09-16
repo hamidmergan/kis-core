@@ -327,6 +327,13 @@ def bulk_record_exercise_progress(
             # The one catches the case where the very first answer never arrived.
             run_no = hoechste + 1 if new_run else max(hoechste, 1)
             for r in results:
+                # A card answered again in the same round is a correction, not a
+                # second answer, so the old verdict goes before the new one lands.
+                cur.execute(
+                    "DELETE FROM aia_exercise_progress "
+                    "WHERE set_id = %s AND item_id = %s AND user_id = %s AND run_no = %s",
+                    (set_id, r["item_id"], user_id, run_no),
+                )
                 cur.execute(
                     """INSERT INTO aia_exercise_progress
                        (set_id, item_id, user_id, correct, run_no)

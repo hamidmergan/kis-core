@@ -2825,6 +2825,7 @@
           "showAnswer": "Antwort zeigen",
           "showQuestion": "Frage zeigen",
           "knew": "Gewusst",
+          "notKnew": "Nicht gewusst",
           "know": "Gewusst!",
           "minimizePanel": "Panel minimieren",
           "correctShort": "Richtig!",
