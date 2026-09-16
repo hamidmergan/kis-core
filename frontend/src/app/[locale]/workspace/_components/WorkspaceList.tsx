@@ -8,6 +8,8 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import CreateWorkspaceModal from "./CreateWorkspaceModal";
 import WorkspaceTable from "./WorkspaceTable";
 import DemoModal from "./DemoModal";
+import DemoHintModal from "./DemoHintModal";
+import { DemoInvite } from "./DemoInvite";
 import JoinModuleModal from "./JoinModuleModal";
 import JoinSection from "./JoinSection";
 import { useDemoWorkspaces } from "./useDemoWorkspaces";
@@ -28,6 +30,7 @@ export default function WorkspaceList({ canCreate }: Props) {
   const [showCreate, setShowCreate] = useState(false);
   const [showDemo, setShowDemo] = useState(false);
   const [showJoin, setShowJoin] = useState(false);
+  const [showHint, setShowHint] = useState(false);
   const demo = useDemoWorkspaces();
 
   const load = useCallback(async () => {
@@ -120,6 +123,9 @@ export default function WorkspaceList({ canCreate }: Props) {
     await load();
   }
 
+  // The safety net for a list that stayed empty, whatever the reason was.
+  const demoOffen = demo.items.filter((m) => !m.owned && !m.joined);
+
   const heading = workspaces.some((m) => !canManage(m.access))
     ? t("allWorkspaces", { label: labels.plural })
     : t("myWorkspaces", { label: labels.plural });
@@ -160,6 +166,13 @@ export default function WorkspaceList({ canCreate }: Props) {
           </div>
         </div>
 
+        <DemoHintModal
+          open={showHint}
+          busy={demo.busy !== null}
+          onJoin={async () => { await demoJoin(null); setShowHint(false); }}
+          onClose={() => setShowHint(false)}
+        />
+
         <DemoModal
           open={showDemo}
           onClose={() => setShowDemo(false)}
@@ -180,11 +193,12 @@ export default function WorkspaceList({ canCreate }: Props) {
             title={canCreate ? t("emptyTitle", { label: labels.plural }) : t("noEnrollments")}
             text={canCreate ? t("emptyText") : t("noEnrollmentsText")}
             action={
-              canCreate ? undefined : (
-                <div className="w-full max-w-sm">
-                  <JoinSection compact />
-                </div>
-              )
+              <div className="w-full max-w-sm flex flex-col gap-4">
+                {!canCreate && <JoinSection compact />}
+                {demoOffen.length > 0 && (
+                  <DemoInvite onOpen={() => setShowHint(true)} />
+                )}
+              </div>
             }
           />
         ) : (

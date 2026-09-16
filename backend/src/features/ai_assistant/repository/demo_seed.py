@@ -17,3 +17,18 @@ def claim_demo_seeding(workspace_id: int, user_id: int) -> bool:
             row = cur.fetchone()
         conn.commit()
     return row is not None
+
+
+def delete_demo_seed_marks_of_owner(owner_id: int) -> int:
+    """Drops the marks for this account's modules so a later demo comeback reaches everyone again."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """DELETE FROM aia_demo_seeded ds
+                    USING aia_workspaces m
+                    WHERE ds.workspace_id = m.id AND m.user_id = %s""",
+                (owner_id,),
+            )
+            anzahl = cur.rowcount
+        conn.commit()
+    return anzahl

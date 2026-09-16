@@ -3745,6 +3745,15 @@
       "descriptionLess": "Beschreibung einklappen",
       "tourModuleLabel": "Modul für den Rundgang",
       "tourModuleHint": "Der Rundgang startet in diesem Modul. Jedes andere Demo-Modul verliert den Haken."
+    },
+    "demoHint": {
+      "title": "Noch kein Modul",
+      "body": "Deine Modulliste ist leer. Füge dir das Demo-Modul hinzu und probier es in Ruhe aus. Es enthält fertige Materialien, den KI-Assistenten Francis und die Tools im Studienbereich.",
+      "join": "Demo-Modul hinzufügen",
+      "dialogTitle": "Demo-Modul hinzufügen",
+      "dialogBody": "Du wirst in das Demo-Modul eingeschrieben und findest es danach in deiner Modulliste. Verlassen kannst du es jederzeit über das Menü in der Modulzeile.",
+      "confirm": "Hinzufügen",
+      "cancel": "Abbrechen"
     }
   },
   "welcomeModal": {

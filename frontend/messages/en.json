@@ -3745,6 +3745,15 @@
       "descriptionLess": "Collapse the description",
       "tourModuleLabel": "Module for the guided tour",
       "tourModuleHint": "The guided tour starts in this module. Every other demo module loses the tick."
+    },
+    "demoHint": {
+      "title": "No module yet",
+      "body": "Your module list is empty. Add the demo module and take your time trying it out. It comes with ready-made materials, the AI assistant Francis and the tools in the study area.",
+      "join": "Add demo module",
+      "dialogTitle": "Add demo module",
+      "dialogBody": "You will be enrolled in the demo module and find it in your module list afterwards. You can leave it any time from the menu in its row.",
+      "confirm": "Add",
+      "cancel": "Cancel"
     }
   },
   "welcomeModal": {
