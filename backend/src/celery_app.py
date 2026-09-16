@@ -88,6 +88,12 @@ celery_app.conf.update(
             "schedule": crontab(hour=4, minute=15),
             "options": {"queue": "general"},
         },
+        # Removes test accounts locked longer than the grace period, after the backup.
+        "cleanup-delete-expired-access-accounts": {
+            "task": "cleanup.delete_expired_access_accounts",
+            "schedule": crontab(hour=4, minute=45),
+            "options": {"queue": "general"},
+        },
         # Spoken example sentences nobody has listened to for a long time.
         "cleanup-speech-cache": {
             "task": "cleanup.speech_cache",

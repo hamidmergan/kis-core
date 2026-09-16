@@ -2530,7 +2530,13 @@
       "activityNoContent": "(no content)",
       "activityFailed": "Failed",
       "activityAborted": "Stopped",
-      "close": "Close"
+      "close": "Close",
+      "colDeleteAt": "Deletion on",
+      "deleteNever": "no date",
+      "deleteAfterTitle": "Delete expired test accounts",
+      "deleteAfterHint": "Once the lifetime runs out a test account is locked and stays readable for you. After this grace period a nightly run deletes the account together with its modules, chats and files. Evaluation answers stay on anonymously. Zero never deletes.",
+      "deleteAfterUnit": "days after expiry",
+      "deleteAfterOutOfRange": "The grace period must be between 0 and 3650 days."
     },
     "createAccessCode": {
       "title": "Create access code",

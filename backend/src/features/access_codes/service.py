@@ -1,6 +1,6 @@
 """Pure rules around an access code, without database and without LDAP."""
 import secrets
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # No 0, O, 1, I or L, the code gets read out on the phone.
 _ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
@@ -57,3 +57,10 @@ def user_status_of(*, active: bool, access_expires_at: datetime | None, now: dat
     if not active:
         return "disabled"
     return "active"
+
+
+def deletion_due_at(*, access_expires_at: datetime | None, grace_days: int) -> datetime | None:
+    """When the sweep removes this account, or None while nothing will ever remove it."""
+    if access_expires_at is None or grace_days <= 0:
+        return None
+    return access_expires_at + timedelta(days=grace_days)

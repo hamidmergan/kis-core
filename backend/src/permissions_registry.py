@@ -199,6 +199,7 @@ SYSTEM_ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
 # Which settings field belongs to which right, unknown ones count as admin business.
 SETTING_FIELD_PERMISSIONS: dict[str, str] = {
     "whitelist_enabled": PERM_SET_USERS_WHITELIST,
+    "access_account_delete_after_days": PERM_SET_USERS_ALL,
     "screencast_max_slides": PERM_SET_TOOLS_LIMITS,
     "transcription_max_minutes": PERM_SET_TOOLS_LIMITS,
     "upload_max_mb": PERM_SET_TOOLS_LIMITS,

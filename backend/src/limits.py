@@ -40,6 +40,9 @@ MAX_RESULT_FILES            = 100   # jobs kept per user (oldest beyond this is 
 JOB_WATCHDOG_MINUTES        = 10    # job is stuck when no finished unit reported it for X minutes
 AWAITING_USER_TIMEOUT_HOURS = 168   # awaiting_user and paused jobs idle for longer are abandoned
 
+# A test account from an access code stays locked this long before the sweep removes it.
+ACCESS_ACCOUNT_DELETE_AFTER_DAYS = 30   # 0 switches the sweep off entirely
+
 # Conversations of the interpreter, kept at the account, the least recently used drops out.
 MAX_INTERPRETER_SESSIONS    = 100
 

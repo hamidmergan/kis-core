@@ -4,6 +4,7 @@ from loguru import logger
 
 from src.celery_app import celery_app
 from src.features.access_codes import repository as repo
+from src.features.access_codes.retention import grace_period_days
 from src.storage import cleanup_expired_files
 
 
@@ -64,6 +65,34 @@ def run_lock_expired_access_accounts() -> int:
     except Exception as e:
         logger.warning("Cleanup Testkonten-Sperrung fehlgeschlagen: {}", e)
         return 0
+
+
+@celery_app.task(name="cleanup.delete_expired_access_accounts", queue="general")
+def run_delete_expired_access_accounts() -> int:
+    """Removes locked test accounts once the grace period for the evaluation ran out. Nightly."""
+    from src.features.admin.repository.user_delete import delete_user_completely
+    from src.storage import delete_user_folder
+
+    geloescht = 0
+    try:
+        for user_id in repo.list_accounts_due_for_deletion(grace_period_days()):
+            try:
+                delete_user_completely(user_id)
+            except Exception as e:
+                logger.warning("Testkonto {} nicht geloescht: {}", user_id, e)
+                continue
+            geloescht += 1
+            # Storage comes after the database so an abort stays repeatable.
+            try:
+                delete_user_folder(user_id)
+            except Exception as e:
+                logger.warning("Testkonto {}: Dateien nicht geloescht: {}", user_id, e)
+        if geloescht:
+            logger.info("Cleanup: {} abgelaufene(s) Testkonto/Testkonten geloescht", geloescht)
+        return geloescht
+    except Exception as e:
+        logger.warning("Cleanup Testkonten-Loeschung fehlgeschlagen: {}", e)
+        return geloescht
 
 
 @celery_app.task(name="cleanup.speech_cache", queue="general")
