@@ -4,10 +4,10 @@ Whoever has admin rights finds the entry Admin behind the gear. The menu with th
 the left.
 
 
-- **Tools** with release, jobs and limits
+- **Services** with release, jobs and limits
 - **AI assistant** with the settings for the chat inside the modules
 - **Statistics** with numbers to read
-- **Providers and models** with the access to the AI services
+- **Providers and models** with the access to the AI providers
 - **Users** with access, roles and quotas
 - **System** with maintenance and operations
 - **Mascots** with Hilde and Francis

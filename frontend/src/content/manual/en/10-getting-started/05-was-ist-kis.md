@@ -2,11 +2,11 @@
 
 KIS stands for KInternationalisierung von Studiengängen and is a pilot project
 at TH Lübeck, an AI platform for teaching and study. It covers two separate
-areas: standalone tools and modules with an AI study assistant.
+areas: standalone services and modules with an AI study assistant.
 
-## The tools
+## The services
 
-Seven tools for individual tasks, independent of modules: upload a file,
+Seven services for individual tasks, independent of modules: upload a file,
 download a result.
 
 - **Translation** translates documents into another language and keeps the layout
@@ -25,5 +25,5 @@ still learning the course language.
 
 ## Who it is for
 
-Teaching staff create modules and invite people through a link. The tools are
+Teaching staff create modules and invite people through a link. The services are
 open to every account, which ones depends on the university's administration.

@@ -44,8 +44,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "You may not create new modules.",
     },
     "auth.toolForbidden": {
-        "de": "Du darfst dieses Werkzeug nicht nutzen.",
-        "en": "You may not use this tool.",
+        "de": "Du darfst diesen Dienst nicht nutzen.",
+        "en": "You may not use this service.",
     },
     "auth.permissionRequired": {
         "de": "Dir fehlt die Berechtigung für diesen Bereich.",
@@ -111,8 +111,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "Job expired, no further input was received.",
     },
     "job.upstreamBusy": {
-        "de": "Der KI-Dienst dahinter war gerade überlastet oder nicht erreichbar. Bitte versuche es später noch einmal.",
-        "en": "The AI service behind this was busy or unreachable. Please try again later.",
+        "de": "Der KI-Anbieter dahinter war gerade überlastet oder nicht erreichbar. Bitte versuche es später noch einmal.",
+        "en": "The AI provider behind this was busy or unreachable. Please try again later.",
     },
     "job.unexpectedError": {
         "de": "Unerwarteter Fehler: {error}",
@@ -182,9 +182,9 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "This topic already exists here",
     },
     "grammar.topicServiceDown": {
-        "de": "Der KI-Dienst antwortet gerade nicht. Bitte versuche es in ein paar "
+        "de": "Der KI-Anbieter antwortet gerade nicht. Bitte versuche es in ein paar "
               "Minuten noch einmal, dein Thema ist in Ordnung.",
-        "en": "The AI service is not responding right now. Please try again in a few "
+        "en": "The AI provider is not responding right now. Please try again in a few "
               "minutes, your topic is fine.",
     },
     "grammar.topicNotRecognized": {
@@ -375,7 +375,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "Context budget must be between {min} and {max} characters.",
     },
     "admin.settings.toolContextBudgetOutOfRange": {
-        "de": "Das Kontext-Budget der Überblick-Werkzeuge muss zwischen {min} und {max} Zeichen liegen.",
+        "de": "Das Kontext-Budget der Überblick-Tools muss zwischen {min} und {max} Zeichen liegen.",
         "en": "Overview tools context budget must be between {min} and {max} characters.",
     },
     "admin.settings.exerciseContextBudgetOutOfRange": {
@@ -383,8 +383,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "Exercise tools context budget must be between {min} and {max} characters.",
     },
     "admin.settings.learningToolsLanguageUnknown": {
-        "de": "Unbekannte Sprache für die Lern-Werkzeuge.",
-        "en": "Unknown language for the learning tools.",
+        "de": "Unbekannte Sprache für die Tools.",
+        "en": "Unknown language for the tools.",
     },
     "admin.settings.summaryBatchOutOfRange": {
         "de": "Zusammenfassungs-Häppchen muss zwischen {min} und {max} Zeichen liegen.",

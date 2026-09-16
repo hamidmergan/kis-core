@@ -1,8 +1,8 @@
 # Was der Sprachtrainer ist
 
-![Die drei Werkzeuge des Sprachtrainers im Studio](/manual/{lang}/studio.png)
+![Die drei Tools des Sprachtrainers im Studio](/manual/{lang}/studio.png)
 
-Für alle, die die Kurssprache noch lernen. Drei Werkzeuge im Studio: Lernkarten,
+Für alle, die die Kurssprache noch lernen. Drei Tools im Studio: Lernkarten,
 Wortschatzübungen, Grammatikübungen. Alles aus den Materialien des Moduls, passend zum eigenen
 Niveau.
 
@@ -21,7 +21,7 @@ dem Demo-Modul. Mit Sprachtest starten nehmen Sie ihn an, ab dann gilt er in all
 noch nicht.
 
 Ohne Niveau bleibt er zu. Erst mit einem Niveau, aus dem Sprachtest oder unter Sprachniveau selbst
-festgelegt, erscheinen die drei Werkzeuge im Studio.
+festgelegt, erscheinen die drei Tools im Studio.
 
 ## Was die Verwaltung entscheidet
 

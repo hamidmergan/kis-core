@@ -2,7 +2,7 @@
 
 Liest Texte und Dokumente mit natürlich klingenden Stimmen vor und liefert eine MP3-Datei.
 
-![Das Werkzeug Text in Sprache](/manual/{lang}/tool-text-to-speech.png)
+![Der Dienst Text in Sprache](/manual/{lang}/tool-text-to-speech.png)
 
 ## Zwei Wege hinein
 

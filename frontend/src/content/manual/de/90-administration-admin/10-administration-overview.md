@@ -4,10 +4,10 @@ Wer Adminrechte hat, findet hinter dem Zahnrad den Eintrag Admin. Links steht da
 Bereichen.
 
 
-- **Werkzeuge** mit Freigabe, Aufträgen und Grenzen
+- **Dienste** mit Freigabe, Aufträgen und Grenzen
 - **KI-Assistent** mit den Einstellungen für den Chat in den Modulen
 - **Statistik** mit Zahlen zum Lesen
-- **Anbieter und Modelle** mit den Zugängen zu den KI-Diensten
+- **Anbieter und Modelle** mit den Zugängen zu den KI-Anbietern
 - **Nutzer** mit Zugang, Rollen und Kontingenten
 - **System** mit Wartung und Betrieb
 - **Maskottchen** mit Hilde und Francis

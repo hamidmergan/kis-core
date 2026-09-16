@@ -2,7 +2,7 @@
 
 Reads texts and documents aloud with natural sounding voices and delivers an MP3 file.
 
-![The text to speech tool](/manual/{lang}/tool-text-to-speech.png)
+![The text to speech service](/manual/{lang}/tool-text-to-speech.png)
 
 ## Two ways in
 

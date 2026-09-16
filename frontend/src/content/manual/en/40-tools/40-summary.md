@@ -2,7 +2,7 @@
 
 Brings long documents as well as audio and video content down to the essentials.
 
-![The summary tool](/manual/{lang}/tool-summary.png)
+![The summary service](/manual/{lang}/tool-summary.png)
 
 ## Duration
 
@@ -15,5 +15,5 @@ when accuracy matters.
 
 ## The difference to the chat inside a module
 
-The tool works with a single file and delivers a text to download. The chat inside a module
+The service works with a single file and delivers a text to download. The chat inside a module
 works across all ticked materials and backs every statement with the spot it came from.

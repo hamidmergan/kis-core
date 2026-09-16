@@ -185,7 +185,7 @@ def clear_pool_for_tools(tools) -> int:
     tools = list(tools)
     unbekannt = [t for t in tools if t not in POOL_TOOLS]
     if unbekannt:
-        raise ValueError(f"kein Werkzeug mit Vorrat: {', '.join(unbekannt)}")
+        raise ValueError(f"kein Tool mit Vorrat: {', '.join(unbekannt)}")
     if not tools:
         return 0
     _materialize("p.tool = ANY(%s)", tools)

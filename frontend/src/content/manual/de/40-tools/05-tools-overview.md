@@ -1,7 +1,7 @@
-# Die Werkzeuge im Überblick
+# Die Dienste im Überblick
 
-Die Startseite zeigt jedes Werkzeug als Kachel mit einem Satz dazu, was es tut. Ein Klick auf die
-Kachel öffnet es. Die Werkzeuge arbeiten unabhängig von den Modulen: Sie laden eine Datei hoch,
+Die Startseite zeigt jeden Dienst als Kachel mit einem Satz dazu, was es tut. Ein Klick auf die
+Kachel öffnet es. Die Dienste arbeiten unabhängig von den Modulen: Sie laden eine Datei hoch,
 bekommen ein Ergebnis und laden es herunter.
 
 ![Die Startseite mit den Kacheln](/manual/{lang}/start-page.png)
@@ -21,11 +21,11 @@ und sieht die Kachelseite nicht. Zurück zur Startseite führt immer das KIS-Log
 
 ## Was für alle gilt
 
-Sie sehen nur die Werkzeuge, die für Sie freigeschaltet sind. Fehlt eines, entscheidet darüber
+Sie sehen nur die Dienste, die für Sie freigeschaltet sind. Fehlt eines, entscheidet darüber
 die Verwaltung.
 
 Lange Aufträge laufen im Hintergrund. Sie können die Seite verlassen, das Ergebnis wartet unter
 **Meine Jobs**.
 
-Für die meisten Werkzeuge gibt es ein Kontingent, also eine Obergrenze pro Zeitraum. Ist es
-aufgebraucht, sagt das Werkzeug Bescheid.
+Für die meisten Dienste gibt es ein Kontingent, also eine Obergrenze pro Zeitraum. Ist es
+aufgebraucht, sagt der Dienst Bescheid.

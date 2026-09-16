@@ -1,6 +1,6 @@
 # My jobs
 
-Every order given to a tool is a job. The job list shows what is running, what is finished and
+Every order given to a service is a job. The job list shows what is running, what is finished and
 what went wrong.
 
 ![The job list](/manual/{lang}/my-jobs.png)
@@ -11,7 +11,7 @@ Through **Jobs** in the header. A red dot next to it means something needs your 
 
 ## What you do there
 
-Filter by tool, period or file name. Download finished results. Repeat failed jobs.
+Filter by service, period or file name. Download finished results. Repeat failed jobs.
 
 ## States
 

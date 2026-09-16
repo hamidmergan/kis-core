@@ -1,6 +1,6 @@
 # Anbieter und Modelle
 
-Unter Anbieter und Modelle liegen die Zugänge zu den KI-Diensten und die Frage, welches Modell
+Unter Anbieter und Modelle liegen die Zugänge zu den KI-Anbietern und die Frage, welches Modell
 welche Aufgabe übernimmt.
 
 

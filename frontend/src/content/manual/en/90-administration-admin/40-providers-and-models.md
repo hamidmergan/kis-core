@@ -1,6 +1,6 @@
 # Providers and models
 
-Under Providers and models sit the access to the AI services and the question which model takes
+Under Providers and models sit the access to the AI providers and the question which model takes
 on which task.
 
 

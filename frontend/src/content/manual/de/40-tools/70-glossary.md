@@ -3,7 +3,7 @@
 Hier pflegen Sie eigene Begriffslisten, damit Fachbegriffe in Übersetzungen überall gleich
 übersetzt werden.
 
-![Das Werkzeug Glossar](/manual/{lang}/tool-glossary.png)
+![Der Dienst Glossar](/manual/{lang}/tool-glossary.png)
 
 ## Ein Glossar anlegen
 
@@ -12,7 +12,7 @@ englischen Begriff.
 
 ## Wo es wirkt
 
-Beim Werkzeug Übersetzung wählen Sie ein Glossar aus. Die dort hinterlegten Begriffe werden dann
+Beim Dienst Übersetzung wählen Sie ein Glossar aus. Die dort hinterlegten Begriffe werden dann
 so übersetzt, wie Sie es festgelegt haben, statt wie es die Maschine für richtig hält.
 
 ## Ein- und ausführen

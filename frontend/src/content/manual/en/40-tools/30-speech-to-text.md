@@ -2,7 +2,7 @@
 
 Writes audio and video down. Either as plain text or as subtitles with time stamps.
 
-![The speech to text tool](/manual/{lang}/tool-speech-to-text.png)
+![The speech to text service](/manual/{lang}/tool-speech-to-text.png)
 
 ## Three output formats
 
@@ -17,7 +17,7 @@ names and technical terms, which recognition rarely gets right.
 
 ## Limits
 
-There is an upper limit for the length of the recording. If a file is too long, the tool says
+There is an upper limit for the length of the recording. If a file is too long, the service says
 how many minutes are allowed. Split the recording in that case.
 
 On silence, recognition models occasionally invent text. Read the result through before you pass

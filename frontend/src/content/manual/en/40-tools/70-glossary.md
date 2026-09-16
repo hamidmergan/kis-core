@@ -2,7 +2,7 @@
 
 Here you keep your own term lists, so technical terms are translated the same way everywhere.
 
-![The glossary tool](/manual/{lang}/tool-glossary.png)
+![The glossary service](/manual/{lang}/tool-glossary.png)
 
 ## Creating a glossary
 
@@ -11,7 +11,7 @@ term.
 
 ## Where it takes effect
 
-In the translation tool you pick a glossary. The terms stored there are then translated the way
+In the translation service you pick a glossary. The terms stored there are then translated the way
 you decided, instead of the way the machine thinks is right.
 
 ## Import and export

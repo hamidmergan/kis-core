@@ -2,7 +2,7 @@
 
 Schreibt Audio und Video mit. Wahlweise als reinen Text oder als Untertitel mit Zeitstempeln.
 
-![Das Werkzeug Sprache in Text](/manual/{lang}/tool-speech-to-text.png)
+![Der Dienst Sprache in Text](/manual/{lang}/tool-speech-to-text.png)
 
 ## Drei Ausgabeformate
 
@@ -17,7 +17,7 @@ bei Eigennamen und Fachbegriffen, die die Erkennung selten trifft.
 
 ## Grenzen
 
-Es gibt eine Obergrenze für die Länge der Aufnahme. Ist eine Datei zu lang, sagt das Werkzeug,
+Es gibt eine Obergrenze für die Länge der Aufnahme. Ist eine Datei zu lang, sagt der Dienst,
 wie viele Minuten erlaubt sind. Teilen Sie die Aufnahme dann auf.
 
 Bei Stille erfinden Erkennungsmodelle gelegentlich Text. Lesen Sie das Ergebnis durch, bevor Sie

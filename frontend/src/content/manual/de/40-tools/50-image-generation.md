@@ -1,8 +1,8 @@
 # Bildgenerierung
 
-Drei Dinge in einem Werkzeug, oben über die Reiter umschaltbar.
+Drei Dinge in einem Dienst, oben über die Reiter umschaltbar.
 
-![Das Werkzeug Bildgenerierung](/manual/{lang}/tool-image.png)
+![Der Dienst Bildgenerierung](/manual/{lang}/tool-image.png)
 
 - **Text zu Bild**: Sie beschreiben ein Bild, es wird erzeugt
 - **Bild bearbeiten**: Sie laden ein Bild hoch und beschreiben die gewünschte Änderung

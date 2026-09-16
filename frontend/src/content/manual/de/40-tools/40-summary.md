@@ -2,7 +2,7 @@
 
 Bringt lange Dokumente sowie Audio- und Videoinhalte auf das Wesentliche.
 
-![Das Werkzeug Zusammenfassung](/manual/{lang}/tool-summary.png)
+![Der Dienst Zusammenfassung](/manual/{lang}/tool-summary.png)
 
 ## Dauer
 
@@ -15,6 +15,6 @@ Original nicht, wenn es auf Genauigkeit ankommt.
 
 ## Der Unterschied zum Chat im Modul
 
-Das Werkzeug arbeitet mit einer einzelnen Datei und liefert einen Text zum Herunterladen. Der
+Der Dienst arbeitet mit einer einzelnen Datei und liefert einen Text zum Herunterladen. Der
 Chat im Modul arbeitet über alle angehakten Materialien und belegt jede Aussage mit der Stelle,
 aus der sie stammt.
