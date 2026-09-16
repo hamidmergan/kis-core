@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { transcribeWindow } from "../_api";
+import { recordingPhase } from "../_limits";
 import { createVoiceMeter, type VoiceMeter } from "../_voiceActivity";
 
 export type RecorderError = "mic" | "stt";
@@ -16,7 +17,9 @@ export interface RecordingSession {
   onFinal: (text: string) => void;
   /** Nothing is coming in from the microphone right now. */
   onQuiet: (quiet: boolean) => void;
-  /** The recording gave up after a long silence, as if Done had been pressed. */
+  /** The recording is running into its time limit and will stop in a moment. */
+  onEndingSoon: () => void;
+  /** The recording gave up after a long silence or at its time limit, as if Done had been pressed. */
   onAutoStop: () => void;
   onError: (kind: RecorderError) => void;
 }
@@ -47,7 +50,8 @@ function pickMime(): string {
  *
  * A window without a voice never leaves the device, and after half a minute of silence the
  * recording stops itself. Heard nothing at all, Whisper is not asked either, it would invent
- * a sentence out of the silence.
+ * a sentence out of the silence. A recording also stops at its time limit, because every
+ * window resends the whole audio and a long one therefore gets slower with every second.
  */
 function record(stream: MediaStream, session: RecordingSession): Handle {
   const mime = pickMime();
@@ -60,6 +64,8 @@ function record(stream: MediaStream, session: RecordingSession): Handle {
   let dirty = false;
   let finalRequested = false;
   let cancelled = false;
+  let warned = false;
+  const startedAt = Date.now();
 
   const release = () => {
     meter?.close();
@@ -111,16 +117,26 @@ function record(stream: MediaStream, session: RecordingSession): Handle {
     if (recorder.state !== "recording") return;
     if (!meter) {
       void sendWindow();
-      return;
+    } else {
+      if (meter.takeHeard()) void sendWindow();
+      const silence = meter.quietMs();
+      const nowQuiet = silence >= QUIET_HINT_MS;
+      if (nowQuiet !== quiet) {
+        quiet = nowQuiet;
+        session.onQuiet(quiet);
+      }
+      if (silence >= SILENCE_STOP_MS) {
+        session.onAutoStop();
+        recorder.stop();
+        return;
+      }
     }
-    if (meter.takeHeard()) void sendWindow();
-    const silence = meter.quietMs();
-    const nowQuiet = silence >= QUIET_HINT_MS;
-    if (nowQuiet !== quiet) {
-      quiet = nowQuiet;
-      session.onQuiet(quiet);
+    const phase = recordingPhase(Date.now() - startedAt);
+    if (phase === "endingSoon" && !warned) {
+      warned = true;
+      session.onEndingSoon();
     }
-    if (silence >= SILENCE_STOP_MS) {
+    if (phase === "stop") {
       session.onAutoStop();
       recorder.stop();
     }

@@ -19,6 +19,8 @@ interface Props {
   recording: Side | null;
   /** The microphone is on but nothing is coming in. */
   quiet: boolean;
+  /** The recording is running into its time limit. */
+  endingSoon: boolean;
   floor: Floor | null;
   ended: boolean;
   notice: Notice | null;
@@ -103,6 +105,7 @@ export default function ConversationView(p: Props) {
 
   const status = (side: Side, st: Stage, x: CardTexts): ReactNode => {
     if (p.recording === side) {
+      if (p.endingSoon) return <span className="text-warn">{x.endingSoon}</span>;
       if (p.quiet) return <span className="text-warn">{x.noSound}</span>;
       return x.listeningHint;
     }

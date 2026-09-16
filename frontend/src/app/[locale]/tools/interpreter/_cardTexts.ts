@@ -21,6 +21,7 @@ export interface CardTexts {
   live: string;
   listeningHint: string;
   noSound: string;
+  endingSoon: string;
   waiting: (name: string) => string;
   ended: string;
   micDenied: string;
@@ -53,6 +54,7 @@ export const CARD_TEXTS: Record<LangCode, CardTexts> = {
     live: "Live-Übersetzung",
     listeningHint: "Auf Fertig drücken, oder die andere Seite drückt Sprechen",
     noSound: "Kein Ton. Sprich lauter oder prüf das Mikrofon.",
+    endingSoon: "Gleich ist Schluss, komm bitte zum Ende.",
     waiting: (name) => `${name} spricht gerade. Sprechen übernimmt das Wort.`,
     ended: "Gespräch beendet.",
     micDenied: "Das Mikrofon ist nicht freigegeben.",
@@ -83,6 +85,7 @@ export const CARD_TEXTS: Record<LangCode, CardTexts> = {
     live: "Live translation",
     listeningHint: "Press Done, or the other side presses Speak",
     noSound: "No sound. Speak up or check the microphone.",
+    endingSoon: "Nearly done, please finish your sentence.",
     waiting: (name) => `${name} is speaking. Speak takes over.`,
     ended: "Conversation ended.",
     micDenied: "The microphone is not allowed.",

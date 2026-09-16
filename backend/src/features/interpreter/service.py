@@ -15,6 +15,9 @@ from src.i18n import t
 MAX_AUDIO_BYTES = 30 * 1024 * 1024
 _AUDIO_SUFFIXES = {".webm", ".mp4", ".m4a", ".ogg", ".wav", ".mp3"}
 
+# What a conversation may collect, spoken and typed together, roughly an hour of back and forth.
+SESSION_CHAR_LIMIT = 20_000
+
 
 def _turn_out(row: dict) -> dict:
     return {
@@ -59,6 +62,11 @@ def summary(row: dict) -> dict:
     }
 
 
+def _chars_without(session_id: str, turn_id: str) -> int:
+    """Everything said and typed so far, minus the sentence that is being rewritten."""
+    return sum(len(row["original"]) for row in repo.list_turns(session_id) if row["id"] != turn_id)
+
+
 def save_turn(session: dict, turn: dict, locale: str) -> dict:
     """A sentence typed away to nothing leaves the conversation again."""
     if session.get("ended_at") is not None:
@@ -66,6 +74,8 @@ def save_turn(session: dict, turn: dict, locale: str) -> dict:
     if not turn["original"].strip():
         repo.delete_turn(session["id"], turn["id"])
         return {"id": turn["id"], "deleted": True}
+    if _chars_without(session["id"], turn["id"]) + len(turn["original"]) > SESSION_CHAR_LIMIT:
+        raise HTTPException(status_code=409, detail=t("interpreter.full", locale))
     return _turn_out(repo.upsert_turn(session["id"], turn))
 
 

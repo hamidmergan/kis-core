@@ -462,6 +462,10 @@
       "title": "Interpreter",
       "intro": "Two languages, one conversation. Speak or type into your field, the translation runs alongside. Everything stays in the history.",
       "hint": "Both speak or type in turns, each side in its own language.",
+      "limits": {
+        "near": "This conversation is nearly full and will end by itself. Start a new conversation to carry on.",
+        "full": "This conversation is full and has ended. It stays readable, start a new conversation for new sentences."
+      },
       "languages": {
         "de": "German",
         "en": "English",

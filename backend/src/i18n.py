@@ -316,6 +316,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Das Gespräch ist beendet.",
         "en": "The conversation has ended.",
     },
+    "interpreter.full": {
+        "de": "Das Gespräch ist voll. Starte ein neues Gespräch.",
+        "en": "This conversation is full. Start a new one.",
+    },
     "interpreter.sessionUnknown": {
         "de": "Dieses Gespräch gibt es nicht.",
         "en": "This conversation does not exist.",
