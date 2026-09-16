@@ -10,16 +10,19 @@ const EDGE_MARGIN = 8;
 export default function HoverTooltip({
   text,
   children,
+  tapToOpen = false,
 }: {
   text: string;
   children: React.ReactNode;
+  /** Touch has no hover, so a tap toggles the bubble instead of selecting the text underneath. */
+  tapToOpen?: boolean;
 }) {
   const [pos, setPos] = useState<{ top: number; left: number; above: boolean } | null>(null);
   const wrapperRef = useRef<HTMLSpanElement>(null);
 
-  const show = useCallback(() => {
+  const computePos = useCallback(() => {
     const anchor = wrapperRef.current?.firstElementChild;
-    if (!anchor) return;
+    if (!anchor) return null;
     const r = anchor.getBoundingClientRect();
     const above = r.bottom + 140 > window.innerHeight;
     // At the window edge the centre moves inwards instead of overflowing.
@@ -28,10 +31,20 @@ export default function HoverTooltip({
       Math.max(r.left + r.width / 2, half + EDGE_MARGIN),
       window.innerWidth - half - EDGE_MARGIN,
     );
-    setPos({ top: above ? r.top - 6 : r.bottom + 6, left, above });
+    return { top: above ? r.top - 6 : r.bottom + 6, left, above };
   }, []);
 
+  const show = useCallback(() => setPos(computePos()), [computePos]);
   const hide = useCallback(() => setPos(null), []);
+
+  const toggle = useCallback(
+    (e: React.MouseEvent) => {
+      if (!tapToOpen) return;
+      e.preventDefault();
+      setPos((p) => (p ? null : computePos()));
+    },
+    [tapToOpen, computePos],
+  );
 
   useEffect(() => {
     if (!pos) return;
@@ -43,14 +56,26 @@ export default function HoverTooltip({
     };
   }, [pos, hide]);
 
+  // A tap opens the bubble, the next tap anywhere else closes it again.
+  useEffect(() => {
+    if (!tapToOpen || !pos) return;
+    function handleOutside(e: MouseEvent) {
+      if (wrapperRef.current?.contains(e.target as Node)) return;
+      hide();
+    }
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [tapToOpen, pos, hide]);
+
   return (
     <span
       ref={wrapperRef}
-      className="contents"
+      className={tapToOpen ? "contents select-none [-webkit-touch-callout:none]" : "contents"}
       onMouseEnter={show}
       onMouseLeave={hide}
       onFocus={show}
       onBlur={hide}
+      onClick={toggle}
     >
       {children}
       {pos && typeof document !== "undefined" &&

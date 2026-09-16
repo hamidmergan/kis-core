@@ -19,7 +19,7 @@ function AudienceTags({ tags }: { tags: { label: string; hint: string }[] }) {
   return (
     <span className="flex gap-1">
       {tags.map((tag) => (
-        <HoverTooltip key={tag.label} text={tag.hint}>
+        <HoverTooltip key={tag.label} text={tag.hint} tapToOpen>
           <span
             className="text-2xs font-medium px-1.5 py-0.5 rounded-full border border-border-soft"
             style={{ backgroundColor: "var(--badge-slate-bg)", color: "var(--badge-slate-fg)" }}
