@@ -1,11 +1,15 @@
 """Ist die Etappe vorbei, werden nur noch begonnene Folien fertig gesprochen."""
 
 import asyncio
+import threading
 
 from src.services.screencast.generation import generate_all_tts
 from src.tasks._stage import StageClock
 
 from tests.test_screencast_tts_reihenfolge import FakeTts, LANG
+
+# Lang genug fuer den langsamen Zweig der Attrappe, kurz genug fuer genau ein Stueck.
+MITTEL = ("Ein Satz ueber das Thema der Folie und seine Bedeutung. " * 3).strip()
 
 
 class _Uhr:
@@ -62,6 +66,22 @@ def test_nicht_erreichte_folien_haben_keine_datei(tmp_path):
 def test_eine_verkehrt_fertige_folie_gibt_trotzdem_ein_lebenszeichen(tmp_path):
     """Folie 1 wird vor Folie 0 fertig, freigegeben wird nichts, gemeldet werden muss es doch."""
     schlaege = []
-    # Die lange Folie 0 haelt die Freigabe auf, die kurze Folie 1 ist vorher fertig.
-    _lauf([LANG, "Kurz."], tmp_path, on_beat=lambda: schlaege.append(1))
+    schlag = threading.Event()
+
+    class _Wartend:
+        """Folie 0 gibt ihr Stueck erst frei, wenn sich Folie 1 gemeldet hat."""
+
+        def synthesize_with_timestamps(self, text, language, *, voice_id, speed):
+            if len(text) > 100:
+                # Ohne Lebenszeichen laeuft die Wartezeit ab und der Test faellt durch.
+                schlag.wait(timeout=5)
+            return {"audio_bytes": b"mp3", "alignment": None}
+
+    def _schlag():
+        schlaege.append(1)
+        schlag.set()
+
+    asyncio.run(generate_all_tts(
+        [MITTEL, "Kurz."], _Wartend(), tmp_path, 1.0, voice_id="alloy", on_beat=_schlag,
+    ))
     assert schlaege

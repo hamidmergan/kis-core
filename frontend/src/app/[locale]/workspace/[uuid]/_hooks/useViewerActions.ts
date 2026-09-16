@@ -68,7 +68,7 @@ export function useViewerActions(opts: UseViewerActionsOptions) {
     fillChatInput(`"${selectedText}"\n\n`, chatWasOpen, false);
   }, [isMobile, activeTab, panels.chat, fillChatInput]);
 
-  // endTime comes last because only citation chips know a span.
+  // sourceText is verbatim text to highlight when isExact, otherwise the claim the chip backs.
   const pillClick = useCallback((sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number, isExact?: boolean, hideTranscript?: boolean, endTime?: number, chunkStart?: number) => {
     const src = sources.find((s) => s.uuid === sourceUuid);
     const isMedia = _isMediaFile(filename);
@@ -79,14 +79,16 @@ export function useViewerActions(opts: UseViewerActionsOptions) {
       if (isMobile) setActiveTab("quellen");
       return;
     }
-    if (src) {
-      openViewer(src, page, sourceText, isExact, true);
-      return;
-    }
-    setViewerSource({ uuid: sourceUuid, filename, page, highlightText: sourceText, exactSelection: isExact, isCitation: true, nonce: Date.now() });
+    setViewerSource({
+      uuid: sourceUuid, filename, page,
+      highlightText: isExact ? sourceText : undefined,
+      exactSelection: isExact,
+      citationClaim: isExact ? undefined : sourceText,
+      isCitation: true, nonce: Date.now(), youtubeId: src ? _youtubeIdOf(src) : undefined,
+    });
     setPanels((prev) => ({ ...prev, quellen: true }));
     if (isMobile) setActiveTab("quellen");
-  }, [sources, setViewerSource, setPanels, isMobile, setActiveTab, openViewer]);
+  }, [sources, setViewerSource, setPanels, isMobile, setActiveTab]);
 
   return {
     openViewer,

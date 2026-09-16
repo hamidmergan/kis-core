@@ -140,7 +140,7 @@ export interface ViewerState {
   endTime?: number;
   // Start of the cited section, needed when the guess in startTime does not hold.
   chunkStart?: number;
-  // The part of the answer the chip backs, weighting the lines of the span.
+  // The part of the answer the chip backs, marks the passage on a page or the lines of a span.
   citationClaim?: string;
   // Set for a YouTube source, the viewer embeds the video instead of streaming a file.
   youtubeId?: string;

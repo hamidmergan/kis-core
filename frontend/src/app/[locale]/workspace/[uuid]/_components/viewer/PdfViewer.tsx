@@ -8,7 +8,7 @@ import { FileIcon } from "../sources/FileIcon";
 
 import { EMBEDPDF_ICON_MAP } from "./_icons";
 import { wrapEngineGeometry } from "./_geometry";
-import { doHighlightSearch, clearCitationHighlight, scrollToCitationPage, flashPageBorder, CITATION_HL_COLOR, type HighlightRefs } from "./_highlight";
+import { doHighlightSearch, clearCitationHighlight, scrollToCitationPage, markCitationSpot, CITATION_HL_COLOR, type HighlightRefs } from "./_highlight";
 import { clearActiveChipTarget } from "../chat/_citations";
 import { copyTextFromPromise } from "@/lib/clipboard";
 import { useTheme } from "@/hooks/useTheme";
@@ -75,8 +75,8 @@ export function PdfViewer({
     return () => document.removeEventListener("keydown", handler, true);
   }, []);
 
-  // Jumps to the page, highlights only on a selection of your own.
-  const pendingHighlightRef = useRef<{ page: number; text: string; isCitation?: boolean } | null>(null);
+  // Jumps to the page, a chip also marks the spot its claim rests on.
+  const pendingHighlightRef = useRef<{ page: number; text: string; isCitation?: boolean; claim?: string } | null>(null);
   const citationHighlightRef = useRef<{ pageIndex: number; ids: string[]; scrollY?: number } | null>(null);
   // Controls the "Markierung aufheben" button shown while a citation highlight is active.
   const [citationActive, setCitationActive] = useState(false);
@@ -97,7 +97,7 @@ export function PdfViewer({
     const reg = registryRef.current;
     if (!reg) {
       // Viewer not ready yet — save for later (drawn/scrolled on layout-ready).
-      pendingHighlightRef.current = { page: source.page, text: source.highlightText ?? "", isCitation: source.isCitation };
+      pendingHighlightRef.current = { page: source.page, text: source.highlightText ?? "", isCitation: source.isCitation, claim: source.citationClaim };
       return;
     }
 
@@ -105,14 +105,14 @@ export function PdfViewer({
       // Popup / action-bar exact selection: highlight the verbatim text.
       doHighlightSearch(highlightRefs, reg, source.page, source.highlightText);
     } else {
-      // A chip additionally draws a yellow frame around the page.
+      // A chip draws the page frame and marks the passage behind its claim.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const scroll = (reg as any).getPlugin?.("scroll")?.provides?.();
       scroll?.scrollToPage?.({ pageNumber: source.page, behavior: "instant" });
-      if (source.isCitation) flashPageBorder(highlightRefs, reg, source.page);
+      if (source.isCitation) markCitationSpot(highlightRefs, reg, source.page, source.citationClaim, source.filename);
     }
 
-  }, [source.nonce, source.page, source.highlightText, source.isCitation]);
+  }, [source.nonce, source.page, source.highlightText, source.isCitation, source.citationClaim]);
 
   // A new document discards the transient highlight.
   useEffect(() => {
@@ -221,7 +221,7 @@ export function PdfViewer({
           if (pending.text) {
             doHighlightSearch(highlightRefs, registry, pending.page, pending.text);
           } else if (pending.isCitation) {
-            flashPageBorder(highlightRefs, registry, pending.page);
+            markCitationSpot(highlightRefs, registry, pending.page, pending.claim, sourceRef.current.filename);
           }
         }
         unsub?.();
