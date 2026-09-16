@@ -2622,13 +2622,14 @@
     },
     "auth": {
       "heading": "2. Authentifizierung und Nutzerkonto",
-      "intro": "Der Zugang zur Plattform erfolgt über einen Verzeichnisdienst. Folgende Daten werden in unserer Datenbank gespeichert:",
+      "intro": "Der Zugang zur Plattform erfolgt über ein Konto auf dieser Plattform. Folgende Daten werden in unserer Datenbank gespeichert:",
       "item1": "Benutzername",
+      "itemPassword": "Passwort, ausschließlich als bcrypt-Hash, nie im Klartext",
       "item2": "Anzeigename (vollständiger Name)",
       "item3": "E-Mail-Adresse",
       "item4": "Sprachniveau (falls per KI-Chat-Test ermittelt, jederzeit selbst löschbar)",
       "item5": "Einladungscode oder -link, über den der Zugang erfolgte",
-      "outro": "Passwörter werden nicht auf dieser Plattform gespeichert; die Anmeldung erfolgt ausschließlich gegen den Verzeichnisdienst.\nRechtsgrundlage: Art. 6 Abs. 1 lit. e DSGVO (Wahrnehmung einer Aufgabe im öffentlichen Interesse).\nSpeicherdauer: bis zur Löschung des Nutzerkontos."
+      "outro": "Die Anmeldung erfolgt derzeit gegen ein Konto auf dieser Plattform. Das Passwort wird dabei nur als Hash gespeichert und ist daraus nicht zurückrechenbar. Eine Anbindung an die zentrale Anmeldung der TH Lübeck ist in Planung, danach hält diese Plattform kein Passwort mehr.\nRechtsgrundlage: Art. 6 Abs. 1 lit. e DSGVO (Wahrnehmung einer Aufgabe im öffentlichen Interesse).\nSpeicherdauer: bis zur Löschung des Nutzerkontos."
     },
     "cookies": {
       "heading": "3. Cookies und lokale Speicherung",
