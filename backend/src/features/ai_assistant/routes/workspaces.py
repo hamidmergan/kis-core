@@ -13,6 +13,7 @@ from src.dependencies import get_current_user
 from src.i18n import get_locale, t, TRANSCRIPT_LANGUAGES, DEFAULT_DIAGNOSIS_LANGUAGE
 from src.limits import (
     AIA_WORKSPACE_MAX_ACCESS_LINKS,
+    AIA_WORKSPACE_MAX_MEMBERS,
 )
 
 from src.features.ai_assistant.routes._workspace_access import (
@@ -94,6 +95,7 @@ def _managed_workspace_payload(m: dict, access: str, shared: bool) -> dict:
         "is_demo_workspace": bool(m.get("owner_is_demo")),
         "is_tour_module": bool(m.get("is_tour_module")),
         "source_count": len(sources),
+        "member_count": db.count_enrollments(m["id"]),
         "access_links": [
             {
                 "id": l["id"],
@@ -497,6 +499,11 @@ async def enroll(
         existing = db.get_enrollment(workspace["id"], user_id)
         if existing:
             return {"workspace_uuid": workspace["uuid"], "title": workspace["title"], "enrollment_id": existing["id"], "is_open": offen}
+        if db.count_enrollments(workspace["id"]) >= AIA_WORKSPACE_MAX_MEMBERS:
+            raise HTTPException(
+                status_code=409,
+                detail=t("ai.workspace.maxMembers", locale, max=AIA_WORKSPACE_MAX_MEMBERS),
+            )
         # Every link joins as a learner, tutor rights are granted by the owner.
         enrollment_id = db.enroll_student(
             workspace["id"], user_id, link["expires_at"], link_id=link["id"],
@@ -515,6 +522,11 @@ async def enroll(
     offen = _is_open_for(workspace, user_id)
     if db.is_student_enrolled(workspace["id"], user_id):
         return {"workspace_uuid": workspace["uuid"], "title": workspace["title"], "is_open": offen}
+    if db.count_enrollments(workspace["id"]) >= AIA_WORKSPACE_MAX_MEMBERS:
+        raise HTTPException(
+            status_code=409,
+            detail=t("ai.workspace.maxMembers", locale, max=AIA_WORKSPACE_MAX_MEMBERS),
+        )
     enrolled_until = workspace.get("enroll_code_expires")
     db.enroll_student(workspace["id"], user_id, enrolled_until)
     logger.info("KI Tutor: user {} enrolled in workspace {} (legacy)", user_id, workspace["uuid"])

@@ -9,7 +9,7 @@ import ActiveToggle from "./ActiveToggle";
 import WorkspaceDescription from "./WorkspaceDescription";
 import WorkspaceMenu from "./WorkspaceMenu";
 import WorkspaceModals from "./WorkspaceModals";
-import { type AccessLink, type KiTutorWorkspace } from "../_shared";
+import { MAX_MEMBERS, type AccessLink, type KiTutorWorkspace } from "../_shared";
 import { useWorkspaceActions } from "../_hooks/useWorkspaceActions";
 
 interface WorkspaceTableRowProps {
@@ -80,6 +80,15 @@ export default function WorkspaceTableRow({
                 style={{ backgroundColor: "rgb(245, 158, 11)", color: "rgb(0, 0, 0)" }}
               >
                 {tDemo("button")}
+              </span>
+            )}
+            {(workspace.member_count ?? 0) >= MAX_MEMBERS && (
+              <span
+                className="flex-shrink-0 text-2xs font-medium px-1.5 py-0.5 rounded-full"
+                style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}
+                title={t("fullHint", { n: MAX_MEMBERS })}
+              >
+                {t("fullBadge")}
               </span>
             )}
           </span>

@@ -42,6 +42,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Maximal {max} Einschreibelinks pro Workspace erlaubt. Bitte lösche zuerst einen alten Link.",
         "en": "Maximum {max} enrollment links per workspace allowed. Please delete an old link first.",
     },
+    "ai.workspace.maxMembers": {
+        "de": "Dieser Workspace hat die Höchstzahl von {max} Mitgliedern erreicht.",
+        "en": "This workspace has reached its limit of {max} members.",
+    },
     # Sources
     "ai.source.maxPerWorkspace": {
         "de": "Maximal {max} Sources pro {label} erlaubt. Bitte lösche nicht mehr benötigte Sources.",

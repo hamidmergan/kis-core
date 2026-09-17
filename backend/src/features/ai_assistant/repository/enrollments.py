@@ -104,6 +104,16 @@ def set_participant_role(workspace_id: int, user_id: int, role: str) -> int:
     return geaendert
 
 
+def count_enrollments(workspace_id: int) -> int:
+    """How many people are currently enrolled, tutors included."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT COUNT(*) FROM aia_enrollments WHERE workspace_id = %s",
+                (workspace_id,),
+            )
+            return cur.fetchone()[0]
+
 def is_student_enrolled(workspace_id: int, user_id: int) -> bool:
     with get_connection() as conn:
         with conn.cursor() as cur:

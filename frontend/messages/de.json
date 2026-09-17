@@ -3631,6 +3631,8 @@
       "sharedByMe": "Mit Tutoren geteilt",
       "sharedWithMe": "Mit dir geteilt",
       "roleTutor": "Tutor",
+      "fullBadge": "Voll",
+      "fullHint": "Der Workspace hat die Höchstzahl von {n} Mitgliedern erreicht. Niemand kann sich derzeit neu einschreiben.",
       "participantsTitle": "Teilnehmerliste",
       "participantsHint": "Alle, die sich über einen Einschreibelink eingetragen haben. Du kannst einzelne Personen zu Tutoren machen.",
       "participantsReadonlyHint": "Alle, die sich über einen Einschreibelink eingetragen haben. Tutoren ernennen darf nur die Eigentümerin oder der Eigentümer.",

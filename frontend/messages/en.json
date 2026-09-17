@@ -3631,6 +3631,8 @@
       "sharedByMe": "Shared with tutors",
       "sharedWithMe": "Shared with you",
       "roleTutor": "Tutor",
+      "fullBadge": "Full",
+      "fullHint": "This workspace has reached its limit of {n} members. No one can enroll right now.",
       "participantsTitle": "Participants",
       "participantsHint": "Everyone who joined through an enrollment link. You can make individual people tutors.",
       "participantsReadonlyHint": "Everyone who joined through an enrollment link. Only the owner can appoint tutors.",

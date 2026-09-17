@@ -22,6 +22,8 @@ export interface KiTutorWorkspace {
   description?: string | null;
   status: "pending" | "indexing" | "ready" | "failed";
   source_count: number;
+  /** Only set for owner/tutor rows, students never see the count. */
+  member_count?: number;
   is_active: boolean;
   access: WorkspaceAccess;
   /** Workspace is shared with tutors, or reached as one. Drives the shared icon. */
@@ -52,5 +54,6 @@ export interface WorkspaceStats {
 }
 
 export const MAX_ACCESS_LINKS = 10;
+export const MAX_MEMBERS = 100;
 export const WORKSPACE_TITLE_MAX = 50;
 export const WORKSPACE_DESCRIPTION_MAX = 500;

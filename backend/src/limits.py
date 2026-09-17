@@ -174,6 +174,7 @@ AIA_EMBEDDING_BATCH_SIZE               = 1000
 # Timeout for the source chip embeddings, otherwise the answer goes out chip free.
 AIA_ATTRIBUTION_EMBED_TIMEOUT_SECONDS  = 30
 AIA_WORKSPACE_MAX_ACCESS_LINKS         = 10      # max enrollment links per workspace
+AIA_WORKSPACE_MAX_MEMBERS              = 100     # max enrolled members per workspace
 AIA_NOTES_MAX_PER_USER              = 100     # max notes per user per workspace
 GLOSSARY_LIMIT                        = 150     # max glossary entries per workspace
 
