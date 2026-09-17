@@ -2,10 +2,10 @@
 
 from loguru import logger
 
+from src.features.ai_assistant.summaries import MAX_SUMMARY_CHARS as _MAX_SUMMARY_CHARS
+
 # Enough topics for a four level map, more only costs searches.
 _MAX_TOPICS = 60
-# How much of one source's summary travels, a summary is short anyway.
-_MAX_SUMMARY_CHARS = 4000
 
 
 def usable(sources: list[dict]) -> bool:

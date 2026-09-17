@@ -2,10 +2,10 @@
 
 from loguru import logger
 
+from src.features.ai_assistant.summaries import MAX_SUMMARY_CHARS as _MAX_SUMMARY_CHARS
+
 # Segments of one episode, more only splinters the script.
 _MAX_TOPICS = 8
-# How much of one summary travels, a summary is short anyway.
-_MAX_SUMMARY_CHARS = 4000
 # Passages per segment, enough to talk about it.
 _PER_TOPIC = 4
 

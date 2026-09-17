@@ -421,7 +421,8 @@ def _pack_context_batches(
             loc = _format_timestamp(chunk["start_time"])
         else:
             content = chunk["content"]
-            loc = f"S. {chunk['page_number']}"
+            # A summary of the whole source has no page of its own.
+            loc = "summary" if chunk.get("page_number") is None else f"S. {chunk['page_number']}"
         return (f'<document index="{qn}" id="{_cid}">\n<source>{fname} | {loc}</source>\n'
                 f'<content>\n{content}\n</content>\n</document>')
 

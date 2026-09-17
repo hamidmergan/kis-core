@@ -37,6 +37,7 @@ from src.features.ai_assistant.prompts.refusal_prompts import (
 )
 from . import _chat_failover
 from . import _followup
+from ._greeting import greeting_chunks
 from ._prewarm import start_prewarm
 from ._source_map import build_source_pages, build_source_qmap, load_transcripts
 from ._attribution_run import run_attribution
@@ -241,13 +242,23 @@ async def chat(
         if popup_source:
             search_source_ids = [popup_source["id"]]
 
-    _fit_full = (None if (body.source_text or _umformen or intent not in _UEBERBLICK_INTENTS)
+    # A greeting only names the topics, the summaries are enough for that.
+    _gruss_chunks = (await asyncio.to_thread(greeting_chunks, source_ids, resolved_sources)
+                     if _gruss else [])
+    if _gruss_chunks:
+        logger.info("Greeting: {} summaries stand in for the text, skipping retrieval",
+                    len(_gruss_chunks))
+
+    _fit_full = (None if (body.source_text or _umformen or _gruss_chunks
+                          or intent not in _UEBERBLICK_INTENTS)
                  else _full_context_if_fits(source_ids, context_budget))
     if _umformen:
         # No hits and no context, the material is the last answer itself.
         chunks = []
     elif scope_chunks:
         chunks = scope_chunks
+    elif _gruss_chunks:
+        chunks = _gruss_chunks
     elif _fit_full is not None:
         chunks = _fit_full
         from collections import Counter

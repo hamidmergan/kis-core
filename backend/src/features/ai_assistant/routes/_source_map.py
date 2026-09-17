@@ -60,6 +60,9 @@ def build_source_pages(chunks: list[dict], all_sources_list: dict, *,
     if popup_entry:
         return [popup_entry]
     for chunk in chunks:
+        # A summary has neither a page nor a time, so there is no spot to jump to.
+        if chunk.get("page_number") is None and chunk.get("start_time") is None:
+            continue
         source = all_sources_list.get(chunk["source_id"])
         if source:
             raw = (chunk.get("content") or "").strip()
