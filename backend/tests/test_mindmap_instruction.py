@@ -1,5 +1,7 @@
 """Die Mindmap mit Anweisung: Block im Prompt, Treffer statt Volltext, Marke bei daneben."""
 
+import types
+
 import pytest
 
 from src.features.ai_assistant.tasks import _instruction as anweisung
@@ -51,6 +53,10 @@ def stack(monkeypatch):
 
     monkeypatch.setattr(mod._condensed, "should_condense", lambda *a: False)
     monkeypatch.setattr(mod._condensed, "build", _condensed_build)
+    # The condensed way fetches an embedding provider before it ever calls build(), even
+    # when build() itself is stubbed below, so a real provider is never actually needed.
+    monkeypatch.setattr("src.services.aia_embeddings.get_embedding_provider_with_fallback",
+                        lambda: types.SimpleNamespace(embed_one=lambda text: [0.0]))
     monkeypatch.setattr("src.dependencies._resolve_llm_provider",
                         lambda: ("k", "http://modell", "m", "p"))
     monkeypatch.setattr("src.features.ai_assistant.tasks._helpers.learning_tools_language",
