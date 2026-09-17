@@ -3274,7 +3274,13 @@
         "translateModalHint": "Die Sprache der Aufnahme erkennt das System selbst. Es gibt genau eine Übersetzung.",
         "translateModalLangLabel": "In diese Sprache",
         "translateModalStart": "Übersetzung starten",
-        "translateModalCancel": "Abbrechen"
+        "translateModalCancel": "Abbrechen",
+        "transcriptEditTitle": "Transkript bearbeiten",
+        "transcriptEditHint": "Korrigiere hier, was die Spracherkennung falsch verstanden hat. Die Zeitmarken ab {time} bleiben unverändert.",
+        "transcriptEditLineLabel": "Zeile {nr}",
+        "transcriptEditEmptyLine": "Eine Zeile darf nicht leer bleiben. Kürze sie, statt sie zu löschen.",
+        "transcriptEditSave": "Speichern",
+        "transcriptEditCancel": "Abbrechen"
       },
       "summary": {
         "header": "Seite {page} - Zusammenfassung",

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { ArrowDown, ArrowUp, Check, NavigationArrow, NotePencil, Plus, X } from "@phosphor-icons/react";
+import { ArrowDown, ArrowUp, Check, NavigationArrow, NotePencil, PencilSimple, Plus, X } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 import Select, { type SelectOption } from "@/components/ui/Select";
 import { genericErrorMessage, parseDetail } from "@/lib/api";
@@ -14,6 +14,7 @@ import {
 } from "./_transcript";
 import type { MediaController } from "./mediaController";
 import { TranslateLanguageModal } from "./TranslateLanguageModal";
+import { TranscriptEditModal, type EditLine, type EditTrack } from "./TranscriptEditModal";
 import { clearActiveChipTarget } from "../chat/_citations";
 
 interface Cue {
@@ -155,6 +156,8 @@ export function TranscriptPanel({
   // The language a running translation waits for, it exists before its file does.
   const [pendingLang, setPendingLang] = useState<string | null>(null);
   const [showTranslateModal, setShowTranslateModal] = useState(false);
+  // The paragraph whose lines are being corrected, null while the window is closed.
+  const [editBlock, setEditBlock] = useState<{ from: number; to: number; start: number } | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   // The anchors hang off the sentence, not off the paragraph.
   const itemRefs = useRef<Record<number, HTMLElement | null>>({});
@@ -238,6 +241,38 @@ export function TranscriptPanel({
 
   // Paragraphs for reading, the lines stay the unit for everything that points.
   const blocks = useMemo(() => groupCues(masterCues), [masterCues]);
+
+  // The lines the edit window works on, one entry per visible track.
+  const editTracks = useMemo<EditTrack[]>(() => {
+    if (!editBlock) return [];
+    const wanted = new Set<string>();
+    if (mode === "source" || mode === "both") { if (sourceLang) wanted.add(sourceLang); }
+    if (mode === "target" || mode === "both") { if (targetLang) wanted.add(targetLang); }
+    const out: EditTrack[] = [];
+    for (const lang of wanted) {
+      const track = cues[lang];
+      if (!track) continue;
+      const lines: EditLine[] = [];
+      for (let i = editBlock.from; i <= editBlock.to && i < track.length; i++) {
+        lines.push({ index: i, text: track[i].text });
+      }
+      if (lines.length) out.push({ lang, lines });
+    }
+    return out;
+  }, [editBlock, cues, mode, sourceLang, targetLang]);
+
+  // The corrected lines go straight into the open panel, without reloading the file.
+  const onTranscriptSaved = (lang: string, lines: EditLine[]) => {
+    setCues((cur) => {
+      const track = cur[lang];
+      if (!track) return cur;
+      const next = [...track];
+      for (const line of lines) {
+        if (next[line.index]) next[line.index] = { ...next[line.index], text: line.text };
+      }
+      return { ...cur, [lang]: next };
+    });
+  };
 
   // The whole recording as the yardstick for how common a word is here.
   const claimCorpus = useMemo(() => {
@@ -545,6 +580,8 @@ export function TranscriptPanel({
   const showTarget = (mode === "target" || mode === "both") && !!targetCues;
   // The tile invites as long as there is an original and no translation yet.
   const canTranslate = canManage && !!sourceCues && !!sourceLang && !targetCues;
+  // Correcting what speech recognition misheard, owner and tutors only.
+  const canEdit = canManage && !ownerPreview;
 
   const modeLabel = (m: ViewMode): string => {
     if (m === "off") return t("tabOff");
@@ -740,8 +777,20 @@ export function TranscriptPanel({
                   </div>
                 )}
               </div>
-              {onSaveNote && (
-                <div className="flex justify-end pr-1 mt-0.5 h-5">
+              {(onSaveNote || canEdit) && (
+                <div className="flex justify-end gap-1 pr-1 mt-0.5 h-5">
+                  {canEdit && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setEditBlock({ from: b.from, to: b.to, start: b.start }); }}
+                      title={t("transcriptEditTitle")}
+                      aria-label={t("transcriptEditTitle")}
+                      className="[@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 p-1 rounded-full btn-icon"
+                    >
+                      <PencilSimple size={13} />
+                    </button>
+                  )}
+                  {onSaveNote && (
                   <button
                     type="button"
                     data-tour="transcript-note"
@@ -755,6 +804,7 @@ export function TranscriptPanel({
                       ? <Spinner size="xs" color="current" />
                       : savedCueIdx === b.from ? <Check size={13} weight="bold" /> : <NotePencil size={13} />}
                   </button>
+                  )}
                 </div>
               )}
             </div>
@@ -800,6 +850,16 @@ export function TranscriptPanel({
         onClose={() => setShowTranslateModal(false)}
         sourceLang={sourceLang}
         onStart={startTranslation}
+      />
+
+      <TranscriptEditModal
+        open={!!editBlock && editTracks.length > 0}
+        onClose={() => setEditBlock(null)}
+        tracks={editTracks}
+        timeLabel={editBlock ? fmtTs(editBlock.start) : ""}
+        workspaceUuid={workspaceUuid}
+        sourceUuid={sourceUuid}
+        onSaved={onTranscriptSaved}
       />
     </div>
   );

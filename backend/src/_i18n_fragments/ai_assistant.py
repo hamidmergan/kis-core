@@ -247,6 +247,18 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Transkript nicht verfügbar",
         "en": "Transcript not available",
     },
+    "ai.transcript.lineOutOfRange": {
+        "de": "Die bearbeitete Zeile gibt es im Transkript nicht mehr.",
+        "en": "The edited line no longer exists in the transcript.",
+    },
+    "ai.transcript.lineEmpty": {
+        "de": "Eine Zeile darf nicht leer bleiben.",
+        "en": "A line must not be left empty.",
+    },
+    "ai.transcript.lineTooLong": {
+        "de": "Eine Zeile darf höchstens {max} Zeichen haben.",
+        "en": "A line may hold at most {max} characters.",
+    },
     # Language diagnosis (one-time CEFR chat assessment)
     "ai.languageDiagnosis.llmUnavailable": {
         "de": "Auswertung aktuell nicht möglich. Bitte später erneut versuchen.",

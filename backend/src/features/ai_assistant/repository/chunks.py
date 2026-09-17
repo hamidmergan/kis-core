@@ -182,6 +182,19 @@ def create_aia_chunk(
         conn.commit()
     return chunk_id
 
+def update_aia_chunk_content(chunk_id: int, content: str) -> None:
+    """Rewrites a chunk's text, the keyword vector is rebuilt with it."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """UPDATE aia_chunks
+                   SET content = %s, search_vector = to_tsvector('simple', %s)
+                   WHERE id = %s""",
+                (content, content, chunk_id),
+            )
+        conn.commit()
+
+
 def get_aia_chunks_by_source(source_id: int) -> list[dict]:
     """Return all chunks for a source (without embeddings), ordered by page/time."""
     with get_connection() as conn:

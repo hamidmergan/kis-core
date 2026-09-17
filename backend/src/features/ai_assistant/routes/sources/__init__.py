@@ -7,6 +7,7 @@ from ._youtube import router as _youtube_router
 from ._streaming import router as _streaming_router
 from ._pdf import router as _pdf_router
 from ._rename import router as _rename_router
+from ._transcript_edit import router as _transcript_edit_router
 from ._chapters import router as _chapters_router
 from ._summary import router as _summary_router
 
@@ -17,5 +18,6 @@ router.include_router(_youtube_router)
 router.include_router(_streaming_router)
 router.include_router(_pdf_router)
 router.include_router(_rename_router)
+router.include_router(_transcript_edit_router)
 router.include_router(_chapters_router)
 router.include_router(_summary_router)

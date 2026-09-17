@@ -3274,7 +3274,13 @@
         "translateModalHint": "The language of the recording is detected automatically. There is exactly one translation.",
         "translateModalLangLabel": "Into this language",
         "translateModalStart": "Start translation",
-        "translateModalCancel": "Cancel"
+        "translateModalCancel": "Cancel",
+        "transcriptEditTitle": "Edit transcript",
+        "transcriptEditHint": "Correct what speech recognition misheard. The timestamps from {time} stay unchanged.",
+        "transcriptEditLineLabel": "Line {nr}",
+        "transcriptEditEmptyLine": "A line must not be left empty. Shorten it instead of deleting it.",
+        "transcriptEditSave": "Save",
+        "transcriptEditCancel": "Cancel"
       },
       "summary": {
         "header": "Page {page} - Summary",
