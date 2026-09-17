@@ -3400,6 +3400,7 @@
             "mixed": "{pending} neu · {processed} bereits verarbeitet"
           },
           "edit": "Bearbeiten",
+          "calendar": "Kalender",
           "extract": "Termine extrahieren",
           "extractHelp": "Extrahiert werden Termine, die du im Kurs wahrnehmen oder einhalten musst: Prüfungen, Abgaben, Sitzungen, Sprechstunden, Anmeldefristen und Zeiträume wie die Vorlesungszeit. Weggelassen werden Daten ohne Kursbezug: Inkrafttreten, Änderungsstände, Kopf- und Fußzeilen, Zitate und Lebensdaten.",
           "extracting": "Termine werden extrahiert...",

@@ -3400,6 +3400,7 @@
             "mixed": "{pending} new · {processed} already processed"
           },
           "edit": "Edit",
+          "calendar": "Calendar",
           "extract": "Extract dates",
           "extractHelp": "Extracted are appointments you must attend or meet in the course: exams, submissions, sessions, office hours, registration windows and periods like the lecture period. Left out are dates without course relevance: entry into force, revision dates, headers and footers, citations and life dates.",
           "extracting": "Extracting dates...",

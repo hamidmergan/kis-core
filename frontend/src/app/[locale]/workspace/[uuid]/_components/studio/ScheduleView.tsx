@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { CalendarBlank, CheckCircle, Files, PencilSimple, Plus, Sparkle, Trash } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
@@ -245,19 +246,32 @@ export function ScheduleView({
           <Files size={13} weight="bold" />
           {selectionHint}
         </div>
-        <button
-          type="button"
-          onClick={() => setEditMode((v) => !v)}
-          className="w-7 h-7 rounded-full flex items-center justify-center btn-icon flex-shrink-0"
-          style={{
-            backgroundColor: editMode ? "var(--kb)" : "var(--surface-dim)",
-            ...(editMode ? { color: "#fff" } : {}),
-          }}
-          aria-label={t("edit")}
-          title={t("edit")}
-        >
-          {editMode ? <CheckCircle size={14} weight="bold" /> : <PencilSimple size={14} weight="bold" />}
-        </button>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <Link
+            href="/calendar"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-7 h-7 rounded-full flex items-center justify-center btn-icon flex-shrink-0"
+            style={{ backgroundColor: "var(--surface-dim)" }}
+            aria-label={t("calendar")}
+            title={t("calendar")}
+          >
+            <CalendarBlank size={14} weight="bold" />
+          </Link>
+          <button
+            type="button"
+            onClick={() => setEditMode((v) => !v)}
+            className="w-7 h-7 rounded-full flex items-center justify-center btn-icon flex-shrink-0"
+            style={{
+              backgroundColor: editMode ? "var(--kb)" : "var(--surface-dim)",
+              ...(editMode ? { color: "#fff" } : {}),
+            }}
+            aria-label={t("edit")}
+            title={t("edit")}
+          >
+            {editMode ? <CheckCircle size={14} weight="bold" /> : <PencilSimple size={14} weight="bold" />}
+          </button>
+        </div>
       </div>
 
       {/* Generate-Button */}
