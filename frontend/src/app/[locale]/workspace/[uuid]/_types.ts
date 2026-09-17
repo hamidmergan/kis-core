@@ -279,6 +279,10 @@ export interface ExerciseSet {
   instruction?: string | null;
   pattern_front?: string | null;
   pattern_back?: string | null;
+  /** The person's own instruction to the tool, not the grammar task line above. */
+  user_instruction?: string | null;
+  /** The instruction named something the sources do not cover, the set used everything. */
+  instruction_unmatched?: boolean;
   /** Whether a voice is set up, only delivered with the single set. */
   speech_enabled?: boolean;
 }

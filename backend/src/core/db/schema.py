@@ -1394,6 +1394,9 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                 "grammar_kinds JSONB"
             )
             cur.execute("ALTER TABLE aia_exercise_sets ADD COLUMN IF NOT EXISTS instruction TEXT")
+            # The person's own instruction to the tool and whether it missed the material.
+            cur.execute("ALTER TABLE aia_exercise_sets ADD COLUMN IF NOT EXISTS user_instruction TEXT")
+            cur.execute("ALTER TABLE aia_exercise_sets ADD COLUMN IF NOT EXISTS instruction_unmatched BOOLEAN NOT NULL DEFAULT FALSE")
             cur.execute("ALTER TABLE aia_exercise_sets ADD COLUMN IF NOT EXISTS pattern_front TEXT")
             cur.execute("ALTER TABLE aia_exercise_sets ADD COLUMN IF NOT EXISTS pattern_back TEXT")
             # Only the vocabulary cloze fills this, a retry reads it here.
@@ -1527,6 +1530,11 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             cur.execute("ALTER TABLE aia_schedule_entries DROP COLUMN IF EXISTS start_time")
             # Its own name per mind map instead of showing the root node from the JSON.
             cur.execute("ALTER TABLE aia_mindmaps ADD COLUMN IF NOT EXISTS title TEXT")
+            # The person's own instruction to the tool and whether it missed the material.
+            for tabelle in ("aia_mindmaps", "aia_data_tables"):
+                cur.execute(f"ALTER TABLE {tabelle} ADD COLUMN IF NOT EXISTS user_instruction TEXT")
+                cur.execute(f"ALTER TABLE {tabelle} ADD COLUMN IF NOT EXISTS "
+                            "instruction_unmatched BOOLEAN NOT NULL DEFAULT FALSE")
             cur.execute("""
                 CREATE INDEX IF NOT EXISTS idx_schedule_workspace_user
                 ON aia_schedule_entries(workspace_id, user_id)

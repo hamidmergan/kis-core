@@ -54,6 +54,7 @@ def create_exercise_set_placeholder(
     mode: str, source_uuid: str | None, grammar_topic_id: int | None = None,
     source_uuids: list[str] | None = None, requested_count: int | None = None,
     flashcard_set_id: int | None = None, grammar_kinds: list[str] | None = None,
+    user_instruction: str | None = None,
 ) -> dict:
     """Creates a placeholder set with status 'generating' and returns it."""
     with get_connection() as conn:
@@ -62,13 +63,14 @@ def create_exercise_set_placeholder(
                 """INSERT INTO aia_exercise_sets
                    (workspace_id, user_id, tool, title, mode, source_uuid, card_count,
                     status, grammar_topic_id, source_uuids, requested_count,
-                    flashcard_set_id, grammar_kinds)
+                    flashcard_set_id, grammar_kinds, user_instruction)
                    VALUES (%s, %s, %s, %s, %s, %s, 0, 'generating', %s, %s::jsonb, %s,
-                           %s, %s::jsonb)
+                           %s, %s::jsonb, %s)
                    RETURNING *""",
                 (workspace_id, user_id, tool, title, mode, source_uuid, grammar_topic_id,
                  json.dumps(list(source_uuids or [])), requested_count, flashcard_set_id,
-                 json.dumps(grammar_kinds) if grammar_kinds else None),
+                 json.dumps(grammar_kinds) if grammar_kinds else None,
+                 user_instruction or None),
             )
             ex_set = dict(cur.fetchone())
         conn.commit()

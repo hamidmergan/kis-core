@@ -11,15 +11,17 @@ _REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
 from src.core.db.pool import get_connection
 
 
-def create_aia_data_table(workspace_id: int, user_id: int, source_ids: list[int]) -> int:
+def create_aia_data_table(workspace_id: int, user_id: int, source_ids: list[int],
+                          user_instruction: str | None = None) -> int:
     """Create a pending data_table record, return its id."""
     import json as _json
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                """INSERT INTO aia_data_tables (workspace_id, user_id, source_ids, status)
-                   VALUES (%s, %s, %s, 'pending') RETURNING id""",
-                (workspace_id, user_id, _json.dumps(source_ids)),
+                """INSERT INTO aia_data_tables (workspace_id, user_id, source_ids, status,
+                                                user_instruction)
+                   VALUES (%s, %s, %s, 'pending', %s) RETURNING id""",
+                (workspace_id, user_id, _json.dumps(source_ids), user_instruction or None),
             )
             row = cur.fetchone()
         conn.commit()
@@ -72,7 +74,7 @@ def get_aia_data_tables_by_workspace(workspace_id: int, user_id: int) -> list[di
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
-                """SELECT id, status, title, sources, created_at
+                """SELECT id, status, title, sources, created_at, user_instruction
                    FROM aia_data_tables
                    WHERE workspace_id = %s AND user_id = %s AND status = 'success'
                    ORDER BY created_at DESC""",

@@ -27,6 +27,8 @@ import { STUDIO_ITEM_MAX } from "../../_constants";
 import { SubviewHeader, _getToolBadge, type BreadcrumbItem } from "../layout/SubviewHeader";
 import { chipTargetKey, getActiveChipTarget, setActiveChipTarget, subscribeActiveChip } from "../chat/_citations";
 import { StudioSourceLegend } from "./StudioSourceLegend";
+import { InstructionNote } from "./InstructionField";
+import { GenerateModal } from "./GenerateModal";
 
 // A source label rarely matches a filename exactly, so fall back to a loose match.
 function _findSource(sources: Source[], label: string): Source | undefined {
@@ -65,13 +67,13 @@ export function MindmapStudio({
   mindmap, loading, onGenerate, onBack,
   savedList, onSelect, onDelete, onRename, sourceCount,
   sources, pickedSources, onPillClick, breadcrumbs,
-  openInViewer, onViewerOpened,
+  openInViewer, onViewerOpened, instruction, instructionUnmatched,
 }: {
   mindmap: MindmapNodeData | null;
   loading: boolean;
-  onGenerate: () => void;
+  onGenerate: (instruction: string) => void;
   onBack: () => void;
-  savedList: { id: number; created_at: string | null; topic: string }[];
+  savedList: { id: number; created_at: string | null; topic: string; user_instruction?: string }[];
   onSelect: (id: number) => void;
   onDelete: (id: number) => void;
   onRename?: (id: number, title: string) => Promise<void>;
@@ -83,9 +85,14 @@ export function MindmapStudio({
   breadcrumbs?: BreadcrumbItem[];
   openInViewer?: boolean;
   onViewerOpened?: () => void;
+  /** The instruction the shown map was made with, and whether the sources had nothing on it. */
+  instruction?: string;
+  instructionUnmatched?: boolean;
 }) {
   const t = useTranslations("workspace.detail.studio");
   const tMm = useTranslations("workspace.detail.studio.mindmap");
+  // The create dialog with the instruction field, opened by the Create button.
+  const [dialogOpen, setDialogOpen] = useState(false);
   const locale = useLocale();
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<HTMLDivElement>(null);
@@ -396,6 +403,11 @@ export function MindmapStudio({
                 : t("sources.few", { n: sourceCount })}
           </div>
 
+          {dialogOpen && (
+            <GenerateModal id="mindmap-instruction" toolName={tMm("title")}
+              onClose={() => setDialogOpen(false)}
+              onCreate={(text) => { setDialogOpen(false); onGenerate(text); }} />
+          )}
           {savedList.length === 0 && !loading ? (
             <EmptyState
               className="pt-[15%]"
@@ -404,7 +416,7 @@ export function MindmapStudio({
               text={tMm("emptyHint")}
               action={
                 <span title={atLimit ? t("generate.limitReached") : undefined}>
-                  <button type="button" onClick={() => onGenerate()}
+                  <button type="button" onClick={() => setDialogOpen(true)}
                     disabled={noSources || loading || atLimit}
                     className="btn-outline-accent inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all disabled:opacity-40">
                     <Sparkle size={12} weight="bold" /> {t("generate.create")}
@@ -416,7 +428,7 @@ export function MindmapStudio({
             <>
               <div className="flex justify-center">
                 <span title={atLimit ? t("generate.limitReached") : undefined}>
-                  <button type="button" onClick={() => onGenerate()}
+                  <button type="button" onClick={() => setDialogOpen(true)}
                     disabled={noSources || loading || atLimit}
                     className="btn-outline-accent inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all disabled:opacity-40">
                     <Sparkle size={12} weight="bold" /> {t("generate.create")}
@@ -458,6 +470,11 @@ export function MindmapStudio({
                         </span>
                       )}
                     </div>
+                    {item.user_instruction && (
+                      <span className="text-xs text-muted line-clamp-1" title={item.user_instruction}>
+                        {t("generate.instructionShown", { text: item.user_instruction })}
+                      </span>
+                    )}
                     <div className="flex items-center justify-between mt-auto pt-1">
                       <span className="text-xs font-medium" >
                         {item.created_at ? new Date(item.created_at).toLocaleDateString(locale === "en" ? "en-US" : "de-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" }) : ""}
@@ -545,6 +562,13 @@ export function MindmapStudio({
           </div>
         </div>
         <div className="flex-1 overflow-hidden flex flex-col">
+          {mindmap && (instruction || instructionUnmatched) && (
+            <div className="px-4 pt-3">
+              <InstructionNote instruction={instruction} unmatched={instructionUnmatched}
+                shownText={t("generate.instructionShown", { text: instruction || "" })}
+                unmatchedText={t("generate.instructionUnmatched")} />
+            </div>
+          )}
           {!mindmap && loading && (
             <div className="flex-1 flex items-center justify-center">
               <div className="flex flex-col items-center gap-3">

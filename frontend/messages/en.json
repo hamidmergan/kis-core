@@ -2868,6 +2868,8 @@
           "selectedSourcesCount": "{count} sources",
           "noSourceHint": "Select a source on the left to generate from it.",
           "countHeading": "Count",
+          "instructionHeading": "Instruction, optional",
+          "instructionPlaceholder": "Narrow down a topic or chapter, set the kind of questions.",
           "grammarTypeHeading": "Topic",
           "formatHeading": "Exercise format",
           "formatNoneHint": "Pick at least one format.",
@@ -2888,6 +2890,8 @@
           "emptyText": "Select sources and press Create.",
           "createButton": "Create",
           "limitReached": "Limit reached, delete an exercise first",
+          "instructionShown": "Instruction: {text}",
+          "instructionUnmatched": "Your instruction is not covered by the sources. The exercises use all of the material instead.",
           "exercisesCount": "{count, plural, =1 {1 exercise} other {# exercises}}",
           "cardsCount": "{count, plural, =1 {1 card} other {# cards}}",
           "sourcesCount": "{count, plural, =1 {1 source} other {# sources}}",
@@ -3349,7 +3353,13 @@
         "generate": {
           "create": "Create",
           "limitReached": "Limit reached, delete an entry first",
-          "generating": "Generating…"
+          "generating": "Generating…",
+          "instructionLabel": "Instruction, optional",
+          "modalTitle": "Create {tool}",
+          "cancel": "Cancel",
+          "instructionPlaceholder": "Narrow down a topic or chapter.",
+          "instructionShown": "Instruction: {text}",
+          "instructionUnmatched": "Your instruction is not covered by the sources. The result uses all of the material instead."
         },
         "dataTable": {
           "title": "Data table",

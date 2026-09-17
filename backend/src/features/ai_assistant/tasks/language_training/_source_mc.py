@@ -97,9 +97,11 @@ def generate_mc_from_source(
     adaptive_suffix: str = "",
     title_avoidance: str = "",
     coverage: str = "",
+    instruction: str = "",
 ) -> tuple[list[dict], str]:
     # The level block tunes the questions without changing count or solution.
-    tool_prompt = _build_prompt(count, language) + adaptive_suffix + title_avoidance + coverage
+    tool_prompt = (_build_prompt(count, language, yielding=bool(instruction))
+                   + adaptive_suffix + title_avoidance + coverage + instruction)
     # No block with existing questions, the model would just copy them.
     messages = [
         {"role": "system", "content": tool_prompt},
@@ -142,8 +144,21 @@ def _attach_by_kind(items: list[dict], claims: list[str], ctx: QuelleContext) ->
         attach_chips_cited(tf_items, tf_claims, ctx)
 
 
-def _build_prompt(count: int, language: str) -> str:
+def _build_prompt(count: int, language: str, yielding: bool = False) -> str:
+    """The thirds are a counted order, with an instruction only the default it may change."""
     n_frage, n_luecke, n_tf = _split_counts(count)
+    if yielding:
+        mischung = (
+            f"Create {count} exercises in total. By default that is {n_frage} comprehension "
+            f"questions, {n_luecke} gap sentences and {n_tf} true/false statements. When the "
+            f"additional instruction below asks for particular kinds, follow it and keep the "
+            f"total at {count}. Mix easy and hard ones."
+        )
+    else:
+        mischung = (
+            f"Create exactly {n_frage} comprehension questions, {n_luecke} gap sentences and "
+            f"{n_tf} true/false statements, {count} exercises in total. Mix easy and hard ones."
+        )
     base = (
         f"You create exercises based on the given source text. "
         f"Write ALL questions, sentences, options, and answers in {language}, "
@@ -173,9 +188,7 @@ def _build_prompt(count: int, language: str) -> str:
         '"source_label": "Filename.pdf", "page_number": 9}]}\n'
         + _TRUE_FALSE_RULES
         + _PERSONAL_RULE + _SOURCE_RULE + title_rule
-        + AIA_HINT_RULE.replace("{language}", language) +
-        f"Create exactly {n_frage} comprehension questions, {n_luecke} gap sentences and "
-        f"{n_tf} true/false statements, {count} exercises in total. Mix easy and hard ones."
+        + AIA_HINT_RULE.replace("{language}", language) + mischung
     )
 
 

@@ -2868,6 +2868,8 @@
           "selectedSourcesCount": "{count} Materialien",
           "noSourceHint": "Wähle links ein Material aus, um daraus zu generieren.",
           "countHeading": "Anzahl",
+          "instructionHeading": "Anweisung, optional",
+          "instructionPlaceholder": "Thema oder Kapitel eingrenzen, Art der Fragen vorgeben.",
           "grammarTypeHeading": "Thema",
           "formatHeading": "Aufgabenformat",
           "formatNoneHint": "Mindestens ein Format auswählen.",
@@ -2888,6 +2890,8 @@
           "emptyText": "Wähle Materialien aus und drücke auf Erstellen.",
           "createButton": "Erstellen",
           "limitReached": "Grenze erreicht, lösche zuerst eine Übung",
+          "instructionShown": "Anweisung: {text}",
+          "instructionUnmatched": "Zu deiner Anweisung steht nichts in den Quellen. Die Aufgaben nutzen deshalb das gesamte Material.",
           "exercisesCount": "{count, plural, =1 {1 Übung} other {# Übungen}}",
           "cardsCount": "{count, plural, =1 {1 Karte} other {# Karten}}",
           "sourcesCount": "{count, plural, =1 {1 Material} other {# Materialien}}",
@@ -3349,7 +3353,13 @@
         "generate": {
           "create": "Erstellen",
           "limitReached": "Grenze erreicht, lösche zuerst einen Eintrag",
-          "generating": "Wird generiert…"
+          "generating": "Wird generiert…",
+          "instructionLabel": "Anweisung, optional",
+          "modalTitle": "{tool} erstellen",
+          "cancel": "Abbrechen",
+          "instructionPlaceholder": "Thema oder Kapitel eingrenzen.",
+          "instructionShown": "Anweisung: {text}",
+          "instructionUnmatched": "Zu deiner Anweisung steht nichts in den Quellen. Das Ergebnis nutzt deshalb das gesamte Material."
         },
         "dataTable": {
           "title": "Datentabelle",

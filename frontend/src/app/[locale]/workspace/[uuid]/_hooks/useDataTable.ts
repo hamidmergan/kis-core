@@ -13,8 +13,18 @@ export function useDataTable({ uuid, selectedSourceIds }: UseDataTableOptions) {
   const [data_table, setDataTable] = useState<DataTableData | null>(null);
   const [data_tableSources, setDataTableSources] = useState<DataTableSource[]>([]);
   const [data_tableLoading, setDataTableLoading] = useState(false);
-  const [data_tableList, setDataTableList] = useState<{ id: number; title: string; created_at: string | null }[]>([]);
+  const [data_tableList, setDataTableList] = useState<{ id: number; title: string; created_at: string | null; user_instruction?: string }[]>([]);
+  // The instruction this table was made with, and whether the sources had nothing on it.
+  const [data_tableInstruction, setDataTableInstruction] = useState("");
+  const [data_tableUnmatched, setDataTableUnmatched] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const takeTable = useCallback((data: { table_data: DataTableData & { sources?: DataTableSource[] }; sources?: DataTableSource[]; user_instruction?: string; instruction_unmatched?: boolean }) => {
+    setDataTable(data.table_data);
+    setDataTableSources(data.sources || data.table_data.sources || []);
+    setDataTableInstruction(data.user_instruction || "");
+    setDataTableUnmatched(Boolean(data.instruction_unmatched));
+  }, []);
 
   const stopPolling = useCallback(() => {
     if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
@@ -36,8 +46,7 @@ export function useDataTable({ uuid, selectedSourceIds }: UseDataTableOptions) {
         if (!res.ok) return;
         const data = await res.json();
         if (data.status === "success" && data.table_data) {
-          setDataTable(data.table_data);
-          setDataTableSources(data.sources || data.table_data.sources || []);
+          takeTable(data);
           setDataTableLoading(false);
           stopPolling();
           refreshList();
@@ -48,7 +57,7 @@ export function useDataTable({ uuid, selectedSourceIds }: UseDataTableOptions) {
         }
       } catch { /* ignore */ }
     }, 3000);
-  }, [uuid, stopPolling, refreshList]);
+  }, [uuid, stopPolling, refreshList, takeTable]);
 
   useEffect(() => {
     (async () => {
@@ -57,8 +66,7 @@ export function useDataTable({ uuid, selectedSourceIds }: UseDataTableOptions) {
         if (res.ok) {
           const data = await res.json();
           if (data && data.status === "success" && data.table_data) {
-            setDataTable(data.table_data);
-            setDataTableSources(data.sources || data.table_data.sources || []);
+            takeTable(data);
           } else if (data && (data.status === "pending" || data.status === "running")) {
             startPolling(data.id);
           }
@@ -70,7 +78,7 @@ export function useDataTable({ uuid, selectedSourceIds }: UseDataTableOptions) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uuid]);
 
-  const generate = useCallback(async () => {
+  const generate = useCallback(async (instruction = "") => {
     if (selectedSourceIds.length === 0) return;
     setDataTableLoading(true);
     try {
@@ -78,7 +86,7 @@ export function useDataTable({ uuid, selectedSourceIds }: UseDataTableOptions) {
       const res = await api.fetch(`/api/ai-assistant/workspaces/${uuid}/data_table/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ active_source_ids: selectedSourceIds }),
+        body: JSON.stringify({ active_source_ids: selectedSourceIds, instruction }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -98,11 +106,10 @@ export function useDataTable({ uuid, selectedSourceIds }: UseDataTableOptions) {
       if (!res.ok) return;
       const data = await res.json();
       if (data.status === "success" && data.table_data) {
-        setDataTable(data.table_data);
-        setDataTableSources(data.sources || data.table_data.sources || []);
+        takeTable(data);
       }
     } catch { /* ignore */ }
-  }, [uuid]);
+  }, [uuid, takeTable]);
 
   const remove = useCallback(async (id: number) => {
     try {
@@ -127,6 +134,7 @@ export function useDataTable({ uuid, selectedSourceIds }: UseDataTableOptions) {
 
   return {
     data_table, data_tableSources, data_tableLoading, data_tableList,
+    data_tableInstruction, data_tableUnmatched,
     generate, select, remove, rename,
   };
 }

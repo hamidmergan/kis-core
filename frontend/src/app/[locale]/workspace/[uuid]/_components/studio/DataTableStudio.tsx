@@ -10,19 +10,21 @@ import { MinimizeContext } from "../../_context";
 import { STUDIO_ITEM_MAX } from "../../_constants";
 import { SubviewHeader, _getToolBadge, type BreadcrumbItem } from "../layout/SubviewHeader";
 import { StudioSourceLegend } from "./StudioSourceLegend";
+import { InstructionNote } from "./InstructionField";
+import { GenerateModal } from "./GenerateModal";
 
 export function DataTableStudio({
   table, sources, loading, onGenerate, onBack,
   savedList, onSelect, onDelete, onRename, sourceCount,
   allSources, onPillClick, breadcrumbs,
-  openInViewer, onViewerOpened,
+  openInViewer, onViewerOpened, instruction, instructionUnmatched,
 }: {
   table: DataTableData | null;
   sources: DataTableSource[];
   loading: boolean;
-  onGenerate: () => void;
+  onGenerate: (instruction: string) => void;
   onBack: () => void;
-  savedList: { id: number; title: string; created_at: string | null }[];
+  savedList: { id: number; title: string; created_at: string | null; user_instruction?: string }[];
   onSelect: (id: number) => void;
   onDelete: (id: number) => void;
   onRename?: (id: number, title: string) => Promise<void>;
@@ -32,9 +34,14 @@ export function DataTableStudio({
   breadcrumbs?: BreadcrumbItem[];
   openInViewer?: boolean;
   onViewerOpened?: () => void;
+  /** The instruction the shown table was made with, and whether the sources had nothing on it. */
+  instruction?: string;
+  instructionUnmatched?: boolean;
 }) {
   const t = useTranslations("workspace.detail.studio");
   const tDt = useTranslations("workspace.detail.studio.dataTable");
+  // The create dialog with the instruction field, opened by the Create button.
+  const [dialogOpen, setDialogOpen] = useState(false);
   const locale = useLocale();
   const [view, setView] = useState<"viewer" | "list">(openInViewer ? "viewer" : "list");
   // Which card is currently being renamed, only one, nobody needs more at once.
@@ -69,6 +76,11 @@ export function DataTableStudio({
                 : t("sources.few", { n: sourceCount })}
           </div>
 
+          {dialogOpen && (
+            <GenerateModal id="table-instruction" toolName={tDt("title")}
+              onClose={() => setDialogOpen(false)}
+              onCreate={(text) => { setDialogOpen(false); onGenerate(text); }} />
+          )}
           {savedList.length === 0 && !loading ? (
             <EmptyState
               className="pt-[15%]"
@@ -77,7 +89,7 @@ export function DataTableStudio({
               text={tDt("emptyHint")}
               action={
                 <span title={atLimit ? t("generate.limitReached") : undefined}>
-                  <button type="button" onClick={() => onGenerate()}
+                  <button type="button" onClick={() => setDialogOpen(true)}
                     disabled={noSources || loading || atLimit}
                     className="btn-outline-accent inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all disabled:opacity-40">
                     <Sparkle size={12} weight="bold" /> {t("generate.create")}
@@ -89,7 +101,7 @@ export function DataTableStudio({
             <>
               <div className="flex justify-center">
                 <span title={atLimit ? t("generate.limitReached") : undefined}>
-                  <button type="button" onClick={() => onGenerate()}
+                  <button type="button" onClick={() => setDialogOpen(true)}
                     disabled={noSources || loading || atLimit}
                     className="btn-outline-accent inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all disabled:opacity-40">
                     <Sparkle size={12} weight="bold" /> {t("generate.create")}
@@ -131,6 +143,11 @@ export function DataTableStudio({
                         </span>
                       )}
                     </div>
+                    {item.user_instruction && (
+                      <span className="text-xs text-muted line-clamp-1" title={item.user_instruction}>
+                        {t("generate.instructionShown", { text: item.user_instruction })}
+                      </span>
+                    )}
                     <div className="flex items-center justify-between mt-auto pt-1">
                       <span className="text-xs font-medium" >
                         {item.created_at ? new Date(item.created_at).toLocaleDateString(locale === "en" ? "en-US" : "de-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" }) : ""}
@@ -203,6 +220,9 @@ export function DataTableStudio({
           )}
           {table && (
             <div className="w-full px-4 pt-4 pb-6 flex flex-col gap-4" style={{ userSelect: "text" }}>
+              <InstructionNote instruction={instruction} unmatched={instructionUnmatched}
+                shownText={t("generate.instructionShown", { text: instruction || "" })}
+                unmatchedText={t("generate.instructionUnmatched")} />
               <p className="text-xs" >
                 {tDt("basedOn", { n: sources.length })}
               </p>
