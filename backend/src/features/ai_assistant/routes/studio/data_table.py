@@ -12,6 +12,7 @@ from src.security.rate_limit import enforce_aia_burst
 
 from src.features.ai_assistant.routes._workspace_access import _resolve_source_ids
 from src.features.ai_assistant import schemas
+from src.features.ai_assistant.tasks._instruction import clean as clean_instruction
 
 router = APIRouter(tags=["ki-assistent: studio"])
 
@@ -44,7 +45,10 @@ async def generate_data_table(
         if src and src["id"] in source_ids:
             source_map[src["id"]] = {"number": idx + 1, "filename": src["filename"], "uuid": suuid}
 
-    data_table_id = db.create_aia_data_table(workspace["id"], user_id, source_ids)
+    # The instruction travels on the row so the task reads it there.
+    data_table_id = db.create_aia_data_table(
+        workspace["id"], user_id, source_ids,
+        user_instruction=clean_instruction(body.instruction) or None)
 
     from src.tasks.aia_tasks import run_generate_data_table
     # Convert int keys to str for JSON serialization
@@ -52,6 +56,12 @@ async def generate_data_table(
     run_generate_data_table.delay(data_table_id, source_ids, body.active_source_ids, source_map_str,
                                   locale=locale, user_id=user_id)
     return {"data_table_id": data_table_id, "status": "pending"}
+
+def _mit_anweisung(dt: dict) -> dict:
+    """The row as the browser sees it, the instruction never None and the flag a real bool."""
+    return {**dt, "user_instruction": dt.get("user_instruction") or "",
+            "instruction_unmatched": bool(dt.get("instruction_unmatched"))}
+
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/data_table/{data_table_id}")
 async def get_data_table(
@@ -70,7 +80,7 @@ async def get_data_table(
     if not dt or dt["user_id"] != user_id:
         raise HTTPException(status_code=404, detail=t("ai.dataTable.notFound", locale))
 
-    return dt
+    return _mit_anweisung(dt)
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/data_table")
 async def get_latest_data_table(
@@ -85,7 +95,7 @@ async def get_latest_data_table(
         raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
 
     dt = db.get_latest_aia_data_table(workspace["id"], user_id)
-    return dt or {}
+    return _mit_anweisung(dt) if dt else {}
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/data_tables")
 async def get_data_tables(
@@ -105,6 +115,7 @@ async def get_data_tables(
             "id": r["id"],
             "title": r["title"] or "DataTable",
             "created_at": r["created_at"].isoformat() + "Z" if r["created_at"] else None,
+            "user_instruction": r.get("user_instruction") or "",
         }
         for r in rows
     ]

@@ -12,6 +12,13 @@ from src.features.ai_assistant.prompts.studio_prompts import AIA_MINDMAP_PROMPT
 from src.services import aia_chunker
 from src.services.aia_adaptive_tools import build_adaptive_tool_suffix
 from src.features.ai_assistant.tasks._context_budget import tool_context_budget
+from src.features.ai_assistant.tasks._instruction import (
+    NONE,
+    Resolution,
+    prompt_block,
+    spots_by_source,
+)
+from src.features.ai_assistant.tasks._instruction import resolve as resolve_instruction
 from src.features.ai_assistant.tasks.studio import _mindmap_condensed as _condensed
 from src.services.llm_call import create_logged
 
@@ -92,13 +99,28 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
             return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
 
         gesammelt = _collect_sources(source_ids, source_uuids)
-        # Whoever fits gets read in full, only the rest goes through the summaries.
-        gesamt = sum(len(c.get("content") or "")
-                     for _s, _l, alle, _p in gesammelt for c in alle)
+        # The instruction decides whether all the material or only the found spots go in.
+        zeile = db.get_aia_mindmap(mindmap_id) or {}
+        gewuenscht = zeile.get("user_instruction") or ""
+        wahl = (resolve_instruction(zeile.get("workspace_id"), source_ids, gewuenscht,
+                                    tool_context_budget())
+                if gewuenscht.strip() else Resolution("", None, False, NONE))
+        # Written anew on every run, so a retry that hits the material clears an old miss.
+        if gewuenscht.strip():
+            db.set_instruction_unmatched("aia_mindmaps", mindmap_id, wahl.unmatched)
         quellen = [{"id": sid, "label": label,
                     "summary": (db.get_aia_source(suuid) or {}).get("summary")}
                    for (sid, label, _alle, _p), suuid in zip(gesammelt, source_uuids)]
-        verdichtet = _condensed.should_condense(
+        if wahl.chunks is not None:
+            # Only the spots the instruction found, the full chunks stay for the timestamps.
+            treffer = spots_by_source(wahl.chunks)
+            gesammelt = [(sid, label, alle, treffer[sid])
+                         for sid, label, alle, _p in gesammelt if sid in treffer]
+        # Whoever fits gets read in full, only the rest goes through the summaries.
+        gesamt = sum(len(c.get("content") or "")
+                     for _s, _l, alle, _p in gesammelt for c in alle)
+        # Found spots always fit, they take the single call.
+        verdichtet = wahl.chunks is None and _condensed.should_condense(
             gesamt, tool_context_budget(), quellen)
         logger.info("mindmap {}: {} Zeichen Material, Weg {}", mindmap_id, gesamt,
                     "verdichtet" if verdichtet else "Volltext")
@@ -133,8 +155,10 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
             metadata={"provider": _provider, "base_url": _base_url, "model": model},
         )
 
-        # The level block hangs on the person, not on the course room.
-        adaptive_suffix = build_adaptive_tool_suffix(user_id)
+        # The level block hangs on the person, not on the course room. The instruction
+        # travels with it so every call of both ways carries it.
+        adaptive_suffix = (build_adaptive_tool_suffix(user_id)
+                           + prompt_block(wahl.text, narrowed=wahl.chunks is not None))
         # Still needed below for the title's within-workspace deduplication.
         _first_source = db.get_aia_source(source_uuids[0]) if source_uuids else None
         messages = [

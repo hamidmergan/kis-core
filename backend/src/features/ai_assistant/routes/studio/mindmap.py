@@ -12,6 +12,7 @@ from src.security.rate_limit import enforce_aia_burst
 
 from src.features.ai_assistant.routes._workspace_access import _resolve_source_ids
 from src.features.ai_assistant import schemas
+from src.features.ai_assistant.tasks._instruction import clean as clean_instruction
 
 router = APIRouter(tags=["ki-assistent: studio"])
 
@@ -45,8 +46,10 @@ async def generate_mindmap(
         if s and s["id"] in source_ids:
             source_uuids.append(suuid)
 
-    # Create DB record
-    mindmap_id = db.create_aia_mindmap(workspace["id"], user_id, source_ids)
+    # Create DB record, the instruction travels on the row so the task and a retry read it.
+    mindmap_id = db.create_aia_mindmap(
+        workspace["id"], user_id, source_ids,
+        user_instruction=clean_instruction(body.instruction) or None)
 
     # Queue: through the shared-pool dispatcher when enabled, else direct .delay.
     from src.features.ai_assistant.scheduling.service import scheduler_enabled, enqueue_task
@@ -78,6 +81,19 @@ def _gewaehlte_quellen(source_ids) -> list[dict]:
     return out
 
 
+def _antwort(mindmap: dict) -> dict:
+    """One map as the browser sees it, the instruction and its flag included."""
+    return {
+        "id": mindmap["id"],
+        "status": mindmap["status"],
+        "mindmap": mindmap["mindmap"],
+        "error": mindmap["error"],
+        "sources": _gewaehlte_quellen(mindmap.get("source_ids")),
+        "user_instruction": mindmap.get("user_instruction") or "",
+        "instruction_unmatched": bool(mindmap.get("instruction_unmatched")),
+    }
+
+
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/mindmap/{mindmap_id}")
 async def get_mindmap(
     workspace_uuid: str,
@@ -100,13 +116,7 @@ async def get_mindmap(
     if not mindmap or mindmap["workspace_id"] != workspace["id"]:
         raise HTTPException(status_code=404, detail=t("mindmap.notFound", locale))
 
-    return {
-        "id": mindmap["id"],
-        "status": mindmap["status"],
-        "mindmap": mindmap["mindmap"],
-        "error": mindmap["error"],
-        "sources": _gewaehlte_quellen(mindmap.get("source_ids")),
-    }
+    return _antwort(mindmap)
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/mindmap")
 async def get_latest_mindmap(
@@ -127,15 +137,10 @@ async def get_latest_mindmap(
 
     mindmap = db.get_latest_aia_mindmap(workspace["id"], user_id)
     if not mindmap:
-        return {"id": None, "status": None, "mindmap": None, "error": None, "sources": []}
+        return {"id": None, "status": None, "mindmap": None, "error": None, "sources": [],
+                "user_instruction": "", "instruction_unmatched": False}
 
-    return {
-        "id": mindmap["id"],
-        "status": mindmap["status"],
-        "mindmap": mindmap["mindmap"],
-        "error": mindmap["error"],
-        "sources": _gewaehlte_quellen(mindmap.get("source_ids")),
-    }
+    return _antwort(mindmap)
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/mindmaps")
 async def list_mindmaps(
@@ -161,6 +166,7 @@ async def list_mindmaps(
             "created_at": r["created_at"].isoformat() + "Z" if r["created_at"] else None,
             # The display name comes ready from the query, own title before root node.
             "topic": r["topic"] or "Mindmap",
+            "user_instruction": r.get("user_instruction") or "",
         }
         for r in rows
     ]

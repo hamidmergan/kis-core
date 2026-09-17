@@ -24,13 +24,14 @@ def generate_cards_from_source(
     adaptive_suffix: str = "",
     title_avoidance: str = "",
     coverage: str = "",
+    instruction: str = "",
 ) -> tuple[list[dict], str]:
     # adaptive_suffix pitches question + answer at the learner's CEFR level.
     prompt = (
         AIA_KARTEIKARTEN_QA_PROMPT
         .replace("{count}", str(count))
         .replace("{language}", language)
-    ) + adaptive_suffix + title_avoidance + coverage
+    ) + adaptive_suffix + title_avoidance + coverage + instruction
     # No block with existing cards, the model would just copy them.
     messages = [
         {"role": "system", "content": prompt},

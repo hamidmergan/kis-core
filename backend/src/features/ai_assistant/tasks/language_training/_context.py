@@ -143,10 +143,36 @@ def build_source_context(uuids: list[str], tool: str,
     if not picked_by_label:
         return None
 
-    # The material can name sources the selection lost to the budget.
-    first_label = picked_by_label[0][0]
     quota = (per_section_quota(len(picked_by_label), count)
              if count and count >= len(picked_by_label) else 0)
+    return _assemble(picked_by_label, source_by_name, quota)
+
+
+def build_context_from_chunks(uuids: list[str], chunks: list[dict]) -> QuelleContext | None:
+    """The context from found spots instead of a sweep, a source without a hit stays out."""
+    by_id: dict[int, dict] = {}
+    for suuid in uuids:
+        source = db.get_aia_source(suuid)
+        if source:
+            by_id[source["id"]] = source
+    je_quelle: dict[int, list[dict]] = {}
+    for chunk in chunks:
+        sid = chunk.get("source_id")
+        if sid in by_id and (chunk.get("content") or "").strip():
+            je_quelle.setdefault(sid, []).append(chunk)
+    # In the order the person chose, so the section numbers stay calm.
+    picked_by_label = [(by_id[sid]["filename"], je_quelle[sid]) for sid in by_id if sid in je_quelle]
+    if not picked_by_label:
+        return None
+    source_by_name = {by_id[sid]["filename"]: by_id[sid] for sid in by_id if sid in je_quelle}
+    return _assemble(picked_by_label, source_by_name, quota=0)
+
+
+def _assemble(picked_by_label: list[tuple[str, list[dict]]],
+              source_by_name: dict[str, dict], quota: int) -> QuelleContext:
+    """The finished context out of the chosen chunks, one numbered section per source."""
+    # The material can name sources the selection lost to the budget.
+    first_label = picked_by_label[0][0]
     trimmed: list[str] = []
     seen_pages_by_source: dict[int, set] = {}
     media_start_by_page: dict[int, dict] = {}

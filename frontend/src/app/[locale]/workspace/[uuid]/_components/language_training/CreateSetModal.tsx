@@ -7,6 +7,7 @@ import Checkbox from "@/components/ui/Checkbox";
 import Select from "@/components/ui/Select";
 import type { GrammarTopic } from "../../_types";
 import { GrammarTopicForm } from "./GrammarTopicForm";
+import { InstructionField } from "../studio/InstructionField";
 import { nextTopicId } from "./_grammarTopics";
 import {
   GRAMMAR_FORMATS,
@@ -44,7 +45,7 @@ export function CreateSetModal({
   workspaceUuid: string;
   onClose: () => void;
   onCreate: (mode: string, count: number, grammarTopicId?: number,
-             grammarKinds?: string[], flashcardSetId?: number) => void;
+             grammarKinds?: string[], flashcardSetId?: number, instruction?: string) => void;
   /** Owner or tutor, they may remove any topic and theirs is visible to everyone. */
   canManage?: boolean;
   /** For telling apart your own topics from the course's official ones. */
@@ -65,6 +66,9 @@ export function CreateSetModal({
   // The path through the sources is the default everywhere.
   const [mode, setMode] = useState<"glossary" | "source" | "cards">("source");
   const [count, setCount] = useState(isQuiz ? 5 : 10);
+  // Only karteikarten and quiz from the sources follow an instruction.
+  const withInstruction = (isQuiz || tool === "karteikarten") && mode === "source";
+  const [instruction, setInstruction] = useState("");
   const press = useRef(newBackdropPress()).current;
 
   // The topics live in the database, a new one appears here without a change.
@@ -356,6 +360,18 @@ export function CreateSetModal({
           ))}
         </div>
 
+        {withInstruction && (
+          <div className="mb-4">
+            <InstructionField
+              id="set-instruction"
+              value={instruction}
+              onChange={setInstruction}
+              label={t("createModal.instructionHeading")}
+              placeholder={t("createModal.instructionPlaceholder")}
+            />
+          </div>
+        )}
+
         {/* Actions */}
         <div className="flex gap-2">
           <button type="button" onClick={onClose}
@@ -368,6 +384,7 @@ export function CreateSetModal({
             isGrammar && topicId ? topicId : undefined,
             isGrammar ? sentKinds(formats) : undefined,
             isVocabulary && mode === "cards" && flashcardSetId ? flashcardSetId : undefined,
+            withInstruction ? instruction : undefined,
           )}
             disabled={!canCreate}
             className="btn-fill-accent flex-1 flex items-center justify-center gap-1.5 py-2 rounded-full text-xs font-semibold transition-all disabled:opacity-50">

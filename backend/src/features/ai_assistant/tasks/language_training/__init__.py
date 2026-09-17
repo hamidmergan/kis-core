@@ -17,7 +17,11 @@ from src.features.ai_assistant.repository.grammar_topics import catalog_entry
 from src.services.aia_grammar_formats import clean_kinds
 from src.services.aia_grammar_topic import derive_topic
 
+from src.features.ai_assistant.tasks._context_budget import exercise_context_budget
+from src.features.ai_assistant.tasks._instruction import NONE, Resolution, prompt_block
+from src.features.ai_assistant.tasks._instruction import resolve as resolve_instruction
 from src.features.ai_assistant.tasks.language_training._context import (
+    build_context_from_chunks,
     build_source_context,
     label_for_sources,
     quota_fits,
@@ -110,6 +114,12 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
         ctx = None
         # Only set in source mode, glossary mode has nothing to top up.
         refill = None
+        # The person's instruction, empty when there is none or it missed the material.
+        anweisung = ""
+        # True when the material is the found spots instead of the sweep.
+        gezielt = False
+        # The pool only serves runs without an instruction, its items were made without one.
+        mit_vorrat = False
 
         if mode == "glossary":
             result = generate_from_glossary(client, model, workspace_id, user_id, tool, count,
@@ -126,6 +136,17 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
                 db.fail_exercise_set(set_id)
                 return
 
+            # The instruction decides the way before the pool is asked.
+            gewuenscht = ex_set.get("user_instruction") or ""
+            wahl = (resolve_instruction(workspace_id, _source_ids(uuids), gewuenscht,
+                                        exercise_context_budget())
+                    if gewuenscht.strip() else Resolution("", None, False, NONE))
+            # Written anew on every run, so a retry that hits the material clears an old miss.
+            if gewuenscht.strip():
+                db.set_instruction_unmatched("aia_exercise_sets", set_id, wahl.unmatched)
+            anweisung = wahl.text
+            gezielt = wahl.chunks is not None
+
             # Pool first, then the model, only unseen items are taken.
             level = pool_level(adaptive_suffix, user_id)
             # The grammar exercise splits its pool by topic as well.
@@ -133,7 +154,8 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
             # Clean the formats again, an old set can carry dead codes.
             kinds = (clean_kinds(ex_set.get("grammar_kinds"))
                      if tool == "grammatik" else None)
-            if uses_pool(tool, mode):
+            mit_vorrat = uses_pool(tool, mode) and not anweisung
+            if mit_vorrat:
                 items = take_from_pool(uuids, tool, level, user_id, count, topic_id,
                                        kinds=kinds)
                 if items:
@@ -144,6 +166,11 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
             if zu_erzeugen <= 0:
                 # The pool was enough, only the title is missing.
                 ctx = None
+            elif gezielt:
+                ctx = build_context_from_chunks(uuids, wahl.chunks)
+                if ctx is None:
+                    db.fail_exercise_set(set_id)
+                    return
             else:
                 ctx = build_source_context(uuids, tool, count=zu_erzeugen)
                 if ctx is None and not items:
@@ -177,7 +204,8 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
             def generate(from_ctx, how_many):
                 """One generation run against a context, returns exercises, title and header."""
                 # Only equally sized numbered sections with a quota make the model use them all.
-                cov = coverage_rule(from_ctx, how_many)
+                # Found spots carry no quota, the topic may sit in one source alone.
+                cov = "" if gezielt else coverage_rule(from_ctx, how_many)
                 shared = dict(locale=locale, language=language,
                               adaptive_suffix=adaptive_suffix,
                               title_avoidance=title_avoidance, coverage=cov)
@@ -187,14 +215,16 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
                     return got, name, None
                 if tool == "karteikarten":
                     got, name = generate_cards_from_source(
-                        client, model, from_ctx, how_many, **shared)
+                        client, model, from_ctx, how_many,
+                        instruction=prompt_block(anweisung, narrowed=gezielt), **shared)
                     return got, name, None
                 if tool == "grammatik":
                     # One call, the chosen formats mixed evenly.
                     return generate_grammar_from_source(
                         client, model, from_ctx, gtype, how_many, kinds=kinds, **shared)
                 got, name = generate_mc_from_source(
-                    client, model, from_ctx, how_many, **shared)
+                    client, model, from_ctx, how_many,
+                    instruction=prompt_block(anweisung), **shared)
                 return got, name, None
 
             refill = generate
@@ -202,7 +232,7 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
             neu, title, header = generate(ctx, zu_erzeugen)
 
             # Sections left empty get a run of their own, and only those.
-            if neu and quota_fits(ctx, zu_erzeugen):
+            if neu and not gezielt and quota_fits(ctx, zu_erzeugen):
                 gap_uuids = missing_section_uuids(neu, ctx)
                 if gap_uuids:
                     logger.info(
@@ -263,7 +293,7 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
             # Truly nothing new left in the pool or from the model: a repeat still
             # beats a set that stays short.
             fehlt = zu_erzeugen - len(neu)
-            if fehlt > 0 and uses_pool(tool, mode):
+            if fehlt > 0 and mit_vorrat:
                 wiederholt = take_from_pool(
                     uuids, tool, level, user_id, fehlt, topic_id,
                     exclude_ids=[i["pool_item_id"] for i in items if i.get("pool_item_id")],
@@ -282,7 +312,7 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
 
             # Store them so the next call gets them for free, the name comes along
             # so a later set drawn purely from the pool needs no call to be named.
-            if neu and uses_pool(tool, mode):
+            if neu and mit_vorrat:
                 store_in_pool(neu, ctx, tool, level, topic_id, set_title=title)
 
             # The presentation format now lives in the pool and has no place in the set.
@@ -321,6 +351,16 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
     except Exception as e:
         logger.error("KI Tutor: exercise set {} generation failed: {}", set_id, e)
         db.fail_exercise_set(set_id)
+
+
+def _source_ids(uuids: list[str]) -> list[int]:
+    """The ids behind the chosen sources, an unknown one is skipped."""
+    ids = []
+    for suuid in uuids:
+        source = db.get_aia_source(suuid)
+        if source and source.get("id"):
+            ids.append(source["id"])
+    return ids
 
 
 __all__ = ["run_generate_exercise_set"]

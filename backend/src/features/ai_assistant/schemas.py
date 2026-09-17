@@ -4,7 +4,7 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
-from src.limits import AIA_QUESTION_MAX_CHARS
+from src.limits import AIA_INSTRUCTION_MAX_CHARS, AIA_QUESTION_MAX_CHARS
 
 
 class StaffNoteLink(BaseModel):
@@ -109,6 +109,8 @@ class GlossaryExtractBody(BaseModel):
 
 class MindmapGenerateBody(BaseModel):
     active_source_ids: list[str]
+    # What the map should focus on or how it should look, empty means as always.
+    instruction: str = Field("", max_length=AIA_INSTRUCTION_MAX_CHARS)
 
 class FlashcardsGenerateBody(BaseModel):
     active_source_ids: list[str]
@@ -116,10 +118,14 @@ class FlashcardsGenerateBody(BaseModel):
 
 class DataTableGenerateBody(BaseModel):
     active_source_ids: list[str]
+    # What the table should focus on or how it should look, empty means as always.
+    instruction: str = Field("", max_length=AIA_INSTRUCTION_MAX_CHARS)
 
 class CreateSetBody(BaseModel):
     tool: str  # "flashcards" | "karteikarten" | "quiz" | "grammatik" | "wortschatz"
     mode: str = "glossary"  # "glossary" | "source" | "cards"
+    # Only karteikarten and quiz from the sources read it, the other tools ignore it.
+    instruction: str = Field("", max_length=AIA_INSTRUCTION_MAX_CHARS)
     source_uuid: Optional[str] = None  # legacy single-source clients
     source_uuids: Optional[list[str]] = None  # preferred: all selected sources
     count: int = 10

@@ -223,6 +223,8 @@ export function StudioPanelContent(props: StudioPanelContentProps) {
         breadcrumbs={setsCrumb}
         openInViewer={openDataTableInViewer}
         onViewerOpened={consumeDataTableViewerOpen}
+        instruction={dt.data_tableInstruction}
+        instructionUnmatched={dt.data_tableUnmatched}
       />
     );
   }
@@ -245,6 +247,8 @@ export function StudioPanelContent(props: StudioPanelContentProps) {
         breadcrumbs={setsCrumb}
         openInViewer={openMindmapInViewer}
         onViewerOpened={consumeMindmapViewerOpen}
+        instruction={mm.mindmapInstruction}
+        instructionUnmatched={mm.mindmapUnmatched}
       />
     );
   }
