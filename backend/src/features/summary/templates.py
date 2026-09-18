@@ -55,9 +55,11 @@ TEMPLATES: tuple[Template, ...] = (
             "Write a study guide. For each topic: the terms with their definitions as the "
             "material gives them, the connections between them as short prose, then three "
             "questions a learner should be able to answer from this section. A final section "
-            "headed as self-check questions collects every question, and a section after it "
-            "headed as answers answers each one from the material, numbered to match. Both "
-            "headings in the output language."
+            "headed as self-check questions collects every question. Draw these questions from "
+            "the facts given to you for every topic, never from how earlier sections of this "
+            "document happen to read, since that text may already be shortened. A section "
+            "after it headed as answers answers each one from the material, numbered to match. "
+            "Both headings in the output language."
         ),
     ),
     Template(
