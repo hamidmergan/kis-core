@@ -106,6 +106,48 @@ class TestTeilgroesse:
         monkeypatch.setattr(sp, "cap_for_model", lambda budget, share, feature: 1_000)
         assert sp.part_size_for_chat() == SUMMARY_PART_MIN_CHARS
 
+    def test_ein_gemessenes_fenster_wirkt_auch_ohne_cap_for_model_zu_ersetzen(self, monkeypatch):
+        """Sets the model profile behind cap_for_model, apertus-sized, and checks the real cap."""
+        from src.limits import SUMMARY_PART_FALLBACK_CHARS
+        from src.services import model_limits as ml
+        profil = ml.ModelProfile(40_000, ml.QUELLE_GEMESSEN, False, "")
+        monkeypatch.setattr(ml, "profile_for_feature", lambda feature="chat": profil)
+        groesse = sp.part_size_for_chat()
+        assert groesse == 60_000
+        assert groesse < SUMMARY_PART_FALLBACK_CHARS
+
+
+class TestTeilgroesseJeAnbieter:
+    def test_der_gewaehlte_anbieter_bestimmt_die_teilgroesse(self, monkeypatch):
+        """A small window on the CHOSEN provider caps the size, not the admin default route."""
+        from src.limits import SUMMARY_PART_FALLBACK_CHARS
+        from src.services import feature_provider_choices as fpc
+        from src.services import model_limits as ml
+        from src.services.feature_router import FeatureBinding
+
+        monkeypatch.setattr(ml, "profile_for_feature",
+                            lambda feature="chat": ml.ModelProfile(0, ml.QUELLE_UNBEKANNT, False, ""))
+        monkeypatch.setattr(fpc, "resolve_binding",
+                            lambda feature, provider_id: FeatureBinding(
+                                feature=feature, provider={"id": provider_id}, model="apertus"))
+        monkeypatch.setattr(ml, "stored_profile",
+                            lambda pid, model: ml.ModelProfile(24_000, ml.QUELLE_GEMESSEN, False, "")
+                            if (pid, model) == (99, "apertus") else None)
+
+        assert sp.part_size_for_chat() == SUMMARY_PART_FALLBACK_CHARS
+        assert sp.part_size_for_chat(99) == 36_000
+
+    def test_ein_nicht_aufloesbarer_anbieter_faellt_auf_die_verwaltung_zurueck(self, monkeypatch):
+        from src.limits import SUMMARY_PART_FALLBACK_CHARS
+        from src.services import feature_provider_choices as fpc
+
+        def _kaputt(feature, provider_id):
+            raise RuntimeError("Anbieter weg")
+
+        monkeypatch.setattr(fpc, "resolve_binding", _kaputt)
+        monkeypatch.setattr(sp, "cap_for_model", lambda budget, share, feature: budget)
+        assert sp.part_size_for_chat(5) == SUMMARY_PART_FALLBACK_CHARS
+
 
 class TestQuerverweise:
     def test_ein_querverweis_am_zeilenanfang_ist_keine_schnittstelle(self):
