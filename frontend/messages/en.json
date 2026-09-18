@@ -440,6 +440,7 @@
       "submit": "Create summary",
       "longRunning": "Still running. Large sources take their time, you can leave this page.",
       "downloadLabel": "Download",
+      "downloadDocxLabel": "Download as Word",
       "providerLabel": "AI provider",
       "templateLabel": "Structure of the summary",
       "chosenFiles": "Chosen sources",

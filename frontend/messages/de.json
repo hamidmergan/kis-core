@@ -440,6 +440,7 @@
       "submit": "Zusammenfassung erstellen",
       "longRunning": "Läuft noch. Umfangreiche Quellen brauchen ihre Zeit, du kannst die Seite verlassen.",
       "downloadLabel": "Herunterladen",
+      "downloadDocxLabel": "Als Word herunterladen",
       "providerLabel": "KI-Anbieter",
       "templateLabel": "Aufbau der Zusammenfassung",
       "chosenFiles": "Gewählte Quellen",

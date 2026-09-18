@@ -233,6 +233,10 @@ const nextConfig: NextConfig = {
         destination: `${backendUrl}/jobs/:job_uuid/pptx`,
       },
       {
+        source: "/api/jobs/:job_uuid/docx",
+        destination: `${backendUrl}/jobs/:job_uuid/docx`,
+      },
+      {
         source: "/api/jobs/:job_uuid/bundle",
         destination: `${backendUrl}/jobs/:job_uuid/bundle`,
       },
