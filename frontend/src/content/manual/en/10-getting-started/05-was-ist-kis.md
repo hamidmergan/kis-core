@@ -10,7 +10,7 @@ Seven services for individual tasks, independent of workspaces: upload a file,
 download a result.
 
 - **Translation** translates documents into another language and keeps the layout
-- **Text to speech** and **Speech to text** convert between audio and text
+- **Text to audio** and **Audio to text** convert between sound and writing
 - **Summary** shortens long content
 - **Image generation** creates and edits images
 - **Screencast** turns slides into a narrated video

@@ -139,7 +139,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "Text file must be UTF-8 encoded.",
     },
     # Quota labels (interpolated into quota.limitReached)
-    "quota.label.tts": {"de": "Text in Sprache", "en": "Text to speech"},
+    "quota.label.tts": {"de": "Text in Audio", "en": "Text to audio"},
     "quota.label.summary": {"de": "Zusammenfassung", "en": "Summary"},
     "quota.label.translate": {"de": "Dokumentenübersetzung", "en": "Document translation"},
     "quota.label.transcription": {"de": "Transkription", "en": "Transcription"},
@@ -493,7 +493,7 @@ MESSAGES: dict[str, dict[str, str]] = {
     # Tool labels (shown in job listing)
     "tool.screencast_render": {"de": "Screencast", "en": "Screencast"},
     "tool.screencast_translate": {"de": "Screencast", "en": "Screencast"},
-    "tool.tts": {"de": "Text in Sprache", "en": "Text to speech"},
+    "tool.tts": {"de": "Text in Audio", "en": "Text to audio"},
     "tool.translation": {"de": "Übersetzung", "en": "Translation"},
     "tool.transcription": {"de": "Transkription", "en": "Transcription"},
     "tool.image_generate": {"de": "Bild-Generierung", "en": "Image generation"},

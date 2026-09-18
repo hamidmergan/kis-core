@@ -18,7 +18,7 @@ UPLOAD_HOURLY_WINDOW_SECONDS    = 3600
 
 # Quota per user and tool: count, window length and display name.
 QUOTA_DEFAULTS: dict[str, dict] = {
-    "tts":            {"limit": 100, "window_hours": 4, "label": "Text in Sprache"},
+    "tts":            {"limit": 100, "window_hours": 4, "label": "Text in Audio"},
     "summary":        {"limit": 100, "window_hours": 4, "label": "Zusammenfassung"},
     "translate":      {"limit": 100, "window_hours": 4, "label": "Dokumentenübersetzung"},
     "transcription":  {"limit": 100, "window_hours": 4, "label": "Transkription"},

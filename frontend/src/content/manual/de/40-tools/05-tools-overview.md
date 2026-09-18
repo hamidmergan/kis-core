@@ -8,8 +8,8 @@ bekommen ein Ergebnis und laden es herunter.
 
 - **Übersetzung** übersetzt Dokumente und behält das Layout
 - **Dolmetscher** übersetzt ein Gespräch zwischen zwei Sprachen live mit
-- **Text in Sprache** liest Texte und Dokumente vor
-- **Sprache in Text** schreibt Audio und Video mit
+- **Text in Audio** liest Texte und Dokumente vor
+- **Audio in Text** schreibt Audio und Video mit
 - **Bildgenerierung** erzeugt, ändert und beschreibt Bilder
 - **Zusammenfassung** kürzt lange Inhalte
 - **Glossar** pflegt Begriffslisten für die Übersetzung

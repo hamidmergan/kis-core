@@ -56,10 +56,10 @@
       "reset": "Filter zurücksetzen",
       "tools": {
         "all": "Alle Dienste",
-        "transcription": "Sprache in Text",
+        "transcription": "Audio in Text",
         "translation": "Übersetzung",
         "summary": "Zusammenfassung",
-        "tts": "Text in Sprache",
+        "tts": "Text in Audio",
         "screencast": "Screencast",
         "image": "Bild",
         "podcast": "Podcast"
@@ -353,11 +353,11 @@
         "body": "Zwei Sprachen, ein Gespräch. Sprich oder tipp in dein Feld, daneben läuft die Übersetzung mit."
       },
       "tts": {
-        "title": "Text in Sprache",
+        "title": "Text in Audio",
         "body": "Texte und Dokumente mit natürlich klingenden Stimmen vorlesen lassen."
       },
       "transcription": {
-        "title": "Sprache in Text",
+        "title": "Audio in Text",
         "body": "Audio und Video transkribieren. Auch als Untertitel mit Zeitstempeln."
       },
       "image": {
@@ -415,7 +415,7 @@
   },
   "tools": {
     "stt": {
-      "title": "Sprache in Text",
+      "title": "Audio in Text",
       "intro": "Audio und Video transkribieren. Auch als Untertitel mit Zeitstempeln.",
       "outputFormat": "Ausgabeformat",
       "outputFormatHelp": "TXT ist reiner Text ohne Zeitstempel. SRT und VTT sind Untertitel-Formate: VTT für Moodle und moderne Web-Player, SRT für klassische Video-Player wie VLC.",
@@ -530,7 +530,7 @@
       }
     },
     "tts": {
-      "title": "Text in Sprache",
+      "title": "Text in Audio",
       "intro": "Texte und Dokumente mit natürlich klingenden Stimmen vorlesen lassen.",
       "noProvider": "Kein TTS-Anbieter aktiv - bitte im Admin-Bereich einen Anbieter freischalten.",
       "providerLabel": "TTS-Anbieter",
@@ -736,7 +736,6 @@
         "regenerate": "Neu analysieren"
       }
     },
-    "upload": {},
     "screencast": {
       "title": "Screencast",
       "intro": "Aus PowerPoint-Folien ein vertontes Video erzeugen, wahlweise in einer anderen Sprache.",
@@ -1767,8 +1766,8 @@
       "envNotSet": "<code>{envHint}</code> nicht gesetzt",
       "envNotSetTitle": "{envHint} ist nicht in .env gesetzt",
       "modelLabel": "Modell:",
-      "speechTitle": "Text in Sprache",
-      "transcriptionTitle": "Transkription (Sprache in Text)",
+      "speechTitle": "Text in Audio",
+      "transcriptionTitle": "Transkription (Audio in Text)",
       "transcriptionHint": "Nur ein Anbieter gleichzeitig aktiv.",
       "translationTitle": "Übersetzung",
       "translationHint": "Globaler Anbieter für Datei-Übersetzung (/translate) und Transkript-Untertitel (EN). DeepL: schnell, aber Kontingent-limitiert. myLab/Ollama: LLM-basiert.",
@@ -2139,8 +2138,8 @@
       "tools": {
         "translation": "Übersetzung",
         "interpreter": "Dolmetscher",
-        "tts": "Text in Sprache",
-        "transcription": "Sprache in Text",
+        "tts": "Text in Audio",
+        "transcription": "Audio in Text",
         "image": "Bildgenerierung",
         "summary": "Zusammenfassung",
         "screencast": "Screencast",
@@ -2293,7 +2292,7 @@
           "screencast": "Screencast",
           "transcription": "Transkription",
           "translation": "Übersetzung",
-          "tts": "Text in Sprache",
+          "tts": "Text in Audio",
           "summary": "Zusammenfassung",
           "image_generate": "Bild-Generierung",
           "image_edit": "Bild-Bearbeitung",
@@ -3918,7 +3917,7 @@
       },
       "models": {
         "q": "Welche KI-Modelle werden genutzt und wer entscheidet das?",
-        "a": "Die Modelle stellt das KIS-Team zentral ein. Sie laufen bei drei Anbietern: THL myLab an der TH Lübeck, KISSKI von der GWDG in Göttingen und DeepL für die Übersetzung von Dateien.\n\nIm Chat mit dem KI-Assistenten Francis antwortet gemma4-31b. Welches Modell hinter den übrigen Diensten steckt, wechselt gelegentlich. Ist für einen Dienst mehr als ein Anbieter eingerichtet, zum Beispiel bei Übersetzung, Sprachausgabe oder Bildgenerator, wählst du ihn im Formular selbst aus."
+        "a": "Die Modelle stellt das KIS-Team zentral ein. Sie laufen bei drei Anbietern: THL myLab an der TH Lübeck, KISSKI von der GWDG in Göttingen und DeepL für die Übersetzung von Dateien.\n\nIm Chat mit dem KI-Assistenten Francis antwortet gemma4-31b. Welches Modell hinter den übrigen Diensten steckt, wechselt gelegentlich. Ist für einen Dienst mehr als ein Anbieter eingerichtet, zum Beispiel bei Übersetzung, Text in Audio oder Bildgenerator, wählst du ihn im Formular selbst aus."
       },
       "whoSees": {
         "q": "Wer sieht meine Materialien und meinen Chat?",

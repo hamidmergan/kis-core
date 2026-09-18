@@ -1,8 +1,8 @@
-# Speech to text
+# Audio to text
 
 Writes audio and video down. Either as plain text or as subtitles with time stamps.
 
-![The speech to text service](/manual/{lang}/tool-speech-to-text.png)
+![The audio to text service](/manual/{lang}/tool-speech-to-text.png)
 
 ## Three output formats
 

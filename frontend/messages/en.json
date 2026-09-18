@@ -56,10 +56,10 @@
       "reset": "Reset filters",
       "tools": {
         "all": "All services",
-        "transcription": "Speech to text",
+        "transcription": "Audio to text",
         "translation": "Translation",
         "summary": "Summary",
-        "tts": "Text to speech",
+        "tts": "Text to audio",
         "screencast": "Screencast",
         "image": "Image",
         "podcast": "Podcast"
@@ -353,11 +353,11 @@
         "body": "Two languages, one conversation. Speak or type into your field, the translation runs alongside."
       },
       "tts": {
-        "title": "Text to speech",
+        "title": "Text to audio",
         "body": "Have texts and documents read aloud with natural-sounding voices."
       },
       "transcription": {
-        "title": "Speech to text",
+        "title": "Audio to text",
         "body": "Transcribe audio and video. Also as subtitles with timestamps."
       },
       "image": {
@@ -415,7 +415,7 @@
   },
   "tools": {
     "stt": {
-      "title": "Speech to text",
+      "title": "Audio to text",
       "intro": "Transcribe audio and video. Also as subtitles with timestamps.",
       "outputFormat": "Output format",
       "outputFormatHelp": "TXT is plain text without timestamps. SRT and VTT are subtitle formats: VTT for Moodle and modern web players, SRT for classic video players like VLC.",
@@ -530,7 +530,7 @@
       }
     },
     "tts": {
-      "title": "Text to speech",
+      "title": "Text to audio",
       "intro": "Have texts and documents read aloud with natural-sounding voices.",
       "noProvider": "No TTS provider active - please enable one in the admin area.",
       "providerLabel": "TTS provider",
@@ -736,7 +736,6 @@
         "regenerate": "Analyze again"
       }
     },
-    "upload": {},
     "screencast": {
       "title": "Screencast",
       "intro": "Turn PowerPoint slides into a narrated video, optionally in another language.",
@@ -1767,8 +1766,8 @@
       "envNotSet": "<code>{envHint}</code> not set",
       "envNotSetTitle": "{envHint} is not set in .env",
       "modelLabel": "Model:",
-      "speechTitle": "Text to speech",
-      "transcriptionTitle": "Transcription (speech to text)",
+      "speechTitle": "Text to audio",
+      "transcriptionTitle": "Transcription (audio to text)",
       "transcriptionHint": "Only one provider active at a time.",
       "translationTitle": "Translation",
       "translationHint": "Global provider for file translation (/translate) and transcript subtitles (EN). DeepL: fast but quota-limited. myLab/Ollama: LLM-based.",
@@ -2139,8 +2138,8 @@
       "tools": {
         "translation": "Translation",
         "interpreter": "Interpreter",
-        "tts": "Text to speech",
-        "transcription": "Speech to text",
+        "tts": "Text to audio",
+        "transcription": "Audio to text",
         "image": "Image generation",
         "summary": "Summary",
         "screencast": "Screencast",
@@ -2293,7 +2292,7 @@
           "screencast": "Screencast",
           "transcription": "Transcription",
           "translation": "Translation",
-          "tts": "Text to speech",
+          "tts": "Text to audio",
           "summary": "Summary",
           "image_generate": "Image generation",
           "image_edit": "Image editing",
@@ -3918,7 +3917,7 @@
       },
       "models": {
         "q": "Which AI models are used and who decides that?",
-        "a": "The KIS team configures the models centrally. They run at three providers: THL myLab at TH Lübeck, KISSKI from GWDG in Göttingen, and DeepL for translating files.\n\nIn the chat with the AI assistant Francis, gemma4-31b answers. Which model sits behind the other services changes from time to time. When a service has more than one provider set up, for example translation, speech output or the image generator, you pick it yourself in the form."
+        "a": "The KIS team configures the models centrally. They run at three providers: THL myLab at TH Lübeck, KISSKI from GWDG in Göttingen, and DeepL for translating files.\n\nIn the chat with the AI assistant Francis, gemma4-31b answers. Which model sits behind the other services changes from time to time. When a service has more than one provider set up, for example translation, text to audio or the image generator, you pick it yourself in the form."
       },
       "whoSees": {
         "q": "Who can see my materials and my chat?",

@@ -43,7 +43,7 @@ async function selectGeneratedAudio(page: Page, seconds: number, filename: strin
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/de/tools/stt", { waitUntil: "domcontentloaded" });
-  await expect(page.getByRole("heading", { name: "Sprache in Text" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Audio in Text" })).toBeVisible();
 });
 
 test("a recording over the limit is refused without uploading it", async ({ page }) => {

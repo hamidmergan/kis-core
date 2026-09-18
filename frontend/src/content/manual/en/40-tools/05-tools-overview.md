@@ -8,8 +8,8 @@ download it.
 
 - **Translation** translates documents and keeps the layout
 - **Interpreter** translates a conversation between two languages as it happens
-- **Text to speech** reads texts and documents aloud
-- **Speech to text** writes audio and video down
+- **Text to audio** reads texts and documents aloud
+- **Audio to text** writes audio and video down
 - **Image generation** creates, changes and describes pictures
 - **Summary** shortens long content
 - **Glossary** keeps term lists for translation
