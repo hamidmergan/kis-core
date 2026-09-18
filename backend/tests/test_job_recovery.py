@@ -97,7 +97,7 @@ class TestLeiter:
 
 class TestWasNichtWiederAnlaeuft:
     def test_ein_fremdes_werkzeug_geht_direkt_auf_fehlgeschlagen(self, db):
-        db.job["tool"] = "summary"
+        db.job["tool"] = "translate"
         assert job_recovery.attempt_failed("j", "kaputt") == "failed"
         assert db.gescheitert == [("failed", "kaputt")]
         assert db.versuche == []
@@ -173,6 +173,6 @@ class TestNeustart:
         assert db.versuche[-1]["wartezeit"] == 0
 
     def test_ein_nicht_wiederaufnehmbarer_auftrag_geht_auf_fehlgeschlagen(self, db):
-        db.in_flight = [dict(db.job, tool="summary")]
+        db.in_flight = [dict(db.job, tool="translate")]
         job_recovery.recover_after_restart()
         assert db.gescheitert[-1][0] == "failed"

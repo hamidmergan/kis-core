@@ -23,6 +23,8 @@ def resume_entry(job: dict) -> str | None:
     if tool == "podcast":
         # Only the voicing keeps its finished parts, a half written script is worth nothing.
         return None if _progress(job).get("step") == "script" else "podcast"
+    if tool == "summary":
+        return "summary"
     return None
 
 
@@ -101,6 +103,15 @@ def dispatch_resume(job: dict) -> None:
         from src.tasks.screencast_tasks._queue import dispatch_next_screencast_job_for_user
 
         dispatch_next_screencast_job_for_user(user_id)
+    elif tuer == "summary":
+        from src.tasks.summary_tasks import run_summary
+
+        params = _summary_params(job)
+        task = run_summary.apply_async(args=[
+            job_uuid, params["sources"], params["template_slug"],
+            params.get("provider_id"), job["attempts"],
+        ])
+        db.set_job_celery_task_id(job_uuid, task.id)
     else:
         raise RuntimeError(f"Kein Wiederanlauf fuer Dienst {job.get('tool')}")
 
@@ -133,3 +144,13 @@ def recover_after_restart() -> int:
                 max_resumes=MAX_AUTO_RESUMES, backoff=(0, 0, 0),
             )
     return len(offen)
+
+
+def _summary_params(job: dict) -> dict:
+    """The sources and the build plan of that run, kept in the job folder."""
+    from src.storage import get_job_file
+
+    try:
+        return json.loads(get_job_file(job["user_id"], job["job_uuid"], "summary_params.json"))
+    except Exception as e:  # noqa: BLE001 - without them there is nothing left to resume
+        raise RuntimeError("Angaben dieses Auftrags sind nicht mehr da") from e

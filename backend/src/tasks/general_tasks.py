@@ -1,4 +1,4 @@
-"""Celery tasks: translate, transcribe, image_generate, image_edit, image_analyze, summary."""
+"""Celery tasks: translate, transcribe, image_generate, image_edit, image_analyze."""
 
 import base64
 import json
@@ -431,60 +431,4 @@ def run_image_analyze(
 
     except Exception as e:
         _handle_task_exception(job_uuid, e, task_label="Image analyze")
-        raise
-
-
-# -- Summary ------------------------------------------------------------------
-
-_SUMMARY_MIN_WORDS = 20
-_SUMMARY_CONTEXT_WARN_CHARS = 80_000
-
-
-@celery_app.task(bind=True, name="general.summary", queue="general")
-def run_summary(
-    self,
-    job_uuid: str,
-    input_path: str,
-    filename: str,
-    provider_id: int | None = None,
-):
-    try:
-        db.update_job_status(job_uuid, "running")
-        user_id = _resolve_user_id(job_uuid)
-        job = db.get_job(job_uuid)
-        locale = (job and job.get("creator_locale")) or "de"
-
-        content = get_file(input_path)
-        ext = Path(filename).suffix.lower()
-        client = _get_llm_client(provider_id)
-
-        with job_heartbeat(job_uuid):
-            from src.utils.text_extraction import EXTRACTORS
-            extractor = EXTRACTORS.get(ext)
-            if extractor is None:
-                raise ValueError(f"Unsupported file type: {ext}")
-            text = extractor(content)
-
-            text = text.strip()
-            word_count = len(text.split())
-            if word_count < _SUMMARY_MIN_WORDS:
-                raise ValueError(
-                    t("summary.contentTooShort", locale, words=word_count, min=_SUMMARY_MIN_WORDS)
-                )
-
-            too_long = len(text) > _SUMMARY_CONTEXT_WARN_CHARS
-            summary = client.generate_summary(text)
-
-        if too_long:
-            summary += t("summary.contentTooLongHint", locale)
-
-        output_name = f"{Path(filename).stem}.txt"
-        result_path = save_result_file(user_id, job_uuid, ".txt", summary.encode("utf-8"))
-        save_result_and_evict(user_id, job_uuid, result_path, output_name)
-        db.update_job_status(job_uuid, "success")
-        delete_file(input_path)
-        logger.info("Summary task {} completed: {}", job_uuid, output_name)
-
-    except Exception as e:
-        _handle_task_exception(job_uuid, e, task_label="Summary")
         raise

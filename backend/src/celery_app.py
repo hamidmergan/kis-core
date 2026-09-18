@@ -10,6 +10,7 @@ celery_app = Celery(
     include=[
         "src.tasks.tts_tasks",
         "src.tasks.general_tasks",
+        "src.tasks.summary_tasks",
         "src.tasks.screencast_tasks",
         "src.tasks.podcast_tasks",
         "src.tasks.watchdog_tasks",
@@ -34,7 +35,7 @@ celery_app.conf.update(
         "general.image_generate": {"queue": "general"},
         "general.image_edit": {"queue": "general"},
         "general.image_analyze": {"queue": "general"},
-        "general.summary": {"queue": "general"},
+        "summary.run": {"queue": "general"},
         "screencast.translate": {"queue": "screencast"},
         "screencast.render": {"queue": "screencast"},
         # Podcast waits on the voice provider, it does not compute: the general worker scales.
