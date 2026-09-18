@@ -4,7 +4,7 @@ import math
 import re
 
 from src.limits import SUMMARY_PART_FALLBACK_CHARS, SUMMARY_PART_MIN_CHARS
-from src.services.model_limits import cap_for_model
+from src.services.model_limits import cap_for_model, cap_for_provider_model
 
 _STRUCTURE = r"(?:§+|Art\.|Artikel|Anlage|Anhang|Kapitel|Abschnitt)"
 # A marker whose number runs on in lowercase, a comma or Absatz is a cross-reference, not a heading.
@@ -23,10 +23,24 @@ _BOUNDARIES = (
 _WINDOW_SHARE = 0.5
 
 
-def part_size_for_chat() -> int:
-    """The largest part the chat model provably takes, the fallback when unmeasured."""
-    groesse = cap_for_model(SUMMARY_PART_FALLBACK_CHARS, _WINDOW_SHARE, "chat")
+def part_size_for_chat(provider_id: int | None = None) -> int:
+    """The largest part the chosen chat model provably takes, the fallback when unmeasured."""
+    if provider_id is None:
+        groesse = cap_for_model(SUMMARY_PART_FALLBACK_CHARS, _WINDOW_SHARE, "chat")
+    else:
+        groesse = _cap_for_chosen_provider(provider_id)
     return max(SUMMARY_PART_MIN_CHARS, groesse)
+
+
+def _cap_for_chosen_provider(provider_id: int) -> int:
+    """The cap for the provider a user actually picked, the admin route when that fails to resolve."""
+    try:
+        from src.services.feature_provider_choices import resolve_binding
+        binding = resolve_binding("chat", provider_id)
+    except Exception:  # noqa: BLE001 - an unresolvable choice falls back to the admin route
+        return cap_for_model(SUMMARY_PART_FALLBACK_CHARS, _WINDOW_SHARE, "chat")
+    return cap_for_provider_model(SUMMARY_PART_FALLBACK_CHARS, _WINDOW_SHARE,
+                                  binding.provider["id"], binding.model)
 
 
 def _cut_point(text: str, lo: int, hi: int, want: int) -> int | None:

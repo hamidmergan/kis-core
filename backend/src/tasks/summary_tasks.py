@@ -79,7 +79,8 @@ def _zahl(n: int) -> str:
     return f"{n:,}".replace(",", ".")
 
 
-def _read_sources(user_id: int, job_uuid: str, sources: list[dict], locale: str) -> list[dict]:
+def _read_sources(user_id: int, job_uuid: str, sources: list[dict], locale: str,
+                  provider_id: int | None) -> list[dict]:
     """Reads every source once and turns it into the units the map phase works on."""
     vorhanden = _parse_json(job_uuid, _SOURCES_FILE, _read_text(user_id, job_uuid, _SOURCES_FILE), None)
     if vorhanden is not None:
@@ -112,7 +113,7 @@ def _read_sources(user_id: int, job_uuid: str, sources: list[dict], locale: str)
         raise ValueError(t("summary.materialTooLarge", locale,
                            chars=_zahl(gesamt), max=_zahl(SUMMARY_MAX_TOTAL_CHARS)))
 
-    groesse = part_size_for_chat()
+    groesse = part_size_for_chat(provider_id)
     einheiten = split_sources(gelesen, maximum=groesse, threshold=groesse)
     if len(einheiten) > SUMMARY_MAX_PARTS_PER_JOB:
         raise ValueError(t("summary.tooManyParts", locale, parts=len(einheiten),
@@ -228,7 +229,7 @@ def _run_summary_inner(job_uuid: str, sources: list[dict], template_slug: str,
     # Only the first stage reads, a later one must not flash "reading" before "map".
     if not job_file_exists(user_id, job_uuid, _SOURCES_FILE):
         db.update_job_status(job_uuid, "running", progress={"step": "extract"})
-    einheiten = _read_sources(user_id, job_uuid, sources, locale)
+    einheiten = _read_sources(user_id, job_uuid, sources, locale, provider_id)
 
     fertig = _read_text(user_id, job_uuid, _RESULT_FILE)
     if not fertig:

@@ -26,7 +26,7 @@ def lauf(monkeypatch):
     monkeypatch.setattr(st, "open_input_file",
                         lambda pfad, endung: __import__("contextlib").nullcontext("/tmp/x.txt"))
     monkeypatch.setattr(st, "read_text_layer", lambda pfad, ext: "wort " * 100)
-    monkeypatch.setattr(st, "part_size_for_chat", lambda: 70_000)
+    monkeypatch.setattr(st, "part_size_for_chat", lambda provider_id=None: 70_000)
     monkeypatch.setattr(st, "delete_file", lambda pfad: zustand["geloescht"].append(pfad))
     monkeypatch.setattr(st, "save_result_file",
                         lambda uid, job, endung, daten: zustand.__setitem__("ergebnis", daten) or "pfad.md")
@@ -55,7 +55,7 @@ def _lange_datei(monkeypatch, teile=3):
     text = "\n".join(f"§ {n} Vorschrift\n" + ("Wort " * 200) for n in range(1, 61))
     grenze = len(text) // teile + 100
     monkeypatch.setattr(st, "read_text_layer", lambda pfad, ext: text)
-    monkeypatch.setattr(st, "part_size_for_chat", lambda: grenze)
+    monkeypatch.setattr(st, "part_size_for_chat", lambda provider_id=None: grenze)
 
 
 class TestEinDurchlauf:
@@ -135,7 +135,7 @@ class TestEtappen:
         with pytest.raises(StageContinue):
             st._run_summary_inner("job", _QUELLEN, "kurzbriefing", None, 0)
         vorher = dateien["sources.json"]
-        monkeypatch.setattr(st, "part_size_for_chat", lambda: 500)
+        monkeypatch.setattr(st, "part_size_for_chat", lambda provider_id=None: 500)
         monkeypatch.setattr(st.StageClock, "over", lambda self: False)
         _modell(monkeypatch, ["- A", "- B", "- C", _PLAN, "Text A", "Text B", "Text C"])
         st._run_summary_inner("job", _QUELLEN, "kurzbriefing", None, 0)
