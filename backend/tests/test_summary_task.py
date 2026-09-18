@@ -1,8 +1,10 @@
 """The Celery body: reading, splitting, stages, naming, progress in files not parts."""
 
+import io
 import json
 
 import pytest
+from docx import Document
 
 from tests.summary_helpers import FakeClient
 
@@ -28,8 +30,13 @@ def lauf(monkeypatch):
     monkeypatch.setattr(st, "read_text_layer", lambda pfad, ext: "wort " * 100)
     monkeypatch.setattr(st, "part_size_for_chat", lambda provider_id=None: 70_000)
     monkeypatch.setattr(st, "delete_file", lambda pfad: zustand["geloescht"].append(pfad))
-    monkeypatch.setattr(st, "save_result_file",
-                        lambda uid, job, endung, daten: zustand.__setitem__("ergebnis", daten) or "pfad.md")
+
+    def _save_result_file(uid, job, endung, daten):
+        zustand.setdefault("ergebnisse", []).append((endung, daten))
+        zustand["ergebnis"] = daten
+        return f"pfad{endung}"
+
+    monkeypatch.setattr(st, "save_result_file", _save_result_file)
     monkeypatch.setattr(st, "save_result_and_evict",
                         lambda uid, job, pfad, name: zustand.__setitem__("name", name))
     monkeypatch.setattr(st.db, "get_job", lambda job: {"user_id": 1, "creator_locale": "de"})
@@ -203,3 +210,26 @@ class TestBeschaedigteDateien:
         st._run_summary_inner("job", _QUELLEN, "kurzbriefing", None, 0)
         assert zustand["status"][-1] == "success"
         assert json.loads(dateien["outline.json"])["intro"] == "Vorweg."
+
+
+class TestWordDatei:
+    def test_markdown_und_word_werden_beide_abgelegt(self, lauf, monkeypatch):
+        dateien, zustand = lauf
+        _modell(monkeypatch, ["German", "- Fakt", _PLAN, "Text A", "Text B", "Text C"])
+        st._run_summary_inner("job", _QUELLEN, "kurzbriefing", None, 0)
+        endungen = [endung for endung, _ in zustand["ergebnisse"]]
+        assert endungen == [".md", ".docx"]
+        wort_bytes = dict(zustand["ergebnisse"])[".docx"]
+        doc = Document(io.BytesIO(wort_bytes))
+        assert doc.paragraphs[0].text.startswith("Vorweg.")
+
+    def test_ein_fehler_bei_der_wortdatei_wirft_den_auftrag_nicht_um(self, lauf, monkeypatch):
+        dateien, zustand = lauf
+        monkeypatch.setattr(st, "markdown_to_docx",
+                            lambda text: (_ for _ in ()).throw(RuntimeError("kaputt")))
+        _modell(monkeypatch, ["German", "- Fakt", _PLAN, "Text A", "Text B", "Text C"])
+        st._run_summary_inner("job", _QUELLEN, "kurzbriefing", None, 0)
+        assert zustand["status"][-1] == "success"
+        endungen = [endung for endung, _ in zustand["ergebnisse"]]
+        assert endungen == [".md"]
+        assert dateien["summary.md"].decode("utf-8").startswith("Vorweg.")

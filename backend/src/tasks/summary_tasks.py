@@ -8,6 +8,7 @@ from loguru import logger
 from src import database as db
 from src.celery_app import celery_app
 from src.features.summary import pipeline as pl
+from src.features.summary.docx_export import markdown_to_docx
 from src.features.summary.models import Caller
 from src.features.summary.splitting import original_names, part_size_for_chat, split_sources
 from src.features.summary.templates import get_template
@@ -247,6 +248,10 @@ def _run_summary_inner(job_uuid: str, sources: list[dict], template_slug: str,
 
     name = _result_name(original_names(einheiten))
     ergebnis = save_result_file(user_id, job_uuid, ".md", fertig.encode("utf-8"))
+    try:
+        save_result_file(user_id, job_uuid, ".docx", markdown_to_docx(fertig))
+    except Exception as e:  # noqa: BLE001 - the Word file is an extra, the Markdown result must still count as done
+        logger.error("Zusammenfassung {}: Word-Datei fehlgeschlagen ({})", job_uuid[:8], e)
     save_result_and_evict(user_id, job_uuid, ergebnis, name)
     db.update_job_status(job_uuid, "success")
     for quelle in sources:
