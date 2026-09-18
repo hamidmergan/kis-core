@@ -105,3 +105,31 @@ class TestTeilgroesse:
         from src.limits import SUMMARY_PART_MIN_CHARS
         monkeypatch.setattr(sp, "cap_for_model", lambda budget, share, feature: 1_000)
         assert sp.part_size_for_chat() == SUMMARY_PART_MIN_CHARS
+
+
+class TestQuerverweise:
+    def test_ein_querverweis_am_zeilenanfang_ist_keine_schnittstelle(self):
+        verweise = ("§ 21 zugelassen", "§ 25 Absatz 2", "Artikel 34 der Richtlinie")
+        fueller = "Weiterer Text ohne besondere Bedeutung für den Schnitt. " * 2
+        block = (fueller + "Arzneimittel, die nach\n§ 21 zugelassen oder nach § 21a genehmigt sind, "
+                 "dürfen abgegeben werden. "
+                 + fueller + "Die Behörde entscheidet gemäß\n§ 25 Absatz 2 über den Antrag. "
+                 + fueller + "Das Verfahren richtet sich nach\nArtikel 34 der Richtlinie 2001/83/EG. ")
+        text = "§ 1 Vorschrift\n" + block * 30
+        teile = sp.split_text(text, maximum=3000, threshold=3000)
+        assert len(teile) > 1
+        assert not any(t.startswith(v) for t in teile[1:] for v in verweise)
+        assert "".join(teile) == text
+
+
+class TestVerlustfrei:
+    def test_die_teile_ergeben_zusammen_immer_den_ausgangstext(self):
+        faelle = [
+            "Wort " * 20 + "\n" * 10,
+            " " * 100,
+            "A" * 50 + "\n" * 100 + "B" * 50,
+            "\n".join(_paragraf(n, 700) for n in range(1, 30)),
+        ]
+        for text in faelle:
+            for maximum in (30, 105, 400):
+                assert "".join(sp.split_text(text, maximum=maximum)) == text

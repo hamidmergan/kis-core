@@ -6,9 +6,14 @@ import re
 from src.limits import SUMMARY_PART_FALLBACK_CHARS, SUMMARY_PART_MIN_CHARS
 from src.services.model_limits import cap_for_model
 
+_STRUCTURE = r"(?:§+|Art\.|Artikel|Anlage|Anhang|Kapitel|Abschnitt)"
+# A marker whose number runs on in lowercase, a comma or Absatz is a cross-reference, not a heading.
+_REFERENCE = (_STRUCTURE + r"\s*\d+[a-z]?"
+              r"(?:\s*,|\s+(?:[a-zäöüß]|Absatz|Abs\.|Satz|Nummer|Nr\.|Buchstabe|Halbsatz))")
+
 # Tried in this order, each pattern ending exactly where the next part begins.
 _BOUNDARIES = (
-    re.compile(r"\n+(?=(?:§+|Art\.|Artikel|Anlage|Anhang|Kapitel|Abschnitt)[\s\d])"),
+    re.compile(r"\n+(?=" + _STRUCTURE + r"[\s\d])(?!" + _REFERENCE + r")"),
     re.compile(r"\n+(?=#{1,6}\s)"),
     re.compile(r"\n\s*\n"),
     re.compile(r"(?<=[.!?])\s+"),
@@ -52,7 +57,14 @@ def split_text(text: str, *, maximum: int, threshold: int | None = None) -> list
         schnitt = _cut_point(text, lo, hi, pos + ziel) or hi
         teile.append(text[pos:schnitt])
         pos = schnitt
-    return [t for t in teile if t.strip()]
+    # A part of pure whitespace joins its predecessor, so nothing is ever dropped.
+    ergebnis: list[str] = []
+    for teil in teile:
+        if ergebnis and not teil.strip():
+            ergebnis[-1] += teil
+        else:
+            ergebnis.append(teil)
+    return ergebnis
 
 
 def split_sources(documents: list[dict], *, maximum: int,
