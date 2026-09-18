@@ -175,7 +175,9 @@ def _section_user(section: Section, others: list[Section],
     if len(bisher) > SUMMARY_PROMPT_RESERVE_CHARS:
         # The headings stay in full, the oldest prose goes, the newest is what matters.
         koepfe = "\n".join(f"## {titel}" for titel, _ in written)
-        rest = bisher[-(SUMMARY_PROMPT_RESERVE_CHARS - len(koepfe)):]
+        # A negative budget must drop all prose, not wrap into a slice from the front.
+        uebrig = max(0, SUMMARY_PROMPT_RESERVE_CHARS - len(koepfe))
+        rest = bisher[-uebrig:] if uebrig else ""
         bisher = f"{koepfe}\n\n[...]\n{rest}"
     return (
         "/no_think\n"

@@ -116,6 +116,21 @@ class TestSchreiben:
         assert text == "Alles."
         assert "ONE document covering all of them" in caller.client.user_prompts()[0]
 
+    async def test_wenn_die_ueberschriften_allein_die_reserve_sprengen_bleibt_keine_prosa(self, monkeypatch):
+        monkeypatch.setattr(wr, "SUMMARY_PROMPT_RESERVE_CHARS", 200)
+        caller = _caller(["Text Z"])
+        written = [(f"Kapitel{i:02d}", "y" * 50) for i in range(20)]
+        await wr.write_section(
+            caller, language="German", template_body="B", section=Section(title="Z", scope="z"),
+            others=[], written=written, facts="F", part_note="")
+        user = caller.client.user_prompts()[0]
+        praefix, suffix = "THE DOCUMENT SO FAR:\n", "\n\nFacts:\n\n"
+        anfang = user.index(praefix) + len(praefix)
+        bisher = user[anfang:user.index(suffix, anfang)]
+        koepfe = "\n".join(f"## {titel}" for titel, _ in written)
+        assert len(koepfe) > 200
+        assert bisher == f"{koepfe}\n\n[...]\n"
+
 
 class TestZusammensetzen:
     def test_mit_ueberschriften(self):
