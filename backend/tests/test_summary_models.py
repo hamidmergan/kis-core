@@ -6,6 +6,18 @@ from src.features.summary.models import GROUND_RULES, Caller, Outline, Section
 from src.limits import SUMMARY_CALL_TIMEOUT_SECONDS
 
 
+class _ClientDerOptionenMerkt(FakeClient):
+    """Records what the caller asks of the client before the call."""
+
+    def __init__(self, antworten):
+        super().__init__(antworten)
+        self.client_optionen = []
+
+    def with_options(self, **optionen):
+        self.client_optionen.append(optionen)
+        return self
+
+
 async def test_der_aufrufer_setzt_modell_und_zeitgrenze():
     client = FakeClient(["ok"])
     caller = Caller(client, "m")
@@ -25,6 +37,15 @@ async def test_der_aufrufer_bucht_jede_antwort():
     await caller.create(messages=[])
 
     assert len(gebucht) == 2
+
+
+async def test_der_aufrufer_wiederholt_nicht_selbsttaetig():
+    client = _ClientDerOptionenMerkt(["ok"])
+    caller = Caller(client, "m")
+
+    await caller.create(messages=[])
+
+    assert client.client_optionen == [{"max_retries": 0}]
 
 
 def test_die_grundregeln_nennen_die_sprache():

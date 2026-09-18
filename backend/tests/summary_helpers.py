@@ -20,6 +20,9 @@ class FakeClient:
         self.optionen = []
         self.chat = type("Chat", (), {"completions": self})()
 
+    def with_options(self, **_):
+        return self
+
     async def create(self, *, model, messages, **kwargs):
         await asyncio.sleep(0)
         self.gesendet.append(messages)

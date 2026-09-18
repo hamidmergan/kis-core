@@ -45,7 +45,8 @@ class Caller:
     book: Callable[[Any], None] | None = None
 
     async def create(self, **kwargs):
-        antwort = await self.client.chat.completions.create(
+        # The SDK retries timeouts on its own, so one attempt is the only way the limit holds.
+        antwort = await self.client.with_options(max_retries=0).chat.completions.create(
             model=self.model, timeout=SUMMARY_CALL_TIMEOUT_SECONDS, **kwargs,
         )
         if self.book is not None:
