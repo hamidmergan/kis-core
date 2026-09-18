@@ -86,18 +86,18 @@ def _run_translate(monkeypatch, payload, filename):
 
 def _run_summary(monkeypatch, payload, filename):
     from src.routes import summary as route
-    stored = _capture_storage(monkeypatch, route)
-    _silence_jobs(monkeypatch, route)
+    # The summary tool numbers its uploads, so it files them by name.
+    stored = _capture_storage(monkeypatch, route, attr="save_job_file_from_path")
+    monkeypatch.setattr(route, "enforce_open_jobs", lambda *a, **k: None)
     monkeypatch.setattr(route, "enforce_tool_burst", lambda *a, **k: None)
     monkeypatch.setattr(route, "enforce_quota", lambda *a, **k: None)
-    monkeypatch.setattr(route, "is_admin_user", lambda u: False)
-
-    import src.tasks.general_tasks as gt
-    monkeypatch.setattr(gt, "run_summary", type("T", (), {"delay": staticmethod(lambda *a, **k: None)})())
-
+    monkeypatch.setattr(route.db, "create_job", lambda *a, **k: None)
+    monkeypatch.setattr(route.db, "set_job_input_path", lambda *a, **k: None)
+    import src.tasks.summary_tasks as st
+    monkeypatch.setattr(st, "run_summary", type("T", (), {"delay": staticmethod(lambda *a, **k: None)})())
     asyncio.run(route.summarize(
-        request=_Request(), file=_ChunkOnlyUpload(payload, filename),
-        provider_id=None, current_user={"user_id": 1}, locale="de",
+        request=_Request(), files=[_ChunkOnlyUpload(payload, filename)],
+        template=None, provider_id=None, current_user={"user_id": 1}, locale="de",
     ))
     return stored
 
