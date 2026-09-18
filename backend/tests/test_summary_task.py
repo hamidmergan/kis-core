@@ -159,3 +159,29 @@ class TestEtappen:
         client = _modell(monkeypatch, [])
         st._run_summary_inner("job", _QUELLEN, "kurzbriefing", None, 0)
         assert client.gesendet == [] and zustand["status"][-1] == "success"
+
+
+class TestBeschaedigteDateien:
+    def test_kaputte_sources_json_wird_neu_aufgeteilt(self, lauf, monkeypatch):
+        dateien, zustand = lauf
+        dateien["sources.json"] = b"{das ist kein json"
+        _modell(monkeypatch, ["German", "- Fakt", _PLAN, "Text A", "Text B", "Text C"])
+        st._run_summary_inner("job", _QUELLEN, "kurzbriefing", None, 0)
+        assert zustand["status"][-1] == "success"
+        assert [e["source_id"] for e in json.loads(dateien["sources.json"])] == ["q1"]
+
+    def test_kaputte_facts_json_beginnt_von_vorn(self, lauf, monkeypatch):
+        dateien, zustand = lauf
+        dateien["facts.json"] = b"{das ist kein json"
+        _modell(monkeypatch, ["German", "- Fakt", _PLAN, "Text A", "Text B", "Text C"])
+        st._run_summary_inner("job", _QUELLEN, "kurzbriefing", None, 0)
+        assert zustand["status"][-1] == "success"
+        assert json.loads(dateien["facts.json"]) == {"q1": "- Fakt"}
+
+    def test_kaputte_outline_json_wird_neu_geplant(self, lauf, monkeypatch):
+        dateien, zustand = lauf
+        dateien["outline.json"] = b"{das ist kein json"
+        _modell(monkeypatch, ["German", "- Fakt", _PLAN, "Text A", "Text B", "Text C"])
+        st._run_summary_inner("job", _QUELLEN, "kurzbriefing", None, 0)
+        assert zustand["status"][-1] == "success"
+        assert json.loads(dateien["outline.json"])["intro"] == "Vorweg."

@@ -54,6 +54,17 @@ def _write_text(user_id: int, job_uuid: str, name: str, text: str) -> None:
     save_job_file(user_id, job_uuid, name, text.encode("utf-8"))
 
 
+def _parse_json(job_uuid: str, name: str, raw: str | None, default):
+    """Same fallback as an unreadable file: a broken one is treated as absent."""
+    if not raw:
+        return default
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError as e:
+        logger.warning("Zusammenfassung {}: {} beschaedigt ({})", job_uuid[:8], name, e)
+        return default
+
+
 def _touch(job_uuid: str, part: int, total: int) -> None:
     """A best-effort heartbeat while reading, so ten large sources never trip the watchdog."""
     try:
@@ -70,9 +81,9 @@ def _zahl(n: int) -> str:
 
 def _read_sources(user_id: int, job_uuid: str, sources: list[dict], locale: str) -> list[dict]:
     """Reads every source once and turns it into the units the map phase works on."""
-    vorhanden = _read_text(user_id, job_uuid, _SOURCES_FILE)
-    if vorhanden:
-        return json.loads(vorhanden)
+    vorhanden = _parse_json(job_uuid, _SOURCES_FILE, _read_text(user_id, job_uuid, _SOURCES_FILE), None)
+    if vorhanden is not None:
+        return vorhanden
 
     gelesen: list[dict] = []
     gesamt = 0
@@ -136,7 +147,7 @@ class _JobStore:
 
     def load_extractions(self) -> dict[str, str | None]:
         roh = _read_text(self._user, self._job, _FACTS_FILE)
-        self._facts = json.loads(roh) if roh else {}
+        self._facts = _parse_json(self._job, _FACTS_FILE, roh, {})
         return dict(self._facts)
 
     def save_extraction(self, source_id: str, text: str | None) -> None:
@@ -152,7 +163,7 @@ class _JobStore:
 
     def load_outline(self) -> dict | None:
         roh = _read_text(self._user, self._job, _OUTLINE_FILE)
-        return json.loads(roh) if roh else None
+        return _parse_json(self._job, _OUTLINE_FILE, roh, None)
 
     def save_outline(self, outline: dict) -> None:
         self._guard()
