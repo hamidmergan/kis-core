@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import ToolBackLink from "@/components/ui/ToolBackLink";
 import { backendApi, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
@@ -11,66 +11,101 @@ import BackgroundHint from "@/components/tools/BackgroundHint";
 import ProviderSelect from "@/components/tools/ProviderSelect";
 import { useFeatureProviders } from "@/hooks/useFeatureProviders";
 
-const ACCEPTED_EXTENSIONS = [".srt", ".vtt", ".txt", ".md", ".pptx", ".docx"];
-const MAX_SIZE_MB = MAX_UPLOAD_MB;
-const MAX_SIZE_BYTES = MAX_UPLOAD_BYTES;
+type Template = { slug: string; nameDe: string; nameEn: string; hintDe: string; hintEn: string };
+type Setup = { templates: Template[]; maxSources: number; extensions: string[] };
+type Progress = { step?: string; part?: number; total?: number } | null;
+
+const FALLBACK_EXTENSIONS = [".pdf", ".docx", ".pptx", ".txt", ".md", ".srt", ".vtt"];
 
 export default function ZusammenfassungPage() {
   const t = useTranslations("tools.summarize");
   const tCommon = useTranslations("common");
+  const locale = useLocale();
   // Runs on the chat model, an empty list hides the choice.
   const { providers, providerId, setProviderId } = useFeatureProviders("/summary/providers");
+  const [setup, setSetup] = useState<Setup | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
+  const [template, setTemplate] = useState("");
   const [processing, setProcessing] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [step, setStep] = useState("");
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [doneJobUuid, setDoneJobUuid] = useState<string | null>(null);
-
   const [errorMessage, setErrorMessage] = useState("");
   const [stallMessage, setStallMessage] = useState("");
-
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const validateFile = (file: File): string | null => {
+  const extensions = setup?.extensions ?? FALLBACK_EXTENSIONS;
+  const maxSources = setup?.maxSources ?? 10;
+  const templates = setup?.templates ?? [];
+  const templateName = (v: Template) => (locale === "de" ? v.nameDe : v.nameEn);
+  const templateHint = (v: Template) => (locale === "de" ? v.hintDe : v.hintEn);
+  const chosen = templates.find((v) => v.slug === template);
+
+  useEffect(() => {
+    backendApi.fetch("/summary/templates")
+      .then(async (r) => {
+        if (!r.ok) return;
+        const data = (await r.json()) as Setup;
+        setSetup(data);
+        if (data.templates[0]) setTemplate((v) => v || data.templates[0].slug);
+      })
+      .catch(() => {});
+  }, []);
+
+  const validateFile = useCallback((file: File): string | null => {
     const ext = "." + (file.name.split(".").pop()?.toLowerCase() ?? "");
-    if (!ACCEPTED_EXTENSIONS.includes(ext)) {
-      return tCommon("onlyExtsAllowed", { exts: ACCEPTED_EXTENSIONS.join(", ") });
+    if (!extensions.includes(ext)) {
+      return tCommon("onlyExtsAllowed", { exts: extensions.join(", ") });
     }
-    if (file.size > MAX_SIZE_BYTES) {
-      return tCommon("fileTooLarge", { n: MAX_SIZE_MB });
+    if (file.size > MAX_UPLOAD_BYTES) {
+      return tCommon("fileTooLarge", { n: MAX_UPLOAD_MB });
     }
     return null;
-  };
+  }, [extensions, tCommon]);
 
-  const handleFile = useCallback((file: File) => {
+  const addFiles = useCallback((neue: File[]) => {
     setUploadError(null);
-    const err = validateFile(file);
-    if (err) { setUploadError(err); return; }
-    setSelectedFile(file);
     setDoneJobUuid(null);
     setErrorMessage("");
-  }, []);
+    setFiles((alt) => {
+      const gesamt = [...alt];
+      for (const f of neue) {
+        const err = validateFile(f);
+        if (err) { setUploadError(err); continue; }
+        if (gesamt.length >= maxSources) {
+          setUploadError(t("tooManySources", { max: maxSources }));
+          break;
+        }
+        if (!gesamt.some((g) => g.name === f.name && g.size === f.size)) gesamt.push(f);
+      }
+      return gesamt;
+    });
+  }, [validateFile, maxSources, t]);
+
+  const removeFile = (index: number) => setFiles((alt) => alt.filter((_, i) => i !== index));
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault();
       setDragActive(false);
       if (processing) return;
-      const file = e.dataTransfer.files[0];
-      if (file) handleFile(file);
+      addFiles(Array.from(e.dataTransfer.files));
     },
-    [processing, handleFile],
+    [processing, addFiles],
   );
 
   const handleSubmit = async () => {
-    if (!selectedFile || processing) return;
+    if (!files.length || processing) return;
     setProcessing(true);
     setErrorMessage("");
     setStallMessage("");
     setDoneJobUuid(null);
+    setStep(t("step.extract"));
     try {
       const formData = new FormData();
-      formData.append("file", selectedFile);
+      files.forEach((f) => formData.append("files", f));
+      if (template) formData.append("template", template);
       if (providerId != null) formData.append("provider_id", String(providerId));
       const response = await backendApi.fetch("/summary", { method: "POST", body: formData });
       if (!response.ok) {
@@ -79,9 +114,21 @@ export default function ZusammenfassungPage() {
       }
       const data = await response.json();
       window.dispatchEvent(new Event("kis-jobs-changed"));
-      await pollJob(data.job_uuid, undefined, 3000, undefined,
+      await pollJob(
+        data.job_uuid,
+        (status) => {
+          const p = status.progress as Progress;
+          if (!p?.step) return;
+          // Zero done files reads as the plain sentence, never as "0 von 1".
+          const gezaehlt = p.part != null && p.total != null && p.part > 0;
+          setStep(gezaehlt
+            ? t(`step.${p.step}Counted`, { part: p.part!, total: p.total! })
+            : t(`step.${p.step}`));
+        },
+        3000,
+        undefined,
         () => setStallMessage(t("longRunning")),
-        60_000,
+        120_000,
       );
       window.dispatchEvent(new Event("kis-jobs-changed"));
       setDoneJobUuid(data.job_uuid);
@@ -89,6 +136,7 @@ export default function ZusammenfassungPage() {
       setErrorMessage(err instanceof Error ? err.message : tCommon("unknownError"));
     } finally {
       setProcessing(false);
+      setStep("");
     }
   };
 
@@ -108,11 +156,13 @@ export default function ZusammenfassungPage() {
   };
 
   const handleReset = () => {
-    setSelectedFile(null);
+    setFiles([]);
     setDoneJobUuid(null);
     setErrorMessage("");
     if (inputRef.current) inputRef.current.value = "";
   };
+
+  const full = files.length >= maxSources;
 
   return (
     <ProtectedRoute>
@@ -120,62 +170,91 @@ export default function ZusammenfassungPage() {
         <ToolBackLink />
         <section data-tour="tool-summary">
           <h1 className="text-xl font-bold mb-1">{t("title")}</h1>
-          <p className="text-sm text-muted mb-6">
-            {t("intro")}
-          </p>
+          <p className="text-sm text-muted mb-6">{t("intro")}</p>
 
-          {/* File upload */}
           <div
             role="button"
             tabIndex={0}
             aria-label={t("selectFileAria")}
-            onClick={() => !processing && inputRef.current?.click()}
+            onClick={() => !processing && !full && inputRef.current?.click()}
             onKeyDown={(e) => {
-              if ((e.key === "Enter" || e.key === " ") && !processing) {
+              if ((e.key === "Enter" || e.key === " ") && !processing && !full) {
                 e.preventDefault();
                 inputRef.current?.click();
               }
             }}
             onDrop={handleDrop}
-            onDragOver={(e) => { e.preventDefault(); if (!processing) setDragActive(true); }}
+            onDragOver={(e) => { e.preventDefault(); if (!processing && !full) setDragActive(true); }}
             onDragLeave={() => setDragActive(false)}
             className={[
               "border-2 border-dashed rounded-lg p-10 text-center transition-colors",
               "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb",
-              dragActive ? "border-kb bg-info-bg" : selectedFile ? "border-kb60 bg-kb20" : "border-border hover:border-kb",
-              processing ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
+              dragActive ? "border-kb bg-info-bg" : files.length ? "border-kb60 bg-kb20" : "border-border hover:border-kb",
+              processing || full ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
             ].join(" ")}
           >
-            {selectedFile ? (
-              <>
-                <svg className="mx-auto h-8 w-8 text-kb-dark mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                <p className="text-sm font-medium text-foreground">{selectedFile.name}</p>
-                <p className="text-xs text-muted-soft mt-1">{tCommon("clickToReplace")}</p>
-              </>
-            ) : (
-              <>
-                <p className="text-sm font-medium text-muted">
-                  {tCommon("dropOrBrowse")}{" "}
-                  <span className="text-kb underline">{tCommon("browse")}</span>
-                </p>
-                <p className="text-xs text-muted-soft mt-1">
-                  {ACCEPTED_EXTENSIONS.join(", ")}
-                </p>
-              </>
-            )}
+            <p className="text-sm font-medium text-muted">
+              {tCommon("dropOrBrowse")}{" "}
+              <span className="text-kb underline">{tCommon("browse")}</span>
+            </p>
+            <p className="text-xs text-muted-soft mt-1">{extensions.join(", ")}</p>
           </div>
           <input
             ref={inputRef}
             type="file"
-            accept={ACCEPTED_EXTENSIONS.join(",")}
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); if (inputRef.current) inputRef.current.value = ""; }}
+            multiple
+            accept={extensions.join(",")}
+            onChange={(e) => {
+              addFiles(Array.from(e.target.files ?? []));
+              if (inputRef.current) inputRef.current.value = "";
+            }}
             className="hidden"
             aria-hidden="true"
           />
           {uploadError && (
             <p className="mt-2 text-sm text-error" role="alert">{uploadError}</p>
+          )}
+
+          {files.length > 0 && (
+            <div className="mt-4">
+              <p className="text-sm font-medium text-foreground mb-2">{t("chosenFiles")}</p>
+              <ul className="space-y-1">
+                {files.map((f, i) => (
+                  <li key={`${f.name}-${f.size}`} className="flex items-center justify-between text-sm text-foreground">
+                    <span className="truncate">{f.name}</span>
+                    {!processing && !doneJobUuid && (
+                      <button
+                        type="button"
+                        onClick={() => removeFile(i)}
+                        className="text-xs text-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb"
+                      >
+                        {t("removeFile")}
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {templates.length > 0 && (
+            <div className="mt-6">
+              <label htmlFor="summary-template-select" className="block text-sm font-medium text-foreground mb-1">
+                {t("templateLabel")}
+              </label>
+              <select
+                id="summary-template-select"
+                value={template}
+                onChange={(e) => setTemplate(e.target.value)}
+                disabled={processing}
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb"
+              >
+                {templates.map((v) => (
+                  <option key={v.slug} value={v.slug}>{templateName(v)}</option>
+                ))}
+              </select>
+              {chosen && <p className="mt-1 text-xs text-muted">{templateHint(chosen)}</p>}
+            </div>
           )}
 
           <ProviderSelect
@@ -192,14 +271,15 @@ export default function ZusammenfassungPage() {
             <div className="mt-6 flex items-center gap-3">
               <button
                 onClick={handleSubmit}
-                disabled={!selectedFile || processing}
-                className="self-start px-5 py-2 btn-primary text-sm font-medium rounded-md  focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                disabled={!files.length || processing}
+                className="self-start px-5 py-2 btn-primary text-sm font-medium rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
-                {processing && (
-                  <Spinner size="sm" color="current" />
-                )}
+                {processing && <Spinner size="sm" color="current" />}
                 {processing ? tCommon("processing") : t("submit")}
               </button>
+              {processing && step && (
+                <span className="text-sm text-muted" role="status">{step}</span>
+              )}
             </div>
           )}
 
@@ -222,7 +302,6 @@ export default function ZusammenfassungPage() {
                   </svg>
                   <span className="text-sm font-medium text-foreground">{tCommon("downloadReady")}</span>
                 </div>
-                {selectedFile && <p className="text-xs text-muted">{selectedFile.name}</p>}
                 <div className="flex gap-3">
                   <button
                     onClick={handleDownload}

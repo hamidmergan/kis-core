@@ -265,6 +265,10 @@ const nextConfig: NextConfig = {
         destination: `${backendUrl}/summary/providers`,
       },
       {
+        source: "/api/summary/templates",
+        destination: `${backendUrl}/summary/templates`,
+      },
+      {
         source: "/api/summary",
         destination: `${backendUrl}/summary`,
       },

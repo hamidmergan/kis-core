@@ -435,12 +435,26 @@
     },
     "summarize": {
       "title": "Summary",
-      "intro": "Distill long documents, audio and video content to the essentials.",
-      "selectFileAria": "Select file to summarize",
+      "intro": "Condense several sources into one text, optionally along a fixed structure.",
+      "selectFileAria": "Choose files to summarise",
       "submit": "Create summary",
-      "longRunning": "Still running - extensive content may take a few minutes…",
+      "longRunning": "Still running. Large sources take their time, you can leave this page.",
       "downloadLabel": "Download",
-      "providerLabel": "AI provider"
+      "providerLabel": "AI provider",
+      "templateLabel": "Structure of the summary",
+      "chosenFiles": "Chosen sources",
+      "removeFile": "Remove",
+      "tooManySources": "At most {max} sources per summary",
+      "step": {
+        "extract": "Reading the sources",
+        "extractCounted": "Reading source {part} of {total}",
+        "map": "Working through the sources one by one",
+        "mapCounted": "Source {part} of {total} is done",
+        "outline": "Planning the structure",
+        "section": "Writing a section",
+        "sectionCounted": "Writing section {part} of {total}",
+        "compose": "Writing the text"
+      }
     },
     "translate": {
       "title": "Translation",

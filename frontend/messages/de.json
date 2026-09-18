@@ -435,12 +435,26 @@
     },
     "summarize": {
       "title": "Zusammenfassung",
-      "intro": "Lange Dokumente, Audio- und Videoinhalte auf das Wesentliche bringen.",
-      "selectFileAria": "Datei zur Zusammenfassung auswählen",
+      "intro": "Mehrere Quellen auf das Wesentliche bringen, wahlweise nach einem festen Aufbau.",
+      "selectFileAria": "Dateien zur Zusammenfassung auswählen",
       "submit": "Zusammenfassung erstellen",
-      "longRunning": "Läuft noch - umfangreiche Inhalte können einige Minuten dauern…",
+      "longRunning": "Läuft noch. Umfangreiche Quellen brauchen ihre Zeit, du kannst die Seite verlassen.",
       "downloadLabel": "Herunterladen",
-      "providerLabel": "KI-Anbieter"
+      "providerLabel": "KI-Anbieter",
+      "templateLabel": "Aufbau der Zusammenfassung",
+      "chosenFiles": "Gewählte Quellen",
+      "removeFile": "Entfernen",
+      "tooManySources": "Höchstens {max} Quellen je Zusammenfassung",
+      "step": {
+        "extract": "Quellen werden gelesen",
+        "extractCounted": "Quelle {part} von {total} wird gelesen",
+        "map": "Die Quellen werden einzeln ausgewertet",
+        "mapCounted": "Quelle {part} von {total} ist ausgewertet",
+        "outline": "Der Aufbau wird geplant",
+        "section": "Ein Abschnitt wird geschrieben",
+        "sectionCounted": "Abschnitt {part} von {total} wird geschrieben",
+        "compose": "Der Text wird geschrieben"
+      }
     },
     "translate": {
       "title": "Übersetzung",
