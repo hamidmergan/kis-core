@@ -18,10 +18,13 @@ def _pdf_text(local_path: str) -> str:
     """Every page's text layer, pages separated by a blank line, empty pages dropped."""
     doc = _open_pdf(local_path)
     seiten = []
-    for i in range(len(doc)):
-        text = _clean(doc[i].get_textpage().get_text_range() or "").strip()
-        if text:
-            seiten.append(text)
+    try:
+        for i in range(len(doc)):
+            text = _clean(doc[i].get_textpage().get_text_range() or "").strip()
+            if text:
+                seiten.append(text)
+    finally:
+        doc.close()
     if not seiten:
         raise NoReadableText(local_path)
     return "\n\n".join(seiten)

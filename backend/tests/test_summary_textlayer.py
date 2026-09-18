@@ -19,12 +19,16 @@ class _Seite:
 class _Dokument:
     def __init__(self, seiten):
         self._seiten = [_Seite(t) for t in seiten]
+        self.geschlossen = False
 
     def __len__(self):
         return len(self._seiten)
 
     def __getitem__(self, i):
         return self._seiten[i]
+
+    def close(self):
+        self.geschlossen = True
 
 
 def test_eine_textdatei_kommt_am_stueck_zurueck(tmp_path):
@@ -58,6 +62,21 @@ def test_eine_pdf_ohne_text_wird_gemeldet(monkeypatch):
     monkeypatch.setattr(tl, "_open_pdf", lambda pfad: _Dokument(["", "  "]))
     with pytest.raises(tl.NoReadableText):
         tl.read_text_layer("x.pdf", "pdf")
+
+
+def test_die_pdf_wird_nach_dem_lesen_geschlossen(monkeypatch):
+    doc = _Dokument(["Seite eins.", "Seite zwei."])
+    monkeypatch.setattr(tl, "_open_pdf", lambda pfad: doc)
+    tl.read_text_layer("x.pdf", "pdf")
+    assert doc.geschlossen
+
+
+def test_die_pdf_wird_auch_ohne_text_geschlossen(monkeypatch):
+    doc = _Dokument(["", "  "])
+    monkeypatch.setattr(tl, "_open_pdf", lambda pfad: doc)
+    with pytest.raises(tl.NoReadableText):
+        tl.read_text_layer("x.pdf", "pdf")
+    assert doc.geschlossen
 
 
 def test_eine_fremde_endung_wird_abgelehnt():
