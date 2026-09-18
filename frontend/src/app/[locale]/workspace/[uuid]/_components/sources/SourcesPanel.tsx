@@ -27,6 +27,7 @@ export function SourcesPanel({
   selectedSourceIds,
   onToggleSource,
   onOpenViewer,
+  onEditTranscript,
   onDeleteSource,
   onRenameSource,
   onRetrySource,
@@ -54,6 +55,7 @@ export function SourcesPanel({
   selectedSourceIds: string[];
   onToggleSource: (uuid: string) => void;
   onOpenViewer: (source: Source) => void;
+  onEditTranscript?: (source: Source) => void;
   onDeleteSource: (uuid: string) => void;
   onRenameSource?: (uuid: string, name: string) => Promise<void>;
   onRetrySource: (uuid: string) => void;
@@ -177,6 +179,7 @@ export function SourcesPanel({
         onRenameEnd={() => setRenameId(null)}
         onToggle={onToggleSource}
         onOpenViewer={onOpenViewer}
+        onEditTranscript={onEditTranscript}
         onDelete={setDeleteSourceId}
         onRename={onRenameSource}
         onRetry={onRetrySource}

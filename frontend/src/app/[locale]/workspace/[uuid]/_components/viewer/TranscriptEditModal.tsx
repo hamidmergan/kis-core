@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
+import { WarningCircle } from "@phosphor-icons/react";
 import Modal from "@/components/ui/Modal";
 import Spinner from "@/components/ui/Spinner";
 import { genericErrorMessage, parseDetail } from "@/lib/api";
@@ -127,8 +128,19 @@ export function TranscriptEditModal({
   return (
     <Modal open={open} onClose={onClose} title={t("transcriptEditTitle")} size="lg" footer={fuss}>
       <div className="flex flex-col gap-4">
-        <p className="text-xs" style={{ color: "var(--muted)" }}>
-          {t("transcriptEditHint", { time: timeLabel })}
+        <div
+          className="flex items-start gap-2 rounded-lg px-3 py-2"
+          style={{ backgroundColor: "var(--cite-bg)" }}
+        >
+          <span className="flex-shrink-0 mt-0.5" style={{ color: "var(--kb-dark)" }}>
+            <WarningCircle size={16} weight="fill" />
+          </span>
+          <p className="text-xs leading-snug" style={{ color: "var(--foreground)" }}>
+            {t("transcriptEditWarning")}
+          </p>
+        </div>
+        <p className="text-xs font-mono" style={{ color: "var(--muted)" }}>
+          {timeLabel}
         </p>
 
         {tracks.map((track) => (
@@ -143,7 +155,7 @@ export function TranscriptEditModal({
                 key={line.index}
                 value={draft[track.lang]?.[i] ?? line.text}
                 onChange={(e) => setLine(track.lang, i, e.target.value)}
-                rows={2}
+                rows={8}
                 aria-label={t("transcriptEditLineLabel", { nr: i + 1 })}
                 className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 resize-y"
                 style={{

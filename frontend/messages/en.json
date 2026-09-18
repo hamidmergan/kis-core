@@ -3189,6 +3189,7 @@
         "collapseChapter": "Collapse chapter",
         "expandChapter": "Expand chapter",
         "moveToChapter": "Move to chapter",
+        "editTranscript": "Edit transcript",
         "noChapter": "No chapter",
         "moveUp": "Move up",
         "moveDown": "Move down",
@@ -3276,11 +3277,13 @@
         "translateModalStart": "Start translation",
         "translateModalCancel": "Cancel",
         "transcriptEditTitle": "Edit transcript",
-        "transcriptEditHint": "Correct what speech recognition misheard. The timestamps from {time} stay unchanged.",
+        "transcriptEditWarning": "Only fix individual words that were misheard. If you rewrite a whole line, the text no longer matches what is said at that point, and jumps from the chat land in the wrong place.",
         "transcriptEditLineLabel": "Line {nr}",
         "transcriptEditEmptyLine": "A line must not be left empty. Shorten it instead of deleting it.",
         "transcriptEditSave": "Save",
-        "transcriptEditCancel": "Cancel"
+        "transcriptEditCancel": "Cancel",
+        "transcriptEditBanner": "You are editing the transcript. Click the pencil on a paragraph you want to change.",
+        "transcriptEditDone": "Done"
       },
       "summary": {
         "header": "Page {page} - Summary",

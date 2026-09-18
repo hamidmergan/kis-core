@@ -13,6 +13,7 @@ const EMPTY_LANGS: LangInfo = { source_lang: null, target_lang: null, available:
 
 export function MediaPlayer({
   source, onClose, workspaceUuid, onMinimize, canManage = false, onSaveNote,
+  editTranscript = false, onEditTranscriptEnd,
   youtubeConsent = false, onYoutubeConsent = () => { },
 }: {
   source: ViewerState;
@@ -20,6 +21,9 @@ export function MediaPlayer({
   workspaceUuid: string;
   onMinimize?: () => void;
   canManage?: boolean;
+  // Opened straight into correcting, coming from the source menu.
+  editTranscript?: boolean;
+  onEditTranscriptEnd?: () => void;
   onSaveNote?: (content: string, sourceUuids?: string[], extras?: AddNoteExtras) => void | Promise<void>;
   // One click, ever, per browser: the page reads it from localStorage.
   youtubeConsent?: boolean;
@@ -177,6 +181,8 @@ export function MediaPlayer({
         sourceUuid={source.uuid}
         langInfo={langInfo}
         canManage={canManage}
+        editTranscript={editTranscript}
+        onEditTranscriptEnd={onEditTranscriptEnd}
         onSaveNote={onSaveNote}
         citationTime={source.isCitation ? source.startTime : undefined}
         citationEndTime={source.isCitation ? source.endTime : undefined}

@@ -103,6 +103,8 @@ export default function KiTutorWorkspacePage() {
   }, [moduleDetail?.chapters, setChapters]);
 
   const [viewerSource, setViewerSource] = useState<ViewerState | null>(null);
+  // The recording whose transcript was opened for correcting, from the source menu.
+  const [transcriptEditFor, setTranscriptEditFor] = useState<string | null>(null);
   // One click, ever, per browser: the choice is remembered in localStorage.
   const [youtubeConsent, setYoutubeConsent] = useState(readYoutubeConsent);
 
@@ -555,7 +557,7 @@ export default function KiTutorWorkspacePage() {
   const renderQuellenContent = ({ onMinimize, hideHeader: hh }: { onMinimize: () => void; hideHeader: boolean }) => {
     if (viewerSource) {
       return _isMediaFile(viewerSource.filename) ? (
-        <MediaPlayer source={viewerSource} onClose={handleCloseViewer} workspaceUuid={uuid} onMinimize={onMinimize} canManage={isOwner} onSaveNote={addNote} youtubeConsent={youtubeConsent} onYoutubeConsent={() => { writeYoutubeConsent(); setYoutubeConsent(true); }} />
+        <MediaPlayer source={viewerSource} onClose={handleCloseViewer} workspaceUuid={uuid} onMinimize={onMinimize} canManage={isOwner} onSaveNote={addNote} youtubeConsent={youtubeConsent} onYoutubeConsent={() => { writeYoutubeConsent(); setYoutubeConsent(true); }} editTranscript={transcriptEditFor === viewerSource.uuid} onEditTranscriptEnd={() => setTranscriptEditFor(null)} />
       ) : (
         <PdfViewer source={viewerSource} onClose={handleCloseViewer} workspaceUuid={uuid} onAskWithSelection={handleAskWithSelection} onCustomQuestion={handleCustomQuestion} popupActions={popupActions} onAddToGlossary={handleAddToGlossary} onAddToNote={handleAddToNote} onMinimize={onMinimize} />
       );
@@ -566,6 +568,7 @@ export default function KiTutorWorkspacePage() {
         selectedSourceIds={selectedSourceIds}
         onToggleSource={handleToggleSource}
         onOpenViewer={(src) => handleOpenViewer(src)}
+        onEditTranscript={isOwner ? (src) => { setTranscriptEditFor(src.uuid); handleOpenViewer(src); } : undefined}
         onDeleteSource={handleDeleteSource}
         onRenameSource={handleRenameSource}
         onRetrySource={handleRetrySource}

@@ -3189,6 +3189,7 @@
         "collapseChapter": "Kapitel zuklappen",
         "expandChapter": "Kapitel aufklappen",
         "moveToChapter": "In Kapitel verschieben",
+        "editTranscript": "Transkript bearbeiten",
         "noChapter": "Ohne Kapitel",
         "moveUp": "Nach oben",
         "moveDown": "Nach unten",
@@ -3276,11 +3277,13 @@
         "translateModalStart": "Übersetzung starten",
         "translateModalCancel": "Abbrechen",
         "transcriptEditTitle": "Transkript bearbeiten",
-        "transcriptEditHint": "Korrigiere hier, was die Spracherkennung falsch verstanden hat. Die Zeitmarken ab {time} bleiben unverändert.",
+        "transcriptEditWarning": "Ändere nur einzelne Wörter, die falsch erkannt wurden. Schreibst du eine Zeile ganz neu, passt der Text nicht mehr zu dem, was an dieser Stelle gesagt wird, und Sprünge aus dem Chat landen an der falschen Stelle.",
         "transcriptEditLineLabel": "Zeile {nr}",
         "transcriptEditEmptyLine": "Eine Zeile darf nicht leer bleiben. Kürze sie, statt sie zu löschen.",
         "transcriptEditSave": "Speichern",
-        "transcriptEditCancel": "Abbrechen"
+        "transcriptEditCancel": "Abbrechen",
+        "transcriptEditBanner": "Du bearbeitest gerade das Transkript. Klicke auf den Stift an einem Absatz, den du ändern willst.",
+        "transcriptEditDone": "Fertig"
       },
       "summary": {
         "header": "Seite {page} - Zusammenfassung",

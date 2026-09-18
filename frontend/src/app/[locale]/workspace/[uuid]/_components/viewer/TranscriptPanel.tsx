@@ -80,6 +80,8 @@ export function TranscriptPanel({
   sourceUuid,
   langInfo,
   canManage = false,
+  editTranscript = false,
+  onEditTranscriptEnd,
   onSaveNote,
   onOffChange,
   citationTime,
@@ -97,6 +99,9 @@ export function TranscriptPanel({
   // The languages come from the player, null means not loaded yet.
   langInfo: LangInfo | null;
   canManage?: boolean;
+  // Comes in switched on when the source menu opened the recording for correcting.
+  editTranscript?: boolean;
+  onEditTranscriptEnd?: () => void;
   onSaveNote?: (content: string, sourceUuids?: string[], extras?: AddNoteExtras) => void | Promise<void>;
   // Reports a switched-off transcript so the player drops its tracks.
   onOffChange?: (off: boolean) => void;
@@ -157,7 +162,10 @@ export function TranscriptPanel({
   const [pendingLang, setPendingLang] = useState<string | null>(null);
   const [showTranslateModal, setShowTranslateModal] = useState(false);
   // The paragraph whose lines are being corrected, null while the window is closed.
-  const [editBlock, setEditBlock] = useState<{ from: number; to: number; start: number } | null>(null);
+  const [editBlock, setEditBlock] = useState<{ from: number; to: number; start: number; end: number } | null>(null);
+  // Correcting is a state of the panel, entered from the source menu and left with a button.
+  const [editing, setEditing] = useState(false);
+  useEffect(() => { if (editTranscript) setEditing(true); }, [editTranscript]);
   const listRef = useRef<HTMLDivElement>(null);
   // The anchors hang off the sentence, not off the paragraph.
   const itemRefs = useRef<Record<number, HTMLElement | null>>({});
@@ -581,7 +589,7 @@ export function TranscriptPanel({
   // The tile invites as long as there is an original and no translation yet.
   const canTranslate = canManage && !!sourceCues && !!sourceLang && !targetCues;
   // Correcting what speech recognition misheard, owner and tutors only.
-  const canEdit = canManage && !ownerPreview;
+  const istKorrektur = canManage && !ownerPreview && editing && mode !== "off";
 
   const modeLabel = (m: ViewMode): string => {
     if (m === "off") return t("tabOff");
@@ -685,6 +693,25 @@ export function TranscriptPanel({
         </p>
       )}
 
+      {/* While correcting the panel says so, otherwise the pencils look like decoration. */}
+      {istKorrektur && (
+        <div
+          className="flex items-center justify-between gap-3 px-4 py-2 flex-shrink-0"
+          style={{ backgroundColor: "rgba(var(--kb-rgb), 0.12)", borderBottom: "1px solid var(--border)" }}
+        >
+          <span className="text-xs leading-snug" style={{ color: "var(--foreground)" }}>
+            {t("transcriptEditBanner")}
+          </span>
+          <button
+            type="button"
+            onClick={() => { setEditing(false); onEditTranscriptEnd?.(); }}
+            className="flex-shrink-0 px-3 py-1 text-xs btn-primary rounded-lg"
+          >
+            {t("transcriptEditDone")}
+          </button>
+        </div>
+      )}
+
       {/* Cue list — hidden entirely when the student switched the transcript off. */}
       {mode !== "off" && (
       <div ref={listRef} className="flex-1 overflow-y-auto px-4 py-3">
@@ -777,17 +804,18 @@ export function TranscriptPanel({
                   </div>
                 )}
               </div>
-              {(onSaveNote || canEdit) && (
+              {(onSaveNote || istKorrektur) && (
                 <div className="flex justify-end gap-1 pr-1 mt-0.5 h-5">
-                  {canEdit && (
+                  {istKorrektur && (
                     <button
                       type="button"
-                      onClick={(e) => { e.stopPropagation(); setEditBlock({ from: b.from, to: b.to, start: b.start }); }}
+                      onClick={(e) => { e.stopPropagation(); setEditBlock({ from: b.from, to: b.to, start: b.start, end: b.end }); }}
                       title={t("transcriptEditTitle")}
                       aria-label={t("transcriptEditTitle")}
-                      className="[@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 p-1 rounded-full btn-icon"
+                      className="p-1 rounded-full btn-icon"
+                      style={{ color: "var(--kb)" }}
                     >
-                      <PencilSimple size={13} />
+                      <PencilSimple size={14} weight="bold" />
                     </button>
                   )}
                   {onSaveNote && (
@@ -856,7 +884,7 @@ export function TranscriptPanel({
         open={!!editBlock && editTracks.length > 0}
         onClose={() => setEditBlock(null)}
         tracks={editTracks}
-        timeLabel={editBlock ? fmtTs(editBlock.start) : ""}
+        timeLabel={editBlock ? `${fmtTs(editBlock.start)} - ${fmtTs(editBlock.end)}` : ""}
         workspaceUuid={workspaceUuid}
         sourceUuid={sourceUuid}
         onSaved={onTranscriptSaved}

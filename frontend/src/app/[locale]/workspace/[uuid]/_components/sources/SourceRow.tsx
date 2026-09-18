@@ -8,13 +8,14 @@ import {
   TextAlignLeft,
   FolderSimple,
   PencilSimple,
+  TextAa,
   TextT,
   Trash,
   WarningCircle,
 } from "@phosphor-icons/react";
 import type { Chapter, Source } from "../../_types";
 import { OwnerOnly } from "../layout/OwnerOnly";
-import { splitFilename } from "../../_utils";
+import { splitFilename, _isMediaFile } from "../../_utils";
 import { FileIcon, SourceStatus } from "./FileIcon";
 
 /** One row of the source list, the panel drives the renaming. */
@@ -35,6 +36,7 @@ export function SourceRow({
   onRenameEnd,
   onToggle,
   onOpenViewer,
+  onEditTranscript,
   onDelete,
   onRename,
   onRetry,
@@ -60,6 +62,8 @@ export function SourceRow({
   onRenameEnd: () => void;
   onToggle: (uuid: string) => void;
   onOpenViewer: (source: Source) => void;
+  // Opens the recording and turns its transcript into the editable state.
+  onEditTranscript?: (source: Source) => void;
   onDelete: (uuid: string) => void;
   onRename?: (uuid: string, name: string) => Promise<void>;
   onRetry: (uuid: string) => void;
@@ -306,6 +310,14 @@ export function SourceRow({
                               icon={<FolderSimple size={16} weight="bold" />}
                               label={t("moveToChapter")}
                               onClick={() => onMenuMode("chapter")}
+                            />
+                          )}
+                          {/* Only a recording carries a transcript, a document has none. */}
+                          {onEditTranscript && ready && _isMediaFile(src.filename) && (
+                            <MenuItem
+                              icon={<TextAa size={16} weight="bold" />}
+                              label={t("editTranscript")}
+                              onClick={() => { onMenuOpen(false); onEditTranscript(src); }}
                             />
                           )}
                           {/* Zustand und Nachholen stehen zusammen im Menue, damit die
