@@ -1,4 +1,4 @@
-"""Download-Endpunkte: /download (Result-File), /pptx (Translated PPTX), /bundle (ZIP)."""
+"""Download-Endpunkte: /download (Result-File), /pptx (Translated PPTX), /docx (Word), /bundle (ZIP)."""
 
 import io
 import zipfile
@@ -114,6 +114,36 @@ def download_job_pptx(
         headers={
             "Content-Length": str(len(data)),
             "Content-Disposition": f'attachment; filename="{pptx_filename}"',
+        },
+    )
+
+
+@router.get("/{job_uuid}/docx")
+def download_job_docx(
+    job_uuid: str,
+    current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
+):
+    """Download the Word version of a completed summary job, alongside its Markdown result."""
+    job = db.get_job(job_uuid)
+    # Owner-only: a foreign job_uuid must not download another user's Word file.
+    if not job or job["user_id"] != current_user.get("user_id", 0):
+        raise HTTPException(status_code=404, detail=t("job.notFound", locale))
+
+    try:
+        data = get_job_file(job["user_id"], job_uuid, "output.docx")
+    except Exception as e:
+        logger.error("DOCX download failed for job {}: {}", job_uuid, e)
+        raise HTTPException(status_code=404, detail=t("job.noDownloadAvailable", locale))
+
+    docx_filename = Path(job["result_filename"] or "summary.md").stem + ".docx"
+
+    return StreamingResponse(
+        iter([data]),
+        media_type=_CONTENT_TYPES[".docx"],
+        headers={
+            "Content-Length": str(len(data)),
+            "Content-Disposition": f'attachment; filename="{docx_filename}"',
         },
     )
 
