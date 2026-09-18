@@ -1,8 +1,8 @@
-# Sprache in Text
+# Audio in Text
 
 Schreibt Audio und Video mit. Wahlweise als reinen Text oder als Untertitel mit Zeitstempeln.
 
-![Der Dienst Sprache in Text](/manual/{lang}/tool-speech-to-text.png)
+![Der Dienst Audio in Text](/manual/{lang}/tool-speech-to-text.png)
 
 ## Drei Ausgabeformate
 

@@ -18,7 +18,7 @@ UPLOAD_HOURLY_WINDOW_SECONDS    = 3600
 
 # Quota per user and tool: count, window length and display name.
 QUOTA_DEFAULTS: dict[str, dict] = {
-    "tts":            {"limit": 100, "window_hours": 4, "label": "Text in Sprache"},
+    "tts":            {"limit": 100, "window_hours": 4, "label": "Text in Audio"},
     "summary":        {"limit": 100, "window_hours": 4, "label": "Zusammenfassung"},
     "translate":      {"limit": 100, "window_hours": 4, "label": "Dokumentenübersetzung"},
     "transcription":  {"limit": 100, "window_hours": 4, "label": "Transkription"},
@@ -150,6 +150,8 @@ YOUTUBE_LAST_SEGMENT_SECONDS     = 5.0     # the pasted text names no end for th
 # Hard limit for a single chat question, the search query is shortened on top.
 AIA_QUESTION_MAX_CHARS                 = 8000
 AIA_EMBED_QUERY_MAX_CHARS              = 2000
+# An instruction to a learning tool, longer ones are cut at the same place in the schema.
+AIA_INSTRUCTION_MAX_CHARS              = 500
 
 # Character budget for the overview context, sized for the smallest supported tier.
 AIA_CONTEXT_MAX_CHARS                  = 250000

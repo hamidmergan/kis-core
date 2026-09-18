@@ -11,7 +11,7 @@ Sieben Dienste für einzelne Aufgaben, unabhängig von Workspaces: Datei hochlad
 Ergebnis herunterladen.
 
 - **Übersetzung** überträgt Dokumente in eine andere Sprache und behält das Layout
-- **Text in Sprache** und **Sprache in Text** wandeln zwischen Ton und Schrift
+- **Text in Audio** und **Audio in Text** wandeln zwischen Ton und Schrift
 - **Zusammenfassung** kürzt lange Inhalte
 - **Bildgenerierung** erzeugt und bearbeitet Bilder
 - **Screencast** vertont Folien zu einem Video

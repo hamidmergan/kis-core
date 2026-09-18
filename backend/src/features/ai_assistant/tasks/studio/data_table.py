@@ -18,6 +18,13 @@ from src.features.ai_assistant.tasks._helpers import (
     _clean_llm_json,
 )
 from src.features.ai_assistant.tasks._context_budget import tool_context_budget
+from src.features.ai_assistant.tasks._instruction import (
+    NONE,
+    Resolution,
+    prompt_block,
+    spots_by_source,
+)
+from src.features.ai_assistant.tasks._instruction import resolve as resolve_instruction
 from src.features.ai_assistant.tasks.studio import _table_condensed as _condensed
 from src.features.ai_assistant.tasks.studio import _table_packets
 from src.services import aia_chunker
@@ -65,11 +72,26 @@ def run_generate_data_table(self, data_table_id: int, source_ids: list[int],
         db.update_aia_data_table(data_table_id, "running")
         logger.info("KI Tutor: generating data_table {}", data_table_id)
 
+        # The instruction decides whether all the material or only the found spots go in.
+        zeile = db.get_aia_data_table(data_table_id) or {}
+        gewuenscht = zeile.get("user_instruction") or ""
+        wahl = (resolve_instruction(zeile.get("workspace_id"), source_ids, gewuenscht,
+                                    tool_context_budget())
+                if gewuenscht.strip() else Resolution("", None, False, NONE))
+        # Written anew on every run, so a retry that hits the material clears an old miss.
+        if gewuenscht.strip():
+            db.set_instruction_unmatched("aia_data_tables", data_table_id, wahl.unmatched)
+        vorhanden = _collect_sources(source_ids, source_map)
+        if wahl.chunks is not None:
+            treffer = spots_by_source(wahl.chunks)
+            vorhanden = [(sid, label, treffer[sid])
+                         for sid, label, _chunks in vorhanden if sid in treffer]
+
         context_parts: list[str] = []
         # Which pages the model saw, the chips are limited to them.
         source_id_to_label: dict[int, str] = {}
         seen_pages_by_source: dict[int, set] = {}
-        for sid, filename, picked in _collect_sources(source_ids, source_map):
+        for sid, filename, picked in vorhanden:
             source_id_to_label[sid] = filename
             is_media = _is_media_source(filename)
             for chunk in picked:
@@ -103,8 +125,10 @@ def run_generate_data_table(self, data_table_id: int, source_ids: list[int],
                                    data_table_id, attempt + 1, e)
             return None
 
-        # The level block hangs on the person, not on the course room.
-        adaptive_suffix = build_adaptive_tool_suffix(user_id)
+        # The level block hangs on the person, not on the course room. The instruction
+        # travels with it so every packet and both condensed calls carry it.
+        adaptive_suffix = (build_adaptive_tool_suffix(user_id)
+                           + prompt_block(wahl.text, narrowed=wahl.chunks is not None))
         system = AIA_DATENTABELLE_PROMPT.replace("{language}", language) + adaptive_suffix
 
         def _ask(context: str, columns) -> dict | None:
@@ -144,7 +168,8 @@ def run_generate_data_table(self, data_table_id: int, source_ids: list[int],
                     "summary": (db.get_aia_source(u) or {}).get("summary")}
                    for sid, u in zip(source_ids, source_uuids)
                    if sid in source_id_to_label]
-        verdichtet = _condensed.should_condense(
+        # Found spots always fit, they take one packet.
+        verdichtet = wahl.chunks is None and _condensed.should_condense(
             gesamt, tool_context_budget(), quellen)
         logger.info("data_table {}: {} Zeichen Material, Weg {}", data_table_id, gesamt,
                     "verdichtet" if verdichtet else "Pakete")

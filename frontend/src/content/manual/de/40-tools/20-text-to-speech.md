@@ -1,8 +1,8 @@
-# Text in Sprache
+# Text in Audio
 
 Liest Texte und Dokumente mit natürlich klingenden Stimmen vor und liefert eine MP3-Datei.
 
-![Der Dienst Text in Sprache](/manual/{lang}/tool-text-to-speech.png)
+![Der Dienst Text in Audio](/manual/{lang}/tool-text-to-speech.png)
 
 ## Zwei Wege hinein
 

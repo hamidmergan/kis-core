@@ -8,6 +8,7 @@ import type { ExerciseSet } from "../../_types";
 import { STUDIO_ITEM_MAX } from "../../_constants";
 import { SubviewHeader, type BreadcrumbItem, type ToolCategory } from "../layout/SubviewHeader";
 import { setProgressPct } from "./_progress";
+import { InstructionNote } from "../studio/InstructionField";
 
 export function ExerciseSetsOverview({
   title, toolKey, sets, onBack, onSelect, onCreate, onDelete, onRename, onRetry, onDownload, sourceCount, breadcrumbs, category,
@@ -151,6 +152,11 @@ export function ExerciseSetsOverview({
                         );
                       })()}
                     </div>
+                    {!generating && (s.user_instruction || s.instruction_unmatched) && (
+                      <InstructionNote instruction={s.user_instruction} unmatched={s.instruction_unmatched}
+                        shownText={t("exerciseSets.instructionShown", { text: s.user_instruction || "" })}
+                        unmatchedText={t("exerciseSets.instructionUnmatched")} />
+                    )}
                     {/* Bottom row: meta left, delete right */}
                     <div className="flex items-center justify-between mt-auto pt-1">
                       <span className="text-xs font-medium" >

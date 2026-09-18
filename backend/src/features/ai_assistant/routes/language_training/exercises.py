@@ -14,6 +14,8 @@ from src.security.rate_limit import enforce_aia_burst
 from src.features.ai_assistant.routes._workspace_access import _resolve_source_ids
 from src.features.ai_assistant import schemas
 from src.features.ai_assistant.repository.stats import LANGUAGE_TRAINING_TOOLS
+from src.features.ai_assistant.tasks._helpers import LEARNING_TOOLS
+from src.features.ai_assistant.tasks._instruction import clean as clean_instruction
 from src.services.aia_grammar_formats import clean_kinds
 from src.services import aia_flashcard_speech as speech
 
@@ -31,6 +33,13 @@ def _numbered_sources(ex_set: dict) -> list[dict]:
             continue
         out.append({"number": len(out) + 1, "filename": source["filename"]})
     return out
+
+def _mit_anweisung(ex_set: dict) -> None:
+    """The person's instruction never None and its flag a real bool. Not to be confused
+    with ``instruction``, which is the grammar exercise's task line."""
+    ex_set["user_instruction"] = ex_set.get("user_instruction") or ""
+    ex_set["instruction_unmatched"] = bool(ex_set.get("instruction_unmatched"))
+
 
 # ─── Exercise Sets CRUD ──────────────────────────────────────────────────────
 
@@ -98,6 +107,10 @@ async def create_exercise_set(
                                     detail=t("ai.flashcardSet.invalid", locale))
             flashcard_set_id = karten["id"]
 
+    # Only karteikarten and quiz from the sources follow an instruction, see the task.
+    user_instruction = (clean_instruction(body.instruction) or None
+                        if body.tool in LEARNING_TOOLS and body.mode == "source" else None)
+
     placeholder = db.create_exercise_set_placeholder(
         workspace_id=workspace["id"], user_id=user_id, tool=body.tool,
         title="Wird generiert…", mode=body.mode,
@@ -107,6 +120,7 @@ async def create_exercise_set(
         requested_count=body.count,
         flashcard_set_id=flashcard_set_id,
         grammar_kinds=grammar_kinds,
+        user_instruction=user_instruction,
     )
 
     from src.tasks.aia_tasks import run_generate_exercise_set
@@ -227,6 +241,7 @@ async def list_exercise_sets(
         if topic:
             s["grammar_topic_name"] = topic["name"]
         s["sources"] = _numbered_sources(s)
+        _mit_anweisung(s)
     return {"sets": sets}
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/exercise-sets/{set_id}")
@@ -253,6 +268,7 @@ async def get_exercise_set(
     ex_set["sources"] = _numbered_sources(ex_set)
     # Whether the card may show a speaker is set in the admin area.
     ex_set["speech_enabled"] = speech.speech_enabled()
+    _mit_anweisung(ex_set)
     return {"set": ex_set}
 
 @router.delete("/ai-assistant/workspaces/{workspace_uuid}/exercise-sets/{set_id}")

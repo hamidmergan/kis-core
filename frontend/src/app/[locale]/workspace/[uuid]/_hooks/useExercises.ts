@@ -46,7 +46,7 @@ export function useExercises({ uuid }: UseExercisesOptions) {
     } catch { /* ignore */ }
   }, [uuid]);
 
-  const createExerciseSet = useCallback(async (tool: string, mode: string, count: number, sourceUuids?: string[], grammarTopicId?: number, grammarKinds?: string[], flashcardSetId?: number) => {
+  const createExerciseSet = useCallback(async (tool: string, mode: string, count: number, sourceUuids?: string[], grammarTopicId?: number, grammarKinds?: string[], flashcardSetId?: number, instruction?: string) => {
     try {
       // The set is produced in the interface language.
       const res = await api.fetch(`/api/ai-assistant/workspaces/${uuid}/exercise-sets`, {
@@ -63,6 +63,8 @@ export function useExercises({ uuid }: UseExercisesOptions) {
           grammar_kinds: grammarKinds,
           // Only the vocabulary cloze from flashcards sends this along.
           flashcard_set_id: flashcardSetId,
+          // Only karteikarten and quiz read it, the backend ignores it elsewhere.
+          instruction: instruction || "",
         }),
       });
       if (res.ok) {
