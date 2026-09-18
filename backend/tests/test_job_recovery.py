@@ -110,6 +110,11 @@ class TestWasNichtWiederAnlaeuft:
         assert job_recovery.attempt_failed("j", "kaputt") == "waiting_retry"
 
 
+class TestResumeTuer:
+    def test_eine_zusammenfassung_geht_ueber_ihre_eigene_tuer(self):
+        assert job_recovery.resume_entry({"tool": "summary"}) == "summary"
+
+
 class TestStillMine:
     def test_gleicher_stand_gehoert_der_etappe(self, db):
         db.claim = ("running", 2)
@@ -163,6 +168,46 @@ class TestWiederanlauf:
 
         assert job_recovery.resume_due_jobs() == 1
         assert db.versuche[-1]["message"] == "Broker weg"
+
+    def test_die_zusammenfassung_bekommt_ihre_angaben_und_den_zaehler(self, db, monkeypatch):
+        task = _FakeTask()
+        import src.storage as storage
+        import src.tasks.summary_tasks as st
+        monkeypatch.setattr(st, "run_summary", task)
+        monkeypatch.setattr(storage, "get_job_file", lambda uid, job, name: json.dumps({
+            "sources": [{"filename": "a.txt", "input_path": "p1"}],
+            "template_slug": "kurzbriefing", "provider_id": 3,
+        }).encode())
+
+        job_recovery.dispatch_resume({"job_uuid": "j", "user_id": 7, "tool": "summary",
+                                      "creator_locale": "de", "attempts": 2, "progress": "{}"})
+
+        assert task.args == ["j", [{"filename": "a.txt", "input_path": "p1"}], "kurzbriefing", 3, 2]
+        assert db.task_ids == ["task-1"]
+
+
+class TestSummaryParams:
+    def test_liest_die_angaben_aus_der_ablage(self, monkeypatch):
+        import src.storage as storage
+        monkeypatch.setattr(storage, "get_job_file", lambda uid, job, name: json.dumps({
+            "sources": [{"filename": "a.txt", "input_path": "p1"}],
+            "template_slug": "fliesstext", "provider_id": None,
+        }).encode())
+
+        angaben = job_recovery._summary_params({"user_id": 7, "job_uuid": "j"})
+
+        assert angaben == {"sources": [{"filename": "a.txt", "input_path": "p1"}],
+                           "template_slug": "fliesstext", "provider_id": None}
+
+    def test_ohne_die_datei_bricht_es_verstaendlich_ab(self, monkeypatch):
+        import src.storage as storage
+
+        def _fehlt(uid, job, name):
+            raise FileNotFoundError(name)
+
+        monkeypatch.setattr(storage, "get_job_file", _fehlt)
+        with pytest.raises(RuntimeError):
+            job_recovery._summary_params({"user_id": 7, "job_uuid": "j"})
 
 
 class TestNeustart:
