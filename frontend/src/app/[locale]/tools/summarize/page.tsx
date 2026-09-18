@@ -7,6 +7,7 @@ import ToolBackLink from "@/components/ui/ToolBackLink";
 import { backendApi, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
 import { MAX_UPLOAD_MB, MAX_UPLOAD_BYTES } from "@/lib/constants";
 import Spinner from "@/components/ui/Spinner";
+import Select from "@/components/ui/Select";
 import BackgroundHint from "@/components/tools/BackgroundHint";
 import ProviderSelect from "@/components/tools/ProviderSelect";
 import { useFeatureProviders } from "@/hooks/useFeatureProviders";
@@ -120,9 +121,8 @@ export default function ZusammenfassungPage() {
           const p = status.progress as Progress;
           if (!p?.step) return;
           // Zero done files reads as the plain sentence, never as "0 von 1".
-          const gezaehlt = p.part != null && p.total != null && p.part > 0;
-          setStep(gezaehlt
-            ? t(`step.${p.step}Counted`, { part: p.part!, total: p.total! })
+          setStep(typeof p.part === "number" && typeof p.total === "number" && p.part > 0
+            ? t(`step.${p.step}Counted`, { part: p.part, total: p.total })
             : t(`step.${p.step}`));
         },
         3000,
@@ -242,17 +242,13 @@ export default function ZusammenfassungPage() {
               <label htmlFor="summary-template-select" className="block text-sm font-medium text-foreground mb-1">
                 {t("templateLabel")}
               </label>
-              <select
+              <Select
                 id="summary-template-select"
                 value={template}
-                onChange={(e) => setTemplate(e.target.value)}
+                onChange={setTemplate}
                 disabled={processing}
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb"
-              >
-                {templates.map((v) => (
-                  <option key={v.slug} value={v.slug}>{templateName(v)}</option>
-                ))}
-              </select>
+                options={templates.map((v) => ({ value: v.slug, label: templateName(v) }))}
+              />
               {chosen && <p className="mt-1 text-xs text-muted">{templateHint(chosen)}</p>}
             </div>
           )}
