@@ -19,7 +19,6 @@ from src.storage import save_queue_file_from_path
 from src.services.tool_limits import max_upload_bytes
 from src.utils.file_validation import (
     SUMMARY_EXTENSIONS,
-    SUMMARY_MAX_CHARS,
     pages_or_raise,
     validate_or_raise,
 )
@@ -78,20 +77,6 @@ async def summarize(
             raise HTTPException(status_code=400, detail=t("file.empty", locale))
         validate_or_raise(head, ext, locale)
         pages_or_raise(ext, tmp_path, locale)
-
-        extractor = EXTRACTORS.get(ext)
-        if extractor is not None:
-            text = extractor(tmp_path)
-            if len(text) > SUMMARY_MAX_CHARS:
-                raise HTTPException(
-                    status_code=422,
-                    detail=t(
-                        "summary.documentTooLong",
-                        locale,
-                        chars=f"{len(text):,}".replace(",", "."),
-                        maxChars=f"{SUMMARY_MAX_CHARS:,}".replace(",", "."),
-                    ),
-                )
 
         job_uuid = uuid.uuid4().hex
         user_id = current_user.get("user_id", 0)

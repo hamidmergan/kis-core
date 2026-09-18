@@ -9,7 +9,6 @@ from src.limits import (  # noqa: F401
     MAX_TRANSCRIPTION_BYTES,
     MAX_UPLOAD_BYTES,
     SCREENCAST_MAX_CHARS,
-    SUMMARY_MAX_CHARS,
     TRANSLATE_MAX_CHARS,
     TRANSLATE_MAX_UPLOAD_BYTES,
     TTS_MAX_CHARS,
@@ -51,6 +50,7 @@ SCREENCAST_EXTENSIONS = {
 
 
 SUMMARY_EXTENSIONS = {
+    ".pdf": "application/pdf",
     ".srt": "application/x-subrip",
     ".vtt": "text/vtt",
     ".txt": "text/plain",

@@ -125,6 +125,42 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Dokument zu lang ({chars} Zeichen). Bitte aufteilen (max. {maxChars} Zeichen).",
         "en": "Document too long ({chars} characters). Please split (max {maxChars} characters).",
     },
+    "summary.materialTooLarge": {
+        "de": "Deine Quellen enthalten zusammen {chars} Zeichen. Möglich sind {max}. Bitte nimm weniger oder kürzere Quellen.",
+        "en": "Your sources carry {chars} characters together. The limit is {max}. Please use fewer or shorter sources.",
+    },
+    "summary.sourceTooLarge": {
+        "de": "\"{name}\" enthält {chars} Zeichen. Je Dokument sind {max} möglich.",
+        "en": "\"{name}\" carries {chars} characters. Per document {max} are possible.",
+    },
+    "summary.sourceOnlyImages": {
+        "de": "In \"{name}\" steht kein lesbarer Text, die Seiten bestehen nur aus Bildern. Bitte nimm eine Fassung mit Textebene.",
+        "en": "There is no readable text in \"{name}\", its pages are images only. Please use a version with a text layer.",
+    },
+    "summary.tooManyParts": {
+        "de": "Deine Quellen ergeben {parts} Leseabschnitte, möglich sind {max}. Bitte nimm weniger oder kürzere Quellen.",
+        "en": "Your sources come to {parts} reading parts, the limit is {max}. Please use fewer or shorter sources.",
+    },
+    "summary.tooManySources": {
+        "de": "Höchstens {max} Quellen je Zusammenfassung.",
+        "en": "At most {max} sources per summary.",
+    },
+    "summary.noFiles": {
+        "de": "Bitte wähle mindestens eine Datei aus.",
+        "en": "Please choose at least one file.",
+    },
+    "summary.contentTooShort": {
+        "de": "Zu wenig Text ({words} Wörter, mindestens {min}).",
+        "en": "Too little text ({words} words, at least {min}).",
+    },
+    "summary.templateMissing": {
+        "de": "Diese Vorlage gibt es nicht.",
+        "en": "This build plan does not exist.",
+    },
+    "summary.jobLabel": {
+        "de": "{name} und {more} weitere",
+        "en": "{name} and {more} more",
+    },
 
     # ── image ────────────────────────────────────────────────────────────────
     "image.invalidSize": {

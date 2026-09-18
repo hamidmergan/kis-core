@@ -1,5 +1,7 @@
 # Central place for all configurable limits, timeouts and quotas.
 
+import math
+
 from src.services.system_capacity import capacity
 
 # Burst block for the chat, it only catches bots and mistakes.
@@ -59,7 +61,6 @@ MAX_IMAGE_BYTES            = 20  * 1024 * 1024   # image upload (20 MB)
 TTS_MAX_CHARS        = 100_000
 TRANSLATE_MAX_CHARS  = 100_000
 SCRIPT_MAX_CHARS     = 100_000
-SUMMARY_MAX_CHARS    = 100_000
 SCREENCAST_MAX_CHARS = 100_000
 
 # --- Bundle download --------------------------------------------------------
@@ -179,6 +180,39 @@ AIA_WORKSPACE_MAX_ACCESS_LINKS         = 10      # max enrollment links per work
 AIA_WORKSPACE_MAX_MEMBERS              = 100     # max enrolled members per workspace
 AIA_NOTES_MAX_PER_USER              = 100     # max notes per user per workspace
 GLOSSARY_LIMIT                        = 150     # max glossary entries per workspace
+
+# --- Summary tool -----------------------------------------------------------
+SUMMARY_MAX_SOURCES          = 10
+# Counted after extraction, so it holds for every format.
+SUMMARY_MAX_CHARS_PER_SOURCE = 500_000
+# Every allowed file at full size, so the total never refuses what the two above allow.
+SUMMARY_MAX_TOTAL_CHARS      = SUMMARY_MAX_SOURCES * SUMMARY_MAX_CHARS_PER_SOURCE
+# Facts one read call may return, the share of the pool one unit gets.
+SUMMARY_FACTS_MAX_CHARS      = 10_000
+SUMMARY_FACTS_MIN_CHARS      = 3_000
+# Room in a call for the prompt, the build plan and the sections already written.
+SUMMARY_PROMPT_RESERVE_CHARS = 60_000
+# As many units as still get their minimum share of the facts pool.
+SUMMARY_MAX_PARTS_PER_JOB    = (AIA_TOOL_CONTEXT_MAX_CHARS - SUMMARY_PROMPT_RESERVE_CHARS) \
+                               // SUMMARY_FACTS_MIN_CHARS
+# The smallest part that still lets the largest job fit the parts cap.
+SUMMARY_PART_MIN_CHARS       = math.ceil(SUMMARY_MAX_TOTAL_CHARS / SUMMARY_MAX_PARTS_PER_JOB)
+# Part size when the chat model's window is unknown, measured to answer in time.
+SUMMARY_PART_FALLBACK_CHARS  = 70_000
+# One section per this many characters of facts, the planner gets it as a target.
+SUMMARY_CHARS_PER_SECTION    = 4_000
+SUMMARY_MIN_SECTIONS         = 3
+SUMMARY_MAX_SECTIONS         = 20
+# A writing call may return this many tokens, a section or the whole fallback text.
+SUMMARY_WRITE_MAX_TOKENS     = 4_000
+# The shared client cuts reads at 120 s, this tool's calls may take longer.
+SUMMARY_CALL_TIMEOUT_SECONDS = 420
+# The watchdog counts silence, so the run reports in this often.
+SUMMARY_HEARTBEAT_SECONDS    = 60
+SUMMARY_MAP_CONCURRENCY      = 5
+SUMMARY_READ_MAX_ATTEMPTS    = 3
+SUMMARY_RETRY_DELAY_SECONDS  = 3
+SUMMARY_OUTLINE_MAX_ATTEMPTS = 2
 
 # Shared slot pool for background work, a fixed number instead of detection.
 AIA_PARALLEL_SLOTS                     = 4
