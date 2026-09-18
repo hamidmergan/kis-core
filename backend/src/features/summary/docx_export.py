@@ -6,6 +6,7 @@ import re
 from docx import Document
 from docx.document import Document as DocumentType
 from docx.text.paragraph import Paragraph
+from loguru import logger
 
 _HEADING_RE = re.compile(r"^(#{1,6})\s+(.*)$")
 _BULLET_RE = re.compile(r"^( *)[-*]\s+(.*)$")
@@ -92,6 +93,9 @@ def _add_table(document: DocumentType, lines: list[str], start: int) -> int:
     rows: list[list[str]] = []
     i = start + 2
     while i < len(lines) and "|" in lines[i] and lines[i].strip():
+        # A new table starting right here, without a blank line in between, ends this one.
+        if i + 1 < len(lines) and _is_table_separator(lines[i + 1]):
+            break
         rows.append(_table_cells(lines[i]))
         i += 1
 
@@ -103,6 +107,9 @@ def _add_table(document: DocumentType, lines: list[str], start: int) -> int:
         for run in cell_paragraph.runs:
             run.bold = True
     for r, row in enumerate(rows, start=1):
+        if len(row) > len(header):
+            logger.warning("Word-Tabelle: Zeile hat {} Spalte(n) mehr als die Kopfzeile, sie werden verworfen",
+                            len(row) - len(header))
         for col, cell_text in enumerate(row):
             if col >= len(header):
                 continue

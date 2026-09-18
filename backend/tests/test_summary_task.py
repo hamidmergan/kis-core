@@ -233,3 +233,11 @@ class TestWordDatei:
         endungen = [endung for endung, _ in zustand["ergebnisse"]]
         assert endungen == [".md"]
         assert dateien["summary.md"].decode("utf-8").startswith("Vorweg.")
+
+    def test_eine_zeitgrenze_waehrend_der_wortdatei_wird_nicht_verschluckt(self, lauf, monkeypatch):
+        from celery.exceptions import SoftTimeLimitExceeded
+        monkeypatch.setattr(st, "markdown_to_docx",
+                            lambda text: (_ for _ in ()).throw(SoftTimeLimitExceeded()))
+        _modell(monkeypatch, ["German", "- Fakt", _PLAN, "Text A", "Text B", "Text C"])
+        with pytest.raises(SoftTimeLimitExceeded):
+            st._run_summary_inner("job", _QUELLEN, "kurzbriefing", None, 0)

@@ -4,6 +4,7 @@ import io
 
 from docx import Document
 
+from src.features.summary import docx_export as de
 from src.features.summary.docx_export import markdown_to_docx
 
 
@@ -63,6 +64,31 @@ class TestTabellen:
         assert all(run.bold for run in header_cell.paragraphs[0].runs)
         data_cell = doc.tables[0].rows[1].cells[0]
         assert not any(run.bold for run in data_cell.paragraphs[0].runs)
+
+    def test_zwei_tabellen_ohne_leerzeile_werden_zwei_tabellen(self):
+        markdown = (
+            "| A | B |\n| --- | --- |\n| 1 | 2 |\n"
+            "| C | D |\n| --- | --- |\n| 3 | 4 |"
+        )
+        doc = _open(markdown_to_docx(markdown))
+        assert len(doc.tables) == 2
+        assert [c.text for c in doc.tables[0].rows[0].cells] == ["A", "B"]
+        assert len(doc.tables[0].rows) == 2
+        assert [c.text for c in doc.tables[1].rows[0].cells] == ["C", "D"]
+        assert len(doc.tables[1].rows) == 2
+
+    def test_zu_viele_spalten_werden_protokolliert(self, monkeypatch):
+        meldungen = []
+        monkeypatch.setattr(de.logger, "warning", lambda *a, **k: meldungen.append((a, k)))
+        markdown = "| A | B |\n| --- | --- |\n| 1 | 2 | 3 |"
+        doc = _open(markdown_to_docx(markdown))
+        assert meldungen
+        assert [c.text for c in doc.tables[0].rows[1].cells] == ["1", "2"]
+
+    def test_zu_wenige_spalten_bleiben_leer(self):
+        markdown = "| A | B |\n| --- | --- |\n| 1 |"
+        doc = _open(markdown_to_docx(markdown))
+        assert [c.text for c in doc.tables[0].rows[1].cells] == ["1", ""]
 
 
 class TestFettschrift:

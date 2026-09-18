@@ -251,6 +251,9 @@ def _run_summary_inner(job_uuid: str, sources: list[dict], template_slug: str,
     try:
         save_result_file(user_id, job_uuid, ".docx", markdown_to_docx(fertig))
     except Exception as e:  # noqa: BLE001 - the Word file is an extra, the Markdown result must still count as done
+        from celery.exceptions import SoftTimeLimitExceeded
+        if isinstance(e, SoftTimeLimitExceeded):
+            raise  # a stage timeout must reach run_summary's own handling, not be logged away here
         logger.error("Zusammenfassung {}: Word-Datei fehlgeschlagen ({})", job_uuid[:8], e)
     save_result_and_evict(user_id, job_uuid, ergebnis, name)
     db.update_job_status(job_uuid, "success")

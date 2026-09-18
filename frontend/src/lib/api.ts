@@ -380,12 +380,13 @@ export async function pollJob(
   }
 }
 
-/** Downloads the result file of a finished job. */
+/** Downloads a result file of a finished job, "download" for the main result unless another path is given. */
 export async function downloadJobAsBlob(
   jobUuid: string,
   fallbackFilename = "output",
+  path = "download",
 ): Promise<{ blob: Blob; filename: string }> {
-  const res = await fetch(`/api/jobs/${jobUuid}/download`, { credentials: "include" });
+  const res = await fetch(`/api/jobs/${jobUuid}/${path}`, { credentials: "include" });
   if (!res.ok) {
     const body = await res.json().catch(() => null);
     if (!body) {

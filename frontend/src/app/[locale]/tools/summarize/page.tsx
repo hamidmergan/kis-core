@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import ToolBackLink from "@/components/ui/ToolBackLink";
-import { backendApi, pollJob, downloadJobAsBlob, parseDetail, filenameFromDisposition } from "@/lib/api";
+import { backendApi, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
 import { MAX_UPLOAD_MB, MAX_UPLOAD_BYTES } from "@/lib/constants";
 import Spinner from "@/components/ui/Spinner";
 import Select from "@/components/ui/Select";
@@ -158,13 +158,7 @@ export default function ZusammenfassungPage() {
   const handleDownloadDocx = async () => {
     if (!doneJobUuid) return;
     try {
-      const res = await fetch(`/api/jobs/${doneJobUuid}/docx`, { credentials: "include" });
-      if (!res.ok) {
-        const body = await res.json().catch(() => null);
-        throw new Error(parseDetail(body?.detail, tCommon("downloadFailed")));
-      }
-      const blob = await res.blob();
-      const filename = filenameFromDisposition(res.headers.get("Content-Disposition"), "zusammenfassung.docx");
+      const { blob, filename } = await downloadJobAsBlob(doneJobUuid, "zusammenfassung.docx", "docx");
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
