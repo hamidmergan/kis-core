@@ -105,6 +105,24 @@ class TestGeteilteDatei:
         assert "2" in str(fehler.value)
 
 
+class TestMehrereQuellen:
+    def test_zwei_dateien_werden_zu_einem_text(self, lauf, monkeypatch):
+        dateien, zustand = lauf
+        quellen = [{"filename": "a.txt", "input_path": "p1"},
+                   {"filename": "b.txt", "input_path": "p2"}]
+        texte = {"p1": "Wort " * 100, "p2": "Anderes Wort " * 100}
+        monkeypatch.setattr(st, "open_input_file",
+                            lambda pfad, endung: __import__("contextlib").nullcontext(pfad))
+        monkeypatch.setattr(st, "read_text_layer", lambda pfad, ext: texte[pfad])
+        _modell(monkeypatch, ["German", "- Fakt A", "- Fakt B", _PLAN, "Text A", "Text B", "Text C"])
+        st._run_summary_inner("job", quellen, "kurzbriefing", None, 0)
+        einheiten = json.loads(dateien["sources.json"])
+        assert [e["source_id"] for e in einheiten] == ["q1", "q2"]
+        gemeldet = [f for f in zustand["fortschritt"] if f and f.get("step") == "map" and "total" in f]
+        assert gemeldet and {f["total"] for f in gemeldet} == {2}
+        assert zustand["name"] == "a und 1 weitere.md"
+
+
 class TestEtappen:
     def test_die_zweite_etappe_liest_nur_die_uebrigen_teile(self, lauf, monkeypatch):
         dateien, zustand = lauf
