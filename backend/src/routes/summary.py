@@ -79,10 +79,9 @@ async def summarize(
     quellen: list[dict] = []
     namen: list[str] = []
 
-    # Checked first, charged second: a refused start costs no quota.
+    # These two are burst guards and must fire before any work is done.
     enforce_open_jobs(user_id, locale)
     enforce_tool_burst(user_id, "summary", locale)
-    enforce_quota(user_id, "summary", is_admin_user(current_user), locale)
 
     with tempfile.TemporaryDirectory(prefix="summary_upload_") as tmpdir:
         for i, datei in enumerate(files):
@@ -101,14 +100,18 @@ async def summarize(
             namen.append(name)
             quellen.append({"filename": name, "local": ziel, "ext": ext})
 
-        anzeige = namen[0] if len(namen) == 1 else t(
-            "summary.jobLabel", locale, name=namen[0], more=len(namen) - 1)
-        db.create_job(job_uuid, user_id, "summary", anzeige, locale=locale)
+        # Quota is charged only once every source has cleared validation, so a refused start costs nothing.
+        enforce_quota(user_id, "summary", is_admin_user(current_user), locale)
+
         # Numbered, otherwise a second file of the same type overwrites the first.
         for i, quelle in enumerate(quellen):
             quelle["input_path"] = save_job_file_from_path(
                 user_id, job_uuid, f"input_{i}{quelle['ext']}", quelle["local"])
 
+    # The job is created only once every source is safely stored, so a storage failure leaves nothing behind.
+    anzeige = namen[0] if len(namen) == 1 else t(
+        "summary.jobLabel", locale, name=namen[0], more=len(namen) - 1)
+    db.create_job(job_uuid, user_id, "summary", anzeige, locale=locale)
     db.set_job_input_path(job_uuid, quellen[0]["input_path"])
 
     from src.tasks.summary_tasks import run_summary

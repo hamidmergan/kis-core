@@ -83,3 +83,33 @@ async def test_keine_datei_wird_abgelehnt(stub):
     with pytest.raises(HTTPException):
         await route.summarize(request=_Request(), files=[], template=None, provider_id=None,
                               current_user={"user_id": 1}, locale="de")
+
+
+async def test_ungueltige_zweite_datei_kostet_kein_kontingent(stub, monkeypatch):
+    from fastapi import HTTPException
+    aufrufe = []
+    monkeypatch.setattr(route, "enforce_quota", lambda *a, **k: aufrufe.append(1))
+    with pytest.raises(HTTPException):
+        await route.summarize(
+            request=_Request(), files=[_Upload(b"eins " * 100, "a.txt"), _Upload(b"zwei " * 100, "b.xyz")],
+            template=None, provider_id=None, current_user={"user_id": 1}, locale="de")
+    assert aufrufe == []
+
+
+async def test_fehler_beim_ablegen_erzeugt_keinen_auftrag(stub, monkeypatch):
+    aufrufe = {"n": 0}
+
+    def kaputt(uid, job, name, pfad):
+        aufrufe["n"] += 1
+        if aufrufe["n"] == 2:
+            raise RuntimeError("Speicher weg")
+        return f"s3/{name}"
+
+    monkeypatch.setattr(route, "save_job_file_from_path", kaputt)
+    erzeugt = []
+    monkeypatch.setattr(route.db, "create_job", lambda *a, **k: erzeugt.append(1))
+    with pytest.raises(RuntimeError):
+        await route.summarize(
+            request=_Request(), files=[_Upload(b"eins " * 100, "a.txt"), _Upload(b"zwei " * 100, "b.md")],
+            template=None, provider_id=None, current_user={"user_id": 1}, locale="de")
+    assert erzeugt == []
