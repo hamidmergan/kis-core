@@ -144,6 +144,17 @@ def _finished(antwort) -> str:
     return text
 
 
+def _drop_leading_heading(text: str) -> str:
+    """Cuts one leading Markdown heading and the blank lines after it, Rule 13 is a request, not a guarantee."""
+    zeilen = text.split("\n")
+    if not zeilen or not re.match(r"^#{1,6}\s+\S", zeilen[0]):
+        return text
+    zeilen = zeilen[1:]
+    while zeilen and not zeilen[0].strip():
+        zeilen.pop(0)
+    return "\n".join(zeilen)
+
+
 def _section_system(language: str, template_body: str, part_note: str) -> str:
     return (
         "You write ONE section of a larger document. The sections before yours are already "
@@ -199,7 +210,11 @@ async def write_section(caller: Caller, *, language: str, template_body: str,
         temperature=0.3,
         max_tokens=SUMMARY_WRITE_MAX_TOKENS,
     )
-    return _finished(antwort)
+    # Cut here, not in assemble: a stored or re-shown heading would keep teaching the pattern back.
+    text = _drop_leading_heading(_finished(antwort))
+    if not text:
+        raise RuntimeError("Das Modell hat nichts geantwortet.")
+    return text
 
 
 def _compose_system(language: str, template_body: str, part_note: str) -> str:

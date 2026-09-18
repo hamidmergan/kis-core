@@ -2,6 +2,7 @@
 
 import json
 
+import pytest
 from tests.summary_helpers import FakeClient
 
 from src.features.summary import writing as wr
@@ -108,6 +109,34 @@ class TestSchreiben:
         user = caller.client.user_prompts()[0]
         assert "## A\n## B" in user and "[...]" in user and "kurz" in user
         assert user.count("x") < 500
+
+    async def test_eine_wiederholte_ueberschrift_wird_abgeschnitten(self):
+        caller = _caller(["## B\n\nText B"])
+        text = await wr.write_section(
+            caller, language="German", template_body="B", section=Section(title="B", scope="b"),
+            others=[], written=[], facts="F", part_note="")
+        assert text == "Text B"
+
+    async def test_eine_anders_formulierte_ueberschrift_wird_ebenfalls_abgeschnitten(self):
+        caller = _caller(["### Ganz anders gesagt\n\nText B"])
+        text = await wr.write_section(
+            caller, language="German", template_body="B", section=Section(title="B", scope="b"),
+            others=[], written=[], facts="F", part_note="")
+        assert text == "Text B"
+
+    async def test_eine_zwischenueberschrift_bleibt_stehen(self):
+        caller = _caller(["Text B\n\n## Unterpunkt\n\nmehr Text"])
+        text = await wr.write_section(
+            caller, language="German", template_body="B", section=Section(title="B", scope="b"),
+            others=[], written=[], facts="F", part_note="")
+        assert text == "Text B\n\n## Unterpunkt\n\nmehr Text"
+
+    async def test_nur_eine_ueberschrift_gilt_als_leere_antwort(self):
+        caller = _caller(["## B"])
+        with pytest.raises(RuntimeError):
+            await wr.write_section(
+                caller, language="German", template_body="B", section=Section(title="B", scope="b"),
+                others=[], written=[], facts="F", part_note="")
 
     async def test_der_einzelaufruf_schreibt_alles_auf_einmal(self):
         caller = _caller(["Alles."])
