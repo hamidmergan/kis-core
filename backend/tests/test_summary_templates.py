@@ -29,3 +29,16 @@ def test_die_prompt_tabelle_kann_den_text_ersetzen(monkeypatch):
 def test_ohne_eintrag_gilt_der_text_aus_dem_code(monkeypatch):
     monkeypatch.setattr(tp, "load_prompt", lambda key, default: default)
     assert "briefing" in tp.template_body(tp.get_template("kurzbriefing")).lower()
+
+
+def test_keine_vorlage_schreibt_eine_feste_deutsche_ueberschrift_vor():
+    feste_titel = ("Fragen zur Selbstkontrolle", "Antworten", "Ohne Datum")
+    for t in tp.TEMPLATES:
+        for titel in feste_titel:
+            assert titel not in t.body, f"{t.slug} schreibt '{titel}' fest vor"
+
+
+def test_das_kurzbriefing_verlangt_zahlen_fristen_und_zustaendige():
+    body = tp.get_template("kurzbriefing").body
+    assert "Every figure, deadline and responsibility the material states appears" in body
+    assert "always with what they refer to" not in body

@@ -40,9 +40,9 @@ TEMPLATES: tuple[Template, ...] = (
         headings=True,
         body=(
             "Write a briefing for a reader with five minutes. Under each heading: the core "
-            "statements as bullet points, one statement each, figures and deadlines and "
-            "responsibilities always with what they refer to. What the material needs from the "
-            "reader comes first, background last."
+            "statements as bullet points, one statement each. Every figure, deadline and "
+            "responsibility the material states appears, each with what it refers to. What the "
+            "material needs from the reader comes first, background last."
         ),
     ),
     Template(
@@ -55,8 +55,9 @@ TEMPLATES: tuple[Template, ...] = (
             "Write a study guide. For each topic: the terms with their definitions as the "
             "material gives them, the connections between them as short prose, then three "
             "questions a learner should be able to answer from this section. A final section "
-            "'Fragen zur Selbstkontrolle' collects every question, and a section after it "
-            "'Antworten' answers each one from the material, numbered to match."
+            "headed as self-check questions collects every question, and a section after it "
+            "headed as answers answers each one from the material, numbered to match. Both "
+            "headings in the output language."
         ),
     ),
     Template(
@@ -66,10 +67,11 @@ TEMPLATES: tuple[Template, ...] = (
         hint_en="Everything dated in order, with deadlines and consequences.",
         headings=True,
         body=(
-            "Write a timeline. Every dated statement, deadline, period and sequence the "
-            "material carries, in chronological order, one entry per line starting with the "
-            "date or the period. Each entry names what happens, who is concerned and what "
-            "follows from it. Undated material goes into a closing section 'Ohne Datum'."
+            "Write a timeline. Sections are periods in chronological order. Every dated "
+            "statement, deadline, period and sequence the material carries, in chronological "
+            "order, one entry per line starting with the date or the period. Each entry names "
+            "what happens, who is concerned and what follows from it. Undated material goes "
+            "into a closing section headed as undated, in the output language."
         ),
     ),
     Template(
