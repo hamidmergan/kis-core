@@ -44,8 +44,13 @@ class Caller:
     client: Any
     model: str
     book: Callable[[Any], None] | None = None
+    # Groups every call of one run under one Langfuse session, so the run can be pulled back out.
+    job_uuid: str = ""
 
     async def create(self, **kwargs):
+        if self.job_uuid:
+            kwargs.setdefault("session_id", self.job_uuid)
+            kwargs.setdefault("tags", ["summary"])
         # The SDK retries timeouts on its own, so one attempt is the only way the limit holds.
         antwort = await self.client.with_options(max_retries=0).chat.completions.create(
             model=self.model, timeout=SUMMARY_CALL_TIMEOUT_SECONDS, **kwargs,

@@ -48,6 +48,25 @@ async def test_der_aufrufer_wiederholt_nicht_selbsttaetig():
     assert client.client_optionen == [{"max_retries": 0}]
 
 
+async def test_ohne_auftrags_id_bleiben_langfuse_felder_weg():
+    client = FakeClient(["ok"])
+    await Caller(client, "m").create(messages=[])
+    assert "session_id" not in client.optionen[0]
+    assert "tags" not in client.optionen[0]
+
+
+async def test_mit_auftrags_id_gruppiert_sich_jeder_aufruf_darunter():
+    client = FakeClient(["ok", "ok"])
+    caller = Caller(client, "m", job_uuid="job-abc")
+
+    await caller.create(messages=[])
+    await caller.create(messages=[], name="outline")
+
+    assert [o["session_id"] for o in client.optionen] == ["job-abc", "job-abc"]
+    assert all(o["tags"] == ["summary"] for o in client.optionen)
+    assert client.optionen[1]["name"] == "outline"
+
+
 def test_die_grundregeln_nennen_die_sprache():
     assert "Write in German." in GROUND_RULES.format(language="German")
 

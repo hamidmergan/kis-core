@@ -190,7 +190,7 @@ async def plan_outline(caller: Caller, *, language: str, template_body: str,
                     {"role": "system", "content": _outline_system(language, template_body, target)},
                     {"role": "user", "content": _outline_user(sources, pool_text)},
                 ],
-                temperature=0.2,
+                temperature=0.2, name=f"outline:{versuch}",
                 response_format=OUTLINE_SCHEMA,
             )
             plan = parse_outline(antwort.choices[0].message.content, bekannt)
@@ -313,7 +313,7 @@ async def write_section(caller: Caller, *, language: str, template_body: str,
             {"role": "user",
              "content": _section_user(section, others, written, facts_block(facts, budget))},
         ],
-        temperature=0.3,
+        temperature=0.3, name=f"section:{section.title}",
         max_tokens=SUMMARY_WRITE_MAX_TOKENS,
     )
     # Cut here, not in assemble: a stored or re-shown heading would keep teaching the pattern back.
@@ -349,7 +349,7 @@ async def compose_single(caller: Caller, *, language: str, template_body: str,
              "content": _compose_system(language, template_body, source_names(pool))},
             {"role": "user", "content": _outline_user(sources, pool_text)},
         ],
-        temperature=0.3,
+        temperature=0.3, name="compose",
         max_tokens=SUMMARY_WRITE_MAX_TOKENS,
     )
     return _finished(antwort)

@@ -135,7 +135,7 @@ async def read_source(caller: Caller, *, source: dict, language: str, template_b
         try:
             antwort = await caller.create(
                 messages=nachrichten,
-                temperature=0.1,
+                temperature=0.1, name=f"read:{source['source_id']}",
                 max_tokens=max(256, int(max_chars / CHARS_PER_TOKEN)),
                 **({"response_format": FACTS_SCHEMA} if _schema_mode_supported else {}),
             )

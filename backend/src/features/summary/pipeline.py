@@ -81,7 +81,7 @@ async def detect_language(caller: Caller, text: str) -> str:
         antwort = await caller.create(
             messages=[{"role": "system", "content": _LANGUAGE_PROBE},
                       {"role": "user", "content": language_sample(text)}],
-            temperature=0.0,
+            temperature=0.0, name="language",
         )
         return clean_language_name(antwort.choices[0].message.content) or LANGUAGE_FALLBACK
     except Exception as e:  # noqa: BLE001 - the fallback wording still works

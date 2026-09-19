@@ -95,7 +95,7 @@ def _read_sources(user_id: int, job_uuid: str, sources: list[dict], locale: str,
         ext = Path(name).suffix.lower().lstrip(".")
         try:
             with open_input_file(quelle["input_path"], f".{ext}") as lokal:
-                _pages_or_raise(lokal, f".{ext}", name, locale)
+                seiten = _pages_or_raise(lokal, f".{ext}", name, locale)
                 text = read_text_layer(lokal, ext)
         except NoReadableText:
             raise ValueError(t("summary.sourceOnlyImages", locale, name=name)) from None
@@ -105,7 +105,8 @@ def _read_sources(user_id: int, job_uuid: str, sources: list[dict], locale: str,
         if len(text) > SUMMARY_MAX_CHARS_PER_SOURCE:
             raise ValueError(t("summary.sourceTooLarge", locale, name=name,
                                chars=_zahl(len(text)), max=_zahl(SUMMARY_MAX_CHARS_PER_SOURCE)))
-        gelesen.append({"source_id": f"doc_{i + 1:02d}", "filename": name, "content": text})
+        gelesen.append({"source_id": f"doc_{i + 1:02d}", "filename": name, "content": text,
+                        "ext": ext, "pages": seiten})
         gesamt += len(text)
         woerter += len(text.split())
 
@@ -122,8 +123,8 @@ def _read_sources(user_id: int, job_uuid: str, sources: list[dict], locale: str,
     return gelesen
 
 
-def _pages_or_raise(path: str, ext: str, name: str, locale: str) -> None:
-    """Rejects a document with more pages than the management allows for a source."""
+def _pages_or_raise(path: str, ext: str, name: str, locale: str) -> int | None:
+    """Rejects a document with more pages than the management allows, else returns the count."""
     from src.services.tool_limits import max_source_pages
     from src.utils.file_validation import count_pages
 
@@ -132,6 +133,7 @@ def _pages_or_raise(path: str, ext: str, name: str, locale: str) -> None:
     if seiten is not None and seiten > grenze:
         raise ValueError(t("summary.sourceTooManyPages", locale, name=name,
                            pages=seiten, max=grenze))
+    return seiten
 
 
 def _window_or_raise(sources: list[dict], provider_id: int | None, locale: str) -> None:
@@ -257,7 +259,7 @@ def _run_summary_inner(job_uuid: str, sources: list[dict], template_slug: str,
     if not fertig:
         from src.tasks.general_tasks import _get_llm_client
         traeger = _get_llm_client(provider_id)
-        caller = Caller(traeger._async_client, traeger._model,
+        caller = Caller(traeger._async_client, traeger._model, job_uuid=job_uuid,
                         book=lambda antwort: log_llm_response("summary", traeger, antwort))
         store = _JobStore(user_id, job_uuid, versuch, quellen)
         try:
