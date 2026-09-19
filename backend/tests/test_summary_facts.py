@@ -88,3 +88,27 @@ def test_unbekannte_nummern_fallen_beim_zuordnen_raus():
 def test_die_dateien_eines_abschnitts_werden_einmal_genannt():
     vorrat = [Fact(1, "c", "A", "", "doc_01", "a.pdf"), Fact(2, "c", "B", "", "doc_01", "a.pdf")]
     assert source_names(vorrat) == ["a.pdf"]
+
+
+class TestAbgeschnitteneAntwort:
+    """Der Token-Deckel darf nicht die ganze Datei kosten, fertige Fakten zaehlen."""
+
+    ROH = ('{"facts": [{"category": "deadline", "fact": "A", "citation": "a"}, '
+           '{"category": "figure", "fact": "B", "citation": "b"}, '
+           '{"category": "figure", "fact": "C", "cit')
+
+    def test_die_fertigen_fakten_werden_gerettet(self):
+        fakten = parse_facts(self.ROH)
+        assert [f["fact"] for f in fakten] == ["A", "B"]
+
+    def test_eine_klammer_im_zitat_verwirrt_die_rettung_nicht(self):
+        roh = ('[{"category": "c", "fact": "A", "citation": "er sagte } und {"}, '
+               '{"category": "c", "fact": "B", "cit')
+        assert [f["fact"] for f in parse_facts(roh)] == ["A"]
+
+    def test_ein_geschuetztes_anfuehrungszeichen_bleibt_heil(self):
+        roh = '[{"category": "c", "fact": "sagte \\"ja\\"", "citation": "a"}, {"fact": "B'
+        assert parse_facts(roh)[0]["fact"] == 'sagte "ja"'
+
+    def test_ohne_jede_fertige_klammer_bleibt_es_leer(self):
+        assert parse_facts('{"facts": [{"category": "deadline", "fact": "A') == []

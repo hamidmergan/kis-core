@@ -48,8 +48,10 @@ def parse_facts(raw: str | None) -> list[dict]:
         return []
     roh = _loads(text)
     if roh is None:
-        return []
-    eintraege = roh.get("facts") if isinstance(roh, dict) else roh
+        # A cut off answer is no reason to lose the whole file, its finished facts count.
+        eintraege = salvage_facts(text)
+    else:
+        eintraege = roh.get("facts") if isinstance(roh, dict) else roh
     if not isinstance(eintraege, list):
         return []
     fakten: list[dict] = []
@@ -80,6 +82,48 @@ def _loads(text: str):
         return json.loads(treffer.group(0))
     except ValueError:
         return None
+
+
+def salvage_facts(text: str) -> list[dict]:
+    """The finished objects of an array the token cap cut off, a half written one drops out."""
+    anfang = text.find("[")
+    if anfang == -1:
+        return []
+    rumpf = text[anfang + 1:]
+    objekte: list[dict] = []
+    tiefe = 0
+    start = None
+    im_text = False
+    schutz = False
+    for i, zeichen in enumerate(rumpf):
+        if im_text:
+            if schutz:
+                schutz = False
+            elif zeichen == "\\":
+                schutz = True
+            elif zeichen == '"':
+                im_text = False
+            continue
+        if zeichen == '"':
+            im_text = True
+        elif zeichen == "{":
+            if tiefe == 0:
+                start = i
+            tiefe += 1
+        elif zeichen == "}":
+            tiefe -= 1
+            if tiefe == 0 and start is not None:
+                try:
+                    eintrag = json.loads(rumpf[start:i + 1])
+                except ValueError:
+                    eintrag = None
+                if isinstance(eintrag, dict):
+                    objekte.append(eintrag)
+                start = None
+    if objekte:
+        logger.warning("Zusammenfassung: abgeschnittene Antwort, {} Fakten gerettet",
+                       len(objekte))
+    return objekte
 
 
 def build_pool(sources: list[dict], saved: dict[str, list[dict]]) -> list[Fact]:

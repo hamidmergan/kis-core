@@ -97,7 +97,8 @@ def system_prompt(language: str, template_body: str, categories: tuple[str, ...]
         "Rule 8: Never invent, never interpret, never conclude. Only what the document "
         "states in so many words becomes a fact.\n"
         "Rule 9: Every fact carries a citation, copied word for word from the document, in "
-        "the language of the document. A fact you cannot quote does not exist.\n"
+        "the language of the document. A fact you cannot quote does not exist. One sentence "
+        "of citation is enough, never a whole paragraph.\n"
         "Rule 10: Never separate a figure, a date or a quantity from what it refers to, keep "
         "a definition with its term and a quotation with who said it.\n"
         "Rule 11: Whatever the document marks as open, disputed or uncertain is a fact of "
@@ -138,7 +139,11 @@ async def read_source(caller: Caller, *, source: dict, language: str, template_b
                 max_tokens=max(256, int(max_chars / CHARS_PER_TOKEN)),
                 **({"response_format": FACTS_SCHEMA} if _schema_mode_supported else {}),
             )
-            fakten = parse_facts(antwort.choices[0].message.content)
+            wahl = antwort.choices[0]
+            if getattr(wahl, "finish_reason", None) == "length":
+                logger.warning("Zusammenfassung: Antwort zu '{}' lief in den Deckel",
+                               source["filename"])
+            fakten = parse_facts(wahl.message.content)
             if fakten:
                 return fakten[:max_facts]
             raise RuntimeError("Das Modell hat keine Fakten geliefert.")

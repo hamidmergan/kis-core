@@ -6,9 +6,14 @@ Brings several sources together into one text, optionally following a fixed stru
 
 ## Sources
 
-Up to ten files per job, as PDF, Word, PowerPoint, text, Markdown, or subtitles. Only the
+Up to ten files per job, as PDF, Word, PowerPoint, text, Markdown, or subtitles. Per file
+300,000 characters and 200 pages are possible, 3 million characters together. Only the
 text layer is read. Scanned pages without text are left out, and a PDF with no text at all
 is rejected with a message.
+
+Each file goes into one call whole. If the chosen model cannot hold a file, the service
+refuses the job with a message naming the file and the model. A larger model in the
+provider picker solves that.
 
 ## Structure
 
@@ -18,8 +23,13 @@ number of sections depends on how much the sources contain.
 
 ## Duration
 
-Long sources are read in parts. A law of a good 300 pages takes a few minutes, you can leave
-the page in the meantime, the job keeps running.
+Every source is read once, then the text is written section by section. A law of a good 200
+pages takes a few minutes, you can leave the page in the meantime, the job keeps running.
+
+## The result
+
+The text comes as Markdown and as a Word file with a cover page and a table of contents.
+Statements carry the name of the file they come from.
 
 ## What to expect
 
