@@ -7,7 +7,7 @@ from src.services.openai_compat_llm.base import load_prompt
 
 @dataclass(frozen=True)
 class Template:
-    """One build plan and how it is shown in the picker."""
+    """One build plan, how it is shown in the picker, and what the reader looks for."""
 
     slug: str
     name_de: str
@@ -16,11 +16,15 @@ class Template:
     hint_en: str
     body: str
     headings: bool
+    # The search grid of the read call, English because the model echoes it verbatim.
+    categories: tuple[str, ...]
 
 
 TEMPLATES: tuple[Template, ...] = (
     Template(
         slug="fliesstext",
+        categories=("core statement", "figure or date", "party involved", "connection",
+                    "open question"),
         name_de="Fließtext", name_en="Continuous text",
         hint_de="Ein durchgehender Text ohne Überschriften.",
         hint_en="One continuous text without headings.",
@@ -34,6 +38,8 @@ TEMPLATES: tuple[Template, ...] = (
     ),
     Template(
         slug="kurzbriefing",
+        categories=("core statement", "figure", "deadline", "responsibility", "action needed",
+                    "background"),
         name_de="Kurzbriefing", name_en="Short briefing",
         hint_de="Kernaussagen, Zahlen und Zuständigkeiten, knapp und geordnet.",
         hint_en="Key points, figures and who is responsible, brief and ordered.",
@@ -47,6 +53,8 @@ TEMPLATES: tuple[Template, ...] = (
     ),
     Template(
         slug="lernleitfaden",
+        categories=("term and definition", "connection", "example", "testable statement",
+                    "open question"),
         name_de="Lernleitfaden", name_en="Study guide",
         hint_de="Begriffe, Zusammenhänge und Prüfungsfragen zum Selbstlernen.",
         hint_en="Terms, connections and self-check questions for studying.",
@@ -64,6 +72,7 @@ TEMPLATES: tuple[Template, ...] = (
     ),
     Template(
         slug="zeitstrahl",
+        categories=("dated event", "deadline or period", "sequence", "consequence", "undated"),
         name_de="Zeitstrahl", name_en="Timeline",
         hint_de="Alles Datierte in zeitlicher Reihenfolge, mit Fristen und Folgen.",
         hint_en="Everything dated in order, with deadlines and consequences.",
@@ -78,6 +87,8 @@ TEMPLATES: tuple[Template, ...] = (
     ),
     Template(
         slug="haeufige_fragen",
+        categories=("theme", "question the material answers", "figure", "party involved",
+                    "boundary"),
         name_de="Häufige Fragen", name_en="Frequently asked questions",
         hint_de="Frage und Antwort, so wie Lesende das Material befragen würden.",
         hint_en="Question and answer, the way readers would ask the material.",
