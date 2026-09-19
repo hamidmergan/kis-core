@@ -135,7 +135,8 @@ class TestPlanen:
         await _plane(caller)
         assert len(caller.client.gesendet) == 1
 
-    async def test_bleibt_es_lueckenhaft_gilt_die_bessere_antwort(self, monkeypatch):
+    async def test_bleibt_es_lueckenhaft_wird_die_bessere_antwort_aufgefuellt(self, monkeypatch):
+        """Kein Nachfass-Aufruf mehr in der Warteschlange heisst: round robin schliesst die Luecke."""
         monkeypatch.setattr(wr, "SUMMARY_RETRY_DELAY_SECONDS", 0)
         schlecht = json.dumps({"sections": [{"title": "A", "fact_ids": [1]}, {"title": "B"},
                                              {"title": "C"}]})
@@ -143,7 +144,22 @@ class TestPlanen:
                                            {"title": "C"}]})
         caller = _caller([schlecht, besser])
         plan = await _plane(caller, pool=_vorrat(6))
-        assert sum(len(s.fact_ids) for s in plan.sections) == 2
+        assert sum(len(s.fact_ids) for s in plan.sections) == 6
+        assert {1, 2}.issubset(plan.sections[0].fact_ids)
+
+    async def test_eine_luecke_wird_zuerst_per_nachfass_aufruf_geschlossen(self, monkeypatch):
+        monkeypatch.setattr(wr, "SUMMARY_RETRY_DELAY_SECONDS", 0)
+        duenn = json.dumps({"sections": [{"title": "A", "fact_ids": [1]}, {"title": "B"},
+                                          {"title": "C"}]})
+        nachfass = json.dumps({"assignments": [
+            {"fact_id": 2, "section_index": 1}, {"fact_id": 3, "section_index": 2},
+            {"fact_id": 4, "section_index": 1}, {"fact_id": 5, "section_index": 2}]})
+        caller = _caller([duenn, duenn, nachfass])
+        plan = await _plane(caller, pool=_vorrat(5))
+        assert sum(len(s.fact_ids) for s in plan.sections) == 5
+        assert plan.sections[1].fact_ids == [2, 4]
+        assert plan.sections[2].fact_ids == [3, 5]
+        assert "outline:gaps" in [o.get("name") for o in caller.client.optionen]
 
     async def test_zwei_unlesbare_antworten_geben_eine_leere_gliederung(self, monkeypatch):
         monkeypatch.setattr(wr, "SUMMARY_RETRY_DELAY_SECONDS", 0)
@@ -151,6 +167,40 @@ class TestPlanen:
         plan = await _plane(caller)
         assert plan.sections == []
         assert len(caller.client.gesendet) == 2
+
+
+class TestNachfassZuordnung:
+    def test_parse_liest_gueltige_zuordnungen(self):
+        roh = json.dumps({"assignments": [{"fact_id": 1, "section_index": 0},
+                                          {"fact_id": 2, "section_index": 1}]})
+        assert wr.parse_assignments(roh, {1, 2}, 2) == {1: 0, 2: 1}
+
+    def test_unbekannter_fakt_und_ungueltiger_abschnitt_fallen_weg(self):
+        roh = json.dumps({"assignments": [{"fact_id": 99, "section_index": 0},
+                                          {"fact_id": 1, "section_index": 5}]})
+        assert wr.parse_assignments(roh, {1}, 2) == {}
+
+    def test_unlesbare_antwort_gibt_leere_zuordnung(self):
+        assert wr.parse_assignments("nix", {1}, 2) == {}
+
+    def test_round_robin_verteilt_ohne_luecke(self):
+        sections = [Section(title="A"), Section(title="B")]
+        wr.distribute_remaining(sections, _vorrat(3))
+        assert [s.fact_ids for s in sections] == [[1, 3], [2]]
+
+    async def test_nachfass_aufruf_nennt_die_bestehenden_abschnitte(self):
+        caller = _caller([json.dumps({"assignments": []})])
+        sections = [Section(title="A", scope="erstens"), Section(title="B", scope="zweitens")]
+        await wr.fill_gaps(caller, language="German", sections=sections, facts=_vorrat(1))
+        system = caller.client.system_prompts()[0]
+        assert "0: A. erstens" in system and "1: B. zweitens" in system
+        assert "never invent a section" in system.casefold() or "never invent" in system
+
+    async def test_ein_gescheiterter_nachfass_aufruf_verhindert_close_gaps_nicht(self):
+        caller = _caller([RuntimeError("kaputt")])
+        outline = wr.Outline(sections=[Section(title="A", fact_ids=[1])])
+        await wr.close_gaps(caller, language="German", outline=outline, pool=_vorrat(3))
+        assert sum(len(s.fact_ids) for s in outline.sections) == 3
 
 
 class TestSchreiben:

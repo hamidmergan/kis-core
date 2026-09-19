@@ -64,6 +64,37 @@ OUTLINE_SCHEMA = {
 }
 
 
+ASSIGNMENT_SCHEMA = {
+    "type": "json_schema",
+    "json_schema": {
+        "name": "assignments",
+        "strict": True,
+        "schema": {
+            "type": "object",
+            "properties": {
+                "assignments": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "fact_id": {"type": "integer"},
+                            "section_index": {
+                                "type": "integer",
+                                "description": "0 for the first section listed, 1 for the second, and so on.",
+                            },
+                        },
+                        "required": ["fact_id", "section_index"],
+                        "additionalProperties": False,
+                    },
+                },
+            },
+            "required": ["assignments"],
+            "additionalProperties": False,
+        },
+    },
+}
+
+
 def target_sections(facts_chars: int) -> int:
     """How many sections the material carries, a target the planner may deviate from."""
     return max(SUMMARY_MIN_SECTIONS, min(SUMMARY_MAX_SECTIONS,
@@ -209,11 +240,98 @@ async def plan_outline(caller: Caller, *, language: str, template_body: str,
         if versuch < SUMMARY_OUTLINE_MAX_ATTEMPTS:
             await asyncio.sleep(SUMMARY_RETRY_DELAY_SECONDS)
     if beste.sections:
-        offen = len(pool) - len({n for a in beste.sections for n in a.fact_ids})
-        if offen:
-            logger.warning("Zusammenfassung: {} von {} Fakten bleiben unbenutzt",
-                           offen, len(pool))
+        await close_gaps(caller, language=language, outline=beste, pool=pool)
     return beste
+
+
+def parse_assignments(raw: str | None, known_ids: set[int], section_count: int) -> dict[int, int]:
+    """Reads the gap fill answer, an unknown fact or section index is dropped, not guessed."""
+    text = _strip_thinking(raw)
+    treffer = re.search(r"\{.*\}", text, re.S)
+    if not treffer:
+        return {}
+    try:
+        roh = json.loads(treffer.group(0))
+    except ValueError:
+        return {}
+    eintraege = roh.get("assignments")
+    if not isinstance(eintraege, list):
+        return {}
+    zuordnung: dict[int, int] = {}
+    for eintrag in eintraege:
+        if not isinstance(eintrag, dict):
+            continue
+        try:
+            fact_id, index = int(eintrag.get("fact_id")), int(eintrag.get("section_index"))
+        except (TypeError, ValueError):
+            continue
+        if fact_id in known_ids and 0 <= index < section_count:
+            zuordnung[fact_id] = index
+    return zuordnung
+
+
+def _gap_fill_system(language: str, sections: list[Section]) -> str:
+    liste = "\n".join(f"{i}: {a.title}. {a.scope}" for i, a in enumerate(sections))
+    return (
+        "The structure of a document is already fixed. You place leftover facts into it, "
+        "you never change it.\n"
+        + GROUND_RULES.format(language=language) + "\n"
+        "Rule 8: Assign EVERY fact below to exactly one of the sections listed. Never invent "
+        "a section, never leave a fact out, choose the closest fit if none is exact.\n"
+        "Rule 9: Answer only with the assignments, a fact never appears twice.\n"
+        f"\nSECTIONS\n{liste}\n"
+    )
+
+
+def _gap_fill_user(facts: list[Fact]) -> str:
+    zeilen = "\n".join(f"#{f.fact_id} ({f.category}) {f.fact}" for f in facts)
+    return f"/no_think\nUnplaced facts:\n\n{zeilen}"
+
+
+async def fill_gaps(caller: Caller, *, language: str, sections: list[Section],
+                    facts: list[Fact]) -> dict[int, int]:
+    """One more, smaller call: place exactly the facts the outline call left out."""
+    bekannt = {f.fact_id for f in facts}
+    try:
+        antwort = await caller.create(
+            messages=[
+                {"role": "system", "content": _gap_fill_system(language, sections)},
+                {"role": "user", "content": _gap_fill_user(facts)},
+            ],
+            temperature=0.1, name="outline:gaps",
+            response_format=ASSIGNMENT_SCHEMA,
+        )
+        return parse_assignments(antwort.choices[0].message.content, bekannt, len(sections))
+    except Exception as e:  # noqa: BLE001 - the round robin below still places every fact
+        logger.warning("Zusammenfassung: Nachfass-Zuordnung gescheitert ({})", e)
+        return {}
+
+
+def distribute_remaining(sections: list[Section], remaining: list[Fact]) -> None:
+    """What no call could place goes round robin into the sections, nothing is ever dropped."""
+    if not sections:
+        return
+    for i, fakt in enumerate(remaining):
+        sections[i % len(sections)].fact_ids.append(fakt.fact_id)
+
+
+async def close_gaps(caller: Caller, *, language: str, outline: Outline, pool: list[Fact]) -> None:
+    """Places every fact the outline call missed, first by asking once more, then by hand."""
+    fehlend = [f for f in pool if f.fact_id not in {n for a in outline.sections for n in a.fact_ids}]
+    if not fehlend:
+        return
+    zuordnung = await fill_gaps(caller, language=language, sections=outline.sections, facts=fehlend)
+    noch_offen: list[Fact] = []
+    for fakt in fehlend:
+        index = zuordnung.get(fakt.fact_id)
+        if index is None:
+            noch_offen.append(fakt)
+        else:
+            outline.sections[index].fact_ids.append(fakt.fact_id)
+    if noch_offen:
+        logger.warning("Zusammenfassung: {} Fakten gehen round robin in die Abschnitte",
+                       len(noch_offen))
+        distribute_remaining(outline.sections, noch_offen)
 
 
 def _finished(antwort) -> str:
