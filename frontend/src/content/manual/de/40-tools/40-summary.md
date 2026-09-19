@@ -7,7 +7,7 @@ Bringt mehrere Quellen zu einem Text, wahlweise nach einem festen Aufbau.
 ## Quellen
 
 Bis zu zehn Dateien je Auftrag, als PDF, Word, PowerPoint, Text, Markdown oder Untertitel.
-Je Datei sind 300.000 Zeichen und 200 Seiten möglich, zusammen 3 Millionen Zeichen.
+Je Datei sind 500.000 Zeichen und 200 Seiten möglich, zusammen 5 Millionen Zeichen.
 Gelesen wird die Textebene. Gescannte Seiten ohne Text bleiben unberücksichtigt, eine PDF
 ohne jeden Text wird mit einer Meldung abgelehnt.
 

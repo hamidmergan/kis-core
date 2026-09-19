@@ -7,7 +7,7 @@ Brings several sources together into one text, optionally following a fixed stru
 ## Sources
 
 Up to ten files per job, as PDF, Word, PowerPoint, text, Markdown, or subtitles. Per file
-300,000 characters and 200 pages are possible, 3 million characters together. Only the
+500,000 characters and 200 pages are possible, 5 million characters together. Only the
 text layer is read. Scanned pages without text are left out, and a PDF with no text at all
 is rejected with a message.
 

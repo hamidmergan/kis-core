@@ -183,7 +183,7 @@ GLOSSARY_LIMIT                        = 150     # max glossary entries per works
 SUMMARY_MAX_SOURCES          = 10
 # Counted after extraction, so it holds for every format. A file goes into one call whole,
 # so this is also what the model's window has to carry.
-SUMMARY_MAX_CHARS_PER_SOURCE = 300_000
+SUMMARY_MAX_CHARS_PER_SOURCE = 500_000
 # Every allowed file at full size, so the total never refuses what the two above allow.
 SUMMARY_MAX_TOTAL_CHARS      = SUMMARY_MAX_SOURCES * SUMMARY_MAX_CHARS_PER_SOURCE
 # Facts one read call may return, the share of the pool one source gets.
