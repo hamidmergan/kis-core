@@ -137,9 +137,13 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "In \"{name}\" steht kein lesbarer Text, die Seiten bestehen nur aus Bildern. Bitte nimm eine Fassung mit Textebene.",
         "en": "There is no readable text in \"{name}\", its pages are images only. Please use a version with a text layer.",
     },
-    "summary.tooManyParts": {
-        "de": "Deine Quellen ergeben {parts} Leseabschnitte, möglich sind {max}. Bitte nimm weniger oder kürzere Quellen.",
-        "en": "Your sources come to {parts} reading parts, the limit is {max}. Please use fewer or shorter sources.",
+    "summary.sourceTooManyPages": {
+        "de": "\"{name}\" hat {pages} Seiten. Je Dokument sind {max} möglich.",
+        "en": "\"{name}\" has {pages} pages. Per document {max} are possible.",
+    },
+    "summary.modelWindowTooSmall": {
+        "de": "\"{name}\" hat {chars} Zeichen und wird in einem Stück gelesen. Das gewählte Modell fasst {window} Token, nötig wären {needed}. Bitte wähle ein größeres Modell oder eine kürzere Datei.",
+        "en": "\"{name}\" carries {chars} characters and is read in one piece. The chosen model holds {window} tokens, {needed} would be needed. Please pick a larger model or a shorter file.",
     },
     "summary.tooManySources": {
         "de": "Höchstens {max} Quellen je Zusammenfassung.",

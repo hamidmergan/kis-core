@@ -8,9 +8,9 @@ from loguru import logger
 from src import database as db
 from src.celery_app import celery_app
 from src.features.summary import pipeline as pl
+from src.features.summary import window
 from src.features.summary.docx_export import markdown_to_docx
 from src.features.summary.models import Caller
-from src.features.summary.splitting import original_names, part_size_for_chat, split_sources
 from src.features.summary.templates import get_template
 from src.features.summary.textlayer import NoReadableText, read_text_layer
 from src.i18n import t
@@ -18,8 +18,8 @@ from src.limits import (
     STAGE_SOFT_TIME_LIMIT,
     STAGE_TIME_LIMIT,
     SUMMARY_MAX_CHARS_PER_SOURCE,
-    SUMMARY_MAX_PARTS_PER_JOB,
     SUMMARY_MAX_TOTAL_CHARS,
+    SUMMARY_WRITE_MAX_TOKENS,
 )
 from src.security.usage_log import log_llm_response
 from src.services.job_recovery import attempt_failed, still_mine
@@ -82,7 +82,7 @@ def _zahl(n: int) -> str:
 
 def _read_sources(user_id: int, job_uuid: str, sources: list[dict], locale: str,
                   provider_id: int | None) -> list[dict]:
-    """Reads every source once and turns it into the units the map phase works on."""
+    """Reads every source once, each one whole, and checks it against the model's window."""
     vorhanden = _parse_json(job_uuid, _SOURCES_FILE, _read_text(user_id, job_uuid, _SOURCES_FILE), None)
     if vorhanden is not None:
         return vorhanden
@@ -95,6 +95,7 @@ def _read_sources(user_id: int, job_uuid: str, sources: list[dict], locale: str,
         ext = Path(name).suffix.lower().lstrip(".")
         try:
             with open_input_file(quelle["input_path"], f".{ext}") as lokal:
+                _pages_or_raise(lokal, f".{ext}", name, locale)
                 text = read_text_layer(lokal, ext)
         except NoReadableText:
             raise ValueError(t("summary.sourceOnlyImages", locale, name=name)) from None
@@ -104,7 +105,7 @@ def _read_sources(user_id: int, job_uuid: str, sources: list[dict], locale: str,
         if len(text) > SUMMARY_MAX_CHARS_PER_SOURCE:
             raise ValueError(t("summary.sourceTooLarge", locale, name=name,
                                chars=_zahl(len(text)), max=_zahl(SUMMARY_MAX_CHARS_PER_SOURCE)))
-        gelesen.append({"source_id": f"q{i + 1}", "filename": name, "content": text})
+        gelesen.append({"source_id": f"doc_{i + 1:02d}", "filename": name, "content": text})
         gesamt += len(text)
         woerter += len(text.split())
 
@@ -114,27 +115,48 @@ def _read_sources(user_id: int, job_uuid: str, sources: list[dict], locale: str,
         raise ValueError(t("summary.materialTooLarge", locale,
                            chars=_zahl(gesamt), max=_zahl(SUMMARY_MAX_TOTAL_CHARS)))
 
-    groesse = part_size_for_chat(provider_id)
-    einheiten = split_sources(gelesen, maximum=groesse, threshold=groesse)
-    if len(einheiten) > SUMMARY_MAX_PARTS_PER_JOB:
-        raise ValueError(t("summary.tooManyParts", locale, parts=len(einheiten),
-                           max=SUMMARY_MAX_PARTS_PER_JOB))
-    _write_text(user_id, job_uuid, _SOURCES_FILE, json.dumps(einheiten, ensure_ascii=False))
-    logger.info("Zusammenfassung {}: {} Quelle(n), {} Zeichen, {} Einheit(en), Teilgroesse {}",
-                job_uuid[:8], len(gelesen), gesamt, len(einheiten), groesse)
-    return einheiten
+    _window_or_raise(gelesen, provider_id, locale)
+    _write_text(user_id, job_uuid, _SOURCES_FILE, json.dumps(gelesen, ensure_ascii=False))
+    logger.info("Zusammenfassung {}: {} Quelle(n), {} Zeichen, je Datei ein Aufruf",
+                job_uuid[:8], len(gelesen), gesamt)
+    return gelesen
+
+
+def _pages_or_raise(path: str, ext: str, name: str, locale: str) -> None:
+    """Rejects a document with more pages than the management allows for a source."""
+    from src.services.tool_limits import max_source_pages
+    from src.utils.file_validation import count_pages
+
+    seiten = count_pages(ext, path)
+    grenze = max_source_pages()
+    if seiten is not None and seiten > grenze:
+        raise ValueError(t("summary.sourceTooManyPages", locale, name=name,
+                           pages=seiten, max=grenze))
+
+
+def _window_or_raise(sources: list[dict], provider_id: int | None, locale: str) -> None:
+    """Refuses before the first call what the chosen model provably cannot read whole."""
+    profil = window.profile_for_choice(provider_id)
+    for quelle in sources:
+        urteil = window.verdict_for(len(quelle["content"]), SUMMARY_WRITE_MAX_TOKENS, profil)
+        if urteil.fits:
+            continue
+        raise ValueError(t("summary.modelWindowTooSmall", locale, name=quelle["filename"],
+                           chars=_zahl(len(quelle["content"])),
+                           needed=_zahl(urteil.needed_tokens),
+                           window=_zahl(urteil.window_tokens)))
 
 
 class _JobStore:
     """The job folder as the pipeline sees it, plus the progress row counted in files."""
 
-    def __init__(self, user_id: int, job_uuid: str, versuch: int, units: list[dict]) -> None:
+    def __init__(self, user_id: int, job_uuid: str, versuch: int, sources: list[dict]) -> None:
         self._user = user_id
         self._job = job_uuid
         self._versuch = versuch
-        self._origins = {u["source_id"]: u.get("origin", u["source_id"]) for u in units}
-        self._files = len(set(self._origins.values()))
-        self._facts: dict[str, str | None] = {}
+        self._ids = [q["source_id"] for q in sources]
+        self._files = len(self._ids)
+        self._facts: dict[str, list[dict]] = {}
 
     def _guard(self) -> None:
         if not still_mine(self._job, self._versuch):
@@ -147,21 +169,20 @@ class _JobStore:
         self._guard()
         _write_text(self._user, self._job, "language.txt", language)
 
-    def load_extractions(self) -> dict[str, str | None]:
+    def load_extractions(self) -> dict[str, list[dict]]:
         roh = _read_text(self._user, self._job, _FACTS_FILE)
         self._facts = _parse_json(self._job, _FACTS_FILE, roh, {})
         return dict(self._facts)
 
-    def save_extraction(self, source_id: str, text: str | None) -> None:
+    def save_extraction(self, source_id: str, facts: list[dict]) -> None:
         self._guard()
-        self._facts[source_id] = text
+        self._facts[source_id] = facts
         _write_text(self._user, self._job, _FACTS_FILE, json.dumps(self._facts, ensure_ascii=False))
         self.progress("map")
 
     def _files_done(self) -> int:
-        """Uploaded documents whose every part has been read."""
-        offen = {h for sid, h in self._origins.items() if sid not in self._facts}
-        return self._files - len(offen)
+        """Uploaded documents that have been read."""
+        return sum(1 for sid in self._ids if sid in self._facts)
 
     def load_outline(self) -> dict | None:
         roh = _read_text(self._user, self._job, _OUTLINE_FILE)
@@ -230,7 +251,7 @@ def _run_summary_inner(job_uuid: str, sources: list[dict], template_slug: str,
     # Only the first stage reads, a later one must not flash "reading" before "map".
     if not job_file_exists(user_id, job_uuid, _SOURCES_FILE):
         db.update_job_status(job_uuid, "running", progress={"step": "extract"})
-    einheiten = _read_sources(user_id, job_uuid, sources, locale, provider_id)
+    quellen = _read_sources(user_id, job_uuid, sources, locale, provider_id)
 
     fertig = _read_text(user_id, job_uuid, _RESULT_FILE)
     if not fertig:
@@ -238,18 +259,19 @@ def _run_summary_inner(job_uuid: str, sources: list[dict], template_slug: str,
         traeger = _get_llm_client(provider_id)
         caller = Caller(traeger._async_client, traeger._model,
                         book=lambda antwort: log_llm_response("summary", traeger, antwort))
-        store = _JobStore(user_id, job_uuid, versuch, einheiten)
+        store = _JobStore(user_id, job_uuid, versuch, quellen)
         try:
-            fertig = pl.run_pipeline_sync(caller, units=einheiten, template=vorlage,
+            fertig = pl.run_pipeline_sync(caller, sources=quellen, template=vorlage,
                                           store=store, should_stop=clock.over)
         except pl.PipelineInterrupted:
             raise StageContinue from None
         _write_text(user_id, job_uuid, _RESULT_FILE, fertig)
 
-    name = _result_name(original_names(einheiten))
+    name = _result_name([q["filename"] for q in quellen])
     ergebnis = save_result_file(user_id, job_uuid, ".md", fertig.encode("utf-8"))
     try:
-        save_result_file(user_id, job_uuid, ".docx", markdown_to_docx(fertig))
+        save_result_file(user_id, job_uuid, ".docx",
+                         markdown_to_docx(fertig, title=Path(name).stem))
     except Exception as e:  # noqa: BLE001 - the Word file is an extra, the Markdown result must still count as done
         from celery.exceptions import SoftTimeLimitExceeded
         if isinstance(e, SoftTimeLimitExceeded):

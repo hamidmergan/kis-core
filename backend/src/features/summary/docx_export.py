@@ -2,9 +2,13 @@
 
 import io
 import re
+from datetime import date
 
 from docx import Document
 from docx.document import Document as DocumentType
+from docx.enum.text import WD_BREAK
+from docx.oxml.ns import qn
+from docx.oxml.shared import OxmlElement
 from docx.text.paragraph import Paragraph
 from loguru import logger
 
@@ -17,9 +21,15 @@ _SEPARATOR_CELL_RE = re.compile(r"^:?-+:?$")
 _BULLET_STYLES = ["List Bullet", "List Bullet 2", "List Bullet 3"]
 
 
-def markdown_to_docx(text: str) -> bytes:
-    """Render headings, nested bullets, numbered lists, tables and bold text as a real Word document."""
+def markdown_to_docx(text: str, *, title: str = "", today: str = "") -> bytes:
+    """Render headings, nested bullets, numbered lists, tables and bold text as a real Word document.
+
+    With a title it opens with a cover page and a table of contents, without one it starts
+    right at the text, which is what a caller that only wants the body gets.
+    """
     document = Document()
+    if title:
+        _add_front_matter(document, title, today or date.today().strftime("%d.%m.%Y"))
     lines = text.splitlines()
     i = 0
     total = len(lines)
@@ -56,6 +66,48 @@ def markdown_to_docx(text: str) -> bytes:
     buffer = io.BytesIO()
     document.save(buffer)
     return buffer.getvalue()
+
+
+def _add_front_matter(document: DocumentType, title: str, today: str) -> None:
+    """Cover page, then the table of contents, each on a page of its own."""
+    deckblatt = document.add_paragraph(style="Title")
+    deckblatt.add_run(title)
+    document.add_paragraph(today, style="Subtitle")
+    _page_break(document)
+    _add_toc(document)
+    _page_break(document)
+    _update_fields_on_open(document)
+
+
+def _page_break(document: DocumentType) -> None:
+    document.add_paragraph().add_run().add_break(WD_BREAK.PAGE)
+
+
+def _add_toc(document: DocumentType) -> None:
+    """A field, not a finished list, Word fills it from the headings."""
+    absatz = document.add_paragraph()
+    lauf = absatz.add_run()
+    anfang = OxmlElement("w:fldChar")
+    anfang.set(qn("w:fldCharType"), "begin")
+    anweisung = OxmlElement("w:instrText")
+    anweisung.set(qn("xml:space"), "preserve")
+    anweisung.text = r'TOC \o "1-3" \h \z \u'
+    trenner = OxmlElement("w:fldChar")
+    trenner.set(qn("w:fldCharType"), "separate")
+    ende = OxmlElement("w:fldChar")
+    ende.set(qn("w:fldCharType"), "end")
+    for teil in (anfang, anweisung, trenner, ende):
+        lauf._r.append(teil)
+
+
+def _update_fields_on_open(document: DocumentType) -> None:
+    """Without this the reader would have to update the table of contents by hand."""
+    einstellungen = document.settings.element
+    if einstellungen.find(qn("w:updateFields")) is not None:
+        return
+    schalter = OxmlElement("w:updateFields")
+    schalter.set(qn("w:val"), "true")
+    einstellungen.append(schalter)
 
 
 def _add_heading(document: DocumentType, level: int, text: str) -> None:

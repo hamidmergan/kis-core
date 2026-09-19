@@ -125,9 +125,14 @@ def pool_block(facts: list[Fact], budget: int) -> str:
     return text
 
 
-def facts_block(facts: list[Fact]) -> str:
-    """The facts of one section, with their proofs, that is what the writer quotes from."""
-    return "\n".join(fact_line(f) for f in facts)
+def facts_block(facts: list[Fact], budget: int) -> str:
+    """The facts of one section, with their proofs, that is what the writer works from."""
+    text = "\n".join(fact_line(f) for f in facts)
+    if len(text) > budget:
+        logger.warning("Zusammenfassung: Fakten eines Abschnitts {} Zeichen, gekuerzt auf {}",
+                       len(text), budget)
+        text = text[:budget]
+    return text
 
 
 def facts_for(ids: list[int], pool: list[Fact]) -> list[Fact]:

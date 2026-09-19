@@ -23,10 +23,11 @@ GROUND_RULES = (
 
 
 class Section(BaseModel):
-    """One planned section: what it is called and what belongs in it."""
+    """One planned section: what it is called, what belongs in it, which facts carry it."""
 
     title: str
     scope: str = ""
+    fact_ids: list[int] = Field(default_factory=list)
 
 
 class Outline(BaseModel):

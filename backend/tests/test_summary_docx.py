@@ -128,3 +128,32 @@ class TestGemischtesDokument:
             ("List Bullet", "Punkt zwei"),
             ("Normal", "Ein Absatz danach."),
         ]
+
+
+class TestDeckblattUndVerzeichnis:
+    """Mit Titel bekommt die Datei ein Deckblatt und ein Inhaltsverzeichnis."""
+
+    def test_ohne_titel_beginnt_die_datei_beim_text(self):
+        doc = _open(markdown_to_docx("Ein Satz."))
+        assert doc.paragraphs[0].text == "Ein Satz."
+
+    def test_der_titel_steht_auf_dem_deckblatt(self):
+        doc = _open(markdown_to_docx("## Kapitel", title="AMG74", today="19.09.2026"))
+        assert doc.paragraphs[0].text == "AMG74"
+        assert doc.paragraphs[0].style.name == "Title"
+        assert doc.paragraphs[1].text == "19.09.2026"
+
+    def test_das_verzeichnis_ist_ein_feld(self):
+        xml = _open(markdown_to_docx("## Kapitel", title="AMG74")).element.xml
+        assert 'TOC \\o "1-3" \\h \\z \\u' in xml
+        assert "fldChar" in xml
+
+    def test_word_aktualisiert_beim_oeffnen_selbst(self):
+        doc = _open(markdown_to_docx("## Kapitel", title="AMG74"))
+        assert "updateFields" in doc.settings.element.xml
+
+    def test_der_text_folgt_hinter_dem_vorspann(self):
+        doc = _open(markdown_to_docx("## Kapitel\n\nEin Satz.", title="AMG74"))
+        texte = [p.text for p in doc.paragraphs]
+        assert "Kapitel" in texte
+        assert texte.index("AMG74") < texte.index("Kapitel")
