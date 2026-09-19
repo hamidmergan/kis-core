@@ -71,7 +71,7 @@ def test_der_vorrat_fuer_die_gliederung_traegt_nummer_und_datei_ohne_beleg():
 
 def test_die_fakten_eines_abschnitts_tragen_ihren_beleg():
     vorrat = build_pool(QUELLEN, {"doc_01": [_fakt("A")]})
-    assert 'Beleg: "Beleg zu A"' in facts_block(vorrat)
+    assert 'Beleg: "Beleg zu A"' in facts_block(vorrat, 10_000)
 
 
 def test_der_vorrat_wird_auf_sein_budget_gekuerzt():
