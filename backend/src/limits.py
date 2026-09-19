@@ -1,7 +1,5 @@
 # Central place for all configurable limits, timeouts and quotas.
 
-import math
-
 from src.services.system_capacity import capacity
 
 # Burst block for the chat, it only catches bots and mistakes.
@@ -183,22 +181,20 @@ GLOSSARY_LIMIT                        = 150     # max glossary entries per works
 
 # --- Summary tool -----------------------------------------------------------
 SUMMARY_MAX_SOURCES          = 10
-# Counted after extraction, so it holds for every format.
-SUMMARY_MAX_CHARS_PER_SOURCE = 500_000
+# Counted after extraction, so it holds for every format. A file goes into one call whole,
+# so this is also what the model's window has to carry.
+SUMMARY_MAX_CHARS_PER_SOURCE = 300_000
 # Every allowed file at full size, so the total never refuses what the two above allow.
 SUMMARY_MAX_TOTAL_CHARS      = SUMMARY_MAX_SOURCES * SUMMARY_MAX_CHARS_PER_SOURCE
-# Facts one read call may return, the share of the pool one unit gets.
+# Facts one read call may return, the share of the pool one source gets.
 SUMMARY_FACTS_MAX_CHARS      = 10_000
 SUMMARY_FACTS_MIN_CHARS      = 3_000
 # Room in a call for the prompt, the build plan and the sections already written.
 SUMMARY_PROMPT_RESERVE_CHARS = 60_000
-# As many units as still get their minimum share of the facts pool.
-SUMMARY_MAX_PARTS_PER_JOB    = (AIA_TOOL_CONTEXT_MAX_CHARS - SUMMARY_PROMPT_RESERVE_CHARS) \
-                               // SUMMARY_FACTS_MIN_CHARS
-# The smallest part that still lets the largest job fit the parts cap.
-SUMMARY_PART_MIN_CHARS       = math.ceil(SUMMARY_MAX_TOTAL_CHARS / SUMMARY_MAX_PARTS_PER_JOB)
-# Part size when the chat model's window is unknown, measured to answer in time.
-SUMMARY_PART_FALLBACK_CHARS  = 70_000
+# What the prompt around a read call costs on top of the file and its answer.
+SUMMARY_WINDOW_PROMPT_TOKENS = 1_500
+# Below this share of assigned facts the outline call is asked once more.
+SUMMARY_MIN_FACT_COVERAGE    = 0.9
 # One section per this many characters of facts, the planner gets it as a target.
 SUMMARY_CHARS_PER_SECTION    = 4_000
 SUMMARY_MIN_SECTIONS         = 3
@@ -209,9 +205,12 @@ SUMMARY_WRITE_MAX_TOKENS     = 4_000
 SUMMARY_CALL_TIMEOUT_SECONDS = 420
 # The watchdog counts silence, so the run reports in this often.
 SUMMARY_HEARTBEAT_SECONDS    = 60
-SUMMARY_MAP_CONCURRENCY      = 5
+# Read calls started at once, dropped to one for the rest of a run once a provider refuses.
+SUMMARY_MAP_CONCURRENCY      = 10
 SUMMARY_READ_MAX_ATTEMPTS    = 3
 SUMMARY_RETRY_DELAY_SECONDS  = 3
+# The waiting time doubles per attempt and stops growing here.
+SUMMARY_MAX_BACKOFF_SECONDS  = 60
 SUMMARY_OUTLINE_MAX_ATTEMPTS = 2
 
 # Shared slot pool for background work, a fixed number instead of detection.
