@@ -13,7 +13,8 @@ from src.dependencies import get_current_user, is_admin_user
 from src.dependencies_rbac import require_tool_access
 from src.features.summary.templates import TEMPLATES, default_template, get_template
 from src.i18n import get_locale, t
-from src.limits import SUMMARY_MAX_CHARS_PER_SOURCE, SUMMARY_MAX_SOURCES, SUMMARY_MAX_TOTAL_CHARS
+from src.features.summary import settings as cfg
+from src.limits import SUMMARY_MAX_SOURCES
 from src.quotas import enforce_quota
 from src.security.rate_limit import enforce_tool_burst
 from src.services import feature_provider_choices
@@ -42,8 +43,8 @@ async def list_templates(_user: dict = Depends(get_current_user)):
             for v in TEMPLATES
         ],
         "maxSources": SUMMARY_MAX_SOURCES,
-        "maxCharsPerSource": SUMMARY_MAX_CHARS_PER_SOURCE,
-        "maxTotalChars": SUMMARY_MAX_TOTAL_CHARS,
+        "maxCharsPerSource": cfg.chars_per_source(),
+        "maxTotalChars": cfg.total_chars(),
         "extensions": sorted(SUMMARY_EXTENSIONS),
     }
 

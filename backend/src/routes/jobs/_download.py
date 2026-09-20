@@ -27,6 +27,17 @@ from src.routes.jobs._shared import _CONTENT_TYPES
 router = APIRouter()
 
 
+def _attachment(filename: str) -> str:
+    """Builds a download header that is always latin-1 safe.
+
+    A summary is named after its own title, so the name carries whatever the output
+    language writes, and a bare filename= would break the header on anything beyond latin-1.
+    """
+    from urllib.parse import quote
+    fallback = filename.encode("ascii", "ignore").decode("ascii").replace('"', "") or "download"
+    return f'attachment; filename="{fallback}"; filename*=UTF-8\'\'{quote(filename)}'
+
+
 @router.get("/{job_uuid}/download")
 def download_job_result(
     job_uuid: str,
@@ -58,7 +69,7 @@ def download_job_result(
         media_type=content_type,
         headers={
             "Content-Length": str(len(data)),
-            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Disposition": _attachment(filename),
         },
     )
 
@@ -143,7 +154,7 @@ def download_job_docx(
         media_type=_CONTENT_TYPES[".docx"],
         headers={
             "Content-Length": str(len(data)),
-            "Content-Disposition": f'attachment; filename="{docx_filename}"',
+            "Content-Disposition": _attachment(docx_filename),
         },
     )
 

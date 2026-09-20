@@ -15,6 +15,7 @@ export interface MyJob {
   render_queued_at: string | null;
   expires_at: string | null;
   has_download: boolean;
+  has_docx?: boolean;
   result_filename: string | null;
   folder_name: string | null;
   tts_params?: { voice_id?: string; voice_label?: string; provider?: string } | null;

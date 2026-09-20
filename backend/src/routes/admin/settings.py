@@ -29,7 +29,7 @@ from src.limits import (
 import json
 
 from src.routes.admin._models import UpdateSettingsRequest
-from src.services import tool_limits
+from src.services import tool_limits, tool_numbers
 from src.services.aia_diagnosis_chat import (
     ADAPTIVE_BEHAVIOR_SETTING,
     ANSWER_MAX_CHARS_SETTING,
@@ -67,12 +67,17 @@ router = APIRouter(tags=["admin: settings"])
 MAX_DELETE_AFTER_DAYS = 3650
 
 
+def _permission_for(field_name: str) -> str | None:
+    """The right a settings field hangs off, from the catalogue or from the number table."""
+    return SETTING_FIELD_PERMISSIONS.get(field_name) or tool_numbers.permission_for(field_name)
+
+
 def _assert_fields_allowed(body: UpdateSettingsRequest, perms, locale: str) -> None:
     """Checks every submitted field against the right of its page."""
     for field_name, value in body.model_dump().items():
         if value is None:
             continue
-        needed = SETTING_FIELD_PERMISSIONS.get(field_name)
+        needed = _permission_for(field_name)
         if needed is None or needed not in perms.keys:
             raise HTTPException(
                 status_code=403,
@@ -134,6 +139,14 @@ async def get_settings(_admin=Depends(require_any_settings)):
         "aia_source_max_pages": int(
             db.get_setting("aia_source_max_pages", str(AIA_SOURCE_MAX_PAGES))
         ),
+        # Tunable numbers of the tools, shown as they actually apply, plus their ranges
+        # so the admin area never has to repeat a limit that is defined here.
+        **{n.key: tool_numbers.value_of(n.key) for n in tool_numbers.NUMBERS},
+        "tool_numbers": [
+            {"key": n.key, "tool": n.tool, "default": n.default,
+             "min": n.smallest, "max": n.largest}
+            for n in tool_numbers.NUMBERS
+        ],
         # Pronunciation on the flashcard, empty means not set up yet.
         "aia_flashcard_voice_provider_id": db.get_setting("aia_flashcard_voice_provider_id", ""),
         "aia_flashcard_voice_id": db.get_setting("aia_flashcard_voice_id", ""),
@@ -405,6 +418,20 @@ async def update_settings(
                 detail=t("admin.settings.exerciseContextBudgetOutOfRange", locale, min=1000, max=AIA_TOOL_CONTEXT_HARD_CAP),
             )
         db.set_setting("aia_exercise_context_max_chars", str(value))
+
+    # Tunable numbers of the tools, each against its own range. A value outside it is
+    # refused here, so no tool ever has to repair one it reads back.
+    for zahl in tool_numbers.NUMBERS:
+        wert = getattr(body, zahl.key, None)
+        if wert is None:
+            continue
+        if wert < zahl.smallest or wert > zahl.largest:
+            raise HTTPException(
+                status_code=400,
+                detail=t("admin.settings.numberOutOfRange", locale, field=zahl.key,
+                         min=zahl.smallest, max=zahl.largest),
+            )
+        db.set_setting(zahl.key, str(wert))
 
     # Only a code from the one list, otherwise it would end up verbatim in the job.
     if body.aia_learning_tools_language is not None:

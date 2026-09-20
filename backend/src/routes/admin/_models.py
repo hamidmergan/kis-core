@@ -1,13 +1,15 @@
 """Pydantic models for admin endpoints."""
 
-from pydantic import BaseModel
+from pydantic import BaseModel, create_model
+
+from src.services.tool_numbers import NUMBERS
 
 
 class AddWhitelistRequest(BaseModel):
     email: str
 
 
-class UpdateSettingsRequest(BaseModel):
+class _UpdateSettingsBase(BaseModel):
     """The settings of the system tab, providers and models live in the AI tab."""
     whitelist_enabled: bool | None = None
     # Days a locked test account stays readable before the nightly sweep removes it.
@@ -64,6 +66,15 @@ class UpdateSettingsRequest(BaseModel):
     language_diagnosis_level_examples: str | None = None
     # Description per level as JSON, empty resets it.
     language_diagnosis_level_descriptions: str | None = None
+
+
+# The tunable numbers of the tools are not written out one by one: services/tool_numbers.py
+# is the one table, and a tool that enters a number there gets its field here for free.
+UpdateSettingsRequest = create_model(
+    "UpdateSettingsRequest",
+    __base__=_UpdateSettingsBase,
+    **{n.key: (int | None, None) for n in NUMBERS},
+)
 
 
 class ToggleToolRequest(BaseModel):

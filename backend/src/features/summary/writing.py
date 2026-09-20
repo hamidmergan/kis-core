@@ -6,16 +6,22 @@ import re
 
 from loguru import logger
 
-from src.features.summary.facts import Fact, facts_block, facts_for, source_names
+from src.features.summary.facts import Fact, facts_block, facts_for
 from src.features.summary.models import GROUND_RULES, Caller, Outline, Section
 from src.limits import (
+    SUMMARY_ASSIGN_BATCH_FACTS,
+    SUMMARY_ASSIGN_CONCURRENCY,
     SUMMARY_CHARS_PER_SECTION,
+    SUMMARY_COMPOSE_MAX_ATTEMPTS,
     SUMMARY_MAX_SECTIONS,
-    SUMMARY_MIN_FACT_COVERAGE,
     SUMMARY_MIN_SECTIONS,
     SUMMARY_OUTLINE_MAX_ATTEMPTS,
     SUMMARY_PROMPT_RESERVE_CHARS,
     SUMMARY_RETRY_DELAY_SECONDS,
+    SUMMARY_SECTION_BASE_CHARS,
+    SUMMARY_SECTION_FACT_CHARS,
+    SUMMARY_SECTION_GROUP_CHARS,
+    SUMMARY_SECTIONS_PER_SOURCE,
     SUMMARY_WRITE_MAX_TOKENS,
 )
 
@@ -27,11 +33,21 @@ OUTLINE_SCHEMA = {
         "schema": {
             "type": "object",
             "properties": {
+                "title": {
+                    "type": "string",
+                    "description": (
+                        "The title of the finished document, in the output language: a short "
+                        "noun phrase naming what the material is about. No file name, no "
+                        "word for the format such as summary or briefing."
+                    ),
+                },
                 "intro": {
                     "type": "string",
                     "description": (
-                        "Two to four sentences naming the subject and its most important "
-                        "takeaways, in the output language."
+                        "The opening summary in the output language. The first sentence says "
+                        "what the material covers, the rest gives its most important "
+                        "statements with their figures. Never a restatement of these "
+                        "instructions."
                     ),
                 },
                 "sections": {
@@ -46,18 +62,13 @@ OUTLINE_SCHEMA = {
                                 "type": "string",
                                 "description": "One sentence on what belongs in it and what does not.",
                             },
-                            "fact_ids": {
-                                "type": "array",
-                                "items": {"type": "integer"},
-                                "description": "The numbers of the facts this section is written from.",
-                            },
                         },
-                        "required": ["section_index", "title", "description", "fact_ids"],
+                        "required": ["section_index", "title", "description"],
                         "additionalProperties": False,
                     },
                 },
             },
-            "required": ["intro", "sections"],
+            "required": ["title", "intro", "sections"],
             "additionalProperties": False,
         },
     },
@@ -95,10 +106,15 @@ ASSIGNMENT_SCHEMA = {
 }
 
 
-def target_sections(facts_chars: int) -> int:
-    """How many sections the material carries, a target the planner may deviate from."""
-    return max(SUMMARY_MIN_SECTIONS, min(SUMMARY_MAX_SECTIONS,
-                                         facts_chars // SUMMARY_CHARS_PER_SECTION))
+def target_sections(facts_chars: int, sources: int = 1) -> int:
+    """How many sections the material carries, a target the planner may deviate from.
+
+    Never fewer than every source needs: with unrelated files a count drawn from the
+    size alone leaves the last of them without a heading to stand under.
+    """
+    aus_umfang = facts_chars // SUMMARY_CHARS_PER_SECTION
+    aus_quellen = SUMMARY_SECTIONS_PER_SOURCE * max(1, sources)
+    return max(SUMMARY_MIN_SECTIONS, min(SUMMARY_MAX_SECTIONS, max(aus_umfang, aus_quellen)))
 
 
 def cut_to_last_line(text: str) -> str:
@@ -121,8 +137,12 @@ def _strip_thinking(raw: str | None) -> str:
     return antwort
 
 
-def parse_outline(raw: str | None, known_ids: set[int] | None = None) -> Outline:
-    """Reads the planning answer, a broken one yields no sections rather than an error."""
+def parse_outline(raw: str | None) -> Outline:
+    """Reads the planning answer, a broken one yields no sections rather than an error.
+
+    Only headings are read here. Which fact goes where is settled afterwards, in batches,
+    because one answer carrying every number of a large pool loses its tail.
+    """
     text = _strip_thinking(raw)
     treffer = re.search(r"\{.*\}", text, re.S)
     if not treffer:
@@ -135,8 +155,6 @@ def parse_outline(raw: str | None, known_ids: set[int] | None = None) -> Outline
     if rohe is not None and not isinstance(rohe, list):
         return Outline()
     abschnitte: list[Section] = []
-    # A fact belongs to exactly one section, so a second mention of it is dropped.
-    vergeben: set[int] = set()
     for eintrag in rohe or []:
         titel = (eintrag.get("title") if isinstance(eintrag, dict) else eintrag) or ""
         umfang = (eintrag.get("scope") or eintrag.get("description")
@@ -146,32 +164,12 @@ def parse_outline(raw: str | None, known_ids: set[int] | None = None) -> Outline
             continue
         if any(a.title.casefold() == titel.casefold() for a in abschnitte):
             continue
-        nummern = _fact_ids(eintrag, known_ids, vergeben)
-        vergeben.update(nummern)
-        abschnitte.append(Section(title=titel, scope=" ".join(str(umfang).split()),
-                                  fact_ids=nummern))
+        abschnitte.append(Section(title=titel, scope=" ".join(str(umfang).split())))
     if len(abschnitte) < SUMMARY_MIN_SECTIONS:
         return Outline()
-    return Outline(intro=str(roh.get("intro") or "").strip(),
+    titel = " ".join(str(roh.get("title") or "").split()).lstrip("#").strip()
+    return Outline(title=titel[:120], intro=str(roh.get("intro") or "").strip(),
                    sections=abschnitte[:SUMMARY_MAX_SECTIONS])
-
-
-def _fact_ids(eintrag, known_ids: set[int] | None, taken: set[int]) -> list[int]:
-    """The numbers of one section, without unknown ones and without repeats."""
-    if not isinstance(eintrag, dict):
-        return []
-    nummern: list[int] = []
-    for roh in eintrag.get("fact_ids") or []:
-        try:
-            nummer = int(roh)
-        except (TypeError, ValueError):
-            continue
-        if nummer in taken or nummer in nummern:
-            continue
-        if known_ids is not None and nummer not in known_ids:
-            continue
-        nummern.append(nummer)
-    return nummern
 
 
 def coverage(outline: Outline, pool: list[Fact]) -> float:
@@ -182,23 +180,35 @@ def coverage(outline: Outline, pool: list[Fact]) -> float:
     return len(vergeben) / len(pool)
 
 
-def _outline_system(language: str, template_body: str, target: int) -> str:
+def _outline_system(language: str, template_body: str, target: int, sources: int) -> str:
     return (
-        "You plan the structure of a document. The facts you read are working material, "
-        "the reader never sees them as a list.\n"
+        "You plan the headings of a document. The facts you read are working material, "
+        "the reader never sees them as a list. You decide the headings only, another step "
+        "puts the facts under them.\n"
         + GROUND_RULES.format(language=language) + "\n"
         "Rule 8: Derive every section from what the material carries. Never fall back on a "
         "generic scaffold such as introduction, main part, conclusion.\n"
         f"Rule 9: Plan around {target} sections, between {SUMMARY_MIN_SECTIONS} and "
         f"{SUMMARY_MAX_SECTIONS}. Thin material gets fewer, rich material gets more.\n"
-        "Rule 10: Sections must not overlap, every fact belongs under exactly one heading.\n"
-        "Rule 11: Assign EVERY fact number to exactly one section. A number you leave out is "
-        "content the reader never gets. Never invent a number that is not in the list.\n"
-        "Rule 12: The facts come from several files and the sections follow the subject, "
-        "never the file a fact came from.\n"
+        "Rule 10: A heading names a theme that carries several facts, never a single fact. "
+        "If a heading would rest on one statement alone, widen it or fold it into another.\n"
+        f"Rule 11: The material comes from {sources} file(s), listed below, and EVERY one of "
+        "them must be covered by at least one section. Work through the whole list of facts "
+        "to its last line before you settle the headings. A subject only the later facts "
+        "carry still needs its own heading.\n"
+        "Rule 12: Sections must not overlap, and the headings follow the subject, never the "
+        "file a fact came from. A heading never names a file.\n"
         "Rule 13: Plan the sections the BUILD PLAN below asks for. Where it names parts the "
         "result must have, such as a quiz, an answer key or a glossary, each is a section of "
-        "its own, and a part that answers another one comes after it.\n"
+        "its own, and a part that answers another one comes after it. Where it asks for an "
+        "order, such as what the reader must act on first and background last, the sections "
+        "are already in that order.\n"
+        "Rule 14: The title names what the material is about, short, and never mentions a "
+        "file or the format.\n"
+        "Rule 15: The intro stands before the first heading. Its first sentence says what "
+        "the material covers, then come the three to five most important things it states, "
+        "concretely and with their figures. Never say what the reader will receive and never "
+        "repeat these instructions.\n"
         "\nBUILD PLAN\n" + template_body
     )
 
@@ -211,37 +221,30 @@ def _outline_user(sources: list[str], pool_text: str) -> str:
 async def plan_outline(caller: Caller, *, language: str, template_body: str,
                        sources: list[str], pool: list[Fact], pool_text: str,
                        target: int) -> Outline:
-    """Plans the sections, an unusable answer yields an empty outline."""
-    bekannt = {f.fact_id for f in pool}
-    beste = Outline()
+    """Plans the headings, then places every fact under them. Empty when planning failed."""
+    plan = Outline()
     for versuch in range(1, SUMMARY_OUTLINE_MAX_ATTEMPTS + 1):
         try:
             antwort = await caller.create(
                 messages=[
-                    {"role": "system", "content": _outline_system(language, template_body, target)},
+                    {"role": "system",
+                     "content": _outline_system(language, template_body, target, len(sources))},
                     {"role": "user", "content": _outline_user(sources, pool_text)},
                 ],
                 temperature=0.2, name=f"outline:{versuch}",
                 response_format=OUTLINE_SCHEMA,
             )
-            plan = parse_outline(antwort.choices[0].message.content, bekannt)
+            plan = parse_outline(antwort.choices[0].message.content)
             if plan.sections:
-                if coverage(plan, pool) > coverage(beste, pool) or not beste.sections:
-                    beste = plan
-                anteil = coverage(beste, pool)
-                if anteil >= SUMMARY_MIN_FACT_COVERAGE:
-                    return beste
-                logger.warning("Zusammenfassung: Gliederung deckt nur {:.0%} der Fakten ab",
-                               anteil)
-            else:
-                logger.warning("Zusammenfassung: Gliederung {} unlesbar", versuch)
+                break
+            logger.warning("Zusammenfassung: Gliederung {} unlesbar", versuch)
         except Exception as e:  # noqa: BLE001 - the single call still saves the run
             logger.warning("Zusammenfassung: Planungsaufruf {} gescheitert ({})", versuch, e)
         if versuch < SUMMARY_OUTLINE_MAX_ATTEMPTS:
             await asyncio.sleep(SUMMARY_RETRY_DELAY_SECONDS)
-    if beste.sections:
-        await close_gaps(caller, language=language, outline=beste, pool=pool)
-    return beste
+    if plan.sections:
+        await assign_pool(caller, language=language, outline=plan, pool=pool)
+    return plan
 
 
 def parse_assignments(raw: str | None, known_ids: set[int], section_count: int) -> dict[int, int]:
@@ -270,68 +273,110 @@ def parse_assignments(raw: str | None, known_ids: set[int], section_count: int) 
     return zuordnung
 
 
-def _gap_fill_system(language: str, sections: list[Section]) -> str:
+def _assign_system(language: str, sections: list[Section]) -> str:
     liste = "\n".join(f"{i}: {a.title}. {a.scope}" for i, a in enumerate(sections))
     return (
-        "The structure of a document is already fixed. You place leftover facts into it, "
-        "you never change it.\n"
+        "The headings of a document are already fixed. You sort facts under them, you never "
+        "change them.\n"
         + GROUND_RULES.format(language=language) + "\n"
         "Rule 8: Assign EVERY fact below to exactly one of the sections listed. Never invent "
         "a section, never leave a fact out, choose the closest fit if none is exact.\n"
-        "Rule 9: Answer only with the assignments, a fact never appears twice.\n"
+        "Rule 9: Go by what the fact is about, never by the order of the list.\n"
+        "Rule 10: Answer only with the assignments, a fact never appears twice.\n"
         f"\nSECTIONS\n{liste}\n"
     )
 
 
-def _gap_fill_user(facts: list[Fact]) -> str:
+def _assign_user(facts: list[Fact]) -> str:
     zeilen = "\n".join(f"#{f.fact_id} ({f.category}) {f.fact}" for f in facts)
-    return f"/no_think\nUnplaced facts:\n\n{zeilen}"
+    return f"/no_think\nFacts to sort:\n\n{zeilen}"
 
 
-async def fill_gaps(caller: Caller, *, language: str, sections: list[Section],
-                    facts: list[Fact]) -> dict[int, int]:
-    """One more, smaller call: place exactly the facts the outline call left out."""
+async def assign_batch(caller: Caller, *, language: str, sections: list[Section],
+                       facts: list[Fact]) -> dict[int, int]:
+    """Places one batch of facts under the fixed headings, {} when the call fails."""
     bekannt = {f.fact_id for f in facts}
     try:
         antwort = await caller.create(
             messages=[
-                {"role": "system", "content": _gap_fill_system(language, sections)},
-                {"role": "user", "content": _gap_fill_user(facts)},
+                {"role": "system", "content": _assign_system(language, sections)},
+                {"role": "user", "content": _assign_user(facts)},
             ],
-            temperature=0.1, name="outline:gaps",
+            temperature=0.1, name=f"assign:{facts[0].fact_id}-{facts[-1].fact_id}",
             response_format=ASSIGNMENT_SCHEMA,
         )
         return parse_assignments(antwort.choices[0].message.content, bekannt, len(sections))
-    except Exception as e:  # noqa: BLE001 - the round robin below still places every fact
-        logger.warning("Zusammenfassung: Nachfass-Zuordnung gescheitert ({})", e)
+    except Exception as e:  # noqa: BLE001 - place_by_wording below still places every fact
+        logger.warning("Zusammenfassung: Zuordnung eines Stapels gescheitert ({})", e)
         return {}
 
 
-def distribute_remaining(sections: list[Section], remaining: list[Fact]) -> None:
-    """What no call could place goes round robin into the sections, nothing is ever dropped."""
+def _words(text: str) -> set[str]:
+    """The carrying words of a text, short ones say nothing about the subject."""
+    return set(re.findall(r"[^\W\d_]{4,}", text.casefold()))
+
+
+def place_by_wording(sections: list[Section], remaining: list[Fact]) -> None:
+    """What no call placed goes where the wording fits best, never into an unrelated section.
+
+    Round robin would keep the count right and the content wrong: a statement on turnover
+    tax landed under a heading about guard registries, and the writer then dropped it.
+    """
     if not sections:
         return
-    for i, fakt in enumerate(remaining):
-        sections[i % len(sections)].fact_ids.append(fakt.fact_id)
+    felder = [_words(f"{a.title} {a.scope}") for a in sections]
+    for fakt in remaining:
+        eigene = _words(fakt.fact)
+        # Ties go to the section carrying the least, so nothing piles up in one place.
+        beste = max(range(len(sections)),
+                    key=lambda i: (len(eigene & felder[i]), -len(sections[i].fact_ids)))
+        sections[beste].fact_ids.append(fakt.fact_id)
 
 
-async def close_gaps(caller: Caller, *, language: str, outline: Outline, pool: list[Fact]) -> None:
-    """Places every fact the outline call missed, first by asking once more, then by hand."""
-    fehlend = [f for f in pool if f.fact_id not in {n for a in outline.sections for n in a.fact_ids}]
-    if not fehlend:
+async def _one_pass(caller: Caller, *, language: str, outline: Outline,
+                    offen: list[Fact]) -> list[Fact]:
+    """Asks for the placement of these facts and applies it, returns what stayed unplaced."""
+    stapel = [offen[i:i + SUMMARY_ASSIGN_BATCH_FACTS]
+              for i in range(0, len(offen), SUMMARY_ASSIGN_BATCH_FACTS)]
+    grenze = asyncio.Semaphore(SUMMARY_ASSIGN_CONCURRENCY)
+
+    async def _einer(teil: list[Fact]) -> dict[int, int]:
+        async with grenze:
+            return await assign_batch(caller, language=language, sections=outline.sections,
+                                      facts=teil)
+
+    # Applied in the order of the batches, so the same answers always give the same plan.
+    ergebnisse = await asyncio.gather(*(_einer(t) for t in stapel))
+    nachtrag: list[Fact] = []
+    for teil, zuordnung in zip(stapel, ergebnisse):
+        for fakt in teil:
+            index = zuordnung.get(fakt.fact_id)
+            if index is None:
+                nachtrag.append(fakt)
+            else:
+                outline.sections[index].fact_ids.append(fakt.fact_id)
+    return nachtrag
+
+
+async def assign_pool(caller: Caller, *, language: str, outline: Outline,
+                      pool: list[Fact]) -> None:
+    """Places every fact of the pool under the planned headings.
+
+    One call carries the whole pool, a second one only what it dropped, and the wording
+    decides about the rest. The second call costs nothing on a model that drops nothing.
+    """
+    offen = [f for f in pool if f.fact_id not in {n for a in outline.sections for n in a.fact_ids}]
+    if not offen:
         return
-    zuordnung = await fill_gaps(caller, language=language, sections=outline.sections, facts=fehlend)
-    noch_offen: list[Fact] = []
-    for fakt in fehlend:
-        index = zuordnung.get(fakt.fact_id)
-        if index is None:
-            noch_offen.append(fakt)
-        else:
-            outline.sections[index].fact_ids.append(fakt.fact_id)
-    if noch_offen:
-        logger.warning("Zusammenfassung: {} Fakten gehen round robin in die Abschnitte",
-                       len(noch_offen))
-        distribute_remaining(outline.sections, noch_offen)
+    nachtrag = await _one_pass(caller, language=language, outline=outline, offen=offen)
+    if nachtrag:
+        logger.warning("Zusammenfassung: {} von {} Fakten bleiben offen, zweiter Anlauf",
+                       len(nachtrag), len(offen))
+        nachtrag = await _one_pass(caller, language=language, outline=outline, offen=nachtrag)
+    if nachtrag:
+        logger.warning("Zusammenfassung: {} Fakten werden nach Wortlaut eingeordnet",
+                       len(nachtrag))
+        place_by_wording(outline.sections, nachtrag)
 
 
 def _finished(antwort) -> str:
@@ -356,26 +401,89 @@ def _drop_leading_heading(text: str) -> str:
     return "\n".join(zeilen)
 
 
-def _marker_rule(names: list[str]) -> str:
-    """The rule that puts the file a statement came from next to the statement."""
-    if not names:
-        return ""
-    liste = ", ".join(f"[{n}]" for n in names)
-    return (
-        "Rule 15: Every fact below carries its file in square brackets. Put that marker "
-        "behind the statement it belongs to, before the closing punctuation, exactly as it "
-        f"is written. The markers of your facts are: {liste}. Never invent another one and "
-        "never collect them at the end.\n"
+def expected_chars(facts: int) -> int:
+    """How much prose a section of this many facts costs, measured on the accepted run."""
+    return SUMMARY_SECTION_BASE_CHARS + facts * SUMMARY_SECTION_FACT_CHARS
+
+
+def group_sections(sections: list[Section], budget: int | None = None) -> list[list[int]]:
+    """Runs of neighbouring sections that fit one writing call, by their expected prose.
+
+    Small sections cost a whole call each while using a fraction of the answer, so they
+    travel together. A section too big on its own still gets its own call.
+    """
+    if budget is None:
+        budget = SUMMARY_SECTION_GROUP_CHARS
+    gruppen: list[list[int]] = []
+    laufend: list[int] = []
+    summe = 0
+    for i, abschnitt in enumerate(sections):
+        kosten = expected_chars(len(abschnitt.fact_ids))
+        if laufend and summe + kosten > budget:
+            gruppen.append(laufend)
+            laufend, summe = [], 0
+        laufend.append(i)
+        summe += kosten
+    if laufend:
+        gruppen.append(laufend)
+    return gruppen
+
+
+def _heading_positions(text: str) -> list[tuple[int, int, str]]:
+    """Every level two heading: where its line starts, where its body starts, its wording."""
+    return [(m.start(), m.end(), m.group(1).strip())
+            for m in re.finditer(r"^##+[ \t]+(.+)$", text, re.M)]
+
+
+def split_group(text: str, titles: list[str]) -> list[str] | None:
+    """The text of each section of a group, or None when the answer cannot be cut safely.
+
+    Matched by wording first, by position only when the count is exactly right. A wrong cut
+    would put one section's prose under another's heading, so None is the honest answer.
+    """
+    if len(titles) == 1:
+        return [text.strip()]
+    koepfe = _heading_positions(text)
+    if not koepfe:
+        return None
+    gewaehlt: list[tuple[int, int, str]] = []
+    suche = 0
+    for titel in titles:
+        treffer = next((k for k in koepfe[suche:]
+                        if k[2].casefold() == titel.casefold()), None)
+        if treffer is None:
+            gewaehlt = []
+            break
+        gewaehlt.append(treffer)
+        suche = koepfe.index(treffer) + 1
+    if not gewaehlt:
+        if len(koepfe) != len(titles):
+            return None
+        gewaehlt = koepfe
+    teile: list[str] = []
+    for nr, (_, koerper_ab, _) in enumerate(gewaehlt):
+        ende = gewaehlt[nr + 1][0] if nr + 1 < len(gewaehlt) else len(text)
+        teile.append(text[koerper_ab:ende].strip())
+    return teile if all(teile) else None
+
+
+def _section_system(language: str, template_body: str, count: int = 1) -> str:
+    mehrere = (
+        f"You write {count} CONSECUTIVE sections of a larger document. Begin each one with "
+        "its heading exactly as given, on its own line, written as '## Heading'. Write "
+        "nothing before the first heading and nothing after the last section. Every heading "
+        "you write is one of the given ones, never an extra one of your own.\n"
+        if count > 1 else
+        "You write ONE section of a larger document. Do not write the heading.\n"
     )
-
-
-def _section_system(language: str, template_body: str, names: list[str]) -> str:
     return (
-        "You write ONE section of a larger document. The sections before yours are already "
-        "written and given to you, the ones after yours come later.\n"
+        mehrere
+        + "The sections before yours are already written and given to you, the ones after "
+        "yours come later.\n"
         + GROUND_RULES.format(language=language) + "\n"
-        "Rule 8: Write only what belongs under your own heading. The scopes of the sections "
-        "still to come are listed so you stay off their ground. Never announce what comes later.\n"
+        "Rule 8: Write only what belongs under the heading you are writing. The scopes of the "
+        "sections still to come are listed so you stay off their ground. Never announce what "
+        "comes later.\n"
         "Rule 9: Continue the document you are given, never repeat what it already says. Where "
         "your section answers or builds on an earlier one, make the two match item for item.\n"
         "Rule 10: Go as deep as the facts allow. A Markdown table where things are compared "
@@ -383,14 +491,25 @@ def _section_system(language: str, template_body: str, names: list[str]) -> str:
         "order or count matters, continuous text where it is an argument.\n"
         "Rule 11: A figure, a date or a quantity never stands without what it refers to, and "
         "you carry over every one the facts state for your heading.\n"
-        "Rule 12: What the material marks as open or disputed stays in, marked as such.\n"
-        "Rule 13: Do not repeat your own heading. Begin with the content, write no closing "
-        "remark and no greeting.\n"
-        "Rule 14: Never cite a page, a slide or a position the facts do not state. The "
-        "citations in the facts are your proof, never quote them as a block.\n"
-        + _marker_rule(names)
-        + "\nThe document as a whole follows the build plan below. Match its register, but "
-        "produce ONLY your own section.\n\nBUILD PLAN\n" + template_body
+        "Rule 12: A fact carrying a 'Stelle:' names the part of the source it rests on. Put "
+        "that exactly as it stands in square brackets at the end of the statement, for "
+        "example [§ 27 Abs. 3]. A fact without one gets no brackets. Never invent a "
+        "reference and never number a part yourself.\n"
+        "Rule 13: Two facts saying the same thing become ONE statement, in the fuller wording. "
+        "Never write the same figure or duty twice in different words.\n"
+        "Rule 14: Every fact you are given appears in your section. A fact that does not sit "
+        "well under your heading still gets its statement, in the closest place, rather than "
+        "being left out.\n"
+        "Rule 15: What the material marks as open or disputed stays in, marked as such.\n"
+        + ("Rule 16: Under each heading begin straight with the content, no lead in, no "
+           "closing remark and no greeting.\n" if count > 1 else
+           "Rule 16: Do not repeat your own heading. Begin with the content, write no closing "
+           "remark and no greeting.\n")
+        + "Rule 17: Never cite a page, a slide or a position the facts do not state. The "
+        "citations in the facts are your proof, never quote them as a block. Never name a "
+        "file and never write a file name into your text.\n"
+        "\nThe document as a whole follows the build plan below. Match its register, but "
+        "produce ONLY the sections you are given.\n\nBUILD PLAN\n" + template_body
     )
 
 
@@ -407,41 +526,59 @@ def _document_so_far(written: list[tuple[str, str]]) -> str:
     return f"{koepfe}\n\n[...]\n{rest}"
 
 
-def _section_user(section: Section, others: list[Section],
-                  written: list[tuple[str, str]], facts: str) -> str:
+def _section_user(group: list[Section], others: list[Section],
+                  written: list[tuple[str, str]], facts: list[str]) -> str:
+    """The order matters: what is to be written comes last, that is what gets the attention."""
     fremd = "\n".join(f"- {a.title}: {a.scope}" for a in others) or "- none"
+    if len(group) == 1:
+        kopf = f"YOUR HEADING: {group[0].title}\nYOUR SCOPE: {group[0].scope}\n\n"
+        auftrag = f"YOUR FACTS:\n\n{facts[0]}"
+    else:
+        kopf = f"YOU WRITE {len(group)} SECTIONS, in the order below.\n\n"
+        teile = [f"=== SECTION {i + 1} OF {len(group)} ===\n"
+                 f"HEADING: {a.title}\nSCOPE: {a.scope}\nFACTS:\n{f}"
+                 for i, (a, f) in enumerate(zip(group, facts))]
+        auftrag = "YOUR SECTIONS:\n\n" + "\n\n".join(teile)
     return (
         "/no_think\n"
-        f"YOUR HEADING: {section.title}\nYOUR SCOPE: {section.scope}\n\n"
+        f"{kopf}"
         f"Still to be written by others, stay off these:\n{fremd}\n\n"
         f"THE DOCUMENT SO FAR:\n{_document_so_far(written)}\n\n"
-        f"YOUR FACTS:\n\n{facts}"
+        f"{auftrag}"
     )
 
 
-async def write_section(caller: Caller, *, language: str, template_body: str,
-                        section: Section, others: list[Section],
-                        written: list[tuple[str, str]], facts: list[Fact],
-                        budget: int) -> str:
-    """Writes one section from its own facts, seeing everything written before it."""
+async def write_sections(caller: Caller, *, language: str, template_body: str,
+                         group: list[Section], others: list[Section],
+                         written: list[tuple[str, str]], facts: list[list[Fact]],
+                         budget: int) -> list[str] | None:
+    """Writes a run of sections in one call, None when the answer cannot be cut apart.
+
+    None is not a failure of the run: the caller then writes the sections one at a time,
+    which costs calls but never mixes one section's prose into another's heading.
+    """
+    anteil = budget // len(group)
     antwort = await caller.create(
         messages=[
-            {"role": "system",
-             "content": _section_system(language, template_body, source_names(facts))},
+            {"role": "system", "content": _section_system(language, template_body, len(group))},
             {"role": "user",
-             "content": _section_user(section, others, written, facts_block(facts, budget))},
+             "content": _section_user(group, others, written,
+                                      [facts_block(f, anteil) for f in facts])},
         ],
-        temperature=0.3, name=f"section:{section.title}",
+        temperature=0.3,
+        name=f"section:{group[0].title}" if len(group) == 1
+        else f"sections:{len(group)}:{group[0].title}",
         max_tokens=SUMMARY_WRITE_MAX_TOKENS,
     )
-    # Cut here, not in assemble: a stored or re-shown heading would keep teaching the pattern back.
-    text = _drop_leading_heading(_finished(antwort))
-    if not text:
-        raise RuntimeError("Das Modell hat nichts geantwortet.")
-    return text
+    fertig = _finished(antwort)
+    if len(group) == 1:
+        # Cut here, not in assemble: a stored heading would keep teaching the pattern back.
+        text = _drop_leading_heading(fertig)
+        return [text] if text else None
+    return split_group(fertig, [a.title for a in group])
 
 
-def _compose_system(language: str, template_body: str, names: list[str]) -> str:
+def _compose_system(language: str, template_body: str) -> str:
     return (
         "You write the finished document from facts drawn out of several sources.\n"
         + GROUND_RULES.format(language=language) + "\n"
@@ -449,39 +586,77 @@ def _compose_system(language: str, template_body: str, names: list[str]) -> str:
         "Rule 9: Follow the build plan below exactly, it decides the shape. About "
         "faithfulness, the rules above win.\n"
         "Rule 10: A figure, a date or a quantity never stands without what it refers to.\n"
-        "Rule 11: What the material marks as open or disputed stays in, marked.\n"
-        "Rule 12: Never cite a page, a slide or a position the facts do not state.\n"
-        "Rule 13: Write ONE document covering all sources together, never one section per "
-        "file unless the build plan asks for it.\n"
-        + _marker_rule(names)
-        + "\nBUILD PLAN\n" + template_body
+        "Rule 11: A fact carrying a 'Stelle:' gets that reference in square brackets at the "
+        "end of its statement. A fact without one gets no brackets.\n"
+        "Rule 12: Two facts saying the same thing become ONE statement, in the fuller wording.\n"
+        "Rule 13: What the material marks as open or disputed stays in, marked.\n"
+        "Rule 14: Never cite a page, a slide or a position the facts do not state. Never name "
+        "a file and never write a file name into your text.\n"
+        "Rule 15: Write ONE document covering all sources together, never one section per "
+        "file unless the build plan asks for it, and every source is represented.\n"
+        "\nBUILD PLAN\n" + template_body
     )
 
 
 async def compose_single(caller: Caller, *, language: str, template_body: str,
                          sources: list[str], pool: list[Fact], pool_text: str) -> str:
-    """The whole document in one call, the fallback for a failed outline."""
-    antwort = await caller.create(
-        messages=[
-            {"role": "system",
-             "content": _compose_system(language, template_body, source_names(pool))},
-            {"role": "user", "content": _outline_user(sources, pool_text)},
-        ],
-        temperature=0.3, name="compose",
-        max_tokens=SUMMARY_WRITE_MAX_TOKENS,
-    )
-    return _finished(antwort)
+    """The whole document in one call, the fallback for a failed outline.
+
+    Tried more than once on purpose: the facts of every file are already on disk at this
+    point, and a single dropped call would throw the whole reading phase away. What still
+    fails after the last attempt is raised, so the stage fails visibly and the resume
+    picks the saved facts back up.
+    """
+    for versuch in range(1, SUMMARY_COMPOSE_MAX_ATTEMPTS + 1):
+        try:
+            antwort = await caller.create(
+                messages=[
+                    {"role": "system", "content": _compose_system(language, template_body)},
+                    {"role": "user", "content": _outline_user(sources, pool_text)},
+                ],
+                temperature=0.3, name=f"compose:{versuch}",
+                max_tokens=SUMMARY_WRITE_MAX_TOKENS,
+            )
+            return _finished(antwort)
+        except Exception as e:  # noqa: BLE001 - the last attempt hands the failure on
+            logger.warning("Zusammenfassung: Einzelaufruf {} gescheitert ({})", versuch, e)
+            if versuch >= SUMMARY_COMPOSE_MAX_ATTEMPTS:
+                raise
+            await asyncio.sleep(SUMMARY_RETRY_DELAY_SECONDS)
+    raise RuntimeError("Der Einzelaufruf hat nichts geliefert.")
 
 
-def assemble(intro: str, titles: list[str], texts: list[str], headings: bool) -> str:
-    """Joins the written sections, with or without their headings."""
-    teile = [intro.strip()] if intro.strip() else []
+def assemble(intro: str, titles: list[str], texts: list[str], headings: bool,
+             title: str = "") -> str:
+    """Joins the written sections, with or without their headings.
+
+    The document title only goes in where the build plan allows headings at all: a plan
+    asking for one continuous text gets no heading of any level.
+    """
+    teile = [f"# {title.strip()}"] if title.strip() and headings else []
+    if intro.strip():
+        teile.append(intro.strip())
     for titel, text in zip(titles, texts):
         koerper = (text or "").strip()
         if not koerper:
             continue
         teile.append(f"## {titel}\n\n{koerper}" if headings else koerper)
     return "\n\n".join(teile)
+
+
+def split_title(text: str) -> tuple[str, str]:
+    """The document's own title and the body without it, ("", text) when it carries none.
+
+    The Word cover page shows the title, so leaving it in the body would print it twice.
+    """
+    zeilen = text.split("\n")
+    if not zeilen or not re.match(r"^#\s+\S", zeilen[0]):
+        return "", text
+    titel = zeilen[0].lstrip("#").strip()
+    rest = zeilen[1:]
+    while rest and not rest[0].strip():
+        rest.pop(0)
+    return titel, "\n".join(rest)
 
 
 def section_facts(section: Section, pool: list[Fact]) -> list[Fact]:

@@ -366,7 +366,7 @@
       },
       "summary": {
         "title": "Zusammenfassung",
-        "body": "Lange Dokumente, Audio- und Videoinhalte auf das Wesentliche bringen."
+        "body": "Mehrere Quellen zu einem Text zusammenführen, als Kurzbriefing, Lernleitfaden oder Zeitstrahl."
       },
       "glossary": {
         "title": "Glossar",
@@ -435,14 +435,13 @@
     },
     "summarize": {
       "title": "Zusammenfassung",
-      "intro": "Mehrere Quellen auf das Wesentliche bringen, wahlweise nach einem festen Aufbau.",
+      "intro": "Mehrere Quellen zu einem Text zusammenführen, als Kurzbriefing, Lernleitfaden oder Zeitstrahl.",
       "selectFileAria": "Dateien zur Zusammenfassung auswählen",
       "submit": "Zusammenfassung erstellen",
-      "longRunning": "Läuft noch. Umfangreiche Quellen brauchen ihre Zeit, du kannst die Seite verlassen.",
       "downloadLabel": "Herunterladen",
       "downloadDocxLabel": "Als Word herunterladen",
       "providerLabel": "KI-Anbieter",
-      "templateLabel": "Aufbau der Zusammenfassung",
+      "templateLabel": "Vorlage",
       "chosenFiles": "Gewählte Quellen",
       "removeFile": "Entfernen",
       "tooManySources": "Höchstens {max} Quellen je Zusammenfassung",
@@ -1362,7 +1361,8 @@
         "label": "Grenzen",
         "tabs": {
           "material": "Material",
-          "kontext": "Kontext"
+          "kontext": "Kontext",
+          "zusammenfassung": "Zusammenfassung"
         }
       }
     },
@@ -2013,6 +2013,34 @@
       "approxTokens": "≈ {n}k Token",
       "outOfRange": "Wert muss zwischen 1000 und 1000000 liegen.",
       "saveFailed": "Speichern fehlgeschlagen."
+    },
+    "toolNumbers": {
+      "outOfRange": "Wert muss zwischen {min} und {max} liegen.",
+      "summary_map_concurrency": {
+        "title": "Gleichzeitige Lese-Aufrufe",
+        "hint": "Wie viele Dateien zugleich gelesen werden. Gemessen am 20.09.: bei drei braucht der langsamste Aufruf 161 Sekunden, der Anbieter wirft einen Aufruf bei etwa 300 Sekunden weg. Bei fünf sind es 205 Sekunden für 27 Prozent mehr Durchsatz, ein halb so schneller Anbieter kippt den Lauf dann.",
+        "unit": "Aufrufe"
+      },
+      "summary_max_chars_per_source": {
+        "title": "Maximale Textmenge je Lese-Aufruf",
+        "hint": "Jede Datei geht ungeschnitten in einen Aufruf, dieser Wert ist damit zugleich die erlaubte Dateigröße. Was darüber liegt, wird beim Start des Auftrags abgelehnt, nicht abgeschnitten. Das Modellfenster muss die Menge tragen können.",
+        "unit": "Zeichen"
+      },
+      "summary_read_max_facts": {
+        "title": "Fakten-Deckel pro Datei",
+        "hint": "Wie viele Fakten ein Lese-Aufruf höchstens zurückgeben darf. Gemessen am 20.09.: das Modell hört bei etwa 33 Fakten von selbst auf, ein höherer Deckel bringt deshalb nichts. Der Anteil am Kontext-Budget kann den Wert zusätzlich senken.",
+        "unit": "Fakten"
+      },
+      "summary_call_timeout_seconds": {
+        "title": "KI-Call-Timeout",
+        "hint": "Wann ein einzelner Aufruf von uns aus abgebrochen wird. Der Anbieter wirft einen Aufruf bei etwa 300 Sekunden mit einem nackten Serverfehler weg. Unsere Grenze muss davor greifen, sonst kommt ein langer Aufruf als Serverfehler zurück statt als Zeitüberschreitung, die wir gezielt wiederholen.",
+        "unit": "Sekunden"
+      },
+      "summary_max_output_tokens": {
+        "title": "Maximales Token-Ausgabelimit (Lesephase)",
+        "hint": "Obergrenze für die Antwort eines Lese-Aufrufs. Greift nur, wenn der Fakten-Deckel von Hand hochgesetzt wurde. Eine abgeschnittene JSON-Antwort kostet die ganze Datei, nicht nur den letzten Fakt.",
+        "unit": "Token"
+      }
     },
     "learningToolsLanguageCard": {
       "title": "Sprache der Tools",

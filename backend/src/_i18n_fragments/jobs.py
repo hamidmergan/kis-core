@@ -165,6 +165,16 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "{name} und {more} weitere",
         "en": "{name} and {more} more",
     },
+    # Cover page and table of contents of the Word file. The language here follows the
+    # document, not the person who started the run: whoever reads it only sees the document.
+    "summary.docxToc": {
+        "de": "Inhaltsverzeichnis",
+        "en": "Table of contents",
+    },
+    "summary.docxDisclaimer": {
+        "de": "Mit künstlicher Intelligenz erstellt. Bitte vor der Verwendung auf Richtigkeit und Vollständigkeit prüfen.",
+        "en": "Created with artificial intelligence. Please check it for accuracy and completeness before use.",
+    },
 
     # ── image ────────────────────────────────────────────────────────────────
     "image.invalidSize": {

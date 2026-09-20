@@ -3,11 +3,15 @@
 from src.features.summary import templates as tp
 
 
-def test_es_gibt_fuenf_vorlagen_mit_eindeutigen_kuerzeln():
+def test_es_gibt_drei_vorlagen_mit_eindeutigen_kuerzeln():
     kuerzel = [t.slug for t in tp.TEMPLATES]
-    assert len(kuerzel) == 5
-    assert len(set(kuerzel)) == 5
-    assert tp.default_template().slug == "fliesstext"
+    assert len(kuerzel) == 3
+    assert len(set(kuerzel)) == 3
+    assert tp.default_template().slug == "kurzbriefing"
+
+
+def test_der_fliesstext_wird_nicht_mehr_angeboten():
+    assert tp.get_template("fliesstext") is None
 
 
 def test_eine_vorlage_wird_ueber_ihr_kuerzel_gefunden():
@@ -15,9 +19,8 @@ def test_eine_vorlage_wird_ueber_ihr_kuerzel_gefunden():
     assert tp.get_template("gibt_es_nicht") is None
 
 
-def test_nur_der_fliesstext_verzichtet_auf_ueberschriften():
-    ohne = [t.slug for t in tp.TEMPLATES if not t.headings]
-    assert ohne == ["fliesstext"]
+def test_jede_vorlage_gliedert_mit_ueberschriften():
+    assert [t.slug for t in tp.TEMPLATES if not t.headings] == []
 
 
 def test_die_prompt_tabelle_kann_den_text_ersetzen(monkeypatch):
@@ -42,3 +45,7 @@ def test_das_kurzbriefing_verlangt_zahlen_fristen_und_zustaendige():
     body = tp.get_template("kurzbriefing").body
     assert "Every figure, deadline and responsibility the material states appears" in body
     assert "always with what they refer to" not in body
+
+
+def test_die_haeufigen_fragen_werden_nicht_mehr_angeboten():
+    assert tp.get_template("haeufige_fragen") is None

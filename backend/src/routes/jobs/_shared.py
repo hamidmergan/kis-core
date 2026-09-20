@@ -2,6 +2,7 @@
 
 import json as json_lib
 import os
+from pathlib import PurePosixPath
 
 from src.i18n import DEFAULT_LOCALE, t
 from src.storage import file_exists, load_result_meta
@@ -86,6 +87,12 @@ def _format_job_rows(
             and bool(job["result_path"])
             and file_exists(job["result_path"])
         )
+        # The Word file sits next to the Markdown result, it is missing when its export failed.
+        has_docx = (
+            has_download
+            and job["tool"] == "summary"
+            and file_exists(str(PurePosixPath(job["result_path"]).with_suffix(".docx")))
+        )
         created_at_raw = job["created_at"]
         created_at = created_at_raw.isoformat() if hasattr(created_at_raw, "isoformat") else (created_at_raw or "")
         date_part = created_at[:10]
@@ -128,6 +135,7 @@ def _format_job_rows(
             "render_queued_at": _dt(job["render_queued_at"]),
             "expires_at": _dt(job["expires_at"]),
             "has_download": has_download,
+            "has_docx": has_docx,
             "result_filename": job["result_filename"],
             "folder_name": folder_name,
             "tts_params": tts_params or None,

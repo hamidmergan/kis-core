@@ -22,21 +22,6 @@ class Template:
 
 TEMPLATES: tuple[Template, ...] = (
     Template(
-        slug="fliesstext",
-        categories=("core statement", "figure or date", "party involved", "connection",
-                    "open question"),
-        name_de="Fließtext", name_en="Continuous text",
-        hint_de="Ein durchgehender Text ohne Überschriften.",
-        hint_en="One continuous text without headings.",
-        headings=False,
-        body=(
-            "Write one continuous text that carries the whole material. Paragraphs, no "
-            "headings, no bullet points. Every figure, date and named party the material "
-            "states appears with what it refers to. Open with the subject and its most "
-            "important point, close with what the material leaves open."
-        ),
-    ),
-    Template(
         slug="kurzbriefing",
         categories=("core statement", "figure", "deadline", "responsibility", "action needed",
                     "background"),
@@ -83,21 +68,6 @@ TEMPLATES: tuple[Template, ...] = (
             "order, one entry per line starting with the date or the period. Each entry names "
             "what happens, who is concerned and what follows from it. Undated material goes "
             "into a closing section headed as undated, in the output language."
-        ),
-    ),
-    Template(
-        slug="haeufige_fragen",
-        categories=("theme", "question the material answers", "figure", "party involved",
-                    "boundary"),
-        name_de="Häufige Fragen", name_en="Frequently asked questions",
-        hint_de="Frage und Antwort, so wie Lesende das Material befragen würden.",
-        hint_en="Question and answer, the way readers would ask the material.",
-        headings=True,
-        body=(
-            "Write the material as questions and answers. Each section holds one theme and "
-            "under it the questions a reader would ask, each followed by its answer in two to "
-            "five sentences drawn strictly from the material. Questions are written the way a "
-            "person asks, answers name figures, deadlines and parties with what they refer to."
         ),
     ),
 )

@@ -394,6 +394,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Zusammenfassungs-Häppchen muss zwischen {min} und {max} Zeichen liegen.",
         "en": "Summary batch must be between {min} and {max} characters.",
     },
+    "admin.settings.numberOutOfRange": {
+        "de": "Der Wert für {field} muss zwischen {min} und {max} liegen.",
+        "en": "The value for {field} must be between {min} and {max}.",
+    },
     "admin.settings.maxPagesOutOfRange": {
         "de": "Maximale Seiten pro Material muss zwischen {min} und {max} liegen.",
         "en": "Max pages per source must be between {min} and {max}.",

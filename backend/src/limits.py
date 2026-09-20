@@ -184,34 +184,60 @@ SUMMARY_MAX_SOURCES          = 10
 # Counted after extraction, so it holds for every format. A file goes into one call whole,
 # so this is also what the model's window has to carry.
 SUMMARY_MAX_CHARS_PER_SOURCE = 500_000
-# Every allowed file at full size, so the total never refuses what the two above allow.
-SUMMARY_MAX_TOTAL_CHARS      = SUMMARY_MAX_SOURCES * SUMMARY_MAX_CHARS_PER_SOURCE
 # Facts one read call may return, the share of the pool one source gets.
 SUMMARY_FACTS_MAX_CHARS      = 10_000
 SUMMARY_FACTS_MIN_CHARS      = 3_000
 # Room in a call for the prompt, the build plan and the sections already written.
 SUMMARY_PROMPT_RESERVE_CHARS = 60_000
+# Facts one read call may return. Measured 20.09.: a fact costs 89 to 152 tokens as JSON
+# with its proof, and the model saturates at about 33 facts per call anyway. Two files in
+# one call therefore returned 33 between them instead of 33 each, which is why every file
+# gets a call of its own.
+SUMMARY_READ_MAX_FACTS       = 40
+# Ceiling on the answer of a read call, the cap above times what a fact costs as JSON.
+# Measured 20.09.: the model stops at about 4.300 tokens on its own, so this only ever
+# catches a cap raised by hand, and a cut off answer costs the whole file.
+SUMMARY_MAX_OUTPUT_TOKENS    = 8_250
 # What the prompt around a read call costs on top of the file and its answer.
 SUMMARY_WINDOW_PROMPT_TOKENS = 1_500
-# Below this share of assigned facts the outline call is asked once more.
-SUMMARY_MIN_FACT_COVERAGE    = 0.9
 # One section per this many characters of facts, the planner gets it as a target.
 SUMMARY_CHARS_PER_SECTION    = 4_000
 SUMMARY_MIN_SECTIONS         = 3
 SUMMARY_MAX_SECTIONS         = 20
-# A writing call may return this many tokens, a section or the whole fallback text.
-SUMMARY_WRITE_MAX_TOKENS     = 4_000
+# Sections every source gets at least, so no file drops out of the plan.
+SUMMARY_SECTIONS_PER_SOURCE  = 2
+# Characters of prose one writing call may produce, so several small sections share a call.
+# Well below SUMMARY_WRITE_MAX_TOKENS times three, the rest is room for running long.
+SUMMARY_SECTION_GROUP_CHARS  = 15_000
+# Measured 20.09.: a section costs about this much prose, plus per fact.
+SUMMARY_SECTION_BASE_CHARS   = 600
+SUMMARY_SECTION_FACT_CHARS   = 160
+# Facts one assignment call places. Measured 20.09.: 400 in one answer, no gap, because the
+# answer is only two numbers per fact. What a weaker model still drops gets one more call.
+SUMMARY_ASSIGN_BATCH_FACTS   = 400
+# Assignment calls out at once, the answers are applied in the order of the batches.
+SUMMARY_ASSIGN_CONCURRENCY   = 5
+# A writing call may return this many tokens, a group of sections or the whole fallback text.
+# Measured 20.09.: the provider takes 32.000, so 4.000 was cutting long sections for nothing.
+SUMMARY_WRITE_MAX_TOKENS     = 8_000
 # The shared client cuts reads at 120 s, this tool's calls may take longer.
-SUMMARY_CALL_TIMEOUT_SECONDS = 420
+# Measured 20.09.: myLab drops a call at about 300 s with a bare 500. Ours has to fire
+# first, so a long call comes back as a timeout we retry, not as a server error.
+SUMMARY_CALL_TIMEOUT_SECONDS = 270
 # The watchdog counts silence, so the run reports in this often.
 SUMMARY_HEARTBEAT_SECONDS    = 60
-# Read calls started at once, dropped to one for the rest of a run once a provider refuses.
-SUMMARY_MAP_CONCURRENCY      = 10
+# Read calls out at once. Measured 20.09. on the real documents: at three the slowest
+# call takes 161 s and the provider drops a call at about 300 s, so 139 s are left over.
+# At five it is 205 s for 27 percent more throughput, and a provider half as fast kills it.
+SUMMARY_MAP_CONCURRENCY      = 3
 SUMMARY_READ_MAX_ATTEMPTS    = 3
 SUMMARY_RETRY_DELAY_SECONDS  = 3
 # The waiting time doubles per attempt and stops growing here.
 SUMMARY_MAX_BACKOFF_SECONDS  = 60
 SUMMARY_OUTLINE_MAX_ATTEMPTS = 2
+# The fallback call writes the whole document from facts that are already on disk.
+# One dropped call would otherwise cost the stage everything it read.
+SUMMARY_COMPOSE_MAX_ATTEMPTS = 2
 
 # Shared slot pool for background work, a fixed number instead of detection.
 AIA_PARALLEL_SLOTS                     = 4

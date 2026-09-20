@@ -366,7 +366,7 @@
       },
       "summary": {
         "title": "Summary",
-        "body": "Distill long documents, audio and video content to the essentials."
+        "body": "Bring several sources together into one text, as a short briefing, study guide or timeline."
       },
       "glossary": {
         "title": "Glossary",
@@ -435,14 +435,13 @@
     },
     "summarize": {
       "title": "Summary",
-      "intro": "Condense several sources into one text, optionally along a fixed structure.",
+      "intro": "Bring several sources together into one text, as a short briefing, study guide or timeline.",
       "selectFileAria": "Choose files to summarise",
       "submit": "Create summary",
-      "longRunning": "Still running. Large sources take their time, you can leave this page.",
       "downloadLabel": "Download",
       "downloadDocxLabel": "Download as Word",
       "providerLabel": "AI provider",
-      "templateLabel": "Structure of the summary",
+      "templateLabel": "Template",
       "chosenFiles": "Chosen sources",
       "removeFile": "Remove",
       "tooManySources": "At most {max} sources per summary",
@@ -1362,7 +1361,8 @@
         "label": "Limits",
         "tabs": {
           "material": "Material",
-          "kontext": "Context"
+          "kontext": "Context",
+          "zusammenfassung": "Summary"
         }
       }
     },
@@ -2013,6 +2013,34 @@
       "approxTokens": "≈ {n}k tokens",
       "outOfRange": "Value must be between 1000 and 1000000.",
       "saveFailed": "Save failed."
+    },
+    "toolNumbers": {
+      "outOfRange": "Value must be between {min} and {max}.",
+      "summary_map_concurrency": {
+        "title": "Concurrent read calls",
+        "hint": "How many files are read at the same time. Measured on 20 Sept: at three the slowest call takes 161 seconds while the provider drops a call at about 300 seconds. At five it is 205 seconds for 27 percent more throughput, and a provider half as fast then kills the run.",
+        "unit": "calls"
+      },
+      "summary_max_chars_per_source": {
+        "title": "Maximum text per read call",
+        "hint": "Every file goes into one call whole, so this is also the allowed file size. Anything larger is refused when the job starts, not truncated. The model window has to be able to carry it.",
+        "unit": "characters"
+      },
+      "summary_read_max_facts": {
+        "title": "Fact cap per file",
+        "hint": "How many facts a single read call may return at most. Measured on 20 Sept: the model stops at about 33 facts on its own, so a higher cap buys nothing. The share of the context budget can lower the value further.",
+        "unit": "facts"
+      },
+      "summary_call_timeout_seconds": {
+        "title": "AI call timeout",
+        "hint": "When we drop a single call ourselves. The provider drops a call at about 300 seconds with a bare server error. Our own limit has to fire first, else a long call comes back as a server error instead of a timeout we can retry deliberately.",
+        "unit": "seconds"
+      },
+      "summary_max_output_tokens": {
+        "title": "Maximum output token limit (read phase)",
+        "hint": "Ceiling for the answer of a read call. It only bites when the fact cap was raised by hand. A cut off JSON answer costs the whole file, not just the last fact.",
+        "unit": "tokens"
+      }
     },
     "learningToolsLanguageCard": {
       "title": "Language of the tools",

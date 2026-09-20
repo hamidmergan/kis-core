@@ -33,7 +33,6 @@ export default function ZusammenfassungPage() {
   const [dragActive, setDragActive] = useState(false);
   const [doneJobUuid, setDoneJobUuid] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
-  const [stallMessage, setStallMessage] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
   const extensions = setup?.extensions ?? FALLBACK_EXTENSIONS;
@@ -100,7 +99,6 @@ export default function ZusammenfassungPage() {
     if (!files.length || processing) return;
     setProcessing(true);
     setErrorMessage("");
-    setStallMessage("");
     setDoneJobUuid(null);
     setStep(t("step.extract"));
     try {
@@ -126,9 +124,6 @@ export default function ZusammenfassungPage() {
             : t(`step.${p.step}`));
         },
         3000,
-        undefined,
-        () => setStallMessage(t("longRunning")),
-        120_000,
       );
       window.dispatchEvent(new Event("kis-jobs-changed"));
       setDoneJobUuid(data.job_uuid);
@@ -295,10 +290,6 @@ export default function ZusammenfassungPage() {
           )}
 
           {processing && <BackgroundHint />}
-
-          {stallMessage && !errorMessage && (
-            <p className="mt-3 text-sm text-warn" role="status">{stallMessage}</p>
-          )}
 
           {errorMessage && (
             <p className="mt-3 text-sm text-error" role="alert">{errorMessage}</p>

@@ -16,9 +16,12 @@ backend/demo/
 private/
 
 # Frontend
-node_modules/
+# Ohne Schraegstrich am Ende: mit ihm passt die Regel nur auf Verzeichnisse, und in
+# einem Worktree ist node_modules ein Symlink auf den Hauptbaum. Der taucht sonst bei
+# jedem Commit als unversionierte Datei auf.
+node_modules
 .vite/
-frontend/node_modules/
+frontend/node_modules
 frontend/.next/
 frontend/.next-verify/
 frontend/.next-prod/

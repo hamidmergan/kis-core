@@ -5,7 +5,7 @@ from typing import Any, Callable
 
 from pydantic import BaseModel, Field
 
-from src.limits import SUMMARY_CALL_TIMEOUT_SECONDS
+from src.features.summary import settings as cfg
 
 # Carried by every model call of this pipeline.
 GROUND_RULES = (
@@ -33,6 +33,7 @@ class Section(BaseModel):
 class Outline(BaseModel):
     """The plan of a document, empty sections mean the planning call failed."""
 
+    title: str = ""
     intro: str = ""
     sections: list[Section] = Field(default_factory=list)
 
@@ -52,8 +53,9 @@ class Caller:
             kwargs.setdefault("session_id", self.job_uuid)
             kwargs.setdefault("tags", ["summary"])
         # The SDK retries timeouts on its own, so one attempt is the only way the limit holds.
+        # Asked here, so a changed limit reaches a running worker with the next call.
         antwort = await self.client.with_options(max_retries=0).chat.completions.create(
-            model=self.model, timeout=SUMMARY_CALL_TIMEOUT_SECONDS, **kwargs,
+            model=self.model, timeout=cfg.call_timeout(), **kwargs,
         )
         if self.book is not None:
             self.book(antwort)

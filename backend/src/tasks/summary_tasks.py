@@ -1,6 +1,7 @@
 """Celery task of the summary tool: read the sources, cut, read, plan, write, in stages."""
 
 import json
+import re
 from pathlib import Path
 
 from loguru import logger
@@ -8,7 +9,8 @@ from loguru import logger
 from src import database as db
 from src.celery_app import celery_app
 from src.features.summary import pipeline as pl
-from src.features.summary import window
+from src.features.summary import settings as cfg
+from src.features.summary import window, writing
 from src.features.summary.docx_export import markdown_to_docx
 from src.features.summary.models import Caller
 from src.features.summary.templates import get_template
@@ -17,8 +19,7 @@ from src.i18n import t
 from src.limits import (
     STAGE_SOFT_TIME_LIMIT,
     STAGE_TIME_LIMIT,
-    SUMMARY_MAX_CHARS_PER_SOURCE,
-    SUMMARY_MAX_TOTAL_CHARS,
+    SUMMARY_MAX_SOURCES,
     SUMMARY_WRITE_MAX_TOKENS,
 )
 from src.security.usage_log import log_llm_response
@@ -90,6 +91,8 @@ def _read_sources(user_id: int, job_uuid: str, sources: list[dict], locale: str,
     gelesen: list[dict] = []
     gesamt = 0
     woerter = 0
+    # Read once per stage, so every file of this run is measured against the same number.
+    je_datei = cfg.chars_per_source()
     for i, quelle in enumerate(sources):
         name = quelle["filename"]
         ext = Path(name).suffix.lower().lstrip(".")
@@ -102,9 +105,9 @@ def _read_sources(user_id: int, job_uuid: str, sources: list[dict], locale: str,
         _touch(job_uuid, i + 1, len(sources))
         if not text.strip():
             continue
-        if len(text) > SUMMARY_MAX_CHARS_PER_SOURCE:
+        if len(text) > je_datei:
             raise ValueError(t("summary.sourceTooLarge", locale, name=name,
-                               chars=_zahl(len(text)), max=_zahl(SUMMARY_MAX_CHARS_PER_SOURCE)))
+                               chars=_zahl(len(text)), max=_zahl(je_datei)))
         gelesen.append({"source_id": f"doc_{i + 1:02d}", "filename": name, "content": text,
                         "ext": ext, "pages": seiten})
         gesamt += len(text)
@@ -112,9 +115,9 @@ def _read_sources(user_id: int, job_uuid: str, sources: list[dict], locale: str,
 
     if woerter < _MIN_WORDS:
         raise ValueError(t("summary.contentTooShort", locale, words=woerter, min=_MIN_WORDS))
-    if gesamt > SUMMARY_MAX_TOTAL_CHARS:
+    if gesamt > SUMMARY_MAX_SOURCES * je_datei:
         raise ValueError(t("summary.materialTooLarge", locale,
-                           chars=_zahl(gesamt), max=_zahl(SUMMARY_MAX_TOTAL_CHARS)))
+                           chars=_zahl(gesamt), max=_zahl(SUMMARY_MAX_SOURCES * je_datei)))
 
     _window_or_raise(gelesen, provider_id, locale)
     _write_text(user_id, job_uuid, _SOURCES_FILE, json.dumps(gelesen, ensure_ascii=False))
@@ -223,8 +226,54 @@ class _JobStore:
         db.touch_job_heartbeat(self._job)
 
 
-def _result_name(names: list[str]) -> str:
-    """The file name of the result, several uploaded files get a collective name."""
+_TITLE_MAX_CHARS = 80
+# Anything a file name must not carry, on any of the systems a download lands on.
+_TITLE_FORBIDDEN = re.compile(r'[\\/:*?"<>|\x00-\x1f]')
+
+
+def _outline_title(user_id: int, job_uuid: str) -> str:
+    """The title the planning call already gave this document, "" when there is none.
+
+    The plan is on disk from that one call, so no extra call is needed to name the file.
+    """
+    plan = _parse_json(job_uuid, _OUTLINE_FILE,
+                       _read_text(user_id, job_uuid, _OUTLINE_FILE), None)
+    if not isinstance(plan, dict):
+        return ""
+    return str(plan.get("title") or "").strip()
+
+
+def _docx_locale(user_id: int, job_uuid: str, fallback: str) -> str:
+    """The language of the Word cover page: German for a German document, English for the rest.
+
+    It follows the document, not the person who started the run, because a reader of the
+    file only ever sees the document. A failed language probe falls back to that person.
+    """
+    sprache = (_read_text(user_id, job_uuid, "language.txt") or "").strip()
+    if not sprache or sprache == pl.LANGUAGE_FALLBACK:
+        return fallback
+    return "de" if sprache.casefold() in ("german", "deutsch") else "en"
+
+
+def _clean_title(raw: str) -> str:
+    """A title reduced to what may stand in a file name, "" when nothing is left."""
+    titel = " ".join(str(raw or "").split()).lstrip("#").strip()
+    titel = _TITLE_FORBIDDEN.sub(" ", titel)
+    titel = " ".join(titel.split()).strip(" .")
+    if len(titel) > _TITLE_MAX_CHARS:
+        gekuerzt = titel[:_TITLE_MAX_CHARS].rsplit(" ", 1)[0]
+        titel = (gekuerzt or titel[:_TITLE_MAX_CHARS]).strip(" .")
+    return titel
+
+
+def _result_name(names: list[str], title: str = "") -> str:
+    """The file name of the result, the document's own title when it has one.
+
+    Without a title, several uploaded files get a collective name.
+    """
+    titel = _clean_title(title)
+    if titel:
+        return f"{titel}.md"
     if len(names) == 1:
         return f"{Path(names[0]).stem}.md"
     return f"{Path(names[0]).stem} und {len(names) - 1} weitere.md"
@@ -269,11 +318,16 @@ def _run_summary_inner(job_uuid: str, sources: list[dict], template_slug: str,
             raise StageContinue from None
         _write_text(user_id, job_uuid, _RESULT_FILE, fertig)
 
-    name = _result_name([q["filename"] for q in quellen])
+    # The heading of the finished text, else the plan's title: a build plan without
+    # headings keeps the title out of the Markdown, the plan still carries it.
+    eigener, rumpf = writing.split_title(fertig)
+    titel = eigener or _outline_title(user_id, job_uuid)
+    name = _result_name([q["filename"] for q in quellen], titel)
     ergebnis = save_result_file(user_id, job_uuid, ".md", fertig.encode("utf-8"))
     try:
         save_result_file(user_id, job_uuid, ".docx",
-                         markdown_to_docx(fertig, title=Path(name).stem))
+                         markdown_to_docx(rumpf, title=titel or Path(name).stem,
+                                          locale=_docx_locale(user_id, job_uuid, locale)))
     except Exception as e:  # noqa: BLE001 - the Word file is an extra, the Markdown result must still count as done
         from celery.exceptions import SoftTimeLimitExceeded
         if isinstance(e, SoftTimeLimitExceeded):

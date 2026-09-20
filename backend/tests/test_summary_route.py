@@ -40,7 +40,7 @@ def stub(monkeypatch):
 
 async def test_templates_nennen_vorlagen_und_grenzen():
     antwort = await route.list_templates(_user={})
-    assert [v["slug"] for v in antwort["templates"]][0] == "fliesstext"
+    assert [v["slug"] for v in antwort["templates"]][0] == "kurzbriefing"
     assert antwort["maxSources"] == 10 and ".pdf" in antwort["extensions"]
 
 
@@ -55,10 +55,10 @@ async def test_zwei_dateien_werden_nummeriert_abgelegt(stub):
     assert slug == "zeitstrahl"
 
 
-async def test_ohne_vorlage_gilt_der_fliesstext(stub):
+async def test_ohne_vorlage_gilt_das_kurzbriefing(stub):
     await route.summarize(request=_Request(), files=[_Upload(b"x " * 100, "a.txt")],
                           template=None, provider_id=None, current_user={"user_id": 1}, locale="de")
-    assert stub["args"][2] == "fliesstext"
+    assert stub["args"][2] == "kurzbriefing"
 
 
 async def test_eine_fremde_vorlage_wird_abgelehnt(stub):

@@ -5,10 +5,6 @@ from src.features.summary.window import tokens_needed
 from src.utils.file_validation import SUMMARY_EXTENSIONS
 
 
-def test_zehn_dateien_in_voller_groesse_sind_erlaubt():
-    assert l.SUMMARY_MAX_TOTAL_CHARS == l.SUMMARY_MAX_SOURCES * l.SUMMARY_MAX_CHARS_PER_SOURCE
-
-
 def test_alle_quellen_passen_mit_mindestfakten_ins_budget():
     budget = l.AIA_TOOL_CONTEXT_MAX_CHARS - l.SUMMARY_PROMPT_RESERVE_CHARS
     assert l.SUMMARY_MAX_SOURCES * l.SUMMARY_FACTS_MIN_CHARS <= budget

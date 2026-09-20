@@ -9,6 +9,9 @@ from loguru import logger
 _MAX_FIELD_CHARS = 2_000
 
 
+_MAX_REFERENCE_CHARS = 80
+
+
 @dataclass(frozen=True)
 class Fact:
     """One statement with its proof, its file and its number in the pool."""
@@ -19,6 +22,8 @@ class Fact:
     citation: str
     source_id: str
     source_name: str
+    # The part of the source the statement sits in, such as "§ 27 Abs. 3". Often empty.
+    reference: str = ""
 
 
 def _strip_wrapper(raw: str | None) -> str:
@@ -65,6 +70,7 @@ def parse_facts(raw: str | None) -> list[dict]:
             "category": _clean(eintrag.get("category"), 80),
             "fact": aussage,
             "citation": _clean(eintrag.get("citation")),
+            "reference": _clean(eintrag.get("reference"), _MAX_REFERENCE_CHARS),
         })
     return fakten
 
@@ -126,36 +132,82 @@ def salvage_facts(text: str) -> list[dict]:
     return objekte
 
 
+def _key(text: str) -> str:
+    """The comparison form of a statement: letters and digits only, lower case."""
+    return re.sub(r"[\W_]+", "", text.casefold(), flags=re.UNICODE)
+
+
+# Below this a statement is too short for containment to mean it is the same statement.
+_MIN_CONTAINED_CHARS = 40
+
+
+def unique_statements(texts: list[str]) -> list[int]:
+    """The positions worth keeping: a repeat and a statement another carries in full drop out.
+
+    The read call returns the same sentence more than once, once per category it fits,
+    and the writer would then render each copy as its own bullet point.
+    """
+    schluessel = [_key(t) for t in texts]
+    verworfen: set[int] = set()
+    for i, eigener in enumerate(schluessel):
+        if not eigener or i in verworfen:
+            continue
+        for j in range(i + 1, len(schluessel)):
+            if j in verworfen:
+                continue
+            anderer = schluessel[j]
+            if not anderer or eigener == anderer:
+                verworfen.add(j)
+            elif len(anderer) >= _MIN_CONTAINED_CHARS and anderer in eigener:
+                verworfen.add(j)
+            elif len(eigener) >= _MIN_CONTAINED_CHARS and eigener in anderer:
+                # The later one says the same thing more fully, so this one steps aside.
+                verworfen.add(i)
+                break
+    return [i for i, k in enumerate(schluessel) if k and i not in verworfen]
+
+
 def build_pool(sources: list[dict], saved: dict[str, list[dict]]) -> list[Fact]:
     """The facts of all files as one numbered list, in the order of the files.
 
     Numbered here and not on saving: the files are read at the same time and their
     answers arrive in any order, only the pool gives the same number twice.
     """
-    vorrat: list[Fact] = []
-    nummer = 0
+    rohe: list[tuple[dict, str, str]] = []
     for quelle in sources:
         sid = quelle["source_id"]
         for eintrag in saved.get(sid) or []:
             aussage = _clean(eintrag.get("fact"))
-            if not aussage:
-                continue
-            nummer += 1
-            vorrat.append(Fact(
-                fact_id=nummer,
-                category=_clean(eintrag.get("category"), 80),
-                fact=aussage,
-                citation=_clean(eintrag.get("citation")),
-                source_id=sid,
-                source_name=quelle["filename"],
-            ))
+            if aussage:
+                rohe.append((eintrag, sid, quelle["filename"]))
+    behalten = unique_statements([_clean(e.get("fact")) for e, _, _ in rohe])
+    if len(behalten) < len(rohe):
+        logger.info("Zusammenfassung: {} von {} Fakten sind Wiederholungen und fallen weg",
+                    len(rohe) - len(behalten), len(rohe))
+    vorrat: list[Fact] = []
+    for nummer, stelle in enumerate(behalten, start=1):
+        eintrag, sid, name = rohe[stelle]
+        vorrat.append(Fact(
+            fact_id=nummer,
+            category=_clean(eintrag.get("category"), 80),
+            fact=_clean(eintrag.get("fact")),
+            citation=_clean(eintrag.get("citation")),
+            source_id=sid,
+            source_name=name,
+            reference=_clean(eintrag.get("reference"), _MAX_REFERENCE_CHARS),
+        ))
     return vorrat
 
 
-def fact_line(fact: Fact, with_citation: bool = True) -> str:
+def fact_line(fact: Fact, with_citation: bool = True, with_source: bool = True) -> str:
     """One fact as the model sees it, its number first so the outline can point at it."""
-    kopf = f"#{fact.fact_id} ({fact.category}) [{fact.source_name}] {fact.fact}"
-    if with_citation and fact.citation:
+    quelle = f" [{fact.source_name}]" if with_source else ""
+    kopf = f"#{fact.fact_id} ({fact.category}){quelle} {fact.fact}"
+    if not with_citation:
+        return kopf
+    if fact.reference:
+        kopf = f"{kopf} Stelle: {fact.reference}"
+    if fact.citation:
         return f'{kopf} Beleg: "{fact.citation}"'
     return kopf
 
@@ -170,8 +222,11 @@ def pool_block(facts: list[Fact], budget: int) -> str:
 
 
 def facts_block(facts: list[Fact], budget: int) -> str:
-    """The facts of one section, with their proofs, that is what the writer works from."""
-    text = "\n".join(fact_line(f) for f in facts)
+    """The facts of one section, with their proofs, that is what the writer works from.
+
+    Without the file name: it is working material, the reader's document never shows it.
+    """
+    text = "\n".join(fact_line(f, with_source=False) for f in facts)
     if len(text) > budget:
         logger.warning("Zusammenfassung: Fakten eines Abschnitts {} Zeichen, gekuerzt auf {}",
                        len(text), budget)

@@ -157,3 +157,44 @@ class TestDeckblattUndVerzeichnis:
         texte = [p.text for p in doc.paragraphs]
         assert "Kapitel" in texte
         assert texte.index("AMG74") < texte.index("Kapitel")
+
+
+class TestHinweisUndVerzeichnisUeberschrift:
+    """Deckblatt und Verzeichnis sprechen die Sprache des Dokuments, nicht die der Oberflaeche."""
+
+    def test_der_hinweis_steht_direkt_unter_titel_und_datum(self):
+        doc = _open(markdown_to_docx("## Kapitel", title="AMG74", today="19.09.2026"))
+        assert doc.paragraphs[0].text == "AMG74"
+        assert doc.paragraphs[1].text == "19.09.2026"
+        assert doc.paragraphs[2].text.startswith("Mit künstlicher Intelligenz erstellt.")
+
+    def test_der_hinweis_ist_kursiv(self):
+        doc = _open(markdown_to_docx("## Kapitel", title="AMG74"))
+        assert all(lauf.italic for lauf in doc.paragraphs[2].runs)
+
+    def test_das_verzeichnis_hat_eine_ueberschrift(self):
+        doc = _open(markdown_to_docx("## Kapitel", title="AMG74"))
+        texte = [p.text for p in doc.paragraphs]
+        assert "Inhaltsverzeichnis" in texte
+
+    def test_die_ueberschrift_landet_nicht_im_verzeichnis(self):
+        """Outline-Ebene 9 haelt sie aus dem TOC-Feld heraus, sonst listet es sich selbst."""
+        doc = _open(markdown_to_docx("## Kapitel", title="AMG74"))
+        absatz = next(p for p in doc.paragraphs if p.text == "Inhaltsverzeichnis")
+        assert absatz.style.name == "TOC Heading"
+        assert 'w:val="9"' in absatz.style.element.xml
+
+    def test_die_ueberschrift_steht_vor_dem_feld(self):
+        doc = _open(markdown_to_docx("## Kapitel", title="AMG74"))
+        texte = [p.text for p in doc.paragraphs]
+        assert texte.index("Inhaltsverzeichnis") < texte.index("Kapitel")
+
+    def test_englisch_bekommt_beide_texte_auf_englisch(self):
+        doc = _open(markdown_to_docx("## Kapitel", title="AMG74", locale="en"))
+        texte = [p.text for p in doc.paragraphs]
+        assert "Table of contents" in texte
+        assert doc.paragraphs[2].text.startswith("Created with artificial intelligence.")
+
+    def test_ohne_titel_gibt_es_weder_hinweis_noch_verzeichnis(self):
+        doc = _open(markdown_to_docx("Ein Satz."))
+        assert [p.text for p in doc.paragraphs] == ["Ein Satz."]

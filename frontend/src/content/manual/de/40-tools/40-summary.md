@@ -1,25 +1,26 @@
 # Zusammenfassung
 
-Bringt mehrere Quellen zu einem Text, wahlweise nach einem festen Aufbau.
+Bringt mehrere Quellen zu einem Text, als Kurzbriefing, Lernleitfaden oder Zeitstrahl.
 
 ![Der Dienst Zusammenfassung](/manual/{lang}/tool-summary.png)
 
 ## Quellen
 
 Bis zu zehn Dateien je Auftrag, als PDF, Word, PowerPoint, Text, Markdown oder Untertitel.
-Je Datei sind 500.000 Zeichen und 200 Seiten möglich, zusammen 5 Millionen Zeichen.
-Gelesen wird die Textebene. Gescannte Seiten ohne Text bleiben unberücksichtigt, eine PDF
+Wie viele Zeichen und Seiten eine einzelne Datei tragen darf, stellt die Verwaltung im
+Adminbereich unter Grenzen ein. Ab Werk sind es 500.000 Zeichen und 200 Seiten je Datei,
+für alle Dateien zusammen das Zehnfache der Zeichenzahl. Gelesen wird die Textebene. Gescannte Seiten ohne Text bleiben unberücksichtigt, eine PDF
 ohne jeden Text wird mit einer Meldung abgelehnt.
 
 Jede Datei geht am Stück in einen Aufruf. Fasst das gewählte Modell eine Datei nicht,
 lehnt der Dienst den Auftrag mit einer Meldung ab, die Datei und Modell nennt. Ein
 größeres Modell in der Anbieterauswahl behebt das.
 
-## Aufbau
+## Vorlage
 
-Fließtext, Kurzbriefing, Lernleitfaden, Zeitstrahl oder Häufige Fragen. Der Aufbau bestimmt,
-was aus den Quellen zuerst herausgelesen wird und wie der Text gegliedert ist. Die Zahl der
-Abschnitte richtet sich nach dem Umfang der Quellen.
+Kurzbriefing, Lernleitfaden oder Zeitstrahl. Die Vorlage bestimmt, was aus den Quellen
+zuerst herausgelesen wird und wie der Text gegliedert ist. Die Zahl der Abschnitte richtet
+sich nach dem Umfang der Quellen.
 
 ## Dauer
 
@@ -30,7 +31,8 @@ verlassen, der Auftrag läuft weiter.
 ## Das Ergebnis
 
 Es gibt den Text als Markdown und als Word-Datei mit Deckblatt und Inhaltsverzeichnis.
-Aussagen tragen den Namen der Datei, aus der sie stammen.
+Nennt Ihr Material die Stelle, auf der eine Aussage beruht, etwa einen Paragrafen oder
+einen Artikel, steht diese Stelle hinter der Aussage.
 
 ## Was Sie erwarten dürfen
 

@@ -12,6 +12,8 @@ from docx.oxml.shared import OxmlElement
 from docx.text.paragraph import Paragraph
 from loguru import logger
 
+from src.i18n import t
+
 _HEADING_RE = re.compile(r"^(#{1,6})\s+(.*)$")
 _BULLET_RE = re.compile(r"^( *)[-*]\s+(.*)$")
 _NUMBER_RE = re.compile(r"^ *\d+\.\s+(.*)$")
@@ -21,15 +23,17 @@ _SEPARATOR_CELL_RE = re.compile(r"^:?-+:?$")
 _BULLET_STYLES = ["List Bullet", "List Bullet 2", "List Bullet 3"]
 
 
-def markdown_to_docx(text: str, *, title: str = "", today: str = "") -> bytes:
+def markdown_to_docx(text: str, *, title: str = "", today: str = "",
+                     locale: str = "de") -> bytes:
     """Render headings, nested bullets, numbered lists, tables and bold text as a real Word document.
 
     With a title it opens with a cover page and a table of contents, without one it starts
-    right at the text, which is what a caller that only wants the body gets.
+    right at the text, which is what a caller that only wants the body gets. The locale is
+    the document's own language, it only reaches the front matter.
     """
     document = Document()
     if title:
-        _add_front_matter(document, title, today or date.today().strftime("%d.%m.%Y"))
+        _add_front_matter(document, title, today or date.today().strftime("%d.%m.%Y"), locale)
     lines = text.splitlines()
     i = 0
     total = len(lines)
@@ -68,12 +72,17 @@ def markdown_to_docx(text: str, *, title: str = "", today: str = "") -> bytes:
     return buffer.getvalue()
 
 
-def _add_front_matter(document: DocumentType, title: str, today: str) -> None:
+def _add_front_matter(document: DocumentType, title: str, today: str, locale: str) -> None:
     """Cover page, then the table of contents, each on a page of its own."""
     deckblatt = document.add_paragraph(style="Title")
     deckblatt.add_run(title)
     document.add_paragraph(today, style="Subtitle")
+    hinweis = document.add_paragraph().add_run(t("summary.docxDisclaimer", locale))
+    hinweis.italic = True
     _page_break(document)
+    # "TOC Heading" looks like a first level heading but sits at outline level 9, so the
+    # table of contents does not list its own heading.
+    document.add_paragraph(t("summary.docxToc", locale), style="TOC Heading")
     _add_toc(document)
     _page_break(document)
     _update_fields_on_open(document)

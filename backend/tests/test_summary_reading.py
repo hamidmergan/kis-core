@@ -47,7 +47,7 @@ async def _sofort(*_args, **_kwargs):
 async def _lies(caller, **kwargs):
     return await rd.read_source(caller, source=_QUELLE, language="German",
                                 template_body="BAUPLAN XY", categories=_KATEGORIEN,
-                                **{"max_chars": 6_000, **kwargs})
+                                **{"max_chars": 6_000, "max_facts": 40, **kwargs})
 
 
 @pytest.fixture(autouse=True)
@@ -80,16 +80,30 @@ async def test_das_feste_schema_wird_mitgeschickt():
     assert caller.client.optionen[0]["response_format"] is rd.FACTS_SCHEMA
 
 
-async def test_die_ausgabe_ist_gedeckelt():
+async def test_die_ausgabe_reicht_fuer_die_verlangten_fakten():
+    """Der Deckel folgt der Zahl der Fakten, sonst schneidet er jede lange Antwort ab."""
     caller = _caller([_antwort("A")])
     await _lies(caller, max_chars=9_000)
-    assert caller.client.optionen[0]["max_tokens"] == int(9_000 / CHARS_PER_TOKEN)
+    fakten = 9_000 // rd.CHARS_PER_FACT
+    assert caller.client.optionen[0]["max_tokens"] == \
+        int(fakten * rd._ANSWER_CHARS_PER_FACT / CHARS_PER_TOKEN)
+
+
+async def test_der_ausgabedeckel_aus_dem_adminbereich_gewinnt(monkeypatch):
+    """Ein von Hand hochgesetzter Faktendeckel darf die Antwort nicht ins Unendliche treiben."""
+    monkeypatch.setattr(rd.cfg, "output_tokens_cap", lambda: 4_000)
+    caller = _caller([_antwort("A")])
+
+    await _lies(caller, max_chars=30_000, max_facts=80)
+
+    assert caller.client.optionen[0]["max_tokens"] == 4_000
 
 
 async def test_fakten_kommen_mit_kategorie_und_beleg_zurueck():
     caller = _caller([_antwort("A")])
     fakten = await _lies(caller)
-    assert fakten == [{"category": "deadline", "fact": "A", "citation": "Beleg A"}]
+    assert fakten == [{"category": "deadline", "fact": "A", "citation": "Beleg A",
+                       "reference": ""}]
 
 
 async def test_mehr_fakten_als_erlaubt_werden_abgeschnitten():

@@ -191,12 +191,19 @@ export function JobArtifacts({ job }: { job: MyJob }) {
         ? (job.result_filename?.split(".").pop()?.toUpperCase() ?? t("fallbackFile"))
         : t("fallbackFile");
     return (
-      <div className="mt-3">
+      <div className="mt-3 flex flex-wrap gap-3 items-center">
         <DownloadChip
           href={`/api/jobs/${job.job_uuid}/download`}
           filename={job.result_filename || "download"}
           label={downloadLabel}
         />
+        {job.has_docx && (
+          <DownloadChip
+            href={`/api/jobs/${job.job_uuid}/docx`}
+            filename={(job.result_filename || "download").replace(/\.[^.]+$/, "") + ".docx"}
+            label="DOCX"
+          />
+        )}
       </div>
     );
   }

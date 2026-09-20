@@ -24,3 +24,7 @@ num2words>=0.5.14
 pytest>=8.0
 pytest-asyncio>=0.23.0
 pytest-cov>=5.0.0
+# Language of a summary, read locally instead of by a model call. babel turns the
+# code into an English name and only came in as a transitive dependency so far.
+langdetect>=1.0.9
+babel>=2.12.0

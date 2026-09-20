@@ -191,13 +191,13 @@ class TestSummaryParams:
         import src.storage as storage
         monkeypatch.setattr(storage, "get_job_file", lambda uid, job, name: json.dumps({
             "sources": [{"filename": "a.txt", "input_path": "p1"}],
-            "template_slug": "fliesstext", "provider_id": None,
+            "template_slug": "kurzbriefing", "provider_id": None,
         }).encode())
 
         angaben = job_recovery._summary_params({"user_id": 7, "job_uuid": "j"})
 
         assert angaben == {"sources": [{"filename": "a.txt", "input_path": "p1"}],
-                           "template_slug": "fliesstext", "provider_id": None}
+                           "template_slug": "kurzbriefing", "provider_id": None}
 
     def test_ohne_die_datei_bricht_es_verstaendlich_ab(self, monkeypatch):
         import src.storage as storage

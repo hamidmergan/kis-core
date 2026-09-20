@@ -4,13 +4,17 @@ import asyncio
 
 from loguru import logger
 
+from src.features.summary import settings as cfg
 from src.features.summary.facts import parse_facts
 from src.features.summary.models import GROUND_RULES, Caller
 from src.limits import SUMMARY_READ_MAX_ATTEMPTS, SUMMARY_RETRY_DELAY_SECONDS
 from src.services.model_limits import CHARS_PER_TOKEN
 
-# One fact with its proof, measured on the answers of the accepted run.
-_CHARS_PER_FACT = 300
+# What one fact is worth of the budget, and what it really costs as JSON with its proof.
+# The two differ, and budgeting the answer with the first number cut every long answer off.
+# The second is measured at 620 and set higher: the cap only ever limits, it reserves nothing.
+CHARS_PER_FACT = 300
+_ANSWER_CHARS_PER_FACT = 750
 
 FACTS_SCHEMA = {
     "type": "json_schema",
@@ -43,8 +47,16 @@ FACTS_SCHEMA = {
                                     "word for word in the language of the document."
                                 ),
                             },
+                            "reference": {
+                                "type": "string",
+                                "description": (
+                                    "Only the label the document gives the part this sits "
+                                    "in, such as '§ 27 Abs. 3' or 'Art. 5', at most a few "
+                                    "words. Empty when the document labels nothing."
+                                ),
+                            },
                         },
-                        "required": ["category", "fact", "citation"],
+                        "required": ["category", "fact", "citation", "reference"],
                         "additionalProperties": False,
                     },
                 },
@@ -107,10 +119,14 @@ def system_prompt(language: str, template_body: str, categories: tuple[str, ...]
         "and in full, then everything else that carries the argument. Write the category "
         "verbatim, never a category of your own.\n"
         f"Rule 13: Return at most {max_facts} facts. Drop filler and repetition before you "
-        "drop substance, and never return the same statement twice.\n"
+        "drop substance, and never return the same statement twice. A statement that fits "
+        "two categories is returned once, under the more specific one.\n"
         "Rule 14: This is one document among several. Never mention that, never refer to "
         "the others, never describe the document as a whole.\n"
-        f"\nCATEGORIES\n{raster}\n"
+        "Rule 15: The reference field carries ONLY the label of the part, nothing else, and "
+        "the citation stays the quoted sentence in full. A label without its sentence is not "
+        "a citation.\n"
+        + f"\nCATEGORIES\n{raster}\n"
         "\nThe writer follows the build plan below. What it needs comes first.\n\n"
         "BUILD PLAN\n" + template_body
     )
@@ -122,13 +138,14 @@ def user_prompt(source: dict) -> str:
 
 
 async def read_source(caller: Caller, *, source: dict, language: str, template_body: str,
-                      categories: tuple[str, ...], max_chars: int) -> list[dict] | None:
+                      categories: tuple[str, ...], max_chars: int,
+                      max_facts: int) -> list[dict] | None:
     """The facts of one file, None once every attempt has failed for another reason."""
     global _schema_mode_supported
-    max_facts = max(5, max_chars // _CHARS_PER_FACT)
+    grenze = max(5, min(max_facts, max_chars // CHARS_PER_FACT))
     nachrichten = [
         {"role": "system",
-         "content": system_prompt(language, template_body, categories, max_facts)},
+         "content": system_prompt(language, template_body, categories, grenze)},
         {"role": "user", "content": user_prompt(source)},
     ]
     for versuch in range(1, SUMMARY_READ_MAX_ATTEMPTS + 1):
@@ -136,7 +153,10 @@ async def read_source(caller: Caller, *, source: dict, language: str, template_b
             antwort = await caller.create(
                 messages=nachrichten,
                 temperature=0.1, name=f"read:{source['source_id']}",
-                max_tokens=max(256, int(max_chars / CHARS_PER_TOKEN)),
+                # Sized for the facts actually asked for, not for the budget they count against.
+                # The ceiling only ever catches a fact cap raised by hand in the admin area.
+                max_tokens=max(256, min(cfg.output_tokens_cap(),
+                                        int(grenze * _ANSWER_CHARS_PER_FACT / CHARS_PER_TOKEN))),
                 **({"response_format": FACTS_SCHEMA} if _schema_mode_supported else {}),
             )
             wahl = antwort.choices[0]
@@ -145,11 +165,11 @@ async def read_source(caller: Caller, *, source: dict, language: str, template_b
                                source["filename"])
             fakten = parse_facts(wahl.message.content)
             if fakten:
-                return fakten[:max_facts]
+                return fakten[:grenze]
             raise RuntimeError("Das Modell hat keine Fakten geliefert.")
         except Exception as e:  # noqa: BLE001 - one bad file must not sink the run
             if overloaded(e):
-                # The pipeline decides what to do with this, it owns the concurrency.
+                # The pipeline decides what to do with this, it owns the pacing.
                 raise RateLimited(str(e)) from e
             if _schema_mode_supported and _rejects_schema(e):
                 logger.warning("Zusammenfassung: Schema-Modus abgelehnt, dieser Prozess "

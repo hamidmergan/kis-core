@@ -1,9 +1,17 @@
 """The caller is the one place a model call gets its timeout and its booking."""
 
+import pytest
+
 from tests.summary_helpers import FakeClient
 
 from src.features.summary.models import GROUND_RULES, Caller, Outline, Section
 from src.limits import SUMMARY_CALL_TIMEOUT_SECONDS
+
+
+@pytest.fixture(autouse=True)
+def _leerer_adminbereich(monkeypatch):
+    """Ohne Eintrag gilt der Wert aus limits.py, die geteilte Datenbank bleibt aussen vor."""
+    monkeypatch.setattr("src.database.get_setting", lambda key, default="": default)
 
 
 class _ClientDerOptionenMerkt(FakeClient):
@@ -27,6 +35,16 @@ async def test_der_aufrufer_setzt_modell_und_zeitgrenze():
     assert antwort.choices[0].message.content == "ok"
     assert client.optionen[0]["timeout"] == SUMMARY_CALL_TIMEOUT_SECONDS
     assert client.optionen[0]["temperature"] == 0.1
+
+
+async def test_die_zeitgrenze_kommt_aus_dem_adminbereich(monkeypatch):
+    """Eine Aenderung im Adminbereich wirkt beim naechsten Aufruf, ohne Neustart."""
+    monkeypatch.setattr("src.database.get_setting", lambda key, default="": "120")
+    client = FakeClient(["ok"])
+
+    await Caller(client, "m").create(messages=[])
+
+    assert client.optionen[0]["timeout"] == 120
 
 
 async def test_der_aufrufer_bucht_jede_antwort():
@@ -65,6 +83,15 @@ async def test_mit_auftrags_id_gruppiert_sich_jeder_aufruf_darunter():
     assert [o["session_id"] for o in client.optionen] == ["job-abc", "job-abc"]
     assert all(o["tags"] == ["summary"] for o in client.optionen)
     assert client.optionen[1]["name"] == "outline"
+
+
+def test_der_timeout_bleibt_unter_der_grenze_des_anbieters():
+    """Measured 20.09.: myLab drops a call at about 300 s with a bare 500.
+
+    Our own limit has to fire first, else every long call fails as a server error
+    instead of a timeout we can retry deliberately.
+    """
+    assert SUMMARY_CALL_TIMEOUT_SECONDS < 300
 
 
 def test_die_grundregeln_nennen_die_sprache():

@@ -8,6 +8,7 @@ from typing import Callable, Protocol
 from loguru import logger
 
 from src.features.summary import facts as fc
+from src.features.summary import settings as cfg
 from src.features.summary import reading, writing
 from src.features.summary.models import Caller, Outline
 from src.features.summary.templates import Template, template_body
@@ -15,7 +16,6 @@ from src.limits import (
     SUMMARY_FACTS_MAX_CHARS,
     SUMMARY_FACTS_MIN_CHARS,
     SUMMARY_HEARTBEAT_SECONDS,
-    SUMMARY_MAP_CONCURRENCY,
     SUMMARY_MAX_BACKOFF_SECONDS,
     SUMMARY_PROMPT_RESERVE_CHARS,
     SUMMARY_READ_MAX_ATTEMPTS,
@@ -42,15 +42,9 @@ class RunStore(Protocol):
     def heartbeat(self) -> None: ...
 
 
-# Tells a file held back by the clock apart from one the provider turned away.
-_SKIPPED = object()
-_THROTTLED = object()
-
 _LANGUAGE_SAMPLE_CHARS = 1500
-_LANGUAGE_PROBE = (
-    "Identify the language of the text the user sends. Answer with the English name of "
-    "that language and nothing else, for example: English, German, Spanish."
-)
+# Below this the guess is noise, a file name or a page number is not a language.
+_LANGUAGE_MIN_CHARS = 80
 LANGUAGE_FALLBACK = "the language of the main body text, ignoring cover pages, headers and footers"
 _LANGUAGE_NAME_RE = re.compile(r"^[^\W\d_]+(?:[ -][^\W\d_]+)?$", re.UNICODE)
 
@@ -75,15 +69,34 @@ def clean_language_name(raw: str | None) -> str | None:
     return name if _LANGUAGE_NAME_RE.match(name) else None
 
 
-async def detect_language(caller: Caller, text: str) -> str:
-    """Asks the model for the language of a sample, a failure falls back."""
+def language_name(code: str) -> str | None:
+    """The English name behind a language code, None when the code names nothing.
+
+    Only the base tag is asked for, so 'zh-cn' answers Chinese and not a country.
+    """
+    from babel import Locale
+
     try:
-        antwort = await caller.create(
-            messages=[{"role": "system", "content": _LANGUAGE_PROBE},
-                      {"role": "user", "content": language_sample(text)}],
-            temperature=0.0, name="language",
-        )
-        return clean_language_name(antwort.choices[0].message.content) or LANGUAGE_FALLBACK
+        return clean_language_name(Locale.parse(code.split("-")[0]).get_display_name("en"))
+    except Exception:  # noqa: BLE001 - an unknown code is simply no name
+        return None
+
+
+def detect_language(text: str) -> str:
+    """The language of a sample, read locally. The fallback wording when unsure.
+
+    Naming its own language is not worth a model call, and a local guess cannot run
+    into a rate limit halfway through a run.
+    """
+    probe = language_sample(text)
+    if len(probe) < _LANGUAGE_MIN_CHARS:
+        return LANGUAGE_FALLBACK
+    try:
+        from langdetect import DetectorFactory, detect
+
+        # Without a fixed seed the same text can answer differently on two runs.
+        DetectorFactory.seed = 0
+        return language_name(detect(probe)) or LANGUAGE_FALLBACK
     except Exception as e:  # noqa: BLE001 - the fallback wording still works
         logger.warning("Zusammenfassung: Sprache nicht erkannt ({})", e)
         return LANGUAGE_FALLBACK
@@ -102,75 +115,71 @@ def facts_per_source(sources: int) -> int:
     return max(SUMMARY_FACTS_MIN_CHARS, min(SUMMARY_FACTS_MAX_CHARS, anteil))
 
 
+def read_max_facts(sources: int) -> int:
+    """Facts one read call may return.
+
+    Measured 20.09.: the model saturates at about 33 facts and 4.300 answer tokens per
+    call, whatever the cap says, so a bigger cap buys nothing and a call per file is the
+    only way every file gets its own share.
+    """
+    aus_budget = facts_per_source(sources) // reading.CHARS_PER_FACT
+    return max(5, min(cfg.facts_cap(), aus_budget))
+
+
+async def _read_one(caller, quelle, language, plan_text, categories, anteil, deckel):
+    """One file, retried with a growing wait for as long as the provider turns it away."""
+    for versuch in range(SUMMARY_READ_MAX_ATTEMPTS):
+        try:
+            return await reading.read_source(
+                caller, source=quelle, language=language, template_body=plan_text,
+                categories=categories, max_chars=anteil, max_facts=deckel)
+        except reading.RateLimited as e:
+            if versuch + 1 >= SUMMARY_READ_MAX_ATTEMPTS:
+                logger.warning("Zusammenfassung: Datei '{}' bleibt abgewiesen ({})",
+                               quelle["filename"], e)
+                return None
+            warte = min(SUMMARY_RETRY_DELAY_SECONDS * 2 ** versuch,
+                        SUMMARY_MAX_BACKOFF_SECONDS)
+            await asyncio.sleep(warte)
+    return None
+
+
 async def _map_phase(caller, sources, language, plan_text, categories, facts, store,
                      should_stop):
-    """One call per file for everything not read yet, ten at once until one is refused."""
+    """One call per file, as many at a time as the admin area allows.
+
+    Measured 20.09. on the real documents: at three the slowest read takes 161 s while
+    the provider drops a call at about 300 s. At five it is 205 s for 27 percent more
+    throughput, and a provider that turns half as fast then kills the run.
+    """
     fehlend = [q for q in sources if q["source_id"] not in facts]
     if not fehlend:
         return facts
     # From all files, not the missing ones, so every stage caps alike.
     anteil = facts_per_source(len(sources))
-    semaphore = asyncio.Semaphore(SUMMARY_MAP_CONCURRENCY)
-    gedrosselt = asyncio.Event()
+    deckel = read_max_facts(len(sources))
+    # Read once per stage, so a change in the admin area reaches the next stage.
+    semaphore = asyncio.Semaphore(cfg.map_concurrency())
+    abgebrochen = False
 
-    async def _one(quelle: dict):
+    async def _eine(quelle: dict) -> None:
+        nonlocal abgebrochen
         async with semaphore:
             # Asked after the semaphore, a check before it would pass for every coroutine at once.
             if should_stop and should_stop():
-                return _SKIPPED
-            if gedrosselt.is_set():
-                return _THROTTLED
-            try:
-                gelesen = await reading.read_source(
-                    caller, source=quelle, language=language, template_body=plan_text,
-                    categories=categories, max_chars=anteil)
-            except reading.RateLimited as e:
-                # The whole run slows down, the rest is worked through one at a time.
-                logger.warning("Zusammenfassung: Anbieter weist ab, ab jetzt einzeln ({})", e)
-                gedrosselt.set()
-                return _THROTTLED
+                abgebrochen = True
+                return
+            gelesen = await _read_one(caller, quelle, language, plan_text, categories,
+                                      anteil, deckel)
+        # Written outside the semaphore, so the next file starts while this one saves.
         if gelesen:
             # A failure is never written down, the next round asks again.
             await asyncio.to_thread(store.save_extraction, quelle["source_id"], gelesen)
-        return gelesen
-
-    ergebnisse = await asyncio.gather(*(_one(q) for q in fehlend))
-    for quelle, gelesen in zip(fehlend, ergebnisse):
-        if gelesen is not _SKIPPED and gelesen is not _THROTTLED and gelesen:
             facts[quelle["source_id"]] = gelesen
-    if any(g is _SKIPPED for g in ergebnisse):
+
+    await asyncio.gather(*(_eine(q) for q in fehlend))
+    if abgebrochen:
         raise PipelineInterrupted
-    abgewiesen = [q for q, g in zip(fehlend, ergebnisse) if g is _THROTTLED]
-    if not abgewiesen:
-        return facts
-    return await _sequential_phase(caller, abgewiesen, language, plan_text, categories,
-                                   anteil, facts, store, should_stop)
-
-
-async def _sequential_phase(caller, offen, language, plan_text, categories, anteil, facts,
-                            store, should_stop):
-    """What the provider turned away, one call at a time with a growing wait."""
-    for quelle in offen:
-        if should_stop and should_stop():
-            raise PipelineInterrupted
-        for versuch in range(SUMMARY_READ_MAX_ATTEMPTS):
-            try:
-                gelesen = await reading.read_source(
-                    caller, source=quelle, language=language, template_body=plan_text,
-                    categories=categories, max_chars=anteil)
-            except reading.RateLimited as e:
-                if versuch + 1 >= SUMMARY_READ_MAX_ATTEMPTS:
-                    logger.warning("Zusammenfassung: Datei '{}' bleibt abgewiesen ({})",
-                                   quelle["filename"], e)
-                    break
-                warte = min(SUMMARY_RETRY_DELAY_SECONDS * 2 ** versuch,
-                            SUMMARY_MAX_BACKOFF_SECONDS)
-                await asyncio.sleep(warte)
-                continue
-            if gelesen:
-                await asyncio.to_thread(store.save_extraction, quelle["source_id"], gelesen)
-                facts[quelle["source_id"]] = gelesen
-            break
     return facts
 
 
@@ -182,40 +191,66 @@ async def _outline_phase(caller, language, plan_text, sources, pool, pool_text, 
     if should_stop and should_stop():
         raise PipelineInterrupted
     await asyncio.to_thread(store.progress, "outline")
-    plan = await writing.plan_outline(caller, language=language, template_body=plan_text,
-                                      sources=sources, pool=pool, pool_text=pool_text,
-                                      target=writing.target_sections(len(pool_text)))
+    plan = await writing.plan_outline(
+        caller, language=language, template_body=plan_text, sources=sources, pool=pool,
+        pool_text=pool_text,
+        target=writing.target_sections(len(pool_text), len(sources)))
     if plan.sections:
         # An empty plan is never saved, or every later attempt would stay on the single call.
         await asyncio.to_thread(store.save_outline, plan.model_dump())
     return plan
 
 
+async def _write_group(caller, language, plan_text, outline, pool, indices, geschrieben,
+                       budget) -> list[str]:
+    """The texts of these sections in one call, one call each when the cut is not safe."""
+    abschnitte = [outline.sections[i] for i in indices]
+    andere = [a for j, a in enumerate(outline.sections) if j > max(indices)]
+    fakten = [writing.section_facts(a, pool) for a in abschnitte]
+    texte = await writing.write_sections(
+        caller, language=language, template_body=plan_text, group=abschnitte, others=andere,
+        written=geschrieben, facts=fakten, budget=budget)
+    if texte is not None:
+        return texte
+    logger.warning("Zusammenfassung: Gruppe von {} Abschnitten nicht trennbar, einzeln",
+                   len(indices))
+    einzeln: list[str] = []
+    for abschnitt, eigene in zip(abschnitte, fakten):
+        text = await writing.write_sections(
+            caller, language=language, template_body=plan_text, group=[abschnitt],
+            others=andere,
+            written=geschrieben + list(zip([a.title for a in abschnitte], einzeln)),
+            facts=[eigene], budget=budget)
+        if not text:
+            raise RuntimeError("Das Modell hat nichts geantwortet.")
+        einzeln.append(text[0])
+    return einzeln
+
+
 async def _section_phase(caller, language, plan_text, outline, pool, headings,
                          store, should_stop):
-    fertig = await asyncio.to_thread(store.load_sections)
-    texte: list[str] = []
+    texte: dict[int, str] = dict(await asyncio.to_thread(store.load_sections))
     geschrieben: list[tuple[str, str]] = []
     gesamt = len(outline.sections)
     budget = facts_budget()
-    for i, abschnitt in enumerate(outline.sections):
-        if i in fertig:
-            texte.append(fertig[i])
-            geschrieben.append((abschnitt.title, fertig[i]))
-            continue
-        if should_stop and should_stop():
-            raise PipelineInterrupted
-        await asyncio.to_thread(store.progress, "section", i + 1, gesamt)
-        andere = [a for j, a in enumerate(outline.sections) if j > i]
-        text = await writing.write_section(caller, language=language, template_body=plan_text,
-                                           section=abschnitt, others=andere,
-                                           written=geschrieben,
-                                           facts=writing.section_facts(abschnitt, pool),
-                                           budget=budget)
-        await asyncio.to_thread(store.save_section, i, text)
-        texte.append(text)
-        geschrieben.append((abschnitt.title, text))
-    return writing.assemble(outline.intro, [a.title for a in outline.sections], texte, headings)
+    for gruppe in writing.group_sections(outline.sections):
+        offen = [i for i in gruppe if i not in texte]
+        if offen:
+            if should_stop and should_stop():
+                raise PipelineInterrupted
+            await asyncio.to_thread(store.progress, "section", gruppe[-1] + 1, gesamt)
+            # What an earlier stage already wrote is context here, never work again.
+            vorher = geschrieben + [(outline.sections[i].title, texte[i])
+                                    for i in gruppe if i in texte]
+            neu = await _write_group(caller, language, plan_text, outline, pool, offen,
+                                     vorher, budget)
+            for i, text in zip(offen, neu):
+                await asyncio.to_thread(store.save_section, i, text)
+                texte[i] = text
+        geschrieben += [(outline.sections[i].title, texte[i]) for i in gruppe]
+    return writing.assemble(outline.intro, [a.title for a in outline.sections],
+                            [texte.get(i, "") for i in range(gesamt)], headings,
+                            title=outline.title)
 
 
 async def _keepalive(store: RunStore, interval: float) -> None:
@@ -246,7 +281,7 @@ async def _build(caller, sources, template, store, should_stop) -> str:
     sprache = await asyncio.to_thread(store.load_language)
     if not sprache:
         probe = next((q["content"] for q in sources if q["content"]), "")
-        sprache = await detect_language(caller, probe)
+        sprache = detect_language(probe)
         await asyncio.to_thread(store.save_language, sprache)
 
     await asyncio.to_thread(store.progress, "map")

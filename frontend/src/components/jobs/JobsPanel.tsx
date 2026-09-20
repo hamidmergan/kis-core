@@ -30,6 +30,7 @@ interface MyJob {
   expires_at: string | null;
   render_queued_at: string | null;
   has_download: boolean;
+  has_docx?: boolean;
   result_filename: string | null;
   tts_params?: { voice_id?: string; voice_label?: string; provider?: string } | null;
   is_generating_scripts?: boolean;
@@ -273,6 +274,14 @@ export default function JobsPanel() {
     a.click();
   };
 
+  const handleDownloadDocx = (e: React.MouseEvent, job: MyJob) => {
+    e.stopPropagation();
+    const a = document.createElement("a");
+    a.href = `/api/jobs/${job.job_uuid}/docx`;
+    if (job.result_filename) a.download = job.result_filename.replace(/\.[^.]+$/, "") + ".docx";
+    a.click();
+  };
+
   const handleDownloadBundle = (e: React.MouseEvent, job: MyJob) => {
     e.stopPropagation();
     // Direct navigation — browser handles the download natively (instant start)
@@ -401,6 +410,17 @@ export default function JobsPanel() {
                                 </svg>
                                 {SCREENCAST_RENDER_TOOLS.has(job.tool) || job.tool === "screencast_translate" ? "MP4" : job.tool === "image_generate" ? "PNG" : job.tool === "image_edit" ? "PNG" : job.tool === "image_analyze" ? "TXT" : job.tool === "tts" ? "MP3" : (job.tool === "transcription" || job.tool === "translation" || job.tool === "summary") ? (job.result_filename?.split(".").pop()?.toUpperCase() ?? tArtifacts("fallbackFile")) : tArtifacts("fallbackFile")}
                               </button>
+                              {job.has_docx && (
+                                <button
+                                  onClick={(e) => handleDownloadDocx(e, job)}
+                                  className="download-link text-xs text-kb hover:underline flex items-center gap-1"
+                                >
+                                  <svg className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                  </svg>
+                                  DOCX
+                                </button>
+                              )}
                               {(SCREENCAST_RENDER_TOOLS.has(job.tool) || job.tool === "screencast_translate") && (
                                 <button
                                   onClick={(e) => handleDownloadBundle(e, job)}
