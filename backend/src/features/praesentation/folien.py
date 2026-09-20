@@ -10,13 +10,34 @@ from src.features.praesentation.schemas import (
     MAX_SERIES_NAME_CHARS, MAX_SUBTITLE_CHARS, MAX_TABLE_ROWS, MAX_TEXT_ITEMS, MAX_TITLE_CHARS,
     Body, Column, ImageSpec, OutlineRow, PraesentationParams, Series, Slide,
 )
+from src.services.facts.pool import facts_block, facts_for
+
+
+def fakten_je_folie(rows: list[OutlineRow], pool: list, budget: int) -> dict[str, str]:
+    """The facts of every row as text, the budget shared out over the rows of one call.
+
+    A row the planner gave no numbers gets the whole pool: that is not always a planning
+    mistake, an agenda or a closing slide really does draw on everything.
+    """
+    if not pool:
+        return {}
+    anteil = max(1, budget // max(1, len(rows)))
+    return {r.id: facts_block(facts_for(r.fact_ids, pool) or pool, anteil) for r in rows}
 
 
 def build_messages(source: str, params: PraesentationParams, rows: list[OutlineRow],
-                   formen: dict[str, dict]) -> list[dict]:
+                   formen: dict[str, dict], fakten: dict[str, str] | None = None) -> list[dict]:
+    """The content call for one batch of slides.
+
+    With ``fakten`` every slide carries its own facts and the shared material block goes
+    away, so no slide is written from the whole deck's material any more.
+    """
     lang = SPRACHE.get(params.language, "German")
+    quelle_regel = ("from its own facts only. Each slide below carries the facts it rests "
+                    "on, and you never use the facts of another slide.\n"
+                    ) if fakten else "from the material only.\n"
     system = (
-        "You write the content of slides for university teaching, from the material only.\n"
+        f"You write the content of slides for university teaching, {quelle_regel}"
         f"Write all slide text in {lang}. Write image prompts in English.\n"
         "For every slide you get its role, title, gist and the fields of its layout with a word "
         "limit each. Fill exactly these fields:\n"
@@ -52,8 +73,12 @@ def build_messages(source: str, params: PraesentationParams, rows: list[OutlineR
         if f["bilder"]:
             zeilen.append(f"  images: {f['bilder']}")
         zeilen.append(f"  notes: {'yes' if params.notes else 'no'}")
+        eigene = (fakten or {}).get(r.id, "").strip()
+        if eigene:
+            zeilen.append("  facts of this slide:\n" + eigene)
         teile.append("\n".join(zeilen))
-    user = f"MATERIAL:\n{source}\n\nSLIDES TO WRITE:\n" + "\n".join(teile)
+    kopf = "" if fakten else f"MATERIAL:\n{source}\n\n"
+    user = f"{kopf}SLIDES TO WRITE:\n" + "\n".join(teile)
     if params.instructions.strip():
         user += f"\n\nINSTRUCTION FROM THE TEACHER: {params.instructions.strip()}"
     return [{"role": "system", "content": system}, {"role": "user", "content": user}]
@@ -193,7 +218,7 @@ def regen_messages(slide: Slide, row: OutlineRow, form: dict, params: Praesentat
     return basis
 
 
-def _inhaltswoerter(text: str) -> set[str]:
+def inhaltswoerter(text: str) -> set[str]:
     return {w.lower() for w in re.findall(r"\w{5,}", text)}
 
 
@@ -201,13 +226,13 @@ def source_excerpt(source: str, needles: list[str], limit: int) -> str:
     """The stretch of the material that shares most words with the needles."""
     if len(source) <= limit:
         return source
-    woerter = set().union(*(_inhaltswoerter(n) for n in needles if n))
+    woerter = set().union(*(inhaltswoerter(n) for n in needles if n))
     if not woerter:
         return source[:limit]
     schritt = max(200, limit // 2)
     beste, wert = 0, -1
     for start in range(0, len(source), schritt):
-        treffer = len(woerter & _inhaltswoerter(source[start:start + limit]))
+        treffer = len(woerter & inhaltswoerter(source[start:start + limit]))
         if treffer > wert:
             beste, wert = start, treffer
     return source[beste:beste + limit]

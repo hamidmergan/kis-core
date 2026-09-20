@@ -1253,6 +1253,7 @@
       },
       "slides": {
         "working": "Die Folien werden erstellt",
+        "progressMaterial": "Die Quellen werden gelesen",
         "progressTexts": "{done} von {total} Texten geschrieben",
         "progressImages": "{done} von {total} Bildern erzeugt",
         "progressBuild": "Die Datei wird erstellt",

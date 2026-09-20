@@ -129,6 +129,27 @@ PRAESENTATION_IMAGE_PARALLELISM = 4
 # Material for a single slide, whether searched or cut out of the run's snapshot.
 PRAESENTATION_SLIDE_CONTEXT_CHARS = 6000
 
+# --- Präsentation: reading every source into facts ---------------------------
+# One call per source, so no source depends any more on its place in the list.
+# The least and most one source may bring to the pool.
+PRAESENTATION_FACTS_MIN_CHARS      = 3_000
+PRAESENTATION_FACTS_MAX_CHARS      = 12_000
+# The outline prompt carries the roles and the rules of a deck, so it needs more room
+# kept free than the podcast's script prompt does.
+PRAESENTATION_PROMPT_RESERVE_CHARS = 14_000
+# Characters one read call may carry, beyond this no model window takes the source whole.
+PRAESENTATION_READ_MAX_SOURCE_CHARS = 500_000
+# Facts one read call may return, the guard against a model that runs away with a source.
+PRAESENTATION_READ_MAX_FACTS       = 40
+PRAESENTATION_READ_MAX_OUTPUT_TOKENS = 8_250
+PRAESENTATION_MAP_CONCURRENCY      = 3
+PRAESENTATION_READ_MAX_ATTEMPTS    = 3
+PRAESENTATION_RETRY_DELAY_SECONDS  = 3
+PRAESENTATION_MAX_BACKOFF_SECONDS  = 60
+PRAESENTATION_CALL_TIMEOUT_SECONDS = 270
+# A whole read phase can pass without a single job update, so a pulse reports in meanwhile.
+PRAESENTATION_HEARTBEAT_SECONDS    = 60
+
 # How many parts of a long recording go to the provider at once.
 STT_CHUNK_PARALLELISM = 2
 

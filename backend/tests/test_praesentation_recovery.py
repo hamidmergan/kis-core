@@ -49,3 +49,24 @@ def test_wiederanlauf_behaelt_das_fertigstellen(monkeypatch):
            "progress": json.dumps({"step": "bau", "final": True}), "attempts": 1, "creator_locale": "en"}
     job_recovery.dispatch_resume(job)
     assert eingereiht == [["d" * 32, 7, "en", 1, 1, None, True]]
+
+
+def test_die_materialetappe_geht_zurueck_in_die_gliederung():
+    """Jede gelesene Quelle liegt schon in facts.json, der Wiederanlauf liest nur den Rest."""
+    assert job_recovery.resume_entry(_job("material")) == "praesentation_material"
+
+
+def test_dispatch_reiht_die_materialetappe_in_die_gliederung_ein(monkeypatch):
+    """Nie in den Bau: der hat ohne Gliederung nichts zu bauen."""
+    eingereiht = []
+
+    class _Task:
+        def apply_async(self, args):
+            eingereiht.append(list(args))
+            return type("T", (), {"id": "x"})()
+
+    monkeypatch.setattr("src.tasks.praesentation_tasks.run_praesentation_outline", _Task())
+    monkeypatch.setattr(job_recovery.db, "set_job_celery_task_id", lambda *a: None)
+    monkeypatch.setattr("src.tasks.podcast_tasks._shared.clear_cancel", lambda j: None)
+    job_recovery.dispatch_resume(_job("material"))
+    assert eingereiht == [["d" * 32, 7, "en", 1, 2]]

@@ -60,8 +60,10 @@ async def start_praesentation(
         raise HTTPException(status_code=422, detail=t("praesentation.noContent", locale))
     if not quellen:
         raise HTTPException(status_code=422, detail=t("praesentation.noContent", locale))
-    quelle = await material.kontext(quellen, einstellungen.instructions, durchsuchbar[0], durchsuchbar[1])
-    if not quelle.strip():
+    # Only laid down here. Reading every source into facts costs one model call each and
+    # belongs in the task, a web request must not wait for that.
+    roh = material.als_quellen(quellen)
+    if not roh:
         raise HTTPException(status_code=422, detail=t("praesentation.noContent", locale))
 
     vorlage_bytes, analyse, meta, fallback = vorlagen.aufloesen(user_id, einstellungen.template_id)
@@ -76,12 +78,14 @@ async def start_praesentation(
 
     job_uuid = uuid.uuid4().hex
     db.create_job(job_uuid, user_id, "praesentation", label or "Präsentation", locale=locale)
-    store.save_source(user_id, job_uuid, quelle)
+    store.save_material(user_id, job_uuid, roh, durchsuchbar[0], durchsuchbar[1] or [])
     store.save_params(user_id, job_uuid, einstellungen)
     store.save_template(user_id, job_uuid, vorlage_bytes)
     store.save_template_meta(user_id, job_uuid, analyse)
     task = run_praesentation_outline.apply_async(args=[job_uuid, user_id, locale])
     db.set_job_celery_task_id(job_uuid, task.id)
-    db.update_job_status(job_uuid, "pending", progress={"step": "outline"})
-    logger.info("Präsentation {} gestartet, {} Zeichen Material", job_uuid[:8], len(quelle))
+    db.update_job_status(job_uuid, "pending", progress={"step": "material"})
+    zeichen = sum(len(q["content"]) for q in roh)
+    logger.info("Präsentation {} gestartet, {} Quelle(n), {} Zeichen roh",
+                job_uuid[:8], len(roh), zeichen)
     return {"job_uuid": job_uuid}

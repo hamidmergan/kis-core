@@ -102,3 +102,51 @@ class TestRegen:
         msgs = gliederung.regen_messages(o.rows[0], o, PraesentationParams(), verlauf, "Q")
         content = msgs[1]["content"]
         assert "assistant: Ok, so" in content and "WISH OF THE TEACHER: noch kürzer" in content
+
+
+def _antwort_mit_nummern(paare, title="Deck"):
+    """Je Folie eine Rolle und die Faktennummern, auf die sie sich stuetzt."""
+    return json.dumps({"title": title, "subtitle": "U", "slides": [
+        {"role": r, "title": f"T{i}", "gist": f"G{i}", "fact_ids": ids}
+        for i, (r, ids) in enumerate(paare)]})
+
+
+class TestFaktennummern:
+    """Die Gliederung zeigt auf den Vorrat, damit jede Folie nur ihre Fakten sieht."""
+
+    def test_der_prompt_verlangt_nummern_wenn_ein_vorrat_da_ist(self):
+        msgs = gliederung.build_messages("#1 (These) Alles fliesst", PraesentationParams(),
+                                         ROLLEN, mit_nummern=True)
+        assert "fact_ids" in msgs[0]["content"]
+        assert msgs[1]["content"].startswith("FACTS:\n#1")
+
+    def test_ohne_vorrat_bleibt_der_prompt_wie_bisher(self):
+        msgs = gliederung.build_messages("Quelle", PraesentationParams(), ROLLEN)
+        assert "fact_ids" not in msgs[0]["content"]
+        assert msgs[1]["content"].startswith("MATERIAL:\nQuelle")
+
+    def test_nummern_landen_an_der_zeile(self):
+        roh = _antwort_mit_nummern([("text", [1, 2]), ("text", [3]), ("text", []),
+                                    ("text", [4]), ("text", [5]), ("text", [6])])
+        o = gliederung.parse_answer(roh, ROLLEN)
+        assert o.rows[0].fact_ids == [1, 2] and o.rows[2].fact_ids == []
+
+    def test_unbekannte_nummern_fallen_weg(self):
+        roh = _antwort_mit_nummern([("text", [1, 99]), ("text", [3]), ("text", [2]),
+                                    ("text", [4]), ("text", [5]), ("text", [6])])
+        o = gliederung.parse_answer(roh, ROLLEN, gueltig={1, 2, 3, 4, 5, 6})
+        assert o.rows[0].fact_ids == [1]
+
+    def test_unsinn_statt_nummern_stuerzt_nicht(self):
+        roh = json.dumps({"title": "D", "subtitle": "", "slides": [
+            {"role": "text", "title": f"T{i}", "gist": "G", "fact_ids": "kaputt"}
+            for i in range(6)]})
+        assert gliederung.parse_answer(roh, ROLLEN).rows[0].fact_ids == []
+
+    def test_die_regeln_nehmen_die_nummern_mit(self):
+        """Rollen werden umgebogen und Ids vergeben, die Nummern muessen das ueberleben."""
+        roh = _antwort_mit_nummern([("text_mit_bild", [1]), ("text_mit_bild", [2]), ("text", [3]),
+                                    ("text", [4]), ("text", [5]), ("text", [6])])
+        o = gliederung.parse_answer(roh, ROLLEN)
+        assert [r.fact_ids for r in o.rows] == [[1], [2], [3], [4], [5], [6]]
+        assert all(r.id for r in o.rows)

@@ -142,8 +142,9 @@ async def regen_slide(job_uuid: str, slide_id: str, body: RegenRequest,
     form = vorlage.form_fuer(analyse.layout(alt.layout), analyse)
     wunsch = next((tr.content for tr in reversed(body.messages) if tr.role == "user"), "")
     # A slide added later carries the spots that were searched for it, they beat the run's snapshot.
-    quelle = store.load_slide_source(user_id, job_uuid, slide_id) or folien.source_excerpt(
-        store.load_source(user_id, job_uuid), [alt.title, body.selected_text, wunsch], PRAESENTATION_SLIDE_CONTEXT_CHARS)
+    quelle = store.load_slide_source(user_id, job_uuid, slide_id) or material.ausschnitt(
+        store.load_pool(user_id, job_uuid), store.load_source(user_id, job_uuid),
+        [alt.title, body.selected_text, wunsch], PRAESENTATION_SLIDE_CONTEXT_CHARS)
     try:
         antwort = llm_antwort(folien.regen_messages(alt, row, form, params, verlauf(body), body.selected_text, quelle))
         neu = folien.parse_answer(antwort, [row], {row.id: form}, params.notes)[0]
@@ -220,7 +221,8 @@ async def insert_slide(job_uuid: str, body: InsertRequest, current_user: dict = 
     _speichern(user_id, job_uuid, slides, {neu_id: anweisung})
     # The run's snapshot was gathered for the whole deck, this one slide gets its own material.
     store.save_slide_source(user_id, job_uuid, neu_id, await material.fuer_folie(
-        params, store.load_source(user_id, job_uuid), [titel, anweisung]))
+        params, store.load_pool(user_id, job_uuid), store.load_source(user_id, job_uuid),
+        [titel, anweisung]))
     _bau(job_uuid, user_id, locale, {"text": [neu_id], "bild": [neu_id]})
     return {"id": neu_id, "role": rolle}
 

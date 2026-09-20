@@ -1253,6 +1253,7 @@
       },
       "slides": {
         "working": "The slides are taking shape",
+        "progressMaterial": "Reading the sources",
         "progressTexts": "{done} of {total} slide texts written",
         "progressImages": "{done} of {total} images created",
         "progressBuild": "The file is being built",

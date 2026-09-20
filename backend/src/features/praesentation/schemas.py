@@ -35,12 +35,15 @@ MAX_BILDER_JE_FOLIE = 8
 
 
 class OutlineRow(BaseModel):
-    """One planned slide: what it is and what it shows."""
+    """One planned slide: what it is, what it shows, and which facts it rests on."""
 
     id: str = ""
     role: str = "text"
     title: str = ""
     gist: str = ""
+    # Numbers out of the run's fact pool. Empty when the deck was planned from a plain
+    # snapshot instead, and empty for a slide meant to draw on everything.
+    fact_ids: list[int] = Field(default_factory=list)
 
 
 class Outline(BaseModel):

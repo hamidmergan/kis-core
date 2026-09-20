@@ -5,7 +5,7 @@ from loguru import logger
 
 from src import database as db
 from src.dependencies import get_current_user
-from src.features.praesentation import folien, gliederung, store, vorlage
+from src.features.praesentation import gliederung, material, store, vorlage
 from src.features.praesentation.schemas import FOLIEN_GRENZEN, Outline
 from src.i18n import get_locale, t
 from src.limits import PRAESENTATION_MAX_SLIDES
@@ -54,7 +54,8 @@ async def regen_row(job_uuid: str, row_id: str, body: RegenRequest,
     row = next((r for r in (outline.rows if outline else []) if r.id == row_id), None)
     if not params or row is None:
         raise HTTPException(status_code=404, detail=t("praesentation.rowNotFound", locale))
-    quelle = folien.source_excerpt(store.load_source(user_id, job_uuid), [row.title, row.gist], 4000)
+    quelle = material.ausschnitt(store.load_pool(user_id, job_uuid),
+                                 store.load_source(user_id, job_uuid), [row.title, row.gist], 4000)
     try:
         titel, gist = gliederung.parse_row(llm_antwort(gliederung.regen_messages(row, outline, params, verlauf(body), quelle)))
     except Exception as e:  # noqa: BLE001 - the provider is the only source of failure here

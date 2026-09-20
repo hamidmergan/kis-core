@@ -38,6 +38,9 @@ class FakeAblage:
     def job_file_exists(self, user_id, job_uuid, filename):
         return (user_id, job_uuid, filename) in self.dateien
 
+    def delete_job_file(self, user_id, job_uuid, filename):
+        self.dateien.pop((user_id, job_uuid, filename), None)
+
 
 @pytest.fixture
 def env(monkeypatch):
@@ -54,7 +57,7 @@ def env(monkeypatch):
     import src.routes.praesentation.vorlagen as vorlagen_route
 
     ablage = FakeAblage()
-    for name in ("save_job_file", "get_job_file", "job_file_exists"):
+    for name in ("save_job_file", "get_job_file", "job_file_exists", "delete_job_file"):
         monkeypatch.setattr(store, name, getattr(ablage, name))
     monkeypatch.setattr("src.dependencies_rbac.is_released_now", lambda key: True)
 
@@ -87,10 +90,6 @@ def env(monkeypatch):
     monkeypatch.setattr(slides_route, "clear_cancel", lambda uuid: None)
     monkeypatch.setattr(outline_route, "clear_cancel", lambda uuid: None)
 
-    async def kontext(quellen, instr, wid, suuids):
-        return "\n".join(c["content"] for _, chunks in quellen for c in chunks)
-
-    monkeypatch.setattr(start_route.material, "kontext", kontext)
     monkeypatch.setattr(start_route.material, "validate_or_raise", lambda *a, **k: None)
     monkeypatch.setattr(start_route.material, "pages_or_raise", lambda *a, **k: None)
     monkeypatch.setattr(start_route.material, "max_upload_bytes", lambda: 10_000_000)
@@ -122,6 +121,10 @@ def _params(**kw):
     return json.dumps(grund)
 
 
+def client_von(env):
+    return env[0]
+
+
 def _start(client):
     return client.post("/praesentation/start", data={"params": _params(), "mode": "files"},
                        files={"files": ("kapitel.txt", "Über den Regelkreis.".encode(), "text/plain")})
@@ -134,12 +137,37 @@ class TestStart:
         assert antwort.status_code == 200
         uuid = antwort.json()["job_uuid"]
         assert gestartet == [("outline", [uuid, 7, "de"])]
-        assert "Regelkreis" in ablage.get_job_file(7, uuid, "source.txt").decode()
+        material = json.loads(ablage.get_job_file(7, uuid, "material.json"))
+        assert "Regelkreis" in material["sources"][0]["content"]
         assert ablage.get_job_file(7, uuid, "template.pptx")[:2] == b"PK"
         meta = json.loads(ablage.get_job_file(7, uuid, "template_meta.json"))
         assert len(meta["layouts"]) == 6
         params = json.loads(ablage.get_job_file(7, uuid, "params.json"))
         assert params["template_name"] == "THL-Vorlage" and "vermilion" in params["style_text"]
+
+    def test_die_route_ruft_kein_modell(self, env, monkeypatch):
+        """Das Lesen kostet einen Aufruf je Quelle, darauf darf kein Web-Aufruf warten."""
+        import src.routes.praesentation.start as start_route
+
+        def _verboten(*a, **k):
+            raise AssertionError("Die Route darf kein Modell rufen")
+
+        monkeypatch.setattr(start_route.material, "kontext", _verboten)
+        assert _start(client_von(env)).status_code == 200
+
+    def test_die_rohquellen_liegen_bereit_und_sonst_nichts_vom_upload(self, env):
+        """Kein heimlicher Workspace, keine Quellenzeile, nur der Text im Auftragsordner."""
+        client, jobs, _, ablage, _ = env
+        uuid = _start(client).json()["job_uuid"]
+        namen = {n for (_, j, n) in ablage.dateien if j == uuid}
+        assert namen == {"material.json", "params.json", "template.pptx", "template_meta.json"}
+
+    def test_ohne_vorrat_und_ohne_schnappschuss_wartet_der_auftrag_auf_die_aufgabe(self, env):
+        """Material entsteht erst in der Aufgabe, der Auftrag startet trotzdem."""
+        client, jobs, _, ablage, _ = env
+        uuid = _start(client).json()["job_uuid"]
+        assert not ablage.job_file_exists(7, uuid, "source.txt")
+        assert not ablage.job_file_exists(7, uuid, "pool.json")
 
     def test_zweite_praesentation_gleichzeitig_wird_abgewiesen(self, env):
         client, jobs, _, _, _ = env

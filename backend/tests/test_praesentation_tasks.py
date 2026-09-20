@@ -34,6 +34,7 @@ class _Store:
         self.analyse = _analyse()
         self.slide_sources = {}
         self.gelesene_quellen = []
+        self.pool = []
 
     load_params = lambda self, u, j: self.params
     load_source = lambda self, u, j: "Quelle"
@@ -41,6 +42,7 @@ class _Store:
     load_template_meta = lambda self, u, j: self.analyse
     load_outline = lambda self, u, j: self.outline
     load_slides = lambda self, u, j: list(self.slides)
+    load_pool = lambda self, u, j: list(self.pool)
 
     def save_outline(self, u, j, o): self.outline = o
     save_user_outline = save_outline
@@ -102,7 +104,8 @@ def umgebung(monkeypatch):
     monkeypatch.setattr(_outline.run_praesentation_build, "apply_async",
                         lambda args: gestartet.append(list(args)) or type("T", (), {"id": "celery-1"})())
     monkeypatch.gestartet = gestartet
-    monkeypatch.setattr(_build, "still_mine", lambda job, token: True)
+    for modul in (_outline, _build):
+        monkeypatch.setattr(modul, "still_mine", lambda job, token: True)
     monkeypatch.setattr(_build.vorschau, "render", lambda deck, dpi=80: [b"p"] * 99)
     monkeypatch.setattr(_build.bau, "baue", lambda *a, **k: b"deck")
     monkeypatch.setattr(_build.teilung, "teile_ueberlauf", lambda slides, a: slides)
@@ -341,3 +344,46 @@ class TestBuild:
         with pytest.raises(RuntimeError):
             _build.run_praesentation_build.run(JOB, UID, "de")
         assert gemeldet
+
+
+class TestBauMitVorrat:
+    """Ein Folienpaket sieht nur noch die Fakten seiner Zeilen."""
+
+    def _vorrat(self):
+        from src.services.facts import Fact
+        return [Fact(fact_id=n, category="These", fact=f"Aussage {n}", citation=f"Beleg {n}",
+                     source_id="doc_01", source_name="a.pdf") for n in (1, 2, 3)]
+
+    def _outline(self):
+        return Outline(title="Deck", rows=[
+            OutlineRow(id="s1", role="deckblatt", title="T1", fact_ids=[1]),
+            OutlineRow(id="s2", role="text", title="T2", fact_ids=[2]),
+            OutlineRow(id="s3", role="abschluss", title="T3", fact_ids=[3])])
+
+    def _lauf(self, umgebung, pool):
+        st, db = _Store(self._outline()), _Db()
+        st.pool = pool
+        gesehen = []
+        umgebung.setattr(_build, "store", st)
+        umgebung.setattr(_build, "db", db)
+
+        def _ruf(llm, nachrichten, endpoint="tool"):
+            gesehen.append(nachrichten[1]["content"])
+            ids = [r.id for r in st.outline.rows]
+            return _Llm([json.dumps({"slides": [
+                {"id": i, "title": f"T{i}", "body": {"kind": "bullets", "items": ["x"]}}
+                for i in ids]})])(llm, nachrichten, endpoint)
+
+        umgebung.setattr(_build, "call_json_llm", _ruf)
+        umgebung.setattr(_build, "PRAESENTATION_BATCH", 99)
+        _build.run_praesentation_build.run(JOB, UID, "de")
+        return gesehen
+
+    def test_mit_vorrat_traegt_jede_folie_ihre_eigenen_fakten(self, umgebung):
+        gesehen = self._lauf(umgebung, self._vorrat())
+        assert "Aussage 1" in gesehen[0] and "Aussage 2" in gesehen[0]
+        assert "Quelle" not in gesehen[0], "der gemeinsame Schnappschuss faellt weg"
+
+    def test_ohne_vorrat_bleibt_der_schnappschuss(self, umgebung):
+        gesehen = self._lauf(umgebung, [])
+        assert gesehen[0].startswith("MATERIAL:\nQuelle")
