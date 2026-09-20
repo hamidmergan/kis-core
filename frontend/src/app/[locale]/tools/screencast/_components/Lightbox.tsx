@@ -16,13 +16,18 @@ export default function Lightbox({ index, slides, onClose, onIndexChange }: Ligh
   if (!slide?.imageBase64) return null;
   return (
     <div
-      className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center px-4 pb-4 pt-[7rem]"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
       aria-label={t("common.slide", { n: index + 1 })}
     >
-      <div className="relative max-w-4xl w-full" onClick={(e) => e.stopPropagation()}>
+      {/* Height runs out before width on a wide window, so the frame follows the 16:9 height cap. The top padding keeps the close cross clear of the page header. */}
+      <div
+        className="relative"
+        style={{ width: "min(100%, 72rem, calc((100dvh - 13.25rem) * 16 / 9))" }}
+        onClick={(e) => e.stopPropagation()}
+      >
         <button
           onClick={onClose}
           className="absolute -top-10 right-0 text-white hover:text-border transition-colors"
@@ -38,7 +43,7 @@ export default function Lightbox({ index, slides, onClose, onIndexChange }: Ligh
         <img
           src={`data:image/png;base64,${slide.imageBase64}`}
           alt={t("common.slide", { n: index + 1 })}
-          className="w-full rounded-lg shadow-2xl"
+          className="w-full max-h-[calc(100dvh-13.25rem)] object-contain rounded-lg shadow-2xl"
         />
         <div className="flex justify-center gap-4 mt-4">
           <button

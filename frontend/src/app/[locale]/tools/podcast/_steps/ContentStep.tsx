@@ -12,7 +12,7 @@ import Spinner from "@/components/ui/Spinner";
 import Tabs from "@/components/ui/Tabs";
 import { MAX_UPLOAD_BYTES, MAX_UPLOAD_MB } from "@/lib/constants";
 import StepFooter from "../_components/StepFooter";
-import { useModules } from "../_hooks/useModules";
+import { useModules } from "@/hooks/useModules";
 import { hasContent } from "../_logic";
 import type { Language, Source, SourceMode } from "../_types";
 
@@ -260,7 +260,7 @@ export default function ContentStep({ canUseModules, source, language, instructi
             {t("glossaryLabel")}
           </span>
           <p className="mt-1 text-xs text-muted-soft">{t("glossaryHint")}</p>
-          <GlossarySelector values={glossaryIds} onChange={onGlossaryIds} />
+          <GlossarySelector values={glossaryIds} onChange={onGlossaryIds} className="mb-4 mt-2" />
         </div>
 
         <div className="mt-4">

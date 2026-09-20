@@ -10,6 +10,7 @@ export const TOOL_ROUTES = [
   { key: "summary", href: "/tools/summarize" },
   { key: "screencast", href: "/tools/screencast" },
   { key: "podcast", href: "/tools/podcast" },
+  { key: "praesentation", href: "/tools/praesentation" },
   { key: "image", href: "/tools/image" },
   { key: "interpreter", href: "/tools/interpreter" },
   { key: "glossary", href: "/tools/glossary" },

@@ -37,6 +37,7 @@ SONDERFALL = {
     "users": "die Zeile selbst, geht zuletzt",
     "aia_workspaces": "geht zuerst, damit die Kaskade greift",
     "user_glossaries": "haengt per Fremdschluessel an users(id)",
+    "praesentation_vorlagen": "haengt per Fremdschluessel an users(id)",
     "aia_grammar_topics": "gehoert dem Arbeitsbereich, verliert nur den Urheber",
     "invites": "gehoert der eingeladenen Person, verliert nur den Urheber",
     "access_codes": "gehoert der Testrunde, verliert nur den Urheber",

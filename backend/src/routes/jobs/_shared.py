@@ -37,6 +37,7 @@ _TOOL_KEYS = (
     "image_edit",
     "image_analyze",
     "summary",
+    "praesentation",
 )
 
 

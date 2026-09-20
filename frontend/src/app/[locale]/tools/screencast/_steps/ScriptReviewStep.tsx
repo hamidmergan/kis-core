@@ -1,6 +1,8 @@
 "use client";
 
+import { CaretDown } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
+import IconButton from "@/components/ui/IconButton";
 import SparkleIcon from "@/components/ui/SparkleIcon";
 import Spinner from "@/components/ui/Spinner";
 import { wordCount } from "@/lib/text";
@@ -51,7 +53,9 @@ export default function ScriptReviewStep({
       <h2 className="text-lg font-bold mb-2">{t("scriptReview.heading")}</h2>
       <p className="text-sm text-muted mb-6">{t("scriptReview.intro")}</p>
 
-      <div className="space-y-2 mb-6">
+      {/* Same register as the slide list of the presentation: no card border,
+          a hairline above each row, the open row on the tile tone. */}
+      <ol className="folien-liste mb-6">
         {slides.map((slide, i) => {
           const isOpen = openAccordion === i;
           const isEditing = editingSlide === i;
@@ -59,39 +63,36 @@ export default function ScriptReviewStep({
           const preview = slide.script.slice(0, 60) + (slide.script.length > 60 ? "..." : "");
 
           return (
-            <div key={i} className="border border-border-soft rounded-lg overflow-hidden">
+            <li key={i} className={`folien-zeile ${isOpen ? "offen" : ""}`}>
               <button
                 onClick={() => onAccordionToggle(i)}
-                className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-surface transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb"
+                className="w-full flex items-center gap-2 py-3.5 text-left"
                 aria-expanded={isOpen}
                 aria-controls={`slide-panel-${i}`}
               >
-                <div className="flex-1 min-w-0">
-                  <span className="text-sm font-medium text-foreground">{t("common.slide", { n: i + 1 })}</span>
-                  {!isOpen && <span className="ml-2 text-xs text-muted-soft truncate">{preview}</span>}
-                </div>
-                <svg
-                  className={`w-4 h-4 text-muted-soft transition-transform ${isOpen ? "rotate-180" : ""}`}
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  aria-hidden="true"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
+                <span className="flex-1 min-w-0 flex items-baseline gap-2">
+                  <span className="folien-titel text-sm font-medium text-foreground whitespace-nowrap">
+                    {t("common.slide", { n: i + 1 })}
+                  </span>
+                  {!isOpen && <span className="text-xs text-muted-soft truncate">{preview}</span>}
+                </span>
+                <span className="row-caret shrink-0" aria-hidden="true">
+                  <CaretDown size={14} weight="bold" className={`transition-transform ${isOpen ? "rotate-180" : ""}`} />
+                </span>
               </button>
 
               {isOpen && (
-                <div id={`slide-panel-${i}`} className="border-t border-border-soft p-4 animate-[fadeIn_0.2s_ease-out]">
+                <div id={`slide-panel-${i}`} className="pb-4 animate-[fadeIn_0.2s_ease-out]">
                   <div className="flex flex-col gap-4">
                     <div className="flex-shrink-0" style={{ width: "100px" }}>
                       {slide.imageBase64 ? (
                         <button
                           onClick={() => onLightboxOpen(i)}
-                          className="w-full rounded border border-border-soft hover:border-kb transition-colors overflow-hidden cursor-zoom-in focus-visible:outline-2 focus-visible:outline-kb"
+                          className="block w-full rounded border-2 border-transparent hover:border-kb transition-colors overflow-hidden leading-none cursor-zoom-in focus-visible:outline-2 focus-visible:outline-kb"
                           aria-label={t("common.slideZoomAria", { n: i + 1 })}
                         >
-                          <img src={`data:image/png;base64,${slide.imageBase64}`} alt={t("common.slide", { n: i + 1 })} className="w-full" />
+                          {/* The image sets the height, so the hover frame lies on the slide edge. */}
+                          <img src={`data:image/png;base64,${slide.imageBase64}`} alt={t("common.slide", { n: i + 1 })} className="block w-full" />
                         </button>
                       ) : (
                         <div className="w-full aspect-video bg-surface rounded flex items-center justify-center">
@@ -103,11 +104,12 @@ export default function ScriptReviewStep({
                     <div className="w-full flex flex-col">
                       {isEditing ? (
                         <>
+                          {/* No resting border, it appears only once the cursor is in the field. */}
                           <textarea
                             value={editBuffer}
                             onChange={(e) => onEditBufferChange(e.target.value)}
                             rows={8}
-                            className="w-full rounded-md border border-kb px-3 py-2 text-sm font-mono text-foreground focus:ring-1 focus:ring-kb focus:outline-none"
+                            className="w-full rounded-md border-2 border-transparent bg-background px-3 py-2 text-sm font-mono text-foreground focus:border-kb focus:outline-none"
                             aria-label={t("scriptReview.editAria", { n: i + 1 })}
                           />
                           <div className="flex items-center justify-between mt-2">
@@ -133,17 +135,17 @@ export default function ScriptReviewStep({
                           <div className="flex items-start justify-between mb-2">
                             <span className="text-xs text-muted-soft">{t("scriptReview.wordsApprox", { n: wc })}</span>
                             <div className="flex items-center gap-1">
-                              <button
+                              <IconButton
                                 onClick={() => onOpenRegen(i)}
-                                className={`w-7 h-7 flex items-center justify-center rounded-full transition-colors hover:text-kb hover:bg-surface ${regenAnchorSlide === i && regenAnchorText ? "text-kb" : "text-muted-soft"}`}
+                                className={regenAnchorSlide === i && regenAnchorText ? "text-kb" : "text-muted-soft"}
                                 aria-label={t("scriptReview.regenAria", { n: i + 1 })}
                                 title={t("scriptReview.regenTitle")}
                               >
                                 <SparkleIcon />
-                              </button>
-                              <button
+                              </IconButton>
+                              <IconButton
                                 onClick={() => onStartEdit(i)}
-                                className="w-7 h-7 flex items-center justify-center rounded-full text-muted-soft hover:text-kb hover:bg-surface transition-colors"
+                                className="text-muted-soft"
                                 aria-label={t("scriptReview.editAria", { n: i + 1 })}
                               >
                                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -154,7 +156,7 @@ export default function ScriptReviewStep({
                                     d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
                                   />
                                 </svg>
-                              </button>
+                              </IconButton>
                             </div>
                           </div>
                           <p
@@ -172,10 +174,10 @@ export default function ScriptReviewStep({
                   </div>
                 </div>
               )}
-            </div>
+            </li>
           );
         })}
-      </div>
+      </ol>
 
       {missing > 0 && (
         <p className="text-sm text-warn-strong bg-warn-bg border border-warn-border rounded-md px-3 py-2">

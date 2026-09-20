@@ -9,9 +9,12 @@ const MAX_SELECTED = 3;
 interface Props {
   values: string[];   // Array of up to 3 glossary IDs
   onChange: (ids: string[]) => void;
+  // Standing on its own the picker keeps a block's distance. Under a label and its
+  // hint the caller passes a tighter one, otherwise the three drift apart.
+  className?: string;
 }
 
-export default function GlossarySelector({ values, onChange }: Props) {
+export default function GlossarySelector({ values, onChange, className = "mb-4 mt-6" }: Props) {
   const t = useTranslations("tools.glossarySelector");
   const { glossaries, loading } = useGlossaries();
   const [open, setOpen] = useState(false);
@@ -32,7 +35,7 @@ export default function GlossarySelector({ values, onChange }: Props) {
 
   if (!loading && glossaries.length === 0) {
     return (
-      <div className="mb-4 mt-6">
+      <div className={className}>
         <p className="text-sm text-muted-soft">
           {t("noneCreated")}{" "}
           <Link href="/tools/glossary" className="text-kb hover:underline">
@@ -87,7 +90,7 @@ export default function GlossarySelector({ values, onChange }: Props) {
       : t("selected", { count: selectedIds.length });
 
   return (
-    <div className="mb-4 mt-6">
+    <div className={className}>
       {/* Dropdown trigger */}
       <div ref={containerRef} className="relative">
         <button

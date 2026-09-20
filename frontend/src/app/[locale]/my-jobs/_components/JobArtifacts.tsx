@@ -4,6 +4,7 @@ import { DownloadSimple } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 import { SCREENCAST_RENDER_TOOLS, type MyJob } from "../_types";
 import { podcastJumpHref, podcastJumpKind } from "@/components/jobs/_podcastJump";
+import { praesentationJumpHref, praesentationJumpKind } from "@/components/jobs/_praesentationJump";
 import { screencastJumpHref, screencastJumpKind } from "@/components/jobs/_screencastJump";
 
 
@@ -162,6 +163,25 @@ export function JobArtifacts({ job }: { job: MyJob }) {
           />
         )}
         {sprung === "open" && <OpenChip href={podcastJumpHref(job.job_uuid)} label={t("openPodcast")} />}
+      </div>
+    );
+  }
+
+  // Praesentation: the finished PPTX plus the way back into the tool, resuming sits in the badge.
+  if (job.tool === "praesentation") {
+    const sprung = praesentationJumpKind(job);
+    const laedt = job.status === "success" && job.has_download;
+    if (!laedt && sprung !== "open") return null;
+    return (
+      <div className="mt-3 flex flex-wrap gap-2 items-center">
+        {laedt && (
+          <DownloadChip
+            href={`/api/jobs/${job.job_uuid}/download`}
+            filename={job.result_filename || "praesentation.pptx"}
+            label="PPTX"
+          />
+        )}
+        {sprung === "open" && <OpenChip href={praesentationJumpHref(job.job_uuid)} label={t("openPraesentation")} />}
       </div>
     );
   }

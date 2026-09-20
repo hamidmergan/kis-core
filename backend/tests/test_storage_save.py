@@ -74,6 +74,14 @@ def test_der_ordner_wird_angelegt_falls_er_fehlt(lokal):
     assert (lokal / "users/9/jobs/neu/input.txt").read_bytes() == b"x"
 
 
+def test_auftragsdatei_wird_lokal_gefunden(lokal):
+    """Without S3, job_file_exists must resolve under STORAGE_ROOT like save_job_file does."""
+    storage.save_job_file(7, "j1", "notiz.txt", b"notiz")
+
+    assert storage.job_file_exists(7, "j1", "notiz.txt")
+    assert not storage.job_file_exists(7, "j1", "fehlt.txt")
+
+
 # ─── With S3: key back, no path ────────────────────────────────────────────
 
 def test_mit_s3_kommt_der_schluessel_zurueck(s3):

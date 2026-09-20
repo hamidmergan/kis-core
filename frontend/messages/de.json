@@ -62,7 +62,8 @@
         "tts": "Text in Sprache",
         "screencast": "Screencast",
         "image": "Bild",
-        "podcast": "Podcast"
+        "podcast": "Podcast",
+        "praesentation": "Präsentation"
       }
     },
     "status": {
@@ -177,7 +178,8 @@
       "openScreencast": "Screencast öffnen",
       "downloadAllZip": "Alles herunterladen (ZIP)",
       "fallbackFile": "Datei",
-      "openPodcast": "Podcast öffnen"
+      "openPodcast": "Podcast öffnen",
+      "openPraesentation": "Präsentation öffnen"
     },
     "duration": {
       "seconds": "{n} Sek.",
@@ -379,15 +381,12 @@
       "podcast": {
         "title": "Podcast",
         "body": "Aus deinem Material wird ein Gespräch zum Anhören. Du wählst Inhalt und Besetzung, prüfst das Skript und lässt es vertonen."
-      }
-    },
-    "coming": {
-      "slides": {
+      },
+      "praesentation": {
         "title": "Präsentation",
-        "body": "Aus deinem Material werden Folien mit Sprechernotizen, fertig zum Nachbearbeiten."
+        "body": "Aus deinem Material werden Folien im Design der Hochschule, mit Bildern, Tabellen und Diagrammen an den Stellen, die die Vorlage vorsieht."
       }
-    },
-    "comingBadge": "Demnächst"
+    }
   },
   "common": {
     "unknownError": "Unbekannter Fehler. Bitte versuche es erneut.",
@@ -1175,6 +1174,136 @@
         "geaendert": "Geändert. Beim nächsten Lauf wird nur dieser Beitrag neu vertont.",
         "nachLinks": "Beiträge nach links schieben",
         "nachRechts": "Beiträge nach rechts schieben"
+      }
+    },
+    "praesentation": {
+      "title": "Präsentation",
+      "intro": "Aus deinem Material werden Folien im Design deiner Hochschule. Du prüfst jede Folie und lädst am Ende die PowerPoint-Datei herunter.",
+      "steps": { "content": "Inhalt", "slides": "Folien", "done": "Fertig" },
+      "common": { "back": "Zurück", "cancel": "Abbrechen", "save": "Speichern", "close": "Schließen" },
+      "content": {
+        "heading": "Worum soll es gehen?",
+        "tabs": { "files": "Dateien" },
+        "dropOrBrowse": "Dateien hierher ziehen oder",
+        "browse": "durchsuchen",
+        "filesHint": "PDF, Word, PowerPoint oder Textdateien.",
+        "removeFile": "{name} entfernen",
+        "sourcesLabel": "Quellen",
+        "noModules": "Du hast noch keinen Workspace mit Material. Nimm so lange Dateien.",
+        "noSources": "Hier ist noch keine Quelle fertig verarbeitet.",
+        "sourcesHint": "Wähle bis zu {max} Quellen aus.",
+        "sourcesFull": "Maximal {max} Quellen.",
+        "templateLabel": "Folienmaster",
+        "templateWithImages": "mit Bildfeldern",
+        "templateWithoutImages": "ohne Bildfelder, es entstehen keine Bilder",
+        "uploadTemplate": "Eigene Vorlage hochladen",
+        "editTemplate": "{name} bearbeiten",
+        "deleteTemplate": "{name} löschen",
+        "languageLabel": "Sprache der Folien",
+        "languages": { "de": "Deutsch", "en": "Englisch" },
+        "instructionsLabel": "Anweisung (optional)",
+        "instructionsPlaceholder": "Zum Beispiel: nur Kapitel 2, für Erstsemester, mit Beispielen aus der Praxis",
+        "notesLabel": "Sprechernotizen zu jeder Folie erzeugen",
+        "notesHint": "Die Notizen landen in der Notizansicht von PowerPoint und lassen sich im Screencast vertonen.",
+        "activeJob": "Du hast bereits 5 Jobs in der Warteschlange, kein weiterer ist möglich. Warte, bis einer fertig ist, oder lösche einen in der",
+        "activeJobLink": "Jobliste",
+        "next": "Gliederung erstellen"
+      },
+      "upload": {
+        "title": "Eigene Vorlage",
+        "editTitle": "Vorlage bearbeiten",
+        "dropOrBrowse": "Vorlage hierher ziehen oder",
+        "browse": "durchsuchen",
+        "nameLabel": "Name",
+        "styleLabel": "Bildstil (optional)",
+        "styleHint": "Auf Englisch, beschreibt Farben und Stil der KI-Bilder. Ohne Angabe entscheidet das Bildmodell selbst.",
+        "rulesHint": "PowerPoint-Datei (pptx) bis 30 MB, keine Makros. Enthält die Datei mehrere Designs, wird das erste verwendet. Höchstens 10 gemerkte Vorlagen.",
+        "submit": "Hochladen",
+        "fileAria": "Vorlagendatei wählen"
+      },
+      "outline": {
+        "working": "Die Gliederung entsteht",
+        "workingHint": "Das Material wird gelesen und in Folien aufgeteilt.",
+        "failed": "Die Gliederung konnte nicht erstellt werden.",
+        "restart": "Neu starten",
+        "templateFallback": "Die gewählte Vorlage ließ sich nicht lesen, die THL-Vorlage wurde genommen.",
+        "roles": { "deckblatt": "Deckblatt", "abschnitt": "Abschnitt", "text": "Text", "zwei_spalten": "Zwei Spalten", "text_mit_bild": "Text mit Bild", "bild_gross": "Bild", "abschluss": "Abschluss" },
+        "titleAria": "Titel von Folie {n}",
+        "gistAria": "Inhalt von Folie {n}",
+        "up": "Nach oben",
+        "down": "Nach unten",
+        "delete": "Folie streichen",
+        "addPlaceholder": "Titel der neuen Folie",
+        "add": "Folie hinzufügen",
+        "countWrong": "Die Gliederung braucht mindestens {lo} und höchstens {hi} Folien.",
+        "build": "Folien erzeugen"
+      },
+      "slides": {
+        "working": "Die Folien werden erstellt",
+        "progressTexts": "{done} von {total} Texten geschrieben",
+        "progressImages": "{done} von {total} Bildern erzeugt",
+        "progressBuild": "Die Datei wird erstellt",
+        "progressPreview": "Die Vorschau wird erstellt",
+        "phases": { "texte": "Texte", "bilder": "Bilder", "bau": "Datei", "vorschau": "Vorschau" },
+        "waitingRetry": "Der Anbieter antwortet nicht, es geht gleich weiter.",
+        "heading": "Folien prüfen",
+        "summary": "{n} Folien.",
+        "failed": "Der Bau ist fehlgeschlagen.",
+        "resume": "Weitermachen",
+        "roles": { "deckblatt": "Deckblatt", "abschnitt": "Abschnitt", "text": "Text", "zwei_spalten": "Zwei Spalten", "text_mit_bild": "Text mit Bild", "bild_gross": "Bild", "abschluss": "Abschluss" },
+        "imageMissing": "Bild fehlt",
+        "noPreview": "Keine Vorschau",
+        "openPreview": "Vorschau von Folie {n} öffnen",
+        "previewTitle": "Folie {n} von {total}",
+        "slideLabel": "Folie {n}",
+        "prev": "← Zurück",
+        "next": "Weiter →",
+        "imagePrompt": "Bildbeschreibung {n} (Englisch)",
+        "notes": "Sprechernotizen",
+        "notesHelp": "Dieser Text steht nicht auf der Folie. In PowerPoint findest du ihn unter der Folie in der Notizansicht, beim Vortrag in der Referentenansicht. Der Screencast macht daraus die Tonspur.",
+        "regenText": "Text neu",
+        "regenImage": "Bild neu",
+        "up": "Nach oben",
+        "down": "Nach unten",
+        "insertAfter": "Folie danach einfügen",
+        "delete": "Folie löschen",
+        "deleteBody": "Folie {n}: {title}",
+        "deleteWarning": "Die Folie wird mit Text und Bild entfernt. Das lässt sich nicht rückgängig machen.",
+        "deleteConfirm": "Löschen",
+        "progressOutline": "Die Gliederung wird erstellt",
+        "restart": "Neu anfangen",
+        "notesInclude": "Sprechernotizen übernehmen",
+        "expandAll": "Alle aufklappen",
+        "insertTitle": "Neue Folie",
+        "insertTitleLabel": "Titel",
+        "insertPlaceholder": "Überschrift der neuen Folie",
+        "insertInstructionLabel": "Anweisung",
+        "insertInstructionPlaceholder": "Was soll auf die Folie? Zum Beispiel: die beiden Verfahren gegenüberstellen",
+        "insertHint": "Eines von beiden reicht.",
+        "insert": "Einfügen",
+        "imageTitle": "Bild neu erzeugen",
+        "imagePlaceholder": "Beschreibe das Bild auf Englisch. Unverändert lassen für einen neuen Versuch mit derselben Beschreibung.",
+        "imageGo": "Erzeugen",
+        "backToOutline": "Zur Gliederung",
+        "finalize": "Fertigstellen"
+      },
+      "regenChat": {
+        "headerTitle": "Folie {n} neu vorschlagen",
+        "assistant": "Vorschlag",
+        "thinking": "Vorschlag entsteht",
+        "promptPlaceholder": "Was soll anders werden?",
+        "promptPlaceholderDemo": "Was soll anders werden?",
+        "errorMessage": "Der Vorschlag ist gescheitert. Versuche es noch einmal.",
+        "notJson": "Der Vorschlag hatte kein lesbares Format, versuche es noch einmal.",
+        "actions": { "replaceSelection": "Markiertes ersetzen", "insertBefore": "Davor einfügen", "insertAfter": "Danach einfügen", "wholeScript": "Ganze Folie ersetzen", "replace": "Übernehmen" }
+      },
+      "done": {
+        "heading": "Die Präsentation ist fertig",
+        "summary": "{n} Folien als PowerPoint-Datei.",
+        "download": "PowerPoint herunterladen",
+        "expiryHint": "Die Datei bleibt so lange wie ein Screencast in deinen Aufträgen.",
+        "backToSlides": "Zu den Folien",
+        "new": "Neue Präsentation"
       }
     },
     "screencastDemo": {
@@ -2145,6 +2274,7 @@
         "summary": "Zusammenfassung",
         "screencast": "Screencast",
         "podcast": "Podcast",
+        "praesentation": "Präsentation",
         "glossary": "Glossar"
       },
       "settings": {
@@ -3931,6 +4061,10 @@
       "bugReport": {
         "q": "Wo melde ich einen Fehler?",
         "a": "Über das Feedback-Formular. Schreib dazu, was du gemacht hast und was passiert ist, das spart eine Rückfrage."
+      },
+      "presentationTemplate": {
+        "q": "Was muss eine eigene Vorlage für die Präsentation mitbringen?",
+        "a": "Eine pptx- oder potx-Datei bis 30 MB ohne Makros. Es zählt der erste Folienmaster. Layouts brauchen eine Überschrift, sonst werden sie übersprungen. Bildfelder sind nötig, damit Bilder entstehen. Der Bildstil wird auf Englisch beschrieben."
       }
     }
   },

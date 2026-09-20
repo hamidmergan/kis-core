@@ -15,6 +15,7 @@ bekommen ein Ergebnis und laden es herunter.
 - **Glossar** pflegt Begriffslisten für die Übersetzung
 - **Screencast** macht aus Folien ein vertontes Video
 - **Podcast** macht aus Material ein Gespräch zum Anhören
+- **Präsentation** macht aus Material eine PowerPoint-Datei im Folienmaster der Hochschule
 
 Wer nur ein einziges Ziel hat, etwa Studierende mit dem KI-Assistenten allein, landet direkt dort
 und sieht die Kachelseite nicht. Zurück zur Startseite führt immer das KIS-Logo oben links.

@@ -10,5 +10,6 @@ ALL_TOOL_KEYS: tuple[str, ...] = (
     "summary",
     "screencast",
     "podcast",
+    "praesentation",
     "glossary",
 )

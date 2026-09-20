@@ -27,6 +27,8 @@ QUOTA_DEFAULTS: dict[str, dict] = {
     "image_analyze":  {"limit": 100, "window_hours": 4, "label": "Bild-Analyse"},
     "screencast":     {"limit": 100, "window_hours": 4, "label": "Screencast"},
     "podcast":        {"limit": 100, "window_hours": 4, "label": "Podcast"},
+    # No daily cap, the one-running-job rule in the start route is the only brake.
+    "praesentation":  {"limit": -1, "window_hours": 4, "label": "Präsentation"},
     "aia_generate":   {"limit": 300, "window_hours": 4, "label": "KI-Tutor: Generierung"},
 }
 
@@ -94,6 +96,19 @@ PODCAST_LINE_PAUSE       = 0.35
 PODCAST_TTS_PARALLELISM  = 8
 # How many uploaded files the hidden per-person store keeps before evicting the least recently used.
 PODCAST_STORE_MAX_SOURCES = 20
+
+# --- Präsentation ------------------------------------------------------------
+PRAESENTATION_MAX_SLIDES = 30
+# The floor a usable outline needs: cover, one slide of content, closing.
+PRAESENTATION_MIN_SLIDES = 3
+PRAESENTATION_MAX_TEMPLATES = 10
+PRAESENTATION_TEMPLATE_MAX_MB = 30
+PRAESENTATION_MAX_SOURCES = 10
+# Slides per model call: enough context per slide, few enough calls per deck.
+PRAESENTATION_BATCH = 5
+PRAESENTATION_IMAGE_PARALLELISM = 4
+# Material for a single slide, whether searched or cut out of the run's snapshot.
+PRAESENTATION_SLIDE_CONTEXT_CHARS = 6000
 
 # How many parts of a long recording go to the provider at once.
 STT_CHUNK_PARALLELISM = 2

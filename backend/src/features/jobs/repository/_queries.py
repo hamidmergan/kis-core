@@ -41,13 +41,17 @@ def get_jobs_by_user(
 
 
 def count_active_jobs_for_tool(user_id: int, tools: list[str]) -> int:
-    """Return the number of pending/running/awaiting_user jobs the user has for any of the given tools."""
+    """Jobs of the given tools that occupy a worker or are about to.
+
+    A job waiting for the person (``awaiting_user``, ``paused``) lies still and is not
+    counted, the same rule ``count_working_jobs`` applies across all tools.
+    """
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """SELECT COUNT(*) FROM jobs
                    WHERE user_id = %s AND tool = ANY(%s)
-                   AND status IN ('pending', 'running', 'awaiting_user')""",
+                   AND status IN ('pending', 'running', 'queued', 'waiting_retry')""",
                 (user_id, tools),
             )
             row = cur.fetchone()
@@ -55,7 +59,7 @@ def count_active_jobs_for_tool(user_id: int, tools: list[str]) -> int:
 
 
 def has_active_job_for_tool(user_id: int, tools: list[str]) -> bool:
-    """Return True if the user has a pending/running/awaiting_user job for any of the given tools."""
+    """Return True if the user has a job of the given tools that is actually working."""
     return count_active_jobs_for_tool(user_id, tools) > 0
 
 

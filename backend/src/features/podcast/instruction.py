@@ -133,15 +133,28 @@ def _probe(workspace_id: int, source_ids: list[int], instruction: str) -> float:
     return sum(beste) / len(beste)
 
 
-async def _search(workspace_id: int, source_ids: list[int], instruction: str) -> list[dict]:
+async def _search(workspace_id: int, source_ids: list[int], instruction: str,
+                  budget: int | None = None) -> list[dict]:
     from src.features.ai_assistant.routes._retrieval import _retrieve_specific_context
     from src.features.ai_assistant.tasks._context_budget import tool_context_budget
     from src.services.aia_embeddings import get_embedding_provider_with_fallback
 
     provider = get_embedding_provider_with_fallback()
     return await _retrieve_specific_context(
-        provider, workspace_id, source_ids, [instruction], instruction, tool_context_budget(),
+        provider, workspace_id, source_ids, [instruction], instruction, budget or tool_context_budget(),
     )
+
+
+async def search_context(workspace_id: int, source_uuids: list[str], query: str, budget: int) -> str:
+    """The searched spots as text, for a caller that has already decided to search.
+
+    Empty when nothing is embedded yet or nothing matches, so the caller can fall back.
+    """
+    ids = _ready_ids(workspace_id, source_uuids)
+    if not ids:
+        logger.info("Suche: noch nichts eingebettet, keine Stellen fuer '{}'", query[:60])
+        return ""
+    return _as_text(await _search(workspace_id, ids, query, budget))
 
 
 def _as_text(chunks: list[dict]) -> str:

@@ -281,6 +281,10 @@ const nextConfig: NextConfig = {
         destination: `${backendUrl}/podcast/:path*`,
       },
       {
+        source: "/api/praesentation/:path*",
+        destination: `${backendUrl}/praesentation/:path*`,
+      },
+      {
         source: "/api/screencast",
         destination: `${backendUrl}/screencast`,
       },

@@ -693,6 +693,21 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                 "CREATE INDEX IF NOT EXISTS idx_user_glossaries_user "
                 "ON user_glossaries(user_id, created_at)"
             )
+            # Saved slide templates of a person, the file itself lives in storage.
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS praesentation_vorlagen (
+                    id           TEXT PRIMARY KEY,
+                    user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    name         TEXT NOT NULL,
+                    stiltext     TEXT NOT NULL DEFAULT '',
+                    created_at   TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+                    last_used_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+                )
+            """)
+            cur.execute(
+                "CREATE INDEX IF NOT EXISTS idx_praesentation_vorlagen_user "
+                "ON praesentation_vorlagen(user_id, created_at)"
+            )
             if admin_email and admin_email.strip():
                 cur.execute(
                     "INSERT INTO whitelist (email) VALUES (%s) ON CONFLICT DO NOTHING",

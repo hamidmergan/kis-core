@@ -335,7 +335,7 @@ def list_keys(prefix: str) -> list[str]:
 
 def job_file_exists(user_id: int, job_uuid: str, filename: str) -> bool:
     """Check whether a specific file inside a job's folder still exists."""
-    return file_exists(f"{job_prefix(user_id, job_uuid)}/{filename}")
+    return key_file_exists(f"{job_prefix(user_id, job_uuid)}/{filename}")
 
 
 def delete_file(file_path: str) -> None:
@@ -345,6 +345,39 @@ def delete_file(file_path: str) -> None:
     path = Path(file_path)
     if path.exists():
         path.unlink()
+
+
+# --- Generic operations addressed by key, not by path -----------------------
+# Unlike get_file/put_bytes/file_exists/delete_file above (which take the stored path locally,
+# an absolute one outside the job/user tree), these take an S3-style key and nest it under
+# STORAGE_ROOT locally too, the same convention save_job_file/get_job_file use for job files.
+
+
+def save_key_file(key: str, data: bytes) -> str:
+    """Save bytes at a key and return the stored key or local path."""
+    return _store_bytes(key, data)
+
+
+def get_key_file(key: str) -> bytes:
+    """Read bytes at a key, local storage resolves it under STORAGE_ROOT."""
+    if USE_S3:
+        return get_file(key)
+    return _local_path(key).read_bytes()
+
+
+def key_file_exists(key: str) -> bool:
+    """Check whether a key exists, local storage resolves it under STORAGE_ROOT."""
+    if USE_S3:
+        return file_exists(key)
+    return _local_path(key).exists()
+
+
+def delete_key_file(key: str) -> None:
+    """Delete a key if present, local storage resolves it under STORAGE_ROOT."""
+    if USE_S3:
+        delete_file(key)
+    else:
+        _local_path(key).unlink(missing_ok=True)
 
 
 # Storage of the sources of a course room collection.
