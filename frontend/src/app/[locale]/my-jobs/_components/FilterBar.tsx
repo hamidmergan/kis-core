@@ -33,6 +33,7 @@ export function FilterBar({
     { value: "tts", label: tt("tts") },
     { value: "screencast", label: tt("screencast") },
     { value: "podcast", label: tt("podcast") },
+    { value: "praesentation", label: tt("praesentation") },
     { value: "image", label: tt("image") },
   ];
   return (

@@ -3,7 +3,7 @@ export const FAQ_GRUPPEN = [
   { key: "basics", items: ["whatIsKis", "vsChatgpt", "moduleServiceTool", "costs"] },
   { key: "data", items: ["gdpr", "hosting", "models", "whoSees", "afterPilot"] },
   { key: "francis", items: ["notFound", "generalQuestions", "trust"] },
-  { key: "operation", items: ["studentView", "bugReport"] },
+  { key: "operation", items: ["studentView", "bugReport", "presentationTemplate"] },
 ] as const;
 
 export type FaqGruppe = (typeof FAQ_GRUPPEN)[number];

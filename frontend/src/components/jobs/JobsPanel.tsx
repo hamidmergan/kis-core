@@ -14,6 +14,7 @@ import { jobStatusDisplay } from "@/lib/jobStatusDisplay";
 import { formatElapsed, toMs } from "@/lib/format";
 import { hasUnseenDone } from "./_unseen";
 import { podcastJumpHref, podcastJumpKind } from "./_podcastJump";
+import { praesentationJumpHref, praesentationJumpKind } from "./_praesentationJump";
 import { screencastJumpHref, screencastJumpKind } from "./_screencastJump";
 import { JobSources } from "./JobSources";
 
@@ -445,7 +446,9 @@ export default function JobsPanel() {
                                 ? screencastJumpHref(job.job_uuid)
                                 : podcastJumpKind(job) === "resume"
                                   ? podcastJumpHref(job.job_uuid)
-                                  : undefined
+                                  : praesentationJumpKind(job) === "resume"
+                                    ? praesentationJumpHref(job.job_uuid)
+                                    : undefined
                             }
                             onResume={(e) => { e.stopPropagation(); setOpen(false); }}
                           />
@@ -477,6 +480,17 @@ export default function JobsPanel() {
                             className="inline-flex items-center gap-1 text-xs text-kb-dark bg-kb20 border border-kb60 hover:outline-2 hover:outline-kb-dark transition-colors px-2.5 py-1 rounded-full"
                           >
                             {tArtifacts("openPodcast")}
+                          </a>
+                        </div>
+                      )}
+                      {praesentationJumpKind(job) === "open" && (
+                        <div className="mt-2">
+                          <a
+                            href={praesentationJumpHref(job.job_uuid)}
+                            onClick={(e) => { e.stopPropagation(); setOpen(false); }}
+                            className="inline-flex items-center gap-1 text-xs text-kb-dark bg-kb20 border border-kb60 hover:outline-2 hover:outline-kb-dark transition-colors px-2.5 py-1 rounded-full"
+                          >
+                            {tArtifacts("openPraesentation")}
                           </a>
                         </div>
                       )}

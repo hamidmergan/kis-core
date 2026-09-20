@@ -264,3 +264,30 @@ class TestAbstandMessen:
         monkeypatch.setattr(instruction.db, "hybrid_search_chunks",
                             lambda *a, **k: [{"vec_distance": None}, {"vec_distance": 0.4}])
         assert instruction._probe(42, [7], "Kuehlung") == pytest.approx(0.4)
+
+
+class TestSuchkontext:
+    """The search on its own, for a caller that already knows it wants to search."""
+
+    @pytest.mark.asyncio
+    async def test_ohne_einbettungen_bleibt_sie_leer(self, monkeypatch):
+        monkeypatch.setattr(instruction, "_ready_ids", lambda ws, uuids: [])
+        gesucht = []
+        monkeypatch.setattr(instruction, "_search", lambda *a: gesucht.append(a))
+        assert await instruction.search_context(42, ["s1"], "Kuehlung", 6000) == ""
+        assert gesucht == [], "ohne Einbettungen darf keine Suche starten"
+
+    @pytest.mark.asyncio
+    async def test_liefert_die_stellen_mit_ihrer_quelle(self, monkeypatch):
+        monkeypatch.setattr(instruction, "_ready_ids", lambda ws, uuids: [7])
+        gefragt = []
+
+        async def _treffer(workspace_id, ids, frage, budget):
+            gefragt.append((workspace_id, ids, frage, budget))
+            return [{"source_id": 7, "content": "Die Stelle zur Kuehlung"}]
+
+        monkeypatch.setattr(instruction, "_search", _treffer)
+        monkeypatch.setattr(instruction.db, "get_aia_source_by_id", lambda sid: {"filename": "a.pdf"})
+        text = await instruction.search_context(42, ["s1"], "Kuehlung", 6000)
+        assert "# a.pdf" in text and "Die Stelle zur Kuehlung" in text
+        assert gefragt == [(42, [7], "Kuehlung", 6000)], "das Budget muss durchgereicht werden"

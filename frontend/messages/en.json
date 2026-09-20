@@ -62,7 +62,8 @@
         "tts": "Text to audio",
         "screencast": "Screencast",
         "image": "Image",
-        "podcast": "Podcast"
+        "podcast": "Podcast",
+        "praesentation": "Presentation"
       }
     },
     "status": {
@@ -177,7 +178,8 @@
       "openScreencast": "Open screencast",
       "downloadAllZip": "Download all (ZIP)",
       "fallbackFile": "File",
-      "openPodcast": "Open podcast"
+      "openPodcast": "Open podcast",
+      "openPraesentation": "Open presentation"
     },
     "duration": {
       "seconds": "{n} s",
@@ -379,15 +381,12 @@
       "podcast": {
         "title": "Podcast",
         "body": "Your material becomes a conversation to listen to. You pick the content and the cast, check the script and have it voiced."
-      }
-    },
-    "coming": {
-      "slides": {
+      },
+      "praesentation": {
         "title": "Presentation",
-        "body": "Your material becomes slides with speaker notes, ready for editing."
+        "body": "Your material becomes slides in the university's design, with pictures, tables and charts where the template provides for them."
       }
-    },
-    "comingBadge": "Coming soon"
+    }
   },
   "common": {
     "unknownError": "Unknown error. Please try again.",
@@ -1188,6 +1187,136 @@
         "geaendert": "Changed. On the next run only this line is voiced again.",
         "nachLinks": "Scroll lines to the left",
         "nachRechts": "Scroll lines to the right"
+      }
+    },
+    "praesentation": {
+      "title": "Presentation",
+      "intro": "Your material becomes slides in your university's design. You check every slide and download the PowerPoint file at the end.",
+      "steps": { "content": "Content", "slides": "Slides", "done": "Done" },
+      "common": { "back": "Back", "cancel": "Cancel", "save": "Save", "close": "Close" },
+      "content": {
+        "heading": "What is it about?",
+        "tabs": { "files": "Files" },
+        "dropOrBrowse": "Drop files here or",
+        "browse": "browse",
+        "filesHint": "PDF, Word, PowerPoint or text files.",
+        "removeFile": "Remove {name}",
+        "sourcesLabel": "Sources",
+        "noModules": "You have no workspace with material yet. Use files in the meantime.",
+        "noSources": "No source has finished processing here yet.",
+        "sourcesHint": "Choose up to {max} sources.",
+        "sourcesFull": "Maximum {max} sources.",
+        "templateLabel": "Slide master",
+        "templateWithImages": "with image fields",
+        "templateWithoutImages": "without image fields, no images are created",
+        "uploadTemplate": "Upload your own template",
+        "editTemplate": "Edit {name}",
+        "deleteTemplate": "Delete {name}",
+        "languageLabel": "Slide language",
+        "languages": { "de": "German", "en": "English" },
+        "instructionsLabel": "Instruction (optional)",
+        "instructionsPlaceholder": "For example: only chapter 2, for first-year students, with practical examples",
+        "notesLabel": "Create speaker notes for every slide",
+        "notesHint": "The notes end up in PowerPoint's notes view and can be voiced in the screencast.",
+        "activeJob": "You already have 5 jobs in the queue, no further job is possible. Wait until one finishes or delete one in the",
+        "activeJobLink": "job list",
+        "next": "Create outline"
+      },
+      "upload": {
+        "title": "Your own template",
+        "editTitle": "Edit template",
+        "dropOrBrowse": "Drag the template here or",
+        "browse": "browse",
+        "nameLabel": "Name",
+        "styleLabel": "Image style (optional)",
+        "styleHint": "In English, describes colors and style of the AI images. Without it the image model decides on its own.",
+        "rulesHint": "PowerPoint file (pptx) up to 30 MB, no macros. If the file holds several designs, the first one is used. At most 10 saved templates.",
+        "submit": "Upload",
+        "fileAria": "Choose template file"
+      },
+      "outline": {
+        "working": "The outline is taking shape",
+        "workingHint": "The material is being read and split into slides.",
+        "failed": "The outline could not be created.",
+        "restart": "Start over",
+        "templateFallback": "The chosen template could not be read, the THL template was used instead.",
+        "roles": { "deckblatt": "Cover", "abschnitt": "Section", "text": "Text", "zwei_spalten": "Two columns", "text_mit_bild": "Text with image", "bild_gross": "Image", "abschluss": "Closing" },
+        "titleAria": "Title of slide {n}",
+        "gistAria": "Content of slide {n}",
+        "up": "Move up",
+        "down": "Move down",
+        "delete": "Remove slide",
+        "addPlaceholder": "Title of the new slide",
+        "add": "Add slide",
+        "countWrong": "The outline needs at least {lo} and at most {hi} slides.",
+        "build": "Create slides"
+      },
+      "slides": {
+        "working": "The slides are taking shape",
+        "progressTexts": "{done} of {total} slide texts written",
+        "progressImages": "{done} of {total} images created",
+        "progressBuild": "The file is being built",
+        "progressPreview": "The preview is rendering",
+        "phases": { "texte": "Texts", "bilder": "Images", "bau": "File", "vorschau": "Preview" },
+        "waitingRetry": "The provider is not answering, it continues in a moment.",
+        "heading": "Check slides",
+        "summary": "{n} slides.",
+        "failed": "The build failed.",
+        "resume": "Continue",
+        "roles": { "deckblatt": "Cover", "abschnitt": "Section", "text": "Text", "zwei_spalten": "Two columns", "text_mit_bild": "Text with image", "bild_gross": "Image", "abschluss": "Closing" },
+        "imageMissing": "Image missing",
+        "noPreview": "No preview",
+        "openPreview": "Open preview of slide {n}",
+        "previewTitle": "Slide {n} of {total}",
+        "slideLabel": "Slide {n}",
+        "prev": "← Previous",
+        "next": "Next →",
+        "imagePrompt": "Image description {n} (English)",
+        "notes": "Speaker notes",
+        "notesHelp": "This text is not on the slide itself. In PowerPoint you find it below the slide in the notes view, and during the talk in presenter view. The screencast turns it into the audio track.",
+        "regenText": "New text",
+        "regenImage": "New image",
+        "up": "Move up",
+        "down": "Move down",
+        "insertAfter": "Insert slide after",
+        "delete": "Delete slide",
+        "deleteBody": "Slide {n}: {title}",
+        "deleteWarning": "The slide is removed with its text and image. This cannot be undone.",
+        "deleteConfirm": "Delete",
+        "progressOutline": "Writing the outline",
+        "restart": "Start over",
+        "notesInclude": "Include speaker notes",
+        "expandAll": "Expand all",
+        "insertTitle": "New slide",
+        "insertTitleLabel": "Title",
+        "insertPlaceholder": "Heading of the new slide",
+        "insertInstructionLabel": "Instruction",
+        "insertInstructionPlaceholder": "What belongs on the slide? For example: contrast the two methods",
+        "insertHint": "Either one is enough.",
+        "insert": "Insert",
+        "imageTitle": "Create image again",
+        "imagePlaceholder": "Describe the picture in English. Leave it unchanged for a new attempt with the same description.",
+        "imageGo": "Create",
+        "backToOutline": "To the outline",
+        "finalize": "Finalize"
+      },
+      "regenChat": {
+        "headerTitle": "Suggest slide {n} again",
+        "assistant": "Suggestion",
+        "thinking": "Suggestion is taking shape",
+        "promptPlaceholder": "What should be different?",
+        "promptPlaceholderDemo": "What should be different?",
+        "errorMessage": "The suggestion failed. Try again.",
+        "notJson": "The suggestion was not in a readable format, try again.",
+        "actions": { "replaceSelection": "Replace selection", "insertBefore": "Insert before", "insertAfter": "Insert after", "wholeScript": "Replace whole slide", "replace": "Apply" }
+      },
+      "done": {
+        "heading": "The presentation is done",
+        "summary": "{n} slides as a PowerPoint file.",
+        "download": "Download PowerPoint",
+        "expiryHint": "The file stays as long as a screencast in your jobs.",
+        "backToSlides": "To the slides",
+        "new": "New presentation"
       }
     },
     "screencastDemo": {
@@ -2179,6 +2308,7 @@
         "summary": "Summary",
         "screencast": "Screencast",
         "podcast": "Podcast",
+        "praesentation": "Presentation",
         "glossary": "Glossary"
       },
       "settings": {
@@ -3984,6 +4114,10 @@
       "bugReport": {
         "q": "Where do I report a problem?",
         "a": "Through the feedback form. Say what you did and what happened, that saves a follow-up question."
+      },
+      "presentationTemplate": {
+        "q": "What does my own template need for the presentation service?",
+        "a": "A pptx or potx file up to 30 MB without macros. The first slide master counts. Layouts need a heading, otherwise they are skipped. Image fields are needed for images to be created. The image style is described in English."
       }
     }
   },

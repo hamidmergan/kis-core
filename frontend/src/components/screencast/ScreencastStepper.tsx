@@ -124,6 +124,7 @@ export default function ScreencastStepper({
           disabled={!kannLinks}
           aria-label={t("scrollLeft")}
           className="select-none disabled:opacity-40 disabled:cursor-not-allowed"
+          style={{ backgroundColor: "transparent" }}
         >
           <CaretLeft size={14} weight="bold" />
         </IconButton>
@@ -230,6 +231,7 @@ export default function ScreencastStepper({
           disabled={!kannRechts}
           aria-label={t("scrollRight")}
           className="select-none disabled:opacity-40 disabled:cursor-not-allowed"
+          style={{ backgroundColor: "transparent" }}
         >
           <CaretRight size={14} weight="bold" />
         </IconButton>

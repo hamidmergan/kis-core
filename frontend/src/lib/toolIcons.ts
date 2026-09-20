@@ -5,6 +5,7 @@ import {
   Microphone,
   MicrophoneStage,
   MonitorPlay,
+  Presentation,
   SpeakerHigh,
   TextAlignLeft,
   Translate,
@@ -23,4 +24,5 @@ export const TOOL_ICONS: Record<ToolKey, Icon> = {
   glossary: BookOpen,
   screencast: MonitorPlay,
   podcast: MicrophoneStage,
+  praesentation: Presentation,
 };

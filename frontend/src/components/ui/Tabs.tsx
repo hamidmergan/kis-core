@@ -55,7 +55,7 @@ export default function Tabs<TKey extends string = string>({
 
   return (
     <div
-      className={`flex items-end gap-6 overflow-x-auto ${className}`}
+      className={`flex items-end gap-6 ${className}`}
       style={{ borderBottom: "1px solid var(--border)" }}
       role="tablist"
     >

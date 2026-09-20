@@ -41,3 +41,14 @@ def test_die_abfrage_zaehlt_keine_wartenden(monkeypatch):
     quelle = inspect.getsource(_queries.count_working_jobs)
     assert "awaiting_user" not in quelle.split('"""')[2]
     assert "'pending', 'running', 'queued'" in quelle
+
+
+def test_praesentation_zaehlung_zaehlt_kein_fortsetzen(monkeypatch):
+    """Fortsetzen (awaiting_user/paused) liegt still, gilt fuer die Ein-Auftrag-Regel nicht als aktiv."""
+    import inspect
+    from src.features.jobs.repository import _queries
+
+    quelle = inspect.getsource(_queries.count_active_jobs_for_tool)
+    assert "awaiting_user" not in quelle.split('"""')[2]
+    assert "paused" not in quelle.split('"""')[2]
+    assert "'pending', 'running', 'queued', 'waiting_retry'" in quelle

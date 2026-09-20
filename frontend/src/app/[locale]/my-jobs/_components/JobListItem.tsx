@@ -7,6 +7,7 @@ import { TimingInfo } from "./TimingInfo";
 import { JobArtifacts } from "./JobArtifacts";
 import { AdminDetails } from "./AdminDetails";
 import { podcastJumpHref, podcastJumpKind } from "@/components/jobs/_podcastJump";
+import { praesentationJumpHref, praesentationJumpKind } from "@/components/jobs/_praesentationJump";
 import { screencastJumpHref, screencastJumpKind } from "@/components/jobs/_screencastJump";
 import { JobSources } from "@/components/jobs/JobSources";
 
@@ -32,7 +33,9 @@ export function JobListItem({
     ? screencastJumpHref(job.job_uuid)
     : podcastJumpKind(job) === "resume"
       ? podcastJumpHref(job.job_uuid)
-      : undefined;
+      : praesentationJumpKind(job) === "resume"
+        ? praesentationJumpHref(job.job_uuid)
+        : undefined;
   const canRetry =
     (job.tool === "tts" || job.tool === "screencast_translate" || job.tool === "screencast_render")
     && (job.status === "failed" || job.status === "paused");

@@ -25,6 +25,9 @@ def resume_entry(job: dict) -> str | None:
         return None if _progress(job).get("step") == "script" else "podcast"
     if tool == "summary":
         return "summary"
+    if tool == "praesentation":
+        # Only the build keeps finished texts and pictures, a half written outline is worth nothing.
+        return None if _progress(job).get("step") in ("outline", "outline_done") else "praesentation"
     return None
 
 
@@ -111,6 +114,16 @@ def dispatch_resume(job: dict) -> None:
             job_uuid, params["sources"], params["template_slug"],
             params.get("provider_id"), job["attempts"],
         ])
+        db.set_job_celery_task_id(job_uuid, task.id)
+    elif tuer == "praesentation":
+        from src.tasks.podcast_tasks._shared import clear_cancel
+        from src.tasks.praesentation_tasks import run_praesentation_build
+
+        clear_cancel(job_uuid)
+        # A finalize parked mid-run must resume as a finalize, or the download never opens.
+        final = bool(_progress(job).get("final"))
+        task = run_praesentation_build.apply_async(
+            args=[job_uuid, user_id, job.get("creator_locale") or "de", 1, job["attempts"], None, final])
         db.set_job_celery_task_id(job_uuid, task.id)
     else:
         raise RuntimeError(f"Kein Wiederanlauf fuer Dienst {job.get('tool')}")

@@ -15,6 +15,7 @@ download it.
 - **Glossary** keeps term lists for translation
 - **Screencast** turns slides into a narrated video
 - **Podcast** turns material into a conversation to listen to
+- **Presentation** turns material into a PowerPoint file in the university's slide master
 
 Anyone with a single destination only, such as students with just the AI assistant, lands there
 directly and never sees the tile page. The KIS logo in the top left always leads back to the

@@ -1,7 +1,6 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Presentation } from "@phosphor-icons/react";
 import { AIA_AUDIENCE, TOOLS_AUDIENCE, type Audience, type HomeTarget } from "@/lib/modules";
 import { TOOL_ICONS } from "@/lib/toolIcons";
 import { Greeting } from "@/app/[locale]/workspace/_components/Greeting";
@@ -10,9 +9,6 @@ import HoverTooltip from "@/components/ui/HoverTooltip";
 import Mascot from "@/components/ui/Mascot";
 import { useMascotPref } from "@/hooks/useMascotPref";
 import { StartTile } from "./StartTile";
-
-/** Announced tools without a route yet. Not permission keys, so they live here and not in TOOL_ROUTES. */
-const COMING_TOOLS = [{ key: "slides", icon: Presentation }] as const;
 
 type ToolTarget = Extract<HomeTarget, { kind: "tool" }>;
 
@@ -90,16 +86,6 @@ export default function StartOverview({ firstName, targets }: { firstName: strin
                     title={t(`tools.${z.key}.title`)}
                     body={t(`tools.${z.key}.body`)}
                     testId={`start-tile-${z.key}`}
-                  />
-                ))}
-                {COMING_TOOLS.map((c) => (
-                  <StartTile
-                    key={c.key}
-                    icon={c.icon}
-                    title={t(`coming.${c.key}.title`)}
-                    body={t(`coming.${c.key}.body`)}
-                    badge={t("comingBadge")}
-                    testId={`start-tile-${c.key}`}
                   />
                 ))}
               </div>
