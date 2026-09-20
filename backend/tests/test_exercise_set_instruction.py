@@ -163,7 +163,7 @@ def stack(monkeypatch):
     monkeypatch.setattr(mod, "build_title_avoidance_block", lambda *a, **k: "")
     monkeypatch.setattr(mod, "resolve_set_title", lambda *a, **k: "Endgueltig")
     monkeypatch.setattr(mod, "seen_by_user", lambda *a, **k: [])
-    monkeypatch.setattr(mod, "exercise_context_budget", lambda: 1000)
+    monkeypatch.setattr(mod, "exercise_context_budget", lambda count: 1000)
 
     def _take(*a, **k):
         seen["take"] += 1

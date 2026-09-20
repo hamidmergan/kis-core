@@ -111,9 +111,14 @@ def rebalance_to_count(items: list[dict], count: int) -> list[dict]:
     return keep
 
 
-def build_source_context(uuids: list[str], tool: str,
-                         count: int | None = None) -> QuelleContext | None:
-    """Builds the context from several sources, greedily and sweeping."""
+def build_source_context(uuids: list[str], tool: str, count: int,
+                         *, with_quota: bool = True) -> QuelleContext | None:
+    """Builds the context from several sources, greedily and sweeping.
+
+    ``count`` is how many exercises are wanted, it sizes the context. A tool
+    whose result is one continuous text passes ``with_quota=False``, a quota
+    would break that text apart.
+    """
     sources: list[tuple[str, list[dict]]] = []
     source_by_name: dict[str, dict] = {}
     first_label = ""
@@ -138,13 +143,13 @@ def build_source_context(uuids: list[str], tool: str,
     # Every source takes what is left of the budget, whoever comes too late falls away.
     gefuellt = fill_sources_greedy(
         [(source_by_name[label]["id"], label, chunks) for label, chunks in sources],
-        workspace_id, tool)
+        workspace_id, tool, count)
     picked_by_label = [(label, picked) for _sid, label, picked in gefuellt]
     if not picked_by_label:
         return None
 
     quota = (per_section_quota(len(picked_by_label), count)
-             if count and count >= len(picked_by_label) else 0)
+             if with_quota and count >= len(picked_by_label) else 0)
     return _assemble(picked_by_label, source_by_name, quota)
 
 

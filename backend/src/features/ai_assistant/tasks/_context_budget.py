@@ -8,7 +8,7 @@ from src.limits import (
     AIA_SPECIFIC_MAX_CHARS,
     AIA_TOOL_CONTEXT_MAX_CHARS,
     AIA_TOOL_CONTEXT_HARD_CAP,
-    AIA_EXERCISE_CONTEXT_MAX_CHARS,
+    AIA_EXERCISE_CHARS_PER_ITEM,
 )
 
 # An oversized document is split into this many blocks, one window per block per run.
@@ -35,15 +35,14 @@ def tool_context_budget() -> int:
     return max(1000, min(value, AIA_TOOL_CONTEXT_HARD_CAP))
 
 
-def exercise_context_budget() -> int:
-    """Smaller budget for the exercise tools, the rest of the material follows on later runs."""
-    from src import database as db
-    try:
-        value = int(db.get_setting("aia_exercise_context_max_chars",
-                                   str(AIA_EXERCISE_CONTEXT_MAX_CHARS)))
-    except (ValueError, TypeError):
-        value = AIA_EXERCISE_CONTEXT_MAX_CHARS
-    return max(1000, min(value, AIA_TOOL_CONTEXT_HARD_CAP))
+def exercise_context_budget(count: int) -> int:
+    """What a set of ``count`` exercises needs, the tool field stays the ceiling.
+
+    No setting of its own: a set of five must not read the material of fifteen,
+    and the rest of it follows on later runs anyway.
+    """
+    wanted = max(1, int(count)) * AIA_EXERCISE_CHARS_PER_ITEM
+    return max(1000, min(wanted, tool_context_budget()))
 
 
 def specific_context_budget() -> int:
@@ -130,14 +129,14 @@ _MIN_PER_SOURCE_CHARS = 3000
 
 
 def fill_sources_greedy(
-    sources: list[tuple[int, str, list[dict]]], workspace_id, tool: str,
+    sources: list[tuple[int, str, list[dict]]], workspace_id, tool: str, count: int,
 ) -> list[tuple[int, str, list[dict]]]:
     """Fills the budget source by source, whoever comes too late falls away.
 
     Starts where the last run stopped, so over several runs every source gets
     its turn. Inside a source the sweep and its marks stay untouched.
     """
-    budget = exercise_context_budget()
+    budget = exercise_context_budget(count)
     order = _rotated(sources, read_rotation(workspace_id, tool))
 
     taken: dict[int, list[dict]] = {}

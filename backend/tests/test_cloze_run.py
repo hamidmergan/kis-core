@@ -125,7 +125,7 @@ def test_der_vorrat_wird_nach_der_bestellten_luecken_zahl_gefragt(monkeypatch, s
 # ─── source mode builds context without a section quota (regression) ─────────
 
 def test_quellenmodus_baut_den_kontext_ohne_abschnitts_quote(monkeypatch, seen):
-    # With count the section quota broke the continuous text apart.
+    # The gap count sizes the context, the section quota broke the continuous text apart.
     monkeypatch.setattr(_pool, "take", lambda *a, **k: [])
     erhalten = {}
 
@@ -141,8 +141,8 @@ def test_quellenmodus_baut_den_kontext_ohne_abschnitts_quote(monkeypatch, seen):
 
     _run({"mode": "source"}, count=5)
 
-    assert erhalten["args"] == (["u1"], "wortschatz")
-    assert "count" not in erhalten["kwargs"]
+    assert erhalten["args"] == (["u1"], "wortschatz", 5)
+    assert erhalten["kwargs"] == {"with_quota": False}
 
 
 def test_die_titel_vermeidung_erreicht_den_erzeuger(monkeypatch, seen):

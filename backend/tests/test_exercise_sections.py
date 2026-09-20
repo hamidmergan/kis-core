@@ -34,7 +34,7 @@ def _install(monkeypatch, sizes, budget=250000):
     monkeypatch.setattr("src.database.set_context_rotation", lambda w, t, s: None)
     monkeypatch.setattr(
         "src.features.ai_assistant.tasks._context_budget.exercise_context_budget",
-        lambda: budget)
+        lambda count: budget)
     return list(by_uuid)
 
 
@@ -118,9 +118,10 @@ def test_sections_are_numbered_and_carry_the_quota(monkeypatch):
     assert ctx.sections == {1: "a.pdf", 2: "b.pdf"}
 
 
-def test_without_a_count_the_header_states_no_quota(monkeypatch):
+def test_a_tool_that_wants_no_quota_gets_a_bare_header(monkeypatch):
+    # The cloze is one continuous text, a quota per section would break it apart.
     uuids = _install(monkeypatch, {"a.pdf": (20, 500), "b.pdf": (20, 500)})
-    ctx = build_source_context(uuids, "quiz")
+    ctx = build_source_context(uuids, "quiz", 10, with_quota=False)
     assert "=== SECTION 1 OF 2 — a.pdf ===" in ctx.context
 
 

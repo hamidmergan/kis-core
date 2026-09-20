@@ -310,8 +310,8 @@ def run_cloze_set(set_id, ex_set, user_id, count, client, model,
             db.finalize_exercise_set(set_id, titel, aus_vorrat, user_id=user_id)
             return
 
-    # No count, the section quota would break the continuous text apart.
-    ctx = build_source_context(uuids, "wortschatz")
+    # The gaps size the context, a section quota would break the continuous text apart.
+    ctx = build_source_context(uuids, "wortschatz", count, with_quota=False)
     if ctx is None:
         db.fail_exercise_set(set_id)
         return

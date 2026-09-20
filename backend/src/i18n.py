@@ -379,12 +379,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "Context budget must be between {min} and {max} characters.",
     },
     "admin.settings.toolContextBudgetOutOfRange": {
-        "de": "Das Kontext-Budget der Überblick-Tools muss zwischen {min} und {max} Zeichen liegen.",
-        "en": "Overview tools context budget must be between {min} and {max} characters.",
-    },
-    "admin.settings.exerciseContextBudgetOutOfRange": {
-        "de": "Das Kontext-Budget der Aufgaben muss zwischen {min} und {max} Zeichen liegen.",
-        "en": "Exercise tools context budget must be between {min} and {max} characters.",
+        "de": "Das Kontext-Budget der Tools muss zwischen {min} und {max} Zeichen liegen.",
+        "en": "Tools context budget must be between {min} and {max} characters.",
     },
     "admin.settings.learningToolsLanguageUnknown": {
         "de": "Unbekannte Sprache für die Tools.",

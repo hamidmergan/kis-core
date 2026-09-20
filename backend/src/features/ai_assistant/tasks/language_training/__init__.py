@@ -139,7 +139,7 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
             # The instruction decides the way before the pool is asked.
             gewuenscht = ex_set.get("user_instruction") or ""
             wahl = (resolve_instruction(workspace_id, _source_ids(uuids), gewuenscht,
-                                        exercise_context_budget())
+                                        exercise_context_budget(count))
                     if gewuenscht.strip() else Resolution("", None, False, NONE))
             # Written anew on every run, so a retry that hits the material clears an old miss.
             if gewuenscht.strip():

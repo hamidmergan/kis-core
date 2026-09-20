@@ -20,7 +20,6 @@ from src.limits import (
     AIA_SPECIFIC_MAX_CHARS,
     AIA_TOOL_CONTEXT_MAX_CHARS,
     AIA_TOOL_CONTEXT_HARD_CAP,
-    AIA_EXERCISE_CONTEXT_MAX_CHARS,
     AIA_SUMMARY_BATCH_MAX_CHARS,
     AIA_SOURCE_MAX_PAGES,
     AIA_WORKSPACE_MAX_SOURCES,
@@ -119,13 +118,10 @@ async def get_settings(_admin=Depends(require_any_settings)):
         "aia_specific_max_chars": int(
             db.get_setting("aia_specific_max_chars", str(AIA_SPECIFIC_MAX_CHARS))
         ),
-        # Context budget of the overview tools, apart from the chat.
+        # Context budget of the tools, apart from the chat. The exercise tools take
+        # only what their number of exercises needs, this is their ceiling.
         "aia_tool_context_max_chars": int(
             db.get_setting("aia_tool_context_max_chars", str(AIA_TOOL_CONTEXT_MAX_CHARS))
-        ),
-        # Context budget of the exercise tools, one set at a time.
-        "aia_exercise_context_max_chars": int(
-            db.get_setting("aia_exercise_context_max_chars", str(AIA_EXERCISE_CONTEXT_MAX_CHARS))
         ),
         # Language of the four learning tools, the language trainer stays German.
         "aia_learning_tools_language": db.get_setting(
@@ -399,7 +395,7 @@ async def update_settings(
             )
         db.set_setting("aia_specific_max_chars", str(value))
 
-    # Context budget of the tools, with its own higher ceiling.
+    # Context budget of the tools, with its own higher ceiling than the chat's.
     if body.aia_tool_context_max_chars is not None:
         value = body.aia_tool_context_max_chars
         if value < 1000 or value > AIA_TOOL_CONTEXT_HARD_CAP:
@@ -408,16 +404,6 @@ async def update_settings(
                 detail=t("admin.settings.toolContextBudgetOutOfRange", locale, min=1000, max=AIA_TOOL_CONTEXT_HARD_CAP),
             )
         db.set_setting("aia_tool_context_max_chars", str(value))
-
-    # Context budget of the exercise tools, the same ceiling as the overview tools.
-    if body.aia_exercise_context_max_chars is not None:
-        value = body.aia_exercise_context_max_chars
-        if value < 1000 or value > AIA_TOOL_CONTEXT_HARD_CAP:
-            raise HTTPException(
-                status_code=400,
-                detail=t("admin.settings.exerciseContextBudgetOutOfRange", locale, min=1000, max=AIA_TOOL_CONTEXT_HARD_CAP),
-            )
-        db.set_setting("aia_exercise_context_max_chars", str(value))
 
     # Tunable numbers of the tools, each against its own range. A value outside it is
     # refused here, so no tool ever has to repair one it reads back.
