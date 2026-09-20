@@ -66,8 +66,7 @@ def user_detail(user_id: int) -> dict | None:
                             WHERE msg.workspace_id = m.id AND msg.user_id = %s
                               AND msg.role = 'user') AS chat
                    FROM aia_workspaces m
-                   WHERE NOT m.is_podcast_store
-                     AND (m.user_id = %s
+                   WHERE (m.user_id = %s
                       OR EXISTS (SELECT 1 FROM aia_enrollments e
                                   WHERE e.workspace_id = m.id AND e.user_id = %s))
                    ORDER BY 4 DESC""",

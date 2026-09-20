@@ -9,9 +9,9 @@ from src.storage import delete_aia_workspace_folder, save_aia_source_from_path
 
 
 def _visible_workspace(workspace_uuid: str, locale: str) -> dict:
-    """The podcast store is no course room, every route treats it as absent."""
+    """The course room behind this uuid, an unknown one is a 404 for every route."""
     workspace = db.get_aia_workspace(workspace_uuid)
-    if not workspace or workspace.get("is_podcast_store"):
+    if not workspace:
         raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
     return workspace
 

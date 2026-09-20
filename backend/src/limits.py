@@ -91,8 +91,28 @@ PODCAST_MAX_LINE_CHARS   = 1200
 PODCAST_LINE_PAUSE       = 0.35
 # The same lever as the screencast: waiting on the provider, not own CPU.
 PODCAST_TTS_PARALLELISM  = 8
-# How many uploaded files the hidden per-person store keeps before evicting the least recently used.
-PODCAST_STORE_MAX_SOURCES = 20
+# --- Podcast: reading every source into facts --------------------------------
+# One call per source, so no source depends any more on its place in the list.
+# The numbers are the podcast's own, the summary is calibrated on a dossier of ten files.
+# What one fact is worth of the material budget, and the least and most one source may bring.
+PODCAST_FACTS_MIN_CHARS      = 3_000
+PODCAST_FACTS_MAX_CHARS      = 12_000
+# The script prompt is short, unlike the dossier's, so little has to be kept free for it.
+PODCAST_PROMPT_RESERVE_CHARS = 10_000
+# Characters one read call may carry. Beyond this no model window takes the source whole,
+# and three doomed calls per file cost more than the tail of a very long document.
+PODCAST_READ_MAX_SOURCE_CHARS = 500_000
+# Facts one read call may return, the guard against a model that runs away with a source.
+PODCAST_READ_MAX_FACTS       = 40
+PODCAST_READ_MAX_OUTPUT_TOKENS = 8_250
+# Three at once, the value measured for the summary on 20.09. against the same providers.
+PODCAST_MAP_CONCURRENCY      = 3
+PODCAST_READ_MAX_ATTEMPTS    = 3
+PODCAST_RETRY_DELAY_SECONDS  = 3
+PODCAST_MAX_BACKOFF_SECONDS  = 60
+PODCAST_CALL_TIMEOUT_SECONDS = 270
+# A whole read phase can pass without a single job update, so a pulse reports in meanwhile.
+PODCAST_HEARTBEAT_SECONDS    = 60
 
 # How many parts of a long recording go to the provider at once.
 STT_CHUNK_PARALLELISM = 2

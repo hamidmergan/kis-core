@@ -735,10 +735,6 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             cur.execute(
                 "ALTER TABLE aia_workspaces ADD COLUMN IF NOT EXISTS is_tour_module BOOLEAN NOT NULL DEFAULT FALSE"
             )
-            # The hidden per-person module the podcast keeps its uploaded files in.
-            cur.execute(
-                "ALTER TABLE aia_workspaces ADD COLUMN IF NOT EXISTS is_podcast_store BOOLEAN NOT NULL DEFAULT FALSE"
-            )
             # Owner-managed pinned note shown above the sources list. Plain text + structured links.
             cur.execute(
                 "ALTER TABLE aia_workspaces ADD COLUMN IF NOT EXISTS staff_note_text TEXT"
@@ -752,6 +748,8 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             cur.execute("ALTER TABLE aia_workspaces DROP COLUMN IF EXISTS summary_mode")
             # Old translation mode, translating now always happens on click.
             cur.execute("ALTER TABLE aia_workspaces DROP COLUMN IF EXISTS transcript_translation_mode")
+            # The podcast filed its uploads in a hidden module, it reads them whole now.
+            cur.execute("ALTER TABLE aia_workspaces DROP COLUMN IF EXISTS is_podcast_store")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_access_links (
                     id           SERIAL PRIMARY KEY,

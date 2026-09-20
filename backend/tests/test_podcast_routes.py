@@ -71,15 +71,17 @@ def env(monkeypatch):
     monkeypatch.setattr(render_route.db, "set_job_celery_task_id", lambda *a, **k: None)
     monkeypatch.setattr(render_route.db, "update_job_status", lambda *a, **k: None)
 
-    # Ohne das legt jeder Lauf der Suite einen echten Vorrat samt Datei an.
-    ablage.eingelagert = []
-    monkeypatch.setattr(
-        start_route.source_store, "put",
-        lambda uid, name, pfad, ext, loc="de": (ablage.eingelagert.append(name), f"src-{name}")[1])
-    # Der Vor-Call darf in einem Routen-Test nie ein Modell fragen.
+    # Ein Upload darf nichts anlegen. Schlaegt hier etwas an, ist genau das kaputt.
+    ablage.angelegt = []
+    monkeypatch.setattr(start_route.db, "create_aia_source",
+                        lambda **kw: ablage.angelegt.append(kw.get("filename")))
+    # Der Vor-Call darf in einem Routen-Test nie ein Modell fragen. Er liegt seit dem
+    # Umzug der Materialbeschaffung in der Aufgabe, also wird er am Modul festgehalten.
+    from src.features.podcast import instruction as podcast_instruction
+
     async def _kein_vorcall(llm, anweisung):
-        return start_route.instruction.FILL
-    monkeypatch.setattr(start_route.instruction, "_classify", _kein_vorcall)
+        return podcast_instruction.FILL
+    monkeypatch.setattr(podcast_instruction, "_classify", _kein_vorcall)
 
     gestartet: list[str] = []
 
@@ -123,7 +125,10 @@ class TestStart:
         assert antwort.status_code == 200
         uuid = antwort.json()["job_uuid"]
         assert gestartet == ["script"]
-        assert "Über den Regelkreis." in ablage.get_job_file(7, uuid, "source.txt").decode()
+        # Die Route legt nur noch das rohe Material ab, source.txt schreibt die Aufgabe.
+        material = json.loads(ablage.get_job_file(7, uuid, "material.json"))
+        assert material["sources"][0]["content"] == "Über den Regelkreis."
+        assert material["sources"][0]["filename"] == "kapitel.txt"
 
     def test_weist_material_ohne_inhalt_ab(self, env):
         client, _j, gestartet, _a = env
@@ -131,23 +136,37 @@ class TestStart:
         assert antwort.status_code == 422
         assert gestartet == []
 
-    def test_nimmt_eine_sehr_lange_datei_an_und_fuellt_bis_zum_budget(self, env):
-        """Keine Absage wegen Laenge, was nicht ins Budget passt faellt still weg."""
-        client, _j, gestartet, _a = env
+    def test_legt_eine_sehr_lange_datei_ungekuerzt_ab(self, env):
+        """Keine Absage wegen Laenge, und an der Tuer faellt seit dem Umbau nichts mehr weg."""
+        client, _j, gestartet, ablage = env
         riesig = ("y" * 999 + "\n") * 3000
         antwort = client.post("/podcast/start", data={"params": _params(), "mode": "files"},
                               files={"files": ("gross.txt", riesig.encode(), "text/plain")})
         assert antwort.status_code == 200
         assert gestartet == ["script"]
+        uuid = antwort.json()["job_uuid"]
+        material = json.loads(ablage.get_job_file(7, uuid, "material.json"))
+        # Rund drei Millionen Zeichen, weit ueber jedem Kontext-Budget, und doch vollstaendig.
+        assert len(material["sources"][0]["content"]) > 2_900_000
 
-    def test_legt_hochgeladene_dateien_in_den_vorrat(self, env):
-        """Der Lauf nimmt den Text sofort, das Einbetten laeuft nebenher."""
+    def test_ein_upload_legt_nichts_dauerhaftes_an(self, env):
+        """Fluechtig heisst fluechtig: kein Modul, keine Quelle, keine Einbettung."""
         client, _j, gestartet, ablage = env
         antwort = client.post("/podcast/start", data={"params": _params(), "mode": "files"},
                               files={"files": ("kapitel.txt", b"Ueber den Regelkreis.", "text/plain")})
         assert antwort.status_code == 200
-        assert ablage.eingelagert == ["kapitel.txt"]
         assert gestartet == ["script"]
+        assert ablage.angelegt == []
+
+    def test_ein_upload_ist_nirgends_durchsuchbar_vermerkt(self, env):
+        """Ohne Modul gibt es nichts zu durchsuchen, die Aufgabe geht ueber die Fakten."""
+        client, _j, _g, ablage = env
+        uuid = client.post(
+            "/podcast/start", data={"params": _params(), "mode": "files"},
+            files={"files": ("kapitel.txt", b"Ueber den Regelkreis.", "text/plain")},
+        ).json()["job_uuid"]
+        material = json.loads(ablage.get_job_file(7, uuid, "material.json"))
+        assert material["workspace_id"] is None and material["source_uuids"] == []
 
     def test_weist_eine_person_ohne_stimme_ab(self, env):
         client, _j, _g, _a = env

@@ -322,7 +322,7 @@ def get_aia_admin_stats(days: int = 30, mode: str | None = None) -> dict:
                 mode_params = (mode,)
 
             # ── 1. Summary ──
-            cur.execute("SELECT COUNT(*) AS cnt FROM aia_workspaces WHERE NOT is_podcast_store")
+            cur.execute("SELECT COUNT(*) AS cnt FROM aia_workspaces")
             total_workspaces = cur.fetchone()["cnt"]
 
             cur.execute(
@@ -358,7 +358,6 @@ def get_aia_admin_stats(days: int = 30, mode: str | None = None) -> dict:
                           (SELECT COUNT(DISTINCT src.id) FROM aia_sources src WHERE src.workspace_id = m.id) AS source_count
                    FROM aia_workspaces m
                    JOIN users u ON m.user_id = u.id
-                   WHERE NOT m.is_podcast_store
                    ORDER BY m.created_at DESC""",
             )
             workspaces_raw = [dict(r) for r in cur.fetchall()]

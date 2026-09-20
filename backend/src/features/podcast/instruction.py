@@ -13,6 +13,7 @@ from src.services import model_limits
 FILL = "fill"
 SEARCH = "search"
 OUTLINE = "outline"
+FACTS = "facts"
 
 # Cosine distance to the material, measured 15.09.2026 on a law module: a topic that is in
 # it lands at 0.39 to 0.56, one that is not at 0.65 and up.
@@ -238,25 +239,46 @@ async def build_context(
     workspace_id: int | None = None,
     source_uuids: list[str] | None = None,
     zahlen: dict | None = None,
+    facts=None,
 ) -> str:
-    """Fills the budget, unless a precise instruction and embedded material allow a search."""
-    # Every fallback below lands on filling, only the two ways that work say so themselves.
+    """Fills the budget, unless a precise instruction or the read sources give something better.
+
+    The ways in order: a precise instruction searches, otherwise the facts of every source
+    win, and the older two stay below them as a fallback. ``facts`` is only handed in by
+    the task, a caller without it keeps exactly the behaviour of before.
+    """
     notiz = zahlen if zahlen is not None else {}
     notiz["weg"] = FILL
-    weg = await route(instruction)
-    if weg != SEARCH:
+
+    async def _ohne_suche() -> str:
+        """Everything that is not the targeted search, in order: facts, outline, filling.
+
+        Every giving up inside the search way lands here too, never straight on filling.
+        An upload has nothing embedded, so that is the normal way in.
+        """
+        if facts is not None:
+            aus_fakten = await facts()
+            if aus_fakten:
+                notiz["weg"] = FACTS
+                return aus_fakten
+            logger.info("Podcast: keine Fakten gewonnen, es geht die aelteren Wege weiter")
         breit = await _broad_context(sources, workspace_id, source_uuids)
         if breit:
             notiz["weg"] = OUTLINE
             return breit
         return source_text.fit_to_budget(sources)
+
+    weg = await route(instruction)
+    if weg != SEARCH:
+        return await _ohne_suche()
     if not workspace_id or not source_uuids:
-        return source_text.fit_to_budget(sources)
+        logger.info("Podcast: gezielte Anweisung, aber nichts Durchsuchbares dabei")
+        return await _ohne_suche()
 
     ids = _ready_ids(workspace_id, source_uuids)
     if not ids:
-        logger.info("Podcast: gezielte Anweisung, aber noch nichts eingebettet, es wird aufgefuellt")
-        return source_text.fit_to_budget(sources)
+        logger.info("Podcast: gezielte Anweisung, aber noch nichts eingebettet")
+        return await _ohne_suche()
 
     try:
         abstand = await asyncio.to_thread(_probe, workspace_id, ids, instruction)
@@ -264,22 +286,20 @@ async def build_context(
         logger.warning("Podcast: Abstand der Anweisung nicht messbar: {}", e)
         abstand = 0.0
     if abstand > MAX_DIST:
-        logger.info(
-            "Podcast: Anweisung liegt neben dem Material (Abstand {:.2f}), es wird aufgefuellt",
-            abstand)
+        logger.info("Podcast: Anweisung liegt neben dem Material (Abstand {:.2f})", abstand)
         notiz["daneben"] = True
-        return source_text.fit_to_budget(sources)
+        return await _ohne_suche()
 
     try:
         chunks = await _search(workspace_id, ids, instruction)
     except Exception as e:  # noqa: BLE001 — a failed search is no reason to drop the podcast
-        logger.warning("Podcast: Suche zur Anweisung fehlgeschlagen, es wird aufgefuellt: {}", e)
-        return source_text.fit_to_budget(sources)
+        logger.warning("Podcast: Suche zur Anweisung fehlgeschlagen: {}", e)
+        return await _ohne_suche()
 
     text = _as_text(chunks)
     if not text.strip():
-        logger.info("Podcast: Suche zur Anweisung ohne Treffer, es wird aufgefuellt")
-        return source_text.fit_to_budget(sources)
+        logger.info("Podcast: Suche zur Anweisung ohne Treffer")
+        return await _ohne_suche()
     logger.info("Podcast: Anweisung gezielt, {} Stellen aus {} Quellen, {} Zeichen",
                 len(chunks), len(ids), len(text))
     notiz["weg"] = SEARCH

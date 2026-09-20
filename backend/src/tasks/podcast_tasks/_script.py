@@ -1,14 +1,19 @@
-"""Celery task: material to a conversation, one model call."""
+"""Celery task: material to a conversation. Reading the sources first, in stages."""
 
 from loguru import logger
 
 from src import database as db
 from src.celery_app import celery_app
+from src.features.podcast import glossary as glossar
 from src.features.podcast import script as skript
 from src.features.podcast import store
 from src.i18n import t
 from src.limits import STAGE_SOFT_TIME_LIMIT, STAGE_TIME_LIMIT
-from src.services.job_statistik import messe, route_kennung
+from src.services.facts import RunInterrupted
+from src.services.job_recovery import still_mine
+from src.services.job_statistik import messe, notiere, route_kennung
+from src.tasks._stage import StageClock, StageContinue, StageLost, continue_stage
+from src.tasks.podcast_tasks import _material
 from src.tasks.podcast_tasks._shared import JobCancelled, assert_not_cancelled
 from src.utils.heartbeat import job_heartbeat
 
@@ -16,21 +21,70 @@ from src.utils.heartbeat import job_heartbeat
 _VERSUCHE = 2
 
 
+def _material_phase(job_uuid: str, user_id: int, versuch: int, locale: str) -> str:
+    """Reads every source into facts and lays the material down, or takes an older way.
+
+    Runs in its own stage: one model call per source does not fit into a single one,
+    and what a stage finished is in facts.json before the next one starts.
+    """
+    material = store.load_material(user_id, job_uuid)
+    quellen = material.get("sources") or []
+    if not quellen:
+        raise RuntimeError("Auftrag ohne Material")
+    params = store.load_params(user_id, job_uuid)
+    if not params:
+        raise RuntimeError("Auftrag ohne Einstellungen")
+
+    db.update_job_status(job_uuid, "running", progress={"step": "material"})
+    zahlen = dict(material.get("numbers") or {})
+    clock = StageClock()
+    try:
+        quelle = _material.build(user_id, job_uuid, material, params, clock, versuch, zahlen)
+    except RunInterrupted:
+        # What was read is saved, the rest is the next stage's share.
+        raise StageContinue from None
+    if not quelle.strip():
+        raise RuntimeError(t("podcast.noContent", locale))
+
+    zahlen["zeichen"] = len(quelle)
+    notiere(user_id, job_uuid, "material", zahlen)
+    store.save_source(user_id, job_uuid, quelle)
+    # Saved first, cleared second: the raw sources only ever carried a broken off stage.
+    store.drop_material(user_id, job_uuid)
+    # Sifted against the material that was really built, not against the raw sources.
+    params.glossary = glossar.sift(params.glossary, quelle)
+    params.instruction_unmatched = bool(zahlen.get("daneben"))
+    store.save_params(user_id, job_uuid, params)
+    logger.info("Podcast {}: Material ueber '{}', {} Zeichen",
+                job_uuid[:8], zahlen.get("weg"), len(quelle))
+    return quelle
+
+
 @celery_app.task(
     bind=True,
     name="podcast.script",
     queue="general",
+    acks_late=True,
     soft_time_limit=STAGE_SOFT_TIME_LIMIT,
     time_limit=STAGE_TIME_LIMIT,
 )
-def run_podcast_script(self, job_uuid: str, user_id: int, locale: str = "de"):
+def run_podcast_script(self, job_uuid: str, user_id: int, locale: str = "de",
+                       etappe: int = 1, versuch: int = 0):
     """Writes script.json and hands the job back to the person."""
     try:
         assert_not_cancelled(job_uuid)
-        params = store.load_params(user_id, job_uuid)
+        if not still_mine(job_uuid, versuch):
+            raise StageLost(job_uuid)
+
+        # Already there once the material phase is behind us, also after a restart.
         quelle = store.load_source(user_id, job_uuid)
-        if not params or not quelle.strip():
-            raise RuntimeError("Auftrag ohne Material oder ohne Einstellungen")
+        if not quelle.strip():
+            quelle = _material_phase(job_uuid, user_id, versuch, locale)
+
+        assert_not_cancelled(job_uuid)
+        params = store.load_params(user_id, job_uuid)
+        if not params:
+            raise RuntimeError("Auftrag ohne Einstellungen")
 
         db.update_job_status(job_uuid, "running", progress={"step": "script"})
         nachrichten = skript.build_messages(quelle, params)
@@ -47,9 +101,9 @@ def run_podcast_script(self, job_uuid: str, user_id: int, locale: str = "de"):
             zahlen["zeichen"] = len(quelle)
             zahlen["personen"] = len(params.persons)
             zahlen["rollen"] = ", ".join(person.role for person in params.persons)
-            for versuch in range(1, _VERSUCHE + 1):
+            for versuch_nr in range(1, _VERSUCHE + 1):
                 assert_not_cancelled(job_uuid)
-                zahlen["versuche"] = versuch
+                zahlen["versuche"] = versuch_nr
                 antwort = call_json_llm(
                     llm, nachrichten, endpoint="podcast").choices[0].message.content or ""
                 try:
@@ -57,7 +111,7 @@ def run_podcast_script(self, job_uuid: str, user_id: int, locale: str = "de"):
                     break
                 except skript.ScriptUnusable as e:
                     letzter = str(e)
-                    logger.warning("Podcast-Skript Versuch {} unbrauchbar: {}", versuch, e)
+                    logger.warning("Podcast-Skript Versuch {} unbrauchbar: {}", versuch_nr, e)
             else:
                 raise RuntimeError(letzter or "Das Modell lieferte kein brauchbares Skript")
             zahlen["beitraege"] = len(zeilen)
@@ -69,6 +123,12 @@ def run_podcast_script(self, job_uuid: str, user_id: int, locale: str = "de"):
         logger.info("Podcast {}: Skript mit {} Beiträgen", job_uuid[:8], len(zeilen))
         return {"lines": len(zeilen)}
 
+    except StageContinue:
+        continue_stage(self, [job_uuid, user_id, locale, etappe + 1, versuch], job_uuid)
+        return {"etappe": etappe}
+    except StageLost:
+        logger.info("Podcast {}: Etappe gehoert nicht mehr uns, nichts getan", job_uuid[:8])
+        return {"lost": True}
     except JobCancelled:
         db.reset_job_to_awaiting(job_uuid)
         return {"cancelled": True}

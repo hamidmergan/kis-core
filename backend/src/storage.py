@@ -412,6 +412,11 @@ def save_job_file(user_id: int, job_uuid: str, filename: str, data: bytes) -> st
     return _store_bytes(f"{job_prefix(user_id, job_uuid)}/{filename}", data)
 
 
+def delete_job_file(user_id: int, job_uuid: str, filename: str) -> None:
+    """Drop one named file of a job's folder, for working material nobody needs any more."""
+    delete_file(f"{job_prefix(user_id, job_uuid)}/{filename}")
+
+
 def get_job_file(user_id: int, job_uuid: str, filename: str) -> bytes:
     """Read an arbitrary named file from a job's folder."""
     key = f"{job_prefix(user_id, job_uuid)}/{filename}"

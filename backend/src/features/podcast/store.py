@@ -3,10 +3,14 @@
 import json
 import re
 
+from loguru import logger
+
 from src.features.podcast.schemas import Line, PodcastParams
-from src.storage import get_job_file, job_file_exists, save_job_file
+from src.services.facts import FACTS_FILE
+from src.storage import delete_job_file, get_job_file, job_file_exists, save_job_file
 
 SOURCE_FILE = "source.txt"
+MATERIAL_FILE = "material.json"
 PARAMS_FILE = "params.json"
 SCRIPT_FILE = "script.json"
 USER_SCRIPT_FILE = "user_script.json"
@@ -41,6 +45,36 @@ def load_source(user_id: int, job_uuid: str) -> str:
         return get_job_file(user_id, job_uuid, SOURCE_FILE).decode()
     except Exception:
         return ""
+
+
+def save_material(user_id: int, job_uuid: str, sources: list[dict],
+                  workspace_id: int | None, source_uuids: list[str], numbers: dict) -> None:
+    """The raw sources as they came in, before a single model has seen them.
+
+    The route no longer builds the material, it only lays it down. Reading every source
+    into facts costs one call each and belongs in the task, not in a web request.
+    """
+    _write_json(user_id, job_uuid, MATERIAL_FILE, {
+        "sources": sources, "workspace_id": workspace_id,
+        "source_uuids": list(source_uuids or []), "numbers": numbers,
+    })
+
+
+def load_material(user_id: int, job_uuid: str) -> dict:
+    return _read_json(user_id, job_uuid, MATERIAL_FILE) or {}
+
+
+def drop_material(user_id: int, job_uuid: str) -> None:
+    """The raw sources and the read facts, once the built material stands on its own.
+
+    Both only carry a run over a broken off stage. Afterwards they are the whole upload
+    lying in the bucket a second time, for as long as the job is kept.
+    """
+    for name in (MATERIAL_FILE, FACTS_FILE):
+        try:
+            delete_job_file(user_id, job_uuid, name)
+        except Exception as e:  # noqa: BLE001 - leftover working material is not a failure
+            logger.warning("Podcast {}: {} nicht aufgeraeumt ({})", job_uuid[:8], name, e)
 
 
 def save_params(user_id: int, job_uuid: str, params: PodcastParams) -> None:

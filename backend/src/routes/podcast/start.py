@@ -13,7 +13,7 @@ from pydantic import ValidationError
 from src import database as db
 from src.dependencies import get_current_user, is_admin_user
 from src.features.podcast import glossary as glossar
-from src.features.podcast import instruction, source_store, source_text, store
+from src.features.podcast import source_text, store
 from src.features.podcast.schemas import Line, PodcastParams
 from src.i18n import get_locale, t
 from src.limits import PODCAST_MAX_SOURCES
@@ -63,20 +63,30 @@ def _pruefe_gesamtgroesse(request: Request, locale: str) -> None:
             "podcast.uploadsTooLarge", locale, max=grenze // (1024 * 1024)))
 
 
-def _store_upload(user_id: int, name: str, pfad: str, ext: str, locale: str) -> str | None:
-    """Files the upload for later runs, a failed filing never stops the podcast."""
-    try:
-        return source_store.put(user_id, name, pfad, ext, locale)
-    except Exception as e:  # noqa: BLE001 — der Vorrat ist Beiwerk, nicht der Auftrag
-        logger.warning("Podcast: {} nicht eingelagert: {}", name, e)
-        return None
+def _als_quellen(quellen: list[tuple[str, list[dict]]]) -> list[dict]:
+    """The pieces of each file joined back into one text, that is what a read call gets.
+
+    The number keeps the order the person chose, and names the source in a log line.
+    """
+    roh: list[dict] = []
+    for i, (name, chunks) in enumerate(quellen, start=1):
+        stuecke = [(c.get("content") or "").strip() for c in chunks]
+        text = "\n".join(s for s in stuecke if s)
+        if text:
+            roh.append({"source_id": f"doc_{i:02d}", "filename": name, "content": text})
+    return roh
 
 
 async def _aus_dateien(files: list[UploadFile], user_id: int, locale: str
-                       ) -> tuple[list[tuple[str, list[dict]]], str, list[str]]:
+                       ) -> tuple[list[tuple[str, list[dict]]], str]:
+    """Reads every uploaded file once. Nothing of it outlives this request.
+
+    The text goes into the job folder and is read into facts there. No module is created
+    behind the person's back, and nothing is indexed: the facts phase reads the whole
+    source, it never searches it.
+    """
     quellen: list[tuple[str, list[dict]]] = []
     namen: list[str] = []
-    eingelagert: list[str] = []
     _pruefe_anzahl(len(files), locale)
     with tempfile.TemporaryDirectory(prefix="podcast_upload_") as tmpdir:
         for datei in files:
@@ -101,11 +111,7 @@ async def _aus_dateien(files: list[UploadFile], user_id: int, locale: str
                 name = datei.filename or "?"
                 quellen.append((name, source_text.to_pieces(text)))
                 namen.append(name)
-                # The run itself uses the text above, the embedding happens in the background.
-                gelagert = _store_upload(user_id, name, ziel, ext, locale)
-                if gelagert:
-                    eingelagert.append(gelagert)
-    return quellen, ", ".join(namen), eingelagert
+    return quellen, ", ".join(namen)
 
 
 def _leerer_auftrag(user_id: int, einstellungen: PodcastParams,
@@ -148,6 +154,7 @@ async def start_podcast(
         return {"job_uuid": _leerer_auftrag(user_id, einstellungen, current_user, locale)}
 
     # Where the material also lies embedded, so a precise instruction can search it.
+    # Only a real module ever does, an upload is gone again after this request.
     durchsuchbar: tuple[int | None, list[str]] = (None, [])
     # The job does not exist yet, so the numbers are recorded once it does.
     zahlen: dict = {"herkunft": mode, "anweisung": bool(einstellungen.instructions.strip())}
@@ -155,11 +162,7 @@ async def start_podcast(
     with messe_vorab(zahlen):
         if mode == "files":
             _pruefe_gesamtgroesse(request, locale)
-            quellen, label, eingelagert = await _aus_dateien(files, user_id, locale)
-            vorrat = source_store.store_of(user_id) if eingelagert else None
-            if vorrat:
-                durchsuchbar = (vorrat["id"], eingelagert)
-            zahlen["eingelagert"] = len(eingelagert)
+            quellen, label = await _aus_dateien(files, user_id, locale)
         elif mode == "module":
             try:
                 uuids = json.loads(source_uuids)
@@ -176,12 +179,14 @@ async def start_podcast(
             raise HTTPException(status_code=422, detail=t("podcast.noContent", locale))
 
         zahlen["quellen"] = len(quellen)
-        quelle = await instruction.build_context(
-            quellen, einstellungen.instructions, durchsuchbar[0], durchsuchbar[1], zahlen)
-        zahlen["zeichen"] = len(quelle)
+        # Only laid down here. Reading every source into facts costs one model call each
+        # and belongs in the task, a web request must not wait for that.
+        roh = _als_quellen(quellen)
+        gesamt = "\n\n".join(q["content"] for q in roh)
+        zahlen["zeichen_roh"] = len(gesamt)
         zahlen["budget"] = tool_context_budget()
 
-    if not quelle.strip():
+    if not gesamt.strip():
         raise HTTPException(status_code=422, detail=t("podcast.noContent", locale))
 
     # Checked first, charged second: a refused start costs no quota.
@@ -189,13 +194,13 @@ async def start_podcast(
 
     job_uuid = uuid.uuid4().hex
     einstellungen.source_label = label
-    einstellungen.instruction_unmatched = bool(zahlen.get("daneben"))
-    einstellungen.glossary = glossar.sift(einstellungen.glossary, quelle)
+    # Sifted against the raw sources, the task narrows it again to the material it built.
+    einstellungen.glossary = glossar.sift(einstellungen.glossary, gesamt)
     einstellungen.provider_id = einstellungen.persons[0].provider_id
-    anzeige = label or (quelle[:60].replace("\n", " ") + "…")
+    anzeige = label or (gesamt[:60].replace("\n", " ") + "…")
     db.create_job(job_uuid, user_id, "podcast", anzeige, locale=locale)
     notiere(user_id, job_uuid, "material", zahlen)
-    store.save_source(user_id, job_uuid, quelle)
+    store.save_material(user_id, job_uuid, roh, durchsuchbar[0], durchsuchbar[1], zahlen)
     store.save_params(user_id, job_uuid, einstellungen)
 
     from src.tasks.podcast_tasks import run_podcast_script
@@ -203,5 +208,6 @@ async def start_podcast(
     task = run_podcast_script.apply_async(args=[job_uuid, user_id, locale])
     db.set_job_celery_task_id(job_uuid, task.id)
     db.update_job_status(job_uuid, "pending", progress={"step": "script"})
-    logger.info("Podcast {} gestartet, {} Zeichen Material", job_uuid[:8], len(quelle))
+    logger.info("Podcast {} gestartet, {} Quelle(n), {} Zeichen roh",
+                job_uuid[:8], len(roh), len(gesamt))
     return {"job_uuid": job_uuid}
