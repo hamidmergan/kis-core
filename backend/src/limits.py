@@ -163,8 +163,8 @@ AIA_SPECIFIC_MAX_CHARS                  = 60000
 AIA_TOOL_CONTEXT_MAX_CHARS             = 500_000
 # Hard ceiling for both tool budgets, higher than the chat's.
 AIA_TOOL_CONTEXT_HARD_CAP              = 1_000_000
-# Budget of the exercise tools (flashcards, quiz, cloze, grammar), one set of 15 needs no more.
-AIA_EXERCISE_CONTEXT_MAX_CHARS         = 100_000
+# Material an exercise tool gets per requested item, a set of 15 lands on the measured 100k.
+AIA_EXERCISE_CHARS_PER_ITEM            = 6_700
 # Characters per batch for the summary during ingest, a ceiling and not a target.
 # Measured on the model: 600k pass, 700k are refused, so 500k keeps a margin. It lets
 # a document of up to ~150 pages be summarised in one call instead of two plus a

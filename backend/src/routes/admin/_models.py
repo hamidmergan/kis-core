@@ -29,10 +29,8 @@ class UpdateSettingsRequest(BaseModel):
     aia_context_max_chars: int | None = None
     # Context of a specific question, where less is better than more.
     aia_specific_max_chars: int | None = None
-    # Context budget of the overview tools, apart from the chat.
+    # Context budget of the tools, apart from the chat, and the ceiling of the exercises.
     aia_tool_context_max_chars: int | None = None
-    # Context budget of the exercise tools, one set at a time.
-    aia_exercise_context_max_chars: int | None = None
     # Language for flashcards, quiz, data table and mind map.
     aia_learning_tools_language: str | None = None
     # Characters per batch for the summary during ingest.

@@ -1984,16 +1984,8 @@
       "saveFailed": "Speichern fehlgeschlagen."
     },
     "toolContextBudgetCard": {
-      "title": "Kontext-Budget der Überblick-Tools",
-      "hint": "Wie viel Text aus den Materialien (in Zeichen) die Überblick-Tools ins Modell geben. Der Wert gilt für alle vier gleich: die Mindmap teilt ihn auf die gewählten Materialien auf, der Podcast füllt der Reihe nach auf, Zeitplan und Datentabelle schneiden ihr Material in Pakete dieser Größe und machen je Paket einen Aufruf. Kann das eingestellte Modell so viel nicht, lehnt es den Auftrag mit einer Fehlermeldung ab, dann muss der Wert hier gesenkt werden.",
-      "unit": "Zeichen",
-      "approxTokens": "≈ {n}k Token",
-      "outOfRange": "Wert muss zwischen 1000 und 1000000 liegen.",
-      "saveFailed": "Speichern fehlgeschlagen."
-    },
-    "exerciseContextBudgetCard": {
-      "title": "Kontext-Budget der Aufgaben",
-      "hint": "Wie viel Text aus den Materialien (in Zeichen) Karteikarten, Lernkarten, Quiz, Wortschatzübung und Grammatikübung für einen Satz Aufgaben ins Modell geben. Die Materialien füllen den Platz der Reihe nach, was nicht mehr hineinpasst, kommt beim nächsten Satz dran, ein Merker je Tool setzt dort wieder an. Für 15 Aufgaben reichen 100.000 Zeichen, mehr macht den Aufruf nur langsamer.",
+      "title": "Kontext-Budget der Tools",
+      "hint": "Wie viel Text aus den Materialien (in Zeichen) die Tools ins Modell geben. Mindmap, Podcast, Zeitplan und Datentabelle nutzen den Wert voll aus: die Mindmap teilt ihn auf die gewählten Materialien auf, der Podcast füllt der Reihe nach auf, Zeitplan und Datentabelle schneiden ihr Material in Pakete dieser Größe und machen je Paket einen Aufruf. Karteikarten, Lernkarten, Quiz, Wortschatzübung und Grammatikübung nehmen sich nur so viel, wie die bestellte Anzahl Aufgaben braucht, rund 6.700 Zeichen je Aufgabe, was nicht mehr hineinpasst kommt beim nächsten Satz dran. Der Wert hier ist ihre Obergrenze. Kann das eingestellte Modell so viel nicht, lehnt es den Auftrag mit einer Fehlermeldung ab, dann muss der Wert hier gesenkt werden.",
       "unit": "Zeichen",
       "approxTokens": "≈ {n}k Token",
       "outOfRange": "Wert muss zwischen 1000 und 1000000 liegen.",

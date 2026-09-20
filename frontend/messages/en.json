@@ -1984,16 +1984,8 @@
       "saveFailed": "Save failed."
     },
     "toolContextBudgetCard": {
-      "title": "Overview tools context budget",
-      "hint": "How much text from the material (in characters) the overview tools hand to the model. The value is the same for all four: the mind map splits it across the chosen material, the podcast fills up one by one, schedule and data table cut their material into packets of this size and make one call per packet. If the configured model cannot take that much, it refuses the job with an error, then this value has to come down.",
-      "unit": "characters",
-      "approxTokens": "≈ {n}k tokens",
-      "outOfRange": "Value must be between 1000 and 1000000.",
-      "saveFailed": "Save failed."
-    },
-    "exerciseContextBudgetCard": {
-      "title": "Exercise tools context budget",
-      "hint": "How much material text (in characters) flashcards, vocab cards, quiz, vocabulary and grammar exercises send to the model for one set of exercises. The materials fill the room in order, whatever does not fit comes up in the next set, a mark per tool continues there. 100,000 characters are enough for 15 exercises, more only slows the call down.",
+      "title": "Tools context budget",
+      "hint": "How much text from the material (in characters) the tools hand to the model. Mind map, podcast, schedule and data table use the whole value: the mind map splits it across the chosen material, the podcast fills up one by one, schedule and data table cut their material into packets of this size and make one call per packet. Flashcards, vocab cards, quiz, vocabulary and grammar exercises take only what the requested number of exercises needs, about 6,700 characters per exercise, whatever does not fit comes up in the next set. This value is their ceiling. If the configured model cannot take that much, it refuses the job with an error, then this value has to come down.",
       "unit": "characters",
       "approxTokens": "≈ {n}k tokens",
       "outOfRange": "Value must be between 1000 and 1000000.",
