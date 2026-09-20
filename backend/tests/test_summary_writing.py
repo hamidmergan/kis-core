@@ -6,7 +6,7 @@ import pytest
 from tests.summary_helpers import FakeClient
 
 from src.features.summary import writing as wr
-from src.features.summary.facts import Fact
+from src.services.facts.pool import Fact
 from src.features.summary.models import Caller, Section
 from src.limits import SUMMARY_MAX_SECTIONS, SUMMARY_MIN_SECTIONS
 

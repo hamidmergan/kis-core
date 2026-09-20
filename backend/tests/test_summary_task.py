@@ -9,6 +9,7 @@ from docx import Document
 from tests.summary_helpers import FakeClient
 
 from src.features.summary import pipeline as pl
+from src.services.facts import store as fs
 from src.services.model_limits import ModelProfile
 from src.tasks import summary_tasks as st
 from src.tasks._stage import StageContinue
@@ -51,8 +52,11 @@ def lauf(monkeypatch):
     dateien: dict[str, bytes] = {}
     zustand = {"status": [], "fortschritt": [], "ergebnis": None, "name": None, "geloescht": []}
     monkeypatch.setattr(st, "job_file_exists", lambda uid, job, name: name in dateien)
-    monkeypatch.setattr(st, "get_job_file", lambda uid, job, name: dateien[name])
     monkeypatch.setattr(st, "save_job_file", lambda uid, job, name, data: dateien.__setitem__(name, data))
+    # Die Auftragsdateien liest und schreibt seit dem Umzug der Fakten-Dienst.
+    monkeypatch.setattr(fs, "job_file_exists", lambda uid, job, name: name in dateien)
+    monkeypatch.setattr(fs, "get_job_file", lambda uid, job, name: dateien[name])
+    monkeypatch.setattr(fs, "save_job_file", lambda uid, job, name, data: dateien.__setitem__(name, data))
     monkeypatch.setattr(st, "still_mine", lambda job, versuch: True)
     monkeypatch.setattr(st, "open_input_file",
                         lambda pfad, endung: __import__("contextlib").nullcontext("/tmp/x.txt"))

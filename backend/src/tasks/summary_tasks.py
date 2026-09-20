@@ -23,10 +23,15 @@ from src.limits import (
     SUMMARY_WRITE_MAX_TOKENS,
 )
 from src.security.usage_log import log_llm_response
+from src.services.facts import (
+    JobFactStore,
+    parse_job_json,
+    read_job_text,
+    write_job_text,
+)
 from src.services.job_recovery import attempt_failed, still_mine
 from src.storage import (
     delete_file,
-    get_job_file,
     job_file_exists,
     open_input_file,
     save_job_file,
@@ -37,34 +42,8 @@ from src.tasks._stage import StageClock, StageContinue, StageLost, continue_stag
 
 _MIN_WORDS = 20
 _SOURCES_FILE = "sources.json"
-_FACTS_FILE = "facts.json"
 _OUTLINE_FILE = "outline.json"
 _RESULT_FILE = "summary.md"
-
-
-def _read_text(user_id: int, job_uuid: str, name: str) -> str | None:
-    if not job_file_exists(user_id, job_uuid, name):
-        return None
-    try:
-        return get_job_file(user_id, job_uuid, name).decode("utf-8")
-    except Exception as e:  # noqa: BLE001 - an unreadable piece is simply redone
-        logger.warning("Zusammenfassung {}: {} nicht lesbar ({})", job_uuid[:8], name, e)
-        return None
-
-
-def _write_text(user_id: int, job_uuid: str, name: str, text: str) -> None:
-    save_job_file(user_id, job_uuid, name, text.encode("utf-8"))
-
-
-def _parse_json(job_uuid: str, name: str, raw: str | None, default):
-    """Same fallback as an unreadable file: a broken one is treated as absent."""
-    if not raw:
-        return default
-    try:
-        return json.loads(raw)
-    except json.JSONDecodeError as e:
-        logger.warning("Zusammenfassung {}: {} beschaedigt ({})", job_uuid[:8], name, e)
-        return default
 
 
 def _touch(job_uuid: str, part: int, total: int) -> None:
@@ -84,7 +63,8 @@ def _zahl(n: int) -> str:
 def _read_sources(user_id: int, job_uuid: str, sources: list[dict], locale: str,
                   provider_id: int | None) -> list[dict]:
     """Reads every source once, each one whole, and checks it against the model's window."""
-    vorhanden = _parse_json(job_uuid, _SOURCES_FILE, _read_text(user_id, job_uuid, _SOURCES_FILE), None)
+    vorhanden = parse_job_json(job_uuid, _SOURCES_FILE,
+                               read_job_text(user_id, job_uuid, _SOURCES_FILE), None)
     if vorhanden is not None:
         return vorhanden
 
@@ -120,7 +100,7 @@ def _read_sources(user_id: int, job_uuid: str, sources: list[dict], locale: str,
                            chars=_zahl(gesamt), max=_zahl(SUMMARY_MAX_SOURCES * je_datei)))
 
     _window_or_raise(gelesen, provider_id, locale)
-    _write_text(user_id, job_uuid, _SOURCES_FILE, json.dumps(gelesen, ensure_ascii=False))
+    write_job_text(user_id, job_uuid, _SOURCES_FILE, json.dumps(gelesen, ensure_ascii=False))
     logger.info("Zusammenfassung {}: {} Quelle(n), {} Zeichen, je Datei ein Aufruf",
                 job_uuid[:8], len(gelesen), gesamt)
     return gelesen
@@ -152,55 +132,39 @@ def _window_or_raise(sources: list[dict], provider_id: int | None, locale: str) 
                            window=_zahl(urteil.window_tokens)))
 
 
-class _JobStore:
-    """The job folder as the pipeline sees it, plus the progress row counted in files."""
+class _JobStore(JobFactStore):
+    """The shared fact store, plus the pieces only a dossier keeps: language, plan, sections."""
 
     def __init__(self, user_id: int, job_uuid: str, versuch: int, sources: list[dict]) -> None:
-        self._user = user_id
-        self._job = job_uuid
         self._versuch = versuch
-        self._ids = [q["source_id"] for q in sources]
-        self._files = len(self._ids)
-        self._facts: dict[str, list[dict]] = {}
+        super().__init__(user_id, job_uuid, [q["source_id"] for q in sources],
+                         guard=self._claim_or_lost)
 
-    def _guard(self) -> None:
+    def _claim_or_lost(self) -> None:
+        """A stage that lost its claim stops writing, that is what the service asks of us."""
         if not still_mine(self._job, self._versuch):
             raise StageLost(self._job)
 
     def load_language(self) -> str | None:
-        return _read_text(self._user, self._job, "language.txt")
+        return read_job_text(self._user, self._job, "language.txt")
 
     def save_language(self, language: str) -> None:
         self._guard()
-        _write_text(self._user, self._job, "language.txt", language)
-
-    def load_extractions(self) -> dict[str, list[dict]]:
-        roh = _read_text(self._user, self._job, _FACTS_FILE)
-        self._facts = _parse_json(self._job, _FACTS_FILE, roh, {})
-        return dict(self._facts)
-
-    def save_extraction(self, source_id: str, facts: list[dict]) -> None:
-        self._guard()
-        self._facts[source_id] = facts
-        _write_text(self._user, self._job, _FACTS_FILE, json.dumps(self._facts, ensure_ascii=False))
-        self.progress("map")
-
-    def _files_done(self) -> int:
-        """Uploaded documents that have been read."""
-        return sum(1 for sid in self._ids if sid in self._facts)
+        write_job_text(self._user, self._job, "language.txt", language)
 
     def load_outline(self) -> dict | None:
-        roh = _read_text(self._user, self._job, _OUTLINE_FILE)
-        return _parse_json(self._job, _OUTLINE_FILE, roh, None)
+        roh = read_job_text(self._user, self._job, _OUTLINE_FILE)
+        return parse_job_json(self._job, _OUTLINE_FILE, roh, None)
 
     def save_outline(self, outline: dict) -> None:
         self._guard()
-        _write_text(self._user, self._job, _OUTLINE_FILE, json.dumps(outline, ensure_ascii=False))
+        write_job_text(self._user, self._job, _OUTLINE_FILE,
+                       json.dumps(outline, ensure_ascii=False))
 
     def load_sections(self) -> dict[int, str]:
         fertig: dict[int, str] = {}
         for i in range(100):
-            text = _read_text(self._user, self._job, f"section_{i:02d}.txt")
+            text = read_job_text(self._user, self._job, f"section_{i:02d}.txt")
             if text is None:
                 break
             fertig[i] = text
@@ -208,22 +172,7 @@ class _JobStore:
 
     def save_section(self, index: int, text: str) -> None:
         self._guard()
-        _write_text(self._user, self._job, f"section_{index:02d}.txt", text)
-
-    def heartbeat(self) -> None:
-        self._guard()
-        db.touch_job_heartbeat(self._job)
-
-    def progress(self, step: str, part: int | None = None, total: int | None = None) -> None:
-        self._guard()
-        # The map phase counts units, the person is shown the files they picked.
-        if step == "map":
-            part, total = self._files_done(), self._files
-        fortschritt: dict = {"step": step}
-        if part is not None and total is not None:
-            fortschritt |= {"part": part, "total": total}
-        db.update_job_status(self._job, "running", progress=fortschritt)
-        db.touch_job_heartbeat(self._job)
+        write_job_text(self._user, self._job, f"section_{index:02d}.txt", text)
 
 
 _TITLE_MAX_CHARS = 80
@@ -236,8 +185,8 @@ def _outline_title(user_id: int, job_uuid: str) -> str:
 
     The plan is on disk from that one call, so no extra call is needed to name the file.
     """
-    plan = _parse_json(job_uuid, _OUTLINE_FILE,
-                       _read_text(user_id, job_uuid, _OUTLINE_FILE), None)
+    plan = parse_job_json(job_uuid, _OUTLINE_FILE,
+                       read_job_text(user_id, job_uuid, _OUTLINE_FILE), None)
     if not isinstance(plan, dict):
         return ""
     return str(plan.get("title") or "").strip()
@@ -249,7 +198,7 @@ def _docx_locale(user_id: int, job_uuid: str, fallback: str) -> str:
     It follows the document, not the person who started the run, because a reader of the
     file only ever sees the document. A failed language probe falls back to that person.
     """
-    sprache = (_read_text(user_id, job_uuid, "language.txt") or "").strip()
+    sprache = (read_job_text(user_id, job_uuid, "language.txt") or "").strip()
     if not sprache or sprache == pl.LANGUAGE_FALLBACK:
         return fallback
     return "de" if sprache.casefold() in ("german", "deutsch") else "en"
@@ -304,7 +253,7 @@ def _run_summary_inner(job_uuid: str, sources: list[dict], template_slug: str,
         db.update_job_status(job_uuid, "running", progress={"step": "extract"})
     quellen = _read_sources(user_id, job_uuid, sources, locale, provider_id)
 
-    fertig = _read_text(user_id, job_uuid, _RESULT_FILE)
+    fertig = read_job_text(user_id, job_uuid, _RESULT_FILE)
     if not fertig:
         from src.tasks.general_tasks import _get_llm_client
         traeger = _get_llm_client(provider_id)
@@ -316,7 +265,7 @@ def _run_summary_inner(job_uuid: str, sources: list[dict], template_slug: str,
                                           store=store, should_stop=clock.over)
         except pl.PipelineInterrupted:
             raise StageContinue from None
-        _write_text(user_id, job_uuid, _RESULT_FILE, fertig)
+        write_job_text(user_id, job_uuid, _RESULT_FILE, fertig)
 
     # The heading of the finished text, else the plan's title: a build plan without
     # headings keeps the title out of the Markdown, the plan still carries it.

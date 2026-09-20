@@ -2,7 +2,7 @@
 
 import json
 
-from src.features.summary.facts import (
+from src.services.facts.pool import (
     Fact,
     build_pool,
     facts_block,

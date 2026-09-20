@@ -1,13 +1,13 @@
-"""Map phase: one call per file, the whole file, answered as a list of facts with proof."""
+"""One read call: the whole file in, a list of facts with proof out. The service paces them."""
 
 import asyncio
 
 from loguru import logger
 
 from src.features.summary import settings as cfg
-from src.features.summary.facts import parse_facts
 from src.features.summary.models import GROUND_RULES, Caller
 from src.limits import SUMMARY_READ_MAX_ATTEMPTS, SUMMARY_RETRY_DELAY_SECONDS
+from src.services.facts import RateLimited, overloaded, parse_facts
 from src.services.model_limits import CHARS_PER_TOKEN
 
 # What one fact is worth of the budget, and what it really costs as JSON with its proof.
@@ -69,22 +69,6 @@ FACTS_SCHEMA = {
 
 # Probed once per process, a provider without the schema mode must not cost every file.
 _schema_mode_supported = True
-
-
-class RateLimited(Exception):
-    """The provider turned the call away or let it run out, the run slows down."""
-
-
-def overloaded(exc: Exception) -> bool:
-    """Whether this failure means too much at once rather than a bad request."""
-    status = getattr(exc, "status_code", None)
-    if status is None:
-        status = getattr(getattr(exc, "response", None), "status_code", None)
-    if status in (429, 503):
-        return True
-    if isinstance(exc, asyncio.TimeoutError):
-        return True
-    return "timeout" in type(exc).__name__.casefold()
 
 
 def _rejects_schema(exc: Exception) -> bool:

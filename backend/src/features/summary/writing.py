@@ -6,7 +6,7 @@ import re
 
 from loguru import logger
 
-from src.features.summary.facts import Fact, facts_block, facts_for
+from src.services.facts.pool import Fact, facts_block, facts_for
 from src.features.summary.models import GROUND_RULES, Caller, Outline, Section
 from src.limits import (
     SUMMARY_ASSIGN_BATCH_FACTS,

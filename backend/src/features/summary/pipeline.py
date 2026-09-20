@@ -1,13 +1,11 @@
 """Orchestrates one run: language, reading, outline, sections, reporting in all the while."""
 
 import asyncio
-import contextlib
 import re
 from typing import Callable, Protocol
 
 from loguru import logger
 
-from src.features.summary import facts as fc
 from src.features.summary import settings as cfg
 from src.features.summary import reading, writing
 from src.features.summary.models import Caller, Outline
@@ -21,25 +19,22 @@ from src.limits import (
     SUMMARY_READ_MAX_ATTEMPTS,
     SUMMARY_RETRY_DELAY_SECONDS,
 )
+from src.services.facts import FactStore, Pacing, RunInterrupted, keepalive, map_sources
+from src.services.facts import pool as fc
+
+# The map phase is the shared one, and so is the way it hands a stage back unfinished.
+PipelineInterrupted = RunInterrupted
 
 
-class PipelineInterrupted(Exception):
-    """The stage ran out of working time, what is done is saved, the rest follows."""
-
-
-class RunStore(Protocol):
-    """Everything of one run that outlives a single attempt."""
+class RunStore(FactStore, Protocol):
+    """Everything of one run that outlives a single attempt, the facts included."""
 
     def load_language(self) -> str | None: ...
     def save_language(self, language: str) -> None: ...
-    def load_extractions(self) -> dict[str, list[dict]]: ...
-    def save_extraction(self, source_id: str, facts: list[dict]) -> None: ...
     def load_outline(self) -> dict | None: ...
     def save_outline(self, outline: dict) -> None: ...
     def load_sections(self) -> dict[int, str]: ...
     def save_section(self, index: int, text: str) -> None: ...
-    def progress(self, step: str, part: int | None = None, total: int | None = None) -> None: ...
-    def heartbeat(self) -> None: ...
 
 
 _LANGUAGE_SAMPLE_CHARS = 1500
@@ -126,61 +121,29 @@ def read_max_facts(sources: int) -> int:
     return max(5, min(cfg.facts_cap(), aus_budget))
 
 
-async def _read_one(caller, quelle, language, plan_text, categories, anteil, deckel):
-    """One file, retried with a growing wait for as long as the provider turns it away."""
-    for versuch in range(SUMMARY_READ_MAX_ATTEMPTS):
-        try:
-            return await reading.read_source(
-                caller, source=quelle, language=language, template_body=plan_text,
-                categories=categories, max_chars=anteil, max_facts=deckel)
-        except reading.RateLimited as e:
-            if versuch + 1 >= SUMMARY_READ_MAX_ATTEMPTS:
-                logger.warning("Zusammenfassung: Datei '{}' bleibt abgewiesen ({})",
-                               quelle["filename"], e)
-                return None
-            warte = min(SUMMARY_RETRY_DELAY_SECONDS * 2 ** versuch,
-                        SUMMARY_MAX_BACKOFF_SECONDS)
-            await asyncio.sleep(warte)
-    return None
-
-
-async def _map_phase(caller, sources, language, plan_text, categories, facts, store,
-                     should_stop):
+async def _map_phase(caller, sources, language, plan_text, categories, store, should_stop):
     """One call per file, as many at a time as the admin area allows.
 
     Measured 20.09. on the real documents: at three the slowest read takes 161 s while
     the provider drops a call at about 300 s. At five it is 205 s for 27 percent more
     throughput, and a provider that turns half as fast then kills the run.
     """
-    fehlend = [q for q in sources if q["source_id"] not in facts]
-    if not fehlend:
-        return facts
     # From all files, not the missing ones, so every stage caps alike.
     anteil = facts_per_source(len(sources))
     deckel = read_max_facts(len(sources))
+
+    async def _lesen(quelle: dict) -> list[dict] | None:
+        return await reading.read_source(
+            caller, source=quelle, language=language, template_body=plan_text,
+            categories=categories, max_chars=anteil, max_facts=deckel)
+
     # Read once per stage, so a change in the admin area reaches the next stage.
-    semaphore = asyncio.Semaphore(cfg.map_concurrency())
-    abgebrochen = False
-
-    async def _eine(quelle: dict) -> None:
-        nonlocal abgebrochen
-        async with semaphore:
-            # Asked after the semaphore, a check before it would pass for every coroutine at once.
-            if should_stop and should_stop():
-                abgebrochen = True
-                return
-            gelesen = await _read_one(caller, quelle, language, plan_text, categories,
-                                      anteil, deckel)
-        # Written outside the semaphore, so the next file starts while this one saves.
-        if gelesen:
-            # A failure is never written down, the next round asks again.
-            await asyncio.to_thread(store.save_extraction, quelle["source_id"], gelesen)
-            facts[quelle["source_id"]] = gelesen
-
-    await asyncio.gather(*(_eine(q) for q in fehlend))
-    if abgebrochen:
-        raise PipelineInterrupted
-    return facts
+    return await map_sources(
+        sources, read=_lesen, store=store, should_stop=should_stop,
+        pacing=Pacing(concurrency=cfg.map_concurrency(),
+                      max_attempts=SUMMARY_READ_MAX_ATTEMPTS,
+                      retry_delay=SUMMARY_RETRY_DELAY_SECONDS,
+                      max_backoff=SUMMARY_MAX_BACKOFF_SECONDS))
 
 
 async def _outline_phase(caller, language, plan_text, sources, pool, pool_text, store,
@@ -253,40 +216,23 @@ async def _section_phase(caller, language, plan_text, outline, pool, headings,
                             title=outline.title)
 
 
-async def _keepalive(store: RunStore, interval: float) -> None:
-    """Reports the job in while a call is out, a whole phase can pass in silence."""
-    while True:
-        await asyncio.sleep(interval)
-        try:
-            await asyncio.to_thread(store.heartbeat)
-        except Exception:  # noqa: BLE001 - a missed beat must not sink the run
-            return
-
-
 async def run_pipeline(caller: Caller, *, sources: list[dict], template: Template,
                        store: RunStore, should_stop: Callable[[], bool] | None = None) -> str:
     """The finished document as Markdown, reported in while the calls are out."""
-    puls = asyncio.create_task(_keepalive(store, SUMMARY_HEARTBEAT_SECONDS))
-    try:
+    async with keepalive(store, SUMMARY_HEARTBEAT_SECONDS):
         return await _build(caller, sources, template, store, should_stop)
-    finally:
-        puls.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await puls
 
 
 async def _build(caller, sources, template, store, should_stop) -> str:
     plan_text = template_body(template)
-    gelesen = await asyncio.to_thread(store.load_extractions)
     sprache = await asyncio.to_thread(store.load_language)
     if not sprache:
         probe = next((q["content"] for q in sources if q["content"]), "")
         sprache = detect_language(probe)
         await asyncio.to_thread(store.save_language, sprache)
 
-    await asyncio.to_thread(store.progress, "map")
     gelesen = await _map_phase(caller, sources, sprache, plan_text, template.categories,
-                               gelesen, store, should_stop)
+                               store, should_stop)
 
     vorrat = fc.build_pool(sources, gelesen)
     if not vorrat:

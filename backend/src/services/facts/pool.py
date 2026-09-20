@@ -1,4 +1,4 @@
-"""The facts of a run: what one reads out of a file, and the numbered pool they form."""
+"""The facts of a run: what one reads out of a source, and the numbered pool they form."""
 
 import json
 import re
@@ -127,7 +127,7 @@ def salvage_facts(text: str) -> list[dict]:
                     objekte.append(eintrag)
                 start = None
     if objekte:
-        logger.warning("Zusammenfassung: abgeschnittene Antwort, {} Fakten gerettet",
+        logger.warning("Fakten: abgeschnittene Antwort, {} Fakten gerettet",
                        len(objekte))
     return objekte
 
@@ -182,7 +182,7 @@ def build_pool(sources: list[dict], saved: dict[str, list[dict]]) -> list[Fact]:
                 rohe.append((eintrag, sid, quelle["filename"]))
     behalten = unique_statements([_clean(e.get("fact")) for e, _, _ in rohe])
     if len(behalten) < len(rohe):
-        logger.info("Zusammenfassung: {} von {} Fakten sind Wiederholungen und fallen weg",
+        logger.info("Fakten: {} von {} Fakten sind Wiederholungen und fallen weg",
                     len(rohe) - len(behalten), len(rohe))
     vorrat: list[Fact] = []
     for nummer, stelle in enumerate(behalten, start=1):
@@ -216,7 +216,7 @@ def pool_block(facts: list[Fact], budget: int) -> str:
     """The whole pool for the outline call, without proofs, they only cost room there."""
     text = "\n".join(fact_line(f, with_citation=False) for f in facts)
     if len(text) > budget:
-        logger.warning("Zusammenfassung: Vorrat {} Zeichen, gekuerzt auf {}", len(text), budget)
+        logger.warning("Fakten: Vorrat {} Zeichen, gekuerzt auf {}", len(text), budget)
         text = text[:budget]
     return text
 
@@ -228,7 +228,7 @@ def facts_block(facts: list[Fact], budget: int) -> str:
     """
     text = "\n".join(fact_line(f, with_source=False) for f in facts)
     if len(text) > budget:
-        logger.warning("Zusammenfassung: Fakten eines Abschnitts {} Zeichen, gekuerzt auf {}",
+        logger.warning("Fakten: Fakten eines Abschnitts {} Zeichen, gekuerzt auf {}",
                        len(text), budget)
         text = text[:budget]
     return text
