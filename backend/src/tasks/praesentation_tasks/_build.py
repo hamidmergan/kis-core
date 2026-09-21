@@ -35,7 +35,7 @@ def _fortschritt(final: bool, step: str, **extra) -> dict:
     return {"step": step, "final": final, **extra}
 
 
-@celery_app.task(bind=True, name="praesentation.build", queue="praes-test", acks_late=True,
+@celery_app.task(bind=True, name="praesentation.build", queue="general", acks_late=True,
                  soft_time_limit=STAGE_SOFT_TIME_LIMIT, time_limit=STAGE_TIME_LIMIT)
 def run_praesentation_build(self, job_uuid: str, user_id: int, locale: str = "de",
                             etappe: int = 1, versuch: int = 0, nur: dict | None = None, final: bool = False):

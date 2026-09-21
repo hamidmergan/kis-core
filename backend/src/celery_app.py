@@ -42,8 +42,8 @@ celery_app.conf.update(
         # Podcast waits on the voice provider, it does not compute: the general worker scales.
         "podcast.script": {"queue": "general"},
         "podcast.render": {"queue": "general"},
-        "praesentation.outline": {"queue": "praes-test"},
-        "praesentation.build": {"queue": "praes-test"},
+        "praesentation.outline": {"queue": "general"},
+        "praesentation.build": {"queue": "general"},
         "watchdog.check": {"queue": "general"},
         "cleanup.expired_files": {"queue": "general"},
         "cleanup.job_cap": {"queue": "general"},
