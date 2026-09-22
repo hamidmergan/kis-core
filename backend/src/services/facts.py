@@ -358,3 +358,22 @@ def context_for(facts: list[Fact], sources: list[Source], *, nachbarn: int = 1) 
             bis = source.stuecke[lauf[-1]].bis
             teile.append(source.text[von:bis])
     return "\n\n".join(teile)
+
+
+def material_block(facts: list[Fact], budget: int) -> str:
+    """Der Vorrat als Lesestoff: Aussage mit Beleg, gekuerzt wo das Budget endet.
+
+    Fuer ein Werkzeug, das in einem Aufruf schreibt und darum keine Zuteilung je
+    Abschnitt hat. Der Dateiname bleibt draussen, er gehoert nicht in den Text.
+    """
+    zeilen = []
+    laenge = 0
+    for fakt in facts:
+        zeile = f'- {fakt.fact} Beleg: "{fakt.citation}"' if fakt.citation else f"- {fakt.fact}"
+        if laenge + len(zeile) + 1 > budget:
+            logger.warning("Fakten: Vorrat passt nicht ins Budget, {} von {} Aussagen",
+                           len(zeilen), len(facts))
+            break
+        zeilen.append(zeile)
+        laenge += len(zeile) + 1
+    return "\n".join(zeilen)

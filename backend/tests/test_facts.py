@@ -223,3 +223,34 @@ def test_eine_quelle_die_es_nicht_mehr_gibt_stuerzt_nicht_ab():
     quelle = _quelle("AAAA", [(0, 4)])
     fakt = Fact(fact_id=1, category="Zahl", fact="x", citation="y", source=7, piece=0)
     assert context_for([fakt], [quelle]) == ""
+
+
+# ── Vorrat als Lesestoff für ein Werkzeug, das in einem Aufruf schreibt ──────
+
+def test_der_lesestoff_traegt_aussage_und_beleg():
+    from src.services.facts import material_block
+
+    vorrat = build_pool([[_e(fact="Eine Aussage.", citation="Der Beleg.")]])
+    assert material_block(vorrat, 10_000) == '- Eine Aussage. Beleg: "Der Beleg."'
+
+
+def test_ohne_beleg_steht_nur_die_aussage():
+    from src.services.facts import material_block
+
+    vorrat = build_pool([[_e(fact="Eine Aussage.", citation="")]])
+    assert material_block(vorrat, 10_000) == "- Eine Aussage."
+
+
+def test_der_lesestoff_haelt_sein_budget_ein():
+    from src.services.facts import material_block
+
+    vorrat = build_pool([[_e(fact=f"Aussage {i}.") for i in range(200)]])
+    block = material_block(vorrat, 500)
+    assert len(block) <= 500
+
+
+def test_der_dateiname_kommt_im_lesestoff_nicht_vor():
+    from src.services.facts import material_block
+
+    vorrat = build_pool([[_e(fact="Eine Aussage.")]])
+    assert "a.pdf" not in material_block(vorrat, 10_000)
