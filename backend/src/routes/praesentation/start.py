@@ -29,10 +29,19 @@ def _pruefe_params(roh: str, locale: str) -> PraesentationParams:
     return params
 
 
-async def _quellen_lesen(mode: str, files, locale: str) -> list:
-    """Die Quellen eines Laufs. Nur Upload, ein Workspace wird nicht mehr angezapft."""
-    from src.services import sources as quellen
+async def _quellen_lesen(mode: str, files, workspace_uuid: str, source_uuids: list[str],
+                         user_id: int, locale: str) -> list:
+    """Die Quellen eines Laufs, hochgeladen oder aus einem Workspace geholt.
 
+    Beide Wege enden im selben Datensatz. Aus dem Workspace kommt nur die Datei, sonst
+    nichts: kein Index, keine Abschnitte, keine Suche.
+    """
+    from src.services import sources as quellen, workspace_sources as arbeitsraum
+
+    if mode == "module":
+        return arbeitsraum.read_workspace(
+            workspace_uuid, source_uuids, user_id=user_id, locale=locale,
+            hoechstens=PRAESENTATION_MAX_SOURCES, schluessel="praesentation")
     if mode != "files":
         raise HTTPException(status_code=422, detail=t("praesentation.noContent", locale))
     return await quellen.read_uploads(files, locale=locale,
@@ -55,10 +64,10 @@ async def start_praesentation(
     if db.has_active_job_for_tool(user_id, ["praesentation"]):
         raise HTTPException(status_code=409, detail=t("praesentation.alreadyRunning", locale))
 
-    from src.services import sources as quellen
+    from src.services import sources as quellen, workspace_sources as arbeitsraum
 
-    durchsuchbar: tuple[int | None, list[str] | None] = (None, None)
-    gelesen = await _quellen_lesen(mode, files, locale)
+    gewaehlt = arbeitsraum.parse_uuids(source_uuids) if mode == "module" else []
+    gelesen = await _quellen_lesen(mode, files, workspace_uuid, gewaehlt, user_id, locale)
     text = quellen.as_block(gelesen)
     label = quellen.label(gelesen)
     if not text.strip():
@@ -69,8 +78,9 @@ async def start_praesentation(
     einstellungen.style_text = meta["style_text"]
     einstellungen.template_fallback = fallback
     einstellungen.source_label = label
-    # Kept for a slide added later, it searches the same sources on its own.
-    einstellungen.workspace_id, einstellungen.source_uuids = durchsuchbar[0], durchsuchbar[1] or []
+    # Only a note of where the material came from, nothing reads back into the workspace.
+    einstellungen.workspace_id = None
+    einstellungen.source_uuids = gewaehlt
     if fallback:
         einstellungen.template_id = "thl"
 

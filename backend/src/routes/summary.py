@@ -49,6 +49,9 @@ async def list_templates(_user: dict = Depends(get_current_user)):
 async def summarize(
     request: Request,
     files: list[UploadFile] = File(default=[]),
+    mode: str = Form("files"),
+    workspace_uuid: str = Form(""),
+    source_uuids: str = Form("[]"),
     template: str | None = Form(None),
     provider_id: int | None = Form(None),
     current_user: dict = Depends(get_current_user),
@@ -73,9 +76,16 @@ async def summarize(
     enforce_open_jobs(user_id, locale)
     enforce_tool_burst(user_id, "summary", locale)
 
-    gelesen = await sources.read_uploads(files, locale=locale,
-                                         hoechstens=SUMMARY_MAX_SOURCES,
-                                         schluessel="summary")
+    # Beide Wege enden im selben Datensatz, aus dem Workspace kommt nur die Datei.
+    if mode == "module":
+        from src.services import workspace_sources as arbeitsraum
+        gelesen = arbeitsraum.read_workspace(
+            workspace_uuid, arbeitsraum.parse_uuids(source_uuids), user_id=user_id,
+            locale=locale, hoechstens=SUMMARY_MAX_SOURCES, schluessel="summary")
+    else:
+        gelesen = await sources.read_uploads(files, locale=locale,
+                                             hoechstens=SUMMARY_MAX_SOURCES,
+                                             schluessel="summary")
     namen = [q.dateiname for q in gelesen]
 
     # Quota is charged only once every source has cleared reading, so a refused start costs nothing.

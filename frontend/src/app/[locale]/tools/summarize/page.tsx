@@ -8,13 +8,19 @@ import { backendApi, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
 import { MAX_UPLOAD_MB, MAX_UPLOAD_BYTES } from "@/lib/constants";
 import Spinner from "@/components/ui/Spinner";
 import Select from "@/components/ui/Select";
+import Tabs from "@/components/ui/Tabs";
+import Checkbox from "@/components/ui/Checkbox";
+import { EmptyState } from "@/components/ui/EmptyState";
 import BackgroundHint from "@/components/tools/BackgroundHint";
 import ProviderSelect from "@/components/tools/ProviderSelect";
 import { useFeatureProviders } from "@/hooks/useFeatureProviders";
+import { usePermissions } from "@/hooks/usePermissions";
+import { useModules } from "@/hooks/useModules";
 
 type Template = { slug: string; nameDe: string; nameEn: string; hintDe: string; hintEn: string };
 type Setup = { templates: Template[]; maxSources: number; extensions: string[] };
 type Progress = { step?: string; part?: number; total?: number } | null;
+type SourceMode = "files" | "module";
 
 const FALLBACK_EXTENSIONS = [".pdf", ".docx", ".pptx", ".txt", ".md", ".srt", ".vtt"];
 
@@ -26,6 +32,11 @@ export default function ZusammenfassungPage() {
   const { providers, providerId, setProviderId } = useFeatureProviders("/summary/providers");
   const [setup, setSetup] = useState<Setup | null>(null);
   const [files, setFiles] = useState<File[]>([]);
+  // Whoever has no assistant sees no workspace tab, so the choice cannot get stuck.
+  const { permissions } = usePermissions();
+  const [gewaehlterModus, setModus] = useState<SourceMode>("files");
+  const [moduleId, setModuleId] = useState("");
+  const [sourceIds, setSourceIds] = useState<string[]>([]);
   const [template, setTemplate] = useState("");
   const [processing, setProcessing] = useState(false);
   const [step, setStep] = useState("");
@@ -36,11 +47,17 @@ export default function ZusammenfassungPage() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const extensions = setup?.extensions ?? FALLBACK_EXTENSIONS;
-  const maxSources = setup?.maxSources ?? 10;
+  const maxSources = setup?.maxSources ?? 5;
   const templates = setup?.templates ?? [];
   const templateName = (v: Template) => (locale === "de" ? v.nameDe : v.nameEn);
   const templateHint = (v: Template) => (locale === "de" ? v.hintDe : v.hintEn);
   const chosen = templates.find((v) => v.slug === template);
+  const canUseModules = !!permissions.allow_aia;
+  // Whoever loses the assistant must not stay stuck in a tab that is gone.
+  const mode: SourceMode = canUseModules ? gewaehlterModus : "files";
+  const { modules, sources } = useModules(mode === "module" ? moduleId : "");
+  const voll = sourceIds.length >= maxSources;
+  const hatInhalt = mode === "files" ? files.length > 0 : sourceIds.length > 0;
 
   useEffect(() => {
     backendApi.fetch("/summary/templates")
@@ -52,6 +69,29 @@ export default function ZusammenfassungPage() {
       })
       .catch(() => {});
   }, []);
+
+  // Nothing is preselected, a source that is gone drops out of the choice.
+  useEffect(() => {
+    if (!sources) return;
+    const vorhanden = new Set(sources.map((q) => q.uuid));
+    setSourceIds((alt) => (alt.every((id) => vorhanden.has(id)) ? alt : alt.filter((id) => vorhanden.has(id))));
+  }, [sources]);
+
+  const waehleWorkspace = (uuid: string) => {
+    setModuleId(uuid);
+    setSourceIds([]);
+    setDoneJobUuid(null);
+    setErrorMessage("");
+  };
+
+  const schalteQuelle = (uuid: string) => {
+    setDoneJobUuid(null);
+    setErrorMessage("");
+    setSourceIds((alt) => {
+      if (alt.includes(uuid)) return alt.filter((id) => id !== uuid);
+      return alt.length >= maxSources ? alt : [...alt, uuid];
+    });
+  };
 
   const validateFile = useCallback((file: File): string | null => {
     const ext = "." + (file.name.split(".").pop()?.toLowerCase() ?? "");
@@ -103,7 +143,12 @@ export default function ZusammenfassungPage() {
     setStep(t("step.extract"));
     try {
       const formData = new FormData();
-      files.forEach((f) => formData.append("files", f));
+      formData.append("mode", mode);
+      if (mode === "files") files.forEach((f) => formData.append("files", f));
+      if (mode === "module") {
+        formData.append("workspace_uuid", moduleId);
+        formData.append("source_uuids", JSON.stringify(sourceIds));
+      }
       if (template) formData.append("template", template);
       if (providerId != null) formData.append("provider_id", String(providerId));
       const response = await backendApi.fetch("/summary", { method: "POST", body: formData });
@@ -167,6 +212,7 @@ export default function ZusammenfassungPage() {
 
   const handleReset = () => {
     setFiles([]);
+    setSourceIds([]);
     setDoneJobUuid(null);
     setErrorMessage("");
     if (inputRef.current) inputRef.current.value = "";
@@ -182,6 +228,70 @@ export default function ZusammenfassungPage() {
           <h1 className="text-xl font-bold mb-1">{t("title")}</h1>
           <p className="text-sm text-muted mb-6">{t("intro")}</p>
 
+          {canUseModules && (
+            <Tabs<SourceMode>
+              className="mb-4"
+              active={mode}
+              onChange={(next) => { setModus(next); setUploadError(null); setErrorMessage(""); }}
+              items={[
+                { key: "files", label: t("tabs.files") },
+                { key: "module", label: "Workspace" },
+              ]}
+            />
+          )}
+
+          {mode === "module" && (
+            modules === null ? (
+              <Spinner className="justify-center py-10" />
+            ) : modules.length === 0 ? (
+              <EmptyState text={t("noModules")} />
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="summary-module" className="block text-sm font-medium text-foreground mb-1">
+                    Workspace
+                  </label>
+                  <Select
+                    id="summary-module"
+                    value={moduleId}
+                    onChange={waehleWorkspace}
+                    disabled={processing}
+                    placeholder={tCommon("pleaseSelect")}
+                    options={modules.map((m) => ({ value: m.uuid, label: m.title }))}
+                  />
+                </div>
+                {moduleId &&
+                  (sources === null ? (
+                    <Spinner className="justify-center py-6" />
+                  ) : sources.length === 0 ? (
+                    <EmptyState size="sm" text={t("noSources")} />
+                  ) : (
+                    <div>
+                      <span className="block text-sm font-medium text-foreground mb-2">{t("chosenFiles")}</span>
+                      <ul className="space-y-2">
+                        {sources.map((q) => (
+                          <li key={q.uuid}>
+                            <Checkbox
+                              checked={sourceIds.includes(q.uuid)}
+                              disabled={processing || (voll && !sourceIds.includes(q.uuid))}
+                              onChange={() => schalteQuelle(q.uuid)}
+                              label={q.filename}
+                              labelClassName="text-sm text-foreground"
+                            />
+                          </li>
+                        ))}
+                      </ul>
+                      <p className={`mt-2 text-xs ${voll ? "text-error font-medium" : "text-muted"}`}>
+                        {t("tooManySources", { max: maxSources })}
+                      </p>
+                    </div>
+                  ))}
+              </div>
+            )
+          )}
+
+          {mode === "files" && (
+          <>
           <div
             role="button"
             tabIndex={0}
@@ -221,11 +331,13 @@ export default function ZusammenfassungPage() {
             className="hidden"
             aria-hidden="true"
           />
+          </>
+          )}
           {uploadError && (
             <p className="mt-2 text-sm text-error" role="alert">{uploadError}</p>
           )}
 
-          {files.length > 0 && (
+          {mode === "files" && files.length > 0 && (
             <div className="mt-4">
               <p className="text-sm font-medium text-foreground mb-2">{t("chosenFiles")}</p>
               <ul className="space-y-1">
@@ -277,7 +389,7 @@ export default function ZusammenfassungPage() {
             <div className="mt-6 flex items-center gap-3">
               <button
                 onClick={handleSubmit}
-                disabled={!files.length || processing}
+                disabled={!hatInhalt || processing}
                 className="self-start px-5 py-2 btn-primary text-sm font-medium rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 {processing && <Spinner size="sm" color="current" />}

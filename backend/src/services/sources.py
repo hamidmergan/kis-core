@@ -16,6 +16,7 @@ from fastapi import HTTPException, UploadFile
 from loguru import logger
 
 from src.i18n import t
+from src.limits import SUMMARY_MAX_CHARS_PER_SOURCE
 from src.services.job_files import parse_job_json, read_job_text, write_job_text
 from src.services.source_reading import EXTENSIONS, NoReadableText, Source, from_dict, read_file
 from src.services.tool_limits import max_upload_bytes
@@ -23,6 +24,9 @@ from src.utils.file_validation import pages_or_raise, validate_or_raise
 from src.utils.upload_stream import stream_upload_to_path
 
 SOURCES_FILE = "sources.json"
+
+# What one source may carry. Beyond this a single document would eat a whole run.
+MAX_SOURCE_CHARS = SUMMARY_MAX_CHARS_PER_SOURCE
 
 
 def save_sources(user_id: int, job_uuid: str, sources: list[Source]) -> None:
@@ -60,6 +64,19 @@ def _check_count(anzahl: int, hoechstens: int, locale: str, schluessel: str) -> 
                             detail=t(f"{schluessel}.tooManySources", locale, max=hoechstens))
 
 
+def _zahl(n: int) -> str:
+    """A number the way it is written in German, with a dot every three digits."""
+    return f"{n:,}".replace(",", ".")
+
+
+def check_ceiling(source: Source, locale: str, schluessel: str) -> None:
+    """Refuses a source that is too long, before any model has been paid for it."""
+    if len(source.text) > MAX_SOURCE_CHARS:
+        raise HTTPException(status_code=422, detail=t(
+            f"{schluessel}.sourceTooLarge", locale, name=source.dateiname,
+            chars=_zahl(len(source.text)), max=_zahl(MAX_SOURCE_CHARS)))
+
+
 async def read_uploads(files: list[UploadFile], *, locale: str, hoechstens: int,
                        schluessel: str) -> list[Source]:
     """Every uploaded file read once. The file itself does not outlive this request.
@@ -92,6 +109,7 @@ async def read_uploads(files: list[UploadFile], *, locale: str, hoechstens: int,
                 logger.warning("Quelle '{}' nicht lesbar: {}", name, e)
                 raise HTTPException(status_code=422, detail=t(
                     f"{schluessel}.fileUnreadable", locale, name=name)) from e
+            check_ceiling(gelesen[-1], locale, schluessel)
     zeichen = sum(len(q.text) for q in gelesen)
     logger.info("{}: {} Quelle(n) gelesen, {} Zeichen, {} Stueck(e)",
                 schluessel, len(gelesen), zeichen, sum(len(q.stuecke) for q in gelesen))

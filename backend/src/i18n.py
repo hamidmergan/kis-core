@@ -255,6 +255,22 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Du hast gerade zu viele Aufträge laufen. Warte, bis einer fertig ist.",
         "en": "Too many of your jobs are running. Wait until one is finished.",
     },
+    "podcast.sourceOnlyImages": {
+        "de": "In {name} steckt kein Text, nur Bilder.",
+        "en": "{name} holds no text, only pictures.",
+    },
+    "podcast.sourceTooLarge": {
+        "de": "\"{name}\" enthält {chars} Zeichen. Je Dokument sind {max} möglich.",
+        "en": "\"{name}\" carries {chars} characters. Per document {max} are possible.",
+    },
+    "podcast.sourceMissing": {
+        "de": "Diese Quelle gibt es im Workspace nicht.",
+        "en": "This source does not exist in the workspace.",
+    },
+    "podcast.sourceNotReady": {
+        "de": "{name} wird noch verarbeitet.",
+        "en": "{name} is still being processed.",
+    },
     "podcast.tooManySources": {
         "de": "Höchstens {max} Quellen je Podcast.",
         "en": "At most {max} sources per podcast.",

@@ -76,10 +76,19 @@ def _leerer_auftrag(user_id: int, einstellungen: PodcastParams,
     return job_uuid
 
 
-async def _quellen_lesen(mode: str, files, locale: str) -> list:
-    """Die Quellen eines Laufs. Nur Upload, ein Workspace wird nicht mehr angezapft."""
-    from src.services import sources as quellen
+async def _quellen_lesen(mode: str, files, workspace_uuid: str, source_uuids: str,
+                         user_id: int, locale: str) -> list:
+    """Die Quellen eines Laufs, hochgeladen oder aus einem Workspace geholt.
 
+    Beide Wege enden im selben Datensatz. Aus dem Workspace kommt nur die Datei, sonst
+    nichts: kein Index, keine Abschnitte, keine Suche.
+    """
+    from src.services import sources as quellen, workspace_sources as arbeitsraum
+
+    if mode == "module":
+        return arbeitsraum.read_workspace(
+            workspace_uuid, arbeitsraum.parse_uuids(source_uuids), user_id=user_id,
+            locale=locale, hoechstens=PODCAST_MAX_SOURCES, schluessel="podcast")
     if mode != "files":
         raise HTTPException(status_code=422, detail=t("podcast.noContent", locale))
     return await quellen.read_uploads(files, locale=locale,
@@ -106,7 +115,7 @@ async def start_podcast(
     from src.services import sources as quellen
 
     _pruefe_gesamtgroesse(request, locale)
-    gelesen = await _quellen_lesen(mode, files, locale)
+    gelesen = await _quellen_lesen(mode, files, workspace_uuid, source_uuids, user_id, locale)
     gesamt = quellen.as_block(gelesen)
     label = quellen.label(gelesen)
     if not gesamt.strip():

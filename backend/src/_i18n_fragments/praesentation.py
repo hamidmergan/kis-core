@@ -25,6 +25,26 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Aus {name} ließ sich kein Text lesen.",
         "en": "No text could be read from {name}.",
     },
+    "praesentation.fileUnreadable": {
+        "de": "Die Datei {name} lässt sich nicht lesen.",
+        "en": "The file {name} cannot be read.",
+    },
+    "praesentation.sourceOnlyImages": {
+        "de": "In {name} steckt kein Text, nur Bilder.",
+        "en": "{name} holds no text, only pictures.",
+    },
+    "praesentation.sourceTooLarge": {
+        "de": "\"{name}\" enthält {chars} Zeichen. Je Dokument sind {max} möglich.",
+        "en": "\"{name}\" carries {chars} characters. Per document {max} are possible.",
+    },
+    "praesentation.sourceMissing": {
+        "de": "Diese Quelle gibt es im Workspace nicht.",
+        "en": "This source does not exist in the workspace.",
+    },
+    "praesentation.sourceNotReady": {
+        "de": "{name} wird noch verarbeitet.",
+        "en": "{name} is still being processed.",
+    },
     "praesentation.alreadyRunning": {
         "de": "Es läuft schon eine Präsentation. Schließe sie ab oder brich sie ab, bevor du eine neue startest.",
         "en": "A presentation is already in progress. Finish or cancel it before starting a new one.",

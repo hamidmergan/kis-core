@@ -354,6 +354,14 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "No demo video found (output.mp4 missing in demo/)",
     },
     # ── gemeinsamer Quellen-Eingang der drei Dienste ─────────────────────────
+    "summary.sourceMissing": {
+        "de": "Diese Quelle gibt es im Workspace nicht.",
+        "en": "This source does not exist in the workspace.",
+    },
+    "summary.sourceNotReady": {
+        "de": "{name} wird noch verarbeitet.",
+        "en": "{name} is still being processed.",
+    },
     "summary.noContent": {
         "de": "Ohne Quelle gibt es nichts zusammenzufassen. Bitte lade mindestens eine Datei hoch.",
         "en": "Without a source there is nothing to summarise. Please upload at least one file.",

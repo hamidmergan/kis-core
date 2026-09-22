@@ -26,7 +26,8 @@ from src.services.text_pieces import PIECE_CHARS, PIECE_OVERLAP, clean, split_sp
 # What a page break looks like in the assembled text.
 _PAGE_BREAK = "\n\n"
 
-EXTENSIONS: tuple[str, ...] = (".pdf", ".txt", ".md", ".docx", ".pptx")
+# Subtitles are in here because a transcript is a document like any other.
+EXTENSIONS: tuple[str, ...] = (".pdf", ".txt", ".md", ".docx", ".pptx", ".srt", ".vtt")
 
 
 class NoReadableText(ValueError):
@@ -179,3 +180,20 @@ def read_file(path: str, dateiname: str) -> Source:
     logger.info("Quelle {}: {} Zeichen, {} Stueck(e)", dateiname, len(text), len(stuecke))
     return Source(dateiname=dateiname, fassung=_fassung(path), text=text,
                   stuecke=stuecke, seiten=len(seiten))
+
+
+def from_text(dateiname: str, text: str) -> Source:
+    """A text with no document behind it, a transcript for instance.
+
+    It becomes the same record a file becomes, so nothing downstream can tell the two
+    apart. There are no page numbers to keep, and the fingerprint comes from the text
+    itself because there is no original to weigh.
+    """
+    ganz, grenzen = _assemble([clean(text or "")])
+    if not ganz.strip():
+        raise NoReadableText(dateiname)
+    stuecke = _pieces(ganz, grenzen)
+    logger.info("Quelle {}: {} Zeichen, {} Stueck(e), aus Text", dateiname, len(ganz), len(stuecke))
+    return Source(dateiname=dateiname,
+                  fassung=hashlib.sha256(ganz.encode("utf-8")).hexdigest(),
+                  text=ganz, stuecke=stuecke, seiten=1)

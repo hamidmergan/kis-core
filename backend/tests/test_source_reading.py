@@ -10,6 +10,7 @@ from src.services.source_reading import (
     _pieces,
     _seite_von,
     from_dict,
+    from_text,
     read_file,
 )
 
@@ -135,3 +136,26 @@ def test_ein_unbekanntes_format_wird_abgelehnt(tmp_path):
     datei.write_bytes(b"\x89PNG")
     with pytest.raises(ValueError):
         read_file(str(datei), "bild.png")
+
+
+# ── Ein Text ohne Dokument dahinter ──────────────────────────────────────────
+
+def test_aus_text_wird_derselbe_datensatz_wie_aus_einer_datei():
+    quelle = from_text("Vorlesung.mp4", "Guten Morgen. Wir fangen an.")
+    assert quelle.dateiname == "Vorlesung.mp4"
+    assert quelle.text == "Guten Morgen. Wir fangen an."
+    assert quelle.seiten == 1
+    assert [(s.seite, s.von, s.bis) for s in quelle.stuecke] == [(1, 0, 28)]
+
+
+def test_derselbe_text_ergibt_dieselbe_fassung():
+    assert from_text("a.mp4", "Hallo").fassung == from_text("b.mp4", "Hallo").fassung
+
+
+def test_ein_anderer_text_ergibt_eine_andere_fassung():
+    assert from_text("a.mp4", "Hallo").fassung != from_text("a.mp4", "Hallo!").fassung
+
+
+def test_ein_leerer_text_hat_nichts_zu_lesen():
+    with pytest.raises(NoReadableText):
+        from_text("leer.mp4", "   \n  ")
