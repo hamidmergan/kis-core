@@ -2,7 +2,13 @@
 
 import re
 import time
-import unicodedata
+
+from src.services.text_pieces import (
+    PIECE_CHARS,
+    PIECE_OVERLAP,
+    clean,
+    split_text,
+)
 
 from loguru import logger
 
@@ -111,127 +117,6 @@ class _OcrRun:
         }
 
 
-# Chunk size and overlap, all supported models can take this.
-CHUNK_SIZE = 1000
-CHUNK_OVERLAP = 200
-
-
-# Puts standalone accents from LaTeX PDFs back on their letter.
-_ACCENT_SCAN_RANGE = range(0x00A0, 0x0300)
-
-# The acute stays out, it is typed as an apostrophe.
-_ACCENT_EXCLUDED = {"´"}
-
-# Circumflex and caron added by hand, Unicode knows no decomposition for them.
-_ACCENT_EXTRA = {
-    "ˆ": "̂",  # MODIFIER LETTER CIRCUMFLEX ACCENT -> COMBINING CIRCUMFLEX
-    "ˇ": "̌",  # CARON -> COMBINING CARON
-}
-
-
-def _spacing_accent_marks() -> dict[str, str]:
-    """Standalone accent to combining accent, derived from the Unicode data."""
-    marks: dict[str, str] = {}
-    for code_point in _ACCENT_SCAN_RANGE:
-        char = chr(code_point)
-        if char in _ACCENT_EXCLUDED:
-            continue
-        parts = unicodedata.decomposition(char).split()
-        if len(parts) == 3 and parts[0] == "<compat>" and parts[1] == "0020":
-            marks[char] = chr(int(parts[2], 16))
-    return marks | _ACCENT_EXTRA
-
-
-_SPACING_ACCENTS = _spacing_accent_marks()
-_SPACING_ACCENT_RE = re.compile(f"[{re.escape(''.join(_SPACING_ACCENTS))}]")
-
-
-def _attach_spacing_accents(text: str) -> str:
-    """Attach every standalone accent to the letter it belongs to."""
-    out: list[str] = []
-    index = 0
-    end = len(text)
-    while index < end:
-        char = text[index]
-        mark = _SPACING_ACCENTS.get(char)
-        if mark:
-            # The following letter takes precedence.
-            if index + 1 < end and text[index + 1].isalpha():
-                out.append(text[index + 1] + mark)
-                index += 2
-                continue
-            # Otherwise the preceding one, as in "A¯" or "p(A¯)".
-            if out and out[-1][-1:].isalpha():
-                out[-1] += mark
-                index += 1
-                continue
-            # No letter next to it means it cannot be assigned, then it stays.
-        out.append(char)
-        index += 1
-    return "".join(out)
-
-
-def _clean(text: str) -> str:
-    """Removes null bytes and reassembles separated accents."""
-    if not text:
-        return text
-    text = text.replace("\x00", "")
-    if _SPACING_ACCENT_RE.search(text):
-        text = _attach_spacing_accents(text)
-    return unicodedata.normalize("NFC", text)
-
-
-def _merge_small_fragments(chunks: list[str], min_chars: int) -> list[str]:
-    """Folds overly short fragments into the neighbour, they would be magnets."""
-    if len(chunks) <= 1:
-        return chunks
-    merged: list[str] = []
-    for c in chunks:
-        if merged and len(c) < min_chars:
-            merged[-1] = (merged[-1] + " " + c).strip()
-        else:
-            merged.append(c)
-    # A tiny leading fragment had no predecessor above; fold it forward instead.
-    if len(merged) > 1 and len(merged[0]) < min_chars:
-        merged[1] = (merged[0] + " " + merged[1]).strip()
-        merged.pop(0)
-    return merged
-
-
-def _split_text(text: str, chunk_size: int, overlap: int) -> list[str]:
-    """Split text into overlapping chunks of chunk_size chars, breaking at whitespace."""
-    text = text.strip()
-    if len(text) <= chunk_size:
-        return [text] if text else []
-    chunks: list[str] = []
-    start = 0
-    while start < len(text):
-        end = start + chunk_size
-        chunk = text[start:end]
-        # Break at last whitespace to avoid cutting words
-        if end < len(text):
-            last_space = chunk.rfind(" ")
-            if last_space > chunk_size // 2:
-                chunk = chunk[:last_space]
-        chunk = chunk.strip()
-        if chunk:
-            chunks.append(chunk)
-        next_start = start + len(chunk) - overlap
-        if next_start <= start:
-            break
-        # The start is pulled to a word boundary too, otherwise every chunk begins mid-word.
-        if not text[next_start - 1].isspace():
-            wortanfang = text.rfind(" ", start, next_start)
-            if wortanfang + 1 > start:
-                next_start = wortanfang + 1
-            else:
-                # Forward only to the end of the chunk just built, otherwise a word is lost.
-                vor = text.find(" ", next_start)
-                if vor != -1 and vor + 1 <= start + len(chunk):
-                    next_start = vor + 1
-        start = next_start
-    # Fold tiny remainders in so no header magnets end up in the index.
-    return _merge_small_fragments(chunks, max(1, chunk_size // 10))
 
 
 # This much text of its own a bullet group needs to be indexed alone.
@@ -247,13 +132,13 @@ def extract_chunks(
     """Gets the text sections out of a file, with the page number."""
     ft = file_type.lower().lstrip(".")
     if ft == "pdf":
-        return _extract_pdf(file_path, CHUNK_SIZE, CHUNK_OVERLAP, progress_cb, ocr_report)
+        return _extract_pdf(file_path, PIECE_CHARS, PIECE_OVERLAP, progress_cb, ocr_report)
     if ft == "docx":
-        return _extract_docx(file_path, CHUNK_SIZE)
+        return _extract_docx(file_path, PIECE_CHARS)
     if ft == "pptx":
-        return _extract_pptx(file_path, CHUNK_SIZE, CHUNK_OVERLAP)
+        return _extract_pptx(file_path, PIECE_CHARS, PIECE_OVERLAP)
     if ft in ("txt", "md"):
-        return _extract_text(file_path, CHUNK_SIZE, CHUNK_OVERLAP)
+        return _extract_text(file_path, PIECE_CHARS, PIECE_OVERLAP)
     if ft in ("mp3", "mp4", "wav", "flac", "m4a", "webm"):
         raise ValueError(
             "Audio/Video files must be transcribed first - use segments_to_chunks() instead."
@@ -307,7 +192,7 @@ def _bitmap_coverage(page) -> float:
 
 def _page_line_boxes(textpage) -> list:
     """The raw text boxes of the page with their position, empty is a valid answer."""
-    from src.services.aia_pdf_layout import LineBox
+    from src.services.pdf_layout import LineBox
     try:
         n = textpage.count_rects()
     except Exception as e:
@@ -320,7 +205,7 @@ def _page_line_boxes(textpage) -> list:
             text = textpage.get_text_bounded(left=left, bottom=bottom, right=right, top=top)
         except Exception:
             continue
-        text = _clean(text or "").strip()
+        text = clean(text or "").strip()
         if text:
             boxes.append(LineBox(text=text, x=left, y=top))
     return boxes
@@ -334,7 +219,7 @@ def _extract_pdf(
     ocr_report: dict | None = None,
 ) -> list[dict]:
     import pypdfium2 as pdfium
-    from src.services.aia_pdf_layout import (
+    from src.services.pdf_layout import (
         boilerplate_keys, is_boilerplate, merge_rows, slide_groups, strip_boilerplate_text,
     )
     chunks: list[dict] = []
@@ -354,7 +239,7 @@ def _extract_pdf(
         page = doc[page_num]
         textpage = page.get_textpage()
         raw_text = textpage.get_text_range() or ""
-        text = _clean(raw_text).strip()
+        text = clean(raw_text).strip()
 
         # Only pages that are mostly image go into text recognition.
         coverage = _bitmap_coverage(page)
@@ -383,7 +268,7 @@ def _extract_pdf(
                 ocr_run.mark_open(page_num + 1)
             else:
                 # A page that did not get through keeps its text layer and counts as open.
-                ocr_text = _clean(ocr_run.ocr_page(png_bytes, page_num + 1)).strip()
+                ocr_text = clean(ocr_run.ocr_page(png_bytes, page_num + 1)).strip()
                 if ocr_text:
                     ocr_merged = True
                     logger.info(
@@ -418,7 +303,7 @@ def _extract_pdf(
         else:
             parts = [strip_boilerplate_text(text, boiler)]
         for part in parts:
-            for sub in _split_text(part, chunk_size, overlap):
+            for sub in split_text(part, chunk_size, overlap):
                 chunks.append({"page_number": i + 1, "content": sub})
     logger.info(
         "PDF chunking: {} page(s), {} cut by bullet group, {} boilerplate line(s) dropped → {} chunks",
@@ -442,7 +327,7 @@ def _extract_docx(file_path: str, chunk_size: int) -> list[dict]:
     page_number = 1
 
     for para in doc.paragraphs:
-        text = _clean(para.text).strip()
+        text = clean(para.text).strip()
         if not text:
             continue
         if len(current) + len(text) + 1 > chunk_size:
@@ -468,14 +353,14 @@ def _extract_pptx(file_path: str, chunk_size: int, overlap: int) -> list[dict]:
         for shape in slide.shapes:
             if shape.has_text_frame:
                 for para in shape.text_frame.paragraphs:
-                    t = _clean(para.text).strip()
+                    t = clean(para.text).strip()
                     if t:
                         parts.append(t)
         content = " ".join(parts).strip()
         if not content:
             chunks.append({"page_number": slide_num, "content": "[Leere Seite]"})
         else:
-            for sub in _split_text(content, chunk_size, overlap):
+            for sub in split_text(content, chunk_size, overlap):
                 chunks.append({"page_number": slide_num, "content": sub})
     return chunks
 
@@ -484,7 +369,7 @@ def _extract_pptx(file_path: str, chunk_size: int, overlap: int) -> list[dict]:
 
 def _extract_text(file_path: str, chunk_size: int, overlap: int) -> list[dict]:
     with open(file_path, encoding="utf-8", errors="replace") as f:
-        text = _clean(f.read())
+        text = clean(f.read())
 
     if not text.strip():
         return [{"page_number": 1, "content": "[Leere Seite]"}]
@@ -532,9 +417,9 @@ def segments_to_chunks(segments: list[dict]) -> list[dict]:
         if current_start is None:
             current_start = seg["start"]
 
-        # Check if adding this segment exceeds CHUNK_SIZE
+        # Check if adding this segment exceeds PIECE_CHARS
         combined = (current_text + " " + text).strip() if current_text else text
-        if len(combined) > CHUNK_SIZE and current_text:
+        if len(combined) > PIECE_CHARS and current_text:
             # Flush current chunk
             chunks.append({
                 "page_number": page_number,

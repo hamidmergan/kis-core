@@ -1,6 +1,6 @@
 """Checks the layout-aware PDF reader, pure logic without a PDF file."""
 
-from src.services.aia_pdf_layout import (
+from src.services.pdf_layout import (
     LineBox,
     boilerplate_keys,
     is_boilerplate,

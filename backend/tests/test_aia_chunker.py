@@ -1,186 +1,13 @@
-"""Checks the chunker: text splitting, transcript merging and distribution."""
+"""Checks the chunker: transcript merging, file types and extraction."""
 import pytest
 
 from src.services.aia_chunker import (
-    CHUNK_SIZE,
     PdfNoReadableTextError,
-    _clean,
-    _merge_small_fragments,
-    _split_text,
     extract_chunks,
     is_media_file,
     segments_to_chunks,
 )
-
-
-# ── _clean ───────────────────────────────────────────────────────────────────
-
-def test_clean_strips_nul_bytes():
-    assert _clean("a\x00b\x00c") == "abc"
-
-
-def test_clean_passes_through_clean_text():
-    assert _clean("hello world") == "hello world"
-
-
-def test_clean_handles_empty_string():
-    assert _clean("") == ""
-
-
-# Standalone accents from LaTeX PDFs, verbatim as they appear in the corpus.
-
-def test_clean_merges_leading_spacing_diaeresis_into_umlaut():
-    assert _clean("Komplement¨armenge") == "Komplementärmenge"
-
-
-def test_clean_merges_trailing_spacing_macron_into_overlined_letter():
-    assert _clean("A¯ = Ω \\ A") == "Ā = Ω \\ A"
-
-
-def test_clean_merges_accents_inside_a_whole_sentence():
-    raw = "Die relative H¨aufigkeit von A¯ ist größer"
-    assert _clean(raw) == "Die relative Häufigkeit von Ā ist größer"
-
-
-def test_clean_normalises_ohm_sign_to_greek_omega():
-    assert _clean("Ω") == "Ω"
-
-
-def test_clean_leaves_letter_without_precomposed_form_as_combining_pair():
-    # B with a macron stays one letter plus a combining stroke.
-    assert _clean("B¯") == "B̄"
-
-
-def test_clean_leaves_accent_that_is_not_next_to_a_letter():
-    # Badly displaced accents are better left alone than attached wrongly.
-    assert _clean("Fur jedes Ereignis ¨ A gilt") == "Fur jedes Ereignis ¨ A gilt"
-
-
-def test_clean_keeps_a_standalone_accent_character():
-    assert _clean("¨") == "¨"
-
-
-def test_clean_keeps_degree_sign_untouched():
-    # The degree sign is a real character, not a displaced accent.
-    assert _clean("20 °C warm") == "20 °C warm"
-
-
-def test_clean_merges_spacing_circumflex_into_letter():
-    assert _clean("hˆotel") == "hôtel"
-
-
-def test_clean_merges_spacing_caron_into_letter():
-    assert _clean("ˇCech") == "Čech"
-
-
-def test_clean_keeps_ascii_caret_untouched():
-    # In normal text '^' stands for a power, not for an accent.
-    assert _clean("2^3 = 8") == "2^3 = 8"
-
-
-def test_clean_keeps_backtick_untouched():
-    assert _clean("`code`") == "`code`"
-
-
-def test_clean_keeps_acute_used_as_apostrophe():
-    # The acute is deliberately left out, here it would make things worse.
-    assert _clean("geht´s") == "geht´s"
-
-
-# ── _split_text ──────────────────────────────────────────────────────────────
-
-def test_split_empty_returns_empty_list():
-    assert _split_text("", 10, 3) == []
-
-
-def test_split_whitespace_only_returns_empty_list():
-    assert _split_text("   \n\t ", 10, 3) == []
-
-
-def test_split_short_text_returns_single_stripped_chunk():
-    assert _split_text("  hello  ", 10, 3) == ["hello"]
-
-
-def test_split_text_exactly_chunk_size_is_one_chunk():
-    text = "a" * 10
-    assert _split_text(text, 10, 3) == [text]
-
-
-def test_split_breaks_at_whitespace_to_avoid_cutting_words():
-    # The first chunk is the whole word, never the fragment behind it.
-    chunks = _split_text("abcdef ghijklmno", 10, 2)
-    assert chunks[0] == "abcdef"
-
-
-def test_split_never_exceeds_chunk_size_and_drops_no_content():
-    text = "a" * 25  # no spaces -> hard cuts at chunk_size
-    chunks = _split_text(text, 10, 3)
-    assert chunks  # non-empty
-    assert all(len(c) <= 10 for c in chunks)
-    assert all(c for c in chunks)  # no empty chunks
-    # Every character of the source appears in at least one chunk.
-    assert set("".join(chunks)) == {"a"}
-
-
-def test_split_chunks_overlap():
-    text = "0123456789ABCDEFGHIJ"  # 20 chars, no spaces
-    chunks = _split_text(text, 10, 4)
-    assert len(chunks) >= 2
-    # Consecutive chunks share their boundary region.
-    assert chunks[1][:1] in chunks[0]
-
-
-def test_split_never_starts_a_chunk_mid_word():
-    """The start of a chunk has to sit on a word boundary too."""
-    text = "alpha beta gamma delta epsilon zeta eta theta iota kappa lambda my"
-    chunks = _split_text(text, 20, 8)
-    assert len(chunks) > 1
-    woerter = set(text.split())
-    for c in chunks:
-        assert c.split()[0] in woerter, f"Chunk beginnt im Wort: {c[:25]!r}"
-
-
-def test_split_snapping_keeps_every_character():
-    # Pulling back lengthens the overlap, it must lose nothing.
-    text = " ".join(f"wort{i:03d}" for i in range(40))
-    chunks = _split_text(text, 50, 15)
-    for w in text.split():
-        assert any(w in c for c in chunks), f"{w} fehlt"
-
-
-def test_split_terminates_on_pathological_overlap():
-    # An oversized overlap has to abort instead of looping forever.
-    chunks = _split_text("a" * 50, 10, 10)
-    assert isinstance(chunks, list)
-    assert len(chunks) >= 1
-
-
-# ── _merge_small_fragments ───────────────────────────────────────────────────
-
-def test_merge_folds_tiny_trailing_fragment_into_previous():
-    out = _merge_small_fragments(["A full sentence of real body text here.", "hdr"], min_chars=10)
-    assert out == ["A full sentence of real body text here. hdr"]
-
-
-def test_merge_folds_tiny_leading_fragment_forward():
-    out = _merge_small_fragments(["hdr", "A full sentence of real body text here."], min_chars=10)
-    assert out == ["hdr A full sentence of real body text here."]
-
-
-def test_merge_keeps_normal_sized_chunks():
-    chunks = ["a" * 50, "b" * 50]
-    assert _merge_small_fragments(chunks, min_chars=10) == chunks
-
-
-def test_merge_single_chunk_untouched_even_if_tiny():
-    assert _merge_small_fragments(["tiny"], min_chars=10) == ["tiny"]
-
-
-def test_split_text_folds_tiny_trailing_scrap():
-    # A remainder of 5 characters is folded in instead of becoming its own chunk.
-    out = _split_text("a" * 205, 100, 0)
-    assert len(out) == 2
-    assert not any(len(c) < 10 for c in out)
+from src.services.text_pieces import PIECE_CHARS
 
 
 # ── segments_to_chunks (Whisper transcript merging) ──────────────────────────
@@ -220,8 +47,8 @@ def test_segments_skip_empty_text_but_keep_timestamp_anchor():
 
 
 def test_segments_overflow_flushes_and_increments_page_number():
-    big = "a" * (CHUNK_SIZE - 10)
-    big2 = "b" * (CHUNK_SIZE - 10)
+    big = "a" * (PIECE_CHARS - 10)
+    big2 = "b" * (PIECE_CHARS - 10)
     out = segments_to_chunks([_seg(0.0, 5.0, big), _seg(5.0, 9.0, big2)])
     assert len(out) == 2
     assert out[0]["page_number"] == 1
@@ -275,7 +102,7 @@ def test_extract_text_short_file_single_page(tmp_path):
 
 def test_extract_text_long_file_paginates(tmp_path):
     f = tmp_path / "big.txt"
-    f.write_text("x" * (CHUNK_SIZE * 3), encoding="utf-8")
+    f.write_text("x" * (PIECE_CHARS * 3), encoding="utf-8")
     chunks = extract_chunks(str(f), "txt")
     assert len(chunks) >= 3
     # Page numbers are sequential starting at 1.
