@@ -41,8 +41,9 @@ class OutlineRow(BaseModel):
     role: str = "text"
     title: str = ""
     gist: str = ""
-    # Numbers out of the run's fact pool. Empty when the deck was planned from a plain
-    # snapshot instead, and empty for a slide meant to draw on everything.
+    # Numbers out of the run's fact pool. Empty for a slide that draws on everything,
+    # such as an agenda or the closing slide.
+    fact_ids: list[int] = Field(default_factory=list)
 
 
 class Outline(BaseModel):

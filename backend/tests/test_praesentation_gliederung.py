@@ -22,7 +22,7 @@ class TestPrompt:
         assert "Decide yourself how many slides" in system and "English" in system
         assert "at least 3 and at most 30 slides" in system
         assert "- zwei_spalten:" in system and "- abschnitt:" not in system
-        assert msgs[1]["content"].startswith("MATERIAL:\nQuelle")
+        assert msgs[1]["content"].startswith("FACTS, one per line, numbered:\nQuelle")
 
     def test_anweisung_kommt_ans_ende(self):
         msgs = gliederung.build_messages("Q", PraesentationParams(instructions="nur Kapitel 2"), ROLLEN)

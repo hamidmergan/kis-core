@@ -12,6 +12,7 @@ from src.storage import (
     get_job_file, job_file_exists, job_prefix, save_job_file,
 )
 
+POOL_FILE = "pool.json"
 PARAMS_FILE = "params.json"
 TEMPLATE_FILE = "template.pptx"
 TEMPLATE_META_FILE = "template_meta.json"
@@ -179,3 +180,16 @@ def neue_id(ids: set[str]) -> str:
     """The next free slide id, counting past the highest one ever used."""
     hoechste = max((int(m.group(1)) for i in ids if (m := _ID.match(i))), default=0)
     return f"s{hoechste + 1}"
+
+
+def save_pool(user_id: int, job_uuid: str, pool) -> None:
+    """Der nummerierte Vorrat des Laufs, darauf zeigt die Gliederung."""
+    _write_json(user_id, job_uuid, POOL_FILE, [f.as_dict() for f in pool])
+
+
+def load_pool(user_id: int, job_uuid: str):
+    """Der Vorrat zurueck, ein beschaedigter Eintrag faellt weg statt zu sprengen."""
+    from src.services.facts import from_dict
+
+    roh = _read_json(user_id, job_uuid, POOL_FILE) or []
+    return [f for f in (from_dict(e) for e in roh if isinstance(e, dict)) if f is not None]

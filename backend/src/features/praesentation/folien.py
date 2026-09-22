@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 
 from src.features.praesentation.gliederung import SPRACHE, Unusable, json_objekt
+from src.limits import PRAESENTATION_SLIDE_CONTEXT_CHARS
 from src.features.praesentation.schemas import (
     CHART_TYPES, MAX_CHART_CATEGORIES, MAX_CHART_SERIES, MAX_HEADING_CHARS, MAX_NOTES_CHARS, MAX_PROMPT_CHARS,
     MAX_SERIES_NAME_CHARS, MAX_SUBTITLE_CHARS, MAX_TABLE_ROWS, MAX_TEXT_ITEMS, MAX_TITLE_CHARS,
@@ -12,11 +13,36 @@ from src.features.praesentation.schemas import (
 )
 
 
+def material_je_folie(rows: list[OutlineRow], pool: list, sources: list) -> dict[str, str]:
+    """Je Folie ihre Aussagen mit Beleg und die Passagen, aus denen sie stammen.
+
+    Eine Zeile ohne Nummern bekommt den ganzen Vorrat: das ist kein Planungsfehler,
+    eine Agenda oder eine Schlussfolie ruht wirklich auf allem.
+    """
+    from src.services import facts as fk
+
+    if not pool:
+        return {}
+    aus: dict[str, str] = {}
+    for r in rows:
+        eigene = fk.facts_for(r.fact_ids, pool) or pool
+        belege = "\n".join(f'- {f.fact} Beleg: "{f.citation}"' for f in eigene)
+        umgebung = fk.context_for(eigene, sources)[:PRAESENTATION_SLIDE_CONTEXT_CHARS]
+        aus[r.id] = f"{belege}\n\n  passages:\n{umgebung}" if umgebung else belege
+    return aus
+
+
 def build_messages(source: str, params: PraesentationParams, rows: list[OutlineRow],
-                   formen: dict[str, dict]) -> list[dict]:
-    """The content call for one batch of slides."""
+                   formen: dict[str, dict], fakten: dict[str, str] | None = None) -> list[dict]:
+    """The content call for one batch of slides.
+
+    With ``fakten`` every slide carries its own facts and the passages they come from,
+    and the shared material block goes away.
+    """
     lang = SPRACHE.get(params.language, "German")
-    quelle_regel = "from the material only.\n"
+    quelle_regel = ("from its own facts only. Each slide below carries the facts it rests "
+                    "on and the passages they come from, and you never use the material of "
+                    "another slide.\n") if fakten else "from the material only.\n"
     system = (
         f"You write the content of slides for university teaching, {quelle_regel}"
         f"Write all slide text in {lang}. Write image prompts in English.\n"
@@ -54,8 +80,11 @@ def build_messages(source: str, params: PraesentationParams, rows: list[OutlineR
         if f["bilder"]:
             zeilen.append(f"  images: {f['bilder']}")
         zeilen.append(f"  notes: {'yes' if params.notes else 'no'}")
+        eigene = (fakten or {}).get(r.id, "").strip()
+        if eigene:
+            zeilen.append("  facts of this slide:\n" + eigene)
         teile.append("\n".join(zeilen))
-    kopf = f"MATERIAL:\n{source}\n\n"
+    kopf = "" if fakten else f"MATERIAL:\n{source}\n\n"
     user = f"{kopf}SLIDES TO WRITE:\n" + "\n".join(teile)
     if params.instructions.strip():
         user += f"\n\nINSTRUCTION FROM THE TEACHER: {params.instructions.strip()}"

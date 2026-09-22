@@ -46,7 +46,9 @@ def run_praesentation_build(self, job_uuid: str, user_id: int, locale: str = "de
             raise StageLost(job_uuid)
         clock = StageClock()
         params = store.load_params(user_id, job_uuid)
-        quelle = quellen.as_block(quellen.load_sources(user_id, job_uuid))
+        quellenliste = quellen.load_sources(user_id, job_uuid)
+        quelle = quellen.as_block(quellenliste)
+        vorrat = store.load_pool(user_id, job_uuid)
         analyse = store.load_template_meta(user_id, job_uuid)
         vorlage_bytes = store.load_template(user_id, job_uuid)
         outline = store.load_outline(user_id, job_uuid)
@@ -60,8 +62,9 @@ def run_praesentation_build(self, job_uuid: str, user_id: int, locale: str = "de
 
         offen = [r for r in outline.rows if r.id not in slides or r.id in erzwungen_text]
         if offen:
-            _texte_schreiben(job_uuid, user_id, params, quelle, analyse, outline, slides,
-                             layouts, offen, erzwungen_text, clock, final)
+            _texte_schreiben(job_uuid, user_id, params, quelle, quellenliste, vorrat,
+                             analyse, outline, slides, layouts, offen, erzwungen_text,
+                             clock, final)
         geordnet = [slides[r.id] for r in outline.rows if r.id in slides]
 
         fehlend = _fehlende_bilder(user_id, job_uuid, geordnet, analyse, erzwungen_bild)
@@ -138,8 +141,8 @@ def _eigenes_material(user_id, job_uuid, offen, erzwungen_text: set[str]) -> dic
     return aus
 
 
-def _texte_schreiben(job_uuid, user_id, params, quelle, analyse, outline, slides, layouts,
-                     offen, erzwungen_text, clock, final) -> None:
+def _texte_schreiben(job_uuid, user_id, params, quelle, quellenliste, vorrat, analyse,
+                     outline, slides, layouts, offen, erzwungen_text, clock, final) -> None:
     llm = feature_router.make_llm_client(feature_router.resolve("chat"))
     eigen = _eigenes_material(user_id, job_uuid, offen, erzwungen_text)
     # A slide with its own material goes alone, it must not share a call with the run's snapshot.
@@ -152,9 +155,13 @@ def _texte_schreiben(job_uuid, user_id, params, quelle, analyse, outline, slides
         for n, paket in enumerate(pakete):
             assert_not_cancelled(job_uuid)
             formen = {r.id: vorlage.form_fuer(analyse.layout(layouts[r.id]), analyse) for r in paket}
-            # A slide with material of its own keeps it, the rest share the run's material.
-            stoff = eigen[paket[0].id] if paket[0].id in eigen else quelle
-            nachrichten = folien.build_messages(stoff, params, paket, formen)
+            # A slide with material of its own keeps it, the rest are written from facts.
+            if paket[0].id in eigen:
+                nachrichten = folien.build_messages(eigen[paket[0].id], params, paket, formen)
+            else:
+                je_folie = folien.material_je_folie(paket, vorrat, quellenliste)
+                nachrichten = folien.build_messages(quelle, params, paket, formen,
+                                                    je_folie or None)
             letzter = ""
             for _ in range(_VERSUCHE):
                 antwort = call_json_llm(llm, nachrichten, endpoint="praesentation").choices[0].message.content or ""
