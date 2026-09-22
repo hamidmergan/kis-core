@@ -32,6 +32,7 @@ class _Store:
         self.gespeichert: dict[str, tuple[list, bool]] = {}
         self.vorhanden = vorhanden or {}
         self.fortschritt: list[tuple] = []
+        self.herzschlaege = 0
 
     def load_slices(self):
         return dict(self.vorhanden)
@@ -43,7 +44,7 @@ class _Store:
         self.fortschritt.append((step, part, total))
 
     def heartbeat(self):
-        pass
+        self.herzschlaege += 1
 
 
 # ── Stückgröße am Fenster ────────────────────────────────────────────────────
@@ -222,6 +223,32 @@ def test_der_fortschritt_zaehlt_die_stuecke():
     store = _Store()
     _lauf(teile, read, store)
     assert store.fortschritt[0] == ("lesen", 0, 2)
+
+
+def test_jedes_fertige_stueck_schlaegt_das_herz():
+    """Sonst sieht der Watchdog nur den Schlag vor dem ersten Aufruf und totet einen
+    Lauf, dessen Stuecke zusammen laenger brauchen als sein Fenster, obwohl jedes
+    einzelne zurueckkam."""
+    teile = plan_slices([_quelle(750_000)], 250_000)
+    assert len(teile) == 3
+
+    async def read(t):
+        return [{"fact": "x"}], True
+
+    store = _Store()
+    _lauf(teile, read, store)
+    assert store.herzschlaege == 3
+
+
+def test_auch_ein_aufgegebenes_stueck_schlaegt_das_herz():
+    teile = plan_slices([_quelle(50_000)], 250_000)
+
+    async def read(t):
+        return None
+
+    store = _Store()
+    _lauf(teile, read, store)
+    assert store.herzschlaege == 1
 
 
 # ── Zurück nach Quellen sortieren ────────────────────────────────────────────

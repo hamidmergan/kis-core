@@ -171,6 +171,11 @@ async def map_slices(slices: list[Slice], *, read: ReadSlice, store: FactStore,
             eintraege, vollstaendig = gelesen
             await asyncio.to_thread(store.save_slice, teil.key, eintraege, vollstaendig)
             fertig[teil.key] = eintraege
+        # One finished slice is proof of life, per unit as the docstring in heartbeat.py
+        # asks for. Without this the watchdog only sees the touch before the first call
+        # and kills a run whose slices together outlast its 10-minute stale window, even
+        # though every single one of them came back fine.
+        await asyncio.to_thread(store.heartbeat)
 
     await asyncio.gather(*(_eines(t) for t in offen))
     if abgebrochen:
