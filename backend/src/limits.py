@@ -211,6 +211,29 @@ AIA_WORKSPACE_MAX_MEMBERS              = 100     # max enrolled members per work
 AIA_NOTES_MAX_PER_USER              = 100     # max notes per user per workspace
 GLOSSARY_LIMIT                        = 150     # max glossary entries per workspace
 
+# --- Fakten ziehen, gemeinsam fuer Podcast, Praesentation und Zusammenfassung ---
+# Hoechstens so viel Text geht in einen Leseaufruf. Auf dem Zielmodell mit 262.144
+# Token passte auch eine ganze 500k-Datei, geteilt wird trotzdem: ein Aufruf schreibt
+# nur begrenzt viel, zwei Aufrufe verdoppeln das Antwortbudget derselben Datei.
+FACTS_SLICE_MAX_CHARS    = 250_000
+# Deckel der Antwort. Bewusst hoch: er ist ein Alarm, kein Regler. Laeuft eine Antwort
+# hinein, wird das Lesestueck als unvollstaendig gemeldet statt still halbiert.
+FACTS_OUTPUT_TOKENS      = 16_000
+# Was der Auftragstext samt Antwortschema im Fenster belegt.
+FACTS_PROMPT_TOKENS      = 3_000
+# Darunter waere eine 500k-Datei zweistellig viele Aufrufe, das wird abgelehnt.
+FACTS_MIN_WINDOW_TOKENS  = 50_000
+# Gemessen 20.09.: bei drei gleichzeitig braucht der langsamste Aufruf 161 s, der
+# Anbieter wirft bei etwa 300 s. Bei fuenf sind es 205 s fuer 27 Prozent mehr Durchsatz.
+FACTS_CONCURRENCY        = 3
+FACTS_MAX_ATTEMPTS       = 3
+FACTS_RETRY_DELAY_SECONDS = 3
+FACTS_MAX_BACKOFF_SECONDS = 60
+# Unsere Zeitgrenze muss vor der des Anbieters greifen.
+FACTS_CALL_TIMEOUT_SECONDS = 270
+# Ein ganzer Aufruf kann in Stille vergehen, der Waechter darf nicht zuschlagen.
+FACTS_HEARTBEAT_SECONDS  = 60
+
 # --- Summary tool -----------------------------------------------------------
 SUMMARY_MAX_SOURCES          = 5
 # Counted after extraction, so it holds for every format. A file goes into one call whole,
