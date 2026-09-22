@@ -2,8 +2,9 @@
 
 from src.services.text_pieces import (
     PIECE_CHARS,
-    _merge_small_fragments,
+    _merge_small_spans,
     clean,
+    split_spans,
     split_text,
 )
 
@@ -149,25 +150,48 @@ def test_split_terminates_on_pathological_overlap():
     assert len(chunks) >= 1
 
 
-# ── _merge_small_fragments ───────────────────────────────────────────────────
+# ── _merge_small_spans ───────────────────────────────────────────────────────
 
-def test_merge_folds_tiny_trailing_fragment_into_previous():
-    out = _merge_small_fragments(["A full sentence of real body text here.", "hdr"], min_chars=10)
-    assert out == ["A full sentence of real body text here. hdr"]
-
-
-def test_merge_folds_tiny_leading_fragment_forward():
-    out = _merge_small_fragments(["hdr", "A full sentence of real body text here."], min_chars=10)
-    assert out == ["hdr A full sentence of real body text here."]
+def test_merge_folds_tiny_trailing_piece_into_previous():
+    assert _merge_small_spans([(0, 40), (40, 43)], min_chars=10) == [(0, 43)]
 
 
-def test_merge_keeps_normal_sized_chunks():
-    chunks = ["a" * 50, "b" * 50]
-    assert _merge_small_fragments(chunks, min_chars=10) == chunks
+def test_merge_folds_tiny_leading_piece_forward():
+    assert _merge_small_spans([(0, 3), (3, 42)], min_chars=10) == [(0, 42)]
 
 
-def test_merge_single_chunk_untouched_even_if_tiny():
-    assert _merge_small_fragments(["tiny"], min_chars=10) == ["tiny"]
+def test_merge_keeps_normal_sized_pieces():
+    spans = [(0, 50), (50, 100)]
+    assert _merge_small_spans(spans, min_chars=10) == spans
+
+
+def test_merge_single_piece_untouched_even_if_tiny():
+    assert _merge_small_spans([(0, 4)], min_chars=10) == [(0, 4)]
+
+
+# ── split_spans ──────────────────────────────────────────────────────────────
+
+def test_spans_and_strings_say_the_same():
+    text = "Ein Satz mit Woertern. " * 40
+    gestrippt = text.strip()
+    spans = split_spans(gestrippt, 100, 20)
+    assert [gestrippt[a:b] for a, b in spans] == split_text(text, 100, 20)
+
+
+def test_spans_stay_inside_the_text_and_move_forward():
+    text = "wort " * 300
+    spans = split_spans(text.strip(), 100, 20)
+    assert spans[0][0] == 0
+    assert all(0 <= a < b <= len(text.strip()) for a, b in spans)
+    assert all(b[0] > a[0] for a, b in zip(spans, spans[1:]))
+
+
+def test_short_text_is_one_span_over_everything():
+    assert split_spans("kurz", 100, 20) == [(0, 4)]
+
+
+def test_empty_text_has_no_span():
+    assert split_spans("   ", 100, 20) == []
 
 
 def test_split_text_folds_tiny_trailing_scrap():

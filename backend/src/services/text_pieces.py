@@ -77,54 +77,67 @@ def clean(text: str) -> str:
     return unicodedata.normalize("NFC", text)
 
 
-def _merge_small_fragments(chunks: list[str], min_chars: int) -> list[str]:
-    """Folds overly short fragments into the neighbour, they would be magnets."""
-    if len(chunks) <= 1:
-        return chunks
-    merged: list[str] = []
-    for c in chunks:
-        if merged and len(c) < min_chars:
-            merged[-1] = (merged[-1] + " " + c).strip()
+def _merge_small_spans(spans: list[tuple[int, int]], min_chars: int) -> list[tuple[int, int]]:
+    """Folds overly short pieces into the neighbour, they would be magnets."""
+    if len(spans) <= 1:
+        return spans
+    merged: list[tuple[int, int]] = []
+    for a, b in spans:
+        if merged and b - a < min_chars:
+            merged[-1] = (merged[-1][0], b)
         else:
-            merged.append(c)
-    # A tiny leading fragment had no predecessor above; fold it forward instead.
-    if len(merged) > 1 and len(merged[0]) < min_chars:
-        merged[1] = (merged[0] + " " + merged[1]).strip()
+            merged.append((a, b))
+    # A tiny leading piece had no predecessor above, fold it forward instead.
+    if len(merged) > 1 and merged[0][1] - merged[0][0] < min_chars:
+        merged[1] = (merged[0][0], merged[1][1])
         merged.pop(0)
     return merged
 
 
-def split_text(text: str, chunk_size: int, overlap: int) -> list[str]:
-    """Split text into overlapping chunks of chunk_size chars, breaking at whitespace."""
-    text = text.strip()
-    if len(text) <= chunk_size:
-        return [text] if text else []
-    chunks: list[str] = []
+def split_spans(text: str, piece_chars: int, overlap: int) -> list[tuple[int, int]]:
+    """Where each piece sits in ``text``, as half open ranges, breaking at whitespace.
+
+    The text is taken as it is. Whoever wants the pieces as strings takes the slices,
+    whoever wants to point back into the document keeps the numbers.
+    """
+    if len(text) <= piece_chars:
+        return [(0, len(text))] if text.strip() else []
+    spans: list[tuple[int, int]] = []
     start = 0
     while start < len(text):
-        end = start + chunk_size
-        chunk = text[start:end]
-        # Break at last whitespace to avoid cutting words
-        if end < len(text):
-            last_space = chunk.rfind(" ")
-            if last_space > chunk_size // 2:
-                chunk = chunk[:last_space]
-        chunk = chunk.strip()
-        if chunk:
-            chunks.append(chunk)
-        next_start = start + len(chunk) - overlap
-        if next_start <= start:
+        ende = min(start + piece_chars, len(text))
+        stueck = text[start:ende]
+        # Break at the last whitespace to avoid cutting a word.
+        if ende < len(text):
+            letzte_luecke = stueck.rfind(" ")
+            if letzte_luecke > piece_chars // 2:
+                stueck = stueck[:letzte_luecke]
+                ende = start + letzte_luecke
+        # Stripping moves the boundaries inward, it never drops the piece.
+        links = len(stueck) - len(stueck.lstrip())
+        rechts = len(stueck) - len(stueck.rstrip())
+        a, b = start + links, ende - rechts
+        if b > a:
+            spans.append((a, b))
+        naechster = start + (b - a) - overlap
+        if naechster <= start:
             break
-        # The start is pulled to a word boundary too, otherwise every chunk begins mid-word.
-        if not text[next_start - 1].isspace():
-            wortanfang = text.rfind(" ", start, next_start)
+        # The start is pulled to a word boundary too, otherwise every piece begins mid-word.
+        if not text[naechster - 1].isspace():
+            wortanfang = text.rfind(" ", start, naechster)
             if wortanfang + 1 > start:
-                next_start = wortanfang + 1
+                naechster = wortanfang + 1
             else:
-                # Forward only to the end of the chunk just built, otherwise a word is lost.
-                vor = text.find(" ", next_start)
-                if vor != -1 and vor + 1 <= start + len(chunk):
-                    next_start = vor + 1
-        start = next_start
-    # Fold tiny remainders in so no header magnets end up in the index.
-    return _merge_small_fragments(chunks, max(1, chunk_size // 10))
+                # Forward only to the end of the piece just built, otherwise a word is lost.
+                vor = text.find(" ", naechster)
+                if vor != -1 and vor + 1 <= start + (b - a):
+                    naechster = vor + 1
+        start = naechster
+    # Fold tiny remainders in so no header magnets end up on their own.
+    return _merge_small_spans(spans, max(1, piece_chars // 10))
+
+
+def split_text(text: str, piece_chars: int, overlap: int) -> list[str]:
+    """The pieces of a text as strings, the same cut that split_spans makes."""
+    text = text.strip()
+    return [text[a:b] for a, b in split_spans(text, piece_chars, overlap)]

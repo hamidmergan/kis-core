@@ -3,6 +3,8 @@
 import re
 from dataclasses import dataclass
 
+from loguru import logger
+
 # From this page share on a line counts as a header or footer.
 _BOILERPLATE_SHARE = 0.6
 # Under this many pages "stands on most pages" says nothing at all.
@@ -206,3 +208,24 @@ def slide_groups(lines: list[LineBox], *, min_chars: int) -> list[str]:
         pass
 
     return [render(p) for p in merged] if len(merged) >= 2 else []
+
+
+def line_boxes(textpage) -> list[LineBox]:
+    """The raw text boxes of a pdfium page with their position, empty is a valid answer."""
+    from src.services.text_pieces import clean
+    try:
+        n = textpage.count_rects()
+    except Exception as e:  # noqa: BLE001 - without boxes the plain page text still works
+        logger.warning("PDF-Layout: Kaesten nicht zaehlbar, es geht ohne ({})", e)
+        return []
+    boxes: list[LineBox] = []
+    for i in range(n):
+        try:
+            left, top, right, bottom = textpage.get_rect(i)
+            text = textpage.get_text_bounded(left=left, bottom=bottom, right=right, top=top)
+        except Exception:  # noqa: BLE001 - one unreadable box is not worth the page
+            continue
+        text = clean(text or "").strip()
+        if text:
+            boxes.append(LineBox(text=text, x=left, y=top))
+    return boxes

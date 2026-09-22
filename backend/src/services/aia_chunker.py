@@ -190,27 +190,6 @@ def _bitmap_coverage(page) -> float:
     return min(total / page_area, 1.0)
 
 
-def _page_line_boxes(textpage) -> list:
-    """The raw text boxes of the page with their position, empty is a valid answer."""
-    from src.services.pdf_layout import LineBox
-    try:
-        n = textpage.count_rects()
-    except Exception as e:
-        logger.warning("PDF layout: rect count failed, falling back to plain text: {}", e)
-        return []
-    boxes = []
-    for i in range(n):
-        try:
-            left, top, right, bottom = textpage.get_rect(i)
-            text = textpage.get_text_bounded(left=left, bottom=bottom, right=right, top=top)
-        except Exception:
-            continue
-        text = clean(text or "").strip()
-        if text:
-            boxes.append(LineBox(text=text, x=left, y=top))
-    return boxes
-
-
 def _extract_pdf(
     file_path: str,
     chunk_size: int,
@@ -220,6 +199,7 @@ def _extract_pdf(
 ) -> list[dict]:
     import pypdfium2 as pdfium
     from src.services.pdf_layout import (
+        line_boxes,
         boilerplate_keys, is_boilerplate, merge_rows, slide_groups, strip_boilerplate_text,
     )
     chunks: list[dict] = []
@@ -284,7 +264,7 @@ def _extract_pdf(
         )
 
         # The position is only read from the text layer, recognised pages take the simple path.
-        page_lines.append([] if ocr_merged else _page_line_boxes(textpage))
+        page_lines.append([] if ocr_merged else line_boxes(textpage))
         page_texts.append(text)
         textpage.close()
         page.close()
