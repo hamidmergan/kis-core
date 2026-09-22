@@ -353,4 +353,25 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Kein Demo-Video gefunden (output.mp4 fehlt in demo/)",
         "en": "No demo video found (output.mp4 missing in demo/)",
     },
+    # ── gemeinsamer Quellen-Eingang der drei Dienste ─────────────────────────
+    "summary.noContent": {
+        "de": "Ohne Quelle gibt es nichts zusammenzufassen. Bitte lade mindestens eine Datei hoch.",
+        "en": "Without a source there is nothing to summarise. Please upload at least one file.",
+    },
+    "summary.fileUnreadable": {
+        "de": "\"{name}\" liess sich nicht lesen. Bitte pruefe die Datei.",
+        "en": "\"{name}\" could not be read. Please check the file.",
+    },
+    "podcast.sourceOnlyImages": {
+        "de": "In \"{name}\" steht kein lesbarer Text, die Seiten bestehen nur aus Bildern. Bitte nimm eine Fassung mit Textebene.",
+        "en": "There is no readable text in \"{name}\", its pages are images only. Please use a version with a text layer.",
+    },
+    "praesentation.sourceOnlyImages": {
+        "de": "In \"{name}\" steht kein lesbarer Text, die Seiten bestehen nur aus Bildern. Bitte nimm eine Fassung mit Textebene.",
+        "en": "There is no readable text in \"{name}\", its pages are images only. Please use a version with a text layer.",
+    },
+    "praesentation.fileUnreadable": {
+        "de": "\"{name}\" liess sich nicht lesen. Bitte pruefe die Datei.",
+        "en": "\"{name}\" could not be read. Please check the file.",
+    },
 }

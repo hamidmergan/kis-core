@@ -8,6 +8,7 @@ from src.features.podcast import script as skript
 from src.features.podcast import store
 from src.i18n import t
 from src.limits import STAGE_SOFT_TIME_LIMIT, STAGE_TIME_LIMIT
+from src.services import sources as quellen
 from src.services.job_recovery import still_mine
 from src.services.job_statistik import messe, route_kennung
 from src.tasks._stage import StageContinue, StageLost, continue_stage
@@ -36,7 +37,7 @@ def run_podcast_script(self, job_uuid: str, user_id: int, locale: str = "de",
             raise StageLost(job_uuid)
 
         # The material of the run, laid down before the task was queued.
-        quelle = store.load_source(user_id, job_uuid)
+        quelle = quellen.as_block(quellen.load_sources(user_id, job_uuid))
         if not quelle.strip():
             raise RuntimeError(t("podcast.noContent", locale))
 

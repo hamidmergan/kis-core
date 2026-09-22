@@ -54,7 +54,9 @@ async def regen_row(job_uuid: str, row_id: str, body: RegenRequest,
     row = next((r for r in (outline.rows if outline else []) if r.id == row_id), None)
     if not params or row is None:
         raise HTTPException(status_code=404, detail=t("praesentation.rowNotFound", locale))
-    quelle = store.load_source(user_id, job_uuid)[:4000]
+    from src.services import sources as quellen
+
+    quelle = quellen.as_block(quellen.load_sources(user_id, job_uuid))[:4000]
     try:
         titel, gist = gliederung.parse_row(llm_antwort(gliederung.regen_messages(row, outline, params, verlauf(body), quelle)))
     except Exception as e:  # noqa: BLE001 - the provider is the only source of failure here

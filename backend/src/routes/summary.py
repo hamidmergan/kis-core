@@ -1,9 +1,6 @@
 """Summary route: several sources are condensed into one text along a build plan."""
 
-import os
-import tempfile
 import uuid
-from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from loguru import logger
@@ -14,15 +11,14 @@ from src.dependencies_rbac import require_tool_access
 from src.features.summary.templates import TEMPLATES, default_template, get_template
 from src.i18n import get_locale, t
 from src.features.summary import settings as cfg
+from src.services import sources
 from src.limits import SUMMARY_MAX_SOURCES
 from src.quotas import enforce_quota
 from src.security.rate_limit import enforce_tool_burst
 from src.services import feature_provider_choices
 from src.services.open_jobs import enforce_open_jobs
 from src.services.tool_limits import max_upload_bytes
-from src.storage import save_job_file_from_path
-from src.utils.file_validation import SUMMARY_EXTENSIONS, validate_or_raise
-from src.utils.upload_stream import stream_upload_to_path
+from src.utils.file_validation import SUMMARY_EXTENSIONS
 
 router = APIRouter(tags=["summary"], dependencies=[Depends(require_tool_access("summary"))])
 
@@ -59,11 +55,6 @@ async def summarize(
     locale: str = Depends(get_locale),
 ):
     """Takes the uploaded sources, files them and starts the condensation."""
-    if not files:
-        raise HTTPException(status_code=400, detail=t("summary.noFiles", locale))
-    if len(files) > SUMMARY_MAX_SOURCES:
-        raise HTTPException(status_code=400,
-                            detail=t("summary.tooManySources", locale, max=SUMMARY_MAX_SOURCES))
     if provider_id is not None and not feature_provider_choices.is_eligible("chat", provider_id):
         raise HTTPException(status_code=400, detail=t("summary.invalidProvider", locale))
     vorlage = get_template(template) if template else default_template()
@@ -77,51 +68,27 @@ async def summarize(
 
     user_id = current_user.get("user_id", 0)
     job_uuid = uuid.uuid4().hex
-    quellen: list[dict] = []
-    namen: list[str] = []
 
     # These two are burst guards and must fire before any work is done.
     enforce_open_jobs(user_id, locale)
     enforce_tool_burst(user_id, "summary", locale)
 
-    with tempfile.TemporaryDirectory(prefix="summary_upload_") as tmpdir:
-        for i, datei in enumerate(files):
-            name = datei.filename or ""
-            if not name:
-                raise HTTPException(status_code=400, detail=t("file.nameMissing", locale))
-            ext = Path(name).suffix.lower()
-            if ext not in SUMMARY_EXTENSIONS:
-                raise HTTPException(status_code=400, detail=t(
-                    "summary.unsupportedFormat", locale, formats=", ".join(sorted(SUMMARY_EXTENSIONS))))
-            ziel = os.path.join(tmpdir, f"input_{i}{ext}")
-            groesse, kopf = await stream_upload_to_path(datei, ziel, max_upload_bytes(), locale)
-            if not groesse:
-                raise HTTPException(status_code=400, detail=t("file.empty", locale))
-            validate_or_raise(kopf, ext, locale)
-            namen.append(name)
-            quellen.append({"filename": name, "local": ziel, "ext": ext})
+    gelesen = await sources.read_uploads(files, locale=locale,
+                                         hoechstens=SUMMARY_MAX_SOURCES,
+                                         schluessel="summary")
+    namen = [q.dateiname for q in gelesen]
 
-        # Quota is charged only once every source has cleared validation, so a refused start costs nothing.
-        enforce_quota(user_id, "summary", is_admin_user(current_user), locale)
-
-        # Numbered, otherwise a second file of the same type overwrites the first.
-        for i, quelle in enumerate(quellen):
-            quelle["input_path"] = save_job_file_from_path(
-                user_id, job_uuid, f"input_{i}{quelle['ext']}", quelle["local"])
+    # Quota is charged only once every source has cleared reading, so a refused start costs nothing.
+    enforce_quota(user_id, "summary", is_admin_user(current_user), locale)
+    sources.save_sources(user_id, job_uuid, gelesen)
 
     # The job is created only once every source is safely stored, so a storage failure leaves nothing behind.
     anzeige = namen[0] if len(namen) == 1 else t(
         "summary.jobLabel", locale, name=namen[0], more=len(namen) - 1)
     db.create_job(job_uuid, user_id, "summary", anzeige, locale=locale)
-    db.set_job_input_path(job_uuid, quellen[0]["input_path"])
 
     from src.tasks.summary_tasks import run_summary
-    run_summary.delay(
-        job_uuid,
-        [{"filename": q["filename"], "input_path": q["input_path"]} for q in quellen],
-        vorlage.slug,
-        provider_id,
-    )
-    logger.info("Zusammenfassung {} eingereiht: {} Quelle(n), Vorlage '{}'",
-                job_uuid[:8], len(quellen), vorlage.slug)
+    run_summary.delay(job_uuid, vorlage.slug, provider_id)
+    logger.info("Zusammenfassung {} eingereiht: {} Quelle(n), {} Zeichen, Vorlage '{}'",
+                job_uuid[:8], len(gelesen), sum(len(q.text) for q in gelesen), vorlage.slug)
     return {"job_uuid": job_uuid, "status": "pending"}

@@ -90,6 +90,13 @@ def _bilder(user_id: int, job_uuid: str, s: Slide) -> dict[str, bytes]:
     return aus
 
 
+
+def _material(user_id: int, job_uuid: str) -> str:
+    """Das Material des Laufs als ein Block, aus sources.json."""
+    from src.services import sources as quellen
+
+    return quellen.as_block(quellen.load_sources(user_id, job_uuid))
+
 @router.put("/praesentation/{job_uuid}/slides/order")
 async def save_order(job_uuid: str, body: OrderRequest, current_user: dict = Depends(get_current_user),
                      locale: str = Depends(get_locale)):
@@ -143,7 +150,7 @@ async def regen_slide(job_uuid: str, slide_id: str, body: RegenRequest,
     wunsch = next((tr.content for tr in reversed(body.messages) if tr.role == "user"), "")
     # A slide added later carries material of its own, it beats the material of the run.
     quelle = (store.load_slide_source(user_id, job_uuid, slide_id)
-              or store.load_source(user_id, job_uuid)[:PRAESENTATION_SLIDE_CONTEXT_CHARS])
+              or _material(user_id, job_uuid)[:PRAESENTATION_SLIDE_CONTEXT_CHARS])
     try:
         antwort = llm_antwort(folien.regen_messages(alt, row, form, params, verlauf(body), body.selected_text, quelle))
         neu = folien.parse_answer(antwort, [row], {row.id: form}, params.notes)[0]

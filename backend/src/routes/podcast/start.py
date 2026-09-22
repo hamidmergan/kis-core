@@ -1,10 +1,7 @@
 """The first step: material and cast in, the script task out."""
 
 import json
-import os
-import tempfile
 import uuid
-from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from loguru import logger
@@ -47,12 +44,6 @@ def _wacht(user_id: int, current_user: dict, locale: str) -> None:
     enforce_quota(user_id, "podcast", is_admin_user(current_user), locale)
 
 
-def _pruefe_anzahl(anzahl: int, locale: str) -> None:
-    """More sources than this leave every single one with a useless share."""
-    if anzahl > PODCAST_MAX_SOURCES:
-        raise HTTPException(status_code=422, detail=t(
-            "podcast.tooManySources", locale, max=PODCAST_MAX_SOURCES))
-
 
 def _pruefe_gesamtgroesse(request: Request, locale: str) -> None:
     """The size applies to all files together, not to each one on its own."""
@@ -85,16 +76,14 @@ def _leerer_auftrag(user_id: int, einstellungen: PodcastParams,
     return job_uuid
 
 
-def _material_sammeln(mode: str, files, workspace_uuid: str, source_uuids: str,
-                      user_id: int, locale: str, zahlen: dict) -> tuple[str, str]:
-    """SEAM: the material of a run and the label it is listed under.
+async def _quellen_lesen(mode: str, files, locale: str) -> list:
+    """Die Quellen eines Laufs. Nur Upload, ein Workspace wird nicht mehr angezapft."""
+    from src.services import sources as quellen
 
-    Reading uploaded files and pulling workspace sources was removed together with the
-    old reading layer. The new way in is built once it is settled how document content
-    reaches this tool.
-    """
-    raise NotImplementedError(
-        "Der Podcast hat noch keinen Weg von der Datei zum Material.")
+    if mode != "files":
+        raise HTTPException(status_code=422, detail=t("podcast.noContent", locale))
+    return await quellen.read_uploads(files, locale=locale,
+                                      hoechstens=PODCAST_MAX_SOURCES, schluessel="podcast")
 
 
 @router.post("/podcast/start")
@@ -114,11 +103,19 @@ async def start_podcast(
     if mode == "blank":
         return {"job_uuid": _leerer_auftrag(user_id, einstellungen, current_user, locale)}
 
-    zahlen: dict = {"herkunft": mode, "anweisung": bool(einstellungen.instructions.strip())}
-    gesamt, label = _material_sammeln(mode, files, workspace_uuid, source_uuids,
-                                      user_id, locale, zahlen)
+    from src.services import sources as quellen
+
+    _pruefe_gesamtgroesse(request, locale)
+    gelesen = await _quellen_lesen(mode, files, locale)
+    gesamt = quellen.as_block(gelesen)
+    label = quellen.label(gelesen)
     if not gesamt.strip():
         raise HTTPException(status_code=422, detail=t("podcast.noContent", locale))
+    zahlen: dict = {
+        "herkunft": mode, "quellen": len(gelesen), "zeichen": len(gesamt),
+        "stuecke": sum(len(q.stuecke) for q in gelesen),
+        "anweisung": bool(einstellungen.instructions.strip()),
+    }
 
     # Checked first, charged second: a refused start costs no quota.
     _wacht(user_id, current_user, locale)
@@ -131,7 +128,7 @@ async def start_podcast(
     anzeige = label or (gesamt[:60].replace("\n", " ") + "…")
     db.create_job(job_uuid, user_id, "podcast", anzeige, locale=locale)
     notiere(user_id, job_uuid, "material", zahlen)
-    store.save_source(user_id, job_uuid, gesamt)
+    quellen.save_sources(user_id, job_uuid, gelesen)
     store.save_params(user_id, job_uuid, einstellungen)
 
     from src.tasks.podcast_tasks import run_podcast_script

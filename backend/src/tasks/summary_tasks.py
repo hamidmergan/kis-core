@@ -20,6 +20,7 @@ from src.limits import (
     SUMMARY_WRITE_MAX_TOKENS,
 )
 from src.security.usage_log import log_llm_response
+from src.services import sources
 from src.services.job_files import (
     JobState,
     parse_job_json,
@@ -28,7 +29,6 @@ from src.services.job_files import (
 )
 from src.services.job_recovery import attempt_failed, still_mine
 from src.storage import (
-    delete_file,
     job_file_exists,
     open_input_file,
     save_job_file,
@@ -38,7 +38,6 @@ from src.storage import (
 from src.tasks._stage import StageClock, StageContinue, StageLost, continue_stage
 
 _MIN_WORDS = 20
-_SOURCES_FILE = "sources.json"
 _OUTLINE_FILE = "outline.json"
 _RESULT_FILE = "summary.md"
 
@@ -143,7 +142,7 @@ def _result_name(names: list[str], title: str = "") -> str:
     return f"{Path(names[0]).stem} und {len(names) - 1} weitere.md"
 
 
-def _run_summary_inner(job_uuid: str, sources: list[dict], template_slug: str,
+def _run_summary_inner(job_uuid: str, template_slug: str,
                        provider_id: int | None, versuch: int) -> None:
     """The whole run without the Celery wrapper, so a test can call it directly."""
     if not still_mine(job_uuid, versuch):
@@ -160,12 +159,11 @@ def _run_summary_inner(job_uuid: str, sources: list[dict], template_slug: str,
         raise ValueError(t("summary.templateMissing", locale))
 
     save_job_file(user_id, job_uuid, "summary_params.json", json.dumps({
-        "sources": sources, "template_slug": template_slug, "provider_id": provider_id,
+        "template_slug": template_slug, "provider_id": provider_id,
     }).encode())
 
-    # The material of the run, laid down before the task was queued.
-    quellen = parse_job_json(job_uuid, _SOURCES_FILE,
-                             read_job_text(user_id, job_uuid, _SOURCES_FILE), None)
+    # The material of the run, read and laid down before the task was queued.
+    quellen = sources.load_sources(user_id, job_uuid)
     if not quellen:
         raise ValueError(t("summary.contentTooShort", locale, words=0, min=_MIN_WORDS))
 
@@ -187,7 +185,7 @@ def _run_summary_inner(job_uuid: str, sources: list[dict], template_slug: str,
     # headings keeps the title out of the Markdown, the plan still carries it.
     eigener, rumpf = writing.split_title(fertig)
     titel = eigener or _outline_title(user_id, job_uuid)
-    name = _result_name([q["filename"] for q in quellen], titel)
+    name = _result_name([q.dateiname for q in quellen], titel)
     ergebnis = save_result_file(user_id, job_uuid, ".md", fertig.encode("utf-8"))
     try:
         save_result_file(user_id, job_uuid, ".docx",
@@ -200,20 +198,18 @@ def _run_summary_inner(job_uuid: str, sources: list[dict], template_slug: str,
         logger.error("Zusammenfassung {}: Word-Datei fehlgeschlagen ({})", job_uuid[:8], e)
     save_result_and_evict(user_id, job_uuid, ergebnis, name)
     db.update_job_status(job_uuid, "success")
-    for quelle in sources:
-        delete_file(quelle["input_path"])
     logger.info("Zusammenfassung {} fertig: {}", job_uuid[:8], name)
 
 
 @celery_app.task(bind=True, name="summary.run", queue="general", acks_late=True,
                  soft_time_limit=STAGE_SOFT_TIME_LIMIT, time_limit=STAGE_TIME_LIMIT)
-def run_summary(self, job_uuid: str, sources: list[dict], template_slug: str,
+def run_summary(self, job_uuid: str, template_slug: str,
                 provider_id: int | None = None, versuch: int = 0):
     """Celery wrapper, it owns the retry paths and nothing else."""
     try:
-        _run_summary_inner(job_uuid, sources, template_slug, provider_id, versuch)
+        _run_summary_inner(job_uuid, template_slug, provider_id, versuch)
     except StageContinue:
-        continue_stage(self, [job_uuid, sources, template_slug, provider_id, versuch], job_uuid)
+        continue_stage(self, [job_uuid, template_slug, provider_id, versuch], job_uuid)
     except StageLost:
         logger.info("Zusammenfassung {}: Etappe gehoert nicht mehr uns", job_uuid[:8])
     except Exception as e:

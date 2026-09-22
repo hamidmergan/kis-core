@@ -12,6 +12,7 @@ from src.dependencies import get_current_user
 from src.features.praesentation import store, vorlagen
 from src.features.praesentation.schemas import LANGUAGES, PraesentationParams
 from src.i18n import get_locale, t
+from src.limits import PRAESENTATION_MAX_SOURCES
 from src.tasks.praesentation_tasks import run_praesentation_outline
 
 router = APIRouter(tags=["praesentation"])
@@ -28,16 +29,15 @@ def _pruefe_params(roh: str, locale: str) -> PraesentationParams:
     return params
 
 
-def _material_sammeln(mode: str, files, workspace_uuid: str, source_uuids: str,
-                      user_id: int, locale: str) -> tuple[str, str]:
-    """SEAM: the material of a run and the label it is listed under.
+async def _quellen_lesen(mode: str, files, locale: str) -> list:
+    """Die Quellen eines Laufs. Nur Upload, ein Workspace wird nicht mehr angezapft."""
+    from src.services import sources as quellen
 
-    Reading uploaded files and pulling workspace sources was removed together with the
-    old reading layer. The new way in is built once it is settled how document content
-    reaches this tool.
-    """
-    raise NotImplementedError(
-        "Die Präsentation hat noch keinen Weg von der Datei zum Material.")
+    if mode != "files":
+        raise HTTPException(status_code=422, detail=t("praesentation.noContent", locale))
+    return await quellen.read_uploads(files, locale=locale,
+                                      hoechstens=PRAESENTATION_MAX_SOURCES,
+                                      schluessel="praesentation")
 
 
 @router.post("/praesentation/start")
@@ -55,9 +55,12 @@ async def start_praesentation(
     if db.has_active_job_for_tool(user_id, ["praesentation"]):
         raise HTTPException(status_code=409, detail=t("praesentation.alreadyRunning", locale))
 
+    from src.services import sources as quellen
+
     durchsuchbar: tuple[int | None, list[str] | None] = (None, None)
-    text, label = _material_sammeln(mode, files, workspace_uuid, source_uuids,
-                                    user_id, locale)
+    gelesen = await _quellen_lesen(mode, files, locale)
+    text = quellen.as_block(gelesen)
+    label = quellen.label(gelesen)
     if not text.strip():
         raise HTTPException(status_code=422, detail=t("praesentation.noContent", locale))
 
@@ -73,7 +76,7 @@ async def start_praesentation(
 
     job_uuid = uuid.uuid4().hex
     db.create_job(job_uuid, user_id, "praesentation", label or "Präsentation", locale=locale)
-    store.save_source(user_id, job_uuid, text)
+    quellen.save_sources(user_id, job_uuid, gelesen)
     store.save_params(user_id, job_uuid, einstellungen)
     store.save_template(user_id, job_uuid, vorlage_bytes)
     store.save_template_meta(user_id, job_uuid, analyse)

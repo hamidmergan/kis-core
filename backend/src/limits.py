@@ -84,7 +84,7 @@ SCREENCAST_TTS_PARALLELISM = 8
 
 # --- Podcast ----------------------------------------------------------------
 # More sources than this dilute every single one below a useful share.
-PODCAST_MAX_SOURCES      = 10
+PODCAST_MAX_SOURCES      = 5
 # The same ceiling every other tool uses, the line count only catches a runaway model.
 PODCAST_MAX_CHARS        = 100_000
 PODCAST_MAX_LINES        = 250
@@ -110,7 +110,7 @@ PRAESENTATION_MAX_SLIDES = 30
 PRAESENTATION_MIN_SLIDES = 3
 PRAESENTATION_MAX_TEMPLATES = 10
 PRAESENTATION_TEMPLATE_MAX_MB = 30
-PRAESENTATION_MAX_SOURCES = 10
+PRAESENTATION_MAX_SOURCES = 5
 # Slides per model call: enough context per slide, few enough calls per deck.
 PRAESENTATION_BATCH = 5
 PRAESENTATION_IMAGE_PARALLELISM = 4
@@ -212,7 +212,7 @@ AIA_NOTES_MAX_PER_USER              = 100     # max notes per user per workspace
 GLOSSARY_LIMIT                        = 150     # max glossary entries per workspace
 
 # --- Summary tool -----------------------------------------------------------
-SUMMARY_MAX_SOURCES          = 10
+SUMMARY_MAX_SOURCES          = 5
 # Counted after extraction, so it holds for every format. A file goes into one call whole,
 # so this is also what the model's window has to carry.
 SUMMARY_MAX_CHARS_PER_SOURCE = 500_000

@@ -7,7 +7,6 @@ import re
 from src.features.podcast.schemas import Line, PodcastParams
 from src.storage import get_job_file, job_file_exists, save_job_file
 
-SOURCE_FILE = "source.txt"
 PARAMS_FILE = "params.json"
 SCRIPT_FILE = "script.json"
 USER_SCRIPT_FILE = "user_script.json"
@@ -31,17 +30,6 @@ def _read_json(user_id: int, job_uuid: str, name: str):
 
 def _write_json(user_id: int, job_uuid: str, name: str, data) -> None:
     save_job_file(user_id, job_uuid, name, json.dumps(data, ensure_ascii=False).encode())
-
-
-def save_source(user_id: int, job_uuid: str, text: str) -> None:
-    save_job_file(user_id, job_uuid, SOURCE_FILE, text.encode())
-
-
-def load_source(user_id: int, job_uuid: str) -> str:
-    try:
-        return get_job_file(user_id, job_uuid, SOURCE_FILE).decode()
-    except Exception:
-        return ""
 
 
 def save_params(user_id: int, job_uuid: str, params: PodcastParams) -> None:

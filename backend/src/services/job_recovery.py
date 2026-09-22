@@ -112,8 +112,7 @@ def dispatch_resume(job: dict) -> None:
 
         params = _summary_params(job)
         task = run_summary.apply_async(args=[
-            job_uuid, params["sources"], params["template_slug"],
-            params.get("provider_id"), job["attempts"],
+            job_uuid, params["template_slug"], params.get("provider_id"), job["attempts"],
         ])
         db.set_job_celery_task_id(job_uuid, task.id)
     elif tuer == "praesentation":
@@ -161,7 +160,7 @@ def recover_after_restart() -> int:
 
 
 def _summary_params(job: dict) -> dict:
-    """The sources and the build plan of that run, kept in the job folder."""
+    """The build plan and the provider of that run, kept in the job folder."""
     from src.storage import get_job_file
 
     try:

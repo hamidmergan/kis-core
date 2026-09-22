@@ -9,6 +9,7 @@ from src.i18n import t
 from src.limits import STAGE_SOFT_TIME_LIMIT, STAGE_TIME_LIMIT
 from src.services import feature_router
 from src.services.json_llm import call_json_llm
+from src.services import sources as quellen
 from src.services.job_recovery import still_mine
 from src.tasks._stage import StageContinue, StageLost, continue_stage
 from src.tasks.podcast_tasks._shared import JobCancelled, assert_not_cancelled
@@ -29,7 +30,7 @@ def run_praesentation_outline(self, job_uuid: str, user_id: int, locale: str = "
         if not still_mine(job_uuid, versuch):
             raise StageLost(job_uuid)
 
-        material_text = store.load_source(user_id, job_uuid)
+        material_text = quellen.as_block(quellen.load_sources(user_id, job_uuid))
         if not material_text.strip():
             raise RuntimeError(t("praesentation.noContent", locale))
 

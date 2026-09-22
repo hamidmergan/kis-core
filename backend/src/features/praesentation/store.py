@@ -12,7 +12,6 @@ from src.storage import (
     get_job_file, job_file_exists, job_prefix, save_job_file,
 )
 
-SOURCE_FILE = "source.txt"
 PARAMS_FILE = "params.json"
 TEMPLATE_FILE = "template.pptx"
 TEMPLATE_META_FILE = "template_meta.json"
@@ -50,17 +49,6 @@ def _read_json(user_id: int, job_uuid: str, name: str):
 
 def _write_json(user_id: int, job_uuid: str, name: str, data) -> None:
     save_job_file(user_id, job_uuid, name, json.dumps(data, ensure_ascii=False).encode())
-
-
-def save_source(user_id: int, job_uuid: str, text: str) -> None:
-    save_job_file(user_id, job_uuid, SOURCE_FILE, text.encode())
-
-
-def load_source(user_id: int, job_uuid: str) -> str:
-    try:
-        return get_job_file(user_id, job_uuid, SOURCE_FILE).decode()
-    except Exception:
-        return ""
 
 
 def save_slide_source(user_id: int, job_uuid: str, slide_id: str, text: str) -> None:

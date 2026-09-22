@@ -410,8 +410,13 @@ class TestUmformulierenMitChat:
         store.save_params(7, UUID, PodcastParams(**json.loads(_params())))
         store.save_user_script(7, UUID, [Line(id="b0", speaker=0, text="Die Spannung liegt an."),
                                          Line(id="b1", speaker=1, text="Und der Widerstand?")])
-        store.save_source(7, UUID, "Die Spannung wird in Volt gemessen.\n\n"
-                                   "Zur Anmeldung dient das Portal.")
+        from src.services import sources as quellen
+        from src.services.source_reading import Piece, Source
+
+        text = "Die Spannung wird in Volt gemessen.\n\nZur Anmeldung dient das Portal."
+        quellen.save_sources(7, UUID, [Source(dateiname="a.txt", fassung="x", text=text,
+                                              stuecke=[Piece(seite=1, von=0, bis=len(text))],
+                                              seiten=1)])
 
         gesehen: list[list[dict]] = []
 

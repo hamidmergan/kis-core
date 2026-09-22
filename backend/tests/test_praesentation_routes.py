@@ -154,7 +154,11 @@ def _mit_gliederung(env, status="awaiting_user"):
     from src.features.praesentation import vorlage
     from src.features.praesentation.schemas import PraesentationParams
     store.save_params(7, UUID, PraesentationParams())
-    store.save_source(7, UUID, "Quelle")
+    from src.services import sources as quellen
+    from src.services.source_reading import Piece, Source
+
+    quellen.save_sources(7, UUID, [Source(dateiname="a.txt", fassung="x", text="Quelle",
+                                          stuecke=[Piece(seite=1, von=0, bis=6)], seiten=1)])
     store.save_template(7, UUID, THL)
     store.save_template_meta(7, UUID, vorlage.analysiere(THL))
     return client, jobs, gestartet, ablage

@@ -20,6 +20,7 @@ from src.limits import (
 )
 from src.services import feature_router
 from src.services.json_llm import call_json_llm
+from src.services import sources as quellen
 from src.services.job_recovery import attempt_failed, still_mine
 from src.storage import save_result_and_evict
 from src.tasks._stage import StageClock, StageContinue, StageLost, continue_stage
@@ -45,7 +46,7 @@ def run_praesentation_build(self, job_uuid: str, user_id: int, locale: str = "de
             raise StageLost(job_uuid)
         clock = StageClock()
         params = store.load_params(user_id, job_uuid)
-        quelle = store.load_source(user_id, job_uuid)
+        quelle = quellen.as_block(quellen.load_sources(user_id, job_uuid))
         analyse = store.load_template_meta(user_id, job_uuid)
         vorlage_bytes = store.load_template(user_id, job_uuid)
         outline = store.load_outline(user_id, job_uuid)

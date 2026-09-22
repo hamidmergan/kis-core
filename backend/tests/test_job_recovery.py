@@ -182,7 +182,7 @@ class TestWiederanlauf:
         job_recovery.dispatch_resume({"job_uuid": "j", "user_id": 7, "tool": "summary",
                                       "creator_locale": "de", "attempts": 2, "progress": "{}"})
 
-        assert task.args == ["j", [{"filename": "a.txt", "input_path": "p1"}], "kurzbriefing", 3, 2]
+        assert task.args == ["j", "kurzbriefing", 3, 2]
         assert db.task_ids == ["task-1"]
 
 

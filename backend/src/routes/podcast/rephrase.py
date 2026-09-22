@@ -35,6 +35,13 @@ class RephraseRequest(BaseModel):
     selected_text: str = ""
 
 
+
+def _material(user_id: int, job_uuid: str) -> str:
+    """Das Material des Laufs als ein Block, aus sources.json."""
+    from src.services import sources as quellen
+
+    return quellen.as_block(quellen.load_sources(user_id, job_uuid))
+
 @router.post("/podcast/{job_uuid}/rephrase")
 async def rephrase_line(
     job_uuid: str,
@@ -60,7 +67,7 @@ async def rephrase_line(
     if verlauf:
         wunsch = next((t["content"] for t in reversed(verlauf) if t["role"] == "user"), "")
         quelle = skript.source_excerpt(
-            store.load_source(user_id, job_uuid),
+            _material(user_id, job_uuid),
             [zeilen[stelle].text, body.selected_text, wunsch],
             skript.REFINE_SOURCE_CHARS,
         )

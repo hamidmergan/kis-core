@@ -23,6 +23,16 @@ def _analyse():
                    rollen={"deckblatt": [0], "text": [1], "abschluss": [0]})
 
 
+class _Quellen:
+    """Die Quellen eines Laufs, wie sie aus sources.json kaemen."""
+
+    def load_sources(self, u, j):
+        return ["egal"]
+
+    def as_block(self, quellen):
+        return "Quelle"
+
+
 class _Store:
     def __init__(self, outline, slides=None):
         self.params = PraesentationParams(style_text="STYLE")
@@ -37,7 +47,6 @@ class _Store:
         self.pool = []
 
     load_params = lambda self, u, j: self.params
-    load_source = lambda self, u, j: "Quelle"
     load_template = lambda self, u, j: b"vorlage"
     load_template_meta = lambda self, u, j: self.analyse
     load_outline = lambda self, u, j: self.outline
@@ -123,6 +132,7 @@ class TestOutline:
     def test_schreibt_gliederung_und_gibt_den_job_zurueck(self, umgebung):
         st, db = _Store(None), _Db()
         umgebung.setattr(_outline, "store", st)
+        umgebung.setattr(_outline, "quellen", _Quellen())
         umgebung.setattr(_outline, "db", db)
         umgebung.setattr(_outline, "call_json_llm", _Llm([_outline_antwort(6)]))
         _outline.run_praesentation_outline.run(JOB, UID, "de")
@@ -134,6 +144,7 @@ class TestOutline:
     def test_zweiter_versuch_nach_unbrauchbarer_antwort(self, umgebung):
         st, db = _Store(None), _Db()
         umgebung.setattr(_outline, "store", st)
+        umgebung.setattr(_outline, "quellen", _Quellen())
         umgebung.setattr(_outline, "db", db)
         umgebung.setattr(_outline, "call_json_llm", _Llm(["Quatsch", _outline_antwort(5)]))
         _outline.run_praesentation_outline.run(JOB, UID, "de")
@@ -142,6 +153,7 @@ class TestOutline:
     def test_zweimal_unbrauchbar_ist_fehlgeschlagen(self, umgebung):
         st, db = _Store(None), _Db()
         umgebung.setattr(_outline, "store", st)
+        umgebung.setattr(_outline, "quellen", _Quellen())
         umgebung.setattr(_outline, "db", db)
         umgebung.setattr(_outline, "call_json_llm", _Llm(["Quatsch", "Nochmal Quatsch"]))
         with pytest.raises(RuntimeError):
@@ -165,6 +177,7 @@ class TestBuild:
     def test_texte_in_paketen_bilder_bau_vorschau(self, umgebung):
         st, db = _Store(_gliederung(7)), _Db()
         umgebung.setattr(_build, "store", st)
+        umgebung.setattr(_build, "quellen", _Quellen())
         umgebung.setattr(_build, "db", db)
         umgebung.setattr(_build, "call_json_llm", _Llm([_folien_antwort([f"s{i}" for i in range(1, 6)]),
                                                         _folien_antwort(["s6", "s7"])]))
@@ -188,6 +201,7 @@ class TestBuild:
         st, db = _Store(_gliederung(5), alt), _Db()
         st.bilder[("s1", 0)] = b"alt"
         umgebung.setattr(_build, "store", st)
+        umgebung.setattr(_build, "quellen", _Quellen())
         umgebung.setattr(_build, "db", db)
         umgebung.setattr(_build, "call_json_llm", _Llm([_folien_antwort(["s3", "s4", "s5"])]))
         umgebung.setattr(_build.bild, "erzeuge", lambda prompt, size: b"neu")
@@ -203,6 +217,7 @@ class TestBuild:
         st.bilder[("s1", 0)] = b"alt"
         st.bilder[("s3", 0)] = b"alt3"
         umgebung.setattr(_build, "store", st)
+        umgebung.setattr(_build, "quellen", _Quellen())
         umgebung.setattr(_build, "db", db)
         umgebung.setattr(_build, "call_json_llm", _Llm([_folien_antwort(["s2"])]))
         umgebung.setattr(_build.bild, "erzeuge", lambda prompt, size: b"neu")
@@ -225,6 +240,7 @@ class TestBuild:
             return llm(client, nachrichten, endpoint)
 
         umgebung.setattr(_build, "store", st)
+        umgebung.setattr(_build, "quellen", _Quellen())
         umgebung.setattr(_build, "db", db)
         umgebung.setattr(_build, "call_json_llm", _merken)
         _build.run_praesentation_build.run(JOB, UID, "de", 1, 0, {"text": ["s2"], "bild": []})
@@ -235,6 +251,7 @@ class TestBuild:
         """Nothing is forced, so no slide can have its own material and no storage read is worth it."""
         st, db = _Store(_gliederung(3)), _Db()
         umgebung.setattr(_build, "store", st)
+        umgebung.setattr(_build, "quellen", _Quellen())
         umgebung.setattr(_build, "db", db)
         umgebung.setattr(_build, "call_json_llm", _Llm([_folien_antwort(["s1", "s2", "s3"])]))
         umgebung.setattr(_build.bild, "erzeuge", lambda prompt, size: b"png")
@@ -246,6 +263,7 @@ class TestBuild:
         st.params = PraesentationParams(style_text="STYLE", notes=True, notes_include=False)
         gesehen = []
         umgebung.setattr(_build, "store", st)
+        umgebung.setattr(_build, "quellen", _Quellen())
         umgebung.setattr(_build, "db", db)
         umgebung.setattr(_build.bau, "baue", lambda *a, **k: (gesehen.append(a[5]), b"deck")[1])
         umgebung.setattr(_build, "call_json_llm", _Llm([_folien_antwort(["s1", "s2", "s3"], "So spreche ich dazu.")]))
@@ -258,6 +276,7 @@ class TestBuild:
         st.params = PraesentationParams(style_text="STYLE", notes=True)
         gesehen = []
         umgebung.setattr(_build, "store", st)
+        umgebung.setattr(_build, "quellen", _Quellen())
         umgebung.setattr(_build, "db", db)
         umgebung.setattr(_build.bau, "baue", lambda *a, **k: (gesehen.append(a[5]), b"deck")[1])
         umgebung.setattr(_build, "call_json_llm", _Llm([_folien_antwort(["s1", "s2", "s3"], "So spreche ich dazu.")]))
@@ -268,6 +287,7 @@ class TestBuild:
     def test_etappe_laeuft_aus_und_reiht_sich_neu_ein(self, umgebung):
         st, db = _Store(_gliederung(6)), _Db()
         umgebung.setattr(_build, "store", st)
+        umgebung.setattr(_build, "quellen", _Quellen())
         umgebung.setattr(_build, "db", db)
         umgebung.setattr(_build, "call_json_llm", _Llm([_folien_antwort([f"s{i}" for i in range(1, 6)])]))
         umgebung.setattr(_build, "StageClock", lambda: StageClock(seconds=0))
@@ -285,6 +305,7 @@ class TestBuild:
         st, db = _Store(_gliederung(3), alt), _Db()
         st.bilder[("s1", 0)] = b"schon-da"
         umgebung.setattr(_build, "store", st)
+        umgebung.setattr(_build, "quellen", _Quellen())
         umgebung.setattr(_build, "db", db)
         umgebung.setattr(_build, "StageClock", lambda: StageClock(seconds=0))
         erzeugt = []
@@ -308,6 +329,7 @@ class TestBuild:
     def test_fehlendes_bild_bricht_den_bau_nicht_ab(self, umgebung):
         st, db = _Store(_gliederung(5)), _Db()
         umgebung.setattr(_build, "store", st)
+        umgebung.setattr(_build, "quellen", _Quellen())
         umgebung.setattr(_build, "db", db)
         umgebung.setattr(_build, "call_json_llm", _Llm([_folien_antwort([f"s{i}" for i in range(1, 6)])]))
 
@@ -325,6 +347,7 @@ class TestBuild:
         st, db = _Store(Outline(title="Mein Deck", rows=[OutlineRow(id="s1", role="deckblatt", title="A"),
                                                           OutlineRow(id="s2", role="abschluss", title="E")]), alt), _Db()
         umgebung.setattr(_build, "store", st)
+        umgebung.setattr(_build, "quellen", _Quellen())
         umgebung.setattr(_build, "db", db)
         ergebnisse = []
         umgebung.setattr(_build, "save_result_and_evict",
@@ -337,6 +360,7 @@ class TestBuild:
     def test_fehler_geht_in_die_anlaufbahn(self, umgebung):
         st, db = _Store(_gliederung(5)), _Db()
         umgebung.setattr(_build, "store", st)
+        umgebung.setattr(_build, "quellen", _Quellen())
         umgebung.setattr(_build, "db", db)
         umgebung.setattr(_build, "call_json_llm", _Llm(["Quatsch", "Quatsch", "Quatsch"]))
         gemeldet = []

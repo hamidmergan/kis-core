@@ -84,23 +84,6 @@ def _run_translate(monkeypatch, payload, filename):
     return stored
 
 
-def _run_summary(monkeypatch, payload, filename):
-    from src.routes import summary as route
-    # The summary tool numbers its uploads, so it files them by name.
-    stored = _capture_storage(monkeypatch, route, attr="save_job_file_from_path")
-    monkeypatch.setattr(route, "enforce_open_jobs", lambda *a, **k: None)
-    monkeypatch.setattr(route, "enforce_tool_burst", lambda *a, **k: None)
-    monkeypatch.setattr(route, "enforce_quota", lambda *a, **k: None)
-    monkeypatch.setattr(route.db, "create_job", lambda *a, **k: None)
-    monkeypatch.setattr(route.db, "set_job_input_path", lambda *a, **k: None)
-    import src.tasks.summary_tasks as st
-    monkeypatch.setattr(st, "run_summary", type("T", (), {"delay": staticmethod(lambda *a, **k: None)})())
-    asyncio.run(route.summarize(
-        request=_Request(), files=[_ChunkOnlyUpload(payload, filename)],
-        template=None, provider_id=None, current_user={"user_id": 1}, locale="de",
-    ))
-    return stored
-
 
 def _run_tts(monkeypatch, payload, filename):
     from src.routes import tts as route
@@ -154,11 +137,11 @@ def _run_screencast(monkeypatch, payload, filename):
     return stored
 
 
+# Die Zusammenfassung fehlt hier bewusst: sie legt die Rohdatei nicht mehr ab,
+# sie liest sie und speichert den Text. Siehe test_summary_route.py.
 CASES = [
     ("translate/txt", _run_translate, lambda: b"Ein Satz zum Uebersetzen.\n" * 2000, "doc.txt"),
     ("translate/docx", _run_translate, lambda: _docx_bytes("Absatz"), "doc.docx"),
-    ("summary/txt", _run_summary, lambda: b"Text zum Zusammenfassen.\n" * 2000, "doc.txt"),
-    ("summary/docx", _run_summary, lambda: _docx_bytes("Absatz"), "doc.docx"),
     ("tts/txt", _run_tts, lambda: b"Vorzulesender Text.\n" * 2000, "doc.txt"),
     ("tts/docx", _run_tts, lambda: _docx_bytes("Absatz"), "doc.docx"),
     ("screencast/pptx", _run_screencast, lambda: _pptx_bytes("Folientext"), "deck.pptx"),

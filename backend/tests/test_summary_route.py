@@ -28,9 +28,9 @@ def stub(monkeypatch):
     monkeypatch.setattr(route, "enforce_tool_burst", lambda *a, **k: None)
     monkeypatch.setattr(route, "enforce_quota", lambda *a, **k: None)
     monkeypatch.setattr(route.db, "create_job", lambda *a, **k: None)
-    monkeypatch.setattr(route.db, "set_job_input_path", lambda *a, **k: None)
-    monkeypatch.setattr(route, "save_job_file_from_path", lambda uid, job, name, pfad: f"s3/{name}")
-    monkeypatch.setattr(route, "validate_or_raise", lambda *a, **k: None)
+    gestartet["quellen"] = []
+    monkeypatch.setattr(route.sources, "save_sources",
+                        lambda uid, job, q: gestartet.__setitem__("quellen", q))
 
     import src.tasks.summary_tasks as st
     monkeypatch.setattr(st, "run_summary",
@@ -41,24 +41,31 @@ def stub(monkeypatch):
 async def test_templates_nennen_vorlagen_und_grenzen():
     antwort = await route.list_templates(_user={})
     assert [v["slug"] for v in antwort["templates"]][0] == "kurzbriefing"
-    assert antwort["maxSources"] == 10 and ".pdf" in antwort["extensions"]
+    assert antwort["maxSources"] == 5 and ".pdf" in antwort["extensions"]
 
 
-async def test_zwei_dateien_werden_nummeriert_abgelegt(stub):
+async def test_zwei_dateien_werden_gelesen_und_abgelegt(stub):
     antwort = await route.summarize(
         request=_Request(), files=[_Upload(b"eins " * 100, "a.txt"), _Upload(b"zwei " * 100, "b.md")],
         template="zeitstrahl", provider_id=None, current_user={"user_id": 1}, locale="de")
     assert antwort["status"] == "pending"
-    job, quellen, slug, pid = stub["args"]
-    assert [q["filename"] for q in quellen] == ["a.txt", "b.md"]
-    assert [q["input_path"] for q in quellen] == ["s3/input_0.txt", "s3/input_1.md"]
+    job, slug, pid = stub["args"]
     assert slug == "zeitstrahl"
+    assert [q.dateiname for q in stub["quellen"]] == ["a.txt", "b.md"]
+    assert all(q.text.strip() and q.stuecke for q in stub["quellen"])
+
+
+async def test_jede_quelle_traegt_ihre_pruefsumme(stub):
+    await route.summarize(
+        request=_Request(), files=[_Upload(b"inhalt " * 100, "a.txt")],
+        template=None, provider_id=None, current_user={"user_id": 1}, locale="de")
+    assert len(stub["quellen"][0].fassung) == 64
 
 
 async def test_ohne_vorlage_gilt_das_kurzbriefing(stub):
     await route.summarize(request=_Request(), files=[_Upload(b"x " * 100, "a.txt")],
                           template=None, provider_id=None, current_user={"user_id": 1}, locale="de")
-    assert stub["args"][2] == "kurzbriefing"
+    assert stub["args"][1] == "kurzbriefing"
 
 
 async def test_eine_fremde_vorlage_wird_abgelehnt(stub):
@@ -71,11 +78,11 @@ async def test_eine_fremde_vorlage_wird_abgelehnt(stub):
 
 async def test_zu_viele_dateien_werden_abgelehnt(stub):
     from fastapi import HTTPException
-    dateien = [_Upload(b"x " * 10, f"{n}.txt") for n in range(11)]
+    dateien = [_Upload(b"x " * 10, f"{n}.txt") for n in range(6)]
     with pytest.raises(HTTPException) as fehler:
         await route.summarize(request=_Request(), files=dateien, template=None, provider_id=None,
                               current_user={"user_id": 1}, locale="de")
-    assert fehler.value.status_code == 400
+    assert fehler.value.status_code == 422
 
 
 async def test_keine_datei_wird_abgelehnt(stub):
@@ -97,15 +104,11 @@ async def test_ungueltige_zweite_datei_kostet_kein_kontingent(stub, monkeypatch)
 
 
 async def test_fehler_beim_ablegen_erzeugt_keinen_auftrag(stub, monkeypatch):
-    aufrufe = {"n": 0}
+    """Der Auftrag entsteht erst, wenn die Quellen liegen. Scheitert das, bleibt nichts."""
+    def kaputt(uid, job, quellen):
+        raise RuntimeError("Speicher weg")
 
-    def kaputt(uid, job, name, pfad):
-        aufrufe["n"] += 1
-        if aufrufe["n"] == 2:
-            raise RuntimeError("Speicher weg")
-        return f"s3/{name}"
-
-    monkeypatch.setattr(route, "save_job_file_from_path", kaputt)
+    monkeypatch.setattr(route.sources, "save_sources", kaputt)
     erzeugt = []
     monkeypatch.setattr(route.db, "create_job", lambda *a, **k: erzeugt.append(1))
     with pytest.raises(RuntimeError):
