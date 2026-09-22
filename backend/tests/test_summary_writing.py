@@ -89,10 +89,26 @@ class TestPlanen:
         assert caller.client.optionen[0]["response_format"] is wr.OUTLINE_SCHEMA
         assert len(plan.sections) == 3
 
-    async def test_der_planer_plant_nur_ueberschriften(self):
+    async def test_der_planer_plant_ueberschriften_und_teilt_die_fakten_zu(self):
         caller = _caller([_PLAN])
         await _plane(caller)
-        assert "headings only" in caller.client.system_prompts()[0]
+        system = caller.client.system_prompts()[0]
+        assert "headings AND which facts go" in system
+        assert "Every fact belongs to exactly one section" in system
+
+    def _plan_mit(self, *nummern_je_abschnitt):
+        import json
+        return json.dumps({"title": "T", "intro": "I", "sections": [
+            {"section_index": i, "title": f"A{i}", "description": "a", "fact_ids": n}
+            for i, n in enumerate(nummern_je_abschnitt)]})
+
+    async def test_die_gliederung_bringt_ihre_fakten_nummern_mit(self):
+        ergebnis = await _plane(_caller([self._plan_mit([1, 3], [2], [4, 5])]))
+        assert [a.fact_ids for a in ergebnis.sections] == [[1, 3], [2], [4, 5]]
+
+    async def test_eine_nummer_die_keine_ist_faellt_weg(self):
+        ergebnis = await _plane(_caller([self._plan_mit([1, "x", 1], [2], [3])]))
+        assert ergebnis.sections[0].fact_ids == [1]
 
     async def test_die_abschnitte_folgen_dem_thema_nicht_der_datei(self):
         caller = _caller([_PLAN])

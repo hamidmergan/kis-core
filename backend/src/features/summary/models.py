@@ -28,10 +28,11 @@ LANGUAGE_FALLBACK = ("the language of the main body text, ignoring cover pages, 
 
 
 class Section(BaseModel):
-    """One planned section: what it is called and what belongs in it."""
+    """One planned section: what it is called, what belongs in it, which facts carry it."""
 
     title: str
     scope: str = ""
+    fact_ids: list[int] = Field(default_factory=list)
 
 
 class Outline(BaseModel):
@@ -49,6 +50,8 @@ class Caller:
     client: Any
     model: str
     book: Callable[[Any], None] | None = None
+    # The measured window of this model, 0 when it was never measured.
+    window_tokens: int = 0
     # Groups every call of one run under one Langfuse session, so the run can be pulled back out.
     job_uuid: str = ""
 

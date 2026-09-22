@@ -58,8 +58,17 @@ OUTLINE_SCHEMA = {
                                 "type": "string",
                                 "description": "One sentence on what belongs in it and what does not.",
                             },
+                            "fact_ids": {
+                                "type": "array",
+                                "items": {"type": "integer"},
+                                "description": (
+                                    "The numbers of the facts this section rests on, taken "
+                                    "from the numbered list. Every fact belongs to exactly "
+                                    "one section."
+                                ),
+                            },
                         },
-                        "required": ["section_index", "title", "description"],
+                        "required": ["section_index", "title", "description", "fact_ids"],
                         "additionalProperties": False,
                     },
                 },
@@ -106,8 +115,8 @@ def _strip_thinking(raw: str | None) -> str:
 def parse_outline(raw: str | None) -> Outline:
     """Reads the planning answer, a broken one yields no sections rather than an error.
 
-    Only headings are read here. Which fact goes where is settled afterwards, in batches,
-    because one answer carrying every number of a large pool loses its tail.
+    Headings and the fact numbers under them come out of the same call. A number that is
+    not a number drops out, a number nobody knows is caught later against the pool.
     """
     text = _strip_thinking(raw)
     treffer = re.search(r"\{.*\}", text, re.S)
@@ -130,7 +139,16 @@ def parse_outline(raw: str | None) -> Outline:
             continue
         if any(a.title.casefold() == titel.casefold() for a in abschnitte):
             continue
-        abschnitte.append(Section(title=titel, scope=" ".join(str(umfang).split())))
+        nummern: list[int] = []
+        for wert in (eintrag.get("fact_ids") if isinstance(eintrag, dict) else None) or []:
+            try:
+                nummer = int(wert)
+            except (TypeError, ValueError):
+                continue
+            if nummer not in nummern:
+                nummern.append(nummer)
+        abschnitte.append(Section(title=titel, scope=" ".join(str(umfang).split()),
+                                  fact_ids=nummern))
     if len(abschnitte) < SUMMARY_MIN_SECTIONS:
         return Outline()
     titel = " ".join(str(roh.get("title") or "").split()).lstrip("#").strip()
@@ -141,9 +159,9 @@ def parse_outline(raw: str | None) -> Outline:
 
 def _outline_system(language: str, template_body: str, target: int, sources: int) -> str:
     return (
-        "You plan the headings of a document. The facts you read are working material, "
-        "the reader never sees them as a list. You decide the headings only, another step "
-        "puts the facts under them.\n"
+        "You plan a document out of numbered facts. The facts are working material, the "
+        "reader never sees them as a list. You decide the headings AND which facts go "
+        "under each of them.\n"
         + GROUND_RULES.format(language=language) + "\n"
         "Rule 8: Derive every section from what the material carries. Never fall back on a "
         "generic scaffold such as introduction, main part, conclusion.\n"
@@ -162,6 +180,9 @@ def _outline_system(language: str, template_body: str, target: int, sources: int
         "its own, and a part that answers another one comes after it. Where it asks for an "
         "order, such as what the reader must act on first and background last, the sections "
         "are already in that order.\n"
+        "Rule 14a: Every section names the numbers of the facts it rests on. Every fact "
+        "belongs to exactly one section, and no number appears twice. A fact you cannot "
+        "place still goes somewhere, into the section it fits best.\n"
         "Rule 14: The title names what the material is about, short, and never mentions a "
         "file or the format.\n"
         "Rule 15: The intro stands before the first heading. Its first sentence says what "
@@ -174,7 +195,7 @@ def _outline_system(language: str, template_body: str, target: int, sources: int
 
 def _outline_user(sources: list[str], material: str) -> str:
     liste = "\n".join(f"- {s}" for s in sources)
-    return f"/no_think\nSources:\n{liste}\n\nMaterial:\n\n{material}"
+    return f"/no_think\nSources:\n{liste}\n\nFacts, one per line, numbered:\n\n{material}"
 
 
 async def plan_outline(caller: Caller, *, language: str, template_body: str,

@@ -1,5 +1,6 @@
 """Celery task of the summary tool: plan, write, assemble, in stages."""
 
+import asyncio
 import json
 import re
 from pathlib import Path
@@ -8,6 +9,7 @@ from loguru import logger
 
 from src import database as db
 from src.celery_app import celery_app
+from src.features.summary import pipeline as pl
 from src.features.summary import writing
 from src.features.summary.docx_export import markdown_to_docx
 from src.features.summary.models import LANGUAGE_FALLBACK, Caller
@@ -39,6 +41,7 @@ from src.tasks._stage import StageClock, StageContinue, StageLost, continue_stag
 
 _MIN_WORDS = 20
 _OUTLINE_FILE = "outline.json"
+_SLICES_FILE = "slices.json"
 _RESULT_FILE = "summary.md"
 
 
@@ -58,6 +61,20 @@ class _JobStore(JobState):
         """A stage that lost its claim stops writing, that is what the service asks of us."""
         if not still_mine(self._job, self._versuch):
             raise StageLost(self._job)
+
+    def load_slices(self) -> dict[str, list[dict]]:
+        roh = read_job_text(self._user, self._job, _SLICES_FILE)
+        gemerkt = parse_job_json(self._job, _SLICES_FILE, roh, {}) or {}
+        return {k: v.get("facts") or [] for k, v in gemerkt.items() if isinstance(v, dict)}
+
+    def save_slice(self, key: str, facts: list[dict], vollstaendig: bool) -> None:
+        self._guard()
+        roh = read_job_text(self._user, self._job, _SLICES_FILE)
+        gemerkt = parse_job_json(self._job, _SLICES_FILE, roh, {}) or {}
+        gemerkt[key] = {"facts": facts, "vollstaendig": vollstaendig}
+        write_job_text(self._user, self._job, _SLICES_FILE,
+                       json.dumps(gemerkt, ensure_ascii=False))
+        self.progress("lesen")
 
     def load_language(self) -> str | None:
         return read_job_text(self._user, self._job, "language.txt")
@@ -142,6 +159,24 @@ def _result_name(names: list[str], title: str = "") -> str:
     return f"{Path(names[0]).stem} und {len(names) - 1} weitere.md"
 
 
+def _fenster(provider_id: int | None) -> int:
+    """Das gemessene Fenster des Modells dieses Laufs, 0 wenn es keines gibt."""
+    from src.services.model_limits import ensure_profile
+
+    try:
+        if provider_id is not None:
+            from src.services.feature_provider_choices import resolve_binding
+            binding = resolve_binding("chat", provider_id)
+        else:
+            from src.services import feature_router
+            binding = feature_router.resolve("chat")
+        profil = ensure_profile(binding.provider, binding.model or "")
+        return profil.window_tokens if profil.measured else 0
+    except Exception as e:  # noqa: BLE001 - ohne Messung laeuft der Auftrag einfach los
+        logger.warning("Zusammenfassung: Modell nicht vermessbar ({})", e)
+        return 0
+
+
 def _run_summary_inner(job_uuid: str, template_slug: str,
                        provider_id: int | None, versuch: int) -> None:
     """The whole run without the Celery wrapper, so a test can call it directly."""
@@ -172,13 +207,14 @@ def _run_summary_inner(job_uuid: str, template_slug: str,
         from src.tasks.general_tasks import _get_llm_client
         traeger = _get_llm_client(provider_id)
         caller = Caller(traeger._async_client, traeger._model, job_uuid=job_uuid,
+                        window_tokens=_fenster(provider_id),
                         book=lambda antwort: log_llm_response("summary", traeger, antwort))
         store = _JobStore(user_id, job_uuid, versuch)
-        # SEAM: the run that turns material into prose. The old one read every source
-        # into facts first and was removed with the reading layer. The new one is
-        # built once it is settled how document content reaches this tool.
-        raise NotImplementedError(
-            "Die Zusammenfassung hat noch keinen Weg vom Material zum Text.")
+        try:
+            fertig = asyncio.run(pl.run(caller, sources=quellen, template=vorlage,
+                                        store=store, should_stop=clock.over))
+        except pl.PipelineInterrupted:
+            raise StageContinue from None
         write_job_text(user_id, job_uuid, _RESULT_FILE, fertig)
 
     # The heading of the finished text, else the plan's title: a build plan without
