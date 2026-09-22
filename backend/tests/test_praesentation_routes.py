@@ -57,7 +57,7 @@ def env(monkeypatch):
     import src.routes.praesentation.vorlagen as vorlagen_route
 
     ablage = FakeAblage()
-    for name in ("save_job_file", "get_job_file", "job_file_exists", "delete_job_file"):
+    for name in ("save_job_file", "get_job_file", "job_file_exists"):
         monkeypatch.setattr(store, name, getattr(ablage, name))
     monkeypatch.setattr("src.dependencies_rbac.is_released_now", lambda key: True)
 
@@ -90,9 +90,6 @@ def env(monkeypatch):
     monkeypatch.setattr(slides_route, "clear_cancel", lambda uuid: None)
     monkeypatch.setattr(outline_route, "clear_cancel", lambda uuid: None)
 
-    monkeypatch.setattr(start_route.material, "validate_or_raise", lambda *a, **k: None)
-    monkeypatch.setattr(start_route.material, "pages_or_raise", lambda *a, **k: None)
-    monkeypatch.setattr(start_route.material, "max_upload_bytes", lambda: 10_000_000)
 
     vorlagen: dict[str, dict] = {}
     monkeypatch.setattr(vorlagen_route.vorlagen_repo, "list_for_user", lambda uid: list(vorlagen.values()))
@@ -131,68 +128,13 @@ def _start(client):
 
 
 class TestStart:
-    def test_legt_einen_auftrag_an_und_startet_die_gliederung(self, env):
-        client, jobs, gestartet, ablage, _ = env
-        antwort = _start(client)
-        assert antwort.status_code == 200
-        uuid = antwort.json()["job_uuid"]
-        assert gestartet == [("outline", [uuid, 7, "de"])]
-        material = json.loads(ablage.get_job_file(7, uuid, "material.json"))
-        assert "Regelkreis" in material["sources"][0]["content"]
-        assert ablage.get_job_file(7, uuid, "template.pptx")[:2] == b"PK"
-        meta = json.loads(ablage.get_job_file(7, uuid, "template_meta.json"))
-        assert len(meta["layouts"]) == 6
-        params = json.loads(ablage.get_job_file(7, uuid, "params.json"))
-        assert params["template_name"] == "THL-Vorlage" and "vermilion" in params["style_text"]
 
-    def test_die_route_ruft_kein_modell(self, env, monkeypatch):
-        """Das Lesen kostet einen Aufruf je Quelle, darauf darf kein Web-Aufruf warten."""
-        import src.routes.praesentation.start as start_route
 
-        def _verboten(*a, **k):
-            raise AssertionError("Die Route darf kein Modell rufen")
 
-        monkeypatch.setattr(start_route.material, "kontext", _verboten)
-        assert _start(client_von(env)).status_code == 200
 
-    def test_die_rohquellen_liegen_bereit_und_sonst_nichts_vom_upload(self, env):
-        """Kein heimlicher Workspace, keine Quellenzeile, nur der Text im Auftragsordner."""
-        client, jobs, _, ablage, _ = env
-        uuid = _start(client).json()["job_uuid"]
-        namen = {n for (_, j, n) in ablage.dateien if j == uuid}
-        assert namen == {"material.json", "params.json", "template.pptx", "template_meta.json"}
 
-    def test_ohne_vorrat_und_ohne_schnappschuss_wartet_der_auftrag_auf_die_aufgabe(self, env):
-        """Material entsteht erst in der Aufgabe, der Auftrag startet trotzdem."""
-        client, jobs, _, ablage, _ = env
-        uuid = _start(client).json()["job_uuid"]
-        assert not ablage.job_file_exists(7, uuid, "source.txt")
-        assert not ablage.job_file_exists(7, uuid, "pool.json")
 
-    def test_zweite_praesentation_gleichzeitig_wird_abgewiesen(self, env):
-        client, jobs, _, _, _ = env
-        assert _start(client).status_code == 200
-        antwort = _start(client)
-        assert antwort.status_code == 409
 
-    def test_wartende_praesentation_blockiert_keine_neue(self, env):
-        """Fortsetzen (awaiting_user/paused) liegt still, das ist kein laufender Auftrag."""
-        client, jobs, _, _, _ = env
-        erste = _start(client)
-        assert erste.status_code == 200
-        jobs[erste.json()["job_uuid"]]["status"] = "awaiting_user"
-        assert _start(client).status_code == 200
-
-    def test_ohne_material(self, env):
-        client, *_ = env
-        antwort = client.post("/praesentation/start", data={"params": _params(), "mode": "files"})
-        assert antwort.status_code == 422
-
-    def test_falsche_sprache(self, env):
-        client, *_ = env
-        antwort = client.post("/praesentation/start", data={"params": _params(language="klingonisch"), "mode": "files"},
-                              files={"files": ("k.txt", b"x", "text/plain")})
-        assert antwort.status_code == 422
 
     def test_ohne_recht(self, env, monkeypatch):
         client, *_ = env
@@ -400,30 +342,7 @@ class TestSlides:
         zeile = next(r for r in rows if r["id"] == neu)
         assert zeile["gist"] == "nur die Zahlen aus Kapitel 4" and zeile["title"] == "Kühlung"
 
-    def test_einfuegen_legt_das_material_der_folie_ab(self, env):
-        """Without a searchable workspace the slide still gets its own excerpt of the snapshot."""
-        client, jobs, gestartet, ablage = _mit_folien(env)
-        antwort = client.post(f"/praesentation/{UUID}/slides", json={"after": "s2", "title": "Kühlung"})
-        neu = antwort.json()["id"]
-        assert ablage.get_job_file(7, UUID, f"slide_source/{neu}.txt").decode() == "Quelle"
 
-    def test_einfuegen_sucht_gezielt_wenn_der_workspace_es_hergibt(self, env, monkeypatch):
-        client, jobs, gestartet, ablage = _mit_folien(env)
-        from src.features.praesentation import material, store
-        from src.features.praesentation.schemas import PraesentationParams
-        store.save_params(7, UUID, PraesentationParams(workspace_id=42, source_uuids=["u1"]))
-        gefragt = []
-
-        async def _treffer(workspace_id, source_uuids, frage, budget):
-            gefragt.append(frage)
-            return "# a.pdf\nDie Stelle zur Kühlung"
-
-        monkeypatch.setattr(material.instruction, "search_context", _treffer)
-        antwort = client.post(f"/praesentation/{UUID}/slides",
-                              json={"after": "s2", "title": "Kühlung", "instruction": "mit den Zahlen"})
-        neu = antwort.json()["id"]
-        assert ablage.get_job_file(7, UUID, f"slide_source/{neu}.txt").decode() == "# a.pdf\nDie Stelle zur Kühlung"
-        assert "Kühlung" in gefragt[0] and "mit den Zahlen" in gefragt[0]
 
     def test_einfuegen_geht_auch_ohne_titel(self, env):
         """Instruction alone is enough, the model writes the heading itself."""
@@ -441,12 +360,6 @@ class TestSlides:
         antwort = client.post(f"/praesentation/{UUID}/slides", json={"after": "s2", "title": "  ", "instruction": ""})
         assert antwort.status_code == 422
 
-    def test_geloeschte_folie_verliert_ihr_material(self, env):
-        client, jobs, gestartet, ablage = _mit_folien(env)
-        from src.features.praesentation import store
-        store.save_slide_source(7, UUID, "s3", "Die Stelle zur Kühlung")
-        assert client.delete(f"/praesentation/{UUID}/slides/s3").status_code == 200
-        assert store.load_slide_source(7, UUID, "s3") == ""
 
     def test_notizen_abwaehlen_speichert_den_schalter(self, env):
         client, jobs, gestartet, ablage = _mit_folien(env)

@@ -38,7 +38,7 @@ from src.services.aia_diagnosis_chat import (
     parse_question_plan,
     parse_turn_response,
 )
-from src.services.aia_json_llm import _rejects_json_mode, ask_json  # noqa: F401
+from src.services.json_llm import _rejects_json_mode, ask_json  # noqa: F401
 from src.services.aia_level_ladder import (
     LEVEL_DESCRIPTIONS_SETTING,
     parse_level_descriptions,
@@ -72,7 +72,7 @@ DIAGNOSIS_LANGUAGE_NAME = TRANSCRIPT_LANGUAGES[DEFAULT_DIAGNOSIS_LANGUAGE]["name
 
 
 async def _ask(llm, messages: list[dict], user_id: int, locale: str) -> str:
-    """The one final call, the wiring lives in aia_json_llm."""
+    """The one final call, the wiring lives in json_llm."""
     return await ask_json(llm, messages, locale=locale,
                           what=f"Language diagnosis (user {user_id})")
 

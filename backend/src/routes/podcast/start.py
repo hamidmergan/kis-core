@@ -13,7 +13,7 @@ from pydantic import ValidationError
 from src import database as db
 from src.dependencies import get_current_user, is_admin_user
 from src.features.podcast import glossary as glossar
-from src.features.podcast import source_text, store
+from src.features.podcast import store
 from src.features.podcast.schemas import Line, PodcastParams
 from src.i18n import get_locale, t
 from src.limits import PODCAST_MAX_SOURCES
@@ -63,55 +63,6 @@ def _pruefe_gesamtgroesse(request: Request, locale: str) -> None:
             "podcast.uploadsTooLarge", locale, max=grenze // (1024 * 1024)))
 
 
-def _als_quellen(quellen: list[tuple[str, list[dict]]]) -> list[dict]:
-    """The pieces of each file joined back into one text, that is what a read call gets.
-
-    The number keeps the order the person chose, and names the source in a log line.
-    """
-    roh: list[dict] = []
-    for i, (name, chunks) in enumerate(quellen, start=1):
-        stuecke = [(c.get("content") or "").strip() for c in chunks]
-        text = "\n".join(s for s in stuecke if s)
-        if text:
-            roh.append({"source_id": f"doc_{i:02d}", "filename": name, "content": text})
-    return roh
-
-
-async def _aus_dateien(files: list[UploadFile], user_id: int, locale: str
-                       ) -> tuple[list[tuple[str, list[dict]]], str]:
-    """Reads every uploaded file once. Nothing of it outlives this request.
-
-    The text goes into the job folder and is read into facts there. No module is created
-    behind the person's back, and nothing is indexed: the facts phase reads the whole
-    source, it never searches it.
-    """
-    quellen: list[tuple[str, list[dict]]] = []
-    namen: list[str] = []
-    _pruefe_anzahl(len(files), locale)
-    with tempfile.TemporaryDirectory(prefix="podcast_upload_") as tmpdir:
-        for datei in files:
-            ext = Path(datei.filename or "").suffix.lower()
-            if ext not in source_text.PODCAST_EXTENSIONS:
-                raise HTTPException(status_code=400, detail=t(
-                    "podcast.unsupportedFormat", locale,
-                    formats=", ".join(source_text.PODCAST_EXTENSIONS)))
-            ziel = os.path.join(tmpdir, f"{uuid.uuid4().hex}{ext}")
-            groesse, kopf = await stream_upload_to_path(datei, ziel, max_upload_bytes(), locale)
-            if not groesse:
-                raise HTTPException(status_code=400, detail=t("file.empty", locale))
-            validate_or_raise(kopf, ext, locale)
-            pages_or_raise(ext, ziel, locale)
-            try:
-                text = source_text.extract_file(ziel, ext)
-            except Exception as e:  # noqa: BLE001 — eine kaputte Datei ist kein Serverfehler
-                logger.warning("Podcast: {} nicht lesbar: {}", datei.filename, e)
-                raise HTTPException(status_code=422, detail=t(
-                    "podcast.fileUnreadable", locale, name=datei.filename or "?")) from e
-            if text.strip():
-                name = datei.filename or "?"
-                quellen.append((name, source_text.to_pieces(text)))
-                namen.append(name)
-    return quellen, ", ".join(namen)
 
 
 def _leerer_auftrag(user_id: int, einstellungen: PodcastParams,
@@ -134,6 +85,18 @@ def _leerer_auftrag(user_id: int, einstellungen: PodcastParams,
     return job_uuid
 
 
+def _material_sammeln(mode: str, files, workspace_uuid: str, source_uuids: str,
+                      user_id: int, locale: str, zahlen: dict) -> tuple[str, str]:
+    """SEAM: the material of a run and the label it is listed under.
+
+    Reading uploaded files and pulling workspace sources was removed together with the
+    old reading layer. The new way in is built once it is settled how document content
+    reaches this tool.
+    """
+    raise NotImplementedError(
+        "Der Podcast hat noch keinen Weg von der Datei zum Material.")
+
+
 @router.post("/podcast/start")
 async def start_podcast(
     request: Request,
@@ -146,46 +109,14 @@ async def start_podcast(
     locale: str = Depends(get_locale),
 ):
     """Collects the material, writes it into the job folder and starts the script."""
-    from src.features.ai_assistant.tasks._context_budget import tool_context_budget
-
     user_id = current_user.get("user_id", 0)
     einstellungen = _pruefe_params(params, locale)
     if mode == "blank":
         return {"job_uuid": _leerer_auftrag(user_id, einstellungen, current_user, locale)}
 
-    # Where the material also lies embedded, so a precise instruction can search it.
-    # Only a real module ever does, an upload is gone again after this request.
-    durchsuchbar: tuple[int | None, list[str]] = (None, [])
-    # The job does not exist yet, so the numbers are recorded once it does.
     zahlen: dict = {"herkunft": mode, "anweisung": bool(einstellungen.instructions.strip())}
-
-    with messe_vorab(zahlen):
-        if mode == "files":
-            _pruefe_gesamtgroesse(request, locale)
-            quellen, label = await _aus_dateien(files, user_id, locale)
-        elif mode == "module":
-            try:
-                uuids = json.loads(source_uuids)
-            except json.JSONDecodeError:
-                uuids = []
-            if not workspace_uuid or not uuids:
-                raise HTTPException(status_code=422, detail=t("podcast.noContent", locale))
-            _pruefe_anzahl(len(uuids), locale)
-            quellen, label = source_text.from_module(workspace_uuid, uuids, user_id, locale)
-            modul = db.get_aia_workspace(workspace_uuid)
-            if modul:
-                durchsuchbar = (modul["id"], uuids)
-        else:
-            raise HTTPException(status_code=422, detail=t("podcast.noContent", locale))
-
-        zahlen["quellen"] = len(quellen)
-        # Only laid down here. Reading every source into facts costs one model call each
-        # and belongs in the task, a web request must not wait for that.
-        roh = _als_quellen(quellen)
-        gesamt = "\n\n".join(q["content"] for q in roh)
-        zahlen["zeichen_roh"] = len(gesamt)
-        zahlen["budget"] = tool_context_budget()
-
+    gesamt, label = _material_sammeln(mode, files, workspace_uuid, source_uuids,
+                                      user_id, locale, zahlen)
     if not gesamt.strip():
         raise HTTPException(status_code=422, detail=t("podcast.noContent", locale))
 
@@ -200,7 +131,7 @@ async def start_podcast(
     anzeige = label or (gesamt[:60].replace("\n", " ") + "…")
     db.create_job(job_uuid, user_id, "podcast", anzeige, locale=locale)
     notiere(user_id, job_uuid, "material", zahlen)
-    store.save_material(user_id, job_uuid, roh, durchsuchbar[0], durchsuchbar[1], zahlen)
+    store.save_source(user_id, job_uuid, gesamt)
     store.save_params(user_id, job_uuid, einstellungen)
 
     from src.tasks.podcast_tasks import run_podcast_script
@@ -208,6 +139,5 @@ async def start_podcast(
     task = run_podcast_script.apply_async(args=[job_uuid, user_id, locale])
     db.set_job_celery_task_id(job_uuid, task.id)
     db.update_job_status(job_uuid, "pending", progress={"step": "script"})
-    logger.info("Podcast {} gestartet, {} Quelle(n), {} Zeichen roh",
-                job_uuid[:8], len(roh), len(gesamt))
+    logger.info("Podcast {} gestartet, {} Zeichen Material", job_uuid[:8], len(gesamt))
     return {"job_uuid": job_uuid}

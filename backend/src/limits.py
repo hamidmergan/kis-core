@@ -97,24 +97,12 @@ PODCAST_TTS_PARALLELISM  = 8
 # One call per source, so no source depends any more on its place in the list.
 # The numbers are the podcast's own, the summary is calibrated on a dossier of ten files.
 # What one fact is worth of the material budget, and the least and most one source may bring.
-PODCAST_FACTS_MIN_CHARS      = 3_000
-PODCAST_FACTS_MAX_CHARS      = 12_000
 # The script prompt is short, unlike the dossier's, so little has to be kept free for it.
-PODCAST_PROMPT_RESERVE_CHARS = 10_000
 # Characters one read call may carry. Beyond this no model window takes the source whole,
 # and three doomed calls per file cost more than the tail of a very long document.
-PODCAST_READ_MAX_SOURCE_CHARS = 500_000
 # Facts one read call may return, the guard against a model that runs away with a source.
-PODCAST_READ_MAX_FACTS       = 40
-PODCAST_READ_MAX_OUTPUT_TOKENS = 8_250
 # Three at once, the value measured for the summary on 20.09. against the same providers.
-PODCAST_MAP_CONCURRENCY      = 3
-PODCAST_READ_MAX_ATTEMPTS    = 3
-PODCAST_RETRY_DELAY_SECONDS  = 3
-PODCAST_MAX_BACKOFF_SECONDS  = 60
-PODCAST_CALL_TIMEOUT_SECONDS = 270
 # A whole read phase can pass without a single job update, so a pulse reports in meanwhile.
-PODCAST_HEARTBEAT_SECONDS    = 60
 
 # --- Präsentation ------------------------------------------------------------
 PRAESENTATION_MAX_SLIDES = 30
@@ -132,23 +120,11 @@ PRAESENTATION_SLIDE_CONTEXT_CHARS = 6000
 # --- Präsentation: reading every source into facts ---------------------------
 # One call per source, so no source depends any more on its place in the list.
 # The least and most one source may bring to the pool.
-PRAESENTATION_FACTS_MIN_CHARS      = 3_000
-PRAESENTATION_FACTS_MAX_CHARS      = 12_000
 # The outline prompt carries the roles and the rules of a deck, so it needs more room
 # kept free than the podcast's script prompt does.
-PRAESENTATION_PROMPT_RESERVE_CHARS = 14_000
 # Characters one read call may carry, beyond this no model window takes the source whole.
-PRAESENTATION_READ_MAX_SOURCE_CHARS = 500_000
 # Facts one read call may return, the guard against a model that runs away with a source.
-PRAESENTATION_READ_MAX_FACTS       = 40
-PRAESENTATION_READ_MAX_OUTPUT_TOKENS = 8_250
-PRAESENTATION_MAP_CONCURRENCY      = 3
-PRAESENTATION_READ_MAX_ATTEMPTS    = 3
-PRAESENTATION_RETRY_DELAY_SECONDS  = 3
-PRAESENTATION_MAX_BACKOFF_SECONDS  = 60
-PRAESENTATION_CALL_TIMEOUT_SECONDS = 270
 # A whole read phase can pass without a single job update, so a pulse reports in meanwhile.
-PRAESENTATION_HEARTBEAT_SECONDS    = 60
 
 # How many parts of a long recording go to the provider at once.
 STT_CHUNK_PARALLELISM = 2
@@ -241,7 +217,6 @@ SUMMARY_MAX_SOURCES          = 10
 # so this is also what the model's window has to carry.
 SUMMARY_MAX_CHARS_PER_SOURCE = 500_000
 # Facts one read call may return, the share of the pool one source gets.
-SUMMARY_FACTS_MAX_CHARS      = 10_000
 SUMMARY_FACTS_MIN_CHARS      = 3_000
 # Room in a call for the prompt, the build plan and the sections already written.
 SUMMARY_PROMPT_RESERVE_CHARS = 60_000
@@ -255,7 +230,6 @@ SUMMARY_READ_MAX_FACTS       = 40
 # catches a cap raised by hand, and a cut off answer costs the whole file.
 SUMMARY_MAX_OUTPUT_TOKENS    = 8_250
 # What the prompt around a read call costs on top of the file and its answer.
-SUMMARY_WINDOW_PROMPT_TOKENS = 1_500
 # One section per this many characters of facts, the planner gets it as a target.
 SUMMARY_CHARS_PER_SECTION    = 4_000
 SUMMARY_MIN_SECTIONS         = 3
@@ -267,12 +241,9 @@ SUMMARY_SECTIONS_PER_SOURCE  = 2
 SUMMARY_SECTION_GROUP_CHARS  = 15_000
 # Measured 20.09.: a section costs about this much prose, plus per fact.
 SUMMARY_SECTION_BASE_CHARS   = 600
-SUMMARY_SECTION_FACT_CHARS   = 160
 # Facts one assignment call places. Measured 20.09.: 400 in one answer, no gap, because the
 # answer is only two numbers per fact. What a weaker model still drops gets one more call.
-SUMMARY_ASSIGN_BATCH_FACTS   = 400
 # Assignment calls out at once, the answers are applied in the order of the batches.
-SUMMARY_ASSIGN_CONCURRENCY   = 5
 # A writing call may return this many tokens, a group of sections or the whole fallback text.
 # Measured 20.09.: the provider takes 32.000, so 4.000 was cutting long sections for nothing.
 SUMMARY_WRITE_MAX_TOKENS     = 8_000
@@ -281,15 +252,12 @@ SUMMARY_WRITE_MAX_TOKENS     = 8_000
 # first, so a long call comes back as a timeout we retry, not as a server error.
 SUMMARY_CALL_TIMEOUT_SECONDS = 270
 # The watchdog counts silence, so the run reports in this often.
-SUMMARY_HEARTBEAT_SECONDS    = 60
 # Read calls out at once. Measured 20.09. on the real documents: at three the slowest
 # call takes 161 s and the provider drops a call at about 300 s, so 139 s are left over.
 # At five it is 205 s for 27 percent more throughput, and a provider half as fast kills it.
 SUMMARY_MAP_CONCURRENCY      = 3
-SUMMARY_READ_MAX_ATTEMPTS    = 3
 SUMMARY_RETRY_DELAY_SECONDS  = 3
 # The waiting time doubles per attempt and stops growing here.
-SUMMARY_MAX_BACKOFF_SECONDS  = 60
 SUMMARY_OUTLINE_MAX_ATTEMPTS = 2
 # The fallback call writes the whole document from facts that are already on disk.
 # One dropped call would otherwise cost the stage everything it read.

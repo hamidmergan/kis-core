@@ -34,7 +34,6 @@ def ablage(monkeypatch):
     monkeypatch.setattr(store, "save_job_file", a.save_job_file)
     monkeypatch.setattr(store, "get_job_file", a.get_job_file)
     monkeypatch.setattr(store, "job_file_exists", a.job_file_exists)
-    monkeypatch.setattr(store, "delete_job_file", a.delete_job_file)
     return a
 
 
@@ -88,37 +87,8 @@ class TestMaterialUndVorrat:
     def _quellen(self):
         return [{"source_id": "doc_01", "filename": "a.pdf", "content": "Text A"}]
 
-    def test_rohquellen_kommen_hin_und_zurueck(self, ablage):
-        store.save_material(7, JOB, self._quellen(), 42, ["u1"])
-        material = store.load_material(7, JOB)
-        assert material["sources"] == self._quellen()
-        assert material["workspace_id"] == 42 and material["source_uuids"] == ["u1"]
 
-    def test_ohne_material_kommt_ein_leeres_ergebnis(self, ablage):
-        assert store.load_material(7, JOB) == {}
 
-    def test_der_vorrat_kommt_hin_und_zurueck(self, ablage):
-        from src.services.facts import Fact
 
-        pool = [Fact(fact_id=1, category="Zahl", fact="40 Grad.", citation="Beleg",
-                     source_id="doc_01", source_name="a.pdf", reference="Kapitel 3")]
-        store.save_pool(7, JOB, pool)
-        assert store.load_pool(7, JOB) == pool
 
-    def test_ohne_vorrat_kommt_eine_leere_liste(self, ablage):
-        assert store.load_pool(7, JOB) == []
 
-    def test_aufraeumen_loescht_rohquellen_und_gelesene_fakten(self, ablage):
-        """Beides liegt sonst als zweite Kopie des Uploads im Speicher, solange der Auftrag lebt."""
-        from src.services.facts import FACTS_FILE
-
-        store.save_material(7, JOB, self._quellen(), None, [])
-        ablage.dateien[(7, JOB, FACTS_FILE)] = b"{}"
-        store.save_pool(7, JOB, [])
-        store.drop_material(7, JOB)
-        assert store.load_material(7, JOB) == {}
-        assert not ablage.job_file_exists(7, JOB, FACTS_FILE)
-        assert ablage.job_file_exists(7, JOB, store.POOL_FILE)
-
-    def test_aufraeumen_ohne_dateien_stuerzt_nicht(self, ablage):
-        store.drop_material(7, JOB)

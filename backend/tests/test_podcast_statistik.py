@@ -2,7 +2,6 @@
 
 import pytest
 
-from src.features.podcast import instruction
 from src.routes.jobs._shared import _format_job_rows
 from src.services.job_statistik import anbieter_und_modelle, messe_vorab, notiere
 from src.storage import load_result_meta, save_result_meta
@@ -21,81 +20,10 @@ def _budget(monkeypatch, chars=100_000):
     monkeypatch.setattr(budget, "tool_context_budget", lambda: chars)
 
 
-def _nah(monkeypatch, abstand=0.0):
-    """Die Anweisung steckt im Material, die Abstandsmessung haelt nicht auf."""
-    monkeypatch.setattr(instruction, "_probe", lambda ws, ids, anweisung: abstand)
 
 
-def _vorcall(monkeypatch, antwort):
-    monkeypatch.setattr(instruction, "_llm", lambda: object())
-
-    async def _fake(llm, anweisung):
-        return antwort
-
-    monkeypatch.setattr(instruction, "_classify", _fake)
 
 
-class TestWegDesMaterials:
-    @pytest.mark.asyncio
-    async def test_leere_anweisung_meldet_auffuellen(self, monkeypatch):
-        _budget(monkeypatch)
-        zahlen: dict = {}
-
-        await instruction.build_context(_quellen(), "", 42, ["s1"], zahlen)
-
-        assert zahlen["weg"] == instruction.FILL
-
-    @pytest.mark.asyncio
-    async def test_gezielte_anweisung_meldet_suche_mit_fundstellen(self, monkeypatch):
-        _budget(monkeypatch)
-        _vorcall(monkeypatch, instruction.SEARCH)
-        _nah(monkeypatch)
-        monkeypatch.setattr(instruction, "_ready_ids", lambda ws, uuids: [7])
-
-        async def _treffer(workspace_id, ids, anweisung):
-            return [{"source_id": 7, "content": "Die Stelle zur Kuehlung"}]
-
-        monkeypatch.setattr(instruction, "_search", _treffer)
-        monkeypatch.setattr(instruction.db, "get_aia_source_by_id",
-                            lambda sid: {"filename": "a.pdf"})
-        zahlen: dict = {}
-
-        await instruction.build_context(_quellen(), "Kuehlung", 42, ["s1"], zahlen)
-
-        assert zahlen["weg"] == instruction.SEARCH
-        assert zahlen["stellen"] == 1
-
-    @pytest.mark.asyncio
-    async def test_gescheiterte_suche_meldet_auffuellen(self, monkeypatch):
-        _budget(monkeypatch)
-        _vorcall(monkeypatch, instruction.SEARCH)
-        _nah(monkeypatch)
-        monkeypatch.setattr(instruction, "_ready_ids", lambda ws, uuids: [7])
-
-        async def _kaputt(workspace_id, ids, anweisung):
-            raise RuntimeError("Einbettungsdienst weg")
-
-        monkeypatch.setattr(instruction, "_search", _kaputt)
-        zahlen: dict = {}
-
-        await instruction.build_context(_quellen(), "Kuehlung", 42, ["s1"], zahlen)
-
-        assert zahlen["weg"] == instruction.FILL, "jeder Rueckfall ist ein Auffuellen"
-
-    @pytest.mark.asyncio
-    async def test_gliederung_meldet_ihren_eigenen_weg(self, monkeypatch):
-        _budget(monkeypatch)
-
-        async def _breit(sources, workspace_id, source_uuids):
-            return "Die verdichtete Fassung"
-
-        monkeypatch.setattr(instruction, "_broad_context", _breit)
-        zahlen: dict = {}
-
-        text = await instruction.build_context(_quellen(), "", 42, ["s1"], zahlen)
-
-        assert text == "Die verdichtete Fassung"
-        assert zahlen["weg"] == instruction.OUTLINE
 
 
 class TestMesseVorab:
@@ -222,18 +150,3 @@ class TestStatusabfrage:
         assert antwort["meta"]["seconds"] == 167.0
 
 
-class TestAbstandInDenZahlen:
-    @pytest.mark.asyncio
-    async def test_anweisung_neben_dem_material_meldet_auffuellen(self, monkeypatch):
-        _budget(monkeypatch)
-        _vorcall(monkeypatch, instruction.SEARCH)
-        _nah(monkeypatch, instruction.MAX_DIST + 0.05)
-        monkeypatch.setattr(instruction, "_ready_ids", lambda ws, uuids: [7])
-        zahlen: dict = {}
-
-        await instruction.build_context(
-            _quellen(), "Sprich ueber Katzen und Hunde", 42, ["s1"], zahlen)
-
-        assert zahlen["weg"] == instruction.FILL
-        assert zahlen["daneben"] is True
-        assert "stellen" not in zahlen

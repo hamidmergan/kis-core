@@ -10,32 +10,13 @@ from src.features.praesentation.schemas import (
     MAX_SERIES_NAME_CHARS, MAX_SUBTITLE_CHARS, MAX_TABLE_ROWS, MAX_TEXT_ITEMS, MAX_TITLE_CHARS,
     Body, Column, ImageSpec, OutlineRow, PraesentationParams, Series, Slide,
 )
-from src.services.facts.pool import facts_block, facts_for
-
-
-def fakten_je_folie(rows: list[OutlineRow], pool: list, budget: int) -> dict[str, str]:
-    """The facts of every row as text, the budget shared out over the rows of one call.
-
-    A row the planner gave no numbers gets the whole pool: that is not always a planning
-    mistake, an agenda or a closing slide really does draw on everything.
-    """
-    if not pool:
-        return {}
-    anteil = max(1, budget // max(1, len(rows)))
-    return {r.id: facts_block(facts_for(r.fact_ids, pool) or pool, anteil) for r in rows}
 
 
 def build_messages(source: str, params: PraesentationParams, rows: list[OutlineRow],
-                   formen: dict[str, dict], fakten: dict[str, str] | None = None) -> list[dict]:
-    """The content call for one batch of slides.
-
-    With ``fakten`` every slide carries its own facts and the shared material block goes
-    away, so no slide is written from the whole deck's material any more.
-    """
+                   formen: dict[str, dict]) -> list[dict]:
+    """The content call for one batch of slides."""
     lang = SPRACHE.get(params.language, "German")
-    quelle_regel = ("from its own facts only. Each slide below carries the facts it rests "
-                    "on, and you never use the facts of another slide.\n"
-                    ) if fakten else "from the material only.\n"
+    quelle_regel = "from the material only.\n"
     system = (
         f"You write the content of slides for university teaching, {quelle_regel}"
         f"Write all slide text in {lang}. Write image prompts in English.\n"
@@ -73,11 +54,8 @@ def build_messages(source: str, params: PraesentationParams, rows: list[OutlineR
         if f["bilder"]:
             zeilen.append(f"  images: {f['bilder']}")
         zeilen.append(f"  notes: {'yes' if params.notes else 'no'}")
-        eigene = (fakten or {}).get(r.id, "").strip()
-        if eigene:
-            zeilen.append("  facts of this slide:\n" + eigene)
         teile.append("\n".join(zeilen))
-    kopf = "" if fakten else f"MATERIAL:\n{source}\n\n"
+    kopf = f"MATERIAL:\n{source}\n\n"
     user = f"{kopf}SLIDES TO WRITE:\n" + "\n".join(teile)
     if params.instructions.strip():
         user += f"\n\nINSTRUCTION FROM THE TEACHER: {params.instructions.strip()}"

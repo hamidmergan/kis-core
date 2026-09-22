@@ -1,4 +1,4 @@
-"""Celery task of the summary tool: read the sources, cut, read, plan, write, in stages."""
+"""Celery task of the summary tool: plan, write, assemble, in stages."""
 
 import json
 import re
@@ -8,13 +8,10 @@ from loguru import logger
 
 from src import database as db
 from src.celery_app import celery_app
-from src.features.summary import pipeline as pl
-from src.features.summary import settings as cfg
-from src.features.summary import window, writing
+from src.features.summary import writing
 from src.features.summary.docx_export import markdown_to_docx
-from src.features.summary.models import Caller
+from src.features.summary.models import LANGUAGE_FALLBACK, Caller
 from src.features.summary.templates import get_template
-from src.features.summary.textlayer import NoReadableText, read_text_layer
 from src.i18n import t
 from src.limits import (
     STAGE_SOFT_TIME_LIMIT,
@@ -23,8 +20,8 @@ from src.limits import (
     SUMMARY_WRITE_MAX_TOKENS,
 )
 from src.security.usage_log import log_llm_response
-from src.services.facts import (
-    JobFactStore,
+from src.services.job_files import (
+    JobState,
     parse_job_json,
     read_job_text,
     write_job_text,
@@ -46,99 +43,17 @@ _OUTLINE_FILE = "outline.json"
 _RESULT_FILE = "summary.md"
 
 
-def _touch(job_uuid: str, part: int, total: int) -> None:
-    """A best-effort heartbeat while reading, so ten large sources never trip the watchdog."""
-    try:
-        db.update_job_status(job_uuid, "running",
-                              progress={"step": "extract", "part": part, "total": total})
-        db.touch_job_heartbeat(job_uuid)
-    except Exception as e:  # noqa: BLE001 - a missed beat is not worth failing the read for
-        logger.warning("Zusammenfassung {}: Herzschlag beim Lesen fehlt ({})", job_uuid[:8], e)
 
 
-def _zahl(n: int) -> str:
-    return f"{n:,}".replace(",", ".")
 
 
-def _read_sources(user_id: int, job_uuid: str, sources: list[dict], locale: str,
-                  provider_id: int | None) -> list[dict]:
-    """Reads every source once, each one whole, and checks it against the model's window."""
-    vorhanden = parse_job_json(job_uuid, _SOURCES_FILE,
-                               read_job_text(user_id, job_uuid, _SOURCES_FILE), None)
-    if vorhanden is not None:
-        return vorhanden
 
-    gelesen: list[dict] = []
-    gesamt = 0
-    woerter = 0
-    # Read once per stage, so every file of this run is measured against the same number.
-    je_datei = cfg.chars_per_source()
-    for i, quelle in enumerate(sources):
-        name = quelle["filename"]
-        ext = Path(name).suffix.lower().lstrip(".")
-        try:
-            with open_input_file(quelle["input_path"], f".{ext}") as lokal:
-                seiten = _pages_or_raise(lokal, f".{ext}", name, locale)
-                text = read_text_layer(lokal, ext)
-        except NoReadableText:
-            raise ValueError(t("summary.sourceOnlyImages", locale, name=name)) from None
-        _touch(job_uuid, i + 1, len(sources))
-        if not text.strip():
-            continue
-        if len(text) > je_datei:
-            raise ValueError(t("summary.sourceTooLarge", locale, name=name,
-                               chars=_zahl(len(text)), max=_zahl(je_datei)))
-        gelesen.append({"source_id": f"doc_{i + 1:02d}", "filename": name, "content": text,
-                        "ext": ext, "pages": seiten})
-        gesamt += len(text)
-        woerter += len(text.split())
+class _JobStore(JobState):
+    """What one run keeps between stages: language, plan, finished sections."""
 
-    if woerter < _MIN_WORDS:
-        raise ValueError(t("summary.contentTooShort", locale, words=woerter, min=_MIN_WORDS))
-    if gesamt > SUMMARY_MAX_SOURCES * je_datei:
-        raise ValueError(t("summary.materialTooLarge", locale,
-                           chars=_zahl(gesamt), max=_zahl(SUMMARY_MAX_SOURCES * je_datei)))
-
-    _window_or_raise(gelesen, provider_id, locale)
-    write_job_text(user_id, job_uuid, _SOURCES_FILE, json.dumps(gelesen, ensure_ascii=False))
-    logger.info("Zusammenfassung {}: {} Quelle(n), {} Zeichen, je Datei ein Aufruf",
-                job_uuid[:8], len(gelesen), gesamt)
-    return gelesen
-
-
-def _pages_or_raise(path: str, ext: str, name: str, locale: str) -> int | None:
-    """Rejects a document with more pages than the management allows, else returns the count."""
-    from src.services.tool_limits import max_source_pages
-    from src.utils.file_validation import count_pages
-
-    seiten = count_pages(ext, path)
-    grenze = max_source_pages()
-    if seiten is not None and seiten > grenze:
-        raise ValueError(t("summary.sourceTooManyPages", locale, name=name,
-                           pages=seiten, max=grenze))
-    return seiten
-
-
-def _window_or_raise(sources: list[dict], provider_id: int | None, locale: str) -> None:
-    """Refuses before the first call what the chosen model provably cannot read whole."""
-    profil = window.profile_for_choice(provider_id)
-    for quelle in sources:
-        urteil = window.verdict_for(len(quelle["content"]), SUMMARY_WRITE_MAX_TOKENS, profil)
-        if urteil.fits:
-            continue
-        raise ValueError(t("summary.modelWindowTooSmall", locale, name=quelle["filename"],
-                           chars=_zahl(len(quelle["content"])),
-                           needed=_zahl(urteil.needed_tokens),
-                           window=_zahl(urteil.window_tokens)))
-
-
-class _JobStore(JobFactStore):
-    """The shared fact store, plus the pieces only a dossier keeps: language, plan, sections."""
-
-    def __init__(self, user_id: int, job_uuid: str, versuch: int, sources: list[dict]) -> None:
+    def __init__(self, user_id: int, job_uuid: str, versuch: int) -> None:
         self._versuch = versuch
-        super().__init__(user_id, job_uuid, [q["source_id"] for q in sources],
-                         guard=self._claim_or_lost)
+        super().__init__(user_id, job_uuid, guard=self._claim_or_lost)
 
     def _claim_or_lost(self) -> None:
         """A stage that lost its claim stops writing, that is what the service asks of us."""
@@ -199,7 +114,7 @@ def _docx_locale(user_id: int, job_uuid: str, fallback: str) -> str:
     file only ever sees the document. A failed language probe falls back to that person.
     """
     sprache = (read_job_text(user_id, job_uuid, "language.txt") or "").strip()
-    if not sprache or sprache == pl.LANGUAGE_FALLBACK:
+    if not sprache or sprache == LANGUAGE_FALLBACK:
         return fallback
     return "de" if sprache.casefold() in ("german", "deutsch") else "en"
 
@@ -248,10 +163,11 @@ def _run_summary_inner(job_uuid: str, sources: list[dict], template_slug: str,
         "sources": sources, "template_slug": template_slug, "provider_id": provider_id,
     }).encode())
 
-    # Only the first stage reads, a later one must not flash "reading" before "map".
-    if not job_file_exists(user_id, job_uuid, _SOURCES_FILE):
-        db.update_job_status(job_uuid, "running", progress={"step": "extract"})
-    quellen = _read_sources(user_id, job_uuid, sources, locale, provider_id)
+    # The material of the run, laid down before the task was queued.
+    quellen = parse_job_json(job_uuid, _SOURCES_FILE,
+                             read_job_text(user_id, job_uuid, _SOURCES_FILE), None)
+    if not quellen:
+        raise ValueError(t("summary.contentTooShort", locale, words=0, min=_MIN_WORDS))
 
     fertig = read_job_text(user_id, job_uuid, _RESULT_FILE)
     if not fertig:
@@ -259,12 +175,12 @@ def _run_summary_inner(job_uuid: str, sources: list[dict], template_slug: str,
         traeger = _get_llm_client(provider_id)
         caller = Caller(traeger._async_client, traeger._model, job_uuid=job_uuid,
                         book=lambda antwort: log_llm_response("summary", traeger, antwort))
-        store = _JobStore(user_id, job_uuid, versuch, quellen)
-        try:
-            fertig = pl.run_pipeline_sync(caller, sources=quellen, template=vorlage,
-                                          store=store, should_stop=clock.over)
-        except pl.PipelineInterrupted:
-            raise StageContinue from None
+        store = _JobStore(user_id, job_uuid, versuch)
+        # SEAM: the run that turns material into prose. The old one read every source
+        # into facts first and was removed with the reading layer. The new one is
+        # built once it is settled how document content reaches this tool.
+        raise NotImplementedError(
+            "Die Zusammenfassung hat noch keinen Weg vom Material zum Text.")
         write_job_text(user_id, job_uuid, _RESULT_FILE, fertig)
 
     # The heading of the finished text, else the plan's title: a build plan without

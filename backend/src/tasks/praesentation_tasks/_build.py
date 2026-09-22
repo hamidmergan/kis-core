@@ -10,7 +10,7 @@ from loguru import logger
 
 from src import database as db
 from src.celery_app import celery_app
-from src.features.praesentation import bau, bild, fakten as fk
+from src.features.praesentation import bau, bild
 from src.features.praesentation import folien, gliederung, store, teilung, vorlage, vorschau
 from src.features.praesentation.schemas import Outline, OutlineRow, Slide
 from src.features.praesentation.vorlage import Analyse
@@ -19,7 +19,7 @@ from src.limits import (
     PRAESENTATION_BATCH, PRAESENTATION_IMAGE_PARALLELISM, STAGE_SOFT_TIME_LIMIT, STAGE_TIME_LIMIT,
 )
 from src.services import feature_router
-from src.services.aia_json_llm import call_json_llm
+from src.services.json_llm import call_json_llm
 from src.services.job_recovery import attempt_failed, still_mine
 from src.storage import save_result_and_evict
 from src.tasks._stage import StageClock, StageContinue, StageLost, continue_stage
@@ -46,7 +46,6 @@ def run_praesentation_build(self, job_uuid: str, user_id: int, locale: str = "de
         clock = StageClock()
         params = store.load_params(user_id, job_uuid)
         quelle = store.load_source(user_id, job_uuid)
-        vorrat = store.load_pool(user_id, job_uuid)
         analyse = store.load_template_meta(user_id, job_uuid)
         vorlage_bytes = store.load_template(user_id, job_uuid)
         outline = store.load_outline(user_id, job_uuid)
@@ -60,7 +59,7 @@ def run_praesentation_build(self, job_uuid: str, user_id: int, locale: str = "de
 
         offen = [r for r in outline.rows if r.id not in slides or r.id in erzwungen_text]
         if offen:
-            _texte_schreiben(job_uuid, user_id, params, quelle, vorrat, analyse, outline, slides,
+            _texte_schreiben(job_uuid, user_id, params, quelle, analyse, outline, slides,
                              layouts, offen, erzwungen_text, clock, final)
         geordnet = [slides[r.id] for r in outline.rows if r.id in slides]
 
@@ -138,7 +137,7 @@ def _eigenes_material(user_id, job_uuid, offen, erzwungen_text: set[str]) -> dic
     return aus
 
 
-def _texte_schreiben(job_uuid, user_id, params, quelle, vorrat, analyse, outline, slides, layouts,
+def _texte_schreiben(job_uuid, user_id, params, quelle, analyse, outline, slides, layouts,
                      offen, erzwungen_text, clock, final) -> None:
     llm = feature_router.make_llm_client(feature_router.resolve("chat"))
     eigen = _eigenes_material(user_id, job_uuid, offen, erzwungen_text)
@@ -152,13 +151,9 @@ def _texte_schreiben(job_uuid, user_id, params, quelle, vorrat, analyse, outline
         for n, paket in enumerate(pakete):
             assert_not_cancelled(job_uuid)
             formen = {r.id: vorlage.form_fuer(analyse.layout(layouts[r.id]), analyse) for r in paket}
-            # A slide with material of its own keeps it, everything else is written from facts.
-            if paket[0].id in eigen:
-                nachrichten = folien.build_messages(eigen[paket[0].id], params, paket, formen)
-            else:
-                je_folie = folien.fakten_je_folie(paket, vorrat, fk.material_budget())
-                nachrichten = folien.build_messages(quelle, params, paket, formen,
-                                                    je_folie or None)
+            # A slide with material of its own keeps it, the rest share the run's material.
+            stoff = eigen[paket[0].id] if paket[0].id in eigen else quelle
+            nachrichten = folien.build_messages(stoff, params, paket, formen)
             letzter = ""
             for _ in range(_VERSUCHE):
                 antwort = call_json_llm(llm, nachrichten, endpoint="praesentation").choices[0].message.content or ""

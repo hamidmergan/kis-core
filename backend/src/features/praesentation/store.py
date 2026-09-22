@@ -5,18 +5,14 @@ from __future__ import annotations
 import json
 import re
 
-from loguru import logger
 
 from src.features.praesentation import vorlage
 from src.features.praesentation.schemas import Outline, PraesentationParams, Slide
-from src.services.facts import FACTS_FILE
 from src.storage import (
-    delete_job_file, get_job_file, job_file_exists, job_prefix, save_job_file,
+    get_job_file, job_file_exists, job_prefix, save_job_file,
 )
 
 SOURCE_FILE = "source.txt"
-MATERIAL_FILE = "material.json"
-POOL_FILE = "pool.json"
 PARAMS_FILE = "params.json"
 TEMPLATE_FILE = "template.pptx"
 TEMPLATE_META_FILE = "template_meta.json"
@@ -65,49 +61,6 @@ def load_source(user_id: int, job_uuid: str) -> str:
         return get_job_file(user_id, job_uuid, SOURCE_FILE).decode()
     except Exception:
         return ""
-
-
-def save_material(user_id: int, job_uuid: str, sources: list[dict],
-                  workspace_id: int | None, source_uuids: list[str]) -> None:
-    """The raw sources as they came in, before a single model has seen them.
-
-    The route no longer builds the material, it only lays it down. Reading every source
-    into facts costs one call each and belongs in the task, not in a web request.
-    """
-    _write_json(user_id, job_uuid, MATERIAL_FILE, {
-        "sources": sources, "workspace_id": workspace_id,
-        "source_uuids": list(source_uuids or []),
-    })
-
-
-def load_material(user_id: int, job_uuid: str) -> dict:
-    return _read_json(user_id, job_uuid, MATERIAL_FILE) or {}
-
-
-def save_pool(user_id: int, job_uuid: str, pool) -> None:
-    """The numbered facts of the run, what the outline points at and a slide is written from."""
-    from src.features.praesentation import fakten
-
-    _write_json(user_id, job_uuid, POOL_FILE, fakten.pool_als_liste(pool))
-
-
-def load_pool(user_id: int, job_uuid: str):
-    from src.features.praesentation import fakten
-
-    return fakten.pool_aus_liste(_read_json(user_id, job_uuid, POOL_FILE))
-
-
-def drop_material(user_id: int, job_uuid: str) -> None:
-    """The raw sources and the per source facts, once the numbered pool stands on its own.
-
-    Both only carry a run over a broken off stage. Afterwards they are the whole upload
-    lying in the bucket a second time, for as long as the job is kept.
-    """
-    for name in (MATERIAL_FILE, FACTS_FILE):
-        try:
-            delete_job_file(user_id, job_uuid, name)
-        except Exception as e:  # noqa: BLE001 - leftover working material is not a failure
-            logger.warning("Präsentation {}: {} nicht aufgeraeumt ({})", job_uuid[:8], name, e)
 
 
 def save_slide_source(user_id: int, job_uuid: str, slide_id: str, text: str) -> None:

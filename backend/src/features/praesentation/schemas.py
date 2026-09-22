@@ -43,7 +43,6 @@ class OutlineRow(BaseModel):
     gist: str = ""
     # Numbers out of the run's fact pool. Empty when the deck was planned from a plain
     # snapshot instead, and empty for a slide meant to draw on everything.
-    fact_ids: list[int] = Field(default_factory=list)
 
 
 class Outline(BaseModel):

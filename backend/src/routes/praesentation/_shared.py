@@ -53,7 +53,7 @@ def progress_final(job: dict) -> bool:
 def llm_antwort(nachrichten: list[dict]) -> str:
     """One synchronous model call, the same client the tasks use."""
     from src.services import feature_router
-    from src.services.aia_json_llm import call_json_llm
+    from src.services.json_llm import call_json_llm
 
     llm = feature_router.make_llm_client(feature_router.resolve("chat"))
     return call_json_llm(llm, nachrichten, endpoint="praesentation").choices[0].message.content or ""

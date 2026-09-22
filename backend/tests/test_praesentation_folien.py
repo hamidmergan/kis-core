@@ -183,65 +183,21 @@ class TestFaktenJeFolie:
     FAKTEN = {"s2": '#1 (Zahl) Es sind 40 Grad. Beleg: "40 Grad"',
               "s3": '#7 (These) Alles fliesst. Beleg: "panta rhei"'}
 
-    def test_jede_folie_traegt_ihre_eigenen_fakten(self):
-        user = folien.build_messages("", PraesentationParams(), ROWS, FORMEN,
-                                     fakten=self.FAKTEN)[1]["content"]
-        s2, s3 = user.split("SLIDE s3")
-        assert "40 Grad" in s2 and "Alles fliesst" not in s2
-        assert "Alles fliesst" in s3
 
-    def test_der_gemeinsame_materialblock_faellt_weg(self):
-        user = folien.build_messages("DAS GANZE MATERIAL", PraesentationParams(), ROWS, FORMEN,
-                                     fakten=self.FAKTEN)[1]["content"]
-        assert "DAS GANZE MATERIAL" not in user
-        assert not user.startswith("MATERIAL:")
 
-    def test_der_prompt_bindet_das_modell_an_die_fakten_der_folie(self):
-        system = folien.build_messages("", PraesentationParams(), ROWS, FORMEN,
-                                       fakten=self.FAKTEN)[0]["content"]
-        assert "facts" in system.casefold()
 
     def test_ohne_fakten_bleibt_alles_beim_alten(self):
         user = folien.build_messages("DAS GANZE MATERIAL", PraesentationParams(), ROWS,
                                      FORMEN)[1]["content"]
         assert user.startswith("MATERIAL:\nDAS GANZE MATERIAL")
 
-    def test_eine_folie_ohne_eigene_fakten_bleibt_im_paket(self):
-        """Der Aufrufer entscheidet, was sie bekommt. Fehlt der Eintrag, faellt nur er weg."""
-        user = folien.build_messages("", PraesentationParams(), ROWS, FORMEN,
-                                     fakten={"s2": self.FAKTEN["s2"]})[1]["content"]
-        assert "SLIDE s2" in user and "SLIDE s3" in user
 
 
 class TestFaktenWaehlen:
     """Welche Fakten eine Zeile bekommt, und was eine Zeile ohne Nummern bekommt."""
 
-    def _pool(self):
-        from src.services.facts import Fact
-        return [Fact(fact_id=n, category="Zahl", fact=f"Aussage {n}", citation=f"Beleg {n}",
-                     source_id="doc_01", source_name="a.pdf") for n in (1, 2, 3)]
 
-    def test_eine_zeile_bekommt_genau_ihre_nummern(self):
-        rows = [OutlineRow(id="s2", role="text", title="A", fact_ids=[2])]
-        aus = folien.fakten_je_folie(rows, self._pool(), 10_000)
-        assert "Aussage 2" in aus["s2"] and "Aussage 1" not in aus["s2"]
 
-    def test_eine_zeile_ohne_nummern_bekommt_den_ganzen_vorrat(self):
-        """Eine Agenda oder ein Abschluss stuetzt sich auf alles, das ist kein Planungsfehler."""
-        rows = [OutlineRow(id="s2", role="abschluss", title="A", fact_ids=[])]
-        aus = folien.fakten_je_folie(rows, self._pool(), 10_000)
-        assert all(f"Aussage {n}" in aus["s2"] for n in (1, 2, 3))
 
-    def test_die_belege_sind_dabei(self):
-        """Der Beleg verankert die Folie in der Quelle, der Dateiname gehoert nicht hinein."""
-        rows = [OutlineRow(id="s2", role="text", title="A", fact_ids=[1])]
-        aus = folien.fakten_je_folie(rows, self._pool(), 10_000)
-        assert "Beleg 1" in aus["s2"] and "a.pdf" not in aus["s2"]
 
-    def test_das_budget_teilt_sich_auf_die_folien_des_pakets(self):
-        rows = [OutlineRow(id=f"s{n}", role="text", title="A", fact_ids=[n]) for n in (1, 2, 3)]
-        aus = folien.fakten_je_folie(rows, self._pool(), 60)
-        assert all(len(t) <= 20 for t in aus.values())
 
-    def test_ohne_vorrat_gibt_es_nichts_zu_waehlen(self):
-        assert folien.fakten_je_folie([OutlineRow(id="s2")], [], 10_000) == {}

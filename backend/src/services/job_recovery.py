@@ -27,10 +27,6 @@ def resume_entry(job: dict) -> str | None:
         return "summary"
     if tool == "praesentation":
         schritt = _progress(job).get("step")
-        if schritt == "material":
-            # Every source already read sits in facts.json, so this stage resumes cheaply.
-            # It goes back into the outline task, the build has nothing to build yet.
-            return "praesentation_material"
         # Only the build keeps finished texts and pictures, a half written outline is worth nothing.
         return None if schritt in ("outline", "outline_done") else "praesentation"
     return None
@@ -119,14 +115,6 @@ def dispatch_resume(job: dict) -> None:
             job_uuid, params["sources"], params["template_slug"],
             params.get("provider_id"), job["attempts"],
         ])
-        db.set_job_celery_task_id(job_uuid, task.id)
-    elif tuer == "praesentation_material":
-        from src.tasks.podcast_tasks._shared import clear_cancel
-        from src.tasks.praesentation_tasks import run_praesentation_outline
-
-        clear_cancel(job_uuid)
-        task = run_praesentation_outline.apply_async(
-            args=[job_uuid, user_id, job.get("creator_locale") or "de", 1, job["attempts"]])
         db.set_job_celery_task_id(job_uuid, task.id)
     elif tuer == "praesentation":
         from src.tasks.podcast_tasks._shared import clear_cancel

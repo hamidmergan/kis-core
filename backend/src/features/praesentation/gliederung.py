@@ -24,22 +24,12 @@ class Unusable(RuntimeError):
     """The answer was not a usable outline, the caller may try once more."""
 
 
-def build_messages(source: str, params: PraesentationParams, rollen: list[str],
-                   mit_nummern: bool = False) -> list[dict]:
-    """The outline call. With a fact pool every entry also names the facts it rests on.
-
-    Without one the material arrives as plain text, and the call stays what it was.
-    """
+def build_messages(source: str, params: PraesentationParams,
+                   rollen: list[str]) -> list[dict]:
+    """The outline call, one entry per slide, planned over the material."""
     lo, hi = FOLIEN_GRENZEN
     rollen_text = "\n".join(f"- {r}: {_ROLLE_TEXT[r]}" for r in rollen if r in _ROLLE_TEXT)
-    nummern = (
-        'Every entry also carries "fact_ids", the numbers of the facts that slide is built '
-        "from, taken from the list below. Pick only facts that really belong on that slide, "
-        "usually three to eight, and never put the same fact on two slides. A slide that "
-        "draws on everything, such as an agenda, carries an empty list.\n"
-    ) if mit_nummern else ""
-    eintrag = ('{"role": "...", "title": "...", "gist": "...", "fact_ids": [1, 2]}'
-               if mit_nummern else '{"role": "...", "title": "...", "gist": "..."}')
+    eintrag = '{"role": "...", "title": "...", "gist": "..."}'
     system = (
         "You plan slide decks for university teaching. From the material you pick what matters "
         "and lay it out as an outline, one entry per slide.\n"
@@ -52,12 +42,11 @@ def build_messages(source: str, params: PraesentationParams, rollen: list[str],
         "Vary the roles: never the same role on two neighbouring slides except text, and use every "
         "role at least once when the material allows. Roles with an illustration suit topics a "
         "picture can explain, not definitions.\n"
-        f"{nummern}"
         'Answer with one JSON object only: {"title": "...", "subtitle": "...", "slides": '
         f'[{eintrag}]}}. The gist is one sentence saying what '
         "the slide shows."
     )
-    aufgabe = f"FACTS:\n{source}\n" if mit_nummern else f"MATERIAL:\n{source}\n"
+    aufgabe = f"MATERIAL:\n{source}\n"
     if params.instructions.strip():
         aufgabe += f"\nINSTRUCTION FROM THE TEACHER: {params.instructions.strip()}"
     return [{"role": "system", "content": system}, {"role": "user", "content": aufgabe}]
@@ -95,23 +84,9 @@ def json_objekt(raw: str) -> dict:
     return data
 
 
-def _nummern(roh, gueltig: set[int] | None) -> list[int]:
-    """The fact numbers of one entry, anything that is not a known number drops out."""
-    if not isinstance(roh, list):
-        return []
-    aus: list[int] = []
-    for wert in roh:
-        try:
-            nummer = int(wert)
-        except (TypeError, ValueError):
-            continue
-        if (gueltig is None or nummer in gueltig) and nummer not in aus:
-            aus.append(nummer)
-    return aus
 
-
-def parse_answer(raw: str, rollen: list[str], gueltig: set[int] | None = None) -> Outline:
-    """The outline out of the answer. ``gueltig`` are the numbers the fact pool really holds."""
+def parse_answer(raw: str, rollen: list[str]) -> Outline:
+    """The outline out of the answer."""
     data = json_objekt(raw)
     roh = data.get("slides")
     if not isinstance(roh, list) or not roh:
@@ -124,8 +99,8 @@ def parse_answer(raw: str, rollen: list[str], gueltig: set[int] | None = None) -
         if not titel:
             continue
         rows.append(OutlineRow(role=str(eintrag.get("role") or "text").strip().lower(),
-                               title=titel[:120], gist=str(eintrag.get("gist") or "").strip()[:300],
-                               fact_ids=_nummern(eintrag.get("fact_ids"), gueltig)))
+                               title=titel[:120],
+                               gist=str(eintrag.get("gist") or "").strip()[:300]))
     titel = str(data.get("title") or (rows[0].title if rows else "")).strip()[:120]
     outline = Outline(title=titel, subtitle=str(data.get("subtitle") or "").strip()[:160], rows=rows)
     return pruefe(outline, rollen)
@@ -164,8 +139,7 @@ def mit_ids(rows: list[OutlineRow]) -> list[OutlineRow]:
             hoechste += 1
             rid = f"s{hoechste}"
         gesehen.add(rid)
-        out.append(OutlineRow(id=rid, role=r.role, title=r.title, gist=r.gist,
-                              fact_ids=list(r.fact_ids)))
+        out.append(OutlineRow(id=rid, role=r.role, title=r.title, gist=r.gist))
     return out
 
 

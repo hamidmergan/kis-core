@@ -18,7 +18,7 @@ from src.services.aia_diagnosis_chat import (
     build_examples_block,
     parse_level_examples,
 )
-from src.services.aia_json_llm import ask_json
+from src.services.json_llm import ask_json
 from src.services.aia_level_ladder import (
     LEVEL_DESCRIPTIONS_SETTING,
     build_levels_block,

@@ -1,4 +1,4 @@
-"""Writing phase: plan the outline over the fact pool, write section by section, assemble."""
+"""Writing phase: plan the outline over the material, write section by section, assemble."""
 
 import asyncio
 import json
@@ -6,11 +6,8 @@ import re
 
 from loguru import logger
 
-from src.services.facts.pool import Fact, facts_block, facts_for
 from src.features.summary.models import GROUND_RULES, Caller, Outline, Section
 from src.limits import (
-    SUMMARY_ASSIGN_BATCH_FACTS,
-    SUMMARY_ASSIGN_CONCURRENCY,
     SUMMARY_CHARS_PER_SECTION,
     SUMMARY_COMPOSE_MAX_ATTEMPTS,
     SUMMARY_MAX_SECTIONS,
@@ -19,7 +16,6 @@ from src.limits import (
     SUMMARY_PROMPT_RESERVE_CHARS,
     SUMMARY_RETRY_DELAY_SECONDS,
     SUMMARY_SECTION_BASE_CHARS,
-    SUMMARY_SECTION_FACT_CHARS,
     SUMMARY_SECTION_GROUP_CHARS,
     SUMMARY_SECTIONS_PER_SOURCE,
     SUMMARY_WRITE_MAX_TOKENS,
@@ -75,44 +71,14 @@ OUTLINE_SCHEMA = {
 }
 
 
-ASSIGNMENT_SCHEMA = {
-    "type": "json_schema",
-    "json_schema": {
-        "name": "assignments",
-        "strict": True,
-        "schema": {
-            "type": "object",
-            "properties": {
-                "assignments": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "fact_id": {"type": "integer"},
-                            "section_index": {
-                                "type": "integer",
-                                "description": "0 for the first section listed, 1 for the second, and so on.",
-                            },
-                        },
-                        "required": ["fact_id", "section_index"],
-                        "additionalProperties": False,
-                    },
-                },
-            },
-            "required": ["assignments"],
-            "additionalProperties": False,
-        },
-    },
-}
 
-
-def target_sections(facts_chars: int, sources: int = 1) -> int:
+def target_sections(material_chars: int, sources: int = 1) -> int:
     """How many sections the material carries, a target the planner may deviate from.
 
     Never fewer than every source needs: with unrelated files a count drawn from the
     size alone leaves the last of them without a heading to stand under.
     """
-    aus_umfang = facts_chars // SUMMARY_CHARS_PER_SECTION
+    aus_umfang = material_chars // SUMMARY_CHARS_PER_SECTION
     aus_quellen = SUMMARY_SECTIONS_PER_SOURCE * max(1, sources)
     return max(SUMMARY_MIN_SECTIONS, min(SUMMARY_MAX_SECTIONS, max(aus_umfang, aus_quellen)))
 
@@ -172,13 +138,6 @@ def parse_outline(raw: str | None) -> Outline:
                    sections=abschnitte[:SUMMARY_MAX_SECTIONS])
 
 
-def coverage(outline: Outline, pool: list[Fact]) -> float:
-    """The share of the pool the outline actually put somewhere."""
-    if not pool:
-        return 1.0
-    vergeben = {n for a in outline.sections for n in a.fact_ids}
-    return len(vergeben) / len(pool)
-
 
 def _outline_system(language: str, template_body: str, target: int, sources: int) -> str:
     return (
@@ -213,15 +172,15 @@ def _outline_system(language: str, template_body: str, target: int, sources: int
     )
 
 
-def _outline_user(sources: list[str], pool_text: str) -> str:
+def _outline_user(sources: list[str], material: str) -> str:
     liste = "\n".join(f"- {s}" for s in sources)
-    return f"/no_think\nSources:\n{liste}\n\nFacts, one per line, numbered:\n\n{pool_text}"
+    return f"/no_think\nSources:\n{liste}\n\nMaterial:\n\n{material}"
 
 
 async def plan_outline(caller: Caller, *, language: str, template_body: str,
-                       sources: list[str], pool: list[Fact], pool_text: str,
+                       sources: list[str], material: str,
                        target: int) -> Outline:
-    """Plans the headings, then places every fact under them. Empty when planning failed."""
+    """Plans the headings of the document. Empty when planning failed."""
     plan = Outline()
     for versuch in range(1, SUMMARY_OUTLINE_MAX_ATTEMPTS + 1):
         try:
@@ -229,7 +188,7 @@ async def plan_outline(caller: Caller, *, language: str, template_body: str,
                 messages=[
                     {"role": "system",
                      "content": _outline_system(language, template_body, target, len(sources))},
-                    {"role": "user", "content": _outline_user(sources, pool_text)},
+                    {"role": "user", "content": _outline_user(sources, material)},
                 ],
                 temperature=0.2, name=f"outline:{versuch}",
                 response_format=OUTLINE_SCHEMA,
@@ -242,141 +201,15 @@ async def plan_outline(caller: Caller, *, language: str, template_body: str,
             logger.warning("Zusammenfassung: Planungsaufruf {} gescheitert ({})", versuch, e)
         if versuch < SUMMARY_OUTLINE_MAX_ATTEMPTS:
             await asyncio.sleep(SUMMARY_RETRY_DELAY_SECONDS)
-    if plan.sections:
-        await assign_pool(caller, language=language, outline=plan, pool=pool)
     return plan
 
 
-def parse_assignments(raw: str | None, known_ids: set[int], section_count: int) -> dict[int, int]:
-    """Reads the gap fill answer, an unknown fact or section index is dropped, not guessed."""
-    text = _strip_thinking(raw)
-    treffer = re.search(r"\{.*\}", text, re.S)
-    if not treffer:
-        return {}
-    try:
-        roh = json.loads(treffer.group(0))
-    except ValueError:
-        return {}
-    eintraege = roh.get("assignments")
-    if not isinstance(eintraege, list):
-        return {}
-    zuordnung: dict[int, int] = {}
-    for eintrag in eintraege:
-        if not isinstance(eintrag, dict):
-            continue
-        try:
-            fact_id, index = int(eintrag.get("fact_id")), int(eintrag.get("section_index"))
-        except (TypeError, ValueError):
-            continue
-        if fact_id in known_ids and 0 <= index < section_count:
-            zuordnung[fact_id] = index
-    return zuordnung
 
 
-def _assign_system(language: str, sections: list[Section]) -> str:
-    liste = "\n".join(f"{i}: {a.title}. {a.scope}" for i, a in enumerate(sections))
-    return (
-        "The headings of a document are already fixed. You sort facts under them, you never "
-        "change them.\n"
-        + GROUND_RULES.format(language=language) + "\n"
-        "Rule 8: Assign EVERY fact below to exactly one of the sections listed. Never invent "
-        "a section, never leave a fact out, choose the closest fit if none is exact.\n"
-        "Rule 9: Go by what the fact is about, never by the order of the list.\n"
-        "Rule 10: Answer only with the assignments, a fact never appears twice.\n"
-        f"\nSECTIONS\n{liste}\n"
-    )
 
 
-def _assign_user(facts: list[Fact]) -> str:
-    zeilen = "\n".join(f"#{f.fact_id} ({f.category}) {f.fact}" for f in facts)
-    return f"/no_think\nFacts to sort:\n\n{zeilen}"
 
 
-async def assign_batch(caller: Caller, *, language: str, sections: list[Section],
-                       facts: list[Fact]) -> dict[int, int]:
-    """Places one batch of facts under the fixed headings, {} when the call fails."""
-    bekannt = {f.fact_id for f in facts}
-    try:
-        antwort = await caller.create(
-            messages=[
-                {"role": "system", "content": _assign_system(language, sections)},
-                {"role": "user", "content": _assign_user(facts)},
-            ],
-            temperature=0.1, name=f"assign:{facts[0].fact_id}-{facts[-1].fact_id}",
-            response_format=ASSIGNMENT_SCHEMA,
-        )
-        return parse_assignments(antwort.choices[0].message.content, bekannt, len(sections))
-    except Exception as e:  # noqa: BLE001 - place_by_wording below still places every fact
-        logger.warning("Zusammenfassung: Zuordnung eines Stapels gescheitert ({})", e)
-        return {}
-
-
-def _words(text: str) -> set[str]:
-    """The carrying words of a text, short ones say nothing about the subject."""
-    return set(re.findall(r"[^\W\d_]{4,}", text.casefold()))
-
-
-def place_by_wording(sections: list[Section], remaining: list[Fact]) -> None:
-    """What no call placed goes where the wording fits best, never into an unrelated section.
-
-    Round robin would keep the count right and the content wrong: a statement on turnover
-    tax landed under a heading about guard registries, and the writer then dropped it.
-    """
-    if not sections:
-        return
-    felder = [_words(f"{a.title} {a.scope}") for a in sections]
-    for fakt in remaining:
-        eigene = _words(fakt.fact)
-        # Ties go to the section carrying the least, so nothing piles up in one place.
-        beste = max(range(len(sections)),
-                    key=lambda i: (len(eigene & felder[i]), -len(sections[i].fact_ids)))
-        sections[beste].fact_ids.append(fakt.fact_id)
-
-
-async def _one_pass(caller: Caller, *, language: str, outline: Outline,
-                    offen: list[Fact]) -> list[Fact]:
-    """Asks for the placement of these facts and applies it, returns what stayed unplaced."""
-    stapel = [offen[i:i + SUMMARY_ASSIGN_BATCH_FACTS]
-              for i in range(0, len(offen), SUMMARY_ASSIGN_BATCH_FACTS)]
-    grenze = asyncio.Semaphore(SUMMARY_ASSIGN_CONCURRENCY)
-
-    async def _einer(teil: list[Fact]) -> dict[int, int]:
-        async with grenze:
-            return await assign_batch(caller, language=language, sections=outline.sections,
-                                      facts=teil)
-
-    # Applied in the order of the batches, so the same answers always give the same plan.
-    ergebnisse = await asyncio.gather(*(_einer(t) for t in stapel))
-    nachtrag: list[Fact] = []
-    for teil, zuordnung in zip(stapel, ergebnisse):
-        for fakt in teil:
-            index = zuordnung.get(fakt.fact_id)
-            if index is None:
-                nachtrag.append(fakt)
-            else:
-                outline.sections[index].fact_ids.append(fakt.fact_id)
-    return nachtrag
-
-
-async def assign_pool(caller: Caller, *, language: str, outline: Outline,
-                      pool: list[Fact]) -> None:
-    """Places every fact of the pool under the planned headings.
-
-    One call carries the whole pool, a second one only what it dropped, and the wording
-    decides about the rest. The second call costs nothing on a model that drops nothing.
-    """
-    offen = [f for f in pool if f.fact_id not in {n for a in outline.sections for n in a.fact_ids}]
-    if not offen:
-        return
-    nachtrag = await _one_pass(caller, language=language, outline=outline, offen=offen)
-    if nachtrag:
-        logger.warning("Zusammenfassung: {} von {} Fakten bleiben offen, zweiter Anlauf",
-                       len(nachtrag), len(offen))
-        nachtrag = await _one_pass(caller, language=language, outline=outline, offen=nachtrag)
-    if nachtrag:
-        logger.warning("Zusammenfassung: {} Fakten werden nach Wortlaut eingeordnet",
-                       len(nachtrag))
-        place_by_wording(outline.sections, nachtrag)
 
 
 def _finished(antwort) -> str:
@@ -401,12 +234,9 @@ def _drop_leading_heading(text: str) -> str:
     return "\n".join(zeilen)
 
 
-def expected_chars(facts: int) -> int:
-    """How much prose a section of this many facts costs, measured on the accepted run."""
-    return SUMMARY_SECTION_BASE_CHARS + facts * SUMMARY_SECTION_FACT_CHARS
 
-
-def group_sections(sections: list[Section], budget: int | None = None) -> list[list[int]]:
+def group_sections(sections: list[Section], costs: list[int],
+                   budget: int | None = None) -> list[list[int]]:
     """Runs of neighbouring sections that fit one writing call, by their expected prose.
 
     Small sections cost a whole call each while using a fraction of the answer, so they
@@ -418,7 +248,7 @@ def group_sections(sections: list[Section], budget: int | None = None) -> list[l
     laufend: list[int] = []
     summe = 0
     for i, abschnitt in enumerate(sections):
-        kosten = expected_chars(len(abschnitt.fact_ids))
+        kosten = costs[i] if i < len(costs) else SUMMARY_SECTION_BASE_CHARS
         if laufend and summe + kosten > budget:
             gruppen.append(laufend)
             laufend, summe = [], 0
@@ -550,20 +380,18 @@ def _section_user(group: list[Section], others: list[Section],
 
 async def write_sections(caller: Caller, *, language: str, template_body: str,
                          group: list[Section], others: list[Section],
-                         written: list[tuple[str, str]], facts: list[list[Fact]],
+                         written: list[tuple[str, str]], material: list[str],
                          budget: int) -> list[str] | None:
     """Writes a run of sections in one call, None when the answer cannot be cut apart.
 
     None is not a failure of the run: the caller then writes the sections one at a time,
     which costs calls but never mixes one section's prose into another's heading.
     """
-    anteil = budget // len(group)
     antwort = await caller.create(
         messages=[
             {"role": "system", "content": _section_system(language, template_body, len(group))},
             {"role": "user",
-             "content": _section_user(group, others, written,
-                                      [facts_block(f, anteil) for f in facts])},
+             "content": _section_user(group, others, written, material)},
         ],
         temperature=0.3,
         name=f"section:{group[0].title}" if len(group) == 1
@@ -599,7 +427,7 @@ def _compose_system(language: str, template_body: str) -> str:
 
 
 async def compose_single(caller: Caller, *, language: str, template_body: str,
-                         sources: list[str], pool: list[Fact], pool_text: str) -> str:
+                         sources: list[str], material: str) -> str:
     """The whole document in one call, the fallback for a failed outline.
 
     Tried more than once on purpose: the facts of every file are already on disk at this
@@ -612,7 +440,7 @@ async def compose_single(caller: Caller, *, language: str, template_body: str,
             antwort = await caller.create(
                 messages=[
                     {"role": "system", "content": _compose_system(language, template_body)},
-                    {"role": "user", "content": _outline_user(sources, pool_text)},
+                    {"role": "user", "content": _outline_user(sources, material)},
                 ],
                 temperature=0.3, name=f"compose:{versuch}",
                 max_tokens=SUMMARY_WRITE_MAX_TOKENS,
@@ -658,11 +486,3 @@ def split_title(text: str) -> tuple[str, str]:
         rest.pop(0)
     return titel, "\n".join(rest)
 
-
-def section_facts(section: Section, pool: list[Fact]) -> list[Fact]:
-    """The facts of one section, the whole pool when the planner assigned it none.
-
-    A section without facts is not always a planning mistake: a build plan may ask for a
-    part that draws on everything, such as a glossary or a set of self check questions.
-    """
-    return facts_for(section.fact_ids, pool) or pool

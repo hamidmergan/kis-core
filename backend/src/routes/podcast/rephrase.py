@@ -75,7 +75,7 @@ async def rephrase_line(
         nachrichten = skript.rephrase_messages(zeilen[stelle], params, umfeld)
     try:
         from src.services import feature_router
-        from src.services.aia_json_llm import call_json_llm
+        from src.services.json_llm import call_json_llm
 
         binding = feature_router.resolve("chat")
         llm = feature_router.make_llm_client(binding)

@@ -22,12 +22,16 @@ GROUND_RULES = (
 )
 
 
+# What the language probe falls back to when no name could be read.
+LANGUAGE_FALLBACK = ("the language of the main body text, ignoring cover pages, "
+                     "headers and footers")
+
+
 class Section(BaseModel):
-    """One planned section: what it is called, what belongs in it, which facts carry it."""
+    """One planned section: what it is called and what belongs in it."""
 
     title: str
     scope: str = ""
-    fact_ids: list[int] = Field(default_factory=list)
 
 
 class Outline(BaseModel):

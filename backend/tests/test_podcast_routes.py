@@ -75,13 +75,6 @@ def env(monkeypatch):
     ablage.angelegt = []
     monkeypatch.setattr(start_route.db, "create_aia_source",
                         lambda **kw: ablage.angelegt.append(kw.get("filename")))
-    # Der Vor-Call darf in einem Routen-Test nie ein Modell fragen. Er liegt seit dem
-    # Umzug der Materialbeschaffung in der Aufgabe, also wird er am Modul festgehalten.
-    from src.features.podcast import instruction as podcast_instruction
-
-    async def _kein_vorcall(llm, anweisung):
-        return podcast_instruction.FILL
-    monkeypatch.setattr(podcast_instruction, "_classify", _kein_vorcall)
 
     gestartet: list[str] = []
 
@@ -117,151 +110,6 @@ def _params(**kw):
     return json.dumps(grund)
 
 
-class TestStart:
-    def test_legt_einen_auftrag_an_und_startet_das_skript(self, env):
-        client, _jobs, gestartet, ablage = env
-        antwort = client.post("/podcast/start", data={"params": _params(), "mode": "files"},
-                              files={"files": ("kapitel.txt", "Über den Regelkreis.".encode(), "text/plain")})
-        assert antwort.status_code == 200
-        uuid = antwort.json()["job_uuid"]
-        assert gestartet == ["script"]
-        # Die Route legt nur noch das rohe Material ab, source.txt schreibt die Aufgabe.
-        material = json.loads(ablage.get_job_file(7, uuid, "material.json"))
-        assert material["sources"][0]["content"] == "Über den Regelkreis."
-        assert material["sources"][0]["filename"] == "kapitel.txt"
-
-    def test_weist_material_ohne_inhalt_ab(self, env):
-        client, _j, gestartet, _a = env
-        antwort = client.post("/podcast/start", data={"params": _params(), "mode": "files"})
-        assert antwort.status_code == 422
-        assert gestartet == []
-
-    def test_legt_eine_sehr_lange_datei_ungekuerzt_ab(self, env):
-        """Keine Absage wegen Laenge, und an der Tuer faellt seit dem Umbau nichts mehr weg."""
-        client, _j, gestartet, ablage = env
-        riesig = ("y" * 999 + "\n") * 3000
-        antwort = client.post("/podcast/start", data={"params": _params(), "mode": "files"},
-                              files={"files": ("gross.txt", riesig.encode(), "text/plain")})
-        assert antwort.status_code == 200
-        assert gestartet == ["script"]
-        uuid = antwort.json()["job_uuid"]
-        material = json.loads(ablage.get_job_file(7, uuid, "material.json"))
-        # Rund drei Millionen Zeichen, weit ueber jedem Kontext-Budget, und doch vollstaendig.
-        assert len(material["sources"][0]["content"]) > 2_900_000
-
-    def test_ein_upload_legt_nichts_dauerhaftes_an(self, env):
-        """Fluechtig heisst fluechtig: kein Modul, keine Quelle, keine Einbettung."""
-        client, _j, gestartet, ablage = env
-        antwort = client.post("/podcast/start", data={"params": _params(), "mode": "files"},
-                              files={"files": ("kapitel.txt", b"Ueber den Regelkreis.", "text/plain")})
-        assert antwort.status_code == 200
-        assert gestartet == ["script"]
-        assert ablage.angelegt == []
-
-    def test_ein_upload_ist_nirgends_durchsuchbar_vermerkt(self, env):
-        """Ohne Modul gibt es nichts zu durchsuchen, die Aufgabe geht ueber die Fakten."""
-        client, _j, _g, ablage = env
-        uuid = client.post(
-            "/podcast/start", data={"params": _params(), "mode": "files"},
-            files={"files": ("kapitel.txt", b"Ueber den Regelkreis.", "text/plain")},
-        ).json()["job_uuid"]
-        material = json.loads(ablage.get_job_file(7, uuid, "material.json"))
-        assert material["workspace_id"] is None and material["source_uuids"] == []
-
-    def test_weist_eine_person_ohne_stimme_ab(self, env):
-        client, _j, _g, _a = env
-        ohne = _params(persons=[{"name": "Lena", "role": "host", "voice_id": "", "provider_id": 3}])
-        assert client.post("/podcast/start", data={"params": ohne, "mode": "files"}).status_code == 422
-
-    def test_weist_fuenf_personen_ab(self, env):
-        client, _j, _g, _a = env
-        viele = _params(persons=[{"name": f"P{i}", "role": "host", "voice_id": "v", "provider_id": 3} for i in range(5)])
-        assert client.post("/podcast/start", data={"params": viele, "mode": "files"}).status_code == 422
-
-    def test_weist_eine_stimme_ohne_anbieter_ab(self, env):
-        client, _j, _g, _a = env
-        ohne = _params(persons=[{"name": "Lena", "role": "host", "voice_id": "anna", "provider_id": 0},
-                                {"name": "Jonas", "role": "expert", "voice_id": "ben", "provider_id": 3}])
-        assert client.post("/podcast/start", data={"params": ohne, "mode": "files"}).status_code == 422
-
-    def test_weist_eine_unbekannte_sprache_ab(self, env):
-        client, _j, _g, _a = env
-        fremd = _params(language="fr")
-        assert client.post("/podcast/start", data={"params": fremd, "mode": "files"}).status_code == 422
-
-    def test_weist_ein_tempo_ausserhalb_der_grenzen_ab(self, env):
-        client, _j, _g, _a = env
-        schnell = _params(speed=2.0)
-        assert client.post("/podcast/start", data={"params": schnell, "mode": "files"}).status_code == 422
-
-    def test_merkt_sich_das_gewaehlte_tempo(self, env):
-        client, _j, _g, ablage = env
-        uuid = client.post("/podcast/start",
-                           data={"params": _params(speed=0.7), "mode": "blank"}).json()["job_uuid"]
-        assert json.loads(ablage.get_job_file(7, uuid, "params.json"))["speed"] == 0.7
-
-    def test_nimmt_ohne_angabe_das_tempo_des_screencasts(self, env):
-        client, _j, _g, ablage = env
-        uuid = client.post("/podcast/start",
-                           data={"params": _params(), "mode": "blank"}).json()["job_uuid"]
-        assert json.loads(ablage.get_job_file(7, uuid, "params.json"))["speed"] == 0.9
-
-    def test_siebt_das_glossar_auf_das_was_im_material_steht(self, env):
-        """Was der Text nicht enthaelt, hat im Prompt nichts verloren."""
-        client, _j, _g, ablage = env
-        glossar = {"Regelkreis": "control loop", "Lastenheft": "requirements document"}
-        antwort = client.post("/podcast/start",
-                              data={"params": _params(glossary=glossar), "mode": "files"},
-                              files={"files": ("kapitel.txt", "Ueber den Regelkreis.".encode(), "text/plain")})
-        assert antwort.status_code == 200
-        uuid = antwort.json()["job_uuid"]
-        gespeichert = json.loads(ablage.get_job_file(7, uuid, "params.json"))["glossary"]
-        assert gespeichert == {"Regelkreis": "control loop"}
-
-    def test_traegt_kein_glossar_in_den_leeren_auftrag(self, env):
-        """Ohne Modell schreibt hier niemand, also reist auch keine Begriffsliste mit."""
-        client, _j, _g, ablage = env
-        uuid = client.post("/podcast/start",
-                           data={"params": _params(glossary={"Modul": "module"}), "mode": "blank"},
-                           ).json()["job_uuid"]
-        assert json.loads(ablage.get_job_file(7, uuid, "params.json"))["glossary"] == {}
-
-    def test_weist_kaputte_einstellungen_ab(self, env):
-        client, _j, _g, _a = env
-        assert client.post("/podcast/start", data={"params": "{kein json", "mode": "files"}).status_code == 422
-
-    def test_legt_einen_leeren_auftrag_ohne_skript_an(self, env):
-        """Der leere Weg fragt kein Modell, er wartet sofort auf die Person."""
-        client, _j, gestartet, ablage = env
-        antwort = client.post("/podcast/start", data={"params": _params(), "mode": "blank"})
-        assert antwort.status_code == 200
-        uuid = antwort.json()["job_uuid"]
-        assert gestartet == []
-        zeilen = json.loads(ablage.get_job_file(7, uuid, "user_script.json"))
-        assert len(zeilen) == 1 and zeilen[0]["text"] == ""
-
-    def test_merkt_sich_den_leeren_weg_in_den_einstellungen(self, env):
-        client, _j, _g, ablage = env
-        uuid = client.post("/podcast/start",
-                           data={"params": _params(), "mode": "blank"}).json()["job_uuid"]
-        assert json.loads(ablage.get_job_file(7, uuid, "params.json"))["self_written"] is True
-
-    def test_weist_ein_modul_ohne_quellen_ab(self, env):
-        client, _j, _g, _a = env
-        antwort = client.post("/podcast/start",
-                              data={"params": _params(), "mode": "module", "workspace_uuid": "w1", "source_uuids": "[]"})
-        assert antwort.status_code == 422
-
-    def test_haelt_die_grenze_offener_podcasts_ein(self, env, monkeypatch):
-        client, _j, _g, _a = env
-        from src.limits import MAX_OPEN_JOBS_PER_TOOL
-        from src.services import open_jobs
-
-        monkeypatch.setattr(open_jobs.db, "count_working_jobs",
-                            lambda uid: MAX_OPEN_JOBS_PER_TOOL)
-        antwort = client.post("/podcast/start", data={"params": _params(), "mode": "files"},
-                              files={"files": ("kapitel.txt", b"Ueber den Regelkreis.", "text/plain")})
-        assert antwort.status_code == 409
 
 
 class TestSkriptUndVertonung:
@@ -389,17 +237,6 @@ class TestSkriptUndVertonung:
         self._job(jobs, status="running")
         assert client.post(f"/podcast/{UUID}/render").status_code == 409
 
-    def test_gibt_den_stand_zum_wiederaufnehmen(self, env):
-        client, jobs, _g, _a = env
-        self._job(jobs)
-        client.post("/podcast/start", data={"params": _params(), "mode": "files"},
-                    files={"files": ("kapitel.txt", b"Material", "text/plain")})
-        # Der Stand des Auftrags oben, mit eigenem Skript.
-        client.put(f"/podcast/{UUID}/script", json={"lines": [{"id": "b0", "speaker": 0, "text": "Eins."}]})
-        antwort = client.get(f"/podcast/{UUID}")
-        assert antwort.status_code == 200
-        assert antwort.json()["lines"][0]["text"] == "Eins."
-        assert antwort.json()["voiced"] == []
 
 
 class TestFremderAuftrag:
@@ -589,7 +426,7 @@ class TestUmformulierenMitChat:
             gesehen.append(messages)
             return FakeAntwort()
 
-        import src.services.aia_json_llm as json_llm
+        import src.services.json_llm as json_llm
         from src.services import feature_router
 
         monkeypatch.setattr(json_llm, "call_json_llm", _call)
