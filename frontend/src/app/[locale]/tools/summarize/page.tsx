@@ -47,7 +47,7 @@ export default function ZusammenfassungPage() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const extensions = setup?.extensions ?? FALLBACK_EXTENSIONS;
-  const maxSources = setup?.maxSources ?? 5;
+  const maxSources = setup?.maxSources ?? 10;
   const templates = setup?.templates ?? [];
   const templateName = (v: Template) => (locale === "de" ? v.nameDe : v.nameEn);
   const templateHint = (v: Template) => (locale === "de" ? v.hintDe : v.hintEn);

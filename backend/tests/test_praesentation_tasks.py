@@ -23,13 +23,6 @@ def _analyse():
                    rollen={"deckblatt": [0], "text": [1], "abschluss": [0]})
 
 
-def _fakt(nummer: int):
-    from src.services.facts import Fact
-
-    return Fact(fact_id=nummer, category="Zahl", fact=f"Aussage {nummer}",
-                citation="Beleg", source=0, piece=0)
-
-
 class _Quellen:
     """Die Quellen eines Laufs, wie sie aus sources.json kaemen."""
 
@@ -54,15 +47,15 @@ class _Store:
         self.analyse = _analyse()
         self.slide_sources = {}
         self.gelesene_quellen = []
-        self.pool = [_fakt(1), _fakt(2)]
+        self.grundlage = None
 
     load_params = lambda self, u, j: self.params
     load_template = lambda self, u, j: b"vorlage"
     load_template_meta = lambda self, u, j: self.analyse
     load_outline = lambda self, u, j: self.outline
     load_slides = lambda self, u, j: list(self.slides)
-    load_pool = lambda self, u, j: list(self.pool)
-    save_pool = lambda self, u, j, p: setattr(self, "pool", list(p))
+    load_map = lambda self, u, j: self.grundlage
+    save_map = lambda self, u, j, d: setattr(self, "grundlage", d)
 
     def save_outline(self, u, j, o): self.outline = o
     save_user_outline = save_outline

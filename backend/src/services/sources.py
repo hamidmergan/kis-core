@@ -16,7 +16,7 @@ from fastapi import HTTPException, UploadFile
 from loguru import logger
 
 from src.i18n import t
-from src.limits import SUMMARY_MAX_CHARS_PER_SOURCE
+from src.limits import SOURCES_MAX_TOTAL_CHARS
 from src.services.job_files import parse_job_json, read_job_text, write_job_text
 from src.services.source_reading import EXTENSIONS, NoReadableText, Source, from_dict, read_file
 from src.services.tool_limits import max_upload_bytes
@@ -25,8 +25,8 @@ from src.utils.upload_stream import stream_upload_to_path
 
 SOURCES_FILE = "sources.json"
 
-# What one source may carry. Beyond this a single document would eat a whole run.
-MAX_SOURCE_CHARS = SUMMARY_MAX_CHARS_PER_SOURCE
+# What all sources of a run may carry together, counted after reading.
+MAX_TOTAL_CHARS = SOURCES_MAX_TOTAL_CHARS
 
 
 def save_sources(user_id: int, job_uuid: str, sources: list[Source]) -> None:
@@ -69,12 +69,13 @@ def _zahl(n: int) -> str:
     return f"{n:,}".replace(",", ".")
 
 
-def check_ceiling(source: Source, locale: str, schluessel: str) -> None:
-    """Refuses a source that is too long, before any model has been paid for it."""
-    if len(source.text) > MAX_SOURCE_CHARS:
+def check_total(sources: list[Source], locale: str, schluessel: str) -> None:
+    """Refuses material that is too long in sum, before any model has been paid for it."""
+    zeichen = sum(len(q.text) for q in sources)
+    if zeichen > MAX_TOTAL_CHARS:
         raise HTTPException(status_code=422, detail=t(
-            f"{schluessel}.sourceTooLarge", locale, name=source.dateiname,
-            chars=_zahl(len(source.text)), max=_zahl(MAX_SOURCE_CHARS)))
+            f"{schluessel}.materialTooLarge", locale,
+            chars=_zahl(zeichen), max=_zahl(MAX_TOTAL_CHARS)))
 
 
 async def read_uploads(files: list[UploadFile], *, locale: str, hoechstens: int,
@@ -109,7 +110,7 @@ async def read_uploads(files: list[UploadFile], *, locale: str, hoechstens: int,
                 logger.warning("Quelle '{}' nicht lesbar: {}", name, e)
                 raise HTTPException(status_code=422, detail=t(
                     f"{schluessel}.fileUnreadable", locale, name=name)) from e
-            check_ceiling(gelesen[-1], locale, schluessel)
+    check_total(gelesen, locale, schluessel)
     zeichen = sum(len(q.text) for q in gelesen)
     logger.info("{}: {} Quelle(n) gelesen, {} Zeichen, {} Stueck(e)",
                 schluessel, len(gelesen), zeichen, sum(len(q.stuecke) for q in gelesen))

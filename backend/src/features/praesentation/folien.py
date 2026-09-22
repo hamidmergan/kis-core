@@ -13,22 +13,22 @@ from src.features.praesentation.schemas import (
 )
 
 
-def material_je_folie(rows: list[OutlineRow], pool: list, sources: list) -> dict[str, str]:
-    """Je Folie ihre Aussagen mit Beleg und die Passagen, aus denen sie stammen.
+def material_je_folie(rows: list[OutlineRow], karte, alle: list[OutlineRow]) -> dict[str, str]:
+    """Je Folie die Stellen aus dem Originaltext, auf denen sie ruht, mit ihren Nachbarn.
 
-    Eine Zeile ohne Nummern bekommt den ganzen Vorrat: das ist kein Planungsfehler,
-    eine Agenda oder eine Schlussfolie ruht wirklich auf allem.
+    Eine Zeile ohne Stellen ist eine Agenda oder ein Schluss, sie ruht auf allem. Sie
+    bekommt deshalb den Plan des ganzen Decks statt einzelner Stellen.
     """
-    from src.services import facts as fk
+    from src.limits import MAP_PASSAGE_NEIGHBOURS
 
-    if not pool:
-        return {}
     aus: dict[str, str] = {}
     for r in rows:
-        eigene = fk.facts_for(r.fact_ids, pool) or pool
-        belege = "\n".join(f'- {f.fact} Beleg: "{f.citation}"' for f in eigene)
-        umgebung = fk.context_for(eigene, sources)[:PRAESENTATION_SLIDE_CONTEXT_CHARS]
-        aus[r.id] = f"{belege}\n\n  passages:\n{umgebung}" if umgebung else belege
+        if r.stellen:
+            aus[r.id] = karte.passagen(r.stellen, nachbarn=MAP_PASSAGE_NEIGHBOURS,
+                                       budget=PRAESENTATION_SLIDE_CONTEXT_CHARS)
+        else:
+            aus[r.id] = "the plan of the whole deck:\n" + "\n".join(
+                f"- {a.title}: {a.gist}" for a in alle if a.id != r.id)
     return aus
 
 
@@ -36,13 +36,13 @@ def build_messages(source: str, params: PraesentationParams, rows: list[OutlineR
                    formen: dict[str, dict], fakten: dict[str, str] | None = None) -> list[dict]:
     """The content call for one batch of slides.
 
-    With ``fakten`` every slide carries its own facts and the passages they come from,
-    and the shared material block goes away.
+    With ``fakten`` every slide carries its own passages of the original text, and the
+    shared material block goes away.
     """
     lang = SPRACHE.get(params.language, "German")
-    quelle_regel = ("from its own facts only. Each slide below carries the facts it rests "
-                    "on and the passages they come from, and you never use the material of "
-                    "another slide.\n") if fakten else "from the material only.\n"
+    quelle_regel = ("from its own material only. Each slide below carries the passages of "
+                    "the original text it rests on, and you never use the material of another "
+                    "slide.\n") if fakten else "from the material only.\n"
     system = (
         f"You write the content of slides for university teaching, {quelle_regel}"
         f"Write all slide text in {lang}. Write image prompts in English.\n"
@@ -82,7 +82,7 @@ def build_messages(source: str, params: PraesentationParams, rows: list[OutlineR
         zeilen.append(f"  notes: {'yes' if params.notes else 'no'}")
         eigene = (fakten or {}).get(r.id, "").strip()
         if eigene:
-            zeilen.append("  facts of this slide:\n" + eigene)
+            zeilen.append("  material of this slide:\n" + eigene)
         teile.append("\n".join(zeilen))
     kopf = "" if fakten else f"MATERIAL:\n{source}\n\n"
     user = f"{kopf}SLIDES TO WRITE:\n" + "\n".join(teile)

@@ -1,4 +1,4 @@
-"""Prüft den Ablauf der Zusammenfassung: Sprache, Fakten, Plan, Abschnitte, Zusammenbau."""
+"""Prüft den Ablauf der Zusammenfassung: Sprache, Grundlage, Plan, Abschnitte, Zusammenbau."""
 
 import asyncio
 import json
@@ -17,12 +17,6 @@ def _quelle(text: str = "Ein Satz. " * 50, name: str = "a.pdf") -> Source:
                   stuecke=[Piece(seite=1, von=0, bis=len(text))])
 
 
-def _fakten(*aussagen: str) -> str:
-    return json.dumps({"facts": [
-        {"piece": 0, "category": "Zahl", "fact": a, "citation": f"Beleg {a}"}
-        for a in aussagen]})
-
-
 def _gruppe(*titel: str) -> str:
     """Eine Antwort fuer eine ganze Gruppe, mit Ueberschriften zum Auftrennen."""
     return "\n\n".join(f"## {t}\nText {t}" for t in titel)
@@ -30,7 +24,7 @@ def _gruppe(*titel: str) -> str:
 
 def _plan(*titel: str) -> str:
     return json.dumps({"title": "Der Titel", "intro": "Die Einleitung.", "sections": [
-        {"section_index": i, "title": t, "description": "d", "fact_ids": [i + 1]}
+        {"section_index": i, "title": t, "description": "d", "refs": ["1"]}
         for i, t in enumerate(titel)]})
 
 
@@ -39,20 +33,17 @@ class _Store:
         self.sprache = None
         self.plan = None
         self.abschnitte: dict[int, str] = {}
-        self.stuecke: dict[str, list[dict]] = {}
+        self.grundlage = None
         self.fortschritt: list[tuple] = []
 
-    def load_slices(self):
-        return dict(self.stuecke)
+    def load_map(self):
+        return self.grundlage
 
-    def save_slice(self, key, facts, vollstaendig):
-        self.stuecke[key] = facts
+    def save_map(self, daten):
+        self.grundlage = daten
 
     def progress(self, step, part=None, total=None):
         self.fortschritt.append((step, part, total))
-
-    def heartbeat(self):
-        pass
 
     def load_language(self):
         return self.sprache
@@ -87,55 +78,69 @@ def _lauf(antworten, quellen=None, store=None, vorlage="kurzbriefing"):
 # ── Sprache ──────────────────────────────────────────────────────────────────
 
 def test_die_sprache_wird_einmal_gefragt_und_gemerkt():
-    _, store = _lauf(["German", _fakten("Eins.", "Zwei.", "Drei."),
-                      _plan("A", "B", "C"), _gruppe("A", "B", "C")])
+    _, store = _lauf(["German", _plan("A", "B", "C"), _gruppe("A", "B", "C")])
     assert store.sprache == "German"
 
 
 def test_eine_gemerkte_sprache_wird_nicht_erneut_gefragt():
     store = _Store()
     store.sprache = "German"
-    _lauf([_fakten("Eins.", "Zwei.", "Drei."), _plan("A", "B", "C"),
+    _lauf([_plan("A", "B", "C"),
            _gruppe("A", "B", "C")], store=store)
     assert store.sprache == "German"
 
 
 def test_eine_unbrauchbare_sprachantwort_faellt_zurueck():
     _, store = _lauf(["Das ist eindeutig kein einzelnes Sprachwort sondern ein ganzer Satz",
-                      _fakten("Eins.", "Zwei.", "Drei."), _plan("A", "B", "C"),
+                      _plan("A", "B", "C"),
                       _gruppe("A", "B", "C")])
     assert store.sprache == LANGUAGE_FALLBACK
 
 
 def test_zu_wenig_text_fragt_gar_nicht_erst():
-    _, store = _lauf([_fakten("Eins.", "Zwei.", "Drei."), _plan("A", "B", "C"),
+    _, store = _lauf([_plan("A", "B", "C"),
                       _gruppe("A", "B", "C")], quellen=[_quelle("Kurz.")])
     assert store.sprache == LANGUAGE_FALLBACK
 
 
-# ── Fakten und Plan ──────────────────────────────────────────────────────────
+# ── Grundlage und Plan ──────────────────────────────────────────────────────────
 
 def test_ein_lauf_liefert_den_zusammengesetzten_text():
-    ergebnis, _ = _lauf(["German", _fakten("Eins.", "Zwei.", "Drei."),
-                         _plan("A", "B", "C"), _gruppe("A", "B", "C")])
+    ergebnis, _ = _lauf(["German", _plan("A", "B", "C"), _gruppe("A", "B", "C")])
     assert "Die Einleitung." in ergebnis
     assert "Text A" in ergebnis and "Text C" in ergebnis
 
 
-def test_die_gelesenen_stuecke_werden_gesichert():
-    _, store = _lauf(["German", _fakten("Eins.", "Zwei.", "Drei."),
-                      _plan("A", "B", "C"), _gruppe("A", "B", "C")])
-    assert list(store.stuecke) == ["0:1"]
+def test_die_grundlage_wird_gesichert():
+    _, store = _lauf(["German", _plan("A", "B", "C"), _gruppe("A", "B", "C")])
+    assert store.grundlage == {"modus": "stellen", "themen": []}
 
 
-def test_ohne_eine_einzige_aussage_scheitert_der_lauf():
+def test_ohne_text_scheitert_der_lauf():
+    leer = Source(dateiname="a.pdf", fassung="x", text="", seiten=0, stuecke=[])
     with pytest.raises(RuntimeError):
-        _lauf(["German", json.dumps({"facts": []})])
+        _lauf(["German"], quellen=[leer])
+
+
+def test_ein_zu_langer_text_wird_ueber_themen_geplant():
+    """Passt der Text nicht in ein Fenster, liest jeder Teil nur seine Themen heraus."""
+    stuecke = [Piece(seite=1 + i // 5, von=i * 1000, bis=(i + 1) * 1000) for i in range(300)]
+    gross = Source(dateiname="g.pdf", fassung="x", text="Ein Wort " * 33_334, seiten=60,
+                   stuecke=stuecke)
+    themen = json.dumps({"topics": [{"title": "Thema", "gist": "g", "refs": ["1-3"]}]})
+    caller = Caller(FakeClient(["German", themen, themen, themen,
+                                _plan("A", "B", "C"), _gruppe("A", "B", "C")]),
+                    "m", window_tokens=50_000)
+    store = _Store()
+    asyncio.run(pl.run(caller, sources=[gross], template=get_template("kurzbriefing"),
+                       store=store))
+    assert store.grundlage["modus"] == "themen"
+    assert "numbered list of topics" in caller.client.system_prompts()[4]
 
 
 def test_der_plan_wird_gesichert_und_nicht_neu_geholt():
     store = _Store()
-    _lauf(["German", _fakten("Eins.", "Zwei.", "Drei."), _plan("A", "B", "C"),
+    _lauf(["German", _plan("A", "B", "C"),
            _gruppe("A", "B", "C")], store=store)
     assert [a["title"] for a in store.plan["sections"]] == ["A", "B", "C"]
 
@@ -143,30 +148,28 @@ def test_der_plan_wird_gesichert_und_nicht_neu_geholt():
 def test_fertige_abschnitte_werden_nicht_neu_geschrieben():
     store = _Store()
     store.abschnitte = {0: "Schon da"}
-    _lauf(["German", _fakten("Eins.", "Zwei.", "Drei."), _plan("A", "B", "C"),
+    _lauf(["German", _plan("A", "B", "C"),
            _gruppe("B", "C")], store=store)
     assert store.abschnitte[0] == "Schon da"
 
 
 # ── Was der Schreiber sieht ──────────────────────────────────────────────────
 
-def test_ein_abschnitt_sieht_seine_fakten_mit_beleg():
-    caller = _caller(["German", _fakten("Eins.", "Zwei.", "Drei."),
-                      _plan("A", "B", "C"), _gruppe("A", "B", "C")])
-    asyncio.run(pl.run(caller, sources=[_quelle()], template=get_template("kurzbriefing"),
-                       store=_Store()))
-    schreibauftrag = caller.client.user_prompts()[-1]
-    assert "Beleg" in schreibauftrag
-
-
-def test_ein_abschnitt_bekommt_die_passage_aus_dem_dokument():
+def test_ein_abschnitt_bekommt_die_passage_aus_dem_original():
     text = "Die Frist betraegt dreissig Tage ab Zugang des Bescheids. " * 20
-    caller = _caller(["German", _fakten("Eins.", "Zwei.", "Drei."),
-                      _plan("A", "B", "C"), _gruppe("A", "B", "C")])
+    caller = _caller(["German", _plan("A", "B", "C"), _gruppe("A", "B", "C")])
     asyncio.run(pl.run(caller, sources=[_quelle(text)], template=get_template("kurzbriefing"),
                        store=_Store()))
-    assert "PASSAGES" in caller.client.user_prompts()[-1]
-    assert "Die Frist betraegt dreissig Tage" in caller.client.user_prompts()[-1]
+    schreibauftrag = caller.client.user_prompts()[-1]
+    assert "Die Frist betraegt dreissig Tage" in schreibauftrag
+    assert "[a.pdf, S. 1]" in schreibauftrag
+
+
+def test_der_plan_liest_den_nummerierten_text():
+    caller = _caller(["German", _plan("A", "B", "C"), _gruppe("A", "B", "C")])
+    asyncio.run(pl.run(caller, sources=[_quelle()], template=get_template("kurzbriefing"),
+                       store=_Store()))
+    assert "[1] Ein Satz." in caller.client.user_prompts()[1]
 
 
 # ── Sprachprobe ──────────────────────────────────────────────────────────────

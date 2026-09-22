@@ -33,9 +33,9 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "In {name} steckt kein Text, nur Bilder.",
         "en": "{name} holds no text, only pictures.",
     },
-    "praesentation.sourceTooLarge": {
-        "de": "\"{name}\" enthält {chars} Zeichen. Je Dokument sind {max} möglich.",
-        "en": "\"{name}\" carries {chars} characters. Per document {max} are possible.",
+    "praesentation.materialTooLarge": {
+        "de": "Deine Quellen enthalten zusammen {chars} Zeichen. Möglich sind {max}. Bitte nimm weniger oder kürzere Quellen.",
+        "en": "Your sources carry {chars} characters together. The limit is {max}. Please use fewer or shorter sources.",
     },
     "praesentation.sourceMissing": {
         "de": "Diese Quelle gibt es im Workspace nicht.",

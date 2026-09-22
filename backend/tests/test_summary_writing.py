@@ -89,31 +89,35 @@ class TestPlanen:
         assert caller.client.optionen[0]["response_format"] is wr.OUTLINE_SCHEMA
         assert len(plan.sections) == 3
 
-    async def test_der_planer_plant_ueberschriften_und_teilt_die_fakten_zu(self):
+    async def test_der_planer_plant_ueberschriften_und_teilt_die_stellen_zu(self):
         caller = _caller([_PLAN])
         await _plane(caller)
         system = caller.client.system_prompts()[0]
-        assert "headings AND which facts go" in system
-        assert "Every fact belongs to exactly one section" in system
+        assert "headings AND which numbers go" in system
+        assert "names the numbers it rests on under refs" in system
 
     def _plan_mit(self, *nummern_je_abschnitt):
         import json
         return json.dumps({"title": "T", "intro": "I", "sections": [
-            {"section_index": i, "title": f"A{i}", "description": "a", "fact_ids": n}
+            {"section_index": i, "title": f"A{i}", "description": "a", "refs": n}
             for i, n in enumerate(nummern_je_abschnitt)]})
 
-    async def test_die_gliederung_bringt_ihre_fakten_nummern_mit(self):
-        ergebnis = await _plane(_caller([self._plan_mit([1, 3], [2], [4, 5])]))
-        assert [a.fact_ids for a in ergebnis.sections] == [[1, 3], [2], [4, 5]]
+    async def test_die_gliederung_bringt_ihre_stellen_mit(self):
+        from src.services.text_map import _nummern
+        ergebnis = await _plane(_caller([self._plan_mit(["1", "3"], ["2"], ["4-5"])]),
+                                stellen=lambda refs: _nummern(refs, 10))
+        assert [a.stellen for a in ergebnis.sections] == [[1, 3], [2], [4, 5]]
 
     async def test_eine_nummer_die_keine_ist_faellt_weg(self):
-        ergebnis = await _plane(_caller([self._plan_mit([1, "x", 1], [2], [3])]))
-        assert ergebnis.sections[0].fact_ids == [1]
+        from src.services.text_map import _nummern
+        ergebnis = await _plane(_caller([self._plan_mit(["1", "x", "1"], ["2"], ["3"])]),
+                                stellen=lambda refs: _nummern(refs, 10))
+        assert ergebnis.sections[0].stellen == [1]
 
     async def test_die_abschnitte_folgen_dem_thema_nicht_der_datei(self):
         caller = _caller([_PLAN])
         await _plane(caller)
-        assert "never the file a fact came from" in caller.client.system_prompts()[0]
+        assert "never the file the material came from" in caller.client.system_prompts()[0]
 
     async def test_jede_quelle_muss_vorkommen(self):
         caller = _caller([_PLAN])
@@ -180,7 +184,7 @@ class TestSchreiben:
         await _schreibe(caller)
         system = caller.client.system_prompts()[0]
         assert "become ONE statement" in system
-        assert "Every fact you are given appears in your section" in system
+        assert "Use everything that belongs under your heading" in system
 
     async def test_schreibaufrufe_sind_gedeckelt_und_verlieren_nur_die_halbe_zeile(self):
         from src.limits import SUMMARY_WRITE_MAX_TOKENS
@@ -254,7 +258,7 @@ class TestSchreiben:
         written = [(f"Kapitel{i:02d}", "y" * 50) for i in range(20)]
         await _schreibe(caller, section=Section(title="Z", scope="z"), written=written)
         user = caller.client.user_prompts()[0]
-        praefix, suffix = "THE DOCUMENT SO FAR:\n", "\n\nYOUR FACTS:\n\n"
+        praefix, suffix = "THE DOCUMENT SO FAR:\n", "\n\nYOUR MATERIAL:\n\n"
         anfang = user.index(praefix) + len(praefix)
         bisher = user[anfang:user.index(suffix, anfang)]
         koepfe = "\n".join(f"## {titel}" for titel, _ in written)

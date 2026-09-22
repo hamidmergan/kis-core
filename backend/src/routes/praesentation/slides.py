@@ -91,6 +91,17 @@ def _bilder(user_id: int, job_uuid: str, s: Slide) -> dict[str, bytes]:
 
 
 
+def _stellen_der_folie(user_id: int, job_uuid: str, row: OutlineRow) -> str:
+    """The passages the slide was planned on, empty when it has none."""
+    if not row.stellen:
+        return ""
+    from src.services import sources as quellen
+    from src.services.text_map import Karte
+
+    return Karte(quellen.load_sources(user_id, job_uuid)).passagen(
+        row.stellen, budget=PRAESENTATION_SLIDE_CONTEXT_CHARS)
+
+
 def _material(user_id: int, job_uuid: str) -> str:
     """Das Material des Laufs als ein Block, aus sources.json."""
     from src.services import sources as quellen
@@ -150,6 +161,7 @@ async def regen_slide(job_uuid: str, slide_id: str, body: RegenRequest,
     wunsch = next((tr.content for tr in reversed(body.messages) if tr.role == "user"), "")
     # A slide added later carries material of its own, it beats the material of the run.
     quelle = (store.load_slide_source(user_id, job_uuid, slide_id)
+              or _stellen_der_folie(user_id, job_uuid, row)
               or _material(user_id, job_uuid)[:PRAESENTATION_SLIDE_CONTEXT_CHARS])
     try:
         antwort = llm_antwort(folien.regen_messages(alt, row, form, params, verlauf(body), body.selected_text, quelle))

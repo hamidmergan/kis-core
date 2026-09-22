@@ -7,6 +7,7 @@ from src import database as db
 from src.dependencies import get_current_user
 from src.features.praesentation import gliederung, store, vorlage
 from src.features.praesentation.schemas import FOLIEN_GRENZEN, Outline
+from src.limits import PRAESENTATION_SLIDE_CONTEXT_CHARS
 from src.i18n import get_locale, t
 from src.limits import PRAESENTATION_MAX_SLIDES
 from src.routes.praesentation._shared import (
@@ -55,8 +56,12 @@ async def regen_row(job_uuid: str, row_id: str, body: RegenRequest,
     if not params or row is None:
         raise HTTPException(status_code=404, detail=t("praesentation.rowNotFound", locale))
     from src.services import sources as quellen
+    from src.services.text_map import Karte
 
-    quelle = quellen.as_block(quellen.load_sources(user_id, job_uuid))[:4000]
+    quellenliste = quellen.load_sources(user_id, job_uuid)
+    # The row's own passages when it has them, else the start of the material.
+    quelle = (Karte(quellenliste).passagen(row.stellen, budget=PRAESENTATION_SLIDE_CONTEXT_CHARS)
+              if row.stellen else quellen.as_block(quellenliste)[:PRAESENTATION_SLIDE_CONTEXT_CHARS])
     try:
         titel, gist = gliederung.parse_row(llm_antwort(gliederung.regen_messages(row, outline, params, verlauf(body), quelle)))
     except Exception as e:  # noqa: BLE001 - the provider is the only source of failure here

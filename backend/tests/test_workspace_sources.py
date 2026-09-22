@@ -4,7 +4,7 @@ import pytest
 from fastapi import HTTPException
 
 from src.services import workspace_sources as ws
-from src.services.sources import MAX_SOURCE_CHARS
+from src.services.sources import MAX_TOTAL_CHARS
 from src.services.source_reading import NoReadableText, Source
 
 
@@ -154,10 +154,10 @@ def test_eine_quelle_die_noch_arbeitet_haelt_den_start_an(monkeypatch):
     assert fehler.value.status_code == 409
 
 
-def test_eine_zu_lange_quelle_wird_abgelehnt(monkeypatch):
+def test_zu_viel_text_zusammen_wird_abgelehnt(monkeypatch):
     with pytest.raises(HTTPException) as fehler:
-        _lies(monkeypatch, sources=[_quelle("a", "A.pdf")], auswahl=["a"],
-              text="x" * (MAX_SOURCE_CHARS + 1))
+        _lies(monkeypatch, sources=[_quelle("a", "A.pdf"), _quelle("b", "B.pdf")],
+              auswahl=["a", "b"], text="x" * (MAX_TOTAL_CHARS // 2 + 1))
     assert fehler.value.status_code == 422
 
 

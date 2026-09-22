@@ -35,15 +35,15 @@ MAX_BILDER_JE_FOLIE = 8
 
 
 class OutlineRow(BaseModel):
-    """One planned slide: what it is, what it shows, and which facts it rests on."""
+    """One planned slide: what it is, what it shows, and which passages it rests on."""
 
     id: str = ""
     role: str = "text"
     title: str = ""
     gist: str = ""
-    # Numbers out of the run's fact pool. Empty for a slide that draws on everything,
-    # such as an agenda or the closing slide.
-    fact_ids: list[int] = Field(default_factory=list)
+    # Numbers of the passages on the run's text map. Empty for a slide that draws on
+    # everything, such as an agenda or the closing slide.
+    stellen: list[int] = Field(default_factory=list)
 
 
 class Outline(BaseModel):

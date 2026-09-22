@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+from typing import Callable
 
 from src.features.praesentation.schemas import (
     FOLIEN_GRENZEN, WAEHLBARE_ROLLEN, Outline, OutlineRow, PraesentationParams,
@@ -24,12 +25,14 @@ class Unusable(RuntimeError):
     """The answer was not a usable outline, the caller may try once more."""
 
 
-def build_messages(source: str, params: PraesentationParams,
-                   rollen: list[str]) -> list[dict]:
-    """The outline call, one entry per slide, planned over the material."""
+def build_messages(material: str, params: PraesentationParams, rollen: list[str],
+                   modus: str = "stellen") -> list[dict]:
+    """The outline call, one entry per slide, planned over the numbered material."""
+    from src.services.text_map import hinweis
+
     lo, hi = FOLIEN_GRENZEN
     rollen_text = "\n".join(f"- {r}: {_ROLLE_TEXT[r]}" for r in rollen if r in _ROLLE_TEXT)
-    eintrag = '{"role": "...", "title": "...", "gist": "...", "fact_ids": [1, 2]}'
+    eintrag = '{"role": "...", "title": "...", "gist": "...", "refs": [12, "14-17"]}'
     system = (
         "You plan slide decks for university teaching. From the material you pick what matters "
         "and lay it out as an outline, one entry per slide.\n"
@@ -42,15 +45,14 @@ def build_messages(source: str, params: PraesentationParams,
         "Vary the roles: never the same role on two neighbouring slides except text, and use every "
         "role at least once when the material allows. Roles with an illustration suit topics a "
         "picture can explain, not definitions.\n"
-        'Every entry also carries "fact_ids", the numbers of the facts that slide is built '
-        "from, taken from the list below. Pick only facts that really belong on that slide, "
-        "usually three to eight, and never put the same fact on two slides. A slide that "
-        "draws on everything, such as an agenda or the closing slide, carries an empty list.\n"
+        f"{hinweis(modus)} Every slide carries its own refs, the slides together should cover "
+        "what matters in the whole material. A slide that draws on everything, such as an "
+        "agenda or the closing slide, carries an empty list.\n"
         'Answer with one JSON object only: {"title": "...", "subtitle": "...", "slides": '
         f'[{eintrag}]}}. The gist is one sentence saying what '
         "the slide shows."
     )
-    aufgabe = f"FACTS, one per line, numbered:\n{source}\n"
+    aufgabe = f"/no_think\nMATERIAL:\n{material}\n"
     if params.instructions.strip():
         aufgabe += f"\nINSTRUCTION FROM THE TEACHER: {params.instructions.strip()}"
     return [{"role": "system", "content": system}, {"role": "user", "content": aufgabe}]
@@ -89,23 +91,9 @@ def json_objekt(raw: str) -> dict:
 
 
 
-def _nummern(roh) -> list[int]:
-    """Die Fakten-Nummern eines Eintrags, alles was keine Zahl ist faellt weg."""
-    if not isinstance(roh, list):
-        return []
-    aus: list[int] = []
-    for wert in roh:
-        try:
-            nummer = int(wert)
-        except (TypeError, ValueError):
-            continue
-        if nummer not in aus:
-            aus.append(nummer)
-    return aus
-
-
-def parse_answer(raw: str, rollen: list[str]) -> Outline:
-    """The outline out of the answer."""
+def parse_answer(raw: str, rollen: list[str],
+                 stellen: Callable[[object], list[int]] | None = None) -> Outline:
+    """The outline out of the answer, ``stellen`` turns an entry's refs into passages."""
     data = json_objekt(raw)
     roh = data.get("slides")
     if not isinstance(roh, list) or not roh:
@@ -120,7 +108,7 @@ def parse_answer(raw: str, rollen: list[str]) -> Outline:
         rows.append(OutlineRow(role=str(eintrag.get("role") or "text").strip().lower(),
                                title=titel[:120],
                                gist=str(eintrag.get("gist") or "").strip()[:300],
-                               fact_ids=_nummern(eintrag.get("fact_ids"))))
+                               stellen=stellen(eintrag.get("refs")) if stellen else []))
     titel = str(data.get("title") or (rows[0].title if rows else "")).strip()[:120]
     outline = Outline(title=titel, subtitle=str(data.get("subtitle") or "").strip()[:160], rows=rows)
     return pruefe(outline, rollen)
@@ -160,7 +148,7 @@ def mit_ids(rows: list[OutlineRow]) -> list[OutlineRow]:
             rid = f"s{hoechste}"
         gesehen.add(rid)
         out.append(OutlineRow(id=rid, role=r.role, title=r.title, gist=r.gist,
-                              fact_ids=list(r.fact_ids)))
+                              stellen=list(r.stellen)))
     return out
 
 
@@ -174,7 +162,7 @@ def regen_messages(row: OutlineRow, outline: Outline, params: PraesentationParam
     )
     plan = "\n".join(f"{i + 1}. [{r.role}] {r.title}: {r.gist}" for i, r in enumerate(outline.rows))
     user = (f"OUTLINE:\n{plan}\n\nENTRY TO REVISE: [{row.role}] {row.title}: {row.gist}\n\n"
-            f"MATERIAL EXCERPT:\n{quelle[:4000]}")
+            f"MATERIAL EXCERPT:\n{quelle}")
     if len(verlauf) > 1:
         austausch = "\n".join(
             f"{'teacher' if m.get('role') == 'user' else 'assistant'}: {m.get('content', '')}"

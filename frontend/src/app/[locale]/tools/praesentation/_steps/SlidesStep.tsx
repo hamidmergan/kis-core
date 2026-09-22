@@ -53,7 +53,8 @@ export default function SlidesStep(p: SlidesStepProps) {
   const teilweiseOffen = offen.size > 0 && !alleOffen;
 
   if (running) {
-    const text = schritt === "material" ? t("progressMaterial")
+    // The route reports "material", the reading task "lesen", both mean the sources.
+    const text = schritt === "material" || schritt === "lesen" ? t("progressMaterial")
       : schritt === "outline" ? t("progressOutline")
       : schritt === "texte" ? t("progressTexts", { done: p.progress?.current ?? 0, total: p.progress?.total ?? 0 })
       : schritt === "bilder" ? t("progressImages", { done: p.progress?.current ?? 0, total: p.progress?.total ?? 0 })

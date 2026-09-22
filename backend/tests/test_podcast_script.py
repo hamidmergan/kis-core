@@ -263,3 +263,70 @@ class TestLeererBeitrag:
     def test_englisch_sagt_es_genauso(self):
         text = self._nachricht(params=_params(2, sprache="en"), position=(1, 20))[1]["content"]
         assert "still empty" in text and "contribution 1 of 20" in text.lower()
+
+
+# ── Eine lange Folge in Teilen ───────────────────────────────────────────────
+
+class TestTeile:
+    def test_die_beitraege_werden_gleichmaessig_verteilt(self):
+        from src.features.podcast.script import teil_laengen
+        assert teil_laengen(40, 3) == [14, 13, 13]
+        assert teil_laengen(20, 2) == [10, 10]
+        assert teil_laengen(10, 1) == [10]
+
+    def test_nie_mehr_teile_als_beitraege(self):
+        from src.features.podcast.script import teil_laengen
+        assert teil_laengen(2, 5) == [1, 1]
+
+    def test_nur_der_erste_teil_begruesst_und_nur_der_letzte_verabschiedet(self):
+        erster = build_messages("M", _params(), anzahl=14, teil=1, teile=3, plan="1. A")
+        mitte = build_messages("M", _params(), anzahl=13, teil=2, teile=3, plan="1. A")
+        letzter = build_messages("M", _params(), anzahl=13, teil=3, teile=3, plan="1. A")
+        assert "begrüßt" in erster[1]["content"] and "keine Verabschiedung" in erster[1]["content"]
+        assert "keine Begrüßung und keine Verabschiedung" in mitte[1]["content"]
+        assert "Der letzte Beitrag verabschiedet" in letzter[1]["content"]
+
+    def test_ein_teil_kennt_den_plan_und_das_zuletzt_gesagte(self):
+        bisher = [Line(speaker=0, text="Willkommen zur Folge."), Line(speaker=1, text="Danke.")]
+        user = build_messages("M", _params(), anzahl=13, teil=2, teile=3,
+                              plan="1. Zulassung\n2. Haftung", bisher=bisher)[1]["content"]
+        assert "Teil 2 von 3" in user and "2. Haftung" in user
+        assert "P1: Willkommen zur Folge." in user and "P2: Danke." in user
+        assert "genau 13 Beiträge" in user
+
+    def test_eine_folge_in_einem_teil_bleibt_wie_bisher(self):
+        user = build_messages("M", _params(length="short"))[1]["content"]
+        assert "Teil 1 von" not in user
+        assert "genau 10 Beiträge" in user
+
+
+class TestPlan:
+    def _antwort(self, *teile):
+        return json.dumps({"parts": [{"title": t, "gist": "g", "refs": r} for t, r in teile]})
+
+    def test_teile_mit_ihren_stellen(self):
+        from src.features.podcast.script import parse_plan
+        plan = parse_plan(self._antwort(("A", [1, 2]), ("B", [5])),
+                          lambda refs: [int(r) for r in refs], 2)
+        assert [(p["title"], p["stellen"]) for p in plan] == [("A", [1, 2]), ("B", [5])]
+
+    def test_zu_viele_teile_gehen_im_letzten_auf(self):
+        from src.features.podcast.script import parse_plan
+        plan = parse_plan(self._antwort(("A", [1]), ("B", [2]), ("C", [3, 2])),
+                          lambda refs: [int(r) for r in refs], 2)
+        assert [p["stellen"] for p in plan] == [[1], [2, 3]]
+
+    def test_ein_teil_ohne_stellen_faellt_weg(self):
+        from src.features.podcast.script import parse_plan
+        plan = parse_plan(self._antwort(("A", []), ("B", [4])), lambda refs: list(refs), 2)
+        assert [p["title"] for p in plan] == ["B"]
+
+    def test_ein_plan_ohne_teile_ist_unbrauchbar(self):
+        from src.features.podcast.script import parse_plan
+        with pytest.raises(ScriptUnusable):
+            parse_plan("kein json", lambda refs: [], 2)
+
+    def test_der_planauftrag_nennt_die_zahl_der_teile_und_die_nummern(self):
+        from src.features.podcast.script import plan_messages
+        system = plan_messages("[1] Text", "stellen", _params(), 3)[0]["content"]
+        assert "exactly 3 consecutive parts" in system and "numbered passages" in system

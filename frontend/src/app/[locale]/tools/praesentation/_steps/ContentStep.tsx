@@ -19,7 +19,7 @@ import type { Language, Source, SourceMode } from "../_types";
 
 const ACCEPT = ".pdf,.docx,.pptx,.txt,.md";
 /** Mirrors the presentation source limit in the backend. */
-const MAX_QUELLEN = 5;
+const MAX_QUELLEN = 10;
 
 interface ContentStepProps {
   canUseModules: boolean;

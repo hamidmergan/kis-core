@@ -58,17 +58,16 @@ OUTLINE_SCHEMA = {
                                 "type": "string",
                                 "description": "One sentence on what belongs in it and what does not.",
                             },
-                            "fact_ids": {
+                            "refs": {
                                 "type": "array",
-                                "items": {"type": "integer"},
+                                "items": {"type": "string"},
                                 "description": (
-                                    "The numbers of the facts this section rests on, taken "
-                                    "from the numbered list. Every fact belongs to exactly "
-                                    "one section."
+                                    "The numbers from the material this section rests on, "
+                                    'each a number such as "12" or a range such as "12-15".'
                                 ),
                             },
                         },
-                        "required": ["section_index", "title", "description", "fact_ids"],
+                        "required": ["section_index", "title", "description", "refs"],
                         "additionalProperties": False,
                     },
                 },
@@ -112,11 +111,11 @@ def _strip_thinking(raw: str | None) -> str:
     return antwort
 
 
-def parse_outline(raw: str | None) -> Outline:
+def parse_outline(raw: str | None, stellen=None) -> Outline:
     """Reads the planning answer, a broken one yields no sections rather than an error.
 
-    Headings and the fact numbers under them come out of the same call. A number that is
-    not a number drops out, a number nobody knows is caught later against the pool.
+    Headings and the numbers under them come out of the same call. ``stellen`` turns the
+    refs of a section into passage numbers, invented ones drop out there.
     """
     text = _strip_thinking(raw)
     treffer = re.search(r"\{.*\}", text, re.S)
@@ -139,16 +138,9 @@ def parse_outline(raw: str | None) -> Outline:
             continue
         if any(a.title.casefold() == titel.casefold() for a in abschnitte):
             continue
-        nummern: list[int] = []
-        for wert in (eintrag.get("fact_ids") if isinstance(eintrag, dict) else None) or []:
-            try:
-                nummer = int(wert)
-            except (TypeError, ValueError):
-                continue
-            if nummer not in nummern:
-                nummern.append(nummer)
+        refs = eintrag.get("refs") if isinstance(eintrag, dict) else None
         abschnitte.append(Section(title=titel, scope=" ".join(str(umfang).split()),
-                                  fact_ids=nummern))
+                                  stellen=stellen(refs) if stellen else []))
     if len(abschnitte) < SUMMARY_MIN_SECTIONS:
         return Outline()
     titel = " ".join(str(roh.get("title") or "").split()).lstrip("#").strip()
@@ -157,32 +149,35 @@ def parse_outline(raw: str | None) -> Outline:
 
 
 
-def _outline_system(language: str, template_body: str, target: int, sources: int) -> str:
+def _outline_system(language: str, template_body: str, target: int, sources: int,
+                    modus: str = "stellen") -> str:
+    from src.services.text_map import hinweis
+
     return (
-        "You plan a document out of numbered facts. The facts are working material, the "
-        "reader never sees them as a list. You decide the headings AND which facts go "
-        "under each of them.\n"
+        "You plan a document out of numbered material. The numbers are working material, "
+        "the reader never sees them. You decide the headings AND which numbers go under "
+        "each of them.\n" + hinweis(modus) + "\n"
         + GROUND_RULES.format(language=language) + "\n"
         "Rule 8: Derive every section from what the material carries. Never fall back on a "
         "generic scaffold such as introduction, main part, conclusion.\n"
         f"Rule 9: Plan around {target} sections, between {SUMMARY_MIN_SECTIONS} and "
         f"{SUMMARY_MAX_SECTIONS}. Thin material gets fewer, rich material gets more.\n"
-        "Rule 10: A heading names a theme that carries several facts, never a single fact. "
+        "Rule 10: A heading names a theme that carries several numbers, never a single one. "
         "If a heading would rest on one statement alone, widen it or fold it into another.\n"
         f"Rule 11: The material comes from {sources} file(s), listed below, and EVERY one of "
-        "them must be covered by at least one section. Work through the whole list of facts "
-        "to its last line before you settle the headings. A subject only the later facts "
+        "them must be covered by at least one section. Work through the whole material "
+        "to its last number before you settle the headings. A subject only the later numbers "
         "carry still needs its own heading.\n"
         "Rule 12: Sections must not overlap, and the headings follow the subject, never the "
-        "file a fact came from. A heading never names a file.\n"
+        "file the material came from. A heading never names a file.\n"
         "Rule 13: Plan the sections the BUILD PLAN below asks for. Where it names parts the "
         "result must have, such as a quiz, an answer key or a glossary, each is a section of "
         "its own, and a part that answers another one comes after it. Where it asks for an "
         "order, such as what the reader must act on first and background last, the sections "
         "are already in that order.\n"
-        "Rule 14a: Every section names the numbers of the facts it rests on. Every fact "
-        "belongs to exactly one section, and no number appears twice. A fact you cannot "
-        "place still goes somewhere, into the section it fits best.\n"
+        "Rule 14a: Every section names the numbers it rests on under refs. Together the "
+        "sections cover everything that carries content, and a number rarely belongs to "
+        "two sections.\n"
         "Rule 14: The title names what the material is about, short, and never mentions a "
         "file or the format.\n"
         "Rule 15: The intro stands before the first heading. Its first sentence says what "
@@ -195,12 +190,12 @@ def _outline_system(language: str, template_body: str, target: int, sources: int
 
 def _outline_user(sources: list[str], material: str) -> str:
     liste = "\n".join(f"- {s}" for s in sources)
-    return f"/no_think\nSources:\n{liste}\n\nFacts, one per line, numbered:\n\n{material}"
+    return f"/no_think\nSources:\n{liste}\n\nMATERIAL:\n\n{material}"
 
 
 async def plan_outline(caller: Caller, *, language: str, template_body: str,
-                       sources: list[str], material: str,
-                       target: int) -> Outline:
+                       sources: list[str], material: str, target: int,
+                       modus: str = "stellen", stellen=None) -> Outline:
     """Plans the headings of the document. Empty when planning failed."""
     plan = Outline()
     for versuch in range(1, SUMMARY_OUTLINE_MAX_ATTEMPTS + 1):
@@ -208,13 +203,14 @@ async def plan_outline(caller: Caller, *, language: str, template_body: str,
             antwort = await caller.create(
                 messages=[
                     {"role": "system",
-                     "content": _outline_system(language, template_body, target, len(sources))},
+                     "content": _outline_system(language, template_body, target, len(sources),
+                                                modus)},
                     {"role": "user", "content": _outline_user(sources, material)},
                 ],
                 temperature=0.2, name=f"outline:{versuch}",
                 response_format=OUTLINE_SCHEMA,
             )
-            plan = parse_outline(antwort.choices[0].message.content)
+            plan = parse_outline(antwort.choices[0].message.content, stellen)
             if plan.sections:
                 break
             logger.warning("Zusammenfassung: Gliederung {} unlesbar", versuch)
@@ -337,28 +333,26 @@ def _section_system(language: str, template_body: str, count: int = 1) -> str:
         "comes later.\n"
         "Rule 9: Continue the document you are given, never repeat what it already says. Where "
         "your section answers or builds on an earlier one, make the two match item for item.\n"
-        "Rule 10: Go as deep as the facts allow. A Markdown table where things are compared "
+        "Rule 10: Go as deep as the material allows. A Markdown table where things are compared "
         "along the same attributes, bullet points where it is a list, numbered items where "
         "order or count matters, continuous text where it is an argument.\n"
         "Rule 11: A figure, a date or a quantity never stands without what it refers to, and "
-        "you carry over every one the facts state for your heading.\n"
-        "Rule 12: A fact carrying a 'Stelle:' names the part of the source it rests on. Put "
-        "that exactly as it stands in square brackets at the end of the statement, for "
-        "example [§ 27 Abs. 3]. A fact without one gets no brackets. Never invent a "
-        "reference and never number a part yourself.\n"
-        "Rule 13: Two facts saying the same thing become ONE statement, in the fuller wording. "
-        "Never write the same figure or duty twice in different words.\n"
-        "Rule 14: Every fact you are given appears in your section. A fact that does not sit "
-        "well under your heading still gets its statement, in the closest place, rather than "
-        "being left out.\n"
+        "you carry over every one the material states for your heading.\n"
+        "Rule 12: Your material is passages of the original text, each under a line in "
+        "square brackets naming its file and page. That line is for orientation only, never "
+        "copy it. Where the text itself names a part such as a paragraph or article, keep "
+        "that name exactly as it stands, never number a part yourself.\n"
+        "Rule 13: Two passages saying the same thing become ONE statement, in the fuller "
+        "wording. Never write the same figure or duty twice in different words.\n"
+        "Rule 14: The passages also carry some text around what your heading needs. Use "
+        "everything that belongs under your heading and leave out what belongs elsewhere.\n"
         "Rule 15: What the material marks as open or disputed stays in, marked as such.\n"
         + ("Rule 16: Under each heading begin straight with the content, no lead in, no "
            "closing remark and no greeting.\n" if count > 1 else
            "Rule 16: Do not repeat your own heading. Begin with the content, write no closing "
            "remark and no greeting.\n")
-        + "Rule 17: Never cite a page, a slide or a position the facts do not state. The "
-        "citations in the facts are your proof, never quote them as a block. Never name a "
-        "file and never write a file name into your text.\n"
+        + "Rule 17: Never cite a page, a slide or a position, and never quote the passages "
+        "as a block. Never name a file and never write a file name into your text.\n"
         "\nThe document as a whole follows the build plan below. Match its register, but "
         "produce ONLY the sections you are given.\n\nBUILD PLAN\n" + template_body
     )
@@ -383,11 +377,11 @@ def _section_user(group: list[Section], others: list[Section],
     fremd = "\n".join(f"- {a.title}: {a.scope}" for a in others) or "- none"
     if len(group) == 1:
         kopf = f"YOUR HEADING: {group[0].title}\nYOUR SCOPE: {group[0].scope}\n\n"
-        auftrag = f"YOUR FACTS:\n\n{facts[0]}"
+        auftrag = f"YOUR MATERIAL:\n\n{facts[0]}"
     else:
         kopf = f"YOU WRITE {len(group)} SECTIONS, in the order below.\n\n"
         teile = [f"=== SECTION {i + 1} OF {len(group)} ===\n"
-                 f"HEADING: {a.title}\nSCOPE: {a.scope}\nFACTS:\n{f}"
+                 f"HEADING: {a.title}\nSCOPE: {a.scope}\nMATERIAL:\n{f}"
                  for i, (a, f) in enumerate(zip(group, facts))]
         auftrag = "YOUR SECTIONS:\n\n" + "\n\n".join(teile)
     return (
@@ -429,17 +423,16 @@ async def write_sections(caller: Caller, *, language: str, template_body: str,
 
 def _compose_system(language: str, template_body: str) -> str:
     return (
-        "You write the finished document from facts drawn out of several sources.\n"
+        "You write the finished document from the numbered text of several sources.\n"
         + GROUND_RULES.format(language=language) + "\n"
         "Rule 8: Begin immediately with the content, no framing sentence, no closing remark.\n"
         "Rule 9: Follow the build plan below exactly, it decides the shape. About "
         "faithfulness, the rules above win.\n"
         "Rule 10: A figure, a date or a quantity never stands without what it refers to.\n"
-        "Rule 11: A fact carrying a 'Stelle:' gets that reference in square brackets at the "
-        "end of its statement. A fact without one gets no brackets.\n"
-        "Rule 12: Two facts saying the same thing become ONE statement, in the fuller wording.\n"
+        "Rule 11: The numbers in square brackets are for orientation only, never copy them.\n"
+        "Rule 12: Two passages saying the same thing become ONE statement, in the fuller wording.\n"
         "Rule 13: What the material marks as open or disputed stays in, marked.\n"
-        "Rule 14: Never cite a page, a slide or a position the facts do not state. Never name "
+        "Rule 14: Never cite a page, a slide or a position. Never name "
         "a file and never write a file name into your text.\n"
         "Rule 15: Write ONE document covering all sources together, never one section per "
         "file unless the build plan asks for it, and every source is represented.\n"
@@ -451,10 +444,8 @@ async def compose_single(caller: Caller, *, language: str, template_body: str,
                          sources: list[str], material: str) -> str:
     """The whole document in one call, the fallback for a failed outline.
 
-    Tried more than once on purpose: the facts of every file are already on disk at this
-    point, and a single dropped call would throw the whole reading phase away. What still
-    fails after the last attempt is raised, so the stage fails visibly and the resume
-    picks the saved facts back up.
+    Tried more than once on purpose, one dropped call must not end the run. What still
+    fails after the last attempt is raised, so the stage fails visibly.
     """
     for versuch in range(1, SUMMARY_COMPOSE_MAX_ATTEMPTS + 1):
         try:

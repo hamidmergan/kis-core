@@ -41,7 +41,7 @@ def stub(monkeypatch):
 async def test_templates_nennen_vorlagen_und_grenzen():
     antwort = await route.list_templates(_user={})
     assert [v["slug"] for v in antwort["templates"]][0] == "kurzbriefing"
-    assert antwort["maxSources"] == 5 and ".pdf" in antwort["extensions"]
+    assert antwort["maxSources"] == 10 and ".pdf" in antwort["extensions"]
 
 
 async def test_zwei_dateien_werden_gelesen_und_abgelegt(stub):
@@ -78,7 +78,7 @@ async def test_eine_fremde_vorlage_wird_abgelehnt(stub):
 
 async def test_zu_viele_dateien_werden_abgelehnt(stub):
     from fastapi import HTTPException
-    dateien = [_Upload(b"x " * 10, f"{n}.txt") for n in range(6)]
+    dateien = [_Upload(b"x " * 10, f"{n}.txt") for n in range(11)]
     with pytest.raises(HTTPException) as fehler:
         await route.summarize(request=_Request(), files=dateien, template=None, provider_id=None,
                               current_user={"user_id": 1}, locale="de")

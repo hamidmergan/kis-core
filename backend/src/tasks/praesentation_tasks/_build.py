@@ -19,6 +19,7 @@ from src.limits import (
     PRAESENTATION_BATCH, PRAESENTATION_IMAGE_PARALLELISM, STAGE_SOFT_TIME_LIMIT, STAGE_TIME_LIMIT,
 )
 from src.services import feature_router
+from src.services.text_map import Karte
 from src.services.json_llm import call_json_llm
 from src.services import sources as quellen
 from src.services.job_recovery import attempt_failed, still_mine
@@ -48,7 +49,6 @@ def run_praesentation_build(self, job_uuid: str, user_id: int, locale: str = "de
         params = store.load_params(user_id, job_uuid)
         quellenliste = quellen.load_sources(user_id, job_uuid)
         quelle = quellen.as_block(quellenliste)
-        vorrat = store.load_pool(user_id, job_uuid)
         analyse = store.load_template_meta(user_id, job_uuid)
         vorlage_bytes = store.load_template(user_id, job_uuid)
         outline = store.load_outline(user_id, job_uuid)
@@ -62,7 +62,7 @@ def run_praesentation_build(self, job_uuid: str, user_id: int, locale: str = "de
 
         offen = [r for r in outline.rows if r.id not in slides or r.id in erzwungen_text]
         if offen:
-            _texte_schreiben(job_uuid, user_id, params, quelle, quellenliste, vorrat,
+            _texte_schreiben(job_uuid, user_id, params, quelle, quellenliste,
                              analyse, outline, slides, layouts, offen, erzwungen_text,
                              clock, final)
         geordnet = [slides[r.id] for r in outline.rows if r.id in slides]
@@ -141,9 +141,10 @@ def _eigenes_material(user_id, job_uuid, offen, erzwungen_text: set[str]) -> dic
     return aus
 
 
-def _texte_schreiben(job_uuid, user_id, params, quelle, quellenliste, vorrat, analyse,
+def _texte_schreiben(job_uuid, user_id, params, quelle, quellenliste, analyse,
                      outline, slides, layouts, offen, erzwungen_text, clock, final) -> None:
     llm = feature_router.make_llm_client(feature_router.resolve("chat"))
+    karte = Karte(quellenliste)
     eigen = _eigenes_material(user_id, job_uuid, offen, erzwungen_text)
     # A slide with its own material goes alone, it must not share a call with the run's snapshot.
     rest = [r for r in offen if r.id not in eigen]
@@ -155,11 +156,11 @@ def _texte_schreiben(job_uuid, user_id, params, quelle, quellenliste, vorrat, an
         for n, paket in enumerate(pakete):
             assert_not_cancelled(job_uuid)
             formen = {r.id: vorlage.form_fuer(analyse.layout(layouts[r.id]), analyse) for r in paket}
-            # A slide with material of its own keeps it, the rest are written from facts.
+            # A slide with material of its own keeps it, the rest get their passages.
             if paket[0].id in eigen:
                 nachrichten = folien.build_messages(eigen[paket[0].id], params, paket, formen)
             else:
-                je_folie = folien.material_je_folie(paket, vorrat, quellenliste)
+                je_folie = folien.material_je_folie(paket, karte, outline.rows)
                 nachrichten = folien.build_messages(quelle, params, paket, formen,
                                                     je_folie or None)
             letzter = ""

@@ -40,11 +40,60 @@ def _besetzung(params: PodcastParams) -> str:
     )
 
 
-def build_messages(source: str, params: PodcastParams) -> list[dict]:
-    """One call, the answer is a JSON object with the list of contributions."""
-    anzahl, je = LENGTH_PLAN.get(params.length, LENGTH_PLAN["medium"])
+def teil_laengen(anzahl: int, teile: int) -> list[int]:
+    """How many contributions each part of the episode gets, the first ones one more."""
+    teile = max(1, min(teile, anzahl))
+    grund, rest = divmod(anzahl, teile)
+    return [grund + (1 if i < rest else 0) for i in range(teile)]
+
+
+def _rahmen_de(teil: int, teile: int) -> str:
+    if teile == 1:
+        return "- Der erste Beitrag begrüßt und nennt das Thema, der letzte verabschiedet.\n"
+    if teil == 1:
+        return ("- Der erste Beitrag begrüßt und nennt das Thema. Die Folge geht danach weiter, "
+                "also keine Verabschiedung.\n")
+    if teil == teile:
+        return ("- Du setzt ein laufendes Gespräch fort, keine Begrüßung. "
+                "Der letzte Beitrag verabschiedet.\n")
+    return "- Du setzt ein laufendes Gespräch fort, keine Begrüßung und keine Verabschiedung.\n"
+
+
+def _rahmen_en(teil: int, teile: int) -> str:
+    if teile == 1:
+        return "- The first contribution greets and names the topic, the last says goodbye.\n"
+    if teil == 1:
+        return ("- The first contribution greets and names the topic. The episode goes on "
+                "afterwards, so no goodbye.\n")
+    if teil == teile:
+        return "- You continue a running conversation, no greeting. The last contribution says goodbye.\n"
+    return "- You continue a running conversation, no greeting and no goodbye.\n"
+
+
+def _bisher(bisher: list[Line], params: PodcastParams) -> str:
+    if not bisher:
+        return ""
+    namen = [p.name for p in params.persons]
+    zeilen = "\n".join(f"{namen[l.speaker] if l.speaker < len(namen) else l.speaker}: {l.text}"
+                        for l in bisher)
+    kopf = "Bisher zuletzt gesagt" if params.language == "de" else "Said last so far"
+    return f"{kopf}:\n{zeilen}\n\n"
+
+
+def build_messages(source: str, params: PodcastParams, *, anzahl: int | None = None,
+                   teil: int = 1, teile: int = 1, plan: str = "",
+                   bisher: list[Line] | None = None) -> list[dict]:
+    """One call, the answer is a JSON object with the list of contributions.
+
+    A long episode is written in parts, each call writes few contributions and so stays
+    inside the provider's five minutes. ``plan`` is the whole episode, ``bisher`` the last
+    contributions before this part.
+    """
+    gesamt, je = LENGTH_PLAN.get(params.length, LENGTH_PLAN["medium"])
+    anzahl = anzahl or gesamt
     woerter = anzahl * je
     allein = len(params.persons) == 1
+    bisher = bisher or []
     if params.language == "de":
         system = (
             "Du schreibst das Skript einer Podcast-Folge für eine Hochschule. "
@@ -52,8 +101,11 @@ def build_messages(source: str, params: PodcastParams) -> list[dict]:
             "Du antwortest mit einem JSON-Objekt der Form "
             '{"lines": [{"speaker": 0, "text": "..."}]} und mit nichts sonst.'
         )
+        teilzeile = (f"Du schreibst Teil {teil} von {teile} der Folge.\n"
+                     f"Plan der ganzen Folge:\n{plan}\n\n") if teile > 1 else ""
         aufgabe = (
-            f"Material:\n---\n{source}\n---\n\n"
+            f"{teilzeile}Material:\n---\n{source}\n---\n\n"
+            f"{_bisher(bisher, params)}"
             f"Besetzung, die Zahl ist der Wert für speaker:\n{_besetzung(params)}\n\n"
             f"Stil: {_STYLE_DE.get(params.style, params.style)}\n"
             f"Umfang: genau {anzahl} Beiträge mit je etwa {je} Wörtern, zusammen rund {woerter} Wörter.\n\n"
@@ -63,9 +115,11 @@ def build_messages(source: str, params: PodcastParams) -> list[dict]:
                "- Die Personen wechseln sich ab, niemand spricht zweimal hintereinander.\n"
                "- Jede Person kommt vor und behält ihre Rolle.\n")
             + f"- Ein Beitrag ist ein gesprochener Absatz von etwa {je} Wörtern, nie mehr als 90.\n"
-            "- Der erste Beitrag begrüßt und nennt das Thema, der letzte verabschiedet.\n"
-            "- Keine Regieanweisungen, keine Namen vor dem Text, keine Zwischenüberschriften.\n"
+            + _rahmen_de(teil, teile)
+            + ("- Wiederhole nichts, was bisher schon gesagt wurde.\n" if bisher else "")
+            + "- Keine Regieanweisungen, keine Namen vor dem Text, keine Zwischenüberschriften.\n"
             "- Zahlen und Formeln ausschreiben, der Text wird vorgelesen.\n"
+            "- Die Zeilen in eckigen Klammern im Material nennen nur Datei und Seite, lies sie nie vor.\n"
         )
     else:
         system = (
@@ -74,8 +128,11 @@ def build_messages(source: str, params: PodcastParams) -> list[dict]:
             "You answer with a JSON object of the form "
             '{"lines": [{"speaker": 0, "text": "..."}]} and nothing else.'
         )
+        teilzeile = (f"You write part {teil} of {teile} of the episode.\n"
+                     f"Plan of the whole episode:\n{plan}\n\n") if teile > 1 else ""
         aufgabe = (
-            f"Material:\n---\n{source}\n---\n\n"
+            f"{teilzeile}Material:\n---\n{source}\n---\n\n"
+            f"{_bisher(bisher, params)}"
             f"Cast, the number is the value for speaker:\n{_besetzung(params)}\n\n"
             f"Style: {_STYLE_EN.get(params.style, params.style)}\n"
             f"Length: exactly {anzahl} contributions of about {je} words each, {woerter} words in total.\n\n"
@@ -85,15 +142,70 @@ def build_messages(source: str, params: PodcastParams) -> list[dict]:
                "- The people take turns, nobody speaks twice in a row.\n"
                "- Every person appears and keeps their role.\n")
             + f"- One contribution is one spoken paragraph of about {je} words, never more than 90.\n"
-            "- The first contribution greets and names the topic, the last says goodbye.\n"
-            "- No stage directions, no names before the text, no headings.\n"
+            + _rahmen_en(teil, teile)
+            + ("- Repeat nothing that was already said.\n" if bisher else "")
+            + "- No stage directions, no names before the text, no headings.\n"
             "- Spell out numbers and formulas, the text is read aloud.\n"
+            "- The lines in square brackets in the material only name file and page, never read them out.\n"
         )
     aufgabe += glossar.block(params.glossary, params.language)
     if params.instructions.strip():
         label = "Zusätzliche Anweisung" if params.language == "de" else "Additional instruction"
         aufgabe += f"\n{label}: {params.instructions.strip()}\n"
     return [{"role": "system", "content": system}, {"role": "user", "content": aufgabe}]
+
+
+def plan_messages(material: str, modus: str, params: PodcastParams, teile: int) -> list[dict]:
+    """The episode laid out in parts, each with the passages it talks about."""
+    from src.services.text_map import hinweis
+
+    sprache = "German" if params.language == "de" else "English"
+    system = (
+        "You plan a podcast episode for university teaching. From the material you pick what "
+        f"matters and lay the episode out in exactly {teile} consecutive parts, "
+        "each with its own subject, so that together they tell the material in a sensible "
+        f"order.\nWrite titles and gists in {sprache}.\n{hinweis(modus)}\n"
+        'Answer with one JSON object only: {"parts": [{"title": "...", "gist": "...", '
+        '"refs": [12, "14-17"]}]}. The gist is one sentence saying what that part covers.'
+    )
+    aufgabe = f"/no_think\nMATERIAL:\n{material}\n"
+    if params.instructions.strip():
+        aufgabe += f"\nINSTRUCTION FROM THE TEACHER: {params.instructions.strip()}"
+    return [{"role": "system", "content": system}, {"role": "user", "content": aufgabe}]
+
+
+def parse_plan(raw: str, stellen, teile: int) -> list[dict]:
+    """The parts out of the planning answer, each with its passage numbers.
+
+    Too many parts are folded into the last one, too few stay as they are: the episode
+    is then written in fewer calls, each still small enough.
+    """
+    text = (raw or "").strip()
+    start, end = text.find("{"), text.rfind("}")
+    if start < 0 or end <= start:
+        raise ScriptUnusable("keine JSON-Klammern im Plan")
+    try:
+        data = json.loads(text[start:end + 1])
+    except json.JSONDecodeError as exc:
+        raise ScriptUnusable(f"kein gültiges JSON im Plan: {exc}") from exc
+    roh = data.get("parts") if isinstance(data, dict) else None
+    aus: list[dict] = []
+    for eintrag in roh if isinstance(roh, list) else []:
+        if not isinstance(eintrag, dict):
+            continue
+        titel = " ".join(str(eintrag.get("title") or "").split())[:120]
+        nummern = stellen(eintrag.get("refs"))
+        if not titel or not nummern:
+            continue
+        aus.append({"title": titel, "gist": " ".join(str(eintrag.get("gist") or "").split())[:300],
+                    "stellen": nummern})
+    if not aus:
+        raise ScriptUnusable("der Plan enthält keinen Teil mit Stellen")
+    while len(aus) > teile:
+        letzter = aus.pop()
+        aus[-1]["stellen"] = aus[-1]["stellen"] + [n for n in letzter["stellen"]
+                                                   if n not in aus[-1]["stellen"]]
+    return aus
 
 
 class ScriptUnusable(RuntimeError):

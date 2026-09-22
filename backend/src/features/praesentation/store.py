@@ -12,7 +12,7 @@ from src.storage import (
     get_job_file, job_file_exists, job_prefix, save_job_file,
 )
 
-POOL_FILE = "pool.json"
+MAP_FILE = "grundlage.json"
 PARAMS_FILE = "params.json"
 TEMPLATE_FILE = "template.pptx"
 TEMPLATE_META_FILE = "template_meta.json"
@@ -182,14 +182,11 @@ def neue_id(ids: set[str]) -> str:
     return f"s{hoechste + 1}"
 
 
-def save_pool(user_id: int, job_uuid: str, pool) -> None:
-    """Der nummerierte Vorrat des Laufs, darauf zeigt die Gliederung."""
-    _write_json(user_id, job_uuid, POOL_FILE, [f.as_dict() for f in pool])
+def save_map(user_id: int, job_uuid: str, daten: dict) -> None:
+    """Die Planungsgrundlage des Laufs, damit eine neue Etappe die Themen nicht neu bezahlt."""
+    _write_json(user_id, job_uuid, MAP_FILE, daten)
 
 
-def load_pool(user_id: int, job_uuid: str):
-    """Der Vorrat zurueck, ein beschaedigter Eintrag faellt weg statt zu sprengen."""
-    from src.services.facts import from_dict
-
-    roh = _read_json(user_id, job_uuid, POOL_FILE) or []
-    return [f for f in (from_dict(e) for e in roh if isinstance(e, dict)) if f is not None]
+def load_map(user_id: int, job_uuid: str) -> dict | None:
+    roh = _read_json(user_id, job_uuid, MAP_FILE)
+    return roh if isinstance(roh, dict) else None

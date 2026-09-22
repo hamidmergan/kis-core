@@ -206,52 +206,44 @@ class TestFaktenWaehlen:
 # ── Material je Folie: Aussagen mit Beleg und die Passagen dazu ──────────────
 
 class TestMaterialJeFolie:
-    def _vorrat(self, anzahl: int = 3):
-        from src.services.facts import Fact
-
-        return [Fact(fact_id=i, category="Zahl", fact=f"Aussage {i}",
-                     citation=f"Beleg {i}", source=0, piece=i - 1)
-                for i in range(1, anzahl + 1)]
-
-    def _quellen(self):
+    def _karte(self):
         from src.services.source_reading import Piece, Source
+        from src.services.text_map import Karte
 
-        text = "AAAABBBBCCCC"
-        return [Source(dateiname="a.pdf", fassung="x", text=text, seiten=1,
-                       stuecke=[Piece(seite=1, von=0, bis=4), Piece(seite=1, von=4, bis=8),
-                                Piece(seite=1, von=8, bis=12)])]
+        # Weit genug auseinander, dass ein Nachbar das ferne Stueck nicht mitbringt.
+        text = "AAAA BBBB CCCC DDDD EEEE"
+        stuecke = [Piece(seite=1, von=i * 5, bis=i * 5 + 4) for i in range(5)]
+        return Karte([Source(dateiname="a.pdf", fassung="x", text=text, seiten=1,
+                             stuecke=stuecke)])
 
-    def test_eine_folie_bekommt_nur_ihre_eigenen_aussagen(self):
-        zeilen = [OutlineRow(id="s1", fact_ids=[2])]
-        aus = folien.material_je_folie(zeilen, self._vorrat(), self._quellen())
-        assert "Aussage 2" in aus["s1"]
-        assert "Aussage 1" not in aus["s1"] and "Aussage 3" not in aus["s1"]
+    def test_eine_folie_bekommt_ihre_stelle_aus_dem_original(self):
+        zeilen = [OutlineRow(id="s1", stellen=[1])]
+        aus = folien.material_je_folie(zeilen, self._karte(), zeilen)
+        assert "AAAA" in aus["s1"] and "BBBB" in aus["s1"]
 
-    def test_die_aussagen_tragen_ihren_beleg(self):
-        zeilen = [OutlineRow(id="s1", fact_ids=[1])]
-        aus = folien.material_je_folie(zeilen, self._vorrat(), self._quellen())
-        assert 'Beleg: "Beleg 1"' in aus["s1"]
+    def test_eine_ferne_stelle_kommt_nicht_mit(self):
+        zeilen = [OutlineRow(id="s1", stellen=[1])]
+        aus = folien.material_je_folie(zeilen, self._karte(), zeilen)
+        assert "EEEE" not in aus["s1"]
 
-    def test_die_passage_aus_dem_dokument_kommt_mit(self):
-        zeilen = [OutlineRow(id="s1", fact_ids=[2])]
-        aus = folien.material_je_folie(zeilen, self._vorrat(), self._quellen())
-        assert "passages:" in aus["s1"]
-        assert "AAAABBBBCCCC" in aus["s1"]
+    def test_die_stelle_nennt_datei_und_seite(self):
+        zeilen = [OutlineRow(id="s1", stellen=[3])]
+        aus = folien.material_je_folie(zeilen, self._karte(), zeilen)
+        assert "[a.pdf, S. 1]" in aus["s1"]
 
-    def test_eine_folie_ohne_nummern_ruht_auf_allem(self):
-        """Eine Agenda oder eine Schlussfolie nennt keine Nummern, das ist kein Fehler."""
-        zeilen = [OutlineRow(id="s1", fact_ids=[])]
-        aus = folien.material_je_folie(zeilen, self._vorrat(), self._quellen())
-        assert all(f"Aussage {i}" in aus["s1"] for i in (1, 2, 3))
+    def test_eine_folie_ohne_stellen_bekommt_den_plan_des_decks(self):
+        """Eine Agenda oder eine Schlussfolie nennt keine Stellen, das ist kein Fehler."""
+        zeilen = [OutlineRow(id="s1", title="Agenda"),
+                  OutlineRow(id="s2", title="Zulassung", gist="Wer zulaesst", stellen=[2])]
+        aus = folien.material_je_folie(zeilen[:1], self._karte(), zeilen)
+        assert "Zulassung: Wer zulaesst" in aus["s1"]
+        assert "Agenda" not in aus["s1"]
 
-    def test_ohne_vorrat_gibt_es_kein_material_je_folie(self):
-        assert folien.material_je_folie([OutlineRow(id="s1")], [], self._quellen()) == {}
-
-    def test_mit_fakten_faellt_der_gemeinsame_materialblock_weg(self):
+    def test_mit_eigenem_material_faellt_der_gemeinsame_materialblock_weg(self):
         zeilen = [OutlineRow(id="s1", role="text", title="T", gist="g")]
         nachrichten = folien.build_messages("DER BLOCK", PraesentationParams(), zeilen,
-                                            {"s1": FORM_TEXT}, {"s1": "Eigene Aussage"})
+                                            {"s1": FORM_TEXT}, {"s1": "Eigene Stelle"})
         user = nachrichten[1]["content"]
         assert "DER BLOCK" not in user
-        assert "Eigene Aussage" in user
-        assert "from its own facts only" in nachrichten[0]["content"]
+        assert "Eigene Stelle" in user
+        assert "from its own material only" in nachrichten[0]["content"]

@@ -20,7 +20,7 @@ export const FIELD =
   "w-full px-3 py-2 text-sm border-2 border-border rounded-md bg-background hover:border-kb focus:outline-none focus:border-kb placeholder:text-muted-soft";
 const ACCEPT = ".pdf,.docx,.pptx,.txt,.md";
 /** Mirrors PODCAST_MAX_SOURCES in the backend. */
-const MAX_QUELLEN = 5;
+const MAX_QUELLEN = 10;
 
 const EIN_MB = 1024 * 1024;
 

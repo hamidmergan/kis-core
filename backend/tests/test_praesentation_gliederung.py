@@ -22,7 +22,19 @@ class TestPrompt:
         assert "Decide yourself how many slides" in system and "English" in system
         assert "at least 3 and at most 30 slides" in system
         assert "- zwei_spalten:" in system and "- abschnitt:" not in system
-        assert msgs[1]["content"].startswith("FACTS, one per line, numbered:\nQuelle")
+        assert msgs[1]["content"].startswith("/no_think\nMATERIAL:\nQuelle")
+
+    def test_erklaert_die_nummern_je_nach_grundlage(self):
+        stellen = gliederung.build_messages("Q", PraesentationParams(), ROLLEN, "stellen")
+        themen = gliederung.build_messages("Q", PraesentationParams(), ROLLEN, "themen")
+        assert "numbered passages" in stellen[0]["content"]
+        assert "numbered list of topics" in themen[0]["content"]
+
+    def test_die_refs_einer_folie_werden_zu_stellen(self):
+        raw = json.dumps({"title": "D", "slides": [
+            {"role": "text", "title": f"F{i}", "gist": "g", "refs": [i, "7-8"]} for i in range(1, 5)]})
+        o = gliederung.parse_answer(raw, ROLLEN, lambda refs: [int(str(r).split("-")[0]) for r in refs])
+        assert o.rows[1].stellen == [2, 7]
 
     def test_anweisung_kommt_ans_ende(self):
         msgs = gliederung.build_messages("Q", PraesentationParams(instructions="nur Kapitel 2"), ROLLEN)

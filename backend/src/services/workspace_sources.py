@@ -17,7 +17,7 @@ from loguru import logger
 
 from src import database as db
 from src.i18n import t
-from src.services.sources import check_ceiling
+from src.services.sources import check_total
 from src.services.source_reading import (
     EXTENSIONS,
     NoReadableText,
@@ -127,7 +127,7 @@ def read_workspace(workspace_uuid: str, source_uuids: list[str], *, user_id: int
                            name, workspace_uuid[:8], e)
             raise HTTPException(status_code=422, detail=t(
                 f"{schluessel}.fileUnreadable", locale, name=name)) from e
-        check_ceiling(gelesen[-1], locale, schluessel)
+    check_total(gelesen, locale, schluessel)
     logger.info("{}: {} Quelle(n) aus Workspace {}, {} Zeichen, {} Stueck(e)",
                 schluessel, len(gelesen), workspace_uuid[:8],
                 sum(len(q.text) for q in gelesen), sum(len(q.stuecke) for q in gelesen))

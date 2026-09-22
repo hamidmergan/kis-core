@@ -28,11 +28,12 @@ LANGUAGE_FALLBACK = ("the language of the main body text, ignoring cover pages, 
 
 
 class Section(BaseModel):
-    """One planned section: what it is called, what belongs in it, which facts carry it."""
+    """One planned section: what it is called, what belongs in it, which passages carry it."""
 
     title: str
     scope: str = ""
-    fact_ids: list[int] = Field(default_factory=list)
+    # Numbers of the passages on the run's text map.
+    stellen: list[int] = Field(default_factory=list)
 
 
 class Outline(BaseModel):

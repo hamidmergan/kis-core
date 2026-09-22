@@ -84,11 +84,13 @@ SCREENCAST_TTS_PARALLELISM = 8
 
 # --- Podcast ----------------------------------------------------------------
 # More sources than this dilute every single one below a useful share.
-PODCAST_MAX_SOURCES      = 5
+PODCAST_MAX_SOURCES      = 10
 # The same ceiling every other tool uses, the line count only catches a runaway model.
 PODCAST_MAX_CHARS        = 100_000
 PODCAST_MAX_LINES        = 250
 PODCAST_MAX_LINE_CHARS   = 1200
+# Contributions one script call writes: 14 x 70 words stay inside SERVICE_WRITE_TOKENS.
+PODCAST_LINES_PER_CALL   = 14
 # One breath between two contributions so they do not run into each other.
 PODCAST_LINE_PAUSE       = 0.35
 # The same lever as the screencast: waiting on the provider, not own CPU.
@@ -110,12 +112,12 @@ PRAESENTATION_MAX_SLIDES = 30
 PRAESENTATION_MIN_SLIDES = 3
 PRAESENTATION_MAX_TEMPLATES = 10
 PRAESENTATION_TEMPLATE_MAX_MB = 30
-PRAESENTATION_MAX_SOURCES = 5
+PRAESENTATION_MAX_SOURCES = 10
 # Slides per model call: enough context per slide, few enough calls per deck.
 PRAESENTATION_BATCH = 5
 PRAESENTATION_IMAGE_PARALLELISM = 4
-# Material for a single slide, whether searched or cut out of the run's snapshot.
-PRAESENTATION_SLIDE_CONTEXT_CHARS = 6000
+# Original text for a single slide. Reading is cheap, five slides share one call.
+PRAESENTATION_SLIDE_CONTEXT_CHARS = 15_000
 
 # --- Präsentation: reading every source into facts ---------------------------
 # One call per source, so no source depends any more on its place in the list.
@@ -211,31 +213,37 @@ AIA_WORKSPACE_MAX_MEMBERS              = 100     # max enrolled members per work
 AIA_NOTES_MAX_PER_USER              = 100     # max notes per user per workspace
 GLOSSARY_LIMIT                        = 150     # max glossary entries per workspace
 
-# --- Fakten ziehen, gemeinsam fuer Podcast, Praesentation und Zusammenfassung ---
-# Hoechstens so viel Text geht in einen Leseaufruf. Auf dem Zielmodell mit 262.144
-# Token passte auch eine ganze 500k-Datei, geteilt wird trotzdem: ein Aufruf schreibt
-# nur begrenzt viel, zwei Aufrufe verdoppeln das Antwortbudget derselben Datei.
-FACTS_SLICE_MAX_CHARS    = 250_000
-# Deckel der Antwort. Bewusst hoch: er ist ein Alarm, kein Regler. Laeuft eine Antwort
-# hinein, wird das Lesestueck als unvollstaendig gemeldet statt still halbiert.
-FACTS_OUTPUT_TOKENS      = 16_000
-# Was der Auftragstext samt Antwortschema im Fenster belegt.
-FACTS_PROMPT_TOKENS      = 3_000
-# Darunter waere eine 500k-Datei zweistellig viele Aufrufe, das wird abgelehnt.
-FACTS_MIN_WINDOW_TOKENS  = 50_000
-# Gemessen 20.09.: bei drei gleichzeitig braucht der langsamste Aufruf 161 s, der
-# Anbieter wirft bei etwa 300 s. Bei fuenf sind es 205 s fuer 27 Prozent mehr Durchsatz.
-FACTS_CONCURRENCY        = 3
-FACTS_MAX_ATTEMPTS       = 3
-FACTS_RETRY_DELAY_SECONDS = 3
-FACTS_MAX_BACKOFF_SECONDS = 60
-# Unsere Zeitgrenze muss vor der des Anbieters greifen.
-FACTS_CALL_TIMEOUT_SECONDS = 270
-# Ein ganzer Aufruf kann in Stille vergehen, der Waechter darf nicht zuschlagen.
-FACTS_HEARTBEAT_SECONDS  = 60
+# --- Material der Dienste Podcast, Praesentation, Zusammenfassung --------------
+# myLab bricht jeden Aufruf nach etwa 300 s ab (gemessen 20.09.). Lesen ist schnell,
+# 250k Zeichen in 12 s (gemessen 22.09.), Schreiben langsam, etwa 14 Token/s. Darum
+# plant ein Aufruf ueber dem ganzen nummerierten Text und schreibt dabei wenig, und
+# jeder Schreibaufruf schreibt aus dem Originaltext hoechstens SERVICE_WRITE_TOKENS.
+# Hochgeladen werden hoechstens so viele Zeichen, ueber alle Dateien zusammen.
+SOURCES_MAX_TOTAL_CHARS  = 500_000
+# Was Auftrag und Antwortschema eines Planungsaufrufs im Fenster belegen.
+MAP_PROMPT_TOKENS        = 3_000
+# Deckel eines Planungsaufrufs, nur als Alarm. Eine Gliederung schreibt etwa 2.000 Token.
+MAP_OUTPUT_TOKENS        = 4_000
+# Darunter passt nicht einmal ein Teil einer grossen Datei, das wird abgelehnt.
+MAP_MIN_WINDOW_TOKENS    = 50_000
+# Ein nie vermessenes Modell wird wie das kleinste zugelassene Fenster behandelt.
+MAP_UNMEASURED_WINDOW_TOKENS = 131_072
+# Themen je Teil, wenn der Text nicht in einen Planungsaufruf passt.
+MAP_MAX_TOPICS_PER_PART  = 25
+# Stellen je Eintrag einer Gliederung, und wie weit ein Bereich wie "12-15" reichen darf.
+MAP_MAX_REFS             = 40
+MAP_RANGE_MAX            = 20
+# Originaltext, den ein Schreibaufruf fuer einen Teil bekommt. Lesen kostet kaum Zeit.
+MAP_MATERIAL_MAX_CHARS   = 60_000
+# Stuecke davor und danach, die jede Stelle mitbringt.
+MAP_PASSAGE_NEIGHBOURS   = 1
+# Was ein Schreibaufruf hoechstens schreiben soll: (270 s - 15 s Lesen) mal 10 Token/s.
+SERVICE_WRITE_TOKENS     = 2_500
+# Unsere Zeitgrenze je Aufruf, sie muss vor der des Anbieters greifen.
+SERVICE_CALL_TIMEOUT_SECONDS = 270
 
 # --- Summary tool -----------------------------------------------------------
-SUMMARY_MAX_SOURCES          = 5
+SUMMARY_MAX_SOURCES          = 10
 # Counted after extraction, so it holds for every format. A file goes into one call whole,
 # so this is also what the model's window has to carry.
 SUMMARY_MAX_CHARS_PER_SOURCE = 500_000
@@ -260,8 +268,8 @@ SUMMARY_MAX_SECTIONS         = 20
 # Sections every source gets at least, so no file drops out of the plan.
 SUMMARY_SECTIONS_PER_SOURCE  = 2
 # Characters of prose one writing call may produce, so several small sections share a call.
-# Well below SUMMARY_WRITE_MAX_TOKENS times three, the rest is room for running long.
-SUMMARY_SECTION_GROUP_CHARS  = 15_000
+# SERVICE_WRITE_TOKENS times three characters, so a group stays inside the five minutes.
+SUMMARY_SECTION_GROUP_CHARS  = 6_000
 # Measured 20.09.: a section costs about this much prose, plus per fact.
 SUMMARY_SECTION_BASE_CHARS   = 600
 # Facts one assignment call places. Measured 20.09.: 400 in one answer, no gap, because the
@@ -269,7 +277,8 @@ SUMMARY_SECTION_BASE_CHARS   = 600
 # Assignment calls out at once, the answers are applied in the order of the batches.
 # A writing call may return this many tokens, a group of sections or the whole fallback text.
 # Measured 20.09.: the provider takes 32.000, so 4.000 was cutting long sections for nothing.
-SUMMARY_WRITE_MAX_TOKENS     = 8_000
+# A cap only, a group is planned for SERVICE_WRITE_TOKENS.
+SUMMARY_WRITE_MAX_TOKENS     = 4_000
 # The shared client cuts reads at 120 s, this tool's calls may take longer.
 # Measured 20.09.: myLab drops a call at about 300 s with a bare 500. Ours has to fire
 # first, so a long call comes back as a timeout we retry, not as a server error.

@@ -41,7 +41,7 @@ from src.tasks._stage import StageClock, StageContinue, StageLost, continue_stag
 
 _MIN_WORDS = 20
 _OUTLINE_FILE = "outline.json"
-_SLICES_FILE = "slices.json"
+_MAP_FILE = "grundlage.json"
 _RESULT_FILE = "summary.md"
 
 
@@ -51,7 +51,7 @@ _RESULT_FILE = "summary.md"
 
 
 class _JobStore(JobState):
-    """What one run keeps between stages: language, plan, finished sections."""
+    """What one run keeps between stages: language, topics, plan, finished sections."""
 
     def __init__(self, user_id: int, job_uuid: str, versuch: int) -> None:
         self._versuch = versuch
@@ -62,19 +62,13 @@ class _JobStore(JobState):
         if not still_mine(self._job, self._versuch):
             raise StageLost(self._job)
 
-    def load_slices(self) -> dict[str, list[dict]]:
-        roh = read_job_text(self._user, self._job, _SLICES_FILE)
-        gemerkt = parse_job_json(self._job, _SLICES_FILE, roh, {}) or {}
-        return {k: v.get("facts") or [] for k, v in gemerkt.items() if isinstance(v, dict)}
+    def load_map(self) -> dict | None:
+        roh = read_job_text(self._user, self._job, _MAP_FILE)
+        return parse_job_json(self._job, _MAP_FILE, roh, None)
 
-    def save_slice(self, key: str, facts: list[dict], vollstaendig: bool) -> None:
+    def save_map(self, daten: dict) -> None:
         self._guard()
-        roh = read_job_text(self._user, self._job, _SLICES_FILE)
-        gemerkt = parse_job_json(self._job, _SLICES_FILE, roh, {}) or {}
-        gemerkt[key] = {"facts": facts, "vollstaendig": vollstaendig}
-        write_job_text(self._user, self._job, _SLICES_FILE,
-                       json.dumps(gemerkt, ensure_ascii=False))
-        self.progress("lesen")
+        write_job_text(self._user, self._job, _MAP_FILE, json.dumps(daten, ensure_ascii=False))
 
     def load_language(self) -> str | None:
         return read_job_text(self._user, self._job, "language.txt")
