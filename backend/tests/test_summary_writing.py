@@ -162,6 +162,27 @@ class TestPlanen:
         assert len(caller.client.gesendet) == 2
 
 
+class TestPlanOhneStellen:
+    """Ein Plan, der keine einzige Stelle nennt, liesse die Schreiber aus dem Nichts schreiben."""
+
+    _OHNE = json.dumps({"title": "T", "intro": "I", "sections": [
+        {"title": t, "description": "d", "refs": []} for t in "ABC"]})
+    _MIT = json.dumps({"title": "T", "intro": "I", "sections": [
+        {"title": t, "description": "d", "refs": ["1"]} for t in "ABC"]})
+
+    async def test_ein_plan_ohne_stellen_wird_wiederholt(self, monkeypatch):
+        monkeypatch.setattr(wr, "SUMMARY_RETRY_DELAY_SECONDS", 0)
+        caller = _caller([self._OHNE, self._MIT])
+        plan = await _plane(caller, stellen=lambda refs: [int(r) for r in refs])
+        assert [a.stellen for a in plan.sections] == [[1], [1], [1]]
+
+    async def test_bleibt_er_ohne_stellen_gibt_es_keine_gliederung(self, monkeypatch):
+        monkeypatch.setattr(wr, "SUMMARY_RETRY_DELAY_SECONDS", 0)
+        caller = _caller([self._OHNE, self._OHNE])
+        plan = await _plane(caller, stellen=lambda refs: [int(r) for r in refs])
+        assert plan.sections == []
+
+
 class TestSchreiben:
     async def test_ein_abschnitt_sieht_die_vorigen_und_meidet_die_kommenden(self):
         caller = _caller(["Text B"])
@@ -385,3 +406,53 @@ class TestTitelAbtrennen:
 
     def test_ein_leerer_text_bleibt_leer(self):
         assert wr.split_title("") == ("", "")
+
+
+class TestKurznamen:
+    """Jedes Dokument bekommt einen Kurznamen, den alle Schreiber benutzen, nie den Dateinamen."""
+
+    def test_der_plan_liefert_die_kurznamen_der_dokumente(self):
+        roh = json.dumps({"title": "T", "intro": "I", "documents": [
+            {"file": "HwO79.pdf", "short_name": "HwO"}, {"file": "fremd.pdf", "short_name": "X"}],
+            "sections": [{"title": t, "description": "d", "refs": ["1"]} for t in "ABC"]})
+        plan = wr.parse_outline(roh, dateien=["HwO79.pdf", "AGG13.pdf"])
+        assert plan.names == {"HwO79.pdf": "HwO"}
+
+    def test_ein_kurzname_der_wie_die_datei_heisst_zaehlt_nicht(self):
+        roh = json.dumps({"title": "T", "intro": "I", "documents": [
+            {"file": "HwO79.pdf", "short_name": "HwO79.pdf"}],
+            "sections": [{"title": t, "description": "d", "refs": ["1"]} for t in "ABC"]})
+        assert wr.parse_outline(roh, dateien=["HwO79.pdf"]).names == {}
+
+    def test_die_datei_wird_auch_ohne_endung_und_gross_klein_erkannt(self):
+        roh = json.dumps({"title": "T", "intro": "I", "documents": [
+            {"file": "hwo79", "short_name": "HwO"}],
+            "sections": [{"title": t, "description": "d", "refs": ["1"]} for t in "ABC"]})
+        assert wr.parse_outline(roh, dateien=["HwO79.pdf"]).names == {"HwO79.pdf": "HwO"}
+
+    def test_ohne_erkennbare_datei_gilt_die_reihenfolge(self):
+        roh = json.dumps({"title": "T", "intro": "I", "documents": [
+            {"file": "HwO", "short_name": "HwO"}, {"file": "AGG", "short_name": "AGG"}],
+            "sections": [{"title": t, "description": "d", "refs": ["1"]} for t in "ABC"]})
+        plan = wr.parse_outline(roh, dateien=["HwO79.pdf", "AGG13.pdf"])
+        assert plan.names == {"HwO79.pdf": "HwO", "AGG13.pdf": "AGG"}
+
+    def test_ein_kurzname_wie_der_dateistamm_zaehlt_nicht(self):
+        roh = json.dumps({"title": "T", "intro": "I", "documents": [
+            {"file": "HwO79.pdf", "short_name": "HwO79"}],
+            "sections": [{"title": t, "description": "d", "refs": ["1"]} for t in "ABC"]})
+        assert wr.parse_outline(roh, dateien=["HwO79.pdf"]).names == {}
+
+    def test_der_planer_sieht_den_anfang_jeder_datei(self):
+        user = wr._outline_user(["a.pdf"], "MAT", anfaenge=["Gesetz zur Ordnung des Handwerks"])
+        assert "Gesetz zur Ordnung des Handwerks" in user.split("MATERIAL:")[0]
+
+    def test_der_schreiber_bekommt_die_kurznamen(self):
+        user = wr._section_user([Section(title="A", scope="a")], [], None, ["x"],
+                                names={"HwO79.pdf": "HwO"})
+        assert "HwO79.pdf = HwO" in user
+
+
+def test_der_schreiber_liest_die_seite_nie_als_paragraf():
+    system = wr._section_system("German", "Plan", 2)
+    assert "page number is never the number of a paragraph" in system

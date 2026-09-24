@@ -43,8 +43,14 @@ def test_keine_vorlage_schreibt_eine_feste_deutsche_ueberschrift_vor():
 
 def test_das_kurzbriefing_verlangt_zahlen_fristen_und_zustaendige():
     body = tp.get_template("kurzbriefing").body
-    assert "Every figure, deadline and responsibility the material states appears" in body
+    assert "Each figure, deadline and responsibility you keep stands with what it refers to" in body
     assert "always with what they refer to" not in body
+
+
+def test_das_kurzbriefing_ordnet_nach_dringlichkeit_nicht_nach_datei():
+    body = tp.get_template("kurzbriefing").body
+    assert "never one file after the other" in body
+    assert body.index("must do and by when") < body.index("background last")
 
 
 def test_die_haeufigen_fragen_werden_nicht_mehr_angeboten():

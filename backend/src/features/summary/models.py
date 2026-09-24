@@ -14,8 +14,9 @@ GROUND_RULES = (
     "Rule 2: Use ONLY the provided material. Never add, infer or invent information.\n"
     "Rule 3: Do not interpret anything that is not explicitly stated.\n"
     "Rule 4: Ignore cover pages, headers, footers, page numbers and imprints.\n"
-    "Rule 5: Keep section numbers such as 'Paragraf 211' or 'Art. 5' only where the "
-    "material attaches them to that exact term. Never assign or guess one.\n"
+    "Rule 5: Where the material shows the numbered part a statement comes from, such as "
+    "'§ 15 Abs. 4' or 'Art. 5', name it in parentheses at the end of the statement. Never "
+    "assign or guess a number the material does not show for that statement.\n"
     "Rule 6: Never comment on your own writing and never correct yourself.\n"
     "Rule 7: Do not use semicolons or any type of dash. Use only periods, commas, "
     "colons and question marks."
@@ -34,6 +35,8 @@ class Section(BaseModel):
     scope: str = ""
     # Numbers of the passages on the run's text map.
     stellen: list[int] = Field(default_factory=list)
+    # The numbers the plan named itself, they go first when a writer's budget cuts.
+    genannt: list[int] = Field(default_factory=list)
 
 
 class Outline(BaseModel):
@@ -42,6 +45,8 @@ class Outline(BaseModel):
     title: str = ""
     intro: str = ""
     sections: list[Section] = Field(default_factory=list)
+    # The short name of each file as its own text calls it, keyed by the file name.
+    names: dict[str, str] = Field(default_factory=dict)
 
 
 @dataclass

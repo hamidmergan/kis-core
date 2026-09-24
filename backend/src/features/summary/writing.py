@@ -46,6 +46,25 @@ OUTLINE_SCHEMA = {
                         "instructions."
                     ),
                 },
+                "documents": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "file": {"type": "string"},
+                            "short_name": {
+                                "type": "string",
+                                "description": (
+                                    "The short name the document's own text uses for itself, "
+                                    "such as a law's abbreviation, else a title of two to four "
+                                    "words. Never the file name."
+                                ),
+                            },
+                        },
+                        "required": ["file", "short_name"],
+                        "additionalProperties": False,
+                    },
+                },
                 "sections": {
                     "type": "array",
                     "items": {
@@ -72,7 +91,7 @@ OUTLINE_SCHEMA = {
                     },
                 },
             },
-            "required": ["title", "intro", "sections"],
+            "required": ["title", "intro", "documents", "sections"],
             "additionalProperties": False,
         },
     },
@@ -80,15 +99,18 @@ OUTLINE_SCHEMA = {
 
 
 
-def target_sections(material_chars: int, sources: int = 1) -> int:
+def target_sections(material_chars: int, sources: int = 1,
+                    span: tuple[int, int] | None = None) -> int:
     """How many sections the material carries, a target the planner may deviate from.
 
     Never fewer than every source needs: with unrelated files a count drawn from the
-    size alone leaves the last of them without a heading to stand under.
+    size alone leaves the last of them without a heading to stand under. A template with
+    its own span keeps to it, however much material there is.
     """
+    lo, hi = span or (SUMMARY_MIN_SECTIONS, SUMMARY_MAX_SECTIONS)
     aus_umfang = material_chars // SUMMARY_CHARS_PER_SECTION
     aus_quellen = SUMMARY_SECTIONS_PER_SOURCE * max(1, sources)
-    return max(SUMMARY_MIN_SECTIONS, min(SUMMARY_MAX_SECTIONS, max(aus_umfang, aus_quellen)))
+    return max(lo, min(hi, max(aus_umfang, aus_quellen)))
 
 
 def cut_to_last_line(text: str) -> str:
@@ -111,7 +133,29 @@ def _strip_thinking(raw: str | None) -> str:
     return antwort
 
 
-def parse_outline(raw: str | None, stellen=None) -> Outline:
+def _stamm(name: str) -> str:
+    """A file name without extension and case, how a model tends to repeat it."""
+    return name.rsplit(".", 1)[0].casefold() if "." in name else name.casefold()
+
+
+def _names(roh, dateien: list[str] | None) -> dict[str, str]:
+    """The short names the plan gave the files, a name that is the file name itself is none.
+
+    A file the model wrote without extension still counts. When no entry names a known file
+    at all but there is one per file, the order of the list decides.
+    """
+    dateien = dateien or []
+    eintraege = [(str(e.get("file") or "").strip(), " ".join(str(e.get("short_name") or "").split()))
+                 for e in (roh if isinstance(roh, list) else []) if isinstance(e, dict)]
+    nach_stamm = {_stamm(d): d for d in dateien}
+    zuordnung = [(nach_stamm.get(_stamm(f)), k) for f, k in eintraege]
+    if not any(d for d, _ in zuordnung) and len(eintraege) == len(dateien):
+        zuordnung = [(d, k) for d, (_, k) in zip(dateien, eintraege)]
+    return {d: k for d, k in zuordnung
+            if d and k and len(k) <= 40 and _stamm(k) != _stamm(d)}
+
+
+def parse_outline(raw: str | None, stellen=None, dateien: list[str] | None = None) -> Outline:
     """Reads the planning answer, a broken one yields no sections rather than an error.
 
     Headings and the numbers under them come out of the same call. ``stellen`` turns the
@@ -145,14 +189,16 @@ def parse_outline(raw: str | None, stellen=None) -> Outline:
         return Outline()
     titel = " ".join(str(roh.get("title") or "").split()).lstrip("#").strip()
     return Outline(title=titel[:120], intro=str(roh.get("intro") or "").strip(),
-                   sections=abschnitte[:SUMMARY_MAX_SECTIONS])
+                   sections=abschnitte[:SUMMARY_MAX_SECTIONS],
+                   names=_names(roh.get("documents"), dateien))
 
 
 
 def _outline_system(language: str, template_body: str, target: int, sources: int,
-                    modus: str = "stellen") -> str:
+                    modus: str = "stellen", span: tuple[int, int] | None = None) -> str:
     from src.services.text_map import hinweis
 
+    lo, hi = span or (SUMMARY_MIN_SECTIONS, SUMMARY_MAX_SECTIONS)
     return (
         "You plan a document out of numbered material. The numbers are working material, "
         "the reader never sees them. You decide the headings AND which numbers go under "
@@ -160,8 +206,8 @@ def _outline_system(language: str, template_body: str, target: int, sources: int
         + GROUND_RULES.format(language=language) + "\n"
         "Rule 8: Derive every section from what the material carries. Never fall back on a "
         "generic scaffold such as introduction, main part, conclusion.\n"
-        f"Rule 9: Plan around {target} sections, between {SUMMARY_MIN_SECTIONS} and "
-        f"{SUMMARY_MAX_SECTIONS}. Thin material gets fewer, rich material gets more.\n"
+        f"Rule 9: Plan around {target} sections, between {lo} and {hi}. Thin material "
+        "gets fewer, rich material gets more.\n"
         "Rule 10: A heading names a theme that carries several numbers, never a single one. "
         "If a heading would rest on one statement alone, widen it or fold it into another.\n"
         f"Rule 11: The material comes from {sources} file(s), listed below, and EVERY one of "
@@ -184,18 +230,31 @@ def _outline_system(language: str, template_body: str, target: int, sources: int
         "the material covers, then come the three to five most important things it states, "
         "concretely and with their figures. Never say what the reader will receive and never "
         "repeat these instructions.\n"
+        "Rule 16: Under documents, give every file the short name its own text uses for "
+        "itself, such as a law's abbreviation, else a title of two to four words. The "
+        "beginning of each file is shown next to it. Never use the file name.\n"
         "\nBUILD PLAN\n" + template_body
     )
 
 
-def _outline_user(sources: list[str], material: str) -> str:
-    liste = "\n".join(f"- {s}" for s in sources)
-    return f"/no_think\nSources:\n{liste}\n\nMATERIAL:\n\n{material}"
+def _outline_user(sources: list[str], material: str, fehlt: list[str] | None = None,
+                  anfaenge: list[str] | None = None) -> str:
+    anfaenge = anfaenge or []
+    liste = "\n".join(
+        f"- {s}" + (f", begins with: {' '.join(anfaenge[i].split())}" if i < len(anfaenge) else "")
+        for i, s in enumerate(sources))
+    mahnung = ("\nYOUR LAST PLAN GAVE THESE FILES FAR TOO LITTLE ROOM. Give each a share of "
+               "the sections and refs that matches how much of the material it holds: "
+               + ", ".join(fehlt) + "\n") if fehlt else ""
+    return f"/no_think\nSources:\n{liste}\n{mahnung}\nMATERIAL:\n\n{material}"
 
 
 async def plan_outline(caller: Caller, *, language: str, template_body: str,
                        sources: list[str], material: str, target: int,
-                       modus: str = "stellen", stellen=None) -> Outline:
+                       modus: str = "stellen", stellen=None,
+                       span: tuple[int, int] | None = None,
+                       fehlt: list[str] | None = None,
+                       anfaenge: list[str] | None = None) -> Outline:
     """Plans the headings of the document. Empty when planning failed."""
     plan = Outline()
     for versuch in range(1, SUMMARY_OUTLINE_MAX_ATTEMPTS + 1):
@@ -204,13 +263,16 @@ async def plan_outline(caller: Caller, *, language: str, template_body: str,
                 messages=[
                     {"role": "system",
                      "content": _outline_system(language, template_body, target, len(sources),
-                                                modus)},
-                    {"role": "user", "content": _outline_user(sources, material)},
+                                                modus, span)},
+                    {"role": "user", "content": _outline_user(sources, material, fehlt, anfaenge)},
                 ],
                 temperature=0.2, name=f"outline:{versuch}",
                 response_format=OUTLINE_SCHEMA,
             )
-            plan = parse_outline(antwort.choices[0].message.content, stellen)
+            plan = parse_outline(antwort.choices[0].message.content, stellen, sources)
+            # Without a single passage the writers would have nothing to write from.
+            if stellen and not any(a.stellen for a in plan.sections):
+                plan = Outline()
             if plan.sections:
                 break
             logger.warning("Zusammenfassung: Gliederung {} unlesbar", versuch)
@@ -314,7 +376,8 @@ def split_group(text: str, titles: list[str]) -> list[str] | None:
     return teile if all(teile) else None
 
 
-def _section_system(language: str, template_body: str, count: int = 1) -> str:
+def _section_system(language: str, template_body: str, count: int = 1,
+                    sees_document: bool = True) -> str:
     mehrere = (
         f"You write {count} CONSECUTIVE sections of a larger document. Begin each one with "
         "its heading exactly as given, on its own line, written as '## Heading'. Write "
@@ -325,22 +388,27 @@ def _section_system(language: str, template_body: str, count: int = 1) -> str:
     )
     return (
         mehrere
-        + "The sections before yours are already written and given to you, the ones after "
-        "yours come later.\n"
+        + ("The sections before yours are already written and given to you, the ones after "
+           "yours come later.\n" if sees_document else
+           "The other sections are written at the same time by others, their headings and "
+           "scopes are listed.\n")
         + GROUND_RULES.format(language=language) + "\n"
         "Rule 8: Write only what belongs under the heading you are writing. The scopes of the "
-        "sections still to come are listed so you stay off their ground. Never announce what "
+        "other sections are listed so you stay off their ground. Never announce what "
         "comes later.\n"
-        "Rule 9: Continue the document you are given, never repeat what it already says. Where "
-        "your section answers or builds on an earlier one, make the two match item for item.\n"
-        "Rule 10: Go as deep as the material allows. A Markdown table where things are compared "
+        + ("Rule 9: Continue the document you are given, never repeat what it already says. "
+           "Where your section answers or builds on an earlier one, make the two match item "
+           "for item.\n" if sees_document else
+           "Rule 9: Never write what belongs under another section's heading, the reader "
+           "finds it there.\n")
+        + "Rule 10: Go as deep as the material allows. A Markdown table where things are compared "
         "along the same attributes, bullet points where it is a list, numbered items where "
         "order or count matters, continuous text where it is an argument.\n"
         "Rule 11: A figure, a date or a quantity never stands without what it refers to, and "
         "you carry over every one the material states for your heading.\n"
         "Rule 12: Your material is passages of the original text, each under a line in "
         "square brackets naming its file and page. That line is for orientation only, never "
-        "copy it. Where the text itself names a part such as a paragraph or article, keep "
+        "copy it, and its page number is never the number of a paragraph or article. Where the text itself names a part such as a paragraph or article, keep "
         "that name exactly as it stands, never number a part yourself.\n"
         "Rule 13: Two passages saying the same thing become ONE statement, in the fuller "
         "wording. Never write the same figure or duty twice in different words.\n"
@@ -352,7 +420,9 @@ def _section_system(language: str, template_body: str, count: int = 1) -> str:
            "Rule 16: Do not repeat your own heading. Begin with the content, write no closing "
            "remark and no greeting.\n")
         + "Rule 17: Never cite a page, a slide or a position, and never quote the passages "
-        "as a block. Never name a file and never write a file name into your text.\n"
+        "as a block. Never name a file and never write a file name into your text. A "
+        "document may be named by the short name its own text uses, such as a law's "
+        "abbreviation.\n"
         "\nThe document as a whole follows the build plan below. Match its register, but "
         "produce ONLY the sections you are given.\n\nBUILD PLAN\n" + template_body
     )
@@ -372,9 +442,18 @@ def _document_so_far(written: list[tuple[str, str]]) -> str:
 
 
 def _section_user(group: list[Section], others: list[Section],
-                  written: list[tuple[str, str]], facts: list[str]) -> str:
-    """The order matters: what is to be written comes last, that is what gets the attention."""
+                  written: list[tuple[str, str]] | None, facts: list[str],
+                  words: int | None = None, names: dict[str, str] | None = None) -> str:
+    """The order matters: what is to be written comes last, that is what gets the attention.
+
+    Without ``written`` the section is one of several written at the same time.
+    """
     fremd = "\n".join(f"- {a.title}: {a.scope}" for a in others) or "- none"
+    laenge = (f"LENGTH: about {words} words for each section, never more than "
+              f"{words * 3 // 2}. Choose what matters most to fit.\n\n") if words else ""
+    if names:
+        laenge += ("DOCUMENT NAMES, use these and never a file name:\n"
+                   + "\n".join(f"- {d} = {k}" for d, k in names.items()) + "\n\n")
     if len(group) == 1:
         kopf = f"YOUR HEADING: {group[0].title}\nYOUR SCOPE: {group[0].scope}\n\n"
         auftrag = f"YOUR MATERIAL:\n\n{facts[0]}"
@@ -384,19 +463,23 @@ def _section_user(group: list[Section], others: list[Section],
                  f"HEADING: {a.title}\nSCOPE: {a.scope}\nMATERIAL:\n{f}"
                  for i, (a, f) in enumerate(zip(group, facts))]
         auftrag = "YOUR SECTIONS:\n\n" + "\n\n".join(teile)
+    if written is None:
+        return (f"/no_think\n{kopf}Written by others, stay off these:\n{fremd}\n\n"
+                f"{laenge}{auftrag}")
     return (
         "/no_think\n"
         f"{kopf}"
         f"Still to be written by others, stay off these:\n{fremd}\n\n"
         f"THE DOCUMENT SO FAR:\n{_document_so_far(written)}\n\n"
-        f"{auftrag}"
+        f"{laenge}{auftrag}"
     )
 
 
 async def write_sections(caller: Caller, *, language: str, template_body: str,
                          group: list[Section], others: list[Section],
-                         written: list[tuple[str, str]], material: list[str],
-                         budget: int) -> list[str] | None:
+                         written: list[tuple[str, str]] | None, material: list[str],
+                         budget: int, words: int | None = None,
+                         names: dict[str, str] | None = None) -> list[str] | None:
     """Writes a run of sections in one call, None when the answer cannot be cut apart.
 
     None is not a failure of the run: the caller then writes the sections one at a time,
@@ -404,9 +487,10 @@ async def write_sections(caller: Caller, *, language: str, template_body: str,
     """
     antwort = await caller.create(
         messages=[
-            {"role": "system", "content": _section_system(language, template_body, len(group))},
+            {"role": "system", "content": _section_system(
+                language, template_body, len(group), sees_document=written is not None)},
             {"role": "user",
-             "content": _section_user(group, others, written, material)},
+             "content": _section_user(group, others, written, material, words, names)},
         ],
         temperature=0.3,
         name=f"section:{group[0].title}" if len(group) == 1

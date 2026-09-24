@@ -18,6 +18,12 @@ class Template:
     headings: bool
     # The search grid of the read call, English because the model echoes it verbatim.
     categories: tuple[str, ...]
+    # The last sections answer the ones before, so they are written after the rest, reading it.
+    closing_reads_document: bool = False
+    # How many sections, whatever the size of the material, None lets the size decide.
+    sections: tuple[int, int] | None = None
+    # The length of the whole prose, None lets the material decide.
+    length_chars: int | None = None
 
 
 TEMPLATES: tuple[Template, ...] = (
@@ -30,11 +36,18 @@ TEMPLATES: tuple[Template, ...] = (
         hint_en="Key points, figures and who is responsible, brief and ordered.",
         headings=True,
         body=(
-            "Write a briefing for a reader with five minutes. Under each heading: the core "
-            "statements as bullet points, one statement each. Every figure, deadline and "
-            "responsibility the material states appears, each with what it refers to. What the "
-            "material needs from the reader comes first, background last."
+            "Write a briefing a reader takes in within five minutes. The sections are kinds of "
+            "statement across all files, never one file after the other, in this order: what "
+            "the reader must do and by when, who is responsible for what, figures and "
+            "consequences, background last. Leave out a kind the material does not carry. "
+            "Under each heading: bullet points, one statement each, the most consequential "
+            "first. Pick what matters most, a briefing never lists everything. Each figure, "
+            "deadline and responsibility you keep stands with what it refers to. Where the "
+            "material comes from more than one document, begin each bullet with the document's "
+            "short name, in bold and followed by a colon."
         ),
+        sections=(4, 7),
+        length_chars=9_000,
     ),
     Template(
         slug="lernleitfaden",
@@ -54,6 +67,7 @@ TEMPLATES: tuple[Template, ...] = (
             "after it headed as answers answers each one from the material, numbered to match. "
             "Both headings in the output language."
         ),
+        closing_reads_document=True,
     ),
     Template(
         slug="zeitstrahl",
