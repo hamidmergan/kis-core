@@ -94,8 +94,8 @@ class TestSpeichern:
     async def test_die_meldung_nennt_das_feld(self, store):
         with pytest.raises(HTTPException) as fehler:
             await admin_settings.update_settings(
-                _Body(summary_map_concurrency=99), _ADMIN, "de")
-        assert "summary_map_concurrency" in fehler.value.detail
+                _Body(summary_read_max_facts=999), _ADMIN, "de")
+        assert "summary_read_max_facts" in fehler.value.detail
 
 
 async def test_die_zeitgrenze_bleibt_unter_der_mauer_des_anbieters():

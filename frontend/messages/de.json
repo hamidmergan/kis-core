@@ -1494,8 +1494,7 @@
         "label": "Grenzen",
         "tabs": {
           "material": "Material",
-          "kontext": "Kontext",
-          "zusammenfassung": "Zusammenfassung"
+          "kontext": "Kontext"
         }
       }
     },
@@ -2156,14 +2155,9 @@
     },
     "toolNumbers": {
       "outOfRange": "Wert muss zwischen {min} und {max} liegen.",
-      "summary_map_concurrency": {
-        "title": "Gleichzeitige Lese-Aufrufe",
-        "hint": "Wie viele Dateien zugleich gelesen werden. Gemessen am 20.09.: bei drei braucht der langsamste Aufruf 161 Sekunden, der Anbieter wirft einen Aufruf bei etwa 300 Sekunden weg. Bei fünf sind es 205 Sekunden für 27 Prozent mehr Durchsatz, ein halb so schneller Anbieter kippt den Lauf dann.",
-        "unit": "Aufrufe"
-      },
-      "summary_max_chars_per_source": {
-        "title": "Maximale Textmenge je Lese-Aufruf",
-        "hint": "Jede Datei geht ungeschnitten in einen Aufruf, dieser Wert ist damit zugleich die erlaubte Dateigröße. Was darüber liegt, wird beim Start des Auftrags abgelehnt, nicht abgeschnitten. Das Modellfenster muss die Menge tragen können.",
+      "aia_source_max_chars": {
+        "title": "Maximale Zeichen je Dokument",
+        "hint": "Wie viel Text ein einzelnes Dokument im Workspace haben darf. Gezählt wird nach dem Einlesen, deshalb gilt die Grenze für jedes Format. Liegt ein Dokument darüber, wird es als fehlgeschlagen angezeigt und nicht gekürzt. Bei 500.000 passt jedes Dokument allein auch in Podcast, Präsentation und Zusammenfassung.",
         "unit": "Zeichen"
       },
       "summary_read_max_facts": {

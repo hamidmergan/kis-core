@@ -159,6 +159,9 @@ AIA_TRANSLATE_TIME_LIMIT        = 1860   # 31 min
 
 # --- AI tutor source limits -------------------------------------------------
 AIA_SOURCE_MAX_PAGES                = 200     # max pages per PDF/DOCX/PPTX upload;
+# Characters one workspace document may bring, counted after reading. At this size a source
+# still fits alone into podcast, presentation and summary.
+AIA_SOURCE_MAX_CHARS                = 500_000
 # Very large documents are rejected so the overview does not become front-heavy.
 AIA_WORKSPACE_MAX_SOURCES              = 50      # max sources per workspace (admin-tunable 1..1000)
 
@@ -249,9 +252,6 @@ SERVICE_CALL_TIMEOUT_SECONDS = 270
 
 # --- Summary tool -----------------------------------------------------------
 SUMMARY_MAX_SOURCES          = 10
-# Counted after extraction, so it holds for every format. A file goes into one call whole,
-# so this is also what the model's window has to carry.
-SUMMARY_MAX_CHARS_PER_SOURCE = 500_000
 # Facts one read call may return, the share of the pool one source gets.
 SUMMARY_FACTS_MIN_CHARS      = 3_000
 # Room in a call for the prompt, the build plan and the sections already written.
@@ -289,10 +289,12 @@ SUMMARY_WRITE_MAX_TOKENS     = 4_000
 # first, so a long call comes back as a timeout we retry, not as a server error.
 SUMMARY_CALL_TIMEOUT_SECONDS = 270
 # The watchdog counts silence, so the run reports in this often.
-# Read calls out at once. Measured 20.09. on the real documents: at three the slowest
+# Writing calls out at once. Measured 20.09. on the real documents: at three the slowest
 # call takes 161 s and the provider drops a call at about 300 s, so 139 s are left over.
 # At five it is 205 s for 27 percent more throughput, and a provider half as fast kills it.
-SUMMARY_MAP_CONCURRENCY      = 3
+SUMMARY_WRITE_CONCURRENCY    = 3
+# The planner sees this much of each file's beginning, enough for a law's full name and abbreviation.
+SUMMARY_SOURCE_OPENING_CHARS = 300
 SUMMARY_RETRY_DELAY_SECONDS  = 3
 # The waiting time doubles per attempt and stops growing here.
 SUMMARY_OUTLINE_MAX_ATTEMPTS = 2

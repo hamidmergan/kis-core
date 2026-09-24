@@ -5,6 +5,7 @@
 import { useTranslations } from "next-intl";
 import { useSetting } from "../../_settings/SettingsProvider";
 import { NumberSetting } from "../../_settings/fields";
+import ToolNumbers from "../../_settings/ToolNumbers";
 import Block from "./_block";
 
 /** The value the two count limits carry for unlimited. */
@@ -68,6 +69,7 @@ export default function GrenzenMaterialPage() {
           max={1000}
           outOfRange={tLimits("outOfRange")}
         />
+        <ToolNumbers tool="aia" />
       </Block>
 
       <Block title={t("gemeinsam")}>

@@ -15,13 +15,12 @@ from dataclasses import dataclass
 from loguru import logger
 
 from src.limits import (
+    AIA_SOURCE_MAX_CHARS,
     SUMMARY_CALL_TIMEOUT_SECONDS,
-    SUMMARY_MAP_CONCURRENCY,
-    SUMMARY_MAX_CHARS_PER_SOURCE,
     SUMMARY_MAX_OUTPUT_TOKENS,
     SUMMARY_READ_MAX_FACTS,
 )
-from src.permissions_registry import PERM_SET_TOOLS_LIMITS
+from src.permissions_registry import PERM_SET_AIA_SOURCES, PERM_SET_TOOLS_LIMITS
 
 
 @dataclass(frozen=True)
@@ -40,15 +39,11 @@ class Number:
 
 # One block per tool. A new tool adds its block here and nowhere else in the backend.
 NUMBERS: tuple[Number, ...] = (
+    # --- Francis ------------------------------------------------------------
+    # Checked when a workspace document is read, a larger one fails instead of being cut.
+    Number("aia_source_max_chars", "aia",
+           AIA_SOURCE_MAX_CHARS, 30_000, 500_000, PERM_SET_AIA_SOURCES),
     # --- Zusammenfassung ----------------------------------------------------
-    # Measured 20.09.: at three at a time the slowest read takes 161 s while the provider
-    # drops a call at about 300 s. At five it is 205 s for 27 percent more throughput.
-    Number("summary_map_concurrency", "summary",
-           SUMMARY_MAP_CONCURRENCY, 1, 5, PERM_SET_TOOLS_LIMITS),
-    # A file goes into one call whole, so this is the text one read call carries, and at
-    # the same time the size a file may have. Above it the job is refused, not truncated.
-    Number("summary_max_chars_per_source", "summary",
-           SUMMARY_MAX_CHARS_PER_SOURCE, 30_000, 500_000, PERM_SET_TOOLS_LIMITS),
     Number("summary_read_max_facts", "summary",
            SUMMARY_READ_MAX_FACTS, 10, 80, PERM_SET_TOOLS_LIMITS),
     # The provider drops a call at about 300 s, ours has to fire first.

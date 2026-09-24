@@ -1494,8 +1494,7 @@
         "label": "Limits",
         "tabs": {
           "material": "Material",
-          "kontext": "Context",
-          "zusammenfassung": "Summary"
+          "kontext": "Context"
         }
       }
     },
@@ -2156,14 +2155,9 @@
     },
     "toolNumbers": {
       "outOfRange": "Value must be between {min} and {max}.",
-      "summary_map_concurrency": {
-        "title": "Concurrent read calls",
-        "hint": "How many files are read at the same time. Measured on 20 Sept: at three the slowest call takes 161 seconds while the provider drops a call at about 300 seconds. At five it is 205 seconds for 27 percent more throughput, and a provider half as fast then kills the run.",
-        "unit": "calls"
-      },
-      "summary_max_chars_per_source": {
-        "title": "Maximum text per read call",
-        "hint": "Every file goes into one call whole, so this is also the allowed file size. Anything larger is refused when the job starts, not truncated. The model window has to be able to carry it.",
+      "aia_source_max_chars": {
+        "title": "Maximum characters per document",
+        "hint": "How much text a single workspace document may have. It is counted after reading, so the limit holds for every format. A document above it is shown as failed and is not cut. At 500,000 every document also fits alone into podcast, presentation and summary.",
         "unit": "characters"
       },
       "summary_read_max_facts": {

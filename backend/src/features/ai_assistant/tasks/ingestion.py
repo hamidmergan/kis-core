@@ -28,6 +28,29 @@ from src.features.ai_assistant.tasks._helpers import _format_ts
 _BUILD_INGEST_SUMMARY = True
 
 
+class SourceTooLong(Exception):
+    """A document carries more text than the management allows per source."""
+
+    def __init__(self, chars: int, limit: int) -> None:
+        super().__init__(f"{chars} characters, at most {limit} allowed")
+        self.chars = chars
+        self.limit = limit
+
+
+def check_length(chunks: list[dict]) -> None:
+    """Fails a document whose read text is longer than the admin setting, it is never cut."""
+    from src.services.tool_numbers import value_of
+    zeichen = sum(len(c.get("content") or "") for c in chunks)
+    grenze = value_of("aia_source_max_chars")
+    if zeichen > grenze:
+        raise SourceTooLong(zeichen, grenze)
+
+
+def _zahl(n: int, locale: str) -> str:
+    """A count as the language writes it, 500.000 in German and 500,000 in English."""
+    return f"{n:,}".replace(",", ".") if locale == "de" else f"{n:,}"
+
+
 def _build_source_summary_safely(source_uuid: str, chunks: list[dict]) -> None:
     """The summary is a bonus, a failure here must never cost the finished source."""
     if not chunks:
@@ -184,6 +207,7 @@ def run_index_source(self, source_uuid: str, locale: str = "de", _aia_job_uuid: 
                     local_path, file_type, progress_cb=_progress_cb, ocr_report=ocr_report
                 )
                 db.update_aia_source_ocr_info(source_uuid, ocr_report or None)
+                check_length(chunks)
 
             # Delete old chunks first, otherwise a second attempt doubles them.
             db.update_aia_source_progress(source_uuid, "chunking")
@@ -280,6 +304,9 @@ def run_index_source(self, source_uuid: str, locale: str = "de", _aia_job_uuid: 
 
         if isinstance(e, PdfNoReadableTextError):
             error_message = t("ai.source.pdfNoReadableText", locale)
+        elif isinstance(e, SourceTooLong):
+            error_message = t("ai.source.tooManyChars", locale,
+                              chars=_zahl(e.chars, locale), max=_zahl(e.limit, locale))
         elif isinstance(e, AudioTooLongError):
             error_message = audio_too_long_message(e, locale)
         else:

@@ -52,8 +52,8 @@ class TestLesen:
             assert tn.value_of(n.key) == n.default
 
     def test_ein_unlesbarer_eintrag_gilt_wie_kein_eintrag(self, eingestellt):
-        eingestellt["summary_map_concurrency"] = "drei"
-        assert tn.value_of("summary_map_concurrency") == tn.BY_KEY["summary_map_concurrency"].default
+        eingestellt["summary_read_max_facts"] = "drei"
+        assert tn.value_of("summary_read_max_facts") == tn.BY_KEY["summary_read_max_facts"].default
 
     def test_eine_stumme_datenbank_kostet_den_lauf_nichts(self, monkeypatch):
         def fliegt(key, default=""):
@@ -63,18 +63,18 @@ class TestLesen:
         assert tn.value_of("summary_call_timeout_seconds") == 270
 
     def test_ein_wert_ueber_der_spanne_wird_ans_obere_ende_gezogen(self, eingestellt):
-        eingestellt["summary_map_concurrency"] = "50"
-        assert tn.value_of("summary_map_concurrency") == 5
+        eingestellt["summary_read_max_facts"] = "500"
+        assert tn.value_of("summary_read_max_facts") == 80
 
     def test_ein_wert_unter_der_spanne_wird_ans_untere_ende_gezogen(self, eingestellt):
-        eingestellt["summary_map_concurrency"] = "0"
-        assert tn.value_of("summary_map_concurrency") == 1
+        eingestellt["summary_read_max_facts"] = "0"
+        assert tn.value_of("summary_read_max_facts") == 10
 
     def test_eine_aenderung_wirkt_ohne_neustart(self, eingestellt):
-        eingestellt["summary_map_concurrency"] = "1"
-        assert tn.value_of("summary_map_concurrency") == 1
-        eingestellt["summary_map_concurrency"] = "4"
-        assert tn.value_of("summary_map_concurrency") == 4
+        eingestellt["summary_read_max_facts"] = "20"
+        assert tn.value_of("summary_read_max_facts") == 20
+        eingestellt["summary_read_max_facts"] = "30"
+        assert tn.value_of("summary_read_max_facts") == 30
 
     def test_eine_unbekannte_zahl_ist_ein_fehler_kein_stiller_null(self):
         with pytest.raises(KeyError):
@@ -83,7 +83,7 @@ class TestLesen:
 
 class TestRecht:
     def test_das_recht_einer_zahl_ist_abfragbar(self):
-        assert tn.permission_for("summary_map_concurrency") == "settings.werkzeuge.limits"
+        assert tn.permission_for("summary_read_max_facts") == "settings.werkzeuge.limits"
 
     def test_eine_unbekannte_zahl_haengt_an_keinem_recht(self):
         assert tn.permission_for("gibt_es_nicht") is None

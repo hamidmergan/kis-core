@@ -71,7 +71,6 @@ import ToolReleasePage from "../_pages/werkzeuge/release";
 import ToolJobsPage from "../_pages/werkzeuge/jobs";
 import GrenzenMaterialPage from "../_pages/grenzen/material";
 import GrenzenKontextPage from "../_pages/grenzen/kontext";
-import GrenzenZusammenfassungPage from "../_pages/grenzen/zusammenfassung";
 
 import SourcesPage from "../_pages/assistent/sources";
 import LanguageLevelPage from "../_pages/assistent/language-level";
@@ -149,7 +148,6 @@ export const SECTIONS: AdminSection[] = [
     tabs: [
       { slug: "material", labelKey: "material", Component: GrenzenMaterialPage },
       { slug: "context", labelKey: "kontext", Component: GrenzenKontextPage },
-      { slug: "summary", labelKey: "zusammenfassung", Component: GrenzenZusammenfassungPage },
     ],
   },
   // Read-only numbers sit together, every tab carries its own permission.

@@ -115,6 +115,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Dokument hat {pages} Seiten - max. {max} Seiten erlaubt. Bitte teile das Dokument in kleinere Abschnitte auf.",
         "en": "Document has {pages} pages - max. {max} pages allowed. Please split the document into smaller sections.",
     },
+    "ai.source.tooManyChars": {
+        "de": "Das Dokument hat {chars} Zeichen, erlaubt sind höchstens {max}. Bitte teile es in kleinere Dokumente auf.",
+        "en": "The document has {chars} characters, at most {max} are allowed. Please split it into smaller documents.",
+    },
     "ai.source.serverBusy": {
         "de": "Der Server verarbeitet gerade zu viele Uploads gleichzeitig. Bitte in einem Moment erneut versuchen.",
         "en": "The server is handling too many uploads at once. Please try again in a moment.",
