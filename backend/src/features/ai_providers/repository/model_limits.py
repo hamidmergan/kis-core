@@ -78,8 +78,42 @@ def shrink_model_window(provider_id: int, model_name: str, window_tokens: int) -
                    VALUES (%s, %s, %s, 'gelernt', NOW())
                    ON CONFLICT (provider_id, model_name) DO UPDATE
                        SET window_tokens = LEAST(NULLIF(model_limits.window_tokens, 0), EXCLUDED.window_tokens),
-                           source        = 'gelernt',
+                           source        = CASE WHEN EXCLUDED.window_tokens
+                                                     < COALESCE(NULLIF(model_limits.window_tokens, 0), EXCLUDED.window_tokens + 1)
+                                                THEN 'gelernt' ELSE model_limits.source END,
                            updated_at    = NOW()""",
                 (provider_id, model_name, int(window_tokens)),
+            )
+            conn.commit()
+
+
+def set_manual_window(provider_id: int, model_name: str, window_tokens: int) -> None:
+    """Stores the window an admin entered, what was measured about thinking stays."""
+    if not provider_id or not model_name or window_tokens <= 0:
+        return
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """INSERT INTO model_limits
+                       (provider_id, model_name, window_tokens, source, updated_at)
+                   VALUES (%s, %s, %s, 'gesetzt', NOW())
+                   ON CONFLICT (provider_id, model_name) DO UPDATE
+                       SET window_tokens = EXCLUDED.window_tokens,
+                           source        = 'gesetzt',
+                           updated_at    = NOW()""",
+                (provider_id, model_name, int(window_tokens)),
+            )
+            conn.commit()
+
+
+def delete_model_limit(provider_id: int, model_name: str) -> None:
+    """Forgets everything about this model, the next use measures it again."""
+    if not provider_id or not model_name:
+        return
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM model_limits WHERE provider_id = %s AND model_name = %s",
+                (provider_id, model_name),
             )
             conn.commit()

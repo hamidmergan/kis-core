@@ -4,13 +4,14 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { DotsThreeVertical } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
-import type { Feature, FeatureRoute, Provider, ProviderMeta, Sampling } from "./_types";
+import type { Feature, FeatureRoute, ModelWindows, Provider, ProviderMeta, Sampling } from "./_types";
 import {
   clearAllProviders,
   createProvider,
   deleteProvider,
   fetchAffectedFeatures,
   fetchMeta,
+  fetchModelWindows,
   fetchProviders,
   fetchRoutes,
   importConfig,
@@ -38,6 +39,7 @@ export default function ProvidersTab({ only }: { only?: "list" | "routes" } = {}
   const [meta, setMeta] = useState<ProviderMeta | null>(null);
   const [providers, setProviders] = useState<Provider[]>([]);
   const [routes, setRoutes] = useState<FeatureRoute[]>([]);
+  const [modelWindows, setModelWindows] = useState<ModelWindows | null>(null);
   const [loading, setLoading] = useState(true);
   const [dialog, setDialog] = useState<DialogState>({ open: false });
   const [clearAllOpen, setClearAllOpen] = useState(false);
@@ -47,10 +49,13 @@ export default function ProvidersTab({ only }: { only?: "list" | "routes" } = {}
   >(null);
 
   const refreshAll = useCallback(async () => {
-    const [m, p, r] = await Promise.all([fetchMeta(), fetchProviders(), fetchRoutes()]);
+    const [m, p, r, w] = await Promise.all([
+      fetchMeta(), fetchProviders(), fetchRoutes(), fetchModelWindows(),
+    ]);
     setMeta(m);
     setProviders(p);
     setRoutes(r);
+    setModelWindows(w);
   }, []);
 
   useEffect(() => {
@@ -340,6 +345,8 @@ export default function ProvidersTab({ only }: { only?: "list" | "routes" } = {}
         onDelete={handleDelete}
         onToggleEnabled={handleToggleEnabled}
         onOpenExportImport={handleOpenExportImport}
+        modelWindows={modelWindows}
+        onWindowSaved={refreshAll}
       />}
 
       {only !== "list" && providers.length > 0 && (

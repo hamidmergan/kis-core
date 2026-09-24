@@ -463,6 +463,14 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "{feld} muss zwischen {min} und {max} liegen.",
         "en": "{feld} must be between {min} and {max}.",
     },
+    "admin.providers.windowNoModel": {
+        "de": "Ohne Modellnamen gibt es kein Kontextfenster.",
+        "en": "A context window needs a model name.",
+    },
+    "admin.providers.windowOutOfRange": {
+        "de": "Das Kontextfenster muss zwischen {min} und {max} Token liegen.",
+        "en": "The context window must be between {min} and {max} tokens.",
+    },
     "admin.providers.testNoProvider": {
         "de": "Kein Anbieter für diese Funktion ausgewählt.",
         "en": "No provider selected for this feature.",

@@ -1905,6 +1905,20 @@
       "defaultVoice": {
         "label": "Default voice",
         "orphaned": "The saved voice no longer exists. Until a new one is picked, the first in the list applies."
+      },
+      "windows": {
+        "title": "Context window in tokens",
+        "help": "This many tokens the model can read at once. KIS measures it itself. If the measurement fails, the field stays empty and the system assumes a cautious default. A number you enter is never overwritten by a measurement. Clear the field and KIS measures again.",
+        "empty": "unknown",
+        "fieldLabel": "Context window of {model}",
+        "measuring": "measuring…",
+        "notANumber": "Please enter a whole number.",
+        "source": {
+          "gemessen": "measured automatically",
+          "gesetzt": "entered by hand",
+          "gelernt": "learned from a rejection",
+          "unbekannt": "not measurable, assumed by the system: {fallback}"
+        }
       }
     },
     "settings": {

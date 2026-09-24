@@ -66,6 +66,19 @@ export type ModelLimits = {
   tool_context_chars: number;
 };
 
+/** The window of one provider and model, null when nothing is known. */
+export type ModelWindow = {
+  provider_id: number;
+  model_name: string;
+  window_tokens: number | null;
+  source: ModelLimits["source"];
+};
+
+export type ModelWindows = {
+  models: ModelWindow[];
+  unmeasured_window_tokens: number;
+};
+
 // Temperatur und top_p je Anbieter, fehlender Wert heisst nichts mitsenden.
 export type Sampling = { temperature?: number; top_p?: number };
 

@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { ArrowsClockwise, Cube, NotePencil, Plus, Trash, UploadSimple } from "@phosphor-icons/react";
 import StatusMark from "@/components/ui/StatusMark";
-import type { Provider } from "./_types";
+import ModelWindowList from "./ModelWindowList";
+import type { ModelWindows, Provider } from "./_types";
 
 const _PROBE_ERROR_CODES = new Set([
   "unreachable",
@@ -21,6 +22,8 @@ type Props = {
   onDelete: (p: Provider) => void;
   onToggleEnabled: (p: Provider, enabled: boolean) => Promise<void> | void;
   onOpenExportImport: (initialTab: "export" | "import") => void;
+  modelWindows: ModelWindows | null;
+  onWindowSaved: () => Promise<void> | void;
 };
 
 export default function ProviderListCard({
@@ -31,6 +34,8 @@ export default function ProviderListCard({
   onDelete,
   onToggleEnabled,
   onOpenExportImport,
+  modelWindows,
+  onWindowSaved,
 }: Props) {
   const t = useTranslations("admin.providers");
 
@@ -70,6 +75,13 @@ export default function ProviderListCard({
               onProbe={() => onProbe(p)}
               onDelete={() => onDelete(p)}
               onToggleEnabled={(enabled) => onToggleEnabled(p, enabled)}
+              windows={
+                <ModelWindowList
+                  models={modelWindows?.models.filter((m) => m.provider_id === p.id) ?? []}
+                  fallbackTokens={modelWindows?.unmeasured_window_tokens ?? 0}
+                  onSaved={onWindowSaved}
+                />
+              }
             />
           ))}
         </div>
@@ -120,12 +132,14 @@ function ProviderRow({
   onProbe,
   onDelete,
   onToggleEnabled,
+  windows,
 }: {
   provider: Provider;
   onEdit: () => void;
   onProbe: () => Promise<void> | void;
   onDelete: () => void;
   onToggleEnabled: (enabled: boolean) => Promise<void> | void;
+  windows: React.ReactNode;
 }) {
   const t = useTranslations("admin.providers");
   const [probing, setProbing] = useState(false);
@@ -153,7 +167,7 @@ function ProviderRow({
 
   return (
     <div className="grid grid-cols-[auto_1fr_auto] gap-4 items-center py-4">
-      <div className={`w-9 h-9 bg-surface border border-border-soft rounded-lg flex items-center justify-center text-kb ${dimmed}`}>
+      <div className={`self-start w-9 h-9 bg-surface border border-border-soft rounded-lg flex items-center justify-center text-kb ${dimmed}`}>
         <Cube size={18} weight="bold" />
       </div>
       <div className={`min-w-0 ${dimmed}`}>
@@ -186,6 +200,7 @@ function ProviderRow({
               : provider.probe_error}
           </p>
         )}
+        {windows}
       </div>
       <div className="flex items-center gap-2">
         <button

@@ -1905,6 +1905,20 @@
       "defaultVoice": {
         "label": "Standardstimme",
         "orphaned": "Die gespeicherte Stimme gibt es nicht mehr. Bis eine neue gewählt ist, gilt die erste aus der Liste."
+      },
+      "windows": {
+        "title": "Kontextfenster in Token",
+        "help": "So viele Token kann das Modell auf einmal lesen. KIS misst das selbst. Klappt die Messung nicht, bleibt das Feld leer und das System rechnet vorsichtig mit einem Standardwert. Eine eigene Zahl überschreibt keine Messung. Leerst du das Feld, misst KIS neu.",
+        "empty": "unbekannt",
+        "fieldLabel": "Kontextfenster von {model}",
+        "measuring": "wird gemessen…",
+        "notANumber": "Bitte eine ganze Zahl eintragen.",
+        "source": {
+          "gemessen": "automatisch gemessen",
+          "gesetzt": "von Hand eingetragen",
+          "gelernt": "aus einer Absage gelernt",
+          "unbekannt": "nicht messbar, vom System angenommen: {fallback}"
+        }
       }
     },
     "settings": {

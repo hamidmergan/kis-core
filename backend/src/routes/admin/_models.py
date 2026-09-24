@@ -128,6 +128,12 @@ class SetFeatureRouteRequest(BaseModel):
     provider_sampling: dict[str, dict[str, float]] | None = None
 
 
+class SetModelWindowRequest(BaseModel):
+    provider_id: int
+    model_name: str
+    window_tokens: int | None = None  # null goes back to measuring
+
+
 # ─── Export/Import schema ──────────────────────────────────────────────────
 
 class ExportedProvider(BaseModel):

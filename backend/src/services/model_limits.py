@@ -39,6 +39,8 @@ CHAT_LIKE_FEATURES = frozenset({"chat", "vision", "ocr", "doc_translate", "trans
 QUELLE_GEMESSEN = "gemessen"
 QUELLE_UNBEKANNT = "unbekannt"
 QUELLE_GELERNT = "gelernt"
+# Entered by an admin, no measurement overwrites it, only a real refusal shrinks it.
+QUELLE_GESETZT = "gesetzt"
 
 # The probe: an impossible request whose refusal names the window.
 _PROBE_MAX_TOKENS = 99_999_999
@@ -318,6 +320,9 @@ def remeasure(provider: dict, model: str) -> ModelProfile | None:
         return None
 
     _failed_at.pop((provider_id, model), None)
+    gemerkt = stored_profile(provider_id, model)
+    if gemerkt is not None and gemerkt.source == QUELLE_GESETZT:
+        profil.window_tokens, profil.source = gemerkt.window_tokens, gemerkt.source
     from src import database as db
     try:
         db.set_model_limit(
@@ -334,6 +339,19 @@ def remeasure(provider: dict, model: str) -> ModelProfile | None:
         model, profil.window_tokens, profil.source, profil.thinks, profil.think_off,
     )
     return profil
+
+
+def set_window_by_hand(provider: dict, model: str, window_tokens: int | None) -> ModelProfile:
+    """An admin's window for this model, or with ``None`` back to measuring."""
+    provider_id = (provider or {}).get("id")
+    from src import database as db
+    if window_tokens:
+        db.set_manual_window(provider_id, model, window_tokens)
+        return stored_profile(provider_id, model) or ModelProfile(
+            window_tokens, QUELLE_GESETZT, False, "")
+    db.delete_model_limit(provider_id, model)
+    _failed_at.pop((provider_id, model), None)
+    return ensure_profile(provider, model)
 
 
 def as_dict(profile: ModelProfile | None) -> dict | None:

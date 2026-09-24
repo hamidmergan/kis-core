@@ -5,6 +5,8 @@ import type {
   FeatureRoute,
   ImportPreviewResult,
   ImportResult,
+  ModelWindow,
+  ModelWindows,
   Provider,
   ProviderMeta,
   Sampling,
@@ -127,6 +129,26 @@ export async function setFeatureRoute(
   });
   const data = await jsonOrThrow<{ route: FeatureRoute }>(res);
   return data.route;
+}
+
+export async function fetchModelWindows(): Promise<ModelWindows> {
+  const res = await fetch(`${BASE}/model-windows`, { credentials: "include" });
+  return jsonOrThrow<ModelWindows>(res);
+}
+
+/** Null clears the entry, the backend then measures again. */
+export async function setModelWindow(
+  providerId: number,
+  modelName: string,
+  windowTokens: number | null,
+): Promise<ModelWindow> {
+  const res = await fetch(`${BASE}/model-windows`, {
+    method: "PUT",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ provider_id: providerId, model_name: modelName, window_tokens: windowTokens }),
+  });
+  return jsonOrThrow<ModelWindow>(res);
 }
 
 export type FeatureTestResult = {
