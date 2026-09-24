@@ -126,3 +126,16 @@ class TestFaktennummern:
 
 
 
+
+
+class TestAbdeckung:
+    def test_mehrere_dateien_muessen_alle_vorkommen(self):
+        system = gliederung.build_messages("Q", PraesentationParams(), ROLLEN,
+                                           dateien=["a.pdf", "b.pdf"], ziel=26)[0]["content"]
+        assert "2 files: a.pdf, b.pdf" in system and "EVERY one" in system
+        assert "Plan around 26 slides" in system
+
+    def test_eine_fehlende_datei_wird_beim_zweiten_versuch_genannt(self):
+        user = gliederung.build_messages("Q", PraesentationParams(), ROLLEN,
+                                         fehlt=["b.pdf"])[1]["content"]
+        assert user.rstrip().endswith("how much of the material it holds: b.pdf")

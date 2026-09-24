@@ -1504,6 +1504,7 @@
       "failed": "Fehler",
       "running": "Läuft",
       "queued": "In der Warteschlange",
+      "waitingRetry": "Neuer Anlauf",
       "pending": "Wartend"
     },
     "pending": {

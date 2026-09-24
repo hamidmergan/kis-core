@@ -154,6 +154,43 @@ class TestOutline:
         _outline.run_praesentation_outline.run(JOB, UID, "de")
         assert len(st.outline.rows) == 5
 
+    def _zwei_dateien(self):
+        from src.services.source_reading import Piece, Source
+
+        class _Zwei(_Quellen):
+            def load_sources(self, u, j):
+                return [Source(dateiname=n, fassung="x", text="Text", seiten=1,
+                               stuecke=[Piece(seite=1, von=0, bis=4)]) for n in ("a.pdf", "b.pdf")]
+        return _Zwei()
+
+    def _mit_refs(self, *refs):
+        rollen = ["deckblatt"] + ["text"] * len(refs) + ["abschluss"]
+        eintraege = [[]] + [list(r) for r in refs] + [[]]
+        return json.dumps({"title": "Deck", "slides": [
+            {"role": r, "title": f"T{i}", "gist": "g", "refs": e}
+            for i, (r, e) in enumerate(zip(rollen, eintraege))]})
+
+    def test_eine_ausgelassene_datei_wird_einmal_nachgefordert(self, umgebung):
+        st, db = _Store(None), _Db()
+        llm = _Llm([self._mit_refs([1], [1]), self._mit_refs([1], [2])])
+        umgebung.setattr(_outline, "store", st)
+        umgebung.setattr(_outline, "quellen", self._zwei_dateien())
+        umgebung.setattr(_outline, "db", db)
+        umgebung.setattr(_outline, "call_json_llm", llm)
+        _outline.run_praesentation_outline.run(JOB, UID, "de")
+        assert [r.stellen for r in st.outline.rows[1:-1]] == [[1], [2]]
+        assert llm.antworten == []
+
+    def test_bleibt_die_luecke_gilt_der_bessere_versuch(self, umgebung):
+        st, db = _Store(None), _Db()
+        umgebung.setattr(_outline, "store", st)
+        umgebung.setattr(_outline, "quellen", self._zwei_dateien())
+        umgebung.setattr(_outline, "db", db)
+        umgebung.setattr(_outline, "call_json_llm",
+                         _Llm([self._mit_refs([1], [1]), "Quatsch"]))
+        _outline.run_praesentation_outline.run(JOB, UID, "de")
+        assert [r.stellen for r in st.outline.rows[1:-1]] == [[1], [1]]
+
     def test_zweimal_unbrauchbar_ist_fehlgeschlagen(self, umgebung):
         st, db = _Store(None), _Db()
         umgebung.setattr(_outline, "store", st)

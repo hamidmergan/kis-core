@@ -7,6 +7,7 @@ from loguru import logger
 from src import database as db
 from src.celery_app import celery_app
 from src.features.praesentation import gliederung, store, vorlage
+from src.features.praesentation.schemas import FOLIEN_GRENZEN
 from src.i18n import t
 from src.limits import STAGE_SOFT_TIME_LIMIT, STAGE_TIME_LIMIT
 from src.services import feature_router
@@ -94,20 +95,40 @@ def run_praesentation_outline(self, job_uuid: str, user_id: int, locale: str = "
         letzter = ""
         with job_heartbeat(job_uuid):
             g = _grundlage(user_id, job_uuid, karte, params.language, llm)
-            nachrichten = gliederung.build_messages(g.material, params, rollen, g.modus)
+            dateien = [q.dateiname for q in quellenliste if q.stuecke]
+            ziel = tm.ziel_eintraege(sum(len(q.text) for q in quellenliste), *FOLIEN_GRENZEN,
+                                     grund=8, je=20_000)
+            fehlt: list[str] = []
+            outline = None
+            hinweis: list[str] = []
             for versuch_nr in range(1, _VERSUCHE + 1):
                 assert_not_cancelled(job_uuid)
+                nachrichten = gliederung.build_messages(g.material, params, rollen, g.modus,
+                                                        dateien=dateien, ziel=ziel, fehlt=hinweis)
                 antwort = call_json_llm(llm, nachrichten, endpoint="praesentation").choices[0].message.content or ""
                 try:
-                    outline = gliederung.parse_answer(antwort, rollen,
-                                                      lambda refs: g.stellen(refs, karte))
-                    break
+                    kandidat = gliederung.parse_answer(antwort, rollen,
+                                                       lambda refs: g.stellen(refs, karte))
                 except gliederung.Unusable as e:
                     letzter = str(e)
                     logger.warning("Präsentation {}: Gliederung Versuch {} unbrauchbar: {}", job_uuid[:8], versuch_nr, e)
-            else:
+                    continue
+                # Only a deck over several files can leave one out.
+                luecken = (tm.zu_kurz([r.stellen for r in kandidat.rows], karte)
+                           if len(dateien) > 1 else [])
+                if outline is None or len(luecken) < len(fehlt):
+                    outline, fehlt = kandidat, luecken
+                if not fehlt:
+                    break
+                # A deck that skips a whole file is kept only when the retry does no better.
+                hinweis = [f"{n} ({a} % of the material)" for n, a in luecken]
+                logger.warning("Präsentation {}: Gliederung Versuch {} gibt zu wenig Gewicht: {}",
+                               job_uuid[:8], versuch_nr, ", ".join(hinweis))
+            if outline is None:
                 raise RuntimeError(letzter or "Das Modell lieferte keine brauchbare Gliederung")
 
+        logger.info("Präsentation {}: Gliederung nennt {:.0%} der Stellen", job_uuid[:8],
+                    tm.abdeckung([r.stellen for r in outline.rows], len(karte)))
         store.save_outline(user_id, job_uuid, outline)
         store.save_user_outline(user_id, job_uuid, outline)
         # The tool has no outline step to stop at, so the slides follow without a further click.

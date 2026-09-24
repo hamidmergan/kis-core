@@ -26,7 +26,8 @@ class Unusable(RuntimeError):
 
 
 def build_messages(material: str, params: PraesentationParams, rollen: list[str],
-                   modus: str = "stellen") -> list[dict]:
+                   modus: str = "stellen", *, dateien: list[str] | None = None,
+                   ziel: int | None = None, fehlt: list[str] | None = None) -> list[dict]:
     """The outline call, one entry per slide, planned over the numbered material."""
     from src.services.text_map import hinweis
 
@@ -37,24 +38,34 @@ def build_messages(material: str, params: PraesentationParams, rollen: list[str]
         "You plan slide decks for university teaching. From the material you pick what matters "
         "and lay it out as an outline, one entry per slide.\n"
         f"Write every title and gist in {SPRACHE.get(params.language, 'German')}.\n"
-        "Decide yourself how many slides the material carries: one chapter usually makes 10 to 20 "
-        f"slides, more material makes more. The deck has at least {lo} and at most {hi} slides in "
+        + (f"Plan around {ziel} slides for this amount of material. " if ziel else
+           "Decide yourself how many slides the material carries: one chapter usually makes "
+           "10 to 20 slides, more material makes more. ")
+        + f"The deck has at least {lo} and at most {hi} slides in "
         "total. The first is the cover (role deckblatt), the last is the closing slide (role "
         "abschluss). For every slide in between choose one of these roles:\n"
         f"{rollen_text}\n"
         "Vary the roles: never the same role on two neighbouring slides except text, and use every "
         "role at least once when the material allows. Roles with an illustration suit topics a "
         "picture can explain, not definitions.\n"
-        f"{hinweis(modus)} Every slide carries its own refs, the slides together should cover "
-        "what matters in the whole material. A slide that draws on everything, such as an "
-        "agenda or the closing slide, carries an empty list.\n"
-        'Answer with one JSON object only: {"title": "...", "subtitle": "...", "slides": '
+        f"{hinweis(modus)} Every slide carries its own refs, the slides together cover "
+        "what matters in the whole material. Work through the material to its last number "
+        "before you settle the slides. A slide that draws on everything, such as an agenda "
+        "or the closing slide, carries an empty list.\n"
+        + (f"The material comes from {len(dateien)} files: {', '.join(dateien)}. EVERY one of "
+           "them gets slides of its own, in proportion to how much it holds.\n"
+           if dateien and len(dateien) > 1 else "")
+        + 'Answer with one JSON object only: {"title": "...", "subtitle": "...", "slides": '
         f'[{eintrag}]}}. The gist is one sentence saying what '
         "the slide shows."
     )
     aufgabe = f"/no_think\nMATERIAL:\n{material}\n"
     if params.instructions.strip():
         aufgabe += f"\nINSTRUCTION FROM THE TEACHER: {params.instructions.strip()}"
+    if fehlt:
+        aufgabe += ("\nYOUR LAST OUTLINE GAVE THESE FILES FAR TOO LITTLE ROOM. Give each a "
+                    "share of the slides that matches how much of the material it holds: "
+                    + ", ".join(fehlt))
     return [{"role": "system", "content": system}, {"role": "user", "content": aufgabe}]
 
 

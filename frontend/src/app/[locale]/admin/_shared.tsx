@@ -45,7 +45,7 @@ export function JobStatusBadge({ status }: { status: string }) {
   const tone = anzeige.kind === "action" ? "warn" : anzeige.tone;
   return (
     <StatusMark tone={tone} pulse={anzeige.kind === "mark" && anzeige.pulse} className="text-xs">
-      {t(key as "success" | "failed" | "running" | "queued" | "pending")}
+      {t(key as "success" | "failed" | "running" | "queued" | "pending" | "waitingRetry")}
     </StatusMark>
   );
 }

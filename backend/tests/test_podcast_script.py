@@ -330,3 +330,19 @@ class TestPlan:
         from src.features.podcast.script import plan_messages
         system = plan_messages("[1] Text", "stellen", _params(), 3)[0]["content"]
         assert "exactly 3 consecutive parts" in system and "numbered passages" in system
+
+
+class TestNahtstelle:
+    def test_der_neue_teil_beginnt_mit_jemand_anderem(self):
+        bisher = [Line(speaker=0, text="A."), Line(speaker=1, text="B.")]
+        user = build_messages("M", _params(), anzahl=13, teil=2, teile=3, plan="p",
+                              bisher=bisher)[1]["content"]
+        assert "Der letzte Beitrag bisher kam von speaker 1" in user
+
+    def test_die_teile_werden_nie_erwaehnt(self):
+        user = build_messages("M", _params(), anzahl=14, teil=1, teile=3, plan="p")[1]["content"]
+        assert "erwähne nie einen Teil" in user
+
+    def test_eine_folge_aus_einem_teil_braucht_die_regel_nicht(self):
+        user = build_messages("M", _params(length="short"))[1]["content"]
+        assert "erwähne nie einen Teil" not in user

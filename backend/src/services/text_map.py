@@ -18,7 +18,9 @@ from dataclasses import dataclass
 from typing import Callable
 
 from src.limits import (
+    MAP_FILE_WEIGHT_FLOOR,
     MAP_MAX_REFS,
+    MAP_MIN_FILE_SHARE,
     MAP_MAX_TOPICS_PER_PART,
     MAP_MIN_WINDOW_TOKENS,
     MAP_OUTPUT_TOKENS,
@@ -196,6 +198,65 @@ class Karte:
         return "\n\n".join(teile)
 
 
+def abdeckung(listen: list[list[int]], gesamt: int) -> float:
+    """Which share of all passages the entries of a plan name, from 0 to 1."""
+    if not gesamt:
+        return 1.0
+    return len({n for liste in listen for n in liste if 1 <= n <= gesamt}) / gesamt
+
+
+def fehlende_dateien(listen: list[list[int]], karte: "Karte") -> list[str]:
+    """The files no entry of a plan draws on, a plan that skips one is not usable."""
+    genannt = {karte.stelle(n).source for liste in listen for n in liste if 1 <= n <= len(karte)}
+    return [q.dateiname for i, q in enumerate(karte.sources) if q.stuecke and i not in genannt]
+
+
+def zu_kurz(listen: list[list[int]], karte: "Karte") -> list[tuple[str, int]]:
+    """The files a plan hardly draws on, with the share of the material they hold.
+
+    Naming one passage of a file is not covering it: an entry follows its title, and a
+    file that only turns up in a stray number is talked over. A file gets at least a
+    quarter of the weight it has in the material, files below a twentieth are spared.
+    """
+    genannt = [n for liste in listen for n in set(liste) if 1 <= n <= len(karte)]
+    if not genannt or not len(karte):
+        return []
+    aus: list[tuple[str, int]] = []
+    for i, q in enumerate(karte.sources):
+        anteil_text = len(q.stuecke) / len(karte)
+        if anteil_text < MAP_MIN_FILE_SHARE:
+            continue
+        anteil_plan = sum(1 for n in genannt if karte.stelle(n).source == i) / len(genannt)
+        if anteil_plan < anteil_text * MAP_FILE_WEIGHT_FLOOR:
+            aus.append((q.dateiname, round(anteil_text * 100)))
+    return aus
+
+
+def ziel_eintraege(zeichen: int, lo: int, hi: int, *, grund: int, je: int) -> int:
+    """How many entries the material carries, a target the planner may deviate from."""
+    return max(lo, min(hi, grund + zeichen // je))
+
+
+def abdecken(listen: list[list[int]], gesamt: int) -> list[list[int]]:
+    """Every passage no entry names goes to the entry whose numbers lie closest.
+
+    A plan that leaves a stretch of the text out would lose it for good, the writer only
+    ever sees what its entry names. Entries without numbers stay as they are, they rest
+    on the whole anyway.
+    """
+    genannt = {n for liste in listen for n in liste}
+    mit = [i for i, liste in enumerate(listen) if liste]
+    if not mit:
+        return [list(liste) for liste in listen]
+    aus = [list(liste) for liste in listen]
+    for n in range(1, gesamt + 1):
+        if n in genannt:
+            continue
+        naechster = min(mit, key=lambda i: min(abs(n - m) for m in listen[i]))
+        aus[naechster].append(n)
+    return [sorted(liste) for liste in aus]
+
+
 def _nummern(roh, hoechste: int) -> list[int]:
     if not isinstance(roh, list):
         return []
@@ -234,9 +295,9 @@ def hinweis(modus: str) -> str:
         )
     return (
         'The material is the full text, cut into numbered passages written as "[n] text". '
-        "Under \"refs\" name the numbers of the passages an entry draws on, as integers or "
-        'as ranges written "12-15". Name every passage the entry needs, usually 3 to 15, '
-        "and only numbers that appear in the material."
+        "Under \"refs\" name the passages an entry draws on. Write neighbouring numbers as "
+        'one range such as "12-18" instead of listing them, and keep refs short: at most '
+        "10 entries. Name only numbers that appear in the material."
     )
 
 

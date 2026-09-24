@@ -1504,6 +1504,7 @@
       "failed": "Failed",
       "running": "Running",
       "queued": "Queued",
+      "waitingRetry": "Retrying",
       "pending": "Pending"
     },
     "pending": {

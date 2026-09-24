@@ -33,6 +33,7 @@ from src.utils.heartbeat import job_heartbeat
 _VERSUCHE = 2
 
 _MAP_FILE = "grundlage.json"
+_PLAN_FILE = "plan.json"
 # The last contributions a part sees of what came before it.
 _BISHER_ZEILEN = 4
 
@@ -96,14 +97,47 @@ def _mit_versuchen(llm, nachrichten: list[dict], lesen, job_uuid: str, was: str)
     raise RuntimeError(letzter or f"Das Modell lieferte kein brauchbares Ergebnis ({was})")
 
 
-def _schreiben(llm, karte: tm.Karte, g: tm.Grundlage, params, job_uuid: str) -> list[Line]:
+def _planen(llm, karte: tm.Karte, g: tm.Grundlage, params, teile: int, job_uuid: str) -> list[dict]:
+    """The episode in parts. A plan that leaves out a whole file is asked for once more.
+
+    Filling the passages in afterwards is not enough: a part follows its title, and a
+    file no title names is talked over even when its text is right there.
+    """
+    dateien = [q.dateiname for q in karte.sources if q.stuecke]
+    bester: list[dict] | None = None
+    fehlt: list[str] = []
+    hinweis: list[str] = []
+    for versuch_nr in range(1, _VERSUCHE + 1):
+        plan = _mit_versuchen(
+            llm, skript.plan_messages(g.material, g.modus, params, teile, dateien, hinweis),
+            lambda roh: skript.parse_plan(roh, lambda refs: g.stellen(refs, karte), teile),
+            job_uuid, "Plan")
+        luecken = (tm.zu_kurz([p["stellen"] for p in plan], karte)
+                   if len(dateien) > 1 else [])
+        if bester is None or len(luecken) < len(fehlt):
+            bester, fehlt = plan, luecken
+        if not fehlt:
+            break
+        hinweis = [f"{n} ({a} % of the material)" for n, a in luecken]
+        logger.warning("Podcast {}: Plan Versuch {} gibt zu wenig Gewicht: {}", job_uuid[:8],
+                       versuch_nr, ", ".join(f"{n} ({a} %)" for n, a in luecken))
+    return bester
+
+
+def _schreiben(llm, karte: tm.Karte, g: tm.Grundlage, params, job_uuid: str,
+               user_id: int | None = None) -> list[Line]:
     """Plan the episode in parts, then write part after part from its own passages."""
     gesamt, _je = LENGTH_PLAN.get(params.length, LENGTH_PLAN["medium"])
     teile = max(1, math.ceil(gesamt / PODCAST_LINES_PER_CALL))
-    plan = _mit_versuchen(
-        llm, skript.plan_messages(g.material, g.modus, params, teile),
-        lambda roh: skript.parse_plan(roh, lambda refs: g.stellen(refs, karte), teile),
-        job_uuid, "Plan")
+    plan = _planen(llm, karte, g, params, teile, job_uuid)
+    if user_id is not None:
+        # Kept for the record, the plan is what decides which file an episode talks about.
+        write_job_text(user_id, job_uuid, _PLAN_FILE, json.dumps(plan, ensure_ascii=False))
+    logger.info("Podcast {}: Plan mit {} Teil(en) nennt {:.0%} der Stellen", job_uuid[:8],
+                len(plan), tm.abdeckung([p["stellen"] for p in plan], len(karte)))
+    # What the plan leaves out goes to the nearest part, the budget still bounds each call.
+    for teil, stellen in zip(plan, tm.abdecken([p["stellen"] for p in plan], len(karte))):
+        teil["stellen"] = stellen
     laengen = skript.teil_laengen(gesamt, len(plan))
     uebersicht = "\n".join(f"{i + 1}. {p['title']}: {p['gist']}" for i, p in enumerate(plan))
     zeilen: list[Line] = []
@@ -162,7 +196,7 @@ def run_podcast_script(self, job_uuid: str, user_id: int, locale: str = "de",
             zahlen["personen"] = len(params.persons)
             zahlen["rollen"] = ", ".join(person.role for person in params.persons)
             g = _grundlage(user_id, job_uuid, karte, params, llm)
-            zeilen = _schreiben(llm, karte, g, params, job_uuid)
+            zeilen = _schreiben(llm, karte, g, params, job_uuid, user_id)
             zahlen["beitraege"] = len(zeilen)
 
         zeilen = store.next_ids(zeilen)

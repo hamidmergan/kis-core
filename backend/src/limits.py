@@ -231,10 +231,15 @@ MAP_UNMEASURED_WINDOW_TOKENS = 131_072
 # Themen je Teil, wenn der Text nicht in einen Planungsaufruf passt.
 MAP_MAX_TOPICS_PER_PART  = 25
 # Stellen je Eintrag einer Gliederung, und wie weit ein Bereich wie "12-15" reichen darf.
-MAP_MAX_REFS             = 40
-MAP_RANGE_MAX            = 20
-# Originaltext, den ein Schreibaufruf fuer einen Teil bekommt. Lesen kostet kaum Zeit.
-MAP_MATERIAL_MAX_CHARS   = 60_000
+MAP_MAX_REFS             = 60
+MAP_RANGE_MAX            = 40
+# Originaltext, den ein Schreibaufruf bekommt. Lesen kostet kaum Zeit, 150k Zeichen
+# sind etwa 50.000 Token und passen auch in ein 128k-Fenster.
+MAP_MATERIAL_MAX_CHARS   = 150_000
+# Ein Plan gibt jeder Datei mindestens ein Viertel ihres Gewichts im Material, sonst
+# wird er einmal nachgefordert. Dateien unter einem Zwanzigstel sind ausgenommen.
+MAP_FILE_WEIGHT_FLOOR    = 0.25
+MAP_MIN_FILE_SHARE       = 0.05
 # Stuecke davor und danach, die jede Stelle mitbringt.
 MAP_PASSAGE_NEIGHBOURS   = 1
 # Was ein Schreibaufruf hoechstens schreiben soll: (270 s - 15 s Lesen) mal 10 Token/s.

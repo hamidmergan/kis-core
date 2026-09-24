@@ -117,6 +117,10 @@ def build_messages(source: str, params: PodcastParams, *, anzahl: int | None = N
             + f"- Ein Beitrag ist ein gesprochener Absatz von etwa {je} Wörtern, nie mehr als 90.\n"
             + _rahmen_de(teil, teile)
             + ("- Wiederhole nichts, was bisher schon gesagt wurde.\n" if bisher else "")
+            + (f"- Der letzte Beitrag bisher kam von speaker {bisher[-1].speaker}, dein erster "
+               "Beitrag kommt von jemand anderem.\n" if bisher and not allein else "")
+            + ("- Die Teile sind nur Arbeitsschritte. Für die Hörer ist es ein einziges "
+               "Gespräch, erwähne nie einen Teil.\n" if teile > 1 else "")
             + "- Keine Regieanweisungen, keine Namen vor dem Text, keine Zwischenüberschriften.\n"
             "- Zahlen und Formeln ausschreiben, der Text wird vorgelesen.\n"
             "- Die Zeilen in eckigen Klammern im Material nennen nur Datei und Seite, lies sie nie vor.\n"
@@ -144,6 +148,10 @@ def build_messages(source: str, params: PodcastParams, *, anzahl: int | None = N
             + f"- One contribution is one spoken paragraph of about {je} words, never more than 90.\n"
             + _rahmen_en(teil, teile)
             + ("- Repeat nothing that was already said.\n" if bisher else "")
+            + (f"- The last contribution so far was by speaker {bisher[-1].speaker}, your first "
+               "contribution comes from someone else.\n" if bisher and not allein else "")
+            + ("- The parts are only working steps. For the listeners it is one single "
+               "conversation, never mention a part.\n" if teile > 1 else "")
             + "- No stage directions, no names before the text, no headings.\n"
             "- Spell out numbers and formulas, the text is read aloud.\n"
             "- The lines in square brackets in the material only name file and page, never read them out.\n"
@@ -155,7 +163,9 @@ def build_messages(source: str, params: PodcastParams, *, anzahl: int | None = N
     return [{"role": "system", "content": system}, {"role": "user", "content": aufgabe}]
 
 
-def plan_messages(material: str, modus: str, params: PodcastParams, teile: int) -> list[dict]:
+def plan_messages(material: str, modus: str, params: PodcastParams, teile: int,
+                  dateien: list[str] | None = None,
+                  fehlt: list[str] | None = None) -> list[dict]:
     """The episode laid out in parts, each with the passages it talks about."""
     from src.services.text_map import hinweis
 
@@ -165,12 +175,18 @@ def plan_messages(material: str, modus: str, params: PodcastParams, teile: int) 
         f"matters and lay the episode out in exactly {teile} consecutive parts, "
         "each with its own subject, so that together they tell the material in a sensible "
         f"order.\nWrite titles and gists in {sprache}.\n{hinweis(modus)}\n"
-        'Answer with one JSON object only: {"parts": [{"title": "...", "gist": "...", '
+        + (f"The material comes from {len(dateien)} files: {', '.join(dateien)}. EVERY one of "
+           "them is talked about in the episode.\n" if dateien and len(dateien) > 1 else "")
+        + 'Answer with one JSON object only: {"parts": [{"title": "...", "gist": "...", '
         '"refs": [12, "14-17"]}]}. The gist is one sentence saying what that part covers.'
     )
     aufgabe = f"/no_think\nMATERIAL:\n{material}\n"
     if params.instructions.strip():
         aufgabe += f"\nINSTRUCTION FROM THE TEACHER: {params.instructions.strip()}"
+    if fehlt:
+        aufgabe += ("\nYOUR LAST PLAN GAVE THESE FILES FAR TOO LITTLE ROOM. Give each a "
+                    "share of the episode that matches how much of the material it holds, "
+                    "with parts about it by title: " + ", ".join(fehlt))
     return [{"role": "system", "content": system}, {"role": "user", "content": aufgabe}]
 
 

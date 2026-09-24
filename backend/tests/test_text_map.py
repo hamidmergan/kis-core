@@ -203,3 +203,51 @@ def test_die_grundlage_ueberlebt_den_auftragsordner():
     assert zurueck.themen == g.themen and zurueck.material == "[1] A: k"
     stellen = tm.grundlage_aus_dict({"modus": "stellen", "themen": []}, karte)
     assert stellen.modus == tm.STELLEN and stellen.material == karte.block()
+
+
+# ── Abdeckung ────────────────────────────────────────────────────────────────
+
+def test_die_abdeckung_zaehlt_jede_stelle_einmal():
+    assert tm.abdeckung([[1, 2], [2, 3]], 6) == 0.5
+
+
+def test_ungenannte_stellen_gehen_an_den_naechsten_eintrag():
+    assert tm.abdecken([[1, 2], [9, 10]], 10) == [[1, 2, 3, 4, 5], [6, 7, 8, 9, 10]]
+
+
+def test_ein_eintrag_ohne_stellen_bleibt_leer():
+    assert tm.abdecken([[], [3]], 4) == [[], [1, 2, 3, 4]]
+
+
+def test_ohne_jede_stelle_bleibt_alles_wie_es_ist():
+    assert tm.abdecken([[], []], 3) == [[], []]
+
+
+def test_eine_datei_ohne_stelle_im_plan_fehlt():
+    karte = tm.Karte([_quelle("a.pdf", 3), _quelle("b.pdf", 3)])
+    assert tm.fehlende_dateien([[1, 2], []], karte) == ["b.pdf"]
+    assert tm.fehlende_dateien([[1], [5]], karte) == []
+
+
+def test_die_zielzahl_waechst_mit_dem_material_in_ihren_grenzen():
+    assert tm.ziel_eintraege(60_000, 3, 30, grund=8, je=20_000) == 11
+    assert tm.ziel_eintraege(364_000, 3, 30, grund=8, je=20_000) == 26
+    assert tm.ziel_eintraege(5_000_000, 3, 30, grund=8, je=20_000) == 30
+
+
+def test_eine_eingestreute_nummer_deckt_eine_grosse_datei_nicht_ab():
+    """87 Prozent des Materials, im Plan nur eine von zwanzig Nummern: zu kurz."""
+    karte = tm.Karte([_quelle("agg.pdf", 13), _quelle("amg.pdf", 87)])
+    plan = [list(range(1, 11)), list(range(4, 13)) + [60]]
+    assert tm.zu_kurz(plan, karte) == [("amg.pdf", 87)]
+
+
+def test_ein_anteiliger_plan_ist_nicht_zu_kurz():
+    karte = tm.Karte([_quelle("agg.pdf", 13), _quelle("amg.pdf", 87)])
+    plan = [list(range(1, 9)), list(range(20, 40)), list(range(60, 75))]
+    assert tm.zu_kurz(plan, karte) == []
+
+
+def test_eine_winzige_datei_darf_fehlen():
+    karte = tm.Karte([_quelle("gross.pdf", 97), _quelle("zettel.pdf", 3)])
+    assert tm.zu_kurz([list(range(1, 50))], karte) == []

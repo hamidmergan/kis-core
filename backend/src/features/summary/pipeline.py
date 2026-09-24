@@ -143,6 +143,12 @@ async def _outline(caller: Caller, *, language: str, vorlage: Template, sources:
         target=writing.target_sections(sum(len(q.text) for q in sources) // 10, len(sources)),
         modus=g.modus, stellen=lambda refs: g.stellen(refs, karte))
     if plan.sections:
+        vorher = tm.abdeckung([a.stellen for a in plan.sections], len(karte))
+        voll = tm.abdecken([a.stellen for a in plan.sections], len(karte))
+        for abschnitt, stellen in zip(plan.sections, voll):
+            abschnitt.stellen = stellen
+        logger.info("Zusammenfassung: Plan nennt {:.0%} der Stellen, der Rest geht an den "
+                    "naechsten Abschnitt", vorher)
         store.save_outline(plan.model_dump())
     return plan
 
