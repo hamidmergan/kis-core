@@ -22,6 +22,7 @@ from src.limits import (
     MAP_MAX_REFS,
     MAP_MIN_FILE_SHARE,
     MAP_MAX_TOPICS_PER_PART,
+    MAP_MIN_TOPICS_PER_FILE,
     MAP_MIN_WINDOW_TOKENS,
     MAP_OUTPUT_TOKENS,
     MAP_PROMPT_TOKENS,
@@ -145,6 +146,25 @@ class Karte:
         grenzen.append(len(self) + 1)
         return [range(a, b) for a, b in zip(grenzen, grenzen[1:]) if b > a]
 
+    def abschnitte(self, window_tokens: int) -> list[tuple[range, int]]:
+        """The pieces of the topic stage: the parts, cut again where a file ends.
+
+        Each piece gets topics by its share of the whole, never fewer than a floor. One call
+        over several files lists the first ones and runs out before the last.
+        """
+        teile = self.teile(window_tokens)
+        gesamt = MAP_MAX_TOPICS_PER_PART * len(teile)
+        aus: list[tuple[range, int]] = []
+        for teil in teile:
+            start = teil.start
+            for n in range(teil.start + 1, teil.stop + 1):
+                if n == teil.stop or self.stelle(n).source != self.stelle(n - 1).source:
+                    bereich = range(start, n)
+                    anzahl = max(MAP_MIN_TOPICS_PER_FILE, round(gesamt * len(bereich) / len(self)))
+                    aus.append((bereich, anzahl))
+                    start = n
+        return aus
+
     def _naechste_grenze(self, n: int, start: int) -> int:
         """The first number of the next part: a new file or page close before n, else n + 1."""
         for kandidat in range(n + 1, max(start + 1, n - 30), -1):
@@ -162,23 +182,22 @@ class Karte:
         """
         return _nummern(roh, len(self))
 
-    def passagen(self, nummern: list[int], *, nachbarn: int = 1,
-                 budget: int | None = None) -> str:
+    def passagen(self, nummern: list[int], *, vorrang: list[int] | None = None,
+                 nachbarn: int = 1, budget: int | None = None) -> str:
         """The original text behind these numbers, each with its neighbours.
 
         Neighbouring numbers are joined into one passage, each passage names its file
-        and page. The passages come in the order of the text, cut where the budget ends.
+        and page. The passages come in the order of the text. When they do not fit the
+        budget, the numbers in ``vorrang`` go first and the rest fills what is left, in
+        both every file keeps its share, spread over the whole file.
         """
-        gewollt: dict[int, set[int]] = {}
-        for n in nummern:
-            if not 1 <= n <= len(self):
-                continue
-            st = self.stelle(n)
-            anzahl = len(self.sources[st.source].stuecke)
-            gewollt.setdefault(st.source, set()).update(
-                p for p in range(st.piece - nachbarn, st.piece + nachbarn + 1) if 0 <= p < anzahl)
+        zuerst = set(vorrang or []) & set(nummern)
+        benannt = self._nach_datei(n for n in nummern if n in zuerst)
+        rest = self._nach_datei(n for n in nummern if n not in zuerst)
+        gewollt = self._mit_nachbarn(self._vereint(benannt, rest), nachbarn)
+        if budget is not None and self._kosten(gewollt) > budget:
+            gewollt = self._gekuerzt(benannt, rest, nachbarn, budget)
         teile: list[str] = []
-        laenge = 0
         for q in sorted(gewollt):
             quelle = self.sources[q]
             laeufe: list[list[int]] = []
@@ -190,12 +209,87 @@ class Karte:
             for lauf in laeufe:
                 erstes = quelle.stuecke[lauf[0]]
                 text = quelle.text[erstes.von:quelle.stuecke[lauf[-1]].bis].strip()
-                stueck = f"[{quelle.dateiname}, S. {erstes.seite}]\n{text}"
-                if budget is not None and teile and laenge + len(stueck) > budget:
-                    return "\n\n".join(teile)
-                teile.append(stueck)
-                laenge += len(stueck) + 2
+                teile.append(f"[{quelle.dateiname}, S. {erstes.seite}]\n{text}")
         return "\n\n".join(teile)
+
+    def _nach_datei(self, nummern) -> dict[int, set[int]]:
+        aus: dict[int, set[int]] = {}
+        for n in nummern:
+            if 1 <= n <= len(self):
+                st = self.stelle(n)
+                aus.setdefault(st.source, set()).add(st.piece)
+        return aus
+
+    @staticmethod
+    def _vereint(*teile: dict[int, set[int]]) -> dict[int, set[int]]:
+        aus: dict[int, set[int]] = {}
+        for teil in teile:
+            for q, stuecke in teil.items():
+                aus.setdefault(q, set()).update(stuecke)
+        return aus
+
+    def _gekuerzt(self, zuerst: dict[int, set[int]], rest: dict[int, set[int]],
+                  nachbarn: int, budget: int) -> dict[int, set[int]]:
+        """The first numbers within the budget, the rest only in the room they leave."""
+        if not zuerst:
+            return self._im_budget(rest, nachbarn, budget)
+        gewollt = self._mit_nachbarn(zuerst, nachbarn)
+        if self._kosten(gewollt) > budget:
+            return self._im_budget(zuerst, nachbarn, budget)
+        frei = budget - self._kosten(gewollt)
+        uebrig = {q: {p for p in stuecke if p not in gewollt.get(q, set())}
+                  for q, stuecke in rest.items()}
+        uebrig = {q: stuecke for q, stuecke in uebrig.items() if stuecke}
+        mittel = self._kosten(uebrig) / max(1, sum(len(v) for v in uebrig.values()))
+        if not uebrig or frei < mittel * len(uebrig):
+            return gewollt
+        return self._vereint(gewollt, self._im_budget(uebrig, nachbarn, frei))
+
+    def _mit_nachbarn(self, benannt: dict[int, set[int]], nachbarn: int) -> dict[int, set[int]]:
+        aus: dict[int, set[int]] = {}
+        for q, stuecke in benannt.items():
+            anzahl = len(self.sources[q].stuecke)
+            aus[q] = {p + d for p in stuecke for d in range(-nachbarn, nachbarn + 1)
+                      if 0 <= p + d < anzahl}
+        return aus
+
+    def _stueck_kosten(self, q: int, p: int) -> int:
+        """What one piece costs in a passage, its own header counted as if it stood alone."""
+        quelle = self.sources[q]
+        stueck = quelle.stuecke[p]
+        return stueck.bis - stueck.von + len(quelle.dateiname) + 12
+
+    def _kosten(self, gewollt: dict[int, set[int]]) -> int:
+        return sum(self._stueck_kosten(q, p) for q, stuecke in gewollt.items() for p in stuecke)
+
+    def _im_budget(self, benannt: dict[int, set[int]], nachbarn: int,
+                   budget: int) -> dict[int, set[int]]:
+        """Every file gets the budget by its share of the named pieces, spread over the file.
+
+        Cut in the order of the text, the first file would fill the budget and a later one
+        would reach no writer at all. Neighbours come only where a file's share has room.
+        """
+        gesamt = self._kosten(benannt) or 1
+        aus: dict[int, set[int]] = {}
+        for q, stuecke in benannt.items():
+            reihe = sorted(stuecke)
+            anteil = budget * self._kosten({q: stuecke}) / gesamt
+            mittel = self._kosten({q: stuecke}) / len(reihe)
+            k = max(1, min(len(reihe), int(anteil // mittel)))
+            gewaehlt = {reihe[round(i * (len(reihe) - 1) / (k - 1))] for i in range(k)} \
+                if k > 1 else {reihe[0]}
+            rest = anteil - self._kosten({q: gewaehlt})
+            anzahl = len(self.sources[q].stuecke)
+            for p in sorted(gewaehlt):
+                for d in range(1, nachbarn + 1):
+                    for nachbar in (p - d, p + d):
+                        if 0 <= nachbar < anzahl and nachbar not in gewaehlt:
+                            preis = self._stueck_kosten(q, nachbar)
+                            if preis <= rest:
+                                gewaehlt.add(nachbar)
+                                rest -= preis
+            aus[q] = gewaehlt
+        return aus
 
 
 def abdeckung(listen: list[list[int]], gesamt: int) -> float:
@@ -237,6 +331,21 @@ def ziel_eintraege(zeichen: int, lo: int, hi: int, *, grund: int, je: int) -> in
     return max(lo, min(hi, grund + zeichen // je))
 
 
+def exklusiv(listen: list[list[int]]) -> list[list[int]]:
+    """A passage several entries name stays with the first, two writers would repeat it.
+
+    An entry that would be left with nothing keeps its own numbers, an empty entry
+    would rest on the whole text instead.
+    """
+    vergeben: set[int] = set()
+    aus: list[list[int]] = []
+    for liste in listen:
+        eigene = [n for n in liste if n not in vergeben]
+        aus.append(eigene if eigene else list(liste))
+        vergeben.update(liste)
+    return aus
+
+
 def abdecken(listen: list[list[int]], gesamt: int) -> list[list[int]]:
     """Every passage no entry names goes to the entry whose numbers lie closest.
 
@@ -260,10 +369,11 @@ def abdecken(listen: list[list[int]], gesamt: int) -> list[list[int]]:
 def _nummern(roh, hoechste: int) -> list[int]:
     if not isinstance(roh, list):
         return []
+    # A model sometimes packs several numbers into one entry, "10, 16, 30".
+    werte = [teil for wert in roh if not isinstance(wert, bool)
+             for teil in (re.split(r"[,;]", wert) if isinstance(wert, str) else [wert])]
     aus: list[int] = []
-    for wert in roh:
-        if isinstance(wert, bool):
-            continue
+    for wert in werte:
         treffer = _BEREICH.match(str(wert))
         if treffer:
             a, b = int(treffer.group(1)), int(treffer.group(2))
@@ -323,14 +433,17 @@ class Grundlage:
 
 
 def themen_nachrichten(karte: Karte, teil: range, teile: int, nummer: int,
-                       language: str, zweck: str) -> list[dict]:
+                       language: str, zweck: str,
+                       hoechstens: int = MAP_MAX_TOPICS_PER_PART) -> list[dict]:
     """One part of the material boiled down to its topics, when the whole does not fit."""
     system = (
         "You map a text. The text is cut into numbered passages. List the topics this "
-        f"text covers, in the order they appear, at most {MAP_MAX_TOPICS_PER_PART}. "
+        f"text covers, in the order they appear, at most {hoechstens}, spread over the "
+        "whole text to its last passage. "
         f"This is part {nummer} of {teile} of the material, other parts are mapped "
         "separately. For every topic give a short title, one sentence saying what the "
-        "text states about it, and the passage numbers it draws on, as integers or as "
+        "text states about it that names the concrete duties, deadlines and figures it gives, "
+        "and the passage numbers it draws on, as integers or as "
         'ranges written "12-15". Every passage that carries content belongs to a topic. '
         f"Write titles and sentences in {language}. The material will be used for: {zweck}.\n"
         'Answer with one JSON object only: {"topics": [{"title": "...", "gist": "...", '
@@ -340,7 +453,8 @@ def themen_nachrichten(karte: Karte, teil: range, teile: int, nummer: int,
             {"role": "user", "content": f"/no_think\n{karte.block(teil)}"}]
 
 
-def parse_themen(raw: str | None, karte: Karte, erste_nummer: int) -> list[Thema]:
+def parse_themen(raw: str | None, karte: Karte, erste_nummer: int,
+                 hoechstens: int = MAP_MAX_TOPICS_PER_PART) -> list[Thema]:
     """The topics out of one answer, numbered on from where the previous part stopped."""
     daten = _json_objekt(raw)
     roh = daten.get("topics") if isinstance(daten, dict) else None
@@ -355,7 +469,7 @@ def parse_themen(raw: str | None, karte: Karte, erste_nummer: int) -> list[Thema
         aus.append(Thema(nummer=erste_nummer + len(aus), titel=titel,
                          kern=" ".join(str(eintrag.get("gist") or "").split())[:300],
                          stellen=tuple(stellen)))
-        if len(aus) >= MAP_MAX_TOPICS_PER_PART:
+        if len(aus) >= hoechstens:
             break
     return aus
 
@@ -371,14 +485,15 @@ def grundlage(karte: Karte, window_tokens: int, *, language: str, zweck: str,
     ``frage`` sends several calls at once and returns their raw answers in order, so
     each service keeps its own way of calling the model.
     """
-    teile = karte.teile(window_tokens)
-    if len(teile) <= 1:
+    if len(karte.teile(window_tokens)) <= 1:
         return Grundlage(material=karte.block(), modus=STELLEN, themen=[])
-    antworten = frage([themen_nachrichten(karte, teil, len(teile), i + 1, language, zweck)
-                       for i, teil in enumerate(teile)])
+    stuecke = karte.abschnitte(window_tokens)
+    antworten = frage([themen_nachrichten(karte, bereich, len(stuecke), i + 1, language, zweck,
+                                          hoechstens=anzahl)
+                       for i, (bereich, anzahl) in enumerate(stuecke)])
     themen: list[Thema] = []
-    for antwort in antworten:
-        themen.extend(parse_themen(antwort, karte, len(themen) + 1))
+    for antwort, (_, anzahl) in zip(antworten, stuecke):
+        themen.extend(parse_themen(antwort, karte, len(themen) + 1, hoechstens=anzahl))
     if not themen:
         raise RuntimeError("Aus keinem Teil des Materials liessen sich Themen gewinnen.")
     return Grundlage(material=themen_block(themen), modus=THEMEN, themen=themen)

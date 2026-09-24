@@ -87,6 +87,11 @@ def test_erfundene_doppelte_und_unsinnige_nummern_fallen_weg():
     assert karte.gueltig([0, 2, 2, 99, "x", True, None, "4"]) == [2, 4]
 
 
+def test_mehrere_nummern_in_einem_eintrag_werden_einzeln_gelesen():
+    karte = tm.Karte([_quelle("a.pdf", 40)])
+    assert karte.gueltig(["10, 16; 30", "5-7, 12a"]) == [10, 16, 30, 5, 6, 7]
+
+
 def test_ein_bereich_ist_gedeckelt():
     karte = tm.Karte([_quelle("a.pdf", 500)])
     assert len(karte.gueltig(["1-400"])) == MAP_RANGE_MAX
@@ -251,3 +256,111 @@ def test_ein_anteiliger_plan_ist_nicht_zu_kurz():
 def test_eine_winzige_datei_darf_fehlen():
     karte = tm.Karte([_quelle("gross.pdf", 97), _quelle("zettel.pdf", 3)])
     assert tm.zu_kurz([list(range(1, 50))], karte) == []
+
+
+# ── Themen je Datei ──────────────────────────────────────────────────────────
+
+def _drei_dateien(monkeypatch):
+    monkeypatch.setattr(tm, "window_chars", lambda fenster: 1_000)
+    return tm.Karte([_quelle("a.pdf", 100), _quelle("b.pdf", 20), _quelle("c.pdf", 80)])
+
+
+def test_ein_stueck_der_themenstufe_gehoert_immer_zu_einer_datei(monkeypatch):
+    karte = _drei_dateien(monkeypatch)
+    stuecke = karte.abschnitte(262_144)
+    for bereich, _ in stuecke:
+        assert len({karte.stelle(n).source for n in bereich}) == 1
+    assert stuecke[0][0].start == 1 and stuecke[-1][0].stop == len(karte) + 1
+    assert all(a.stop == b.start for (a, _), (b, _) in zip(stuecke, stuecke[1:]))
+
+
+def test_jede_datei_bekommt_themen_nach_ihrem_anteil_mindestens_zwei(monkeypatch):
+    karte = _drei_dateien(monkeypatch)
+    je_datei: dict[int, int] = {}
+    for bereich, anzahl in karte.abschnitte(262_144):
+        quelle = karte.stelle(bereich.start).source
+        je_datei[quelle] = je_datei.get(quelle, 0) + anzahl
+    assert je_datei[1] >= 2
+    assert je_datei[0] > je_datei[2] > je_datei[1]
+
+
+def test_der_auftrag_nennt_die_themenzahl_des_stuecks():
+    karte = tm.Karte([_quelle("a.pdf", 10)])
+    system = tm.themen_nachrichten(karte, range(1, 11), 3, 2, "German", "x", hoechstens=5)[0]
+    assert "at most 5" in system["content"]
+
+
+def test_die_themenstufe_fragt_jedes_stueck_einzeln(monkeypatch):
+    karte = _drei_dateien(monkeypatch)
+    gesendet = []
+
+    def frage(nachrichten):
+        gesendet.extend(nachrichten)
+        return [None] * (len(nachrichten) - 1) + [_themen_antwort(("A", ["1"]))]
+
+    tm.grundlage(karte, 262_144, language="German", zweck="x", frage=frage)
+    assert len(gesendet) == len(karte.abschnitte(262_144))
+
+
+def test_die_themen_nennen_pflichten_fristen_und_zahlen():
+    karte = tm.Karte([_quelle("a.pdf", 10)])
+    system = tm.themen_nachrichten(karte, range(1, 11), 1, 1, "German", "x")[0]["content"]
+    assert "deadlines" in system and "figures" in system
+
+
+def test_ein_knappes_budget_laesst_keine_spaetere_datei_leer():
+    # The first file alone would fill the budget, the second must still get its share.
+    karte = tm.Karte([_quelle("a.pdf", 40), _quelle("b.pdf", 10)])
+    alle = list(range(1, 51))
+    passage = karte.passagen(alle, nachbarn=0, budget=250)
+    assert "[a.pdf" in passage and "[b.pdf" in passage
+
+
+def test_das_budget_folgt_dem_anteil_der_dateien():
+    karte = tm.Karte([_quelle("a.pdf", 40, je_seite=1), _quelle("b.pdf", 40, je_seite=1)])
+    gewollt = list(range(1, 31)) + [45, 55, 65]
+    passage = karte.passagen(gewollt, nachbarn=0, budget=400)
+    je_datei = {"a": 0, "b": 0}
+    for block in passage.split("\n\n"):
+        kopf, _, text = block.partition("\n")
+        je_datei[kopf[1]] += len(text)
+    assert je_datei["a"] > je_datei["b"] > 0
+    assert len(passage) <= 400 + 60
+
+
+# ── Vorrang der vom Plan genannten Stellen ──────────────────────────────────────
+
+def _markiert(name: str, stuecke: int) -> Source:
+    """Eine Quelle, deren Stuecke ihre eigene Nummer tragen, um sie im Ergebnis zu finden."""
+    text = "".join(f"<{i + 1:03d}>".ljust(10, ".") for i in range(stuecke))
+    teile = [Piece(seite=1, von=i * 10, bis=i * 10 + 10) for i in range(stuecke)]
+    return Source(dateiname=name, fassung="x", text=text, seiten=1, stuecke=teile)
+
+
+def test_vom_plan_genannte_stellen_kommen_zuerst_ins_budget():
+    karte = tm.Karte([_markiert("a.pdf", 40)])
+    passage = karte.passagen(list(range(1, 41)), vorrang=[7, 33], nachbarn=0, budget=150)
+    assert "<007>" in passage and "<033>" in passage
+
+
+def test_der_rest_fuellt_das_budget_auf():
+    karte = tm.Karte([_markiert("a.pdf", 40)])
+    passage = karte.passagen(list(range(1, 41)), vorrang=[7, 33], nachbarn=0, budget=150)
+    assert passage.count("<") > 2
+    assert len(passage) <= 150 + 60
+
+
+def test_passen_die_genannten_nicht_ganz_kommt_nichts_anderes_dazu():
+    karte = tm.Karte([_markiert("a.pdf", 40)])
+    genannt = [2, 4, 6, 8, 10, 12, 14, 16, 18, 20]
+    passage = karte.passagen(list(range(1, 41)), vorrang=genannt, nachbarn=0, budget=120)
+    gefunden = {int(t[:3]) for t in passage.split("<")[1:]}
+    assert gefunden and gefunden <= set(genannt)
+
+
+def test_eine_mehrfach_genannte_stelle_gehoert_dem_ersten_eintrag():
+    assert tm.exklusiv([[1, 5], [5, 7], [1, 9]]) == [[1, 5], [7], [9]]
+
+
+def test_ein_eintrag_behaelt_seine_stellen_wenn_sonst_nichts_bliebe():
+    assert tm.exklusiv([[1, 5], [5]]) == [[1, 5], [5]]
