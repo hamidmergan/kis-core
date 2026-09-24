@@ -36,6 +36,8 @@ _MAP_FILE = "grundlage.json"
 _PLAN_FILE = "plan.json"
 # The last contributions a part sees of what came before it.
 _BISHER_ZEILEN = 4
+# Of every earlier contribution a part sees only its opening words, enough to know the subject.
+_ANFANG_WORTE = 12
 
 
 def _fenster() -> int:
@@ -135,23 +137,30 @@ def _schreiben(llm, karte: tm.Karte, g: tm.Grundlage, params, job_uuid: str,
         write_job_text(user_id, job_uuid, _PLAN_FILE, json.dumps(plan, ensure_ascii=False))
     logger.info("Podcast {}: Plan mit {} Teil(en) nennt {:.0%} der Stellen", job_uuid[:8],
                 len(plan), tm.abdeckung([p["stellen"] for p in plan], len(karte)))
-    # What the plan leaves out goes to the nearest part, the budget still bounds each call.
-    for teil, stellen in zip(plan, tm.abdecken([p["stellen"] for p in plan], len(karte))):
-        teil["stellen"] = stellen
+    # A passage two parts name is told once, what none names goes to the nearest part.
+    eigene = tm.exklusiv([p["stellen"] for p in plan])
+    for teil, genannt, stellen in zip(plan, eigene, tm.abdecken(eigene, len(karte))):
+        teil["genannt"], teil["stellen"] = genannt, stellen
     laengen = skript.teil_laengen(gesamt, len(plan))
     uebersicht = "\n".join(f"{i + 1}. {p['title']}: {p['gist']}" for i, p in enumerate(plan))
+    if plan[-1].get("thread"):
+        uebersicht += f"\n=> {plan[-1]['thread']}"
     zeilen: list[Line] = []
     for i, (teil, anzahl) in enumerate(zip(plan, laengen), start=1):
         db.update_job_status(job_uuid, "running", progress={"step": "script", "part": i - 1,
                                                             "total": len(plan)})
-        material = karte.passagen(teil["stellen"], nachbarn=MAP_PASSAGE_NEIGHBOURS,
-                                  budget=MAP_MATERIAL_MAX_CHARS)
+        material = karte.passagen(teil["stellen"], vorrang=teil["genannt"],
+                                  nachbarn=MAP_PASSAGE_NEIGHBOURS, budget=MAP_MATERIAL_MAX_CHARS)
         nachrichten = skript.build_messages(
             material, params, anzahl=anzahl, teil=i, teile=len(plan), plan=uebersicht,
-            bisher=zeilen[-_BISHER_ZEILEN:])
+            bisher=zeilen[-_BISHER_ZEILEN:], opening=plan[0].get("opening", ""),
+            thread=plan[-1].get("thread", ""),
+            besprochen=[" ".join(z.text.split()[:_ANFANG_WORTE])
+                        for z in zeilen[:-_BISHER_ZEILEN]])
         neue = _mit_versuchen(llm, nachrichten,
                               lambda roh: skript.parse_answer(roh, len(params.persons)),
                               job_uuid, f"Teil {i}")
+        neue = skript.ohne_eigene_anrede(neue, [p.name for p in params.persons])
         zeilen.extend(neue)
     return zeilen[:PODCAST_MAX_LINES]
 

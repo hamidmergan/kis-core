@@ -10,24 +10,24 @@ from src.features.podcast.schemas import LENGTH_PLAN, Line, PodcastParams
 from src.limits import PODCAST_MAX_LINES, PODCAST_MAX_LINE_CHARS
 
 _ROLE_DE = {
-    "host": "Moderation, führt durch die Folge und stellt die Fragen",
+    "host": "Moderation, führt durch die Folge, fragt nach und bringt eigene Beobachtungen und Beispiele ein",
     "expert": "Fachperson, erklärt die Sache und bringt Beispiele",
     "student": "Studierende Person, fragt nach, wenn etwas unklar bleibt",
     "critic": "Kritische Stimme, benennt Grenzen und Einwände",
 }
 _ROLE_EN = {
-    "host": "host, leads through the episode and asks the questions",
+    "host": "host, leads through the episode, asks back and brings own observations and examples",
     "expert": "expert, explains the matter and brings examples",
     "student": "student, asks again when something stays unclear",
     "critic": "critical voice, names limits and objections",
 }
 _STYLE_DE = {
-    "teaching": "erklärend, ruhig, Schritt für Schritt",
+    "teaching": "erklärend und anschaulich, Schritt für Schritt",
     "casual": "locker und gesprächig, auch mal ein Scherz",
     "interview": "Interview, kurze Fragen und ausführliche Antworten",
 }
 _STYLE_EN = {
-    "teaching": "explanatory, calm, step by step",
+    "teaching": "explanatory and vivid, step by step",
     "casual": "casual and chatty, the odd joke is fine",
     "interview": "interview, short questions and long answers",
 }
@@ -51,8 +51,9 @@ def _rahmen_de(teil: int, teile: int) -> str:
     if teile == 1:
         return "- Der erste Beitrag begrüßt und nennt das Thema, der letzte verabschiedet.\n"
     if teil == 1:
-        return ("- Der erste Beitrag begrüßt und nennt das Thema. Die Folge geht danach weiter, "
-                "also keine Verabschiedung.\n")
+        return ("- Der erste Beitrag begrüßt und nennt das Thema der ganzen Folge, wie der Plan "
+                "es zeigt, nicht nur das dieses Teils. Die Folge geht danach weiter, also keine "
+                "Verabschiedung.\n")
     if teil == teile:
         return ("- Du setzt ein laufendes Gespräch fort, keine Begrüßung. "
                 "Der letzte Beitrag verabschiedet.\n")
@@ -63,8 +64,9 @@ def _rahmen_en(teil: int, teile: int) -> str:
     if teile == 1:
         return "- The first contribution greets and names the topic, the last says goodbye.\n"
     if teil == 1:
-        return ("- The first contribution greets and names the topic. The episode goes on "
-                "afterwards, so no goodbye.\n")
+        return ("- The first contribution greets and names the topic of the whole episode as the "
+                "plan shows it, not only that of this part. The episode goes on afterwards, so no "
+                "goodbye.\n")
     if teil == teile:
         return "- You continue a running conversation, no greeting. The last contribution says goodbye.\n"
     return "- You continue a running conversation, no greeting and no goodbye.\n"
@@ -80,14 +82,23 @@ def _bisher(bisher: list[Line], params: PodcastParams) -> str:
     return f"{kopf}:\n{zeilen}\n\n"
 
 
+def _besprochen(anfaenge: list[str] | None, kopf: str) -> str:
+    if not anfaenge:
+        return ""
+    return f"{kopf}:\n" + "\n".join(f"- {a}" for a in anfaenge) + "\n\n"
+
+
 def build_messages(source: str, params: PodcastParams, *, anzahl: int | None = None,
                    teil: int = 1, teile: int = 1, plan: str = "",
-                   bisher: list[Line] | None = None) -> list[dict]:
+                   bisher: list[Line] | None = None, opening: str = "",
+                   thread: str = "", besprochen: list[str] | None = None) -> list[dict]:
     """One call, the answer is a JSON object with the list of contributions.
 
     A long episode is written in parts, each call writes few contributions and so stays
     inside the provider's five minutes. ``plan`` is the whole episode, ``bisher`` the last
-    contributions before this part.
+    contributions before this part, ``opening`` the situation the first part starts with
+    and ``thread`` what the last part closes on. ``besprochen`` holds the openings of all
+    earlier contributions, so a later part does not explain the same thing again.
     """
     gesamt, je = LENGTH_PLAN.get(params.length, LENGTH_PLAN["medium"])
     anzahl = anzahl or gesamt
@@ -97,7 +108,9 @@ def build_messages(source: str, params: PodcastParams, *, anzahl: int | None = N
     if params.language == "de":
         system = (
             "Du schreibst das Skript einer Podcast-Folge für eine Hochschule. "
-            "Du nutzt ausschließlich das gelieferte Material und erfindest nichts dazu. "
+            "Fakten, Zahlen, Fristen und Bedingungen nimmst du ausschließlich aus dem gelieferten "
+            "Material und fügst keine hinzu. Beispiele, Vergleiche und Einwände darfst du selbst "
+            "bringen, damit die Sache anschaulich wird. "
             "Du antwortest mit einem JSON-Objekt der Form "
             '{"lines": [{"speaker": 0, "text": "..."}]} und mit nichts sonst.'
         )
@@ -105,17 +118,40 @@ def build_messages(source: str, params: PodcastParams, *, anzahl: int | None = N
                      f"Plan der ganzen Folge:\n{plan}\n\n") if teile > 1 else ""
         aufgabe = (
             f"{teilzeile}Material:\n---\n{source}\n---\n\n"
+            f"{_besprochen(besprochen, 'Schon besprochen, nicht wiederholen')}"
             f"{_bisher(bisher, params)}"
             f"Besetzung, die Zahl ist der Wert für speaker:\n{_besetzung(params)}\n\n"
             f"Stil: {_STYLE_DE.get(params.style, params.style)}\n"
-            f"Umfang: genau {anzahl} Beiträge mit je etwa {je} Wörtern, zusammen rund {woerter} Wörter.\n\n"
+            f"Umfang: genau {anzahl} Beiträge, zusammen rund {woerter} Wörter, im Schnitt {je} je Beitrag.\n\n"
             "Regeln:\n"
-            "- Sprache des Skripts: Deutsch.\n"
+            "- Sprache des Skripts: Deutsch. Die Hörer werden durchgehend geduzt.\n"
             + ("- Es spricht nur eine Person, speaker ist immer 0.\n" if allein else
                "- Die Personen wechseln sich ab, niemand spricht zweimal hintereinander.\n"
-               "- Jede Person kommt vor und behält ihre Rolle.\n")
-            + f"- Ein Beitrag ist ein gesprochener Absatz von etwa {je} Wörtern, nie mehr als 90.\n"
+               "- Jede Person kommt vor und behält ihre Rolle.\n"
+               "- Schneller Wechsel wie in einem echten Gespräch: Etwa jeder dritte Beitrag hat "
+               "nur 1 bis 10 Wörter, eine Reaktion, ein Einwurf oder eine kurze Nachfrage. Die "
+               "übrigen tragen den Inhalt und haben mindestens 40, höchstens 90 Wörter. Längen "
+               "dazwischen sind selten.\n"
+               "- Die Personen bauen eine Erklärung gemeinsam auf: Eine beginnt, die andere hakt "
+               "nach, ergänzt oder zieht einen Schluss. Niemand hält einen Vortrag.\n"
+               "- Beide Personen tragen Inhalt: Wer moderiert, erklärt auch selbst Teile, bringt "
+               "Beispiele und eigene Beobachtungen ein. Wer fachlich erklärt, fragt auch mal "
+               "zurück oder staunt. In jedem Teil erklärt jede Person mindestens drei Punkte "
+               "selbst, mit 40 bis 90 Wörtern, und die andere reagiert, fragt nach oder ergänzt.\n"
+               "- Persönlich: Die Personen sprechen sich ab und zu mit Namen an, wer spricht nennt "
+               "nur den Namen der anderen Person, nie den eigenen. Sie zeigen, was "
+               "sie überrascht, was sie bezweifeln oder was ihnen beim Lesen aufgefallen ist.\n")
+            + f"- Im Schnitt etwa {je} Wörter je Beitrag, nie mehr als 150.\n"
+            "- Wenige Punkte in der Tiefe statt einer Aufzählung: zu jeder Regel, warum es sie "
+            "gibt, was aus ihr folgt und ein Beispiel aus dem Alltag der Hörer. Gern auch ein "
+            "Einwand oder ein verbreiteter Irrtum, den die Antwort mit dem Material auflöst.\n"
             + _rahmen_de(teil, teile)
+            + (f"- Nach der Begrüßung erzählt eine Person diese kleine Geschichte, lebendig und "
+               f"in eigenen Worten, und das Gespräch greift ihre Frage auf: {opening}\n"
+               if teil == 1 and opening else "")
+            + ("- Vor der Verabschiedung kommt das große Bild, das alle Themen der Folge "
+               "verbindet, und ein Gedanke, den die Hörer mitnehmen, gern als offene Frage"
+               + (f": {thread}" if thread else "") + ".\n" if teil == teile else "")
             + ("- Wiederhole nichts, was bisher schon gesagt wurde.\n" if bisher else "")
             + (f"- Der letzte Beitrag bisher kam von speaker {bisher[-1].speaker}, dein erster "
                "Beitrag kommt von jemand anderem.\n" if bisher and not allein else "")
@@ -128,7 +164,9 @@ def build_messages(source: str, params: PodcastParams, *, anzahl: int | None = N
     else:
         system = (
             "You write the script of a podcast episode for a university. "
-            "You use only the material provided and invent nothing. "
+            "Facts, figures, deadlines and conditions come only from the material provided and "
+            "you add none. Examples, comparisons and objections you may bring yourself, so the "
+            "matter becomes vivid. "
             "You answer with a JSON object of the form "
             '{"lines": [{"speaker": 0, "text": "..."}]} and nothing else.'
         )
@@ -136,17 +174,40 @@ def build_messages(source: str, params: PodcastParams, *, anzahl: int | None = N
                      f"Plan of the whole episode:\n{plan}\n\n") if teile > 1 else ""
         aufgabe = (
             f"{teilzeile}Material:\n---\n{source}\n---\n\n"
+            f"{_besprochen(besprochen, 'Already covered, do not repeat')}"
             f"{_bisher(bisher, params)}"
             f"Cast, the number is the value for speaker:\n{_besetzung(params)}\n\n"
             f"Style: {_STYLE_EN.get(params.style, params.style)}\n"
-            f"Length: exactly {anzahl} contributions of about {je} words each, {woerter} words in total.\n\n"
+            f"Length: exactly {anzahl} contributions, {woerter} words in total, {je} per contribution on average.\n\n"
             "Rules:\n"
             "- Language of the script: English.\n"
             + ("- Only one person speaks, speaker is always 0.\n" if allein else
                "- The people take turns, nobody speaks twice in a row.\n"
-               "- Every person appears and keeps their role.\n")
-            + f"- One contribution is one spoken paragraph of about {je} words, never more than 90.\n"
+               "- Every person appears and keeps their role.\n"
+               "- Quick turns like a real conversation: about every third contribution has "
+               "only 1 to 10 words, a reaction, an interjection or a short follow up question. "
+               "The others carry the content and have at least 40, at most 90 words. Lengths in "
+               "between are rare.\n"
+               "- The people build an explanation together: one starts, the other asks back, "
+               "adds to it or draws a conclusion. Nobody gives a lecture.\n"
+               "- Both people carry content: whoever hosts also explains parts, brings examples "
+               "and own observations. Whoever is the expert also asks back or is surprised. In "
+               "every part each person explains at least three points themselves, with 40 to 90 "
+               "words, and the other reacts, asks back or adds to it.\n"
+               "- Personal: the people now and then address each other by name, the speaker only "
+               "ever names the other person, never themselves. They show what "
+               "surprises them, what they doubt or what struck them while reading.\n")
+            + f"- About {je} words per contribution on average, never more than 150.\n"
+            "- Few points in depth instead of a list: for each rule why it exists, what "
+            "follows from it and an example from the listeners' everyday life. An objection or "
+            "a common misconception that the answer clears up with the material is welcome.\n"
             + _rahmen_en(teil, teile)
+            + (f"- After the greeting one person tells this small story, vividly and in their own "
+               f"words, and the conversation takes up its question: {opening}\n"
+               if teil == 1 and opening else "")
+            + ("- Before the goodbye comes the big picture that connects all subjects of the "
+               "episode, and one thought the listeners take home, maybe as an open question"
+               + (f": {thread}" if thread else "") + ".\n" if teil == teile else "")
             + ("- Repeat nothing that was already said.\n" if bisher else "")
             + (f"- The last contribution so far was by speaker {bisher[-1].speaker}, your first "
                "contribution comes from someone else.\n" if bisher and not allein else "")
@@ -172,13 +233,22 @@ def plan_messages(material: str, modus: str, params: PodcastParams, teile: int,
     sprache = "German" if params.language == "de" else "English"
     system = (
         "You plan a podcast episode for university teaching. From the material you pick what "
-        f"matters and lay the episode out in exactly {teile} consecutive parts, "
-        "each with its own subject, so that together they tell the material in a sensible "
-        f"order.\nWrite titles and gists in {sprache}.\n{hinweis(modus)}\n"
+        f"matters to the listeners and lay the episode out in exactly {teile} consecutive "
+        "parts, each with its own subject. Order the parts by what affects the listeners most, "
+        "and where documents touch the same subject bring them together, never one file after "
+        "the other. Leave out administrative detail on how bodies are organised, elected, "
+        "staffed or financed unless the material is mainly about that.\n"
+        f"Write titles, gists, opening and thread in {sprache}.\n{hinweis(modus)}\n"
         + (f"The material comes from {len(dateien)} files: {', '.join(dateien)}. EVERY one of "
            "them is talked about in the episode.\n" if dateien and len(dateien) > 1 else "")
-        + 'Answer with one JSON object only: {"parts": [{"title": "...", "gist": "...", '
-        '"refs": [12, "14-17"]}]}. The gist is one sentence saying what that part covers.'
+        + 'Answer with one JSON object only: {"opening": "...", "thread": "...", "parts": '
+        '[{"title": "...", "gist": "...", "refs": [12, "14-17"]}]}. The opening is a '
+        "small story: one person in one concrete situation from the listeners' own life that "
+        "the material decides, ending in a question the episode answers, in two or three "
+        "sentences, ideally touching several of the documents, never a list of problems. The thread is one "
+        "sentence on what connects all documents, the thought the listeners take home. Both "
+        "span the whole material, not the frame of the largest one. The gist is one sentence saying what that part covers and "
+        "which question it answers."
     )
     aufgabe = f"/no_think\nMATERIAL:\n{material}\n"
     if params.instructions.strip():
@@ -188,6 +258,10 @@ def plan_messages(material: str, modus: str, params: PodcastParams, teile: int,
                     "share of the episode that matches how much of the material it holds, "
                     "with parts about it by title: " + ", ".join(fehlt))
     return [{"role": "system", "content": system}, {"role": "user", "content": aufgabe}]
+
+
+# A model sometimes copies the numbers into the gist, "... refs: [21-32]".
+_REFS_IM_TEXT = re.compile(r"\s*\brefs?\s*:.*$", re.IGNORECASE)
 
 
 def parse_plan(raw: str, stellen, teile: int) -> list[dict]:
@@ -213,14 +287,33 @@ def parse_plan(raw: str, stellen, teile: int) -> list[dict]:
         nummern = stellen(eintrag.get("refs"))
         if not titel or not nummern:
             continue
-        aus.append({"title": titel, "gist": " ".join(str(eintrag.get("gist") or "").split())[:300],
-                    "stellen": nummern})
+        kern = _REFS_IM_TEXT.sub("", " ".join(str(eintrag.get("gist") or "").split()))
+        aus.append({"title": titel, "gist": kern.strip()[:300], "stellen": nummern})
     if not aus:
         raise ScriptUnusable("der Plan enthält keinen Teil mit Stellen")
     while len(aus) > teile:
         letzter = aus.pop()
         aus[-1]["stellen"] = aus[-1]["stellen"] + [n for n in letzter["stellen"]
                                                    if n not in aus[-1]["stellen"]]
+    for teil in aus:
+        teil["opening"] = teil["thread"] = ""
+    aus[0]["opening"] = " ".join(str(data.get("opening") or "").split())[:400]
+    aus[-1]["thread"] = " ".join(str(data.get("thread") or "").split())[:300]
+    return aus
+
+
+def ohne_eigene_anrede(lines: list[Line], namen: list[str]) -> list[Line]:
+    """A speaker never addresses themselves, a model that mixes up the cast does."""
+    aus: list[Line] = []
+    for line in lines:
+        name = namen[line.speaker] if line.speaker < len(namen) else ""
+        text = line.text
+        if name:
+            n = re.escape(name)
+            text = re.sub(rf"^\s*{n}\s*[,!]\s*", "", text)
+            text = re.sub(rf",\s*{n}\b(?=\s*[.!?,])", "", text)
+            text = text[:1].upper() + text[1:]
+        aus.append(line.model_copy(update={"text": text}) if text != line.text else line)
     return aus
 
 

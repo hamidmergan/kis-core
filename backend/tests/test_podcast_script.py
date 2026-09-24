@@ -104,7 +104,7 @@ class TestPrompt:
     def test_zielumfang_haengt_an_der_laenge(self):
         kurz = build_messages("M", _params(2, length="short"))[1]["content"]
         lang = build_messages("M", _params(2, length="long"))[1]["content"]
-        assert "700" in kurz and "2800" in lang
+        assert "735" in kurz and "2898" in lang
 
     def test_englischer_auftrag_nennt_die_beitragszahl_auch(self):
         from src.features.podcast.schemas import LENGTH_PLAN
@@ -297,7 +297,7 @@ class TestTeile:
     def test_eine_folge_in_einem_teil_bleibt_wie_bisher(self):
         user = build_messages("M", _params(length="short"))[1]["content"]
         assert "Teil 1 von" not in user
-        assert "genau 10 Beiträge" in user
+        assert "genau 35 Beiträge" in user
 
 
 class TestPlan:
@@ -346,3 +346,161 @@ class TestNahtstelle:
     def test_eine_folge_aus_einem_teil_braucht_die_regel_nicht(self):
         user = build_messages("M", _params(length="short"))[1]["content"]
         assert "erwähne nie einen Teil" not in user
+
+
+# ── Form wie ein gutes Gespräch: Einstieg, Warum, roter Faden ─────────────────
+
+class TestGespraechsform:
+    def test_der_plan_verlangt_einstieg_und_roten_faden(self):
+        from src.features.podcast.script import plan_messages
+        system = plan_messages("[1] Text", "stellen", _params(), 3)[0]["content"]
+        assert '"opening"' in system and '"thread"' in system
+
+    def test_der_plan_ordnet_nach_bedeutung_nicht_nach_datei(self):
+        from src.features.podcast.script import plan_messages
+        system = plan_messages("[1] Text", "stellen", _params(), 3, ["a.pdf", "b.pdf"])[0]["content"]
+        assert "never one file after the other" in system
+
+    def test_einstieg_und_faden_kommen_aus_dem_plan(self):
+        from src.features.podcast.script import parse_plan
+        roh = json.dumps({"opening": "Jemand wird krank.", "thread": "Schutz des Schwaecheren.",
+                          "parts": [{"title": t, "gist": "g", "refs": [i]} for i, t in
+                                    enumerate("AB", start=1)]})
+        plan = parse_plan(roh, lambda refs: [int(r) for r in refs], 2)
+        assert plan[0]["opening"] == "Jemand wird krank."
+        assert plan[-1]["thread"] == "Schutz des Schwaecheren."
+
+    def test_ohne_einstieg_bleibt_der_plan_brauchbar(self):
+        from src.features.podcast.script import parse_plan
+        roh = json.dumps({"parts": [{"title": "A", "gist": "g", "refs": [1]}]})
+        plan = parse_plan(roh, lambda refs: [int(r) for r in refs], 1)
+        assert plan[0]["opening"] == "" and plan[0]["thread"] == ""
+
+    def test_der_erste_teil_beginnt_mit_dem_einstieg(self):
+        user = build_messages("M", _params(), anzahl=14, teil=1, teile=3, plan="p",
+                              opening="Jemand wird krank.")[1]["content"]
+        assert "Jemand wird krank." in user
+
+    def test_der_letzte_teil_schliesst_mit_dem_roten_faden(self):
+        user = build_messages("M", _params(), anzahl=13, teil=3, teile=3, plan="p",
+                              thread="Schutz des Schwaecheren.")[1]["content"]
+        assert "Schutz des Schwaecheren." in user
+
+    def test_die_beitraege_wechseln_schnell_mit_kurzen_einwuerfen(self):
+        user = build_messages("M", _params())[1]["content"]
+        assert "nur 1 bis 10 Wörter" in user and "gemeinsam" in user
+
+    def test_jede_regel_mit_warum_und_beispiel(self):
+        user = build_messages("M", _params())[1]["content"]
+        assert "warum" in user and "Beispiel" in user
+
+    def test_fakten_nur_aus_dem_material_beispiele_frei(self):
+        system = build_messages("M", _params())[0]["content"]
+        assert "Fakten" in system and "Beispiele" in system
+
+    def test_einstieg_und_faden_beruehren_alle_dokumente(self):
+        from src.features.podcast.script import plan_messages
+        system = plan_messages("[1] Text", "stellen", _params(), 3, ["a.pdf", "b.pdf"])[0]["content"]
+        assert "not the frame of the largest one" in system
+
+    def test_der_erste_beitrag_nennt_das_thema_der_ganzen_folge(self):
+        user = build_messages("M", _params(), anzahl=14, teil=1, teile=3, plan="p")[1]["content"]
+        assert "Thema der ganzen Folge" in user
+
+    def test_die_personen_sprechen_persoenlich_miteinander(self):
+        user = build_messages("M", _params())[1]["content"]
+        assert "mit Namen an" in user
+
+    def test_ein_aufruf_schreibt_nicht_mehr_worte_als_vorher(self):
+        from src.features.podcast.schemas import LENGTH_PLAN
+        from src.limits import PODCAST_LINES_PER_CALL
+        _, je = LENGTH_PLAN["long"]
+        assert PODCAST_LINES_PER_CALL * je <= 14 * 52 + 20
+
+    def test_nummern_im_kurzinhalt_werden_entfernt(self):
+        from src.features.podcast.script import parse_plan
+        roh = json.dumps({"parts": [{"title": "A", "gist": "Wer darf ausbilden? refs: [21-32]",
+                                     "refs": [1]}]})
+        plan = parse_plan(roh, lambda refs: [int(r) for r in refs], 1)
+        assert plan[0]["gist"] == "Wer darf ausbilden?"
+
+
+    def test_die_laengen_halten_was_die_oberflaeche_verspricht(self):
+        from src.features.podcast.schemas import LENGTH_WORDS
+        # 5, 10 and 20 minutes at about 145 spoken words a minute.
+        assert [round(LENGTH_WORDS[n] / 145) for n in ("short", "medium", "long")] == [5, 10, 20]
+
+    def test_die_hoerer_werden_durchgehend_geduzt(self):
+        user = build_messages("M", _params())[1]["content"]
+        assert "durchgehend geduzt" in user
+
+    def test_ein_teil_kennt_was_schon_besprochen_wurde(self):
+        user = build_messages("M", _params(), anzahl=14, teil=3, teile=4, plan="p",
+                              besprochen=["Ausländische Abschlüsse werden anerkannt"])[1]["content"]
+        assert "Ausländische Abschlüsse werden anerkannt" in user and "nicht wiederholen" in user
+
+    def test_der_schluss_darf_mit_einer_offenen_frage_enden(self):
+        user = build_messages("M", _params(), anzahl=13, teil=3, teile=3, plan="p")[1]["content"]
+        assert "offene Frage" in user
+
+
+    def test_inhaltliche_beitraege_haben_mindestens_40_woerter(self):
+        user = build_messages("M", _params())[1]["content"]
+        assert "mindestens 40" in user
+
+    def test_niemand_redet_sich_selbst_mit_namen_an(self):
+        user = build_messages("M", _params())[1]["content"]
+        assert "nie den eigenen" in user
+
+    def test_der_umfang_gibt_keine_einheitslaenge_je_beitrag_vor(self):
+        user = build_messages("M", _params())[1]["content"]
+        assert "mit je etwa" not in user
+
+
+class TestEigeneAnrede:
+    def _zeilen(self, *paare):
+        return [Line(speaker=s, text=t) for s, t in paare]
+
+    def test_wer_sich_selbst_anredet_verliert_die_anrede(self):
+        from src.features.podcast.script import ohne_eigene_anrede
+        zeilen = ohne_eigene_anrede(self._zeilen((1, "Ja, Ben. Das gilt fuer alle.")), ["Anna", "Ben"])
+        assert zeilen[0].text == "Ja. Das gilt fuer alle."
+
+    def test_die_anrede_am_anfang_faellt_auch_weg(self):
+        from src.features.podcast.script import ohne_eigene_anrede
+        zeilen = ohne_eigene_anrede(self._zeilen((0, "Anna, das stimmt.")), ["Anna", "Ben"])
+        assert zeilen[0].text == "Das stimmt."
+
+    def test_die_anrede_der_anderen_person_bleibt(self):
+        from src.features.podcast.script import ohne_eigene_anrede
+        zeilen = ohne_eigene_anrede(self._zeilen((0, "Genau, Ben. Weiter.")), ["Anna", "Ben"])
+        assert zeilen[0].text == "Genau, Ben. Weiter."
+
+    def test_der_name_im_satz_bleibt(self):
+        from src.features.podcast.script import ohne_eigene_anrede
+        zeilen = ohne_eigene_anrede(self._zeilen((1, "Ich bin Ben und erklaere das.")), ["Anna", "Ben"])
+        assert zeilen[0].text == "Ich bin Ben und erklaere das."
+
+
+class TestBeideTragenInhalt:
+    def test_beide_personen_tragen_inhalt(self):
+        user = build_messages("M", _params())[1]["content"]
+        assert "Beide Personen tragen Inhalt" in user
+
+    def test_die_moderation_bringt_eigene_beobachtungen(self):
+        user = build_messages("M", _params())[1]["content"]
+        assert "eigene Beobachtungen" in user
+
+    def test_der_einstieg_ist_eine_kleine_geschichte(self):
+        from src.features.podcast.script import plan_messages
+        system = plan_messages("[1] Text", "stellen", _params(), 3)[0]["content"]
+        assert "small story" in system and "never a list of problems" in system
+
+    def test_der_schreiber_erzaehlt_den_einstieg_als_geschichte(self):
+        user = build_messages("M", _params(), anzahl=14, teil=1, teile=3, plan="p",
+                              opening="Lea wird krank.")[1]["content"]
+        assert "kleine Geschichte" in user
+
+    def test_jede_person_erklaert_in_jedem_teil_selbst(self):
+        user = build_messages("M", _params())[1]["content"]
+        assert "jede Person mindestens drei Punkte selbst" in user

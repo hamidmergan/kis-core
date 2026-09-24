@@ -85,7 +85,7 @@ def test_ein_spaeterer_teil_sieht_das_zuletzt_gesagte(monkeypatch):
                                  {"title": "B", "gist": "g", "refs": [8]}]})
     _, fake, _ = _lauf(monkeypatch, [plan, _zeilen(10), _zeilen(10, 10)], _params("medium"))
     zweiter = fake.gesendet[2][1]["content"]
-    assert "Ben: Beitrag 9" in zweiter and "Beitrag 5" not in zweiter
+    assert "Ben: Beitrag 9" in zweiter and "Ben: Beitrag 5" not in zweiter
 
 
 def test_ein_unbrauchbarer_plan_wird_einmal_wiederholt(monkeypatch):
@@ -116,3 +116,34 @@ def test_ein_plan_ohne_eine_datei_wird_mit_hinweis_wiederholt(monkeypatch):
     assert "far too little room" in fake.gesendet[1][1]["content"].casefold()
     assert "amg.pdf (50 % of the material)" in fake.gesendet[1][1]["content"]
     assert "amg.pdf" in fake.gesendet[3][1]["content"]
+
+
+def test_eine_von_zwei_teilen_genannte_stelle_bleibt_beim_ersten(monkeypatch):
+    plan = json.dumps({"parts": [{"title": "A", "gist": "g", "refs": [1, 4]},
+                                 {"title": "B", "gist": "g", "refs": [4, 8]}]})
+    _, fake, _ = _lauf(monkeypatch, [plan, _zeilen(10), _zeilen(10, 10)], _params("medium"))
+    assert "Satz 17 " in fake.gesendet[1][1]["content"]
+    assert "Satz 17 " not in fake.gesendet[2][1]["content"]
+
+
+def test_ein_knappes_budget_behaelt_die_vom_plan_genannte_stelle(monkeypatch):
+    monkeypatch.setattr(_script, "MAP_MATERIAL_MAX_CHARS", 160)
+    plan = json.dumps({"parts": [{"title": "A", "gist": "g", "refs": [4]},
+                                 {"title": "B", "gist": "g", "refs": [8]}]})
+    _, fake, _ = _lauf(monkeypatch, [plan, _zeilen(10), _zeilen(10, 10)], _params("medium"))
+    assert "Satz 17 " in fake.gesendet[1][1]["content"]
+
+
+def test_ein_spaeterer_teil_kennt_die_anfaenge_aller_frueheren_beitraege(monkeypatch):
+    plan = json.dumps({"parts": [{"title": t, "gist": "g", "refs": r}
+                                 for t, r in (("A", [1, 2]), ("B", ["4-5"]), ("C", [8]))]})
+    _, fake, _ = _lauf(monkeypatch, [plan, _zeilen(14), _zeilen(13, 14), _zeilen(13, 27)], _params())
+    assert "Beitrag 0" in fake.gesendet[3][1]["content"]
+
+
+def test_ein_geschriebener_teil_redet_niemanden_mit_dem_eigenen_namen_an(monkeypatch):
+    plan = json.dumps({"parts": [{"title": "A", "gist": "g", "refs": [1]}]})
+    antwort = json.dumps({"lines": [{"speaker": 0, "text": "Hallo."},
+                                    {"speaker": 1, "text": "Ja, Ben. Genau."}]})
+    zeilen, _, _ = _lauf(monkeypatch, [plan, antwort], _params("short"))
+    assert zeilen[1].text == "Ja. Genau."
