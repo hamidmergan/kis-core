@@ -11,6 +11,8 @@ import Spinner from "@/components/ui/Spinner";
 import Tabs from "@/components/ui/Tabs";
 import { Link } from "@/i18n/navigation";
 import { useModules } from "@/hooks/useModules";
+import { useMaterialMeasure } from "@/hooks/useMaterialMeasure";
+import MaterialGauge, { MeasureError, MeasureNote } from "@/components/tools/MaterialGauge";
 import { FIELD } from "../_components/VorlageHochladen";
 import VorlagenWahl from "../_components/VorlagenWahl";
 import StepFooter from "../_components/StepFooter";
@@ -54,6 +56,7 @@ export default function ContentStep({ canUseModules, source, language, notes, in
   // Whoever loses the assistant must not stay stuck in a tab that is gone.
   const mode: SourceMode = canUseModules || source.mode !== "module" ? source.mode : "files";
   const { modules, sources } = useModules(mode === "module" ? source.moduleId : "");
+  const messung = useMaterialMeasure("praesentation", mode, source.files, source.moduleId, source.sourceIds);
 
   // Nothing is preselected, a deleted source drops out of the choice.
   useEffect(() => {
@@ -138,23 +141,30 @@ export default function ContentStep({ canUseModules, source, language, notes, in
             <p className="text-xs text-muted-soft mt-1">{t("filesHint")}</p>
           </div>
           {source.files.length > 0 && (
-            <ul className="space-y-2">
-              {source.files.map((datei) => (
-                <li key={datei.name} className="flex items-center justify-between gap-3 rounded-lg border border-border-soft px-3 py-2 text-sm">
-                  <span className="truncate">{datei.name}</span>
-                  <span className="flex items-center gap-2 shrink-0">
-                    <span className="text-xs text-muted-soft">{groesse(datei.size)}</span>
-                    <IconButton
-                      size="sm"
-                      aria-label={t("removeFile", { name: datei.name })}
-                      onClick={() => onSource({ files: source.files.filter((f) => f.name !== datei.name) })}
-                    >
-                      <X size={12} weight="bold" />
-                    </IconButton>
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <>
+              <MaterialGauge bilanz={messung} max={messung.max} />
+              <ul className="space-y-2">
+                {source.files.map((datei) => (
+                  <li key={datei.name} className="rounded-lg border border-border-soft px-3 py-2 text-sm">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="truncate">{datei.name}</span>
+                      <span className="flex items-center gap-2 shrink-0">
+                        <MeasureNote messung={messung.forFile(datei)} />
+                        <span className="text-xs text-muted-soft">{groesse(datei.size)}</span>
+                        <IconButton
+                          size="sm"
+                          aria-label={t("removeFile", { name: datei.name })}
+                          onClick={() => onSource({ files: source.files.filter((f) => f.name !== datei.name) })}
+                        >
+                          <X size={12} weight="bold" />
+                        </IconButton>
+                      </span>
+                    </div>
+                    <MeasureError messung={messung.forFile(datei)} />
+                  </li>
+                ))}
+              </ul>
+            </>
           )}
         </>
       )}
@@ -185,17 +195,22 @@ export default function ContentStep({ canUseModules, source, language, notes, in
                 <EmptyState size="sm" text={t("noSources")} />
               ) : (
                 <div>
+                  {source.sourceIds.length > 0 && <MaterialGauge bilanz={messung} max={messung.max} />}
                   <span className="block text-sm font-medium text-foreground-soft mb-2">{t("sourcesLabel")}</span>
                   <ul className="space-y-2">
                     {sources.map((s) => (
                       <li key={s.uuid}>
-                        <Checkbox
-                          checked={source.sourceIds.includes(s.uuid)}
-                          disabled={voll && !source.sourceIds.includes(s.uuid)}
-                          onChange={() => toggleSource(s.uuid)}
-                          label={s.filename}
-                          labelClassName="text-sm text-foreground"
-                        />
+                        <div className="flex items-center justify-between gap-3">
+                          <Checkbox
+                            checked={source.sourceIds.includes(s.uuid)}
+                            disabled={voll && !source.sourceIds.includes(s.uuid)}
+                            onChange={() => toggleSource(s.uuid)}
+                            label={s.filename}
+                            labelClassName="text-sm text-foreground"
+                          />
+                          {source.sourceIds.includes(s.uuid) && <MeasureNote messung={messung.forSource(s.uuid)} />}
+                        </div>
+                        {source.sourceIds.includes(s.uuid) && <MeasureError messung={messung.forSource(s.uuid)} />}
                       </li>
                     ))}
                   </ul>
@@ -234,7 +249,7 @@ export default function ContentStep({ canUseModules, source, language, notes, in
       )}
 
       <StepFooter onBack={null} nextLabel={t("next")} onNext={onNext}
-        nextDisabled={!hasContent({ ...source, mode }) || hasActiveJob === true} />
+        nextDisabled={!hasContent({ ...source, mode }) || !messung.ready || hasActiveJob === true} />
     </section>
   );
 }

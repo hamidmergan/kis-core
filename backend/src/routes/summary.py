@@ -10,10 +10,10 @@ from src.dependencies import get_current_user, is_admin_user
 from src.dependencies_rbac import require_tool_access
 from src.features.summary.templates import TEMPLATES, default_template, get_template
 from src.i18n import get_locale, t
-from src.features.summary import settings as cfg
 from src.services import sources
 from src.limits import SUMMARY_MAX_SOURCES
 from src.quotas import enforce_quota
+from src.routes.material_measure import measure_router
 from src.security.rate_limit import enforce_tool_burst
 from src.services import feature_provider_choices
 from src.services.open_jobs import enforce_open_jobs
@@ -21,6 +21,7 @@ from src.services.tool_limits import max_upload_bytes
 from src.utils.file_validation import SUMMARY_EXTENSIONS
 
 router = APIRouter(tags=["summary"], dependencies=[Depends(require_tool_access("summary"))])
+router.include_router(measure_router("summary"))
 
 
 @router.get("/summary/providers")
@@ -39,8 +40,7 @@ async def list_templates(_user: dict = Depends(get_current_user)):
             for v in TEMPLATES
         ],
         "maxSources": SUMMARY_MAX_SOURCES,
-        "maxCharsPerSource": cfg.chars_per_source(),
-        "maxTotalChars": cfg.total_chars(),
+        "maxTotalChars": sources.MAX_TOTAL_CHARS,
         "extensions": sorted(SUMMARY_EXTENSIONS),
     }
 

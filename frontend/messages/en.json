@@ -410,7 +410,14 @@
     "add": "Add",
     "close": "Close",
     "backToOverview": "Overview",
-    "jobBackgroundHint": "You can leave the page. The job keeps running in the background. You find the result under My jobs."
+    "jobBackgroundHint": "You can leave the page. The job keeps running in the background. You find the result under My jobs.",
+    "material": {
+      "chars": "{n} characters",
+      "unreadable": "not readable",
+      "total": "{n} of {max} characters",
+      "totalCounting": "{n} of {max} characters, still counting",
+      "tooMuch": "Together the material is {over} characters too long. Remove something to continue."
+    }
   },
   "tools": {
     "stt": {

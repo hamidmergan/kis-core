@@ -410,7 +410,14 @@
     "add": "Hinzufügen",
     "close": "Schließen",
     "backToOverview": "Übersicht",
-    "jobBackgroundHint": "Du kannst die Seite verlassen. Der Auftrag läuft im Hintergrund weiter. Das Ergebnis findest du unter Meine Jobs."
+    "jobBackgroundHint": "Du kannst die Seite verlassen. Der Auftrag läuft im Hintergrund weiter. Das Ergebnis findest du unter Meine Jobs.",
+    "material": {
+      "chars": "{n} Zeichen",
+      "unreadable": "nicht lesbar",
+      "total": "{n} von {max} Zeichen",
+      "totalCounting": "{n} von {max} Zeichen, es wird noch gezählt",
+      "tooMuch": "Zusammen ist das Material {over} Zeichen zu lang. Nimm etwas raus, dann geht es weiter."
+    }
   },
   "tools": {
     "stt": {

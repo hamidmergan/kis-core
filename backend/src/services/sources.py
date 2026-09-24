@@ -78,6 +78,36 @@ def check_total(sources: list[Source], locale: str, schluessel: str) -> None:
             chars=_zahl(zeichen), max=_zahl(MAX_TOTAL_CHARS)))
 
 
+async def _read_upload(datei: UploadFile, tmpdir: str, locale: str, schluessel: str) -> Source:
+    """One uploaded file through every check and the reader."""
+    name = datei.filename or "?"
+    ext = Path(name).suffix.lower()
+    if ext not in EXTENSIONS:
+        raise HTTPException(status_code=400, detail=t(
+            f"{schluessel}.unsupportedFormat", locale, formats=", ".join(EXTENSIONS)))
+    ziel = os.path.join(tmpdir, f"{uuid.uuid4().hex}{ext}")
+    groesse, kopf = await stream_upload_to_path(datei, ziel, max_upload_bytes(), locale)
+    if not groesse:
+        raise HTTPException(status_code=400, detail=t("file.empty", locale))
+    validate_or_raise(kopf, ext, locale)
+    pages_or_raise(ext, ziel, locale)
+    try:
+        return read_file(ziel, name)
+    except NoReadableText:
+        raise HTTPException(status_code=422, detail=t(
+            f"{schluessel}.sourceOnlyImages", locale, name=name)) from None
+    except Exception as e:  # noqa: BLE001 - a broken file is no server fault
+        logger.warning("Quelle '{}' nicht lesbar: {}", name, e)
+        raise HTTPException(status_code=422, detail=t(
+            f"{schluessel}.fileUnreadable", locale, name=name)) from e
+
+
+async def measure_upload(datei: UploadFile, *, locale: str, schluessel: str) -> int:
+    """The characters one file brings, counted exactly as the start will count them."""
+    with tempfile.TemporaryDirectory(prefix="messen_") as tmpdir:
+        return len((await _read_upload(datei, tmpdir, locale, schluessel)).text)
+
+
 async def read_uploads(files: list[UploadFile], *, locale: str, hoechstens: int,
                        schluessel: str) -> list[Source]:
     """Every uploaded file read once. The file itself does not outlive this request.
@@ -89,27 +119,7 @@ async def read_uploads(files: list[UploadFile], *, locale: str, hoechstens: int,
     gelesen: list[Source] = []
     with tempfile.TemporaryDirectory(prefix="quellen_") as tmpdir:
         for datei in files:
-            name = datei.filename or "?"
-            ext = Path(name).suffix.lower()
-            if ext not in EXTENSIONS:
-                raise HTTPException(status_code=400, detail=t(
-                    f"{schluessel}.unsupportedFormat", locale,
-                    formats=", ".join(EXTENSIONS)))
-            ziel = os.path.join(tmpdir, f"{uuid.uuid4().hex}{ext}")
-            groesse, kopf = await stream_upload_to_path(datei, ziel, max_upload_bytes(), locale)
-            if not groesse:
-                raise HTTPException(status_code=400, detail=t("file.empty", locale))
-            validate_or_raise(kopf, ext, locale)
-            pages_or_raise(ext, ziel, locale)
-            try:
-                gelesen.append(read_file(ziel, name))
-            except NoReadableText:
-                raise HTTPException(status_code=422, detail=t(
-                    f"{schluessel}.sourceOnlyImages", locale, name=name)) from None
-            except Exception as e:  # noqa: BLE001 - a broken file is no server fault
-                logger.warning("Quelle '{}' nicht lesbar: {}", name, e)
-                raise HTTPException(status_code=422, detail=t(
-                    f"{schluessel}.fileUnreadable", locale, name=name)) from e
+            gelesen.append(await _read_upload(datei, tmpdir, locale, schluessel))
     check_total(gelesen, locale, schluessel)
     zeichen = sum(len(q.text) for q in gelesen)
     logger.info("{}: {} Quelle(n) gelesen, {} Zeichen, {} Stueck(e)",

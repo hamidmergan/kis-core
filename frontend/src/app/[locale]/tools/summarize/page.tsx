@@ -16,6 +16,8 @@ import ProviderSelect from "@/components/tools/ProviderSelect";
 import { useFeatureProviders } from "@/hooks/useFeatureProviders";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useModules } from "@/hooks/useModules";
+import { useMaterialMeasure } from "@/hooks/useMaterialMeasure";
+import MaterialGauge, { MeasureError, MeasureNote } from "@/components/tools/MaterialGauge";
 
 type Template = { slug: string; nameDe: string; nameEn: string; hintDe: string; hintEn: string };
 type Setup = { templates: Template[]; maxSources: number; extensions: string[] };
@@ -56,6 +58,7 @@ export default function ZusammenfassungPage() {
   // Whoever loses the assistant must not stay stuck in a tab that is gone.
   const mode: SourceMode = canUseModules ? gewaehlterModus : "files";
   const { modules, sources } = useModules(mode === "module" ? moduleId : "");
+  const messung = useMaterialMeasure("summary", mode, files, moduleId, sourceIds);
   const voll = sourceIds.length >= maxSources;
   const hatInhalt = mode === "files" ? files.length > 0 : sourceIds.length > 0;
 
@@ -136,7 +139,7 @@ export default function ZusammenfassungPage() {
   );
 
   const handleSubmit = async () => {
-    if (!files.length || processing) return;
+    if (!hatInhalt || !messung.ready || processing) return;
     setProcessing(true);
     setErrorMessage("");
     setDoneJobUuid(null);
@@ -162,7 +165,8 @@ export default function ZusammenfassungPage() {
         data.job_uuid,
         (status) => {
           const p = status.progress as Progress;
-          if (!p?.step) return;
+          // A step the page does not know keeps the last line instead of breaking the page.
+          if (!p?.step || !t.has(`step.${p.step}`)) return;
           // Zero done files reads as the plain sentence, never as "0 von 1".
           setStep(typeof p.part === "number" && typeof p.total === "number" && p.part > 0
             ? t(`step.${p.step}Counted`, { part: p.part, total: p.total })
@@ -267,17 +271,22 @@ export default function ZusammenfassungPage() {
                     <EmptyState size="sm" text={t("noSources")} />
                   ) : (
                     <div>
+                      {sourceIds.length > 0 && <MaterialGauge bilanz={messung} max={messung.max} />}
                       <span className="block text-sm font-medium text-foreground mb-2">{t("chosenFiles")}</span>
                       <ul className="space-y-2">
                         {sources.map((q) => (
                           <li key={q.uuid}>
-                            <Checkbox
-                              checked={sourceIds.includes(q.uuid)}
-                              disabled={processing || (voll && !sourceIds.includes(q.uuid))}
-                              onChange={() => schalteQuelle(q.uuid)}
-                              label={q.filename}
-                              labelClassName="text-sm text-foreground"
-                            />
+                            <div className="flex items-center justify-between gap-3">
+                              <Checkbox
+                                checked={sourceIds.includes(q.uuid)}
+                                disabled={processing || (voll && !sourceIds.includes(q.uuid))}
+                                onChange={() => schalteQuelle(q.uuid)}
+                                label={q.filename}
+                                labelClassName="text-sm text-foreground"
+                              />
+                              {sourceIds.includes(q.uuid) && <MeasureNote messung={messung.forSource(q.uuid)} />}
+                            </div>
+                            {sourceIds.includes(q.uuid) && <MeasureError messung={messung.forSource(q.uuid)} />}
                           </li>
                         ))}
                       </ul>
@@ -339,20 +348,27 @@ export default function ZusammenfassungPage() {
 
           {mode === "files" && files.length > 0 && (
             <div className="mt-4">
+              <MaterialGauge bilanz={messung} max={messung.max} />
               <p className="text-sm font-medium text-foreground mb-2">{t("chosenFiles")}</p>
               <ul className="space-y-1">
                 {files.map((f, i) => (
-                  <li key={`${f.name}-${f.size}`} className="flex items-center justify-between text-sm text-foreground">
-                    <span className="truncate">{f.name}</span>
-                    {!processing && !doneJobUuid && (
-                      <button
-                        type="button"
-                        onClick={() => removeFile(i)}
-                        className="text-xs text-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb"
-                      >
-                        {t("removeFile")}
-                      </button>
-                    )}
+                  <li key={`${f.name}-${f.size}`} className="text-sm text-foreground">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="truncate">{f.name}</span>
+                      <span className="flex items-center gap-3 shrink-0">
+                        <MeasureNote messung={messung.forFile(f)} />
+                        {!processing && !doneJobUuid && (
+                          <button
+                            type="button"
+                            onClick={() => removeFile(i)}
+                            className="text-xs text-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb"
+                          >
+                            {t("removeFile")}
+                          </button>
+                        )}
+                      </span>
+                    </div>
+                    <MeasureError messung={messung.forFile(f)} />
                   </li>
                 ))}
               </ul>
@@ -389,7 +405,7 @@ export default function ZusammenfassungPage() {
             <div className="mt-6 flex items-center gap-3">
               <button
                 onClick={handleSubmit}
-                disabled={!hatInhalt || processing}
+                disabled={!hatInhalt || !messung.ready || processing}
                 className="self-start px-5 py-2 btn-primary text-sm font-medium rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 {processing && <Spinner size="sm" color="current" />}

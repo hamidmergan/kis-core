@@ -3,6 +3,7 @@
 from fastapi import APIRouter, Depends
 
 from src.dependencies_rbac import require_tool_access
+from src.routes.material_measure import measure_router
 from src.routes.praesentation.media import router as _media_router
 from src.routes.praesentation.outline import router as _outline_router
 from src.routes.praesentation.slides import router as _slides_router
@@ -11,6 +12,7 @@ from src.routes.praesentation.vorlagen import router as _vorlagen_router
 
 router = APIRouter(dependencies=[Depends(require_tool_access("praesentation"))])
 router.include_router(_start_router)
+router.include_router(measure_router("praesentation"))
 router.include_router(_vorlagen_router)
 router.include_router(_outline_router)
 router.include_router(_slides_router)

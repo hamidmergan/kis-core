@@ -95,6 +95,37 @@ def _read_one(source: dict) -> Source:
     return _transcript(source, name)
 
 
+def _read_chosen(vorhanden: dict[str, dict], source_uuid: str, workspace_uuid: str,
+                 locale: str, schluessel: str) -> Source:
+    """One picked source of the workspace, refused the same way wherever it is read."""
+    source = vorhanden.get(source_uuid)
+    # An id from another workspace is not told apart from one that does not exist.
+    if source is None:
+        raise HTTPException(status_code=404, detail=t(f"{schluessel}.sourceMissing", locale))
+    if source["status"] != READY:
+        raise HTTPException(status_code=409, detail=t(
+            f"{schluessel}.sourceNotReady", locale, name=source["filename"]))
+    name = source["filename"] or source_uuid
+    try:
+        return _read_one(source)
+    except NoReadableText:
+        raise HTTPException(status_code=422, detail=t(
+            f"{schluessel}.sourceOnlyImages", locale, name=name)) from None
+    except Exception as e:  # noqa: BLE001 - a broken stored file is no server fault
+        logger.warning("Quelle '{}' aus Workspace {} nicht lesbar: {}",
+                       name, workspace_uuid[:8], e)
+        raise HTTPException(status_code=422, detail=t(
+            f"{schluessel}.fileUnreadable", locale, name=name)) from e
+
+
+def measure_one(workspace_uuid: str, source_uuid: str, *, user_id: int, locale: str,
+                schluessel: str) -> int:
+    """The characters one workspace source brings, counted exactly as the start will count them."""
+    workspace = _workspace_or_raise(workspace_uuid, user_id, locale)
+    vorhanden = {q["uuid"]: q for q in db.get_aia_sources_by_workspace(workspace["id"])}
+    return len(_read_chosen(vorhanden, source_uuid, workspace_uuid, locale, schluessel).text)
+
+
 def read_workspace(workspace_uuid: str, source_uuids: list[str], *, user_id: int,
                    locale: str, hoechstens: int, schluessel: str) -> list[Source]:
     """The chosen sources of a workspace, in the order the person picked them."""
@@ -106,27 +137,8 @@ def read_workspace(workspace_uuid: str, source_uuids: list[str], *, user_id: int
     workspace = _workspace_or_raise(workspace_uuid, user_id, locale)
 
     vorhanden = {q["uuid"]: q for q in db.get_aia_sources_by_workspace(workspace["id"])}
-    gelesen: list[Source] = []
-    for source_uuid in source_uuids:
-        source = vorhanden.get(source_uuid)
-        # An id from another workspace is not told apart from one that does not exist.
-        if source is None:
-            raise HTTPException(status_code=404,
-                                detail=t(f"{schluessel}.sourceMissing", locale))
-        if source["status"] != READY:
-            raise HTTPException(status_code=409, detail=t(
-                f"{schluessel}.sourceNotReady", locale, name=source["filename"]))
-        name = source["filename"] or source_uuid
-        try:
-            gelesen.append(_read_one(source))
-        except NoReadableText:
-            raise HTTPException(status_code=422, detail=t(
-                f"{schluessel}.sourceOnlyImages", locale, name=name)) from None
-        except Exception as e:  # noqa: BLE001 - a broken stored file is no server fault
-            logger.warning("Quelle '{}' aus Workspace {} nicht lesbar: {}",
-                           name, workspace_uuid[:8], e)
-            raise HTTPException(status_code=422, detail=t(
-                f"{schluessel}.fileUnreadable", locale, name=name)) from e
+    gelesen = [_read_chosen(vorhanden, source_uuid, workspace_uuid, locale, schluessel)
+               for source_uuid in source_uuids]
     check_total(gelesen, locale, schluessel)
     logger.info("{}: {} Quelle(n) aus Workspace {}, {} Zeichen, {} Stueck(e)",
                 schluessel, len(gelesen), workspace_uuid[:8],

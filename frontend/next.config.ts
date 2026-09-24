@@ -273,6 +273,14 @@ const nextConfig: NextConfig = {
         destination: `${backendUrl}/summary/templates`,
       },
       {
+        source: "/api/summary/measure",
+        destination: `${backendUrl}/summary/measure`,
+      },
+      {
+        source: "/api/summary/measure/workspace",
+        destination: `${backendUrl}/summary/measure/workspace`,
+      },
+      {
         source: "/api/summary",
         destination: `${backendUrl}/summary`,
       },
