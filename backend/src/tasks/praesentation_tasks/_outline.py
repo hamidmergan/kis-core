@@ -7,7 +7,6 @@ from loguru import logger
 from src import database as db
 from src.celery_app import celery_app
 from src.features.praesentation import gliederung, store, vorlage
-from src.features.praesentation.schemas import FOLIEN_GRENZEN
 from src.i18n import t
 from src.limits import STAGE_SOFT_TIME_LIMIT, STAGE_TIME_LIMIT
 from src.services import feature_router
@@ -96,15 +95,17 @@ def run_praesentation_outline(self, job_uuid: str, user_id: int, locale: str = "
         with job_heartbeat(job_uuid):
             g = _grundlage(user_id, job_uuid, karte, params.language, llm)
             dateien = [q.dateiname for q in quellenliste if q.stuecke]
-            ziel = tm.ziel_eintraege(sum(len(q.text) for q in quellenliste), *FOLIEN_GRENZEN,
-                                     grund=8, je=20_000)
-            fehlt: list[str] = []
+            ziel = gliederung.ziel_folien(sum(len(q.text) for q in quellenliste))
+            anteile = gliederung.folien_je_datei(karte, ziel - gliederung.RAHMEN_FOLIEN)
             outline = None
+            bester = 0
             hinweis: list[str] = []
+            schief: list[str] = []
             for versuch_nr in range(1, _VERSUCHE + 1):
                 assert_not_cancelled(job_uuid)
                 nachrichten = gliederung.build_messages(g.material, params, rollen, g.modus,
-                                                        dateien=dateien, ziel=ziel, fehlt=hinweis)
+                                                        dateien=dateien, ziel=ziel, fehlt=hinweis,
+                                                        schief=schief, anteile=anteile)
                 antwort = call_json_llm(llm, nachrichten, endpoint="praesentation").choices[0].message.content or ""
                 try:
                     kandidat = gliederung.parse_answer(antwort, rollen,
@@ -113,17 +114,19 @@ def run_praesentation_outline(self, job_uuid: str, user_id: int, locale: str = "
                     letzter = str(e)
                     logger.warning("Präsentation {}: Gliederung Versuch {} unbrauchbar: {}", job_uuid[:8], versuch_nr, e)
                     continue
-                # Only a deck over several files can leave one out.
-                luecken = (tm.zu_kurz([r.stellen for r in kandidat.rows], karte)
-                           if len(dateien) > 1 else [])
-                if outline is None or len(luecken) < len(fehlt):
-                    outline, fehlt = kandidat, luecken
-                if not fehlt:
+                # Only a deck over several files can leave one out or lean on one.
+                mehrere = len(dateien) > 1
+                luecken = tm.zu_kurz([r.stellen for r in kandidat.rows], karte) if mehrere else []
+                schief = gliederung.schief(kandidat.rows, karte) if mehrere else []
+                mangel = len(luecken) + len(schief)
+                if outline is None or mangel < bester:
+                    outline, bester = kandidat, mangel
+                if not mangel:
                     break
-                # A deck that skips a whole file is kept only when the retry does no better.
+                # A deck that skips or buries a file is kept only when the retry does no better.
                 hinweis = [f"{n} ({a} % of the material)" for n, a in luecken]
-                logger.warning("Präsentation {}: Gliederung Versuch {} gibt zu wenig Gewicht: {}",
-                               job_uuid[:8], versuch_nr, ", ".join(hinweis))
+                logger.warning("Präsentation {}: Gliederung Versuch {} unausgewogen: {} {}",
+                               job_uuid[:8], versuch_nr, ", ".join(hinweis), ", ".join(schief))
             if outline is None:
                 raise RuntimeError(letzter or "Das Modell lieferte keine brauchbare Gliederung")
 

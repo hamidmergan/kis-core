@@ -16,7 +16,8 @@ from src.features.praesentation.schemas import Outline, OutlineRow, Slide
 from src.features.praesentation.vorlage import Analyse
 from src.i18n import t
 from src.limits import (
-    PRAESENTATION_BATCH, PRAESENTATION_IMAGE_PARALLELISM, STAGE_SOFT_TIME_LIMIT, STAGE_TIME_LIMIT,
+    PRAESENTATION_BATCH, PRAESENTATION_IMAGE_PARALLELISM, PRAESENTATION_WRITE_PARALLELISM,
+    STAGE_SOFT_TIME_LIMIT, STAGE_TIME_LIMIT,
 )
 from src.services import feature_router
 from src.services.text_map import Karte
@@ -152,39 +153,45 @@ def _texte_schreiben(job_uuid, user_id, params, quelle, quellenliste, analyse,
     pakete += [rest[i:i + PRAESENTATION_BATCH] for i in range(0, len(rest), PRAESENTATION_BATCH)]
     fertig = 0
     db.update_job_status(job_uuid, "running", progress=_fortschritt(final, "texte", current=0, total=len(offen)))
+
+    def schreibe(paket: list[OutlineRow]) -> list[Slide]:
+        assert_not_cancelled(job_uuid)
+        formen = {r.id: vorlage.form_fuer(analyse.layout(layouts[r.id]), analyse) for r in paket}
+        # A slide with material of its own keeps it, the rest get their passages.
+        if paket[0].id in eigen:
+            nachrichten = folien.build_messages(eigen[paket[0].id], params, paket, formen)
+        else:
+            je_folie = folien.material_je_folie(paket, karte, outline.rows)
+            nachrichten = folien.build_messages(quelle, params, paket, formen, je_folie or None)
+        letzter = ""
+        for _ in range(_VERSUCHE):
+            antwort = call_json_llm(llm, nachrichten, endpoint="praesentation").choices[0].message.content or ""
+            try:
+                return folien.parse_answer(antwort, paket, formen, params.notes)
+            except gliederung.Unusable as e:
+                letzter = str(e)
+                logger.warning("Präsentation {}: Folienpaket unbrauchbar: {}", job_uuid[:8], e)
+        raise RuntimeError(letzter or "Das Modell lieferte keine brauchbaren Folien")
+
+    # A few batches at once, each wave saved before the next, so a stage never loses a finished one.
+    wellen = [pakete[i:i + PRAESENTATION_WRITE_PARALLELISM]
+              for i in range(0, len(pakete), PRAESENTATION_WRITE_PARALLELISM)]
     with job_heartbeat(job_uuid):
-        for n, paket in enumerate(pakete):
-            assert_not_cancelled(job_uuid)
-            formen = {r.id: vorlage.form_fuer(analyse.layout(layouts[r.id]), analyse) for r in paket}
-            # A slide with material of its own keeps it, the rest get their passages.
-            if paket[0].id in eigen:
-                nachrichten = folien.build_messages(eigen[paket[0].id], params, paket, formen)
-            else:
-                je_folie = folien.material_je_folie(paket, karte, outline.rows)
-                nachrichten = folien.build_messages(quelle, params, paket, formen,
-                                                    je_folie or None)
-            letzter = ""
-            for _ in range(_VERSUCHE):
-                antwort = call_json_llm(llm, nachrichten, endpoint="praesentation").choices[0].message.content or ""
-                try:
-                    neue = folien.parse_answer(antwort, paket, formen, params.notes)
-                    break
-                except gliederung.Unusable as e:
-                    letzter = str(e)
-                    logger.warning("Präsentation {}: Folienpaket unbrauchbar: {}", job_uuid[:8], e)
-            else:
-                raise RuntimeError(letzter or "Das Modell lieferte keine brauchbaren Folien")
-            for s in neue:
-                s.layout = layouts[s.id]
-                slides[s.id] = s
-            fertig += len(paket)
+        for n, welle in enumerate(wellen):
+            with ThreadPoolExecutor(max_workers=len(welle)) as pool:
+                ergebnisse = list(pool.map(schreibe, welle))
+            for neue in ergebnisse:
+                for s in neue:
+                    s.layout = layouts[s.id]
+                    slides[s.id] = s
+                fertig += len(neue)
             geordnet = [slides[r.id] for r in outline.rows if r.id in slides]
             store.save_slides(user_id, job_uuid, geordnet)
             store.save_user_slides(user_id, job_uuid, geordnet)
             db.touch_job_heartbeat(job_uuid)
             db.update_job_status(job_uuid, "running", progress=_fortschritt(final, "texte", current=fertig, total=len(offen)))
-            # The finished batch is saved, whatever is left goes to the next stage.
-            if clock.over() and n < len(pakete) - 1:
+            # The finished wave is saved, whatever is left goes to the next stage.
+            if clock.over() and n < len(wellen) - 1:
                 raise StageContinue
 
 

@@ -247,3 +247,18 @@ class TestMaterialJeFolie:
         assert "DER BLOCK" not in user
         assert "Eigene Stelle" in user
         assert "from its own material only" in nachrichten[0]["content"]
+
+
+class TestWieNotebookLM:
+    def test_aussagen_tragen_ihren_paragrafen(self):
+        system = folien.build_messages("Q", PraesentationParams(), ROWS, FORMEN)[0]["content"]
+        assert "name it in parentheses at the end of the statement" in system
+
+    def test_eine_tabelle_darf_auch_vergleichen(self):
+        system = folien.build_messages("Q", PraesentationParams(), ROWS, FORMEN)[0]["content"]
+        assert "compared along the same attributes" in system
+
+    def test_der_titel_nennt_seine_zeichengrenze(self):
+        form = dict(FORM_TEXT, ueberschrift_zeichen=32)
+        user = folien.build_messages("Q", PraesentationParams(), ROWS[:1], {"s2": form})[1]["content"]
+        assert "title limit: 6 words, at most 32 characters" in user

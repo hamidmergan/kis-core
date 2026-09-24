@@ -196,3 +196,32 @@ def test_der_grad_faellt_nie_unter_die_untergrenze(analyse):
     prs = _deck(analyse, [Slide(id="s1", role="deckblatt", title="Verfassung " * 10, subtitle="U")])
     (grad,) = _groessen(prs.slides[0], 0)
     assert grad >= feld.size_pt * 0.6
+
+
+def _nummer(folie) -> str | None:
+    feld = [ph for ph in folie.placeholders if ph.placeholder_format.type == PP_PLACEHOLDER.SLIDE_NUMBER]
+    return feld[0].text_frame.text if feld else None
+
+
+def test_foliennummer_unten_links_ausser_auf_dem_deckblatt(analyse):
+    prs = _deck(analyse, [Slide(id="s1", role="deckblatt", title="Deck"),
+                          Slide(id="s2", role="text", title="A", body=Body(items=["a"])),
+                          Slide(id="s3", role="abschluss", title="Ende")])
+    assert [_nummer(f) for f in prs.slides] == [None, "2", "3"]
+    feld = next(ph for ph in prs.slides[1].placeholders
+                if ph.placeholder_format.type == PP_PLACEHOLDER.SLIDE_NUMBER)
+    assert feld.left < prs.slide_width // 4 and feld.top > prs.slide_height * 0.9
+    # The field stays a slide number field, so PowerPoint renumbers after moving slides.
+    assert 'type="slidenum"' in feld._element.xml
+
+
+def test_datum_und_fusszeile_bleiben_leer(analyse):
+    prs = _deck(analyse, [Slide(id="s2", role="text", title="A", body=Body(items=["a"]))])
+    arten = {ph.placeholder_format.type for ph in prs.slides[0].placeholders}
+    assert PP_PLACEHOLDER.DATE not in arten and PP_PLACEHOLDER.FOOTER not in arten
+
+
+def test_vorgegebene_nummern_fuer_eine_teilvorschau(analyse):
+    prs = bau.baue(THL, analyse, [Slide(id="s5", role="text", title="A", body=Body(items=["a"]))], {},
+                   "Mein Deck", False, nummern=[5])
+    assert _nummer(Presentation(BytesIO(prs)).slides[0]) == "5"

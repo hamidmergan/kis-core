@@ -52,7 +52,7 @@ def build_messages(source: str, params: PraesentationParams, rows: list[OutlineR
         "- subtitle: only when asked, one line\n"
         "- body: when the slide has one text field. kind is one of the allowed kinds.\n"
         '  bullets: {"kind": "bullets", "items": [...]} with 3 to 6 short points, all together within the word limit.\n'
-        '  table: {"kind": "table", "header": [...], "rows": [[...]]} only for real value pairs from the material, at most 6 rows.\n'
+        '  table: {"kind": "table", "header": [...], "rows": [[...]]} for real value pairs from the material or things compared along the same attributes, at most 6 rows.\n'
         '  chart: {"kind": "chart", "chart_type": "bar|line|pie", "categories": [...], "series": [{"name": "...", "values": [numbers]}]} only for numbers with a shared unit, at most 6 categories.\n'
         '  image: {"kind": "image", "prompt": "..."} only when allowed, at most on every fourth slide.\n'
         '- columns: when the slide has two or more text fields, one entry per field: {"heading": "...", "items": [...]}\n'
@@ -60,7 +60,10 @@ def build_messages(source: str, params: PraesentationParams, rows: list[OutlineR
         "- notes: speaker notes of 60 to 120 words in the slide language, only when asked, else an empty string\n"
         'Answer with one JSON object only: {"slides": [{"id": "...", "title": "...", "subtitle": "...", '
         '"body": {...}, "columns": [...], "images": [...], "notes": "..."}]}.\n'
-        'Every slide object goes inside that one "slides" array, nothing else at the top level.'
+        'Every slide object goes inside that one "slides" array, nothing else at the top level.\n'
+        "Where the material shows the numbered part a statement comes from, such as '§ 15 Abs. 4' "
+        "or 'Art. 5', name it in parentheses at the end of the statement. The page lines of the "
+        "material are never such a number."
     )
     teile = []
     for r in rows:
@@ -68,7 +71,8 @@ def build_messages(source: str, params: PraesentationParams, rows: list[OutlineR
         # A slide asked for by instruction alone arrives without a heading, the model writes it.
         titelteil = f'title "{r.title}"' if r.title else "no title yet, write one"
         zeilen = [f"SLIDE {r.id} (role {r.role}): {titelteil}, gist: {r.gist}",
-                  f"  title limit: {f['ueberschrift']} words"]
+                  f"  title limit: {f['ueberschrift']} words"
+                  + (f", at most {f['ueberschrift_zeichen']} characters" if f.get("ueberschrift_zeichen") else "")]
         if r.role in ("deckblatt", "abschluss") and f["zwischentitel"]:
             zeilen.append(f"  subtitle: yes, up to {f['zwischentitel'][0]} words")
         if len(f["fliesstexte"]) == 1:

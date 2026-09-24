@@ -108,6 +108,29 @@ def _material(user_id: int, job_uuid: str) -> str:
 
     return quellen.as_block(quellen.load_sources(user_id, job_uuid))
 
+def _nummern_nachziehen(user_id: int, job_uuid: str, params, analyse, vorher: list[Slide],
+                        nachher: list[Slide]) -> list[str]:
+    """Re-renders the previews whose slide number changed, the ids of those that did."""
+    alt = {s.id: i for i, s in enumerate(vorher)}
+    geaendert = [(i + 1, s) for i, s in enumerate(nachher) if alt.get(s.id) != i and s.role != "deckblatt"]
+    if not geaendert:
+        return []
+    try:
+        outline = store.load_outline(user_id, job_uuid)
+        bilder: dict[str, bytes] = {}
+        for _, s in geaendert:
+            bilder.update(_bilder(user_id, job_uuid, s))
+        pngs = vorschau.mehrere(store.load_template(user_id, job_uuid) or b"", analyse, [s for _, s in geaendert],
+                                bilder, outline.title if outline else "", params.notes_in_deck,
+                                t("praesentation.aiNotice", params.language), nummern=[n for n, _ in geaendert])
+    except Exception as e:  # noqa: BLE001 - the order is saved, only the numbers in the pictures are stale
+        logger.warning("Präsentation {}: Vorschau nach neuer Reihenfolge fehlgeschlagen: {}", job_uuid[:8], e)
+        return []
+    for (_, s), png in zip(geaendert, pngs):
+        store.save_preview(user_id, job_uuid, s.id, png)
+    return [s.id for _, s in geaendert]
+
+
 @router.put("/praesentation/{job_uuid}/slides/order")
 async def save_order(job_uuid: str, body: OrderRequest, current_user: dict = Depends(get_current_user),
                      locale: str = Depends(get_locale)):
@@ -115,10 +138,12 @@ async def save_order(job_uuid: str, body: OrderRequest, current_user: dict = Dep
     nach_id = {s.id: s for s in slides}
     if sorted(body.ids) != sorted(nach_id):
         raise HTTPException(status_code=422, detail=t("praesentation.rowNotFound", locale))
-    _speichern(user_id, job_uuid, [nach_id[i] for i in body.ids])
+    nachher = [nach_id[i] for i in body.ids]
+    _speichern(user_id, job_uuid, nachher)
     if job["status"] == "success":
         db.reset_job_to_awaiting(job_uuid)
-    return {"ids": body.ids}
+    neu = await asyncio.to_thread(_nummern_nachziehen, user_id, job_uuid, params, analyse, slides, nachher)
+    return {"ids": body.ids, "previews": neu}
 
 
 @router.put("/praesentation/{job_uuid}/slides/{slide_id}")
@@ -138,7 +163,7 @@ async def save_slide(job_uuid: str, slide_id: str, body: Slide, current_user: di
         vorlage_bytes = store.load_template(user_id, job_uuid) or b""
         png = await asyncio.to_thread(vorschau.einzeln, vorlage_bytes, analyse, neu, _bilder(user_id, job_uuid, neu),
                                       outline.title if outline else "", params.notes_in_deck,
-                                      t("praesentation.aiNotice", params.language))
+                                      t("praesentation.aiNotice", params.language), stelle + 1)
         store.save_preview(user_id, job_uuid, neu.id, png)
     except Exception as e:  # noqa: BLE001 - the text is saved, only the picture is stale
         logger.warning("Präsentation {}: Einzelvorschau fehlgeschlagen: {}", job_uuid[:8], e)
@@ -199,11 +224,13 @@ async def delete_slide(job_uuid: str, slide_id: str, current_user: dict = Depend
         raise HTTPException(status_code=404, detail=t("praesentation.rowNotFound", locale))
     if s.role in ("deckblatt", "abschluss") or len(slides) <= 2:
         raise HTTPException(status_code=422, detail=t("praesentation.badParams", locale))
-    _speichern(user_id, job_uuid, [x for x in slides if x.id != slide_id])
+    nachher = [x for x in slides if x.id != slide_id]
+    _speichern(user_id, job_uuid, nachher)
     store.clear_slide_source(user_id, job_uuid, slide_id)
     if job["status"] == "success":
         db.reset_job_to_awaiting(job_uuid)
-    return {"ok": True}
+    neu = await asyncio.to_thread(_nummern_nachziehen, user_id, job_uuid, params, analyse, slides, nachher)
+    return {"ok": True, "previews": neu}
 
 
 @router.post("/praesentation/{job_uuid}/slides")

@@ -84,7 +84,7 @@ export const regenImage = (uuid: string, id: string, prompts: string[]) =>
   post(`/api/praesentation/${uuid}/slides/${id}/image`, { prompts }).then((r) => json<unknown>(r));
 
 export const deleteSlide = (uuid: string, id: string) =>
-  fetch(`/api/praesentation/${uuid}/slides/${id}`, { method: "DELETE", credentials: "include" }).then((r) => json<unknown>(r));
+  fetch(`/api/praesentation/${uuid}/slides/${id}`, { method: "DELETE", credentials: "include" }).then((r) => json<{ previews: string[] }>(r));
 
 export const insertSlide = (uuid: string, after: string | null, title: string, instruction: string) =>
   post(`/api/praesentation/${uuid}/slides`, { after, title, instruction }).then((r) => json<{ id: string }>(r));
@@ -93,7 +93,7 @@ export const setNotesInclude = (uuid: string, include: boolean) =>
   put(`/api/praesentation/${uuid}/notes`, { include }).then((r) => json<{ include: boolean }>(r));
 
 export const saveOrder = (uuid: string, ids: string[]) =>
-  put(`/api/praesentation/${uuid}/slides/order`, { ids }).then((r) => json<unknown>(r));
+  put(`/api/praesentation/${uuid}/slides/order`, { ids }).then((r) => json<{ previews: string[] }>(r));
 
 export const finalize = (uuid: string) => post(`/api/praesentation/${uuid}/finalize`).then((r) => json<unknown>(r));
 

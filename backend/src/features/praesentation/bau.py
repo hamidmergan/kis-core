@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from io import BytesIO
 
 from loguru import logger
@@ -10,6 +11,7 @@ from pptx import Presentation
 from pptx.chart.data import CategoryChartData
 from pptx.dml.color import RGBColor
 from pptx.enum.chart import XL_CHART_TYPE
+from pptx.enum.shapes import PP_PLACEHOLDER
 from pptx.enum.text import PP_ALIGN
 from pptx.util import Emu, Pt
 
@@ -46,13 +48,16 @@ def layout_index(a: Analyse, s: Slide, zaehler: dict[str, int]) -> int:
 
 
 def baue(vorlage_bytes: bytes, a: Analyse, slides: list[Slide], bilder: dict[str, bytes],
-         titel: str, notizen: bool, hinweis: str = "") -> bytes:
+         titel: str, notizen: bool, hinweis: str = "", nummern: list[int] | None = None) -> bytes:
+    """The deck, ``nummern`` gives each slide its number when only part of the deck is built."""
     prs = Presentation(BytesIO(vorlage_bytes))
     _leeren(prs)
     zaehler: dict[str, int] = {}
-    for s in slides:
+    for i, s in enumerate(slides):
         layout = a.layout(layout_index(a, s, zaehler))
         _folie(prs, layout, s, bilder, titel, notizen, hinweis, a.typeface)
+        if s.role != "deckblatt":
+            _foliennummer(prs.slides[-1], nummern[i] if nummern else i + 1)
     out = BytesIO()
     prs.save(out)
     return out.getvalue()
@@ -195,6 +200,19 @@ def _folie(prs, layout: Layout, s: Slide, bilder: dict[str, bytes], titel: str, 
 
     if notizen and s.notes:
         slide.notes_slide.notes_text_frame.text = s.notes
+
+
+def _foliennummer(slide, nummer: int) -> None:
+    """The layout's slide number field, copied onto the slide, since python-pptx leaves it out."""
+    vorbild = next((ph for ph in slide.slide_layout.placeholders
+                    if ph.placeholder_format.type == PP_PLACEHOLDER.SLIDE_NUMBER), None)
+    if vorbild is None:
+        return
+    el = deepcopy(vorbild._element)
+    el.nvSpPr.cNvPr.id = max((sh.shape_id for sh in slide.shapes), default=1) + 1
+    for t in el.iter("{http://schemas.openxmlformats.org/drawingml/2006/main}t"):
+        t.text = str(nummer)
+    slide.shapes._spTree.append(el)
 
 
 def _hinweis(prs, slide, text: str, typeface: str) -> None:

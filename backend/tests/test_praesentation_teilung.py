@@ -106,3 +106,31 @@ def test_auch_geteilte_spalten_behalten_den_sprechtext():
               columns=[Column(heading="L", items=["1", "2", "3", "4"]), Column(heading="R", items=["a", "b"])])
     out = teilung.teile_ueberlauf([s], _analyse())
     assert len(out) == 2 and all(o.notes for o in out)
+
+
+def test_eine_folie_mit_layout_misst_gegen_ihr_eigenes_feld():
+    # Six short points fit the large field of layout 2, the small one of layout 1 is not this slide's.
+    s = Slide(id="s3", role="text", layout=2, title="T", body=Body(items=["a", "b", "c", "d", "e", "f"]))
+    assert len(teilung.teile_ueberlauf([s], _analyse())) == 1
+
+
+def test_auch_im_eigenen_feld_wird_geteilt_was_nicht_passt():
+    s = Slide(id="s3", role="text", layout=1, title="T", body=Body(items=["a", "b", "c", "d", "e", "f"]))
+    assert len(teilung.teile_ueberlauf([s], _analyse())) == 2
+
+
+def _mit_bild():
+    a = _analyse()
+    bild = Layout(4, "Bild", "text_mit_bild",
+                  [_feld(0, 40, 4, "ueberschrift"), _feld(2, 300, 80), _feld(5, 100, 100, "bild")])
+    a.layouts.append(bild)
+    a.rollen["text_mit_bild"] = [4]
+    return a
+
+
+def test_der_rest_einer_bildfolie_wird_eine_textfolie():
+    s = Slide(id="s3", role="text_mit_bild", layout=4, title="T",
+              body=Body(items=["a", "b", "c", "d", "e", "f"]))
+    out = teilung.teile_ueberlauf([s], _mit_bild())
+    assert [o.role for o in out] == ["text_mit_bild", "text"]
+    assert out[1].layout in (1, 2) and out[1].images == []

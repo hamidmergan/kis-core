@@ -23,10 +23,16 @@ def render(deck: bytes, dpi: int = DPI) -> list[bytes]:
 
 
 def einzeln(vorlage_bytes: bytes, a: Analyse, slide: Slide, bilder: dict[str, bytes],
-            titel: str, notizen: bool, hinweis: str = "") -> bytes:
+            titel: str, notizen: bool, hinweis: str = "", nummer: int = 1) -> bytes:
     """One slide as a one-slide deck, so a single edit never renders the whole deck."""
-    deck = bau.baue(vorlage_bytes, a, [slide], bilder, titel, notizen, hinweis)
+    return mehrere(vorlage_bytes, a, [slide], bilder, titel, notizen, hinweis, nummern=[nummer])[0]
+
+
+def mehrere(vorlage_bytes: bytes, a: Analyse, slides: list[Slide], bilder: dict[str, bytes],
+            titel: str, notizen: bool, hinweis: str = "", *, nummern: list[int]) -> list[bytes]:
+    """Some slides of the deck in one render, each under its own number."""
+    deck = bau.baue(vorlage_bytes, a, slides, bilder, titel, notizen, hinweis, nummern=nummern)
     bilder_png = render(deck)
-    if not bilder_png:
+    if len(bilder_png) < len(slides):
         raise RuntimeError("LibreOffice lieferte kein Vorschaubild")
-    return bilder_png[0]
+    return bilder_png[:len(slides)]

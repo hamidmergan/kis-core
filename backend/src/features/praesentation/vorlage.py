@@ -44,6 +44,8 @@ class Feld:
     size_pt: float = 0.0
     is_object: bool = False
     words: int = 0
+    # Long words overrun a word budget, a heading gets a character cap on top.
+    chars: int = 0
     caps: bool = False
     bold: bool = False
     # Left plus right inset, and the one on the side the text is anchored to.
@@ -129,6 +131,7 @@ def form_fuer(l: Layout, a: Analyse) -> dict:
             arten.append("image")
     return {
         "ueberschrift": next((f.words for f in l.der_art("ueberschrift")), 8),
+        "ueberschrift_zeichen": next((f.chars for f in l.der_art("ueberschrift")), 0),
         "zwischentitel": [f.words for f in l.der_art("zwischentitel")],
         "fliesstexte": [f.words for f in flies],
         "bilder": len(l.der_art("bild")),
@@ -191,7 +194,7 @@ def _typeface(master) -> str:
     return m.group(1) if m and not m.group(1).startswith("+") else "Calibri"
 
 
-def _wortbudget(f: Feld) -> int:
+def _zeichenbudget(f: Feld) -> int:
     breite_pt = f.width / EMU_PER_PT - 36
     hoehe_pt = f.height / EMU_PER_PT - 7
     # Measured on Carlito: caps cost 17 percent width, bold another 2, and a budget
@@ -199,7 +202,11 @@ def _wortbudget(f: Feld) -> int:
     breit = 0.5 * (1.17 if f.caps else 1.0) * (1.02 if f.bold else 1.0)
     zeichen_je_zeile = max(10.0, breite_pt / (f.size_pt * breit))
     zeilen = max(1, int(hoehe_pt / (f.size_pt * 1.2)))
-    return max(2, min(MAX_WORDS.get(f.art, 120), int(zeichen_je_zeile * zeilen / 6.5)))
+    return int(zeichen_je_zeile * zeilen)
+
+
+def _wortbudget(f: Feld) -> int:
+    return max(2, min(MAX_WORDS.get(f.art, 120), int(_zeichenbudget(f) / 6.5)))
 
 
 def _felder(layout, titel_pt: float, text_pt: float) -> list[Feld]:
@@ -238,6 +245,7 @@ def _felder(layout, titel_pt: float, text_pt: float) -> list[Feld]:
             else:
                 f.art = "zwischentitel"
             f.words = _wortbudget(f) if f.art != "randtext" else 0
+            f.chars = _zeichenbudget(f) if f.art == "ueberschrift" else 0
     return roh
 
 

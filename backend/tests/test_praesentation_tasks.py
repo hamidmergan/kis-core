@@ -1,6 +1,8 @@
 """The tasks: outline in one call, build in stages, finished pictures stay."""
 
 import json
+import threading
+import time
 from contextlib import contextmanager
 
 import pytest
@@ -92,13 +94,36 @@ class _Db:
 
 
 class _Llm:
-    def __init__(self, antworten): self.antworten = list(antworten)
+    """Canned answers, a slide answer goes to the call that asks for its first slide."""
+
+    def __init__(self, antworten):
+        self.antworten = list(antworten)
+        self.sperre = threading.Lock()
+        self.gleichzeitig = self.hoechstens = 0
+
+    def _passende(self, nachrichten) -> str:
+        text = nachrichten[-1]["content"]
+        for i, a in enumerate(self.antworten):
+            try:
+                erste = json.loads(a)["slides"][0]["id"]
+            except (ValueError, KeyError, IndexError, TypeError):
+                continue
+            if f"SLIDE {erste} " in text:
+                return self.antworten.pop(i)
+        return self.antworten.pop(0)
 
     def __call__(self, llm, nachrichten, endpoint="tool"):
+        with self.sperre:
+            self.gleichzeitig += 1
+            self.hoechstens = max(self.hoechstens, self.gleichzeitig)
+            inhalt = self._passende(nachrichten)
+        time.sleep(0.01)
+        with self.sperre:
+            self.gleichzeitig -= 1
         class _R:
             pass
         r = _R()
-        r.choices = [type("C", (), {"message": type("M", (), {"content": self.antworten.pop(0)})()})()]
+        r.choices = [type("C", (), {"message": type("M", (), {"content": inhalt})()})()]
         return r
 
 
@@ -190,6 +215,21 @@ class TestOutline:
                          _Llm([self._mit_refs([1], [1]), "Quatsch"]))
         _outline.run_praesentation_outline.run(JOB, UID, "de")
         assert [r.stellen for r in st.outline.rows[1:-1]] == [[1], [1]]
+
+    def test_eine_unausgewogene_gliederung_wird_einmal_nachgefordert(self, umgebung):
+        st, db = _Store(None), _Db()
+        schief = self._mit_refs([1], [1], [1], [1], [1], [2])
+        ausgewogen = self._mit_refs([1], [1], [2], [2])
+        llm = _Llm([schief, ausgewogen])
+        gesehen = []
+        umgebung.setattr(_outline, "store", st)
+        umgebung.setattr(_outline, "quellen", self._zwei_dateien())
+        umgebung.setattr(_outline, "db", db)
+        umgebung.setattr(_outline, "call_json_llm", lambda l, n, endpoint="": gesehen.append(n) or llm(l, n))
+        _outline.run_praesentation_outline.run(JOB, UID, "de")
+        assert [r.stellen for r in st.outline.rows[1:-1]] == [[1], [1], [2], [2]]
+        assert "UNBALANCED" in gesehen[1][1]["content"] and "a.pdf: 5 slides instead of 3" in gesehen[1][1]["content"]
+        assert "a.pdf: 3, b.pdf: 2" in gesehen[0][0]["content"]
 
     def test_zweimal_unbrauchbar_ist_fehlgeschlagen(self, umgebung):
         st, db = _Store(None), _Db()
@@ -326,17 +366,19 @@ class TestBuild:
         assert gesehen == [True]
 
     def test_etappe_laeuft_aus_und_reiht_sich_neu_ein(self, umgebung):
-        st, db = _Store(_gliederung(6)), _Db()
+        st, db = _Store(_gliederung(16)), _Db()
         umgebung.setattr(_build, "store", st)
         umgebung.setattr(_build, "quellen", _Quellen())
         umgebung.setattr(_build, "db", db)
-        umgebung.setattr(_build, "call_json_llm", _Llm([_folien_antwort([f"s{i}" for i in range(1, 6)])]))
+        umgebung.setattr(_build, "call_json_llm", _Llm([
+            _folien_antwort([f"s{i}" for i in range(a, a + 5)]) for a in (1, 6, 11)]))
         umgebung.setattr(_build, "StageClock", lambda: StageClock(seconds=0))
         eingereiht = []
         umgebung.setattr(_build, "continue_stage", lambda task, args, job: eingereiht.append(args))
         _build.run_praesentation_build.run(JOB, UID, "de")
         assert eingereiht == [[JOB, UID, "de", 2, 0, None, False]]
-        assert [s.id for s in st.slides] == [f"s{i}" for i in range(1, 6)]  # the first batch is kept
+        # The first wave of batches is kept, the last batch waits for the next stage.
+        assert [s.id for s in st.slides] == [f"s{i}" for i in range(1, 16)]
 
     def test_etappe_im_bilderteil_reiht_sich_neu_ein(self, umgebung):
         """A clock that runs out mid-picture re-queues the same wishes, an already-drawn picture stays untouched."""
@@ -411,3 +453,16 @@ class TestBuild:
         assert gemeldet
 
 
+
+
+def test_die_folienpakete_werden_gleichzeitig_geschrieben(umgebung):
+    st, db = _Store(_gliederung(15)), _Db()
+    umgebung.setattr(_build, "store", st)
+    umgebung.setattr(_build, "quellen", _Quellen())
+    umgebung.setattr(_build, "db", db)
+    llm = _Llm([_folien_antwort([f"s{i}" for i in range(a, a + 5)]) for a in (1, 6, 11)])
+    umgebung.setattr(_build, "call_json_llm", llm)
+    umgebung.setattr(_build.bild, "erzeuge", lambda prompt, size: b"png")
+    _build.run_praesentation_build.run(JOB, UID, "de")
+    assert [s.id for s in st.slides] == [f"s{i}" for i in range(1, 16)]
+    assert llm.hoechstens == 3

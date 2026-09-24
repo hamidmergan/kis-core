@@ -21,13 +21,31 @@ SPRACHE = {"de": "German", "en": "English"}
 _ID = re.compile(r"^s\d+$")
 
 
+# One slide per this many characters on top of the base, about what NotebookLM builds.
+_ZEICHEN_JE_FOLIE = 60_000
+_GRUND_FOLIEN = 8
+# Slides with an illustration cost minutes each to draw, at most one in this many carries one.
+_BILD_JEDE = 5
+_BILD_ROLLEN = ("text_mit_bild", "bild_gross")
+# Cover, overview and closing draw on all files, the other slides are shared out among them.
+RAHMEN_FOLIEN = 3
+
+
+def ziel_folien(zeichen: int) -> int:
+    """How many slides the material carries, a target the planner may deviate from."""
+    lo, hi = FOLIEN_GRENZEN
+    return max(lo, min(hi, _GRUND_FOLIEN + zeichen // _ZEICHEN_JE_FOLIE))
+
+
 class Unusable(RuntimeError):
     """The answer was not a usable outline, the caller may try once more."""
 
 
 def build_messages(material: str, params: PraesentationParams, rollen: list[str],
                    modus: str = "stellen", *, dateien: list[str] | None = None,
-                   ziel: int | None = None, fehlt: list[str] | None = None) -> list[dict]:
+                   ziel: int | None = None, fehlt: list[str] | None = None,
+                   schief: list[str] | None = None,
+                   anteile: dict[str, int] | None = None) -> list[dict]:
     """The outline call, one entry per slide, planned over the numbered material."""
     from src.services.text_map import hinweis
 
@@ -36,14 +54,16 @@ def build_messages(material: str, params: PraesentationParams, rollen: list[str]
     eintrag = '{"role": "...", "title": "...", "gist": "...", "refs": [12, "14-17"]}'
     system = (
         "You plan slide decks for university teaching. From the material you pick what matters "
-        "and lay it out as an outline, one entry per slide.\n"
+        "and lay it out as an outline, one entry per slide. Each title states the message of "
+        "its slide, not only its topic.\n"
         f"Write every title and gist in {SPRACHE.get(params.language, 'German')}.\n"
         + (f"Plan around {ziel} slides for this amount of material. " if ziel else
            "Decide yourself how many slides the material carries: one chapter usually makes "
            "10 to 20 slides, more material makes more. ")
         + f"The deck has at least {lo} and at most {hi} slides in "
         "total. The first is the cover (role deckblatt), the last is the closing slide (role "
-        "abschluss). For every slide in between choose one of these roles:\n"
+        "abschluss). The closing slide's title is the one thought the audience takes home, "
+        "never a thank-you. For every slide in between choose one of these roles:\n"
         f"{rollen_text}\n"
         "Vary the roles: never the same role on two neighbouring slides except text, and use every "
         "role at least once when the material allows. Roles with an illustration suit topics a "
@@ -53,7 +73,17 @@ def build_messages(material: str, params: PraesentationParams, rollen: list[str]
         "before you settle the slides. A slide that draws on everything, such as an agenda "
         "or the closing slide, carries an empty list.\n"
         + (f"The material comes from {len(dateien)} files: {', '.join(dateien)}. EVERY one of "
-           "them gets slides of its own, in proportion to how much it holds.\n"
+           "them gets slides of its own. "
+           + ("Give each file exactly this many slides besides cover, overview and closing: "
+              + ", ".join(f"{d}: {n}" for d, n in anteile.items())
+              + ". A slide that brings several documents together counts for the file it draws "
+              "on most. " if anteile else
+              "Balance the slides between the files: a large file gets more than a small one, "
+              "but never more than twice the slides of the smallest. ")
+           + "Where documents touch the same subject, bring them together. The slide before the "
+           "closing one is an overview that compares the documents along the same points: what "
+           "each requires, its deadlines, who is responsible and the consequences. It has "
+           "role text and a gist that asks for a table.\n"
            if dateien and len(dateien) > 1 else "")
         + 'Answer with one JSON object only: {"title": "...", "subtitle": "...", "slides": '
         f'[{eintrag}]}}. The gist is one sentence saying what '
@@ -66,7 +96,41 @@ def build_messages(material: str, params: PraesentationParams, rollen: list[str]
         aufgabe += ("\nYOUR LAST OUTLINE GAVE THESE FILES FAR TOO LITTLE ROOM. Give each a "
                     "share of the slides that matches how much of the material it holds: "
                     + ", ".join(fehlt))
+    if schief:
+        aufgabe += ("\nYOUR LAST OUTLINE WAS UNBALANCED: " + ", ".join(schief)
+                    + ". Keep to the number of slides given for each file.")
     return [{"role": "system", "content": system}, {"role": "user", "content": aufgabe}]
+
+
+def folien_je_datei(karte, n: int) -> dict[str, int]:
+    """How many of ``n`` slides each file gets: at least two, more for longer files, never more than twice the smallest.
+
+    Empty for a single file or when there are fewer slides than files.
+    """
+    gewicht = {q.dateiname: len(q.stuecke) for q in karte.sources if q.stuecke}
+    if len(gewicht) < 2 or n < len(gewicht):
+        return {}
+    zahl = dict.fromkeys(gewicht, min(2, n // len(gewicht)))
+    for _ in range(n - sum(zahl.values())):
+        grenze = 2 * min(zahl.values())
+        d = max((d for d in gewicht if zahl[d] < grenze), key=lambda d: gewicht[d] / zahl[d])
+        zahl[d] += 1
+    return zahl
+
+
+def schief(rows: list[OutlineRow], karte) -> list[str]:
+    """The files whose slides miss their share by more than one, empty when the deck is balanced.
+
+    A slide counts for the file most of its passages come from.
+    """
+    ist = {q.dateiname: 0 for q in karte.sources if q.stuecke}
+    for r in rows:
+        quellen = [karte.stelle(n).source for n in r.stellen if 1 <= n <= len(karte)]
+        if quellen:
+            haupt = max(set(quellen), key=quellen.count)
+            ist[karte.sources[haupt].dateiname] += 1
+    soll = folien_je_datei(karte, sum(ist.values()))
+    return [f"{d}: {ist[d]} slides instead of {n}" for d, n in soll.items() if abs(ist[d] - n) > 1]
 
 
 def _mische_paare(paare: list[tuple[str, object]]) -> dict:
@@ -144,6 +208,14 @@ def pruefe(outline: Outline, rollen: list[str], bounds: tuple[int, int] | None =
             ersatz = [r for r in ("text_mit_bild", "zwei_spalten", "text", "bild_gross", "abschnitt")
                       if r in erlaubt and r != vorher]
             rows[i].role = ersatz[0] if ersatz else "text"
+    # Pictures only where the cap allows, the rest of those slides keep their text.
+    frei = len(rows) // _BILD_JEDE
+    for r in rows[1:-1]:
+        if r.role in _BILD_ROLLEN:
+            if frei > 0:
+                frei -= 1
+            else:
+                r.role = "text"
     return Outline(title=outline.title or rows[0].title, subtitle=outline.subtitle, rows=mit_ids(rows))
 
 

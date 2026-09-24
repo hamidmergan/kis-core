@@ -299,6 +299,25 @@ class TestSlides:
         assert antwort.status_code == 200
         assert jobs[UUID]["status"] == "awaiting_user"
 
+    def test_verschieben_rendert_die_folien_mit_neuer_nummer(self, env, monkeypatch):
+        client, jobs, gestartet, ablage = _mit_folien(env)
+        import src.routes.praesentation.slides as slides_route
+        monkeypatch.setattr(slides_route.vorschau, "mehrere",
+                            lambda v, a, slides, *r, nummern=(), **k: [f"{s.id}:{n}".encode() for s, n in zip(slides, nummern)])
+        antwort = client.put(f"/praesentation/{UUID}/slides/order", json={"ids": ["s1", "s3", "s2", "s4", "s5", "s6"]})
+        assert antwort.json()["previews"] == ["s3", "s2"]
+        assert ablage.get_job_file(7, UUID, "preview/s3.png") == b"s3:2"
+        assert ablage.get_job_file(7, UUID, "preview/s2.png") == b"s2:3"
+
+    def test_loeschen_rendert_die_folien_dahinter_neu(self, env, monkeypatch):
+        client, jobs, gestartet, ablage = _mit_folien(env)
+        import src.routes.praesentation.slides as slides_route
+        monkeypatch.setattr(slides_route.vorschau, "mehrere",
+                            lambda v, a, slides, *r, nummern=(), **k: [f"{s.id}:{n}".encode() for s, n in zip(slides, nummern)])
+        antwort = client.delete(f"/praesentation/{UUID}/slides/s3")
+        assert antwort.json()["previews"] == ["s4", "s5", "s6"]
+        assert ablage.get_job_file(7, UUID, "preview/s6.png") == b"s6:5"
+
     def test_deckblatt_darf_nicht_geloescht_werden(self, env):
         client, *_ = _mit_folien(env)
         assert client.delete(f"/praesentation/{UUID}/slides/s1").status_code == 422

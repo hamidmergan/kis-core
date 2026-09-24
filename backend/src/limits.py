@@ -116,6 +116,8 @@ PRAESENTATION_MAX_SOURCES = 10
 # Slides per model call: enough context per slide, few enough calls per deck.
 PRAESENTATION_BATCH = 5
 PRAESENTATION_IMAGE_PARALLELISM = 4
+# Slide batches written at once, the same fixed width the summary uses, never an admin setting.
+PRAESENTATION_WRITE_PARALLELISM = 3
 # Original text for a single slide. Reading is cheap, five slides share one call.
 PRAESENTATION_SLIDE_CONTEXT_CHARS = 15_000
 

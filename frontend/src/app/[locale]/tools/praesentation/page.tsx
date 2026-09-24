@@ -179,6 +179,11 @@ function PraesentationPageInner() {
     } catch (e) { melde(e); }
   };
 
+  // Slides whose number changed come back re-rendered, the browser must not show the cached picture.
+  const nummernFrisch = (antwort: { previews?: string[] }) => {
+    for (const id of antwort.previews ?? []) dispatch({ type: "PREVIEW_FRESH", id });
+  };
+
   const finalisieren = async () => {
     await flushSaves();
     await mitStand(async (u) => {
@@ -254,8 +259,8 @@ function PraesentationPageInner() {
                 onNotesInclude={(include) => { dispatch({ type: "SET_NOTES_INCLUDE", include }); mitStand(async (u) => { await api.setNotesInclude(u, include); }); }}
                 jobStatus={state.jobStatus} progress={state.progress} error={state.error}
                 onSlide={folieAendern}
-                onMove={(id, delta) => { dispatch({ type: "MOVE_SLIDE", id, delta }); const ids = reducer(stateRef.current, { type: "MOVE_SLIDE", id, delta }).slides.map((s) => s.id); mitStand((u) => api.saveOrder(u, ids)); }}
-                onDelete={(id) => mitStand((u) => api.deleteSlide(u, id))}
+                onMove={(id, delta) => { dispatch({ type: "MOVE_SLIDE", id, delta }); const ids = reducer(stateRef.current, { type: "MOVE_SLIDE", id, delta }).slides.map((s) => s.id); mitStand(async (u) => nummernFrisch(await api.saveOrder(u, ids))); }}
+                onDelete={(id) => mitStand(async (u) => nummernFrisch(await api.deleteSlide(u, id)))}
                 onInsertAfter={(id, title, instruction) => mitStand(async (u) => { await api.insertSlide(u, id, title, instruction); dispatch({ type: "JOB", status: "pending", progress: { step: "texte" } }); })}
                 onRegenText={(i) => { setRegenArt("slide"); regen.open(i); }}
                 onRegenImage={(id, prompts) => mitStand(async (u) => { await api.regenImage(u, id, prompts); dispatch({ type: "JOB", status: "pending", progress: { step: "bilder" } }); })}

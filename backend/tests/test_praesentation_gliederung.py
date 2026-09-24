@@ -139,3 +139,79 @@ class TestAbdeckung:
         user = gliederung.build_messages("Q", PraesentationParams(), ROLLEN,
                                          fehlt=["b.pdf"])[1]["content"]
         assert user.rstrip().endswith("how much of the material it holds: b.pdf")
+
+
+class TestWieNotebookLM:
+    def test_eine_grosse_datei_bekommt_hoechstens_doppelt_so_viele_folien(self):
+        system = gliederung.build_messages("Q", PraesentationParams(), ROLLEN,
+                                           dateien=["a.pdf", "b.pdf"])[0]["content"]
+        assert "never more than twice the slides of the smallest" in system
+
+    def test_der_schluss_ist_ein_gedanke_kein_dank(self):
+        system = gliederung.build_messages("Q", PraesentationParams(), ROLLEN)[0]["content"]
+        assert "never a thank-you" in system
+
+    def test_vor_dem_schluss_eine_uebersicht_ueber_alle_dokumente(self):
+        system = gliederung.build_messages("Q", PraesentationParams(), ROLLEN,
+                                           dateien=["a.pdf", "b.pdf"])[0]["content"]
+        assert "overview that compares the documents" in system
+        assert "deadlines, who is responsible and the consequences" in system
+        assert "role text and a gist that asks for a table" in system
+
+    def test_bildfolien_hoechstens_jede_fuenfte(self):
+        rollen = ["d"] + ["text_mit_bild", "text"] * 7 + ["a"]
+        o = gliederung.parse_answer(_antwort(rollen), ROLLEN)
+        mit_bild = [r for r in o.rows if r.role in ("text_mit_bild", "bild_gross")]
+        assert len(mit_bild) == len(o.rows) // 5
+
+    def test_das_folienziel_wie_notebooklm(self):
+        assert gliederung.ziel_folien(500_000) == 16
+        assert gliederung.ziel_folien(20_000) == 8
+
+
+def _karte(**stellen_je_datei):
+    from src.services import text_map as tm
+    from src.services.source_reading import Piece, Source
+    return tm.Karte([Source(dateiname=n, fassung="x", text="T" * k, seiten=1,
+                            stuecke=[Piece(seite=1, von=i, bis=i + 1) for i in range(k)])
+                     for n, k in stellen_je_datei.items()])
+
+
+class TestFolienJeDatei:
+    def test_die_vier_gesetze_wie_notebooklm(self):
+        karte = _karte(hwo=337, entgfg=29, bdsg=215, agg=61)
+        assert gliederung.folien_je_datei(karte, 13) == {"hwo": 4, "entgfg": 2, "bdsg": 4, "agg": 3}
+
+    def test_nie_mehr_als_doppelt_so_viele_wie_die_kleinste(self):
+        anteile = gliederung.folien_je_datei(_karte(gross=1000, klein=1), 12)
+        assert sum(anteile.values()) == 12 and max(anteile.values()) <= 2 * min(anteile.values())
+
+    def test_eine_datei_oder_zu_wenige_folien_ohne_vorgabe(self):
+        assert gliederung.folien_je_datei(_karte(a=10), 10) == {}
+        assert gliederung.folien_je_datei(_karte(a=1, b=1, c=1), 2) == {}
+
+    def test_der_prompt_nennt_die_zahlen(self):
+        system = gliederung.build_messages("Q", PraesentationParams(), ROLLEN, dateien=["a", "b"],
+                                           anteile={"a": 4, "b": 2})[0]["content"]
+        assert "a: 4, b: 2" in system and "counts for the file it draws on most" in system
+
+
+class TestSchief:
+    def _zeilen(self, *refs):
+        return [OutlineRow(role="text", title="T", stellen=list(r)) for r in refs]
+
+    def test_nennt_nur_die_dateien_neben_ihrem_anteil(self):
+        karte = _karte(hwo=337, entgfg=29, bdsg=215, agg=61)
+        hwo, entgfg, bdsg, agg = [1], [338], [367], [582]
+        rows = self._zeilen(*[hwo] * 6, *[entgfg] * 2, *[bdsg] * 3, *[agg] * 2)
+        assert gliederung.schief(rows, karte) == ["hwo: 6 slides instead of 4"]
+
+    def test_eine_folie_daneben_ist_ausgewogen(self):
+        karte = _karte(hwo=337, entgfg=29, bdsg=215, agg=61)
+        rows = self._zeilen(*[[1]] * 5, *[[338]] * 2, *[[367]] * 3, *[[582]] * 3)
+        assert gliederung.schief(rows, karte) == []
+
+    def test_eine_ausgelassene_datei_ist_schief(self):
+        karte = _karte(hwo=337, entgfg=29, bdsg=215, agg=61)
+        rows = self._zeilen(*[[1]] * 8, *[[367]] * 3, *[[582]] * 2)
+        assert "entgfg: 0 slides instead of 2" in gliederung.schief(rows, karte)

@@ -135,3 +135,11 @@ class TestOfficeStandard:
 
     def test_text_steht_als_rolle_zur_wahl(self, standard):
         assert "text" in vorlage.waehlbare_rollen(standard)
+
+
+def test_ein_titel_bekommt_auch_eine_zeichengrenze(thl):
+    # One line of 44 pt caps across the cover: long German words need a character cap, not only words.
+    deckblatt = thl.layout(0)
+    zeichen = deckblatt.der_art("ueberschrift")[0].chars
+    assert 25 <= zeichen <= 40
+    assert vorlage.form_fuer(deckblatt, thl)["ueberschrift_zeichen"] == zeichen
