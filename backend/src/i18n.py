@@ -260,11 +260,11 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "{name} holds no text, only pictures.",
     },
     "podcast.materialTooLarge": {
-        "de": "Deine Quellen enthalten zusammen {chars} Zeichen. Möglich sind {max}. Bitte nimm weniger oder kürzere Quellen.",
+        "de": "Deine Materialien enthalten zusammen {chars} Zeichen. Möglich sind {max}. Bitte nimm weniger oder kürzere Materialien.",
         "en": "Your sources carry {chars} characters together. The limit is {max}. Please use fewer or shorter sources.",
     },
     "podcast.sourceMissing": {
-        "de": "Diese Quelle gibt es im Workspace nicht.",
+        "de": "Dieses Material gibt es im Workspace nicht.",
         "en": "This source does not exist in the workspace.",
     },
     "podcast.sourceNotReady": {
@@ -272,7 +272,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "{name} is still being processed.",
     },
     "podcast.tooManySources": {
-        "de": "Höchstens {max} Quellen je Podcast.",
+        "de": "Höchstens {max} Materialien je Podcast.",
         "en": "At most {max} sources per podcast.",
     },
     "podcast.uploadsTooLarge": {

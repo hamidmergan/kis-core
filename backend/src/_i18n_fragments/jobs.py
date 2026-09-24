@@ -126,7 +126,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "Document too long ({chars} characters). Please split (max {maxChars} characters).",
     },
     "summary.materialTooLarge": {
-        "de": "Deine Quellen enthalten zusammen {chars} Zeichen. Möglich sind {max}. Bitte nimm weniger oder kürzere Quellen.",
+        "de": "Deine Materialien enthalten zusammen {chars} Zeichen. Möglich sind {max}. Bitte nimm weniger oder kürzere Materialien.",
         "en": "Your sources carry {chars} characters together. The limit is {max}. Please use fewer or shorter sources.",
     },
     "summary.sourceTooLarge": {
@@ -146,7 +146,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "\"{name}\" carries {chars} characters and is read in one piece. The chosen model holds {window} tokens, {needed} would be needed. Please pick a larger model or a shorter file.",
     },
     "summary.tooManySources": {
-        "de": "Höchstens {max} Quellen je Zusammenfassung.",
+        "de": "Höchstens {max} Materialien je Zusammenfassung.",
         "en": "At most {max} sources per summary.",
     },
     "summary.noFiles": {
@@ -355,7 +355,7 @@ MESSAGES: dict[str, dict[str, str]] = {
     },
     # ── gemeinsamer Quellen-Eingang der drei Dienste ─────────────────────────
     "summary.sourceMissing": {
-        "de": "Diese Quelle gibt es im Workspace nicht.",
+        "de": "Dieses Material gibt es im Workspace nicht.",
         "en": "This source does not exist in the workspace.",
     },
     "summary.sourceNotReady": {
@@ -363,7 +363,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "{name} is still being processed.",
     },
     "summary.noContent": {
-        "de": "Ohne Quelle gibt es nichts zusammenzufassen. Bitte lade mindestens eine Datei hoch.",
+        "de": "Ohne Material gibt es nichts zusammenzufassen. Bitte lade mindestens eine Datei hoch.",
         "en": "Without a source there is nothing to summarise. Please upload at least one file.",
     },
     "summary.fileUnreadable": {

@@ -10,11 +10,11 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "The presentation cannot use these settings.",
     },
     "praesentation.noContent": {
-        "de": "Es fehlt Material. Lade Dateien hoch oder wähle Quellen aus einem Workspace.",
+        "de": "Es fehlt Material. Lade Dateien hoch oder wähle Materialien aus einem Workspace.",
         "en": "There is no material. Upload files or pick sources from a workspace.",
     },
     "praesentation.tooManySources": {
-        "de": "Höchstens {max} Quellen auf einmal.",
+        "de": "Höchstens {max} Materialien auf einmal.",
         "en": "At most {max} sources at once.",
     },
     "praesentation.unsupportedFormat": {
@@ -34,11 +34,11 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "{name} holds no text, only pictures.",
     },
     "praesentation.materialTooLarge": {
-        "de": "Deine Quellen enthalten zusammen {chars} Zeichen. Möglich sind {max}. Bitte nimm weniger oder kürzere Quellen.",
+        "de": "Deine Materialien enthalten zusammen {chars} Zeichen. Möglich sind {max}. Bitte nimm weniger oder kürzere Materialien.",
         "en": "Your sources carry {chars} characters together. The limit is {max}. Please use fewer or shorter sources.",
     },
     "praesentation.sourceMissing": {
-        "de": "Diese Quelle gibt es im Workspace nicht.",
+        "de": "Dieses Material gibt es im Workspace nicht.",
         "en": "This source does not exist in the workspace.",
     },
     "praesentation.sourceNotReady": {
