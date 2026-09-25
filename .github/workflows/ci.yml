@@ -56,6 +56,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      # The presentation tests measure text with the fonts the Docker image ships, Carlito stands in for Calibri.
+      - name: Install fonts
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends fonts-crosextra-carlito
+
       # Builds the schema from scratch, the way a new university does. If this step
       # falls over, the order in the schema is broken, see scripts/check_fresh_schema.sh.
       - name: Schema anlegen
