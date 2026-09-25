@@ -27,6 +27,8 @@ export interface Line {
 /** What the job reports while it works, straight from the task. */
 export interface JobProgress {
   step?: string;
+  /** Parts of the script written so far, and how many are planned. */
+  part?: number;
   current?: number;
   total?: number;
   /** Indices of contributions that carry audio right now. */

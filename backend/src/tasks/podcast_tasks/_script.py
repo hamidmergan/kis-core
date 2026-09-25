@@ -162,6 +162,9 @@ def _schreiben(llm, karte: tm.Karte, g: tm.Grundlage, params, job_uuid: str,
                               job_uuid, f"Teil {i}")
         neue = skript.ohne_eigene_anrede(neue, [p.name for p in params.persons])
         zeilen.extend(neue)
+        # The next part's progress tells the page to fetch this draft, the last one needs none.
+        if user_id is not None and i < len(plan):
+            store.save_draft(user_id, job_uuid, zeilen)
     return zeilen[:PODCAST_MAX_LINES]
 
 

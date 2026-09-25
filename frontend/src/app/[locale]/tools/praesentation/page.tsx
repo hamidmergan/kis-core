@@ -271,6 +271,7 @@ function PraesentationPageInner() {
                 onRegenText={(i) => { setRegenArt("slide"); regen.open(i); }}
                 onRegenImage={(id, prompts) => mitStand(async (u) => { await api.regenImage(u, id, prompts); dispatch({ type: "JOB", status: "pending", progress: { step: "bilder" } }); })}
                 onAnchor={regen.setAnchor}
+                hasOutline={!!state.outline}
                 onRestart={() => dispatch({ type: "RESET" })}
                 onResume={() => mitStand(async (u) => { await api.startBuild(u); dispatch({ type: "JOB", status: "pending", progress: { step: "texte" } }); })}
                 onFinalize={finalisieren} />

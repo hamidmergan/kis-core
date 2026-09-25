@@ -50,6 +50,9 @@ function PodcastPageInner() {
   const ausListe = useSearchParams().get("job");
   const regen = useRegenAnchor();
   const aenderung = useRef(0);
+  // The parts of the script already written, shown while the rest is still being written.
+  const [entwurf, setEntwurf] = useState<Line[]>([]);
+  const entwurfTeil = useRef(0);
   const stateRef = useRef(state);
   stateRef.current = state;
 
@@ -111,6 +114,12 @@ function PodcastPageInner() {
       .finally(() => setHydrated(true));
   }, [holeStand, ausListe]);
 
+  // Another job starts with an empty draft.
+  useEffect(() => {
+    entwurfTeil.current = 0;
+    setEntwurf([]);
+  }, [state.jobUuid]);
+
   // While the job works, the page asks every two seconds, like every other tool.
   useEffect(() => {
     const uuid = state.jobUuid;
@@ -122,6 +131,13 @@ function PodcastPageInner() {
         if (abgebrochen) return;
         dispatch({ type: "JOB", status: job.status, progress: job.progress, error: job.error,
                    seconds: job.meta?.seconds ?? null });
+        // A new part is done, its contributions can already be read.
+        const teil = job.progress?.step === "script" ? job.progress.part ?? 0 : 0;
+        if (teil > entwurfTeil.current) {
+          entwurfTeil.current = teil;
+          const view = await fetchPodcast(uuid);
+          if (!abgebrochen) setEntwurf(view.draft ?? []);
+        }
         if (!LAEUFT.has(job.status)) {
           await holeStand(uuid);
           notifyJobsChanged();
@@ -314,6 +330,9 @@ function PodcastPageInner() {
             {state.step === "script" && (
               <ScriptStep
                 lines={state.lines}
+                draft={entwurf}
+                draftParts={state.progress?.step === "script" && state.progress.total
+                  ? { done: state.progress.part ?? 0, total: state.progress.total } : null}
                 persons={state.persons}
                 count={state.count}
                 voicedIds={state.voicedIds}

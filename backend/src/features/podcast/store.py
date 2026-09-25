@@ -10,6 +10,7 @@ from src.storage import get_job_file, job_file_exists, save_job_file
 PARAMS_FILE = "params.json"
 SCRIPT_FILE = "script.json"
 USER_SCRIPT_FILE = "user_script.json"
+DRAFT_FILE = "entwurf.json"
 VOICED_FILE = "voiced.json"
 TRANSCRIPT_FILE = "transcript.txt"
 
@@ -44,6 +45,16 @@ def load_params(user_id: int, job_uuid: str) -> PodcastParams | None:
 def save_script(user_id: int, job_uuid: str, lines: list[Line]) -> None:
     """What the model wrote, kept apart so a person can always fall back to it."""
     _write_json(user_id, job_uuid, SCRIPT_FILE, [l.model_dump() for l in lines])
+
+
+def save_draft(user_id: int, job_uuid: str, lines: list[Line]) -> None:
+    """The parts written so far, so the page can show them while the rest is being written."""
+    _write_json(user_id, job_uuid, DRAFT_FILE, [l.model_dump() for l in lines])
+
+
+def load_draft(user_id: int, job_uuid: str) -> list[Line]:
+    raw = _read_json(user_id, job_uuid, DRAFT_FILE)
+    return [Line(**item) for item in raw] if isinstance(raw, list) else []
 
 
 def save_user_script(user_id: int, job_uuid: str, lines: list[Line]) -> None:

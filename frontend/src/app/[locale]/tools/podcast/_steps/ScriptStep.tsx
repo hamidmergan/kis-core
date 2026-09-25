@@ -19,6 +19,10 @@ const ACTION = "px-3 py-2 text-sm border-2 border-border rounded-md hover:border
 
 interface ScriptStepProps {
   lines: Line[];
+  /** The contributions of the parts already written while the script is still being written. */
+  draft: Line[];
+  /** How many of the planned parts are written, while the script is being written. */
+  draftParts: { done: number; total: number } | null;
   persons: Person[];
   count: PersonCount;
   voicedIds: string[];
@@ -44,7 +48,7 @@ interface ScriptStepProps {
 }
 
 export default function ScriptStep(props: ScriptStepProps) {
-  const { lines, persons, count, voicedIds, busy, error, allDone, selfWritten,
+  const { lines, draft, draftParts, persons, count, voicedIds, busy, error, allDone, selfWritten,
           instructionUnmatched, regenAnchorIndex, regenAnchorText,
           onUpdate, onSpeaker, onRegenAnchor, onOpenRegen, onDelete, onAdd, onBack, onVoice, onToDone } = props;
   const t = useTranslations("tools.podcast.script");
@@ -55,10 +59,35 @@ export default function ScriptStep(props: ScriptStepProps) {
 
   if (busy && lines.length === 0 && !selfWritten) {
     return (
-      <section className="animate-[fadeIn_0.3s_ease-out] text-center py-20" role="status" aria-live="polite">
-        <Spinner size="lg" className="justify-center mb-4" />
-        <p className="text-sm text-foreground-soft animate-pulse">{t("generating")}</p>
-        <p className="text-xs text-muted-soft mt-2">{t("generatingSubtle", { n: count })}</p>
+      <section className="animate-[fadeIn_0.3s_ease-out]">
+        <div className={`text-center ${draft.length ? "py-8" : "py-20"}`} role="status" aria-live="polite">
+          <Spinner size="lg" className="justify-center mb-4" />
+          <p className="text-sm text-foreground-soft animate-pulse">{t("generating")}</p>
+          <p className="text-xs text-muted-soft mt-2">
+            {draftParts && draftParts.done > 0
+              ? t("generatingParts", { done: draftParts.done, total: draftParts.total })
+              : t("generatingSubtle", { n: count })}
+          </p>
+        </div>
+        {/* Read only, the finished script becomes editable once every part is written. */}
+        {draft.length > 0 && (
+          <div className="space-y-2">
+            {draft.map((line, i) => {
+              const sprecherIdx = persons[line.speaker] ? line.speaker : 0;
+              const person = persons[sprecherIdx];
+              return (
+                <div key={i} className="border-2 border-border-soft rounded-lg p-4"
+                     style={{ backgroundColor: speakerColor(sprecherIdx).bg }}>
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="text-xs text-muted-soft w-5 shrink-0">{i + 1}</span>
+                    <Speaker person={person} role={tCast(`roles.${person.role}`)} index={sprecherIdx} />
+                  </div>
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap text-foreground">{line.text}</p>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </section>
     );
   }

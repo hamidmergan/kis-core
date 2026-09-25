@@ -33,6 +33,8 @@ interface SlidesStepProps {
   onRegenText: (index: number) => void;
   onRegenImage: (id: string, prompts: string[]) => void;
   onAnchor: (index: number | null, text: string) => void;
+  /** Whether an outline exists, then a failed build can simply be run again. */
+  hasOutline: boolean;
   onResume: () => void;
   onRestart: () => void;
   onFinalize: () => void;
@@ -75,6 +77,21 @@ export default function SlidesStep(p: SlidesStepProps) {
     );
   }
 
+  // Without a single slide there is nothing to check, only the failure and the way on.
+  if (gestoert && p.slides.length === 0) {
+    return (
+      <section className="animate-[fadeIn_0.3s_ease-out]">
+        <div className="rounded-xl border-2 border-error-border p-3">
+          <p className="text-sm text-error">{p.error || t("failed")}</p>
+          <button type="button" className="mt-2 px-4 py-2 text-sm btn-primary rounded-lg"
+                  onClick={p.hasOutline ? p.onResume : p.onRestart}>
+            {p.hasOutline ? t("retry") : t("restart")}
+          </button>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="animate-[fadeIn_0.3s_ease-out]">
       <h2 className="text-lg font-bold">{t("heading")}</h2>
@@ -95,10 +112,8 @@ export default function SlidesStep(p: SlidesStepProps) {
       {gestoert && (
         <div className="mt-4 rounded-xl border-2 border-error-border p-3">
           <p className="text-sm text-error">{p.error || t("failed")}</p>
-          {/* Without a single slide there is nothing to resume, only the outline can be attempted anew. */}
-          <button type="button" className="mt-2 px-4 py-2 text-sm btn-primary rounded-lg"
-                  onClick={p.slides.length === 0 ? p.onRestart : p.onResume}>
-            {p.slides.length === 0 ? t("restart") : t("resume")}
+          <button type="button" className="mt-2 px-4 py-2 text-sm btn-primary rounded-lg" onClick={p.onResume}>
+            {t("retry")}
           </button>
         </div>
       )}

@@ -53,6 +53,8 @@ async def get_podcast(
         "error": job.get("error_message"),
         "params": params.model_dump() if params else None,
         "lines": [l.model_dump() for l in zeilen],
+        # The parts already written while the script is still being written.
+        "draft": [l.model_dump() for l in store.load_draft(user_id, job_uuid)] if not zeilen else [],
         # Which contributions carry the audio of exactly this text right now.
         "voiced": [
             l.id for l in zeilen

@@ -20,6 +20,8 @@ export interface PodcastView {
   error: string | null;
   params: PodcastParamsView | null;
   lines: Line[];
+  /** The parts already written while the script is still being written. */
+  draft?: Line[];
   voiced: string[];
   has_result: boolean;
 }
