@@ -376,6 +376,15 @@ def split_group(text: str, titles: list[str]) -> list[str] | None:
     return teile if all(teile) else None
 
 
+_NO_REPEATED_BULLETS = (
+    "Never begin two bullets with the same words or the same subject, such as the same "
+    "actor, document or term. Write that subject once as a bullet of its own and put what is "
+    "said about it in sub bullets under it, indented by two spaces, each one going on without "
+    "repeating the subject. Instead of '- The employer must X' and '- The employer must Y' "
+    "write '- The employer' with the sub bullets '  - must X' and '  - must Y'."
+)
+
+
 def _section_system(language: str, template_body: str, count: int = 1,
                     sees_document: bool = True) -> str:
     mehrere = (
@@ -404,6 +413,7 @@ def _section_system(language: str, template_body: str, count: int = 1,
         + "Rule 10: Go as deep as the material allows. A Markdown table where things are compared "
         "along the same attributes, bullet points where it is a list, numbered items where "
         "order or count matters, continuous text where it is an argument.\n"
+        "Rule 10a: " + _NO_REPEATED_BULLETS + "\n"
         "Rule 11: A figure, a date or a quantity never stands without what it refers to, and "
         "you carry over every one the material states for your heading.\n"
         "Rule 12: Your material is passages of the original text, each under a line in "
@@ -520,6 +530,7 @@ def _compose_system(language: str, template_body: str) -> str:
         "a file and never write a file name into your text.\n"
         "Rule 15: Write ONE document covering all sources together, never one section per "
         "file unless the build plan asks for it, and every source is represented.\n"
+        "Rule 16: " + _NO_REPEATED_BULLETS + "\n"
         "\nBUILD PLAN\n" + template_body
     )
 

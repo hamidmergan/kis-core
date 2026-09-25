@@ -3,6 +3,7 @@
 import asyncio
 import json
 import re
+from datetime import date
 from pathlib import Path
 
 from loguru import logger
@@ -129,6 +130,13 @@ def _docx_locale(user_id: int, job_uuid: str, fallback: str) -> str:
     return "de" if sprache.casefold() in ("german", "deutsch") else "en"
 
 
+def _markdown_file(rumpf: str, titel: str, heute: str, locale: str) -> str:
+    """The downloaded Markdown: title, date and the notice above the text, like the Word file."""
+    kopf = [f"# {titel}"] if titel else []
+    kopf += [heute, f"*{t('summary.docxDisclaimer', locale)}*"]
+    return "\n\n".join(kopf + [rumpf.strip()]) + "\n"
+
+
 def _clean_title(raw: str) -> str:
     """A title reduced to what may stand in a file name, "" when nothing is left."""
     titel = " ".join(str(raw or "").split()).lstrip("#").strip()
@@ -216,11 +224,14 @@ def _run_summary_inner(job_uuid: str, template_slug: str,
     eigener, rumpf = writing.split_title(fertig)
     titel = eigener or _outline_title(user_id, job_uuid)
     name = _result_name([q.dateiname for q in quellen], titel)
-    ergebnis = save_result_file(user_id, job_uuid, ".md", fertig.encode("utf-8"))
+    titel = titel or Path(name).stem
+    heute = date.today().strftime("%d.%m.%Y")
+    sprache = _docx_locale(user_id, job_uuid, locale)
+    ergebnis = save_result_file(user_id, job_uuid, ".md",
+                                _markdown_file(rumpf, titel, heute, sprache).encode("utf-8"))
     try:
         save_result_file(user_id, job_uuid, ".docx",
-                         markdown_to_docx(rumpf, title=titel or Path(name).stem,
-                                          locale=_docx_locale(user_id, job_uuid, locale)))
+                         markdown_to_docx(rumpf, title=titel, today=heute, locale=sprache))
     except Exception as e:  # noqa: BLE001 - the Word file is an extra, the Markdown result must still count as done
         from celery.exceptions import SoftTimeLimitExceeded
         if isinstance(e, SoftTimeLimitExceeded):

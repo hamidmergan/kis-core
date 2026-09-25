@@ -6,8 +6,8 @@ from datetime import date
 
 from docx import Document
 from docx.document import Document as DocumentType
-from docx.enum.text import WD_BREAK
 from docx.oxml.ns import qn
+from docx.shared import RGBColor
 from docx.oxml.shared import OxmlElement
 from docx.text.paragraph import Paragraph
 from loguru import logger
@@ -16,27 +16,35 @@ from src.i18n import t
 
 _HEADING_RE = re.compile(r"^(#{1,6})\s+(.*)$")
 _BULLET_RE = re.compile(r"^( *)[-*]\s+(.*)$")
-_NUMBER_RE = re.compile(r"^ *\d+\.\s+(.*)$")
+_NUMBER_RE = re.compile(r"^( *)\d+\.\s+(.*)$")
 _BOLD_SPLIT_RE = re.compile(r"(\*\*.+?\*\*)")
 _SEPARATOR_CELL_RE = re.compile(r"^:?-+:?$")
 
 _BULLET_STYLES = ["List Bullet", "List Bullet 2", "List Bullet 3"]
+_TOC_HEADING_RE = re.compile(r"^#{1,3}\s+\S", re.M)
+# A table of contents with fewer entries than this lists what the eye takes in anyway.
+TOC_MIN_ENTRIES = 5
+_DATE_COLOR = RGBColor(0x6B, 0x6B, 0x6B)
 
 
 def markdown_to_docx(text: str, *, title: str = "", today: str = "",
                      locale: str = "de") -> bytes:
     """Render headings, nested bullets, numbered lists, tables and bold text as a real Word document.
 
-    With a title it opens with a cover page and a table of contents, without one it starts
+    With a title it opens with title, date and notice, then a table of contents where the
+    text has enough headings to need one, all on the running page. Without a title it starts
     right at the text, which is what a caller that only wants the body gets. The locale is
     the document's own language, it only reaches the front matter.
     """
     document = Document()
     if title:
-        _add_front_matter(document, title, today or date.today().strftime("%d.%m.%Y"), locale)
+        _add_front_matter(document, title, today or date.today().strftime("%d.%m.%Y"), locale,
+                          toc=needs_toc(text))
     lines = text.splitlines()
     i = 0
     total = len(lines)
+    # The indents of the open list, so two spaces nest as well as four.
+    einzuege: list[int] = []
     while i < total:
         line = lines[i]
         if not line.strip():
@@ -47,22 +55,31 @@ def markdown_to_docx(text: str, *, title: str = "", today: str = "",
             continue
         heading = _HEADING_RE.match(line)
         if heading:
+            einzuege = []
             _add_heading(document, level=len(heading.group(1)), text=heading.group(2).strip())
             i += 1
             continue
         bullet = _BULLET_RE.match(line)
         if bullet:
-            level = min(len(bullet.group(1)) // 4, len(_BULLET_STYLES) - 1)
+            einzug = len(bullet.group(1))
+            while einzuege and einzuege[-1] > einzug:
+                einzuege.pop()
+            if not einzuege or einzuege[-1] < einzug:
+                einzuege.append(einzug)
+            level = min(len(einzuege) - 1, len(_BULLET_STYLES) - 1)
             paragraph = document.add_paragraph(style=_BULLET_STYLES[level])
             _add_runs(paragraph, bullet.group(2).strip())
             i += 1
             continue
         numbered = _NUMBER_RE.match(line)
         if numbered:
+            # A bullet indented under a numbered item is its sub point.
+            einzuege = [len(numbered.group(1))]
             paragraph = document.add_paragraph(style="List Number")
-            _add_runs(paragraph, numbered.group(1).strip())
+            _add_runs(paragraph, numbered.group(2).strip())
             i += 1
             continue
+        einzuege = []
         paragraph = document.add_paragraph()
         _add_runs(paragraph, line.strip())
         i += 1
@@ -72,24 +89,27 @@ def markdown_to_docx(text: str, *, title: str = "", today: str = "",
     return buffer.getvalue()
 
 
-def _add_front_matter(document: DocumentType, title: str, today: str, locale: str) -> None:
-    """Cover page, then the table of contents, each on a page of its own."""
+def needs_toc(text: str) -> bool:
+    """Whether the text has enough headings for a table of contents to help."""
+    return len(_TOC_HEADING_RE.findall(text)) >= TOC_MIN_ENTRIES
+
+
+def _add_front_matter(document: DocumentType, title: str, today: str, locale: str,
+                      toc: bool) -> None:
+    """Title, date in grey on its own line, the notice, the table of contents, no page break."""
     deckblatt = document.add_paragraph(style="Title")
     deckblatt.add_run(title)
-    document.add_paragraph(today, style="Subtitle")
+    datum = document.add_paragraph().add_run(today)
+    datum.font.color.rgb = _DATE_COLOR
     hinweis = document.add_paragraph().add_run(t("summary.docxDisclaimer", locale))
     hinweis.italic = True
-    _page_break(document)
+    if not toc:
+        return
     # "TOC Heading" looks like a first level heading but sits at outline level 9, so the
     # table of contents does not list its own heading.
     document.add_paragraph(t("summary.docxToc", locale), style="TOC Heading")
     _add_toc(document)
-    _page_break(document)
     _update_fields_on_open(document)
-
-
-def _page_break(document: DocumentType) -> None:
-    document.add_paragraph().add_run().add_break(WD_BREAK.PAGE)
 
 
 def _add_toc(document: DocumentType) -> None:

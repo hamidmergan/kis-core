@@ -12,6 +12,10 @@ def _open(data: bytes) -> Document:
     return Document(io.BytesIO(data))
 
 
+# Enough headings for the table of contents to be worth it.
+_FUENF = "\n\n".join(f"## Kapitel {n}\n\nText {n}." for n in range(1, 6))
+
+
 class TestUeberschriften:
     def test_zwei_kreuz_wird_heading_2(self):
         doc = _open(markdown_to_docx("## Ein Titel"))
@@ -31,6 +35,23 @@ class TestStichpunkte:
         doc = _open(markdown_to_docx("* Erstens\n- Zweitens"))
         assert [a.style.name for a in doc.paragraphs] == ["List Bullet", "List Bullet"]
         assert [a.text for a in doc.paragraphs] == ["Erstens", "Zweitens"]
+
+    def test_zwei_leerzeichen_ruecken_ebenso_ein(self):
+        markdown = "- Oben\n  - Erste Stufe\n    - Zweite Stufe\n- Wieder oben"
+        doc = _open(markdown_to_docx(markdown))
+        assert [a.style.name for a in doc.paragraphs] == [
+            "List Bullet", "List Bullet 2", "List Bullet 3", "List Bullet",
+        ]
+
+    def test_ein_stichpunkt_unter_einer_nummer_ist_ihr_unterpunkt(self):
+        doc = _open(markdown_to_docx("1. Erstens\n   - Dazu\n2. Zweitens"))
+        assert [a.style.name for a in doc.paragraphs] == [
+            "List Number", "List Bullet 2", "List Number",
+        ]
+
+    def test_nach_einem_absatz_beginnt_die_liste_wieder_oben(self):
+        doc = _open(markdown_to_docx("  - Eingerueckt\n\nAbsatz.\n\n    - Wieder"))
+        assert [a.style.name for a in doc.paragraphs][-1] == "List Bullet"
 
     def test_verschachtelte_stichpunkte_zwei_stufen(self):
         markdown = "- Oben\n    - Erste Stufe\n        - Zweite Stufe"
@@ -144,13 +165,35 @@ class TestDeckblattUndVerzeichnis:
         assert doc.paragraphs[1].text == "19.09.2026"
 
     def test_das_verzeichnis_ist_ein_feld(self):
-        xml = _open(markdown_to_docx("## Kapitel", title="AMG74")).element.xml
+        xml = _open(markdown_to_docx(_FUENF, title="AMG74")).element.xml
         assert 'TOC \\o "1-3" \\h \\z \\u' in xml
         assert "fldChar" in xml
 
     def test_word_aktualisiert_beim_oeffnen_selbst(self):
-        doc = _open(markdown_to_docx("## Kapitel", title="AMG74"))
+        doc = _open(markdown_to_docx(_FUENF, title="AMG74"))
         assert "updateFields" in doc.settings.element.xml
+
+    def test_vier_eintraege_bekommen_kein_verzeichnis(self):
+        vier = "\n\n".join(f"## Kapitel {n}" for n in range(1, 5))
+        doc = _open(markdown_to_docx(vier, title="AMG74"))
+        assert "TOC \\o" not in doc.element.xml
+        assert "Inhaltsverzeichnis" not in [p.text for p in doc.paragraphs]
+        assert "updateFields" not in doc.settings.element.xml
+
+    def test_unterueberschriften_zaehlen_mit(self):
+        text = "## A\n### A1\n### A2\n## B\n### B1"
+        assert "TOC \\o" in _open(markdown_to_docx(text, title="T")).element.xml
+
+    def test_kein_seitenumbruch_der_text_laeuft_fort(self):
+        xml = _open(markdown_to_docx(_FUENF, title="AMG74")).element.xml
+        assert 'w:type="page"' not in xml
+
+    def test_das_datum_steht_grau_in_eigener_zeile(self):
+        doc = _open(markdown_to_docx("## Kapitel", title="AMG74", today="19.09.2026"))
+        datum = doc.paragraphs[1]
+        assert datum.text == "19.09.2026"
+        assert datum.style.name == "Normal"
+        assert datum.runs[0].font.color.rgb == de._DATE_COLOR
 
     def test_der_text_folgt_hinter_dem_vorspann(self):
         doc = _open(markdown_to_docx("## Kapitel\n\nEin Satz.", title="AMG74"))
@@ -173,24 +216,24 @@ class TestHinweisUndVerzeichnisUeberschrift:
         assert all(lauf.italic for lauf in doc.paragraphs[2].runs)
 
     def test_das_verzeichnis_hat_eine_ueberschrift(self):
-        doc = _open(markdown_to_docx("## Kapitel", title="AMG74"))
+        doc = _open(markdown_to_docx(_FUENF, title="AMG74"))
         texte = [p.text for p in doc.paragraphs]
         assert "Inhaltsverzeichnis" in texte
 
     def test_die_ueberschrift_landet_nicht_im_verzeichnis(self):
         """Outline-Ebene 9 haelt sie aus dem TOC-Feld heraus, sonst listet es sich selbst."""
-        doc = _open(markdown_to_docx("## Kapitel", title="AMG74"))
+        doc = _open(markdown_to_docx(_FUENF, title="AMG74"))
         absatz = next(p for p in doc.paragraphs if p.text == "Inhaltsverzeichnis")
         assert absatz.style.name == "TOC Heading"
         assert 'w:val="9"' in absatz.style.element.xml
 
     def test_die_ueberschrift_steht_vor_dem_feld(self):
-        doc = _open(markdown_to_docx("## Kapitel", title="AMG74"))
+        doc = _open(markdown_to_docx(_FUENF, title="AMG74"))
         texte = [p.text for p in doc.paragraphs]
-        assert texte.index("Inhaltsverzeichnis") < texte.index("Kapitel")
+        assert texte.index("Inhaltsverzeichnis") < texte.index("Kapitel 1")
 
     def test_englisch_bekommt_beide_texte_auf_englisch(self):
-        doc = _open(markdown_to_docx("## Kapitel", title="AMG74", locale="en"))
+        doc = _open(markdown_to_docx(_FUENF, title="AMG74", locale="en"))
         texte = [p.text for p in doc.paragraphs]
         assert "Table of contents" in texte
         assert doc.paragraphs[2].text.startswith("Created with artificial intelligence.")

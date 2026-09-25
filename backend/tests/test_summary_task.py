@@ -98,3 +98,22 @@ class TestSpracheDerWortdatei:
         return gemerkt
 
 
+
+
+class TestMarkdownDatei:
+    """Die Markdown-Datei traegt Titel, Datum und KI-Hinweis wie die Word-Datei."""
+
+    def test_titel_datum_und_hinweis_stehen_vor_dem_text(self):
+        from src.tasks.summary_tasks import _markdown_file
+
+        md = _markdown_file("## Kapitel\n\nText.", "AMG74", "25.09.2026", "de")
+        teile = md.split("\n\n")
+        assert teile[0] == "# AMG74"
+        assert teile[1] == "25.09.2026"
+        assert teile[2].startswith("*Mit künstlicher Intelligenz erstellt.")
+        assert teile[3] == "## Kapitel"
+
+    def test_englisch_bekommt_den_englischen_hinweis(self):
+        from src.tasks.summary_tasks import _markdown_file
+
+        assert "*Created with artificial intelligence." in _markdown_file("Text.", "T", "1.1.2026", "en")
