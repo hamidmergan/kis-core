@@ -13,6 +13,7 @@ from src.features.praesentation import store, vorlagen
 from src.features.praesentation.schemas import LANGUAGES, PraesentationParams
 from src.i18n import get_locale, t
 from src.limits import PRAESENTATION_MAX_SOURCES
+from src.services import feature_provider_choices
 from src.tasks.praesentation_tasks import run_praesentation_outline
 
 router = APIRouter(tags=["praesentation"])
@@ -26,6 +27,9 @@ def _pruefe_params(roh: str, locale: str) -> PraesentationParams:
         raise HTTPException(status_code=422, detail=t("praesentation.badParams", locale)) from e
     if params.language not in LANGUAGES:
         raise HTTPException(status_code=422, detail=t("praesentation.badParams", locale))
+    if params.llm_provider_id is not None and not feature_provider_choices.is_eligible(
+            "chat", params.llm_provider_id):
+        raise HTTPException(status_code=400, detail=t("praesentation.invalidProvider", locale))
     return params
 
 
@@ -47,6 +51,12 @@ async def _quellen_lesen(mode: str, files, workspace_uuid: str, source_uuids: li
     return await quellen.read_uploads(files, locale=locale,
                                       hoechstens=PRAESENTATION_MAX_SOURCES,
                                       schluessel="praesentation")
+
+
+@router.get("/praesentation/providers")
+async def list_praesentation_providers(_user: dict = Depends(get_current_user)):
+    """Reachable chat providers, the deck is written on the chat model."""
+    return await feature_provider_choices.list_reachable_choices("chat")
 
 
 @router.post("/praesentation/start")

@@ -9,6 +9,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Die Präsentation kann mit diesen Einstellungen nicht arbeiten.",
         "en": "The presentation cannot use these settings.",
     },
+    "praesentation.invalidProvider": {
+        "de": "Ungültiger KI-Anbieter ausgewählt",
+        "en": "Invalid AI provider selected",
+    },
     "praesentation.noContent": {
         "de": "Es fehlt Material. Lade Dateien hoch oder wähle Materialien aus einem Workspace.",
         "en": "There is no material. Upload files or pick sources from a workspace.",

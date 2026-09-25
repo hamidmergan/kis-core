@@ -11,6 +11,7 @@ import ToolBackLink from "@/components/ui/ToolBackLink";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useRegenAnchor } from "@/hooks/useRegenAnchor";
 import { useActiveJobCheck } from "@/hooks/useScreencastResume";
+import { useFeatureProviders } from "@/hooks/useFeatureProviders";
 import { notifyJobsChanged } from "@/lib/jobs-events";
 import * as api from "./_api";
 import PraesentationStepper from "./_components/PraesentationStepper";
@@ -28,6 +29,8 @@ function PraesentationPageInner() {
   const t = useTranslations("tools.praesentation");
   const tCommon = useTranslations("common");
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
+  // The chat model that writes, picked in the first step and sent along with the start.
+  const llm = useFeatureProviders("/praesentation/providers");
   const { permissions } = usePermissions();
   const [hasActiveJob] = useActiveJobCheck("praesentation");
   const ausListe = useSearchParams().get("job");
@@ -98,7 +101,7 @@ function PraesentationPageInner() {
   const starten = async () => {
     dispatch({ type: "STARTING" });
     try {
-      const uuid = await api.startPraesentation(stateRef.current);
+      const uuid = await api.startPraesentation(stateRef.current, llm.providerId);
       dispatch({ type: "STARTED", jobUuid: uuid });
       notifyJobsChanged();
     } catch (e) {
@@ -247,6 +250,7 @@ function PraesentationPageInner() {
               <ContentStep canUseModules={!!permissions.allow_aia} source={state.source} language={state.language}
                 notes={state.notes} instructions={state.instructions} presenter={state.presenter} templateId={state.templateId}
                 hasActiveJob={hasActiveJob} error={state.error}
+                llmProviders={llm.providers} llmProviderId={llm.providerId} onLlmProvider={llm.setProviderId}
                 onSource={(source) => dispatch({ type: "SET_SOURCE", source })}
                 onLanguage={(language) => dispatch({ type: "SET_LANGUAGE", language })}
                 onNotes={(notes) => dispatch({ type: "SET_NOTES", notes })}

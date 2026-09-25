@@ -399,6 +399,7 @@ export default function ZusammenfassungPage() {
             onChange={setProviderId}
             disabled={processing}
             className="mt-6"
+            showModel
           />
 
           {!doneJobUuid && (

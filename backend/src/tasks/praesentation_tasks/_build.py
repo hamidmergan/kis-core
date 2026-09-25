@@ -20,6 +20,7 @@ from src.limits import (
     STAGE_SOFT_TIME_LIMIT, STAGE_TIME_LIMIT,
 )
 from src.services import feature_router
+from src.services.feature_provider_choices import binding_for
 from src.services.text_map import Karte
 from src.services.json_llm import call_json_llm
 from src.services import sources as quellen
@@ -145,7 +146,7 @@ def _eigenes_material(user_id, job_uuid, offen, erzwungen_text: set[str]) -> dic
 
 def _texte_schreiben(job_uuid, user_id, params, quelle, quellenliste, analyse,
                      outline, slides, layouts, offen, erzwungen_text, clock, final) -> None:
-    llm = feature_router.make_llm_client(feature_router.resolve("chat"))
+    llm = feature_router.make_llm_client(binding_for("chat", params.llm_provider_id))
     karte = Karte(quellenliste)
     eigen = _eigenes_material(user_id, job_uuid, offen, erzwungen_text)
     # A slide with its own material goes alone, it must not share a call with the run's snapshot.

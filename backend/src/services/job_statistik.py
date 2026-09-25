@@ -67,12 +67,12 @@ def anbieter_und_modelle(provider_ids: list[int], feature: str) -> dict:
     return {"anbieter": verbinde("anbieter"), "modell": verbinde("modell"), "route": feature}
 
 
-def route_kennung(feature: str) -> dict:
-    """Provider and model of a route without its own provider choice, such as the scripts."""
-    from src.services import feature_router
+def route_kennung(feature: str, provider_id: int | None = None) -> dict:
+    """Provider and model a run used, the admin route unless a provider was chosen."""
+    from src.services import feature_provider_choices
 
     try:
-        binding = feature_router.resolve(feature)
+        binding = feature_provider_choices.binding_for(feature, provider_id)
     except Exception as e:
         logger.warning("Route {} nicht aufloesbar: {}", feature, e)
         return {"anbieter": "", "modell": "", "route": feature}

@@ -10,6 +10,8 @@ import IconButton from "@/components/ui/IconButton";
 import Select from "@/components/ui/Select";
 import Spinner from "@/components/ui/Spinner";
 import Tabs from "@/components/ui/Tabs";
+import ProviderSelect from "@/components/tools/ProviderSelect";
+import type { FeatureProvider } from "@/hooks/useFeatureProviders";
 import { MAX_UPLOAD_BYTES, MAX_UPLOAD_MB } from "@/lib/constants";
 import StepFooter from "../_components/StepFooter";
 import { useModules } from "@/hooks/useModules";
@@ -33,6 +35,10 @@ interface ContentStepProps {
   language: Language;
   instructions: string;
   glossaryIds: string[];
+  /** The chat providers the script can be written on, empty hides the choice. */
+  llmProviders: FeatureProvider[];
+  llmProviderId: number | null;
+  onLlmProvider: (id: number) => void;
   onSource: (source: Partial<Source>) => void;
   onLanguage: (language: Language) => void;
   onGlossaryIds: (ids: string[]) => void;
@@ -40,7 +46,8 @@ interface ContentStepProps {
   onNext: () => void;
 }
 
-export default function ContentStep({ canUseModules, source, language, instructions, glossaryIds, onSource, onLanguage, onGlossaryIds, onInstructions, onNext }: ContentStepProps) {
+export default function ContentStep({ canUseModules, source, language, instructions, glossaryIds, llmProviders, llmProviderId,
+                                      onLlmProvider, onSource, onLanguage, onGlossaryIds, onInstructions, onNext }: ContentStepProps) {
   const t = useTranslations("tools.podcast.content");
   const tTool = useTranslations("tools.podcast");
   const tCommon = useTranslations("common");
@@ -267,6 +274,16 @@ export default function ContentStep({ canUseModules, source, language, instructi
             ]}
           />
         </div>
+
+        <ProviderSelect
+          id="podcast-provider"
+          label={t("providerLabel")}
+          providers={llmProviders}
+          value={llmProviderId}
+          onChange={onLlmProvider}
+          className="mt-4"
+          showModel
+        />
 
         <div className="mt-4">
           <span className="block text-sm font-medium text-foreground-soft">

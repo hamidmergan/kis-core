@@ -444,8 +444,8 @@
       "intro": "Mehrere Materialien zu einem Text zusammenführen, als Kurzbriefing, Lernleitfaden oder Zeitstrahl.",
       "selectFileAria": "Dateien zur Zusammenfassung auswählen",
       "submit": "Zusammenfassung erstellen",
-      "downloadLabel": "Herunterladen",
-      "downloadDocxLabel": "Als Word herunterladen",
+      "downloadLabel": "MD herunterladen",
+      "downloadDocxLabel": "DOCX herunterladen",
       "providerLabel": "KI-Anbieter",
       "templateLabel": "Vorlage",
       "tabs": { "files": "Dateien" },
@@ -1049,6 +1049,7 @@
         "removeFile": "{name} entfernen",
         "sourcesLabel": "Materialien",
         "languageLabel": "Sprache des Podcasts",
+        "providerLabel": "KI-Anbieter",
         "languages": {
           "de": "Deutsch",
           "en": "Englisch"
@@ -1223,6 +1224,7 @@
         "editTemplate": "{name} bearbeiten",
         "deleteTemplate": "{name} löschen",
         "languageLabel": "Sprache der Folien",
+        "providerLabel": "KI-Anbieter",
         "languages": { "de": "Deutsch", "en": "Englisch" },
         "instructionsLabel": "Anweisung (optional)",
         "instructionsPlaceholder": "Zum Beispiel: nur Kapitel 2, für Erstsemester, mit Beispielen aus der Praxis",

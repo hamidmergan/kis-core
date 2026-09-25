@@ -50,12 +50,13 @@ def progress_final(job: dict) -> bool:
     return bool(daten.get("final")) if isinstance(daten, dict) else False
 
 
-def llm_antwort(nachrichten: list[dict]) -> str:
-    """One synchronous model call, the same client the tasks use."""
+def llm_antwort(nachrichten: list[dict], provider_id: int | None = None) -> str:
+    """One synchronous model call, on the provider the run was started with."""
     from src.services import feature_router
+    from src.services.feature_provider_choices import binding_for
     from src.services.json_llm import call_json_llm
 
-    llm = feature_router.make_llm_client(feature_router.resolve("chat"))
+    llm = feature_router.make_llm_client(binding_for("chat", provider_id))
     return call_json_llm(llm, nachrichten, endpoint="praesentation").choices[0].message.content or ""
 
 

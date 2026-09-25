@@ -140,6 +140,16 @@ class TestStart:
 
 
 
+    def test_ein_nicht_waehlbarer_ki_anbieter_wird_abgewiesen(self, env, monkeypatch):
+        import src.routes.praesentation.start as start_route
+
+        client, *_ = env
+        monkeypatch.setattr(start_route.feature_provider_choices, "is_eligible", lambda f, pid: False)
+        antwort = client.post("/praesentation/start",
+                              data={"params": _params(llm_provider_id=99), "mode": "files"},
+                              files={"files": ("kapitel.txt", "Über den Regelkreis.".encode(), "text/plain")})
+        assert antwort.status_code == 400
+
     def test_ohne_recht(self, env, monkeypatch):
         client, *_ = env
         from src.app import app
@@ -248,7 +258,7 @@ class TestOutline:
     def test_regen_zeile(self, env, monkeypatch):
         client, *_ = _mit_gliederung(env)
         import src.routes.praesentation.outline as outline_route
-        monkeypatch.setattr(outline_route, "llm_antwort", lambda nachrichten: '{"title": "Neu", "gist": "Anders"}')
+        monkeypatch.setattr(outline_route, "llm_antwort", lambda nachrichten, anbieter=None: '{"title": "Neu", "gist": "Anders"}')
         antwort = client.post(f"/praesentation/{UUID}/outline/s2/regen", json={"messages": [], "selected_text": ""})
         assert antwort.json() == {"id": "s2", "title": "Neu", "gist": "Anders"}
 
@@ -437,7 +447,7 @@ class TestSlides:
     def test_regen_folie_liefert_inhalt_ohne_zu_speichern(self, env, monkeypatch):
         client, jobs, gestartet, ablage = _mit_folien(env)
         import src.routes.praesentation.slides as slides_route
-        monkeypatch.setattr(slides_route, "llm_antwort", lambda n: json.dumps({"slides": [
+        monkeypatch.setattr(slides_route, "llm_antwort", lambda n, anbieter=None: json.dumps({"slides": [
             {"id": "s2", "title": "Neu", "body": {"kind": "bullets", "items": ["x"]}}]}))
         antwort = client.post(f"/praesentation/{UUID}/slides/s2/regen", json={"messages": [], "selected_text": ""})
         assert antwort.json()["title"] == "Neu" and antwort.json()["layout"] == 3

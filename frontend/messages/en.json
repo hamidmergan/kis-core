@@ -444,8 +444,8 @@
       "intro": "Bring several sources together into one text, as a short briefing, study guide or timeline.",
       "selectFileAria": "Choose files to summarise",
       "submit": "Create summary",
-      "downloadLabel": "Download",
-      "downloadDocxLabel": "Download as Word",
+      "downloadLabel": "Download MD",
+      "downloadDocxLabel": "Download DOCX",
       "providerLabel": "AI provider",
       "templateLabel": "Template",
       "tabs": { "files": "Files" },
@@ -1049,6 +1049,7 @@
         "removeFile": "Remove {name}",
         "sourcesLabel": "Sources",
         "languageLabel": "Podcast language",
+        "providerLabel": "AI provider",
         "languages": {
           "de": "German",
           "en": "English"
@@ -1223,6 +1224,7 @@
         "editTemplate": "Edit {name}",
         "deleteTemplate": "Delete {name}",
         "languageLabel": "Slide language",
+        "providerLabel": "AI provider",
         "languages": { "de": "German", "en": "English" },
         "instructionsLabel": "Instruction (optional)",
         "instructionsPlaceholder": "For example: only chapter 2, for first-year students, with practical examples",
