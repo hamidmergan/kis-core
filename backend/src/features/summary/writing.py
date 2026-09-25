@@ -237,8 +237,14 @@ def _outline_system(language: str, template_body: str, target: int, sources: int
     )
 
 
+def _instruction(instructions: str) -> str:
+    """The person's own wish, placed last so it gets the attention, the rules still win."""
+    return (f"\n\nINSTRUCTION FROM THE TEACHER, follow it within the rules above: "
+            f"{instructions.strip()}") if instructions.strip() else ""
+
+
 def _outline_user(sources: list[str], material: str, fehlt: list[str] | None = None,
-                  anfaenge: list[str] | None = None) -> str:
+                  anfaenge: list[str] | None = None, instructions: str = "") -> str:
     anfaenge = anfaenge or []
     liste = "\n".join(
         f"- {s}" + (f", begins with: {' '.join(anfaenge[i].split())}" if i < len(anfaenge) else "")
@@ -246,7 +252,8 @@ def _outline_user(sources: list[str], material: str, fehlt: list[str] | None = N
     mahnung = ("\nYOUR LAST PLAN GAVE THESE FILES FAR TOO LITTLE ROOM. Give each a share of "
                "the sections and refs that matches how much of the material it holds: "
                + ", ".join(fehlt) + "\n") if fehlt else ""
-    return f"/no_think\nSources:\n{liste}\n{mahnung}\nMATERIAL:\n\n{material}"
+    return (f"/no_think\nSources:\n{liste}\n{mahnung}\nMATERIAL:\n\n{material}"
+            + _instruction(instructions))
 
 
 async def plan_outline(caller: Caller, *, language: str, template_body: str,
@@ -254,7 +261,8 @@ async def plan_outline(caller: Caller, *, language: str, template_body: str,
                        modus: str = "stellen", stellen=None,
                        span: tuple[int, int] | None = None,
                        fehlt: list[str] | None = None,
-                       anfaenge: list[str] | None = None) -> Outline:
+                       anfaenge: list[str] | None = None,
+                       instructions: str = "") -> Outline:
     """Plans the headings of the document. Empty when planning failed."""
     plan = Outline()
     for versuch in range(1, SUMMARY_OUTLINE_MAX_ATTEMPTS + 1):
@@ -264,7 +272,8 @@ async def plan_outline(caller: Caller, *, language: str, template_body: str,
                     {"role": "system",
                      "content": _outline_system(language, template_body, target, len(sources),
                                                 modus, span)},
-                    {"role": "user", "content": _outline_user(sources, material, fehlt, anfaenge)},
+                    {"role": "user",
+                     "content": _outline_user(sources, material, fehlt, anfaenge, instructions)},
                 ],
                 temperature=0.2, name=f"outline:{versuch}",
                 response_format=OUTLINE_SCHEMA,
@@ -453,7 +462,8 @@ def _document_so_far(written: list[tuple[str, str]]) -> str:
 
 def _section_user(group: list[Section], others: list[Section],
                   written: list[tuple[str, str]] | None, facts: list[str],
-                  words: int | None = None, names: dict[str, str] | None = None) -> str:
+                  words: int | None = None, names: dict[str, str] | None = None,
+                  instructions: str = "") -> str:
     """The order matters: what is to be written comes last, that is what gets the attention.
 
     Without ``written`` the section is one of several written at the same time.
@@ -475,13 +485,13 @@ def _section_user(group: list[Section], others: list[Section],
         auftrag = "YOUR SECTIONS:\n\n" + "\n\n".join(teile)
     if written is None:
         return (f"/no_think\n{kopf}Written by others, stay off these:\n{fremd}\n\n"
-                f"{laenge}{auftrag}")
+                f"{laenge}{auftrag}" + _instruction(instructions))
     return (
         "/no_think\n"
         f"{kopf}"
         f"Still to be written by others, stay off these:\n{fremd}\n\n"
         f"THE DOCUMENT SO FAR:\n{_document_so_far(written)}\n\n"
-        f"{laenge}{auftrag}"
+        f"{laenge}{auftrag}" + _instruction(instructions)
     )
 
 
@@ -489,7 +499,8 @@ async def write_sections(caller: Caller, *, language: str, template_body: str,
                          group: list[Section], others: list[Section],
                          written: list[tuple[str, str]] | None, material: list[str],
                          budget: int, words: int | None = None,
-                         names: dict[str, str] | None = None) -> list[str] | None:
+                         names: dict[str, str] | None = None,
+                         instructions: str = "") -> list[str] | None:
     """Writes a run of sections in one call, None when the answer cannot be cut apart.
 
     None is not a failure of the run: the caller then writes the sections one at a time,
@@ -500,7 +511,8 @@ async def write_sections(caller: Caller, *, language: str, template_body: str,
             {"role": "system", "content": _section_system(
                 language, template_body, len(group), sees_document=written is not None)},
             {"role": "user",
-             "content": _section_user(group, others, written, material, words, names)},
+             "content": _section_user(group, others, written, material, words, names,
+                                      instructions)},
         ],
         temperature=0.3,
         name=f"section:{group[0].title}" if len(group) == 1
@@ -536,7 +548,7 @@ def _compose_system(language: str, template_body: str) -> str:
 
 
 async def compose_single(caller: Caller, *, language: str, template_body: str,
-                         sources: list[str], material: str) -> str:
+                         sources: list[str], material: str, instructions: str = "") -> str:
     """The whole document in one call, the fallback for a failed outline.
 
     Tried more than once on purpose, one dropped call must not end the run. What still
@@ -547,7 +559,8 @@ async def compose_single(caller: Caller, *, language: str, template_body: str,
             antwort = await caller.create(
                 messages=[
                     {"role": "system", "content": _compose_system(language, template_body)},
-                    {"role": "user", "content": _outline_user(sources, material)},
+                    {"role": "user",
+                     "content": _outline_user(sources, material, instructions=instructions)},
                 ],
                 temperature=0.3, name=f"compose:{versuch}",
                 max_tokens=SUMMARY_WRITE_MAX_TOKENS,

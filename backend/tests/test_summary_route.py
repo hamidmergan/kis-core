@@ -47,7 +47,7 @@ async def test_templates_nennen_vorlagen_und_grenzen():
 async def test_zwei_dateien_werden_gelesen_und_abgelegt(stub):
     antwort = await route.summarize(
         request=_Request(), files=[_Upload(b"eins " * 100, "a.txt"), _Upload(b"zwei " * 100, "b.md")],
-        template="zeitstrahl", provider_id=None, current_user={"user_id": 1}, locale="de")
+        template="zeitstrahl", provider_id=None, instructions="", current_user={"user_id": 1}, locale="de")
     assert antwort["status"] == "pending"
     job, slug, pid = stub["args"]
     assert slug == "zeitstrahl"
@@ -58,13 +58,13 @@ async def test_zwei_dateien_werden_gelesen_und_abgelegt(stub):
 async def test_jede_quelle_traegt_ihre_pruefsumme(stub):
     await route.summarize(
         request=_Request(), files=[_Upload(b"inhalt " * 100, "a.txt")],
-        template=None, provider_id=None, current_user={"user_id": 1}, locale="de")
+        template=None, provider_id=None, instructions="", current_user={"user_id": 1}, locale="de")
     assert len(stub["quellen"][0].fassung) == 64
 
 
 async def test_ohne_vorlage_gilt_das_kurzbriefing(stub):
     await route.summarize(request=_Request(), files=[_Upload(b"x " * 100, "a.txt")],
-                          template=None, provider_id=None, current_user={"user_id": 1}, locale="de")
+                          template=None, provider_id=None, instructions="", current_user={"user_id": 1}, locale="de")
     assert stub["args"][1] == "kurzbriefing"
 
 
@@ -72,7 +72,7 @@ async def test_eine_fremde_vorlage_wird_abgelehnt(stub):
     from fastapi import HTTPException
     with pytest.raises(HTTPException) as fehler:
         await route.summarize(request=_Request(), files=[_Upload(b"x " * 100, "a.txt")],
-                              template="nix", provider_id=None, current_user={"user_id": 1}, locale="de")
+                              template="nix", provider_id=None, instructions="", current_user={"user_id": 1}, locale="de")
     assert fehler.value.status_code == 400
 
 
@@ -99,7 +99,7 @@ async def test_ungueltige_zweite_datei_kostet_kein_kontingent(stub, monkeypatch)
     with pytest.raises(HTTPException):
         await route.summarize(
             request=_Request(), files=[_Upload(b"eins " * 100, "a.txt"), _Upload(b"zwei " * 100, "b.xyz")],
-            template=None, provider_id=None, current_user={"user_id": 1}, locale="de")
+            template=None, provider_id=None, instructions="", current_user={"user_id": 1}, locale="de")
     assert aufrufe == []
 
 
@@ -114,5 +114,5 @@ async def test_fehler_beim_ablegen_erzeugt_keinen_auftrag(stub, monkeypatch):
     with pytest.raises(RuntimeError):
         await route.summarize(
             request=_Request(), files=[_Upload(b"eins " * 100, "a.txt"), _Upload(b"zwei " * 100, "b.md")],
-            template=None, provider_id=None, current_user={"user_id": 1}, locale="de")
+            template=None, provider_id=None, instructions="", current_user={"user_id": 1}, locale="de")
     assert erzeugt == []

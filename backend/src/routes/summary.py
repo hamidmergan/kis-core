@@ -8,6 +8,7 @@ from loguru import logger
 from src import database as db
 from src.dependencies import get_current_user, is_admin_user
 from src.dependencies_rbac import require_tool_access
+from src.features.summary.models import INSTRUCTIONS_FILE
 from src.features.summary.templates import TEMPLATES, default_template, get_template
 from src.i18n import get_locale, t
 from src.services import sources
@@ -54,6 +55,7 @@ async def summarize(
     source_uuids: str = Form("[]"),
     template: str | None = Form(None),
     provider_id: int | None = Form(None),
+    instructions: str = Form(""),
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
@@ -86,16 +88,16 @@ async def summarize(
         gelesen = await sources.read_uploads(files, locale=locale,
                                              hoechstens=SUMMARY_MAX_SOURCES,
                                              schluessel="summary")
-    namen = [q.dateiname for q in gelesen]
 
     # Quota is charged only once every source has cleared reading, so a refused start costs nothing.
     enforce_quota(user_id, "summary", is_admin_user(current_user), locale)
     sources.save_sources(user_id, job_uuid, gelesen)
 
-    # The job is created only once every source is safely stored, so a storage failure leaves nothing behind.
-    anzeige = namen[0] if len(namen) == 1 else t(
-        "summary.jobLabel", locale, name=namen[0], more=len(namen) - 1)
-    db.create_job(job_uuid, user_id, "summary", anzeige, locale=locale)
+    # Created only once every source is safely stored, the names joined so the job list folds them open.
+    db.create_job(job_uuid, user_id, "summary", sources.label(gelesen), locale=locale)
+    if instructions.strip():
+        from src.services.job_files import write_job_text
+        write_job_text(user_id, job_uuid, INSTRUCTIONS_FILE, instructions.strip())
 
     from src.tasks.summary_tasks import run_summary
     run_summary.delay(job_uuid, vorlage.slug, provider_id)

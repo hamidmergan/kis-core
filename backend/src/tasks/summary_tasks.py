@@ -3,7 +3,6 @@
 import asyncio
 import json
 import re
-from datetime import date
 from pathlib import Path
 
 from loguru import logger
@@ -13,7 +12,7 @@ from src.celery_app import celery_app
 from src.features.summary import pipeline as pl
 from src.features.summary import writing
 from src.features.summary.docx_export import markdown_to_docx
-from src.features.summary.models import LANGUAGE_FALLBACK, Caller
+from src.features.summary.models import INSTRUCTIONS_FILE, LANGUAGE_FALLBACK, Caller
 from src.features.summary.templates import get_template
 from src.i18n import t
 from src.limits import (
@@ -31,6 +30,7 @@ from src.services.job_files import (
     write_job_text,
 )
 from src.services.job_recovery import attempt_failed, still_mine
+from src.utils import local_date
 from src.storage import (
     job_file_exists,
     open_input_file,
@@ -213,8 +213,10 @@ def _run_summary_inner(job_uuid: str, template_slug: str,
                         book=lambda antwort: log_llm_response("summary", traeger, antwort))
         store = _JobStore(user_id, job_uuid, versuch)
         try:
+            anweisung = (read_job_text(user_id, job_uuid, INSTRUCTIONS_FILE) or "").strip()
             fertig = asyncio.run(pl.run(caller, sources=quellen, template=vorlage,
-                                        store=store, should_stop=clock.over))
+                                        store=store, should_stop=clock.over,
+                                        instructions=anweisung))
         except pl.PipelineInterrupted:
             raise StageContinue from None
         write_job_text(user_id, job_uuid, _RESULT_FILE, fertig)
@@ -225,7 +227,7 @@ def _run_summary_inner(job_uuid: str, template_slug: str,
     titel = eigener or _outline_title(user_id, job_uuid)
     name = _result_name([q.dateiname for q in quellen], titel)
     titel = titel or Path(name).stem
-    heute = date.today().strftime("%d.%m.%Y")
+    heute = local_date.today().strftime("%d.%m.%Y")
     sprache = _docx_locale(user_id, job_uuid, locale)
     ergebnis = save_result_file(user_id, job_uuid, ".md",
                                 _markdown_file(rumpf, titel, heute, sprache).encode("utf-8"))

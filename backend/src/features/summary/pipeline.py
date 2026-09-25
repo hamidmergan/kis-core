@@ -123,7 +123,7 @@ async def _grundlage(caller: Caller, karte: tm.Karte, language: str,
 
 
 async def _outline(caller: Caller, *, language: str, vorlage: Template, sources: list[Source],
-                   karte: tm.Karte, store: RunStore) -> Outline:
+                   karte: tm.Karte, store: RunStore, instructions: str = "") -> Outline:
     """The plan, taken from the store when a stage already paid for it."""
     gemerkt = store.load_outline()
     if gemerkt:
@@ -139,7 +139,8 @@ async def _outline(caller: Caller, *, language: str, vorlage: Template, sources:
                                            len(sources), vorlage.sections),
             modus=g.modus, stellen=lambda refs: g.stellen(refs, karte),
             span=vorlage.sections, fehlt=fehlt,
-            anfaenge=[q.text[:SUMMARY_SOURCE_OPENING_CHARS] for q in sources])
+            anfaenge=[q.text[:SUMMARY_SOURCE_OPENING_CHARS] for q in sources],
+            instructions=instructions)
 
     plan = await planen(None)
     # A plan that starves a file loses it for good, so it is asked for once more.
@@ -171,7 +172,8 @@ def _costs(sections: list[Section], je: int | None = None) -> list[int]:
 
 
 async def _sections(caller: Caller, *, language: str, vorlage: Template, plan: Outline,
-                    karte: tm.Karte, store: RunStore, should_stop) -> dict[int, str]:
+                    karte: tm.Karte, store: RunStore, should_stop,
+                    instructions: str = "") -> dict[int, str]:
     """Every section written from the original passages it names, several at once.
 
     A template whose closing answers the sections before it gets that closing written
@@ -198,7 +200,8 @@ async def _sections(caller: Caller, *, language: str, vorlage: Template, plan: O
         texte = await writing.write_sections(
             caller, language=language, template_body=template_body(vorlage),
             group=abschnitte, others=andere, written=geschrieben, material=stoff,
-            budget=SUMMARY_SECTION_GROUP_CHARS, words=worte, names=plan.names)
+            budget=SUMMARY_SECTION_GROUP_CHARS, words=worte, names=plan.names,
+            instructions=instructions)
         if texte is None:
             # One answer that cannot be cut apart costs calls, never a mixed up section.
             texte = []
@@ -207,7 +210,7 @@ async def _sections(caller: Caller, *, language: str, vorlage: Template, plan: O
                     caller, language=language, template_body=template_body(vorlage),
                     group=[plan.sections[i]], others=andere, written=geschrieben,
                     material=[stoff[gruppe.index(i)]], budget=SUMMARY_SECTION_GROUP_CHARS,
-                    words=worte, names=plan.names)
+                    words=worte, names=plan.names, instructions=instructions)
                 texte.append((einzeln or [""])[0])
         for i, text in zip(gruppe, texte):
             if text.strip():
@@ -231,7 +234,8 @@ async def _sections(caller: Caller, *, language: str, vorlage: Template, plan: O
 
 
 async def run(caller: Caller, *, sources: list[Source], template: Template,
-              store: RunStore, should_stop: Callable[[], bool] | None = None) -> str:
+              store: RunStore, should_stop: Callable[[], bool] | None = None,
+              instructions: str = "") -> str:
     """One whole run, from the read sources to the finished document."""
     language = store.load_language()
     if not language:
@@ -243,16 +247,17 @@ async def run(caller: Caller, *, sources: list[Source], template: Template,
         raise RuntimeError("Keine Quelle traegt Text.")
 
     plan = await _outline(caller, language=language, vorlage=template, sources=sources,
-                          karte=karte, store=store)
+                          karte=karte, store=store, instructions=instructions)
     if not plan.sections:
         # Without a plan the document comes out of one call, that is the fallback.
         return await writing.compose_single(
             caller, language=language, template_body=template_body(template),
             sources=[q.dateiname for q in sources],
-            material=karte.block()[:MAP_MATERIAL_MAX_CHARS * 4])
+            material=karte.block()[:MAP_MATERIAL_MAX_CHARS * 4], instructions=instructions)
 
     fertig = await _sections(caller, language=language, vorlage=template, plan=plan,
-                             karte=karte, store=store, should_stop=should_stop)
+                             karte=karte, store=store, should_stop=should_stop,
+                             instructions=instructions)
     reihenfolge = sorted(fertig)
     return writing.assemble(plan.intro, [plan.sections[i].title for i in reihenfolge],
                             [fertig[i] for i in reihenfolge], template.headings, plan.title)

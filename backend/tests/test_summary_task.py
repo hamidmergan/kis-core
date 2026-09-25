@@ -117,3 +117,18 @@ class TestMarkdownDatei:
         from src.tasks.summary_tasks import _markdown_file
 
         assert "*Created with artificial intelligence." in _markdown_file("Text.", "T", "1.1.2026", "en")
+
+
+def test_das_datum_folgt_deutscher_zeit_nicht_dem_container(monkeypatch):
+    """Kurz nach Mitternacht ist in UTC noch gestern, das Deckblatt soll heute zeigen."""
+    from datetime import datetime, timezone
+
+    from src.utils import local_date
+
+    class _Uhr(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return datetime(2026, 9, 25, 22, 30, tzinfo=timezone.utc).astimezone(tz)
+
+    monkeypatch.setattr(local_date, "datetime", _Uhr)
+    assert local_date.today().isoformat() == "2026-09-26"

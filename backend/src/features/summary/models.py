@@ -23,6 +23,10 @@ GROUND_RULES = (
 )
 
 
+# The person's own instruction, laid down by the route and read by the task.
+INSTRUCTIONS_FILE = "anweisung.txt"
+
+
 # What the language probe falls back to when no name could be read.
 LANGUAGE_FALLBACK = ("the language of the main body text, ignoring cover pages, "
                      "headers and footers")

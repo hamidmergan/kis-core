@@ -347,3 +347,26 @@ def test_eine_von_zwei_abschnitten_genannte_stelle_bleibt_beim_ersten():
     _lauf([_plan_mit_refs(("A", ["3", "10"]), ("B", ["17"]), ("C", ["10", "12"])),
            _gruppe("A", "B", "C")], quellen=[_markiert(20)], store=store)
     assert [a["genannt"] for a in store.plan["sections"]] == [[3, 10], [17], [12]]
+
+
+class TestAnweisung:
+    """Die eigene Anweisung reist in Planung und Schreiben mit, als letzter Absatz."""
+
+    def test_die_planung_liest_die_anweisung_zuletzt(self):
+        from src.features.summary.writing import _outline_user
+
+        text = _outline_user(["a.pdf"], "MATERIAL", instructions="nur Kapitel 2")
+        assert text.rstrip().endswith("nur Kapitel 2")
+        assert "INSTRUCTION FROM THE TEACHER" in text
+
+    def test_ein_abschnitt_liest_die_anweisung_zuletzt(self):
+        from src.features.summary.models import Section
+        from src.features.summary.writing import _section_user
+
+        text = _section_user([Section(title="A")], [], None, ["Stoff"], instructions="für Erstsemester")
+        assert text.rstrip().endswith("für Erstsemester")
+
+    def test_ohne_anweisung_kein_zusatz(self):
+        from src.features.summary.writing import _outline_user
+
+        assert "INSTRUCTION" not in _outline_user(["a.pdf"], "MATERIAL", instructions="  ")

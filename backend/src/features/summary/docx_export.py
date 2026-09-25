@@ -2,7 +2,6 @@
 
 import io
 import re
-from datetime import date
 
 from docx import Document
 from docx.document import Document as DocumentType
@@ -13,6 +12,7 @@ from docx.text.paragraph import Paragraph
 from loguru import logger
 
 from src.i18n import t
+from src.utils import local_date
 
 _HEADING_RE = re.compile(r"^(#{1,6})\s+(.*)$")
 _BULLET_RE = re.compile(r"^( *)[-*]\s+(.*)$")
@@ -38,7 +38,7 @@ def markdown_to_docx(text: str, *, title: str = "", today: str = "",
     """
     document = Document()
     if title:
-        _add_front_matter(document, title, today or date.today().strftime("%d.%m.%Y"), locale,
+        _add_front_matter(document, title, today or local_date.today().strftime("%d.%m.%Y"), locale,
                           toc=needs_toc(text))
     lines = text.splitlines()
     i = 0
