@@ -26,7 +26,7 @@ import TtsSettingsStep from "./_steps/TtsSettingsStep";
 import RenderVorschau from "./_components/RenderVorschau";
 import ScreencastOverlays from "./_components/ScreencastOverlays";
 import { applyRegen, type RegenApplyMode } from "@/components/regen/apply";
-import { parseScriptJsonFile, checkHasActiveJob, checkJobValidity, checkJobFolderExists, computeVoiceLabel, laufWaereUmsonst, stimmwechselOhneWirkung, ausgeschlosseneFolien, sprachIdFuerLocale, type LaufStand } from "./_utils";
+import { holeNotizen, parseScriptJsonFile, checkHasActiveJob, checkJobValidity, checkJobFolderExists, computeVoiceLabel, laufWaereUmsonst, stimmwechselOhneWirkung, ausgeschlosseneFolien, sprachIdFuerLocale, type LaufStand } from "./_utils";
 import { flowReducer, INITIAL_FLOW_STATE } from "./_reducer";
 import { renderFlowMessages, translateFlowMessages } from "./_messages";
 import { useScreencastRenderFlow } from "./_hooks/useScreencastRenderFlow";
@@ -67,6 +67,7 @@ function ScreencastPageInner() {
   const { jobUuid: failedRenderJobUuid, paused: renderAngehalten } = failedRender;
   const [ttsSettingsError, setTtsSettingsError] = useState("");
   const [uploadFehler, setUploadFehler] = useState<string>("");
+  const [notizenFehler, setNotizenFehler] = useState("");
 
   // ── Job-Flow-State via Reducer ──
   const [flow, dispatch] = useReducer(flowReducer, INITIAL_FLOW_STATE);
@@ -320,6 +321,7 @@ function ScreencastPageInner() {
     setFertigeFolien([]);
     setNichtDabei([]);
     setUploadFehler("");
+    setNotizenFehler("");
     clearRenderResult();
     resetScriptEditing();
     failedRender.clear();
@@ -637,7 +639,21 @@ function ScreencastPageInner() {
               />
             }
             nextBlocked={scriptInputMode === "generate" && (!zusatz.bereit || zusatz.laedt)}
+            notizenFehler={notizenFehler}
             onNext={async () => {
+              if (scriptInputMode === "notes") {
+                setNotizenFehler("");
+                const notizen = await holeNotizen(translateJobUuid);
+                if (!notizen) {
+                  setNotizenFehler(tCommon("unknownError"));
+                } else if (!notizen.some((n) => n.trim())) {
+                  setNotizenFehler(t("userPrompt.notesEmpty"));
+                } else {
+                  dispatch({ type: "IMPORT_SCRIPTS", scripts: notizen });
+                  dispatch({ type: "SET_STEP", step: "script-review" });
+                }
+                return;
+              }
               if (scriptInputMode === "manual") {
                 dispatch({ type: "CLEAR_SCRIPTS" });
                 dispatch({ type: "SET_STEP", step: "script-review" });

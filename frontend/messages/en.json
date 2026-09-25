@@ -815,7 +815,10 @@
         "jsonDropBrowse": "select",
         "scriptsLoaded": "{n, plural, =1 {1 script loaded} other {# scripts loaded}}",
         "replaceHint": "Click or drag to replace",
-        "selectJsonFirst": "Please select a JSON file first."
+        "selectJsonFirst": "Please select a JSON file first.",
+        "notes": "From the speaker notes",
+        "notesDesc": "The text in the notes of each slide becomes its script.",
+        "notesEmpty": "This presentation has no speaker notes."
       },
       "translationReview": {
         "heading": "Review translation",

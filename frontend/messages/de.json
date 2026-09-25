@@ -815,7 +815,10 @@
         "jsonDropBrowse": "auswählen",
         "scriptsLoaded": "{n, plural, =1 {1 Skript geladen} other {# Skripte geladen}}",
         "replaceHint": "Klicken oder ziehen zum Ersetzen",
-        "selectJsonFirst": "Bitte zuerst eine JSON-Datei auswählen."
+        "selectJsonFirst": "Bitte zuerst eine JSON-Datei auswählen.",
+        "notes": "Aus den Sprechernotizen",
+        "notesDesc": "Der Text in den Notizen jeder Folie wird zum Sprechtext.",
+        "notesEmpty": "In dieser Präsentation stehen keine Sprechernotizen."
       },
       "translationReview": {
         "heading": "Übersetzung prüfen",

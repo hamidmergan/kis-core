@@ -13,6 +13,7 @@ from src.dependencies import get_current_user, get_llm_client
 from src.i18n import get_locale, t
 from src.services.screencast import generate_all_scripts
 from src.services.screencast import material as zusatzmaterial
+from src.services.screencast.pptx import extract_notes_per_slide
 from src.services.job_statistik import messe, route_kennung, zeichen_zahlen
 from src.storage import get_job_file, save_job_file
 from src.services.tool_limits import max_screencast_slides
@@ -48,6 +49,27 @@ def save_scripts(
     if body.user_prompt is not None:
         save_job_file(job["user_id"], translate_job_uuid, "prompt.txt", body.user_prompt.encode())
     return {"ok": True}
+
+
+@router.get("/screencast/{translate_job_uuid}/notizen")
+def screencast_notizen(
+    translate_job_uuid: str,
+    current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
+):
+    """The speaker notes of the current deck, one entry per slide."""
+    if not re.match(r"^[a-f0-9]{32}$", translate_job_uuid):
+        raise HTTPException(status_code=400, detail=t("job.invalidUuid", locale))
+    job = db.get_job(translate_job_uuid)
+    if not job or job["user_id"] != current_user.get("user_id", 0):
+        raise HTTPException(status_code=404, detail=t("job.notFound", locale))
+    for name in ("corrected.pptx", "translated.pptx"):
+        try:
+            daten = get_job_file(job["user_id"], translate_job_uuid, name)
+        except Exception:
+            continue
+        return {"notes": extract_notes_per_slide(daten)}
+    raise HTTPException(status_code=404, detail=t("screencast.pptxNotFound", locale))
 
 
 @router.post("/screencast/generate-scripts")

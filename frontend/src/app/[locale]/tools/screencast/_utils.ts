@@ -243,6 +243,14 @@ export function ausgeschlosseneFolien(
 }
 
 /** Maps the interface language onto an offered language code, null otherwise. */
+/** The speaker notes of the job's current deck, one per slide. */
+export async function holeNotizen(jobUuid: string): Promise<string[] | null> {
+  const res = await fetch(`/api/screencast/${jobUuid}/notizen`, { credentials: "include" }).catch(() => null);
+  if (!res?.ok) return null;
+  const daten = await res.json().catch(() => null);
+  return Array.isArray(daten?.notes) ? daten.notes.map((n: unknown) => String(n ?? "")) : null;
+}
+
 export function sprachIdFuerLocale(
   locale: string,
   languages: { id: string }[],
