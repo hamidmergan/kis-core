@@ -1344,7 +1344,13 @@
       "loadScriptsError": "Could not load scripts",
       "notAvailableInDemo": "Not available in the demo",
       "selectJsonFile": "Select JSON file",
-      "errorWithCode": "Error: {code}"
+      "errorWithCode": "Error: {code}",
+      "hinweis": "This is the demo. You can try every step and setting, but the result is always the prepared sample video.",
+      "dateiName": "Sample-slides.pptx",
+      "dateiVorgegeben": "The demo uses a given set of slides.",
+      "keinHochladen": "You cannot upload your own files in the demo.",
+      "importVorgegeben": "The demo continues with the prepared scripts.",
+      "beenden": "Exit demo"
     }
   },
   "admin": {

@@ -1344,7 +1344,13 @@
       "loadScriptsError": "Fehler beim Laden der Skripte",
       "notAvailableInDemo": "Nicht in der Demo verfügbar",
       "selectJsonFile": "JSON-Datei auswählen",
-      "errorWithCode": "Fehler: {code}"
+      "errorWithCode": "Fehler: {code}",
+      "hinweis": "Das ist die Demo. Du kannst alle Schritte und Einstellungen ausprobieren, das Ergebnis ist aber immer das vorbereitete Beispielvideo.",
+      "dateiName": "Beispiel-Foliensatz.pptx",
+      "dateiVorgegeben": "In der Demo ist der Foliensatz vorgegeben.",
+      "keinHochladen": "In der Demo lassen sich keine eigenen Dateien hochladen.",
+      "importVorgegeben": "Weiter geht es mit den vorbereiteten Sprechtexten.",
+      "beenden": "Demo beenden"
     }
   },
   "admin": {

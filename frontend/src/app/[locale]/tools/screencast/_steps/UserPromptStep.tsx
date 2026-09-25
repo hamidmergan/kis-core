@@ -17,6 +17,8 @@ interface UserPromptStepProps {
   onJsonDragOverChange: (v: boolean) => void;
   onJsonImport: (file: File) => void;
   onNext: () => void;
+  /** The demo offers no upload of an own file. */
+  demo?: boolean;
 }
 
 export default function UserPromptStep({
@@ -32,8 +34,10 @@ export default function UserPromptStep({
   onJsonDragOverChange,
   onJsonImport,
   onNext,
+  demo = false,
 }: UserPromptStepProps) {
   const t = useTranslations("tools.screencast");
+  const tDemo = useTranslations("tools.screencastDemo");
 
   return (
     <section className="animate-[fadeIn_0.3s_ease-out]">
@@ -94,7 +98,13 @@ export default function UserPromptStep({
           <div className="flex-1 min-w-0">
             <span className="text-sm font-medium text-foreground">{t("userPrompt.import")}</span>
             <p className="text-xs text-muted mt-0.5">{t("userPrompt.importDesc")}</p>
-            {scriptInputMode === "import" && (
+            {scriptInputMode === "import" && demo && (
+              <div className="mt-2 flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-border-soft bg-surface px-4 py-5 opacity-60 cursor-not-allowed">
+                <p className="text-xs text-muted">{tDemo("keinHochladen")}</p>
+                <p className="text-xs text-muted-soft mt-0.5">{tDemo("importVorgegeben")}</p>
+              </div>
+            )}
+            {scriptInputMode === "import" && !demo && (
               <div className="mt-2">
                 <div
                   onDragOver={(e) => {
