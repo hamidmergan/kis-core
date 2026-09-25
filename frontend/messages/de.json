@@ -883,6 +883,22 @@
         "zumFertigenVideo": "Zum fertigen Video",
         "stimmwechselOhneHaken": "Die Stimme ist gewechselt, aber keine Folie zum Neusprechen angehakt. So bliebe alles beim Alten. Hake die Folien an, die mit der neuen Stimme gesprochen werden sollen."
       },
+      "material": {
+        "titel": "Zusätzliches Material (optional)",
+        "hinweis": "Die KI nimmt passende Stellen daraus in die Sprechtexte der einzelnen Folien auf. Bis zu {max} Dateien, zusammen höchstens {chars} Zeichen.",
+        "tabDateien": "Dateien",
+        "dropOrBrowse": "Dateien hierher ziehen oder",
+        "browse": "durchsuchen",
+        "filesHint": "PDF, Word, PowerPoint oder Textdateien.",
+        "removeFile": "{name} entfernen",
+        "noModules": "Du hast noch keinen Workspace mit Material. Nimm so lange Dateien.",
+        "noSources": "Hier ist noch kein Material fertig verarbeitet.",
+        "sourcesHint": "Wähle bis zu {max} Materialien aus.",
+        "sourcesFull": "Maximal {max} Materialien.",
+        "zuVieleDateien": "Höchstens {max} Dateien. Nimm etwas raus, dann geht es weiter.",
+        "hinterlegt": "Hinterlegt: {namen}",
+        "entfernen": "Entfernen"
+      },
       "folienAuswahl": {
         "titel": "Folien",
         "aendern": "Ändern",

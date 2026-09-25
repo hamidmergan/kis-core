@@ -12,6 +12,7 @@ from src import database as db
 from src.dependencies import get_current_user, get_llm_client
 from src.i18n import get_locale, t
 from src.services.screencast import generate_all_scripts
+from src.services.screencast import material as zusatzmaterial
 from src.services.job_statistik import messe, route_kennung, zeichen_zahlen
 from src.storage import get_job_file, load_result_meta, save_job_file, save_result_meta
 from src.services.tool_limits import max_screencast_slides
@@ -113,12 +114,20 @@ async def screencast_generate_scripts(
     _merke_skriptsprache(uuid_user_id or 0, uuid_key, body.target_lang)
 
     async def _do_generate() -> list[str]:
+        materials = None
+        if uuid_key and uuid_user_id is not None:
+            try:
+                materials = await asyncio.to_thread(
+                    zusatzmaterial.material_je_folie, uuid_user_id, uuid_key, body.slide_texts)
+            except Exception as e:  # noqa: BLE001 - without its material the slide still gets a script
+                logger.warning("Screencast {}: Material nicht zugeordnet, Skripte ohne ({})", uuid_key[:8], e)
         return await generate_all_scripts(
             body.slide_texts, llm_client,
             glossary=glossary_dict,
             add_greeting=body.add_greeting, add_closing=body.add_closing,
             min_chars=body.min_chars, max_chars=body.max_chars,
             source_lang=body.source_lang, target_lang=body.target_lang,
+            materials=materials,
         )
 
     if not uuid_key:
@@ -181,6 +190,12 @@ async def screencast_regenerate_slide_script(
         except (json.JSONDecodeError, TypeError):
             pass
 
+    stoff = ""
+    if body.translate_job_uuid and body.slide_index is not None and re.match(r"^[a-f0-9]{32}$", body.translate_job_uuid):
+        job_row = db.get_job(body.translate_job_uuid)
+        if job_row and job_row["user_id"] == current_user.get("user_id", 0):
+            stoff = zusatzmaterial.material_einer_folie(job_row["user_id"], body.translate_job_uuid, body.slide_index)
+
     try:
         position = (
             (body.slide_index + 1, body.slide_count)
@@ -199,6 +214,7 @@ async def screencast_regenerate_slide_script(
                 position=position,
                 add_greeting=body.add_greeting,
                 add_closing=body.add_closing,
+                material=stoff,
             )
         )
     except RuntimeError as e:

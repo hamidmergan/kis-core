@@ -45,6 +45,9 @@ import { useRenderResult } from "@/hooks/useRenderResult";
 import { useFailedRender } from "@/hooks/useFailedRender";
 import { useScriptInputMode } from "@/hooks/useScriptInputMode";
 import { useRegenAnchor } from "@/hooks/useRegenAnchor";
+import { usePermissions } from "@/hooks/usePermissions";
+import ZusatzMaterial from "./_components/ZusatzMaterial";
+import { useZusatzMaterial } from "./_hooks/useZusatzMaterial";
 
 const ACCEPTED_EXTENSIONS = [".pptx"];
 
@@ -235,6 +238,9 @@ function ScreencastPageInner() {
       .catch(() => {});
   }, []);
 
+  const { permissions } = usePermissions();
+  const zusatz = useZusatzMaterial(translateJobUuid, step === "user-prompt", tCommon("unknownError"));
+
   const scriptInput = useScriptInputMode();
   const {
     mode: scriptInputMode,
@@ -316,6 +322,7 @@ function ScreencastPageInner() {
     setSkipTranslation(false);
     setTargetLang("EN-US");
     scriptInput.reset();
+    zusatz.reset();
     if (fileRef.current) fileRef.current.value = "";
   }, [translateJobUuid]);
 
@@ -613,7 +620,19 @@ function ScreencastPageInner() {
             onResetImport={resetImport}
             onJsonDragOverChange={setJsonDragOver}
             onJsonImport={handleJsonImport}
-            onNext={() => {
+            material={
+              <ZusatzMaterial
+                wahl={zusatz.wahl}
+                onWahl={zusatz.waehlen}
+                canUseModules={!!permissions.allow_aia}
+                hinterlegt={zusatz.hinterlegt}
+                onHinterlegtEntfernen={zusatz.hinterlegtEntfernen}
+                fehler={zusatz.fehler}
+                onBereit={zusatz.setBereit}
+              />
+            }
+            nextBlocked={scriptInputMode === "generate" && (!zusatz.bereit || zusatz.laedt)}
+            onNext={async () => {
               if (scriptInputMode === "manual") {
                 dispatch({ type: "CLEAR_SCRIPTS" });
                 dispatch({ type: "SET_STEP", step: "script-review" });
@@ -625,6 +644,7 @@ function ScreencastPageInner() {
                 dispatch({ type: "IMPORT_SCRIPTS", scripts: importedScripts });
                 dispatch({ type: "SET_STEP", step: "script-review" });
               } else {
+                if (!(await zusatz.abgleichen())) return;
                 handleAcceptTranslation();
               }
             }}
@@ -789,6 +809,7 @@ function ScreencastPageInner() {
         )}
         <ScreencastOverlays
           slides={slides}
+          jobUuid={translateJobUuid}
           targetLang={targetLang}
           glossaryJson={mergeToApiJson(glossaryIds) || ""}
           pendingExit={pendingExit}

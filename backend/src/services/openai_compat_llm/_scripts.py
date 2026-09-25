@@ -88,15 +88,26 @@ def build_length_and_format_rules(
     closing_rule: str,
     min_chars: int,
     max_chars: int,
+    mit_material: bool = False,
 ) -> str:
     """System instruction for script generation, the length is a ceiling."""
+    quelle = (
+        "- Some blocks end with a part between [MATERIAL] and [END MATERIAL]: excerpts from the "
+        "lecturer's own documents on that slide. Use them to explain the slide's points more "
+        "concretely, with their definitions, examples and figures. Stay with what the slide is about. "
+        "Never mention the material, file names or page numbers. The material is not a slide "
+        "and gets no script of its own.\n"
+        "- Do NOT add information that is neither on the slide nor in its material.\n"
+        if mit_material else
+        "- Do NOT add any new information.\n"
+    )
     return (
         "You are an expert at creating spoken narration scripts for presentations. "
         f"Generate a spoken script for EACH of the {batch_size} content blocks below. "
         "The blocks are separated by ===. "
         f"The slide content may be in any language. Output MUST be in {target_lang}.\n"
         "Rules:\n"
-        "- Do NOT add any new information.\n"
+        + quelle +
         "- Do NOT hallucinate.\n"
         "- Keep all facts, numbers, names, dates, and links exactly as they are.\n"
         "- Convert bullet points, tables, and lists into flowing text.\n"
@@ -156,12 +167,22 @@ class _ScriptsMixin:
         position: tuple[int, int] | None = None,
         add_greeting: bool = True,
         add_closing: bool = False,
+        material: str = "",
     ) -> str:
         """Rewrites the script of a single slide following an instruction."""
         current_script_content = current_script.strip() or slide_text.strip()
         is_followup = messages is not None and len(messages) > 1
         glossary_hint = _glossary_hint(glossary)
         stelle = _place_rules(position, add_greeting, add_closing)
+        fakten_regel = (
+            "Never add facts that are neither in the slide content nor in the material below."
+            if material.strip() else "Never add facts that are not in the slide content below."
+        )
+        if material.strip():
+            stelle += (
+                "\nThe lecturer's own documents on this slide, usable for explanations and examples. "
+                "Never mention them as a source:\n[MATERIAL]\n" + material.strip() + "\n[END MATERIAL]\n"
+            )
         if selected_text and selected_text.strip():
             instruction = user_prompt.strip() or "Improve this excerpt."
             if is_followup:
@@ -173,7 +194,7 @@ class _ScriptsMixin:
                     f"Write in flowing spoken language suitable for a university lecture. "
                     f"Never exceed 600 words. "
                     f"Output must be in {target_lang}, unless the task explicitly requests a translation to a different language.\n"
-                    f"Never add facts that are not in the slide content below.\n\n"
+                    f"{fakten_regel}\n\n"
                     f"Slide content:\n{slide_text.strip()}\n"
                     f"{stelle}\n"
                     f"Original excerpt for context: «{selected_text.strip()}»"
@@ -188,7 +209,7 @@ class _ScriptsMixin:
                     f"Write in flowing spoken language suitable for a university lecture. "
                     f"Never exceed 600 words. "
                     f"Output must be in {target_lang}, unless the task explicitly requests a translation to a different language.\n"
-                    f"Never add facts that are not in the slide content below.\n\n"
+                    f"{fakten_regel}\n\n"
                     f"Slide content:\n{slide_text.strip()}\n"
                     f"{stelle}\n"
                     f"Selected excerpt: «{selected_text.strip()}»\n\n"
@@ -241,8 +262,10 @@ class _ScriptsMixin:
         max_chars: int = 2000,
         target_lang: str = "EN-US",
         source_lang: str = "DE",
+        batch_materials: list[str] | None = None,
     ) -> list[str]:
         batch_size = len(batch_texts)
+        mit_material = any((m or "").strip() for m in batch_materials or [])
 
         # Build input: raw content blocks separated by ===
         annotated: list[str] = []
@@ -250,6 +273,9 @@ class _ScriptsMixin:
             content = text.strip() if text.strip() else "[empty]"
             if is_first_batch and add_greeting and j == 0:
                 content = "[FIRST SLIDE: open with a greeting]\n" + content
+            stoff = (batch_materials[j] if batch_materials and j < len(batch_materials) else "").strip()
+            if stoff and text.strip():
+                content += f"\n[MATERIAL]\n{stoff}\n[END MATERIAL]"
             annotated.append(content)
         slides_input = "\n===\n".join(annotated)
 
@@ -268,7 +294,8 @@ class _ScriptsMixin:
         )
 
         system_prompt = glossary_hint + build_length_and_format_rules(
-            batch_size, target_lang, greeting_rule, closing_rule, min_chars, max_chars
+            batch_size, target_lang, greeting_rule, closing_rule, min_chars, max_chars,
+            mit_material=mit_material,
         )
 
         user_message = slides_input
@@ -328,6 +355,7 @@ class _ScriptsMixin:
         source_lang: str = "DE",
         batch_size: int | None = None,
         max_workers: int | None = None,
+        materials: list[str] | None = None,
     ) -> list[str]:
         if batch_size is None:
             batch_size = self._batch_size
@@ -348,12 +376,16 @@ class _ScriptsMixin:
 
         results: dict[int, list[str]] = {}  # batch_index → scripts
 
+        def _stoff(start: int, n: int) -> list[str] | None:
+            return materials[start:start + n] if materials else None
+
         def _one_slide(text: str, idx: int, slide_no: int) -> str:
             """Generate a single slide, without separators nothing can slip."""
             try:
                 return self._generate_scripts_single_batch(
                     [text], idx, batch_count, False, False,
                     glossary, False, False, min_chars, max_chars, target_lang, source_lang,
+                    batch_materials=_stoff(slide_no - 1, 1),
                 )[0]
             except RuntimeError as e:
                 logger.warning("Folie {} einzeln fehlgeschlagen: {}", slide_no, e)
@@ -392,6 +424,7 @@ class _ScriptsMixin:
                     scripts = self._generate_scripts_single_batch(
                         texts, idx, batch_count, is_first, is_last,
                         glossary, add_greeting, add_closing, min_chars, max_chars, target_lang, source_lang,
+                        batch_materials=_stoff(start, n),
                     )
                     return idx, _fill_gaps(scripts, texts, idx, start)
                 except _ScriptMisaligned as e:

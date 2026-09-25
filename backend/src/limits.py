@@ -62,6 +62,12 @@ TTS_MAX_CHARS        = 100_000
 TRANSLATE_MAX_CHARS  = 100_000
 SCRIPT_MAX_CHARS     = 100_000
 SCREENCAST_MAX_CHARS = 100_000
+# Extra documents for the scripts, the same file and character limits as the other services.
+SCREENCAST_MAX_SOURCES = 10
+# Characters of material one slide script may read.
+SCREENCAST_MATERIAL_PER_SLIDE = 4_000
+# Slides per assignment call, keeps the answer of one call short.
+SCREENCAST_MATERIAL_SLIDES_PER_CALL = 25
 
 # --- Bundle download --------------------------------------------------------
 BUNDLE_INCLUDE_AUDIO  = False  # include MP3s in ZIP

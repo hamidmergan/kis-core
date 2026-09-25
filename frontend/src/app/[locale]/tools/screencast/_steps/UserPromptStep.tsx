@@ -1,6 +1,6 @@
 "use client";
 
-import type { RefObject } from "react";
+import type { ReactNode, RefObject } from "react";
 import { useTranslations } from "next-intl";
 import StepFooter from "./StepFooter";
 
@@ -19,6 +19,9 @@ interface UserPromptStepProps {
   onNext: () => void;
   /** The demo offers no upload of an own file. */
   demo?: boolean;
+  /** Extra documents for the generated scripts, shown with the AI option. */
+  material?: ReactNode;
+  nextBlocked?: boolean;
 }
 
 export default function UserPromptStep({
@@ -35,6 +38,8 @@ export default function UserPromptStep({
   onJsonImport,
   onNext,
   demo = false,
+  material,
+  nextBlocked = false,
 }: UserPromptStepProps) {
   const t = useTranslations("tools.screencast");
   const tDemo = useTranslations("tools.screencastDemo");
@@ -185,7 +190,9 @@ export default function UserPromptStep({
         </label>
       </div>
 
-      <StepFooter onBack={onBack} nextLabel={t("common.next")} onNext={onNext} nextDisabled={loading} />
+      {scriptInputMode === "generate" && material}
+
+      <StepFooter onBack={onBack} nextLabel={t("common.next")} onNext={onNext} nextDisabled={loading || nextBlocked} />
     </section>
   );
 }

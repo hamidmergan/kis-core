@@ -883,6 +883,22 @@
         "zumFertigenVideo": "Go to the finished video",
         "stimmwechselOhneHaken": "The voice has changed, but no slide is ticked for re-voicing. Nothing would change. Tick the slides that should be spoken with the new voice."
       },
+      "material": {
+        "titel": "Additional material (optional)",
+        "hinweis": "The AI takes matching passages from it into the scripts of the individual slides. Up to {max} files, at most {chars} characters together.",
+        "tabDateien": "Files",
+        "dropOrBrowse": "Drop files here or",
+        "browse": "browse",
+        "filesHint": "PDF, Word, PowerPoint or text files.",
+        "removeFile": "Remove {name}",
+        "noModules": "You have no workspace with material yet. Use files in the meantime.",
+        "noSources": "No source has finished processing here yet.",
+        "sourcesHint": "Choose up to {max} sources.",
+        "sourcesFull": "Maximum {max} sources.",
+        "zuVieleDateien": "At most {max} files. Remove something to continue.",
+        "hinterlegt": "Stored: {namen}",
+        "entfernen": "Remove"
+      },
       "folienAuswahl": {
         "titel": "Slides",
         "aendern": "Change",

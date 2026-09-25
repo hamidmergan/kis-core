@@ -33,6 +33,8 @@ class RegenerateSlideScriptRequest(BaseModel):
     slide_count: int | None = None
     add_greeting: bool = True
     add_closing: bool = False
+    # The job whose extra material this slide may draw on.
+    translate_job_uuid: str | None = None
 
 
 class RenderRequest(BaseModel):

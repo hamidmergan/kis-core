@@ -25,6 +25,7 @@ import ScriptReviewStep from "../screencast/_steps/ScriptReviewStep";
 import TtsSettingsStep from "../screencast/_steps/TtsSettingsStep";
 import RenderVorschau from "../screencast/_components/RenderVorschau";
 import Lightbox from "../screencast/_components/Lightbox";
+import ZusatzMaterial, { KEIN_MATERIAL } from "../screencast/_components/ZusatzMaterial";
 import { useFolienAuswahl } from "../screencast/_hooks/useFolienAuswahl";
 import { flowReducer, INITIAL_FLOW_STATE } from "../screencast/_reducer";
 import { sprachIdFuerLocale } from "../screencast/_utils";
@@ -345,6 +346,18 @@ function ScreencastDemoLauf({ onNeu }: { onNeu: () => void }) {
             onResetImport={scriptInput.resetImport}
             onJsonDragOverChange={() => {}}
             onJsonImport={() => {}}
+            material={
+              <ZusatzMaterial
+                wahl={KEIN_MATERIAL}
+                onWahl={() => {}}
+                canUseModules={false}
+                hinterlegt={[]}
+                onHinterlegtEntfernen={() => {}}
+                fehler=""
+                onBereit={() => {}}
+                demo
+              />
+            }
             onNext={() => {
               if (scriptInput.mode === "manual") {
                 dispatch({ type: "CLEAR_SCRIPTS" });

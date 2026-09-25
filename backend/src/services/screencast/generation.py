@@ -31,11 +31,13 @@ async def generate_all_scripts(
     max_chars: int = 2000,
     source_lang: str = "DE",
     target_lang: str = "EN-US",
+    materials: list[str] | None = None,
 ) -> list[str]:
     try:
         scripts = await asyncio.to_thread(
             llm_client.generate_scripts_batch, slide_texts, glossary, add_greeting, add_closing,
             min_chars=min_chars, max_chars=max_chars, source_lang=source_lang, target_lang=target_lang,
+            materials=materials,
         )
         logger.info("Batch script generation completed for {} slides", len(slide_texts))
         return scripts
