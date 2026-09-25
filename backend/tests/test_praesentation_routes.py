@@ -56,9 +56,13 @@ def env(monkeypatch):
     import src.routes.praesentation.slides as slides_route
     import src.routes.praesentation.vorlagen as vorlagen_route
 
+    from src.services import job_files
+
     ablage = FakeAblage()
-    for name in ("save_job_file", "get_job_file", "job_file_exists"):
-        monkeypatch.setattr(store, name, getattr(ablage, name))
+    # The shared sources go through job_files, not the tool's store.
+    for modul in (store, job_files):
+        for name in ("save_job_file", "get_job_file", "job_file_exists"):
+            monkeypatch.setattr(modul, name, getattr(ablage, name))
     monkeypatch.setattr("src.dependencies_rbac.is_released_now", lambda key: True)
 
     jobs: dict[str, dict] = {}

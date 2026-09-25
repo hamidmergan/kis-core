@@ -48,10 +48,13 @@ def env(monkeypatch):
     from src.features.podcast import store
     from src.security.auth import verify_auth
 
+    from src.services import job_files
+
     ablage = FakeAblage()
-    monkeypatch.setattr(store, "save_job_file", ablage.save_job_file)
-    monkeypatch.setattr(store, "get_job_file", ablage.get_job_file)
-    monkeypatch.setattr(store, "job_file_exists", ablage.job_file_exists)
+    # The shared sources go through job_files, not the tool's store.
+    for modul in (store, job_files):
+        for name in ("save_job_file", "get_job_file", "job_file_exists"):
+            monkeypatch.setattr(modul, name, getattr(ablage, name))
     monkeypatch.setattr("src.dependencies_rbac.is_released_now", lambda key: True)
 
     jobs: dict[str, dict] = {}
