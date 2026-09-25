@@ -68,11 +68,18 @@ class TestThl:
     def test_rundreise_als_dict(self, thl):
         assert vorlage.als_dict(vorlage.aus_dict(vorlage.als_dict(thl))) == vorlage.als_dict(thl)
 
-    def test_form_fuer_text_layout_erlaubt_tabelle_und_diagramm_aber_kein_bild(self, thl):
+    def test_form_fuer_text_layout_erlaubt_tabelle_diagramm_und_formen_aber_kein_bild(self, thl):
         l = next(l for l in thl.layouts if l.name == "Text oder Grafik")
         form = vorlage.form_fuer(l, thl)
         assert form["fliesstexte"] == [120] and form["bilder"] == 0
-        assert form["body_kinds"] == ["bullets", "table", "chart"]
+        assert form["body_kinds"] == ["bullets", "table", "chart", "cards", "bars", "highlight"]
+        assert form["karten"]["max"] == 6 and form["balken"] == 8
+
+    def test_folien_mit_bildfeld_bekommen_keine_tabelle(self, thl):
+        for name in ("Text und Bilder", "Bilder mit Text"):
+            l = next(l for l in thl.layouts if l.name == name)
+            form = vorlage.form_fuer(l, thl)
+            assert form["body_kinds"] == ["bullets"] and "karten" not in form
 
 
 def _kuenstlich(layout_namen: list[tuple[str, list[str]]]) -> bytes:

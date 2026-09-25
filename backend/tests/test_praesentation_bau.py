@@ -64,9 +64,9 @@ def test_tabelle_sitzt_an_der_stelle_des_inhaltsfelds(analyse):
     body = Body(kind="table", header=["Jahr", "Wert"], rows=[["2020", "1"], ["2021", "2"]])
     prs = _deck(analyse, [Slide(id="s2", role="text", title="T", body=body)])
     folie = prs.slides[0]
-    feld = analyse.layout(3).der_art("fliesstext")[0]
+    feld = bau.textflaeche(analyse.layout(3).der_art("fliesstext")[0])
     tabellen = [sh for sh in folie.shapes if sh.has_table]
-    assert len(tabellen) == 1 and (tabellen[0].left, tabellen[0].top) == (feld.left, feld.top)
+    assert len(tabellen) == 1 and tabellen[0].left == feld.left and tabellen[0].top > feld.top
     assert tabellen[0].table.cell(0, 0).text == "Jahr" and tabellen[0].table.cell(2, 1).text == "2"
     assert 2 not in _texte(folie)
 
@@ -215,13 +215,80 @@ def test_foliennummer_unten_links_ausser_auf_dem_deckblatt(analyse):
     assert 'type="slidenum"' in feld._element.xml
 
 
-def test_datum_und_fusszeile_bleiben_leer(analyse):
+def test_ohne_datum_bleiben_datum_und_fusszeile_leer(analyse):
     prs = _deck(analyse, [Slide(id="s2", role="text", title="A", body=Body(items=["a"]))])
     arten = {ph.placeholder_format.type for ph in prs.slides[0].placeholders}
     assert PP_PLACEHOLDER.DATE not in arten and PP_PLACEHOLDER.FOOTER not in arten
+
+
+def _datum(folie) -> str | None:
+    feld = [ph for ph in folie.placeholders if ph.placeholder_format.type == PP_PLACEHOLDER.DATE]
+    return feld[0].text_frame.text if feld else None
+
+
+def test_datum_ueber_der_nummer_ausser_auf_dem_deckblatt(analyse):
+    prs = Presentation(BytesIO(bau.baue(THL, analyse, [Slide(id="s1", role="deckblatt", title="Deck"),
+                                                       Slide(id="s2", role="text", title="A", body=Body(items=["a"]))],
+                                        {}, "Mein Deck", False, datum="24.09.2026")))
+    assert [_datum(f) for f in prs.slides] == [None, "24.09.2026"]
+    feld = next(ph for ph in prs.slides[1].placeholders if ph.placeholder_format.type == PP_PLACEHOLDER.DATE)
+    # A fixed text, a date field would jump to the day the file is opened.
+    assert "datetime" not in feld._element.xml
+    assert PP_PLACEHOLDER.FOOTER not in {ph.placeholder_format.type for ph in prs.slides[1].placeholders}
+
+
+def test_datum_in_der_sprache_der_praesentation():
+    from datetime import date
+    assert bau.datum_text("de", date(2026, 9, 24)) == "24.09.2026"
+    assert bau.datum_text("en", date(2026, 9, 24)) == "Sep 24, 2026"
 
 
 def test_vorgegebene_nummern_fuer_eine_teilvorschau(analyse):
     prs = bau.baue(THL, analyse, [Slide(id="s5", role="text", title="A", body=Body(items=["a"]))], {},
                    "Mein Deck", False, nummern=[5])
     assert _nummer(Presentation(BytesIO(prs)).slides[0]) == "5"
+
+
+def _punkt_groessen(folie, idx: int) -> set:
+    return {r.font.size.pt if r.font.size else None
+            for p in folie.placeholders[idx].text_frame.paragraphs for r in p.runs}
+
+
+def test_passende_punkte_behalten_die_schrift_der_vorlage(analyse):
+    prs = _deck(analyse, [Slide(id="s2", role="text", layout=3, title="A", body=Body(items=list("abcde")))])
+    assert _punkt_groessen(prs.slides[0], 2) == {None}
+
+
+def test_volle_punkte_schrumpfen_statt_ueber_den_rand_zu_laufen(analyse):
+    lang = "Ein recht langer Stichpunkt mit vielen Woertern, der sicher zwei oder drei Zeilen braucht " * 4
+    prs = _deck(analyse, [Slide(id="s2", role="text", layout=3, title="A", body=Body(items=[lang] * 8))])
+    groessen = _punkt_groessen(prs.slides[0], 2)
+    assert len(groessen) == 1 and None not in groessen
+    assert min(groessen) >= 12
+
+
+def test_volle_spalten_schrumpfen_auch(analyse):
+    lang = "Ein recht langer Stichpunkt mit vielen Woertern, der sicher zwei Zeilen braucht"
+    prs = _deck(analyse, [Slide(id="s4", role="text_mit_bild", layout=4, title="A",
+                                columns=[Column(items=[lang] * 5), Column(items=["kurz"])])])
+    assert None not in _punkt_groessen(prs.slides[0], 2)
+    assert _punkt_groessen(prs.slides[0], 4) == {None}
+
+
+def _fusszeile(folie) -> str | None:
+    feld = [ph for ph in folie.placeholders if ph.placeholder_format.type == PP_PLACEHOLDER.FOOTER]
+    return feld[0].text_frame.text if feld else None
+
+
+def test_name_unten_links_nur_auf_dem_deckblatt(analyse):
+    prs = Presentation(BytesIO(bau.baue(THL, analyse, [Slide(id="s1", role="deckblatt", title="Deck"),
+                                                       Slide(id="s2", role="text", title="A", body=Body(items=["a"]))],
+                                        {}, "Mein Deck", False, vortragend="Prof. Dr. Erika Muster")))
+    assert [_fusszeile(f) for f in prs.slides] == ["Prof. Dr. Erika Muster", None]
+    feld = next(ph for ph in prs.slides[0].placeholders if ph.placeholder_format.type == PP_PLACEHOLDER.FOOTER)
+    assert feld.left < prs.slide_width // 4 and feld.top > prs.slide_height * 0.85
+
+
+def test_ohne_namen_bleibt_das_deckblatt_unten_leer(analyse):
+    prs = _deck(analyse, [Slide(id="s1", role="deckblatt", title="Deck")])
+    assert _fusszeile(prs.slides[0]) is None

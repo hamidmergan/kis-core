@@ -1,7 +1,8 @@
 """The shapes the presentation tool passes between route, task and job folder."""
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
+from src.features.praesentation.raster import MAX_BALKEN, MAX_KARTEN
 from src.limits import PRAESENTATION_MAX_SLIDES, PRAESENTATION_MIN_SLIDES
 
 ROLLEN: tuple[str, ...] = (
@@ -12,7 +13,7 @@ WAEHLBARE_ROLLEN: tuple[str, ...] = ("abschnitt", "text", "zwei_spalten", "text_
 LANGUAGES: tuple[str, ...] = ("de", "en")
 # How many slides an outline may hold, the model picks its own number inside this range.
 FOLIEN_GRENZEN: tuple[int, int] = (PRAESENTATION_MIN_SLIDES, PRAESENTATION_MAX_SLIDES)
-BODY_KINDS: tuple[str, ...] = ("bullets", "table", "chart", "image")
+BODY_KINDS: tuple[str, ...] = ("bullets", "table", "chart", "image", "cards", "bars", "highlight")
 CHART_TYPES: tuple[str, ...] = ("bar", "line", "pie")
 SYSTEM_VORLAGE = "thl"
 
@@ -23,6 +24,7 @@ MAX_SUBTITLE_CHARS = 160
 MAX_NOTES_CHARS = 1500
 MAX_PROMPT_CHARS = 600
 MAX_HEADING_CHARS = 80
+MAX_PRESENTER_CHARS = 80
 # What a person may write into a row's gist, the field the insert dialog fills too.
 MAX_GIST_CHARS = 300
 MAX_SERIES_NAME_CHARS = 60
@@ -30,6 +32,10 @@ MAX_TEXT_ITEMS = 8
 MAX_TABLE_ROWS = 6
 MAX_CHART_CATEGORIES = 6
 MAX_CHART_SERIES = 4
+MAX_ICON_CHARS = 40
+MAX_BAR_TEXT_CHARS = 40
+# The word or number in the highlight box, it has to fit one line in large type.
+MAX_KEY_CHARS = 24
 # A generous ceiling: a real layout offers one or two picture fields, an uploaded one may offer more.
 MAX_BILDER_JE_FOLIE = 8
 
@@ -57,6 +63,20 @@ class Series(BaseModel):
     values: list[float] = Field(default_factory=list, max_length=MAX_CHART_CATEGORIES)
 
 
+class Card(BaseModel):
+    icon: str = Field(default="", max_length=MAX_ICON_CHARS)
+    title: str = Field(default="", max_length=MAX_HEADING_CHARS)
+    text: str = Field(default="", max_length=MAX_GIST_CHARS)
+
+
+class Bar(BaseModel):
+    """One labelled bar, its length set by value and its label by text, the number when that is empty."""
+
+    label: str = Field(default="", max_length=MAX_HEADING_CHARS)
+    value: float = 0.0
+    text: str = Field(default="", max_length=MAX_BAR_TEXT_CHARS)
+
+
 class Body(BaseModel):
     """The one content field of a slide, bullets unless the material asks for more."""
 
@@ -68,6 +88,12 @@ class Body(BaseModel):
     categories: list[str] = Field(default_factory=list, max_length=MAX_CHART_CATEGORIES)
     series: list[Series] = Field(default_factory=list, max_length=MAX_CHART_SERIES)
     prompt: str = Field(default="", max_length=MAX_PROMPT_CHARS)
+    cards: list[Card] = Field(default_factory=list, max_length=MAX_KARTEN)
+    bars: list[Bar] = Field(default_factory=list, max_length=MAX_BALKEN)
+    # The highlight: one word or number in the coloured box, a sentence beside it, one term of it in colour.
+    key: str = Field(default="", max_length=MAX_KEY_CHARS)
+    text: str = Field(default="", max_length=MAX_GIST_CHARS)
+    emphasis: str = Field(default="", max_length=MAX_HEADING_CHARS)
 
 
 class Column(BaseModel):
@@ -108,6 +134,8 @@ class PraesentationParams(BaseModel):
 
     language: str = "de"
     instructions: str = ""
+    # Who gives the talk, shown in the bottom left of the cover when set.
+    presenter: str = Field(default="", max_length=MAX_PRESENTER_CHARS)
     # What the person asked for in the first step: notes get written at all.
     notes: bool = False
     # What they decide in the slides step: whether those notes reach the file.
@@ -121,6 +149,11 @@ class PraesentationParams(BaseModel):
     # Only set for a workspace run: what a slide added later can search through.
     workspace_id: int | None = None
     source_uuids: list[str] = Field(default_factory=list)
+
+    @field_validator("presenter", mode="before")
+    @classmethod
+    def _ohne_rand(cls, v):
+        return v.strip() if isinstance(v, str) else v
 
     @property
     def notes_in_deck(self) -> bool:

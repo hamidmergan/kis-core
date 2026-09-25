@@ -54,6 +54,7 @@ function PraesentationPageInner() {
     if (view.params) {
       dispatch({ type: "RESTORE", state: { notes: view.params.notes, notesInclude: view.params.notes_include,
                  language: view.params.language as Language, instructions: view.params.instructions,
+                 presenter: view.params.presenter ?? "",
                  templateId: view.params.template_id } });
     }
     if (schrittSetzen) {
@@ -244,12 +245,13 @@ function PraesentationPageInner() {
             )}
             {state.step === "content" && (
               <ContentStep canUseModules={!!permissions.allow_aia} source={state.source} language={state.language}
-                notes={state.notes} instructions={state.instructions} templateId={state.templateId}
+                notes={state.notes} instructions={state.instructions} presenter={state.presenter} templateId={state.templateId}
                 hasActiveJob={hasActiveJob} error={state.error}
                 onSource={(source) => dispatch({ type: "SET_SOURCE", source })}
                 onLanguage={(language) => dispatch({ type: "SET_LANGUAGE", language })}
                 onNotes={(notes) => dispatch({ type: "SET_NOTES", notes })}
                 onInstructions={(text) => dispatch({ type: "SET_INSTRUCTIONS", text })}
+                onPresenter={(name) => dispatch({ type: "SET_PRESENTER", name })}
                 onTemplate={(templateId) => dispatch({ type: "SET_TEMPLATE", templateId })}
                 onNext={starten} />
             )}

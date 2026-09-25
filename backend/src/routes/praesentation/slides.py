@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 
 from src import database as db
 from src.dependencies import get_current_user
-from src.features.praesentation import folien, gliederung, store, vorlage, vorschau
+from src.features.praesentation import bau, folien, gliederung, store, vorlage, vorschau
 from src.features.praesentation.schemas import (
     MAX_BILDER_JE_FOLIE, MAX_GIST_CHARS, MAX_PROMPT_CHARS, MAX_TITLE_CHARS,
     Outline, OutlineRow, Slide, bildstellen,
@@ -77,7 +77,6 @@ def _speichern(user_id: int, job_uuid: str, slides: list[Slide], gists: dict[str
 
 
 def _bilder(user_id: int, job_uuid: str, s: Slide) -> dict[str, bytes]:
-    from src.features.praesentation import bau
     aus = {}
     for k in range(len(s.images)):
         data = store.get_image(user_id, job_uuid, s.id, k)
@@ -122,7 +121,8 @@ def _nummern_nachziehen(user_id: int, job_uuid: str, params, analyse, vorher: li
             bilder.update(_bilder(user_id, job_uuid, s))
         pngs = vorschau.mehrere(store.load_template(user_id, job_uuid) or b"", analyse, [s for _, s in geaendert],
                                 bilder, outline.title if outline else "", params.notes_in_deck,
-                                t("praesentation.aiNotice", params.language), nummern=[n for n, _ in geaendert])
+                                t("praesentation.aiNotice", params.language), nummern=[n for n, _ in geaendert],
+                                datum=bau.datum_text(params.language))
     except Exception as e:  # noqa: BLE001 - the order is saved, only the numbers in the pictures are stale
         logger.warning("Präsentation {}: Vorschau nach neuer Reihenfolge fehlgeschlagen: {}", job_uuid[:8], e)
         return []
@@ -163,7 +163,8 @@ async def save_slide(job_uuid: str, slide_id: str, body: Slide, current_user: di
         vorlage_bytes = store.load_template(user_id, job_uuid) or b""
         png = await asyncio.to_thread(vorschau.einzeln, vorlage_bytes, analyse, neu, _bilder(user_id, job_uuid, neu),
                                       outline.title if outline else "", params.notes_in_deck,
-                                      t("praesentation.aiNotice", params.language), stelle + 1)
+                                      t("praesentation.aiNotice", params.language), stelle + 1,
+                                      bau.datum_text(params.language), params.presenter)
         store.save_preview(user_id, job_uuid, neu.id, png)
     except Exception as e:  # noqa: BLE001 - the text is saved, only the picture is stale
         logger.warning("Präsentation {}: Einzelvorschau fehlgeschlagen: {}", job_uuid[:8], e)

@@ -42,8 +42,8 @@ def test_einzeln_traegt_die_nummer_der_folie(monkeypatch):
     gesehen = {}
     monkeypatch.setattr(vorschau.bau, "baue", lambda *a, **k: gesehen.update(k) or b"x")
     a = Analyse(breite=1, hoehe=1, typeface="Arial")
-    vorschau.einzeln(b"v", a, Slide(id="s2", role="text", title="T"), {}, "Deck", False, nummer=4)
-    assert gesehen["nummern"] == [4]
+    vorschau.einzeln(b"v", a, Slide(id="s2", role="text", title="T"), {}, "Deck", False, nummer=4, datum="1.1.2026")
+    assert gesehen["nummern"] == [4] and gesehen["datum"] == "1.1.2026"
 
 
 def test_mehrere_folien_in_einem_lauf_mit_ihren_nummern(monkeypatch):

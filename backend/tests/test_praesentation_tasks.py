@@ -365,6 +365,32 @@ class TestBuild:
         _build.run_praesentation_build.run(JOB, UID, "de")
         assert gesehen == [True]
 
+    def test_die_datei_traegt_das_datum_des_baus(self, umgebung):
+        st, db = _Store(_gliederung(3)), _Db()
+        gesehen = []
+        umgebung.setattr(_build, "store", st)
+        umgebung.setattr(_build, "quellen", _Quellen())
+        umgebung.setattr(_build, "db", db)
+        umgebung.setattr(_build.bau, "baue", lambda *a, **k: (gesehen.append(k.get("datum")), b"deck")[1])
+        umgebung.setattr(_build.bau, "datum_text", lambda sprache: f"heute {sprache}")
+        umgebung.setattr(_build, "call_json_llm", _Llm([_folien_antwort(["s1", "s2", "s3"])]))
+        umgebung.setattr(_build.bild, "erzeuge", lambda prompt, size: b"png")
+        _build.run_praesentation_build.run(JOB, UID, "de")
+        assert gesehen == ["heute de"]
+
+    def test_der_name_kommt_aufs_deckblatt(self, umgebung):
+        st, db = _Store(_gliederung(3)), _Db()
+        st.params = PraesentationParams(presenter="Erika Muster")
+        gesehen = []
+        umgebung.setattr(_build, "store", st)
+        umgebung.setattr(_build, "quellen", _Quellen())
+        umgebung.setattr(_build, "db", db)
+        umgebung.setattr(_build.bau, "baue", lambda *a, **k: (gesehen.append(k.get("vortragend")), b"deck")[1])
+        umgebung.setattr(_build, "call_json_llm", _Llm([_folien_antwort(["s1", "s2", "s3"])]))
+        umgebung.setattr(_build.bild, "erzeuge", lambda prompt, size: b"png")
+        _build.run_praesentation_build.run(JOB, UID, "de")
+        assert gesehen == ["Erika Muster"]
+
     def test_etappe_laeuft_aus_und_reiht_sich_neu_ein(self, umgebung):
         st, db = _Store(_gliederung(16)), _Db()
         umgebung.setattr(_build, "store", st)

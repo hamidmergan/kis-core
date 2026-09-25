@@ -41,7 +41,20 @@ export interface Series {
   values: number[];
 }
 
-export type BodyKind = "bullets" | "table" | "chart" | "image";
+export type BodyKind = "bullets" | "table" | "chart" | "image" | "cards" | "bars" | "highlight";
+
+export interface Card {
+  icon: string;
+  title: string;
+  text: string;
+}
+
+/** One labelled bar, its length set by value, its label by text or the plain number. */
+export interface Bar {
+  label: string;
+  value: number;
+  text: string;
+}
 
 export interface Body {
   kind: BodyKind;
@@ -52,6 +65,11 @@ export interface Body {
   categories: string[];
   series: Series[];
   prompt: string;
+  cards: Card[];
+  bars: Bar[];
+  key: string;
+  text: string;
+  emphasis: string;
 }
 
 export interface Column {
@@ -104,6 +122,8 @@ export interface PraesentationState {
   maxReached: number;
   source: Source;
   instructions: string;
+  /** Who gives the talk, shown on the cover when set. */
+  presenter: string;
   language: Language;
   notes: boolean;
   /** Whether those notes go into the built file, decided in the slides step. */

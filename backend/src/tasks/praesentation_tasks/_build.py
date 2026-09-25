@@ -83,7 +83,8 @@ def run_praesentation_build(self, job_uuid: str, user_id: int, locale: str = "de
             store.save_user_outline(user_id, job_uuid, _outline_angleichen(outline, geordnet))
             bilder = _bilder_laden(user_id, job_uuid, geordnet)
             deck = bau.baue(vorlage_bytes, analyse, geordnet, bilder, outline.title, params.notes_in_deck,
-                            t("praesentation.aiNotice", params.language))
+                            t("praesentation.aiNotice", params.language), datum=bau.datum_text(params.language),
+                            vortragend=params.presenter)
             deck_path = store.save_deck(user_id, job_uuid, deck)
             db.update_job_status(job_uuid, "running", progress=_fortschritt(final, "vorschau"))
             try:

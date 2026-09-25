@@ -23,15 +23,19 @@ def render(deck: bytes, dpi: int = DPI) -> list[bytes]:
 
 
 def einzeln(vorlage_bytes: bytes, a: Analyse, slide: Slide, bilder: dict[str, bytes],
-            titel: str, notizen: bool, hinweis: str = "", nummer: int = 1) -> bytes:
+            titel: str, notizen: bool, hinweis: str = "", nummer: int = 1, datum: str = "",
+            vortragend: str = "") -> bytes:
     """One slide as a one-slide deck, so a single edit never renders the whole deck."""
-    return mehrere(vorlage_bytes, a, [slide], bilder, titel, notizen, hinweis, nummern=[nummer])[0]
+    return mehrere(vorlage_bytes, a, [slide], bilder, titel, notizen, hinweis, nummern=[nummer], datum=datum,
+                   vortragend=vortragend)[0]
 
 
 def mehrere(vorlage_bytes: bytes, a: Analyse, slides: list[Slide], bilder: dict[str, bytes],
-            titel: str, notizen: bool, hinweis: str = "", *, nummern: list[int]) -> list[bytes]:
+            titel: str, notizen: bool, hinweis: str = "", *, nummern: list[int],
+            datum: str = "", vortragend: str = "") -> list[bytes]:
     """Some slides of the deck in one render, each under its own number."""
-    deck = bau.baue(vorlage_bytes, a, slides, bilder, titel, notizen, hinweis, nummern=nummern)
+    deck = bau.baue(vorlage_bytes, a, slides, bilder, titel, notizen, hinweis, nummern=nummern, datum=datum,
+                    vortragend=vortragend)
     bilder_png = render(deck)
     if len(bilder_png) < len(slides):
         raise RuntimeError("LibreOffice lieferte kein Vorschaubild")

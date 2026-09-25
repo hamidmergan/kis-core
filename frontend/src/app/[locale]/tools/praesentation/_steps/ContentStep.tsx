@@ -22,6 +22,8 @@ import type { Language, Source, SourceMode } from "../_types";
 const ACCEPT = ".pdf,.docx,.pptx,.txt,.md";
 /** Mirrors the presentation source limit in the backend. */
 const MAX_QUELLEN = 10;
+/** Mirrors MAX_PRESENTER_CHARS in the backend. */
+const MAX_PRESENTER = 80;
 
 interface ContentStepProps {
   canUseModules: boolean;
@@ -29,6 +31,7 @@ interface ContentStepProps {
   language: Language;
   notes: boolean;
   instructions: string;
+  presenter: string;
   templateId: string;
   hasActiveJob: boolean | null;
   error: string;
@@ -36,12 +39,14 @@ interface ContentStepProps {
   onLanguage: (language: Language) => void;
   onNotes: (notes: boolean) => void;
   onInstructions: (text: string) => void;
+  onPresenter: (name: string) => void;
   onTemplate: (id: string) => void;
   onNext: () => void;
 }
 
-export default function ContentStep({ canUseModules, source, language, notes, instructions, templateId, hasActiveJob, error,
-                                       onSource, onLanguage, onNotes, onInstructions, onTemplate, onNext }: ContentStepProps) {
+export default function ContentStep({ canUseModules, source, language, notes, instructions, presenter, templateId, hasActiveJob,
+                                       error, onSource, onLanguage, onNotes, onInstructions, onPresenter, onTemplate,
+                                       onNext }: ContentStepProps) {
   const t = useTranslations("tools.praesentation.content");
   const tCommon = useTranslations("common");
   const format = useFormatter();
@@ -229,6 +234,12 @@ export default function ContentStep({ canUseModules, source, language, notes, in
         <span className="font-medium">{t("languageLabel")}</span>
         <Select<Language> className="mt-1" value={language} onChange={onLanguage} ariaLabel={t("languageLabel")}
           options={[{ value: "de", label: t("languages.de") }, { value: "en", label: t("languages.en") }]} />
+      </label>
+
+      <label className="block mt-6 text-sm">
+        <span className="font-medium">{t("presenterLabel")}</span>
+        <input type="text" className={`${FIELD} mt-1`} value={presenter} maxLength={MAX_PRESENTER}
+          placeholder={t("presenterPlaceholder")} onChange={(e) => onPresenter(e.target.value)} />
       </label>
 
       <label className="block mt-6 text-sm">

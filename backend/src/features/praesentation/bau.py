@@ -3,25 +3,27 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from dataclasses import replace
+from datetime import date
 from io import BytesIO
 
+from babel.dates import format_date
 from loguru import logger
 from PIL import Image
+from lxml import etree
 from pptx import Presentation
-from pptx.chart.data import CategoryChartData
 from pptx.dml.color import RGBColor
-from pptx.enum.chart import XL_CHART_TYPE
 from pptx.enum.shapes import PP_PLACEHOLDER
 from pptx.enum.text import PP_ALIGN
 from pptx.util import Emu, Pt
 
-from src.features.praesentation import vorlage
+from src.features.praesentation import aufzaehlung, elemente, farben, formen, platz, vorlage
+from src.features.praesentation.farben import Farben
 from src.features.praesentation.schemas import Body, Slide
-from src.features.praesentation.teilung import zeilen
+from src.features.praesentation.teilung import schriftgrad, zeilen
 from src.features.praesentation.vorlage import EMU_PER_PT, Analyse, Feld, Layout
 from src.services.screencast.pptx import _load_font
 
-_CHART = {"bar": XL_CHART_TYPE.COLUMN_CLUSTERED, "line": XL_CHART_TYPE.LINE_MARKERS, "pie": XL_CHART_TYPE.PIE}
 _OHNE_RANDTEXT = ("deckblatt", "abschluss")
 # The AI notice in the bottom right corner: a fixed size, in dark grey.
 HINWEIS_PT = 10.0
@@ -30,8 +32,6 @@ _HINWEIS_BREITE = Emu(3 * 914400)
 _HINWEIS_HOEHE = Emu(int(0.25 * 914400))
 _HINWEIS_RAND = Emu(int(0.3 * 914400))
 BILD_QUALITAET = 90
-# The line factor the splitter measures with, kept in step with it.
-_ZEILE = 1.2
 # A heading may lose at most this much of its size, a longer title is the only cure below that.
 _MIN_ANTEIL = 0.6
 
@@ -48,16 +48,22 @@ def layout_index(a: Analyse, s: Slide, zaehler: dict[str, int]) -> int:
 
 
 def baue(vorlage_bytes: bytes, a: Analyse, slides: list[Slide], bilder: dict[str, bytes],
-         titel: str, notizen: bool, hinweis: str = "", nummern: list[int] | None = None) -> bytes:
+         titel: str, notizen: bool, hinweis: str = "", nummern: list[int] | None = None,
+         datum: str = "", vortragend: str = "") -> bytes:
     """The deck, ``nummern`` gives each slide its number when only part of the deck is built."""
     prs = Presentation(BytesIO(vorlage_bytes))
     _leeren(prs)
+    f = farben.aus_vorlage(prs, a)
     zaehler: dict[str, int] = {}
     for i, s in enumerate(slides):
         layout = a.layout(layout_index(a, s, zaehler))
-        _folie(prs, layout, s, bilder, titel, notizen, hinweis, a.typeface)
+        _folie(prs, layout, s, bilder, titel, notizen, f, hinweis, a.typeface)
+        if s.role == "deckblatt" and vortragend:
+            _fest(prs.slides[-1], PP_PLACEHOLDER.FOOTER, vortragend)
         if s.role != "deckblatt":
             _foliennummer(prs.slides[-1], nummern[i] if nummern else i + 1)
+            if datum:
+                _fest(prs.slides[-1], PP_PLACEHOLDER.DATE, datum)
     out = BytesIO()
     prs.save(out)
     return out.getvalue()
@@ -91,6 +97,18 @@ def _setze_text(ph, absaetze: list[str]) -> None:
         p.level = 0
 
 
+def _setze_punkte(ph, feld: Feld, items: list[str], typeface: str) -> None:
+    """Bullet points, shrunk just enough to stay inside their field when they would run over."""
+    _setze_text(ph, items)
+    aufzaehlung.ergaenze(ph)
+    groesse = schriftgrad(items, feld, typeface) if typeface and feld.size_pt > 0 else None
+    if groesse is None:
+        return
+    for absatz in ph.text_frame.paragraphs:
+        for lauf in absatz.runs:
+            lauf.font.size = Pt(groesse)
+
+
 def _passende_groesse(text: str, feld: Feld, typeface: str) -> float | None:
     """The largest size up to the template's at which the text still fits, None when it already does.
 
@@ -114,21 +132,25 @@ def _passende_groesse(text: str, feld: Feld, typeface: str) -> float | None:
         except OSError as e:
             logger.warning("Schriftmass übersprungen, {} nicht ladbar: {}", name, e)
             return None
-        if zeilen([gemessen], font, breite) * groesse * _ZEILE <= hoehe or groesse <= untergrenze:
+        if zeilen([gemessen], font, breite) * platz.zeilenhoehe(feld, groesse) <= hoehe or groesse <= untergrenze:
             break
         groesse = max(untergrenze, groesse - 1.0)
     return None if groesse >= feld.size_pt else groesse
 
 
-def _setze_kopf(ph, feld: Feld, text: str, typeface: str) -> None:
-    """A heading, shrunk just enough that it never reaches what sits below it."""
+def _setze_kopf(ph, feld: Feld, text: str, typeface: str) -> float:
+    """A heading, shrunk just enough that it never reaches what sits below it, returns its size."""
     _setze_text(ph, [text])
     groesse = _passende_groesse(text, feld, typeface)
     if groesse is None:
-        return
+        return feld.size_pt
     for absatz in ph.text_frame.paragraphs:
+        # A fixed line pitch would keep the lines as far apart as before and the shrinking would gain nothing.
+        if feld.zeile_pt:
+            absatz.line_spacing = Pt(platz.zeilenhoehe(feld, groesse))
         for lauf in absatz.runs:
             lauf.font.size = Pt(groesse)
+    return groesse
 
 
 def _zuschnitt(data: bytes, aspect: float) -> BytesIO:
@@ -149,16 +171,22 @@ def _zuschnitt(data: bytes, aspect: float) -> BytesIO:
 
 
 def _folie(prs, layout: Layout, s: Slide, bilder: dict[str, bytes], titel: str, notizen: bool,
-           hinweis: str = "", typeface: str = "") -> None:
+           f: Farben, hinweis: str = "", typeface: str = "") -> None:
     slide = prs.slides.add_slide(prs.slide_masters[0].slide_layouts[layout.index])
     benutzt: set[int] = set()
 
     ueber = layout.der_art("ueberschrift")
+    neu: dict[int, Feld] = {}
     if ueber and s.title and (ph := _ph(slide, ueber[0].idx)) is not None:
-        _setze_kopf(ph, ueber[0], s.title, typeface)
+        groesse = _setze_kopf(ph, ueber[0], s.title, typeface)
         benutzt.add(ueber[0].idx)
+        if typeface:
+            neu = _platz_unter_kopf(prs, slide, layout, ueber[0], s, groesse, typeface)
 
-    zwischen = layout.der_art("zwischentitel")
+    def lage(feld: Feld) -> Feld:
+        return neu.get(feld.idx, feld)
+
+    zwischen = [lage(f) for f in layout.der_art("zwischentitel")]
     if s.role in _OHNE_RANDTEXT:
         if zwischen and s.subtitle and (ph := _ph(slide, zwischen[0].idx)) is not None:
             _setze_kopf(ph, zwischen[0], s.subtitle, typeface)
@@ -169,21 +197,25 @@ def _folie(prs, layout: Layout, s: Slide, bilder: dict[str, bytes], titel: str, 
                 _setze_kopf(ph, feld, col.heading, typeface)
                 benutzt.add(feld.idx)
 
-    flies = layout.der_art("fliesstext")
+    flies = [lage(f) for f in layout.der_art("fliesstext")]
     if len(flies) == 1 and s.body is not None:
-        if _body(slide, flies[0], s.body, bilder.get(bild_schluessel(s.id, "body"))):
+        if _body(slide, flies[0], s.body, bilder.get(bild_schluessel(s.id, "body")), f, typeface):
             benutzt.add(flies[0].idx)
     elif len(flies) > 1:
         for feld, col in zip(flies, s.columns):
             if col.items and (ph := _ph(slide, feld.idx)) is not None:
-                _setze_text(ph, col.items)
+                _setze_punkte(ph, feld, col.items, typeface)
                 benutzt.add(feld.idx)
 
-    for k, feld in enumerate(layout.der_art("bild")):
+    for k, feld in enumerate(lage(f) for f in layout.der_art("bild")):
         data = bilder.get(bild_schluessel(s.id, k))
         ph = _ph(slide, feld.idx)
         if data and ph is not None:
-            ph.insert_picture(_zuschnitt(data, feld.aspect))
+            bild = ph.insert_picture(_zuschnitt(data, feld.aspect))
+            if feld.idx in neu:
+                # Cropped to the moved field already, the placeholder's own crop was for the old one.
+                bild.crop_left = bild.crop_right = bild.crop_top = bild.crop_bottom = 0
+                _lege(bild, feld)
             benutzt.add(feld.idx)
 
     rand = sorted(layout.der_art("randtext"), key=lambda f: f.top)
@@ -202,17 +234,69 @@ def _folie(prs, layout: Layout, s: Slide, bilder: dict[str, bytes], titel: str, 
         slide.notes_slide.notes_text_frame.text = s.notes
 
 
-def _foliennummer(slide, nummer: int) -> None:
-    """The layout's slide number field, copied onto the slide, since python-pptx leaves it out."""
-    vorbild = next((ph for ph in slide.slide_layout.placeholders
-                    if ph.placeholder_format.type == PP_PLACEHOLDER.SLIDE_NUMBER), None)
+def datum_text(sprache: str, tag: date | None = None) -> str:
+    """The day the deck is built, written the way its language writes dates."""
+    return format_date(tag or date.today(), format="medium", locale=sprache or "de")
+
+
+_A = "{http://schemas.openxmlformats.org/drawingml/2006/main}"
+
+
+def _aus_vorlage(slide, typ):
+    """A copy of the layout's field of this type for the slide, python-pptx leaves these out."""
+    vorbild = next((ph for ph in slide.slide_layout.placeholders if ph.placeholder_format.type == typ), None)
     if vorbild is None:
-        return
+        return None
     el = deepcopy(vorbild._element)
     el.nvSpPr.cNvPr.id = max((sh.shape_id for sh in slide.shapes), default=1) + 1
-    for t in el.iter("{http://schemas.openxmlformats.org/drawingml/2006/main}t"):
-        t.text = str(nummer)
     slide.shapes._spTree.append(el)
+    return el
+
+
+def _platz_unter_kopf(prs, slide, layout: Layout, kopf: Feld, s: Slide, groesse: float,
+                      typeface: str) -> dict[int, Feld]:
+    """Moves what sits below the heading clear of its real text, with a line of air on content slides."""
+    unten = platz.kopf_unten(kopf, s.title, typeface, groesse)
+    luft = 0 if s.role in _OHNE_RANDTEXT else platz.luft(platz.darunter(layout.felder, kopf))
+    neu = platz.verschoben(layout.felder, kopf, unten, luft, prs.slide_height)
+    for idx, feld in neu.items():
+        if (ph := _ph(slide, idx)) is not None:
+            _lege(ph, feld)
+    return neu
+
+
+def _lege(shape, feld: Feld) -> None:
+    shape.left, shape.top, shape.width, shape.height = (Emu(feld.left), Emu(feld.top),
+                                                        Emu(feld.width), Emu(feld.height))
+
+
+def _foliennummer(slide, nummer: int) -> None:
+    """The layout's slide number field, still a field so PowerPoint renumbers moved slides."""
+    el = _aus_vorlage(slide, PP_PLACEHOLDER.SLIDE_NUMBER)
+    if el is not None:
+        for t in el.iter(f"{_A}t"):
+            t.text = str(nummer)
+
+
+def _fest(slide, typ, text: str) -> None:
+    """The layout's field of this type holding fixed text, a date field would show the day the file is opened."""
+    el = _aus_vorlage(slide, typ)
+    if el is None:
+        return
+    for fld in list(el.iter(f"{_A}fld")):
+        lauf = etree.SubElement(fld.getparent(), f"{_A}r")
+        fld.addnext(lauf)
+        rpr = fld.find(f"{_A}rPr")
+        if rpr is not None:
+            rpr.attrib.pop("smtClean", None)
+            lauf.append(rpr)
+        etree.SubElement(lauf, f"{_A}t").text = ""
+        fld.getparent().remove(fld)
+    texte = list(el.iter(f"{_A}t"))
+    for t in texte:
+        t.text = ""
+    if texte:
+        texte[0].text = text
 
 
 def _hinweis(prs, slide, text: str, typeface: str) -> None:
@@ -233,36 +317,39 @@ def _hinweis(prs, slide, text: str, typeface: str) -> None:
         lauf.font.name = typeface
 
 
-def _body(slide, feld: Feld, body: Body, bild: bytes | None) -> bool:
+def textflaeche(feld: Feld) -> Feld:
+    """The field less its insets on the left, right and top, where its own text would start and wrap."""
+    rand = feld.inset_h // 2
+    return replace(feld, left=feld.left + rand, width=feld.width - 2 * rand,
+                   top=feld.top + feld.inset_oben, height=feld.height - feld.inset_oben)
+
+
+def _body(slide, feld: Feld, body: Body, bild: bytes | None, f: Farben, typeface: str = "") -> bool:
     """Fills the content field, True only when the placeholder itself holds the text."""
     ph = _ph(slide, feld.idx)
     if ph is None:
         return False
+    bild_feld, feld = feld, textflaeche(feld)
     if body.kind == "table" and body.rows:
-        spalten = max([len(body.header)] + [len(r) for r in body.rows])
-        zeilen = len(body.rows) + (1 if body.header else 0)
-        tabelle = slide.shapes.add_table(zeilen, spalten, feld.left, feld.top, feld.width, feld.height).table
-        start = 0
-        if body.header:
-            for c, kopf in enumerate(body.header[:spalten]):
-                tabelle.cell(0, c).text = kopf
-            start = 1
-        for r, zeile in enumerate(body.rows):
-            for c, wert in enumerate(zeile[:spalten]):
-                tabelle.cell(start + r, c).text = wert
+        elemente.tabelle(slide, feld, body, f, typeface)
         return False
     if body.kind == "chart" and body.categories and body.series:
-        daten = CategoryChartData()
-        daten.categories = body.categories
-        for serie in body.series:
-            daten.add_series(serie.name or " ", serie.values)
-        slide.shapes.add_chart(_CHART.get(body.chart_type, _CHART["bar"]),
-                               feld.left, feld.top, feld.width, feld.height, daten)
+        elemente.diagramm(slide, feld, body, f, typeface)
+        return False
+    if body.kind == "cards" and body.cards:
+        formen.karten(slide, feld, body.cards, f, typeface)
+        return False
+    if body.kind == "bars" and body.bars:
+        formen.balken(slide, feld, body.bars, f, typeface)
+        return False
+    if body.kind == "highlight" and body.key and body.text:
+        formen.hervorhebung(slide, feld, body, f, typeface)
         return False
     if body.kind == "image" and bild:
-        slide.shapes.add_picture(_zuschnitt(bild, feld.aspect), feld.left, feld.top, feld.width, feld.height)
+        slide.shapes.add_picture(_zuschnitt(bild, bild_feld.aspect), bild_feld.left, bild_feld.top,
+                                 bild_feld.width, bild_feld.height)
         return False
     if body.items:
-        _setze_text(ph, body.items)
+        _setze_punkte(ph, bild_feld, body.items, typeface)
         return True
     return False

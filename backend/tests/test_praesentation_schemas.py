@@ -46,3 +46,15 @@ def test_notizen_werden_ohne_zutun_uebernommen():
     assert PraesentationParams(notes=True, notes_include=False).notes_in_deck is False
     # Nobody asked for notes, so there is nothing to carry over either way.
     assert PraesentationParams(notes=False).notes_in_deck is False
+
+
+def test_name_auf_dem_deckblatt_ist_optional_und_ohne_rand():
+    assert PraesentationParams().presenter == ""
+    assert PraesentationParams(presenter="  Prof. Dr. Erika Muster  ").presenter == "Prof. Dr. Erika Muster"
+
+
+def test_name_auf_dem_deckblatt_hat_eine_grenze():
+    import pytest
+    from pydantic import ValidationError
+    with pytest.raises(ValidationError):
+        PraesentationParams(presenter="x" * 81)

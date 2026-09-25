@@ -10,6 +10,7 @@ from lxml import etree
 from pptx import Presentation
 from pptx.opc.constants import RELATIONSHIP_TYPE as RT
 
+from src.features.praesentation import raster
 from src.features.praesentation.schemas import WAEHLBARE_ROLLEN
 
 EMU_PER_INCH = 914400
@@ -51,6 +52,12 @@ class Feld:
     # Left plus right inset, and the one on the side the text is anchored to.
     inset_h: int = 2 * _INSET_H_STD
     inset_v: int = _INSET_V_STD
+    # Where the text sits and how far it keeps from top and bottom, to find where a heading really ends.
+    anker: str = "t"
+    inset_oben: int = _INSET_V_STD
+    inset_unten: int = _INSET_V_STD
+    # A fixed line pitch the template sets, 0 when lines follow the font size.
+    zeile_pt: float = 0.0
 
     @property
     def aspect(self) -> float:
@@ -125,11 +132,17 @@ def form_fuer(l: Layout, a: Analyse) -> dict:
     """What the model has to fill for this layout, with the word limit of every field."""
     flies = l.der_art("fliesstext")
     arten = ["bullets"]
-    if flies and flies[0].is_object:
-        arten += ["table", "chart"]
+    platz: dict = {}
+    # A table, chart or drawn element needs the whole slide, beside pictures it would be squeezed.
+    if flies and flies[0].is_object and not l.der_art("bild"):
+        arten += ["table", "chart", "cards", "bars", "highlight"]
         if not a.hat_bildfelder():
             arten.append("image")
+        f = flies[0]
+        platz = {"karten": raster.karten_platz(f.width, f.height, f.size_pt),
+                 "balken": raster.balken_platz(f.height, f.size_pt)}
     return {
+        **platz,
         "ueberschrift": next((f.words for f in l.der_art("ueberschrift")), 8),
         "ueberschrift_zeichen": next((f.chars for f in l.der_art("ueberschrift")), 0),
         "zwischentitel": [f.words for f in l.der_art("zwischentitel")],
@@ -156,6 +169,27 @@ def _eigener_schriftgrad(xml: str) -> float | None:
 def _schnitt(xml: str) -> tuple[bool, bool]:
     """Small caps and bold, both widen the text far beyond what its plain form measures."""
     return bool(_CAPS.search(xml)), bool(_BOLD.search(xml))
+
+
+def _rahmen(xml: str) -> tuple[str, int, int]:
+    """Anchor, top inset and bottom inset of the shape's text body."""
+    tag = _BODY_PR.search(xml)
+    if not tag:
+        return "t", _INSET_V_STD, _INSET_V_STD
+    anker = re.search(r'\sanchor="(\w+)"', tag.group(0))
+
+    def wert(seite: str) -> int:
+        m = re.search(rf'\s{_INS[seite]}="(\d+)"', tag.group(0))
+        return int(m.group(1)) if m else _INSET_V_STD
+
+    return (anker.group(1) if anker else "t"), wert("t"), wert("b")
+
+
+def _zeilenabstand(xml: str) -> float:
+    """A fixed line pitch in points from the first level's spacing, 0 when it is relative."""
+    lvl1 = _LVL1.search(xml)
+    m = re.search(r"<a:lnSpc>\s*<a:spcPts val=\"(\d+)\"", lvl1.group(1)) if lvl1 else None
+    return int(m.group(1)) / 100 if m else 0.0
 
 
 def _insets(xml: str) -> tuple[int, int]:
@@ -225,9 +259,11 @@ def _felder(layout, titel_pt: float, text_pt: float) -> list[Feld]:
             size = titel_pt if typ in ("TITLE", "CENTER_TITLE") else text_pt
         caps, bold = _schnitt(xml)
         inset_h, inset_v = _insets(xml)
+        anker, inset_oben, inset_unten = _rahmen(xml)
         roh.append(Feld(pf.idx, "", typ, sh.left, sh.top, sh.width, sh.height,
                         size_pt=size, is_object=typ == "OBJECT", caps=caps, bold=bold,
-                        inset_h=inset_h, inset_v=inset_v))
+                        inset_h=inset_h, inset_v=inset_v, anker=anker, inset_oben=inset_oben,
+                        inset_unten=inset_unten, zeile_pt=_zeilenabstand(xml)))
     texte = [f for f in roh if f.art == ""]
     if texte:
         groesster = max(f.size_pt for f in texte)

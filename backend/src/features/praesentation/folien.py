@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import re
 
+from src.features.praesentation import icons
 from src.features.praesentation.gliederung import SPRACHE, Unusable, json_objekt
+from src.features.praesentation.raster import MAX_BALKEN, MAX_KARTEN
 from src.limits import PRAESENTATION_SLIDE_CONTEXT_CHARS
 from src.features.praesentation.schemas import (
-    CHART_TYPES, MAX_CHART_CATEGORIES, MAX_CHART_SERIES, MAX_HEADING_CHARS, MAX_NOTES_CHARS, MAX_PROMPT_CHARS,
-    MAX_SERIES_NAME_CHARS, MAX_SUBTITLE_CHARS, MAX_TABLE_ROWS, MAX_TEXT_ITEMS, MAX_TITLE_CHARS,
-    Body, Column, ImageSpec, OutlineRow, PraesentationParams, Series, Slide,
+    CHART_TYPES, MAX_BAR_TEXT_CHARS, MAX_CHART_CATEGORIES, MAX_CHART_SERIES, MAX_GIST_CHARS, MAX_HEADING_CHARS,
+    MAX_KEY_CHARS, MAX_NOTES_CHARS, MAX_PROMPT_CHARS, MAX_SERIES_NAME_CHARS, MAX_SUBTITLE_CHARS, MAX_TABLE_ROWS,
+    MAX_TEXT_ITEMS, MAX_TITLE_CHARS, Bar, Body, Card, Column, ImageSpec, OutlineRow, PraesentationParams, Series,
+    Slide,
 )
 
 
@@ -51,9 +54,21 @@ def build_messages(source: str, params: PraesentationParams, rows: list[OutlineR
         "- title: the heading, within its word limit\n"
         "- subtitle: only when asked, one line\n"
         "- body: when the slide has one text field. kind is one of the allowed kinds.\n"
-        '  bullets: {"kind": "bullets", "items": [...]} with 3 to 6 short points, all together within the word limit.\n'
-        '  table: {"kind": "table", "header": [...], "rows": [[...]]} for real value pairs from the material or things compared along the same attributes, at most 6 rows.\n'
+        '  bullets: {"kind": "bullets", "items": [...]} with 5 to 7 short points, all together within the word limit. Fewer points are not worth a slide.\n'
+        '  table: {"kind": "table", "header": [...], "rows": [[...]]} for real value pairs from the material or things compared along the same attributes, at most 6 rows. A table stands alone: no bullet points beside it.\n'
         '  chart: {"kind": "chart", "chart_type": "bar|line|pie", "categories": [...], "series": [{"name": "...", "values": [numbers]}]} only for numbers with a shared unit, at most 6 categories.\n'
+        '  cards: {"kind": "cards", "cards": [{"icon": "...", "title": "...", "text": "..."}]} for two or more '
+        "ideas of equal weight, each a short title and one sentence. icon is one name from this list: "
+        f"{', '.join(icons.namen())}.\n"
+        '  bars: {"kind": "bars", "bars": [{"label": "...", "value": number, "text": "..."}]} for named things with one '
+        "number each in the same unit, such as durations, deadlines or shares. The bar length follows value, text is "
+        'what the bar shows, such as "until 2028" or "45 %", empty to show the plain number.\n'
+        '  highlight: {"kind": "highlight", "key": "...", "text": "...", "emphasis": "..."} for one number or word '
+        "that carries the slide: key is that number or word, at most 12 characters, text one sentence "
+        "about it, emphasis a term that stands word for word in that sentence and gets marked in colour. Rare, only for a central figure.\n"
+        "  cards, bars and highlight only where the material has that shape, bullets stay the usual kind.\n"
+        "  The numbers of a table, chart, bars or highlight belong to the slide's own title and gist, "
+        "never to a neighbouring passage about something else.\n"
         '  image: {"kind": "image", "prompt": "..."} only when allowed, at most on every fourth slide.\n'
         '- columns: when the slide has two or more text fields, one entry per field: {"heading": "...", "items": [...]}\n'
         '- images: one entry per image field: {"prompt": "..."}, an English description of a scene or object, never text, letters or logos\n'
@@ -77,10 +92,17 @@ def build_messages(source: str, params: PraesentationParams, rows: list[OutlineR
             zeilen.append(f"  subtitle: yes, up to {f['zwischentitel'][0]} words")
         if len(f["fliesstexte"]) == 1:
             zeilen.append(f"  body: up to {f['fliesstexte'][0]} words, allowed kinds: {', '.join(f['body_kinds'])}")
+            if "cards" in f["body_kinds"] and f.get("karten"):
+                k = f["karten"]
+                zeilen.append(f"  cards: 2 to {k['max']}, each title up to {k['titel_woerter']} words, "
+                              f"each text up to {k['text_woerter']} words")
+            if "bars" in f["body_kinds"] and f.get("balken"):
+                zeilen.append(f"  bars: 2 to {f['balken']}")
         elif len(f["fliesstexte"]) > 1:
             grenzen = ", ".join(str(w) for w in f["fliesstexte"])
             kopf = f", each with a heading of up to {f['zwischentitel'][0]} words" if f["zwischentitel"] else ""
-            zeilen.append(f"  columns: {len(f['fliesstexte'])} fields with word limits {grenzen}{kopf}")
+            zeilen.append(f"  columns: {len(f['fliesstexte'])} fields with word limits {grenzen}{kopf}, "
+                          "at least 3 points in each")
         if f["bilder"]:
             zeilen.append(f"  images: {f['bilder']}")
         zeilen.append(f"  notes: {'yes' if params.notes else 'no'}")
@@ -160,7 +182,8 @@ def _slide(row: OutlineRow, e: dict, form: dict) -> Slide:
               subtitle=_text(e.get("subtitle"))[:MAX_SUBTITLE_CHARS], notes=_text(e.get("notes"))[:MAX_NOTES_CHARS])
     n = len(form["fliesstexte"])
     if n == 1:
-        s.body = _body(e.get("body"), form["body_kinds"])
+        s.body = _body(e.get("body"), form["body_kinds"], (form.get("karten") or {}).get("max", MAX_KARTEN),
+                       form.get("balken") or MAX_BALKEN)
     elif n > 1:
         cols = e.get("columns") if isinstance(e.get("columns"), list) else []
         s.columns = [Column(heading=_text(c.get("heading"))[:MAX_HEADING_CHARS], items=_items(c.get("items")))
@@ -175,7 +198,7 @@ def _slide(row: OutlineRow, e: dict, form: dict) -> Slide:
     return s
 
 
-def _body(roh, kinds: list[str]) -> Body:
+def _body(roh, kinds: list[str], karten_max: int = MAX_KARTEN, balken_max: int = MAX_BALKEN) -> Body:
     """A body of an allowed kind, anything broken becomes bullets."""
     if not isinstance(roh, dict):
         return Body(kind="bullets", items=_items(roh))
@@ -189,6 +212,8 @@ def _body(roh, kinds: list[str]) -> Body:
         b.rows = [z for z in b.rows if z]
         if not b.rows:
             b.kind = "bullets"
+        else:
+            b.items = []
     elif kind == "chart":
         b.chart_type = str(roh.get("chart_type") or "bar")
         if b.chart_type not in CHART_TYPES:
@@ -205,7 +230,37 @@ def _body(roh, kinds: list[str]) -> Body:
         b.prompt = _text(roh.get("prompt"))[:MAX_PROMPT_CHARS]
         if not b.prompt:
             b.kind = "bullets"
+    elif kind == "cards":
+        roh_karten = roh.get("cards") if isinstance(roh.get("cards"), list) else []
+        b.cards = [Card(icon=icons.gueltig(k.get("icon")), title=_text(k.get("title"))[:MAX_HEADING_CHARS],
+                        text=_text(k.get("text"))[:MAX_GIST_CHARS])
+                   for k in roh_karten if isinstance(k, dict) and _text(k.get("title"))][:karten_max]
+        if len(b.cards) < 2:
+            b.kind, b.items = "bullets", b.items or [_zeile(k.title, k.text) for k in b.cards]
+            b.cards = []
+    elif kind == "bars":
+        roh_balken = roh.get("bars") if isinstance(roh.get("bars"), list) else []
+        b.bars = [Bar(label=_text(z.get("label"))[:MAX_HEADING_CHARS], value=_zahl(z.get("value")),
+                      text=_text(z.get("text"))[:MAX_BAR_TEXT_CHARS])
+                  for z in roh_balken if isinstance(z, dict) and _text(z.get("label"))][:balken_max]
+        if len(b.bars) < 2:
+            b.kind, b.items = "bullets", b.items or [_zeile(z.label, z.text) for z in b.bars]
+            b.bars = []
+    elif kind == "highlight":
+        b.key = _text(roh.get("key"))[:MAX_KEY_CHARS]
+        b.text = _text(roh.get("text"))[:MAX_GIST_CHARS]
+        b.emphasis = _text(roh.get("emphasis"))[:MAX_HEADING_CHARS]
+        # A term the sentence does not contain would mark nothing, so it is not kept.
+        if b.emphasis.lower() not in b.text.lower():
+            b.emphasis = ""
+        if not b.key or not b.text:
+            b.kind, b.items = "bullets", b.items or [t for t in (b.text or b.key,) if t]
+            b.key = b.text = b.emphasis = ""
     return b
+
+
+def _zeile(kopf: str, text: str) -> str:
+    return f"{kopf}: {text}" if text else kopf
 
 
 def regen_messages(slide: Slide, row: OutlineRow, form: dict, params: PraesentationParams,

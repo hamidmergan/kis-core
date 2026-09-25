@@ -1,4 +1,4 @@
-"""Splits a slide in two when its bullet points would not fit the field."""
+"""Splits an overfull slide in two when both halves keep enough points, else the text shrinks."""
 
 from __future__ import annotations
 
@@ -10,6 +10,11 @@ from src.services.screencast.pptx import _load_font
 _INSET_PT = 36.0
 _BULLET_PT = 22.0
 _ZEILE = 1.2
+# A slide with fewer points is not worth showing, a field beside another needs fewer.
+MIN_PUNKTE = 5
+MIN_PUNKTE_JE_SPALTE = 3
+# Shrinking stops here, below this a room at the back can no longer read the text.
+MIN_SCHRIFT_PT = 12
 
 
 def zeilen(items: list[str], font, breite_pt: float) -> int:
@@ -29,13 +34,24 @@ def zeilen(items: list[str], font, breite_pt: float) -> int:
     return n
 
 
-def passt(items: list[str], feld: Feld, typeface: str) -> bool:
+def passt(items: list[str], feld: Feld, typeface: str, groesse: float | None = None) -> bool:
     if not items:
         return True
-    font = _load_font(typeface, round(feld.size_pt))
+    groesse = groesse or feld.size_pt
+    font = _load_font(typeface, round(groesse))
     breite = feld.width / EMU_PER_PT - _INSET_PT - _BULLET_PT
     hoehe = feld.height / EMU_PER_PT - 7.0
-    return zeilen(items, font, breite) * feld.size_pt * _ZEILE <= hoehe
+    return zeilen(items, font, breite) * groesse * _ZEILE <= hoehe
+
+
+def schriftgrad(items: list[str], feld: Feld, typeface: str) -> float | None:
+    """The largest size at which the points fit, None when the field's own size already does."""
+    if passt(items, feld, typeface):
+        return None
+    groesse = float(round(feld.size_pt)) - 1
+    while groesse > MIN_SCHRIFT_PT and not passt(items, feld, typeface, groesse):
+        groesse -= 1
+    return max(groesse, MIN_SCHRIFT_PT)
 
 
 def _engste(a: Analyse, rolle: str, n: int) -> list[Feld] | None:
@@ -71,7 +87,7 @@ def _rest_form(s: Slide, a: Analyse) -> tuple[str, int | None]:
 
 def _abgeschnitten(s: Slide, a: Analyse) -> Slide | None:
     """Moves the second half of the points to a new slide, None when everything fits."""
-    if s.body and s.body.kind == "bullets" and len(s.body.items) > 1:
+    if s.body and s.body.kind == "bullets" and len(s.body.items) >= 2 * MIN_PUNKTE:
         felder = _felder(s, a, 1)
         if felder and not passt(s.body.items, felder[0], a.typeface):
             mitte = (len(s.body.items) + 1) // 2
@@ -81,7 +97,7 @@ def _abgeschnitten(s: Slide, a: Analyse) -> Slide | None:
                          body=Body(kind="bullets", items=s.body.items[mitte:]))
             s.body.items = s.body.items[:mitte]
             return rest
-    if s.columns and any(len(c.items) > 1 for c in s.columns):
+    if s.columns and all(len(c.items) >= 2 * MIN_PUNKTE_JE_SPALTE for c in s.columns):
         felder = _felder(s, a, len(s.columns))
         if felder and any(not passt(c.items, f, a.typeface) for c, f in zip(s.columns, felder)):
             rolle, layout = _rest_form(s, a)

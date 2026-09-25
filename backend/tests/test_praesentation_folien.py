@@ -4,11 +4,14 @@ import json
 
 import pytest
 
-from src.features.praesentation import folien, gliederung
+from src.features.praesentation import folien, gliederung, icons
 from src.features.praesentation.schemas import OutlineRow, PraesentationParams, Slide
 
 FORM_TEXT = {"ueberschrift": 6, "zwischentitel": [], "fliesstexte": [90], "bilder": 0,
              "body_kinds": ["bullets", "table", "chart"]}
+FORM_FORMEN = {"ueberschrift": 6, "zwischentitel": [], "fliesstexte": [90], "bilder": 0,
+               "body_kinds": ["bullets", "table", "chart", "cards", "bars", "highlight"],
+               "karten": {"max": 3, "titel_woerter": 4, "text_woerter": 15}, "balken": 4}
 FORM_BILD = {"ueberschrift": 6, "zwischentitel": [], "fliesstexte": [40], "bilder": 2,
              "body_kinds": ["bullets"]}
 FORM_SPALTEN = {"ueberschrift": 6, "zwischentitel": [6, 6], "fliesstexte": [50, 50], "bilder": 0,
@@ -262,3 +265,72 @@ class TestWieNotebookLM:
         form = dict(FORM_TEXT, ueberschrift_zeichen=32)
         user = folien.build_messages("Q", PraesentationParams(), ROWS[:1], {"s2": form})[1]["content"]
         assert "title limit: 6 words, at most 32 characters" in user
+
+
+class TestGenugPunkte:
+    def test_stichpunkte_fuenf_bis_sieben(self):
+        system = folien.build_messages("Q", PraesentationParams(), ROWS, FORMEN)[0]["content"]
+        assert "with 5 to 7 short points" in system
+
+    def test_jede_spalte_mindestens_drei(self):
+        user = folien.build_messages("Q", PraesentationParams(), [OutlineRow(id="s4", role="zwei_spalten", title="C")],
+                                     {"s4": FORM_SPALTEN})[1]["content"]
+        assert "at least 3 points in each" in user
+
+    def test_eine_tabelle_steht_allein(self):
+        system = folien.build_messages("Q", PraesentationParams(), ROWS, FORMEN)[0]["content"]
+        assert "A table stands alone" in system
+
+    def test_neben_einer_tabelle_bleiben_keine_punkte(self):
+        raw = _raw([{"id": "s2", "title": "A", "body": {"kind": "table", "header": ["a", "b"],
+                                                        "rows": [["1", "2"]], "items": ["extra"]}}])
+        s2, = folien.parse_answer(raw, ROWS[:1], FORMEN)
+        assert s2.body.kind == "table" and s2.body.items == []
+
+
+class TestFormen:
+    """Cards, bars and the highlight: parsed with their caps, anything too thin falls back to bullets."""
+
+    ROW = [OutlineRow(id="s2", role="text", title="A")]
+
+    def _body(self, body, form=FORM_FORMEN):
+        return folien.parse_answer(_raw([{"id": "s2", "title": "A", "body": body}]), self.ROW, {"s2": form})[0].body
+
+    def test_prompt_nennt_platz_und_icons(self):
+        user = folien.build_messages("Q", PraesentationParams(), self.ROW, {"s2": FORM_FORMEN})
+        assert "cards: 2 to 3, each title up to 4 words, each text up to 15 words" in user[1]["content"]
+        assert "bars: 2 to 4" in user[1]["content"]
+        assert "lightbulb" in user[0]["content"] and "highlight" in user[0]["content"]
+
+    def test_karten_mit_ersatz_icon_und_deckel(self):
+        karten = [{"icon": "lightbulb", "title": f"T{i}", "text": "x"} for i in range(5)]
+        karten[1]["icon"] = "gibt-es-nicht"
+        b = self._body({"kind": "cards", "cards": karten + [{"title": ""}]})
+        assert b.kind == "cards" and len(b.cards) == 3
+        assert [k.icon for k in b.cards] == ["lightbulb", icons.ERSATZ, "lightbulb"]
+
+    def test_eine_karte_wird_stichpunkt(self):
+        b = self._body({"kind": "cards", "cards": [{"icon": "x", "title": "Nur", "text": "eine"}]})
+        assert b.kind == "bullets" and b.items == ["Nur: eine"] and b.cards == []
+
+    def test_balken(self):
+        b = self._body({"kind": "bars", "bars": [{"label": "A", "value": "2028", "text": "bis 2028"},
+                                                  {"label": "B", "value": 3}, {"value": 9}]})
+        assert b.kind == "bars" and [(z.label, z.value, z.text) for z in b.bars] == [
+            ("A", 2028.0, "bis 2028"), ("B", 3.0, "")]
+
+    def test_hervorhebung(self):
+        b = self._body({"kind": "highlight", "key": "MO", "text": "Montags vor Ort.", "emphasis": "Montags"})
+        assert (b.kind, b.key, b.text, b.emphasis) == ("highlight", "MO", "Montags vor Ort.", "Montags")
+
+    def test_betonung_ausserhalb_des_satzes_faellt_weg(self):
+        b = self._body({"kind": "highlight", "key": "12.500", "text": "Studierende nutzen es.", "emphasis": "dreimal"})
+        assert b.kind == "highlight" and b.emphasis == ""
+
+    def test_hervorhebung_ohne_satz_wird_stichpunkt(self):
+        b = self._body({"kind": "highlight", "key": "MO"})
+        assert b.kind == "bullets" and b.items == ["MO"] and b.key == ""
+
+    def test_formen_nur_wo_erlaubt(self):
+        b = self._body({"kind": "cards", "cards": [{"title": "a"}, {"title": "b"}]}, FORM_TEXT)
+        assert b.kind == "bullets"

@@ -6,7 +6,7 @@ export interface PraesentationView {
   progress: JobProgress | null;
   error: string | null;
   params: { language: string; notes: boolean; notes_include: boolean; template_id: string;
-            template_name: string; template_fallback: boolean; instructions: string } | null;
+            template_name: string; template_fallback: boolean; instructions: string; presenter?: string } | null;
   outline: Outline | null;
   slides: Slide[];
   previews: string[];
@@ -43,7 +43,7 @@ const put = (url: string, body: unknown) =>
 export async function startPraesentation(state: PraesentationState): Promise<string> {
   const form = new FormData();
   form.append("params", JSON.stringify({
-    language: state.language, instructions: state.instructions,
+    language: state.language, instructions: state.instructions, presenter: state.presenter,
     notes: state.notes, template_id: state.templateId,
   }));
   form.append("mode", state.source.mode);

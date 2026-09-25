@@ -6,6 +6,7 @@ export const INITIAL_STATE: PraesentationState = {
   maxReached: 0,
   source: { mode: "files", files: [], moduleId: "", sourceIds: [] },
   instructions: "",
+  presenter: "",
   language: "de",
   notes: false,
   notesInclude: true,
@@ -29,6 +30,7 @@ export type Action =
   | { type: "GO"; step: Step }
   | { type: "SET_SOURCE"; source: Partial<Source> }
   | { type: "SET_INSTRUCTIONS"; text: string }
+  | { type: "SET_PRESENTER"; name: string }
   | { type: "SET_LANGUAGE"; language: Language }
   | { type: "SET_NOTES"; notes: boolean }
   | { type: "SET_NOTES_INCLUDE"; include: boolean }
@@ -71,6 +73,8 @@ export function reducer(state: PraesentationState, action: Action): Praesentatio
       return { ...state, source: { ...state.source, ...action.source } };
     case "SET_INSTRUCTIONS":
       return { ...state, instructions: action.text };
+    case "SET_PRESENTER":
+      return { ...state, presenter: action.name };
     case "SET_LANGUAGE":
       return { ...state, language: action.language };
     case "SET_NOTES":
