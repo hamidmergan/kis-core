@@ -10,6 +10,7 @@ from src.dependencies import get_current_user
 from src.features.praesentation import store
 from src.i18n import get_locale, t
 from src.routes.praesentation._shared import own_job
+from src.utils.download_header import attachment
 
 router = APIRouter(tags=["praesentation"])
 _PPTX = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
@@ -69,5 +70,5 @@ async def download(job_uuid: str, current_user: dict = Depends(get_current_user)
     name = (re.sub(r"[^\w\s\-]", "", outline.title if outline else "").strip() or "Praesentation")[:80]
     return StreamingResponse(iter([data]), media_type=_PPTX, headers={
         "Content-Length": str(len(data)),
-        "Content-Disposition": f'attachment; filename="{name}.pptx"',
+        "Content-Disposition": attachment(f"{name}.pptx"),
     })
