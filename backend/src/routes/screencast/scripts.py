@@ -14,7 +14,7 @@ from src.i18n import get_locale, t
 from src.services.screencast import generate_all_scripts
 from src.services.screencast import material as zusatzmaterial
 from src.services.job_statistik import messe, route_kennung, zeichen_zahlen
-from src.storage import get_job_file, load_result_meta, save_job_file, save_result_meta
+from src.storage import get_job_file, save_job_file
 from src.services.tool_limits import max_screencast_slides
 
 from src.routes.screencast._models import (
@@ -23,14 +23,7 @@ from src.routes.screencast._models import (
     SaveScriptsRequest,
 )
 from src.routes.screencast._shared import get_script_gen_lock, vertonung_verwerfen
-
-
-def _merke_skriptsprache(user_id: int, job_uuid: str | None, target_lang: str) -> None:
-    """The scripts are in this language, so the voicing has to speak it."""
-    if not job_uuid or not target_lang:
-        return
-    save_result_meta(user_id, job_uuid, {**(load_result_meta(user_id, job_uuid) or {}),
-                                         "target_lang": target_lang})
+from src.routes.screencast._shared import merke_skriptsprache as _merke_skriptsprache
 
 router = APIRouter(tags=["screencast: scripts"])
 

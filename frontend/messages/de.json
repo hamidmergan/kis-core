@@ -852,8 +852,6 @@
       "ttsSettings": {
         "heading": "Einstellungen",
         "providerLabel": "TTS-Anbieter",
-        "langLabel": "Sprache der Vertonung",
-        "langHint": "In dieser Sprache sind die Skripte geschrieben. Sie bestimmt auch, wie Zahlen gesprochen werden.",
         "voiceLabel": "Stimme",
         "voiceDefault": "Standard",
         "previewVoices": "Stimmen anhören →",

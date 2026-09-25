@@ -56,10 +56,11 @@ def test_ohne_gespeicherten_stand_kommt_null(client):
     with patch(f"{MODUL}.get_job", return_value=_JOB), \
          patch(f"{MODUL}.get_job_file", side_effect=_dateien({})), \
          patch(f"{MODUL}.get_audio_slide_count", return_value=0), \
-         patch(f"{MODUL}.audio_folien_mit_ton", return_value=set()):
+         patch(f"{MODUL}.audio_folien_mit_ton", return_value=set()), \
+         patch(f"{MODUL}.load_result_meta", return_value=None):
         r = client.get(f"/screencast/{UUID}/vertonungs-stand")
     assert r.status_code == 200
-    assert r.json() == {"einstellungen": None, "stand": None, "hat_ton": []}
+    assert r.json() == {"einstellungen": None, "stand": None, "hat_ton": [], "sprache": ""}
 
 
 def test_fremder_auftrag_wird_nicht_verraten(client):

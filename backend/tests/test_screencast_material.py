@@ -197,3 +197,15 @@ def test_skripte_bekommen_das_material(client):
                         json={"slide_texts": ["A", "B"], "translate_job_uuid": UUID})
     assert r.status_code == 200, r.text
     assert gesehen["materials"] == ["Stoff 1", ""]
+
+
+def test_schritt6_kennt_die_sprache_vom_start(client):
+    from src.routes.screencast._shared import merke_skriptsprache
+    merke_skriptsprache(1, UUID, "DE")
+    assert client.get(f"/screencast/{UUID}/vertonungs-stand").json()["sprache"] == "DE"
+
+
+def test_schritt6_faellt_auf_die_uebersetzungssprache_zurueck(client):
+    from src.storage import save_job_file
+    save_job_file(1, UUID, "queue_params.json", json.dumps({"target_lang": "EN-US"}).encode())
+    assert client.get(f"/screencast/{UUID}/vertonungs-stand").json()["sprache"] == "EN-US"

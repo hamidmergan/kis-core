@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from src.dependencies import get_current_user
 from src.features.jobs.repository import get_job
 from src.i18n import get_locale, t
-from src.storage import audio_folien_mit_ton, get_audio_slide_count, get_job_file, save_job_file
+from src.storage import audio_folien_mit_ton, get_audio_slide_count, get_job_file, load_result_meta, save_job_file
 
 router = APIRouter(tags=["screencast: einstellungen"])
 
@@ -63,7 +63,16 @@ def vertonungs_stand(
         "einstellungen": _lies_json(user_id, job_uuid, "einstellungen.json"),
         "stand": stand,
         "hat_ton": [i in mit_ton for i in range(anzahl)],
+        "sprache": _sprache(user_id, job_uuid),
     }
+
+
+def _sprache(user_id: int, job_uuid: str) -> str:
+    """The language chosen at the start, step 6 no longer asks for it."""
+    meta = load_result_meta(user_id, job_uuid) or {}
+    if meta.get("target_lang"):
+        return str(meta["target_lang"])
+    return str((_lies_json(user_id, job_uuid, "queue_params.json") or {}).get("target_lang") or "")
 
 
 @router.put("/screencast/{job_uuid}/einstellungen")

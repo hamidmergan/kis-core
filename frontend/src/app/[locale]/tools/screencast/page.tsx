@@ -135,7 +135,7 @@ function ScreencastPageInner() {
     if (defaultVoiceId && !voiceId) setVoiceId(defaultVoiceId);
   }, [defaultVoiceId, voiceId]);
   const { languages, targetLang, setTargetLang } = useLanguageConfig(SCREENCAST_TARGET_LANGUAGES);
-  const { geladen: standGeladen, einstellungen: gespeicherteEinstellungen, stand, hatTon } =
+  const { geladen: standGeladen, einstellungen: gespeicherteEinstellungen, stand, hatTon, sprache: auftragsSprache } =
     useSchritt6Stand(translateJobUuid, step === "tts-settings");
   const auswahl = useFolienAuswahl({
     slides,
@@ -185,6 +185,11 @@ function ScreencastPageInner() {
     setDpi(e.dpi);
     setSubtitles(e.subtitles);
   }, [gespeicherteEinstellungen, setTargetLang]);
+
+  // Step 6 no longer asks for the language, a resumed job speaks the one chosen at the start.
+  useEffect(() => {
+    if (standGeladen && !gespeicherteEinstellungen?.target_lang && auftragsSprache) setTargetLang(auftragsSprache);
+  }, [standGeladen, gespeicherteEinstellungen, auftragsSprache, setTargetLang]);
 
   // Saved on change, not only at render time.
   useEffect(() => {
@@ -725,9 +730,6 @@ function ScreencastPageInner() {
             providersLoaded={providersLoaded}
             providers={providers}
             providerId={providerId}
-            targetLang={targetLang}
-            languages={languages}
-            onTargetLangChange={setTargetLang}
             voiceId={voiceId}
             speed={speed}
             slidePause={slidePause}
