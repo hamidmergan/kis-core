@@ -159,3 +159,41 @@ def test_ein_anderer_text_ergibt_eine_andere_fassung():
 def test_ein_leerer_text_hat_nichts_zu_lesen():
     with pytest.raises(NoReadableText):
         from_text("leer.mp4", "   \n  ")
+
+
+def _folien(pfad, anzahl=5):
+    """A deck whose slides carry footer, slide number, date and a repeated line."""
+    from pptx import Presentation
+
+    prs = Presentation()
+    layout = prs.slide_layouts[1]
+    for i in range(anzahl):
+        folie = prs.slides.add_slide(layout)
+        folie.shapes.title.text = f"Thema {i}"
+        folie.placeholders[1].text = f"Inhalt der Folie {i}\nGrundlagen der Informatik WS 2026"
+        for platz in layout.placeholders:
+            if platz.placeholder_format.idx >= 10:
+                folie.shapes.clone_placeholder(platz)
+        for form in folie.placeholders:
+            if form.placeholder_format.idx >= 10:
+                form.text = f"Fusszeile Prof. Beispiel {i}"
+    prs.save(pfad)
+
+
+def test_eine_folie_verliert_fusszeile_foliennummer_und_datum(tmp_path):
+    from src.utils.text_extraction import pptx_slide_texts
+
+    pfad = tmp_path / "vorlesung.pptx"
+    _folien(pfad)
+    texte = pptx_slide_texts(str(pfad))
+    assert len(texte) == 5
+    assert all("Fusszeile" not in t for t in texte)
+    assert "Thema 0" in texte[0]
+
+
+def test_eine_zeile_auf_fast_jeder_folie_faellt_weg(tmp_path):
+    pfad = tmp_path / "vorlesung.pptx"
+    _folien(pfad)
+    quelle = read_file(str(pfad), "vorlesung.pptx")
+    assert "Grundlagen der Informatik" not in quelle.text
+    assert "Inhalt der Folie 4" in quelle.text

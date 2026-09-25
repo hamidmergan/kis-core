@@ -15,11 +15,11 @@ from loguru import logger
 
 from src.services.pdf_layout import (
     boilerplate_keys,
-    is_boilerplate,
     line_boxes,
     merge_rows,
     page_reading_order,
     strip_boilerplate_text,
+    strip_furniture,
 )
 from src.services.text_pieces import PIECE_CHARS, PIECE_OVERLAP, clean, split_spans
 
@@ -112,7 +112,7 @@ def _pdf_pages(path: str) -> list[str]:
     boiler = boilerplate_keys(seiten_kaesten, seiten_text)
     aus: list[str] = []
     for kaesten, roh in zip(seiten_kaesten, seiten_text):
-        geordnet = page_reading_order([b for b in kaesten if not is_boilerplate(b.text, boiler)])
+        geordnet = page_reading_order(strip_furniture(kaesten, boiler))
         zeilen = merge_rows(geordnet)
         aus.append("\n".join(b.text for b in zeilen) if zeilen
                    else strip_boilerplate_text(roh, boiler))
@@ -121,10 +121,23 @@ def _pdf_pages(path: str) -> list[str]:
     return aus
 
 
+def _pptx_page(path: str) -> str:
+    """All slides as one page, the lines that stand on most slides counted out."""
+    from src.utils.text_extraction import pptx_slide_texts
+
+    folien = [clean(f).strip() for f in pptx_slide_texts(path)]
+    boiler = boilerplate_keys([], folien)
+    logger.info("Quelle {}: {} Folie(n), {} Kopf- oder Fusszeile(n) entfernt",
+                Path(path).name, len(folien), len(boiler))
+    return "\n".join(strip_boilerplate_text(f, boiler) for f in folien if f)
+
+
 def _other_pages(path: str, ext: str) -> list[str]:
     """Every other format as one single page, they carry no page numbers worth keeping."""
     from src.utils.text_extraction import EXTRACTORS
 
+    if ext == ".pptx":
+        return [_pptx_page(path)]
     leser = EXTRACTORS.get(ext)
     if leser is None:
         raise ValueError(f"Format {ext} wird nicht unterstuetzt")

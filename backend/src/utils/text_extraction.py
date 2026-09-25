@@ -6,7 +6,7 @@ from pathlib import Path
 
 from docx import Document
 from pptx import Presentation
-from pptx.enum.shapes import MSO_SHAPE_TYPE
+from pptx.enum.shapes import MSO_SHAPE_TYPE, PP_PLACEHOLDER
 
 Source = bytes | str | Path
 
@@ -97,13 +97,26 @@ def extract_text_docx(content: Source) -> str:
     return "\n".join(paragraphs)
 
 
-def extract_text_pptx(content: Source) -> str:
+# Footer, slide number and date stand on every slide and say nothing about it.
+_PPTX_FURNITURE = {PP_PLACEHOLDER.FOOTER, PP_PLACEHOLDER.SLIDE_NUMBER, PP_PLACEHOLDER.DATE}
+
+
+def pptx_slide_texts(content: Source) -> list[str]:
+    """The text of every slide on its own, without footer, slide number and date."""
     prs = Presentation(_as_stream(content))
-    texts = []
+    folien = []
     for slide in prs.slides:
+        texts: list[str] = []
         for shape in slide.shapes:
+            if shape.is_placeholder and shape.placeholder_format.type in _PPTX_FURNITURE:
+                continue
             _collect_shape_text(shape, texts)
-    return "\n".join(texts)
+        folien.append("\n".join(texts))
+    return folien
+
+
+def extract_text_pptx(content: Source) -> str:
+    return "\n".join(t for t in pptx_slide_texts(content) if t)
 
 
 def _collect_shape_text(shape, texts: list) -> None:
