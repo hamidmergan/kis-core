@@ -2750,6 +2750,16 @@
       "close": "Close",
       "errorGeneric": "The code could not be created"
     },
+    "codeWorkspaces": {
+      "label": "Workspaces",
+      "pickPerson": "Choose a person",
+      "noOwners": "Nobody has created a workspace yet.",
+      "all": "All workspaces of this person",
+      "chosen": "{n, plural, one {# workspace} other {# workspaces}}",
+      "hintCreate": "Anyone who redeems the code is enrolled in these workspaces as a learner right away. Several people are possible.",
+      "hintEdit": "Accounts that already came through this code are enrolled as well when you save. Unticking removes nobody.",
+      "listCount": "{n, plural, one {# workspace} other {# workspaces}}"
+    },
     "editAccessCode": {
       "title": "Edit access code",
       "code": "Code",

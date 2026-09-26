@@ -796,6 +796,14 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             cur.execute(
                 "ALTER TABLE aia_enrollments ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'student'"
             )
+            # Workspaces an access code enrolls its accounts into, always as learners.
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS access_code_workspaces (
+                    code_id      INTEGER NOT NULL REFERENCES access_codes(id) ON DELETE CASCADE,
+                    workspace_id INTEGER NOT NULL REFERENCES aia_workspaces(id) ON DELETE CASCADE,
+                    PRIMARY KEY (code_id, workspace_id)
+                )
+            """)
             cur.execute("""
                 DO $$ BEGIN
                     IF NOT EXISTS (

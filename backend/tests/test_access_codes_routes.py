@@ -444,3 +444,54 @@ def test_redeeming_hands_the_demo_module_to_the_shared_place(client):
 
     assert r.status_code == 200
     zuweisen.assert_called_once_with(42)
+
+
+def test_redeeming_enrolls_the_new_account_into_the_codes_workspaces(client):
+    with patch("src.routes.access_codes.repo.get_code_by_code", return_value=_code()), \
+         patch("src.routes.access_codes.database.get_user_by_username", return_value=None), \
+         patch("src.routes.access_codes.repo.claim_use", return_value=True), \
+         patch("src.routes.access_codes.provision_account", return_value={
+             "user_id": 42, "username": "ab234567", "display_name": "ab234567",
+             "email": None, "role": "staff", "custom_role_id": None,
+         }), \
+         patch("src.routes.access_codes.repo.set_user_access"), \
+         patch("src.routes.access_codes.demo_module_zuweisen"), \
+         patch("src.routes.access_codes.repo.enroll_into_code_workspaces") as einschreiben, \
+         _sitzung():
+        r = client.post("/access-codes/redeem", json=GUELTIG)
+
+    assert r.status_code == 200
+    einschreiben.assert_called_once_with(7, [42])
+
+
+def test_a_failed_enrollment_never_blocks_redeeming(client):
+    with patch("src.routes.access_codes.repo.get_code_by_code", return_value=_code()), \
+         patch("src.routes.access_codes.database.get_user_by_username", return_value=None), \
+         patch("src.routes.access_codes.repo.claim_use", return_value=True), \
+         patch("src.routes.access_codes.provision_account", return_value={
+             "user_id": 42, "username": "ab234567", "display_name": "ab234567",
+             "email": None, "role": "staff", "custom_role_id": None,
+         }), \
+         patch("src.routes.access_codes.repo.set_user_access"), \
+         patch("src.routes.access_codes.demo_module_zuweisen"), \
+         patch("src.routes.access_codes.repo.enroll_into_code_workspaces",
+               side_effect=RuntimeError("db weg")), \
+         _sitzung():
+        r = client.post("/access-codes/redeem", json=GUELTIG)
+
+    assert r.status_code == 200
+
+
+def test_renewing_enrolls_into_the_workspaces_of_the_code_used(client):
+    konto = {"id": 42, "ldap_username": "max.mustermann", "display_name": "Max Mustermann",
+             "email": "max.mustermann@demo.kis.local", "role": "staff", "custom_role_id": None,
+             "access_expires_at": GESTERN}
+    with patch("src.routes.access_codes.authenticate", return_value=konto), \
+         patch("src.routes.access_codes.repo.get_code_by_code", return_value=_code(id=9)), \
+         patch("src.routes.access_codes.repo.set_user_access"), \
+         patch("src.routes.access_codes.repo.enroll_into_code_workspaces") as einschreiben, \
+         _sitzung():
+        r = client.post("/access-codes/renew", json=VERLAENGERN)
+
+    assert r.status_code == 200
+    einschreiben.assert_called_once_with(9, [42])

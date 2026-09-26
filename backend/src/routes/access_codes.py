@@ -47,6 +47,14 @@ def _live_code(code: str, locale: str, *, seat_needed: bool) -> dict:
     return eintrag
 
 
+def _enroll_into_code_workspaces(code_id: int, user_id: int) -> None:
+    """Puts the account into the workspaces the admin tied to the code, never blocks the way in."""
+    try:
+        repo.enroll_into_code_workspaces(code_id, [user_id])
+    except Exception as fehler:
+        logger.error("access code {} could not enroll user_id={}: {}", code_id, user_id, fehler)
+
+
 def _set_session(response: Response, daten: dict) -> None:
     """Puts the session into a cookie, same shape as the login."""
     token = get_session_store().create(data=daten)
@@ -123,6 +131,7 @@ def redeem(payload: RedeemPayload, response: Response, locale: str = Depends(get
 
     # Testers get a working example right away, without a demo module this is simply a no-op.
     demo_module_zuweisen(sitzungsdaten["user_id"])
+    _enroll_into_code_workspaces(eintrag["id"], sitzungsdaten["user_id"])
 
     _set_session(response, sitzungsdaten)
 
@@ -161,6 +170,7 @@ def renew(payload: RenewPayload, response: Response, locale: str = Depends(get_l
     stunden = eintrag["access_hours"]
     frist = datetime.now() + timedelta(hours=stunden) if stunden else None
     repo.set_user_access(konto["id"], expires_at=frist, code_id=eintrag["id"])
+    _enroll_into_code_workspaces(eintrag["id"], konto["id"])
 
     name = konto["ldap_username"]
     _set_session(response, {

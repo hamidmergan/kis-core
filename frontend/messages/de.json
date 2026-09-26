@@ -2750,6 +2750,16 @@
       "close": "Schließen",
       "errorGeneric": "Der Code konnte nicht angelegt werden"
     },
+    "codeWorkspaces": {
+      "label": "Workspaces",
+      "pickPerson": "Person wählen",
+      "noOwners": "Noch niemand hat einen Workspace angelegt.",
+      "all": "Alle Workspaces dieser Person",
+      "chosen": "{n, plural, one {# Workspace} other {# Workspaces}}",
+      "hintCreate": "Wer den Code einlöst, ist sofort als lernende Person in diesen Workspaces eingeschrieben. Mehrere Personen sind möglich.",
+      "hintEdit": "Konten, die schon über diesen Code kamen, werden beim Speichern ebenfalls eingeschrieben. Abwählen nimmt niemanden heraus.",
+      "listCount": "{n, plural, one {# Workspace} other {# Workspaces}}"
+    },
     "editAccessCode": {
       "title": "Zugangscode bearbeiten",
       "code": "Code",

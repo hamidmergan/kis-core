@@ -72,6 +72,7 @@ type Code = {
   access_hours: number | null;
   show_credentials: boolean;
   show_evaluation: boolean;
+  workspaces: { id: number; title: string; owner_name: string | null }[];
   active: boolean;
   created_at: string;
   status: Zustand;
@@ -101,6 +102,7 @@ function zugangsdauer(stunden: number | null, t: ReturnType<typeof useTranslatio
 
 export default function AccessCodesTab() {
   const t = useTranslations("admin.accessCodes");
+  const tWs = useTranslations("admin.codeWorkspaces");
   const loeschfrist = useSetting<number>("access_account_delete_after_days", 30);
   const [codes, setCodes] = useState<Code[]>([]);
   const [loading, setLoading] = useState(true);
@@ -301,6 +303,14 @@ export default function AccessCodesTab() {
                     >
                       {e.label}
                     </button>
+                    {e.workspaces.length > 0 && (
+                      <p
+                        className="text-xs text-muted-soft font-normal"
+                        title={e.workspaces.map((w) => w.title).join(", ")}
+                      >
+                        {tWs("listCount", { n: e.workspaces.length })}
+                      </p>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <button

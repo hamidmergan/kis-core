@@ -249,3 +249,92 @@ def list_messages_for_user(user_id: int, limit: int = 50) -> list[dict]:
                 (user_id, limit),
             )
             return [dict(zeile) for zeile in cur.fetchall()]
+
+
+def set_code_workspaces(code_id: int, workspace_ids: list[int]) -> None:
+    """Replaces the workspaces a code enrolls into, unknown ids simply drop out."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM access_code_workspaces WHERE code_id = %s", (code_id,))
+            if workspace_ids:
+                cur.execute(
+                    """INSERT INTO access_code_workspaces (code_id, workspace_id)
+                       SELECT %s, id FROM aia_workspaces WHERE id = ANY(%s)""",
+                    (code_id, list(workspace_ids)),
+                )
+        conn.commit()
+
+
+def workspaces_by_code() -> dict[int, list[dict]]:
+    """Every code's workspaces with title and owner, for the list in one query."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute(
+                """SELECT cw.code_id, w.id, w.title, w.user_id AS owner_id,
+                          COALESCE(NULLIF(u.display_name, ''), u.ldap_username) AS owner_name
+                   FROM access_code_workspaces cw
+                   JOIN aia_workspaces w ON w.id = cw.workspace_id
+                   LEFT JOIN users u ON u.id = w.user_id
+                   ORDER BY w.title"""
+            )
+            ergebnis: dict[int, list[dict]] = {}
+            for zeile in cur.fetchall():
+                eintrag = dict(zeile)
+                ergebnis.setdefault(eintrag.pop("code_id"), []).append(eintrag)
+            return ergebnis
+
+
+def list_workspace_owners() -> list[dict]:
+    """Every real account that owns workspaces, each with its workspaces, demo accounts left out."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute(
+                """SELECT u.id AS user_id, u.role,
+                          COALESCE(NULLIF(u.display_name, ''), u.ldap_username) AS name,
+                          u.ldap_username AS username,
+                          w.id AS workspace_id, w.title
+                   FROM aia_workspaces w
+                   JOIN users u ON u.id = w.user_id
+                   WHERE NOT u.is_demo
+                   ORDER BY LOWER(COALESCE(NULLIF(u.display_name, ''), u.ldap_username)), LOWER(w.title)"""
+            )
+            besitzer: dict[int, dict] = {}
+            for zeile in cur.fetchall():
+                eintrag = besitzer.setdefault(zeile["user_id"], {
+                    "user_id": zeile["user_id"],
+                    "name": zeile["name"],
+                    "username": zeile["username"],
+                    "role": zeile["role"],
+                    "workspaces": [],
+                })
+                eintrag["workspaces"].append({"id": zeile["workspace_id"], "title": zeile["title"]})
+            return list(besitzer.values())
+
+
+def enroll_into_code_workspaces(code_id: int, user_ids: list[int]) -> int:
+    """Enrolls these accounts as learners in every workspace of the code, the owner itself is skipped."""
+    if not user_ids:
+        return 0
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """INSERT INTO aia_enrollments (workspace_id, user_id, role)
+                   SELECT cw.workspace_id, konto.id, 'student'
+                   FROM access_code_workspaces cw
+                   JOIN aia_workspaces w ON w.id = cw.workspace_id
+                   CROSS JOIN UNNEST(%s::int[]) AS konto(id)
+                   WHERE cw.code_id = %s AND w.user_id <> konto.id
+                   ON CONFLICT (workspace_id, user_id) DO NOTHING""",
+                (list(user_ids), code_id),
+            )
+            anzahl = cur.rowcount
+        conn.commit()
+        return anzahl
+
+
+def list_user_ids_for_code(code_id: int) -> list[int]:
+    """The ids of every account a code created."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id FROM users WHERE access_code_id = %s", (code_id,))
+            return [zeile[0] for zeile in cur.fetchall()]
