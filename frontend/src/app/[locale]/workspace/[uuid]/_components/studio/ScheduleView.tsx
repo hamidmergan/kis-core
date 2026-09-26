@@ -123,6 +123,16 @@ export function ScheduleView({
     return () => { cancelled = true; stopPolling(); };
   }, [workspaceUuid, load, startPolling, stopPolling]);
 
+  // A deleted source takes its appointments along, so the list loads again.
+  const sourceKey = sources.map((s) => s.uuid).join(",");
+  const lastSourceKey = useRef(sourceKey);
+  useEffect(() => {
+    const before = lastSourceKey.current.split(",").filter(Boolean);
+    lastSourceKey.current = sourceKey;
+    const now = new Set(sourceKey.split(","));
+    if (before.some((u) => !now.has(u))) load();
+  }, [sourceKey, load]);
+
   // Numbered by first appearance, matching the legend.
   const { sourceLegend, sourceNumByUuid } = useMemo(() => {
     const byUuid = new Map<string, number>();

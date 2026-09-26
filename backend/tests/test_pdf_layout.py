@@ -9,6 +9,7 @@ from src.services.pdf_layout import (
     page_reading_order,
     slide_groups,
     strip_boilerplate_text,
+    strip_furniture,
 )
 
 
@@ -300,3 +301,62 @@ def test_a_long_lead_paragraph_is_never_used_as_a_title():
 
 def test_a_short_heading_still_rides_along():
     assert all("PRÜFUNGSLEISTUNG" in g for g in slide_groups(BULLET_PAGE, min_chars=60))
+
+
+# ── page counters and running footers ────────────────────────────────────────
+
+def test_a_footer_that_differs_only_in_its_page_counter_is_dropped():
+    pages = [[L(f"Grundlagen der Informatik | Prof. Müller | Seite {i + 1} von 6"),
+              L(f"Inhalt {i}")] for i in range(6)]
+    out = drop_boilerplate_lines(pages)
+    assert [[b.text for b in p] for p in out] == [[f"Inhalt {i}"] for i in range(6)]
+
+
+def test_a_footer_with_a_trailing_page_number_is_dropped():
+    pages = [[L(f"Grundlagen der Informatik – {i + 1}"), L(f"Inhalt {i}")] for i in range(6)]
+    out = drop_boilerplate_lines(pages)
+    assert [[b.text for b in p] for p in out] == [[f"Inhalt {i}"] for i in range(6)]
+
+
+def test_a_bare_page_counter_is_a_page_number():
+    for zeile in ("Seite 3 von 12", "Page 3 of 12", "S. 4", "Folie 7", "3 / 12", "- 3 -"):
+        assert is_boilerplate(zeile, set()), zeile
+
+
+def test_a_sentence_naming_a_page_is_no_page_number():
+    assert not is_boilerplate("Siehe Seite 3 für die Herleitung", set())
+    assert not is_boilerplate("Kapitel 3 behandelt die Grundlagen", set())
+
+
+def test_a_numbered_line_per_page_without_separator_stays():
+    # "Inhalt 1", "Inhalt 2" differ in their number, they are content.
+    pages = [[L(f"Übung {i + 1}"), L(f"Aufgabe zu Thema {i}")] for i in range(6)]
+    out = drop_boilerplate_lines(pages)
+    assert out[0][0].text == "Übung 1"
+
+
+def _gesetzesseiten(n=6):
+    """Pages whose footer "- Seite 2 von 11 -" arrives in five pieces, like pdfium reads it."""
+    return [[L(f"Absatz {i} mit Inhalt", y=400), L("- Seite", x=277, y=17), L(str(i + 1), x=303, y=17),
+             L("von", x=309, y=17), L(str(n), x=325, y=17), L("-", x=336, y=19)] for i in range(n)]
+
+
+def test_the_short_pieces_of_a_split_footer_go_with_it():
+    pages = _gesetzesseiten()
+    keys = boilerplate_keys(pages)
+    assert [b.text for b in strip_furniture(pages[0], keys)] == ["Absatz 0 mit Inhalt"]
+
+
+def test_short_text_inside_the_page_stays():
+    pages = _gesetzesseiten()
+    keys = boilerplate_keys(pages)
+    seite = pages[0] + [L("von", y=200), L("-", y=201)]
+    assert [b.text for b in strip_furniture(seite, keys)] == ["Absatz 0 mit Inhalt", "von", "-"]
+
+
+def test_a_bare_number_does_not_take_its_formula_neighbours_along():
+    # Only a repeated footer piece clears its row, a page number alone does not.
+    pages = [[L(f"Herleitung {i} der Formel", y=400), L("x", y=30), L("=", y=30), L(str(i + 2), y=31)]
+             for i in range(6)]
+    keys = boilerplate_keys(pages)
+    assert [b.text for b in strip_furniture(pages[0], keys)] == ["Herleitung 0 der Formel", "x", "="]

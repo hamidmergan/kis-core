@@ -140,6 +140,8 @@ class PraesentationParams(BaseModel):
     notes: bool = False
     # What they decide in the slides step: whether those notes reach the file.
     notes_include: bool = True
+    # The chat provider that writes the deck, None runs on the admin route.
+    llm_provider_id: int | None = None
     template_id: str = SYSTEM_VORLAGE
     template_name: str = ""
     # True when the saved template could not be read and the system one stepped in.

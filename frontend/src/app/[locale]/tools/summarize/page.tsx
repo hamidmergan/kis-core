@@ -40,6 +40,7 @@ export default function ZusammenfassungPage() {
   const [moduleId, setModuleId] = useState("");
   const [sourceIds, setSourceIds] = useState<string[]>([]);
   const [template, setTemplate] = useState("");
+  const [instructions, setInstructions] = useState("");
   const [processing, setProcessing] = useState(false);
   const [step, setStep] = useState("");
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -154,6 +155,7 @@ export default function ZusammenfassungPage() {
       }
       if (template) formData.append("template", template);
       if (providerId != null) formData.append("provider_id", String(providerId));
+      if (instructions.trim()) formData.append("instructions", instructions.trim());
       const response = await backendApi.fetch("/summary", { method: "POST", body: formData });
       if (!response.ok) {
         const err = await response.json().catch(() => ({ detail: tCommon("unknownError") }));
@@ -391,6 +393,21 @@ export default function ZusammenfassungPage() {
             </div>
           )}
 
+          <div className="mt-6">
+            <label htmlFor="summary-instructions" className="block text-sm font-medium text-foreground mb-1">
+              {t("instructionsLabel")}
+            </label>
+            <textarea
+              id="summary-instructions"
+              value={instructions}
+              onChange={(e) => setInstructions(e.target.value)}
+              disabled={processing}
+              rows={3}
+              placeholder={t("instructionsPlaceholder")}
+              className="w-full px-3 py-2 text-sm border-2 border-border rounded-md bg-background hover:border-kb focus:outline-none focus:border-kb placeholder:text-muted-soft resize-y"
+            />
+          </div>
+
           <ProviderSelect
             id="summary-provider-select"
             label={t("providerLabel")}
@@ -399,6 +416,7 @@ export default function ZusammenfassungPage() {
             onChange={setProviderId}
             disabled={processing}
             className="mt-6"
+            showModel
           />
 
           {!doneJobUuid && (

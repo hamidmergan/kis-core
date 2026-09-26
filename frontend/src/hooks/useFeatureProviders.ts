@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { backendApi } from "@/lib/api";
 
-export type FeatureProvider = { id: number; name: string };
+export type FeatureProvider = { id: number; name: string; model?: string };
 
 type ProvidersResponse = { providers: FeatureProvider[]; default_id: number | null };
 

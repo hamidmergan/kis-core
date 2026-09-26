@@ -190,7 +190,8 @@ async def regen_slide(job_uuid: str, slide_id: str, body: RegenRequest,
               or _stellen_der_folie(user_id, job_uuid, row)
               or _material(user_id, job_uuid)[:PRAESENTATION_SLIDE_CONTEXT_CHARS])
     try:
-        antwort = llm_antwort(folien.regen_messages(alt, row, form, params, verlauf(body), body.selected_text, quelle))
+        antwort = llm_antwort(folien.regen_messages(alt, row, form, params, verlauf(body), body.selected_text, quelle),
+                              params.llm_provider_id)
         neu = folien.parse_answer(antwort, [row], {row.id: form}, params.notes)[0]
     except Exception as e:  # noqa: BLE001 - the provider is the only source of failure here
         logger.warning("Präsentation: Folie neu vorschlagen gescheitert: {}", e)

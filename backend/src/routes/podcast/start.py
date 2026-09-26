@@ -15,6 +15,7 @@ from src.features.podcast.schemas import Line, PodcastParams
 from src.i18n import get_locale, t
 from src.limits import PODCAST_MAX_SOURCES
 from src.quotas import enforce_quota
+from src.services import feature_provider_choices
 from src.services.job_statistik import messe_vorab, notiere
 from src.services.open_jobs import enforce_open_jobs
 from src.routes.podcast._shared import pruefe_params
@@ -34,6 +35,9 @@ def _pruefe_params(roh: str, locale: str) -> PodcastParams:
     except (json.JSONDecodeError, ValidationError, TypeError) as e:
         logger.warning("Podcast: Einstellungen unlesbar: {}", e)
         raise HTTPException(status_code=422, detail=t("podcast.badParams", locale)) from e
+    if params.llm_provider_id is not None and not feature_provider_choices.is_eligible(
+            "chat", params.llm_provider_id):
+        raise HTTPException(status_code=400, detail=t("podcast.invalidProvider", locale))
     return pruefe_params(params, locale)
 
 
@@ -93,6 +97,12 @@ async def _quellen_lesen(mode: str, files, workspace_uuid: str, source_uuids: st
         raise HTTPException(status_code=422, detail=t("podcast.noContent", locale))
     return await quellen.read_uploads(files, locale=locale,
                                       hoechstens=PODCAST_MAX_SOURCES, schluessel="podcast")
+
+
+@router.get("/podcast/providers")
+async def list_podcast_providers(_user: dict = Depends(get_current_user)):
+    """Reachable chat providers, the script is written on the chat model."""
+    return await feature_provider_choices.list_reachable_choices("chat")
 
 
 @router.post("/podcast/start")

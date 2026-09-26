@@ -115,6 +115,28 @@ def _params(**kw):
 
 
 
+class TestKiAnbieter:
+    def test_ein_nicht_waehlbarer_anbieter_wird_abgewiesen(self, env, monkeypatch):
+        import src.routes.podcast.start as start_route
+
+        client, *_ = env
+        monkeypatch.setattr(start_route.feature_provider_choices, "is_eligible", lambda f, pid: False)
+        antwort = client.post("/podcast/start", data={"params": _params(llm_provider_id=99), "mode": "blank"})
+        assert antwort.status_code == 400
+
+    def test_der_gewaehlte_anbieter_reist_in_den_einstellungen_mit(self, env, monkeypatch):
+        import src.routes.podcast.start as start_route
+
+        client, *_ = env
+        gespeichert = []
+        monkeypatch.setattr(start_route.feature_provider_choices, "is_eligible", lambda f, pid: pid == 21)
+        monkeypatch.setattr(start_route.store, "save_params",
+                            lambda uid, job, params: gespeichert.append(params))
+        antwort = client.post("/podcast/start", data={"params": _params(llm_provider_id=21), "mode": "blank"})
+        assert antwort.status_code == 200
+        assert gespeichert[0].llm_provider_id == 21
+
+
 class TestSkriptUndVertonung:
     def _job(self, jobs, status="awaiting_user"):
         jobs[UUID] = {"job_uuid": UUID, "user_id": 7, "tool": "podcast", "status": status,

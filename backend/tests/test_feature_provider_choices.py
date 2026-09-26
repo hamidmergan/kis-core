@@ -194,3 +194,35 @@ def test_fallback_candidates_no_other_providers_is_empty(monkeypatch):
     monkeypatch.setattr(svc.db, "get_route", lambda f: _route(20, "m", {}))
 
     assert svc.fallback_candidates("chat") == []
+
+
+# ─── binding_for ─────────────────────────────────────────────────────────────
+
+
+def test_binding_for_without_choice_takes_the_admin_route(monkeypatch):
+    monkeypatch.setattr(svc.feature_router, "resolve", lambda f: f"route:{f}")
+    assert svc.binding_for("chat", None) == "route:chat"
+
+
+def test_binding_for_takes_the_chosen_provider(monkeypatch):
+    monkeypatch.setattr(svc.db, "get_provider", lambda pid: _provider(21, caps=("chat",)))
+    monkeypatch.setattr(svc.db, "get_route", lambda f: _route(20, "primary", {"21": "m21"}))
+    binding = svc.binding_for("chat", 21)
+    assert binding.provider["id"] == 21
+    assert binding.model == "m21"
+
+
+def test_binding_for_falls_back_when_the_choice_is_gone(monkeypatch):
+    monkeypatch.setattr(svc.db, "get_provider", lambda pid: _provider(21, caps=("chat",), enabled=False))
+    monkeypatch.setattr(svc.db, "get_route", lambda f: _route(20, "primary", {"21": "m21"}))
+    monkeypatch.setattr(svc.feature_router, "resolve", lambda f: "admin-route")
+    assert svc.binding_for("chat", 21) == "admin-route"
+
+
+async def test_list_reachable_names_the_model_of_each_provider(monkeypatch):
+    providers = [_provider(20, caps=("chat",)), _provider(21, caps=("chat",))]
+    monkeypatch.setattr(svc.db, "list_providers_with_capability", lambda cap: providers)
+    monkeypatch.setattr(svc.db, "get_route", lambda f: _route(21, "m21", {"20": "m20"}))
+    monkeypatch.setattr(svc, "make_adapter", lambda **kw: _FakeAdapter("ok"))
+    result = await svc.list_reachable_choices("chat")
+    assert {p["id"]: p["model"] for p in result["providers"]} == {20: "m20", 21: "m21"}

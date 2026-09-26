@@ -20,6 +20,8 @@ export interface PodcastView {
   error: string | null;
   params: PodcastParamsView | null;
   lines: Line[];
+  /** The parts already written while the script is still being written. */
+  draft?: Line[];
   voiced: string[];
   has_result: boolean;
 }
@@ -32,7 +34,8 @@ async function fehlerText(res: Response): Promise<string> {
 }
 
 /** Step one: material and cast go out, a job comes back. */
-export async function startPodcast(state: PodcastState, glossary: Record<string, string>): Promise<string> {
+export async function startPodcast(state: PodcastState, glossary: Record<string, string>,
+                                   llmProviderId: number | null): Promise<string> {
   const persons = state.persons.slice(0, state.count).map((p) => ({
     name: p.name.trim(),
     role: p.role,
@@ -48,6 +51,7 @@ export async function startPodcast(state: PodcastState, glossary: Record<string,
     style: state.style,
     speed: state.speed,
     glossary,
+    llm_provider_id: llmProviderId,
   }));
   form.append("mode", state.source.mode);
   if (state.source.mode === "files") state.source.files.forEach((f) => form.append("files", f));

@@ -82,10 +82,10 @@ async def rephrase_line(
         nachrichten = skript.rephrase_messages(zeilen[stelle], params, umfeld)
     try:
         from src.services import feature_router
+        from src.services.feature_provider_choices import binding_for
         from src.services.json_llm import call_json_llm
 
-        binding = feature_router.resolve("chat")
-        llm = feature_router.make_llm_client(binding)
+        llm = feature_router.make_llm_client(binding_for("chat", params.llm_provider_id))
         antwort = call_json_llm(llm, nachrichten)
         neu = skript.clean_rephrased(antwort.choices[0].message.content or "", zeilen[stelle].text)
     except Exception as e:  # noqa: BLE001 — der Anbieter ist die einzige Fehlerquelle hier

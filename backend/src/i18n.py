@@ -235,6 +235,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Jede Person braucht einen Namen, eine Rolle und eine Stimme.",
         "en": "Every person needs a name, a role and a voice.",
     },
+    "podcast.invalidProvider": {
+        "de": "Ungültiger KI-Anbieter ausgewählt",
+        "en": "Invalid AI provider selected",
+    },
     "podcast.noContent": {
         "de": "Ohne Material gibt es nichts zu erzählen.",
         "en": "Without material there is nothing to tell.",

@@ -23,6 +23,7 @@ from src.features.praesentation.schemas import Body, Slide
 from src.features.praesentation.teilung import schriftgrad, zeilen
 from src.features.praesentation.vorlage import EMU_PER_PT, Analyse, Feld, Layout
 from src.services.screencast.pptx import _load_font
+from src.utils import local_date
 
 _OHNE_RANDTEXT = ("deckblatt", "abschluss")
 # The AI notice in the bottom right corner: a fixed size, in dark grey.
@@ -236,7 +237,7 @@ def _folie(prs, layout: Layout, s: Slide, bilder: dict[str, bytes], titel: str, 
 
 def datum_text(sprache: str, tag: date | None = None) -> str:
     """The day the deck is built, written the way its language writes dates."""
-    return format_date(tag or date.today(), format="medium", locale=sprache or "de")
+    return format_date(tag or local_date.today(), format="medium", locale=sprache or "de")
 
 
 _A = "{http://schemas.openxmlformats.org/drawingml/2006/main}"

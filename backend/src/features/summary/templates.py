@@ -43,8 +43,9 @@ TEMPLATES: tuple[Template, ...] = (
             "Under each heading: bullet points, one statement each, the most consequential "
             "first. Pick what matters most, a briefing never lists everything. Each figure, "
             "deadline and responsibility you keep stands with what it refers to. Where the "
-            "material comes from more than one document, begin each bullet with the document's "
-            "short name, in bold and followed by a colon."
+            "material comes from more than one document, name each document once as a bullet, "
+            "its short name in bold, with its statements as sub bullets under it. With a single "
+            "document, never name it as a bullet."
         ),
         sections=(4, 7),
         length_chars=9_000,

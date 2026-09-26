@@ -63,7 +63,8 @@ async def regen_row(job_uuid: str, row_id: str, body: RegenRequest,
     quelle = (Karte(quellenliste).passagen(row.stellen, budget=PRAESENTATION_SLIDE_CONTEXT_CHARS)
               if row.stellen else quellen.as_block(quellenliste)[:PRAESENTATION_SLIDE_CONTEXT_CHARS])
     try:
-        titel, gist = gliederung.parse_row(llm_antwort(gliederung.regen_messages(row, outline, params, verlauf(body), quelle)))
+        titel, gist = gliederung.parse_row(llm_antwort(gliederung.regen_messages(row, outline, params, verlauf(body), quelle),
+                                                        params.llm_provider_id))
     except Exception as e:  # noqa: BLE001 - the provider is the only source of failure here
         logger.warning("Präsentation: Zeile neu vorschlagen gescheitert: {}", e)
         raise HTTPException(status_code=502, detail=t("praesentation.regenFailed", locale)) from e

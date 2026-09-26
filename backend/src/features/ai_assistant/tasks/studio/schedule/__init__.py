@@ -29,10 +29,10 @@ from src.features.ai_assistant.tasks.studio.schedule._harmonize import (
     _harmonize_same_date_titles,
 )
 from src.features.ai_assistant.tasks.studio.schedule._parse import (
-    _parse_date,
+    _candidate_start,
     _parse_time,
     _range_end_date,
-    _resolve_current_year,
+    _year_evidence,
 )
 from src.features.ai_assistant.tasks.studio.schedule._titles import _find_merge_target
 
@@ -223,10 +223,14 @@ def run_generate_schedule(self, job_id: int, workspace_id: int, user_id: int,
         cross_user_anchors = [e for e in workspace_entries if e["id"] not in own_ids]
         harmonize_anchors = existing_entries + cross_user_anchors
 
+        # A year written anywhere in the workspace beats the assumed one.
+        evidence = _year_evidence(all_candidates, workspace_entries)
+
         # Harmonise titles of the same day so no duplicates appear later.
         try:
             _harmonize_same_date_titles(
                 client, model, all_candidates, classifications, today_d, harmonize_anchors,
+                evidence,
             )
         except Exception as e:
             logger.warning("Schedule job {}: harmonize pass failed (non-fatal): {}", job_id, e)
@@ -244,15 +248,8 @@ def run_generate_schedule(self, job_id: int, workspace_id: int, user_id: int,
                 continue
 
             # Resolve the date: complete, month and day only, or none at all.
-            if cand.get("is_tbd"):
-                due_date_obj = None
-            elif cand["date_iso"]:
-                due_date_obj = _parse_date(cand["date_iso"])
-            elif cand.get("partial_date"):
-                mo, da = cand["partial_date"]
-                due_date_obj = _resolve_current_year(today_d, mo, da)
-            else:
-                due_date_obj = None
+            due_date_obj, year_assumed = _candidate_start(
+                cand, today_d, evidence, use_end=bool(cls.get("is_range")))
             # Only non-TBD candidates require a resolved date
             if due_date_obj is None and not cand.get("is_tbd"):
                 continue
@@ -278,9 +275,12 @@ def run_generate_schedule(self, job_id: int, workspace_id: int, user_id: int,
                 end_date=end_date_obj,
             )
             if merge_target:
-                db.append_source_ref_to_entry(merge_target["id"], ref)
+                db.append_source_ref_to_entry(merge_target["id"], ref,
+                                              year_written=not year_assumed)
                 # Update local view too, so subsequent candidates see the merge
                 merge_target.setdefault("source_refs", []).append(ref)
+                if not year_assumed:
+                    merge_target["year_assumed"] = False
                 logger.info("Schedule job {}: merged '{}' into entry #{}",
                             job_id, cls["title"], merge_target["id"])
                 continue
@@ -301,6 +301,7 @@ def run_generate_schedule(self, job_id: int, workspace_id: int, user_id: int,
                 is_optional=cls["is_optional"],
                 origin="llm",
                 source_refs=[ref],
+                year_assumed=year_assumed,
             )
             existing_entries.append(new_row)
             added += 1

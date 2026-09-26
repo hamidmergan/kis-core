@@ -9,8 +9,6 @@ from loguru import logger
 _BOILERPLATE_SHARE = 0.6
 # Under this many pages "stands on most pages" says nothing at all.
 _BOILERPLATE_MIN_PAGES = 4
-# A bare number on its own line is a page number.
-_PAGE_NUMBER_MAX_DIGITS = 4
 # This close two baselines have to be to be the same line.
 _ROW_TOLERANCE = 1.0
 # This far a sub-point has to be indented at least.
@@ -38,14 +36,32 @@ def page_reading_order(lines: list[LineBox]) -> list[LineBox]:
     return sorted(lines, key=lambda b: (-round(b.y / _ROW_TOLERANCE), b.x))
 
 
+# A page counter: "Seite 3 von 12", "Page 3 of 12", "Folie 3", "S. 3", "3 / 12" or a bare "3".
+_COUNTER = r"(?:(?:seite|page|folie|slide|s\.|p\.)\s*)?\d{1,4}(?:\s*(?:von|of|/)\s*\d{1,4})?"
+# The counter with its total, specific enough to stand at a line's edge without a separator.
+_FULL_COUNTER = r"(?:(?:seite|page|folie|slide)\s*)?\d{1,4}\s*(?:von|of|/)\s*\d{1,4}"
+_SEPARATOR = r"[|•·–—-]"
+# The counter at either end of a running title, so the title is the same line on every page.
+_EDGE_COUNTER = re.compile(
+    rf"^\s*{_COUNTER}\s*{_SEPARATOR}|{_SEPARATOR}\s*{_COUNTER}\s*$"
+    rf"|^\s*{_FULL_COUNTER}\b|\b{_FULL_COUNTER}\s*$", re.I)
+# A line that is nothing but a counter, "Seite 3 von 12" or "- 3 -".
+_PAGE_NUMBER = re.compile(rf"^[\s|•·–—-]*{_COUNTER}[\s|•·–—-]*$", re.I)
+
+
 def _norm(text: str) -> str:
-    """Comparison form of a line, letters and digits only."""
-    return " ".join(re.sub(r"[^\w\s]", " ", text.lower()).split())
+    """Comparison form of a line: letters and digits only, a page counter at its edge left out.
+
+    Without the counter, a footer that differs only in its page number is the same line
+    on every page.
+    """
+    ohne = _EDGE_COUNTER.sub(" ", text)
+    return " ".join(re.sub(r"[^\w\s]", " ", ohne.lower()).split())
 
 
 def _is_page_number(text: str) -> bool:
-    s = text.strip()
-    return s.isdigit() and len(s) <= _PAGE_NUMBER_MAX_DIGITS
+    """A line that is nothing but a page counter."""
+    return bool(_PAGE_NUMBER.match(text.strip()))
 
 
 def merge_rows(boxes: list[LineBox]) -> list[LineBox]:
@@ -111,6 +127,30 @@ def boilerplate_keys(pages: list[list[LineBox]],
 def is_boilerplate(text: str, keys: set[str]) -> bool:
     """True for a running header/footer line or a bare page number."""
     return _norm(text) in keys or _is_page_number(text)
+
+
+# This close in height a short leftover sits to a header or footer piece to belong to it.
+_FURNITURE_ROW = 3.0
+
+
+def strip_furniture(boxes: list[LineBox], keys: set[str]) -> list[LineBox]:
+    """The boxes of a page without header and footer, their short leftovers included.
+
+    A footer often arrives in pieces, "- Seite", "2", "von", "11", "-". The long pieces are
+    recognised, the short ones in between are only dropped when they share a row with a
+    piece that repeats through the document and stands above or below all the content of
+    the page. A bare number is not enough, in a formula it would take its neighbours along.
+    """
+    weg = [b for b in boxes if is_boilerplate(b.text, keys)]
+    inhalt = [b.y for b in boxes if b not in weg and len(_norm(b.text)) >= _BOILERPLATE_MIN_CHARS]
+    rand = [w for w in weg if _norm(w.text) in keys
+            and (not inhalt or w.y > max(inhalt) or w.y < min(inhalt))]
+
+    def rest(b: LineBox) -> bool:
+        return (len(_norm(b.text)) < _BOILERPLATE_MIN_CHARS
+                and any(abs(b.y - w.y) <= _FURNITURE_ROW for w in rand))
+
+    return [b for b in boxes if b not in weg and not rest(b)]
 
 
 def strip_boilerplate_text(text: str, keys: set[str]) -> str:

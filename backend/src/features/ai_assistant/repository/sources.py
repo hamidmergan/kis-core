@@ -207,14 +207,16 @@ def update_aia_source_summary(uuid: str, summary: str) -> None:
         conn.commit()
 
 def delete_aia_source(uuid: str) -> None:
-    """Deletes a source, finished exercise sets get their content beforehand."""
+    """Deletes a source, finished exercise sets get their content beforehand, the schedule loses its hits."""
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT id FROM aia_sources WHERE uuid = %s", (uuid,))
+            cur.execute("SELECT id, workspace_id FROM aia_sources WHERE uuid = %s", (uuid,))
             row = cur.fetchone()
     if row:
         from src.features.ai_assistant.repository.exercise_pool import materialize_pool_items
+        from src.features.ai_assistant.repository.schedule import remove_source_from_schedule
         materialize_pool_items(row[0])
+        remove_source_from_schedule(row[1], uuid)
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("DELETE FROM aia_sources WHERE uuid = %s", (uuid,))

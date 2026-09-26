@@ -40,13 +40,13 @@ _BISHER_ZEILEN = 4
 _ANFANG_WORTE = 12
 
 
-def _fenster() -> int:
+def _fenster(provider_id: int | None) -> int:
     """Das gemessene Fenster des Modells, 0 wenn es keines gibt."""
-    from src.services import feature_router
+    from src.services.feature_provider_choices import binding_for
     from src.services.model_limits import ensure_profile
 
     try:
-        binding = feature_router.resolve("chat")
+        binding = binding_for("chat", provider_id)
         profil = ensure_profile(binding.provider, binding.model or "")
         return profil.window_tokens if profil.measured else 0
     except Exception as e:  # noqa: BLE001 - ohne Messung gilt das kleinste zugelassene Fenster
@@ -73,7 +73,7 @@ def _grundlage(user_id: int, job_uuid: str, karte: tm.Karte, params, llm) -> tm.
         with ThreadPoolExecutor(max_workers=len(nachrichten)) as pool:
             return list(pool.map(_eine, nachrichten))
 
-    g = tm.grundlage(karte, _fenster(),
+    g = tm.grundlage(karte, _fenster(params.llm_provider_id),
                      language="German" if params.language == "de" else "English",
                      zweck="a podcast episode for university teaching", frage=_frage)
     write_job_text(user_id, job_uuid, _MAP_FILE,
@@ -162,6 +162,9 @@ def _schreiben(llm, karte: tm.Karte, g: tm.Grundlage, params, job_uuid: str,
                               job_uuid, f"Teil {i}")
         neue = skript.ohne_eigene_anrede(neue, [p.name for p in params.persons])
         zeilen.extend(neue)
+        # The next part's progress tells the page to fetch this draft, the last one needs none.
+        if user_id is not None and i < len(plan):
+            store.save_draft(user_id, job_uuid, zeilen)
     return zeilen[:PODCAST_MAX_LINES]
 
 
@@ -192,15 +195,16 @@ def run_podcast_script(self, job_uuid: str, user_id: int, locale: str = "de",
             raise RuntimeError("Auftrag ohne Einstellungen")
 
         from src.services import feature_router
+        from src.services.feature_provider_choices import binding_for
 
-        llm = feature_router.make_llm_client(feature_router.resolve("chat"))
+        llm = feature_router.make_llm_client(binding_for("chat", params.llm_provider_id))
         karte = tm.Karte(quellenliste)
         if not len(karte):
             raise RuntimeError(t("podcast.noContent", locale))
 
         db.update_job_status(job_uuid, "running", progress={"step": "script"})
         with job_heartbeat(job_uuid), messe(user_id, job_uuid, "skript") as zahlen:
-            zahlen.update(route_kennung("chat"))
+            zahlen.update(route_kennung("chat", params.llm_provider_id))
             zahlen["zeichen"] = sum(len(q.text) for q in quellenliste)
             zahlen["personen"] = len(params.persons)
             zahlen["rollen"] = ", ".join(person.role for person in params.persons)

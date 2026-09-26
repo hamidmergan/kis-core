@@ -249,7 +249,9 @@
       "saveError": "The entry could not be saved."
     },
     "fromMark": "from",
-    "untilMark": "by"
+    "untilMark": "by",
+    "yearAssumed": "The source gives no year. {jahr} is assumed because it puts the date closest to today.",
+    "yearAssumedAria": "year assumed"
   },
   "imprint": {
     "title": "Imprint",
@@ -444,10 +446,12 @@
       "intro": "Bring several sources together into one text, as a short briefing, study guide or timeline.",
       "selectFileAria": "Choose files to summarise",
       "submit": "Create summary",
-      "downloadLabel": "Download",
-      "downloadDocxLabel": "Download as Word",
+      "downloadLabel": "Download MD",
+      "downloadDocxLabel": "Download DOCX",
       "providerLabel": "AI provider",
       "templateLabel": "Template",
+      "instructionsLabel": "Instruction, optional",
+      "instructionsPlaceholder": "For example: only chapter 2, for first-year students, highlight deadlines",
       "tabs": { "files": "Files" },
       "noModules": "You do not have a workspace with sources yet.",
       "noSources": "No source here has finished processing yet.",
@@ -1049,6 +1053,7 @@
         "removeFile": "Remove {name}",
         "sourcesLabel": "Sources",
         "languageLabel": "Podcast language",
+        "providerLabel": "AI provider",
         "languages": {
           "de": "German",
           "en": "English"
@@ -1113,6 +1118,7 @@
       "script": {
         "generating": "The script is being written",
         "generatingSubtle": "The model reads your material and spreads the lines across {n, plural, =1 {one voice} other {# voices}}.",
+        "generatingParts": "{done} of {total} parts written, the finished contributions are below.",
         "heading": "Check the script",
         "intro": "Every line can be edited, rephrased or deleted. Voicing starts only when you are happy with it.",
         "summary": "{lines, plural, =1 {One line} other {# lines}}, {words} words, about {minutes, plural, =1 {one minute} other {# minutes}}",
@@ -1223,6 +1229,7 @@
         "editTemplate": "Edit {name}",
         "deleteTemplate": "Delete {name}",
         "languageLabel": "Slide language",
+        "providerLabel": "AI provider",
         "languages": { "de": "German", "en": "English" },
         "instructionsLabel": "Instruction (optional)",
         "instructionsPlaceholder": "For example: only chapter 2, for first-year students, with practical examples",
@@ -1275,7 +1282,7 @@
         "heading": "Check slides",
         "summary": "{n} slides.",
         "failed": "The build failed.",
-        "resume": "Continue",
+        "retry": "Try again",
         "roles": { "deckblatt": "Cover", "abschnitt": "Section", "text": "Text", "zwei_spalten": "Two columns", "text_mit_bild": "Text with image", "bild_gross": "Image", "abschluss": "Closing" },
         "imageMissing": "Image missing",
         "noPreview": "No preview",
@@ -1297,7 +1304,7 @@
         "deleteWarning": "The slide is removed with its text and image. This cannot be undone.",
         "deleteConfirm": "Delete",
         "progressOutline": "Writing the outline",
-        "restart": "Start over",
+        "restart": "Back to the first step",
         "notesInclude": "Include speaker notes",
         "expandAll": "Expand all",
         "insertTitle": "New slide",

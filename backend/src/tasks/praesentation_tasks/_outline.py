@@ -10,6 +10,7 @@ from src.features.praesentation import gliederung, store, vorlage
 from src.i18n import t
 from src.limits import STAGE_SOFT_TIME_LIMIT, STAGE_TIME_LIMIT
 from src.services import feature_router
+from src.services.feature_provider_choices import binding_for
 from src.services import text_map as tm
 from src.services.json_llm import call_json_llm
 from src.services import sources as quellen
@@ -25,12 +26,12 @@ _VERSUCHE = 2
 _ZWECK = "a slide deck for university teaching"
 
 
-def _fenster() -> int:
+def _fenster(provider_id: int | None) -> int:
     """Das gemessene Fenster des Modells, 0 wenn es keines gibt."""
     from src.services.model_limits import ensure_profile
 
     try:
-        binding = feature_router.resolve("chat")
+        binding = binding_for("chat", provider_id)
         profil = ensure_profile(binding.provider, binding.model or "")
         return profil.window_tokens if profil.measured else 0
     except Exception as e:  # noqa: BLE001 - ohne Messung gilt das kleinste zugelassene Fenster
@@ -52,12 +53,13 @@ def _frage(llm):
     return _alle
 
 
-def _grundlage(user_id: int, job_uuid: str, karte: tm.Karte, sprache: str, llm) -> tm.Grundlage:
+def _grundlage(user_id: int, job_uuid: str, karte: tm.Karte, sprache: str, llm,
+               provider_id: int | None = None) -> tm.Grundlage:
     """What the outline call reads: the numbered text, or its topics when it is too long."""
     gemerkt = tm.grundlage_aus_dict(store.load_map(user_id, job_uuid), karte)
     if gemerkt:
         return gemerkt
-    g = tm.grundlage(karte, _fenster(), language=gliederung.SPRACHE.get(sprache, "German"),
+    g = tm.grundlage(karte, _fenster(provider_id), language=gliederung.SPRACHE.get(sprache, "German"),
                      zweck=_ZWECK, frage=_frage(llm))
     store.save_map(user_id, job_uuid, tm.grundlage_als_dict(g))
     logger.info("Präsentation {}: {} Stellen, geplant ueber {}", job_uuid[:8], len(karte),
@@ -84,7 +86,7 @@ def run_praesentation_outline(self, job_uuid: str, user_id: int, locale: str = "
         if not params or analyse is None:
             raise RuntimeError("Auftrag ohne Vorlage oder Einstellungen")
 
-        llm = feature_router.make_llm_client(feature_router.resolve("chat"))
+        llm = feature_router.make_llm_client(binding_for("chat", params.llm_provider_id))
         karte = tm.Karte(quellenliste)
         if not len(karte):
             raise RuntimeError(t("praesentation.noContent", locale))
@@ -93,7 +95,7 @@ def run_praesentation_outline(self, job_uuid: str, user_id: int, locale: str = "
         rollen = vorlage.waehlbare_rollen(analyse)
         letzter = ""
         with job_heartbeat(job_uuid):
-            g = _grundlage(user_id, job_uuid, karte, params.language, llm)
+            g = _grundlage(user_id, job_uuid, karte, params.language, llm, params.llm_provider_id)
             dateien = [q.dateiname for q in quellenliste if q.stuecke]
             ziel = gliederung.ziel_folien(sum(len(q.text) for q in quellenliste))
             anteile = gliederung.folien_je_datei(karte, ziel - gliederung.RAHMEN_FOLIEN)

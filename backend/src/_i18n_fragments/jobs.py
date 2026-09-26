@@ -161,10 +161,6 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Diese Vorlage gibt es nicht.",
         "en": "This build plan does not exist.",
     },
-    "summary.jobLabel": {
-        "de": "{name} und {more} weitere",
-        "en": "{name} and {more} more",
-    },
     # Cover page and table of contents of the Word file. The language here follows the
     # document, not the person who started the run: whoever reads it only sees the document.
     "summary.docxToc": {

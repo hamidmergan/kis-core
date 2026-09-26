@@ -44,6 +44,8 @@ class PodcastParams(BaseModel):
     length: str = "medium"
     style: str = "teaching"
     provider_id: int = 0
+    # The chat provider that writes the script, None runs on the admin route.
+    llm_provider_id: int | None = None
     voice_label: str = ""
     source_label: str = ""
     # Written by hand from an empty script, so no model is ever asked for this one.

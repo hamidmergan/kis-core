@@ -5,7 +5,10 @@ from __future__ import annotations
 import asyncio
 from typing import Optional
 
+from loguru import logger
+
 from src import database as db
+from src.services import feature_router
 from src.services.feature_router import FeatureBinding, FeatureNotConfigured
 from src.services.protocols import make_adapter
 
@@ -68,6 +71,16 @@ def resolve_binding(feature: str, provider_id: int) -> FeatureBinding:
     return FeatureBinding(feature=feature, provider=provider, model=model)
 
 
+def binding_for(feature: str, provider_id: int | None) -> FeatureBinding:
+    """The chosen provider, the admin route when nothing was chosen or the choice is gone."""
+    if provider_id:
+        try:
+            return resolve_binding(feature, provider_id)
+        except FeatureNotConfigured as e:
+            logger.warning("Gewaehlter Anbieter nicht mehr nutzbar, Standard springt ein ({})", e)
+    return feature_router.resolve(feature)
+
+
 def fallback_candidates(feature: str) -> list[FeatureBinding]:
     """Other configured same-capability providers in DB order, primary excluded.
 
@@ -126,6 +139,7 @@ async def list_reachable_choices(feature: str) -> dict:
         default_id = reachable[0]["id"] if reachable else None
 
     return {
-        "providers": [{"id": p["id"], "name": p["name"]} for p in reachable],
+        "providers": [{"id": p["id"], "name": p["name"], "model": _model_for(route, p["id"])}
+                      for p in reachable],
         "default_id": default_id,
     }

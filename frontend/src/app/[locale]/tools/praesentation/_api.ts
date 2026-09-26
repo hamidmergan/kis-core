@@ -40,11 +40,11 @@ const post = (url: string, body?: unknown) =>
 const put = (url: string, body: unknown) =>
   fetch(url, { method: "PUT", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 
-export async function startPraesentation(state: PraesentationState): Promise<string> {
+export async function startPraesentation(state: PraesentationState, llmProviderId: number | null): Promise<string> {
   const form = new FormData();
   form.append("params", JSON.stringify({
     language: state.language, instructions: state.instructions, presenter: state.presenter,
-    notes: state.notes, template_id: state.templateId,
+    notes: state.notes, template_id: state.templateId, llm_provider_id: llmProviderId,
   }));
   form.append("mode", state.source.mode);
   if (state.source.mode === "module") {

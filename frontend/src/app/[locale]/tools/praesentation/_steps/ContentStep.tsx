@@ -9,6 +9,8 @@ import IconButton from "@/components/ui/IconButton";
 import Select from "@/components/ui/Select";
 import Spinner from "@/components/ui/Spinner";
 import Tabs from "@/components/ui/Tabs";
+import ProviderSelect from "@/components/tools/ProviderSelect";
+import type { FeatureProvider } from "@/hooks/useFeatureProviders";
 import { Link } from "@/i18n/navigation";
 import { useModules } from "@/hooks/useModules";
 import { useMaterialMeasure } from "@/hooks/useMaterialMeasure";
@@ -35,6 +37,10 @@ interface ContentStepProps {
   templateId: string;
   hasActiveJob: boolean | null;
   error: string;
+  /** The chat providers the deck can be written on, empty hides the choice. */
+  llmProviders: FeatureProvider[];
+  llmProviderId: number | null;
+  onLlmProvider: (id: number) => void;
   onSource: (source: Partial<Source>) => void;
   onLanguage: (language: Language) => void;
   onNotes: (notes: boolean) => void;
@@ -45,7 +51,7 @@ interface ContentStepProps {
 }
 
 export default function ContentStep({ canUseModules, source, language, notes, instructions, presenter, templateId, hasActiveJob,
-                                       error, onSource, onLanguage, onNotes, onInstructions, onPresenter, onTemplate,
+                                       error, llmProviders, llmProviderId, onLlmProvider, onSource, onLanguage, onNotes, onInstructions, onPresenter, onTemplate,
                                        onNext }: ContentStepProps) {
   const t = useTranslations("tools.praesentation.content");
   const tCommon = useTranslations("common");
@@ -235,6 +241,9 @@ export default function ContentStep({ canUseModules, source, language, notes, in
         <Select<Language> className="mt-1" value={language} onChange={onLanguage} ariaLabel={t("languageLabel")}
           options={[{ value: "de", label: t("languages.de") }, { value: "en", label: t("languages.en") }]} />
       </label>
+
+      <ProviderSelect id="praesentation-provider" label={t("providerLabel")} providers={llmProviders}
+        value={llmProviderId} onChange={onLlmProvider} className="mt-6" showModel />
 
       <label className="block mt-6 text-sm">
         <span className="font-medium">{t("presenterLabel")}</span>

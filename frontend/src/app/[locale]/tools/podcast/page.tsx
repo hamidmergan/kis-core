@@ -14,6 +14,7 @@ import RegenChatModal, { type RegenTurn } from "@/components/regen/RegenChatModa
 import { applyRegen, type RegenApplyMode } from "@/components/regen/apply";
 import { useVoices } from "@/hooks/useVoices";
 import { useGlossaries } from "@/hooks/useGlossaries";
+import { useFeatureProviders } from "@/hooks/useFeatureProviders";
 import CastStep from "./_steps/CastStep";
 import ContentStep from "./_steps/ContentStep";
 import DoneStep from "./_steps/DoneStep";
@@ -36,6 +37,8 @@ function PodcastPageInner() {
   const tCommon = useTranslations("common");
   const tNachfrage = useTranslations("tools.podcast.nachfrage");
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
+  // The chat model that writes, picked in the first step and sent along with the start.
+  const llm = useFeatureProviders("/podcast/providers");
   const { mergeEntries } = useGlossaries();
   const [hydrated, setHydrated] = useState(false);
   const [besetzungLaeuft, setBesetzungLaeuft] = useState(false);
@@ -47,6 +50,9 @@ function PodcastPageInner() {
   const ausListe = useSearchParams().get("job");
   const regen = useRegenAnchor();
   const aenderung = useRef(0);
+  // The parts of the script already written, shown while the rest is still being written.
+  const [entwurf, setEntwurf] = useState<Line[]>([]);
+  const entwurfTeil = useRef(0);
   const stateRef = useRef(state);
   stateRef.current = state;
 
@@ -108,6 +114,12 @@ function PodcastPageInner() {
       .finally(() => setHydrated(true));
   }, [holeStand, ausListe]);
 
+  // Another job starts with an empty draft.
+  useEffect(() => {
+    entwurfTeil.current = 0;
+    setEntwurf([]);
+  }, [state.jobUuid]);
+
   // While the job works, the page asks every two seconds, like every other tool.
   useEffect(() => {
     const uuid = state.jobUuid;
@@ -119,6 +131,13 @@ function PodcastPageInner() {
         if (abgebrochen) return;
         dispatch({ type: "JOB", status: job.status, progress: job.progress, error: job.error,
                    seconds: job.meta?.seconds ?? null });
+        // A new part is done, its contributions can already be read.
+        const teil = job.progress?.step === "script" ? job.progress.part ?? 0 : 0;
+        if (teil > entwurfTeil.current) {
+          entwurfTeil.current = teil;
+          const view = await fetchPodcast(uuid);
+          if (!abgebrochen) setEntwurf(view.draft ?? []);
+        }
         if (!LAEUFT.has(job.status)) {
           await holeStand(uuid);
           notifyJobsChanged();
@@ -174,7 +193,7 @@ function PodcastPageInner() {
   const starten = async () => {
     dispatch({ type: "STARTING" });
     try {
-      const uuid = await startPodcast(stateRef.current, mergeEntries(stateRef.current.glossaryIds));
+      const uuid = await startPodcast(stateRef.current, mergeEntries(stateRef.current.glossaryIds), llm.providerId);
       dispatch({ type: "STARTED", jobUuid: uuid });
       if (stateRef.current.source.mode === "blank") {
         const view = await holeStand(uuid);
@@ -275,6 +294,9 @@ function PodcastPageInner() {
                 source={state.source}
                 language={state.language}
                 instructions={state.instructions}
+                llmProviders={llm.providers}
+                llmProviderId={llm.providerId}
+                onLlmProvider={llm.setProviderId}
                 onSource={(source) => dispatch({ type: "SET_SOURCE", source })}
                 onLanguage={(language) => dispatch({ type: "SET_LANGUAGE", language })}
                 glossaryIds={state.glossaryIds}
@@ -308,6 +330,9 @@ function PodcastPageInner() {
             {state.step === "script" && (
               <ScriptStep
                 lines={state.lines}
+                draft={entwurf}
+                draftParts={state.progress?.step === "script" && state.progress.total
+                  ? { done: state.progress.part ?? 0, total: state.progress.total } : null}
                 persons={state.persons}
                 count={state.count}
                 voicedIds={state.voicedIds}
