@@ -431,7 +431,7 @@ class TestBuild:
         # The next stage has time again, only the still-missing picture is drawn.
         umgebung.setattr(_build, "StageClock", StageClock)
         _build.run_praesentation_build.run(JOB, UID, "de", 2, 0, nur, True)
-        assert len(erzeugt) == 1 and erzeugt[0].endswith("y")
+        assert len(erzeugt) == 1 and "Subject: y " in erzeugt[0]
         assert st.bilder[("s1", 0)] == b"schon-da" and ("s3", 0) in st.bilder
         assert db.status[-1] == ("success", {"step": "done", "final": True})
 
@@ -492,3 +492,39 @@ def test_die_folienpakete_werden_gleichzeitig_geschrieben(umgebung):
     _build.run_praesentation_build.run(JOB, UID, "de")
     assert [s.id for s in st.slides] == [f"s{i}" for i in range(1, 16)]
     assert llm.hoechstens == 3
+
+
+class TestNachfassen:
+    FORM = {"s2": {"ueberschrift": 6, "zwischentitel": [], "fliesstexte": [120], "bilder": 0, "body_kinds": ["bullets"]}}
+    ROWS = [OutlineRow(id="s2", role="text", title="T")]
+
+    @staticmethod
+    def _antwort(n):
+        return json.dumps({"slides": [{"id": "s2", "title": "T", "body": {"kind": "bullets",
+                                                                          "items": [f"p{i}" for i in range(n)]}}]})
+
+    def _erste(self, n):
+        from src.features.praesentation import folien
+        return folien.parse_answer(self._antwort(n), self.ROWS, self.FORM)
+
+    def test_eine_duenne_folie_wird_einmal_nachgefragt(self, monkeypatch):
+        llm = _Llm([self._antwort(5)])
+        monkeypatch.setattr(_build, "call_json_llm", llm)
+        neu = _build._nachfassen(None, [{"role": "user", "content": "U"}], "A", self._erste(1), self.ROWS,
+                                 self.FORM, False, JOB)
+        assert len(neu[0].body.items) == 5 and llm.antworten == []
+
+    def test_eine_volle_folie_kostet_keinen_aufruf(self, monkeypatch):
+        monkeypatch.setattr(_build, "call_json_llm", lambda *a, **k: pytest.fail("kein zweiter Aufruf"))
+        neu = _build._nachfassen(None, [], "A", self._erste(5), self.ROWS, self.FORM, False, JOB)
+        assert len(neu[0].body.items) == 5
+
+    def test_eine_duennere_zweite_fassung_verliert(self, monkeypatch):
+        monkeypatch.setattr(_build, "call_json_llm", _Llm([self._antwort(1)]))
+        neu = _build._nachfassen(None, [], "A", self._erste(2), self.ROWS, self.FORM, False, JOB)
+        assert len(neu[0].body.items) == 2
+
+    def test_eine_kaputte_nachfrage_laesst_die_erste_fassung_stehen(self, monkeypatch):
+        monkeypatch.setattr(_build, "call_json_llm", _Llm(["Quatsch"]))
+        neu = _build._nachfassen(None, [], "A", self._erste(1), self.ROWS, self.FORM, False, JOB)
+        assert len(neu[0].body.items) == 1

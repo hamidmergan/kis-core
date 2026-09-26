@@ -14,9 +14,9 @@ _ROLLE_TEXT = {
     "abschnitt": "a section divider with only a heading",
     "text": ("a heading with bullet points, or where the content has that shape a table, a chart, cards with "
              "icons for parallel topics, bars for durations or shares, or one highlighted key figure"),
-    "zwei_spalten": "a heading with two columns, each with its own subheading",
-    "text_mit_bild": "a heading, bullet points and an illustration",
-    "bild_gross": "a heading and one large illustration, no text",
+    "zwei_spalten": "a heading with two or more columns, each with its own subheading",
+    "text_mit_bild": "a heading, bullet points and one or more illustrations",
+    "bild_gross": "a heading and one or more large illustrations, no text",
 }
 SPRACHE = {"de": "German", "en": "English"}
 _ID = re.compile(r"^s\d+$")

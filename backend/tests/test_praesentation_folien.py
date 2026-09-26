@@ -288,6 +288,64 @@ class TestGenugPunkte:
         assert s2.body.kind == "table" and s2.body.items == []
 
 
+class TestZuDuenn:
+    def test_ein_stichpunkt_ist_zu_duenn(self):
+        s = Slide(id="s2", role="text", body={"kind": "bullets", "items": ["nur einer"]})
+        assert folien.zu_duenn([s], {"s2": FORM_TEXT}) == {"s2": "1 bullet points, it needs 4 to 7"}
+
+    def test_vier_stichpunkte_reichen(self):
+        s = Slide(id="s2", role="text", body={"kind": "bullets", "items": ["a", "b", "c", "d"]})
+        assert folien.zu_duenn([s], {"s2": FORM_TEXT}) == {}
+
+    def test_ein_kleines_feld_verlangt_weniger(self):
+        # 40 words carry about three points of twelve words, not four.
+        s = Slide(id="s3", role="text_mit_bild", body={"kind": "bullets", "items": ["a", "b", "c"]})
+        assert folien.zu_duenn([s], {"s3": FORM_BILD}) == {}
+
+    def test_tabelle_und_karten_zaehlen_nicht(self):
+        s = Slide(id="s2", role="text", body={"kind": "table", "header": ["a"], "rows": [["1"]]})
+        assert folien.zu_duenn([s], {"s2": FORM_TEXT}) == {}
+
+    def test_eine_duenne_spalte_macht_die_folie_duenn(self):
+        s = Slide(id="s4", role="zwei_spalten", columns=[{"items": ["a", "b", "c"]}, {"items": ["a"]}])
+        assert folien.zu_duenn([s], {"s4": FORM_SPALTEN}) == {"s4": "columns with 3, 1 points, each needs at least 3"}
+
+    def test_nachfrage_nennt_die_duennen_folien_und_haengt_an(self):
+        basis = [{"role": "system", "content": "S"}, {"role": "user", "content": "U"}]
+        n = folien.nachfrage(basis, "ANTWORT", {"s2": "1 bullet points, it needs 4 to 7"})
+        assert n[:2] == basis and n[2] == {"role": "assistant", "content": "ANTWORT"}
+        assert "- s2: 1 bullet points" in n[3]["content"] and "never invented" in n[3]["content"]
+
+
+class TestKartenVerteilen:
+    def test_nur_jede_dritte_moegliche_folie_darf_karten(self):
+        rows = [OutlineRow(id=f"s{i}", role="text", title="T") for i in range(1, 8)]
+        formen = {r.id: FORM_FORMEN for r in rows}
+        formen["s2"] = FORM_BILD  # a picture slide cannot carry cards and does not count
+        assert folien.karten_folien(rows, formen) == {"s1", "s5"}
+
+    def test_ohne_karten_nimmt_nur_die_karten_weg(self):
+        assert folien.ohne_karten(FORM_FORMEN)["body_kinds"] == ["bullets", "table", "chart", "bars", "highlight"]
+        assert "cards" in FORM_FORMEN["body_kinds"]
+
+    def test_eine_folie_ohne_karten_bekommt_sie_nicht_angeboten(self):
+        user = folien.build_messages("Q", PraesentationParams(), ROWS[:1], {"s2": folien.ohne_karten(FORM_FORMEN)})[1]["content"]
+        assert "cards" not in user
+
+    def test_verbotene_karten_werden_zu_stichpunkten(self):
+        raw = _raw([{"id": "s2", "title": "A", "body": {"kind": "cards", "cards": [
+            {"icon": "star", "title": "Leistung", "text": "Was geliefert wird."},
+            {"icon": "clock", "title": "Termine", "text": "Bis wann."}]}}])
+        s2, = folien.parse_answer(raw, ROWS[:1], {"s2": folien.ohne_karten(FORM_FORMEN)})
+        assert s2.body.kind == "bullets" and s2.body.items == ["Leistung: Was geliefert wird.", "Termine: Bis wann."]
+
+
+class TestBilderOhneSchrift:
+    def test_bilder_sind_keine_diagramme_und_tragen_keine_schrift(self):
+        system = folien.build_messages("Q", PraesentationParams(), ROWS, FORMEN)[0]["content"]
+        assert "Never a diagram, chart, curve, formula" in system and "never words, labels" in system
+
+
 class TestFormen:
     """Cards, bars and the highlight: parsed with their caps, anything too thin falls back to bullets."""
 

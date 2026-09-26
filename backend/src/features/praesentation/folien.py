@@ -15,6 +15,13 @@ from src.features.praesentation.schemas import (
     Slide,
 )
 
+# A slide below these reads as empty, a small field asks for fewer, at about twelve words a point.
+MIN_STICHPUNKTE = 4
+MIN_JE_SPALTE = 3
+WOERTER_JE_PUNKT = 12
+# Cards on nearly every slide read as a template, every third slide that could carry them is enough.
+KARTEN_JEDE = 3
+
 
 def material_je_folie(rows: list[OutlineRow], karte, alle: list[OutlineRow]) -> dict[str, str]:
     """Je Folie die Stellen aus dem Originaltext, auf denen sie ruht, mit ihren Nachbarn.
@@ -71,7 +78,9 @@ def build_messages(source: str, params: PraesentationParams, rows: list[OutlineR
         "never to a neighbouring passage about something else.\n"
         '  image: {"kind": "image", "prompt": "..."} only when allowed, at most on every fourth slide.\n'
         '- columns: when the slide has two or more text fields, one entry per field: {"heading": "...", "items": [...]}\n'
-        '- images: one entry per image field: {"prompt": "..."}, an English description of a scene or object, never text, letters or logos\n'
+        '- images: one entry per image field: {"prompt": "..."}, an English description of a scene, object or visual '
+        "metaphor. Never a diagram, chart, curve, formula, map, sign or screen, and never words, labels, numbers or "
+        "letters in the picture: whatever needs labelling belongs in the slide text. The same holds for an image body.\n"
         "- notes: speaker notes of 60 to 120 words in the slide language, only when asked, else an empty string\n"
         'Answer with one JSON object only: {"slides": [{"id": "...", "title": "...", "subtitle": "...", '
         '"body": {...}, "columns": [...], "images": [...], "notes": "..."}]}.\n'
@@ -115,6 +124,48 @@ def build_messages(source: str, params: PraesentationParams, rows: list[OutlineR
     if params.instructions.strip():
         user += f"\n\nINSTRUCTION FROM THE TEACHER: {params.instructions.strip()}"
     return [{"role": "system", "content": system}, {"role": "user", "content": user}]
+
+
+def karten_folien(rows: list[OutlineRow], formen: dict[str, dict]) -> set[str]:
+    """The slides that may carry cards, every third one of those whose layout allows them, in deck order."""
+    moegliche = [r.id for r in rows if "cards" in formen.get(r.id, {}).get("body_kinds", [])]
+    return set(moegliche[::KARTEN_JEDE])
+
+
+def ohne_karten(form: dict) -> dict:
+    return {**form, "body_kinds": [k for k in form["body_kinds"] if k != "cards"]}
+
+
+def punkte(s: Slide) -> int:
+    if s.body is not None and s.body.kind == "bullets":
+        return len(s.body.items)
+    return sum(len(c.items) for c in s.columns)
+
+
+def zu_duenn(slides: list[Slide], formen: dict[str, dict]) -> dict[str, str]:
+    """Per thin slide what is missing, a table, chart or cards stand on their own and never count."""
+    aus: dict[str, str] = {}
+    for s in slides:
+        grenzen = formen[s.id]["fliesstexte"]
+        if s.body is not None and s.body.kind == "bullets" and grenzen:
+            mindest = min(MIN_STICHPUNKTE, grenzen[0] // WOERTER_JE_PUNKT)
+            if len(s.body.items) < mindest:
+                aus[s.id] = f"{len(s.body.items)} bullet points, it needs {mindest} to 7"
+        elif s.columns and len(grenzen) == len(s.columns):
+            mindest = [min(MIN_JE_SPALTE, g // WOERTER_JE_PUNKT) for g in grenzen]
+            if any(len(c.items) < m for c, m in zip(s.columns, mindest)):
+                zahlen = ", ".join(str(len(c.items)) for c in s.columns)
+                aus[s.id] = f"columns with {zahlen} points, each needs at least {max(mindest)}"
+    return aus
+
+
+def nachfrage(nachrichten: list[dict], antwort: str, duenn: dict[str, str]) -> list[dict]:
+    """The same call once more, with the thin slides named and asked for again."""
+    zeilen = "\n".join(f"- {sid}: {grund}" for sid, grund in duenn.items())
+    return [*nachrichten, {"role": "assistant", "content": antwort}, {"role": "user", "content": (
+        f"These slides came out too thin:\n{zeilen}\nTheir material holds more statements. Write these "
+        "slides again with more points taken from their own material, never invented, each point within "
+        "the word limit. Answer with the same JSON object, holding only these slides.")}]
 
 
 def parse_answer(raw: str, rows: list[OutlineRow], formen: dict[str, dict],
@@ -204,7 +255,10 @@ def _body(roh, kinds: list[str], karten_max: int = MAX_KARTEN, balken_max: int =
         return Body(kind="bullets", items=_items(roh))
     kind = str(roh.get("kind") or "bullets")
     if kind not in kinds:
-        kind = "bullets"
+        # Cards or bars this slide may not carry keep their content as points.
+        eintraege = [e for e in (roh.get("cards") or roh.get("bars") or []) if isinstance(e, dict)]
+        ersatz = [_zeile(_text(e.get("title") or e.get("label")), _text(e.get("text"))) for e in eintraege]
+        return Body(kind="bullets", items=_items(roh.get("items")) or [z for z in ersatz if z][:MAX_TEXT_ITEMS])
     b = Body(kind=kind, items=_items(roh.get("items")))
     if kind == "table":
         b.header = _items(roh.get("header"))

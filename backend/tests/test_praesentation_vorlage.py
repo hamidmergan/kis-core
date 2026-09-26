@@ -22,8 +22,8 @@ def _namen(a, rolle):
 
 
 class TestThl:
-    def test_sechs_layouts_und_16_zu_9(self, thl):
-        assert len(thl.layouts) == 6
+    def test_einundfuenfzig_layouts_und_16_zu_9(self, thl):
+        assert len(thl.layouts) == 51
         assert round(thl.breite / thl.hoehe, 2) == 1.78
 
     def test_ueberschrift_ist_das_grosse_textfeld_und_nicht_der_titel_platzhalter(self, thl):
@@ -36,11 +36,22 @@ class TestThl:
 
     def test_rollen(self, thl):
         assert _namen(thl, "deckblatt") == ["Titelfolie 1", "Titelfolie 2"]
-        assert _namen(thl, "text") == ["Text oder Grafik"]
-        assert _namen(thl, "text_mit_bild") == ["Text und Bilder", "Bilder mit Text"]
-        assert _namen(thl, "zwei_spalten") == ["Zwei Inhalte"]
-        assert "abschnitt" not in thl.rollen
+        assert _namen(thl, "text")[0] == "Text oder Grafik"
+        assert _namen(thl, "zwei_spalten")[0] == "Zwei Inhalte"
+        assert _namen(thl, "abschnitt")[0] == "Abschnitt"
+        assert _namen(thl, "bild_gross")[0] == "Großes Bild"
         assert _namen(thl, "abschluss") == ["Titelfolie 2"]
+        assert thl.uebersprungen == []
+
+    def test_die_alten_layouts_behalten_ihre_nummer(self, thl):
+        alt = ["Titelfolie 1", "Titelfolie 2", "Text und Bilder", "Text oder Grafik", "Bilder mit Text", "Zwei Inhalte"]
+        assert [thl.layout(i).name for i in range(6)] == alt
+
+    def test_rotation_bringt_erst_die_layouts_mit_weniger_bildern(self, thl):
+        bilder = [len(thl.layout(i).der_art("bild")) for i in thl.rollen["text_mit_bild"]]
+        assert bilder == sorted(bilder) and bilder[0] == 1
+        namen = _namen(thl, "text_mit_bild")
+        assert namen.index("Text und Bild") < namen.index("Text und Bilder")
 
     def test_deckblatt_hat_untertitel_und_bannerbild(self, thl):
         l = thl.layout(0)
@@ -63,7 +74,7 @@ class TestThl:
         assert thl.typeface == "Calibri"
 
     def test_waehlbare_rollen(self, thl):
-        assert vorlage.waehlbare_rollen(thl) == ["text", "text_mit_bild", "zwei_spalten"]
+        assert vorlage.waehlbare_rollen(thl) == ["abschnitt", "bild_gross", "text", "text_mit_bild", "zwei_spalten"]
 
     def test_rundreise_als_dict(self, thl):
         assert vorlage.als_dict(vorlage.aus_dict(vorlage.als_dict(thl))) == vorlage.als_dict(thl)
@@ -114,11 +125,11 @@ class TestKuenstlich:
         erst = vorlage.layout_fuer(a, "text_mit_bild", z).name
         zweit = vorlage.layout_fuer(a, "text_mit_bild", z).name
         dritt = vorlage.layout_fuer(a, "text_mit_bild", z).name
-        assert (erst, zweit, dritt) == ("Text und Bilder", "Bilder mit Text", "Text und Bilder")
+        assert (erst, zweit, dritt) == ("Text und Bild", "Bild und Text", "Bild oben und Text")
 
     def test_unbekannte_rolle_faellt_auf_text(self):
         a = vorlage.analysiere(THL.read_bytes())
-        assert vorlage.layout_fuer(a, "abschnitt", {}).name == "Text oder Grafik"
+        assert vorlage.layout_fuer(a, "gibt_es_nicht", {}).name == "Text oder Grafik"
 
 
 @pytest.fixture(scope="module")
