@@ -27,6 +27,7 @@ _require = require_permission(PERM_SET_USERS_ALL)
 MAX_VALID_DAYS = 60
 MAX_ACCESS_HOURS = 720  # 30 Tage
 MAX_SEATS = 500
+MAX_WORKSPACES = 50
 
 
 def _require_feature(locale: str) -> None:
@@ -44,6 +45,7 @@ class CreateCodePayload(BaseModel):
     show_evaluation: bool = False
     kis_role: str = Field("user", pattern="^(staff|user|custom)$")
     custom_role_id: int | None = None
+    workspace_ids: list[int] = Field(default_factory=list, max_length=MAX_WORKSPACES)
 
     @model_validator(mode="after")
     def _label_and_role(self):
@@ -69,6 +71,8 @@ class PatchCodePayload(BaseModel):
     show_evaluation: bool = False
     kis_role: str | None = Field(None, pattern="^(staff|user|custom)$")
     custom_role_id: int | None = None
+    # None leaves the workspaces as they are.
+    workspace_ids: list[int] | None = Field(None, max_length=MAX_WORKSPACES)
 
     @model_validator(mode="after")
     def _edit_fields_travel_together(self):
@@ -120,6 +124,8 @@ def create_access_code(
         show_evaluation=payload.show_evaluation,
         created_by=admin.get("user_id", 0),
     )
+    if payload.workspace_ids:
+        repo.set_code_workspaces(code_id, payload.workspace_ids)
     return {
         "id": code_id,
         "code": code,
@@ -136,6 +142,7 @@ def create_access_code(
 def list_access_codes(admin: dict = Depends(_require), locale: str = Depends(get_locale)):
     _require_feature(locale)
     jetzt = datetime.now()
+    workspaces = repo.workspaces_by_code()
     return {
         "codes": [
             {
@@ -151,10 +158,18 @@ def list_access_codes(admin: dict = Depends(_require), locale: str = Depends(get
                     valid_until=eintrag["valid_until"],
                     now=jetzt,
                 ),
+                "workspaces": workspaces.get(eintrag["id"], []),
             }
             for eintrag in repo.list_codes()
         ]
     }
+
+
+@router.get("/access-codes/workspace-owners")
+def list_access_code_workspace_owners(admin: dict = Depends(_require), locale: str = Depends(get_locale)):
+    """Everyone who owns workspaces, so the admin can pick a person and then their workspaces."""
+    _require_feature(locale)
+    return {"owners": repo.list_workspace_owners()}
 
 
 @router.patch("/access-codes/{code_id}")
@@ -197,6 +212,15 @@ def patch_access_code(
             show_evaluation=payload.show_evaluation,
         ):
             raise HTTPException(status_code=400, detail=t("access.maxUsesBelowUsed", locale))
+
+    if payload.workspace_ids is not None:
+        if repo.get_code_by_id(code_id) is None:
+            raise HTTPException(status_code=404, detail=t("access.notFound", locale))
+        repo.set_code_workspaces(code_id, payload.workspace_ids)
+        # Accounts that came in earlier join the newly added workspaces too, nobody is taken out.
+        neu = repo.enroll_into_code_workspaces(code_id, repo.list_user_ids_for_code(code_id))
+        if neu:
+            logger.info("access code {} enrolled {} earlier accounts into its workspaces", code_id, neu)
 
     return {"status": "ok"}
 

@@ -13,6 +13,7 @@ import { choiceToSeats } from "./seats";
 import AccessHoursField from "./AccessHoursField";
 import { choiceToHours, hoursToChoice } from "./accessHours";
 import AccessCodeQr from "./AccessCodeQr";
+import CodeWorkspacesField from "./CodeWorkspacesField";
 
 type Props = {
   onClose: () => void;
@@ -27,6 +28,7 @@ const VALID_DAYS = [7, 14, 30, 60];
 
 export default function CreateAccessCodeDialog({ onClose, onCreated }: Props) {
   const t = useTranslations("admin.createAccessCode");
+  const tWs = useTranslations("admin.codeWorkspaces");
   const [label, setLabel] = useState("");
   const [role, setRole] = useState("staff");
   const [maxUses, setMaxUses] = useState("10");
@@ -37,6 +39,7 @@ export default function CreateAccessCodeDialog({ onClose, onCreated }: Props) {
   const [customHours, setCustomHours] = useState(startStunden.custom);
   const [showCredentials, setShowCredentials] = useState(true);
   const [showEvaluation, setShowEvaluation] = useState(false);
+  const [workspaceIds, setWorkspaceIds] = useState<number[]>([]);
   const [customRoles, setCustomRoles] = useState<CustomRole[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -87,6 +90,7 @@ export default function CreateAccessCodeDialog({ onClose, onCreated }: Props) {
           access_hours: stunden,
           show_credentials: showCredentials,
           show_evaluation: showEvaluation,
+          workspace_ids: workspaceIds,
           kis_role: custom ? "custom" : role,
           custom_role_id: custom ? Number(role.slice("custom:".length)) : null,
         }),
@@ -115,7 +119,7 @@ export default function CreateAccessCodeDialog({ onClose, onCreated }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-background border border-border rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
+      <div className="bg-background border border-border rounded-xl shadow-xl w-full max-w-md max-h-[90dvh] overflow-y-auto p-6 space-y-4">
         {erstellt ? (
           <>
             <h2 className="text-lg font-semibold">{t("createdTitle")}</h2>
@@ -193,6 +197,8 @@ export default function CreateAccessCodeDialog({ onClose, onCreated }: Props) {
               <label className="text-xs uppercase tracking-wide text-muted">{t("role")}</label>
               <Select value={role} onChange={setRole} options={roleOptions} className="w-full" />
             </div>
+
+            <CodeWorkspacesField value={workspaceIds} onChange={setWorkspaceIds} hint={tWs("hintCreate")} />
 
             <Checkbox
               checked={showCredentials}

@@ -591,3 +591,86 @@ def test_the_user_list_promises_no_deletion_while_the_sweep_is_off(client):
         r = client.get("/admin/access-codes/7/users")
 
     assert r.json()["users"][0]["delete_at"] is None
+
+
+def test_creating_a_code_stores_the_chosen_workspaces(client):
+    with patch("src.routes.admin.access_codes.repo.create_code", return_value=7), \
+         patch("src.routes.admin.access_codes.repo.set_code_workspaces") as zuordnen:
+        r = client.post("/admin/access-codes", json={
+            "label": "Seminar Recht", "max_uses": 30, "valid_days": 14,
+            "access_hours": None, "kis_role": "user", "workspace_ids": [11, 12],
+        })
+
+    assert r.status_code == 200
+    zuordnen.assert_called_once_with(7, [11, 12])
+
+
+def test_creating_a_code_without_workspaces_writes_none(client):
+    with patch("src.routes.admin.access_codes.repo.create_code", return_value=7), \
+         patch("src.routes.admin.access_codes.repo.set_code_workspaces") as zuordnen:
+        r = client.post("/admin/access-codes", json={
+            "label": "Kollegen August", "max_uses": 50,
+            "valid_days": 30, "access_hours": 14, "kis_role": "staff",
+        })
+
+    assert r.status_code == 200
+    zuordnen.assert_not_called()
+
+
+def test_editing_the_workspaces_also_enrolls_earlier_accounts(client):
+    with patch("src.routes.admin.access_codes.repo.get_code_by_id", return_value={"id": 7}), \
+         patch("src.routes.admin.access_codes.repo.update_code", return_value=True), \
+         patch("src.routes.admin.access_codes.repo.set_code_workspaces") as zuordnen, \
+         patch("src.routes.admin.access_codes.repo.list_user_ids_for_code", return_value=[42, 43]), \
+         patch("src.routes.admin.access_codes.repo.enroll_into_code_workspaces", return_value=2) as einschreiben:
+        r = client.patch("/admin/access-codes/7", json={
+            "label": "Seminar Recht", "max_uses": 30, "valid_days": 14,
+            "access_hours": None, "kis_role": "user", "workspace_ids": [11],
+        })
+
+    assert r.status_code == 200
+    zuordnen.assert_called_once_with(7, [11])
+    einschreiben.assert_called_once_with(7, [42, 43])
+
+
+def test_switching_a_code_off_leaves_its_workspaces_alone(client):
+    with patch("src.routes.admin.access_codes.repo.set_active", return_value=True), \
+         patch("src.routes.admin.access_codes.repo.set_code_workspaces") as zuordnen:
+        r = client.patch("/admin/access-codes/7", json={"active": False})
+
+    assert r.status_code == 200
+    zuordnen.assert_not_called()
+
+
+def test_the_list_carries_each_codes_workspaces(client):
+    eintrag = {
+        "id": 7, "code": "KIS-4K2P-7RXM", "label": "Seminar", "role": "user",
+        "custom_role_id": None, "max_uses": 30, "used_count": 0, "valid_until": MORGEN,
+        "access_hours": None, "show_credentials": True, "show_evaluation": False,
+        "active": True, "created_at": datetime.now(),
+    }
+    arbeitsbereich = {"id": 11, "title": "Recht", "owner_id": 5, "owner_name": "Erika"}
+    with patch("src.routes.admin.access_codes.repo.list_codes", return_value=[eintrag]), \
+         patch("src.routes.admin.access_codes.repo.workspaces_by_code", return_value={7: [arbeitsbereich]}):
+        r = client.get("/admin/access-codes")
+
+    assert r.status_code == 200
+    assert r.json()["codes"][0]["workspaces"] == [arbeitsbereich]
+
+
+def test_the_workspace_owners_are_listed_for_the_picker(client):
+    besitzer = [{"user_id": 5, "name": "Erika", "username": "erika", "role": "staff",
+                 "workspaces": [{"id": 11, "title": "Recht"}]}]
+    with patch("src.routes.admin.access_codes.repo.list_workspace_owners", return_value=besitzer):
+        r = client.get("/admin/access-codes/workspace-owners")
+
+    assert r.status_code == 200
+    assert r.json() == {"owners": besitzer}
+
+
+def test_the_workspace_owners_stay_closed_without_the_right(client_ohne_recht):
+    with patch("src.routes.admin.access_codes.repo.list_workspace_owners") as liste:
+        r = client_ohne_recht.get("/admin/access-codes/workspace-owners")
+
+    assert r.status_code == 403
+    liste.assert_not_called()

@@ -10,6 +10,7 @@ import SeatsField from "./SeatsField";
 import { choiceToSeats, seatsToChoice } from "./seats";
 import AccessHoursField from "./AccessHoursField";
 import { choiceToHours, hoursToChoice } from "./accessHours";
+import CodeWorkspacesField from "./CodeWorkspacesField";
 
 type Code = {
   id: number;
@@ -23,6 +24,7 @@ type Code = {
   access_hours: number | null;
   show_credentials: boolean;
   show_evaluation: boolean;
+  workspaces: { id: number }[];
 };
 
 type Props = {
@@ -43,6 +45,7 @@ function verbleibendeTage(validUntil: string): number {
 export default function EditAccessCodeDialog({ code, onClose, onSaved }: Props) {
   const t = useTranslations("admin.editAccessCode");
   const tCreate = useTranslations("admin.createAccessCode");
+  const tWs = useTranslations("admin.codeWorkspaces");
   const [label, setLabel] = useState(code.label);
   const [role, setRole] = useState(code.custom_role_id ? `custom:${code.custom_role_id}` : code.role);
   const startPlaetze = seatsToChoice(code.max_uses);
@@ -54,6 +57,7 @@ export default function EditAccessCodeDialog({ code, onClose, onSaved }: Props) 
   const [customHours, setCustomHours] = useState(startStunden.custom);
   const [showCredentials, setShowCredentials] = useState(code.show_credentials);
   const [showEvaluation, setShowEvaluation] = useState(code.show_evaluation);
+  const [workspaceIds, setWorkspaceIds] = useState<number[]>(() => code.workspaces.map((w) => w.id));
   const [customRoles, setCustomRoles] = useState<CustomRole[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -102,6 +106,7 @@ export default function EditAccessCodeDialog({ code, onClose, onSaved }: Props) 
           access_hours: stunden,
           show_credentials: showCredentials,
           show_evaluation: showEvaluation,
+          workspace_ids: workspaceIds,
           kis_role: custom ? "custom" : role,
           custom_role_id: custom ? Number(role.slice("custom:".length)) : null,
         }),
@@ -122,7 +127,7 @@ export default function EditAccessCodeDialog({ code, onClose, onSaved }: Props) 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-background border border-border rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
+      <div className="bg-background border border-border rounded-xl shadow-xl w-full max-w-md max-h-[90dvh] overflow-y-auto p-6 space-y-4">
         <form onSubmit={submit} className="space-y-3">
           <h2 className="text-lg font-semibold">{t("title")}</h2>
 
@@ -169,6 +174,8 @@ export default function EditAccessCodeDialog({ code, onClose, onSaved }: Props) 
             <label className="text-xs uppercase tracking-wide text-muted">{tCreate("role")}</label>
             <Select value={role} onChange={setRole} options={roleOptions} className="w-full" />
           </div>
+
+          <CodeWorkspacesField value={workspaceIds} onChange={setWorkspaceIds} hint={tWs("hintEdit")} />
 
           <Checkbox
             checked={showCredentials}
