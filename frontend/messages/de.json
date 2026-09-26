@@ -1227,7 +1227,7 @@
         "instructionsLabel": "Anweisung (optional)",
         "instructionsPlaceholder": "Zum Beispiel: nur Kapitel 2, für Erstsemester, mit Beispielen aus der Praxis",
         "presenterLabel": "Name auf dem Deckblatt (optional)",
-        "presenterPlaceholder": "Zum Beispiel: Prof. Dr. Erika Mustermann",
+        "presenterPlaceholder": "Zum Beispiel: Titel, Vorname und Nachname",
         "notesLabel": "Sprechernotizen zu jeder Folie erzeugen",
         "notesHint": "Die Notizen landen in der Notizansicht von PowerPoint und lassen sich im Screencast vertonen.",
         "activeJob": "Du hast bereits 5 Jobs in der Warteschlange, kein weiterer ist möglich. Warte, bis einer fertig ist, oder lösche einen in der",
