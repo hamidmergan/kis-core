@@ -20,6 +20,7 @@ interface Antwort {
   einstellungen: GespeicherteEinstellungen | null;
   stand: VertonterStand | null;
   hat_ton: boolean[];
+  sprache?: string;
 }
 
 /** Fetches on every entry to step 6 what the view needs for its preselection. */
@@ -28,6 +29,7 @@ export function useSchritt6Stand(jobUuid: string, aktiv: boolean) {
   const [einstellungen, setEinstellungen] = useState<GespeicherteEinstellungen | null>(null);
   const [stand, setStand] = useState<VertonterStand | null>(null);
   const [hatTon, setHatTon] = useState<boolean[]>([]);
+  const [sprache, setSprache] = useState("");
 
   useEffect(() => {
     if (!jobUuid || !aktiv) return;
@@ -40,11 +42,12 @@ export function useSchritt6Stand(jobUuid: string, aktiv: boolean) {
         setEinstellungen(daten.einstellungen);
         setStand(daten.stand);
         setHatTon(daten.hat_ton ?? []);
+        setSprache(daten.sprache ?? "");
       })
       .catch(() => {})
       .finally(() => { if (!abgebrochen) setGeladen(true); });
     return () => { abgebrochen = true; };
   }, [jobUuid, aktiv]);
 
-  return { geladen, einstellungen, stand, hatTon };
+  return { geladen, einstellungen, stand, hatTon, sprache };
 }

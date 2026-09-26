@@ -12,8 +12,10 @@ from src import database as db
 from src.dependencies import get_current_user, get_llm_client
 from src.i18n import get_locale, t
 from src.services.screencast import generate_all_scripts
+from src.services.screencast import material as zusatzmaterial
+from src.services.screencast.pptx import extract_notes_per_slide
 from src.services.job_statistik import messe, route_kennung, zeichen_zahlen
-from src.storage import get_job_file, load_result_meta, save_job_file, save_result_meta
+from src.storage import get_job_file, save_job_file
 from src.services.tool_limits import max_screencast_slides
 
 from src.routes.screencast._models import (
@@ -22,14 +24,7 @@ from src.routes.screencast._models import (
     SaveScriptsRequest,
 )
 from src.routes.screencast._shared import get_script_gen_lock, vertonung_verwerfen
-
-
-def _merke_skriptsprache(user_id: int, job_uuid: str | None, target_lang: str) -> None:
-    """The scripts are in this language, so the voicing has to speak it."""
-    if not job_uuid or not target_lang:
-        return
-    save_result_meta(user_id, job_uuid, {**(load_result_meta(user_id, job_uuid) or {}),
-                                         "target_lang": target_lang})
+from src.routes.screencast._shared import merke_skriptsprache as _merke_skriptsprache
 
 router = APIRouter(tags=["screencast: scripts"])
 
@@ -54,6 +49,27 @@ def save_scripts(
     if body.user_prompt is not None:
         save_job_file(job["user_id"], translate_job_uuid, "prompt.txt", body.user_prompt.encode())
     return {"ok": True}
+
+
+@router.get("/screencast/{translate_job_uuid}/notizen")
+def screencast_notizen(
+    translate_job_uuid: str,
+    current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
+):
+    """The speaker notes of the current deck, one entry per slide."""
+    if not re.match(r"^[a-f0-9]{32}$", translate_job_uuid):
+        raise HTTPException(status_code=400, detail=t("job.invalidUuid", locale))
+    job = db.get_job(translate_job_uuid)
+    if not job or job["user_id"] != current_user.get("user_id", 0):
+        raise HTTPException(status_code=404, detail=t("job.notFound", locale))
+    for name in ("corrected.pptx", "translated.pptx"):
+        try:
+            daten = get_job_file(job["user_id"], translate_job_uuid, name)
+        except Exception:
+            continue
+        return {"notes": extract_notes_per_slide(daten)}
+    raise HTTPException(status_code=404, detail=t("screencast.pptxNotFound", locale))
 
 
 @router.post("/screencast/generate-scripts")
@@ -113,12 +129,20 @@ async def screencast_generate_scripts(
     _merke_skriptsprache(uuid_user_id or 0, uuid_key, body.target_lang)
 
     async def _do_generate() -> list[str]:
+        materials = None
+        if uuid_key and uuid_user_id is not None:
+            try:
+                materials = await asyncio.to_thread(
+                    zusatzmaterial.material_je_folie, uuid_user_id, uuid_key, body.slide_texts)
+            except Exception as e:  # noqa: BLE001 - without its material the slide still gets a script
+                logger.warning("Screencast {}: Material nicht zugeordnet, Skripte ohne ({})", uuid_key[:8], e)
         return await generate_all_scripts(
             body.slide_texts, llm_client,
             glossary=glossary_dict,
             add_greeting=body.add_greeting, add_closing=body.add_closing,
             min_chars=body.min_chars, max_chars=body.max_chars,
             source_lang=body.source_lang, target_lang=body.target_lang,
+            materials=materials,
         )
 
     if not uuid_key:
@@ -181,6 +205,12 @@ async def screencast_regenerate_slide_script(
         except (json.JSONDecodeError, TypeError):
             pass
 
+    stoff = ""
+    if body.translate_job_uuid and body.slide_index is not None and re.match(r"^[a-f0-9]{32}$", body.translate_job_uuid):
+        job_row = db.get_job(body.translate_job_uuid)
+        if job_row and job_row["user_id"] == current_user.get("user_id", 0):
+            stoff = zusatzmaterial.material_einer_folie(job_row["user_id"], body.translate_job_uuid, body.slide_index)
+
     try:
         position = (
             (body.slide_index + 1, body.slide_count)
@@ -199,6 +229,7 @@ async def screencast_regenerate_slide_script(
                 position=position,
                 add_greeting=body.add_greeting,
                 add_closing=body.add_closing,
+                material=stoff,
             )
         )
     except RuntimeError as e:

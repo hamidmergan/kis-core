@@ -1,6 +1,7 @@
 "use client";
 
 import type { DragEvent, RefObject } from "react";
+import { Info } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import GlossarySelector from "@/components/glossary/GlossarySelector";
@@ -31,6 +32,8 @@ interface UploadStepProps {
   translationProviderId: number | null;
   onTranslationProviderChange: (id: number | null) => void;
   onUploadNext: () => void;
+  /** In the demo the file is given, this is its name. */
+  demoDatei?: string;
 }
 
 export default function UploadStep(props: UploadStepProps) {
@@ -56,23 +59,41 @@ export default function UploadStep(props: UploadStepProps) {
     translationProviderId,
     onTranslationProviderChange,
     onUploadNext,
+    demoDatei,
   } = props;
 
   const t = useTranslations("tools.screencast");
+  const tDemo = useTranslations("tools.screencastDemo");
+  const gesperrt = !!hasActiveJob || !!demoDatei;
 
   return (
     <section className="animate-[fadeIn_0.3s_ease-out]">
       <div className="flex items-baseline justify-between mb-2">
         <h1 className="text-xl font-bold">{t("title")}</h1>
-        <Link
-          href="/tools/screencast-demo"
-          className="text-xs font-semibold px-3.5 py-1.5 rounded border-2 border-transparent hover:border-black transition-colors"
-          style={{ backgroundColor: "rgb(245, 158, 11)", color: "rgb(0, 0, 0)" }}
-        >
-          {t("demoBadge")}
-        </Link>
+        {demoDatei ? (
+          <span
+            className="text-xs font-semibold px-3.5 py-1.5 rounded border-2 border-transparent"
+            style={{ backgroundColor: "rgb(245, 158, 11)", color: "rgb(0, 0, 0)" }}
+          >
+            {tDemo("demoBadge")}
+          </span>
+        ) : (
+          <Link
+            href="/tools/screencast-demo"
+            className="text-xs font-semibold px-3.5 py-1.5 rounded border-2 border-transparent hover:border-black transition-colors"
+            style={{ backgroundColor: "rgb(245, 158, 11)", color: "rgb(0, 0, 0)" }}
+          >
+            {t("demoBadge")}
+          </Link>
+        )}
       </div>
       <p className="text-sm text-muted mb-6">{t("intro")}</p>
+      {demoDatei && (
+        <p className="mb-6 flex items-start gap-2 rounded-lg bg-surface-dim px-3 py-2.5 text-sm text-foreground-soft">
+          <Info size={14} className="mt-0.5 flex-shrink-0 text-muted-soft" aria-hidden="true" />
+          {tDemo("hinweis")}
+        </p>
+      )}
 
       {hasActiveJob === true && (
         <div className="mb-6 rounded-lg border border-error-border bg-error-bg px-4 py-4">
@@ -90,17 +111,17 @@ export default function UploadStep(props: UploadStepProps) {
       )}
 
       <div
-        onDragOver={hasActiveJob ? undefined : onDragOver}
-        onDragLeave={hasActiveJob ? undefined : onDragLeave}
-        onDrop={hasActiveJob ? undefined : onDrop}
-        onClick={hasActiveJob ? undefined : () => fileRef.current?.click()}
+        onDragOver={gesperrt ? undefined : onDragOver}
+        onDragLeave={gesperrt ? undefined : onDragLeave}
+        onDrop={gesperrt ? undefined : onDrop}
+        onClick={gesperrt ? undefined : () => fileRef.current?.click()}
         className={`
           relative mb-4 flex flex-col items-center justify-center
           rounded-lg border-2 border-dashed px-6 py-10
           transition-colors
-          ${hasActiveJob ? "border-border-soft bg-surface opacity-40 cursor-not-allowed" : "cursor-pointer"}
+          ${demoDatei ? "border-kb60 bg-kb20 cursor-default" : hasActiveJob ? "border-border-soft bg-surface opacity-40 cursor-not-allowed" : "cursor-pointer"}
           ${
-            !hasActiveJob &&
+            !gesperrt &&
             (dragOver
               ? "border-kb bg-kb/5"
               : file
@@ -114,13 +135,21 @@ export default function UploadStep(props: UploadStepProps) {
           type="file"
           accept={ACCEPTED_EXTENSIONS.join(",")}
           className="hidden"
-          disabled={!!hasActiveJob}
+          disabled={gesperrt}
           onChange={(e) => {
             const f = e.target.files?.[0];
             if (f) onFileSelect(f);
           }}
         />
-        {file ? (
+        {demoDatei ? (
+          <>
+            <svg className="w-8 h-8 text-kb-dark mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            <p className="text-sm font-medium text-foreground">{demoDatei}</p>
+            <p className="text-xs text-muted-soft mt-1">{tDemo("dateiVorgegeben")}</p>
+          </>
+        ) : file ? (
           <>
             <svg className="w-8 h-8 text-kb-dark mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -207,7 +236,7 @@ export default function UploadStep(props: UploadStepProps) {
         onBack={onBack}
         nextLabel={t("common.next")}
         onNext={onUploadNext}
-        nextDisabled={!file || !!hasActiveJob}
+        nextDisabled={demoDatei ? false : !file || !!hasActiveJob}
       />
     </section>
   );

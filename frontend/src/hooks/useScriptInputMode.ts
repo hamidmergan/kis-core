@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 
-export type ScriptInputMode = "generate" | "manual" | "import";
+export type ScriptInputMode = "generate" | "manual" | "import" | "notes";
 
 export function useScriptInputMode() {
   const [mode, setMode] = useState<ScriptInputMode>("generate");

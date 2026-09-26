@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
+from src.routes.screencast import _shared
 from src.routes.screencast import scripts as modul
 from src.routes.screencast._models import GenerateScriptsRequest
 
@@ -12,8 +13,8 @@ from src.routes.screencast._models import GenerateScriptsRequest
 @pytest.fixture
 def ablage(monkeypatch):
     gespeichert: dict[str, dict] = {}
-    monkeypatch.setattr(modul, "save_result_meta", lambda u, j, m: gespeichert.__setitem__("meta", m))
-    monkeypatch.setattr(modul, "load_result_meta", lambda u, j: {"translated_stem": "alt"})
+    monkeypatch.setattr(_shared, "save_result_meta", lambda u, j, m: gespeichert.__setitem__("meta", m))
+    monkeypatch.setattr(_shared, "load_result_meta", lambda u, j: {"translated_stem": "alt"})
     return gespeichert
 
 

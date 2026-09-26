@@ -15,9 +15,11 @@ interface Props {
   rueckblick?: boolean;
   /** These slides are not in the screencast, they never get audio. */
   nichtDabei?: number[];
+  /** Where the audio of a slide comes from, the demo has its own files. */
+  tonUrl?: (index: number) => string;
 }
 
-export default function RenderVorschau({ slides, fertig, jobUuid, speed, rueckblick = false, nichtDabei = [] }: Props) {
+export default function RenderVorschau({ slides, fertig, jobUuid, speed, rueckblick = false, nichtDabei = [], tonUrl }: Props) {
   const t = useTranslations("tools.screencast.vorschau");
   const audioRef = useRef<HTMLAudioElement>(null);
   const streifenRef = useRef<HTMLDivElement>(null);
@@ -97,12 +99,15 @@ export default function RenderVorschau({ slides, fertig, jobUuid, speed, rueckbl
           )}
         </div>
 
-        <div>
+        <div className="flex flex-col">
           <p className="text-xs uppercase tracking-wide text-muted-soft mb-1">
             {t("folieVon", { n: zeigt + 1, total: slides.length })}
           </p>
-          <div className="bg-surface border border-border-soft rounded-lg p-3 text-sm text-foreground-soft max-h-40 overflow-y-auto">
-            {folie?.script || t("ohneTon")}
+          {/* Beside the slide the text fills the column down to the audio, stacked it keeps its cap. */}
+          <div className="md:relative md:flex-1 md:min-h-24">
+            <div className="bg-surface border border-border-soft rounded-lg p-3 text-sm text-foreground-soft max-h-40 overflow-y-auto md:absolute md:inset-0 md:max-h-none">
+              {folie?.script || t("ohneTon")}
+            </div>
           </div>
           {istRaus ? (
             <p className="text-xs text-muted mt-3">{t("nichtDabei", { n: zeigt + 1 })}</p>
@@ -114,7 +119,7 @@ export default function RenderVorschau({ slides, fertig, jobUuid, speed, rueckbl
               // Preload nothing during the run, show the length in the review.
               preload={rueckblick ? "metadata" : "none"}
               className="w-full mt-3"
-              src={`/api/screencast/${jobUuid}/vorschau/${zeigt}`}
+              src={tonUrl ? tonUrl(zeigt) : `/api/screencast/${jobUuid}/vorschau/${zeigt}`}
             />
           ) : hatSkript ? (
             <p className="text-xs text-muted mt-3">{t("wirdVertont")}</p>

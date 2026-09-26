@@ -96,6 +96,7 @@ export function useScreencastTranslateFlow(opts: UseScreencastTranslateFlowOptio
       try {
         const formData = new FormData();
         formData.append("file", file);
+        formData.append("target_lang", targetLang);
         const response = await fetch("/api/screencast/upload-corrected", {
           method: "POST",
           body: formData,
