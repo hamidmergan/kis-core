@@ -6,6 +6,7 @@ import { Link } from "@/i18n/navigation";
 import IconButton from "@/components/ui/IconButton";
 import type { ScheduleListEntry } from "./ScheduleEntryCardGlobal";
 import { cleanScheduleDescription, dateQualifier, formatRangeEnd, urgencyColor } from "./utils";
+import { YearLabel } from "./YearLabel";
 
 function parseYMD(s: string): Date {
   const [y, m, d] = s.split("-").map(Number);
@@ -147,7 +148,11 @@ export default function ScheduleMonthRow({
         )}
         {/* Die Jahreszahl ist nur Beiwerk und darf nie nach Fehler aussehen. */}
         <div className="text-3xs font-bold mt-0.5" style={{ color: "var(--muted-soft)" }}>
-          {monthOnly ? date.getFullYear() : String(date.getFullYear()).slice(2)}
+          <YearLabel
+            year={String(date.getFullYear())}
+            label={monthOnly ? String(date.getFullYear()) : String(date.getFullYear()).slice(2)}
+            assumed={entry.year_assumed}
+          />
         </div>
       </div>
 

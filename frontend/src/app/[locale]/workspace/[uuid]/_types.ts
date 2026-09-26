@@ -348,6 +348,8 @@ export interface ScheduleEntry {
   is_open_ended?: boolean;
   /** With 'month' the source named only the month and the view shows no day. */
   date_precision?: "day" | "month" | null;
+  /** The source wrote no year, the system picked the nearest one. */
+  year_assumed?: boolean;
   is_optional: boolean;
   is_checked: boolean;
   checked_at: string | null;

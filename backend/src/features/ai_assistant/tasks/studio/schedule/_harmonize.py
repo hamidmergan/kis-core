@@ -14,15 +14,14 @@ from src.features.ai_assistant.tasks.studio.schedule._classify import _CLASSIFY_
 # Room for one group per item across every day of the request.
 _MAX_TOKENS = 8000
 from src.features.ai_assistant.tasks.studio.schedule._parse import (
+    _candidate_start,
     _range_end_date,
-    _parse_date,
-    _resolve_current_year,
 )
 
 
 def _harmonize_same_date_titles(
     client, model, all_candidates: list[dict], classifications: list[dict],
-    today_d: date, existing_entries: list[dict],
+    today_d: date, existing_entries: list[dict], evidence: dict | None = None,
 ) -> None:
     """Harmonises the titles day by day in one request, undated appointments are a day of their own."""
     # The group key is day plus precision, 'in July' is not the 1st of July.
@@ -30,13 +29,7 @@ def _harmonize_same_date_titles(
     for idx, (cand, cls) in enumerate(zip(all_candidates, classifications)):
         if not cls["keep"] or cls["is_footer"] or cls.get("is_header") or cls.get("is_historical"):
             continue
-        if cand.get("date_iso"):
-            d = _parse_date(cand["date_iso"])
-        elif cand.get("partial_date"):
-            mo, da = cand["partial_date"]
-            d = _resolve_current_year(today_d, mo, da)
-        else:
-            d = None
+        d, _ = _candidate_start(cand, today_d, evidence, use_end=bool(cls.get("is_range")))
         # The end belongs in the key, otherwise a span collapses into a single appointment.
         ende = _range_end_date(cand, d, today_d) if cls.get("is_range") else None
         cand_groups[(d, ende, cand.get("date_precision") or "day")].append(idx)

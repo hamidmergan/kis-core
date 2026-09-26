@@ -13,7 +13,7 @@ _ENTRY_COLS = (
     "id, workspace_id, type, title, description, due_date, end_date, "
     "due_time, end_time, date_precision, is_open_ended, "
     "is_optional, is_checked, checked_at, origin, "
-    "source_refs, created_at, updated_at"
+    "source_refs, year_assumed, created_at, updated_at"
 )
 
 
@@ -43,7 +43,7 @@ def get_schedule_entries_for_user(
                s.due_date, s.end_date, s.due_time, s.end_time,
                s.date_precision, s.is_open_ended,
                s.is_optional, s.is_checked, s.checked_at, s.origin,
-               s.source_refs, s.created_at, s.updated_at,
+               s.source_refs, s.year_assumed, s.created_at, s.updated_at,
                m.uuid AS workspace_uuid,
                m.title AS module_title,
                CASE WHEN s.workspace_id IS NULL THEN 'personal'
@@ -144,6 +144,7 @@ def create_schedule_entry(
     end_date: Optional[date] = None,
     end_time: Optional[time] = None,
     is_open_ended: bool = False,
+    year_assumed: bool = False,
 ) -> dict:
     """Creates an appointment, date_precision 'month' sets the first of the month as sort key."""
     with get_connection() as conn:
@@ -153,8 +154,8 @@ def create_schedule_entry(
                 INSERT INTO aia_schedule_entries
                     (workspace_id, user_id, type, title, description,
                      due_date, end_date, due_time, end_time, date_precision,
-                     is_open_ended, is_optional, origin, source_refs)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                     is_open_ended, is_optional, origin, source_refs, year_assumed)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING {_ENTRY_COLS}
                 """,
                 (
@@ -162,7 +163,7 @@ def create_schedule_entry(
                     due_date, end_date, due_time, end_time,
                     date_precision if date_precision in ("day", "month") else "day",
                     is_open_ended, is_optional, origin,
-                    json.dumps(source_refs),
+                    json.dumps(source_refs), year_assumed,
                 ),
             )
             row = dict(cur.fetchone())
@@ -190,6 +191,7 @@ def update_schedule_entry(
     clear_time: bool = False,
     clear_end_date: bool = False,
     clear_end_time: bool = False,
+    year_confirmed: bool = False,
 ) -> Optional[dict]:
     """Partial update. Pass only fields to change."""
     sets: list[str] = []
@@ -241,6 +243,8 @@ def update_schedule_entry(
     if source_refs is not None:
         sets.append("source_refs = %s")
         params.append(json.dumps(source_refs))
+    if year_confirmed:
+        sets.append("year_assumed = FALSE")
 
     if not sets:
         return get_schedule_entry(entry_id, user_id)
@@ -262,8 +266,8 @@ def update_schedule_entry(
         return dict(row) if row else None
 
 
-def append_source_ref_to_entry(entry_id: int, ref: dict) -> None:
-    """Attaches a source reference, without duplicates."""
+def append_source_ref_to_entry(entry_id: int, ref: dict, year_written: bool = False) -> None:
+    """Attaches a source reference without duplicates, a written year ends the assumption."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -273,10 +277,11 @@ def append_source_ref_to_entry(entry_id: int, ref: dict) -> None:
                      SELECT COALESCE(jsonb_agg(DISTINCT x), '[]'::jsonb)
                        FROM jsonb_array_elements(source_refs || %s::jsonb) AS x
                    ),
+                       year_assumed = year_assumed AND NOT %s,
                        updated_at = NOW()
                  WHERE id = %s
                 """,
-                (json.dumps([ref]), entry_id),
+                (json.dumps([ref]), year_written, entry_id),
             )
         conn.commit()
 
@@ -291,6 +296,42 @@ def delete_schedule_entry(entry_id: int, user_id: int) -> bool:
             deleted = cur.rowcount > 0
         conn.commit()
         return deleted
+
+
+def remove_source_from_schedule(workspace_id: int, source_uuid: str) -> tuple[int, int]:
+    """Takes a deleted source off every entry, entries it alone found go with it."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                WITH betroffen AS (
+                    SELECT id, origin, COALESCE(
+                             (SELECT jsonb_agg(x) FROM jsonb_array_elements(source_refs) AS x
+                               WHERE x->>'source_uuid' IS DISTINCT FROM %(uuid)s),
+                             '[]'::jsonb) AS rest
+                      FROM aia_schedule_entries
+                     WHERE workspace_id = %(ws)s
+                       AND source_refs @> %(treffer)s::jsonb
+                ), weg AS (
+                    DELETE FROM aia_schedule_entries s
+                     USING betroffen b
+                     WHERE s.id = b.id AND b.origin = 'llm' AND b.rest = '[]'::jsonb
+                    RETURNING s.id
+                ), rest AS (
+                    UPDATE aia_schedule_entries s
+                       SET source_refs = b.rest, updated_at = NOW()
+                      FROM betroffen b
+                     WHERE s.id = b.id AND NOT (b.origin = 'llm' AND b.rest = '[]'::jsonb)
+                    RETURNING s.id
+                )
+                SELECT (SELECT COUNT(*) FROM weg), (SELECT COUNT(*) FROM rest)
+                """,
+                {"uuid": source_uuid, "ws": workspace_id,
+                 "treffer": json.dumps([{"source_uuid": source_uuid}])},
+            )
+            geloescht, gekuerzt = cur.fetchone()
+        conn.commit()
+    return geloescht, gekuerzt
 
 
 def delete_all_schedule_entries(workspace_id: int, user_id: int) -> int:

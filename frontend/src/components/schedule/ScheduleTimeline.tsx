@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { dateQualifier, effectiveDueDate, todayISO, urgencyColor } from "./utils";
+import { YearLabel } from "./YearLabel";
 
 export interface DatedEntry {
   id: number | string;
@@ -14,6 +15,8 @@ export interface DatedEntry {
   type?: string | null;
   /** 'month': the source named only a month, then no day number appears. */
   date_precision?: string | null;
+  /** The source wrote no year, the system picked the nearest one. */
+  year_assumed?: boolean | null;
   is_checked?: boolean;
 }
 
@@ -176,12 +179,13 @@ export function ScheduleTimeline<T extends DatedEntry>({
                 >
                   {month}
                 </div>
-                {startsYear && (
+                {/* An assumed year always shows, with its marker. */}
+                {(startsYear || entry.year_assumed) && (
                   <div
                     className="mt-0.5 font-semibold"
                     style={{ color: "var(--muted-soft)", fontSize: "0.625rem" }}
                   >
-                    {year}
+                    <YearLabel year={year} assumed={entry.year_assumed} />
                   </div>
                 )}
               </div>

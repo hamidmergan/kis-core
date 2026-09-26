@@ -1536,6 +1536,8 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             cur.execute("ALTER TABLE aia_schedule_entries ADD COLUMN IF NOT EXISTS end_time TIME")
             # When set, the source names a start and explicitly no end.
             cur.execute("ALTER TABLE aia_schedule_entries ADD COLUMN IF NOT EXISTS is_open_ended BOOLEAN NOT NULL DEFAULT FALSE")
+            # When set, the source wrote no year and the system picked the nearest one.
+            cur.execute("ALTER TABLE aia_schedule_entries ADD COLUMN IF NOT EXISTS year_assumed BOOLEAN NOT NULL DEFAULT FALSE")
             # Drop legacy columns (were single-position; replaced by source_refs array)
             cur.execute("ALTER TABLE aia_schedule_entries DROP COLUMN IF EXISTS source_ids")
             cur.execute("ALTER TABLE aia_schedule_entries DROP COLUMN IF EXISTS raw_quote")

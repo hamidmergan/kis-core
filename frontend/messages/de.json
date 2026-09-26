@@ -249,7 +249,9 @@
       "saveError": "Der Termin konnte nicht gespeichert werden."
     },
     "fromMark": "ab",
-    "untilMark": "bis"
+    "untilMark": "bis",
+    "yearAssumed": "In der Quelle steht kein Jahr. {jahr} ist angenommen, weil das Datum dann am nächsten an heute liegt.",
+    "yearAssumedAria": "Jahr angenommen"
   },
   "imprint": {
     "title": "Impressum",

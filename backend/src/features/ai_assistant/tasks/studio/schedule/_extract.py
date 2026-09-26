@@ -120,16 +120,32 @@ def _extract_once(client, model, packet: list[dict], today: date) -> list[dict]:
     return [i for i in items if isinstance(i, dict)]
 
 
-def _date_parts(value) -> tuple[str | None, tuple[int, int] | None, str] | None:
-    """One of the four date shapes as iso, partial and precision, None when unreadable."""
+def _year_written(year: int, text: str) -> bool:
+    """Does the text write this year, in full or as the short year of a numeric date?"""
+    if re.search(rf"(?<!\d){year}(?!\d)", text):
+        return True
+    return bool(re.search(rf"\d{{1,2}}[./-]\d{{1,2}}[./-]{year % 100:02d}(?!\d)", text))
+
+
+def _date_parts(value, text: str | None = None) -> tuple[str | None, tuple[int, int] | None, str] | None:
+    """One of the four date shapes as iso, partial and precision, a year missing from the text is dropped."""
     s = str(value).strip()
     m = re.fullmatch(r"(\d{4})-(\d{2})-(\d{2})", s)
     if m:
-        return (s, None, "day") if _parse_date(s) else None
+        if not _parse_date(s):
+            return None
+        # The model fills in years despite the rule, the quoted spot decides.
+        if text is not None and not _year_written(int(m.group(1)), text):
+            return None, (int(m.group(2)), int(m.group(3))), "day"
+        return s, None, "day"
     m = re.fullmatch(r"(\d{4})-(\d{2})", s)
     if m:
         y, mo = int(m.group(1)), int(m.group(2))
-        return (f"{y:04d}-{mo:02d}-01", None, "month") if 1 <= mo <= 12 else None
+        if not 1 <= mo <= 12:
+            return None
+        if text is not None and not _year_written(y, text):
+            return None, (mo, 1), "month"
+        return f"{y:04d}-{mo:02d}-01", None, "month"
     m = re.fullmatch(r"(\d{2})-(\d{2})", s)
     if m:
         mo, d = int(m.group(1)), int(m.group(2))
@@ -179,13 +195,13 @@ def items_to_pairs(items: list[dict], blocks: list[dict], today: date,
             logger.info("Terminsuche: Termin ohne Titel, verworfen: {!r}", quote[:80])
             continue
         start = item.get("date")
-        parts = _date_parts(start) if start not in (None, "") else (None, None, "day")
+        parts = _date_parts(start, quote) if start not in (None, "") else (None, None, "day")
         if parts is None:
             logger.info("Terminsuche: unlesbares Datum {!r}, verworfen", start)
             continue
         iso, partial, precision = parts
         end = item.get("end_date")
-        end_parts = _date_parts(end) if end not in (None, "") else None
+        end_parts = _date_parts(end, quote) if end not in (None, "") else None
         if end not in (None, "") and end_parts is None:
             logger.info("Terminsuche: unlesbares Enddatum {!r}, wird ignoriert", end)
         end_iso, end_partial = (end_parts[0], end_parts[1]) if end_parts else (None, None)
