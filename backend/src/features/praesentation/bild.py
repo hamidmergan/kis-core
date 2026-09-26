@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import re
 
 from src.tasks.general_tasks import _image_http_client
 
@@ -32,8 +33,18 @@ def bildgroesse(width: int, height: int) -> str:
     return f"{rund(w)}x{rund(h)}"
 
 
+# Quoted words and their translation right behind are what a prompt wants painted as lettering, unchecked for spelling.
+_ZITAT = re.compile(r"(?:(?<!\w)'[^'\n]*'(?!\w)|\"[^\"\n]*\"|„[^“”\n]*[“”]|“[^”\n]*”|«[^»\n]*»)(?:\s*\([^()\n]{0,40}\))?")
+OHNE_SCHRIFT = "The picture shows no writing of any kind, only shapes, people and objects."
+
+
+def ohne_zitate(beschreibung: str) -> str:
+    text = re.sub(r"\s+([,.;:])", r"\1", re.sub(r"\s{2,}", " ", _ZITAT.sub("", beschreibung)))
+    return re.sub(r"([,.;:])(?:\s*[,;:])+", r"\1", text).strip()
+
+
 def prompt_fuer(style_text: str, beschreibung: str) -> str:
-    return f"{style_text.strip()} Subject: {beschreibung.strip()}".strip()
+    return f"{style_text.strip()} Subject: {ohne_zitate(beschreibung)} {OHNE_SCHRIFT}".strip()
 
 
 def erzeuge(prompt: str, size: str, *, timeout: float = 300.0) -> bytes:

@@ -155,9 +155,13 @@ def _texte_schreiben(job_uuid, user_id, params, quelle, quellenliste, analyse,
     fertig = 0
     db.update_job_status(job_uuid, "running", progress=_fortschritt(final, "texte", current=0, total=len(offen)))
 
+    # Planned over the whole deck, the batches run at once and cannot see each other's cards.
+    alle_formen = {r.id: vorlage.form_fuer(analyse.layout(layouts[r.id]), analyse) for r in outline.rows if r.id in layouts}
+    karten = folien.karten_folien(outline.rows, alle_formen)
+
     def schreibe(paket: list[OutlineRow]) -> list[Slide]:
         assert_not_cancelled(job_uuid)
-        formen = {r.id: vorlage.form_fuer(analyse.layout(layouts[r.id]), analyse) for r in paket}
+        formen = {r.id: alle_formen[r.id] if r.id in karten else folien.ohne_karten(alle_formen[r.id]) for r in paket}
         # A slide with material of its own keeps it, the rest get their passages.
         if paket[0].id in eigen:
             nachrichten = folien.build_messages(eigen[paket[0].id], params, paket, formen)
@@ -168,10 +172,12 @@ def _texte_schreiben(job_uuid, user_id, params, quelle, quellenliste, analyse,
         for _ in range(_VERSUCHE):
             antwort = call_json_llm(llm, nachrichten, endpoint="praesentation").choices[0].message.content or ""
             try:
-                return folien.parse_answer(antwort, paket, formen, params.notes)
+                neue = folien.parse_answer(antwort, paket, formen, params.notes)
             except gliederung.Unusable as e:
                 letzter = str(e)
                 logger.warning("Präsentation {}: Folienpaket unbrauchbar: {}", job_uuid[:8], e)
+                continue
+            return _nachfassen(llm, nachrichten, antwort, neue, paket, formen, params.notes, job_uuid)
         raise RuntimeError(letzter or "Das Modell lieferte keine brauchbaren Folien")
 
     # A few batches at once, each wave saved before the next, so a stage never loses a finished one.
@@ -194,6 +200,23 @@ def _texte_schreiben(job_uuid, user_id, params, quelle, quellenliste, analyse,
             # The finished wave is saved, whatever is left goes to the next stage.
             if clock.over() and n < len(wellen) - 1:
                 raise StageContinue
+
+
+def _nachfassen(llm, nachrichten, antwort, neue: list[Slide], paket: list[OutlineRow], formen: dict,
+                notes: bool, job_uuid: str) -> list[Slide]:
+    """Thin slides are asked for once more, the second version wins only when it carries more points."""
+    duenn = folien.zu_duenn(neue, formen)
+    if not duenn:
+        return neue
+    logger.info("Präsentation {}: zu wenige Punkte, frage nach: {}", job_uuid[:8], duenn)
+    try:
+        roh = call_json_llm(llm, folien.nachfrage(nachrichten, antwort, duenn),
+                            endpoint="praesentation").choices[0].message.content or ""
+        zweite = {s.id: s for s in folien.parse_answer(roh, [r for r in paket if r.id in duenn], formen, notes)}
+    except Exception as e:  # noqa: BLE001 - the first version is still a usable slide
+        logger.warning("Präsentation {}: Nachfrage gescheitert, erste Fassung bleibt: {}", job_uuid[:8], e)
+        return neue
+    return [zweite[s.id] if s.id in zweite and folien.punkte(zweite[s.id]) > folien.punkte(s) else s for s in neue]
 
 
 def _fehlende_bilder(user_id, job_uuid, slides: list[Slide], analyse: Analyse, erzwungen: set[str]) -> list[tuple]:

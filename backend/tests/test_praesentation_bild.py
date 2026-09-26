@@ -89,4 +89,20 @@ def test_anderer_fehler_wird_gemeldet(anbieter):
 
 
 def test_prompt_haengt_beschreibung_an_den_stil():
-    assert bild.prompt_fuer("Red ink style.", "a lab bench") == "Red ink style. Subject: a lab bench"
+    assert bild.prompt_fuer("Red ink style.", "a lab bench") == f"Red ink style. Subject: a lab bench {bild.OHNE_SCHRIFT}"
+
+
+def test_woerter_in_anfuehrungszeichen_fliegen_raus():
+    roh = ("A triangle. The vertices are labeled 'Leistung' (Performance), 'Termine', and \"Kosten\". "
+           "In the center the word „Qualität“ is placed.")
+    sauber = bild.ohne_zitate(roh)
+    assert not any(w in sauber for w in ("Leistung", "Termine", "Kosten", "Qualität", "Performance"))
+    assert sauber == "A triangle. The vertices are labeled, and. In the center the word is placed."
+
+
+def test_eine_klammer_ohne_zitat_davor_bleibt():
+    assert bild.ohne_zitate("a curve (like a bell) on paper") == "a curve (like a bell) on paper"
+
+
+def test_apostroph_im_englischen_bleibt():
+    assert bild.ohne_zitate("the teacher's desk and the students' chairs") == "the teacher's desk and the students' chairs"
