@@ -71,6 +71,8 @@ def _serialize_entry(row: dict) -> dict:
         "is_open_ended": bool(row.get("is_open_ended")),
         # 'month' = the source named only a month, the view then shows no day
         "date_precision": row.get("date_precision") or "day",
+        # Set when the source wrote no year and the system picked the nearest one.
+        "year_assumed": bool(row.get("year_assumed")),
         "is_optional": row["is_optional"],
         "is_checked": row["is_checked"],
         "checked_at": row["checked_at"].isoformat() + "Z" if row.get("checked_at") else None,
@@ -103,6 +105,8 @@ def _serialize_global_entry(row: dict) -> dict:
         "is_open_ended": bool(row.get("is_open_ended")),
         # 'month' = the source named only a month, the view then shows no day
         "date_precision": row.get("date_precision") or "day",
+        # Set when the source wrote no year and the system picked the nearest one.
+        "year_assumed": bool(row.get("year_assumed")),
         "is_checked": row["is_checked"],
     }
 
@@ -285,16 +289,22 @@ async def update_entry(
     # Without a stated precision the entry's own applies.
     effective = precision or (existing.get("date_precision") or "day")
 
+    due_date = _month_anchor(
+        _parse_date(body.due_date, locale=locale) if body.due_date else None, effective,
+    )
+    end_date = _parse_date(body.end_date, locale=locale) if body.end_date else None
+    # A date the person sets by hand no longer rests on an assumed year.
+    year_confirmed = ((due_date is not None and due_date != existing.get("due_date"))
+                      or (end_date is not None and end_date != existing.get("end_date")))
+
     row = db.update_schedule_entry(
         entry_id,
         user_id,
         type=body.type,
         title=(body.title.strip() if body.title else None),
         description=(body.description.strip() if body.description else None),
-        due_date=_month_anchor(
-            _parse_date(body.due_date, locale=locale) if body.due_date else None, effective,
-        ),
-        end_date=_parse_date(body.end_date, locale=locale) if body.end_date else None,
+        due_date=due_date,
+        end_date=end_date,
         due_time=_parse_time(body.due_time, locale=locale) if body.due_time else None,
         end_time=_parse_time(body.end_time, locale=locale) if body.end_time else None,
         date_precision=precision,
@@ -305,6 +315,7 @@ async def update_entry(
         clear_time=body.clear_time,
         clear_end_date=body.clear_end_date,
         clear_end_time=body.clear_end_time,
+        year_confirmed=year_confirmed,
     )
     if not row:
         raise HTTPException(status_code=404, detail=t("entry.notFound", locale))

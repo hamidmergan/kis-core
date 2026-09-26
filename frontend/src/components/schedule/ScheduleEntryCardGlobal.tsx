@@ -19,6 +19,8 @@ export interface ScheduleListEntry {
   due_time?: string | null;
   /** 'month': the source named only a month, the timeline then shows no day. */
   date_precision?: "day" | "month" | null;
+  /** The source wrote no year, the system picked the nearest one. */
+  year_assumed?: boolean;
   is_checked?: boolean;
 }
 

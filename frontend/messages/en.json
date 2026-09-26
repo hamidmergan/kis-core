@@ -249,7 +249,9 @@
       "saveError": "The entry could not be saved."
     },
     "fromMark": "from",
-    "untilMark": "by"
+    "untilMark": "by",
+    "yearAssumed": "The source gives no year. {jahr} is assumed because it puts the date closest to today.",
+    "yearAssumedAria": "year assumed"
   },
   "imprint": {
     "title": "Imprint",

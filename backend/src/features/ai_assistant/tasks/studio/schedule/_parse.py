@@ -199,17 +199,68 @@ def _range_end_date(cand: dict, due_date_obj: Optional[date],
         ende = _parse_date(cand["date_end_iso"])
     elif cand.get("date_end_partial"):
         mo, da = cand["date_end_partial"]
-        ende = _resolve_current_year(today_d, mo, da)
-        if ende and due_date_obj and ende < due_date_obj:
-            ende = _resolve_current_year(today_d.replace(year=today_d.year + 1), mo, da)
+        if due_date_obj:
+            # A year-less end is the first such day on or after the start.
+            ende = next((d for d in (_in_year(due_date_obj.year + k, mo, da) for k in (0, 1, 2))
+                         if d and d >= due_date_obj), None)
+        else:
+            ende, _ = _resolve_year(today_d, mo, da)
     if ende and due_date_obj and ende <= due_date_obj:
         return None
     return ende
 
 
-def _resolve_current_year(today_d: date, month: int, day: int) -> Optional[date]:
-    """A date without a year counts in the current year, none is invented."""
+def _in_year(year: int, month: int, day: int) -> Optional[date]:
+    """The day in that year, None when it does not exist there (29 February)."""
     try:
-        return date(today_d.year, month, day)
+        return date(year, month, day)
     except ValueError:
         return None
+
+
+def _year_evidence(candidates: list[dict], entries: list[dict]) -> dict[tuple[int, int], set[int]]:
+    """Per month and day, the years a source writes out for it."""
+    belegt: dict[tuple[int, int], set[int]] = {}
+    for c in candidates:
+        d = _parse_date(c.get("date_iso"))
+        if d and (c.get("date_precision") or "day") == "day":
+            belegt.setdefault((d.month, d.day), set()).add(d.year)
+    for e in entries:
+        d = e.get("due_date")
+        if d and (e.get("date_precision") or "day") == "day" and not e.get("year_assumed"):
+            belegt.setdefault((d.month, d.day), set()).add(d.year)
+    return belegt
+
+
+def _resolve_year(today_d: date, month: int, day: int,
+                  evidence: Optional[dict] = None) -> tuple[Optional[date], bool]:
+    """A year-less date and whether its year is only assumed, a written year wins over the nearest one."""
+    years = (evidence or {}).get((month, day))
+    assumed = not years
+    if assumed:
+        years = {today_d.year - 1, today_d.year, today_d.year + 1}
+    dates = [d for d in (_in_year(y, month, day) for y in years) if d]
+    if not dates:
+        return None, False
+    # The nearest occurrence, on a tie the coming one.
+    return min(dates, key=lambda d: (abs((d - today_d).days), d < today_d)), assumed
+
+
+def _candidate_start(cand: dict, today_d: date, evidence: Optional[dict] = None,
+                     use_end: bool = False) -> tuple[Optional[date], bool]:
+    """The date of a candidate and whether its year is only assumed."""
+    if cand.get("is_tbd"):
+        return None, False
+    if cand.get("date_iso"):
+        return _parse_date(cand["date_iso"]), False
+    if not cand.get("partial_date"):
+        return None, False
+    mo, da = cand["partial_date"]
+    ende = _parse_date(cand.get("date_end_iso")) if use_end else None
+    if ende:
+        # A written end fixes the year, the start is the last such day before it.
+        start = next((d for d in (_in_year(ende.year - k, mo, da) for k in (0, 1, 2))
+                      if d and d <= ende), None)
+        if start:
+            return start, False
+    return _resolve_year(today_d, mo, da, evidence)
