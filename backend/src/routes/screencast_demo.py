@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from loguru import logger
 from pydantic import BaseModel
 
@@ -65,8 +65,16 @@ def _load_accepted_scripts() -> list[str]:
     return []
 
 
+def _folien_dateien(endung: str) -> list[Path]:
+    """Per-slide files cut from the video by scripts/screencast_demo_folien.py."""
+    return sorted((DEMO_DIR / "folien").glob(f"folie_*.{endung}"))
+
+
 def _load_demo_images() -> list[str]:
-    """Load slide images from demo/images/ as base64 strings."""
+    """Load slide images as base64 strings, the ones cut from the video first."""
+    folien = _folien_dateien("png")
+    if folien:
+        return [base64.b64encode(img.read_bytes()).decode() for img in folien]
     images_dir = DEMO_DIR / "images"
     if not images_dir.exists():
         return []
@@ -88,7 +96,7 @@ def _find_demo_video() -> Path | None:
 
 def _demo_images_exist() -> bool:
     images_dir = DEMO_DIR / "images"
-    return images_dir.exists() and bool(list(images_dir.glob("*.png")))
+    return bool(_folien_dateien("png")) or (images_dir.exists() and bool(list(images_dir.glob("*.png"))))
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
@@ -172,6 +180,46 @@ async def demo_render(
     )
 
 
+@router.get("/screencast-demo/video")
+async def demo_video(
+    download: bool = False,
+    _: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
+):
+    """The prepared video as a file, so the player can seek."""
+    video = _find_demo_video()
+    if not video:
+        raise HTTPException(status_code=404, detail=t("screencastDemo.videoMissing", locale))
+    return FileResponse(
+        video,
+        media_type="video/mp4",
+        filename="screencast_demo.mp4" if download else None,
+        content_disposition_type="attachment" if download else "inline",
+    )
+
+
+@router.get("/screencast-demo/vorschau/{index}")
+async def demo_vorschau(index: int, _: dict = Depends(get_current_user)):
+    """The audio of one slide for the preview while the demo renders."""
+    toene = _folien_dateien("mp3")
+    if not 0 <= index < len(toene):
+        raise HTTPException(status_code=404)
+    return FileResponse(toene[index], media_type="audio/mpeg")
+
+
+@router.get("/screencast-demo/pptx")
+async def demo_pptx(_: dict = Depends(get_current_user)):
+    """The translated demo presentation."""
+    dateien = sorted(DEMO_DIR.glob("*.pptx"))
+    if not dateien:
+        raise HTTPException(status_code=404)
+    return FileResponse(
+        dateien[0],
+        media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        filename="screencast_demo.pptx",
+    )
+
+
 class _ZipStreamWriter:
     """File-like object for streaming ZIP construction."""
 
@@ -230,19 +278,23 @@ def _streaming_demo_bundle():
     for p in sorted(DEMO_DIR.glob("*.pptx")):
         yield _add_file_and_yield(p.name, p)
 
-    # Audio
+    # Audio and images, the per-slide files when the video has been cut
+    toene, bilder = _folien_dateien("mp3"), _folien_dateien("png")
     if BUNDLE_INCLUDE_AUDIO:
-        audio_dir = DEMO_DIR / "audio"
-        if audio_dir.exists():
-            for f in sorted(audio_dir.iterdir()):
+        if toene:
+            for f in toene:
+                yield _add_file_and_yield(f"audio/{f.name}", f)
+        elif (DEMO_DIR / "audio").exists():
+            for f in sorted((DEMO_DIR / "audio").iterdir()):
                 if f.is_file():
                     yield _add_file_and_yield(f"audio/{f.name}", f)
 
-    # Images
     if BUNDLE_INCLUDE_IMAGES:
-        images_dir = DEMO_DIR / "images"
-        if images_dir.exists():
-            for f in sorted(images_dir.glob("*.png")):
+        if bilder:
+            for f in bilder:
+                yield _add_file_and_yield(f"images/{f.name}", f)
+        elif (DEMO_DIR / "images").exists():
+            for f in sorted((DEMO_DIR / "images").glob("*.png")):
                 yield _add_file_and_yield(f"images/{f.name}", f)
 
     # Finalize ZIP (central directory)

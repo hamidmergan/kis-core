@@ -45,6 +45,17 @@ def extract_text_per_slide(source: bytes | str | Path) -> list[str]:
     return slide_texts
 
 
+def extract_notes_per_slide(source: bytes | str | Path) -> list[str]:
+    """Speaker notes per visible slide, empty where a slide has none."""
+    prs = Presentation(BytesIO(source) if isinstance(source, bytes) else source)
+    notizen: list[str] = []
+    for slide in iter_visible_slides(prs):
+        rahmen = slide.notes_slide.notes_text_frame if slide.has_notes_slide else None
+        zeilen = [p.text.strip() for p in rahmen.paragraphs] if rahmen is not None else []
+        notizen.append("\n".join(z for z in zeilen if z))
+    return notizen
+
+
 def soffice_profile_dir() -> Path:
     """Its own LibreOffice profile per process and thread, otherwise a conversion fails."""
     key = f"{os.getpid()}-{threading.get_ident()}"

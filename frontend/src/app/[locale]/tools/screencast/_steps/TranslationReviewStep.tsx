@@ -16,6 +16,8 @@ interface TranslationReviewStepProps {
   onDownloadTranslatedPptx: () => Promise<boolean>;
   onUploadCorrectedPptx: (f: File) => void;
   onAcceptAndNext: () => void;
+  /** The demo offers no upload of an own file. */
+  demo?: boolean;
 }
 
 export default function TranslationReviewStep({
@@ -29,8 +31,10 @@ export default function TranslationReviewStep({
   onDownloadTranslatedPptx,
   onUploadCorrectedPptx,
   onAcceptAndNext,
+  demo = false,
 }: TranslationReviewStepProps) {
   const t = useTranslations("tools.screencast");
+  const tDemo = useTranslations("tools.screencastDemo");
   const [downloadFailed, setDownloadFailed] = useState(false);
   const unchangedCount = slides.filter((s) => s.unchanged).length;
   // The same endpoint also reports an empty file and too many slides, the heading only fits the slide count message.
@@ -109,13 +113,18 @@ export default function TranslationReviewStep({
         )}
 
         <div className="relative">
-          <label className="block w-full px-4 py-2 text-sm text-foreground-soft border border-border rounded-md hover:bg-surface transition-colors text-center cursor-pointer">
+          <label
+            className={`block w-full px-4 py-2 text-sm text-foreground-soft border border-border rounded-md transition-colors text-center ${
+              demo ? "opacity-60 cursor-not-allowed" : "hover:bg-surface cursor-pointer"
+            }`}
+            title={demo ? tDemo("keinHochladen") : undefined}
+          >
             {loading ? t("translationReview.uploading") : t("translationReview.uploadCorrected")}
             <input
               type="file"
               accept=".pptx"
               className="hidden"
-              disabled={loading}
+              disabled={loading || demo}
               onClick={(e) => { e.currentTarget.value = ""; }}
               onChange={(e) => {
                 const f = e.target.files?.[0];
@@ -123,6 +132,7 @@ export default function TranslationReviewStep({
               }}
             />
           </label>
+          {demo && <p className="mt-1 text-xs text-muted-soft">{tDemo("keinHochladen")}</p>}
           {correctedFileName && (
             <p className="mt-2 text-sm text-success flex items-center gap-2">
               <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">

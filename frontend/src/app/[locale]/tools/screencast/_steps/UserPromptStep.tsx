@@ -1,22 +1,30 @@
 "use client";
 
-import type { RefObject } from "react";
+import type { ReactNode, RefObject } from "react";
 import { useTranslations } from "next-intl";
+import type { ScriptInputMode } from "@/hooks/useScriptInputMode";
 import StepFooter from "./StepFooter";
 
 interface UserPromptStepProps {
   onBack: (() => void) | null;
-  scriptInputMode: "generate" | "manual" | "import";
+  scriptInputMode: ScriptInputMode;
   importedScripts: string[] | null;
   importError: string | null;
   jsonDragOver: boolean;
   jsonFileRef: RefObject<HTMLInputElement | null>;
   loading: boolean;
-  onScriptInputModeChange: (mode: "generate" | "manual" | "import") => void;
+  onScriptInputModeChange: (mode: ScriptInputMode) => void;
   onResetImport: () => void;
   onJsonDragOverChange: (v: boolean) => void;
   onJsonImport: (file: File) => void;
   onNext: () => void;
+  /** The demo offers no upload of an own file. */
+  demo?: boolean;
+  /** Extra documents for the generated scripts, shown with the AI option. */
+  material?: ReactNode;
+  nextBlocked?: boolean;
+  /** Why the speaker notes could not be taken. */
+  notizenFehler?: string;
 }
 
 export default function UserPromptStep({
@@ -32,8 +40,13 @@ export default function UserPromptStep({
   onJsonDragOverChange,
   onJsonImport,
   onNext,
+  demo = false,
+  material,
+  nextBlocked = false,
+  notizenFehler = "",
 }: UserPromptStepProps) {
   const t = useTranslations("tools.screencast");
+  const tDemo = useTranslations("tools.screencastDemo");
 
   return (
     <section className="animate-[fadeIn_0.3s_ease-out]">
@@ -94,7 +107,13 @@ export default function UserPromptStep({
           <div className="flex-1 min-w-0">
             <span className="text-sm font-medium text-foreground">{t("userPrompt.import")}</span>
             <p className="text-xs text-muted mt-0.5">{t("userPrompt.importDesc")}</p>
-            {scriptInputMode === "import" && (
+            {scriptInputMode === "import" && demo && (
+              <div className="mt-2 flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-border-soft bg-surface px-4 py-5 opacity-60 cursor-not-allowed">
+                <p className="text-xs text-muted">{tDemo("keinHochladen")}</p>
+                <p className="text-xs text-muted-soft mt-0.5">{tDemo("importVorgegeben")}</p>
+              </div>
+            )}
+            {scriptInputMode === "import" && !demo && (
               <div className="mt-2">
                 <div
                   onDragOver={(e) => {
@@ -173,9 +192,34 @@ export default function UserPromptStep({
             )}
           </div>
         </label>
+
+        <label
+          className={`flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition-colors ${scriptInputMode === "notes" ? "border-kb bg-kb/10" : "border-border hover:border-kb"}`}
+        >
+          <input
+            type="radio"
+            name="scriptInputMode"
+            value="notes"
+            checked={scriptInputMode === "notes"}
+            onChange={() => {
+              onScriptInputModeChange("notes");
+              onResetImport();
+            }}
+            className="mt-0.5 accent-kb"
+          />
+          <div>
+            <span className="text-sm font-medium text-foreground">{t("userPrompt.notes")}</span>
+            <p className="text-xs text-muted mt-0.5">{t("userPrompt.notesDesc")}</p>
+            {scriptInputMode === "notes" && notizenFehler && (
+              <p className="mt-1.5 text-xs text-error" role="alert">{notizenFehler}</p>
+            )}
+          </div>
+        </label>
       </div>
 
-      <StepFooter onBack={onBack} nextLabel={t("common.next")} onNext={onNext} nextDisabled={loading} />
+      {scriptInputMode === "generate" && material}
+
+      <StepFooter onBack={onBack} nextLabel={t("common.next")} onNext={onNext} nextDisabled={loading || nextBlocked} />
     </section>
   );
 }

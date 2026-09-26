@@ -26,7 +26,7 @@ import TtsSettingsStep from "./_steps/TtsSettingsStep";
 import RenderVorschau from "./_components/RenderVorschau";
 import ScreencastOverlays from "./_components/ScreencastOverlays";
 import { applyRegen, type RegenApplyMode } from "@/components/regen/apply";
-import { parseScriptJsonFile, checkHasActiveJob, checkJobValidity, checkJobFolderExists, computeVoiceLabel, laufWaereUmsonst, stimmwechselOhneWirkung, ausgeschlosseneFolien, sprachIdFuerLocale, type LaufStand } from "./_utils";
+import { holeNotizen, parseScriptJsonFile, checkHasActiveJob, checkJobValidity, checkJobFolderExists, computeVoiceLabel, laufWaereUmsonst, stimmwechselOhneWirkung, ausgeschlosseneFolien, sprachIdFuerLocale, type LaufStand } from "./_utils";
 import { flowReducer, INITIAL_FLOW_STATE } from "./_reducer";
 import { renderFlowMessages, translateFlowMessages } from "./_messages";
 import { useScreencastRenderFlow } from "./_hooks/useScreencastRenderFlow";
@@ -45,6 +45,9 @@ import { useRenderResult } from "@/hooks/useRenderResult";
 import { useFailedRender } from "@/hooks/useFailedRender";
 import { useScriptInputMode } from "@/hooks/useScriptInputMode";
 import { useRegenAnchor } from "@/hooks/useRegenAnchor";
+import { usePermissions } from "@/hooks/usePermissions";
+import ZusatzMaterial from "./_components/ZusatzMaterial";
+import { useZusatzMaterial } from "./_hooks/useZusatzMaterial";
 
 const ACCEPTED_EXTENSIONS = [".pptx"];
 
@@ -64,6 +67,7 @@ function ScreencastPageInner() {
   const { jobUuid: failedRenderJobUuid, paused: renderAngehalten } = failedRender;
   const [ttsSettingsError, setTtsSettingsError] = useState("");
   const [uploadFehler, setUploadFehler] = useState<string>("");
+  const [notizenFehler, setNotizenFehler] = useState("");
 
   // ── Job-Flow-State via Reducer ──
   const [flow, dispatch] = useReducer(flowReducer, INITIAL_FLOW_STATE);
@@ -132,7 +136,7 @@ function ScreencastPageInner() {
     if (defaultVoiceId && !voiceId) setVoiceId(defaultVoiceId);
   }, [defaultVoiceId, voiceId]);
   const { languages, targetLang, setTargetLang } = useLanguageConfig(SCREENCAST_TARGET_LANGUAGES);
-  const { geladen: standGeladen, einstellungen: gespeicherteEinstellungen, stand, hatTon } =
+  const { geladen: standGeladen, einstellungen: gespeicherteEinstellungen, stand, hatTon, sprache: auftragsSprache } =
     useSchritt6Stand(translateJobUuid, step === "tts-settings");
   const auswahl = useFolienAuswahl({
     slides,
@@ -182,6 +186,11 @@ function ScreencastPageInner() {
     setDpi(e.dpi);
     setSubtitles(e.subtitles);
   }, [gespeicherteEinstellungen, setTargetLang]);
+
+  // Step 6 no longer asks for the language, a resumed job speaks the one chosen at the start.
+  useEffect(() => {
+    if (standGeladen && !gespeicherteEinstellungen?.target_lang && auftragsSprache) setTargetLang(auftragsSprache);
+  }, [standGeladen, gespeicherteEinstellungen, auftragsSprache, setTargetLang]);
 
   // Saved on change, not only at render time.
   useEffect(() => {
@@ -234,6 +243,9 @@ function ScreencastPageInner() {
       })
       .catch(() => {});
   }, []);
+
+  const { permissions } = usePermissions();
+  const zusatz = useZusatzMaterial(translateJobUuid, step === "user-prompt", tCommon("unknownError"));
 
   const scriptInput = useScriptInputMode();
   const {
@@ -309,6 +321,7 @@ function ScreencastPageInner() {
     setFertigeFolien([]);
     setNichtDabei([]);
     setUploadFehler("");
+    setNotizenFehler("");
     clearRenderResult();
     resetScriptEditing();
     failedRender.clear();
@@ -316,6 +329,7 @@ function ScreencastPageInner() {
     setSkipTranslation(false);
     setTargetLang("EN-US");
     scriptInput.reset();
+    zusatz.reset();
     if (fileRef.current) fileRef.current.value = "";
   }, [translateJobUuid]);
 
@@ -613,7 +627,33 @@ function ScreencastPageInner() {
             onResetImport={resetImport}
             onJsonDragOverChange={setJsonDragOver}
             onJsonImport={handleJsonImport}
-            onNext={() => {
+            material={
+              <ZusatzMaterial
+                wahl={zusatz.wahl}
+                onWahl={zusatz.waehlen}
+                canUseModules={!!permissions.allow_aia}
+                hinterlegt={zusatz.hinterlegt}
+                onHinterlegtEntfernen={zusatz.hinterlegtEntfernen}
+                fehler={zusatz.fehler}
+                onBereit={zusatz.setBereit}
+              />
+            }
+            nextBlocked={scriptInputMode === "generate" && (!zusatz.bereit || zusatz.laedt)}
+            notizenFehler={notizenFehler}
+            onNext={async () => {
+              if (scriptInputMode === "notes") {
+                setNotizenFehler("");
+                const notizen = await holeNotizen(translateJobUuid);
+                if (!notizen) {
+                  setNotizenFehler(tCommon("unknownError"));
+                } else if (!notizen.some((n) => n.trim())) {
+                  setNotizenFehler(t("userPrompt.notesEmpty"));
+                } else {
+                  dispatch({ type: "IMPORT_SCRIPTS", scripts: notizen });
+                  dispatch({ type: "SET_STEP", step: "script-review" });
+                }
+                return;
+              }
               if (scriptInputMode === "manual") {
                 dispatch({ type: "CLEAR_SCRIPTS" });
                 dispatch({ type: "SET_STEP", step: "script-review" });
@@ -625,6 +665,7 @@ function ScreencastPageInner() {
                 dispatch({ type: "IMPORT_SCRIPTS", scripts: importedScripts });
                 dispatch({ type: "SET_STEP", step: "script-review" });
               } else {
+                if (!(await zusatz.abgleichen())) return;
                 handleAcceptTranslation();
               }
             }}
@@ -705,9 +746,6 @@ function ScreencastPageInner() {
             providersLoaded={providersLoaded}
             providers={providers}
             providerId={providerId}
-            targetLang={targetLang}
-            languages={languages}
-            onTargetLangChange={setTargetLang}
             voiceId={voiceId}
             speed={speed}
             slidePause={slidePause}
@@ -789,6 +827,7 @@ function ScreencastPageInner() {
         )}
         <ScreencastOverlays
           slides={slides}
+          jobUuid={translateJobUuid}
           targetLang={targetLang}
           glossaryJson={mergeToApiJson(glossaryIds) || ""}
           pendingExit={pendingExit}

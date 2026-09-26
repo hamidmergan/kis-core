@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 import type { SlideData } from "@/types";
 
@@ -12,6 +13,7 @@ interface LightboxProps {
 
 export default function Lightbox({ index, slides, onClose, onIndexChange }: LightboxProps) {
   const t = useTranslations("tools.screencast");
+  const [verhaeltnis, setVerhaeltnis] = useState(16 / 9);
   const slide = slides[index];
   if (!slide?.imageBase64) return null;
   return (
@@ -22,10 +24,10 @@ export default function Lightbox({ index, slides, onClose, onIndexChange }: Ligh
       aria-modal="true"
       aria-label={t("common.slide", { n: index + 1 })}
     >
-      {/* Height runs out before width on a wide window, so the frame follows the 16:9 height cap. The top padding keeps the close cross clear of the page header. */}
+      {/* The frame follows the slide's own aspect ratio, so the close cross sits on the image edge. */}
       <div
         className="relative"
-        style={{ width: "min(100%, 72rem, calc((100dvh - 13.25rem) * 16 / 9))" }}
+        style={{ width: `min(100%, 72rem, calc((100dvh - 13.25rem) * ${verhaeltnis}))` }}
         onClick={(e) => e.stopPropagation()}
       >
         <button
@@ -43,6 +45,10 @@ export default function Lightbox({ index, slides, onClose, onIndexChange }: Ligh
         <img
           src={`data:image/png;base64,${slide.imageBase64}`}
           alt={t("common.slide", { n: index + 1 })}
+          onLoad={(e) => {
+            const { naturalWidth: b, naturalHeight: h } = e.currentTarget;
+            if (b && h) setVerhaeltnis(b / h);
+          }}
           className="w-full max-h-[calc(100dvh-13.25rem)] object-contain rounded-lg shadow-2xl"
         />
         <div className="flex justify-center gap-4 mt-4">

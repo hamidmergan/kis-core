@@ -819,7 +819,10 @@
         "jsonDropBrowse": "auswählen",
         "scriptsLoaded": "{n, plural, =1 {1 Skript geladen} other {# Skripte geladen}}",
         "replaceHint": "Klicken oder ziehen zum Ersetzen",
-        "selectJsonFirst": "Bitte zuerst eine JSON-Datei auswählen."
+        "selectJsonFirst": "Bitte zuerst eine JSON-Datei auswählen.",
+        "notes": "Aus den Sprechernotizen",
+        "notesDesc": "Der Text in den Notizen jeder Folie wird zum Sprechtext.",
+        "notesEmpty": "In dieser Präsentation stehen keine Sprechernotizen."
       },
       "translationReview": {
         "heading": "Übersetzung prüfen",
@@ -856,8 +859,6 @@
       "ttsSettings": {
         "heading": "Einstellungen",
         "providerLabel": "TTS-Anbieter",
-        "langLabel": "Sprache der Vertonung",
-        "langHint": "In dieser Sprache sind die Skripte geschrieben. Sie bestimmt auch, wie Zahlen gesprochen werden.",
         "voiceLabel": "Stimme",
         "voiceDefault": "Standard",
         "previewVoices": "Stimmen anhören →",
@@ -886,6 +887,22 @@
         "nichtsGeaendert": "Seit dem letzten Lauf hat sich nichts geändert. Ein neuer Screencast würde genau dasselbe Video ergeben.",
         "zumFertigenVideo": "Zum fertigen Video",
         "stimmwechselOhneHaken": "Die Stimme ist gewechselt, aber keine Folie zum Neusprechen angehakt. So bliebe alles beim Alten. Hake die Folien an, die mit der neuen Stimme gesprochen werden sollen."
+      },
+      "material": {
+        "titel": "Zusätzliches Material (optional)",
+        "hinweis": "Die KI nimmt passende Stellen daraus in die Sprechtexte der einzelnen Folien auf. Bis zu {max} Dateien, zusammen höchstens {chars} Zeichen.",
+        "tabDateien": "Dateien",
+        "dropOrBrowse": "Dateien hierher ziehen oder",
+        "browse": "durchsuchen",
+        "filesHint": "PDF, Word, PowerPoint oder Textdateien.",
+        "removeFile": "{name} entfernen",
+        "noModules": "Du hast noch keinen Workspace mit Material. Nimm so lange Dateien.",
+        "noSources": "Hier ist noch kein Material fertig verarbeitet.",
+        "sourcesHint": "Wähle bis zu {max} Materialien aus.",
+        "sourcesFull": "Maximal {max} Materialien.",
+        "zuVieleDateien": "Höchstens {max} Dateien. Nimm etwas raus, dann geht es weiter.",
+        "hinterlegt": "Hinterlegt: {namen}",
+        "entfernen": "Entfernen"
       },
       "folienAuswahl": {
         "titel": "Folien",
@@ -1351,7 +1368,13 @@
       "loadScriptsError": "Fehler beim Laden der Skripte",
       "notAvailableInDemo": "Nicht in der Demo verfügbar",
       "selectJsonFile": "JSON-Datei auswählen",
-      "errorWithCode": "Fehler: {code}"
+      "errorWithCode": "Fehler: {code}",
+      "hinweis": "Das ist die Demo. Du kannst alle Schritte und Einstellungen ausprobieren, das Ergebnis ist aber immer das vorbereitete Beispielvideo.",
+      "dateiName": "Beispiel-Foliensatz.pptx",
+      "dateiVorgegeben": "In der Demo ist der Foliensatz vorgegeben.",
+      "keinHochladen": "In der Demo lassen sich keine eigenen Dateien hochladen.",
+      "importVorgegeben": "Weiter geht es mit den vorbereiteten Sprechtexten.",
+      "beenden": "Demo beenden"
     }
   },
   "admin": {

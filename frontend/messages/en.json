@@ -819,7 +819,10 @@
         "jsonDropBrowse": "select",
         "scriptsLoaded": "{n, plural, =1 {1 script loaded} other {# scripts loaded}}",
         "replaceHint": "Click or drag to replace",
-        "selectJsonFirst": "Please select a JSON file first."
+        "selectJsonFirst": "Please select a JSON file first.",
+        "notes": "From the speaker notes",
+        "notesDesc": "The text in the notes of each slide becomes its script.",
+        "notesEmpty": "This presentation has no speaker notes."
       },
       "translationReview": {
         "heading": "Review translation",
@@ -856,8 +859,6 @@
       "ttsSettings": {
         "heading": "Settings",
         "providerLabel": "TTS provider",
-        "langLabel": "Narration language",
-        "langHint": "The scripts are written in this language. It also decides how numbers are spoken.",
         "voiceLabel": "Voice",
         "voiceDefault": "Default",
         "previewVoices": "Preview voices →",
@@ -886,6 +887,22 @@
         "nichtsGeaendert": "Nothing has changed since the last run. A new screencast would produce exactly the same video.",
         "zumFertigenVideo": "Go to the finished video",
         "stimmwechselOhneHaken": "The voice has changed, but no slide is ticked for re-voicing. Nothing would change. Tick the slides that should be spoken with the new voice."
+      },
+      "material": {
+        "titel": "Additional material (optional)",
+        "hinweis": "The AI takes matching passages from it into the scripts of the individual slides. Up to {max} files, at most {chars} characters together.",
+        "tabDateien": "Files",
+        "dropOrBrowse": "Drop files here or",
+        "browse": "browse",
+        "filesHint": "PDF, Word, PowerPoint or text files.",
+        "removeFile": "Remove {name}",
+        "noModules": "You have no workspace with material yet. Use files in the meantime.",
+        "noSources": "No source has finished processing here yet.",
+        "sourcesHint": "Choose up to {max} sources.",
+        "sourcesFull": "Maximum {max} sources.",
+        "zuVieleDateien": "At most {max} files. Remove something to continue.",
+        "hinterlegt": "Stored: {namen}",
+        "entfernen": "Remove"
       },
       "folienAuswahl": {
         "titel": "Slides",
@@ -1351,7 +1368,13 @@
       "loadScriptsError": "Could not load scripts",
       "notAvailableInDemo": "Not available in the demo",
       "selectJsonFile": "Select JSON file",
-      "errorWithCode": "Error: {code}"
+      "errorWithCode": "Error: {code}",
+      "hinweis": "This is the demo. You can try every step and setting, but the result is always the prepared sample video.",
+      "dateiName": "Sample-slides.pptx",
+      "dateiVorgegeben": "The demo uses a given set of slides.",
+      "keinHochladen": "You cannot upload your own files in the demo.",
+      "importVorgegeben": "The demo continues with the prepared scripts.",
+      "beenden": "Exit demo"
     }
   },
   "admin": {

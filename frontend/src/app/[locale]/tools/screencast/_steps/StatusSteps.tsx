@@ -14,9 +14,12 @@ const cancelIcon = (
 export function TranslatingStep({
   skipTranslation,
   onCancel,
+  ohneHintergrund = false,
 }: {
   skipTranslation: boolean;
   onCancel: () => void;
+  /** The demo runs nothing in the background. */
+  ohneHintergrund?: boolean;
 }) {
   const t = useTranslations("tools.screencast");
   return (
@@ -26,7 +29,7 @@ export function TranslatingStep({
         {skipTranslation ? t("translating.preparing") : t("translating.translating")}
       </p>
       <p className="text-xs text-muted-soft mt-2">{t("translating.subtle")}</p>
-      <BackgroundHint />
+      {!ohneHintergrund && <BackgroundHint />}
       <button
         onClick={onCancel}
         className="btn-cancel mt-6 px-4 py-2 text-sm text-error border border-error-border rounded-md transition-colors inline-flex items-center gap-2"
@@ -41,9 +44,12 @@ export function TranslatingStep({
 export function GeneratingScriptsStep({
   slideCount,
   onCancel,
+  ohneHintergrund = false,
 }: {
   slideCount: number;
   onCancel: () => void;
+  /** The demo runs nothing in the background. */
+  ohneHintergrund?: boolean;
 }) {
   const t = useTranslations("tools.screencast");
   return (
@@ -51,7 +57,7 @@ export function GeneratingScriptsStep({
       <Spinner size="lg" className="justify-center mb-4" />
       <p className="text-sm text-foreground-soft animate-pulse">{t("generatingScripts.title")}</p>
       <p className="text-xs text-muted-soft mt-2">{t("generatingScripts.subtle", { n: slideCount })}</p>
-      <BackgroundHint />
+      {!ohneHintergrund && <BackgroundHint />}
       <button
         onClick={onCancel}
         className="btn-cancel mt-6 px-4 py-2 text-sm text-error border border-error-border rounded-md transition-colors inline-flex items-center gap-2"
@@ -69,6 +75,7 @@ export function RenderingStep({
   rueckblick = false,
   onCancel,
   onWeiter,
+  ohneHintergrund = false,
 }: {
   renderProgressLabel: string;
   vorschau?: React.ReactNode;
@@ -76,6 +83,8 @@ export function RenderingStep({
   rueckblick?: boolean;
   onCancel: () => void;
   onWeiter: () => void;
+  /** The demo runs nothing in the background. */
+  ohneHintergrund?: boolean;
 }) {
   const t = useTranslations("tools.screencast");
   const tv = useTranslations("tools.screencast.vorschau");
@@ -93,7 +102,7 @@ export function RenderingStep({
             )}
           </>
         )}
-        {!rueckblick && <BackgroundHint />}
+        {!rueckblick && !ohneHintergrund && <BackgroundHint />}
       </div>
 
       {vorschau}
@@ -124,6 +133,7 @@ export function DoneStep({
   onDownloadMp4,
   onReset,
   onNeuVertonen,
+  zipUrl,
 }: {
   videoUrl: string | null;
   audioId: string;
@@ -132,12 +142,14 @@ export function DoneStep({
   onDownloadMp4: () => void;
   onReset: () => void;
   onNeuVertonen: () => void;
+  /** The demo bundles its prepared files elsewhere. */
+  zipUrl?: string;
 }) {
   const t = useTranslations("tools.screencast");
   // The link deliberately does not sit in the page, otherwise the top loader runs forever.
   const onDownloadZip = () => {
     const a = document.createElement("a");
-    a.href = `/api/jobs/${audioId}/bundle`;
+    a.href = zipUrl ?? `/api/jobs/${audioId}/bundle`;
     a.download = "";
     a.click();
   };
@@ -180,7 +192,7 @@ export function DoneStep({
           </svg>
           {t("done.downloadMp4Label")}
         </button>
-        {audioId && (
+        {(audioId || zipUrl) && (
           <button
             type="button"
             onClick={onDownloadZip}

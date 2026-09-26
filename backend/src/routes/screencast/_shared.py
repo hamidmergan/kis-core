@@ -11,8 +11,16 @@ from loguru import logger
 from src.i18n import t
 from src.features.jobs.repository import get_job
 from src.services.screencast import IMAGE_TMP_DIR, pptx_to_images
-from src.storage import clear_audio_cache, delete_prefix, get_job_file, job_prefix
+from src.storage import clear_audio_cache, delete_prefix, get_job_file, job_prefix, load_result_meta, save_result_meta
 from src.utils.file_validation import SCREENCAST_EXTENSIONS
+
+def merke_skriptsprache(user_id: int, job_uuid: str | None, target_lang: str) -> None:
+    """The scripts are in this language, so the voicing has to speak it."""
+    if not job_uuid or not target_lang:
+        return
+    save_result_meta(user_id, job_uuid, {**(load_result_meta(user_id, job_uuid) or {}),
+                                         "target_lang": target_lang})
+
 
 # Job tools that count toward the screencast in the queue/limit calculation
 SCREENCAST_TOOLS = ["screencast_translate", "screencast_render"]

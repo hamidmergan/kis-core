@@ -29,7 +29,7 @@ from src.services.tool_limits import (
 )
 from src.utils.upload_stream import stream_upload_to_path
 
-from src.routes.screencast._shared import SCREENCAST_TOOLS, validate_upload, vertonung_verwerfen
+from src.routes.screencast._shared import SCREENCAST_TOOLS, merke_skriptsprache, validate_upload, vertonung_verwerfen
 
 router = APIRouter(tags=["screencast: translate"])
 
@@ -100,6 +100,7 @@ async def screencast_upload_corrected(
     request: Request,
     file: UploadFile = File(...),
     translate_job_uuid: str = Form(""),
+    target_lang: str = Form(""),
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
@@ -171,6 +172,8 @@ async def screencast_upload_corrected(
             save_job_file_from_path(user_id, translate_job_uuid, "translated.pptx", str(pptx_path))
             save_job_file(user_id, translate_job_uuid, "scripts.txt", json.dumps(slide_texts, ensure_ascii=False, indent=2).encode("utf-8"))
             db.update_job_status(translate_job_uuid, "awaiting_user")
+            # Without a translation the language chosen at the start is the one to speak.
+            merke_skriptsprache(user_id, translate_job_uuid, target_lang)
             logger.info("Created translate job {} for EN upload ({})", translate_job_uuid, file.filename)
 
         img_dir = tmp / "images"
