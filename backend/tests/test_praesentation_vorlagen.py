@@ -37,11 +37,11 @@ def _als_potx(data: bytes) -> bytes:
 class TestPruefung:
     def test_pptx_wird_angenommen(self):
         data, a = vorlagen.pruefe(THL, ".pptx")
-        assert len(a.layouts) == 6 and data == THL
+        assert len(a.layouts) == 51 and data == THL
 
     def test_potx_wird_zu_pptx(self):
         data, a = vorlagen.pruefe(_als_potx(THL), ".potx")
-        assert len(a.layouts) == 6
+        assert len(a.layouts) == 51
         assert len(Presentation(BytesIO(data)).slide_masters) == 1
 
     @pytest.mark.parametrize("ext", [".pptm", ".ppsx", ".pdf"])
@@ -81,7 +81,7 @@ class TestSpeicher:
         monkeypatch.setattr(vorlagen.vorlagen_repo, "get", lambda uid, vid: {"id": vid, "name": "Meine", "stiltext": "S"})
         monkeypatch.setattr(vorlagen, "lade", lambda uid, vid: None)
         data, a, meta, fallback = vorlagen.aufloesen(7, "abc")
-        assert fallback is True and meta["name"] == "THL-Vorlage" and len(a.layouts) == 6
+        assert fallback is True and meta["name"] == "THL-Vorlage" and len(a.layouts) == 51
 
     def test_aufloesen_nimmt_thl_wenn_die_eigene_kaputt_ist(self, monkeypatch):
         monkeypatch.setattr(vorlagen.vorlagen_repo, "get", lambda uid, vid: {"id": vid, "name": "Meine", "stiltext": "S"})

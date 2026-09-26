@@ -112,7 +112,7 @@ def test_notizen_nur_wenn_gewuenscht(analyse):
 def test_gespeichertes_layout_gewinnt_ueber_die_rotation(analyse):
     zaehler: dict[str, int] = {}
     assert bau.layout_index(analyse, Slide(id="s1", role="text_mit_bild", layout=4), zaehler) == 4
-    assert bau.layout_index(analyse, Slide(id="s2", role="text_mit_bild"), zaehler) == 2
+    assert analyse.layout(bau.layout_index(analyse, Slide(id="s2", role="text_mit_bild"), zaehler)).name == "Text und Bild"
 
 
 def _hinweis_kaesten(slide) -> list:

@@ -482,7 +482,7 @@ class TestVorlagen:
         antwort = client.post("/praesentation/vorlagen", data={"name": "Meine", "stiltext": "S"},
                               files={"file": ("v.pptx", THL, "application/octet-stream")})
         assert antwort.status_code == 200
-        assert antwort.json()["roles"] == ["text", "text_mit_bild", "zwei_spalten"] and antwort.json()["hasImages"]
+        assert antwort.json()["roles"] == ["abschnitt", "bild_gross", "text", "text_mit_bild", "zwei_spalten"] and antwort.json()["hasImages"]
         liste = client.get("/praesentation/vorlagen").json()
         assert liste[0]["id"] == "thl" and liste[0]["system"] and liste[1]["name"] == "Meine"
         assert liste[1]["roles"] == ["text"]

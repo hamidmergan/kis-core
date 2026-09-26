@@ -319,6 +319,10 @@ def _rollen_zuordnen(a: Analyse) -> None:
             a.uebersprungen.append(l.name)
         else:
             a.rollen.setdefault(l.rolle, []).append(l.index)
+    # The rotation meets the layouts with fewer pictures first, a short deck waits on fewer images.
+    for rolle in WAEHLBARE_ROLLEN:
+        if rolle in a.rollen:
+            a.rollen[rolle].sort(key=lambda i: len(a.layout(i).der_art("bild")))
     if "abschluss" not in a.rollen:
         deckblaetter = a.rollen.get("deckblatt", [erstes.index])
         a.rollen["abschluss"] = [deckblaetter[1] if len(deckblaetter) > 1 else deckblaetter[0]]
