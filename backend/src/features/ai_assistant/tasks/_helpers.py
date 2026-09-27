@@ -4,6 +4,8 @@ import re
 
 from langfuse.decorators import langfuse_context
 
+from src.features.ai_assistant.tasks._json_commas import drop_trailing_commas
+
 
 def _format_ts(seconds: float) -> str:
     """Format seconds as MM:SS or H:MM:SS."""
@@ -72,11 +74,12 @@ def _get_llm_client():
 
 
 def _clean_llm_json(text: str) -> str:
-    """Strip markdown fences and leading/trailing whitespace from LLM JSON output."""
+    """Strip markdown fences, whitespace and trailing commas from LLM JSON output."""
     text = text.strip()
     if text.startswith("```"):
         # Remove opening fence (```json or ```)
         text = re.sub(r"^```(?:json)?\s*\n?", "", text)
         # Remove closing fence
         text = re.sub(r"\n?```\s*$", "", text)
-    return text.strip()
+    # In load run 15 gemma left a comma after the last option and two quizzes failed on it.
+    return drop_trailing_commas(text.strip())
