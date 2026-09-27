@@ -95,6 +95,8 @@ def _run_tts(monkeypatch, payload, filename):
     monkeypatch.setattr(route, "enforce_quota", lambda *a, **k: None)
     monkeypatch.setattr(route, "is_admin_user", lambda u: False)
     monkeypatch.setattr(route.db, "set_job_celery_task_id", lambda *a, **k: None)
+    # The voice settings for a later resume would otherwise land in the real storage.
+    monkeypatch.setattr(route, "save_job_file", lambda *a, **k: "k")
 
     class _Client:
         @staticmethod
