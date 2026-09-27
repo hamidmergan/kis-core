@@ -39,6 +39,13 @@ def test_wenig_speicher_bremst_trotz_vieler_kerne():
     assert wenig_ram.max_concurrent_uploads < viel_ram.max_concurrent_uploads
 
 
+def test_clips_bleiben_unter_der_speichergrenze_des_arbeiters():
+    """18 cores behind a 2 GB screencast limit once started 8 ffmpeg and killed Postgres."""
+    assert _capacity(18, 2).render_workers == 2
+    # The production box keeps its previous 2 behind the same limit.
+    assert _capacity(4, 2).render_workers == 2
+
+
 def test_winzige_maschine_bekommt_trotzdem_einen_platz():
     """Zero slots would mean nothing runs, better slow than dead."""
     c = _capacity(1, 0.5)

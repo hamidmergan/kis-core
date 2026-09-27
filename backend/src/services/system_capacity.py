@@ -15,6 +15,8 @@ _MAX_RENDER_WORKERS = 8
 
 # How much memory a single upload takes in the heavy phase.
 _GB_PER_UPLOAD = 1.0
+# One ffmpeg clip takes about 0.3 GB, doubled because the worker renders two jobs at once.
+_GB_PER_RENDER_WORKER = 1.0
 
 _BYTES_PER_GB = 1024 ** 3
 
@@ -132,8 +134,8 @@ class Capacity:
 
     @property
     def render_workers(self) -> int:
-        """Threads for PDF to PNG and ffmpeg, the only formula without a memory share."""
-        return max(1, min(_MAX_RENDER_WORKERS, int(math.floor(self.cores / 2))))
+        """Threads for PDF to PNG and ffmpeg, half the cores and bounded by memory."""
+        return self._by_cores_and_memory(0.5, _GB_PER_RENDER_WORKER, _MAX_RENDER_WORKERS)
 
     def as_dict(self) -> dict:
         return {
