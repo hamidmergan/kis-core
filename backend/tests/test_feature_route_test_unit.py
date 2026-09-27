@@ -25,11 +25,11 @@ def test_tts_test_omits_model_when_not_set(monkeypatch):
         base_url="http://tts.example.com",
         api_key=None,
         model_name=None,
-        voices=[{"voice_id": "af_bella", "name": "Bella"}],
+        voices=[{"voice_id": "nova", "name": "Nova"}],
     )
     assert result.status == "ok"
     assert "model" not in captured["payload"]
-    assert captured["payload"]["voice"] == "af_bella"
+    assert captured["payload"]["voice"] == "nova"
 
 
 def test_tts_test_returns_error_when_no_voices():
@@ -41,7 +41,7 @@ def test_tts_test_returns_error_when_no_voices():
         protocol="openai_compat",
         base_url="http://tts.example.com",
         api_key=None,
-        model_name="kokoro",
+        model_name="stimme-v1",
         voices=[],
     )
     assert result.status == "error"
@@ -68,11 +68,11 @@ def test_tts_test_uses_first_voice_from_db(monkeypatch):
         protocol="openai_compat",
         base_url="http://tts.example.com",
         api_key=None,
-        model_name="kokoro",
-        voices=[{"voice_id": "af_bella", "name": "Bella"}, {"voice_id": "af_sky", "name": "Sky"}],
+        model_name="stimme-v1",
+        voices=[{"voice_id": "nova", "name": "Nova"}, {"voice_id": "onyx", "name": "Onyx"}],
     )
-    assert captured["payload"]["voice"] == "af_bella"
-    assert captured["payload"]["model"] == "kokoro"
+    assert captured["payload"]["voice"] == "nova"
+    assert captured["payload"]["model"] == "stimme-v1"
 
 
 def test_stt_test_posts_real_transcription_when_model_set(monkeypatch):

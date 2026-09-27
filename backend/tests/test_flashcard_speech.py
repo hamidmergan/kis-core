@@ -60,7 +60,7 @@ def test_leerzeichen_zaehlen_als_nicht_gesetzt(settings):
 
 def test_unsinn_als_anbieternummer_schaltet_ab(settings):
     """A broken setting must not crash, only leave the button out."""
-    settings["aia_flashcard_voice_provider_id"] = "kokoro"
+    settings["aia_flashcard_voice_provider_id"] = "unsinn"
     settings["aia_flashcard_voice_id"] = "alloy"
     assert speech.configured_voice() is None
     assert speech.speech_enabled() is False
@@ -352,7 +352,7 @@ def test_ein_fehlschlag_legt_nichts_ab(settings, monkeypatch):
 def test_ein_modellwechsel_entwertet_den_vorrat():
     """Without the model in the fingerprint the old sound would stay after a switch."""
     alt = speech_cache.fingerprint("Ein Satz.", 21, "alloy", 1.0, "xtts-v2")
-    neu = speech_cache.fingerprint("Ein Satz.", 21, "alloy", 1.0, "kokoro-v1")
+    neu = speech_cache.fingerprint("Ein Satz.", 21, "alloy", 1.0, "stimme-v1")
     assert alt != neu
 
 
@@ -408,7 +408,7 @@ def test_die_ausdrueckliche_wahl_schlaegt_den_rueckfall(settings, anbieter):
 def test_eine_kaputte_wahl_faellt_auf_die_erste_stimme_zurueck(settings, anbieter):
     """A broken setting falls back to the default."""
     anbieter.append(_anbieter(21, "THL myLab", "alloy"))
-    settings["aia_flashcard_voice_provider_id"] = "kokoro"
+    settings["aia_flashcard_voice_provider_id"] = "unsinn"
     settings["aia_flashcard_voice_id"] = "echo"
     assert speech.configured_voice() == (21, "alloy")
 

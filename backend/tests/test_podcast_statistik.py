@@ -67,14 +67,14 @@ class TestAnbieterUndModelle:
     def test_fasst_mehrere_anbieter_ohne_doppel_zusammen(self, monkeypatch):
         import src.services.job_statistik as statistik
 
-        namen = {1: "myLab", 2: "Kokoro"}
+        namen = {1: "myLab", 2: "Stimmen lokal"}
         monkeypatch.setattr(statistik, "anbieter_und_modell", lambda pid, feature: {
             "anbieter": namen[pid], "modell": "tts-1", "route": feature,
         })
 
         kennung = anbieter_und_modelle([1, 2, 1], "tts")
 
-        assert kennung == {"anbieter": "myLab, Kokoro", "modell": "tts-1", "route": "tts"}
+        assert kennung == {"anbieter": "myLab, Stimmen lokal", "modell": "tts-1", "route": "tts"}
 
     def test_leere_namen_fallen_weg(self, monkeypatch):
         import src.services.job_statistik as statistik

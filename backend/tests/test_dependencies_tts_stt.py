@@ -27,7 +27,7 @@ def test_get_tts_client_for_provider_raises_when_no_model(monkeypatch):
 
     provider = {
         "id": 1,
-        "name": "KokoroTTS",
+        "name": "Stimmen lokal",
         "protocol": "openai_compat",
         "base_url": "http://tts.example.com",
         "api_key": None,

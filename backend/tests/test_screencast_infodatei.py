@@ -26,8 +26,8 @@ def _meta() -> dict:
             },
             "bilder": {"dpi": 100, "folien": 12, "dauer_s": 18.0},
             "vertonung": {
-                "anbieter": "myLab", "modell": "kokoro",
-                "stimme": "af_heart", "stimme_name": "Anna",
+                "anbieter": "myLab", "modell": "stimme-v1",
+                "stimme": "nova", "stimme_name": "Anna",
                 "tempo": 1.0, "folien": 12, "zeichen": 8432, "dauer_s": 542.0,
             },
             "clips": {"folien": 12, "folienpause": 0.5, "dauer_s": 100.0},
@@ -55,14 +55,14 @@ def test_info_fuer_nutzer_verschweigt_anbieter_und_modell():
     text = baue_info(_job(), _meta(), mit_technik=False)
 
     assert "myLab" not in text
-    assert "kokoro" not in text
+    assert "stimme-v1" not in text
     assert "qwen3-32b" not in text
 
 
 def test_info_fuer_admin_zeigt_anbieter_und_modell():
     text = baue_info(_job(), _meta(), mit_technik=True)
 
-    assert "Vertonung: myLab, Modell kokoro" in text
+    assert "Vertonung: myLab, Modell stimme-v1" in text
     assert "Übersetzung: myLab, Modell qwen3-32b" in text
     assert "Sprechtexte: myLab, Modell qwen3-32b" in text
     assert "Auflösung: 100 dpi" in text

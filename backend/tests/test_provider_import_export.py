@@ -113,7 +113,7 @@ def test_export_skips_envelope_for_providers_without_key(monkeypatch):
     monkeypatch.setenv("KIS_SECRETS_KEY", "test-secret-xyz")
     monkeypatch.setattr(
         "src.routes.admin.providers.db.list_providers",
-        lambda: [_make_provider(1, "Kokoro", api_key=None)],
+        lambda: [_make_provider(1, "Stimmen lokal", api_key=None)],
     )
     monkeypatch.setattr("src.routes.admin.providers.db.list_routes",
                         lambda: [])
@@ -259,8 +259,8 @@ def test_preview_needs_api_key_false_for_localhost(monkeypatch):
     monkeypatch.setattr("src.routes.admin.providers.db.list_providers",
                         lambda: [])
     cfg = _valid_config(providers=[
-        _exported_provider("Kokoro lokal",
-                           base_url="http://localhost:8880/v1"),
+        _exported_provider("Stimmen lokal",
+                           base_url="http://localhost:9000/v1"),
     ])
 
     result = build_import_preview(cfg)
@@ -693,13 +693,13 @@ def test_import_response_lists_providers_needing_key(monkeypatch):
     cfg = _valid_config(providers=[
         _exported_provider("Anbieter A",
                            base_url="https://llm.example.de"),
-        _exported_provider("Kokoro",
-                           base_url="http://localhost:8880/v1"),
+        _exported_provider("Stimmen lokal",
+                           base_url="http://localhost:9000/v1"),
     ])
     result = perform_import(cfg)
 
     assert "Anbieter A" in result["providers_needing_key"]
-    assert "Kokoro" not in result["providers_needing_key"]
+    assert "Stimmen lokal" not in result["providers_needing_key"]
 
 
 # ─── Clear all ─────────────────────────────────────────────────────────────

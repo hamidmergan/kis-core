@@ -8,7 +8,7 @@ from src.routes import tts as tts_routes
 FAKE_PROVIDERS = [
     {
         "id": 1,
-        "name": "Kokoro",
+        "name": "Stimmen lokal",
         "voices": [
             {"voice_id": "a", "name": "Anna", "language": "de"},
             {"voice_id": "b", "name": "Ben", "language": "en"},
