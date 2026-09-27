@@ -187,8 +187,8 @@ services:
   celery-worker-general:
     build: ./backend
     container_name: kis-celery-general
-    # Short services: translation, transcription, summary, images. They take seconds
-    # to a few minutes and never wait behind a presentation or podcast script, those
+    # Short services: translation, transcription, images. They take seconds
+    # to a few minutes and never wait behind a summary, presentation or podcast script, those
     # run in celery-worker-long. Mostly waiting on other servers, except the ffmpeg
     # prelude of a transcription. One process per core, 4 on 4 cores: with 200-page
     # documents a process holds up to 290 MB plus ffmpeg. More work waits in the queue.
@@ -225,7 +225,7 @@ services:
   celery-worker-long:
     build: ./backend
     container_name: kis-celery-long
-    # Long services: presentation outline and build, podcast script, the nightly backup.
+    # Long services: summary, presentation outline and build, podcast script, the nightly backup.
     # One of them holds a process for minutes, mostly waiting on the language and image
     # models, so they get their own worker and short services pass by. One process less
     # than cores, 3 on 4 cores, an outline of 200 pages holds up to 290 MB.

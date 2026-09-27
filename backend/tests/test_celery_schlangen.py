@@ -17,9 +17,17 @@ def test_alles_mit_sprachausgabe_hat_eine_eigene_schlange():
 
 
 def test_kurze_dienste_bleiben_in_der_allgemeinen_schlange():
-    for task in ("summary.run", "general.translate", "general.transcribe", "general.image_generate",
+    for task in ("general.translate", "general.transcribe", "general.image_generate",
                  "general.image_edit", "general.image_analyze", "cleanup.expired_files"):
         assert _schlange(task) == "general"
+
+
+def test_die_zusammenfassung_laeuft_bei_den_langen_diensten():
+    """Lauf 15: sie belegt unter Last 6 bis 15 Minuten einen Prozess, in general hielt sie Transkripte auf."""
+    from src.tasks.summary_tasks import run_summary
+
+    assert _schlange("summary.run") == "long"
+    assert run_summary.queue == "long"
 
 
 def test_lange_dienste_haben_eine_eigene_schlange():
@@ -156,25 +164,6 @@ def test_der_hauptprozess_friert_seine_objekte_vor_jedem_prozessstart_ein():
         gc.unfreeze()
 
 
-def test_kurze_dienste_ziehen_an_der_zusammenfassung_vorbei():
-    """Lauf 10: ein Transkript von 10 s wartete bis zu 23 Minuten hinter Zusammenfassungen von 2,5 Minuten."""
-    from kombu.transport.redis import Channel
-
-    from src.tasks.general_tasks import run_image_edit, run_image_generate, run_transcribe, run_translate
-    from src.tasks.summary_tasks import run_summary
-
-    class _Kanal(Channel):
-        def __init__(self):
-            pass
-
-    kanal = _Kanal()
-    schluessel = {t.name: kanal._q_for_pri("general", t.priority or 0)
-                  for t in (run_summary, run_transcribe, run_translate, run_image_generate, run_image_edit)}
-    assert schluessel["summary.run"] != "general"
-    for name in ("general.transcribe", "general.translate", "general.image_generate", "general.image_edit"):
-        assert schluessel[name] == "general"
-
-
 def test_gliederung_und_skript_ziehen_am_aufbau_vorbei():
     """Der Aufbau läuft in Etappen von zehn Minuten, die Gliederung braucht 40 s und hält die Person auf."""
     from kombu.transport.redis import Channel
@@ -187,8 +176,12 @@ def test_gliederung_und_skript_ziehen_am_aufbau_vorbei():
         def __init__(self):
             pass
 
+    from src.tasks.summary_tasks import run_summary
+
     kanal = _Kanal()
-    assert kanal._q_for_pri("long", run_praesentation_build.priority or 0) != "long"
+    # Summary and build hold a process for minutes, outline and script pass them.
+    for task in (run_praesentation_build, run_summary):
+        assert kanal._q_for_pri("long", task.priority or 0) != "long"
     for task in (run_praesentation_outline, run_podcast_script):
         assert kanal._q_for_pri("long", task.priority or 0) == "long"
 

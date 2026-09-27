@@ -86,12 +86,13 @@ celery_app.conf.update(
         "general.image_generate": {"queue": "general"},
         "general.image_edit": {"queue": "general"},
         "general.image_analyze": {"queue": "general"},
-        "summary.run": {"queue": "general"},
         "screencast.translate": {"queue": "screencast"},
         "screencast.render": {"queue": "screencast"},
         # Work that holds a process for minutes has a worker of its own, so short services
         # never wait behind it (load test 2026-09-26: a 10 s transcript waited 12 minutes).
         "podcast.script": {"queue": "long"},
+        # Holds a process 6 to 15 minutes under load, in general it kept transcripts waiting (run 15).
+        "summary.run": {"queue": "long"},
         # The voicing waits on the voice provider and gets its own worker, so a busy provider
         # never holds up summaries and presentations.
         "podcast.render": {"queue": "tts"},
