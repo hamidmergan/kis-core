@@ -74,7 +74,9 @@ def _run_translate(monkeypatch, payload, filename):
     monkeypatch.setattr(route, "is_admin_user", lambda u: False)
 
     import src.tasks.general_tasks as gt
-    monkeypatch.setattr(gt, "run_translate", type("T", (), {"delay": staticmethod(lambda *a, **k: None)})())
+    monkeypatch.setattr(gt, "run_translate", type("T", (), {"apply_async": staticmethod(
+        lambda *a, **k: type("R", (), {"id": "task-1"})())})())
+    monkeypatch.setattr(route.db, "set_job_celery_task_id", lambda *a, **k: None)
 
     asyncio.run(route.translate(
         request=_Request(), file=_ChunkOnlyUpload(payload, filename), text="",

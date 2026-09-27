@@ -37,3 +37,21 @@ def test_die_naechste_etappe_bekommt_dieselben_argumente(monkeypatch):
 
     assert task.args == ["j", 7, "de", 2, 0]
     assert gemerkt == [("j", "neu-1")]
+
+
+def test_die_naechste_etappe_reiht_sich_hinter_neue_arbeit_ein(monkeypatch):
+    """Lauf 14: Podcast-Skripte reichten jede Etappe mit Vorrang weiter und hielten die drei langen Plätze
+    über eine Stunde, 20 Präsentationen und 17 Übersetzungen kamen nicht dran."""
+    from src.tasks import _stage
+
+    monkeypatch.setattr(_stage, "db", type("D", (), {"set_job_celery_task_id": staticmethod(lambda job, tid: None)}))
+    gesendet = {}
+
+    class _Task:
+        def apply_async(self, args=None, **kwargs):
+            gesendet.update(kwargs)
+            return type("R", (), {"id": "neu-1"})()
+
+    continue_stage(_Task(), ["j", 7, "de", 2, 0], "j")
+
+    assert gesendet.get("priority") == 9

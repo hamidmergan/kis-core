@@ -55,8 +55,11 @@ def env(monkeypatch):
     import src.tasks.general_tasks as gt
 
     class _Task:
-        def delay(self, *a, **k):
-            queued["args"] = a
+        def apply_async(self, args=None, **k):
+            queued["args"] = tuple(args)
+            return type("R", (), {"id": "task-1"})()
+
+    monkeypatch.setattr(route.db, "set_job_celery_task_id", lambda *a, **k: None)
 
     monkeypatch.setattr(gt, "run_transcribe", _Task())
     return stored, queued
@@ -118,3 +121,23 @@ def test_content_not_matching_extension_is_rejected(env):
 
     assert exc.value.status_code == 400
     assert queued == {}
+
+
+@pytest.mark.parametrize("sekunden, schlange", [(96 * 60, ("long", 9)), (4 * 60, ("general", None)), (None, ("general", None))])
+def test_eine_lange_aufnahme_startet_in_der_langen_schlange(monkeypatch, env, sekunden, schlange):
+    """Lauf 13: Vorlesungen von 96 Minuten hielten schnelle Plätze minutenlang fest."""
+    import src.tasks.general_tasks as gt
+
+    gesendet = {}
+
+    class _Task:
+        def apply_async(self, args=None, queue=None, priority=None, **k):
+            gesendet["queue"] = (queue, priority)
+            return type("R", (), {"id": "task-1"})()
+
+    monkeypatch.setattr(gt, "run_transcribe", _Task())
+    monkeypatch.setattr(route, "media_seconds", lambda path: sekunden)
+
+    _call(_ChunkOnlyUpload(_wav(1_000)))
+
+    assert gesendet["queue"] == schlange

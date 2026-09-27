@@ -8,6 +8,8 @@ services:
       args:
         BACKEND_URL: http://backend:8000
     container_name: kis-frontend
+    # Serves every page, when memory runs out the kernel takes a worker before this.
+    oom_score_adj: -500
     environment:
       BACKEND_URL: http://backend:8000
     ports:
@@ -21,6 +23,7 @@ services:
   nginx:
     image: nginx:alpine
     container_name: kis-nginx
+    oom_score_adj: -500
     ports:
       - "80:80"
       - "443:443"

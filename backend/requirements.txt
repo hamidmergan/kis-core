@@ -8,11 +8,14 @@ python-dotenv>=1.0.0
 pydantic-settings>=2.0.0
 httpx>=0.27.0
 trafilatura>=2.2.0
-openai>=1.0.0
+# 3.19.2 failed on some myLab answers with a Pydantic error, 3.11.0 runs on prod without it.
+openai==3.11.0
 loguru>=0.7.0
 cryptography>=42.0.0
 bcrypt>=4.1.0
 celery>=5.3.0
+# billiard 4.3.0 acknowledges running tasks on a restart and loses them (celery/billiard#463).
+billiard==4.2.4
 redis>=5.0.0
 psycopg2-binary>=2.9.0
 pgvector>=0.3.0

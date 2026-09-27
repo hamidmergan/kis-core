@@ -244,7 +244,8 @@ def _run_summary_inner(job_uuid: str, template_slug: str,
     logger.info("Zusammenfassung {} fertig: {}", job_uuid[:8], name)
 
 
-@celery_app.task(bind=True, name="summary.run", queue="general", acks_late=True,
+# Lowest priority in its queue (with Redis 9 is last), so transcripts and translations of seconds pass by it.
+@celery_app.task(bind=True, name="summary.run", queue="general", acks_late=True, priority=9,
                  soft_time_limit=STAGE_SOFT_TIME_LIMIT, time_limit=STAGE_TIME_LIMIT)
 def run_summary(self, job_uuid: str, template_slug: str,
                 provider_id: int | None = None, versuch: int = 0):

@@ -1,10 +1,50 @@
-from celery import Celery
+import gc
+import os
+
+from celery import Celery, Task
 from celery.schedules import crontab
-from celery.signals import task_failure, task_revoked, worker_ready
+from celery.signals import (
+    task_failure, task_revoked, worker_before_create_process, worker_process_init, worker_ready,
+)
 from loguru import logger
+
+# A task whose worker dies goes back in line (task_reject_on_worker_lost), but a task that
+# kills its worker every time must not circle forever: after this many starts it gives up.
+MAX_STARTS = 4
+_START_KEY = "kis:task-starts:{}:{}"
+
+
+def start_allowed(task_id: str, retries: int, r=None) -> bool:
+    """Counts one start of this task and says whether it may still run."""
+    try:
+        if r is None:
+            import redis as _redis_lib
+            r = _redis_lib.from_url(os.environ.get("REDIS_URL", "redis://kis-redis:6379/0"),
+                                    socket_connect_timeout=1, socket_timeout=2)
+        key = _START_KEY.format(task_id, retries)
+        n = r.incr(key)
+        r.expire(key, 24 * 3600)
+        return n <= MAX_STARTS
+    except Exception:  # noqa: BLE001 - without Redis the task simply runs
+        return True
+
+
+class _GuardedTask(Task):
+    """Stops a task that already brought its worker down too often."""
+
+    def __call__(self, *args, **kwargs):
+        if self.request.id and not start_allowed(self.request.id, self.request.retries or 0):
+            logger.error("Task {} {}: Arbeiter {}x abgestürzt, gebe auf", self.name, self.request.id, MAX_STARTS)
+            reason = RuntimeError(f"Der Arbeiter ist bei diesem Auftrag {MAX_STARTS}-mal abgestürzt")
+            _mark_aia_source_failed_from_signal(self, args, reason)
+            _mark_task_failed(self.request.id, ("job.unexpectedError", {"error": str(reason)}))
+            return None
+        return super().__call__(*args, **kwargs)
+
 
 celery_app = Celery(
     "kis",
+    task_cls=_GuardedTask,
     broker="redis://kis-redis:6379/0",
     backend="redis://kis-redis:6379/1",
     include=[
@@ -27,10 +67,20 @@ celery_app.conf.update(
     accept_content=["json"],
     result_expires=86400,  # 24h - matches file retention
     worker_max_tasks_per_child=10,  # restart worker every 10 tasks (prevent memory leaks)
+    # A process still holding more than 400 MB after its task is replaced, one large document
+    # must not keep memory that the 8 GB box needs elsewhere (in KiB).
+    worker_max_memory_per_child=400_000,
     task_acks_late=True,  # only ack after task completes (no lost jobs on worker crash)
+    # A worker killed for lack of memory puts its task back in line instead of failing it.
+    task_reject_on_worker_lost=True,
     worker_prefetch_multiplier=1,  # one task at a time per worker process
+    # On a restart running tasks get 30 s, then their messages go straight back in line
+    # instead of lying an hour with the broker as taken (docker-compose remaps TERM).
+    worker_soft_shutdown_timeout=30.0,
+    worker_enable_soft_shutdown_on_idle=True,
     task_routes={
         "tts.run": {"queue": "tts"},
+        # Large texts and long recordings are sent to "long" by their route, see services/job_lanes.py.
         "general.translate": {"queue": "general"},
         "general.transcribe": {"queue": "general"},
         "general.image_generate": {"queue": "general"},
@@ -39,18 +89,25 @@ celery_app.conf.update(
         "summary.run": {"queue": "general"},
         "screencast.translate": {"queue": "screencast"},
         "screencast.render": {"queue": "screencast"},
-        # Podcast waits on the voice provider, it does not compute: the general worker scales.
-        "podcast.script": {"queue": "general"},
-        "podcast.render": {"queue": "general"},
-        "praesentation.outline": {"queue": "general"},
-        "praesentation.build": {"queue": "general"},
-        "watchdog.check": {"queue": "general"},
+        # Work that holds a process for minutes has a worker of its own, so short services
+        # never wait behind it (load test 2026-09-26: a 10 s transcript waited 12 minutes).
+        "podcast.script": {"queue": "long"},
+        # The voicing waits on the voice provider and gets its own worker, so a busy provider
+        # never holds up summaries and presentations.
+        "podcast.render": {"queue": "tts"},
+        "praesentation.outline": {"queue": "long"},
+        "praesentation.build": {"queue": "long"},
+        # A worker of its own, the supervisor must run even when every other slot is taken.
+        "watchdog.check": {"queue": "control"},
         "cleanup.expired_files": {"queue": "general"},
         "cleanup.job_cap": {"queue": "general"},
         "cleanup.exercise_progress": {"queue": "general"},
-        "backup.database": {"queue": "general"},
+        "backup.database": {"queue": "long"},
+        # Sources get a queue of their own that the same worker takes turns with, never behind every tool.
+        "aia.index_source": {"queue": "aia_ingest"},
+        "aia.translate_transcript": {"queue": "aia_ingest"},
+        "aia.reindex_all_sources": {"queue": "aia_ingest"},
         # AI tutor: dedicated queue for learning tools and language training
-        "aia.index_source": {"queue": "aia"},
         "aia.generate_mindmap": {"queue": "aia"},
         "aia.generate_exercise_set": {"queue": "aia"},
         "aia.generate_data_table": {"queue": "aia"},
@@ -60,7 +117,8 @@ celery_app.conf.update(
         "watchdog-stuck-jobs": {
             "task": "watchdog.check",
             "schedule": 5.0,  # every 5 seconds
-            "options": {"queue": "general"},
+            # A tick that waited longer than this is dropped, the next one follows anyway.
+            "options": {"queue": "control", "expires": 20},
         },
         # Runs exactly once here, no matter how many uvicorn processes exist.
         "cleanup-expired-files": {
@@ -84,7 +142,7 @@ celery_app.conf.update(
         "backup-database": {
             "task": "backup.database",
             "schedule": crontab(hour=3, minute=30),
-            "options": {"queue": "general"},
+            "options": {"queue": "long"},
         },
         # After the backup, so what was deleted had been backed up.
         "cleanup-exercise-progress": {
@@ -106,6 +164,19 @@ celery_app.conf.update(
         },
     },
 )
+
+
+@worker_before_create_process.connect
+def on_before_create_process(**kwargs):
+    """Freezes the parent's objects before a fork, so a child shares them instead of copying them on its first garbage collection."""
+    gc.freeze()
+
+
+@worker_process_init.connect
+def on_worker_process_init(**kwargs):
+    """Every forked pool process opens its own database lines instead of sharing the parent's."""
+    from src.core.db.pool import reset_after_fork
+    reset_after_fork()
 
 
 @worker_ready.connect

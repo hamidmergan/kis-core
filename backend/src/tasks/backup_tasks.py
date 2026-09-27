@@ -63,7 +63,7 @@ def _period_copy_missing(prefix: str, label: str) -> bool:
 
 @celery_app.task(
     name="backup.database",
-    queue="general",
+    queue="long",
     time_limit=DB_BACKUP_TIME_LIMIT_SECONDS,
     soft_time_limit=DB_BACKUP_TIME_LIMIT_SECONDS - 60,
 )

@@ -3,6 +3,9 @@ services:
     image: redis:alpine
     container_name: kis-redis
     restart: unless-stopped
+    # Holds every waiting job. When memory runs out the kernel takes a worker first,
+    # whose job the watchdog brings back, never the queue itself.
+    oom_score_adj: -900
     # No ports exposed - only accessible via internal Docker network
 
   postgres:
@@ -66,6 +69,10 @@ services:
     # aborts with "No space left on device". Happened exactly like that in testing.
     # The value is a ceiling, not reserved memory, unused it costs nothing.
     shm_size: 1gb
+    # Load test 2026-09-26: without this the kernel killed Postgres first when memory ran
+    # out, and every running job lost its database at once. Workers are cheaper to lose,
+    # the watchdog restarts their jobs.
+    oom_score_adj: -900
     volumes:
       - kis-postgres-data:/var/lib/postgresql/data
     restart: unless-stopped
@@ -80,6 +87,12 @@ services:
     container_name: kis-backend
     env_file:
       - .env
+    environment:
+      # Free database connections each web process keeps open, see core/db/pool.py.
+      DB_POOL_KEEP_IDLE: "12"
+      # glibc gives every thread its own memory area that is never handed back, in the load
+      # test of 2026-09-27 that held 500 to 600 MB per web process. Two areas are enough here.
+      MALLOC_ARENA_MAX: "2"
     volumes:
       - ./backend/src:/app/src:ro
       - ./backend/demo:/app/demo:ro
@@ -105,6 +118,13 @@ services:
       postgres:
         condition: service_healthy
     restart: unless-stopped
+    # Three processes of about 300 MB on 4 cores plus LibreOffice and ffmpeg for uploads.
+    # The limit keeps a runaway conversion inside this container. The upload slots are
+    # derived from it (1 GB each), 3g keeps the previous 3 slots of the 4 core box.
+    mem_limit: ${BACKEND_MEM_LIMIT:-3g}
+    # Serves every page. When memory runs out the kernel takes a worker before this,
+    # the watchdog restarts the worker's job, the pages stay usable meanwhile.
+    oom_score_adj: -500
     # Makes it visible whether the process still answers. A crashed process is
     # already caught by restart:unless-stopped, a HANGING one is not, and that is
     # the more likely case.
@@ -138,6 +158,12 @@ services:
       C=$$(( K / 2 )); [ "$$C" -lt 2 ] && C=2; [ "$$C" -gt 4 ] && C=4;
       echo "kis-celery-screencast: $${K} Kern(e), concurrency=$${C}";
       exec celery -A src.celery_app worker --queues=screencast --concurrency=$$C --loglevel=info'
+    # Cap so that too many ffmpeg clips at once only hit this worker, never Postgres or
+    # the backend. The render threads read this limit and stay below it.
+    mem_limit: ${CELERY_SCREENCAST_MEM_LIMIT:-2g}
+    environment:
+      REMAP_SIGTERM: SIGQUIT
+    stop_grace_period: 60s
     env_file:
       - .env
     volumes:
@@ -161,15 +187,22 @@ services:
   celery-worker-general:
     build: ./backend
     container_name: kis-celery-general
-    # Ceiling from the cores. On 4 cores it gives the previous 10. Higher than for
-    # screencast because here it is mostly waiting (voicing, translation, images go
-    # to other servers). The exception is transcription, whose ffmpeg prelude really
-    # computes.
+    # Short services: translation, transcription, summary, images. They take seconds
+    # to a few minutes and never wait behind a presentation or podcast script, those
+    # run in celery-worker-long. Mostly waiting on other servers, except the ffmpeg
+    # prelude of a transcription. One process per core, 4 on 4 cores: with 200-page
+    # documents a process holds up to 290 MB plus ffmpeg. More work waits in the queue.
     command: >
       sh -c 'K=$$(nproc 2>/dev/null || echo 4);
-      M=$$(( K * 5 / 2 )); [ "$$M" -lt 2 ] && M=2; [ "$$M" -gt 16 ] && M=16;
-      echo "kis-celery-general: $${K} Kern(e), autoscale=$${M},2";
-      exec celery -A src.celery_app worker --queues=tts,general --autoscale=$$M,2 --loglevel=info'
+      M=$$K; [ "$$M" -lt 2 ] && M=2; [ "$$M" -gt 8 ] && M=8;
+      echo "kis-celery-general: $${K} Kern(e), autoscale=$${M},1";
+      exec celery -A src.celery_app worker --queues=general --autoscale=$$M,1 --loglevel=info'
+    mem_limit: ${CELERY_GENERAL_MEM_LIMIT:-1.5g}
+    # TERM starts the soft shutdown (worker_soft_shutdown_timeout), unfinished tasks go
+    # back in line, Docker waits for that instead of killing after 10 s.
+    environment:
+      REMAP_SIGTERM: SIGQUIT
+    stop_grace_period: 60s
     env_file:
       - .env
     volumes:
@@ -189,22 +222,118 @@ services:
         max-size: "10m"
         max-file: "7"
 
+  celery-worker-long:
+    build: ./backend
+    container_name: kis-celery-long
+    # Long services: presentation outline and build, podcast script, the nightly backup.
+    # One of them holds a process for minutes, mostly waiting on the language and image
+    # models, so they get their own worker and short services pass by. One process less
+    # than cores, 3 on 4 cores, an outline of 200 pages holds up to 290 MB.
+    command: >
+      sh -c 'K=$$(nproc 2>/dev/null || echo 4);
+      M=$$(( K - 1 )); [ "$$M" -lt 2 ] && M=2; [ "$$M" -gt 6 ] && M=6;
+      echo "kis-celery-long: $${K} Kern(e), autoscale=$${M},1";
+      exec celery -A src.celery_app worker --queues=long --autoscale=$$M,1 --loglevel=info'
+    mem_limit: ${CELERY_LONG_MEM_LIMIT:-1.5g}
+    environment:
+      REMAP_SIGTERM: SIGQUIT
+    stop_grace_period: 60s
+    env_file:
+      - .env
+    volumes:
+      - ./backend/src:/app/src:ro
+      - kis-storage:/app/storage
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      redis:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "7"
+
+  celery-worker-voice:
+    build: ./backend
+    container_name: kis-celery-voice
+    # Read aloud and podcast voicing. The voice provider manages only a few requests at
+    # once (measured 2026-09-26 at myLab: 4), every tool shares those seats. More
+    # processes than seats would only wait, so four are enough on any server size.
+    command: >
+      sh -c 'echo "kis-celery-voice: concurrency=4";
+      exec celery -A src.celery_app worker --queues=tts --concurrency=4 --loglevel=info'
+    mem_limit: ${CELERY_VOICE_MEM_LIMIT:-1.25g}
+    environment:
+      REMAP_SIGTERM: SIGQUIT
+    stop_grace_period: 60s
+    env_file:
+      - .env
+    volumes:
+      - ./backend/src:/app/src:ro
+      - kis-storage:/app/storage
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      redis:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "7"
+
+  celery-worker-control:
+    build: ./backend
+    container_name: kis-celery-control
+    # Only the watchdog, in a single process. It has to run exactly when every other
+    # worker is busy, it restarts their jobs and frees their slots.
+    command: celery -A src.celery_app worker --queues=control --pool=solo --loglevel=info
+    mem_limit: ${CELERY_CONTROL_MEM_LIMIT:-512m}
+    environment:
+      REMAP_SIGTERM: SIGQUIT
+    stop_grace_period: 60s
+    env_file:
+      - .env
+    volumes:
+      - ./backend/src:/app/src:ro
+      - kis-storage:/app/storage
+    depends_on:
+      redis:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "7"
+
   celery-worker-aia:
     build: ./backend
     container_name: kis-celery-aia
     profiles: ["aia"]
-    # Ceiling from the cores. On 4 cores it gives the previous 12. The studio tools
-    # and ingest wait on the AI model most of the time.
+    # One process per slot of the Francis pool (AIA_PARALLEL_SLOTS = 6), the pool
+    # decides what runs, so no job waits here behind another. Tools mostly wait on
+    # the language model, sources are capped at 3 (AIA_AREA_CAPS) because a
+    # 155-page PDF takes a process to 365 MB.
     command: >
-      sh -c 'K=$$(nproc 2>/dev/null || echo 4);
-      M=$$(( K * 3 )); [ "$$M" -lt 2 ] && M=2; [ "$$M" -gt 16 ] && M=16;
-      echo "kis-celery-aia: $${K} Kern(e), autoscale=$${M},2";
-      exec celery -A src.celery_app worker --queues=aia --autoscale=$$M,2 --loglevel=info'
+      sh -c 'echo "kis-celery-aia: autoscale=6,1";
+      exec celery -A src.celery_app worker --queues=aia,aia_ingest --autoscale=6,1 --loglevel=info'
     # Cap against a single outlier so a large document does not push Postgres out of
-    # memory. Previously fixed at 1.5g, which slows a bigger box down for no reason.
-    # Now adjustable via the .env, the default stays the old value so nothing changes
-    # today.
-    mem_limit: ${CELERY_AIA_MEM_LIMIT:-1.5g}
+    # memory. 3 sources of up to 365 MB, 3 tools and the main process fit in 2g.
+    # Adjustable via the .env.
+    mem_limit: ${CELERY_AIA_MEM_LIMIT:-2g}
+    environment:
+      REMAP_SIGTERM: SIGQUIT
+    stop_grace_period: 60s
     env_file:
       - .env
     volumes:

@@ -20,10 +20,12 @@ def _wire(monkeypatch, route):
     import src.tasks.general_tasks as gt
     captured = {}
 
-    def fake_delay(job_uuid, input_path, filename, *rest):
-        captured["filename"] = filename
+    def fake_apply_async(args=None, **kwargs):
+        captured["filename"] = args[2]
+        return type("R", (), {"id": "task-1"})()
 
-    monkeypatch.setattr(gt, "run_translate", type("T", (), {"delay": staticmethod(fake_delay)})())
+    monkeypatch.setattr(gt, "run_translate", type("T", (), {"apply_async": staticmethod(fake_apply_async)})())
+    monkeypatch.setattr(route.db, "set_job_celery_task_id", lambda *a, **k: None)
     return captured
 
 

@@ -25,6 +25,8 @@ from src.services.text_map import Karte
 from src.services.json_llm import call_json_llm
 from src.services import sources as quellen
 from src.services.job_recovery import attempt_failed, still_mine
+from src.services.provider_slots import ProviderFull
+from src.services.upstream_errors import is_upstream_busy
 from src.storage import save_result_and_evict
 from src.tasks._stage import StageClock, StageContinue, StageLost, continue_stage
 from src.tasks.podcast_tasks._shared import JobCancelled, assert_not_cancelled
@@ -39,7 +41,8 @@ def _fortschritt(final: bool, step: str, **extra) -> dict:
     return {"step": step, "final": final, **extra}
 
 
-@celery_app.task(bind=True, name="praesentation.build", queue="general", acks_late=True,
+# Lowest priority in its queue, outlines and scripts of a few minutes pass the stages of ten minutes.
+@celery_app.task(bind=True, name="praesentation.build", queue="long", acks_late=True, priority=9,
                  soft_time_limit=STAGE_SOFT_TIME_LIMIT, time_limit=STAGE_TIME_LIMIT)
 def run_praesentation_build(self, job_uuid: str, user_id: int, locale: str = "de",
                             etappe: int = 1, versuch: int = 0, nur: dict | None = None, final: bool = False):
@@ -115,7 +118,7 @@ def run_praesentation_build(self, job_uuid: str, user_id: int, locale: str = "de
         return {"cancelled": True}
     except Exception as e:
         logger.error("Präsentation-Bau {} fehlgeschlagen: {}", job_uuid[:8], e)
-        attempt_failed(job_uuid, t("praesentation.buildFailed", locale))
+        attempt_failed(job_uuid, t("praesentation.buildFailed", locale), busy=is_upstream_busy(e))
         raise
 
 
@@ -255,6 +258,10 @@ def _bilder_erzeugen(job_uuid, user_id, style_text, fehlend: list[tuple], clock:
         sid, slot, prompt, size = auftrag
         try:
             data = bild.erzeuge(bild.prompt_fuer(style_text, prompt), size)
+        except ProviderFull:
+            # Only our own line was full, the picture waits for the next stage instead of missing.
+            logger.info("Präsentation {}: Bild {} {} wartet auf einen Platz", job_uuid[:8], sid, slot)
+            return False
         except Exception as e:  # noqa: BLE001 - one missing picture must not stop the deck
             logger.warning("Präsentation {}: Bild {} {} fehlgeschlagen: {}", job_uuid[:8], sid, slot, e)
             with sperre:

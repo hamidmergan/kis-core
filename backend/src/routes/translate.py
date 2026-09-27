@@ -1,3 +1,4 @@
+import asyncio
 import os
 import tempfile
 import uuid
@@ -17,6 +18,7 @@ from src.i18n import (
 )
 from src.quotas import enforce_quota
 from src.security.rate_limit import enforce_tool_burst
+from src.services.job_lanes import translate_route
 from src.services.open_jobs import enforce_open_jobs
 from src.storage import save_queue_file_from_path
 from src.services.tool_limits import max_upload_bytes
@@ -37,7 +39,7 @@ router = APIRouter(
 )
 
 @router.get("/translate/config")
-async def get_translate_config(
+def get_translate_config(
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
@@ -80,6 +82,8 @@ async def translate(
 
     # Both inputs end up as a file, the upload never sits in memory.
     with tempfile.TemporaryDirectory(prefix="translate_upload_") as tmpdir:
+        zeichen: int | None = None
+        seiten: int | None = None
         if has_text:
             cleaned = sanitize_pasted_text(text)
             if not cleaned:
@@ -94,6 +98,7 @@ async def translate(
                         maxChars=f"{TRANSLATE_MAX_CHARS:,}".replace(",", "."),
                     ),
                 )
+            zeichen = len(cleaned)
             ext = ".txt"
             filename = "text.txt"
             tmp_path = os.path.join(tmpdir, "input.txt")
@@ -113,11 +118,12 @@ async def translate(
             if not total:
                 raise HTTPException(status_code=400, detail=t("file.empty", locale))
             validate_or_raise(head, ext, locale)
-            pages_or_raise(ext, tmp_path, locale)
+            seiten = await asyncio.to_thread(pages_or_raise, ext, tmp_path, locale)
 
             extractor = EXTRACTORS.get(ext)
             if extractor is not None:
-                extracted = extractor(tmp_path)
+                extracted = await asyncio.to_thread(extractor, tmp_path)
+                zeichen = len(extracted)
                 if len(extracted) > TRANSLATE_MAX_CHARS:
                     raise HTTPException(
                         status_code=422,
@@ -140,19 +146,15 @@ async def translate(
         enforce_quota(user_id, "translate", is_admin_user(current_user), locale)
 
         db.create_job(job_uuid, user_id, "translation", filename, locale=locale)
-        input_path = save_queue_file_from_path(user_id, job_uuid, ext, tmp_path)
+        input_path = await asyncio.to_thread(save_queue_file_from_path, user_id, job_uuid, ext, tmp_path)
         db.set_job_input_path(job_uuid, input_path)
 
     from src.tasks.general_tasks import run_translate
-    run_translate.delay(
-        job_uuid,
-        input_path,
-        filename,
-        glossary,
-        effective_source,
-        effective_target,
-        provider_id,
+    task = run_translate.apply_async(
+        args=[job_uuid, input_path, filename, glossary, effective_source, effective_target, provider_id],
+        **translate_route(zeichen, seiten),
     )
+    db.set_job_celery_task_id(job_uuid, task.id)
 
     logger.info("Translate job {} queued for '{}'", job_uuid, filename)
     return {"job_uuid": job_uuid, "status": "pending"}

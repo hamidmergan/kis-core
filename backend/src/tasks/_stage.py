@@ -7,7 +7,7 @@ import time
 from loguru import logger
 
 from src import database as db
-from src.limits import STAGE_SECONDS
+from src.limits import CONTINUED_PRIORITY, STAGE_SECONDS
 
 
 class StageContinue(Exception):
@@ -34,6 +34,6 @@ class StageClock:
 
 def continue_stage(task, args: list, job_uuid: str) -> None:
     """Queues the next stage of the same job, the row stays running throughout."""
-    neu = task.apply_async(args=list(args))
+    neu = task.apply_async(args=list(args), priority=CONTINUED_PRIORITY)
     db.set_job_celery_task_id(job_uuid, neu.id)
     logger.info("Auftrag {}: naechste Etappe eingereiht", job_uuid[:8])

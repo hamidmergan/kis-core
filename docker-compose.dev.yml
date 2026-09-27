@@ -21,6 +21,14 @@ services:
     volumes:
       - ./backend/src:/app/src
 
+  celery-worker-voice:
+    volumes:
+      - ./backend/src:/app/src
+
+  celery-worker-control:
+    volumes:
+      - ./backend/src:/app/src
+
   celery-beat:
     volumes:
       - ./backend/src:/app/src

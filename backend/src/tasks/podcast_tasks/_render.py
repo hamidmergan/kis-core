@@ -19,6 +19,7 @@ from src.limits import (
 )
 from src.services.job_recovery import attempt_failed, still_mine
 from src.services.job_statistik import anbieter_und_modelle, messe
+from src.services.upstream_errors import is_upstream_busy
 from src.storage import (
     load_result_meta,
     save_result_and_evict,
@@ -105,7 +106,7 @@ def _mit_wiederholung(client, text: str, voice_id: str, sprache: str, tempo: flo
 @celery_app.task(
     bind=True,
     name="podcast.render",
-    queue="general",
+    queue="tts",
     acks_late=True,
     soft_time_limit=STAGE_SOFT_TIME_LIMIT,
     time_limit=STAGE_TIME_LIMIT,
@@ -209,12 +210,12 @@ def run_podcast_render(self, job_uuid: str, user_id: int, locale: str = "de",
                             future.result()
                         except (JobCancelled, StageLost):
                             raise
-                        except Exception:
+                        except Exception as fehler:
                             # The first failing contribution names the place to continue from.
                             if offen_idx < 0 or i < offen_idx:
-                                offen_idx = i
+                                offen_idx, ursache = i, fehler
                 if offen_idx >= 0:
-                    raise RuntimeError(f"Beitrag {offen_idx + 1} konnte nicht vertont werden")
+                    raise RuntimeError(f"Beitrag {offen_idx + 1} konnte nicht vertont werden") from ursache
 
         # Whatever the stage did not reach goes to the next one, outside the statistics.
         if [i for i in offen if i not in fertig]:
@@ -269,5 +270,5 @@ def run_podcast_render(self, job_uuid: str, user_id: int, locale: str = "de",
         logger.error("Podcast-Vertonung {} fehlgeschlagen: {}", job_uuid[:8], e)
         meldung = (t("podcast.lineFailed", locale, n=offen_idx + 1) if offen_idx >= 0
                    else t("podcast.renderFailed", locale))
-        attempt_failed(job_uuid, meldung)
+        attempt_failed(job_uuid, meldung, busy=is_upstream_busy(e.__cause__ or e))
         raise

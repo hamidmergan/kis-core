@@ -1,5 +1,6 @@
 """Transcription route: audio/video file to text, SRT, or VTT."""
 
+import asyncio
 import os
 import tempfile
 import uuid
@@ -13,6 +14,7 @@ from src.dependencies import get_current_user, is_admin_user
 from src.i18n import get_locale, t
 from src.quotas import enforce_quota
 from src.security.rate_limit import enforce_tool_burst
+from src.services.job_lanes import media_seconds, transcribe_route
 from src.services.open_jobs import enforce_open_jobs
 from src.services import feature_provider_choices
 from src.storage import save_queue_file_from_path
@@ -85,6 +87,7 @@ async def transcribe(
         if not total:
             raise HTTPException(status_code=400, detail=t("file.empty", locale))
         validate_or_raise(head, ext, locale)
+        sekunden = await asyncio.to_thread(media_seconds, tmp_path)
 
         job_uuid = uuid.uuid4().hex
         user_id = current_user.get("user_id", 0)
@@ -93,11 +96,15 @@ async def transcribe(
         enforce_quota(user_id, "transcription", is_admin_user(current_user), locale)
 
         db.create_job(job_uuid, user_id, "transcription", file.filename, locale=locale)
-        input_path = save_queue_file_from_path(user_id, job_uuid, ext, tmp_path)
+        input_path = await asyncio.to_thread(save_queue_file_from_path, user_id, job_uuid, ext, tmp_path)
         db.set_job_input_path(job_uuid, input_path)
 
     from src.tasks.general_tasks import run_transcribe
-    run_transcribe.delay(job_uuid, input_path, file.filename, task, response_format, provider_id)
+    celery_task = run_transcribe.apply_async(
+        args=[job_uuid, input_path, file.filename, task, response_format, provider_id],
+        **transcribe_route(sekunden),
+    )
+    db.set_job_celery_task_id(job_uuid, celery_task.id)
 
     logger.info("Transcribe job {} queued for '{}'", job_uuid, file.filename)
     return {"job_uuid": job_uuid, "status": "pending"}

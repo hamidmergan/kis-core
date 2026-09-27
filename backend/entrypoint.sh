@@ -4,7 +4,7 @@
 #
 # Controlled by WEB_CONCURRENCY, the usual variable for this, understood by
 # uvicorn and gunicorn out of the box:
-#   unset  -> automatic, cores minus one, at most 8
+#   unset  -> automatic, cores minus one, at most 4
 #   1      -> one process, as before the rework  (KILL SWITCH)
 #   number -> exactly this many
 # Because it is an environment variable, changing it needs the .env plus a
@@ -28,9 +28,9 @@ if [ "$KERNE" -gt 2 ]; then
 else
     AUTO=1
 fi
-# Cap it. Every process costs memory, and beyond about 8 more barely helps
-# because the backend mostly waits on other services anyway.
-[ "$AUTO" -gt 8 ] && AUTO=8
+# Cap it. Every process costs about 300 MB and the container has 3 GB (mem_limit),
+# beyond 4 more barely helps because the backend mostly waits on other services.
+[ "$AUTO" -gt 4 ] && AUTO=4
 
 WORKERS="${WEB_CONCURRENCY:-$AUTO}"
 # Catch nonsense values so a typo in the .env does not break the start
@@ -48,4 +48,7 @@ if [ "$WORKERS" -le 1 ]; then
     exec python -m uvicorn src.app:app --host 0.0.0.0 --port 8000
 fi
 
-exec python -m uvicorn src.app:app --host 0.0.0.0 --port 8000 --workers "$WORKERS"
+# A process that stalls a few seconds under load (memory pressure, a long request) is not
+# killed with every request it is serving: uvicorn's default of 5 seconds did exactly that.
+exec python -m uvicorn src.app:app --host 0.0.0.0 --port 8000 --workers "$WORKERS" \
+    --timeout-worker-healthcheck 30
