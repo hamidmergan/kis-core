@@ -111,6 +111,25 @@ def test_a_healthy_call_is_made_exactly_once():
     assert inner.calls == 1
 
 
+def test_the_soft_deadline_is_never_mistaken_for_a_broken_connection():
+    """Run 15 part 2: the SDK wrapped Celery's soft deadline as a connection error, the retry ran into the hard kill."""
+    import httpx2
+    from celery.exceptions import SoftTimeLimitExceeded
+    from openai import DefaultHttpxClient, OpenAI
+
+    calls = []
+
+    def handler(req):
+        calls.append(req)
+        raise SoftTimeLimitExceeded()
+
+    sdk = OpenAI(api_key="k", base_url="https://mylab.example/v1", max_retries=0,
+                 http_client=DefaultHttpxClient(transport=httpx2.MockTransport(handler)))
+    with pytest.raises(SoftTimeLimitExceeded):
+        RetryingClient(sdk, sleep_fn=lambda s: None).chat.completions.create(model="m", messages=[])
+    assert len(calls) == 1
+
+
 def test_everything_else_reaches_the_real_client_untouched():
     # The wrapper must not swallow half the interface.
     inner = _Inner()

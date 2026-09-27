@@ -25,12 +25,31 @@ def is_retryable(exc: Exception) -> bool:
     return isinstance(exc, openai.APIConnectionError)
 
 
+def _soft_deadline(exc: BaseException):
+    """Celery's soft deadline, also when the SDK hid it behind a connection error."""
+    try:
+        from celery.exceptions import SoftTimeLimitExceeded
+    except ImportError:  # pragma: no cover - celery is a dependency
+        return None
+    seen = set()
+    while exc is not None and id(exc) not in seen:
+        if isinstance(exc, SoftTimeLimitExceeded):
+            return exc
+        seen.add(id(exc))
+        exc = exc.__cause__ or exc.__context__
+    return None
+
+
 def call_with_retry(func, *args, sleep_fn=time.sleep, **kwargs):
     """Calls func and retries on a disruption, the last error propagates."""
     for attempt in range(1, ATTEMPTS + 1):
         try:
             return func(*args, **kwargs)
         except Exception as e:
+            deadline = _soft_deadline(e)
+            if deadline is not None:
+                # Another attempt would run into the hard kill, the task needs the deadline to requeue in time.
+                raise deadline
             if attempt == ATTEMPTS or not is_retryable(e):
                 raise
             wait = BACKOFF_SECONDS[min(attempt, len(BACKOFF_SECONDS)) - 1]
