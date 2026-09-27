@@ -64,7 +64,8 @@ def test_die_stuecke_einer_folie_laufen_gleichzeitig(tmp_path):
     """A single long slide has to send its pieces in parallel, otherwise it stays slow."""
     _, tts, _ = _lauf([LANG], tmp_path)
     assert tts.anfragen > 1, "Testtext muss in mehrere Stuecke zerfallen"
-    assert tts.max_gleichzeitig == tts.anfragen
+    # As many at once as the provider has seats, see TTS_PROVIDER_MAX_CONCURRENT.
+    assert tts.max_gleichzeitig == min(tts.anfragen, generation.resolve_tts_parallelism())
 
 
 def test_der_deckel_fuer_gleichzeitige_anfragen_haelt(tmp_path, monkeypatch):

@@ -5,7 +5,7 @@ from __future__ import annotations
 import base64
 import re
 
-from src.tasks.general_tasks import _image_http_client
+from src.tasks.general_tasks import _image_http_client, image_seat
 
 # The pixels follow the field at print resolution, a floor so a stamp-sized field still gets a usable
 # picture, a ceiling so a full-width banner does not cost minutes of generation time.
@@ -55,9 +55,10 @@ def erzeuge(prompt: str, size: str, *, timeout: float = 300.0) -> bytes:
     with client:
         antwort = None
         for groesse in (size, _RUECKFALL):
-            antwort = client.post(f"{base_url}/images/generations", json={
-                "model": model, "prompt": prompt, "size": groesse, "n": 1, "response_format": "b64_json",
-            })
+            with image_seat(base_url):
+                antwort = client.post(f"{base_url}/images/generations", json={
+                    "model": model, "prompt": prompt, "size": groesse, "n": 1, "response_format": "b64_json",
+                })
             if antwort.status_code == 200:
                 break
             if antwort.status_code != 400 or groesse == _RUECKFALL:

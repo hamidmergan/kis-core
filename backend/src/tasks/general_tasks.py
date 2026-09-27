@@ -4,6 +4,7 @@ import base64
 import json
 from io import BytesIO
 from pathlib import Path
+from urllib.parse import urlparse
 
 from loguru import logger
 from PIL import Image as PILImage
@@ -11,6 +12,8 @@ from PIL import Image as PILImage
 from src.celery_app import celery_app
 from src import database as db
 from src.i18n import t
+from src.limits import IMAGE_PROVIDER_MAX_CONCURRENT, IMAGE_SLOT_WAIT_SECONDS
+from src.services import provider_slots
 from src.storage import delete_file, get_file, open_input_file, save_result_file, save_result_and_evict
 from src.utils.heartbeat import job_heartbeat
 from src.dependencies import get_translate_client_for_provider
@@ -231,6 +234,12 @@ def run_transcribe(
 
 # -- Image: generate ----------------------------------------------------------
 
+def image_seat(base_url: str):
+    """One seat at the image provider for one picture, shared by every tool that draws."""
+    return provider_slots.slot(f"{urlparse(base_url).netloc or base_url}/images",
+                               limit=IMAGE_PROVIDER_MAX_CONCURRENT, wait_seconds=IMAGE_SLOT_WAIT_SECONDS)
+
+
 @celery_app.task(bind=True, name="general.image_generate", queue="general")
 def run_image_generate(
     self,
@@ -255,7 +264,7 @@ def run_image_generate(
             "response_format": "b64_json",
         }
 
-        with job_heartbeat(job_uuid), client:
+        with job_heartbeat(job_uuid), client, image_seat(base_url):
             response = client.post(f"{base_url}/images/generations", json=body)
 
         if response.status_code != 200:

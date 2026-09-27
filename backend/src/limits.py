@@ -51,6 +51,10 @@ MAX_INTERPRETER_SESSIONS    = 100
 # A failed stage resumes by itself this often, then the job pauses and waits for the person.
 MAX_AUTO_RESUMES       = 3
 RETRY_BACKOFF_SECONDS  = (60, 180, 600)
+# A full provider is no failure: the job waits a random span in this range and tries again,
+# uncounted, and only after this many hours of full provider it counts as a normal attempt.
+PROVIDER_BUSY_WAIT_SECONDS = (60, 180)
+PROVIDER_BUSY_MAX_HOURS    = 12
 
 # --- Upload sizes ------------------------------------------------------------
 MAX_UPLOAD_BYTES           = 500 * 1024 * 1024   # general (500 MB)
@@ -85,8 +89,19 @@ MAX_SCREENCAST_SLIDES          = 50
 # Threads for PDF to PNG and ffmpeg, sized by the machine's cores.
 RENDER_MAX_WORKERS = capacity().render_workers
 
-# How many slides are voiced at once, measured and applied per screencast.
-SCREENCAST_TTS_PARALLELISM = 8
+# Voicings at one provider at once, shared by every tool and worker. Measured 26.09.2026 at
+# myLab: 4 at once gave the most, 8 lost half, 12 lost every single one.
+TTS_PROVIDER_MAX_CONCURRENT = 4
+# How long a voicing waits for a seat before its job goes back in line, below the watchdog.
+TTS_SLOT_WAIT_SECONDS       = 120
+
+# Pictures at one provider at once, myLab measured 26.09.2026 draws one at a time in about 11 s.
+IMAGE_PROVIDER_MAX_CONCURRENT = 2
+# How long a picture waits for a seat before it goes back in line, below the watchdog.
+IMAGE_SLOT_WAIT_SECONDS       = 120
+
+# How many slides are voiced at once per screencast, more than the provider's seats only waits.
+SCREENCAST_TTS_PARALLELISM = TTS_PROVIDER_MAX_CONCURRENT
 
 # --- Podcast ----------------------------------------------------------------
 # More sources than this dilute every single one below a useful share.
@@ -100,7 +115,7 @@ PODCAST_LINES_PER_CALL   = 35
 # One breath between two contributions so they do not run into each other.
 PODCAST_LINE_PAUSE       = 0.35
 # The same lever as the screencast: waiting on the provider, not own CPU.
-PODCAST_TTS_PARALLELISM  = 8
+PODCAST_TTS_PARALLELISM  = TTS_PROVIDER_MAX_CONCURRENT
 # --- Podcast: reading every source into facts --------------------------------
 # One call per source, so no source depends any more on its place in the list.
 # The numbers are the podcast's own, the summary is calibrated on a dossier of ten files.
@@ -312,9 +327,21 @@ SUMMARY_OUTLINE_MAX_ATTEMPTS = 2
 # One dropped call would otherwise cost the stage everything it read.
 SUMMARY_COMPOSE_MAX_ATTEMPTS = 2
 
-# Shared slot pool for background work, a fixed number instead of detection.
-AIA_PARALLEL_SLOTS                     = 4
-AIA_AREA_WEIGHTS                       = {"studio": 2, "ingest": 1}
+# A next stage or a resumed job queues behind fresh work of its queue (with Redis 9 is last), so a job that
+# keeps running into limits never retakes its slot at once.
+CONTINUED_PRIORITY                     = 9
+
+# Longer texts and recordings start in the long queue, under load 95,000 characters took 20 minutes to translate.
+LONG_QUEUE_TRANSLATE_CHARS             = 20_000
+# A 96-minute lecture holds a process for minutes, a clip of a few minutes for seconds.
+LONG_QUEUE_MEDIA_SECONDS               = 20 * 60
+
+# Shared slot pool for all Francis background work, as many as the aia worker has processes.
+AIA_PARALLEL_SLOTS                     = 6
+# Sources first because every tool waits for them, simulated on the load test of 26.09.2026 as 5 instead of 16 minutes.
+AIA_AREA_WEIGHTS                       = {"studio": 1, "ingest": 2}
+# A 155-page PDF holds a process at 365 MB, tools mostly wait on the model, so sources take at most half.
+AIA_AREA_CAPS                          = {"ingest": 3}
 
 # Maximum concurrent uploads in the heavy phase, sized by the machine.
 AIA_MAX_CONCURRENT_UPLOADS             = capacity().max_concurrent_uploads

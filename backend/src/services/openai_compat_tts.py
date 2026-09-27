@@ -1,9 +1,12 @@
 """Speech output via an OpenAI compatible endpoint, voices come from the database."""
 from __future__ import annotations
 
+from urllib.parse import urlparse
+
 import httpx
 
-from src.limits import TTS_MAX_CHARS_PER_REQUEST
+from src.limits import TTS_MAX_CHARS_PER_REQUEST, TTS_PROVIDER_MAX_CONCURRENT, TTS_SLOT_WAIT_SECONDS
+from src.services import provider_slots
 from src.services.tts_number_words import spell_numbers
 
 # From which share of the ceiling on a sentence end is looked for.
@@ -134,11 +137,14 @@ class OpenAICompatTTSClient:
         }
         if self._model:
             payload["model"] = self._model
-        response = client.post(
-            f"{self._base_url}/v1/audio/speech",
-            json=payload,
-            headers=self._headers(),
-        )
+        # One seat per request, so all tools together never ask more than the provider manages.
+        with provider_slots.slot(urlparse(self._base_url).netloc or self._base_url,
+                                 limit=TTS_PROVIDER_MAX_CONCURRENT, wait_seconds=TTS_SLOT_WAIT_SECONDS):
+            response = client.post(
+                f"{self._base_url}/v1/audio/speech",
+                json=payload,
+                headers=self._headers(),
+            )
         if response.status_code != 200:
             raise RuntimeError(
                 f"TTS API error ({response.status_code}): {response.text[:300]}"
