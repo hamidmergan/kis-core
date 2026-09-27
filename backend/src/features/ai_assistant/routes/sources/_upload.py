@@ -61,6 +61,23 @@ def _claim_upload_slot(limit: int) -> str | None:
         return ticket
 
 
+# How long an upload waits for a free slot, well below the 60 s silence nginx allows by default.
+_UPLOAD_SLOT_WAIT_SECONDS = 30
+
+
+async def _wait_for_upload_slot(limit: int, wait_seconds: float | None = None) -> str | None:
+    """Waits a while for a free slot, the file is already here and a refusal would send it again."""
+    wait_seconds = _UPLOAD_SLOT_WAIT_SECONDS if wait_seconds is None else wait_seconds
+    start = time.monotonic()
+    while True:
+        ticket = _claim_upload_slot(limit)
+        if ticket is not None:
+            return ticket
+        if time.monotonic() - start >= wait_seconds:
+            return None
+        await asyncio.sleep(1.0)
+
+
 def _release_upload_slot(ticket: str) -> None:
     try:
         _redis().zrem(_UPLOAD_SET_KEY, ticket)
@@ -105,8 +122,8 @@ async def upload_source(
             detail=t("ai.source.duplicateName", locale, name=file.filename, label=_workspace_label(locale)),
         )
 
-    # Whoever gets no slot receives 503 and can try again right away.
-    ticket = _claim_upload_slot(_max_concurrent_uploads())
+    # Whoever gets no slot in time receives 503, the page then sends the file again by itself.
+    ticket = await _wait_for_upload_slot(_max_concurrent_uploads())
     if ticket is None:
         raise HTTPException(status_code=503, detail=t("ai.source.serverBusy", locale))
     try:
@@ -151,7 +168,7 @@ async def upload_source(
 
 
 @router.post("/ai-assistant/workspaces/{workspace_uuid}/sources/{source_uuid}/retry")
-async def retry_source(
+def retry_source(
     workspace_uuid: str,
     source_uuid: str,
     current_user: dict = Depends(get_current_user),

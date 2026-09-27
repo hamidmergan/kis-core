@@ -61,7 +61,7 @@ async def add_link_source(
     existing_names = {(s["filename"] or "").strip().lower() for s in existing_sources}
 
     # Same brake as the upload, the heavy part is LibreOffice.
-    ticket = _upload._claim_upload_slot(_upload._max_concurrent_uploads())
+    ticket = await _upload._wait_for_upload_slot(_upload._max_concurrent_uploads())
     if ticket is None:
         raise HTTPException(status_code=503, detail=t("ai.source.serverBusy", locale))
     try:

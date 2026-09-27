@@ -112,39 +112,51 @@ export function useSources({ uuid, onModuleUpdate }: UseSourcesOptions) {
       // Guard against duplicates within the same drop too.
       existingNames.add(nameKey);
       setUploadProgress({ current: i + 1, total: toUpload.length, percent: 0 });
+      // A full server answers 503 after a short wait, the file then goes again by itself.
+      const sendOnce = () => new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", `/api/ai-assistant/workspaces/${uuid}/sources`);
+        xhr.withCredentials = true;
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) setUploadProgress({ current: i + 1, total: toUpload.length, percent: Math.round((e.loaded / e.total) * 100) });
+        };
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            const newSrc: Source = JSON.parse(xhr.responseText);
+            setSources((prev) => [newSrc, ...prev]);
+            resolve();
+          } else {
+            if (xhr.status === 429) rateLimitHit = true;
+            let detail: string = t("uploadFailed");
+            try {
+              const body = JSON.parse(xhr.responseText);
+              // The reason arrives sometimes as an object and sometimes as text.
+              if (typeof body?.detail === "string") {
+                detail = body.detail;
+              } else if (body?.detail?.message) {
+                detail = body.detail.message;
+              }
+            } catch { /* ignore */ }
+            reject(Object.assign(new Error(detail), { status: xhr.status }));
+          }
+        };
+        xhr.onerror = () => reject(new Error(t("networkError")));
+        const form = new FormData();
+        form.append("file", file);
+        xhr.send(form);
+      });
       try {
-        await new Promise<void>((resolve, reject) => {
-          const xhr = new XMLHttpRequest();
-          xhr.open("POST", `/api/ai-assistant/workspaces/${uuid}/sources`);
-          xhr.withCredentials = true;
-          xhr.upload.onprogress = (e) => {
-            if (e.lengthComputable) setUploadProgress({ current: i + 1, total: toUpload.length, percent: Math.round((e.loaded / e.total) * 100) });
-          };
-          xhr.onload = () => {
-            if (xhr.status >= 200 && xhr.status < 300) {
-              const newSrc: Source = JSON.parse(xhr.responseText);
-              setSources((prev) => [newSrc, ...prev]);
-              resolve();
-            } else {
-              if (xhr.status === 429) rateLimitHit = true;
-              let detail: string = t("uploadFailed");
-              try {
-                const body = JSON.parse(xhr.responseText);
-                // The reason arrives sometimes as an object and sometimes as text.
-                if (typeof body?.detail === "string") {
-                  detail = body.detail;
-                } else if (body?.detail?.message) {
-                  detail = body.detail.message;
-                }
-              } catch { /* ignore */ }
-              reject(new Error(detail));
-            }
-          };
-          xhr.onerror = () => reject(new Error(t("networkError")));
-          const form = new FormData();
-          form.append("file", file);
-          xhr.send(form);
-        });
+        const bis = Date.now() + 20 * 60 * 1000;
+        for (;;) {
+          try {
+            await sendOnce();
+            break;
+          } catch (err) {
+            const busy = (err as { status?: number }).status === 503;
+            if (!busy || Date.now() > bis) throw err;
+            await new Promise((r) => setTimeout(r, 5000 + Math.random() * 5000));
+          }
+        }
       } catch (err) {
         errors.push({ filename: file.name, message: err instanceof Error ? err.message : t("uploadFailed") });
       }

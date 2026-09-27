@@ -188,6 +188,8 @@ async def test_ohne_recht_kommt_403_und_nichts_passiert(route, monkeypatch):
 @pytest.mark.asyncio
 async def test_kein_platz_gibt_503(route, monkeypatch):
     monkeypatch.setattr(_upload, "_claim_upload_slot", lambda limit: None)
+    # The route waits a while for a slot first, the test skips the wait.
+    monkeypatch.setattr(_upload, "_UPLOAD_SLOT_WAIT_SECONDS", 0)
 
     with pytest.raises(HTTPException) as exc:
         await _aufruf("https://example.org/")
