@@ -6,11 +6,13 @@ from ._shared import (
     _load_workspace_source,
 )
 
+from src.utils.pdfium_lock import PDFIUM_LOCK
+
 router = APIRouter(tags=["ki-assistent: sources"])
 
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/sources/{source_uuid}/toc")
-async def get_pdf_toc(
+def get_pdf_toc(
     workspace_uuid: str,
     source_uuid: str,
     current_user: dict = Depends(get_current_user),
@@ -71,6 +73,11 @@ async def search_pdf(
     # Runs in a thread so the search does not block the event loop.
     def _search() -> dict:
         data = get_file(source["file_path"])
+        # The download stays outside, only the pdfium part waits for the lock.
+        with PDFIUM_LOCK:
+            return _durchsuchen(data)
+
+    def _durchsuchen(data) -> dict:
         doc = pdfium.PdfDocument(data)
 
         matches: list[dict] = []

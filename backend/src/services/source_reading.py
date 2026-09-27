@@ -13,6 +13,7 @@ from pathlib import Path
 
 from loguru import logger
 
+from src.utils.pdfium_lock import PDFIUM_LOCK
 from src.services.pdf_layout import (
     boilerplate_keys,
     line_boxes,
@@ -96,17 +97,18 @@ def _pdf_pages(path: str) -> list[str]:
 
     seiten_text: list[str] = []
     seiten_kaesten: list[list] = []
-    doc = pdfium.PdfDocument(path)
-    try:
-        for nummer in range(len(doc)):
-            seite = doc[nummer]
-            textpage = seite.get_textpage()
-            seiten_text.append(clean(textpage.get_text_range() or "").strip())
-            seiten_kaesten.append(line_boxes(textpage))
-            textpage.close()
-            seite.close()
-    finally:
-        doc.close()
+    with PDFIUM_LOCK:
+        doc = pdfium.PdfDocument(path)
+        try:
+            for nummer in range(len(doc)):
+                seite = doc[nummer]
+                textpage = seite.get_textpage()
+                seiten_text.append(clean(textpage.get_text_range() or "").strip())
+                seiten_kaesten.append(line_boxes(textpage))
+                textpage.close()
+                seite.close()
+        finally:
+            doc.close()
 
     # Counted over the whole document, a header only shows itself in the whole.
     boiler = boilerplate_keys(seiten_kaesten, seiten_text)

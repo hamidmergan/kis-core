@@ -7,6 +7,7 @@ from pathlib import Path
 from fastapi import HTTPException
 from loguru import logger
 
+from src.utils.pdfium_lock import PDFIUM_LOCK
 from src.i18n import DEFAULT_LOCALE, t
 from src.services.aia_transcript_offsets import TranscriptIndex
 from src.storage import aia_transcript_key, get_file
@@ -70,9 +71,10 @@ def _count_pages(ext: str, data: bytes) -> int | None:
     try:
         if ext == ".pdf":
             import pypdfium2 as pdfium
-            doc = pdfium.PdfDocument(data)
-            count = len(doc)
-            doc.close()
+            with PDFIUM_LOCK:
+                doc = pdfium.PdfDocument(data)
+                count = len(doc)
+                doc.close()
             return count
         if ext == ".pptx":
             import io
@@ -120,9 +122,10 @@ def _count_pages_path(ext: str, path: str) -> int | None:
     try:
         if ext == ".pdf":
             import pypdfium2 as pdfium
-            doc = pdfium.PdfDocument(path)
-            count = len(doc)
-            doc.close()
+            with PDFIUM_LOCK:
+                doc = pdfium.PdfDocument(path)
+                count = len(doc)
+                doc.close()
             return count
         if ext == ".pptx":
             from pptx import Presentation

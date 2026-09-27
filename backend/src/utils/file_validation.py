@@ -4,6 +4,7 @@ import filetype
 from loguru import logger
 
 # Unused here, but eight routes take these limits from here.
+from src.utils.pdfium_lock import PDFIUM_LOCK
 from src.limits import (  # noqa: F401
     MAX_SCREENCAST_SLIDES,
     MAX_TRANSCRIPTION_BYTES,
@@ -111,11 +112,12 @@ def count_pages(ext: str, path: str) -> int | None:
     try:
         if ext == ".pdf":
             import pypdfium2 as pdfium
-            doc = pdfium.PdfDocument(path)
-            try:
-                return len(doc)
-            finally:
-                doc.close()
+            with PDFIUM_LOCK:
+                doc = pdfium.PdfDocument(path)
+                try:
+                    return len(doc)
+                finally:
+                    doc.close()
         if ext == ".pptx":
             from pptx import Presentation
             return len(Presentation(path).slides)
@@ -124,8 +126,8 @@ def count_pages(ext: str, path: str) -> int | None:
     return None
 
 
-def pages_or_raise(ext: str, path: str, locale: str = "de") -> None:
-    """Rejects a document with more pages than the management allows."""
+def pages_or_raise(ext: str, path: str, locale: str = "de") -> int | None:
+    """Rejects a document with more pages than the management allows, returns the page count."""
     from fastapi import HTTPException  # local import - this module is also used outside HTTP context
     from src.i18n import t
     from src.services.tool_limits import max_source_pages
@@ -137,6 +139,7 @@ def pages_or_raise(ext: str, path: str, locale: str = "de") -> None:
             status_code=413,
             detail=t("ai.source.tooManyPages", locale, pages=seiten, max=grenze),
         )
+    return seiten
 
 
 def sanitize_pasted_text(raw: str) -> str:
