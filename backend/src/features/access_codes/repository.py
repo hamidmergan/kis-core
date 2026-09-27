@@ -162,11 +162,10 @@ def lock_expired_accounts() -> int:
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                """UPDATE users SET active = %s
-                   WHERE access_code_id IS NOT NULL AND active
+                """UPDATE users SET active = 0
+                   WHERE access_code_id IS NOT NULL AND active = 1
                      AND access_expires_at IS NOT NULL AND access_expires_at <= NOW()
                    RETURNING id""",
-                (False,),
             )
             gesperrt = cur.fetchall()
         conn.commit()

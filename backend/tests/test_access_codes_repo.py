@@ -260,7 +260,8 @@ def test_lock_expired_accounts_only_touches_active_ones_past_their_deadline(fake
     assert gesperrt == 2
     anweisung = [c for c in calls if c[0] == "execute"][0]
     assert "UPDATE users" in anweisung[1]
-    assert "SET active = false" in anweisung[1] or "SET active = %s" in anweisung[1]
+    # users.active is an integer column, see the real database test below.
+    assert "SET active = 0" in anweisung[1]
     assert "access_expires_at <= NOW()" in anweisung[1]
     assert "access_code_id IS NOT NULL" in anweisung[1]
     assert "active" in anweisung[1]
@@ -276,3 +277,37 @@ def test_set_user_access_writes_both_columns(fake_db):
     befehl = [c for c in calls if c[0] == "execute"][0]
     assert "access_expires_at" in befehl[1] and "access_code_id" in befehl[1]
     assert befehl[2] == (frist, 7, 42)
+
+
+def test_lock_expired_accounts_laeuft_gegen_die_echte_datenbank(monkeypatch):
+    """Die Spalte users.active ist eine Zahl, der Textvergleich oben hat das nie gemerkt.
+
+    Seit dem 26.09. im Protokoll: "argument of AND must be type boolean, not type integer",
+    stündlich, also wurde kein abgelaufenes Testkonto je gesperrt.
+    """
+    import os
+    from contextlib import contextmanager
+
+    import psycopg2
+
+    echt = psycopg2.connect(os.environ["DATABASE_URL"])
+
+    class _OhneCommit:
+        """Everything runs inside one transaction that is thrown away at the end."""
+
+        def cursor(self, *a, **k):
+            return echt.cursor(*a, **k)
+
+        def commit(self):
+            pass
+
+    @contextmanager
+    def verbindung():
+        yield _OhneCommit()
+
+    monkeypatch.setattr(repo, "get_connection", verbindung)
+    try:
+        assert repo.lock_expired_accounts() >= 0
+    finally:
+        echt.rollback()
+        echt.close()
