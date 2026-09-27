@@ -201,7 +201,8 @@ def test_what_this_person_already_had_does_not_come_back(stack, monkeypatch):
 
     _run(count=3)
 
-    assert [i["front"] for i in seen["finalized"]["items"]] == ["Peer Review", "Exposé"]
+    # New cards first, the known one only fills the place nothing new was found for.
+    assert [i["front"] for i in seen["finalized"]["items"]] == ["Abstract", "Peer Review", "Exposé"]
 
 
 def test_the_filter_orders_one_refill_and_filters_that_too(stack, monkeypatch):
@@ -247,19 +248,19 @@ def test_a_failing_refill_keeps_the_unique_items(stack, monkeypatch):
     _run(count=2)
 
     assert seen["failed"] is False
-    assert [i["front"] for i in seen["finalized"]["items"]] == ["Peer Review"]
+    assert [i["front"] for i in seen["finalized"]["items"]] == ["Abstract", "Peer Review"]
 
 
-def test_a_set_that_is_nothing_but_repeats_does_not_get_saved(stack, monkeypatch):
-    # Offering an empty set as finished would be worse than a failed one.
+def test_a_set_of_nothing_but_repeats_is_saved_once_the_material_is_used_up(stack, monkeypatch):
+    # Decided 26.09.2026: a used-up source gives known cards again instead of a failed set.
     mod, seen = stack
     monkeypatch.setattr(mod, "seen_by_user", lambda *a, **k: ["a", "b"])
     _generator(mod, monkeypatch, seen, _cards("a", "b"), _cards("a", "b"))
 
     _run(count=2)
 
-    assert seen["failed"] is True
-    assert seen["finalized"] is None
+    assert seen["failed"] is False
+    assert [i["front"] for i in seen["finalized"]["items"]] == ["a", "b"]
 
 
 # --- The ordered count --------------------------------------------------------

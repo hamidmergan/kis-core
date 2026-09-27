@@ -18,7 +18,7 @@ router = APIRouter(tags=["ki-assistent: studio"])
 
 @router.post("/ai-assistant/workspaces/{workspace_uuid}/flashcards/generate")
 @observe(name="aia-flashcards")
-async def generate_flashcards(
+def generate_flashcards(
     workspace_uuid: str,
     body: schemas.FlashcardsGenerateBody,
     current_user: dict = Depends(get_current_user),
@@ -48,12 +48,10 @@ async def generate_flashcards(
         requested_count=body.count,
     )
 
-    from src.tasks.aia_tasks import run_generate_exercise_set
-    run_generate_exercise_set.delay(
-        placeholder["id"], workspace["id"], "flashcards", "source", body.count,
-        source_uuids=body.active_source_ids,
-        locale=locale,
-    )
+    from src.features.ai_assistant.scheduling.service import enqueue_task
+    enqueue_task("aia.generate_exercise_set", user_id,
+                 args=[placeholder["id"], workspace["id"], "flashcards", "source", body.count],
+                 kwargs={"source_uuids": body.active_source_ids, "locale": locale})
     return {"set_id": placeholder["id"], "status": "generating"}
 
 

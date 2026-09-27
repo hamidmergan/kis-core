@@ -55,8 +55,11 @@ def _is_media_source(filename: str) -> bool:
 @observe(name="aia-data_table")
 def run_generate_data_table(self, data_table_id: int, source_ids: list[int],
                               source_uuids: list[str], source_map: dict,
-                              locale: str = "de", user_id: int | None = None):
+                              locale: str = "de", user_id: int | None = None,
+                              _aia_job_uuid: str | None = None, anlauf: int = 0, seit: float | None = None):
     """Generates a data table from the sources as a background job."""
+    # A requeued run takes the seat along and gives it back itself.
+    platz_weiter = False
     import json as _json
     from src.features.ai_assistant.prompts.studio_prompts import (
         AIA_DATENTABELLE_PROMPT,
@@ -250,6 +253,19 @@ def run_generate_data_table(self, data_table_id: int, source_ids: list[int],
         logger.info("KI Tutor: data_table {} generated successfully", data_table_id)
 
     except Exception as e:
+        from src.features.ai_assistant.tasks._warten import wieder_einreihen
+        if wieder_einreihen(run_generate_data_table, e, anlauf=anlauf, seit=seit,
+                            args=[data_table_id, source_ids, source_uuids, source_map],
+                            kwargs={"locale": locale, "user_id": user_id, "_aia_job_uuid": _aia_job_uuid}):
+            platz_weiter = True
+            return
         logger.error("KI Tutor: data_table {} generation failed: {}", data_table_id, e)
         db.update_aia_data_table(data_table_id, "failed", error=str(e))
+    finally:
+        if _aia_job_uuid and not platz_weiter:
+            try:
+                from src.features.ai_assistant.scheduling.service import on_complete
+                on_complete(_aia_job_uuid)
+            except Exception as e:
+                logger.error("KI Tutor: data_table dispatch on_complete failed: {}", e)
 

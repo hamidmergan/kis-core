@@ -111,7 +111,7 @@ def run_summarize_source(source_uuid: str):
     _build_source_summary_safely(source_uuid, db.get_chunks_by_source(source["id"]))
 
 
-@celery_app.task(bind=True, name="aia.index_source", queue="aia")
+@celery_app.task(bind=True, name="aia.index_source", queue="aia_ingest")
 def run_index_source(self, source_uuid: str, locale: str = "de", _aia_job_uuid: str | None = None):
     try:
         # 1. Load source from DB
@@ -336,7 +336,7 @@ def _is_rate_limit(e: Exception) -> bool:
     return "429" in msg or "rate limit" in msg
 
 
-@celery_app.task(bind=True, name="aia.translate_transcript", queue="aia",
+@celery_app.task(bind=True, name="aia.translate_transcript", queue="aia_ingest",
                  soft_time_limit=AIA_TRANSLATE_SOFT_TIME_LIMIT, time_limit=AIA_TRANSLATE_TIME_LIMIT)
 def run_translate_transcript(
     self, source_uuid: str, provider_id: int | None = None, target_lang: str | None = None

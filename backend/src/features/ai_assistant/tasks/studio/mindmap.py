@@ -79,8 +79,10 @@ def _collect_sources(source_ids: list[int], source_uuids: list[str]
 @observe(name="aia-mindmap")
 def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uuids: list[str],
                           locale: str = "de", _aia_job_uuid: str | None = None,
-                          user_id: int | None = None):
+                          user_id: int | None = None, anlauf: int = 0, seit: float | None = None):
     """Generates a mind map from the sources as a background job."""
+    # A requeued run takes the seat along and gives it back itself.
+    platz_weiter = False
     import json as _json
 
     from src.features.ai_assistant.tasks._helpers import learning_tools_language
@@ -264,10 +266,16 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
         logger.info("KI Tutor: mindmap {} generated successfully", mindmap_id)
 
     except Exception as e:
+        from src.features.ai_assistant.tasks._warten import wieder_einreihen
+        if wieder_einreihen(run_generate_mindmap, e, anlauf=anlauf, seit=seit,
+                            args=[mindmap_id, source_ids, source_uuids],
+                            kwargs={"locale": locale, "user_id": user_id, "_aia_job_uuid": _aia_job_uuid}):
+            platz_weiter = True
+            return
         logger.error("KI Tutor: mindmap {} generation failed: {}", mindmap_id, e)
         db.update_aia_mindmap(mindmap_id, "failed", error=str(e))
     finally:
-        if _aia_job_uuid:
+        if _aia_job_uuid and not platz_weiter:
             try:
                 from src.features.ai_assistant.scheduling.service import on_complete
                 on_complete(_aia_job_uuid)

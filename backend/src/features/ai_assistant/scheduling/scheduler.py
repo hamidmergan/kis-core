@@ -41,6 +41,7 @@ def select_shared_pool(
     weights: dict[str, float],
     area_granted: Optional[dict[str, float]] = None,
     user_granted: Optional[dict[int, int]] = None,
+    area_caps: Optional[dict[str, int]] = None,
 ) -> list[str]:
     """Fills the shared slot pool, per slot first the area, then the fairest person."""
     if total_slots <= 0:
@@ -56,13 +57,15 @@ def select_shared_pool(
             if a in sel.granted:
                 sel.granted[a] = g
     user_load: Counter = Counter(uid for uid, _area in running)
+    area_load: Counter = Counter(area for _uid, area in running)
+    caps = area_caps or {}
 
     remaining = sorted(queued, key=lambda j: j.created_at)
     chosen: list[str] = []
     while free > 0 and remaining:
         demand: dict[str, int] = {}
         for j in remaining:
-            if weights.get(j.area, 0.0) > 0.0:
+            if weights.get(j.area, 0.0) > 0.0 and area_load[j.area] < caps.get(j.area, total_slots):
                 demand[j.area] = demand.get(j.area, 0) + 1
         area = sel.pick(demand)
         if area is None:
@@ -72,6 +75,7 @@ def select_shared_pool(
         best = min(cands, key=lambda j: (user_load[j.user_id], ug.get(j.user_id, 0), j.created_at))
         chosen.append(best.job_id)
         user_load[best.user_id] += 1
+        area_load[area] += 1
         if user_granted is not None:
             user_granted[best.user_id] = user_granted.get(best.user_id, 0) + 1
         remaining.remove(best)

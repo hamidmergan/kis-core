@@ -44,7 +44,7 @@ def _mit_anweisung(ex_set: dict) -> None:
 # ─── Exercise Sets CRUD ──────────────────────────────────────────────────────
 
 @router.post("/ai-assistant/workspaces/{workspace_uuid}/exercise-sets")
-async def create_exercise_set(
+def create_exercise_set(
     workspace_uuid: str,
     body: schemas.CreateSetBody,
     current_user: dict = Depends(get_current_user),
@@ -123,18 +123,16 @@ async def create_exercise_set(
         user_instruction=user_instruction,
     )
 
-    from src.tasks.aia_tasks import run_generate_exercise_set
-    run_generate_exercise_set.delay(
-        placeholder["id"], workspace["id"], body.tool, body.mode, body.count,
-        source_uuids=source_uuids or None,
-        locale=locale,
-    )
+    from src.features.ai_assistant.scheduling.service import enqueue_task
+    enqueue_task("aia.generate_exercise_set", user_id,
+                 args=[placeholder["id"], workspace["id"], body.tool, body.mode, body.count],
+                 kwargs={"source_uuids": source_uuids or None, "locale": locale})
 
     return {"set": placeholder}
 
 
 @router.post("/ai-assistant/workspaces/{workspace_uuid}/exercise-sets/{set_id}/retry")
-async def retry_exercise_set(
+def retry_exercise_set(
     workspace_uuid: str,
     set_id: int,
     current_user: dict = Depends(get_current_user),
@@ -168,20 +166,18 @@ async def retry_exercise_set(
         [ex_set["source_uuid"]] if ex_set.get("source_uuid") else []
     )
 
-    from src.tasks.aia_tasks import run_generate_exercise_set
-    run_generate_exercise_set.delay(
-        set_id, workspace["id"], ex_set["tool"], ex_set["mode"],
-        # Sets created before the count was stored fall back to the create default.
-        ex_set.get("requested_count") or schemas.CreateSetBody.model_fields["count"].default,
-        source_uuids=source_uuids or None,
-        locale=locale,
-    )
+    from src.features.ai_assistant.scheduling.service import enqueue_task
+    enqueue_task("aia.generate_exercise_set", user_id,
+                 args=[set_id, workspace["id"], ex_set["tool"], ex_set["mode"],
+                       # Sets created before the count was stored fall back to the create default.
+                       ex_set.get("requested_count") or schemas.CreateSetBody.model_fields["count"].default],
+                 kwargs={"source_uuids": source_uuids or None, "locale": locale})
 
     return {"ok": True, "status": "generating"}
 
 
 @router.post("/ai-assistant/workspaces/{workspace_uuid}/exercise-sets/{set_id}/items/{item_id}/check")
-async def check_grammar_answer(
+def check_grammar_answer(
     workspace_uuid: str,
     set_id: int,
     item_id: int,
@@ -222,7 +218,7 @@ async def check_grammar_answer(
     }
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/exercise-sets")
-async def list_exercise_sets(
+def list_exercise_sets(
     workspace_uuid: str,
     tool: Optional[str] = None,
     current_user: dict = Depends(get_current_user),
@@ -245,7 +241,7 @@ async def list_exercise_sets(
     return {"sets": sets}
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/exercise-sets/{set_id}")
-async def get_exercise_set(
+def get_exercise_set(
     workspace_uuid: str,
     set_id: int,
     current_user: dict = Depends(get_current_user),
@@ -272,7 +268,7 @@ async def get_exercise_set(
     return {"set": ex_set}
 
 @router.delete("/ai-assistant/workspaces/{workspace_uuid}/exercise-sets/{set_id}")
-async def delete_exercise_set_endpoint(
+def delete_exercise_set_endpoint(
     workspace_uuid: str,
     set_id: int,
     current_user: dict = Depends(get_current_user),
@@ -284,7 +280,7 @@ async def delete_exercise_set_endpoint(
     return {"ok": True}
 
 @router.patch("/ai-assistant/workspaces/{workspace_uuid}/exercise-sets/{set_id}/title")
-async def rename_exercise_set(
+def rename_exercise_set(
     workspace_uuid: str,
     set_id: int,
     body: schemas.ArtifactTitleBody,
@@ -307,7 +303,7 @@ async def rename_exercise_set(
     return {"ok": True, "title": titel}
 
 @router.post("/ai-assistant/workspaces/{workspace_uuid}/exercise-sets/{set_id}/progress")
-async def record_set_progress(
+def record_set_progress(
     workspace_uuid: str,
     set_id: int,
     body: schemas.ExerciseProgressBody,

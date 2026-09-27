@@ -35,7 +35,7 @@ def test_plaetze_kommen_aus_der_maschine_nicht_aus_einer_einstellung():
 
 
 def test_weights_default_and_override():
-    assert weights_from_settings(get_setting=lambda k, d="": d) == {"studio": 2.0, "ingest": 1.0}
+    assert weights_from_settings(get_setting=lambda k, d="": d) == {"studio": 1.0, "ingest": 2.0}
     custom = weights_from_settings(get_setting=lambda k, d="": '{"studio": 3, "ingest": 1}')
     assert custom == {"studio": 3.0, "ingest": 1.0}
 

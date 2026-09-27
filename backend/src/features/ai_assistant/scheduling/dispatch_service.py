@@ -95,11 +95,13 @@ class DispatchService:
         launch: Callable[[Job], str],
         total_slots: int,
         weights: dict[str, float],
+        area_caps: Optional[dict[str, int]] = None,
     ) -> None:
         self.store = store
         self.launch = launch  # actually dispatch to Celery, return celery_task_id
         self.total_slots = total_slots
         self.weights = dict(weights)
+        self.area_caps = dict(area_caps or {})
 
     def enqueue(self, job: Job) -> list[str]:
         self.store.add(job)
@@ -111,10 +113,14 @@ class DispatchService:
 
     def dispatch(self) -> list[str]:
         """Starts every job the pool currently allows, slot claimed before the start."""
-        # The fairness numbers come from the shared table, all processes see the same.
+        # The areas share by what runs right now, a past burst of short jobs must not cost their area minutes.
+        running = self.store.running_all()
+        belegt: dict[str, float] = {}
+        for _user_id, area in running:
+            belegt[area] = belegt.get(area, 0.0) + 1.0
         picks = select_shared_pool(
-            self.store.queued_all(), self.store.running_all(), self.total_slots,
-            self.weights, self.store.area_grant_counts(), self.store.user_grant_counts(),
+            self.store.queued_all(), running, self.total_slots,
+            self.weights, belegt, self.store.user_grant_counts(), self.area_caps,
         )
         started: list[str] = []
         for job_uuid in picks:

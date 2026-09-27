@@ -65,3 +65,18 @@ def test_cumulative_user_fairness_interleaves_flooder_and_newcomer():
         order.append(by_id[jid].user_id)
         pool = [j for j in pool if j.job_id != jid]
     assert order[:6] == [1, 2, 1, 2, 1, 2]  # perfect interleave, not 1,1,1,1,1,1
+
+
+def test_ein_bereich_nimmt_nie_mehr_als_seine_obergrenze():
+    # Große Quellen belegen je bis 365 MB, mehr als drei gleichzeitig sprengen den Arbeiter.
+    q = [_j(f"i{n}", n, "ingest", float(n)) for n in range(6)]
+    picks = select_shared_pool(q, running=[(90, "ingest")], total_slots=6, weights=W, area_caps={"ingest": 3})
+    assert picks == ["i0", "i1"]
+
+
+def test_die_obergrenze_gibt_freie_plaetze_an_die_tools():
+    q = [_j(f"i{n}", n, "ingest", float(n)) for n in range(6)]
+    q += [_j(f"s{n}", 10 + n, "studio", 10.0 + n) for n in range(6)]
+    picks = select_shared_pool(q, running=[], total_slots=6, weights={"studio": 1.0, "ingest": 2.0},
+                               area_caps={"ingest": 3})
+    assert sorted(p[0] for p in picks) == ["i", "i", "i", "s", "s", "s"]

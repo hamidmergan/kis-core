@@ -91,3 +91,60 @@ def test_unlimited_pool_runs_everything():
     for uid in range(10):
         svc.enqueue(_mk("studio", uid))
     assert len(launched) == 10
+
+
+def _warten(store, area, user_id):
+    job = _mk(area, user_id)
+    store.add(job)
+    return job
+
+
+def test_viele_kurze_quellen_hungern_ihren_bereich_nicht_aus():
+    # Lasttest 26.09.: after 12 short source jobs the sources waited 8 minutes for the mind maps to catch up.
+    from src.limits import AIA_AREA_WEIGHTS
+
+    svc, store, launched = _make(4, weights=dict(AIA_AREA_WEIGHTS))
+    for uid in range(12):
+        fertig = _mk("ingest", uid)
+        svc.enqueue(fertig)
+        svc.on_complete(fertig.job_uuid)
+    for uid in (20, 21, 22):
+        svc.enqueue(_mk("studio", uid))
+    quelle = _warten(store, "ingest", 30)
+    _warten(store, "studio", 31)
+
+    svc.dispatch()
+
+    assert launched[-1] == quelle.job_uuid
+
+
+def test_mindmaps_bekommen_trotzdem_immer_einen_platz():
+    from src.limits import AIA_AREA_WEIGHTS
+
+    svc, store, launched = _make(4, weights=dict(AIA_AREA_WEIGHTS))
+    for uid in range(8):
+        _warten(store, "ingest", uid)
+        _warten(store, "studio", 100 + uid)
+
+    svc.dispatch()
+
+    bereiche = [store.get(j).area for j in launched]
+    assert bereiche.count("studio") >= 1 and bereiche.count("ingest") > bereiche.count("studio")
+
+
+def test_tools_laufen_neben_hoechstens_drei_quellen():
+    """Lauf 10: 100 Tools teilten sich 4 Plätze mit Quellen, die letzten warteten über eine halbe Stunde."""
+    from src.features.ai_assistant.scheduling.service import get_dispatch_service
+
+    store = InMemoryJobStore()
+    launched: list[str] = []
+    svc = get_dispatch_service(store=store, launch=lambda job: launched.append(job.job_uuid) or "t")
+    for uid in range(8):
+        _warten(store, "ingest", uid)
+        _warten(store, "studio", 100 + uid)
+
+    svc.dispatch()
+
+    bereiche = [store.get(j).area for j in launched]
+    assert bereiche.count("ingest") == 3
+    assert bereiche.count("studio") >= 3

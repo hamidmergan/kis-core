@@ -91,9 +91,12 @@ def test_a_failing_first_run_still_fails_the_set(stack, monkeypatch):
     mod, seen = stack
 
     def _boom(*a, **k):
-        raise RuntimeError("Connection error.")
+        # A broken answer and no overload, an unreachable provider waits since 27.09.
+        raise RuntimeError("Die Antwort war kein gültiges JSON.")
 
     monkeypatch.setattr(mod, "generate_mc_from_source", _boom)
+    # Never a real message to the running broker, the suite once queued set 1 of the local database.
+    monkeypatch.setattr(mod.run_generate_exercise_set, "apply_async", lambda *a, **k: None)
 
     _run()
 

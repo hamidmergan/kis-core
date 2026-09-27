@@ -6,7 +6,7 @@ import time
 import uuid as _uuid
 from typing import Callable, Optional
 
-from src.limits import AIA_AREA_WEIGHTS, AIA_PARALLEL_SLOTS
+from src.limits import AIA_AREA_CAPS, AIA_AREA_WEIGHTS, AIA_PARALLEL_SLOTS
 from src.features.ai_assistant.repository.jobs import DbJobStore
 from src.features.ai_assistant.scheduling.dispatch_service import DispatchService, Job
 
@@ -53,13 +53,14 @@ def weights_from_settings(get_setting: Callable[..., str] = _default_get_setting
 
 
 def _launch(job: Job) -> str:
-    """Sends the Celery job into the aia queue, with the job uuid."""
+    """Sends the Celery job into the queue its route names, with the job uuid."""
     from src.celery_app import celery_app
 
     args = job.payload.get("args", [])
     kwargs = dict(job.payload.get("kwargs", {}))
     kwargs["_aia_job_uuid"] = job.job_uuid
-    result = celery_app.send_task(job.task_name, args=args, kwargs=kwargs, queue="aia")
+    queue = celery_app.conf.task_routes.get(job.task_name, {}).get("queue", "aia")
+    result = celery_app.send_task(job.task_name, args=args, kwargs=kwargs, queue=queue)
     return result.id
 
 
@@ -73,6 +74,7 @@ def get_dispatch_service(
         launch=launch if launch is not None else _launch,
         total_slots=slots_from_settings(get_setting),
         weights=weights_from_settings(get_setting),
+        area_caps=AIA_AREA_CAPS,
     )
 
 

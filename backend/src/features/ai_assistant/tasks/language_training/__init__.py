@@ -1,11 +1,18 @@
 """Dispatches the generation of an exercise set to the matching module."""
 
+import random
+from datetime import datetime, timedelta, timezone
+
+from celery.exceptions import SoftTimeLimitExceeded
 from langfuse.decorators import observe
 from loguru import logger
 
 from src import database as db
 from src.celery_app import celery_app
-from src.limits import AIA_TOOL_SOFT_TIME_LIMIT, AIA_TOOL_TIME_LIMIT
+from src.limits import (
+    AIA_TOOL_SOFT_TIME_LIMIT, AIA_TOOL_TIME_LIMIT, PROVIDER_BUSY_MAX_HOURS, PROVIDER_BUSY_WAIT_SECONDS,
+)
+from src.services.upstream_errors import is_upstream_busy
 from src.features.ai_assistant.tasks._helpers import (
     LEARNING_TOOLS,
     _get_llm_client,
@@ -20,6 +27,7 @@ from src.services.aia_grammar_topic import derive_topic
 from src.features.ai_assistant.tasks._context_budget import exercise_context_budget
 from src.features.ai_assistant.tasks._instruction import NONE, Resolution, prompt_block
 from src.features.ai_assistant.tasks._instruction import resolve as resolve_instruction
+from src.features.ai_assistant.tasks._warten import platz_nachfuehren
 from src.features.ai_assistant.tasks.language_training._context import (
     build_context_from_chunks,
     build_source_context,
@@ -66,6 +74,9 @@ _NACHSCHLAG_RUNDEN = 2
 # Stands in the title column until the generation call or the pool names the set.
 _PLATZHALTER = "Wird generiert…"
 
+# A set that hits the time limit this often is too big and not merely waiting.
+_ZEITGRENZE_ANLAEUFE = 3
+
 
 @celery_app.task(bind=True, name="aia.generate_exercise_set", queue="aia",
                  soft_time_limit=AIA_TOOL_SOFT_TIME_LIMIT, time_limit=AIA_TOOL_TIME_LIMIT)
@@ -73,8 +84,11 @@ _PLATZHALTER = "Wird generiert…"
 def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
                               mode: str, count: int, source_uuid: str | None = None,
                               source_uuids: list[str] | None = None,
-                              locale: str = "de"):
+                              locale: str = "de", anlauf: int = 0, _aia_job_uuid: str | None = None):
     """Generates the exercises of a set, the language follows the course."""
+    erstellt = None
+    # A requeued run takes the seat along and gives it back itself.
+    platz_weiter = False
     try:
         workspace = db.get_aia_workspace_by_id(workspace_id)
         if not workspace:
@@ -86,6 +100,7 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
             db.fail_exercise_set(set_id)
             return
         user_id = ex_set["user_id"]
+        erstellt = ex_set.get("created_at")
 
         # The exercise language follows the course, not the person's interface.
         locale, language = (learning_tools_language() if tool in LEARNING_TOOLS
@@ -260,8 +275,12 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
 
             # Whatever this person already had is dropped.
             gehabt = seen_by_user(user_id, tool)
+            # What the model repeated stays at hand, it fills the set once the material is used up.
+            schon_gehabt: list[dict] = []
             if neu:
+                vorher = neu
                 neu, wiederholt = drop_repeats(neu, gehabt + [i.get("front", "") for i in items])
+                schon_gehabt += [i for i in vorher if all(i is not k for k in neu)]
                 if wiederholt:
                     logger.info("KI Tutor: set {} hat {} Wiederholungen aussortiert",
                                 set_id, wiederholt)
@@ -283,8 +302,10 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
                     )
                     break
                 if mehr:
+                    vorher = mehr
                     mehr, _ = drop_repeats(
                         mehr, gehabt + [i.get("front", "") for i in items + neu])
+                    schon_gehabt += [i for i in vorher if all(i is not k for k in mehr)]
                 if not mehr:
                     # Not a single new exercise, asking further only costs requests.
                     break
@@ -293,6 +314,7 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
             # Truly nothing new left in the pool or from the model: a repeat still
             # beats a set that stays short.
             fehlt = zu_erzeugen - len(neu)
+            aufgefuellt = 0
             if fehlt > 0 and mit_vorrat:
                 wiederholt = take_from_pool(
                     uuids, tool, level, user_id, fehlt, topic_id,
@@ -309,6 +331,19 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
                         set_id, len(wiederholt), fehlt,
                     )
                     items = items + wiederholt
+                    aufgefuellt = len(wiederholt)
+
+            # Material used up: the person gets repeats rather than a set that fails.
+            fehlt = zu_erzeugen - len(neu) - aufgefuellt
+            if fehlt > 0 and schon_gehabt:
+                nochmal, _ = drop_repeats(schon_gehabt, [i.get("front", "") for i in items + neu])
+                nochmal = nochmal[:fehlt]
+                if nochmal:
+                    logger.info("KI Tutor: set {} füllt {} von {} fehlenden Plätzen mit Wiederholungen, "
+                                "das Material ist ausgeschöpft", set_id, len(nochmal), fehlt)
+                    for item in nochmal:
+                        item.pop("_kind", None)
+                    items = items + nochmal
 
             # Store them so the next call gets them for free, the name comes along
             # so a later set drawn purely from the pool needs no call to be named.
@@ -349,8 +384,43 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
                            set_id, len(items), count)
 
     except Exception as e:
+        if _wieder_einreihen(e, erstellt, anlauf, [set_id, workspace_id, tool, mode, count],
+                             {"source_uuid": source_uuid, "source_uuids": source_uuids,
+                              "locale": locale, "_aia_job_uuid": _aia_job_uuid}):
+            platz_weiter = True
+            return
         logger.error("KI Tutor: exercise set {} generation failed: {}", set_id, e)
         db.fail_exercise_set(set_id)
+    finally:
+        if _aia_job_uuid and not platz_weiter:
+            try:
+                from src.features.ai_assistant.scheduling.service import on_complete
+                on_complete(_aia_job_uuid)
+            except Exception as fehler:
+                logger.error("KI Tutor: exercise_set dispatch on_complete failed: {}", fehler)
+
+
+def _wieder_einreihen(e: Exception, erstellt, anlauf: int, args: list, kwargs: dict) -> bool:
+    """Puts the set back in the queue when only the provider was too slow or too busy."""
+    if isinstance(e, SoftTimeLimitExceeded):
+        if anlauf >= _ZEITGRENZE_ANLAEUFE:
+            return False
+    elif not is_upstream_busy(e):
+        return False
+    jetzt = datetime.now(timezone.utc).replace(tzinfo=None)
+    if erstellt and jetzt - erstellt > timedelta(hours=PROVIDER_BUSY_MAX_HOURS):
+        return False
+    warte = random.uniform(*PROVIDER_BUSY_WAIT_SECONDS)
+    try:
+        ergebnis = run_generate_exercise_set.apply_async(
+            args=args, kwargs={**kwargs, "anlauf": anlauf + 1}, countdown=warte)
+    except Exception as fehler:
+        logger.error("KI Tutor: set {} could not be requeued: {}", args[0], fehler)
+        return False
+    platz_nachfuehren(kwargs, ergebnis)
+    logger.warning("KI Tutor: set {} waits {:.0f} s for the provider ({}), run {}",
+                   args[0], warte, type(e).__name__, anlauf + 2)
+    return True
 
 
 def _source_ids(uuids: list[str]) -> list[int]:

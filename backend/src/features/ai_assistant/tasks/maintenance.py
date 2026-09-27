@@ -5,7 +5,7 @@ from loguru import logger
 from src.celery_app import celery_app
 from src import database as db
 
-@celery_app.task(bind=True, name="aia.reindex_all_sources", queue="aia")
+@celery_app.task(bind=True, name="aia.reindex_all_sources", queue="aia_ingest")
 def run_reindex_all_sources(self):
     """Re-embeds all existing chunks with the current provider."""
     import json as _json

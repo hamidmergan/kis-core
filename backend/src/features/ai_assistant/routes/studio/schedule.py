@@ -112,7 +112,7 @@ def _serialize_global_entry(row: dict) -> dict:
 
 
 @router.get("/ai-assistant/schedule/upcoming")
-async def get_upcoming_schedule(
+def get_upcoming_schedule(
     limit: Optional[int] = None,
     offset: int = 0,
     include_checked: bool = False,
@@ -138,7 +138,7 @@ async def get_upcoming_schedule(
 # ─── GET ────────────────────────────────────────────────────────────────────
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/schedule")
-async def get_schedule(
+def get_schedule(
     workspace_uuid: str,
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
@@ -163,7 +163,7 @@ async def get_schedule(
 # ─── GENERATE (async via Celery) ────────────────────────────────────────────
 
 @router.post("/ai-assistant/workspaces/{workspace_uuid}/schedule/generate")
-async def generate_schedule(
+def generate_schedule(
     workspace_uuid: str,
     body: schemas.ScheduleGenerateBody,
     current_user: dict = Depends(get_current_user),
@@ -181,14 +181,15 @@ async def generate_schedule(
     # The whole selection is stored, the job filters once more itself.
     job = db.create_schedule_job(workspace["id"], user_id, list(body.source_ids))
 
-    from src.tasks.aia_tasks import run_generate_schedule
-    run_generate_schedule.delay(job["id"], workspace["id"], user_id, list(body.source_ids))
+    from src.features.ai_assistant.scheduling.service import enqueue_task
+    enqueue_task("aia.generate_schedule", user_id,
+                 args=[job["id"], workspace["id"], user_id, list(body.source_ids)])
 
     return {"job_id": job["id"], "status": "pending"}
 
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/schedule/jobs/active")
-async def get_active_schedule_job_route(
+def get_active_schedule_job_route(
     workspace_uuid: str,
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
@@ -207,7 +208,7 @@ async def get_active_schedule_job_route(
 
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/schedule/jobs/{job_id}")
-async def get_schedule_job(
+def get_schedule_job(
     workspace_uuid: str,
     job_id: int,
     current_user: dict = Depends(get_current_user),
@@ -232,7 +233,7 @@ async def get_schedule_job(
 # ─── CREATE MANUAL ENTRY ────────────────────────────────────────────────────
 
 @router.post("/ai-assistant/workspaces/{workspace_uuid}/schedule/entries")
-async def create_entry(
+def create_entry(
     workspace_uuid: str,
     body: schemas.ScheduleEntryCreateBody,
     current_user: dict = Depends(get_current_user),
@@ -268,7 +269,7 @@ async def create_entry(
 # ─── UPDATE ENTRY ───────────────────────────────────────────────────────────
 
 @router.put("/ai-assistant/workspaces/{workspace_uuid}/schedule/entries/{entry_id}")
-async def update_entry(
+def update_entry(
     workspace_uuid: str,
     entry_id: int,
     body: schemas.ScheduleEntryUpdateBody,
@@ -325,7 +326,7 @@ async def update_entry(
 # ─── DELETE ENTRY ───────────────────────────────────────────────────────────
 
 @router.delete("/ai-assistant/workspaces/{workspace_uuid}/schedule/entries/{entry_id}")
-async def delete_entry(
+def delete_entry(
     workspace_uuid: str,
     entry_id: int,
     current_user: dict = Depends(get_current_user),
@@ -341,7 +342,7 @@ async def delete_entry(
 # ─── DELETE ALL ─────────────────────────────────────────────────────────────
 
 @router.delete("/ai-assistant/workspaces/{workspace_uuid}/schedule")
-async def delete_all(
+def delete_all(
     workspace_uuid: str,
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),

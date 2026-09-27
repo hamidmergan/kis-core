@@ -65,8 +65,11 @@ _PARALLEL_PACKETS = 2
                  soft_time_limit=AIA_SCHEDULE_SOFT_TIME_LIMIT, time_limit=AIA_SCHEDULE_TIME_LIMIT)
 @observe(name="aia-schedule")
 def run_generate_schedule(self, job_id: int, workspace_id: int, user_id: int,
-                          source_uuids: list[str]):
+                          source_uuids: list[str], _aia_job_uuid: str | None = None,
+                          anlauf: int = 0, seit: float | None = None):
     """Patterns pick the blocks, the model returns the appointments, the rest is merging."""
+    # A requeued run takes the seat along and gives it back itself.
+    platz_weiter = False
     try:
         db.update_schedule_job(job_id, "running")
         logger.info("Schedule job {} started", job_id)
@@ -314,8 +317,21 @@ def run_generate_schedule(self, job_id: int, workspace_id: int, user_id: int,
         logger.info("Schedule job {}: added {} new entries", job_id, added)
 
     except Exception as e:
+        from src.features.ai_assistant.tasks._warten import wieder_einreihen
+        if wieder_einreihen(run_generate_schedule, e, anlauf=anlauf, seit=seit,
+                            args=[job_id, workspace_id, user_id, source_uuids],
+                            kwargs={"_aia_job_uuid": _aia_job_uuid}):
+            platz_weiter = True
+            return
         logger.error("Schedule job {} failed: {}", job_id, e)
         db.update_schedule_job(job_id, "failed", error=str(e))
+    finally:
+        if _aia_job_uuid and not platz_weiter:
+            try:
+                from src.features.ai_assistant.scheduling.service import on_complete
+                on_complete(_aia_job_uuid)
+            except Exception as e:
+                logger.error("KI Tutor: schedule dispatch on_complete failed: {}", e)
 
 
 __all__ = ["run_generate_schedule"]

@@ -17,7 +17,7 @@ from src.features.ai_assistant.tasks._instruction import clean as clean_instruct
 router = APIRouter(tags=["ki-assistent: studio"])
 
 @router.post("/ai-assistant/workspaces/{workspace_uuid}/data_table/generate")
-async def generate_data_table(
+def generate_data_table(
     workspace_uuid: str,
     body: schemas.DataTableGenerateBody,
     current_user: dict = Depends(get_current_user),
@@ -50,11 +50,12 @@ async def generate_data_table(
         workspace["id"], user_id, source_ids,
         user_instruction=clean_instruction(body.instruction) or None)
 
-    from src.tasks.aia_tasks import run_generate_data_table
+    from src.features.ai_assistant.scheduling.service import enqueue_task
     # Convert int keys to str for JSON serialization
     source_map_str = {str(k): v for k, v in source_map.items()}
-    run_generate_data_table.delay(data_table_id, source_ids, body.active_source_ids, source_map_str,
-                                  locale=locale, user_id=user_id)
+    enqueue_task("aia.generate_data_table", user_id,
+                 args=[data_table_id, source_ids, body.active_source_ids, source_map_str],
+                 kwargs={"locale": locale, "user_id": user_id})
     return {"data_table_id": data_table_id, "status": "pending"}
 
 def _mit_anweisung(dt: dict) -> dict:
@@ -64,7 +65,7 @@ def _mit_anweisung(dt: dict) -> dict:
 
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/data_table/{data_table_id}")
-async def get_data_table(
+def get_data_table(
     workspace_uuid: str,
     data_table_id: int,
     current_user: dict = Depends(get_current_user),
@@ -83,7 +84,7 @@ async def get_data_table(
     return _mit_anweisung(dt)
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/data_table")
-async def get_latest_data_table(
+def get_latest_data_table(
     workspace_uuid: str,
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
@@ -98,7 +99,7 @@ async def get_latest_data_table(
     return _mit_anweisung(dt) if dt else {}
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/data_tables")
-async def get_data_tables(
+def get_data_tables(
     workspace_uuid: str,
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
@@ -121,7 +122,7 @@ async def get_data_tables(
     ]
 
 @router.delete("/ai-assistant/workspaces/{workspace_uuid}/data_table/{data_table_id}")
-async def delete_data_table(
+def delete_data_table(
     workspace_uuid: str,
     data_table_id: int,
     current_user: dict = Depends(get_current_user),
@@ -136,7 +137,7 @@ async def delete_data_table(
 
 
 @router.patch("/ai-assistant/workspaces/{workspace_uuid}/data_table/{data_table_id}/title")
-async def rename_data_table(
+def rename_data_table(
     workspace_uuid: str,
     data_table_id: int,
     body: schemas.ArtifactTitleBody,

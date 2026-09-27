@@ -119,3 +119,27 @@ class DbJobStore:
                     ("done" if ok else "failed", error, job_uuid),
                 )
             conn.commit()
+
+    def running_rows(self) -> list[dict]:
+        """Every job holding a slot, with what the reaper needs to judge it."""
+        with get_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(
+                    """SELECT job_uuid, task_name, payload, celery_task_id,
+                              EXTRACT(EPOCH FROM started_at) AS started_at
+                       FROM aia_jobs WHERE status = 'running'"""
+                )
+                rows = cur.fetchall()
+        return [{**r, "started_at": float(r["started_at"]) if r["started_at"] is not None else None}
+                for r in rows]
+
+    def requeue(self, job_uuid: str) -> None:
+        """Puts an orphaned job back in line, its slot is free again at once."""
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """UPDATE aia_jobs SET status = 'queued', celery_task_id = NULL, started_at = NULL
+                       WHERE job_uuid = %s AND status = 'running'""",
+                    (job_uuid,),
+                )
+            conn.commit()
