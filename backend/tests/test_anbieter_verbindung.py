@@ -565,3 +565,61 @@ def test_auch_der_rueckfall_geht_in_kleinen_stuecken_hinaus(redis):
 
     _chat(_client(handler), "y" * 300_000)
     assert max(stuecke) <= 64 * 1024 and sum(stuecke) > 300_000
+
+
+# ─── Das Protokoll nennt, wer wirklich geantwortet hat ─────────────────────
+
+
+def _protokoll():
+    from loguru import logger
+
+    zeilen: list[str] = []
+    return zeilen, logger.add(lambda m: zeilen.append(str(m)), level="INFO")
+
+
+def _erste_wahl_tot(req):
+    if req.url.host == "hpc.example":
+        raise httpx.ConnectError("refused", request=req)
+    return httpx.Response(200, json={"ok": 1})
+
+
+def test_das_protokoll_nennt_den_rueckfall_der_geantwortet_hat(redis):
+    """Lauf 15: die Zeile des SDK nannte die Adresse der Ersten Wahl, auch wenn myLab geantwortet hatte."""
+    from loguru import logger
+
+    zeilen, sink = _protokoll()
+    try:
+        _chat(_client(_erste_wahl_tot))
+    finally:
+        logger.remove(sink)
+    assert any("p2 hat für p1 geantwortet" in z for z in zeilen)
+
+
+def test_auch_der_asynchrone_weg_nennt_den_rueckfall(redis):
+    from loguru import logger
+
+    async def handler(req):
+        return _erste_wahl_tot(req)
+
+    async def lauf():
+        transport = pt.AsyncProviderTransport(ERSTE, RUECK, "llm", inner=httpx.MockTransport(handler))
+        async with httpx.AsyncClient(transport=transport) as client:
+            await client.post("https://hpc.example/v1/chat/completions", json={"model": ERSTE.model, "messages": []})
+
+    zeilen, sink = _protokoll()
+    try:
+        asyncio.run(lauf())
+    finally:
+        logger.remove(sink)
+    assert any("p2 hat für p1 geantwortet" in z for z in zeilen)
+
+
+def test_antwortet_die_erste_wahl_bleibt_das_protokoll_still(redis):
+    from loguru import logger
+
+    zeilen, sink = _protokoll()
+    try:
+        _chat(_client(lambda req: httpx.Response(200, json={"ok": 1})))
+    finally:
+        logger.remove(sink)
+    assert not any("geantwortet" in z for z in zeilen)

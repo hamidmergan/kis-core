@@ -327,6 +327,11 @@ class _Door:
         wanted.append((f"{target.provider_id}:{self.bucket}", int(cap)))
         return wanted
 
+    def served(self, target: Target) -> None:
+        """Names the provider that really answered, the SDK's own log line only knows the first choice."""
+        if target is not self.primary:
+            logger.info("{} hat für {} geantwortet ({})", target.name, self.primary.name, self.bucket)
+
     def switch(self, target: Target, seconds: float, why: str, last: bool) -> bool:
         """Notes the failure when a fallback stands by, and tells whether another provider is left to ask."""
         if self.fallback is not None:
@@ -443,6 +448,7 @@ def _build(lib, full=provider_slots.ProviderFull):
                     release()
                 else:
                     response.stream = _ReleasingStream(response.stream, release)
+                door.served(target)
                 return response
             raise RuntimeError("provider door without a target")  # pragma: no cover
 
@@ -501,6 +507,7 @@ def _build(lib, full=provider_slots.ProviderFull):
                     release()
                 else:
                     response.stream = _AsyncReleasingStream(response.stream, release)
+                door.served(target)
                 return response
             raise RuntimeError("provider door without a target")  # pragma: no cover
 
