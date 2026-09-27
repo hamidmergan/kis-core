@@ -18,19 +18,19 @@ DEFAULT_WELCOME_MODAL_TEXT = (
 
 
 @router.get("/health")
-async def health():
+def health():
     return {"status": "ok"}
 
 
 @router.get("/health/maintenance")
-async def maintenance_status():
+def maintenance_status():
     """Public probe so the frontend can render a maintenance page without auth."""
     enabled = db.get_setting("maintenance_mode", "false").lower() == "true"
     return {"enabled": enabled}
 
 
 @router.get("/health/labels")
-async def ui_labels():
+def ui_labels():
     """Public labels, both languages at once."""
     return {
         # The notice banner is read publicly so the start page can show it without rights.

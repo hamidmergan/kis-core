@@ -40,7 +40,7 @@ class PermissionTogglePayload(BaseModel):
 
 
 @router.get("/roles")
-async def list_roles(admin=Depends(_require)):
+def list_roles(admin=Depends(_require)):
     """Rows, columns and checkboxes of the permission table in one call."""
     perms = permissions_of(admin)
     aktiv = active_modules()
@@ -65,7 +65,7 @@ async def list_roles(admin=Depends(_require)):
 
 
 @router.post("/roles")
-async def create_role(
+def create_role(
     payload: RolePayload,
     admin=Depends(_require),
     locale: str = Depends(get_locale),
@@ -83,7 +83,7 @@ async def create_role(
 
 
 @router.patch("/roles/{role_id}")
-async def rename_role(
+def rename_role(
     role_id: int,
     payload: RoleNamePayload,
     _admin=Depends(_require),
@@ -103,7 +103,7 @@ async def rename_role(
 
 
 @router.patch("/roles/{role_id}/permissions")
-async def toggle_role_permission(
+def toggle_role_permission(
     role_id: int,
     payload: PermissionTogglePayload,
     admin=Depends(_require),
@@ -124,7 +124,7 @@ async def toggle_role_permission(
 
 
 @router.delete("/roles/{role_id}")
-async def delete_role(
+def delete_role(
     role_id: int,
     admin=Depends(_require),
     locale: str = Depends(get_locale),

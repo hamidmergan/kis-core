@@ -41,7 +41,7 @@ def links(monkeypatch):
 
 
 def _aufrufen():
-    return asyncio.run(routes.list_access_links("w-1", {"user_id": 1}, "de"))
+    return (routes.list_access_links("w-1", {"user_id": 1}, "de"))
 
 
 def test_link_ohne_ablaufdatum(links):

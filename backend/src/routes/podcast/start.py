@@ -1,5 +1,6 @@
 """The first step: material and cast in, the script task out."""
 
+import asyncio
 import json
 import uuid
 
@@ -90,7 +91,7 @@ async def _quellen_lesen(mode: str, files, workspace_uuid: str, source_uuids: st
     from src.services import sources as quellen, workspace_sources as arbeitsraum
 
     if mode == "module":
-        return arbeitsraum.read_workspace(
+        return await asyncio.to_thread(arbeitsraum.read_workspace,
             workspace_uuid, arbeitsraum.parse_uuids(source_uuids), user_id=user_id,
             locale=locale, hoechstens=PODCAST_MAX_SOURCES, schluessel="podcast")
     if mode != "files":
@@ -146,9 +147,12 @@ async def start_podcast(
     einstellungen.provider_id = einstellungen.persons[0].provider_id
     anzeige = label or (gesamt[:60].replace("\n", " ") + "…")
     db.create_job(job_uuid, user_id, "podcast", anzeige, locale=locale)
-    notiere(user_id, job_uuid, "material", zahlen)
-    quellen.save_sources(user_id, job_uuid, gelesen)
-    store.save_params(user_id, job_uuid, einstellungen)
+    def _ablegen() -> None:
+        notiere(user_id, job_uuid, "material", zahlen)
+        quellen.save_sources(user_id, job_uuid, gelesen)
+        store.save_params(user_id, job_uuid, einstellungen)
+
+    await asyncio.to_thread(_ablegen)
 
     from src.tasks.podcast_tasks import run_podcast_script
 

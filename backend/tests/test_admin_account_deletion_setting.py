@@ -37,13 +37,13 @@ def store(monkeypatch):
 
 
 async def _speichern(tage):
-    return await admin_settings.update_settings(
+    return admin_settings.update_settings(
         _Body(access_account_delete_after_days=tage), _ADMIN, "de"
     )
 
 
 async def test_an_untouched_install_reads_thirty_days(store):
-    antwort = await admin_settings.get_settings(_ADMIN)
+    antwort = admin_settings.get_settings(_ADMIN)
 
     assert antwort["access_account_delete_after_days"] == ACCESS_ACCOUNT_DELETE_AFTER_DAYS
     assert ACCESS_ACCOUNT_DELETE_AFTER_DAYS == 30
@@ -52,7 +52,7 @@ async def test_an_untouched_install_reads_thirty_days(store):
 async def test_the_saved_value_comes_back_as_a_number(store):
     store[DELETE_AFTER_DAYS_SETTING] = "90"
 
-    antwort = await admin_settings.get_settings(_ADMIN)
+    antwort = admin_settings.get_settings(_ADMIN)
 
     assert antwort["access_account_delete_after_days"] == 90
 

@@ -11,7 +11,7 @@ from src.features.ai_assistant.prompts.popup_prompts import AIA_POPUP_ACTIONS
 router = APIRouter(tags=["ki-assistent: popup"])
 
 @router.get("/ai-assistant/popup-actions")
-async def get_popup_actions(
+def get_popup_actions(
     locale: str = Depends(get_locale),
     target: str = Query(DEFAULT_TRANSCRIPT_TARGET),
 ):

@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 from pathlib import Path
 
@@ -42,7 +43,7 @@ def _validate_provider(feature: str, provider_id: int | None, locale: str) -> No
 
 
 @router.post("/image/generate")
-async def generate_image(
+def generate_image(
     prompt: str = Form(...),
     size: str = Form("1024x1024"),
     provider_id: int | None = Form(None),
@@ -64,7 +65,8 @@ async def generate_image(
     db.create_job(job_uuid, user_id, "image_generate", prompt[:100], locale=locale)
 
     from src.tasks.general_tasks import run_image_generate
-    run_image_generate.delay(job_uuid, prompt, size, provider_id)
+    task = run_image_generate.delay(job_uuid, prompt, size, provider_id)
+    db.set_job_celery_task_id(job_uuid, task.id)
 
     logger.info("Image generate job {} queued", job_uuid)
     return {"job_uuid": job_uuid, "status": "pending"}
@@ -103,11 +105,12 @@ async def edit_image(
 
     display_name = f"{image.filename}: {prompt[:80]}"
     db.create_job(job_uuid, user_id, "image_edit", display_name, locale=locale)
-    input_path = save_queue_file(user_id, job_uuid, ext, content)
+    input_path = await asyncio.to_thread(save_queue_file, user_id, job_uuid, ext, content)
     db.set_job_input_path(job_uuid, input_path)
 
     from src.tasks.general_tasks import run_image_edit
-    run_image_edit.delay(job_uuid, input_path, image.filename, prompt, provider_id)
+    task = run_image_edit.delay(job_uuid, input_path, image.filename, prompt, provider_id)
+    db.set_job_celery_task_id(job_uuid, task.id)
 
     logger.info("Image edit job {} queued for '{}'", job_uuid, image.filename)
     return {"job_uuid": job_uuid, "status": "pending"}
@@ -144,11 +147,12 @@ async def analyze_image(
 
     display_name = f"{image.filename}: {prompt[:80]}" if prompt.strip() else image.filename
     db.create_job(job_uuid, user_id, "image_analyze", display_name, locale=locale)
-    input_path = save_queue_file(user_id, job_uuid, ext, content)
+    input_path = await asyncio.to_thread(save_queue_file, user_id, job_uuid, ext, content)
     db.set_job_input_path(job_uuid, input_path)
 
     from src.tasks.general_tasks import run_image_analyze
-    run_image_analyze.delay(job_uuid, input_path, image.filename, prompt, provider_id)
+    task = run_image_analyze.delay(job_uuid, input_path, image.filename, prompt, provider_id)
+    db.set_job_celery_task_id(job_uuid, task.id)
 
     logger.info("Image analyze job {} queued for '{}'", job_uuid, image.filename)
     return {"job_uuid": job_uuid, "status": "pending"}

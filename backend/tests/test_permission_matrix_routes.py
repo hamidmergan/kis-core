@@ -49,7 +49,7 @@ def as_sprachexperte(monkeypatch):
 
 
 async def test_sprachexperte_may_save_the_prompt(store, as_sprachexperte):
-    await admin_settings.update_settings(
+    admin_settings.update_settings(
         UpdateSettingsRequest(language_diagnosis_prompt="Sprich einfach."),
         as_sprachexperte,
         "de",
@@ -59,7 +59,7 @@ async def test_sprachexperte_may_save_the_prompt(store, as_sprachexperte):
 
 async def test_sprachexperte_may_not_touch_a_foreign_field(store, as_sprachexperte):
     with pytest.raises(HTTPException) as err:
-        await admin_settings.update_settings(
+        admin_settings.update_settings(
             UpdateSettingsRequest(whitelist_enabled=True), as_sprachexperte, "de"
         )
     assert err.value.status_code == 403
@@ -72,7 +72,7 @@ async def test_a_foreign_field_smuggled_alongside_an_allowed_one_is_rejected(
 ):
     """The whole call fails, otherwise the result would be half saved."""
     with pytest.raises(HTTPException) as err:
-        await admin_settings.update_settings(
+        admin_settings.update_settings(
             UpdateSettingsRequest(
                 language_diagnosis_prompt="Sprich einfach.",
                 whitelist_enabled=True,
@@ -85,7 +85,7 @@ async def test_a_foreign_field_smuggled_alongside_an_allowed_one_is_rejected(
 
 
 async def test_admin_may_save_everything(store):
-    await admin_settings.update_settings(
+    admin_settings.update_settings(
         UpdateSettingsRequest(whitelist_enabled=True, ocr_enabled=False),
         {"role": "admin"},
         "de",
@@ -100,7 +100,7 @@ async def test_a_field_nobody_owns_is_admin_only(store, monkeypatch, as_sprachex
         admin_settings.SETTING_FIELD_PERMISSIONS, "language_diagnosis_prompt"
     )
     with pytest.raises(HTTPException) as err:
-        await admin_settings.update_settings(
+        admin_settings.update_settings(
             UpdateSettingsRequest(language_diagnosis_prompt="x"), as_sprachexperte, "de"
         )
     assert err.value.status_code == 403
@@ -156,7 +156,7 @@ async def test_matrix_lists_groups_system_roles_and_own_roles(monkeypatch):
         "list_custom_roles",
         lambda: [{"id": 1, "name": "Sprachexperte", "permissions": list(SPRACHEXPERTE)}],
     )
-    body = await roles_route.list_roles(admin=ADMIN)
+    body = roles_route.list_roles(admin=ADMIN)
 
     # Every catalogue row sits in exactly one group, in catalogue order.
     rows = [k for g in body["groups"] for k in g["permissions"]]
@@ -172,7 +172,7 @@ async def test_a_role_manager_only_sees_its_own_rights_as_grantable(monkeypatch)
     actor = _as_role(monkeypatch, keys)
     monkeypatch.setattr(roles_route.db, "list_custom_roles", lambda: [])
 
-    body = await roles_route.list_roles(admin=actor)
+    body = roles_route.list_roles(admin=actor)
     # The language level belongs to nobody, so it comes on top of the own rights.
     assert set(body["grantable"]) == set(keys) | {PERM_AIA_LANGUAGE_LEVEL}
     assert PERM_SET_SYSTEM not in body["grantable"]
@@ -183,7 +183,7 @@ async def test_the_language_level_stays_tickable_although_nobody_holds_it(monkey
     actor = _as_role(monkeypatch, [PERM_AIA_USE, PERM_SET_USERS_ROLES])
     monkeypatch.setattr(roles_route.db, "list_custom_roles", lambda: [])
 
-    body = await roles_route.list_roles(admin=actor)
+    body = roles_route.list_roles(admin=actor)
     assert PERM_AIA_LANGUAGE_LEVEL in body["grantable"]
     assert all(
         PERM_AIA_LANGUAGE_LEVEL not in r["permissions"] for r in body["system_roles"]
@@ -203,7 +203,7 @@ async def test_toggle_saves_a_single_checkbox(monkeypatch):
 
     monkeypatch.setattr(roles_route.db, "set_custom_role_permission", _set)
 
-    out = await roles_route.toggle_role_permission(
+    out = roles_route.toggle_role_permission(
         3, PermissionTogglePayload(key=PERM_SET_AIA_LEVEL, granted=True), ADMIN, "de"
     )
     assert seen == {"role_id": 3, "key": PERM_SET_AIA_LEVEL, "granted": True}
@@ -212,7 +212,7 @@ async def test_toggle_saves_a_single_checkbox(monkeypatch):
 
 async def test_toggle_rejects_an_unknown_key():
     with pytest.raises(HTTPException) as err:
-        await roles_route.toggle_role_permission(
+        roles_route.toggle_role_permission(
             3, PermissionTogglePayload(key="erfunden", granted=True), ADMIN, "de"
         )
     assert err.value.status_code == 400
@@ -225,7 +225,7 @@ async def test_toggle_refuses_to_grant_beyond_own_rights(monkeypatch):
         lambda role_id: {"id": role_id, "name": "Ziel", "permissions": []},
     )
     with pytest.raises(HTTPException) as err:
-        await roles_route.toggle_role_permission(
+        roles_route.toggle_role_permission(
             3, PermissionTogglePayload(key=PERM_SET_SYSTEM, granted=True), actor, "de"
         )
     assert err.value.status_code == 403
@@ -240,7 +240,7 @@ async def test_taking_a_right_away_is_always_allowed(monkeypatch):
     )
     monkeypatch.setattr(roles_route.db, "set_custom_role_permission", lambda *a: [])
 
-    out = await roles_route.toggle_role_permission(
+    out = roles_route.toggle_role_permission(
         3, PermissionTogglePayload(key=PERM_SET_SYSTEM, granted=False), actor, "de"
     )
     assert out["permissions"] == []
@@ -278,7 +278,7 @@ async def test_creating_a_role_twice_says_so(monkeypatch):
 
     monkeypatch.setattr(roles_route.db, "create_custom_role", _boom)
     with pytest.raises(HTTPException) as err:
-        await roles_route.create_role(
+        roles_route.create_role(
             roles_route.RolePayload(name="Sprachexperte", permissions=[]), ADMIN, "de"
         )
     assert err.value.status_code == 409
@@ -304,7 +304,7 @@ async def test_delete_role_ignores_stale_keys_from_a_narrowed_profile(monkeypatc
         roles_route.db, "delete_custom_role", lambda role_id: deleted.setdefault("id", role_id)
     )
 
-    out = await roles_route.delete_role(3, ADMIN, "de")
+    out = roles_route.delete_role(3, ADMIN, "de")
 
     assert out == {"status": "ok"}
     assert deleted["id"] == 3
@@ -323,7 +323,7 @@ async def test_renaming_onto_an_existing_name_says_so(monkeypatch):
 
     monkeypatch.setattr(roles_route.db, "rename_custom_role", _boom)
     with pytest.raises(HTTPException) as err:
-        await roles_route.rename_role(
+        roles_route.rename_role(
             3, roles_route.RoleNamePayload(name="Sprachexperte"), ADMIN, "de"
         )
     assert err.value.status_code == 409

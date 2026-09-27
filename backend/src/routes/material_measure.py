@@ -4,6 +4,7 @@ Podcast, presentation and summary share this. Nothing is stored, the file is rea
 forgotten. The start reads it again and remains the one that decides.
 """
 
+import asyncio
 from fastapi import APIRouter, Depends, File, Form, UploadFile
 
 from src.dependencies import get_current_user
@@ -28,7 +29,7 @@ def measure_router(dienst: str) -> APIRouter:
                                        source_uuid: str = Form(...),
                                        current_user: dict = Depends(get_current_user),
                                        locale: str = Depends(get_locale)):
-        zeichen = workspace_sources.measure_one(
+        zeichen = await asyncio.to_thread(workspace_sources.measure_one,
             workspace_uuid, source_uuid, user_id=current_user.get("user_id", 0),
             locale=locale, schluessel=dienst)
         return {"chars": zeichen, "maxChars": sources.MAX_TOTAL_CHARS}

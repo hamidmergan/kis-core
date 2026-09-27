@@ -17,7 +17,7 @@ from src.features.stats import workspace_detail
 router = APIRouter(tags=["ki-assistent: language-training"])
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/streak")
-async def get_streak_endpoint(
+def get_streak_endpoint(
     workspace_uuid: str,
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
@@ -33,7 +33,7 @@ async def get_streak_endpoint(
 # ─── Student Stats ─────────────────────────────────────────────────────────
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/stats")
-async def get_student_stats_endpoint(
+def get_student_stats_endpoint(
     workspace_uuid: str,
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
@@ -45,7 +45,7 @@ async def get_student_stats_endpoint(
     return db.get_student_stats(workspace["id"], user_id)
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/stats/day")
-async def get_student_day_stats_endpoint(
+def get_student_day_stats_endpoint(
     workspace_uuid: str,
     date: str,
     category: str | None = None,
@@ -59,7 +59,7 @@ async def get_student_day_stats_endpoint(
     return db.get_student_day_stats(workspace["id"], user_id, date, category)
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/recent-activities")
-async def get_recent_activities_endpoint(
+def get_recent_activities_endpoint(
     workspace_uuid: str,
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
@@ -74,7 +74,7 @@ async def get_recent_activities_endpoint(
 # ─── Lecturer: Workspace Statistics ────────────────────────────────────────────
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/lecturer-stats")
-async def get_lecturer_workspace_stats(
+def get_lecturer_workspace_stats(
     workspace_uuid: str,
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
@@ -84,7 +84,7 @@ async def get_lecturer_workspace_stats(
 
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/module-stats")
-async def get_module_stats(
+def get_module_stats(
     workspace_uuid: str,
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
@@ -100,7 +100,7 @@ async def get_module_stats(
 # ─── Glossary Count & Limit ───────────────────────────────────────────────────
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/glossary-count")
-async def get_glossary_count_endpoint(
+def get_glossary_count_endpoint(
     workspace_uuid: str,
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),

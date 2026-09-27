@@ -56,7 +56,7 @@ def test_the_statistics_rights_stand_together():
 async def test_the_route_hands_each_group_its_chapter(monkeypatch):
     monkeypatch.setattr(roles_route.db, "list_custom_roles", lambda: [])
 
-    body = await roles_route.list_roles(admin=ADMIN)
+    body = roles_route.list_roles(admin=ADMIN)
 
     assert [(g["chapter"], g["key"]) for g in body["groups"]] == [
         (GROUP_CHAPTER[g], g) for g in GROUPS

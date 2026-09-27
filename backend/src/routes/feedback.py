@@ -3,6 +3,7 @@
 Anonymous by default. The sender may opt in to attach their display name, and
 may attach up to MAX_FILES screenshots or PDFs.
 """
+import asyncio
 import os
 import tempfile
 import uuid
@@ -85,8 +86,9 @@ async def create_feedback(
 
         for raw_path, ext, filename, content_type, size in staged:
             attachment_uuid = uuid.uuid4().hex
-            storage_key = storage.save_feedback_attachment_from_path(
-                feedback_id, attachment_uuid, ext, raw_path
+            storage_key = await asyncio.to_thread(
+                storage.save_feedback_attachment_from_path,
+                feedback_id, attachment_uuid, ext, raw_path,
             )
             repo.add_attachment(
                 feedback_id=feedback_id,

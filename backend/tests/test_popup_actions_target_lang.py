@@ -6,7 +6,7 @@ from src.features.ai_assistant.routes.popup import get_popup_actions
 
 
 async def _translate_prompt(**kwargs):
-    data = await get_popup_actions(**kwargs)
+    data = get_popup_actions(**kwargs)
     action = next(a for a in data["actions"] if a["key"] == "translate")
     return action["prompt"]
 
@@ -44,7 +44,7 @@ async def test_alte_deutsch_englisch_regel_ist_weg():
 
 @pytest.mark.asyncio
 async def test_erklaeren_bleibt_unberuehrt():
-    data = await get_popup_actions(locale="de", target="fr")
+    data = get_popup_actions(locale="de", target="fr")
     action = next(a for a in data["actions"] if a["key"] == "simplify")
     assert "French" not in action["prompt"]
     assert "Sprache des Originaltexts" in action["prompt"]

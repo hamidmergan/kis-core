@@ -17,7 +17,7 @@ LINK = {"id": 22, "expires_at": None}
 
 
 def _beitreten(user_id=LERNENDER):
-    return asyncio.run(
+    return (
         routes.enroll(
             schemas.EnrollBody(enroll_code="der-code"),
             {"user_id": user_id},

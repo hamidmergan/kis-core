@@ -22,7 +22,7 @@ _require = require_permission(PERM_SET_TOOLS_RELEASE)
 
 
 @router.get("/tools")
-async def get_tools(_user=Depends(get_current_user)):
+def get_tools(_user=Depends(get_current_user)):
     """Return all tools with their enabled/disabled state. Accessible by all logged-in users."""
     disabled, overrides = read_release_state()
     return {
@@ -34,7 +34,7 @@ async def get_tools(_user=Depends(get_current_user)):
 
 
 @router.patch("/tools/{tool_key}")
-async def toggle_tool(
+def toggle_tool(
     tool_key: str,
     body: ToggleToolRequest,
     _admin=Depends(_require),

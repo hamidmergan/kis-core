@@ -9,7 +9,7 @@ from src.dependencies import get_current_user
 router = APIRouter()
 
 @router.get("/check/{tool_group}")
-async def check_job_limit(
+def check_job_limit(
     tool_group: str,  # noqa: ARG001 - the limit counts all tools, the path keeps its shape
     current_user: dict = Depends(get_current_user),
 ):

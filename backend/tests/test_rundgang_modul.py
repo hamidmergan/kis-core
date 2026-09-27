@@ -30,7 +30,7 @@ def modul(monkeypatch):
 
 
 def _patch(body):
-    return asyncio.run(
+    return (
         routes.patch_workspace(
             "w-demo", body,
             current_user={"user_id": MENTOR, "role": "user", "email": ""},

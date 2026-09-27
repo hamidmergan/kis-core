@@ -43,7 +43,7 @@ def kurs_mit(monkeypatch):
 
 
 def _abrufen(user_id: int) -> dict:
-    return asyncio.run(routes.get_workspace("w-1", {"user_id": user_id}, "de"))
+    return (routes.get_workspace("w-1", {"user_id": user_id}, "de"))
 
 
 def test_demo_kurs_ist_als_solcher_erkennbar(kurs_mit):

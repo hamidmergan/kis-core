@@ -27,7 +27,7 @@ def _validate_range(
 
 
 @router.post("/ai-assistant/schedule/entries")
-async def create_personal_entry(
+def create_personal_entry(
     body: schemas.PersonalEntryCreateBody,
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
@@ -49,7 +49,7 @@ async def create_personal_entry(
 
 
 @router.put("/ai-assistant/schedule/entries/{entry_id}")
-async def update_personal_entry(
+def update_personal_entry(
     entry_id: int,
     body: schemas.PersonalEntryUpdateBody,
     current_user: dict = Depends(get_current_user),
@@ -83,7 +83,7 @@ async def update_personal_entry(
 
 
 @router.delete("/ai-assistant/schedule/entries/{entry_id}")
-async def delete_personal_entry(
+def delete_personal_entry(
     entry_id: int,
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),

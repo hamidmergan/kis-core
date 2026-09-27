@@ -33,7 +33,7 @@ def vorschau(monkeypatch):
             routes.db, "get_user_by_id",
             lambda uid: {"display_name": lehrperson} if lehrperson else None,
         )
-        return asyncio.run(routes.preview_access_link("ein-link", {"user_id": LERNENDER}, "de"))
+        return (routes.preview_access_link("ein-link", {"user_id": LERNENDER}, "de"))
     return einrichten
 
 

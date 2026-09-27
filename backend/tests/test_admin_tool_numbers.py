@@ -39,13 +39,13 @@ def store(monkeypatch):
 
 class TestLesen:
     async def test_jede_zahl_steht_in_der_antwort(self, store):
-        antwort = await admin_settings.get_settings()
+        antwort = admin_settings.get_settings()
         for zahl in tn.NUMBERS:
             assert antwort[zahl.key] == zahl.default
 
     async def test_die_spannen_kommen_mit(self, store):
         """Damit die Oberflaeche keine Grenze noch einmal aufschreiben muss."""
-        antwort = await admin_settings.get_settings()
+        antwort = admin_settings.get_settings()
         gemeldet = {e["key"]: e for e in antwort["tool_numbers"]}
         for zahl in tn.NUMBERS:
             assert gemeldet[zahl.key] == {"key": zahl.key, "tool": zahl.tool,
@@ -72,13 +72,13 @@ class TestSpeichern:
     @pytest.mark.parametrize("zahl", tn.NUMBERS, ids=lambda z: z.key)
     async def test_beide_enden_der_spanne_gehen_durch(self, store, zahl):
         for wert in (zahl.smallest, zahl.largest):
-            await admin_settings.update_settings(_Body(**{zahl.key: wert}), _ADMIN, "de")
+            admin_settings.update_settings(_Body(**{zahl.key: wert}), _ADMIN, "de")
             assert store[zahl.key] == str(wert)
 
     @pytest.mark.parametrize("zahl", tn.NUMBERS, ids=lambda z: z.key)
     async def test_unter_der_spanne_wird_abgewiesen(self, store, zahl):
         with pytest.raises(HTTPException) as fehler:
-            await admin_settings.update_settings(
+            admin_settings.update_settings(
                 _Body(**{zahl.key: zahl.smallest - 1}), _ADMIN, "de")
         assert fehler.value.status_code == 400
         assert zahl.key not in store
@@ -86,14 +86,14 @@ class TestSpeichern:
     @pytest.mark.parametrize("zahl", tn.NUMBERS, ids=lambda z: z.key)
     async def test_ueber_der_spanne_wird_abgewiesen(self, store, zahl):
         with pytest.raises(HTTPException) as fehler:
-            await admin_settings.update_settings(
+            admin_settings.update_settings(
                 _Body(**{zahl.key: zahl.largest + 1}), _ADMIN, "de")
         assert fehler.value.status_code == 400
         assert zahl.key not in store
 
     async def test_die_meldung_nennt_das_feld(self, store):
         with pytest.raises(HTTPException) as fehler:
-            await admin_settings.update_settings(
+            admin_settings.update_settings(
                 _Body(summary_read_max_facts=999), _ADMIN, "de")
         assert "summary_read_max_facts" in fehler.value.detail
 

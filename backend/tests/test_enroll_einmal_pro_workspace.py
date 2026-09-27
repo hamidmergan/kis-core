@@ -51,7 +51,7 @@ def beitritt(monkeypatch):
 
 
 def _beitreten(user_id=LERNENDER):
-    return asyncio.run(
+    return (
         routes.enroll(
             schemas.EnrollBody(enroll_code="neuer-link"),
             {"user_id": user_id},

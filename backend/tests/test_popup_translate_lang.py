@@ -120,7 +120,7 @@ def test_body_faellt_ohne_angabe_auf_englisch():
 
 @pytest.mark.asyncio
 async def test_route_speichert_gueltige_sprache(fake_settings_route):
-    await messages_route.update_user_settings(
+    messages_route.update_user_settings(
         "abc", _body("de"), current_user={"user_id": 3}, locale="de",
     )
     # Positionen: workspace, user, chat_lang, studio, popup_lang, sprachtrainer
@@ -130,7 +130,7 @@ async def test_route_speichert_gueltige_sprache(fake_settings_route):
 @pytest.mark.asyncio
 async def test_route_lehnt_unbekannte_sprache_ab(fake_settings_route):
     with pytest.raises(HTTPException) as err:
-        await messages_route.update_user_settings(
+        messages_route.update_user_settings(
             "abc", _body("klingonisch"), current_user={"user_id": 3}, locale="de",
         )
     assert err.value.status_code == 400

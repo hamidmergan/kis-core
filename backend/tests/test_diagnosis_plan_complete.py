@@ -124,7 +124,7 @@ def store(monkeypatch):
 
 async def test_patch_stores_a_finished_plan(store):
     payload = _raw(CHOICE, GAP, FREE, FIX)
-    await admin_settings.update_settings(
+    admin_settings.update_settings(
         _Body(language_diagnosis_question_plan_de=payload), _ADMIN, "de"
     )
     assert store[QUESTION_PLAN_SETTING] == payload
@@ -133,7 +133,7 @@ async def test_patch_stores_a_finished_plan(store):
 async def test_patch_rejects_an_unfinished_row_and_names_it(store):
     payload = _raw(CHOICE, {"type": CHOICE_TYPE, "text": "Welches Wort passt?"}, FREE, FIX)
     with pytest.raises(HTTPException) as exc:
-        await admin_settings.update_settings(
+        admin_settings.update_settings(
             _Body(language_diagnosis_question_plan_de=payload), _ADMIN, "de"
         )
     assert exc.value.status_code == 400

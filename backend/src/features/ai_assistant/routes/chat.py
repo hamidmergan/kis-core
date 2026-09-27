@@ -206,7 +206,8 @@ async def chat(
     context_budget = _reserve_question_budget(_context_budget(), body.question)
 
     # A page or time reference is served from exactly these spots, not searched.
-    intent, scope_chunks, scope_requested = resolve_scope(
+    intent, scope_chunks, scope_requested = await asyncio.to_thread(
+        resolve_scope,
         scope_raw, question=body.question, source_text=body.source_text,
         umformen=_umformen, source_ids=source_ids,
         resolved_sources=resolved_sources, intent=intent)
@@ -251,7 +252,7 @@ async def chat(
 
     _fit_full = (None if (body.source_text or _umformen or _gruss_chunks
                           or intent not in _UEBERBLICK_INTENTS)
-                 else _full_context_if_fits(source_ids, context_budget))
+                 else await asyncio.to_thread(_full_context_if_fits, source_ids, context_budget))
     if _umformen:
         # No hits and no context, the material is the last answer itself.
         chunks = []
@@ -304,7 +305,7 @@ async def chat(
     chunks = _order_round_robin(chunks, source_id_to_qnum)
 
     # Preload Whisper segments so timestamps make it into the media chunks.
-    transcript_by_source = load_transcripts(chunks, all_sources_list)
+    transcript_by_source = await asyncio.to_thread(load_transcripts, chunks, all_sources_list)
 
     # Pack all spots into one context window and record the pages seen.
     batches, seen_pages_by_source = _pack_context_batches(

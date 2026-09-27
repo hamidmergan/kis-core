@@ -1,5 +1,6 @@
 """Extra documents for the scripts of one screencast, uploaded or picked from a workspace."""
 
+import asyncio
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 
 from src.dependencies import get_current_user
@@ -37,7 +38,7 @@ async def material_setzen(
     """Reads the material once, it replaces whatever the job carried before."""
     user_id = _auftrag(job_uuid, current_user, locale)
     if mode == "module":
-        gelesen = arbeitsraum.read_workspace(
+        gelesen = await asyncio.to_thread(arbeitsraum.read_workspace,
             workspace_uuid, arbeitsraum.parse_uuids(source_uuids), user_id=user_id,
             locale=locale, hoechstens=SCREENCAST_MAX_SOURCES, schluessel="screencast")
     elif mode == "files":
@@ -45,8 +46,8 @@ async def material_setzen(
                                              schluessel="screencast")
     else:
         raise HTTPException(status_code=422, detail=t("screencast.noContent", locale))
-    quellen.save_sources(user_id, job_uuid, gelesen)
-    material.verwerfen(user_id, job_uuid)
+    await asyncio.to_thread(quellen.save_sources, user_id, job_uuid, gelesen)
+    await asyncio.to_thread(material.verwerfen, user_id, job_uuid)
     return _antwort(gelesen)
 
 

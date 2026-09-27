@@ -15,7 +15,7 @@ _LINE_ID = re.compile(r"^b[0-9]{1,4}$")
 
 
 @router.get("/podcast/{job_uuid}/line/{line_id}")
-async def get_line_audio(
+def get_line_audio(
     job_uuid: str,
     line_id: str,
     current_user: dict = Depends(get_current_user),
@@ -34,7 +34,7 @@ async def get_line_audio(
 
 
 @router.get("/podcast/{job_uuid}/transcript")
-async def get_transcript(
+def get_transcript(
     job_uuid: str,
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),

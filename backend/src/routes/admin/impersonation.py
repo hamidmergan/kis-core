@@ -31,7 +31,7 @@ def _set_session_cookie(response: Response, token: str) -> None:
 
 
 @router.post("/users/{user_id}/impersonate")
-async def start_impersonation(
+def start_impersonation(
     user_id: int,
     request: Request,
     response: Response,
@@ -78,7 +78,7 @@ async def start_impersonation(
 
 
 @router.post("/impersonation/stop")
-async def stop_impersonation(
+def stop_impersonation(
     request: Request,
     response: Response,
     user: dict = Depends(get_current_user),
@@ -112,7 +112,7 @@ async def stop_impersonation(
 
 
 @router.get("/impersonation/log")
-async def read_log(
+def read_log(
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     _actor: dict = Depends(_require),

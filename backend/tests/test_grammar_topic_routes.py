@@ -86,7 +86,7 @@ async def test_the_preview_hands_the_suggested_name_to_the_form(workspace, monke
         "rule": "r", "label": "Passiv Präsens",
         "examples": [{"before": "Das Team schreibt.", "after": "Es wird geschrieben."}]})
 
-    out = await grammar_topics.preview_topic(
+    out = grammar_topics.preview_topic(
         "w-1", types.SimpleNamespace(name="passi"), {"user_id": EIGENTUEMER}, "de")
 
     assert out["suggested_name"] == "Passiv Präsens"
@@ -100,7 +100,7 @@ async def test_a_missing_suggested_name_is_an_empty_field_and_not_an_error(
         "rule": "r",
         "examples": [{"before": "Das Team schreibt.", "after": "Es wird geschrieben."}]})
 
-    out = await grammar_topics.preview_topic(
+    out = grammar_topics.preview_topic(
         "w-1", types.SimpleNamespace(name="Perfekt"), {"user_id": EIGENTUEMER}, "de")
 
     assert out["suggested_name"] == ""
@@ -130,7 +130,7 @@ async def test_create_topic_saves_more_than_one_pattern_pair(workspace, monkeypa
         {"before": "Er beruhigt sich. Er hört Musik.",
          "after": "Er beruhigt sich dadurch, dass er Musik hört."},
     ]
-    await grammar_topics.create_topic(
+    grammar_topics.create_topic(
         "w-1", _create_body("Modalsätze", pairs), {"user_id": EIGENTUEMER}, "de")
 
     assert saved["pairs"] == pairs
@@ -150,7 +150,7 @@ async def test_create_topic_still_caps_at_max_examples(workspace, monkeypatch):
                         lambda topic_id, locale, rule, pairs: saved.setdefault("pairs", pairs))
 
     pairs = [{"before": f"Satz {i}.", "after": f"Anders {i}."} for i in range(MAX_EXAMPLES + 2)]
-    await grammar_topics.create_topic(
+    grammar_topics.create_topic(
         "w-1", _create_body("Viele Wege", pairs), {"user_id": EIGENTUEMER}, "de")
 
     assert len(saved["pairs"]) == 3

@@ -28,19 +28,19 @@ def konto_mit(monkeypatch):
 
 def test_wer_den_rundgang_noch_nie_gesehen_hat(konto_mit):
     konto_mit(None)
-    assert asyncio.run(routes.get_me(NUTZER, "de"))["tour_seen_at"] is None
+    assert (routes.get_me(NUTZER, "de"))["tour_seen_at"] is None
 
 
 def test_wer_ihn_schon_gesehen_hat_bekommt_den_zeitpunkt(konto_mit):
     konto_mit(datetime(2026, 9, 2, 12, 0))
-    antwort = asyncio.run(routes.get_me(NUTZER, "de"))
+    antwort = (routes.get_me(NUTZER, "de"))
     assert antwort["tour_seen_at"].startswith("2026-09-02")
 
 
 def test_erledigt_melden_schreibt_den_zeitpunkt(monkeypatch):
     gemerkt = {}
     monkeypatch.setattr(routes.db, "set_user_tour_seen", lambda uid, seen: gemerkt.update(uid=uid, seen=seen))
-    antwort = asyncio.run(routes.update_tour_seen(routes.TourSeenUpdate(seen=True), NUTZER, "de"))
+    antwort = (routes.update_tour_seen(routes.TourSeenUpdate(seen=True), NUTZER, "de"))
     assert gemerkt == {"uid": 5, "seen": True}
     assert antwort["seen"] is True
 
@@ -49,7 +49,7 @@ def test_man_kann_den_rundgang_wieder_freischalten(monkeypatch):
     """Otherwise nobody could get the invitation back, not even for a demo."""
     gemerkt = {}
     monkeypatch.setattr(routes.db, "set_user_tour_seen", lambda uid, seen: gemerkt.update(uid=uid, seen=seen))
-    antwort = asyncio.run(routes.update_tour_seen(routes.TourSeenUpdate(seen=False), NUTZER, "de"))
+    antwort = (routes.update_tour_seen(routes.TourSeenUpdate(seen=False), NUTZER, "de"))
     assert gemerkt == {"uid": 5, "seen": False}
     assert antwort["seen"] is False
 
@@ -57,5 +57,5 @@ def test_man_kann_den_rundgang_wieder_freischalten(monkeypatch):
 def test_der_werkzeug_rundgang_hat_keinen_merker_mehr(konto_mit):
     """The tools tour is gone, the tile overview explains every tool itself."""
     konto_mit(None)
-    assert "tools_tour_seen_at" not in asyncio.run(routes.get_me(NUTZER, "de"))
+    assert "tools_tour_seen_at" not in (routes.get_me(NUTZER, "de"))
     assert not hasattr(routes, "update_tools_tour_seen")

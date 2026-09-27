@@ -23,7 +23,7 @@ class ParamsRequest(BaseModel):
 
 
 @router.put("/podcast/{job_uuid}/params")
-async def put_params(
+def put_params(
     job_uuid: str,
     body: ParamsRequest,
     current_user: dict = Depends(get_current_user),

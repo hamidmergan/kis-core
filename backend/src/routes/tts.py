@@ -1,3 +1,5 @@
+import asyncio
+import json
 import os
 import tempfile
 import uuid
@@ -12,7 +14,7 @@ from src.quotas import enforce_quota
 from src.security.rate_limit import enforce_tool_burst
 from src.services.open_jobs import enforce_open_jobs
 from src import database as db
-from src.storage import save_queue_file_from_path
+from src.storage import save_job_file, save_queue_file_from_path
 from src.utils.file_validation import (
     TTS_EXTENSIONS,
     TTS_MAX_CHARS,
@@ -136,7 +138,7 @@ async def text_to_speech(
             if extractor is None:
                 raise HTTPException(status_code=400, detail=t("tts.unsupportedFileType", locale))
 
-            extracted = extractor(tmp_path)
+            extracted = await asyncio.to_thread(extractor, tmp_path)
             if len(extracted) > TTS_MAX_CHARS:
                 raise HTTPException(
                     status_code=422,
@@ -157,7 +159,7 @@ async def text_to_speech(
             raise HTTPException(status_code=400, detail=t("tts.providerNotFound", locale))
         if client is None:
             raise HTTPException(status_code=400, detail=t("tts.providerNotFound", locale))
-        if not client.is_available():
+        if not await asyncio.to_thread(client.is_available):
             raise HTTPException(status_code=503, detail=t("tts.providerUnavailable", locale))
 
         user_id = current_user.get("user_id", 0)
@@ -167,8 +169,12 @@ async def text_to_speech(
 
         job_uuid = uuid.uuid4().hex
         db.create_job(job_uuid, user_id, "tts", source_filename, locale=locale)
-        input_path = save_queue_file_from_path(user_id, job_uuid, ext, tmp_path)
+        input_path = await asyncio.to_thread(save_queue_file_from_path, user_id, job_uuid, ext, tmp_path)
         db.set_job_input_path(job_uuid, input_path)
+        # Laid down now and not at the start, so a job that never ran can still be resumed.
+        save_job_file(user_id, job_uuid, "tts_params.json", json.dumps({
+            "voice_id": voice_id, "voice_label": voice_label, "speed": speed, "provider_id": provider_id,
+        }).encode())
 
     from src.tasks.tts_tasks import run_tts
     task = run_tts.apply_async(args=[

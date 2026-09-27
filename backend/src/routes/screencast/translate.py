@@ -1,5 +1,6 @@
 """Translate-Endpoints: Translate-Queue, Text-Extraktion, PPTX→Bilder, korrigierter Upload."""
 
+import asyncio
 import base64
 import json
 import os
@@ -73,7 +74,7 @@ async def screencast_translate(
         job_uuid = uuid.uuid4().hex
         filename = file.filename or "screencast.pptx"
         db.create_job(job_uuid, user_id, "screencast_translate", filename, locale=locale)
-        input_path = save_queue_file_from_path(user_id, job_uuid, ".pptx", tmp_path)
+        input_path = await asyncio.to_thread(save_queue_file_from_path, user_id, job_uuid, ".pptx", tmp_path)
         db.set_job_input_path(job_uuid, input_path)
 
     save_job_file(user_id, job_uuid, "queue_params.json", json.dumps({
@@ -127,7 +128,7 @@ async def screencast_upload_corrected(
             if job["user_id"] != current_user.get("user_id", 0):
                 raise HTTPException(status_code=403, detail=t("job.accessDenied", locale))
 
-        slide_texts = extract_text_per_slide(str(pptx_path))
+        slide_texts = await asyncio.to_thread(extract_text_per_slide, str(pptx_path))
         if not slide_texts:
             raise HTTPException(status_code=400, detail=t("screencast.noSlides", locale))
 
@@ -156,12 +157,12 @@ async def screencast_upload_corrected(
                              neu=len(slide_texts), alt=alte_anzahl),
                 )
             # Existing job: save as corrected.pptx (user re-uploaded after translation)
-            save_job_file_from_path(job["user_id"], translate_job_uuid, "corrected.pptx", str(pptx_path))
+            await asyncio.to_thread(save_job_file_from_path, job["user_id"], translate_job_uuid, "corrected.pptx", str(pptx_path))
             # Without this scripts.txt would keep the texts from before the correction.
             save_job_file(job["user_id"], translate_job_uuid, "scripts.txt",
                           json.dumps(slide_texts, ensure_ascii=False, indent=2).encode("utf-8"))
             # New slides, old audio would be wrong, only now that the slide count check passed.
-            vertonung_verwerfen(job["user_id"], translate_job_uuid)
+            await asyncio.to_thread(vertonung_verwerfen, job["user_id"], translate_job_uuid)
             logger.info("Saved corrected.pptx to job folder {}", translate_job_uuid)
         else:
             # No job yet (EN path): create a new translate job and save PPTX as translated.pptx
@@ -169,7 +170,7 @@ async def screencast_upload_corrected(
             _enforce_queue_and_quota(user_id, current_user, locale)
             translate_job_uuid = uuid.uuid4().hex
             db.create_job(translate_job_uuid, user_id, "screencast_translate", file.filename or "screencast.pptx", locale=locale)
-            save_job_file_from_path(user_id, translate_job_uuid, "translated.pptx", str(pptx_path))
+            await asyncio.to_thread(save_job_file_from_path, user_id, translate_job_uuid, "translated.pptx", str(pptx_path))
             save_job_file(user_id, translate_job_uuid, "scripts.txt", json.dumps(slide_texts, ensure_ascii=False, indent=2).encode("utf-8"))
             db.update_job_status(translate_job_uuid, "awaiting_user")
             # Without a translation the language chosen at the start is the one to speak.

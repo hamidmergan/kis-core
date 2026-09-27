@@ -18,7 +18,7 @@ _SLIDE_ID = re.compile(r"^s\d+$")
 
 
 @router.get("/praesentation/{job_uuid}")
-async def get_praesentation(job_uuid: str, current_user: dict = Depends(get_current_user),
+def get_praesentation(job_uuid: str, current_user: dict = Depends(get_current_user),
                             locale: str = Depends(get_locale)):
     job = own_job(job_uuid, current_user, locale)
     user_id = job["user_id"]
@@ -44,7 +44,7 @@ async def get_praesentation(job_uuid: str, current_user: dict = Depends(get_curr
 
 
 @router.get("/praesentation/{job_uuid}/preview/{slide_id}.png")
-async def get_preview(job_uuid: str, slide_id: str, current_user: dict = Depends(get_current_user),
+def get_preview(job_uuid: str, slide_id: str, current_user: dict = Depends(get_current_user),
                       locale: str = Depends(get_locale)):
     job = own_job(job_uuid, current_user, locale)
     if not _SLIDE_ID.match(slide_id):
@@ -56,7 +56,7 @@ async def get_preview(job_uuid: str, slide_id: str, current_user: dict = Depends
 
 
 @router.get("/praesentation/{job_uuid}/download")
-async def download(job_uuid: str, current_user: dict = Depends(get_current_user),
+def download(job_uuid: str, current_user: dict = Depends(get_current_user),
                    locale: str = Depends(get_locale)):
     job = own_job(job_uuid, current_user, locale)
     # Spec: the download opens only after "Fertigstellen", an in-progress deck must stay hidden.

@@ -31,6 +31,14 @@ def _stub_task(monkeypatch, path):
     return calls
 
 
+def _stub_enqueue(monkeypatch):
+    """The routes take a seat in the shared pool, the test must not reach the real database or broker."""
+    calls = []
+    monkeypatch.setattr("src.features.ai_assistant.scheduling.service.enqueue_task",
+                        lambda *a, **k: calls.append((a, k)) or "aia-job")
+    return calls
+
+
 # --- Mindmap ---------------------------------------------------------------------
 
 @pytest.fixture
@@ -48,7 +56,7 @@ def mindmap(monkeypatch):
 @pytest.mark.asyncio
 async def test_the_mindmap_route_stores_the_cleaned_instruction(mindmap):
     body = schemas.MindmapGenerateBody(active_source_ids=["u1"], instruction="  nur   Kapitel 3 ")
-    antwort = await mindmap_route.generate_mindmap("w1", body, current_user=USER, locale="de")
+    antwort = mindmap_route.generate_mindmap("w1", body, current_user=USER, locale="de")
     assert antwort["mindmap_id"] == 11
     assert mindmap[0][1]["user_instruction"] == "nur Kapitel 3"
 
@@ -56,7 +64,7 @@ async def test_the_mindmap_route_stores_the_cleaned_instruction(mindmap):
 @pytest.mark.asyncio
 async def test_the_mindmap_route_stores_nothing_without_an_instruction(mindmap):
     body = schemas.MindmapGenerateBody(active_source_ids=["u1"])
-    await mindmap_route.generate_mindmap("w1", body, current_user=USER, locale="de")
+    mindmap_route.generate_mindmap("w1", body, current_user=USER, locale="de")
     assert mindmap[0][1]["user_instruction"] is None
 
 
@@ -69,8 +77,8 @@ async def test_the_mindmap_answer_carries_instruction_and_flag(monkeypatch):
     monkeypatch.setattr(mindmap_route.db, "get_aia_mindmap", lambda mid: dict(zeile))
     monkeypatch.setattr(mindmap_route.db, "get_latest_aia_mindmap", lambda w, u: dict(zeile))
     monkeypatch.setattr(mindmap_route.db, "get_aia_source_by_id", lambda sid: {"filename": "a.pdf"})
-    einzeln = await mindmap_route.get_mindmap("w1", 11, current_user=USER, locale="de")
-    letzte = await mindmap_route.get_latest_mindmap("w1", current_user=USER, locale="de")
+    einzeln = mindmap_route.get_mindmap("w1", 11, current_user=USER, locale="de")
+    letzte = mindmap_route.get_latest_mindmap("w1", current_user=USER, locale="de")
     for antwort in (einzeln, letzte):
         assert antwort["user_instruction"] == "nur Kapitel 3"
         assert antwort["instruction_unmatched"] is True
@@ -84,14 +92,14 @@ def table(monkeypatch):
     angelegt = []
     monkeypatch.setattr(table_route.db, "create_aia_data_table",
                         lambda *a, **k: (angelegt.append((a, k)), 12)[1])
-    _stub_task(monkeypatch, "src.tasks.aia_tasks.run_generate_data_table")
+    _stub_enqueue(monkeypatch)
     return angelegt
 
 
 @pytest.mark.asyncio
 async def test_the_table_route_stores_the_cleaned_instruction(table):
     body = schemas.DataTableGenerateBody(active_source_ids=["u1"], instruction=" nur  Fristen ")
-    antwort = await table_route.generate_data_table("w1", body, current_user=USER, locale="de")
+    antwort = table_route.generate_data_table("w1", body, current_user=USER, locale="de")
     assert antwort["data_table_id"] == 12
     assert table[0][1]["user_instruction"] == "nur Fristen"
 
@@ -99,7 +107,7 @@ async def test_the_table_route_stores_the_cleaned_instruction(table):
 @pytest.mark.asyncio
 async def test_the_table_route_stores_nothing_without_an_instruction(table):
     body = schemas.DataTableGenerateBody(active_source_ids=["u1"])
-    await table_route.generate_data_table("w1", body, current_user=USER, locale="de")
+    table_route.generate_data_table("w1", body, current_user=USER, locale="de")
     assert table[0][1]["user_instruction"] is None
 
 
@@ -112,7 +120,7 @@ def sets(monkeypatch):
     monkeypatch.setattr(sets_route.db, "create_exercise_set_placeholder",
                         lambda **k: (angelegt.append(k), {"id": 13})[1])
     monkeypatch.setattr(sets_route.db, "is_language_training_ready", lambda u: True)
-    _stub_task(monkeypatch, "src.tasks.aia_tasks.run_generate_exercise_set")
+    _stub_enqueue(monkeypatch)
     return angelegt
 
 
@@ -121,7 +129,7 @@ def sets(monkeypatch):
 async def test_the_set_route_stores_the_instruction_for_the_two_tools(sets, tool):
     body = schemas.CreateSetBody(tool=tool, mode="source", source_uuids=["u1"], count=5,
                                  instruction=" leichte  Fragen ")
-    await sets_route.create_exercise_set("w1", body, current_user=USER, locale="de")
+    sets_route.create_exercise_set("w1", body, current_user=USER, locale="de")
     assert sets[0]["user_instruction"] == "leichte Fragen"
 
 
@@ -129,12 +137,12 @@ async def test_the_set_route_stores_the_instruction_for_the_two_tools(sets, tool
 async def test_the_set_route_ignores_the_instruction_for_other_tools(sets):
     body = schemas.CreateSetBody(tool="flashcards", mode="source", source_uuids=["u1"],
                                  instruction="leichte Fragen")
-    await sets_route.create_exercise_set("w1", body, current_user=USER, locale="de")
+    sets_route.create_exercise_set("w1", body, current_user=USER, locale="de")
     assert sets[0]["user_instruction"] is None
 
 
 @pytest.mark.asyncio
 async def test_the_set_route_ignores_the_instruction_in_glossary_mode(sets):
     body = schemas.CreateSetBody(tool="quiz", mode="glossary", instruction="leichte Fragen")
-    await sets_route.create_exercise_set("w1", body, current_user=USER, locale="de")
+    sets_route.create_exercise_set("w1", body, current_user=USER, locale="de")
     assert sets[0]["user_instruction"] is None

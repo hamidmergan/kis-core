@@ -102,7 +102,7 @@ def _demo_images_exist() -> bool:
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @router.get("/screencast-demo/available")
-async def demo_available():
+def demo_available():
     """Check whether demo data is available."""
     images_exist = _demo_images_exist()
     video_path = _find_demo_video()
@@ -116,7 +116,7 @@ async def demo_available():
 
 
 @router.post("/screencast-demo/translate")
-async def demo_translate(
+def demo_translate(
     _: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
@@ -141,7 +141,7 @@ async def demo_translate(
 
 
 @router.post("/screencast-demo/generate-scripts")
-async def demo_generate_scripts(
+def demo_generate_scripts(
     body: DemoGenerateScriptsRequest = DemoGenerateScriptsRequest(),
     locale: str = Depends(get_locale),
 ):
@@ -158,7 +158,7 @@ async def demo_generate_scripts(
 
 
 @router.post("/screencast-demo/render")
-async def demo_render(
+def demo_render(
     body: DemoRenderRequest,
     _: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
@@ -181,7 +181,7 @@ async def demo_render(
 
 
 @router.get("/screencast-demo/video")
-async def demo_video(
+def demo_video(
     download: bool = False,
     _: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
@@ -199,7 +199,7 @@ async def demo_video(
 
 
 @router.get("/screencast-demo/vorschau/{index}")
-async def demo_vorschau(index: int, _: dict = Depends(get_current_user)):
+def demo_vorschau(index: int, _: dict = Depends(get_current_user)):
     """The audio of one slide for the preview while the demo renders."""
     toene = _folien_dateien("mp3")
     if not 0 <= index < len(toene):
@@ -208,7 +208,7 @@ async def demo_vorschau(index: int, _: dict = Depends(get_current_user)):
 
 
 @router.get("/screencast-demo/pptx")
-async def demo_pptx(_: dict = Depends(get_current_user)):
+def demo_pptx(_: dict = Depends(get_current_user)):
     """The translated demo presentation."""
     dateien = sorted(DEMO_DIR.glob("*.pptx"))
     if not dateien:
@@ -306,7 +306,7 @@ def _streaming_demo_bundle():
 
 
 @router.get("/screencast-demo/bundle")
-async def demo_bundle(_: dict = Depends(get_current_user)):
+def demo_bundle(_: dict = Depends(get_current_user)):
     """Return a ZIP with the demo video, scripts, PPTX, audio and images."""
     return StreamingResponse(
         _streaming_demo_bundle(),

@@ -17,7 +17,7 @@ _STARTBAR = ("awaiting_user", "failed", "success", "paused")
 
 
 @router.post("/podcast/{job_uuid}/render")
-async def start_render(
+def start_render(
     job_uuid: str,
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),

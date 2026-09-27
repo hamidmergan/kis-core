@@ -51,7 +51,7 @@ def _require_topic_edit_access(workspace: dict, topic: dict, user_id: int, local
 
 
 @router.get(_BASE)
-async def list_topics(
+def list_topics(
     workspace_uuid: str,
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
@@ -68,7 +68,7 @@ async def list_topics(
 
 
 @router.post(_BASE + "/preview")
-async def preview_topic(
+def preview_topic(
     workspace_uuid: str,
     body: schemas.GrammarTopicPreviewBody,
     current_user: dict = Depends(get_current_user),
@@ -104,7 +104,7 @@ async def preview_topic(
 
 
 @router.post(_BASE)
-async def create_topic(
+def create_topic(
     workspace_uuid: str,
     body: schemas.GrammarTopicCreateBody,
     current_user: dict = Depends(get_current_user),
@@ -127,7 +127,7 @@ async def create_topic(
 
 
 @router.patch(_BASE + "/{topic_id}")
-async def update_topic_examples(
+def update_topic_examples(
     workspace_uuid: str,
     topic_id: int,
     body: schemas.GrammarTopicUpdateBody,
@@ -146,7 +146,7 @@ async def update_topic_examples(
 
 
 @router.get(_BASE + "/{topic_id}")
-async def get_topic(
+def get_topic(
     workspace_uuid: str,
     topic_id: int,
     current_user: dict = Depends(get_current_user),
@@ -164,7 +164,7 @@ async def get_topic(
 
 
 @router.delete(_BASE + "/{topic_id}")
-async def delete_topic(
+def delete_topic(
     workspace_uuid: str,
     topic_id: int,
     current_user: dict = Depends(get_current_user),

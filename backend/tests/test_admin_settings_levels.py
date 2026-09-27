@@ -43,7 +43,7 @@ def store(monkeypatch):
 
 async def test_patch_stores_valid_json(store):
     payload = json.dumps({"B1": "Meine B1-Beschreibung."})
-    await admin_settings.update_settings(
+    admin_settings.update_settings(
         _Body(language_diagnosis_level_descriptions=payload), _ADMIN, "de"
     )
     assert store[LEVEL_DESCRIPTIONS_SETTING] == payload
@@ -51,7 +51,7 @@ async def test_patch_stores_valid_json(store):
 
 async def test_patch_empty_resets(store):
     store[LEVEL_DESCRIPTIONS_SETTING] = '{"B1": "alt"}'
-    await admin_settings.update_settings(
+    admin_settings.update_settings(
         _Body(language_diagnosis_level_descriptions="  "), _ADMIN, "de"
     )
     assert store[LEVEL_DESCRIPTIONS_SETTING] == ""
@@ -59,7 +59,7 @@ async def test_patch_empty_resets(store):
 
 async def test_patch_rejects_broken_json(store):
     with pytest.raises(HTTPException) as exc:
-        await admin_settings.update_settings(
+        admin_settings.update_settings(
             _Body(language_diagnosis_level_descriptions="{kaputt"), _ADMIN, "de"
         )
     assert exc.value.status_code == 400
@@ -67,7 +67,7 @@ async def test_patch_rejects_broken_json(store):
 
 async def test_patch_rejects_unknown_level(store):
     with pytest.raises(HTTPException) as exc:
-        await admin_settings.update_settings(
+        admin_settings.update_settings(
             _Body(language_diagnosis_level_descriptions=json.dumps({"D1": "nein"})), _ADMIN, "de",
         )
     assert exc.value.status_code == 400

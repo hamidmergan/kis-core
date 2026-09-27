@@ -53,7 +53,7 @@ def _language_level_state(user_id: int) -> dict:
 
 
 @router.get("")
-async def get_me(
+def get_me(
     user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
@@ -77,7 +77,7 @@ async def get_me(
 
 
 @router.post("/tour-seen")
-async def update_tour_seen(
+def update_tour_seen(
     payload: TourSeenUpdate,
     user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
@@ -91,7 +91,7 @@ async def update_tour_seen(
 
 
 @router.patch("/language-training")
-async def update_language_training(
+def update_language_training(
     payload: LanguageTrainingUpdate,
     user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
@@ -107,7 +107,7 @@ async def update_language_training(
 
 
 @router.put("/language-level")
-async def update_language_level(
+def update_language_level(
     payload: LanguageLevelUpdate,
     user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
@@ -123,7 +123,7 @@ async def update_language_level(
 
 
 @router.patch("/locale")
-async def update_locale(
+def update_locale(
     payload: LocaleUpdate,
     user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),

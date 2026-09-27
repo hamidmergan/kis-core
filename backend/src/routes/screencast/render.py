@@ -52,7 +52,7 @@ router = APIRouter(tags=["screencast: render"])
 
 
 @router.post("/screencast/prerender-images")
-async def prerender_images(
+def prerender_images(
     body: PrerenderRequest,
     background_tasks: BackgroundTasks,
     current_user: dict = Depends(get_current_user),

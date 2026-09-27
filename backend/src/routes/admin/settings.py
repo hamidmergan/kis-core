@@ -85,7 +85,7 @@ def _assert_fields_allowed(body: UpdateSettingsRequest, perms, locale: str) -> N
 
 
 @router.get("/settings")
-async def get_settings(_admin=Depends(require_any_settings)):
+def get_settings(_admin=Depends(require_any_settings)):
     def _enabled(key: str, default: str = "true") -> bool:
         return db.get_setting(key, default).lower() == "true"
 
@@ -193,7 +193,7 @@ async def get_settings(_admin=Depends(require_any_settings)):
 
 
 @router.patch("/settings")
-async def update_settings(
+def update_settings(
     body: UpdateSettingsRequest,
     admin=Depends(require_any_settings),
     locale: str = Depends(get_locale),

@@ -122,7 +122,7 @@ def beitritt(monkeypatch):
 
 
 def _beitreten(user_id=LERNENDER):
-    return asyncio.run(
+    return (
         routes.enroll(schemas.EnrollBody(enroll_code="ein-link"), {"user_id": user_id}, "de")
     )
 
@@ -155,7 +155,7 @@ def test_vorschau_sagt_vorher_ob_der_raum_offen_ist(monkeypatch):
         lambda code: (ZU, {"id": 22, "expires_at": None}),
     )
     monkeypatch.setattr(routes.db, "is_workspace_tutor", lambda ws_id, uid: False)
-    vorschau = asyncio.run(routes.preview_access_link("ein-link", {"user_id": LERNENDER}, "de"))
+    vorschau = (routes.preview_access_link("ein-link", {"user_id": LERNENDER}, "de"))
     assert vorschau["title"] == ZU["title"]
     assert vorschau["is_open"] is False
 

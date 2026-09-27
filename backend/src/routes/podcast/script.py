@@ -35,7 +35,7 @@ class ScriptRequest(BaseModel):
 
 
 @router.get("/podcast/{job_uuid}")
-async def get_podcast(
+def get_podcast(
     job_uuid: str,
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
@@ -69,7 +69,7 @@ async def get_podcast(
 
 
 @router.put("/podcast/{job_uuid}/script")
-async def put_script(
+def put_script(
     job_uuid: str,
     body: ScriptRequest,
     current_user: dict = Depends(get_current_user),

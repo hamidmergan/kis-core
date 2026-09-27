@@ -22,7 +22,7 @@ class DemoLeaveBody(BaseModel):
 
 
 @router.get("/ai-assistant/demo/workspaces")
-async def list_demo_workspaces(current_user: dict = Depends(get_current_user)):
+def list_demo_workspaces(current_user: dict = Depends(get_current_user)):
     """All active courses of the demo accounts, without the internal ids."""
     return [
         {
@@ -40,7 +40,7 @@ async def list_demo_workspaces(current_user: dict = Depends(get_current_user)):
 
 
 @router.post("/ai-assistant/demo/enroll")
-async def enroll_in_demo(
+def enroll_in_demo(
     body: DemoEnrollBody,
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
@@ -63,7 +63,7 @@ async def enroll_in_demo(
 
 
 @router.post("/ai-assistant/demo/leave")
-async def leave_demo(
+def leave_demo(
     body: DemoLeaveBody,
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
@@ -79,7 +79,7 @@ async def leave_demo(
 
 
 @router.post("/ai-assistant/demo/tour-content")
-async def prepare_tour_content(
+def prepare_tour_content(
     body: DemoLeaveBody,
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
@@ -93,7 +93,7 @@ async def prepare_tour_content(
 
 
 @router.post("/ai-assistant/demo/tour-chat-example")
-async def prepare_tour_chat_example(
+def prepare_tour_chat_example(
     body: DemoLeaveBody,
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),

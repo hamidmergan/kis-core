@@ -33,7 +33,7 @@ _require_whitelist = require_permission(PERM_SET_USERS_WHITELIST)
 # ── Users ─────────────────────────────────────────────────────────────────────
 
 @router.get("/users")
-async def list_users(
+def list_users(
     limit: int = Query(default=50, le=100),
     offset: int = Query(default=0, ge=0),
     q: str = Query(default=""),
@@ -49,12 +49,12 @@ async def list_users(
 
 
 @router.get("/users/pending")
-async def list_pending_users(_admin=Depends(_require_pending)):
+def list_pending_users(_admin=Depends(_require_pending)):
     return {"users": db.get_pending_users()}
 
 
 @router.post("/users/{user_id}/approve")
-async def approve_user(
+def approve_user(
     user_id: int,
     _admin=Depends(_require_pending),
     locale: str = Depends(get_locale),
@@ -74,12 +74,12 @@ async def approve_user(
 # ── Whitelist ──────────────────────────────────────────────────────────────────
 
 @router.get("/whitelist")
-async def list_whitelist(_admin=Depends(_require_whitelist)):
+def list_whitelist(_admin=Depends(_require_whitelist)):
     return {"emails": db.get_whitelist_emails()}
 
 
 @router.post("/whitelist")
-async def add_whitelist(
+def add_whitelist(
     body: AddWhitelistRequest,
     _admin=Depends(_require_whitelist),
     locale: str = Depends(get_locale),
@@ -97,7 +97,7 @@ async def add_whitelist(
 
 
 @router.delete("/whitelist/{email:path}")
-async def remove_whitelist(
+def remove_whitelist(
     email: str,
     _admin=Depends(_require_whitelist),
     locale: str = Depends(get_locale),
@@ -122,7 +122,7 @@ class UpdateUserRoleBody(BaseModel):
 
 
 @router.post("/users/{user_id}/role")
-async def update_user_role(
+def update_user_role(
     user_id: int,
     body: UpdateUserRoleBody,
     admin=Depends(_require_users),
@@ -155,7 +155,7 @@ async def update_user_role(
 # ── Konto loeschen ─────────────────────────────────────────────────────────────
 
 @router.post("/users/{user_id}/demo")
-async def update_user_demo(
+def update_user_demo(
     user_id: int,
     body: SetUserDemoRequest,
     _admin=Depends(_require_users),
@@ -177,7 +177,7 @@ async def update_user_demo(
 
 
 @router.get("/users/{user_id}/deletion-preview")
-async def preview_user_deletion(
+def preview_user_deletion(
     user_id: int,
     _admin=Depends(_require_users),
     locale: str = Depends(get_locale),
@@ -189,7 +189,7 @@ async def preview_user_deletion(
 
 
 @router.delete("/users/{user_id}")
-async def delete_user(
+def delete_user(
     user_id: int,
     admin=Depends(_require_users),
     locale: str = Depends(get_locale),

@@ -1,5 +1,6 @@
 """The first step: material and template in, the outline task out."""
 
+import asyncio
 import json
 import uuid
 
@@ -43,7 +44,7 @@ async def _quellen_lesen(mode: str, files, workspace_uuid: str, source_uuids: li
     from src.services import sources as quellen, workspace_sources as arbeitsraum
 
     if mode == "module":
-        return arbeitsraum.read_workspace(
+        return await asyncio.to_thread(arbeitsraum.read_workspace,
             workspace_uuid, source_uuids, user_id=user_id, locale=locale,
             hoechstens=PRAESENTATION_MAX_SOURCES, schluessel="praesentation")
     if mode != "files":
@@ -83,7 +84,7 @@ async def start_praesentation(
     if not text.strip():
         raise HTTPException(status_code=422, detail=t("praesentation.noContent", locale))
 
-    vorlage_bytes, analyse, meta, fallback = vorlagen.aufloesen(user_id, einstellungen.template_id)
+    vorlage_bytes, analyse, meta, fallback = await asyncio.to_thread(vorlagen.aufloesen, user_id, einstellungen.template_id)
     einstellungen.template_name = meta["name"]
     einstellungen.style_text = meta["style_text"]
     einstellungen.template_fallback = fallback
@@ -96,10 +97,14 @@ async def start_praesentation(
 
     job_uuid = uuid.uuid4().hex
     db.create_job(job_uuid, user_id, "praesentation", label or "Präsentation", locale=locale)
-    quellen.save_sources(user_id, job_uuid, gelesen)
-    store.save_params(user_id, job_uuid, einstellungen)
-    store.save_template(user_id, job_uuid, vorlage_bytes)
-    store.save_template_meta(user_id, job_uuid, analyse)
+    def _ablegen() -> None:
+        quellen.save_sources(user_id, job_uuid, gelesen)
+        store.save_params(user_id, job_uuid, einstellungen)
+        store.save_template(user_id, job_uuid, vorlage_bytes)
+        store.save_template_meta(user_id, job_uuid, analyse)
+
+    # Storage writes of up to 30 MB, off the loop so pages keep loading for everyone.
+    await asyncio.to_thread(_ablegen)
     task = run_praesentation_outline.apply_async(args=[job_uuid, user_id, locale])
     db.set_job_celery_task_id(job_uuid, task.id)
     db.update_job_status(job_uuid, "pending", progress={"step": "material"})

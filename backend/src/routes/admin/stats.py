@@ -35,7 +35,7 @@ _require_stats_models = require_permission(PERM_SET_STATS_MODELS)
 
 
 @router.get("/stats")
-async def get_stats(
+def get_stats(
     days: int = Query(default=30, ge=1, le=365),
     _admin=Depends(_require_tool_stats),
 ):
@@ -68,7 +68,7 @@ async def get_stats(
 
 
 @router.get("/ai-assistant/stats")
-async def get_aia_stats(
+def get_aia_stats(
     days: int = Query(default=30, ge=1, le=365),
     mode: str | None = Query(default=None, regex="^(source|glossary)$"),
     _admin=Depends(_require_aia_usage),
@@ -78,13 +78,13 @@ async def get_aia_stats(
 
 
 @router.get("/stats/users")
-async def get_user_stats(_admin=Depends(_require_stats_users)):
+def get_user_stats(_admin=Depends(_require_stats_users)):
     """Presence, intake and retention for the users tab."""
     return user_overview()
 
 
 @router.get("/stats/models")
-async def get_model_stats(
+def get_model_stats(
     range: str = Query(default="30t", pattern="^(jahr|halbjahr|30t)$"),
     _admin=Depends(_require_stats_models),
 ):
@@ -93,7 +93,7 @@ async def get_model_stats(
 
 
 @router.get("/stats/tools")
-async def get_tool_stats(
+def get_tool_stats(
     range: str = Query(default="30t", pattern="^(jahr|halbjahr|30t)$"),
     _admin=Depends(_require_tool_stats),
 ):
@@ -102,25 +102,25 @@ async def get_tool_stats(
 
 
 @router.get("/stats/assistant")
-async def get_assistant_stats(_admin=Depends(_require_aia_usage)):
+def get_assistant_stats(_admin=Depends(_require_aia_usage)):
     """Module, Materialien, Werkzeuge und Sprachniveau."""
     return assistant_overview()
 
 
 @router.get("/stats/users/today/{hour}")
-async def get_users_today_hour(hour: int, _admin=Depends(_require_stats_users)):
+def get_users_today_hour(hour: int, _admin=Depends(_require_stats_users)):
     """Who was counted in this hour today, for the hourly chart's drill-down."""
     return {"users": users_by_hour(hour)}
 
 
 @router.get("/stats/users/by-day/{day}")
-async def get_users_by_day(day: str, _admin=Depends(_require_stats_users)):
+def get_users_by_day(day: str, _admin=Depends(_require_stats_users)):
     """Who was counted on this day, for the daily chart's drill-down."""
     return {"users": users_by_day(day)}
 
 
 @router.get("/stats/users/by-month")
-async def get_users_by_month(
+def get_users_by_month(
     month: str = Query(..., pattern=r"^\d{2}/\d{2}$"),
     _admin=Depends(_require_stats_users),
 ):
@@ -129,7 +129,7 @@ async def get_users_by_month(
 
 
 @router.get("/stats/users/{user_id}")
-async def get_user_detail(user_id: int, _admin=Depends(_require_stats_users)):
+def get_user_detail(user_id: int, _admin=Depends(_require_stats_users)):
     """Everything about one person in one place."""
     daten = user_detail(user_id)
     if daten is None:
@@ -138,7 +138,7 @@ async def get_user_detail(user_id: int, _admin=Depends(_require_stats_users)):
 
 
 @router.get("/stats/users/{user_id}/verlauf")
-async def get_user_verlauf(
+def get_user_verlauf(
     user_id: int,
     vor: str | None = Query(default=None),
     _admin=Depends(_require_stats_users),
@@ -148,7 +148,7 @@ async def get_user_verlauf(
 
 
 @router.get("/stats/workspaces/{uuid}")
-async def get_workspace_detail(uuid: str, _admin=Depends(_require_aia_usage)):
+def get_workspace_detail(uuid: str, _admin=Depends(_require_aia_usage)):
     """Everything about one module in one place."""
     daten = workspace_detail(uuid)
     if daten is None:

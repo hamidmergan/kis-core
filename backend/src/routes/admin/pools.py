@@ -21,7 +21,7 @@ class ClearPoolsRequest(BaseModel):
 
 
 @router.get("/pools")
-async def get_pools(_admin=Depends(_require)):
+def get_pools(_admin=Depends(_require)):
     """What currently sits in the pools, you should see it before throwing it away."""
     return {
         "tools": db.pool_counts_by_tool(),
@@ -30,7 +30,7 @@ async def get_pools(_admin=Depends(_require)):
 
 
 @router.post("/pools/clear")
-async def clear_pools(
+def clear_pools(
     body: ClearPoolsRequest, admin=Depends(_require), locale: str = Depends(get_locale)
 ):
     """Clears the chosen pools, without a selection the request is an error."""

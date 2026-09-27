@@ -174,7 +174,7 @@ async def save_slide(job_uuid: str, slide_id: str, body: Slide, current_user: di
 
 
 @router.post("/praesentation/{job_uuid}/slides/{slide_id}/regen")
-async def regen_slide(job_uuid: str, slide_id: str, body: RegenRequest,
+def regen_slide(job_uuid: str, slide_id: str, body: RegenRequest,
                       current_user: dict = Depends(get_current_user), locale: str = Depends(get_locale)):
     """Returns the new slide content, saving stays the caller's job."""
     job, user_id, params, analyse, slides = _stand(job_uuid, current_user, locale)
@@ -201,7 +201,7 @@ async def regen_slide(job_uuid: str, slide_id: str, body: RegenRequest,
 
 
 @router.post("/praesentation/{job_uuid}/slides/{slide_id}/image")
-async def regen_image(job_uuid: str, slide_id: str, body: ImageRequest,
+def regen_image(job_uuid: str, slide_id: str, body: ImageRequest,
                       current_user: dict = Depends(get_current_user), locale: str = Depends(get_locale)):
     """Takes the picture descriptions as edited, then draws them anew in the build task."""
     job, user_id, params, analyse, slides = _stand(job_uuid, current_user, locale)
@@ -236,7 +236,7 @@ async def delete_slide(job_uuid: str, slide_id: str, current_user: dict = Depend
 
 
 @router.post("/praesentation/{job_uuid}/slides")
-async def insert_slide(job_uuid: str, body: InsertRequest, current_user: dict = Depends(get_current_user),
+def insert_slide(job_uuid: str, body: InsertRequest, current_user: dict = Depends(get_current_user),
                        locale: str = Depends(get_locale)):
     """A new row after the named slide, its role chosen from the neighbour, content by the task."""
     job, user_id, params, analyse, slides = _stand(job_uuid, current_user, locale)
@@ -274,7 +274,7 @@ async def insert_slide(job_uuid: str, body: InsertRequest, current_user: dict = 
 
 
 @router.put("/praesentation/{job_uuid}/notes")
-async def save_notes_include(job_uuid: str, body: NotesRequest, current_user: dict = Depends(get_current_user),
+def save_notes_include(job_uuid: str, body: NotesRequest, current_user: dict = Depends(get_current_user),
                              locale: str = Depends(get_locale)):
     """Only the switch, nothing is rebuilt here, the next finalize picks it up."""
     job, user_id, params, analyse, slides = _stand(job_uuid, current_user, locale)
@@ -287,7 +287,7 @@ async def save_notes_include(job_uuid: str, body: NotesRequest, current_user: di
 
 
 @router.post("/praesentation/{job_uuid}/finalize")
-async def finalize(job_uuid: str, current_user: dict = Depends(get_current_user),
+def finalize(job_uuid: str, current_user: dict = Depends(get_current_user),
                    locale: str = Depends(get_locale)):
     job, user_id, params, analyse, slides = _stand(job_uuid, current_user, locale)
     if not slides:

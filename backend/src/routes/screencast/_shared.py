@@ -80,22 +80,23 @@ async def prerender_images_task(translate_job_uuid: str, dpi: int = 100) -> None
     user_id = job["user_id"]
 
     # Read PPTX from job folder (corrected if available, else translated)
-    pptx_data: bytes | None = None
-    for filename in ("corrected.pptx", "translated.pptx"):
-        try:
-            pptx_data = get_job_file(user_id, translate_job_uuid, filename)
-            break
-        except Exception:
-            pass
+    def _hole_pptx() -> Path | None:
+        for filename in ("corrected.pptx", "translated.pptx"):
+            try:
+                pptx_data = get_job_file(user_id, translate_job_uuid, filename)
+            except Exception:
+                continue
+            tmp_f = tempfile.NamedTemporaryFile(suffix=".pptx", delete=False)
+            tmp_f.write(pptx_data)
+            tmp_f.close()
+            return Path(tmp_f.name)
+        return None
 
-    if pptx_data is None:
+    # Runs after the response, but still in this process: the download stays off the loop.
+    pptx_src = await asyncio.to_thread(_hole_pptx)
+    if pptx_src is None:
         logger.warning("Pre-render: PPTX not found in job folder for job={}", translate_job_uuid)
         return
-
-    tmp_f = tempfile.NamedTemporaryFile(suffix=".pptx", delete=False)
-    tmp_f.write(pptx_data)
-    tmp_f.close()
-    pptx_src = Path(tmp_f.name)
 
     try:
         await asyncio.to_thread(pptx_to_images, pptx_src, out_dir, dpi)

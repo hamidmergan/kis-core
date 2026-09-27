@@ -165,7 +165,7 @@ async def turn(
 
 
 @router.get("/ai-assistant/language-diagnosis/config")
-async def config(current_user: dict = Depends(get_current_user)):
+def config(current_user: dict = Depends(get_current_user)):
     """Question count and answer length for the interface, from the admin settings."""
     plan = parse_question_plan(db.get_setting(QUESTION_PLAN_SETTING, ""))
     raw = db.get_setting(ANSWER_MAX_CHARS_SETTING, str(DEFAULT_ANSWER_MAX_CHARS))
@@ -180,7 +180,7 @@ async def config(current_user: dict = Depends(get_current_user)):
 
 
 @router.delete("/ai-assistant/language-diagnosis/me")
-async def reset(
+def reset(
     current_user: dict = Depends(get_current_user),
 ):
     db.clear_user_language_level(current_user["user_id"])

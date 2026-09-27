@@ -6,6 +6,7 @@ way back: what a web request accepts, and what the job folder keeps.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import tempfile
@@ -90,9 +91,10 @@ async def _read_upload(datei: UploadFile, tmpdir: str, locale: str, schluessel: 
     if not groesse:
         raise HTTPException(status_code=400, detail=t("file.empty", locale))
     validate_or_raise(kopf, ext, locale)
-    pages_or_raise(ext, ziel, locale)
+    # Counting pages and reading text run beside the event loop, so pages keep loading for everyone.
+    await asyncio.to_thread(pages_or_raise, ext, ziel, locale)
     try:
-        return read_file(ziel, name)
+        return await asyncio.to_thread(read_file, ziel, name)
     except NoReadableText:
         raise HTTPException(status_code=422, detail=t(
             f"{schluessel}.sourceOnlyImages", locale, name=name)) from None

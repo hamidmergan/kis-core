@@ -92,7 +92,7 @@ def login(body: LoginRequest, response: Response, locale: str = Depends(get_loca
 
 
 @router.post("/logout")
-async def logout(request: Request, response: Response):
+def logout(request: Request, response: Response):
     token = request.cookies.get("session")
     if token:
         store = get_session_store()
@@ -120,7 +120,7 @@ def _close_impersonation(store, data: dict) -> None:
 
 
 @router.get("/status")
-async def auth_status(request: Request):
+def auth_status(request: Request):
     settings = get_settings()
 
     if settings.is_local_mode:

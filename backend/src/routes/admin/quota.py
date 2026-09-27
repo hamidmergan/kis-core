@@ -30,13 +30,13 @@ def _ensure_known_quota_type(quota_type: str, locale: str) -> None:
 
 
 @router.get("/quota/defaults")
-async def get_quota_defaults(_admin=Depends(_require)):
+def get_quota_defaults(_admin=Depends(_require)):
     """Show global default limits."""
     return {"defaults": QUOTA_DEFAULTS}
 
 
 @router.get("/quota/overview")
-async def get_quota_overview(_admin=Depends(_require)):
+def get_quota_overview(_admin=Depends(_require)):
     """All active users with their quotas (even without prior activity)."""
     rows = db.quota_get_all_users_usage()
     users: dict[int, dict] = {}
@@ -78,7 +78,7 @@ async def get_quota_overview(_admin=Depends(_require)):
 
 
 @router.get("/quota/users/{user_id}")
-async def get_user_quota(user_id: int, _admin=Depends(_require)):
+def get_user_quota(user_id: int, _admin=Depends(_require)):
     """All quota types for a specific user."""
     rows = db.quota_get_all_for_user(user_id)
     result = []
@@ -104,7 +104,7 @@ async def get_user_quota(user_id: int, _admin=Depends(_require)):
 
 
 @router.post("/quota/users/{user_id}/{quota_type}/override")
-async def set_quota_override(
+def set_quota_override(
     user_id: int,
     quota_type: str,
     body: SetQuotaOverrideRequest,
@@ -118,7 +118,7 @@ async def set_quota_override(
 
 
 @router.delete("/quota/users/{user_id}/{quota_type}/override")
-async def delete_quota_override(
+def delete_quota_override(
     user_id: int,
     quota_type: str,
     _admin=Depends(_require),
@@ -131,7 +131,7 @@ async def delete_quota_override(
 
 
 @router.post("/quota/users/{user_id}/{quota_type}/reset")
-async def reset_user_quota(
+def reset_user_quota(
     user_id: int,
     quota_type: str,
     _admin=Depends(_require),

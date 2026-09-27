@@ -43,7 +43,7 @@ def _material(user_id: int, job_uuid: str) -> str:
     return quellen.as_block(quellen.load_sources(user_id, job_uuid))
 
 @router.post("/podcast/{job_uuid}/rephrase")
-async def rephrase_line(
+def rephrase_line(
     job_uuid: str,
     body: RephraseRequest,
     current_user: dict = Depends(get_current_user),

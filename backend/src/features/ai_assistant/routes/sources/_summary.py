@@ -8,7 +8,7 @@ router = APIRouter(tags=["ki-assistent: sources"])
 
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/sources/{source_uuid}/summary")
-async def get_source_summary(
+def get_source_summary(
     workspace_uuid: str,
     source_uuid: str,
     current_user: dict = Depends(get_current_user),

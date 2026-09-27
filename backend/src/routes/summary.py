@@ -1,5 +1,7 @@
 """Summary route: several sources are condensed into one text along a build plan."""
 
+import asyncio
+import json
 import uuid
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
@@ -19,6 +21,7 @@ from src.security.rate_limit import enforce_tool_burst
 from src.services import feature_provider_choices
 from src.services.open_jobs import enforce_open_jobs
 from src.services.tool_limits import max_upload_bytes
+from src.storage import save_job_file
 from src.utils.file_validation import SUMMARY_EXTENSIONS
 
 router = APIRouter(tags=["summary"], dependencies=[Depends(require_tool_access("summary"))])
@@ -32,7 +35,7 @@ async def list_summary_providers(_user: dict = Depends(get_current_user)):
 
 
 @router.get("/summary/templates")
-async def list_templates(_user: dict = Depends(get_current_user)):
+def list_templates(_user: dict = Depends(get_current_user)):
     """The build plans a person may pick, plus what the tool currently accepts."""
     return {
         "templates": [
@@ -81,7 +84,7 @@ async def summarize(
     # Beide Wege enden im selben Datensatz, aus dem Workspace kommt nur die Datei.
     if mode == "module":
         from src.services import workspace_sources as arbeitsraum
-        gelesen = arbeitsraum.read_workspace(
+        gelesen = await asyncio.to_thread(arbeitsraum.read_workspace,
             workspace_uuid, arbeitsraum.parse_uuids(source_uuids), user_id=user_id,
             locale=locale, hoechstens=SUMMARY_MAX_SOURCES, schluessel="summary")
     else:
@@ -91,16 +94,21 @@ async def summarize(
 
     # Quota is charged only once every source has cleared reading, so a refused start costs nothing.
     enforce_quota(user_id, "summary", is_admin_user(current_user), locale)
-    sources.save_sources(user_id, job_uuid, gelesen)
+    await asyncio.to_thread(sources.save_sources, user_id, job_uuid, gelesen)
 
     # Created only once every source is safely stored, the names joined so the job list folds them open.
     db.create_job(job_uuid, user_id, "summary", sources.label(gelesen), locale=locale)
+    # Laid down now and not at the start, so a job that never ran can still be resumed.
+    save_job_file(user_id, job_uuid, "summary_params.json", json.dumps({
+        "template_slug": vorlage.slug, "provider_id": provider_id,
+    }).encode())
     if instructions.strip():
         from src.services.job_files import write_job_text
         write_job_text(user_id, job_uuid, INSTRUCTIONS_FILE, instructions.strip())
 
     from src.tasks.summary_tasks import run_summary
-    run_summary.delay(job_uuid, vorlage.slug, provider_id)
+    task = run_summary.delay(job_uuid, vorlage.slug, provider_id)
+    db.set_job_celery_task_id(job_uuid, task.id)
     logger.info("Zusammenfassung {} eingereiht: {} Quelle(n), {} Zeichen, Vorlage '{}'",
                 job_uuid[:8], len(gelesen), sum(len(q.text) for q in gelesen), vorlage.slug)
     return {"job_uuid": job_uuid, "status": "pending"}

@@ -31,7 +31,7 @@ def _eintrag(zeile: dict, meta: dict | None, system: bool = False) -> dict:
 
 
 @router.get("/praesentation/vorlagen")
-async def list_vorlagen(current_user: dict = Depends(get_current_user)):
+def list_vorlagen(current_user: dict = Depends(get_current_user)):
     user_id = current_user.get("user_id", 0)
     _, meta = vorlagen.systemvorlage()
     system = _eintrag({"id": "thl", "name": meta["name"], "stiltext": meta["style_text"]},
@@ -73,9 +73,9 @@ async def upload_vorlage(
                 raise HTTPException(status_code=422, detail=t("praesentation.templateTooBig", locale,
                                                               max=PRAESENTATION_TEMPLATE_MAX_MB)) from e
             raise
-        data = Path(tmp_path).read_bytes()
+        data = await asyncio.to_thread(Path(tmp_path).read_bytes)
     try:
-        data, analyse = vorlagen.pruefe(data, ext)
+        data, analyse = await asyncio.to_thread(vorlagen.pruefe, data, ext)
     except vorlagen.VorlageUnbrauchbar as e:
         raise HTTPException(status_code=422, detail=t(e.key, locale, max=PRAESENTATION_TEMPLATE_MAX_MB)) from e
     titel = (name.strip() or Path(file.filename or "Vorlage").stem)[:80]
@@ -85,12 +85,12 @@ async def upload_vorlage(
     except Exception:  # noqa: BLE001 - a missing preview is no reason to refuse the template
         png = None
     meta = _analyse_meta(analyse)
-    vorlagen.speichere(user_id, zeile["id"], data, png, meta)
+    await asyncio.to_thread(vorlagen.speichere, user_id, zeile["id"], data, png, meta)
     return _eintrag(zeile, meta)
 
 
 @router.put("/praesentation/vorlagen/{vid}")
-async def update_vorlage(vid: str, body: dict, current_user: dict = Depends(get_current_user),
+def update_vorlage(vid: str, body: dict, current_user: dict = Depends(get_current_user),
                          locale: str = Depends(get_locale)):
     user_id = current_user.get("user_id", 0)
     alt = vorlagen_repo.get(user_id, vid)
@@ -103,7 +103,7 @@ async def update_vorlage(vid: str, body: dict, current_user: dict = Depends(get_
 
 
 @router.delete("/praesentation/vorlagen/{vid}")
-async def delete_vorlage(vid: str, current_user: dict = Depends(get_current_user),
+def delete_vorlage(vid: str, current_user: dict = Depends(get_current_user),
                          locale: str = Depends(get_locale)):
     user_id = current_user.get("user_id", 0)
     if not vorlagen_repo.delete(user_id, vid):

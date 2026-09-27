@@ -12,7 +12,7 @@ router = APIRouter(prefix="/ki", tags=["ki"])
 
 
 @router.get("/feature-status")
-async def feature_status(
+def feature_status(
     features: str = Query(default="", description="Comma-separated feature ids; empty = all"),
     _user: dict = Depends(get_current_user),
 ):

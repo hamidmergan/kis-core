@@ -20,7 +20,7 @@ router = APIRouter(tags=["praesentation"])
 
 
 @router.put("/praesentation/{job_uuid}/outline")
-async def save_outline(job_uuid: str, body: Outline, current_user: dict = Depends(get_current_user),
+def save_outline(job_uuid: str, body: Outline, current_user: dict = Depends(get_current_user),
                        locale: str = Depends(get_locale)):
     job = own_job(job_uuid, current_user, locale)
     nicht_beschaeftigt(job, locale)
@@ -44,7 +44,7 @@ async def save_outline(job_uuid: str, body: Outline, current_user: dict = Depend
 
 
 @router.post("/praesentation/{job_uuid}/outline/{row_id}/regen")
-async def regen_row(job_uuid: str, row_id: str, body: RegenRequest,
+def regen_row(job_uuid: str, row_id: str, body: RegenRequest,
                     current_user: dict = Depends(get_current_user), locale: str = Depends(get_locale)):
     """Returns the new title and gist, saving stays the caller's job."""
     job = own_job(job_uuid, current_user, locale)
@@ -72,7 +72,7 @@ async def regen_row(job_uuid: str, row_id: str, body: RegenRequest,
 
 
 @router.post("/praesentation/{job_uuid}/build")
-async def start_build(job_uuid: str, current_user: dict = Depends(get_current_user),
+def start_build(job_uuid: str, current_user: dict = Depends(get_current_user),
                       locale: str = Depends(get_locale)):
     job = own_job(job_uuid, current_user, locale)
     nicht_beschaeftigt(job, locale)
