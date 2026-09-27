@@ -176,7 +176,7 @@ def get_stuck_running_jobs(threshold_minutes: int) -> list[dict]:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
-                """SELECT job_uuid, user_id, tool, progress, progress_updated_at,
+                """SELECT job_uuid, user_id, tool, status, progress, progress_updated_at,
                           creator_locale, celery_task_id FROM jobs
                    WHERE status IN ('pending', 'running')
                    AND COALESCE(progress_updated_at, created_at) <= %s""",

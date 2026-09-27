@@ -27,6 +27,7 @@ def db(monkeypatch):
 
     def anlauf(job_uuid, message, **kwargs):
         fake.geschrieben = ("attempt", message)
+        fake.busy = kwargs.get("busy", False)
         return "waiting_retry"
 
     monkeypatch.setattr(job_recovery, "attempt_failed", anlauf)
@@ -43,6 +44,10 @@ def db(monkeypatch):
     "Client error '429 Too Many Requests' for url 'https://x'",
     "The read operation timed out",
     "connection timeout",
+    # Lauf 14: ein kurzer Aussetzer von myLab beendete ein Podcast-Skript endgültig.
+    "Connection error.",
+    # Lauf 11: die Namensauflösung fiel unter Last aus, Text in Audio scheiterte.
+    "[Errno -3] Temporary failure in name resolution",
 ])
 def test_dienst_ueberlastet_wird_erkannt(meldung):
     assert _errors.is_upstream_busy(Exception(meldung)) is True
@@ -90,3 +95,15 @@ def test_andere_fehler_kommen_weiter_wie_bisher(db):
     )
     _, text = db.geschrieben
     assert text == "Datei ist beschaedigt"
+
+
+def test_ein_voller_anbieter_wird_als_voll_weitergereicht(db):
+    """Nur so wartet der Auftrag, statt einen seiner drei Anläufe zu verbrauchen."""
+    _errors.handle_task_exception("j", RuntimeError("TTS API error (500): Internal Server Error"),
+                                  task_label="TTS")
+    assert db.busy is True
+
+
+def test_ein_echter_fehler_ist_nicht_voll(db):
+    _errors.handle_task_exception("j", RuntimeError("Datei kaputt"), task_label="TTS")
+    assert db.busy is False

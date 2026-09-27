@@ -13,8 +13,9 @@ from src.services import feature_router
 from src.services.feature_provider_choices import binding_for
 from src.services import text_map as tm
 from src.services.json_llm import call_json_llm
+from src.services.upstream_errors import is_upstream_busy
 from src.services import sources as quellen
-from src.services.job_recovery import still_mine
+from src.services.job_recovery import attempt_failed, still_mine
 from src.tasks._stage import StageContinue, StageLost, continue_stage
 from src.tasks.podcast_tasks._shared import JobCancelled, assert_not_cancelled
 from src.tasks.praesentation_tasks._build import run_praesentation_build
@@ -67,7 +68,7 @@ def _grundlage(user_id: int, job_uuid: str, karte: tm.Karte, sprache: str, llm,
     return g
 
 
-@celery_app.task(bind=True, name="praesentation.outline", queue="general", acks_late=True,
+@celery_app.task(bind=True, name="praesentation.outline", queue="long", acks_late=True,
                  soft_time_limit=STAGE_SOFT_TIME_LIMIT, time_limit=STAGE_TIME_LIMIT)
 def run_praesentation_outline(self, job_uuid: str, user_id: int, locale: str = "de",
                               etappe: int = 1, versuch: int = 0):
@@ -154,5 +155,7 @@ def run_praesentation_outline(self, job_uuid: str, user_id: int, locale: str = "
         return {"cancelled": True}
     except Exception as e:
         logger.error("Präsentation-Gliederung {} fehlgeschlagen: {}", job_uuid[:8], e)
-        db.update_job_status(job_uuid, "failed", error_message=t("praesentation.outlineFailed", locale))
+        busy = is_upstream_busy(e)
+        # While it only waits on the provider the job shows that, not the failure text.
+        attempt_failed(job_uuid, t("job.upstreamBusy" if busy else "praesentation.outlineFailed", locale), busy=busy)
         raise

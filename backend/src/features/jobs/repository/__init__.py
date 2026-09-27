@@ -40,6 +40,7 @@ from ._lifecycle import (
 )
 from ._recovery import (
     record_failed_attempt,
+    record_busy_wait,
     claim_due_retries,
     job_claim,
     reset_attempts,
@@ -68,7 +69,7 @@ __all__ = [
     "set_render_started_at", "set_render_queued_at",
     "touch_job_heartbeat", "get_stale_awaiting_user_jobs", "get_stuck_running_jobs",
     # recovery
-    "record_failed_attempt", "claim_due_retries", "job_claim", "reset_attempts",
+    "record_failed_attempt", "record_busy_wait", "claim_due_retries", "job_claim", "reset_attempts",
     "expire_parked_job", "jobs_in_flight",
     # stats
     "get_job_stats", "get_job_activity_log", "get_counts",

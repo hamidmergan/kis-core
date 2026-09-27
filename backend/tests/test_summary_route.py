@@ -34,12 +34,19 @@ def stub(monkeypatch):
 
     import src.tasks.summary_tasks as st
     monkeypatch.setattr(st, "run_summary",
-                        type("T", (), {"delay": staticmethod(lambda *a: gestartet.update(args=a))})())
+                        type("T", (), {"delay": staticmethod(
+                            lambda *a: gestartet.update(args=a) or type("R", (), {"id": "task-1"})())})())
+    gestartet["dateien"] = {}
+    monkeypatch.setattr(route, "save_job_file",
+                        lambda uid, job, name, daten: gestartet["dateien"].__setitem__(name, daten),
+                        raising=False)
+    monkeypatch.setattr(route.db, "set_job_celery_task_id",
+                        lambda job, tid: gestartet.__setitem__("task_id", tid))
     return gestartet
 
 
 async def test_templates_nennen_vorlagen_und_grenzen():
-    antwort = await route.list_templates(_user={})
+    antwort = route.list_templates(_user={})
     assert [v["slug"] for v in antwort["templates"]][0] == "kurzbriefing"
     assert antwort["maxSources"] == 10 and ".pdf" in antwort["extensions"]
 
@@ -116,3 +123,13 @@ async def test_fehler_beim_ablegen_erzeugt_keinen_auftrag(stub, monkeypatch):
             request=_Request(), files=[_Upload(b"eins " * 100, "a.txt"), _Upload(b"zwei " * 100, "b.md")],
             template=None, provider_id=None, instructions="", current_user={"user_id": 1}, locale="de")
     assert erzeugt == []
+
+
+async def test_die_angaben_fuer_einen_neustart_liegen_ab_dem_einreihen_bereit(stub):
+    """Lasttest 26.09.: nie gestartete Aufträge ließen sich nicht fortsetzen, die Angaben fehlten."""
+    import json
+    await route.summarize(request=_Request(), files=[_Upload(b"x " * 100, "a.txt")],
+                          template="zeitstrahl", provider_id=None, instructions="",
+                          current_user={"user_id": 1}, locale="de")
+    angaben = json.loads(stub["dateien"]["summary_params.json"])
+    assert angaben == {"template_slug": "zeitstrahl", "provider_id": None}

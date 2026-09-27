@@ -23,7 +23,8 @@ from src.limits import (
 from src.services import sources as quellen
 from src.services import text_map as tm
 from src.services.job_files import parse_job_json, read_job_text, write_job_text
-from src.services.job_recovery import still_mine
+from src.services.job_recovery import attempt_failed, still_mine
+from src.services.upstream_errors import is_upstream_busy
 from src.services.job_statistik import messe, route_kennung
 from src.tasks._stage import StageContinue, StageLost, continue_stage
 from src.tasks.podcast_tasks._shared import JobCancelled, assert_not_cancelled
@@ -171,7 +172,7 @@ def _schreiben(llm, karte: tm.Karte, g: tm.Grundlage, params, job_uuid: str,
 @celery_app.task(
     bind=True,
     name="podcast.script",
-    queue="general",
+    queue="long",
     acks_late=True,
     soft_time_limit=STAGE_SOFT_TIME_LIMIT,
     time_limit=STAGE_TIME_LIMIT,
@@ -230,6 +231,7 @@ def run_podcast_script(self, job_uuid: str, user_id: int, locale: str = "de",
         return {"cancelled": True}
     except Exception as e:
         logger.error("Podcast-Skript {} fehlgeschlagen: {}", job_uuid[:8], e)
-        db.update_job_status(job_uuid, "failed",
-                             error_message=t("podcast.scriptFailed", locale))
+        busy = is_upstream_busy(e)
+        # While it only waits on the provider the job shows that, not advice to shorten the material.
+        attempt_failed(job_uuid, t("job.upstreamBusy" if busy else "podcast.scriptFailed", locale), busy=busy)
         raise

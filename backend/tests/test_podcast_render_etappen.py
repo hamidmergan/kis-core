@@ -185,6 +185,24 @@ def test_ein_anbieterfehler_zaehlt_als_anlauf_statt_fehlgeschlagen(umgebung, mon
     assert "failed" not in [s for s, _ in db.status]
 
 
+def test_ein_voller_anbieter_wird_als_voll_gemeldet(umgebung, monkeypatch):
+    """Lasttest 26.09.: myLab antwortete mit 500, der Podcast verbrauchte dafür seine Anläufe."""
+    monkeypatch.setattr(_render, "store", _Store(_lines(2), _params()))
+    gemeldet = []
+    monkeypatch.setattr(_render, "attempt_failed",
+                        lambda job, meldung, **k: gemeldet.append(k) or "waiting_retry")
+
+    def voll(*a, **k):
+        raise RuntimeError("TTS API error (500): Internal Server Error")
+
+    monkeypatch.setattr(_render, "_mit_wiederholung", voll)
+
+    with pytest.raises(RuntimeError):
+        _render.run_podcast_render(JOB, UID, "de", 1, 0)
+
+    assert gemeldet == [{"busy": True}]
+
+
 def test_eine_fremd_uebernommene_etappe_schreibt_nichts(umgebung, monkeypatch):
     db, task, _ = umgebung
     store = _Store(_lines(2), _params())

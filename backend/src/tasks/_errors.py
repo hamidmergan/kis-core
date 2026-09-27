@@ -46,4 +46,4 @@ def handle_task_exception(job_uuid: str, e: Exception, *, task_label: str) -> No
     if dauerhaft:
         db.update_job_status(job_uuid, "failed", error_message=msg)
     else:
-        job_recovery.attempt_failed(job_uuid, msg)
+        job_recovery.attempt_failed(job_uuid, msg, busy=is_upstream_busy(e))

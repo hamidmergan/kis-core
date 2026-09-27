@@ -56,6 +56,26 @@ def record_failed_attempt(
     return status
 
 
+def record_busy_wait(job_uuid: str, error_message: str, *, wait_seconds: float) -> str | None:
+    """Parks a job for a while because its provider was full, without counting an attempt."""
+    now = datetime.now(timezone.utc)
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """UPDATE jobs
+                   SET status = 'waiting_retry', next_attempt_at = %s, error_message = %s,
+                       celery_task_id = NULL, progress_updated_at = %s
+                   WHERE job_uuid = %s AND status IN ('pending', 'running')""",
+                (now + timedelta(seconds=wait_seconds), error_message, now, job_uuid),
+            )
+            geaendert = cur.rowcount
+        conn.commit()
+    if not geaendert:
+        return None
+    _notify_job_update(job_uuid)
+    return "waiting_retry"
+
+
 def claim_due_retries(limit: int = 20) -> list[dict]:
     """Takes the jobs whose next try is due, atomically, so two ticks cannot take the same one."""
     now = datetime.now(timezone.utc)

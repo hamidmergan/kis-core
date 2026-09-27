@@ -4,7 +4,9 @@ import json
 
 import pytest
 
-from src.limits import MAX_AUTO_RESUMES, RETRY_BACKOFF_SECONDS
+from src.limits import (
+    MAX_AUTO_RESUMES, PROVIDER_BUSY_MAX_HOURS, PROVIDER_BUSY_WAIT_SECONDS, RETRY_BACKOFF_SECONDS,
+)
 from src.services import job_recovery
 
 
@@ -19,6 +21,7 @@ class _Db:
         self.claim = None
         self.faellig = []
         self.in_flight = []
+        self.gewartet = []
 
     def get_job(self, job_uuid):
         return self.job or None
@@ -41,6 +44,9 @@ class _Db:
     def job_claim(self, job_uuid):
         return self.claim
 
+    def touch_job_heartbeat(self, job_uuid):
+        self.lebenszeichen = getattr(self, "lebenszeichen", 0) + 1
+
     def claim_due_retries(self, limit=20):
         faellig, self.faellig = self.faellig, []
         return faellig
@@ -51,6 +57,10 @@ class _Db:
     def set_job_celery_task_id(self, job_uuid, task_id):
         self.task_ids.append(task_id)
 
+    def record_busy_wait(self, job_uuid, message, *, wait_seconds):
+        self.gewartet.append({"message": message, "wartezeit": wait_seconds})
+        return "waiting_retry"
+
 
 class _FakeTask:
     """Ein Celery-Task, der nur merkt, womit er abgeschickt wurde."""
@@ -60,6 +70,7 @@ class _FakeTask:
 
     def apply_async(self, args=None, **kwargs):
         self.args = args
+        self.priority = kwargs.get("priority")
         return type("R", (), {"id": "task-1"})()
 
 
@@ -115,6 +126,63 @@ class TestResumeTuer:
         assert job_recovery.resume_entry({"tool": "summary"}) == "summary"
 
 
+class TestUeberlastImErstenSchritt:
+    """Skript und Gliederung lesen große Dokumente, eine überlastete KI darf sie nicht beenden."""
+
+    def test_ein_podcast_skript_wartet_bei_ueberlast(self, db):
+        db.job["progress"] = json.dumps({"step": "script"})
+        assert job_recovery.attempt_failed("j", "voll", busy=True) == "waiting_retry"
+        assert db.gescheitert == []
+
+    def test_eine_gliederung_wartet_bei_ueberlast(self, db):
+        db.job.update(tool="praesentation", progress=json.dumps({"step": "outline"}))
+        assert job_recovery.attempt_failed("j", "voll", busy=True) == "waiting_retry"
+
+    def test_eine_kaputte_gliederung_scheitert_wie_bisher(self, db):
+        db.job.update(tool="praesentation", progress=json.dumps({"step": "outline"}))
+        assert job_recovery.attempt_failed("j", "kaputt") == "failed"
+        assert db.versuche == []
+
+    def test_das_skript_laeuft_ueber_seine_eigene_tuer_wieder_an(self, db, monkeypatch):
+        task = _FakeTask()
+        import src.tasks.podcast_tasks as pt
+        import src.tasks.podcast_tasks._shared as shared
+        monkeypatch.setattr(pt, "run_podcast_script", task)
+        monkeypatch.setattr(shared, "clear_cancel", lambda j: None)
+
+        job_recovery.dispatch_resume({"job_uuid": "j", "user_id": 7, "tool": "podcast", "creator_locale": "de",
+                                      "attempts": 0, "progress": json.dumps({"step": "script"})})
+
+        assert task.args == ["j", 7, "de", 1, 0]
+
+    def test_die_gliederung_laeuft_ueber_ihre_eigene_tuer_wieder_an(self, db, monkeypatch):
+        task = _FakeTask()
+        import src.tasks.praesentation_tasks as prt
+        import src.tasks.podcast_tasks._shared as shared
+        monkeypatch.setattr(prt, "run_praesentation_outline", task)
+        monkeypatch.setattr(shared, "clear_cancel", lambda j: None)
+
+        job_recovery.dispatch_resume({"job_uuid": "j", "user_id": 7, "tool": "praesentation",
+                                      "creator_locale": "de", "attempts": 0,
+                                      "progress": json.dumps({"step": "outline"})})
+
+        assert task.args == ["j", 7, "de", 1, 0]
+
+    def test_ein_wiederanlauf_reiht_sich_hinter_neuer_arbeit_ein(self, db, monkeypatch):
+        """Lauf 14: sieben Skripte liefen immer wieder in die Zeitgrenze und nahmen sich sofort wieder einen
+        der drei Plätze, 20 Präsentationen, 17 Übersetzungen und 5 Transkripte kamen über eine Stunde nicht dran."""
+        task = _FakeTask()
+        import src.tasks.podcast_tasks as pt
+        import src.tasks.podcast_tasks._shared as shared
+        monkeypatch.setattr(pt, "run_podcast_script", task)
+        monkeypatch.setattr(shared, "clear_cancel", lambda j: None)
+
+        job_recovery.dispatch_resume({"job_uuid": "j", "user_id": 7, "tool": "podcast", "creator_locale": "de",
+                                      "attempts": 0, "progress": json.dumps({"step": "script"})})
+
+        assert task.priority == 9
+
+
 class TestStillMine:
     def test_gleicher_stand_gehoert_der_etappe(self, db):
         db.claim = ("running", 2)
@@ -127,6 +195,17 @@ class TestStillMine:
     def test_ein_geparkter_auftrag_gehoert_niemandem_mehr(self, db):
         db.claim = ("paused", 2)
         assert not job_recovery.still_mine("j", 2)
+
+    def test_eine_uebernommene_etappe_meldet_sich_sofort(self, db):
+        """Nach langem Anstehen ist das letzte Lebenszeichen alt, der Aufseher darf sie nicht erwischen."""
+        db.claim = ("running", 2)
+        job_recovery.still_mine("j", 2)
+        assert db.lebenszeichen == 1
+
+    def test_eine_fremde_etappe_meldet_nichts(self, db):
+        db.claim = ("running", 3)
+        job_recovery.still_mine("j", 2)
+        assert getattr(db, "lebenszeichen", 0) == 0
 
     def test_ein_geloeschter_auftrag_gehoert_niemandem_mehr(self, db):
         db.claim = None
@@ -221,3 +300,33 @@ class TestNeustart:
         db.in_flight = [dict(db.job, tool="translate")]
         job_recovery.recover_after_restart()
         assert db.gescheitert[-1][0] == "failed"
+
+
+class TestAnbieterVoll:
+    """Lasttest 26.09.: myLab war nur voll, trotzdem hielten nach 15 Minuten alle Vertonungen an."""
+
+    def test_ein_voller_anbieter_verbraucht_keinen_anlauf(self, db):
+        for _ in range(MAX_AUTO_RESUMES + 5):
+            assert job_recovery.attempt_failed("j", "voll", busy=True) == "waiting_retry"
+        assert db.versuche == []
+        assert len(db.gewartet) == MAX_AUTO_RESUMES + 5
+
+    def test_die_wartezeit_streut_damit_nicht_alle_gleichzeitig_zurueckkommen(self, db):
+        for _ in range(20):
+            job_recovery.attempt_failed("j", "voll", busy=True)
+        zeiten = {round(w["wartezeit"]) for w in db.gewartet}
+        assert len(zeiten) > 1
+        assert all(PROVIDER_BUSY_WAIT_SECONDS[0] <= w["wartezeit"] <= PROVIDER_BUSY_WAIT_SECONDS[1]
+                   for w in db.gewartet)
+
+    def test_nach_der_hoechstwartezeit_zaehlt_es_doch_als_anlauf(self, db):
+        from datetime import datetime, timedelta, timezone
+        db.job["created_at"] = datetime.now(timezone.utc) - timedelta(hours=PROVIDER_BUSY_MAX_HOURS + 1)
+        job_recovery.attempt_failed("j", "voll", busy=True)
+        assert db.gewartet == []
+        assert len(db.versuche) == 1
+
+    def test_ein_echter_fehler_zaehlt_weiter_als_anlauf(self, db):
+        job_recovery.attempt_failed("j", "kaputt")
+        assert len(db.versuche) == 1
+        assert db.gewartet == []

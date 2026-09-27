@@ -9,6 +9,8 @@ _BUSY_MARKERS = (
     "502", "503", "504",
     "bad gateway", "service unavailable", "gateway timeout",
     "timeout", "timed out",
+    # The provider could not be reached for a moment, a lost connection or a failed name lookup.
+    "connection error", "temporary failure in name resolution",
 )
 
 # A key and not a finished sentence, the texts live in the frontend.

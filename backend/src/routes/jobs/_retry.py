@@ -1,4 +1,4 @@
-"""Re-queues failed TTS and screencast jobs without charging twice."""
+"""Re-queues failed or paused jobs without charging twice."""
 
 import json
 
@@ -42,7 +42,7 @@ def retry_job(
     # Owner-only: without this any user could re-queue another user's failed job.
     if not job or job["user_id"] != current_user.get("user_id", 0):
         raise HTTPException(status_code=404, detail=t("job.notFound", locale))
-    if job["tool"] not in ("tts", "screencast_translate", "screencast_render"):
+    if job["tool"] not in ("tts", "screencast_translate", "screencast_render", "summary"):
         raise HTTPException(status_code=400, detail=t("job.retryOnlyTtsScreencast", locale))
     if job["status"] == "success":
         raise HTTPException(status_code=409, detail=t("job.alreadySuccessful", locale))
@@ -62,12 +62,23 @@ def retry_job(
         if not params:
             raise HTTPException(status_code=400, detail=t("job.paramsNotSaved", locale))
 
+    elif job["tool"] == "summary":
+        try:
+            get_job_file(job["user_id"], job_uuid, "summary_params.json")
+        except Exception:
+            raise HTTPException(status_code=400, detail=t("job.paramsNotSaved", locale))
+
     else:  # screencast_translate / screencast_render
+        render_params = None
         try:
             render_params = json.loads(get_job_file(job["user_id"], job_uuid, "render_params.json"))
-            scripts = json.loads(get_job_file(job["user_id"], job_uuid, "render_scripts.json"))
+            json.loads(get_job_file(job["user_id"], job_uuid, "render_scripts.json"))
         except Exception:
-            raise HTTPException(status_code=400, detail=t("job.renderParamsExpired", locale))
+            # Paused before the voicing: the translation's own queue details carry it on.
+            try:
+                get_job_file(job["user_id"], job_uuid, "queue_params.json")
+            except Exception:
+                raise HTTPException(status_code=400, detail=t("job.renderParamsExpired", locale))
 
     if job["tool"] == "tts":
         # Atomically claim the job - blocks parallel retries
@@ -94,9 +105,16 @@ def retry_job(
             logger.warning("Could not clear cancel flag in Redis: {}", e)
         db.set_job_celery_task_id(job_uuid, task.id)
 
+    elif job["tool"] == "summary":
+        if not db.claim_job_for_retry(job_uuid):
+            raise HTTPException(status_code=409, detail=t("job.parallelRunning", locale))
+        from src.services import job_recovery
+        job_recovery.dispatch_resume({**job, "attempts": 0})
+
     else:  # screencast_translate / screencast_render
-        save_job_file(job["user_id"], job_uuid, "queue_params.json",
-                      json.dumps(_queue_params_from_render(render_params)).encode())
+        if render_params is not None:
+            save_job_file(job["user_id"], job_uuid, "queue_params.json",
+                          json.dumps(_queue_params_from_render(render_params)).encode())
         if not db.transition_job_to_queued(job_uuid, job["user_id"],
                                            from_statuses=("failed", "paused")):
             raise HTTPException(status_code=409, detail=t("job.parallelRunning", locale))

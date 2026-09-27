@@ -164,9 +164,10 @@ def run_screencast_render(
         detail = str(getattr(e, "detail", e))
         logger.error("Screencast render task {} failed (HTTPException {}): {}", translate_job_uuid, e.status_code, detail)
         # Otherwise the raw provider message ends up on screen.
-        if is_upstream_busy(detail):
+        voll = is_upstream_busy(detail)
+        if voll:
             detail = t("job.upstreamBusy", job_locale(translate_job_uuid))
-        attempt_failed(translate_job_uuid, detail)
+        attempt_failed(translate_job_uuid, detail, busy=voll)
         _maybe_dispatch_next(translate_job_uuid)
         raise
 

@@ -10,8 +10,9 @@ def _job(step, status="waiting_retry"):
             "progress": json.dumps({"step": step}), "attempts": 2, "creator_locale": "en"}
 
 
-def test_gliederung_wird_nicht_wieder_aufgenommen():
-    assert job_recovery.resume_entry(_job("outline")) is None
+def test_gliederung_laeuft_ueber_ihre_eigene_tuer_von_vorn():
+    # Only an overloaded provider sends it through, any other failure ends it as before.
+    assert job_recovery.resume_entry(_job("outline")) == "praesentation_outline"
 
 
 def test_bau_wird_wieder_aufgenommen():
@@ -22,7 +23,7 @@ def test_dispatch_reiht_den_bau_mit_dem_anlauf_token_ein(monkeypatch):
     eingereiht = []
 
     class _Task:
-        def apply_async(self, args):
+        def apply_async(self, args, **kwargs):
             eingereiht.append(list(args))
             return type("T", (), {"id": "x"})()
 
@@ -38,7 +39,7 @@ def test_wiederanlauf_behaelt_das_fertigstellen(monkeypatch):
     eingereiht = []
 
     class _Task:
-        def apply_async(self, args):
+        def apply_async(self, args, **kwargs):
             eingereiht.append(list(args))
             return type("T", (), {"id": "x"})()
 

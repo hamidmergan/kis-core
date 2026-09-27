@@ -3,12 +3,17 @@
 from __future__ import annotations
 
 import json
+import random
+from datetime import datetime, timedelta, timezone
 
 from loguru import logger
 
 from src import database as db
 from src.i18n import t
-from src.limits import MAX_AUTO_RESUMES, RETRY_BACKOFF_SECONDS
+from src.limits import (
+    CONTINUED_PRIORITY, MAX_AUTO_RESUMES, PROVIDER_BUSY_MAX_HOURS, PROVIDER_BUSY_WAIT_SECONDS,
+    RETRY_BACKOFF_SECONDS,
+)
 
 _SCREENCAST_TOOLS = ("screencast_translate", "screencast_render")
 
@@ -21,15 +26,19 @@ def resume_entry(job: dict) -> str | None:
     if tool == "tts":
         return "tts"
     if tool == "podcast":
-        # Only the voicing keeps its finished parts, a half written script is worth nothing.
-        return None if _progress(job).get("step") == "script" else "podcast"
+        # The script starts over as a whole, only the voicing keeps its finished parts.
+        return "podcast_script" if _progress(job).get("step") == "script" else "podcast"
     if tool == "summary":
         return "summary"
     if tool == "praesentation":
         schritt = _progress(job).get("step")
-        # Only the build keeps finished texts and pictures, a half written outline is worth nothing.
-        return None if schritt in ("outline", "outline_done") else "praesentation"
+        # The outline starts over as a whole, only the build keeps finished texts and pictures.
+        return "praesentation_outline" if schritt in ("outline", "outline_done") else "praesentation"
     return None
+
+
+# These steps only wait out an overloaded provider, any other failure ends them as before.
+_NUR_BEI_UEBERLAST = {"podcast_script", "praesentation_outline"}
 
 
 def _progress(job: dict) -> dict:
@@ -42,12 +51,19 @@ def _progress(job: dict) -> dict:
         return {}
 
 
-def attempt_failed(job_uuid: str, message: str, *, stale_before=None) -> str | None:
+def attempt_failed(job_uuid: str, message: str, *, stale_before=None, busy: bool = False) -> str | None:
     """Counts one failed attempt, returns the new status or None when it no longer applied."""
     job = db.get_job(job_uuid)
     if not job:
         return None
-    if resume_entry(job) is None:
+    tuer = resume_entry(job)
+    if tuer is None:
+        db.update_job_status(job_uuid, "failed", error_message=message)
+        return "failed"
+    if busy and not _busy_too_long(job):
+        # A full provider says nothing about the job, it waits in line again uncounted.
+        return db.record_busy_wait(job_uuid, message, wait_seconds=random.uniform(*PROVIDER_BUSY_WAIT_SECONDS))
+    if tuer in _NUR_BEI_UEBERLAST:
         db.update_job_status(job_uuid, "failed", error_message=message)
         return "failed"
     locale = job.get("creator_locale") or "de"
@@ -63,10 +79,24 @@ def attempt_failed(job_uuid: str, message: str, *, stale_before=None) -> str | N
     return status
 
 
+def _busy_too_long(job: dict) -> bool:
+    """True once a job has existed longer than a full provider may hold it up."""
+    erstellt = job.get("created_at")
+    if not isinstance(erstellt, datetime):
+        return False
+    if erstellt.tzinfo is None:
+        erstellt = erstellt.replace(tzinfo=timezone.utc)
+    return datetime.now(timezone.utc) - erstellt > timedelta(hours=PROVIDER_BUSY_MAX_HOURS)
+
+
 def still_mine(job_uuid: str, token: int) -> bool:
     """False when the job was parked, cancelled or handed to a newer run in the meantime."""
     stand = db.job_claim(job_uuid)
-    return bool(stand and stand[0] in ("pending", "running") and stand[1] == token)
+    mine = bool(stand and stand[0] in ("pending", "running") and stand[1] == token)
+    if mine:
+        # A stage fetched after a long wait reports in at once, before its first unit.
+        db.touch_job_heartbeat(job_uuid)
+    return mine
 
 
 def resume_due_jobs() -> int:
@@ -91,7 +121,18 @@ def dispatch_resume(job: dict) -> None:
 
         clear_cancel(job_uuid)
         task = run_podcast_render.apply_async(
-            args=[job_uuid, user_id, job.get("creator_locale") or "de", 1, job["attempts"]])
+            args=[job_uuid, user_id, job.get("creator_locale") or "de", 1, job["attempts"]], priority=CONTINUED_PRIORITY)
+        db.set_job_celery_task_id(job_uuid, task.id)
+    elif tuer in ("podcast_script", "praesentation_outline"):
+        from src.tasks.podcast_tasks._shared import clear_cancel
+
+        clear_cancel(job_uuid)
+        if tuer == "podcast_script":
+            from src.tasks.podcast_tasks import run_podcast_script as task_fn
+        else:
+            from src.tasks.praesentation_tasks import run_praesentation_outline as task_fn
+        task = task_fn.apply_async(
+            args=[job_uuid, user_id, job.get("creator_locale") or "de", 1, job["attempts"]], priority=CONTINUED_PRIORITY)
         db.set_job_celery_task_id(job_uuid, task.id)
     elif tuer == "tts":
         from src.tasks.tts_tasks import run_tts
@@ -101,7 +142,7 @@ def dispatch_resume(job: dict) -> None:
             job_uuid, job["input_path"], job["original_filename"],
             params["voice_id"], params["speed"], params["provider_id"],
             params.get("voice_label", ""), job["attempts"],
-        ])
+        ], priority=CONTINUED_PRIORITY)
         db.set_job_celery_task_id(job_uuid, task.id)
     elif tuer == "screencast":
         from src.tasks.screencast_tasks._queue import dispatch_next_screencast_job_for_user
@@ -113,7 +154,7 @@ def dispatch_resume(job: dict) -> None:
         params = _summary_params(job)
         task = run_summary.apply_async(args=[
             job_uuid, params["template_slug"], params.get("provider_id"), job["attempts"],
-        ])
+        ], priority=CONTINUED_PRIORITY)
         db.set_job_celery_task_id(job_uuid, task.id)
     elif tuer == "praesentation":
         from src.tasks.podcast_tasks._shared import clear_cancel
@@ -123,7 +164,8 @@ def dispatch_resume(job: dict) -> None:
         # A finalize parked mid-run must resume as a finalize, or the download never opens.
         final = bool(_progress(job).get("final"))
         task = run_praesentation_build.apply_async(
-            args=[job_uuid, user_id, job.get("creator_locale") or "de", 1, job["attempts"], None, final])
+            args=[job_uuid, user_id, job.get("creator_locale") or "de", 1, job["attempts"], None, final],
+            priority=CONTINUED_PRIORITY)
         db.set_job_celery_task_id(job_uuid, task.id)
     else:
         raise RuntimeError(f"Kein Wiederanlauf fuer Dienst {job.get('tool')}")

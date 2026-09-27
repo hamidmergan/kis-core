@@ -5,8 +5,8 @@ import json
 import httpx
 from langfuse.openai import AsyncOpenAI, OpenAI
 
-# Timeout until the first character, after that the chat's silence timeout applies.
-_LLM_HTTP_TIMEOUT = httpx.Timeout(connect=10.0, read=120.0, write=10.0, pool=10.0)
+# Waits as long as myLab lets a call run (about 300 s), the chat's silence timeout applies after the first character.
+_LLM_HTTP_TIMEOUT = httpx.Timeout(connect=10.0, read=300.0, write=10.0, pool=10.0)
 
 
 def is_transient_error(e: Exception) -> bool:

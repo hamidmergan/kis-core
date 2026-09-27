@@ -237,9 +237,47 @@ class TestOutline:
         umgebung.setattr(_outline, "quellen", _Quellen())
         umgebung.setattr(_outline, "db", db)
         umgebung.setattr(_outline, "call_json_llm", _Llm(["Quatsch", "Nochmal Quatsch"]))
+        gemeldet = []
+        umgebung.setattr(_outline, "attempt_failed", lambda job, msg, busy=False: gemeldet.append(busy))
         with pytest.raises(RuntimeError):
             _outline.run_praesentation_outline.run(JOB, UID, "de")
-        assert db.status[-1][0] == "failed"
+        # An unusable answer is no overload, the recovery path lets it fail as before.
+        assert gemeldet == [False]
+
+    def test_eine_ueberlastete_ki_laesst_die_gliederung_warten(self, umgebung):
+        st, db = _Store(None), _Db()
+        umgebung.setattr(_outline, "store", st)
+        umgebung.setattr(_outline, "quellen", _Quellen())
+        umgebung.setattr(_outline, "db", db)
+
+        def zu_langsam(*a, **k):
+            raise RuntimeError("Request timed out.")
+
+        umgebung.setattr(_outline, "call_json_llm", zu_langsam)
+        gemeldet = []
+        umgebung.setattr(_outline, "attempt_failed", lambda job, msg, busy=False: gemeldet.append(busy))
+        with pytest.raises(RuntimeError):
+            _outline.run_praesentation_outline.run(JOB, UID, "de")
+        assert gemeldet == [True]
+
+    def test_beim_warten_steht_der_hinweis_auf_die_ueberlastete_ki(self, umgebung):
+        """Lauf 14: die wartende Gliederung zeigte ihren Fehlertext, obwohl sie von selbst weiterlief."""
+        from src.i18n import t
+
+        st, db = _Store(None), _Db()
+        umgebung.setattr(_outline, "store", st)
+        umgebung.setattr(_outline, "quellen", _Quellen())
+        umgebung.setattr(_outline, "db", db)
+
+        def zu_langsam(*a, **k):
+            raise RuntimeError("Request timed out.")
+
+        umgebung.setattr(_outline, "call_json_llm", zu_langsam)
+        texte = []
+        umgebung.setattr(_outline, "attempt_failed", lambda job, msg, busy=False: texte.append(msg))
+        with pytest.raises(RuntimeError):
+            _outline.run_praesentation_outline.run(JOB, UID, "de")
+        assert texte == [t("job.upstreamBusy", "de")]
 
 
 def _folien_antwort(ids, notes=""):
@@ -473,12 +511,29 @@ class TestBuild:
         umgebung.setattr(_build, "db", db)
         umgebung.setattr(_build, "call_json_llm", _Llm(["Quatsch", "Quatsch", "Quatsch"]))
         gemeldet = []
-        umgebung.setattr(_build, "attempt_failed", lambda job, msg: gemeldet.append(msg))
+        umgebung.setattr(_build, "attempt_failed", lambda job, msg, **k: gemeldet.append(msg))
         with pytest.raises(RuntimeError):
             _build.run_praesentation_build.run(JOB, UID, "de")
         assert gemeldet
 
 
+
+
+def test_ein_voller_anbieter_beim_bau_wird_als_voll_gemeldet(umgebung):
+    st, db = _Store(_gliederung(5)), _Db()
+    umgebung.setattr(_build, "store", st)
+    umgebung.setattr(_build, "quellen", _Quellen())
+    umgebung.setattr(_build, "db", db)
+
+    def voll(*a, **k):
+        raise RuntimeError("Server error '503 Service Unavailable'")
+
+    umgebung.setattr(_build, "call_json_llm", voll)
+    gemeldet = []
+    umgebung.setattr(_build, "attempt_failed", lambda job, msg, **k: gemeldet.append(k))
+    with pytest.raises(RuntimeError):
+        _build.run_praesentation_build.run(JOB, UID, "de")
+    assert gemeldet == [{"busy": True}]
 
 
 def test_die_folienpakete_werden_gleichzeitig_geschrieben(umgebung):
@@ -528,3 +583,31 @@ class TestNachfassen:
         monkeypatch.setattr(_build, "call_json_llm", _Llm(["Quatsch"]))
         neu = _build._nachfassen(None, [], "A", self._erste(1), self.ROWS, self.FORM, False, JOB)
         assert len(neu[0].body.items) == 1
+
+
+def test_ein_voller_bildanbieter_holt_das_bild_spaeter_nach(umgebung):
+    """No seat at the provider means the picture waits for the next stage instead of missing."""
+    from src.services.provider_slots import ProviderFull
+
+    alt = [Slide(id="s1", role="deckblatt", layout=0, title="A", images=[ImageSpec(prompt="x")]),
+           Slide(id="s2", role="text", layout=1, title="B", body=Body(items=["a"])),
+           Slide(id="s3", role="abschluss", layout=0, title="E", images=[ImageSpec(prompt="y")])]
+    st, db = _Store(_gliederung(3), alt), _Db()
+    umgebung.setattr(_build, "store", st)
+    umgebung.setattr(_build, "quellen", _Quellen())
+    umgebung.setattr(_build, "db", db)
+    eingereiht = []
+    umgebung.setattr(_build, "continue_stage", lambda task, args, job: eingereiht.append(args))
+
+    def voll(prompt, size):
+        raise ProviderFull("models.mylab.example/images", 120)
+
+    umgebung.setattr(_build.bild, "erzeuge", voll)
+    _build.run_praesentation_build.run(JOB, UID, "de", 1, 0, None, True)
+    assert eingereiht == [[JOB, UID, "de", 2, 0, None, True]]
+    assert st.bilder == {} and st.deck is None
+
+    umgebung.setattr(_build.bild, "erzeuge", lambda prompt, size: b"png")
+    _build.run_praesentation_build.run(JOB, UID, "de", 2, 0, None, True)
+    assert set(st.bilder) == {("s1", 0), ("s3", 0)}
+    assert db.status[-1] == ("success", {"step": "done", "final": True})
