@@ -198,7 +198,7 @@ export default function KiTutorWorkspacePage() {
     exerciseSets, activeSet, setActiveSet,
     createSetTool, setCreateSetTool, showCreateModal, setShowCreateModal,
     loadExerciseSets, loadExerciseSet, createExerciseSet, deleteExerciseSet, renameExerciseSet,
-    retryExerciseSet, downloadExerciseSet, submitSingleAnswer,
+    retryExerciseSet, downloadExerciseSet, submitSingleAnswer, watchExerciseSets,
   } = ex;
   // statsVersion and glossaryCount come from the hooks below.
 
@@ -752,8 +752,7 @@ export default function KiTutorWorkspacePage() {
               flashcardSetId,
               instruction,
             );
-            const poll = setInterval(() => loadExerciseSets(createSetTool), 3000);
-            setTimeout(() => clearInterval(poll), 120000);
+            watchExerciseSets(createSetTool);
           }}
         />
       )}

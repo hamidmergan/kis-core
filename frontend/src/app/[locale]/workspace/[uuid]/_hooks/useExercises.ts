@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { _chunkLabel } from "../_utils";
 import type { ExerciseSet } from "../_types";
@@ -15,7 +15,7 @@ export function useExercises({ uuid }: UseExercisesOptions) {
   const [createSetTool, setCreateSetTool] = useState<string>("flashcards");
   const [showCreateModal, setShowCreateModal] = useState(false);
 
-  const loadExerciseSets = useCallback(async (tool?: string) => {
+  const loadExerciseSets = useCallback(async (tool?: string): Promise<ExerciseSet[] | null> => {
     try {
       const url = tool
         ? `/api/ai-assistant/workspaces/${uuid}/exercise-sets?tool=${tool}`
@@ -32,9 +32,32 @@ export function useExercises({ uuid }: UseExercisesOptions) {
         } else {
           setExerciseSets(newSets);
         }
+        return newSets;
       }
     } catch { /* ignore */ }
+    return null;
   }, [uuid]);
+
+  // Asks again until nothing of this tool is generating, a busy server may take minutes.
+  const watching = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const aktiv = watching.current;
+    return () => aktiv.clear();
+  }, []);
+  const watchExerciseSets = useCallback((tool: string) => {
+    if (watching.current.has(tool)) return;
+    watching.current.add(tool);
+    const tick = async () => {
+      if (!watching.current.has(tool)) return;
+      const sets = await loadExerciseSets(tool);
+      if (sets && !sets.some((s) => s.status === "generating")) {
+        watching.current.delete(tool);
+        return;
+      }
+      setTimeout(tick, 3000);
+    };
+    setTimeout(tick, 3000);
+  }, [loadExerciseSets]);
 
   const loadExerciseSet = useCallback(async (setId: number) => {
     try {
@@ -91,14 +114,13 @@ export function useExercises({ uuid }: UseExercisesOptions) {
         return false;
       }
       // Same watch the create flow runs, so the card leaves "generating" on its own.
-      const poll = setInterval(() => loadExerciseSets(tool), 3000);
-      setTimeout(() => clearInterval(poll), 120000);
+      watchExerciseSets(tool);
       return true;
     } catch {
       loadExerciseSets(tool);
       return false;
     }
-  }, [uuid, loadExerciseSets]);
+  }, [uuid, loadExerciseSets, watchExerciseSets]);
 
   const deleteExerciseSet = useCallback(async (setId: number, tool: string) => {
     try {
@@ -192,7 +214,7 @@ export function useExercises({ uuid }: UseExercisesOptions) {
     activeSet, setActiveSet,
     createSetTool, setCreateSetTool,
     showCreateModal, setShowCreateModal,
-    loadExerciseSets, loadExerciseSet,
+    loadExerciseSets, loadExerciseSet, watchExerciseSets,
     createExerciseSet, deleteExerciseSet, renameExerciseSet, retryExerciseSet, downloadExerciseSet,
     submitSingleAnswer,
   };

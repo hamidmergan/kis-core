@@ -152,9 +152,8 @@ export default function JobsPanel() {
     let fallbackPoll: ReturnType<typeof setInterval> | null = null;
     const bc = new BroadcastChannel("kis-jobs");
 
-    const sseUrl = process.env.NODE_ENV === "development"
-      ? "http://localhost:8000/jobs/stream"
-      : "/api/jobs/stream";
+    // Through the proxy, so every dev server reaches its own backend.
+    const sseUrl = "/api/jobs/stream";
 
     const stopFallback = () => {
       if (fallbackPoll) { clearInterval(fallbackPoll); fallbackPoll = null; }
@@ -452,7 +451,8 @@ export default function JobsPanel() {
                             }
                             onResume={(e) => { e.stopPropagation(); setOpen(false); }}
                           />
-                          {(job.tool === "tts" || job.tool === "screencast_translate" || job.tool === "screencast_render") && (job.status === "failed" || job.status === "paused") && (
+                          {(((job.tool === "tts" || job.tool === "screencast_translate" || job.tool === "screencast_render") && (job.status === "failed" || job.status === "paused"))
+                            || (job.tool === "summary" && job.status === "paused")) && (
                             <button
                               onClick={(e) => handleRetry(e, job)}
                               disabled={retrying === job.job_uuid}
