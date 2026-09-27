@@ -41,6 +41,7 @@ export type CreateProviderInput = {
   api_key: string | null;
   voices?: Voice[];
   initial_capabilities?: string[];  // if omitted → probe auto-detects
+  concurrency?: Record<string, number>;
 };
 
 export async function createProvider(input: CreateProviderInput): Promise<Provider> {
@@ -61,6 +62,8 @@ export type UpdateProviderInput = Partial<{
   capabilities: string[];
   voices: Voice[];
   enabled: boolean;
+  // Replaces the whole object, {} clears every cap.
+  concurrency: Record<string, number>;
 }>;
 
 export async function updateProvider(
@@ -115,6 +118,8 @@ export type SetRouteInput = {
   user_choices: number[] | null;
   provider_models?: Record<string, string>;
   provider_sampling?: Record<string, Sampling>;
+  // Required so no save silently drops the fallback.
+  fallback_provider_id: number | null;
 };
 
 export async function setFeatureRoute(

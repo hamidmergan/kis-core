@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useId, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { CheckCircle, Lightning, Spinner, Warning, XCircle } from "@phosphor-icons/react";
 import Checkbox from "@/components/ui/Checkbox";
 import HelpTooltip from "@/components/ui/HelpTooltip";
 import { testFeatureRoute } from "./_api";
 import DefaultVoiceRow from "./DefaultVoiceRow";
+import { fallbackOptions, firstChoiceOptions, type FallbackOption } from "./_routeOptions";
 import type { Capability, Feature, FeatureRoute, Provider, ProviderMeta, Sampling } from "./_types";
 
 type Props = {
@@ -18,6 +19,7 @@ type Props = {
   onChangeProviderModel: (feature: Feature, providerId: number, modelName: string | null) => Promise<void>;
   onChangeSampling: (feature: Feature, providerId: number, werte: Sampling | null) => Promise<void>;
   onToggleUserChoice: (feature: Feature, providerId: number, on: boolean) => Promise<void>;
+  onChangeFallback: (feature: Feature, providerId: number | null) => Promise<void>;
 };
 
 // Nur diese Funktionen laufen ueber chat/completions, nur dort wirken die Werte.
@@ -29,6 +31,11 @@ const FELD =
   "w-16 text-xs px-1.5 py-1 border-2 border-border rounded-md font-mono text-center " +
   "hover:border-kb focus:outline-none focus:border-kb bg-background " +
   "disabled:opacity-60 disabled:cursor-not-allowed";
+
+// The native provider dropdown of this card, callers add the width.
+const AUSWAHL =
+  "min-w-0 text-xs px-2 py-1.5 border-2 border-border rounded-md hover:border-kb " +
+  "focus:outline-none focus:border-kb bg-background disabled:opacity-60 disabled:cursor-not-allowed";
 
 function SamplingRow({
   werte,
@@ -139,6 +146,7 @@ export default function FeatureRoutingCard({
   onChangeProviderModel,
   onChangeSampling,
   onToggleUserChoice,
+  onChangeFallback,
 }: Props) {
   const t = useTranslations("admin.providers");
   const [testStates, setTestStates] = useState<Record<string, TestState>>({});
@@ -266,6 +274,8 @@ export default function FeatureRoutingCard({
           const providerTestStates: ProviderTestStates = Object.fromEntries(
             eligible.map((p) => [p.id, testStates[`${feature}-${p.id}`] ?? { kind: "idle" as const }])
           );
+          // Without the list from the server the backend cannot take a fallback yet.
+          const hasFallback = (meta.fallback_features ?? []).includes(feature);
           return (
             <FeatureRow
               key={feature}
@@ -284,6 +294,8 @@ export default function FeatureRoutingCard({
               onChangeProviderModel={(pid, model) => onChangeProviderModel(feature, pid, model)}
               onChangeSampling={(pid, werte) => onChangeSampling(feature, pid, werte)}
               onToggleUserChoice={(pid, on) => onToggleUserChoice(feature, pid, on)}
+              fallback={hasFallback ? fallbackOptions(feature, route, providers) : null}
+              onChangeFallback={(pid) => onChangeFallback(feature, pid)}
               feinAn={feinAn}
             />
           );
@@ -309,6 +321,8 @@ function FeatureRow({
   onChangeProviderModel,
   onChangeSampling,
   onToggleUserChoice,
+  fallback,
+  onChangeFallback,
   feinAn,
 }: {
   feature: Feature;
@@ -326,13 +340,19 @@ function FeatureRow({
   onChangeProviderModel: (providerId: number, model: string | null) => void;
   onChangeSampling: (providerId: number, werte: Sampling | null) => void;
   onToggleUserChoice: (id: number, on: boolean) => void;
+  fallback: FallbackOption[] | null;
+  onChangeFallback: (id: number | null) => void;
   feinAn: boolean;
 }) {
   const t = useTranslations("admin.providers");
+  const firstId = useId();
+  const fallbackId = useId();
   const providerId = route?.provider_id ?? null;
   const provider = providerId != null ? providerById.get(providerId) : undefined;
   const userChoices = route?.user_choices ?? [];
   const canTest = providerId != null;
+  const fallbackValue = route?.fallback_provider_id ?? null;
+  const fallbackModel = fallback?.find((o) => o.id === fallbackValue)?.model ?? "";
 
   if (isUserChoice && SPLIT_USER_CHOICE_FEATURES.has(feature)) {
     return (
@@ -378,6 +398,49 @@ function FeatureRow({
             })
           )}
         </div>
+        {feature !== "tts" && eligible.length > 0 && (
+          <div className="mt-3 pt-3 border-t border-border-soft flex flex-col gap-1.5">
+            <div className="flex items-center gap-2">
+              <label htmlFor={firstId} className="flex-1 min-w-0 truncate text-sm text-foreground-soft">
+                {t("routes.firstChoice")}
+              </label>
+              <select
+                id={firstId}
+                value={providerId ?? ""}
+                onChange={(e) => onChangeProvider(e.target.value ? Number(e.target.value) : null)}
+                className={`${AUSWAHL} flex-1`}
+              >
+                <option value="">{t("routes.unselected")}</option>
+                {firstChoiceOptions(route, eligible).map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+                {provider && !eligible.includes(provider) && (
+                  <option value={provider.id}>{t("routes.providerUnusable", { name: provider.name })}</option>
+                )}
+              </select>
+              {/* Keeps the dropdowns flush with the model fields above. */}
+              <span className="w-8 shrink-0" aria-hidden="true" />
+            </div>
+            {fallback && (
+              <div className="flex items-center gap-2">
+                <div className="flex-1 min-w-0 flex items-center gap-1">
+                  <label htmlFor={fallbackId} className="truncate text-sm text-foreground-soft">
+                    {t("routes.fallback")}
+                  </label>
+                  <HelpTooltip text={t("routes.fallbackHelp")} />
+                </div>
+                <FallbackSelect
+                  id={fallbackId}
+                  value={fallbackValue}
+                  options={fallback}
+                  onChange={onChangeFallback}
+                  className="flex-1"
+                />
+                <span className="w-8 shrink-0" aria-hidden="true" />
+              </div>
+            )}
+          </div>
+        )}
         {/* Die Standardstimme haengt an den Anbietern und gehoert deshalb hierher,
             nicht in eine eigene Karte anderswo. Sie waehlt Anbieter und Stimme in
             EINEM Feld, weil es bei einem Nutzer-waehlt-Feature keinen einen
@@ -458,25 +521,31 @@ function FeatureRow({
   }
 
   return (
-    <div className="py-4 flex flex-col gap-3 sm:grid sm:grid-cols-[1fr_180px_220px_auto] sm:items-center sm:gap-3">
-      <div className="min-w-0">
+    <div className="py-4 flex flex-col gap-3 sm:grid sm:grid-cols-[1fr_180px_220px_auto] sm:items-end sm:gap-3">
+      <div className="min-w-0 sm:self-center">
         <p className="text-sm font-medium text-foreground">{t(`featureName.${feature}`)}</p>
         <TestStatusLine state={testState} />
       </div>
-      <div className="flex gap-2 sm:contents">
-        <select
-          value={providerId ?? ""}
-          onChange={(e) => onChangeProvider(e.target.value ? Number(e.target.value) : null)}
-          disabled={eligible.length === 0}
-          className="flex-1 min-w-0 text-xs px-2 py-1.5 border-2 border-border rounded-md hover:border-kb focus:outline-none focus:border-kb bg-background disabled:opacity-60 disabled:cursor-not-allowed"
-        >
-          <option value="">{t("routes.unselected")}</option>
-          {eligible.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
+      <div className="flex gap-2 items-end sm:contents">
+        <div className="flex-1 min-w-0 flex flex-col gap-1">
+          <label htmlFor={firstId} className="text-2xs text-muted-soft whitespace-nowrap">
+            {t("routes.firstChoice")}
+          </label>
+          <select
+            id={firstId}
+            value={providerId ?? ""}
+            onChange={(e) => onChangeProvider(e.target.value ? Number(e.target.value) : null)}
+            disabled={eligible.length === 0}
+            className={`${AUSWAHL} w-full`}
+          >
+            <option value="">{t("routes.unselected")}</option>
+            {eligible.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </div>
         <input
           key={route?.provider_models?.[String(providerId)] ?? route?.model_name ?? ""}
           type="text"
@@ -499,7 +568,62 @@ function FeatureRow({
           />
         </div>
       )}
+      {fallback && (
+        <>
+          <div className="min-w-0 flex flex-col gap-1 sm:col-start-2">
+            <div className="flex items-center gap-1">
+              <label htmlFor={fallbackId} className="text-2xs text-muted-soft whitespace-nowrap">
+                {t("routes.fallback")}
+              </label>
+              <HelpTooltip text={`${t("routes.fallbackHelp")} ${t("routes.fallbackHelpModel")}`} />
+            </div>
+            <FallbackSelect
+              id={fallbackId}
+              value={fallbackValue}
+              options={fallback}
+              onChange={onChangeFallback}
+              className="w-full"
+            />
+          </div>
+          {/* The fallback's model is read only here, it is entered while that provider is the first choice. */}
+          {fallbackModel && (
+            <span className="truncate text-xs font-mono text-muted-soft sm:px-2 sm:py-1.5">{fallbackModel}</span>
+          )}
+        </>
+      )}
     </div>
+  );
+}
+
+function FallbackSelect({
+  id,
+  value,
+  options,
+  onChange,
+  className,
+}: {
+  id: string;
+  value: number | null;
+  options: FallbackOption[];
+  onChange: (id: number | null) => void;
+  className: string;
+}) {
+  const t = useTranslations("admin.providers");
+  return (
+    <select
+      id={id}
+      value={value ?? ""}
+      onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}
+      disabled={options.length === 0 && value == null}
+      className={`${AUSWAHL} ${className}`}
+    >
+      <option value="">{t("routes.noFallback")}</option>
+      {options.map((o) => (
+        <option key={o.id} value={o.id}>
+          {o.usable ? o.name : t("routes.providerUnusable", { name: o.name })}
+        </option>
+      ))}
+    </select>
   );
 }
 

@@ -102,6 +102,8 @@ class CreateProviderRequest(BaseModel):
     voices: list[VoiceEntry] = []
     enabled: bool = True
     initial_capabilities: list[str] | None = None  # if set, skips probe-seeding
+    # Requests at once per bucket, checked in the route so the message can be translated.
+    concurrency: dict | None = None
 
 
 class UpdateProviderRequest(BaseModel):
@@ -111,6 +113,8 @@ class UpdateProviderRequest(BaseModel):
     capabilities: list[str] | None = None  # admin override after probe
     voices: list[VoiceEntry] | None = None
     enabled: bool | None = None
+    # Replaces the whole object when present, an empty object clears every cap.
+    concurrency: dict | None = None
 
 
 class DiscoverVoicesRequest(BaseModel):
@@ -126,6 +130,8 @@ class SetFeatureRouteRequest(BaseModel):
     provider_models: dict[str, str] | None = None  # per-provider model overrides
     # Temperatur und top_p je Anbieter, leeres Feld heisst nichts mitsenden.
     provider_sampling: dict[str, dict[str, float]] | None = None
+    # Second provider for when the first one fails, its model comes from provider_models.
+    fallback_provider_id: int | None = None
 
 
 class SetModelWindowRequest(BaseModel):
@@ -145,6 +151,8 @@ class ExportedProvider(BaseModel):
     enabled: bool = True
     # Encrypted envelope around the access key, or None.
     api_key: dict | None = None
+    # None means an export from before the caps, the existing caps then stay as they are.
+    concurrency: dict[str, int] | None = None
 
 
 class ExportedFeatureRoute(BaseModel):
@@ -154,6 +162,7 @@ class ExportedFeatureRoute(BaseModel):
     user_choices: list[str] = []
     provider_models: dict[str, str] = {}
     provider_sampling: dict[str, dict[str, float]] = {}
+    fallback_provider_name: str | None = None
 
 
 class ExportedConfig(BaseModel):

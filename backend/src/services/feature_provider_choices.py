@@ -82,27 +82,25 @@ def binding_for(feature: str, provider_id: int | None) -> FeatureBinding:
 
 
 def fallback_candidates(feature: str) -> list[FeatureBinding]:
-    """Other configured same-capability providers in DB order, primary excluded.
+    """The admin's fallback for this feature as a binding, empty without one.
 
-    Extends an already-resolved primary binding into a retry chain for hard
-    provider errors. For 'embedding' the list is restricted to providers
-    serving the identical model name, so a fallback never crosses into a
-    different vector space mid-query.
+    For 'embedding' only a fallback serving the identical model name counts, so a
+    query never crosses into a different vector space.
     """
+    from src.services import provider_transport
+
     rows, route = _candidates(feature)
     if not route:
         return []
     primary_id = route.get("provider_id")
-    primary_model = _model_for(route, primary_id) if primary_id is not None else None
-    out: list[FeatureBinding] = []
-    for p in rows:
-        if p["id"] == primary_id:
-            continue
-        model = _model_for(route, p["id"])
-        if feature == "embedding" and model != primary_model:
-            continue
-        out.append(FeatureBinding(feature=feature, provider=p, model=model))
-    return out
+    primary_model = _model_for(route, primary_id) if primary_id is not None else ""
+    ziel = provider_transport.fallback_target(feature, primary_id, primary_model)
+    if ziel is None:
+        return []
+    provider = next((p for p in rows if p["id"] == ziel.provider_id), None)
+    if provider is None:
+        return []
+    return [FeatureBinding(feature=feature, provider=provider, model=ziel.model)]
 
 
 async def _is_reachable(provider: dict) -> bool:

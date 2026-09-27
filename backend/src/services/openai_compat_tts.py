@@ -1,12 +1,9 @@
 """Speech output via an OpenAI compatible endpoint, voices come from the database."""
 from __future__ import annotations
 
-from urllib.parse import urlparse
-
 import httpx
 
-from src.limits import TTS_MAX_CHARS_PER_REQUEST, TTS_PROVIDER_MAX_CONCURRENT, TTS_SLOT_WAIT_SECONDS
-from src.services import provider_slots
+from src.limits import TTS_MAX_CHARS_PER_REQUEST
 from src.services.tts_number_words import spell_numbers
 
 # From which share of the ceiling on a sentence end is looked for.
@@ -64,13 +61,22 @@ def _split_text(text: str, max_chars: int | None = None) -> list[str]:
 class OpenAICompatTTSClient:
     """Client for any OpenAI-compatible TTS endpoint (POST /v1/audio/speech)."""
 
-    def __init__(self, base_url: str, model: str, api_key: str = "not-needed"):
+    def __init__(self, base_url: str, model: str, api_key: str = "not-needed", binding=None):
         url = base_url.rstrip("/")
         if url.endswith("/v1"):
             url = url[:-3]
         self._base_url = url
         self._model = model
         self._api_key = api_key or "not-needed"
+        # Without a binding (the reachability probe) the client talks to the provider without a seat.
+        self._binding = binding
+
+    def _http(self) -> httpx.Client:
+        """A client whose door takes one seat per voicing, so all tools together never ask more than the provider manages."""
+        if self._binding is None:
+            return httpx.Client(timeout=_REQUEST_TIMEOUT)
+        from src.services import provider_transport
+        return httpx.Client(timeout=_REQUEST_TIMEOUT, transport=provider_transport.transport_for(self._binding))
 
     def _headers(self) -> dict:
         return {
@@ -91,7 +97,7 @@ class OpenAICompatTTSClient:
         chunks = _split_text(text)
         audio_parts: list[bytes] = []
 
-        with httpx.Client(timeout=_REQUEST_TIMEOUT) as client:
+        with self._http() as client:
             for chunk in chunks:
                 audio_parts.append(
                     self._synthesize_one(client, chunk, voice_id=voice_id, speed=speed, language=language)
@@ -109,7 +115,7 @@ class OpenAICompatTTSClient:
         **kwargs,
     ) -> bytes:
         """Synthesize a single chunk (for crash recovery in tts_tasks)."""
-        with httpx.Client(timeout=_REQUEST_TIMEOUT) as client:
+        with self._http() as client:
             return self._synthesize_one(client, text, voice_id=voice_id, speed=speed, language=language)
 
     def _synthesize_one(
@@ -137,14 +143,11 @@ class OpenAICompatTTSClient:
         }
         if self._model:
             payload["model"] = self._model
-        # One seat per request, so all tools together never ask more than the provider manages.
-        with provider_slots.slot(urlparse(self._base_url).netloc or self._base_url,
-                                 limit=TTS_PROVIDER_MAX_CONCURRENT, wait_seconds=TTS_SLOT_WAIT_SECONDS):
-            response = client.post(
-                f"{self._base_url}/v1/audio/speech",
-                json=payload,
-                headers=self._headers(),
-            )
+        response = client.post(
+            f"{self._base_url}/v1/audio/speech",
+            json=payload,
+            headers=self._headers(),
+        )
         if response.status_code != 200:
             raise RuntimeError(
                 f"TTS API error ({response.status_code}): {response.text[:300]}"

@@ -5,6 +5,13 @@ import { useTranslations } from "next-intl";
 import { Eye, EyeSlash, X } from "@phosphor-icons/react";
 import type { Provider, ProviderMeta, Voice } from "./_types";
 import { VoicesEditor } from "./VoicesEditor";
+import {
+  CONCURRENCY_BUCKETS,
+  MAX_CONCURRENCY,
+  bucketsFor,
+  buildConcurrency,
+  concurrencyToFields,
+} from "./_concurrency";
 
 type Props = {
   meta: ProviderMeta;
@@ -19,6 +26,7 @@ type Props = {
     voices: Voice[];
     initial_capabilities?: string[];
     capabilities?: string[];
+    concurrency?: Record<string, number>;
   }) => Promise<void>;
 };
 
@@ -47,6 +55,9 @@ export default function ProviderFormDialog({
   const [selectedCaps, setSelectedCaps] = useState<Set<string>>(
     new Set(initial?.capabilities ?? []),
   );
+  const [concurrencyFields, setConcurrencyFields] = useState<Record<string, string>>(
+    () => concurrencyToFields(initial?.concurrency),
+  );
   const [showKey, setShowKey] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -74,6 +85,13 @@ export default function ProviderFormDialog({
   const showCapabilityPicker = useMemo(() => {
     return (protocolMeta?.fixed_capabilities.length ?? 0) === 0;
   }, [protocolMeta]);
+
+  // One number field per bucket the provider serves, only the OpenAI compatible interface is capped.
+  const concurrencyBuckets = useMemo(() => {
+    if (protocol !== "openai_compat") return [];
+    const caps = showCapabilityPicker ? selectedCaps : protocolMeta?.fixed_capabilities ?? [];
+    return bucketsFor(caps, meta.concurrency_buckets ?? CONCURRENCY_BUCKETS);
+  }, [protocol, showCapabilityPicker, selectedCaps, protocolMeta, meta.concurrency_buckets]);
 
   const deeplKeyHint = useMemo(() => {
     if (protocol !== "deepl" || !apiKey.trim()) return null;
@@ -120,6 +138,10 @@ export default function ProviderFormDialog({
         // Edit: always send current selection so admin changes are saved.
         capabilities: isEdit && showCapabilityPicker
           ? Array.from(selectedCaps)
+          : undefined,
+        // Other protocols have no fields, so what they store stays untouched.
+        concurrency: protocol === "openai_compat"
+          ? buildConcurrency(concurrencyFields, concurrencyBuckets)
           : undefined,
       });
       onClose();
@@ -258,6 +280,35 @@ export default function ProviderFormDialog({
                     </label>
                   );
                 })}
+              </div>
+            </div>
+          )}
+
+          {concurrencyBuckets.length > 0 && (
+            <div className="space-y-2">
+              <div>
+                <label className="text-xs uppercase tracking-wide text-muted">{t("dialog.fieldConcurrency")}</label>
+                <p className="text-xs text-muted-soft mt-0.5">{t("dialog.concurrencyHint")}</p>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {concurrencyBuckets.map((bucket) => (
+                  <div key={bucket} className="space-y-1">
+                    <label htmlFor={`concurrency-${bucket}`} className="text-sm text-foreground">
+                      {t(`dialog.concurrencyBucket.${bucket}` as Parameters<typeof t>[0])}
+                    </label>
+                    <input
+                      id={`concurrency-${bucket}`}
+                      type="number"
+                      min={1}
+                      max={MAX_CONCURRENCY}
+                      step={1}
+                      value={concurrencyFields[bucket] ?? ""}
+                      onChange={(e) => setConcurrencyFields((prev) => ({ ...prev, [bucket]: e.target.value }))}
+                      placeholder={t("dialog.concurrencyNoLimit")}
+                      className="w-full text-sm px-3 py-2 border-2 border-border rounded-md bg-background hover:border-kb focus:outline-none focus:border-kb"
+                    />
+                  </div>
+                ))}
               </div>
             </div>
           )}

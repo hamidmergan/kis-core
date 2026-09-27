@@ -98,6 +98,8 @@ def make_llm_client(binding: FeatureBinding):
     """Return an OpenAICompatLLMClient for chat / embedding / vision / stt."""
     from src.services.openai_compat_llm import OpenAICompatLLMClient
 
+    from src.services import provider_transport
+
     provider = binding.provider
     model = binding.model or ""
     client = OpenAICompatLLMClient(
@@ -106,6 +108,7 @@ def make_llm_client(binding: FeatureBinding):
         model=model,
         whisper_model=model,
         provider=provider["name"],
+        **provider_transport.sdk_clients(binding),
     )
     client._sampling = dict(binding.sampling or {})
     _attach_model_profile(client, binding)
@@ -155,6 +158,7 @@ def make_tts_client(binding: FeatureBinding):
         base_url=provider["base_url"],
         model=binding.model,
         api_key=provider.get("api_key") or "not-needed",
+        binding=binding,
     )
 
 
@@ -169,11 +173,14 @@ def make_ocr_provider(binding: FeatureBinding):
     if binding.protocol == "openai_compat":
         from src.services.aia_ocr import OpenAICompatOcrProvider
 
+        from src.services import provider_transport
+
         return OpenAICompatOcrProvider(
             base_url=_ensure_v1(binding.provider["base_url"]),
             api_key=binding.provider.get("api_key") or "not-needed",
             model=binding.model or "",
             sampling=binding.sampling,
+            http_client=provider_transport.sdk_http_client(binding),
         )
     raise FeatureNotConfigured(
         f"OCR is not supported by protocol {binding.protocol!r}"

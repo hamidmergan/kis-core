@@ -54,10 +54,14 @@ class _OpenAICompatBase:
         model: str,
         whisper_model: str,
         provider: str = "openai_compat",
+        http_client=None,
+        async_http_client=None,
     ):
-        self._client = OpenAI(api_key=api_key, base_url=base_url, timeout=_LLM_HTTP_TIMEOUT)
+        # The HTTP clients carry the provider door with seats and fallback, see provider_transport.
+        self._client = OpenAI(api_key=api_key, base_url=base_url, timeout=_LLM_HTTP_TIMEOUT, http_client=http_client)
         # Async twin for streaming endpoints that need cancel-on-disconnect.
-        self._async_client = AsyncOpenAI(api_key=api_key, base_url=base_url, timeout=_LLM_HTTP_TIMEOUT)
+        self._async_client = AsyncOpenAI(api_key=api_key, base_url=base_url, timeout=_LLM_HTTP_TIMEOUT,
+                                         http_client=async_http_client)
         self._model = model
         self._provider = provider
         self._base_url = base_url

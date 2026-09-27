@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { DotsThreeVertical } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 import type { Feature, FeatureRoute, ModelWindows, Provider, ProviderMeta, Sampling } from "./_types";
+import { keptFallback } from "./_routeOptions";
 import {
   clearAllProviders,
   createProvider,
@@ -19,6 +20,7 @@ import {
   probeProvider,
   setFeatureRoute,
   updateProvider,
+  type SetRouteInput,
 } from "./_api";
 import ProviderListCard from "./ProviderListCard";
 import ProviderFormDialog from "./ProviderFormDialog";
@@ -72,6 +74,7 @@ export default function ProvidersTab({ only }: { only?: "list" | "routes" } = {}
       voices: import("./_types").Voice[];
       initial_capabilities?: string[];
       capabilities?: string[];
+      concurrency?: Record<string, number>;
     }) => {
       if (dialog.open && dialog.mode === "edit") {
         // When editing, send only changed fields, null leaves the key in place.
@@ -86,6 +89,9 @@ export default function ProvidersTab({ only }: { only?: "list" | "routes" } = {}
         if (data.capabilities !== undefined) {
           patch.capabilities = data.capabilities;
         }
+        if (data.concurrency !== undefined) {
+          patch.concurrency = data.concurrency;
+        }
         await updateProvider(dialog.provider.id, patch);
       } else {
         await createProvider({
@@ -95,6 +101,7 @@ export default function ProvidersTab({ only }: { only?: "list" | "routes" } = {}
           api_key: data.api_key,
           voices: data.voices,
           initial_capabilities: data.initial_capabilities,
+          concurrency: data.concurrency,
         });
       }
       await refreshAll();
@@ -134,6 +141,29 @@ export default function ProvidersTab({ only }: { only?: "list" | "routes" } = {}
   }, [deleteTarget, refreshAll]);
 
   // ── route mutations ─────────────────────────────────────────────────────
+  // Every save resends the fallback, it only drops when this very change breaks it.
+  const saveRoute = useCallback(
+    async (
+      feature: Feature,
+      existing: FeatureRoute | undefined,
+      input: Omit<SetRouteInput, "fallback_provider_id">,
+    ) => {
+      const fallback = keptFallback(
+        feature,
+        {
+          provider_id: input.provider_id,
+          model_name: input.model_name,
+          provider_models: input.provider_models ?? {},
+          fallback_provider_id: existing?.fallback_provider_id ?? null,
+        },
+        providers,
+      );
+      await setFeatureRoute(feature, { ...input, fallback_provider_id: fallback });
+      await refreshAll();
+    },
+    [providers, refreshAll],
+  );
+
   const onChangeProvider = useCallback(
     async (feature: Feature, providerId: number | null) => {
       const existing = routes.find((r) => r.feature === feature);
@@ -141,16 +171,15 @@ export default function ProvidersTab({ only }: { only?: "list" | "routes" } = {}
         providerId != null
           ? existing?.provider_models?.[String(providerId)] ?? null
           : null;
-      await setFeatureRoute(feature, {
+      await saveRoute(feature, existing, {
         provider_id: providerId,
         model_name: carriedModel,
         user_choices: existing?.user_choices ?? null,
         provider_models: existing?.provider_models,
         provider_sampling: existing?.provider_sampling,
       });
-      await refreshAll();
     },
-    [routes, refreshAll],
+    [routes, saveRoute],
   );
 
   const onChangeModel = useCallback(
@@ -164,16 +193,15 @@ export default function ProvidersTab({ only }: { only?: "list" | "routes" } = {}
       } else {
         delete nextProviderModels[key];
       }
-      await setFeatureRoute(feature, {
+      await saveRoute(feature, existing, {
         provider_id: existing.provider_id,
         model_name: modelName,
         user_choices: existing.user_choices ?? null,
         provider_models: nextProviderModels,
         provider_sampling: existing.provider_sampling,
       });
-      await refreshAll();
     },
-    [routes, refreshAll],
+    [routes, saveRoute],
   );
 
   const onChangeProviderModel = useCallback(
@@ -185,16 +213,15 @@ export default function ProvidersTab({ only }: { only?: "list" | "routes" } = {}
       } else {
         delete next[String(providerId)];
       }
-      await setFeatureRoute(feature, {
+      await saveRoute(feature, existing, {
         provider_id: existing?.provider_id ?? null,
         model_name: existing?.model_name ?? null,
         user_choices: existing?.user_choices ?? null,
         provider_models: next,
         provider_sampling: existing?.provider_sampling,
       });
-      await refreshAll();
     },
-    [routes, refreshAll],
+    [routes, saveRoute],
   );
 
   const onChangeSampling = useCallback(
@@ -206,16 +233,15 @@ export default function ProvidersTab({ only }: { only?: "list" | "routes" } = {}
       } else {
         delete next[String(providerId)];
       }
-      await setFeatureRoute(feature, {
+      await saveRoute(feature, existing, {
         provider_id: existing?.provider_id ?? null,
         model_name: existing?.model_name ?? null,
         user_choices: existing?.user_choices ?? null,
         provider_models: existing?.provider_models,
         provider_sampling: next,
       });
-      await refreshAll();
     },
-    [routes, refreshAll],
+    [routes, saveRoute],
   );
 
   const onToggleUserChoice = useCallback(
@@ -227,11 +253,27 @@ export default function ProvidersTab({ only }: { only?: "list" | "routes" } = {}
         : current.filter((id) => id !== providerId);
       // The first entry of the selection is the row's default provider.
       const defaultProvider = nextChoices[0] ?? null;
-      await setFeatureRoute(feature, {
+      await saveRoute(feature, existing, {
         provider_id: defaultProvider,
         model_name: existing?.model_name ?? null,
         user_choices: nextChoices,
+        provider_models: existing?.provider_models,
         provider_sampling: existing?.provider_sampling,
+      });
+    },
+    [routes, saveRoute],
+  );
+
+  const onChangeFallback = useCallback(
+    async (feature: Feature, providerId: number | null) => {
+      const existing = routes.find((r) => r.feature === feature);
+      await setFeatureRoute(feature, {
+        provider_id: existing?.provider_id ?? null,
+        model_name: existing?.model_name ?? null,
+        user_choices: existing?.user_choices ?? null,
+        provider_models: existing?.provider_models,
+        provider_sampling: existing?.provider_sampling,
+        fallback_provider_id: providerId,
       });
       await refreshAll();
     },
@@ -359,6 +401,7 @@ export default function ProvidersTab({ only }: { only?: "list" | "routes" } = {}
           onChangeProviderModel={onChangeProviderModel}
           onChangeSampling={onChangeSampling}
           onToggleUserChoice={onToggleUserChoice}
+          onChangeFallback={onChangeFallback}
         />
       )}
 

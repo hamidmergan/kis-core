@@ -57,10 +57,10 @@ class OpenAICompatOcrProvider(OcrProvider):
     """Text recognition via an OpenAI compatible image endpoint."""
 
     def __init__(self, base_url: str, api_key: str, model: str,
-                 sampling: dict | None = None) -> None:
+                 sampling: dict | None = None, http_client=None) -> None:
         # A plain client without tracing, image data would need a bucket.
         from openai import OpenAI
-        self._client = OpenAI(api_key=api_key, base_url=base_url)
+        self._client = OpenAI(api_key=api_key, base_url=base_url, http_client=http_client)
         self._model = model
         # Abtastwerte aus dem Admin, leer heisst der eingebaute Wert gilt.
         self._sampling = dict(sampling or {})

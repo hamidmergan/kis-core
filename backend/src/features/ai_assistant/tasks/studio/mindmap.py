@@ -149,9 +149,12 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
 
         # 2. Call LLM
         from langfuse.openai import OpenAI
-        from src.dependencies import _resolve_llm_provider
-        _api_key, _base_url, _model, _provider = _resolve_llm_provider()
-        client = OpenAI(api_key=_api_key, base_url=_base_url, max_retries=0, timeout=240)
+        from src.dependencies import _binding_tuple, _resolve_llm_binding
+        from src.services import provider_transport
+        _binding = _resolve_llm_binding()
+        _api_key, _base_url, _model, _provider = _binding_tuple(_binding)
+        client = OpenAI(api_key=_api_key, base_url=_base_url, max_retries=0, timeout=240,
+                        http_client=provider_transport.sdk_http_client(_binding))
         model = _model
         langfuse_context.update_current_observation(
             metadata={"provider": _provider, "base_url": _base_url, "model": model},

@@ -82,8 +82,10 @@ class LLMTranslationClient:
         model: str,
         provider: str = "openai_compat",
         sampling: dict | None = None,
+        http_client=None,
     ):
-        self._client = OpenAI(api_key=api_key, base_url=base_url)
+        # The HTTP client carries the provider door with seats and fallback, see provider_transport.
+        self._client = OpenAI(api_key=api_key, base_url=base_url, http_client=http_client)
         self._model = model
         self._provider = provider
         # Abtastwerte aus dem Admin, leer heisst der eingebaute Wert gilt.

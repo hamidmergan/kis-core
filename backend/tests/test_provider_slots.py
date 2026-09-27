@@ -95,3 +95,129 @@ def test_der_platz_wird_auch_bei_einem_fehler_zurueckgegeben(uhr):
         with provider_slots.slot("mylab", limit=1, wait_seconds=0, r=r):
             raise RuntimeError("Anbieter antwortet 500")
     assert r.zcard("kis:provider-slots:mylab") == 0
+
+
+def test_eine_zeitgrenze_beim_warten_laesst_die_anfrage_nicht_ohne_platz_durch(uhr, monkeypatch):
+    """Die weiche Zeitgrenze von Celery ist auch eine Exception, sie darf nicht als Redis-Ausfall gelten."""
+    from celery.exceptions import SoftTimeLimitExceeded
+
+    r = _Redis()
+    provider_slots.claim("mylab", limit=1, wait_seconds=0, r=r)
+
+    def grenze(sek):
+        raise SoftTimeLimitExceeded()
+
+    monkeypatch.setattr(provider_slots.time, "sleep", grenze)
+    with pytest.raises(SoftTimeLimitExceeded):
+        provider_slots.claim("mylab", limit=1, wait_seconds=60, r=r)
+    assert r.zcard("kis:provider-slots:mylab") == 1
+
+
+# ─── Reihenfolge an der Tür ────────────────────────────────────────────────
+
+
+class _RangRedis(_Redis):
+    """Dazu die Warteschlange vor der Tür, sortiert wie in Redis."""
+
+    def zadd(self, key, mapping, nx=False, xx=False):
+        s = self.sets.setdefault(key, {})
+        for k, v in mapping.items():
+            if (nx and k in s) or (xx and k not in s):
+                continue
+            s[k] = v
+
+    def zrank(self, key, member):
+        s = self.sets.get(key, {})
+        if member not in s:
+            return None
+        return sorted(s, key=lambda k: (s[k], k)).index(member)
+
+    def zrangebyscore(self, key, lo, hi):
+        return [k for k, v in self.sets.get(key, {}).items() if v <= hi]
+
+    def zrem(self, key, *members):
+        for m in members:
+            self.sets.get(key, {}).pop(m, None)
+
+
+def test_eine_niedrigere_stufe_kommt_zuerst_dran(uhr):
+    """Ein kurzer Übersetzungsschnipsel soll nicht hinter einer Zusammenfassung warten."""
+    r = _RangRedis()
+    provider_slots.claim_ranked("mylab:llm", limit=1, wait_seconds=0, rank=0, r=r)
+    uhr["t"] += 1
+    assert not provider_slots._try_sit_ranked(r, "mylab:llm", "lang", 1, 900, 2)
+    uhr["t"] += 1
+    assert not provider_slots._try_sit_ranked(r, "mylab:llm", "kurz", 1, 900, 0)
+    r.sets["kis:provider-slots:mylab:llm"].clear()
+    assert not provider_slots._try_sit_ranked(r, "mylab:llm", "lang", 1, 900, 2)
+    assert provider_slots._try_sit_ranked(r, "mylab:llm", "kurz", 1, 900, 0)
+
+
+def test_in_derselben_stufe_gilt_wer_zuerst_kam(uhr):
+    r = _RangRedis()
+    provider_slots.claim_ranked("mylab:llm", limit=1, wait_seconds=0, rank=1, r=r)
+    assert not provider_slots._try_sit_ranked(r, "mylab:llm", "erster", 1, 900, 1)
+    uhr["t"] += 1
+    assert not provider_slots._try_sit_ranked(r, "mylab:llm", "zweiter", 1, 900, 1)
+    r.sets["kis:provider-slots:mylab:llm"].clear()
+    assert not provider_slots._try_sit_ranked(r, "mylab:llm", "zweiter", 1, 900, 1)
+    assert provider_slots._try_sit_ranked(r, "mylab:llm", "erster", 1, 900, 1)
+
+
+def test_wer_nicht_mehr_fragt_verlaesst_die_schlange(uhr):
+    """Ein Arbeiter, der beim Warten starb, darf die Schlange nicht für immer blockieren."""
+    r = _RangRedis()
+    provider_slots.claim_ranked("mylab:llm", limit=1, wait_seconds=0, rank=0, r=r)
+    assert not provider_slots._try_sit_ranked(r, "mylab:llm", "tot", 1, 900, 0)
+    r.sets["kis:provider-slots:mylab:llm"].clear()
+    uhr["t"] += 60
+    assert provider_slots._try_sit_ranked(r, "mylab:llm", "lebt", 1, 900, 0)
+
+
+def test_wer_aufgibt_raeumt_seinen_platz_in_der_schlange(uhr):
+    r = _RangRedis()
+    provider_slots.claim_ranked("mylab:llm", limit=1, wait_seconds=0, rank=0, r=r)
+    with pytest.raises(provider_slots.ProviderFull):
+        provider_slots.claim_ranked("mylab:llm", limit=1, wait_seconds=5, rank=2, r=r)
+    assert r.zcard("kis:provider-wait:mylab:llm") == 0
+
+
+def test_die_asynchrone_tuer_haelt_dieselbe_reihenfolge(uhr, monkeypatch):
+    import asyncio
+
+    async def schlafen(sek):
+        uhr["t"] += sek
+
+    monkeypatch.setattr(asyncio, "sleep", schlafen)
+    r = _RangRedis()
+    asyncio.run(provider_slots.claim_ranked_async("mylab:llm", limit=1, wait_seconds=0, rank=0, r=r))
+    with pytest.raises(provider_slots.ProviderFull):
+        asyncio.run(provider_slots.claim_ranked_async("mylab:llm", limit=1, wait_seconds=5, rank=2, r=r))
+    assert r.zcard("kis:provider-wait:mylab:llm") == 0
+
+
+# ─── Frisch halten ────────────────────────────────────────────────────────
+
+
+def test_ein_gehaltener_platz_wird_erneuert_und_ein_freigegebener_nicht(uhr, monkeypatch):
+    """Nach einem Neustart blieben Plätze 15 Minuten belegt, jetzt nur so lange, bis keiner sie erneuert."""
+    r = _RangRedis()
+    monkeypatch.setattr(provider_slots, "_redis", lambda: r)
+    monkeypatch.setattr(provider_slots, "_start_refresher", lambda: None)
+    gehalten = provider_slots.claim_ranked("mylab:llm", limit=5, wait_seconds=0, rank=0)
+    frei = provider_slots.claim_ranked("mylab:llm", limit=5, wait_seconds=0, rank=0)
+    provider_slots.release("mylab:llm", frei)
+    uhr["t"] += 60
+    provider_slots._refresh_once()
+    assert r.sets["kis:provider-slots:mylab:llm"] == {gehalten: uhr["t"]}
+    provider_slots.release("mylab:llm", gehalten)
+
+
+def test_der_platz_eines_toten_prozesses_wird_nach_kurzer_zeit_frei(uhr, monkeypatch):
+    r = _RangRedis()
+    monkeypatch.setattr(provider_slots, "_redis", lambda: r)
+    monkeypatch.setattr(provider_slots, "_start_refresher", lambda: None)
+    r.zadd("kis:provider-slots:mylab:llm", {"tot": uhr["t"]})
+    uhr["t"] += provider_slots.HELD_STALE_SECONDS + 1
+    assert provider_slots.claim_ranked("mylab:llm", limit=1, wait_seconds=0, rank=0,
+                                       stale_seconds=provider_slots.HELD_STALE_SECONDS)

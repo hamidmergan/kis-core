@@ -1782,7 +1782,13 @@
         "temperature": "Temperatur",
         "samplingAuto": "auto",
         "samplingHelp": "Leer lassen heißt: Der Anbieter nimmt seinen eigenen Wert. Temperatur steuert, wie frei das Modell formuliert. 0 bleibt streng am Text, 1 formuliert locker. top_p begrenzt, aus wie vielen Wortvarianten das Modell wählt. 0,9 streicht die unwahrscheinlichen Wörter weg. Im Normalfall nur eins von beiden setzen.",
-        "samplingToggle": "Feinjustierung"
+        "samplingToggle": "Feinjustierung",
+        "firstChoice": "Erste Wahl",
+        "fallback": "Rückfall",
+        "noFallback": "Kein Rückfall",
+        "providerUnusable": "{name} (nicht nutzbar)",
+        "fallbackHelp": "Antwortet die erste Wahl nicht oder weist den Aufruf ab, geht derselbe Aufruf an den Rückfall. Infrage kommen nur Anbieter mit OpenAI-kompatibler Schnittstelle und eingetragenem Modell. Bei Embeddings nur dasselbe Modell wie bei der ersten Wahl.",
+        "fallbackHelpModel": "Das Modell eines Anbieters trägst du ein, während er die erste Wahl ist. Es bleibt gespeichert, wenn du wechselst."
       },
       "delete": {
         "title": "Anbieter „{name}\" löschen?",
@@ -1817,7 +1823,18 @@
         "deeplFreeDetected": "DeepL-Free-Key erkannt (Suffix :fx) → api-free.deepl.com.",
         "deeplProDetected": "DeepL-Pro-Key erkannt → api.deepl.com.",
         "deeplFreeOnProUrl": "DeepL-Free-Key (Suffix :fx) erkannt, Base-URL zeigt aber auf den Pro-Endpoint. KIS leitet automatisch auf api-free.deepl.com um.",
-        "deeplProOnFreeUrl": "DeepL-Pro-Key erkannt, Base-URL zeigt aber auf den Free-Endpoint. KIS leitet automatisch auf api.deepl.com um."
+        "deeplProOnFreeUrl": "DeepL-Pro-Key erkannt, Base-URL zeigt aber auf den Free-Endpoint. KIS leitet automatisch auf api.deepl.com um.",
+        "fieldConcurrency": "Gleichzeitige Aufrufe",
+        "concurrencyHint": "So viele Aufrufe schickt KIS gleichzeitig an diesen Anbieter. Leer heißt ohne Grenze. Der Chat mit dem KI-Assistenten Francis zählt nicht mit, Bildanalyse zählt beim LLM mit.",
+        "concurrencyNoLimit": "ohne Grenze",
+        "concurrencyBucket": {
+          "llm": "LLM",
+          "stt": "Spracherkennung",
+          "tts": "Stimmen",
+          "image": "Bilder",
+          "embedding": "Einbettungen",
+          "ocr": "Texterkennung"
+        }
       },
       "voices": {
         "label": "Stimmen",

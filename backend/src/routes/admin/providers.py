@@ -10,9 +10,11 @@ from loguru import logger
 
 from src import database as db
 from src.features.ai_providers.repository.feature_routes import (
+    FALLBACK_FEATURES,
     FEATURES,
     USER_CHOICE_FEATURES,
 )
+from src.features.ai_providers.repository.providers import CONCURRENCY_BUCKETS
 from src.i18n import get_locale, t
 from src.routes.admin._models import (
     CreateProviderRequest,
@@ -62,7 +64,39 @@ def get_provider_meta(_admin=Depends(_require)):
         "features": list(FEATURES),
         "user_choice_features": sorted(USER_CHOICE_FEATURES),
         "api_key_encryption_enabled": is_export_key_configured(),
+        "concurrency_buckets": list(CONCURRENCY_BUCKETS),
+        "fallback_features": list(FALLBACK_FEATURES),
     }
+
+
+# Bounds of one cap, the upper one only catches typing mistakes.
+_CONCURRENCY_MIN = 1
+_CONCURRENCY_MAX = 1000
+
+
+def _concurrency_problem(raw: dict) -> tuple[str, dict] | None:
+    """Returns the message key and its parameters for the first invalid cap, or None."""
+    unknown = sorted(str(k) for k in raw if k not in CONCURRENCY_BUCKETS)
+    if unknown:
+        return "admin.providers.concurrencyUnknownBucket", {"items": ", ".join(unknown)}
+    for bucket, value in raw.items():
+        if (value is not None and (isinstance(value, bool) or not isinstance(value, int)
+                                   or not _CONCURRENCY_MIN <= value <= _CONCURRENCY_MAX)):
+            return "admin.providers.concurrencyOutOfRange", {
+                "bucket": bucket, "min": _CONCURRENCY_MIN, "max": _CONCURRENCY_MAX,
+            }
+    return None
+
+
+def _check_concurrency(raw: dict | None, locale: str) -> dict | None:
+    """Validates the caps of a provider, an empty value means no cap for that bucket."""
+    if raw is None:
+        return None
+    problem = _concurrency_problem(raw)
+    if problem:
+        key, params = problem
+        raise HTTPException(422, t(key, locale, **params))
+    return {bucket: value for bucket, value in raw.items() if value is not None}
 
 
 # ─── Providers CRUD ────────────────────────────────────────────────────────
@@ -89,6 +123,7 @@ def create_provider(
         raise HTTPException(400, t("admin.providers.unknownProtocol", locale, protocol=body.protocol))
     if db.get_provider_by_name(name) is not None:
         raise HTTPException(409, t("admin.providers.nameTaken", locale, name=name))
+    concurrency = _check_concurrency(body.concurrency, locale) or {}
 
     # Where the first capability list comes from: protocol, admin choice or probe.
     fixed = fixed_capabilities(body.protocol) or ()
@@ -110,6 +145,7 @@ def create_provider(
         capabilities=initial_caps,
         voices=[v.model_dump() for v in body.voices],
         enabled=body.enabled,
+        concurrency=concurrency,
     )
 
     # Auto-probe synchronously so the response already carries probe results.
@@ -180,6 +216,8 @@ def update_provider(
         updates["voices"] = [v.model_dump() for v in body.voices]
     if body.enabled is not None:
         updates["enabled"] = body.enabled
+    if body.concurrency is not None:
+        updates["concurrency"] = _check_concurrency(body.concurrency, locale)
 
     row = db.update_provider(provider_id, **updates)
 
@@ -392,6 +430,54 @@ def _pruefe_sampling(feature: str, roh: dict | None, locale: str) -> dict | None
     return sauber
 
 
+# The capability a fallback provider needs per feature, translating goes through chat.
+_FALLBACK_CAPABILITY = {
+    "chat": "chat",
+    "doc_translate": "chat",
+    "transcript_translate": "chat",
+    "embedding": "embedding",
+    "vision": "vision",
+    "ocr": "ocr",
+    "stt": "stt",
+    "image_gen": "image_gen",
+    "image_edit": "image_edit",
+}
+
+
+def _check_fallback(feature: str, body: SetFeatureRouteRequest, locale: str) -> int | None:
+    """Validates the fallback provider of a route, a route without a first choice has none."""
+    fallback_id = body.fallback_provider_id
+    if fallback_id is None or body.provider_id is None:
+        return None
+    if feature not in FALLBACK_FEATURES:
+        raise HTTPException(422, t("admin.providers.fallbackNotSupported", locale,
+                                   feature=feature))
+    if fallback_id == body.provider_id:
+        raise HTTPException(422, t("admin.providers.fallbackSameAsPrimary", locale))
+    provider = db.get_provider(fallback_id)
+    if provider is None:
+        raise HTTPException(422, t("admin.providers.fallbackUnknownProvider", locale,
+                                   provider_id=fallback_id))
+    if not provider.get("enabled"):
+        raise HTTPException(422, t("admin.providers.fallbackDisabled", locale))
+    if provider.get("protocol") != "openai_compat":
+        raise HTTPException(422, t("admin.providers.fallbackProtocol", locale))
+    capability = _FALLBACK_CAPABILITY[feature]
+    if capability not in (provider.get("capabilities") or []):
+        raise HTTPException(422, t("admin.providers.fallbackCapability", locale,
+                                   capability=capability))
+    models = body.provider_models or {}
+    model = (models.get(str(fallback_id)) or "").strip()
+    if not model:
+        raise HTTPException(422, t("admin.providers.fallbackNoModel", locale))
+    if feature == "embedding":
+        primary = (models.get(str(body.provider_id)) or body.model_name or "").strip()
+        if model != primary:
+            raise HTTPException(422, t("admin.providers.fallbackEmbeddingModel", locale,
+                                       model=primary))
+    return fallback_id
+
+
 @router.patch("/feature-routes/{feature}")
 def set_feature_route(
     feature: str,
@@ -419,6 +505,7 @@ def set_feature_route(
                 )
 
     sampling = _pruefe_sampling(feature, body.provider_sampling, locale)
+    fallback_id = _check_fallback(feature, body, locale)
 
     row = db.set_route(
         feature,
@@ -427,6 +514,7 @@ def set_feature_route(
         user_choices=body.user_choices,
         provider_models=body.provider_models,
         provider_sampling=sampling,
+        fallback_provider_id=fallback_id,
     )
 
     # Changing the embedding route invalidates the stored fingerprint.
@@ -488,6 +576,7 @@ def build_export(*, exported_from: str | None) -> dict:
             "capabilities": list(p.get("capabilities") or []),
             "voices": list(p.get("voices") or []),
             "enabled": bool(p.get("enabled", True)),
+            "concurrency": dict(p.get("concurrency") or {}),
         }
         raw_key = p.get("api_key")
         if encrypt_keys and raw_key:
@@ -523,6 +612,7 @@ def build_export(*, exported_from: str | None) -> dict:
             "user_choices": user_choice_names,
             "provider_models": provider_models_named,
             "provider_sampling": provider_sampling_named,
+            "fallback_provider_name": id_to_name.get(r.get("fallback_provider_id")),
         })
 
     return {
@@ -570,6 +660,12 @@ def validate_import_config(cfg: dict) -> None:
                 bad_caps.add(cap)
     if bad_caps:
         raise HTTPException(400, f"Unknown capabilities: {sorted(bad_caps)}")
+
+    for p in cfg.get("providers", []):
+        problem = _concurrency_problem(p.get("concurrency") or {})
+        if problem:
+            raise HTTPException(400, f"Invalid concurrency of provider {p.get('name')!r}: "
+                                     f"{t(problem[0], 'en', **problem[1])}")
 
     bad_features = sorted({
         r["feature"] for r in cfg.get("feature_routes", [])
@@ -682,12 +778,16 @@ def perform_import(cfg: dict) -> dict:
             if is_envelope(envelope)
             else None
         )
+        concurrency = p.get("concurrency")
+        if concurrency is not None:
+            concurrency = {k: v for k, v in concurrency.items() if v is not None}
         if existing is None:
             row = db.create_provider(
                 name=p["name"], protocol=p["protocol"],
                 base_url=p["base_url"], api_key=recovered_key,
                 capabilities=capabilities, voices=voices,
                 enabled=bool(p.get("enabled", True)),
+                concurrency=concurrency or {},
             )
             providers_created += 1
         else:
@@ -699,6 +799,9 @@ def perform_import(cfg: dict) -> dict:
             }
             if recovered_key and not existing.get("api_key"):
                 update_kwargs["api_key"] = recovered_key
+            # An export from before the caps leaves the existing caps alone.
+            if concurrency is not None:
+                update_kwargs["concurrency"] = concurrency
             row = db.update_provider(existing["id"], **update_kwargs)
             providers_updated += 1
         # Re-probe so probe_status reflects current reachability.
@@ -733,6 +836,10 @@ def perform_import(cfg: dict) -> dict:
         for n, werte in (r.get("provider_sampling") or {}).items():
             if n in name_to_id and isinstance(werte, dict):
                 provider_sampling[str(name_to_id[n])] = werte
+        # The fallback is mapped like the provider, an unknown name or the first choice drops it.
+        fallback_id = name_to_id.get(r.get("fallback_provider_name"))
+        if fallback_id == pid:
+            fallback_id = None
 
         db.set_route(
             r["feature"],
@@ -741,6 +848,7 @@ def perform_import(cfg: dict) -> dict:
             user_choices=user_choice_ids,
             provider_models=provider_models,
             provider_sampling=provider_sampling,
+            fallback_provider_id=fallback_id,
         )
         if r["feature"] in existing_routes:
             routes_updated += 1

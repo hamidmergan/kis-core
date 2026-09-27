@@ -18,7 +18,7 @@ def test_get_llm_client_explicit_uses_service(monkeypatch):
 
     monkeypatch.setattr("src.services.feature_provider_choices.resolve_binding", fake_resolve_binding)
     monkeypatch.setattr(
-        "src.dependencies._resolve_llm_provider",
+        "src.dependencies._resolve_llm_binding",
         lambda: (_ for _ in ()).throw(AssertionError("default path used")),
     )
 
@@ -28,11 +28,13 @@ def test_get_llm_client_explicit_uses_service(monkeypatch):
 
 
 def test_get_llm_client_default_uses_route(monkeypatch):
+    from src.services.feature_router import FeatureBinding
     from src.tasks import general_tasks
 
     monkeypatch.setattr(
-        "src.dependencies._resolve_llm_provider",
-        lambda: ("k", "http://llm.example.com", "qwen3-30b", "Anbieter A"),
+        "src.dependencies._resolve_llm_binding",
+        lambda: FeatureBinding(feature="chat", model="qwen3-30b",
+                               provider={"base_url": "http://llm.example.com", "name": "Anbieter A", "api_key": "k"}),
     )
     monkeypatch.setattr(
         "src.services.feature_provider_choices.resolve_binding",

@@ -97,7 +97,10 @@ async def chat(
     locale: str = Depends(get_locale),
 ):
     import time as _time
+    from src.services import provider_transport
     _trace_llm(llm, "aia-chat")
+    # A person waits for this answer live, so none of its calls waits for a provider seat.
+    provider_transport.exempt_this_request()
     user_id = current_user["user_id"]
     logger.info("Chat: request received user={} workspace={}", user_id, workspace_uuid[:8])
     # Caught here because the stream only runs after leaving this function.
@@ -394,6 +397,8 @@ async def chat(
         umform_pages=_umform_seiten, popup_entry=popup_entry)
 
     async def _stream() -> AsyncGenerator[str, None]:
+        # The stream runs in its own task, the mark from the route has to be set there too.
+        provider_transport.exempt_this_request()
         # Status is set to error or cancelled, otherwise it stays ok.
         _log_status = "ok"
         stream = None
@@ -448,9 +453,7 @@ async def chat(
                     **(llm_client._extra_body and {"extra_body": llm_client._extra_body} or {}),
                 )
 
-            # Fallback chain for a hard provider error before any token went out: the
-            # admin default first (already `llm`), then same-capability providers in
-            # DB order. Building clients is cheap (no network), so this always runs.
+            # The provider door in the client already falls back, the chain holds only the client itself.
             _chat_clients = _chat_failover.build_client_chain(llm)
 
             try:

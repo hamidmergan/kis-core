@@ -10,6 +10,7 @@ import psycopg2.pool
 _TZ_BERLIN = ZoneInfo("Europe/Berlin")
 _REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
 from src.core.db.pool import get_connection
+from src.limits import IMAGE_PROVIDER_MAX_CONCURRENT, TTS_PROVIDER_MAX_CONCURRENT
 
 
 # Wait time for a table lock, otherwise a restart deadlocks with running workers.
@@ -86,6 +87,33 @@ def _reset_language_training_once(cur) -> bool:
         """INSERT INTO settings (key, value) VALUES (%s, 'true')
            ON CONFLICT (key) DO UPDATE SET value = 'true'""",
         (_LANGUAGE_TRAINING_RESET_KEY,),
+    )
+    return True
+
+
+def _add_provider_concurrency_once(cur) -> bool:
+    """Adds providers.concurrency, seeding the measured caps only when the column is new."""
+    cur.execute(
+        """SELECT 1 FROM information_schema.columns
+           WHERE table_schema = current_schema()
+             AND table_name = 'providers'
+             AND column_name = 'concurrency'"""
+    )
+    if cur.fetchone():
+        return False
+    cur.execute(
+        "ALTER TABLE providers "
+        "ADD COLUMN IF NOT EXISTS concurrency JSONB NOT NULL DEFAULT '{}'::jsonb"
+    )
+    cur.execute(
+        """UPDATE providers SET concurrency = concurrency || jsonb_build_object('tts', %s::int)
+           WHERE capabilities ? 'tts'""",
+        (TTS_PROVIDER_MAX_CONCURRENT,),
+    )
+    cur.execute(
+        """UPDATE providers SET concurrency = concurrency || jsonb_build_object('image', %s::int)
+           WHERE capabilities ?| array['image_gen', 'image_edit']""",
+        (IMAGE_PROVIDER_MAX_CONCURRENT,),
     )
     return True
 
@@ -1661,6 +1689,8 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                 ALTER TABLE providers
                 ADD COLUMN IF NOT EXISTS voices JSONB NOT NULL DEFAULT '[]'::jsonb
             """)
+            # Requests at once per provider and bucket, a missing key means no cap.
+            _add_provider_concurrency_once(cur)
 
             # One row per feature with the chosen provider and model.
             cur.execute("""
@@ -1683,6 +1713,12 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             cur.execute("""
                 ALTER TABLE feature_routes
                 ADD COLUMN IF NOT EXISTS provider_sampling JSONB NOT NULL DEFAULT '{}'::jsonb
+            """)
+            # Takes over when the first choice fails, its model sits in provider_models.
+            cur.execute("""
+                ALTER TABLE feature_routes
+                ADD COLUMN IF NOT EXISTS fallback_provider_id INTEGER
+                    REFERENCES providers(id) ON DELETE SET NULL
             """)
             # The screencast_translate route is gone, the screencast reads doc_translate.
             cur.execute("DELETE FROM feature_routes WHERE feature = 'screencast_translate'")

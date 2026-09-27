@@ -54,11 +54,11 @@ class OpenAICompatEmbeddingProvider(EmbeddingProvider):
     """Einbettungs-Client fuer jeden OpenAI-vertraeglichen Endpunkt."""
 
     def __init__(self, base_url: str, api_key: str, model: str, *,
-                 timeout: float = 60.0, retry_on_timeout: bool = True) -> None:
+                 timeout: float = 60.0, retry_on_timeout: bool = True, http_client=None) -> None:
         from langfuse.openai import OpenAI
         # Generous timeout for cold starts, the retry rule lives in embed.
         self._client = OpenAI(api_key=api_key, base_url=base_url,
-                              timeout=timeout, max_retries=0)
+                              timeout=timeout, max_retries=0, http_client=http_client)
         self._model = model
         self._key = (base_url, model)
         self._retry_on_timeout = retry_on_timeout
@@ -138,12 +138,14 @@ def _provider_from_binding(binding, *, timeout: float, retry_on_timeout: bool) -
     base_url = provider["base_url"].rstrip("/")
     if not base_url.endswith("/v1"):
         base_url = f"{base_url}/v1"
+    from src.services import provider_transport
     return OpenAICompatEmbeddingProvider(
         base_url=base_url,
         api_key=provider.get("api_key") or "not-needed",
         model=binding.model or "",
         timeout=timeout,
         retry_on_timeout=retry_on_timeout,
+        http_client=provider_transport.sdk_http_client(binding),
     )
 
 

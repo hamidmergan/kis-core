@@ -4,7 +4,6 @@ import base64
 import json
 from io import BytesIO
 from pathlib import Path
-from urllib.parse import urlparse
 
 from loguru import logger
 from PIL import Image as PILImage
@@ -12,8 +11,6 @@ from PIL import Image as PILImage
 from src.celery_app import celery_app
 from src import database as db
 from src.i18n import t
-from src.limits import IMAGE_PROVIDER_MAX_CONCURRENT, IMAGE_SLOT_WAIT_SECONDS
-from src.services import provider_slots
 from src.storage import delete_file, get_file, open_input_file, save_result_file, save_result_and_evict
 from src.utils.heartbeat import job_heartbeat
 from src.dependencies import get_translate_client_for_provider
@@ -45,11 +42,14 @@ def _get_llm_client(provider_id: int | None = None):
         from src.services import feature_provider_choices, feature_router
         binding = feature_provider_choices.resolve_binding("chat", provider_id)
         return feature_router.make_llm_client(binding)
-    from src.dependencies import _resolve_llm_provider
-    api_key, base_url, model, provider = _resolve_llm_provider()
+    from src.dependencies import _binding_tuple, _resolve_llm_binding
+    from src.services import provider_transport
+    binding = _resolve_llm_binding()
+    api_key, base_url, model, provider = _binding_tuple(binding)
     if not api_key:
         raise RuntimeError("Kein LLM-Provider konfiguriert")
-    return OpenAICompatLLMClient(api_key=api_key, base_url=base_url, model=model, whisper_model=model, provider=provider)
+    return OpenAICompatLLMClient(api_key=api_key, base_url=base_url, model=model, whisper_model=model,
+                                 provider=provider, **provider_transport.sdk_clients(binding))
 
 
 def _image_http_client(
@@ -81,7 +81,10 @@ def _image_http_client(
     if extra_headers:
         headers.update(extra_headers)
 
-    return base, (binding.model or ""), httpx.Client(headers=headers, timeout=timeout)
+    from src.services import provider_transport
+    # The door takes the seat for every picture and falls back when the first choice does not answer.
+    return base, (binding.model or ""), httpx.Client(
+        headers=headers, timeout=timeout, transport=provider_transport.transport_for(binding))
 
 
 from src.tasks._errors import handle_task_exception as _handle_task_exception
@@ -157,6 +160,16 @@ def run_translate(
         logger.info("Translate task {} completed: {}", job_uuid, translated_filename)
 
     except Exception as e:
+        # A full or unreachable provider re-queues like the transcription, a real error fails.
+        from src.services.upstream_errors import is_upstream_busy
+
+        if is_upstream_busy(e) and self.request.retries < 5:
+            countdown = min(30 * (2 ** self.request.retries), 120)  # 30s, 1m, 2m, 2m, 2m
+            logger.warning(
+                "Translate job {} found the provider busy (attempt {}/{}), retrying in {}s: {}",
+                job_uuid, self.request.retries + 1, 5, countdown, e,
+            )
+            raise self.retry(exc=e, countdown=countdown, max_retries=5)
         _handle_task_exception(job_uuid, e, task_label="Translate")
         raise
 
@@ -234,12 +247,6 @@ def run_transcribe(
 
 # -- Image: generate ----------------------------------------------------------
 
-def image_seat(base_url: str):
-    """One seat at the image provider for one picture, shared by every tool that draws."""
-    return provider_slots.slot(f"{urlparse(base_url).netloc or base_url}/images",
-                               limit=IMAGE_PROVIDER_MAX_CONCURRENT, wait_seconds=IMAGE_SLOT_WAIT_SECONDS)
-
-
 @celery_app.task(bind=True, name="general.image_generate", queue="general")
 def run_image_generate(
     self,
@@ -264,7 +271,7 @@ def run_image_generate(
             "response_format": "b64_json",
         }
 
-        with job_heartbeat(job_uuid), client, image_seat(base_url):
+        with job_heartbeat(job_uuid), client:
             response = client.post(f"{base_url}/images/generations", json=body)
 
         if response.status_code != 200:

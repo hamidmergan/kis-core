@@ -479,6 +479,46 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Kein Anbieter für diese Funktion ausgewählt.",
         "en": "No provider selected for this feature.",
     },
+    "admin.providers.concurrencyUnknownBucket": {
+        "de": "Unbekanntes Feld für Obergrenzen: {items}",
+        "en": "Unknown concurrency field: {items}",
+    },
+    "admin.providers.concurrencyOutOfRange": {
+        "de": "Die Obergrenze für {bucket} muss eine ganze Zahl zwischen {min} und {max} sein.",
+        "en": "The concurrency limit for {bucket} must be a whole number between {min} and {max}.",
+    },
+    "admin.providers.fallbackNotSupported": {
+        "de": "Für {feature} gibt es keinen Rückfall.",
+        "en": "Feature {feature} does not support a fallback.",
+    },
+    "admin.providers.fallbackSameAsPrimary": {
+        "de": "Der Rückfall muss ein anderer Anbieter sein als die erste Wahl.",
+        "en": "The fallback must be a different provider than the first choice.",
+    },
+    "admin.providers.fallbackUnknownProvider": {
+        "de": "Anbieter {provider_id} für den Rückfall existiert nicht.",
+        "en": "Fallback provider {provider_id} does not exist.",
+    },
+    "admin.providers.fallbackDisabled": {
+        "de": "Der Anbieter für den Rückfall ist ausgeschaltet.",
+        "en": "The fallback provider is disabled.",
+    },
+    "admin.providers.fallbackProtocol": {
+        "de": "Als Rückfall kommt nur ein OpenAI-kompatibler Anbieter in Frage.",
+        "en": "Only an OpenAI compatible provider can be a fallback.",
+    },
+    "admin.providers.fallbackCapability": {
+        "de": "Der Anbieter für den Rückfall bietet {capability} nicht an.",
+        "en": "The fallback provider does not offer {capability}.",
+    },
+    "admin.providers.fallbackNoModel": {
+        "de": "Für den Rückfall fehlt das Modell.",
+        "en": "The fallback needs a model.",
+    },
+    "admin.providers.fallbackEmbeddingModel": {
+        "de": "Beim Embedding muss der Rückfall dasselbe Modell nutzen wie die erste Wahl ({model}).",
+        "en": "For embedding the fallback must use the same model as the first choice ({model}).",
+    },
     # Quota enforcement
     "quota.limitReached": {
         "de": "Limit erreicht für {label}.",

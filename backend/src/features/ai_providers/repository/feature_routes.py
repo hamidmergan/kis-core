@@ -32,6 +32,9 @@ USER_CHOICE_FEATURES: frozenset[str] = frozenset({
     "doc_translate",
 })
 
+# Features that may name a second provider for when the first one fails, every one except tts.
+FALLBACK_FEATURES: tuple[str, ...] = tuple(f for f in FEATURES if f != "tts")
+
 
 def _row_to_dict(row) -> dict:
     d = dict(row)
@@ -48,7 +51,7 @@ def _row_to_dict(row) -> dict:
 
 
 _SELECT = ("id, feature, provider_id, model_name, user_choices, provider_models, "
-           "provider_sampling, updated_at")
+           "provider_sampling, fallback_provider_id, updated_at")
 
 
 def list_routes() -> list[dict]:
@@ -80,6 +83,7 @@ def set_route(
     user_choices: Optional[list[int]] = None,
     provider_models: Optional[dict] = None,
     provider_sampling: Optional[dict] = None,
+    fallback_provider_id: Optional[int] = None,
 ) -> dict:
     """Upsert the row for one feature. Pass None to clear a field."""
     payload_choices = json.dumps(user_choices or [])
@@ -90,33 +94,35 @@ def set_route(
             cur.execute(
                 f"""INSERT INTO feature_routes
                        (feature, provider_id, model_name, user_choices, provider_models,
-                        provider_sampling)
-                   VALUES (%s, %s, %s, %s::jsonb, %s::jsonb, %s::jsonb)
+                        provider_sampling, fallback_provider_id)
+                   VALUES (%s, %s, %s, %s::jsonb, %s::jsonb, %s::jsonb, %s)
                    ON CONFLICT (feature) DO UPDATE
                        SET provider_id = EXCLUDED.provider_id,
                            model_name = EXCLUDED.model_name,
                            user_choices = EXCLUDED.user_choices,
                            provider_models = EXCLUDED.provider_models,
                            provider_sampling = EXCLUDED.provider_sampling,
+                           fallback_provider_id = EXCLUDED.fallback_provider_id,
                            updated_at = NOW()
                    RETURNING {_SELECT}""",
                 (feature, provider_id, model_name, payload_choices, payload_models,
-                 payload_sampling),
+                 payload_sampling, fallback_provider_id),
             )
             conn.commit()
             return _row_to_dict(cur.fetchone())
 
 
 def routes_using_provider(provider_id: int) -> list[dict]:
-    """Routes that use this provider or offer it as a choice."""
+    """Routes that use this provider, offer it as a choice or fall back to it."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
                 f"""SELECT {_SELECT}
                    FROM feature_routes
                    WHERE provider_id = %s
+                      OR fallback_provider_id = %s
                       OR user_choices @> %s::jsonb""",
-                (provider_id, json.dumps([provider_id])),
+                (provider_id, provider_id, json.dumps([provider_id])),
             )
             return [_row_to_dict(r) for r in cur.fetchall()]
 
@@ -133,6 +139,14 @@ def clear_provider_from_routes(provider_id: int) -> int:
                 (provider_id,),
             )
             cleared = cur.rowcount
+            # A route that fell back to the deleted provider now has no fallback.
+            cur.execute(
+                """UPDATE feature_routes
+                   SET fallback_provider_id = NULL, updated_at = NOW()
+                   WHERE fallback_provider_id = %s""",
+                (provider_id,),
+            )
+            cleared += cur.rowcount
             # Strip the deleted id from each user_choices array.
             cur.execute(
                 """UPDATE feature_routes

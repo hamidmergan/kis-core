@@ -94,6 +94,8 @@ def test_get_translate_client_returns_none_for_disabled_provider(monkeypatch):
 def test_get_translate_client_returns_none_when_no_providers_available(monkeypatch):
     from src.dependencies import get_translate_client_for_provider
     monkeypatch.setattr("src.dependencies.db.list_providers_with_capability", lambda cap: [])
+    # Without a route there is no first choice either, so nothing is left to translate with.
+    monkeypatch.setattr("src.dependencies.db.get_route", lambda f: None)
     client, glossary = get_translate_client_for_provider(None)
     assert client is None
 

@@ -1782,7 +1782,13 @@
         "temperature": "Temperature",
         "samplingAuto": "auto",
         "samplingHelp": "Leave empty and the provider uses its own value. Temperature controls how freely the model writes. 0 stays close to the text, 1 is loose. top_p limits how many word candidates the model picks from. 0.9 drops the unlikely ones. As a rule, set only one of the two.",
-        "samplingToggle": "Fine tuning"
+        "samplingToggle": "Fine tuning",
+        "firstChoice": "First choice",
+        "fallback": "Fallback",
+        "noFallback": "No fallback",
+        "providerUnusable": "{name} (not usable)",
+        "fallbackHelp": "If the first choice does not answer or rejects the call, the same call goes to the fallback. Only providers with an OpenAI compatible interface and an entered model qualify. For embeddings only the same model as the first choice.",
+        "fallbackHelpModel": "You enter a provider's model while it is the first choice. It stays saved when you switch."
       },
       "delete": {
         "title": "Delete provider \"{name}\"?",
@@ -1817,7 +1823,18 @@
         "deeplFreeDetected": "DeepL Free key detected (suffix :fx) → api-free.deepl.com.",
         "deeplProDetected": "DeepL Pro key detected → api.deepl.com.",
         "deeplFreeOnProUrl": "DeepL Free key (suffix :fx) detected, but the base URL points to the Pro endpoint. KIS will auto-route to api-free.deepl.com.",
-        "deeplProOnFreeUrl": "DeepL Pro key detected, but the base URL points to the Free endpoint. KIS will auto-route to api.deepl.com."
+        "deeplProOnFreeUrl": "DeepL Pro key detected, but the base URL points to the Free endpoint. KIS will auto-route to api.deepl.com.",
+        "fieldConcurrency": "Simultaneous calls",
+        "concurrencyHint": "How many calls KIS sends to this provider at the same time. Empty means no limit. The chat with the AI assistant Francis does not count, image analysis counts with the LLM.",
+        "concurrencyNoLimit": "no limit",
+        "concurrencyBucket": {
+          "llm": "LLM",
+          "stt": "Speech recognition",
+          "tts": "Voices",
+          "image": "Images",
+          "embedding": "Embeddings",
+          "ocr": "Text recognition"
+        }
       },
       "voices": {
         "label": "Voices",

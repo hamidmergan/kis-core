@@ -4,7 +4,7 @@ import os
 from celery import Celery, Task
 from celery.schedules import crontab
 from celery.signals import (
-    task_failure, task_revoked, worker_before_create_process, worker_process_init, worker_ready,
+    task_failure, task_prerun, task_revoked, worker_before_create_process, worker_process_init, worker_ready,
 )
 from loguru import logger
 
@@ -178,6 +178,15 @@ def on_worker_process_init(**kwargs):
     """Every forked pool process opens its own database lines instead of sharing the parent's."""
     from src.core.db.pool import reset_after_fork
     reset_after_fork()
+
+
+@task_prerun.connect
+def on_task_prerun(task=None, **kwargs):
+    """Queues every provider call of this job at the door by its lane, so quick services go first."""
+    from src.services import provider_transport
+
+    info = getattr(getattr(task, "request", None), "delivery_info", None) or {}
+    provider_transport.set_seat_rank(provider_transport.seat_rank_for(info.get("routing_key"), info.get("priority")))
 
 
 @worker_ready.connect

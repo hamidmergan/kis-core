@@ -84,10 +84,14 @@ def _binding_tuple(binding: feature_router.FeatureBinding) -> tuple[str, str, st
     )
 
 
+def _resolve_llm_binding() -> feature_router.FeatureBinding:
+    """Resolves the active chat binding, raises FeatureNotConfigured without a route."""
+    return feature_router.resolve("chat")
+
+
 def _resolve_llm_provider() -> tuple[str, str, str, str]:
     """Resolves the active chat model, raises FeatureNotConfigured without a route."""
-    binding = feature_router.resolve("chat")
-    return _binding_tuple(binding)
+    return _binding_tuple(_resolve_llm_binding())
 
 
 def resolve_whisper_client(provider_id: Optional[int] = None) -> OpenAICompatLLMClient:
@@ -101,17 +105,21 @@ def resolve_whisper_client(provider_id: Optional[int] = None) -> OpenAICompatLLM
 
 
 def get_llm_client(locale: str = Depends(get_locale)) -> OpenAICompatLLMClient:
+    from src.services import provider_transport
+
     try:
-        api_key, base_url, model, provider = _resolve_llm_provider()
+        binding = _resolve_llm_binding()
     except RuntimeError as e:
         logger.warning("LLM provider resolution failed: {}", e)
         raise HTTPException(status_code=503, detail=t("llm.notConfigured", locale))
+    api_key, base_url, model, provider = _binding_tuple(binding)
     return OpenAICompatLLMClient(
         api_key=api_key,
         base_url=base_url,
         model=model,
         whisper_model=model,
         provider=provider,
+        **provider_transport.sdk_clients(binding),
     )
 
 
@@ -182,7 +190,8 @@ def get_tts_client_for_provider(provider_id: int):
             "tts route has no model_name — set it in the admin KI panel"
         )
     api_key = provider.get("api_key") or "not-needed"
-    return OpenAICompatTTSClient(provider["base_url"], model=model, api_key=api_key)
+    binding = feature_router.FeatureBinding(feature="tts", provider=provider, model=model)
+    return OpenAICompatTTSClient(provider["base_url"], model=model, api_key=api_key, binding=binding)
 
 
 def _voice_language_for(provider_id: int, voice_id: str) -> str:
@@ -218,6 +227,10 @@ def get_translate_client_for_provider(
     from src.services.glossary import GlossaryService
 
     if provider_id is None:
+        # The admin's first choice for this feature, the first translating provider only without one.
+        route = db.get_route(feature)
+        provider_id = route.get("provider_id") if route else None
+    if provider_id is None:
         providers = get_translation_providers()
         if not providers:
             return None, GlossaryService()
@@ -240,16 +253,19 @@ def get_translate_client_for_provider(
             glossary.set_entries(glossary_entries)
         return DeepLClient(provider.get("api_key") or ""), glossary
     else:
+        from src.services import provider_transport
         from src.services.llm_translation_client import LLMTranslationClient
         base_url = feature_router._ensure_v1(provider["base_url"])
         if glossary_entries:
             glossary.set_entries(glossary_entries)
+        binding = feature_router.FeatureBinding(feature=feature, provider=provider, model=model)
         client = LLMTranslationClient(
             api_key=provider.get("api_key") or "not-needed",
             base_url=base_url,
             model=model,
             provider=provider["name"],
             sampling=sampling,
+            http_client=provider_transport.sdk_http_client(binding),
         )
         return client, glossary
 

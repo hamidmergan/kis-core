@@ -143,20 +143,34 @@ async def test_list_reachable_empty_when_no_models(monkeypatch):
 # ─── fallback_candidates ───────────────────────────────────────────────────
 
 
-def test_fallback_candidates_excludes_primary_keeps_db_order(monkeypatch):
-    providers = [_provider(20, caps=("chat",)), _provider(21, caps=("chat",)), _provider(22, caps=("chat",))]
+def _fallback_db(monkeypatch, providers, route):
+    """Both lookups the fallback needs, route and provider, from the same fake."""
     monkeypatch.setattr(svc.db, "list_providers_with_capability", lambda cap: providers)
-    monkeypatch.setattr(svc.db, "get_route", lambda f: _route(20, "m", {"21": "m", "22": "m"}))
+    monkeypatch.setattr(svc.db, "get_route", lambda f: route)
+    monkeypatch.setattr(svc.db, "get_provider", lambda pid: next((p for p in providers if p["id"] == pid), None))
+
+
+def test_fallback_candidates_is_only_the_admins_fallback(monkeypatch):
+    providers = [_provider(20, caps=("chat",)), _provider(21, caps=("chat",)), _provider(22, caps=("chat",))]
+    _fallback_db(monkeypatch, providers, {**_route(20, "m", {"21": "m", "22": "m"}), "fallback_provider_id": 22})
 
     chain = svc.fallback_candidates("chat")
-    assert [b.provider["id"] for b in chain] == [21, 22]
+    assert [b.provider["id"] for b in chain] == [22]
+
+
+def test_fallback_candidates_without_a_set_fallback_is_empty(monkeypatch):
+    """Other providers with a model no longer stand in by themselves, only the admin decides."""
+    providers = [_provider(20, caps=("chat",)), _provider(21, caps=("chat",))]
+    _fallback_db(monkeypatch, providers, _route(20, "m", {"21": "m"}))
+
+    assert svc.fallback_candidates("chat") == []
 
 
 def test_fallback_candidates_chat_allows_different_model(monkeypatch):
     providers = [_provider(20, caps=("chat",)), _provider(21, caps=("chat",))]
-    monkeypatch.setattr(svc.db, "list_providers_with_capability", lambda cap: providers)
     # 21 has its own model, different from the primary's.
-    monkeypatch.setattr(svc.db, "get_route", lambda f: _route(20, "primary-model", {"21": "other-model"}))
+    _fallback_db(monkeypatch, providers,
+                 {**_route(20, "primary-model", {"21": "other-model"}), "fallback_provider_id": 21})
 
     chain = svc.fallback_candidates("chat")
     assert [b.model for b in chain] == ["other-model"]
@@ -164,19 +178,17 @@ def test_fallback_candidates_chat_allows_different_model(monkeypatch):
 
 def test_fallback_candidates_embedding_skips_different_model(monkeypatch):
     providers = [_provider(20, caps=("embedding",)), _provider(21, caps=("embedding",))]
-    monkeypatch.setattr(svc.db, "list_providers_with_capability", lambda cap: providers)
-    # 21 HAS a model configured (so _candidates already keeps it) but it differs
-    # from the primary's -> fallback_candidates itself must be what filters it out.
-    monkeypatch.setattr(svc.db, "get_route", lambda f: _route(20, "bge-m3", {"21": "different-model"}))
+    # 21 is the set fallback with a model, but it differs from the primary's.
+    _fallback_db(monkeypatch, providers,
+                 {**_route(20, "bge-m3", {"21": "different-model"}), "fallback_provider_id": 21})
 
     assert svc.fallback_candidates("embedding") == []
 
 
 def test_fallback_candidates_embedding_keeps_same_model(monkeypatch):
     providers = [_provider(20, caps=("embedding",)), _provider(21, caps=("embedding",))]
-    monkeypatch.setattr(svc.db, "list_providers_with_capability", lambda cap: providers)
     # Both providers are explicitly configured with the identical model name.
-    monkeypatch.setattr(svc.db, "get_route", lambda f: _route(20, "bge-m3", {"21": "bge-m3"}))
+    _fallback_db(monkeypatch, providers, {**_route(20, "bge-m3", {"21": "bge-m3"}), "fallback_provider_id": 21})
 
     chain = svc.fallback_candidates("embedding")
     assert [(b.provider["id"], b.model) for b in chain] == [(21, "bge-m3")]

@@ -89,16 +89,22 @@ MAX_SCREENCAST_SLIDES          = 50
 # Threads for PDF to PNG and ffmpeg, sized by the machine's cores.
 RENDER_MAX_WORKERS = capacity().render_workers
 
-# Voicings at one provider at once, shared by every tool and worker. Measured 26.09.2026 at
+# Voicings at one provider at once, the value its admin field starts with. Measured 26.09.2026 at
 # myLab: 4 at once gave the most, 8 lost half, 12 lost every single one.
 TTS_PROVIDER_MAX_CONCURRENT = 4
-# How long a voicing waits for a seat before its job goes back in line, below the watchdog.
-TTS_SLOT_WAIT_SECONDS       = 120
 
-# Pictures at one provider at once, myLab measured 26.09.2026 draws one at a time in about 11 s.
+# Pictures at one provider at once, the value its admin field starts with, myLab draws one at a time in about 11 s.
 IMAGE_PROVIDER_MAX_CONCURRENT = 2
-# How long a picture waits for a seat before it goes back in line, below the watchdog.
-IMAGE_SLOT_WAIT_SECONDS       = 120
+
+# How long any call waits for a seat at a provider whose admin field sets a cap, below the watchdog.
+PROVIDER_SEAT_WAIT_SECONDS    = 120
+# From this many characters an LLM call counts as a lot of material, measured 27.09.2026: five of them at
+# once at myLab delivered almost nothing and most ran into our time limits.
+LLM_LARGE_INPUT_CHARS         = 100_000
+# Such calls get at most this share of the LLM seats, a fifth, so 2 of 10.
+LLM_LARGE_INPUT_SHARE         = 5
+# How long a first choice that did not answer is skipped when it names no time of its own.
+PROVIDER_DOWN_SECONDS         = 60
 
 # How many slides are voiced at once per screencast, more than the provider's seats only waits.
 SCREENCAST_TTS_PARALLELISM = TTS_PROVIDER_MAX_CONCURRENT

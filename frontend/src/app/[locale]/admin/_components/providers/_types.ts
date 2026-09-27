@@ -30,6 +30,8 @@ export type ProviderMeta = {
   features: Feature[];
   user_choice_features: Feature[];
   api_key_encryption_enabled: boolean;
+  concurrency_buckets: string[];
+  fallback_features: Feature[];
 };
 
 export type Voice = {
@@ -52,6 +54,8 @@ export type Provider = {
   probe_error: string | null;
   api_key_set: boolean;
   api_key_last_chars: string | null;
+  // Simultaneous calls per bucket, a missing key means no cap.
+  concurrency: Record<string, number>;
   created_at: string;
   updated_at: string;
 };
@@ -90,6 +94,8 @@ export type FeatureRoute = {
   user_choices: number[];
   provider_models: Record<string, string>;
   provider_sampling: Record<string, Sampling>;
+  // Takes the same call when the first choice fails, its model sits in provider_models.
+  fallback_provider_id: number | null;
   updated_at: string;
   limits?: ModelLimits | null;
 };

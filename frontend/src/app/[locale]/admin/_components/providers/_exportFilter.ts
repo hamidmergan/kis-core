@@ -37,6 +37,11 @@ export function filterExportConfig(
           selectedNames.has(name),
         ),
       ),
+      // A fallback whose provider stays behind is dropped, a missing field stays missing.
+      ...(typeof r.fallback_provider_name === "string" &&
+      !selectedNames.has(r.fallback_provider_name)
+        ? { fallback_provider_name: null }
+        : {}),
     }));
   return { ...config, providers, feature_routes };
 }

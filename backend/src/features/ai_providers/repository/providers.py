@@ -11,7 +11,10 @@ from src.services import export_crypto
 
 _SELECT = """SELECT id, name, protocol, base_url, api_key, capabilities,
                     voices, enabled, last_probed_at, probe_status, probe_error,
-                    created_at, updated_at"""
+                    created_at, updated_at, concurrency"""
+
+# The buckets a provider can cap, a missing key in providers.concurrency means no cap.
+CONCURRENCY_BUCKETS: tuple[str, ...] = ("llm", "stt", "tts", "image", "embedding", "ocr")
 
 # A fixed label, not the provider's own name: renaming a provider must not
 # break decrypting its stored key.
@@ -48,6 +51,11 @@ def _row_to_dict(row) -> dict:
             d[jsonb_col] = json.loads(v)
         elif v is None:
             d[jsonb_col] = []
+    v = d.get("concurrency")
+    if isinstance(v, str):
+        d["concurrency"] = json.loads(v)
+    elif v is None:
+        d["concurrency"] = {}
     for ts in ("last_probed_at", "created_at", "updated_at"):
         v = d.get(ts)
         if isinstance(v, datetime):
@@ -100,13 +108,15 @@ def create_provider(
     capabilities: Optional[list[str]] = None,
     voices: Optional[list[dict]] = None,
     enabled: bool = True,
+    concurrency: Optional[dict] = None,
 ) -> dict:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
                 f"""INSERT INTO providers
-                       (name, protocol, base_url, api_key, capabilities, voices, enabled)
-                   VALUES (%s, %s, %s, %s, %s::jsonb, %s::jsonb, %s)
+                       (name, protocol, base_url, api_key, capabilities, voices, enabled,
+                        concurrency)
+                   VALUES (%s, %s, %s, %s, %s::jsonb, %s::jsonb, %s, %s::jsonb)
                    RETURNING {_SELECT.split('SELECT ')[1]}""",
                 (
                     name,
@@ -116,6 +126,7 @@ def create_provider(
                     json.dumps(capabilities or []),
                     json.dumps(voices or []),
                     enabled,
+                    json.dumps(concurrency or {}),
                 ),
             )
             conn.commit()
@@ -123,8 +134,9 @@ def create_provider(
 
 
 def update_provider(provider_id: int, **fields: Any) -> Optional[dict]:
-    """Patch any of name / protocol / base_url / api_key / capabilities / voices / enabled."""
-    allowed = {"name", "protocol", "base_url", "api_key", "capabilities", "voices", "enabled"}
+    """Patch any column listed in allowed, concurrency replaces the whole object."""
+    allowed = {"name", "protocol", "base_url", "api_key", "capabilities", "voices", "enabled",
+               "concurrency"}
     updates = {k: v for k, v in fields.items() if k in allowed}
     if not updates:
         return get_provider(provider_id)
@@ -135,6 +147,9 @@ def update_provider(provider_id: int, **fields: Any) -> Optional[dict]:
         if key in ("capabilities", "voices"):
             sets.append(f"{key} = %s::jsonb")
             values.append(json.dumps(value or []))
+        elif key == "concurrency":
+            sets.append(f"{key} = %s::jsonb")
+            values.append(json.dumps(value or {}))
         elif key == "api_key":
             sets.append(f"{key} = %s")
             values.append(_encrypt_key(value))

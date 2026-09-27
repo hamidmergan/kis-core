@@ -57,11 +57,14 @@ def tool_output_language(workspace_id) -> tuple[str, str]:
 def _get_llm_client():
     """Return (client, model, provider) using the configured LLM provider."""
     from langfuse.openai import OpenAI
-    from src.dependencies import _resolve_llm_provider
-    _api_key, _base_url, _model, _provider = _resolve_llm_provider()
+    from src.dependencies import _binding_tuple, _resolve_llm_binding
+    from src.services import provider_transport
+    binding = _resolve_llm_binding()
+    _api_key, _base_url, _model, _provider = _binding_tuple(binding)
     from src.features.ai_assistant.tasks._retry import RetryingClient
     # max_retries=0 stays, RetryingClient makes the distinction.
-    client = OpenAI(api_key=_api_key, base_url=_base_url, max_retries=0, timeout=120)
+    client = OpenAI(api_key=_api_key, base_url=_base_url, max_retries=0, timeout=120,
+                    http_client=provider_transport.sdk_http_client(binding))
     langfuse_context.update_current_observation(
         metadata={"provider": _provider, "base_url": _base_url, "model": _model},
     )

@@ -57,8 +57,10 @@ def stack(monkeypatch):
     # when build() itself is stubbed below, so a real provider is never actually needed.
     monkeypatch.setattr("src.services.aia_embeddings.get_embedding_provider_with_fallback",
                         lambda: types.SimpleNamespace(embed_one=lambda text: [0.0]))
-    monkeypatch.setattr("src.dependencies._resolve_llm_provider",
-                        lambda: ("k", "http://modell", "m", "p"))
+    from src.services.feature_router import FeatureBinding
+    monkeypatch.setattr("src.dependencies._resolve_llm_binding",
+                        lambda: FeatureBinding(feature="chat", model="m",
+                                               provider={"base_url": "http://modell", "name": "p", "api_key": "k"}))
     monkeypatch.setattr("src.features.ai_assistant.tasks._helpers.learning_tools_language",
                         lambda: ("de", "German"))
     monkeypatch.setattr("src.features.ai_assistant.tasks._titles.resolve_title",
