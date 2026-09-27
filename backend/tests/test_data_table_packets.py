@@ -127,3 +127,25 @@ def test_the_packets_stop_at_the_cap():
 
 def test_without_a_cap_every_part_travels():
     assert len(tp.packets(["a" * 600] * 30, 1000)) == 30
+
+
+_VOLL = "503 service unavailable: provider 21:llm full, waited 120s"
+
+
+def test_a_full_provider_on_every_packet_lets_the_whole_table_wait():
+    """Run 15f: every packet waited 120 s for a seat, the table failed as unparseable JSON instead of waiting."""
+    import pytest
+
+    def ask(text, columns):
+        raise RuntimeError(_VOLL)
+    with pytest.raises(RuntimeError, match="full"):
+        tp.run_packets([["a"], ["b"]], ask)
+
+
+def test_a_full_provider_on_one_packet_costs_only_its_rows():
+    def ask(text, columns):
+        if text == "b":
+            raise RuntimeError(_VOLL)
+        return _table(rows=[{"cells": [text, "x"]}])
+    out = tp.run_packets([["a"], ["b"]], ask)
+    assert [r["cells"][0] for r in out["rows"]] == ["a"]

@@ -1,8 +1,10 @@
 from io import BytesIO
 
 from loguru import logger
+from openai import OpenAIError
 from pptx import Presentation
 
+from src.services.provider_slots import ProviderFull
 from src.services.translation import TranslationService
 from src.utils.pptx_text import (
     flush_diagram_parts,
@@ -73,6 +75,9 @@ def translate_pptx(
         return output.getvalue()
 
     except ValueError:
+        raise
+    except (OpenAIError, ProviderFull):
+        # A busy or unreachable provider is no broken file, the job waits and tries again.
         raise
     except Exception as e:
         logger.exception("Error processing PPTX file")

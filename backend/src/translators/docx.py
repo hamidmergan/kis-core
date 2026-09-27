@@ -2,7 +2,9 @@ from io import BytesIO
 
 from docx import Document
 from loguru import logger
+from openai import OpenAIError
 
+from src.services.provider_slots import ProviderFull
 from src.services.translation import TranslationService
 from src.utils.text import _RunRef, collect_paragraph_runs, translate_refs
 
@@ -50,6 +52,9 @@ def translate_docx(
         return output.getvalue()
 
     except ValueError:
+        raise
+    except (OpenAIError, ProviderFull):
+        # A busy or unreachable provider is no broken file, the job waits and tries again.
         raise
     except Exception as e:
         logger.exception("Error processing DOCX file")

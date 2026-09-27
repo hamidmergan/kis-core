@@ -5,6 +5,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from loguru import logger
 
+from src.services.upstream_errors import is_upstream_busy
+
 
 def packets(parts: list[str], max_chars: int, max_packets: int = 0) -> list[list[str]]:
     """Greedy packets in part order, an oversize part travels alone."""
@@ -54,22 +56,29 @@ def run_packets(packets_: list[list[str]], ask) -> dict | None:
         return None
     texte = ["\n\n---\n\n".join(p) for p in packets_]
 
-    erste = _frage(ask, texte[0], None)
+    voll: list[Exception] = []
+    erste = _frage(ask, texte[0], None, voll)
     spalten = (erste or {}).get("columns")
     rest: list[dict | None] = [None] * (len(texte) - 1)
     if len(texte) > 1:
         with ThreadPoolExecutor(max_workers=_PARALLEL_PACKETS) as pool:
-            futures = {pool.submit(contextvars.copy_context().run, _frage, ask, t, spalten): i
+            futures = {pool.submit(contextvars.copy_context().run, _frage, ask, t, spalten, voll): i
                        for i, t in enumerate(texte[1:])}
             for fut in as_completed(futures):
                 rest[futures[fut]] = fut.result()
-    return merge_tables([erste, *rest])
+    tabelle = merge_tables([erste, *rest])
+    if tabelle is None and voll:
+        # Not one packet came back because the provider was full, so the whole table waits and runs again.
+        raise voll[0]
+    return tabelle
 
 
-def _frage(ask, text: str, columns) -> dict | None:
+def _frage(ask, text: str, columns, voll: list[Exception]) -> dict | None:
     """One packet, a packet the provider cannot answer costs only its own rows."""
     try:
         return ask(text, columns)
     except Exception as e:  # noqa: BLE001 - the other packets go on
         logger.warning("Datentabelle: Paket nicht beantwortet: {}", e)
+        if is_upstream_busy(e):
+            voll.append(e)
         return None
