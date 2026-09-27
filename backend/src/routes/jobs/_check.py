@@ -8,9 +8,12 @@ from src.dependencies import get_current_user
 
 router = APIRouter()
 
+# The forms ask by the name of their page, the job itself carries the tool name.
+_TOOL_OF_GROUP = {"screencast": "screencast_translate"}
+
 @router.get("/check/{tool_group}")
 def check_job_limit(
-    tool_group: str,  # noqa: ARG001 - the limit counts all tools, the path keeps its shape
+    tool_group: str,
     current_user: dict = Depends(get_current_user),
 ):
     """Check if user can start a new job: too many working? Storage limit reached?"""
@@ -20,7 +23,7 @@ def check_job_limit(
     from src.services.tool_limits import results_kept_per_user
 
     # The same rule the start routes apply, so the form never promises too much.
-    has_active = at_limit(user_id)
+    has_active = at_limit(user_id, _TOOL_OF_GROUP.get(tool_group, tool_group))
 
     # cap - 1, because the new job takes a slot itself.
     vorrat = results_kept_per_user()

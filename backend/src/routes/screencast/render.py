@@ -19,6 +19,7 @@ from src.storage import (
     save_result_meta,
 )
 from src.utils.file_validation import SCREENCAST_MAX_CHARS
+from src.services.open_jobs import enforce_open_jobs
 from src.services.tool_limits import max_screencast_slides
 
 from src.routes.screencast._models import PrerenderRequest, RenderRequest
@@ -124,6 +125,8 @@ def screencast_render(
         raise HTTPException(status_code=403, detail=t("job.accessDenied", locale))
     if translate_job["status"] not in ("awaiting_user", "failed", "success", "paused"):
         raise HTTPException(status_code=409, detail=t("screencast.notReadyForRender", locale))
+    # A parked job counts again once it resumes, so resuming obeys the same limit as starting.
+    enforce_open_jobs(user_id, locale, "screencast_translate")
     if not job_file_exists(user_id, body.translate_job_uuid, "translated.pptx"):
         delete_job_folder(user_id, body.translate_job_uuid)
         db.delete_job(body.translate_job_uuid)

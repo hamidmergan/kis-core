@@ -15,6 +15,7 @@ from src.features.praesentation.schemas import LANGUAGES, PraesentationParams
 from src.i18n import get_locale, t
 from src.limits import PRAESENTATION_MAX_SOURCES
 from src.services import feature_provider_choices
+from src.services.open_jobs import create_counted_job, enforce_open_jobs
 from src.tasks.praesentation_tasks import run_praesentation_outline
 
 router = APIRouter(tags=["praesentation"])
@@ -74,6 +75,7 @@ async def start_praesentation(
     einstellungen = _pruefe_params(params, locale)
     if db.has_active_job_for_tool(user_id, ["praesentation"]):
         raise HTTPException(status_code=409, detail=t("praesentation.alreadyRunning", locale))
+    enforce_open_jobs(user_id, locale, "praesentation")
 
     from src.services import sources as quellen, workspace_sources as arbeitsraum
 
@@ -96,7 +98,7 @@ async def start_praesentation(
         einstellungen.template_id = "thl"
 
     job_uuid = uuid.uuid4().hex
-    db.create_job(job_uuid, user_id, "praesentation", label or "Präsentation", locale=locale)
+    create_counted_job(job_uuid, user_id, "praesentation", label or "Präsentation", locale=locale)
     def _ablegen() -> None:
         quellen.save_sources(user_id, job_uuid, gelesen)
         store.save_params(user_id, job_uuid, einstellungen)

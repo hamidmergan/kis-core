@@ -23,7 +23,7 @@ from src.services.screencast import (
 )
 from src.storage import get_job_file, save_job_file, save_job_file_from_path, save_queue_file_from_path
 from src.utils.file_validation import validate_or_raise
-from src.services.open_jobs import enforce_open_jobs
+from src.services.open_jobs import create_counted_job, enforce_open_jobs
 from src.services.tool_limits import (
     max_screencast_slides,
     max_upload_bytes,
@@ -36,7 +36,7 @@ router = APIRouter(tags=["screencast: translate"])
 
 
 def _enforce_queue_and_quota(user_id: int, current_user: dict, locale: str = "de") -> None:
-    enforce_open_jobs(user_id, locale)
+    enforce_open_jobs(user_id, locale, "screencast_translate")
     enforce_tool_burst(user_id, "screencast", locale)
     enforce_quota(user_id, "screencast", is_admin_user(current_user), locale)
 
@@ -73,7 +73,7 @@ async def screencast_translate(
 
         job_uuid = uuid.uuid4().hex
         filename = file.filename or "screencast.pptx"
-        db.create_job(job_uuid, user_id, "screencast_translate", filename, locale=locale)
+        create_counted_job(job_uuid, user_id, "screencast_translate", filename, locale=locale)
         input_path = await asyncio.to_thread(save_queue_file_from_path, user_id, job_uuid, ".pptx", tmp_path)
         db.set_job_input_path(job_uuid, input_path)
 
@@ -169,7 +169,7 @@ async def screencast_upload_corrected(
             user_id = current_user.get("user_id", 0)
             _enforce_queue_and_quota(user_id, current_user, locale)
             translate_job_uuid = uuid.uuid4().hex
-            db.create_job(translate_job_uuid, user_id, "screencast_translate", file.filename or "screencast.pptx", locale=locale)
+            create_counted_job(translate_job_uuid, user_id, "screencast_translate", file.filename or "screencast.pptx", locale=locale)
             await asyncio.to_thread(save_job_file_from_path, user_id, translate_job_uuid, "translated.pptx", str(pptx_path))
             save_job_file(user_id, translate_job_uuid, "scripts.txt", json.dumps(slide_texts, ensure_ascii=False, indent=2).encode("utf-8"))
             db.update_job_status(translate_job_uuid, "awaiting_user")

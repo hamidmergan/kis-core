@@ -14,7 +14,7 @@ from src.limits import MAX_IMAGE_BYTES
 from src.utils.file_validation import validate_or_raise
 from src.quotas import enforce_quota
 from src.security.rate_limit import enforce_tool_burst
-from src.services.open_jobs import enforce_open_jobs
+from src.services.open_jobs import create_counted_job, enforce_open_jobs
 from src.dependencies_rbac import require_tool_access
 
 router = APIRouter(
@@ -58,11 +58,11 @@ def generate_image(
 
     job_uuid = uuid.uuid4().hex
     user_id = current_user.get("user_id", 0)
-    enforce_open_jobs(user_id, locale)
+    enforce_open_jobs(user_id, locale, "image_generate")
     enforce_tool_burst(user_id, "image_generate", locale)
     enforce_quota(user_id, "image_generate", is_admin_user(current_user), locale)
 
-    db.create_job(job_uuid, user_id, "image_generate", prompt[:100], locale=locale)
+    create_counted_job(job_uuid, user_id, "image_generate", prompt[:100], locale=locale)
 
     from src.tasks.general_tasks import run_image_generate
     task = run_image_generate.delay(job_uuid, prompt, size, provider_id)
@@ -99,12 +99,12 @@ async def edit_image(
 
     job_uuid = uuid.uuid4().hex
     user_id = current_user.get("user_id", 0)
-    enforce_open_jobs(user_id, locale)
+    enforce_open_jobs(user_id, locale, "image_edit")
     enforce_tool_burst(user_id, "image_edit", locale)
     enforce_quota(user_id, "image_edit", is_admin_user(current_user), locale)
 
     display_name = f"{image.filename}: {prompt[:80]}"
-    db.create_job(job_uuid, user_id, "image_edit", display_name, locale=locale)
+    create_counted_job(job_uuid, user_id, "image_edit", display_name, locale=locale)
     input_path = await asyncio.to_thread(save_queue_file, user_id, job_uuid, ext, content)
     db.set_job_input_path(job_uuid, input_path)
 
@@ -141,12 +141,12 @@ async def analyze_image(
 
     job_uuid = uuid.uuid4().hex
     user_id = current_user.get("user_id", 0)
-    enforce_open_jobs(user_id, locale)
+    enforce_open_jobs(user_id, locale, "image_analyze")
     enforce_tool_burst(user_id, "image_analyze", locale)
     enforce_quota(user_id, "image_analyze", is_admin_user(current_user), locale)
 
     display_name = f"{image.filename}: {prompt[:80]}" if prompt.strip() else image.filename
-    db.create_job(job_uuid, user_id, "image_analyze", display_name, locale=locale)
+    create_counted_job(job_uuid, user_id, "image_analyze", display_name, locale=locale)
     input_path = await asyncio.to_thread(save_queue_file, user_id, job_uuid, ext, content)
     db.set_job_input_path(job_uuid, input_path)
 

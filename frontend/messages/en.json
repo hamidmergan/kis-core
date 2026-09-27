@@ -787,7 +787,7 @@
         "next": "Next →"
       },
       "upload": {
-        "activeJobsTitle": "You already have 5 jobs in the queue, no further job is possible.",
+        "activeJobsTitle": "You have too many open jobs right now, no further job is possible.",
         "activeJobsBodyPrefix": "Wait until a job finishes or delete one in the ",
         "activeJobsBodyLink": "job list",
         "activeJobsBodySuffix": ".",
@@ -1254,7 +1254,7 @@
         "presenterPlaceholder": "For example: title, first and last name",
         "notesLabel": "Create speaker notes for every slide",
         "notesHint": "The notes end up in PowerPoint's notes view and can be voiced in the screencast.",
-        "activeJob": "You already have 5 jobs in the queue, no further job is possible. Wait until one finishes or delete one in the",
+        "activeJob": "You have too many open jobs right now, no further job is possible. Wait until one finishes or delete one in the",
         "activeJobLink": "job list",
         "next": "Create outline"
       },

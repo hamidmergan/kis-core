@@ -16,6 +16,7 @@ from src.features.praesentation.schemas import (
 from src.i18n import get_locale, t
 from src.limits import PRAESENTATION_MAX_SLIDES, PRAESENTATION_SLIDE_CONTEXT_CHARS
 from src.routes.praesentation._shared import RegenRequest, llm_antwort, nicht_beschaeftigt, own_job, verlauf
+from src.services.open_jobs import enforce_open_jobs
 from src.tasks.podcast_tasks._shared import clear_cancel
 from src.tasks.praesentation_tasks import run_praesentation_build
 
@@ -205,6 +206,8 @@ def regen_image(job_uuid: str, slide_id: str, body: ImageRequest,
                       current_user: dict = Depends(get_current_user), locale: str = Depends(get_locale)):
     """Takes the picture descriptions as edited, then draws them anew in the build task."""
     job, user_id, params, analyse, slides = _stand(job_uuid, current_user, locale)
+    # Rebuilding resumes a parked job, checked before anything is saved so a refusal changes nothing.
+    enforce_open_jobs(user_id, locale, "praesentation")
     stelle = next((i for i, s in enumerate(slides) if s.id == slide_id), -1)
     if stelle < 0:
         raise HTTPException(status_code=404, detail=t("praesentation.rowNotFound", locale))
@@ -240,6 +243,8 @@ def insert_slide(job_uuid: str, body: InsertRequest, current_user: dict = Depend
                        locale: str = Depends(get_locale)):
     """A new row after the named slide, its role chosen from the neighbour, content by the task."""
     job, user_id, params, analyse, slides = _stand(job_uuid, current_user, locale)
+    # Rebuilding resumes a parked job, checked before anything is saved so a refusal changes nothing.
+    enforce_open_jobs(user_id, locale, "praesentation")
     titel = body.title.strip()
     anweisung = body.instruction.strip()
     if not titel and not anweisung:
@@ -292,5 +297,7 @@ def finalize(job_uuid: str, current_user: dict = Depends(get_current_user),
     job, user_id, params, analyse, slides = _stand(job_uuid, current_user, locale)
     if not slides:
         raise HTTPException(status_code=422, detail=t("praesentation.noDeck", locale))
+    # Rebuilding resumes a parked job, checked before anything is saved so a refusal changes nothing.
+    enforce_open_jobs(user_id, locale, "praesentation")
     _bau(job_uuid, user_id, locale, None, final=True)
     return {"job_uuid": job_uuid}

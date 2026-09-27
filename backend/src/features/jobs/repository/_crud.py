@@ -4,6 +4,14 @@ from ._shared import (
     psycopg2, get_connection, _notify_job_update,
 )
 from ._counts import count_job, count_started, messpunkt
+from ._queries import VOICE_TOOLS
+
+# Namespace of the per-person advisory lock, so it never collides with other locks.
+_OPEN_JOBS_LOCK = 7301
+
+
+class TooManyOpenJobs(RuntimeError):
+    """The person already has as many working jobs as the limit allows."""
 
 
 def create_job(
@@ -13,10 +21,24 @@ def create_job(
     original_filename: str,
     input_path: str | None = None,
     locale: str = "de",
+    limit: int | None = None,
 ) -> None:
     # No expiry date, retention is governed by the pool alone (see _retention.py).
     with get_connection() as conn:
         with conn.cursor() as cur:
+            if limit is not None and limit >= 0:
+                # Two tabs of one person wait here for each other, so both cannot count below the limit.
+                cur.execute("SELECT pg_advisory_xact_lock(%s, %s)", (_OPEN_JOBS_LOCK, user_id))
+                # Only jobs of the same kind count, with a voice or without one.
+                cur.execute(
+                    """SELECT COUNT(*) FROM jobs
+                       WHERE user_id = %s AND status IN ('pending', 'running', 'queued', 'waiting_retry')
+                       AND (tool = ANY(%s)) = %s""",
+                    (user_id, sorted(VOICE_TOOLS), tool in VOICE_TOOLS),
+                )
+                if cur.fetchone()[0] >= limit:
+                    conn.rollback()
+                    raise TooManyOpenJobs()
             cur.execute(
                 """
                 INSERT INTO jobs (job_uuid, user_id, tool, original_filename, input_path, creator_locale)

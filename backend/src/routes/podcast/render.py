@@ -9,6 +9,7 @@ from src.features.podcast import store
 from src.i18n import get_locale, t
 from src.quotas import enforce_quota
 from src.routes.podcast._shared import own_job
+from src.services.open_jobs import enforce_open_jobs
 from src.security.rate_limit import enforce_tool_burst
 
 router = APIRouter(tags=["podcast"])
@@ -30,6 +31,8 @@ def start_render(
     if not any(l.text.strip() for l in store.load_lines(user_id, job_uuid)):
         raise HTTPException(status_code=422, detail=t("podcast.emptyScript", locale))
 
+    # A parked job counts again once it resumes, so resuming obeys the same limit as starting.
+    enforce_open_jobs(user_id, locale, "podcast")
     enforce_tool_burst(user_id, "podcast", locale)
     enforce_quota(user_id, "podcast", is_admin_user(current_user), locale)
 

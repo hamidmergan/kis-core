@@ -28,5 +28,5 @@ The settings let you switch on subtitles for the video.
 By far the largest part of the waiting time goes into the narration. With many slides that runs
 accordingly long, but the job keeps running in the background.
 
-At most five jobs sit in the queue at the same time. If there are more, wait or delete one in
-the job list.
+How many jobs a person may have open at the same time is set by the administration. Once the
+limit is reached, wait or delete one in the job list.

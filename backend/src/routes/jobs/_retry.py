@@ -8,6 +8,7 @@ from loguru import logger
 from src import database as db
 from src.dependencies import get_current_user
 from src.i18n import get_locale, t
+from src.services.open_jobs import enforce_open_jobs
 from src.storage import get_job_file, save_job_file
 
 
@@ -48,6 +49,8 @@ def retry_job(
         raise HTTPException(status_code=409, detail=t("job.alreadySuccessful", locale))
     if job["status"] not in ("failed", "paused"):
         raise HTTPException(status_code=409, detail=t("job.alreadyRunning", locale))
+    # A parked job counts again once it resumes, so resuming obeys the same limit as starting.
+    enforce_open_jobs(job["user_id"], locale, job["tool"])
     progress = json.loads(job["progress"] or "{}")
 
     # Load and validate all params BEFORE claiming the job atomically

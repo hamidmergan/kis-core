@@ -787,7 +787,7 @@
         "next": "Weiter →"
       },
       "upload": {
-        "activeJobsTitle": "Du hast bereits 5 Jobs in der Warteschlange, kein weiterer ist möglich.",
+        "activeJobsTitle": "Du hast gerade zu viele Jobs offen, ein weiterer ist nicht möglich.",
         "activeJobsBodyPrefix": "Warte bis ein Job abgeschlossen ist oder lösche einen in der ",
         "activeJobsBodyLink": "Jobliste",
         "activeJobsBodySuffix": ".",
@@ -1254,7 +1254,7 @@
         "presenterPlaceholder": "Zum Beispiel: Titel, Vorname und Nachname",
         "notesLabel": "Sprechernotizen zu jeder Folie erzeugen",
         "notesHint": "Die Notizen landen in der Notizansicht von PowerPoint und lassen sich im Screencast vertonen.",
-        "activeJob": "Du hast bereits 5 Jobs in der Warteschlange, kein weiterer ist möglich. Warte, bis einer fertig ist, oder lösche einen in der",
+        "activeJob": "Du hast gerade zu viele Jobs offen, ein weiterer ist nicht möglich. Warte, bis einer fertig ist, oder lösche einen in der",
         "activeJobLink": "Jobliste",
         "next": "Gliederung erstellen"
       },

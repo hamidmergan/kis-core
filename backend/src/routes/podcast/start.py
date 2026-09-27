@@ -18,7 +18,7 @@ from src.limits import PODCAST_MAX_SOURCES
 from src.quotas import enforce_quota
 from src.services import feature_provider_choices
 from src.services.job_statistik import messe_vorab, notiere
-from src.services.open_jobs import enforce_open_jobs
+from src.services.open_jobs import create_counted_job, enforce_open_jobs
 from src.routes.podcast._shared import pruefe_params
 from src.security.rate_limit import enforce_tool_burst
 from src.services.tool_limits import max_upload_bytes
@@ -44,7 +44,7 @@ def _pruefe_params(roh: str, locale: str) -> PodcastParams:
 
 def _wacht(user_id: int, current_user: dict, locale: str) -> None:
     """A person may have a few podcasts open, not a hundred."""
-    enforce_open_jobs(user_id, locale)
+    enforce_open_jobs(user_id, locale, "podcast")
     enforce_tool_burst(user_id, "podcast", locale)
     enforce_quota(user_id, "podcast", is_admin_user(current_user), locale)
 
@@ -71,7 +71,7 @@ def _leerer_auftrag(user_id: int, einstellungen: PodcastParams,
     einstellungen.glossary = {}
     einstellungen.provider_id = einstellungen.persons[0].provider_id
     einstellungen.source_label = t("podcast.selfWritten", locale)
-    db.create_job(job_uuid, user_id, "podcast", einstellungen.source_label, locale=locale)
+    create_counted_job(job_uuid, user_id, "podcast", einstellungen.source_label, locale=locale)
     notiere(user_id, job_uuid, "material",
             {"herkunft": "blank", "quellen": 0, "zeichen": 0, "anweisung": False})
     store.save_params(user_id, job_uuid, einstellungen)
@@ -146,7 +146,7 @@ async def start_podcast(
     einstellungen.glossary = glossar.sift(einstellungen.glossary, gesamt)
     einstellungen.provider_id = einstellungen.persons[0].provider_id
     anzeige = label or (gesamt[:60].replace("\n", " ") + "…")
-    db.create_job(job_uuid, user_id, "podcast", anzeige, locale=locale)
+    create_counted_job(job_uuid, user_id, "podcast", anzeige, locale=locale)
     def _ablegen() -> None:
         notiere(user_id, job_uuid, "material", zahlen)
         quellen.save_sources(user_id, job_uuid, gelesen)

@@ -63,19 +63,25 @@ def has_active_job_for_tool(user_id: int, tools: list[str]) -> bool:
     return count_active_jobs_for_tool(user_id, tools) > 0
 
 
-def count_working_jobs(user_id: int) -> int:
-    """Jobs across all tools that occupy a worker or are about to.
+# Services that wait on the voice provider count apart, so a voicing never holds up a service without one.
+VOICE_TOOLS = frozenset({"tts", "podcast", "screencast_translate", "screencast_render"})
+
+
+def count_working_jobs(user_id: int, voice: bool | None = None) -> int:
+    """Jobs that occupy a worker or are about to, only those with or without a voice when asked.
 
     A job waiting for the person (``awaiting_user``, ``paused``) lies still and is not counted,
     one that resumes by itself (``waiting_retry``) is.
     """
+    sql = """SELECT COUNT(*) FROM jobs
+               WHERE user_id = %s AND status IN ('pending', 'running', 'queued', 'waiting_retry')"""
+    params: list = [user_id]
+    if voice is not None:
+        sql += " AND (tool = ANY(%s)) = %s"
+        params += [sorted(VOICE_TOOLS), voice]
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute(
-                """SELECT COUNT(*) FROM jobs
-                   WHERE user_id = %s AND status IN ('pending', 'running', 'queued', 'waiting_retry')""",
-                (user_id,),
-            )
+            cur.execute(sql, params)
             row = cur.fetchone()
             return row[0] if row else 0
 

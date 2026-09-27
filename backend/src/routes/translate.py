@@ -19,7 +19,7 @@ from src.i18n import (
 from src.quotas import enforce_quota
 from src.security.rate_limit import enforce_tool_burst
 from src.services.job_lanes import translate_route
-from src.services.open_jobs import enforce_open_jobs
+from src.services.open_jobs import create_counted_job, enforce_open_jobs
 from src.storage import save_queue_file_from_path
 from src.services.tool_limits import max_upload_bytes
 from src.utils.file_validation import (
@@ -141,11 +141,11 @@ async def translate(
 
         job_uuid = uuid.uuid4().hex
         user_id = current_user.get("user_id", 0)
-        enforce_open_jobs(user_id, locale)
+        enforce_open_jobs(user_id, locale, "translation")
         enforce_tool_burst(user_id, "translate", locale)
         enforce_quota(user_id, "translate", is_admin_user(current_user), locale)
 
-        db.create_job(job_uuid, user_id, "translation", filename, locale=locale)
+        create_counted_job(job_uuid, user_id, "translation", filename, locale=locale)
         input_path = await asyncio.to_thread(save_queue_file_from_path, user_id, job_uuid, ext, tmp_path)
         db.set_job_input_path(job_uuid, input_path)
 

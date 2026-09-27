@@ -12,7 +12,7 @@ from src.dependencies import get_current_user, is_admin_user
 from src.i18n import get_locale, t
 from src.quotas import enforce_quota
 from src.security.rate_limit import enforce_tool_burst
-from src.services.open_jobs import enforce_open_jobs
+from src.services.open_jobs import create_counted_job, enforce_open_jobs
 from src import database as db
 from src.storage import save_job_file, save_queue_file_from_path
 from src.utils.file_validation import (
@@ -163,12 +163,12 @@ async def text_to_speech(
             raise HTTPException(status_code=503, detail=t("tts.providerUnavailable", locale))
 
         user_id = current_user.get("user_id", 0)
-        enforce_open_jobs(user_id, locale)
+        enforce_open_jobs(user_id, locale, "tts")
         enforce_tool_burst(user_id, "tts", locale)
         enforce_quota(user_id, "tts", is_admin_user(current_user), locale)
 
         job_uuid = uuid.uuid4().hex
-        db.create_job(job_uuid, user_id, "tts", source_filename, locale=locale)
+        create_counted_job(job_uuid, user_id, "tts", source_filename, locale=locale)
         input_path = await asyncio.to_thread(save_queue_file_from_path, user_id, job_uuid, ext, tmp_path)
         db.set_job_input_path(job_uuid, input_path)
         # Laid down now and not at the start, so a job that never ran can still be resumed.

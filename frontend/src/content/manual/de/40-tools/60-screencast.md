@@ -28,5 +28,5 @@ In den Einstellungen lässt sich einschalten, dass das Video Untertitel bekommt.
 Der weitaus größte Teil der Wartezeit geht auf die Vertonung. Bei vielen Folien läuft das
 entsprechend lange, der Auftrag läuft aber im Hintergrund weiter.
 
-Es sind höchstens fünf Aufträge gleichzeitig in der Warteschlange. Sind es mehr, warten Sie ab
-oder löschen einen in der Jobliste.
+Wie viele Aufträge eine Person gleichzeitig offen haben darf, legt die Administration fest. Ist
+die Grenze erreicht, warten Sie ab oder löschen einen in der Jobliste.

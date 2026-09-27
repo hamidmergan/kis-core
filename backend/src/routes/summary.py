@@ -19,7 +19,7 @@ from src.quotas import enforce_quota
 from src.routes.material_measure import measure_router
 from src.security.rate_limit import enforce_tool_burst
 from src.services import feature_provider_choices
-from src.services.open_jobs import enforce_open_jobs
+from src.services.open_jobs import create_counted_job, enforce_open_jobs
 from src.services.tool_limits import max_upload_bytes
 from src.storage import save_job_file
 from src.utils.file_validation import SUMMARY_EXTENSIONS
@@ -78,7 +78,7 @@ async def summarize(
     job_uuid = uuid.uuid4().hex
 
     # These two are burst guards and must fire before any work is done.
-    enforce_open_jobs(user_id, locale)
+    enforce_open_jobs(user_id, locale, "summary")
     enforce_tool_burst(user_id, "summary", locale)
 
     # Beide Wege enden im selben Datensatz, aus dem Workspace kommt nur die Datei.
@@ -97,7 +97,7 @@ async def summarize(
     await asyncio.to_thread(sources.save_sources, user_id, job_uuid, gelesen)
 
     # Created only once every source is safely stored, the names joined so the job list folds them open.
-    db.create_job(job_uuid, user_id, "summary", sources.label(gelesen), locale=locale)
+    create_counted_job(job_uuid, user_id, "summary", sources.label(gelesen), locale=locale)
     # Laid down now and not at the start, so a job that never ran can still be resumed.
     save_job_file(user_id, job_uuid, "summary_params.json", json.dumps({
         "template_slug": vorlage.slug, "provider_id": provider_id,

@@ -13,6 +13,7 @@ from src.limits import PRAESENTATION_MAX_SLIDES
 from src.routes.praesentation._shared import (
     RegenRequest, llm_antwort, nicht_beschaeftigt, own_job, progress_final, verlauf,
 )
+from src.services.open_jobs import enforce_open_jobs
 from src.tasks.podcast_tasks._shared import clear_cancel
 from src.tasks.praesentation_tasks import run_praesentation_build
 
@@ -77,6 +78,8 @@ def start_build(job_uuid: str, current_user: dict = Depends(get_current_user),
     job = own_job(job_uuid, current_user, locale)
     nicht_beschaeftigt(job, locale)
     user_id = job["user_id"]
+    # A parked job counts again once it resumes, so resuming obeys the same limit as starting.
+    enforce_open_jobs(user_id, locale, "praesentation")
     if store.load_outline(user_id, job_uuid) is None:
         raise HTTPException(status_code=422, detail=t("praesentation.tooFewSlides", locale, min=1))
     clear_cancel(job_uuid)
