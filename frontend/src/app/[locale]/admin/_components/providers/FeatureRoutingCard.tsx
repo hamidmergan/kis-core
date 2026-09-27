@@ -398,36 +398,39 @@ function FeatureRow({
             })
           )}
         </div>
-        {feature !== "tts" && eligible.length > 0 && (
+        {/* Speech has no first choice here, the person picks the voice, only the fallback is set. */}
+        {eligible.length > 0 && (feature !== "tts" || fallback) && (
           <div className="mt-3 pt-3 border-t border-border-soft flex flex-col gap-1.5">
-            <div className="flex items-center gap-2">
-              <label htmlFor={firstId} className="flex-1 min-w-0 truncate text-sm text-foreground-soft">
-                {t("routes.firstChoice")}
-              </label>
-              <select
-                id={firstId}
-                value={providerId ?? ""}
-                onChange={(e) => onChangeProvider(e.target.value ? Number(e.target.value) : null)}
-                className={`${AUSWAHL} flex-1`}
-              >
-                <option value="">{t("routes.unselected")}</option>
-                {firstChoiceOptions(route, eligible).map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-                {provider && !eligible.includes(provider) && (
-                  <option value={provider.id}>{t("routes.providerUnusable", { name: provider.name })}</option>
-                )}
-              </select>
-              {/* Keeps the dropdowns flush with the model fields above. */}
-              <span className="w-8 shrink-0" aria-hidden="true" />
-            </div>
+            {feature !== "tts" && (
+              <div className="flex items-center gap-2">
+                <label htmlFor={firstId} className="flex-1 min-w-0 truncate text-sm text-foreground-soft">
+                  {t("routes.firstChoice")}
+                </label>
+                <select
+                  id={firstId}
+                  value={providerId ?? ""}
+                  onChange={(e) => onChangeProvider(e.target.value ? Number(e.target.value) : null)}
+                  className={`${AUSWAHL} flex-1`}
+                >
+                  <option value="">{t("routes.unselected")}</option>
+                  {firstChoiceOptions(route, eligible).map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                  {provider && !eligible.includes(provider) && (
+                    <option value={provider.id}>{t("routes.providerUnusable", { name: provider.name })}</option>
+                  )}
+                </select>
+                {/* Keeps the dropdowns flush with the model fields above. */}
+                <span className="w-8 shrink-0" aria-hidden="true" />
+              </div>
+            )}
             {fallback && (
               <div className="flex items-center gap-2">
                 <div className="flex-1 min-w-0 flex items-center gap-1">
                   <label htmlFor={fallbackId} className="truncate text-sm text-foreground-soft">
                     {t("routes.fallback")}
                   </label>
-                  <HelpTooltip text={t("routes.fallbackHelp")} />
+                  <HelpTooltip text={t(feature === "tts" ? "routes.fallbackHelpTts" : "routes.fallbackHelp")} />
                 </div>
                 <FallbackSelect
                   id={fallbackId}
@@ -575,7 +578,9 @@ function FeatureRow({
               <label htmlFor={fallbackId} className="text-2xs text-muted-soft whitespace-nowrap">
                 {t("routes.fallback")}
               </label>
-              <HelpTooltip text={`${t("routes.fallbackHelp")} ${t("routes.fallbackHelpModel")}`} />
+              <HelpTooltip
+                text={`${t(feature === "tts" ? "routes.fallbackHelpTts" : "routes.fallbackHelp")} ${t("routes.fallbackHelpModel")}`}
+              />
             </div>
             <FallbackSelect
               id={fallbackId}

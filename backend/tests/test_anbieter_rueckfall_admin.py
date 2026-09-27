@@ -2,6 +2,7 @@
 
 import os
 import uuid
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
@@ -18,12 +19,15 @@ from src.routes.admin._models import (
 
 
 def _provider(pid, name=None, *, protocol="openai_compat", caps=("chat",), enabled=True,
-              concurrency=None):
+              concurrency=None, voices=()):
     return {
         "id": pid, "name": name or f"P{pid}", "protocol": protocol,
         "base_url": f"http://p{pid}", "api_key": None, "enabled": enabled,
-        "capabilities": list(caps), "voices": [], "concurrency": concurrency or {},
+        "capabilities": list(caps), "voices": list(voices), "concurrency": concurrency or {},
     }
+
+
+_STIMMEN = ({"voice_id": "anna", "name": "Anna", "language": "de"},)
 
 
 # ─── Meta ────────────────────────────────────────────────────────────────────
@@ -32,7 +36,7 @@ def _provider(pid, name=None, *, protocol="openai_compat", caps=("chat",), enabl
 def test_meta_lists_the_buckets_and_the_fallback_features(monkeypatch):
     meta = admin.get_provider_meta(_admin=None)
     assert meta["concurrency_buckets"] == ["llm", "stt", "tts", "image", "embedding", "ocr"]
-    assert meta["fallback_features"] == [f for f in FEATURES if f != "tts"]
+    assert meta["fallback_features"] == list(FEATURES)
 
 
 # ─── Concurrency on the provider ─────────────────────────────────────────────
@@ -149,6 +153,7 @@ _PROVIDERS = {
     5: _provider(5, caps=("tts",)),
     6: _provider(6, protocol="docling", caps=("ocr",)),
     7: _provider(7, caps=("translation",)),
+    10: _provider(10, caps=("tts",), voices=_STIMMEN),
 }
 
 
@@ -194,9 +199,47 @@ def test_without_a_first_choice_the_fallback_is_dropped(route_env):
     assert route_env.call_args.kwargs["fallback_provider_id"] is None
 
 
-def test_tts_has_no_fallback(route_env):
-    _rejected("tts", fallback_provider_id=2, provider_models={"2": "m"})
+def test_tts_takes_a_fallback_with_voices(route_env):
+    _route("tts", fallback_provider_id=10, provider_models={"1": "xtts-v2", "10": "qwen3-tts"})
+    assert route_env.call_args.kwargs["fallback_provider_id"] == 10
+
+
+def test_tts_may_fall_back_to_the_provider_of_its_route(route_env):
+    """People choose their voice themselves, the route's own provider is a fine fallback for jobs on another one."""
+    _route("tts", provider_id=10, fallback_provider_id=10, provider_models={"10": "xtts-v2"})
+    assert route_env.call_args.kwargs["fallback_provider_id"] == 10
+
+
+def test_tts_keeps_its_fallback_without_a_first_choice(route_env):
+    """The voice page hides the first choice, so a missing one must not drop the fallback."""
+    _route("tts", provider_id=None, fallback_provider_id=10, provider_models={"10": "xtts-v2"})
+    assert route_env.call_args.kwargs["fallback_provider_id"] == 10
+
+
+def test_a_tts_fallback_without_voices_is_rejected(route_env):
+    """Without a voice the fallback could not take over a single job."""
+    detail = _rejected("tts", fallback_provider_id=5, provider_models={"5": "qwen3-tts"})
+    assert detail == admin.t("admin.providers.fallbackNoVoices", "de")
     route_env.assert_not_called()
+
+
+def test_a_tts_fallback_whose_voices_have_no_id_is_rejected(route_env, monkeypatch):
+    leer = _provider(11, caps=("tts",), voices=({"voice_id": "", "name": "?"},))
+    monkeypatch.setattr(admin.db, "get_provider", lambda pid: leer if pid == 11 else _PROVIDERS.get(pid))
+    _rejected("tts", fallback_provider_id=11, provider_models={"11": "qwen3-tts"})
+
+
+def test_a_tts_fallback_still_needs_a_model(route_env):
+    _rejected("tts", fallback_provider_id=10, provider_models={"1": "xtts-v2"})
+
+
+def test_the_voice_message_exists_in_english_too(route_env):
+    with pytest.raises(HTTPException) as de:
+        _route("tts", fallback_provider_id=5, provider_models={"5": "m"})
+    with pytest.raises(HTTPException) as en:
+        _route("tts", locale="en", fallback_provider_id=5, provider_models={"5": "m"})
+    assert de.value.detail != en.value.detail
+    assert "admin.providers" not in en.value.detail
 
 
 def test_the_fallback_must_differ_from_the_first_choice(route_env):
@@ -228,12 +271,13 @@ def test_the_fallback_provider_must_speak_openai_compat(route_env, pid):
     ("stt", "stt"),
     ("image_gen", "image_gen"),
     ("image_edit", "image_edit"),
+    ("tts", "tts"),
 ])
 def test_the_fallback_needs_the_capability_of_the_feature(route_env, monkeypatch,
                                                           feature, capability):
     fehlt = _provider(8, caps=[c for c in _PROVIDERS[2]["capabilities"] if c != capability]
-                      + ["translation"])
-    hat = _provider(9, caps=(capability,))
+                      + ["translation"], voices=_STIMMEN)
+    hat = _provider(9, caps=(capability,), voices=_STIMMEN)
     monkeypatch.setattr(admin.db, "get_provider",
                         lambda pid: {8: fehlt, 9: hat}.get(pid) or _PROVIDERS.get(pid))
     modelle = {"1": "primary-model", "8": "primary-model", "9": "primary-model"}
@@ -271,11 +315,30 @@ def test_embedding_fallback_with_another_model_is_rejected(route_env):
 
 def test_the_fallback_messages_exist_in_english_too(route_env):
     with pytest.raises(HTTPException) as de:
-        _route("tts", fallback_provider_id=2, provider_models={"2": "m"})
+        _route("chat", fallback_provider_id=1, provider_models={"1": "m"})
     with pytest.raises(HTTPException) as en:
-        _route("tts", locale="en", fallback_provider_id=2, provider_models={"2": "m"})
+        _route("chat", locale="en", fallback_provider_id=1, provider_models={"1": "m"})
     assert de.value.detail != en.value.detail
     assert "admin.providers" not in en.value.detail
+
+
+def _route_test_env(monkeypatch, row):
+    """The route test with a recorded probe, a job-level voice pick would fail loudly."""
+    monkeypatch.setattr(admin.db, "list_routes", lambda: [row])
+    monkeypatch.setattr(admin.db, "get_provider", lambda pid: _PROVIDERS.get(pid))
+    monkeypatch.setattr("src.services.tts_job_provider.pick",
+                        MagicMock(side_effect=AssertionError("route test must not pick")))
+    probe = MagicMock(return_value=SimpleNamespace(status="error", error="x", warning=None))
+    monkeypatch.setattr(admin, "run_feature_route_test", probe)
+    return probe
+
+
+@pytest.mark.parametrize("provider_id,base_url", [(None, "http://p1"), (10, "http://p10")])
+def test_the_tts_route_test_hits_exactly_the_named_provider(monkeypatch, provider_id, base_url):
+    probe = _route_test_env(monkeypatch, _route_row("tts", 1, fallback=10,
+                                                    models={"1": "xtts-v2", "10": "qwen3-tts"}))
+    admin.test_route("tts", provider_id=provider_id, _admin=None, locale="de")
+    assert probe.call_args.kwargs["base_url"] == base_url
 
 
 # ─── Export and import ───────────────────────────────────────────────────────
@@ -395,6 +458,92 @@ def test_an_old_export_without_caps_keeps_the_existing_ones(monkeypatch):
     }).model_dump()
     admin.perform_import(payload)
     assert ziel.providers[1]["concurrency"] == {"tts": 4}
+
+
+def test_export_then_import_keeps_the_tts_fallback(monkeypatch):
+    monkeypatch.delenv("KIS_SECRETS_KEY", raising=False)
+    quelle = _FakeDb([_provider(1, "myLab", caps=("tts",), voices=_STIMMEN),
+                      _provider(2, "HPC", caps=("tts",), voices=_STIMMEN)])
+    quelle.routes["tts"] = _route_row("tts", 2, fallback=1,
+                                      models={"1": "xtts-v2", "2": "qwen3-tts"})
+    _install(monkeypatch, quelle)
+    export = admin.build_export(exported_from=None)
+
+    ziel = _FakeDb()
+    _install(monkeypatch, ziel)
+    admin.perform_import(ExportedConfig(**export).model_dump())
+
+    ids = {p["name"]: p["id"] for p in ziel.list_providers()}
+    tts = ziel.routes["tts"]
+    assert tts["provider_id"] == ids["HPC"]
+    assert tts["fallback_provider_id"] == ids["myLab"]
+    stimmen = {p["name"]: p["voices"] for p in ziel.list_providers()}["myLab"]
+    assert [v["voice_id"] for v in stimmen] == ["anna"]
+
+
+def _roundtrip(monkeypatch, feature, provider_id, fallback, models):
+    """Exports one route from a source and imports it into an empty target."""
+    monkeypatch.delenv("KIS_SECRETS_KEY", raising=False)
+    quelle = _FakeDb([_provider(1, "myLab", caps=("tts", "chat"), voices=_STIMMEN),
+                      _provider(2, "HPC", caps=("tts", "chat"), voices=_STIMMEN)])
+    quelle.routes[feature] = _route_row(feature, provider_id, fallback=fallback, models=models)
+    _install(monkeypatch, quelle)
+    export = admin.build_export(exported_from=None)
+    ziel = _FakeDb()
+    _install(monkeypatch, ziel)
+    result = admin.perform_import(ExportedConfig(**export).model_dump())
+    return ziel, {p["name"]: p["id"] for p in ziel.list_providers()}, result
+
+
+def test_export_then_import_keeps_a_tts_fallback_on_the_route_provider(monkeypatch):
+    """The admin allows a voice fallback on the route's own provider, the import must keep it."""
+    ziel, ids, _ = _roundtrip(monkeypatch, "tts", 1, 1, {"1": "xtts-v2"})
+    assert ziel.routes["tts"]["provider_id"] == ids["myLab"]
+    assert ziel.routes["tts"]["fallback_provider_id"] == ids["myLab"]
+
+
+def test_export_then_import_keeps_a_tts_route_with_only_a_fallback(monkeypatch):
+    ziel, ids, result = _roundtrip(monkeypatch, "tts", None, 1, {"1": "xtts-v2"})
+    tts = ziel.routes["tts"]
+    assert tts["provider_id"] is None
+    assert tts["fallback_provider_id"] == ids["myLab"]
+    assert tts["provider_models"] == {str(ids["myLab"]): "xtts-v2"}
+    assert result["routes_skipped"] == 0
+
+
+def test_import_still_drops_a_chat_fallback_on_the_route_provider(monkeypatch):
+    ziel, ids, _ = _roundtrip(monkeypatch, "chat", 1, 1, {"1": "gemma-3"})
+    assert ziel.routes["chat"]["provider_id"] == ids["myLab"]
+    assert ziel.routes["chat"]["fallback_provider_id"] is None
+
+
+def test_import_still_skips_a_chat_route_with_only_a_fallback(monkeypatch):
+    ziel, _, result = _roundtrip(monkeypatch, "chat", None, 1, {"1": "gemma-3"})
+    assert "chat" not in ziel.routes
+    assert result["routes_skipped"] == 1
+
+
+def test_import_skips_a_tts_route_whose_only_fallback_is_unknown(monkeypatch):
+    ziel = _FakeDb()
+    _install(monkeypatch, ziel)
+    payload = ExportedConfig(**{
+        "schema_version": 1, "exported_at": "x",
+        "feature_routes": [{"feature": "tts", "fallback_provider_name": "Ghost"}],
+    }).model_dump()
+    assert admin.perform_import(payload)["routes_skipped"] == 1
+    assert "tts" not in ziel.routes
+
+
+@pytest.mark.parametrize("feature,action", [("tts", "create"), ("chat", "skip_unresolved")])
+def test_preview_shows_a_route_with_only_a_fallback_like_the_import(monkeypatch, feature, action):
+    monkeypatch.setattr(admin.db, "list_providers", lambda: [_provider(1, "myLab")])
+    monkeypatch.setattr(admin.db, "get_route", lambda feature: None)
+    preview = admin.build_import_preview({
+        "schema_version": 1, "providers": [],
+        "feature_routes": [{"feature": feature, "provider_name": None,
+                            "fallback_provider_name": "myLab"}],
+    })
+    assert preview["routes"][0]["action"] == action
 
 
 def test_import_drops_an_unresolved_fallback(monkeypatch):

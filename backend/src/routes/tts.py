@@ -13,6 +13,8 @@ from src.i18n import get_locale, t
 from src.quotas import enforce_quota
 from src.security.rate_limit import enforce_tool_burst
 from src.services.open_jobs import create_counted_job, enforce_open_jobs
+from src.services import tts_job_provider
+from src.services.tts_job_provider import pick
 from src import database as db
 from src.storage import save_job_file, save_queue_file_from_path
 from src.utils.file_validation import (
@@ -157,10 +159,13 @@ async def text_to_speech(
             client = get_tts_client_for_provider(provider_id)
         except RuntimeError:
             raise HTTPException(status_code=400, detail=t("tts.providerNotFound", locale))
-        if client is None:
-            raise HTTPException(status_code=400, detail=t("tts.providerNotFound", locale))
-        if not await asyncio.to_thread(client.is_available):
-            raise HTTPException(status_code=503, detail=t("tts.providerUnavailable", locale))
+        # The chosen one seen exactly as pick sees it, an own probe could disagree and refuse for nothing.
+        if client is None or not await asyncio.to_thread(tts_job_provider.is_there, provider_id):
+            # The admin's fallback may take over the whole job, the job itself decides at its start.
+            if not (await asyncio.to_thread(pick, provider_id, [voice_id])).fallback:
+                if client is None:
+                    raise HTTPException(status_code=400, detail=t("tts.providerNotFound", locale))
+                raise HTTPException(status_code=503, detail=t("tts.providerUnavailable", locale))
 
         user_id = current_user.get("user_id", 0)
         enforce_open_jobs(user_id, locale, "tts")

@@ -1,12 +1,13 @@
 import type { Capability, Feature, FeatureRoute, Provider } from "./_types";
 
 /** The capability a fallback needs per feature, mirrors the backend rules. */
-const FALLBACK_CAPABILITY: Record<Exclude<Feature, "tts">, Capability> = {
+const FALLBACK_CAPABILITY: Record<Feature, Capability> = {
   chat: "chat",
   embedding: "embedding",
   vision: "vision",
   ocr: "ocr",
   stt: "stt",
+  tts: "tts",
   image_gen: "image_gen",
   image_edit: "image_edit",
   doc_translate: "chat",
@@ -31,12 +32,16 @@ function primaryModel(route: RouteModels): string {
 }
 
 function candidates(feature: Feature, route: RouteModels | undefined, providers: Provider[]): Provider[] {
-  if (feature === "tts" || !route) return [];
+  if (!route) return [];
   const capability = FALLBACK_CAPABILITY[feature];
   const primary = primaryModel(route);
   return providers.filter((p) => {
-    if (p.id === route.provider_id || !p.enabled || p.protocol !== "openai_compat") return false;
+    // People pick their voice themselves, so for voices the route's own provider is a fine fallback too.
+    if (feature !== "tts" && p.id === route.provider_id) return false;
+    if (!p.enabled || p.protocol !== "openai_compat") return false;
     if (!p.capabilities.includes(capability)) return false;
+    // A voice fallback takes over whole jobs, so it needs voices of its own.
+    if (feature === "tts" && !p.voices?.length) return false;
     const model = modelOf(route, p.id);
     if (!model) return false;
     return feature !== "embedding" || model === primary;

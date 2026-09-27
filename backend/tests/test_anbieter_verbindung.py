@@ -539,6 +539,18 @@ def test_ohne_rueckfall_wird_nichts_vermerkt(redis):
     assert not redis.exists("kis:provider-down:1:llm")
 
 
+def test_eine_ausgefallene_stimme_hinterlaesst_einen_vermerk_fuer_den_naechsten_auftrag(redis):
+    """Stimmen wechseln nie mitten im Auftrag, der nächste Auftrag soll aber gleich beim Rückfall starten."""
+    def handler(req):
+        raise httpx.ConnectError("refused", request=req)
+
+    with pytest.raises(httpx.ConnectError):
+        _chat(_client(handler, fallback=None, bucket="tts"))
+    assert redis.exists("kis:provider-down:1:tts")
+    assert pt.is_down(1, "tts")
+    assert not pt.is_down(1, "llm")
+
+
 def test_grosse_anfragen_gehen_in_kleinen_stuecken_hinaus(redis):
     """Lauf 15: ein Audiostück ging am Stück hinaus, die Schreibgrenze von 10 s galt dann für alles."""
     stuecke = []

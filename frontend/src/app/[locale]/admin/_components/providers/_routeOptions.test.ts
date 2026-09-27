@@ -42,6 +42,8 @@ function route(extra: Partial<FeatureRoute> = {}): FeatureRoute {
 
 const ids = (liste: Array<{ id: number }>) => liste.map((o) => o.id);
 
+const stimme = { voice_id: "nova", name: "Nova", language: "de" };
+
 describe("fallbackOptions", () => {
   it("bietet einen passenden Anbieter mit Modell an", () => {
     expect(fallbackOptions("chat", route(), [anbieter(1), anbieter(2)])).toEqual([
@@ -71,8 +73,20 @@ describe("fallbackOptions", () => {
     expect(ids(fallbackOptions("chat", r, [anbieter(2), anbieter(3)]))).toEqual([]);
   });
 
-  it("kennt keinen Rueckfall fuer Stimmen", () => {
+  it("bietet fuer Stimmen einen Anbieter mit Sprachausgabe und Stimmen an", () => {
+    const p = anbieter(2, { capabilities: ["tts"], voices: [stimme] });
+    expect(fallbackOptions("tts", route({ feature: "tts" }), [p])).toEqual([
+      { id: 2, name: "P2", model: "m2", usable: true },
+    ]);
+  });
+
+  it("laesst fuer Stimmen Anbieter ohne Stimmen weg", () => {
     const p = anbieter(2, { capabilities: ["tts"] });
+    expect(ids(fallbackOptions("tts", route({ feature: "tts" }), [p]))).toEqual([]);
+  });
+
+  it("laesst fuer Stimmen Anbieter ohne Sprachausgabe weg", () => {
+    const p = anbieter(2, { voices: [stimme] });
     expect(ids(fallbackOptions("tts", route({ feature: "tts" }), [p]))).toEqual([]);
   });
 
@@ -136,6 +150,25 @@ describe("keptFallback", () => {
       fallback_provider_id: 2,
     });
     expect(keptFallback("embedding", r, [anbieter(2)])).toBeNull();
+  });
+
+  it("behaelt den Stimmen-Rueckfall beim Speichern", () => {
+    const r = route({ feature: "tts", fallback_provider_id: 2 });
+    const p = anbieter(2, { capabilities: ["tts"], voices: [stimme] });
+    expect(keptFallback("tts", r, [anbieter(1), p])).toBe(2);
+  });
+
+  it("bietet bei Stimmen auch den Anbieter der Route als Rueckfall an", () => {
+    // Die Person waehlt ihre Stimme selbst, der Anbieter der Route taugt als Rueckfall fuer Auftraege bei anderen.
+    const r = route({ feature: "tts", provider_id: 2, fallback_provider_id: 2 });
+    const p = anbieter(2, { capabilities: ["tts"], voices: [stimme] });
+    expect(ids(fallbackOptions("tts", r, [p]))).toEqual([2]);
+    expect(keptFallback("tts", r, [p])).toBe(2);
+  });
+
+  it("verwirft den Stimmen-Rueckfall, wenn er keine Stimmen mehr hat", () => {
+    const r = route({ feature: "tts", fallback_provider_id: 2 });
+    expect(keptFallback("tts", r, [anbieter(2, { capabilities: ["tts"] })])).toBeNull();
   });
 
   it("vertraegt eine Route ohne das Feld", () => {

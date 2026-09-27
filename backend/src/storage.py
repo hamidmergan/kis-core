@@ -450,6 +450,14 @@ def delete_job_file(user_id: int, job_uuid: str, filename: str) -> None:
     delete_key_file(f"{job_prefix(user_id, job_uuid)}/{filename}")
 
 
+def is_missing(exc: BaseException) -> bool:
+    """Whether a read failed only because the file does not exist, every other failure is a real error."""
+    if isinstance(exc, FileNotFoundError):
+        return True
+    response = getattr(exc, "response", None)
+    return isinstance(response, dict) and response.get("Error", {}).get("Code", "") in ("404", "NoSuchKey")
+
+
 def get_job_file(user_id: int, job_uuid: str, filename: str) -> bytes:
     """Read an arbitrary named file from a job's folder."""
     key = f"{job_prefix(user_id, job_uuid)}/{filename}"

@@ -5,7 +5,7 @@ import re
 
 
 from src.features.podcast.schemas import Line, PodcastParams
-from src.storage import get_job_file, job_file_exists, save_job_file
+from src.storage import delete_job_file, get_job_file, is_missing, job_file_exists, save_job_file
 
 PARAMS_FILE = "params.json"
 SCRIPT_FILE = "script.json"
@@ -13,6 +13,7 @@ USER_SCRIPT_FILE = "user_script.json"
 DRAFT_FILE = "entwurf.json"
 VOICED_FILE = "voiced.json"
 TRANSCRIPT_FILE = "transcript.txt"
+PIN_FILE = "tts_pin.json"
 
 _ID = re.compile(r"^b[0-9]{1,4}$")
 
@@ -96,13 +97,61 @@ def save_voiced(user_id: int, job_uuid: str, voiced: dict[str, dict]) -> None:
     _write_json(user_id, job_uuid, VOICED_FILE, voiced)
 
 
-def fingerprint(line: Line, voice_id: str, speed: float) -> dict:
+def fingerprint(line: Line, voice_id: str, speed: float, provider_id: int = 0) -> dict:
     """What makes a contribution sound different, nothing else."""
-    return {"text": line.text.strip(), "voice_id": voice_id, "speed": round(speed, 2)}
+    return {"text": line.text.strip(), "voice_id": voice_id, "speed": round(speed, 2),
+            "provider_id": provider_id}
 
 
-def needs_voice(line: Line, voiced: dict[str, dict], voice_id: str, speed: float) -> bool:
-    return voiced.get(line.id) != fingerprint(line, voice_id, speed)
+def needs_voice(line: Line, voiced: dict[str, dict], voice_id: str, speed: float,
+                provider_id: int = 0) -> bool:
+    return voiced.get(line.id) != fingerprint(line, voice_id, speed, provider_id)
+
+
+def save_pin(user_id: int, job_uuid: str, pin: dict) -> None:
+    """Provider and voice of every chosen voice, fixed once at the start of a voicing run."""
+    _write_json(user_id, job_uuid, PIN_FILE, pin)
+
+
+def load_pin(user_id: int, job_uuid: str) -> dict | None:
+    """None only when no pin exists, a failed read raises so the stage cannot pick anew."""
+    try:
+        raw = get_job_file(user_id, job_uuid, PIN_FILE)
+    except Exception as e:
+        if is_missing(e):
+            return None
+        raise
+    try:
+        pin = json.loads(raw)
+    except ValueError:
+        # A broken file never heals, so it counts as absent instead of blocking the job for good.
+        return None
+    return pin if isinstance(pin, dict) else None
+
+
+def pin_covers(pin: dict | None, params: PodcastParams) -> bool:
+    """Whether the pin still has an entry for every chosen voice of the cast."""
+    stimmen = (pin or {}).get("voices") or {}
+    return bool(stimmen) and all(
+        pin_key(p.provider_id or params.provider_id, p.voice_id) in stimmen
+        for p in params.persons if p.voice_id)
+
+
+def delete_pin(user_id: int, job_uuid: str) -> None:
+    """A new voicing run decides the provider anew."""
+    delete_job_file(user_id, job_uuid, PIN_FILE)
+
+
+def pin_key(provider_id: int, voice_id: str) -> str:
+    return f"{provider_id}/{voice_id}"
+
+
+def pinned_voice(pin: dict | None, provider_id: int, voice_id: str) -> tuple[int, str]:
+    """Who really speaks for a chosen voice, the chosen one itself when nothing is fixed."""
+    eintrag = ((pin or {}).get("voices") or {}).get(pin_key(provider_id, voice_id))
+    if not eintrag:
+        return provider_id, voice_id
+    return int(eintrag["provider_id"]), str(eintrag["voice_id"])
 
 
 def save_line_audio(user_id: int, job_uuid: str, line_id: str, data: bytes) -> None:

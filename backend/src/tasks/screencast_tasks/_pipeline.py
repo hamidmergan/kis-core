@@ -17,6 +17,8 @@ from src.tasks._stage import StageContinue, StageLost
 from src.utils.heartbeat import job_heartbeat
 from src.storage import (
     audio_folien_mit_ton,
+    clear_render_cache,
+    get_job_file,
     load_result_meta,
     save_audio_cache,
     save_job_file,
@@ -56,6 +58,28 @@ def _fortschritt_vertonung(
     }
 
 
+def _anders_gesprochen(user_id: int, job_uuid: str, name: str, provider_id: int, voice_id: str) -> bool:
+    """True when the stored record names another provider or voice than the one this run speaks with."""
+    try:
+        stand = json.loads(get_job_file(user_id, job_uuid, name))
+    except Exception:
+        return False
+    # The pin names the voice that really spoke, older records without one only know that voice.
+    gesprochen = stand.get("tts_pin") or stand
+    return int(gesprochen.get("provider_id") or 0) != int(provider_id or 0) or gesprochen.get("voice_id") != voice_id
+
+
+def _ton_fuer_ablage(audio_paths: list, plaetze: list[bool], alles_ersetzen: bool) -> list[bytes | None]:
+    """None leaves the old audio of a slide, empty bytes drop audio that another voice spoke."""
+    ablage: list[bytes | None] = []
+    for p, platz in zip(audio_paths, plaetze):
+        if platz:
+            ablage.append(p.read_bytes() if p is not None and p.exists() else b"")
+        else:
+            ablage.append(b"" if alles_ersetzen else None)
+    return ablage
+
+
 def _run_render_pipeline(
     job_uuid: str,
     scripts: list[str],
@@ -70,6 +94,7 @@ def _run_render_pipeline(
     voice_label: str = "",
     video_folien: list[int] | None = None,
     neu_vertonen: list[int] | None = None,
+    tts_pin: dict | None = None,
     clock=None,
     token: int = 0,
 ) -> dict:
@@ -89,6 +114,12 @@ def _run_render_pipeline(
     if not job_row:
         raise RuntimeError(f"Job {job_uuid} not found")
     user_id = job_row["user_id"]
+    # Audio of another provider or voice never shares a video with the audio of this run.
+    if _anders_gesprochen(user_id, job_uuid, "render_params.json", provider_id, voice_id):
+        clear_render_cache(user_id, job_uuid)
+    alter_ton_fremd = _anders_gesprochen(user_id, job_uuid, "vertonter_stand.json", provider_id, voice_id)
+    if alter_ton_fremd:
+        neu_vertonen = list(range(len(scripts)))
     auswahl = folien_auswahl(len(scripts), video_folien, neu_vertonen)
 
     # Save render params + scripts for crash recovery (retry button)
@@ -96,6 +127,7 @@ def _run_render_pipeline(
         "voice_id": voice_id, "speed": speed,
         "slide_pause": slide_pause, "dpi": dpi,
         "provider_id": provider_id, "subtitles": subtitles,
+        "voice_label": voice_label, "tts_pin": tts_pin,
         "video_folien": auswahl.clip_folien,
         "neu_vertonen": sorted(neu_vertonen or []),
     }).encode())
@@ -309,14 +341,8 @@ def _run_render_pipeline(
 
         # ── Save audio cache ──────────────────────────────────────────────
         db.update_job_status(job_uuid, "running", progress={"step": "saving"})
-        # None means do not touch the slot, the audio of the last run sits there.
-        audio_bytes_list: list[bytes | None] = [None] * len(scripts)
-        for i, platz in enumerate(ton_plaetze(len(scripts), clip_folien)):
-            if not platz:
-                continue
-            p = audio_paths[i]
-            audio_bytes_list[i] = p.read_bytes() if p is not None and p.exists() else b""
-        save_audio_cache(user_id, job_uuid, audio_bytes_list)
+        save_audio_cache(user_id, job_uuid, _ton_fuer_ablage(
+            audio_paths, ton_plaetze(len(scripts), clip_folien), alter_ton_fremd))
 
         # ── Save result ───────────────────────────────────────────────────
         result_path = save_result_file(user_id, job_uuid, ".mp4", output_bytes)

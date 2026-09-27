@@ -55,11 +55,14 @@ def synthesize_sentence(sentence: str, locale: str = "de") -> bytes:
     from src.dependencies import get_tts_client_for_provider, tts_model_for_provider
     from src.features.ai_assistant.repository import speech_cache
     from src.i18n import t
+    from src.services import tts_job_provider
 
     chosen = configured_voice()
     if not chosen:
         raise HTTPException(status_code=503, detail=t("tts.providerUnavailable", locale))
-    provider_id, voice_id = chosen
+    # One sentence is one job, so the admin's fallback may take over the whole sentence.
+    wahl = tts_job_provider.pick(chosen[0], [chosen[1]])
+    provider_id, voice_id = wahl.provider_id, wahl.voices[0]
 
     # Exactly the text that reaches the provider.
     text = speech_cache.normalize_sentence(sentence)

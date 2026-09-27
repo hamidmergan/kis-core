@@ -515,6 +515,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Für den Rückfall fehlt das Modell.",
         "en": "The fallback needs a model.",
     },
+    "admin.providers.fallbackNoVoices": {
+        "de": "Der Anbieter für den Rückfall hat keine Stimmen.",
+        "en": "The fallback provider has no voices.",
+    },
     "admin.providers.fallbackEmbeddingModel": {
         "de": "Beim Embedding muss der Rückfall dasselbe Modell nutzen wie die erste Wahl ({model}).",
         "en": "For embedding the fallback must use the same model as the first choice ({model}).",

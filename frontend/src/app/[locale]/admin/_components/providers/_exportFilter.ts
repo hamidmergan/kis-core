@@ -28,7 +28,14 @@ export function filterExportConfig(
   if (!isExportedConfig(config)) return config;
   const providers = config.providers.filter((p) => selectedNames.has(p.name));
   const feature_routes = config.feature_routes
-    .filter((r) => r.provider_name !== null && selectedNames.has(r.provider_name))
+    .filter((r) =>
+      r.provider_name !== null
+        ? selectedNames.has(r.provider_name)
+        : // A voice route may stand on its fallback alone, so it travels with that fallback.
+          r.feature === "tts" &&
+          typeof r.fallback_provider_name === "string" &&
+          selectedNames.has(r.fallback_provider_name),
+    )
     .map((r) => ({
       ...r,
       user_choices: (r.user_choices ?? []).filter((n) => selectedNames.has(n)),

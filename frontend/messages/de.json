@@ -1788,7 +1788,8 @@
         "noFallback": "Kein Rückfall",
         "providerUnusable": "{name} (nicht nutzbar)",
         "fallbackHelp": "Antwortet die erste Wahl nicht oder weist den Aufruf ab, geht derselbe Aufruf an den Rückfall. Infrage kommen nur Anbieter mit OpenAI-kompatibler Schnittstelle und eingetragenem Modell. Bei Embeddings nur dasselbe Modell wie bei der ersten Wahl.",
-        "fallbackHelpModel": "Das Modell eines Anbieters trägst du ein, während er die erste Wahl ist. Es bleibt gespeichert, wenn du wechselst."
+        "fallbackHelpModel": "Das Modell eines Anbieters trägst du ein, während er die erste Wahl ist. Es bleibt gespeichert, wenn du wechselst.",
+        "fallbackHelpTts": "Ist die erste Wahl beim Start eines Auftrags nicht erreichbar, läuft der ganze Auftrag mit dem Rückfall. Innerhalb eines Auftrags wechselt die Stimme nie. Infrage kommen nur Anbieter mit OpenAI-kompatibler Schnittstelle, eingetragenem Modell und eigenen Stimmen."
       },
       "delete": {
         "title": "Anbieter „{name}\" löschen?",

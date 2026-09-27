@@ -40,9 +40,11 @@ def _vorrat_passt_nicht(user_id: int, job_uuid: str, body) -> bool:
     except Exception:
         return False
     alt_sprache = (load_result_meta(user_id, job_uuid) or {}).get("target_lang", "")
+    # A fallback was not the person's choice, the voicing itself checks which voice made the pool.
+    pin = alt.get("tts_pin") or {}
     return (
-        alt.get("voice_id") != body.voice_id
-        or int(alt.get("provider_id", 0) or 0) != int(body.provider_id or 0)
+        pin.get("requested_voice_id", alt.get("voice_id")) != body.voice_id
+        or int(pin.get("requested_provider_id", alt.get("provider_id", 0)) or 0) != int(body.provider_id or 0)
         or alt_sprache != body.target_lang
     )
 

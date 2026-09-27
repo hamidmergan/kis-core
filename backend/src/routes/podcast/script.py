@@ -8,12 +8,21 @@ from pydantic import BaseModel
 from src import database as db
 from src.dependencies import get_current_user
 from src.features.podcast import store
-from src.features.podcast.schemas import Line
+from src.features.podcast.schemas import Line, PodcastParams
 from src.i18n import get_locale, t
 from src.limits import PODCAST_MAX_CHARS, PODCAST_MAX_LINE_CHARS, PODCAST_MAX_LINES
 from src.routes.podcast._shared import own_job
 
 router = APIRouter(tags=["podcast"])
+
+
+def _vertont(line: Line, params: PodcastParams, pin: dict | None, vertont: dict) -> bool:
+    """Whether a contribution carries audio of exactly this text in the provider and voice of the run."""
+    if line.speaker >= len(params.persons):
+        return not store.needs_voice(line, vertont, "", 1.0)
+    person = params.persons[line.speaker]
+    anbieter, stimme = store.pinned_voice(pin, person.provider_id or params.provider_id, person.voice_id)
+    return not store.needs_voice(line, vertont, stimme, 1.0, anbieter)
 
 
 def _fortschritt(roh) -> dict | None:
@@ -46,6 +55,7 @@ def get_podcast(
     params = store.load_params(user_id, job_uuid)
     zeilen = store.load_lines(user_id, job_uuid)
     vertont = store.load_voiced(user_id, job_uuid)
+    pin = store.load_pin(user_id, job_uuid)
     return {
         "job_uuid": job_uuid,
         "status": job["status"],
@@ -56,14 +66,7 @@ def get_podcast(
         # The parts already written while the script is still being written.
         "draft": [l.model_dump() for l in store.load_draft(user_id, job_uuid)] if not zeilen else [],
         # Which contributions carry the audio of exactly this text right now.
-        "voiced": [
-            l.id for l in zeilen
-            if not store.needs_voice(
-                l, vertont,
-                params.persons[l.speaker].voice_id if params and l.speaker < len(params.persons) else "",
-                1.0,
-            )
-        ] if params else [],
+        "voiced": [l.id for l in zeilen if _vertont(l, params, pin, vertont)] if params else [],
         "has_result": bool(job.get("result_path")),
     }
 

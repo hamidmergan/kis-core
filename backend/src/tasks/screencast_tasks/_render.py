@@ -26,7 +26,7 @@ from src.tasks._errors import handle_task_exception, is_upstream_busy, job_local
 from src.tasks._stage import StageClock, StageContinue, StageLost, continue_stage
 from src.tasks.screencast_tasks._pipeline import _run_render_pipeline
 from src.tasks.screencast_tasks._queue import _maybe_dispatch_next
-from src.tasks.screencast_tasks._shared import _JobCancelled
+from src.tasks.screencast_tasks._shared import _JobCancelled, _stimme_festlegen
 
 
 def _merke_vertonten_stand(
@@ -39,17 +39,21 @@ def _merke_vertonten_stand(
     slide_pause: float,
     subtitles: bool,
     video_folien: list[int] | None,
+    tts_pin: dict | None = None,
 ) -> None:
     """Step 6 later compares against this to preselect what changed."""
     try:
         folientexte = json.loads(get_job_file(user_id, job_uuid, "scripts.txt"))
     except Exception:
         folientexte = []
+    # Step 6 compares with the person's choice, the voice that really spoke stays in the pin.
+    pin = tts_pin or {}
     save_job_file(user_id, job_uuid, "vertonter_stand.json", json.dumps({
         "scripts": scripts,
         "folientexte": folientexte,
-        "voice_id": voice_id,
-        "provider_id": provider_id,
+        "voice_id": pin.get("requested_voice_id", voice_id),
+        "provider_id": pin.get("requested_provider_id", provider_id),
+        "tts_pin": tts_pin,
         "target_lang": (load_result_meta(user_id, job_uuid) or {}).get("target_lang", ""),
         "speed": speed,
         "slide_pause": slide_pause,
@@ -90,13 +94,16 @@ def run_screencast_render(
         if not still_mine(translate_job_uuid, versuch):
             raise StageLost(translate_job_uuid)
         clock = StageClock()
-        db.update_job_status(translate_job_uuid, "running", progress={
-            "step": "render", "voice_id": voice_id, "voice_label": voice_label, "provider_id": provider_id,
-        })
         job_row = db.get_job(translate_job_uuid)
         if not job_row:
             raise RuntimeError(f"Job {translate_job_uuid} not found")
         user_id = job_row["user_id"]
+        # The first run decides the voice, every later stage, resume and retry of this run keeps it.
+        tts_pin = _stimme_festlegen(user_id, translate_job_uuid, provider_id, voice_id, voice_label)
+        provider_id, voice_id, voice_label = int(tts_pin["provider_id"]), tts_pin["voice_id"], tts_pin["voice_label"]
+        db.update_job_status(translate_job_uuid, "running", progress={
+            "step": "render", "voice_id": voice_id, "voice_label": voice_label, "provider_id": provider_id,
+        })
         result = _run_render_pipeline(
             job_uuid=translate_job_uuid,
             scripts=scripts,
@@ -110,6 +117,7 @@ def run_screencast_render(
             voice_label=voice_label,
             video_folien=video_folien,
             neu_vertonen=neu_vertonen,
+            tts_pin=tts_pin,
             clock=clock,
             token=versuch,
         )
@@ -131,7 +139,7 @@ def run_screencast_render(
         db.update_job_status(translate_job_uuid, "success")
         _merke_vertonten_stand(
             user_id, translate_job_uuid, scripts, voice_id, provider_id,
-            speed, slide_pause, subtitles, video_folien,
+            speed, slide_pause, subtitles, video_folien, tts_pin,
         )
         clear_render_cache(user_id, translate_job_uuid)
 

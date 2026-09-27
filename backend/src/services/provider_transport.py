@@ -201,11 +201,16 @@ def _redis():
     return _redis_client
 
 
-def _is_down(target: Target, bucket: str) -> bool:
+def is_down(provider_id: int, bucket: str) -> bool:
+    """Whether a failed call left a note on this provider a moment ago, also read at the start of a voice job."""
     try:
-        return bool(_redis().exists(_DOWN_KEY.format(target.provider_id, bucket)))
+        return bool(_redis().exists(_DOWN_KEY.format(provider_id, bucket)))
     except Exception:  # noqa: BLE001 - without Redis every provider counts as there
         return False
+
+
+def _is_down(target: Target, bucket: str) -> bool:
+    return is_down(target.provider_id, bucket)
 
 
 def _mark_down(target: Target, bucket: str, seconds: float, why: str) -> None:
@@ -334,7 +339,8 @@ class _Door:
 
     def switch(self, target: Target, seconds: float, why: str, last: bool) -> bool:
         """Notes the failure when a fallback stands by, and tells whether another provider is left to ask."""
-        if self.fallback is not None:
+        # Voices never switch inside a job, the note only lets the next job start with the fallback.
+        if self.fallback is not None or self.bucket == "tts":
             _mark_down(target, self.bucket, seconds, why)
         return not last
 

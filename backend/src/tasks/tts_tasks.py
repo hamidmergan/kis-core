@@ -11,10 +11,42 @@ from src.celery_app import celery_app
 from src import database as db
 from src.i18n import t
 from src.services.ai_hinweis import ffmpeg_metadata_args
-from src.services.job_recovery import attempt_failed, still_mine
-from src.storage import delete_file, get_file, get_job_file, save_job_file, save_result_file, save_result_and_evict
+from src.services.job_recovery import _progress, attempt_failed, still_mine
+from src.services.tts_job_provider import pick, voice_name
+from src.storage import (
+    delete_file, get_file, get_job_file, is_missing, job_file_exists, save_job_file, save_result_file,
+    save_result_and_evict,
+)
 from src.tasks._stage import StageClock, StageContinue, StageLost, continue_stage
 from src.limits import STAGE_SOFT_TIME_LIMIT, STAGE_TIME_LIMIT
+
+
+def _pinned_params(user_id: int, job_uuid: str, voice_id: str, voice_label: str, speed: float,
+                   provider_id: int, progress: dict) -> dict:
+    """The provider and voice the whole job speaks with, decided once at its first real run."""
+    try:
+        stored = json.loads(get_job_file(user_id, job_uuid, "tts_params.json"))
+    except Exception as exc:  # noqa: BLE001 - only a missing file means no pin in the folder
+        # Any other failure fails the stage, so a later resume still finds the pin.
+        if not is_missing(exc):
+            raise
+        stored = {}
+    if stored.get("pinned"):
+        return stored
+    # A pin the folder lost still rides in the progress and is laid down again.
+    params = progress.get("tts_params") or {}
+    if not params.get("pinned"):
+        params = {"voice_id": voice_id, "voice_label": voice_label, "speed": speed, "provider_id": provider_id,
+                  "requested_provider_id": provider_id, "fallback": False, "pinned": True}
+        # Parts spoken by an older run keep their voice, one file never mixes two voices.
+        if not job_file_exists(user_id, job_uuid, "chunk_000.mp3"):
+            wahl = pick(provider_id, [voice_id])
+            if wahl.fallback:
+                params.update(provider_id=wahl.provider_id, voice_id=wahl.voices[0],
+                              voice_label=voice_name(wahl.provider_id, wahl.voices[0]), fallback=True)
+    # In the folder, not only in the progress: the next status write wipes the progress.
+    save_job_file(user_id, job_uuid, "tts_params.json", json.dumps(params).encode())
+    return params
 
 
 def _stamped_with_ai_notice(mp3_bytes: bytes) -> bytes:
@@ -57,19 +89,14 @@ def run_tts(
         if not still_mine(job_uuid, versuch):
             raise StageLost(job_uuid)
         clock = StageClock()
-        tts_params = {
-            "voice_id": voice_id,
-            "voice_label": voice_label,
-            "speed": speed,
-            "provider_id": provider_id,
-        }
-        db.update_job_status(job_uuid, "running", progress={"step": "extract", "tts_params": tts_params})
         job_row = db.get_job(job_uuid)
         if not job_row:
             raise RuntimeError(f"Job {job_uuid} not found")
         user_id = job_row["user_id"]
-        # In the folder, not only in the progress: the next status write wipes the progress.
-        save_job_file(user_id, job_uuid, "tts_params.json", json.dumps(tts_params).encode())
+        tts_params = _pinned_params(user_id, job_uuid, voice_id, voice_label, speed, provider_id, _progress(job_row))
+        voice_id, voice_label, provider_id = tts_params["voice_id"], tts_params["voice_label"], tts_params["provider_id"]
+        speed = tts_params.get("speed", speed)
+        db.update_job_status(job_uuid, "running", progress={"step": "extract", "tts_params": tts_params})
 
         content = get_file(input_path)
         ext = Path(filename).suffix.lower()

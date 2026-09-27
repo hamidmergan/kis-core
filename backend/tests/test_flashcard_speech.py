@@ -217,6 +217,15 @@ def tts_modell(monkeypatch):
     monkeypatch.setattr("src.dependencies.tts_model_for_provider", lambda _pid: "")
 
 
+@pytest.fixture(autouse=True)
+def stimmwahl(monkeypatch):
+    """The configured provider is there, otherwise the choice would ask the real database and network."""
+    from src.services import tts_job_provider
+
+    monkeypatch.setattr(tts_job_provider, "pick",
+                        lambda pid, voices: tts_job_provider.VoicePick(pid, tuple(voices), False))
+
+
 def _eingerichtet(settings):
     settings["aia_flashcard_voice_provider_id"] = "21"
     settings["aia_flashcard_voice_id"] = "alloy"

@@ -1788,7 +1788,8 @@
         "noFallback": "No fallback",
         "providerUnusable": "{name} (not usable)",
         "fallbackHelp": "If the first choice does not answer or rejects the call, the same call goes to the fallback. Only providers with an OpenAI compatible interface and an entered model qualify. For embeddings only the same model as the first choice.",
-        "fallbackHelpModel": "You enter a provider's model while it is the first choice. It stays saved when you switch."
+        "fallbackHelpModel": "You enter a provider's model while it is the first choice. It stays saved when you switch.",
+        "fallbackHelpTts": "If the first choice cannot be reached when a job starts, the whole job runs with the fallback. The voice never changes within a job. Only providers with an OpenAI compatible interface, an entered model and voices of their own qualify."
       },
       "delete": {
         "title": "Delete provider \"{name}\"?",

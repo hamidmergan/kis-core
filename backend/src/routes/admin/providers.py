@@ -441,18 +441,21 @@ _FALLBACK_CAPABILITY = {
     "stt": "stt",
     "image_gen": "image_gen",
     "image_edit": "image_edit",
+    "tts": "tts",
 }
 
 
 def _check_fallback(feature: str, body: SetFeatureRouteRequest, locale: str) -> int | None:
     """Validates the fallback provider of a route, a route without a first choice has none."""
     fallback_id = body.fallback_provider_id
-    if fallback_id is None or body.provider_id is None:
+    # People pick their voice themselves, so a voice fallback stands on its own and may be the route's provider.
+    voice = feature == "tts"
+    if fallback_id is None or (body.provider_id is None and not voice):
         return None
     if feature not in FALLBACK_FEATURES:
         raise HTTPException(422, t("admin.providers.fallbackNotSupported", locale,
                                    feature=feature))
-    if fallback_id == body.provider_id:
+    if fallback_id == body.provider_id and not voice:
         raise HTTPException(422, t("admin.providers.fallbackSameAsPrimary", locale))
     provider = db.get_provider(fallback_id)
     if provider is None:
@@ -466,6 +469,9 @@ def _check_fallback(feature: str, body: SetFeatureRouteRequest, locale: str) -> 
     if capability not in (provider.get("capabilities") or []):
         raise HTTPException(422, t("admin.providers.fallbackCapability", locale,
                                    capability=capability))
+    # A voice job that switches over needs at least one voice to speak with.
+    if feature == "tts" and not any(v.get("voice_id") for v in provider.get("voices") or []):
+        raise HTTPException(422, t("admin.providers.fallbackNoVoices", locale))
     models = body.provider_models or {}
     model = (models.get(str(fallback_id)) or "").strip()
     if not model:
@@ -723,6 +729,9 @@ def build_import_preview(cfg: dict) -> dict:
     route_diffs: list[dict] = []
     for r in cfg.get("feature_routes", []):
         pname = r.get("provider_name")
+        # A voice route with only a fallback is imported on that fallback alone.
+        if pname is None and r["feature"] == "tts" and r.get("fallback_provider_name") in available_names:
+            pname = r["fallback_provider_name"]
         if pname is None:
             route_diffs.append({
                 "feature": r["feature"], "action": "skip_unresolved",
@@ -820,10 +829,14 @@ def perform_import(cfg: dict) -> dict:
 
     for r in cfg.get("feature_routes", []):
         pname = r.get("provider_name")
-        if pname is None or pname not in name_to_id:
+        voice = r["feature"] == "tts"
+        fallback_id = name_to_id.get(r.get("fallback_provider_name"))
+        # A voice route may stand on its fallback alone, every other route needs its first choice.
+        standalone = voice and pname is None and fallback_id is not None
+        if not standalone and pname not in name_to_id:
             routes_skipped += 1
             continue
-        pid = name_to_id[pname]
+        pid = name_to_id.get(pname)
         user_choice_ids = [
             name_to_id[n] for n in (r.get("user_choices") or [])
             if n in name_to_id
@@ -836,9 +849,8 @@ def perform_import(cfg: dict) -> dict:
         for n, werte in (r.get("provider_sampling") or {}).items():
             if n in name_to_id and isinstance(werte, dict):
                 provider_sampling[str(name_to_id[n])] = werte
-        # The fallback is mapped like the provider, an unknown name or the first choice drops it.
-        fallback_id = name_to_id.get(r.get("fallback_provider_name"))
-        if fallback_id == pid:
+        # An unknown fallback name is dropped, and outside voice so is one equal to the first choice.
+        if fallback_id == pid and not voice:
             fallback_id = None
 
         db.set_route(

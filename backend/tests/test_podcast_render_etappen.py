@@ -29,7 +29,13 @@ class _Store:
     def load_voiced(self, uid, job):
         return {}
 
-    def needs_voice(self, line, voiced, voice_id, speed):
+    def load_pin(self, uid, job):
+        return {}
+
+    def pinned_voice(self, pin, provider_id, voice_id):
+        return provider_id, voice_id
+
+    def needs_voice(self, line, voiced, voice_id, speed, provider_id=0):
         return line.id not in self.vertont
 
     def has_line_audio(self, uid, job, line_id):
@@ -38,7 +44,7 @@ class _Store:
     def save_line_audio(self, uid, job, line_id, data):
         self.vertont.append(line_id)
 
-    def fingerprint(self, line, voice_id, speed):
+    def fingerprint(self, line, voice_id, speed, provider_id=0):
         return {"text": line.text}
 
     def save_voiced(self, uid, job, voiced):

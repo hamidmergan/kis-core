@@ -17,6 +17,7 @@ from src.limits import (
     STAGE_SOFT_TIME_LIMIT,
     STAGE_TIME_LIMIT,
 )
+from src.services import tts_job_provider
 from src.services.job_recovery import attempt_failed, still_mine
 from src.services.job_statistik import anbieter_und_modelle, messe
 from src.services.upstream_errors import is_upstream_busy
@@ -38,23 +39,69 @@ def _person(params: PodcastParams, line: Line):
     return params.persons[line.speaker] if line.speaker < len(params.persons) else params.persons[0]
 
 
-def _stimme(params: PodcastParams, line: Line) -> str:
-    return _person(params, line).voice_id
+def _gepinnt(params: PodcastParams, pin: dict, person) -> tuple[int, str]:
+    """Provider and voice this person speaks with in the current run."""
+    return store.pinned_voice(pin, person.provider_id or params.provider_id, person.voice_id)
 
 
-def _besetzung(params: PodcastParams) -> str:
+def _stimme(params: PodcastParams, pin: dict, line: Line) -> tuple[int, str]:
+    return _gepinnt(params, pin, _person(params, line))
+
+
+def _noch_aktuell(params: PodcastParams, pin: dict, vertont: dict, line: Line) -> bool:
+    """Whether the stored audio came from exactly this text, provider, voice and tempo."""
+    anbieter, stimme = _stimme(params, pin, line)
+    return not store.needs_voice(line, vertont, stimme, params.speed, anbieter)
+
+
+def _festlegen(params: PodcastParams) -> dict:
+    """Provider and voices of the whole run, no two persons share a voice on the provider they end up on."""
+    gruppen: dict[int, list[str]] = {}
+    for person in params.persons:
+        stimmen = gruppen.setdefault(person.provider_id or params.provider_id, [])
+        if person.voice_id and person.voice_id not in stimmen:
+            stimmen.append(person.voice_id)
+    # Voices in use per provider, first as chosen, then plus those the fallback took over.
+    benutzt: dict[int, list[str]] = {pid: list(stimmen) for pid, stimmen in gruppen.items()}
+    pin: dict = {"voices": {}, "fallback": False}
+    for pid, stimmen in gruppen.items():
+        if not stimmen:
+            continue
+        wahl = tts_job_provider.pick(pid, stimmen)
+        besetzt = benutzt.get(wahl.provider_id, [])
+        if wahl.fallback and set(wahl.voices) & set(besetzt):
+            # Only the answer names the fallback provider, so a clash there is decided once more.
+            wahl = tts_job_provider.pick(pid, stimmen, taken=besetzt)
+        if wahl.fallback:
+            benutzt.setdefault(wahl.provider_id, []).extend(wahl.voices)
+        pin["fallback"] = pin["fallback"] or wahl.fallback
+        for stimme, neu in zip(stimmen, wahl.voices):
+            pin["voices"][store.pin_key(pid, stimme)] = {
+                "provider_id": wahl.provider_id, "voice_id": neu}
+    return pin
+
+
+def _besetzung(params: PodcastParams, pin: dict) -> str:
     """Who speaks with which role, which voice and from which provider."""
     from src import database as db
 
     namen: dict[int, str] = {}
     teile = []
     for person in params.persons:
-        pid = person.provider_id or params.provider_id
+        pid, stimme = _gepinnt(params, pin, person)
         if pid not in namen:
             namen[pid] = (db.get_provider(pid) or {}).get("name") or ""
-        angaben = [person.role, person.voice_id, namen[pid]]
+        angaben = [person.role, stimme, namen[pid]]
         teile.append(f"{person.name} ({', '.join(a for a in angaben if a)})")
     return ", ".join(teile)
+
+
+def _stimmen_etikett(params: PodcastParams, pin: dict) -> str:
+    """The page's label, unless the fallback spoke, then the names of the voices that really did."""
+    if not pin.get("fallback"):
+        return params.voice_label
+    return ", ".join(dict.fromkeys(
+        tts_job_provider.voice_name(*_gepinnt(params, pin, p)) for p in params.persons))
 
 
 def _behalten_aus_vorlauf(job_uuid: str) -> list[int] | None:
@@ -125,10 +172,15 @@ def run_podcast_render(self, job_uuid: str, user_id: int, locale: str = "de",
         if not params or not zeilen:
             raise RuntimeError("Auftrag ohne Skript oder ohne Einstellungen")
 
+        pin = store.load_pin(user_id, job_uuid)
+        if pin is None:
+            # Only the first stage of a run decides, later stages and every resume keep its choice.
+            pin = _festlegen(params)
+            store.save_pin(user_id, job_uuid, pin)
         vertont = store.load_voiced(user_id, job_uuid)
-        # A contribution keeps its audio as long as text, voice and tempo match.
+        # A contribution keeps its audio as long as text, provider, voice and tempo match.
         behalten = [i for i, l in enumerate(zeilen)
-                    if not store.needs_voice(l, vertont, _stimme(params, l), params.speed)
+                    if _noch_aktuell(params, pin, vertont, l)
                     and store.has_line_audio(user_id, job_uuid, l.id)]
         # From the second stage on, what this run already voiced must not count as kept.
         aus_vorlauf = _behalten_aus_vorlauf(job_uuid) if etappe > 1 else None
@@ -171,16 +223,15 @@ def run_podcast_render(self, job_uuid: str, user_id: int, locale: str = "de",
             if not still_mine(job_uuid, versuch):
                 raise StageLost(job_uuid)
             line = zeilen[i]
-            person = _person(params, line)
-            if not person.voice_id:
+            if not _person(params, line).voice_id:
                 raise RuntimeError(f"Beitrag {i + 1} hat keine Stimme")
-            stimme = person.voice_id
-            ton = _mit_wiederholung(client_fuer(person.provider_id or params.provider_id),
+            anbieter, stimme = _stimme(params, pin, line)
+            ton = _mit_wiederholung(client_fuer(anbieter),
                                     line.text, stimme, params.language, params.speed,
                                     job_uuid, clock)
             store.save_line_audio(user_id, job_uuid, line.id, ton)
             with sperre:
-                vertont[line.id] = store.fingerprint(line, stimme, params.speed)
+                vertont[line.id] = store.fingerprint(line, stimme, params.speed, anbieter)
                 store.save_voiced(user_id, job_uuid, vertont)
                 fertig.add(i)
                 # A finished contribution is the liveness sign, no clock thread ticks for us.
@@ -189,13 +240,13 @@ def run_podcast_render(self, job_uuid: str, user_id: int, locale: str = "de",
 
         with messe(user_id, job_uuid, "vertonung") as ton_zahlen:
             ton_zahlen.update(anbieter_und_modelle(
-                [p.provider_id or params.provider_id for p in params.persons], "tts"))
+                [_gepinnt(params, pin, p)[0] for p in params.persons], "tts"))
             ton_zahlen["etappe"] = etappe
             ton_zahlen["sprache"] = params.language
             ton_zahlen["tempo"] = params.speed
             ton_zahlen["personen"] = len(params.persons)
-            ton_zahlen["besetzung"] = _besetzung(params)
-            ton_zahlen["stimmen"] = len({_stimme(params, l) for l in zeilen})
+            ton_zahlen["besetzung"] = _besetzung(params, pin)
+            ton_zahlen["stimmen"] = len({_stimme(params, pin, l) for l in zeilen})
             ton_zahlen["beitraege"] = len(zeilen)
             ton_zahlen["neu_vertont"] = len(offen)
             ton_zahlen["behalten"] = len(gemerkt)
@@ -248,7 +299,7 @@ def run_podcast_render(self, job_uuid: str, user_id: int, locale: str = "de",
             "lines": len(zeilen),
             "voices": len({l.speaker for l in zeilen}),
             "language": params.language,
-            "voice_label": params.voice_label,
+            "voice_label": _stimmen_etikett(params, pin),
         })
         save_result_and_evict(user_id, job_uuid, pfad, "podcast.mp3")
         db.update_job_status(job_uuid, "success", progress={

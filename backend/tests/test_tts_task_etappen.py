@@ -4,6 +4,7 @@ import json
 
 import pytest
 
+from src.services.tts_job_provider import VoicePick
 from src.tasks import tts_tasks
 
 JOB = "f" * 32
@@ -70,6 +71,9 @@ def umgebung(monkeypatch):
     monkeypatch.setattr(tts_tasks, "db", db)
     monkeypatch.setattr(tts_tasks, "get_job_file", ablage.get)
     monkeypatch.setattr(tts_tasks, "save_job_file", ablage.put)
+    monkeypatch.setattr(tts_tasks, "job_file_exists", lambda uid, job, name: name in ablage.dateien)
+    # The chosen provider is there, the fallback tests set their own choice.
+    monkeypatch.setattr(tts_tasks, "pick", lambda pid, stimmen: VoicePick(pid, tuple(stimmen), False))
     monkeypatch.setattr(tts_tasks, "get_file", lambda pfad: b"egal")
     monkeypatch.setattr(tts_tasks, "delete_file", lambda pfad: None)
     monkeypatch.setattr(tts_tasks, "save_result_file", lambda uid, job, endung, daten: "p.mp3")

@@ -9,7 +9,7 @@ from src import database as db
 from src.dependencies import get_current_user
 from src.i18n import get_locale, t
 from src.services.open_jobs import enforce_open_jobs
-from src.storage import get_job_file, save_job_file
+from src.storage import get_job_file, is_missing, save_job_file
 
 
 router = APIRouter()
@@ -29,7 +29,20 @@ def _queue_params_from_render(render_params: dict) -> dict:
         "subtitles": bool(render_params.get("subtitles", False)),
         "video_folien": render_params.get("video_folien"),
         "neu_vertonen": render_params.get("neu_vertonen") or [],
+        # A retry continues the same run, so it keeps the voice decided at its start.
+        "tts_pin": render_params.get("tts_pin"),
     }
+
+
+def _render_params_vom_lauf(user_id: int, job_uuid: str, render_params: dict) -> bool:
+    """False when the queue already holds the pin of a newer run, older render details must not replace it."""
+    try:
+        pin = json.loads(get_job_file(user_id, job_uuid, "queue_params.json")).get("tts_pin")
+    except Exception as e:
+        if not is_missing(e):
+            raise
+        return True
+    return not pin or render_params.get("tts_pin") == pin
 
 
 @router.post("/{job_uuid}/retry")
@@ -82,6 +95,8 @@ def retry_job(
                 get_job_file(job["user_id"], job_uuid, "queue_params.json")
             except Exception:
                 raise HTTPException(status_code=400, detail=t("job.renderParamsExpired", locale))
+        if render_params is not None and not _render_params_vom_lauf(job["user_id"], job_uuid, render_params):
+            render_params = None
 
     if job["tool"] == "tts":
         # Atomically claim the job - blocks parallel retries

@@ -15,6 +15,8 @@ from src.security.rate_limit import enforce_tool_burst
 router = APIRouter(tags=["podcast"])
 
 _STARTBAR = ("awaiting_user", "failed", "success", "paused")
+# "Fortsetzen" on the page, the same run goes on.
+_FORTSETZBAR = ("failed", "paused")
 
 
 @router.post("/podcast/{job_uuid}/render")
@@ -41,6 +43,10 @@ def start_render(
 
     # Whoever cancelled and starts again must not run into their own mark.
     clear_cancel(job_uuid)
+    # Continuing a failed or paused run with the same cast keeps its voices, anything else starts a new run.
+    params = store.load_params(user_id, job_uuid) if job["status"] in _FORTSETZBAR else None
+    if params is None or not store.pin_covers(store.load_pin(user_id, job_uuid), params):
+        store.delete_pin(user_id, job_uuid)
     db.reset_attempts(job_uuid)
     # Pending first: the task checks the row and must not find the old state.
     db.update_job_status(job_uuid, "pending", progress={"step": "tts"})

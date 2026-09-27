@@ -32,8 +32,8 @@ USER_CHOICE_FEATURES: frozenset[str] = frozenset({
     "doc_translate",
 })
 
-# Features that may name a second provider for when the first one fails, every one except tts.
-FALLBACK_FEATURES: tuple[str, ...] = tuple(f for f in FEATURES if f != "tts")
+# Features that may name a second provider for when the first one fails, tts switches per job only.
+FALLBACK_FEATURES: tuple[str, ...] = FEATURES
 
 
 def _row_to_dict(row) -> dict:

@@ -35,6 +35,26 @@ describe("filterExportConfig", () => {
     expect(r.provider_models).toEqual({ HPC: "gemma" });
   });
 
+  it("behaelt eine Stimmen-Route, die nur einen Rueckfall hat", () => {
+    const route = { feature: "tts", provider_name: null, fallback_provider_name: "myLab" };
+    const out = filterExportConfig(exportMit(route), new Set(["myLab"]));
+    const r = (out as Gefiltert).feature_routes[0];
+    expect(r.fallback_provider_name).toBe("myLab");
+    expect(r.provider_models).toEqual({ myLab: "qwen" });
+  });
+
+  it("laesst eine Stimmen-Route ohne Erstwahl fallen, wenn ihr Rueckfall nicht mitkommt", () => {
+    const route = { feature: "tts", provider_name: null, fallback_provider_name: "myLab" };
+    const out = filterExportConfig(exportMit(route), new Set(["HPC"]));
+    expect((out as Gefiltert).feature_routes).toEqual([]);
+  });
+
+  it("laesst eine andere Route ohne Erstwahl weiter fallen", () => {
+    const route = { provider_name: null, fallback_provider_name: "myLab" };
+    const out = filterExportConfig(exportMit(route), new Set(["HPC", "myLab"]));
+    expect((out as Gefiltert).feature_routes).toEqual([]);
+  });
+
   it("fuegt kein Feld hinzu, das der Export nicht hatte", () => {
     const out = filterExportConfig(exportMit({}), new Set(["HPC"]));
     expect("fallback_provider_name" in (out as Gefiltert).feature_routes[0]).toBe(false);

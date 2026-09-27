@@ -35,6 +35,9 @@ class FakeAblage:
     def job_file_exists(self, user_id, job_uuid, filename):
         return (user_id, job_uuid, filename) in self.dateien
 
+    def delete_job_file(self, user_id, job_uuid, filename):
+        self.dateien.pop((user_id, job_uuid, filename), None)
+
 
 UUID = "a" * 32
 
@@ -55,6 +58,7 @@ def env(monkeypatch):
     for modul in (store, job_files):
         for name in ("save_job_file", "get_job_file", "job_file_exists"):
             monkeypatch.setattr(modul, name, getattr(ablage, name))
+    monkeypatch.setattr(store, "delete_job_file", ablage.delete_job_file)
     monkeypatch.setattr("src.dependencies_rbac.is_released_now", lambda key: True)
 
     jobs: dict[str, dict] = {}
