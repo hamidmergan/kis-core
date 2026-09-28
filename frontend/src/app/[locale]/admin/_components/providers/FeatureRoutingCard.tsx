@@ -2,12 +2,12 @@
 
 import { useCallback, useId, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { CheckCircle, Lightning, Spinner, Warning, XCircle } from "@phosphor-icons/react";
+import { CheckCircle, Lightning, Spinner, Star, Warning, XCircle } from "@phosphor-icons/react";
 import Checkbox from "@/components/ui/Checkbox";
 import HelpTooltip from "@/components/ui/HelpTooltip";
 import { testFeatureRoute } from "./_api";
 import DefaultVoiceRow from "./DefaultVoiceRow";
-import { fallbackOptions, firstChoiceOptions, type FallbackOption } from "./_routeOptions";
+import { fallbackOptions, firstChoiceMark, type FallbackOption, type FirstChoiceMark } from "./_routeOptions";
 import type { Capability, Feature, FeatureRoute, Provider, ProviderMeta, Sampling } from "./_types";
 
 type Props = {
@@ -355,32 +355,46 @@ function FeatureRow({
   const fallbackModel = fallback?.find((o) => o.id === fallbackValue)?.model ?? "";
 
   if (isUserChoice && SPLIT_USER_CHOICE_FEATURES.has(feature)) {
+    // Speech has no first choice here, the person picks the voice, only the fallback is set.
+    const hasFirstChoice = feature !== "tts";
+    const unusableFirst = hasFirstChoice && provider != null && !eligible.includes(provider);
+    // Keeps the fallback dropdown flush with the model fields and their one or two buttons.
+    const buttonTail = hasFirstChoice ? "w-18" : "w-8";
     return (
       <div className="py-4 flex flex-col gap-2">
         <div className="min-w-0">
           <p className="text-sm font-medium text-foreground">{t(`featureName.${feature}`)}</p>
         </div>
-        <div className="flex flex-col gap-1.5 mt-1">
+        <div className="flex flex-col gap-3 sm:gap-1.5 mt-1">
           {eligible.length === 0 ? (
             <span className="text-2xs text-muted-soft italic">{t("routes.noEligible")}</span>
           ) : (
             eligible.map((p) => {
               const modelVal = route?.provider_models?.[String(p.id)] ?? "";
               const pState = providerTestStates[p.id] ?? { kind: "idle" as const };
+              const mark = firstChoiceMark(route, p);
+              const isFirst = hasFirstChoice && mark === "on";
               return (
                 <div key={p.id} className="flex flex-col gap-0.5">
-                  <div className="flex items-center gap-2">
-                    <span className="flex-1 min-w-0 truncate text-sm text-foreground-soft">{p.name}</span>
-                    <input
-                      key={`${p.id}-${modelVal}`}
-                      type="text"
-                      defaultValue={modelVal}
-                      onBlur={(e) => onChangeProviderModel(p.id, e.target.value.trim() || null)}
-                      placeholder={t("routes.modelOptional")}
-                      spellCheck={false}
-                      className="flex-1 text-xs px-2 py-1.5 border-2 border-border rounded-md font-mono hover:border-kb focus:outline-none focus:border-kb bg-background text-left"
-                    />
-                    <TestButton state={pState} disabled={testsLocked} onClick={() => onTestProvider(p.id)} />
+                  <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-2">
+                    <span className={`sm:flex-1 min-w-0 truncate text-sm ${isFirst ? "font-medium text-foreground" : "text-foreground-soft"}`}>
+                      {p.name}
+                    </span>
+                    <div className="sm:flex-1 min-w-0 flex items-center gap-2">
+                      <input
+                        key={`${p.id}-${modelVal}`}
+                        type="text"
+                        defaultValue={modelVal}
+                        onBlur={(e) => onChangeProviderModel(p.id, e.target.value.trim() || null)}
+                        placeholder={t("routes.modelOptional")}
+                        spellCheck={false}
+                        className="flex-1 min-w-0 text-xs px-2 py-1.5 border-2 border-border rounded-md font-mono hover:border-kb focus:outline-none focus:border-kb bg-background text-left"
+                      />
+                      {hasFirstChoice && (
+                        <FirstChoiceButton mark={mark} onClick={() => onChangeProvider(p.id)} />
+                      )}
+                      <TestButton state={pState} disabled={testsLocked} onClick={() => onTestProvider(p.id)} />
+                    </div>
                   </div>
                   {CHAT_LIKE.has(feature) && p.protocol === "openai_compat" &&
                     (feinAn || hatWerte(route?.provider_sampling?.[String(p.id)])) && (
@@ -398,48 +412,29 @@ function FeatureRow({
             })
           )}
         </div>
-        {/* Speech has no first choice here, the person picks the voice, only the fallback is set. */}
-        {eligible.length > 0 && (feature !== "tts" || fallback) && (
+        {eligible.length > 0 && (unusableFirst || fallback) && (
           <div className="mt-3 pt-3 border-t border-border-soft flex flex-col gap-1.5">
-            {feature !== "tts" && (
-              <div className="flex items-center gap-2">
-                <label htmlFor={firstId} className="flex-1 min-w-0 truncate text-sm text-foreground-soft">
-                  {t("routes.firstChoice")}
-                </label>
-                <select
-                  id={firstId}
-                  value={providerId ?? ""}
-                  onChange={(e) => onChangeProvider(e.target.value ? Number(e.target.value) : null)}
-                  className={`${AUSWAHL} flex-1`}
-                >
-                  <option value="">{t("routes.unselected")}</option>
-                  {firstChoiceOptions(route, eligible).map((p) => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
-                  {provider && !eligible.includes(provider) && (
-                    <option value={provider.id}>{t("routes.providerUnusable", { name: provider.name })}</option>
-                  )}
-                </select>
-                {/* Keeps the dropdowns flush with the model fields above. */}
-                <span className="w-8 shrink-0" aria-hidden="true" />
-              </div>
+            {unusableFirst && provider && (
+              <p className="text-2xs text-warn">{t("routes.firstChoiceUnusable", { name: provider.name })}</p>
             )}
             {fallback && (
-              <div className="flex items-center gap-2">
-                <div className="flex-1 min-w-0 flex items-center gap-1">
+              <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-2">
+                <div className="sm:flex-1 min-w-0 flex items-center gap-1">
                   <label htmlFor={fallbackId} className="truncate text-sm text-foreground-soft">
                     {t("routes.fallback")}
                   </label>
                   <HelpTooltip text={t(feature === "tts" ? "routes.fallbackHelpTts" : "routes.fallbackHelp")} />
                 </div>
-                <FallbackSelect
-                  id={fallbackId}
-                  value={fallbackValue}
-                  options={fallback}
-                  onChange={onChangeFallback}
-                  className="flex-1"
-                />
-                <span className="w-8 shrink-0" aria-hidden="true" />
+                <div className="sm:flex-1 min-w-0 flex items-center gap-2">
+                  <FallbackSelect
+                    id={fallbackId}
+                    value={fallbackValue}
+                    options={fallback}
+                    onChange={onChangeFallback}
+                    className="flex-1"
+                  />
+                  <span className={`${buttonTail} shrink-0`} aria-hidden="true" />
+                </div>
               </div>
             )}
           </div>
@@ -629,6 +624,31 @@ function FallbackSelect({
         </option>
       ))}
     </select>
+  );
+}
+
+function FirstChoiceButton({ mark, onClick }: { mark: FirstChoiceMark; onClick: () => void }) {
+  const t = useTranslations("admin.providers");
+  const on = mark === "on";
+  const label = on
+    ? t("routes.firstChoice")
+    : mark === "free"
+      ? t("routes.setFirstChoice")
+      : t("routes.firstChoiceNeedsModel");
+  return (
+    <button
+      type="button"
+      onClick={on ? undefined : onClick}
+      disabled={mark === "needsModel"}
+      aria-pressed={on}
+      title={label}
+      aria-label={label}
+      className={`w-8 h-8 shrink-0 rounded-md border border-border-soft bg-background flex items-center justify-center transition-colors enabled:hover:outline enabled:hover:outline-2 enabled:hover:outline-kb disabled:opacity-50 disabled:cursor-not-allowed ${
+        on ? "text-kb-dark" : "text-muted-soft enabled:hover:text-kb"
+      }`}
+    >
+      <Star size={14} weight={on ? "fill" : "bold"} />
+    </button>
   );
 }
 

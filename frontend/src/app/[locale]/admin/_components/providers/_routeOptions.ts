@@ -75,9 +75,16 @@ export function keptFallback(feature: Feature, route: RouteModels, providers: Pr
   return candidates(feature, route, providers).some((p) => p.id === stored) ? stored : null;
 }
 
+export type FirstChoiceMark = "on" | "free" | "needsModel";
+
+/** Whether a provider is the first choice, can become it, or first needs a model. */
+export function firstChoiceMark(route: RouteModels | undefined, provider: Provider): FirstChoiceMark {
+  if (provider.id === route?.provider_id) return "on";
+  if (provider.protocol !== "openai_compat" || modelOf(route, provider.id) !== "") return "free";
+  return "needsModel";
+}
+
 /** Providers of a row that can be the first choice, the current one always stays listed. */
 export function firstChoiceOptions(route: RouteModels | undefined, listed: Provider[]): Provider[] {
-  return listed.filter(
-    (p) => p.id === route?.provider_id || p.protocol !== "openai_compat" || modelOf(route, p.id) !== "",
-  );
+  return listed.filter((p) => firstChoiceMark(route, p) !== "needsModel");
 }

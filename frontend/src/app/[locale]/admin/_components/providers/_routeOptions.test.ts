@@ -1,7 +1,7 @@
 /** Which providers the first choice and fallback dropdowns of a feature row offer. */
 import { describe, expect, it } from "vitest";
 
-import { fallbackOptions, firstChoiceOptions, keptFallback } from "./_routeOptions";
+import { fallbackOptions, firstChoiceMark, firstChoiceOptions, keptFallback } from "./_routeOptions";
 import type { FeatureRoute, Provider } from "./_types";
 
 function anbieter(id: number, extra: Partial<Provider> = {}): Provider {
@@ -195,5 +195,27 @@ describe("firstChoiceOptions", () => {
 
   it("listet ohne Route nur Anbieter ohne Modellpflicht", () => {
     expect(ids(firstChoiceOptions(undefined, [anbieter(2), anbieter(4, { protocol: "deepl" })]))).toEqual([4]);
+  });
+});
+
+describe("firstChoiceMark", () => {
+  it("zeigt die aktuelle erste Wahl als gesetzt, auch ohne Modell", () => {
+    expect(firstChoiceMark(route({ provider_id: 3, provider_models: {} }), anbieter(3))).toBe("on");
+  });
+
+  it("gibt einen Anbieter mit Modell frei", () => {
+    expect(firstChoiceMark(route(), anbieter(2))).toBe("free");
+  });
+
+  it("gibt einen Anbieter ohne Modellpflicht auch ohne Modell frei", () => {
+    expect(firstChoiceMark(route({ provider_models: {} }), anbieter(4, { protocol: "deepl" }))).toBe("free");
+  });
+
+  it("sperrt einen Anbieter mit Modellpflicht ohne Modell", () => {
+    expect(firstChoiceMark(route({ provider_models: { "1": "m1", "2": "  " } }), anbieter(2))).toBe("needsModel");
+  });
+
+  it("sperrt ohne Route jeden Anbieter mit Modellpflicht", () => {
+    expect(firstChoiceMark(undefined, anbieter(2))).toBe("needsModel");
   });
 });
