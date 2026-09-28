@@ -238,6 +238,19 @@ def test_die_seite_zaehlt_den_ton_des_festgelegten_anbieters_als_vertont(lauf, m
 
 
 
+def test_die_seite_zaehlt_ton_mit_eigenem_tempo_als_vertont(lauf, monkeypatch):
+    """Die Seite verglich immer mit Tempo 1.0, bei 1.2 galt dann nichts als vertont."""
+    import src.routes.podcast.script as script_route
+
+    params = _auftrag([LENA])
+    store.save_params(UID, JOB, params.model_copy(update={"speed": 1.2}))
+    _render.run_podcast_render(JOB, UID, "de", 1, 0)
+    monkeypatch.setattr(script_route, "own_job", lambda uuid, user, locale: {
+        "user_id": UID, "status": "success", "progress": None, "error_message": None, "result_path": "p"})
+
+    assert script_route.get_podcast(JOB, {"user_id": UID}, "de")["voiced"] == ["b0", "b1"]
+
+
 def _vor_der_festlegung_vertont():
     """So sieht ein Podcast aus, der vor dem 28.09.2026 vertont wurde: der Anbieter fehlt im Fingerabdruck."""
     _auftrag([LENA])

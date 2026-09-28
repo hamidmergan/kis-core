@@ -19,11 +19,11 @@ router = APIRouter(tags=["podcast"])
 def _vertont(line: Line, params: PodcastParams, pin: dict | None, vertont: dict) -> bool:
     """Whether a contribution carries audio of exactly this text in the provider and voice of the run."""
     if line.speaker >= len(params.persons):
-        return not store.needs_voice(line, vertont, "", 1.0)
+        return not store.needs_voice(line, vertont, "", params.speed)
     person = params.persons[line.speaker]
     gewaehlt = person.provider_id or params.provider_id
     anbieter, stimme = store.pinned_voice(pin, gewaehlt, person.voice_id)
-    return not store.needs_voice(line, vertont, stimme, 1.0, anbieter, gewaehlt)
+    return not store.needs_voice(line, vertont, stimme, params.speed, anbieter, gewaehlt)
 
 
 def _fortschritt(roh) -> dict | None:
