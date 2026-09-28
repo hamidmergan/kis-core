@@ -28,6 +28,35 @@ def anbieter(monkeypatch):
     return liste
 
 
+@pytest.fixture(autouse=True)
+def stern(monkeypatch):
+    """The speech output route, without a starred provider by default."""
+    route: dict = {"provider_id": None}
+    monkeypatch.setattr("src.database.get_route", lambda feature: route if feature == "tts" else None)
+    return route
+
+
+def test_der_stern_verdraengt_eine_standardstimme_eines_anderen_anbieters(settings, anbieter, stern):
+    settings["aia_flashcard_voice_provider_id"] = "21"
+    settings["aia_flashcard_voice_id"] = "alloy"
+    anbieter.append({"id": 89, "voices": [{"voice_id": "af_heart"}]})
+    stern["provider_id"] = 89
+    assert speech.configured_voice() == (89, "af_heart")
+
+
+def test_die_standardstimme_des_sternanbieters_bleibt(settings, stern):
+    settings["aia_flashcard_voice_provider_id"] = "89"
+    settings["aia_flashcard_voice_id"] = "de_anna"
+    stern["provider_id"] = 89
+    assert speech.configured_voice() == (89, "de_anna")
+
+
+def test_ohne_einstellung_spricht_die_erste_stimme_des_sternanbieters(settings, anbieter, stern):
+    anbieter.extend([{"id": 21, "voices": [{"voice_id": "alloy"}]}, {"id": 89, "voices": [{"voice_id": "af_heart"}]}])
+    stern["provider_id"] = 89
+    assert speech.configured_voice() == (89, "af_heart")
+
+
 def test_ohne_einstellungen_ist_nichts_gewaehlt(settings):
     assert speech.configured_voice() is None
     assert speech.speech_enabled() is False

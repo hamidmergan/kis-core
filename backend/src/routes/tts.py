@@ -39,25 +39,30 @@ router = APIRouter(
 
 @router.get("/tts/providers-with-voices")
 async def get_tts_providers_with_voices():
-    """Reachable speech providers with their voices, unreachable ones stay hidden."""
+    """Reachable speech providers with their voices, the starred one first, plus the voice to preselect."""
     from src.dependencies import get_reachable_tts_providers_with_voices
     from src.i18n import TRANSCRIPT_LANGUAGES
+    from src.services import tts_standard
     providers = await get_reachable_tts_providers_with_voices()
     # Same cap as every other language picker: German, English, or language-less.
     allowed_langs = {"", *TRANSCRIPT_LANGUAGES}
+    star = tts_standard.star_id()
     # Strip sensitive fields before sending to frontend
+    listed = [
+        {
+            "id": p["id"],
+            "name": p["name"],
+            "voices": [
+                v for v in p.get("voices", [])
+                if (v.get("language") or "").lower() in allowed_langs
+            ],
+        }
+        for p in tts_standard.star_first(providers, star)
+    ]
+    default = tts_standard.standard_voice(listed, star, tts_standard.default_voice_setting())
     return {
-        "providers": [
-            {
-                "id": p["id"],
-                "name": p["name"],
-                "voices": [
-                    v for v in p.get("voices", [])
-                    if (v.get("language") or "").lower() in allowed_langs
-                ],
-            }
-            for p in providers
-        ]
+        "providers": listed,
+        "default": {"provider_id": default[0], "voice_id": default[1]} if default else None,
     }
 
 

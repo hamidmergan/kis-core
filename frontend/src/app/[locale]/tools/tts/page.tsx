@@ -13,6 +13,7 @@ import type { TTSState } from "@/types";
 import Select from "@/components/ui/Select";
 import Tabs from "@/components/ui/Tabs";
 import type { ProviderWithVoices } from "@/hooks/useVoices";
+import { preselectedVoice } from "@/hooks/_voiceDefault";
 import { LANGUAGE_FLAG } from "@/lib/languageFlags";
 
 type InputMode = "text" | "file";
@@ -50,9 +51,10 @@ export default function TtsPage() {
       .then((data) => {
         const list: ProviderWithVoices[] = data.providers ?? [];
         setProviders(list);
-        if (list.length > 0) {
-          setProviderId(list[0].id);
-          if (list[0].voices.length > 0) setVoiceId(list[0].voices[0].voice_id);
+        const vorauswahl = preselectedVoice(list, data.default);
+        if (vorauswahl) {
+          setProviderId(vorauswahl.providerId);
+          if (vorauswahl.voiceId) setVoiceId(vorauswahl.voiceId);
         }
       })
       .catch(() => {

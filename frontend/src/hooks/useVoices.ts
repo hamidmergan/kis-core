@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { preselectedVoice } from "./_voiceDefault";
 
 export interface Voice {
   voice_id: string;
@@ -37,11 +38,10 @@ export function useVoices(): UseVoicesResult {
         if (cancelled) return;
         const list: ProviderWithVoices[] = data.providers ?? [];
         setProviders(list);
-        if (list.length > 0) {
-          setDefaultProviderId(list[0].id);
-          if (list[0].voices.length > 0) {
-            setDefaultVoiceId(list[0].voices[0].voice_id);
-          }
+        const vorauswahl = preselectedVoice(list, data.default);
+        if (vorauswahl) {
+          setDefaultProviderId(vorauswahl.providerId);
+          if (vorauswahl.voiceId) setDefaultVoiceId(vorauswahl.voiceId);
         }
       })
       .catch(() => {

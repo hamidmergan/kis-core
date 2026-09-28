@@ -1,41 +1,17 @@
 """Speaks the example sentence of a flashcard, provider and voice come from the admin area."""
 
-from src import database as db
-
-_PROVIDER_KEY = "aia_flashcard_voice_provider_id"
-_VOICE_KEY = "aia_flashcard_voice_id"
-
 
 def configured_voice() -> tuple[int, str] | None:
-    """Provider and voice, otherwise the first available, or None when there is none."""
-    return _ausdruecklich_gewaehlt() or _erste_stimme()
-
-
-def _ausdruecklich_gewaehlt() -> tuple[int, str] | None:
-    """What the settings say, as long as it is usable."""
-    raw_provider = (db.get_setting(_PROVIDER_KEY, "") or "").strip()
-    voice = (db.get_setting(_VOICE_KEY, "") or "").strip()
-    if not raw_provider or not voice:
-        return None
-    try:
-        provider_id = int(raw_provider)
-    except ValueError:
-        return None
-    if provider_id < 1:
-        return None
-    return provider_id, voice
-
-
-def _erste_stimme() -> tuple[int, str] | None:
-    """The first voice of the first enabled provider that can speak."""
+    """The default voice while it belongs to the starred provider, otherwise that provider's first voice."""
     from src.features.ai_providers.repository.providers import list_providers_with_capability
+    from src.services import tts_standard
 
-    for provider in list_providers_with_capability("tts"):
-        for voice in (provider.get("voices") or []):
-            voice_id = (voice.get("voice_id") or "").strip()
-            if voice_id:
-                return int(provider["id"]), voice_id
-    return None
+    setting = tts_standard.default_voice_setting()
+    star = tts_standard.star_id()
+    # Without a star the default voice counts as it is, even with an empty provider list.
+    if setting and star in (None, setting[0]):
+        return setting
+    return tts_standard.standard_voice(list_providers_with_capability("tts"), star, setting)
 
 
 def speech_enabled() -> bool:

@@ -1,17 +1,18 @@
 "use client";
 
-/** The default voice, one field for provider and voice at once. */
+/** The default voice, one of the starred provider's voices. */
 
 import { useTranslations } from "next-intl";
 import Select from "@/components/ui/Select";
 import { useSettingGroup } from "../../_settings/SettingsProvider";
+import { defaultVoiceOptions, shownDefaultVoice } from "./_defaultVoice";
 import type { Provider } from "./_types";
 
 const ANBIETER = "aia_flashcard_voice_provider_id";
 const STIMME = "aia_flashcard_voice_id";
 const SCHLUESSEL = [ANBIETER, STIMME];
 
-export default function DefaultVoiceRow({ eligible }: { eligible: Provider[] }) {
+export default function DefaultVoiceRow({ eligible, starId }: { eligible: Provider[]; starId: number | null }) {
   const t = useTranslations("admin.providers.defaultVoice");
   const { settings, loading, save, saving, error } = useSettingGroup(SCHLUESSEL);
 
@@ -22,18 +23,10 @@ export default function DefaultVoiceRow({ eligible }: { eligible: Provider[] }) 
   const wert = anbieter && stimme ? `${anbieter}:${stimme}` : "";
 
   // No 'none' entry any more, nothing chosen means the first voice.
-  const optionen = eligible.flatMap((p) =>
-    (p.voices ?? []).map((v) => ({
-      value: `${p.id}:${v.voice_id}`,
-      label: `${p.name} · ${v.name}`,
-    })),
-  );
-
-  // The stored value is no longer offered as a choice.
-  const verwaist = Boolean(wert && !optionen.some((o) => o.value === wert));
+  const optionen = defaultVoiceOptions(eligible, starId);
 
   // The field shows what the server really uses, nothing is saved.
-  const angezeigt = !verwaist && wert ? wert : (optionen[0]?.value ?? "");
+  const { shown: angezeigt, orphaned: verwaist } = shownDefaultVoice(optionen, wert, starId);
 
   const waehlen = (naechster: string) => {
     // Split at the first colon, the voice id may carry one itself.
@@ -45,17 +38,20 @@ export default function DefaultVoiceRow({ eligible }: { eligible: Provider[] }) 
   };
 
   return (
-    // Only a label and a field, like the provider rows above.
+    // Only a label and a field, flush with the model fields of the provider rows above.
     <div className="mt-3 pt-3 border-t border-border-soft">
-      <div className="flex items-center gap-2">
-        <span className="flex-1 min-w-0 truncate text-sm text-foreground-soft">{t("label")}</span>
-        <div className="w-64">
-          <Select
-            value={angezeigt}
-            onChange={waehlen}
-            options={optionen}
-            disabled={saving || optionen.length === 0}
-          />
+      <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-2">
+        <span className="sm:flex-1 min-w-0 truncate text-sm text-foreground-soft">{t("label")}</span>
+        <div className="sm:flex-1 min-w-0 flex items-center gap-2">
+          <div className="flex-1 min-w-0">
+            <Select
+              value={angezeigt}
+              onChange={waehlen}
+              options={optionen}
+              disabled={saving || optionen.length === 0}
+            />
+          </div>
+          <span className="w-18 shrink-0" aria-hidden="true" />
         </div>
       </div>
       {/* Nur Fehlerzustaende, keine Erklaerung. Beide sind selten und beide wuerden
