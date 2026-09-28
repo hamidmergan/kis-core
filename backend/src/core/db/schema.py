@@ -118,6 +118,21 @@ def _add_provider_concurrency_once(cur) -> bool:
     return True
 
 
+def _drop_embedding_dimension_once(cur) -> bool:
+    """Drops a fixed dimension of aia_chunks.embedding only while there is one, the change rebuilds the vector index."""
+    cur.execute(
+        """SELECT a.atttypmod FROM pg_attribute a
+           JOIN pg_class c ON c.oid = a.attrelid
+           WHERE c.relname = 'aia_chunks' AND c.relnamespace = current_schema()::regnamespace
+             AND a.attname = 'embedding' AND NOT a.attisdropped"""
+    )
+    row = cur.fetchone()
+    if not row or row[0] < 0:
+        return False
+    cur.execute("ALTER TABLE aia_chunks ALTER COLUMN embedding TYPE vector USING embedding::vector")
+    return True
+
+
 def _table_exists(cur, table: str) -> bool:
     """Does the table already exist?"""
     cur.execute("SELECT to_regclass(%s) IS NOT NULL", (f"public.{table}",))
@@ -1029,11 +1044,7 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                 )
             """)
             # Migration: drop fixed-dimension constraint so any embedding model can be used
-            cur.execute("""
-                ALTER TABLE aia_chunks
-                    ALTER COLUMN embedding TYPE vector
-                    USING embedding::vector
-            """)
+            _drop_embedding_dimension_once(cur)
             # Migration: add start_time/end_time for audio/video chunks
             cur.execute("""
                 ALTER TABLE aia_chunks ADD COLUMN IF NOT EXISTS start_time REAL
