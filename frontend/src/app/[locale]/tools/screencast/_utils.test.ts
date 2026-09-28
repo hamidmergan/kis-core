@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { renderProgress, geaenderteFolien, markeFuerFolie, laufWaereUmsonst, nichtsWirdGesprochen, stimmwechselOhneWirkung, ausgeschlosseneFolien, mitLaufStempel, laufStempelAusMeta, sprachIdFuerLocale, type VertonterStand, type LaufStand } from "./_utils";
+import { renderProgress, geaenderteFolien, markeFuerFolie, laufWaereUmsonst, nichtsWirdGesprochen, stimmwechselOhneWirkung, sprachZuletztDerRueckfall, ausgeschlosseneFolien, mitLaufStempel, laufStempelAusMeta, sprachIdFuerLocale, type VertonterStand, type LaufStand } from "./_utils";
 import type { JobStatus } from "@/lib/api";
 import type { SlideData } from "@/types";
 
@@ -204,6 +204,28 @@ describe("laufWaereUmsonst", () => {
   it("fehlt video_folien im Abzug, ist der Lauf nicht umsonst", () => {
     const { video_folien: _videoFolien, ...standOhneVideoFolien } = standMitAllenFeldern;
     expect(laufWaereUmsonst({ ...basis, stand: standOhneVideoFolien })).toBe(false);
+  });
+});
+
+const nachRueckfall: VertonterStand = {
+  ...standMitAllenFeldern,
+  tts_pin: { provider_id: 21, voice_id: "nova", fallback: true },
+};
+
+describe("nach einem Lauf mit Rueckfall", () => {
+  it("ist ein unveraenderter Lauf nicht umsonst, er holt die gewaehlte Stimme zurueck", () => {
+    expect(laufWaereUmsonst({ ...basis, stand: nachRueckfall })).toBe(false);
+  });
+
+  it("wirkt ein Stimmwechsel auch ohne Haken, alle Folien werden neu gesprochen", () => {
+    expect(stimmwechselOhneWirkung({ ...basis, stand: nachRueckfall, voiceId: "de-other" })).toBe(false);
+  });
+
+  it("wird erkannt, ein Lauf ohne Rueckfall nicht", () => {
+    expect(sprachZuletztDerRueckfall(nachRueckfall)).toBe(true);
+    expect(sprachZuletztDerRueckfall({ ...standMitAllenFeldern, tts_pin: { fallback: false } })).toBe(false);
+    expect(sprachZuletztDerRueckfall(standMitAllenFeldern)).toBe(false);
+    expect(sprachZuletztDerRueckfall(null)).toBe(false);
   });
 });
 

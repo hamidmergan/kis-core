@@ -381,11 +381,19 @@ def test_vorrat_derselben_stimme_bleibt_fuer_die_naechste_etappe(strecke):
     assert geleert == []
 
 
-def test_alter_ton_einer_anderen_stimme_wird_neu_gesprochen(strecke):
-    """Nicht angehakte Folien behalten sonst die Stimme des letzten Laufs."""
+def test_ein_gewollter_stimmwechsel_laesst_nicht_angehakten_folien_ihre_alte_stimme(strecke):
+    """So sagt es Schritt 6: Folien ohne Haken behalten die alte Stimme, die Person hat das gewaehlt."""
     dateien, _geleert, gesehen, lauf = strecke
     dateien["vertonter_stand.json"] = json.dumps({"provider_id": 30, "voice_id": "anna"}).encode()
     lauf(neu_vertonen=[])
+    assert gesehen["alter_ton_erlaubt"] == {0, 1}
+
+
+def test_spricht_jetzt_der_rueckfall_wird_der_alte_ton_der_wahl_ersetzt(strecke):
+    """Sonst mischt ein Video die gewaehlte Stimme mit der Ersatzstimme, das hat niemand gewaehlt."""
+    dateien, _geleert, gesehen, lauf = strecke
+    dateien["vertonter_stand.json"] = json.dumps({"provider_id": 30, "voice_id": "anna"}).encode()
+    lauf(neu_vertonen=[], tts_pin=PIN)
     assert gesehen["alter_ton_erlaubt"] == set()
 
 

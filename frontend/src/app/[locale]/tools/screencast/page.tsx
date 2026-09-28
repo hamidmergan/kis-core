@@ -26,7 +26,7 @@ import TtsSettingsStep from "./_steps/TtsSettingsStep";
 import RenderVorschau from "./_components/RenderVorschau";
 import ScreencastOverlays from "./_components/ScreencastOverlays";
 import { applyRegen, type RegenApplyMode } from "@/components/regen/apply";
-import { holeNotizen, parseScriptJsonFile, checkHasActiveJob, checkJobValidity, checkJobFolderExists, computeVoiceLabel, laufWaereUmsonst, stimmwechselOhneWirkung, ausgeschlosseneFolien, sprachIdFuerLocale, type LaufStand } from "./_utils";
+import { holeNotizen, parseScriptJsonFile, checkHasActiveJob, checkJobValidity, checkJobFolderExists, computeVoiceLabel, laufWaereUmsonst, stimmwechselOhneWirkung, sprachZuletztDerRueckfall, ausgeschlosseneFolien, sprachIdFuerLocale, type LaufStand } from "./_utils";
 import { flowReducer, INITIAL_FLOW_STATE } from "./_reducer";
 import { renderFlowMessages, translateFlowMessages } from "./_messages";
 import { useScreencastRenderFlow } from "./_hooks/useScreencastRenderFlow";
@@ -150,7 +150,9 @@ function ScreencastPageInner() {
   // After a reload the selection comes from the result instead of the progress.
   const ausgeschlossen = ausgeschlosseneFolien(slides.length, nichtDabei, videoFolien, auswahl.imScreencast);
   const zeigtNeu = hatTon.some(Boolean);
-  const stimmeGewechselt = !!stand && (stand.voice_id !== voiceId || stand.provider_id !== providerId || stand.target_lang !== targetLang);
+  // After a fallback run every slide is spoken anew, so no slide keeps an old voice.
+  const stimmeGewechselt = !!stand && !sprachZuletztDerRueckfall(stand) &&
+    (stand.voice_id !== voiceId || stand.provider_id !== providerId || stand.target_lang !== targetLang);
   const laufStand: LaufStand = {
     stand,
     hatVideo: videoUrl !== null,

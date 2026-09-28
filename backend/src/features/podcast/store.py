@@ -104,8 +104,11 @@ def fingerprint(line: Line, voice_id: str, speed: float, provider_id: int = 0) -
 
 
 def needs_voice(line: Line, voiced: dict[str, dict], voice_id: str, speed: float,
-                provider_id: int = 0) -> bool:
-    return voiced.get(line.id) != fingerprint(line, voice_id, speed, provider_id)
+                provider_id: int = 0, chosen_provider_id: int | None = None) -> bool:
+    gespeichert = dict(voiced.get(line.id) or {})
+    # Audio from before the provider was recorded came from the chosen provider, never from a fallback.
+    gespeichert.setdefault("provider_id", chosen_provider_id)
+    return gespeichert != fingerprint(line, voice_id, speed, provider_id)
 
 
 def save_pin(user_id: int, job_uuid: str, pin: dict) -> None:

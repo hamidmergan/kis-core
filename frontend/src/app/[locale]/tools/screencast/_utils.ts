@@ -138,6 +138,13 @@ export interface VertonterStand {
   slide_pause?: number;
   subtitles?: boolean;
   video_folien?: number[];
+  /** The voice that really spoke, a fallback when the chosen provider was down at the start. */
+  tts_pin?: { provider_id?: number; voice_id?: string; fallback?: boolean } | null;
+}
+
+/** True when the admin's fallback spoke the last run, the next run then speaks every slide anew. */
+export function sprachZuletztDerRueckfall(stand: VertonterStand | null): boolean {
+  return !!stand?.tts_pin?.fallback;
 }
 
 export type FolienMarke = "skript" | "folie" | null;
@@ -185,6 +192,7 @@ export interface LaufStand {
 /** True when this run would speak not a single slide anew. */
 export function nichtsWirdGesprochen(s: LaufStand): boolean {
   if (s.neuVertonen.length > 0) return false;
+  if (sprachZuletztDerRueckfall(s.stand)) return false;
   // A slide without audio would get some, even without a tick.
   return !s.ohneTon.some((i) => s.imScreencast.includes(i));
 }

@@ -36,7 +36,7 @@ class _Store:
     def pinned_voice(self, pin, provider_id, voice_id):
         return provider_id, voice_id
 
-    def needs_voice(self, line, voiced, voice_id, speed, provider_id=0):
+    def needs_voice(self, line, voiced, voice_id, speed, provider_id=0, chosen_provider_id=None):
         return line.id not in self.behalten
 
     def has_line_audio(self, uid, job, line_id):

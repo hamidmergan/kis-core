@@ -51,7 +51,9 @@ def _stimme(params: PodcastParams, pin: dict, line: Line) -> tuple[int, str]:
 def _noch_aktuell(params: PodcastParams, pin: dict, vertont: dict, line: Line) -> bool:
     """Whether the stored audio came from exactly this text, provider, voice and tempo."""
     anbieter, stimme = _stimme(params, pin, line)
-    return not store.needs_voice(line, vertont, stimme, params.speed, anbieter)
+    person = _person(params, line)
+    return not store.needs_voice(line, vertont, stimme, params.speed, anbieter,
+                                 person.provider_id or params.provider_id)
 
 
 def _festlegen(params: PodcastParams) -> dict:

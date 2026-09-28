@@ -69,6 +69,18 @@ def _anders_gesprochen(user_id: int, job_uuid: str, name: str, provider_id: int,
     return int(gesprochen.get("provider_id") or 0) != int(provider_id or 0) or gesprochen.get("voice_id") != voice_id
 
 
+def _rueckfall_ton_fremd(user_id: int, job_uuid: str, provider_id: int, voice_id: str,
+                         tts_pin: dict | None) -> bool:
+    """True when old audio and this run differ and a fallback spoke on either side, nobody chose that mix."""
+    if not _anders_gesprochen(user_id, job_uuid, "vertonter_stand.json", provider_id, voice_id):
+        return False
+    try:
+        alt = json.loads(get_job_file(user_id, job_uuid, "vertonter_stand.json")).get("tts_pin") or {}
+    except Exception:
+        alt = {}
+    return bool(alt.get("fallback") or (tts_pin or {}).get("fallback"))
+
+
 def _ton_fuer_ablage(audio_paths: list, plaetze: list[bool], alles_ersetzen: bool) -> list[bytes | None]:
     """None leaves the old audio of a slide, empty bytes drop audio that another voice spoke."""
     ablage: list[bytes | None] = []
@@ -117,7 +129,8 @@ def _run_render_pipeline(
     # Audio of another provider or voice never shares a video with the audio of this run.
     if _anders_gesprochen(user_id, job_uuid, "render_params.json", provider_id, voice_id):
         clear_render_cache(user_id, job_uuid)
-    alter_ton_fremd = _anders_gesprochen(user_id, job_uuid, "vertonter_stand.json", provider_id, voice_id)
+    # A voice change the person made keeps unticked slides, a fallback on either side replaces all of them.
+    alter_ton_fremd = _rueckfall_ton_fremd(user_id, job_uuid, provider_id, voice_id, tts_pin)
     if alter_ton_fremd:
         neu_vertonen = list(range(len(scripts)))
     auswahl = folien_auswahl(len(scripts), video_folien, neu_vertonen)

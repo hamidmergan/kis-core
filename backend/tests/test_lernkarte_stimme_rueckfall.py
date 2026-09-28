@@ -115,3 +115,24 @@ def test_die_vorschau_fragt_genau_den_genannten_anbieter(welt, monkeypatch):
     monkeypatch.setattr(tjp, "pick", lambda *a, **kw: pytest.fail("die Vorschau darf nicht umlenken"))
     assert tts_voice_preview.preview_audio(21, "alloy") == b"ton-21-alloy"
     assert [(pid, vid) for pid, _text, vid in _gefragt(welt)] == [(21, "alloy")]
+
+
+def test_ein_schon_gesprochener_satz_kommt_aus_dem_vorrat_auch_wenn_die_erste_wahl_aus_ist(welt):
+    """The chosen voice's sound is still right, only a missing sentence needs the fallback."""
+    welt["vorrat"][speech_cache.fingerprint("Ein Satz.", 21, "alloy", 1.0, "xtts-v2")] = b"alt-21-alloy"
+    welt["unerreichbar"].add(21)
+    assert speech.synthesize_sentence("Ein Satz.") == b"alt-21-alloy"
+    assert _gefragt(welt) == []
+
+
+def test_ein_satz_im_vorrat_braucht_keine_wahl(welt):
+    welt["vorrat"][speech_cache.fingerprint("Ein Satz.", 21, "alloy", 1.0, "xtts-v2")] = b"alt-21-alloy"
+    speech.synthesize_sentence("Ein Satz.")
+    assert welt["wahlen"] == []
+
+
+def test_der_ton_des_rueckfalls_kommt_beim_naechsten_mal_aus_dem_vorrat(welt):
+    welt["unerreichbar"].add(21)
+    speech.synthesize_sentence("Ein Satz.")
+    assert speech.synthesize_sentence("Ein Satz.") == b"ton-30-anna"
+    assert _gefragt(welt) == [(30, "Ein Satz.", "anna")]

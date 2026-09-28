@@ -237,6 +237,43 @@ def test_die_seite_zaehlt_den_ton_des_festgelegten_anbieters_als_vertont(lauf, m
     assert antwort["voiced"] == ["b0", "b1"]
 
 
+
+def _vor_der_festlegung_vertont():
+    """So sieht ein Podcast aus, der vor dem 28.09.2026 vertont wurde: der Anbieter fehlt im Fingerabdruck."""
+    _auftrag([LENA])
+    store.save_voiced(UID, JOB, {"b0": {"text": "Eins.", "voice_id": "anna", "speed": 1.0},
+                                 "b1": {"text": "Zwei.", "voice_id": "anna", "speed": 1.0}})
+    for zeile in ("b0", "b1"):
+        store.save_line_audio(UID, JOB, zeile, b"alt")
+
+
+def test_alter_ton_des_gewaehlten_bleibt_ohne_anbieter_im_fingerabdruck(lauf):
+    _vor_der_festlegung_vertont()
+
+    _render.run_podcast_render(JOB, UID, "de", 1, 0)
+
+    assert lauf["gesprochen"] == []
+
+
+def test_alter_ton_wird_neu_gesprochen_wenn_der_rueckfall_spricht(lauf):
+    _vor_der_festlegung_vertont()
+    lauf["unten"].add(3)
+
+    _render.run_podcast_render(JOB, UID, "de", 1, 0)
+
+    assert lauf["gesprochen"] == [(21, "onyx"), (21, "onyx")]
+
+
+def test_die_seite_zaehlt_alten_ton_des_gewaehlten_als_vertont(lauf, monkeypatch):
+    import src.routes.podcast.script as script_route
+
+    _vor_der_festlegung_vertont()
+    monkeypatch.setattr(script_route, "own_job", lambda uuid, user, locale: {
+        "user_id": UID, "status": "success", "progress": None, "error_message": None, "result_path": "p"})
+
+    assert script_route.get_podcast(JOB, {"user_id": UID}, "de")["voiced"] == ["b0", "b1"]
+
+
 def _starte_ueber_die_seite(monkeypatch, status: str) -> list:
     """Startet die Vertonung wie der Knopf der Seite und merkt sich die Festlegung beim Einreihen."""
     import src.routes.podcast.render as render_route

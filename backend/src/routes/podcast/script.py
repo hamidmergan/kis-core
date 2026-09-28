@@ -21,8 +21,9 @@ def _vertont(line: Line, params: PodcastParams, pin: dict | None, vertont: dict)
     if line.speaker >= len(params.persons):
         return not store.needs_voice(line, vertont, "", 1.0)
     person = params.persons[line.speaker]
-    anbieter, stimme = store.pinned_voice(pin, person.provider_id or params.provider_id, person.voice_id)
-    return not store.needs_voice(line, vertont, stimme, 1.0, anbieter)
+    gewaehlt = person.provider_id or params.provider_id
+    anbieter, stimme = store.pinned_voice(pin, gewaehlt, person.voice_id)
+    return not store.needs_voice(line, vertont, stimme, 1.0, anbieter, gewaehlt)
 
 
 def _fortschritt(roh) -> dict | None:

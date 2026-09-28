@@ -60,26 +60,37 @@ def synthesize_sentence(sentence: str, locale: str = "de") -> bytes:
     chosen = configured_voice()
     if not chosen:
         raise HTTPException(status_code=503, detail=t("tts.providerUnavailable", locale))
-    # One sentence is one job, so the admin's fallback may take over the whole sentence.
-    wahl = tts_job_provider.pick(chosen[0], [chosen[1]])
-    provider_id, voice_id = wahl.provider_id, wahl.voices[0]
 
     # Exactly the text that reaches the provider.
     text = speech_cache.normalize_sentence(sentence)
     if not text:
         raise HTTPException(status_code=503, detail=t("tts.providerUnavailable", locale))
-    # The model belongs in the fingerprint, otherwise the old sound stays.
-    key = speech_cache.fingerprint(
-        text, provider_id, voice_id, _SPEED, tts_model_for_provider(provider_id))
 
-    # A broken pool must not prevent the reading aloud.
-    try:
-        vorrat = speech_cache.get(key)
-    except Exception as exc:  # noqa: BLE001 - jeder Datenbankfehler ist derselbe Fall
-        logger.warning("Aussprache-Vorrat nicht lesbar: {}", exc)
-        vorrat = None
+    def _schluessel(pid: int, vid: str) -> str:
+        # The model belongs in the fingerprint, otherwise the old sound stays.
+        return speech_cache.fingerprint(text, pid, vid, _SPEED, tts_model_for_provider(pid))
+
+    def _aus_vorrat(key: str) -> bytes | None:
+        # A broken pool must not prevent the reading aloud.
+        try:
+            return speech_cache.get(key)
+        except Exception as exc:  # noqa: BLE001 - jeder Datenbankfehler ist derselbe Fall
+            logger.warning("Aussprache-Vorrat nicht lesbar: {}", exc)
+            return None
+
+    # A sentence the chosen voice already spoke needs no provider, even while that provider is down.
+    key = _schluessel(*chosen)
+    vorrat = _aus_vorrat(key)
     if vorrat:
         return vorrat
+    # One sentence is one job, so the admin's fallback may take over the whole sentence.
+    wahl = tts_job_provider.pick(chosen[0], [chosen[1]])
+    provider_id, voice_id = wahl.provider_id, wahl.voices[0]
+    if wahl.fallback:
+        key = _schluessel(provider_id, voice_id)
+        vorrat = _aus_vorrat(key)
+        if vorrat:
+            return vorrat
 
     try:
         client = get_tts_client_for_provider(provider_id)
