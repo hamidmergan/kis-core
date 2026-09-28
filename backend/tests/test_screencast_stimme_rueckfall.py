@@ -25,7 +25,7 @@ from src.tasks.screencast_tasks._render import run_screencast_render
 
 UUID = "e" * 32
 PIN = {"provider_id": 21, "voice_id": "nova", "voice_label": "Nova", "fallback": True,
-       "requested_provider_id": 30, "requested_voice_id": "anna"}
+       "requested_provider_id": 30, "requested_voice_id": "anna", "lauf": "lauf-1"}
 _WARTESCHLANGE = {"dispatch_as": "render", "voice_id": "anna", "provider_id": 30, "voice_label": "Anna",
                   "speed": 0.9, "slide_pause": 1.0, "dpi": 96, "is_admin": False}
 
@@ -107,6 +107,7 @@ def auftrag(monkeypatch, ablage):
 
     monkeypatch.setattr(tjp, "pick", waehle)
     monkeypatch.setattr(tjp, "voice_name", lambda pid, vid: {"nova": "Nova"}.get(vid, vid))
+    monkeypatch.setattr(_shared, "_lauf_kennung", lambda: "lauf-1", raising=False)
     return aufrufe
 
 
@@ -240,7 +241,7 @@ def test_ein_alter_lauf_ohne_festlegung_entscheidet_beim_wiederholen_neu():
 # --- Der Wiederholen-Knopf setzt den laufenden Lauf fort ---
 
 PIN_NEU = {"provider_id": 30, "voice_id": "anna", "voice_label": "Anna", "fallback": False,
-           "requested_provider_id": 30, "requested_voice_id": "anna"}
+           "requested_provider_id": 30, "requested_voice_id": "anna", "lauf": "lauf-2"}
 _RENDER_ALT = {"voice_id": "nova", "speed": 0.9, "slide_pause": 1.0, "dpi": 96, "provider_id": 21,
                "voice_label": "Nova", "subtitles": False, "video_folien": [0, 1], "neu_vertonen": [0],
                "tts_pin": PIN}
@@ -296,13 +297,46 @@ def test_wiederholen_desselben_laufs_nimmt_die_render_angaben(wiederholen):
     assert params["neu_vertonen"] == [0]
 
 
-def test_ohne_festlegung_in_der_warteschlange_gelten_die_render_angaben(wiederholen):
+def test_hat_der_neue_lauf_noch_keine_festlegung_gelten_seine_angaben(wiederholen):
+    """Er scheiterte vor der Wahl der Stimme, die Render-Angaben mit Festlegung stammen von einem frueheren Lauf."""
     dateien, lauf = wiederholen
     dateien["render_params.json"] = json.dumps(_RENDER_ALT).encode()
+    dateien["queue_params.json"] = json.dumps({**_WARTESCHLANGE, "speed": 1.2}).encode()
+    params = lauf()
+    assert params.get("tts_pin") is None
+    assert (params["provider_id"], params["voice_id"], params["speed"]) == (30, "anna", 1.2)
+
+
+def test_ein_frueherer_lauf_mit_derselben_stimme_liefert_nie_die_angaben(wiederholen):
+    """Gleiche Stimme, gleicher Anbieter, aber ein anderer Lauf: Tempo und Folienauswahl gehoeren dem neuen."""
+    dateien, lauf = wiederholen
+    dateien["render_params.json"] = json.dumps(_RENDER_ALT).encode()
+    dateien["queue_params.json"] = json.dumps(
+        {**_WARTESCHLANGE, "speed": 1.2, "tts_pin": {**PIN, "lauf": "lauf-2"}}).encode()
+    params = lauf()
+    assert params["tts_pin"]["lauf"] == "lauf-2"
+    assert params["speed"] == 1.2
+    assert "neu_vertonen" not in params
+
+
+def test_ein_alter_auftrag_ganz_ohne_festlegung_nimmt_die_render_angaben(wiederholen):
+    """Von vor dem 28.09.2026: keine Seite kennt eine Festlegung, es bleibt wie vorher."""
+    dateien, lauf = wiederholen
+    ohne = {k: v for k, v in _RENDER_ALT.items() if k != "tts_pin"}
+    dateien["render_params.json"] = json.dumps(ohne).encode()
     dateien["queue_params.json"] = json.dumps(_WARTESCHLANGE).encode()
     params = lauf()
-    assert params["tts_pin"] == PIN
+    assert params["neu_vertonen"] == [0]
     assert (params["provider_id"], params["voice_id"]) == (21, "nova")
+
+
+def test_jeder_lauf_bekommt_eine_eigene_kennung(ablage, monkeypatch):
+    monkeypatch.setattr(tjp, "pick", lambda pid, stimmen: VoicePick(pid, tuple(stimmen), False))
+    kennungen = []
+    for _ in range(2):
+        ablage["queue_params.json"] = json.dumps(_WARTESCHLANGE).encode()
+        kennungen.append(_shared._stimme_festlegen(1, UUID, 30, "anna", "Anna")["lauf"])
+    assert all(kennungen) and kennungen[0] != kennungen[1]
 
 
 # --- Vorrat und alter Ton in der Render-Strecke ---

@@ -2,6 +2,7 @@
 
 import json
 import os
+import uuid
 from loguru import logger
 
 from src.services import tts_job_provider
@@ -64,6 +65,11 @@ def _get_tts_client(provider_id: int):
     return client
 
 
+def _lauf_kennung() -> str:
+    """Tells two runs apart even when both decided the same voice."""
+    return uuid.uuid4().hex
+
+
 def _stimme_festlegen(user_id: int, job_uuid: str, provider_id: int, voice_id: str, voice_label: str) -> dict:
     """The provider and voice the whole run speaks with, decided on its first run and read back ever after."""
     try:
@@ -85,6 +91,7 @@ def _stimme_festlegen(user_id: int, job_uuid: str, provider_id: int, voice_id: s
         "fallback": wahl.fallback,
         "requested_provider_id": provider_id,
         "requested_voice_id": voice_id,
+        "lauf": _lauf_kennung(),
     }
     # Resume and the queue read this file, so they start the same run with the same voice.
     params.update(tts_pin=pin, provider_id=pin["provider_id"], voice_id=pin["voice_id"], voice_label=pin["voice_label"])

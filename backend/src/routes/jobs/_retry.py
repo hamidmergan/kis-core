@@ -35,14 +35,17 @@ def _queue_params_from_render(render_params: dict) -> dict:
 
 
 def _render_params_vom_lauf(user_id: int, job_uuid: str, render_params: dict) -> bool:
-    """False when the queue already holds the pin of a newer run, older render details must not replace it."""
+    """True only when the render details belong to the run the queue holds, older ones must never replace it."""
     try:
         pin = json.loads(get_job_file(user_id, job_uuid, "queue_params.json")).get("tts_pin")
     except Exception as e:
         if not is_missing(e):
             raise
         return True
-    return not pin or render_params.get("tts_pin") == pin
+    if not pin:
+        # The current run has not decided its voice yet, render details with a decision stem from an earlier run.
+        return not render_params.get("tts_pin")
+    return render_params.get("tts_pin") == pin
 
 
 @router.post("/{job_uuid}/retry")
