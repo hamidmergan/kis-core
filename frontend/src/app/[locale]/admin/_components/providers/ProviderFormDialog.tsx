@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Eye, EyeSlash, X } from "@phosphor-icons/react";
 import type { Provider, ProviderMeta, Voice } from "./_types";
+import { apiKeyHinweis } from "./_apiKeyHint";
 import { VoicesEditor } from "./VoicesEditor";
 import {
   CONCURRENCY_BUCKETS,
@@ -347,7 +348,7 @@ export default function ProviderFormDialog({
               </button>
             </div>
             <p className="text-xs text-muted-soft">
-              {isEdit ? t("dialog.apiKeyEditHint") : t("dialog.apiKeyHint")}
+              {t(apiKeyHinweis(isEdit, !!initial?.api_key_set))}
             </p>
             {deeplKeyHint && (
               <p className="text-xs text-muted">{deeplKeyHint}</p>
