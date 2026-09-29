@@ -35,6 +35,8 @@ _HINWEIS_RAND = Emu(int(0.3 * 914400))
 BILD_QUALITAET = 90
 # A heading may lose at most this much of its size, a longer title is the only cure below that.
 _MIN_ANTEIL = 0.6
+# A text field starting further right than this from the heading is indented on purpose, not by rounding.
+_EINZUG = 12 * EMU_PER_PT
 
 
 def bild_schluessel(slide_id: str, slot: int | str) -> str:
@@ -199,6 +201,8 @@ def _folie(prs, layout: Layout, s: Slide, bilder: dict[str, bytes], titel: str, 
                 benutzt.add(feld.idx)
 
     flies = [lage(f) for f in layout.der_art("fliesstext")]
+    if len(flies) == 1 and s.body is not None and s.body.kind == "bullets" and ueber and not layout.der_art("bild"):
+        flies = [_buendig(slide, flies[0], ueber[0])]
     if len(flies) == 1 and s.body is not None:
         if _body(slide, flies[0], s.body, bilder.get(bild_schluessel(s.id, "body")), f, typeface):
             benutzt.add(flies[0].idx)
@@ -264,6 +268,16 @@ def _platz_unter_kopf(prs, slide, layout: Layout, kopf: Feld, s: Slide, groesse:
         if (ph := _ph(slide, idx)) is not None:
             _lege(ph, feld)
     return neu
+
+
+def _buendig(slide, feld: Feld, kopf: Feld) -> Feld:
+    """Bullets start under the heading, a field the template indents for a figure is widened to the left."""
+    if feld.left - kopf.left <= _EINZUG:
+        return feld
+    feld = replace(feld, left=kopf.left, width=feld.width + feld.left - kopf.left)
+    if (ph := _ph(slide, feld.idx)) is not None:
+        _lege(ph, feld)
+    return feld
 
 
 def _lege(shape, feld: Feld) -> None:

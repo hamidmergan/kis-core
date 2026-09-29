@@ -80,6 +80,24 @@ def test_diagramm_und_bild_im_inhaltsfeld(analyse):
     assert any(sh.shape_type == MSO_SHAPE_TYPE.PICTURE for sh in prs.slides[1].shapes)
 
 
+def test_stichpunkte_beginnen_unter_dem_titel_auch_im_eingerueckten_layout(analyse):
+    schmal = next(l for l in analyse.layouts if l.name == "Text schmal")
+    feld = schmal.der_art("fliesstext")[0]
+    kopf = schmal.der_art("ueberschrift")[0]
+    s = Slide(id="s2", role="text", layout=schmal.index, title="T", body=Body(items=["a", "b"]))
+    ph = _deck(analyse, [s]).slides[0].placeholders[feld.idx]
+    assert ph.left == kopf.left
+    assert ph.left + ph.width == feld.left + feld.width
+
+
+def test_diagramm_bleibt_im_eingerueckten_layout_mittig(analyse):
+    schmal = next(l for l in analyse.layouts if l.name == "Text schmal")
+    feld = bau.textflaeche(schmal.der_art("fliesstext")[0])
+    chart = Body(kind="chart", categories=["a", "b"], series=[Series(name="s", values=[1, 2])])
+    folie = _deck(analyse, [Slide(id="s2", role="text", layout=schmal.index, title="T", body=chart)]).slides[0]
+    assert next(sh for sh in folie.shapes if sh.has_chart).left == feld.left
+
+
 def test_zwei_spalten(analyse):
     s = Slide(id="s4", role="zwei_spalten", title="T",
               columns=[Column(heading="L", items=["1"]), Column(heading="R", items=["2", "3"])])
