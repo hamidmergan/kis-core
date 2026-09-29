@@ -724,11 +724,11 @@
     },
     "image": {
       "title": "Bildgenerierung",
-      "intro": "Bilder erzeugen, bestehende Bilder anpassen oder beschreiben lassen.",
+      "intro": "Bilder erzeugen, bearbeiten oder verstehen lassen. Jedes Ergebnis lässt sich direkt weiterbearbeiten oder beschreiben.",
       "tabs": {
-        "generate": "Text zu Bild",
+        "generate": "Bild erzeugen",
         "edit": "Bild bearbeiten",
-        "analyze": "Bild analysieren"
+        "analyze": "Bild verstehen"
       },
       "uploadZone": {
         "selectFile": "Datei auswählen",
@@ -738,29 +738,124 @@
       "previewAlt": "Vorschau",
       "providerLabel": "KI-Anbieter",
       "generate": {
-        "promptPlaceholder": "Beschreibe das gewünschte Bild ...",
-        "size": "Größe",
-        "submit": "Bild generieren",
-        "spinner": "Wird generiert…",
-        "longRunning": "Läuft noch - Bildgenerierung kann etwas länger dauern…",
-        "resultAlt": "Generiertes Bild",
-        "regenerate": "Neu generieren"
+        "promptPlaceholder": "Beschreibe das Bild, zum Beispiel: Studierende arbeiten im Team an einem Projekt.",
+        "submit": "Bild erzeugen",
+        "spinner": "Wird erzeugt…",
+        "longRunning": "Läuft noch, große Bilder in hoher Qualität brauchen etwas länger…",
+        "resultAlt": "Erzeugtes Bild {n}",
+        "enhance": "Beschreibung ausformulieren",
+        "enhancing": "Wird ausformuliert…",
+        "enhancedLabel": "So geht die Beschreibung ans Bildmodell",
+        "enhancedHint": "Du kannst den Text ändern. Leer lassen nimmt wieder deine Beschreibung.",
+        "submitMany": "{n} Bilder erzeugen"
       },
       "edit": {
-        "promptPlaceholder": "Beschreibe die gewünschte Änderung.",
+        "promptPlaceholder": "Beschreibe die Änderung, zum Beispiel: Mache die Kleidung blau.",
         "submit": "Bild bearbeiten",
         "spinner": "Wird bearbeitet…",
-        "longRunning": "Läuft noch - Bildbearbeitung kann etwas länger dauern…",
-        "resultAlt": "Bearbeitetes Bild",
-        "downloadLabel": "Herunterladen",
-        "regenerate": "Neu bearbeiten"
+        "longRunning": "Läuft noch, das Bearbeiten kann etwas dauern…",
+        "resultAlt": "Bearbeitetes Bild {n}",
+        "source": "Vorlage",
+        "changeSource": "Andere Vorlage",
+        "quick": "Schnell",
+        "quickActions": {
+          "weiss": "Hintergrund weiß",
+          "skizze": "Als Skizze",
+          "ohneText": "Text entfernen",
+          "kraeftig": "Farben kräftiger",
+          "thl": "THL-Folienstil"
+        },
+        "quickPrompts": {
+          "weiss": "Ersetze den Hintergrund durch reines Weiß, das Motiv bleibt unverändert.",
+          "skizze": "Zeichne das Bild als Bleistiftskizze mit lockeren Linien nach.",
+          "ohneText": "Entferne alle Schrift und Buchstaben aus dem Bild, der Rest bleibt gleich.",
+          "kraeftig": "Mache die Farben kräftiger und den Kontrast etwas höher, der Inhalt bleibt gleich.",
+          "thl": "Setze das Bild im Stil einer redaktionellen Illustration in Zinnoberrot, Schwarz und Weiß um."
+        },
+        "submitMany": "{n} Varianten bearbeiten",
+        "before": "Vorher",
+        "after": "Nachher",
+        "compareLabel": "Vorher und Nachher vergleichen"
       },
       "analyze": {
-        "promptPlaceholder": "Spezifische Frage stellen (optional) - sonst wird das Bild automatisch vollständig beschrieben.",
-        "submit": "Analysieren",
-        "spinner": "Wird analysiert…",
-        "longRunning": "Läuft noch - Bildanalyse kann etwas länger dauern…",
-        "regenerate": "Neu analysieren"
+        "image": "Bild",
+        "submit": "Bild verstehen",
+        "spinner": "Wird gelesen…",
+        "longRunning": "Läuft noch, das Lesen kann etwas dauern…",
+        "task": "Aufgabe",
+        "tasks": {
+          "beschreiben": "Beschreiben",
+          "alttext": "Alternativtext",
+          "text": "Text auslesen",
+          "grafik": "Grafik erklären",
+          "frage": "Eigene Frage"
+        },
+        "language": "Antwortsprache",
+        "languages": {
+          "de": "Deutsch",
+          "en": "Englisch"
+        },
+        "questionPlaceholder": "Deine Frage zum Bild",
+        "followUp": "Weitere Frage zum Bild",
+        "followUpSubmit": "Fragen",
+        "copy": "Kopieren",
+        "copied": "Kopiert"
+      },
+      "options": {
+        "style": "Stil",
+        "format": "Format",
+        "size": "Größe",
+        "quality": "Qualität",
+        "variants": "Varianten",
+        "qualityHint": "Höhere Qualität dauert länger.",
+        "noText": "Keine Schrift im Bild",
+        "noTextHint": "Bildmodelle schreiben Wörter oft falsch.",
+        "styles": {
+          "keiner": "Kein Stil",
+          "foto": "Foto",
+          "illustration": "Illustration",
+          "skizze": "Skizze",
+          "aquarell": "Aquarell",
+          "3d": "3D",
+          "flach": "Flach",
+          "thl": "THL-Folienstil"
+        },
+        "formats": {
+          "vorlage": "Wie Vorlage",
+          "1:1": "Quadrat 1:1",
+          "16:9": "Folie 16:9",
+          "4:3": "Quer 4:3",
+          "3:4": "Hoch 3:4",
+          "9:16": "Hoch 9:16"
+        },
+        "sizes": {
+          "klein": "Klein",
+          "mittel": "Mittel",
+          "gross": "Groß"
+        },
+        "qualities": {
+          "entwurf": "Entwurf",
+          "standard": "Standard",
+          "hoch": "Hoch"
+        }
+      },
+      "result": {
+        "partial": "Nur {gestartet} von {gewuenscht} Varianten gestartet, du hast schon andere Aufträge offen.",
+        "description": "Beschreibung",
+        "modelPrompt": "An das Bildmodell",
+        "copyText": "Text kopieren",
+        "copied": "Kopiert",
+        "title": "Ergebnis",
+        "empty": "Hier erscheinen deine Ergebnisse.",
+        "toEdit": "Bearbeiten",
+        "toAnalyze": "Beschreiben",
+        "download": "{format} herunterladen"
+      },
+      "history": {
+        "title": "Verlauf",
+        "empty": "Noch keine Bilder.",
+        "hint": "Ein Bild übernimmst du mit Bearbeiten oder Beschreiben in die andere Aufgabe.",
+        "open": "Bild {name} öffnen"
       }
     },
     "screencast": {
@@ -1225,11 +1320,22 @@
     "praesentation": {
       "title": "Präsentation",
       "intro": "Aus deinem Material werden Folien im Design deiner Hochschule. Du prüfst jede Folie und lädst am Ende die PowerPoint-Datei herunter.",
-      "steps": { "content": "Inhalt", "slides": "Folien", "done": "Fertig" },
-      "common": { "back": "Zurück", "cancel": "Abbrechen", "save": "Speichern", "close": "Schließen" },
+      "steps": {
+        "content": "Inhalt",
+        "slides": "Folien",
+        "done": "Fertig"
+      },
+      "common": {
+        "back": "Zurück",
+        "cancel": "Abbrechen",
+        "save": "Speichern",
+        "close": "Schließen"
+      },
       "content": {
         "heading": "Worum soll es gehen?",
-        "tabs": { "files": "Dateien" },
+        "tabs": {
+          "files": "Dateien"
+        },
         "dropOrBrowse": "Dateien hierher ziehen oder",
         "browse": "durchsuchen",
         "filesHint": "PDF, Word, PowerPoint oder Textdateien.",
@@ -1247,7 +1353,10 @@
         "deleteTemplate": "{name} löschen",
         "languageLabel": "Sprache der Folien",
         "providerLabel": "KI-Anbieter",
-        "languages": { "de": "Deutsch", "en": "Englisch" },
+        "languages": {
+          "de": "Deutsch",
+          "en": "Englisch"
+        },
         "instructionsLabel": "Anweisung (optional)",
         "instructionsPlaceholder": "Zum Beispiel: nur Kapitel 2, für Erstsemester, mit Beispielen aus der Praxis",
         "presenterLabel": "Name auf dem Deckblatt (optional)",
@@ -1276,7 +1385,15 @@
         "failed": "Die Gliederung konnte nicht erstellt werden.",
         "restart": "Neu starten",
         "templateFallback": "Die gewählte Vorlage ließ sich nicht lesen, die THL-Vorlage wurde genommen.",
-        "roles": { "deckblatt": "Deckblatt", "abschnitt": "Abschnitt", "text": "Text", "zwei_spalten": "Zwei Spalten", "text_mit_bild": "Text mit Bild", "bild_gross": "Bild", "abschluss": "Abschluss" },
+        "roles": {
+          "deckblatt": "Deckblatt",
+          "abschnitt": "Abschnitt",
+          "text": "Text",
+          "zwei_spalten": "Zwei Spalten",
+          "text_mit_bild": "Text mit Bild",
+          "bild_gross": "Bild",
+          "abschluss": "Abschluss"
+        },
         "titleAria": "Titel von Folie {n}",
         "gistAria": "Inhalt von Folie {n}",
         "up": "Nach oben",
@@ -1294,13 +1411,26 @@
         "progressImages": "{done} von {total} Bildern erzeugt",
         "progressBuild": "Die Datei wird erstellt",
         "progressPreview": "Die Vorschau wird erstellt",
-        "phases": { "texte": "Texte", "bilder": "Bilder", "bau": "Datei", "vorschau": "Vorschau" },
+        "phases": {
+          "texte": "Texte",
+          "bilder": "Bilder",
+          "bau": "Datei",
+          "vorschau": "Vorschau"
+        },
         "waitingRetry": "Der Anbieter antwortet nicht, es geht gleich weiter.",
         "heading": "Folien prüfen",
         "summary": "{n} Folien.",
         "failed": "Der Bau ist fehlgeschlagen.",
         "retry": "Erneut versuchen",
-        "roles": { "deckblatt": "Deckblatt", "abschnitt": "Abschnitt", "text": "Text", "zwei_spalten": "Zwei Spalten", "text_mit_bild": "Text mit Bild", "bild_gross": "Bild", "abschluss": "Abschluss" },
+        "roles": {
+          "deckblatt": "Deckblatt",
+          "abschnitt": "Abschnitt",
+          "text": "Text",
+          "zwei_spalten": "Zwei Spalten",
+          "text_mit_bild": "Text mit Bild",
+          "bild_gross": "Bild",
+          "abschluss": "Abschluss"
+        },
         "imageMissing": "Bild fehlt",
         "noPreview": "Keine Vorschau",
         "openPreview": "Vorschau von Folie {n} öffnen",
@@ -1345,7 +1475,13 @@
         "promptPlaceholderDemo": "Was soll anders werden?",
         "errorMessage": "Der Vorschlag ist gescheitert. Versuche es noch einmal.",
         "notJson": "Der Vorschlag hatte kein lesbares Format, versuche es noch einmal.",
-        "actions": { "replaceSelection": "Markiertes ersetzen", "insertBefore": "Davor einfügen", "insertAfter": "Danach einfügen", "wholeScript": "Ganze Folie ersetzen", "replace": "Übernehmen" }
+        "actions": {
+          "replaceSelection": "Markiertes ersetzen",
+          "insertBefore": "Davor einfügen",
+          "insertAfter": "Danach einfügen",
+          "wholeScript": "Ganze Folie ersetzen",
+          "replace": "Übernehmen"
+        }
       },
       "done": {
         "heading": "Die Präsentation ist fertig",

@@ -11,7 +11,8 @@ from PIL import Image as PILImage
 from src.celery_app import celery_app
 from src import database as db
 from src.i18n import t
-from src.storage import delete_file, get_file, open_input_file, save_result_file, save_result_and_evict
+from src.storage import (delete_file, get_file, open_input_file, save_result_file, save_result_and_evict,
+                         save_result_meta)
 from src.utils.heartbeat import job_heartbeat
 from src.dependencies import get_translate_client_for_provider
 from src.services.ai_hinweis import png_info_with_notice, vtt_with_notice
@@ -254,12 +255,15 @@ def run_image_generate(
     prompt: str,
     size: str,
     provider_id: int | None = None,
+    steps: int | None = None,
+    titel: str = "",
 ):
     try:
         db.update_job_status(job_uuid, "running")
         user_id = _resolve_user_id(job_uuid)
 
-        base_url, model, client = _image_http_client("image_gen", provider_id=provider_id, timeout=120.0)
+        # A large picture in high quality takes myLab about a minute, 300 s leave room for a busy provider.
+        base_url, model, client = _image_http_client("image_gen", provider_id=provider_id, timeout=300.0)
         if not model:
             from src.services.feature_router import FeatureNotConfigured
             raise FeatureNotConfigured("image_gen route has no model_name")
@@ -270,9 +274,16 @@ def run_image_generate(
             "n": 1,
             "response_format": "b64_json",
         }
+        if steps:
+            body["num_inference_steps"] = steps
 
         with job_heartbeat(job_uuid), client:
             response = client.post(f"{base_url}/images/generations", json=body)
+            from src.features.bild.optionen import kleiner
+            # A provider with a size limit (GWDG: height up to 1080) gets the same picture shrunk into full HD.
+            if response.status_code in (400, 422) and kleiner(size) != size:
+                body = {**body, "size": kleiner(size)}
+                response = client.post(f"{base_url}/images/generations", json=body)
 
         if response.status_code != 200:
             raise RuntimeError(f"Fehler bei der Bildgenerierung: {response.text[:200]}")
@@ -282,11 +293,15 @@ def run_image_generate(
         if not images:
             raise RuntimeError("Keine Bilder generiert")
 
-        label = prompt[:40].strip().replace(" ", "_")
+        # The person's own description names the file, the prompt starts with the style sentence.
+        label = (titel or prompt)[:40].strip().replace(" ", "_")
         img_bytes = _png_with_notice(base64.b64decode(images[0]["b64_json"]))
         result_filename = f"image_{label}.png"
         result_path = save_result_file(user_id, job_uuid, ".png", img_bytes)
         save_result_and_evict(user_id, job_uuid, result_path, result_filename)
+        # The picture's description stays with it, for the result card and the history.
+        save_result_meta(user_id, job_uuid, {"beschreibung": titel or prompt, "modell_prompt": prompt,
+                                             "groesse": body["size"]})
         db.update_job_status(job_uuid, "success")
         logger.info("Image generate task {} completed", job_uuid)
 
@@ -305,6 +320,9 @@ def run_image_edit(
     filename: str,
     prompt: str,
     provider_id: int | None = None,
+    size: str = "1024x1024",
+    steps: int = 25,
+    zuschnitt: dict | None = None,
 ):
     try:
         db.update_job_status(job_uuid, "running")
@@ -315,7 +333,7 @@ def run_image_edit(
         mime = "image/png" if ext == ".png" else "image/jpeg"
 
         # The usual transfer, a deviating provider would get its own adapter.
-        base_url, edit_model, client = _image_http_client("image_edit", provider_id=provider_id, timeout=120.0)
+        base_url, edit_model, client = _image_http_client("image_edit", provider_id=provider_id, timeout=300.0)
         if not edit_model:
             from src.services.feature_router import FeatureNotConfigured
             raise FeatureNotConfigured("image_edit route has no model_name")
@@ -330,10 +348,10 @@ def run_image_edit(
                     "prompt": prompt,
                     "response_format": "b64_json",
                     "n": "1",
-                    "size": "1024x1024",
+                    "size": size,
                     "quality": "standard",
                     "guidance_scale": "3.5",
-                    "num_inference_steps": "25",
+                    "num_inference_steps": str(steps),
                 },
             )
 
@@ -359,10 +377,15 @@ def run_image_edit(
                 raise RuntimeError(f"Unerwartetes Antwortformat (keys: {keys}): {str(resp_data)[:300]}")
             img_bytes = base64.b64decode(b64)
 
+        if zuschnitt:
+            # A padded panorama comes back as the band that was the source.
+            from src.features.bild.optionen import zuschneiden
+            img_bytes = zuschneiden(img_bytes, zuschnitt)
         img_bytes = _png_with_notice(img_bytes)
         result_filename = f"{Path(filename).stem}.png"
         result_path = save_result_file(user_id, job_uuid, ".png", img_bytes)
         save_result_and_evict(user_id, job_uuid, result_path, result_filename)
+        save_result_meta(user_id, job_uuid, {"beschreibung": prompt, "groesse": size})
         db.update_job_status(job_uuid, "success")
         delete_file(input_path)
         logger.info("Image edit task {} completed", job_uuid)
@@ -375,6 +398,7 @@ def run_image_edit(
 # -- Image: analyze -----------------------------------------------------------
 
 from src.tool_prompts import IMAGE_ANALYZE_DEFAULT as _IMAGE_ANALYZE_SYSTEM_PROMPT
+from src.limits import IMAGE_ANALYZE_MAX_TOKENS
 
 
 @celery_app.task(bind=True, name="general.image_analyze", queue="general")
@@ -385,6 +409,7 @@ def run_image_analyze(
     filename: str,
     prompt: str,
     provider_id: int | None = None,
+    anweisung: str | None = None,
 ):
     try:
         db.update_job_status(job_uuid, "running")
@@ -409,6 +434,10 @@ def run_image_analyze(
             f"Respond in {target_language}.\n\n"
             f"{user_text}"
         )
+        # The tool page sends task, answer language and the lasting rules as one instruction, the general prompt
+        # would override it with its call for detail and the language of the image.
+        if anweisung:
+            user_content = anweisung
 
         base_url, model, client = _image_http_client("vision", provider_id=provider_id, timeout=60.0)
         if not model:
@@ -420,6 +449,7 @@ def run_image_analyze(
                 f"{base_url}/chat/completions",
                 json={
                     "model": model,
+                    "max_tokens": IMAGE_ANALYZE_MAX_TOKENS,
                     "messages": [
                         {
                             "role": "user",

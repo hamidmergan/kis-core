@@ -51,6 +51,7 @@ def _base_mocks(monkeypatch, saved: dict):
     monkeypatch.setattr(gt, "_resolve_user_id", lambda j: 1)
     monkeypatch.setattr(gt, "delete_file", lambda p: None)
     monkeypatch.setattr(gt, "save_result_and_evict", lambda *a, **k: None)
+    monkeypatch.setattr(gt, "save_result_meta", lambda *a, **k: None)
     monkeypatch.setattr(gt, "save_result_file", lambda user_id, job_uuid, ext, data: saved.setdefault("bytes", data))
     monkeypatch.setattr(gt, "job_heartbeat", _fake_hb)
 
