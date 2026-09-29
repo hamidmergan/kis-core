@@ -131,10 +131,10 @@ async def list_reachable_choices(feature: str) -> dict:
     flags = await asyncio.gather(*(_is_reachable(p) for p in candidates))
     reachable = [p for p, ok in zip(candidates, flags) if ok]
 
-    default_id = route.get("provider_id") if route else None
+    # The admin's first choice, else the admin's fallback, only then the oldest provider that answers.
     reachable_ids = {p["id"] for p in reachable}
-    if default_id not in reachable_ids:
-        default_id = reachable[0]["id"] if reachable else None
+    wunsch = [route.get("provider_id"), route.get("fallback_provider_id")] if route else []
+    default_id = next((pid for pid in wunsch if pid in reachable_ids), reachable[0]["id"] if reachable else None)
 
     return {
         "providers": [{"id": p["id"], "name": p["name"], "model": _model_for(route, p["id"])}
