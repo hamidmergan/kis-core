@@ -89,6 +89,14 @@ class TestPlanen:
         assert caller.client.optionen[0]["response_format"] is wr.OUTLINE_SCHEMA
         assert len(plan.sections) == 3
 
+    async def test_die_gliederung_hat_eine_laengengrenze(self):
+        """Lasttests 29.09.: 2 bis 3 von 20 Gliederungen liefen bis zur Zeitgrenze von 270 s, normale brauchen 12 bis 30 s."""
+        from src.limits import SUMMARY_OUTLINE_MAX_TOKENS
+
+        caller = _caller([_PLAN])
+        await _plane(caller)
+        assert caller.client.optionen[0]["max_tokens"] == SUMMARY_OUTLINE_MAX_TOKENS
+
     async def test_der_planer_plant_ueberschriften_und_teilt_die_stellen_zu(self):
         caller = _caller([_PLAN])
         await _plane(caller)

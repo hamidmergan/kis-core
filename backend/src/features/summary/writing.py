@@ -13,6 +13,7 @@ from src.limits import (
     SUMMARY_MAX_SECTIONS,
     SUMMARY_MIN_SECTIONS,
     SUMMARY_OUTLINE_MAX_ATTEMPTS,
+    SUMMARY_OUTLINE_MAX_TOKENS,
     SUMMARY_PROMPT_RESERVE_CHARS,
     SUMMARY_RETRY_DELAY_SECONDS,
     SUMMARY_SECTION_BASE_CHARS,
@@ -276,7 +277,7 @@ async def plan_outline(caller: Caller, *, language: str, template_body: str,
                      "content": _outline_user(sources, material, fehlt, anfaenge, instructions)},
                 ],
                 temperature=0.2, name=f"outline:{versuch}",
-                response_format=OUTLINE_SCHEMA,
+                response_format=OUTLINE_SCHEMA, max_tokens=SUMMARY_OUTLINE_MAX_TOKENS,
             )
             plan = parse_outline(antwort.choices[0].message.content, stellen, sources)
             # Without a single passage the writers would have nothing to write from.
