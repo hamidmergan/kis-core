@@ -17,7 +17,7 @@ from pptx.enum.shapes import PP_PLACEHOLDER
 from pptx.enum.text import PP_ALIGN
 from pptx.util import Emu, Pt
 
-from src.features.praesentation import aufzaehlung, elemente, farben, formen, platz, vorlage
+from src.features.praesentation import abbildungen, aufzaehlung, elemente, farben, formen, platz, vorlage
 from src.features.praesentation.farben import Farben
 from src.features.praesentation.schemas import Body, Slide
 from src.features.praesentation.teilung import schriftgrad, zeilen
@@ -359,6 +359,18 @@ def _body(slide, feld: Feld, body: Body, bild: bytes | None, f: Farben, typeface
         return False
     if body.kind == "highlight" and body.key and body.text:
         formen.hervorhebung(slide, feld, body, f, typeface)
+        return False
+    if body.kind == "steps" and body.steps:
+        abbildungen.ablauf(slide, feld, body.steps, f, typeface)
+        return False
+    if body.kind == "figures" and body.figures:
+        abbildungen.kennzahlen(slide, feld, body.figures, f, typeface)
+        return False
+    if body.kind == "levels" and body.levels:
+        abbildungen.stufen(slide, feld, body.levels, f, typeface)
+        return False
+    if body.kind == "symbols" and body.symbols:
+        abbildungen.symbole(slide, feld, body.symbols, f, typeface)
         return False
     if body.kind == "image" and bild:
         slide.shapes.add_picture(_zuschnitt(bild, bild_feld.aspect), bild_feld.left, bild_feld.top,

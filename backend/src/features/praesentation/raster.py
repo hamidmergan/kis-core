@@ -1,4 +1,4 @@
-"""How many cards and bars a content field holds, from its size and text size alone."""
+"""How many cards, bars, steps, figures, levels and symbols a content field holds, from its size and text size alone."""
 
 from __future__ import annotations
 
@@ -7,6 +7,10 @@ import math
 EMU_PER_PT = 12700
 MAX_KARTEN = 8
 MAX_BALKEN = 8
+MAX_SCHRITTE = 6
+MAX_KENNZAHLEN = 4
+MAX_STUFEN = 5
+MAX_SYMBOLE = 8
 # Card text follows the template's body size, but a poster-sized body would leave room for one card.
 MAX_GRUND_PT = 18.0
 STANDARD_PT = 16.0
@@ -21,6 +25,19 @@ TEXTZEILEN = 3
 # A bar row needs its label on up to two lines.
 BALKEN_MIN_HOEHE = 2.2
 _ZEICHEN_JE_WORT = 6.5
+# A step's column, a key figure's column and a symbol's column need this width, a level this height,
+# all in multiples of the base size.
+SCHRITT_MIN_BREITE = 8.5
+KENNZAHL_MIN_BREITE = 10.0
+STUFE_MIN_HOEHE = 2.6
+STUFE_ABSTAND = 0.25
+SYMBOL_MIN_BREITE = 7.0
+SYMBOL_MIN_HOEHE = 7.0
+# A title of a step or level stays a few words, a text one sentence, however wide the field.
+MAX_TITEL_WOERTER = 4
+MAX_TEXT_WOERTER = 15
+# The pyramid takes this share of the field's width, its levels' text the rest.
+PYRAMIDE_ANTEIL = 0.4
 
 
 def grund_pt(size_pt: float) -> float:
@@ -69,3 +86,35 @@ def verteilung(n: int, spalten_max: int) -> list[int]:
 def balken_platz(hoehe: int, size_pt: float) -> int:
     g = grund_pt(size_pt)
     return min(MAX_BALKEN, _anzahl(hoehe / EMU_PER_PT, BALKEN_MIN_HOEHE * g, 0.0))
+
+
+def _woerter(breite_pt: float, groesse: float, zeilen: int) -> int:
+    return int(breite_pt / (groesse * 0.5) * zeilen / _ZEICHEN_JE_WORT)
+
+
+def schritte_platz(breite: int, size_pt: float) -> dict:
+    """The most steps side by side, and the words a step's title and text may have in the fullest row."""
+    g = grund_pt(size_pt)
+    n = min(MAX_SCHRITTE, _anzahl(breite / EMU_PER_PT, SCHRITT_MIN_BREITE * g, 0.0))
+    spalte = breite / EMU_PER_PT / n - g
+    return {"max": n, "titel_woerter": max(2, min(MAX_TITEL_WOERTER, _woerter(spalte, TITEL_ANTEIL * g, 2))),
+            "text_woerter": max(4, _woerter(spalte, TEXT_ANTEIL * g, TEXTZEILEN))}
+
+
+def kennzahlen_platz(breite: int, size_pt: float) -> int:
+    return min(MAX_KENNZAHLEN, _anzahl(breite / EMU_PER_PT, KENNZAHL_MIN_BREITE * grund_pt(size_pt), 0.0))
+
+
+def stufen_platz(breite: int, hoehe: int, size_pt: float) -> dict:
+    """The most levels stacked, and the words a level's title and text may have beside the pyramid."""
+    g = grund_pt(size_pt)
+    n = min(MAX_STUFEN, _anzahl(hoehe / EMU_PER_PT, STUFE_MIN_HOEHE * g, STUFE_ABSTAND * g))
+    text = breite / EMU_PER_PT * (1 - PYRAMIDE_ANTEIL) - 1.5 * g
+    return {"max": n, "titel_woerter": max(2, min(MAX_TITEL_WOERTER, _woerter(text, TITEL_ANTEIL * g, 1))),
+            "text_woerter": max(4, min(MAX_TEXT_WOERTER, _woerter(text, TEXT_ANTEIL * g, 2)))}
+
+
+def symbole_platz(breite: int, hoehe: int, size_pt: float) -> int:
+    g = grund_pt(size_pt)
+    return min(MAX_SYMBOLE, _anzahl(breite / EMU_PER_PT, SYMBOL_MIN_BREITE * g, 0.0)
+               * _anzahl(hoehe / EMU_PER_PT, SYMBOL_MIN_HOEHE * g, ABSTAND * g))

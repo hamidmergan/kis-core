@@ -41,7 +41,9 @@ export interface Series {
   values: number[];
 }
 
-export type BodyKind = "bullets" | "table" | "chart" | "image" | "cards" | "bars" | "highlight";
+export type BodyKind =
+  | "bullets" | "table" | "chart" | "image" | "cards" | "bars" | "highlight"
+  | "steps" | "figures" | "levels" | "symbols";
 
 export interface Card {
   icon: string;
@@ -54,6 +56,24 @@ export interface Bar {
   label: string;
   value: number;
   text: string;
+}
+
+/** One step of a sequence or one level of a hierarchy: a short title and one sentence. */
+export interface Entry {
+  title: string;
+  text: string;
+}
+
+/** A key number written with its unit, and what it counts. */
+export interface Figure {
+  value: string;
+  label: string;
+}
+
+/** A term of a set, drawn as an icon with its name below. */
+export interface SymbolItem {
+  icon: string;
+  label: string;
 }
 
 export interface Body {
@@ -70,6 +90,10 @@ export interface Body {
   key: string;
   text: string;
   emphasis: string;
+  steps: Entry[];
+  figures: Figure[];
+  levels: Entry[];
+  symbols: SymbolItem[];
 }
 
 export interface Column {

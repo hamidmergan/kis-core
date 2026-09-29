@@ -135,12 +135,16 @@ def form_fuer(l: Layout, a: Analyse) -> dict:
     platz: dict = {}
     # A table, chart or drawn element needs the whole slide, beside pictures it would be squeezed.
     if flies and flies[0].is_object and not l.der_art("bild"):
-        arten += ["table", "chart", "cards", "bars", "highlight"]
+        arten += ["table", "chart", "cards", "bars", "highlight", "steps", "figures", "levels", "symbols"]
         if not a.hat_bildfelder():
             arten.append("image")
         f = flies[0]
         platz = {"karten": raster.karten_platz(f.width, f.height, f.size_pt),
-                 "balken": raster.balken_platz(f.height, f.size_pt)}
+                 "balken": raster.balken_platz(f.height, f.size_pt),
+                 "schritte": raster.schritte_platz(f.width, f.size_pt),
+                 "kennzahlen": raster.kennzahlen_platz(f.width, f.size_pt),
+                 "stufen": raster.stufen_platz(f.width, f.height, f.size_pt),
+                 "symbole": raster.symbole_platz(f.width, f.height, f.size_pt)}
     return {
         **platz,
         "ueberschrift": next((f.words for f in l.der_art("ueberschrift")), 8),

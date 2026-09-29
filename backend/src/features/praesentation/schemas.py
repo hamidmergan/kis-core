@@ -2,7 +2,9 @@
 
 from pydantic import BaseModel, Field, field_validator
 
-from src.features.praesentation.raster import MAX_BALKEN, MAX_KARTEN
+from src.features.praesentation.raster import (
+    MAX_BALKEN, MAX_KARTEN, MAX_KENNZAHLEN, MAX_SCHRITTE, MAX_STUFEN, MAX_SYMBOLE,
+)
 from src.limits import PRAESENTATION_MAX_SLIDES, PRAESENTATION_MIN_SLIDES
 
 ROLLEN: tuple[str, ...] = (
@@ -13,7 +15,8 @@ WAEHLBARE_ROLLEN: tuple[str, ...] = ("abschnitt", "text", "zwei_spalten", "text_
 LANGUAGES: tuple[str, ...] = ("de", "en")
 # How many slides an outline may hold, the model picks its own number inside this range.
 FOLIEN_GRENZEN: tuple[int, int] = (PRAESENTATION_MIN_SLIDES, PRAESENTATION_MAX_SLIDES)
-BODY_KINDS: tuple[str, ...] = ("bullets", "table", "chart", "image", "cards", "bars", "highlight")
+BODY_KINDS: tuple[str, ...] = ("bullets", "table", "chart", "image", "cards", "bars", "highlight",
+                               "steps", "figures", "levels", "symbols")
 CHART_TYPES: tuple[str, ...] = ("bar", "line", "pie")
 SYSTEM_VORLAGE = "thl"
 
@@ -77,6 +80,27 @@ class Bar(BaseModel):
     text: str = Field(default="", max_length=MAX_BAR_TEXT_CHARS)
 
 
+class Entry(BaseModel):
+    """One step of a sequence or one level of a hierarchy: a short title and one sentence."""
+
+    title: str = Field(default="", max_length=MAX_HEADING_CHARS)
+    text: str = Field(default="", max_length=MAX_GIST_CHARS)
+
+
+class Figure(BaseModel):
+    """A key number written with its unit, and what it counts."""
+
+    value: str = Field(default="", max_length=MAX_KEY_CHARS)
+    label: str = Field(default="", max_length=MAX_HEADING_CHARS)
+
+
+class Symbol(BaseModel):
+    """A term of a set, shown as an icon with its name below."""
+
+    icon: str = Field(default="", max_length=MAX_ICON_CHARS)
+    label: str = Field(default="", max_length=MAX_HEADING_CHARS)
+
+
 class Body(BaseModel):
     """The one content field of a slide, bullets unless the material asks for more."""
 
@@ -94,6 +118,10 @@ class Body(BaseModel):
     key: str = Field(default="", max_length=MAX_KEY_CHARS)
     text: str = Field(default="", max_length=MAX_GIST_CHARS)
     emphasis: str = Field(default="", max_length=MAX_HEADING_CHARS)
+    steps: list[Entry] = Field(default_factory=list, max_length=MAX_SCHRITTE)
+    figures: list[Figure] = Field(default_factory=list, max_length=MAX_KENNZAHLEN)
+    levels: list[Entry] = Field(default_factory=list, max_length=MAX_STUFEN)
+    symbols: list[Symbol] = Field(default_factory=list, max_length=MAX_SYMBOLE)
 
 
 class Column(BaseModel):

@@ -1,4 +1,4 @@
-"""Tables, charts, cards, bars and the highlight: the template's colour, and a layout for any count."""
+"""Tables, charts and every drawn form: the template's colour, and a layout for any count."""
 
 import copy
 from io import BytesIO
@@ -6,11 +6,11 @@ from pathlib import Path
 
 import pytest
 from pptx import Presentation
-from pptx.enum.shapes import MSO_SHAPE_TYPE
+from pptx.enum.shapes import MSO_SHAPE, MSO_SHAPE_TYPE
 from pptx.oxml.ns import qn
 
 from src.features.praesentation import bau, elemente, icons, raster, vorlage
-from src.features.praesentation.schemas import Bar, Body, Card, Series, Slide
+from src.features.praesentation.schemas import Bar, Body, Card, Entry, Figure, Series, Slide, Symbol
 
 THL = Path("src/features/praesentation/assets/thl.pptx").read_bytes()
 ROT = "E4003A"
@@ -310,3 +310,105 @@ def test_langes_schluesselwort_wird_kleiner(analyse):
         return sh.text_frame.paragraphs[0].runs[0].font.size.pt
 
     assert groesse("Digitalisierung") < groesse("MO")
+
+
+# Steps, key figures, levels and symbols
+
+
+def _gezeichnet(folie):
+    return [sh for sh in folie.shapes if sh.shape_type != MSO_SHAPE_TYPE.PLACEHOLDER]
+
+
+def _schritte(n, text="Ein kurzer Satz zu diesem Schritt (§ 74 Abs. 1)."):
+    return Body(kind="steps", steps=[Entry(title=f"Schritt {WORT[i]}", text=text) for i in range(n)])
+
+
+def _stufen(n):
+    return Body(kind="levels", levels=[Entry(title=WORT[i], text="Ein Satz zu dieser Stufe.") for i in range(n)])
+
+
+def _zahlen(n):
+    return Body(kind="figures", figures=[Figure(value=f"{8 + i} Std.", label="reguläre Arbeitszeit werktäglich (§ 3)")
+                                         for i in range(n)])
+
+
+def _symbole(n):
+    return Body(kind="symbols", symbols=[Symbol(icon="globe", label=WORT[i]) for i in range(n)])
+
+
+@pytest.mark.parametrize("body", [_schritte(2), _schritte(6), _stufen(3), _stufen(5), _zahlen(2), _zahlen(4),
+                                  _symbole(3), _symbole(8)])
+def test_neue_formen_bleiben_im_feld(analyse, schmal, body):
+    for a in (analyse, schmal):
+        assert all(_innerhalb(sh, _feld(a)) for sh in _gezeichnet(_folie(a, body)))
+
+
+def test_schritte_kreise_mit_nummer_auf_einer_linie(analyse):
+    folie = _folie(analyse, _schritte(4))
+    kreise = [sh for sh in _formen(folie) if sh.auto_shape_type == MSO_SHAPE.OVAL]
+    linie = [sh for sh in _formen(folie) if sh.auto_shape_type == MSO_SHAPE.RECTANGLE]
+    assert len(kreise) == 4 and {_fuellung(k) for k in kreise} == {ROT} and len({k.top for k in kreise}) == 1
+    assert len(linie) == 1 and _fuellung(linie[0]) == "FACCD8"
+    assert linie[0].left == kreise[0].left + kreise[0].width // 2
+    texte = [sh.text_frame.text for sh in folie.shapes if sh.has_text_frame and not sh.is_placeholder]
+    assert [t for t in texte if t.isdigit()] == ["1", "2", "3", "4"]
+
+
+def test_schritte_halten_die_fundstelle_zusammen(analyse):
+    folie = _folie(analyse, _schritte(3))
+    satz = next(sh.text_frame.text for sh in folie.shapes if sh.has_text_frame and "Satz" in sh.text_frame.text)
+    assert "(§ 74 Abs. 1)" in satz
+
+
+def test_schritte_text_in_der_groesse_des_fliesstexts(analyse):
+    folie = _folie(analyse, _schritte(3, "kurz"))
+    satz = next(sh for sh in folie.shapes if sh.has_text_frame and sh.text_frame.text == "kurz")
+    assert satz.text_frame.paragraphs[0].runs[0].font.size.pt == _feld(analyse).size_pt
+
+
+def test_kennzahlen_gleich_gross_mit_trennern(analyse):
+    folie = _folie(analyse, _zahlen(3))
+    werte = [sh for sh in folie.shapes if sh.has_text_frame and sh.text_frame.text.endswith("Std.")]
+    assert len(werte) == 3 and len({sh.text_frame.paragraphs[0].runs[0].font.size.pt for sh in werte}) == 1
+    assert {str(sh.text_frame.paragraphs[0].runs[0].font.color.rgb) for sh in werte} == {ROT}
+    assert len(_formen(folie)) == 2
+
+
+def test_stufen_pyramide_oben_in_voller_farbe(analyse):
+    folie = _folie(analyse, _stufen(4))
+    flaechen = [sh for sh in folie.shapes if sh.shape_type == MSO_SHAPE_TYPE.FREEFORM]
+    assert len(flaechen) == 4 and _fuellung(flaechen[0]) == ROT and len({_fuellung(f) for f in flaechen}) == 4
+    assert [f.width for f in flaechen] == sorted(f.width for f in flaechen)
+    titel = [sh for sh in folie.shapes if sh.has_text_frame and sh.text_frame.text in WORT]
+    assert all(t.left > max(f.left + f.width for f in flaechen) for t in titel)
+
+
+def test_symbole_in_zwei_reihen_mittig(analyse):
+    folie = _folie(analyse, _symbole(8))
+    kreise = _formen(folie)
+    bilder = [sh for sh in folie.shapes if sh.shape_type == MSO_SHAPE_TYPE.PICTURE]
+    assert len(kreise) == 8 and len(bilder) == 8 and {_fuellung(k) for k in kreise} == {"FCE6EB"}
+    assert len({k.top for k in kreise}) == 1 or len({k.top for k in kreise}) == 2
+    feld = _feld(analyse)
+    for reihe in {k.top for k in kreise}:
+        drin = sorted((k for k in kreise if k.top == reihe), key=lambda k: k.left)
+        links = drin[0].left - feld.left
+        rechts = feld.left + feld.width - (drin[-1].left + drin[-1].width)
+        assert abs(links - rechts) < 12700
+
+
+def test_langer_ablauf_im_schmalen_feld_steht_untereinander(analyse, schmal):
+    lang = "Rückerstattung unzulässiger Zahlungen zur Gläubigerbefriedigung nach der Abwicklung"
+    kreise = [sh for sh in _formen(_folie(schmal, _schritte(4, lang))) if sh.auto_shape_type == MSO_SHAPE.OVAL]
+    assert len({k.left for k in kreise}) == 1 and len({k.top for k in kreise}) == 4
+    kreise = [sh for sh in _formen(_folie(analyse, _schritte(4, "kurz"))) if sh.auto_shape_type == MSO_SHAPE.OVAL]
+    assert len({k.top for k in kreise}) == 1
+
+
+def test_lange_begriffe_gehen_in_zwei_reihen_statt_zu_schrumpfen(analyse):
+    begriffe = ["Geheimhaltungspflichten", "Informationspflichten", "Auskunftsrecht", "Zweckbindung",
+                "Schutzmaßnahmen", "Löschung"]
+    folie = _folie(analyse, Body(kind="symbols", symbols=[Symbol(icon="lock", label=b) for b in begriffe]))
+    assert len({k.top for k in _formen(folie)}) == 2
+    loeschung = next(sh for sh in folie.shapes if sh.has_text_frame and sh.text_frame.text == "Löschung")
+    assert loeschung.text_frame.paragraphs[0].runs[0].font.size.pt == _feld(analyse).size_pt

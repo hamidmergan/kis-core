@@ -10,8 +10,11 @@ from src.features.praesentation.schemas import OutlineRow, PraesentationParams, 
 FORM_TEXT = {"ueberschrift": 6, "zwischentitel": [], "fliesstexte": [90], "bilder": 0,
              "body_kinds": ["bullets", "table", "chart"]}
 FORM_FORMEN = {"ueberschrift": 6, "zwischentitel": [], "fliesstexte": [90], "bilder": 0,
-               "body_kinds": ["bullets", "table", "chart", "cards", "bars", "highlight"],
-               "karten": {"max": 3, "titel_woerter": 4, "text_woerter": 15}, "balken": 4}
+               "body_kinds": ["bullets", "table", "chart", "cards", "bars", "highlight",
+                              "steps", "figures", "levels", "symbols"],
+               "karten": {"max": 3, "titel_woerter": 4, "text_woerter": 15}, "balken": 4,
+               "schritte": {"max": 4, "titel_woerter": 3, "text_woerter": 9}, "kennzahlen": 3,
+               "stufen": {"max": 4, "titel_woerter": 4, "text_woerter": 15}, "symbole": 5}
 FORM_BILD = {"ueberschrift": 6, "zwischentitel": [], "fliesstexte": [40], "bilder": 2,
              "body_kinds": ["bullets"]}
 FORM_SPALTEN = {"ueberschrift": 6, "zwischentitel": [6, 6], "fliesstexte": [50, 50], "bilder": 0,
@@ -325,7 +328,8 @@ class TestKartenVerteilen:
         assert folien.karten_folien(rows, formen) == {"s1", "s5"}
 
     def test_ohne_karten_nimmt_nur_die_karten_weg(self):
-        assert folien.ohne_karten(FORM_FORMEN)["body_kinds"] == ["bullets", "table", "chart", "bars", "highlight"]
+        assert folien.ohne_karten(FORM_FORMEN)["body_kinds"] == [
+            "bullets", "table", "chart", "bars", "highlight", "steps", "figures", "levels", "symbols"]
         assert "cards" in FORM_FORMEN["body_kinds"]
 
     def test_eine_folie_ohne_karten_bekommt_sie_nicht_angeboten(self):
@@ -392,3 +396,53 @@ class TestFormen:
     def test_formen_nur_wo_erlaubt(self):
         b = self._body({"kind": "cards", "cards": [{"title": "a"}, {"title": "b"}]}, FORM_TEXT)
         assert b.kind == "bullets"
+
+    def test_prompt_nennt_platz_der_neuen_formen(self):
+        user = folien.build_messages("Q", PraesentationParams(), self.ROW, {"s2": FORM_FORMEN})[1]["content"]
+        assert "steps: 2 to 4, each title up to 3 words, each text up to 9 words" in user
+        assert "levels: 3 to 4, each title up to 4 words" in user
+        assert "figures: 2 to 3" in user and "symbols: 3 to 5" in user
+
+    def test_gleiche_balken_sind_kein_diagramm(self):
+        """Six bars of the same length with the same text: a list dressed up as a chart."""
+        balken = [{"label": m, "value": 1, "text": "geschütztes Merkmal (§ 1)"} for m in ("Alter", "Geschlecht")]
+        b = self._body({"kind": "bars", "bars": balken})
+        assert b.kind == "bullets" and b.items == ["Alter", "Geschlecht"] and b.bars == []
+
+    def test_balkentext_ohne_zahl_bekommt_sie_vorn(self):
+        b = self._body({"kind": "bars", "bars": [
+            {"label": "Regulär", "value": 8, "text": "Stunden werktäglich (§ 3)"},
+            {"label": "Ruhe", "value": 11, "text": "11 Stunden (§ 5)"},
+            {"label": "Anteil", "value": 12.5, "text": "12,5 %"},
+            {"label": "Summe", "value": 25000, "text": "25.000 €"}]})
+        assert [z.text for z in b.bars] == ["8 Stunden werktäglich (§ 3)", "11 Stunden (§ 5)", "12,5 %", "25.000 €"]
+
+    def test_schritte_und_stufen(self):
+        schritte = [{"title": f"S{i}", "text": "x"} for i in range(6)] + [{"text": "ohne Titel"}]
+        b = self._body({"kind": "steps", "steps": schritte})
+        assert b.kind == "steps" and [e.title for e in b.steps] == ["S0", "S1", "S2", "S3"]
+        b = self._body({"kind": "levels", "levels": [{"title": "Oben"}, {"title": "Mitte"}, {"title": "Unten", "text": "t"}]})
+        assert b.kind == "levels" and [(e.title, e.text) for e in b.levels][-1] == ("Unten", "t")
+
+    def test_zwei_stufen_sind_keine_pyramide(self):
+        b = self._body({"kind": "levels", "levels": [{"title": "Oben", "text": "a"}, {"title": "Unten"}]})
+        assert b.kind == "bullets" and b.items == ["Oben: a", "Unten"] and b.levels == []
+
+    def test_kennzahl_ohne_ziffer_faellt_weg(self):
+        b = self._body({"kind": "figures", "figures": [{"value": "8 h", "label": "Arbeit"}, {"value": "viel", "label": "x"},
+                                                        {"value": 11, "label": "Ruhe"}]})
+        assert b.kind == "figures" and [(z.value, z.label) for z in b.figures] == [("8 h", "Arbeit"), ("11", "Ruhe")]
+        b = self._body({"kind": "figures", "figures": [{"value": "8 h", "label": "Arbeit"}]})
+        assert b.kind == "bullets" and b.items == ["8 h: Arbeit"]
+
+    def test_symbole_mit_ersatz_icon(self):
+        b = self._body({"kind": "symbols", "symbols": [{"icon": "globe", "label": "Herkunft"}, {"icon": "?", "label": "Alter"},
+                                                        {"label": "Geschlecht"}, {"icon": "heart"}]})
+        assert b.kind == "symbols" and [(z.icon, z.label) for z in b.symbols] == [
+            ("globe", "Herkunft"), (icons.ERSATZ, "Alter"), (icons.ERSATZ, "Geschlecht")]
+
+    def test_neue_formen_nur_wo_erlaubt(self):
+        b = self._body({"kind": "steps", "steps": [{"title": "a", "text": "x"}, {"title": "b"}]}, FORM_TEXT)
+        assert b.kind == "bullets" and b.items == ["a: x", "b"]
+        b = self._body({"kind": "figures", "figures": [{"value": "8 h", "label": "Arbeit"}]}, FORM_TEXT)
+        assert b.items == ["8 h: Arbeit"]

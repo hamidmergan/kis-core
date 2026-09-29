@@ -83,8 +83,11 @@ class TestThl:
         l = next(l for l in thl.layouts if l.name == "Text oder Grafik")
         form = vorlage.form_fuer(l, thl)
         assert form["fliesstexte"] == [120] and form["bilder"] == 0
-        assert form["body_kinds"] == ["bullets", "table", "chart", "cards", "bars", "highlight"]
+        assert form["body_kinds"] == ["bullets", "table", "chart", "cards", "bars", "highlight",
+                                      "steps", "figures", "levels", "symbols"]
         assert form["karten"]["max"] == 6 and form["balken"] == 8
+        assert form["schritte"]["max"] == 6 and form["kennzahlen"] == 4
+        assert form["stufen"]["max"] == 5 and form["symbole"] == 8
 
     def test_folien_mit_bildfeld_bekommen_keine_tabelle(self, thl):
         for name in ("Text und Bilder", "Bilder mit Text"):

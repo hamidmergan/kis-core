@@ -55,7 +55,13 @@ def _textfeld(slide, x: float, y: float, w: float, h: float, anker=MSO_ANCHOR.TO
 
 
 def _form(slide, art, x: float, y: float, w: float, h: float, farbe, ecke: float | None = None):
-    form = slide.shapes.add_shape(art, _emu(x), _emu(y), _emu(w), _emu(h))
+    form = _faerbe(slide.shapes.add_shape(art, _emu(x), _emu(y), _emu(w), _emu(h)), farbe)
+    if ecke is not None:
+        form.adjustments[0] = ecke
+    return form
+
+
+def _faerbe(form, farbe):
     form.fill.solid()
     form.fill.fore_color.rgb = farbe
     form.line.fill.background()
@@ -63,8 +69,6 @@ def _form(slide, art, x: float, y: float, w: float, h: float, farbe, ecke: float
     stil = form._element.find(qn("p:style"))
     if stil is not None:
         form._element.remove(stil)
-    if ecke is not None:
-        form.adjustments[0] = ecke
     return form
 
 

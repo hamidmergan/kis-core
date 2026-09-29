@@ -6,13 +6,15 @@ import re
 
 from src.features.praesentation import icons
 from src.features.praesentation.gliederung import SPRACHE, Unusable, json_objekt
-from src.features.praesentation.raster import MAX_BALKEN, MAX_KARTEN
+from src.features.praesentation.raster import (
+    MAX_BALKEN, MAX_KARTEN, MAX_KENNZAHLEN, MAX_SCHRITTE, MAX_STUFEN, MAX_SYMBOLE,
+)
 from src.limits import PRAESENTATION_SLIDE_CONTEXT_CHARS
 from src.features.praesentation.schemas import (
     CHART_TYPES, MAX_BAR_TEXT_CHARS, MAX_CHART_CATEGORIES, MAX_CHART_SERIES, MAX_GIST_CHARS, MAX_HEADING_CHARS,
     MAX_KEY_CHARS, MAX_NOTES_CHARS, MAX_PROMPT_CHARS, MAX_SERIES_NAME_CHARS, MAX_SUBTITLE_CHARS, MAX_TABLE_ROWS,
-    MAX_TEXT_ITEMS, MAX_TITLE_CHARS, Bar, Body, Card, Column, ImageSpec, OutlineRow, PraesentationParams, Series,
-    Slide,
+    MAX_TEXT_ITEMS, MAX_TITLE_CHARS, Bar, Body, Card, Column, Entry, Figure, ImageSpec, OutlineRow,
+    PraesentationParams, Series, Slide, Symbol,
 )
 
 # A slide below these reads as empty, a small field asks for fewer, at about twelve words a point.
@@ -21,6 +23,15 @@ MIN_JE_SPALTE = 3
 WOERTER_JE_PUNKT = 12
 # Cards on nearly every slide read as a template, every third slide that could carry them is enough.
 KARTEN_JEDE = 3
+# Below these counts a drawing says less than a line of text.
+MIN_KENNZAHLEN = 2
+MIN_SCHRITTE = 2
+MIN_STUFEN = 3
+MIN_SYMBOLE = 3
+# A number in a bar's text, its thousands and decimal marks included.
+_ZAHL = re.compile(r"\d(?:[.,  ]?\d)*")
+# The lists a drawn body keeps its entries in, in the order a broken answer is searched for them.
+_LISTEN = ("cards", "bars", "steps", "levels", "figures", "symbols")
 
 
 def material_je_folie(rows: list[OutlineRow], karte, alle: list[OutlineRow]) -> dict[str, str]:
@@ -67,14 +78,32 @@ def build_messages(source: str, params: PraesentationParams, rows: list[OutlineR
         '  cards: {"kind": "cards", "cards": [{"icon": "...", "title": "...", "text": "..."}]} for two or more '
         "ideas of equal weight, each a short title and one sentence. icon is one name from this list: "
         f"{', '.join(icons.namen())}.\n"
-        '  bars: {"kind": "bars", "bars": [{"label": "...", "value": number, "text": "..."}]} for named things with one '
-        "number each in the same unit, such as durations, deadlines or shares. The bar length follows value, text is "
-        'what the bar shows, such as "until 2028" or "45 %", empty to show the plain number.\n'
+        '  bars: {"kind": "bars", "bars": [{"label": "...", "value": number, "text": "..."}]} a bar chart, only to compare '
+        "one measure across named things, where a longer bar means more of the same, such as shares per group or the "
+        'length of several periods. text is the number with its unit, such as "45 %" or "until 2028". Never for a list '
+        "without numbers, never when all values are equal, never for limits of different kinds, those are figures.\n"
+        '  figures: {"kind": "figures", "figures": [{"value": "...", "label": "..."}]} for two to four numbers that '
+        "carry the slide, such as limits, deadlines, amounts or durations: value is the number with its unit, at most "
+        '10 characters, such as "8 h" or "25,000 €", label says in a few words what it counts. Numbers of different '
+        "kinds, such as a time limit beside a deadline, are figures, never bars or levels.\n"
+        '  steps: {"kind": "steps", "steps": [{"title": "...", "text": "..."}]} only for a real sequence in which each '
+        "step follows the one before, such as a procedure, a lab protocol or the phases of a project, in that order: "
+        "title names the step in one to three words, text is one short sentence. Never for topics of one field that "
+        "stand side by side.\n"
+        '  levels: {"kind": "levels", "levels": [{"title": "...", "text": "..."}]} only for a true rank order in which '
+        "each level stands above the next, the highest first, such as a hierarchy of norms or of needs: title names the "
+        "level, text is one short sentence. Never for limits, rules or a list whose order means nothing.\n"
+        '  symbols: {"kind": "symbols", "symbols": [{"icon": "...", "label": "..."}]} for three or more terms of one '
+        "set that need no explanation, such as protected characteristics or fields of work: label is the bare term "
+        "in one to three words, no sentence and no reference in parentheses, icon a name from the list of cards "
+        "that fits the term.\n"
         '  highlight: {"kind": "highlight", "key": "...", "text": "...", "emphasis": "..."} for one number or word '
         "that carries the slide: key is that number or word, at most 12 characters, text one sentence "
         "about it, emphasis a term that stands word for word in that sentence and gets marked in colour. Rare, only for a central figure.\n"
-        "  cards, bars and highlight only where the material has that shape, bullets stay the usual kind.\n"
-        "  The numbers of a table, chart, bars or highlight belong to the slide's own title and gist, "
+        "  cards, bars, figures, steps, levels, symbols and highlight only where the material has that shape, "
+        "bullets stay the usual kind. In one answer each of these forms goes to one slide at most, so no two slides "
+        "look alike.\n"
+        "  The numbers of a table, chart, bars, figures or highlight belong to the slide's own title and gist, "
         "never to a neighbouring passage about something else.\n"
         '  image: {"kind": "image", "prompt": "..."} only when allowed, at most on every fourth slide.\n'
         '- columns: when the slide has two or more text fields, one entry per field: {"heading": "...", "items": [...]}\n'
@@ -107,6 +136,15 @@ def build_messages(source: str, params: PraesentationParams, rows: list[OutlineR
                               f"each text up to {k['text_woerter']} words")
             if "bars" in f["body_kinds"] and f.get("balken"):
                 zeilen.append(f"  bars: 2 to {f['balken']}")
+            if "figures" in f["body_kinds"] and f.get("kennzahlen", 0) >= MIN_KENNZAHLEN:
+                zeilen.append(f"  figures: {MIN_KENNZAHLEN} to {f['kennzahlen']}")
+            for art, name, mindest in (("steps", "schritte", MIN_SCHRITTE), ("levels", "stufen", MIN_STUFEN)):
+                if art in f["body_kinds"] and f.get(name, {}).get("max", 0) >= mindest:
+                    p = f[name]
+                    zeilen.append(f"  {art}: {mindest} to {p['max']}, each title up to {p['titel_woerter']} words, "
+                                  f"each text up to {p['text_woerter']} words")
+            if "symbols" in f["body_kinds"] and f.get("symbole", 0) >= MIN_SYMBOLE:
+                zeilen.append(f"  symbols: {MIN_SYMBOLE} to {f['symbole']}")
         elif len(f["fliesstexte"]) > 1:
             grenzen = ", ".join(str(w) for w in f["fliesstexte"])
             kopf = f", each with a heading of up to {f['zwischentitel'][0]} words" if f["zwischentitel"] else ""
@@ -233,8 +271,7 @@ def _slide(row: OutlineRow, e: dict, form: dict) -> Slide:
               subtitle=_text(e.get("subtitle"))[:MAX_SUBTITLE_CHARS], notes=_text(e.get("notes"))[:MAX_NOTES_CHARS])
     n = len(form["fliesstexte"])
     if n == 1:
-        s.body = _body(e.get("body"), form["body_kinds"], (form.get("karten") or {}).get("max", MAX_KARTEN),
-                       form.get("balken") or MAX_BALKEN)
+        s.body = _body(e.get("body"), form)
     elif n > 1:
         cols = e.get("columns") if isinstance(e.get("columns"), list) else []
         s.columns = [Column(heading=_text(c.get("heading"))[:MAX_HEADING_CHARS], items=_items(c.get("items")))
@@ -249,16 +286,21 @@ def _slide(row: OutlineRow, e: dict, form: dict) -> Slide:
     return s
 
 
-def _body(roh, kinds: list[str], karten_max: int = MAX_KARTEN, balken_max: int = MAX_BALKEN) -> Body:
-    """A body of an allowed kind, anything broken becomes bullets."""
+def _body(roh, form: dict) -> Body:
+    """A body of an allowed kind, anything broken becomes bullets, every drawing capped at what its field holds."""
+    kinds = form["body_kinds"]
+    karten_max = (form.get("karten") or {}).get("max", MAX_KARTEN)
+    balken_max = form.get("balken") or MAX_BALKEN
+    schritte_max = (form.get("schritte") or {}).get("max", MAX_SCHRITTE)
+    stufen_max = (form.get("stufen") or {}).get("max", MAX_STUFEN)
+    kennzahlen_max = form.get("kennzahlen") or MAX_KENNZAHLEN
+    symbole_max = form.get("symbole") or MAX_SYMBOLE
     if not isinstance(roh, dict):
         return Body(kind="bullets", items=_items(roh))
     kind = str(roh.get("kind") or "bullets")
     if kind not in kinds:
-        # Cards or bars this slide may not carry keep their content as points.
-        eintraege = [e for e in (roh.get("cards") or roh.get("bars") or []) if isinstance(e, dict)]
-        ersatz = [_zeile(_text(e.get("title") or e.get("label")), _text(e.get("text"))) for e in eintraege]
-        return Body(kind="bullets", items=_items(roh.get("items")) or [z for z in ersatz if z][:MAX_TEXT_ITEMS])
+        # A drawing this slide may not carry keeps its content as points.
+        return Body(kind="bullets", items=_items(roh.get("items")) or _als_punkte(roh))
     b = Body(kind=kind, items=_items(roh.get("items")))
     if kind == "table":
         b.header = _items(roh.get("header"))
@@ -297,9 +339,36 @@ def _body(roh, kinds: list[str], karten_max: int = MAX_KARTEN, balken_max: int =
         b.bars = [Bar(label=_text(z.get("label"))[:MAX_HEADING_CHARS], value=_zahl(z.get("value")),
                       text=_text(z.get("text"))[:MAX_BAR_TEXT_CHARS])
                   for z in roh_balken if isinstance(z, dict) and _text(z.get("label"))][:balken_max]
-        if len(b.bars) < 2:
-            b.kind, b.items = "bullets", b.items or [_zeile(z.label, z.text) for z in b.bars]
+        # A bar chart compares amounts, with fewer than two different ones it only repeats a label.
+        if len(b.bars) < 2 or len({z.value for z in b.bars}) < 2:
+            texte = {z.text for z in b.bars}
+            b.kind, b.items = "bullets", b.items or [z.label if len(texte) == 1 else _zeile(z.label, z.text)
+                                                     for z in b.bars]
             b.bars = []
+        for z in b.bars:
+            z.text = _mit_zahl(z.text, z.value)[:MAX_BAR_TEXT_CHARS]
+    elif kind in ("steps", "levels"):
+        eintraege = [Entry(title=_text(e.get("title"))[:MAX_HEADING_CHARS], text=_text(e.get("text"))[:MAX_GIST_CHARS])
+                     for e in _liste(roh, kind) if _text(e.get("title"))]
+        grenze, mindest = (schritte_max, MIN_SCHRITTE) if kind == "steps" else (stufen_max, MIN_STUFEN)
+        eintraege = eintraege[:grenze]
+        if len(eintraege) < mindest:
+            b.kind, b.items = "bullets", b.items or [_zeile(e.title, e.text) for e in eintraege]
+        else:
+            setattr(b, kind, eintraege)
+    elif kind == "figures":
+        # A key figure is a number, a value without a digit was a word the model dressed up as one.
+        b.figures = [Figure(value=_text(z.get("value"))[:MAX_KEY_CHARS], label=_text(z.get("label"))[:MAX_HEADING_CHARS])
+                     for z in _liste(roh, kind) if re.search(r"\d", _text(z.get("value")))][:kennzahlen_max]
+        if len(b.figures) < MIN_KENNZAHLEN:
+            b.kind, b.items = "bullets", b.items or [_zeile(z.value, z.label) for z in b.figures]
+            b.figures = []
+    elif kind == "symbols":
+        b.symbols = [Symbol(icon=icons.gueltig(z.get("icon")), label=_text(z.get("label"))[:MAX_HEADING_CHARS])
+                     for z in _liste(roh, kind) if _text(z.get("label"))][:symbole_max]
+        if len(b.symbols) < MIN_SYMBOLE:
+            b.kind, b.items = "bullets", b.items or [z.label for z in b.symbols]
+            b.symbols = []
     elif kind == "highlight":
         b.key = _text(roh.get("key"))[:MAX_KEY_CHARS]
         b.text = _text(roh.get("text"))[:MAX_GIST_CHARS]
@@ -315,6 +384,30 @@ def _body(roh, kinds: list[str], karten_max: int = MAX_KARTEN, balken_max: int =
 
 def _zeile(kopf: str, text: str) -> str:
     return f"{kopf}: {text}" if text else kopf
+
+
+def _liste(roh: dict, name: str) -> list[dict]:
+    return [e for e in (roh.get(name) if isinstance(roh.get(name), list) else []) if isinstance(e, dict)]
+
+
+def _als_punkte(roh: dict) -> list[str]:
+    """The entries of the first drawing list the answer holds, each as one point."""
+    for name in _LISTEN:
+        eintraege = _liste(roh, name)
+        if eintraege:
+            punkte = [_zeile(_text(e.get("value")), _text(e.get("label"))) if name == "figures"
+                      else _zeile(_text(e.get("title") or e.get("label")), _text(e.get("text"))) for e in eintraege]
+            return [p for p in punkte if p][:MAX_TEXT_ITEMS]
+    return []
+
+
+def _mit_zahl(text: str, wert: float) -> str:
+    """A bar's text always shows its number, a text naming only the unit gets the number put in front."""
+    zahl = f"{wert:g}"
+    ziffern = re.sub(r"\D", "", zahl)
+    if not text or any(re.sub(r"\D", "", z) == ziffern for z in _ZAHL.findall(text)):
+        return text
+    return f"{zahl} {text}"
 
 
 def regen_messages(slide: Slide, row: OutlineRow, form: dict, params: PraesentationParams,
