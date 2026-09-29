@@ -1,7 +1,8 @@
-"""One door to every AI provider: each call takes a seat, and goes to the fallback when the first choice does not answer."""
+"""One door to every AI provider: each call takes a seat, a full or silent first choice hands over down the list."""
 
 from __future__ import annotations
 
+import asyncio
 import contextvars
 import email.utils
 import json
@@ -156,11 +157,42 @@ def fallback_target(feature: str, primary_id: int, primary_model: str = "") -> O
     return Target.of(provider, model)
 
 
-def _targets(binding) -> tuple[Target, Optional[Target], str]:
-    """First choice, the admin's fallback and the field the call counts against, for one binding."""
+def further_targets(feature: str, skip: set[int], primary_model: str = "") -> list[Target]:
+    """Every other provider the admin gave a model for this feature, in the order of the admin list."""
+    if feature in NO_FALLBACK_FEATURES:
+        return []
+    from src import database as db
+    from src.features.ai_providers.repository.feature_routes import FALLBACK_CAPABILITY
+
+    capability = FALLBACK_CAPABILITY.get(feature)
+    if not capability:
+        return []
+    try:
+        models = (db.get_route(feature) or {}).get("provider_models") or {}
+        providers = db.list_providers_with_capability(capability)
+    except Exception as e:  # noqa: BLE001 - without the database the call simply asks nobody further
+        logger.warning("Weitere Anbieter für {} nicht lesbar: {}", feature, e)
+        return []
+    targets = []
+    for provider in providers:
+        model = models.get(str(provider.get("id"))) or ""
+        if provider.get("id") in skip or not model or provider.get("protocol") != "openai_compat":
+            continue
+        if capability not in (provider.get("capabilities") or []) or not provider.get("enabled"):
+            continue
+        if feature == "embedding" and primary_model and model != primary_model:
+            continue
+        targets.append(Target.of(provider, model))
+    return targets
+
+
+def _targets(binding) -> tuple[Target, Optional[Target], str, list[Target]]:
+    """First choice, the admin's fallback, the field the call counts against and whoever else may step in."""
     primary = Target.of(binding.provider, binding.model)
     second = fallback_target(binding.feature, primary.provider_id, primary.model)
-    return primary, second, FEATURE_BUCKET.get(binding.feature, binding.feature)
+    # A route without a fallback wants no switching at all, so nobody further is asked either.
+    rest = further_targets(binding.feature, {primary.provider_id, second.provider_id}, primary.model) if second else []
+    return primary, second, FEATURE_BUCKET.get(binding.feature, binding.feature), rest
 
 
 def transport_for(binding) -> "ProviderTransport":
@@ -220,6 +252,16 @@ def _mark_down(target: Target, bucket: str, seconds: float, why: str) -> None:
         _redis().set(_DOWN_KEY.format(target.provider_id, bucket), why[:100], ex=max(1, int(seconds)))
     except Exception as e:  # noqa: BLE001 - then the next call just tries the first choice again
         logger.warning("Sperrvermerk nicht gespeichert: {}", e)
+
+
+def _answers(target: Target) -> bool:
+    """Whether the provider answers a small request right now, so a slow call is told apart from a dead provider."""
+    try:
+        response = httpx.get(f"{target.root}/v1/models", headers={"Authorization": f"Bearer {target.api_key}"},
+                             timeout=3.0)
+        return response.status_code < 500
+    except httpx.HTTPError:
+        return False
 
 
 def _down_seconds(response) -> float:
@@ -287,27 +329,29 @@ def _with_model(body: bytes, content_type: str, model: str) -> bytes:
 class _Door:
     """Everything both transports share: order, seats, rewriting and the memory of who failed."""
 
-    def __init__(self, primary: Target, fallback: Optional[Target], bucket: str):
+    def __init__(self, primary: Target, fallback: Optional[Target], bucket: str, extras=()):
         self.primary = primary
         self.fallback = fallback
         self.bucket = bucket
+        # The admin's fallback first, then the other providers from the admin list.
+        self.backups = ([fallback] if fallback is not None else []) + list(extras)
 
     def serves(self, request) -> bool:
         return bool(self.primary.root) and str(request.url).startswith(self.primary.root)
 
     def order(self) -> list[Target]:
-        """The first choice first, one that failed a moment ago behind the fallback."""
-        if self.fallback is None:
+        """The first choice first, one that failed a moment ago behind the others."""
+        if not self.backups:
             return [self.primary]
-        both = [self.primary, self.fallback]
-        there = [t for t in both if not _is_down(t, self.bucket)]
-        # A provider with a note stays as the last try, a slow answer must not leave only a dead one.
-        return there + [t for t in both if t not in there]
+        everyone = [self.primary, *self.backups]
+        there = [t for t in everyone if not _is_down(t, self.bucket)]
+        # A provider with a note stays as a last try, a slow answer must not leave only dead ones.
+        return there + [t for t in everyone if t not in there]
 
     def prepare(self, request, body: bytes, target: Target):
         """The request for this provider, with a short connect wait when a fallback stands by."""
         extensions = dict(request.extensions)
-        if self.fallback is not None:
+        if self.backups:
             timeout = dict(extensions.get("timeout") or {})
             timeout["connect"] = min(timeout.get("connect") or _CONNECT_TIMEOUT, _CONNECT_TIMEOUT)
             extensions["timeout"] = timeout
@@ -337,12 +381,26 @@ class _Door:
         if target is not self.primary:
             logger.info("{} hat für {} geantwortet ({})", target.name, self.primary.name, self.bucket)
 
-    def switch(self, target: Target, seconds: float, why: str, last: bool) -> bool:
+    def switch(self, target: Target, seconds: float, why: str, last: bool, alive: bool = False) -> bool:
         """Notes the failure when a fallback stands by, and tells whether another provider is left to ask."""
         # Voices never switch inside a job, the note only lets the next job start with the fallback.
-        if self.fallback is not None or self.bucket == "tts":
+        if (self.backups or self.bucket == "tts") and not alive:
             _mark_down(target, self.bucket, seconds, why)
+        elif alive:
+            logger.info("Anbieter {} ({}) war für einen Aufruf zu langsam, antwortet aber, kein Sperrvermerk",
+                        target.name, self.bucket)
         return not last
+
+    def spill_targets(self, order: list[Target]) -> list[Target]:
+        """Where an LLM call may go instead of waiting when its first choice is full, in the order of the admin list."""
+        if self.bucket != "llm" or _exempt.get() or len(order) < 2:
+            return []
+        return [t for t in order[1:] if not _is_down(t, self.bucket)]
+
+    def slow_but_alive(self, target: Target, error: Exception, lib) -> bool:
+        """A call that reached the provider and then broke spares a provider that still answers."""
+        reached = not isinstance(error, (lib.ConnectError, lib.ConnectTimeout))
+        return reached and bool(self.backups or self.bucket == "tts") and _answers(target)
 
 
 def _releaser(held: list[tuple[str, str]]):
@@ -405,16 +463,16 @@ def _build(lib, full=provider_slots.ProviderFull):
     class ProviderTransport(lib.BaseTransport):
         """The synchronous door, installed in every client that talks to a provider."""
 
-        def __init__(self, primary: Target, fallback: Optional[Target], bucket: str, inner=None):
-            self._door = _Door(primary, fallback, bucket)
+        def __init__(self, primary: Target, fallback: Optional[Target], bucket: str, extras=(), inner=None):
+            self._door = _Door(primary, fallback, bucket, extras)
             self._inner = inner or lib.HTTPTransport()
 
-        def _take(self, wanted: list[tuple[str, int]]) -> list[tuple[str, str]]:
+        def _take(self, wanted: list[tuple[str, int]], wait: Optional[float] = None) -> list[tuple[str, str]]:
             held: list[tuple[str, str]] = []
             try:
                 for key, limit in wanted:
                     held.append((key, provider_slots.claim_ranked(
-                        key, limit=limit, wait_seconds=PROVIDER_SEAT_WAIT_SECONDS, rank=_rank,
+                        key, limit=limit, wait_seconds=PROVIDER_SEAT_WAIT_SECONDS if wait is None else wait, rank=_rank,
                         stale_seconds=_SEAT_STALE_SECONDS)))
             except provider_slots.ProviderFull as e:
                 _releaser(held)()
@@ -425,22 +483,38 @@ def _build(lib, full=provider_slots.ProviderFull):
                 raise
             return held
 
+        def _first_seat(self, order: list[Target], body: bytes):
+            """An LLM call finding its first choice full takes the next free seat down the list instead of waiting."""
+            door = self._door
+            spill = door.spill_targets(order)
+            for target in ([order[0], *spill] if spill else []):
+                try:
+                    held = self._take(door.seats(target, body), wait=0)
+                except provider_slots.ProviderFull:
+                    continue
+                if target is not order[0]:
+                    logger.info("{} ist voll, {} übernimmt ({})", order[0].name, target.name, door.bucket)
+                return [target, *[t for t in order if t is not target]], held
+            return order, None
+
         def handle_request(self, request):
             door = self._door
             if not door.serves(request):
                 return self._inner.handle_request(request)
             body = request.read()
-            order = door.order()
+            order, held = self._first_seat(door.order(), body)
             for i, target in enumerate(order):
                 last = i == len(order) - 1
                 outgoing = door.prepare(request, body, target)
                 outgoing.stream = _Pieces(outgoing.content)
-                release = _releaser(self._take(door.seats(target, body)))
+                seats = held if i == 0 and held is not None else self._take(door.seats(target, body))
+                release = _releaser(seats)
                 try:
                     response = self._inner.handle_request(outgoing)
                 except lib.TransportError as e:
                     release()
-                    if door.switch(target, PROVIDER_DOWN_SECONDS, type(e).__name__, last):
+                    alive = door.slow_but_alive(target, e, lib)
+                    if door.switch(target, PROVIDER_DOWN_SECONDS, type(e).__name__, last, alive):
                         continue
                     raise
                 if response.status_code in _RETRY_STATUS:
@@ -464,16 +538,16 @@ def _build(lib, full=provider_slots.ProviderFull):
     class AsyncProviderTransport(lib.AsyncBaseTransport):
         """The asynchronous door, for the streaming chat and the summary."""
 
-        def __init__(self, primary: Target, fallback: Optional[Target], bucket: str, inner=None):
-            self._door = _Door(primary, fallback, bucket)
+        def __init__(self, primary: Target, fallback: Optional[Target], bucket: str, extras=(), inner=None):
+            self._door = _Door(primary, fallback, bucket, extras)
             self._inner = inner or lib.AsyncHTTPTransport()
 
-        async def _take(self, wanted: list[tuple[str, int]]) -> list[tuple[str, str]]:
+        async def _take(self, wanted: list[tuple[str, int]], wait: Optional[float] = None) -> list[tuple[str, str]]:
             held: list[tuple[str, str]] = []
             try:
                 for key, limit in wanted:
                     held.append((key, await provider_slots.claim_ranked_async(
-                        key, limit=limit, wait_seconds=PROVIDER_SEAT_WAIT_SECONDS, rank=_rank,
+                        key, limit=limit, wait_seconds=PROVIDER_SEAT_WAIT_SECONDS if wait is None else wait, rank=_rank,
                         stale_seconds=_SEAT_STALE_SECONDS)))
             except provider_slots.ProviderFull as e:
                 _releaser(held)()
@@ -484,22 +558,38 @@ def _build(lib, full=provider_slots.ProviderFull):
                 raise
             return held
 
+        async def _first_seat(self, order: list[Target], body: bytes):
+            """An LLM call finding its first choice full takes the next free seat down the list instead of waiting."""
+            door = self._door
+            spill = door.spill_targets(order)
+            for target in ([order[0], *spill] if spill else []):
+                try:
+                    held = await self._take(door.seats(target, body), wait=0)
+                except provider_slots.ProviderFull:
+                    continue
+                if target is not order[0]:
+                    logger.info("{} ist voll, {} übernimmt ({})", order[0].name, target.name, door.bucket)
+                return [target, *[t for t in order if t is not target]], held
+            return order, None
+
         async def handle_async_request(self, request):
             door = self._door
             if not door.serves(request):
                 return await self._inner.handle_async_request(request)
             body = await request.aread()
-            order = door.order()
+            order, held = await self._first_seat(door.order(), body)
             for i, target in enumerate(order):
                 last = i == len(order) - 1
                 outgoing = door.prepare(request, body, target)
                 outgoing.stream = _Pieces(outgoing.content)
-                release = _releaser(await self._take(door.seats(target, body)))
+                seats = held if i == 0 and held is not None else await self._take(door.seats(target, body))
+                release = _releaser(seats)
                 try:
                     response = await self._inner.handle_async_request(outgoing)
                 except lib.TransportError as e:
                     release()
-                    if door.switch(target, PROVIDER_DOWN_SECONDS, type(e).__name__, last):
+                    alive = await asyncio.to_thread(door.slow_but_alive, target, e, lib)
+                    if door.switch(target, PROVIDER_DOWN_SECONDS, type(e).__name__, last, alive):
                         continue
                     raise
                 if response.status_code in _RETRY_STATUS:

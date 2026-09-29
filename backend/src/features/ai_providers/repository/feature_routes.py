@@ -35,6 +35,20 @@ USER_CHOICE_FEATURES: frozenset[str] = frozenset({
 # Features that may name a second provider for when the first one fails, tts switches per job only.
 FALLBACK_FEATURES: tuple[str, ...] = FEATURES
 
+# The capability a provider needs to stand in for a feature, translating goes through chat.
+FALLBACK_CAPABILITY: dict[str, str] = {
+    "chat": "chat",
+    "doc_translate": "chat",
+    "transcript_translate": "chat",
+    "embedding": "embedding",
+    "vision": "vision",
+    "ocr": "ocr",
+    "stt": "stt",
+    "image_gen": "image_gen",
+    "image_edit": "image_edit",
+    "tts": "tts",
+}
+
 
 def _row_to_dict(row) -> dict:
     d = dict(row)

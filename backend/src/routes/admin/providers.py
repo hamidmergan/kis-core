@@ -10,6 +10,7 @@ from loguru import logger
 
 from src import database as db
 from src.features.ai_providers.repository.feature_routes import (
+    FALLBACK_CAPABILITY,
     FALLBACK_FEATURES,
     FEATURES,
     USER_CHOICE_FEATURES,
@@ -430,21 +431,6 @@ def _pruefe_sampling(feature: str, roh: dict | None, locale: str) -> dict | None
     return sauber
 
 
-# The capability a fallback provider needs per feature, translating goes through chat.
-_FALLBACK_CAPABILITY = {
-    "chat": "chat",
-    "doc_translate": "chat",
-    "transcript_translate": "chat",
-    "embedding": "embedding",
-    "vision": "vision",
-    "ocr": "ocr",
-    "stt": "stt",
-    "image_gen": "image_gen",
-    "image_edit": "image_edit",
-    "tts": "tts",
-}
-
-
 def _check_fallback(feature: str, body: SetFeatureRouteRequest, locale: str) -> int | None:
     """Validates the fallback provider of a route, a route without a first choice has none."""
     fallback_id = body.fallback_provider_id
@@ -465,7 +451,7 @@ def _check_fallback(feature: str, body: SetFeatureRouteRequest, locale: str) -> 
         raise HTTPException(422, t("admin.providers.fallbackDisabled", locale))
     if provider.get("protocol") != "openai_compat":
         raise HTTPException(422, t("admin.providers.fallbackProtocol", locale))
-    capability = _FALLBACK_CAPABILITY[feature]
+    capability = FALLBACK_CAPABILITY[feature]
     if capability not in (provider.get("capabilities") or []):
         raise HTTPException(422, t("admin.providers.fallbackCapability", locale,
                                    capability=capability))

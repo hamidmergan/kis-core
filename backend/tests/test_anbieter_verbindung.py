@@ -78,9 +78,12 @@ ERSTE = _ziel(1, "https://hpc.example", "gemma-hpc")
 RUECK = _ziel(2, "https://mylab.example", "chat-fast")
 
 
-def _client(handler, primary=ERSTE, fallback=RUECK, bucket="llm"):
+DRITTE = _ziel(3, "https://gwdg.example", "gemma-gwdg")
+
+
+def _client(handler, primary=ERSTE, fallback=RUECK, bucket="llm", extras=()):
     inner = httpx.MockTransport(handler)
-    return httpx.Client(transport=pt.ProviderTransport(primary, fallback, bucket, inner=inner))
+    return httpx.Client(transport=pt.ProviderTransport(primary, fallback, bucket, extras=extras, inner=inner))
 
 
 def _chat(client, text="Hallo"):
@@ -211,6 +214,116 @@ def test_ein_gesperrter_rueckfall_bleibt_als_letzter_versuch_stehen(redis):
     assert gesehen == ["hpc.example", "mylab.example"]
 
 
+def test_ist_auch_der_rueckfall_tot_fragt_die_tuer_den_naechsten_aus_der_liste(redis):
+    """Nutzerentscheid 29.09.2026: danach kommt jeder weitere Anbieter, dem der Admin ein Modell gegeben hat."""
+    gesehen = []
+
+    def handler(req):
+        gesehen.append(req)
+        if req.url.host != "gwdg.example":
+            raise httpx.ConnectError("Connection refused", request=req)
+        return httpx.Response(200, json={"ok": 1})
+
+    assert _chat(_client(handler, extras=[DRITTE])).json() == {"ok": 1}
+    assert [r.url.host for r in gesehen] == ["hpc.example", "mylab.example", "gwdg.example"]
+    assert gesehen[-1].headers["authorization"] == "Bearer k3"
+    assert json.loads(gesehen[-1].content)["model"] == "gemma-gwdg"
+    assert redis.exists("kis:provider-down:1:llm") and redis.exists("kis:provider-down:2:llm")
+
+
+def test_sind_erste_wahl_und_rueckfall_gesperrt_kommt_der_naechste_zuerst_dran(redis):
+    redis.set("kis:provider-down:1:llm", "x", ex=60)
+    redis.set("kis:provider-down:2:llm", "x", ex=60)
+    gesehen = []
+
+    def handler(req):
+        gesehen.append(req.url.host)
+        return httpx.Response(200, json={"ok": 1})
+
+    _chat(_client(handler, extras=[DRITTE]))
+    assert gesehen == ["gwdg.example"]
+
+
+def test_eine_zu_langsame_antwort_sperrt_einen_anbieter_der_noch_antwortet_nicht(redis, monkeypatch):
+    """Lauf 18: zwei langsame Antworten von gemma schickten je 60 s lang alle Aufrufe zu myLab, das dann überlief."""
+    monkeypatch.setattr(pt, "_answers", lambda target: True)
+    gesehen = []
+
+    def handler(req):
+        gesehen.append(req.url.host)
+        if req.url.host == "hpc.example":
+            raise httpx.ReadTimeout("zu langsam", request=req)
+        return httpx.Response(200, json={"ok": 1})
+
+    assert _chat(_client(handler)).json() == {"ok": 1}
+    assert gesehen == ["hpc.example", "mylab.example"]
+    assert not redis.exists("kis:provider-down:1:llm")
+
+
+def test_eine_abgerissene_verbindung_sperrt_einen_anbieter_der_noch_antwortet_nicht(redis, monkeypatch):
+    """Tag-Simulation 29.09.: eine alte Verbindung zu gemma riss ab, KIS schickte 60 s lang alles zu myLab."""
+    monkeypatch.setattr(pt, "_answers", lambda target: True)
+
+    def handler(req):
+        if req.url.host == "hpc.example":
+            raise httpx.RemoteProtocolError("Server disconnected without sending a response.", request=req)
+        return httpx.Response(200, json={"ok": 1})
+
+    assert _chat(_client(handler)).json() == {"ok": 1}
+    assert not redis.exists("kis:provider-down:1:llm")
+
+
+def test_eine_abgelehnte_verbindung_sperrt_ohne_probe(redis, monkeypatch):
+    gefragt = []
+    monkeypatch.setattr(pt, "_answers", lambda target: gefragt.append(target) or True)
+
+    def handler(req):
+        if req.url.host == "hpc.example":
+            raise httpx.ConnectError("Connection refused", request=req)
+        return httpx.Response(200, json={"ok": 1})
+
+    assert _chat(_client(handler)).json() == {"ok": 1}
+    assert redis.exists("kis:provider-down:1:llm") and gefragt == []
+
+
+def test_eine_zu_langsame_antwort_sperrt_einen_stummen_anbieter(redis, monkeypatch):
+    monkeypatch.setattr(pt, "_answers", lambda target: False)
+
+    def handler(req):
+        if req.url.host == "hpc.example":
+            raise httpx.ReadTimeout("zu langsam", request=req)
+        return httpx.Response(200, json={"ok": 1})
+
+    assert _chat(_client(handler)).json() == {"ok": 1}
+    assert redis.exists("kis:provider-down:1:llm")
+
+
+def test_auch_asynchron_sperrt_eine_langsame_antwort_nur_einen_stummen_anbieter(redis, monkeypatch):
+    monkeypatch.setattr(pt, "_answers", lambda target: True)
+
+    def handler(req):
+        if req.url.host == "hpc.example":
+            raise httpx.ReadTimeout("zu langsam", request=req)
+        return httpx.Response(200, json={"ok": 1})
+
+    async def los():
+        tuer = pt.AsyncProviderTransport(ERSTE, RUECK, "llm", inner=httpx.MockTransport(handler))
+        async with httpx.AsyncClient(transport=tuer) as client:
+            return await client.post(f"{ERSTE.root}/v1/chat/completions",
+                                     json={"model": ERSTE.model, "messages": [{"role": "user", "content": "x"}]})
+
+    assert asyncio.run(los()).json() == {"ok": 1}
+    assert not redis.exists("kis:provider-down:1:llm")
+
+
+def test_antworten_alle_nicht_kommt_der_fehler_des_letzten(redis):
+    def handler(req):
+        raise httpx.ConnectError(f"refused {req.url.host}", request=req)
+
+    with pytest.raises(httpx.ConnectError, match="gwdg.example"):
+        _chat(_client(handler, extras=[DRITTE]))
+
+
 def test_spracherkennung_bekommt_beim_rueckfall_das_modell_des_rueckfalls(redis):
     gesehen = []
 
@@ -262,8 +375,93 @@ def test_die_obergrenze_haelt_und_gibt_den_platz_nach_dem_lesen_zurueck(redis, m
     assert _chat(client).status_code == 200
 
 
-def test_volle_plaetze_gehen_nicht_an_den_rueckfall(redis, monkeypatch):
-    """Der Rückfall ist kein Überlauf, sonst wäre der Monatsvorrat bei GWDG schnell weg."""
+def test_volle_bildplaetze_gehen_nicht_an_den_rueckfall(redis, monkeypatch):
+    """Bilder laufen nie über: klein ist nach Sekunden frei, der Rückfall braucht eine halbe Minute."""
+    monkeypatch.setattr(pt, "PROVIDER_SEAT_WAIT_SECONDS", 0)
+    redis.zadd("kis:provider-slots:1:image", {"besetzt": 1000.0})
+    gesehen = []
+
+    def handler(req):
+        gesehen.append(req.url.host)
+        return httpx.Response(200, json={"ok": 1})
+
+    eng = _ziel(1, "https://hpc.example", "flux", caps={"image": 1})
+    with pytest.raises(provider_slots.ProviderFull):
+        _client(handler, primary=eng, fallback=_ziel(2, "https://mylab.example", "flux"), bucket="image").post(
+            "https://hpc.example/v1/images/generations", json={"model": "flux", "prompt": "x"})
+    assert gesehen == []
+
+
+def _eng(pid=1):
+    return _ziel(pid, "https://hpc.example", "gemma-hpc", caps={"llm": 1})
+
+
+def test_ist_die_erste_wahl_voll_geht_ein_llm_aufruf_sofort_an_den_rueckfall(redis, monkeypatch):
+    """Nutzerentscheid 29.09.2026: beim LLM teilen sich erste Wahl und Rückfall die Last, statt zu warten."""
+    monkeypatch.setattr(pt, "PROVIDER_SEAT_WAIT_SECONDS", 60)
+    redis.zadd("kis:provider-slots:1:llm", {"besetzt": 1000.0})
+    gesehen = []
+
+    def handler(req):
+        gesehen.append(req.url.host)
+        return httpx.Response(200, json={"ok": 1})
+
+    rueck = _ziel(2, "https://mylab.example", "chat-fast", caps={"llm": 10})
+    antwort = _chat(_client(handler, primary=_eng(), fallback=rueck))
+    antwort.read()
+    assert antwort.json() == {"ok": 1}
+    assert gesehen == ["mylab.example"]
+    assert redis.zcard("kis:provider-slots:2:llm") == 0, "der Platz beim Rückfall geht nach dem Lesen zurück"
+
+
+def test_sind_beide_voll_wartet_der_aufruf_bei_der_ersten_wahl(redis, monkeypatch):
+    monkeypatch.setattr(pt, "PROVIDER_SEAT_WAIT_SECONDS", 0)
+    redis.zadd("kis:provider-slots:1:llm", {"besetzt": 1000.0})
+    redis.zadd("kis:provider-slots:2:llm", {"besetzt": 1000.0})
+    gesehen = []
+
+    def handler(req):
+        gesehen.append(req.url.host)
+        return httpx.Response(200, json={"ok": 1})
+
+    rueck = _ziel(2, "https://mylab.example", "chat-fast", caps={"llm": 1})
+    with pytest.raises(provider_slots.ProviderFull) as fehler:
+        _chat(_client(handler, primary=_eng(), fallback=rueck))
+    assert fehler.value.provider == "1:llm"
+    assert gesehen == []
+
+
+def test_der_ueberlauf_reicht_bis_zu_weiteren_anbietern_aus_der_liste_durch(redis, monkeypatch):
+    """Nutzerentscheid 29.09.2026: sind erste Wahl und Rückfall voll, übernimmt der nächste freie aus der Liste."""
+    monkeypatch.setattr(pt, "PROVIDER_SEAT_WAIT_SECONDS", 60)
+    redis.zadd("kis:provider-slots:1:llm", {"besetzt": 1000.0})
+    redis.zadd("kis:provider-slots:2:llm", {"besetzt": 1000.0})
+    gesehen = []
+
+    def handler(req):
+        gesehen.append(req.url.host)
+        return httpx.Response(200, json={"ok": 1})
+
+    rueck = _ziel(2, "https://mylab.example", "chat-fast", caps={"llm": 1})
+    dritte = _ziel(3, "https://gwdg.example", "gemma-gwdg", caps={"llm": 4})
+    assert _chat(_client(handler, primary=_eng(), fallback=rueck, extras=[dritte])).json() == {"ok": 1}
+    assert gesehen == ["gwdg.example"]
+
+
+def test_ein_gesperrter_rueckfall_nimmt_keinen_ueberlauf(redis, monkeypatch):
+    monkeypatch.setattr(pt, "PROVIDER_SEAT_WAIT_SECONDS", 0)
+    redis.zadd("kis:provider-slots:1:llm", {"besetzt": 1000.0})
+    redis.set("kis:provider-down:2:llm", "x", ex=60)
+
+    def handler(req):
+        return httpx.Response(200, json={"ok": 1})
+
+    with pytest.raises(provider_slots.ProviderFull):
+        _chat(_client(handler, primary=_eng(), fallback=_ziel(2, "https://mylab.example", "chat-fast")))
+
+
+def test_auch_asynchron_geht_ein_voller_llm_aufruf_an_den_rueckfall(redis, monkeypatch):
+    # The test clock stands still while the loop sleeps, so no wait at all: only the overflow gets it through.
     monkeypatch.setattr(pt, "PROVIDER_SEAT_WAIT_SECONDS", 0)
     redis.zadd("kis:provider-slots:1:llm", {"besetzt": 1000.0})
     gesehen = []
@@ -272,10 +470,15 @@ def test_volle_plaetze_gehen_nicht_an_den_rueckfall(redis, monkeypatch):
         gesehen.append(req.url.host)
         return httpx.Response(200, json={"ok": 1})
 
-    eng = _ziel(1, "https://hpc.example", "gemma-hpc", caps={"llm": 1})
-    with pytest.raises(provider_slots.ProviderFull):
-        _chat(_client(handler, primary=eng))
-    assert gesehen == []
+    async def los():
+        tuer = pt.AsyncProviderTransport(_eng(), _ziel(2, "https://mylab.example", "chat-fast", caps={"llm": 10}),
+                                         "llm", inner=httpx.MockTransport(handler))
+        async with httpx.AsyncClient(transport=tuer) as client:
+            return await client.post("https://hpc.example/v1/chat/completions",
+                                     json={"model": "gemma-hpc", "messages": [{"role": "user", "content": "x"}]})
+
+    assert asyncio.run(los()).json() == {"ok": 1}
+    assert gesehen == ["mylab.example"]
 
 
 def test_der_chat_von_francis_nimmt_keinen_platz(redis, monkeypatch):
@@ -352,7 +555,76 @@ def anbieter(monkeypatch):
     from src import database as db
     monkeypatch.setattr(db, "get_route", lambda feature: stand["route"])
     monkeypatch.setattr(db, "get_provider", lambda pid: stand["providers"].get(pid))
+    monkeypatch.setattr(db, "list_providers_with_capability", lambda cap: [
+        p for p in stand["providers"].values() if p.get("enabled") and cap in p.get("capabilities", ["chat"])])
     return stand
+
+
+GWDG = {"id": 3, "name": "GWDG", "base_url": "https://gwdg.example/v1", "enabled": True,
+        "protocol": "openai_compat", "api_key": "g", "capabilities": ["chat"]}
+
+
+def test_weitere_anbieter_kommen_aus_der_liste_im_adminbereich(anbieter):
+    anbieter["providers"][3] = dict(GWDG)
+    anbieter["route"]["provider_models"]["3"] = "gemma-gwdg"
+    ziele = pt.further_targets("chat", skip={1, 2})
+    assert [(z.provider_id, z.root, z.model, z.api_key) for z in ziele] == [
+        (3, "https://gwdg.example", "gemma-gwdg", "g")]
+
+
+@pytest.mark.parametrize("aenderung", [
+    lambda s: s["route"]["provider_models"].pop("3"),
+    lambda s: s["providers"][3].update(enabled=False),
+    lambda s: s["providers"][3].update(protocol="deepl"),
+    lambda s: s["providers"][3].update(capabilities=["tts"]),
+])
+def test_ein_unbrauchbarer_weiterer_anbieter_zaehlt_nicht(anbieter, aenderung):
+    anbieter["providers"][3] = dict(GWDG)
+    anbieter["route"]["provider_models"]["3"] = "gemma-gwdg"
+    aenderung(anbieter)
+    assert pt.further_targets("chat", skip={1, 2}) == []
+
+
+def test_uebersetzen_nimmt_weitere_anbieter_mit_llm(anbieter):
+    anbieter["providers"][3] = dict(GWDG)
+    anbieter["route"]["provider_models"]["3"] = "gemma-gwdg"
+    assert [z.provider_id for z in pt.further_targets("doc_translate", skip={1, 2})] == [3]
+
+
+def test_weitere_einbettungen_nur_mit_demselben_modell(anbieter):
+    for p in anbieter["providers"].values():
+        p["capabilities"] = ["embedding"]
+    anbieter["providers"][3] = {**GWDG, "capabilities": ["embedding"]}
+    anbieter["providers"][4] = {**GWDG, "id": 4, "capabilities": ["embedding"]}
+    anbieter["route"]["provider_models"].update({"3": "e5-large", "4": "bge-m3"})
+    ziele = pt.further_targets("embedding", skip={1, 2}, primary_model="e5-large")
+    assert [z.provider_id for z in ziele] == [3]
+
+
+def test_stimmen_fragen_nie_weitere_anbieter(anbieter):
+    anbieter["providers"][3] = {**GWDG, "capabilities": ["tts"]}
+    anbieter["route"]["provider_models"]["3"] = "kokoro"
+    assert pt.further_targets("tts", skip={1}) == []
+
+
+def test_mit_rueckfall_stehen_die_weiteren_anbieter_hinter_ihm(anbieter):
+    from src.services.feature_router import FeatureBinding
+
+    anbieter["providers"][3] = dict(GWDG)
+    anbieter["route"]["provider_models"]["3"] = "gemma-gwdg"
+    tuer = pt.transport_for(FeatureBinding(feature="chat", provider=anbieter["providers"][1], model="gemma-hpc"))._door
+    assert [t.provider_id for t in tuer.backups] == [2, 3]
+
+
+def test_ohne_rueckfall_fragt_die_tuer_niemanden_sonst(anbieter):
+    """Wer im Admin keinen Rückfall einträgt, will kein Umschalten, auch nicht zu weiteren Anbietern."""
+    from src.services.feature_router import FeatureBinding
+
+    anbieter["providers"][3] = dict(GWDG)
+    anbieter["route"]["provider_models"]["3"] = "gemma-gwdg"
+    anbieter["route"]["fallback_provider_id"] = None
+    tuer = pt.transport_for(FeatureBinding(feature="chat", provider=anbieter["providers"][1], model="gemma-hpc"))._door
+    assert tuer.backups == []
 
 
 def test_der_rueckfall_kommt_aus_dem_adminbereich(anbieter):
