@@ -20,9 +20,30 @@ def test_get_translation_providers_merges_translation_and_chat(monkeypatch):
         return []
 
     monkeypatch.setattr("src.dependencies.db.list_providers_with_capability", fake_list)
+    monkeypatch.setattr("src.dependencies.db.get_route", lambda f: None)
     result = get_translation_providers()
     ids = [p["id"] for p in result]
     assert ids == [1, 2], "should deduplicate and preserve order"
+
+
+def test_die_erste_wahl_aus_dem_admin_steht_vorn(monkeypatch):
+    """Lauf 18: Übersetzer und Screencast nahmen den ältesten Anbieter statt der ersten Wahl aus dem Admin."""
+    from src.dependencies import get_translation_providers
+    gwdg, mylab, hpc = _make_provider(20, "GWDG"), _make_provider(21, "myLab"), _make_provider(92, "HPC")
+    monkeypatch.setattr("src.dependencies.db.list_providers_with_capability",
+                        lambda cap: [gwdg, mylab, hpc] if cap == "chat" else [])
+    monkeypatch.setattr("src.dependencies.db.get_route",
+                        lambda f: {"provider_id": 92} if f == "doc_translate" else None)
+    assert [p["id"] for p in get_translation_providers()] == [92, 20, 21]
+
+
+def test_eine_erste_wahl_ohne_uebersetzung_aendert_die_reihenfolge_nicht(monkeypatch):
+    from src.dependencies import get_translation_providers
+    gwdg, mylab = _make_provider(20, "GWDG"), _make_provider(21, "myLab")
+    monkeypatch.setattr("src.dependencies.db.list_providers_with_capability",
+                        lambda cap: [gwdg, mylab] if cap == "chat" else [])
+    monkeypatch.setattr("src.dependencies.db.get_route", lambda f: {"provider_id": 99})
+    assert [p["id"] for p in get_translation_providers()] == [20, 21]
 
 
 def test_get_translate_client_for_provider_deepl(monkeypatch):

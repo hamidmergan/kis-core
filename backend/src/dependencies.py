@@ -209,7 +209,7 @@ def _voice_language_for(provider_id: int, voice_id: str) -> str:
 # ─── Translation resolvers ──────────────────────────────────────────────────
 
 def get_translation_providers() -> list[dict]:
-    """All enabled providers that can translate."""
+    """All enabled providers that can translate, the admin's first choice in front because callers take the first."""
     seen_ids: set[int] = set()
     result: list[dict] = []
     for cap in ("translation", "chat"):
@@ -217,7 +217,8 @@ def get_translation_providers() -> list[dict]:
             if p["id"] not in seen_ids:
                 seen_ids.add(p["id"])
                 result.append(p)
-    return result
+    first_id = (db.get_route("doc_translate") or {}).get("provider_id")
+    return sorted(result, key=lambda p: p["id"] != first_id)
 
 
 def get_translate_client_for_provider(
