@@ -192,9 +192,10 @@ services:
     # run in celery-worker-long. Mostly waiting on other servers, except the ffmpeg
     # prelude of a transcription. One process per core, 4 on 4 cores: with 200-page
     # documents a process holds up to 290 MB plus ffmpeg. More work waits in the queue.
+    # CELERY_GENERAL_PROCESSES in .env overrides the count, for a language model that answers many calls at once.
     command: >
       sh -c 'K=$$(nproc 2>/dev/null || echo 4);
-      M=$$K; [ "$$M" -lt 2 ] && M=2; [ "$$M" -gt 8 ] && M=8;
+      M=$$K; [ "$$M" -lt 2 ] && M=2; [ "$$M" -gt 8 ] && M=8; M=$${CELERY_GENERAL_PROCESSES:-$$M};
       echo "kis-celery-general: $${K} Kern(e), autoscale=$${M},1";
       exec celery -A src.celery_app worker --queues=general --autoscale=$$M,1 --loglevel=info'
     mem_limit: ${CELERY_GENERAL_MEM_LIMIT:-1.5g}
@@ -227,14 +228,16 @@ services:
     container_name: kis-celery-long
     # Long services: summary, presentation outline and build, podcast script, the nightly backup.
     # One of them holds a process for minutes, mostly waiting on the language and image
-    # models, so they get their own worker and short services pass by. One process less
-    # than cores, 3 on 4 cores, an outline of 200 pages holds up to 290 MB.
+    # models, so they get their own worker and short services pass by. Two processes per core
+    # less two, 6 on 4 cores: they wait almost all the time (load test 19 on 29.09.2026, median 0.2 %
+    # of a core), but each holds up to 340 MB, 10 processes ran out of 2.5 GB in load test 20.
+    # CELERY_LONG_PROCESSES in .env overrides the count.
     command: >
       sh -c 'K=$$(nproc 2>/dev/null || echo 4);
-      M=$$(( K - 1 )); [ "$$M" -lt 2 ] && M=2; [ "$$M" -gt 6 ] && M=6;
+      M=$$(( K * 2 - 2 )); [ "$$M" -lt 2 ] && M=2; [ "$$M" -gt 6 ] && M=6; M=$${CELERY_LONG_PROCESSES:-$$M};
       echo "kis-celery-long: $${K} Kern(e), autoscale=$${M},1";
       exec celery -A src.celery_app worker --queues=long --autoscale=$$M,1 --loglevel=info'
-    mem_limit: ${CELERY_LONG_MEM_LIMIT:-1.5g}
+    mem_limit: ${CELERY_LONG_MEM_LIMIT:-2g}
     environment:
       REMAP_SIGTERM: SIGQUIT
     stop_grace_period: 60s
