@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import Checkbox from "@/components/ui/Checkbox";
 
 // The points of the notice, in the order they are read.
-const POINTS = ["offer", "dataLeaves", "notGdpr", "ownAccount", "noLiability", "clones", "keyStorage"] as const;
+const POINTS = ["offer", "dataLeaves", "ownAccount", "noLiability", "clones", "keyStorage"] as const;
 
 /** The notice every person accepts once, before anything on the page can be used. */
 export function ConsentNotice({ onAccept }: { onAccept?: () => Promise<void> }) {

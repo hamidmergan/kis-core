@@ -4451,9 +4451,8 @@
       "title": "Before you start",
       "points": {
         "offer": "Own interfaces are an offer for you personally. TH Lübeck does not provide the connected services, does not review them and does not vouch for them.",
-        "dataLeaves": "Everything you voice with these voices goes to the provider where you have your account. Your texts thereby leave the systems of TH Lübeck. Some providers are located outside the EU.",
-        "notGdpr": "This processing is not GDPR compliant. Therefore do not enter any personal data, neither your own nor that of students or other people, and no confidential content such as exam questions.",
-        "ownAccount": "You use your own account under the provider's terms. Contracts, costs and the rights to voices and results rest with you alone.",
+        "dataLeaves": "Everything you use through an own interface goes to the provider where you have your account. Your content thereby leaves the systems of TH Lübeck.",
+        "ownAccount": "You use your own account under the provider's terms. Contracts, costs and the rights to the results rest with you alone.",
         "noLiability": "TH Lübeck accepts no liability for the connected services, their availability, their results, any costs incurred or damage arising from their use.",
         "clones": "Only use cloned voices if the voice is your own or the person has agreed.",
         "keyStorage": "Your key is stored encrypted and used only for your own jobs. You can remove it at any time."

@@ -4451,9 +4451,8 @@
       "title": "Bevor du loslegst",
       "points": {
         "offer": "Eigene Schnittstellen sind ein Angebot für dich persönlich. Die TH Lübeck stellt die angebundenen Dienste nicht bereit, prüft sie nicht und steht nicht für sie ein.",
-        "dataLeaves": "Alles, was du mit diesen Stimmen vertonst, geht an den Anbieter, bei dem du dein Konto hast. Deine Texte verlassen damit die Systeme der TH Lübeck. Die Anbieter sitzen zum Teil außerhalb der EU.",
-        "notGdpr": "Diese Verarbeitung ist nicht DSGVO-konform. Gib deshalb keine personenbezogenen Daten ein, weder deine eigenen noch die von Studierenden oder anderen Personen, und keine vertraulichen Inhalte wie Prüfungsaufgaben.",
-        "ownAccount": "Du nutzt dein eigenes Konto zu den Bedingungen des Anbieters. Verträge, Kosten und die Rechte an Stimmen und Ergebnissen liegen allein bei dir.",
+        "dataLeaves": "Alles, was du über eine eigene Schnittstelle nutzt, geht an den Anbieter, bei dem du dein Konto hast. Deine Inhalte verlassen damit die Systeme der TH Lübeck.",
+        "ownAccount": "Du nutzt dein eigenes Konto zu den Bedingungen des Anbieters. Verträge, Kosten und die Rechte an den Ergebnissen liegen allein bei dir.",
         "noLiability": "Die TH Lübeck übernimmt keine Haftung für die angebundenen Dienste, ihre Verfügbarkeit, ihre Ergebnisse, entstehende Kosten und Schäden aus ihrer Nutzung.",
         "clones": "Geklonte Stimmen nutzt du nur, wenn es deine eigene ist oder die Person zugestimmt hat.",
         "keyStorage": "Dein Schlüssel wird verschlüsselt gespeichert und nur für deine eigenen Aufträge verwendet. Du kannst ihn jederzeit wieder entfernen."
