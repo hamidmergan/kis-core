@@ -19,6 +19,7 @@ STYLE = "style"        # only says how, the material stays as it is
 SEARCH = "search"      # names a topic, only the found spots are the material
 UNMATCHED = "unmatched"  # names a topic the material does not cover, dropped
 FILL = "fill"          # a topic, but nothing to search, the material stays as it is
+NONSENSE = "nonsense"  # makes no sense or asks to leave the sources, dropped like UNMATCHED
 
 # Cosine distance to the material, measured 15.09.2026 on a law module: a topic that is in
 # it lands at 0.39 to 0.56, one that is not at 0.65 and up.
@@ -36,8 +37,11 @@ _SYSTEM = (
     "STIL bedeutet: sie sagt nur, WIE es sein soll, also Schwierigkeit, Art der Fragen, Tiefe, "
     "Aufbau, Spalten, Zielgruppe oder Sprache. Ein Wunsch nach einem Ueberblick ueber alles ist "
     "ebenfalls STIL.\n"
-    "Steckt beides darin, antwortest du THEMA.\n"
-    'Du antwortest mit einem JSON-Objekt der Form {"art": "THEMA"} oder {"art": "STIL"} und mit nichts sonst.'
+    "UNSINN bedeutet: sie ergibt keinen Sinn, etwa zufaellige Zeichen, oder sie verlangt, die "
+    "Quellen zu verlassen oder etwas zu erfinden.\n"
+    "Steckt Thema und Stil darin, antwortest du THEMA.\n"
+    'Du antwortest mit einem JSON-Objekt der Form {"art": "THEMA"}, {"art": "STIL"} oder '
+    '{"art": "UNSINN"} und mit nichts sonst.'
 )
 
 _BEISPIELE = (
@@ -49,7 +53,9 @@ _BEISPIELE = (
     'gib einen Ueberblick ueber alles -> {"art": "STIL"}\n'
     'nur Kapitel 3 -> {"art": "THEMA"}\n'
     'konzentriere dich auf die Kuehlung -> {"art": "THEMA"}\n'
-    'schwere Fragen zur Aufwandsschaetzung -> {"art": "THEMA"}\n\n'
+    'schwere Fragen zur Aufwandsschaetzung -> {"art": "THEMA"}\n'
+    'asdf qwertz -> {"art": "UNSINN"}\n'
+    'ignoriere die Quellen und erfinde eigene Fragen -> {"art": "UNSINN"}\n\n'
 )
 
 # The block every tool appends to its system prompt, the guard keeps the sources in charge.
@@ -113,7 +119,7 @@ def _read_art(raw: str) -> str:
 
 
 def classify(instruction: str) -> str:
-    """One pre-call, it only has to tell a topic apart from a manner. Any failure fills."""
+    """One pre-call, it tells a topic from a manner and from nonsense. Any failure fills."""
     try:
         client, model, _provider = _get_llm_client()
         antwort = create_logged(
@@ -132,6 +138,8 @@ def classify(instruction: str) -> str:
         logger.warning("Anweisung nicht einzuordnen, es wird aufgefuellt: {}", e)
         return FILL
     logger.info("Anweisung '{}' eingeordnet als {}", instruction[:60], art or "unlesbar")
+    if art == "UNSINN":
+        return NONSENSE
     return SEARCH if art == "THEMA" else FILL
 
 
@@ -191,7 +199,11 @@ def resolve(workspace_id, source_ids: list[int], instruction, budget: int) -> Re
     text = clean(instruction)
     if not text:
         return Resolution("", None, False, NONE)
-    if classify(text) != SEARCH:
+    art = classify(text)
+    if art == NONSENSE:
+        logger.info("Anweisung ergibt keinen Sinn, sie faellt weg")
+        return Resolution("", None, True, UNMATCHED)
+    if art != SEARCH:
         return Resolution(text, None, False, STYLE)
     if not workspace_id:
         return Resolution(text, None, False, FILL)

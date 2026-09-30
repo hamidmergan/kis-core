@@ -61,6 +61,15 @@ class TestWegwahl:
             assert ergebnis.unmatched is False
             assert ergebnis.way == anweisung.NONE
 
+    def test_unsinn_faellt_weg_ohne_messung(self, monkeypatch):
+        _weg(monkeypatch, anweisung.NONSENSE)
+        monkeypatch.setattr(anweisung, "probe", lambda *a: pytest.fail("keine Messung bei Unsinn"))
+        ergebnis = anweisung.resolve(7, [1], "asdf qwertz", 1000)
+        assert ergebnis.text == ""
+        assert ergebnis.chunks is None
+        assert ergebnis.unmatched is True
+        assert ergebnis.way == anweisung.UNMATCHED
+
     def test_stil_anweisung_bleibt_im_prompt_und_beim_material(self, monkeypatch):
         _weg(monkeypatch, anweisung.FILL)
         ergebnis = anweisung.resolve(7, [1], "halte es einfach", 1000)
@@ -195,6 +204,11 @@ class TestVorcall:
         client, _ = _client('{"art": "STIL"}')
         monkeypatch.setattr(anweisung, "_get_llm_client", lambda: (client, "m", "p"))
         assert anweisung.classify("leichte Fragen") == anweisung.FILL
+
+    def test_unsinn_heisst_unsinn(self, monkeypatch):
+        client, _ = _client('{"art": "UNSINN"}')
+        monkeypatch.setattr(anweisung, "_get_llm_client", lambda: (client, "m", "p"))
+        assert anweisung.classify("asdf qwertz") == anweisung.NONSENSE
 
     def test_unlesbare_antwort_heisst_auffuellen(self, monkeypatch):
         client, _ = _client("<think>hm</think> keine Ahnung")
