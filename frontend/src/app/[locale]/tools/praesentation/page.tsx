@@ -286,16 +286,28 @@ function PraesentationPageInner() {
     <ProtectedRoute>
       <div className="max-w-4xl mx-auto px-4 py-10 sm:py-14" data-tour="tool-praesentation">
         <ToolBackLink />
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-2xl font-bold">{t("title")}</h1>
-          {hydrated && state.jobUuid && (
+        {/* Title and intro only on the first step, like podcast and screencast. */}
+        {hydrated && state.step === "content" ? (
+          <>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h1 className="text-2xl font-bold">{t("title")}</h1>
+              {state.jobUuid && (
+                <button type="button" onClick={() => setNachfrage("verwerfen")} className={DISCARD}>
+                  <Trash size={14} aria-hidden="true" />
+                  {t("discard")}
+                </button>
+              )}
+            </div>
+            <p className="text-sm text-muted mt-1 mb-8">{t("intro")}</p>
+          </>
+        ) : hydrated && state.jobUuid && (
+          <div className="flex justify-end mb-3 sm:mb-8">
             <button type="button" onClick={() => setNachfrage("verwerfen")} className={DISCARD}>
               <Trash size={14} aria-hidden="true" />
               {t("discard")}
             </button>
-          )}
-        </div>
-        <p className="text-sm text-muted mt-1 mb-8">{t("intro")}</p>
+          </div>
+        )}
         {!hydrated ? (
           <Spinner className="justify-center py-20" />
         ) : (

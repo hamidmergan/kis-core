@@ -94,7 +94,7 @@ export default function DoneStep(p: DoneStepProps) {
       <FolienBetrachter ids={p.slides.map((s) => s.id)}
         urlFuer={(id) => (typeof p.previews[id] === "number" ? previewUrl(p.jobUuid, id, p.previews[id]) : null)} />
 
-      <div className="flex justify-center mt-8 mb-2">
+      <div className="flex justify-center mt-8 mb-6">
         <button
           type="button"
           onClick={herunterladen}
@@ -106,7 +106,6 @@ export default function DoneStep(p: DoneStepProps) {
           {t("download")}
         </button>
       </div>
-      <p className="text-xs text-muted text-center mb-6">{t("expiryHint")}</p>
 
       <div className="flex flex-wrap justify-center gap-3">
         <button type="button" onClick={p.onBackToPreview} className={NEBENKNOPF}>{t("backToSlides")}</button>

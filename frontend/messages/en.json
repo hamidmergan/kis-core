@@ -1503,7 +1503,6 @@
         "heading": "The presentation is done",
         "summary": "{n} slides as a PowerPoint file.",
         "download": "Download PowerPoint",
-        "expiryHint": "The file stays as long as a screencast in your jobs.",
         "backToSlides": "Back to the preview",
         "new": "New presentation",
         "building": "Finishing the presentation",
