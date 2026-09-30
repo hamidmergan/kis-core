@@ -150,6 +150,7 @@ export function StudioOverview({
     <div className="flex flex-col h-full">
       {!hideHeader && (
         <div
+          data-panel-header=""
           className="flex items-center justify-between px-4 py-3 flex-shrink-0"
           style={{ borderBottom: "1px solid var(--border)" }}
         >

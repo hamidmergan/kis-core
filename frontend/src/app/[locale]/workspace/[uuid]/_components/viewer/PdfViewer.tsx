@@ -442,7 +442,7 @@ export function PdfViewer({
   return (
     <div data-tour="pdf-viewer" className="flex flex-col h-full relative" ref={containerRef}>
       {/* Header */}
-      <div className="flex items-center gap-2 px-4 py-3 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
+      <div data-panel-header="" className="flex items-center gap-2 px-4 py-3 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
         <button type="button" onClick={onClose}
           className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full btn-icon"
           style={{ backgroundColor: "var(--surface-dim)" }} title={tViewer("back")}>

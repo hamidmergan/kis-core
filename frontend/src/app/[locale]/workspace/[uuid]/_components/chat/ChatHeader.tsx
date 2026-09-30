@@ -29,6 +29,7 @@ export function ChatHeader({ messageCount, onClear, onMinimize, compact = false 
 
   return (
     <div
+      data-panel-header=""
       className={`flex items-center flex-shrink-0 relative ${compact ? "justify-end px-3 py-1.5" : "justify-between px-4 py-3"}`}
       style={{ borderBottom: "1px solid var(--border)" }}
     >

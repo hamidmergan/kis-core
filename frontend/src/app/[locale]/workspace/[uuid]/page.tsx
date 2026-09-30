@@ -114,7 +114,7 @@ export default function KiTutorWorkspacePage() {
     activeTab, setActiveTab,
     isMobile,
     panelContainerRef, p1Ref, p2Ref, p3Ref,
-    togglePanel, startDrag,
+    togglePanel, focusPanel, startDrag,
   } = usePanelLayout({ uuid, viewerSource });
 
   const [chatLang, setChatLang] = useState<"de" | "en">("de");
@@ -711,6 +711,7 @@ export default function KiTutorWorkspacePage() {
           setActiveTab={setActiveTab}
           panels={panels}
           togglePanel={togglePanel}
+          focusPanel={focusPanel}
           panelContainerRef={panelContainerRef}
           p1Ref={p1Ref} p2Ref={p2Ref} p3Ref={p3Ref}
           p1Style={p1Style} p2Style={p2Style} p3Style={p3Style}

@@ -509,7 +509,7 @@ export function MindmapStudio({
         display: view === "viewer" ? "flex" : "none",
         ...(fullscreen ? { position: "fixed" as const, inset: 0, zIndex: 9999, backgroundColor: "var(--background)" } : {}),
       }} className="flex-col h-full">
-        <div className="flex items-center gap-2 px-4 py-3 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
+        <div data-panel-header={fullscreen ? undefined : ""} className="flex items-center gap-2 px-4 py-3 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
           <button type="button" onClick={() => { if (fullscreen) void leaveFullscreen(); else setView("list"); }}
             className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
             style={{ backgroundColor: "var(--surface-dim)" }}>

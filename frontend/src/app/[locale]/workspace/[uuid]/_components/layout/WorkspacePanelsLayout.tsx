@@ -19,6 +19,7 @@ interface WorkspacePanelsLayoutProps {
   // Panels state & refs
   panels: Record<PanelKey, boolean>;
   togglePanel: (k: PanelKey) => void;
+  focusPanel: (k: PanelKey, visible: PanelKey[]) => void;
   panelContainerRef: React.RefObject<HTMLDivElement | null>;
   p1Ref: React.RefObject<HTMLDivElement | null>;
   p2Ref: React.RefObject<HTMLDivElement | null>;
@@ -40,10 +41,17 @@ interface WorkspacePanelsLayoutProps {
 const panelBaseClass = "flex flex-col overflow-hidden rounded-2xl";
 const panelBaseStyle = { backgroundColor: "var(--surface)", boxShadow: "0 1px 4px rgba(0,0,0,0.07)" };
 
+// Only a double click on the header itself counts, never on a button or field inside it.
+function hitsPanelHeader(target: EventTarget): boolean {
+  if (!(target instanceof Element)) return false;
+  if (!target.closest("[data-panel-header]")) return false;
+  return !target.closest("button, a, input, textarea, select, [role='button'], [contenteditable='true']");
+}
+
 export function WorkspacePanelsLayout(props: WorkspacePanelsLayoutProps) {
   const {
     isMobile, activeTab, setActiveTab,
-    panels, togglePanel, panelContainerRef,
+    panels, togglePanel, focusPanel, panelContainerRef,
     p1Ref, p2Ref, p3Ref,
     p1Style, p2Style, p3Style,
     studioEnabled, canDrag, startDrag,
@@ -97,13 +105,25 @@ export function WorkspacePanelsLayout(props: WorkspacePanelsLayoutProps) {
     );
   }
 
+  // Like a window title bar: the double-clicked panel stays, the others shrink to their strip.
+  const visiblePanels: PanelKey[] = studioEnabled ? ["quellen", "chat", "studio"] : ["quellen", "chat"];
+  const headerHandlers = (key: PanelKey) => ({
+    onMouseDown: (e: React.MouseEvent) => {
+      // Keeps the second click from selecting the title word.
+      if (e.detail > 1 && hitsPanelHeader(e.target)) e.preventDefault();
+    },
+    onDoubleClick: (e: React.MouseEvent) => {
+      if (hitsPanelHeader(e.target)) focusPanel(key, visiblePanels);
+    },
+  });
+
   return (
     <div
       ref={panelContainerRef}
       className="flex flex-1 overflow-hidden"
       style={{ padding: 8, gap: 0, backgroundColor: "var(--background)" }}
     >
-      <div ref={p1Ref} className={panelBaseClass} style={{ ...p1Style, ...panelBaseStyle }}>
+      <div ref={p1Ref} className={panelBaseClass} style={{ ...p1Style, ...panelBaseStyle }} {...headerHandlers("quellen")}>
         {!panels.quellen
           ? <MiniStrip
               label={tPanels("sources")}
@@ -117,7 +137,7 @@ export function WorkspacePanelsLayout(props: WorkspacePanelsLayoutProps) {
 
       <DragHandle canDrag={canDrag} onPointerDown={(e) => canDrag && startDrag(1, e)} />
 
-      <div ref={p2Ref} className={panelBaseClass} style={{ ...p2Style, ...panelBaseStyle }}>
+      <div ref={p2Ref} className={panelBaseClass} style={{ ...p2Style, ...panelBaseStyle }} {...headerHandlers("chat")}>
         {!panels.chat
           ? <MiniStrip label={tPanels("chat")} onClick={() => togglePanel("chat")} side="left" />
           : renderChat({ onMinimize: () => togglePanel("chat"), hideHeader: false })}
@@ -126,7 +146,7 @@ export function WorkspacePanelsLayout(props: WorkspacePanelsLayoutProps) {
       {studioEnabled && (
         <>
           <DragHandle canDrag={canDrag} onPointerDown={(e) => canDrag && startDrag(2, e)} />
-          <div ref={p3Ref} className={panelBaseClass} style={{ ...p3Style, ...panelBaseStyle }}>
+          <div ref={p3Ref} className={panelBaseClass} style={{ ...p3Style, ...panelBaseStyle }} {...headerHandlers("studio")}>
             <MinimizeContext.Provider value={() => togglePanel("studio")}>
               {!panels.studio
                 ? <MiniStrip

@@ -221,6 +221,7 @@ export function SourcesPanel({
       {/* Panel header. Anlegen sitzt hier, deshalb kostet es keine eigene Zeile. */}
       {!hideHeader && (
         <div
+          data-panel-header=""
           className="flex items-center gap-1.5 px-4 py-3 flex-shrink-0"
           style={{ borderBottom: "1px solid var(--border)" }}
         >

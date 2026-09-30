@@ -179,7 +179,7 @@ export function DataTableStudio({
 
       {/* ── Viewer ── */}
       <div style={{ display: view === "viewer" ? "flex" : "none" }} className="flex-col h-full">
-        <div className="flex items-center gap-2 px-4 py-3 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
+        <div data-panel-header="" className="flex items-center gap-2 px-4 py-3 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
           <button type="button" onClick={() => setView("list")}
             className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
             style={{ backgroundColor: "var(--surface-dim)" }}>

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { _isMediaFile } from "../_utils";
+import { nextFocusLayout } from "./_panelFocus";
 import type { PanelKey, ViewerState } from "../_types";
 
 const MIN_PANEL = 50;
@@ -48,6 +49,7 @@ export function usePanelLayout({ uuid, viewerSource }: UsePanelLayoutOptions) {
   const p3Ref = useRef<HTMLDivElement>(null);
   const panelsRef = useRef(panels);
   panelsRef.current = panels;
+  const layoutBeforeFocusRef = useRef<Record<PanelKey, boolean> | null>(null);
 
   // Persist panels
   useEffect(() => {
@@ -103,6 +105,12 @@ export function usePanelLayout({ uuid, viewerSource }: UsePanelLayoutOptions) {
       if (Object.values(next).every((v) => !v)) return prev;
       return next;
     });
+  }, []);
+
+  const focusPanel = useCallback((key: PanelKey, visible: PanelKey[]) => {
+    const next = nextFocusLayout(panelsRef.current, key, layoutBeforeFocusRef.current, visible);
+    layoutBeforeFocusRef.current = next.saved;
+    setPanels(next.panels);
   }, []);
 
   const startDrag = useCallback((divider: 1 | 2, e: React.PointerEvent) => {
@@ -184,6 +192,6 @@ export function usePanelLayout({ uuid, viewerSource }: UsePanelLayoutOptions) {
     activeTab, setActiveTab,
     isMobile,
     panelContainerRef, p1Ref, p2Ref, p3Ref,
-    togglePanel, startDrag,
+    togglePanel, focusPanel, startDrag,
   };
 }

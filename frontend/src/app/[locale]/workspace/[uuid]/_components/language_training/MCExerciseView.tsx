@@ -127,7 +127,7 @@ export function MCExerciseView({
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center gap-2 px-3 py-2.5 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)", backgroundColor: "var(--surface)" }}>
+      <div data-panel-header="" className="flex items-center gap-2 px-3 py-2.5 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)", backgroundColor: "var(--surface)" }}>
         <button type="button" onClick={onBack}
           className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
           style={{ backgroundColor: "var(--surface-dim)" }}>

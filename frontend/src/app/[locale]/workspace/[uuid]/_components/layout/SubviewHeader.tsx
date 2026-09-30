@@ -42,6 +42,7 @@ export function SubviewHeader({ title, toolKey, onBack, breadcrumbs, rightConten
   const btnBg = "var(--surface-dim)";
   return (
     <div
+      data-panel-header=""
       className="flex items-center gap-2 px-4 py-3 flex-shrink-0"
       style={{ borderBottom: "1px solid var(--border)" }}
     >
