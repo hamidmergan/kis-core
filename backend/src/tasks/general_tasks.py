@@ -11,8 +11,8 @@ from PIL import Image as PILImage
 from src.celery_app import celery_app
 from src import database as db
 from src.i18n import t
-from src.storage import (delete_file, get_file, open_input_file, save_result_file, save_result_and_evict,
-                         save_result_meta)
+from src.storage import (delete_file, get_file, open_input_file, save_job_file, save_result_file,
+                         save_result_and_evict, save_result_meta)
 from src.utils.heartbeat import job_heartbeat
 from src.dependencies import get_translate_client_for_provider
 from src.services.ai_hinweis import png_info_with_notice, vtt_with_notice
@@ -257,6 +257,7 @@ def run_image_generate(
     provider_id: int | None = None,
     steps: int | None = None,
     titel: str = "",
+    angaben: dict | None = None,
 ):
     try:
         db.update_job_status(job_uuid, "running")
@@ -300,8 +301,9 @@ def run_image_generate(
         result_path = save_result_file(user_id, job_uuid, ".png", img_bytes)
         save_result_and_evict(user_id, job_uuid, result_path, result_filename)
         # The picture's description stays with it, for the result card and the history.
-        save_result_meta(user_id, job_uuid, {"beschreibung": titel or prompt, "modell_prompt": prompt,
-                                             "groesse": body["size"]})
+        # The chosen style, format and quality go along, the picture shows what it was made with.
+        save_result_meta(user_id, job_uuid, {**(angaben or {}), "beschreibung": titel or prompt,
+                                             "modell_prompt": prompt, "groesse": body["size"]})
         db.update_job_status(job_uuid, "success")
         logger.info("Image generate task {} completed", job_uuid)
 
@@ -311,6 +313,12 @@ def run_image_generate(
 
 
 # -- Image: edit --------------------------------------------------------------
+
+def _zuschneiden(inhalt: bytes, zuschnitt: dict) -> bytes:
+    """The central band of a padded picture, the result and the kept source are cut the same way."""
+    from src.features.bild.optionen import zuschneiden
+    return zuschneiden(inhalt, zuschnitt)
+
 
 @celery_app.task(bind=True, name="general.image_edit", queue="general")
 def run_image_edit(
@@ -323,6 +331,7 @@ def run_image_edit(
     size: str = "1024x1024",
     steps: int = 25,
     zuschnitt: dict | None = None,
+    angaben: dict | None = None,
 ):
     try:
         db.update_job_status(job_uuid, "running")
@@ -379,13 +388,16 @@ def run_image_edit(
 
         if zuschnitt:
             # A padded panorama comes back as the band that was the source.
-            from src.features.bild.optionen import zuschneiden
-            img_bytes = zuschneiden(img_bytes, zuschnitt)
+            img_bytes = _zuschneiden(img_bytes, zuschnitt)
         img_bytes = _png_with_notice(img_bytes)
         result_filename = f"{Path(filename).stem}.png"
         result_path = save_result_file(user_id, job_uuid, ".png", img_bytes)
         save_result_and_evict(user_id, job_uuid, result_path, result_filename)
-        save_result_meta(user_id, job_uuid, {"beschreibung": prompt, "groesse": size})
+        # The source stays with the job for the before and after view, a padded one as the band it was.
+        vorlage = f"vorlage{'.png' if zuschnitt else ext}"
+        save_job_file(user_id, job_uuid, vorlage, _zuschneiden(content, zuschnitt) if zuschnitt else content)
+        save_result_meta(user_id, job_uuid, {**(angaben or {}), "beschreibung": prompt, "groesse": size,
+                                             "vorlage": vorlage})
         db.update_job_status(job_uuid, "success")
         delete_file(input_path)
         logger.info("Image edit task {} completed", job_uuid)

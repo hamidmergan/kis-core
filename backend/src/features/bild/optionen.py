@@ -42,13 +42,10 @@ STILE: tuple[str, ...] = tuple(_STILE)
 
 _AUFGABEN: dict[str, str] = {
     "beschreiben": ("Describe the image in detail: what it shows, people, objects, setting, colors and mood. "
-                    "Use short paragraphs."),
-    "alttext": ("Write alternative text for this image for people using a screen reader: one or two sentences, "
-                "at most 250 characters, only the essential content, never start with 'image of' or similar."),
+                    "If it is a chart or diagram, also name what its axes or parts show, the key values and the main "
+                    "takeaway. Use short paragraphs."),
     "text": ("Transcribe all text that is visible in the image exactly, keep its order and line breaks. "
              "If there is no text, say so in one sentence."),
-    "grafik": ("Explain this chart, diagram or figure: what kind it is, what its axes or parts show, the key values "
-               "and trends, and the main takeaway."),
     "frage": "Answer the question about the image precisely and only from what the image shows.",
 }
 AUFGABEN: tuple[str, ...] = tuple(_AUFGABEN)

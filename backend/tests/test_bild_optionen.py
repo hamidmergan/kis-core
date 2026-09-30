@@ -83,9 +83,8 @@ def test_ein_unbekannter_stil_gilt_nicht():
 
 @pytest.mark.parametrize("aufgabe, merkmal", [
     ("beschreiben", "Describe"),
-    ("alttext", "alternative text"),
+    ("beschreiben", "chart"),
     ("text", "Transcribe"),
-    ("grafik", "chart"),
 ])
 def test_jede_aufgabe_hat_ihre_anweisung(aufgabe, merkmal):
     text = o.analyse_anweisung(aufgabe, "de", "")
@@ -94,7 +93,7 @@ def test_jede_aufgabe_hat_ihre_anweisung(aufgabe, merkmal):
 
 def test_jede_anweisung_traegt_die_grundregeln():
     """Die allgemeine Bildanweisung fällt bei einer Aufgabe weg, ihre Regeln gegen Erfinden und Striche bleiben."""
-    text = o.analyse_anweisung("alttext", "de", "")
+    text = o.analyse_anweisung("text", "de", "")
     assert "not visible" in text and "semicolons" in text
     assert "same language as the primary text" not in text
 
@@ -102,6 +101,12 @@ def test_jede_anweisung_traegt_die_grundregeln():
 def test_die_eigene_frage_steht_in_der_anweisung_und_die_sprache_folgt_der_wahl():
     text = o.analyse_anweisung("frage", "en", "Wie viele Personen?")
     assert "Wie viele Personen?" in text and "Respond in English." in text
+
+
+@pytest.mark.parametrize("aufgabe", ["alttext", "grafik"])
+def test_alternativtext_und_grafik_gibt_es_nicht_mehr(aufgabe):
+    with pytest.raises(ValueError):
+        o.analyse_anweisung(aufgabe, "de", "")
 
 
 def test_eine_eigene_frage_ohne_frage_gilt_nicht():

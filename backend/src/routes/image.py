@@ -3,14 +3,14 @@ import io
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile
 from loguru import logger
 
 from src import database as db
 from src.dependencies import get_current_user, is_admin_user
 from src.i18n import get_locale, t
 from src.services import feature_provider_choices
-from src.storage import save_queue_file
+from src.storage import get_job_file, load_result_meta, save_queue_file
 from src.limits import MAX_IMAGE_BYTES
 from src.utils.file_validation import validate_or_raise
 from src.quotas import enforce_quota
@@ -123,7 +123,8 @@ def generate_image(
                 raise
             teilweise = True
             break
-        task = run_image_generate.delay(job_uuid, text, size, provider_id, steps=steps, titel=prompt)
+        task = run_image_generate.delay(job_uuid, text, size, provider_id, steps=steps, titel=prompt,
+                                        angaben={"stil": stil, "format": format_, "qualitaet": qualitaet})
         db.set_job_celery_task_id(job_uuid, task.id)
         job_uuids.append(job_uuid)
 
@@ -199,12 +200,33 @@ async def edit_image(
         input_path = await asyncio.to_thread(save_queue_file, user_id, job_uuid, ext, content)
         db.set_job_input_path(job_uuid, input_path)
         task = run_image_edit.delay(job_uuid, input_path, image.filename, prompt, provider_id, size=size, steps=steps,
-                                    zuschnitt=zuschnitt)
+                                    zuschnitt=zuschnitt, angaben={"format": format_, "qualitaet": qualitaet})
         db.set_job_celery_task_id(job_uuid, task.id)
         job_uuids.append(job_uuid)
 
     logger.info("Image edit jobs {} queued for '{}' ({})", job_uuids, image.filename, size)
     return {"job_uuid": job_uuids[0], "job_uuids": job_uuids, "teilweise": teilweise, "status": "pending"}
+
+
+@router.get("/image/{job_uuid}/vorlage")
+def edit_source(
+    job_uuid: str,
+    current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
+):
+    """The source an edited picture was made from, for the before and after view."""
+    job = db.get_job(job_uuid)
+    # Owner only, a foreign job_uuid must not show another person's picture.
+    if not job or job["user_id"] != current_user.get("user_id", 0) or job["tool"] != "image_edit":
+        raise HTTPException(status_code=404, detail=t("job.notFound", locale))
+    name = (load_result_meta(job["user_id"], job_uuid) or {}).get("vorlage")
+    if not name:
+        raise HTTPException(status_code=404, detail=t("job.noDownloadAvailable", locale))
+    try:
+        daten = get_job_file(job["user_id"], job_uuid, name)
+    except Exception:
+        raise HTTPException(status_code=404, detail=t("job.fileExpired", locale)) from None
+    return Response(content=daten, media_type="image/png" if name.endswith(".png") else "image/jpeg")
 
 
 @router.post("/image/analyze")

@@ -46,8 +46,10 @@ def _herzschlag(job_uuid):
     yield
 
 
-def _umgebung(monkeypatch, client, meta=None):
+def _umgebung(monkeypatch, client, meta=None, dateien=None):
     monkeypatch.setattr(gt.db, "update_job_status", lambda *a, **k: None)
+    monkeypatch.setattr(gt, "save_job_file",
+                        lambda user, job, name, daten: (dateien if dateien is not None else {}).update({name: daten}))
     monkeypatch.setattr(gt, "save_result_meta", lambda user, job, daten: (meta if meta is not None else {}).update(daten))
     monkeypatch.setattr(gt, "_resolve_user_id", lambda j: 1)
     monkeypatch.setattr(gt, "delete_file", lambda p: None)
@@ -124,6 +126,40 @@ def test_bearbeiten_merkt_sich_die_anweisung(monkeypatch):
     _umgebung(monkeypatch, _Client(_Antwort(200, headers={"content-type": "image/png"}, inhalt=_png())), meta)
     gt.run_image_edit.run.__func__(None, "job1", "ip", "a.png", "Mache es blau", None, size="1024x1024", steps=25)
     assert meta["beschreibung"] == "Mache es blau" and meta["groesse"] == "1024x1024"
+
+
+def test_erzeugen_merkt_sich_stil_format_und_qualitaet(monkeypatch):
+    """Das Bild zeigt unter dem Prompt, womit es gemacht wurde, auch im Verlauf."""
+    meta: dict = {}
+    _umgebung(monkeypatch, _Client(_Antwort(200, _BILD)), meta)
+    gt.run_image_generate.run.__func__(None, "job1", "Apfel", "1344x768", None, steps=28, titel="Apfel",
+                                        angaben={"stil": "foto", "format": "16:9", "qualitaet": "hoch"})
+    assert meta["stil"] == "foto" and meta["format"] == "16:9" and meta["qualitaet"] == "hoch"
+    assert meta["beschreibung"] == "Apfel"
+
+
+def test_bearbeiten_behaelt_die_vorlage_fuer_vorher_und_nachher(monkeypatch):
+    """Nutzerwunsch 30.09.: Vorher und Nachher soll immer zu sehen sein, auch bei älteren Bildern."""
+    meta: dict = {}
+    dateien: dict = {}
+    _umgebung(monkeypatch, _Client(_Antwort(200, headers={"content-type": "image/png"}, inhalt=_png())), meta, dateien)
+    gt.run_image_edit.run.__func__(None, "job1", "ip", "a.jpg", "Mache es blau", None, size="1024x1024", steps=25,
+                                   angaben={"format": "vorlage", "qualitaet": "standard"})
+    assert meta["vorlage"] == "vorlage.jpg" and dateien["vorlage.jpg"] == _png()
+    assert meta["format"] == "vorlage" and meta["qualitaet"] == "standard"
+
+
+def test_ein_aufgefuelltes_panorama_behaelt_seine_vorlage_ohne_rand(monkeypatch):
+    puffer = io.BytesIO()
+    Image.new("RGB", (2048, 512), "white").save(puffer, "PNG")
+    client = _Client(_Antwort(200, headers={"content-type": "image/png"}, inhalt=puffer.getvalue()))
+    dateien: dict = {}
+    _umgebung(monkeypatch, client, {}, dateien)
+    monkeypatch.setattr(gt, "get_file", lambda p: puffer.getvalue())
+    gt.run_image_edit.run.__func__(None, "job1", "ip", "panorama.jpg", "Skyline", None, size="2048x512", steps=25,
+                                   zuschnitt={"achse": "hoehe", "anteil": 0.4})
+    with Image.open(io.BytesIO(dateien["vorlage.png"])) as vorlage:
+        assert (vorlage.width, vorlage.height) == (2048, 205)
 
 
 def test_der_verlauf_bekommt_die_meta_der_bildauftraege():

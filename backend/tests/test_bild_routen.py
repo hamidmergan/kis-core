@@ -96,6 +96,44 @@ async def test_bearbeiten_haelt_das_seitenverhaeltnis_der_vorlage(welt):
     assert kwargs["steps"] == o.schritte("standard", bearbeiten=True)
 
 
+def test_erzeugen_gibt_stil_format_und_qualitaet_an_den_auftrag(welt):
+    _erzeuge(stil="foto", format_="16:9", qualitaet="hoch")
+    _, kwargs = welt["run_image_generate"].aufrufe[0]
+    assert kwargs["angaben"] == {"stil": "foto", "format": "16:9", "qualitaet": "hoch"}
+
+
+async def test_bearbeiten_gibt_format_und_qualitaet_an_den_auftrag(welt):
+    await image.edit_image(image=_bild(800, 800), prompt="blau", format_="vorlage", groesse="mittel",
+                           qualitaet="entwurf", varianten=1, provider_id=None, current_user=NUTZER, locale="de")
+    _, kwargs = welt["run_image_edit"].aufrufe[0]
+    assert kwargs["angaben"] == {"format": "vorlage", "qualitaet": "entwurf"}
+
+
+@pytest.fixture
+def vorlage_welt(monkeypatch):
+    jobs = {"eigen": {"user_id": 7, "tool": "image_edit"}, "fremd": {"user_id": 8, "tool": "image_edit"},
+            "erzeugt": {"user_id": 7, "tool": "image_generate"}}
+    monkeypatch.setattr(image.db, "get_job", lambda uuid: jobs.get(uuid))
+    monkeypatch.setattr(image, "load_result_meta", lambda user, uuid: {"vorlage": "vorlage.png"})
+    monkeypatch.setattr(image, "get_job_file", lambda user, uuid, name: b"vorher")
+
+
+def test_die_vorlage_bekommt_nur_wer_das_bild_bearbeitet_hat(vorlage_welt):
+    antwort = image.edit_source("eigen", current_user=NUTZER, locale="de")
+    assert antwort.body == b"vorher" and antwort.media_type == "image/png"
+    for fremd in ("fremd", "erzeugt", "unbekannt"):
+        with pytest.raises(HTTPException) as fehler:
+            image.edit_source(fremd, current_user=NUTZER, locale="de")
+        assert fehler.value.status_code == 404
+
+
+def test_ein_altes_bearbeitetes_bild_ohne_vorlage_meldet_404(vorlage_welt, monkeypatch):
+    monkeypatch.setattr(image, "load_result_meta", lambda user, uuid: {"beschreibung": "blau"})
+    with pytest.raises(HTTPException) as fehler:
+        image.edit_source("eigen", current_user=NUTZER, locale="de")
+    assert fehler.value.status_code == 404
+
+
 async def test_zwei_varianten_beim_bearbeiten_haben_je_eine_eigene_vorlage(welt):
     """Jeder Auftrag löscht seine Vorlage am Ende, eine geteilte wäre für den zweiten weg."""
     antwort = await image.edit_image(image=_bild(800, 800), prompt="blau", format_="16:9", groesse="klein",
@@ -112,10 +150,10 @@ async def test_bearbeiten_mit_mehr_als_zwei_varianten_wird_abgewiesen(welt):
 
 
 async def test_verstehen_schickt_die_anweisung_der_aufgabe_in_der_gewaehlten_sprache(welt):
-    await image.analyze_image(image=_bild(400, 300), prompt="", aufgabe="alttext", sprache="en", provider_id=None,
+    await image.analyze_image(image=_bild(400, 300), prompt="", aufgabe="text", sprache="en", provider_id=None,
                               current_user=NUTZER, locale="de")
     _, kwargs = welt["run_image_analyze"].aufrufe[0]
-    assert kwargs["anweisung"] == o.analyse_anweisung("alttext", "en", "")
+    assert kwargs["anweisung"] == o.analyse_anweisung("text", "en", "")
 
 
 async def test_eine_frage_ohne_aufgabe_bleibt_eine_frage(welt):
