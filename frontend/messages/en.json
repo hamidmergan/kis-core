@@ -4445,7 +4445,10 @@
   },
   "interfaces": {
     "title": "Interfaces",
-    "intro": "Connect your own account at an external voice service here. Its voices then appear only for you, in Text to Audio, Podcast and Screencast.",
+    "intro": "Connect your own account at an external provider here.",
+    "scope": "For now this works for voices only. Language models (LLMs) and other connections are currently not supported.",
+    "voicesTitle": "Voices",
+    "voicesIntro": "The voices then appear only for you, in Text to Audio, Podcast and Screencast.",
     "voicesLink": "Connect your own voices",
     "consent": {
       "title": "Before you start",

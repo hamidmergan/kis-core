@@ -4445,7 +4445,10 @@
   },
   "interfaces": {
     "title": "Schnittstellen",
-    "intro": "Hier verbindest du dein eigenes Konto bei einem externen Stimmdienst. Dessen Stimmen erscheinen danach nur bei dir, in Text in Audio, Podcast und Screencast.",
+    "intro": "Hier verbindest du dein eigenes Konto bei einem externen Anbieter.",
+    "scope": "Vorerst geht das nur für Stimmen. Sprachmodelle (LLMs) und andere Anbindungen unterstützen wir derzeit nicht.",
+    "voicesTitle": "Stimmen",
+    "voicesIntro": "Die Stimmen erscheinen danach nur bei dir, in Text in Audio, Podcast und Screencast.",
     "voicesLink": "Eigene Stimmen verbinden",
     "consent": {
       "title": "Bevor du loslegst",

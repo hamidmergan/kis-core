@@ -45,7 +45,11 @@ export default function InterfacesPage() {
           <p className="text-sm" style={{ color: "var(--muted)" }}>{genericErrorMessage()}</p>
         ) : (
           <div className="max-w-2xl mx-auto space-y-4">
-            <p className="text-sm" style={{ color: "var(--foreground-soft)" }}>{t("intro")}</p>
+            <div className="space-y-1">
+              <p className="text-sm" style={{ color: "var(--foreground-soft)" }}>{t("intro")}</p>
+              {/* The menu says interfaces, this line says which ones, so nobody looks for the LLM here. */}
+              <p data-testid="interfaces-scope" className="text-sm font-semibold text-foreground">{t("scope")}</p>
+            </div>
             {!data.consent.accepted ? (
               <div
                 className="rounded-2xl p-5"
@@ -64,6 +68,10 @@ export default function InterfacesPage() {
                 >
                   <ConsentNotice />
                 </CollapsibleCard>
+                <div className="pt-2">
+                  <h3 className="text-base font-semibold">{t("voicesTitle")}</h3>
+                  <p className="text-sm" style={{ color: "var(--foreground-soft)" }}>{t("voicesIntro")}</p>
+                </div>
                 {data.vendors.map((v) => (
                   <VendorCard
                     key={v.key}
