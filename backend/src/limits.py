@@ -61,6 +61,8 @@ MAX_UPLOAD_BYTES           = 500 * 1024 * 1024   # general (500 MB)
 TRANSLATE_MAX_UPLOAD_BYTES = 500 * 1024 * 1024   # translation (500 MB)
 MAX_TRANSCRIPTION_BYTES    = 500 * 1024 * 1024   # audio upload (500 MB)
 MAX_IMAGE_BYTES            = 20  * 1024 * 1024   # image upload (20 MB)
+# An image description or a transcribed page stays well below this, a runaway answer stops here.
+IMAGE_ANALYZE_MAX_TOKENS   = 1_500
 # --- Character limits (per request, not per time window) --------------------
 TTS_MAX_CHARS        = 100_000
 TRANSLATE_MAX_CHARS  = 100_000

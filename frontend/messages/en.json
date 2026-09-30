@@ -724,11 +724,11 @@
     },
     "image": {
       "title": "Image generation",
-      "intro": "Create images, edit existing images, or have them described.",
+      "intro": "Create, edit or understand images. Every result can be edited further or described right away.",
       "tabs": {
-        "generate": "Text to image",
+        "generate": "Create image",
         "edit": "Edit image",
-        "analyze": "Analyze image"
+        "analyze": "Understand image"
       },
       "uploadZone": {
         "selectFile": "Select file",
@@ -738,29 +738,124 @@
       "previewAlt": "Preview",
       "providerLabel": "AI provider",
       "generate": {
-        "promptPlaceholder": "Describe the desired image ...",
-        "size": "Size",
-        "submit": "Generate image",
-        "spinner": "Generating…",
-        "longRunning": "Still running - image generation may take a bit longer…",
-        "resultAlt": "Generated image",
-        "regenerate": "Regenerate"
+        "promptPlaceholder": "Describe the image, for example: students working together on a project.",
+        "submit": "Create image",
+        "spinner": "Creating…",
+        "longRunning": "Still running, large images in high quality take a little longer…",
+        "resultAlt": "Created image {n}",
+        "enhance": "Expand description",
+        "enhancing": "Expanding…",
+        "enhancedLabel": "This is what the image model receives",
+        "enhancedHint": "You can change the text. Leave it empty to use your description again.",
+        "submitMany": "Create {n} images"
       },
       "edit": {
-        "promptPlaceholder": "Describe the desired change.",
+        "promptPlaceholder": "Describe the change, for example: make the clothing blue.",
         "submit": "Edit image",
         "spinner": "Editing…",
-        "longRunning": "Still running - image editing may take a bit longer…",
-        "resultAlt": "Edited image",
-        "downloadLabel": "Download",
-        "regenerate": "Edit again"
+        "longRunning": "Still running, editing can take a moment…",
+        "resultAlt": "Edited image {n}",
+        "source": "Source",
+        "changeSource": "Other source",
+        "quick": "Quick",
+        "quickActions": {
+          "weiss": "White background",
+          "skizze": "As a sketch",
+          "ohneText": "Remove text",
+          "kraeftig": "Stronger colors",
+          "thl": "THL slide style"
+        },
+        "quickPrompts": {
+          "weiss": "Replace the background with plain white, keep the subject unchanged.",
+          "skizze": "Redraw the image as a pencil sketch with loose lines.",
+          "ohneText": "Remove all text and letters from the image, keep everything else.",
+          "kraeftig": "Make the colors stronger and the contrast slightly higher, keep the content.",
+          "thl": "Turn the image into an editorial illustration in vermilion red, black and white."
+        },
+        "submitMany": "Edit {n} variants",
+        "before": "Before",
+        "after": "After",
+        "compareLabel": "Compare before and after"
       },
       "analyze": {
-        "promptPlaceholder": "Ask a specific question (optional) - otherwise the image will be described automatically.",
-        "submit": "Analyze",
-        "spinner": "Analyzing…",
-        "longRunning": "Still running - image analysis may take a bit longer…",
-        "regenerate": "Analyze again"
+        "image": "Image",
+        "submit": "Understand image",
+        "spinner": "Reading…",
+        "longRunning": "Still running, reading can take a moment…",
+        "task": "Task",
+        "tasks": {
+          "beschreiben": "Describe",
+          "alttext": "Alt text",
+          "text": "Read text",
+          "grafik": "Explain chart",
+          "frage": "Own question"
+        },
+        "language": "Answer language",
+        "languages": {
+          "de": "German",
+          "en": "English"
+        },
+        "questionPlaceholder": "Your question about the image",
+        "followUp": "Another question about the image",
+        "followUpSubmit": "Ask",
+        "copy": "Copy",
+        "copied": "Copied"
+      },
+      "options": {
+        "style": "Style",
+        "format": "Format",
+        "size": "Size",
+        "quality": "Quality",
+        "variants": "Variants",
+        "qualityHint": "Higher quality takes longer.",
+        "noText": "No lettering in the image",
+        "noTextHint": "Image models often misspell words.",
+        "styles": {
+          "keiner": "No style",
+          "foto": "Photo",
+          "illustration": "Illustration",
+          "skizze": "Sketch",
+          "aquarell": "Watercolor",
+          "3d": "3D",
+          "flach": "Flat",
+          "thl": "THL slide style"
+        },
+        "formats": {
+          "vorlage": "Like source",
+          "1:1": "Square 1:1",
+          "16:9": "Slide 16:9",
+          "4:3": "Landscape 4:3",
+          "3:4": "Portrait 3:4",
+          "9:16": "Portrait 9:16"
+        },
+        "sizes": {
+          "klein": "Small",
+          "mittel": "Medium",
+          "gross": "Large"
+        },
+        "qualities": {
+          "entwurf": "Draft",
+          "standard": "Standard",
+          "hoch": "High"
+        }
+      },
+      "result": {
+        "partial": "Only {gestartet} of {gewuenscht} variants started, you already have other jobs open.",
+        "description": "Description",
+        "modelPrompt": "Sent to the image model",
+        "copyText": "Copy text",
+        "copied": "Copied",
+        "title": "Result",
+        "empty": "Your results appear here.",
+        "toEdit": "Edit",
+        "toAnalyze": "Describe",
+        "download": "Download {format}"
+      },
+      "history": {
+        "title": "History",
+        "empty": "No images yet.",
+        "hint": "Use Edit or Describe to take an image into the other task.",
+        "open": "Open image {name}"
       }
     },
     "screencast": {
@@ -1225,11 +1320,22 @@
     "praesentation": {
       "title": "Presentation",
       "intro": "Your material becomes slides in your university's design. You check every slide and download the PowerPoint file at the end.",
-      "steps": { "content": "Content", "slides": "Slides", "done": "Done" },
-      "common": { "back": "Back", "cancel": "Cancel", "save": "Save", "close": "Close" },
+      "steps": {
+        "content": "Content",
+        "slides": "Slides",
+        "done": "Done"
+      },
+      "common": {
+        "back": "Back",
+        "cancel": "Cancel",
+        "save": "Save",
+        "close": "Close"
+      },
       "content": {
         "heading": "What is it about?",
-        "tabs": { "files": "Files" },
+        "tabs": {
+          "files": "Files"
+        },
         "dropOrBrowse": "Drop files here or",
         "browse": "browse",
         "filesHint": "PDF, Word, PowerPoint or text files.",
@@ -1247,7 +1353,10 @@
         "deleteTemplate": "Delete {name}",
         "languageLabel": "Slide language",
         "providerLabel": "AI provider",
-        "languages": { "de": "German", "en": "English" },
+        "languages": {
+          "de": "German",
+          "en": "English"
+        },
         "instructionsLabel": "Instruction (optional)",
         "instructionsPlaceholder": "For example: only chapter 2, for first-year students, with practical examples",
         "presenterLabel": "Name on the cover (optional)",
@@ -1276,7 +1385,15 @@
         "failed": "The outline could not be created.",
         "restart": "Start over",
         "templateFallback": "The chosen template could not be read, the THL template was used instead.",
-        "roles": { "deckblatt": "Cover", "abschnitt": "Section", "text": "Text", "zwei_spalten": "Two columns", "text_mit_bild": "Text with image", "bild_gross": "Image", "abschluss": "Closing" },
+        "roles": {
+          "deckblatt": "Cover",
+          "abschnitt": "Section",
+          "text": "Text",
+          "zwei_spalten": "Two columns",
+          "text_mit_bild": "Text with image",
+          "bild_gross": "Image",
+          "abschluss": "Closing"
+        },
         "titleAria": "Title of slide {n}",
         "gistAria": "Content of slide {n}",
         "up": "Move up",
@@ -1294,13 +1411,26 @@
         "progressImages": "{done} of {total} images created",
         "progressBuild": "The file is being built",
         "progressPreview": "The preview is rendering",
-        "phases": { "texte": "Texts", "bilder": "Images", "bau": "File", "vorschau": "Preview" },
+        "phases": {
+          "texte": "Texts",
+          "bilder": "Images",
+          "bau": "File",
+          "vorschau": "Preview"
+        },
         "waitingRetry": "The provider is not answering, it continues in a moment.",
         "heading": "Check slides",
         "summary": "{n} slides.",
         "failed": "The build failed.",
         "retry": "Try again",
-        "roles": { "deckblatt": "Cover", "abschnitt": "Section", "text": "Text", "zwei_spalten": "Two columns", "text_mit_bild": "Text with image", "bild_gross": "Image", "abschluss": "Closing" },
+        "roles": {
+          "deckblatt": "Cover",
+          "abschnitt": "Section",
+          "text": "Text",
+          "zwei_spalten": "Two columns",
+          "text_mit_bild": "Text with image",
+          "bild_gross": "Image",
+          "abschluss": "Closing"
+        },
         "imageMissing": "Image missing",
         "noPreview": "No preview",
         "openPreview": "Open preview of slide {n}",
@@ -1345,7 +1475,13 @@
         "promptPlaceholderDemo": "What should be different?",
         "errorMessage": "The suggestion failed. Try again.",
         "notJson": "The suggestion was not in a readable format, try again.",
-        "actions": { "replaceSelection": "Replace selection", "insertBefore": "Insert before", "insertAfter": "Insert after", "wholeScript": "Replace whole slide", "replace": "Apply" }
+        "actions": {
+          "replaceSelection": "Replace selection",
+          "insertBefore": "Insert before",
+          "insertAfter": "Insert after",
+          "wholeScript": "Replace whole slide",
+          "replace": "Apply"
+        }
       },
       "done": {
         "heading": "The presentation is done",

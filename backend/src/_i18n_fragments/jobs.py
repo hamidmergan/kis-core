@@ -186,8 +186,20 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "Image is empty",
     },
     "image.tooLarge": {
-        "de": "Bild zu groß (max 10 MB)",
-        "en": "Image too large (max 10 MB)",
+        "de": "Bild zu groß (max. 20 MB)",
+        "en": "Image too large (max. 20 MB)",
+    },
+    "image.invalidOption": {
+        "de": "Diese Einstellung gibt es nicht.",
+        "en": "This setting does not exist.",
+    },
+    "image.questionMissing": {
+        "de": "Bitte stelle eine Frage zum Bild.",
+        "en": "Please ask a question about the image.",
+    },
+    "image.enhanceFailed": {
+        "de": "Die Beschreibung ließ sich gerade nicht ausformulieren.",
+        "en": "The description could not be expanded right now.",
     },
 
     # ── auth ─────────────────────────────────────────────────────────────────
