@@ -4,6 +4,7 @@ import { ArrowDown, ArrowUp, Check, NavigationArrow, NotePencil, PencilSimple, P
 import Spinner from "@/components/ui/Spinner";
 import Select, { type SelectOption } from "@/components/ui/Select";
 import { genericErrorMessage, parseDetail } from "@/lib/api";
+import { readUserData, updateUserData } from "@/lib/browserStore";
 import { langLabel } from "../../_types";
 import type { AddNoteExtras } from "../../_hooks/useNotes";
 import { useOwnerPreview } from "../layout/OwnerOnly";
@@ -72,6 +73,15 @@ function fmtTs(sec: number): string {
   const mm = String(m).padStart(2, "0");
   const ss = String(s).padStart(2, "0");
   return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+}
+
+/** Records the start of a translation so the state survives a reload, a logout drops it. */
+function forgetPendingTranslation(sourceUuid: string) {
+  updateUserData((d) => {
+    const translations = { ...d.translations };
+    delete translations[sourceUuid];
+    return { ...d, translations };
+  });
 }
 
 export function TranscriptPanel({
@@ -171,8 +181,6 @@ export function TranscriptPanel({
   const itemRefs = useRef<Record<number, HTMLElement | null>>({});
   const lastScrolledIdx = useRef<number>(-1);
 
-  // Records the start of a translation so the state survives a reload.
-  const regenStorageKey = `kis:transcript-translate:${sourceUuid}`;
 
   const transcriptUrl = (lang: string) =>
     `/api/ai-assistant/workspaces/${workspaceUuid}/sources/${sourceUuid}/transcript?lang=${lang}`;
@@ -224,8 +232,8 @@ export function TranscriptPanel({
       else if (hasTarget) setMode(keep("target"));
 
       // Reattaches to a running translation job, an old failure belongs to the last source.
-      const raw = typeof window !== "undefined" ? window.localStorage.getItem(regenStorageKey) : null;
-      const wartet = readPendingTranslation(raw, Date.now());
+      const note = readUserData().translations?.[sourceUuid];
+      const wartet = readPendingTranslation(note ? JSON.stringify(note) : null, Date.now());
       setRegenError(null);
       if (wartet && !map[wartet]) {
         setPendingLang(wartet);
@@ -233,12 +241,12 @@ export function TranscriptPanel({
       } else {
         setPendingLang(null);
         setRegen("idle");
-        if (typeof window !== "undefined") window.localStorage.removeItem(regenStorageKey);
+        forgetPendingTranslation(sourceUuid);
       }
     })();
 
     return () => { cancelled = true; ac.abort(); };
-  }, [workspaceUuid, sourceUuid, langInfo, regenStorageKey]);
+  }, [workspaceUuid, sourceUuid, langInfo]);
 
   // The original track sets the times, both come from the same recognition.
   const masterCues = useMemo(() => {
@@ -450,7 +458,7 @@ export function TranscriptPanel({
     const timer = setInterval(async () => {
       if (Date.now() - started > TIMEOUT_MS) {
         clearInterval(timer);
-        if (typeof window !== "undefined") window.localStorage.removeItem(regenStorageKey);
+        forgetPendingTranslation(sourceUuid);
         setPendingLang(null);
         setRegen("error");
         setRegenError(t("regenEnTimeout"));
@@ -467,7 +475,7 @@ export function TranscriptPanel({
         if (outcome.kind === "failed") {
           // The task gave up, so the wait ends now instead of at the timeout.
           clearInterval(timer);
-          if (typeof window !== "undefined") window.localStorage.removeItem(regenStorageKey);
+          forgetPendingTranslation(sourceUuid);
           setPendingLang(null);
           setRegen("error");
           setRegenError(t("regenEnErrorTitle", { error: outcome.error || t("regenEnUnknownError") }));
@@ -477,7 +485,7 @@ export function TranscriptPanel({
         if (res.ok) {
           const parsed = parseVtt(await res.text());
           clearInterval(timer);
-          if (typeof window !== "undefined") window.localStorage.removeItem(regenStorageKey);
+          forgetPendingTranslation(sourceUuid);
           setCues((prev) => ({ ...prev, [wartet]: parsed }));
           setTargetLang(wartet);
           setPendingLang(null);
@@ -490,7 +498,7 @@ export function TranscriptPanel({
       }
     }, INTERVAL_MS);
     return () => clearInterval(timer);
-  }, [regen, workspaceUuid, sourceUuid, pendingLang, sourceLang, cues, regenStorageKey, t]);
+  }, [regen, workspaceUuid, sourceUuid, pendingLang, sourceLang, cues, t]);
 
   const startTranslation = async (lang: string) => {
     if (regen === "running") return;
@@ -512,9 +520,7 @@ export function TranscriptPanel({
         const detail = (await res.json().catch(() => null))?.detail;
         throw new Error(parseDetail(detail, genericErrorMessage()));
       }
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem(regenStorageKey, JSON.stringify({ ts: Date.now(), lang }));
-      }
+      updateUserData((d) => ({ ...d, translations: { ...d.translations, [sourceUuid]: { ts: Date.now(), lang } } }));
     } catch (e) {
       setRegen("error");
       setPendingLang(null);

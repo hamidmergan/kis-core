@@ -454,7 +454,9 @@
       "templateLabel": "Template",
       "instructionsLabel": "Instruction, optional",
       "instructionsPlaceholder": "For example: only chapter 2, for first-year students, highlight deadlines",
-      "tabs": { "files": "Files" },
+      "tabs": {
+        "files": "Files"
+      },
       "noModules": "You do not have a workspace with sources yet.",
       "noSources": "No source here has finished processing yet.",
       "chosenFiles": "Chosen sources",
@@ -3057,6 +3059,10 @@
       "intro": "This platform uses only technically necessary cookies and storage mechanisms:",
       "sessionLabel": "Session cookie",
       "sessionBody": "An HttpOnly cookie used for authentication (valid for 24 hours). Without this cookie, login is not possible.",
+      "prefsCookieLabel": "Preference cookies",
+      "prefsCookieBody": "\"NEXT_LOCALE\" (language) and \"kis-theme\" (light/dark), valid for 1 year. They only hold the chosen setting.",
+      "localStorageLabel": "LocalStorage",
+      "localStorageBody": "Three entries in the browser: \"kis.prefs\" (settings and dismissed notices), \"kis.workspaces\" (view of the most recently opened workspaces, at most 30) and \"kis.user\" (drafts and running translations, deleted on logout). The data never leaves the browser.",
       "storageLabel": "SessionStorage",
       "storageBody": "Temporary storage of filter settings in the browser (automatically cleared when the tab is closed).",
       "outro": "No tracking, analytics or marketing cookies are used. Cookie data is not shared with third parties."

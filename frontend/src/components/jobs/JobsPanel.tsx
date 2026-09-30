@@ -17,6 +17,7 @@ import { podcastJumpHref, podcastJumpKind } from "./_podcastJump";
 import { praesentationJumpHref, praesentationJumpKind } from "./_praesentationJump";
 import { screencastJumpHref, screencastJumpKind } from "./_screencastJump";
 import { JobSources } from "./JobSources";
+import { readPrefs, updatePrefs } from "@/lib/browserStore";
 
 interface MyJob {
   job_uuid: string;
@@ -38,7 +39,6 @@ interface MyJob {
 }
 
 const SCREENCAST_RENDER_TOOLS = new Set(["screencast_render", "screencast_auto"]);
-const LAST_SEEN_KEY = "kis-jobs-last-seen";
 
 const isExpired = (job: MyJob) => job.status === "success" && !job.has_download;
 
@@ -215,10 +215,10 @@ export default function JobsPanel() {
 
   // Remembers the last look so the dot only reports what is new.
   useEffect(() => {
-    const stored = Number(localStorage.getItem(LAST_SEEN_KEY));
+    const stored = Number(readPrefs().jobsLastSeen);
     if (stored > 0) { setLastSeen(stored); return; }
     const now = Date.now();
-    localStorage.setItem(LAST_SEEN_KEY, String(now));
+    updatePrefs({ jobsLastSeen: now });
     setLastSeen(now);
   }, []);
 
@@ -227,7 +227,7 @@ export default function JobsPanel() {
     if (!open) return;
     const markSeen = () => {
       const now = Date.now();
-      localStorage.setItem(LAST_SEEN_KEY, String(now));
+      updatePrefs({ jobsLastSeen: now });
       setLastSeen(now);
     };
     markSeen();

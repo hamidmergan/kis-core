@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { readWorkspaceUi, updateWorkspaceUi } from "@/lib/browserStore";
 import { _isMediaFile } from "../_utils";
 import { nextFocusLayout } from "./_panelFocus";
 import type { PanelKey, ViewerState } from "../_types";
@@ -25,12 +26,8 @@ interface UsePanelLayoutOptions {
 
 export function usePanelLayout({ uuid, viewerSource }: UsePanelLayoutOptions) {
   const [panels, setPanels] = useState<Record<PanelKey, boolean>>(() => {
-    if (typeof window === "undefined") return { quellen: true, chat: true, studio: true };
-    try {
-      const stored = localStorage.getItem(`ki-assistent-panels-${uuid}`);
-      if (stored) return JSON.parse(stored);
-    } catch { /* ignore */ }
-    return { quellen: true, chat: true, studio: true };
+    const stored = readWorkspaceUi(uuid).panels as Record<PanelKey, boolean> | undefined;
+    return stored ?? { quellen: true, chat: true, studio: true };
   });
   const [p1Width, setP1Width] = useState(360);
   const [p2Width, setP2Width] = useState(500);
@@ -53,7 +50,7 @@ export function usePanelLayout({ uuid, viewerSource }: UsePanelLayoutOptions) {
 
   // Persist panels
   useEffect(() => {
-    try { localStorage.setItem(`ki-assistent-panels-${uuid}`, JSON.stringify(panels)); } catch { /* ignore */ }
+    updateWorkspaceUi(uuid, { panels });
   }, [panels, uuid]);
 
   // Mobile detection — treat phone-landscape as mobile too

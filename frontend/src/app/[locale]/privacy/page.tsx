@@ -61,6 +61,12 @@ export default function DatenschutzPage() {
                 <strong>{t("cookies.sessionLabel")}</strong> - {t("cookies.sessionBody")}
               </li>
               <li>
+                <strong>{t("cookies.prefsCookieLabel")}</strong> - {t("cookies.prefsCookieBody")}
+              </li>
+              <li>
+                <strong>{t("cookies.localStorageLabel")}</strong> - {t("cookies.localStorageBody")}
+              </li>
+              <li>
                 <strong>{t("cookies.storageLabel")}</strong> - {t("cookies.storageBody")}
               </li>
             </ul>

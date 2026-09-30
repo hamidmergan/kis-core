@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { api } from "@/lib/api";
-import { WELCOME_MODAL_SEEN_KEY_PREFIX } from "@/lib/constants";
+import { readPrefs, updatePrefs } from "@/lib/browserStore";
 import Modal from "@/components/ui/Modal";
 
 interface Props {
@@ -25,7 +25,6 @@ export default function WelcomeModal({ userId, onSettled }: Props) {
   useEffect(() => {
     if (!userId) return;
     let cancelled = false;
-    const seenKey = `${WELCOME_MODAL_SEEN_KEY_PREFIX}${userId}`;
     api
       .fetch("/api/health/labels", { cache: "no-store" })
       .then((res) => (res.ok ? res.json() : null))
@@ -36,13 +35,7 @@ export default function WelcomeModal({ userId, onSettled }: Props) {
           settledRef.current?.();
           return;
         }
-        let seen = false;
-        try {
-          seen = localStorage.getItem(seenKey) !== null;
-        } catch {
-          /* ignore - private browsing etc. */
-        }
-        if (seen) {
+        if (readPrefs().welcomeSeen?.includes(userId)) {
           settledRef.current?.();
           return;
         }
@@ -61,11 +54,8 @@ export default function WelcomeModal({ userId, onSettled }: Props) {
   const handleClose = () => {
     setOpen(false);
     if (!userId) return;
-    try {
-      localStorage.setItem(`${WELCOME_MODAL_SEEN_KEY_PREFIX}${userId}`, "1");
-    } catch {
-      /* ignore */
-    }
+    const seen = readPrefs().welcomeSeen ?? [];
+    if (!seen.includes(userId)) updatePrefs({ welcomeSeen: [...seen, userId] });
     settledRef.current?.();
   };
 

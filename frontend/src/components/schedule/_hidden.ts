@@ -1,19 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { readPrefs, updatePrefs } from "@/lib/browserStore";
 
 /** Only the view is hidden, so it lives in the browser and not on the appointment. */
-const STORAGE_KEY = "kis.kalender.ausgeblendet";
-
 function lesen(): Set<number> {
-  try {
-    const roh = window.localStorage.getItem(STORAGE_KEY);
-    if (!roh) return new Set();
-    const liste = JSON.parse(roh);
-    return Array.isArray(liste) ? new Set(liste.filter((x) => typeof x === "number")) : new Set();
-  } catch {
-    return new Set();
-  }
+  const liste = readPrefs().calendarHidden;
+  return Array.isArray(liste) ? new Set(liste.filter((x) => typeof x === "number")) : new Set();
 }
 
 /** Which appointments the grid leaves out, remembered across reloads. */
@@ -28,9 +21,7 @@ export function useHiddenIds() {
       const naechste = new Set(vorher);
       if (naechste.has(id)) naechste.delete(id);
       else naechste.add(id);
-      try {
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify([...naechste]));
-      } catch { /* ignore */ }
+      updatePrefs({ calendarHidden: naechste.size ? [...naechste] : undefined });
       return naechste;
     });
   }, []);

@@ -454,7 +454,9 @@
       "templateLabel": "Vorlage",
       "instructionsLabel": "Anweisung, optional",
       "instructionsPlaceholder": "Zum Beispiel: nur Kapitel 2, für Erstsemester, Fristen besonders hervorheben",
-      "tabs": { "files": "Dateien" },
+      "tabs": {
+        "files": "Dateien"
+      },
       "noModules": "Du hast noch keinen Workspace mit Materialien.",
       "noSources": "Hier ist noch kein Material fertig verarbeitet.",
       "chosenFiles": "Gewählte Materialien",
@@ -3057,6 +3059,10 @@
       "intro": "Diese Plattform verwendet ausschließlich technisch notwendige Cookies und Speichermechanismen:",
       "sessionLabel": "Session-Cookie",
       "sessionBody": "Ein HttpOnly-Cookie zur Authentifizierung (Gültigkeit: 24 Stunden). Ohne dieses Cookie ist kein Login möglich.",
+      "prefsCookieLabel": "Einstellungs-Cookies",
+      "prefsCookieBody": "„NEXT_LOCALE“ (Sprache) und „kis-theme“ (Hell/Dunkel), Gültigkeit 1 Jahr. Sie enthalten nur die gewählte Einstellung.",
+      "localStorageLabel": "LocalStorage",
+      "localStorageBody": "Drei Einträge im Browser: „kis.prefs“ (Einstellungen und ausgeblendete Hinweise), „kis.workspaces“ (Ansicht der zuletzt geöffneten Arbeitsbereiche, höchstens 30) und „kis.user“ (Entwürfe und laufende Übersetzungen, wird beim Abmelden gelöscht). Die Daten verlassen den Browser nicht.",
       "storageLabel": "SessionStorage",
       "storageBody": "Temporäre Speicherung von Filtereinstellungen im Browser (wird beim Schließen des Tabs automatisch gelöscht).",
       "outro": "Es werden keine Tracking-, Analyse- oder Marketing-Cookies eingesetzt. Es erfolgt keine Weitergabe von Cookie-Daten an Dritte."

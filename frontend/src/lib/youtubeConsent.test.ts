@@ -1,18 +1,23 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { _resetMigrationForTests } from "./browserStore";
 import { readYoutubeConsent, writeYoutubeConsent } from "./youtubeConsent";
 
-// A localStorage stub backed by a plain map, only get/set are used.
+// A localStorage stub backed by a plain map.
 function stubStorage() {
   const store = new Map<string, string>();
   vi.stubGlobal("window", {});
   vi.stubGlobal("localStorage", {
     getItem: (key: string) => store.get(key) ?? null,
     setItem: (key: string, value: string) => { store.set(key, value); },
+    removeItem: (key: string) => { store.delete(key); },
+    key: (i: number) => [...store.keys()][i] ?? null,
+    get length() { return store.size; },
   });
 }
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  _resetMigrationForTests();
 });
 
 describe("readYoutubeConsent", () => {

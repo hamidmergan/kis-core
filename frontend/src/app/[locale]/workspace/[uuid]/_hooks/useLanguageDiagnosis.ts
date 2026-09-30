@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { genericErrorMessage, parseDetail } from "@/lib/api";
+import { readUserData, updateUserData } from "@/lib/browserStore";
 import {
   toTranscript,
   DIAGNOSIS_ANSWER_MAX_CHARS,
@@ -13,41 +14,25 @@ import {
 
 type Status = "loading" | "answering" | "done" | "error";
 
-function storageKey(userId: number | null | undefined) {
-  return userId ? `kis-diagnosis-chat-${userId}` : null;
-}
-
+// The draft sits in the per-person bundle, a logout throws it away.
 function loadDraft(userId: number | null | undefined): ChatTurn[] | null {
-  const key = storageKey(userId);
-  if (!key || typeof window === "undefined") return null;
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length > 0 ? (parsed as ChatTurn[]) : null;
-  } catch {
-    return null;
-  }
+  if (!userId) return null;
+  const turns = readUserData().diagnosis?.[userId];
+  return Array.isArray(turns) && turns.length > 0 ? (turns as ChatTurn[]) : null;
 }
 
 function saveDraft(userId: number | null | undefined, turns: ChatTurn[]) {
-  const key = storageKey(userId);
-  if (!key || typeof window === "undefined") return;
-  try {
-    localStorage.setItem(key, JSON.stringify(turns));
-  } catch {
-    /* ignore quota errors */
-  }
+  if (!userId) return;
+  updateUserData((d) => ({ ...d, diagnosis: { ...d.diagnosis, [userId]: turns } }));
 }
 
 function clearDraft(userId: number | null | undefined) {
-  const key = storageKey(userId);
-  if (!key || typeof window === "undefined") return;
-  try {
-    localStorage.removeItem(key);
-  } catch {
-    /* ignore */
-  }
+  if (!userId) return;
+  updateUserData((d) => {
+    const diagnosis = { ...d.diagnosis };
+    delete diagnosis[userId];
+    return { ...d, diagnosis };
+  });
 }
 
 /** The history is the whole state and survives a reload. */

@@ -9,17 +9,18 @@ import { cached, load, publish, subscribe } from "./_glossaryStore";
 export const MAX_GLOSSARIES = 10;
 export const MAX_ENTRIES_PER_GLOSSARY = 500;
 
-// One-time migration of the former browser-only glossaries into the DB.
+// One-time migration of the former browser-only glossaries into the DB, the key goes afterwards.
 const LEGACY_KEY = "kis_thl_glossaries";
-const MIGRATED_FLAG = "kis_thl_glossaries_migrated";
 
 async function migrateLegacyGlossaries(serverGlossaries: Glossary[]): Promise<Glossary[]> {
   if (typeof window === "undefined") return serverGlossaries;
-  if (localStorage.getItem(MIGRATED_FLAG)) return serverGlossaries;
+  let raw: string | null = null;
+  try { raw = localStorage.getItem(LEGACY_KEY); } catch { /* blocked storage */ }
+  if (!raw) return serverGlossaries;
+  const dropLegacy = () => { try { localStorage.removeItem(LEGACY_KEY); } catch { /* ignore */ } };
 
-  const raw = localStorage.getItem(LEGACY_KEY);
   // Only migrate while the server is empty, otherwise the second device gets duplicates.
-  if (raw && serverGlossaries.length === 0) {
+  if (serverGlossaries.length === 0) {
     let legacy: Glossary[] = [];
     try {
       legacy = JSON.parse(raw);
@@ -36,11 +37,10 @@ async function migrateLegacyGlossaries(serverGlossaries: Glossary[]): Promise<Gl
         // skip a single bad glossary rather than abort the whole migration
       }
     }
-    localStorage.setItem(MIGRATED_FLAG, "1");
+    dropLegacy();
     return api.getJson<Glossary[]>("/api/glossaries");
   }
-
-  localStorage.setItem(MIGRATED_FLAG, "1");
+  dropLegacy();
   return serverGlossaries;
 }
 
