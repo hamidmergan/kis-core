@@ -11,11 +11,11 @@ type Props = {
   onChange: (id: number) => void;
   disabled?: boolean;
   className?: string;
-  /** Names the model behind each provider and shows even a single one, so the person sees which model writes. */
+  /** Shows the choice even with a single provider, so the person sees who writes. */
   showModel?: boolean;
 };
 
-/** Provider choice, with at most one provider it shows nothing unless the model is named. */
+/** Provider choice, with at most one provider it shows nothing unless showModel is set. */
 export default function ProviderSelect({
   id,
   label,
@@ -39,7 +39,7 @@ export default function ProviderSelect({
         disabled={disabled}
         options={providers.map((p) => ({
           value: String(p.id),
-          label: showModel && p.model ? `${p.name} (${p.model})` : p.name,
+          label: p.name,
         }))}
       />
     </div>
