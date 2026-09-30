@@ -3049,51 +3049,54 @@
       "item3": "Email address",
       "item4": "Language level (if determined via the AI chat test, deletable at any time)",
       "item5": "Invite code or link used to gain access",
-      "outro": "Sign-in currently runs against an account on this platform. The password is stored as a hash only and cannot be derived from it. A connection to the central sign-in of TH Lübeck is planned, after which this platform will hold no password.\nLegal basis: Art. 6 (1) (e) GDPR (performance of a task carried out in the public interest).\nRetention period: until the user account is deleted."
+      "outro": "Sign-in currently runs against an account on this platform. The password is stored as a hash only and cannot be derived from it. A connection to the central sign-in of TH Lübeck is planned, after which this platform will hold no password.\nLegal basis: Art. 6 (1) (e) GDPR (performance of a task carried out in the public interest).\nRetention period: until the user account is deleted. Time-limited access accounts are deleted automatically after they expire."
     },
     "cookies": {
       "heading": "3. Cookies and local storage",
       "intro": "This platform uses only technically necessary cookies and storage mechanisms:",
       "sessionLabel": "Session cookie",
       "sessionBody": "An HttpOnly cookie used for authentication (valid for 24 hours). Without this cookie, login is not possible.",
-      "storageLabel": "SessionStorage",
-      "storageBody": "Temporary storage of filter settings in the browser (automatically cleared when the tab is closed).",
+      "storageLabel": "Settings",
+      "storageBody": "Settings such as language, colour scheme or permission to load YouTube videos are stored in the browser.",
       "outro": "No tracking, analytics or marketing cookies are used. Cookie data is not shared with third parties."
     },
     "jobs": {
       "heading": "4. Processing of user uploads and job data",
-      "intro": "When you use the platform, uploaded files (e.g. videos, PDFs, presentations, audio files) and the results derived from them (e.g. transcripts, summaries) are stored in your workspace. For each processing job, the following metadata is also stored:",
+      "intro": "When you use the platform, your content is stored, meaning uploaded files (e.g. videos, PDFs, presentations, audio files), input such as chat messages or microphone recordings, and the results derived from them (e.g. transcripts, summaries). For each processing job, the following metadata is also stored:",
       "item1": "Service used (e.g. transcription, summary)",
       "item2": "Original file name",
       "item3": "Time of creation and completion",
       "item4": "Processing status",
-      "retention": "Uploaded files and the results derived from them remain stored in your workspace until you or a workspace administrator deletes them. Job metadata for individual processing jobs is retained <strong>only to a limited extent</strong>. The most recent jobs are kept and older ones are removed automatically. At the latest when the pilot project ends, all workspaces and the files in them are deleted. If you want that earlier, an email to the address above or a message through the feedback form is enough."
+      "retention": "Your content remains stored until you or a workspace administrator deletes it. Job metadata for individual processing jobs is retained <strong>only to a limited extent</strong>. The most recent jobs are kept and older ones are removed automatically. At the latest when the pilot project ends, all workspaces and the files in them are deleted. If you want that earlier, an email to the address above or a message through the feedback form is enough.",
+      "voluntary": "Voluntary information, for example in the feedback form or in surveys, is stored for that purpose only. Survey answers remain after an account is deleted, without any link to the person."
     },
     "adminAccess": {
       "heading": "5. Access by administrators",
-      "intro": "People with the relevant permission — in particular administrators, as well as anyone assigned the \"User statistics\" right — can view the following data for individual user accounts:",
+      "intro": "People with the relevant permission, such as administrators, can view the following data for individual user accounts:",
       "item1": "Chat messages sent, verbatim, with workspace and time",
       "item2": "Services used, with status and file name",
       "item3": "Exercises answered",
-      "item4": "Presence times on the platform (to the day)",
+      "item4": "Presence times on the platform",
       "item5": "Workspace memberships",
       "item6": "For support: temporarily signing in as the affected person (\"takeover\"), start and end are logged",
-      "outro": "This access serves the technical administration of the platform, troubleshooting, and quality assurance. It is limited to the people who have been granted this permission as part of their duties.\nLegal basis: Art. 6 (1) (e) GDPR (performance of a task carried out in the public interest).\nRetention period: matches the retention of the underlying data (chat history and workspace membership persist until the workspace or user account is deleted; job metadata as described in section 4; the takeover log is kept indefinitely)."
+      "outro": "This access serves the technical administration of the platform, troubleshooting, and quality assurance. It is limited to the people who have been granted this permission as part of their duties.\nLegal basis: Art. 6 (1) (e) GDPR (performance of a task carried out in the public interest).\nRetention period: as for the underlying data. The takeover log is kept without a time limit."
     },
     "thirdParty": {
       "heading": "6. Third parties and external services",
       "intro": "Which AI providers are used is configured through the platform's administration. The following external services are currently in use:",
       "kisskiLabel": "KISSKI / GWDG",
-      "kisskiBody": "Language models and transcription services. Texts and audio content are processed in this context. KISSKI is a service of Gesellschaft für wissenschaftliche Datenverarbeitung mbH Göttingen (GWDG) and is subject to German data protection law. Processing takes place under a data processing agreement pursuant to Art. 28 GDPR.",
+      "kisskiBody": "AI services, for example language models and transcription. KISSKI is a service of Gesellschaft für wissenschaftliche Datenverarbeitung mbH Göttingen (GWDG) and is subject to German data protection law. Processing takes place under a data processing agreement pursuant to Art. 28 GDPR.",
       "mylabLabel": "THL myLab",
-      "mylabBody": "Language models operated by Hochschule Lübeck itself. Processing takes place on the university's own servers; no data is transmitted to external providers.",
+      "mylabBody": "AI services operated by TH Lübeck itself. Processing takes place on the university's own servers, no data is transmitted to external providers.",
       "deeplLabel": "DeepL",
       "deeplBody": "Translation service for automatic translations. Processing takes place at DeepL SE and is subject to European data protection law.",
-      "hetznerLabel": "Hetzner Object Storage",
-      "hetznerBody": "Cloud storage for uploaded files. Storage takes place at Hetzner Online GmbH on servers in Germany.",
+      "hetznerLabel": "Hetzner",
+      "hetznerBody": "Operation of the platform and storage of files at Hetzner Online GmbH on servers in Germany.",
       "youtubeLabel": "YouTube (Google)",
       "youtubeBody": "Embedded videos in workspaces. The player loads only after a click on the video, no data flows before that. When loading and playing, Google LLC (USA) receives the IP address and device data. The embed uses YouTube's privacy-enhanced mode (youtube-nocookie.com). The transcript of a video is entered by the teacher and stored on the platform, it is not fetched from YouTube.",
-      "outro": "For the external services, only the content required for the respective function is transmitted, and no further storage takes place there. Uploaded files remain in object storage until they are deleted."
+      "ownLabel": "Own interfaces",
+      "ownBody": "Teachers can connect their own account with an external provider, for example for voices. The content needed for this is then sent to that provider, possibly outside the EU. Responsibility lies with the person who connected the account.",
+      "outro": "Only the content required for the respective function is transmitted to external services."
     },
     "logs": {
       "heading": "7. Server log files",
@@ -3102,7 +3105,7 @@
       "item2": "Date and time of access",
       "item3": "Requested URL and referrer URL",
       "item4": "Browser and operating system used",
-      "retention": "This data is automatically deleted after no more than <strong>7 days</strong>."
+      "retention": "This data is deleted automatically after <strong>a few weeks</strong>."
     },
     "ssl": {
       "heading": "8. SSL/TLS encryption",
@@ -3110,7 +3113,7 @@
     },
     "legalBasis": {
       "heading": "9. Legal basis",
-      "body": "Processing is based on <strong>Art. 6(1)(f) GDPR</strong> (legitimate interest) for server logs, and on <strong>Art. 6(1)(b) GDPR</strong> (performance of a contract) for user data and job processing within the scope of platform usage."
+      "body": "Processing is based on <strong>Art. 6(1)(f) GDPR</strong> (legitimate interest) for server logs, and on <strong>Art. 6(1)(e) GDPR</strong> (performance of a task carried out in the public interest) for user data and job processing within the scope of platform usage."
     },
     "rights": {
       "heading": "10. Your rights as a data subject",

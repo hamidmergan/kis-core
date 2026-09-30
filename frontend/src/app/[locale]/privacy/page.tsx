@@ -87,6 +87,9 @@ export default function DatenschutzPage() {
                 strong: (chunks) => <strong>{chunks}</strong>,
               })}
             </p>
+            <p className="text-foreground-soft mt-2">
+              {t("jobs.voluntary")}
+            </p>
           </section>
 
           <section className="mb-6">
@@ -131,6 +134,9 @@ export default function DatenschutzPage() {
               </li>
               <li>
                 <strong>{t("thirdParty.youtubeLabel")}</strong> - {t("thirdParty.youtubeBody")}
+              </li>
+              <li>
+                <strong>{t("thirdParty.ownLabel")}</strong> - {t("thirdParty.ownBody")}
               </li>
             </ul>
             <p className="text-foreground-soft">
