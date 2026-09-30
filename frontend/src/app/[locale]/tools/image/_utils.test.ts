@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FORMATE, GROESSEN, pixelLabel } from "./_utils";
+import { FORMATE, GROESSEN, pixelLabel, pixelText } from "./_utils";
 
 describe("pixelLabel", () => {
   it("zeigt dieselben Pixel wie das Backend", () => {
@@ -17,5 +17,11 @@ describe("pixelLabel", () => {
         expect(h % 16).toBe(0);
       }
     }
+  });
+});
+
+describe("pixelText", () => {
+  it("liest eine gespeicherte Größe so, wie die Auswahl sie zeigt", () => {
+    expect(pixelText("1344x768")).toBe(pixelLabel("16:9", "mittel"));
   });
 });

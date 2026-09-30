@@ -1,33 +1,107 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import ToolBackLink from "@/components/ui/ToolBackLink";
 import Tabs from "@/components/ui/Tabs";
 import GenerateTab from "./_tabs/GenerateTab";
 import EditTab from "./_tabs/EditTab";
-import AnalyzeTab from "./_tabs/AnalyzeTab";
-import Verlauf from "./_components/Verlauf";
-import type { BildErgebnis } from "./_components/useBildAuftraege";
-import type { Uebergabe } from "./_utils";
+import AnalyzeTab, { type FrageStart } from "./_tabs/AnalyzeTab";
+import Antworten from "./_components/Antworten";
+import BilderLeiste from "./_components/BilderLeiste";
+import Buehne from "./_components/Buehne";
+import LoeschenDialog from "./_components/LoeschenDialog";
+import PromptBox from "./_components/PromptBox";
+import { useBildAuftraege, type BildErgebnis } from "./_components/useBildAuftraege";
+import { useBilder } from "./_components/useBilder";
+import { useBildFragen } from "./_components/useBildFragen";
+import { validateImageFile } from "./_utils";
 
 type Tab = "generate" | "edit" | "analyze";
 
-
+/** One large picture on the right for all three tasks, the form of the open task on the left. */
 export default function ImagePage() {
   const t = useTranslations("tools.image");
   const tt = useTranslations("tools.image.tabs");
-  const [activeTab, setActiveTab] = useState<Tab>("generate");
-  const [uebergabe, setUebergabe] = useState<{ ziel: "edit" | "analyze"; bild: Uebergabe } | null>(null);
+  const tCommon = useTranslations("common");
+  const [tab, setTab] = useState<Tab>("generate");
+  // Nothing is chosen on arrival, the large picture starts as an empty placeholder.
+  const [gewaehlt, setGewaehlt] = useState("");
+  const [offen, setOffen] = useState(true);
+  const [uploadFehler, setUploadFehler] = useState("");
+  const [loeschen, setLoeschen] = useState<{ bild: BildErgebnis; laeuft: boolean; fehler: string } | null>(null);
+  const bilder = useBilder();
+  const erzeugen = useBildAuftraege(t("generate.spinner"), t("generate.longRunning"), tCommon("unknownError"));
+  const bearbeiten = useBildAuftraege(t("edit.spinner"), t("edit.longRunning"), tCommon("unknownError"));
+  const fragen = useBildFragen(t("analyze.spinner"), t("analyze.longRunning"), tCommon("unknownError"));
+  const buehne = useRef<HTMLDivElement>(null);
 
-  // A result or a history picture moves into the other task, all tabs stay mounted and keep their own state.
-  const uebergeben = useCallback((ziel: "edit" | "analyze", bild: BildErgebnis) => {
-    const datei = new File([bild.blob], bild.filename, { type: bild.blob.type || "image/png" });
-    setUebergabe({ ziel, bild: { id: Date.now(), datei } });
-    setActiveTab(ziel);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+  const bild = bilder.alle.find((b) => b.key === gewaehlt) ?? null;
+  const { vorlageLaden } = bilder;
+  useEffect(() => { if (bild) void vorlageLaden(bild); }, [bild, vorlageLaden]);
+
+  // On a phone the form sits above the result, so a finished task scrolls down to it.
+  const zumErgebnis = useCallback(() => {
+    if (window.innerWidth < 1024) setTimeout(() => buehne.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
   }, []);
+
+  const wechseln = (neu: Tab) => {
+    setTab(neu);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const { aufnehmen } = bilder;
+  const neuesBild = useCallback((neu: BildErgebnis, erstes: boolean) => {
+    aufnehmen(neu);
+    if (erstes) {
+      setGewaehlt(neu.key);
+      zumErgebnis();
+    }
+  }, [aufnehmen, zumErgebnis]);
+
+  const startErzeugen = (formular: FormData) => {
+    void erzeugen.starte("/image/generate", formular, neuesBild);
+  };
+
+  const startBearbeiten = (formular: FormData) => {
+    if (!bild) return;
+    const quelle = bild.blob;
+    void bearbeiten.starte("/image/edit", formular, (neu, erstes) =>
+      neuesBild({ ...neu, bearbeitet: true, vorlageUrl: URL.createObjectURL(quelle) }, erstes));
+  };
+
+  const startFragen = async (frage: FrageStart) => {
+    if (!bild) return;
+    if (await fragen.fragen(bild, frage, false)) zumErgebnis();
+  };
+
+  const hochladen = (datei: File) => {
+    const fehler = validateImageFile(datei, tCommon);
+    setUploadFehler(fehler ?? "");
+    if (!fehler) setGewaehlt(bilder.hochladen(datei));
+  };
+
+  const loeschenBestaetigt = async () => {
+    if (!loeschen) return;
+    setLoeschen({ ...loeschen, laeuft: true, fehler: "" });
+    try {
+      await bilder.loeschen(loeschen.bild);
+      setGewaehlt("");
+      setLoeschen(null);
+    } catch {
+      setLoeschen({ ...loeschen, laeuft: false, fehler: tCommon("unknownError") });
+    }
+  };
+
+  const band = { offen, onToggle: () => setOffen((o) => !o) };
+  const erzeugtGerade = erzeugen.laeuft || bearbeiten.laeuft;
+  const meldungen = [
+    erzeugen.fehler,
+    bearbeiten.fehler,
+    uploadFehler,
+    erzeugen.teilweise ? t("result.partial", erzeugen.teilweise) : "",
+  ].filter(Boolean);
 
   return (
     <ProtectedRoute>
@@ -38,8 +112,8 @@ export default function ImagePage() {
 
         <Tabs
           className="mb-6"
-          active={activeTab}
-          onChange={setActiveTab}
+          active={tab}
+          onChange={wechseln}
           items={[
             { key: "generate", label: tt("generate") },
             { key: "edit", label: tt("edit") },
@@ -47,17 +121,60 @@ export default function ImagePage() {
           ]}
         />
 
-        <div className={activeTab === "generate" ? "" : "hidden"}>
-          <GenerateTab onUebergabe={uebergeben} />
-        </div>
-        <div className={activeTab === "edit" ? "" : "hidden"}>
-          <EditTab uebergabe={uebergabe?.ziel === "edit" ? uebergabe.bild : null} onUebergabe={uebergeben} />
-        </div>
-        <div className={activeTab === "analyze" ? "" : "hidden"}>
-          <AnalyzeTab uebergabe={uebergabe?.ziel === "analyze" ? uebergabe.bild : null} />
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,400px)_1fr]">
+          <section className="min-w-0">
+            <div className={tab === "generate" ? "" : "hidden"}>
+              <GenerateTab {...band} laeuft={erzeugen.laeuft} onFehler={erzeugen.setFehler} onStart={startErzeugen} />
+            </div>
+            <div className={tab === "edit" ? "" : "hidden"}>
+              <EditTab {...band} bild={bild} laeuft={bearbeiten.laeuft} onStart={startBearbeiten} />
+            </div>
+            <div className={tab === "analyze" ? "" : "hidden"}>
+              <AnalyzeTab {...band} bild={bild} laeuft={fragen.laeuft} onStart={(f) => void startFragen(f)} />
+            </div>
+          </section>
+
+          {/* On a phone editing and describing start with the picture, the form follows below it. */}
+          <section className={`min-w-0 ${tab === "generate" ? "" : "order-first lg:order-none"}`}>
+            <Buehne
+              ref={buehne}
+              bild={bild}
+              laeuft={erzeugtGerade}
+              label={erzeugen.laeuft ? erzeugen.label : bearbeiten.label}
+              meldungen={meldungen}
+              platzhalter={t(`placeholder.${tab}`)}
+              onHochladen={tab === "generate" ? undefined : hochladen}
+              onBearbeiten={tab === "edit" ? undefined : () => wechseln("edit")}
+              onBeschreiben={tab === "analyze" ? undefined : () => wechseln("analyze")}
+              onLoeschen={() => bild && setLoeschen({ bild, laeuft: false, fehler: "" })}
+            >
+              {bild && (tab === "analyze" ? (
+                <Antworten
+                  antworten={fragen.antworten[bild.key] ?? []}
+                  laeuft={fragen.laeuft}
+                  label={fragen.label}
+                  fehler={fragen.fehler}
+                  dateiname={bild.filename}
+                  onNachfrage={(text) => fragen.nachfragen(bild, text)}
+                />
+              ) : (
+                <div className="mt-3"><PromptBox bild={bild} /></div>
+              ))}
+            </Buehne>
+            <BilderLeiste bilder={bilder.alle} gewaehlt={gewaehlt}
+              onWaehlen={(key) => setGewaehlt((g) => (g === key ? "" : key))} />
+          </section>
         </div>
 
-        <Verlauf onBearbeiten={(b) => uebergeben("edit", b)} onBeschreiben={(b) => uebergeben("analyze", b)} />
+        {loeschen && (
+          <LoeschenDialog
+            name={loeschen.bild.beschreibung ?? loeschen.bild.filename}
+            loescht={loeschen.laeuft}
+            fehler={loeschen.fehler}
+            onAbbrechen={() => setLoeschen(null)}
+            onLoeschen={() => void loeschenBestaetigt()}
+          />
+        )}
       </div>
     </ProtectedRoute>
   );

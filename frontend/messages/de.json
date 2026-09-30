@@ -726,40 +726,33 @@
     },
     "image": {
       "title": "Bildgenerierung",
-      "intro": "Bilder erzeugen, bearbeiten oder verstehen lassen. Jedes Ergebnis lässt sich direkt weiterbearbeiten oder beschreiben.",
+      "intro": "Bilder erzeugen, bearbeiten oder beschreiben lassen. Jedes Ergebnis lässt sich direkt weiterbearbeiten oder beschreiben.",
       "tabs": {
         "generate": "Bild erzeugen",
         "edit": "Bild bearbeiten",
-        "analyze": "Bild verstehen"
+        "analyze": "Bild beschreiben"
       },
       "uploadZone": {
-        "selectFile": "Datei auswählen",
-        "orDragHere": "oder hierher ziehen",
         "constraints": "PNG oder JPG, max. 20 MB"
       },
-      "previewAlt": "Vorschau",
       "providerLabel": "KI-Anbieter",
       "generate": {
         "promptPlaceholder": "Beschreibe das Bild, zum Beispiel: Studierende arbeiten im Team an einem Projekt.",
         "submit": "Bild erzeugen",
         "spinner": "Wird erzeugt…",
         "longRunning": "Läuft noch, große Bilder in hoher Qualität brauchen etwas länger…",
-        "resultAlt": "Erzeugtes Bild {n}",
-        "enhance": "Beschreibung ausformulieren",
+        "enhance": "Prompt ausformulieren",
         "enhancing": "Wird ausformuliert…",
-        "enhancedLabel": "So geht die Beschreibung ans Bildmodell",
-        "enhancedHint": "Du kannst den Text ändern. Leer lassen nimmt wieder deine Beschreibung.",
-        "submitMany": "{n} Bilder erzeugen"
+        "enhancedLabel": "So geht der Prompt ans Bildmodell",
+        "enhancedHint": "Du kannst den Text ändern. Leer lassen nimmt wieder deinen Prompt.",
+        "submitMany": "{n} Bilder erzeugen",
+        "promptLabel": "Prompt"
       },
       "edit": {
         "promptPlaceholder": "Beschreibe die Änderung, zum Beispiel: Mache die Kleidung blau.",
         "submit": "Bild bearbeiten",
         "spinner": "Wird bearbeitet…",
         "longRunning": "Läuft noch, das Bearbeiten kann etwas dauern…",
-        "resultAlt": "Bearbeitetes Bild {n}",
-        "source": "Vorlage",
-        "changeSource": "Andere Vorlage",
-        "quick": "Schnell",
         "quickActions": {
           "weiss": "Hintergrund weiß",
           "skizze": "Als Skizze",
@@ -774,25 +767,21 @@
           "kraeftig": "Mache die Farben kräftiger und den Kontrast etwas höher, der Inhalt bleibt gleich.",
           "thl": "Setze das Bild im Stil einer redaktionellen Illustration in Zinnoberrot, Schwarz und Weiß um."
         },
-        "submitMany": "{n} Varianten bearbeiten",
         "before": "Vorher",
         "after": "Nachher",
-        "compareLabel": "Vorher und Nachher vergleichen"
+        "compareLabel": "Vorher und Nachher vergleichen",
+        "promptLabel": "Was soll sich ändern?"
       },
       "analyze": {
-        "image": "Bild",
-        "submit": "Bild verstehen",
         "spinner": "Wird gelesen…",
         "longRunning": "Läuft noch, das Lesen kann etwas dauern…",
         "task": "Aufgabe",
         "tasks": {
           "beschreiben": "Beschreiben",
-          "alttext": "Alternativtext",
           "text": "Text auslesen",
-          "grafik": "Grafik erklären",
           "frage": "Eigene Frage"
         },
-        "language": "Antwortsprache",
+        "language": "Sprache",
         "languages": {
           "de": "Deutsch",
           "en": "Englisch"
@@ -801,7 +790,14 @@
         "followUp": "Weitere Frage zum Bild",
         "followUpSubmit": "Fragen",
         "copy": "Kopieren",
-        "copied": "Kopiert"
+        "copied": "Kopiert",
+        "summary": "Antwort auf {sprache}",
+        "empty": "Wähle eine Aufgabe, die Antwort erscheint hier.",
+        "submits": {
+          "beschreiben": "Bild beschreiben",
+          "text": "Text auslesen",
+          "frage": "Frage stellen"
+        }
       },
       "options": {
         "style": "Stil",
@@ -839,25 +835,45 @@
           "entwurf": "Entwurf",
           "standard": "Standard",
           "hoch": "Hoch"
-        }
+        },
+        "lettering": "Schrift",
+        "imageCount": "{n, plural, one {# Bild} other {# Bilder}}"
       },
       "result": {
         "partial": "Nur {gestartet} von {gewuenscht} Varianten gestartet, du hast schon andere Aufträge offen.",
-        "description": "Beschreibung",
         "modelPrompt": "An das Bildmodell",
-        "copyText": "Text kopieren",
         "copied": "Kopiert",
-        "title": "Ergebnis",
-        "empty": "Hier erscheinen deine Ergebnisse.",
         "toEdit": "Bearbeiten",
         "toAnalyze": "Beschreiben",
-        "download": "{format} herunterladen"
+        "download": "{format} herunterladen",
+        "prompt": "Prompt",
+        "promptEdit": "Prompt zum Bearbeiten",
+        "ownImage": "Eigenes Bild",
+        "copyPrompt": "Prompt kopieren",
+        "delete": "Löschen"
       },
       "history": {
-        "title": "Verlauf",
+        "title": "Deine Bilder",
         "empty": "Noch keine Bilder.",
-        "hint": "Ein Bild übernimmst du mit Bearbeiten oder Beschreiben in die andere Aufgabe.",
+        "hint": "Neue Bilder kommen vorne dazu. Ein Klick zeigt das Bild oben groß.",
         "open": "Bild {name} öffnen"
+      },
+      "settings": {
+        "title": "Einstellungen",
+        "show": "Einblenden",
+        "hide": "Ausblenden"
+      },
+      "placeholder": {
+        "generate": "Hier erscheint dein neues Bild. Oder wähle unten eins deiner Bilder aus.",
+        "edit": "Wähle unten ein Bild aus, das du bearbeiten möchtest.",
+        "analyze": "Wähle unten ein Bild aus, das du beschreiben lassen möchtest.",
+        "upload": "Oder <link>eigenes Bild hochladen</link>, auch per Ziehen."
+      },
+      "deleteDialog": {
+        "title": "Bild löschen",
+        "warning": "Das Bild und sein Job werden endgültig gelöscht.",
+        "cancel": "Abbrechen",
+        "confirm": "Löschen"
       }
     },
     "screencast": {

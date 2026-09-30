@@ -726,40 +726,33 @@
     },
     "image": {
       "title": "Image generation",
-      "intro": "Create, edit or understand images. Every result can be edited further or described right away.",
+      "intro": "Create, edit or describe images. Every result can be edited further or described right away.",
       "tabs": {
         "generate": "Create image",
         "edit": "Edit image",
-        "analyze": "Understand image"
+        "analyze": "Describe image"
       },
       "uploadZone": {
-        "selectFile": "Select file",
-        "orDragHere": "or drop here",
         "constraints": "PNG or JPG, max 20 MB"
       },
-      "previewAlt": "Preview",
       "providerLabel": "AI provider",
       "generate": {
         "promptPlaceholder": "Describe the image, for example: students working together on a project.",
         "submit": "Create image",
         "spinner": "Creating…",
         "longRunning": "Still running, large images in high quality take a little longer…",
-        "resultAlt": "Created image {n}",
-        "enhance": "Expand description",
+        "enhance": "Expand prompt",
         "enhancing": "Expanding…",
         "enhancedLabel": "This is what the image model receives",
-        "enhancedHint": "You can change the text. Leave it empty to use your description again.",
-        "submitMany": "Create {n} images"
+        "enhancedHint": "You can change the text. Leave it empty to use your prompt again.",
+        "submitMany": "Create {n} images",
+        "promptLabel": "Prompt"
       },
       "edit": {
         "promptPlaceholder": "Describe the change, for example: make the clothing blue.",
         "submit": "Edit image",
         "spinner": "Editing…",
         "longRunning": "Still running, editing can take a moment…",
-        "resultAlt": "Edited image {n}",
-        "source": "Source",
-        "changeSource": "Other source",
-        "quick": "Quick",
         "quickActions": {
           "weiss": "White background",
           "skizze": "As a sketch",
@@ -774,25 +767,21 @@
           "kraeftig": "Make the colors stronger and the contrast slightly higher, keep the content.",
           "thl": "Turn the image into an editorial illustration in vermilion red, black and white."
         },
-        "submitMany": "Edit {n} variants",
         "before": "Before",
         "after": "After",
-        "compareLabel": "Compare before and after"
+        "compareLabel": "Compare before and after",
+        "promptLabel": "What should change?"
       },
       "analyze": {
-        "image": "Image",
-        "submit": "Understand image",
         "spinner": "Reading…",
         "longRunning": "Still running, reading can take a moment…",
         "task": "Task",
         "tasks": {
           "beschreiben": "Describe",
-          "alttext": "Alt text",
           "text": "Read text",
-          "grafik": "Explain chart",
           "frage": "Own question"
         },
-        "language": "Answer language",
+        "language": "Language",
         "languages": {
           "de": "German",
           "en": "English"
@@ -801,7 +790,14 @@
         "followUp": "Another question about the image",
         "followUpSubmit": "Ask",
         "copy": "Copy",
-        "copied": "Copied"
+        "copied": "Copied",
+        "summary": "Answer in {sprache}",
+        "empty": "Pick a task, the answer appears here.",
+        "submits": {
+          "beschreiben": "Describe image",
+          "text": "Read out text",
+          "frage": "Ask question"
+        }
       },
       "options": {
         "style": "Style",
@@ -839,25 +835,45 @@
           "entwurf": "Draft",
           "standard": "Standard",
           "hoch": "High"
-        }
+        },
+        "lettering": "Lettering",
+        "imageCount": "{n, plural, one {# image} other {# images}}"
       },
       "result": {
         "partial": "Only {gestartet} of {gewuenscht} variants started, you already have other jobs open.",
-        "description": "Description",
         "modelPrompt": "Sent to the image model",
-        "copyText": "Copy text",
         "copied": "Copied",
-        "title": "Result",
-        "empty": "Your results appear here.",
         "toEdit": "Edit",
         "toAnalyze": "Describe",
-        "download": "Download {format}"
+        "download": "Download {format}",
+        "prompt": "Prompt",
+        "promptEdit": "Edit prompt",
+        "ownImage": "Own image",
+        "copyPrompt": "Copy prompt",
+        "delete": "Delete"
       },
       "history": {
-        "title": "History",
+        "title": "Your images",
         "empty": "No images yet.",
-        "hint": "Use Edit or Describe to take an image into the other task.",
+        "hint": "New images are added at the front. A click shows the image large above.",
         "open": "Open image {name}"
+      },
+      "settings": {
+        "title": "Settings",
+        "show": "Show",
+        "hide": "Hide"
+      },
+      "placeholder": {
+        "generate": "Your new image appears here. Or pick one of your images below.",
+        "edit": "Pick an image below that you want to edit.",
+        "analyze": "Pick an image below that you want described.",
+        "upload": "Or <link>upload your own image</link>, dragging works too."
+      },
+      "deleteDialog": {
+        "title": "Delete image",
+        "warning": "The image and its job are deleted for good.",
+        "cancel": "Cancel",
+        "confirm": "Delete"
       }
     },
     "screencast": {

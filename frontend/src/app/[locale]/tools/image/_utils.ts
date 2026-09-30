@@ -4,7 +4,7 @@ export const FORMATE = ["1:1", "16:9", "4:3", "3:4", "9:16"] as const;
 export const GROESSEN = ["klein", "mittel", "gross"] as const;
 export const QUALITAETEN = ["entwurf", "standard", "hoch"] as const;
 export const STILE = ["keiner", "foto", "illustration", "skizze", "aquarell", "3d", "flach", "thl"] as const;
-export const AUFGABEN = ["beschreiben", "alttext", "text", "grafik", "frage"] as const;
+export const AUFGABEN = ["beschreiben", "text", "frage"] as const;
 export const SCHNELLAKTIONEN = ["weiss", "skizze", "ohneText", "kraeftig", "thl"] as const;
 export const ALLOWED_EXTS = new Set([".png", ".jpg", ".jpeg"]);
 
@@ -22,7 +22,12 @@ const PIXEL: Record<Format, readonly [string, string, string]> = {
 
 /** The pixels of a format and size as the person reads them, "1344 × 768". */
 export function pixelLabel(format: Format, groesse: Groesse): string {
-  return PIXEL[format][GROESSEN.indexOf(groesse)].replace("x", " × ");
+  return pixelText(PIXEL[format][GROESSEN.indexOf(groesse)]);
+}
+
+/** A stored size like "1344x768" as the person reads it. */
+export function pixelText(groesse: string): string {
+  return groesse.replace("x", " × ");
 }
 
 type CommonT = (key: string, params?: Record<string, string | number | Date>) => string;
@@ -75,10 +80,4 @@ export async function kopieren(text: string): Promise<void> {
   feld.select();
   document.execCommand("copy");
   feld.remove();
-}
-
-/** An image handed from one task to another, a result or an entry of the history. */
-export interface Uebergabe {
-  id: number;
-  datei: File;
 }
