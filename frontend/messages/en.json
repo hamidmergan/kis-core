@@ -4485,10 +4485,10 @@
       "removeConfirm": "Really disconnect {vendor}? The key will be deleted.",
       "removeYes": "Yes, disconnect",
       "keyHint": {
-        "elevenlabs": "Create the key at ElevenLabs under Developers. It needs at least the permissions for Text to Speech and reading voices.",
+        "elevenlabs": "Create the key at ElevenLabs.",
         "gemini": "Create the key in Google AI Studio.",
-        "fish": "Create the key at Fish Audio under API Keys. The voice list shows your own voices and the most popular German and English ones from the library.",
-        "openai": "Create the key on the OpenAI platform. OpenAI charges for every use."
+        "fish": "Create the key at Fish Audio.",
+        "openai": "Create the key at OpenAI."
       }
     }
   }

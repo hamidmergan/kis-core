@@ -4485,10 +4485,10 @@
       "removeConfirm": "{vendor} wirklich trennen? Der Schlüssel wird gelöscht.",
       "removeYes": "Ja, trennen",
       "keyHint": {
-        "elevenlabs": "Den Schlüssel legst du bei ElevenLabs unter Developers an. Er braucht mindestens die Rechte für Text to Speech und das Lesen der Stimmen.",
+        "elevenlabs": "Den Schlüssel legst du bei ElevenLabs an.",
         "gemini": "Den Schlüssel legst du im Google AI Studio an.",
-        "fish": "Den Schlüssel legst du bei Fish Audio unter API Keys an. Die Stimmliste zeigt deine eigenen Stimmen und die beliebtesten deutschen und englischen aus der Bibliothek.",
-        "openai": "Den Schlüssel legst du auf der Plattform von OpenAI an. OpenAI berechnet jede Nutzung."
+        "fish": "Den Schlüssel legst du bei Fish Audio an.",
+        "openai": "Den Schlüssel legst du bei OpenAI an."
       }
     }
   }
