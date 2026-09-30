@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
-import { ArrowClockwise, ArrowSquareOut, Trash } from "@phosphor-icons/react";
+import { ArrowClockwise, Trash } from "@phosphor-icons/react";
 import { api, genericErrorMessage, parseDetail } from "@/lib/api";
-import { KEY_PAGES, type Credit, type OwnInterface } from "../_types";
+import type { Credit, OwnInterface } from "../_types";
 
 async function detailOf(res: Response): Promise<string> {
   try {
@@ -153,20 +153,7 @@ export function VendorCard({
               </button>
             )}
           </div>
-          <p className="text-xs text-muted-soft">
-            {t(`keyHint.${vendor}`)}{" "}
-            {KEY_PAGES[vendor] && (
-              <a
-                href={KEY_PAGES[vendor]}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-kb hover:underline"
-              >
-                {t("keyPage", { vendor: label })}
-                <ArrowSquareOut size={12} weight="bold" aria-hidden="true" />
-              </a>
-            )}
-          </p>
+          <p className="text-xs text-muted-soft">{t(`keyHint.${vendor}`)}</p>
         </div>
       )}
 

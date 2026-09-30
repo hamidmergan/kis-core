@@ -21,11 +21,3 @@ export interface Credit {
   unit: string;
   resets_at: string | null;
 }
-
-/** Where each service hands out its keys, opened in a new tab. */
-export const KEY_PAGES: Record<string, string> = {
-  elevenlabs: "https://elevenlabs.io/app/settings/api-keys",
-  gemini: "https://aistudio.google.com/app/apikey",
-  fish: "https://fish.audio/app/api-keys/",
-  openai: "https://platform.openai.com/api-keys",
-};

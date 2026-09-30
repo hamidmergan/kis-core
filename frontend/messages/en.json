@@ -4481,7 +4481,6 @@
       "remove": "Remove",
       "removeConfirm": "Really disconnect {vendor}? The key will be deleted.",
       "removeYes": "Yes, disconnect",
-      "keyPage": "Open the {vendor} key page",
       "keyHint": {
         "elevenlabs": "Create the key at ElevenLabs under Developers. It needs at least the permissions for Text to Speech and reading voices.",
         "gemini": "Create the key in Google AI Studio.",

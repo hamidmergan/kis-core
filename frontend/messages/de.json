@@ -4481,7 +4481,6 @@
       "remove": "Entfernen",
       "removeConfirm": "{vendor} wirklich trennen? Der Schlüssel wird gelöscht.",
       "removeYes": "Ja, trennen",
-      "keyPage": "Zur Schlüsselseite von {vendor}",
       "keyHint": {
         "elevenlabs": "Den Schlüssel legst du bei ElevenLabs unter Developers an. Er braucht mindestens die Rechte für Text to Speech und das Lesen der Stimmen.",
         "gemini": "Den Schlüssel legst du im Google AI Studio an.",
