@@ -115,6 +115,25 @@ def test_tabelle_schrift_schrumpft_bis_kein_wort_bricht(schmal):
     assert groesse < _feld(schmal).size_pt
 
 
+def test_kleine_tabelle_bekommt_luft(analyse):
+    body = Body(kind="table", header=["Teil", "Frist"], rows=[["Skizze", "28.05."], ["Hausarbeit", "03.07."]])
+    t = _tabelle(_folie(analyse, body)).table
+    zelle = t.cell(1, 0)
+    groesse = zelle.text_frame.paragraphs[0].runs[0].font.size.pt
+    assert zelle.margin_left == int(groesse * elemente._SEITE[1] * 12700)
+    assert zelle.margin_top == int(groesse * elemente._OBEN[1] * 12700)
+
+
+def test_volle_tabelle_bleibt_eng_und_im_feld(schmal):
+    body = Body(kind="table", header=[f"Spalte {w}" for w in WORT[:5]],
+                rows=[[f"{WORT[(r + c) % 8]} {r} und noch mehr Text" for c in range(5)] for r in range(6)])
+    rahmen = _tabelle(_folie(schmal, body))
+    zelle = rahmen.table.cell(1, 0)
+    groesse = zelle.text_frame.paragraphs[0].runs[0].font.size.pt
+    assert zelle.margin_top < int(groesse * elemente._OBEN[1] * 12700)
+    assert sum(r.height for r in rahmen.table.rows) <= _feld(schmal).height
+
+
 def test_tabelle_hat_hoechstens_acht_spalten(analyse):
     body = Body(kind="table", rows=[[str(i) for i in range(12)]])
     assert len(_tabelle(_folie(analyse, body)).table.columns) == 8

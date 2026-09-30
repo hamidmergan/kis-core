@@ -201,8 +201,9 @@ def _folie(prs, layout: Layout, s: Slide, bilder: dict[str, bytes], titel: str, 
                 benutzt.add(feld.idx)
 
     flies = [lage(f) for f in layout.der_art("fliesstext")]
-    if len(flies) == 1 and s.body is not None and s.body.kind == "bullets" and ueber and not layout.der_art("bild"):
-        flies = [_buendig(slide, flies[0], ueber[0])]
+    # A picture keeps its field, it was drawn for that field's shape.
+    if len(flies) == 1 and s.body is not None and s.body.kind != "image" and ueber and not layout.der_art("bild"):
+        flies = [_volle_breite(slide, flies[0], ueber[0])]
     if len(flies) == 1 and s.body is not None:
         if _body(slide, flies[0], s.body, bilder.get(bild_schluessel(s.id, "body")), f, typeface):
             benutzt.add(flies[0].idx)
@@ -270,11 +271,12 @@ def _platz_unter_kopf(prs, slide, layout: Layout, kopf: Feld, s: Slide, groesse:
     return neu
 
 
-def _buendig(slide, feld: Feld, kopf: Feld) -> Feld:
-    """Bullets start under the heading, a field the template indents for a figure is widened to the left."""
+def _volle_breite(slide, feld: Feld, kopf: Feld) -> Feld:
+    """A text field the template indents gets the heading's whole width, so nothing sits squeezed in the middle."""
     if feld.left - kopf.left <= _EINZUG:
         return feld
-    feld = replace(feld, left=kopf.left, width=feld.width + feld.left - kopf.left)
+    rechts = max(feld.left + feld.width, kopf.left + kopf.width)
+    feld = replace(feld, left=kopf.left, width=rechts - kopf.left)
     if (ph := _ph(slide, feld.idx)) is not None:
         _lege(ph, feld)
     return feld

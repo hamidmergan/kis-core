@@ -31,6 +31,9 @@ _DIAGRAMM_ANTEIL = 0.85
 _DIAGRAMM_PT = (10.0, 18.0)
 # Value labels crowd a chart beyond this many points, the axis then reads better.
 _MAX_BESCHRIFTETE_PUNKTE = 12
+# A cell's air in multiples of the text size: at least the snug one, the roomy one where the table has space.
+_SEITE = (0.5, 0.9)
+_OBEN = (0.3, 0.75)
 
 
 def zeilen_hart(text: str, font, breite_pt: float) -> int:
@@ -71,7 +74,7 @@ def tabelle(slide, feld: Feld, body: Body, f: Farben, typeface: str) -> None:
     spalten = min(MAX_TEXT_ITEMS, max([len(kopf)] + [len(r) for r in body.rows]))
     zellen = ([kopf + [""] * (spalten - len(kopf))] if kopf else []) + [
         (r + [""] * spalten)[:spalten] for r in body.rows]
-    groesse, breiten, hoehen = _tabellenmass(zellen, feld, typeface or "Calibri", bool(kopf))
+    groesse, breiten, hoehen, seite, oben = _tabellenmass(zellen, feld, typeface or "Calibri", bool(kopf))
     rahmen = slide.shapes.add_table(len(zellen), spalten, feld.left, feld.top, feld.width, sum(hoehen))
     t = rahmen.table
     t._tbl.tblPr.find(qn("a:tableStyleId")).text = _OHNE_STIL
@@ -94,8 +97,8 @@ def tabelle(slide, feld: Feld, body: Body, f: Farben, typeface: str) -> None:
             else:
                 zelle.fill.fore_color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
             zelle.vertical_anchor = MSO_ANCHOR.MIDDLE
-            zelle.margin_left = zelle.margin_right = Emu(int(groesse * 0.5 * EMU_PER_PT))
-            zelle.margin_top = zelle.margin_bottom = Emu(int(groesse * 0.3 * EMU_PER_PT))
+            zelle.margin_left = zelle.margin_right = Emu(int(groesse * seite * EMU_PER_PT))
+            zelle.margin_top = zelle.margin_bottom = Emu(int(groesse * oben * EMU_PER_PT))
             zelle.text = text
             for lauf in zelle.text_frame.paragraphs[0].runs:
                 setze_lauf(lauf, groesse, f.schrift_auf() if ist_kopf else RGBColor(0, 0, 0), ist_kopf, typeface)
@@ -120,30 +123,48 @@ def _spaltenbreiten(zellen: list[list[str]], gesamt_pt: float, font, rand_pt: fl
 
 
 def _tabellenmass(zellen: list[list[str]], feld: Feld, typeface: str,
-                  kopf: bool) -> tuple[float, list[int], list[int]]:
-    """The largest size at which every row fits the field and no word breaks, with column widths and row heights."""
+                  kopf: bool) -> tuple[float, list[int], list[int], float, float]:
+    """The largest size at which every row fits the field and no word breaks, with widths, heights and cell air.
+
+    The roomy side air is taken when it breaks no extra line, the air above and below grows with the
+    room the rows leave free.
+    """
     breite_pt, hoehe_pt = feld.width / EMU_PER_PT, feld.height / EMU_PER_PT
     groesse = max(MIN_PT, float(min(MAX_PT, round(feld.size_pt or 16))))
     while True:
         # Measured in bold, so the header row fits as well as the body.
         font = schrift(typeface, groesse, fett=kopf)
-        breiten = _spaltenbreiten(zellen, breite_pt, font, groesse)
-        if breiten is None and groesse > MIN_PT:
+        eng = _spaltenbreiten(zellen, breite_pt, font, 2 * _SEITE[0] * groesse)
+        if eng is None and groesse > MIN_PT:
             groesse -= 1
             continue
-        breiten = breiten or [breite_pt / len(zellen[0])] * len(zellen[0])
-        hoehen = []
-        for r, zeile in enumerate(zellen):
-            font = schrift(typeface, groesse, fett=kopf and r == 0)
-            n = max(zeilen_hart(t, font, (b - groesse) * _SPIEL) for t, b in zip(zeile, breiten))
-            hoehen.append(n * groesse * ZEILE + groesse * 0.6)
-        if sum(hoehen) <= hoehe_pt or groesse <= MIN_PT:
-            if sum(hoehen) > hoehe_pt:
+        eng = eng or [breite_pt / len(zellen[0])] * len(zellen[0])
+        zeilen = _zeilenzahlen(zellen, eng, groesse, _SEITE[0], typeface, kopf)
+        breiten, seite = eng, _SEITE[0]
+        weit = _spaltenbreiten(zellen, breite_pt, font, 2 * _SEITE[1] * groesse)
+        if weit is not None and _zeilenzahlen(zellen, weit, groesse, _SEITE[1], typeface, kopf) == zeilen:
+            breiten, seite = weit, _SEITE[1]
+        text = sum(zeilen) * groesse * ZEILE
+        if text + 2 * _OBEN[0] * groesse * len(zellen) <= hoehe_pt or groesse <= MIN_PT:
+            frei = (hoehe_pt - text) / (2 * groesse * len(zellen))
+            oben = max(_OBEN[0], min(_OBEN[1], frei))
+            if frei < _OBEN[0]:
                 logger.info("Tabelle ragt auch bei {} pt über ihr Feld", MIN_PT)
             emu = [int(b * EMU_PER_PT) for b in breiten]
             emu[-1] += feld.width - sum(emu)
-            return groesse, emu, [int(h * EMU_PER_PT) for h in hoehen]
+            hoehen = [int((n * ZEILE + 2 * oben) * groesse * EMU_PER_PT) for n in zeilen]
+            return groesse, emu, hoehen, seite, oben
         groesse -= 1
+
+
+def _zeilenzahlen(zellen: list[list[str]], breiten: list[float], groesse: float, seite: float, typeface: str,
+                  kopf: bool) -> list[int]:
+    """Lines per row, the header measured in bold."""
+    aus = []
+    for r, zeile in enumerate(zellen):
+        font = schrift(typeface, groesse, fett=kopf and r == 0)
+        aus.append(max(zeilen_hart(t, font, (b - 2 * seite * groesse) * _SPIEL) for t, b in zip(zeile, breiten)))
+    return aus
 
 
 def diagramm(slide, feld: Feld, body: Body, f: Farben, typeface: str) -> None:

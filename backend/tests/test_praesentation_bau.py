@@ -1,5 +1,6 @@
 """The build fills only placeholders, places shapes where they belong and removes empty ones."""
 
+from dataclasses import replace
 from io import BytesIO
 from pathlib import Path
 
@@ -80,22 +81,32 @@ def test_diagramm_und_bild_im_inhaltsfeld(analyse):
     assert any(sh.shape_type == MSO_SHAPE_TYPE.PICTURE for sh in prs.slides[1].shapes)
 
 
-def test_stichpunkte_beginnen_unter_dem_titel_auch_im_eingerueckten_layout(analyse):
+def test_stichpunkte_nehmen_im_eingerueckten_layout_die_breite_des_titels(analyse):
     schmal = next(l for l in analyse.layouts if l.name == "Text schmal")
     feld = schmal.der_art("fliesstext")[0]
     kopf = schmal.der_art("ueberschrift")[0]
     s = Slide(id="s2", role="text", layout=schmal.index, title="T", body=Body(items=["a", "b"]))
     ph = _deck(analyse, [s]).slides[0].placeholders[feld.idx]
-    assert ph.left == kopf.left
-    assert ph.left + ph.width == feld.left + feld.width
+    assert (ph.left, ph.width) == (kopf.left, kopf.width)
 
 
-def test_diagramm_bleibt_im_eingerueckten_layout_mittig(analyse):
+def test_diagramm_nimmt_im_eingerueckten_layout_die_breite_des_titels(analyse):
     schmal = next(l for l in analyse.layouts if l.name == "Text schmal")
-    feld = bau.textflaeche(schmal.der_art("fliesstext")[0])
+    kopf = schmal.der_art("ueberschrift")[0]
+    breit = bau.textflaeche(replace(schmal.der_art("fliesstext")[0], left=kopf.left, width=kopf.width))
     chart = Body(kind="chart", categories=["a", "b"], series=[Series(name="s", values=[1, 2])])
     folie = _deck(analyse, [Slide(id="s2", role="text", layout=schmal.index, title="T", body=chart)]).slides[0]
-    assert next(sh for sh in folie.shapes if sh.has_chart).left == feld.left
+    diagramm = next(sh for sh in folie.shapes if sh.has_chart)
+    assert (diagramm.left, diagramm.width) == (breit.left, breit.width)
+
+
+def test_bild_behaelt_im_eingerueckten_layout_sein_feld(analyse):
+    schmal = next(l for l in analyse.layouts if l.name == "Text schmal")
+    feld = schmal.der_art("fliesstext")[0]
+    s = Slide(id="s2", role="text", layout=schmal.index, title="T", body=Body(kind="image", prompt="x"))
+    bild = next(sh for sh in _deck(analyse, [s], {"s2_body": _png()}).slides[0].shapes
+                if sh.shape_type == MSO_SHAPE_TYPE.PICTURE)
+    assert (bild.left, bild.width) == (feld.left, feld.width)
 
 
 def test_zwei_spalten(analyse):
