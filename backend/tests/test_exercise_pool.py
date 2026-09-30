@@ -7,6 +7,12 @@ import pytest
 from src.features.ai_assistant.tasks.language_training import _pool
 
 
+@pytest.fixture(autouse=True)
+def _no_real_run_count(monkeypatch):
+    """Store tests that do not look at the count must not reach the real database."""
+    monkeypatch.setattr("src.database.count_pool_run", lambda *a, **k: None, raising=False)
+
+
 # --- who takes part at all ----------------------------------------------------
 
 @pytest.mark.parametrize("tool", ["flashcards", "karteikarten", "quiz"])
@@ -49,8 +55,8 @@ def test_an_unreadable_level_falls_back_to_the_level_free_pool(monkeypatch):
 
 # --- ziehen --------------------------------------------------------------------
 
-def _stub_pool(monkeypatch, bestand: dict):
-    """The stub stays stateless, like the real query."""
+def _stub_pool(monkeypatch, bestand: dict, warm=None, aufgewaermt_gefragt=None):
+    """The stub stays stateless, like the real query, and every pool is warm unless named."""
     gefragt = []
 
     def take(source_id, tool, level, user_id, limit, topic_id=None, exclude_ids=None,
@@ -60,7 +66,13 @@ def _stub_pool(monkeypatch, bestand: dict):
         vorrat = [f for f in bestand.get(source_id, []) if f"{source_id}-{f}" not in raus]
         return [{"id": f"{source_id}-{f}", "front": f, "back": ""} for f in vorrat[:limit]]
 
+    def warm_sources(source_ids, tool, level, topic_id=None):
+        if aufgewaermt_gefragt is not None:
+            aufgewaermt_gefragt.append((list(source_ids), tool, level, topic_id))
+        return set(source_ids) if warm is None else set(warm) & set(source_ids)
+
     monkeypatch.setattr("src.database.take_from_pool", take)
+    monkeypatch.setattr("src.database.warm_pool_sources", warm_sources, raising=False)
     monkeypatch.setattr("src.database.get_aia_source",
                         lambda u: {"id": int(u.removeprefix("u"))})
     return gefragt
@@ -168,13 +180,42 @@ def test_an_earlier_draws_ids_are_excluded_from_the_start(monkeypatch):
     assert set(fronts) == {"b", "c"}
 
 
+# --- Aufwaermen: erst nach 20 Erzeugungen gibt der Vorrat aus -------------------
+
+def test_a_pool_still_warming_up_hands_out_nothing(monkeypatch):
+    """Otherwise the whole room gets the first person's set."""
+    _stub_pool(monkeypatch, {1: list("abcdefghij")}, warm=set())
+    assert _pool.take(["u1"], "flashcards", "B1", 2, 5) == []
+
+
+def test_only_warmed_up_sources_hand_out(monkeypatch):
+    _stub_pool(monkeypatch, {1: list("abc"), 2: list("xyz")}, warm={2})
+    fronts = [i["front"] for i in _pool.take(["u1", "u2"], "quiz", None, 1, 3)]
+    assert set(fronts) == {"x", "y", "z"}
+
+
+def test_the_warmup_is_asked_per_level_and_topic(monkeypatch):
+    """A B1 person must not open the pool with runs made for A2."""
+    aufgewaermt_gefragt = []
+    _stub_pool(monkeypatch, {1: list("abc")}, aufgewaermt_gefragt=aufgewaermt_gefragt)
+    _pool.take(["u1"], "grammatik", "B1", 1, 2, topic_id=42)
+    assert aufgewaermt_gefragt == [([1], "grammatik", "B1", 42)]
+
+
+def test_the_repeat_fallback_draws_while_the_pool_warms_up(monkeypatch):
+    """When model and material are used up, a repeat still beats a short set."""
+    _stub_pool(monkeypatch, {1: list("abc")}, warm=set())
+    out = _pool.take(["u1"], "quiz", None, 1, 2, ignore_seen=True)
+    assert len(out) == 2
+
+
 # --- einlagern -----------------------------------------------------------------
 
 def _ctx(**quellen):
     return types.SimpleNamespace(source_by_name=quellen)
 
 
-def _stub_store(monkeypatch, platz=100):
+def _stub_store(monkeypatch, platz=100, gezaehlt=None):
     gespeichert = []
 
     def add(source_id, tool, level, items, fingerprints, topic_id=None, set_title=None):
@@ -182,7 +223,12 @@ def _stub_store(monkeypatch, platz=100):
                             set_title))
         return [f"neu-{f}" for f in fingerprints]
 
+    def count_run(source_id, tool, level, topic_id=None):
+        if gezaehlt is not None:
+            gezaehlt.append((source_id, tool, level, topic_id))
+
     monkeypatch.setattr("src.database.add_pool_items", add)
+    monkeypatch.setattr("src.database.count_pool_run", count_run, raising=False)
     monkeypatch.setattr("src.database.pool_size", lambda *a: 0)
     monkeypatch.setattr("src.database.POOL_MAX_ITEMS", platz, raising=False)
     return gespeichert
@@ -243,6 +289,35 @@ def test_storing_nothing_is_harmless(monkeypatch):
     gespeichert = _stub_store(monkeypatch)
     _pool.store([], _ctx(), "quiz", None)
     assert gespeichert == []
+
+
+def test_a_fresh_generation_counts_once_per_source(monkeypatch):
+    gezaehlt = []
+    _stub_store(monkeypatch, gezaehlt=gezaehlt)
+    items = [{"front": "a", "source_label": "A.pdf"},
+             {"front": "b", "source_label": "A.pdf"},
+             {"front": "c", "source_label": "B.pdf"}]
+    _pool.store(items, _ctx(**{"A.pdf": {"id": 1}, "B.pdf": {"id": 2}}), "grammatik", "B1",
+                topic_id=42)
+    assert sorted(gezaehlt) == [(1, "grammatik", "B1", 42), (2, "grammatik", "B1", 42)]
+
+
+def test_a_set_drawn_from_the_pool_is_no_generation(monkeypatch):
+    gezaehlt = []
+    _stub_store(monkeypatch, gezaehlt=gezaehlt)
+    items = [{"front": "a", "source_label": "A.pdf", "pool_item_id": 5}]
+    _pool.store(items, _ctx(**{"A.pdf": {"id": 1}}), "quiz", None)
+    assert gezaehlt == []
+
+
+def test_a_generation_counts_even_when_the_pool_is_full(monkeypatch):
+    """A full pool is warm anyway, the count must not stall below the mark."""
+    gezaehlt = []
+    _stub_store(monkeypatch, gezaehlt=gezaehlt)
+    monkeypatch.setattr("src.database.pool_size", lambda *a: 1000)
+    items = [{"front": "a", "source_label": "A.pdf"}]
+    _pool.store(items, _ctx(**{"A.pdf": {"id": 1}}), "quiz", None)
+    assert gezaehlt == [(1, "quiz", None, None)]
 
 
 # --- grammar splits by topic as well ------------------------------------------

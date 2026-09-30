@@ -273,3 +273,59 @@ def test_the_exclusion_and_the_format_choice_keep_their_order(fake_db):
 
     params = calls[0][2]
     assert list(params).index([11]) < list(params).index(["cloze"])
+
+
+# --- Aufwaermen: Erzeugungen je Vorrat zaehlen -----------------------------------
+
+def test_counting_a_generation_adds_one_and_commits(fake_db):
+    calls = fake_db()
+    repo.count_pool_run(9, "quiz", "B1")
+    sql, params = next((c[1], c[2]) for c in calls if c[0] == "execute")
+    assert "INSERT INTO aia_exercise_pool_runs" in sql
+    assert "runs = aia_exercise_pool_runs.runs + 1" in sql
+    assert params == (9, "quiz", "B1", None)
+    assert ("commit", None, None) in calls, "ohne commit oeffnet der Vorrat nie"
+
+
+def test_the_count_matches_the_pool_key_with_coalesce(fake_db):
+    """Two NULLs do not count as equal in Postgres, the level-free pool would never add up."""
+    calls = fake_db()
+    repo.count_pool_run(9, "quiz", None)
+    sql = next(c[1] for c in calls if c[0] == "execute")
+    assert "COALESCE(level, '')" in sql
+    assert "COALESCE(topic_id, 0)" in sql
+
+
+def test_a_source_is_warm_from_twenty_generations(fake_db):
+    calls = fake_db(rows=[(9,)])
+    assert repo.warm_pool_sources([9, 10], "quiz", "B1") == {9}
+    sql, params = next((c[1], c[2]) for c in calls if c[0] == "execute")
+    assert "runs >= %s" in sql
+    assert repo.POOL_WARMUP_RUNS == 20
+    assert repo.POOL_WARMUP_RUNS in params
+
+
+def test_the_warmup_is_read_per_level_and_topic(fake_db):
+    calls = fake_db(rows=[])
+    repo.warm_pool_sources([9], "grammatik", "B1", 42)
+    sql, params = next((c[1], c[2]) for c in calls if c[0] == "execute")
+    assert "COALESCE(level, '') = COALESCE(%s, '')" in sql
+    assert "COALESCE(topic_id, 0) = COALESCE(%s, 0)" in sql
+    assert "B1" in params and 42 in params
+
+
+def test_asking_for_no_sources_touches_no_connection(monkeypatch):
+    def boom():
+        raise AssertionError("es wurde keine Quelle genannt")
+
+    monkeypatch.setattr(repo, "get_connection", boom)
+    assert repo.warm_pool_sources([], "quiz", None) == set()
+
+
+def test_clearing_a_source_starts_its_count_over(fake_db):
+    """A changed source is new material, the first sets must be fresh again."""
+    calls = fake_db()
+    repo.clear_pool_for_source(9)
+    anweisungen = [(c[1], c[2]) for c in calls if c[0] == "execute"]
+    assert any("DELETE FROM aia_exercise_pool_runs" in sql and params == (9,)
+               for sql, params in anweisungen)

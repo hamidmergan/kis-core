@@ -84,6 +84,10 @@ def _take(uuids: list[str], tool: str, level, user_id: int, count: int,
           topic_id=None, kinds=None, exclude_ids=None, ignore_seen: bool = False) -> list[dict]:
     quellen = [db.get_aia_source(u) for u in uuids]
     source_ids = [q["id"] for q in quellen if q and q.get("id")]
+    if not ignore_seen:
+        # A pool still warming up hands out nothing, the repeat fallback may still draw.
+        warm = db.warm_pool_sources(source_ids, tool, level, topic_id)
+        source_ids = [s for s in source_ids if s in warm]
     if not source_ids:
         return []
     offen = count
@@ -141,6 +145,8 @@ def store(items: list[dict], ctx, tool: str, level, topic_id=None,
 
     for source_id, gruppe in nach_quelle.items():
         try:
+            # Counted before the size check, a full pool must still reach the warm-up mark.
+            db.count_pool_run(source_id, tool, level, topic_id)
             platz = db.POOL_MAX_ITEMS - db.pool_size(source_id, tool, level, topic_id)
             if platz <= 0:
                 continue

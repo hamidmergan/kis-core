@@ -9,6 +9,9 @@ from src.core.db.pool import get_connection
 # Ceiling per pool, it is never refilled with repeats.
 POOL_MAX_ITEMS = 1000
 
+# Fresh generations a pool needs before it hands out, so a room does not share the first set.
+POOL_WARMUP_RUNS = 20
+
 # Tools with a pool, only these values appear in tool.
 POOL_TOOLS = frozenset({"flashcards", "karteikarten", "quiz", "grammatik", "wortschatz"})
 
@@ -88,6 +91,37 @@ def pool_size(source_id: int, tool: str, level, topic_id=None) -> int:
                 (source_id, tool, level, topic_id),
             )
             return cur.fetchone()[0]
+
+
+def count_pool_run(source_id: int, tool: str, level, topic_id=None) -> None:
+    """Counts one fresh generation into this pool."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """INSERT INTO aia_exercise_pool_runs (source_id, tool, level, topic_id, runs)
+                   VALUES (%s, %s, %s, %s, 1)
+                   ON CONFLICT (source_id, tool, COALESCE(level, ''), COALESCE(topic_id, 0))
+                   DO UPDATE SET runs = aia_exercise_pool_runs.runs + 1""",
+                (source_id, tool, level, topic_id),
+            )
+        conn.commit()
+
+
+def warm_pool_sources(source_ids, tool: str, level, topic_id=None) -> set[int]:
+    """The sources whose pool has seen enough fresh generations to hand out."""
+    if not source_ids:
+        return set()
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """SELECT source_id FROM aia_exercise_pool_runs
+                   WHERE source_id = ANY(%s) AND tool = %s
+                     AND COALESCE(level, '') = COALESCE(%s, '')
+                     AND COALESCE(topic_id, 0) = COALESCE(%s, 0)
+                     AND runs >= %s""",
+                (list(source_ids), tool, level, topic_id, POOL_WARMUP_RUNS),
+            )
+            return {row[0] for row in cur.fetchall()}
 
 
 def take_from_pool(
@@ -193,6 +227,8 @@ def clear_pool_for_tools(tools) -> int:
         with conn.cursor() as cur:
             cur.execute("DELETE FROM aia_exercise_pool WHERE tool = ANY(%s)", (tools,))
             geloescht = cur.rowcount
+            # An emptied pool warms up again, an old count would open it at once.
+            cur.execute("DELETE FROM aia_exercise_pool_runs WHERE tool = ANY(%s)", (tools,))
         conn.commit()
     return geloescht
 
@@ -206,6 +242,9 @@ def clear_pool_for_source(source_id: int) -> int:
                 "DELETE FROM aia_exercise_pool WHERE source_id = %s", (source_id,)
             )
             geloescht = cur.rowcount
+            cur.execute(
+                "DELETE FROM aia_exercise_pool_runs WHERE source_id = %s", (source_id,)
+            )
         conn.commit()
     return geloescht
 
@@ -213,12 +252,15 @@ def clear_pool_for_source(source_id: int) -> int:
 __all__ = [
     "POOL_MAX_ITEMS",
     "POOL_TOOLS",
+    "POOL_WARMUP_RUNS",
     "add_pool_items",
     "clear_pool_for_source",
     "clear_pool_for_tools",
+    "count_pool_run",
     "pool_counts_by_tool",
     "materialize_pool_items",
     "pool_size",
     "seen_fingerprints",
     "take_from_pool",
+    "warm_pool_sources",
 ]

@@ -1324,6 +1324,22 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                 "CREATE INDEX IF NOT EXISTS idx_exercise_pool_find "
                 "ON aia_exercise_pool (source_id, tool, level, topic_id)"
             )
+            # Fresh generations per pool, it only hands out once enough sets were made.
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS aia_exercise_pool_runs (
+                    source_id INTEGER NOT NULL
+                                REFERENCES aia_sources(id) ON DELETE CASCADE,
+                    tool      TEXT NOT NULL,
+                    level     TEXT,
+                    topic_id  INTEGER REFERENCES aia_grammar_topics(id) ON DELETE CASCADE,
+                    runs      INTEGER NOT NULL DEFAULT 0
+                )
+            """)
+            cur.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_exercise_pool_runs "
+                "ON aia_exercise_pool_runs "
+                "(source_id, tool, COALESCE(level, ''), COALESCE(topic_id, 0))"
+            )
             # A set points at its pooled exercises instead of copying them.
             cur.execute(
                 "ALTER TABLE aia_exercise_items "

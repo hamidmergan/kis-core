@@ -211,3 +211,15 @@ def test_the_route_refuses_an_unknown_tool(client):
         r = client.post("/admin/pools/clear", json={"tools": ["gibtsnicht"], "schedule": False})
     assert r.status_code == 400
     clear_pool.assert_not_called()
+
+
+def test_clearing_a_tool_starts_its_count_over(fake_pool_db):
+    """An emptied pool with an old count would open at once and hand out the first set."""
+    calls = fake_pool_db()
+    pool_repo.clear_pool_for_tools(["quiz"])
+    loeschung = next(
+        (c[1], c[2]) for c in calls
+        if c[0] == "execute" and "DELETE FROM aia_exercise_pool_runs" in c[1]
+    )
+    assert "tool = ANY" in loeschung[0]
+    assert ["quiz"] in loeschung[1]
