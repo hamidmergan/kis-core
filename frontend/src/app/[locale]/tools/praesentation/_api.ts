@@ -10,6 +10,7 @@ export interface PraesentationView {
   outline: Outline | null;
   slides: Slide[];
   previews: string[];
+  images: Record<string, string[]>;
   missing_images: string[];
   has_deck: boolean;
 }
@@ -45,6 +46,8 @@ export async function startPraesentation(state: PraesentationState, llmProviderI
   form.append("params", JSON.stringify({
     language: state.language, instructions: state.instructions, presenter: state.presenter,
     notes: state.notes, template_id: state.templateId, llm_provider_id: llmProviderId,
+    // Left out while untouched, the server then takes the style of the template.
+    ...(state.imageStyle !== null ? { style_text: state.imageStyle } : {}),
   }));
   form.append("mode", state.source.mode);
   if (state.source.mode === "module") {
@@ -64,6 +67,9 @@ export const fetchJob = (uuid: string) =>
   fetch(`/api/jobs/${uuid}`, { credentials: "include" }).then((r) => json<JobView>(r));
 
 export const cancelJob = (uuid: string) => post(`/api/jobs/${uuid}/cancel`).then(() => undefined).catch(() => undefined);
+
+export const deleteJob = (uuid: string) =>
+  fetch(`/api/jobs/${uuid}`, { method: "DELETE", credentials: "include" }).then(() => undefined).catch(() => undefined);
 
 export const saveOutline = (uuid: string, outline: Outline) =>
   put(`/api/praesentation/${uuid}/outline`, outline).then((r) => json<Outline>(r));
@@ -98,6 +104,8 @@ export const saveOrder = (uuid: string, ids: string[]) =>
 export const finalize = (uuid: string) => post(`/api/praesentation/${uuid}/finalize`).then((r) => json<unknown>(r));
 
 export const previewUrl = (uuid: string, id: string, version: number) => `/api/praesentation/${uuid}/preview/${id}.png?v=${version}`;
+export const imageUrl = (uuid: string, id: string, slot: string, version: number) =>
+  `/api/praesentation/${uuid}/image/${id}/${slot}?v=${version}`;
 export const downloadUrl = (uuid: string) => `/api/praesentation/${uuid}/download`;
 
 export const listVorlagen = () =>

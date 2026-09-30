@@ -19,13 +19,15 @@ import { FIELD } from "../_components/VorlageHochladen";
 import VorlagenWahl from "../_components/VorlagenWahl";
 import StepFooter from "../_components/StepFooter";
 import { hasContent } from "../_logic";
-import type { Language, Source, SourceMode } from "../_types";
+import type { Language, Source, SourceMode, Vorlage } from "../_types";
 
 const ACCEPT = ".pdf,.docx,.pptx,.txt,.md";
 /** Mirrors the presentation source limit in the backend. */
 const MAX_QUELLEN = 10;
 /** Mirrors MAX_PRESENTER_CHARS in the backend. */
 const MAX_PRESENTER = 80;
+/** Mirrors MAX_STYLE_CHARS in the backend, the same cap as a template's own style. */
+const MAX_STIL = 1000;
 
 interface ContentStepProps {
   canUseModules: boolean;
@@ -33,6 +35,8 @@ interface ContentStepProps {
   language: Language;
   notes: boolean;
   instructions: string;
+  /** The picture style of this run, null follows the chosen template. */
+  imageStyle: string | null;
   presenter: string;
   templateId: string;
   hasActiveJob: boolean | null;
@@ -45,14 +49,15 @@ interface ContentStepProps {
   onLanguage: (language: Language) => void;
   onNotes: (notes: boolean) => void;
   onInstructions: (text: string) => void;
+  onImageStyle: (text: string | null) => void;
   onPresenter: (name: string) => void;
   onTemplate: (id: string) => void;
   onNext: () => void;
 }
 
-export default function ContentStep({ canUseModules, source, language, notes, instructions, presenter, templateId, hasActiveJob,
-                                       error, llmProviders, llmProviderId, onLlmProvider, onSource, onLanguage, onNotes, onInstructions, onPresenter, onTemplate,
-                                       onNext }: ContentStepProps) {
+export default function ContentStep({ canUseModules, source, language, notes, instructions, imageStyle, presenter, templateId, hasActiveJob,
+                                       error, llmProviders, llmProviderId, onLlmProvider, onSource, onLanguage, onNotes, onInstructions, onImageStyle,
+                                       onPresenter, onTemplate, onNext }: ContentStepProps) {
   const t = useTranslations("tools.praesentation.content");
   const tCommon = useTranslations("common");
   const format = useFormatter();
@@ -64,6 +69,7 @@ export default function ContentStep({ canUseModules, source, language, notes, in
       : `${format.number(bytes / EIN_MB, { maximumFractionDigits: 1 })} MB`;
   const fileRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [vorlage, setVorlage] = useState<Vorlage | undefined>();
   // Whoever loses the assistant must not stay stuck in a tab that is gone.
   const mode: SourceMode = canUseModules || source.mode !== "module" ? source.mode : "files";
   const { modules, sources } = useModules(mode === "module" ? source.moduleId : "");
@@ -234,7 +240,7 @@ export default function ContentStep({ canUseModules, source, language, notes, in
         )
       )}
 
-      <VorlagenWahl templateId={templateId} onTemplate={onTemplate} />
+      <VorlagenWahl templateId={templateId} onTemplate={onTemplate} onVorlage={setVorlage} />
 
       <label className="block mt-6 text-sm">
         <span className="font-medium">{t("languageLabel")}</span>
@@ -259,6 +265,24 @@ export default function ContentStep({ canUseModules, source, language, notes, in
 
       <Checkbox className="mt-6" checked={notes} onChange={onNotes} label={t("notesLabel")} />
       <p className="text-xs text-muted mt-1">{t("notesHint")}</p>
+
+      {/* Only a template with picture fields gets pictures, the style belongs to the template and follows its choice. */}
+      {vorlage?.hasImages && (
+        <>
+          <label className="block mt-6 text-sm">
+            <span className="font-medium">{t("styleLabel")}</span>
+            <textarea className={`${FIELD} mt-1 resize-y`} rows={4} value={imageStyle ?? vorlage.stiltext} maxLength={MAX_STIL}
+              placeholder={t("stylePlaceholder")} onChange={(e) => onImageStyle(e.target.value)} />
+          </label>
+          <div className="mt-2 flex justify-end">
+            <button type="button" onClick={() => onImageStyle(null)}
+              disabled={imageStyle === null || imageStyle === vorlage.stiltext}
+              className="shrink-0 text-xs px-3 py-1.5 border-2 border-border rounded-md transition-colors enabled:hover:border-kb enabled:hover:text-kb disabled:opacity-40">
+              {t("styleReset")}
+            </button>
+          </div>
+        </>
+      )}
 
       {hasActiveJob === true && (
         <p className="mt-6 text-sm text-error">{t("activeJob")} <Link href="/my-jobs" className="underline">{t("activeJobLink")}</Link></p>

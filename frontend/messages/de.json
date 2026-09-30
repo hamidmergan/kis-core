@@ -1320,9 +1320,10 @@
     "praesentation": {
       "title": "Präsentation",
       "intro": "Aus deinem Material werden Folien im Design deiner Hochschule. Du prüfst jede Folie und lädst am Ende die PowerPoint-Datei herunter.",
+      "discard": "Präsentation verwerfen",
       "steps": {
         "content": "Inhalt",
-        "slides": "Folien",
+        "preview": "Vorschau",
         "done": "Fertig"
       },
       "common": {
@@ -1348,6 +1349,9 @@
         "templateLabel": "Folienmaster",
         "templateWithImages": "mit Bildfeldern",
         "templateWithoutImages": "ohne Bildfelder, es entstehen keine Bilder",
+        "styleLabel": "Anweisung für die Bilder",
+        "stylePlaceholder": "Zum Beispiel: flat vector illustration, muted blue and grey, white background",
+        "styleReset": "Auf Standard zurücksetzen",
         "uploadTemplate": "Eigene Vorlage hochladen",
         "editTemplate": "{name} bearbeiten",
         "deleteTemplate": "{name} löschen",
@@ -1357,7 +1361,7 @@
           "de": "Deutsch",
           "en": "Englisch"
         },
-        "instructionsLabel": "Anweisung (optional)",
+        "instructionsLabel": "Inhaltliche Anweisung (optional)",
         "instructionsPlaceholder": "Zum Beispiel: nur Kapitel 2, für Erstsemester, mit Beispielen aus der Praxis",
         "presenterLabel": "Name auf dem Deckblatt (optional)",
         "presenterPlaceholder": "Zum Beispiel: Titel, Vorname und Nachname",
@@ -1411,15 +1415,13 @@
         "progressImages": "{done} von {total} Bildern erzeugt",
         "progressBuild": "Die Datei wird erstellt",
         "progressPreview": "Die Vorschau wird erstellt",
-        "phases": {
-          "texte": "Texte",
-          "bilder": "Bilder",
-          "bau": "Datei",
-          "vorschau": "Vorschau"
-        },
+        "progressTextsStart": "Die Texte werden geschrieben",
+        "progressImagesStart": "Die Bilder werden erzeugt",
+        "sketchLabel": "Folien im Entstehen",
         "waitingRetry": "Der Anbieter antwortet nicht, es geht gleich weiter.",
-        "heading": "Folien prüfen",
         "summary": "{n} Folien.",
+        "previewReady": "Vorschau fertig",
+        "previewReadyHint": "Prüfe jede Folie und ändere direkt hier, was nicht passt. Wenn alles stimmt, klicke unten auf „Fertigstellen“.",
         "failed": "Der Bau ist fehlgeschlagen.",
         "retry": "Erneut versuchen",
         "roles": {
@@ -1465,7 +1467,21 @@
         "imagePlaceholder": "Beschreibe das Bild auf Englisch. Unverändert lassen für einen neuen Versuch mit derselben Beschreibung.",
         "imageGo": "Erzeugen",
         "backToOutline": "Zur Gliederung",
-        "finalize": "Fertigstellen"
+        "finalize": "Fertigstellen",
+        "unfinished": "Die Erstellung wurde abgebrochen, noch sind nicht alle Folien fertig.",
+        "resume": "Fortsetzen"
+      },
+      "nachfrage": {
+        "verwerfenTitel": "Präsentation verwerfen?",
+        "verwerfenText": "Die Präsentation wird gelöscht, samt Gliederung, Folien und Bildern.",
+        "verwerfenWarnung": "Das lässt sich nicht rückgängig machen.",
+        "verwerfenNein": "Abbrechen",
+        "verwerfenJa": "Verwerfen",
+        "abbrechenTitel": "Erstellung abbrechen?",
+        "abbrechenText": "Schon fertige Folien bleiben erhalten. Du kannst die Erstellung später fortsetzen.",
+        "abbrechenTextAnfang": "Es ist noch keine Folie fertig. Du kommst zurück zum ersten Schritt, deine Angaben bleiben erhalten.",
+        "abbrechenNein": "Weiter erstellen",
+        "abbrechenJa": "Erstellung abbrechen"
       },
       "regenChat": {
         "headerTitle": "Folie {n} neu vorschlagen",
@@ -1488,8 +1504,13 @@
         "summary": "{n} Folien als PowerPoint-Datei.",
         "download": "PowerPoint herunterladen",
         "expiryHint": "Die Datei bleibt so lange wie ein Screencast in deinen Aufträgen.",
-        "backToSlides": "Zu den Folien",
-        "new": "Neue Präsentation"
+        "backToSlides": "Zur Vorschau",
+        "new": "Neue Präsentation",
+        "building": "Die Präsentation wird fertiggestellt",
+        "fullscreen": "Im Vollbild ansehen",
+        "prev": "Vorherige Folie",
+        "next": "Nächste Folie",
+        "allSlides": "Alle Folien"
       }
     },
     "screencastDemo": {

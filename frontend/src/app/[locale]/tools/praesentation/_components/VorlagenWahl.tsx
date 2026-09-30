@@ -13,10 +13,12 @@ import VorlageHochladen from "./VorlageHochladen";
 interface VorlagenWahlProps {
   templateId: string;
   onTemplate: (id: string) => void;
+  /** The chosen template as loaded, so the page can offer its picture style. */
+  onVorlage: (v: Vorlage | undefined) => void;
 }
 
 /** The system template and the person's own ones as tiles, the cover layout as the picture. */
-export default function VorlagenWahl({ templateId, onTemplate }: VorlagenWahlProps) {
+export default function VorlagenWahl({ templateId, onTemplate, onVorlage }: VorlagenWahlProps) {
   const t = useTranslations("tools.praesentation.content");
   const [vorlagen, setVorlagen] = useState<Vorlage[] | null>(null);
   const [hochladen, setHochladen] = useState(false);
@@ -26,6 +28,10 @@ export default function VorlagenWahl({ templateId, onTemplate }: VorlagenWahlPro
   useEffect(() => {
     laden();
   }, []);
+
+  useEffect(() => {
+    if (vorlagen) onVorlage(vorlagen.find((v) => v.id === templateId));
+  }, [vorlagen, templateId, onVorlage]);
 
   const loeschen = async (id: string) => {
     await deleteVorlage(id).catch(() => undefined);

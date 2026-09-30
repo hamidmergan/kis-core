@@ -1320,9 +1320,10 @@
     "praesentation": {
       "title": "Presentation",
       "intro": "Your material becomes slides in your university's design. You check every slide and download the PowerPoint file at the end.",
+      "discard": "Discard presentation",
       "steps": {
         "content": "Content",
-        "slides": "Slides",
+        "preview": "Preview",
         "done": "Done"
       },
       "common": {
@@ -1348,6 +1349,9 @@
         "templateLabel": "Slide master",
         "templateWithImages": "with image fields",
         "templateWithoutImages": "without image fields, no images are created",
+        "styleLabel": "Instruction for the images",
+        "stylePlaceholder": "For example: flat vector illustration, muted blue and grey, white background",
+        "styleReset": "Reset to default",
         "uploadTemplate": "Upload your own template",
         "editTemplate": "Edit {name}",
         "deleteTemplate": "Delete {name}",
@@ -1357,7 +1361,7 @@
           "de": "German",
           "en": "English"
         },
-        "instructionsLabel": "Instruction (optional)",
+        "instructionsLabel": "Content instruction (optional)",
         "instructionsPlaceholder": "For example: only chapter 2, for first-year students, with practical examples",
         "presenterLabel": "Name on the cover (optional)",
         "presenterPlaceholder": "For example: title, first and last name",
@@ -1411,15 +1415,13 @@
         "progressImages": "{done} of {total} images created",
         "progressBuild": "The file is being built",
         "progressPreview": "The preview is rendering",
-        "phases": {
-          "texte": "Texts",
-          "bilder": "Images",
-          "bau": "File",
-          "vorschau": "Preview"
-        },
+        "progressTextsStart": "Writing the slide texts",
+        "progressImagesStart": "Creating the images",
+        "sketchLabel": "Slides taking shape",
         "waitingRetry": "The provider is not answering, it continues in a moment.",
-        "heading": "Check slides",
         "summary": "{n} slides.",
+        "previewReady": "Preview ready",
+        "previewReadyHint": "Check each slide and change anything that does not fit right here. When everything is right, click “Finalize” below.",
         "failed": "The build failed.",
         "retry": "Try again",
         "roles": {
@@ -1465,7 +1467,21 @@
         "imagePlaceholder": "Describe the picture in English. Leave it unchanged for a new attempt with the same description.",
         "imageGo": "Create",
         "backToOutline": "To the outline",
-        "finalize": "Finalize"
+        "finalize": "Finalize",
+        "unfinished": "The creation was stopped, not all slides are done yet.",
+        "resume": "Resume"
+      },
+      "nachfrage": {
+        "verwerfenTitel": "Discard presentation?",
+        "verwerfenText": "The presentation is deleted, along with its outline, slides and images.",
+        "verwerfenWarnung": "This cannot be undone.",
+        "verwerfenNein": "Cancel",
+        "verwerfenJa": "Discard",
+        "abbrechenTitel": "Stop creating?",
+        "abbrechenText": "Slides that are already done stay. You can resume the creation later.",
+        "abbrechenTextAnfang": "No slide is done yet. You go back to the first step, your choices stay.",
+        "abbrechenNein": "Keep creating",
+        "abbrechenJa": "Stop creating"
       },
       "regenChat": {
         "headerTitle": "Suggest slide {n} again",
@@ -1488,8 +1504,13 @@
         "summary": "{n} slides as a PowerPoint file.",
         "download": "Download PowerPoint",
         "expiryHint": "The file stays as long as a screencast in your jobs.",
-        "backToSlides": "To the slides",
-        "new": "New presentation"
+        "backToSlides": "Back to the preview",
+        "new": "New presentation",
+        "building": "Finishing the presentation",
+        "fullscreen": "View full screen",
+        "prev": "Previous slide",
+        "next": "Next slide",
+        "allSlides": "All slides"
       }
     },
     "screencastDemo": {

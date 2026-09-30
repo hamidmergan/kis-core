@@ -1,5 +1,5 @@
-export type Step = "content" | "slides" | "done";
-export const STEPS = ["content", "slides", "done"] as const;
+export type Step = "content" | "preview" | "done";
+export const STEPS = ["content", "preview", "done"] as const;
 
 export type SourceMode = "files" | "module";
 export type Language = "de" | "en";
@@ -146,6 +146,8 @@ export interface PraesentationState {
   maxReached: number;
   source: Source;
   instructions: string;
+  /** The picture style of this run, null follows the chosen template. */
+  imageStyle: string | null;
   /** Who gives the talk, shown on the cover when set. */
   presenter: string;
   language: Language;
@@ -162,6 +164,10 @@ export interface PraesentationState {
   /** Slide ids with a preview, and a counter per id to bust the browser cache after an edit. */
   previews: Record<string, number>;
   missingImages: string[];
+  /** The picture slots already drawn per slide, so the sketch shows each one as it arrives. */
+  images: Record<string, string[]>;
+  /** The slides a change is redoing right now, they show as sketches until the run is done. */
+  inArbeit: string[];
   hasDeck: boolean;
   templateFallback: boolean;
   starting: boolean;

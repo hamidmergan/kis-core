@@ -1,26 +1,116 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { downloadUrl } from "../_api";
+import BackgroundHint from "@/components/tools/BackgroundHint";
+import Spinner from "@/components/ui/Spinner";
+import FolienBetrachter from "../_components/FolienBetrachter";
+import { downloadUrl, previewUrl } from "../_api";
+import { LAEUFT, fortschrittMeldung } from "../_logic";
+import type { JobProgress, JobStatus, Slide } from "../_types";
 
 interface DoneStepProps {
   jobUuid: string;
-  slides: number;
-  onBackToSlides: () => void;
+  slides: Slide[];
+  previews: Record<string, number>;
+  jobStatus: JobStatus;
+  progress: JobProgress | null;
+  error: string;
+  onResume: () => void;
+  onBackToPreview: () => void;
   onNew: () => void;
+  onCancel: () => void;
 }
 
-export default function DoneStep({ jobUuid, slides, onBackToSlides, onNew }: DoneStepProps) {
+const cancelIcon = (
+  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+  </svg>
+);
+
+const NEBENKNOPF = "px-6 py-2 text-sm text-foreground-soft border border-border rounded-md btn-ghost focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors";
+
+/** The finished deck, to look through once more and to download, like the end of the screencast. */
+export default function DoneStep(p: DoneStepProps) {
   const t = useTranslations("tools.praesentation.done");
+  const tSlides = useTranslations("tools.praesentation.slides");
+  const tCommon = useTranslations("tools.praesentation.common");
+
+  if (LAEUFT.has(p.jobStatus)) {
+    const meldung = fortschrittMeldung(p.jobStatus, p.progress);
+    return (
+      <section className="animate-[fadeIn_0.3s_ease-out] text-center py-10" aria-live="polite">
+        <Spinner size="lg" className="justify-center mb-4" />
+        <h2 className="text-lg font-bold">{t("building")}</h2>
+        <p className="text-sm text-foreground-soft mt-1">{tSlides(meldung.key, meldung.values)}</p>
+        <BackgroundHint />
+        <button type="button" onClick={p.onCancel}
+                className="btn-cancel mt-6 px-4 py-2 text-sm text-error border border-error-border rounded-md transition-colors inline-flex items-center gap-2">
+          {cancelIcon}
+          {tCommon("cancel")}
+        </button>
+      </section>
+    );
+  }
+
+  if (p.jobStatus !== "success") {
+    const gestoert = p.jobStatus === "failed" || p.jobStatus === "paused";
+    return (
+      <section className="animate-[fadeIn_0.3s_ease-out] py-4">
+        {gestoert && (
+          <div className="rounded-xl border-2 border-error-border p-3">
+            <p className="text-sm text-error">{p.error || tSlides("failed")}</p>
+            <button type="button" className="mt-2 px-4 py-2 text-sm btn-primary rounded-lg" onClick={p.onResume}>
+              {tSlides("retry")}
+            </button>
+          </div>
+        )}
+        <div className="flex justify-center mt-6">
+          <button type="button" onClick={p.onBackToPreview} className={NEBENKNOPF}>{t("backToSlides")}</button>
+        </div>
+      </section>
+    );
+  }
+
+  // The link deliberately does not sit in the page, otherwise the top loader runs forever.
+  const herunterladen = () => {
+    const a = document.createElement("a");
+    a.href = downloadUrl(p.jobUuid);
+    a.download = "";
+    a.click();
+  };
+
   return (
-    <section className="animate-[fadeIn_0.3s_ease-out] text-center py-4">
-      <h2 className="text-lg font-bold">{t("heading")}</h2>
-      <p className="text-sm text-muted mt-1">{t("summary", { n: slides })}</p>
-      <a href={downloadUrl(jobUuid)} className="inline-block px-4 py-2 btn-primary text-sm font-medium rounded-md  transition-colors mb-6">{t("download")}</a>
-      <p className="text-xs text-muted">{t("expiryHint")}</p>
-      <div className="flex gap-3 mt-10 justify-center">
-        <button type="button" onClick={onBackToSlides} className="px-4 py-3 text-sm text-foreground-soft border-2 border-border rounded-md hover:border-kb transition-colors">{t("backToSlides")}</button>
-        <button type="button" onClick={onNew} className="btn-cancel px-4 py-2 text-sm btn-secondary rounded-lg">{t("new")}</button>
+    <section className="animate-[fadeIn_0.3s_ease-out] py-4">
+      <div className="flex justify-center mb-4">
+        <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: "var(--kb)" }}>
+          <svg className="w-6 h-6" style={{ color: "#fff" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+      </div>
+      <h2 className="text-lg font-bold text-center">{t("heading")}</h2>
+      <p className="text-sm text-muted mt-1 mb-6 text-center">{t("summary", { n: p.slides.length })}</p>
+
+      <FolienBetrachter ids={p.slides.map((s) => s.id)}
+        urlFuer={(id) => (typeof p.previews[id] === "number" ? previewUrl(p.jobUuid, id, p.previews[id]) : null)} />
+
+      <div className="flex justify-center mt-8 mb-2">
+        <button
+          type="button"
+          onClick={herunterladen}
+          className="px-6 py-2 btn-primary text-sm font-medium rounded-md  focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors flex items-center gap-2"
+        >
+          <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          {t("download")}
+        </button>
+      </div>
+      <p className="text-xs text-muted text-center mb-6">{t("expiryHint")}</p>
+
+      <div className="flex flex-wrap justify-center gap-3">
+        <button type="button" onClick={p.onBackToPreview} className={NEBENKNOPF}>{t("backToSlides")}</button>
+        <button type="button" onClick={p.onNew} className={NEBENKNOPF}>{t("new")}</button>
       </div>
     </section>
   );

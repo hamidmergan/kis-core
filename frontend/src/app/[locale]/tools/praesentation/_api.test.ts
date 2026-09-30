@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fehlerText, insertSlide, setNotesInclude } from "./_api";
+import { fehlerText, insertSlide, setNotesInclude, startPraesentation } from "./_api";
+import { INITIAL_STATE } from "./_reducer";
 
 const antwort = (body: unknown) => new Response(JSON.stringify(body), { status: 422 });
 
@@ -45,5 +46,27 @@ describe("setNotesInclude", () => {
     expect(gesehen[0].url).toBe("/api/praesentation/abc/notes");
     expect(gesehen[0].method).toBe("PUT");
     expect(gesehen[0].body).toEqual({ include: false });
+  });
+});
+
+describe("startPraesentation", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  const gesendet = async (imageStyle: string | null) => {
+    let params: Record<string, unknown> = {};
+    vi.stubGlobal("fetch", (_url: string, init: RequestInit) => {
+      params = JSON.parse(String((init.body as FormData).get("params")));
+      return Promise.resolve(new Response(JSON.stringify({ job_uuid: "j1" }), { status: 200 }));
+    });
+    await startPraesentation({ ...INITIAL_STATE, imageStyle }, null);
+    return params;
+  };
+
+  it("laesst den Bildstil weg, solange er nicht angefasst wurde", async () => {
+    expect(await gesendet(null)).not.toHaveProperty("style_text");
+  });
+  it("schickt einen geaenderten Bildstil mit, auch einen leeren", async () => {
+    expect((await gesendet("Watercolour, soft blue")).style_text).toBe("Watercolour, soft blue");
+    expect((await gesendet("")).style_text).toBe("");
   });
 });

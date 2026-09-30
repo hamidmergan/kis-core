@@ -1,11 +1,13 @@
 "use client";
 
+import { Trash } from "@phosphor-icons/react";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Suspense, useCallback, useEffect, useReducer, useRef, useState } from "react";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import RegenChatModal, { type RegenTurn } from "@/components/regen/RegenChatModal";
 import { applyRegen, type RegenApplyMode } from "@/components/regen/apply";
+import Modal from "@/components/ui/Modal";
 import Spinner from "@/components/ui/Spinner";
 import ToolBackLink from "@/components/ui/ToolBackLink";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -15,20 +17,23 @@ import { useFeatureProviders } from "@/hooks/useFeatureProviders";
 import { notifyJobsChanged } from "@/lib/jobs-events";
 import * as api from "./_api";
 import PraesentationStepper from "./_components/PraesentationStepper";
-import { LAEUFT, reachable, closedForGood } from "./_logic";
+import { LAEUFT, closedForGood, isBusy, reachable, schrittFuer } from "./_logic";
 import { INITIAL_STATE, reducer, type Action } from "./_reducer";
 import ContentStep from "./_steps/ContentStep";
 import DoneStep from "./_steps/DoneStep";
-import SlidesStep from "./_steps/SlidesStep";
+import PreviewStep from "./_steps/PreviewStep";
 import { STEPS, type Language, type Slide, type Step } from "./_types";
 
 const POLL_MS = 2000;
 const SAVE_MS = 800;
+const DISCARD = "inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-soft transition-colors hover:text-error focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb";
 
 function PraesentationPageInner() {
   const t = useTranslations("tools.praesentation");
   const tCommon = useTranslations("common");
+  const tNachfrage = useTranslations("tools.praesentation.nachfrage");
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
+  const [nachfrage, setNachfrage] = useState<"abbrechen" | "verwerfen" | null>(null);
   // The chat model that writes, picked in the first step and sent along with the start.
   const llm = useFeatureProviders("/praesentation/providers");
   const { permissions } = usePermissions();
@@ -52,7 +57,8 @@ function PraesentationPageInner() {
     const bump = (vorher === "running" || vorher === "pending" || vorher === "waiting_retry")
       && (view.status === "awaiting_user" || view.status === "success");
     dispatch({ type: "VIEW", outline: view.outline, slides: view.slides, previews: view.previews,
-               missingImages: view.missing_images, hasDeck: view.has_deck, templateFallback: !!view.params?.template_fallback, bump });
+               missingImages: view.missing_images, images: view.images ?? {}, hasDeck: view.has_deck,
+               templateFallback: !!view.params?.template_fallback, bump });
     dispatch({ type: "JOB", status: view.status, progress: view.progress, error: view.error });
     if (view.params) {
       dispatch({ type: "RESTORE", state: { notes: view.params.notes, notesInclude: view.params.notes_include,
@@ -60,10 +66,7 @@ function PraesentationPageInner() {
                  presenter: view.params.presenter ?? "",
                  templateId: view.params.template_id } });
     }
-    if (schrittSetzen) {
-      if (view.status === "success") dispatch({ type: "GO", step: "done" });
-      else dispatch({ type: "GO", step: "slides" });
-    }
+    if (schrittSetzen) dispatch({ type: "GO", step: schrittFuer(view.status, view.progress) });
     return view;
   }, []);
 
@@ -82,16 +85,28 @@ function PraesentationPageInner() {
     const uuid = state.jobUuid;
     if (!uuid || !LAEUFT.has(state.jobStatus)) return;
     let abgebrochen = false;
+    let belegt = false;
+    let zuletzt = "";
     const id = window.setInterval(async () => {
+      if (belegt) return;
+      belegt = true;
       try {
         const job = await api.fetchJob(uuid);
         if (abgebrochen) return;
-        dispatch({ type: "JOB", status: job.status, progress: job.progress, error: job.error });
         if (!LAEUFT.has(job.status)) {
+          // The view first, so the step that follows already has its previews.
           await holeStand(uuid);
           notifyJobsChanged();
+          return;
         }
-      } catch { /* a single lost poll means nothing */ }
+        dispatch({ type: "JOB", status: job.status, progress: job.progress, error: job.error });
+        // Each finished wave of texts and each drawn picture moves the counter, the sketch then fetches what is new.
+        const marke = `${job.progress?.step ?? ""}:${job.progress?.current ?? ""}`;
+        if (marke !== zuletzt) {
+          zuletzt = marke;
+          await holeStand(uuid);
+        }
+      } catch { /* a single lost poll means nothing */ } finally { belegt = false; }
     }, POLL_MS);
     return () => { abgebrochen = true; window.clearInterval(id); };
   }, [state.jobUuid, state.jobStatus, holeStand]);
@@ -159,7 +174,7 @@ function PraesentationPageInner() {
       await api.saveOutline(s.jobUuid, s.outline);
       await api.startBuild(s.jobUuid);
       dispatch({ type: "JOB", status: "pending", progress: { step: "texte" } });
-      dispatch({ type: "GO", step: "slides" });
+      dispatch({ type: "GO", step: "preview" });
     } catch (e) { melde(e); } finally { bautRef.current = false; }
   };
 
@@ -171,6 +186,8 @@ function PraesentationPageInner() {
       if (!s.jobUuid || !aktuell) return;
       await api.saveSlide(s.jobUuid, aktuell);
       dispatch({ type: "PREVIEW_FRESH", id: slide.id });
+      // The server sets a finished deck back to draft, the download waits for the next finalize.
+      if (stateRef.current.jobStatus === "success") dispatch({ type: "JOB", status: "awaiting_user", progress: stateRef.current.progress });
     });
   };
 
@@ -192,7 +209,8 @@ function PraesentationPageInner() {
     await flushSaves();
     await mitStand(async (u) => {
       await api.finalize(u);
-      dispatch({ type: "JOB", status: "pending", progress: { step: "bau" } });
+      dispatch({ type: "JOB", status: "pending", progress: { step: "bau", final: true } });
+      dispatch({ type: "GO", step: "done" });
     });
   };
 
@@ -230,13 +248,53 @@ function PraesentationPageInner() {
     regen.close();
   };
 
+  // A deleted job must not come back from the address on the next reload.
+  const ohneAuftragInAdresse = () => {
+    if (ausListe) window.history.replaceState(null, "", window.location.pathname);
+  };
+
+  // Before the outline nothing is lost, the job goes and the first step comes back, like the screencast before its scripts.
+  const abbrechen = async () => {
+    setNachfrage(null);
+    const uuid = stateRef.current.jobUuid;
+    if (!uuid) return;
+    if (!stateRef.current.outline) {
+      await api.deleteJob(uuid);
+      ohneAuftragInAdresse();
+      dispatch({ type: "BACK_TO_START" });
+    } else {
+      await api.cancelJob(uuid);
+      dispatch({ type: "JOB", status: "awaiting_user", progress: null, error: null });
+      dispatch({ type: "GO", step: "preview" });
+      await holeStand(uuid).catch(melde);
+    }
+    notifyJobsChanged();
+  };
+
+  const verwerfen = async () => {
+    setNachfrage(null);
+    const uuid = stateRef.current.jobUuid;
+    if (uuid) await api.deleteJob(uuid);
+    ohneAuftragInAdresse();
+    dispatch({ type: "RESET" });
+    notifyJobsChanged();
+  };
+
   const gehe = (i: number) => dispatch({ type: "GO", step: STEPS[i] as Step });
 
   return (
     <ProtectedRoute>
       <div className="max-w-4xl mx-auto px-4 py-10 sm:py-14" data-tour="tool-praesentation">
         <ToolBackLink />
-        <h1 className="text-2xl font-bold">{t("title")}</h1>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-2xl font-bold">{t("title")}</h1>
+          {hydrated && state.jobUuid && (
+            <button type="button" onClick={() => setNachfrage("verwerfen")} className={DISCARD}>
+              <Trash size={14} aria-hidden="true" />
+              {t("discard")}
+            </button>
+          )}
+        </div>
         <p className="text-sm text-muted mt-1 mb-8">{t("intro")}</p>
         {!hydrated ? (
           <Spinner className="justify-center py-20" />
@@ -248,42 +306,80 @@ function PraesentationPageInner() {
             )}
             {state.step === "content" && (
               <ContentStep canUseModules={!!permissions.allow_aia} source={state.source} language={state.language}
-                notes={state.notes} instructions={state.instructions} presenter={state.presenter} templateId={state.templateId}
+                notes={state.notes} instructions={state.instructions} imageStyle={state.imageStyle}
+                presenter={state.presenter} templateId={state.templateId}
                 hasActiveJob={hasActiveJob} error={state.error}
                 llmProviders={llm.providers} llmProviderId={llm.providerId} onLlmProvider={llm.setProviderId}
                 onSource={(source) => dispatch({ type: "SET_SOURCE", source })}
                 onLanguage={(language) => dispatch({ type: "SET_LANGUAGE", language })}
                 onNotes={(notes) => dispatch({ type: "SET_NOTES", notes })}
                 onInstructions={(text) => dispatch({ type: "SET_INSTRUCTIONS", text })}
+                onImageStyle={(text) => dispatch({ type: "SET_IMAGE_STYLE", text })}
                 onPresenter={(name) => dispatch({ type: "SET_PRESENTER", name })}
                 onTemplate={(templateId) => dispatch({ type: "SET_TEMPLATE", templateId })}
                 onNext={starten} />
             )}
-            {state.step === "slides" && state.jobUuid && (
-              <SlidesStep jobUuid={state.jobUuid} slides={state.slides} previews={state.previews} missingImages={state.missingImages}
-                notesOn={state.notes} notesInclude={state.notesInclude}
+            {/* The cards stand from the click on start, before the job even has its id. */}
+            {state.step === "preview" && (state.jobUuid || state.starting) && (
+              <PreviewStep jobUuid={state.jobUuid ?? ""} outline={state.outline} slides={state.slides} previews={state.previews}
+                images={state.images} missingImages={state.missingImages} inArbeit={state.inArbeit} presenter={state.presenter}
+                notesOn={state.notes} notesInclude={state.notesInclude} laeuft={isBusy(state)}
+                jobStatus={state.jobStatus} progress={state.progress} error={state.error} hasOutline={!!state.outline}
+                hasDeck={state.hasDeck}
                 onNotesInclude={(include) => { dispatch({ type: "SET_NOTES_INCLUDE", include }); mitStand(async (u) => { await api.setNotesInclude(u, include); }); }}
-                jobStatus={state.jobStatus} progress={state.progress} error={state.error}
                 onSlide={folieAendern}
                 onMove={(id, delta) => { dispatch({ type: "MOVE_SLIDE", id, delta }); const ids = reducer(stateRef.current, { type: "MOVE_SLIDE", id, delta }).slides.map((s) => s.id); mitStand(async (u) => nummernFrisch(await api.saveOrder(u, ids))); }}
                 onDelete={(id) => mitStand(async (u) => nummernFrisch(await api.deleteSlide(u, id)))}
-                onInsertAfter={(id, title, instruction) => mitStand(async (u) => { await api.insertSlide(u, id, title, instruction); dispatch({ type: "JOB", status: "pending", progress: { step: "texte" } }); })}
-                onRegenText={(i) => { setRegenArt("slide"); regen.open(i); }}
-                onRegenImage={(id, prompts) => mitStand(async (u) => { await api.regenImage(u, id, prompts); dispatch({ type: "JOB", status: "pending", progress: { step: "bilder" } }); })}
+                onInsertAfter={(id, title, instruction) => mitStand(async (u) => {
+                  const neu = await api.insertSlide(u, id, title, instruction);
+                  dispatch({ type: "IN_ARBEIT", ids: [neu.id] });
+                  dispatch({ type: "JOB", status: "pending", progress: { step: "texte" } });
+                })}
+                onRegenImage={(id, prompts) => mitStand(async (u) => {
+                  await api.regenImage(u, id, prompts);
+                  dispatch({ type: "IN_ARBEIT", ids: [id] });
+                  dispatch({ type: "JOB", status: "pending", progress: { step: "bilder" } });
+                })}
                 onAnchor={regen.setAnchor}
-                hasOutline={!!state.outline}
                 onRestart={() => dispatch({ type: "RESET" })}
+                onCancel={state.jobUuid ? () => setNachfrage("abbrechen") : null}
                 onResume={() => mitStand(async (u) => { await api.startBuild(u); dispatch({ type: "JOB", status: "pending", progress: { step: "texte" } }); })}
                 onFinalize={finalisieren} />
             )}
             {state.step === "done" && state.jobUuid && (
-              <DoneStep jobUuid={state.jobUuid} slides={state.slides.length}
-                onBackToSlides={() => dispatch({ type: "GO", step: "slides" })}
-                onNew={() => dispatch({ type: "RESET" })} />
+              <DoneStep jobUuid={state.jobUuid} slides={state.slides} previews={state.previews}
+                jobStatus={state.jobStatus} progress={state.progress} error={state.error}
+                onResume={() => mitStand(async (u) => { await api.startBuild(u); dispatch({ type: "JOB", status: "pending", progress: { step: "bau", final: true } }); })}
+                onBackToPreview={() => dispatch({ type: "GO", step: "preview" })}
+                onNew={() => dispatch({ type: "RESET" })}
+                onCancel={() => setNachfrage("abbrechen")} />
             )}
             {(regenRow || regenSlide) && (
               <RegenChatModal index={regenZiel ?? 0} namespace="tools.praesentation.regenChat" anchorText={regen.anchorText}
                               onSend={vorschlagen} onApply={uebernehmen} onClose={regen.close} />
+            )}
+            {nachfrage && (
+              <Modal open onClose={() => setNachfrage(null)} size="sm"
+                title={nachfrage === "verwerfen" ? tNachfrage("verwerfenTitel") : tNachfrage("abbrechenTitel")}
+                footer={<>
+                  <button type="button" onClick={() => setNachfrage(null)} className="btn-cancel px-4 py-2 text-sm btn-secondary rounded-lg">
+                    {nachfrage === "verwerfen" ? tNachfrage("verwerfenNein") : tNachfrage("abbrechenNein")}
+                  </button>
+                  <button type="button" onClick={nachfrage === "verwerfen" ? verwerfen : abbrechen} className="px-4 py-2 text-sm btn-danger rounded-lg">
+                    {nachfrage === "verwerfen" ? tNachfrage("verwerfenJa") : tNachfrage("abbrechenJa")}
+                  </button>
+                </>}>
+                {nachfrage === "verwerfen" ? (
+                  <>
+                    <p className="text-sm text-foreground-soft">{tNachfrage("verwerfenText")}</p>
+                    <p className="text-sm text-error mt-2">{tNachfrage("verwerfenWarnung")}</p>
+                  </>
+                ) : (
+                  <p className="text-sm text-foreground-soft">
+                    {state.outline ? tNachfrage("abbrechenText") : tNachfrage("abbrechenTextAnfang")}
+                  </p>
+                )}
+              </Modal>
             )}
           </>
         )}
