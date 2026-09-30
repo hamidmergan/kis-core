@@ -243,8 +243,8 @@ async def run(caller: Caller, *, sources: list[Source], template: Template,
 
     plan = await _outline(caller, language=language, vorlage=template, sources=sources,
                           karte=karte, store=store, instructions=instructions)
-    # An instruction that named nothing the material covers reaches no writer.
-    wirksam = "" if plan.instruction_way == anweisung.WEG else instructions
+    # An instruction that named nothing the material covers, or made no sense, reaches no writer.
+    wirksam = "" if anweisung.faellt_weg(plan.instruction_way) else instructions
     if not plan.sections:
         # Without a plan the document comes out of one call, that is the fallback.
         return await writing.compose_single(

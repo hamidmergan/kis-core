@@ -19,7 +19,7 @@ STYLE = "style"        # only says how, the material stays as it is
 SEARCH = "search"      # names a topic, only the found spots are the material
 UNMATCHED = "unmatched"  # names a topic the material does not cover, dropped
 FILL = "fill"          # a topic, but nothing to search, the material stays as it is
-NONSENSE = "nonsense"  # makes no sense or asks to leave the sources, dropped like UNMATCHED
+NONSENSE = "nonsense"  # makes no sense or asks to leave the sources, dropped without a hint
 
 # Cosine distance to the material, measured 15.09.2026 on a law module: a topic that is in
 # it lands at 0.39 to 0.56, one that is not at 0.65 and up.
@@ -200,9 +200,10 @@ def resolve(workspace_id, source_ids: list[int], instruction, budget: int) -> Re
     if not text:
         return Resolution("", None, False, NONE)
     art = classify(text)
+    # Whoever typed nonsense knows it, only a topic the material lacks gets the hint.
     if art == NONSENSE:
         logger.info("Anweisung ergibt keinen Sinn, sie faellt weg")
-        return Resolution("", None, True, UNMATCHED)
+        return Resolution("", None, False, UNMATCHED)
     if art != SEARCH:
         return Resolution(text, None, False, STYLE)
     if not workspace_id:

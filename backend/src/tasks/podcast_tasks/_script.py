@@ -95,7 +95,7 @@ def _weg(llm, g: tm.Grundlage, params, user_id: int, job_uuid: str) -> None:
     params.instruction_way = anweisung.entscheide(
         lambda n: call_json_llm(llm, n, endpoint="podcast").choices[0].message.content,
         params.instructions, g.material, _ZWECK)
-    # The script step shows the hint, the episode then uses the whole material.
+    # The script step shows the hint for a missing subject, nonsense drops out silently.
     params.instruction_unmatched = params.instruction_way == anweisung.WEG
     store.save_params(user_id, job_uuid, params)
     logger.info("Podcast {}: Anweisung gilt als {}", job_uuid[:8], params.instruction_way)

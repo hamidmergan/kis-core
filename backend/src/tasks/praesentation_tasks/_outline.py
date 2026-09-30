@@ -47,6 +47,7 @@ def _weg(llm, g: tm.Grundlage, params, user_id: int, job_uuid: str) -> None:
     params.instruction_way = anweisung.entscheide(
         lambda n: call_json_llm(llm, n, endpoint="praesentation").choices[0].message.content,
         params.instructions, g.material, _ZWECK)
+    # Only a subject the material lacks gets the hint, whoever typed nonsense knows it.
     params.instruction_unmatched = params.instruction_way == anweisung.WEG
     store.save_params(user_id, job_uuid, params)
     logger.info("Präsentation {}: Anweisung gilt als {}", job_uuid[:8], params.instruction_way)

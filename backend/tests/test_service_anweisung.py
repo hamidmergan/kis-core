@@ -20,6 +20,7 @@ class TestWeg:
     def test_liest_die_drei_wege(self):
         assert anweisung.lies_weg('{"way": "topic"}') == anweisung.THEMA
         assert anweisung.lies_weg('<think>hm</think>{"way": "ignored"}') == anweisung.WEG
+        assert anweisung.lies_weg('{"way": "nonsense"}') == anweisung.UNSINN
         assert anweisung.lies_weg('```json\n{"way": "Manner"}\n```') == anweisung.STIL
 
     def test_eine_unlesbare_antwort_gilt_als_stil(self):
@@ -60,6 +61,8 @@ class TestZusatz:
     def test_eine_weggefallene_anweisung_erreicht_keinen_aufruf(self):
         assert anweisung.plan_zusatz("Bananenkuchen", anweisung.WEG, "part") == ""
         assert anweisung.schreib_zusatz("Bananenkuchen", anweisung.WEG) == ""
+        assert anweisung.plan_zusatz("asdf", anweisung.UNSINN, "part") == ""
+        assert anweisung.schreib_zusatz("asdf", anweisung.UNSINN) == ""
         assert anweisung.schreib_zusatz("", anweisung.STIL) == ""
 
     def test_nur_ein_thema_engt_ein(self):
@@ -99,6 +102,18 @@ class TestPodcast:
         plan = skript.plan_messages("M", "stellen", p, 2, ["a.pdf"])
         teil = skript.build_messages("M", p, anzahl=4, teil=1, teile=1)
         assert all("Bananenkuchen" not in m["content"] for m in plan + teil)
+
+    def test_unsinn_faellt_ohne_hinweis_weg(self, monkeypatch):
+        from src.tasks.podcast_tasks import _script
+        from src.services import text_map as tm
+
+        monkeypatch.setattr(_script.store, "save_params", lambda u, j, p: None)
+        antwort = type("A", (), {"choices": [type("C", (), {"message": type("M", (), {
+            "content": '{"way": "nonsense"}'})()})()]})()
+        monkeypatch.setattr("src.services.json_llm.call_json_llm", lambda llm, n, endpoint="tool": antwort)
+        p = _podcast(instructions="asdf qwertz")
+        _script._weg(object(), tm.Grundlage(material="M", modus=tm.STELLEN, themen=[]), p, 1, "job")
+        assert p.instruction_way == anweisung.UNSINN and not p.instruction_unmatched
 
     def test_der_weg_wird_einmal_entschieden_und_gemerkt(self, monkeypatch):
         from src.tasks.podcast_tasks import _script

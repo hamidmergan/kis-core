@@ -61,13 +61,13 @@ class TestWegwahl:
             assert ergebnis.unmatched is False
             assert ergebnis.way == anweisung.NONE
 
-    def test_unsinn_faellt_weg_ohne_messung(self, monkeypatch):
+    def test_unsinn_faellt_still_weg_ohne_messung(self, monkeypatch):
         _weg(monkeypatch, anweisung.NONSENSE)
         monkeypatch.setattr(anweisung, "probe", lambda *a: pytest.fail("keine Messung bei Unsinn"))
         ergebnis = anweisung.resolve(7, [1], "asdf qwertz", 1000)
         assert ergebnis.text == ""
         assert ergebnis.chunks is None
-        assert ergebnis.unmatched is True
+        assert ergebnis.unmatched is False
         assert ergebnis.way == anweisung.UNMATCHED
 
     def test_stil_anweisung_bleibt_im_prompt_und_beim_material(self, monkeypatch):
