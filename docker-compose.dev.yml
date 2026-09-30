@@ -38,7 +38,7 @@ services:
     image: adminer:4.8.1
     container_name: kis-adminer
     ports:
-      - "8081:8080"
+      - "127.0.0.1:8081:8080"
     depends_on:
       - postgres
     restart: unless-stopped
@@ -61,7 +61,7 @@ services:
       langfuse-db-init:
         condition: service_completed_successfully
     ports:
-      - "3001:3000"
+      - "127.0.0.1:3001:3000"
     environment:
       DATABASE_URL: postgresql://kis:kis-local-dev@postgres:5432/langfuse
       NEXTAUTH_URL: http://localhost:3001
