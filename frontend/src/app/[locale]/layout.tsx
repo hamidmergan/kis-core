@@ -49,7 +49,8 @@ export default async function RootLayout({ children, params }: Props) {
   const cookieStore = await cookies();
   const themeCookie = cookieStore.get("kis-theme")?.value;
   const dataTheme = themeCookie === "dark" ? "dark" : undefined;
-  const isLocalMode = !process.env.LDAP_SERVER;
+  // Same switch as the backend, the LDAP variable is gone and was never set in the frontend container.
+  const isLocalMode = ["1", "true", "yes", "on"].includes((process.env.AUTH_DISABLED ?? "").toLowerCase());
   const hasSession = isLocalMode || !!cookieStore.get("session")?.value;
 
   return (
