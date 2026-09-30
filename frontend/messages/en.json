@@ -1247,7 +1247,6 @@
       },
       "script": {
         "generating": "The script is being written",
-        "generatingSubtle": "The model reads your material and spreads the lines across {n, plural, =1 {one voice} other {# voices}}.",
         "generatingParts": "{done} of {total} parts written, the finished contributions are below.",
         "heading": "Check the script",
         "intro": "Every line can be edited, rephrased or deleted. Voicing starts only when you are happy with it.",

@@ -1247,7 +1247,6 @@
       },
       "script": {
         "generating": "Das Skript wird geschrieben",
-        "generatingSubtle": "Das Modell liest dein Material und verteilt die Beiträge auf {n, plural, =1 {eine Stimme} other {# Stimmen}}.",
         "generatingParts": "{done} von {total} Teilen geschrieben, die fertigen Beiträge stehen unten.",
         "heading": "Skript prüfen",
         "intro": "Jeder Beitrag lässt sich ändern, neu formulieren oder löschen. Vertont wird erst, wenn du zufrieden bist.",

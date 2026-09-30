@@ -63,11 +63,11 @@ export default function ScriptStep(props: ScriptStepProps) {
         <div className={`text-center ${draft.length ? "py-8" : "py-20"}`} role="status" aria-live="polite">
           <Spinner size="lg" className="justify-center mb-4" />
           <p className="text-sm text-foreground-soft animate-pulse">{t("generating")}</p>
-          <p className="text-xs text-muted-soft mt-2">
-            {draftParts && draftParts.done > 0
-              ? t("generatingParts", { done: draftParts.done, total: draftParts.total })
-              : t("generatingSubtle", { n: count })}
-          </p>
+          {draftParts && draftParts.done > 0 && (
+            <p className="text-xs text-muted-soft mt-2">
+              {t("generatingParts", { done: draftParts.done, total: draftParts.total })}
+            </p>
+          )}
         </div>
         {/* Read only, the finished script becomes editable once every part is written. */}
         {draft.length > 0 && (
