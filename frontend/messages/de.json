@@ -3040,95 +3040,35 @@
       "heading": "1. Verantwortlicher",
       "body": "Hamid Mergan\nMönkhofer Weg 239\n23562 Lübeck\nE-Mail: hamid.mergan@th-luebeck.de\nTelefon: +49 451 160818 81"
     },
-    "auth": {
-      "heading": "2. Authentifizierung und Nutzerkonto",
-      "intro": "Der Zugang zur Plattform erfolgt über ein Konto auf dieser Plattform. Folgende Daten werden in unserer Datenbank gespeichert:",
-      "item1": "Benutzername",
-      "itemPassword": "Passwort, ausschließlich als bcrypt-Hash, nie im Klartext",
-      "item2": "Anzeigename (vollständiger Name)",
-      "item3": "E-Mail-Adresse",
-      "item4": "Sprachniveau (falls per KI-Chat-Test ermittelt, jederzeit selbst löschbar)",
-      "item5": "Einladungscode oder -link, über den der Zugang erfolgte",
-      "outro": "Die Anmeldung erfolgt derzeit gegen ein Konto auf dieser Plattform. Das Passwort wird dabei nur als Hash gespeichert und ist daraus nicht zurückrechenbar. Eine Anbindung an die zentrale Anmeldung der TH Lübeck ist in Planung, danach hält diese Plattform kein Passwort mehr.\nRechtsgrundlage: Art. 6 Abs. 1 lit. e DSGVO (Wahrnehmung einer Aufgabe im öffentlichen Interesse).\nSpeicherdauer: bis zur Löschung des Nutzerkontos. Befristete Zugänge werden nach ihrem Ablauf automatisch gelöscht."
+    "data": {
+      "heading": "2. Welche Daten verarbeitet werden",
+      "intro": "Verarbeitet wird nur, was für den Betrieb der Plattform nötig ist:",
+      "item1": "Kontodaten wie Name, Benutzername und E-Mail-Adresse. Das Passwort wird nur als Hash gespeichert.",
+      "item2": "Inhalte, die Sie hochladen oder eingeben, und die daraus erzeugten Ergebnisse",
+      "item3": "Nutzungsdaten wie genutzte Dienste und Anwesenheitszeiten",
+      "item4": "Server-Logs mit IP-Adresse, Zeitpunkt und aufgerufener Seite",
+      "outro": "Personen mit einer entsprechenden Berechtigung können diese Daten zur technischen Betreuung einsehen."
     },
     "cookies": {
-      "heading": "3. Cookies und lokale Speicherung",
-      "intro": "Diese Plattform verwendet ausschließlich technisch notwendige Cookies und Speichermechanismen:",
-      "sessionLabel": "Session-Cookie",
-      "sessionBody": "Ein HttpOnly-Cookie zur Authentifizierung (Gültigkeit: 24 Stunden). Ohne dieses Cookie ist kein Login möglich.",
-      "storageLabel": "Einstellungen",
-      "storageBody": "Einstellungen wie Sprache, Farbschema oder die Freigabe von YouTube-Videos werden im Browser gespeichert.",
-      "outro": "Es werden keine Tracking-, Analyse- oder Marketing-Cookies eingesetzt. Es erfolgt keine Weitergabe von Cookie-Daten an Dritte."
+      "heading": "3. Cookies",
+      "body": "Die Plattform nutzt nur technisch notwendige Cookies und Speicher im Browser, für die Anmeldung und für Einstellungen. Tracking oder Analyse findet nicht statt."
     },
-    "jobs": {
-      "heading": "4. Verarbeitung von Nutzer-Uploads und Job-Daten",
-      "intro": "Bei der Nutzung der Plattform werden Ihre Inhalte gespeichert, also hochgeladene Dateien (z. B. Videos, PDFs, Präsentationen, Audio-Dateien), Eingaben wie Chatnachrichten oder Aufnahmen über das Mikrofon sowie die daraus erzeugten Ergebnisse (z. B. Transkripte, Zusammenfassungen). Pro Verarbeitungsauftrag (Job) wird zusätzlich gespeichert:",
-      "item1": "Genutzter Dienst (z. B. Transkription, Zusammenfassung)",
-      "item2": "Ursprünglicher Dateiname",
-      "item3": "Zeitpunkt der Erstellung und Fertigstellung",
-      "item4": "Verarbeitungsstatus",
-      "retention": "Ihre Inhalte bleiben gespeichert, bis Sie oder ein Workspace-Administrator sie löschen. Job-Metadaten zu einzelnen Verarbeitungsaufträgen werden nur <strong>in begrenztem Umfang</strong> vorgehalten. Gespeichert bleiben jeweils die neuesten Aufträge, ältere werden automatisch entfernt. Spätestens mit dem Ende des Pilotprojekts werden alle Workspaces und die darin enthaltenen Dateien gelöscht. Auf Wunsch löschen wir früher, eine E-Mail an die oben genannte Adresse oder eine Nachricht über das Feedback-Formular genügt.",
-      "voluntary": "Freiwillige Angaben, etwa im Feedback-Formular oder in Umfragen, werden nur für diesen Zweck gespeichert. Antworten auf Umfragen bleiben nach dem Löschen eines Kontos ohne Bezug zur Person erhalten."
+    "recipients": {
+      "heading": "4. Empfänger",
+      "body": "Für KI-Funktionen und Übersetzungen gehen Inhalte an Dienste der TH Lübeck (THL myLab), der GWDG und an DeepL. Betrieben wird die Plattform bei der Hetzner Online GmbH in Deutschland.\nEingebettete YouTube-Videos laden erst nach einem Klick. Danach erhält Google IP-Adresse und Gerätedaten, auch in den USA.\nLehrende können eigene Konten bei externen Anbietern verbinden. Inhalte gehen dann an diesen Anbieter, unter Umständen auch außerhalb der EU."
     },
-    "adminAccess": {
-      "heading": "5. Einsicht durch Administratorinnen und Administratoren",
-      "intro": "Personen mit einer entsprechenden Berechtigung, etwa Administratorinnen und Administratoren, können zu einzelnen Nutzerkonten folgende Daten einsehen:",
-      "item1": "Gestellte Chat-Nachrichten im Wortlaut, mit Workspace und Zeitpunkt",
-      "item2": "Genutzte Dienste mit Status und Dateiname",
-      "item3": "Beantwortete Übungen",
-      "item4": "Anwesenheitszeiten auf der Plattform",
-      "item5": "Mitgliedschaft in Workspaces",
-      "item6": "Zur Unterstützung: vorübergehende Anmeldung als die betroffene Person (\"Übernahme\"), Start und Ende werden protokolliert",
-      "outro": "Diese Einsicht dient der technischen Betreuung der Plattform, der Aufklärung bei Störungen sowie der Qualitätssicherung. Sie ist auf den Kreis der Personen beschränkt, die diese Berechtigung im Rahmen ihrer Aufgaben erhalten haben.\nRechtsgrundlage: Art. 6 Abs. 1 lit. e DSGVO (Wahrnehmung einer Aufgabe im öffentlichen Interesse).\nSpeicherdauer: wie bei den zugrunde liegenden Daten. Das Übernahme-Protokoll wird ohne Frist gespeichert."
-    },
-    "thirdParty": {
-      "heading": "6. Drittanbieter und externe Dienste",
-      "intro": "Welche KI-Anbieter zum Einsatz kommen, wird über die Administration der Plattform konfiguriert. Aktuell werden dabei folgende externen Dienste genutzt:",
-      "kisskiLabel": "KISSKI / GWDG",
-      "kisskiBody": "KI-Dienste, zum Beispiel Sprachmodelle und Transkription. KISSKI ist ein Dienst der Gesellschaft für wissenschaftliche Datenverarbeitung mbH Göttingen (GWDG) und unterliegt deutschem Datenschutzrecht. Die Verarbeitung erfolgt im Rahmen einer Auftragsverarbeitung gemäß Art. 28 DSGVO.",
-      "mylabLabel": "THL myLab",
-      "mylabBody": "KI-Dienste, von der TH Lübeck selbst betrieben. Die Verarbeitung erfolgt auf hochschuleigenen Servern, eine Übermittlung an externe Anbieter findet dabei nicht statt.",
-      "deeplLabel": "DeepL",
-      "deeplBody": "Übersetzungsdienst für automatische Übersetzungen. Die Verarbeitung erfolgt bei der DeepL SE und unterliegt europäischem Datenschutzrecht.",
-      "hetznerLabel": "Hetzner",
-      "hetznerBody": "Betrieb der Plattform und Speicherung der Dateien bei der Hetzner Online GmbH auf Servern in Deutschland.",
-      "youtubeLabel": "YouTube (Google)",
-      "youtubeBody": "Eingebettete Videos in Workspaces. Der Player lädt erst nach einem Klick auf das Video, vorher fließen keine Daten. Beim Laden und Abspielen erhält Google LLC (USA) IP-Adresse und Gerätedaten. Die Einbettung nutzt den erweiterten Datenschutzmodus von YouTube (youtube-nocookie.com). Das Transkript eines Videos wird von der Lehrperson eingegeben und auf der Plattform gespeichert, es wird nicht von YouTube abgerufen.",
-      "ownLabel": "Eigene Schnittstellen",
-      "ownBody": "Lehrende können ein eigenes Konto bei einem externen Anbieter verbinden, zum Beispiel für Stimmen. Die dafür nötigen Inhalte gehen dann an diesen Anbieter, unter Umständen auch außerhalb der EU. Die Verantwortung liegt bei der Person, die das Konto verbunden hat.",
-      "outro": "Bei den externen Diensten werden nur die für die jeweilige Funktion notwendigen Inhalte übermittelt."
-    },
-    "logs": {
-      "heading": "7. Server-Logfiles",
-      "intro": "Beim Aufruf dieser Webseite werden durch den Webserver automatisch Informationen in sogenannten Server-Logfiles erfasst. Dies umfasst:",
-      "item1": "IP-Adresse des anfragenden Geräts",
-      "item2": "Datum und Uhrzeit des Zugriffs",
-      "item3": "Aufgerufene URL und Referrer-URL",
-      "item4": "Verwendeter Browser und Betriebssystem",
-      "retention": "Diese Daten werden nach <strong>einigen Wochen</strong> automatisch gelöscht."
-    },
-    "ssl": {
-      "heading": "8. SSL-/TLS-Verschlüsselung",
-      "body": "Die Plattform nutzt zur sicheren Übertragung von Daten eine SSL-/TLS-Verschlüsselung. Eine verschlüsselte Verbindung erkennen Sie an der Adresszeile des Browsers, die mit „https://“ beginnt."
+    "retention": {
+      "heading": "5. Speicherdauer",
+      "body": "Daten bleiben gespeichert, bis das Konto oder die Inhalte gelöscht werden, spätestens bis zum Ende des Pilotprojekts. Befristete Zugänge werden nach Ablauf gelöscht, Server-Logs nach einigen Wochen. Auf Wunsch löschen wir früher."
     },
     "legalBasis": {
-      "heading": "9. Rechtsgrundlage",
-      "body": "Die Verarbeitung erfolgt auf Grundlage von <strong>Art. 6 Abs. 1 lit. f DSGVO</strong> (berechtigtes Interesse) für Server-Logs sowie auf Grundlage von <strong>Art. 6 Abs. 1 lit. e DSGVO</strong> (Wahrnehmung einer Aufgabe im öffentlichen Interesse) für die Nutzerdaten und Job-Verarbeitung im Rahmen der Plattformnutzung."
+      "heading": "6. Rechtsgrundlage",
+      "body": "Art. 6 Abs. 1 lit. e DSGVO (Aufgabe im öffentlichen Interesse), für Server-Logs Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse)."
     },
     "rights": {
-      "heading": "10. Ihre Rechte als betroffene Person",
-      "intro": "Sie haben gegenüber dem Verantwortlichen folgende Rechte hinsichtlich der Sie betreffenden personenbezogenen Daten:",
-      "item1": "Recht auf Auskunft (Art. 15 DSGVO)",
-      "item2": "Recht auf Berichtigung (Art. 16 DSGVO)",
-      "item3": "Recht auf Löschung (Art. 17 DSGVO)",
-      "item4": "Recht auf Einschränkung der Verarbeitung (Art. 18 DSGVO)",
-      "item5": "Recht auf Datenübertragbarkeit (Art. 20 DSGVO)",
-      "item6": "Recht auf Widerspruch gegen die Verarbeitung (Art. 21 DSGVO)",
-      "contact": "Zur Ausübung dieser Rechte wenden Sie sich an:"
-    },
-    "complaint": {
-      "heading": "11. Beschwerderecht",
-      "body": "Sie haben das Recht, sich bei einer Datenschutz-Aufsichtsbehörde zu beschweren. Zuständig ist das <strong>Unabhängige Landeszentrum für Datenschutz Schleswig-Holstein (ULD Kiel)</strong>."
+      "heading": "7. Ihre Rechte",
+      "body": "Sie haben das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung, Datenübertragbarkeit und Widerspruch (Art. 15 bis 21 DSGVO). Wenden Sie sich dazu an:",
+      "complaint": "Außerdem können Sie sich beim Unabhängigen Landeszentrum für Datenschutz Schleswig-Holstein (ULD) beschweren."
     }
   },
   "jobsStatus": {

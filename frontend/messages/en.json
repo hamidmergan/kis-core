@@ -3040,95 +3040,35 @@
       "heading": "1. Data controller",
       "body": "Hamid Mergan\nMönkhofer Weg 239\n23562 Lübeck, Germany\nEmail: hamid.mergan@th-luebeck.de\nPhone: +49 451 160818 81"
     },
-    "auth": {
-      "heading": "2. Authentication and user account",
-      "intro": "Access to the platform is provided through an account on this platform. The following data is stored in our database:",
-      "item1": "Username",
-      "itemPassword": "Password, stored only as a bcrypt hash, never in plain text",
-      "item2": "Display name (full name)",
-      "item3": "Email address",
-      "item4": "Language level (if determined via the AI chat test, deletable at any time)",
-      "item5": "Invite code or link used to gain access",
-      "outro": "Sign-in currently runs against an account on this platform. The password is stored as a hash only and cannot be derived from it. A connection to the central sign-in of TH Lübeck is planned, after which this platform will hold no password.\nLegal basis: Art. 6 (1) (e) GDPR (performance of a task carried out in the public interest).\nRetention period: until the user account is deleted. Time-limited access accounts are deleted automatically after they expire."
+    "data": {
+      "heading": "2. What data is processed",
+      "intro": "Only what is needed to run the platform is processed:",
+      "item1": "Account data such as name, username and email address. The password is stored only as a hash.",
+      "item2": "Content you upload or enter, and the results created from it",
+      "item3": "Usage data such as services used and presence times",
+      "item4": "Server logs with IP address, time and page requested",
+      "outro": "People with the relevant permission can view this data for technical support."
     },
     "cookies": {
-      "heading": "3. Cookies and local storage",
-      "intro": "This platform uses only technically necessary cookies and storage mechanisms:",
-      "sessionLabel": "Session cookie",
-      "sessionBody": "An HttpOnly cookie used for authentication (valid for 24 hours). Without this cookie, login is not possible.",
-      "storageLabel": "Settings",
-      "storageBody": "Settings such as language, colour scheme or permission to load YouTube videos are stored in the browser.",
-      "outro": "No tracking, analytics or marketing cookies are used. Cookie data is not shared with third parties."
+      "heading": "3. Cookies",
+      "body": "The platform uses only technically necessary cookies and browser storage, for sign-in and for settings. There is no tracking or analytics."
     },
-    "jobs": {
-      "heading": "4. Processing of user uploads and job data",
-      "intro": "When you use the platform, your content is stored, meaning uploaded files (e.g. videos, PDFs, presentations, audio files), input such as chat messages or microphone recordings, and the results derived from them (e.g. transcripts, summaries). For each processing job, the following metadata is also stored:",
-      "item1": "Service used (e.g. transcription, summary)",
-      "item2": "Original file name",
-      "item3": "Time of creation and completion",
-      "item4": "Processing status",
-      "retention": "Your content remains stored until you or a workspace administrator deletes it. Job metadata for individual processing jobs is retained <strong>only to a limited extent</strong>. The most recent jobs are kept and older ones are removed automatically. At the latest when the pilot project ends, all workspaces and the files in them are deleted. If you want that earlier, an email to the address above or a message through the feedback form is enough.",
-      "voluntary": "Voluntary information, for example in the feedback form or in surveys, is stored for that purpose only. Survey answers remain after an account is deleted, without any link to the person."
+    "recipients": {
+      "heading": "4. Recipients",
+      "body": "For AI features and translations, content is sent to services of TH Lübeck (THL myLab), GWDG and DeepL. The platform is operated by Hetzner Online GmbH in Germany.\nEmbedded YouTube videos load only after a click. Google then receives the IP address and device data, including in the USA.\nTeachers can connect their own accounts with external providers. Content then goes to that provider, possibly outside the EU."
     },
-    "adminAccess": {
-      "heading": "5. Access by administrators",
-      "intro": "People with the relevant permission, such as administrators, can view the following data for individual user accounts:",
-      "item1": "Chat messages sent, verbatim, with workspace and time",
-      "item2": "Services used, with status and file name",
-      "item3": "Exercises answered",
-      "item4": "Presence times on the platform",
-      "item5": "Workspace memberships",
-      "item6": "For support: temporarily signing in as the affected person (\"takeover\"), start and end are logged",
-      "outro": "This access serves the technical administration of the platform, troubleshooting, and quality assurance. It is limited to the people who have been granted this permission as part of their duties.\nLegal basis: Art. 6 (1) (e) GDPR (performance of a task carried out in the public interest).\nRetention period: as for the underlying data. The takeover log is kept without a time limit."
-    },
-    "thirdParty": {
-      "heading": "6. Third parties and external services",
-      "intro": "Which AI providers are used is configured through the platform's administration. The following external services are currently in use:",
-      "kisskiLabel": "KISSKI / GWDG",
-      "kisskiBody": "AI services, for example language models and transcription. KISSKI is a service of Gesellschaft für wissenschaftliche Datenverarbeitung mbH Göttingen (GWDG) and is subject to German data protection law. Processing takes place under a data processing agreement pursuant to Art. 28 GDPR.",
-      "mylabLabel": "THL myLab",
-      "mylabBody": "AI services operated by TH Lübeck itself. Processing takes place on the university's own servers, no data is transmitted to external providers.",
-      "deeplLabel": "DeepL",
-      "deeplBody": "Translation service for automatic translations. Processing takes place at DeepL SE and is subject to European data protection law.",
-      "hetznerLabel": "Hetzner",
-      "hetznerBody": "Operation of the platform and storage of files at Hetzner Online GmbH on servers in Germany.",
-      "youtubeLabel": "YouTube (Google)",
-      "youtubeBody": "Embedded videos in workspaces. The player loads only after a click on the video, no data flows before that. When loading and playing, Google LLC (USA) receives the IP address and device data. The embed uses YouTube's privacy-enhanced mode (youtube-nocookie.com). The transcript of a video is entered by the teacher and stored on the platform, it is not fetched from YouTube.",
-      "ownLabel": "Own interfaces",
-      "ownBody": "Teachers can connect their own account with an external provider, for example for voices. The content needed for this is then sent to that provider, possibly outside the EU. Responsibility lies with the person who connected the account.",
-      "outro": "Only the content required for the respective function is transmitted to external services."
-    },
-    "logs": {
-      "heading": "7. Server log files",
-      "intro": "When this website is accessed, the web server automatically records information in so-called server log files. This includes:",
-      "item1": "IP address of the requesting device",
-      "item2": "Date and time of access",
-      "item3": "Requested URL and referrer URL",
-      "item4": "Browser and operating system used",
-      "retention": "This data is deleted automatically after <strong>a few weeks</strong>."
-    },
-    "ssl": {
-      "heading": "8. SSL/TLS encryption",
-      "body": "The platform uses SSL/TLS encryption to securely transmit data. You can recognise an encrypted connection by the browser address bar starting with \"https://\"."
+    "retention": {
+      "heading": "5. Retention",
+      "body": "Data is kept until the account or the content is deleted, at the latest until the end of the pilot project. Time-limited accounts are deleted after they expire, server logs after a few weeks. On request, we delete earlier."
     },
     "legalBasis": {
-      "heading": "9. Legal basis",
-      "body": "Processing is based on <strong>Art. 6(1)(f) GDPR</strong> (legitimate interest) for server logs, and on <strong>Art. 6(1)(e) GDPR</strong> (performance of a task carried out in the public interest) for user data and job processing within the scope of platform usage."
+      "heading": "6. Legal basis",
+      "body": "Art. 6(1)(e) GDPR (task in the public interest), for server logs Art. 6(1)(f) GDPR (legitimate interest)."
     },
     "rights": {
-      "heading": "10. Your rights as a data subject",
-      "intro": "You have the following rights vis-à-vis the data controller regarding personal data concerning you:",
-      "item1": "Right of access (Art. 15 GDPR)",
-      "item2": "Right to rectification (Art. 16 GDPR)",
-      "item3": "Right to erasure (Art. 17 GDPR)",
-      "item4": "Right to restriction of processing (Art. 18 GDPR)",
-      "item5": "Right to data portability (Art. 20 GDPR)",
-      "item6": "Right to object to processing (Art. 21 GDPR)",
-      "contact": "To exercise these rights, please contact:"
-    },
-    "complaint": {
-      "heading": "11. Right to lodge a complaint",
-      "body": "You have the right to lodge a complaint with a data protection supervisory authority. The competent authority is the <strong>Unabhängiges Landeszentrum für Datenschutz Schleswig-Holstein (ULD Kiel)</strong> (Independent State Data Protection Centre of Schleswig-Holstein)."
+      "heading": "7. Your rights",
+      "body": "You have the right of access, rectification, erasure, restriction of processing, data portability and objection (Art. 15 to 21 GDPR). To exercise them, please contact:",
+      "complaint": "You can also lodge a complaint with the Unabhängiges Landeszentrum für Datenschutz Schleswig-Holstein (ULD)."
     }
   },
   "jobsStatus": {

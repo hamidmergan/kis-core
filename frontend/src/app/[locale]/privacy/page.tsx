@@ -30,184 +30,60 @@ export default function DatenschutzPage() {
           </section>
 
           <section className="mb-6">
-            <h2 className="text-lg font-semibold mb-2">
-              {t("auth.heading")}
-            </h2>
+            <h2 className="text-lg font-semibold mb-2">{t("data.heading")}</h2>
             <p className="text-foreground-soft mb-2">
-              {t("auth.intro")}
+              {t("data.intro")}
             </p>
             <ul className="list-disc pl-6 text-foreground-soft space-y-1">
-              <li>{t("auth.item1")}</li>
-              <li>{t("auth.itemPassword")}</li>
-              <li>{t("auth.item2")}</li>
-              <li>{t("auth.item3")}</li>
-              <li>{t("auth.item4")}</li>
-              <li>{t("auth.item5")}</li>
-            </ul>
-            <p className="text-foreground-soft mt-2 whitespace-pre-line">
-              {t("auth.outro")}
-            </p>
-          </section>
-
-          <section className="mb-6">
-            <h2 className="text-lg font-semibold mb-2">
-              {t("cookies.heading")}
-            </h2>
-            <p className="text-foreground-soft mb-2">
-              {t("cookies.intro")}
-            </p>
-            <ul className="list-disc pl-6 text-foreground-soft space-y-1">
-              <li>
-                <strong>{t("cookies.sessionLabel")}</strong> - {t("cookies.sessionBody")}
-              </li>
-              <li>
-                <strong>{t("cookies.storageLabel")}</strong> - {t("cookies.storageBody")}
-              </li>
+              <li>{t("data.item1")}</li>
+              <li>{t("data.item2")}</li>
+              <li>{t("data.item3")}</li>
+              <li>{t("data.item4")}</li>
             </ul>
             <p className="text-foreground-soft mt-2">
-              {t("cookies.outro")}
+              {t("data.outro")}
             </p>
           </section>
 
           <section className="mb-6">
-            <h2 className="text-lg font-semibold mb-2">
-              {t("jobs.heading")}
-            </h2>
-            <p className="text-foreground-soft mb-2">
-              {t("jobs.intro")}
-            </p>
-            <ul className="list-disc pl-6 text-foreground-soft space-y-1">
-              <li>{t("jobs.item1")}</li>
-              <li>{t("jobs.item2")}</li>
-              <li>{t("jobs.item3")}</li>
-              <li>{t("jobs.item4")}</li>
-            </ul>
-            <p className="text-foreground-soft mt-2">
-              {t.rich("jobs.retention", {
-                strong: (chunks) => <strong>{chunks}</strong>,
-              })}
-            </p>
-            <p className="text-foreground-soft mt-2">
-              {t("jobs.voluntary")}
-            </p>
-          </section>
-
-          <section className="mb-6">
-            <h2 className="text-lg font-semibold mb-2">
-              {t("adminAccess.heading")}
-            </h2>
-            <p className="text-foreground-soft mb-2">
-              {t("adminAccess.intro")}
-            </p>
-            <ul className="list-disc pl-6 text-foreground-soft space-y-1">
-              <li>{t("adminAccess.item1")}</li>
-              <li>{t("adminAccess.item2")}</li>
-              <li>{t("adminAccess.item3")}</li>
-              <li>{t("adminAccess.item4")}</li>
-              <li>{t("adminAccess.item5")}</li>
-              <li>{t("adminAccess.item6")}</li>
-            </ul>
-            <p className="text-foreground-soft mt-2 whitespace-pre-line">
-              {t("adminAccess.outro")}
-            </p>
-          </section>
-
-          <section className="mb-6">
-            <h2 className="text-lg font-semibold mb-2">
-              {t("thirdParty.heading")}
-            </h2>
-            <p className="text-foreground-soft mb-2">
-              {t("thirdParty.intro")}
-            </p>
-            <ul className="list-disc pl-6 text-foreground-soft space-y-1 mb-2">
-              <li>
-                <strong>{t("thirdParty.kisskiLabel")}</strong> - {t("thirdParty.kisskiBody")}
-              </li>
-              <li>
-                <strong>{t("thirdParty.mylabLabel")}</strong> - {t("thirdParty.mylabBody")}
-              </li>
-              <li>
-                <strong>{t("thirdParty.deeplLabel")}</strong> - {t("thirdParty.deeplBody")}
-              </li>
-              <li>
-                <strong>{t("thirdParty.hetznerLabel")}</strong> - {t("thirdParty.hetznerBody")}
-              </li>
-              <li>
-                <strong>{t("thirdParty.youtubeLabel")}</strong> - {t("thirdParty.youtubeBody")}
-              </li>
-              <li>
-                <strong>{t("thirdParty.ownLabel")}</strong> - {t("thirdParty.ownBody")}
-              </li>
-            </ul>
+            <h2 className="text-lg font-semibold mb-2">{t("cookies.heading")}</h2>
             <p className="text-foreground-soft">
-              {t("thirdParty.outro")}
+              {t("cookies.body")}
             </p>
           </section>
 
           <section className="mb-6">
-            <h2 className="text-lg font-semibold mb-2">
-              {t("logs.heading")}
-            </h2>
-            <p className="text-foreground-soft mb-2">
-              {t("logs.intro")}
-            </p>
-            <ul className="list-disc pl-6 text-foreground-soft space-y-1">
-              <li>{t("logs.item1")}</li>
-              <li>{t("logs.item2")}</li>
-              <li>{t("logs.item3")}</li>
-              <li>{t("logs.item4")}</li>
-            </ul>
-            <p className="text-foreground-soft mt-2">
-              {t.rich("logs.retention", {
-                strong: (chunks) => <strong>{chunks}</strong>,
-              })}
+            <h2 className="text-lg font-semibold mb-2">{t("recipients.heading")}</h2>
+            <p className="text-foreground-soft whitespace-pre-line">
+              {t("recipients.body")}
             </p>
           </section>
 
           <section className="mb-6">
-            <h2 className="text-lg font-semibold mb-2">{t("ssl.heading")}</h2>
+            <h2 className="text-lg font-semibold mb-2">{t("retention.heading")}</h2>
             <p className="text-foreground-soft">
-              {t("ssl.body")}
+              {t("retention.body")}
             </p>
           </section>
 
           <section className="mb-6">
             <h2 className="text-lg font-semibold mb-2">{t("legalBasis.heading")}</h2>
             <p className="text-foreground-soft">
-              {t.rich("legalBasis.body", {
-                strong: (chunks) => <strong>{chunks}</strong>,
-              })}
+              {t("legalBasis.body")}
             </p>
           </section>
 
-          <section className="mb-6">
+          <section>
             <h2 className="text-lg font-semibold mb-2">{t("rights.heading")}</h2>
-            <p className="text-foreground-soft mb-2">
-              {t("rights.intro")}
-            </p>
-            <ul className="list-disc pl-6 text-foreground-soft space-y-1">
-              <li>{t("rights.item1")}</li>
-              <li>{t("rights.item2")}</li>
-              <li>{t("rights.item3")}</li>
-              <li>{t("rights.item4")}</li>
-              <li>{t("rights.item5")}</li>
-              <li>{t("rights.item6")}</li>
-            </ul>
-            <p className="text-foreground-soft mt-2">
-              {t("rights.contact")}{" "}
+            <p className="text-foreground-soft">
+              {t("rights.body")}{" "}
               <a href="mailto:hamid.mergan@th-luebeck.de" className="text-info hover:underline">
                 hamid.mergan@th-luebeck.de
               </a>
               .
             </p>
-          </section>
-
-          <section>
-            <h2 className="text-lg font-semibold mb-2">{t("complaint.heading")}</h2>
-            <p className="text-foreground-soft">
-              {t.rich("complaint.body", {
-                strong: (chunks) => <strong>{chunks}</strong>,
-              })}
+            <p className="text-foreground-soft mt-2">
+              {t("rights.complaint")}
             </p>
           </section>
         </div>
