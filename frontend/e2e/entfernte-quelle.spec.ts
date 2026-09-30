@@ -70,5 +70,4 @@ test("laesst sich eine Datei nicht laden, bietet der Viewer kein eigenes Oeffnen
   await expect(viewer.getByTestId("pdf-load-failed")).toBeVisible({ timeout: 15_000 });
   // Neither the library's error screen nor its empty state may show up.
   await expect(viewer.getByRole("button", { name: /Datei öffnen|Open File|Schließen|Close/ })).toHaveCount(0);
-  await page.screenshot({ path: test.info().outputPath("ladefehler.png") });
 });
