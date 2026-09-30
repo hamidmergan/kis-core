@@ -132,6 +132,36 @@ def _start(client):
 
 
 class TestStart:
+    def _gestartet_mit(self, env, monkeypatch, **params):
+        import src.routes.praesentation.start as start_route
+        from src.features.praesentation import store
+
+        client, jobs, *_ = env
+        # Each start stands alone, an earlier one would count as running.
+        jobs.clear()
+        monkeypatch.setattr(start_route, "enforce_open_jobs", lambda *a, **k: None)
+        monkeypatch.setattr(start_route, "create_counted_job", lambda uuid, uid, tool, name, locale="de": jobs.__setitem__(
+            uuid, {"job_uuid": uuid, "user_id": uid, "tool": tool, "status": "pending"}))
+        antwort = client.post("/praesentation/start", data={"params": _params(**params), "mode": "files"},
+                              files={"files": ("kapitel.txt", "Über den Regelkreis.".encode(), "text/plain")})
+        assert antwort.status_code == 200, antwort.text
+        return store.load_params(7, antwort.json()["job_uuid"])
+
+    def test_ohne_eigenen_bildstil_gilt_der_der_vorlage(self, env, monkeypatch):
+        from src.features.praesentation import vorlagen
+
+        gespeichert = self._gestartet_mit(env, monkeypatch)
+        assert gespeichert.style_text == vorlagen.systemvorlage()[1]["style_text"]
+
+    def test_ein_geaenderter_bildstil_gewinnt_auch_leer(self, env, monkeypatch):
+        assert self._gestartet_mit(env, monkeypatch, style_text="Watercolour, soft blue").style_text == "Watercolour, soft blue"
+        assert self._gestartet_mit(env, monkeypatch, style_text="").style_text == ""
+
+    def test_zu_langer_bildstil_wird_abgewiesen(self, env):
+        client, *_ = env
+        antwort = client.post("/praesentation/start", data={"params": _params(style_text="x" * 1001), "mode": "files"},
+                              files={"files": ("kapitel.txt", "Über den Regelkreis.".encode(), "text/plain")})
+        assert antwort.status_code == 422
 
 
 

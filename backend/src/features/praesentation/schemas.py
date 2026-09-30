@@ -28,6 +28,8 @@ MAX_NOTES_CHARS = 1500
 MAX_PROMPT_CHARS = 600
 MAX_HEADING_CHARS = 80
 MAX_PRESENTER_CHARS = 80
+# The picture style, the same cap as the style saved with an own template.
+MAX_STYLE_CHARS = 1000
 # What a person may write into a row's gist, the field the insert dialog fills too.
 MAX_GIST_CHARS = 300
 MAX_SERIES_NAME_CHARS = 60
@@ -174,7 +176,7 @@ class PraesentationParams(BaseModel):
     template_name: str = ""
     # True when the saved template could not be read and the system one stepped in.
     template_fallback: bool = False
-    style_text: str = ""
+    style_text: str = Field(default="", max_length=MAX_STYLE_CHARS)
     source_label: str = ""
     # Only set for a workspace run: what a slide added later can search through.
     workspace_id: int | None = None

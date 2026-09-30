@@ -88,7 +88,9 @@ async def start_praesentation(
 
     vorlage_bytes, analyse, meta, fallback = await asyncio.to_thread(vorlagen.aufloesen, user_id, einstellungen.template_id)
     einstellungen.template_name = meta["name"]
-    einstellungen.style_text = meta["style_text"]
+    # A style changed in the first step wins, left untouched the template brings its own.
+    if "style_text" not in einstellungen.model_fields_set:
+        einstellungen.style_text = meta["style_text"]
     einstellungen.template_fallback = fallback
     einstellungen.source_label = label
     # Only a note of where the material came from, nothing reads back into the workspace.
