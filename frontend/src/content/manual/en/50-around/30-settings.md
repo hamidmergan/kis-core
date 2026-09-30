@@ -6,6 +6,7 @@ The gear in the top right applies to the whole platform:
 
 - **Language** of the interface, German or English
 - **Look**, light or dark
+- **Interfaces**, connect your own voice services, only for teaching staff and administrators
 - **Documentation**, these pages
 - **Sign out**
 

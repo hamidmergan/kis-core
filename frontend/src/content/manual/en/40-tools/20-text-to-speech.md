@@ -11,7 +11,8 @@ allowed amount of characters is used up.
 
 ## What you can set
 
-- **Voice**: listen to the voices beforehand to try them out
+- **Voice**: listen to the voices beforehand to try them out. Voices from your own account at
+  ElevenLabs, Gemini or Fish Audio are added under Interfaces in the gear menu.
 - **Speed**: from slow to fast
 - **Pauses**: from short to very long, this steers the gap between sentences
 

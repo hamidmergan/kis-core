@@ -215,6 +215,20 @@ test.describe("Handbuch-Bilder", () => {
       await page.screenshot({ path: shot(locale, "header-menu") });
     });
 
+    test(`schnittstellen ${locale}`, async ({ page }) => {
+      await useLocale(page, locale);
+      await page.goto(`${prefix(locale)}/interfaces`, { waitUntil: "domcontentloaded" });
+      await settle(page);
+      await expect(page.getByText("Fish Audio", { exact: true })).toBeVisible();
+      // Only the narrow column, at full width the empty margins shrink the text in the article.
+      const box = (await page.locator(".max-w-2xl").last().boundingBox())!;
+      await page.screenshot({
+        path: shot(locale, "interfaces"),
+        fullPage: true,
+        clip: { x: box.x - 24, y: box.y - 24, width: box.width + 48, height: box.height + 48 },
+      });
+    });
+
     for (const entry of ADMIN_PAGES) {
       test(`${entry.name} ${locale}`, async ({ page }) => {
         await useLocale(page, locale);

@@ -11,7 +11,8 @@ wie viele Zeichen von der erlaubten Menge verbraucht sind.
 
 ## Was Sie einstellen können
 
-- **Stimme**: über Stimmen anhören probieren Sie sie vorher aus
+- **Stimme**: über Stimmen anhören probieren Sie sie vorher aus. Stimmen aus Ihrem eigenen Konto bei
+  ElevenLabs, Gemini oder Fish Audio kommen über Schnittstellen im Zahnrad-Menü dazu.
 - **Geschwindigkeit**: von langsam bis schnell
 - **Pausen**: von kurz bis sehr lang, das steuert den Abstand zwischen den Sätzen
 
