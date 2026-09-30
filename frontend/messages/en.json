@@ -843,8 +843,6 @@
         "partial": "Only {gestartet} of {gewuenscht} variants started, you already have other jobs open.",
         "modelPrompt": "Sent to the image model",
         "copied": "Copied",
-        "toEdit": "Edit",
-        "toAnalyze": "Describe",
         "download": "Download {format}",
         "prompt": "Prompt",
         "promptEdit": "Edit prompt",

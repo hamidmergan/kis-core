@@ -843,8 +843,6 @@
         "partial": "Nur {gestartet} von {gewuenscht} Varianten gestartet, du hast schon andere Aufträge offen.",
         "modelPrompt": "An das Bildmodell",
         "copied": "Kopiert",
-        "toEdit": "Bearbeiten",
-        "toAnalyze": "Beschreiben",
         "download": "{format} herunterladen",
         "prompt": "Prompt",
         "promptEdit": "Prompt zum Bearbeiten",

@@ -19,15 +19,13 @@ interface Props {
   meldungen: string[];
   platzhalter: string;
   onHochladen?: (datei: File) => void;
-  onBearbeiten?: () => void;
-  onBeschreiben?: () => void;
   onLoeschen?: () => void;
   children?: ReactNode;
 }
 
-/** The one large picture of the page, the same in all three tasks, with its downloads and ways on. */
+/** The one large picture of the page, the same in all three tasks, with its downloads. */
 const Buehne = forwardRef<HTMLDivElement, Props>(function Buehne(
-  { bild, laeuft, label, meldungen, platzhalter, onHochladen, onBearbeiten, onBeschreiben, onLoeschen, children }, ref,
+  { bild, laeuft, label, meldungen, platzhalter, onHochladen, onLoeschen, children }, ref,
 ) {
   const t = useTranslations("tools.image.result");
   const tEdit = useTranslations("tools.image.edit");
@@ -62,8 +60,6 @@ const Buehne = forwardRef<HTMLDivElement, Props>(function Buehne(
                 </button>
               </>
             )}
-            {onBearbeiten && <button type="button" className={KNOPF} onClick={onBearbeiten}>{t("toEdit")}</button>}
-            {onBeschreiben && <button type="button" className={KNOPF} onClick={onBeschreiben}>{t("toAnalyze")}</button>}
             {bild.jobUuid && onLoeschen && <button type="button" className={KNOPF} onClick={onLoeschen}>{t("delete")}</button>}
           </div>
           {children}

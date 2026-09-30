@@ -144,8 +144,6 @@ export default function ImagePage() {
               meldungen={meldungen}
               platzhalter={t(`placeholder.${tab}`)}
               onHochladen={tab === "generate" ? undefined : hochladen}
-              onBearbeiten={tab === "edit" ? undefined : () => wechseln("edit")}
-              onBeschreiben={tab === "analyze" ? undefined : () => wechseln("analyze")}
               onLoeschen={() => bild && setLoeschen({ bild, laeuft: false, fehler: "" })}
             >
               {bild && (tab === "analyze" ? (
