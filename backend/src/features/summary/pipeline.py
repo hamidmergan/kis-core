@@ -9,8 +9,6 @@ from __future__ import annotations
 
 from typing import Callable, Protocol
 
-from babel import Locale
-from langdetect import DetectorFactory, LangDetectException, detect_langs
 from loguru import logger
 
 from src.features.summary import concurrency, writing
@@ -26,19 +24,11 @@ from src.limits import (
 )
 from src.services import text_map as tm
 from src.services.source_reading import Source
+from src.services.text_language import language_name
 
 
 class PipelineInterrupted(Exception):
     """The stage ran out of working time, what is done is saved, the rest follows."""
-
-
-_LANGUAGE_SAMPLE_CHARS = 1500
-# Below this the guess is noise, a file name or a page number is not a language.
-_LANGUAGE_MIN_CHARS = 80
-# A mixed or unclear sample is better described than named wrongly.
-_LANGUAGE_MIN_PROB = 0.7
-_LANGUAGE_NAMES = Locale("en").languages
-DetectorFactory.seed = 0
 
 
 class RunStore(Protocol):
@@ -56,30 +46,9 @@ class RunStore(Protocol):
     def save_section(self, index: int, text: str) -> None: ...
 
 
-def language_sample(text: str, sample_chars: int = _LANGUAGE_SAMPLE_CHARS) -> str:
-    """An excerpt from the middle as a language sample, the edges mislead."""
-    if len(text) <= sample_chars:
-        return " ".join(text.split())
-    mitte = len(text) // 2
-    koerper = " ".join(text[max(0, mitte - sample_chars): mitte + sample_chars].split())
-    if len(koerper) <= sample_chars:
-        return koerper
-    # Aus der Mitte heraus gekuerzt, sonst faellt genau die Mitte wieder weg.
-    start = (len(koerper) - sample_chars) // 2
-    return koerper[start:start + sample_chars]
-
-
 def detect_language(sources: list[Source]) -> str:
     """The language of the material, read locally. A text without one falls back."""
-    probe = language_sample("\n".join(q.text for q in sources[:1]))
-    if len(probe) < _LANGUAGE_MIN_CHARS:
-        return LANGUAGE_FALLBACK
-    try:
-        treffer = detect_langs(probe)[0]
-    except LangDetectException:
-        return LANGUAGE_FALLBACK
-    name = _LANGUAGE_NAMES.get(treffer.lang.split("-")[0])
-    return name if name and treffer.prob >= _LANGUAGE_MIN_PROB else LANGUAGE_FALLBACK
+    return language_name("\n".join(q.text for q in sources[:1])) or LANGUAGE_FALLBACK
 
 
 async def _themen(caller: Caller, nachrichten: list[dict], teil: int) -> str | None:

@@ -1,8 +1,9 @@
-"""The language is measured separately and put into the prompt, not guessed."""
+"""The language is read locally and put into the prompt, not guessed by the model."""
 
 import pytest
 
 from src.services.openai_compat_llm import _summary as summary_mod
+from src.services.text_language import language_sample
 from src.tool_prompts import SUMMARY_DEFAULT
 
 
@@ -83,7 +84,7 @@ def _user_of(call):
 
 def test_language_sample_skips_cover_page_and_footer():
     """The probe must not see the edges, that is where the boilerplate lives."""
-    sample = summary_mod._language_sample(MIXED_DOC)
+    sample = language_sample(MIXED_DOC)
 
     assert "Vorlesungsskript" not in sample
     assert "Moenkhofer Weg" not in sample
@@ -92,41 +93,30 @@ def test_language_sample_skips_cover_page_and_footer():
 
 def test_language_sample_returns_short_text_unchanged():
     short = "A very short document about nothing in particular."
-    assert summary_mod._language_sample(short) == short
+    assert language_sample(short) == short
 
 
 # -- language pinning ---------------------------------------------------------
 
 
 def test_detected_language_is_pinned_into_the_prompt():
-    client = _Client(["English", "the summary"])
+    client = _Client(["the summary"])
 
     client.generate_summary(MIXED_DOC)
 
-    probe, summary = client._client.calls
-    assert "distributed system" in _user_of(probe)
+    # One call only, the language costs no model call.
+    (summary,) = client._client.calls
     system = _system_of(summary)
     assert "English" in system
     # The model must not be asked to decide the language for itself again.
     assert "dominant language" not in system
 
 
-def test_probe_answer_is_sanitized_before_it_reaches_the_prompt():
-    """A chatty probe answer must not be pasted into the prompt verbatim."""
-    client = _Client(["Sure! The dominant language of this text is English.", "the summary"])
+def test_text_without_language_falls_back_to_the_description():
+    client = _Client(["the summary"])
 
-    client.generate_summary(MIXED_DOC)
-
-    system = _system_of(client._client.calls[1])
-    assert "Sure!" not in system
-
-
-@pytest.mark.parametrize("bad", [RuntimeError("boom"), "", None])
-def test_summary_survives_a_failed_language_probe(bad):
-    client = _Client([bad, "the summary"])
-
-    assert client.generate_summary(MIXED_DOC) == "the summary"
-    assert len(client._client.calls) == 2
+    assert client.generate_summary("1234 5678 " * 20) == "the summary"
+    assert "main body text" in _system_of(client._client.calls[0])
 
 
 # -- output format ------------------------------------------------------------
@@ -136,10 +126,10 @@ def test_only_plain_text_is_produced():
     """Markdown and HTML are gone, the tool always returns plain text."""
     assert "{format}" not in SUMMARY_DEFAULT
 
-    client = _Client(["English", "the summary"])
+    client = _Client(["the summary"])
     client.generate_summary(MIXED_DOC)
 
-    system = _system_of(client._client.calls[1])
+    system = _system_of(client._client.calls[0])
     assert "No Markdown, no HTML" in system
 
     # generate_summary takes the text only, there is no format to pass any more.

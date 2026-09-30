@@ -9,6 +9,7 @@ from src.features.summary import pipeline as pl
 from src.features.summary.models import Caller, LANGUAGE_FALLBACK
 from src.features.summary.templates import get_template
 from src.services.source_reading import Piece, Source
+from src.services.text_language import language_sample
 from tests.summary_helpers import FakeClient
 
 
@@ -180,11 +181,11 @@ def test_der_plan_liest_den_nummerierten_text():
 
 def test_die_sprachprobe_kommt_aus_der_mitte():
     text = "A" * 5000 + "MITTE" + "B" * 5000
-    assert "MITTE" in pl.language_sample(text)
+    assert "MITTE" in language_sample(text)
 
 
 def test_ein_kurzer_text_ist_seine_eigene_probe():
-    assert pl.language_sample("Kurzer Satz.") == "Kurzer Satz."
+    assert language_sample("Kurzer Satz.") == "Kurzer Satz."
 
 
 # ── Fortschritt ──────────────────────────────────────────────────────────────

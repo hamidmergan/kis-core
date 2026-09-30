@@ -19,15 +19,7 @@ SUMMARY_DEFAULT = (
 )
 
 
-# Its own sample call, the sample comes from the middle of the document.
-SUMMARY_LANGUAGE_PROBE = (
-    "Identify the language of the text the user sends.\n"
-    "Answer with the English name of that language and nothing else, for example: English, German, Spanish.\n"
-    "No punctuation, no explanation, no full sentence."
-)
-
-
-# Used when the probe fails or returns something unusable.
+# Used when the language cannot be read from the text.
 SUMMARY_LANGUAGE_FALLBACK = (
     "the language of the main body text, ignoring cover pages, headers and footers"
 )

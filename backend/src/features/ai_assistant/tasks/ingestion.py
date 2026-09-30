@@ -152,19 +152,12 @@ def run_index_source(self, source_uuid: str, locale: str = "de", _aia_job_uuid: 
 
             if file_type == "youtube":
                 from src.features.ai_assistant.tasks._provided_transcript import (
-                    FALLBACK_LANGUAGE, detect_language, load_provided_segments,
+                    detect_language, load_provided_segments,
                 )
-                from src.features.ai_assistant.tasks._helpers import _get_llm_client
                 segments = load_provided_segments(file_path_stored)
                 if not segments:
                     raise RuntimeError("No transcript stored for this YouTube source.")
-                try:
-                    _lang_client, _lang_model, _ = _get_llm_client()
-                    media_language = detect_language(segments, _lang_client, _lang_model)
-                except Exception as e:
-                    # No usable model must not cost the source, the language falls back.
-                    logger.warning("KI Tutor: language detection unavailable for {}: {}", source_uuid, e)
-                    media_language = FALLBACK_LANGUAGE
+                media_language = detect_language(segments)
                 media_duration = float(segments[-1]["end"])
                 chunks = _store_transcript_artifacts(file_path_stored, segments, media_language)
             elif aia_chunker.is_media_file(file_type):

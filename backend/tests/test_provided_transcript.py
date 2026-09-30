@@ -1,5 +1,4 @@
 """The pasted transcript takes Whisper's place, everything after it stays the same."""
-from types import SimpleNamespace
 
 import pytest
 
@@ -28,38 +27,13 @@ def test_load_provided_segments_is_empty_without_a_file(lokal):
     assert pt.load_provided_segments(str(lokal / "users/1/aia/workspaces/w/sources/nix.youtube")) == []
 
 
-class _Client:
-    """Answers every chat call with one fixed content or raises."""
-
-    def __init__(self, content):
-        self.content = content
-        self.chat = self
-        self.completions = self
-        self.calls = []
-
-    def create(self, **kwargs):
-        self.calls.append(kwargs)
-        if isinstance(self.content, Exception):
-            raise self.content
-        return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=self.content))])
+def test_detect_language_reads_the_code_locally():
+    segments = [{"text": "Today we look at how plants turn light into sugar."}] * 4
+    assert pt.detect_language(segments) == "en"
 
 
-@pytest.mark.parametrize("answer, expected", [
-    ("de", "de"), (" EN\n", "en"), ("<think>hm</think>tr", "tr"), ("German", "de"), ("", "de"), (None, "de"),
-])
-def test_detect_language_keeps_only_a_two_letter_code(answer, expected):
-    assert pt.detect_language([{"text": "Hallo"}], _Client(answer), "m") == expected
-
-
-def test_detect_language_sends_a_short_sample():
-    client = _Client("de")
-    pt.detect_language([{"text": "x" * 1000}], client, "m")
-    assert len(client.calls[0]["messages"][1]["content"]) == 600
-    assert client.calls[0]["model"] == "m"
-
-
-def test_detect_language_falls_back_when_the_model_fails():
-    assert pt.detect_language([{"text": "Hallo"}], _Client(RuntimeError("down")), "m") == "de"
+def test_detect_language_falls_back_when_the_text_is_too_short():
+    assert pt.detect_language([{"text": "Hallo"}]) == "de"
 
 
 def test_store_transcript_artifacts_writes_text_and_vtt(lokal):
@@ -157,7 +131,9 @@ def test_run_index_source_youtube_branch_uses_the_pasted_transcript(lokal, monke
     calls = {"chunks": [], "status": []}
     _stub_ingest_dependencies(monkeypatch, source, calls)
     from src.features.ai_assistant.tasks import _helpers
-    monkeypatch.setattr(_helpers, "_get_llm_client", lambda: (_Client("de"), "m", "p"))
+    # The source summary is the only model call left, off here so the guard sees the language alone.
+    monkeypatch.setattr(ingestion, "_BUILD_INGEST_SUMMARY", False)
+    monkeypatch.setattr(_helpers, "_get_llm_client", lambda: pytest.fail("the language needs no model call"))
 
     ingestion.run_index_source("abc", "de")
 
@@ -181,18 +157,20 @@ def test_run_index_source_youtube_branch_fails_without_a_stored_transcript(lokal
     assert calls["status"][-1][0] == "failed"
 
 
-def test_run_index_source_youtube_branch_falls_back_when_the_model_is_unavailable(lokal, monkeypatch):
-    file_path = storage.save_aia_provided_transcript(1, "w", "abc", _VTT)
+def test_run_index_source_youtube_branch_reads_the_language_locally(lokal, monkeypatch):
+    zeile = "Today we look at how plants turn light into sugar and why they need water."
+    vtt = f"WEBVTT\n\n1\n00:00:00.000 --> 00:00:05.000\n{zeile}\n\n2\n00:00:05.000 --> 00:00:10.000\n{zeile}\n"
+    file_path = storage.save_aia_provided_transcript(1, "w", "abc", vtt)
     source = _youtube_source(file_path)
     calls = {"chunks": [], "status": []}
     _stub_ingest_dependencies(monkeypatch, source, calls)
     from src.features.ai_assistant.tasks import _helpers
-
-    def _broken_client():
-        raise RuntimeError("no provider configured")
-    monkeypatch.setattr(_helpers, "_get_llm_client", _broken_client)
+    # The source summary is the only model call left, off here so the guard sees the language alone.
+    monkeypatch.setattr(ingestion, "_BUILD_INGEST_SUMMARY", False)
+    monkeypatch.setattr(_helpers, "_get_llm_client", lambda: pytest.fail("the language needs no model call"))
 
     ingestion.run_index_source("abc", "de")
 
     assert calls["status"][-1][0] == "ready"
-    assert calls["status"][-1][1]["language"] == "de"
+    assert calls["status"][-1][1]["language"] == "en"
+    assert storage.get_file(storage.aia_vtt_key(file_path, "en")).decode("utf-8").startswith("WEBVTT")
