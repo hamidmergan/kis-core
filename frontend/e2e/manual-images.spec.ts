@@ -229,6 +229,22 @@ test.describe("Handbuch-Bilder", () => {
       });
     });
 
+    test(`schnittstelle-schluessel ${locale}`, async ({ page }) => {
+      await useLocale(page, locale);
+      // The recording account has its keys connected, the picture needs a card before that.
+      await page.route("**/api/me/interfaces", async (route) => {
+        const response = await route.fetch();
+        await route.fulfill({ response, json: { ...(await response.json()), interfaces: [] } });
+      });
+      await page.goto(`${prefix(locale)}/interfaces`, { waitUntil: "domcontentloaded" });
+      await settle(page);
+      await page.locator("#key-elevenlabs").fill("sk_beispiel_1234567890");
+      // The connect button fades in once the key is long enough.
+      await page.waitForTimeout(800);
+      await page.locator("section").filter({ has: page.locator("#key-elevenlabs") })
+        .screenshot({ path: shot(locale, "interfaces-key") });
+    });
+
     for (const entry of ADMIN_PAGES) {
       test(`${entry.name} ${locale}`, async ({ page }) => {
         await useLocale(page, locale);

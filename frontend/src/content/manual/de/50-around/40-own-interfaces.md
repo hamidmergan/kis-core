@@ -24,6 +24,14 @@ Punkte daraus:
 
 Ändert sich der Hinweis inhaltlich, fragt KIS Sie noch einmal.
 
+## Schlüssel eintragen
+
+![Eine Karte vor dem Verbinden, mit eingetragenem Schlüssel](/manual/{lang}/interfaces-key.png)
+
+Beim Verbinden prüft KIS den Schlüssel sofort beim Anbieter und holt dabei die Stimmen ab. Lehnt
+der Anbieter den Schlüssel ab, sehen Sie das gleich auf dieser Karte und nicht erst beim ersten
+Auftrag.
+
 ## Welche Stimmen erscheinen
 
 - **ElevenLabs**: alle Stimmen Ihres Kontos, auch die, die Sie selbst geklont haben

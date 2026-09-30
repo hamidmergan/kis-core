@@ -23,6 +23,14 @@ On your first visit the page stays locked until you confirm a notice. Its main p
 
 If the notice changes in substance, KIS asks you again.
 
+## Entering the key
+
+![A card before connecting, with a key entered](/manual/{lang}/interfaces-key.png)
+
+When you connect, KIS checks the key with the provider right away and fetches the voices along the
+way. If the provider rejects the key, you see it on this card at once and not only with your first
+job.
+
 ## Which voices appear
 
 - **ElevenLabs**: every voice in your account, including the ones you cloned yourself
