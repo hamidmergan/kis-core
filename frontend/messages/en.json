@@ -3589,6 +3589,7 @@
         "deselectSource": "Deselect source",
         "stillProcessing": "Source is still being processed",
         "openInViewer": "Open in viewer",
+        "fromWebpage": "Read from a web page",
         "indexingFailed": "Indexing failed",
         "retry": "Retry",
         "ocrIncompleteShort": "Text recognition incomplete, {open} pages open",

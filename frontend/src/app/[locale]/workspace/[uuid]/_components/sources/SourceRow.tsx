@@ -154,7 +154,7 @@ export function SourceRow({
 
       {renaming ? (
         <div className="flex-1 flex items-center gap-2 pl-3 pr-4 py-2.5 min-w-0">
-          <FileIcon filename={src.filename} />
+          <FileIcon filename={src.filename} sourceUrl={src.source_url} />
           <input
             ref={renameInputRef}
             value={renameValue}
@@ -188,7 +188,7 @@ export function SourceRow({
           title={ready ? t("openInViewer") : undefined}
           className={`flex-1 flex items-center gap-3 pl-3 pr-4 py-2.5 min-w-0 ${ready ? "cursor-pointer" : "cursor-default"}`}
         >
-          <FileIcon filename={src.filename} />
+          <FileIcon filename={src.filename} sourceUrl={src.source_url} />
           <span
             className="flex-1 text-sm leading-snug truncate min-w-0 font-medium"
             style={{ color: "var(--foreground)" }}

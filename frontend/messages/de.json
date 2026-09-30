@@ -3589,6 +3589,7 @@
         "deselectSource": "Material abwählen",
         "stillProcessing": "Material wird noch verarbeitet",
         "openInViewer": "Im Viewer öffnen",
+        "fromWebpage": "Von einer Webseite eingelesen",
         "indexingFailed": "Indizierung fehlgeschlagen",
         "retry": "Erneut versuchen",
         "ocrIncompleteShort": "Texterkennung unvollständig, {open} Seiten offen",
