@@ -73,6 +73,8 @@ interface ChipDesc {
   clickChunkStart: number | undefined;
   clickHighlight: string | undefined;
   isExactSelection: boolean;
+  // Set when the source was removed from the workspace, the chip then opens nothing.
+  removedTitle?: string;
   // The section of answer text this chip backs up.
   claim?: string;
   start: number;   // token span start in the answer text
@@ -103,10 +105,18 @@ export function chipClickArgs(desc: {
 
 // Draws a single chip that leads back to the source.
 function CitationChip({ desc, onChipClick, onPin }: { desc: ChipDesc; onChipClick: CitationChipClickHandler; onPin?: () => void }) {
-  const { filename, displayQNum, label, clickUuid, clickSeconds, isExactSelection } = desc;
+  const { filename, displayQNum, label, clickUuid, clickSeconds, isExactSelection, removedTitle } = desc;
   const args = chipClickArgs(desc);
   const targetKey = chipTargetKey(clickUuid, args.page, clickSeconds);
   const isActive = useIsActiveChip(targetKey);
+  if (removedTitle) {
+    return (
+      <span aria-disabled="true" title={removedTitle}
+        className="inline-flex items-center whitespace-nowrap text-3xs px-[0.3125rem] py-px rounded-full font-medium chip-cite align-middle mx-px opacity-50 cursor-not-allowed"
+        style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)", color: "var(--kb)" }}
+      >{displayQNum ? `[${displayQNum}] ` : ""}{label}</span>
+    );
+  }
   // onPointerDown, otherwise the click is lost during the stream.
   const activate = () => {
     // Marks this chip as active, matching the frame in the viewer.
@@ -287,7 +297,8 @@ export function parseCitations(
   text: string,
   msg: ChatMessage,
   activeSourceIds: string[],
-  getFilename: (uuid: string) => string,
+  // Null when the workspace no longer holds the source.
+  getFilename: (uuid: string) => string | null,
   onChipClick: CitationChipClickHandler,
   keyPrefix: string = "c",
   tChip?: ChipLabelT,
@@ -299,6 +310,7 @@ export function parseCitations(
   const singleSource = msgQmap.length === 1;
   // The pattern of the citation markers, old forms and CJK brackets included.
   const pattern = citationPattern();
+  const removedLabel = tChip ? tChip("removed") : "Quelle entfernt";
 
   // The resolved data per marker so neighbours can be merged later.
   interface Parsed {
@@ -312,6 +324,7 @@ export function parseCitations(
     clickChunkStart: number | undefined;
     clickHighlight: string | undefined;
     isExactSelection: boolean;
+    removedTitle: string | undefined;
   }
 
   const parsed: Parsed[] = [];
@@ -323,7 +336,8 @@ export function parseCitations(
     const timestamp = m[4] || null;
     const qEntry = qNum ? msgQmap.find(q => q.qnum === qNum) : null;
     const sourceUuid = embeddedUuid ?? qEntry?.uuid ?? msgSourcePages[0]?.source_uuid ?? activeSourceIds[0] ?? "";
-    const filename = qEntry?.filename ?? getFilename(sourceUuid);
+    const knownFilename = getFilename(sourceUuid);
+    const filename = qEntry?.filename ?? knownFilename ?? sourceUuid;
     // Fallback: qnum from qmap via sourceUuid (e.g. popup actions without Q-prefix)
     const displayQNum = singleSource ? null : (qNum ?? msgQmap.find(q => q.uuid === sourceUuid)?.qnum ?? null);
     const label = timestamp || _chunkLabel(filename, pageNum, undefined, tChip);
@@ -366,6 +380,7 @@ export function parseCitations(
       clickEndSeconds: timestamp ? endSeconds : undefined,
       clickChunkStart: timestamp ? chunkStart : undefined,
       clickHighlight, isExactSelection,
+      removedTitle: knownFilename == null ? removedLabel : undefined,
     });
   }
 
@@ -402,6 +417,7 @@ export function parseCitations(
       clickChunkStart: head.clickChunkStart,
       clickHighlight: head.clickHighlight,
       isExactSelection: head.isExactSelection,
+      removedTitle: head.removedTitle,
       start: head.fields.index,
       end: tail.index + tail.length,
     });
@@ -467,7 +483,7 @@ export function withCitations(
   children: React.ReactNode,
   msg: ChatMessage,
   activeSourceIds: string[],
-  getFilename: (uuid: string) => string,
+  getFilename: (uuid: string) => string | null,
   onChipClick: CitationChipClickHandler,
   tChip?: ChipLabelT,
   nodePrefix: string = "",

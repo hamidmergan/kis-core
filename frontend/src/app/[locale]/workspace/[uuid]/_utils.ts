@@ -166,7 +166,7 @@ export function _sourceChipKey(
 }
 
 // Label of a citation chip in the interface language, German without tChip.
-export type ChipLabelT = (key: "page" | "part", values: { num: number }) => string;
+export type ChipLabelT = (key: "page" | "part" | "removed", values?: { num: number }) => string;
 
 export function _chunkLabel(
   filename: string,

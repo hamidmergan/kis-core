@@ -172,8 +172,8 @@ describe("_chunkLabel", () => {
     expect(_chunkLabel("doc.pdf", 2)).toBe("S. 2");
   });
   it("uses the localized translator when provided", () => {
-    const tChip = (key: "page" | "part", v: { num: number }) =>
-      key === "page" ? `p. ${v.num}` : `Part ${v.num}`;
+    const tChip = (key: string, v?: { num: number }) =>
+      key === "page" ? `p. ${v?.num}` : `Part ${v?.num}`;
     expect(_chunkLabel("doc.pdf", 2, null, tChip)).toBe("p. 2");
     expect(_chunkLabel("v.mp4", 3, null, tChip)).toBe("Part 3");
   });

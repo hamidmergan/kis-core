@@ -136,7 +136,7 @@ export function ChatPanel({
   const handleRetry = useCallback(() => onRetryRef.current?.(), []);
 
   const getFilename = useCallback(
-    (srcUuid: string) => sourcesRef.current.find((s) => s.uuid === srcUuid)?.filename ?? srcUuid,
+    (srcUuid: string) => sourcesRef.current.find((s) => s.uuid === srcUuid)?.filename ?? null,
     [],
   );
 

@@ -68,7 +68,7 @@ export function NotesStudio({
     setRenameNoteId(null);
   }
 
-  const getFilename = (uuid: string) => sources?.find(s => s.uuid === uuid)?.filename ?? uuid;
+  const getFilename = (uuid: string) => sources?.find(s => s.uuid === uuid)?.filename ?? null;
   const onChipClick: CitationChipClickHandler = (uuid, page, filename, sourceText, startTime, isExact) =>
     onPillClick?.(uuid, page, filename, sourceText, startTime, isExact);
 
@@ -77,7 +77,7 @@ export function NotesStudio({
     const qmap: SourceQmap[] = (note.source_uuids ?? []).map((uuid, i) => ({
       qnum: i + 1,
       uuid,
-      filename: getFilename(uuid),
+      filename: getFilename(uuid) ?? uuid,
     }));
     const msg: ChatMessage = {
       role: "assistant",
@@ -248,19 +248,23 @@ export function NotesStudio({
                           >
                             {qmap.map((s) => {
                               const ChipIcon = _getChipIcon(s.filename);
+                              // A note keeps only the id of a removed source, so it is named as removed.
+                              const removed = getFilename(s.uuid) == null;
+                              const name = removed ? tChip("removed") : s.filename;
                               return (
                                 <span
                                   key={s.qnum}
                                   role="button"
-                                  tabIndex={0}
-                                  onClick={(e) => { e.stopPropagation(); onChipClick(s.uuid, 0, s.filename); }}
+                                  tabIndex={removed ? -1 : 0}
+                                  aria-disabled={removed || undefined}
+                                  onClick={removed ? undefined : (e) => { e.stopPropagation(); onChipClick(s.uuid, 0, s.filename); }}
                                   onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.click(); }}
-                                  className="inline-flex items-center gap-1 text-xs cursor-pointer text-[var(--muted)] hover-lighten transition-colors"
-                                  title={s.filename}
+                                  className={`inline-flex items-center gap-1 text-xs text-[var(--muted)] ${removed ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover-lighten transition-colors"}`}
+                                  title={name}
                                 >
                                   <ChipIcon size={10} weight="bold" />
                                   <span style={{ color: "var(--kb)" }}>[{s.qnum}]</span>
-                                  <span className="max-w-125 truncate">{s.filename}</span>
+                                  <span className="max-w-125 truncate">{name}</span>
                                 </span>
                               );
                             })}

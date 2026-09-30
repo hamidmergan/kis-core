@@ -1,7 +1,8 @@
 {
   "sourceChip": {
     "page": "p. {num}",
-    "part": "Part {num}"
+    "part": "Part {num}",
+    "removed": "Source removed"
   },
   "header": {
     "homeAria": "Go to homepage",
@@ -3712,7 +3713,9 @@
         "addToNoteDescription": "Save selection as a new note",
         "addToNoteTitle": "Save as note",
         "tracksDe": "German",
-        "tracksEn": "English"
+        "tracksEn": "English",
+        "loadFailedTitle": "This file can't be opened",
+        "loadFailedText": "It was removed or is not reachable right now."
       },
       "studio": {
         "panelTitle": "Studio",

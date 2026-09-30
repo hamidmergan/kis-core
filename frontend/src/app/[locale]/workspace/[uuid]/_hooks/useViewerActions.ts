@@ -71,10 +71,12 @@ export function useViewerActions(opts: UseViewerActionsOptions) {
   // sourceText is verbatim text to highlight when isExact, otherwise the claim the chip backs.
   const pillClick = useCallback((sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number, isExact?: boolean, hideTranscript?: boolean, endTime?: number, chunkStart?: number) => {
     const src = sources.find((s) => s.uuid === sourceUuid);
+    // A chip can outlive its source, the viewer would only find nothing there.
+    if (!src) return;
     const isMedia = _isMediaFile(filename);
     if (isMedia) {
       // isCitation marks the jump of a citation chip, sourceText is the claim and no search term.
-      setViewerSource({ uuid: sourceUuid, filename, page: 0, startTime, endTime, chunkStart, citationClaim: sourceText, isCitation: true, hideTranscript, nonce: Date.now(), youtubeId: src ? _youtubeIdOf(src) : undefined });
+      setViewerSource({ uuid: sourceUuid, filename, page: 0, startTime, endTime, chunkStart, citationClaim: sourceText, isCitation: true, hideTranscript, nonce: Date.now(), youtubeId: _youtubeIdOf(src) });
       setPanels((prev) => ({ ...prev, quellen: true }));
       if (isMobile) setActiveTab("quellen");
       return;
@@ -84,7 +86,7 @@ export function useViewerActions(opts: UseViewerActionsOptions) {
       highlightText: isExact ? sourceText : undefined,
       exactSelection: isExact,
       citationClaim: isExact ? undefined : sourceText,
-      isCitation: true, nonce: Date.now(), youtubeId: src ? _youtubeIdOf(src) : undefined,
+      isCitation: true, nonce: Date.now(), youtubeId: _youtubeIdOf(src),
     });
     setPanels((prev) => ({ ...prev, quellen: true }));
     if (isMobile) setActiveTab("quellen");

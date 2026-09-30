@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { ArrowDown, ArrowUp, CaretLeft, SidebarSimple, X } from "@phosphor-icons/react";
+import { ArrowDown, ArrowUp, CaretLeft, FileX, SidebarSimple, X } from "@phosphor-icons/react";
 import { PDFViewer, type PDFViewerRef } from "@embedpdf/react-pdf-viewer";
 import { LockModeType } from "@embedpdf/plugin-annotation";
+import { PdfErrorCode } from "@embedpdf/models";
 import type { ViewerState } from "../../_types";
 import { FileIcon } from "../sources/FileIcon";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 import { EMBEDPDF_ICON_MAP } from "./_icons";
 import { wrapEngineGeometry } from "./_geometry";
@@ -34,6 +36,8 @@ export function PdfViewer({
   const locale = useLocale();
   const [page, setPage] = useState(source.page);
   const [, setRegistryReady] = useState(false);
+  // "retrying" hides the viewer's error screen during the one silent retry.
+  const [loadState, setLoadState] = useState<"ok" | "retrying" | "failed">("ok");
   const viewerRef = useRef<PDFViewerRef>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   // A theme change forces a remount, the viewer cannot switch on the fly.
@@ -89,6 +93,7 @@ export function PdfViewer({
       loadedUuidRef.current = source.uuid;
       registryRef.current = null;
       setRegistryReady(false);
+      setLoadState("ok");
     }
   }, [source.uuid]);
 
@@ -129,16 +134,27 @@ export function PdfViewer({
     // Corrects oversized highlights with inflated font metrics.
     wrapEngineGeometry(reg.getEngine?.());
 
-    // A transient permission hiccup (e.g. demo enrollment not yet visible
-    // server-side) can make the very first load fail; one silent retry
-    // clears it instead of leaving the viewer's cryptic native error screen up.
+    // One silent retry clears a transient permission hiccup (e.g. demo enrollment not yet
+    // visible server-side), a second failure shows our own notice instead of the viewer's
+    // error screen, whose close button leads on to "open a file of your own".
     const docManager = reg.getPlugin?.("document-manager")?.provides?.();
     let hasRetriedLoad = false;
-    docManager?.onDocumentError?.((evt: { documentId: string }) => {
-      if (hasRetriedLoad) return;
+    type LoadTask = { wait: (ok: () => void, fail: () => void) => void };
+    docManager?.onDocumentError?.((evt: { documentId: string; code?: number }) => {
+      // The password prompt is the viewer's own and stays visible.
+      if (evt.code === PdfErrorCode.Password) return;
+      if (hasRetriedLoad) { setLoadState("failed"); return; }
       hasRetriedLoad = true;
-      setTimeout(() => docManager.retryDocument(evt.documentId), 600);
+      setLoadState("retrying");
+      // The viewer does not report the same error twice, so the retry's own load task decides.
+      setTimeout(() => {
+        docManager.retryDocument(evt.documentId).wait(
+          ({ task }: { task: LoadTask }) => task.wait(() => setLoadState("ok"), () => setLoadState("failed")),
+          () => setLoadState("failed"),
+        );
+      }, 600);
     });
+    docManager?.onDocumentOpened?.(() => setLoadState("ok"));
 
     // On a touch device the rectangles have to be drawn in pan mode too.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -467,6 +483,9 @@ export function PdfViewer({
           config={{
             src: `/api/ai-assistant/workspaces/${workspaceUuid}/sources/${source.uuid}/file`,
             worker: true,
+            // The viewer shows the workspace file only, never one of your own.
+            disabledCategories: ["document-open", "document-close"],
+            tabBar: "never",
             i18n: { defaultLocale: locale },
             search: { showAllResults: false },
             annotations: {
@@ -564,6 +583,15 @@ export function PdfViewer({
           style={{ width: "100%", height: "100%" }}
           onReady={handleReady}
         />
+        {loadState !== "ok" && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center" style={{ backgroundColor: "var(--surface)" }}>
+            {loadState === "failed" && (
+              <div data-testid="pdf-load-failed">
+                <EmptyState icon={<FileX size={32} weight="bold" />} title={t("loadFailedTitle")} text={t("loadFailedText")} />
+              </div>
+            )}
+          </div>
+        )}
         {/* Citation highlight controls — bottom-right corner, clear of EmbedPDF's
             centered page-nav. Icon-only to stay out of the way; full text lives in
             title/aria for hover + screen readers. */}

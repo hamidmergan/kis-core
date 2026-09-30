@@ -1,7 +1,8 @@
 {
   "sourceChip": {
     "page": "S. {num}",
-    "part": "Teil {num}"
+    "part": "Teil {num}",
+    "removed": "Quelle entfernt"
   },
   "header": {
     "homeAria": "Zur Startseite",
@@ -3712,7 +3713,9 @@
         "addToNoteDescription": "Auswahl als neue Notiz speichern",
         "addToNoteTitle": "In Notiz speichern",
         "tracksDe": "Deutsch",
-        "tracksEn": "English"
+        "tracksEn": "English",
+        "loadFailedTitle": "Die Datei lässt sich nicht öffnen",
+        "loadFailedText": "Sie wurde entfernt oder ist gerade nicht erreichbar."
       },
       "studio": {
         "panelTitle": "Studio",

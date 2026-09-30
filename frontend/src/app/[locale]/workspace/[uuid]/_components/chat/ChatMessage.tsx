@@ -51,7 +51,8 @@ interface ChatMessageProps {
   // A stable name for the message so two never share a chip position.
   msgKey: string;
   activeSourceIds: string[];
-  getFilename: (uuid: string) => string;
+  // Null when the workspace no longer holds the source.
+  getFilename: (uuid: string) => string | null;
   onChipClick: CitationChipClickHandler;
   onSaveNote?: (content: string, sourceUuids?: string[], extras?: AddNoteExtras) => void | Promise<void>;
   onRetry?: () => void;
@@ -387,15 +388,18 @@ function ChatMessageImpl({
               <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 ml-3.5">
                 {msgQmap.map((q) => {
                   const ChipIcon = _getChipIcon(q.filename);
+                  // A source removed since stays listed but opens nothing.
+                  const removed = getFilename(q.uuid) == null;
                   return (
                     <span
                       key={q.qnum}
                       role="button"
-                      tabIndex={0}
-                      onClick={() => onChipClick(q.uuid, 0, q.filename)}
+                      tabIndex={removed ? -1 : 0}
+                      aria-disabled={removed || undefined}
+                      onClick={removed ? undefined : () => onChipClick(q.uuid, 0, q.filename)}
                       onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.click(); }}
-                      className="inline-flex items-center gap-1 text-xs cursor-pointer text-[var(--muted)] hover-lighten transition-colors"
-                      title={q.filename}
+                      className={`inline-flex items-center gap-1 text-xs text-[var(--muted)] ${removed ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover-lighten transition-colors"}`}
+                      title={removed ? `${q.filename}, ${tChip("removed")}` : q.filename}
                     >
                       <ChipIcon size={10} weight="bold" />
                       {msgQmap.length > 1 && (
