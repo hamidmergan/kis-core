@@ -500,6 +500,34 @@ class TestSlides:
         assert antwort.status_code == 200 and antwort.headers["content-type"] == "image/png"
         assert client.get(f"/praesentation/{UUID}/preview/s9.png").status_code == 404
 
+    def test_bilder_kommen_einzeln_und_verkleinert(self, env):
+        """The live sketch shows each drawn picture as soon as it is stored, small enough for a card."""
+        import io
+
+        from PIL import Image
+
+        client, jobs, gestartet, ablage = _mit_folien(env)
+        from src.features.praesentation import store
+        from src.features.praesentation.schemas import ImageSpec
+        folien = store.load_slides(7, UUID)
+        folien[1].images = [ImageSpec(prompt="eins"), ImageSpec(prompt="zwei")]
+        store.save_user_slides(7, UUID, folien)
+        roh = io.BytesIO()
+        Image.new("RGB", (1600, 900), "red").save(roh, "PNG")
+        store.save_image(7, UUID, "s2", 0, roh.getvalue())
+
+        ansicht = client.get(f"/praesentation/{UUID}").json()
+        assert ansicht["images"]["s2"] == ["0"]
+        assert ansicht["images"]["s3"] == []
+        assert ansicht["missing_images"] == ["s2"]
+
+        antwort = client.get(f"/praesentation/{UUID}/image/s2/0")
+        assert antwort.status_code == 200 and antwort.headers["content-type"] == "image/jpeg"
+        assert Image.open(io.BytesIO(antwort.content)).size == (640, 360)
+        assert client.get(f"/praesentation/{UUID}/image/s2/1").status_code == 404
+        assert client.get(f"/praesentation/{UUID}/image/s2/x1").status_code == 404
+        assert client.get(f"/praesentation/{UUID}/image/s2x/0").status_code == 404
+
     def test_vorschau_lehnt_einen_unfoermigen_folien_id_ab(self, env, monkeypatch):
         """A slide id that never matches the store's naming must not even reach storage."""
         client, jobs, gestartet, ablage = _mit_folien(env)
