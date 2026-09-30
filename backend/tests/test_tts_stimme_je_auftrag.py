@@ -25,7 +25,7 @@ class _Sprecher:
     def __init__(self):
         self.gesprochen = []
 
-    def fuer(self, pid):
+    def fuer(self, pid, user_id=None):
         sprecher = self
 
         class _C:
@@ -214,7 +214,7 @@ def annahme(monkeypatch):
     monkeypatch.setattr(open_jobs, "max_open_jobs", lambda: -1)
     monkeypatch.setattr(route.db, "get_provider", lambda pid: {"id": pid, "enabled": stand["client"] is not None})
     monkeypatch.setattr(tts_job_provider, "_there", lambda provider: stand["da"] and provider["enabled"])
-    monkeypatch.setattr("src.dependencies.get_tts_client_for_provider", lambda pid: stand["client"])
+    monkeypatch.setattr("src.dependencies.get_tts_client_for_provider", lambda pid, user_id=None: stand["client"])
     monkeypatch.setattr(route, "pick", lambda pid, stimmen: VoicePick(
         21 if stand["rueckfall"] else pid, ("onyx",) if stand["rueckfall"] else tuple(stimmen), stand["rueckfall"]))
     for name in ("enforce_open_jobs", "enforce_tool_burst", "enforce_quota"):

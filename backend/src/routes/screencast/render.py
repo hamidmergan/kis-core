@@ -118,6 +118,8 @@ def screencast_render(
         )
 
     user_id = current_user.get("user_id", 0)
+    from src.services.own_tts.access import check_voice_provider
+    check_voice_provider(body.provider_id, current_user, locale)
 
     # Validate translate job ownership + status
     translate_job = db.get_job(body.translate_job_uuid)

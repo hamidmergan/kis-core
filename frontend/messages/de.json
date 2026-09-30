@@ -23,6 +23,7 @@
     "sectionAppearance": "Ansicht",
     "homeNoticeShow": "Startseite-Hinweis anzeigen",
     "languageLevel": "Sprachniveau",
+    "interfaces": "Schnittstellen",
     "tour": "Rundgang durch den Demo-Workspace",
     "evaluation": "Evaluation"
   },
@@ -2521,7 +2522,8 @@
       },
       "general": {
         "welcome": "Begrüßungsfenster beim ersten Login sehen",
-        "manual": "Handbuch ansehen"
+        "manual": "Handbuch ansehen",
+        "interfaces": "Eigene Schnittstellen zu Stimmdiensten anlegen (auf eigene Verantwortung)"
       },
       "aia": {
         "use": "Öffnen und geteilte {plural} lesen",
@@ -4440,5 +4442,53 @@
     "expand": "Hinweis ausklappen",
     "collapse": "Hinweis einklappen",
     "close": "Hinweis schließen"
+  },
+  "interfaces": {
+    "title": "Schnittstellen",
+    "intro": "Hier verbindest du dein eigenes Konto bei einem externen Stimmdienst. Dessen Stimmen erscheinen danach nur bei dir, in Text in Audio, Podcast und Screencast.",
+    "voicesLink": "Eigene Stimmen verbinden",
+    "consent": {
+      "title": "Bevor du loslegst",
+      "points": {
+        "offer": "Eigene Schnittstellen sind ein Angebot für dich persönlich. Die TH Lübeck stellt die angebundenen Dienste nicht bereit, prüft sie nicht und steht nicht für sie ein.",
+        "dataLeaves": "Alles, was du mit diesen Stimmen vertonst, geht an den Anbieter, bei dem du dein Konto hast. Deine Texte verlassen damit die Systeme der TH Lübeck. Die Anbieter sitzen zum Teil außerhalb der EU.",
+        "notGdpr": "Diese Verarbeitung ist nicht DSGVO-konform. Gib deshalb keine personenbezogenen Daten ein, weder deine eigenen noch die von Studierenden oder anderen Personen, und keine vertraulichen Inhalte wie Prüfungsaufgaben.",
+        "ownAccount": "Du nutzt dein eigenes Konto zu den Bedingungen des Anbieters. Verträge, Kosten und die Rechte an Stimmen und Ergebnissen liegen allein bei dir.",
+        "noLiability": "Die TH Lübeck übernimmt keine Haftung für die angebundenen Dienste, ihre Verfügbarkeit, ihre Ergebnisse, entstehende Kosten und Schäden aus ihrer Nutzung.",
+        "clones": "Geklonte Stimmen nutzt du nur, wenn es deine eigene ist oder die Person zugestimmt hat.",
+        "keyStorage": "Dein Schlüssel wird verschlüsselt gespeichert und nur für deine eigenen Aufträge verwendet. Du kannst ihn jederzeit wieder entfernen."
+      },
+      "checkbox": "Ich habe den Hinweis gelesen und übernehme die Verantwortung für die Nutzung.",
+      "accept": "Bestätigen und fortfahren",
+      "acceptedOn": "Hinweis bestätigt am {date}"
+    },
+    "vendor": {
+      "connected": "Verbunden",
+      "notConnected": "Nicht verbunden",
+      "keyEnding": "Schlüssel endet auf {chars}",
+      "voices": "{count, plural, one {# Stimme} other {# Stimmen}}",
+      "credit": "Guthaben: noch {left} von {limit} {unit}",
+      "creditUnknown": "Guthaben: zeigt dieser Anbieter nicht an",
+      "units": {
+        "characters": "Zeichen",
+        "credits": "Credits"
+      },
+      "keyLabel": "API-Schlüssel",
+      "connect": "Verbinden",
+      "checking": "Wird geprüft ...",
+      "cancel": "Abbrechen",
+      "refresh": "Stimmen neu laden",
+      "replaceKey": "Schlüssel ersetzen",
+      "remove": "Entfernen",
+      "removeConfirm": "{vendor} wirklich trennen? Der Schlüssel wird gelöscht.",
+      "removeYes": "Ja, trennen",
+      "keyPage": "Zur Schlüsselseite von {vendor}",
+      "keyHint": {
+        "elevenlabs": "Den Schlüssel legst du bei ElevenLabs unter Developers an. Er braucht mindestens die Rechte für Text to Speech und das Lesen der Stimmen.",
+        "gemini": "Den Schlüssel legst du im Google AI Studio an.",
+        "fish": "Den Schlüssel legst du bei Fish Audio unter API Keys an. Die Stimmliste zeigt deine eigenen Stimmen und die beliebtesten deutschen und englischen aus der Bibliothek.",
+        "openai": "Den Schlüssel legst du auf der Plattform von OpenAI an. OpenAI berechnet jede Nutzung."
+      }
+    }
   }
 }

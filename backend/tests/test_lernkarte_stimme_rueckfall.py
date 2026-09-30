@@ -60,7 +60,7 @@ def welt(monkeypatch):
     monkeypatch.setattr(speech_cache, "put", lambda key, audio: stand["vorrat"].__setitem__(key, audio))
     monkeypatch.setattr("src.dependencies.tts_model_for_provider", lambda pid: _MODELLE.get(pid, ""))
     monkeypatch.setattr("src.dependencies.get_tts_client_for_provider",
-                        lambda pid: stand["clients"].setdefault(pid, _Client(pid)))
+                        lambda pid, user_id=None: stand["clients"].setdefault(pid, _Client(pid)))
     monkeypatch.setattr("src.dependencies._voice_language_for", lambda pid, vid: "de")
     return stand
 

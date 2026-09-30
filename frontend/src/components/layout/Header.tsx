@@ -36,6 +36,7 @@ export default function Header({ hasSession = true, showLogout = false }: Header
   const [hasAia, setHasAia] = useState(true);
   // The language level page hangs off its own permission, not off the role.
   const [mayLanguageLevel, setMayLanguageLevel] = useState(false);
+  const [mayInterfaces, setMayInterfaces] = useState(false);
   // Only true with an admin-enabled, non-empty text — otherwise the menu row would be a dead click.
   const [hasHomeNotice, setHasHomeNotice] = useState(false);
   // The start-page card can be dismissed for good, the menu row is the way back to it.
@@ -54,6 +55,7 @@ export default function Header({ hasSession = true, showLogout = false }: Header
       setHasTools((s.permissions?.tools?.length ?? 0) > 0);
       setHasAia((s.modules ?? ["aia", "tools"]).includes("aia"));
       setMayLanguageLevel(hasPerm(s.permissions, PERM.aiaLanguageLevel));
+      setMayInterfaces(hasPerm(s.permissions, PERM.interfaces));
     });
   }, [showLogout, hasSession]);
 
@@ -155,6 +157,7 @@ export default function Header({ hasSession = true, showLogout = false }: Header
                 canViewManual={hasSession && canViewManual}
                 showFaq={hasSession}
                 showLanguageLevel={hasSession && mayLanguageLevel}
+                showInterfaces={hasSession && mayInterfaces}
                 showTour={hasSession && hasAia && tour.available}
                 onStartTour={tour.start}
                 showEvaluation={hasSession && evaluationActive}
@@ -170,6 +173,7 @@ export default function Header({ hasSession = true, showLogout = false }: Header
               isAdmin={isAdmin}
               canViewManual={canViewManual}
               showLanguageLevel={mayLanguageLevel}
+              showInterfaces={mayInterfaces}
               showTour={hasAia && tour.available}
               onStartTour={tour.start}
               showEvaluation={evaluationActive}

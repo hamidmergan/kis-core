@@ -92,7 +92,7 @@ def umgebung(monkeypatch):
                         lambda selbst, args, job: task.apply_async(args=args))
     monkeypatch.setattr("src.utils.text_extraction.EXTRACTORS",
                         {".txt": lambda inhalt: "Eins. Zwei. Drei."})
-    monkeypatch.setattr("src.dependencies.get_tts_client_for_provider", lambda pid: client)
+    monkeypatch.setattr("src.dependencies.get_tts_client_for_provider", lambda pid, user_id=None: client)
     monkeypatch.setattr("src.dependencies._voice_language_for", lambda pid, vid: "de")
     monkeypatch.setattr("src.services.openai_compat_tts._split_text",
                         lambda text: ["Eins.", "Zwei.", "Drei."])

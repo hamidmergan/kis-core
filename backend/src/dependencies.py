@@ -125,11 +125,13 @@ def get_llm_client(locale: str = Depends(get_locale)) -> OpenAICompatLLMClient:
 
 # ─── TTS resolvers ─────────────────────────────────────────────────────────
 
-def get_tts_providers_with_voices() -> list[dict]:
-    """All enabled providers with speech output including their voices."""
+def get_tts_providers_with_voices(user: dict | None = None) -> list[dict]:
+    """All enabled providers with speech output including their voices, then the person's own ones."""
     from src import database as db
+    from src.services.own_tts.access import own_voice_providers
     providers = db.list_providers_with_capability("tts")
-    return [p for p in providers if p.get("protocol") == "openai_compat"]
+    shared = [p for p in providers if p.get("protocol") == "openai_compat"]
+    return shared + (own_voice_providers(user) if user else [])
 
 
 # Short-lived cache so a dead provider does not block every voice page.
@@ -142,24 +144,29 @@ def _tts_provider_reachable(provider: dict) -> bool:
     import time
     from src.services.openai_compat_tts import OpenAICompatTTSClient
 
+    from src.services import own_tts
+
     pid = provider.get("id")
     now = time.monotonic()
     hit = _tts_reach_cache.get(pid)
     if hit and (now - hit[0]) < _TTS_REACH_TTL_SEC:
         return hit[1]
-    client = OpenAICompatTTSClient(
-        provider["base_url"], model="", api_key=provider.get("api_key") or "not-needed"
-    )
+    if own_tts.is_own(provider):
+        client = own_tts.make_client(provider)
+    else:
+        client = OpenAICompatTTSClient(
+            provider["base_url"], model="", api_key=provider.get("api_key") or "not-needed"
+        )
     ok = client.is_available()
     _tts_reach_cache[pid] = (now, ok)
     return ok
 
 
-async def get_reachable_tts_providers_with_voices() -> list[dict]:
+async def get_reachable_tts_providers_with_voices(user: dict | None = None) -> list[dict]:
     """Like get_tts_providers_with_voices but only currently reachable providers."""
     import asyncio
 
-    providers = get_tts_providers_with_voices()
+    providers = await asyncio.to_thread(get_tts_providers_with_voices, user)
     if not providers:
         return []
     loop = asyncio.get_running_loop()
@@ -172,18 +179,29 @@ async def get_reachable_tts_providers_with_voices() -> list[dict]:
 def tts_model_for_provider(provider_id: int) -> str:
     """Which speech model sits behind this provider, or an empty string."""
     from src import database as db
+    from src.services import own_tts
+    provider = db.get_provider(provider_id)
+    if provider and own_tts.is_own(provider):
+        return own_tts.model_for(provider)
     route = db.get_route("tts")
     provider_models = (route.get("provider_models") if route else None) or {}
     return provider_models.get(str(provider_id)) or (route.get("model_name") if route else None) or ""
 
 
-def get_tts_client_for_provider(provider_id: int):
-    """Return an OpenAICompatTTSClient for the given provider_id, or None."""
+def get_tts_client_for_provider(provider_id: int, user_id: int | None = None):
+    """The voice client for this provider, None when it is gone, off or someone else's own interface."""
     from src import database as db
+    from src.services import own_tts
     from src.services.openai_compat_tts import OpenAICompatTTSClient
     provider = db.get_provider(provider_id)
     if not provider or not provider.get("enabled"):
         return None
+    if own_tts.is_own(provider):
+        # Only the owner's own jobs speak with it, a caller without a person never does.
+        if user_id is None or provider["owner_user_id"] != user_id:
+            return None
+        binding = feature_router.FeatureBinding(feature="tts", provider=provider, model=own_tts.model_for(provider))
+        return own_tts.make_client(provider, binding)
     model = tts_model_for_provider(provider_id)
     if not model:
         raise feature_router.FeatureNotConfigured(

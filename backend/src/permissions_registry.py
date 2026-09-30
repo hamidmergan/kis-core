@@ -23,8 +23,10 @@ GROUP_GENERAL = "general"
 # === Allgemein ================================================================
 PERM_GENERAL_WELCOME = "general.welcome"
 PERM_GENERAL_MANUAL = "general.manual"
+# Connecting one's own account at an outside voice service, at one's own responsibility.
+PERM_GENERAL_INTERFACES = "general.interfaces"
 
-GENERAL_KEYS: tuple[str, ...] = (PERM_GENERAL_WELCOME, PERM_GENERAL_MANUAL)
+GENERAL_KEYS: tuple[str, ...] = (PERM_GENERAL_WELCOME, PERM_GENERAL_MANUAL, PERM_GENERAL_INTERFACES)
 
 # === KI-Assistent ============================================================
 PERM_AIA_USE = "aia.use"
@@ -145,6 +147,8 @@ KEY_MODULE: dict[str, str] = {
     PERM_SET_AIA_LEVEL: MODULE_AIA,
     PERM_SET_AIA_USAGE: MODULE_AIA,
     **{k: MODULE_TOOLS for k in TOOL_KEYS},
+    # Own interfaces only feed the voice tools.
+    PERM_GENERAL_INTERFACES: MODULE_TOOLS,
     PERM_SET_TOOLS_RELEASE: MODULE_TOOLS,
     PERM_SET_TOOLS_JOBS: MODULE_TOOLS,
     PERM_SET_TOOLS_LIMITS: MODULE_TOOLS,

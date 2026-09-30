@@ -71,7 +71,7 @@ def lauf(monkeypatch, lokal):
     monkeypatch.setattr(_render, "attempt_failed", lambda job, meldung, **k: "waiting_retry")
     monkeypatch.setattr(_render, "continue_stage", lambda selbst, args, job: None)
     # Der Client ist hier einfach die Nummer des Anbieters, so sieht man, wer sprach.
-    monkeypatch.setattr(_render, "tts_client", lambda pid: pid)
+    monkeypatch.setattr(_render, "tts_client", lambda pid, user_id=None: pid)
 
     def vertonen(client, text, voice_id, sprache, tempo, *rest):
         stand["gesprochen"].append((client, voice_id))

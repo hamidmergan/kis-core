@@ -99,7 +99,7 @@ def umgebung(monkeypatch):
     monkeypatch.setattr(_render, "assert_not_cancelled", lambda job: None)
     monkeypatch.setattr(_render, "still_mine", lambda job, token: True)
     monkeypatch.setattr(_render, "attempt_failed", lambda job, meldung, **k: "waiting_retry")
-    monkeypatch.setattr(_render, "tts_client", lambda pid: object())
+    monkeypatch.setattr(_render, "tts_client", lambda pid, user_id=None: object())
     monkeypatch.setattr(_render, "anbieter_und_modelle", lambda pids, art: {})
     monkeypatch.setattr(_render, "job_heartbeat", lambda job: contextmanager(lambda: iter([None]))())
     monkeypatch.setattr(_render, "messe", contextmanager(lambda uid, job, name: iter([{}])))

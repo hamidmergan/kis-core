@@ -113,7 +113,7 @@ def run_tts(
         from src.dependencies import get_tts_client_for_provider, _voice_language_for
         from src.services.openai_compat_tts import _split_text
 
-        client = get_tts_client_for_provider(provider_id)
+        client = get_tts_client_for_provider(provider_id, user_id)
         if client is None:
             raise RuntimeError(f"TTS-Provider {provider_id} nicht verfügbar.")
 

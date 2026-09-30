@@ -13,6 +13,7 @@ import type { TTSState } from "@/types";
 import Select from "@/components/ui/Select";
 import Tabs from "@/components/ui/Tabs";
 import type { ProviderWithVoices } from "@/hooks/useVoices";
+import OwnVoicesLink from "@/components/OwnVoicesLink";
 import { preselectedVoice } from "@/hooks/_voiceDefault";
 import { LANGUAGE_FLAG } from "@/lib/languageFlags";
 
@@ -328,14 +329,17 @@ export default function TtsPage() {
                   }))}
                 />
               </div>
-              <a
-                href="/tools/tts/voices"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-kb hover:underline"
-              >
-                {t("previewVoices")}
-              </a>
+              <div className="flex flex-wrap gap-x-4 gap-y-1">
+                <a
+                  href="/tools/tts/voices"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-kb hover:underline"
+                >
+                  {t("previewVoices")}
+                </a>
+                <OwnVoicesLink />
+              </div>
             </div>
           )}
 

@@ -69,6 +69,9 @@ async def screencast_translate(
         validate_or_raise(head, ".pptx", locale)
 
         user_id = current_user.get("user_id", 0)
+        if provider_id:
+            from src.services.own_tts.access import check_voice_provider
+            check_voice_provider(provider_id, current_user, locale)
         _enforce_queue_and_quota(user_id, current_user, locale)
 
         job_uuid = uuid.uuid4().hex

@@ -617,7 +617,8 @@ def test_create_provider_appends_the_caps_after_the_old_params(monkeypatch):
                                   api_key=None, concurrency={"llm": 10})
     sql, params = [c for c in calls if "INSERT INTO providers" in c[0]][0]
     assert "concurrency" in sql
-    assert params[-1] == '{"llm": 10}'
+    # The owner column came later still, an admin's provider belongs to nobody.
+    assert params[-2:] == ('{"llm": 10}', None)
     assert result["concurrency"] == {"llm": 10}
 
 

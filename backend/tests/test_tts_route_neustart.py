@@ -19,7 +19,7 @@ class _Client:
 @pytest.fixture
 def stub(monkeypatch):
     abgelegt = {}
-    monkeypatch.setattr("src.dependencies.get_tts_client_for_provider", lambda pid: _Client())
+    monkeypatch.setattr("src.dependencies.get_tts_client_for_provider", lambda pid, user_id=None: _Client())
     monkeypatch.setattr(route.tts_job_provider, "is_there", lambda pid: True)
     for name in ("enforce_open_jobs", "enforce_tool_burst", "enforce_quota"):
         monkeypatch.setattr(route, name, lambda *a, **k: None)

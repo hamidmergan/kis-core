@@ -11,7 +11,10 @@ from src.services import export_crypto
 
 _SELECT = """SELECT id, name, protocol, base_url, api_key, capabilities,
                     voices, enabled, last_probed_at, probe_status, probe_error,
-                    created_at, updated_at, concurrency"""
+                    created_at, updated_at, concurrency, owner_user_id"""
+
+# Every list the admin area and the routing read leaves out the interfaces people set up for themselves.
+_SHARED = "owner_user_id IS NULL"
 
 # The buckets a provider can cap, a missing key in providers.concurrency means no cap.
 CONCURRENCY_BUCKETS: tuple[str, ...] = ("llm", "stt", "tts", "image", "embedding", "ocr")
@@ -64,12 +67,13 @@ def _row_to_dict(row) -> dict:
 
 
 def list_providers() -> list[dict]:
-    """All providers, newest first."""
+    """All providers the admin set up, oldest first."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
                 f"""{_SELECT}
                    FROM providers
+                   WHERE {_SHARED}
                    ORDER BY created_at ASC"""
             )
             return [_row_to_dict(r) for r in cur.fetchall()]
@@ -109,14 +113,15 @@ def create_provider(
     voices: Optional[list[dict]] = None,
     enabled: bool = True,
     concurrency: Optional[dict] = None,
+    owner_user_id: Optional[int] = None,
 ) -> dict:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
                 f"""INSERT INTO providers
                        (name, protocol, base_url, api_key, capabilities, voices, enabled,
-                        concurrency)
-                   VALUES (%s, %s, %s, %s, %s::jsonb, %s::jsonb, %s, %s::jsonb)
+                        concurrency, owner_user_id)
+                   VALUES (%s, %s, %s, %s, %s::jsonb, %s::jsonb, %s, %s::jsonb, %s)
                    RETURNING {_SELECT.split('SELECT ')[1]}""",
                 (
                     name,
@@ -127,6 +132,7 @@ def create_provider(
                     json.dumps(voices or []),
                     enabled,
                     json.dumps(concurrency or {}),
+                    owner_user_id,
                 ),
             )
             conn.commit()
@@ -213,17 +219,32 @@ def list_providers_with_capability(capability: str) -> list[dict]:
                    FROM providers
                    WHERE enabled = TRUE
                      AND capabilities ? %s
+                     AND {_SHARED}
                    ORDER BY created_at ASC""",
                 (capability,),
             )
             return [_row_to_dict(r) for r in cur.fetchall()]
 
 
+def list_own_providers(user_id: int) -> list[dict]:
+    """The interfaces this person set up for themselves, oldest first."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute(
+                f"""{_SELECT}
+                   FROM providers
+                   WHERE owner_user_id = %s
+                   ORDER BY created_at ASC""",
+                (user_id,),
+            )
+            return [_row_to_dict(r) for r in cur.fetchall()]
+
+
 def delete_all_providers() -> int:
-    """Delete every row from the providers table. Returns count deleted."""
+    """Deletes every provider the admin set up, people's own interfaces stay. Returns count deleted."""
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute("DELETE FROM providers")
+            cur.execute(f"DELETE FROM providers WHERE {_SHARED}")
             deleted = cur.rowcount
             conn.commit()
             return deleted

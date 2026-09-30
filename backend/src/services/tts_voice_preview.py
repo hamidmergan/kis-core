@@ -16,7 +16,7 @@ def preview_text(lang: str) -> str:
     return _SATZ.get(lang, _SATZ["de"])
 
 
-def preview_audio(provider_id: int, voice_id: str, locale: str = "de") -> bytes:
+def preview_audio(provider_id: int, voice_id: str, locale: str = "de", user_id: int | None = None) -> bytes:
     """Have the voice speak once and return the MP3 bytes."""
     from fastapi import HTTPException
     from loguru import logger
@@ -29,7 +29,8 @@ def preview_audio(provider_id: int, voice_id: str, locale: str = "de") -> bytes:
     from src.i18n import t
 
     # The language comes from the database so the browser does not decide the key.
-    lang = _voice_language_for(provider_id, voice_id) if voice_id else locale
+    # A voice without a language (one of the many-language outside voices) speaks the page's language.
+    lang = (_voice_language_for(provider_id, voice_id) if voice_id else "") or locale
     text = preview_text(lang)
     key = speech_cache.fingerprint(
         text, provider_id, voice_id, _SPEED, tts_model_for_provider(provider_id))
@@ -44,7 +45,7 @@ def preview_audio(provider_id: int, voice_id: str, locale: str = "de") -> bytes:
         return vorrat
 
     try:
-        client = get_tts_client_for_provider(provider_id)
+        client = get_tts_client_for_provider(provider_id, user_id)
     except RuntimeError:
         raise HTTPException(status_code=503, detail=t("tts.providerUnavailable", locale))
     if client is None or not client.is_available():

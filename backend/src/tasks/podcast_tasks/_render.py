@@ -147,6 +147,9 @@ def _mit_wiederholung(client, text: str, voice_id: str, sprache: str, tempo: flo
         try:
             return _sprich(client, text, voice_id, sprache, tempo)
         except Exception as e:  # noqa: BLE001 — jeder Anbieterfehler wird gleich behandelt
+            if getattr(e, "permanent", False):
+                # A wrong key or an empty balance stays so, asking again only costs time.
+                raise
             letzter = e
             logger.warning("Podcast: Vertonung gescheitert, neuer Versuch in {}s: {}", pause, e)
     raise RuntimeError(str(letzter))
@@ -214,7 +217,7 @@ def run_podcast_render(self, job_uuid: str, user_id: int, locale: str = "de",
         def client_fuer(provider_id: int):
             with sperre:
                 if provider_id not in clients:
-                    clients[provider_id] = tts_client(provider_id)
+                    clients[provider_id] = tts_client(provider_id, user_id)
                 return clients[provider_id]
 
         def eine(i: int) -> int | None:
@@ -323,5 +326,8 @@ def run_podcast_render(self, job_uuid: str, user_id: int, locale: str = "de",
         logger.error("Podcast-Vertonung {} fehlgeschlagen: {}", job_uuid[:8], e)
         meldung = (t("podcast.lineFailed", locale, n=offen_idx + 1) if offen_idx >= 0
                    else t("podcast.renderFailed", locale))
+        # A person's own voice service said why, that tells more than the number of the contribution.
+        if hasattr(e.__cause__ or e, "vendor_label"):
+            meldung = (e.__cause__ or e).message(locale)
         attempt_failed(job_uuid, meldung, busy=is_upstream_busy(e.__cause__ or e))
         raise

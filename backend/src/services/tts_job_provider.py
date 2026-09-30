@@ -84,7 +84,8 @@ def _map_voices(chosen: dict | None, voice_ids: Sequence[str], fallback: dict,
 def pick(provider_id: int, voice_ids: Sequence[str], taken: Sequence[str] = ()) -> VoicePick:
     """Decides once at the start of a job, taken names fallback voices other speakers of the job already use."""
     chosen = db.get_provider(provider_id)
-    if _there(chosen):
+    # A person's own interface never hands over to the admin's fallback, the voice would change unasked.
+    if _there(chosen) or (chosen or {}).get("owner_user_id") is not None:
         return VoicePick(provider_id, tuple(voice_ids), False)
     fallback = _usable_fallback(provider_id)
     if fallback is None:

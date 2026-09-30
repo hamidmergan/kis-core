@@ -4,6 +4,8 @@ import type { UserPermissions } from "@/types";
 export const PERM = {
   generalWelcome: "general.welcome",
   manual: "general.manual",
+  // Own account at an outside voice service, at one's own responsibility.
+  interfaces: "general.interfaces",
 
   aiaUse: "aia.use",
   aiaWorkspaceCreate: "aia.workspace.create",

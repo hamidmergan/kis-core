@@ -23,6 +23,7 @@
     "sectionAppearance": "Appearance",
     "homeNoticeShow": "Show home notice",
     "languageLevel": "Language level",
+    "interfaces": "Interfaces",
     "tour": "Tour through the demo workspace",
     "evaluation": "Evaluation"
   },
@@ -2521,7 +2522,8 @@
       },
       "general": {
         "welcome": "See the welcome dialog on first login",
-        "manual": "View the manual"
+        "manual": "View the manual",
+        "interfaces": "Set up own interfaces to voice services (at own responsibility)"
       },
       "aia": {
         "use": "Open and read shared {plural}",
@@ -4440,5 +4442,53 @@
     "expand": "Show notice",
     "collapse": "Hide notice",
     "close": "Dismiss notice"
+  },
+  "interfaces": {
+    "title": "Interfaces",
+    "intro": "Connect your own account at an external voice service here. Its voices then appear only for you, in Text to Audio, Podcast and Screencast.",
+    "voicesLink": "Connect your own voices",
+    "consent": {
+      "title": "Before you start",
+      "points": {
+        "offer": "Own interfaces are an offer for you personally. TH Lübeck does not provide the connected services, does not review them and does not vouch for them.",
+        "dataLeaves": "Everything you voice with these voices goes to the provider where you have your account. Your texts thereby leave the systems of TH Lübeck. Some providers are located outside the EU.",
+        "notGdpr": "This processing is not GDPR compliant. Therefore do not enter any personal data, neither your own nor that of students or other people, and no confidential content such as exam questions.",
+        "ownAccount": "You use your own account under the provider's terms. Contracts, costs and the rights to voices and results rest with you alone.",
+        "noLiability": "TH Lübeck accepts no liability for the connected services, their availability, their results, any costs incurred or damage arising from their use.",
+        "clones": "Only use cloned voices if the voice is your own or the person has agreed.",
+        "keyStorage": "Your key is stored encrypted and used only for your own jobs. You can remove it at any time."
+      },
+      "checkbox": "I have read the notice and take responsibility for the use.",
+      "accept": "Confirm and continue",
+      "acceptedOn": "Notice confirmed on {date}"
+    },
+    "vendor": {
+      "connected": "Connected",
+      "notConnected": "Not connected",
+      "keyEnding": "Key ends in {chars}",
+      "voices": "{count, plural, one {# voice} other {# voices}}",
+      "credit": "Balance: {left} of {limit} {unit} left",
+      "creditUnknown": "Balance: not shown by this provider",
+      "units": {
+        "characters": "characters",
+        "credits": "credits"
+      },
+      "keyLabel": "API key",
+      "connect": "Connect",
+      "checking": "Checking ...",
+      "cancel": "Cancel",
+      "refresh": "Reload voices",
+      "replaceKey": "Replace key",
+      "remove": "Remove",
+      "removeConfirm": "Really disconnect {vendor}? The key will be deleted.",
+      "removeYes": "Yes, disconnect",
+      "keyPage": "Open the {vendor} key page",
+      "keyHint": {
+        "elevenlabs": "Create the key at ElevenLabs under Developers. It needs at least the permissions for Text to Speech and reading voices.",
+        "gemini": "Create the key in Google AI Studio.",
+        "fish": "Create the key at Fish Audio under API Keys. The voice list shows your own voices and the most popular German and English ones from the library.",
+        "openai": "Create the key on the OpenAI platform. OpenAI charges for every use."
+      }
+    }
   }
 }

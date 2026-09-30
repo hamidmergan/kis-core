@@ -55,9 +55,9 @@ def _get_screencast_helpers():
     )
 
 
-def _get_tts_client(provider_id: int):
+def _get_tts_client(provider_id: int, user_id: int | None = None):
     from src.dependencies import get_tts_client_for_provider
-    client = get_tts_client_for_provider(provider_id)
+    client = get_tts_client_for_provider(provider_id, user_id)
     if client is None:
         raise RuntimeError(f"TTS-Provider {provider_id} nicht gefunden oder deaktiviert")
     if not client.is_available():

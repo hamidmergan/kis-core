@@ -314,6 +314,9 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT FALSE")
             # Rundgang: haengt am Konto, nicht am Browser, sonst faengt jedes Geraet von vorn an.
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS tour_seen_at TIMESTAMP")
+            # Own interfaces: when and which version of the disclaimer the person accepted.
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS interfaces_consent_at TIMESTAMP WITH TIME ZONE")
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS interfaces_consent_version INTEGER")
             # The tools tour is gone, the tile overview explains every tool itself.
             cur.execute("ALTER TABLE users DROP COLUMN IF EXISTS tools_tour_seen_at")
             # The single mark per account is gone, aia_demo_seeded remembers per module.
@@ -1718,6 +1721,15 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             """)
             # Requests at once per provider and bucket, a missing key means no cap.
             _add_provider_concurrency_once(cur)
+            # A person's own interface, NULL is a provider the admin set up for everybody.
+            cur.execute("""
+                ALTER TABLE providers
+                ADD COLUMN IF NOT EXISTS owner_user_id INTEGER REFERENCES users(id) ON DELETE CASCADE
+            """)
+            cur.execute("""
+                CREATE INDEX IF NOT EXISTS idx_providers_owner
+                ON providers(owner_user_id) WHERE owner_user_id IS NOT NULL
+            """)
 
             # One row per feature with the chosen provider and model.
             cur.execute("""

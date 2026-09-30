@@ -47,7 +47,7 @@ def put_params(
         "speed": body.speed,
         "provider_id": body.persons[0].provider_id if body.persons else alt.provider_id,
     })
-    pruefe_params(neu, locale)
+    pruefe_params(neu, locale, current_user)
     store.save_params(user_id, job_uuid, neu)
 
     # A contribution of a person who is gone is wrapped around, the same rule the writer uses:

@@ -29,7 +29,7 @@ def own_job(job_uuid: str, current_user: dict, locale: str) -> dict:
     return job
 
 
-def pruefe_params(params: PodcastParams, locale: str) -> PodcastParams:
+def pruefe_params(params: PodcastParams, locale: str, user: dict | None = None) -> PodcastParams:
     """The cast rules, shared by the start and by a later recast."""
     if not 1 <= len(params.persons) <= 4:
         raise HTTPException(status_code=422, detail=t("podcast.badCast", locale))
@@ -40,4 +40,7 @@ def pruefe_params(params: PodcastParams, locale: str) -> PodcastParams:
     for person in params.persons:
         if person.role not in ROLES or not person.voice_id or person.provider_id <= 0:
             raise HTTPException(status_code=422, detail=t("podcast.badCast", locale))
+        if user is not None:
+            from src.services.own_tts.access import check_voice_provider
+            check_voice_provider(person.provider_id, user, locale)
     return params

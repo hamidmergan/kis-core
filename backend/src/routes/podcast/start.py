@@ -30,7 +30,7 @@ router = APIRouter(tags=["podcast"])
 _TOOLS = ["podcast"]
 
 
-def _pruefe_params(roh: str, locale: str) -> PodcastParams:
+def _pruefe_params(roh: str, locale: str, user: dict | None = None) -> PodcastParams:
     try:
         params = PodcastParams(**json.loads(roh))
     except (json.JSONDecodeError, ValidationError, TypeError) as e:
@@ -39,7 +39,7 @@ def _pruefe_params(roh: str, locale: str) -> PodcastParams:
     if params.llm_provider_id is not None and not feature_provider_choices.is_eligible(
             "chat", params.llm_provider_id):
         raise HTTPException(status_code=400, detail=t("podcast.invalidProvider", locale))
-    return pruefe_params(params, locale)
+    return pruefe_params(params, locale, user)
 
 
 def _wacht(user_id: int, current_user: dict, locale: str) -> None:
@@ -119,7 +119,7 @@ async def start_podcast(
 ):
     """Collects the material, writes it into the job folder and starts the script."""
     user_id = current_user.get("user_id", 0)
-    einstellungen = _pruefe_params(params, locale)
+    einstellungen = _pruefe_params(params, locale, current_user)
     if mode == "blank":
         return {"job_uuid": _leerer_auftrag(user_id, einstellungen, current_user, locale)}
 

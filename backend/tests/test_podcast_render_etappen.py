@@ -110,7 +110,7 @@ def umgebung(monkeypatch):
                         lambda job, meldung, **k: anlaeufe.append(meldung) or "waiting_retry")
     monkeypatch.setattr(_render, "continue_stage",
                         lambda selbst, args, job: task.apply_async(args=args))
-    monkeypatch.setattr(_render, "tts_client", lambda pid: object())
+    monkeypatch.setattr(_render, "tts_client", lambda pid, user_id=None: object())
     monkeypatch.setattr(_render, "anbieter_und_modelle", lambda pids, art: {})
     @contextmanager
     def _stumm(*args, **kwargs):

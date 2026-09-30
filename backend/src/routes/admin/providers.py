@@ -151,7 +151,7 @@ def create_provider(
 
     # Auto-probe synchronously so the response already carries probe results.
     probe_provider(provider["id"], seed_capabilities=seed)
-    refreshed = db.get_provider(provider["id"])
+    refreshed = _shared_provider(provider["id"])
     return {"provider": _mask_provider(refreshed)}
 
 
@@ -174,7 +174,7 @@ def get_provider(
     _admin=Depends(_require),
     locale: str = Depends(get_locale),
 ):
-    row = db.get_provider(provider_id)
+    row = _shared_provider(provider_id)
     if row is None:
         raise HTTPException(404, t("admin.providers.notFound", locale))
     return {"provider": _mask_provider(row)}
@@ -187,7 +187,7 @@ def update_provider(
     _admin=Depends(_require),
     locale: str = Depends(get_locale),
 ):
-    existing = db.get_provider(provider_id)
+    existing = _shared_provider(provider_id)
     if existing is None:
         raise HTTPException(404, t("admin.providers.notFound", locale))
 
@@ -225,7 +225,7 @@ def update_provider(
     # Re-probe if connection-relevant fields changed.
     if any(k in updates for k in ("base_url", "api_key")):
         probe_provider(provider_id)
-        row = db.get_provider(provider_id)
+        row = _shared_provider(provider_id)
 
     return {"provider": _mask_provider(row)}
 
@@ -241,7 +241,7 @@ def delete_provider(
     _admin=Depends(_require),
     locale: str = Depends(get_locale),
 ):
-    if db.get_provider(provider_id) is None:
+    if _shared_provider(provider_id) is None:
         raise HTTPException(404, t("admin.providers.notFound", locale))
     cleared = db.clear_provider_from_routes(provider_id)
     db.delete_provider(provider_id)
@@ -254,10 +254,12 @@ def reprobe_provider(
     _admin=Depends(_require),
     locale: str = Depends(get_locale),
 ):
+    if _shared_provider(provider_id) is None:
+        raise HTTPException(404, t("admin.providers.notFound", locale))
     result = probe_provider(provider_id)
     if result is None:
         raise HTTPException(404, t("admin.providers.notFound", locale))
-    row = db.get_provider(provider_id)
+    row = _shared_provider(provider_id)
     return {
         "provider": _mask_provider(row),
         "probe": {
@@ -275,7 +277,7 @@ def get_affected_features(
     locale: str = Depends(get_locale),
 ):
     """Which features would lose their provider if this row went."""
-    if db.get_provider(provider_id) is None:
+    if _shared_provider(provider_id) is None:
         raise HTTPException(404, t("admin.providers.notFound", locale))
     affected = db.routes_using_provider(provider_id)
     return {"affected": affected}
@@ -360,14 +362,14 @@ def test_route(
         raise HTTPException(400, t("admin.providers.testNoProvider", locale))
     provider_models = row.get("provider_models") or {}
     if provider_id is not None:
-        provider = db.get_provider(provider_id)
+        provider = _shared_provider(provider_id)
         if provider is None:
             raise HTTPException(400, t("admin.providers.notFound", locale))
         model_name = provider_models.get(str(provider_id)) or row.get("model_name")
     else:
         if row.get("provider_id") is None:
             raise HTTPException(400, t("admin.providers.testNoProvider", locale))
-        provider = db.get_provider(row["provider_id"])
+        provider = _shared_provider(row["provider_id"])
         if provider is None:
             raise HTTPException(400, t("admin.providers.notFound", locale))
         model_name = provider_models.get(str(row["provider_id"])) or row.get("model_name")
@@ -443,7 +445,7 @@ def _check_fallback(feature: str, body: SetFeatureRouteRequest, locale: str) -> 
                                    feature=feature))
     if fallback_id == body.provider_id and not voice:
         raise HTTPException(422, t("admin.providers.fallbackSameAsPrimary", locale))
-    provider = db.get_provider(fallback_id)
+    provider = _shared_provider(fallback_id)
     if provider is None:
         raise HTTPException(422, t("admin.providers.fallbackUnknownProvider", locale,
                                    provider_id=fallback_id))
@@ -481,7 +483,7 @@ def set_feature_route(
         raise HTTPException(400, t("admin.providers.unknownFeature", locale, feature=feature))
 
     # Validate referenced provider ids exist.
-    if body.provider_id is not None and db.get_provider(body.provider_id) is None:
+    if body.provider_id is not None and _shared_provider(body.provider_id) is None:
         raise HTTPException(400, t("admin.providers.notFound", locale))
     if body.user_choices:
         if feature not in USER_CHOICE_FEATURES:
@@ -490,7 +492,7 @@ def set_feature_route(
                 t("admin.providers.userChoiceNotSupported", locale, feature=feature),
             )
         for pid in body.user_choices:
-            if db.get_provider(pid) is None:
+            if _shared_provider(pid) is None:
                 raise HTTPException(
                     400,
                     t("admin.providers.userChoiceUnknownProvider", locale, provider_id=pid),
@@ -517,7 +519,7 @@ def set_feature_route(
     # A newly registered model is measured right away.
     limits = None
     if body.provider_id is not None:
-        provider = db.get_provider(body.provider_id)
+        provider = _shared_provider(body.provider_id)
         modelle = row.get("provider_models") or {}
         modell = modelle.get(str(body.provider_id)) or row.get("model_name")
         if provider:
@@ -527,6 +529,14 @@ def set_feature_route(
 
 
 # ─── Helpers ───────────────────────────────────────────────────────────────
+
+
+def _shared_provider(provider_id: int) -> dict | None:
+    """A provider of the admin area, a person's own interface counts as not there."""
+    row = db.get_provider(provider_id)
+    if row is None or row.get("owner_user_id") is not None:
+        return None
+    return row
 
 
 def _mask_provider(row: dict | None) -> dict | None:

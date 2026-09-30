@@ -104,7 +104,7 @@ def _run_tts(monkeypatch, payload, filename):
             return True
 
     import src.dependencies as deps
-    monkeypatch.setattr(deps, "get_tts_client_for_provider", lambda pid: _Client())
+    monkeypatch.setattr(deps, "get_tts_client_for_provider", lambda pid, user_id=None: _Client())
     monkeypatch.setattr(route.tts_job_provider, "is_there", lambda pid: True)
 
     import src.tasks.tts_tasks as tt

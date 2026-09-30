@@ -3,6 +3,7 @@
 import { useFormatter, useTranslations } from "next-intl";
 import type { SlideData } from "@/types";
 import type { ProviderWithVoices } from "@/hooks/useVoices";
+import OwnVoicesLink from "@/components/OwnVoicesLink";
 import Select from "@/components/ui/Select";
 import Checkbox from "@/components/ui/Checkbox";
 import { LANGUAGE_FLAG } from "@/lib/languageFlags";
@@ -136,14 +137,17 @@ export default function TtsSettingsStep(props: TtsSettingsStepProps) {
               }))}
             />
           </div>
-          <a
-            href="/tools/tts/voices"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm text-kb hover:underline"
-          >
-            {t("ttsSettings.previewVoices")}
-          </a>
+          <div className="flex flex-wrap gap-x-4 gap-y-1">
+            <a
+              href="/tools/tts/voices"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-kb hover:underline"
+            >
+              {t("ttsSettings.previewVoices")}
+            </a>
+            <OwnVoicesLink />
+          </div>
         </div>
       )}
 

@@ -76,7 +76,7 @@ def tts_modell(monkeypatch):
 
 
 def _mit_client(monkeypatch, client):
-    monkeypatch.setattr("src.dependencies.get_tts_client_for_provider", lambda pid: client)
+    monkeypatch.setattr("src.dependencies.get_tts_client_for_provider", lambda pid, user_id=None: client)
     return client
 
 
@@ -228,7 +228,7 @@ def test_kein_anbieter_hinter_der_nummer_gibt_503(monkeypatch):
 
 def test_fehlendes_modell_gibt_503_kein_absturz(monkeypatch):
     """get_tts_client_for_provider raises when the route has no model stored."""
-    def _wirft(pid):
+    def _wirft(pid, user_id=None):
         raise RuntimeError("tts route has no model_name")
 
     monkeypatch.setattr("src.dependencies.get_tts_client_for_provider", _wirft)

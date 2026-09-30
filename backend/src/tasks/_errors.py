@@ -32,9 +32,15 @@ def handle_task_exception(job_uuid: str, e: Exception, *, task_label: str) -> No
     from src.services.openai_compat_llm._chunking import AudioTooLongError
     from src.services import job_recovery
 
+    from src.services.own_tts._base import OwnInterfaceError
+
     # Trying these again changes nothing, the input or the setup is wrong.
     dauerhaft = isinstance(e, (FeatureNotConfigured, AudioTooLongError, ValueError))
-    if isinstance(e, FeatureNotConfigured):
+    if isinstance(e, OwnInterfaceError):
+        # A wrong key or an empty balance of a person's own service, only the person can fix that.
+        dauerhaft = e.permanent
+        msg = e.message(job_locale(job_uuid))
+    elif isinstance(e, FeatureNotConfigured):
         msg = t("job.featureNotConfigured", job_locale(job_uuid))
     elif isinstance(e, AudioTooLongError):
         msg = audio_too_long_message(e, job_locale(job_uuid))

@@ -378,7 +378,7 @@ def strecke(monkeypatch, tmp_path):
     helfer = (tmp_path, None, sprechen, None, None, None, None, None, None, None)
     monkeypatch.setattr(_pipeline, "threading", SimpleNamespace(Event=threading.Event, Thread=_OhneWaechter))
     monkeypatch.setattr(_pipeline, "_get_screencast_helpers", lambda: helfer)
-    monkeypatch.setattr(_pipeline, "_get_tts_client", lambda pid: object())
+    monkeypatch.setattr(_pipeline, "_get_tts_client", lambda pid, user_id=None: object())
     monkeypatch.setattr(_pipeline, "_assert_not_cancelled", lambda j: None)
     monkeypatch.setattr(_pipeline.db, "get_job", lambda j: {"user_id": 1})
     monkeypatch.setattr(_pipeline.db, "update_job_status", lambda *a, **k: None)
@@ -508,6 +508,7 @@ def test_ein_neuer_lauf_traegt_keine_alte_festlegung_mit():
          patch(f"{modul}.clear_render_cache"), \
          patch(f"{modul}.db.transition_job_to_queued", return_value=True), \
          patch(f"{modul}.db.reset_attempts"), \
+         patch("src.services.own_tts.access.check_voice_provider"), \
          patch("src.tasks.screencast_tasks.dispatch_next_screencast_job_for_user"):
         antwort = screencast_render(body, current_user={"user_id": 1, "email": "a@b.de", "role": "user"}, locale="de")
     assert antwort == {"job_uuid": UUID}

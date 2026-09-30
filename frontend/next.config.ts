@@ -48,6 +48,8 @@ const nextConfig: NextConfig = {
       { source: "/einladung/:token", destination: "/invite/:token", permanent: false },
       { source: "/:locale(de|en)/einladung/:token", destination: "/:locale/invite/:token", permanent: false },
 
+      { source: "/schnittstellen", destination: "/interfaces", permanent: false },
+      { source: "/:locale(de|en)/schnittstellen", destination: "/:locale/interfaces", permanent: false },
       { source: "/wartung", destination: "/maintenance", permanent: false },
       { source: "/:locale(de|en)/wartung", destination: "/:locale/maintenance", permanent: false },
 

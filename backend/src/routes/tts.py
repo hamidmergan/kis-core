@@ -38,12 +38,16 @@ router = APIRouter(
 
 
 @router.get("/tts/providers-with-voices")
-async def get_tts_providers_with_voices():
+async def get_tts_providers_with_voices(
+    current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
+):
     """Reachable speech providers with their voices, the starred one first, plus the voice to preselect."""
     from src.dependencies import get_reachable_tts_providers_with_voices
     from src.i18n import TRANSCRIPT_LANGUAGES
     from src.services import tts_standard
-    providers = await get_reachable_tts_providers_with_voices()
+    from src.services.own_tts import display_name
+    providers = await get_reachable_tts_providers_with_voices(current_user)
     # Same cap as every other language picker: German, English, or language-less.
     allowed_langs = {"", *TRANSCRIPT_LANGUAGES}
     star = tts_standard.star_id()
@@ -51,7 +55,9 @@ async def get_tts_providers_with_voices():
     listed = [
         {
             "id": p["id"],
-            "name": p["name"],
+            "name": display_name(p, locale),
+            # A person's own interface, it never becomes the preselected voice.
+            "own": p.get("owner_user_id") is not None,
             "voices": [
                 v for v in p.get("voices", [])
                 if (v.get("language") or "").lower() in allowed_langs
@@ -59,7 +65,8 @@ async def get_tts_providers_with_voices():
         }
         for p in tts_standard.star_first(providers, star)
     ]
-    default = tts_standard.standard_voice(listed, star, tts_standard.default_voice_setting())
+    default = tts_standard.standard_voice([p for p in listed if not p["own"]], star,
+                                          tts_standard.default_voice_setting())
     return {
         "providers": listed,
         "default": {"provider_id": default[0], "voice_id": default[1]} if default else None,
@@ -70,14 +77,16 @@ async def get_tts_providers_with_voices():
 def tts_provider_preview(
     provider_id: int,
     body: dict,
-    _user=Depends(get_current_user),
+    current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
     """Synthesize a short preview sample for a voice on the given provider."""
     from fastapi.responses import Response as FastAPIResponse
+    from src.services.own_tts.access import check_voice_provider
     from src.services.tts_voice_preview import preview_audio
 
-    audio = preview_audio(provider_id, body.get("voice_id", ""), locale)
+    check_voice_provider(provider_id, current_user, locale)
+    audio = preview_audio(provider_id, body.get("voice_id", ""), locale, current_user.get("user_id"))
     return FastAPIResponse(content=audio, media_type="audio/mpeg")
 
 
@@ -160,8 +169,10 @@ async def text_to_speech(
 
         # Validate provider
         from src.dependencies import get_tts_client_for_provider
+        from src.services.own_tts.access import check_voice_provider
+        check_voice_provider(provider_id, current_user, locale)
         try:
-            client = get_tts_client_for_provider(provider_id)
+            client = get_tts_client_for_provider(provider_id, current_user.get("user_id"))
         except RuntimeError:
             raise HTTPException(status_code=400, detail=t("tts.providerNotFound", locale))
         # The chosen one seen exactly as pick sees it, an own probe could disagree and refuse for nothing.

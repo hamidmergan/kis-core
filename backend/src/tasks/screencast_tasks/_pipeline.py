@@ -119,13 +119,12 @@ def _run_render_pipeline(
         _create_outro_image, _get_image_dimensions,
     ) = _get_screencast_helpers()
 
-    tts_client = _get_tts_client(provider_id)
-
     # Resolve user_id once for storage keying
     job_row = db.get_job(job_uuid)
     if not job_row:
         raise RuntimeError(f"Job {job_uuid} not found")
     user_id = job_row["user_id"]
+    tts_client = _get_tts_client(provider_id, user_id)
     # Audio of another provider or voice never shares a video with the audio of this run.
     if _anders_gesprochen(user_id, job_uuid, "render_params.json", provider_id, voice_id):
         clear_render_cache(user_id, job_uuid)

@@ -28,11 +28,11 @@ def clear_cancel(job_uuid: str) -> None:
         logger.warning("Abbruchmarke nicht loeschbar: {}", e)
 
 
-def tts_client(provider_id: int):
+def tts_client(provider_id: int, user_id: int | None = None):
     """The voice provider of this run, the same resolver the screencast uses."""
     from src.dependencies import get_tts_client_for_provider
 
-    client = get_tts_client_for_provider(provider_id)
+    client = get_tts_client_for_provider(provider_id, user_id)
     if client is None:
         raise RuntimeError(f"TTS-Anbieter {provider_id} nicht gefunden oder abgeschaltet")
     if not client.is_available():

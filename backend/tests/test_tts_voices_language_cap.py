@@ -30,7 +30,7 @@ def admin(monkeypatch):
 
 
 def _erreichbar(monkeypatch, anbieter):
-    async def fake_reachable():
+    async def fake_reachable(user=None):
         return anbieter
 
     monkeypatch.setattr("src.dependencies.get_reachable_tts_providers_with_voices", fake_reachable)
@@ -82,7 +82,7 @@ async def test_ohne_anbieter_gibt_es_keine_vorauswahl(monkeypatch, admin):
 
 @pytest.mark.asyncio
 async def test_nur_deutsch_englisch_und_sprachlos_kommen_durch(monkeypatch):
-    async def fake_reachable():
+    async def fake_reachable(user=None):
         return FAKE_PROVIDERS
 
     monkeypatch.setattr(
@@ -97,7 +97,7 @@ async def test_nur_deutsch_englisch_und_sprachlos_kommen_durch(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_ein_provider_ohne_passende_stimme_bleibt_mit_leerer_liste(monkeypatch):
-    async def fake_reachable():
+    async def fake_reachable(user=None):
         return [{"id": 2, "name": "Nur Fremdsprachen", "voices": [
             {"voice_id": "x", "name": "Xavier", "language": "tr"},
         ]}]
