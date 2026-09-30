@@ -42,7 +42,7 @@ the provider is marked as own account.
 
 ## Only for you
 
-- **Visibility**: The voices appear only for you. Students do not see the page.
+- **Visibility**: Nobody but you sees your voices, neither other teaching staff nor students.
 - **Key**: KIS stores it encrypted and afterwards shows only its last four characters. It is used
   for your own jobs only.
 - **Balance**: KIS shows it only for ElevenLabs, and only if the key may read your plan. For

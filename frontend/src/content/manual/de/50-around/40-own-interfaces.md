@@ -44,7 +44,7 @@ Stimmauswahl ist der Anbieter mit eigener Zugang gekennzeichnet.
 
 ## Nur für Sie
 
-- **Sichtbarkeit**: Die Stimmen erscheinen nur bei Ihnen. Studierende sehen die Seite nicht.
+- **Sichtbarkeit**: Ihre Stimmen sieht außer Ihnen niemand, weder andere Lehrende noch Studierende.
 - **Schlüssel**: KIS speichert ihn verschlüsselt und zeigt danach nur die letzten vier Zeichen.
   Er wird ausschließlich für Ihre eigenen Aufträge verwendet.
 - **Guthaben**: Den Stand zeigt KIS nur bei ElevenLabs, und nur wenn der Schlüssel Ihr Abo
