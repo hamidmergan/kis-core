@@ -4503,8 +4503,7 @@
       "keyHint": {
         "elevenlabs": "Den Schlüssel legst du bei ElevenLabs an.",
         "gemini": "Den Schlüssel legst du im Google AI Studio an.",
-        "fish": "Den Schlüssel legst du bei Fish Audio an.",
-        "openai": "Den Schlüssel legst du bei OpenAI an."
+        "fish": "Den Schlüssel legst du bei Fish Audio an."
       }
     }
   }

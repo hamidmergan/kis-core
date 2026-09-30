@@ -23,7 +23,7 @@ class Vendor:
 
 
 def _vendors() -> dict[str, Vendor]:
-    from src.services.own_tts import elevenlabs, fish_audio, gemini, openai_tts
+    from src.services.own_tts import elevenlabs, fish_audio, gemini
 
     return {v.key: v for v in (
         # The free plan allows two requests at once with this model.
@@ -31,7 +31,6 @@ def _vendors() -> dict[str, Vendor]:
         # Google names no limit for the free tier, one at a time spares its caps per minute.
         Vendor("gemini", gemini.LABEL, gemini.BASE_URL, gemini.MODEL, 1, gemini),
         Vendor("fish", fish_audio.LABEL, fish_audio.BASE_URL, fish_audio.MODEL, 2, fish_audio),
-        Vendor("openai", openai_tts.LABEL, openai_tts.BASE_URL, openai_tts.MODEL, 2, openai_tts),
     )}
 
 

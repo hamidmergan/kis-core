@@ -4503,8 +4503,7 @@
       "keyHint": {
         "elevenlabs": "Create the key at ElevenLabs.",
         "gemini": "Create the key in Google AI Studio.",
-        "fish": "Create the key at Fish Audio.",
-        "openai": "Create the key at OpenAI."
+        "fish": "Create the key at Fish Audio."
       }
     }
   }
