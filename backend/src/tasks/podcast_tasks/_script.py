@@ -20,6 +20,7 @@ from src.limits import (
     STAGE_SOFT_TIME_LIMIT,
     STAGE_TIME_LIMIT,
 )
+from src.services import anweisung
 from src.services import sources as quellen
 from src.services import text_map as tm
 from src.services.job_files import parse_job_json, read_job_text, write_job_text
@@ -33,6 +34,7 @@ from src.utils.heartbeat import job_heartbeat
 # One retry is enough: a second bad answer is a prompt problem, not chance.
 _VERSUCHE = 2
 
+_ZWECK = "a podcast episode for university teaching"
 _MAP_FILE = "grundlage.json"
 _PLAN_FILE = "plan.json"
 # The last contributions a part sees of what came before it.
@@ -76,12 +78,27 @@ def _grundlage(user_id: int, job_uuid: str, karte: tm.Karte, params, llm) -> tm.
 
     g = tm.grundlage(karte, _fenster(params.llm_provider_id),
                      language="German" if params.language == "de" else "English",
-                     zweck="a podcast episode for university teaching", frage=_frage)
+                     zweck=_ZWECK, frage=_frage)
     write_job_text(user_id, job_uuid, _MAP_FILE,
                    json.dumps(tm.grundlage_als_dict(g), ensure_ascii=False))
     logger.info("Podcast {}: {} Stellen, geplant ueber {}", job_uuid[:8], len(karte),
                 "den ganzen Text" if g.modus == tm.STELLEN else f"{len(g.themen)} Themen")
     return g
+
+
+def _weg(llm, g: tm.Grundlage, params, user_id: int, job_uuid: str) -> None:
+    """Decides once per run what the instruction is, a later stage reads it from the params."""
+    from src.services.json_llm import call_json_llm
+
+    if params.instruction_way or not anweisung.clean(params.instructions):
+        return
+    params.instruction_way = anweisung.entscheide(
+        lambda n: call_json_llm(llm, n, endpoint="podcast").choices[0].message.content,
+        params.instructions, g.material, _ZWECK)
+    # The script step shows the hint, the episode then uses the whole material.
+    params.instruction_unmatched = params.instruction_way == anweisung.WEG
+    store.save_params(user_id, job_uuid, params)
+    logger.info("Podcast {}: Anweisung gilt als {}", job_uuid[:8], params.instruction_way)
 
 
 def _mit_versuchen(llm, nachrichten: list[dict], lesen, job_uuid: str, was: str):
@@ -107,6 +124,8 @@ def _planen(llm, karte: tm.Karte, g: tm.Grundlage, params, teile: int, job_uuid:
     file no title names is talked over even when its text is right there.
     """
     dateien = [q.dateiname for q in karte.sources if q.stuecke]
+    # A plan on one subject leaves files out on purpose, asking again would drag them back in.
+    fokus = anweisung.fokus(params.instructions, params.instruction_way)
     bester: list[dict] | None = None
     fehlt: list[str] = []
     hinweis: list[str] = []
@@ -116,7 +135,7 @@ def _planen(llm, karte: tm.Karte, g: tm.Grundlage, params, teile: int, job_uuid:
             lambda roh: skript.parse_plan(roh, lambda refs: g.stellen(refs, karte), teile),
             job_uuid, "Plan")
         luecken = (tm.zu_kurz([p["stellen"] for p in plan], karte)
-                   if len(dateien) > 1 else [])
+                   if len(dateien) > 1 and not fokus else [])
         if bester is None or len(luecken) < len(fehlt):
             bester, fehlt = plan, luecken
         if not fehlt:
@@ -138,9 +157,12 @@ def _schreiben(llm, karte: tm.Karte, g: tm.Grundlage, params, job_uuid: str,
         write_job_text(user_id, job_uuid, _PLAN_FILE, json.dumps(plan, ensure_ascii=False))
     logger.info("Podcast {}: Plan mit {} Teil(en) nennt {:.0%} der Stellen", job_uuid[:8],
                 len(plan), tm.abdeckung([p["stellen"] for p in plan], len(karte)))
-    # A passage two parts name is told once, what none names goes to the nearest part.
+    # A passage two parts name is told once, what none names goes to the nearest part,
+    # unless the episode keeps to one subject and the rest of the text stays out.
     eigene = tm.exklusiv([p["stellen"] for p in plan])
-    for teil, genannt, stellen in zip(plan, eigene, tm.abdecken(eigene, len(karte))):
+    verteilt = (eigene if anweisung.fokus(params.instructions, params.instruction_way)
+                else tm.abdecken(eigene, len(karte)))
+    for teil, genannt, stellen in zip(plan, eigene, verteilt):
         teil["genannt"], teil["stellen"] = genannt, stellen
     laengen = skript.teil_laengen(gesamt, len(plan))
     uebersicht = "\n".join(f"{i + 1}. {p['title']}: {p['gist']}" for i, p in enumerate(plan))
@@ -210,6 +232,7 @@ def run_podcast_script(self, job_uuid: str, user_id: int, locale: str = "de",
             zahlen["personen"] = len(params.persons)
             zahlen["rollen"] = ", ".join(person.role for person in params.persons)
             g = _grundlage(user_id, job_uuid, karte, params, llm)
+            _weg(llm, g, params, user_id, job_uuid)
             zeilen = _schreiben(llm, karte, g, params, job_uuid, user_id)
             zahlen["beitraege"] = len(zeilen)
 

@@ -51,6 +51,8 @@ class Outline(BaseModel):
     sections: list[Section] = Field(default_factory=list)
     # The short name of each file as its own text calls it, keyed by the file name.
     names: dict[str, str] = Field(default_factory=dict)
+    # What the person's instruction turned out to be, kept so every stage writes alike.
+    instruction_way: str = ""
 
 
 @dataclass

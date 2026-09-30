@@ -357,7 +357,7 @@ class TestAnweisung:
         from src.features.summary.writing import _outline_user
 
         text = _outline_user(["a.pdf"], "MATERIAL", instructions="nur Kapitel 2")
-        assert text.rstrip().endswith("nur Kapitel 2")
+        assert text.rindex('"nur Kapitel 2"') > text.rindex("MATERIAL")
         assert "INSTRUCTION FROM THE TEACHER" in text
 
     def test_ein_abschnitt_liest_die_anweisung_zuletzt(self):
@@ -365,7 +365,8 @@ class TestAnweisung:
         from src.features.summary.writing import _section_user
 
         text = _section_user([Section(title="A")], [], None, ["Stoff"], instructions="für Erstsemester")
-        assert text.rstrip().endswith("für Erstsemester")
+        assert text.rindex('"für Erstsemester"') > text.rindex("Stoff")
+        assert "Never add content from it that the material does not hold" in text
 
     def test_ohne_anweisung_kein_zusatz(self):
         from src.features.summary.writing import _outline_user

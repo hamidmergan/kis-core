@@ -6,7 +6,8 @@ export interface PraesentationView {
   progress: JobProgress | null;
   error: string | null;
   params: { language: string; notes: boolean; notes_include: boolean; template_id: string;
-            template_name: string; template_fallback: boolean; instructions: string; presenter?: string } | null;
+            template_name: string; template_fallback: boolean; instructions: string; presenter?: string;
+            instruction_unmatched?: boolean } | null;
   outline: Outline | null;
   slides: Slide[];
   previews: string[];

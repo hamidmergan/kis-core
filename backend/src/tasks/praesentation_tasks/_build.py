@@ -66,6 +66,7 @@ def run_praesentation_build(self, job_uuid: str, user_id: int, locale: str = "de
         layouts = _layouts_zuweisen(outline, slides, analyse)
 
         offen = [r for r in outline.rows if r.id not in slides or r.id in erzwungen_text]
+        _wuensche_verorten(job_uuid, user_id, params, quellenliste, outline, offen)
         if offen:
             _texte_schreiben(job_uuid, user_id, params, quelle, quellenliste,
                              analyse, outline, slides, layouts, offen, erzwungen_text,
@@ -133,6 +134,38 @@ def _layouts_zuweisen(outline: Outline, slides: dict[str, Slide], analyse: Analy
         else:
             aus[r.id] = vorlage.layout_fuer(analyse, r.role, zaehler).index
     return aus
+
+
+def _wuensche_verorten(job_uuid, user_id, params, quellenliste, outline: Outline, offen) -> None:
+    """A slide added by hand gets its passages before it is written, without them it would be made up.
+
+    When the material says nothing on the wish, the slide takes a subject the deck still lacks.
+    """
+    from src.services import text_map as tm
+
+    wuensche = [r for r in offen if r.wunsch and not r.stellen]
+    if not wuensche:
+        return
+    llm = feature_router.make_llm_client(binding_for("chat", params.llm_provider_id))
+    karte = Karte(quellenliste)
+    g = (tm.grundlage_aus_dict(store.load_map(user_id, job_uuid), karte)
+         or tm.Grundlage(material=karte.block(), modus=tm.STELLEN, themen=[]))
+    for r in wuensche:
+        assert_not_cancelled(job_uuid)
+        nachrichten = gliederung.einzel_messages(g.material, g.modus, params, r.wunsch, outline.rows)
+        try:
+            antwort = call_json_llm(llm, nachrichten, endpoint="praesentation").choices[0].message.content or ""
+            abgedeckt, titel, gist, stellen = gliederung.parse_einzel(antwort, lambda refs: g.stellen(refs, karte))
+        except gliederung.Unusable as e:
+            logger.warning("Präsentation {}: neue Folie {} nicht verortet: {}", job_uuid[:8], r.id, e)
+            continue
+        # A title the person typed stays when the material carries it, else the new subject names it.
+        if not r.title or not abgedeckt:
+            r.title = titel
+        r.gist, r.stellen, r.wunsch = gist, stellen, ""
+        logger.info("Präsentation {}: neue Folie {} auf {} Stellen{}", job_uuid[:8], r.id, len(stellen),
+                    "" if abgedeckt else ", Wunsch nicht im Material, eigenes Thema")
+    store.save_user_outline(user_id, job_uuid, outline)
 
 
 def _eigenes_material(user_id, job_uuid, offen, erzwungen_text: set[str]) -> dict[str, str]:

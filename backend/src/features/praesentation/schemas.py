@@ -55,6 +55,8 @@ class OutlineRow(BaseModel):
     # Numbers of the passages on the run's text map. Empty for a slide that draws on
     # everything, such as an agenda or the closing slide.
     stellen: list[int] = Field(default_factory=list)
+    # What the person asked for when adding the slide by hand, its passages are still to be found.
+    wunsch: str = ""
 
 
 class Outline(BaseModel):
@@ -164,6 +166,10 @@ class PraesentationParams(BaseModel):
 
     language: str = "de"
     instructions: str = ""
+    # What the instruction turned out to be, decided once per run, see services/anweisung.py.
+    instruction_way: str = ""
+    # The instruction named nothing the material covers, so it dropped out.
+    instruction_unmatched: bool = False
     # Who gives the talk, shown in the bottom left of the cover when set.
     presenter: str = Field(default="", max_length=MAX_PRESENTER_CHARS)
     # What the person asked for in the first step: notes get written at all.

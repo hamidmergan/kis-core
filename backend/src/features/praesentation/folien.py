@@ -10,6 +10,7 @@ from src.features.praesentation.raster import (
     MAX_BALKEN, MAX_KARTEN, MAX_KENNZAHLEN, MAX_SCHRITTE, MAX_STUFEN, MAX_SYMBOLE,
 )
 from src.limits import PRAESENTATION_SLIDE_CONTEXT_CHARS
+from src.services import anweisung
 from src.features.praesentation.schemas import (
     CHART_TYPES, MAX_BAR_TEXT_CHARS, MAX_CHART_CATEGORIES, MAX_CHART_SERIES, MAX_GIST_CHARS, MAX_HEADING_CHARS,
     MAX_KEY_CHARS, MAX_NOTES_CHARS, MAX_PROMPT_CHARS, MAX_SERIES_NAME_CHARS, MAX_SUBTITLE_CHARS, MAX_TABLE_ROWS,
@@ -159,8 +160,7 @@ def build_messages(source: str, params: PraesentationParams, rows: list[OutlineR
         teile.append("\n".join(zeilen))
     kopf = "" if fakten else f"MATERIAL:\n{source}\n\n"
     user = f"{kopf}SLIDES TO WRITE:\n" + "\n".join(teile)
-    if params.instructions.strip():
-        user += f"\n\nINSTRUCTION FROM THE TEACHER: {params.instructions.strip()}"
+    user += anweisung.schreib_zusatz(params.instructions, params.instruction_way)
     return [{"role": "system", "content": system}, {"role": "user", "content": user}]
 
 

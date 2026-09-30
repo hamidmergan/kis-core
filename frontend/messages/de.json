@@ -1423,6 +1423,7 @@
         "summary": "{n} Folien.",
         "previewReady": "Vorschau fertig",
         "previewReadyHint": "Prüfe jede Folie und ändere direkt hier, was nicht passt. Wenn alles stimmt, klicke unten auf „Fertigstellen“.",
+        "instructionUnmatched": "Zu deiner Anweisung steht nichts in den Materialien. Die Präsentation nutzt deshalb das gesamte Material.",
         "failed": "Der Bau ist fehlgeschlagen.",
         "retry": "Erneut versuchen",
         "roles": {

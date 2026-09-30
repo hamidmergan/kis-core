@@ -1423,6 +1423,7 @@
         "summary": "{n} slides.",
         "previewReady": "Preview ready",
         "previewReadyHint": "Check each slide and change anything that does not fit right here. When everything is right, click “Finalize” below.",
+        "instructionUnmatched": "Your instruction is not covered by the sources. The presentation uses all of the material instead.",
         "failed": "The build failed.",
         "retry": "Try again",
         "roles": {

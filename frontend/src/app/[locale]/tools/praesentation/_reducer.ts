@@ -24,6 +24,7 @@ export const INITIAL_STATE: PraesentationState = {
   inArbeit: [],
   hasDeck: false,
   templateFallback: false,
+  instructionUnmatched: false,
   starting: false,
 };
 
@@ -44,7 +45,7 @@ export type Action =
   | { type: "STARTED"; jobUuid: string }
   | { type: "JOB"; status: JobStatus; progress: JobProgress | null; error?: string | null }
   | { type: "VIEW"; outline: Outline | null; slides: Slide[]; previews: string[]; missingImages: string[];
-      images: Record<string, string[]>; hasDeck: boolean; templateFallback: boolean; bump?: boolean }
+      images: Record<string, string[]>; hasDeck: boolean; templateFallback: boolean; instructionUnmatched?: boolean; bump?: boolean }
   | { type: "UPDATE_ROW"; row: OutlineRow }
   | { type: "MOVE_ROW"; id: string; delta: -1 | 1 }
   | { type: "DELETE_ROW"; id: string }
@@ -100,7 +101,7 @@ export function reducer(state: PraesentationState, action: Action): Praesentatio
                imageStyle: action.templateId === state.templateId ? state.imageStyle : null };
     case "STARTING":
       return { ...enter(state, "preview"), starting: true, inArbeit: [], error: "", outline: null, slides: [], previews: {}, progress: null,
-               missingImages: [], images: {}, hasDeck: false, templateFallback: false };
+               missingImages: [], images: {}, hasDeck: false, templateFallback: false, instructionUnmatched: false };
     case "STARTED":
       return { ...state, jobUuid: action.jobUuid, jobStatus: "pending", starting: false };
     case "JOB": {
@@ -118,7 +119,8 @@ export function reducer(state: PraesentationState, action: Action): Praesentatio
       for (const id of action.previews) previews[id] = action.bump ? (previews[id] ?? 0) + 1 : previews[id] ?? 1;
       for (const id of Object.keys(previews)) if (!action.previews.includes(id)) delete previews[id];
       return { ...state, outline: action.outline, slides: action.slides, previews, missingImages: action.missingImages,
-               images: action.images, hasDeck: action.hasDeck, templateFallback: action.templateFallback };
+               images: action.images, hasDeck: action.hasDeck, templateFallback: action.templateFallback,
+               instructionUnmatched: !!action.instructionUnmatched };
     }
     case "UPDATE_ROW":
       if (!state.outline) return state;

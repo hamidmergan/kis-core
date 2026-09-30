@@ -6,6 +6,7 @@ import json
 import re
 from typing import Callable
 
+from src.services import anweisung
 from src.features.praesentation.schemas import (
     FOLIEN_GRENZEN, WAEHLBARE_ROLLEN, Outline, OutlineRow, PraesentationParams,
 )
@@ -91,8 +92,7 @@ def build_messages(material: str, params: PraesentationParams, rollen: list[str]
         "the slide shows."
     )
     aufgabe = f"/no_think\nMATERIAL:\n{material}\n"
-    if params.instructions.strip():
-        aufgabe += f"\nINSTRUCTION FROM THE TEACHER: {params.instructions.strip()}"
+    aufgabe += anweisung.plan_zusatz(params.instructions, params.instruction_way, "slide")
     if fehlt:
         aufgabe += ("\nYOUR LAST OUTLINE GAVE THESE FILES FAR TOO LITTLE ROOM. Give each a "
                     "share of the slides that matches how much of the material it holds: "
@@ -234,6 +234,40 @@ def mit_ids(rows: list[OutlineRow]) -> list[OutlineRow]:
         out.append(OutlineRow(id=rid, role=r.role, title=r.title, gist=r.gist,
                               stellen=list(r.stellen)))
     return out
+
+
+def einzel_messages(material: str, modus: str, params: PraesentationParams, wunsch: str,
+                    rows: list[OutlineRow]) -> list[dict]:
+    """One slide added by hand placed on the material, or on another subject when the material has none."""
+    from src.services.text_map import hinweis
+
+    deck = "\n".join(f"- {r.title}: {r.gist}" for r in rows if r.title and not r.wunsch)
+    system = (
+        "You plan ONE additional slide for an existing slide deck in university teaching. "
+        f"Write its title and gist in {SPRACHE.get(params.language, 'German')}.\n"
+        f"{hinweis(modus)}\n"
+        "When the material says something on the teacher's request, plan the slide on exactly "
+        "that and set covered to true. When the material says nothing on it, when the request "
+        "asks to leave the material or to invent content, or when it makes no sense, set covered "
+        "to false and plan the slide on a subject of the material the deck does not cover yet.\n"
+        "The title states the message of the slide, the gist is one sentence saying what it "
+        "shows, and refs are never empty.\n"
+        'Answer with one JSON object only: {"covered": true, "title": "...", "gist": "...", '
+        '"refs": [12, "14-17"]}.'
+    )
+    user = (f"/no_think\nMATERIAL:\n{material}\n\nTHE DECK SO FAR:\n{deck}\n\n"
+            f"REQUEST OF THE TEACHER: {anweisung.clean(wunsch)}")
+    return [{"role": "system", "content": system}, {"role": "user", "content": user}]
+
+
+def parse_einzel(raw: str, stellen: Callable[[object], list[int]]) -> tuple[bool, str, str, list[int]]:
+    """Covered, title, gist and passages of the one planned slide, a slide without passages is unusable."""
+    data = json_objekt(raw)
+    titel = str(data.get("title") or "").strip()[:120]
+    nummern = stellen(data.get("refs"))
+    if not titel or not nummern:
+        raise Unusable("die Folie hat keinen Titel oder keine Stellen")
+    return data.get("covered") is not False, titel, str(data.get("gist") or "").strip()[:300], nummern
 
 
 def regen_messages(row: OutlineRow, outline: Outline, params: PraesentationParams,

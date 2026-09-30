@@ -22,6 +22,7 @@ from src.limits import (
     SUMMARY_SOURCE_OPENING_CHARS,
     SUMMARY_WRITE_CONCURRENCY,
 )
+from src.services import anweisung
 from src.services import text_map as tm
 from src.services.source_reading import Source
 from src.services.text_language import language_name
@@ -91,6 +92,24 @@ async def _grundlage(caller: Caller, karte: tm.Karte, language: str,
     return g
 
 
+async def _weg(caller: Caller, instructions: str, material: str) -> str:
+    """What the instruction is, read once next to the material the plan reads."""
+    if not anweisung.clean(instructions):
+        return anweisung.KEINE
+    try:
+        antwort = await caller.create(
+            messages=anweisung.einordnen_nachrichten(instructions, material, "a written summary"),
+            temperature=0.0, name="anweisung", response_format={"type": "json_object"})
+        weg = anweisung.lies_weg(antwort.choices[0].message.content)
+    except Exception as e:  # noqa: BLE001 - a lost call keeps the instruction under guard
+        if concurrency.overloaded(e):
+            raise
+        logger.warning("Zusammenfassung: Anweisung nicht eingeordnet ({}), sie gilt als Stil", e)
+        weg = anweisung.STIL
+    logger.info("Zusammenfassung: Anweisung gilt als {}", weg)
+    return weg
+
+
 async def _outline(caller: Caller, *, language: str, vorlage: Template, sources: list[Source],
                    karte: tm.Karte, store: RunStore, instructions: str = "") -> Outline:
     """The plan, taken from the store when a stage already paid for it."""
@@ -99,6 +118,9 @@ async def _outline(caller: Caller, *, language: str, vorlage: Template, sources:
         return Outline(**gemerkt)
     store.progress("outline")
     g = await _grundlage(caller, karte, language, store)
+    weg = await _weg(caller, instructions, g.material)
+    # A document on one subject leaves files out on purpose, nothing drags them back in.
+    fokus = anweisung.fokus(instructions, weg)
 
     async def planen(fehlt: list[str] | None) -> Outline:
         return await writing.plan_outline(
@@ -109,11 +131,13 @@ async def _outline(caller: Caller, *, language: str, vorlage: Template, sources:
             modus=g.modus, stellen=lambda refs: g.stellen(refs, karte),
             span=vorlage.sections, fehlt=fehlt,
             anfaenge=[q.text[:SUMMARY_SOURCE_OPENING_CHARS] for q in sources],
-            instructions=instructions)
+            instructions=instructions, weg=weg)
 
     plan = await planen(None)
+    plan.instruction_way = weg
     # A plan that starves a file loses it for good, so it is asked for once more.
-    luecken = tm.zu_kurz([a.stellen for a in plan.sections], karte) if len(sources) > 1 else []
+    luecken = (tm.zu_kurz([a.stellen for a in plan.sections], karte)
+               if len(sources) > 1 and not fokus else [])
     if plan.sections and luecken:
         hinweis = [f"{n} ({a} % of the material)" for n, a in luecken]
         logger.warning("Zusammenfassung: Plan gibt zu wenig Gewicht: {}", ", ".join(hinweis))
@@ -121,11 +145,13 @@ async def _outline(caller: Caller, *, language: str, vorlage: Template, sources:
         if zweiter.sections and len(tm.zu_kurz([a.stellen for a in zweiter.sections],
                                                 karte)) < len(luecken):
             plan = zweiter
+            plan.instruction_way = weg
     if plan.sections:
         vorher = tm.abdeckung([a.stellen for a in plan.sections], len(karte))
         eigene = tm.exklusiv([a.stellen for a in plan.sections])
-        for abschnitt, genannt, stellen in zip(plan.sections, eigene,
-                                               tm.abdecken(eigene, len(karte))):
+        # Off the subject the rest of the text stays out, else it goes to the nearest section.
+        verteilt = eigene if fokus else tm.abdecken(eigene, len(karte))
+        for abschnitt, genannt, stellen in zip(plan.sections, eigene, verteilt):
             abschnitt.genannt, abschnitt.stellen = genannt, stellen
         logger.info("Zusammenfassung: Plan nennt {:.0%} der Stellen, der Rest geht an den "
                     "naechsten Abschnitt", vorher)
@@ -217,16 +243,19 @@ async def run(caller: Caller, *, sources: list[Source], template: Template,
 
     plan = await _outline(caller, language=language, vorlage=template, sources=sources,
                           karte=karte, store=store, instructions=instructions)
+    # An instruction that named nothing the material covers reaches no writer.
+    wirksam = "" if plan.instruction_way == anweisung.WEG else instructions
     if not plan.sections:
         # Without a plan the document comes out of one call, that is the fallback.
         return await writing.compose_single(
             caller, language=language, template_body=template_body(template),
             sources=[q.dateiname for q in sources],
-            material=karte.block()[:MAP_MATERIAL_MAX_CHARS * 4], instructions=instructions)
+            material=karte.block()[:MAP_MATERIAL_MAX_CHARS * 4], instructions=wirksam,
+            weg=plan.instruction_way)
 
     fertig = await _sections(caller, language=language, vorlage=template, plan=plan,
                              karte=karte, store=store, should_stop=should_stop,
-                             instructions=instructions)
+                             instructions=wirksam)
     reihenfolge = sorted(fertig)
     return writing.assemble(plan.intro, [plan.sections[i].title for i in reihenfolge],
                             [fertig[i] for i in reihenfolge], template.headings, plan.title)

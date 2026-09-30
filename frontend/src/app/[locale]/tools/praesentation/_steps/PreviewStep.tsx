@@ -43,6 +43,8 @@ interface PreviewStepProps {
   error: string;
   hasOutline: boolean;
   hasDeck: boolean;
+  /** The instruction named nothing the material covers, the deck drew on all of it. */
+  instructionUnmatched: boolean;
   onNotesInclude: (include: boolean) => void;
   onSlide: (slide: Slide) => void;
   onMove: (id: string, delta: -1 | 1) => void;
@@ -123,6 +125,12 @@ export default function PreviewStep(p: PreviewStepProps) {
       )}
 
       {bereit && <p className="text-sm text-foreground-soft mt-2">{t("previewReadyHint")}</p>}
+
+      {p.instructionUnmatched && (
+        <p className="mt-4 rounded-md border border-warn-border bg-warn-bg px-3 py-2 text-sm text-warn-strong" role="status">
+          {t("instructionUnmatched")}
+        </p>
+      )}
 
       {/* Below the status and the hint on the right, so the lines above read on their own. */}
       <div className="mt-12 flex items-center justify-end gap-x-5 gap-y-2 flex-wrap">

@@ -170,5 +170,7 @@ export interface PraesentationState {
   inArbeit: string[];
   hasDeck: boolean;
   templateFallback: boolean;
+  /** The instruction named nothing the material covers, the run used all of it. */
+  instructionUnmatched: boolean;
   starting: boolean;
 }

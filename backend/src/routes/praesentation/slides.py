@@ -68,11 +68,13 @@ def _bau(job_uuid: str, user_id: int, locale: str, nur: dict | None, final: bool
     db.set_job_celery_task_id(job_uuid, task.id)
 
 
-def _speichern(user_id: int, job_uuid: str, slides: list[Slide], gists: dict[str, str] | None = None) -> None:
+def _speichern(user_id: int, job_uuid: str, slides: list[Slide], gists: dict[str, str] | None = None,
+               wuensche: dict[str, str] | None = None) -> None:
     store.save_user_slides(user_id, job_uuid, slides)
     outline = store.load_outline(user_id, job_uuid) or Outline()
     alt = {r.id: r for r in outline.rows}
-    rows = [alt.get(s.id) or OutlineRow(id=s.id, role=s.role, title=s.title, gist=(gists or {}).get(s.id, ""))
+    rows = [alt.get(s.id) or OutlineRow(id=s.id, role=s.role, title=s.title, gist=(gists or {}).get(s.id, ""),
+                                        wunsch=(wuensche or {}).get(s.id, ""))
             for s in slides]
     store.save_user_outline(user_id, job_uuid, Outline(title=outline.title, subtitle=outline.subtitle, rows=rows))
 
@@ -270,7 +272,9 @@ def insert_slide(job_uuid: str, body: InsertRequest, current_user: dict = Depend
     layout = vorlage.layout_fuer(analyse, rolle, zaehler).index
     neu = Slide(id=neu_id, role=rolle, layout=layout, title=titel)
     slides.insert(stelle + 1, neu)
-    _speichern(user_id, job_uuid, slides, {neu_id: anweisung})
+    # The build looks for the passages of the wish first, a slide without any would be made up.
+    _speichern(user_id, job_uuid, slides, {neu_id: anweisung},
+               {neu_id: " ".join(teil for teil in (titel, anweisung) if teil)})
     # SEAM: a slide added later used to get its own searched material. The search went
     # with the old reading layer, so for now it shares the material of the run.
     store.save_slide_source(user_id, job_uuid, neu_id, "")

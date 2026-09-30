@@ -36,9 +36,11 @@ class TestPrompt:
         o = gliederung.parse_answer(raw, ROLLEN, lambda refs: [int(str(r).split("-")[0]) for r in refs])
         assert o.rows[1].stellen == [2, 7]
 
-    def test_anweisung_kommt_ans_ende(self):
+    def test_anweisung_kommt_nach_dem_material(self):
         msgs = gliederung.build_messages("Q", PraesentationParams(instructions="nur Kapitel 2"), ROLLEN)
-        assert msgs[1]["content"].rstrip().endswith("nur Kapitel 2")
+        text = msgs[1]["content"]
+        assert text.rindex('"nur Kapitel 2"') > text.rindex("MATERIAL")
+        assert "never add content the material does not hold" in text
 
 
 class TestParse:

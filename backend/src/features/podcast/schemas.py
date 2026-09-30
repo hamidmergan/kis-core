@@ -50,7 +50,9 @@ class PodcastParams(BaseModel):
     source_label: str = ""
     # Written by hand from an empty script, so no model is ever asked for this one.
     self_written: bool = False
-    # The instruction named something the material does not cover, so the search was skipped.
+    # The instruction named something the material does not cover, so it dropped out.
     instruction_unmatched: bool = False
+    # What the instruction turned out to be, decided once per run, see services/anweisung.py.
+    instruction_way: str = ""
     # Sifted down to what the material contains at the start, so every later call can use it.
     glossary: dict[str, str] = Field(default_factory=dict)

@@ -6,6 +6,7 @@ import re
 from loguru import logger
 
 from src.features.podcast import glossary as glossar
+from src.services import anweisung
 from src.features.podcast.schemas import LENGTH_PLAN, Line, PodcastParams
 from src.limits import PODCAST_MAX_LINES, PODCAST_MAX_LINE_CHARS
 
@@ -218,9 +219,7 @@ def build_messages(source: str, params: PodcastParams, *, anzahl: int | None = N
             "- The lines in square brackets in the material only name file and page, never read them out.\n"
         )
     aufgabe += glossar.block(params.glossary, params.language)
-    if params.instructions.strip():
-        label = "Zusätzliche Anweisung" if params.language == "de" else "Additional instruction"
-        aufgabe += f"\n{label}: {params.instructions.strip()}\n"
+    aufgabe += anweisung.schreib_zusatz(params.instructions, params.instruction_way)
     return [{"role": "system", "content": system}, {"role": "user", "content": aufgabe}]
 
 
@@ -231,6 +230,9 @@ def plan_messages(material: str, modus: str, params: PodcastParams, teile: int,
     from src.services.text_map import hinweis
 
     sprache = "German" if params.language == "de" else "English"
+    # An instruction with a subject of its own decides what the episode is about, not the files.
+    if anweisung.fokus(params.instructions, params.instruction_way):
+        dateien = None
     system = (
         "You plan a podcast episode for university teaching. From the material you pick what "
         f"matters to the listeners and lay the episode out in exactly {teile} consecutive "
@@ -251,8 +253,7 @@ def plan_messages(material: str, modus: str, params: PodcastParams, teile: int,
         "which question it answers."
     )
     aufgabe = f"/no_think\nMATERIAL:\n{material}\n"
-    if params.instructions.strip():
-        aufgabe += f"\nINSTRUCTION FROM THE TEACHER: {params.instructions.strip()}"
+    aufgabe += anweisung.plan_zusatz(params.instructions, params.instruction_way, "part")
     if fehlt:
         aufgabe += ("\nYOUR LAST PLAN GAVE THESE FILES FAR TOO LITTLE ROOM. Give each a "
                     "share of the episode that matches how much of the material it holds, "

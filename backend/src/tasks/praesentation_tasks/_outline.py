@@ -9,7 +9,7 @@ from src.celery_app import celery_app
 from src.features.praesentation import gliederung, store, vorlage
 from src.i18n import t
 from src.limits import STAGE_SOFT_TIME_LIMIT, STAGE_TIME_LIMIT
-from src.services import feature_router
+from src.services import anweisung, feature_router
 from src.services.feature_provider_choices import binding_for
 from src.services import text_map as tm
 from src.services.json_llm import call_json_llm
@@ -38,6 +38,18 @@ def _fenster(provider_id: int | None) -> int:
     except Exception as e:  # noqa: BLE001 - ohne Messung gilt das kleinste zugelassene Fenster
         logger.warning("Präsentation: Modell nicht vermessbar ({})", e)
         return 0
+
+
+def _weg(llm, g: tm.Grundlage, params, user_id: int, job_uuid: str) -> None:
+    """Decides once per run what the instruction is, a later stage reads it from the params."""
+    if params.instruction_way or not anweisung.clean(params.instructions):
+        return
+    params.instruction_way = anweisung.entscheide(
+        lambda n: call_json_llm(llm, n, endpoint="praesentation").choices[0].message.content,
+        params.instructions, g.material, _ZWECK)
+    params.instruction_unmatched = params.instruction_way == anweisung.WEG
+    store.save_params(user_id, job_uuid, params)
+    logger.info("Präsentation {}: Anweisung gilt als {}", job_uuid[:8], params.instruction_way)
 
 
 def _frage(llm):
@@ -97,9 +109,12 @@ def run_praesentation_outline(self, job_uuid: str, user_id: int, locale: str = "
         letzter = ""
         with job_heartbeat(job_uuid):
             g = _grundlage(user_id, job_uuid, karte, params.language, llm, params.llm_provider_id)
-            dateien = [q.dateiname for q in quellenliste if q.stuecke]
-            ziel = gliederung.ziel_folien(sum(len(q.text) for q in quellenliste))
-            anteile = gliederung.folien_je_datei(karte, ziel - gliederung.RAHMEN_FOLIEN)
+            _weg(llm, g, params, user_id, job_uuid)
+            # A deck on one subject takes what the material says on it, not a share of every file.
+            fokus = anweisung.fokus(params.instructions, params.instruction_way)
+            dateien = [] if fokus else [q.dateiname for q in quellenliste if q.stuecke]
+            ziel = None if fokus else gliederung.ziel_folien(sum(len(q.text) for q in quellenliste))
+            anteile = gliederung.folien_je_datei(karte, ziel - gliederung.RAHMEN_FOLIEN) if ziel else {}
             outline = None
             bester = 0
             hinweis: list[str] = []

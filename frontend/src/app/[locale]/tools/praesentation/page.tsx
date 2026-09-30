@@ -58,7 +58,8 @@ function PraesentationPageInner() {
       && (view.status === "awaiting_user" || view.status === "success");
     dispatch({ type: "VIEW", outline: view.outline, slides: view.slides, previews: view.previews,
                missingImages: view.missing_images, images: view.images ?? {}, hasDeck: view.has_deck,
-               templateFallback: !!view.params?.template_fallback, bump });
+               templateFallback: !!view.params?.template_fallback,
+               instructionUnmatched: !!view.params?.instruction_unmatched, bump });
     dispatch({ type: "JOB", status: view.status, progress: view.progress, error: view.error });
     if (view.params) {
       dispatch({ type: "RESTORE", state: { notes: view.params.notes, notesInclude: view.params.notes_include,
@@ -337,7 +338,7 @@ function PraesentationPageInner() {
                 images={state.images} missingImages={state.missingImages} inArbeit={state.inArbeit} presenter={state.presenter}
                 notesOn={state.notes} notesInclude={state.notesInclude} laeuft={isBusy(state)}
                 jobStatus={state.jobStatus} progress={state.progress} error={state.error} hasOutline={!!state.outline}
-                hasDeck={state.hasDeck}
+                hasDeck={state.hasDeck} instructionUnmatched={state.instructionUnmatched}
                 onNotesInclude={(include) => { dispatch({ type: "SET_NOTES_INCLUDE", include }); mitStand(async (u) => { await api.setNotesInclude(u, include); }); }}
                 onSlide={folieAendern}
                 onMove={(id, delta) => { dispatch({ type: "MOVE_SLIDE", id, delta }); const ids = reducer(stateRef.current, { type: "MOVE_SLIDE", id, delta }).slides.map((s) => s.id); mitStand(async (u) => nummernFrisch(await api.saveOrder(u, ids))); }}

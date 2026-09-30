@@ -7,6 +7,7 @@ import re
 from loguru import logger
 
 from src.features.summary.models import GROUND_RULES, Caller, Outline, Section
+from src.services import anweisung
 from src.limits import (
     SUMMARY_CHARS_PER_SECTION,
     SUMMARY_COMPOSE_MAX_ATTEMPTS,
@@ -196,7 +197,8 @@ def parse_outline(raw: str | None, stellen=None, dateien: list[str] | None = Non
 
 
 def _outline_system(language: str, template_body: str, target: int, sources: int,
-                    modus: str = "stellen", span: tuple[int, int] | None = None) -> str:
+                    modus: str = "stellen", span: tuple[int, int] | None = None,
+                    fokus: bool = False) -> str:
     from src.services.text_map import hinweis
 
     lo, hi = span or (SUMMARY_MIN_SECTIONS, SUMMARY_MAX_SECTIONS)
@@ -211,10 +213,14 @@ def _outline_system(language: str, template_body: str, target: int, sources: int
         "gets fewer, rich material gets more.\n"
         "Rule 10: A heading names a theme that carries several numbers, never a single one. "
         "If a heading would rest on one statement alone, widen it or fold it into another.\n"
-        f"Rule 11: The material comes from {sources} file(s), listed below, and EVERY one of "
-        "them must be covered by at least one section. Work through the whole material "
-        "to its last number before you settle the headings. A subject only the later numbers "
-        "carry still needs its own heading.\n"
+        + (("Rule 11: The instruction at the end names the subject of the document. Plan only "
+            "sections on it and leave out every file and every part of the BUILD PLAN the "
+            "material says nothing on for this subject. Work through the whole material to its "
+            "last number to find everything it says on the subject.\n") if fokus else
+           (f"Rule 11: The material comes from {sources} file(s), listed below, and EVERY one of "
+            "them must be covered by at least one section. Work through the whole material "
+            "to its last number before you settle the headings. A subject only the later numbers "
+            "carry still needs its own heading.\n")) +
         "Rule 12: Sections must not overlap, and the headings follow the subject, never the "
         "file the material came from. A heading never names a file.\n"
         "Rule 13: Plan the sections the BUILD PLAN below asks for. Where it names parts the "
@@ -223,8 +229,9 @@ def _outline_system(language: str, template_body: str, target: int, sources: int
         "order, such as what the reader must act on first and background last, the sections "
         "are already in that order.\n"
         "Rule 14a: Every section names the numbers it rests on under refs. Together the "
-        "sections cover everything that carries content, and a number rarely belongs to "
-        "two sections.\n"
+        + ("sections cover what the material says on the subject" if fokus else
+           "sections cover everything that carries content")
+        + ", and a number rarely belongs to two sections.\n"
         "Rule 14: The title names what the material is about, short, and never mentions a "
         "file or the format.\n"
         "Rule 15: The intro stands before the first heading. Its first sentence says what "
@@ -239,13 +246,13 @@ def _outline_system(language: str, template_body: str, target: int, sources: int
 
 
 def _instruction(instructions: str) -> str:
-    """The person's own wish, placed last so it gets the attention, the rules still win."""
-    return (f"\n\nINSTRUCTION FROM THE TEACHER, follow it within the rules above: "
-            f"{instructions.strip()}") if instructions.strip() else ""
+    """The person's own wish for a writer, placed last so it gets the attention, the rules still win."""
+    return "\n" + anweisung.schreib_zusatz(instructions, anweisung.STIL) if instructions.strip() else ""
 
 
 def _outline_user(sources: list[str], material: str, fehlt: list[str] | None = None,
-                  anfaenge: list[str] | None = None, instructions: str = "") -> str:
+                  anfaenge: list[str] | None = None, instructions: str = "",
+                  weg: str = "") -> str:
     anfaenge = anfaenge or []
     liste = "\n".join(
         f"- {s}" + (f", begins with: {' '.join(anfaenge[i].split())}" if i < len(anfaenge) else "")
@@ -253,8 +260,9 @@ def _outline_user(sources: list[str], material: str, fehlt: list[str] | None = N
     mahnung = ("\nYOUR LAST PLAN GAVE THESE FILES FAR TOO LITTLE ROOM. Give each a share of "
                "the sections and refs that matches how much of the material it holds: "
                + ", ".join(fehlt) + "\n") if fehlt else ""
+    zusatz = anweisung.plan_zusatz(instructions, weg, "section")
     return (f"/no_think\nSources:\n{liste}\n{mahnung}\nMATERIAL:\n\n{material}"
-            + _instruction(instructions))
+            + ("\n" + zusatz if zusatz else ""))
 
 
 async def plan_outline(caller: Caller, *, language: str, template_body: str,
@@ -263,7 +271,7 @@ async def plan_outline(caller: Caller, *, language: str, template_body: str,
                        span: tuple[int, int] | None = None,
                        fehlt: list[str] | None = None,
                        anfaenge: list[str] | None = None,
-                       instructions: str = "") -> Outline:
+                       instructions: str = "", weg: str = "") -> Outline:
     """Plans the headings of the document. Empty when planning failed."""
     plan = Outline()
     for versuch in range(1, SUMMARY_OUTLINE_MAX_ATTEMPTS + 1):
@@ -272,9 +280,10 @@ async def plan_outline(caller: Caller, *, language: str, template_body: str,
                 messages=[
                     {"role": "system",
                      "content": _outline_system(language, template_body, target, len(sources),
-                                                modus, span)},
+                                                modus, span, anweisung.fokus(instructions, weg))},
                     {"role": "user",
-                     "content": _outline_user(sources, material, fehlt, anfaenge, instructions)},
+                     "content": _outline_user(sources, material, fehlt, anfaenge, instructions,
+                                              weg)},
                 ],
                 temperature=0.2, name=f"outline:{versuch}",
                 response_format=OUTLINE_SCHEMA, max_tokens=SUMMARY_OUTLINE_MAX_TOKENS,
@@ -549,7 +558,8 @@ def _compose_system(language: str, template_body: str) -> str:
 
 
 async def compose_single(caller: Caller, *, language: str, template_body: str,
-                         sources: list[str], material: str, instructions: str = "") -> str:
+                         sources: list[str], material: str, instructions: str = "",
+                         weg: str = "") -> str:
     """The whole document in one call, the fallback for a failed outline.
 
     Tried more than once on purpose, one dropped call must not end the run. What still
@@ -561,7 +571,8 @@ async def compose_single(caller: Caller, *, language: str, template_body: str,
                 messages=[
                     {"role": "system", "content": _compose_system(language, template_body)},
                     {"role": "user",
-                     "content": _outline_user(sources, material, instructions=instructions)},
+                     "content": _outline_user(sources, material, instructions=instructions,
+                                              weg=weg)},
                 ],
                 temperature=0.3, name=f"compose:{versuch}",
                 max_tokens=SUMMARY_WRITE_MAX_TOKENS,
