@@ -17,8 +17,8 @@ export default function PodcastStepper({ step, canEnter, isClosedForGood, onStep
   const currentIdx = STEPS.indexOf(step);
 
   return (
-    <nav aria-label={tStepper("ariaLabel")} className="mb-10 overflow-x-auto scrollbar-hide">
-      <ol className="flex items-center justify-center gap-1 sm:gap-2 w-max sm:w-full">
+    <nav aria-label={tStepper("ariaLabel")} className="mb-10 overflow-x-auto scrollbar-hide rounded-xl bg-kb/2 px-3 py-2.5">
+      <ol className="flex items-center justify-center gap-1 sm:gap-2 w-max min-w-full">
         {STEPS.map((key, i) => {
           const isDone = i < currentIdx;
           const isActive = i === currentIdx;
@@ -41,7 +41,7 @@ export default function PodcastStepper({ step, canEnter, isClosedForGood, onStep
                     ${isClickable ? "outline-2 outline-transparent group-hover:outline-kb" : ""}
                     ${isActive ? "bg-kb text-white" : ""}
                     ${isDone ? "bg-kb/20 text-kb" : ""}
-                    ${!isActive && !isDone ? "bg-surface text-muted-soft" : ""}
+                    ${!isActive && !isDone ? "bg-background dark:bg-surface-dim text-muted-soft" : ""}
                   `}
                   aria-current={isActive ? "step" : undefined}
                 >
@@ -53,8 +53,9 @@ export default function PodcastStepper({ step, canEnter, isClosedForGood, onStep
                     i + 1
                   )}
                 </span>
+                {/* On the phone only the current step keeps its name, so all five fit side by side. */}
                 <span
-                  className={`text-3xs sm:text-xs whitespace-nowrap ${
+                  className={`text-3xs sm:text-xs whitespace-nowrap ${isActive ? "" : "sr-only sm:not-sr-only"} ${
                     isActive ? "text-foreground font-medium" : isClickable ? "text-kb" : "text-muted-soft"
                   }`}
                 >
@@ -62,7 +63,7 @@ export default function PodcastStepper({ step, canEnter, isClosedForGood, onStep
                 </span>
               </Huelle>
               {i < STEPS.length - 1 && (
-                <span className={`w-3 sm:w-8 h-px flex-shrink-0 ${i < currentIdx ? "bg-kb" : "bg-surface-dim"}`} aria-hidden="true" />
+                <span className={`w-3 sm:w-8 h-px flex-shrink-0 ${i < currentIdx ? "bg-kb" : "bg-kb/15"}`} aria-hidden="true" />
               )}
             </li>
           );

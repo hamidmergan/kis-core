@@ -267,7 +267,7 @@ function PodcastPageInner() {
         <ToolBackLink />
 
         {begonnen && (
-          <div className="flex justify-end mb-8">
+          <div className="flex justify-end mb-3 sm:mb-8">
             <button type="button" onClick={neuGefragt} className={DISCARD}>
               <Trash size={14} aria-hidden="true" />
               {t("discardPodcast")}

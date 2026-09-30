@@ -117,7 +117,7 @@ export default function ScreencastStepper({
   const currentIdx = stepToIndex(step);
 
   return (
-    <div className="mb-10 flex items-center gap-2">
+    <div className="mb-10 flex items-center gap-2 rounded-xl bg-kb/2 px-3 py-2.5">
       <span className="hidden md:block">
         <IconButton
           onClick={() => schieben(-1)}
@@ -138,7 +138,7 @@ export default function ScreencastStepper({
         onMouseUp={onMouseUp}
         onMouseLeave={onMouseUp}
       >
-        <ol className="flex items-center gap-1 sm:gap-2 min-w-0 w-max sm:w-full">
+        <ol className="flex items-center justify-center gap-1 sm:gap-2 w-max min-w-full">
           {STEP_KEYS.map((stepKey, i) => {
             const label = t(`steps.${stepKey}`);
             const isSkipped = skipTranslation && i === 1;
@@ -165,7 +165,7 @@ export default function ScreencastStepper({
                       ${isActive ? "bg-kb text-white" : ""}
                       ${isDone ? "bg-kb/20 text-kb" : ""}
                       ${isSkipped ? "bg-surface text-border" : ""}
-                      ${!isActive && !isDone && !isSkipped ? "bg-surface text-muted-soft" : ""}
+                      ${!isActive && !isDone && !isSkipped ? "bg-background dark:bg-surface-dim text-muted-soft" : ""}
                     `}
                     aria-current={isActive ? "step" : undefined}
                   >
@@ -215,7 +215,7 @@ export default function ScreencastStepper({
                 {i < STEP_KEYS.length - 1 && (
                   <span
                     className={`w-3 sm:w-8 h-px flex-shrink-0 ${
-                      i < currentIdx && !isSkipped ? "bg-kb" : "bg-surface-dim"
+                      i < currentIdx && !isSkipped ? "bg-kb" : "bg-kb/15"
                     }`}
                     aria-hidden="true"
                   />

@@ -17,8 +17,8 @@ export default function PraesentationStepper({ step, canEnter, isClosedForGood, 
   const currentIdx = STEPS.indexOf(step);
 
   return (
-    <nav aria-label={tStepper("ariaLabel")} className="mb-10 overflow-x-auto scrollbar-hide">
-      <ol className="flex items-center justify-center gap-1 sm:gap-2 w-max sm:w-full">
+    <nav aria-label={tStepper("ariaLabel")} className="mb-10 overflow-x-auto scrollbar-hide rounded-xl bg-kb/2 px-3 py-2.5">
+      <ol className="flex items-center justify-center gap-1 sm:gap-2 w-max min-w-full">
         {STEPS.map((key, i) => {
           const isDone = i < currentIdx;
           const isActive = i === currentIdx;
@@ -41,7 +41,7 @@ export default function PraesentationStepper({ step, canEnter, isClosedForGood, 
                     ${isClickable ? "outline-2 outline-transparent group-hover:outline-kb" : ""}
                     ${isActive ? "bg-kb text-white" : ""}
                     ${isDone ? "bg-kb/20 text-kb" : ""}
-                    ${!isActive && !isDone ? "bg-surface text-muted-soft" : ""}
+                    ${!isActive && !isDone ? "bg-background dark:bg-surface-dim text-muted-soft" : ""}
                   `}
                   aria-current={isActive ? "step" : undefined}
                 >
@@ -62,7 +62,7 @@ export default function PraesentationStepper({ step, canEnter, isClosedForGood, 
                 </span>
               </Huelle>
               {i < STEPS.length - 1 && (
-                <span className={`w-3 sm:w-8 h-px flex-shrink-0 ${i < currentIdx ? "bg-kb" : "bg-surface-dim"}`} aria-hidden="true" />
+                <span className={`w-3 sm:w-8 h-px flex-shrink-0 ${i < currentIdx ? "bg-kb" : "bg-kb/15"}`} aria-hidden="true" />
               )}
             </li>
           );

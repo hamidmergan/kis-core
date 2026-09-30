@@ -536,7 +536,7 @@ function ScreencastPageInner() {
         {/* Step indicator */}
         {showStepIndicator && (
           <>
-            <div className="flex justify-end mb-8">
+            <div className="flex justify-end mb-3 sm:mb-8">
               <button
                 onClick={() => setPendingExit("cancel")}
                 className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-soft transition-colors hover:text-error focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb"
