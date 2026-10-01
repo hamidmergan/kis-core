@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import Tabs from "@/components/ui/Tabs";
+import { usePermissions } from "@/hooks/usePermissions";
+import { hasPerm, PERM } from "@/lib/permissions";
 import { langLabel } from "@/app/[locale]/workspace/[uuid]/_types";
 import { stimmprobeUrl, type Stimmprobe } from "../_api";
 
@@ -13,6 +15,7 @@ const EIGENE = "mylab";
 export default function Stimmvergleich({ proben }: { proben: Stimmprobe[] }) {
   const t = useTranslations("tools.podcastDemo");
   const locale = useLocale();
+  const { loaded, permissions } = usePermissions();
   const sprachen = [...new Set(proben.map((p) => p.sprache))];
   const [gewaehlt, setGewaehlt] = useState<string | null>(null);
   if (!proben.length) return null;
@@ -42,6 +45,18 @@ export default function Stimmvergleich({ proben }: { proben: Stimmprobe[] }) {
           </li>
         ))}
       </ul>
+      {/* Only those allowed to connect their own account get pointed there. */}
+      {loaded && hasPerm(permissions, PERM.interfaces) && (
+        <p className="text-sm text-muted mt-4">
+          {t.rich("vergleichAnbinden", {
+            link: (teil) => (
+              <a href="/interfaces" target="_blank" rel="noopener noreferrer" className="font-semibold text-kb hover:underline">
+                {teil}
+              </a>
+            ),
+          })}
+        </p>
+      )}
     </section>
   );
 }
