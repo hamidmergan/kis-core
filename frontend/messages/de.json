@@ -182,7 +182,10 @@
       "fallbackFile": "Datei",
       "openPodcast": "Podcast öffnen",
       "openPraesentation": "Präsentation öffnen",
-      "openSummary": "Zusammenfassung öffnen"
+      "openSummary": "Zusammenfassung öffnen",
+      "openTranslation": "Übersetzung öffnen",
+      "openTts": "Audio öffnen",
+      "openStt": "Transkript öffnen"
     },
     "duration": {
       "seconds": "{n} Sek.",
@@ -428,6 +431,14 @@
     "stt": {
       "title": "Audio in Text",
       "intro": "Audio und Video transkribieren. Auch als Untertitel mit Zeitstempeln.",
+      "resultPlaceholder": "Hier erscheint dein Transkript.",
+      "history": {
+        "title": "Deine Transkripte",
+        "empty": "Noch kein Transkript.",
+        "hint": "Neue Transkripte kommen oben dazu, ein Klick zeigt sie wieder rechts.",
+        "colMaterial": "Material",
+        "colDate": "Datum"
+      },
       "outputFormat": "Ausgabeformat",
       "outputFormatHelp": "TXT ist reiner Text ohne Zeitstempel. SRT und VTT sind Untertitel-Formate: VTT für Moodle und moderne Web-Player, SRT für klassische Video-Player wie VLC.",
       "format": {
@@ -505,7 +516,15 @@
       "copyText": "Kopieren",
       "copied": "Kopiert!",
       "resetLabel": "Zurücksetzen",
-      "resultStale": "Text wurde geändert – für ein aktuelles Ergebnis erneut übersetzen."
+      "resultStale": "Text wurde geändert – für ein aktuelles Ergebnis erneut übersetzen.",
+      "resultPlaceholder": "Hier erscheint deine Übersetzung.",
+      "history": {
+        "title": "Deine Übersetzungen",
+        "empty": "Noch keine Übersetzung.",
+        "hint": "Neue Übersetzungen kommen oben dazu, ein Klick zeigt sie wieder rechts.",
+        "colMaterial": "Material",
+        "colDate": "Datum"
+      }
     },
     "interpreter": {
       "title": "Dolmetscher",
@@ -573,6 +592,14 @@
     "tts": {
       "title": "Text in Audio",
       "intro": "Texte und Dokumente mit natürlich klingenden Stimmen vorlesen lassen.",
+      "resultPlaceholder": "Hier erscheint dein Audio.",
+      "history": {
+        "title": "Deine Audios",
+        "empty": "Noch kein Audio.",
+        "hint": "Neue Audios kommen oben dazu, ein Klick zeigt sie wieder rechts.",
+        "colMaterial": "Material",
+        "colDate": "Datum"
+      },
       "noProvider": "Kein TTS-Anbieter aktiv - bitte im Admin-Bereich einen Anbieter freischalten.",
       "providerLabel": "TTS-Anbieter",
       "voiceLabel": "Stimme",

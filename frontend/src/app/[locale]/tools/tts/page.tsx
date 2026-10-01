@@ -1,12 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useTranslations } from "next-intl";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import ToolBackLink from "@/components/ui/ToolBackLink";
 import TtsFileUpload from "@/components/jobs/TtsFileUpload";
 import TtsTextInput from "@/components/jobs/TtsTextInput";
 import TtsStatus from "@/components/jobs/TtsStatus";
+import JobHistoryTable from "@/components/jobs/JobHistoryTable";
+import { useJobHistory } from "@/hooks/useJobHistory";
 import { JobPausedError, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
 import { TTS_MAX_CHARS } from "@/lib/constants";
 import type { TTSState } from "@/types";
@@ -19,10 +22,14 @@ import { LANGUAGE_FLAG } from "@/lib/languageFlags";
 
 type InputMode = "text" | "file";
 
-export default function TtsPage() {
+function TtsPageInner() {
   const t = useTranslations("tools.tts");
   const tProgress = useTranslations("tools.tts.progress");
   const tCommon = useTranslations("common");
+  const locale = useLocale();
+  const verlauf = useJobHistory("tts");
+  // Only the jobs list links straight to one audio.
+  const ausListe = useSearchParams().get("job");
 
   const [ttsState, setTtsState] = useState<TTSState>("idle");
   const [inputMode, setInputMode] = useState<InputMode>("text");
@@ -34,6 +41,8 @@ export default function TtsPage() {
   const [ttsDownloadName, setTtsDownloadName] = useState<string>("");
   const [ttsErrorMessage, setTtsErrorMessage] = useState<string>("");
   const [, setTtsProgressLabel] = useState<string>("");
+  // Which history row the shown result belongs to, so that row can be highlighted.
+  const [angezeigterJobUuid, setAngezeigterJobUuid] = useState<string | null>(null);
 
   // Providers loaded from /api/tts/providers-with-voices
   const [providers, setProviders] = useState<ProviderWithVoices[]>([]);
@@ -86,6 +95,27 @@ export default function TtsPage() {
   const isProcessing = ttsState === "uploading" || ttsState === "processing";
   const noProvider = providersLoaded && providers.length === 0;
 
+  /** A finished job, fresh or from the history, loaded the same way. */
+  const ladeErgebnis = useCallback(async (jobUuid: string) => {
+    setTtsErrorMessage("");
+    try {
+      const { blob, filename } = await downloadJobAsBlob(jobUuid, "tts.mp3");
+      setTtsDownloadBlob(blob);
+      setTtsDownloadName(filename);
+      setAngezeigterJobUuid(jobUuid);
+      setTtsState("done");
+    } catch (err) {
+      setTtsErrorMessage(err instanceof Error ? err.message : tCommon("unknownError"));
+      setTtsState("error");
+    }
+  }, [tCommon]);
+
+  // Arriving from the jobs list: open straight on that one result.
+  useEffect(() => {
+    if (!ausListe) return;
+    void ladeErgebnis(ausListe);
+  }, [ausListe, ladeErgebnis]);
+
   const handleTtsFileSelected = useCallback((file: File) => {
     setPendingFile(file);
     setTtsSelectedFile(file.name);
@@ -93,6 +123,7 @@ export default function TtsPage() {
     setTtsDownloadName("");
     setTtsErrorMessage("");
     setTtsState("idle");
+    setAngezeigterJobUuid(null);
   }, []);
 
   const trimmedText = pendingText.trim();
@@ -183,6 +214,7 @@ export default function TtsPage() {
       );
       setTtsDownloadBlob(blob);
       setTtsDownloadName(filename);
+      setAngezeigterJobUuid(jobResult.job_uuid);
       currentJobUuidRef.current = null;
       setTtsState("done");
     } catch (err) {
@@ -240,6 +272,7 @@ export default function TtsPage() {
     setTtsDownloadName("");
     setTtsErrorMessage("");
     setTtsProgressLabel("");
+    setAngezeigterJobUuid(null);
   };
 
   const handleModeChange = (mode: InputMode) => {
@@ -251,14 +284,13 @@ export default function TtsPage() {
 
   return (
     <ProtectedRoute>
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="max-w-6xl mx-auto px-4 py-8">
         <ToolBackLink />
-        <section data-tour="tool-tts">
-          <h1 className="text-xl font-bold mb-1">{t("title")}</h1>
-          <p className="text-sm text-muted mb-6">
-            {t("intro")}
-          </p>
+        <h1 className="text-xl font-bold mb-1">{t("title")}</h1>
+        <p className="text-sm text-muted mb-6">{t("intro")}</p>
 
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,400px)_1fr]" data-tour="tool-tts">
+        <section className="min-w-0">
           <div className="mb-4">
             <Tabs
               variant="pill"
@@ -394,18 +426,58 @@ export default function TtsPage() {
               )}
             </div>
           )}
-
-          <TtsStatus
-            state={ttsState}
-            fileName={ttsDownloadName}
-            audioUrl={ttsAudioUrl}
-            errorMessage={ttsErrorMessage}
-            onDownload={handleTtsDownload}
-            onReset={handleTtsReset}
-            onContinue={handleTtsContinue}
-          />
         </section>
+
+        {/* The result, colored like the image tool's stage, always on the right. */}
+        <section className="min-w-0">
+          <div className="rounded-xl border border-kb/15 bg-kb/5 p-4 sm:p-5" aria-live="polite">
+            {ttsState === "idle" ? (
+              <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
+                <svg className="h-8 w-8 text-muted-soft" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 9v6a3 3 0 006 0V9a3 3 0 00-6 0zM5 10v2a7 7 0 0014 0v-2M12 19v3" />
+                </svg>
+                <p className="text-sm text-foreground-soft">{t("resultPlaceholder")}</p>
+              </div>
+            ) : (
+              <TtsStatus
+                state={ttsState}
+                fileName={ttsDownloadName}
+                audioUrl={ttsAudioUrl}
+                errorMessage={ttsErrorMessage}
+                onDownload={handleTtsDownload}
+                onReset={handleTtsReset}
+                onContinue={handleTtsContinue}
+              />
+            )}
+          </div>
+        </section>
+        </div>
+
+        <div className="mt-10">
+          <h2 className="text-sm font-semibold text-foreground mb-1">{t("history.title")}</h2>
+          <p className="text-xs text-muted mb-3">{verlauf.length ? t("history.hint") : t("history.empty")}</p>
+          {verlauf.length > 0 && (
+            <JobHistoryTable
+              entries={verlauf}
+              selectedUuid={angezeigterJobUuid}
+              disabled={isProcessing}
+              locale={locale}
+              colMaterial={t("history.colMaterial")}
+              colDate={t("history.colDate")}
+              onSelect={(uuid) => void ladeErgebnis(uuid)}
+            />
+          )}
+        </div>
       </div>
     </ProtectedRoute>
+  );
+}
+
+/** Wrapped so useSearchParams (the jobs-list link) has the Suspense boundary it needs. */
+export default function TtsPage() {
+  return (
+    <Suspense fallback={null}>
+      <TtsPageInner />
+    </Suspense>
   );
 }

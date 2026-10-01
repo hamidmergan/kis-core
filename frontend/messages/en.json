@@ -182,7 +182,10 @@
       "fallbackFile": "File",
       "openPodcast": "Open podcast",
       "openPraesentation": "Open presentation",
-      "openSummary": "Open summary"
+      "openSummary": "Open summary",
+      "openTranslation": "Open translation",
+      "openTts": "Open audio",
+      "openStt": "Open transcript"
     },
     "duration": {
       "seconds": "{n} s",
@@ -428,6 +431,14 @@
     "stt": {
       "title": "Audio to text",
       "intro": "Transcribe audio and video. Also as subtitles with timestamps.",
+      "resultPlaceholder": "Your transcript will appear here.",
+      "history": {
+        "title": "Your transcripts",
+        "empty": "No transcript yet.",
+        "hint": "New transcripts are added at the top, a click brings one back on the right.",
+        "colMaterial": "Material",
+        "colDate": "Date"
+      },
       "outputFormat": "Output format",
       "outputFormatHelp": "TXT is plain text without timestamps. SRT and VTT are subtitle formats: VTT for Moodle and modern web players, SRT for classic video players like VLC.",
       "format": {
@@ -505,7 +516,15 @@
       "copyText": "Copy",
       "copied": "Copied!",
       "resetLabel": "Reset",
-      "resultStale": "Text was changed – translate again for an up-to-date result."
+      "resultStale": "Text was changed – translate again for an up-to-date result.",
+      "resultPlaceholder": "Your translation will appear here.",
+      "history": {
+        "title": "Your translations",
+        "empty": "No translation yet.",
+        "hint": "New translations are added at the top, a click brings one back on the right.",
+        "colMaterial": "Material",
+        "colDate": "Date"
+      }
     },
     "interpreter": {
       "title": "Interpreter",
@@ -573,6 +592,14 @@
     "tts": {
       "title": "Text to audio",
       "intro": "Have texts and documents read aloud with natural-sounding voices.",
+      "resultPlaceholder": "Your audio will appear here.",
+      "history": {
+        "title": "Your audio",
+        "empty": "No audio yet.",
+        "hint": "New audio is added at the top, a click brings one back on the right.",
+        "colMaterial": "Material",
+        "colDate": "Date"
+      },
       "noProvider": "No TTS provider active - please enable one in the admin area.",
       "providerLabel": "TTS provider",
       "voiceLabel": "Voice",

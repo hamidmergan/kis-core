@@ -1,10 +1,13 @@
 "use client";
 
-import { useCallback, useState } from "react";
-import { useTranslations } from "next-intl";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import ToolBackLink from "@/components/ui/ToolBackLink";
 import TranscriptionFileUpload from "@/components/jobs/TranscriptionFileUpload";
+import JobHistoryTable from "@/components/jobs/JobHistoryTable";
+import { useJobHistory } from "@/hooks/useJobHistory";
 import { backendApi, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
 import Spinner from "@/components/ui/Spinner";
 import BackgroundHint from "@/components/tools/BackgroundHint";
@@ -13,9 +16,18 @@ import { useFeatureProviders } from "@/hooks/useFeatureProviders";
 import HelpTooltip from "@/components/ui/HelpTooltip";
 import { stripAiNoticeVtt, withAiNoticeVtt } from "@/lib/aiNotice";
 
-export default function TranscriptionPage() {
+function formatFromFilename(filename: string): string {
+  const ext = filename.split(".").pop()?.toLowerCase();
+  return ext === "vtt" || ext === "srt" ? ext : "text";
+}
+
+function TranscriptionPageInner() {
   const t = useTranslations("tools.stt");
   const tCommon = useTranslations("common");
+  const locale = useLocale();
+  const verlauf = useJobHistory("transcription");
+  // Only the jobs list links straight to one transcript.
+  const ausListe = useSearchParams().get("job");
   const FORMAT_OPTIONS = [
     { value: "text", label: t("format.text") },
     { value: "srt", label: t("format.srt") },
@@ -36,6 +48,28 @@ export default function TranscriptionPage() {
 
   // Reachable providers with a model, an empty list means hide the choice.
   const { providers, providerId, setProviderId } = useFeatureProviders("/transcription/providers");
+
+  /** A finished transcript, fresh or from the history, loaded and shown the same way. */
+  const ladeErgebnis = useCallback(async (jobUuid: string) => {
+    setErrorMessage("");
+    try {
+      const { blob, filename } = await downloadJobAsBlob(jobUuid);
+      const format = formatFromFilename(filename);
+      const rawText = await blob.text();
+      setResponseFormat(format);
+      setTranscriptText(format === "vtt" ? stripAiNoticeVtt(rawText) : rawText);
+      setTranscriptFilename(filename);
+      setDoneJobUuid(jobUuid);
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : tCommon("unknownError"));
+    }
+  }, [tCommon]);
+
+  // Arriving from the jobs list: open straight on that one result.
+  useEffect(() => {
+    if (!ausListe) return;
+    void ladeErgebnis(ausListe);
+  }, [ausListe, ladeErgebnis]);
 
   const handleFileSelected = useCallback((file: File) => {
     setPendingFile(file);
@@ -116,14 +150,13 @@ export default function TranscriptionPage() {
 
   return (
     <ProtectedRoute>
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="max-w-6xl mx-auto px-4 py-8">
         <ToolBackLink />
-        <section data-tour="tool-transcription">
-          <h1 className="text-xl font-bold mb-1">{t("title")}</h1>
-          <p className="text-sm text-muted mb-6">
-            {t("intro")}
-          </p>
+        <h1 className="text-xl font-bold mb-1">{t("title")}</h1>
+        <p className="text-sm text-muted mb-6">{t("intro")}</p>
 
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,400px)_1fr]" data-tour="tool-transcription">
+        <section className="min-w-0">
           <div>
             <TranscriptionFileUpload onFileSelected={handleFileSelected} disabled={processing} selectedFilename={selectedFile || undefined} />
           </div>
@@ -161,26 +194,18 @@ export default function TranscriptionPage() {
             </div>
           </div>
 
-          {!doneJobUuid && (
-            <div className="mb-6">
-              <button
-                onClick={handleSubmit}
-                disabled={!pendingFile || processing}
-                className="self-start px-5 py-2 btn-primary text-sm font-medium rounded-md  focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-              >
-                {processing && (
-                  <Spinner size="sm" color="current" />
-                )}
-                {processing ? tCommon("processing") : t("submit")}
-              </button>
-              {processing && chunkProgress && (
-                <p className="mt-2 text-sm text-muted" role="status" aria-live="polite">
-                  {t("chunkProgress", { current: chunkProgress.current, total: chunkProgress.total })}
-                </p>
+          <div className="mb-6">
+            <button
+              onClick={handleSubmit}
+              disabled={!pendingFile || processing}
+              className="self-start px-5 py-2 btn-primary text-sm font-medium rounded-md  focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {processing && (
+                <Spinner size="sm" color="current" />
               )}
-              {processing && <BackgroundHint />}
-            </div>
-          )}
+              {processing ? tCommon("processing") : t("submit")}
+            </button>
+          </div>
 
           {stallMessage && !errorMessage && (
             <p className="text-sm text-warn" role="status">{stallMessage}</p>
@@ -189,9 +214,17 @@ export default function TranscriptionPage() {
           {errorMessage && (
             <p className="text-sm text-error" role="alert">{errorMessage}</p>
           )}
+        </section>
 
-          {doneJobUuid && (
-            <div className="mt-6 rounded-lg border border-border-soft bg-background p-4 sm:p-6" role="status" aria-live="polite">
+        {/* The result, colored like the image tool's stage, always on the right. */}
+        <section className="min-w-0">
+          <div className="rounded-xl border border-kb/15 bg-kb/5 p-4 sm:p-5" aria-live="polite">
+            {processing ? (
+              <div className="flex flex-col items-center justify-center gap-3 py-14 text-center">
+                <Spinner label={chunkProgress ? t("chunkProgress", chunkProgress) : tCommon("processing")} />
+                <BackgroundHint />
+              </div>
+            ) : doneJobUuid ? (
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <svg className="h-5 w-5 text-success shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -206,13 +239,13 @@ export default function TranscriptionPage() {
                   onChange={(e) => setTranscriptText(e.target.value)}
                   aria-label={t("editorAria")}
                   spellCheck={false}
-                  className="w-full min-h-[16rem] sm:min-h-[20rem] resize-y rounded-md border border-border bg-surface px-3 py-2 text-sm leading-relaxed text-foreground-soft focus:border-kb focus:ring-1 focus:ring-kb focus:outline-none"
+                  className="w-full min-h-[16rem] sm:min-h-[28rem] resize-y rounded-md border border-border-soft bg-background px-3 py-2 text-sm leading-relaxed text-foreground-soft focus:border-kb focus:ring-1 focus:ring-kb focus:outline-none"
                 />
 
-                <div className="flex flex-col sm:flex-row gap-3">
+                <div className="flex flex-wrap gap-3">
                   <button
                     onClick={handleDownload}
-                    className="px-4 py-2 btn-primary text-sm rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors flex items-center justify-center gap-2"
+                    className="px-4 py-2 btn-primary text-sm rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors flex items-center gap-2"
                   >
                     <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -227,10 +260,43 @@ export default function TranscriptionPage() {
                   </button>
                 </div>
               </div>
-            </div>
-          )}
+            ) : (
+              <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
+                <svg className="h-8 w-8 text-muted-soft" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <p className="text-sm text-foreground-soft">{t("resultPlaceholder")}</p>
+              </div>
+            )}
+          </div>
         </section>
+        </div>
+
+        <div className="mt-10">
+          <h2 className="text-sm font-semibold text-foreground mb-1">{t("history.title")}</h2>
+          <p className="text-xs text-muted mb-3">{verlauf.length ? t("history.hint") : t("history.empty")}</p>
+          {verlauf.length > 0 && (
+            <JobHistoryTable
+              entries={verlauf}
+              selectedUuid={doneJobUuid}
+              disabled={processing}
+              locale={locale}
+              colMaterial={t("history.colMaterial")}
+              colDate={t("history.colDate")}
+              onSelect={(uuid) => void ladeErgebnis(uuid)}
+            />
+          )}
+        </div>
       </div>
     </ProtectedRoute>
+  );
+}
+
+/** Wrapped so useSearchParams (the jobs-list link) has the Suspense boundary it needs. */
+export default function TranscriptionPage() {
+  return (
+    <Suspense fallback={null}>
+      <TranscriptionPageInner />
+    </Suspense>
   );
 }

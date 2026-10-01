@@ -7,6 +7,9 @@ import { podcastJumpHref, podcastJumpKind } from "@/components/jobs/_podcastJump
 import { praesentationJumpHref, praesentationJumpKind } from "@/components/jobs/_praesentationJump";
 import { screencastJumpHref, screencastJumpKind } from "@/components/jobs/_screencastJump";
 import { summaryJumpHref, summaryJumpKind } from "@/components/jobs/_summaryJump";
+import { translateJumpHref, translateJumpKind } from "@/components/jobs/_translateJump";
+import { ttsJumpHref, ttsJumpKind } from "@/components/jobs/_ttsJump";
+import { sttJumpHref, sttJumpKind } from "@/components/jobs/_sttJump";
 
 
 function DownloadChip({ onClick, href, filename, label }: { onClick?: () => void | Promise<void>; href?: string; filename?: string; label: string }) {
@@ -211,16 +214,54 @@ export function JobArtifacts({ job }: { job: MyJob }) {
     );
   }
 
-  // TTS: show MP3 download
-  if (job.tool === "tts" && job.status === "success" && job.has_download) {
+  // Translation: the download plus the way back into the tool to read it there again.
+  if (job.tool === "translation") {
+    const sprung = translateJumpKind(job);
+    const laedt = job.status === "success" && job.has_download;
+    if (!laedt) return null;
+    return (
+      <div className="mt-3 flex flex-wrap gap-2 items-center">
+        <DownloadChip
+          href={`/api/jobs/${job.job_uuid}/download`}
+          filename={job.result_filename || "download"}
+          label={job.result_filename?.split(".").pop()?.toUpperCase() ?? t("fallbackFile")}
+        />
+        {sprung === "open" && <OpenChip href={translateJumpHref(job.job_uuid)} label={t("openTranslation")} />}
+      </div>
+    );
+  }
+
+  // TTS: the MP3 download plus the way back into the tool to play it there again.
+  if (job.tool === "tts") {
+    const sprung = ttsJumpKind(job);
+    const laedt = job.status === "success" && job.has_download;
+    if (!laedt) return null;
     const baseName = job.original_filename.replace(/\.[^.]+$/, "") || "tts";
     return (
-      <div className="mt-3">
+      <div className="mt-3 flex flex-wrap gap-2 items-center">
         <DownloadChip
           href={`/api/jobs/${job.job_uuid}/download`}
           filename={`${baseName}_audio.mp3`}
           label="MP3"
         />
+        {sprung === "open" && <OpenChip href={ttsJumpHref(job.job_uuid)} label={t("openTts")} />}
+      </div>
+    );
+  }
+
+  // Transcription: the download plus the way back into the tool to read it there again.
+  if (job.tool === "transcription") {
+    const sprung = sttJumpKind(job);
+    const laedt = job.status === "success" && job.has_download;
+    if (!laedt) return null;
+    return (
+      <div className="mt-3 flex flex-wrap gap-2 items-center">
+        <DownloadChip
+          href={`/api/jobs/${job.job_uuid}/download`}
+          filename={job.result_filename || "download"}
+          label={job.result_filename?.split(".").pop()?.toUpperCase() ?? t("fallbackFile")}
+        />
+        {sprung === "open" && <OpenChip href={sttJumpHref(job.job_uuid)} label={t("openStt")} />}
       </div>
     );
   }
@@ -232,8 +273,6 @@ export function JobArtifacts({ job }: { job: MyJob }) {
         ? "PNG"
         : job.tool === "image_analyze"
         ? "TXT"
-        : (job.tool === "transcription" || job.tool === "translation")
-        ? (job.result_filename?.split(".").pop()?.toUpperCase() ?? t("fallbackFile"))
         : t("fallbackFile");
     return (
       <div className="mt-3 flex flex-wrap gap-3 items-center">

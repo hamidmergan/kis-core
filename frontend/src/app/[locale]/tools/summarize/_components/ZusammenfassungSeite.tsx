@@ -9,6 +9,7 @@ import remarkGfm from "remark-gfm";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import Modal from "@/components/ui/Modal";
 import ToolBackLink from "@/components/ui/ToolBackLink";
+import JobHistoryTable from "@/components/jobs/JobHistoryTable";
 import { Link } from "@/i18n/navigation";
 import { backendApi, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
 import { MAX_UPLOAD_MB, MAX_UPLOAD_BYTES } from "@/lib/constants";
@@ -24,7 +25,6 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { useModules } from "@/hooks/useModules";
 import { useMaterialMeasure } from "@/hooks/useMaterialMeasure";
 import MaterialGauge, { MeasureError, MeasureNote } from "@/components/tools/MaterialGauge";
-import { formatDate } from "@/lib/format";
 import { demoSchritte, warte, type DemoSetup } from "../_demo";
 import { useSummaryHistory } from "./useSummaryHistory";
 
@@ -696,41 +696,15 @@ function ZusammenfassungSeiteInner({ demo = false }: { demo?: boolean }) {
             <h2 className="text-sm font-semibold text-foreground mb-1">{t("history.title")}</h2>
             <p className="text-xs text-muted mb-3">{verlauf.length ? t("history.hint") : t("history.empty")}</p>
             {verlauf.length > 0 && (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm border border-border-soft rounded-xl overflow-hidden">
-                  <thead className="bg-surface text-xs text-muted uppercase">
-                    <tr>
-                      <th className="px-4 py-3 text-left">{t("history.colMaterial")}</th>
-                      <th className="px-4 py-3 text-right">{t("history.colDate")}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border-soft bg-background">
-                    {verlauf.map((e) => (
-                      <tr
-                        key={e.job_uuid}
-                        onClick={() => { if (processing) return; setDoneJobUuid(e.job_uuid); setErrorMessage(""); }}
-                        tabIndex={processing ? -1 : 0}
-                        onKeyDown={(ev) => {
-                          if (processing || (ev.key !== "Enter" && ev.key !== " ")) return;
-                          ev.preventDefault();
-                          setDoneJobUuid(e.job_uuid);
-                          setErrorMessage("");
-                        }}
-                        className={`transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-kb ${
-                          processing ? "cursor-not-allowed opacity-50" : "cursor-pointer"
-                        } ${e.job_uuid === doneJobUuid ? "bg-kb20" : "hover:bg-surface"}`}
-                      >
-                        <td className="max-w-0 w-full px-4 py-3 text-foreground-soft truncate" title={e.original_filename}>
-                          {e.original_filename}
-                        </td>
-                        <td className="px-4 py-3 text-muted-soft text-xs whitespace-nowrap text-right">
-                          {formatDate(e.created_at, locale)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <JobHistoryTable
+                entries={verlauf}
+                selectedUuid={doneJobUuid}
+                disabled={processing}
+                locale={locale}
+                colMaterial={t("history.colMaterial")}
+                colDate={t("history.colDate")}
+                onSelect={(uuid) => { setDoneJobUuid(uuid); setErrorMessage(""); }}
+              />
             )}
           </div>
         )}

@@ -1,14 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { useTranslations } from "next-intl";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import { Copy, Check } from "@phosphor-icons/react";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import ToolBackLink from "@/components/ui/ToolBackLink";
 import FileUpload from "@/components/jobs/FileUpload";
 import TranslateTextInput from "@/components/jobs/TranslateTextInput";
+import JobHistoryTable from "@/components/jobs/JobHistoryTable";
 import GlossarySelector from "@/components/glossary/GlossarySelector";
 import { useGlossaries } from "@/hooks/useGlossaries";
+import { useJobHistory } from "@/hooks/useJobHistory";
 import { api, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
 import { copyTextFromPromise } from "@/lib/clipboard";
 import Spinner from "@/components/ui/Spinner";
@@ -18,12 +21,18 @@ import Tabs from "@/components/ui/Tabs";
 import { TRANSLATE_MAX_CHARS } from "@/lib/constants";
 
 type InputMode = "text" | "file";
+// The text mode always saves its result under this name, a real upload never does.
+const TEXT_MODE_FILENAME = "text.txt";
 
-export default function UebersetzungPage() {
+function UebersetzungPageInner() {
   const t = useTranslations("tools.translate");
   const tCommon = useTranslations("common");
+  const locale = useLocale();
   const { mergeToApiJson } = useGlossaries();
   const [glossaryIds, setGlossaryIds] = useState<string[]>(["", "", ""]);
+  const verlauf = useJobHistory("translation");
+  // Only the jobs list links straight to one translation.
+  const ausListe = useSearchParams().get("job");
 
   const [inputMode, setInputMode] = useState<InputMode>("text");
   const [pendingText, setPendingText] = useState<string>("");
@@ -56,6 +65,35 @@ export default function UebersetzungPage() {
       .catch(() => {});
   }, []);
 
+  // Arriving from the jobs list: open straight on that one result.
+  useEffect(() => {
+    if (!ausListe) return;
+    setDoneJobUuid(ausListe);
+    setErrorMessage("");
+  }, [ausListe]);
+
+  // The job this result belongs to, once it shows up in the history, tells us its real name.
+  const aktiverVerlaufseintrag = verlauf.find((v) => v.job_uuid === doneJobUuid);
+  // Text mode always saves under the same marker name, a real upload never does.
+  const istTextErgebnis = aktiverVerlaufseintrag
+    ? aktiverVerlaufseintrag.original_filename === TEXT_MODE_FILENAME
+    : inputMode === "text";
+
+  // The finished text, fetched once so a jumped-to or history-opened result reads straight on the page.
+  useEffect(() => {
+    if (!doneJobUuid || !istTextErgebnis) return;
+    let abgelaufen = false;
+    (async () => {
+      try {
+        const { blob } = await downloadJobAsBlob(doneJobUuid, TEXT_MODE_FILENAME);
+        if (!abgelaufen) setTranslatedText(await blob.text());
+      } catch {
+        // Preview is a bonus, the download button below still works.
+      }
+    })();
+    return () => { abgelaufen = true; };
+  }, [doneJobUuid, istTextErgebnis]);
+
   const handleFileSelected = useCallback((file: File) => {
     setPendingFile(file);
     setSelectedFile(file.name);
@@ -68,7 +106,9 @@ export default function UebersetzungPage() {
   const canSubmit = inputMode === "file"
     ? !!pendingFile
     : trimmedText.length > 0 && !textOverLimit;
-  const resultStale = !!translatedText && pendingText !== translatedSourceText;
+  const resultStale = !!translatedText && !!translatedSourceText && pendingText !== translatedSourceText;
+  // The real name of what is shown on the right, not what the left form happens to hold right now.
+  const angezeigterDateiname = aktiverVerlaufseintrag?.original_filename ?? (doneJobUuid ? selectedFile : "");
 
   const handleModeChange = (mode: InputMode) => {
     if (processing) return;
@@ -84,6 +124,7 @@ export default function UebersetzungPage() {
     setStallMessage("");
     setDoneJobUuid(null);
     setTranslatedText("");
+    setTranslatedSourceText("");
     try {
       const glossaryJson = mergeToApiJson(glossaryIds);
       const formData = new FormData();
@@ -108,15 +149,7 @@ export default function UebersetzungPage() {
         60_000,
       );
       window.dispatchEvent(new Event("kis-jobs-changed"));
-      if (inputMode === "text") {
-        try {
-          const { blob } = await downloadJobAsBlob(data.job_uuid, "text.txt");
-          setTranslatedText(await blob.text());
-          setTranslatedSourceText(pendingText);
-        } catch {
-          // Preview is a bonus, the download button below still works.
-        }
-      }
+      if (inputMode === "text") setTranslatedSourceText(pendingText);
       setDoneJobUuid(data.job_uuid);
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : tCommon("unknownError"));
@@ -159,14 +192,13 @@ export default function UebersetzungPage() {
 
   return (
     <ProtectedRoute>
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="max-w-6xl mx-auto px-4 py-8">
         <ToolBackLink />
-        <section data-tour="tool-translation">
-          <h1 className="text-xl font-bold mb-1">{t("title")}</h1>
-          <p className="text-sm text-muted mb-6">
-            {t("intro")}
-          </p>
+        <h1 className="text-xl font-bold mb-1">{t("title")}</h1>
+        <p className="text-sm text-muted mb-6">{t("intro")}</p>
 
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,400px)_1fr]" data-tour="tool-translation">
+        <section className="min-w-0">
           <div className="mb-4">
             <Tabs
               variant="pill"
@@ -222,7 +254,7 @@ export default function UebersetzungPage() {
             </div>
           )}
 
-          <div className="mb-6 flex items-center gap-3">
+          <div className="mb-6">
             <button
               onClick={handleSubmit}
               disabled={!canSubmit || processing}
@@ -235,8 +267,6 @@ export default function UebersetzungPage() {
             </button>
           </div>
 
-          {processing && <BackgroundHint className="mb-6" />}
-
           {stallMessage && !errorMessage && (
             <p className="text-sm text-warn" role="status">{stallMessage}</p>
           )}
@@ -244,9 +274,17 @@ export default function UebersetzungPage() {
           {errorMessage && (
             <p className="text-sm text-error" role="alert">{errorMessage}</p>
           )}
+        </section>
 
-          {doneJobUuid && (
-            <div className="mt-6 rounded-lg border border-border-soft bg-background p-6" role="status" aria-live="polite">
+        {/* The result, colored like the image tool's stage, always on the right. */}
+        <section className="min-w-0">
+          <div className="rounded-xl border border-kb/15 bg-kb/5 p-4 sm:p-5" aria-live="polite">
+            {processing ? (
+              <div className="flex flex-col items-center justify-center gap-3 py-14 text-center">
+                <Spinner label={tCommon("processing")} />
+                <BackgroundHint />
+              </div>
+            ) : doneJobUuid ? (
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <svg className="h-5 w-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -254,31 +292,35 @@ export default function UebersetzungPage() {
                   </svg>
                   <span className="text-sm font-medium text-foreground">{tCommon("downloadReady")}</span>
                 </div>
-                {selectedFile && <p className="text-xs text-muted">{selectedFile}</p>}
-                {translatedText && (
+                {angezeigterDateiname && angezeigterDateiname !== TEXT_MODE_FILENAME && (
+                  <p className="text-xs text-muted">{angezeigterDateiname}</p>
+                )}
+                {istTextErgebnis && (
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-xs font-medium text-foreground-soft">{t("resultLabel")}</span>
-                      <button
-                        onClick={handleCopy}
-                        className="p-1 rounded-full btn-icon"
-                        title={copied ? t("copied") : t("copyText")}
-                        aria-label={copied ? t("copied") : t("copyText")}
-                      >
-                        {copied ? <Check size={14} weight="bold" className="text-success" /> : <Copy size={14} />}
-                      </button>
+                      {translatedText && (
+                        <button
+                          onClick={handleCopy}
+                          className="p-1 rounded-full btn-icon"
+                          title={copied ? t("copied") : t("copyText")}
+                          aria-label={copied ? t("copied") : t("copyText")}
+                        >
+                          {copied ? <Check size={14} weight="bold" className="text-success" /> : <Copy size={14} />}
+                        </button>
+                      )}
                     </div>
                     {resultStale && (
                       <p className="mb-1 text-xs text-warn">{t("resultStale")}</p>
                     )}
                     <div
-                      className={`max-h-96 overflow-y-auto rounded-md border border-border px-3 py-2 text-sm text-foreground whitespace-pre-wrap transition-opacity ${resultStale ? "opacity-50" : ""}`}
+                      className={`max-h-[28rem] overflow-y-auto rounded-md border border-border-soft bg-background px-3 py-2 text-sm text-foreground whitespace-pre-wrap transition-opacity ${resultStale ? "opacity-50" : ""}`}
                     >
-                      {translatedText}
+                      {translatedText || <Spinner className="justify-center py-6" />}
                     </div>
                   </div>
                 )}
-                <div className="flex gap-3">
+                <div className="flex flex-wrap gap-3">
                   <button
                     onClick={handleDownload}
                     className="px-4 py-2 btn-primary text-sm rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors flex items-center gap-2"
@@ -296,10 +338,43 @@ export default function UebersetzungPage() {
                   </button>
                 </div>
               </div>
-            </div>
-          )}
+            ) : (
+              <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
+                <svg className="h-8 w-8 text-muted-soft" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <p className="text-sm text-foreground-soft">{t("resultPlaceholder")}</p>
+              </div>
+            )}
+          </div>
         </section>
+        </div>
+
+        <div className="mt-10">
+          <h2 className="text-sm font-semibold text-foreground mb-1">{t("history.title")}</h2>
+          <p className="text-xs text-muted mb-3">{verlauf.length ? t("history.hint") : t("history.empty")}</p>
+          {verlauf.length > 0 && (
+            <JobHistoryTable
+              entries={verlauf}
+              selectedUuid={doneJobUuid}
+              disabled={processing}
+              locale={locale}
+              colMaterial={t("history.colMaterial")}
+              colDate={t("history.colDate")}
+              onSelect={(uuid) => { setDoneJobUuid(uuid); setErrorMessage(""); }}
+            />
+          )}
+        </div>
       </div>
     </ProtectedRoute>
+  );
+}
+
+/** Wrapped so useSearchParams (the jobs-list link) has the Suspense boundary it needs. */
+export default function UebersetzungPage() {
+  return (
+    <Suspense fallback={null}>
+      <UebersetzungPageInner />
+    </Suspense>
   );
 }
