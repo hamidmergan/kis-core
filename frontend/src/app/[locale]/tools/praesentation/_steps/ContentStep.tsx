@@ -19,6 +19,7 @@ import { FIELD } from "../_components/VorlageHochladen";
 import VorlagenWahl from "../_components/VorlagenWahl";
 import StepFooter from "../_components/StepFooter";
 import { hasContent } from "../_logic";
+import type { DemoMaterial } from "../_demo";
 import type { Language, Source, SourceMode, Vorlage } from "../_types";
 
 const ACCEPT = ".pdf,.docx,.pptx,.txt,.md";
@@ -28,6 +29,7 @@ const MAX_QUELLEN = 10;
 const MAX_PRESENTER = 80;
 /** Mirrors MAX_STYLE_CHARS in the backend, the same cap as a template's own style. */
 const MAX_STIL = 1000;
+const KEINE_DATEIEN: File[] = [];
 
 interface ContentStepProps {
   canUseModules: boolean;
@@ -53,12 +55,16 @@ interface ContentStepProps {
   onPresenter: (name: string) => void;
   onTemplate: (id: string) => void;
   onNext: () => void;
+  /** The demo run: its material and every setting that shaped the prepared deck stay fixed. */
+  demo?: DemoMaterial;
 }
 
 export default function ContentStep({ canUseModules, source, language, notes, instructions, imageStyle, presenter, templateId, hasActiveJob,
                                        error, llmProviders, llmProviderId, onLlmProvider, onSource, onLanguage, onNotes, onInstructions, onImageStyle,
-                                       onPresenter, onTemplate, onNext }: ContentStepProps) {
+                                       onPresenter, onTemplate, onNext, demo }: ContentStepProps) {
   const t = useTranslations("tools.praesentation.content");
+  const tDemo = useTranslations("tools.praesentationDemo");
+  const fest = !!demo;
   const tCommon = useTranslations("common");
   const format = useFormatter();
   const EIN_MB = 1024 * 1024;
@@ -71,9 +77,10 @@ export default function ContentStep({ canUseModules, source, language, notes, in
   const [dragOver, setDragOver] = useState(false);
   const [vorlage, setVorlage] = useState<Vorlage | undefined>();
   // Whoever loses the assistant must not stay stuck in a tab that is gone.
-  const mode: SourceMode = canUseModules || source.mode !== "module" ? source.mode : "files";
-  const { modules, sources } = useModules(mode === "module" ? source.moduleId : "");
-  const messung = useMaterialMeasure("praesentation", mode, source.files, source.moduleId, source.sourceIds);
+  const mode: SourceMode = demo ? "module" : canUseModules || source.mode !== "module" ? source.mode : "files";
+  const { modules, sources } = useModules(mode === "module" && !demo ? source.moduleId : "");
+  const messung = useMaterialMeasure("praesentation", demo ? "files" : mode, demo ? KEINE_DATEIEN : source.files,
+                                     source.moduleId, source.sourceIds);
 
   // Nothing is preselected, a deleted source drops out of the choice.
   useEffect(() => {
@@ -115,10 +122,33 @@ export default function ContentStep({ canUseModules, source, language, notes, in
         active={mode}
         onChange={(next) => onSource({ mode: next })}
         items={[
-          { key: "files", label: t("tabs.files") },
-          ...(canUseModules ? [{ key: "module" as const, label: "Workspace" }] : []),
+          { key: "files", label: t("tabs.files"), disabled: fest },
+          ...(canUseModules || demo ? [{ key: "module" as const, label: "Workspace" }] : []),
         ]}
       />
+
+      {demo && (
+        <div className="space-y-4">
+          <div>
+            <label htmlFor="praesentation-module" className="block text-sm font-medium text-foreground-soft mb-2">
+              Workspace
+            </label>
+            <Select id="praesentation-module" value="demo" onChange={() => {}} disabled
+              options={[{ value: "demo", label: demo.workspace }]} />
+          </div>
+          <div>
+            <span className="block text-sm font-medium text-foreground-soft mb-2">{t("sourcesLabel")}</span>
+            <ul className="space-y-2">
+              {demo.files.map((name) => (
+                <li key={name}>
+                  <Checkbox checked disabled onChange={() => {}} label={name} labelClassName="text-sm text-foreground" />
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2 text-xs text-muted">{tDemo("materialVorgegeben")}</p>
+          </div>
+        </div>
+      )}
 
       {mode === "files" && (
         <>
@@ -186,7 +216,7 @@ export default function ContentStep({ canUseModules, source, language, notes, in
         </>
       )}
 
-      {mode === "module" && (
+      {mode === "module" && !demo && (
         modules === null ? (
           <Spinner className="justify-center py-10" />
         ) : modules.length === 0 ? (
@@ -240,11 +270,11 @@ export default function ContentStep({ canUseModules, source, language, notes, in
         )
       )}
 
-      <VorlagenWahl templateId={templateId} onTemplate={onTemplate} onVorlage={setVorlage} />
+      <VorlagenWahl templateId={templateId} onTemplate={onTemplate} onVorlage={setVorlage} nurGewaehlte={fest} />
 
       <label className="block mt-6 text-sm">
         <span className="font-medium">{t("languageLabel")}</span>
-        <Select<Language> className="mt-1" value={language} onChange={onLanguage} ariaLabel={t("languageLabel")}
+        <Select<Language> className="mt-1" value={language} onChange={onLanguage} ariaLabel={t("languageLabel")} disabled={fest}
           options={[{ value: "de", label: t("languages.de") }, { value: "en", label: t("languages.en") }]} />
       </label>
 
@@ -254,16 +284,16 @@ export default function ContentStep({ canUseModules, source, language, notes, in
       <label className="block mt-6 text-sm">
         <span className="font-medium">{t("presenterLabel")}</span>
         <input type="text" className={`${FIELD} mt-1`} value={presenter} maxLength={MAX_PRESENTER}
-          placeholder={t("presenterPlaceholder")} onChange={(e) => onPresenter(e.target.value)} />
+          placeholder={t("presenterPlaceholder")} onChange={(e) => onPresenter(e.target.value)} readOnly={fest} />
       </label>
 
       <label className="block mt-6 text-sm">
         <span className="font-medium">{t("instructionsLabel")}</span>
         <textarea className={`${FIELD} mt-1 resize-y`} rows={3} value={instructions}
-          placeholder={t("instructionsPlaceholder")} onChange={(e) => onInstructions(e.target.value)} />
+          placeholder={t("instructionsPlaceholder")} onChange={(e) => onInstructions(e.target.value)} readOnly={fest} />
       </label>
 
-      <Checkbox className="mt-6" checked={notes} onChange={onNotes} label={t("notesLabel")} />
+      <Checkbox className="mt-6" checked={notes} onChange={onNotes} label={t("notesLabel")} disabled={fest} />
       <p className="text-xs text-muted mt-1">{t("notesHint")}</p>
 
       {/* Only a template with picture fields gets pictures, the style belongs to the template and follows its choice. */}
@@ -272,11 +302,11 @@ export default function ContentStep({ canUseModules, source, language, notes, in
           <label className="block mt-6 text-sm">
             <span className="font-medium">{t("styleLabel")}</span>
             <textarea className={`${FIELD} mt-1 resize-y`} rows={4} value={imageStyle ?? vorlage.stiltext} maxLength={MAX_STIL}
-              placeholder={t("stylePlaceholder")} onChange={(e) => onImageStyle(e.target.value)} />
+              placeholder={t("stylePlaceholder")} onChange={(e) => onImageStyle(e.target.value)} readOnly={fest} />
           </label>
           <div className="mt-2 flex justify-end">
             <button type="button" onClick={() => onImageStyle(null)}
-              disabled={imageStyle === null || imageStyle === vorlage.stiltext}
+              disabled={fest || imageStyle === null || imageStyle === vorlage.stiltext}
               className="shrink-0 text-xs px-3 py-1.5 border-2 border-border rounded-md transition-colors enabled:hover:border-kb enabled:hover:text-kb disabled:opacity-40">
               {t("styleReset")}
             </button>
@@ -284,7 +314,7 @@ export default function ContentStep({ canUseModules, source, language, notes, in
         </>
       )}
 
-      {hasActiveJob === true && (
+      {hasActiveJob === true && !demo && (
         <p className="mt-6 text-sm text-error">{t("activeJob")} <Link href="/my-jobs" className="underline">{t("activeJobLink")}</Link></p>
       )}
 
@@ -293,7 +323,7 @@ export default function ContentStep({ canUseModules, source, language, notes, in
       )}
 
       <StepFooter onBack={null} nextLabel={t("next")} onNext={onNext}
-        nextDisabled={!hasContent({ ...source, mode }) || !messung.ready || hasActiveJob === true} />
+        nextDisabled={!demo && (!hasContent({ ...source, mode }) || !messung.ready || hasActiveJob === true)} />
     </section>
   );
 }

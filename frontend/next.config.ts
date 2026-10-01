@@ -315,6 +315,14 @@ const nextConfig: NextConfig = {
         destination: `${backendUrl}/screencast-demo/:path*`,
       },
       {
+        source: "/api/summary-demo/:path*",
+        destination: `${backendUrl}/summary-demo/:path*`,
+      },
+      {
+        source: "/api/praesentation-demo/:path*",
+        destination: `${backendUrl}/praesentation-demo/:path*`,
+      },
+      {
         source: "/api/ai-assistant/:path*",
         destination: `${backendUrl}/ai-assistant/:path*`,
       },

@@ -469,7 +469,8 @@
         "section": "Writing a section",
         "sectionCounted": "Writing section {part} of {total}",
         "compose": "Writing the text"
-      }
+      },
+      "demoBadge": "View demo"
     },
     "translate": {
       "title": "Translation",
@@ -1526,7 +1527,8 @@
         "prev": "Previous slide",
         "next": "Next slide",
         "allSlides": "All slides"
-      }
+      },
+      "demoBadge": "View demo"
     },
     "screencastDemo": {
       "backToScreencast": "Back",
@@ -1547,6 +1549,20 @@
       "keinHochladen": "You cannot upload your own files in the demo.",
       "importVorgegeben": "The demo continues with the prepared scripts.",
       "beenden": "Exit demo"
+    },
+    "summarizeDemo": {
+      "demoBadge": "Demo",
+      "hinweis": "This is the demo. You can try the templates and settings, but the result is always the prepared summary for the chosen template.",
+      "materialVorgegeben": "In the demo the workspace, material and instruction are fixed.",
+      "keinErgebnis": "No result has been added for the demo yet."
+    },
+    "praesentationDemo": {
+      "demoBadge": "Demo",
+      "hinweis": "This is the demo. You can try every step, but the result is always the prepared slides.",
+      "materialVorgegeben": "In the demo the workspace, material and instruction are fixed.",
+      "keinErgebnis": "No result has been added for the demo yet.",
+      "bearbeitenGesperrt": "In the demo the slides can only be viewed, not changed.",
+      "beenden": "End demo"
     }
   },
   "admin": {

@@ -14,6 +14,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { useRegenAnchor } from "@/hooks/useRegenAnchor";
 import { useActiveJobCheck } from "@/hooks/useScreencastResume";
 import { useFeatureProviders } from "@/hooks/useFeatureProviders";
+import { Link } from "@/i18n/navigation";
 import { notifyJobsChanged } from "@/lib/jobs-events";
 import * as api from "./_api";
 import PraesentationStepper from "./_components/PraesentationStepper";
@@ -26,6 +27,7 @@ import { STEPS, type Language, type Slide, type Step } from "./_types";
 
 const POLL_MS = 2000;
 const SAVE_MS = 800;
+const DEMO_BADGE = "text-xs font-semibold px-3.5 py-1.5 rounded border-2 border-transparent hover:border-black transition-colors";
 const DISCARD = "inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-soft transition-colors hover:text-error focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb";
 
 function PraesentationPageInner() {
@@ -42,6 +44,7 @@ function PraesentationPageInner() {
   const regen = useRegenAnchor();
   const [regenArt, setRegenArt] = useState<"row" | "slide">("row");
   const [restored, setRestored] = useState(false);
+  const [demoDa, setDemoDa] = useState(false);
   // Until the job param is restored and the active-job check has answered, the empty form must not flash.
   const hydrated = restored && hasActiveJob !== null;
   const stateRef = useRef(state);
@@ -69,6 +72,10 @@ function PraesentationPageInner() {
     }
     if (schrittSetzen) dispatch({ type: "GO", step: schrittFuer(view.status, view.progress) });
     return view;
+  }, []);
+
+  useEffect(() => {
+    api.demoAvailable().then(setDemoDa);
   }, []);
 
   useEffect(() => {
@@ -292,11 +299,16 @@ function PraesentationPageInner() {
           <>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h1 className="text-2xl font-bold">{t("title")}</h1>
-              {state.jobUuid && (
+              {state.jobUuid ? (
                 <button type="button" onClick={() => setNachfrage("verwerfen")} className={DISCARD}>
                   <Trash size={14} aria-hidden="true" />
                   {t("discard")}
                 </button>
+              ) : demoDa && (
+                <Link href="/tools/praesentation-demo" className={DEMO_BADGE}
+                      style={{ backgroundColor: "rgb(245, 158, 11)", color: "rgb(0, 0, 0)" }}>
+                  {t("demoBadge")}
+                </Link>
               )}
             </div>
             <p className="text-sm text-muted mt-1 mb-8">{t("intro")}</p>

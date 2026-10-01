@@ -361,6 +361,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Kein Demo-Video gefunden (output.mp4 fehlt in demo/)",
         "en": "No demo video found (output.mp4 missing in demo/)",
     },
+    "demo.resultMissing": {
+        "de": "Das Ergebnis der Demo ist noch nicht hinterlegt.",
+        "en": "The demo result has not been added yet.",
+    },
     # ── gemeinsamer Quellen-Eingang der drei Dienste ─────────────────────────
     "summary.sourceMissing": {
         "de": "Dieses Material gibt es im Workspace nicht.",

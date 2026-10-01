@@ -57,12 +57,15 @@ interface PreviewStepProps {
   /** Stops the run, null while the job has no id yet. */
   onCancel: (() => void) | null;
   onFinalize: () => void;
+  /** The prepared demo run, its slides can be looked at but not changed. */
+  demo?: boolean;
 }
 
 /** The deck as rows: a skeleton that fills while the run writes and draws, then the real slides to check and edit. */
 export default function PreviewStep(p: PreviewStepProps) {
   const t = useTranslations("tools.praesentation.slides");
   const tCancel = useTranslations("tools.praesentation.common");
+  const tDemo = useTranslations("tools.praesentationDemo");
   const [lightbox, setLightbox] = useState<number | null>(null);
   // Every row starts open so the skeleton can be watched filling, only what the person closes stays closed.
   const [zu, setZu] = useState<Set<string>>(() => new Set());
@@ -124,7 +127,9 @@ export default function PreviewStep(p: PreviewStepProps) {
         </>
       )}
 
-      {bereit && <p className="text-sm text-foreground-soft mt-2">{t("previewReadyHint")}</p>}
+      {bereit && (
+        <p className="text-sm text-foreground-soft mt-2">{p.demo ? tDemo("bearbeitenGesperrt") : t("previewReadyHint")}</p>
+      )}
 
       {p.instructionUnmatched && (
         <p className="mt-4 rounded-md border border-warn-border bg-warn-bg px-3 py-2 text-sm text-warn-strong" role="status">
@@ -177,7 +182,7 @@ export default function PreviewStep(p: PreviewStepProps) {
                     skizze={<FolienSkizze nummer={i + 1} skizze={k} {...gemeinsam} bilder={neu && !erstbau ? [] : p.images[k.id] ?? []}
                                           bildUrl={(slot) => imageUrl(p.jobUuid, k.id, slot, version(k.id))} />}
                     imageMissing={!p.laeuft && p.missingImages.includes(k.id)} notesOn={notizen}
-                    first={i <= 1} last={i >= karten.length - 2} open={!zu.has(k.id)} gesperrt={p.laeuft}
+                    first={i <= 1} last={i >= karten.length - 2} open={!zu.has(k.id)} gesperrt={p.laeuft || !!p.demo}
                     onToggle={() => umschalten(k.id)}
                     onChange={p.onSlide} onMove={(d) => p.onMove(k.id, d)}
                     onDelete={() => setLoeschen({ id: k.id, nummer: i + 1, title: k.slide?.title || k.row?.title || "" })}

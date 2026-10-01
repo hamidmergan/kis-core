@@ -15,10 +15,12 @@ interface VorlagenWahlProps {
   onTemplate: (id: string) => void;
   /** The chosen template as loaded, so the page can offer its picture style. */
   onVorlage: (v: Vorlage | undefined) => void;
+  /** Shows only the chosen template, without upload, edit or delete, as the demo needs it. */
+  nurGewaehlte?: boolean;
 }
 
 /** The system template and the person's own ones as tiles, the cover layout as the picture. */
-export default function VorlagenWahl({ templateId, onTemplate, onVorlage }: VorlagenWahlProps) {
+export default function VorlagenWahl({ templateId, onTemplate, onVorlage, nurGewaehlte = false }: VorlagenWahlProps) {
   const t = useTranslations("tools.praesentation.content");
   const [vorlagen, setVorlagen] = useState<Vorlage[] | null>(null);
   const [hochladen, setHochladen] = useState(false);
@@ -45,7 +47,7 @@ export default function VorlagenWahl({ templateId, onTemplate, onVorlage }: Vorl
     <div className="mt-6">
       <p className="text-sm font-medium mb-2">{t("templateLabel")}</p>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3" role="radiogroup" aria-label={t("templateLabel")}>
-        {vorlagen.map((v) => {
+        {vorlagen.filter((v) => !nurGewaehlte || v.id === templateId).map((v) => {
           const aktiv = v.id === templateId;
           return (
             <div key={v.id} className="relative">
@@ -63,7 +65,7 @@ export default function VorlagenWahl({ templateId, onTemplate, onVorlage }: Vorl
                   {v.hasImages ? t("templateWithImages") : t("templateWithoutImages")}
                 </p>
               </button>
-              {!v.system && (
+              {!v.system && !nurGewaehlte && (
                 <>
                   <IconButton size="sm" aria-label={t("editTemplate", { name: v.name })}
                               className="absolute top-2 right-9" onClick={() => setBearbeiten(v)}>
@@ -78,14 +80,14 @@ export default function VorlagenWahl({ templateId, onTemplate, onVorlage }: Vorl
             </div>
           );
         })}
-        <button
+        {!nurGewaehlte && <button
           type="button"
           onClick={() => setHochladen(true)}
           className="rounded-xl border-2 border-dashed border-border hover:border-kb transition-colors p-4 flex flex-col items-center justify-center gap-2 text-sm text-foreground-soft"
         >
           <Plus className="w-5 h-5" />
           {t("uploadTemplate")}
-        </button>
+        </button>}
       </div>
       {hochladen && (
         <VorlageHochladen

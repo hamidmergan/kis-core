@@ -469,7 +469,8 @@
         "section": "Ein Abschnitt wird geschrieben",
         "sectionCounted": "Abschnitt {part} von {total} wird geschrieben",
         "compose": "Der Text wird geschrieben"
-      }
+      },
+      "demoBadge": "Demo ansehen"
     },
     "translate": {
       "title": "Übersetzung",
@@ -1526,7 +1527,8 @@
         "prev": "Vorherige Folie",
         "next": "Nächste Folie",
         "allSlides": "Alle Folien"
-      }
+      },
+      "demoBadge": "Demo ansehen"
     },
     "screencastDemo": {
       "backToScreencast": "Zurück",
@@ -1546,6 +1548,20 @@
       "dateiVorgegeben": "In der Demo ist der Foliensatz vorgegeben.",
       "keinHochladen": "In der Demo lassen sich keine eigenen Dateien hochladen.",
       "importVorgegeben": "Weiter geht es mit den vorbereiteten Sprechtexten.",
+      "beenden": "Demo beenden"
+    },
+    "summarizeDemo": {
+      "demoBadge": "Demo",
+      "hinweis": "Das ist die Demo. Du kannst die Vorlagen und Einstellungen ausprobieren, das Ergebnis ist aber immer die vorbereitete Zusammenfassung zur gewählten Vorlage.",
+      "materialVorgegeben": "In der Demo sind Workspace, Material und Anweisung vorgegeben.",
+      "keinErgebnis": "Für die Demo ist noch kein Ergebnis hinterlegt."
+    },
+    "praesentationDemo": {
+      "demoBadge": "Demo",
+      "hinweis": "Das ist die Demo. Du kannst alle Schritte ausprobieren, das Ergebnis sind aber immer die vorbereiteten Folien.",
+      "materialVorgegeben": "In der Demo sind Workspace, Material und Anweisung vorgegeben.",
+      "keinErgebnis": "Für die Demo ist noch kein Ergebnis hinterlegt.",
+      "bearbeitenGesperrt": "In der Demo lassen sich die Folien nur ansehen, nicht ändern.",
       "beenden": "Demo beenden"
     }
   },

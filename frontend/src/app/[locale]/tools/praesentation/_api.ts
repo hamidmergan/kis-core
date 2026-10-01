@@ -104,10 +104,24 @@ export const saveOrder = (uuid: string, ids: string[]) =>
 
 export const finalize = (uuid: string) => post(`/api/praesentation/${uuid}/finalize`).then((r) => json<unknown>(r));
 
-export const previewUrl = (uuid: string, id: string, version: number) => `/api/praesentation/${uuid}/preview/${id}.png?v=${version}`;
+/** The prepared demo run has no job, its pictures and file come from the demo route. */
+export const DEMO_JOB = "demo";
+const ablage = (uuid: string) => (uuid === DEMO_JOB ? "/api/praesentation-demo" : `/api/praesentation/${uuid}`);
+
+export const fetchDemo = () =>
+  fetch("/api/praesentation-demo/ansicht", { credentials: "include" })
+    .then((r) => json<PraesentationView & { workspace: string; files: string[] }>(r));
+
+export const demoAvailable = () =>
+  fetch("/api/praesentation-demo/available", { credentials: "include" })
+    .then((r) => json<{ available: boolean }>(r))
+    .then((d) => d.available)
+    .catch(() => false);
+
+export const previewUrl = (uuid: string, id: string, version: number) => `${ablage(uuid)}/preview/${id}.png?v=${version}`;
 export const imageUrl = (uuid: string, id: string, slot: string, version: number) =>
-  `/api/praesentation/${uuid}/image/${id}/${slot}?v=${version}`;
-export const downloadUrl = (uuid: string) => `/api/praesentation/${uuid}/download`;
+  `${ablage(uuid)}/image/${id}/${slot}?v=${version}`;
+export const downloadUrl = (uuid: string) => `${ablage(uuid)}/download`;
 
 export const listVorlagen = () =>
   fetch("/api/praesentation/vorlagen", { credentials: "include" }).then((r) => json<Vorlage[]>(r));
