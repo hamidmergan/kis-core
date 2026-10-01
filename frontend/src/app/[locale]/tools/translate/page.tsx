@@ -202,7 +202,6 @@ function UebersetzungPageInner() {
         <section className="min-w-0 rounded-xl border border-border-soft bg-surface p-4 sm:p-5">
           <div className="mb-4">
             <Tabs
-              variant="pill"
               active={inputMode}
               onChange={(key) => handleModeChange(key as InputMode)}
               items={[
