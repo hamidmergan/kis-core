@@ -346,7 +346,7 @@ function TtsPageInner() {
                   }))}
                 />
               </div>
-              <div className="flex flex-wrap gap-x-4 gap-y-1">
+              <div className="flex flex-col items-start gap-1">
                 <a
                   href="/tools/tts/voices"
                   target="_blank"
