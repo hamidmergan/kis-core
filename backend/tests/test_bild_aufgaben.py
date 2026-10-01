@@ -164,7 +164,17 @@ def test_ein_aufgefuelltes_panorama_behaelt_seine_vorlage_ohne_rand(monkeypatch)
 
 def test_der_verlauf_bekommt_die_meta_der_bildauftraege():
     from src.routes.jobs._shared import _META_TOOLS
-    assert {"image_generate", "image_edit"} <= _META_TOOLS
+    assert {"image_generate", "image_edit", "image_analyze"} <= _META_TOOLS
+
+
+def test_eine_beschreibung_behaelt_ihr_bild_und_ihre_verknuepfung(monkeypatch):
+    client = _Client(_Antwort(200, {"choices": [{"message": {"content": "Ein Apfel."}}]}))
+    meta, dateien = {}, {}
+    _umgebung(monkeypatch, client, meta, dateien)
+    gt.run_image_analyze.run.__func__(None, "job1", "ip", "a.jpg", "", None, anweisung="Beschreibe.",
+                                      angaben={"quelle": "bild1", "titel": "Beschreiben"})
+    assert dateien["vorlage.jpg"] == _png()
+    assert meta == {"quelle": "bild1", "titel": "Beschreiben", "vorlage": "vorlage.jpg", "dateiname": "a.jpg"}
 
 
 def test_ein_aufgefuelltes_panorama_wird_auf_seinen_streifen_zugeschnitten(monkeypatch):

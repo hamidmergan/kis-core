@@ -29,6 +29,8 @@ ALLOWED_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg"}
 _TAB_FEATURE = {"generate": "image_gen", "edit": "image_edit", "analyze": "vision"}
 # Each variant is a job of its own, so limits, quota and the history treat it like any other.
 _MAX_VARIANTEN = {"generate": 4, "edit": 2}
+# Jobs that keep the picture they started from.
+_MIT_VORLAGE = {"image_edit", "image_analyze"}
 
 
 def _gueltig(wert, locale: str):
@@ -214,10 +216,10 @@ def edit_source(
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    """The source an edited picture was made from, for the before and after view."""
+    """The picture a job started from: the source of an edit, or the picture a description was about."""
     job = db.get_job(job_uuid)
     # Owner only, a foreign job_uuid must not show another person's picture.
-    if not job or job["user_id"] != current_user.get("user_id", 0) or job["tool"] != "image_edit":
+    if not job or job["user_id"] != current_user.get("user_id", 0) or job["tool"] not in _MIT_VORLAGE:
         raise HTTPException(status_code=404, detail=t("job.notFound", locale))
     name = (load_result_meta(job["user_id"], job_uuid) or {}).get("vorlage")
     if not name:
@@ -236,6 +238,8 @@ async def analyze_image(
     aufgabe: str = Form(""),
     sprache: str = Form(""),
     provider_id: int | None = Form(None),
+    quelle: str = Form(""),
+    titel: str = Form(""),
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
@@ -261,6 +265,10 @@ async def analyze_image(
 
     job_uuid = uuid.uuid4().hex
     user_id = current_user.get("user_id", 0)
+    # The picture the answer belongs to, only an own picture job counts, otherwise the answer stands alone.
+    quelle_job = db.get_job(quelle) if quelle else None
+    if not quelle_job or quelle_job["user_id"] != user_id or not quelle_job["tool"].startswith("image_"):
+        quelle = ""
     enforce_open_jobs(user_id, locale, "image_analyze")
     enforce_tool_burst(user_id, "image_analyze", locale)
     enforce_quota(user_id, "image_analyze", is_admin_user(current_user), locale)
@@ -271,7 +279,8 @@ async def analyze_image(
     db.set_job_input_path(job_uuid, input_path)
 
     from src.tasks.general_tasks import run_image_analyze
-    task = run_image_analyze.delay(job_uuid, input_path, image.filename, prompt, provider_id, anweisung=anweisung)
+    task = run_image_analyze.delay(job_uuid, input_path, image.filename, prompt, provider_id, anweisung=anweisung,
+                                   angaben={"quelle": quelle, "titel": titel.strip()[:200]})
     db.set_job_celery_task_id(job_uuid, task.id)
 
     logger.info("Image analyze job {} queued for '{}'", job_uuid, image.filename)

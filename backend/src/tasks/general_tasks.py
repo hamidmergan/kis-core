@@ -430,6 +430,7 @@ def run_image_analyze(
     prompt: str,
     provider_id: int | None = None,
     anweisung: str | None = None,
+    angaben: dict | None = None,
 ):
     try:
         db.update_job_status(job_uuid, "running")
@@ -491,6 +492,10 @@ def run_image_analyze(
         result_filename = f"{Path(filename).stem}.txt"
         result_path = save_result_file(user_id, job_uuid, ".txt", text.encode("utf-8"))
         save_result_and_evict(user_id, job_uuid, result_path, result_filename)
+        # The described picture stays with its answer, so the page can show both again later.
+        vorlage = f"vorlage{ext}"
+        save_job_file(user_id, job_uuid, vorlage, content)
+        save_result_meta(user_id, job_uuid, {**(angaben or {}), "vorlage": vorlage, "dateiname": filename})
         db.update_job_status(job_uuid, "success")
         delete_file(input_path)
         logger.info("Image analyze task {} completed", job_uuid)

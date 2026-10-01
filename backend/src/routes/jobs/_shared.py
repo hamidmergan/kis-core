@@ -46,7 +46,7 @@ def _tool_label(tool: str, locale: str) -> str:
     return t(f"tool.{tool}", locale)
 
 
-_META_TOOLS = {"screencast_translate", "screencast_render", "podcast", "image_generate", "image_edit"}
+_META_TOOLS = {"screencast_translate", "screencast_render", "podcast", "image_generate", "image_edit", "image_analyze"}
 
 
 _TOOL_FILTER_GROUPS: dict[str, list[str]] = {

@@ -118,6 +118,24 @@ def vorlage_welt(monkeypatch):
     monkeypatch.setattr(image, "get_job_file", lambda user, uuid, name: b"vorher")
 
 
+def test_eine_beschreibung_zeigt_das_beschriebene_bild(vorlage_welt, monkeypatch):
+    monkeypatch.setattr(image.db, "get_job", lambda uuid: {"user_id": 7, "tool": "image_analyze"})
+    assert image.edit_source("beschrieben", current_user=NUTZER, locale="de").body == b"vorher"
+
+
+async def test_eine_beschreibung_merkt_sich_ihr_bild_und_ihre_ueberschrift(welt, monkeypatch):
+    jobs = {"eigen": {"user_id": 7, "tool": "image_generate"}, "fremd": {"user_id": 8, "tool": "image_generate"},
+            "audio": {"user_id": 7, "tool": "tts"}}
+    monkeypatch.setattr(image.db, "get_job", lambda uuid: jobs.get(uuid))
+    for quelle in ("eigen", "fremd", "audio", "unbekannt"):
+        await image.analyze_image(image=_bild(400, 300), prompt="", aufgabe="beschreiben", sprache="de",
+                                  provider_id=None, quelle=quelle, titel="Beschreiben", current_user=NUTZER,
+                                  locale="de")
+    quellen = [kwargs["angaben"]["quelle"] for _, kwargs in welt["run_image_analyze"].aufrufe]
+    assert quellen == ["eigen", "", "", ""], "nur ein eigenes Bild darf verknüpft werden"
+    assert welt["run_image_analyze"].aufrufe[0][1]["angaben"]["titel"] == "Beschreiben"
+
+
 def test_die_vorlage_bekommt_nur_wer_das_bild_bearbeitet_hat(vorlage_welt):
     antwort = image.edit_source("eigen", current_user=NUTZER, locale="de")
     assert antwort.body == b"vorher" and antwort.media_type == "image/png"
@@ -151,7 +169,7 @@ async def test_bearbeiten_mit_mehr_als_zwei_varianten_wird_abgewiesen(welt):
 
 async def test_verstehen_schickt_die_anweisung_der_aufgabe_in_der_gewaehlten_sprache(welt):
     await image.analyze_image(image=_bild(400, 300), prompt="", aufgabe="text", sprache="en", provider_id=None,
-                              current_user=NUTZER, locale="de")
+                              quelle="", titel="", current_user=NUTZER, locale="de")
     _, kwargs = welt["run_image_analyze"].aufrufe[0]
     assert kwargs["anweisung"] == o.analyse_anweisung("text", "en", "")
 
@@ -159,7 +177,7 @@ async def test_verstehen_schickt_die_anweisung_der_aufgabe_in_der_gewaehlten_spr
 async def test_eine_frage_ohne_aufgabe_bleibt_eine_frage(welt):
     """Ältere Oberflächen schicken nur das Textfeld."""
     await image.analyze_image(image=_bild(400, 300), prompt="Wie viele Personen?", aufgabe="", sprache="",
-                              provider_id=None, current_user=NUTZER, locale="de")
+                              provider_id=None, quelle="", titel="", current_user=NUTZER, locale="de")
     _, kwargs = welt["run_image_analyze"].aufrufe[0]
     assert kwargs["anweisung"] == o.analyse_anweisung("frage", "de", "Wie viele Personen?")
 
@@ -167,7 +185,7 @@ async def test_eine_frage_ohne_aufgabe_bleibt_eine_frage(welt):
 async def test_eine_eigene_frage_ohne_text_wird_abgewiesen(welt):
     with pytest.raises(HTTPException) as fehler:
         await image.analyze_image(image=_bild(400, 300), prompt=" ", aufgabe="frage", sprache="de",
-                                  provider_id=None, current_user=NUTZER, locale="de")
+                                  provider_id=None, quelle="", titel="", current_user=NUTZER, locale="de")
     assert fehler.value.status_code == 400
 
 
