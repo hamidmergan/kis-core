@@ -6,7 +6,7 @@ import { Files, Info } from "@phosphor-icons/react";
 import { useLocale, useTranslations } from "next-intl";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import ErgebnisInfo, { useErgebnisAngaben } from "@/components/jobs/ErgebnisInfo";
+import { ErgebnisInfoKnopf, ErgebnisLoeschenKnopf, useErgebnisAngaben } from "@/components/jobs/ErgebnisInfo";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import Modal from "@/components/ui/Modal";
 import ToolBackLink from "@/components/ui/ToolBackLink";
@@ -452,6 +452,7 @@ function ZusammenfassungSeiteInner({ demo = false }: { demo?: boolean }) {
               <div className="space-y-3">
                 <div className="flex items-center justify-between gap-2">
                   <StatusMark tone="success" className="text-sm font-medium">{tCommon("downloadReady")}</StatusMark>
+                  <span className="flex items-center gap-2">
                   {materialien.length > 0 && (
                     <button
                       type="button"
@@ -463,16 +464,17 @@ function ZusammenfassungSeiteInner({ demo = false }: { demo?: boolean }) {
                       <Files size={16} weight="bold" />
                     </button>
                   )}
+                  {!demo && (
+                    <ErgebnisInfoKnopf auftrag={auftrag} zeilen={[
+                      { label: tResult("provider"), wert: auftrag?.angaben.anbieter },
+                      { label: t("templateLabel"), wert: (() => {
+                        const v = templates.find((x) => x.slug === auftrag?.angaben.vorlage);
+                        return v ? templateName(v) : auftrag?.angaben.vorlage;
+                      })() },
+                    ]} />
+                  )}
+                  </span>
                 </div>
-                {!demo && (
-                  <ErgebnisInfo jobUuid={doneJobUuid} auftrag={auftrag} onGeloescht={handleReset} zeilen={[
-                    { label: tResult("provider"), wert: auftrag?.angaben.anbieter },
-                    { label: t("templateLabel"), wert: (() => {
-                      const v = templates.find((x) => x.slug === auftrag?.angaben.vorlage);
-                      return v ? templateName(v) : auftrag?.angaben.vorlage;
-                    })() },
-                  ]} />
-                )}
                 <div className="rounded-md border border-border-soft bg-background p-4 sm:p-5 max-h-[28rem] overflow-y-auto text-sm leading-relaxed text-foreground">
                   {previewText ? (
                     <ReactMarkdown
@@ -521,6 +523,7 @@ function ZusammenfassungSeiteInner({ demo = false }: { demo?: boolean }) {
                   >
                     {t("newSummary")}
                   </button>
+                  {!demo && <ErgebnisLoeschenKnopf jobUuid={doneJobUuid} auftrag={auftrag} onGeloescht={handleReset} />}
                 </div>
               </div>
             ) : (

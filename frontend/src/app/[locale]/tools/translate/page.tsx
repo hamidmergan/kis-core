@@ -9,7 +9,7 @@ import ToolBackLink from "@/components/ui/ToolBackLink";
 import StatusMark from "@/components/ui/StatusMark";
 import FileUpload from "@/components/jobs/FileUpload";
 import TranslateTextInput from "@/components/jobs/TranslateTextInput";
-import ErgebnisInfo, { useErgebnisAngaben } from "@/components/jobs/ErgebnisInfo";
+import { ErgebnisInfoKnopf, ErgebnisLoeschenKnopf, useErgebnisAngaben } from "@/components/jobs/ErgebnisInfo";
 import JobHistoryTable from "@/components/jobs/JobHistoryTable";
 import GlossarySelector from "@/components/glossary/GlossarySelector";
 import { useGlossaries } from "@/hooks/useGlossaries";
@@ -20,11 +20,9 @@ import Spinner from "@/components/ui/Spinner";
 import BackgroundHint from "@/components/tools/BackgroundHint";
 import Select from "@/components/ui/Select";
 import Tabs from "@/components/ui/Tabs";
-import { TRANSLATE_MAX_CHARS } from "@/lib/constants";
+import { TEXT_MODE_FILENAME, TRANSLATE_MAX_CHARS } from "@/lib/constants";
 
 type InputMode = "text" | "file";
-// The text mode always saves its result under this name, a real upload never does.
-const TEXT_MODE_FILENAME = "text.txt";
 
 function UebersetzungPageInner() {
   const t = useTranslations("tools.translate");
@@ -272,13 +270,15 @@ function UebersetzungPageInner() {
               </div>
             ) : doneJobUuid ? (
               <div className="space-y-3">
-                <StatusMark tone="success" className="text-sm font-medium">{tCommon("downloadReady")}</StatusMark>
-                <ErgebnisInfo jobUuid={doneJobUuid} auftrag={auftrag} onGeloescht={handleReset} zeilen={[
+                <div className="flex items-center justify-between gap-2">
+                  <StatusMark tone="success" className="text-sm font-medium">{tCommon("downloadReady")}</StatusMark>
+                  <ErgebnisInfoKnopf auftrag={auftrag} zeilen={[
                   { label: tResult("file"), wert: angezeigterDateiname !== TEXT_MODE_FILENAME ? angezeigterDateiname : null },
                   { label: tResult("provider"), wert: auftrag?.angaben.anbieter },
                   { label: t("targetLang"), wert: auftrag?.angaben.ziel && (languages.find((l) => l.id === auftrag.angaben.ziel)?.label ?? auftrag.angaben.ziel) },
                   { label: tResult("glossary"), wert: auftrag?.angaben.glossar ? tResult("glossaryUsed") : null },
-                ]} />
+                  ]} />
+                </div>
                 {istTextErgebnis && (
                   <div>
                     <div className="flex items-center justify-between mb-1">
@@ -315,6 +315,7 @@ function UebersetzungPageInner() {
                   >
                     {t("newTranslation")}
                   </button>
+                  <ErgebnisLoeschenKnopf jobUuid={doneJobUuid} auftrag={auftrag} onGeloescht={handleReset} />
                 </div>
               </div>
             ) : inputMode === "text" ? (

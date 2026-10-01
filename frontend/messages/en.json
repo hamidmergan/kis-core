@@ -442,7 +442,8 @@
       "deleteWarning": "The result and its job are deleted for good.",
       "cancel": "Cancel",
       "confirm": "Delete",
-      "deleteFailed": "Deleting did not work."
+      "deleteFailed": "Deleting did not work.",
+      "info": "About this result"
     }
   },
   "tools": {

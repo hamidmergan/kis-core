@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { Trash } from "@phosphor-icons/react";
+import { Info, Trash } from "@phosphor-icons/react";
 import IconButton from "@/components/ui/IconButton";
 import Modal from "@/components/ui/Modal";
 import { backendApi } from "@/lib/api";
@@ -19,7 +19,7 @@ export interface ErgebnisAngaben {
   vorlage?: string;
 }
 
-interface Auftrag {
+export interface Auftrag {
   angaben: ErgebnisAngaben;
   erstellt: string | null;
   datei: string | null;
@@ -44,24 +44,53 @@ export function useErgebnisAngaben(jobUuid: string | null): Auftrag | null {
   return auftrag;
 }
 
-/** The info rows under a result and the way to delete it, the same on every tool page. */
-export default function ErgebnisInfo({ jobUuid, auftrag, zeilen, onGeloescht }: {
-  jobUuid: string;
+/** An info icon next to the result, a click shows in a modal what it was made with. */
+export function ErgebnisInfoKnopf({ auftrag, zeilen }: {
   auftrag: Auftrag | null;
   /** Tool-specific rows, an empty value leaves its row out. */
   zeilen: { label: string; wert?: string | null }[];
-  onGeloescht: () => void;
 }) {
   const t = useTranslations("common.result");
   const locale = useLocale();
-  const [fragt, setFragt] = useState(false);
-  const [loescht, setLoescht] = useState(false);
-  const [fehler, setFehler] = useState("");
+  const [offen, setOffen] = useState(false);
 
   const alle = [
     ...zeilen,
     { label: t("created"), wert: auftrag?.erstellt ? formatDate(auftrag.erstellt, locale) : null },
   ].filter((z) => z.wert);
+
+  if (!alle.length) return null;
+  return (
+    <>
+      <IconButton size="sm" aria-label={t("info")} title={t("info")} onClick={() => setOffen(true)}>
+        <Info size={16} />
+      </IconButton>
+      {offen && (
+        <Modal open onClose={() => setOffen(false)} size="sm" title={t("info")}>
+          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+            {alle.map((z) => (
+              <div key={z.label} className="contents">
+                <dt className="text-muted">{z.label}</dt>
+                <dd className="text-foreground break-words">{z.wert}</dd>
+              </div>
+            ))}
+          </dl>
+        </Modal>
+      )}
+    </>
+  );
+}
+
+/** Deletes the result and its job after one question, then the page starts fresh. */
+export function ErgebnisLoeschenKnopf({ jobUuid, auftrag, onGeloescht }: {
+  jobUuid: string;
+  auftrag: Auftrag | null;
+  onGeloescht: () => void;
+}) {
+  const t = useTranslations("common.result");
+  const [fragt, setFragt] = useState(false);
+  const [loescht, setLoescht] = useState(false);
+  const [fehler, setFehler] = useState("");
 
   const loeschen = async () => {
     setLoescht(true);
@@ -86,18 +115,12 @@ export default function ErgebnisInfo({ jobUuid, auftrag, zeilen, onGeloescht }: 
   };
 
   return (
-    <div className="flex items-start justify-between gap-3 rounded-md border border-border-soft bg-background px-3 py-2">
-      <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs min-w-0">
-        {alle.map((z) => (
-          <div key={z.label} className="contents">
-            <dt className="text-muted">{z.label}</dt>
-            <dd className="text-foreground-soft truncate">{z.wert}</dd>
-          </div>
-        ))}
-      </dl>
-      <IconButton size="sm" aria-label={t("delete")} title={t("delete")} onClick={() => setFragt(true)}>
-        <Trash size={14} />
-      </IconButton>
+    <>
+      <button type="button" onClick={() => setFragt(true)}
+        className="px-4 py-2 text-sm text-foreground-soft border border-border rounded-md btn-ghost focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors flex items-center gap-2">
+        <Trash size={14} aria-hidden="true" />
+        {t("delete")}
+      </button>
       {fragt && (
         <Modal open onClose={() => setFragt(false)} size="sm" title={t("deleteTitle")}
           footer={<>
@@ -111,6 +134,6 @@ export default function ErgebnisInfo({ jobUuid, auftrag, zeilen, onGeloescht }: 
           {fehler && <p className="text-sm text-error mt-2" role="alert">{fehler}</p>}
         </Modal>
       )}
-    </div>
+    </>
   );
 }

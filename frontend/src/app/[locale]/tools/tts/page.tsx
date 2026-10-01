@@ -3,7 +3,7 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import ErgebnisInfo, { useErgebnisAngaben } from "@/components/jobs/ErgebnisInfo";
+import { ErgebnisInfoKnopf, ErgebnisLoeschenKnopf, useErgebnisAngaben } from "@/components/jobs/ErgebnisInfo";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import ToolBackLink from "@/components/ui/ToolBackLink";
 import TtsFileUpload from "@/components/jobs/TtsFileUpload";
@@ -12,7 +12,7 @@ import TtsStatus from "@/components/jobs/TtsStatus";
 import JobHistoryTable from "@/components/jobs/JobHistoryTable";
 import { useJobHistory } from "@/hooks/useJobHistory";
 import { JobPausedError, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
-import { TTS_MAX_CHARS } from "@/lib/constants";
+import { TEXT_MODE_FILENAME, TTS_MAX_CHARS } from "@/lib/constants";
 import type { TTSState } from "@/types";
 import Select from "@/components/ui/Select";
 import Tabs from "@/components/ui/Tabs";
@@ -411,11 +411,13 @@ function TtsPageInner() {
                 onReset={handleTtsReset}
                 onRetry={() => { setTtsState("idle"); setTtsErrorMessage(""); }}
                 onContinue={handleTtsContinue}
-                info={ttsState === "done" && angezeigterJobUuid && (
-                  <ErgebnisInfo jobUuid={angezeigterJobUuid} auftrag={auftrag} onGeloescht={handleTtsReset} zeilen={[
-                    { label: tResult("provider"), wert: auftrag?.angaben.anbieter },
-                    { label: t("voiceLabel"), wert: auftrag?.angaben.stimme },
-                  ]} />
+                info={<ErgebnisInfoKnopf auftrag={auftrag} zeilen={[
+                  { label: tResult("file"), wert: auftrag?.datei !== TEXT_MODE_FILENAME ? auftrag?.datei : null },
+                  { label: tResult("provider"), wert: auftrag?.angaben.anbieter },
+                  { label: t("voiceLabel"), wert: auftrag?.angaben.stimme },
+                ]} />}
+                loeschen={angezeigterJobUuid && (
+                  <ErgebnisLoeschenKnopf jobUuid={angezeigterJobUuid} auftrag={auftrag} onGeloescht={handleTtsReset} />
                 )}
               />
             )}

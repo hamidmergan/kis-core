@@ -442,7 +442,8 @@
       "deleteWarning": "Das Ergebnis und sein Auftrag werden endgültig gelöscht.",
       "cancel": "Abbrechen",
       "confirm": "Löschen",
-      "deleteFailed": "Löschen hat nicht geklappt."
+      "deleteFailed": "Löschen hat nicht geklappt.",
+      "info": "Angaben zum Ergebnis"
     }
   },
   "tools": {
