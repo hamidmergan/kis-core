@@ -4,6 +4,30 @@ import type { ChatMessage } from "../../_types";
 import { citationPattern, citationsAreAdjacentSameTarget, stripCitations, type CitationFields } from "./_citation_parse";
 
 
+// The plain text of a node, so a bold or italic run still counts as context for the claim
+// that follows it. Unknown element shapes contribute nothing, same as before this existed.
+function _plainTextOf(node: React.ReactNode): string {
+  if (typeof node === "string") return node;
+  if (typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(_plainTextOf).join("");
+  if (React.isValidElement(node)) {
+    const children = (node.props as { children?: React.ReactNode })?.children;
+    return children != null ? _plainTextOf(children) : "";
+  }
+  return "";
+}
+
+// What is left of a text run after its last citation marker, so a sibling fragment without
+// its own marker still carries the right context forward to the next one that has one.
+function _carryAfter(fragment: string, before: string): string {
+  const pattern = citationPattern();
+  let lastEnd = -1;
+  let m: RegExpExecArray | null;
+  while ((m = pattern.exec(fragment)) !== null) lastEnd = m.index + m[0].length;
+  return lastEnd === -1 ? before + fragment : fragment.slice(lastEnd);
+}
+
+
 // The target just jumped to, at module scope so it survives a redraw.
 let _activeChipTarget: string | null = null;
 const _activeChipSubs = new Set<() => void>();
@@ -303,6 +327,9 @@ export function parseCitations(
   keyPrefix: string = "c",
   tChip?: ChipLabelT,
   takePunctuation: boolean = true,
+  // Plain text of earlier siblings in the same paragraph, lost otherwise when a bold or
+  // italic run splits the sentence before the first citation of this fragment.
+  precedingText: string = "",
 ): React.ReactNode[] {
   const msgSourcePages = msg.source_pages ?? [];
   const msgQmap = msg.source_qmap ?? [];
@@ -448,8 +475,9 @@ export function parseCitations(
       n++;
     }
 
-    // The text since the previous site is backed, no sentence splitting.
-    const claim = text.slice(last, first.start).trim();
+    // The text since the previous site is backed, no sentence splitting. Before the first
+    // site in this fragment, prepend what preceded it in the same paragraph.
+    const claim = (last === 0 ? precedingText + text.slice(last, first.start) : text.slice(last, first.start)).trim();
     const kept = run.slice(0, MAX_CHIPS_PER_GROUP).map(c => ({ ...c, claim }));
     // Only a collapsed site takes the punctuation along.
     const folded = takePunctuation && !first.isExactSelection;
@@ -490,11 +518,21 @@ export function withCitations(
   takePunctuation: boolean = true,
 ): React.ReactNode {
   const arr: React.ReactNode[] = Array.isArray(children) ? children : [children];
-  return arr.flatMap((child, idx) =>
-    typeof child === "string"
-      ? parseCitations(child, msg, activeSourceIds, getFilename, onChipClick, `${nodePrefix}c${idx}-`, tChip, takePunctuation)
-      : [child],
-  );
+  // Carries the plain text of siblings a bold or italic run split off, so the first
+  // citation after such a run still gets the whole sentence as its claim.
+  let carry = "";
+  return arr.flatMap((child, idx) => {
+    if (typeof child !== "string") {
+      carry += _plainTextOf(child);
+      return [child];
+    }
+    const nodes = parseCitations(
+      child, msg, activeSourceIds, getFilename, onChipClick,
+      `${nodePrefix}c${idx}-`, tChip, takePunctuation, carry,
+    );
+    carry = _carryAfter(child, carry);
+    return nodes;
+  });
 }
 
 

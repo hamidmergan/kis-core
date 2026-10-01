@@ -1,5 +1,6 @@
 // Programmatic highlights: a selection of your own, and the spot a chip claim rests on.
 
+import { PdfBlendMode } from "@embedpdf/models";
 import { findClaimSpot, normalizePageText } from "./_claim_match";
 
 export type HighlightRefs = {
@@ -14,7 +15,9 @@ type DrawOpts = { scroll?: boolean; append?: boolean };
 
 // A passive light blue mark, not a text selection.
 export const CITATION_HL_COLOR = "#9BD2F0";   // helles CD-Blau, dasselbe wie beim Markieren-Werkzeug
-const CITATION_HL_OPACITY = 0.4;
+// Matches the native highlighter's own default: the renderer only paints opacity 1 reliably,
+// the paleness of CITATION_HL_COLOR itself is what keeps the mark soft.
+const CITATION_HL_OPACITY = 1;
 const HIGHLIGHT_SUBTYPE = 9;           // PdfAnnotationSubtype.HIGHLIGHT
 
 // The page frame on a chip jump, as a square instead of a highlight.
@@ -262,6 +265,9 @@ export function drawCitationHighlight(
       strokeColor: CITATION_HL_COLOR,
       color: CITATION_HL_COLOR,
       opacity: CITATION_HL_OPACITY,
+      // Without this the highlight never paints, the native tool sets it through its own
+      // defaults, our marker skipped it until this was tracked down.
+      blendMode: PdfBlendMode.Multiply,
       // readOnly + locked so the user can't accidentally select/drag/edit our marker.
       flags: ["readOnly", "locked"],
       created: new Date(),

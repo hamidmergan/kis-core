@@ -488,6 +488,9 @@ export function PdfViewer({
             tabBar: "never",
             i18n: { defaultLocale: locale },
             search: { showAllResults: false },
+            // Without this the render plugin never bakes annotations into the page bitmap,
+            // so neither the highlight tool nor a citation's own highlight ever show.
+            render: { withAnnotations: true },
             annotations: {
               locked: { type: LockModeType.All },
               // The highlighter tool paints in house blue instead of the viewer's yellow.
