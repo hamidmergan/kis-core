@@ -8,8 +8,8 @@ import { hasPerm, PERM } from "@/lib/permissions";
 import { langLabel } from "@/app/[locale]/workspace/[uuid]/_types";
 import { stimmprobeUrl, type Stimmprobe } from "../_api";
 
-// The excerpt voiced by the platform's own service, the same voices as the podcast above.
-const EIGENE = "mylab";
+// The excerpt voiced by the same service and voices as the podcast above.
+const EIGENE = "hpc";
 
 /** The start of the demo script voiced by other services, side by side with the platform's own voices, one tab per language. */
 export default function Stimmvergleich({ proben }: { proben: Stimmprobe[] }) {
@@ -46,16 +46,25 @@ export default function Stimmvergleich({ proben }: { proben: Stimmprobe[] }) {
         />
       )}
       <ul className="grid gap-3 sm:grid-cols-2">
-        {proben.filter((p) => p.sprache === aktiv).map((p) => (
-          <li key={p.id} className="rounded-lg border border-border p-3">
-            <p className="text-sm font-semibold">
-              {p.anbieter}
-              {p.id === EIGENE && <span className="ml-2 text-xs font-normal text-muted">{t("vergleichHier")}</span>}
-            </p>
-            <p className="text-xs text-muted mb-2">{t("vergleichStimmen", { stimmen: p.stimmen.join(", ") })}</p>
-            <audio controls preload="none" className="w-full" src={stimmprobeUrl(p.id)} />
-          </li>
-        ))}
+        {proben.filter((p) => p.sprache === aktiv).map((p) => {
+          const zusatz = [p.id === EIGENE && t("vergleichHier"), p.selbst && t("vergleichSelbst")].filter(Boolean);
+          return (
+            <li key={p.id} className="rounded-lg border border-border p-3">
+              <p className="text-sm font-semibold">
+                {p.anbieter}
+                {zusatz.length > 0 && <span className="ml-2 text-xs font-normal text-muted">{zusatz.join(", ")}</span>}
+              </p>
+              <p className="text-xs text-muted mb-2">{t("vergleichStimmen", { stimmen: p.stimmen.join(", ") })}</p>
+              {p.ton ? (
+                <audio controls preload="none" className="w-full" src={stimmprobeUrl(p.id)} />
+              ) : (
+                <p className="flex h-[54px] items-center justify-center rounded-full bg-surface-dim text-sm text-muted">
+                  {t("vergleichFolgt")}
+                </p>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </section>
   );

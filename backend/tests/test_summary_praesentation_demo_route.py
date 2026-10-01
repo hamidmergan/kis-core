@@ -161,11 +161,12 @@ def test_podcast_ton_datei_und_transkript(client):
     assert client.get("/podcast-demo/transcript").text == "Lena: Hallo\n\nJonas: Servus\n"
 
 
-def test_podcast_vergleich_nur_mit_vorhandener_datei(client):
+def test_podcast_vergleich_ohne_datei_als_platzhalter(client):
     v = client.get("/podcast-demo/ansicht").json()
     assert v["vergleich"] == [
-        {"id": "gemini", "sprache": "de", "anbieter": "Gemini", "stimmen": ["Aoede", "Charon"]},
-        {"id": "fish-en", "sprache": "en", "anbieter": "Fish Audio", "stimmen": ["Laura", "Ethan"]},
+        {"id": "gemini", "sprache": "de", "anbieter": "Gemini", "stimmen": ["Aoede", "Charon"], "ton": True},
+        {"id": "fish", "sprache": "de", "anbieter": "Fish Audio", "stimmen": ["Sabine", "Ben"], "ton": False},
+        {"id": "fish-en", "sprache": "en", "anbieter": "Fish Audio", "stimmen": ["Laura", "Ethan"], "ton": True},
     ]
     assert client.get("/podcast-demo/vergleich/gemini").content == b"ID3gemini"
     assert client.get("/podcast-demo/vergleich/fish-en").content == b"ID3fishen"

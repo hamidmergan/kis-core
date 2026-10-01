@@ -150,6 +150,9 @@ export interface Stimmprobe {
   sprache: string;
   anbieter: string;
   stimmen: string[];
+  // Without audio the card stands as a placeholder.
+  ton: boolean;
+  selbst?: boolean;
 }
 
 export const stimmprobeUrl = (id: string) => `${DEMO}/vergleich/${id}`;

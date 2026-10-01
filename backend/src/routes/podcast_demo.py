@@ -33,13 +33,13 @@ def _laden(locale: str) -> dict:
 
 
 def _vergleich() -> list[dict]:
-    """The comparison excerpts with a language and a file, in the order the list names them."""
+    """The comparison excerpts with a language in the order the list names them, one without a file stays as a placeholder."""
     pfad = VERGLEICH_DIR / "vergleich.json"
     if not pfad.exists():
         return []
     eintraege = json.loads(pfad.read_text(encoding="utf-8"))
-    return [e for e in eintraege
-            if _VERGLEICH_ID.match(e.get("id", "")) and e.get("sprache") and (VERGLEICH_DIR / f"{e['id']}.mp3").exists()]
+    return [{**e, "ton": (VERGLEICH_DIR / f"{e['id']}.mp3").exists()} for e in eintraege
+            if _VERGLEICH_ID.match(e.get("id", "")) and e.get("sprache")]
 
 
 @router.get("/podcast-demo/available")
@@ -79,7 +79,7 @@ def demo_line(line_id: str, _: dict = Depends(get_current_user)):
 
 @router.get("/podcast-demo/vergleich/{vergleich_id}")
 def demo_vergleich(vergleich_id: str, _: dict = Depends(get_current_user)):
-    if vergleich_id not in {e["id"] for e in _vergleich()}:
+    if vergleich_id not in {e["id"] for e in _vergleich() if e["ton"]}:
         raise HTTPException(status_code=404)
     return FileResponse(VERGLEICH_DIR / f"{vergleich_id}.mp3", media_type="audio/mpeg")
 
