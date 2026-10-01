@@ -55,7 +55,8 @@ export default function TtsStatus({
 
       {state === "done" && (
         <div className="flex flex-col items-center gap-4 text-center">
-          <div className="flex items-center gap-2">
+          {/* Status left, info icon at the far right, like the other tools. */}
+          <div className="w-full flex items-center justify-between gap-2">
             <StatusMark tone="success" className="text-sm font-medium">{t("readyToPlay")}</StatusMark>
             {info}
           </div>
