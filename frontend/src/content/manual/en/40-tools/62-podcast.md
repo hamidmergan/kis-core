@@ -22,7 +22,6 @@ script and have it voiced. The result is an MP3 file.
   someone who asks questions, four are a round with disagreement.
 - **Per person** name, role and voice. Roles are Host, Expert, Student and Critical voice. Your
   own voices are added under Interfaces in the gear menu.
-- **Speed** from 0.7x to 1.2x for everyone. A different tempo later voices every line again.
 - **Length**: Short at about 5 minutes, Medium at about 10 minutes, Long at about 20 minutes.
 - **Style**: Explanatory, Casual or Interview.
 

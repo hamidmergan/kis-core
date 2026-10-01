@@ -69,7 +69,6 @@ function ScreencastDemoLauf({ onNeu }: { onNeu: () => void }) {
   const [translationProviderId, setTranslationProviderId] = useState<number | null>(null);
   const { languages, targetLang, setTargetLang } = useLanguageConfig(SCREENCAST_TARGET_LANGUAGES);
 
-  const [speed, setSpeed] = useState(0.9);
   const [slidePause, setSlidePause] = useState(1.0);
   const [subtitles, setSubtitles] = useState(false);
   const { loaded: providersLoaded, providers, defaultProviderId, defaultVoiceId } = useVoices();
@@ -402,7 +401,6 @@ function ScreencastDemoLauf({ onNeu }: { onNeu: () => void }) {
             providers={providers}
             providerId={providerId}
             voiceId={voiceId}
-            speed={speed}
             slidePause={slidePause}
             subtitles={subtitles}
             slides={slides}
@@ -425,7 +423,6 @@ function ScreencastDemoLauf({ onNeu }: { onNeu: () => void }) {
             onGeaenderteFolien={auswahl.setzeGeaenderte}
             onProviderIdChange={setProviderId}
             onVoiceIdChange={setVoiceId}
-            onSpeedChange={setSpeed}
             onSlidePauseChange={setSlidePause}
             onSubtitlesChange={setSubtitles}
             onBackToScripts={() => dispatch({ type: "SET_STEP", step: "script-review" })}

@@ -28,8 +28,8 @@ class Client(OwnTTSClient):
             headers=_headers(self._api_key),
             json={
                 "text": text,
+                # No tempo goes out, a voice slowed down by the provider echoes.
                 "model_id": self._model,
-                "voice_settings": {"speed": min(_SPEED_MAX, max(_SPEED_MIN, speed))},
             },
         )
         raise_for(response, LABEL, _QUOTA)

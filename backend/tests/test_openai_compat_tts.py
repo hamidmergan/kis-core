@@ -48,3 +48,16 @@ def test_openai_compat_llm_client_requires_whisper_model():
             provider="test",
             # whisper_model intentionally omitted
         )
+
+
+def test_synthesize_one_sends_no_speed():
+    """A voice the provider slows down echoes, so no tempo ever goes out."""
+    from src.services.openai_compat_tts import OpenAICompatTTSClient
+
+    client = OpenAICompatTTSClient("http://tts:8000", "xtts-v2")
+    http = MagicMock()
+    http.post.return_value = MagicMock(status_code=200, content=b"ID3")
+    assert client._synthesize_one(http, "Hallo", voice_id="nova", speed=0.9) == b"ID3"
+    payload = http.post.call_args.kwargs["json"]
+    assert "speed" not in payload
+    assert payload["voice"] == "nova"

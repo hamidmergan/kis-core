@@ -20,14 +20,12 @@ interface CastStepProps {
   persons: Person[];
   length: Length;
   style: Style;
-  speed: number;
   voices: ProviderWithVoices[];
   voicesLoaded: boolean;
   onCount: (count: PersonCount) => void;
   onPerson: (index: number, person: Partial<Person>) => void;
   onLength: (length: Length) => void;
   onStyle: (style: Style) => void;
-  onSpeed: (speed: number) => void;
   onBack: (() => void) | null;
   onNext: () => void;
   /** With a podcast already written this is a recast, not a start. */
@@ -41,8 +39,8 @@ interface CastStepProps {
 }
 
 export default function CastStep(props: CastStepProps) {
-  const { count, persons, length, style, speed, voices, voicesLoaded, onCount, onPerson, onLength,
-          onStyle, onSpeed, onBack, onNext, hatAuftrag, ohneKi, busy, error, gesperrt = false } = props;
+  const { count, persons, length, style, voices, voicesLoaded, onCount, onPerson, onLength,
+          onStyle, onBack, onNext, hatAuftrag, ohneKi, busy, error, gesperrt = false } = props;
   const t = useTranslations("tools.podcast.cast");
   const voiceOptions = voices.flatMap((p) =>
     p.voices.map((v) => ({
@@ -116,28 +114,6 @@ export default function CastStep(props: CastStepProps) {
           {t("previewVoices")}
         </a>
         <OwnVoicesLink />
-      </div>
-
-      <div className="mt-6">
-        <label htmlFor="podcast-speed" className="block text-sm font-medium text-foreground-soft mb-2">
-          {t("speedLabel", { speed: speed.toFixed(1) })}
-        </label>
-        <input
-          id="podcast-speed"
-          type="range"
-          min="0.7"
-          max="1.2"
-          step="0.1"
-          value={speed}
-          onChange={(e) => onSpeed(parseFloat(e.target.value))}
-          disabled={gesperrt}
-          className="w-full h-2 bg-surface-dim rounded-lg appearance-none cursor-pointer accent-kb"
-        />
-        <div className="flex justify-between text-xs text-muted-soft mt-1">
-          <span>{t("speedSlow")}</span>
-          <span>{t("speedFast")}</span>
-        </div>
-        {hatAuftrag && <p className="text-xs text-muted-soft mt-2">{t("speedRecastHint")}</p>}
       </div>
 
       {!ohneKi && (

@@ -145,8 +145,8 @@ function PodcastDemoLauf({ onNeu }: { onNeu: () => void }) {
             )}
             {state.step === "cast" && (
               <CastStep count={state.count} persons={state.persons} length={state.length} style={state.style}
-                speed={state.speed} voices={providers} voicesLoaded={loaded}
-                onCount={keineAktion} onPerson={keineAktion} onLength={keineAktion} onStyle={keineAktion} onSpeed={keineAktion}
+                voices={providers} voicesLoaded={loaded}
+                onCount={keineAktion} onPerson={keineAktion} onLength={keineAktion} onStyle={keineAktion}
                 onBack={state.jobUuid ? null : () => dispatch({ type: "GO", step: "content" })}
                 onNext={state.jobUuid ? () => dispatch({ type: "GO", step: "script" }) : schreiben}
                 hatAuftrag={state.jobUuid !== null} ohneKi={false} busy={false} error="" gesperrt />

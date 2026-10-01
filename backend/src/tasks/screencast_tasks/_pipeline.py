@@ -276,7 +276,8 @@ def _run_render_pipeline(
 
         def _render_clip_normal(pos: int) -> None:
             i = clip_folien[pos]
-            _create_slide_video(slide_images[i], audio_paths[i], clip_paths[pos], pause=slide_pause, crf=23, job_uuid=job_uuid, speed=speed)
+            # The voice keeps its own tempo, stretching it made it echo.
+            _create_slide_video(slide_images[i], audio_paths[i], clip_paths[pos], pause=slide_pause, crf=23, job_uuid=job_uuid)
 
         db.update_job_status(job_uuid, "running", progress={"step": "video", "current": 0, "total": len(clip_folien)})
         with messe(user_id, job_uuid, "clips") as clip_zahlen:

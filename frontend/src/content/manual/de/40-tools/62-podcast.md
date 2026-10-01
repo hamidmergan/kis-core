@@ -22,8 +22,6 @@ Skript und lassen es vertonen. Das Ergebnis ist eine MP3-Datei.
   Gespräch, drei bringen eine Person dazu, die nachfragt, vier sind eine Runde mit Widerspruch.
 - **Je Person** Name, Rolle und Stimme. Rollen sind Moderation, Fachperson, Studierende Person und
   Kritische Stimme. Eigene Stimmen kommen über Schnittstellen im Zahnrad-Menü dazu.
-- **Geschwindigkeit** von 0,7-fach bis 1,2-fach für alle. Ein anderes Tempo vertont später alle
-  Beiträge neu.
 - **Länge**: Kurz mit etwa 5 Minuten, Mittel mit etwa 10 Minuten, Lang mit etwa 20 Minuten.
 - **Stil**: Erklärend, Locker oder Interview.
 

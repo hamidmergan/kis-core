@@ -15,7 +15,6 @@ Reads texts and documents aloud with natural sounding voices and delivers an MP3
 - **Provider and voice**: with Preview voices you try every voice out beforehand. Voices from
   your own account at ElevenLabs, Gemini or Fish Audio are added under Interfaces in the gear
   menu.
-- **Speed**: from 0.7x to 1.2x.
 
 ## While it runs
 

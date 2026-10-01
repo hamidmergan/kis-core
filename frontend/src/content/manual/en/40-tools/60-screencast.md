@@ -17,8 +17,8 @@ Turns a PowerPoint file into a narrated video, in another language if you want.
    Import scripts as a JSON list or From the speaker notes of the file.
 5. **Scripts**: check every text, change it or rework it with Francis. That is the step where the
    quality is decided. All scripts together may have 100,000 characters.
-6. **Settings**: provider and voice, speed from 0.7x to 1.2x, pause between slides from 0 s to
-   3 s, image quality and Add subtitles.
+6. **Settings**: provider and voice, pause between slides from 0 s to 3 s, image quality and
+   Add subtitles.
 7. **Rendering**: voicing and video production, runs in the background.
 8. **Done**: download the MP4 or everything as a ZIP.
 

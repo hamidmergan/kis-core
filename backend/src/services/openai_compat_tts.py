@@ -135,10 +135,10 @@ class OpenAICompatTTSClient:
                 "voice_id must be set — configure voices for this provider in the admin KI panel"
             )
         voice = voice_id
+        # No tempo goes out, a voice slowed down by the provider echoes.
         payload: dict = {
             "input": text,
             "voice": voice,
-            "speed": speed,
             "response_format": "mp3",
         }
         if self._model:

@@ -17,8 +17,8 @@ Macht aus einer PowerPoint-Datei ein vertontes Video, auf Wunsch in einer andere
    eingeben, Skript importieren als JSON-Liste oder Aus den Sprechernotizen der Datei.
 5. **Skripte**: jeden Text prüfen, ändern oder mit Francis überarbeiten. Das ist der Schritt, an
    dem sich die Qualität entscheidet. Alle Sprechtexte zusammen dürfen 100.000 Zeichen haben.
-6. **Einstellungen**: Anbieter und Stimme, Geschwindigkeit von 0,7-fach bis 1,2-fach, Pause
-   zwischen den Folien von 0 s bis 3 s, Bildqualität und Untertitel einbauen.
+6. **Einstellungen**: Anbieter und Stimme, Pause zwischen den Folien von 0 s bis 3 s,
+   Bildqualität und Untertitel einbauen.
 7. **Rendern**: Vertonung und Videoproduktion, läuft im Hintergrund.
 8. **Fertig**: MP4 oder alles als ZIP herunterladen.
 

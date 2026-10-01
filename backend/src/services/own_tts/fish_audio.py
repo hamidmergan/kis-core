@@ -31,8 +31,8 @@ class Client(OwnTTSClient):
                 "reference_id": voice_id,
                 "format": "mp3",
                 "mp3_bitrate": 128,
+                # No tempo goes out, a voice slowed down by the provider echoes.
                 "normalize": True,
-                "prosody": {"speed": min(_SPEED_MAX, max(_SPEED_MIN, speed))},
             },
         )
         raise_for(response, LABEL, _QUOTA)

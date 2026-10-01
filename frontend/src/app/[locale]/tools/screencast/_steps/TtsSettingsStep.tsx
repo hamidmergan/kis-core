@@ -17,7 +17,6 @@ interface TtsSettingsStepProps {
   providers: ProviderWithVoices[];
   providerId: number;
   voiceId: string;
-  speed: number;
   slidePause: number;
   subtitles: boolean;
   slides: SlideData[];
@@ -40,7 +39,6 @@ interface TtsSettingsStepProps {
   onGeaenderteFolien: () => void;
   onProviderIdChange: (id: number) => void;
   onVoiceIdChange: (v: string) => void;
-  onSpeedChange: (v: number) => void;
   onSlidePauseChange: (v: number) => void;
   onSubtitlesChange: (v: boolean) => void;
   onBackToScripts: () => void;
@@ -57,7 +55,6 @@ export default function TtsSettingsStep(props: TtsSettingsStepProps) {
     providers,
     providerId,
     voiceId,
-    speed,
     slidePause,
     subtitles,
     slides,
@@ -80,7 +77,6 @@ export default function TtsSettingsStep(props: TtsSettingsStepProps) {
     onGeaenderteFolien,
     onProviderIdChange,
     onVoiceIdChange,
-    onSpeedChange,
     onSlidePauseChange,
     onSubtitlesChange,
     onBackToScripts,
@@ -150,27 +146,6 @@ export default function TtsSettingsStep(props: TtsSettingsStepProps) {
           </div>
         </div>
       )}
-
-      <div className="mb-6">
-        <label htmlFor="speed-slider" className="block text-sm font-medium text-foreground-soft mb-2">
-          {t("ttsSettings.speed", { speed: speed.toFixed(1) })}
-        </label>
-        <input
-          id="speed-slider"
-          type="range"
-          min="0.7"
-          max="1.2"
-          step="0.1"
-          value={speed}
-          onChange={(e) => onSpeedChange(parseFloat(e.target.value))}
-          className="w-full h-2 bg-surface-dim rounded-lg appearance-none cursor-pointer accent-kb"
-        />
-        <div className="flex justify-between text-xs text-muted-soft mt-1">
-          <span>{t("ttsSettings.speedSlow")}</span>
-          <span>{t("ttsSettings.speedFast")}</span>
-        </div>
-        <p className="text-xs text-muted-soft mt-2">{t("ttsSettings.speedHint")}</p>
-      </div>
 
       <div className="mb-6">
         <label className="block text-sm font-medium text-foreground-soft mb-2">

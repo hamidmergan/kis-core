@@ -29,7 +29,8 @@ export const INITIAL_STATE: PodcastState = {
   persons: defaultPersons(),
   length: "medium",
   style: "teaching",
-  speed: 0.9,
+  // No tempo slider any more, a voice slowed down by the provider echoes.
+  speed: 1,
   jobUuid: null,
   jobStatus: "idle",
   progress: null,

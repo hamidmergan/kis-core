@@ -317,14 +317,12 @@ function PodcastPageInner() {
                 persons={state.persons}
                 length={state.length}
                 style={state.style}
-                speed={state.speed}
                 voices={providers}
                 voicesLoaded={loaded}
                 onCount={(count) => dispatch({ type: "SET_COUNT", count })}
                 onPerson={(index, person) => dispatch({ type: "SET_PERSON", index, person })}
                 onLength={(length) => dispatch({ type: "SET_LENGTH", length })}
                 onStyle={(style) => dispatch({ type: "SET_STYLE", style })}
-                onSpeed={(speed) => dispatch({ type: "SET_SPEED", speed })}
                 onBack={state.jobUuid ? null : () => dispatch({ type: "GO", step: "content" })}
                 onNext={besetzungWeiter}
                 hatAuftrag={state.jobUuid !== null}

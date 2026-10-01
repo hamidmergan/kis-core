@@ -53,7 +53,6 @@ function TtsPageInner() {
   const [voiceId, setVoiceId] = useState("");
 
   // Audio settings
-  const [speed, setSpeed] = useState(1.0);
 
   useEffect(() => {
     fetch("/api/tts/providers-with-voices", { credentials: "include" })
@@ -156,7 +155,6 @@ function TtsPageInner() {
       }
       formData.append("voice_id", voiceId);
       formData.append("voice_label", voiceLabel);
-      formData.append("speed", String(speed));
       formData.append("provider_id", String(providerId));
 
       const uploadRes = await fetch("/api/tts", {
@@ -374,28 +372,6 @@ function TtsPageInner() {
             </div>
           )}
 
-
-          {/* Speed */}
-          <div className="mb-6">
-            <label htmlFor="speed-slider" className="block text-sm font-medium text-foreground-soft mb-2">
-              {t("speed", { speed: speed.toFixed(1) })}
-            </label>
-            <input
-              id="speed-slider"
-              type="range"
-              min="0.7"
-              max="1.2"
-              step="0.1"
-              value={speed}
-              onChange={(e) => setSpeed(parseFloat(e.target.value))}
-              disabled={isProcessing}
-              className="w-full h-2 bg-surface-dim rounded-lg appearance-none cursor-pointer accent-kb disabled:opacity-50"
-            />
-            <div className="flex justify-between text-xs text-muted-soft mt-1">
-              <span>{t("speedSlow")}</span>
-              <span>{t("speedFast")}</span>
-            </div>
-          </div>
 
           {ttsState !== "done" && (
             <div className="mb-6 flex items-center gap-3">

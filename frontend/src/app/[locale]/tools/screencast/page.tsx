@@ -83,7 +83,8 @@ function ScreencastPageInner() {
     onDrop: handleDrop,
     reset: resetFile,
   } = useFileDropzone({ acceptedExtensions: ACCEPTED_EXTENSIONS });
-  const [speed, setSpeed] = useState(0.9);
+  // No tempo slider any more, a stretched voice echoes, so every video keeps the voice as it is.
+  const speed = 1;
   const [slidePause, setSlidePause] = useState<number>(1.0);
   const [dpi, setDpi] = useState(96);
   const [subtitles, setSubtitles] = useState(false);
@@ -183,7 +184,6 @@ function ScreencastPageInner() {
     if (e.provider_id) setProviderId(e.provider_id);
     if (e.voice_id) setVoiceId(e.voice_id);
     if (e.target_lang) setTargetLang(e.target_lang);
-    setSpeed(e.speed);
     setSlidePause(e.slide_pause);
     setDpi(e.dpi);
     setSubtitles(e.subtitles);
@@ -317,7 +317,6 @@ function ScreencastPageInner() {
 
     dispatch({ type: "RESET" });
     resetFile();
-    setSpeed(0.9);  // gleicher Startwert wie beim frischen Aufruf der Seite
     setSlidePause(1.0);
     setGlossaryIds(["", "", ""]);
     setFertigeFolien([]);
@@ -749,7 +748,6 @@ function ScreencastPageInner() {
             providers={providers}
             providerId={providerId}
             voiceId={voiceId}
-            speed={speed}
             slidePause={slidePause}
             subtitles={subtitles}
             slides={slides}
@@ -772,7 +770,6 @@ function ScreencastPageInner() {
             onGeaenderteFolien={auswahl.setzeGeaenderte}
             onProviderIdChange={setProviderId}
             onVoiceIdChange={setVoiceId}
-            onSpeedChange={setSpeed}
             onSlidePauseChange={setSlidePause}
             onSubtitlesChange={setSubtitles}
             onBackToScripts={handleBackToScripts}

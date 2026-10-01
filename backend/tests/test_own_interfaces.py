@@ -275,7 +275,7 @@ def test_the_voice_list_shows_own_voices_but_never_preselects_them(client_as, mo
 
 # ── The outside services ─────────────────────────────────────────────────────
 
-def test_elevenlabs_speaks_with_the_key_header_and_clamps_the_speed():
+def test_elevenlabs_speaks_with_the_key_header_and_sends_no_speed():
     from src.services.own_tts import elevenlabs
 
     seen = {}
@@ -295,7 +295,7 @@ def test_elevenlabs_speaks_with_the_key_header_and_clamps_the_speed():
     assert "output_format=mp3_44100_128" in seen["url"]
     assert seen["key"] == "sk_abc"
     assert seen["body"]["model_id"] == "eleven_multilingual_v2"
-    assert seen["body"]["voice_settings"]["speed"] == 1.2
+    assert "voice_settings" not in seen["body"]
     assert seen["body"]["text"] == "Hallo Welt 3"
 
 
@@ -358,7 +358,8 @@ def test_gemini_turns_the_wav_into_mp3(monkeypatch):
     with _REAL_CLIENT(transport=httpx.MockTransport(handler)) as http:
         audio = client._one(http, "Hallo", "Kore", 0.8, "de")
 
-    assert audio == b"MP3:RIFF0.8"
+    # The tempo of the call is not applied, the voice keeps its own.
+    assert audio == b"MP3:RIFF1.0"
     assert seen["url"].endswith(f"/v1beta/models/{gemini.MODEL}:generateContent")
     voice = seen["body"]["generationConfig"]["speechConfig"]["voiceConfig"]["prebuiltVoiceConfig"]["voiceName"]
     assert voice == "Kore"

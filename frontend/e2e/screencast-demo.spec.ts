@@ -44,8 +44,7 @@ test("Demo läuft alle Schritte durch", async ({ page }) => {
   await page.getByRole("button", { name: "Alle Skripte übernehmen" }).click();
 
   // Step 6: take slide 2 out, the preview shows it as excluded.
-  await expect(page.locator("#speed-slider")).toBeVisible();
-  await page.locator("#speed-slider").fill("1.1");
+  await expect(page.getByRole("button", { name: "Ändern" })).toBeVisible();
   await page.getByRole("button", { name: "Ändern" }).click();
   await page.getByLabel("Folie 2 in den Screencast").uncheck();
   await page.getByRole("button", { name: "Screencast erstellen" }).click();

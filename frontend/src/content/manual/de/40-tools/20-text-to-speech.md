@@ -15,7 +15,6 @@ Liest Texte und Dokumente mit natürlich klingenden Stimmen vor und liefert eine
 - **Anbieter und Stimme**: über Stimmen anhören probieren Sie jede Stimme vorher aus. Stimmen aus
   Ihrem eigenen Konto bei ElevenLabs, Gemini oder Fish Audio kommen über Schnittstellen im
   Zahnrad-Menü dazu.
-- **Geschwindigkeit**: von 0,7-fach bis 1,2-fach.
 
 ## Während es läuft
 

@@ -66,7 +66,8 @@ class Client(OwnTTSClient):
             data = response.json()["candidates"][0]["content"]["parts"][0]["inlineData"]["data"]
         except (KeyError, IndexError, TypeError, ValueError) as e:
             raise RuntimeError(f"Gemini TTS without audio: {response.text[:300]}") from e
-        return to_mp3(base64.b64decode(data), _RATE, speed=speed)
+        # Never stretched, a slowed down voice echoes.
+        return to_mp3(base64.b64decode(data), _RATE)
 
     def is_available(self) -> bool:
         try:
