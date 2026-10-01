@@ -544,8 +544,7 @@ function ScreencastPageInner() {
     <ProtectedRoute>
       {/* Wide for the two columns of the upload, narrow for the steps that follow. */}
       <div className={`${step === "upload" ? "max-w-6xl" : "max-w-4xl"} mx-auto px-4 py-10 sm:py-14`} data-tour="tool-screencast">
-        {/* On the phone the later steps bring their own header with back arrow and discard. */}
-        <div className={showStepIndicator ? "hidden sm:flex items-baseline justify-between gap-3" : ""}>
+        <div className={showStepIndicator ? "flex items-baseline justify-between gap-3" : ""}>
           <ToolBackLink onRestart={showStepIndicator ? neuAnfangen : undefined} />
           {showStepIndicator && (
             <button
@@ -564,8 +563,6 @@ function ScreencastPageInner() {
             skipTranslation={skipTranslation}
             hatErgebnis={videoUrl !== null}
             onStepClick={handleStepClick}
-            onDiscard={() => setPendingExit("cancel")}
-            discardLabel={t("exit.cancel")}
           />
         )}
 

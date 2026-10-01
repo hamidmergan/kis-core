@@ -308,8 +308,7 @@ function PraesentationPageInner() {
     <ProtectedRoute>
       {/* Wide for the two columns of the first step, narrow like the original for slides and the finished deck. */}
       <div className={`${state.step === "content" ? "max-w-6xl" : "max-w-4xl"} mx-auto px-4 py-10 sm:py-14`} data-tour="tool-praesentation">
-        {/* On the phone the later steps bring their own header with a back arrow. */}
-        <div className={state.step === "content" ? "" : "hidden sm:flex items-baseline justify-between gap-3"}>
+        <div className={state.step === "content" ? "" : "flex items-baseline justify-between gap-3"}>
           <ToolBackLink onRestart={state.step !== "content" ? neu : undefined} />
           {hydrated && state.step !== "content" && state.jobUuid && (
             <button type="button" onClick={() => setNachfrage("verwerfen")} className={DISCARD}>
@@ -345,8 +344,7 @@ function PraesentationPageInner() {
             {state.step !== "content" && (
               <PraesentationStepper step={state.step} canEnter={(i) => reachable(i, state)}
                                     isClosedForGood={(i) => closedForGood(i, state)}
-                                    onStepClick={(i) => (startsAnew(i, state) ? neu() : gehe(i))}
-                                    onDiscard={state.jobUuid ? () => setNachfrage("verwerfen") : null} />
+                                    onStepClick={(i) => (startsAnew(i, state) ? neu() : gehe(i))} />
             )}
             {state.step === "content" && (
               <ContentStep canUseModules={!!permissions.allow_aia} source={state.source} language={state.language}

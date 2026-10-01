@@ -3,7 +3,7 @@
 import { useTranslations } from "next-intl";
 import SchrittReiter from "@/components/tools/SchrittReiter";
 import type { ScreencastStep } from "@/types";
-import { istErreichbar, nieBetretbar, startsAnew, STEP_KEYS, stepToIndex, vorherErreichbar } from "./steps";
+import { istErreichbar, nieBetretbar, startsAnew, STEP_KEYS, stepToIndex } from "./steps";
 
 interface ScreencastStepperProps {
   step: ScreencastStep;
@@ -11,9 +11,6 @@ interface ScreencastStepperProps {
   skipTranslation: boolean;
   hatErgebnis?: boolean;
   onStepClick: (index: number) => void;
-  /** Discards the whole screencast, absent where there is nothing to discard. */
-  onDiscard?: (() => void) | null;
-  discardLabel?: string;
 }
 
 /** The shared step tabs with the screencast's eight steps, the skipped translation struck through. */
@@ -23,8 +20,6 @@ export default function ScreencastStepper({
   skipTranslation,
   hatErgebnis = false,
   onStepClick,
-  onDiscard,
-  discardLabel,
 }: ScreencastStepperProps) {
   const t = useTranslations("stepper");
   const current = stepToIndex(step);
@@ -35,10 +30,7 @@ export default function ScreencastStepper({
       canEnter={(i) => istErreichbar(i, maxReachedIdx, skipTranslation, step, hatErgebnis) || startsAnew(i, step)}
       isClosedForGood={(i) => nieBetretbar(i, skipTranslation) && !startsAnew(i, step)}
       isSkipped={(i) => skipTranslation && i === 1}
-      backIndex={vorherErreichbar(current, maxReachedIdx, skipTranslation, step, hatErgebnis)}
       onStepClick={onStepClick}
-      onDiscard={onDiscard}
-      discardLabel={discardLabel}
     />
   );
 }

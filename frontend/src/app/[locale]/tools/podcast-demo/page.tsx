@@ -112,7 +112,7 @@ function PodcastDemoLauf({ onNeu }: { onNeu: () => void }) {
   return (
     <ProtectedRoute>
       <div className="max-w-6xl mx-auto px-4 py-10 sm:py-14">
-        <div className={state.step === "content" ? "" : "hidden sm:block"}><ToolBackLink onRestart={state.step !== "content" ? onNeu : undefined} /></div>
+        <ToolBackLink onRestart={state.step !== "content" ? onNeu : undefined} />
         {state.step !== "content" && (
           <>
             <div className="flex justify-end mb-3 sm:mb-8">

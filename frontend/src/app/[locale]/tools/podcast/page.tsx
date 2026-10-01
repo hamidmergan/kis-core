@@ -278,8 +278,7 @@ function PodcastPageInner() {
   return (
     <ProtectedRoute>
       <div className="max-w-6xl mx-auto px-4 py-10 sm:py-14" data-tour="tool-podcast">
-        {/* On the phone the later steps bring their own header with back arrow and discard. */}
-        <div className={showStepIndicator ? "hidden sm:flex items-baseline justify-between gap-3" : ""}>
+        <div className={showStepIndicator ? "flex items-baseline justify-between gap-3" : ""}>
           <ToolBackLink onRestart={showStepIndicator ? neuGefragt : undefined} />
           {begonnen && (
             <button type="button" onClick={neuGefragt} className={DISCARD}>
@@ -299,7 +298,6 @@ function PodcastPageInner() {
                 canEnter={(i) => reachable(i, state)}
                 isClosedForGood={(i) => closedForGood(i, state)}
                 onStepClick={(i) => (startsAnew(i, state) ? neuGefragt() : gehe(i))}
-                onDiscard={begonnen ? neuGefragt : null}
               />
             )}
 
