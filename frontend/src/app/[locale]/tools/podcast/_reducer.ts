@@ -24,7 +24,6 @@ export const INITIAL_STATE: PodcastState = {
   source: { mode: "files", files: [], moduleId: "", sourceIds: [] },
   instructions: "",
   language: "de",
-  glossaryIds: [],
   count: 2,
   persons: defaultPersons(),
   length: "medium",
@@ -50,7 +49,6 @@ export type Action =
   | { type: "SET_SOURCE"; source: Partial<Source> }
   | { type: "SET_INSTRUCTIONS"; text: string }
   | { type: "SET_LANGUAGE"; language: Language }
-  | { type: "SET_GLOSSARIES"; ids: string[] }
   | { type: "SET_COUNT"; count: PersonCount }
   | { type: "SET_PERSON"; index: number; person: Partial<Person> }
   | { type: "SET_LENGTH"; length: Length }
@@ -89,8 +87,6 @@ export function reducer(state: PodcastState, action: Action): PodcastState {
       return { ...state, instructions: action.text };
     case "SET_LANGUAGE":
       return { ...state, language: action.language };
-    case "SET_GLOSSARIES":
-      return { ...state, glossaryIds: action.ids };
     case "SET_COUNT":
       return { ...state, count: action.count };
     case "SET_PERSON":

@@ -53,8 +53,6 @@ export interface PodcastState {
   source: Source;
   instructions: string;
   language: Language;
-  /** Ids of the picked terminology lists, up to three. */
-  glossaryIds: string[];
   count: PersonCount;
   persons: Person[];
   length: Length;

@@ -34,8 +34,7 @@ async function fehlerText(res: Response): Promise<string> {
 }
 
 /** Step one: material and cast go out, a job comes back. */
-export async function startPodcast(state: PodcastState, glossary: Record<string, string>,
-                                   llmProviderId: number | null): Promise<string> {
+export async function startPodcast(state: PodcastState, llmProviderId: number | null): Promise<string> {
   const persons = state.persons.slice(0, state.count).map((p) => ({
     name: p.name.trim(),
     role: p.role,
@@ -50,7 +49,6 @@ export async function startPodcast(state: PodcastState, glossary: Record<string,
     length: state.length,
     style: state.style,
     speed: state.speed,
-    glossary,
     llm_provider_id: llmProviderId,
   }));
   form.append("mode", state.source.mode);

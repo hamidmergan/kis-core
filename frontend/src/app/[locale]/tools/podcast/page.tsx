@@ -13,7 +13,6 @@ import { useRegenAnchor } from "@/hooks/useRegenAnchor";
 import RegenChatModal, { type RegenTurn } from "@/components/regen/RegenChatModal";
 import { applyRegen, type RegenApplyMode } from "@/components/regen/apply";
 import { useVoices } from "@/hooks/useVoices";
-import { useGlossaries } from "@/hooks/useGlossaries";
 import { useFeatureProviders } from "@/hooks/useFeatureProviders";
 import CastStep from "./_steps/CastStep";
 import ContentStep from "./_steps/ContentStep";
@@ -39,7 +38,6 @@ function PodcastPageInner() {
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
   // The chat model that writes, picked in the first step and sent along with the start.
   const llm = useFeatureProviders("/podcast/providers");
-  const { mergeEntries } = useGlossaries();
   const [hydrated, setHydrated] = useState(false);
   const [besetzungLaeuft, setBesetzungLaeuft] = useState(false);
   const [demoDa, setDemoDa] = useState(false);
@@ -198,7 +196,7 @@ function PodcastPageInner() {
   const starten = async () => {
     dispatch({ type: "STARTING" });
     try {
-      const uuid = await startPodcast(stateRef.current, mergeEntries(stateRef.current.glossaryIds), llm.providerId);
+      const uuid = await startPodcast(stateRef.current, llm.providerId);
       dispatch({ type: "STARTED", jobUuid: uuid });
       if (stateRef.current.source.mode === "blank") {
         const view = await holeStand(uuid);
@@ -304,8 +302,6 @@ function PodcastPageInner() {
                 onLlmProvider={llm.setProviderId}
                 onSource={(source) => dispatch({ type: "SET_SOURCE", source })}
                 onLanguage={(language) => dispatch({ type: "SET_LANGUAGE", language })}
-                glossaryIds={state.glossaryIds}
-                onGlossaryIds={(ids) => dispatch({ type: "SET_GLOSSARIES", ids })}
                 onInstructions={(text) => dispatch({ type: "SET_INSTRUCTIONS", text })}
                 onNext={() => dispatch({ type: "GO", step: "cast" })}
                 demoDa={demoDa}

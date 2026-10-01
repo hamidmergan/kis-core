@@ -54,5 +54,3 @@ class PodcastParams(BaseModel):
     instruction_unmatched: bool = False
     # What the instruction turned out to be, decided once per run, see services/anweisung.py.
     instruction_way: str = ""
-    # Sifted down to what the material contains at the start, so every later call can use it.
-    glossary: dict[str, str] = Field(default_factory=dict)

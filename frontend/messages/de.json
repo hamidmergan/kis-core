@@ -1230,8 +1230,6 @@
           "de": "Deutsch",
           "en": "Englisch"
         },
-        "glossaryLabel": "Glossar, optional",
-        "glossaryHint": "Begriffe aus deinen Listen, die im Material vorkommen, bekommt die KI als Vorgabe. Sie hält sich meistens daran, sicher ist es nicht.",
         "instructionsLabel": "Anweisung, optional",
         "instructionsPlaceholder": "Thema oder Kapitel eingrenzen, Ton und Schwierigkeit vorgeben, Zielgruppe nennen.",
         "next": "Weiter zur Besetzung",
@@ -1639,7 +1637,6 @@
       "demoBadge": "Demo",
       "hinweis": "Das ist die Demo. Du kannst alle Schritte ausprobieren, das Ergebnis ist aber immer der vorbereitete Podcast. Am Ende hörst du ihn zum Vergleich auch mit Stimmen anderer Dienste.",
       "materialVorgegeben": "In der Demo sind Workspace, Material und Anweisung vorgegeben.",
-      "keinGlossar": "In der Demo wird keine Begriffsliste verwendet.",
       "keinErgebnis": "Für die Demo ist noch kein Ergebnis hinterlegt.",
       "skriptGesperrt": "In der Demo lässt sich das Skript nur lesen, nicht ändern.",
       "vergleichTitel": "So könnte es mit anderen Stimmen klingen",

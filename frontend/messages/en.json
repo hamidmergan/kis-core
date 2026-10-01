@@ -1230,8 +1230,6 @@
           "de": "German",
           "en": "English"
         },
-        "glossaryLabel": "Glossary, optional",
-        "glossaryHint": "Terms from your lists that appear in the material are handed to the AI as a guideline. It usually keeps to them, but there is no guarantee.",
         "instructionsLabel": "Instruction, optional",
         "instructionsPlaceholder": "Narrow down a topic or chapter, set tone and level, name the audience.",
         "next": "Continue to the cast",
@@ -1639,7 +1637,6 @@
       "demoBadge": "Demo",
       "hinweis": "This is the demo. You can try every step, but the result is always the prepared podcast. At the end you can also hear it with voices from other services for comparison.",
       "materialVorgegeben": "In the demo the workspace, material and instruction are fixed.",
-      "keinGlossar": "The demo uses no term list.",
       "keinErgebnis": "No result has been added for the demo yet.",
       "skriptGesperrt": "In the demo the script can only be read, not changed.",
       "vergleichTitel": "How it could sound with other voices",

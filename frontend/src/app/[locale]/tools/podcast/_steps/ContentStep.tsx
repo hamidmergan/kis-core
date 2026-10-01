@@ -4,7 +4,6 @@ import { useEffect, useRef, useState, type DragEvent } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { Info, X } from "@phosphor-icons/react";
 import Checkbox from "@/components/ui/Checkbox";
-import GlossarySelector from "@/components/glossary/GlossarySelector";
 import { EmptyState } from "@/components/ui/EmptyState";
 import IconButton from "@/components/ui/IconButton";
 import Select from "@/components/ui/Select";
@@ -39,14 +38,12 @@ interface ContentStepProps {
   source: Source;
   language: Language;
   instructions: string;
-  glossaryIds: string[];
   /** The chat providers the script can be written on, empty hides the choice. */
   llmProviders: FeatureProvider[];
   llmProviderId: number | null;
   onLlmProvider: (id: number) => void;
   onSource: (source: Partial<Source>) => void;
   onLanguage: (language: Language) => void;
-  onGlossaryIds: (ids: string[]) => void;
   onInstructions: (text: string) => void;
   onNext: () => void;
   /** The demo run: its material and every setting that shaped the prepared podcast stay fixed. */
@@ -57,8 +54,8 @@ interface ContentStepProps {
   onBeenden?: () => void;
 }
 
-export default function ContentStep({ canUseModules, source, language, instructions, glossaryIds, llmProviders, llmProviderId,
-                                      onLlmProvider, onSource, onLanguage, onGlossaryIds, onInstructions, onNext,
+export default function ContentStep({ canUseModules, source, language, instructions, llmProviders, llmProviderId,
+                                      onLlmProvider, onSource, onLanguage, onInstructions, onNext,
                                       demo, demoDa = false, onBeenden }: ContentStepProps) {
   const t = useTranslations("tools.podcast.content");
   const tDemo = useTranslations("tools.podcastDemo");
@@ -343,18 +340,6 @@ export default function ContentStep({ canUseModules, source, language, instructi
           className="mt-4"
           showModel
         />
-
-        <div className="mt-4">
-          <span className="block text-sm font-medium text-foreground-soft">
-            {t("glossaryLabel")}
-          </span>
-          <p className="mt-1 text-xs text-muted-soft">{t("glossaryHint")}</p>
-          {fest ? (
-            <p className="mt-2 mb-4 text-sm text-muted">{tDemo("keinGlossar")}</p>
-          ) : (
-            <GlossarySelector values={glossaryIds} onChange={onGlossaryIds} className="mb-4 mt-2" />
-          )}
-        </div>
 
         <div className="mt-4">
           <label htmlFor="podcast-instructions" className="block text-sm font-medium text-foreground-soft mb-2">

@@ -5,7 +5,6 @@ import re
 
 from loguru import logger
 
-from src.features.podcast import glossary as glossar
 from src.services import anweisung
 from src.features.podcast.schemas import LENGTH_PLAN, Line, PodcastParams
 from src.limits import PODCAST_MAX_LINES, PODCAST_MAX_LINE_CHARS
@@ -320,7 +319,6 @@ def build_messages(source: str, params: PodcastParams, *, anzahl: int | None = N
         )
     if not allein:
         aufgabe += _vorlage(params)
-    aufgabe += glossar.block(params.glossary, params.language)
     aufgabe += anweisung.schreib_zusatz(params.instructions, params.instruction_way)
     return [{"role": "system", "content": system}, {"role": "user", "content": aufgabe}]
 
@@ -488,7 +486,6 @@ def rephrase_messages(line: Line, params: PodcastParams, nachbarn: list[str]) ->
                    f"Surrounding conversation:\n{umfeld}\n\n"
                    f"This contribution should be rephrased:\n{line.text}\n\n"
                    "Same length, same statement, no quotation marks, no name in front of the text.")
-    auftrag += glossar.block(params.glossary, params.language)
     return [{"role": "system", "content": system}, {"role": "user", "content": auftrag}]
 
 
@@ -611,7 +608,6 @@ def refine_messages(line: Line, params: PodcastParams, nachbarn: list[str], quel
             auftrag += f"Conversation so far:\n{austausch}\n\n"
         auftrag += (f"Wish: {wunsch}\n"
                     "No quotation marks, no name in front of the text.")
-    auftrag += glossar.block(params.glossary, params.language)
     return [{"role": "system", "content": system}, {"role": "user", "content": auftrag}]
 
 
