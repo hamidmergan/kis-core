@@ -1581,7 +1581,21 @@
         "next": "Nächste Folie",
         "allSlides": "Alle Folien"
       },
-      "demoBadge": "Demo ansehen"
+      "demoBadge": "Demo ansehen",
+      "neu": {
+        "historyTitle": "Deine Präsentationen",
+        "historyEmpty": "Noch keine Präsentation.",
+        "historyHint": "Neue Präsentationen kommen oben dazu, ein Klick öffnet sie wieder.",
+        "colMaterial": "Material",
+        "colDate": "Datum",
+        "sourceLabel": "Material",
+        "files": "{n, plural, =0 {keine} one {# Datei} other {# Dateien}}",
+        "sources": "{n, plural, =0 {keine} one {# Material} other {# Materialien}}",
+        "empty": "leer",
+        "stageCaption": "Deckblatt im Folienmaster {name}",
+        "stageHint": "So sieht das Deckblatt aus. Im nächsten Schritt siehst du, wie die Folien entstehen, und kannst jede prüfen und ändern.",
+        "barTemplate": "Folienmaster: {name}"
+      }
     },
     "screencastDemo": {
       "backToScreencast": "Zurück",

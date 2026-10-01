@@ -149,7 +149,6 @@ export const transcriptUrl = (jobUuid: string) =>
 /** The start of the demo script voiced by another service, to hear what other voices could do. */
 export interface Stimmprobe {
   id: string;
-  sprache: string;
   anbieter: string;
   stimmen: string[];
 }

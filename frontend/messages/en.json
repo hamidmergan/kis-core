@@ -1581,7 +1581,21 @@
         "next": "Next slide",
         "allSlides": "All slides"
       },
-      "demoBadge": "View demo"
+      "demoBadge": "View demo",
+      "neu": {
+        "historyTitle": "Your presentations",
+        "historyEmpty": "No presentation yet.",
+        "historyHint": "New presentations appear at the top, a click opens them again.",
+        "colMaterial": "Material",
+        "colDate": "Date",
+        "sourceLabel": "Material",
+        "files": "{n, plural, =0 {none} one {# file} other {# files}}",
+        "sources": "{n, plural, =0 {none} one {# material} other {# materials}}",
+        "empty": "empty",
+        "stageCaption": "Cover slide in the {name} master",
+        "stageHint": "This is how the cover looks. In the next step you watch the slides being made and can check and change each one.",
+        "barTemplate": "Slide master: {name}"
+      }
     },
     "screencastDemo": {
       "backToScreencast": "Back",

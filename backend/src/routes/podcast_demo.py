@@ -19,10 +19,10 @@ router = APIRouter(
 
 DEMO_DIR = Path(__file__).resolve().parent.parent.parent / "demo" / "podcast"
 ERGEBNIS = "podcast.mp3"
-# The start of the same script voiced by other services, to hear what better voices could do, per language.
+# The start of the same script voiced by other services, to hear what better voices could do.
 VERGLEICH_DIR = DEMO_DIR / "vergleich"
 _LINE_ID = re.compile(r"^b[0-9]{1,4}$")
-_VERGLEICH_ID = re.compile(r"^[a-z0-9]+(-[a-z]{2})?$")
+_VERGLEICH_ID = re.compile(r"^[a-z0-9]{1,32}$")
 
 
 def _laden(locale: str) -> dict:
@@ -33,13 +33,13 @@ def _laden(locale: str) -> dict:
 
 
 def _vergleich() -> list[dict]:
-    """The comparison excerpts with a language and a file, in the order the list names them."""
+    """The comparison excerpts whose file is there, in the order the list names them."""
     pfad = VERGLEICH_DIR / "vergleich.json"
     if not pfad.exists():
         return []
     eintraege = json.loads(pfad.read_text(encoding="utf-8"))
     return [e for e in eintraege
-            if _VERGLEICH_ID.match(e.get("id", "")) and e.get("sprache") and (VERGLEICH_DIR / f"{e['id']}.mp3").exists()]
+            if _VERGLEICH_ID.match(e.get("id", "")) and (VERGLEICH_DIR / f"{e['id']}.mp3").exists()]
 
 
 @router.get("/podcast-demo/available")
