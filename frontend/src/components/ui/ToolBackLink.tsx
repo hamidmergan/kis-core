@@ -13,7 +13,7 @@ export default function ToolBackLink() {
       style={{ color: "var(--muted)" }}
     >
       <CaretLeft size={13} weight="bold" />
-      {t("backToOverview")}
+      {t("backToTools")}
     </Link>
   );
 }

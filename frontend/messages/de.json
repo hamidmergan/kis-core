@@ -417,7 +417,7 @@
     "retryJobAria": "Job wiederholen",
     "add": "Hinzufügen",
     "close": "Schließen",
-    "backToOverview": "Übersicht",
+    "backToTools": "Dienste",
     "jobBackgroundHint": "Du kannst die Seite verlassen. Der Auftrag läuft im Hintergrund weiter. Das Ergebnis findest du unter Meine Jobs.",
     "material": {
       "chars": "{n} Zeichen",

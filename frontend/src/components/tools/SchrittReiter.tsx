@@ -49,7 +49,7 @@ export default function SchrittReiter({ labels, current, canEnter, isClosedForGo
               <CaretLeft size={20} weight="bold" />
             </button>
           ) : (
-            <Link href="/" aria-label={tCommon("backToOverview")} className="text-muted hover:text-kb transition-colors">
+            <Link href="/" aria-label={tCommon("backToTools")} className="text-muted hover:text-kb transition-colors">
               <CaretLeft size={20} weight="bold" />
             </Link>
           )}

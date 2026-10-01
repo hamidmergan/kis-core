@@ -417,7 +417,7 @@
     "retryJobAria": "Retry job",
     "add": "Add",
     "close": "Close",
-    "backToOverview": "Overview",
+    "backToTools": "Services",
     "jobBackgroundHint": "You can leave the page. The job keeps running in the background. You find the result under My jobs.",
     "material": {
       "chars": "{n} characters",
