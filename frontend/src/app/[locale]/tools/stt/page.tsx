@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import ToolBackLink from "@/components/ui/ToolBackLink";
+import StatusMark from "@/components/ui/StatusMark";
 import TranscriptionFileUpload from "@/components/jobs/TranscriptionFileUpload";
 import JobHistoryTable from "@/components/jobs/JobHistoryTable";
 import { useJobHistory } from "@/hooks/useJobHistory";
@@ -227,10 +228,7 @@ function TranscriptionPageInner() {
             ) : doneJobUuid ? (
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
-                  <svg className="h-5 w-5 text-success shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-sm font-medium text-foreground">{t("readyTitle")}</span>
+                  <StatusMark tone="success" className="text-sm font-medium">{t("readyTitle")}</StatusMark>
                   {transcriptFilename && <span className="text-xs text-muted truncate min-w-0">{transcriptFilename}</span>}
                 </div>
 

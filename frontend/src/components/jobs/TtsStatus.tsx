@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import { SpeakerHigh } from "@phosphor-icons/react";
 import type { TTSState } from "@/types";
 import Spinner from "@/components/ui/Spinner";
+import StatusMark from "@/components/ui/StatusMark";
 import BackgroundHint from "@/components/tools/BackgroundHint";
 
 interface TtsStatusProps {
@@ -45,12 +46,7 @@ export default function TtsStatus({
 
       {state === "done" && (
         <div className="flex flex-col items-center gap-4 text-center">
-          <div className="flex items-center gap-2">
-            <svg className="h-5 w-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-            <span className="text-sm font-medium text-foreground">{t("readyToPlay")}</span>
-          </div>
+          <StatusMark tone="success" className="text-sm font-medium">{t("readyToPlay")}</StatusMark>
 
           {/* Audio player — consistent with the AIA media player */}
           {audioUrl && (

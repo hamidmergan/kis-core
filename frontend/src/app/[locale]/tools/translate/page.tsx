@@ -6,6 +6,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { Copy, Check } from "@phosphor-icons/react";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import ToolBackLink from "@/components/ui/ToolBackLink";
+import StatusMark from "@/components/ui/StatusMark";
 import FileUpload from "@/components/jobs/FileUpload";
 import TranslateTextInput from "@/components/jobs/TranslateTextInput";
 import JobHistoryTable from "@/components/jobs/JobHistoryTable";
@@ -286,12 +287,7 @@ function UebersetzungPageInner() {
               </div>
             ) : doneJobUuid ? (
               <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <svg className="h-5 w-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-sm font-medium text-foreground">{tCommon("downloadReady")}</span>
-                </div>
+                <StatusMark tone="success" className="text-sm font-medium">{tCommon("downloadReady")}</StatusMark>
                 {angezeigterDateiname && angezeigterDateiname !== TEXT_MODE_FILENAME && (
                   <p className="text-xs text-muted">{angezeigterDateiname}</p>
                 )}

@@ -9,6 +9,7 @@ import remarkGfm from "remark-gfm";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import Modal from "@/components/ui/Modal";
 import ToolBackLink from "@/components/ui/ToolBackLink";
+import StatusMark from "@/components/ui/StatusMark";
 import JobHistoryTable from "@/components/jobs/JobHistoryTable";
 import { Link } from "@/i18n/navigation";
 import { backendApi, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
@@ -611,12 +612,7 @@ function ZusammenfassungSeiteInner({ demo = false }: { demo?: boolean }) {
             ) : doneJobUuid ? (
               <div className="space-y-3">
                 <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <svg className="h-5 w-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span className="text-sm font-medium text-foreground">{tCommon("downloadReady")}</span>
-                  </div>
+                  <StatusMark tone="success" className="text-sm font-medium">{tCommon("downloadReady")}</StatusMark>
                   {materialien.length > 0 && (
                     <button
                       type="button"

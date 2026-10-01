@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import type { SlideData } from "@/types";
+import StatusMark from "@/components/ui/StatusMark";
 import StepFooter from "./StepFooter";
 
 interface TranslationReviewStepProps {
@@ -134,12 +135,9 @@ export default function TranslationReviewStep({
           </label>
           {demo && <p className="mt-1 text-xs text-muted-soft">{tDemo("keinHochladen")}</p>}
           {correctedFileName && (
-            <p className="mt-2 text-sm text-success flex items-center gap-2">
-              <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
+            <StatusMark tone="success" className="mt-2 text-sm">
               {t("translationReview.uploaded", { name: correctedFileName })}
-            </p>
+            </StatusMark>
           )}
         </div>
       </div>
