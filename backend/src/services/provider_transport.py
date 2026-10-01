@@ -64,6 +64,9 @@ _exempt: contextvars.ContextVar[bool] = contextvars.ContextVar("provider_seat_ex
 # The rank this process queues with at the door, a worker runs one job at a time and sets it per job.
 _rank = 0
 
+# Who really answered in the current job of this process, None while no job records it.
+_answered: Optional[list[str]] = None
+
 try:
     from openai import OpenAIError as _SdkError
 except ImportError:  # pragma: no cover - the SDK is always installed in the containers
@@ -102,6 +105,17 @@ def set_seat_rank(rank: int) -> None:
     """Sets the rank for every call of this process until the next job sets its own."""
     global _rank
     _rank = rank
+
+
+def record_answering() -> None:
+    """Starts a fresh list of the providers that really answer, called when a job starts."""
+    global _answered
+    _answered = []
+
+
+def answered() -> list[str]:
+    """The providers that answered so far in this process's job, in the order they first did."""
+    return list(_answered or [])
 
 
 def _root(base_url: str) -> str:
@@ -378,6 +392,8 @@ class _Door:
 
     def served(self, target: Target) -> None:
         """Names the provider that really answered, the SDK's own log line only knows the first choice."""
+        if _answered is not None and target.name and target.name not in _answered:
+            _answered.append(target.name)
         if target is not self.primary:
             logger.info("{} hat für {} geantwortet ({})", target.name, self.primary.name, self.bucket)
 

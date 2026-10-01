@@ -39,7 +39,8 @@ from src.storage import (
     save_result_file,
 )
 from src.tasks._stage import StageClock, StageContinue, StageLost, continue_stage
-from src.services.job_statistik import angaben_merken, route_kennung
+from src.services.job_statistik import angaben_merken, wer_antwortete
+from src.services import provider_transport
 
 _MIN_WORDS = 20
 _OUTLINE_FILE = "outline.json"
@@ -186,6 +187,7 @@ def _run_summary_inner(job_uuid: str, template_slug: str,
     if not still_mine(job_uuid, versuch):
         raise StageLost(job_uuid)
     clock = StageClock()
+    provider_transport.record_answering()
     auftrag = db.get_job(job_uuid)
     if not auftrag:
         raise RuntimeError(f"Auftrag {job_uuid} nicht gefunden")
@@ -242,7 +244,7 @@ def _run_summary_inner(job_uuid: str, template_slug: str,
         logger.error("Zusammenfassung {}: Word-Datei fehlgeschlagen ({})", job_uuid[:8], e)
     save_result_and_evict(user_id, job_uuid, ergebnis, name)
     angaben_merken(user_id, job_uuid, {
-        "anbieter": route_kennung("chat", provider_id)["anbieter"], "vorlage": template_slug,
+        "anbieter": wer_antwortete("chat", provider_id), "vorlage": template_slug,
     })
     db.update_job_status(job_uuid, "success")
     logger.info("Zusammenfassung {} fertig: {}", job_uuid[:8], name)

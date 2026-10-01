@@ -17,7 +17,8 @@ from src.utils.heartbeat import job_heartbeat
 from src.dependencies import get_translate_client_for_provider
 from src.services.ai_hinweis import png_info_with_notice, vtt_with_notice
 from src.services.translation import TranslationService
-from src.services.job_statistik import angaben_merken, route_kennung
+from src.services.job_statistik import angaben_merken, wer_antwortete
+from src.services import provider_transport
 
 
 # -- Helpers ------------------------------------------------------------------
@@ -107,6 +108,7 @@ def run_translate(
 ):
     try:
         db.update_job_status(job_uuid, "running")
+        provider_transport.record_answering()
         user_id = _resolve_user_id(job_uuid)
 
         content = get_file(input_path)
@@ -158,7 +160,7 @@ def run_translate(
         result_path = save_result_file(user_id, job_uuid, ext, result_bytes)
         save_result_and_evict(user_id, job_uuid, result_path, translated_filename)
         angaben_merken(user_id, job_uuid, {
-            "anbieter": route_kennung("doc_translate", provider_id)["anbieter"],
+            "anbieter": wer_antwortete("doc_translate", provider_id),
             "ziel": target_lang, "glossar": bool(glossary_entries),
         })
         db.update_job_status(job_uuid, "success")
@@ -197,6 +199,7 @@ def run_transcribe(
 ):
     try:
         db.update_job_status(job_uuid, "running")
+        provider_transport.record_answering()
         user_id = _resolve_user_id(job_uuid)
 
         from src.dependencies import resolve_whisper_client
@@ -233,7 +236,7 @@ def run_transcribe(
         result_path = save_result_file(user_id, job_uuid, out_ext, result_text.encode("utf-8"))
         save_result_and_evict(user_id, job_uuid, result_path, output_name)
         angaben_merken(user_id, job_uuid, {
-            "anbieter": route_kennung("stt", provider_id)["anbieter"], "format": response_format,
+            "anbieter": wer_antwortete("stt", provider_id), "format": response_format,
         })
         db.update_job_status(job_uuid, "success")
         delete_file(input_path)

@@ -19,6 +19,14 @@ def notiere(user_id: int, job_uuid: str, phase: str, werte: dict) -> None:
         logger.warning("Statistik {} fuer {} nicht gespeichert: {}", phase, job_uuid, e)
 
 
+def wer_antwortete(feature: str, provider_id: int | None = None) -> str:
+    """The providers that really answered, fallback included, the chosen one when no call went through the door."""
+    from src.services import provider_transport
+
+    namen = provider_transport.answered()
+    return ", ".join(namen) if namen else route_kennung(feature, provider_id)["anbieter"]
+
+
 def anbieter_name(provider_id: int | None) -> str:
     """The provider's name for the info under a result, empty when it cannot be read."""
     from src import database as db
