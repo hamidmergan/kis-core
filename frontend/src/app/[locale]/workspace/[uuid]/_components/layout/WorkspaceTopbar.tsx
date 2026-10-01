@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { GearSix, Eye, ShareNetwork, CaretLeft } from "@phosphor-icons/react";
 import { Link } from "@/i18n/navigation";
@@ -165,9 +166,8 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
       aria-label={tHeader("homeAria")}
       title={tHeader("homeAria")}
       className="flex items-center gap-1.5 flex-shrink-0 no-underline logo-link"
-      style={{ color: "var(--kb)" }}
     >
-      <span className="text-xl font-semibold tracking-tight">KIS</span>
+      <Image src="/logos/kis-logo.svg" alt="KIS" width={228} height={78} className="h-6 w-auto" />
       {process.env.NODE_ENV === "development" && (
         <span className="text-2xs font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: "#532bdd", color: "#fff" }}>
           DEV

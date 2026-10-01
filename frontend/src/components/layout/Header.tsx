@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import LinkBusy from "@/components/ui/LinkBusy";
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
@@ -105,13 +106,13 @@ export default function Header({ hasSession = true, showLogout = false }: Header
   return (
     <header style={{ backgroundColor: "var(--header-bg)", borderBottom: "1px solid var(--border)" }} className="py-3 compact-on-short">
       <div className="px-4 sm:px-6 flex items-center justify-between">
-        <h1 className="text-3xl font-semibold tracking-tight flex items-center gap-2">
+        <h1 className="flex items-center gap-2">
           <Link
             href="/"
             aria-label={t("homeAria")}
-            className="text-white logo-link"
+            className="logo-link flex items-center bg-white rounded-lg px-2 py-1"
           >
-            KIS
+            <Image src="/logos/kis-logo.svg" alt="KIS" width={228} height={78} className="h-8 w-auto" priority />
           </Link>
           {process.env.NODE_ENV === "development" && (
             <span className="text-xs font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: "#532bdd", color: "#fff" }}>
