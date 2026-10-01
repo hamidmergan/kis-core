@@ -161,7 +161,8 @@ def run_tts(
         result_path = save_result_file(user_id, job_uuid, ".mp3", _stamped_with_ai_notice(b"".join(audio_parts)))
         result_filename = f"{Path(filename).stem}.mp3"
         save_result_and_evict(user_id, job_uuid, result_path, result_filename)
-        angaben_merken(user_id, job_uuid, {"anbieter": anbieter_name(provider_id), "stimme": voice_label})
+        angaben_merken(user_id, job_uuid, {"anbieter": anbieter_name(provider_id), "stimme": voice_label,
+                                            "sprache": language})
         db.update_job_status(job_uuid, "success")
 
         delete_file(input_path)

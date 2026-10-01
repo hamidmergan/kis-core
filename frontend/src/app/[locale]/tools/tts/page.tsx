@@ -13,6 +13,7 @@ import JobHistoryTable from "@/components/jobs/JobHistoryTable";
 import { useJobHistory } from "@/hooks/useJobHistory";
 import { JobPausedError, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
 import { TEXT_MODE_FILENAME, TTS_MAX_CHARS } from "@/lib/constants";
+import { sprachName } from "@/lib/format";
 import type { TTSState } from "@/types";
 import Select from "@/components/ui/Select";
 import Tabs from "@/components/ui/Tabs";
@@ -413,7 +414,8 @@ function TtsPageInner() {
                 onContinue={handleTtsContinue}
                 info={<ErgebnisInfoKnopf auftrag={auftrag} zeilen={[
                   { label: tResult("file"), wert: auftrag?.datei !== TEXT_MODE_FILENAME ? auftrag?.datei : null },
-                  { label: tResult("provider"), wert: auftrag?.angaben.anbieter },
+                  { label: t("providerLabel"), wert: auftrag?.angaben.anbieter },
+                  { label: tResult("language"), wert: sprachName(auftrag?.angaben.sprache, locale) },
                   { label: t("voiceLabel"), wert: auftrag?.angaben.stimme },
                 ]} />}
                 loeschen={angezeigterJobUuid && (

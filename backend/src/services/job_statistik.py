@@ -1,7 +1,9 @@
 """Numbers about a job run, phase by phase into the job's meta.json."""
 
+import json
 import time
 from contextlib import contextmanager
+from pathlib import Path
 
 from loguru import logger
 
@@ -46,6 +48,43 @@ def angaben_merken(user_id: int, job_uuid: str, angaben: dict) -> None:
         save_result_meta(user_id, job_uuid, {**meta, "angaben": gefuellt})
     except Exception as e:
         logger.warning("Angaben fuer {} nicht gespeichert: {}", job_uuid, e)
+
+
+def _job_text(user_id: int, job_uuid: str, name: str) -> str:
+    """A text file from the job folder, empty when it is not there."""
+    from src.storage import get_job_file
+
+    try:
+        return get_job_file(user_id, job_uuid, name).decode("utf-8")
+    except Exception:
+        return ""
+
+
+def angaben_lesen(job: dict) -> dict:
+    """What a result was made with, older jobs fill the gaps from the files they kept."""
+    from src.features.summary.models import INSTRUCTIONS_FILE
+
+    uid, uuid, tool = job["user_id"], job["job_uuid"], job["tool"]
+    angaben = dict((load_result_meta(uid, uuid) or {}).get("angaben") or {})
+    if tool == "tts":
+        params = json.loads(_job_text(uid, uuid, "tts_params.json") or "{}")
+        if params.get("provider_id"):
+            angaben.setdefault("anbieter", anbieter_name(params["provider_id"]))
+            if params.get("voice_id") and not angaben.get("sprache"):
+                from src.dependencies import _voice_language_for
+                angaben["sprache"] = _voice_language_for(params["provider_id"], params["voice_id"])
+        angaben.setdefault("stimme", params.get("voice_label"))
+    elif tool == "summary":
+        params = json.loads(_job_text(uid, uuid, "summary_params.json") or "{}")
+        angaben.setdefault("vorlage", params.get("template_slug"))
+        if params.get("provider_id"):
+            angaben.setdefault("anbieter", anbieter_name(params["provider_id"]))
+        angaben.setdefault("anweisung", _job_text(uid, uuid, INSTRUCTIONS_FILE).strip())
+    elif tool == "transcription":
+        # The result's extension tells the format, named like the choice on the page.
+        endung = Path(job.get("result_filename") or "").suffix.lstrip(".")
+        angaben.setdefault("format", "text" if endung == "txt" else endung)
+    return {k: v for k, v in angaben.items() if v not in (None, "")}
 
 
 @contextmanager

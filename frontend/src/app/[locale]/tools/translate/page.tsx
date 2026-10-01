@@ -274,7 +274,7 @@ function UebersetzungPageInner() {
                   <StatusMark tone="success" className="text-sm font-medium">{tCommon("downloadReady")}</StatusMark>
                   <ErgebnisInfoKnopf auftrag={auftrag} zeilen={[
                   { label: tResult("file"), wert: angezeigterDateiname !== TEXT_MODE_FILENAME ? angezeigterDateiname : null },
-                  { label: tResult("provider"), wert: auftrag?.angaben.anbieter },
+                  { label: t("engine"), wert: auftrag?.angaben.anbieter },
                   { label: t("targetLang"), wert: auftrag?.angaben.ziel && (languages.find((l) => l.id === auftrag.angaben.ziel)?.label ?? auftrag.angaben.ziel) },
                   { label: tResult("glossary"), wert: auftrag?.angaben.glossar ? tResult("glossaryUsed") : null },
                   ]} />

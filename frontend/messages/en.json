@@ -432,7 +432,6 @@
     },
     "emptyValue": "empty",
     "result": {
-      "provider": "Provider",
       "file": "File",
       "glossary": "Glossary",
       "glossaryUsed": "used",
@@ -443,7 +442,10 @@
       "cancel": "Cancel",
       "confirm": "Delete",
       "deleteFailed": "Deleting did not work.",
-      "info": "About this result"
+      "info": "About this result",
+      "sources": "Material",
+      "instructions": "Instruction",
+      "language": "Language"
     }
   },
   "tools": {
@@ -511,8 +513,6 @@
         "colMaterial": "Material",
         "colDate": "Date"
       },
-      "materialsAria": "Show materials used",
-      "materialsModalTitle": "Materials used",
       "newSummary": "New summary"
     },
     "translate": {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Info, Trash } from "@phosphor-icons/react";
 import IconButton from "@/components/ui/IconButton";
@@ -15,8 +15,10 @@ export interface ErgebnisAngaben {
   ziel?: string;
   glossar?: boolean;
   stimme?: string;
+  sprache?: string;
   format?: string;
   vorlage?: string;
+  anweisung?: string;
 }
 
 export interface Auftrag {
@@ -36,7 +38,7 @@ export function useErgebnisAngaben(jobUuid: string | null): Auftrag | null {
       .then((r) => (r.ok ? r.json() : null))
       .then((job) => {
         if (abgelaufen || !job) return;
-        setAuftrag({ angaben: job.meta?.angaben ?? {}, erstellt: job.created_at ?? null, datei: job.original_filename ?? null });
+        setAuftrag({ angaben: job.angaben ?? {}, erstellt: job.created_at ?? null, datei: job.original_filename ?? null });
       })
       .catch(() => { /* The info is a bonus, the result stands without it. */ });
     return () => { abgelaufen = true; };
@@ -48,7 +50,7 @@ export function useErgebnisAngaben(jobUuid: string | null): Auftrag | null {
 export function ErgebnisInfoKnopf({ auftrag, zeilen }: {
   auftrag: Auftrag | null;
   /** Tool-specific rows, an empty value leaves its row out. */
-  zeilen: { label: string; wert?: string | null }[];
+  zeilen: { label: string; wert?: ReactNode }[];
 }) {
   const t = useTranslations("common.result");
   const locale = useLocale();
@@ -67,11 +69,11 @@ export function ErgebnisInfoKnopf({ auftrag, zeilen }: {
       </IconButton>
       {offen && (
         <Modal open onClose={() => setOffen(false)} size="sm" title={t("info")}>
-          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm text-left">
             {alle.map((z) => (
               <div key={z.label} className="contents">
                 <dt className="text-muted">{z.label}</dt>
-                <dd className="text-foreground break-words">{z.wert}</dd>
+                <dd className="text-foreground break-words whitespace-pre-wrap min-w-0">{z.wert}</dd>
               </div>
             ))}
           </dl>

@@ -11,6 +11,7 @@ from src.dependencies import get_current_user, is_admin_user
 from src.i18n import get_locale, t
 from src.storage import load_result_json, load_result_meta
 from src.routes.jobs._shared import _dt
+from src.services.job_statistik import angaben_lesen
 
 
 router = APIRouter()
@@ -40,6 +41,7 @@ def get_job_status(
         "download_url": None,
         "result": None,
         "meta": None,
+        "angaben": None,
     }
 
     if job["progress"]:
@@ -47,6 +49,12 @@ def get_job_status(
             response["progress"] = json.loads(job["progress"])
         except Exception:
             pass
+
+    if job["status"] == "success":
+        try:
+            response["angaben"] = angaben_lesen(job)
+        except Exception as e:
+            logger.warning("Angaben fuer {} nicht lesbar: {}", job_uuid, e)
 
     if job["status"] in ("success", "awaiting_user") and job["result_path"]:
         result_path = Path(job["result_path"])

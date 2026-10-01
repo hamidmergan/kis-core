@@ -432,7 +432,6 @@
     },
     "emptyValue": "leer",
     "result": {
-      "provider": "Anbieter",
       "file": "Datei",
       "glossary": "Glossar",
       "glossaryUsed": "verwendet",
@@ -443,7 +442,10 @@
       "cancel": "Abbrechen",
       "confirm": "Löschen",
       "deleteFailed": "Löschen hat nicht geklappt.",
-      "info": "Angaben zum Ergebnis"
+      "info": "Angaben zum Ergebnis",
+      "sources": "Material",
+      "instructions": "Anweisung",
+      "language": "Sprache"
     }
   },
   "tools": {
@@ -511,8 +513,6 @@
         "colMaterial": "Material",
         "colDate": "Datum"
       },
-      "materialsAria": "Genutzte Materialien anzeigen",
-      "materialsModalTitle": "Genutzte Materialien",
       "newSummary": "Neue Zusammenfassung"
     },
     "translate": {

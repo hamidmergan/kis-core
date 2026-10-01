@@ -231,7 +231,7 @@ function TranscriptionPageInner() {
                   <span className="ml-auto">
                     <ErgebnisInfoKnopf auftrag={auftrag} zeilen={[
                       { label: tResult("file"), wert: auftrag?.datei },
-                      { label: tResult("provider"), wert: auftrag?.angaben.anbieter },
+                      { label: t("providerLabel"), wert: auftrag?.angaben.anbieter },
                       { label: t("outputFormat"), wert: FORMAT_OPTIONS.find((o) => o.value === auftrag?.angaben.format)?.label },
                     ]} />
                   </span>

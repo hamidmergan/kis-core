@@ -43,3 +43,13 @@ export function formatElapsed(ms: number, fmt: ElapsedFormatter): string {
   if (h > 0) return fmt.hours(h, String(m).padStart(2, "0"), String(s).padStart(2, "0"));
   return fmt.minutes(m, String(s).padStart(2, "0"));
 }
+
+/** A language code written out in the reader's language, the code itself when the browser does not know it. */
+export function sprachName(code: string | undefined, locale: string): string | undefined {
+  if (!code) return undefined;
+  try {
+    return new Intl.DisplayNames([locale], { type: "language" }).of(code) ?? code;
+  } catch {
+    return code;
+  }
+}

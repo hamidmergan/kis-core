@@ -88,3 +88,56 @@ def test_ein_neuer_auftrag_beginnt_leer():
     provider_transport.record_answering()
 
     assert provider_transport.answered() == []
+
+
+def _job(tool: str, result_filename: str = "") -> dict:
+    return {"user_id": UID, "job_uuid": JOB, "tool": tool, "result_filename": result_filename}
+
+
+def test_alte_sprachausgabe_liest_ihre_einstellungen(lokal, monkeypatch):
+    import json
+
+    from src import dependencies
+    from src.services import job_statistik
+    from src.storage import save_job_file
+
+    monkeypatch.setattr(job_statistik, "anbieter_name", lambda pid: "HPC Audio DE")
+    monkeypatch.setattr(dependencies, "_voice_language_for", lambda pid, vid: "de")
+    save_job_file(UID, JOB, "tts_params.json", json.dumps({"provider_id": 3, "voice_id": "k", "voice_label": "Kerstin"}).encode())
+
+    assert job_statistik.angaben_lesen(_job("tts")) == {"anbieter": "HPC Audio DE", "sprache": "de", "stimme": "Kerstin"}
+
+
+def test_gespeicherte_angaben_gehen_vor(lokal, monkeypatch):
+    import json
+
+    from src import dependencies
+    from src.services import job_statistik
+    from src.storage import save_job_file
+
+    monkeypatch.setattr(job_statistik, "anbieter_name", lambda pid: "HPC Audio DE")
+    monkeypatch.setattr(dependencies, "_voice_language_for", lambda pid, vid: "de")
+    save_job_file(UID, JOB, "tts_params.json", json.dumps({"provider_id": 3, "voice_id": "k", "voice_label": "Kerstin"}).encode())
+    angaben_merken(UID, JOB, {"anbieter": "THL myLab", "stimme": "Alloy", "sprache": "en"})
+
+    assert job_statistik.angaben_lesen(_job("tts")) == {"anbieter": "THL myLab", "stimme": "Alloy", "sprache": "en"}
+
+
+def test_zusammenfassung_bringt_ihre_anweisung_mit(lokal):
+    import json
+
+    from src.features.summary.models import INSTRUCTIONS_FILE
+    from src.services.job_statistik import angaben_lesen
+    from src.storage import save_job_file
+
+    save_job_file(UID, JOB, "summary_params.json", json.dumps({"template_slug": "zeitstrahl", "provider_id": None}).encode())
+    save_job_file(UID, JOB, INSTRUCTIONS_FILE, "Höchstens eine Seite.\n".encode())
+
+    assert angaben_lesen(_job("summary")) == {"vorlage": "zeitstrahl", "anweisung": "Höchstens eine Seite."}
+
+
+def test_transkript_nennt_sein_format_aus_dem_dateinamen(lokal):
+    from src.services.job_statistik import angaben_lesen
+
+    assert angaben_lesen(_job("transcription", "vortrag.srt")) == {"format": "srt"}
+    assert angaben_lesen(_job("transcription", "vortrag.txt")) == {"format": "text"}
