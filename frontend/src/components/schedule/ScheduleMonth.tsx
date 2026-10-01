@@ -10,7 +10,7 @@ import ScheduleMonthRow from "./ScheduleMonthRow";
 import ScheduleEntryModal from "./ScheduleEntryModal";
 import ScheduleBars, { barsSpace, BAR_TOP, BAR_GAP } from "./ScheduleBars";
 import { laneCount, weekSegments, type RangeEntry } from "./_ranges";
-import { useHiddenIds } from "./_hidden";
+import { useHiddenGroups, useHiddenIds } from "./_hidden";
 import { parseYMD, todayISO, ymd } from "./utils";
 import { fetchAllEntries } from "./_api";
 
@@ -19,6 +19,9 @@ const WS_COLORS = ["var(--kb)", "#B45309", "#6D28D9", "#0F766E", "#9D174D", "#1D
 
 /** Fixed instead of a variable, because white text has to stay readable in both modes. */
 const PRIV_COLOR = "#4F7A91";
+
+/** Legend key for private appointments, a workspace uuid never looks like this. */
+const PRIVAT = "__privat__";
 
 /** More entries per day become '+N more', otherwise one day blows the row height. */
 const MAX_CHIPS = 2;
@@ -92,6 +95,7 @@ export default function ScheduleMonth({ initialDate }: { initialDate?: string })
   const letzterKlick = useRef<{ iso: string; zeit: number } | null>(null);
   const [editing, setEditing] = useState<ScheduleListEntry | null>(null);
   const { hidden, toggleHidden } = useHiddenIds();
+  const { hiddenGroups, toggleGroup } = useHiddenGroups();
 
   useEffect(() => {
     let cancelled = false;
@@ -204,25 +208,15 @@ export default function ScheduleMonth({ initialDate }: { initialDate?: string })
 
   // Spans are drawn by the bar, they must not also appear as a day tile.
   const isRange = (e: ScheduleListEntry) => !!e.end_date && e.end_date !== e.due_date;
-  const monthRanges = entries.filter(
-    (e) => isRange(e) && e.due_date <= monthEnd && (e.end_date as string) >= monthStart,
-  );
+  const imMonat = (e: ScheduleListEntry) =>
+    isRange(e)
+      ? e.due_date <= monthEnd && (e.end_date as string) >= monthStart
+      : !!e.due_date && e.due_date.startsWith(monthPrefix);
 
-  for (const e of entries) {
-    if (!e.due_date || !e.due_date.startsWith(monthPrefix)) continue;
-    if (isRange(e)) continue;
-    if (e.date_precision === "month") {
-      noDay.push(e);
-      continue;
-    }
-    const list = byDay.get(e.due_date);
-    if (list) list.push(e);
-    else byDay.set(e.due_date, [e]);
-  }
-
+  // The legend lists hidden workspaces too, otherwise they could not be shown again.
   const usedWorkspaces = new Map<string, { title: string; color: string }>();
   let hatPrivate = false;
-  for (const e of [...byDay.values()].flat().concat(noDay, monthRanges)) {
+  for (const e of entries.filter(imMonat)) {
     // Private appointments carry no workspace name, they stand as one line.
     if (e.workspace_uuid === null) {
       hatPrivate = true;
@@ -236,7 +230,23 @@ export default function ScheduleMonth({ initialDate }: { initialDate?: string })
     }
   }
   if (hatPrivate) {
-    usedWorkspaces.set("__privat__", { title: t("month.personal"), color: PRIV_COLOR });
+    usedWorkspaces.set(PRIVAT, { title: t("month.personal"), color: PRIV_COLOR });
+  }
+
+  // A hidden workspace disappears from the grid and from every list.
+  const shown = entries.filter((e) => !hiddenGroups.has(e.workspace_uuid ?? PRIVAT));
+  const monthRanges = shown.filter((e) => isRange(e) && imMonat(e));
+
+  for (const e of shown) {
+    if (!e.due_date || !e.due_date.startsWith(monthPrefix)) continue;
+    if (isRange(e)) continue;
+    if (e.date_precision === "month") {
+      noDay.push(e);
+      continue;
+    }
+    const list = byDay.get(e.due_date);
+    if (list) list.push(e);
+    else byDay.set(e.due_date, [e]);
   }
 
   // Only the grid leaves hidden entries out, the list on the right still shows everything.
@@ -499,16 +509,29 @@ export default function ScheduleMonth({ initialDate }: { initialDate?: string })
 
       {usedWorkspaces.size > 0 && (
         <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3">
-          {[...usedWorkspaces.values()].map((w) => (
-            <span
-              key={w.title}
-              className="inline-flex items-center gap-1.5 text-xs"
-              style={{ color: "var(--foreground-soft)" }}
-            >
-              <span className="rounded-sm" style={{ width: 9, height: 9, backgroundColor: w.color }} />
-              {w.title}
-            </span>
-          ))}
+          {[...usedWorkspaces.entries()].map(([key, w]) => {
+            const aus = hiddenGroups.has(key);
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => toggleGroup(key)}
+                aria-pressed={!aus}
+                title={t(aus ? "month.showInCalendar" : "month.hideInCalendar")}
+                className="inline-flex items-center gap-1.5 text-xs cursor-pointer"
+                style={{
+                  color: aus ? "var(--muted)" : "var(--foreground-soft)",
+                  textDecoration: aus ? "line-through" : undefined,
+                }}
+              >
+                <span
+                  className="rounded-sm"
+                  style={{ width: 9, height: 9, backgroundColor: w.color, opacity: aus ? 0.35 : 1 }}
+                />
+                {w.title}
+              </button>
+            );
+          })}
         </div>
       )}
 
