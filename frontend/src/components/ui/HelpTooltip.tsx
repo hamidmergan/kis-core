@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 /** Help bubble on click, in a portal so it is not clipped. */
-export default function HelpTooltip({ text }: { text: string }) {
+export default function HelpTooltip({ text, image }: { text: string; image?: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const wrapperRef = useRef<HTMLSpanElement>(null);
@@ -70,6 +70,7 @@ export default function HelpTooltip({ text }: { text: string }) {
               border: "1px solid var(--border)",
             }}
           >
+            {image && <div className="mb-2">{image}</div>}
             {text}
           </div>,
           document.body,

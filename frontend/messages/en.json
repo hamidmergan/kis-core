@@ -1402,6 +1402,7 @@
         "sourcesHint": "Choose up to {max} sources.",
         "sourcesFull": "Maximum {max} sources.",
         "templateLabel": "Slide master",
+        "templateHelp": "The slide master sets the font, colors and layout of every slide, with fixed placeholders for title, text and images.",
         "templateWithImages": "with image fields",
         "templateWithoutImages": "without image fields, no images are created",
         "styleLabel": "Instruction for the images",

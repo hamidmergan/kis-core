@@ -1402,6 +1402,7 @@
         "sourcesHint": "Wähle bis zu {max} Materialien aus.",
         "sourcesFull": "Maximal {max} Materialien.",
         "templateLabel": "Folienmaster",
+        "templateHelp": "Der Folienmaster legt Schrift, Farben und Aufbau aller Folien fest, mit festen Platzhaltern für Titel, Text und Bilder.",
         "templateWithImages": "mit Bildfeldern",
         "templateWithoutImages": "ohne Bildfelder, es entstehen keine Bilder",
         "styleLabel": "Anweisung für die Bilder",
