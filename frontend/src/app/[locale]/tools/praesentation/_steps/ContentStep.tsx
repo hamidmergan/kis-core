@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState, type DragEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type DragEvent } from "react";
 import { useFormatter, useTranslations } from "next-intl";
-import { CaretDown, X } from "@phosphor-icons/react";
+import { X } from "@phosphor-icons/react";
 import Checkbox from "@/components/ui/Checkbox";
 import { EmptyState } from "@/components/ui/EmptyState";
 import IconButton from "@/components/ui/IconButton";
@@ -10,6 +10,7 @@ import Select from "@/components/ui/Select";
 import Spinner from "@/components/ui/Spinner";
 import Tabs from "@/components/ui/Tabs";
 import ToggleRow from "@/components/ui/ToggleRow";
+import EinstellungsFeld from "@/components/tools/EinstellungsFeld";
 import type { FeatureProvider } from "@/hooks/useFeatureProviders";
 import { Link } from "@/i18n/navigation";
 import { useModules } from "@/hooks/useModules";
@@ -57,35 +58,6 @@ interface ContentStepProps {
   onNext: () => void;
   /** The demo run: its material and every setting that shaped the prepared deck stay fixed. */
   demo?: DemoMaterial;
-}
-
-/** One setting: a collapsible row with its value on the phone, a plain labelled field on the desktop. */
-function Feld({ titel, wert, offen, onToggle, htmlFor, desktopTitel = true, className = "order-3 lg:mt-6", children }: {
-  titel: string;
-  wert: string;
-  offen: boolean;
-  onToggle: () => void;
-  htmlFor?: string;
-  desktopTitel?: boolean;
-  className?: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className={`border-b border-border-soft lg:border-0 ${className}`}>
-      <button type="button" onClick={onToggle} aria-expanded={offen}
-              className="lg:hidden w-full px-4 py-3.5 flex items-center justify-between gap-3 text-left">
-        <span className="text-sm font-medium shrink-0">{titel}</span>
-        <span className="flex items-center gap-2 min-w-0">
-          <span className="text-sm text-muted truncate">{wert}</span>
-          <CaretDown size={14} weight="bold" className={`text-muted shrink-0 transition-transform ${offen ? "rotate-180" : ""}`} />
-        </span>
-      </button>
-      {desktopTitel && (htmlFor
-        ? <label htmlFor={htmlFor} className="hidden lg:block text-sm font-medium mb-1">{titel}</label>
-        : <p className="hidden lg:block text-sm font-medium mb-2">{titel}</p>)}
-      <div className={`${offen ? "block" : "hidden"} lg:block px-4 pb-4 lg:p-0`}>{children}</div>
-    </div>
-  );
 }
 
 /** Step 1 in two fixed columns: settings in a card on the left, the material to upload on the right. */
@@ -155,31 +127,31 @@ export default function ContentStep({ canUseModules, source, language, notes, in
             <VorlagenWahl templateId={templateId} onTemplate={onTemplate} onVorlage={setVorlage} nurGewaehlte={fest} />
           </div>
 
-          <Feld titel={t("languageLabel")} wert={t(`languages.${language}`)} htmlFor="praesentation-sprache" {...zeile("language")}>
+          <EinstellungsFeld titel={t("languageLabel")} wert={t(`languages.${language}`)} htmlFor="praesentation-sprache" {...zeile("language")}>
             <Select<Language> id="praesentation-sprache" value={language} onChange={onLanguage} ariaLabel={t("languageLabel")} disabled={fest}
               options={[{ value: "de", label: t("languages.de") }, { value: "en", label: t("languages.en") }]} />
-          </Feld>
+          </EinstellungsFeld>
 
           {llmProviders.length > 0 && (
-            <Feld titel={t("providerLabel")} wert={anbieter} htmlFor="praesentation-provider" {...zeile("provider")}>
+            <EinstellungsFeld titel={t("providerLabel")} wert={anbieter} htmlFor="praesentation-provider" {...zeile("provider")}>
               <Select id="praesentation-provider" value={String(llmProviderId ?? "")} onChange={(v) => onLlmProvider(Number(v))}
                 ariaLabel={t("providerLabel")} options={llmProviders.map((p) => ({ value: String(p.id), label: p.name }))} />
-            </Feld>
+            </EinstellungsFeld>
           )}
 
-          <Feld titel={t("presenterLabel")} wert={presenter || t("emptyValue")} htmlFor="praesentation-name" {...zeile("presenter")}>
+          <EinstellungsFeld titel={t("presenterLabel")} wert={presenter || t("emptyValue")} htmlFor="praesentation-name" {...zeile("presenter")}>
             <input id="praesentation-name" type="text" className={FIELD} value={presenter} maxLength={MAX_PRESENTER}
               placeholder={t("presenterPlaceholder")} onChange={(e) => onPresenter(e.target.value)} readOnly={fest} />
-          </Feld>
+          </EinstellungsFeld>
 
-          <Feld titel={t("instructionsLabel")} wert={instructions || t("emptyValue")} htmlFor="praesentation-anweisung" {...zeile("instructions")}>
+          <EinstellungsFeld titel={t("instructionsLabel")} wert={instructions || t("emptyValue")} htmlFor="praesentation-anweisung" {...zeile("instructions")}>
             <textarea id="praesentation-anweisung" className={`${FIELD} resize-y`} rows={3} value={instructions}
               placeholder={t("instructionsPlaceholder")} onChange={(e) => onInstructions(e.target.value)} readOnly={fest} />
-          </Feld>
+          </EinstellungsFeld>
 
           {/* Only a template with picture fields gets pictures, the style belongs to the template and follows its choice. */}
           {vorlage?.hasImages && (
-            <Feld titel={t("styleLabel")} wert={stil || t("emptyValue")} htmlFor="praesentation-stil" {...zeile("style")}>
+            <EinstellungsFeld titel={t("styleLabel")} wert={stil || t("emptyValue")} htmlFor="praesentation-stil" {...zeile("style")}>
               <textarea id="praesentation-stil" className={`${FIELD} resize-y`} rows={4} value={stil} maxLength={MAX_STIL}
                 placeholder={t("stylePlaceholder")} onChange={(e) => onImageStyle(e.target.value)} readOnly={fest} />
               <div className="mt-2 flex justify-end">
@@ -188,7 +160,7 @@ export default function ContentStep({ canUseModules, source, language, notes, in
                   {t("styleReset")}
                 </button>
               </div>
-            </Feld>
+            </EinstellungsFeld>
           )}
 
           <div className="order-3 px-4 py-3.5 lg:hidden">
@@ -212,7 +184,7 @@ export default function ContentStep({ canUseModules, source, language, notes, in
         </div>
 
         <div className="order-2 min-w-0 lg:col-start-2 lg:row-start-1 lg:rounded-xl lg:border lg:border-kb/15 lg:bg-kb/5 lg:p-5">
-            <Feld titel={t("materialLabel")} className="border-t lg:border-t-0"
+            <EinstellungsFeld titel={t("materialLabel")} className="border-t lg:border-t-0"
                   wert={demo ? t("sourcesCount", { n: demo.files.length }) : mode === "files" ? t("filesCount", { n: source.files.length }) : t("sourcesCount", { n: source.sourceIds.length })}
                   {...zeile("material")}>
               <Tabs<SourceMode>
@@ -333,7 +305,7 @@ export default function ContentStep({ canUseModules, source, language, notes, in
                   </div>
                 )
               )}
-            </Feld>
+            </EinstellungsFeld>
         </div>
       </div>
 

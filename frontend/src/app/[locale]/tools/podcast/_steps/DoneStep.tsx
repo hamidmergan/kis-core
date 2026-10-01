@@ -46,7 +46,7 @@ export default function DoneStep(props: DoneStepProps) {
   };
 
   return (
-    <section className="animate-[fadeIn_0.3s_ease-out] py-10">
+    <section className="animate-[fadeIn_0.3s_ease-out] pt-3 sm:py-10">
       <div className="flex justify-center mb-4">
         <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: "var(--kb)" }}>
           <svg className="w-6 h-6" style={{ color: "#fff" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -67,28 +67,31 @@ export default function DoneStep(props: DoneStepProps) {
         </div>
       )}
 
-      <div className="flex flex-wrap justify-center gap-3 mb-4">
-        <button type="button" onClick={() => jobUuid && speichern(resultUrl(jobUuid), "podcast.mp3")} className={LINK}>
-          {downloadIcon}
-          {t("download")}
-        </button>
-        <button type="button" onClick={() => jobUuid && speichern(transcriptUrl(jobUuid), "podcast.txt")} className={LINK}>
-          {downloadIcon}
-          {t("transcript")}
-        </button>
-      </div>
+      {/* Desktop: downloads above the two side buttons. Phone: side buttons first, downloads pinned below. */}
+      <div className="flex flex-col">
+        <div className="order-last sm:order-none sticky bottom-0 z-30 -mx-4 px-4 py-3 mt-6 border-t border-border-soft bg-background grid grid-cols-2 gap-2 sm:static sm:mx-0 sm:px-0 sm:py-0 sm:mt-0 sm:mb-4 sm:border-0 sm:bg-transparent sm:flex sm:flex-wrap sm:justify-center sm:gap-3">
+          <button type="button" onClick={() => jobUuid && speichern(resultUrl(jobUuid), "podcast.mp3")} className={`${LINK} justify-center`}>
+            {downloadIcon}
+            {t("download")}
+          </button>
+          <button type="button" onClick={() => jobUuid && speichern(transcriptUrl(jobUuid), "podcast.txt")} className={`${LINK} justify-center`}>
+            {downloadIcon}
+            {t("transcript")}
+          </button>
+        </div>
 
-      <div className="flex flex-wrap justify-center gap-3">
-        <button type="button" onClick={onEditScript} className={GHOST}>
-          {t("editScript")}
-        </button>
-        <button type="button" onClick={onReset} className={GHOST}>
-          {tPage("newPodcast")}
-        </button>
+        <div className="flex flex-col sm:flex-row sm:flex-wrap sm:justify-center gap-2 sm:gap-3">
+          <button type="button" onClick={onEditScript} className={`${GHOST} w-full sm:w-auto`}>
+            {t("editScript")}
+          </button>
+          <button type="button" onClick={onReset} className={`${GHOST} w-full sm:w-auto`}>
+            {tPage("newPodcast")}
+          </button>
+        </div>
       </div>
 
       {offen > 0 && (
-        <div className="flex justify-center mt-10">
+        <div className="flex justify-center mt-6 sm:mt-10">
           <button type="button" onClick={onVoice} className="px-6 py-2 text-sm btn-primary rounded-md transition-colors select-none">
             {tScript("nextChanged", { n: offen })}
           </button>

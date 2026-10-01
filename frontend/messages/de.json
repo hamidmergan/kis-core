@@ -425,8 +425,12 @@
       "unreadable": "nicht lesbar",
       "total": "{n} von {max} Zeichen",
       "totalCounting": "{n} von {max} Zeichen, es wird noch gezählt",
-      "tooMuch": "Zusammen ist das Material {over} Zeichen zu lang. Nimm etwas raus, dann geht es weiter."
-    }
+      "tooMuch": "Zusammen ist das Material {over} Zeichen zu lang. Nimm etwas raus, dann geht es weiter.",
+      "label": "Material",
+      "filesN": "{n, plural, =0 {keine} one {# Datei} other {# Dateien}}",
+      "sourcesN": "{n, plural, =0 {keine} one {# Material} other {# Materialien}}"
+    },
+    "emptyValue": "leer"
   },
   "tools": {
     "stt": {
@@ -1182,6 +1186,13 @@
         "renderKeep": "Weiter rendern",
         "renderConfirm": "Rendern abbrechen",
         "confirm": "Verwerfen"
+      },
+      "history": {
+        "title": "Deine Screencasts",
+        "empty": "Noch kein Screencast.",
+        "hint": "Neue Screencasts kommen oben dazu, ein Klick öffnet sie wieder.",
+        "colMaterial": "Präsentation",
+        "colDate": "Datum"
       }
     },
     "podcast": {
@@ -1374,7 +1385,14 @@
         "nachRechts": "Beiträge nach rechts schieben"
       },
       "demoStimmen": "In der Demo hörst du am Ende denselben Podcast auch mit Stimmen anderer Dienste.",
-      "demoBadge": "Demo ansehen"
+      "demoBadge": "Demo ansehen",
+      "history": {
+        "title": "Deine Podcasts",
+        "empty": "Noch kein Podcast.",
+        "hint": "Neue Podcasts kommen oben dazu, ein Klick öffnet sie wieder.",
+        "colMaterial": "Material",
+        "colDate": "Datum"
+      }
     },
     "praesentation": {
       "title": "Präsentation",
@@ -3216,7 +3234,8 @@
       "settings": "Einstellungen",
       "rendering": "Rendern",
       "done": "Fertig"
-    }
+    },
+    "back": "Zurück"
   },
   "langLabels": {
     "DE": "Deutsch",

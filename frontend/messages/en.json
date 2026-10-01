@@ -425,8 +425,12 @@
       "unreadable": "not readable",
       "total": "{n} of {max} characters",
       "totalCounting": "{n} of {max} characters, still counting",
-      "tooMuch": "Together the material is {over} characters too long. Remove something to continue."
-    }
+      "tooMuch": "Together the material is {over} characters too long. Remove something to continue.",
+      "label": "Material",
+      "filesN": "{n, plural, =0 {none} one {# file} other {# files}}",
+      "sourcesN": "{n, plural, =0 {none} one {# material} other {# materials}}"
+    },
+    "emptyValue": "empty"
   },
   "tools": {
     "stt": {
@@ -1182,6 +1186,13 @@
         "renderKeep": "Keep rendering",
         "renderConfirm": "Cancel rendering",
         "confirm": "Discard"
+      },
+      "history": {
+        "title": "Your screencasts",
+        "empty": "No screencast yet.",
+        "hint": "New screencasts appear at the top, a click opens them again.",
+        "colMaterial": "Presentation",
+        "colDate": "Date"
       }
     },
     "podcast": {
@@ -1374,7 +1385,14 @@
         "nachRechts": "Scroll lines to the right"
       },
       "demoStimmen": "At the end of the demo you can hear the same podcast with voices from other services.",
-      "demoBadge": "View demo"
+      "demoBadge": "View demo",
+      "history": {
+        "title": "Your podcasts",
+        "empty": "No podcast yet.",
+        "hint": "New podcasts appear at the top, a click opens them again.",
+        "colMaterial": "Material",
+        "colDate": "Date"
+      }
     },
     "praesentation": {
       "title": "Presentation",
@@ -3216,7 +3234,8 @@
       "settings": "Settings",
       "rendering": "Rendering",
       "done": "Done"
-    }
+    },
+    "back": "Back"
   },
   "langLabels": {
     "DE": "German",

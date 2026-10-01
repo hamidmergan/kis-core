@@ -9,11 +9,12 @@ interface StepFooterProps {
   nextDisabled?: boolean;
 }
 
-/** The same footer for every page where something is decided. */
+/** The same footer for every page where something is decided, pinned to the bottom on the phone. */
 export default function StepFooter({ onBack, nextLabel, onNext, nextDisabled }: StepFooterProps) {
   const t = useTranslations("tools.podcast.common");
   return (
-    <div className="flex gap-3 mt-10">
+    // On the phone the footer stays in reach while scrolling and stops at the end of the step.
+    <div className="flex gap-3 mt-10 sticky bottom-0 z-30 -mx-4 px-4 py-3 border-t border-border-soft bg-background sm:static sm:mx-0 sm:px-0 sm:py-0 sm:border-0 sm:bg-transparent">
       {onBack && (
         <button
           type="button"

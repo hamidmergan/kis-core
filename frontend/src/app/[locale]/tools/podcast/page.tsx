@@ -2,10 +2,13 @@
 
 import { Suspense, useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Trash } from "@phosphor-icons/react";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import ToolBackLink from "@/components/ui/ToolBackLink";
+import JobHistoryTable from "@/components/jobs/JobHistoryTable";
+import { useJobHistory } from "@/hooks/useJobHistory";
+import { useRouter } from "@/i18n/navigation";
 import Spinner from "@/components/ui/Spinner";
 import { notifyJobsChanged } from "@/lib/jobs-events";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -35,6 +38,10 @@ function PodcastPageInner() {
   const t = useTranslations("tools.podcast");
   const tCommon = useTranslations("common");
   const tNachfrage = useTranslations("tools.podcast.nachfrage");
+  const tHistory = useTranslations("tools.podcast.history");
+  const locale = useLocale();
+  const router = useRouter();
+  const verlauf = useJobHistory("podcast");
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
   // The chat model that writes, picked in the first step and sent along with the start.
   const llm = useFeatureProviders("/podcast/providers");
@@ -266,17 +273,18 @@ function PodcastPageInner() {
 
   return (
     <ProtectedRoute>
-      <div className="max-w-4xl mx-auto px-4 py-10 sm:py-14" data-tour="tool-podcast">
-        <ToolBackLink />
-
-        {begonnen && (
-          <div className="flex justify-end mb-3 sm:mb-8">
+      {/* Wide for the two columns of the first step, narrow for the steps that follow. */}
+      <div className={`${state.step === "content" ? "max-w-6xl" : "max-w-4xl"} mx-auto px-4 py-10 sm:py-14`} data-tour="tool-podcast">
+        {/* On the phone the later steps bring their own header with back arrow and discard. */}
+        <div className={showStepIndicator ? "hidden sm:flex items-baseline justify-between gap-3" : ""}>
+          <ToolBackLink />
+          {begonnen && (
             <button type="button" onClick={neuGefragt} className={DISCARD}>
               <Trash size={14} aria-hidden="true" />
               {t("discardPodcast")}
             </button>
-          </div>
-        )}
+          )}
+        </div>
 
         {!hydrated ? (
           <Spinner className="justify-center py-20" />
@@ -288,6 +296,7 @@ function PodcastPageInner() {
                 canEnter={(i) => reachable(i, state)}
                 isClosedForGood={(i) => closedForGood(i, state)}
                 onStepClick={gehe}
+                onDiscard={begonnen ? neuGefragt : null}
               />
             )}
 
@@ -306,6 +315,17 @@ function PodcastPageInner() {
                 onNext={() => dispatch({ type: "GO", step: "cast" })}
                 demoDa={demoDa}
               />
+            )}
+            {state.step === "content" && (
+              <div className="mt-10">
+                <h2 className="text-sm font-semibold text-foreground mb-1">{tHistory("title")}</h2>
+                <p className="text-xs text-muted mb-3">{verlauf.length ? tHistory("hint") : tHistory("empty")}</p>
+                {verlauf.length > 0 && (
+                  <JobHistoryTable entries={verlauf} selectedUuid={state.jobUuid} locale={locale}
+                    colMaterial={tHistory("colMaterial")} colDate={tHistory("colDate")}
+                    onSelect={(uuid) => router.replace(`/tools/podcast?job=${uuid}`)} />
+                )}
+              </div>
             )}
             {state.step === "cast" && (
               <CastStep
