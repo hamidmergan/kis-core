@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { PencilSimple, Plus, Trash } from "@phosphor-icons/react";
 import IconButton from "@/components/ui/IconButton";
@@ -59,6 +59,16 @@ export default function ScriptStep(props: ScriptStepProps) {
   const tCommon = useTranslations("tools.podcast.common");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [buffer, setBuffer] = useState("");
+  const neuerTeilRef = useRef<HTMLDivElement | null>(null);
+  const bisherRef = useRef(0);
+
+  // The demo writes its parts quickly, so the page follows each new part instead of leaving it below the fold.
+  useEffect(() => {
+    if (demo && draft.length > bisherRef.current && bisherRef.current > 0) {
+      neuerTeilRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    bisherRef.current = draft.length;
+  }, [demo, draft.length]);
 
   if (busy && lines.length === 0 && !selfWritten) {
     return (
@@ -79,7 +89,8 @@ export default function ScriptStep(props: ScriptStepProps) {
               const sprecherIdx = persons[line.speaker] ? line.speaker : 0;
               const person = persons[sprecherIdx];
               return (
-                <div key={i} className="border-2 border-border-soft rounded-lg p-4"
+                <div key={i} ref={i === bisherRef.current ? neuerTeilRef : undefined}
+                     className="border-2 border-border-soft rounded-lg p-4 scroll-mt-20"
                      style={{ backgroundColor: speakerColor(sprecherIdx).bg }}>
                   <div className="flex items-center gap-3 mb-2">
                     <span className="text-xs text-muted-soft w-5 shrink-0">{i + 1}</span>
