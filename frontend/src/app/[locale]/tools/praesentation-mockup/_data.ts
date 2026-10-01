@@ -1,4 +1,4 @@
-// Vorlaeufige Route (siehe page.tsx) – diese Daten sind erfunden, nur fuers Aussehen.
+// Invented data for the temporary mockup route, looks only.
 
 export interface MockVorlage {
   id: string;
@@ -43,3 +43,18 @@ export const MOCK_SLIDES: MockSlide[] = [
 ];
 
 export const MOCK_SLIDE_COUNT = MOCK_SLIDES.length + 1;
+
+export interface MockDatei {
+  name: string;
+  groesse: string;
+}
+
+export const MOCK_DATEIEN: MockDatei[] = [
+  { name: "handout.pdf", groesse: "240 KB" },
+  { name: "literaturliste.docx", groesse: "58 KB" },
+];
+
+export const LETZTE_PRAESENTATIONEN = [
+  { name: "Projektauftakt Sommersemester.pptx", datum: "28.09.2026" },
+  { name: "Exposé Verteidigung.pptx", datum: "14.09.2026" },
+];
