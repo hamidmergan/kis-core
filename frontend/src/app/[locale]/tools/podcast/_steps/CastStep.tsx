@@ -36,11 +36,13 @@ interface CastStepProps {
   ohneKi: boolean;
   busy: boolean;
   error: string;
+  /** The demo run: the cast of the prepared podcast is shown, not chosen. */
+  gesperrt?: boolean;
 }
 
 export default function CastStep(props: CastStepProps) {
   const { count, persons, length, style, speed, voices, voicesLoaded, onCount, onPerson, onLength,
-          onStyle, onSpeed, onBack, onNext, hatAuftrag, ohneKi, busy, error } = props;
+          onStyle, onSpeed, onBack, onNext, hatAuftrag, ohneKi, busy, error, gesperrt = false } = props;
   const t = useTranslations("tools.podcast.cast");
   const voiceOptions = voices.flatMap((p) =>
     p.voices.map((v) => ({
@@ -65,7 +67,7 @@ export default function CastStep(props: CastStepProps) {
           variant="pill"
           active={String(count) as CountKey}
           onChange={(key) => onCount(Number(key) as PersonCount)}
-          items={COUNTS.map((key) => ({ key, label: key }))}
+          items={COUNTS.map((key) => ({ key, label: key, disabled: gesperrt && key !== String(count) }))}
         />
         <p className="text-sm text-muted">{t(`countHint.${count}`)}</p>
       </div>
@@ -79,7 +81,7 @@ export default function CastStep(props: CastStepProps) {
                 <label htmlFor={`podcast-name-${i}`} className="block text-xs font-medium text-foreground-soft mb-1">
                   {t("nameLabel")}
                 </label>
-                <input id={`podcast-name-${i}`} type="text" value={person.name} onChange={(e) => onPerson(i, { name: e.target.value })} className={FIELD} />
+                <input id={`podcast-name-${i}`} type="text" value={person.name} onChange={(e) => onPerson(i, { name: e.target.value })} readOnly={gesperrt} className={FIELD} />
               </div>
               <div>
                 <label htmlFor={`podcast-role-${i}`} className="block text-xs font-medium text-foreground-soft mb-1">
@@ -89,6 +91,7 @@ export default function CastStep(props: CastStepProps) {
                   id={`podcast-role-${i}`}
                   value={person.role}
                   onChange={(role) => onPerson(i, { role })}
+                  disabled={gesperrt}
                   options={ROLES.map((role) => ({ value: role, label: t(`roles.${role}`) }))}
                 />
               </div>
@@ -100,6 +103,7 @@ export default function CastStep(props: CastStepProps) {
                   id={`podcast-voice-${i}`}
                   value={person.voiceId}
                   onChange={(voiceId) => onPerson(i, { voiceId, providerId: anbieterVon.get(voiceId) ?? 0 })}
+                  disabled={gesperrt}
                   options={voiceOptions}
                 />
               </div>
@@ -126,6 +130,7 @@ export default function CastStep(props: CastStepProps) {
           step="0.1"
           value={speed}
           onChange={(e) => onSpeed(parseFloat(e.target.value))}
+          disabled={gesperrt}
           className="w-full h-2 bg-surface-dim rounded-lg appearance-none cursor-pointer accent-kb"
         />
         <div className="flex justify-between text-xs text-muted-soft mt-1">
@@ -142,13 +147,13 @@ export default function CastStep(props: CastStepProps) {
               <label htmlFor="podcast-length" className="block text-sm font-medium text-foreground-soft mb-2">
                 {t("lengthLabel")}
               </label>
-              <Select<Length> id="podcast-length" value={length} onChange={onLength} disabled={hatAuftrag} options={LENGTHS.map((l) => ({ value: l, label: t(`lengths.${l}`) }))} />
+              <Select<Length> id="podcast-length" value={length} onChange={onLength} disabled={hatAuftrag || gesperrt} options={LENGTHS.map((l) => ({ value: l, label: t(`lengths.${l}`) }))} />
             </div>
             <div>
               <label htmlFor="podcast-style" className="block text-sm font-medium text-foreground-soft mb-2">
                 {t("styleLabel")}
               </label>
-              <Select<Style> id="podcast-style" value={style} onChange={onStyle} disabled={hatAuftrag} options={STYLES.map((s) => ({ value: s, label: t(`styles.${s}`) }))} />
+              <Select<Style> id="podcast-style" value={style} onChange={onStyle} disabled={hatAuftrag || gesperrt} options={STYLES.map((s) => ({ value: s, label: t(`styles.${s}`) }))} />
             </div>
           </div>
 

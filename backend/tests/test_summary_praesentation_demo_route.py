@@ -53,7 +53,22 @@ def praesentation(tmp_path):
 
 
 @pytest.fixture
-def client(zusammenfassung, praesentation):
+def podcast(tmp_path_factory):
+    ordner = tmp_path_factory.mktemp("podcast")
+    (ordner / "ansicht.json").write_text(json.dumps({
+        "params": {"persons": [{"name": "Lena"}, {"name": "Jonas"}]},
+        "lines": [{"id": "b0", "speaker": 0, "text": "Hallo"}, {"id": "b1", "speaker": 1, "text": "Servus"}],
+        "seconds": 12.5, "workspace": "Projektmanagement", "dateien": ["Skript.pdf"],
+    }), encoding="utf-8")
+    (ordner / "audio").mkdir()
+    (ordner / "audio" / "b0.mp3").write_bytes(b"ID3eins")
+    (ordner / "podcast.mp3").write_bytes(b"ID3ganz")
+    with patch("src.routes.podcast_demo.DEMO_DIR", ordner):
+        yield ordner
+
+
+@pytest.fixture
+def client(zusammenfassung, praesentation, podcast):
     from src.app import app
     from src.dependencies import get_current_user
     from src.dependencies_rbac import get_user_permissions
@@ -118,3 +133,20 @@ def test_praesentation_ohne_vorbereiteten_lauf(client, praesentation):
     (praesentation / "ansicht.json").unlink()
     assert client.get("/praesentation-demo/available").json() == {"available": False}
     assert client.get("/praesentation-demo/ansicht").status_code == 404
+
+
+def test_podcast_ansicht_wie_ein_fertiger_lauf(client):
+    v = client.get("/podcast-demo/ansicht").json()
+    assert v["status"] == "success"
+    assert v["voiced"] == ["b0"]
+    assert v["seconds"] == 12.5
+    assert v["files"] == ["Skript.pdf"]
+    assert client.get("/podcast-demo/available").json() == {"available": True}
+
+
+def test_podcast_ton_datei_und_transkript(client):
+    assert client.get("/podcast-demo/line/b0").content == b"ID3eins"
+    assert client.get("/podcast-demo/line/b1").status_code == 404
+    assert client.get("/podcast-demo/line/x").status_code == 404
+    assert client.get("/podcast-demo/download").content == b"ID3ganz"
+    assert client.get("/podcast-demo/transcript").text == "Lena: Hallo\n\nJonas: Servus\n"

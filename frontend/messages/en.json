@@ -1369,7 +1369,8 @@
         "geaendert": "Changed. On the next run only this line is voiced again.",
         "nachLinks": "Scroll lines to the left",
         "nachRechts": "Scroll lines to the right"
-      }
+      },
+      "demoBadge": "View demo"
     },
     "praesentation": {
       "title": "Presentation",
@@ -1612,6 +1613,15 @@
       "materialVorgegeben": "In the demo the workspace, material and instruction are fixed.",
       "keinErgebnis": "No result has been added for the demo yet.",
       "bearbeitenGesperrt": "In the demo the slides can only be viewed, not changed.",
+      "beenden": "End demo"
+    },
+    "podcastDemo": {
+      "demoBadge": "Demo",
+      "hinweis": "This is the demo. You can try every step, but the result is always the prepared podcast.",
+      "materialVorgegeben": "In the demo the workspace, material and instruction are fixed.",
+      "keinGlossar": "The demo uses no term list.",
+      "keinErgebnis": "No result has been added for the demo yet.",
+      "skriptGesperrt": "In the demo the script can only be read, not changed.",
       "beenden": "End demo"
     }
   },

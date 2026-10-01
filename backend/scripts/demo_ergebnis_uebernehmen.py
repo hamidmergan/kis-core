@@ -1,4 +1,4 @@
-"""Takes finished summary and presentation runs over as the demo results, safe to run again.
+"""Takes finished summary, presentation and podcast runs over as the demo results, safe to run again.
 
     docker exec kis-backend python scripts/demo_ergebnis_uebernehmen.py --ziel /tmp/demo <job_uuid> [...]
     docker cp kis-backend:/tmp/demo/. backend/demo/
@@ -15,11 +15,12 @@ from pathlib import Path
 sys.path.insert(0, "/app")
 
 from src import database as db  # noqa: E402
+from src.features.podcast import store as podcast_store  # noqa: E402
 from src.features.praesentation import store  # noqa: E402
 from src.features.summary.models import INSTRUCTIONS_FILE  # noqa: E402
 from src.routes.praesentation.media import _bildplaetze  # noqa: E402
 from src.services import sources  # noqa: E402
-from src.storage import get_file, get_job_file, job_file_exists  # noqa: E402
+from src.storage import get_file, get_job_file, job_file_exists, load_result_meta  # noqa: E402
 
 DEMO_DIR = Path(__file__).resolve().parent.parent / "demo"
 FERTIG = ("completed", "success")
@@ -82,6 +83,31 @@ def praesentation(job: dict, workspace: str, ziel: Path) -> str:
     return f"Präsentation mit {len(slides)} Folien"
 
 
+def podcast(job: dict, workspace: str, ziel: Path) -> str:
+    """Cast, script, the audio of every contribution and the finished file."""
+    uid, uuid = job["user_id"], job["job_uuid"]
+    params = podcast_store.load_params(uid, uuid)
+    zeilen = podcast_store.load_lines(uid, uuid)
+    ordner = ziel / "podcast"
+    shutil.rmtree(ordner, ignore_errors=True)
+    for z in zeilen:
+        ton = podcast_store.get_line_audio(uid, uuid, z.id)
+        if ton:
+            _schreiben(ordner / podcast_store.audio_name(z.id), ton)
+    _schreiben(ordner / "podcast.mp3", get_file(job["result_path"]))
+    # The podcast keeps only the joined names, the way sources.label writes them.
+    dateien = params.source_label.split(", ") if params and params.source_label else []
+    ansicht = {
+        "params": params.model_dump() if params else None,
+        "lines": [z.model_dump() for z in zeilen],
+        "seconds": (load_result_meta(uid, uuid) or {}).get("seconds"),
+        "workspace": workspace,
+        "dateien": dateien,
+    }
+    (ordner / "ansicht.json").write_text(json.dumps(ansicht, ensure_ascii=False, indent=2), encoding="utf-8")
+    return f"Podcast mit {len(zeilen)} Beiträgen"
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("jobs", nargs="+", help="UUIDs fertiger Läufe")
@@ -99,6 +125,8 @@ def main() -> int:
             print(f"{uuid}: {zusammenfassung(job, args.workspace, args.ziel)}")
         elif job["tool"] == "praesentation":
             print(f"{uuid}: {praesentation(job, args.workspace, args.ziel)}")
+        elif job["tool"] == "podcast":
+            print(f"{uuid}: {podcast(job, args.workspace, args.ziel)}")
         else:
             print(f"{uuid}: {job['tool']} hat keine Demo", file=sys.stderr)
             return 1

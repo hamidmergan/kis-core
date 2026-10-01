@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type DragEvent } from "react";
 import { useFormatter, useTranslations } from "next-intl";
-import { X } from "@phosphor-icons/react";
+import { Info, X } from "@phosphor-icons/react";
 import Checkbox from "@/components/ui/Checkbox";
 import GlossarySelector from "@/components/glossary/GlossarySelector";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -12,12 +12,14 @@ import Spinner from "@/components/ui/Spinner";
 import Tabs from "@/components/ui/Tabs";
 import ProviderSelect from "@/components/tools/ProviderSelect";
 import type { FeatureProvider } from "@/hooks/useFeatureProviders";
+import { Link } from "@/i18n/navigation";
 import { MAX_UPLOAD_BYTES, MAX_UPLOAD_MB } from "@/lib/constants";
 import StepFooter from "../_components/StepFooter";
 import { useModules } from "@/hooks/useModules";
 import { useMaterialMeasure } from "@/hooks/useMaterialMeasure";
 import MaterialGauge, { MeasureError, MeasureNote } from "@/components/tools/MaterialGauge";
 import { hasContent } from "../_logic";
+import type { DemoMaterial } from "../_demo";
 import type { Language, Source, SourceMode } from "../_types";
 
 export const FIELD =
@@ -27,6 +29,9 @@ const ACCEPT = ".pdf,.docx,.pptx,.txt,.md";
 const MAX_QUELLEN = 10;
 
 const EIN_MB = 1024 * 1024;
+const KEINE_DATEIEN: File[] = [];
+const DEMO_BADGE = "text-xs font-semibold px-3.5 py-1.5 rounded border-2 border-transparent";
+const DEMO_FARBE = { backgroundColor: "rgb(245, 158, 11)", color: "rgb(0, 0, 0)" };
 
 interface ContentStepProps {
   /** Without the assistant there are no modules, then the tab stays away. */
@@ -44,11 +49,18 @@ interface ContentStepProps {
   onGlossaryIds: (ids: string[]) => void;
   onInstructions: (text: string) => void;
   onNext: () => void;
+  /** The demo run: its material and every setting that shaped the prepared podcast stay fixed. */
+  demo?: DemoMaterial;
+  /** A prepared demo run exists, the real page then links to it. */
+  demoDa?: boolean;
 }
 
 export default function ContentStep({ canUseModules, source, language, instructions, glossaryIds, llmProviders, llmProviderId,
-                                      onLlmProvider, onSource, onLanguage, onGlossaryIds, onInstructions, onNext }: ContentStepProps) {
+                                      onLlmProvider, onSource, onLanguage, onGlossaryIds, onInstructions, onNext,
+                                      demo, demoDa = false }: ContentStepProps) {
   const t = useTranslations("tools.podcast.content");
+  const tDemo = useTranslations("tools.podcastDemo");
+  const fest = !!demo;
   const tTool = useTranslations("tools.podcast");
   const tCommon = useTranslations("common");
   const format = useFormatter();
@@ -60,9 +72,10 @@ export default function ContentStep({ canUseModules, source, language, instructi
   const fileRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   // Whoever loses the assistant must not stay stuck in a tab that is gone.
-  const mode: SourceMode = canUseModules || source.mode !== "module" ? source.mode : "files";
-  const { modules, sources } = useModules(mode === "module" ? source.moduleId : "");
-  const messung = useMaterialMeasure("podcast", mode, source.files, source.moduleId, source.sourceIds);
+  const mode: SourceMode = demo ? "module" : canUseModules || source.mode !== "module" ? source.mode : "files";
+  const { modules, sources } = useModules(mode === "module" && !demo ? source.moduleId : "");
+  const messung = useMaterialMeasure("podcast", demo ? "files" : mode, demo ? KEINE_DATEIEN : source.files,
+                                     source.moduleId, source.sourceIds);
 
   // Nothing is preselected, a deleted source drops out of the choice.
   useEffect(() => {
@@ -99,12 +112,27 @@ export default function ContentStep({ canUseModules, source, language, instructi
   const zuViele = source.files.length > MAX_QUELLEN;
   const zuGross = bytes > MAX_UPLOAD_BYTES;
   const hatInhalt = hasContent({ ...source, mode });
-  const bereit = hatInhalt && !zuViele && !zuGross && (mode === "blank" || messung.ready);
+  const bereit = fest || (hatInhalt && !zuViele && !zuGross && (mode === "blank" || messung.ready));
 
   return (
     <section className="animate-[fadeIn_0.3s_ease-out]">
-      <h1 className="text-xl font-bold mb-1">{tTool("title")}</h1>
-      <p className="text-sm text-muted mb-8">{tTool("intro")}</p>
+      <div className="flex items-baseline justify-between gap-3 mb-1">
+        <h1 className="text-xl font-bold">{tTool("title")}</h1>
+        {demo ? (
+          <span className={DEMO_BADGE} style={DEMO_FARBE}>{tDemo("demoBadge")}</span>
+        ) : demoDa && (
+          <Link href="/tools/podcast-demo" className={`${DEMO_BADGE} hover:border-black transition-colors`} style={DEMO_FARBE}>
+            {tTool("demoBadge")}
+          </Link>
+        )}
+      </div>
+      <p className={`text-sm text-muted ${demo ? "mb-6" : "mb-8"}`}>{tTool("intro")}</p>
+      {demo && (
+        <p className="mb-8 flex items-start gap-2 rounded-lg bg-surface-dim px-3 py-2.5 text-sm text-foreground-soft">
+          <Info size={14} className="mt-0.5 flex-shrink-0 text-muted-soft" aria-hidden="true" />
+          {tDemo("hinweis")}
+        </p>
+      )}
       <h2 className="text-lg font-bold mb-4">{t("heading")}</h2>
 
       <Tabs<SourceMode>
@@ -112,11 +140,34 @@ export default function ContentStep({ canUseModules, source, language, instructi
         active={mode}
         onChange={(next) => onSource({ mode: next })}
         items={[
-          { key: "files", label: t("tabs.files") },
-          ...(canUseModules ? [{ key: "module" as const, label: "Workspace" }] : []),
-          { key: "blank", label: t("tabs.blank") },
+          { key: "files", label: t("tabs.files"), disabled: fest },
+          ...(canUseModules || demo ? [{ key: "module" as const, label: "Workspace" }] : []),
+          { key: "blank", label: t("tabs.blank"), disabled: fest },
         ]}
       />
+
+      {demo && (
+        <div className="space-y-4">
+          <div>
+            <label htmlFor="podcast-module" className="block text-sm font-medium text-foreground-soft mb-2">
+              Workspace
+            </label>
+            <Select id="podcast-module" value="demo" onChange={() => {}} disabled
+              options={[{ value: "demo", label: demo.workspace }]} />
+          </div>
+          <div>
+            <span className="block text-sm font-medium text-foreground-soft mb-2">{t("sourcesLabel")}</span>
+            <ul className="space-y-2">
+              {demo.files.map((name) => (
+                <li key={name}>
+                  <Checkbox checked disabled onChange={() => {}} label={name} labelClassName="text-sm text-foreground" />
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2 text-xs text-muted">{tDemo("materialVorgegeben")}</p>
+          </div>
+        </div>
+      )}
 
       {mode === "blank" && (
         <p className="rounded-lg border border-border-soft px-4 py-3 text-sm text-foreground-soft">
@@ -204,7 +255,7 @@ export default function ContentStep({ canUseModules, source, language, instructi
         </>
       )}
 
-      {mode === "module" && (
+      {mode === "module" && !demo && (
         modules === null ? (
           <Spinner className="justify-center py-10" />
         ) : modules.length === 0 ? (
@@ -268,6 +319,7 @@ export default function ContentStep({ canUseModules, source, language, instructi
             id="podcast-language"
             value={language}
             onChange={onLanguage}
+            disabled={fest}
             options={[
               { value: "de", label: t("languages.de") },
               { value: "en", label: t("languages.en") },
@@ -290,7 +342,11 @@ export default function ContentStep({ canUseModules, source, language, instructi
             {t("glossaryLabel")}
           </span>
           <p className="mt-1 text-xs text-muted-soft">{t("glossaryHint")}</p>
-          <GlossarySelector values={glossaryIds} onChange={onGlossaryIds} className="mb-4 mt-2" />
+          {fest ? (
+            <p className="mt-2 mb-4 text-sm text-muted">{tDemo("keinGlossar")}</p>
+          ) : (
+            <GlossarySelector values={glossaryIds} onChange={onGlossaryIds} className="mb-4 mt-2" />
+          )}
         </div>
 
         <div className="mt-4">
@@ -301,6 +357,7 @@ export default function ContentStep({ canUseModules, source, language, instructi
             id="podcast-instructions"
             value={instructions}
             onChange={(e) => onInstructions(e.target.value)}
+            readOnly={fest}
             rows={3}
             placeholder={t("instructionsPlaceholder")}
             className={`${FIELD} resize-y`}

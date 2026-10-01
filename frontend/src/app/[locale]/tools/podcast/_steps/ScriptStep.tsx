@@ -45,13 +45,16 @@ interface ScriptStepProps {
   onBack: (() => void) | null;
   onVoice: () => void;
   onToDone: () => void;
+  /** The prepared demo run, its script can be read but not changed. */
+  demo?: boolean;
 }
 
 export default function ScriptStep(props: ScriptStepProps) {
   const { lines, draft, draftParts, persons, count, voicedIds, busy, error, allDone, selfWritten,
           instructionUnmatched, regenAnchorIndex, regenAnchorText,
-          onUpdate, onSpeaker, onRegenAnchor, onOpenRegen, onDelete, onAdd, onBack, onVoice, onToDone } = props;
+          onUpdate, onSpeaker, onRegenAnchor, onOpenRegen, onDelete, onAdd, onBack, onVoice, onToDone, demo = false } = props;
   const t = useTranslations("tools.podcast.script");
+  const tDemo = useTranslations("tools.podcastDemo");
   const tCast = useTranslations("tools.podcast.cast");
   const tCommon = useTranslations("tools.podcast.common");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -120,7 +123,7 @@ export default function ScriptStep(props: ScriptStepProps) {
   return (
     <section className="animate-[fadeIn_0.3s_ease-out]">
       <h2 className="text-lg font-bold mb-2">{t(selfWritten ? "blankHeading" : "heading")}</h2>
-      <p className="text-sm text-muted mb-4">{t(selfWritten ? "blankIntro" : "intro")}</p>
+      <p className="text-sm text-muted mb-4">{demo ? tDemo("skriptGesperrt") : t(selfWritten ? "blankIntro" : "intro")}</p>
 
       <div className="mb-4 rounded-lg bg-surface px-4 py-3 text-sm text-foreground-soft">
         {t("summary", { lines: lines.length, words: wordsOf(lines), minutes: minutesOf(lines) })}
@@ -170,7 +173,7 @@ export default function ScriptStep(props: ScriptStepProps) {
                 {schonVertont && offenerBeitrag && <StatusMark tone="warn" className="text-xs">{t("changed")}</StatusMark>}
                 {!offenerBeitrag && <StatusMark tone="success" className="text-xs">{t("voiced")}</StatusMark>}
                 <span className="flex-1" />
-                {!isEditing && (
+                {!isEditing && !demo && (
                   <>
                     <IconButton
                       size="sm"
@@ -238,10 +241,12 @@ export default function ScriptStep(props: ScriptStepProps) {
         })}
       </div>
 
-      <button type="button" onClick={onAdd} className={ACTION}>
-        <Plus size={14} weight="bold" />
-        {t("add")}
-      </button>
+      {!demo && (
+        <button type="button" onClick={onAdd} className={ACTION}>
+          <Plus size={14} weight="bold" />
+          {t("add")}
+        </button>
+      )}
 
       <StepFooter
         onBack={onBack}

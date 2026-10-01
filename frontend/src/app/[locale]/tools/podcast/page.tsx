@@ -22,7 +22,7 @@ import ScriptStep from "./_steps/ScriptStep";
 import VoicingStep from "./_steps/VoicingStep";
 import PodcastStepper from "./_components/PodcastStepper";
 import BestaetigungModal from "./_components/BestaetigungModal";
-import { cancelJob, fetchJob, fetchPodcast, rephraseLine, savePodcastParams, saveScript, startPodcast, startRender } from "./_api";
+import { cancelJob, demoAvailable, fetchJob, fetchPodcast, rephraseLine, savePodcastParams, saveScript, startPodcast, startRender } from "./_api";
 import { LAEUFT, closedForGood, hatErgebnisse, isBusy, ohneKi, reachable } from "./_logic";
 import { INITIAL_STATE, defaultPersons, reducer } from "./_reducer";
 import { STEPS, type Line, type Person, type PodcastState, type Step } from "./_types";
@@ -42,6 +42,7 @@ function PodcastPageInner() {
   const { mergeEntries } = useGlossaries();
   const [hydrated, setHydrated] = useState(false);
   const [besetzungLaeuft, setBesetzungLaeuft] = useState(false);
+  const [demoDa, setDemoDa] = useState(false);
   // Both of these clicks throw work away, so neither happens without a question.
   const [nachfrage, setNachfrage] = useState<"abbrechen" | "neu" | null>(null);
   const { loaded, providers } = useVoices();
@@ -113,6 +114,10 @@ function PodcastPageInner() {
       })
       .finally(() => setHydrated(true));
   }, [holeStand, ausListe]);
+
+  useEffect(() => {
+    demoAvailable().then(setDemoDa);
+  }, []);
 
   // Another job starts with an empty draft.
   useEffect(() => {
@@ -303,6 +308,7 @@ function PodcastPageInner() {
                 onGlossaryIds={(ids) => dispatch({ type: "SET_GLOSSARIES", ids })}
                 onInstructions={(text) => dispatch({ type: "SET_INSTRUCTIONS", text })}
                 onNext={() => dispatch({ type: "GO", step: "cast" })}
+                demoDa={demoDa}
               />
             )}
             {state.step === "cast" && (

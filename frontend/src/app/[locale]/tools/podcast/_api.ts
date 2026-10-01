@@ -136,6 +136,24 @@ export async function fetchJob(jobUuid: string): Promise<JobView> {
   return res.json();
 }
 
-export const lineAudioUrl = (jobUuid: string, lineId: string) => `/api/podcast/${jobUuid}/line/${lineId}`;
-export const resultUrl = (jobUuid: string) => `/api/jobs/${jobUuid}/download`;
-export const transcriptUrl = (jobUuid: string) => `/api/podcast/${jobUuid}/transcript`;
+/** The prepared demo run has no job, its audio and transcript come from the demo route. */
+export const DEMO_JOB = "demo";
+const DEMO = "/api/podcast-demo";
+
+export const lineAudioUrl = (jobUuid: string, lineId: string) =>
+  jobUuid === DEMO_JOB ? `${DEMO}/line/${lineId}` : `/api/podcast/${jobUuid}/line/${lineId}`;
+export const resultUrl = (jobUuid: string) => (jobUuid === DEMO_JOB ? `${DEMO}/download` : `/api/jobs/${jobUuid}/download`);
+export const transcriptUrl = (jobUuid: string) =>
+  jobUuid === DEMO_JOB ? `${DEMO}/transcript` : `/api/podcast/${jobUuid}/transcript`;
+
+export async function fetchDemo(): Promise<PodcastView & { seconds: number | null; workspace: string; files: string[] }> {
+  const res = await fetch(`${DEMO}/ansicht`, { credentials: "include" });
+  if (!res.ok) throw new Error(await fehlerText(res));
+  return res.json();
+}
+
+export const demoAvailable = (): Promise<boolean> =>
+  fetch(`${DEMO}/available`, { credentials: "include" })
+    .then((r) => (r.ok ? r.json() : { available: false }))
+    .then((d: { available: boolean }) => d.available)
+    .catch(() => false);

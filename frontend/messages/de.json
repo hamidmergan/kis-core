@@ -1369,7 +1369,8 @@
         "geaendert": "Geändert. Beim nächsten Lauf wird nur dieser Beitrag neu vertont.",
         "nachLinks": "Beiträge nach links schieben",
         "nachRechts": "Beiträge nach rechts schieben"
-      }
+      },
+      "demoBadge": "Demo ansehen"
     },
     "praesentation": {
       "title": "Präsentation",
@@ -1612,6 +1613,15 @@
       "materialVorgegeben": "In der Demo sind Workspace, Material und Anweisung vorgegeben.",
       "keinErgebnis": "Für die Demo ist noch kein Ergebnis hinterlegt.",
       "bearbeitenGesperrt": "In der Demo lassen sich die Folien nur ansehen, nicht ändern.",
+      "beenden": "Demo beenden"
+    },
+    "podcastDemo": {
+      "demoBadge": "Demo",
+      "hinweis": "Das ist die Demo. Du kannst alle Schritte ausprobieren, das Ergebnis ist aber immer der vorbereitete Podcast.",
+      "materialVorgegeben": "In der Demo sind Workspace, Material und Anweisung vorgegeben.",
+      "keinGlossar": "In der Demo wird keine Begriffsliste verwendet.",
+      "keinErgebnis": "Für die Demo ist noch kein Ergebnis hinterlegt.",
+      "skriptGesperrt": "In der Demo lässt sich das Skript nur lesen, nicht ändern.",
       "beenden": "Demo beenden"
     }
   },

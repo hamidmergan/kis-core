@@ -25,11 +25,13 @@ interface VoicingStepProps {
   onCancel: () => void;
   onBackToScript: () => void;
   onWeiter: () => void;
+  /** The prepared demo run, nothing runs in the background there. */
+  demo?: boolean;
 }
 
 export default function VoicingStep(props: VoicingStepProps) {
   const { jobUuid, lines, persons, voicedIds, jobStatus, progress, error,
-          onResume, onCancel, onBackToScript, onWeiter } = props;
+          onResume, onCancel, onBackToScript, onWeiter, demo = false } = props;
   const t = useTranslations("tools.podcast.voicing");
   const tv = useTranslations("tools.podcast.vorschau");
   const tScript = useTranslations("tools.podcast.script");
@@ -69,7 +71,7 @@ export default function VoicingStep(props: VoicingStepProps) {
         )}
       </div>
 
-      {(running || wartet) && <BackgroundHint />}
+      {(running || wartet) && !demo && <BackgroundHint />}
 
       {gestoert && (
         <div className="mt-6 rounded-lg border border-error-border bg-error-bg px-4 py-3" role="alert">
