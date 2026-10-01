@@ -362,7 +362,7 @@ function ZusammenfassungSeiteInner({ demo = false }: { demo?: boolean }) {
         )}
 
         <div className="grid gap-8 lg:grid-cols-[minmax(0,400px)_1fr]" data-tour="tool-summary">
-        <section className="min-w-0">
+        <section className="min-w-0 rounded-xl border border-border-soft bg-surface p-4 sm:p-5">
           {(canUseModules || demo) && (
             <Tabs<SourceMode>
               className="mb-4"

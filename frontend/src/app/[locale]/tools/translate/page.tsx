@@ -199,7 +199,7 @@ function UebersetzungPageInner() {
         <p className="text-sm text-muted mb-6">{t("intro")}</p>
 
         <div className="grid gap-8 lg:grid-cols-[minmax(0,400px)_1fr]" data-tour="tool-translation">
-        <section className="min-w-0">
+        <section className="min-w-0 rounded-xl border border-border-soft bg-surface p-4 sm:p-5">
           <div className="mb-4">
             <Tabs
               variant="pill"
