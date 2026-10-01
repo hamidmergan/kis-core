@@ -5,7 +5,7 @@ import { Check, Eye, EyeSlash, PencilSimple, Trash } from "@phosphor-icons/react
 import { Link } from "@/i18n/navigation";
 import IconButton from "@/components/ui/IconButton";
 import type { ScheduleListEntry } from "./ScheduleEntryCardGlobal";
-import { cleanScheduleDescription, dateQualifier, formatRangeEnd, urgencyColor } from "./utils";
+import { cleanScheduleDescription, dateQualifier, effectiveDueDate, formatRangeEnd, urgencyColor } from "./utils";
 import { YearLabel } from "./YearLabel";
 
 function parseYMD(s: string): Date {
@@ -40,11 +40,12 @@ export default function ScheduleMonthRow({
   const date = parseYMD(entry.due_date);
   const monthOnly = entry.date_precision === "month";
   const month = new Intl.DateTimeFormat(tag, { month: "short" }).format(date);
-  // If the source names only the month, the appointment is over only after the month.
+  // A span is over only after its last day, a month-only date only after the month.
+  const ende = effectiveDueDate(entry) as string;
   const isPast = monthOnly
-    ? entry.due_date.slice(0, 7) < today.slice(0, 7)
-    : entry.due_date < today;
-  const urgency = urgencyColor(entry.due_date, today);
+    ? ende.slice(0, 7) < today.slice(0, 7)
+    : ende < today;
+  const urgency = urgencyColor(ende, today);
   const description = cleanScheduleDescription(entry.description, entry.due_time, entry.due_date);
   // The span always stands as a text line, the badge only labels the start day.
   const spannenEnde = formatRangeEnd(entry.due_date, entry.end_date, locale);
