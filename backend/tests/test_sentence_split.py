@@ -80,6 +80,22 @@ def test_no_split_on_hyphenated_academic_title():
     ]
 
 
+def test_no_split_inside_chained_lowercase_title():
+    # "Dr. rer. pol." chains short lowercase pieces, the name behind it stays in the sentence.
+    assert _split_sentences("Der Professor heißt Dr. rer. pol. Jürgen Klein. Er betreut das Modul.") == [
+        "Der Professor heißt Dr. rer. pol. Jürgen Klein.",
+        "Er betreut das Modul.",
+    ]
+
+
+def test_split_after_lone_short_lowercase_word():
+    # A short lowercase word without a period before it still ends a sentence.
+    assert _split_sentences("Das Ziel ist neu. Danach folgt mehr.") == [
+        "Das Ziel ist neu.",
+        "Danach folgt mehr.",
+    ]
+
+
 def test_no_split_inside_email():
     assert _split_sentences("Schreib an lenka.kleinau@th-luebeck.de. Sie antwortet schnell.") == [
         "Schreib an lenka.kleinau@th-luebeck.de.",

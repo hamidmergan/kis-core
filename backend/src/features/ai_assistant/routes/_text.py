@@ -307,13 +307,21 @@ def _is_short_abbrev_part(tok: str) -> bool:
     return False
 
 
+# How long a lowercase piece inside a chained abbreviation may be.
+_CHAINED_ABBREV_MAX_CHARS = 3
+
+
 def _is_abbreviation_end(prefix: str) -> bool:
     """Whether the final period ends an abbreviation or number instead of a sentence."""
-    tok = prefix.rstrip(".!?").split()
-    if not tok:
+    toks = prefix.rstrip(".!?").split()
+    if not toks:
         return False
     # Strip brackets and quotes, inner periods stay.
-    tok = re.sub(r"^\W+|\W+$", "", tok[-1])
+    tok = re.sub(r"^\W+|\W+$", "", toks[-1])
+    # A short lowercase piece behind another abbreviation continues a chain like "rer. pol.".
+    if (len(toks) > 1 and toks[-2].endswith(".") and tok.isalpha() and tok.islower()
+            and len(tok) <= _CHAINED_ABBREV_MAX_CHARS):
+        return True
     if not tok:
         return False
     if "-" in tok:

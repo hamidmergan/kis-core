@@ -7,7 +7,7 @@ from typing import Callable, Optional
 
 from loguru import logger
 
-from src.services.aia_literal_evidence import pin_words
+from src.services.aia_literal_evidence import names_line_verbatim, pin_words
 
 from ._chips import (
     _attach_chips,
@@ -463,6 +463,8 @@ def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offs
     cand_by_idx: dict[int, list[dict]] = {}
     clause_cands_by_idx: dict[int, list[list[dict]]] = {}
     grounded = False
+    # In the overview the tight threshold applies, a statute list stays chip free.
+    guarantee = max_distance if overview else _GUARANTEE_MAX_DIST
     for i, line in enumerate(lines):
         if i in lead_in or not _needs_attribution(line):
             continue
@@ -482,6 +484,10 @@ def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offs
         d0 = cands[0].get("vec_distance")
         if d0 is not None and d0 <= max_distance:
             grounded = True
+        # A short answer sits far from any chunk by meaning, but its spot names it verbatim.
+        elif (d0 is not None and d0 <= guarantee
+              and names_line_verbatim(line, cands[0].get("content") or "", evidence_corpus or [])):
+            grounded = True
         cc = [c for c in (_line_candidates(cl, search_one, context_chunks,
                                            seen_pages_by_source, scope_ids,
                                            literal_lookup=literal_lookup,
@@ -492,8 +498,6 @@ def _attribute_generic_text(text: str, search_one, source_id_to_qnum: dict, offs
     # Pass 2 puts the chips at the block end, sources deduplicated across the block.
     out = list(lines)
     if grounded:
-        # In the overview the tight threshold applies, a statute list stays chip free.
-        guarantee = max_distance if overview else _GUARANTEE_MAX_DIST
         # Chips are not deduplicated across blocks, two claims may name the same spot.
         for blk in _attr_blocks(lines):
             if blk[0] in lead_in:

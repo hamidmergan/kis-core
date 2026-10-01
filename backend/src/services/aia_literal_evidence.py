@@ -61,6 +61,15 @@ def distinctive_tokens(line: str, corpus: list[str]) -> tuple[set[str], set[str]
     return rare_words, rare_figs
 
 
+def names_line_verbatim(line: str, chunk: str, corpus: list[str]) -> bool:
+    """True when the chunk carries a rare number or two rare words of the line verbatim."""
+    words, figures = distinctive_tokens(line, corpus)
+    if figures & figure_runs(chunk):
+        return True
+    stems = _stems(chunk)
+    return sum(_carries_word(stems, w) for w in words) >= _MIN_WORDS_AS_EVIDENCE
+
+
 # A pin word ties a claim to a spot: long enough and rare in the material.
 _PIN_MIN_CHARS = 9
 

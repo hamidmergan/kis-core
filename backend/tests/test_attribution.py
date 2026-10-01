@@ -362,6 +362,31 @@ def test_ungrounded_answer_borderline_gets_no_chip():
     assert out == line
 
 
+# A course corpus where the lecturer's name occurs only in the greeting.
+_GRUSS = "Dabei unterstütze ich Sie sehr gerne! Viele Grüße und einen guten Start Jürgen Klein"
+_KURS = [{"content": f"Kapitel {n}: Grundlagen der Gründung und der Finanzierung im Modul."}
+         for n in ("eins", "zwei", "drei", "vier", "fünf", "sechs", "sieben", "acht",
+                   "neun", "zehn")] + [{"content": _GRUSS}]
+
+
+def test_short_answer_naming_the_spot_verbatim_gets_its_chip():
+    # Measured on prod: a one-line answer sits at 0.629 from the only spot with the name.
+    line = "Der Professor heißt **Jürgen Klein**."
+    search = _searcher({"Klein": [_hit(1, 1, _GRUSS, 0.629)]})
+    out = _attribute_generic_text(line, search, {1: 1}, context_chunks=_KURS,
+                                  seen_pages_by_source={1: {1}}, max_distance=0.6)
+    assert "[1, S. 1]" in out
+
+
+def test_short_answer_without_verbatim_words_stays_without_chip():
+    # Same distance, but the spot names nothing of the line, so the gate holds.
+    line = "Der Professor heißt **Jürgen Klein**."
+    search = _searcher({"Klein": [_hit(1, 1, _KURS[0]["content"], 0.629)]})
+    out = _attribute_generic_text(line, search, {1: 1}, context_chunks=_KURS,
+                                  seen_pages_by_source={1: {1}}, max_distance=0.6)
+    assert out == line
+
+
 # A refusal line never gets the loose chip.
 
 # Compound question: one part answered, one part refused.
