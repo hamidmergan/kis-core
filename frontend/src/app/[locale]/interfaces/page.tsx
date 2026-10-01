@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import { Link } from "@/i18n/navigation";
 import CollapsibleCard from "@/components/ui/CollapsibleCard";
 import Spinner from "@/components/ui/Spinner";
 import { api, genericErrorMessage } from "@/lib/api";
@@ -49,6 +50,15 @@ export default function InterfacesPage() {
               <p className="text-sm" style={{ color: "var(--foreground-soft)" }}>{t("intro")}</p>
               {/* The menu says interfaces, this line says which ones, so nobody looks for the LLM here. */}
               <p data-testid="interfaces-scope" className="text-sm font-semibold text-foreground">{t("scope")}</p>
+              <p className="text-sm" style={{ color: "var(--foreground-soft)" }}>
+                {t.rich("demo", {
+                  link: (teil) => (
+                    <Link href="/tools/podcast-demo" className="text-kb hover:underline">
+                      {teil}
+                    </Link>
+                  ),
+                })}
+              </p>
             </div>
             {!data.consent.accepted ? (
               <div

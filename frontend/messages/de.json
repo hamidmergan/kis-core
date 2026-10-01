@@ -4504,6 +4504,7 @@
       "acceptedOn": "Hinweis bestätigt am {date}"
     },
     "vendor": {
+    "demo": "Hörbeispiele anderer Stimmdienste findest du am Ende der <link>Podcast-Demo</link>.",
       "connected": "Verbunden",
       "notConnected": "Nicht verbunden",
       "keyEnding": "Schlüssel endet auf {chars}",

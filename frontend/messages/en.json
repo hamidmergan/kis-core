@@ -4504,6 +4504,7 @@
       "acceptedOn": "Notice confirmed on {date}"
     },
     "vendor": {
+    "demo": "Listen to examples from other voice services at the end of the <link>podcast demo</link>.",
       "connected": "Connected",
       "notConnected": "Not connected",
       "keyEnding": "Key ends in {chars}",
