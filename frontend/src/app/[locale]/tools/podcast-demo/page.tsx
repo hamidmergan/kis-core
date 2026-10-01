@@ -2,7 +2,7 @@
 
 import { useEffect, useReducer, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Info, X } from "@phosphor-icons/react";
+import { Info } from "@phosphor-icons/react";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { EmptyState } from "@/components/ui/EmptyState";
 import Spinner from "@/components/ui/Spinner";
@@ -23,7 +23,8 @@ import ScriptStep from "../podcast/_steps/ScriptStep";
 import VoicingStep from "../podcast/_steps/VoicingStep";
 import { STEPS, type Line, type Person, type PodcastState, type Step } from "../podcast/_types";
 
-const BEENDEN = "inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-soft transition-colors hover:text-error focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb";
+const BEENDEN = "inline-flex items-center rounded px-3.5 py-1.5 text-xs font-semibold border-2 border-transparent hover:border-black transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb";
+const DEMO_FARBE = { backgroundColor: "rgb(245, 158, 11)", color: "rgb(0, 0, 0)" };
 const keineAktion = () => {};
 
 /** The real podcast steps on a prepared run, nothing that would need compute can be changed. */
@@ -115,8 +116,7 @@ function PodcastDemoLauf({ onNeu }: { onNeu: () => void }) {
         {state.step !== "content" && (
           <>
             <div className="flex justify-end mb-3 sm:mb-8">
-              <button type="button" onClick={beenden} className={BEENDEN}>
-                <X size={14} aria-hidden="true" />
+              <button type="button" onClick={beenden} className={BEENDEN} style={DEMO_FARBE}>
                 {tDemo("beenden")}
               </button>
             </div>
@@ -142,7 +142,7 @@ function PodcastDemoLauf({ onNeu }: { onNeu: () => void }) {
                 llmProviders={llm.providers} llmProviderId={llm.providerId} onLlmProvider={llm.setProviderId}
                 onSource={keineAktion} onLanguage={keineAktion} onGlossaryIds={keineAktion} onInstructions={keineAktion}
                 onNext={() => dispatch({ type: "GO", step: "cast" })}
-                demo={{ workspace: view.workspace, files: view.files }} />
+                demo={{ workspace: view.workspace, files: view.files }} onBeenden={beenden} />
             )}
             {state.step === "cast" && (
               <CastStep count={state.count} persons={state.persons} length={state.length} style={state.style}

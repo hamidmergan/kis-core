@@ -34,6 +34,8 @@ interface UploadStepProps {
   onUploadNext: () => void;
   /** In the demo the file is given, this is its name. */
   demoDatei?: string;
+  /** Leaves the demo, only set on the demo page. */
+  onBeenden?: () => void;
 }
 
 export default function UploadStep(props: UploadStepProps) {
@@ -60,6 +62,7 @@ export default function UploadStep(props: UploadStepProps) {
     onTranslationProviderChange,
     onUploadNext,
     demoDatei,
+    onBeenden,
   } = props;
 
   const t = useTranslations("tools.screencast");
@@ -71,12 +74,14 @@ export default function UploadStep(props: UploadStepProps) {
       <div className="flex items-baseline justify-between mb-2">
         <h1 className="text-xl font-bold">{t("title")}</h1>
         {demoDatei ? (
-          <span
-            className="text-xs font-semibold px-3.5 py-1.5 rounded border-2 border-transparent"
+          <button
+            type="button"
+            onClick={onBeenden}
+            className="text-xs font-semibold px-3.5 py-1.5 rounded border-2 border-transparent hover:border-black transition-colors"
             style={{ backgroundColor: "rgb(245, 158, 11)", color: "rgb(0, 0, 0)" }}
           >
-            {tDemo("demoBadge")}
-          </span>
+            {tDemo("beenden")}
+          </button>
         ) : (
           <Link
             href="/tools/screencast-demo"

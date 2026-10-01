@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useReducer, useRef, useState } from "react";
-import { Info, X } from "@phosphor-icons/react";
+import { Info } from "@phosphor-icons/react";
 import { useLocale, useTranslations } from "next-intl";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import ToolBackLink from "@/components/ui/ToolBackLink";
@@ -246,6 +246,10 @@ function ScreencastDemoLauf({ onNeu }: { onNeu: () => void }) {
     (i) => gewaehlt.has(i) && !auswahl.neuVertonen.includes(i),
   ).length;
   const zeigtKopf = step !== "upload" && step !== "error";
+  const beenden = () => {
+    abortRef.current?.abort();
+    router.push("/tools/screencast");
+  };
 
   return (
     <ProtectedRoute>
@@ -255,13 +259,10 @@ function ScreencastDemoLauf({ onNeu }: { onNeu: () => void }) {
           <>
             <div className="flex justify-end mb-8">
               <button
-                onClick={() => {
-                  abortRef.current?.abort();
-                  router.push("/tools/screencast");
-                }}
-                className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-soft transition-colors hover:text-error focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb"
+                onClick={beenden}
+                className="inline-flex items-center rounded px-3.5 py-1.5 text-xs font-semibold border-2 border-transparent hover:border-black transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb"
+                style={{ backgroundColor: "rgb(245, 158, 11)", color: "rgb(0, 0, 0)" }}
               >
-                <X size={14} aria-hidden="true" />
                 {tDemo("beenden")}
               </button>
             </div>
@@ -303,6 +304,7 @@ function ScreencastDemoLauf({ onNeu }: { onNeu: () => void }) {
             onTranslationProviderChange={setTranslationProviderId}
             onUploadNext={handleUploadNext}
             demoDatei={tDemo("dateiName")}
+            onBeenden={beenden}
           />
         )}
 

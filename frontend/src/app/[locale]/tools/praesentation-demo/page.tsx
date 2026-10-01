@@ -1,6 +1,6 @@
 "use client";
 
-import { Info, X } from "@phosphor-icons/react";
+import { Info } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
 import { useEffect, useReducer, useRef, useState } from "react";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
@@ -22,7 +22,8 @@ import { STEPS, type Language, type Step } from "../praesentation/_types";
 // Milliseconds the finishing run takes before the deck is ready.
 const BAU_MS = 1500;
 const DEMO_BADGE = "text-xs font-semibold px-3.5 py-1.5 rounded border-2 border-transparent";
-const BEENDEN = "inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-soft transition-colors hover:text-error focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb";
+const DEMO_FARBE = { backgroundColor: "rgb(245, 158, 11)", color: "rgb(0, 0, 0)" };
+const BEENDEN = `${DEMO_BADGE} hover:border-black transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb`;
 const keineAktion = () => {};
 
 /** The real presentation steps on a prepared run, nothing that would need compute can be changed. */
@@ -109,16 +110,15 @@ function PraesentationDemoLauf({ onNeu }: { onNeu: () => void }) {
           <>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h1 className="text-2xl font-bold">{t("title")}</h1>
-              <span className={DEMO_BADGE} style={{ backgroundColor: "rgb(245, 158, 11)", color: "rgb(0, 0, 0)" }}>
-                {tDemo("demoBadge")}
-              </span>
+              <button type="button" onClick={beenden} className={BEENDEN} style={DEMO_FARBE}>
+                {tDemo("beenden")}
+              </button>
             </div>
             <p className="text-sm text-muted mt-1 mb-4">{t("intro")}</p>
           </>
         ) : (
           <div className="flex justify-end mb-3 sm:mb-8">
-            <button type="button" onClick={beenden} className={BEENDEN}>
-              <X size={14} aria-hidden="true" />
+            <button type="button" onClick={beenden} className={BEENDEN} style={DEMO_FARBE}>
               {tDemo("beenden")}
             </button>
           </div>

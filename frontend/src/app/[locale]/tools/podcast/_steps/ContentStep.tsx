@@ -53,11 +53,13 @@ interface ContentStepProps {
   demo?: DemoMaterial;
   /** A prepared demo run exists, the real page then links to it. */
   demoDa?: boolean;
+  /** Leaves the demo, only set on the demo page. */
+  onBeenden?: () => void;
 }
 
 export default function ContentStep({ canUseModules, source, language, instructions, glossaryIds, llmProviders, llmProviderId,
                                       onLlmProvider, onSource, onLanguage, onGlossaryIds, onInstructions, onNext,
-                                      demo, demoDa = false }: ContentStepProps) {
+                                      demo, demoDa = false, onBeenden }: ContentStepProps) {
   const t = useTranslations("tools.podcast.content");
   const tDemo = useTranslations("tools.podcastDemo");
   const fest = !!demo;
@@ -119,7 +121,9 @@ export default function ContentStep({ canUseModules, source, language, instructi
       <div className="flex items-baseline justify-between gap-3 mb-1">
         <h1 className="text-xl font-bold">{tTool("title")}</h1>
         {demo ? (
-          <span className={DEMO_BADGE} style={DEMO_FARBE}>{tDemo("demoBadge")}</span>
+          <button type="button" onClick={onBeenden} className={`${DEMO_BADGE} hover:border-black transition-colors`} style={DEMO_FARBE}>
+            {tDemo("beenden")}
+          </button>
         ) : demoDa && (
           <Link href="/tools/podcast-demo" className={`${DEMO_BADGE} hover:border-black transition-colors`} style={DEMO_FARBE}>
             {tTool("demoBadge")}
