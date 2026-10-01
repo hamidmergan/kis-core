@@ -118,6 +118,17 @@ export default function ContentStep({ canUseModules, source, language, notes, in
 
   return (
     <section className="animate-[fadeIn_0.3s_ease-out]">
+      {/* Where the material comes from, above both columns like the tabs of the image tool. */}
+      <Tabs<SourceMode>
+        className="mb-6"
+        active={mode}
+        onChange={(next) => onSource({ mode: next })}
+        items={[
+          { key: "files", label: t("tabs.files"), disabled: fest },
+          ...(canUseModules || demo ? [{ key: "module" as const, label: "Workspace" }] : []),
+        ]}
+      />
+
       {/* On the phone the card dissolves into one list (templates, material, settings), on the desktop settings left, material right. */}
       <div className="-mx-4 lg:mx-0 flex flex-col lg:grid lg:grid-cols-[minmax(0,400px)_1fr] lg:items-start lg:gap-8">
         <div className="contents lg:block min-w-0 lg:rounded-xl lg:border lg:border-border-soft lg:bg-surface lg:p-5">
@@ -184,19 +195,9 @@ export default function ContentStep({ canUseModules, source, language, notes, in
         </div>
 
         <div className="order-2 min-w-0 lg:col-start-2 lg:row-start-1 lg:rounded-xl lg:border lg:border-kb/15 lg:bg-kb/5 lg:p-5">
-            <EinstellungsFeld titel={t("materialLabel")} className="border-t lg:border-t-0"
+            <EinstellungsFeld titel={t("materialLabel")} desktopTitel={false} className="border-t lg:border-t-0"
                   wert={demo ? t("sourcesCount", { n: demo.files.length }) : mode === "files" ? t("filesCount", { n: source.files.length }) : t("sourcesCount", { n: source.sourceIds.length })}
                   {...zeile("material")}>
-              <Tabs<SourceMode>
-                className="mb-4"
-                active={mode}
-                onChange={(next) => onSource({ mode: next })}
-                items={[
-                  { key: "files", label: t("tabs.files"), disabled: fest },
-                  ...(canUseModules || demo ? [{ key: "module" as const, label: "Workspace" }] : []),
-                ]}
-              />
-
               {demo && (
                 <div className="space-y-4">
                   <div>
