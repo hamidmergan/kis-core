@@ -22,7 +22,7 @@ interface SchrittReiterProps {
   discardLabel?: string;
 }
 
-/** Numbered tabs on the left as in image and translation on the desktop, a back arrow with a progress bar on the phone, shared by the multi-step tools. */
+/** Numbered underline tabs on the desktop, a back arrow with a progress bar on the phone, shared by the multi-step tools. */
 export default function SchrittReiter({ labels, current, canEnter, isClosedForGood, isSkipped, onStepClick, backIndex, onDiscard, discardLabel }: SchrittReiterProps) {
   const t = useTranslations("stepper");
   const tCommon = useTranslations("common");
@@ -65,9 +65,8 @@ export default function SchrittReiter({ labels, current, canEnter, isClosedForGo
         </div>
       </div>
 
-      {/* Same look as the underline Tabs of image and translation, aligned left under the title. */}
-      <nav aria-label={t("ariaLabel")} className="hidden sm:block mb-8">
-        <ol ref={leiste} className="flex items-end gap-1 overflow-x-auto scrollbar-hide shadow-[inset_0_-1px_0_var(--border)]">
+      <nav aria-label={t("ariaLabel")} className="hidden sm:block border-b border-border-soft mb-8">
+        <ol ref={leiste} className="flex justify-center-safe gap-6 overflow-x-auto scrollbar-hide">
           {labels.map((label, i) => {
             const aktiv = i === current;
             const klickbar = !aktiv && canEnter(i);
@@ -80,17 +79,15 @@ export default function SchrittReiter({ labels, current, canEnter, isClosedForGo
                   disabled={!klickbar && !aktiv}
                   onClick={() => klickbar && onStepClick(i)}
                   aria-current={aktiv ? "step" : undefined}
-                  className={`px-3 py-1.5 text-sm font-medium transition-colors inline-flex items-center gap-2 whitespace-nowrap rounded-t-md ${
+                  className={`text-sm whitespace-nowrap pb-3 -mb-px border-b-2 transition-colors ${
                     aktiv
-                      ? "bg-kb/10 text-kb cursor-default"
+                      ? "font-semibold text-kb border-kb cursor-default"
                       : klickbar
-                        ? "text-muted hover:bg-surface hover:text-foreground"
-                        : `text-muted cursor-not-allowed ${tot ? "opacity-40" : "opacity-60"}`
-                  }`}
-                  style={{ borderBottom: `2px solid ${aktiv ? "var(--kb)" : "transparent"}` }}
+                        ? "text-muted border-transparent hover:text-kb"
+                        : `text-muted-soft border-transparent cursor-not-allowed ${tot ? "opacity-50" : ""}`
+                  } ${weg ? "line-through" : ""}`}
                 >
-                  <span className="tabular-nums opacity-70">{i + 1}</span>
-                  <span className={weg ? "line-through" : ""}>{label}</span>
+                  {i + 1}&nbsp;&nbsp;{label}
                 </button>
               </li>
             );
