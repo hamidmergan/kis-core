@@ -110,7 +110,7 @@ export default function Header({ hasSession = true, showLogout = false }: Header
           <Link
             href="/"
             aria-label={t("homeAria")}
-            className="logo-link flex items-center bg-white rounded-lg px-2 py-1"
+            className="logo-link flex items-center"
           >
             <Image src="/logos/kis-logo.svg" alt="KIS" width={228} height={78} className="h-8 w-auto" priority />
           </Link>
