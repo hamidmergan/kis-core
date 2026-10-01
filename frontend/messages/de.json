@@ -1597,8 +1597,6 @@
         "files": "{n, plural, =0 {keine} one {# Datei} other {# Dateien}}",
         "sources": "{n, plural, =0 {keine} one {# Material} other {# Materialien}}",
         "empty": "leer",
-        "stageCaption": "Deckblatt im Folienmaster {name}",
-        "stageHint": "So sieht das Deckblatt aus. Im nächsten Schritt siehst du, wie die Folien entstehen, und kannst jede prüfen und ändern.",
         "barTemplate": "Folienmaster: {name}",
         "editNote": "Notiz bearbeiten"
       }

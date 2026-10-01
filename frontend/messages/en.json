@@ -1597,8 +1597,6 @@
         "files": "{n, plural, =0 {none} one {# file} other {# files}}",
         "sources": "{n, plural, =0 {none} one {# material} other {# materials}}",
         "empty": "empty",
-        "stageCaption": "Cover slide in the {name} master",
-        "stageHint": "This is how the cover looks. In the next step you watch the slides being made and can check and change each one.",
         "barTemplate": "Slide master: {name}",
         "editNote": "Edit note"
       }

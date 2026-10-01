@@ -15,7 +15,6 @@ import { Link } from "@/i18n/navigation";
 import { useModules } from "@/hooks/useModules";
 import { useMaterialMeasure } from "@/hooks/useMaterialMeasure";
 import MaterialGauge, { MeasureError, MeasureNote } from "@/components/tools/MaterialGauge";
-import { vorlagePreviewUrl } from "../../praesentation/_api";
 import { FIELD } from "../../praesentation/_components/VorlageHochladen";
 import StepFooter from "../../praesentation/_components/StepFooter";
 import { hasContent } from "../../praesentation/_logic";
@@ -57,7 +56,7 @@ interface Props {
 }
 
 /** One setting: a collapsible row with its value on the phone, a plain labelled field on the desktop. */
-function Feld({ titel, wert, offen, onToggle, htmlFor, desktopTitel = true, className = "lg:mt-6", children }: {
+function Feld({ titel, wert, offen, onToggle, htmlFor, desktopTitel = true, className = "order-3 lg:mt-6", children }: {
   titel: string;
   wert: string;
   offen: boolean;
@@ -77,13 +76,15 @@ function Feld({ titel, wert, offen, onToggle, htmlFor, desktopTitel = true, clas
           <CaretDown size={14} weight="bold" className={`text-muted shrink-0 transition-transform ${offen ? "rotate-180" : ""}`} />
         </span>
       </button>
-      {desktopTitel && <label htmlFor={htmlFor} className="hidden lg:block text-sm font-medium mb-1">{titel}</label>}
+      {desktopTitel && (htmlFor
+        ? <label htmlFor={htmlFor} className="hidden lg:block text-sm font-medium mb-1">{titel}</label>
+        : <p className="hidden lg:block text-sm font-medium mb-2">{titel}</p>)}
       <div className={`${offen ? "block" : "hidden"} lg:block px-4 pb-4 lg:p-0`}>{children}</div>
     </div>
   );
 }
 
-/** Step 1 laid out like translation and image: the form in a card on the left, the chosen cover as the stage on the right. */
+/** Step 1 in two fixed columns: settings in a card on the left, the material to upload on the right. */
 export default function InhaltSchritt({ canUseModules, source, language, notes, instructions, imageStyle, presenter, templateId, hasActiveJob,
                                         error, llmProviders, llmProviderId, onLlmProvider, onSource, onLanguage, onNotes, onInstructions, onImageStyle,
                                         onPresenter, onTemplate, onNext }: Props) {
@@ -138,113 +139,12 @@ export default function InhaltSchritt({ canUseModules, source, language, notes, 
 
   return (
     <section className="animate-[fadeIn_0.3s_ease-out]">
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,400px)_1fr]">
-        <div className="min-w-0 -mx-4 lg:mx-0 flex flex-col lg:rounded-xl lg:border lg:border-border-soft lg:bg-surface lg:p-5">
-          <Feld titel={tNeu("sourceLabel")} desktopTitel={false} className="border-t lg:border-t-0"
-                wert={mode === "files" ? tNeu("files", { n: source.files.length }) : tNeu("sources", { n: source.sourceIds.length })}
-                {...zeile("material")}>
-            <Tabs<SourceMode>
-              variant="pill"
-              className="mb-4"
-              active={mode}
-              onChange={(next) => onSource({ mode: next })}
-              items={[
-                { key: "files", label: t("tabs.files") },
-                ...(canUseModules ? [{ key: "module" as const, label: "Workspace" }] : []),
-              ]}
-            />
+      {/* On the phone the card dissolves into one list (templates, material, settings), on the desktop settings left, material right. */}
+      <div className="-mx-4 lg:mx-0 flex flex-col lg:grid lg:grid-cols-[minmax(0,400px)_1fr] lg:items-start lg:gap-8">
+        <div className="contents lg:block min-w-0 lg:rounded-xl lg:border lg:border-border-soft lg:bg-surface lg:p-5">
 
-            {mode === "files" && (
-              <>
-                <div
-                  onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-                  onDragLeave={(e) => { e.preventDefault(); setDragOver(false); }}
-                  onDrop={onDrop}
-                  onClick={() => fileRef.current?.click()}
-                  className={`relative mb-3 flex flex-col items-center justify-center rounded-lg border-2 border-dashed px-6 py-6 lg:py-10 transition-colors cursor-pointer ${
-                    dragOver ? "border-kb bg-kb/5" : "border-border hover:border-kb"
-                  }`}
-                >
-                  <input ref={fileRef} type="file" multiple accept={ACCEPT} className="hidden" aria-label={tCommon("fileSelectAria")}
-                    onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
-                  <svg className="hidden lg:block w-8 h-8 text-muted-soft mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                  </svg>
-                  <p className="text-sm text-foreground-soft text-center">
-                    {t("dropOrBrowse")} <span className="text-kb font-medium">{t("browse")}</span>
-                  </p>
-                  <p className="text-xs text-muted-soft mt-1">{t("filesHint")}</p>
-                </div>
-                {source.files.length > 0 && (
-                  <>
-                    <MaterialGauge bilanz={messung} max={messung.max} />
-                    <ul className="space-y-2">
-                      {source.files.map((datei) => (
-                        <li key={datei.name} className="rounded-lg border border-border-soft bg-background px-3 py-2 text-sm">
-                          <div className="flex items-center justify-between gap-3">
-                            <span className="truncate">{datei.name}</span>
-                            <span className="flex items-center gap-2 shrink-0">
-                              <MeasureNote messung={messung.forFile(datei)} />
-                              <span className="text-xs text-muted-soft">{groesse(datei.size)}</span>
-                              <IconButton size="sm" aria-label={t("removeFile", { name: datei.name })}
-                                onClick={() => onSource({ files: source.files.filter((f) => f.name !== datei.name) })}>
-                                <X size={12} weight="bold" />
-                              </IconButton>
-                            </span>
-                          </div>
-                          <MeasureError messung={messung.forFile(datei)} />
-                        </li>
-                      ))}
-                    </ul>
-                  </>
-                )}
-              </>
-            )}
-
-            {mode === "module" && (
-              modules === null ? (
-                <Spinner className="justify-center py-10" />
-              ) : modules.length === 0 ? (
-                <EmptyState text={t("noModules")} />
-              ) : (
-                <div className="space-y-4">
-                  <div>
-                    <label htmlFor="praesentation-module" className="block text-sm font-medium text-foreground-soft mb-2">Workspace</label>
-                    <Select id="praesentation-module" value={source.moduleId} onChange={(uuid) => onSource({ moduleId: uuid, sourceIds: [] })}
-                      placeholder={tCommon("pleaseSelect")} options={modules.map((m) => ({ value: m.uuid, label: m.title }))} />
-                  </div>
-                  {source.moduleId && (sources === null ? (
-                    <Spinner className="justify-center py-6" />
-                  ) : sources.length === 0 ? (
-                    <EmptyState size="sm" text={t("noSources")} />
-                  ) : (
-                    <div>
-                      {source.sourceIds.length > 0 && <MaterialGauge bilanz={messung} max={messung.max} />}
-                      <span className="block text-sm font-medium text-foreground-soft mb-2">{t("sourcesLabel")}</span>
-                      <ul className="space-y-2">
-                        {sources.map((s) => (
-                          <li key={s.uuid}>
-                            <div className="flex items-center justify-between gap-3">
-                              <Checkbox checked={source.sourceIds.includes(s.uuid)} disabled={voll && !source.sourceIds.includes(s.uuid)}
-                                onChange={() => toggleSource(s.uuid)} label={s.filename} labelClassName="text-sm text-foreground" />
-                              {source.sourceIds.includes(s.uuid) && <MeasureNote messung={messung.forSource(s.uuid)} />}
-                            </div>
-                            {source.sourceIds.includes(s.uuid) && <MeasureError messung={messung.forSource(s.uuid)} />}
-                          </li>
-                        ))}
-                      </ul>
-                      <p className={`mt-2 text-xs ${voll ? "text-error font-medium" : "text-muted"}`}>
-                        {t(voll ? "sourcesFull" : "sourcesHint", { max: MAX_QUELLEN })}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              )
-            )}
-          </Feld>
-
-          {/* On the phone the templates lead, as a carousel above the settings. */}
-          <div className="order-first px-4 pb-4 lg:order-none lg:p-0 lg:mt-6">
+          {/* On the phone the templates lead, as a carousel above the material. */}
+          <div className="order-1 px-4 pb-4 lg:p-0">
             <VorlagenLeiste templateId={templateId} onTemplate={onTemplate} onVorlage={setVorlage} />
           </div>
 
@@ -284,39 +184,130 @@ export default function InhaltSchritt({ canUseModules, source, language, notes, 
             </Feld>
           )}
 
-          <div className="px-4 py-3.5 lg:hidden">
+          <div className="order-3 px-4 py-3.5 lg:hidden">
             <ToggleRow title={t("notesLabel")} description={t("notesHint")} checked={notes} onToggle={() => onNotes(!notes)} />
           </div>
-          <div className="hidden lg:block mt-6">
+          <div className="order-3 hidden lg:block mt-6">
             <Checkbox checked={notes} onChange={onNotes} label={t("notesLabel")} />
             <p className="text-xs text-muted mt-1">{t("notesHint")}</p>
           </div>
 
           {hasActiveJob === true && (
-            <p className="mt-6 px-4 lg:px-0 text-sm text-error">{t("activeJob")} <Link href="/my-jobs" className="underline">{t("activeJobLink")}</Link></p>
+            <p className="order-3 mt-6 px-4 lg:px-0 text-sm text-error">{t("activeJob")} <Link href="/my-jobs" className="underline">{t("activeJobLink")}</Link></p>
           )}
           {error && (
-            <p className="mt-6 px-4 lg:px-0 text-sm text-error">{error} <Link href="/my-jobs" className="underline">{t("activeJobLink")}</Link></p>
+            <p className="order-3 mt-6 px-4 lg:px-0 text-sm text-error">{error} <Link href="/my-jobs" className="underline">{t("activeJobLink")}</Link></p>
           )}
 
-          <div className="hidden lg:block">
+          <div className="order-3 hidden lg:block">
             <StepFooter onBack={null} nextLabel={t("next")} onNext={onNext} nextDisabled={gesperrt} />
           </div>
         </div>
 
-        <section className="hidden lg:block min-w-0">
-          <div className="lg:sticky lg:top-6 rounded-xl border border-kb/15 bg-kb/5 p-5 flex flex-col items-center gap-3">
-            {vorlage ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={vorlagePreviewUrl(vorlage.id)} alt={tNeu("stageCaption", { name: vorlage.name })}
-                   className="w-full aspect-video object-cover rounded-md border border-border-soft bg-background shadow-sm" />
-            ) : (
-              <div className="w-full aspect-video rounded-md bg-surface-dim animate-pulse" />
-            )}
-            {vorlage && <p className="w-full text-xs text-muted">{tNeu("stageCaption", { name: vorlage.name })}</p>}
-            <p className="text-sm text-foreground-soft text-center max-w-md mt-2">{tNeu("stageHint")}</p>
-          </div>
-        </section>
+        <div className="order-2 min-w-0 lg:col-start-2 lg:row-start-1 lg:rounded-xl lg:border lg:border-kb/15 lg:bg-kb/5 lg:p-5">
+            <Feld titel={tNeu("sourceLabel")} className="border-t lg:border-t-0"
+                  wert={mode === "files" ? tNeu("files", { n: source.files.length }) : tNeu("sources", { n: source.sourceIds.length })}
+                  {...zeile("material")}>
+              <Tabs<SourceMode>
+                variant="pill"
+                className="mb-4"
+                active={mode}
+                onChange={(next) => onSource({ mode: next })}
+                items={[
+                  { key: "files", label: t("tabs.files") },
+                  ...(canUseModules ? [{ key: "module" as const, label: "Workspace" }] : []),
+                ]}
+              />
+
+              {mode === "files" && (
+                <>
+                  <div
+                    onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                    onDragLeave={(e) => { e.preventDefault(); setDragOver(false); }}
+                    onDrop={onDrop}
+                    onClick={() => fileRef.current?.click()}
+                    className={`relative mb-3 flex flex-col items-center justify-center rounded-lg border-2 border-dashed px-6 py-6 lg:py-16 transition-colors cursor-pointer ${
+                      dragOver ? "border-kb bg-kb/5" : "border-border hover:border-kb"
+                    }`}
+                  >
+                    <input ref={fileRef} type="file" multiple accept={ACCEPT} className="hidden" aria-label={tCommon("fileSelectAria")}
+                      onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
+                    <svg className="hidden lg:block w-8 h-8 text-muted-soft mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                    <p className="text-sm text-foreground-soft text-center">
+                      {t("dropOrBrowse")} <span className="text-kb font-medium">{t("browse")}</span>
+                    </p>
+                    <p className="text-xs text-muted-soft mt-1">{t("filesHint")}</p>
+                  </div>
+                  {source.files.length > 0 && (
+                    <>
+                      <MaterialGauge bilanz={messung} max={messung.max} />
+                      <ul className="space-y-2">
+                        {source.files.map((datei) => (
+                          <li key={datei.name} className="rounded-lg border border-border-soft bg-background px-3 py-2 text-sm">
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="truncate">{datei.name}</span>
+                              <span className="flex items-center gap-2 shrink-0">
+                                <MeasureNote messung={messung.forFile(datei)} />
+                                <span className="text-xs text-muted-soft">{groesse(datei.size)}</span>
+                                <IconButton size="sm" aria-label={t("removeFile", { name: datei.name })}
+                                  onClick={() => onSource({ files: source.files.filter((f) => f.name !== datei.name) })}>
+                                  <X size={12} weight="bold" />
+                                </IconButton>
+                              </span>
+                            </div>
+                            <MeasureError messung={messung.forFile(datei)} />
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
+                </>
+              )}
+
+              {mode === "module" && (
+                modules === null ? (
+                  <Spinner className="justify-center py-10" />
+                ) : modules.length === 0 ? (
+                  <EmptyState text={t("noModules")} />
+                ) : (
+                  <div className="space-y-4">
+                    <div>
+                      <label htmlFor="praesentation-module" className="block text-sm font-medium text-foreground-soft mb-2">Workspace</label>
+                      <Select id="praesentation-module" value={source.moduleId} onChange={(uuid) => onSource({ moduleId: uuid, sourceIds: [] })}
+                        placeholder={tCommon("pleaseSelect")} options={modules.map((m) => ({ value: m.uuid, label: m.title }))} />
+                    </div>
+                    {source.moduleId && (sources === null ? (
+                      <Spinner className="justify-center py-6" />
+                    ) : sources.length === 0 ? (
+                      <EmptyState size="sm" text={t("noSources")} />
+                    ) : (
+                      <div>
+                        {source.sourceIds.length > 0 && <MaterialGauge bilanz={messung} max={messung.max} />}
+                        <span className="block text-sm font-medium text-foreground-soft mb-2">{t("sourcesLabel")}</span>
+                        <ul className="space-y-2">
+                          {sources.map((s) => (
+                            <li key={s.uuid}>
+                              <div className="flex items-center justify-between gap-3">
+                                <Checkbox checked={source.sourceIds.includes(s.uuid)} disabled={voll && !source.sourceIds.includes(s.uuid)}
+                                  onChange={() => toggleSource(s.uuid)} label={s.filename} labelClassName="text-sm text-foreground" />
+                                {source.sourceIds.includes(s.uuid) && <MeasureNote messung={messung.forSource(s.uuid)} />}
+                              </div>
+                              {source.sourceIds.includes(s.uuid) && <MeasureError messung={messung.forSource(s.uuid)} />}
+                            </li>
+                          ))}
+                        </ul>
+                        <p className={`mt-2 text-xs ${voll ? "text-error font-medium" : "text-muted"}`}>
+                          {t(voll ? "sourcesFull" : "sourcesHint", { max: MAX_QUELLEN })}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )
+              )}
+            </Feld>
+        </div>
       </div>
 
       {/* On the phone the start button stays in reach while scrolling the form and stops at its end. */}
