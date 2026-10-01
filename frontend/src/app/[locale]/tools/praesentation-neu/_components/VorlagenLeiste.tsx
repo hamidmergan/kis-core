@@ -105,9 +105,6 @@ export default function VorlagenLeiste({ templateId, onTemplate, onVorlage }: Pr
           {t("uploadTemplate")}
         </button>
       </div>
-      {aktiv && (
-        <p className="text-xs text-muted mt-1.5">{aktiv.hasImages ? t("templateWithImages") : t("templateWithoutImages")}</p>
-      )}
       {hochladen && (
         <VorlageHochladen
           onClose={() => setHochladen(false)}
