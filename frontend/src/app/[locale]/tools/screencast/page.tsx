@@ -546,7 +546,7 @@ function ScreencastPageInner() {
       <div className={`${step === "upload" ? "max-w-6xl" : "max-w-4xl"} mx-auto px-4 py-10 sm:py-14`} data-tour="tool-screencast">
         {/* On the phone the later steps bring their own header with back arrow and discard. */}
         <div className={showStepIndicator ? "hidden sm:flex items-baseline justify-between gap-3" : ""}>
-          <ToolBackLink />
+          <ToolBackLink onRestart={showStepIndicator ? neuAnfangen : undefined} />
           {showStepIndicator && (
             <button
               onClick={() => setPendingExit("cancel")}

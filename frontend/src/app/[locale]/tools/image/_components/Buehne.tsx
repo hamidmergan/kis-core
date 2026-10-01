@@ -62,7 +62,7 @@ const Buehne = forwardRef<HTMLDivElement, Props>(function Buehne(
                 </button>
               </>
             )}
-            {bild.jobUuid && onLoeschen && <button type="button" className={KNOPF} onClick={onLoeschen}>{t("delete")}</button>}
+            {(!!bild.jobUuid || !!bild.beschreibungen?.length) && onLoeschen && <button type="button" className={KNOPF} onClick={onLoeschen}>{t("delete")}</button>}
           </div>
           {children}
           {onNeu && (

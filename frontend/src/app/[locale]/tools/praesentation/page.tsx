@@ -310,7 +310,7 @@ function PraesentationPageInner() {
       <div className={`${state.step === "content" ? "max-w-6xl" : "max-w-4xl"} mx-auto px-4 py-10 sm:py-14`} data-tour="tool-praesentation">
         {/* On the phone the later steps bring their own header with a back arrow. */}
         <div className={state.step === "content" ? "" : "hidden sm:flex items-baseline justify-between gap-3"}>
-          <ToolBackLink />
+          <ToolBackLink onRestart={state.step !== "content" ? neu : undefined} />
           {hydrated && state.step !== "content" && state.jobUuid && (
             <button type="button" onClick={() => setNachfrage("verwerfen")} className={DISCARD}>
               <Trash size={14} aria-hidden="true" />

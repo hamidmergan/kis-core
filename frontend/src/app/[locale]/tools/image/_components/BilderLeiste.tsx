@@ -1,9 +1,11 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useTranslations } from "next-intl";
+import { PencilSimple, TextAlignLeft } from "@phosphor-icons/react";
 import type { BildErgebnis } from "./useBildAuftraege";
 
-/** All pictures as small tiles, a click shows one large, a second click on the same one clears the choice. */
+/** All pictures as small tiles, marked when edited or described, a click shows one large, a second click clears it. */
 export default function BilderLeiste({ bilder, gewaehlt, onWaehlen }: {
   bilder: BildErgebnis[];
   gewaehlt: string;
@@ -23,14 +25,30 @@ export default function BilderLeiste({ bilder, gewaehlt, onWaehlen }: {
             onClick={() => onWaehlen(b.key)}
             aria-label={t("open", { name: b.beschreibung ?? b.filename })}
             aria-pressed={b.key === gewaehlt}
-            className={`w-20 shrink-0 sm:w-auto rounded-md border-2 p-0.5 transition-colors ${
+            className={`relative w-20 shrink-0 sm:w-auto rounded-md border-2 p-0.5 transition-colors ${
               b.key === gewaehlt ? "border-kb" : "border-border-soft hover:border-kb"
             }`}
           >
             <img src={b.url} alt="" className="aspect-square w-full rounded object-cover" />
+            {(b.bearbeitet || !!b.beschreibungen?.length) && (
+              <span className="absolute right-1.5 top-1.5 flex gap-1">
+                {b.bearbeitet && <Zeichen titel={t("edited")}><PencilSimple size={14} weight="bold" /></Zeichen>}
+                {!!b.beschreibungen?.length && <Zeichen titel={t("described")}><TextAlignLeft size={14} weight="bold" /></Zeichen>}
+              </span>
+            )}
           </button>
         ))}
       </div>
     </div>
+  );
+}
+
+/** A small round mark on a tile, its name is read out and shown on hover. */
+function Zeichen({ titel, children }: { titel: string; children: ReactNode }) {
+  return (
+    <span title={titel} className="flex h-6 w-6 items-center justify-center rounded-full bg-background/90 text-kb shadow-sm">
+      {children}
+      <span className="sr-only">{titel}</span>
+    </span>
   );
 }

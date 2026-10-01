@@ -36,12 +36,15 @@ export default function ImagePage() {
   const erzeugen = useBildAuftraege(t("generate.spinner"), t("generate.longRunning"), tCommon("unknownError"));
   const bearbeiten = useBildAuftraege(t("edit.spinner"), t("edit.longRunning"), tCommon("unknownError"));
   const entwurf = usePromptEntwurf(erzeugen.setFehler);
-  const fragen = useBildFragen(t("analyze.spinner"), t("analyze.longRunning"), tCommon("unknownError"));
+  const fragen = useBildFragen(t("analyze.spinner"), t("analyze.longRunning"), tCommon("unknownError"),
+    bilder.vormerken, bilder.beschrieben);
   const buehne = useRef<HTMLDivElement>(null);
 
   const bild = bilder.alle.find((b) => b.key === gewaehlt) ?? null;
   const { vorlageLaden } = bilder;
+  const { antwortenLaden } = fragen;
   useEffect(() => { if (bild) void vorlageLaden(bild); }, [bild, vorlageLaden]);
+  useEffect(() => { if (bild) void antwortenLaden(bild); }, [bild, antwortenLaden]);
 
   // On a phone the form sits above the result, so a finished task scrolls down to it.
   const zumErgebnis = useCallback(() => {
@@ -75,7 +78,7 @@ export default function ImagePage() {
 
   const startFragen = async (frage: FrageStart) => {
     if (!bild) return;
-    if (await fragen.fragen(bild, frage, false)) zumErgebnis();
+    if (await fragen.fragen(bild, frage)) zumErgebnis();
   };
 
   const hochladen = (datei: File) => {

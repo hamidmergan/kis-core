@@ -11,6 +11,12 @@ export interface BildAngaben {
   groesse?: string;
 }
 
+/** One answer job about a picture, its heading is the task or the question. */
+export interface Beschreibung {
+  jobUuid: string;
+  titel: string;
+}
+
 /** One picture of the page: a created or edited one from a job, or an own upload without a job. */
 export interface BildErgebnis {
   key: string;
@@ -25,6 +31,8 @@ export interface BildErgebnis {
   /** The file name of the kept source of an edit, loaded only when the picture is shown. */
   vorlage?: string;
   vorlageUrl?: string;
+  /** The answers about this picture, oldest first. */
+  beschreibungen?: Beschreibung[];
 }
 
 interface BildMeta extends BildAngaben {

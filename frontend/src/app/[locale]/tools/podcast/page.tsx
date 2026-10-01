@@ -281,7 +281,7 @@ function PodcastPageInner() {
       <div className={`${state.step === "content" ? "max-w-6xl" : "max-w-4xl"} mx-auto px-4 py-10 sm:py-14`} data-tour="tool-podcast">
         {/* On the phone the later steps bring their own header with back arrow and discard. */}
         <div className={showStepIndicator ? "hidden sm:flex items-baseline justify-between gap-3" : ""}>
-          <ToolBackLink />
+          <ToolBackLink onRestart={showStepIndicator ? neuGefragt : undefined} />
           {begonnen && (
             <button type="button" onClick={neuGefragt} className={DISCARD}>
               <Trash size={14} aria-hidden="true" />

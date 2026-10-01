@@ -418,6 +418,7 @@
     "add": "Add",
     "close": "Close",
     "backToTools": "Services",
+    "backToStart": "Back to start",
     "jobBackgroundHint": "You can leave the page. The job keeps running in the background. You find the result under My jobs.",
     "material": {
       "chars": "{n} characters",
@@ -910,7 +911,9 @@
         "title": "Your images",
         "empty": "No images yet.",
         "hint": "New images are added at the front. A click shows the image large above.",
-        "open": "Open image {name}"
+        "open": "Open image {name}",
+        "edited": "Edited",
+        "described": "With description"
       },
       "settings": {
         "title": "Settings",

@@ -418,6 +418,7 @@
     "add": "Hinzufügen",
     "close": "Schließen",
     "backToTools": "Dienste",
+    "backToStart": "Zum Anfang",
     "jobBackgroundHint": "Du kannst die Seite verlassen. Der Auftrag läuft im Hintergrund weiter. Das Ergebnis findest du unter Meine Jobs.",
     "material": {
       "chars": "{n} Zeichen",
@@ -910,7 +911,9 @@
         "title": "Deine Bilder",
         "empty": "Noch keine Bilder.",
         "hint": "Neue Bilder kommen vorne dazu. Ein Klick zeigt das Bild oben groß.",
-        "open": "Bild {name} öffnen"
+        "open": "Bild {name} öffnen",
+        "edited": "Bearbeitet",
+        "described": "Mit Beschreibung"
       },
       "settings": {
         "title": "Einstellungen",
