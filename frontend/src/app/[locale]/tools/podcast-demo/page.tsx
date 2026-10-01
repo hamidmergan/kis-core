@@ -94,7 +94,9 @@ function PodcastDemoLauf({ onNeu }: { onNeu: () => void }) {
         await warte(m.ms, signal);
       }
       dispatch({ type: "LINES", lines: view.lines, voicedIds: view.voiced });
-      dispatch({ type: "JOB", status: "success", progress: null, seconds: view.seconds });
+      // Like the real job, the finished run names every contribution, so the voicing step stays reachable.
+      dispatch({ type: "JOB", status: "success", seconds: view.seconds,
+                 progress: { step: "done", fertig: view.lines.map((_, i) => i), behalten: [] } });
     } catch { /* stopped by the person or by leaving the page */ }
   };
 
