@@ -111,15 +111,16 @@ def _gespraech_de(anzahl: int) -> str:
         'steht "long": true, das sind längere Erklärungen, Beispiele oder Geschichten mit 35 bis '
         '60 Wörtern. Die übrigen haben "long": false und 12 bis 25 Wörter. Die langen sind über '
         "das ganze Gespräch verteilt, und jede Person hat welche.\n"
-        f"- Jeder Beitrag fängt anders an: Kein erstes Wort kommt in diesen {anzahl} Beiträgen "
-        "öfter als dreimal vor.\n"
+        "- Verbotene Anfangswörter: Genau, Absolut, Richtig, Stimmt, Super, Toll, Interessant — "
+        "diese klingen hohl und kommen als erstes Wort gar nicht vor. Kein weiteres erstes Wort "
+        f"kommt in diesen {anzahl} Beiträgen öfter als zweimal vor.\n"
         f"- In diesen {anzahl} Beiträgen fasst jede Person mindestens zweimal in eigenen Worten "
         "zusammen, was die andere gerade erklärt hat, und fragt, ob sie es richtig verstanden "
         "hat, bringt mindestens einmal ein eigenes Beispiel oder Erlebnis und zweifelt "
         "mindestens einmal an etwas, das die Antwort dann mit dem Material klärt. Wer moderiert, "
         "leitet außerdem zum nächsten Thema über.\n"
         "- Gesprochene, nicht geschriebene Sprache: Verkürzungen wie gibt's, hab, ist's, Sätze, "
-        "die mit also, na ja, genau oder ich meine anfangen, ab und zu ein Satz, der abbricht und "
+        "die mit also, na ja, hm oder ich meine anfangen, ab und zu ein Satz, der abbricht und "
         "neu ansetzt.\n"
         "- Gefühle in Worten: Die Personen staunen, amüsieren sich, zweifeln oder sind von einem "
         "Gedanken begeistert und zeigen das mit dem, was sie sagen, und mit den Satzzeichen, ab "
@@ -144,8 +145,11 @@ def _gespraech_en(anzahl: int) -> str:
         '"long": true, these are longer explanations, examples or stories of 35 to 60 words. The '
         'others carry "long": false and have 12 to 25 words. The long ones are spread over the '
         "whole conversation, and every person has some.\n"
-        f"- Every contribution opens in its own way: no first word appears more than three times "
-        f"in these {anzahl} contributions.\n"
+        "- These words NEVER open a contribution, not even once: Exactly, Absolutely, Right, "
+        "Great, Sure, Indeed, Wow, Fascinating, Interesting. Use alternatives: 'That makes sense', "
+        "'Hmm, wait', 'Oh interesting', 'I didn't know that', 'So', 'Well', 'And', the other "
+        "person's name, or start straight with the thought. "
+        f"No other first word appears more than twice in these {anzahl} contributions.\n"
         f"- In these {anzahl} contributions each person at least twice sums up in own words what "
         "the other just explained and checks whether they got it right, at least once brings an "
         "own example or experience, and at least once doubts something, which the answer then "
