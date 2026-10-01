@@ -209,7 +209,6 @@ export default function InhaltSchritt({ canUseModules, source, language, notes, 
                   wert={mode === "files" ? tNeu("files", { n: source.files.length }) : tNeu("sources", { n: source.sourceIds.length })}
                   {...zeile("material")}>
               <Tabs<SourceMode>
-                variant="pill"
                 className="mb-4"
                 active={mode}
                 onChange={(next) => onSource({ mode: next })}
