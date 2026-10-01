@@ -31,8 +31,8 @@ export function generateStaticParams() {
 // Render dynamically, otherwise the build freezes the state without a session.
 export const dynamic = "force-dynamic";
 
-// Backfills the theme cookie so the server reads it on the next request.
-const themeBootScript = `(function(){try{var t=localStorage.getItem('kis.theme');var hasCookie=document.cookie.indexOf('kis-theme=')!==-1;if(t==='dark'){document.documentElement.setAttribute('data-theme','dark');if(!hasCookie)document.cookie='kis-theme=dark; path=/; max-age=31536000; SameSite=Lax';}else if(t==='light'&&!hasCookie){document.cookie='kis-theme=light; path=/; max-age=31536000; SameSite=Lax';}}catch(e){}})();`;
+// Backfills the theme cookie so the server reads it on the next request. Reads the bundled prefs, the old single key as fallback.
+const themeBootScript = `(function(){try{var t;try{t=JSON.parse(localStorage.getItem('kis.prefs')||'{}').theme;}catch(e){}if(!t)t=localStorage.getItem('kis.theme');var hasCookie=document.cookie.indexOf('kis-theme=')!==-1;if(t==='dark'){document.documentElement.setAttribute('data-theme','dark');if(!hasCookie)document.cookie='kis-theme=dark; path=/; max-age=31536000; SameSite=Lax';}else if(t==='light'&&!hasCookie){document.cookie='kis-theme=light; path=/; max-age=31536000; SameSite=Lax';}}catch(e){}})();`;
 
 type Props = {
   children: React.ReactNode;

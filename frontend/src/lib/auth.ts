@@ -1,5 +1,6 @@
 import { api } from "./api";
 import { invalidateGlossaries } from "@/hooks/_glossaryStore";
+import { clearUserData } from "./browserStore";
 import type { AuthStatus, LoginResponse } from "@/types";
 
 let cachedAuth: { result: AuthStatus; timestamp: number } | null = null;
@@ -18,6 +19,8 @@ export async function login(username: string, password: string): Promise<LoginRe
 
 export async function logout(): Promise<void> {
   clearAuthCache();
+  // Drafts and running jobs belong to this person, not to the next one on the computer.
+  clearUserData();
   await api.postJson("/auth/logout", {});
 }
 

@@ -1,21 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { PREFS_KEY, readPrefs, updatePrefs } from "@/lib/browserStore";
 
 export type Theme = "light" | "dark";
 
-const STORAGE_KEY = "kis.theme";
-const PDF_STORAGE_KEY = "kis.pdf-theme";
 const COOKIE_KEY = "kis-theme";
 const CHANGE_EVENT = "kis-theme:change";
 
 export function readTheme(): Theme {
-  if (typeof window === "undefined") return "light";
-  try {
-    return localStorage.getItem(STORAGE_KEY) === "dark" ? "dark" : "light";
-  } catch {
-    return "light";
-  }
+  return readPrefs().theme === "dark" ? "dark" : "light";
 }
 
 function writeThemeCookie(theme: Theme) {
@@ -40,7 +34,7 @@ export function useTheme(): { theme: Theme; toggle: () => void; setTheme: (t: Th
       if (detail === "light" || detail === "dark") setThemeState(detail);
     };
     const onStorage = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEY) setThemeState(readTheme());
+      if (e.key === PREFS_KEY) setThemeState(readTheme());
     };
 
     window.addEventListener(CHANGE_EVENT, onCustom);
@@ -52,8 +46,7 @@ export function useTheme(): { theme: Theme; toggle: () => void; setTheme: (t: Th
   }, []);
 
   const setTheme = useCallback((next: Theme) => {
-    try { localStorage.setItem(STORAGE_KEY, next); } catch { /* ignore */ }
-    try { localStorage.setItem(PDF_STORAGE_KEY, next); } catch { /* ignore */ }
+    updatePrefs({ theme: next });
     writeThemeCookie(next);
     applyTheme(next);
     try { window.dispatchEvent(new CustomEvent(CHANGE_EVENT, { detail: next })); } catch { /* ignore */ }

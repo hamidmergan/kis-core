@@ -4,7 +4,8 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { CaretDown, X } from "@phosphor-icons/react";
 import { api } from "@/lib/api";
-import { HOME_NOTICE_DISMISS_KEY, HOME_NOTICE_SHOW_EVENT } from "@/lib/constants";
+import { HOME_NOTICE_SHOW_EVENT } from "@/lib/constants";
+import { readPrefs, updatePrefs } from "@/lib/browserStore";
 import IconButton from "@/components/ui/IconButton";
 
 interface Notice {
@@ -55,12 +56,7 @@ export default function HomeNotice() {
       .then((data) => {
         if (cancelled || !data) return;
         const text = typeof data.home_notice_text === "string" ? data.home_notice_text : "";
-        let dismissedText: string | null = null;
-        try {
-          dismissedText = localStorage.getItem(HOME_NOTICE_DISMISS_KEY);
-        } catch {
-          /* ignore - private browsing etc. */
-        }
+        const dismissedText = readPrefs().homeNoticeDismissed ?? null;
         setNotice({
           enabled: data.home_notice_enabled === true,
           text,
@@ -85,11 +81,7 @@ export default function HomeNotice() {
   // Lets the header settings menu bring a dismissed (or already visible) notice back into view.
   useEffect(() => {
     const handleShow = () => {
-      try {
-        localStorage.removeItem(HOME_NOTICE_DISMISS_KEY);
-      } catch {
-        /* ignore */
-      }
+      updatePrefs({ homeNoticeDismissed: undefined });
       setDismissed(false);
       setExpanded(true);
       wrapRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -101,11 +93,7 @@ export default function HomeNotice() {
   if (!notice || !notice.enabled || !notice.text.trim() || dismissed) return null;
 
   const handleClose = () => {
-    try {
-      localStorage.setItem(HOME_NOTICE_DISMISS_KEY, notice.text);
-    } catch {
-      /* ignore */
-    }
+    updatePrefs({ homeNoticeDismissed: notice.text });
     setDismissed(true);
   };
 

@@ -1,9 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { readWorkspaceUi, updateWorkspaceUi } from "@/lib/browserStore";
 import type { Chapter, Source } from "../_types";
-
-const CLOSED_KEY_PREFIX = "kis-chapters-closed-";
 
 interface UseChaptersOptions {
   uuid: string;
@@ -18,16 +17,12 @@ export function useChapters({ uuid, setSources }: UseChaptersOptions) {
 
   // Collapsed chapters survive a page change.
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(CLOSED_KEY_PREFIX + uuid);
-      setClosedChapters(saved ? JSON.parse(saved) : []);
-    } catch {
-      setClosedChapters([]);
-    }
+    const saved = readWorkspaceUi(uuid).closedChapters;
+    setClosedChapters(Array.isArray(saved) ? saved : []);
   }, [uuid]);
 
   const merkeGeschlossen = useCallback((next: string[]) => {
-    try { localStorage.setItem(CLOSED_KEY_PREFIX + uuid, JSON.stringify(next)); } catch { /* ignore */ }
+    updateWorkspaceUi(uuid, { closedChapters: next.length ? next : undefined });
     return next;
   }, [uuid]);
 

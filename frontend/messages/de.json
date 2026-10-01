@@ -467,7 +467,9 @@
       "templateLabel": "Vorlage",
       "instructionsLabel": "Anweisung, optional",
       "instructionsPlaceholder": "Zum Beispiel: nur Kapitel 2, für Erstsemester, Fristen besonders hervorheben",
-      "tabs": { "files": "Dateien" },
+      "tabs": {
+        "files": "Dateien"
+      },
       "noModules": "Du hast noch keinen Workspace mit Materialien.",
       "noSources": "Hier ist noch kein Material fertig verarbeitet.",
       "chosenFiles": "Gewählte Materialien",

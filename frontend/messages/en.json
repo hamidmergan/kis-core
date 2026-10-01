@@ -467,7 +467,9 @@
       "templateLabel": "Template",
       "instructionsLabel": "Instruction, optional",
       "instructionsPlaceholder": "For example: only chapter 2, for first-year students, highlight deadlines",
-      "tabs": { "files": "Files" },
+      "tabs": {
+        "files": "Files"
+      },
       "noModules": "You do not have a workspace with sources yet.",
       "noSources": "No source here has finished processing yet.",
       "chosenFiles": "Chosen sources",

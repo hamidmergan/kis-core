@@ -58,6 +58,8 @@ def _ocr_image_with_retry(provider, png_bytes, page_number, *, attempts=OCR_MAX_
                 sleep(wait)
                 continue
             break
+    # The cause belongs in the log, otherwise a wrong key looks like a bad page.
+    logger.warning("OCR page {} failed: {}", page_number, last_exc)
     raise OcrFailedError(page_number) from last_exc
 
 

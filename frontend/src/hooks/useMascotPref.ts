@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { MascotVariant } from "@/components/ui/Mascot";
+import { PREFS_KEY, readPrefs, updatePrefs } from "@/lib/browserStore";
 
-const STORAGE_KEY = "ki-assistent-mascot";
 const CHANGE_EVENT = "ki-assistent-mascot-pref:change";
 
 // Francis is the default character for everyone who has not picked one.
@@ -15,14 +15,9 @@ function isVariant(v: unknown): v is MascotVariant {
 }
 
 function readLocalVariant(): MascotVariant {
-  if (typeof window === "undefined") return DEFAULT_VARIANT;
-  try {
-    // Everything else, old values included, lands on the default character.
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return isVariant(raw) ? raw : DEFAULT_VARIANT;
-  } catch {
-    return DEFAULT_VARIANT;
-  }
+  // Everything else, old values included, lands on the default character.
+  const raw = readPrefs().mascot;
+  return isVariant(raw) ? raw : DEFAULT_VARIANT;
 }
 
 export interface MascotPref {
@@ -42,7 +37,7 @@ export function useMascotPref(): MascotPref {
       if (isVariant(detail)) setVariantState(detail);
     };
     const onStorage = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEY) setVariantState(readLocalVariant());
+      if (e.key === PREFS_KEY) setVariantState(readLocalVariant());
     };
 
     window.addEventListener(CHANGE_EVENT, onCustom);
@@ -56,7 +51,7 @@ export function useMascotPref(): MascotPref {
   // Side effects belong in the handler, in the updater they would run during render.
   const setVariant = useCallback((next: MascotVariant) => {
     setVariantState(next);
-    try { localStorage.setItem(STORAGE_KEY, next); } catch { /* ignore */ }
+    updatePrefs({ mascot: next });
     try { window.dispatchEvent(new CustomEvent(CHANGE_EVENT, { detail: next })); } catch { /* ignore */ }
   }, []);
 

@@ -4,9 +4,8 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { PencilSimple } from "@phosphor-icons/react";
 import { useRouter } from "@/i18n/navigation";
+import { readPrefs, updatePrefs } from "@/lib/browserStore";
 import { EvaluationStand, merkerFuerRunde, zeigtEinladung } from "./evaluationEinladung";
-
-const DISMISS_KEY = "kis-evaluation-dismissed";
 
 /**
  * Invite into the evaluation, next to the tour invite on the start page.
@@ -23,12 +22,8 @@ export function EvaluationInvite() {
 
   useEffect(() => {
     let cancelled = false;
-    let merker: string | null = null;
-    try {
-      merker = localStorage.getItem(DISMISS_KEY);
-    } catch {
-      /* private mode or blocked storage, then it just shows every time */
-    }
+    // Blocked storage reads as no marker, then it just shows every time.
+    const merker = readPrefs().evaluationDismissed ?? null;
     fetch("/api/evaluation/active", { credentials: "include" })
       .then((r) => (r.ok ? r.json() : null))
       .then((d: EvaluationStand | null) => {
@@ -45,11 +40,7 @@ export function EvaluationInvite() {
   if (!visible) return null;
 
   const spaeter = () => {
-    try {
-      localStorage.setItem(DISMISS_KEY, merkerFuerRunde(stand));
-    } catch {
-      /* nothing to persist then, the invite just shows again next time */
-    }
+    updatePrefs({ evaluationDismissed: merkerFuerRunde(stand) });
     setVisible(false);
   };
 
