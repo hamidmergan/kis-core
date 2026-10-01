@@ -89,6 +89,130 @@ def _besprochen(anfaenge: list[str] | None, kopf: str) -> str:
     return f"{kopf}:\n" + "\n".join(f"- {a}" for a in anfaenge) + "\n\n"
 
 
+def _form(allein: bool) -> str:
+    """The shape of one contribution, in a conversation it names its length before the text."""
+    if allein:
+        return '{"speaker": 0, "text": "..."}'
+    return '{"speaker": 0, "long": false, "text": "..."}'
+
+
+def _gespraech_de(anzahl: int) -> str:
+    lang = max(1, round(anzahl / 3))
+    return (
+        "- Die Personen wechseln sich ab, niemand spricht zweimal hintereinander.\n"
+        "- Jede Person kommt vor und behält ihre Rolle.\n"
+        "- Ein Gespräch unter Gleichen, kein Frage-Antwort-Spiel: Jeder Beitrag ist mindestens "
+        "ein ganzer Satz mit 12 oder mehr Wörtern, nur jeder achte darf kürzer sein. Eine "
+        "schnelle Reaktion steht nie allein, sie eröffnet einen Beitrag, der mit einem eigenen "
+        "Gedanken, einer Frage oder einem Beispiel weitergeht.\n"
+        "- Die Worte sind fair verteilt: Niemand spricht weniger als halb so viel wie eine "
+        "andere Person.\n"
+        f"- Die Längen wechseln wie im echten Gespräch: Bei genau {lang} der {anzahl} Beiträge "
+        'steht "long": true, das sind längere Erklärungen, Beispiele oder Geschichten mit 35 bis '
+        '60 Wörtern. Die übrigen haben "long": false und 12 bis 25 Wörter. Die langen sind über '
+        "das ganze Gespräch verteilt, und jede Person hat welche.\n"
+        f"- Jeder Beitrag fängt anders an: Kein erstes Wort kommt in diesen {anzahl} Beiträgen "
+        "öfter als dreimal vor.\n"
+        f"- In diesen {anzahl} Beiträgen fasst jede Person mindestens zweimal in eigenen Worten "
+        "zusammen, was die andere gerade erklärt hat, und fragt, ob sie es richtig verstanden "
+        "hat, bringt mindestens einmal ein eigenes Beispiel oder Erlebnis und zweifelt "
+        "mindestens einmal an etwas, das die Antwort dann mit dem Material klärt. Wer moderiert, "
+        "leitet außerdem zum nächsten Thema über.\n"
+        "- Gesprochene, nicht geschriebene Sprache: Verkürzungen wie gibt's, hab, ist's, Sätze, "
+        "die mit also, na ja, genau oder ich meine anfangen, ab und zu ein Satz, der abbricht und "
+        "neu ansetzt.\n"
+        "- Gefühle in Worten: Die Personen staunen, amüsieren sich, zweifeln oder sind von einem "
+        "Gedanken begeistert und zeigen das mit dem, was sie sagen, und mit den Satzzeichen, ab "
+        "und zu auch mit einem kleinen Scherz. Sie sprechen sich ab und zu mit Namen an, wer "
+        "spricht nennt nur den Namen der anderen Person, nie den eigenen.\n"
+        "- Alles wird genau so vorgelesen, wie es dasteht, also kein Lachen, keine Geräusche und "
+        "keine Handlungen in Schriftform.\n"
+    )
+
+
+def _gespraech_en(anzahl: int) -> str:
+    lang = max(1, round(anzahl / 3))
+    return (
+        "- The people take turns, nobody speaks twice in a row.\n"
+        "- Every person appears and keeps their role.\n"
+        "- A conversation between equals, not questions and answers: every contribution is at "
+        "least one full sentence of 12 words or more, only one in eight may be shorter. A quick "
+        "reaction never stands alone, it opens a contribution that goes on with an own thought, "
+        "a question or an example.\n"
+        "- The words are spread fairly: nobody speaks less than half as much as another person.\n"
+        f"- Lengths change like in real talk: exactly {lang} of the {anzahl} contributions carry "
+        '"long": true, these are longer explanations, examples or stories of 35 to 60 words. The '
+        'others carry "long": false and have 12 to 25 words. The long ones are spread over the '
+        "whole conversation, and every person has some.\n"
+        f"- Every contribution opens in its own way: no first word appears more than three times "
+        f"in these {anzahl} contributions.\n"
+        f"- In these {anzahl} contributions each person at least twice sums up in own words what "
+        "the other just explained and checks whether they got it right, at least once brings an "
+        "own example or experience, and at least once doubts something, which the answer then "
+        "clears up with the material. Whoever hosts also leads over to the next subject.\n"
+        "- Spoken, not written language: contractions like it's, don't, that's, sentences that "
+        "start with so, well, right or I mean, now and then a sentence that breaks off and "
+        "starts anew.\n"
+        "- Feelings in words: the people are surprised, amused, doubtful or taken with an idea "
+        "and show it in what they say and in the punctuation, now and then with a small joke. "
+        "They address each other by name now and then, the speaker only ever names the other "
+        "person, never themselves.\n"
+        "- Everything is read aloud exactly as it stands, so no laughter, noises or actions in "
+        "writing.\n"
+    )
+
+
+def _vorlage(params: PodcastParams) -> str:
+    """A short conversation on another subject, a model copies a shape far better than rules."""
+    a = params.persons[0].name
+    b = params.persons[1].name
+    if params.language == "de":
+        return (
+            "\nSo klingt das Gespräch. Übernimm nur die Art zu sprechen, nie das Thema oder "
+            "einzelne Sätze:\n"
+            f"{a}: Moment, der Vermieter darf die ganze Kaution behalten, nur weil die Wohnung "
+            "nicht blitzblank ist? Das klingt ganz schön hart.\n"
+            f"{b}: Nicht ganz, und genau da irren sich die meisten. Er darf nur behalten, was der "
+            "Schaden wirklich kostet, und er muss dir zeigen, was es war. Ein bisschen Staub oder "
+            "ein schmutziger Backofen sind kein Grund, achthundert Euro einzubehalten. Stell's "
+            "dir eher wie eine Versicherung für die Wohnung vor als wie eine Strafe.\n"
+            f"{a}: Okay, wenn ich das richtig verstehe, ist das also ein Polster für echte "
+            "Schäden und keine Strafe fürs Unordentlichsein?\n"
+            f"{b}: Genau so. Und ehrlich? Die meisten fordern sie nie zurück.\n"
+            f"{a}: Oh, das kenn ich. Als ich aus meiner ersten Wohnung ausgezogen bin, dachte ich "
+            "nur, na ja, das Geld ist weg, und hab nie angerufen. Zwei Jahre später sagt mir eine "
+            "Freundin, dass ich es hätte zurückfordern können, und da wusste ich... ich meine, da "
+            "wusste ich nicht mal mehr, wo der Vermieter wohnt.\n"
+            f"{b}: Da bist du wirklich nicht allein! Aber was ich spannend finde: Der Vermieter "
+            "hat auch nicht ewig Zeit.\n"
+            f"{a}: Hm, wie lange denn, ein paar Wochen?\n"
+            f"{b}: Meist ein paar Monate. Und fehlt die Heizkostenabrechnung noch, darf er einen "
+            f"Teil zurückhalten, {a}, aber eben nur einen Teil.\n"
+        )
+    return (
+        "\nThis is how the conversation sounds. Take only the way of talking, never the subject "
+        "or single sentences:\n"
+        f"{a}: Wait, so the landlord can keep the whole deposit just because the flat isn't "
+        "spotless? That sounds pretty harsh to me.\n"
+        f"{b}: Not quite, and that's what most people get wrong. He can only keep what the "
+        "damage really costs, and he has to show you what it was. A bit of dust or a dirty oven "
+        "isn't a reason to hold on to eight hundred euros. Think of it more like insurance for "
+        "the flat than a fine.\n"
+        f"{a}: Okay, so if I get this right, it's a safety net for real damage, not a punishment "
+        "for being messy?\n"
+        f"{b}: That's it. And honestly? Most people never even ask for it back.\n"
+        f"{a}: Oh, I know that one. When I moved out of my first flat, I just thought, well, "
+        "that money's gone, and I never called. Two years later a friend tells me I could've "
+        "asked for it, and by then... I mean, I didn't even know where the landlord lived "
+        "anymore.\n"
+        f"{b}: You're really not the only one! But here's the part I find interesting: the "
+        "landlord doesn't get forever either.\n"
+        f"{a}: Hm, how long are we talking, a few weeks?\n"
+        f"{b}: Usually a few months. And if the heating bill isn't done yet, he can hold back a "
+        f"part, {a}, but only a part.\n"
+    )
+
+
 def build_messages(source: str, params: PodcastParams, *, anzahl: int | None = None,
                    teil: int = 1, teile: int = 1, plan: str = "",
                    bisher: list[Line] | None = None, opening: str = "",
@@ -113,7 +237,7 @@ def build_messages(source: str, params: PodcastParams, *, anzahl: int | None = N
             "Material und fügst keine hinzu. Beispiele, Vergleiche und Einwände darfst du selbst "
             "bringen, damit die Sache anschaulich wird. "
             "Du antwortest mit einem JSON-Objekt der Form "
-            '{"lines": [{"speaker": 0, "text": "..."}]} und mit nichts sonst.'
+            f'{{"lines": [{_form(allein)}]}} und mit nichts sonst.'
         )
         teilzeile = (f"Du schreibst Teil {teil} von {teile} der Folge.\n"
                      f"Plan der ganzen Folge:\n{plan}\n\n") if teile > 1 else ""
@@ -126,22 +250,8 @@ def build_messages(source: str, params: PodcastParams, *, anzahl: int | None = N
             f"Umfang: genau {anzahl} Beiträge, zusammen rund {woerter} Wörter, im Schnitt {je} je Beitrag.\n\n"
             "Regeln:\n"
             "- Sprache des Skripts: Deutsch. Die Hörer werden durchgehend geduzt.\n"
-            + ("- Es spricht nur eine Person, speaker ist immer 0.\n" if allein else
-               "- Die Personen wechseln sich ab, niemand spricht zweimal hintereinander.\n"
-               "- Jede Person kommt vor und behält ihre Rolle.\n"
-               "- Schneller Wechsel wie in einem echten Gespräch: Etwa jeder dritte Beitrag hat "
-               "nur 1 bis 10 Wörter, eine Reaktion, ein Einwurf oder eine kurze Nachfrage. Die "
-               "übrigen tragen den Inhalt und haben mindestens 40, höchstens 90 Wörter. Längen "
-               "dazwischen sind selten.\n"
-               "- Die Personen bauen eine Erklärung gemeinsam auf: Eine beginnt, die andere hakt "
-               "nach, ergänzt oder zieht einen Schluss. Niemand hält einen Vortrag.\n"
-               "- Beide Personen tragen Inhalt: Wer moderiert, erklärt auch selbst Teile, bringt "
-               "Beispiele und eigene Beobachtungen ein. Wer fachlich erklärt, fragt auch mal "
-               "zurück oder staunt. In jedem Teil erklärt jede Person mindestens drei Punkte "
-               "selbst, mit 40 bis 90 Wörtern, und die andere reagiert, fragt nach oder ergänzt.\n"
-               "- Persönlich: Die Personen sprechen sich ab und zu mit Namen an, wer spricht nennt "
-               "nur den Namen der anderen Person, nie den eigenen. Sie zeigen, was "
-               "sie überrascht, was sie bezweifeln oder was ihnen beim Lesen aufgefallen ist.\n")
+            + ("- Es spricht nur eine Person, speaker ist immer 0.\n" if allein
+               else _gespraech_de(anzahl))
             + f"- Im Schnitt etwa {je} Wörter je Beitrag, nie mehr als 150.\n"
             "- Wenige Punkte in der Tiefe statt einer Aufzählung: zu jeder Regel, warum es sie "
             "gibt, was aus ihr folgt und ein Beispiel aus dem Alltag der Hörer. Gern auch ein "
@@ -169,7 +279,7 @@ def build_messages(source: str, params: PodcastParams, *, anzahl: int | None = N
             "you add none. Examples, comparisons and objections you may bring yourself, so the "
             "matter becomes vivid. "
             "You answer with a JSON object of the form "
-            '{"lines": [{"speaker": 0, "text": "..."}]} and nothing else.'
+            f'{{"lines": [{_form(allein)}]}} and nothing else.'
         )
         teilzeile = (f"You write part {teil} of {teile} of the episode.\n"
                      f"Plan of the whole episode:\n{plan}\n\n") if teile > 1 else ""
@@ -182,22 +292,8 @@ def build_messages(source: str, params: PodcastParams, *, anzahl: int | None = N
             f"Length: exactly {anzahl} contributions, {woerter} words in total, {je} per contribution on average.\n\n"
             "Rules:\n"
             "- Language of the script: English.\n"
-            + ("- Only one person speaks, speaker is always 0.\n" if allein else
-               "- The people take turns, nobody speaks twice in a row.\n"
-               "- Every person appears and keeps their role.\n"
-               "- Quick turns like a real conversation: about every third contribution has "
-               "only 1 to 10 words, a reaction, an interjection or a short follow up question. "
-               "The others carry the content and have at least 40, at most 90 words. Lengths in "
-               "between are rare.\n"
-               "- The people build an explanation together: one starts, the other asks back, "
-               "adds to it or draws a conclusion. Nobody gives a lecture.\n"
-               "- Both people carry content: whoever hosts also explains parts, brings examples "
-               "and own observations. Whoever is the expert also asks back or is surprised. In "
-               "every part each person explains at least three points themselves, with 40 to 90 "
-               "words, and the other reacts, asks back or adds to it.\n"
-               "- Personal: the people now and then address each other by name, the speaker only "
-               "ever names the other person, never themselves. They show what "
-               "surprises them, what they doubt or what struck them while reading.\n")
+            + ("- Only one person speaks, speaker is always 0.\n" if allein
+               else _gespraech_en(anzahl))
             + f"- About {je} words per contribution on average, never more than 150.\n"
             "- Few points in depth instead of a list: for each rule why it exists, what "
             "follows from it and an example from the listeners' everyday life. An objection or "
@@ -218,6 +314,8 @@ def build_messages(source: str, params: PodcastParams, *, anzahl: int | None = N
             "- Spell out numbers and formulas, the text is read aloud.\n"
             "- The lines in square brackets in the material only name file and page, never read them out.\n"
         )
+    if not allein:
+        aufgabe += _vorlage(params)
     aufgabe += glossar.block(params.glossary, params.language)
     aufgabe += anweisung.schreib_zusatz(params.instructions, params.instruction_way)
     return [{"role": "system", "content": system}, {"role": "user", "content": aufgabe}]

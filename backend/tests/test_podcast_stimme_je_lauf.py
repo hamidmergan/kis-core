@@ -93,7 +93,7 @@ def lauf(monkeypatch, lokal):
     monkeypatch.setattr(_render, "messe", messe)
     monkeypatch.setattr(_render, "job_heartbeat", still)
     monkeypatch.setattr(_render, "montage",
-                        type("M", (), {"kleben": staticmethod(lambda s, p, j: (b"mp3", 12.0))}))
+                        type("M", (), {"kleben": staticmethod(lambda s, j: (b"mp3", 12.0))}))
     monkeypatch.setattr(_render, "save_result_file", lambda uid, job, endung, daten: "p.mp3")
     monkeypatch.setattr(_render, "save_result_meta", lambda uid, job, meta: stand["meta"].update(meta))
     monkeypatch.setattr(_render, "load_result_meta", lambda uid, job: {})

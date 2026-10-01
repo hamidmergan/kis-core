@@ -104,7 +104,7 @@ def umgebung(monkeypatch):
     monkeypatch.setattr(_render, "job_heartbeat", lambda job: contextmanager(lambda: iter([None]))())
     monkeypatch.setattr(_render, "messe", contextmanager(lambda uid, job, name: iter([{}])))
     monkeypatch.setattr(_render, "montage",
-                        type("M", (), {"kleben": staticmethod(lambda s, p, j: (b"mp3", 12.0))}))
+                        type("M", (), {"kleben": staticmethod(lambda s, j: (b"mp3", 12.0))}))
     monkeypatch.setattr(_render, "save_result_file", lambda uid, job, endung, daten: "p.mp3")
     monkeypatch.setattr(_render, "save_result_meta", lambda uid, job, meta: None)
     monkeypatch.setattr(_render, "load_result_meta", lambda uid, job: {})

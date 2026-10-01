@@ -7,7 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from src.features.podcast.audio import kleben
+from src.features.podcast.audio import kleben, pause_vor
+from src.limits import PODCAST_PAUSES
 from src.services.ai_hinweis import AI_HINWEIS_TEXT
 
 _HAS_FFMPEG = shutil.which("ffmpeg") is not None and shutil.which("ffprobe") is not None
@@ -32,7 +33,7 @@ def _tonschnipsel() -> bytes:
 @pytest.mark.skipif(not _HAS_FFMPEG, reason="ffmpeg/ffprobe not available")
 def test_der_fertige_podcast_traegt_den_ki_hinweis(tmp_path):
     stueck = _tonschnipsel()
-    audio_bytes, _dauer = kleben([stueck, stueck], pause=0.2)
+    audio_bytes, _dauer = kleben([stueck, stueck])
     datei = tmp_path / "podcast.mp3"
     datei.write_bytes(audio_bytes)
     result = subprocess.run(
@@ -41,3 +42,30 @@ def test_der_fertige_podcast_traegt_den_ki_hinweis(tmp_path):
         capture_output=True, text=True, check=True,
     )
     assert AI_HINWEIS_TEXT in result.stdout
+
+
+def _ton_mit_stille(tmp_path: Path) -> bytes:
+    datei = tmp_path / "ton.mp3"
+    subprocess.run(
+        ["ffmpeg", "-y", "-v", "error", "-f", "lavfi", "-i", "sine=f=440:d=1",
+         "-af", "adelay=500|500,apad=pad_dur=0.5", "-ac", "2", "-ar", "44100",
+         "-c:a", "libmp3lame", "-q:a", "4", str(datei)],
+        capture_output=True, check=True,
+    )
+    return datei.read_bytes()
+
+
+@pytest.mark.skipif(not _HAS_FFMPEG, reason="ffmpeg/ffprobe not available")
+def test_schneidet_die_stille_um_jeden_beitrag_ab(tmp_path):
+    stueck = _ton_mit_stille(tmp_path)
+    _ton, dauer = kleben([stueck, stueck])
+    # Two pieces of 2 s each with their silent edges, without them about 1 s each.
+    assert dauer < 2.8
+
+
+def test_eine_schnelle_reaktion_folgt_kurz_eine_lange_erklaerung_wirkt_nach():
+    schnell, normal, lang = PODCAST_PAUSES
+    assert pause_vor(20.0, 1.5) == schnell
+    assert pause_vor(20.0, 8.0) == lang
+    assert pause_vor(6.0, 8.0) == normal
+    assert schnell < normal < lang

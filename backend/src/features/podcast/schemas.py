@@ -10,9 +10,9 @@ LANGUAGES: tuple[str, ...] = ("de", "en")
 SPEED_MIN, SPEED_MAX, SPEED_DEFAULT = 0.7, 1.2, 0.9
 
 # A model keeps a count of paragraphs far better than a total word count, so the target
-# is stated as (contributions, words each) and the sum only follows from it. Quick turns with
-# short interjections average about 21 words, measured on 24.09.2026.
-LENGTH_PLAN: dict[str, tuple[int, int]] = {"short": (35, 21), "medium": (70, 21), "long": (138, 21)}
+# is stated as (contributions, words each) and the sum only follows from it. One long turn in
+# three among shorter replies averages about 27 words, measured on 30.09.2026.
+LENGTH_PLAN: dict[str, tuple[int, int]] = {"short": (27, 27), "medium": (54, 27), "long": (107, 27)}
 LENGTH_WORDS: dict[str, int] = {name: n * je for name, (n, je) in LENGTH_PLAN.items()}
 
 

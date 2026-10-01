@@ -104,7 +104,7 @@ class TestPrompt:
     def test_zielumfang_haengt_an_der_laenge(self):
         kurz = build_messages("M", _params(2, length="short"))[1]["content"]
         lang = build_messages("M", _params(2, length="long"))[1]["content"]
-        assert "735" in kurz and "2898" in lang
+        assert "729" in kurz and "2889" in lang
 
     def test_englischer_auftrag_nennt_die_beitragszahl_auch(self):
         from src.features.podcast.schemas import LENGTH_PLAN
@@ -297,7 +297,7 @@ class TestTeile:
     def test_eine_folge_in_einem_teil_bleibt_wie_bisher(self):
         user = build_messages("M", _params(length="short"))[1]["content"]
         assert "Teil 1 von" not in user
-        assert "genau 35 Beiträge" in user
+        assert "genau 27 Beiträge" in user
 
 
 class TestPlan:
@@ -386,9 +386,9 @@ class TestGespraechsform:
                               thread="Schutz des Schwaecheren.")[1]["content"]
         assert "Schutz des Schwaecheren." in user
 
-    def test_die_beitraege_wechseln_schnell_mit_kurzen_einwuerfen(self):
+    def test_ein_kurzer_einwurf_steht_nie_allein(self):
         user = build_messages("M", _params())[1]["content"]
-        assert "nur 1 bis 10 Wörter" in user and "gemeinsam" in user
+        assert "steht nie allein" in user and "nur jeder achte" in user
 
     def test_jede_regel_mit_warum_und_beispiel(self):
         user = build_messages("M", _params())[1]["content"]
@@ -444,9 +444,21 @@ class TestGespraechsform:
         assert "offene Frage" in user
 
 
-    def test_inhaltliche_beitraege_haben_mindestens_40_woerter(self):
+    def test_ein_drittel_der_beitraege_ist_lang(self):
+        user = build_messages("M", _params(), anzahl=27)[1]["content"]
+        assert 'genau 9 der 27 Beiträge steht "long": true' in user
+        englisch = build_messages("M", _params(sprache="en"), anzahl=27)[1]["content"]
+        assert 'exactly 9 of the 27 contributions carry "long": true' in englisch
+
+    def test_im_gespraech_nennt_jeder_beitrag_seine_laenge_vor_dem_text(self):
+        system = build_messages("M", _params())[0]["content"]
+        assert '{"speaker": 0, "long": false, "text": "..."}' in system
+        allein = build_messages("M", _params(1))[0]["content"]
+        assert '{"lines": [{"speaker": 0, "text": "..."}]}' in allein
+
+    def test_die_worte_sind_fair_verteilt(self):
         user = build_messages("M", _params())[1]["content"]
-        assert "mindestens 40" in user
+        assert "halb so viel" in user
 
     def test_niemand_redet_sich_selbst_mit_namen_an(self):
         user = build_messages("M", _params())[1]["content"]
@@ -483,9 +495,10 @@ class TestEigeneAnrede:
 
 
 class TestBeideTragenInhalt:
-    def test_beide_personen_tragen_inhalt(self):
-        user = build_messages("M", _params())[1]["content"]
-        assert "Beide Personen tragen Inhalt" in user
+    def test_jede_person_fasst_zusammen_bringt_beispiele_und_zweifelt(self):
+        user = build_messages("M", _params(), anzahl=35)[1]["content"]
+        assert "In diesen 35 Beiträgen fasst jede Person mindestens zweimal" in user
+        assert "eigenes Beispiel" in user and "zweifelt" in user
 
     def test_die_moderation_bringt_eigene_beobachtungen(self):
         user = build_messages("M", _params())[1]["content"]
@@ -501,6 +514,12 @@ class TestBeideTragenInhalt:
                               opening="Lea wird krank.")[1]["content"]
         assert "kleine Geschichte" in user
 
-    def test_jede_person_erklaert_in_jedem_teil_selbst(self):
+    def test_ein_kurzes_gespraech_zeigt_die_form_mit_den_namen_der_besetzung(self):
         user = build_messages("M", _params())[1]["content"]
-        assert "jede Person mindestens drei Punkte selbst" in user
+        assert "So klingt das Gespräch" in user and "\nP1: " in user and "\nP2: " in user
+        englisch = build_messages("M", _params(sprache="en"))[1]["content"]
+        assert "This is how the conversation sounds" in englisch
+
+    def test_wer_allein_spricht_bekommt_kein_gespraech_als_vorlage(self):
+        user = build_messages("M", _params(1))[1]["content"]
+        assert "So klingt das Gespräch" not in user

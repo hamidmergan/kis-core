@@ -12,7 +12,7 @@ from src.features.podcast import store
 from src.features.podcast.schemas import Line, PodcastParams
 from src.i18n import t
 from src.limits import (
-    PODCAST_LINE_PAUSE,
+    PODCAST_PAUSES,
     PODCAST_TTS_PARALLELISM,
     STAGE_SOFT_TIME_LIMIT,
     STAGE_TIME_LIMIT,
@@ -284,12 +284,11 @@ def run_podcast_render(self, job_uuid: str, user_id: int, locale: str = "de",
         stuecke = [store.get_line_audio(user_id, job_uuid, l.id) for l in zeilen]
         with job_heartbeat(job_uuid):
             with messe(user_id, job_uuid, "montage") as montage_zahlen:
-                ton, dauer = montage.kleben(
-                    [s for s in stuecke if s], PODCAST_LINE_PAUSE, job_uuid)
+                ton, dauer = montage.kleben([s for s in stuecke if s], job_uuid)
                 montage_zahlen["stuecke"] = len([s for s in stuecke if s])
                 montage_zahlen["tondauer_s"] = round(dauer, 1)
                 montage_zahlen["mp3_bytes"] = len(ton)
-                montage_zahlen["beitragspause"] = PODCAST_LINE_PAUSE
+                montage_zahlen["beitragspause"] = PODCAST_PAUSES[1]
 
         db.update_job_status(job_uuid, "running", progress={"step": "saving"})
         namen = [params.persons[l.speaker].name if l.speaker < len(params.persons)

@@ -118,10 +118,10 @@ PODCAST_MAX_SOURCES      = 10
 PODCAST_MAX_CHARS        = 100_000
 PODCAST_MAX_LINES        = 250
 PODCAST_MAX_LINE_CHARS   = 1200
-# Contributions one script call writes: 35 x 21 words stay inside SERVICE_WRITE_TOKENS.
-PODCAST_LINES_PER_CALL   = 35
-# One breath between two contributions so they do not run into each other.
-PODCAST_LINE_PAUSE       = 0.35
+# Contributions one script call writes: 27 x 27 words stay inside SERVICE_WRITE_TOKENS.
+PODCAST_LINES_PER_CALL   = 27
+# Seconds between two contributions: before a quick reaction, a normal turn, after a long explanation.
+PODCAST_PAUSES           = (0.12, 0.25, 0.45)
 # The same lever as the screencast: waiting on the provider, not own CPU.
 PODCAST_TTS_PARALLELISM  = TTS_PROVIDER_MAX_CONCURRENT
 # --- Podcast: reading every source into facts --------------------------------
