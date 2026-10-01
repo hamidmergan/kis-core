@@ -20,6 +20,18 @@ export default function Footer({ loggedIn }: { loggedIn?: boolean }) {
       style={{ backgroundColor: "var(--header-bg)", color: "rgba(255,255,255,0.6)", borderTop: "1px solid var(--border)" }}
     >
       <div className="mx-auto w-full max-w-5xl flex flex-col gap-8">
+        {loggedIn && (
+          <div className="pb-6 text-xs leading-relaxed text-center" style={{ borderBottom: "1px solid rgba(255,255,255,0.15)" }}>
+            <div className="mx-auto max-w-2xl flex flex-col gap-1">
+              <p>{t("aiNotice")}</p>
+              <p>
+                <Link href="/feedback" className="link-footer">
+                  {t("feedback")}
+                </Link>
+              </p>
+            </div>
+          </div>
+        )}
         <div className="flex flex-col md:flex-row items-stretch gap-4 md:gap-8">
           <Link href="/" aria-label="KIS" className={`${TILE} logo-link md:w-60 flex-shrink-0`}>
             <Image src="/logos/kis-logo-claim.svg" alt="KIS – KInternationalisierung von Studiengängen" width={228} height={142} className={LOGO} />
@@ -41,16 +53,6 @@ export default function Footer({ loggedIn }: { loggedIn?: boolean }) {
         </div>
 
         <div className="flex flex-col items-center gap-3 pt-6 text-center" style={{ borderTop: "1px solid rgba(255,255,255,0.15)" }}>
-          {loggedIn && (
-            <div className="max-w-2xl text-xs leading-relaxed flex flex-col gap-1">
-              <p>{t("aiNotice")}</p>
-              <p>
-                <Link href="/feedback" className="link-footer">
-                  {t("feedback")}
-                </Link>
-              </p>
-            </div>
-          )}
           <div className="text-sm">
             <Link href="/imprint" className="link-footer">
               {t("imprint")}
