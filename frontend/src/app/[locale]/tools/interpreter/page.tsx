@@ -206,7 +206,7 @@ export default function InterpreterPage() {
               </IconButton>
             </div>
           </div>
-          <p className="text-sm text-muted mb-1">{t("intro")}</p>
+          <p className="text-sm text-muted mb-3">{t("intro")}</p>
           <p className="text-sm text-muted mb-5">{t("hint")}</p>
 
           {active.fill !== "ok" && (
