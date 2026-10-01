@@ -233,6 +233,7 @@
       "personal": "Privat",
       "hideInCalendar": "Im Kalender ausblenden",
       "showInCalendar": "Im Kalender einblenden",
+      "pickColor": "Farbe für {name} wählen",
       "addEntry": "Termin eintragen",
       "addEntryShort": "Termin",
       "edit": "Termin ändern",

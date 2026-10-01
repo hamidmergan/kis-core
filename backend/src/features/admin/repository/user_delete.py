@@ -16,6 +16,7 @@ SWEEP_BY_USER_ID = (
     # Hangs off a workspace, but possibly off someone else's.
     "aia_enrollments",
     "aia_workspace_favorites",
+    "aia_calendar_colors",
     "aia_messages",
     "aia_notes",
     "aia_mindmaps",

@@ -225,6 +225,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "offset muss >= 0 sein",
         "en": "offset must be >= 0",
     },
+    "ai.schedule.invalidColor": {
+        "de": "Diese Farbe lässt sich hier nicht wählen.",
+        "en": "This colour cannot be chosen here.",
+    },
     "ai.schedule.jobNotFound": {
         "de": "Job nicht gefunden",
         "en": "Job not found",

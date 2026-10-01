@@ -175,6 +175,11 @@ class ExerciseProgressBody(BaseModel):
 
 # ─── Schedule ─────────────────────────────────────────────────────────────────
 
+class CalendarColorBody(BaseModel):
+    group: str = Field(..., min_length=1, max_length=64)
+    color: int = Field(..., ge=0)
+
+
 class ScheduleGenerateBody(BaseModel):
     source_ids: list[str]  # max 30 source UUIDs
 

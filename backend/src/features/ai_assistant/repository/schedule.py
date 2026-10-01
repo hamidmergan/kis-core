@@ -614,3 +614,28 @@ def delete_personal_entry(entry_id: int, user_id: int) -> bool:
             )
             conn.commit()
             return cur.rowcount > 0
+
+
+# ─── Calendar colours ───────────────────────────────────────────────────────
+
+def get_calendar_colors(user_id: int) -> dict[str, int]:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT group_key, color FROM aia_calendar_colors WHERE user_id = %s", (user_id,))
+            return {r[0]: r[1] for r in cur.fetchall()}
+
+
+def set_calendar_colors(user_id: int, colors: dict[str, int], overwrite: bool = True) -> None:
+    """Without overwrite a parallel request that came first keeps its choice."""
+    if not colors:
+        return
+    konflikt = "DO UPDATE SET color = EXCLUDED.color" if overwrite else "DO NOTHING"
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            for key, color in colors.items():
+                cur.execute(
+                    f"""INSERT INTO aia_calendar_colors (user_id, group_key, color)
+                        VALUES (%s, %s, %s) ON CONFLICT (user_id, group_key) {konflikt}""",
+                    (user_id, key, color),
+                )
+        conn.commit()

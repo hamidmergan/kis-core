@@ -11,6 +11,7 @@ from src.i18n import DEFAULT_LOCALE, get_locale, t
 from src.quotas import enforce_quota
 from src.security.rate_limit import enforce_aia_burst
 from src.features.ai_assistant import schemas
+from src.features.ai_assistant.scheduling import farben
 
 router = APIRouter(tags=["ki-assistent: studio"])
 
@@ -133,6 +134,48 @@ def get_upcoming_schedule(
         include_past_open=include_past_open,
     )
     return {"entries": [_serialize_global_entry(r) for r in rows]}
+
+
+def _calendar_groups(user_id: int) -> list[str]:
+    """Every group the calendar shows, in a fixed order so the assignment stays stable."""
+    rows = db.get_schedule_entries_for_user(user_id, include_checked=True, include_past_open=True)
+    keys = {r["workspace_uuid"] or farben.PRIVAT for r in rows}
+    return sorted(keys)
+
+
+def _calendar_colors_payload(user_id: int) -> dict:
+    gruppen = _calendar_groups(user_id)
+    vorhanden = db.get_calendar_colors(user_id)
+    neu = farben.vergeben(gruppen, vorhanden)
+    if neu:
+        db.set_calendar_colors(user_id, neu, overwrite=False)
+        vorhanden = db.get_calendar_colors(user_id)
+    return {
+        "palette": list(farben.PALETTE),
+        "colors": {g: farben.PALETTE[vorhanden[g] % len(farben.PALETTE)] for g in gruppen if g in vorhanden},
+    }
+
+
+@router.get("/ai-assistant/schedule/colors")
+def get_calendar_colors(current_user: dict = Depends(get_current_user)):
+    """One colour per workspace and for private appointments, free colours are handed out first."""
+    return _calendar_colors_payload(current_user["user_id"])
+
+
+@router.put("/ai-assistant/schedule/colors")
+def put_calendar_color(
+    body: schemas.CalendarColorBody,
+    current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
+):
+    """A colour another group holds is swapped, so two groups never end up alike."""
+    user_id = current_user["user_id"]
+    gruppen = _calendar_groups(user_id)
+    if body.group not in gruppen or body.color >= len(farben.PALETTE):
+        raise HTTPException(status_code=400, detail=t("ai.schedule.invalidColor", locale))
+    vorhanden = db.get_calendar_colors(user_id)
+    db.set_calendar_colors(user_id, farben.waehlen(gruppen, vorhanden, body.group, body.color))
+    return _calendar_colors_payload(user_id)
 
 
 # ─── GET ────────────────────────────────────────────────────────────────────

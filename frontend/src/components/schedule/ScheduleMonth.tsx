@@ -12,16 +12,11 @@ import ScheduleBars, { barsSpace, BAR_TOP, BAR_GAP } from "./ScheduleBars";
 import { laneCount, weekSegments, type RangeEntry } from "./_ranges";
 import { useHiddenGroups, useHiddenIds } from "./_hidden";
 import { parseYMD, todayISO, ymd } from "./utils";
-import { fetchAllEntries } from "./_api";
+import { fetchAllEntries, fetchColors, putColor, PRIVAT, type CalendarColors } from "./_api";
+import FarbWahl from "./FarbWahl";
 
-/** A small fixed palette so several workspaces stay distinguishable in the grid. */
-const WS_COLORS = ["var(--kb)", "#B45309", "#6D28D9", "#0F766E", "#9D174D", "#1D4ED8"];
-
-/** Fixed instead of a variable, because white text has to stay readable in both modes. */
-const PRIV_COLOR = "#4F7A91";
-
-/** Legend key for private appointments, a workspace uuid never looks like this. */
-const PRIVAT = "__privat__";
+/** Until the colours arrive, every entry stands in the accent colour. */
+const ERSATZ_FARBE = "var(--kb)";
 
 /** More entries per day become '+N more', otherwise one day blows the row height. */
 const MAX_CHIPS = 2;
@@ -78,6 +73,7 @@ export default function ScheduleMonth({ initialDate }: { initialDate?: string })
   const tag = locale === "en" ? "en-US" : "de-DE";
 
   const [entries, setEntries] = useState<ScheduleListEntry[] | null>(null);
+  const [farben, setFarben] = useState<CalendarColors | null>(null);
   const [error, setError] = useState(false);
   // The calendar starts in the current month so today is in view, a day from the
   // start page overrides that and opens its own month.
@@ -107,6 +103,7 @@ export default function ScheduleMonth({ initialDate }: { initialDate?: string })
       }
       setEntries(items);
     });
+    fetchColors().then((c) => { if (!cancelled && c) setFarben(c); });
     return () => { cancelled = true; };
   }, []);
 
@@ -125,6 +122,13 @@ export default function ScheduleMonth({ initialDate }: { initialDate?: string })
   const reload = useCallback(() => {
     setEntries(null);
     fetchAllEntries().then((items) => { if (items !== null) setEntries(items); });
+    // A first private appointment or a new workspace needs its own colour.
+    fetchColors().then((c) => { if (c) setFarben(c); });
+  }, []);
+
+  const pickColor = useCallback(async (group: string, index: number) => {
+    const c = await putColor(group, index);
+    if (c) setFarben(c);
   }, []);
 
   const handleDelete = useCallback(async (entry: ScheduleListEntry) => {
@@ -166,17 +170,10 @@ export default function ScheduleMonth({ initialDate }: { initialDate?: string })
     // Done entries stay and are only struck through, the calendar shows everything.
   }, []);
 
-  // Colour by order instead of by hash, so the first six stay distinct.
-  const wsColors = useMemo(() => {
-    const ids = [...new Set((entries ?? []).map((e) => e.workspace_uuid))]
-      .filter((id): id is string => id !== null)
-      .sort();
-    return new Map(ids.map((id, i) => [id, WS_COLORS[i % WS_COLORS.length]]));
-  }, [entries]);
-
+  // The server hands out the colours, so two workspaces never share one.
   const colorFor = useCallback(
-    (uuid: string | null) => (uuid === null ? PRIV_COLOR : wsColors.get(uuid) ?? WS_COLORS[0]),
-    [wsColors],
+    (uuid: string | null) => farben?.colors[uuid ?? PRIVAT] ?? ERSATZ_FARBE,
+    [farben],
   );
 
   const weekdays = useMemo(() => {
@@ -230,7 +227,7 @@ export default function ScheduleMonth({ initialDate }: { initialDate?: string })
     }
   }
   if (hatPrivate) {
-    usedWorkspaces.set(PRIVAT, { title: t("month.personal"), color: PRIV_COLOR });
+    usedWorkspaces.set(PRIVAT, { title: t("month.personal"), color: colorFor(null) });
   }
 
   // A hidden workspace disappears from the grid and from every list.
@@ -512,24 +509,32 @@ export default function ScheduleMonth({ initialDate }: { initialDate?: string })
           {[...usedWorkspaces.entries()].map(([key, w]) => {
             const aus = hiddenGroups.has(key);
             return (
-              <button
-                key={key}
-                type="button"
-                onClick={() => toggleGroup(key)}
-                aria-pressed={!aus}
-                title={t(aus ? "month.showInCalendar" : "month.hideInCalendar")}
-                className="inline-flex items-center gap-1.5 text-xs cursor-pointer"
-                style={{
-                  color: aus ? "var(--muted)" : "var(--foreground-soft)",
-                  textDecoration: aus ? "line-through" : undefined,
-                }}
-              >
-                <span
-                  className="rounded-sm"
-                  style={{ width: 9, height: 9, backgroundColor: w.color, opacity: aus ? 0.35 : 1 }}
-                />
-                {w.title}
-              </button>
+              <span key={key} className="inline-flex items-center gap-1.5">
+                {farben ? (
+                  <FarbWahl
+                    color={w.color}
+                    palette={farben.palette}
+                    name={w.title}
+                    dimmed={aus}
+                    onPick={(i) => pickColor(key, i)}
+                  />
+                ) : (
+                  <span className="rounded-sm" style={{ width: 14, height: 14, backgroundColor: w.color }} />
+                )}
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(key)}
+                  aria-pressed={!aus}
+                  title={t(aus ? "month.showInCalendar" : "month.hideInCalendar")}
+                  className="text-xs cursor-pointer"
+                  style={{
+                    color: aus ? "var(--muted)" : "var(--foreground-soft)",
+                    textDecoration: aus ? "line-through" : undefined,
+                  }}
+                >
+                  {w.title}
+                </button>
+              </span>
             );
           })}
         </div>

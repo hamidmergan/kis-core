@@ -233,6 +233,7 @@
       "personal": "Private",
       "hideInCalendar": "Hide in calendar",
       "showInCalendar": "Show in calendar",
+      "pickColor": "Choose a colour for {name}",
       "addEntry": "Add entry",
       "addEntryShort": "Entry",
       "edit": "Edit entry",

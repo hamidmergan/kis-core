@@ -17,3 +17,36 @@ export async function fetchAllEntries(): Promise<ScheduleListEntry[] | null> {
     return null;
   }
 }
+
+/** Palette and the colour of each workspace, private appointments under PRIVAT. */
+export interface CalendarColors {
+  palette: string[];
+  colors: Record<string, string>;
+}
+
+/** Group key of private appointments, a workspace uuid never looks like this. */
+export const PRIVAT = "privat";
+
+export async function fetchColors(): Promise<CalendarColors | null> {
+  try {
+    const r = await fetch("/api/ai-assistant/schedule/colors", { credentials: "include" });
+    return r.ok ? await r.json() : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The server swaps with whichever group held the colour and returns the new state. */
+export async function putColor(group: string, color: number): Promise<CalendarColors | null> {
+  try {
+    const r = await fetch("/api/ai-assistant/schedule/colors", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ group, color }),
+    });
+    return r.ok ? await r.json() : null;
+  } catch {
+    return null;
+  }
+}

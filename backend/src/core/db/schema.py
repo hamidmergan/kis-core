@@ -852,6 +852,15 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                     PRIMARY KEY (user_id, workspace_id)
                 )
             """)
+            # Calendar colour per person and workspace, private appointments under their own key.
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS aia_calendar_colors (
+                    user_id   INTEGER NOT NULL,
+                    group_key TEXT NOT NULL,
+                    color     INTEGER NOT NULL,
+                    PRIMARY KEY (user_id, group_key)
+                )
+            """)
             # Workspaces an access code enrolls its accounts into, always as learners.
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS access_code_workspaces (
