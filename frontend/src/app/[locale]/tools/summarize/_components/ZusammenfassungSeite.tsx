@@ -6,6 +6,7 @@ import { Files, Info } from "@phosphor-icons/react";
 import { useLocale, useTranslations } from "next-intl";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import ErgebnisInfo, { useErgebnisAngaben } from "@/components/jobs/ErgebnisInfo";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import Modal from "@/components/ui/Modal";
 import ToolBackLink from "@/components/ui/ToolBackLink";
@@ -53,6 +54,7 @@ function ZusammenfassungSeiteInner({ demo = false }: { demo?: boolean }) {
   const t = useTranslations("tools.summarize");
   const tDemo = useTranslations("tools.summarizeDemo");
   const tCommon = useTranslations("common");
+  const tResult = useTranslations("common.result");
   const locale = useLocale();
   // Runs on the chat model, an empty list hides the choice.
   const { providers, providerId, setProviderId } = useFeatureProviders("/summary/providers");
@@ -70,6 +72,7 @@ function ZusammenfassungSeiteInner({ demo = false }: { demo?: boolean }) {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [doneJobUuid, setDoneJobUuid] = useState<string | null>(null);
+  const auftrag = useErgebnisAngaben(demo ? null : doneJobUuid);
   const [errorMessage, setErrorMessage] = useState("");
   // Read straight on the page once a run is done, the downloads stay as a second way to get it.
   const [previewText, setPreviewText] = useState<string | null>(null);
@@ -461,6 +464,15 @@ function ZusammenfassungSeiteInner({ demo = false }: { demo?: boolean }) {
                     </button>
                   )}
                 </div>
+                {!demo && (
+                  <ErgebnisInfo jobUuid={doneJobUuid} auftrag={auftrag} onGeloescht={handleReset} zeilen={[
+                    { label: tResult("provider"), wert: auftrag?.angaben.anbieter },
+                    { label: t("templateLabel"), wert: (() => {
+                      const v = templates.find((x) => x.slug === auftrag?.angaben.vorlage);
+                      return v ? templateName(v) : auftrag?.angaben.vorlage;
+                    })() },
+                  ]} />
+                )}
                 <div className="rounded-md border border-border-soft bg-background p-4 sm:p-5 max-h-[28rem] overflow-y-auto text-sm leading-relaxed text-foreground">
                   {previewText ? (
                     <ReactMarkdown

@@ -19,6 +19,27 @@ def notiere(user_id: int, job_uuid: str, phase: str, werte: dict) -> None:
         logger.warning("Statistik {} fuer {} nicht gespeichert: {}", phase, job_uuid, e)
 
 
+def anbieter_name(provider_id: int | None) -> str:
+    """The provider's name for the info under a result, empty when it cannot be read."""
+    from src import database as db
+
+    try:
+        return (db.get_provider(provider_id) or {}).get("name") or "" if provider_id else ""
+    except Exception as e:
+        logger.warning("Anbieter {} nicht lesbar: {}", provider_id, e)
+        return ""
+
+
+def angaben_merken(user_id: int, job_uuid: str, angaben: dict) -> None:
+    """Keeps what a result was made with next to it, for the info under the result."""
+    try:
+        meta = load_result_meta(user_id, job_uuid) or {}
+        gefuellt = {k: v for k, v in angaben.items() if v not in (None, "")}
+        save_result_meta(user_id, job_uuid, {**meta, "angaben": gefuellt})
+    except Exception as e:
+        logger.warning("Angaben fuer {} nicht gespeichert: {}", job_uuid, e)
+
+
 @contextmanager
 def messe_vorab(werte: dict):
     """Measures a phase that runs before the job exists, ``notiere`` records it afterwards."""

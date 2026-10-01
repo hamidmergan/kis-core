@@ -9,6 +9,7 @@ import ToolBackLink from "@/components/ui/ToolBackLink";
 import StatusMark from "@/components/ui/StatusMark";
 import FileUpload from "@/components/jobs/FileUpload";
 import TranslateTextInput from "@/components/jobs/TranslateTextInput";
+import ErgebnisInfo, { useErgebnisAngaben } from "@/components/jobs/ErgebnisInfo";
 import JobHistoryTable from "@/components/jobs/JobHistoryTable";
 import GlossarySelector from "@/components/glossary/GlossarySelector";
 import { useGlossaries } from "@/hooks/useGlossaries";
@@ -28,6 +29,7 @@ const TEXT_MODE_FILENAME = "text.txt";
 function UebersetzungPageInner() {
   const t = useTranslations("tools.translate");
   const tCommon = useTranslations("common");
+  const tResult = useTranslations("common.result");
   const locale = useLocale();
   const { mergeToApiJson } = useGlossaries();
   const [glossaryIds, setGlossaryIds] = useState<string[]>(["", "", ""]);
@@ -108,6 +110,7 @@ function UebersetzungPageInner() {
     : trimmedText.length > 0 && !textOverLimit;
   // The real name of what is shown on the right, not what the left form happens to hold right now.
   const angezeigterDateiname = aktiverVerlaufseintrag?.original_filename ?? (doneJobUuid ? selectedFile : "");
+  const auftrag = useErgebnisAngaben(doneJobUuid);
 
   const handleModeChange = (mode: InputMode) => {
     if (processing) return;
@@ -270,9 +273,12 @@ function UebersetzungPageInner() {
             ) : doneJobUuid ? (
               <div className="space-y-3">
                 <StatusMark tone="success" className="text-sm font-medium">{tCommon("downloadReady")}</StatusMark>
-                {angezeigterDateiname && angezeigterDateiname !== TEXT_MODE_FILENAME && (
-                  <p className="text-xs text-muted">{angezeigterDateiname}</p>
-                )}
+                <ErgebnisInfo jobUuid={doneJobUuid} auftrag={auftrag} onGeloescht={handleReset} zeilen={[
+                  { label: tResult("file"), wert: angezeigterDateiname !== TEXT_MODE_FILENAME ? angezeigterDateiname : null },
+                  { label: tResult("provider"), wert: auftrag?.angaben.anbieter },
+                  { label: t("targetLang"), wert: auftrag?.angaben.ziel && (languages.find((l) => l.id === auftrag.angaben.ziel)?.label ?? auftrag.angaben.ziel) },
+                  { label: tResult("glossary"), wert: auftrag?.angaben.glossar ? tResult("glossaryUsed") : null },
+                ]} />
                 {istTextErgebnis && (
                   <div>
                     <div className="flex items-center justify-between mb-1">

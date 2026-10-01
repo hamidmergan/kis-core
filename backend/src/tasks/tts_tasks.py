@@ -19,6 +19,7 @@ from src.storage import (
 )
 from src.tasks._stage import StageClock, StageContinue, StageLost, continue_stage
 from src.limits import STAGE_SOFT_TIME_LIMIT, STAGE_TIME_LIMIT
+from src.services.job_statistik import anbieter_name, angaben_merken
 
 
 def _pinned_params(user_id: int, job_uuid: str, voice_id: str, voice_label: str, speed: float,
@@ -160,6 +161,7 @@ def run_tts(
         result_path = save_result_file(user_id, job_uuid, ".mp3", _stamped_with_ai_notice(b"".join(audio_parts)))
         result_filename = f"{Path(filename).stem}.mp3"
         save_result_and_evict(user_id, job_uuid, result_path, result_filename)
+        angaben_merken(user_id, job_uuid, {"anbieter": anbieter_name(provider_id), "stimme": voice_label})
         db.update_job_status(job_uuid, "success")
 
         delete_file(input_path)

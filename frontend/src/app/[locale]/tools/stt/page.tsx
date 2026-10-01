@@ -3,6 +3,7 @@
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
+import ErgebnisInfo, { useErgebnisAngaben } from "@/components/jobs/ErgebnisInfo";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import ToolBackLink from "@/components/ui/ToolBackLink";
 import StatusMark from "@/components/ui/StatusMark";
@@ -25,6 +26,7 @@ function formatFromFilename(filename: string): string {
 function TranscriptionPageInner() {
   const t = useTranslations("tools.stt");
   const tCommon = useTranslations("common");
+  const tResult = useTranslations("common.result");
   const locale = useLocale();
   const verlauf = useJobHistory("transcription");
   // Only the jobs list links straight to one transcript.
@@ -40,6 +42,7 @@ function TranscriptionPageInner() {
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [stallMessage, setStallMessage] = useState<string>("");
   const [doneJobUuid, setDoneJobUuid] = useState<string | null>(null);
+  const auftrag = useErgebnisAngaben(doneJobUuid);
   const [transcriptText, setTranscriptText] = useState<string>("");
   const [transcriptFilename, setTranscriptFilename] = useState<string>("");
   // Long recordings run in parts, every finished part is reported.
@@ -226,6 +229,11 @@ function TranscriptionPageInner() {
                   <StatusMark tone="success" className="text-sm font-medium">{t("readyTitle")}</StatusMark>
                   {transcriptFilename && <span className="text-xs text-muted truncate min-w-0">{transcriptFilename}</span>}
                 </div>
+                <ErgebnisInfo jobUuid={doneJobUuid} auftrag={auftrag} onGeloescht={handleReset} zeilen={[
+                  { label: tResult("file"), wert: auftrag?.datei },
+                  { label: tResult("provider"), wert: auftrag?.angaben.anbieter },
+                  { label: t("outputFormat"), wert: FORMAT_OPTIONS.find((o) => o.value === auftrag?.angaben.format)?.label },
+                ]} />
 
                 <textarea
                   value={transcriptText}

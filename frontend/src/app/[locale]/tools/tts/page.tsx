@@ -3,6 +3,7 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
+import ErgebnisInfo, { useErgebnisAngaben } from "@/components/jobs/ErgebnisInfo";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import ToolBackLink from "@/components/ui/ToolBackLink";
 import TtsFileUpload from "@/components/jobs/TtsFileUpload";
@@ -26,6 +27,7 @@ function TtsPageInner() {
   const t = useTranslations("tools.tts");
   const tProgress = useTranslations("tools.tts.progress");
   const tCommon = useTranslations("common");
+  const tResult = useTranslations("common.result");
   const locale = useLocale();
   const verlauf = useJobHistory("tts");
   // Only the jobs list links straight to one audio.
@@ -91,6 +93,7 @@ function TtsPageInner() {
     return () => URL.revokeObjectURL(url);
   }, [ttsDownloadBlob]);
 
+  const auftrag = useErgebnisAngaben(ttsState === "done" ? angezeigterJobUuid : null);
   const isProcessing = ttsState === "uploading" || ttsState === "processing";
   const noProvider = providersLoaded && providers.length === 0;
 
@@ -408,6 +411,12 @@ function TtsPageInner() {
                 onReset={handleTtsReset}
                 onRetry={() => { setTtsState("idle"); setTtsErrorMessage(""); }}
                 onContinue={handleTtsContinue}
+                info={ttsState === "done" && angezeigterJobUuid && (
+                  <ErgebnisInfo jobUuid={angezeigterJobUuid} auftrag={auftrag} onGeloescht={handleTtsReset} zeilen={[
+                    { label: tResult("provider"), wert: auftrag?.angaben.anbieter },
+                    { label: t("voiceLabel"), wert: auftrag?.angaben.stimme },
+                  ]} />
+                )}
               />
             )}
           </div>

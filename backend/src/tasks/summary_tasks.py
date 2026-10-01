@@ -39,6 +39,7 @@ from src.storage import (
     save_result_file,
 )
 from src.tasks._stage import StageClock, StageContinue, StageLost, continue_stage
+from src.services.job_statistik import angaben_merken, route_kennung
 
 _MIN_WORDS = 20
 _OUTLINE_FILE = "outline.json"
@@ -240,6 +241,9 @@ def _run_summary_inner(job_uuid: str, template_slug: str,
             raise  # a stage timeout must reach run_summary's own handling, not be logged away here
         logger.error("Zusammenfassung {}: Word-Datei fehlgeschlagen ({})", job_uuid[:8], e)
     save_result_and_evict(user_id, job_uuid, ergebnis, name)
+    angaben_merken(user_id, job_uuid, {
+        "anbieter": route_kennung("chat", provider_id)["anbieter"], "vorlage": template_slug,
+    })
     db.update_job_status(job_uuid, "success")
     logger.info("Zusammenfassung {} fertig: {}", job_uuid[:8], name)
 

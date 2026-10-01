@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { SpeakerHigh } from "@phosphor-icons/react";
 import type { TTSState } from "@/types";
@@ -17,6 +18,8 @@ interface TtsStatusProps {
   /** Back to the input after an error, the text stays. */
   onRetry?: () => void;
   onContinue?: () => void;
+  /** The info rows of the finished result. */
+  info?: ReactNode;
 }
 
 export default function TtsStatus({
@@ -28,6 +31,7 @@ export default function TtsStatus({
   onReset,
   onRetry,
   onContinue,
+  info,
 }: TtsStatusProps) {
   const t = useTranslations("tools.tts.status");
   if (state === "idle") return null;
@@ -49,6 +53,7 @@ export default function TtsStatus({
       {state === "done" && (
         <div className="flex flex-col items-center gap-4 text-center">
           <StatusMark tone="success" className="text-sm font-medium">{t("readyToPlay")}</StatusMark>
+          {info && <div className="w-full text-left">{info}</div>}
 
           {/* Audio player — consistent with the AIA media player */}
           {audioUrl && (

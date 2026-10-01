@@ -10,6 +10,7 @@ from src import database as db
 from src.dependencies import get_current_user, is_admin_user
 from src.i18n import get_locale, t
 from src.storage import load_result_json, load_result_meta
+from src.routes.jobs._shared import _dt
 
 
 router = APIRouter()
@@ -31,6 +32,8 @@ def get_job_status(
         "job_uuid": job_uuid,
         "status": job["status"],
         "tool": job["tool"],
+        "original_filename": job.get("original_filename"),
+        "created_at": _dt(job.get("created_at")),
         "progress": None,
         "error": job["error_message"],
         "filename": job["result_filename"],
