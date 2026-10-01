@@ -184,10 +184,12 @@ export default function ScriptStep(props: ScriptStepProps) {
                 {schonVertont && offenerBeitrag && <StatusMark tone="warn" className="text-xs">{t("changed")}</StatusMark>}
                 {!offenerBeitrag && <StatusMark tone="success" className="text-xs">{t("voiced")}</StatusMark>}
                 <span className="flex-1" />
-                {!isEditing && !demo && (
+                {/* The demo shows the tools of a real script, without any effect. */}
+                {!isEditing && (
                   <>
                     <IconButton
                       size="sm"
+                      disabled={demo}
                       aria-label={t("edit", { n: i + 1 })}
                       title={t("edit", { n: i + 1 })}
                       onClick={() => {
@@ -200,6 +202,7 @@ export default function ScriptStep(props: ScriptStepProps) {
                     {!selfWritten && (
                       <IconButton
                         size="sm"
+                        disabled={demo}
                         aria-label={t("regen", { n: i + 1 })}
                         title={t("regen", { n: i + 1 })}
                         className={regenAnchorIndex === i && regenAnchorText ? "text-kb" : undefined}
@@ -208,7 +211,7 @@ export default function ScriptStep(props: ScriptStepProps) {
                         <SparkleIcon className="w-3 h-3" />
                       </IconButton>
                     )}
-                    <IconButton size="sm" aria-label={t("delete", { n: i + 1 })} title={t("delete", { n: i + 1 })} onClick={() => onDelete(line.id)}>
+                    <IconButton size="sm" disabled={demo} aria-label={t("delete", { n: i + 1 })} title={t("delete", { n: i + 1 })} onClick={() => onDelete(line.id)}>
                       <Trash size={12} weight="bold" />
                     </IconButton>
                   </>
