@@ -34,7 +34,7 @@ export default function TranslateTextInput({ value, onChange, disabled = false }
         maxLength={TRANSLATE_MAX_CHARS}
         aria-label={t("label")}
         aria-invalid={over || undefined}
-        className="w-full rounded-md border border-border px-3 py-2 text-sm text-foreground placeholder:text-muted-soft focus:border-kb focus:ring-1 focus:ring-kb focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed resize-y"
+        className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-soft focus:border-kb focus:ring-1 focus:ring-kb focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed resize-y"
       />
       <div className="mt-1 flex justify-end">
         <span className={`text-xs ${counterColor}`}>
