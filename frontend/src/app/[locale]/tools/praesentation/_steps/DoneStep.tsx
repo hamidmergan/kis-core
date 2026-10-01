@@ -2,10 +2,9 @@
 
 import { DownloadSimple } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
 import BackgroundHint from "@/components/tools/BackgroundHint";
 import Spinner from "@/components/ui/Spinner";
-import FolienGrossbild from "../_components/FolienGrossbild";
+import FolienBetrachter from "../_components/FolienBetrachter";
 import { downloadUrl, previewUrl } from "../_api";
 import { LAEUFT, fortschrittMeldung } from "../_logic";
 import type { JobProgress, JobStatus, Slide } from "../_types";
@@ -33,9 +32,8 @@ const cancelIcon = (
 
 const NEBENKNOPF = "w-full sm:w-auto px-6 py-2.5 sm:py-2 text-sm text-foreground-soft border border-border rounded-md btn-ghost focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors";
 
-/** The finished deck as a strip of slides, a click shows one large, the download pinned on the phone. */
+/** The finished deck to page through, one slide large over the strip of all, the download pinned on the phone. */
 export default function DoneStep(p: DoneStepProps) {
-  const [gross, setGross] = useState<number | null>(null);
   const t = useTranslations("tools.praesentation.done");
   const tSlides = useTranslations("tools.praesentation.slides");
   const tCommon = useTranslations("tools.praesentation.common");
@@ -96,24 +94,8 @@ export default function DoneStep(p: DoneStepProps) {
       <h2 className="text-lg font-bold text-center">{t("heading")}</h2>
       <p className="text-sm text-muted mt-1 mb-6 text-center">{t("summary", { n: p.slides.length })}</p>
 
-      <ol className="flex gap-2.5 sm:gap-4 overflow-x-auto scrollbar-hide pb-1.5 sm:flex-wrap sm:justify-center" aria-label={t("allSlides")}>
-        {p.slides.map((s, i) => {
-          const url = typeof p.previews[s.id] === "number" ? previewUrl(p.jobUuid, s.id, p.previews[s.id]) : null;
-          return (
-            <li key={s.id} className="shrink-0">
-              <button type="button" onClick={() => setGross(i)} aria-label={tSlides("openPreview", { n: i + 1 })}
-                      className="block w-32 sm:w-40 rounded-md overflow-hidden border-2 border-border-soft hover:border-kb shadow-sm transition-colors cursor-zoom-in">
-                {url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={url} alt="" loading="lazy" className="block w-full aspect-video object-cover" />
-                ) : (
-                  <span className="block aspect-video bg-surface" />
-                )}
-              </button>
-            </li>
-          );
-        })}
-      </ol>
+      <FolienBetrachter ids={p.slides.map((s) => s.id)}
+        urlFuer={(id) => (typeof p.previews[id] === "number" ? previewUrl(p.jobUuid, id, p.previews[id]) : null)} />
 
       {/* Desktop: download above the two side buttons. Phone: side buttons first, download pinned below. */}
       <div className="flex flex-col">
@@ -134,11 +116,6 @@ export default function DoneStep(p: DoneStepProps) {
       </div>
       </div>
 
-      {gross !== null && (
-        <FolienGrossbild index={gross} total={p.slides.length}
-          previewUrl={typeof p.previews[p.slides[gross]?.id] === "number" ? previewUrl(p.jobUuid, p.slides[gross].id, p.previews[p.slides[gross].id]) : null}
-          onClose={() => setGross(null)} onIndexChange={setGross} />
-      )}
     </section>
   );
 }
