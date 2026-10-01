@@ -17,7 +17,7 @@ from src.features.praesentation.schemas import Entry, Figure, Symbol
 from src.features.praesentation.vorlage import EMU_PER_PT, Feld
 
 # A step's circle in multiples of the base size, at most this share of its column, its number inside.
-_KREIS = 2.4
+_KREIS = 1.2
 _KREIS_ANTEIL = 0.5
 _NUMMER = 0.45
 # The line joining the steps, as a share of the circle, and the air between steps below each other.
