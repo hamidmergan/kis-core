@@ -435,7 +435,6 @@
     "stt": {
       "title": "Audio in Text",
       "intro": "Audio und Video transkribieren. Auch als Untertitel mit Zeitstempeln.",
-      "resultPlaceholder": "Hier erscheint dein Transkript.",
       "history": {
         "title": "Deine Transkripte",
         "empty": "Noch kein Transkript.",
@@ -467,7 +466,6 @@
       "submit": "Zusammenfassung erstellen",
       "downloadLabel": "MD herunterladen",
       "downloadDocxLabel": "DOCX herunterladen",
-      "resultPlaceholder": "Hier erscheint deine Zusammenfassung.",
       "providerLabel": "KI-Anbieter",
       "templateLabel": "Vorlage",
       "instructionsLabel": "Anweisung, optional",
@@ -523,8 +521,6 @@
       "resultLabel": "Übersetzter Text",
       "copyText": "Kopieren",
       "copied": "Kopiert!",
-      "resultStale": "Text wurde geändert – für ein aktuelles Ergebnis erneut übersetzen.",
-      "resultPlaceholder": "Hier erscheint deine Übersetzung.",
       "history": {
         "title": "Deine Übersetzungen",
         "empty": "Noch keine Übersetzung.",
@@ -600,7 +596,6 @@
     "tts": {
       "title": "Text in Audio",
       "intro": "Texte und Dokumente mit natürlich klingenden Stimmen vorlesen lassen.",
-      "resultPlaceholder": "Hier erscheint dein Audio.",
       "history": {
         "title": "Deine Audios",
         "empty": "Noch kein Audio.",

@@ -44,7 +44,6 @@ function UebersetzungPageInner() {
   const [stallMessage, setStallMessage] = useState<string>("");
   const [doneJobUuid, setDoneJobUuid] = useState<string | null>(null);
   const [translatedText, setTranslatedText] = useState<string>("");
-  const [translatedSourceText, setTranslatedSourceText] = useState<string>("");
   const [copied, setCopied] = useState(false);
 
   const [providers, setProviders] = useState<{ id: number; label: string }[]>([]);
@@ -107,7 +106,6 @@ function UebersetzungPageInner() {
   const canSubmit = inputMode === "file"
     ? !!pendingFile
     : trimmedText.length > 0 && !textOverLimit;
-  const resultStale = !!translatedText && !!translatedSourceText && pendingText !== translatedSourceText;
   // The real name of what is shown on the right, not what the left form happens to hold right now.
   const angezeigterDateiname = aktiverVerlaufseintrag?.original_filename ?? (doneJobUuid ? selectedFile : "");
 
@@ -125,7 +123,6 @@ function UebersetzungPageInner() {
     setStallMessage("");
     setDoneJobUuid(null);
     setTranslatedText("");
-    setTranslatedSourceText("");
     try {
       const glossaryJson = mergeToApiJson(glossaryIds);
       const formData = new FormData();
@@ -150,7 +147,6 @@ function UebersetzungPageInner() {
         60_000,
       );
       window.dispatchEvent(new Event("kis-jobs-changed"));
-      if (inputMode === "text") setTranslatedSourceText(pendingText);
       setDoneJobUuid(data.job_uuid);
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : tCommon("unknownError"));
@@ -181,7 +177,6 @@ function UebersetzungPageInner() {
     setErrorMessage("");
     setDoneJobUuid(null);
     setTranslatedText("");
-    setTranslatedSourceText("");
   };
 
   const handleCopy = () => {
@@ -198,33 +193,21 @@ function UebersetzungPageInner() {
         <h1 className="text-xl font-bold mb-1">{t("title")}</h1>
         <p className="text-sm text-muted mb-6">{t("intro")}</p>
 
+        {/* What goes in, above both columns like the tabs of the image tool. */}
+        <Tabs
+          className="mb-6"
+          active={inputMode}
+          onChange={(key) => handleModeChange(key as InputMode)}
+          items={[
+            { key: "text", label: t("inputMode.text"), disabled: processing },
+            { key: "file", label: t("inputMode.file"), disabled: processing },
+          ]}
+        />
+
         <div className="grid gap-8 lg:grid-cols-[minmax(0,400px)_1fr]" data-tour="tool-translation">
         <section className="min-w-0 rounded-xl border border-border-soft bg-surface p-4 sm:p-5">
-          <div className="mb-4">
-            <Tabs
-              active={inputMode}
-              onChange={(key) => handleModeChange(key as InputMode)}
-              items={[
-                { key: "text", label: t("inputMode.text"), disabled: processing },
-                { key: "file", label: t("inputMode.file"), disabled: processing },
-              ]}
-            />
-          </div>
-
-          <div>
-          {inputMode === "text" ? (
-            <TranslateTextInput
-              value={pendingText}
-              onChange={setPendingText}
-              disabled={processing}
-            />
-          ) : (
-            <FileUpload onFileSelected={handleFileSelected} disabled={processing} selectedFilename={selectedFile || undefined} />
-          )}
-          </div>
-
           {languages.length > 0 && (
-            <div className="mb-4 mt-6">
+            <div className="mb-4">
               <label className="block text-sm font-medium text-foreground-soft mb-1">
                 {t("targetLang")}
               </label>
@@ -276,8 +259,8 @@ function UebersetzungPageInner() {
           )}
         </section>
 
-        {/* The result, colored like the image tool's stage, always on the right. */}
-        <section className="min-w-0">
+        {/* The input on the right, the result takes its place once it is there. On the phone the input leads. */}
+        <section className="min-w-0 order-first lg:order-none lg:col-start-2 lg:row-start-1">
           <div className="rounded-xl border border-kb/15 bg-kb/5 p-4 sm:p-5" aria-live="polite">
             {processing ? (
               <div className="flex flex-col items-center justify-center gap-3 py-14 text-center">
@@ -305,12 +288,7 @@ function UebersetzungPageInner() {
                         </button>
                       )}
                     </div>
-                    {resultStale && (
-                      <p className="mb-1 text-xs text-warn">{t("resultStale")}</p>
-                    )}
-                    <div
-                      className={`max-h-[28rem] overflow-y-auto rounded-md border border-border-soft bg-background px-3 py-2 text-sm text-foreground whitespace-pre-wrap transition-opacity ${resultStale ? "opacity-50" : ""}`}
-                    >
+                    <div className="max-h-[28rem] overflow-y-auto rounded-md border border-border-soft bg-background px-3 py-2 text-sm text-foreground whitespace-pre-wrap">
                       {translatedText || <Spinner className="justify-center py-6" />}
                     </div>
                   </div>
@@ -333,13 +311,10 @@ function UebersetzungPageInner() {
                   </button>
                 </div>
               </div>
+            ) : inputMode === "text" ? (
+              <TranslateTextInput value={pendingText} onChange={setPendingText} disabled={processing} />
             ) : (
-              <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
-                <svg className="h-8 w-8 text-muted-soft" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                <p className="text-sm text-foreground-soft">{t("resultPlaceholder")}</p>
-              </div>
+              <FileUpload onFileSelected={handleFileSelected} disabled={processing} selectedFilename={selectedFile || undefined} />
             )}
           </div>
         </section>

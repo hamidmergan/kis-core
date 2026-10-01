@@ -158,10 +158,6 @@ function TranscriptionPageInner() {
 
         <div className="grid gap-8 lg:grid-cols-[minmax(0,400px)_1fr]" data-tour="tool-transcription">
         <section className="min-w-0 rounded-xl border border-border-soft bg-surface p-4 sm:p-5">
-          <div>
-            <TranscriptionFileUpload onFileSelected={handleFileSelected} disabled={processing} selectedFilename={selectedFile || undefined} />
-          </div>
-
           <ProviderSelect
             id="stt-provider-select"
             label={t("providerLabel")}
@@ -169,7 +165,6 @@ function TranscriptionPageInner() {
             value={providerId}
             onChange={setProviderId}
             disabled={processing}
-            className="mt-6"
           />
 
           <div className="mb-6 mt-6">
@@ -217,8 +212,8 @@ function TranscriptionPageInner() {
           )}
         </section>
 
-        {/* The result, colored like the image tool's stage, always on the right. */}
-        <section className="min-w-0">
+        {/* The input on the right, the result takes its place once it is there. On the phone the input leads. */}
+        <section className="min-w-0 order-first lg:order-none lg:col-start-2 lg:row-start-1">
           <div className="rounded-xl border border-kb/15 bg-kb/5 p-4 sm:p-5" aria-live="polite">
             {processing ? (
               <div className="flex flex-col items-center justify-center gap-3 py-14 text-center">
@@ -259,12 +254,7 @@ function TranscriptionPageInner() {
                 </div>
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
-                <svg className="h-8 w-8 text-muted-soft" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                <p className="text-sm text-foreground-soft">{t("resultPlaceholder")}</p>
-              </div>
+              <TranscriptionFileUpload onFileSelected={handleFileSelected} disabled={processing} selectedFilename={selectedFile || undefined} />
             )}
           </div>
         </section>

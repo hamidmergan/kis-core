@@ -435,7 +435,6 @@
     "stt": {
       "title": "Audio to text",
       "intro": "Transcribe audio and video. Also as subtitles with timestamps.",
-      "resultPlaceholder": "Your transcript will appear here.",
       "history": {
         "title": "Your transcripts",
         "empty": "No transcript yet.",
@@ -467,7 +466,6 @@
       "submit": "Create summary",
       "downloadLabel": "Download MD",
       "downloadDocxLabel": "Download DOCX",
-      "resultPlaceholder": "Your summary will appear here.",
       "providerLabel": "AI provider",
       "templateLabel": "Template",
       "instructionsLabel": "Instruction, optional",
@@ -523,8 +521,6 @@
       "resultLabel": "Translated text",
       "copyText": "Copy",
       "copied": "Copied!",
-      "resultStale": "Text was changed – translate again for an up-to-date result.",
-      "resultPlaceholder": "Your translation will appear here.",
       "history": {
         "title": "Your translations",
         "empty": "No translation yet.",
@@ -600,7 +596,6 @@
     "tts": {
       "title": "Text to audio",
       "intro": "Have texts and documents read aloud with natural-sounding voices.",
-      "resultPlaceholder": "Your audio will appear here.",
       "history": {
         "title": "Your audio",
         "empty": "No audio yet.",

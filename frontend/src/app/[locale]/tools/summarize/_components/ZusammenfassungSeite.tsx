@@ -361,187 +361,23 @@ function ZusammenfassungSeiteInner({ demo = false }: { demo?: boolean }) {
           </p>
         )}
 
+        {/* Where the material comes from, above both columns like the tabs of the image tool. */}
+        {(canUseModules || demo) && (
+          <Tabs<SourceMode>
+            className="mb-6"
+            active={mode}
+            onChange={(next) => { setModus(next); setUploadError(null); setErrorMessage(""); }}
+            items={[
+              { key: "files", label: t("tabs.files"), disabled: demo },
+              { key: "module", label: "Workspace" },
+            ]}
+          />
+        )}
+
         <div className="grid gap-8 lg:grid-cols-[minmax(0,400px)_1fr]" data-tour="tool-summary">
         <section className="min-w-0 rounded-xl border border-border-soft bg-surface p-4 sm:p-5">
-          {(canUseModules || demo) && (
-            <Tabs<SourceMode>
-              className="mb-4"
-              active={mode}
-              onChange={(next) => { setModus(next); setUploadError(null); setErrorMessage(""); }}
-              items={[
-                { key: "files", label: t("tabs.files"), disabled: demo },
-                { key: "module", label: "Workspace" },
-              ]}
-            />
-          )}
-
-          {demo && (
-            !demoSetup ? (
-              <Spinner className="justify-center py-10" />
-            ) : templates.length === 0 && setup ? (
-              <EmptyState text={tDemo("keinErgebnis")} />
-            ) : (
-              <div className="space-y-4">
-                <div>
-                  <label htmlFor="summary-module" className="block text-sm font-medium text-foreground mb-1">
-                    Workspace
-                  </label>
-                  <Select
-                    id="summary-module"
-                    value="demo"
-                    onChange={() => {}}
-                    disabled
-                    options={[{ value: "demo", label: demoSetup.workspace }]}
-                  />
-                </div>
-                <div>
-                  <span className="block text-sm font-medium text-foreground mb-2">{t("chosenFiles")}</span>
-                  <ul className="space-y-2">
-                    {demoSetup.files.map((name) => (
-                      <li key={name}>
-                        <Checkbox checked disabled onChange={() => {}} label={name} labelClassName="text-sm text-foreground" />
-                      </li>
-                    ))}
-                  </ul>
-                  <p className="mt-2 text-xs text-muted">{tDemo("materialVorgegeben")}</p>
-                </div>
-              </div>
-            )
-          )}
-
-          {mode === "module" && !demo && (
-            modules === null ? (
-              <Spinner className="justify-center py-10" />
-            ) : modules.length === 0 ? (
-              <EmptyState text={t("noModules")} />
-            ) : (
-              <div className="space-y-4">
-                <div>
-                  <label htmlFor="summary-module" className="block text-sm font-medium text-foreground mb-1">
-                    Workspace
-                  </label>
-                  <Select
-                    id="summary-module"
-                    value={moduleId}
-                    onChange={waehleWorkspace}
-                    disabled={processing}
-                    placeholder={tCommon("pleaseSelect")}
-                    options={modules.map((m) => ({ value: m.uuid, label: m.title }))}
-                  />
-                </div>
-                {moduleId &&
-                  (sources === null ? (
-                    <Spinner className="justify-center py-6" />
-                  ) : sources.length === 0 ? (
-                    <EmptyState size="sm" text={t("noSources")} />
-                  ) : (
-                    <div>
-                      {sourceIds.length > 0 && <MaterialGauge bilanz={messung} max={messung.max} />}
-                      <span className="block text-sm font-medium text-foreground mb-2">{t("chosenFiles")}</span>
-                      <ul className="space-y-2">
-                        {sources.map((q) => (
-                          <li key={q.uuid}>
-                            <div className="flex items-center justify-between gap-3">
-                              <Checkbox
-                                checked={sourceIds.includes(q.uuid)}
-                                disabled={processing || (voll && !sourceIds.includes(q.uuid))}
-                                onChange={() => schalteQuelle(q.uuid)}
-                                label={q.filename}
-                                labelClassName="text-sm text-foreground"
-                              />
-                              {sourceIds.includes(q.uuid) && <MeasureNote messung={messung.forSource(q.uuid)} />}
-                            </div>
-                            {sourceIds.includes(q.uuid) && <MeasureError messung={messung.forSource(q.uuid)} />}
-                          </li>
-                        ))}
-                      </ul>
-                      <p className={`mt-2 text-xs ${voll ? "text-error font-medium" : "text-muted"}`}>
-                        {t("tooManySources", { max: maxSources })}
-                      </p>
-                    </div>
-                  ))}
-              </div>
-            )
-          )}
-
-          {mode === "files" && (
-          <>
-          <div
-            role="button"
-            tabIndex={0}
-            aria-label={t("selectFileAria")}
-            onClick={() => !processing && !full && inputRef.current?.click()}
-            onKeyDown={(e) => {
-              if ((e.key === "Enter" || e.key === " ") && !processing && !full) {
-                e.preventDefault();
-                inputRef.current?.click();
-              }
-            }}
-            onDrop={handleDrop}
-            onDragOver={(e) => { e.preventDefault(); if (!processing && !full) setDragActive(true); }}
-            onDragLeave={() => setDragActive(false)}
-            className={[
-              "border-2 border-dashed rounded-lg p-10 text-center transition-colors",
-              "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb",
-              dragActive ? "border-kb bg-info-bg" : files.length ? "border-kb60 bg-kb20" : "border-border hover:border-kb",
-              processing || full ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
-            ].join(" ")}
-          >
-            <p className="text-sm font-medium text-muted">
-              {tCommon("dropOrBrowse")}{" "}
-              <span className="text-kb underline">{tCommon("browse")}</span>
-            </p>
-            <p className="text-xs text-muted-soft mt-1">{extensions.join(", ")}</p>
-          </div>
-          <input
-            ref={inputRef}
-            type="file"
-            multiple
-            accept={extensions.join(",")}
-            onChange={(e) => {
-              addFiles(Array.from(e.target.files ?? []));
-              if (inputRef.current) inputRef.current.value = "";
-            }}
-            className="hidden"
-            aria-hidden="true"
-          />
-          </>
-          )}
-          {uploadError && (
-            <p className="mt-2 text-sm text-error" role="alert">{uploadError}</p>
-          )}
-
-          {mode === "files" && files.length > 0 && (
-            <div className="mt-4">
-              <MaterialGauge bilanz={messung} max={messung.max} />
-              <p className="text-sm font-medium text-foreground mb-2">{t("chosenFiles")}</p>
-              <ul className="space-y-1">
-                {files.map((f, i) => (
-                  <li key={`${f.name}-${f.size}`} className="text-sm text-foreground">
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="truncate">{f.name}</span>
-                      <span className="flex items-center gap-3 shrink-0">
-                        <MeasureNote messung={messung.forFile(f)} />
-                        {!processing && !doneJobUuid && (
-                          <button
-                            type="button"
-                            onClick={() => removeFile(i)}
-                            className="text-xs text-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb"
-                          >
-                            {t("removeFile")}
-                          </button>
-                        )}
-                      </span>
-                    </div>
-                    <MeasureError messung={messung.forFile(f)} />
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
           {templates.length > 0 && (
-            <div className="mt-6">
+            <div>
               <label htmlFor="summary-template-select" className="block text-sm font-medium text-foreground mb-1">
                 {t("templateLabel")}
               </label>
@@ -601,8 +437,8 @@ function ZusammenfassungSeiteInner({ demo = false }: { demo?: boolean }) {
           )}
         </section>
 
-        {/* The result, colored like the image tool's stage, always on the right. */}
-        <section className="min-w-0">
+        {/* The material on the right, the result takes its place once it is there. On the phone the material leads. */}
+        <section className="min-w-0 order-first lg:order-none lg:col-start-2 lg:row-start-1">
           <div className="rounded-xl border border-kb/15 bg-kb/5 p-4 sm:p-5" aria-live="polite">
             {processing ? (
               <div className="flex flex-col items-center justify-center gap-3 py-14 text-center">
@@ -676,12 +512,172 @@ function ZusammenfassungSeiteInner({ demo = false }: { demo?: boolean }) {
                 </div>
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
-                <svg className="h-8 w-8 text-muted-soft" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                <p className="text-sm text-foreground-soft">{t("resultPlaceholder")}</p>
+              <>
+              {demo && (
+                !demoSetup ? (
+                  <Spinner className="justify-center py-10" />
+                ) : templates.length === 0 && setup ? (
+                  <EmptyState text={tDemo("keinErgebnis")} />
+                ) : (
+                  <div className="space-y-4">
+                    <div>
+                      <label htmlFor="summary-module" className="block text-sm font-medium text-foreground mb-1">
+                        Workspace
+                      </label>
+                      <Select
+                        id="summary-module"
+                        value="demo"
+                        onChange={() => {}}
+                        disabled
+                        options={[{ value: "demo", label: demoSetup.workspace }]}
+                      />
+                    </div>
+                    <div>
+                      <span className="block text-sm font-medium text-foreground mb-2">{t("chosenFiles")}</span>
+                      <ul className="space-y-2">
+                        {demoSetup.files.map((name) => (
+                          <li key={name}>
+                            <Checkbox checked disabled onChange={() => {}} label={name} labelClassName="text-sm text-foreground" />
+                          </li>
+                        ))}
+                      </ul>
+                      <p className="mt-2 text-xs text-muted">{tDemo("materialVorgegeben")}</p>
+                    </div>
+                  </div>
+                )
+              )}
+
+              {mode === "module" && !demo && (
+                modules === null ? (
+                  <Spinner className="justify-center py-10" />
+                ) : modules.length === 0 ? (
+                  <EmptyState text={t("noModules")} />
+                ) : (
+                  <div className="space-y-4">
+                    <div>
+                      <label htmlFor="summary-module" className="block text-sm font-medium text-foreground mb-1">
+                        Workspace
+                      </label>
+                      <Select
+                        id="summary-module"
+                        value={moduleId}
+                        onChange={waehleWorkspace}
+                        disabled={processing}
+                        placeholder={tCommon("pleaseSelect")}
+                        options={modules.map((m) => ({ value: m.uuid, label: m.title }))}
+                      />
+                    </div>
+                    {moduleId &&
+                      (sources === null ? (
+                        <Spinner className="justify-center py-6" />
+                      ) : sources.length === 0 ? (
+                        <EmptyState size="sm" text={t("noSources")} />
+                      ) : (
+                        <div>
+                          {sourceIds.length > 0 && <MaterialGauge bilanz={messung} max={messung.max} />}
+                          <span className="block text-sm font-medium text-foreground mb-2">{t("chosenFiles")}</span>
+                          <ul className="space-y-2">
+                            {sources.map((q) => (
+                              <li key={q.uuid}>
+                                <div className="flex items-center justify-between gap-3">
+                                  <Checkbox
+                                    checked={sourceIds.includes(q.uuid)}
+                                    disabled={processing || (voll && !sourceIds.includes(q.uuid))}
+                                    onChange={() => schalteQuelle(q.uuid)}
+                                    label={q.filename}
+                                    labelClassName="text-sm text-foreground"
+                                  />
+                                  {sourceIds.includes(q.uuid) && <MeasureNote messung={messung.forSource(q.uuid)} />}
+                                </div>
+                                {sourceIds.includes(q.uuid) && <MeasureError messung={messung.forSource(q.uuid)} />}
+                              </li>
+                            ))}
+                          </ul>
+                          <p className={`mt-2 text-xs ${voll ? "text-error font-medium" : "text-muted"}`}>
+                            {t("tooManySources", { max: maxSources })}
+                          </p>
+                        </div>
+                      ))}
+                  </div>
+                )
+              )}
+
+              {mode === "files" && (
+              <>
+              <div
+                role="button"
+                tabIndex={0}
+                aria-label={t("selectFileAria")}
+                onClick={() => !processing && !full && inputRef.current?.click()}
+                onKeyDown={(e) => {
+                  if ((e.key === "Enter" || e.key === " ") && !processing && !full) {
+                    e.preventDefault();
+                    inputRef.current?.click();
+                  }
+                }}
+                onDrop={handleDrop}
+                onDragOver={(e) => { e.preventDefault(); if (!processing && !full) setDragActive(true); }}
+                onDragLeave={() => setDragActive(false)}
+                className={[
+                  "border-2 border-dashed rounded-lg p-10 text-center transition-colors",
+                  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb",
+                  dragActive ? "border-kb bg-info-bg" : files.length ? "border-kb60 bg-kb20" : "border-border hover:border-kb",
+                  processing || full ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
+                ].join(" ")}
+              >
+                <p className="text-sm font-medium text-muted">
+                  {tCommon("dropOrBrowse")}{" "}
+                  <span className="text-kb underline">{tCommon("browse")}</span>
+                </p>
+                <p className="text-xs text-muted-soft mt-1">{extensions.join(", ")}</p>
               </div>
+              <input
+                ref={inputRef}
+                type="file"
+                multiple
+                accept={extensions.join(",")}
+                onChange={(e) => {
+                  addFiles(Array.from(e.target.files ?? []));
+                  if (inputRef.current) inputRef.current.value = "";
+                }}
+                className="hidden"
+                aria-hidden="true"
+              />
+              </>
+              )}
+              {uploadError && (
+                <p className="mt-2 text-sm text-error" role="alert">{uploadError}</p>
+              )}
+
+              {mode === "files" && files.length > 0 && (
+                <div className="mt-4">
+                  <MaterialGauge bilanz={messung} max={messung.max} />
+                  <p className="text-sm font-medium text-foreground mb-2">{t("chosenFiles")}</p>
+                  <ul className="space-y-1">
+                    {files.map((f, i) => (
+                      <li key={`${f.name}-${f.size}`} className="text-sm text-foreground">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="truncate">{f.name}</span>
+                          <span className="flex items-center gap-3 shrink-0">
+                            <MeasureNote messung={messung.forFile(f)} />
+                            {!processing && !doneJobUuid && (
+                              <button
+                                type="button"
+                                onClick={() => removeFile(i)}
+                                className="text-xs text-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb"
+                              >
+                                {t("removeFile")}
+                              </button>
+                            )}
+                          </span>
+                        </div>
+                        <MeasureError messung={messung.forFile(f)} />
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              </>
             )}
           </div>
         </section>

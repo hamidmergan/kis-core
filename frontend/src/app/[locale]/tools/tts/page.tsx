@@ -287,41 +287,26 @@ function TtsPageInner() {
         <h1 className="text-xl font-bold mb-1">{t("title")}</h1>
         <p className="text-sm text-muted mb-6">{t("intro")}</p>
 
+        {/* What goes in, above both columns like the tabs of the image tool. */}
+        <Tabs
+          className="mb-6"
+          active={inputMode}
+          onChange={(key) => handleModeChange(key as InputMode)}
+          items={[
+            { key: "text", label: t("inputMode.text"), disabled: isProcessing || noProvider },
+            { key: "file", label: t("inputMode.file"), disabled: isProcessing || noProvider },
+          ]}
+        />
+
         <div className="grid gap-8 lg:grid-cols-[minmax(0,400px)_1fr]" data-tour="tool-tts">
         <section className="min-w-0 rounded-xl border border-border-soft bg-surface p-4 sm:p-5">
-          <div className="mb-4">
-            <Tabs
-              active={inputMode}
-              onChange={(key) => handleModeChange(key as InputMode)}
-              items={[
-                { key: "text", label: t("inputMode.text"), disabled: isProcessing || noProvider },
-                { key: "file", label: t("inputMode.file"), disabled: isProcessing || noProvider },
-              ]}
-            />
-          </div>
-
-          <div>
-          {inputMode === "text" ? (
-            <TtsTextInput
-              value={pendingText}
-              onChange={setPendingText}
-              disabled={isProcessing || noProvider}
-            />
-          ) : (
-            <TtsFileUpload
-              onFileSelected={handleTtsFileSelected}
-              disabled={isProcessing || noProvider}
-              selectedFilename={ttsSelectedFile || undefined}
-            />
-          )}
-          </div>
           {noProvider && (
-            <p className="mt-3 text-sm text-muted-soft">{t("noProvider")}</p>
+            <p className="mb-4 text-sm text-muted-soft">{t("noProvider")}</p>
           )}
 
           {/* Provider */}
           {providersLoaded && providers.length > 1 && (
-            <div className="mt-6 mb-2">
+            <div className="mb-2">
               <label htmlFor="provider-select" className="block text-sm font-medium text-foreground-soft mb-2">
                 {t("providerLabel")}
               </label>
@@ -403,16 +388,16 @@ function TtsPageInner() {
           )}
         </section>
 
-        {/* The result, colored like the image tool's stage, always on the right. */}
-        <section className="min-w-0">
+        {/* The input on the right, the result takes its place once it is there. On the phone the input leads. */}
+        <section className="min-w-0 order-first lg:order-none lg:col-start-2 lg:row-start-1">
           <div className="rounded-xl border border-kb/15 bg-kb/5 p-4 sm:p-5" aria-live="polite">
             {ttsState === "idle" ? (
-              <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
-                <svg className="h-8 w-8 text-muted-soft" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 9v6a3 3 0 006 0V9a3 3 0 00-6 0zM5 10v2a7 7 0 0014 0v-2M12 19v3" />
-                </svg>
-                <p className="text-sm text-foreground-soft">{t("resultPlaceholder")}</p>
-              </div>
+              inputMode === "text" ? (
+                <TtsTextInput value={pendingText} onChange={setPendingText} disabled={noProvider} />
+              ) : (
+                <TtsFileUpload onFileSelected={handleTtsFileSelected} disabled={noProvider}
+                  selectedFilename={ttsSelectedFile || undefined} />
+              )
             ) : (
               <TtsStatus
                 state={ttsState}
@@ -421,6 +406,7 @@ function TtsPageInner() {
                 errorMessage={ttsErrorMessage}
                 onDownload={handleTtsDownload}
                 onReset={handleTtsReset}
+                onRetry={() => { setTtsState("idle"); setTtsErrorMessage(""); }}
                 onContinue={handleTtsContinue}
               />
             )}

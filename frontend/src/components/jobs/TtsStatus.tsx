@@ -14,6 +14,8 @@ interface TtsStatusProps {
   errorMessage?: string;
   onDownload?: () => void;
   onReset?: () => void;
+  /** Back to the input after an error, the text stays. */
+  onRetry?: () => void;
   onContinue?: () => void;
 }
 
@@ -24,6 +26,7 @@ export default function TtsStatus({
   errorMessage,
   onDownload,
   onReset,
+  onRetry,
   onContinue,
 }: TtsStatusProps) {
   const t = useTranslations("tools.tts.status");
@@ -116,7 +119,7 @@ export default function TtsStatus({
           </div>
           {errorMessage && <p className="text-xs text-error">{errorMessage}</p>}
           <button
-            onClick={onReset}
+            onClick={onRetry ?? onReset}
             aria-label={t("tryAgain")}
             className="px-4 py-2 text-sm text-foreground-soft border border-border rounded-md btn-ghost focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors"
           >

@@ -128,9 +128,9 @@ export default function UploadStep(props: UploadStepProps) {
         </div>
       )}
 
-      {/* On the phone the card dissolves into one list (file, settings), on the desktop file left, settings right. */}
+      {/* On the phone the card dissolves into one list (file, settings), on the desktop settings left, file right. */}
       <div className="-mx-4 lg:mx-0 flex flex-col lg:grid lg:grid-cols-[minmax(0,400px)_1fr] lg:items-start lg:gap-8">
-        <div className="contents lg:block min-w-0 lg:col-start-2 lg:row-start-1 lg:rounded-xl lg:border lg:border-kb/15 lg:bg-kb/5 lg:p-5">
+        <div className="contents lg:block min-w-0 lg:rounded-xl lg:border lg:border-border-soft lg:bg-surface lg:p-5">
           <div className="order-3 px-4 py-3.5 border-b border-border-soft lg:hidden">
             <ToggleRow title={t("upload.skipTranslation")} description={skipTranslation ? t("upload.scriptLangHint") : t("upload.autoDetectHint")}
                        checked={skipTranslation} onToggle={() => onSkipTranslationChange(!skipTranslation)} />
@@ -190,7 +190,7 @@ export default function UploadStep(props: UploadStepProps) {
           </div>
         </div>
 
-        <div className="order-1 min-w-0 lg:col-start-1 lg:row-start-1 lg:rounded-xl lg:border lg:border-border-soft lg:bg-surface lg:p-5">
+        <div className="order-1 min-w-0 lg:col-start-2 lg:row-start-1 lg:rounded-xl lg:border lg:border-kb/15 lg:bg-kb/5 lg:p-5">
           <EinstellungsFeld titel={t("upload.fileLabel")} wert={demoDatei ?? file?.name ?? tCommon("emptyValue")}
                             className="border-t lg:border-t-0" {...zeile("file")}>
             <div
