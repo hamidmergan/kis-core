@@ -207,7 +207,7 @@ export default function InterpreterPage() {
             </div>
           </div>
           <p className="text-sm text-muted mb-1">{t("intro")}</p>
-          <p className="text-sm text-muted mb-5">{t("hint")}</p>
+          <p className="text-sm text-muted mb-8">{t("hint")}</p>
 
           {active.fill !== "ok" && (
             <p className="mb-5 rounded-md border border-warn-border bg-warn-bg px-3 py-2 text-sm text-warn-strong" role="alert">
