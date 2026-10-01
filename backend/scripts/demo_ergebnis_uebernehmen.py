@@ -1,6 +1,9 @@
 """Takes finished summary and presentation runs over as the demo results, safe to run again.
 
-    docker exec kis-backend python scripts/demo_ergebnis_uebernehmen.py <job_uuid> [<job_uuid> ...]
+    docker exec kis-backend python scripts/demo_ergebnis_uebernehmen.py --ziel /tmp/demo <job_uuid> [...]
+    docker cp kis-backend:/tmp/demo/. backend/demo/
+
+The container mounts demo/ read only, so the results go to a folder of its own first.
 """
 
 import argparse
@@ -27,11 +30,11 @@ def _schreiben(pfad: Path, daten: bytes) -> None:
     pfad.write_bytes(daten)
 
 
-def zusammenfassung(job: dict, workspace: str) -> str:
+def zusammenfassung(job: dict, workspace: str, ziel: Path) -> str:
     """The Markdown and Word result into the folder of its template, the material into demo.json."""
     uid, uuid = job["user_id"], job["job_uuid"]
     slug = json.loads(get_job_file(uid, uuid, "summary_params.json"))["template_slug"]
-    ordner = DEMO_DIR / "zusammenfassung" / slug
+    ordner = ziel / "zusammenfassung" / slug
     shutil.rmtree(ordner, ignore_errors=True)
     stamm = Path(job["result_filename"] or f"{slug}.md").stem
     _schreiben(ordner / f"{stamm}.md", get_file(job["result_path"]))
@@ -39,18 +42,18 @@ def zusammenfassung(job: dict, workspace: str) -> str:
     anweisung = get_job_file(uid, uuid, INSTRUCTIONS_FILE).decode() if job_file_exists(uid, uuid, INSTRUCTIONS_FILE) else ""
     material = {"workspace": workspace, "dateien": [q.dateiname for q in sources.load_sources(uid, uuid)],
                 "anweisung": anweisung}
-    (DEMO_DIR / "zusammenfassung" / "demo.json").write_text(json.dumps(material, ensure_ascii=False, indent=2),
+    (ziel / "zusammenfassung" / "demo.json").write_text(json.dumps(material, ensure_ascii=False, indent=2),
                                                             encoding="utf-8")
     return f"Zusammenfassung {slug}"
 
 
-def praesentation(job: dict, workspace: str) -> str:
+def praesentation(job: dict, workspace: str, ziel: Path) -> str:
     """Outline, slides, pictures, previews and the file, as the demo route reads them."""
     uid, uuid = job["user_id"], job["job_uuid"]
     params = store.load_params(uid, uuid)
     outline = store.load_outline(uid, uuid)
     slides = store.load_slides(uid, uuid)
-    ordner = DEMO_DIR / "praesentation"
+    ordner = ziel / "praesentation"
     shutil.rmtree(ordner, ignore_errors=True)
     for s in slides:
         if store.has_preview(uid, uuid, s.id):
@@ -65,6 +68,9 @@ def praesentation(job: dict, workspace: str) -> str:
         workspace = (db.get_aia_workspace_by_id(params.workspace_id) or {}).get("title") or workspace
         namen = {q["uuid"]: q["filename"] for q in db.get_aia_sources_by_workspace(params.workspace_id)}
         dateien = [namen[u] for u in params.source_uuids if u in namen]
+    elif params and params.source_label:
+        # Without the workspace only the joined names are left, the way sources.label writes them.
+        dateien = params.source_label.split(", ")
     ansicht = {
         "params": params.model_dump() if params else None,
         "outline": outline.model_dump() if outline else None,
@@ -81,6 +87,7 @@ def main() -> int:
     parser.add_argument("jobs", nargs="+", help="UUIDs fertiger Läufe")
     parser.add_argument("--workspace", default="Projektmanagement",
                         help="Name des Workspace, falls der Lauf ihn nicht kennt")
+    parser.add_argument("--ziel", type=Path, default=DEMO_DIR, help="Ordner, in den die Ergebnisse gehen")
     args = parser.parse_args()
 
     for uuid in args.jobs:
@@ -89,9 +96,9 @@ def main() -> int:
             print(f"{uuid}: kein fertiger Lauf", file=sys.stderr)
             return 1
         if job["tool"] == "summary":
-            print(f"{uuid}: {zusammenfassung(job, args.workspace)}")
+            print(f"{uuid}: {zusammenfassung(job, args.workspace, args.ziel)}")
         elif job["tool"] == "praesentation":
-            print(f"{uuid}: {praesentation(job, args.workspace)}")
+            print(f"{uuid}: {praesentation(job, args.workspace, args.ziel)}")
         else:
             print(f"{uuid}: {job['tool']} hat keine Demo", file=sys.stderr)
             return 1

@@ -162,7 +162,7 @@ function PraesentationDemoLauf({ onNeu }: { onNeu: () => void }) {
             {state.step === "done" && (
               <DoneStep jobUuid={api.DEMO_JOB} slides={state.slides} previews={state.previews}
                 jobStatus={state.jobStatus} progress={state.progress} error={state.error}
-                onResume={fertigstellen} onBackToPreview={zurueckZurVorschau} onNew={onNeu} onCancel={zurueckZurVorschau} />
+                onResume={fertigstellen} onBackToPreview={zurueckZurVorschau} onNew={onNeu} onCancel={zurueckZurVorschau} demo />
             )}
           </>
         )}

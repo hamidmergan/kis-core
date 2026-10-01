@@ -26,7 +26,7 @@ def zusammenfassung(tmp_path):
         "workspace": "Projektmanagement", "dateien": ["A.pdf", "B.pdf"], "anweisung": "Kurz halten",
     }), encoding="utf-8")
     (tmp_path / "kurzbriefing").mkdir()
-    (tmp_path / "kurzbriefing" / "Kurzbriefing.md").write_text("# T\n\n## Eins\n\nx\n\n## Zwei\n\ny\n", encoding="utf-8")
+    (tmp_path / "kurzbriefing" / "Kurzbriefing.md").write_text("# T\n\n## Eins\n\nx\n\n### Zwei\n\ny\n", encoding="utf-8")
     (tmp_path / "kurzbriefing" / "Kurzbriefing.docx").write_bytes(b"PK-docx")
     # A folder without its Markdown counts as not prepared.
     (tmp_path / "zeitstrahl").mkdir()

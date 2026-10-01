@@ -23,7 +23,7 @@ _ARTEN = {
     "md": "text/markdown; charset=utf-8",
     "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 }
-_ABSCHNITT = re.compile(r"^## ", re.MULTILINE)
+_ABSCHNITT = re.compile(r"^#{2,3} ", re.MULTILINE)
 
 
 def _ergebnis(slug: str, endung: str) -> Path | None:

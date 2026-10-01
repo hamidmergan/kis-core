@@ -201,7 +201,7 @@ export default function PreviewStep(p: PreviewStepProps) {
         </ol>
       )}
 
-      {p.laeuft && <BackgroundHint />}
+      {p.laeuft && !p.demo && <BackgroundHint />}
       {p.laeuft && p.onCancel ? (
         <div className="flex justify-center mt-6">
           <button type="button" onClick={p.onCancel}
