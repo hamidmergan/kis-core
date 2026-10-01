@@ -95,9 +95,11 @@ def build_messages(source: str, params: PraesentationParams, rows: list[OutlineR
         "each level stands above the next, the highest first, such as a hierarchy of norms or of needs: title names the "
         "level, text is one short sentence. Never for limits, rules or a list whose order means nothing.\n"
         '  symbols: {"kind": "symbols", "symbols": [{"icon": "...", "label": "..."}]} for three or more terms of one '
-        "set that need no explanation, such as protected characteristics or fields of work: label is the bare term "
-        "in one to three words, no sentence and no reference in parentheses, icon a name from the list of cards "
-        "that fits the term.\n"
+        "set that are recognised by their name alone, such as protected characteristics or fields of work: label is "
+        "the bare term in one to three words, no sentence and no reference in parentheses, icon a name from the list "
+        "of cards that fits the term. Never for the parts or components of one thing, such as the sections of a "
+        "document or the reasons behind a decision: those carry a sentence of their own and belong in cards, or in "
+        "bullets where cards are not offered for this slide.\n"
         '  highlight: {"kind": "highlight", "key": "...", "text": "...", "emphasis": "..."} for one number or word '
         "that carries the slide: key is that number or word, at most 12 characters, text one sentence "
         "about it, emphasis a term that stands word for word in that sentence and gets marked in colour. Rare, only for a central figure.\n"

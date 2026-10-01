@@ -48,6 +48,8 @@ export default function FolienKarte(p: FolienKarteProps) {
   const t = useTranslations("tools.praesentation.slides");
   const s = p.slide;
   const fest = p.role === "deckblatt" || p.role === "abschluss";
+  // Once written, a text field's own shape (table, symbols, cards, ...) says more than the slide's role.
+  const art = s?.body && s.body.kind !== "bullets" ? s.body.kind : null;
   const hatBild = !!s && (s.images.length > 0 || s.body?.kind === "image");
   const breite = p.notesOn ? "sm:w-80 sm:shrink-0" : "sm:max-w-xl";
 
@@ -78,7 +80,7 @@ export default function FolienKarte(p: FolienKarteProps) {
         <span className="folien-rand">
           <span className="text-sm font-medium whitespace-nowrap">{t("slideLabel", { n: p.index + 1 })}</span>
           {p.role
-            ? <span className="text-3xs uppercase tracking-wide text-muted whitespace-nowrap">{t(`roles.${p.role}`)}</span>
+            ? <span className="text-3xs uppercase tracking-wide text-muted whitespace-nowrap">{t(art ? `kinds.${art}` : `roles.${p.role}`)}</span>
             : <Balken laeuft={p.gesperrt} className="w-12 mt-1" />}
           {p.imageMissing && <StatusMark tone="warn">{t("imageMissing")}</StatusMark>}
         </span>
