@@ -105,6 +105,19 @@ def test_anbieter_und_modell_faellt_auf_das_routenmodell_zurueck(monkeypatch):
     }
 
 
+def test_anbieter_und_modell_nennt_beim_eigenen_zugang_dessen_festes_modell(monkeypatch):
+    from src.services.job_statistik import anbieter_und_modell
+    from src.services.own_tts import elevenlabs
+
+    _stelle_anbieter(
+        monkeypatch,
+        {"name": "ElevenLabs (eigener Zugang, Person 1)", "owner_user_id": 1, "protocol": "elevenlabs"},
+        {"model_name": "qwen3-tts", "provider_models": {}},
+    )
+
+    assert anbieter_und_modell(3, "tts")["modell"] == elevenlabs.MODEL
+
+
 def test_anbieter_und_modell_bleibt_leer_wenn_es_den_anbieter_nicht_gibt(monkeypatch):
     from src.services.job_statistik import anbieter_und_modell
 

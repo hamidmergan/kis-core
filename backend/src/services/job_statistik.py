@@ -114,8 +114,12 @@ def messe(user_id: int, job_uuid: str, phase: str):
 def anbieter_und_modell(provider_id: int, feature: str) -> dict:
     """Name of the provider and the model the route uses for it."""
     from src import database as db
+    from src.services import own_tts
 
     provider = db.get_provider(provider_id) or {}
+    # An own interface speaks with its fixed model, the admin route does not apply to it.
+    if own_tts.is_own(provider):
+        return {"anbieter": provider.get("name") or "", "modell": own_tts.model_for(provider), "route": feature}
     route = db.get_route(feature) or {}
     je_anbieter = route.get("provider_models") or {}
     return {
