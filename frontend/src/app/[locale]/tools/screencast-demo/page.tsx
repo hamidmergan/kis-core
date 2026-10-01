@@ -34,6 +34,9 @@ const VIDEO_URL = "/api/screencast-demo/video";
 const KEIN_TON: boolean[] = [];
 // Waiting times of the simulated run in milliseconds.
 const DAUER = { uebersetzen: 1200, skripte: 1500, folie: 220, schritt: 900 };
+// The sample deck is German, carries its scripts in the speaker notes and was voiced by this voice.
+const DEMO_SPRACHE = "DE";
+const DEMO_STIMME = "thorsten";
 
 function warte(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -63,30 +66,36 @@ function ScreencastDemoLauf({ onNeu }: { onNeu: () => void }) {
   const [flow, dispatch] = useReducer(flowReducer, INITIAL_FLOW_STATE);
   const { step, loading, errorMessage, slides, maxReachedIdx, lightboxIndex } = flow;
 
-  const [skipTranslation, setSkipTranslation] = useState(false);
+  const [skipTranslation, setSkipTranslation] = useState(true);
   const [glossaryIds, setGlossaryIds] = useState<string[]>(["", "", ""]);
   const [translationProviders, setTranslationProviders] = useState<{ id: number; name: string }[]>([]);
   const [translationProviderId, setTranslationProviderId] = useState<number | null>(null);
-  const { languages, targetLang, setTargetLang } = useLanguageConfig(SCREENCAST_TARGET_LANGUAGES);
+  const { languages, targetLang, setTargetLang } = useLanguageConfig(SCREENCAST_TARGET_LANGUAGES, DEMO_SPRACHE);
 
   const [slidePause, setSlidePause] = useState(1.0);
   const [subtitles, setSubtitles] = useState(false);
   const { loaded: providersLoaded, providers, defaultProviderId, defaultVoiceId } = useVoices();
   const [providerId, setProviderId] = useState(0);
   const [voiceId, setVoiceId] = useState("");
+  // The voice of the prepared video comes first, the default only when it is not offered.
   useEffect(() => {
-    if (defaultProviderId != null && providerId === 0) setProviderId(defaultProviderId);
-  }, [defaultProviderId, providerId]);
-  useEffect(() => {
-    if (defaultVoiceId && !voiceId) setVoiceId(defaultVoiceId);
-  }, [defaultVoiceId, voiceId]);
+    if (!providersLoaded || providerId !== 0) return;
+    const demo = providers.find((p) => p.voices.some((v) => v.voice_id === DEMO_STIMME));
+    if (demo) {
+      setProviderId(demo.id);
+      setVoiceId(DEMO_STIMME);
+    } else if (defaultProviderId != null) {
+      setProviderId(defaultProviderId);
+      setVoiceId(defaultVoiceId);
+    }
+  }, [providersLoaded, providers, providerId, defaultProviderId, defaultVoiceId]);
 
   const [fertigeFolien, setFertigeFolien] = useState<number[]>([]);
   const [renderLabel, setRenderLabel] = useState("");
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  const scriptInput = useScriptInputMode();
+  const scriptInput = useScriptInputMode("notes");
   const regen = useRegenAnchor();
   const editing = useScriptEditing({
     onSave: (index, script) => dispatch({ type: "UPDATE_SLIDE_SCRIPT", index, script }),
@@ -165,7 +174,7 @@ function ScreencastDemoLauf({ onNeu }: { onNeu: () => void }) {
           script: "",
         })),
       });
-      dispatch({ type: "ENTER_STEP", step: "translation-review", loading: false });
+      dispatch({ type: "ENTER_STEP", step: skipTranslation ? "user-prompt" : "translation-review", loading: false });
     } catch (err) {
       fehler(err);
     }
@@ -256,7 +265,7 @@ function ScreencastDemoLauf({ onNeu }: { onNeu: () => void }) {
     <ProtectedRoute>
       {/* Wide for the two columns of the upload, narrow for the steps that follow, like the tool itself. */}
       <div className={`${step === "upload" ? "max-w-6xl" : "max-w-4xl"} mx-auto px-4 py-10 sm:py-14`}>
-        <ToolBackLink onRestart={zeigtKopf ? onNeu : undefined} />
+        <div className={zeigtKopf ? "hidden sm:block" : ""}><ToolBackLink onRestart={zeigtKopf ? onNeu : undefined} /></div>
         {zeigtKopf && (
           <>
             <div className="flex justify-end mb-8">

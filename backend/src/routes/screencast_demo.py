@@ -65,6 +65,16 @@ def _load_accepted_scripts() -> list[str]:
     return []
 
 
+def _load_slide_texts(scripts: list[str]) -> list[str]:
+    """The text on the slides, the scripts stand in when the file is missing."""
+    path = DEMO_DIR / "folientexte.json"
+    if path.exists():
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if isinstance(data, list) and len(data) == len(scripts):
+            return [str(text) for text in data]
+    return scripts
+
+
 def _folien_dateien(endung: str) -> list[Path]:
     """Per-slide files cut from the video by scripts/screencast_demo_folien.py."""
     return sorted((DEMO_DIR / "folien").glob(f"folie_*.{endung}"))
@@ -133,7 +143,7 @@ def demo_translate(
 
     return {
         "slide_count": len(scripts),
-        "slide_texts": scripts,
+        "slide_texts": _load_slide_texts(scripts),
         "slide_images": images,
         "translate_job_uuid": "demo",
         "user_prompt": "",

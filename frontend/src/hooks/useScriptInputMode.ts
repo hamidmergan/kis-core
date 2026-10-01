@@ -4,8 +4,8 @@ import { useCallback, useRef, useState } from "react";
 
 export type ScriptInputMode = "generate" | "manual" | "import" | "notes";
 
-export function useScriptInputMode() {
-  const [mode, setMode] = useState<ScriptInputMode>("generate");
+export function useScriptInputMode(start: ScriptInputMode = "generate") {
+  const [mode, setMode] = useState<ScriptInputMode>(start);
   const [importedScripts, setImportedScripts] = useState<string[] | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const [jsonDragOver, setJsonDragOver] = useState(false);
@@ -17,11 +17,11 @@ export function useScriptInputMode() {
   }, []);
 
   const reset = useCallback(() => {
-    setMode("generate");
+    setMode(start);
     setImportedScripts(null);
     setImportError(null);
     setJsonDragOver(false);
-  }, []);
+  }, [start]);
 
   return {
     mode,

@@ -19,24 +19,25 @@ interface TranslateConfigResponse {
   default_target: string;
 }
 
-export function useLanguageConfig(allowed?: readonly string[]) {
+/** `start` fixes the first target language, the configured default is then ignored. */
+export function useLanguageConfig(allowed?: readonly string[], start?: string) {
   const t = useTranslations("langLabels");
   const defaults = useMemo<Language[]>(
     () => TRANSLATE_LANGUAGES.map((id) => ({ id, label: t(id) })),
     [t],
   );
   const [languages, setLanguages] = useState<Language[]>(defaults);
-  const [targetLang, setTargetLang] = useState<string>(DEFAULT_TRANSLATE_TARGET);
+  const [targetLang, setTargetLang] = useState<string>(start ?? DEFAULT_TRANSLATE_TARGET);
 
   useEffect(() => {
     api
       .getJson<TranslateConfigResponse>("/api/translate/config")
       .then((data) => {
         if (data.languages?.length) setLanguages(data.languages);
-        if (data.default_target) setTargetLang(data.default_target);
+        if (data.default_target && !start) setTargetLang(data.default_target);
       })
       .catch(() => {});
-  }, []);
+  }, [start]);
 
   const erlaubt = useMemo(
     () => pickAllowed(languages, allowed, targetLang),

@@ -48,6 +48,12 @@ def test_bilder_kommen_aus_den_geschnittenen_folien(client):
     assert [base64.b64decode(b) for b in bilder] == [b"bild0", b"bild1"]
 
 
+def test_folientext_kommt_aus_der_datei(client, demo_dir):
+    assert client.post("/screencast-demo/translate", json={}).json()["slide_texts"] == ["Eins", "Zwei"]
+    (demo_dir / "folientexte.json").write_text(json.dumps(["Titel", "Punkte"]), encoding="utf-8")
+    assert client.post("/screencast-demo/translate", json={}).json()["slide_texts"] == ["Titel", "Punkte"]
+
+
 def test_ton_je_folie(client):
     r = client.get("/screencast-demo/vorschau/1")
     assert r.status_code == 200
