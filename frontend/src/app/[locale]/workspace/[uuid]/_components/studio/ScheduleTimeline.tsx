@@ -13,7 +13,9 @@ export function ScheduleTimeline({
   onEdit,
   onDelete,
   onPillClick,
+  markiertId = null,
 }: {
+  markiertId?: number | null;
   entries: ScheduleEntry[];
   editMode: boolean;
   sources: SourceLike[];
@@ -35,6 +37,7 @@ export function ScheduleTimeline({
       onEdit={() => onEdit(entry)}
       onDelete={() => onDelete(entry.id)}
       onPillClick={onPillClick}
+      markiert={entry.id === markiertId}
     />
   );
 
@@ -50,6 +53,7 @@ export function ScheduleTimeline({
       onEdit={() => onEdit(entry)}
       onDelete={() => onDelete(entry.id)}
       onPillClick={onPillClick}
+      markiert={entry.id === markiertId}
     />
   );
 

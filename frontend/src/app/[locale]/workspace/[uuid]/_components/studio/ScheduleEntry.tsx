@@ -17,7 +17,10 @@ export function ScheduleEntryCard({
   onEdit,
   onDelete,
   onPillClick,
+  markiert = false,
 }: {
+  /** Arrived here from the calendar, the card stays framed like on hover. */
+  markiert?: boolean;
   entry: ScheduleEntry;
   isPast: boolean;
   urgency: string | null;
@@ -35,10 +38,11 @@ export function ScheduleEntryCard({
   // The span sits as a line under the title, never in the date badge.
   const spannenEnde = formatRangeEnd(entry.due_date, entry.end_date, locale);
   const baseStyle: React.CSSProperties = {
-    border: "1px solid var(--border)",
+    border: markiert ? "1px solid var(--kb)" : "1px solid var(--border)",
     // Greyed out once the deadline has passed, the time counts too.
     opacity: isPast ? 0.55 : entry.is_checked ? 0.7 : 1,
-    boxShadow: "0 1px 3px rgba(13,31,45,.04)",
+    // The shadow adds the second pixel, so the card keeps its size.
+    boxShadow: markiert ? "0 0 0 1px var(--kb)" : "0 1px 3px rgba(13,31,45,.04)",
     borderRadius: 12,
     padding: "12px 14px",
     fontSize: "0.875rem",
@@ -61,7 +65,9 @@ export function ScheduleEntryCard({
       className={`border-2 border-transparent hover:border-kb transition-colors ${
         entry.is_checked
           ? "bg-[var(--success-bg)]"
-          : "bg-background hover:bg-surface-dim group-hover:bg-surface-dim"
+          : markiert
+            ? "bg-surface-dim"
+            : "bg-background hover:bg-surface-dim group-hover:bg-surface-dim"
       }`}
       style={baseStyle}
     >

@@ -160,7 +160,7 @@ export default function ScheduleMonthRow({
       {eigener ? (
         <div className="min-w-0 flex-1">{inhalt}</div>
       ) : (
-        <Link href={`/workspace/${entry.workspace_uuid}?tab=schedule`} className="min-w-0 flex-1 group">
+        <Link href={`/workspace/${entry.workspace_uuid}?tab=schedule&entry=${entry.id}`} className="min-w-0 flex-1 group">
           {inhalt}
         </Link>
       )}

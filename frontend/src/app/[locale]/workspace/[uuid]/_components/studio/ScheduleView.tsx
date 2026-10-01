@@ -48,6 +48,17 @@ export function ScheduleView({
   const [creatingManual, setCreatingManual] = useState(false);
   const [confirmDeleteAll, setConfirmDeleteAll] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // The appointment the calendar linked to, read once and taken out of the address.
+  const [markiertId, setMarkiertId] = useState<number | null>(null);
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has("entry")) return;
+    const id = Number(url.searchParams.get("entry"));
+    url.searchParams.delete("entry");
+    window.history.replaceState({}, "", url.toString());
+    if (Number.isInteger(id) && id > 0) setMarkiertId(id);
+  }, []);
+  const gescrollt = useRef(false);
 
   const stopPolling = useCallback(() => {
     if (pollRef.current) {
@@ -122,6 +133,15 @@ export function ScheduleView({
     })();
     return () => { cancelled = true; stopPolling(); };
   }, [workspaceUuid, load, startPolling, stopPolling]);
+
+  // Once the list stands, the linked appointment moves into view.
+  useEffect(() => {
+    if (gescrollt.current || markiertId === null || loading) return;
+    const zeile = document.querySelector(`[data-entry-id="${markiertId}"]`);
+    if (!zeile) return;
+    gescrollt.current = true;
+    zeile.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [markiertId, loading, entries]);
 
   // A deleted source takes its appointments along, so the list loads again.
   const sourceKey = sources.map((s) => s.uuid).join(",");
@@ -372,6 +392,7 @@ export function ScheduleView({
               onEdit={setEditing}
               onDelete={handleDelete}
               onPillClick={onPillClick}
+              markiertId={markiertId}
             />
             {sourceLegend.length > 0 && (
               <StudioSourceLegend
