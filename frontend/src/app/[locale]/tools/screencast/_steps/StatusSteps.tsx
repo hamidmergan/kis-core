@@ -219,10 +219,9 @@ export function DoneStep({
         </button>
         <button
           onClick={onReset}
-          aria-label={t("done.newPresentationAria")}
           className="w-full sm:w-auto px-6 py-2 text-sm text-foreground-soft border border-border rounded-md btn-ghost focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors"
         >
-          {t("done.newPresentation")}
+          {t("done.newScreencast")}
         </button>
       </div>
       </div>
@@ -267,17 +266,16 @@ export function ErrorStep({
           <button
             onClick={onRetry}
             aria-label={t("error.retryAria")}
-            className="px-6 py-2 text-sm text-white bg-kb rounded-md hover:outline-2 hover:outline-kb focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors"
+            className="px-6 py-2 btn-primary text-sm rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors"
           >
             {paused ? t("error.continue") : t("error.retry")}
           </button>
         )}
         <button
           onClick={onReset}
-          aria-label={t("done.newPresentationAria")}
-          className="px-6 py-2 text-sm text-foreground-soft border border-border rounded-md hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors"
+          className="px-6 py-2 text-sm text-foreground-soft border border-border rounded-md btn-ghost focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors"
         >
-          {t("done.newPresentation")}
+          {t("done.newScreencast")}
         </button>
       </div>
     </section>

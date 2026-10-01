@@ -159,9 +159,9 @@ export default function ContentStep({ canUseModules, source, language, instructi
         ]}
       />
 
-      {/* On the phone the card dissolves into one list (material, settings), on the desktop settings left, material right. */}
+      {/* On the phone the card dissolves into one list (material, settings), on the desktop material left, settings right. */}
       <div className="-mx-4 lg:mx-0 flex flex-col lg:grid lg:grid-cols-[minmax(0,400px)_1fr] lg:items-start lg:gap-8">
-        <div className="contents lg:block min-w-0 lg:rounded-xl lg:border lg:border-border-soft lg:bg-surface lg:p-5">
+        <div className="contents lg:block min-w-0 lg:col-start-2 lg:row-start-1 lg:rounded-xl lg:border lg:border-kb/15 lg:bg-kb/5 lg:p-5">
           {mode !== "blank" && (
             <>
               <EinstellungsFeld titel={t("languageLabel")} wert={t(`languages.${language}`)} htmlFor="podcast-language"
@@ -206,7 +206,7 @@ export default function ContentStep({ canUseModules, source, language, instructi
           </div>
         </div>
 
-        <div className="order-1 min-w-0 lg:col-start-2 lg:row-start-1 lg:rounded-xl lg:border lg:border-kb/15 lg:bg-kb/5 lg:p-5">
+        <div className="order-1 min-w-0 lg:col-start-1 lg:row-start-1 lg:rounded-xl lg:border lg:border-border-soft lg:bg-surface lg:p-5">
           <EinstellungsFeld titel={tCommon("material.label")} desktopTitel={false} wert={materialWert} className="border-t lg:border-t-0" {...zeile("material")}>
             {demo && (
               <div className="space-y-4">

@@ -252,9 +252,9 @@ function TranscriptionPageInner() {
                   </button>
                   <button
                     onClick={handleReset}
-                    className="px-4 py-2 text-sm text-foreground-soft border border-border rounded-md hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors"
+                    className="px-4 py-2 text-sm text-foreground-soft border border-border rounded-md btn-ghost focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors"
                   >
-                    {tCommon("newFile")}
+                    {t("newTranscript")}
                   </button>
                 </div>
               </div>

@@ -402,7 +402,6 @@
     "downloadFailed": "Download fehlgeschlagen",
     "processing": "Wird verarbeitet…",
     "downloadReady": "Fertig! Download bereit",
-    "newFile": "Neue Datei",
     "browse": "durchsuchen",
     "dropOrBrowse": "Datei hierher ziehen oder",
     "clickToReplace": "Klicken um zu ersetzen",
@@ -458,7 +457,8 @@
       "editorAria": "Transkript bearbeiten",
       "providerLabel": "STT-Anbieter",
       "chunkProgress": "Teil {current} von {total}",
-      "tooLong": "Aufnahme zu lang ({minutes} Minuten). Erlaubt sind höchstens {maxMinutes} Minuten."
+      "tooLong": "Aufnahme zu lang ({minutes} Minuten). Erlaubt sind höchstens {maxMinutes} Minuten.",
+      "newTranscript": "Neues Transkript"
     },
     "summarize": {
       "title": "Zusammenfassung",
@@ -499,7 +499,8 @@
         "colDate": "Datum"
       },
       "materialsAria": "Genutzte Materialien anzeigen",
-      "materialsModalTitle": "Genutzte Materialien"
+      "materialsModalTitle": "Genutzte Materialien",
+      "newSummary": "Neue Zusammenfassung"
     },
     "translate": {
       "title": "Übersetzung",
@@ -522,7 +523,6 @@
       "resultLabel": "Übersetzter Text",
       "copyText": "Kopieren",
       "copied": "Kopiert!",
-      "resetLabel": "Zurücksetzen",
       "resultStale": "Text wurde geändert – für ein aktuelles Ergebnis erneut übersetzen.",
       "resultPlaceholder": "Hier erscheint deine Übersetzung.",
       "history": {
@@ -531,7 +531,8 @@
         "hint": "Neue Übersetzungen kommen oben dazu, ein Klick zeigt sie wieder rechts.",
         "colMaterial": "Material",
         "colDate": "Datum"
-      }
+      },
+      "newTranslation": "Neue Übersetzung"
     },
     "interpreter": {
       "title": "Dolmetscher",
@@ -638,10 +639,10 @@
         "readyToPlay": "Audio fertig",
         "errorTitle": "Fehler bei der Audiogenerierung",
         "tryAgain": "Erneut versuchen",
-        "newFileAria": "Neue Datei hochladen",
         "pausedTitle": "Angehalten",
         "pausedHint": "Schon vertonte Teile bleiben erhalten. Weiter macht dort weiter, wo es aufgehört hat.",
-        "continue": "Weiter"
+        "continue": "Weiter",
+        "newAudio": "Neues Audio"
       },
       "upload": {
         "selectFileAria": "Datei zum Vorlesen auswählen"
@@ -1126,8 +1127,7 @@
         "downloadMp4Label": "MP4",
         "downloadAllZipAria": "Alles herunterladen (ZIP)",
         "downloadAllZipLabel": "Alles herunterladen (ZIP)",
-        "newPresentationAria": "Neue Präsentation hochladen",
-        "newPresentation": "Neue Präsentation",
+        "newScreencast": "Neuer Screencast",
         "neuVertonen": "Einzelne Folien neu vertonen",
         "subtitleTrack": "Untertitel"
       },

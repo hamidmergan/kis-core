@@ -60,7 +60,7 @@ interface ContentStepProps {
   demo?: DemoMaterial;
 }
 
-/** Step 1 in two fixed columns: settings in a card on the left, the material to upload on the right. */
+/** Step 1 in two fixed columns: the material to upload on the left, settings in a card on the right. */
 export default function ContentStep({ canUseModules, source, language, notes, instructions, imageStyle, presenter, templateId, hasActiveJob,
                                         error, llmProviders, llmProviderId, onLlmProvider, onSource, onLanguage, onNotes, onInstructions, onImageStyle,
                                         onPresenter, onTemplate, onNext, demo }: ContentStepProps) {
@@ -129,9 +129,9 @@ export default function ContentStep({ canUseModules, source, language, notes, in
         ]}
       />
 
-      {/* On the phone the card dissolves into one list (templates, material, settings), on the desktop settings left, material right. */}
+      {/* On the phone the card dissolves into one list (templates, material, settings), on the desktop material left, settings right. */}
       <div className="-mx-4 lg:mx-0 flex flex-col lg:grid lg:grid-cols-[minmax(0,400px)_1fr] lg:items-start lg:gap-8">
-        <div className="contents lg:block min-w-0 lg:rounded-xl lg:border lg:border-border-soft lg:bg-surface lg:p-5">
+        <div className="contents lg:block min-w-0 lg:col-start-2 lg:row-start-1 lg:rounded-xl lg:border lg:border-kb/15 lg:bg-kb/5 lg:p-5">
 
           {/* On the phone the templates lead, as a carousel above the material. */}
           <div className="order-1 px-4 pb-4 lg:p-0">
@@ -194,7 +194,7 @@ export default function ContentStep({ canUseModules, source, language, notes, in
           </div>
         </div>
 
-        <div className="order-2 min-w-0 lg:col-start-2 lg:row-start-1 lg:rounded-xl lg:border lg:border-kb/15 lg:bg-kb/5 lg:p-5">
+        <div className="order-2 min-w-0 lg:col-start-1 lg:row-start-1 lg:rounded-xl lg:border lg:border-border-soft lg:bg-surface lg:p-5">
             <EinstellungsFeld titel={t("materialLabel")} desktopTitel={false} className="border-t lg:border-t-0"
                   wert={demo ? t("sourcesCount", { n: demo.files.length }) : mode === "files" ? t("filesCount", { n: source.files.length }) : t("sourcesCount", { n: source.sourceIds.length })}
                   {...zeile("material")}>

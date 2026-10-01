@@ -402,7 +402,6 @@
     "downloadFailed": "Download failed",
     "processing": "Processing…",
     "downloadReady": "Done! Download ready",
-    "newFile": "New file",
     "browse": "browse",
     "dropOrBrowse": "Drop file here or",
     "clickToReplace": "Click to replace",
@@ -458,7 +457,8 @@
       "editorAria": "Edit transcript",
       "providerLabel": "STT provider",
       "chunkProgress": "Part {current} of {total}",
-      "tooLong": "Recording too long ({minutes} minutes). The maximum is {maxMinutes} minutes."
+      "tooLong": "Recording too long ({minutes} minutes). The maximum is {maxMinutes} minutes.",
+      "newTranscript": "New transcript"
     },
     "summarize": {
       "title": "Summary",
@@ -499,7 +499,8 @@
         "colDate": "Date"
       },
       "materialsAria": "Show materials used",
-      "materialsModalTitle": "Materials used"
+      "materialsModalTitle": "Materials used",
+      "newSummary": "New summary"
     },
     "translate": {
       "title": "Translation",
@@ -522,7 +523,6 @@
       "resultLabel": "Translated text",
       "copyText": "Copy",
       "copied": "Copied!",
-      "resetLabel": "Reset",
       "resultStale": "Text was changed – translate again for an up-to-date result.",
       "resultPlaceholder": "Your translation will appear here.",
       "history": {
@@ -531,7 +531,8 @@
         "hint": "New translations are added at the top, a click brings one back on the right.",
         "colMaterial": "Material",
         "colDate": "Date"
-      }
+      },
+      "newTranslation": "New translation"
     },
     "interpreter": {
       "title": "Interpreter",
@@ -638,10 +639,10 @@
         "readyToPlay": "Audio ready",
         "errorTitle": "Audio generation failed",
         "tryAgain": "Try again",
-        "newFileAria": "Upload new file",
         "pausedTitle": "Paused",
         "pausedHint": "The parts already voiced are kept. Continue picks up where it stopped.",
-        "continue": "Continue"
+        "continue": "Continue",
+        "newAudio": "New audio"
       },
       "upload": {
         "selectFileAria": "Select file to read aloud"
@@ -1126,8 +1127,7 @@
         "downloadMp4Label": "MP4",
         "downloadAllZipAria": "Download all (ZIP)",
         "downloadAllZipLabel": "Download all (ZIP)",
-        "newPresentationAria": "Upload new presentation",
-        "newPresentation": "New presentation",
+        "newScreencast": "New screencast",
         "neuVertonen": "Re-voice single slides",
         "subtitleTrack": "Subtitles"
       },

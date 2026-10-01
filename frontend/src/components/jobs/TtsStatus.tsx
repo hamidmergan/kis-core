@@ -27,7 +27,6 @@ export default function TtsStatus({
   onContinue,
 }: TtsStatusProps) {
   const t = useTranslations("tools.tts.status");
-  const tCommon = useTranslations("common");
   if (state === "idle") return null;
 
   return (
@@ -75,10 +74,9 @@ export default function TtsStatus({
             </button>
             <button
               onClick={onReset}
-              aria-label={t("newFileAria")}
-              className="px-4 py-2 text-sm text-foreground-soft border border-border rounded-md hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors"
+              className="px-4 py-2 text-sm text-foreground-soft border border-border rounded-md btn-ghost focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors"
             >
-              {tCommon("newFile")}
+              {t("newAudio")}
             </button>
           </div>
         </div>
@@ -94,15 +92,15 @@ export default function TtsStatus({
           <div className="flex gap-3">
             <button
               onClick={onContinue}
-              className="px-4 py-2 text-sm text-white bg-kb rounded-md hover:outline-2 hover:outline-kb focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors"
+              className="px-4 py-2 btn-primary text-sm rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors"
             >
               {t("continue")}
             </button>
             <button
               onClick={onReset}
-              className="px-4 py-2 text-sm text-foreground-soft border border-border rounded-md hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors"
+              className="px-4 py-2 text-sm text-foreground-soft border border-border rounded-md btn-ghost focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors"
             >
-              {tCommon("newFile")}
+              {t("newAudio")}
             </button>
           </div>
         </div>
@@ -120,7 +118,7 @@ export default function TtsStatus({
           <button
             onClick={onReset}
             aria-label={t("tryAgain")}
-            className="px-4 py-2 text-sm text-foreground-soft border border-border rounded-md hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors"
+            className="px-4 py-2 text-sm text-foreground-soft border border-border rounded-md btn-ghost focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors"
           >
             {t("tryAgain")}
           </button>
