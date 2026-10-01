@@ -35,9 +35,9 @@ describe("homeTargets", () => {
   it("stellt die Dienste für die Lehre vor das Glossar", () => {
     const perms = { ...EMPTY_PERMS, tools: ["podcast", "glossary", "screencast", "praesentation"] };
     expect(homeTargets(["tools"], perms).map((z) => z.href)).toEqual([
-      "/tools/screencast",
       "/tools/podcast",
       "/tools/praesentation",
+      "/tools/screencast",
       "/tools/glossary",
     ]);
   });

@@ -8,10 +8,10 @@ export const TOOL_ROUTES = [
   { key: "tts", href: "/tools/tts" },
   { key: "transcription", href: "/tools/stt" },
   { key: "summary", href: "/tools/summarize" },
-  { key: "screencast", href: "/tools/screencast" },
+  { key: "image", href: "/tools/image" },
   { key: "podcast", href: "/tools/podcast" },
   { key: "praesentation", href: "/tools/praesentation" },
-  { key: "image", href: "/tools/image" },
+  { key: "screencast", href: "/tools/screencast" },
   { key: "interpreter", href: "/tools/interpreter" },
   { key: "glossary", href: "/tools/glossary" },
 ] as const;
