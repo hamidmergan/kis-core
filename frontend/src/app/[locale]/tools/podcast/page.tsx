@@ -277,8 +277,7 @@ function PodcastPageInner() {
 
   return (
     <ProtectedRoute>
-      {/* Wide for the two columns of the first step, narrow for the steps that follow. */}
-      <div className={`${state.step === "content" ? "max-w-6xl" : "max-w-4xl"} mx-auto px-4 py-10 sm:py-14`} data-tour="tool-podcast">
+      <div className="max-w-6xl mx-auto px-4 py-10 sm:py-14" data-tour="tool-podcast">
         {/* On the phone the later steps bring their own header with back arrow and discard. */}
         <div className={showStepIndicator ? "hidden sm:flex items-baseline justify-between gap-3" : ""}>
           <ToolBackLink onRestart={showStepIndicator ? neuGefragt : undefined} />
