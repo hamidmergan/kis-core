@@ -63,7 +63,14 @@ def podcast(tmp_path_factory):
     (ordner / "audio").mkdir()
     (ordner / "audio" / "b0.mp3").write_bytes(b"ID3eins")
     (ordner / "podcast.mp3").write_bytes(b"ID3ganz")
-    with patch("src.routes.podcast_demo.DEMO_DIR", ordner):
+    (ordner / "vergleich").mkdir()
+    (ordner / "vergleich" / "vergleich.json").write_text(json.dumps([
+        {"id": "gemini", "anbieter": "Gemini", "stimmen": ["Aoede", "Charon"]},
+        {"id": "fish", "anbieter": "Fish Audio", "stimmen": ["Emilia", "Ben"]},
+    ]), encoding="utf-8")
+    (ordner / "vergleich" / "gemini.mp3").write_bytes(b"ID3gemini")
+    with patch("src.routes.podcast_demo.DEMO_DIR", ordner), \
+         patch("src.routes.podcast_demo.VERGLEICH_DIR", ordner / "vergleich"):
         yield ordner
 
 
@@ -150,3 +157,11 @@ def test_podcast_ton_datei_und_transkript(client):
     assert client.get("/podcast-demo/line/x").status_code == 404
     assert client.get("/podcast-demo/download").content == b"ID3ganz"
     assert client.get("/podcast-demo/transcript").text == "Lena: Hallo\n\nJonas: Servus\n"
+
+
+def test_podcast_vergleich_nur_mit_vorhandener_datei(client):
+    v = client.get("/podcast-demo/ansicht").json()
+    assert v["vergleich"] == [{"id": "gemini", "anbieter": "Gemini", "stimmen": ["Aoede", "Charon"]}]
+    assert client.get("/podcast-demo/vergleich/gemini").content == b"ID3gemini"
+    assert client.get("/podcast-demo/vergleich/fish").status_code == 404
+    assert client.get("/podcast-demo/vergleich/..").status_code == 404

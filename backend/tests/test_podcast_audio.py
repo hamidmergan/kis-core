@@ -69,3 +69,34 @@ def test_eine_schnelle_reaktion_folgt_kurz_eine_lange_erklaerung_wirkt_nach():
     assert pause_vor(20.0, 8.0) == lang
     assert pause_vor(6.0, 8.0) == normal
     assert schnell < normal < lang
+
+
+def _ton_mit_pegel(tmp_path: Path, name: str, lautstaerke: float) -> bytes:
+    datei = tmp_path / f"{name}.mp3"
+    subprocess.run(
+        ["ffmpeg", "-y", "-v", "error", "-f", "lavfi", "-i", "sine=f=220:d=2",
+         "-af", f"volume={lautstaerke}", "-ac", "2", "-ar", "44100",
+         "-c:a", "libmp3lame", "-q:a", "4", str(datei)],
+        capture_output=True, check=True,
+    )
+    return datei.read_bytes()
+
+
+def _mittlerer_pegel(datei: Path, start: float, dauer: float) -> float:
+    ergebnis = subprocess.run(
+        ["ffmpeg", "-ss", str(start), "-t", str(dauer), "-i", str(datei),
+         "-af", "volumedetect", "-f", "null", "-"],
+        capture_output=True, text=True, check=True,
+    )
+    return float(ergebnis.stderr.split("mean_volume: ")[1].split(" dB")[0])
+
+
+@pytest.mark.skipif(not _HAS_FFMPEG, reason="ffmpeg/ffprobe not available")
+def test_eine_leise_und_eine_laute_stimme_klingen_gleich_laut(tmp_path):
+    leise = _ton_mit_pegel(tmp_path, "leise", 0.05)
+    laut = _ton_mit_pegel(tmp_path, "laut", 0.6)
+    ton, _dauer = kleben([leise, laut])
+    datei = tmp_path / "podcast.mp3"
+    datei.write_bytes(ton)
+    # Both tones last 2 s, the middle of each is measured.
+    assert abs(_mittlerer_pegel(datei, 0.5, 1.0) - _mittlerer_pegel(datei, 2.8, 1.0)) < 1.5

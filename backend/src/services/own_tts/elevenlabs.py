@@ -9,8 +9,6 @@ LABEL = "ElevenLabs"
 BASE_URL = "https://api.elevenlabs.io"
 # Speaks German well, one credit per character.
 MODEL = "eleven_multilingual_v2"
-# The service only takes a speed within this range.
-_SPEED_MIN, _SPEED_MAX = 0.7, 1.2
 _QUOTA = ("quota_exceeded", "insufficient_credits", "exceeds your quota")
 
 

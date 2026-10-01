@@ -1,5 +1,6 @@
 """Putting the voiced contributions together into one file to listen to."""
 
+import re
 import tempfile
 import wave
 from pathlib import Path
@@ -18,6 +19,11 @@ _WAV = ["-ac", "2", "-ar", "44100", "-c:a", "pcm_s16le"]
 # A piece shorter than this is a quick reaction, one longer than the other an explanation.
 _REAKTION_S = 2.5
 _ERKLAERUNG_S = 15.0
+# Every voice arrives at its own loudness, each piece is brought to this mean level.
+_ZIEL_DB = -20.0
+# Below this mean a piece is silence and keeps its level, the peak keeps this distance from clipping.
+_STILLE_DB = -60.0
+_SPITZE_DB = -1.0
 
 
 def pause_vor(vorher_s: float, nachher_s: float) -> float:
@@ -49,6 +55,33 @@ def _als_wav(roh: Path, ziel: Path, job_uuid: str | None) -> float:
     raise RuntimeError(f"Beitrag nicht lesbar: {ergebnis.stderr[-200:]}")
 
 
+def _pegel(pfad: Path, job_uuid: str | None) -> tuple[float, float] | None:
+    """Mean and peak level of a piece in dB, None when ffmpeg cannot tell."""
+    ergebnis = run_proc(["ffmpeg", "-i", str(pfad), "-af", "volumedetect", "-f", "null", "-"],
+                        timeout=60, job_uuid=job_uuid)
+    mittel = re.search(r"mean_volume: (-?[\d.]+) dB", ergebnis.stderr or "")
+    spitze = re.search(r"max_volume: (-?[\d.]+) dB", ergebnis.stderr or "")
+    if not mittel or not spitze:
+        return None
+    return float(mittel.group(1)), float(spitze.group(1))
+
+
+def _angleichen(pfad: Path, job_uuid: str | None) -> None:
+    """Brings a piece to the common loudness, so no speaker sounds closer than the other."""
+    pegel = _pegel(pfad, job_uuid)
+    if pegel is None or pegel[0] < _STILLE_DB:
+        return
+    mittel, spitze = pegel
+    verstaerkung = min(_ZIEL_DB - mittel, _SPITZE_DB - spitze)
+    if abs(verstaerkung) < 0.5:
+        return
+    lauter = pfad.with_name(f"{pfad.stem}_pegel.wav")
+    ergebnis = run_proc(["ffmpeg", "-y", "-i", str(pfad), "-af", f"volume={verstaerkung:.2f}dB",
+                         *_WAV, str(lauter)], timeout=60, job_uuid=job_uuid)
+    if ergebnis.returncode == 0 and lauter.exists():
+        lauter.replace(pfad)
+
+
 def _stille(pfad: Path, sekunden: float, job_uuid: str | None) -> None:
     run_proc(
         ["ffmpeg", "-y", "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo",
@@ -74,7 +107,9 @@ def kleben(stuecke: list[bytes], job_uuid: str | None = None) -> tuple[bytes, fl
             roh = ordner / f"roh_{i:03d}.mp3"
             roh.write_bytes(stueck)
             wav = ordner / f"teil_{i:03d}.wav"
-            teile.append((wav, _als_wav(roh, wav, job_uuid)))
+            sekunden = _als_wav(roh, wav, job_uuid)
+            _angleichen(wav, job_uuid)
+            teile.append((wav, sekunden))
 
         pausen: dict[float, Path] = {}
         zeilen: list[str] = []

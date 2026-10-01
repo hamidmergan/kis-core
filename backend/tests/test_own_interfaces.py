@@ -372,6 +372,9 @@ def test_gemini_turns_the_wav_into_mp3(monkeypatch):
      "billingRequired"),
     (429, {"error": {"status": "RESOURCE_EXHAUSTED",
                      "details": [{"quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier"}]}}, "quota"),
+    # The real answer: a long message first, the daily cap named only far behind it.
+    (429, {"error": {"code": 429, "status": "RESOURCE_EXHAUSTED", "message": "You exceeded your current quota. " * 20,
+                     "details": [{"quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier"}]}}, "quota"),
     (429, {"error": {"status": "RESOURCE_EXHAUSTED",
                      "details": [{"quotaId": "GenerateRequestsPerMinutePerProjectPerModel-FreeTier"}]}},
      "unreachable"),
@@ -434,7 +437,6 @@ def test_raw_audio_and_wav_both_become_mp3():
         pytest.skip("ffmpeg fehlt")
     pcm = b"\0\0" * 24000
     assert len(to_mp3(pcm, 24000)) > 1000
-    assert len(to_mp3(pcm, 24000, speed=1.3)) > 500
 
 
 def test_a_failed_job_tells_the_persons_own_reason():

@@ -12,6 +12,7 @@ import { useVoices } from "@/hooks/useVoices";
 import { useRouter } from "@/i18n/navigation";
 import { DEMO_JOB, fetchDemo } from "../podcast/_api";
 import PodcastStepper from "../podcast/_components/PodcastStepper";
+import Stimmvergleich from "../podcast/_components/Stimmvergleich";
 import { demoSkript, demoVertonung, warte, type DemoView } from "../podcast/_demo";
 import { closedForGood, isBusy, reachable } from "../podcast/_logic";
 import { INITIAL_STATE, defaultPersons, reducer } from "../podcast/_reducer";
@@ -175,6 +176,7 @@ function PodcastDemoLauf({ onNeu }: { onNeu: () => void }) {
                 voicedIds={state.voicedIds} jobStatus={state.jobStatus} progress={state.progress} seconds={state.seconds}
                 onVoice={vertonen} onEditScript={() => dispatch({ type: "GO", step: "script" })} onReset={onNeu} />
             )}
+            {state.step === "done" && state.jobStatus === "success" && <Stimmvergleich proben={view.vergleich ?? []} />}
           </>
         )}
       </div>

@@ -47,7 +47,8 @@ def raise_for(response: httpx.Response, vendor_label: str, quota_markers: tuple[
     if response.status_code < 400:
         return
     body = response.text[:500]
-    lowered = body.lower()
+    # The marker may sit far down in a long answer, Google names the daily cap only in its details.
+    lowered = response.text.lower()
     if quota_markers and any(m in lowered for m in quota_markers):
         raise OwnInterfaceError(QUOTA, vendor_label, body)
     if response.status_code in (401, 403):
@@ -59,13 +60,12 @@ def raise_for(response: httpx.Response, vendor_label: str, quota_markers: tuple[
     raise OwnInterfaceError(REJECTED, vendor_label, f"{response.status_code} {body}")
 
 
-def to_mp3(audio: bytes, sample_rate: int, channels: int = 1, speed: float = 1.0) -> bytes:
-    """WAV or raw 16 bit audio as MP3, stretched to the speed when the service knows none of its own."""
+def to_mp3(audio: bytes, sample_rate: int, channels: int = 1) -> bytes:
+    """WAV or raw 16 bit audio as MP3."""
     # A WAV names its own format, raw audio needs it spelled out.
     source = [] if audio[:4] == b"RIFF" else ["-f", "s16le", "-ar", str(sample_rate), "-ac", str(channels)]
-    tempo = ["-filter:a", f"atempo={min(2.0, max(0.5, speed)):.2f}"] if abs(speed - 1.0) > 0.01 else []
     result = subprocess.run(
-        ["ffmpeg", "-v", "error", *source, "-i", "pipe:0", *tempo, "-f", "mp3", "-b:a", "128k", "pipe:1"],
+        ["ffmpeg", "-v", "error", *source, "-i", "pipe:0", "-f", "mp3", "-b:a", "128k", "pipe:1"],
         input=audio, capture_output=True, timeout=120,
     )
     if result.returncode != 0:

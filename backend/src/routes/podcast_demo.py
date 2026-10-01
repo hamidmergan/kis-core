@@ -19,7 +19,10 @@ router = APIRouter(
 
 DEMO_DIR = Path(__file__).resolve().parent.parent.parent / "demo" / "podcast"
 ERGEBNIS = "podcast.mp3"
+# The start of the same script voiced by other services, to hear what better voices could do.
+VERGLEICH_DIR = DEMO_DIR / "vergleich"
 _LINE_ID = re.compile(r"^b[0-9]{1,4}$")
+_VERGLEICH_ID = re.compile(r"^[a-z0-9]{1,32}$")
 
 
 def _laden(locale: str) -> dict:
@@ -27,6 +30,16 @@ def _laden(locale: str) -> dict:
     if not pfad.exists():
         raise HTTPException(status_code=404, detail=t("demo.resultMissing", locale))
     return json.loads(pfad.read_text(encoding="utf-8"))
+
+
+def _vergleich() -> list[dict]:
+    """The comparison excerpts whose file is there, in the order the list names them."""
+    pfad = VERGLEICH_DIR / "vergleich.json"
+    if not pfad.exists():
+        return []
+    eintraege = json.loads(pfad.read_text(encoding="utf-8"))
+    return [e for e in eintraege
+            if _VERGLEICH_ID.match(e.get("id", "")) and (VERGLEICH_DIR / f"{e['id']}.mp3").exists()]
 
 
 @router.get("/podcast-demo/available")
@@ -52,6 +65,7 @@ def demo_ansicht(_: dict = Depends(get_current_user), locale: str = Depends(get_
         "seconds": daten.get("seconds"),
         "workspace": daten.get("workspace", ""),
         "files": daten.get("dateien", []),
+        "vergleich": _vergleich(),
     }
 
 
@@ -61,6 +75,13 @@ def demo_line(line_id: str, _: dict = Depends(get_current_user)):
     if not _LINE_ID.match(line_id) or not datei.exists():
         raise HTTPException(status_code=404)
     return FileResponse(datei, media_type="audio/mpeg")
+
+
+@router.get("/podcast-demo/vergleich/{vergleich_id}")
+def demo_vergleich(vergleich_id: str, _: dict = Depends(get_current_user)):
+    if vergleich_id not in {e["id"] for e in _vergleich()}:
+        raise HTTPException(status_code=404)
+    return FileResponse(VERGLEICH_DIR / f"{vergleich_id}.mp3", media_type="audio/mpeg")
 
 
 @router.get("/podcast-demo/download")

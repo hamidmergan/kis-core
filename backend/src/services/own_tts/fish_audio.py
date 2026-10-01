@@ -9,7 +9,6 @@ LABEL = "Fish Audio"
 BASE_URL = "https://api.fish.audio"
 # Free of charge without a card until 2026-11-30, after that the paid "s2.1-pro" takes its place.
 MODEL = "s2.1-pro-free"
-_SPEED_MIN, _SPEED_MAX = 0.5, 2.0
 _QUOTA = ("insufficient credit", "insufficient balance")
 # Public voices per language, the library holds thousands.
 _PUBLIC_PER_LANGUAGE = {"de": 20, "en": 10}

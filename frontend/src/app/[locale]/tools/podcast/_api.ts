@@ -146,7 +146,18 @@ export const resultUrl = (jobUuid: string) => (jobUuid === DEMO_JOB ? `${DEMO}/d
 export const transcriptUrl = (jobUuid: string) =>
   jobUuid === DEMO_JOB ? `${DEMO}/transcript` : `/api/podcast/${jobUuid}/transcript`;
 
-export async function fetchDemo(): Promise<PodcastView & { seconds: number | null; workspace: string; files: string[] }> {
+/** The start of the demo script voiced by another service, to hear what other voices could do. */
+export interface Stimmprobe {
+  id: string;
+  anbieter: string;
+  stimmen: string[];
+}
+
+export const stimmprobeUrl = (id: string) => `${DEMO}/vergleich/${id}`;
+
+export async function fetchDemo(): Promise<PodcastView & {
+  seconds: number | null; workspace: string; files: string[]; vergleich?: Stimmprobe[];
+}> {
   const res = await fetch(`${DEMO}/ansicht`, { credentials: "include" });
   if (!res.ok) throw new Error(await fehlerText(res));
   return res.json();

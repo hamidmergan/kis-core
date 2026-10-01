@@ -1,4 +1,4 @@
-import type { PodcastView } from "./_api";
+import type { PodcastView, Stimmprobe } from "./_api";
 import type { JobProgress, Line } from "./_types";
 
 /** The fixed material of the demo run, shown in the first step instead of a choice. */
@@ -7,7 +7,7 @@ export interface DemoMaterial {
   files: string[];
 }
 
-export type DemoView = PodcastView & DemoMaterial & { seconds: number | null };
+export type DemoView = PodcastView & DemoMaterial & { seconds: number | null; vergleich?: Stimmprobe[] };
 
 /** One moment of the simulated run: what the job reports, the draft so far, and how long it stays. */
 export interface DemoMoment {
