@@ -168,7 +168,14 @@ export default function ImagePage() {
                     onNachfrage={(text) => fragen.nachfragen(bild, text)}
                   />
                 ) : (
-                  <div className="mt-3"><PromptBox bild={bild} /></div>
+                  <>
+                    <div className="mt-3"><PromptBox bild={bild} /></div>
+                    {/* A described picture shows its answers in every task, asking further stays with describing. */}
+                    {!!fragen.antworten[bild.key]?.length && (
+                      <Antworten antworten={fragen.antworten[bild.key]} laeuft={false} label="" fehler=""
+                        dateiname={bild.filename} />
+                    )}
+                  </>
                 ))}
               </Buehne>
             )}
