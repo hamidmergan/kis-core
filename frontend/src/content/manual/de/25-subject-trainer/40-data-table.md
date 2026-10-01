@@ -5,4 +5,6 @@
 Sammelt Fakten aus den Materialien in einer Tabelle. Je Zeile steht, aus welchem Material und von
 welcher Seite die Angabe stammt.
 
-Nützlich, wenn Zahlen, Fristen oder Begriffe über mehrere Dokumente verstreut sind.
+Nützlich, wenn Zahlen, Fristen oder Begriffe über mehrere Dokumente verstreut sind. Eine
+Anweisung wie „Spalten: Begriff, Frist, Folge" gibt den Aufbau vor, ein Thema grenzt das Material
+ein.

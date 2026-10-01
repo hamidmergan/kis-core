@@ -1,21 +1,26 @@
 # Notizen und Glossar
 
-Zwei Reiter im Studio sammeln, was Sie behalten wollen.
+Zwei Reiter im Studio sammeln, was Sie behalten wollen. Beides gehört Ihnen allein, niemand sonst
+im Workspace sieht es.
 
 ## Notizen
 
 ![Der Reiter Notizen im Studio](/manual/{lang}/notes-tab.png)
 
 Oben tippen und mit dem Plus ablegen. Eine Notiz entsteht auch aus einer Chatantwort über **Als
-Notiz speichern** oder aus einer Textauswahl im PDF über **In Notiz**.
+Notiz speichern**, aus einer Textauswahl im PDF über **In Notiz** oder aus einem Abschnitt des
+Transkripts.
 
-Der Titel wird automatisch aus dem Inhalt gebildet, Sie können ihn ändern.
+- Der Titel wird automatisch aus dem Inhalt gebildet, Sie können ihn ändern
+- Belege in der Notiz bleiben Sprungmarken, ein Klick führt zur Stelle im Material
+- Höchstens 100 Notizen je Person und Workspace
 
 ## Glossar
 
 ![Der Reiter Glossar im Studio](/manual/{lang}/glossary-tab.png)
 
-Begriffe kommen nur über die **Auswahlleiste im PDF**: Text markieren, **Zum Glossar**.
+Begriffe kommen nur über die **Auswahlleiste im PDF**: Text markieren, **Zum Glossar**. Ein Klick
+auf einen Eintrag klappt ihn auf, mit Grundform, Kontext, Erklärung der KI und Seitenzahl.
 
 - **Begriff, Kontextsatz und Seitenzahl** stammen wörtlich aus dem markierten Abschnitt. Einen Satz,
   den die KI umformuliert, verwirft das System, der Eintrag bleibt dann ohne Kontextsatz
@@ -25,11 +30,13 @@ Begriffe kommen nur über die **Auswahlleiste im PDF**: Text markieren, **Zum Gl
 - Geprüft wird nur der Kontextsatz, nicht die Erklärung. Sie ist kein Zitat aus dem Dokument, auch
   wenn der Eintrag auf eine Seite verweist
 - Wie einfach die Erklärung ausfällt, richtet sich nach Ihrem Sprachniveau aus dem Sprachtrainer.
-  Ohne festgelegtes Niveau schreibt die KI auf B1
+  Ohne Sprachtrainer oder ohne festgelegtes Niveau schreibt die KI auf B1
+- Höchstens 150 Begriffe je Person und Workspace
 
-Sortieren nach Neueste oder A bis Z. Ein Klick auf einen Eintrag klappt die Definition auf.
+Sortieren nach Neueste oder A bis Z. Das Mülleimer-Symbol löscht einen Eintrag, **Alle Begriffe
+löschen** im Menü leert das Glossar.
 
-Das Glossar ist die Grundlage für Lernkarten und Wortschatzübungen. Erst sauber sammeln, dann
+Aus dem Glossar lassen sich Karteikarten und Lernkarten erzeugen. Erst sauber sammeln, dann
 üben.
 
 ## Nicht verwechseln

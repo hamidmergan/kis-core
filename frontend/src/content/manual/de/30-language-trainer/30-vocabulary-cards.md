@@ -1,9 +1,9 @@
 # Lernkarten
 
 Lernkarten erklären die Fachwörter aus den angehakten Materialien. Jede Karte zeigt einen
-Begriff, seine Grundform und ein Beispiel.
+Begriff mit Erklärung, seinen Formen und einem Beispielsatz.
 
-![Die Lernkarten-Saetze im Workspace](/manual/{lang}/vocabulary-card-sets.png)
+![Die Lernkarten-Sätze im Workspace](/manual/{lang}/vocabulary-card-sets.png)
 
 ## Nicht mit Karteikarten verwechseln
 
@@ -16,19 +16,23 @@ Zwei Tools klingen ähnlich.
 
 ## Was auf einer Karte steht
 
-Neben der Definition steht, wie das Wort gebaut ist. Bei zusammengesetzten Wörtern zeigt die
-Karte die Bestandteile, dazu Wortart, Singular und Plural, bei Verben die Zeitformen.
+- **Begriff**: darunter seine englische Übersetzung
+- **Erklärung der KI**: Die KI schreibt sie aus ihrem eigenen Sprachwissen, sie steht so nicht
+  im Material
+- **Wortzerlegung**: bei zusammengesetzten Wörtern die Bestandteile, jeder kurz erklärt
+- **Formen**: Wortart, Singular und Plural, bei Verben Präsens, Präteritum und Perfekt
+- **Beispiel**: ein Satz mit dem Begriff. Hat die Verwaltung eine Standardstimme eingerichtet,
+  lässt er sich vorlesen
+- **Belege**: Chips zu den Stellen im Material, dazu Mehr erfahren für den Chat
 
 ## Woher die Wörter kommen
 
 Aus den angehakten Materialien oder aus dem Glossar des Workspaces. Der zweite Weg lohnt sich, wenn
-Sie beim Lesen ohnehin schon Begriffe gesammelt haben.
-
-Auch hier gilt: Es werden höchstens fünf Materialien je Erzeugung gelesen, egal wie viele
-angehakt sind.
+Sie beim Lesen ohnehin schon Begriffe gesammelt haben. Wie viel Material gelesen wird und wie der
+Aufgaben-Vorrat arbeitet, steht beim Fachsprachentrainer.
 
 ## Durcharbeiten
 
-Sie gehen Karte für Karte durch und sagen jeweils, ob Sie das Wort wussten. Am Ende steht, wie
-viele Sie wussten und wie viele offen blieben. Offene Karten können Sie sich noch einmal
-vornehmen, bevor Sie abschließen.
+Lernkarten haben keine Bewertung und keine Rückseite. Sie blättern mit Zurück und Nächster
+Begriff, ein Begriff gilt als gesehen, sobald Sie ihn verlassen. Am Ende steht, wie viele
+Begriffe Sie durchgearbeitet haben.

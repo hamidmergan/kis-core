@@ -2,10 +2,19 @@
 
 ![Eine Karteikarte](/manual/{lang}/flashcard.png)
 
-Karten mit Frage und Antwort aus den Materialien. Sie lesen die Frage, decken die Antwort auf und
-sagen, ob Sie es wussten.
+Karten mit Frage und Antwort aus den Materialien. Auf der Vorderseite hilft Tipp weiter, ohne
+die Lösung zu verraten. Nach dem Aufdecken sagen Sie, ob Sie es wussten, und Mehr erfahren
+öffnet die Frage im Chat.
 
-Am Ende steht, wie viele Sie wussten und wie viele offen blieben.
+## Beim Durchgehen
+
+- **Bewertung ändern**: Wer zurückblättert, findet die Karte auf der Antwortseite und klickt
+  einfach den anderen Knopf
+- **Zurück und Weiter gehen immer**: Eine Karte lässt sich überspringen und später bewerten
+- **Offene Karten**: Sind am Ende Karten unbewertet, fragt KIS nach. Offene ansehen springt zur
+  ersten davon, Trotzdem abschließen wertet nur die bewerteten
+
+Am Ende steht, wie viele Sie wussten, dazu die Zahl der falschen und der offenen.
 
 ## Nicht mit Lernkarten verwechseln
 

@@ -13,8 +13,8 @@ Auch für Lehrende zeigt dieser Reiter nur die eigenen Zahlen, nicht die der Tei
 
 ![Die Statistik zu einem Workspace](/manual/{lang}/module-stats.png)
 
-Das Diagramm-Symbol in der Workspace-Zeile auf der Startseite öffnet die Zahlen des ganzen Workspaces.
-Eigentümer und Tutoren kommen dort hinein, ein Adminrecht braucht es dafür nicht.
+Das Diagramm-Symbol in der Workspace-Zeile auf der Workspace-Liste öffnet die Zahlen des ganzen
+Workspaces. Eigentümer und Tutoren kommen dort hinein, ein Adminrecht braucht es dafür nicht.
 
 - **Lehrende mitzählen** ist voreingestellt. Ohne Haken bleiben Eigentümer und Tutoren draußen,
   denn beim Aufbau beantworten sie ihre eigenen Aufgaben und verschieben damit jede Zahl

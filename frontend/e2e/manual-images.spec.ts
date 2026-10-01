@@ -38,6 +38,9 @@ const PAGES: { name: string; path: string }[] = [
   { name: "tool-summary", path: "/tools/summarize" },
   { name: "tool-image", path: "/tools/image" },
   { name: "tool-screencast", path: "/tools/screencast" },
+  { name: "tool-podcast", path: "/tools/podcast" },
+  { name: "tool-praesentation", path: "/tools/praesentation" },
+  { name: "tool-interpreter", path: "/tools/interpreter" },
   { name: "tool-glossary", path: "/tools/glossary" },
   { name: "my-jobs", path: "/my-jobs" },
 ];
@@ -90,7 +93,7 @@ const LABELS = {
 
 /** Nur die unkritische Admin-Seite: Nutzerliste und Anbieter zeigen Personendaten und Endpunkte. */
 const ADMIN_PAGES: { name: string; path: string }[] = [
-  { name: "admin-tool-release", path: "/admin/werkzeuge/freigabe" },
+  { name: "admin-tool-release", path: "/admin/tools/release" },
 ];
 
 /** German is the default locale and carries no prefix. */
@@ -213,6 +216,39 @@ test.describe("Handbuch-Bilder", () => {
       await page.locator('header button[aria-haspopup="menu"]').last().click();
       await page.waitForTimeout(500);
       await page.screenshot({ path: shot(locale, "header-menu") });
+    });
+
+    test(`faq ${locale}`, async ({ page }) => {
+      await useLocale(page, locale);
+      await page.goto(`${prefix(locale)}/faq`, { waitUntil: "domcontentloaded" });
+      await settle(page);
+      // One answer open, otherwise the picture only shows closed rows.
+      await page.locator("details.faq-item summary").first().click();
+      await page.waitForTimeout(600);
+      await page.screenshot({ path: shot(locale, "faq") });
+    });
+
+    test(`feedback ${locale}`, async ({ page }) => {
+      await useLocale(page, locale);
+      await page.goto(`${prefix(locale)}/feedback`, { waitUntil: "domcontentloaded" });
+      await settle(page);
+      await page.screenshot({ path: shot(locale, "feedback-form") });
+    });
+
+    test(`evaluation-frage ${locale}`, async ({ page }) => {
+      await useLocale(page, locale);
+      await page.goto(`${prefix(locale)}/evaluation`, { waitUntil: "domcontentloaded" });
+      await settle(page);
+      // The intro screen only appears when an intro text is set, Los geht's/Get started either way.
+      const start = page.getByRole("button", { name: /Los geht's|Get started|Weiter|Next/ }).first();
+      if (await start.count()) await start.click();
+      await page.waitForTimeout(800);
+      // The card alone, the rest of the page is empty background and footer.
+      const box = (await page.locator(".max-w-md").first().boundingBox())!;
+      await page.screenshot({
+        path: shot(locale, "evaluation-question"),
+        clip: { x: box.x - 16, y: box.y - 16, width: box.width + 32, height: box.height + 32 },
+      });
     });
 
     test(`schnittstellen ${locale}`, async ({ page }) => {
@@ -457,7 +493,7 @@ test.describe("Handbuch-Bilder", () => {
       await page.locator('[title$=".pdf"]').first().click();
       await expect(page.getByText(/Loading document/i)).toHaveCount(0, { timeout: 60_000 });
       await page.waitForTimeout(6000);
-      const panel = (await page.locator(".viewer-short").first().boundingBox())!;
+      const panel = (await page.locator("[data-tour=\"pdf-viewer\"]").first().boundingBox())!;
       await page.mouse.move(panel.x + 44, panel.y + 400);
       await page.mouse.down();
       await page.mouse.move(panel.x + 282, panel.y + 428, { steps: 20 });
@@ -497,7 +533,7 @@ test.describe("Handbuch-Bilder", () => {
       await page.waitForTimeout(6000);
       const bar = page.locator("div.absolute.bottom-6.right-4").first();
       await expect(bar).toBeVisible();
-      const panel = (await page.locator(".viewer-short").first().boundingBox())!;
+      const panel = (await page.locator("[data-tour=\"pdf-viewer\"]").first().boundingBox())!;
       // Weiterblaettern, sonst fehlt der Pfeil zurueck zur Stelle.
       for (let i = 0; i < 6 && (await bar.locator("button").count()) < 2; i++) {
         await page.mouse.move(panel.x + panel.width / 2, panel.y + panel.height / 2);

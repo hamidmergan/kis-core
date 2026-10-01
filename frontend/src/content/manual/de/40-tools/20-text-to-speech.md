@@ -6,20 +6,21 @@ Liest Texte und Dokumente mit natürlich klingenden Stimmen vor und liefert eine
 
 ## Zwei Wege hinein
 
-Sie können den Text direkt eintippen oder eine Datei hochladen. Beim Eintippen zeigt das Feld,
-wie viele Zeichen von der erlaubten Menge verbraucht sind.
+- **Text eingeben**: bis 100.000 Zeichen, der Zähler unter dem Feld zählt mit.
+- **Datei hochladen**: Word, Markdown oder Text, also .docx, .md und .txt. Auch für den Text der
+  Datei gilt die Grenze von 100.000 Zeichen.
 
 ## Was Sie einstellen können
 
-- **Stimme**: über Stimmen anhören probieren Sie sie vorher aus. Stimmen aus Ihrem eigenen Konto bei
-  ElevenLabs, Gemini oder Fish Audio kommen über Schnittstellen im Zahnrad-Menü dazu.
-- **Geschwindigkeit**: von langsam bis schnell
-- **Pausen**: von kurz bis sehr lang, das steuert den Abstand zwischen den Sätzen
+- **Anbieter und Stimme**: über Stimmen anhören probieren Sie jede Stimme vorher aus. Stimmen aus
+  Ihrem eigenen Konto bei ElevenLabs, Gemini oder Fish Audio kommen über Schnittstellen im
+  Zahnrad-Menü dazu.
+- **Geschwindigkeit**: von 0,7-fach bis 1,2-fach.
 
 ## Während es läuft
 
-Die Anzeige sagt, woran gerade gearbeitet wird, etwa Text wird gelesen oder Audio wird erzeugt.
-Lange Texte werden in Stücken vertont, dann steht dort, das wievielte Stück gerade dran ist.
+Lange Texte werden in Stücken vertont, die Anzeige nennt das Stück, das gerade dran ist.
+Abbrechen stoppt den Auftrag. Passiert eine Minute lang nichts, weist die Anzeige darauf hin.
 
-Passiert eine Minute lang nichts, weist die Anzeige darauf hin und Sie können den Auftrag
-wiederholen.
+Scheitert ein Stück auch im dritten Anlauf, hält der Auftrag an. Schon vertonte Stücke bleiben
+erhalten, Weiter macht dort weiter, wo es aufgehört hat.

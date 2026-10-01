@@ -1,23 +1,36 @@
-# Der Sprach-Test
+# Der Sprachtest
 
-Der Sprach-Test schätzt ein, wie gut Sie die Sprache schon können. Das Ergebnis ist eine Stufe
-von A1 bis C2.
+Der Sprachtest schätzt ein, wie gut Sie Deutsch schon können. Das Ergebnis ist eine Stufe von
+A1 bis C2.
 
-![Eine Frage im Sprach-Test](/manual/{lang}/language-test.png)
+![Eine Frage im Sprachtest](/manual/{lang}/language-test.png)
 
 ## Wann er kommt
 
-Auf der Startseite steht die Karte Sprachtrainer neben dem Demo-Workspace, für Studierende und für
-Lehrende. Sprachtest starten beginnt den Test sofort. Wer Ausblenden wählt, hat den
-Sprachtrainer aus und kann ihn aktuell noch nicht selbst wieder einschalten.
+Die Karte Sprachtrainer über der Workspace-Liste sehen alle, deren Rolle das Recht Eigenes
+Sprachniveau und Sprachtest trägt, Lehrende genauso wie Studierende. Voraussetzung ist, dass die
+Verwaltung den Sprachtrainer eingeschaltet hat. Sprachtest starten beginnt den Test sofort.
+Ausblenden schaltet den Sprachtrainer aus, die Karte kommt nicht zurück. Wieder einschalten geht
+unter Sprachniveau, dort lässt sich der Test danach jederzeit starten.
 
 ## Wie er abläuft
 
-Die KI stellt nacheinander ein paar Fragen. Zwei Arten kommen vor: Fragen zum Anklicken und
-Fragen, auf die Sie frei antworten. Sie können einzelne Fragen überspringen. Oben steht immer,
-die wievielte Frage gerade dran ist.
+Die Fragen stammen aus einem festen Plan, den die Verwaltung pflegt, ab Werk sind es 12 Fragen.
+Beim Stellen der Fragen ist keine KI beteiligt, erst die Einstufung am Ende ist ein KI-Aufruf.
+Vier Arten kommen vor:
 
-Am Ende steht Ihre Stufe mit einer kurzen Begründung.
+- **Einfachauswahl**: ein Klick auf die Antwort schickt sie ab
+- **Mehrfachauswahl**: mehrere anklicken, dann Absenden
+- **Freitext**: ein paar Sätze schreiben
+- **Lücke**: ein einzelnes fehlendes Wort eintragen
+
+Einzelne Fragen lassen sich überspringen. Wer alle überspringt, bekommt A1, ohne dass die KI
+gefragt wird. Am Ende steht die Stufe mit einer kurzen Begründung.
+
+## Abbrechen und weitermachen
+
+Abbrechen fragt vorher nach, denn die Antworten gehen dabei verloren. Ein Neuladen der Seite
+dagegen schadet nicht, der angefangene Test macht bei der letzten Frage weiter.
 
 ## In welcher Sprache
 
@@ -31,6 +44,6 @@ machen oder die Stufe selbst festlegen. Sie ist keine Prüfungsleistung.
 
 ## Wie verlässlich das ist
 
-Das Ergebnis kommt von einer KI, die Fehler machen kann. Es ist eine Einordnung für die
+Die Einstufung kommt von einer KI, die Fehler machen kann. Sie ist eine Einordnung für die
 Übungen, kein Zertifikat. Wer sich selbst anders einschätzt, legt die Stufe unter Sprachniveau
 selbst fest.

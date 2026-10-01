@@ -4,29 +4,50 @@ Macht aus einer PowerPoint-Datei ein vertontes Video, auf Wunsch in einer andere
 
 ![Der Dienst Screencast](/manual/{lang}/tool-screencast.png)
 
-## Der Ablauf
+## Die acht Schritte
 
-1. Eine .pptx-Datei hochladen
-2. Entscheiden, ob die Folien übersetzt werden sollen, und in welche Sprache
-3. Die Sprache der Sprechtexte wählen
-4. Die vorgeschlagenen Sprechtexte je Folie ansehen und ändern
-5. Vertonen lassen und das Video herunterladen
+1. **Upload**: eine .pptx-Datei mit ab Werk höchstens 50 Folien. Hier fällt die Sprachwahl:
+   Zielsprache für die Übersetzung oder, mit Übersetzung überspringen, die Sprache der
+   Sprechtexte. Dazu Glossar und Übersetzungsanbieter. Die Ausgangssprache wird erkannt.
+2. **Übersetzen** läuft von allein, beim Überspringen entfällt der Schritt.
+3. **Prüfen**: die übersetzte oder übernommene PPTX herunterladen, in PowerPoint korrigieren und
+   wieder hochladen. Die Folienzahl muss gleich bleiben. Folien, deren Text sich beim Übersetzen
+   nicht geändert hat, sind markiert.
+4. **Anweisungen**: woher die Sprechtexte kommen. KI-Generierung aus den Folien, Manuell
+   eingeben, Skript importieren als JSON-Liste oder Aus den Sprechernotizen der Datei.
+5. **Skripte**: jeden Text prüfen, ändern oder mit Francis überarbeiten. Das ist der Schritt, an
+   dem sich die Qualität entscheidet. Alle Sprechtexte zusammen dürfen 100.000 Zeichen haben.
+6. **Einstellungen**: Anbieter und Stimme, Geschwindigkeit von 0,7-fach bis 1,2-fach, Pause
+   zwischen den Folien von 0 s bis 3 s, Bildqualität und Untertitel einbauen.
+7. **Rendern**: Vertonung und Videoproduktion, läuft im Hintergrund.
+8. **Fertig**: MP4 oder alles als ZIP herunterladen.
 
-Die Ausgangssprache wird automatisch erkannt.
+## Zusätzliches Material
 
-## Die Sprechtexte gehören Ihnen
-
-Die KI schlägt zu jeder Folie einen Text vor. Sie können jeden davon überschreiben, bevor
-vertont wird. Das ist der Schritt, an dem sich die Qualität entscheidet.
+Bei der KI-Generierung können Sie Material mitgeben, aus dem passende Stellen in die Sprechtexte
+der einzelnen Folien einfließen: bis zu 10 Dateien oder Workspace-Materialien, zusammen höchstens
+500.000 Zeichen. Es gelten dieselben Grenzen wie bei der Zusammenfassung.
 
 ## Untertitel
 
-In den Einstellungen lässt sich einschalten, dass das Video Untertitel bekommt.
+Mit Untertitel einbauen wird der gesprochene Text erkannt und als Spur ins Video gelegt, im Player
+mit CC an und aus schaltbar. Das Rendern dauert dadurch etwas länger.
+
+## Nach dem Rendern
+
+- **Einzelne Folien neu vertonen**: Sie haken die Folien an, die neu gesprochen werden sollen,
+  etwa nach einem geänderten Text oder mit einer anderen Stimme. Alle anderen behalten ihren Ton.
+- **Wiederholen** nach einem Fehler behält fertige Clips und Ton, nur der Rest wird neu gemacht.
+- **Angehalten**: nach mehreren gescheiterten Anläufen wartet der Auftrag auf Weiter.
+
+## Die Demo
+
+Demo ansehen im ersten Schritt öffnet den Dienst mit einem vorbereiteten Foliensatz. Alle
+Schritte und Einstellungen lassen sich ausprobieren, eigene Dateien lassen sich nicht hochladen,
+und das Ergebnis ist immer das vorbereitete Beispielvideo.
 
 ## Wie lange es dauert
 
-Der weitaus größte Teil der Wartezeit geht auf die Vertonung. Bei vielen Folien läuft das
-entsprechend lange, der Auftrag läuft aber im Hintergrund weiter.
-
-Wie viele Aufträge eine Person gleichzeitig offen haben darf, legt die Administration fest. Ist
-die Grenze erreicht, warten Sie ab oder löschen einen in der Jobliste.
+Der weitaus größte Teil der Wartezeit geht auf die Vertonung. Der Auftrag läuft im Hintergrund,
+das Ergebnis wartet unter Jobs. Wie viele Aufträge Sie gleichzeitig offen haben dürfen, steht im
+Überblick der Dienste.

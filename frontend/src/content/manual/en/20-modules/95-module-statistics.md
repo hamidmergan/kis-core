@@ -1,9 +1,9 @@
 # Statistics inside the workspace
 
-The Statistics tab shows your own state: how many sets you worked through, how much of it was
+The Stats tab shows your own state: how many sets you worked through, how much of it was
 right, where it gets stuck.
 
-![The Statistics tab in the studio](/manual/{lang}/statistics-tab.png)
+![The Stats tab in the studio](/manual/{lang}/statistics-tab.png)
 
 ## Your own state only
 
@@ -13,8 +13,8 @@ Even for teachers this tab shows only their own numbers, not the participants'.
 
 ![The statistics of one workspace](/manual/{lang}/module-stats.png)
 
-The chart icon in the workspace row on the start page opens the numbers of the whole workspace. Owners
-and tutors get in there, no admin right is needed for it.
+The chart icon in the workspace row on the workspace list opens the numbers of the whole
+workspace. Owners and tutors get in there, no admin right is needed for it.
 
 - **Count teaching staff** is ticked by default. Unticked, owners and tutors stay out, because
   while building they answer their own exercises and bend every number

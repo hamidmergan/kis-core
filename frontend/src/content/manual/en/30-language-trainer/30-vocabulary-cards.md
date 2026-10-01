@@ -1,34 +1,38 @@
-# Vocabulary cards
+# Vocab cards
 
-Vocabulary cards explain the technical words from the ticked materials. Every card shows a term,
-its base form and an example.
+Vocab cards explain the technical words from the ticked materials. Every card shows a term with an
+explanation, its forms and an example sentence.
 
-![The sets of vocabulary cards in the workspace](/manual/{lang}/vocabulary-card-sets.png)
+![The sets of vocab cards in the workspace](/manual/{lang}/vocabulary-card-sets.png)
 
 ## Do not mix them up with flashcards
 
 Two tools sound alike.
 
-- **Flashcards** in the subject language trainer ask a question about the content and give the
+- **Flashcards** in the technical language trainer ask a question about the content and give the
   answer
-- **Vocabulary cards** in the language trainer explain a technical word linguistically
+- **Vocab cards** in the language trainer explain a technical word linguistically
 
-![A vocabulary card](/manual/{lang}/vocabulary-card.png)
+![A vocab card](/manual/{lang}/vocabulary-card.png)
 
 ## What is on a card
 
-Next to the definition it says how the word is built. For compound words the card shows the
-parts, plus word class, singular and plural, and for verbs the tenses.
+- **Term**: with its English translation below
+- **AI explanation**: The AI writes it from its own knowledge of the language, it is not in the
+  material in this form
+- **Word parts**: for compound words the parts, each briefly explained
+- **Forms**: word class, singular and plural, for verbs present, past and perfect
+- **Example**: a sentence using the term. If the administration has set up a default voice, it
+  can be read aloud
+- **Citations**: chips pointing to the passages in the material, plus Learn more for the chat
 
 ## Where the words come from
 
 From the ticked materials or from the glossary of the workspace. The second way pays off when you
-collected terms while reading anyway.
-
-The same rule applies here: at most five materials are read per creation, no matter how many are
-ticked.
+have already collected terms while reading. How much material is read and how the item stock works
+is described in the technical language trainer.
 
 ## Working through
 
-You go card by card and say each time whether you knew the word. At the end it says how many you
-knew and how many stayed open. You can take the open ones on once more before you finish.
+Vocab cards have no rating and no back side. You page through with Back and Next term, a term
+counts as seen once you leave it. At the end it says how many terms you have worked through.

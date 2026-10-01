@@ -6,19 +6,21 @@ Reads texts and documents aloud with natural sounding voices and delivers an MP3
 
 ## Two ways in
 
-You can type the text directly or upload a file. While typing, the field shows how much of the
-allowed amount of characters is used up.
+- **Enter text**: up to 100,000 characters, the counter below the field keeps count.
+- **Upload file**: Word, Markdown or text, that is .docx, .md and .txt. The limit of 100,000
+  characters applies to the text of the file as well.
 
 ## What you can set
 
-- **Voice**: listen to the voices beforehand to try them out. Voices from your own account at
-  ElevenLabs, Gemini or Fish Audio are added under Interfaces in the gear menu.
-- **Speed**: from slow to fast
-- **Pauses**: from short to very long, this steers the gap between sentences
+- **Provider and voice**: with Preview voices you try every voice out beforehand. Voices from
+  your own account at ElevenLabs, Gemini or Fish Audio are added under Interfaces in the gear
+  menu.
+- **Speed**: from 0.7x to 1.2x.
 
 ## While it runs
 
-The display says what is being worked on right now, for example text is being read or audio is
-being generated. Long texts are voiced in pieces, then it says which piece is on.
+Long texts are voiced in pieces, the display names the piece that is on. Cancel stops the job. If
+nothing happens for a minute, the display points that out.
 
-If nothing happens for a minute the display points that out and you can repeat the job.
+If a piece fails on the third attempt as well, the job pauses. The parts already voiced are kept,
+Continue picks up where it stopped.

@@ -2,25 +2,58 @@
 
 ![Die Startseite beim ersten Besuch, hier in der Sicht von Studierenden](/manual/{lang}/first-login.png)
 
-Beim ersten Besuch stehen über der Workspace-Liste Karten mit Angeboten. Welche Sie davon sehen, hängt
-daran, was Sie auf der Plattform dürfen. Jede ist nach einer Antwort endgültig weg und danach
-über das Zahnrad oben rechts wieder erreichbar.
+## Begrüßung
 
-## Rundgang durch den Demo-Workspace
+Beim allerersten Login öffnet sich ein Begrüßungsfenster mit einem Text der Verwaltung. Es
+erscheint nur, wenn die Verwaltung es eingeschaltet hat und Ihre Rolle das Recht Begrüßungsfenster
+beim ersten Login sehen trägt. Gemerkt wird das im Browser, in einem anderen Browser kommt es noch
+einmal.
 
-- Für alle, Studierende wie Lehrende, solange die Verwaltung einen Demo-Workspace bereitstellt
-- Führt durch einen erfundenen Beispiel-Workspace, keine echten Kursdaten
-- **Starten** schreibt Sie in den Demo-Workspace ein, danach steht er in Ihrer Workspace-Liste
-- Wer selbst Workspaces anlegen darf, bekommt zusätzlich die Stationen zu den Knöpfen für Lehrende
-- Mittendrin abgebrochen bleibt die Karte stehen, erst das Ende oder **Ausblenden** nimmt sie weg
+## Die Startseite
 
-## Sprachtrainer
+Die Startseite ist die Kachel-Übersicht mit zwei Gruppen: KI-Assistent mit der Kachel
+KI-Assistent Francis und Dienste mit einer Kachel je freigegebenem Dienst. An jeder Gruppe steht,
+für wen sie gedacht ist, Lehrende oder Studierende. Wer nur ein Ziel hat, etwa Studierende ohne
+Dienste, landet ohne Umweg dort, in der Workspace-Liste. Was die Dienste können, steht im Kapitel
+Dienste.
 
-- Für Studierende, die auf Deutsch als Fremdsprache studieren. Lehrende sehen die Karte nicht
-- **Sprachtest starten** führt sofort in den Test, das Ergebnis wird Ihr Sprachniveau
-- Das Niveau bestimmt danach, wie der Assistent im Workspace erklärt und wie Karteikarten, Quiz und
+## Karten mit Angeboten
+
+Über der Workspace-Liste stehen bis zu drei Karten, die Karte zur Evaluation auch auf der
+Kachel-Übersicht. Welche Sie sehen, hängt an Ihren Rechten und daran, was die Verwaltung
+eingeschaltet hat. Nach einer Antwort ist eine Karte weg, alle drei Angebote bleiben über das
+Zahnrad oben rechts erreichbar.
+
+### Rundgang durch den Demo-Workspace
+
+- **Voraussetzung**: Die Verwaltung hat einen Demo-Workspace für den Rundgang markiert, sonst gibt
+  es weder Karte noch Menüpunkt
+- **Starten** schreibt Sie in die Demo-Workspaces ein und beginnt den Rundgang, danach stehen sie
+  in Ihrer Workspace-Liste
+- **Stationen**: Wer selbst Workspaces anlegen darf, bekommt zusätzlich die Stationen zu den
+  Knöpfen für Lehrende
+- **Abbruch**: Mittendrin abgebrochen bleibt die Karte stehen, erst die letzte Station oder
+  **Ausblenden** nimmt sie weg. Das merkt sich Ihr Konto, nicht der Browser
+
+### Sprachtrainer
+
+- **Voraussetzung**: das Recht Eigenes Sprachniveau und Sprachtest, das keine Systemrolle hat,
+  nur eine eigene Rolle. Außerdem muss die Verwaltung den Sprachtrainer für die Plattform
+  eingeschaltet haben
+- **Sprachtest starten** schaltet den Trainer ein und führt sofort in den Test, das Ergebnis wird
+  Ihr Sprachniveau
+- **Niveau**: bestimmt, wie der KI-Assistent im Workspace erklärt und wie Karteikarten, Quiz und
   Übungen formuliert sind
-- **Ausblenden** merkt nur die Antwort, den Test holen Sie unter Sprachniveau jederzeit nach
+- **Ausblenden** merkt nur die Antwort, den Test holen Sie unter Sprachniveau im Zahnrad jederzeit
+  nach
 
-Ohne die Karte fehlt Ihnen nichts dauerhaft. Was der Sprachtrainer kann und was ein Niveau
+### Evaluation
+
+- **Wann**: nur, solange die Verwaltung eine Evaluation eingeschaltet hat, und erst, nachdem Sie
+  etwas ausprobiert haben, etwa eine Frage im Chat, einen Dienst oder den Rundgang
+- **Nicht jetzt** merkt sich der Browser, bis die Verwaltung eine neue Runde startet. Nach dem
+  Abschicken kommt die Karte nicht wieder
+- Mehr dazu im Artikel FAQ und Feedback
+
+Ohne die Karten fehlt Ihnen nichts dauerhaft. Was der Sprachtrainer kann und was ein Niveau
 freischaltet, steht im Kapitel Sprachtrainer.

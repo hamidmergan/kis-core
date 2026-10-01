@@ -1,24 +1,41 @@
 # Bildgenerierung
 
-Drei Dinge in einem Dienst, oben über die Reiter umschaltbar.
+Drei Aufgaben an einem Arbeitsplatz, oben über die Reiter Bild erzeugen, Bild bearbeiten und Bild
+beschreiben umschaltbar. Links steht das Formular, rechts das Bild, darunter unter Deine Bilder
+alles, was Sie bisher erzeugt oder hochgeladen haben.
 
 ![Der Dienst Bildgenerierung](/manual/{lang}/tool-image.png)
 
-- **Text zu Bild**: Sie beschreiben ein Bild, es wird erzeugt
-- **Bild bearbeiten**: Sie laden ein Bild hoch und beschreiben die gewünschte Änderung
-- **Bild analysieren**: Sie laden ein Bild hoch und bekommen eine Beschreibung
+## Alles hängt zusammen
 
-## Beim Erzeugen
+Ein Klick auf ein Bild unter Deine Bilder zeigt es groß. Über die Reiter oben lässt es sich dann
+direkt bearbeiten oder beschreiben, unter dem Bild herunterladen und löschen. Ein Ergebnis wird so zur Vorlage für den
+nächsten Schritt, ohne Umweg über die Festplatte. Eigene Bilder kommen als PNG oder JPG bis 20 MB
+dazu, auch per Ziehen.
 
-Beschreiben Sie das Bild und wählen Sie die Größe. Passt das Ergebnis nicht, hilft **Neu
-generieren** oder eine genauere Beschreibung.
+## Einstellungen am Bild
 
-## Beim Analysieren
+Ein aufklappbares Band am Bild hält die Einstellungen:
 
-Sie können eine bestimmte Frage zum Bild stellen. Lassen Sie das Feld leer, wird das Bild
-vollständig beschrieben. Das ist auch der schnellste Weg zu einem Alternativtext für die
-Barrierefreiheit.
+- **Stil**: Kein Stil, Foto, Illustration, Skizze, Aquarell, 3D, Flach oder THL-Folienstil
+- **Format**: Quadrat 1:1, Folie 16:9, Quer 4:3, Hoch 3:4, Hoch 9:16 oder Wie Vorlage
+- **Größe** und **Qualität**: höhere Qualität dauert länger
+- **Varianten**: bis zu 4 beim Erzeugen, bis zu 2 beim Bearbeiten. Jede Variante ist ein eigener
+  Auftrag. Haben Sie schon andere Aufträge offen, startet die Seite weniger und sagt es.
+- **Keine Schrift im Bild**: voreingestellt, weil Bildmodelle Wörter oft falsch schreiben
+- **Prompt ausformulieren**: die KI schreibt Ihre Beschreibung zu einem ausführlichen Prompt aus.
+  Sie sehen ihn, können ihn ändern, und genau so geht er ans Bildmodell.
 
-## Was hochgeladen werden darf
+Gibt es mehrere KI-Anbieter, wählen Sie je Aufgabe einen.
 
-PNG oder JPG, höchstens 20 MB.
+## Bearbeiten
+
+Die Vorlage bleibt neben dem Ergebnis stehen, Vorher und Nachher lassen sich direkt vergleichen.
+Schnellaktionen sparen das Tippen: Hintergrund weiß, Als Skizze, Text entfernen, Farben kräftiger
+und THL-Folienstil.
+
+## Beschreiben
+
+Drei Aufgaben: Beschreiben, Text auslesen oder Eigene Frage, mit Antwort auf Deutsch oder
+Englisch. Nach der ersten Antwort stellen Sie weitere Fragen zum selben Bild. Die Antwort lässt
+sich kopieren.
