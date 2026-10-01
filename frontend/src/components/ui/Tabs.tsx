@@ -54,7 +54,7 @@ export default function Tabs<TKey extends string = string>({
 
   return (
     <div
-      className={`flex items-end gap-6 ${className}`}
+      className={`flex items-end gap-1 ${className}`}
       style={{ borderBottom: "1px solid var(--border)" }}
       role="tablist"
     >
@@ -68,9 +68,10 @@ export default function Tabs<TKey extends string = string>({
             aria-selected={isActive}
             disabled={item.disabled}
             onClick={() => onChange(item.key)}
-            className="px-1 pb-2 text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center gap-2 whitespace-nowrap"
+            className={`px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center gap-2 whitespace-nowrap rounded-t-md ${
+              isActive ? "bg-kb/10 text-kb" : "text-muted hover:bg-surface hover:text-foreground"
+            }`}
             style={{
-              color: isActive ? "var(--kb)" : "var(--muted)",
               borderBottom: `2px solid ${isActive ? "var(--kb)" : "transparent"}`,
               marginBottom: "-1px",
             }}
