@@ -25,6 +25,18 @@ export default function Stimmvergleich({ proben }: { proben: Stimmprobe[] }) {
     <section className="mt-4 border-t border-border pt-8">
       <h3 className="text-base font-semibold mb-1">{t("vergleichTitel")}</h3>
       <p className="text-sm text-muted mb-5">{t("vergleichText")}</p>
+      {/* Only those allowed to connect their own account get pointed there. */}
+      {loaded && hasPerm(permissions, PERM.interfaces) && (
+        <p className="text-sm text-muted -mt-3 mb-5">
+          {t.rich("vergleichAnbinden", {
+            link: (teil) => (
+              <a href="/interfaces" target="_blank" rel="noopener noreferrer" className="font-bold text-kb underline underline-offset-2">
+                {teil}
+              </a>
+            ),
+          })}
+        </p>
+      )}
       {sprachen.length > 1 && (
         <Tabs
           className="mb-4"
@@ -45,18 +57,6 @@ export default function Stimmvergleich({ proben }: { proben: Stimmprobe[] }) {
           </li>
         ))}
       </ul>
-      {/* Only those allowed to connect their own account get pointed there. */}
-      {loaded && hasPerm(permissions, PERM.interfaces) && (
-        <p className="text-sm text-muted mt-4">
-          {t.rich("vergleichAnbinden", {
-            link: (teil) => (
-              <a href="/interfaces" target="_blank" rel="noopener noreferrer" className="font-semibold text-kb hover:underline">
-                {teil}
-              </a>
-            ),
-          })}
-        </p>
-      )}
     </section>
   );
 }
