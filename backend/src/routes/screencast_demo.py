@@ -1,14 +1,18 @@
-"""A prepared run from files, without compute and without jobs."""
+"""A prepared run from files, without compute and without jobs.
+
+The files come from scripts/screencast_demo_bauen.py: one folder per language
+with slides, scripts and deck, and one video plus audio per voice service.
+"""
 
 import base64
 import io
 import json
+import re
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
 from loguru import logger
-from pydantic import BaseModel
 
 from src.dependencies import get_current_user
 from src.dependencies_rbac import require_tool_access
@@ -20,93 +24,66 @@ router = APIRouter(
     dependencies=[Depends(require_tool_access("screencast"))],
 )
 
-DEMO_DIR = Path(__file__).resolve().parent.parent.parent / "demo"
-
-
-# ── Pydantic models ──────────────────────────────────────────────────────────
-
-class DemoGenerateScriptsRequest(BaseModel):
-    translate_job_uuid: str | None = None
-    user_prompt: str | None = None
-
-
-class DemoRenderRequest(BaseModel):
-    translate_job_uuid: str = ""
-    dpi: int = 100
-    speed: float = 1.0
-    slide_pause: float = 0.5
-    voice_id: str = ""
-    voice_label: str = ""
-    provider_id: int = 0
+DEMO_DIR = Path(__file__).resolve().parent.parent.parent / "demo" / "screencast"
+STANDARD_SPRACHE = "de"
+_KENNUNG = re.compile(r"^[a-z0-9]+$")
 
 
 # ── Helper functions ─────────────────────────────────────────────────────────
 
-def _load_accepted_scripts() -> list[str]:
-    """Load scripts from accepted_scripts.json or render_scripts.json."""
-    for fname in ("accepted_scripts.json", "render_scripts.json"):
-        path = DEMO_DIR / fname
-        if not path.exists():
-            continue
-        data = json.loads(path.read_text(encoding="utf-8"))
-        if not isinstance(data, list):
-            continue
-        result: list[str] = []
-        for item in data:
-            if isinstance(item, str):
-                result.append(item)
-            elif isinstance(item, dict):
-                for key in ("script", "text", "content"):
-                    if key in item:
-                        result.append(str(item[key]))
-                        break
-        if result:
-            return result
+def _stimmen() -> list[dict]:
+    """The voice services in their order, as stimmen.json lists them."""
+    pfad = DEMO_DIR / "stimmen.json"
+    if not pfad.exists():
+        return []
+    daten = json.loads(pfad.read_text(encoding="utf-8"))
+    return [s for s in daten if isinstance(s, dict) and _KENNUNG.match(str(s.get("id", "")))]
+
+
+def _ordner(sprache: str) -> Path:
+    """The folder of a language, the standard language when it has none."""
+    if _KENNUNG.match(sprache) and (DEMO_DIR / sprache).is_dir():
+        return DEMO_DIR / sprache
+    return DEMO_DIR / STANDARD_SPRACHE
+
+
+def _video(ordner: Path, anbieter: str) -> Path | None:
+    """The video of a voice service, otherwise the one of the first service that has one."""
+    kennungen = [s["id"] for s in _stimmen()]
+    for kennung in ([anbieter] if anbieter in kennungen else []) + kennungen:
+        pfad = ordner / "videos" / f"{kennung}.mp4"
+        if pfad.exists():
+            return pfad
+    return None
+
+
+def _toene(ordner: Path, anbieter: str = "") -> list[Path]:
+    """The audio per slide of a voice service, the first service with audio by default."""
+    kennungen = [s["id"] for s in _stimmen()]
+    for kennung in ([anbieter] if anbieter in kennungen else []) + kennungen:
+        toene = sorted((ordner / "ton" / kennung).glob("folie_*.mp3"))
+        if toene:
+            return toene
     return []
 
 
-def _load_slide_texts(scripts: list[str]) -> list[str]:
-    """The text on the slides, the scripts stand in when the file is missing."""
-    path = DEMO_DIR / "folientexte.json"
-    if path.exists():
-        data = json.loads(path.read_text(encoding="utf-8"))
-        if isinstance(data, list) and len(data) == len(scripts):
-            return [str(text) for text in data]
-    return scripts
-
-
-def _folien_dateien(endung: str) -> list[Path]:
-    """Per-slide files cut from the video by scripts/screencast_demo_folien.py."""
-    return sorted((DEMO_DIR / "folien").glob(f"folie_*.{endung}"))
-
-
-def _load_demo_images() -> list[str]:
-    """Load slide images as base64 strings, the ones cut from the video first."""
-    folien = _folien_dateien("png")
-    if folien:
-        return [base64.b64encode(img.read_bytes()).decode() for img in folien]
-    images_dir = DEMO_DIR / "images"
-    if not images_dir.exists():
+def _liste(pfad: Path) -> list[str]:
+    if not pfad.exists():
         return []
-    images = sorted(images_dir.glob("slide_*.png"))
-    if not images:
-        images = sorted(images_dir.glob("*.png"))
-    return [base64.b64encode(img.read_bytes()).decode() for img in images]
+    daten = json.loads(pfad.read_text(encoding="utf-8"))
+    return [str(x) for x in daten] if isinstance(daten, list) else []
 
 
-def _find_demo_video() -> Path | None:
-    """Return local Path for the pre-rendered demo video."""
-    for name in ("output.mp4", "video.mp4"):
-        p = DEMO_DIR / name
-        if p.exists():
-            return p
-    mp4s = sorted(DEMO_DIR.glob("*.mp4"))
-    return mp4s[0] if mp4s else None
+def _skripte(ordner: Path, locale: str) -> list[str]:
+    skripte = _liste(ordner / "accepted_scripts.json")
+    if not skripte:
+        raise HTTPException(status_code=404, detail=t("screencastDemo.scriptsMissing", locale))
+    return skripte
 
 
-def _demo_images_exist() -> bool:
-    images_dir = DEMO_DIR / "images"
-    return bool(_folien_dateien("png")) or (images_dir.exists() and bool(list(images_dir.glob("*.png"))))
+def _praesentation(ordner: Path) -> Path | None:
+    dateien = sorted(ordner.glob("*.pptx"))
+    return dateien[0] if dateien else None
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
@@ -114,119 +91,101 @@ def _demo_images_exist() -> bool:
 @router.get("/screencast-demo/available")
 def demo_available():
     """Check whether demo data is available."""
-    images_exist = _demo_images_exist()
-    video_path = _find_demo_video()
+    ordner = _ordner(STANDARD_SPRACHE)
+    bilder = any((ordner / "folien").glob("folie_*.png"))
+    video = _video(ordner, "") is not None
     return {
-        "available": images_exist,
-        "has_video": video_path is not None,
+        "available": bilder,
+        "has_video": video,
         "demo_data_enabled": True,
-        "pptx_exists": images_exist,
-        "video_exists": video_path is not None,
+        "pptx_exists": bilder,
+        "video_exists": video,
     }
+
+
+@router.get("/screencast-demo/stimmen")
+def demo_stimmen(_: dict = Depends(get_current_user)):
+    """The voice services in their order, with the languages a video exists for."""
+    sprachen = sorted(p.name for p in DEMO_DIR.iterdir() if p.is_dir()) if DEMO_DIR.is_dir() else []
+    return {"stimmen": [
+        {
+            "id": s["id"],
+            "anbieter": s.get("anbieter", s["id"]),
+            "eigen": bool(s.get("eigen")),
+            "stimmen": {sprache: (s.get("sprachen", {}).get(sprache) or {}).get("name", "") for sprache in sprachen},
+            "kennungen": {sprache: (s.get("sprachen", {}).get(sprache) or {}).get("stimme", "") for sprache in sprachen},
+            "videos": [sprache for sprache in sprachen if (DEMO_DIR / sprache / "videos" / f"{s['id']}.mp4").exists()],
+        }
+        for s in _stimmen()
+    ]}
 
 
 @router.post("/screencast-demo/translate")
 def demo_translate(
+    sprache: str = STANDARD_SPRACHE,
     _: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    """Return demo slide data instantly from pre-baked files."""
-    scripts = _load_accepted_scripts()
-    if not scripts:
-        raise HTTPException(
-            status_code=404,
-            detail=t("screencastDemo.scriptsMissing", locale),
-        )
-
-    images = _load_demo_images()
-    logger.info("Demo/translate: {} slides, {} images", len(scripts), len(images))
-
+    """The slides of the language as text and image, straight from the files."""
+    ordner = _ordner(sprache)
+    skripte = _skripte(ordner, locale)
+    texte = _liste(ordner / "folientexte.json")
+    bilder = [base64.b64encode(p.read_bytes()).decode() for p in sorted((ordner / "folien").glob("folie_*.png"))]
+    logger.info("Demo/translate: {} slides, {} images ({})", len(skripte), len(bilder), ordner.name)
     return {
-        "slide_count": len(scripts),
-        "slide_texts": _load_slide_texts(scripts),
-        "slide_images": images,
+        "slide_count": len(skripte),
+        "slide_texts": texte if len(texte) == len(skripte) else skripte,
+        "slide_images": bilder,
         "translate_job_uuid": "demo",
         "user_prompt": "",
     }
 
 
 @router.post("/screencast-demo/generate-scripts")
-def demo_generate_scripts(
-    body: DemoGenerateScriptsRequest = DemoGenerateScriptsRequest(),
-    locale: str = Depends(get_locale),
-):
-    """Return pre-baked scripts instantly."""
-    scripts = _load_accepted_scripts()
-    if not scripts:
-        raise HTTPException(
-            status_code=404,
-            detail=t("screencastDemo.scriptsMissing", locale),
-        )
-
-    logger.info("Demo/generate-scripts: returning {} scripts", len(scripts))
-    return {"scripts": scripts}
-
-
-@router.post("/screencast-demo/render")
-def demo_render(
-    body: DemoRenderRequest,
-    _: dict = Depends(get_current_user),
-    locale: str = Depends(get_locale),
-):
-    """Stream the pre-rendered demo video directly from disk."""
-    video = _find_demo_video()
-    if not video:
-        raise HTTPException(
-            status_code=404,
-            detail=t("screencastDemo.videoMissing", locale),
-        )
-
-    video_bytes = video.read_bytes()
-    logger.info("Demo/render: streaming {} ({} bytes)", video.name, len(video_bytes))
-    return StreamingResponse(
-        iter([video_bytes]),
-        media_type="video/mp4",
-        headers={"Content-Length": str(len(video_bytes))},
-    )
+def demo_generate_scripts(sprache: str = STANDARD_SPRACHE, locale: str = Depends(get_locale)):
+    """The prepared scripts of the language, which are the speaker notes of the deck."""
+    return {"scripts": _skripte(_ordner(sprache), locale)}
 
 
 @router.get("/screencast-demo/video")
 def demo_video(
+    sprache: str = STANDARD_SPRACHE,
+    anbieter: str = "",
     download: bool = False,
     _: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    """The prepared video as a file, so the player can seek."""
-    video = _find_demo_video()
+    """The prepared video of a voice service as a file, so the player can seek."""
+    video = _video(_ordner(sprache), anbieter)
     if not video:
         raise HTTPException(status_code=404, detail=t("screencastDemo.videoMissing", locale))
     return FileResponse(
         video,
         media_type="video/mp4",
-        filename="screencast_demo.mp4" if download else None,
+        filename=f"screencast_demo_{video.stem}.mp4" if download else None,
         content_disposition_type="attachment" if download else "inline",
     )
 
 
 @router.get("/screencast-demo/vorschau/{index}")
-def demo_vorschau(index: int, _: dict = Depends(get_current_user)):
+def demo_vorschau(index: int, sprache: str = STANDARD_SPRACHE, _: dict = Depends(get_current_user)):
     """The audio of one slide for the preview while the demo renders."""
-    toene = _folien_dateien("mp3")
+    toene = _toene(_ordner(sprache))
     if not 0 <= index < len(toene):
         raise HTTPException(status_code=404)
     return FileResponse(toene[index], media_type="audio/mpeg")
 
 
 @router.get("/screencast-demo/pptx")
-def demo_pptx(_: dict = Depends(get_current_user)):
-    """The translated demo presentation."""
-    dateien = sorted(DEMO_DIR.glob("*.pptx"))
-    if not dateien:
+def demo_pptx(sprache: str = STANDARD_SPRACHE, _: dict = Depends(get_current_user)):
+    """The presentation in the language, translated where needed."""
+    datei = _praesentation(_ordner(sprache))
+    if not datei:
         raise HTTPException(status_code=404)
     return FileResponse(
-        dateien[0],
+        datei,
         media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
-        filename="screencast_demo.pptx",
+        filename=datei.name,
     )
 
 
@@ -255,57 +214,35 @@ class _ZipStreamWriter:
         pass
 
 
-def _streaming_demo_bundle():
+def _streaming_demo_bundle(ordner: Path, anbieter: str):
     """Generator that yields ZIP data file-by-file for the demo bundle."""
     import zipfile as zf_mod
 
     stream = _ZipStreamWriter()
     zf = zf_mod.ZipFile(stream, mode="w", compression=zf_mod.ZIP_STORED)
 
-    def _add_bytes_and_yield(arcname: str, data: bytes):
+    def _add_file_and_yield(arcname: str, filepath: Path):
         pos_before = stream.tell()
-        zf.writestr(arcname, data)
+        zf.writestr(arcname, filepath.read_bytes())
         pos_after = stream.tell()
         stream.seek(pos_before)
         return stream.read(pos_after - pos_before)
 
-    def _add_file_and_yield(arcname: str, filepath: Path):
-        return _add_bytes_and_yield(arcname, filepath.read_bytes())
-
-    # Video
-    video = _find_demo_video()
+    video = _video(ordner, anbieter)
     if video:
-        yield _add_file_and_yield(video.name, video)
-
-    # Script JSON
-    for fname in ("accepted_scripts.json", "render_scripts.json"):
-        p = DEMO_DIR / fname
-        if p.exists():
-            yield _add_file_and_yield(fname, p)
-            break
-
-    # PPTX
-    for p in sorted(DEMO_DIR.glob("*.pptx")):
-        yield _add_file_and_yield(p.name, p)
-
-    # Audio and images, the per-slide files when the video has been cut
-    toene, bilder = _folien_dateien("mp3"), _folien_dateien("png")
+        yield _add_file_and_yield("screencast.mp4", video)
+    skripte = ordner / "accepted_scripts.json"
+    if skripte.exists():
+        yield _add_file_and_yield(skripte.name, skripte)
+    praesentation = _praesentation(ordner)
+    if praesentation:
+        yield _add_file_and_yield(praesentation.name, praesentation)
     if BUNDLE_INCLUDE_AUDIO:
-        if toene:
-            for f in toene:
-                yield _add_file_and_yield(f"audio/{f.name}", f)
-        elif (DEMO_DIR / "audio").exists():
-            for f in sorted((DEMO_DIR / "audio").iterdir()):
-                if f.is_file():
-                    yield _add_file_and_yield(f"audio/{f.name}", f)
-
+        for f in _toene(ordner, video.stem if video else ""):
+            yield _add_file_and_yield(f"audio/{f.name}", f)
     if BUNDLE_INCLUDE_IMAGES:
-        if bilder:
-            for f in bilder:
-                yield _add_file_and_yield(f"images/{f.name}", f)
-        elif (DEMO_DIR / "images").exists():
-            for f in sorted((DEMO_DIR / "images").glob("*.png")):
-                yield _add_file_and_yield(f"images/{f.name}", f)
+        for f in sorted((ordner / "folien").glob("folie_*.png")):
+            yield _add_file_and_yield(f"images/{f.name}", f)
 
     # Finalize ZIP (central directory)
     pos_before = stream.tell()
@@ -316,10 +253,10 @@ def _streaming_demo_bundle():
 
 
 @router.get("/screencast-demo/bundle")
-def demo_bundle(_: dict = Depends(get_current_user)):
-    """Return a ZIP with the demo video, scripts, PPTX, audio and images."""
+def demo_bundle(sprache: str = STANDARD_SPRACHE, anbieter: str = "", _: dict = Depends(get_current_user)):
+    """Return a ZIP with the video of a voice service, the scripts and the presentation."""
     return StreamingResponse(
-        _streaming_demo_bundle(),
+        _streaming_demo_bundle(_ordner(sprache), anbieter),
         media_type="application/zip",
         headers={
             "Content-Disposition": 'attachment; filename="screencast_demo_bundle.zip"',

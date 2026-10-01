@@ -1649,7 +1649,12 @@
       "dateiVorgegeben": "In der Demo ist der Foliensatz vorgegeben.",
       "keinHochladen": "In der Demo lassen sich keine eigenen Dateien hochladen.",
       "importVorgegeben": "Weiter geht es mit den vorbereiteten Sprechtexten.",
-      "beenden": "Demo beenden"
+      "beenden": "Demo beenden",
+      "stimmenHinweis": "Dasselbe Video, vertont von verschiedenen Stimmdiensten.",
+      "stimme": "Stimme: {name}",
+      "selbstGehostet": "selbst gehostet (DSGVO-konform)",
+      "platzhalter": "Das Video mit {anbieter} folgt.",
+      "anbinden": "Solche Dienste kannst du mit deinem eigenen Konto unter <link>Schnittstellen</link> anbinden. Die Texte gehen dann an den jeweiligen Anbieter."
     },
     "summarizeDemo": {
       "demoBadge": "Demo",

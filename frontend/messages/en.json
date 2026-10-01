@@ -1649,7 +1649,12 @@
       "dateiVorgegeben": "The demo uses a given set of slides.",
       "keinHochladen": "You cannot upload your own files in the demo.",
       "importVorgegeben": "The demo continues with the prepared scripts.",
-      "beenden": "Exit demo"
+      "beenden": "Exit demo",
+      "stimmenHinweis": "The same video, voiced by different speech services.",
+      "stimme": "Voice: {name}",
+      "selbstGehostet": "self-hosted (GDPR compliant)",
+      "platzhalter": "The video with {anbieter} will follow.",
+      "anbinden": "You can connect such services with your own account under <link>Interfaces</link>. The texts are then sent to that provider."
     },
     "summarizeDemo": {
       "demoBadge": "Demo",

@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
 import BackgroundHint from "@/components/tools/BackgroundHint";
@@ -134,6 +135,7 @@ export function DoneStep({
   onReset,
   onNeuVertonen,
   zipUrl,
+  video,
 }: {
   videoUrl: string | null;
   audioId: string;
@@ -144,6 +146,8 @@ export function DoneStep({
   onNeuVertonen: () => void;
   /** The demo bundles its prepared files elsewhere. */
   zipUrl?: string;
+  /** The demo shows its own player in place of the video. */
+  video?: ReactNode;
 }) {
   const t = useTranslations("tools.screencast");
   // The link deliberately does not sit in the page, otherwise the top loader runs forever.
@@ -164,7 +168,7 @@ export function DoneStep({
       </div>
       <h2 className="text-lg font-bold mb-2 text-center">{t("done.heading")}</h2>
 
-      {videoUrl && (
+      {video ?? (videoUrl && (
         <div className="mb-6 rounded-lg overflow-hidden border border-border-soft">
           <video key={videoUrl} controls className="w-full">
             <source src={videoUrl} type="video/mp4" />
@@ -179,7 +183,7 @@ export function DoneStep({
             {t("done.browserNoVideo")}
           </video>
         </div>
-      )}
+      ))}
 
       {/* Desktop: downloads above the two side buttons. Phone: side buttons first, downloads pinned below. */}
       <div className="flex flex-col">

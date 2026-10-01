@@ -24,19 +24,19 @@ import TranslationReviewStep from "../screencast/_steps/TranslationReviewStep";
 import ScriptReviewStep from "../screencast/_steps/ScriptReviewStep";
 import TtsSettingsStep from "../screencast/_steps/TtsSettingsStep";
 import RenderVorschau from "../screencast/_components/RenderVorschau";
+import StimmenVideo, { type DemoStimme } from "../screencast/_components/StimmenVideo";
 import Lightbox from "../screencast/_components/Lightbox";
 import ZusatzMaterial, { KEIN_MATERIAL } from "../screencast/_components/ZusatzMaterial";
 import { useFolienAuswahl } from "../screencast/_hooks/useFolienAuswahl";
 import { flowReducer, INITIAL_FLOW_STATE } from "../screencast/_reducer";
 import { sprachIdFuerLocale } from "../screencast/_utils";
 
-const VIDEO_URL = "/api/screencast-demo/video";
+const DEMO_API = "/api/screencast-demo";
 const KEIN_TON: boolean[] = [];
 // Waiting times of the simulated run in milliseconds.
 const DAUER = { uebersetzen: 1200, skripte: 1500, folie: 220, schritt: 900 };
-// The sample deck is German, carries its scripts in the speaker notes and was voiced by this voice.
+// The sample deck is German and carries its scripts in the speaker notes.
 const DEMO_SPRACHE = "DE";
-const DEMO_STIMME = "thorsten";
 
 function warte(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -71,24 +71,41 @@ function ScreencastDemoLauf({ onNeu }: { onNeu: () => void }) {
   const [translationProviders, setTranslationProviders] = useState<{ id: number; name: string }[]>([]);
   const [translationProviderId, setTranslationProviderId] = useState<number | null>(null);
   const { languages, targetLang, setTargetLang } = useLanguageConfig(SCREENCAST_TARGET_LANGUAGES, DEMO_SPRACHE);
+  // The prepared files exist per language, the chosen language decides which ones the run shows.
+  const sprache = targetLang.split("-")[0].toLowerCase();
+  const [stimmen, setStimmen] = useState<DemoStimme[]>([]);
+  const [anbieter, setAnbieter] = useState("");
+  useEffect(() => {
+    fetch(`${DEMO_API}/stimmen`, { credentials: "include" })
+      .then((r) => r.json())
+      .then((data) => setStimmen(data.stimmen ?? []))
+      .catch(() => {});
+  }, []);
+  const videoFuer = (id: string, download = false) =>
+    `${DEMO_API}/video?sprache=${sprache}&anbieter=${id}${download ? "&download=true" : ""}`;
 
   const [slidePause, setSlidePause] = useState(1.0);
   const [subtitles, setSubtitles] = useState(false);
   const { loaded: providersLoaded, providers, defaultProviderId, defaultVoiceId } = useVoices();
   const [providerId, setProviderId] = useState(0);
   const [voiceId, setVoiceId] = useState("");
-  // The voice of the prepared video comes first, the default only when it is not offered.
+  // The voice of the first prepared video comes first, again whenever the language changes.
+  const [vorausgewaehlt, setVorausgewaehlt] = useState("");
   useEffect(() => {
-    if (!providersLoaded || providerId !== 0) return;
-    const demo = providers.find((p) => p.voices.some((v) => v.voice_id === DEMO_STIMME));
-    if (demo) {
+    if (!providersLoaded || vorausgewaehlt === sprache) return;
+    const kennung = stimmen[0]?.kennungen[sprache];
+    const demo = kennung ? providers.find((p) => p.voices.some((v) => v.voice_id === kennung)) : undefined;
+    if (demo && kennung) {
       setProviderId(demo.id);
-      setVoiceId(DEMO_STIMME);
+      setVoiceId(kennung);
+    } else if (!stimmen.length) {
+      return;
     } else if (defaultProviderId != null) {
       setProviderId(defaultProviderId);
       setVoiceId(defaultVoiceId);
     }
-  }, [providersLoaded, providers, providerId, defaultProviderId, defaultVoiceId]);
+    setVorausgewaehlt(sprache);
+  }, [providersLoaded, providers, stimmen, sprache, vorausgewaehlt, defaultProviderId, defaultVoiceId]);
 
   const [fertigeFolien, setFertigeFolien] = useState<number[]>([]);
   const [renderLabel, setRenderLabel] = useState("");
@@ -161,7 +178,7 @@ function ScreencastDemoLauf({ onNeu }: { onNeu: () => void }) {
     try {
       const [data] = await Promise.all([
         holeJson<{ slide_texts: string[]; slide_images: string[] }>(
-          "/api/screencast-demo/translate", signal, tDemo("loadDemoError"),
+          `${DEMO_API}/translate?sprache=${sprache}`, signal, tDemo("loadDemoError"),
         ),
         warte(DAUER.uebersetzen, signal),
       ]);
@@ -185,7 +202,7 @@ function ScreencastDemoLauf({ onNeu }: { onNeu: () => void }) {
     if (mitWarten) dispatch({ type: "ENTER_STEP", step: "generating-scripts", loading: true });
     try {
       const [data] = await Promise.all([
-        holeJson<{ scripts: string[] }>("/api/screencast-demo/generate-scripts", signal, tDemo("loadScriptsError")),
+        holeJson<{ scripts: string[] }>(`${DEMO_API}/generate-scripts?sprache=${sprache}`, signal, tDemo("loadScriptsError")),
         warte(mitWarten ? DAUER.skripte : 0, signal),
       ]);
       dispatch({ type: "IMPORT_SCRIPTS", scripts: data.scripts });
@@ -215,7 +232,11 @@ function ScreencastDemoLauf({ onNeu }: { onNeu: () => void }) {
         setRenderLabel(t("rendering.subtitles"));
         await warte(DAUER.schritt, signal);
       }
-      setVideoUrl(VIDEO_URL);
+      // The tab of the chosen voice opens first, when the demo has a video with it.
+      const passend = stimmen.find((s) => s.kennungen[sprache] === voiceId);
+      const start = passend?.id ?? stimmen[0]?.id ?? "";
+      setAnbieter(start);
+      setVideoUrl(videoFuer(start));
       setRenderLabel("");
       dispatch({ type: "ENTER_STEP", step: "done", loading: false });
     } catch (err) {
@@ -333,7 +354,7 @@ function ScreencastDemoLauf({ onNeu }: { onNeu: () => void }) {
             skipTranslation={skipTranslation}
             onLightboxOpen={(idx) => dispatch({ type: "SET_LIGHTBOX", index: idx })}
             onDownloadTranslatedPptx={async () => {
-              herunterladen("/api/screencast-demo/pptx");
+              herunterladen(`${DEMO_API}/pptx?sprache=${sprache}`);
               return true;
             }}
             onUploadCorrectedPptx={() => {}}
@@ -459,7 +480,7 @@ function ScreencastDemoLauf({ onNeu }: { onNeu: () => void }) {
                 speed={1}
                 rueckblick={rueckblick}
                 nichtDabei={nichtDabei}
-                tonUrl={(i) => `/api/screencast-demo/vorschau/${i}`}
+                tonUrl={(i) => `${DEMO_API}/vorschau/${i}?sprache=${sprache}`}
               />
             }
             onCancel={() => zurueckZu("tts-settings")}
@@ -473,10 +494,19 @@ function ScreencastDemoLauf({ onNeu }: { onNeu: () => void }) {
             videoUrl={videoUrl}
             audioId=""
             laufStempel=""
-            onDownloadMp4={() => herunterladen(`${VIDEO_URL}?download=true`)}
+            onDownloadMp4={() => herunterladen(videoFuer(anbieter, true))}
             onReset={onNeu}
             onNeuVertonen={() => dispatch({ type: "SET_STEP", step: "tts-settings" })}
-            zipUrl="/api/screencast-demo/bundle"
+            zipUrl={`${DEMO_API}/bundle?sprache=${sprache}&anbieter=${anbieter}`}
+            video={stimmen.length ? (
+              <StimmenVideo
+                stimmen={stimmen}
+                sprache={sprache}
+                aktiv={anbieter}
+                onAktiv={setAnbieter}
+                videoUrl={(id) => videoFuer(id)}
+              />
+            ) : undefined}
           />
         )}
 
