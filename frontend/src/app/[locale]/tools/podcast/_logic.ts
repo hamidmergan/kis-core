@@ -48,11 +48,15 @@ export function reachable(index: number, state: PodcastState): boolean {
     return state.progress?.fertig?.length ? true : state.jobStatus === "failed" || state.jobStatus === "paused";
   if (index === stepIndex("done")) return state.jobStatus === "success";
   // The material wrote the script and cannot be taken back, the cast can be recast.
-  if (index === stepIndex("content")) return state.jobUuid === null;
+  if (index === stepIndex("content")) return state.jobUuid === null || startsAnew(index, state);
   return true;
 }
 
 /** Unlike a step that is merely locked while busy, this one never opens again. */
 export function closedForGood(index: number, state: PodcastState): boolean {
-  return index === stepIndex("content") && state.jobUuid !== null;
+  return index === stepIndex("content") && state.jobUuid !== null && !startsAnew(index, state);
 }
+
+/** From the finished podcast the first step opens empty, like a new podcast. */
+export const startsAnew = (index: number, state: PodcastState): boolean =>
+  index === stepIndex("content") && state.step === "done";

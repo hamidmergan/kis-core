@@ -12,7 +12,7 @@ import { useGlossaries } from "@/hooks/useGlossaries";
 
 import Spinner from "@/components/ui/Spinner";
 import ScreencastStepper from "@/components/screencast/ScreencastStepper";
-import { indexToStep, istErreichbar, stepToIndex, vorherErreichbar } from "@/components/screencast/steps";
+import { indexToStep, istErreichbar, startsAnew, stepToIndex, vorherErreichbar } from "@/components/screencast/steps";
 import UploadStep from "./_steps/UploadStep";
 import {
   TranslatingStep,
@@ -344,10 +344,17 @@ function ScreencastPageInner() {
     if (target) dispatch({ type: "SET_STEP", step: target });
   }, []);
 
+  // A run from the history keeps its address, so browser back returns to it.
+  const neuAnfangen = useCallback(() => {
+    if (new URLSearchParams(window.location.search).has("resume")) window.location.assign(window.location.pathname);
+    else resetAll(false);
+  }, [resetAll]);
+
   const handleStepClick = useCallback((index: number) => {
+    if (startsAnew(index, step)) return neuAnfangen();
     if (!istErreichbar(index, maxReachedIdx, skipTranslation, step, videoUrl !== null)) return;
     gotoIndex(index);
-  }, [gotoIndex, maxReachedIdx, skipTranslation, step, videoUrl]);
+  }, [gotoIndex, neuAnfangen, maxReachedIdx, skipTranslation, step, videoUrl]);
 
   /** The step back from a page, or null when nothing enterable lies before it. */
   const zurueckVon = useCallback((index: number): (() => void) | null => {
@@ -832,7 +839,7 @@ function ScreencastPageInner() {
             hasSubtitles={hasSubtitles}
             laufStempel={laufStempel}
             onDownloadMp4={handleDownload}
-            onReset={() => resetAll(false)}
+            onReset={neuAnfangen}
             onNeuVertonen={() => dispatch({ type: "SET_STEP", step: "tts-settings" })}
           />
         )}

@@ -26,7 +26,7 @@ export function reachable(index: number, state: PraesentationState): boolean {
   if (index === stepIndex(state.step)) return false;
   if (isBusy(state)) return false;
   if (index > state.maxReached) return false;
-  if (index === stepIndex("content")) return state.jobUuid === null;
+  if (index === stepIndex("content")) return state.jobUuid === null || startsAnew(index, state);
   if (index === stepIndex("done")) return state.jobStatus === "success";
   if (index === stepIndex("preview")) return state.outline !== null || state.slides.length > 0;
   return true;
@@ -85,7 +85,11 @@ export function skizzen(outline: Outline | null, slides: Slide[]): Skizze[] {
 
 /** With the job the content step is gone for good, the later steps stay open. */
 export const closedForGood = (index: number, state: PraesentationState): boolean =>
-  index === stepIndex("content") && state.jobUuid !== null;
+  index === stepIndex("content") && state.jobUuid !== null && !startsAnew(index, state);
+
+/** From the finished deck the first step opens empty, like a new presentation. */
+export const startsAnew = (index: number, state: PraesentationState): boolean =>
+  index === stepIndex("content") && state.step === "done";
 
 /** A new slide needs a heading or an instruction, either one is enough. */
 export const kannEinfuegen = (titel: string, anweisung: string): boolean =>

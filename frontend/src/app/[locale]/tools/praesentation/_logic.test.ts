@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   bildPlaetze, closedForGood, fortschrittMeldung, hasContent, isBusy, kannEinfuegen, reachable, rowCountOk, schrittFuer, skizzen,
-  stepIndex,
+  startsAnew, stepIndex,
 } from "./_logic";
 import { INITIAL_STATE, reducer } from "./_reducer";
 import { STEPS, type Outline, type PraesentationState, type Slide } from "./_types";
@@ -256,5 +256,19 @@ describe("SET_TEMPLATE und Bildstil", () => {
   it("Zuruecksetzen heisst wieder der Stil der Vorlage", () => {
     const geaendert = reducer(state(), { type: "SET_IMAGE_STYLE", text: "Aquarell" });
     expect(reducer(geaendert, { type: "SET_IMAGE_STYLE", text: null }).imageStyle).toBeNull();
+  });
+});
+
+describe("startsAnew", () => {
+  it("vom fertigen Satz aus öffnet der erste Schritt leer", () => {
+    const s = state({ step: "done", maxReached: 2, jobUuid: "x", jobStatus: "success" });
+    expect(startsAnew(stepIndex("content"), s)).toBe(true);
+    expect(reachable(stepIndex("content"), s)).toBe(true);
+    expect(closedForGood(stepIndex("content"), s)).toBe(false);
+  });
+  it("in der Vorschau bleibt der erste Schritt zu", () => {
+    const s = state({ step: "preview", maxReached: 2, jobUuid: "x", jobStatus: "success" });
+    expect(startsAnew(stepIndex("content"), s)).toBe(false);
+    expect(reachable(stepIndex("content"), s)).toBe(false);
   });
 });

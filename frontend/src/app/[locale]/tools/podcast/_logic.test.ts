@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { failedLineIndex, hasContent, hatErgebnisse, isBusy, linesToVoice, minutesOf, needsVoice, ohneKi, reachable, wordsOf } from "./_logic";
+import { closedForGood, failedLineIndex, hasContent, hatErgebnisse, isBusy, linesToVoice, minutesOf, needsVoice, ohneKi, reachable, startsAnew, wordsOf } from "./_logic";
 import { INITIAL_STATE, reducer } from "./_reducer";
 import type { Line, PodcastState } from "./_types";
 
@@ -162,5 +162,20 @@ describe("Wann ein neuer Podcast nachfragen muss", () => {
   it("fragt auch beim fertigen Podcast", () => {
     expect(hatErgebnisse(state({ step: "done", jobUuid: "x", jobStatus: "success",
                                  lines: [line(0)], voicedIds: ["b0"] }))).toBe(true);
+  });
+});
+
+describe("startsAnew", () => {
+  it("vom fertigen Podcast aus öffnet der erste Schritt leer", () => {
+    const s = state({ step: "done", maxReached: 4, jobUuid: "x", jobStatus: "success" });
+    expect(startsAnew(0, s)).toBe(true);
+    expect(reachable(0, s)).toBe(true);
+    expect(closedForGood(0, s)).toBe(false);
+  });
+  it("vor dem Ende bleibt der erste Schritt zu", () => {
+    const s = state({ step: "script", maxReached: 4, jobUuid: "x", jobStatus: "awaiting_user" });
+    expect(startsAnew(0, s)).toBe(false);
+    expect(reachable(0, s)).toBe(false);
+    expect(closedForGood(0, s)).toBe(true);
   });
 });

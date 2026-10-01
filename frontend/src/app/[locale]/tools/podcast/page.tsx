@@ -25,7 +25,7 @@ import VoicingStep from "./_steps/VoicingStep";
 import PodcastStepper from "./_components/PodcastStepper";
 import BestaetigungModal from "./_components/BestaetigungModal";
 import { cancelJob, demoAvailable, fetchJob, fetchPodcast, rephraseLine, savePodcastParams, saveScript, startPodcast, startRender } from "./_api";
-import { LAEUFT, closedForGood, hatErgebnisse, isBusy, ohneKi, reachable } from "./_logic";
+import { LAEUFT, closedForGood, hatErgebnisse, isBusy, ohneKi, reachable, startsAnew } from "./_logic";
 import { INITIAL_STATE, defaultPersons, reducer } from "./_reducer";
 import { STEPS, type Line, type Person, type PodcastState, type Step } from "./_types";
 
@@ -95,6 +95,8 @@ function PodcastPageInner() {
   // Every visit starts fresh, only the jobs list links straight to one podcast.
   useEffect(() => {
     if (!ausListe) {
+      // Browser back from a job out of the history lands on the empty first step again.
+      if (stateRef.current.jobUuid) dispatch({ type: "RESET" });
       setHydrated(true);
       return;
     }
@@ -259,9 +261,11 @@ function PodcastPageInner() {
     notifyJobsChanged();
   };
 
+  // A job from the history leaves its address, so browser back returns to it.
   const neu = () => {
     setNachfrage(null);
-    dispatch({ type: "RESET" });
+    if (ausListe) router.push("/tools/podcast");
+    else dispatch({ type: "RESET" });
   };
 
   /** Without a script there is nothing to lose, the reset then goes straight through. */
@@ -295,7 +299,7 @@ function PodcastPageInner() {
                 step={state.step}
                 canEnter={(i) => reachable(i, state)}
                 isClosedForGood={(i) => closedForGood(i, state)}
-                onStepClick={gehe}
+                onStepClick={(i) => (startsAnew(i, state) ? neuGefragt() : gehe(i))}
                 onDiscard={begonnen ? neuGefragt : null}
               />
             )}
@@ -323,7 +327,7 @@ function PodcastPageInner() {
                 {verlauf.length > 0 && (
                   <JobHistoryTable entries={verlauf} selectedUuid={state.jobUuid} locale={locale}
                     colMaterial={tHistory("colMaterial")} colDate={tHistory("colDate")}
-                    onSelect={(uuid) => router.replace(`/tools/podcast?job=${uuid}`)} />
+                    onSelect={(uuid) => router.push(`/tools/podcast?job=${uuid}`)} />
                 )}
               </div>
             )}

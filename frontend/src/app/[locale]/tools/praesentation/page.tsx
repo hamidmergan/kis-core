@@ -19,7 +19,7 @@ import { useJobHistory } from "@/hooks/useJobHistory";
 import { Link, useRouter } from "@/i18n/navigation";
 import { notifyJobsChanged } from "@/lib/jobs-events";
 import * as api from "./_api";
-import { LAEUFT, closedForGood, isBusy, reachable, schrittFuer } from "./_logic";
+import { LAEUFT, closedForGood, isBusy, reachable, schrittFuer, startsAnew } from "./_logic";
 import { INITIAL_STATE, reducer, type Action } from "./_reducer";
 import PraesentationStepper from "./_components/PraesentationStepper";
 import ContentStep from "./_steps/ContentStep";
@@ -86,6 +86,8 @@ function PraesentationPageInner() {
 
   useEffect(() => {
     if (!ausListe) {
+      // Browser back from a job out of the history lands on the empty first step again.
+      if (stateRef.current.jobUuid) dispatch({ type: "RESET" });
       setRestored(true);
       return;
     }
@@ -296,6 +298,12 @@ function PraesentationPageInner() {
 
   const gehe = (i: number) => dispatch({ type: "GO", step: STEPS[i] as Step });
 
+  // A job from the history leaves its address, so browser back returns to it.
+  const neu = () => {
+    if (ausListe) router.push("/tools/praesentation");
+    else dispatch({ type: "RESET" });
+  };
+
   return (
     <ProtectedRoute>
       {/* Wide for the two columns of the first step, narrow like the original for slides and the finished deck. */}
@@ -336,7 +344,8 @@ function PraesentationPageInner() {
           <>
             {state.step !== "content" && (
               <PraesentationStepper step={state.step} canEnter={(i) => reachable(i, state)}
-                                    isClosedForGood={(i) => closedForGood(i, state)} onStepClick={gehe}
+                                    isClosedForGood={(i) => closedForGood(i, state)}
+                                    onStepClick={(i) => (startsAnew(i, state) ? neu() : gehe(i))}
                                     onDiscard={state.jobUuid ? () => setNachfrage("verwerfen") : null} />
             )}
             {state.step === "content" && (
@@ -361,7 +370,7 @@ function PraesentationPageInner() {
                 {verlauf.length > 0 && (
                   <JobHistoryTable entries={verlauf} selectedUuid={state.jobUuid} locale={locale}
                     colMaterial={tHistory("colMaterial")} colDate={tHistory("colDate")}
-                    onSelect={(uuid) => router.replace(`/tools/praesentation?job=${uuid}`)} />
+                    onSelect={(uuid) => router.push(`/tools/praesentation?job=${uuid}`)} />
                 )}
               </div>
             )}
@@ -397,7 +406,7 @@ function PraesentationPageInner() {
                 jobStatus={state.jobStatus} progress={state.progress} error={state.error}
                 onResume={() => mitStand(async (u) => { await api.startBuild(u); dispatch({ type: "JOB", status: "pending", progress: { step: "bau", final: true } }); })}
                 onBackToPreview={() => dispatch({ type: "GO", step: "preview" })}
-                onNew={() => dispatch({ type: "RESET" })}
+                onNew={neu}
                 onCancel={() => setNachfrage("abbrechen")} />
             )}
             {(regenRow || regenSlide) && (

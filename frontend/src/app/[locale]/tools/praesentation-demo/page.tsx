@@ -12,7 +12,7 @@ import { useRouter } from "@/i18n/navigation";
 import * as api from "../praesentation/_api";
 import PraesentationStepper from "../praesentation/_components/PraesentationStepper";
 import { demoAblauf, warte, type DemoMoment, type DemoView } from "../praesentation/_demo";
-import { closedForGood, isBusy, reachable } from "../praesentation/_logic";
+import { closedForGood, isBusy, reachable, startsAnew } from "../praesentation/_logic";
 import { INITIAL_STATE, reducer } from "../praesentation/_reducer";
 import ContentStep from "../praesentation/_steps/ContentStep";
 import DoneStep from "../praesentation/_steps/DoneStep";
@@ -138,7 +138,7 @@ function PraesentationDemoLauf({ onNeu }: { onNeu: () => void }) {
             {state.step !== "content" && (
               <PraesentationStepper step={state.step} canEnter={(i) => reachable(i, state)}
                                     isClosedForGood={(i) => closedForGood(i, state)}
-                                    onStepClick={(i) => dispatch({ type: "GO", step: STEPS[i] as Step })} />
+                                    onStepClick={(i) => (startsAnew(i, state) ? onNeu() : dispatch({ type: "GO", step: STEPS[i] as Step }))} />
             )}
             {state.step === "content" && (
               <ContentStep canUseModules={false} source={state.source} language={state.language}

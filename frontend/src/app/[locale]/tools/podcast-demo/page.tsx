@@ -14,7 +14,7 @@ import { DEMO_JOB, fetchDemo } from "../podcast/_api";
 import PodcastStepper from "../podcast/_components/PodcastStepper";
 import Stimmvergleich from "../podcast/_components/Stimmvergleich";
 import { demoSkript, demoVertonung, warte, type DemoView } from "../podcast/_demo";
-import { closedForGood, isBusy, reachable } from "../podcast/_logic";
+import { closedForGood, isBusy, reachable, startsAnew } from "../podcast/_logic";
 import { INITIAL_STATE, defaultPersons, reducer } from "../podcast/_reducer";
 import CastStep from "../podcast/_steps/CastStep";
 import ContentStep from "../podcast/_steps/ContentStep";
@@ -127,7 +127,7 @@ function PodcastDemoLauf({ onNeu }: { onNeu: () => void }) {
             </p>
             <PodcastStepper step={state.step} canEnter={(i) => reachable(i, state)}
                             isClosedForGood={(i) => closedForGood(i, state)}
-                            onStepClick={(i) => dispatch({ type: "GO", step: STEPS[i] as Step })} />
+                            onStepClick={(i) => (startsAnew(i, state) ? onNeu() : dispatch({ type: "GO", step: STEPS[i] as Step }))} />
           </>
         )}
 
