@@ -15,6 +15,7 @@ SWEEP_BY_USER_ID = (
     "aia_llm_usage_log",
     # Hangs off a workspace, but possibly off someone else's.
     "aia_enrollments",
+    "aia_workspace_favorites",
     "aia_messages",
     "aia_notes",
     "aia_mindmaps",
