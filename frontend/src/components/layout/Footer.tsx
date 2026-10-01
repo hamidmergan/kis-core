@@ -6,7 +6,7 @@ import { useTranslations } from "next-intl";
 const PARTNERS = [
   { src: "/logos/logo-thl.jpg", alt: "TH Lübeck", href: "https://www.th-luebeck.de", width: 473, height: 166, maxWidth: "78%" },
   { src: "/logos/isy-logo.png", alt: "ISY", href: "https://www.th-luebeck.de/isy/", width: 634, height: 523 },
-  { src: "/logos/stiftung-hochschullehre.jpg", alt: "Gefördert durch die Stiftung Innovation in der Hochschullehre", width: 1920, height: 942 },
+  { src: "/logos/stiftung-hochschullehre.jpg", alt: "Gefördert durch die Stiftung Innovation in der Hochschullehre", href: "https://stiftung-hochschullehre.de/", width: 1920, height: 942 },
 ];
 
 const TILE = "flex items-center justify-center bg-white rounded-lg h-20 sm:h-24 px-4 py-3";
@@ -38,17 +38,11 @@ export default function Footer({ loggedIn }: { loggedIn?: boolean }) {
           </Link>
           <div className="hidden md:block w-px self-stretch" style={{ backgroundColor: "rgba(255,255,255,0.15)" }} />
           <div className="grid grid-cols-3 gap-3 sm:gap-4 flex-1">
-            {PARTNERS.map((p) =>
-              p.href ? (
-                <a key={p.src} href={p.href} target="_blank" rel="noopener noreferrer" aria-label={p.alt} className={`${TILE} logo-link`}>
-                  <Image src={p.src} alt={p.alt} width={p.width} height={p.height} className={LOGO} style={{ maxWidth: p.maxWidth }} />
-                </a>
-              ) : (
-                <div key={p.src} className={TILE}>
-                  <Image src={p.src} alt={p.alt} width={p.width} height={p.height} className={LOGO} style={{ maxWidth: p.maxWidth }} />
-                </div>
-              ),
-            )}
+            {PARTNERS.map((p) => (
+              <a key={p.src} href={p.href} target="_blank" rel="noopener noreferrer" aria-label={p.alt} className={`${TILE} logo-link`}>
+                <Image src={p.src} alt={p.alt} width={p.width} height={p.height} className={LOGO} style={{ maxWidth: p.maxWidth }} />
+              </a>
+            ))}
           </div>
         </div>
 
