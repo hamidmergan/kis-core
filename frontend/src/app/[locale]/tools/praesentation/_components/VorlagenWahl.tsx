@@ -7,9 +7,9 @@ import HelpTooltip from "@/components/ui/HelpTooltip";
 import IconButton from "@/components/ui/IconButton";
 import Spinner from "@/components/ui/Spinner";
 import { deleteVorlage, listVorlagen, vorlagePreviewUrl } from "../_api";
-import type { Vorlage } from "../_types";
 import VorlageBearbeiten from "./VorlageBearbeiten";
 import VorlageHochladen from "./VorlageHochladen";
+import type { Vorlage } from "../_types";
 
 // Empty placeholder boxes, the way PowerPoint's own slide master view shows them without content.
 const FOLIENMASTER_SKIZZE = (
@@ -26,13 +26,13 @@ const FOLIENMASTER_SKIZZE = (
 interface VorlagenWahlProps {
   templateId: string;
   onTemplate: (id: string) => void;
-  /** The chosen template as loaded, so the page can offer its picture style. */
+  /** The chosen template as loaded, for the stage and the picture style. */
   onVorlage: (v: Vorlage | undefined) => void;
   /** Shows only the chosen template, without upload, edit or delete, as the demo needs it. */
   nurGewaehlte?: boolean;
 }
 
-/** The system template and the person's own ones as tiles, the cover layout as the picture. */
+/** The templates as small tiles, a carousel on the phone and a grid in the form card on the desktop. */
 export default function VorlagenWahl({ templateId, onTemplate, onVorlage, nurGewaehlte = false }: VorlagenWahlProps) {
   const t = useTranslations("tools.praesentation.content");
   const [vorlagen, setVorlagen] = useState<Vorlage[] | null>(null);
@@ -44,9 +44,10 @@ export default function VorlagenWahl({ templateId, onTemplate, onVorlage, nurGew
     laden();
   }, []);
 
+  const aktiv = vorlagen?.find((v) => v.id === templateId);
   useEffect(() => {
-    if (vorlagen) onVorlage(vorlagen.find((v) => v.id === templateId));
-  }, [vorlagen, templateId, onVorlage]);
+    if (vorlagen) onVorlage(aktiv);
+  }, [vorlagen, aktiv, onVorlage]);
 
   const loeschen = async (id: string) => {
     await deleteVorlage(id).catch(() => undefined);
@@ -56,42 +57,43 @@ export default function VorlagenWahl({ templateId, onTemplate, onVorlage, nurGew
 
   if (vorlagen === null) return <Spinner size="sm" className="my-4" />;
 
+  const kachel = "shrink-0 w-36 snap-start lg:w-auto";
+
   return (
-    <div className="mt-6">
+    <div>
       <div className="flex items-center gap-1.5 mb-2">
         <p className="text-sm font-medium">{t("templateLabel")}</p>
         <HelpTooltip text={t("templateHelp")} image={FOLIENMASTER_SKIZZE} />
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3" role="radiogroup" aria-label={t("templateLabel")}>
+      <div
+        className="flex gap-2.5 overflow-x-auto snap-x scrollbar-hide pb-1 lg:grid lg:grid-cols-3 lg:overflow-visible"
+        role="radiogroup"
+        aria-label={t("templateLabel")}
+      >
         {vorlagen.filter((v) => !nurGewaehlte || v.id === templateId).map((v) => {
-          const aktiv = v.id === templateId;
+          const gewaehlt = v.id === templateId;
           return (
-            <div key={v.id} className="relative">
+            <div key={v.id} className={`relative ${kachel}`}>
               <button
                 type="button"
                 role="radio"
-                aria-checked={aktiv}
+                aria-checked={gewaehlt}
                 onClick={() => onTemplate(v.id)}
-                className={`w-full text-left rounded-xl border-2 transition-colors p-2 ${aktiv ? "border-kb" : "border-border hover:border-kb"}`}
+                className={`w-full text-left rounded-lg border-2 transition-colors p-1 ${gewaehlt ? "border-kb" : "border-border hover:border-kb"}`}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={vorlagePreviewUrl(v.id)} alt="" className="w-full aspect-video object-cover rounded-md bg-surface" />
-                <p className="text-sm font-medium mt-2 truncate">{v.name}</p>
-                <p className="text-xs text-muted">
-                  {v.hasImages ? t("templateWithImages") : t("templateWithoutImages")}
-                </p>
+                <img src={vorlagePreviewUrl(v.id)} alt="" className="w-full aspect-video object-cover rounded bg-surface" />
+                <p className={`text-xs mt-1 px-0.5 truncate ${gewaehlt ? "text-kb font-semibold" : "text-muted"}`}>{v.name}</p>
               </button>
               {!v.system && !nurGewaehlte && (
-                <>
-                  <IconButton size="sm" aria-label={t("editTemplate", { name: v.name })}
-                              className="absolute top-2 right-9" onClick={() => setBearbeiten(v)}>
+                <span className="absolute top-2 right-2 flex gap-1">
+                  <IconButton size="sm" aria-label={t("editTemplate", { name: v.name })} onClick={() => setBearbeiten(v)}>
                     <PencilSimple className="w-3 h-3" />
                   </IconButton>
-                  <IconButton size="sm" aria-label={t("deleteTemplate", { name: v.name })}
-                              className="absolute top-2 right-2" onClick={() => loeschen(v.id)}>
+                  <IconButton size="sm" aria-label={t("deleteTemplate", { name: v.name })} onClick={() => loeschen(v.id)}>
                     <Trash className="w-3 h-3" />
                   </IconButton>
-                </>
+                </span>
               )}
             </div>
           );
@@ -99,9 +101,9 @@ export default function VorlagenWahl({ templateId, onTemplate, onVorlage, nurGew
         {!nurGewaehlte && <button
           type="button"
           onClick={() => setHochladen(true)}
-          className="rounded-xl border-2 border-dashed border-border hover:border-kb transition-colors p-4 flex flex-col items-center justify-center gap-2 text-sm text-foreground-soft"
+          className={`${kachel} rounded-lg border-2 border-dashed border-border hover:border-kb transition-colors p-2 flex flex-col items-center justify-center gap-1 text-xs text-foreground-soft text-center`}
         >
-          <Plus className="w-5 h-5" />
+          <Plus className="w-4 h-4" />
           {t("uploadTemplate")}
         </button>}
       </div>

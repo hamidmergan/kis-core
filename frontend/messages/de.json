@@ -1431,7 +1431,12 @@
         "notesHint": "Die Notizen landen in der Notizansicht von PowerPoint und lassen sich im Screencast vertonen.",
         "activeJob": "Du hast gerade zu viele Jobs offen, ein weiterer ist nicht möglich. Warte, bis einer fertig ist, oder lösche einen in der",
         "activeJobLink": "Jobliste",
-        "next": "Gliederung erstellen"
+        "next": "Gliederung erstellen",
+        "materialLabel": "Material",
+        "filesCount": "{n, plural, =0 {keine} one {# Datei} other {# Dateien}}",
+        "sourcesCount": "{n, plural, =0 {keine} one {# Material} other {# Materialien}}",
+        "emptyValue": "leer",
+        "barTemplate": "Folienmaster: {name}"
       },
       "upload": {
         "title": "Eigene Vorlage",
@@ -1484,6 +1489,7 @@
         "summary": "{n} Folien.",
         "previewReady": "Vorschau fertig",
         "previewReadyHint": "Prüfe jede Folie und ändere direkt hier, was nicht passt. Wenn alles stimmt, klicke unten auf „Fertigstellen“.",
+        "editNote": "Notiz bearbeiten",
         "instructionUnmatched": "Zu deiner Anweisung steht nichts in den Materialien. Die Präsentation nutzt deshalb das gesamte Material.",
         "failed": "Der Bau ist fehlgeschlagen.",
         "retry": "Erneut versuchen",
@@ -1587,18 +1593,12 @@
         "allSlides": "Alle Folien"
       },
       "demoBadge": "Demo ansehen",
-      "neu": {
-        "historyTitle": "Deine Präsentationen",
-        "historyEmpty": "Noch keine Präsentation.",
-        "historyHint": "Neue Präsentationen kommen oben dazu, ein Klick öffnet sie wieder.",
+      "history": {
+        "title": "Deine Präsentationen",
+        "empty": "Noch keine Präsentation.",
+        "hint": "Neue Präsentationen kommen oben dazu, ein Klick öffnet sie wieder.",
         "colMaterial": "Material",
-        "colDate": "Datum",
-        "sourceLabel": "Material",
-        "files": "{n, plural, =0 {keine} one {# Datei} other {# Dateien}}",
-        "sources": "{n, plural, =0 {keine} one {# Material} other {# Materialien}}",
-        "empty": "leer",
-        "barTemplate": "Folienmaster: {name}",
-        "editNote": "Notiz bearbeiten"
+        "colDate": "Datum"
       }
     },
     "screencastDemo": {

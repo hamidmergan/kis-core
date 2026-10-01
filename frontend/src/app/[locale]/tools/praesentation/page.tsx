@@ -2,7 +2,7 @@
 
 import { Trash } from "@phosphor-icons/react";
 import { useSearchParams } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Suspense, useCallback, useEffect, useReducer, useRef, useState } from "react";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import RegenChatModal, { type RegenTurn } from "@/components/regen/RegenChatModal";
@@ -14,12 +14,14 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { useRegenAnchor } from "@/hooks/useRegenAnchor";
 import { useActiveJobCheck } from "@/hooks/useScreencastResume";
 import { useFeatureProviders } from "@/hooks/useFeatureProviders";
-import { Link } from "@/i18n/navigation";
+import JobHistoryTable from "@/components/jobs/JobHistoryTable";
+import { useJobHistory } from "@/hooks/useJobHistory";
+import { Link, useRouter } from "@/i18n/navigation";
 import { notifyJobsChanged } from "@/lib/jobs-events";
 import * as api from "./_api";
-import PraesentationStepper from "./_components/PraesentationStepper";
 import { LAEUFT, closedForGood, isBusy, reachable, schrittFuer } from "./_logic";
 import { INITIAL_STATE, reducer, type Action } from "./_reducer";
+import PraesentationStepper from "./_components/PraesentationStepper";
 import ContentStep from "./_steps/ContentStep";
 import DoneStep from "./_steps/DoneStep";
 import PreviewStep from "./_steps/PreviewStep";
@@ -34,6 +36,10 @@ function PraesentationPageInner() {
   const t = useTranslations("tools.praesentation");
   const tCommon = useTranslations("common");
   const tNachfrage = useTranslations("tools.praesentation.nachfrage");
+  const tHistory = useTranslations("tools.praesentation.history");
+  const locale = useLocale();
+  const router = useRouter();
+  const verlauf = useJobHistory("praesentation");
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
   const [nachfrage, setNachfrage] = useState<"abbrechen" | "verwerfen" | null>(null);
   // The chat model that writes, picked in the first step and sent along with the start.
@@ -292,8 +298,18 @@ function PraesentationPageInner() {
 
   return (
     <ProtectedRoute>
-      <div className="max-w-4xl mx-auto px-4 py-10 sm:py-14" data-tour="tool-praesentation">
-        <ToolBackLink />
+      {/* Wide for the two columns of the first step, narrow like the original for slides and the finished deck. */}
+      <div className={`${state.step === "content" ? "max-w-6xl" : "max-w-4xl"} mx-auto px-4 py-10 sm:py-14`} data-tour="tool-praesentation">
+        {/* On the phone the later steps bring their own header with a back arrow. */}
+        <div className={state.step === "content" ? "" : "hidden sm:flex items-baseline justify-between gap-3"}>
+          <ToolBackLink />
+          {hydrated && state.step !== "content" && state.jobUuid && (
+            <button type="button" onClick={() => setNachfrage("verwerfen")} className={DISCARD}>
+              <Trash size={14} aria-hidden="true" />
+              {t("discard")}
+            </button>
+          )}
+        </div>
         {/* Title and intro only on the first step, like podcast and screencast. */}
         {hydrated && state.step === "content" ? (
           <>
@@ -313,21 +329,15 @@ function PraesentationPageInner() {
             </div>
             <p className="text-sm text-muted mt-1 mb-8">{t("intro")}</p>
           </>
-        ) : hydrated && state.jobUuid && (
-          <div className="flex justify-end mb-3 sm:mb-8">
-            <button type="button" onClick={() => setNachfrage("verwerfen")} className={DISCARD}>
-              <Trash size={14} aria-hidden="true" />
-              {t("discard")}
-            </button>
-          </div>
-        )}
+        ) : null}
         {!hydrated ? (
           <Spinner className="justify-center py-20" />
         ) : (
           <>
             {state.step !== "content" && (
               <PraesentationStepper step={state.step} canEnter={(i) => reachable(i, state)}
-                                    isClosedForGood={(i) => closedForGood(i, state)} onStepClick={gehe} />
+                                    isClosedForGood={(i) => closedForGood(i, state)} onStepClick={gehe}
+                                    onDiscard={state.jobUuid ? () => setNachfrage("verwerfen") : null} />
             )}
             {state.step === "content" && (
               <ContentStep canUseModules={!!permissions.allow_aia} source={state.source} language={state.language}
@@ -343,6 +353,17 @@ function PraesentationPageInner() {
                 onPresenter={(name) => dispatch({ type: "SET_PRESENTER", name })}
                 onTemplate={(templateId) => dispatch({ type: "SET_TEMPLATE", templateId })}
                 onNext={starten} />
+            )}
+            {state.step === "content" && (
+              <div className="mt-10">
+                <h2 className="text-sm font-semibold text-foreground mb-1">{tHistory("title")}</h2>
+                <p className="text-xs text-muted mb-3">{verlauf.length ? tHistory("hint") : tHistory("empty")}</p>
+                {verlauf.length > 0 && (
+                  <JobHistoryTable entries={verlauf} selectedUuid={state.jobUuid} locale={locale}
+                    colMaterial={tHistory("colMaterial")} colDate={tHistory("colDate")}
+                    onSelect={(uuid) => router.replace(`/tools/praesentation?job=${uuid}`)} />
+                )}
+              </div>
             )}
             {/* The cards stand from the click on start, before the job even has its id. */}
             {state.step === "preview" && (state.jobUuid || state.starting) && (

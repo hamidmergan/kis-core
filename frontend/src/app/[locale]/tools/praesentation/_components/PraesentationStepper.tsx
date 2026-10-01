@@ -1,73 +1,78 @@
 "use client";
 
+import { CaretLeft, Trash } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
 import { STEPS, type Step } from "../_types";
 
 interface PraesentationStepperProps {
   step: Step;
   canEnter: (index: number) => boolean;
+  /** A step that can never be entered again, shown faded. */
   isClosedForGood: (index: number) => boolean;
   onStepClick: (index: number) => void;
+  /** Discards the whole run, absent where there is nothing to discard. */
+  onDiscard?: (() => void) | null;
 }
 
-/** The same circles and lines as the screencast, only four of them and without the drag. */
-export default function PraesentationStepper({ step, canEnter, isClosedForGood, onStepClick }: PraesentationStepperProps) {
+/** Numbered underline tabs on the desktop, a back arrow with a progress bar on the phone. */
+export default function PraesentationStepper({ step, canEnter, isClosedForGood, onStepClick, onDiscard }: PraesentationStepperProps) {
   const t = useTranslations("tools.praesentation.steps");
+  const tPage = useTranslations("tools.praesentation");
+  const tCommon = useTranslations("tools.praesentation.common");
   const tStepper = useTranslations("stepper");
-  const currentIdx = STEPS.indexOf(step);
+  const aktuell = STEPS.indexOf(step);
+  const zurueck = aktuell > 0 && canEnter(aktuell - 1) ? aktuell - 1 : null;
 
   return (
-    <nav aria-label={tStepper("ariaLabel")} className="mb-10 overflow-x-auto scrollbar-hide rounded-xl bg-kb/2 px-3 py-2.5">
-      <ol className="flex items-center justify-center gap-1 sm:gap-2 w-max min-w-full">
+    <>
+      <div className="sm:hidden -mx-4 -mt-6 mb-5">
+        <div className="h-14 flex items-center gap-3 px-4">
+          {zurueck !== null ? (
+            <button type="button" onClick={() => onStepClick(zurueck)} aria-label={tCommon("back")} className="text-muted hover:text-kb transition-colors">
+              <CaretLeft size={20} weight="bold" />
+            </button>
+          ) : (
+            <Link href="/" aria-label={tCommon("back")} className="text-muted hover:text-kb transition-colors">
+              <CaretLeft size={20} weight="bold" />
+            </Link>
+          )}
+          <h1 className="text-base font-bold flex-1">{t(step)}</h1>
+          {onDiscard && (
+            <button type="button" onClick={onDiscard} aria-label={tPage("discard")} className="text-muted-soft hover:text-error transition-colors">
+              <Trash size={18} />
+            </button>
+          )}
+        </div>
+        <div className="h-1 bg-border-soft">
+          <div className="h-1 bg-kb transition-all" style={{ width: `${((aktuell + 1) / STEPS.length) * 100}%` }} />
+        </div>
+      </div>
+
+      <nav aria-label={tStepper("ariaLabel")} className="hidden sm:flex justify-center gap-8 border-b border-border-soft mb-8">
         {STEPS.map((key, i) => {
-          const isDone = i < currentIdx;
-          const isActive = i === currentIdx;
-          const isClickable = canEnter(i);
-          const istTot = !isActive && isClosedForGood(i);
-          const Huelle = isClickable ? "button" : "span";
+          const aktiv = i === aktuell;
+          const klickbar = !aktiv && canEnter(i);
           return (
-            <li key={key} data-active={isActive} className="flex items-center gap-1 sm:gap-2">
-              <Huelle
-                {...(isClickable ? { type: "button" as const, onClick: () => onStepClick(i) } : {})}
-                className={`
-                  inline-flex items-center gap-1 sm:gap-1.5 rounded-sm px-1 py-0.5 transition-colors select-none
-                  ${isClickable ? "group cursor-pointer" : "cursor-default"}
-                  ${istTot ? "opacity-50" : ""}
-                `}
-              >
-                <span
-                  className={`
-                    inline-flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-full text-3xs sm:text-xs font-medium transition-colors flex-shrink-0
-                    ${isClickable ? "outline-2 outline-transparent group-hover:outline-kb" : ""}
-                    ${isActive ? "bg-kb text-white" : ""}
-                    ${isDone ? "bg-kb/20 text-kb" : ""}
-                    ${!isActive && !isDone ? "bg-background dark:bg-surface-dim text-muted-soft" : ""}
-                  `}
-                  aria-current={isActive ? "step" : undefined}
-                >
-                  {isDone ? (
-                    <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  ) : (
-                    i + 1
-                  )}
-                </span>
-                <span
-                  className={`text-3xs sm:text-xs whitespace-nowrap ${
-                    isActive ? "text-foreground font-medium" : isClickable ? "text-kb" : "text-muted-soft"
-                  }`}
-                >
-                  {t(key)}
-                </span>
-              </Huelle>
-              {i < STEPS.length - 1 && (
-                <span className={`w-3 sm:w-8 h-px flex-shrink-0 ${i < currentIdx ? "bg-kb" : "bg-kb/15"}`} aria-hidden="true" />
-              )}
-            </li>
+            <button
+              key={key}
+              type="button"
+              disabled={!klickbar && !aktiv}
+              onClick={() => klickbar && onStepClick(i)}
+              aria-current={aktiv ? "step" : undefined}
+              className={`text-sm pb-3 -mb-px border-b-2 transition-colors ${
+                aktiv
+                  ? "font-semibold text-kb border-kb cursor-default"
+                  : klickbar
+                    ? "text-muted border-transparent hover:text-kb"
+                    : `text-muted-soft border-transparent cursor-not-allowed ${isClosedForGood(i) ? "opacity-50" : ""}`
+              }`}
+            >
+              {i + 1}&nbsp;&nbsp;{t(key)}
+            </button>
           );
         })}
-      </ol>
-    </nav>
+      </nav>
+    </>
   );
 }

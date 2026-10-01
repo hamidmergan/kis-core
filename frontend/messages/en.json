@@ -1431,7 +1431,12 @@
         "notesHint": "The notes end up in PowerPoint's notes view and can be voiced in the screencast.",
         "activeJob": "You have too many open jobs right now, no further job is possible. Wait until one finishes or delete one in the",
         "activeJobLink": "job list",
-        "next": "Create outline"
+        "next": "Create outline",
+        "materialLabel": "Material",
+        "filesCount": "{n, plural, =0 {none} one {# file} other {# files}}",
+        "sourcesCount": "{n, plural, =0 {none} one {# material} other {# materials}}",
+        "emptyValue": "empty",
+        "barTemplate": "Slide master: {name}"
       },
       "upload": {
         "title": "Your own template",
@@ -1484,6 +1489,7 @@
         "summary": "{n} slides.",
         "previewReady": "Preview ready",
         "previewReadyHint": "Check each slide and change anything that does not fit right here. When everything is right, click “Finalize” below.",
+        "editNote": "Edit note",
         "instructionUnmatched": "Your instruction is not covered by the sources. The presentation uses all of the material instead.",
         "failed": "The build failed.",
         "retry": "Try again",
@@ -1587,18 +1593,12 @@
         "allSlides": "All slides"
       },
       "demoBadge": "View demo",
-      "neu": {
-        "historyTitle": "Your presentations",
-        "historyEmpty": "No presentation yet.",
-        "historyHint": "New presentations appear at the top, a click opens them again.",
+      "history": {
+        "title": "Your presentations",
+        "empty": "No presentation yet.",
+        "hint": "New presentations appear at the top, a click opens them again.",
         "colMaterial": "Material",
-        "colDate": "Date",
-        "sourceLabel": "Material",
-        "files": "{n, plural, =0 {none} one {# file} other {# files}}",
-        "sources": "{n, plural, =0 {none} one {# material} other {# materials}}",
-        "empty": "empty",
-        "barTemplate": "Slide master: {name}",
-        "editNote": "Edit note"
+        "colDate": "Date"
       }
     },
     "screencastDemo": {

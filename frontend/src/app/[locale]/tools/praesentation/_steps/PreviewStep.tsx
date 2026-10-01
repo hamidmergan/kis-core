@@ -1,5 +1,6 @@
 "use client";
 
+import { ArrowRight } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import BackgroundHint from "@/components/tools/BackgroundHint";
@@ -10,7 +11,6 @@ import StatusMark from "@/components/ui/StatusMark";
 import FolienGrossbild from "../_components/FolienGrossbild";
 import FolienKarte from "../_components/FolienKarte";
 import FolienSkizze from "../_components/FolienSkizze";
-import StepFooter from "../_components/StepFooter";
 import { FIELD } from "../_components/VorlageHochladen";
 import { imageUrl, previewUrl } from "../_api";
 import { fortschrittMeldung, kannEinfuegen, skizzen } from "../_logic";
@@ -103,52 +103,53 @@ export default function PreviewStep(p: PreviewStepProps) {
 
   return (
     <section className="animate-[fadeIn_0.3s_ease-out]">
-      {/* A stopped run says what happened in its own box below, it needs no heading. */}
-      {bereit ? (
-        <div className="flex items-center gap-3 flex-wrap" aria-live="polite">
-          <h2 className="text-lg font-bold">
-            <StatusMark tone="success" className="text-inherit">{t("previewReady")}</StatusMark>
-          </h2>
-          <span className="text-sm text-muted">{t("summary", { n: p.slides.length })}</span>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+        <div className="min-w-0 flex-1">
+          {/* A stopped run says what happened in its own box below, it needs no heading. */}
+          {bereit ? (
+            <div className="flex items-center gap-3 flex-wrap" aria-live="polite">
+              <h2 className="text-base sm:text-lg font-bold">
+                <StatusMark tone="success" className="text-inherit">{t("previewReady")}</StatusMark>
+              </h2>
+              <span className="text-sm text-muted">{t("summary", { n: p.slides.length })}</span>
+            </div>
+          ) : (
+            <>
+              {p.laeuft && <h2 className="text-base sm:text-lg font-bold">{t("working")}</h2>}
+              <div className="mt-1" aria-live="polite">
+                {p.laeuft ? (
+                  <p className="text-sm text-foreground-soft flex items-center gap-2">
+                    <Spinner size="sm" />
+                    {t(meldung.key, meldung.values)}
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted">{t("summary", { n: p.slides.length })}</p>
+                )}
+              </div>
+            </>
+          )}
+          {bereit && <p className="text-sm text-foreground-soft mt-1.5">{p.demo ? tDemo("bearbeitenGesperrt") : t("previewReadyHint")}</p>}
         </div>
-      ) : (
-        <>
-          {p.laeuft && <h2 className="text-lg font-bold">{t("working")}</h2>}
-          <div className="mt-1" aria-live="polite">
-            {p.laeuft ? (
-              <p className="text-sm text-foreground-soft flex items-center gap-2">
-                <Spinner size="sm" />
-                {t(meldung.key, meldung.values)}
-              </p>
-            ) : (
-              <p className="text-sm text-muted">{t("summary", { n: p.slides.length })}</p>
-            )}
-          </div>
-        </>
-      )}
 
-      {bereit && (
-        <p className="text-sm text-foreground-soft mt-2">{p.demo ? tDemo("bearbeitenGesperrt") : t("previewReadyHint")}</p>
-      )}
+        <div className="flex items-center gap-x-5 gap-y-2 flex-wrap sm:shrink-0 sm:pt-1">
+          {/* Only whoever asked for notes in the first step has anything to decide here. */}
+          {p.notesOn && !erstbau && (
+            <Checkbox checked={p.notesInclude} onChange={p.onNotesInclude} label={t("notesInclude")} disabled={p.laeuft}
+                      labelClassName="text-sm text-foreground" />
+          )}
+          <span className="hidden sm:contents">
+            <Checkbox checked={alleOffen} indeterminate={teilweiseOffen} label={t("expandAll")}
+                      labelClassName="text-sm text-foreground"
+                      onChange={(auf) => setZu(auf ? new Set() : new Set(zeilen))} />
+          </span>
+        </div>
+      </div>
 
       {p.instructionUnmatched && (
         <p className="mt-4 rounded-md border border-warn-border bg-warn-bg px-3 py-2 text-sm text-warn-strong" role="status">
           {t("instructionUnmatched")}
         </p>
       )}
-
-      {/* Below the status and the hint on the right, so the lines above read on their own. */}
-      <div className="mt-12 flex items-center justify-end gap-x-5 gap-y-2 flex-wrap">
-        {/* Only whoever asked for notes in the first step has anything to decide here. */}
-        {p.notesOn && !erstbau && (
-          <Checkbox checked={p.notesInclude} onChange={p.onNotesInclude} label={t("notesInclude")} disabled={p.laeuft}
-                    labelClassName="text-sm text-foreground" />
-        )}
-        {/* Sets every row at once, and in return shows how many are open. */}
-        <Checkbox checked={alleOffen} indeterminate={teilweiseOffen} label={t("expandAll")}
-                  labelClassName="text-sm text-foreground"
-                  onChange={(auf) => setZu(auf ? new Set() : new Set(zeilen))} />
-      </div>
 
       {gestoert && (
         <div className="mt-4 rounded-xl border-2 border-error-border p-3">
@@ -170,7 +171,7 @@ export default function PreviewStep(p: PreviewStepProps) {
       )}
 
       {(karten.length > 0 || p.laeuft) && (
-        <ol className="mt-3 folien-liste">
+        <ol className="mt-6 folien-liste">
           {karten.length > 0
             ? karten.map((k, i) => {
                 const s = nachId.get(k.id);
@@ -211,8 +212,13 @@ export default function PreviewStep(p: PreviewStepProps) {
           </button>
         </div>
       ) : (
-        <StepFooter onBack={null} nextLabel={t("finalize")} onNext={p.onFinalize}
-          nextDisabled={p.slides.length === 0 || p.laeuft || gestoert} />
+        <div className="sticky bottom-0 z-30 -mx-4 px-4 py-3 border-t border-border-soft bg-background sm:static sm:mx-0 sm:px-0 sm:py-0 sm:border-0 sm:bg-transparent sm:mt-8 sm:flex sm:justify-end">
+          <button type="button" onClick={p.onFinalize} disabled={p.slides.length === 0 || p.laeuft || gestoert}
+            className="w-full sm:w-auto px-5 py-3 sm:py-2.5 btn-primary text-sm font-medium rounded-md inline-flex items-center justify-center gap-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
+            {t("finalize")}
+            <ArrowRight size={14} weight="bold" />
+          </button>
+        </div>
       )}
 
       {lightbox !== null && karten[lightbox] && (

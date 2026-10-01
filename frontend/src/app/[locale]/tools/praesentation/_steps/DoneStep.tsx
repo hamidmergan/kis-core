@@ -1,9 +1,11 @@
 "use client";
 
+import { DownloadSimple } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
+import { useState } from "react";
 import BackgroundHint from "@/components/tools/BackgroundHint";
 import Spinner from "@/components/ui/Spinner";
-import FolienBetrachter from "../_components/FolienBetrachter";
+import FolienGrossbild from "../_components/FolienGrossbild";
 import { downloadUrl, previewUrl } from "../_api";
 import { LAEUFT, fortschrittMeldung } from "../_logic";
 import type { JobProgress, JobStatus, Slide } from "../_types";
@@ -29,10 +31,11 @@ const cancelIcon = (
   </svg>
 );
 
-const NEBENKNOPF = "px-6 py-2 text-sm text-foreground-soft border border-border rounded-md btn-ghost focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors";
+const NEBENKNOPF = "w-full sm:w-auto px-6 py-2.5 sm:py-2 text-sm text-foreground-soft border border-border rounded-md btn-ghost focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors";
 
-/** The finished deck, to look through once more and to download, like the end of the screencast. */
+/** The finished deck as a strip of slides, a click shows one large, the download pinned on the phone. */
 export default function DoneStep(p: DoneStepProps) {
+  const [gross, setGross] = useState<number | null>(null);
   const t = useTranslations("tools.praesentation.done");
   const tSlides = useTranslations("tools.praesentation.slides");
   const tCommon = useTranslations("tools.praesentation.common");
@@ -93,26 +96,49 @@ export default function DoneStep(p: DoneStepProps) {
       <h2 className="text-lg font-bold text-center">{t("heading")}</h2>
       <p className="text-sm text-muted mt-1 mb-6 text-center">{t("summary", { n: p.slides.length })}</p>
 
-      <FolienBetrachter ids={p.slides.map((s) => s.id)}
-        urlFuer={(id) => (typeof p.previews[id] === "number" ? previewUrl(p.jobUuid, id, p.previews[id]) : null)} />
+      <ol className="flex gap-2.5 sm:gap-4 overflow-x-auto scrollbar-hide pb-1.5 sm:flex-wrap sm:justify-center" aria-label={t("allSlides")}>
+        {p.slides.map((s, i) => {
+          const url = typeof p.previews[s.id] === "number" ? previewUrl(p.jobUuid, s.id, p.previews[s.id]) : null;
+          return (
+            <li key={s.id} className="shrink-0">
+              <button type="button" onClick={() => setGross(i)} aria-label={tSlides("openPreview", { n: i + 1 })}
+                      className="block w-32 sm:w-40 rounded-md overflow-hidden border-2 border-border-soft hover:border-kb shadow-sm transition-colors cursor-zoom-in">
+                {url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={url} alt="" loading="lazy" className="block w-full aspect-video object-cover" />
+                ) : (
+                  <span className="block aspect-video bg-surface" />
+                )}
+              </button>
+            </li>
+          );
+        })}
+      </ol>
 
-      <div className="flex justify-center mt-8 mb-6">
+      {/* Desktop: download above the two side buttons. Phone: side buttons first, download pinned below. */}
+      <div className="flex flex-col">
+      <div className="order-last sm:order-none sticky bottom-0 z-30 -mx-4 px-4 py-3 mt-6 border-t border-border-soft bg-background sm:static sm:mx-0 sm:px-0 sm:py-0 sm:border-0 sm:bg-transparent sm:mt-9 sm:mb-6 sm:flex sm:justify-center">
         <button
           type="button"
           onClick={herunterladen}
-          className="px-6 py-2 btn-primary text-sm font-medium rounded-md  focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors flex items-center gap-2"
+          className="w-full sm:w-auto px-6 py-3 sm:py-2 btn-primary text-sm font-medium rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors flex items-center justify-center gap-2"
         >
-          <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-          </svg>
+          <DownloadSimple size={16} weight="bold" />
           {t("download")}
         </button>
       </div>
 
-      <div className="flex flex-wrap justify-center gap-3">
+      <div className="flex flex-col sm:flex-row sm:flex-wrap sm:justify-center gap-2 sm:gap-3 mt-6 sm:mt-0">
         <button type="button" onClick={p.onBackToPreview} className={NEBENKNOPF}>{t("backToSlides")}</button>
         <button type="button" onClick={p.onNew} className={NEBENKNOPF}>{t("new")}</button>
       </div>
+      </div>
+
+      {gross !== null && (
+        <FolienGrossbild index={gross} total={p.slides.length}
+          previewUrl={typeof p.previews[p.slides[gross]?.id] === "number" ? previewUrl(p.jobUuid, p.slides[gross].id, p.previews[p.slides[gross].id]) : null}
+          onClose={() => setGross(null)} onIndexChange={setGross} />
+      )}
     </section>
   );
 }
