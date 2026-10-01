@@ -48,6 +48,7 @@ export default function CreateWorkspaceModal({ onClose, onCreated }: CreateWorks
         is_active: false,
         access: "owner",
         shared: false,
+        is_favorite: false,
         access_links: created.access_links ?? [],
         enroll_code: created.enroll_code ?? null,
         enroll_code_expires: created.enroll_code_expires ?? null,

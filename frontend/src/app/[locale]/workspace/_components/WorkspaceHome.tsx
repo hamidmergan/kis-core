@@ -232,7 +232,7 @@ export default function WorkspaceHome({ canCreate, firstName, languageInvite, sh
   return (
     <div className="page-shell pt-6 pb-20 lg:pt-15 lg:pb-30">
       <div className="max-w-7xl mx-auto">
-        {showGreeting && <Greeting firstName={firstName} />}
+        {showGreeting && <Greeting firstName={firstName} as="h2" />}
 
         <div className="flex flex-col md:flex-row gap-4 mb-8 empty:hidden">
           <TourInvite />

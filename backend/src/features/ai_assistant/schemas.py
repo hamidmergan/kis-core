@@ -63,6 +63,10 @@ class EnrollBody(BaseModel):
     enroll_code: str
 
 
+class FavoriteWorkspaceBody(BaseModel):
+    favorite: bool
+
+
 class ChatBody(BaseModel):
     question: str = Field(..., min_length=1, max_length=AIA_QUESTION_MAX_CHARS)
     active_source_ids: Optional[list[str]] = None

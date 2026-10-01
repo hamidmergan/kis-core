@@ -693,6 +693,7 @@ export default function KiTutorWorkspacePage() {
             setShowSettings(false);
             setTimeout(starteRundgang, 250);
           }}
+          isTourModule={moduleDetail?.is_tour_module ?? false}
           showSettings={showSettings}
           onToggleSettings={() => setShowSettings((v) => !v)}
           onCloseSettings={() => setShowSettings(false)}

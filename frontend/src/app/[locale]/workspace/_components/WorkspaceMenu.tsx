@@ -3,11 +3,15 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
-import { DotsThreeVertical, LinkSimple, PencilSimple, SignOut, Trash, Users } from "@phosphor-icons/react";
+import { DotsThreeVertical, Info, LinkSimple, PencilSimple, SignOut, Star, Trash, Users } from "@phosphor-icons/react";
 import IconButton from "@/components/ui/IconButton";
 
 interface WorkspaceMenuProps {
   /** Every entry appears only when it exists for this row. */
+  favorite?: boolean;
+  onToggleFavorite?: () => void;
+  /** Full description, phone only — the desktop row unfolds it inline instead. */
+  onInfo?: () => void;
   onParticipants?: () => void;
   onLinks?: () => void;
   onEdit?: () => void;
@@ -22,7 +26,7 @@ const MENU_WIDTH = 220;
 const GAP = 6;
 
 export default function WorkspaceMenu({
-  onParticipants, onLinks, onEdit, onDelete, onLeave, testId,
+  favorite, onToggleFavorite, onInfo, onParticipants, onLinks, onEdit, onDelete, onLeave, testId,
 }: WorkspaceMenuProps) {
   const t = useTranslations("workspace.list");
   const tDemo = useTranslations("workspace.demo");
@@ -89,6 +93,28 @@ export default function WorkspaceMenu({
             boxShadow: "rgba(0, 0, 0, 0.12) 0px 4px 16px",
           }}
         >
+          {onToggleFavorite && (
+          <button
+            type="button"
+            onClick={() => handle(onToggleFavorite)}
+            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-[var(--surface-dim)] transition-colors"
+            style={{ color: "var(--foreground)" }}
+          >
+            <Star size={16} weight={favorite ? "fill" : "bold"} className={favorite ? "text-kb-dark" : undefined} />
+            {favorite ? t("favoriteRemove") : t("favoriteAdd")}
+          </button>
+          )}
+          {onInfo && (
+          <button
+            type="button"
+            onClick={() => handle(onInfo)}
+            className="sm:hidden w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-[var(--surface-dim)] transition-colors"
+            style={{ color: "var(--foreground)" }}
+          >
+            <Info size={16} weight="bold" />
+            {t("descriptionField")}
+          </button>
+          )}
           {onParticipants && (
           <button
             type="button"

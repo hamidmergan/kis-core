@@ -36,20 +36,23 @@ export default function WorkspaceDescription({ text }: { text: string }) {
       >
         {text}
       </span>
+      {/* The phone sends this to the info entry in the three-dot menu instead, there is no room for a caret here. */}
       {cut && (
-        <IconButton
-          size="sm"
-          aria-label={label}
-          aria-expanded={open}
-          title={label}
-          data-testid="module-description-toggle"
-          className="-mt-0.5"
-          style={{ backgroundColor: "transparent" }}
-          onMouseDown={(e) => e.stopPropagation()}
-          onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
-        >
-          {open ? <CaretUp size={12} weight="bold" /> : <CaretDown size={12} weight="bold" />}
-        </IconButton>
+        <span className="hidden sm:inline-flex">
+          <IconButton
+            size="sm"
+            aria-label={label}
+            aria-expanded={open}
+            title={label}
+            data-testid="module-description-toggle"
+            className="-mt-0.5"
+            style={{ backgroundColor: "transparent" }}
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
+          >
+            {open ? <CaretUp size={12} weight="bold" /> : <CaretDown size={12} weight="bold" />}
+          </IconButton>
+        </span>
       )}
     </span>
   );

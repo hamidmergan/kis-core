@@ -64,6 +64,20 @@ export default function WorkspaceList({ canCreate }: Props) {
     } catch { /* ignore */ }
   }
 
+  async function handleToggleFavorite(uuid: string, newVal: boolean) {
+    try {
+      const res = await fetch(`/api/ai-assistant/workspaces/${uuid}/favorite`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ favorite: newVal }),
+      });
+      if (res.ok) {
+        setWorkspaces((prev) => prev.map((m) => m.uuid === uuid ? { ...m, is_favorite: newVal } : m));
+      }
+    } catch { /* ignore */ }
+  }
+
   async function handleDelete(uuid: string) {
     try {
       const res = await fetch(`/api/ai-assistant/workspaces/${uuid}`, {
@@ -140,9 +154,9 @@ export default function WorkspaceList({ canCreate }: Props) {
       {showJoin && <JoinModuleModal onClose={() => setShowJoin(false)} />}
 
       <section>
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="text-lg md:text-xl font-semibold">{heading}</h2>
-          <div className="flex items-center gap-2">
+        <div>
+          <h1 className="text-xl md:text-2xl font-bold">{heading}</h1>
+          <div className="flex items-center justify-end gap-2 mt-8">
           <button
             type="button"
             onClick={() => setShowJoin(true)}
@@ -200,10 +214,11 @@ export default function WorkspaceList({ canCreate }: Props) {
             }
           />
         ) : (
-          <div className="mt-3 md:mt-10">
+          <div className="mt-3">
             <WorkspaceTable
               workspaces={workspaces}
               onToggleActive={handleToggleActive}
+              onToggleFavorite={handleToggleFavorite}
               onDelete={handleDelete}
               onEdit={handleEdit}
               onLinksChanged={handleLinksChanged}

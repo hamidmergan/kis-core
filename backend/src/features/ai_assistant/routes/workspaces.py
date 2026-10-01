@@ -80,7 +80,7 @@ def _parse_optional_expiry(raw: str | None, locale: str) -> datetime | None:
         raise HTTPException(status_code=400, detail=t("date.invalidExpiresAt", locale))
 
 
-def _managed_workspace_payload(m: dict, access: str, shared: bool) -> dict:
+def _managed_workspace_payload(m: dict, access: str, shared: bool, favorite: bool) -> dict:
     """Row for someone who manages the course room, owner or tutor."""
     sources = db.get_aia_sources_by_workspace(m["id"])
     links = db.get_access_links_by_workspace(m["id"])
@@ -92,6 +92,7 @@ def _managed_workspace_payload(m: dict, access: str, shared: bool) -> dict:
         "is_active": m["is_active"],
         "access": access,
         "shared": shared,
+        "is_favorite": favorite,
         "is_demo_workspace": bool(m.get("owner_is_demo")),
         "is_tour_module": bool(m.get("is_tour_module")),
         "source_count": len(sources),
@@ -119,10 +120,11 @@ def list_workspaces(current_user: dict = Depends(get_current_user)):
     """All reachable course rooms in one list, with the kind of access."""
     user_id = current_user["user_id"]
     with_tutors = db.get_workspace_ids_with_tutors()
+    favorite_ids = db.get_favorite_workspace_ids(user_id)
     result = []
 
     for m in db.get_aia_workspaces_by_user(user_id):
-        result.append(_managed_workspace_payload(m, "owner", m["id"] in with_tutors))
+        result.append(_managed_workspace_payload(m, "owner", m["id"] in with_tutors, m["id"] in favorite_ids))
 
     owned_ids = {m["uuid"] for m in result}
     seen_as_tutor: set[str] = set()
@@ -133,7 +135,7 @@ def list_workspaces(current_user: dict = Depends(get_current_user)):
             if m["uuid"] in seen_as_tutor:
                 continue  # enrolled through several links, still one workspace
             seen_as_tutor.add(m["uuid"])
-            result.append(_managed_workspace_payload(m, "tutor", True))
+            result.append(_managed_workspace_payload(m, "tutor", True, m["id"] in favorite_ids))
             continue
         result.append({
             "uuid": m["uuid"],
@@ -143,6 +145,7 @@ def list_workspaces(current_user: dict = Depends(get_current_user)):
             "is_active": m["is_active"],
             "access": "student",
             "shared": False,
+            "is_favorite": m["id"] in favorite_ids,
             "source_count": len(db.get_aia_sources_by_workspace(m["id"])),
             "enrollment_id": m.get("enrollment_id"),
             "enrolled_until": m["enrolled_until"].isoformat() + "Z" if m.get("enrolled_until") else None,
@@ -154,6 +157,18 @@ def list_workspaces(current_user: dict = Depends(get_current_user)):
     # The stronger role wins, otherwise the row would appear twice.
     result = [r for r in result if not (r["access"] == "student" and r["uuid"] in seen_as_tutor)]
     return result
+
+@router.patch("/ai-assistant/workspaces/{workspace_uuid}/favorite")
+def patch_workspace_favorite(
+    workspace_uuid: str,
+    body: schemas.FavoriteWorkspaceBody,
+    current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
+):
+    """Starring works for owner, tutor and enrolled alike, it is purely per-user."""
+    workspace = _require_workspace_access(workspace_uuid, current_user["user_id"], locale=locale)
+    db.set_workspace_favorite(current_user["user_id"], workspace["id"], body.favorite)
+    return {"is_favorite": body.favorite}
 
 @router.get("/ai-assistant/transcript-languages")
 def list_transcript_languages(
@@ -197,6 +212,7 @@ def get_workspace(
         "is_owner": is_owner,
         "can_manage": can_manage,
         "is_demo_workspace": bool(owner and owner.get("is_demo")),
+        "is_tour_module": bool(workspace.get("is_tour_module")),
         "transcript_target_lang": workspace.get("transcript_target_lang", "en"),
         "diagnosis_language": workspace.get("diagnosis_language", DEFAULT_DIAGNOSIS_LANGUAGE),
         # Without the admin switch the catch-up entry would be a dead end.

@@ -8,15 +8,17 @@ import type { AccessLink, KiTutorWorkspace } from "../_shared";
 interface UseWorkspaceActionsOptions {
   workspace: KiTutorWorkspace;
   onToggleActive: (uuid: string, newVal: boolean) => Promise<void>;
+  onToggleFavorite: (uuid: string, newVal: boolean) => Promise<void>;
   onDelete: (uuid: string) => Promise<void>;
   onLinksChanged: (uuid: string, links: AccessLink[]) => void;
 }
 
-export function useWorkspaceActions({ workspace, onToggleActive, onDelete, onLinksChanged }: UseWorkspaceActionsOptions) {
+export function useWorkspaceActions({ workspace, onToggleActive, onToggleFavorite, onDelete, onLinksChanged }: UseWorkspaceActionsOptions) {
   const router = useRouter();
   const { pending: opening, navigate } = useNavTransition();
 
   const [toggling, setToggling] = useState(false);
+  const [favoriting, setFavoriting] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const [showLinks, setShowLinks] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
@@ -34,6 +36,12 @@ export function useWorkspaceActions({ workspace, onToggleActive, onDelete, onLin
     setToggling(true);
     await onToggleActive(workspace.uuid, newVal);
     setToggling(false);
+  }
+
+  async function handleToggleFavorite() {
+    setFavoriting(true);
+    await onToggleFavorite(workspace.uuid, !workspace.is_favorite);
+    setFavoriting(false);
   }
 
   async function handleDeleteClick() {
@@ -66,6 +74,7 @@ export function useWorkspaceActions({ workspace, onToggleActive, onDelete, onLin
   return {
     links, moduleHref,
     toggling,
+    favoriting, handleToggleFavorite,
     showStats, setShowStats,
     showLinks, setShowLinks,
     deleteConfirm, setDeleteConfirm, deleting, deleteParticipantCount,

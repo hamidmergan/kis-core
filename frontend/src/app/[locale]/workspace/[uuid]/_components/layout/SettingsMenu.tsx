@@ -19,6 +19,8 @@ interface SettingsMenuProps {
   previewsOwnerSide: boolean;
   onTogglePreview: () => void;
   onStartTour: () => void;
+  /** The one demo course the guided tour runs in, only there is restarting it offered. */
+  isTourModule: boolean;
   popupTranslateLang: string;
   onChangePopupTranslateLang: (lang: string) => void;
 }
@@ -33,6 +35,7 @@ export function SettingsMenu({
   previewsOwnerSide,
   onTogglePreview,
   onStartTour,
+  isTourModule,
   popupTranslateLang,
   onChangePopupTranslateLang,
 }: SettingsMenuProps) {
@@ -80,6 +83,22 @@ export function SettingsMenu({
             onToggle={() => { onTogglePreview(); onClose(); }}
             dataTour="preview-toggle"
           />
+        )}
+        {isTourModule && (
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{tTour("label")}</p>
+              <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>{tTour("description")}</p>
+            </div>
+            <button
+              type="button"
+              onClick={onStartTour}
+              aria-label={tTour("label")}
+              className="flex-shrink-0 text-sm rounded-lg px-3 py-2 text-foreground-soft border-2 border-border hover:border-kb transition-colors"
+            >
+              {tTour("inviteStart")}
+            </button>
+          </div>
         )}
         <div className="mt-3">
           <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{t("popupTranslateLangTitle")}</p>

@@ -9,6 +9,7 @@ export default function CollapsibleCard({
   badge,
   description,
   defaultOpen = false,
+  headerBg = false,
   children,
 }: {
   title: ReactNode;
@@ -16,19 +17,27 @@ export default function CollapsibleCard({
   badge?: string;
   description?: ReactNode;
   defaultOpen?: boolean;
+  /** Filled header instead of the hover ring, for a list of whole sections rather than one settings card. */
+  headerBg?: boolean;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
 
   return (
-    <div className="border-2 border-border-soft rounded-xl bg-background transition-colors hover:border-kb">
+    <div
+      className={
+        headerBg
+          ? "rounded-xl bg-background overflow-hidden"
+          : "border-2 border-border-soft rounded-xl bg-background transition-colors hover:border-kb"
+      }
+    >
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className={`w-full text-left flex items-start gap-2 px-5 pt-5 rounded-xl ${
+        className={`w-full text-left flex items-start gap-2 px-5 pt-5 ${
           open ? "pb-4" : "pb-5"
-        }`}
+        } ${headerBg ? "bg-surface rounded-none" : "rounded-xl"}`}
       >
         <CaretRight
           size={12}

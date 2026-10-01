@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { ChartBar } from "@phosphor-icons/react";
+import { ChartBar, Star } from "@phosphor-icons/react";
 import IconButton from "@/components/ui/IconButton";
 import Spinner from "@/components/ui/Spinner";
 import ActiveToggle from "./ActiveToggle";
 import WorkspaceDescription from "./WorkspaceDescription";
+import WorkspaceInfoModal from "./WorkspaceInfoModal";
 import WorkspaceMenu from "./WorkspaceMenu";
 import WorkspaceModals from "./WorkspaceModals";
 import { MAX_MEMBERS, type AccessLink, type KiTutorWorkspace } from "../_shared";
@@ -15,6 +16,7 @@ import { useWorkspaceActions } from "../_hooks/useWorkspaceActions";
 interface WorkspaceTableRowProps {
   workspace: KiTutorWorkspace;
   onToggleActive: (uuid: string, newVal: boolean) => Promise<void>;
+  onToggleFavorite: (uuid: string, newVal: boolean) => Promise<void>;
   onDelete: (uuid: string) => Promise<void>;
   onEdit: (uuid: string, newTitle: string, newDescription: string, tourModule: boolean | null) => Promise<boolean>;
   onLinksChanged: (uuid: string, links: AccessLink[]) => void;
@@ -24,6 +26,7 @@ interface WorkspaceTableRowProps {
 export default function WorkspaceTableRow({
   workspace,
   onToggleActive,
+  onToggleFavorite,
   onDelete,
   onEdit,
   onLinksChanged,
@@ -31,8 +34,9 @@ export default function WorkspaceTableRow({
 }: WorkspaceTableRowProps) {
   const t = useTranslations("workspace.list");
   const tDemo = useTranslations("workspace.demo");
-  const a = useWorkspaceActions({ workspace, onToggleActive, onDelete, onLinksChanged });
+  const a = useWorkspaceActions({ workspace, onToggleActive, onToggleFavorite, onDelete, onLinksChanged });
   const [showParticipants, setShowParticipants] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
   // A tutor manages like the owner, only deleting stays with the owner.
   const isOwner = workspace.access === "owner";
 
@@ -51,6 +55,9 @@ export default function WorkspaceTableRow({
         onConfirmDelete={a.handleDeleteConfirm} deleting={a.deleting}
         deleteParticipantCount={a.deleteParticipantCount}
       />
+      {showInfo && workspace.description && (
+        <WorkspaceInfoModal title={workspace.title} text={workspace.description} onClose={() => setShowInfo(false)} />
+      )}
 
       {/* On a phone the row is two lines: title and material count on top, switch and buttons below. */}
       <tr
@@ -112,7 +119,7 @@ export default function WorkspaceTableRow({
           />
         </td>
         <td className="col-span-2 row-start-2 pl-4 pr-4 pt-1.5 pb-3 sm:pl-20 sm:pr-4 sm:pt-3 sm:pb-3">
-          <div className="flex items-center justify-between gap-1.5 sm:justify-center">
+          <div className="flex items-center justify-between gap-1.5 sm:justify-end">
             {/* Without a status column the switch still has to be reachable on a phone. */}
             {/* w-fit keeps the click blocker on the switch, the rest of the line still opens the module. */}
             <span
@@ -127,6 +134,15 @@ export default function WorkspaceTableRow({
               />
             </span>
             <span className="flex items-center gap-1.5">
+              <IconButton
+                onClick={(e: React.MouseEvent) => { e.stopPropagation(); a.handleToggleFavorite(); }}
+                title={workspace.is_favorite ? t("favoriteRemove") : t("favoriteAdd")}
+                className={workspace.is_favorite ? "text-kb-dark" : ""}
+                disabled={a.favoriting}
+                data-testid="workspace-favorite"
+              >
+                <Star size={13} weight={workspace.is_favorite ? "fill" : "bold"} />
+              </IconButton>
               {/* Owner and tutor read the numbers of the whole module here, everybody else only their own. */}
               <IconButton
                 onClick={(e: React.MouseEvent) => { e.stopPropagation(); a.setShowStats(true); }}
@@ -136,6 +152,9 @@ export default function WorkspaceTableRow({
                 <ChartBar size={13} weight="bold" />
               </IconButton>
               <WorkspaceMenu
+                favorite={workspace.is_favorite}
+                onToggleFavorite={a.handleToggleFavorite}
+                onInfo={workspace.description ? () => setShowInfo(true) : undefined}
                 onParticipants={() => setShowParticipants(true)}
                 onLinks={() => a.setShowLinks(true)}
                 onEdit={() => a.setEditOpen(true)}

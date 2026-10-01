@@ -66,6 +66,8 @@ export interface WorkspaceDetail {
   can_manage?: boolean;
   /** Demo course: enrolled people may preview the owner layout here, read only. */
   is_demo_workspace?: boolean;
+  /** The one demo course the guided tour runs in. */
+  is_tour_module?: boolean;
   transcript_target_lang?: string;
   /** Language the CEFR chat diagnosis is held in (ISO code, default "de"). */
   diagnosis_language?: string;

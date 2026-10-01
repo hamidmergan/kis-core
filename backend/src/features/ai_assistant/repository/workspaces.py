@@ -254,5 +254,30 @@ def delete_aia_workspace(uuid: str) -> None:
         conn.commit()
 
 
+def get_favorite_workspace_ids(user_id: int) -> set[int]:
+    """Workspace ids this person starred, regardless of how they reach them."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT workspace_id FROM aia_workspace_favorites WHERE user_id = %s", (user_id,))
+            return {r[0] for r in cur.fetchall()}
+
+
+def set_workspace_favorite(user_id: int, workspace_id: int, favorite: bool) -> None:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            if favorite:
+                cur.execute(
+                    """INSERT INTO aia_workspace_favorites (user_id, workspace_id)
+                       VALUES (%s, %s) ON CONFLICT DO NOTHING""",
+                    (user_id, workspace_id),
+                )
+            else:
+                cur.execute(
+                    "DELETE FROM aia_workspace_favorites WHERE user_id = %s AND workspace_id = %s",
+                    (user_id, workspace_id),
+                )
+        conn.commit()
+
+
 # --- KI Tutor: Access Links ---
 

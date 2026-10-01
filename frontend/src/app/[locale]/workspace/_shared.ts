@@ -28,6 +28,8 @@ export interface KiTutorWorkspace {
   access: WorkspaceAccess;
   /** Workspace is shared with tutors, or reached as one. Drives the shared icon. */
   shared: boolean;
+  /** Starred by this person, independent of owner/tutor/student access. */
+  is_favorite: boolean;
   /** Owned by the demo account, shown alongside the role badge. */
   is_demo_workspace?: boolean;
   /** The demo module the guided tour runs in, at most one carries this. */

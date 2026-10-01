@@ -28,6 +28,8 @@ interface WorkspaceTopbarProps {
   previewsOwnerSide: boolean;
   onTogglePreview: () => void;
   onStartTour: () => void;
+  /** The one demo course the guided tour runs in, only there is restarting it offered. */
+  isTourModule: boolean;
   /** Sharing offered at all: owner or tutor, the same gate the module list uses. */
   canManage: boolean;
   workspaceUuid: string;
@@ -51,7 +53,7 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
     isMobile, title,
     showSettings, onToggleSettings, onCloseSettings,
     studioEnabled, onToggleStudio,
-    canPreview, previewOn, previewsOwnerSide, onTogglePreview, onStartTour,
+    canPreview, previewOn, previewsOwnerSide, onTogglePreview, onStartTour, isTourModule,
     canManage, workspaceUuid, isActive, onToggleActive,
     isOwner, staffNoteText, staffNoteLinks, onStaffNoteSave,
     popupTranslateLang, onChangePopupTranslateLang,
@@ -75,6 +77,7 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
       previewsOwnerSide={previewsOwnerSide}
       onTogglePreview={onTogglePreview}
       onStartTour={onStartTour}
+      isTourModule={isTourModule}
       popupTranslateLang={popupTranslateLang}
       onChangePopupTranslateLang={onChangePopupTranslateLang}
     />

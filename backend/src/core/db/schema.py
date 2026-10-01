@@ -842,6 +842,16 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             cur.execute(
                 "ALTER TABLE aia_enrollments ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'student'"
             )
+            # Per-user marker, independent of access type (owner, tutor or student).
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS aia_workspace_favorites (
+                    user_id      INTEGER NOT NULL,
+                    workspace_id INTEGER NOT NULL
+                                   REFERENCES aia_workspaces(id) ON DELETE CASCADE,
+                    created_at   TIMESTAMP NOT NULL DEFAULT NOW(),
+                    PRIMARY KEY (user_id, workspace_id)
+                )
+            """)
             # Workspaces an access code enrolls its accounts into, always as learners.
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS access_code_workspaces (
