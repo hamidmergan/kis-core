@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 
 import { EMBEDPDF_ICON_MAP } from "./_icons";
 import { wrapEngineGeometry } from "./_geometry";
+import { buildSelfHostedFontFallback } from "./_fontFallback";
 import { doHighlightSearch, clearCitationHighlight, scrollToCitationPage, markCitationSpot, CITATION_HL_COLOR, type HighlightRefs } from "./_highlight";
 import { clearActiveChipTarget } from "../chat/_citations";
 import { copyTextFromPromise } from "@/lib/clipboard";
@@ -486,6 +487,8 @@ export function PdfViewer({
             // Self-hosted so the rendering engine never leaves our own domain (default would fetch it from jsDelivr).
             // Must be absolute: the worker runs from a blob: URL, where a relative path doesn't resolve against our origin.
             wasmUrl: `${window.location.origin}/pdfium.wasm`,
+            // Same reasoning for non-embedded-font fallback glyphs (CJK/Arabic/Hebrew/Cyrillic PDFs).
+            fontFallback: buildSelfHostedFontFallback(window.location.origin),
             // The viewer shows the workspace file only, never one of your own.
             disabledCategories: ["document-open", "document-close"],
             tabBar: "never",
