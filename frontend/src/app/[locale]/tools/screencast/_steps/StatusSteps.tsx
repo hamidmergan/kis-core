@@ -154,7 +154,7 @@ export function DoneStep({
     a.click();
   };
   return (
-    <section className="animate-[fadeIn_0.3s_ease-out] py-10">
+    <section className="animate-[fadeIn_0.3s_ease-out] pt-3 sm:py-10">
       <div className="flex justify-center mb-4">
         <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: "var(--kb)" }}>
           <svg className="w-6 h-6" style={{ color: "#fff" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -181,11 +181,13 @@ export function DoneStep({
         </div>
       )}
 
-      <div className="flex justify-center gap-3 mb-4">
+      {/* Desktop: downloads above the two side buttons. Phone: side buttons first, downloads pinned below. */}
+      <div className="flex flex-col">
+      <div className="order-last sm:order-none sticky bottom-0 z-30 -mx-4 px-4 py-3 mt-6 border-t border-border-soft bg-background grid grid-cols-2 gap-2 sm:static sm:mx-0 sm:px-0 sm:py-0 sm:mt-0 sm:mb-4 sm:border-0 sm:bg-transparent sm:flex sm:justify-center sm:gap-3">
         <button
           onClick={onDownloadMp4}
           aria-label={t("done.downloadMp4Aria")}
-          className="px-6 py-2 btn-primary text-sm font-medium rounded-md  focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors flex items-center gap-2"
+          className="px-6 py-2 btn-primary text-sm font-medium rounded-md  focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors flex items-center justify-center gap-2"
         >
           <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -197,7 +199,7 @@ export function DoneStep({
             type="button"
             onClick={onDownloadZip}
             aria-label={t("done.downloadAllZipAria")}
-            className="px-6 py-2 btn-primary text-sm font-medium rounded-md  focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors flex items-center gap-2"
+            className="px-6 py-2 btn-primary text-sm font-medium rounded-md  focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors flex items-center justify-center gap-2"
           >
             <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -207,21 +209,22 @@ export function DoneStep({
         )}
       </div>
 
-      <div className="flex flex-wrap justify-center gap-3">
+      <div className="flex flex-col sm:flex-row sm:flex-wrap sm:justify-center gap-2 sm:gap-3">
         <button
           type="button"
           onClick={onNeuVertonen}
-          className="px-6 py-2 text-sm text-foreground-soft border border-border rounded-md btn-ghost focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors"
+          className="w-full sm:w-auto px-6 py-2 text-sm text-foreground-soft border border-border rounded-md btn-ghost focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors"
         >
           {t("done.neuVertonen")}
         </button>
         <button
           onClick={onReset}
           aria-label={t("done.newPresentationAria")}
-          className="px-6 py-2 text-sm text-foreground-soft border border-border rounded-md btn-ghost focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors"
+          className="w-full sm:w-auto px-6 py-2 text-sm text-foreground-soft border border-border rounded-md btn-ghost focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors"
         >
           {t("done.newPresentation")}
         </button>
+      </div>
       </div>
     </section>
   );

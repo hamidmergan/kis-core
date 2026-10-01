@@ -957,7 +957,9 @@
         "autoDetectHint": "The source language is detected automatically.",
         "scriptLang": "Narration language",
         "scriptLangHint": "The AI writes the narration scripts in this language.",
-        "translationProvider": "Translation provider"
+        "translationProvider": "Translation provider",
+        "glossaryLabel": "Glossary",
+        "fileLabel": "Presentation"
       },
       "translating": {
         "preparing": "Preparing presentation...",

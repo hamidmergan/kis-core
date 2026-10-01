@@ -1,14 +1,19 @@
 "use client";
 
-import type { DragEvent, RefObject } from "react";
+import { useState, type DragEvent, type RefObject } from "react";
 import { Info } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import GlossarySelector from "@/components/glossary/GlossarySelector";
 import Select from "@/components/ui/Select";
+import Checkbox from "@/components/ui/Checkbox";
+import ToggleRow from "@/components/ui/ToggleRow";
+import EinstellungsFeld from "@/components/tools/EinstellungsFeld";
 import StepFooter from "./StepFooter";
 
 const ACCEPTED_EXTENSIONS = [".pptx"];
+
+type Zeile = "file" | "language" | "glossary" | "provider";
 
 interface UploadStepProps {
   onBack: (() => void) | null;
@@ -67,7 +72,15 @@ export default function UploadStep(props: UploadStepProps) {
 
   const t = useTranslations("tools.screencast");
   const tDemo = useTranslations("tools.screencastDemo");
+  const tGlossar = useTranslations("tools.glossarySelector");
+  const tCommon = useTranslations("common");
   const gesperrt = !!hasActiveJob || !!demoDatei;
+  const [offen, setOffen] = useState<Zeile | null>("file");
+  const zeile = (z: Zeile) => ({ offen: offen === z, onToggle: () => setOffen((alt) => (alt === z ? null : z)) });
+  const weiterGesperrt = demoDatei ? false : !file || !!hasActiveJob;
+  const sprache = languages.find((l) => l.id === targetLang)?.label ?? "";
+  const anbieter = translationProviders.find((p) => p.id === translationProviderId)?.name ?? "";
+  const glossare = glossaryIds.filter(Boolean).length;
 
   return (
     <section className="animate-[fadeIn_0.3s_ease-out]">
@@ -115,134 +128,147 @@ export default function UploadStep(props: UploadStepProps) {
         </div>
       )}
 
-      <div
-        onDragOver={gesperrt ? undefined : onDragOver}
-        onDragLeave={gesperrt ? undefined : onDragLeave}
-        onDrop={gesperrt ? undefined : onDrop}
-        onClick={gesperrt ? undefined : () => fileRef.current?.click()}
-        className={`
-          relative mb-4 flex flex-col items-center justify-center
-          rounded-lg border-2 border-dashed px-6 py-10
-          transition-colors
-          ${demoDatei ? "border-kb60 bg-kb20 cursor-default" : hasActiveJob ? "border-border-soft bg-surface opacity-40 cursor-not-allowed" : "cursor-pointer"}
-          ${
-            !gesperrt &&
-            (dragOver
-              ? "border-kb bg-kb/5"
-              : file
-                ? "border-kb60 bg-kb20"
-                : "border-border hover:border-kb")
-          }
-        `}
-      >
-        <input
-          ref={fileRef}
-          type="file"
-          accept={ACCEPTED_EXTENSIONS.join(",")}
-          className="hidden"
-          disabled={gesperrt}
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) onFileSelect(f);
-          }}
-        />
-        {demoDatei ? (
-          <>
-            <svg className="w-8 h-8 text-kb-dark mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-            <p className="text-sm font-medium text-foreground">{demoDatei}</p>
-            <p className="text-xs text-muted-soft mt-1">{tDemo("dateiVorgegeben")}</p>
-          </>
-        ) : file ? (
-          <>
-            <svg className="w-8 h-8 text-kb-dark mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-            <p className="text-sm font-medium text-foreground">{file.name}</p>
-            <p className="text-xs text-muted-soft mt-1">{t("upload.replaceHint")}</p>
-          </>
-        ) : (
-          <>
-            <svg className="w-8 h-8 text-muted-soft mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+      {/* On the phone the card dissolves into one list (file, settings), on the desktop settings left, file right. */}
+      <div className="-mx-4 lg:mx-0 flex flex-col lg:grid lg:grid-cols-[minmax(0,400px)_1fr] lg:items-start lg:gap-8">
+        <div className="contents lg:block min-w-0 lg:rounded-xl lg:border lg:border-border-soft lg:bg-surface lg:p-5">
+          <div className="order-3 px-4 py-3.5 border-b border-border-soft lg:hidden">
+            <ToggleRow title={t("upload.skipTranslation")} description={skipTranslation ? t("upload.scriptLangHint") : t("upload.autoDetectHint")}
+                       checked={skipTranslation} onToggle={() => onSkipTranslationChange(!skipTranslation)} />
+          </div>
+          <div className="order-3 hidden lg:block">
+            <Checkbox checked={skipTranslation} onChange={onSkipTranslationChange}
+                      label={t("upload.skipTranslation")} labelClassName="text-sm text-foreground" />
+          </div>
+
+          {/* The language sets not only the translation but also the language of the spoken texts,
+              so it stays visible when the translation is skipped. */}
+          {languages.length > 0 && (
+            <EinstellungsFeld titel={skipTranslation ? t("upload.scriptLang") : t("upload.targetLang")} wert={sprache}
+                              htmlFor="screencast-sprache" {...zeile("language")}>
+              <Select
+                id="screencast-sprache"
+                value={targetLang}
+                onChange={onTargetLangChange}
+                ariaLabel={skipTranslation ? t("upload.scriptLang") : t("upload.targetLang")}
+                options={languages.map((l) => ({ value: l.id, label: l.label }))}
               />
-            </svg>
-            <p className="text-sm text-foreground-soft">
-              {t("upload.dropPrefix")}
-              <span className="text-kb font-medium">{t("upload.dropBrowse")}</span>
+              <p className="mt-1 text-xs text-muted hidden lg:block">
+                {skipTranslation ? t("upload.scriptLangHint") : t("upload.autoDetectHint")}
+              </p>
+            </EinstellungsFeld>
+          )}
+
+          {!skipTranslation && (
+            <>
+              <EinstellungsFeld titel={t("upload.glossaryLabel")} wert={glossare ? tGlossar("selected", { count: glossare }) : tCommon("emptyValue")}
+                                {...zeile("glossary")}>
+                <GlossarySelector values={glossaryIds} onChange={onGlossaryIdsChange} className="" />
+              </EinstellungsFeld>
+
+              {translationProviders.length > 1 && (
+                <EinstellungsFeld titel={t("upload.translationProvider")} wert={anbieter} htmlFor="screencast-anbieter" {...zeile("provider")}>
+                  <Select
+                    id="screencast-anbieter"
+                    value={translationProviderId != null ? String(translationProviderId) : ""}
+                    onChange={(v) => onTranslationProviderChange(v ? Number(v) : null)}
+                    ariaLabel={t("upload.translationProvider")}
+                    options={translationProviders.map((p) => ({ value: String(p.id), label: p.name }))}
+                  />
+                </EinstellungsFeld>
+              )}
+            </>
+          )}
+
+          {fileError && (
+            <p className="order-3 mt-6 px-4 lg:px-0 text-sm text-error" role="alert">
+              {fileError}
             </p>
-            <p className="text-xs text-muted-soft mt-1">{t("upload.onlyPptx")}</p>
-          </>
-        )}
+          )}
+
+          <div className="order-3 hidden lg:block">
+            <StepFooter onBack={onBack} nextLabel={t("common.next")} onNext={onUploadNext} nextDisabled={weiterGesperrt} />
+          </div>
+        </div>
+
+        <div className="order-1 min-w-0 lg:col-start-2 lg:row-start-1 lg:rounded-xl lg:border lg:border-kb/15 lg:bg-kb/5 lg:p-5">
+          <EinstellungsFeld titel={t("upload.fileLabel")} wert={demoDatei ?? file?.name ?? tCommon("emptyValue")}
+                            className="border-t lg:border-t-0" {...zeile("file")}>
+            <div
+              onDragOver={gesperrt ? undefined : onDragOver}
+              onDragLeave={gesperrt ? undefined : onDragLeave}
+              onDrop={gesperrt ? undefined : onDrop}
+              onClick={gesperrt ? undefined : () => fileRef.current?.click()}
+              className={`
+                relative flex flex-col items-center justify-center
+                rounded-lg border-2 border-dashed px-6 py-6 lg:py-16
+                transition-colors
+                ${demoDatei ? "border-kb60 bg-kb20 cursor-default" : hasActiveJob ? "border-border-soft bg-surface opacity-40 cursor-not-allowed" : "cursor-pointer"}
+                ${
+                  !gesperrt &&
+                  (dragOver
+                    ? "border-kb bg-kb/5"
+                    : file
+                      ? "border-kb60 bg-kb20"
+                      : "border-border hover:border-kb")
+                }
+              `}
+            >
+              <input
+                ref={fileRef}
+                type="file"
+                accept={ACCEPTED_EXTENSIONS.join(",")}
+                className="hidden"
+                disabled={gesperrt}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) onFileSelect(f);
+                }}
+              />
+              {demoDatei ? (
+                <>
+                  <svg className="w-8 h-8 text-kb-dark mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <p className="text-sm font-medium text-foreground">{demoDatei}</p>
+                  <p className="text-xs text-muted-soft mt-1">{tDemo("dateiVorgegeben")}</p>
+                </>
+              ) : file ? (
+                <>
+                  <svg className="w-8 h-8 text-kb-dark mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <p className="text-sm font-medium text-foreground">{file.name}</p>
+                  <p className="text-xs text-muted-soft mt-1">{t("upload.replaceHint")}</p>
+                </>
+              ) : (
+                <>
+                  <svg className="w-8 h-8 text-muted-soft mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                    />
+                  </svg>
+                  <p className="text-sm text-foreground-soft">
+                    {t("upload.dropPrefix")}
+                    <span className="text-kb font-medium">{t("upload.dropBrowse")}</span>
+                  </p>
+                  <p className="text-xs text-muted-soft mt-1">{t("upload.onlyPptx")}</p>
+                </>
+              )}
+            </div>
+          </EinstellungsFeld>
+        </div>
       </div>
 
-      <label className="flex items-start gap-3 mb-4 cursor-pointer select-none">
-        <input
-          type="checkbox"
-          checked={skipTranslation}
-          onChange={(e) => onSkipTranslationChange(e.target.checked)}
-          className="mt-0.5 h-4 w-4 rounded border-border text-kb focus:ring-kb"
-        />
-        <span className="text-sm font-medium text-foreground-soft">
-          {t("upload.skipTranslation")}
-        </span>
-      </label>
-
-      {/* Die Sprache steuert nicht nur die Uebersetzung, sondern auch die Sprache der
-          Sprechtexte. Wird die Uebersetzung uebersprungen, muss das Feld deshalb sichtbar
-          bleiben, sonst gilt still der Standard und das Video spricht die falsche Sprache. */}
-      {languages.length > 0 && (
-        <div className="mb-4">
-          <label className="block text-xs font-medium text-muted mb-1">
-            {skipTranslation ? t("upload.scriptLang") : t("upload.targetLang")}
-          </label>
-          <Select
-            value={targetLang}
-            onChange={onTargetLangChange}
-            options={languages.map((l) => ({ value: l.id, label: l.label }))}
-          />
-          <p className="mt-1 text-xs text-muted">
-            {skipTranslation ? t("upload.scriptLangHint") : t("upload.autoDetectHint")}
-          </p>
-        </div>
-      )}
-
-      {!skipTranslation && (
-        <>
-          <GlossarySelector values={glossaryIds} onChange={onGlossaryIdsChange} />
-
-          {translationProviders.length > 1 && (
-            <div className="mb-4">
-              <label className="block text-xs font-medium text-muted mb-1">
-                {t("upload.translationProvider")}
-              </label>
-              <Select
-                value={translationProviderId != null ? String(translationProviderId) : ""}
-                onChange={(v) => onTranslationProviderChange(v ? Number(v) : null)}
-                options={translationProviders.map((p) => ({ value: String(p.id), label: p.name }))}
-              />
-            </div>
-          )}
-        </>
-      )}
-
-      {fileError && (
-        <p className="mb-4 text-sm text-error" role="alert">
-          {fileError}
-        </p>
-      )}
-
-      <StepFooter
-        onBack={onBack}
-        nextLabel={t("common.next")}
-        onNext={onUploadNext}
-        nextDisabled={demoDatei ? false : !file || !!hasActiveJob}
-      />
+      {/* On the phone the way on stays in reach while scrolling the form and stops at its end. */}
+      <div className="lg:hidden sticky bottom-0 z-30 -mx-4 mt-6 border-t border-border-soft bg-background px-4 py-3">
+        <button type="button" onClick={onUploadNext} disabled={weiterGesperrt}
+          className="w-full px-4 py-3 btn-primary text-sm font-medium rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
+          {t("common.next")}
+        </button>
+      </div>
     </section>
   );
 }

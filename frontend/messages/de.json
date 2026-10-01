@@ -957,7 +957,9 @@
         "autoDetectHint": "Die Quellsprache wird automatisch erkannt.",
         "scriptLang": "Sprache der Sprechtexte",
         "scriptLangHint": "In dieser Sprache schreibt die KI die Sprechtexte.",
-        "translationProvider": "Übersetzungsanbieter"
+        "translationProvider": "Übersetzungsanbieter",
+        "glossaryLabel": "Glossar",
+        "fileLabel": "Präsentation"
       },
       "translating": {
         "preparing": "Präsentation wird vorbereitet...",

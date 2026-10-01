@@ -5,6 +5,8 @@ import { Trash } from "@phosphor-icons/react";
 import { useLocale, useTranslations } from "next-intl";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import ToolBackLink from "@/components/ui/ToolBackLink";
+import JobHistoryTable from "@/components/jobs/JobHistoryTable";
+import { useJobHistory } from "@/hooks/useJobHistory";
 import { useGlossaries } from "@/hooks/useGlossaries";
 
 
@@ -55,6 +57,9 @@ const RENDER_SESSION_KEY = "kis_screencast_active_render";
 
 function ScreencastPageInner() {
   const t = useTranslations("tools.screencast");
+  const tHistory = useTranslations("tools.screencast.history");
+  // Only the translation run opens again, it carries slides, scripts and the video.
+  const verlauf = useJobHistory("screencast_translate");
   const tCommon = useTranslations("common");
   const { mergeToApiJson } = useGlossaries();
 
@@ -530,28 +535,31 @@ function ScreencastPageInner() {
 
   return (
     <ProtectedRoute>
-      <div className="max-w-4xl mx-auto px-4 py-10 sm:py-14" data-tour="tool-screencast">
-        <ToolBackLink />
-        {/* Step indicator */}
+      {/* Wide for the two columns of the upload, narrow for the steps that follow. */}
+      <div className={`${step === "upload" ? "max-w-6xl" : "max-w-4xl"} mx-auto px-4 py-10 sm:py-14`} data-tour="tool-screencast">
+        {/* On the phone the later steps bring their own header with back arrow and discard. */}
+        <div className={showStepIndicator ? "hidden sm:flex items-baseline justify-between gap-3" : ""}>
+          <ToolBackLink />
+          {showStepIndicator && (
+            <button
+              onClick={() => setPendingExit("cancel")}
+              className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-soft transition-colors hover:text-error focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb"
+            >
+              <Trash size={14} aria-hidden="true" />
+              {t("exit.cancel")}
+            </button>
+          )}
+        </div>
         {showStepIndicator && (
-          <>
-            <div className="flex justify-end mb-3 sm:mb-8">
-              <button
-                onClick={() => setPendingExit("cancel")}
-                className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-soft transition-colors hover:text-error focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb"
-              >
-                <Trash size={14} aria-hidden="true" />
-                {t("exit.cancel")}
-              </button>
-            </div>
-            <ScreencastStepper
-              step={step}
-              maxReachedIdx={maxReachedIdx}
-              skipTranslation={skipTranslation}
-              hatErgebnis={videoUrl !== null}
-              onStepClick={handleStepClick}
-            />
-          </>
+          <ScreencastStepper
+            step={step}
+            maxReachedIdx={maxReachedIdx}
+            skipTranslation={skipTranslation}
+            hatErgebnis={videoUrl !== null}
+            onStepClick={handleStepClick}
+            onDiscard={() => setPendingExit("cancel")}
+            discardLabel={t("exit.cancel")}
+          />
         )}
 
         {/* ── Resume loading ── */}
@@ -594,6 +602,18 @@ function ScreencastPageInner() {
             onTranslationProviderChange={setTranslationProviderId}
             onUploadNext={handleUploadNext}
           />
+        )}
+        {!resumeBusy && step === "upload" && (
+          <div className="mt-10">
+            <h2 className="text-sm font-semibold text-foreground mb-1">{tHistory("title")}</h2>
+            <p className="text-xs text-muted mb-3">{verlauf.length ? tHistory("hint") : tHistory("empty")}</p>
+            {verlauf.length > 0 && (
+              <JobHistoryTable entries={verlauf} selectedUuid={null} locale={locale}
+                colMaterial={tHistory("colMaterial")} colDate={tHistory("colDate")}
+                // The resume reads its address once on load, so a picked run loads the page anew.
+                onSelect={(uuid) => window.location.assign(`${window.location.pathname}?resume=${uuid}`)} />
+            )}
+          </div>
         )}
 
         {/* ── Step: Translating (loading) ── */}

@@ -83,8 +83,9 @@ export default function ScriptReviewStep({
 
               {isOpen && (
                 <div id={`slide-panel-${i}`} className="pb-4 animate-[fadeIn_0.2s_ease-out]">
-                  <div className="flex flex-col gap-4">
-                    <div className="flex-shrink-0" style={{ width: "100px" }}>
+                  {/* Like the slides of the presentation: the slide on the left, its spoken text on the right. */}
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-6">
+                    <div className="w-full sm:w-72 flex-shrink-0">
                       {slide.imageBase64 ? (
                         <button
                           onClick={() => onLightboxOpen(i)}
@@ -101,7 +102,7 @@ export default function ScriptReviewStep({
                       )}
                     </div>
 
-                    <div className="w-full flex flex-col">
+                    <div className="flex-1 min-w-0 flex flex-col">
                       {isEditing ? (
                         <>
                           {/* No resting border, it appears only once the cursor is in the field. */}
