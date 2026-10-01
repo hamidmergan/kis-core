@@ -186,7 +186,7 @@ export default function InterpreterPage() {
       <div className="max-w-5xl mx-auto px-4 py-8">
         <ToolBackLink />
         <section data-tour="tool-interpreter">
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-10">
             <h1 className="text-xl font-bold">{t("title")}</h1>
             <div className="flex flex-wrap items-center gap-2">
               <button type="button" onClick={() => setProtocolOpen(true)} className={ACTION}>
