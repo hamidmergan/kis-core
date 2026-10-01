@@ -311,6 +311,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "PPTX nicht gefunden",
         "en": "PPTX not found",
     },
+    "screencast.notizenNichtUebersetzt": {
+        "de": "Die Notizen ließen sich nicht übersetzen. Versuch es gleich noch einmal.",
+        "en": "The notes could not be translated. Please try again in a moment.",
+    },
     "screencast.pptxExpired": {
         "de": "PPTX nicht mehr vorhanden (abgelaufen)",
         "en": "PPTX no longer available (expired)",

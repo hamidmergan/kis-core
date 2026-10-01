@@ -252,11 +252,12 @@ export function ausgeschlosseneFolien(
 
 /** Maps the interface language onto an offered language code, null otherwise. */
 /** The speaker notes of the job's current deck, one per slide. */
-export async function holeNotizen(jobUuid: string): Promise<string[] | null> {
+/** The notes in the script language, or the server's reason why not (empty when it gave none). */
+export async function holeNotizen(jobUuid: string): Promise<string[] | { fehler: string }> {
   const res = await fetch(`/api/screencast/${jobUuid}/notizen`, { credentials: "include" }).catch(() => null);
-  if (!res?.ok) return null;
-  const daten = await res.json().catch(() => null);
-  return Array.isArray(daten?.notes) ? daten.notes.map((n: unknown) => String(n ?? "")) : null;
+  const daten = await res?.json().catch(() => null);
+  if (res?.ok && Array.isArray(daten?.notes)) return daten.notes.map((n: unknown) => String(n ?? ""));
+  return { fehler: typeof daten?.detail === "string" ? daten.detail : "" };
 }
 
 export function sprachIdFuerLocale(

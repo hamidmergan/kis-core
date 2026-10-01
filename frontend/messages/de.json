@@ -974,7 +974,9 @@
         "selectJsonFirst": "Bitte zuerst eine JSON-Datei auswählen.",
         "notes": "Aus den Sprechernotizen",
         "notesDesc": "Der Text in den Notizen jeder Folie wird zum Sprechtext.",
-        "notesEmpty": "In dieser Präsentation stehen keine Sprechernotizen."
+        "notesEmpty": "In dieser Präsentation stehen keine Sprechernotizen.",
+        "notesTranslated": "Sie werden vorher in die Sprache der Sprechtexte übersetzt.",
+        "notesTranslating": "Die Notizen werden übersetzt …"
       },
       "translationReview": {
         "heading": "Übersetzung prüfen",

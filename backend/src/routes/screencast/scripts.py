@@ -15,7 +15,7 @@ from src.services.screencast import generate_all_scripts
 from src.services.screencast import material as zusatzmaterial
 from src.services.screencast.pptx import extract_notes_per_slide
 from src.services.job_statistik import messe, route_kennung, zeichen_zahlen
-from src.storage import get_job_file, save_job_file
+from src.storage import get_job_file, job_file_exists, load_result_meta, save_job_file
 from src.services.tool_limits import max_screencast_slides
 
 from src.routes.screencast._models import (
@@ -52,12 +52,12 @@ def save_scripts(
 
 
 @router.get("/screencast/{translate_job_uuid}/notizen")
-def screencast_notizen(
+async def screencast_notizen(
     translate_job_uuid: str,
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    """The speaker notes of the current deck, one entry per slide."""
+    """The speaker notes of the current deck in the script language, one entry per slide."""
     if not re.match(r"^[a-f0-9]{32}$", translate_job_uuid):
         raise HTTPException(status_code=400, detail=t("job.invalidUuid", locale))
     job = db.get_job(translate_job_uuid)
@@ -68,8 +68,36 @@ def screencast_notizen(
             daten = get_job_file(job["user_id"], translate_job_uuid, name)
         except Exception:
             continue
-        return {"notes": extract_notes_per_slide(daten)}
+        notizen = extract_notes_per_slide(daten)
+        # The translation step already translated the notes, a skipped one leaves them in the deck's language.
+        if job_file_exists(job["user_id"], translate_job_uuid, "original.pptx"):
+            return {"notes": notizen}
+        sprache = (load_result_meta(job["user_id"], translate_job_uuid) or {}).get("target_lang")
+        if not sprache or not any(n.strip() for n in notizen):
+            return {"notes": notizen}
+        try:
+            return {"notes": await asyncio.to_thread(_notizen_uebersetzen, notizen, sprache)}
+        except Exception as e:  # noqa: BLE001 - any provider error ends in the same message
+            logger.warning("Screencast {}: Notizen nicht übersetzt ({})", translate_job_uuid[:8], e)
+            raise HTTPException(status_code=502, detail=t("screencast.notizenNichtUebersetzt", locale))
     raise HTTPException(status_code=404, detail=t("screencast.pptxNotFound", locale))
+
+
+def _notizen_uebersetzen(notizen: list[str], sprache: str) -> list[str]:
+    """Translates the non-empty notes into the script language, the source language is detected."""
+    from src.dependencies import get_translate_client_for_provider
+    from src.services.translation import TranslationService
+
+    client, glossar = get_translate_client_for_provider(None)
+    if client is None:
+        raise RuntimeError("No translation provider configured")
+    stellen = [i for i, n in enumerate(notizen) if n.strip()]
+    uebersetzt = TranslationService(deepl_client=client, glossary=glossar).translate_batch(
+        [notizen[i] for i in stellen], "", sprache)
+    ergebnis = list(notizen)
+    for i, text in zip(stellen, uebersetzt):
+        ergebnis[i] = text
+    return ergebnis
 
 
 @router.post("/screencast/generate-scripts")

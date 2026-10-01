@@ -974,7 +974,9 @@
         "selectJsonFirst": "Please select a JSON file first.",
         "notes": "From the speaker notes",
         "notesDesc": "The text in the notes of each slide becomes its script.",
-        "notesEmpty": "This presentation has no speaker notes."
+        "notesEmpty": "This presentation has no speaker notes.",
+        "notesTranslated": "They are translated into the script language first.",
+        "notesTranslating": "Translating the notes …"
       },
       "translationReview": {
         "heading": "Review translation",

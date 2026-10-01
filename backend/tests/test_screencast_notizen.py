@@ -75,3 +75,62 @@ def test_ohne_datei_404(client):
 
 def test_fremder_auftrag_404(client):
     assert client.get(f"/screencast/{'e' * 32}/notizen").status_code == 404
+
+
+class _Uebersetzer:
+    """Stands in for the translation provider and records what it was asked."""
+
+    def __init__(self):
+        self.aufrufe: list[tuple[list[str], str, str]] = []
+
+    def translate_batch(self, texts, source_lang, target_lang):
+        self.aufrufe.append((list(texts), source_lang, target_lang))
+        return [f"{target_lang}: {t}" for t in texts]
+
+
+def _mit_uebersetzer(uebersetzer):
+    from src.services.glossary import GlossaryService
+    return patch("src.dependencies.get_translate_client_for_provider",
+                 lambda *a, **k: (uebersetzer, GlossaryService()))
+
+
+def test_uebersprungene_uebersetzung_uebersetzt_die_notizen(client):
+    from src.storage import save_result_meta
+    save_job_file(1, UUID, "translated.pptx", _deck(["Hallo.", None, "Tschüss."]))
+    save_result_meta(1, UUID, {"target_lang": "EN-US"})
+    uebersetzer = _Uebersetzer()
+    with _mit_uebersetzer(uebersetzer):
+        r = client.get(f"/screencast/{UUID}/notizen")
+    assert r.json() == {"notes": ["EN-US: Hallo.", "", "EN-US: Tschüss."]}
+    assert uebersetzer.aufrufe == [(["Hallo.", "Tschüss."], "", "EN-US")]
+
+
+def test_nach_der_uebersetzung_bleiben_die_notizen(client):
+    from src.storage import save_result_meta
+    save_job_file(1, UUID, "original.pptx", _deck(["Hallo."]))
+    save_job_file(1, UUID, "translated.pptx", _deck(["Hello."]))
+    save_result_meta(1, UUID, {"target_lang": "EN-US"})
+    uebersetzer = _Uebersetzer()
+    with _mit_uebersetzer(uebersetzer):
+        assert client.get(f"/screencast/{UUID}/notizen").json() == {"notes": ["Hello."]}
+    assert uebersetzer.aufrufe == []
+
+
+def test_ohne_notizen_kein_aufruf(client):
+    from src.storage import save_result_meta
+    save_job_file(1, UUID, "translated.pptx", _deck([None, None]))
+    save_result_meta(1, UUID, {"target_lang": "EN-US"})
+    uebersetzer = _Uebersetzer()
+    with _mit_uebersetzer(uebersetzer):
+        assert client.get(f"/screencast/{UUID}/notizen").json() == {"notes": ["", ""]}
+    assert uebersetzer.aufrufe == []
+
+
+def test_gescheiterte_uebersetzung_meldet_sich(client):
+    from src.storage import save_result_meta
+    save_job_file(1, UUID, "translated.pptx", _deck(["Hallo."]))
+    save_result_meta(1, UUID, {"target_lang": "EN-US"})
+    with patch("src.dependencies.get_translate_client_for_provider", lambda *a, **k: (None, None)):
+        r = client.get(f"/screencast/{UUID}/notizen")
+    assert r.status_code == 502
+    assert "übersetzen" in r.json()["detail"]

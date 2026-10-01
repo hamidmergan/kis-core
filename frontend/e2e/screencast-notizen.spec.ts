@@ -3,7 +3,7 @@ import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 
 /** Uploads a deck without translation and returns at the step that decides how scripts come about. */
-async function bisAnweisungen(page: Page, datei: string, jobs: string[]) {
+async function bisAnweisungen(page: Page, datei: string, jobs: string[], sprache = "Englisch") {
   page.on("response", async (r) => {
     if (r.url().endsWith("/api/screencast/upload-corrected") && r.ok()) {
       jobs.push((await r.json()).translate_job_uuid);
@@ -13,6 +13,8 @@ async function bisAnweisungen(page: Page, datei: string, jobs: string[]) {
   await page.getByText("Datei hierher ziehen oder").waitFor({ timeout: 30_000 });
   await page.setInputFiles('input[type="file"][accept=".pptx"]', path.join(__dirname, datei));
   await page.getByText("Übersetzung überspringen").click();
+  await page.locator('[role="combobox"]').first().click();
+  await page.getByRole("option", { name: sprache, exact: true }).click();
   await page.getByRole("button", { name: "Weiter" }).click();
   await expect(page.getByText("Wie sollen die Skripte erstellt werden?")).toBeVisible({ timeout: 120_000 });
 }
@@ -36,6 +38,19 @@ test.describe("Skripte aus den Sprechernotizen", () => {
     await expect(zeilen.first()).toContainText("Welcome to media psychology.");
     await zeilen.nth(1).locator("button").first().click();
     await expect(zeilen.nth(1)).toContainText("Keep this number in mind.");
+  });
+
+  test("Notizen in anderer Sprache werden vorher übersetzt", async ({ page }) => {
+    test.setTimeout(180_000);
+    await bisAnweisungen(page, "mit-notizen.pptx", jobs, "Deutsch");
+    await page.getByRole("radio", { name: /Aus den Sprechernotizen/ }).check();
+    await expect(page.getByText("Sie werden vorher in die Sprache der Sprechtexte übersetzt.")).toBeVisible();
+    await page.getByRole("button", { name: "Weiter" }).click();
+
+    const zeilen = page.locator("li.folien-zeile");
+    await expect(zeilen).toHaveCount(2, { timeout: 120_000 });
+    await expect(zeilen.first()).toContainText("Medienpsychologie");
+    await expect(zeilen.first()).not.toContainText("Welcome");
   });
 
   test("Ohne Notizen gibt es einen Hinweis statt leerer Skripte", async ({ page }) => {

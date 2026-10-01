@@ -2,6 +2,7 @@
 
 import type { ReactNode, RefObject } from "react";
 import { useTranslations } from "next-intl";
+import Spinner from "@/components/ui/Spinner";
 import type { ScriptInputMode } from "@/hooks/useScriptInputMode";
 import StepFooter from "./StepFooter";
 
@@ -25,6 +26,8 @@ interface UserPromptStepProps {
   nextBlocked?: boolean;
   /** Why the speaker notes could not be taken. */
   notizenFehler?: string;
+  /** The notes are still in the deck's language and get translated first. */
+  notizenUebersetzen?: boolean;
 }
 
 export default function UserPromptStep({
@@ -44,6 +47,7 @@ export default function UserPromptStep({
   material,
   nextBlocked = false,
   notizenFehler = "",
+  notizenUebersetzen = false,
 }: UserPromptStepProps) {
   const t = useTranslations("tools.screencast");
   const tDemo = useTranslations("tools.screencastDemo");
@@ -210,6 +214,10 @@ export default function UserPromptStep({
           <div>
             <span className="text-sm font-medium text-foreground">{t("userPrompt.notes")}</span>
             <p className="text-xs text-muted mt-0.5">{t("userPrompt.notesDesc")}</p>
+            {notizenUebersetzen && <p className="text-xs text-muted mt-0.5">{t("userPrompt.notesTranslated")}</p>}
+            {scriptInputMode === "notes" && loading && notizenUebersetzen && (
+              <Spinner size="sm" label={t("userPrompt.notesTranslating")} className="mt-1.5" />
+            )}
             {scriptInputMode === "notes" && notizenFehler && (
               <p className="mt-1.5 text-xs text-error" role="alert">{notizenFehler}</p>
             )}

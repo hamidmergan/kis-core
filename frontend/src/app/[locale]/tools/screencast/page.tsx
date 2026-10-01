@@ -641,12 +641,15 @@ function ScreencastPageInner() {
             }
             nextBlocked={scriptInputMode === "generate" && (!zusatz.bereit || zusatz.laedt)}
             notizenFehler={notizenFehler}
+            notizenUebersetzen={skipTranslation}
             onNext={async () => {
               if (scriptInputMode === "notes") {
                 setNotizenFehler("");
+                dispatch({ type: "SET_LOADING", loading: true });
                 const notizen = await holeNotizen(translateJobUuid);
-                if (!notizen) {
-                  setNotizenFehler(tCommon("unknownError"));
+                dispatch({ type: "SET_LOADING", loading: false });
+                if (!Array.isArray(notizen)) {
+                  setNotizenFehler(notizen.fehler || tCommon("unknownError"));
                 } else if (!notizen.some((n) => n.trim())) {
                   setNotizenFehler(t("userPrompt.notesEmpty"));
                 } else {
