@@ -11,11 +11,11 @@ export default function BilderLeiste({ bilder, gewaehlt, onWaehlen }: {
 }) {
   const t = useTranslations("tools.image.history");
   return (
-    <div className="mt-6">
+    <div className="mt-10">
       <h2 className="text-sm font-semibold text-foreground mb-1">{t("title")}</h2>
       <p className="text-xs text-muted mb-3">{bilder.length ? t("hint") : t("empty")}</p>
       {/* On a phone one row to swipe, otherwise the tiles would push the form far down. */}
-      <div className="flex gap-2 overflow-x-auto pb-1 sm:grid sm:grid-cols-6 sm:overflow-visible sm:pb-0">
+      <div className="flex gap-2 overflow-x-auto pb-1 sm:grid sm:grid-cols-6 lg:grid-cols-8 sm:overflow-visible sm:pb-0">
         {bilder.map((b) => (
           <button
             key={b.key}

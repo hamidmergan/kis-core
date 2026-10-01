@@ -429,7 +429,20 @@
       "filesN": "{n, plural, =0 {none} one {# file} other {# files}}",
       "sourcesN": "{n, plural, =0 {none} one {# material} other {# materials}}"
     },
-    "emptyValue": "empty"
+    "emptyValue": "empty",
+    "result": {
+      "provider": "Provider",
+      "file": "File",
+      "glossary": "Glossary",
+      "glossaryUsed": "used",
+      "created": "Created",
+      "delete": "Delete",
+      "deleteTitle": "Delete result?",
+      "deleteWarning": "The result and its job are deleted for good.",
+      "cancel": "Cancel",
+      "confirm": "Delete",
+      "deleteFailed": "Deleting did not work."
+    }
   },
   "tools": {
     "stt": {
@@ -890,7 +903,8 @@
         "promptEdit": "Edit prompt",
         "ownImage": "Own image",
         "copyPrompt": "Copy prompt",
-        "delete": "Delete"
+        "delete": "Delete",
+        "newImage": "New image"
       },
       "history": {
         "title": "Your images",
@@ -904,7 +918,6 @@
         "hide": "Hide"
       },
       "placeholder": {
-        "generate": "Your new image appears here. Or pick one of your images below.",
         "edit": "Pick an image below that you want to edit.",
         "analyze": "Pick an image below that you want described.",
         "upload": "Or <link>upload your own image</link>, dragging works too."

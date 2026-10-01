@@ -20,12 +20,14 @@ interface Props {
   platzhalter: string;
   onHochladen?: (datei: File) => void;
   onLoeschen?: () => void;
+  /** Leaves the shown picture for the prompt field, only while creating. */
+  onNeu?: () => void;
   children?: ReactNode;
 }
 
 /** The one large picture of the page, the same in all three tasks, with its downloads. */
 const Buehne = forwardRef<HTMLDivElement, Props>(function Buehne(
-  { bild, laeuft, label, meldungen, platzhalter, onHochladen, onLoeschen, children }, ref,
+  { bild, laeuft, label, meldungen, platzhalter, onHochladen, onLoeschen, onNeu, children }, ref,
 ) {
   const t = useTranslations("tools.image.result");
   const tEdit = useTranslations("tools.image.edit");
@@ -63,6 +65,12 @@ const Buehne = forwardRef<HTMLDivElement, Props>(function Buehne(
             {bild.jobUuid && onLoeschen && <button type="button" className={KNOPF} onClick={onLoeschen}>{t("delete")}</button>}
           </div>
           {children}
+          {onNeu && (
+            <button type="button" onClick={onNeu}
+              className="mt-4 px-4 py-2 text-sm text-foreground-soft border border-border rounded-md btn-ghost focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors">
+              {t("newImage")}
+            </button>
+          )}
         </>
       ) : (
         <Platzhalter text={platzhalter} onHochladen={onHochladen} />

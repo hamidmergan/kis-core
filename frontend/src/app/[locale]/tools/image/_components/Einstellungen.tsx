@@ -78,15 +78,16 @@ export function AnbieterReihe({ providers, value, onChange, disabled }: {
 }
 
 /** The tinted settings band, it folds away and then names in one line what is set. */
-export function Band({ offen, onToggle, zusammenfassung, children }: {
+export function Band({ offen, onToggle, zusammenfassung, className = "mt-4", children }: {
   offen: boolean;
   onToggle: () => void;
   zusammenfassung: string;
+  className?: string;
   children: ReactNode;
 }) {
   const t = useTranslations("tools.image.settings");
   return (
-    <div className="mt-4 rounded-xl bg-kb/5">
+    <div className={`rounded-xl bg-kb/5 ${className}`}>
       <button type="button" onClick={onToggle} aria-expanded={offen}
         className="w-full text-left flex items-start gap-2 px-4 py-3.5 rounded-xl">
         <CaretRight size={12} weight="bold"

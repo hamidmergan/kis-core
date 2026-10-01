@@ -13,6 +13,7 @@ import BilderLeiste from "./_components/BilderLeiste";
 import Buehne from "./_components/Buehne";
 import LoeschenDialog from "./_components/LoeschenDialog";
 import PromptBox from "./_components/PromptBox";
+import PromptFeld, { usePromptEntwurf } from "./_components/PromptFeld";
 import { useBildAuftraege, type BildErgebnis } from "./_components/useBildAuftraege";
 import { useBilder } from "./_components/useBilder";
 import { useBildFragen } from "./_components/useBildFragen";
@@ -20,7 +21,7 @@ import { validateImageFile } from "./_utils";
 
 type Tab = "generate" | "edit" | "analyze";
 
-/** One large picture on the right for all three tasks, the form of the open task on the left. */
+/** One large picture on the right for all three tasks, the settings of the open task on the left, all pictures below. */
 export default function ImagePage() {
   const t = useTranslations("tools.image");
   const tt = useTranslations("tools.image.tabs");
@@ -34,6 +35,7 @@ export default function ImagePage() {
   const bilder = useBilder();
   const erzeugen = useBildAuftraege(t("generate.spinner"), t("generate.longRunning"), tCommon("unknownError"));
   const bearbeiten = useBildAuftraege(t("edit.spinner"), t("edit.longRunning"), tCommon("unknownError"));
+  const entwurf = usePromptEntwurf(erzeugen.setFehler);
   const fragen = useBildFragen(t("analyze.spinner"), t("analyze.longRunning"), tCommon("unknownError"));
   const buehne = useRef<HTMLDivElement>(null);
 
@@ -124,7 +126,7 @@ export default function ImagePage() {
         <div className="grid gap-8 lg:grid-cols-[minmax(0,400px)_1fr]">
           <section className="min-w-0">
             <div className={tab === "generate" ? "" : "hidden"}>
-              <GenerateTab {...band} laeuft={erzeugen.laeuft} onFehler={erzeugen.setFehler} onStart={startErzeugen} />
+              <GenerateTab {...band} entwurf={entwurf} laeuft={erzeugen.laeuft} onStart={startErzeugen} />
             </div>
             <div className={tab === "edit" ? "" : "hidden"}>
               <EditTab {...band} bild={bild} laeuft={bearbeiten.laeuft} onStart={startBearbeiten} />
@@ -134,35 +136,44 @@ export default function ImagePage() {
             </div>
           </section>
 
-          {/* On a phone editing and describing start with the picture, the form follows below it. */}
-          <section className={`min-w-0 ${tab === "generate" ? "" : "order-first lg:order-none"}`}>
-            <Buehne
-              ref={buehne}
-              bild={bild}
-              laeuft={erzeugtGerade}
-              label={erzeugen.laeuft ? erzeugen.label : bearbeiten.label}
-              meldungen={meldungen}
-              platzhalter={t(`placeholder.${tab}`)}
-              onHochladen={tab === "generate" ? undefined : hochladen}
-              onLoeschen={() => bild && setLoeschen({ bild, laeuft: false, fehler: "" })}
-            >
-              {bild && (tab === "analyze" ? (
-                <Antworten
-                  antworten={fragen.antworten[bild.key] ?? []}
-                  laeuft={fragen.laeuft}
-                  label={fragen.label}
-                  fehler={fragen.fehler}
-                  dateiname={bild.filename}
-                  onNachfrage={(text) => fragen.nachfragen(bild, text)}
-                />
-              ) : (
-                <div className="mt-3"><PromptBox bild={bild} /></div>
-              ))}
-            </Buehne>
-            <BilderLeiste bilder={bilder.alle} gewaehlt={gewaehlt}
-              onWaehlen={(key) => setGewaehlt((g) => (g === key ? "" : key))} />
+          {/* While creating the prompt stands where the new picture will appear. On a phone this side leads. */}
+          <section className="min-w-0 order-first lg:order-none lg:col-start-2 lg:row-start-1">
+            {tab === "generate" && !bild && !erzeugtGerade ? (
+              <div className="rounded-xl border border-kb/15 bg-kb/5 p-4 sm:p-5">
+                {meldungen.map((m) => <p key={m} className="mb-3 text-sm text-error" role="alert">{m}</p>)}
+                <PromptFeld entwurf={entwurf} />
+              </div>
+            ) : (
+              <Buehne
+                ref={buehne}
+                bild={bild}
+                laeuft={erzeugtGerade}
+                label={erzeugen.laeuft ? erzeugen.label : bearbeiten.label}
+                meldungen={meldungen}
+                platzhalter={tab === "generate" ? "" : t(`placeholder.${tab}`)}
+                onHochladen={tab === "generate" ? undefined : hochladen}
+                onLoeschen={() => bild && setLoeschen({ bild, laeuft: false, fehler: "" })}
+                onNeu={tab === "generate" ? () => setGewaehlt("") : undefined}
+              >
+                {bild && (tab === "analyze" ? (
+                  <Antworten
+                    antworten={fragen.antworten[bild.key] ?? []}
+                    laeuft={fragen.laeuft}
+                    label={fragen.label}
+                    fehler={fragen.fehler}
+                    dateiname={bild.filename}
+                    onNachfrage={(text) => fragen.nachfragen(bild, text)}
+                  />
+                ) : (
+                  <div className="mt-3"><PromptBox bild={bild} /></div>
+                ))}
+              </Buehne>
+            )}
           </section>
         </div>
+
+        <BilderLeiste bilder={bilder.alle} gewaehlt={gewaehlt}
+          onWaehlen={(key) => setGewaehlt((g) => (g === key ? "" : key))} />
 
         {loeschen && (
           <LoeschenDialog

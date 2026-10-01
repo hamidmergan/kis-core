@@ -429,7 +429,20 @@
       "filesN": "{n, plural, =0 {keine} one {# Datei} other {# Dateien}}",
       "sourcesN": "{n, plural, =0 {keine} one {# Material} other {# Materialien}}"
     },
-    "emptyValue": "leer"
+    "emptyValue": "leer",
+    "result": {
+      "provider": "Anbieter",
+      "file": "Datei",
+      "glossary": "Glossar",
+      "glossaryUsed": "verwendet",
+      "created": "Erstellt",
+      "delete": "Löschen",
+      "deleteTitle": "Ergebnis löschen?",
+      "deleteWarning": "Das Ergebnis und sein Auftrag werden endgültig gelöscht.",
+      "cancel": "Abbrechen",
+      "confirm": "Löschen",
+      "deleteFailed": "Löschen hat nicht geklappt."
+    }
   },
   "tools": {
     "stt": {
@@ -890,7 +903,8 @@
         "promptEdit": "Prompt zum Bearbeiten",
         "ownImage": "Eigenes Bild",
         "copyPrompt": "Prompt kopieren",
-        "delete": "Löschen"
+        "delete": "Löschen",
+        "newImage": "Neues Bild"
       },
       "history": {
         "title": "Deine Bilder",
@@ -904,7 +918,6 @@
         "hide": "Ausblenden"
       },
       "placeholder": {
-        "generate": "Hier erscheint dein neues Bild. Oder wähle unten eins deiner Bilder aus.",
         "edit": "Wähle unten ein Bild aus, das du bearbeiten möchtest.",
         "analyze": "Wähle unten ein Bild aus, das du beschreiben lassen möchtest.",
         "upload": "Oder <link>eigenes Bild hochladen</link>, auch per Ziehen."
