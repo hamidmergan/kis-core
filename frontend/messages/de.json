@@ -1625,7 +1625,7 @@
       "keinErgebnis": "Für die Demo ist noch kein Ergebnis hinterlegt.",
       "skriptGesperrt": "In der Demo lässt sich das Skript nur lesen, nicht ändern.",
       "vergleichTitel": "So könnte es mit anderen Stimmen klingen",
-      "vergleichText": "Die ersten zehn Beiträge desselben Skripts, vertont von Stimmdiensten außerhalb der Hochschule. Lehrende können solche Dienste mit eigenem Konto unter Schnittstellen verbinden. Die Texte gehen dann an den jeweiligen Anbieter.",
+      "vergleichText": "Die ersten zehn Beiträge desselben Skripts, vertont von Stimmdiensten außerhalb der Hochschule, für andere Sprachen übersetzt. Lehrende können solche Dienste mit eigenem Konto unter Schnittstellen verbinden. Die Texte gehen dann an den jeweiligen Anbieter.",
       "vergleichStimmen": "Stimmen: {stimmen}",
       "vergleichHier": "wie oben",
       "beenden": "Demo beenden"
