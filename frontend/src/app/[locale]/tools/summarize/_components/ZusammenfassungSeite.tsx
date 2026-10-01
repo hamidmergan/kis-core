@@ -1,9 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Info } from "@phosphor-icons/react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Files, Info } from "@phosphor-icons/react";
 import { useLocale, useTranslations } from "next-intl";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import Modal from "@/components/ui/Modal";
 import ToolBackLink from "@/components/ui/ToolBackLink";
 import { Link } from "@/i18n/navigation";
 import { backendApi, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
@@ -20,7 +24,9 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { useModules } from "@/hooks/useModules";
 import { useMaterialMeasure } from "@/hooks/useMaterialMeasure";
 import MaterialGauge, { MeasureError, MeasureNote } from "@/components/tools/MaterialGauge";
+import { formatDate } from "@/lib/format";
 import { demoSchritte, warte, type DemoSetup } from "../_demo";
+import { useSummaryHistory } from "./useSummaryHistory";
 
 type Template = { slug: string; nameDe: string; nameEn: string; hintDe: string; hintEn: string };
 type Setup = { templates: Template[]; maxSources: number; extensions: string[] };
@@ -42,7 +48,7 @@ function herunterladen(href: string) {
 }
 
 /** The summary tool, and with demo the same page on the prepared runs of the demo module. */
-export default function ZusammenfassungSeite({ demo = false }: { demo?: boolean }) {
+function ZusammenfassungSeiteInner({ demo = false }: { demo?: boolean }) {
   const t = useTranslations("tools.summarize");
   const tDemo = useTranslations("tools.summarizeDemo");
   const tCommon = useTranslations("common");
@@ -64,6 +70,9 @@ export default function ZusammenfassungSeite({ demo = false }: { demo?: boolean 
   const [dragActive, setDragActive] = useState(false);
   const [doneJobUuid, setDoneJobUuid] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
+  // Read straight on the page once a run is done, the downloads stay as a second way to get it.
+  const [previewText, setPreviewText] = useState<string | null>(null);
+  const [materialienOffen, setMaterialienOffen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   // The prepared runs, also read outside the demo so the badge only shows when there is one.
   const [demoSetup, setDemoSetup] = useState<DemoSetup | null>(null);
@@ -81,6 +90,10 @@ export default function ZusammenfassungSeite({ demo = false }: { demo?: boolean 
   const mode: SourceMode = demo ? "module" : canUseModules ? gewaehlterModus : "files";
   const { modules, sources } = useModules(mode === "module" && !demo ? moduleId : "");
   const messung = useMaterialMeasure("summary", demo ? "files" : mode, demo ? KEINE_DATEIEN : files, moduleId, sourceIds);
+  // The real history makes no sense on the demo page, which never creates a job.
+  const verlauf = useSummaryHistory();
+  // Only the jobs list links straight to one summary.
+  const ausListe = useSearchParams().get("job");
   const voll = sourceIds.length >= maxSources;
   const hatInhalt = demo ? templates.length > 0 : mode === "files" ? files.length > 0 : sourceIds.length > 0;
   const bereit = demo || messung.ready;
@@ -107,6 +120,13 @@ export default function ZusammenfassungSeite({ demo = false }: { demo?: boolean 
     return () => demoLauf.current?.abort();
   }, [demo]);
 
+  // Arriving from the jobs list: open straight on that one result.
+  useEffect(() => {
+    if (demo || !ausListe) return;
+    setDoneJobUuid(ausListe);
+    setErrorMessage("");
+  }, [demo, ausListe]);
+
   // The first template that may be picked, in the demo only once its prepared runs are known.
   useEffect(() => {
     if (templates[0] && !templates.some((v) => v.slug === template)) setTemplate(templates[0].slug);
@@ -118,6 +138,23 @@ export default function ZusammenfassungSeite({ demo = false }: { demo?: boolean 
     const vorhanden = new Set(sources.map((q) => q.uuid));
     setSourceIds((alt) => (alt.every((id) => vorhanden.has(id)) ? alt : alt.filter((id) => vorhanden.has(id))));
   }, [sources]);
+
+  // The finished text, fetched once so the result reads straight on the page.
+  useEffect(() => {
+    if (!doneJobUuid) { setPreviewText(null); return; }
+    let abgelaufen = false;
+    (async () => {
+      try {
+        const text = demo
+          ? await (await backendApi.fetch(`/summary-demo/${doneJobUuid}/md`)).text()
+          : await (await downloadJobAsBlob(doneJobUuid)).blob.text();
+        if (!abgelaufen) setPreviewText(text);
+      } catch {
+        // The downloads below still work even when the preview fetch fails.
+      }
+    })();
+    return () => { abgelaufen = true; };
+  }, [doneJobUuid, demo]);
 
   const waehleWorkspace = (uuid: string) => {
     setModuleId(uuid);
@@ -284,35 +321,47 @@ export default function ZusammenfassungSeite({ demo = false }: { demo?: boolean 
     setFiles([]);
     setSourceIds([]);
     setDoneJobUuid(null);
+    setPreviewText(null);
     setErrorMessage("");
     if (inputRef.current) inputRef.current.value = "";
   };
 
   const full = files.length >= maxSources;
 
+  // The source names of the shown result: the job's own list once it is history, the current choice while it is fresh.
+  const materialien = (() => {
+    const eintrag = verlauf.find((v) => v.job_uuid === doneJobUuid);
+    if (eintrag) return eintrag.original_filename.split(",").map((n) => n.trim()).filter(Boolean);
+    if (demo) return demoSetup?.files ?? [];
+    if (mode === "files") return files.map((f) => f.name);
+    if (sources) return sources.filter((s) => sourceIds.includes(s.uuid)).map((s) => s.filename);
+    return [];
+  })();
+
   return (
     <ProtectedRoute>
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="max-w-6xl mx-auto px-4 py-8">
         <ToolBackLink />
-        <section data-tour="tool-summary">
-          <div className="flex items-baseline justify-between gap-3 mb-1">
-            <h1 className="text-xl font-bold">{t("title")}</h1>
-            {demo ? (
-              <span className={DEMO_BADGE} style={DEMO_FARBE}>{tDemo("demoBadge")}</span>
-            ) : !!demoSetup?.templates.length && (
-              <Link href="/tools/summarize-demo" className={`${DEMO_BADGE} hover:border-black transition-colors`} style={DEMO_FARBE}>
-                {t("demoBadge")}
-              </Link>
-            )}
-          </div>
-          <p className="text-sm text-muted mb-6">{t("intro")}</p>
-          {demo && (
-            <p className="mb-6 flex items-start gap-2 rounded-lg bg-surface-dim px-3 py-2.5 text-sm text-foreground-soft">
-              <Info size={14} className="mt-0.5 flex-shrink-0 text-muted-soft" aria-hidden="true" />
-              {tDemo("hinweis")}
-            </p>
+        <div className="flex items-baseline justify-between gap-3 mb-1">
+          <h1 className="text-xl font-bold">{t("title")}</h1>
+          {demo ? (
+            <span className={DEMO_BADGE} style={DEMO_FARBE}>{tDemo("demoBadge")}</span>
+          ) : !!demoSetup?.templates.length && (
+            <Link href="/tools/summarize-demo" className={`${DEMO_BADGE} hover:border-black transition-colors`} style={DEMO_FARBE}>
+              {t("demoBadge")}
+            </Link>
           )}
+        </div>
+        <p className="text-sm text-muted mb-6">{t("intro")}</p>
+        {demo && (
+          <p className="mb-6 flex items-start gap-2 rounded-lg bg-surface-dim px-3 py-2.5 text-sm text-foreground-soft">
+            <Info size={14} className="mt-0.5 flex-shrink-0 text-muted-soft" aria-hidden="true" />
+            {tDemo("hinweis")}
+          </p>
+        )}
 
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,400px)_1fr]" data-tour="tool-summary">
+        <section className="min-w-0">
           {(canUseModules || demo) && (
             <Tabs<SourceMode>
               className="mb-4"
@@ -534,7 +583,7 @@ export default function ZusammenfassungSeite({ demo = false }: { demo?: boolean 
           />
 
           {!doneJobUuid && (
-            <div className="mt-6 flex items-center gap-3">
+            <div className="mt-6">
               <button
                 onClick={handleSubmit}
                 disabled={!hatInhalt || !bereit || processing}
@@ -543,28 +592,67 @@ export default function ZusammenfassungSeite({ demo = false }: { demo?: boolean 
                 {processing && <Spinner size="sm" color="current" />}
                 {processing ? tCommon("processing") : t("submit")}
               </button>
-              {processing && step && (
-                <span className="text-sm text-muted" role="status">{step}</span>
-              )}
             </div>
           )}
-
-          {processing && !demo && <BackgroundHint />}
 
           {errorMessage && (
             <p className="mt-3 text-sm text-error" role="alert">{errorMessage}</p>
           )}
+        </section>
 
-          {doneJobUuid && (
-            <div className="mt-6 rounded-lg border border-border-soft bg-background p-6" role="status" aria-live="polite">
+        {/* The result, colored like the image tool's stage, always on the right. */}
+        <section className="min-w-0">
+          <div className="rounded-xl border border-kb/15 bg-kb/5 p-4 sm:p-5" aria-live="polite">
+            {processing ? (
+              <div className="flex flex-col items-center justify-center gap-3 py-14 text-center">
+                <Spinner label={step || tCommon("processing")} />
+                {!demo && <BackgroundHint />}
+              </div>
+            ) : doneJobUuid ? (
               <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <svg className="h-5 w-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-sm font-medium text-foreground">{tCommon("downloadReady")}</span>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <svg className="h-5 w-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span className="text-sm font-medium text-foreground">{tCommon("downloadReady")}</span>
+                  </div>
+                  {materialien.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setMaterialienOffen(true)}
+                      aria-label={t("materialsAria")}
+                      title={t("materialsAria")}
+                      className="text-muted-soft hover:text-foreground transition-colors"
+                    >
+                      <Files size={16} weight="bold" />
+                    </button>
+                  )}
                 </div>
-                <div className="flex gap-3">
+                <div className="rounded-md border border-border-soft bg-background p-4 sm:p-5 max-h-[28rem] overflow-y-auto text-sm leading-relaxed text-foreground">
+                  {previewText ? (
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        h1: ({ children }) => <h1 className="text-lg font-bold mb-3">{children}</h1>,
+                        h2: ({ children }) => <h2 className="text-base font-semibold mt-5 mb-2 first:mt-0">{children}</h2>,
+                        h3: ({ children }) => <h3 className="text-sm font-semibold mt-4 mb-1.5 first:mt-0">{children}</h3>,
+                        p: ({ children }) => <p className="mb-3 last:mb-0">{children}</p>,
+                        ul: ({ children }) => <ul className="list-disc pl-5 mb-3 space-y-1">{children}</ul>,
+                        ol: ({ children }) => <ol className="list-decimal pl-5 mb-3 space-y-1">{children}</ol>,
+                        strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                        table: ({ children }) => <div className="overflow-x-auto my-3"><table className="w-full text-sm border-collapse">{children}</table></div>,
+                        th: ({ children }) => <th className="text-left px-2 py-1 font-semibold border-b border-border-soft">{children}</th>,
+                        td: ({ children }) => <td className="px-2 py-1 border-t border-border-soft">{children}</td>,
+                      }}
+                    >
+                      {previewText}
+                    </ReactMarkdown>
+                  ) : (
+                    <Spinner className="justify-center py-6" />
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-3">
                   <button
                     onClick={handleDownload}
                     className="px-4 py-2 btn-primary text-sm rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors flex items-center gap-2"
@@ -591,10 +679,79 @@ export default function ZusammenfassungSeite({ demo = false }: { demo?: boolean 
                   </button>
                 </div>
               </div>
-            </div>
-          )}
+            ) : (
+              <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
+                <svg className="h-8 w-8 text-muted-soft" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <p className="text-sm text-foreground-soft">{t("resultPlaceholder")}</p>
+              </div>
+            )}
+          </div>
         </section>
+        </div>
+
+        {!demo && (
+          <div className="mt-10">
+            <h2 className="text-sm font-semibold text-foreground mb-1">{t("history.title")}</h2>
+            <p className="text-xs text-muted mb-3">{verlauf.length ? t("history.hint") : t("history.empty")}</p>
+            {verlauf.length > 0 && (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm border border-border-soft rounded-xl overflow-hidden">
+                  <thead className="bg-surface text-xs text-muted uppercase">
+                    <tr>
+                      <th className="px-4 py-3 text-left">{t("history.colMaterial")}</th>
+                      <th className="px-4 py-3 text-right">{t("history.colDate")}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border-soft bg-background">
+                    {verlauf.map((e) => (
+                      <tr
+                        key={e.job_uuid}
+                        onClick={() => { if (processing) return; setDoneJobUuid(e.job_uuid); setErrorMessage(""); }}
+                        tabIndex={processing ? -1 : 0}
+                        onKeyDown={(ev) => {
+                          if (processing || (ev.key !== "Enter" && ev.key !== " ")) return;
+                          ev.preventDefault();
+                          setDoneJobUuid(e.job_uuid);
+                          setErrorMessage("");
+                        }}
+                        className={`transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-kb ${
+                          processing ? "cursor-not-allowed opacity-50" : "cursor-pointer"
+                        } ${e.job_uuid === doneJobUuid ? "bg-kb20" : "hover:bg-surface"}`}
+                      >
+                        <td className="max-w-0 w-full px-4 py-3 text-foreground-soft truncate" title={e.original_filename}>
+                          {e.original_filename}
+                        </td>
+                        <td className="px-4 py-3 text-muted-soft text-xs whitespace-nowrap text-right">
+                          {formatDate(e.created_at, locale)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        <Modal open={materialienOffen} onClose={() => setMaterialienOffen(false)} title={t("materialsModalTitle")} size="sm">
+          <ul className="space-y-1.5 text-sm text-foreground">
+            {materialien.map((name, i) => (
+              <li key={`${i}-${name}`} className="truncate" title={name}>{name}</li>
+            ))}
+          </ul>
+        </Modal>
       </div>
     </ProtectedRoute>
+  );
+}
+
+/** Wrapped so useSearchParams (the jobs-list link) has the Suspense boundary it needs. */
+export default function ZusammenfassungSeite(props: { demo?: boolean }) {
+  return (
+    <Suspense fallback={null}>
+      <ZusammenfassungSeiteInner {...props} />
+    </Suspense>
   );
 }

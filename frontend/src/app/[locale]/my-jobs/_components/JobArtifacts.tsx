@@ -6,6 +6,7 @@ import { SCREENCAST_RENDER_TOOLS, type MyJob } from "../_types";
 import { podcastJumpHref, podcastJumpKind } from "@/components/jobs/_podcastJump";
 import { praesentationJumpHref, praesentationJumpKind } from "@/components/jobs/_praesentationJump";
 import { screencastJumpHref, screencastJumpKind } from "@/components/jobs/_screencastJump";
+import { summaryJumpHref, summaryJumpKind } from "@/components/jobs/_summaryJump";
 
 
 function DownloadChip({ onClick, href, filename, label }: { onClick?: () => void | Promise<void>; href?: string; filename?: string; label: string }) {
@@ -186,6 +187,30 @@ export function JobArtifacts({ job }: { job: MyJob }) {
     );
   }
 
+  // Summary: the two downloads plus the way back into the tool to read it there again.
+  if (job.tool === "summary") {
+    const sprung = summaryJumpKind(job);
+    const laedt = job.status === "success" && job.has_download;
+    if (!laedt) return null;
+    return (
+      <div className="mt-3 flex flex-wrap gap-2 items-center">
+        <DownloadChip
+          href={`/api/jobs/${job.job_uuid}/download`}
+          filename={job.result_filename || "zusammenfassung.md"}
+          label={job.result_filename?.split(".").pop()?.toUpperCase() ?? "MD"}
+        />
+        {job.has_docx && (
+          <DownloadChip
+            href={`/api/jobs/${job.job_uuid}/docx`}
+            filename={(job.result_filename || "zusammenfassung").replace(/\.[^.]+$/, "") + ".docx"}
+            label="DOCX"
+          />
+        )}
+        {sprung === "open" && <OpenChip href={summaryJumpHref(job.job_uuid)} label={t("openSummary")} />}
+      </div>
+    );
+  }
+
   // TTS: show MP3 download
   if (job.tool === "tts" && job.status === "success" && job.has_download) {
     const baseName = job.original_filename.replace(/\.[^.]+$/, "") || "tts";
@@ -207,7 +232,7 @@ export function JobArtifacts({ job }: { job: MyJob }) {
         ? "PNG"
         : job.tool === "image_analyze"
         ? "TXT"
-        : (job.tool === "transcription" || job.tool === "translation" || job.tool === "summary")
+        : (job.tool === "transcription" || job.tool === "translation")
         ? (job.result_filename?.split(".").pop()?.toUpperCase() ?? t("fallbackFile"))
         : t("fallbackFile");
     return (

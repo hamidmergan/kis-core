@@ -16,6 +16,7 @@ import { hasUnseenDone } from "./_unseen";
 import { podcastJumpHref, podcastJumpKind } from "./_podcastJump";
 import { praesentationJumpHref, praesentationJumpKind } from "./_praesentationJump";
 import { screencastJumpHref, screencastJumpKind } from "./_screencastJump";
+import { summaryJumpHref, summaryJumpKind } from "./_summaryJump";
 import { JobSources } from "./JobSources";
 
 interface MyJob {
@@ -502,6 +503,17 @@ export default function JobsPanel() {
                             className="inline-flex items-center gap-1 text-xs text-kb-dark bg-kb20 border border-kb60 hover:outline-2 hover:outline-kb-dark transition-colors px-2.5 py-1 rounded-full"
                           >
                             {tArtifacts("openScreencast")}
+                          </a>
+                        </div>
+                      )}
+                      {summaryJumpKind(job) === "open" && (
+                        <div className="mt-2">
+                          <a
+                            href={summaryJumpHref(job.job_uuid)}
+                            onClick={(e) => { e.stopPropagation(); setOpen(false); }}
+                            className="inline-flex items-center gap-1 text-xs text-kb-dark bg-kb20 border border-kb60 hover:outline-2 hover:outline-kb-dark transition-colors px-2.5 py-1 rounded-full"
+                          >
+                            {tArtifacts("openSummary")}
                           </a>
                         </div>
                       )}

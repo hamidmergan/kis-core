@@ -181,7 +181,8 @@
       "downloadAllZip": "Download all (ZIP)",
       "fallbackFile": "File",
       "openPodcast": "Open podcast",
-      "openPraesentation": "Open presentation"
+      "openPraesentation": "Open presentation",
+      "openSummary": "Open summary"
     },
     "duration": {
       "seconds": "{n} s",
@@ -450,6 +451,7 @@
       "submit": "Create summary",
       "downloadLabel": "Download MD",
       "downloadDocxLabel": "Download DOCX",
+      "resultPlaceholder": "Your summary will appear here.",
       "providerLabel": "AI provider",
       "templateLabel": "Template",
       "instructionsLabel": "Instruction, optional",
@@ -470,7 +472,16 @@
         "sectionCounted": "Writing section {part} of {total}",
         "compose": "Writing the text"
       },
-      "demoBadge": "View demo"
+      "demoBadge": "View demo",
+      "history": {
+        "title": "Your summaries",
+        "empty": "No summary yet.",
+        "hint": "New summaries are added at the top, a click brings one back on the right.",
+        "colMaterial": "Material",
+        "colDate": "Date"
+      },
+      "materialsAria": "Show materials used",
+      "materialsModalTitle": "Materials used"
     },
     "translate": {
       "title": "Translation",

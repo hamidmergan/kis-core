@@ -181,7 +181,8 @@
       "downloadAllZip": "Alles herunterladen (ZIP)",
       "fallbackFile": "Datei",
       "openPodcast": "Podcast öffnen",
-      "openPraesentation": "Präsentation öffnen"
+      "openPraesentation": "Präsentation öffnen",
+      "openSummary": "Zusammenfassung öffnen"
     },
     "duration": {
       "seconds": "{n} Sek.",
@@ -450,6 +451,7 @@
       "submit": "Zusammenfassung erstellen",
       "downloadLabel": "MD herunterladen",
       "downloadDocxLabel": "DOCX herunterladen",
+      "resultPlaceholder": "Hier erscheint deine Zusammenfassung.",
       "providerLabel": "KI-Anbieter",
       "templateLabel": "Vorlage",
       "instructionsLabel": "Anweisung, optional",
@@ -470,7 +472,16 @@
         "sectionCounted": "Abschnitt {part} von {total} wird geschrieben",
         "compose": "Der Text wird geschrieben"
       },
-      "demoBadge": "Demo ansehen"
+      "demoBadge": "Demo ansehen",
+      "history": {
+        "title": "Deine Zusammenfassungen",
+        "empty": "Noch keine Zusammenfassung.",
+        "hint": "Neue Zusammenfassungen kommen oben dazu, ein Klick zeigt sie wieder rechts.",
+        "colMaterial": "Material",
+        "colDate": "Datum"
+      },
+      "materialsAria": "Genutzte Materialien anzeigen",
+      "materialsModalTitle": "Genutzte Materialien"
     },
     "translate": {
       "title": "Übersetzung",
