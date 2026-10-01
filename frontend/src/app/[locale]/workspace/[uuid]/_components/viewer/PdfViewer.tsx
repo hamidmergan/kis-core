@@ -483,6 +483,9 @@ export function PdfViewer({
           config={{
             src: `/api/ai-assistant/workspaces/${workspaceUuid}/sources/${source.uuid}/file`,
             worker: true,
+            // Self-hosted so the rendering engine never leaves our own domain (default would fetch it from jsDelivr).
+            // Must be absolute: the worker runs from a blob: URL, where a relative path doesn't resolve against our origin.
+            wasmUrl: `${window.location.origin}/pdfium.wasm`,
             // The viewer shows the workspace file only, never one of your own.
             disabledCategories: ["document-open", "document-close"],
             tabBar: "never",
