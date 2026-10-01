@@ -19,12 +19,12 @@ import { useJobHistory } from "@/hooks/useJobHistory";
 import { Link, useRouter } from "@/i18n/navigation";
 import { notifyJobsChanged } from "@/lib/jobs-events";
 import * as api from "../praesentation/_api";
-import PraesentationStepper from "../praesentation/_components/PraesentationStepper";
-import { LAEUFT, closedForGood, isBusy, reachable, schrittFuer } from "../praesentation/_logic";
+import { LAEUFT, isBusy, reachable, schrittFuer } from "../praesentation/_logic";
 import { INITIAL_STATE, reducer, type Action } from "../praesentation/_reducer";
-import DoneStep from "../praesentation/_steps/DoneStep";
-import PreviewStep from "../praesentation/_steps/PreviewStep";
+import FertigSchritt from "./_components/FertigSchritt";
 import InhaltSchritt from "./_components/InhaltSchritt";
+import SchrittReiter from "./_components/SchrittReiter";
+import VorschauSchritt from "./_components/VorschauSchritt";
 import { STEPS, type Language, type Slide, type Step } from "../praesentation/_types";
 
 const POLL_MS = 2000;
@@ -301,7 +301,16 @@ function PraesentationNeuInner() {
     <ProtectedRoute>
       {/* Wide for the two columns of the first step, narrow like the original for slides and the finished deck. */}
       <div className={`${state.step === "content" ? "max-w-6xl" : "max-w-4xl"} mx-auto px-4 py-10 sm:py-14`}>
-        <ToolBackLink />
+        {/* On the phone the later steps bring their own header with a back arrow. */}
+        <div className={state.step === "content" ? "" : "hidden sm:flex items-baseline justify-between gap-3"}>
+          <ToolBackLink />
+          {hydrated && state.step !== "content" && state.jobUuid && (
+            <button type="button" onClick={() => setNachfrage("verwerfen")} className={DISCARD}>
+              <Trash size={14} aria-hidden="true" />
+              {t("discard")}
+            </button>
+          )}
+        </div>
         {/* Title and intro only on the first step, like podcast and screencast. */}
         {hydrated && state.step === "content" ? (
           <>
@@ -321,21 +330,14 @@ function PraesentationNeuInner() {
             </div>
             <p className="text-sm text-muted mt-1 mb-8">{t("intro")}</p>
           </>
-        ) : hydrated && state.jobUuid && (
-          <div className="flex justify-end mb-3 sm:mb-8">
-            <button type="button" onClick={() => setNachfrage("verwerfen")} className={DISCARD}>
-              <Trash size={14} aria-hidden="true" />
-              {t("discard")}
-            </button>
-          </div>
-        )}
+        ) : null}
         {!hydrated ? (
           <Spinner className="justify-center py-20" />
         ) : (
           <>
             {state.step !== "content" && (
-              <PraesentationStepper step={state.step} canEnter={(i) => reachable(i, state)}
-                                    isClosedForGood={(i) => closedForGood(i, state)} onStepClick={gehe} />
+              <SchrittReiter step={state.step} canEnter={(i) => reachable(i, state)} onStepClick={gehe}
+                             onDiscard={state.jobUuid ? () => setNachfrage("verwerfen") : null} />
             )}
             {state.step === "content" && (
               <InhaltSchritt canUseModules={!!permissions.allow_aia} source={state.source} language={state.language}
@@ -365,7 +367,7 @@ function PraesentationNeuInner() {
             )}
             {/* The cards stand from the click on start, before the job even has its id. */}
             {state.step === "preview" && (state.jobUuid || state.starting) && (
-              <PreviewStep jobUuid={state.jobUuid ?? ""} outline={state.outline} slides={state.slides} previews={state.previews}
+              <VorschauSchritt jobUuid={state.jobUuid ?? ""} outline={state.outline} slides={state.slides} previews={state.previews}
                 images={state.images} missingImages={state.missingImages} inArbeit={state.inArbeit} presenter={state.presenter}
                 notesOn={state.notes} notesInclude={state.notesInclude} laeuft={isBusy(state)}
                 jobStatus={state.jobStatus} progress={state.progress} error={state.error} hasOutline={!!state.outline}
@@ -391,7 +393,7 @@ function PraesentationNeuInner() {
                 onFinalize={finalisieren} />
             )}
             {state.step === "done" && state.jobUuid && (
-              <DoneStep jobUuid={state.jobUuid} slides={state.slides} previews={state.previews}
+              <FertigSchritt jobUuid={state.jobUuid} slides={state.slides} previews={state.previews}
                 jobStatus={state.jobStatus} progress={state.progress} error={state.error}
                 onResume={() => mitStand(async (u) => { await api.startBuild(u); dispatch({ type: "JOB", status: "pending", progress: { step: "bau", final: true } }); })}
                 onBackToPreview={() => dispatch({ type: "GO", step: "preview" })}

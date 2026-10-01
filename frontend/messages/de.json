@@ -1598,7 +1598,8 @@
         "empty": "leer",
         "stageCaption": "Deckblatt im Folienmaster {name}",
         "stageHint": "So sieht das Deckblatt aus. Im nächsten Schritt siehst du, wie die Folien entstehen, und kannst jede prüfen und ändern.",
-        "barTemplate": "Folienmaster: {name}"
+        "barTemplate": "Folienmaster: {name}",
+        "editNote": "Notiz bearbeiten"
       }
     },
     "screencastDemo": {
