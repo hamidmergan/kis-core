@@ -126,7 +126,10 @@ export default function ContentStep({ canUseModules, source, language, instructi
           </Link>
         )}
       </div>
-      <p className={`text-sm text-muted ${demo ? "mb-6" : "mb-8"}`}>{tTool("intro")}</p>
+      <p className={`text-sm text-muted ${demo ? "mb-6" : "mb-8"}`}>
+        {tTool("intro")}
+        {!demo && demoDa && <> {tTool("demoStimmen")}</>}
+      </p>
       {demo && (
         <p className="mb-8 flex items-start gap-2 rounded-lg bg-surface-dim px-3 py-2.5 text-sm text-foreground-soft">
           <Info size={14} className="mt-0.5 flex-shrink-0 text-muted-soft" aria-hidden="true" />

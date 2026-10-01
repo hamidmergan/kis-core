@@ -1370,6 +1370,7 @@
         "nachLinks": "Scroll lines to the left",
         "nachRechts": "Scroll lines to the right"
       },
+      "demoStimmen": "At the end of the demo you can hear the same podcast with voices from other services.",
       "demoBadge": "View demo"
     },
     "praesentation": {
@@ -1618,7 +1619,7 @@
     },
     "podcastDemo": {
       "demoBadge": "Demo",
-      "hinweis": "This is the demo. You can try every step, but the result is always the prepared podcast.",
+      "hinweis": "This is the demo. You can try every step, but the result is always the prepared podcast. At the end you can also hear it with voices from other services for comparison.",
       "materialVorgegeben": "In the demo the workspace, material and instruction are fixed.",
       "keinGlossar": "The demo uses no term list.",
       "keinErgebnis": "No result has been added for the demo yet.",
