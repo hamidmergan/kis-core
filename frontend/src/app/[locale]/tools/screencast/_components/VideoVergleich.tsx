@@ -60,7 +60,6 @@ export default function VideoVergleich({ stimmen, sprache }: { stimmen: DemoStim
   };
 
   if (!aktiv) return null;
-  const name = aktiv.stimmen[aktiveSprache];
 
   return (
     <section className="mt-4 border-t border-border pt-8">
@@ -86,15 +85,28 @@ export default function VideoVergleich({ stimmen, sprache }: { stimmen: DemoStim
           onChange={(s) => { merken(); setGewaehlteSprache(s); }}
         />
       )}
-      <div className="overflow-x-auto">
-        <Tabs items={dienste.map((s) => ({ key: s.id, label: s.anbieter }))} active={aktiv.id} onChange={(id) => { merken(); setGewaehlt(id); }} />
+      {/* The language stays a tab, the services are cards that also name the voice. */}
+      <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5" role="radiogroup" aria-label={t("vergleichTitel")}>
+        {dienste.map((s) => {
+          const gewaehltHier = s.id === aktiv.id;
+          return (
+            <button
+              key={s.id}
+              type="button"
+              role="radio"
+              aria-checked={gewaehltHier}
+              onClick={() => { merken(); setGewaehlt(s.id); }}
+              className={`flex flex-col items-start justify-start text-left rounded-lg border-2 transition-colors px-3 py-2 ${gewaehltHier ? "border-kb" : "border-border hover:border-kb"}`}
+            >
+              <p className={`text-sm font-semibold ${gewaehltHier ? "text-kb" : "text-foreground"}`}>{s.anbieter}</p>
+              {s.stimmen[aktiveSprache] && (
+                <p className="text-xs text-muted">{t("stimme", { name: s.stimmen[aktiveSprache] })}</p>
+              )}
+              {s.eigen && <p className="mt-1 text-xs text-kb-dark">{t("selbstGehostet")}</p>}
+            </button>
+          );
+        })}
       </div>
-      <p className="mt-3 mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-foreground-soft">
-        {name && <span>{t("stimme", { name })}</span>}
-        {aktiv.eigen && (
-          <span className="rounded-full bg-kb20 px-2.5 py-0.5 text-xs font-medium text-kb-dark">{t("selbstGehostet")}</span>
-        )}
-      </p>
       <div className="rounded-lg overflow-hidden border border-border-soft">
         {quelle ? (
           <video ref={videoRef} src={quelle} controls preload="metadata" className="w-full">

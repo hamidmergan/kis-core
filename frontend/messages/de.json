@@ -1655,7 +1655,7 @@
       "vergleichTitel": "So könnte es mit anderen Stimmen klingen",
       "vergleichText": "Eine gekürzte Fassung desselben Screencasts, vertont von verschiedenen Stimmdiensten.",
       "stimme": "Stimme: {name}",
-      "selbstGehostet": "selbst gehostet (DSGVO-konform)",
+      "selbstGehostet": "selbst gehostet (DSGVO‑konform)",
       "platzhalter": "Das Video mit {anbieter} folgt.",
       "anbinden": "Solche Dienste kannst du mit deinem eigenen Konto unter <link>Schnittstellen</link> anbinden. Die Texte gehen dann an den jeweiligen Anbieter."
     },

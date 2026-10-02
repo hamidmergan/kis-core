@@ -1655,7 +1655,7 @@
       "vergleichTitel": "How it could sound with other voices",
       "vergleichText": "A shorter version of the same screencast, voiced by different speech services.",
       "stimme": "Voice: {name}",
-      "selbstGehostet": "self-hosted (GDPR compliant)",
+      "selbstGehostet": "self‑hosted (GDPR compliant)",
       "platzhalter": "The video with {anbieter} will follow.",
       "anbinden": "You can connect such services with your own account under <link>Interfaces</link>. The texts are then sent to that provider."
     },
