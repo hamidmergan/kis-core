@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useTranslations } from "next-intl";
-import { Bank, BookOpenText, Flask, Quotes, RocketLaunch, Users, WarningCircle, type Icon } from "@phosphor-icons/react";
+import { Bank, BookOpenText, Flask, Globe, Quotes, Users, WarningCircle, type Icon } from "@phosphor-icons/react";
 import Mascot from "@/components/ui/Mascot";
 import { useMascotPref } from "@/hooks/useMascotPref";
 import Band from "./Band";
@@ -12,11 +12,11 @@ export function SectionHeading({ children }: { children: ReactNode }) {
   return <h2 className="text-3xl @min-[40rem]:text-4xl font-semibold tracking-[-0.02em] leading-tight">{children}</h2>;
 }
 
-const FACTS: Array<{ key: "who" | "pilot" | "funding" | "status"; icon: Icon }> = [
-  { key: "who", icon: Users },
+const FACTS: Array<{ key: "platform" | "focus" | "pilot" | "funding"; icon: Icon }> = [
+  { key: "platform", icon: Users },
+  { key: "focus", icon: Globe },
   { key: "pilot", icon: Flask },
   { key: "funding", icon: Bank },
-  { key: "status", icon: RocketLaunch },
 ];
 
 const RULES: Array<{ key: "sources" | "names" | "errors"; icon: Icon }> = [
@@ -25,7 +25,7 @@ const RULES: Array<{ key: "sources" | "names" | "errors"; icon: Icon }> = [
   { key: "errors", icon: WarningCircle },
 ];
 
-/** Purpose of the project as a fact sheet, followed by how Francis treats questions. */
+/** Platform and project as a fact sheet, followed by how Francis treats questions. */
 export function PurposeSection() {
   const t = useTranslations("mockup.info.purpose");
   const { variant } = useMascotPref();

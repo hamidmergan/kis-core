@@ -4641,23 +4641,23 @@
       "lead": "Der KI-Assistent Francis antwortet aus deinen Skripten, Folien und Vorlesungen und nennt die Quelle dazu.",
       "purpose": {
         "heading": "Wofür KIS da ist",
-        "lead": "KIS soll internationalen Studierenden den Einstieg in ein deutschsprachiges Fachstudium erleichtern. Der KI-Assistent Francis hilft dabei, Vorlesungsmaterial zu verstehen und zu üben.",
+        "lead": "KIS ist eine Lernplattform für Studierende und Lehrende in jedem Fach. Das Projekt dahinter richtet sich besonders an internationale Studierende.",
         "facts": {
-          "who": {
-            "label": "Für wen",
+          "platform": {
+            "label": "Plattform für",
+            "value": "Studierende und Lehrende, in jedem Fach"
+          },
+          "focus": {
+            "label": "Schwerpunkt",
             "value": "Internationale Studierende, die mit Deutsch auf B1 in ein Fachstudium starten"
           },
           "pilot": {
             "label": "Erprobt in",
-            "value": "Pilotkurs Allgemeine Elektrotechnik an der THL"
+            "value": "Pilotprojekt an der THL, im Pilotkurs Allgemeine Elektrotechnik"
           },
           "funding": {
             "label": "Gefördert von",
             "value": "Stiftung Innovation in der Hochschullehre"
-          },
-          "status": {
-            "label": "Stand",
-            "value": "Pilotprojekt, wird an der THL erprobt und weiterentwickelt"
           }
         },
         "rulesHeading": "So geht Francis mit deinen Fragen um",
