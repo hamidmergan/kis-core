@@ -3,20 +3,29 @@
 import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import Tabs from "@/components/ui/Tabs";
+import DienstKarten from "@/components/tools/DienstKarten";
+import { useStelleBehalten } from "@/hooks/useStelleBehalten";
 import { usePermissions } from "@/hooks/usePermissions";
 import { hasPerm, PERM } from "@/lib/permissions";
 import { langLabel } from "@/app/[locale]/workspace/[uuid]/_types";
 import { stimmprobeUrl, type Stimmprobe } from "../_api";
 
-/** The start of the demo script voiced by other services, side by side with the platform's own voices, one tab per language. */
+/** The start of the demo script voiced by several services, one player, a tab per language and a card per service. */
 export default function Stimmvergleich({ proben }: { proben: Stimmprobe[] }) {
   const t = useTranslations("tools.podcastDemo");
   const locale = useLocale();
   const { loaded, permissions } = usePermissions();
   const sprachen = [...new Set(proben.map((p) => p.sprache))];
   const [gewaehlt, setGewaehlt] = useState<string | null>(null);
-  if (!proben.length) return null;
+  const [gewaehlteProbe, setGewaehlteProbe] = useState<string | null>(null);
   const aktiv = gewaehlt ?? (sprachen.includes(locale) ? locale : sprachen[0]);
+  const hier = proben.filter((p) => p.sprache === aktiv);
+  // The same service stays chosen across languages, the ids only differ by their language ending.
+  const dienst = (p: Stimmprobe) => p.id.replace(/-[a-z]{2}$/, "");
+  const probe = hier.find((p) => dienst(p) === gewaehlteProbe) ?? hier[0];
+  const quelle = probe?.ton ? stimmprobeUrl(probe.id) : null;
+  const { ref: tonRef, merken } = useStelleBehalten<HTMLAudioElement>(quelle);
+  if (!probe) return null;
 
   return (
     <section className="mt-4 border-t border-border pt-8">
@@ -39,29 +48,27 @@ export default function Stimmvergleich({ proben }: { proben: Stimmprobe[] }) {
           className="mb-4"
           items={sprachen.map((s) => ({ key: s, label: langLabel(s, locale) }))}
           active={aktiv}
-          onChange={setGewaehlt}
+          onChange={(s) => { merken(); setGewaehlt(s); }}
         />
       )}
-      <ul className="grid gap-3 sm:grid-cols-2">
-        {proben.filter((p) => p.sprache === aktiv).map((p) => {
-          return (
-            <li key={p.id} className="rounded-lg border border-border p-3">
-              <p className="text-sm font-semibold">
-                {p.anbieter}
-                {p.selbst && <span className="ml-2 text-xs font-normal text-muted">{t("vergleichSelbst")}</span>}
-              </p>
-              <p className="text-xs text-muted mb-2">{t("vergleichStimmen", { stimmen: p.stimmen.join(", ") })}</p>
-              {p.ton ? (
-                <audio controls preload="none" className="w-full" src={stimmprobeUrl(p.id)} />
-              ) : (
-                <p className="flex h-[54px] items-center justify-center rounded-full bg-surface-dim text-sm text-muted">
-                  {t("vergleichFolgt")}
-                </p>
-              )}
-            </li>
-          );
-        })}
-      </ul>
+      <DienstKarten
+        karten={hier.map((p) => ({
+          id: dienst(p),
+          anbieter: p.anbieter,
+          stimme: t("vergleichStimmen", { stimmen: p.stimmen.join(", ") }),
+          selbst: p.selbst ? t("vergleichSelbst") : "",
+        }))}
+        aktiv={dienst(probe)}
+        onWahl={(id) => { merken(); setGewaehlteProbe(id); }}
+        ariaLabel={t("vergleichTitel")}
+      />
+      {quelle ? (
+        <audio ref={tonRef} controls preload="metadata" className="w-full" src={quelle} />
+      ) : (
+        <p className="flex h-[54px] items-center justify-center rounded-full bg-surface-dim text-sm text-muted">
+          {t("vergleichFolgt")}
+        </p>
+      )}
     </section>
   );
 }

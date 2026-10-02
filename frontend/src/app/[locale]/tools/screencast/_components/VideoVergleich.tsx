@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import Tabs from "@/components/ui/Tabs";
+import DienstKarten from "@/components/tools/DienstKarten";
+import { useStelleBehalten } from "@/hooks/useStelleBehalten";
 import { usePermissions } from "@/hooks/usePermissions";
 import { hasPerm, PERM } from "@/lib/permissions";
 import { langLabel } from "@/app/[locale]/workspace/[uuid]/_types";
@@ -20,7 +22,7 @@ export interface DemoStimme {
 
 const vergleichUrl = (sprache: string, id: string) => `/api/screencast-demo/vergleich/${sprache}/${id}`;
 
-/** A shorter version of the demo voiced by every service, one player with a tab per service and per language. */
+/** A shorter version of the demo voiced by every service, one player, a tab per language and a card per service. */
 export default function VideoVergleich({ stimmen, sprache }: { stimmen: DemoStimme[]; sprache: string }) {
   const t = useTranslations("tools.screencastDemo");
   const tScreencast = useTranslations("tools.screencast");
@@ -31,33 +33,12 @@ export default function VideoVergleich({ stimmen, sprache }: { stimmen: DemoStim
     .filter((sp) => stimmen.some((s) => s.vergleich.includes(sp)));
   const [gewaehlteSprache, setGewaehlteSprache] = useState<string | null>(null);
   const [gewaehlt, setGewaehlt] = useState<string | null>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const stand = useRef<{ zeit: number; laeuft: boolean } | null>(null);
-
   const aktiveSprache = gewaehlteSprache ?? (sprachen.includes(sprache) ? sprache : sprachen[0]);
   const dienste = stimmen.filter((s) => s.vergleich.includes(aktiveSprache));
   const aktiv = dienste.find((s) => s.id === gewaehlt) ?? dienste[0];
   const quelle = aktiv?.videos.includes(aktiveSprache) ? vergleichUrl(aktiveSprache, aktiv.id) : null;
 
-  // Another service starts where the last one stopped, so the voices compare on the same sentence.
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video || !quelle || !stand.current) return;
-    const { zeit, laeuft } = stand.current;
-    stand.current = null;
-    const weiter = () => {
-      video.currentTime = Math.min(zeit, video.duration || zeit);
-      if (laeuft) video.play().catch(() => {});
-    };
-    if (video.readyState >= 1) weiter();
-    else video.addEventListener("loadedmetadata", weiter, { once: true });
-    return () => video.removeEventListener("loadedmetadata", weiter);
-  }, [quelle]);
-
-  const merken = () => {
-    const video = videoRef.current;
-    if (video) stand.current = { zeit: video.currentTime, laeuft: !video.paused && !video.ended };
-  };
+  const { ref: videoRef, merken } = useStelleBehalten<HTMLVideoElement>(quelle);
 
   if (!aktiv) return null;
 
@@ -86,27 +67,17 @@ export default function VideoVergleich({ stimmen, sprache }: { stimmen: DemoStim
         />
       )}
       {/* The language stays a tab, the services are cards that also name the voice. */}
-      <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5" role="radiogroup" aria-label={t("vergleichTitel")}>
-        {dienste.map((s) => {
-          const gewaehltHier = s.id === aktiv.id;
-          return (
-            <button
-              key={s.id}
-              type="button"
-              role="radio"
-              aria-checked={gewaehltHier}
-              onClick={() => { merken(); setGewaehlt(s.id); }}
-              className={`flex flex-col items-start justify-start text-left rounded-lg border-2 transition-colors px-3 py-2 ${gewaehltHier ? "border-kb" : "border-border hover:border-kb"}`}
-            >
-              <p className={`text-sm font-semibold ${gewaehltHier ? "text-kb" : "text-foreground"}`}>{s.anbieter}</p>
-              {s.stimmen[aktiveSprache] && (
-                <p className="text-xs text-muted">{t("stimme", { name: s.stimmen[aktiveSprache] })}</p>
-              )}
-              {s.eigen && <p className="mt-1 text-xs text-kb-dark">{t("selbstGehostet")}</p>}
-            </button>
-          );
-        })}
-      </div>
+      <DienstKarten
+        karten={dienste.map((s) => ({
+          id: s.id,
+          anbieter: s.anbieter,
+          stimme: s.stimmen[aktiveSprache] ? t("stimme", { name: s.stimmen[aktiveSprache] }) : "",
+          selbst: s.eigen ? t("selbstGehostet") : "",
+        }))}
+        aktiv={aktiv.id}
+        onWahl={(id) => { merken(); setGewaehlt(id); }}
+        ariaLabel={t("vergleichTitel")}
+      />
       <div className="rounded-lg overflow-hidden border border-border-soft">
         {quelle ? (
           <video ref={videoRef} src={quelle} controls preload="metadata" className="w-full">
