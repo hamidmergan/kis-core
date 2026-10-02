@@ -76,7 +76,10 @@ export const SEED_CONFIG: MockupConfig = {
         id: "stamp",
         icon: "star",
         title: { de: "Stempelkarte", en: "Stamp card" },
-        body: { de: "Besuche alle Stände und sammle Stempel.", en: "Visit all stands and collect stamps." },
+        body: {
+          de: "Besuche alle Stände, sammle Stempel und hol dir am Ende dein Geschenk ab.",
+          en: "Visit all stands, collect stamps and pick up your gift at the end.",
+        },
         button: { de: "Karte öffnen", en: "Open card" },
         target: { kind: "stamp" },
       },
