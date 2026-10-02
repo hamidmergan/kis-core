@@ -37,7 +37,6 @@ docker compose up -d
 Open `http://localhost:3000`.
 
 - Login: `admin` / `adminpw` from `.env.example`, by user name or mail address.
-- Other users: invitation link or access code, under **Admin → Users**.
 - Rename the admin or reset its password: change `ADMIN_USERNAME` / `ADMIN_EMAIL` / `ADMIN_PASSWORD`
   in `.env` and recreate the container (`docker restart` is not enough). Change `ADMIN_PASSWORD`
   before any real use, a production install refuses the example value.
