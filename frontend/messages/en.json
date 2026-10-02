@@ -4716,6 +4716,10 @@
           "q": "What happens after the pilot phase?",
           "a": "Afterwards the project is meant to be transferred to further degree programmes. How exactly is decided by THL after the evaluation."
         },
+        "integration": {
+          "q": "Will the platform be connected to Moodle and the THL account?",
+          "a": "Not yet. Signing in with the THL account (single sign-on) is being coordinated with the THL computing centre. A connection to Moodle via the LTI standard is being considered, so that a workspace can be opened directly from a Moodle course."
+        },
         "feedback": {
           "q": "How can I give feedback?",
           "a": "On the platform there is a link to report errors or share an idea. You can also write to us via the contact."
