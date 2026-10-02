@@ -31,14 +31,14 @@ export const SEED_CONFIG: MockupConfig = {
     station(
       "platform",
       "translation",
-      ["Sprachkompetenz: KIS-Plattform", "KI-Fachsprachen-Trainer und Übersetzung", "Hier hast du gesehen, wie die KIS-Plattform Materialien übersetzt und beim Fachwortschatz hilft."],
-      ["Language skills: KIS platform", "AI technical-language trainer and translation", "Here you saw how the KIS platform translates materials and helps with technical vocabulary."],
+      ["KIS-Plattform", "KI-Fachsprachen-Trainer und Übersetzung", "Hier hast du gesehen, wie die KIS-Plattform Materialien übersetzt und beim Fachwortschatz hilft."],
+      ["KIS platform", "AI technical-language trainer and translation", "Here you saw how the KIS platform translates materials and helps with technical vocabulary."],
     ),
     station(
       "dafl",
       "tts",
-      ["Sprachkompetenz: Deutsch als Fremdsprache", "Sprachkurse und Buddy-Programm", "Hier hast du gesehen, wie Deutschkurse und Buddys internationale Studierende begleiten."],
-      ["Language skills: German as a foreign language", "Language courses and buddy programme", "Here you saw how German courses and buddies support international students."],
+      ["Deutsch als Fremdsprache", "Sprachkurse und Buddy-Programm", "Hier hast du gesehen, wie Deutschkurse und Buddys internationale Studierende begleiten."],
+      ["German as a foreign language", "Language courses and buddy programme", "Here you saw how German courses and buddies support international students."],
     ),
     station(
       "intercultural",
