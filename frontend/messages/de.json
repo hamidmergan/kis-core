@@ -336,7 +336,11 @@
     "maintenanceBanner": "Die Plattform wird gerade aktualisiert. Bitte versuche es in wenigen Minuten erneut.",
     "accessCodeLink": "Ich habe einen Zugangscode",
     "expiredTitle": "Dein Zugang ist abgelaufen",
-    "expiredText": "Bei Interesse melde dich bei uns."
+    "expiredText": "Bei Interesse melde dich bei uns.",
+    "francisName": "Francis",
+    "francisRole": "KI-Assistent von KIS",
+    "tabAccount": "Mit Konto",
+    "tabCode": "Mit Zugangscode"
   },
   "startOverview": {
     "groups": {

@@ -1,14 +1,29 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
+import { Check, Copy, Eye, EyeSlash } from "@phosphor-icons/react";
 import Header from "@/components/layout/Header";
+import Mascot from "@/components/ui/Mascot";
+import { useMascotPref } from "@/hooks/useMascotPref";
+import IconButton from "@/components/ui/IconButton";
+import Tabs from "@/components/ui/Tabs";
 import { login, checkAuthStatus } from "@/lib/auth";
+import { copyTextFromPromise } from "@/lib/clipboard";
+import { checkForm } from "../redeem/checkForm";
+
+const FIELD =
+  "w-full px-3 py-2.5 text-base bg-background text-foreground border-2 border-border rounded-lg outline-none hover:border-kb focus:border-kb transition-colors disabled:opacity-50";
+
+type Fertig = { username: string; password: string; expiresAt: string | null };
 
 export default function LoginPage() {
   const t = useTranslations("login");
-  const router = useRouter();
+  const tc = useTranslations("accessCode");
+  const locale = useLocale();
+    const router = useRouter();
+  const { variant } = useMascotPref();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -18,14 +33,17 @@ export default function LoginPage() {
   const [maintenanceOn, setMaintenanceOn] = useState(false);
   const [zugangOffen, setZugangOffen] = useState(false);
   const [abgelaufen, setAbgelaufen] = useState(false);
+  const [tab, setTab] = useState<"login" | "code">("login");
+  const [code, setCode] = useState("");
+  const [codeError, setCodeError] = useState<string | null>(null);
+  const [codeSending, setCodeSending] = useState(false);
+  const [fertig, setFertig] = useState<Fertig | null>(null);
+  const [kopiert, setKopiert] = useState<"user" | "password" | null>(null);
 
   useEffect(() => {
     checkAuthStatus().then((status) => {
-      if (status.authenticated) {
-        router.replace("/");
-      } else {
-        setChecking(false);
-      }
+      if (status.authenticated) router.replace("/");
+      else setChecking(false);
     });
   }, [router]);
 
@@ -51,6 +69,19 @@ export default function LoginPage() {
     if (new URLSearchParams(window.location.search).get("expired")) setAbgelaufen(true);
   }, []);
 
+  // A QR code links here with the code in the address, that opens the code tab and redeems it at once.
+  const autoDone = useRef(false);
+  useEffect(() => {
+    const fromLink = new URLSearchParams(window.location.search).get("code");
+    if (fromLink && !autoDone.current) {
+      autoDone.current = true;
+      setTab("code");
+      setCode(fromLink);
+      redeem(fromLink);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     fetch("/api/access-codes/enabled", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
@@ -58,11 +89,58 @@ export default function LoginPage() {
       .catch(() => {});
   }, []);
 
+  async function redeem(value: string) {
+    if (!checkForm({ code: value }).ok) {
+      setCodeError(tc("errorCodeMissing"));
+      return;
+    }
+    setCodeError(null);
+    setCodeSending(true);
+    try {
+      const r = await fetch("/api/access-codes/redeem", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: value.trim() }),
+      });
+      if (!r.ok) {
+        const body = await r.json().catch(() => ({}));
+        setCodeError(typeof body?.detail === "string" ? body.detail : tc("errorGeneric"));
+        return;
+      }
+      const d = await r.json();
+      // The session cookie already arrived with this answer, an event code without credentials goes straight in.
+      if (d.show_credentials === false) {
+        window.location.assign("/");
+        return;
+      }
+      setFertig({ username: d.username, password: d.password, expiresAt: d.expires_at ?? null });
+    } catch {
+      setCodeError(tc("errorGeneric"));
+    } finally {
+      setCodeSending(false);
+    }
+  }
+
+  function copy(field: "user" | "password", text: string) {
+    copyTextFromPromise(Promise.resolve(text));
+    setKopiert(field);
+    setTimeout(() => setKopiert(null), 1500);
+  }
+
+  const untilDate = fertig?.expiresAt
+    ? new Date(fertig.expiresAt).toLocaleDateString(locale === "en" ? "en-US" : "de-DE", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        timeZone: "Europe/Berlin",
+      })
+    : "";
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
-
     try {
       await login(username.trim(), password);
       await checkAuthStatus();
@@ -71,15 +149,10 @@ export default function LoginPage() {
       return;
     } catch (err) {
       const message = err instanceof Error ? err.message : "";
-      if (message === "account_not_activated") {
-        router.push("/pending");
-      } else if (message === "access_expired") {
-        setAbgelaufen(true);
-      } else if (maintenanceOn) {
-        setError(t("maintenanceBanner"));
-      } else {
-        setError(t("invalidCredentials"));
-      }
+      if (message === "account_not_activated") router.push("/pending");
+      else if (message === "access_expired") setAbgelaufen(true);
+      else if (maintenanceOn) setError(t("maintenanceBanner"));
+      else setError(t("invalidCredentials"));
     } finally {
       setLoading(false);
     }
@@ -89,38 +162,64 @@ export default function LoginPage() {
 
   return (
     <>
-      <Header />
-      <main className="flex items-center justify-center min-h-[70vh] px-4">
-      <div className="w-full max-w-sm">
-        <h1 className="text-2xl font-bold text-center mb-6">{t("welcome")}</h1>
-        <div className="bg-background rounded-xl shadow-sm border border-border-soft p-8">
-          <h2 className="text-lg font-semibold mb-4">{t("title")}</h2>
+    <Header hasSession={false} showLogout hideLogin />
+    <main className="grid lg:grid-cols-[5fr_6fr] lg:min-h-[calc(100dvh-7rem)]">
+      <h1 className="sr-only">{t("welcome")}</h1>
+      <section className="relative hidden lg:flex items-center justify-center bg-kb px-14 py-14">
+        <div className="flex w-full max-w-md flex-col items-center">
+          <div className="relative">
+            <span
+              aria-hidden="true"
+              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-72 w-72 rounded-full border-2 border-white/15"
+            />
+            <span
+              aria-hidden="true"
+              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-52 w-52 rounded-full bg-white/10"
+            />
+            <div className="relative"><Mascot variant={variant} size={200} state="wave" /></div>
+          </div>
+          <div className="mt-16 text-center">
+            <p className="text-2xl font-semibold leading-snug text-on-accent">{t("francisName")}</p>
+            <p className="mt-1 text-base text-on-accent/80">{t("francisRole")}</p>
+          </div>
+        </div>
+      </section>
 
-          {abgelaufen && (
+      <section className="flex items-center px-6 py-10 sm:px-10 lg:px-16">
+        <div className="w-full max-w-md mx-auto lg:mx-0">
+          <h2 className="text-2xl font-semibold tracking-[-0.01em] text-foreground">
+            {fertig ? tc("doneTitle") : t("title")}
+          </h2>
+          {zugangOffen && !fertig && (
+            <Tabs
+              items={[
+                { key: "login", label: t("tabAccount") },
+                { key: "code", label: t("tabCode") },
+              ]}
+              active={tab}
+              onChange={setTab}
+              className="mt-5 text-base"
+            />
+          )}
+
+          {tab === "login" && abgelaufen && (
             <div
               role="status"
               data-testid="login-expired"
-              className="mb-4 rounded-lg border p-4"
-              style={{
-                background: "var(--surface-dim)",
-                borderColor: "var(--border)",
-                color: "var(--foreground)",
-              }}
+              className="mt-5 rounded-lg border-2 border-border bg-surface-dim p-4 text-foreground"
             >
               <p className="text-sm font-semibold">{t("expiredTitle")}</p>
               <p className="mt-1 text-sm leading-relaxed text-foreground-soft">{t("expiredText")}</p>
-              <a
-                href="mailto:hamid.mergan@th-luebeck.de"
-                className="mt-2 inline-block text-sm text-kb hover:underline"
-              >
+              <a href="mailto:hamid.mergan@th-luebeck.de" className="mt-2 inline-block text-sm text-kb-dark hover:underline">
                 hamid.mergan@th-luebeck.de
               </a>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} aria-label={t("formAria")} className="space-y-4">
+          {tab === "login" && (
+          <form onSubmit={handleSubmit} aria-label={t("formAria")} className="mt-6 space-y-5">
             <div>
-              <label htmlFor="username" className="block text-sm font-medium text-foreground-soft mb-1">
+              <label htmlFor="username" className="block text-sm font-medium text-foreground-soft mb-1.5">
                 {t("username")}
               </label>
               <input
@@ -135,12 +234,12 @@ export default function LoginPage() {
                 autoFocus
                 required
                 disabled={loading}
-                className="w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-kb focus:border-transparent disabled:opacity-50"
+                className={FIELD}
               />
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-foreground-soft mb-1">
+              <label htmlFor="password" className="block text-sm font-medium text-foreground-soft mb-1.5">
                 {t("password")}
               </label>
               <div className="relative">
@@ -153,7 +252,7 @@ export default function LoginPage() {
                   required
                   disabled={loading}
                   aria-describedby={error ? "login-error" : undefined}
-                  className="w-full px-3 py-2 pr-10 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-kb focus:border-transparent disabled:opacity-50"
+                  className={`${FIELD} pr-11`}
                 />
                 <button
                   type="button"
@@ -162,16 +261,7 @@ export default function LoginPage() {
                   className="absolute inset-y-0 right-0 flex items-center px-3 text-muted hover:text-kb transition-colors"
                   tabIndex={-1}
                 >
-                  {showPassword ? (
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                    </svg>
-                  ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                    </svg>
-                  )}
+                  {showPassword ? <EyeSlash size={20} aria-hidden="true" /> : <Eye size={20} aria-hidden="true" />}
                 </button>
               </div>
             </div>
@@ -185,21 +275,96 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading || !username.trim() || !password}
-              className="w-full px-4 py-2 text-sm font-medium rounded-md btn-primary"
+              className="w-full px-4 py-3 text-base font-medium btn-primary rounded-lg"
             >
               {loading ? t("submitting") : t("submit")}
             </button>
-
-            {zugangOffen && (
-              <p className="mt-4 text-center text-sm">
-                <a href="/redeem" className="text-kb hover:underline">
-                  {t("accessCodeLink")}
-                </a>
-              </p>
-            )}
           </form>
+          )}
+
+          {tab === "code" && !fertig && (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                redeem(code);
+              }}
+              data-testid="access-code-form"
+              className="mt-6 space-y-5"
+            >
+              <p className="text-sm text-foreground-soft">{tc("intro")}</p>
+              <div>
+                <label htmlFor="access-code" className="block text-sm font-medium text-foreground-soft mb-1.5">
+                  {tc("code")}
+                </label>
+                <input
+                  id="access-code"
+                  type="text"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  required
+                  disabled={codeSending}
+                  placeholder={tc("codeHint")}
+                  className={`${FIELD} font-mono`}
+                />
+              </div>
+              {codeError && (
+                <p className="text-sm text-error" role="alert">
+                  {codeError}
+                </p>
+              )}
+              <button
+                type="submit"
+                disabled={codeSending || !code.trim()}
+                className="w-full px-4 py-3 text-base font-medium btn-primary rounded-lg"
+              >
+                {codeSending ? tc("submitting") : tc("submit")}
+              </button>
+            </form>
+          )}
+
+          {fertig && (
+            <div data-testid="access-code-done" className="mt-6 space-y-5">
+              {(["user", "password"] as const).map((f) => {
+                const value = f === "user" ? fertig.username : fertig.password;
+                return (
+                  <div key={f}>
+                    <p className="text-sm font-medium text-foreground-soft mb-1.5">
+                      {f === "user" ? tc("doneUser") : tc("donePassword")}
+                    </p>
+                    <div className="flex items-center justify-between gap-2 rounded-lg border-2 border-border px-3 py-2.5">
+                      <span data-testid={f === "user" ? "access-code-username" : "access-code-password"} className="font-mono text-base break-all">
+                        {value}
+                      </span>
+                      <IconButton
+                        size="sm"
+                        onClick={() => copy(f, value)}
+                        aria-label={kopiert === f ? tc("copied") : f === "user" ? tc("copyUser") : tc("copyPassword")}
+                      >
+                        {kopiert === f ? <Check size={14} weight="bold" className="text-kb" /> : <Copy size={14} weight="bold" />}
+                      </IconButton>
+                    </div>
+                  </div>
+                );
+              })}
+              <p className="text-sm text-muted">{tc("doneOnce")}</p>
+              <p className="text-sm text-foreground">
+                {fertig.expiresAt ? tc("doneUntil", { date: untilDate }) : tc("doneUnlimited")}
+              </p>
+              <button
+                type="button"
+                data-testid="access-code-continue"
+                onClick={() => window.location.assign("/")}
+                className="w-full px-4 py-3 text-base font-medium btn-primary rounded-lg"
+              >
+                {tc("doneGo")}
+              </button>
+            </div>
+          )}
         </div>
-      </div>
+      </section>
     </main>
     </>
   );

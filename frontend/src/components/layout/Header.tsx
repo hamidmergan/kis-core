@@ -18,10 +18,12 @@ import { useTourStart } from "@/app/[locale]/workspace/_components/useTourStart"
 
 interface HeaderProps {
   hasSession?: boolean;
+  /** The login page is the way in itself, so the login button is left out there. */
+  hideLogin?: boolean;
   showLogout?: boolean;
 }
 
-export default function Header({ hasSession = true, showLogout = false }: HeaderProps) {
+export default function Header({ hasSession = true, showLogout = false, hideLogin = false }: HeaderProps) {
   const t = useTranslations("header");
   const pathname = usePathname();
   // The URL says where you are, the button in the header shows it.
@@ -128,10 +130,12 @@ export default function Header({ hasSession = true, showLogout = false }: Header
             {!hasSession && (
               <>
                 <HeaderPublicControls />
-                <LocaleLink href="/login" className="flex items-center justify-center h-9 px-3 sm:px-3.5 gap-1.5 rounded-full btn-on-dark" data-testid="header-login">
-                  <SignIn size={17} weight="bold" aria-hidden="true" className="hidden sm:block" />
-                  <span className="text-sm font-medium">{t("login")}</span>
-                </LocaleLink>
+                {!hideLogin && (
+                  <LocaleLink href="/login" className="flex items-center justify-center h-9 px-3 sm:px-3.5 gap-1.5 rounded-full btn-on-dark" data-testid="header-login">
+                    <SignIn size={17} weight="bold" aria-hidden="true" className="hidden sm:block" />
+                    <span className="text-sm font-medium">{t("login")}</span>
+                  </LocaleLink>
+                )}
               </>
             )}
             {hasSession && (

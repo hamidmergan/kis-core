@@ -336,7 +336,11 @@
     "maintenanceBanner": "The platform is being updated. Please try again in a few minutes.",
     "accessCodeLink": "I have an access code",
     "expiredTitle": "Your access has expired",
-    "expiredText": "If you would like to carry on, get in touch."
+    "expiredText": "If you would like to carry on, get in touch.",
+    "francisName": "Francis",
+    "francisRole": "AI assistant of KIS",
+    "tabAccount": "With account",
+    "tabCode": "With access code"
   },
   "startOverview": {
     "groups": {

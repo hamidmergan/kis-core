@@ -16,7 +16,7 @@ Anmelden können Sie sich mit dem Benutzernamen oder mit der E-Mail-Adresse.
 
 ## Mit Zugangscode
 
-- **Einlösen**: Der Link Ich habe einen Zugangscode unter dem Anmeldeformular erscheint nur,
+- **Einlösen**: Der Reiter Mit Zugangscode über dem Anmeldeformular erscheint nur,
   solange die Verwaltung Zugangscodes freigeschaltet hat
 - **Link oder QR-Code**: Steckt der Code schon im Link, löst er sich ohne Klick ein. Nur wenn das
   fehlschlägt, etwa bei einem abgelaufenen Code, erscheint das Formular mit der Meldung

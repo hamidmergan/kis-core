@@ -15,7 +15,7 @@ You can sign in with either the user name or the mail address.
 
 ## With an access code
 
-- **Redeeming**: The link I have an access code below the sign-in form only appears while the
+- **Redeeming**: The With access code tab above the sign-in form only appears while the
   administration has access codes switched on
 - **Link or QR code**: If the code is already in the link, it redeems itself without a click. Only
   if that fails, for example with an expired code, the form appears with the message
