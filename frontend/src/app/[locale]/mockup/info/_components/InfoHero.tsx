@@ -7,6 +7,7 @@ import { useMascotPref } from "@/hooks/useMascotPref";
 import { ROUTES } from "../../_lib/routes";
 import Band from "./Band";
 import Screenshot from "./Screenshot";
+import { useBandTop } from "./useBandTop";
 
 const H1 = "font-semibold tracking-[-0.02em] leading-[1.05] text-foreground!";
 
@@ -15,6 +16,7 @@ export default function InfoHero({ layout = "split" }: { layout?: "split" | "cen
   const t = useTranslations("mockup.info");
   const tc = useTranslations("mockup.common");
   const { variant } = useMascotPref();
+  useBandTop("info-hero");
   const login = (
     <Link href={ROUTES.login} className="px-6 py-3 text-base font-medium rounded-md btn-primary" data-testid="info-login">
       {tc("login")}
@@ -27,7 +29,7 @@ export default function InfoHero({ layout = "split" }: { layout?: "split" | "cen
   );
   if (layout === "center") {
     return (
-      <Band tone="hero" testId="info-hero">
+      <Band tone="hero" testId="info-hero" fill>
         <div className="flex flex-col items-center text-center gap-6">
           <Mascot variant={variant} size={110} state="wave" />
           <div className="self-center">{pill}</div>
@@ -40,12 +42,12 @@ export default function InfoHero({ layout = "split" }: { layout?: "split" | "cen
     );
   }
   return (
-    <Band tone="hero" testId="info-hero">
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] gap-10 lg:gap-20 items-center lg:py-8">
-        <div className="flex flex-col gap-6">
+    <Band tone="hero" testId="info-hero" fill>
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] gap-10 lg:gap-20 items-center">
+        <div className="flex flex-col gap-6 [@media(min-width:1024px)_and_(max-height:820px)]:gap-4">
           {pill}
-          <h1 className={`${H1} text-4xl sm:text-5xl lg:text-6xl xl:text-7xl`}>{t("title")}</h1>
-          <p className="text-lg sm:text-xl xl:text-2xl leading-relaxed text-foreground-soft max-w-2xl">{t("lead")}</p>
+          <h1 className={`${H1} text-4xl sm:text-5xl lg:text-6xl xl:text-7xl 2xl:text-8xl [@media(min-width:1024px)_and_(max-height:820px)]:text-5xl`}>{t("title")}</h1>
+          <p className="text-lg sm:text-xl xl:text-2xl [@media(min-width:1024px)_and_(max-height:820px)]:text-xl leading-relaxed text-foreground-soft max-w-2xl">{t("lead")}</p>
           <div className="flex">{login}</div>
         </div>
         <Screenshot name="workspace" alt={t("heroAlt")} />

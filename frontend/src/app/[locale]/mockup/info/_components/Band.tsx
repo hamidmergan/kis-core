@@ -12,14 +12,20 @@ export default function Band({
   tone = "plain",
   children,
   testId,
+  fill = false,
 }: {
   tone?: keyof typeof TONES;
   children: ReactNode;
   testId?: string;
+  fill?: boolean;
 }) {
+  // A filling band takes the screen below the header, --band-top is measured by useBandTop.
+  const height = fill
+    ? "flex flex-col justify-center min-h-[calc(100dvh-var(--band-top,0px))] py-10 sm:py-14"
+    : "py-14 sm:py-20 lg:py-24";
   return (
-    <section className={`${TONES[tone]} px-4 sm:px-8 lg:px-14 xl:px-20 py-14 sm:py-20 lg:py-24`} data-testid={testId}>
-      <div className="max-w-[1600px] mx-auto">{children}</div>
+    <section className={`${TONES[tone]} ${height} px-4 sm:px-8 lg:px-14 xl:px-20`} data-testid={testId}>
+      <div className="w-full max-w-[1600px] mx-auto">{children}</div>
     </section>
   );
 }
