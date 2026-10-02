@@ -10,7 +10,6 @@ const SERVICES: ToolKey[] = [
   "translation",
   "tts",
   "transcription",
-  "interpreter",
   "summary",
   "podcast",
   "praesentation",
