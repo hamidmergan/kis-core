@@ -1,6 +1,8 @@
 "use client";
 
 import { Link } from "@/i18n/navigation";
+import Mascot from "@/components/ui/Mascot";
+import { useMascotPref } from "@/hooks/useMascotPref";
 import { ROUTES } from "../_lib/routes";
 import { MOCKUP_ICONS } from "../_lib/icons";
 import { useText2 } from "../_lib/useText2";
@@ -22,6 +24,7 @@ export function tileHref(target: EventTileData["target"]): string {
 export default function EventTile({ tile }: { tile: EventTileData }) {
   const text = useText2();
   const Icon = MOCKUP_ICONS[tile.icon];
+  const { variant } = useMascotPref();
   return (
     <div
       className="flex flex-col gap-3 border-2 border-[var(--tile-border)] rounded-2xl bg-[var(--tile-bg)] p-5 text-foreground"
@@ -30,7 +33,11 @@ export default function EventTile({ tile }: { tile: EventTileData }) {
     >
       <div className="flex items-center gap-4">
         <span className="flex items-center justify-center w-14 h-14 shrink-0 rounded-full bg-kb text-on-accent">
-          <Icon size={28} weight="bold" aria-hidden="true" />
+          {tile.icon === "francis" ? (
+            <Mascot variant={variant} size={52} state="idle" />
+          ) : (
+            <Icon size={28} weight="bold" aria-hidden="true" />
+          )}
         </span>
         <span className="text-base font-semibold tracking-[-0.01em]">{text(tile.title)}</span>
       </div>

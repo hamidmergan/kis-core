@@ -2,7 +2,8 @@
 
 import { useTranslations } from "next-intl";
 import { CaretDown } from "@phosphor-icons/react";
-import { Section } from "./InfoSections";
+import Band from "./Band";
+import { SectionHeading } from "./InfoSections";
 
 const GROUPS = [
   { key: "use", items: ["who", "account", "cost"] },
@@ -16,8 +17,10 @@ const ROW =
 export default function InfoFaq() {
   const t = useTranslations("mockup.info.faq");
   return (
-    <Section heading={t("heading")} testId="info-faq">
-      <div className="faq-list">
+    <Band tone="tint" testId="info-faq">
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,4fr)_minmax(0,8fr)] gap-8 lg:gap-16">
+        <SectionHeading>{t("heading")}</SectionHeading>
+        <div className="faq-list">
         {GROUPS.map((group) => (
           <div key={group.key} className="faq-group">
             <h3 className="faq-label">{t(`groups.${group.key}`)}</h3>
@@ -38,7 +41,8 @@ export default function InfoFaq() {
             </div>
           </div>
         ))}
+        </div>
       </div>
-    </Section>
+    </Band>
   );
 }
