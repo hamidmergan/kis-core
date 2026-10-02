@@ -4766,7 +4766,7 @@
             "a": "Aus den Quellen in deinem Workspace. Ich nenne dir die Stelle dazu."
           },
           "reward": {
-            "q": "Wo bekomme ich die Belohnung?",
+            "q": "Wo bekomme ich das Geschenk?",
             "a": "Am Info-Stand, sobald deine Karte voll ist."
           }
         },
@@ -4776,7 +4776,7 @@
         "title": "Geschafft, deine Karte ist voll",
         "clock": "Aktuelle Uhrzeit",
         "clockHint": "Zeig diese Seite mit der laufenden Uhr am Info-Stand.",
-        "reward": "Hol dir deine Belohnung am Info-Stand ab.",
+        "reward": "Hol dir dein Geschenk am Info-Stand ab.",
         "since": "Voll seit {time}"
       },
       "login": {
@@ -4889,7 +4889,7 @@
       "podcast": "Podcast",
       "praesentation": "Präsentation",
       "info": "Info",
-      "gift": "Belohnung",
+      "gift": "Geschenk",
       "star": "Stern",
       "lightbulb": "Idee",
       "qrCode": "QR-Code"

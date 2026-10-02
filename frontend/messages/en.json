@@ -4766,7 +4766,7 @@
             "a": "From the sources in your workspace. I tell you the passage as well."
           },
           "reward": {
-            "q": "Where do I get the reward?",
+            "q": "Where do I get the gift?",
             "a": "At the info stand, as soon as your card is full."
           }
         },
@@ -4776,7 +4776,7 @@
         "title": "Done, your card is full",
         "clock": "Current time",
         "clockHint": "Show this page with the running clock at the info stand.",
-        "reward": "Pick up your reward at the info stand.",
+        "reward": "Pick up your gift at the info stand.",
         "since": "Full since {time}"
       },
       "login": {
@@ -4889,7 +4889,7 @@
       "podcast": "Podcast",
       "praesentation": "Presentation",
       "info": "Info",
-      "gift": "Reward",
+      "gift": "Gift",
       "star": "Star",
       "lightbulb": "Idea",
       "qrCode": "QR code"
