@@ -30,13 +30,13 @@ export const SEED_CONFIG: MockupConfig = {
     ),
     station(
       "platform",
-      "translation",
+      "platform",
       ["KIS-Plattform", "KI-Fachsprachen-Trainer und Übersetzung", "Hier hast du gesehen, wie die KIS-Plattform Materialien übersetzt und beim Fachwortschatz hilft."],
       ["KIS platform", "AI technical-language trainer and translation", "Here you saw how the KIS platform translates materials and helps with technical vocabulary."],
     ),
     station(
       "dafl",
-      "tts",
+      "translation",
       ["Deutsch als Fremdsprache", "Sprachkurse und Buddy-Programm", "Hier hast du gesehen, wie Deutschkurse und Buddys internationale Studierende begleiten."],
       ["German as a foreign language", "Language courses and buddy programme", "Here you saw how German courses and buddies support international students."],
     ),

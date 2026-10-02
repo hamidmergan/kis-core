@@ -1,4 +1,4 @@
-import { Bird, Gift, Info, Lightbulb, QrCode, Star, type Icon } from "@phosphor-icons/react";
+import { Bird, Gift, Info, Lightbulb, QrCode, SquaresFour, Star, type Icon } from "@phosphor-icons/react";
 import { TOOL_ICONS } from "@/lib/toolIcons";
 import type { IconKey } from "./types";
 
@@ -10,6 +10,7 @@ export const MOCKUP_ICONS: Record<IconKey, Icon> = {
   star: Star,
   lightbulb: Lightbulb,
   qrCode: QrCode,
+  platform: SquaresFour,
 };
 
 export const ICON_KEYS = Object.keys(MOCKUP_ICONS) as IconKey[];
