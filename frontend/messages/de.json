@@ -4719,10 +4719,6 @@
         "integration": {
           "q": "Wird die Plattform an Moodle und das THL-Konto angebunden?",
           "a": "Das ist in Arbeit. Vorgesehen ist eine Anmeldung per SSO, zukünftig ist außerdem eine Anbindung an Moodle über LTI angedacht."
-        },
-        "feedback": {
-          "q": "Wie kann ich Rückmeldung geben?",
-          "a": "Schreib uns eine Mail über den Kontakt am Ende der Seite."
         }
       },
       "groups": {

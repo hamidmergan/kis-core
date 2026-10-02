@@ -4719,10 +4719,6 @@
         "integration": {
           "q": "Will the platform be connected to Moodle and the THL account?",
           "a": "This is in progress. Signing in via SSO is planned, and a connection to Moodle via LTI is being considered for the future."
-        },
-        "feedback": {
-          "q": "How can I give feedback?",
-          "a": "Send us an email via the contact at the end of the page."
         }
       },
       "groups": {

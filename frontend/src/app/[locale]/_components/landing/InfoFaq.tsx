@@ -10,7 +10,7 @@ const GROUPS = [
   { key: "use", items: ["who"] },
   { key: "francis", items: ["sources", "names"] },
   { key: "data", items: ["dsgvo", "hosting"] },
-  { key: "outlook", items: ["after", "integration", "feedback"] },
+  { key: "outlook", items: ["after", "integration"] },
 ] as const;
 
 const ROW =
