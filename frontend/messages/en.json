@@ -4696,22 +4696,6 @@
           "q": "Who can use the platform, and can I try it?",
           "a": "Currently it is not generally accessible. Access is planned for a group of students for testing and for further test users. If you would like to try it, write to us via the contact at the end of the page. We will look together at whether and how a test is possible in your case."
         },
-        "account": {
-          "q": "How do I get an account?",
-          "a": "You get one through an invitation or an access code. Signing in with the THL account is currently not possible."
-        },
-        "teachers": {
-          "q": "I teach at THL. Can I use the services?",
-          "a": "The services are part of the platform and are available with an account. How access for teachers is possible in the pilot phase, we are happy to clarify via the contact."
-        },
-        "device": {
-          "q": "Do I need to install anything?",
-          "a": "No. The platform runs in the browser."
-        },
-        "languages": {
-          "q": "Which languages can I use the platform in?",
-          "a": "The interface is available in German and English. Translations currently run between German and English."
-        },
         "sources": {
           "q": "Where does Francis get its answers?",
           "a": "Francis answers from the sources in your workspace."
@@ -4720,14 +4704,6 @@
           "q": "How do I know what an answer is based on?",
           "a": "Francis names the source for every answer so you can read up on it."
         },
-        "material": {
-          "q": "Which material can I use?",
-          "a": "Scripts, slides and lecture videos are kept together in the workspace. Every video comes with a transcript."
-        },
-        "errors": {
-          "q": "Can Francis make mistakes?",
-          "a": "Yes, AI can make mistakes. Check the answers, especially before exams."
-        },
         "dsgvo": {
           "q": "Is the platform GDPR compliant?",
           "a": "Yes. The platform is built so that only GDPR compliant services are used. Teachers who connect a voice service of their own do so with their own account and at their own responsibility."
@@ -4735,10 +4711,6 @@
         "hosting": {
           "q": "Where does the platform run?",
           "a": "The platform is operated by the project team at THL and runs on servers in Germany. The AI models run on infrastructure of THL and of partners in Germany."
-        },
-        "expiry": {
-          "q": "What happens to my account after the test?",
-          "a": "Access through an access code is time limited. After it ends the account is deleted after a grace period, answers from surveys are kept anonymously."
         },
         "after": {
           "q": "What happens after the pilot phase?",

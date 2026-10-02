@@ -4696,22 +4696,6 @@
           "q": "Wer kann die Plattform nutzen, und kann ich sie ausprobieren?",
           "a": "Aktuell ist sie nicht allgemein zugänglich. Der Zugang ist für eine Gruppe von Studierenden zum Testen und für weitere Testpersonen geplant. Wenn du sie ausprobieren möchtest, schreib uns über den Kontakt am Ende der Seite. Wir schauen gemeinsam, ob und wie ein Test in deinem Fall möglich ist."
         },
-        "account": {
-          "q": "Wie bekomme ich ein Konto?",
-          "a": "Du bekommst es über eine Einladung oder einen Zugangscode. Eine Anmeldung mit dem THL-Konto ist derzeit nicht möglich."
-        },
-        "teachers": {
-          "q": "Ich lehre an der THL. Kann ich die Dienste nutzen?",
-          "a": "Die Dienste gehören zur Plattform und stehen mit einem Konto zur Verfügung. Wie ein Zugang für Lehrende in der Pilotphase möglich ist, klären wir gern über den Kontakt."
-        },
-        "device": {
-          "q": "Muss ich etwas installieren?",
-          "a": "Nein. Die Plattform läuft im Browser."
-        },
-        "languages": {
-          "q": "In welchen Sprachen ist die Plattform nutzbar?",
-          "a": "Die Oberfläche gibt es auf Deutsch und Englisch. Übersetzungen laufen aktuell zwischen Deutsch und Englisch."
-        },
         "sources": {
           "q": "Woher nimmt Francis seine Antworten?",
           "a": "Francis antwortet aus den Quellen, die in deinem Workspace liegen."
@@ -4720,14 +4704,6 @@
           "q": "Woher weiß ich, worauf eine Antwort beruht?",
           "a": "Zu jeder Antwort nennt Francis die Quelle, damit du nachlesen kannst."
         },
-        "material": {
-          "q": "Welches Material kann ich nutzen?",
-          "a": "Skripte, Folien und Vorlesungsvideos liegen zusammen im Workspace. Zu jedem Video gibt es ein Transkript."
-        },
-        "errors": {
-          "q": "Kann Francis Fehler machen?",
-          "a": "Ja, KI kann Fehler machen. Prüfe die Antworten, besonders vor Prüfungen."
-        },
         "dsgvo": {
           "q": "Ist die Plattform DSGVO-konform?",
           "a": "Ja. Die Plattform ist so gebaut, dass nur DSGVO-konforme Dienste zum Einsatz kommen. Wer als Lehrperson einen eigenen Stimmdienst verbindet, tut das mit eigenem Konto und auf eigene Verantwortung."
@@ -4735,10 +4711,6 @@
         "hosting": {
           "q": "Wo läuft die Plattform?",
           "a": "Die Plattform wird vom Projektteam an der THL betrieben und läuft auf Servern in Deutschland. Die KI-Modelle laufen auf Infrastruktur der THL und von Partnern in Deutschland."
-        },
-        "expiry": {
-          "q": "Was passiert mit meinem Konto nach dem Test?",
-          "a": "Zugänge über einen Zugangscode sind befristet. Nach Ablauf wird das Konto nach einer Frist gelöscht, Antworten aus Befragungen bleiben anonym erhalten."
         },
         "after": {
           "q": "Was passiert nach der Pilotphase?",
