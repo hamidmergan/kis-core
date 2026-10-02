@@ -15,7 +15,7 @@ export default function EventPane() {
       <EventTileEditor />
       <SettingCard title={t("preview")}>
         <div className="mt-4" data-testid="event-preview">
-          <EventBlock hintWhenHidden />
+          <EventBlock />
         </div>
       </SettingCard>
     </div>
