@@ -141,3 +141,39 @@ def test_transkript_nennt_sein_format_aus_dem_dateinamen(lokal):
 
     assert angaben_lesen(_job("transcription", "vortrag.srt")) == {"format": "srt"}
     assert angaben_lesen(_job("transcription", "vortrag.txt")) == {"format": "text"}
+
+
+def test_screencast_nennt_die_stimme_die_wirklich_sprach(lokal, monkeypatch):
+    import json
+
+    from src import dependencies
+    from src.services import job_statistik
+    from src.storage import save_job_file
+
+    monkeypatch.setattr(job_statistik, "anbieter_name", lambda pid: {4: "THL myLab"}[pid])
+    monkeypatch.setattr(dependencies, "_voice_language_for", lambda pid, vid: "en" if vid == "alloy" else "")
+    save_job_file(UID, JOB, "render_params.json", json.dumps({"provider_id": 4, "voice_id": "alloy", "voice_label": "Alloy"}).encode())
+
+    assert job_statistik.angaben_lesen(_job("screencast_translate")) == {"anbieter": "THL myLab", "sprache": "en", "stimme": "Alloy"}
+
+
+def test_screencast_ohne_render_bleibt_leer(lokal):
+    from src.services.job_statistik import angaben_lesen
+
+    assert angaben_lesen(_job("screencast_translate")) == {}
+
+
+def test_screencast_mit_allsprachiger_stimme_nennt_die_zielsprache(lokal, monkeypatch):
+    import json
+
+    from src import dependencies
+    from src.services import job_statistik, tts_job_provider
+    from src.storage import save_job_file, save_result_meta
+
+    monkeypatch.setattr(job_statistik, "anbieter_name", lambda pid: "THL myLab")
+    monkeypatch.setattr(dependencies, "_voice_language_for", lambda pid, vid: "")
+    monkeypatch.setattr(tts_job_provider, "voice_name", lambda pid, vid: "Alloy")
+    save_job_file(UID, JOB, "render_params.json", json.dumps({"provider_id": 4, "voice_id": "alloy", "voice_label": None}).encode())
+    save_result_meta(UID, JOB, {"target_lang": "EN-US"})
+
+    assert job_statistik.angaben_lesen(_job("screencast_translate")) == {"anbieter": "THL myLab", "sprache": "en", "stimme": "Alloy"}

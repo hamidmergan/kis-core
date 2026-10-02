@@ -87,6 +87,19 @@ def angaben_lesen(job: dict) -> dict:
         params = podcast_store.load_params(uid, uuid)
         if params:
             angaben = podcast_angaben(params, podcast_store.load_pin(uid, uuid))
+    elif tool in ("screencast_translate", "screencast_render"):
+        # The render keeps the voice that really spoke, after a fallback too.
+        params = json.loads(_job_text(uid, uuid, "render_params.json") or "{}")
+        pid, stimme = params.get("provider_id"), params.get("voice_id") or ""
+        if pid:
+            from src.dependencies import _voice_language_for
+            from src.services.tts_job_provider import voice_name
+
+            angaben.setdefault("anbieter", anbieter_name(pid))
+            # Voices that speak every language have none, there the target of the translation tells.
+            ziel = ((load_result_meta(uid, uuid) or {}).get("target_lang") or "").split("-")[0].lower()
+            angaben.setdefault("sprache", _voice_language_for(pid, stimme) or ziel)
+            angaben.setdefault("stimme", params.get("voice_label") or (voice_name(pid, stimme) if stimme else ""))
     elif tool == "transcription":
         # The result's extension tells the format, named like the choice on the page.
         endung = Path(job.get("result_filename") or "").suffix.lstrip(".")

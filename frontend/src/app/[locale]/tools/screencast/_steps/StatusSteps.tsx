@@ -1,6 +1,8 @@
 "use client";
 
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
+import { ErgebnisInfoKnopf, useErgebnisAngaben, type Auftrag } from "@/components/jobs/ErgebnisInfo";
+import { sprachName } from "@/lib/format";
 import Spinner from "@/components/ui/Spinner";
 import BackgroundHint from "@/components/tools/BackgroundHint";
 import { mitLaufStempel } from "../_utils";
@@ -134,6 +136,7 @@ export function DoneStep({
   onReset,
   onNeuVertonen,
   zipUrl,
+  demoAuftrag,
 }: {
   videoUrl: string | null;
   audioId: string;
@@ -144,8 +147,14 @@ export function DoneStep({
   onNeuVertonen: () => void;
   /** The demo bundles its prepared files elsewhere. */
   zipUrl?: string;
+  /** The demo brings the info of its prepared video along. */
+  demoAuftrag?: Auftrag | null;
 }) {
   const t = useTranslations("tools.screencast");
+  const tResult = useTranslations("common.result");
+  const locale = useLocale();
+  const gelesen = useErgebnisAngaben(demoAuftrag === undefined && audioId ? audioId : null);
+  const auftrag = demoAuftrag === undefined ? gelesen : demoAuftrag;
   // The link deliberately does not sit in the page, otherwise the top loader runs forever.
   const onDownloadZip = () => {
     const a = document.createElement("a");
@@ -155,6 +164,15 @@ export function DoneStep({
   };
   return (
     <section className="animate-[fadeIn_0.3s_ease-out] pt-3 sm:py-10">
+      <div className="relative rounded-xl border border-kb/15 bg-kb/5 p-4 sm:p-5">
+      <div className="absolute top-3 right-3">
+        <ErgebnisInfoKnopf auftrag={auftrag} zeilen={[
+          { label: tResult("file"), wert: auftrag?.datei },
+          { label: t("ttsSettings.providerLabel"), wert: auftrag?.angaben.anbieter },
+          { label: tResult("language"), wert: sprachName(auftrag?.angaben.sprache, locale) },
+          { label: t("ttsSettings.voiceLabel"), wert: auftrag?.angaben.stimme },
+        ]} />
+      </div>
       <div className="flex justify-center mb-4">
         <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: "var(--kb)" }}>
           <svg className="w-6 h-6" style={{ color: "#fff" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -183,7 +201,7 @@ export function DoneStep({
 
       {/* Desktop: downloads above the two side buttons. Phone: side buttons first, downloads pinned below. */}
       <div className="flex flex-col">
-      <div className="order-last sm:order-none sticky bottom-0 z-30 -mx-4 px-4 py-3 mt-6 border-t border-border-soft bg-background grid grid-cols-2 gap-2 sm:static sm:mx-0 sm:px-0 sm:py-0 sm:mt-0 sm:mb-4 sm:border-0 sm:bg-transparent sm:flex sm:justify-center sm:gap-3">
+      <div className="order-last sm:order-none sticky bottom-0 z-30 -mx-4 -mb-4 rounded-b-xl px-4 py-3 mt-6 border-t border-border-soft bg-background grid grid-cols-2 gap-2 sm:static sm:mx-0 sm:px-0 sm:py-0 sm:mt-0 sm:mb-4 sm:border-0 sm:bg-transparent sm:flex sm:justify-center sm:gap-3">
         <button
           onClick={onDownloadMp4}
           aria-label={t("done.downloadMp4Aria")}
@@ -223,6 +241,7 @@ export function DoneStep({
         >
           {t("done.newScreencast")}
         </button>
+      </div>
       </div>
       </div>
     </section>
