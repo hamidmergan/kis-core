@@ -17,11 +17,12 @@ export default function LearnRows() {
   const t = useTranslations("mockup.info.learn");
   return (
     <Band tone="tint" testId="info-learn">
-      <div className="flex flex-col gap-14 @min-[64rem]:gap-24">
+      <div className="flex flex-col gap-8 @min-[64rem]:gap-12">
         <div className="max-w-3xl flex flex-col gap-4">
           <SectionHeading>{t("heading")}</SectionHeading>
-          <p className="text-lg @min-[40rem]:text-xl leading-relaxed text-foreground-soft">{t("intro")}</p>
+          <p className="text-lg @min-[40rem]:text-xl leading-relaxed text-foreground-soft text-balance">{t("intro")}</p>
         </div>
+        <div className="flex flex-col gap-14 @min-[64rem]:gap-24">
         {ROWS.map(({ key, image }, i) => (
           <div key={key} className="grid grid-cols-1 @min-[64rem]:grid-cols-12 gap-8 @min-[64rem]:gap-16 items-center" data-testid="learn-row">
             <Screenshot name={image} alt={t(`rows.${key}.alt`)} className={`@min-[64rem]:col-span-8 ${i % 2 ? "@min-[64rem]:order-2" : ""}`} />
@@ -32,6 +33,7 @@ export default function LearnRows() {
             </div>
           </div>
         ))}
+        </div>
       </div>
     </Band>
   );

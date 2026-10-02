@@ -4739,7 +4739,7 @@
       "heroAlt": "Workspace mit Materialien, Chat und Studio",
       "learn": {
         "heading": "Lernen mit Francis",
-        "intro": "Im Workspace liegen deine Unterlagen. Francis arbeitet nur mit dem, was dort liegt.",
+        "intro": "In deinem Workspace sammelst du deine Unterlagen. Francis arbeitet ausschließlich mit diesem Material.",
         "rows": {
           "material": {
             "title": "Alles Material an einem Ort",

@@ -4739,7 +4739,7 @@
       "heroAlt": "Workspace with materials, chat and studio",
       "learn": {
         "heading": "Learning with Francis",
-        "intro": "Your materials live in the workspace. Francis works only with what is in there.",
+        "intro": "You collect your materials in your workspace. Francis works only with this material.",
         "rows": {
           "material": {
             "title": "All material in one place",
