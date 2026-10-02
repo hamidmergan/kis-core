@@ -4696,6 +4696,10 @@
             "q": "Was ist der Unterschied zwischen dem Projekt und der Plattform?",
             "a": "KIS ist das Projekt. Die Plattform ist das Werkzeug dafür. Sie bietet den KI-Assistenten Francis für Studierende und Dienste für Lehrende und ist nicht auf internationale Studierende beschränkt."
           },
+          "how": {
+            "q": "Wie läuft die Arbeit mit der Plattform ab?",
+            "a": "Lehrende legen einen Workspace an, laden Dokumente und andere Materialien hoch und verwalten sie. Danach laden sie Studierende ein. Die Studierenden arbeiten im Workspace mit dem Material und stellen Francis ihre Fragen dazu."
+          },
           "state": {
             "q": "Wie ist der aktuelle Stand?",
             "a": "KIS befindet sich in der Pilotphase im Studiengang Elektrotechnik. Die Plattform wird dabei erprobt und laufend weiterentwickelt, einzelne Funktionen können sich noch ändern."

@@ -4696,6 +4696,10 @@
             "q": "What is the difference between the project and the platform?",
             "a": "KIS is the project. The platform is its tool. It offers the AI assistant Francis for students and services for teachers and is not limited to international students."
           },
+          "how": {
+            "q": "How does working with the platform work?",
+            "a": "Teachers create a workspace, upload documents and other materials and manage them. Then they invite students. The students work with the material in the workspace and ask Francis their questions about it."
+          },
           "state": {
             "q": "What is the current status?",
             "a": "KIS is in its pilot phase in the Electrical Engineering degree programme. The platform is being tested and developed further, some functions may still change."
