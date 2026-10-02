@@ -12,6 +12,7 @@ import { api } from "@/lib/api";
 import { areaLabelKey, hasPerm, PERM, type AreaKey } from "@/lib/permissions";
 import JobsPanel from "@/components/jobs/JobsPanel";
 import HeaderMobileMenu from "@/components/layout/HeaderMobileMenu";
+import HeaderPublicControls from "@/components/layout/HeaderPublicControls";
 import HeaderSettingsMenu from "@/components/layout/HeaderSettingsMenu";
 import { useTourStart } from "@/app/[locale]/workspace/_components/useTourStart";
 
@@ -123,74 +124,81 @@ export default function Header({ hasSession = true, showLogout = false }: Header
 
         {showLogout && (
           <div className="flex items-center gap-1.5">
-            {/* Public pages have no session, the way in belongs at the top. */}
+            {/* Public pages have no session, so the way in and the two basic switches replace the menus. */}
             {!hasSession && (
-              <LocaleLink href="/login" className="flex items-center justify-center h-9 px-3.5 gap-1.5 rounded-full btn-on-dark" data-testid="header-login">
-                <SignIn size={17} weight="bold" aria-hidden="true" />
-                <span className="text-sm font-medium">{t("login")}</span>
-              </LocaleLink>
+              <>
+                <LocaleLink href="/login" className="flex items-center justify-center h-9 px-3 sm:px-3.5 gap-1.5 rounded-full btn-on-dark" data-testid="header-login">
+                  <SignIn size={17} weight="bold" aria-hidden="true" className="hidden sm:block" />
+                  <span className="text-sm font-medium">{t("login")}</span>
+                </LocaleLink>
+                <HeaderPublicControls />
+              </>
             )}
-            <div className="hidden sm:flex items-center gap-1.5">
-              {hasSession && hasTools && (
-                <Link
-                  href="/"
-                  aria-label={t("tools")}
-                  title={t("tools")}
-                  aria-current={onTools ? "page" : undefined}
-                  className={`flex items-center justify-center h-9 px-3 gap-1.5 rounded-full btn-on-dark${onTools ? " is-active" : ""}`}
-                >
-                  <LinkBusy size="sm">
-                    <SquaresFour size={17} weight="bold" />
-                  </LinkBusy>
-                  <span className="text-sm font-medium">{t("tools")}</span>
-                </Link>
-              )}
-              {hasSession && hasAia && (
-                <Link
-                  href="/calendar"
-                  aria-label={t("calendar")}
-                  title={t("calendar")}
-                  aria-current={onCalendar ? "page" : undefined}
-                  className={`flex items-center justify-center h-9 px-3 gap-1.5 rounded-full btn-on-dark${onCalendar ? " is-active" : ""}`}
-                >
-                  <LinkBusy size="sm">
-                    <CalendarBlank size={17} weight="bold" />
-                  </LinkBusy>
-                  <span className="text-sm font-medium">{t("calendar")}</span>
-                </Link>
-              )}
-              {hasSession && hasTools && <JobsPanel />}
-              <HeaderSettingsMenu
-                isAdmin={hasSession && isAdmin}
-                canViewManual={hasSession && canViewManual}
-                showLanguageLevel={hasSession && mayLanguageLevel}
-                showInterfaces={hasSession && mayInterfaces}
-                showTour={hasSession && hasAia && tour.available}
+            {hasSession && (
+              <div className="hidden sm:flex items-center gap-1.5">
+                {hasSession && hasTools && (
+                  <Link
+                    href="/"
+                    aria-label={t("tools")}
+                    title={t("tools")}
+                    aria-current={onTools ? "page" : undefined}
+                    className={`flex items-center justify-center h-9 px-3 gap-1.5 rounded-full btn-on-dark${onTools ? " is-active" : ""}`}
+                  >
+                    <LinkBusy size="sm">
+                      <SquaresFour size={17} weight="bold" />
+                    </LinkBusy>
+                    <span className="text-sm font-medium">{t("tools")}</span>
+                  </Link>
+                )}
+                {hasSession && hasAia && (
+                  <Link
+                    href="/calendar"
+                    aria-label={t("calendar")}
+                    title={t("calendar")}
+                    aria-current={onCalendar ? "page" : undefined}
+                    className={`flex items-center justify-center h-9 px-3 gap-1.5 rounded-full btn-on-dark${onCalendar ? " is-active" : ""}`}
+                  >
+                    <LinkBusy size="sm">
+                      <CalendarBlank size={17} weight="bold" />
+                    </LinkBusy>
+                    <span className="text-sm font-medium">{t("calendar")}</span>
+                  </Link>
+                )}
+                {hasSession && hasTools && <JobsPanel />}
+                <HeaderSettingsMenu
+                  isAdmin={hasSession && isAdmin}
+                  canViewManual={hasSession && canViewManual}
+                  showLanguageLevel={hasSession && mayLanguageLevel}
+                  showInterfaces={hasSession && mayInterfaces}
+                  showTour={hasSession && hasAia && tour.available}
+                  onStartTour={tour.start}
+                  showEvaluation={hasSession && evaluationActive}
+                  areaKey={areaKey}
+                  showLogout={hasSession && !isLocalMode}
+                  hasHomeNotice={hasHomeNotice}
+                  onLogout={handleLogout}
+                />
+              </div>
+            )}
+
+            {hasSession && (
+              <HeaderMobileMenu
+                hasSession={hasSession}
+                isAdmin={isAdmin}
+                canViewManual={canViewManual}
+                showLanguageLevel={mayLanguageLevel}
+                showInterfaces={mayInterfaces}
+                showTour={hasAia && tour.available}
                 onStartTour={tour.start}
-                showEvaluation={hasSession && evaluationActive}
+                showEvaluation={evaluationActive}
                 areaKey={areaKey}
-                showLogout={hasSession && !isLocalMode}
+                hasTools={hasTools}
+                hasAia={hasAia}
+                isLocalMode={isLocalMode}
                 hasHomeNotice={hasHomeNotice}
                 onLogout={handleLogout}
               />
-            </div>
-
-            <HeaderMobileMenu
-              hasSession={hasSession}
-              isAdmin={isAdmin}
-              canViewManual={canViewManual}
-              showLanguageLevel={mayLanguageLevel}
-              showInterfaces={mayInterfaces}
-              showTour={hasAia && tour.available}
-              onStartTour={tour.start}
-              showEvaluation={evaluationActive}
-              areaKey={areaKey}
-              hasTools={hasTools}
-              hasAia={hasAia}
-              isLocalMode={isLocalMode}
-              hasHomeNotice={hasHomeNotice}
-              onLogout={handleLogout}
-            />
+            )}
           </div>
         )}
       </div>
