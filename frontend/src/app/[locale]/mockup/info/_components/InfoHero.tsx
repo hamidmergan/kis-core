@@ -43,7 +43,7 @@ export default function InfoHero({ layout = "split" }: { layout?: "split" | "cen
   }
   return (
     <Band tone="hero" testId="info-hero" fill>
-      <div className="grid grid-cols-1 @min-[48rem]:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] gap-10 @min-[64rem]:gap-20 items-center">
+      <div className="grid grid-cols-1 @min-[48rem]:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] @min-[80rem]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-10 @min-[64rem]:gap-20 @min-[80rem]:gap-12 items-center">
         <div className="flex flex-col gap-6">
           {pill}
           <h1 className={`${H1} text-4xl @min-[56rem]:text-5xl @min-[64rem]:text-6xl @min-[80rem]:text-7xl @min-[96rem]:text-8xl`}>{t("title")}</h1>

@@ -4634,9 +4634,9 @@
       }
     },
     "info": {
-      "eyebrow": "Pilot project",
-      "title": "KIS is a pilot project at THL",
-      "lead": "An AI assistant and services for your studies, tested in a pilot course. You can log in if you have been invited.",
+      "eyebrow": "Pilot project at THL",
+      "title": "Learn with your own materials",
+      "lead": "The AI assistant Francis answers from your scripts, slides and lectures and names the source.",
       "purpose": {
         "heading": "What the project is for",
         "students": "KIS is aimed at international students who start a degree with German at B1.",

@@ -4634,9 +4634,9 @@
       }
     },
     "info": {
-      "eyebrow": "Pilotprojekt",
-      "title": "KIS ist ein Pilotprojekt an der THL",
-      "lead": "Ein KI-Assistent und Dienste für das Studium, erprobt in einem Pilotkurs. Du kannst dich anmelden, wenn du eingeladen bist.",
+      "eyebrow": "Pilotprojekt an der THL",
+      "title": "Lernen mit deinen eigenen Unterlagen",
+      "lead": "Der KI-Assistent Francis antwortet aus deinen Skripten, Folien und Vorlesungen und nennt die Quelle dazu.",
       "purpose": {
         "heading": "Wofür das Projekt da ist",
         "students": "KIS richtet sich an internationale Studierende, die mit Deutsch auf B1 in ein Fachstudium starten.",

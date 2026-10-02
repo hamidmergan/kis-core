@@ -20,7 +20,7 @@ const ZOOM = [
   "[@media(min-width:1024px)_and_(max-width:1279px)_and_(min-height:761px)]:[--zoom:1.25]",
   "[@media(min-width:1280px)_and_(min-height:761px)_and_(max-height:849px)]:[--zoom:1.25]",
   "[@media(min-width:1280px)_and_(min-height:850px)]:[--zoom:1.5]",
-  "[@media(min-width:1024px)_and_(max-height:760px)]:[--zoom:1.1]",
+  "[@media(min-width:1024px)_and_(max-height:760px)]:[--zoom:1.05]",
 ].join(" ");
 
 /** Public page about the pilot, built as full-width bands, the event block is admin content and may be hidden. */
