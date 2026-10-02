@@ -9,7 +9,7 @@ import { useBandTop } from "./useBandTop";
 
 type Key = "aia" | "services";
 
-const H1 = "font-semibold tracking-[-0.02em] leading-[1.05] text-kb!";
+const H1 = "font-semibold tracking-[-0.02em] leading-[1.05] text-kb! dark:text-kb-dark!";
 const FADE = "col-start-1 row-start-1 transition-opacity duration-300 motion-reduce:transition-none";
 
 /** Hero with two tabs, the assistant and the services, a click swaps headline, sentence and picture. */
