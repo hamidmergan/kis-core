@@ -55,9 +55,6 @@ export function indexToStep(index: number): ScreencastStep | null {
   }
 }
 
-/** From the finished video the first step opens empty, like a new screencast. */
-export const startsAnew = (index: number, step: ScreencastStep): boolean => index === 0 && step === "done";
-
 /** These steps are closed for good, not just at the moment. */
 export function nieBetretbar(index: number, skipTranslation: boolean): boolean {
   if (skipTranslation && index === 1) return true;

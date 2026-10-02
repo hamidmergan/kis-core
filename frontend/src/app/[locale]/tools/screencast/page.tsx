@@ -12,7 +12,7 @@ import { useGlossaries } from "@/hooks/useGlossaries";
 
 import Spinner from "@/components/ui/Spinner";
 import ScreencastStepper from "@/components/screencast/ScreencastStepper";
-import { indexToStep, istErreichbar, startsAnew, stepToIndex, vorherErreichbar } from "@/components/screencast/steps";
+import { indexToStep, istErreichbar, stepToIndex, vorherErreichbar } from "@/components/screencast/steps";
 import UploadStep from "./_steps/UploadStep";
 import {
   TranslatingStep,
@@ -351,10 +351,9 @@ function ScreencastPageInner() {
   }, [resetAll]);
 
   const handleStepClick = useCallback((index: number) => {
-    if (startsAnew(index, step)) return neuAnfangen();
     if (!istErreichbar(index, maxReachedIdx, skipTranslation, step, videoUrl !== null)) return;
     gotoIndex(index);
-  }, [gotoIndex, neuAnfangen, maxReachedIdx, skipTranslation, step, videoUrl]);
+  }, [gotoIndex, maxReachedIdx, skipTranslation, step, videoUrl]);
 
   /** The step back from a page, or null when nothing enterable lies before it. */
   const zurueckVon = useCallback((index: number): (() => void) | null => {

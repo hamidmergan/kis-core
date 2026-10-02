@@ -25,7 +25,7 @@ import VoicingStep from "./_steps/VoicingStep";
 import PodcastStepper from "./_components/PodcastStepper";
 import BestaetigungModal from "./_components/BestaetigungModal";
 import { cancelJob, demoAvailable, fetchJob, fetchPodcast, rephraseLine, savePodcastParams, saveScript, startPodcast, startRender } from "./_api";
-import { LAEUFT, closedForGood, hatErgebnisse, isBusy, ohneKi, reachable, startsAnew } from "./_logic";
+import { LAEUFT, closedForGood, hatErgebnisse, isBusy, ohneKi, reachable } from "./_logic";
 import { INITIAL_STATE, defaultPersons, reducer } from "./_reducer";
 import { STEPS, type Line, type Person, type PodcastState, type Step } from "./_types";
 
@@ -297,7 +297,7 @@ function PodcastPageInner() {
                 step={state.step}
                 canEnter={(i) => reachable(i, state)}
                 isClosedForGood={(i) => closedForGood(i, state)}
-                onStepClick={(i) => (startsAnew(i, state) ? neuGefragt() : gehe(i))}
+                onStepClick={gehe}
               />
             )}
 

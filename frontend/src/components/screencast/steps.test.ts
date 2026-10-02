@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { indexToStep, istErreichbar, nieBetretbar, startsAnew, vorherErreichbar } from "./steps";
+import { indexToStep, istErreichbar, nieBetretbar, vorherErreichbar } from "./steps";
 
 const ALLE_ERREICHT = 7;
 
@@ -148,10 +148,3 @@ describe("vorherErreichbar", () => {
   });
 });
 
-describe("startsAnew", () => {
-  it("nur vom fertigen Video aus und nur der erste Schritt", () => {
-    expect(startsAnew(0, "done")).toBe(true);
-    expect(startsAnew(0, "tts-settings")).toBe(false);
-    expect(startsAnew(2, "done")).toBe(false);
-  });
-});

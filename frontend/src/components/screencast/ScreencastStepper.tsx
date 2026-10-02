@@ -3,7 +3,7 @@
 import { useTranslations } from "next-intl";
 import SchrittReiter from "@/components/tools/SchrittReiter";
 import type { ScreencastStep } from "@/types";
-import { istErreichbar, nieBetretbar, startsAnew, STEP_KEYS, stepToIndex } from "./steps";
+import { istErreichbar, nieBetretbar, STEP_KEYS, stepToIndex } from "./steps";
 
 interface ScreencastStepperProps {
   step: ScreencastStep;
@@ -27,8 +27,8 @@ export default function ScreencastStepper({
     <SchrittReiter
       labels={STEP_KEYS.map((key) => t(`steps.${key}`))}
       current={current}
-      canEnter={(i) => istErreichbar(i, maxReachedIdx, skipTranslation, step, hatErgebnis) || startsAnew(i, step)}
-      isClosedForGood={(i) => nieBetretbar(i, skipTranslation) && !startsAnew(i, step)}
+      canEnter={(i) => istErreichbar(i, maxReachedIdx, skipTranslation, step, hatErgebnis)}
+      isClosedForGood={(i) => nieBetretbar(i, skipTranslation)}
       isSkipped={(i) => skipTranslation && i === 1}
       onStepClick={onStepClick}
     />

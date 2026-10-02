@@ -6,7 +6,7 @@ import { useLocale, useTranslations } from "next-intl";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import ToolBackLink from "@/components/ui/ToolBackLink";
 import ScreencastStepper from "@/components/screencast/ScreencastStepper";
-import { indexToStep, istErreichbar, startsAnew, stepToIndex, vorherErreichbar } from "@/components/screencast/steps";
+import { indexToStep, istErreichbar, stepToIndex, vorherErreichbar } from "@/components/screencast/steps";
 import RegenChatModal from "@/components/regen/RegenChatModal";
 import { useRouter } from "@/i18n/navigation";
 import { parseDetail } from "@/lib/api";
@@ -257,10 +257,9 @@ function ScreencastDemoLauf({ onNeu }: { onNeu: () => void }) {
   }, []);
 
   const handleStepClick = useCallback((index: number) => {
-    if (startsAnew(index, step)) return onNeu();
     if (!istErreichbar(index, maxReachedIdx, skipTranslation, step, videoUrl !== null)) return;
     gotoIndex(index);
-  }, [gotoIndex, onNeu, maxReachedIdx, skipTranslation, step, videoUrl]);
+  }, [gotoIndex, maxReachedIdx, skipTranslation, step, videoUrl]);
 
   const zurueckVon = (index: number): (() => void) | null => {
     const ziel = vorherErreichbar(index, maxReachedIdx, skipTranslation, step, videoUrl !== null);

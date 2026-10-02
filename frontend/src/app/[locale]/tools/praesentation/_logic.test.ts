@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   bildPlaetze, closedForGood, fortschrittMeldung, hasContent, isBusy, kannEinfuegen, reachable, rowCountOk, schrittFuer, skizzen,
-  startsAnew, stepIndex,
+  stepIndex,
 } from "./_logic";
 import { INITIAL_STATE, reducer } from "./_reducer";
 import { STEPS, type Outline, type PraesentationState, type Slide } from "./_types";
@@ -41,9 +41,10 @@ describe("reachable", () => {
     expect(reachable(stepIndex("done"), s)).toBe(false);
     expect(isBusy(s)).toBe(true);
   });
-  it("der Inhalt ist nur ohne Auftrag erreichbar", () => {
+  it("der Inhalt ist nie anklickbar", () => {
     expect(reachable(0, state({ step: "preview", maxReached: 1, jobUuid: "x", jobStatus: "awaiting_user" }))).toBe(false);
-    expect(reachable(0, state({ step: "preview", maxReached: 1 }))).toBe(true);
+    expect(reachable(0, state({ step: "preview", maxReached: 1 }))).toBe(false);
+    expect(reachable(0, state({ step: "done", maxReached: 2, jobUuid: "x", jobStatus: "success" }))).toBe(false);
   });
   it("fertig ist nur nach Erfolg erreichbar", () => {
     const s = state({ step: "preview", maxReached: 2, jobUuid: "x", jobStatus: "awaiting_user" });
@@ -259,16 +260,3 @@ describe("SET_TEMPLATE und Bildstil", () => {
   });
 });
 
-describe("startsAnew", () => {
-  it("vom fertigen Satz aus öffnet der erste Schritt leer", () => {
-    const s = state({ step: "done", maxReached: 2, jobUuid: "x", jobStatus: "success" });
-    expect(startsAnew(stepIndex("content"), s)).toBe(true);
-    expect(reachable(stepIndex("content"), s)).toBe(true);
-    expect(closedForGood(stepIndex("content"), s)).toBe(false);
-  });
-  it("in der Vorschau bleibt der erste Schritt zu", () => {
-    const s = state({ step: "preview", maxReached: 2, jobUuid: "x", jobStatus: "success" });
-    expect(startsAnew(stepIndex("content"), s)).toBe(false);
-    expect(reachable(stepIndex("content"), s)).toBe(false);
-  });
-});

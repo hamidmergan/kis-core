@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { closedForGood, failedLineIndex, hasContent, hatErgebnisse, isBusy, linesToVoice, minutesOf, needsVoice, ohneKi, reachable, startsAnew, wordsOf } from "./_logic";
+import { closedForGood, failedLineIndex, hasContent, hatErgebnisse, isBusy, linesToVoice, minutesOf, needsVoice, ohneKi, reachable, wordsOf } from "./_logic";
 import { INITIAL_STATE, reducer } from "./_reducer";
 import type { Line, PodcastState } from "./_types";
 
@@ -89,11 +89,10 @@ describe("Was in der Fortschrittsleiste anklickbar ist", () => {
     expect(reachable(2, laufend)).toBe(false);
   });
 
-  it("schließt den Inhalt, sobald ein Auftrag existiert", () => {
-    const mitAuftrag = state({ step: "script", maxReached: 2, jobUuid: "x", jobStatus: "awaiting_user" });
-    expect(reachable(0, mitAuftrag)).toBe(false);
-    const ohne = state({ step: "cast", maxReached: 1 });
-    expect(reachable(0, ohne)).toBe(true);
+  it("lässt den Inhalt nie anklicken", () => {
+    expect(reachable(0, state({ step: "script", maxReached: 2, jobUuid: "x", jobStatus: "awaiting_user" }))).toBe(false);
+    expect(reachable(0, state({ step: "cast", maxReached: 1 }))).toBe(false);
+    expect(reachable(0, state({ step: "done", maxReached: 4, jobUuid: "x", jobStatus: "success" }))).toBe(false);
   });
 
   it("lässt zurück in die Besetzung, auch mit fertigem Podcast", () => {
@@ -165,17 +164,3 @@ describe("Wann ein neuer Podcast nachfragen muss", () => {
   });
 });
 
-describe("startsAnew", () => {
-  it("vom fertigen Podcast aus öffnet der erste Schritt leer", () => {
-    const s = state({ step: "done", maxReached: 4, jobUuid: "x", jobStatus: "success" });
-    expect(startsAnew(0, s)).toBe(true);
-    expect(reachable(0, s)).toBe(true);
-    expect(closedForGood(0, s)).toBe(false);
-  });
-  it("vor dem Ende bleibt der erste Schritt zu", () => {
-    const s = state({ step: "script", maxReached: 4, jobUuid: "x", jobStatus: "awaiting_user" });
-    expect(startsAnew(0, s)).toBe(false);
-    expect(reachable(0, s)).toBe(false);
-    expect(closedForGood(0, s)).toBe(true);
-  });
-});

@@ -19,7 +19,7 @@ import { useJobHistory } from "@/hooks/useJobHistory";
 import { Link, useRouter } from "@/i18n/navigation";
 import { notifyJobsChanged } from "@/lib/jobs-events";
 import * as api from "./_api";
-import { LAEUFT, closedForGood, isBusy, reachable, schrittFuer, startsAnew } from "./_logic";
+import { LAEUFT, closedForGood, isBusy, reachable, schrittFuer } from "./_logic";
 import { INITIAL_STATE, reducer, type Action } from "./_reducer";
 import PraesentationStepper from "./_components/PraesentationStepper";
 import ContentStep from "./_steps/ContentStep";
@@ -344,7 +344,7 @@ function PraesentationPageInner() {
             {state.step !== "content" && (
               <PraesentationStepper step={state.step} canEnter={(i) => reachable(i, state)}
                                     isClosedForGood={(i) => closedForGood(i, state)}
-                                    onStepClick={(i) => (startsAnew(i, state) ? neu() : gehe(i))} />
+                                    onStepClick={gehe} />
             )}
             {state.step === "content" && (
               <ContentStep canUseModules={!!permissions.allow_aia} source={state.source} language={state.language}
