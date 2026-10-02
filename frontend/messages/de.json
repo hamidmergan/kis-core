@@ -4640,24 +4640,44 @@
       "title": "Lernen mit deinen eigenen Unterlagen",
       "lead": "Der KI-Assistent Francis antwortet aus deinen Skripten, Folien und Vorlesungen und nennt die Quelle dazu.",
       "purpose": {
-        "heading": "Wofür KIS da ist",
-        "lead": "KIS ist eine Lernplattform für Studierende und Lehrende in jedem Fach. Das Projekt dahinter richtet sich besonders an internationale Studierende.",
-        "facts": {
-          "platform": {
-            "label": "Plattform für",
-            "value": "Studierende und Lehrende, in jedem Fach"
-          },
-          "focus": {
-            "label": "Schwerpunkt",
-            "value": "Internationale Studierende, die mit Deutsch auf B1 in ein Fachstudium starten"
-          },
-          "pilot": {
-            "label": "Erprobt in",
-            "value": "Pilotprojekt an der THL, im Pilotkurs Allgemeine Elektrotechnik"
-          },
-          "funding": {
-            "label": "Gefördert von",
-            "value": "Stiftung Innovation in der Hochschullehre"
+        "heading": "Projekt und Plattform",
+        "lead": "KIS ist ein Projekt an der THL. Die Plattform ist das Werkzeug dafür und steht Studierenden und Lehrenden in jedem Fach zur Verfügung.",
+        "project": {
+          "tag": "Das Projekt",
+          "title": "KIS, Kinternationalisierung von Studiengängen",
+          "body": "Ein gefördertes Pilotprojekt an der THL für internationale Studierende, die mit Deutsch auf B1 in ein Fachstudium starten.",
+          "rows": {
+            "funding": {
+              "label": "Gefördert von",
+              "value": "Stiftung Innovation in der Hochschullehre"
+            },
+            "pilot": {
+              "label": "Pilotphase",
+              "value": "Studiengang Elektrotechnik"
+            },
+            "next": {
+              "label": "Danach",
+              "value": "Übertragung auf weitere Studiengänge"
+            }
+          }
+        },
+        "platform": {
+          "tag": "Die Plattform",
+          "title": "Lernplattform für Studierende und Lehrende",
+          "body": "Das Werkzeug des Projekts. Sie ist nicht auf internationale Studierende beschränkt und in jedem Fach nutzbar.",
+          "rows": {
+            "students": {
+              "label": "Für Studierende",
+              "value": "Der KI-Assistent Francis beantwortet Fragen zu deinen Unterlagen und hilft beim Üben"
+            },
+            "teachers": {
+              "label": "Für Lehrende",
+              "value": "Dienste, die aus Material Übersetzungen, Podcasts, Präsentationen und Screencasts machen"
+            },
+            "subjects": {
+              "label": "Fächer",
+              "value": "Jedes Fach, keine Vorgaben für Inhalte"
+            }
           }
         },
         "rulesHeading": "So geht Francis mit deinen Fragen um",
@@ -4669,19 +4689,19 @@
       },
       "team": {
         "heading": "Wer dahintersteht",
-        "body": "Ein Team an der THL entwickelt und betreut KIS.",
+        "body": "Ein Team an der THL betreut das Projekt KIS und entwickelt die Plattform.",
         "contact": "Platz für Kontakt"
       },
       "faq": {
         "heading": "Häufige Fragen",
         "items": {
           "who": {
-            "q": "Wer kann KIS nutzen?",
-            "a": "Teilnehmende des Pilotkurses und eingeladene Personen."
+            "q": "Wer kann die Plattform nutzen?",
+            "a": "Zurzeit Studierende und Lehrende im Pilotstudiengang sowie eingeladene Personen."
           },
           "cost": {
-            "q": "Kostet KIS etwas?",
-            "a": "Nein. KIS ist ein gefördertes Pilotprojekt."
+            "q": "Kostet die Nutzung etwas?",
+            "a": "Nein. Das Projekt KIS ist gefördert, die Nutzung kostet nichts."
           },
           "account": {
             "q": "Wie bekomme ich ein Konto?",
@@ -4689,15 +4709,15 @@
           },
           "after": {
             "q": "Was passiert nach dem Pilot?",
-            "a": "Das entscheidet die THL nach der Auswertung."
+            "a": "Nach der Pilotphase soll das Projekt auf weitere Studiengänge übertragen werden. Wie genau, entscheidet die THL nach der Auswertung."
           },
           "dsgvo": {
-            "q": "Ist KIS DSGVO-konform?",
-            "a": "Ja. KIS ist so gebaut, dass nur DSGVO-konforme Dienste zum Einsatz kommen. Wer als Lehrperson einen eigenen Stimmdienst verbindet, tut das mit eigenem Konto und auf eigene Verantwortung."
+            "q": "Ist die Plattform DSGVO-konform?",
+            "a": "Ja. Die Plattform ist so gebaut, dass nur DSGVO-konforme Dienste zum Einsatz kommen. Wer als Lehrperson einen eigenen Stimmdienst verbindet, tut das mit eigenem Konto und auf eigene Verantwortung."
           },
           "hosting": {
-            "q": "Wo läuft KIS?",
-            "a": "KIS wird vom Projektteam an der THL betrieben und läuft auf Servern in Deutschland. Die KI-Modelle laufen auf Infrastruktur der THL und von Partnern in Deutschland."
+            "q": "Wo läuft die Plattform?",
+            "a": "Die Plattform wird vom Projektteam an der THL betrieben und läuft auf Servern in Deutschland. Die KI-Modelle laufen auf Infrastruktur der THL und von Partnern in Deutschland."
           }
         },
         "groups": {
@@ -4776,7 +4796,7 @@
         "questions": {
           "what": {
             "q": "Was ist KIS?",
-            "a": "KIS ist ein Pilotprojekt an der THL mit einem KI-Assistenten und Diensten für das Studium."
+            "a": "KIS ist ein Pilotprojekt an der THL. Die zugehörige Plattform bietet einen KI-Assistenten und Dienste für das Studium."
           },
           "sources": {
             "q": "Woher kommen deine Antworten?",

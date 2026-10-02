@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useTranslations } from "next-intl";
-import { Bank, BookOpenText, Flask, Globe, Quotes, Users, WarningCircle, type Icon } from "@phosphor-icons/react";
+import { ArrowCircleRight, Bank, BookOpenText, Books, ChalkboardTeacher, Flask, GraduationCap, Quotes, WarningCircle, type Icon } from "@phosphor-icons/react";
 import Mascot from "@/components/ui/Mascot";
 import { useMascotPref } from "@/hooks/useMascotPref";
 import Band from "./Band";
@@ -12,12 +12,50 @@ export function SectionHeading({ children }: { children: ReactNode }) {
   return <h2 className="text-3xl @min-[40rem]:text-4xl font-semibold tracking-[-0.02em] leading-tight">{children}</h2>;
 }
 
-const FACTS: Array<{ key: "platform" | "focus" | "pilot" | "funding"; icon: Icon }> = [
-  { key: "platform", icon: Users },
-  { key: "focus", icon: Globe },
-  { key: "pilot", icon: Flask },
+type PanelRow = { key: string; icon: Icon };
+
+const PROJECT_ROWS: PanelRow[] = [
   { key: "funding", icon: Bank },
+  { key: "pilot", icon: Flask },
+  { key: "next", icon: ArrowCircleRight },
 ];
+
+const PLATFORM_ROWS: PanelRow[] = [
+  { key: "students", icon: GraduationCap },
+  { key: "teachers", icon: ChalkboardTeacher },
+  { key: "subjects", icon: Books },
+];
+
+/** One of the two panels that keep the project and the platform apart. */
+function Panel({ group, rows, solid }: { group: "project" | "platform"; rows: PanelRow[]; solid: boolean }) {
+  const t = useTranslations(`mockup.info.purpose.${group}`);
+  return (
+    <div className="flex flex-col gap-6 rounded-2xl border-2 border-border-soft bg-background p-6 @min-[40rem]:p-8" data-testid={`info-${group}`}>
+      <div className="flex flex-col gap-3 items-start">
+        <span
+          className={`rounded-full px-3 py-1 text-sm font-semibold ${solid ? "bg-kb text-on-accent" : "bg-kb/10 text-kb-dark"}`}
+        >
+          {t("tag")}
+        </span>
+        <h3 className="text-2xl @min-[40rem]:text-3xl font-semibold tracking-[-0.02em] leading-tight">{t("title")}</h3>
+        <p className="text-lg leading-relaxed text-foreground-soft">{t("body")}</p>
+      </div>
+      <ul className="flex flex-col gap-5 border-t-2 border-border-soft pt-6">
+        {rows.map(({ key, icon: Icon }) => (
+          <li key={key} className="flex items-start gap-4">
+            <span className="flex items-center justify-center w-11 h-11 shrink-0 rounded-full bg-kb/10 text-kb-dark">
+              <Icon size={24} weight="bold" aria-hidden="true" />
+            </span>
+            <div className="flex flex-col gap-0.5">
+              <span className="text-sm font-semibold uppercase tracking-wide text-muted">{t(`rows.${key}.label`)}</span>
+              <span className="text-lg font-medium leading-snug">{t(`rows.${key}.value`)}</span>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 const RULES: Array<{ key: "sources" | "names" | "errors"; icon: Icon }> = [
   { key: "sources", icon: BookOpenText },
@@ -25,7 +63,7 @@ const RULES: Array<{ key: "sources" | "names" | "errors"; icon: Icon }> = [
   { key: "errors", icon: WarningCircle },
 ];
 
-/** Platform and project as a fact sheet, followed by how Francis treats questions. */
+/** Project and platform as two separate panels, followed by how Francis treats questions. */
 export function PurposeSection() {
   const t = useTranslations("mockup.info.purpose");
   const { variant } = useMascotPref();
@@ -36,17 +74,10 @@ export function PurposeSection() {
           <SectionHeading>{t("heading")}</SectionHeading>
           <p className="text-xl @min-[40rem]:text-2xl leading-snug text-foreground-soft text-balance">{t("lead")}</p>
         </div>
-        <ul className="grid grid-cols-1 @min-[40rem]:grid-cols-2 @min-[80rem]:grid-cols-4 gap-4 @min-[40rem]:gap-6">
-          {FACTS.map(({ key, icon: Icon }) => (
-            <li key={key} className="flex flex-col gap-3 rounded-2xl border-2 border-border-soft bg-background p-6">
-              <span className="flex items-center justify-center w-12 h-12 rounded-full bg-kb/10 text-kb-dark">
-                <Icon size={26} weight="bold" aria-hidden="true" />
-              </span>
-              <span className="text-sm font-semibold uppercase tracking-wide text-muted">{t(`facts.${key}.label`)}</span>
-              <span className="text-lg font-medium leading-snug">{t(`facts.${key}.value`)}</span>
-            </li>
-          ))}
-        </ul>
+        <div className="grid grid-cols-1 @min-[48rem]:grid-cols-2 gap-4 @min-[40rem]:gap-6">
+          <Panel group="project" rows={PROJECT_ROWS} solid={false} />
+          <Panel group="platform" rows={PLATFORM_ROWS} solid />
+        </div>
         <div className="rounded-3xl border-2 border-border-soft bg-surface p-6 @min-[40rem]:p-10 flex flex-col gap-8">
           <div className="flex items-center gap-4">
             <span className="flex items-center justify-center w-14 h-14 shrink-0 rounded-full bg-kb text-on-accent">

@@ -4640,24 +4640,44 @@
       "title": "Learn with your own materials",
       "lead": "The AI assistant Francis answers from your scripts, slides and lectures and names the source.",
       "purpose": {
-        "heading": "What KIS is for",
-        "lead": "KIS is a learning platform for students and teachers in any subject. The project behind it is aimed especially at international students.",
-        "facts": {
-          "platform": {
-            "label": "Platform for",
-            "value": "Students and teachers, in any subject"
-          },
-          "focus": {
-            "label": "Focus",
-            "value": "International students starting a degree in German at B1 level"
-          },
-          "pilot": {
-            "label": "Tested in",
-            "value": "Pilot project at THL, in the pilot course General Electrical Engineering"
-          },
-          "funding": {
-            "label": "Funded by",
-            "value": "Stiftung Innovation in der Hochschullehre"
+        "heading": "Project and platform",
+        "lead": "KIS is a project at THL. The platform is its tool and is available to students and teachers in any subject.",
+        "project": {
+          "tag": "The project",
+          "title": "KIS, Kinternationalisierung von Studiengängen",
+          "body": "A funded pilot project at THL for international students starting a degree in German at B1 level.",
+          "rows": {
+            "funding": {
+              "label": "Funded by",
+              "value": "Stiftung Innovation in der Hochschullehre"
+            },
+            "pilot": {
+              "label": "Pilot phase",
+              "value": "Degree programme Electrical Engineering"
+            },
+            "next": {
+              "label": "Afterwards",
+              "value": "Transfer to further degree programmes"
+            }
+          }
+        },
+        "platform": {
+          "tag": "The platform",
+          "title": "Learning platform for students and teachers",
+          "body": "The project's tool. It is not limited to international students and can be used in any subject.",
+          "rows": {
+            "students": {
+              "label": "For students",
+              "value": "The AI assistant Francis answers questions about your materials and helps you practise"
+            },
+            "teachers": {
+              "label": "For teachers",
+              "value": "Services that turn material into translations, podcasts, presentations and screencasts"
+            },
+            "subjects": {
+              "label": "Subjects",
+              "value": "Any subject, no restrictions on content"
+            }
           }
         },
         "rulesHeading": "How Francis handles your questions",
@@ -4669,19 +4689,19 @@
       },
       "team": {
         "heading": "Who is behind it",
-        "body": "A team at THL develops and looks after KIS.",
+        "body": "A team at THL looks after the KIS project and develops the platform.",
         "contact": "Space for contact"
       },
       "faq": {
         "heading": "Frequently asked questions",
         "items": {
           "who": {
-            "q": "Who can use KIS?",
-            "a": "Participants of the pilot course and invited people."
+            "q": "Who can use the platform?",
+            "a": "Currently students and teachers in the pilot degree programme and invited people."
           },
           "cost": {
-            "q": "Does KIS cost anything?",
-            "a": "No. KIS is a funded pilot project."
+            "q": "Does using it cost anything?",
+            "a": "No. The KIS project is funded, using the platform is free."
           },
           "account": {
             "q": "How do I get an account?",
@@ -4689,19 +4709,19 @@
           },
           "after": {
             "q": "What happens after the pilot?",
-            "a": "THL decides that after the evaluation."
+            "a": "After the pilot phase the project is meant to be transferred to further degree programmes. How exactly is decided by THL after the evaluation."
           },
           "dsgvo": {
-            "q": "Is KIS GDPR compliant?",
-            "a": "Yes. KIS is built so that only GDPR compliant services are used. Teachers who connect a voice service of their own do so with their own account and at their own responsibility."
+            "q": "Is the platform GDPR compliant?",
+            "a": "Yes. The platform is built so that only GDPR compliant services are used. Teachers who connect a voice service of their own do so with their own account and at their own responsibility."
           },
           "hosting": {
-            "q": "Where does KIS run?",
-            "a": "KIS is operated by the project team at THL and runs on servers in Germany. The AI models run on infrastructure of THL and of partners in Germany."
+            "q": "Where does the platform run?",
+            "a": "The platform is operated by the project team at THL and runs on servers in Germany. The AI models run on infrastructure of THL and of partners in Germany."
           }
         },
         "groups": {
-          "use": "Using KIS",
+          "use": "Using the platform",
           "outlook": "Outlook",
           "operation": "Operation"
         }
@@ -4776,7 +4796,7 @@
         "questions": {
           "what": {
             "q": "What is KIS?",
-            "a": "KIS is a pilot project at THL with an AI assistant and services for your studies."
+            "a": "KIS is a pilot project at THL. The associated platform offers an AI assistant and services for your studies."
           },
           "sources": {
             "q": "Where do your answers come from?",
