@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import EventBlock from "../_components/EventBlock";
 import HeroTabs from "./_components/HeroTabs";
@@ -10,6 +10,7 @@ import LearnRows from "./_components/LearnRows";
 import ServiceGrid from "./_components/ServiceGrid";
 import InfoFaq from "./_components/InfoFaq";
 import ScrollTopButton from "./_components/ScrollTopButton";
+import { useFitZoom } from "./_components/useFitZoom";
 
 function Hero() {
   const params = useSearchParams();
@@ -29,9 +30,11 @@ const ZOOM = [
 
 /** Public page about the pilot, built as full-width bands, the event block is admin content and may be hidden. */
 export default function MockupInfoPage() {
+  const mainRef = useRef<HTMLElement>(null);
+  useFitZoom(mainRef, "info-hero");
   return (
     // Grows like browser zoom on wide screens, breakpoints are container queries so they follow the zoomed width.
-    <main className={`@container [zoom:var(--zoom)] ${ZOOM}`}>
+    <main ref={mainRef} className={`@container [zoom:var(--zoom)] ${ZOOM}`}>
       <Suspense fallback={<HeroTabs />}>
         <Hero />
       </Suspense>
