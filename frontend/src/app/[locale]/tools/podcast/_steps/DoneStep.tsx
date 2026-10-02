@@ -47,6 +47,7 @@ export default function DoneStep(props: DoneStepProps) {
 
   return (
     <section className="animate-[fadeIn_0.3s_ease-out] pt-3 sm:py-10">
+      <div className="rounded-xl border border-kb/15 bg-kb/5 p-4 sm:p-5">
       <div className="flex justify-center mb-4">
         <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: "var(--kb)" }}>
           <svg className="w-6 h-6" style={{ color: "#fff" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -69,7 +70,7 @@ export default function DoneStep(props: DoneStepProps) {
 
       {/* Desktop: downloads above the two side buttons. Phone: side buttons first, downloads pinned below. */}
       <div className="flex flex-col">
-        <div className="order-last sm:order-none sticky bottom-0 z-30 -mx-4 px-4 py-3 mt-6 border-t border-border-soft bg-background grid grid-cols-2 gap-2 sm:static sm:mx-0 sm:px-0 sm:py-0 sm:mt-0 sm:mb-4 sm:border-0 sm:bg-transparent sm:flex sm:flex-wrap sm:justify-center sm:gap-3">
+        <div className="order-last sm:order-none sticky bottom-0 z-30 -mx-4 -mb-4 rounded-b-xl px-4 py-3 mt-6 border-t border-border-soft bg-background grid grid-cols-2 gap-2 sm:static sm:mx-0 sm:px-0 sm:py-0 sm:mt-0 sm:mb-4 sm:border-0 sm:bg-transparent sm:flex sm:flex-wrap sm:justify-center sm:gap-3">
           <button type="button" onClick={() => jobUuid && speichern(resultUrl(jobUuid), "podcast.mp3")} className={`${LINK} justify-center`}>
             {downloadIcon}
             {t("download")}
@@ -88,6 +89,7 @@ export default function DoneStep(props: DoneStepProps) {
             {tPage("newPodcast")}
           </button>
         </div>
+      </div>
       </div>
 
       {offen > 0 && (
