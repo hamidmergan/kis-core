@@ -42,8 +42,7 @@ Open `http://localhost:3000`.
   before any real use, a production install refuses the example value.
 - `AUTH_DISABLED=true` skips login, giving a `local` account every permission. Not a deployment
   mode, blocked by `PRODUCTION=true`.
-- Only reachable on `127.0.0.1`. Production uses `docker-compose.prod.yml` with nginx, a domain and
-  TLS.
+- Only reachable on `127.0.0.1`.
 
 ## Development setup
 
