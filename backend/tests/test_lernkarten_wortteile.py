@@ -167,3 +167,12 @@ def test_karte_aus_dem_glossar_verliert_die_erfundene_zerlegung():
 
     assert "word_parts" not in items[0].get("extras", {})
     assert items[0]["extras"]["word_class"] == "Nomen"
+
+
+def test_der_prompt_zeigt_abgeleitete_woerter_ungeteilt():
+    """Reported: 'ein + Arbeit + ung', prefix and ending are no words of their own."""
+    from src.features.ai_assistant.prompts.language_training_prompts import AIA_LERNKARTEN_PROMPT
+    assert "'Einarbeitung' -> ''" in AIA_LERNKARTEN_PROMPT
+    # A literal wrong split is copied by the model, only the right forms stand there.
+    assert "+ ung'" not in AIA_LERNKARTEN_PROMPT
+    assert "+ Keit'" not in AIA_LERNKARTEN_PROMPT
