@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useTranslations } from "next-intl";
-import { ArrowCircleRight, Bank, Books, ChalkboardTeacher, Flask, GraduationCap, type Icon } from "@phosphor-icons/react";
+import { ArrowCircleRight, Bank, Books, ChalkboardTeacher, Flask, Globe, GraduationCap, type Icon } from "@phosphor-icons/react";
 import Band from "./Band";
 
 /** Shared section heading, large on wide screens. */
@@ -13,6 +13,7 @@ export function SectionHeading({ children }: { children: ReactNode }) {
 type PanelRow = { key: string; icon: Icon };
 
 const PROJECT_ROWS: PanelRow[] = [
+  { key: "focus", icon: Globe },
   { key: "funding", icon: Bank },
   { key: "pilot", icon: Flask },
   { key: "next", icon: ArrowCircleRight },
@@ -21,15 +22,16 @@ const PROJECT_ROWS: PanelRow[] = [
 const PLATFORM_ROWS: PanelRow[] = [
   { key: "students", icon: GraduationCap },
   { key: "teachers", icon: ChalkboardTeacher },
-  { key: "subjects", icon: Books },
+  { key: "workspaces", icon: Books },
 ];
 
 /** One of the two panels that keep the project and the platform apart. */
 function Panel({ group, rows, solid }: { group: "project" | "platform"; rows: PanelRow[]; solid: boolean }) {
   const t = useTranslations(`mockup.info.purpose.${group}`);
   return (
-    <div className="flex flex-col gap-6 rounded-2xl border-2 border-border-soft bg-background p-6 @min-[40rem]:p-8" data-testid={`info-${group}`}>
-      <div className="flex flex-col gap-3 items-start">
+    // Subgrid keeps the divider of both panels on one line.
+    <div className="grid grid-rows-subgrid row-span-2 gap-y-0 rounded-2xl border-2 border-border-soft bg-background p-6 @min-[40rem]:p-8" data-testid={`info-${group}`}>
+      <div className="flex flex-col gap-3 items-start pb-6">
         <span
           className={`rounded-full px-3 py-1 text-sm font-semibold ${solid ? "bg-kb text-on-accent" : "bg-kb/10 text-kb-dark"}`}
         >

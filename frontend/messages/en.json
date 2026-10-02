@@ -4644,8 +4644,12 @@
         "project": {
           "tag": "The project",
           "title": "KIS, Kinternationalisierung von Studiengängen",
-          "body": "A funded pilot project at THL for international students starting a degree in German at B1 level.",
+          "body": "A funded pilot project at THL.",
           "rows": {
+            "focus": {
+              "label": "Focus",
+              "value": "International students starting a degree in German at B1 level"
+            },
             "funding": {
               "label": "Funded by",
               "value": "Stiftung Innovation in der Hochschullehre"
@@ -4673,9 +4677,9 @@
               "label": "For teachers",
               "value": "Services that turn material into translations, podcasts, presentations and screencasts"
             },
-            "subjects": {
-              "label": "Subjects",
-              "value": "Any subject, no restrictions on content"
+            "workspaces": {
+              "label": "Workspaces",
+              "value": "The material for each subject lives in a workspace of its own"
             }
           }
         }

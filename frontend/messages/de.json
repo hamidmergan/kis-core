@@ -4644,8 +4644,12 @@
         "project": {
           "tag": "Das Projekt",
           "title": "KIS, Kinternationalisierung von Studiengängen",
-          "body": "Ein gefördertes Pilotprojekt an der THL für internationale Studierende, die mit Deutsch auf B1 in ein Fachstudium starten.",
+          "body": "Ein gefördertes Pilotprojekt an der THL.",
           "rows": {
+            "focus": {
+              "label": "Fokus",
+              "value": "Internationale Studierende, die mit Deutsch auf B1 in ein Fachstudium starten"
+            },
             "funding": {
               "label": "Gefördert von",
               "value": "Stiftung Innovation in der Hochschullehre"
@@ -4673,9 +4677,9 @@
               "label": "Für Lehrende",
               "value": "Dienste, die aus Material Übersetzungen, Podcasts, Präsentationen und Screencasts machen"
             },
-            "subjects": {
-              "label": "Fächer",
-              "value": "Jedes Fach, keine Vorgaben für Inhalte"
+            "workspaces": {
+              "label": "Workspaces",
+              "value": "Das Material zu jedem Fach liegt in einem eigenen Workspace"
             }
           }
         }
