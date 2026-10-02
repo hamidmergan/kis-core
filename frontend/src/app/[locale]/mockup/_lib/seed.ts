@@ -17,40 +17,28 @@ export const SEED_CONFIG: MockupConfig = {
   masterCode: "K7PM",
   stations: [
     station(
+      "management",
+      "info",
+      ["Projekt KIS", "Ziele, Antrag und Zeitplan", "Hier hast du gesehen, wofür das Projekt KIS steht und wie es aufgebaut ist."],
+      ["Project KIS", "Goals, proposal and schedule", "Here you saw what the KIS project stands for and how it is organised."],
+    ),
+    station(
+      "study",
       "francis",
-      "francis",
-      ["KI-Assistent Francis", "Fragen an deine Unterlagen stellen", "Francis antwortet aus deinen Quellen und nennt sie dazu."],
-      ["AI assistant Francis", "Ask questions about your materials", "Francis answers from your sources and names them."],
+      ["Studium", "Assistent, Microcredentials und Fachlandkarte", "Hier hast du gesehen, wie das Studium auf internationale Studierende abgestimmt wird."],
+      ["Studies", "Assistant, microcredentials and subject map", "Here you saw how the degree programme is adapted for international students."],
     ),
     station(
+      "language",
       "translation",
-      "translation",
-      ["Übersetzung", "Texte und Dokumente übersetzen", "Probiere eine Übersetzung mit einem eigenen Text aus."],
-      ["Translation", "Translate texts and documents", "Try a translation with a text of your own."],
+      ["Sprachkompetenz", "KI-Tools für Fachsprache und Übersetzung", "Hier hast du gesehen, wie KIS Materialien übersetzt und beim Fachwortschatz hilft."],
+      ["Language skills", "AI tools for technical language and translation", "Here you saw how KIS translates materials and helps with technical vocabulary."],
     ),
     station(
-      "tts",
-      "tts",
-      ["Text in Audio", "Texte vorlesen lassen", "Lass dir einen Abschnitt aus deinem Skript vorlesen."],
-      ["Text to audio", "Have texts read aloud", "Have a section of your script read aloud."],
-    ),
-    station(
-      "transcription",
-      "transcription",
-      ["Audio in Text", "Vorlesungen transkribieren", "Aus einer Aufnahme wird ein Text mit Zeitmarken."],
-      ["Audio to text", "Transcribe lectures", "A recording becomes a text with timestamps."],
-    ),
-    station(
-      "interpreter",
-      "interpreter",
-      ["Dolmetscher", "Ein Gespräch in zwei Sprachen", "Sprich in deiner Sprache, die Übersetzung läuft mit."],
-      ["Interpreter", "A conversation in two languages", "Speak in your language, the translation follows along."],
-    ),
-    station(
-      "summary",
-      "summary",
-      ["Zusammenfassung", "Mehrere Materialien in einem Text", "Aus mehreren Quellen entsteht ein kurzer Überblick."],
-      ["Summary", "Several materials in one text", "Several sources become a short overview."],
+      "intercultural",
+      "lightbulb",
+      ["Interkulturelle Kompetenzen", "Lernfortschritt und Berufseinstieg", "Hier hast du gesehen, wie Lernstand und Berufseinstieg begleitet werden."],
+      ["Intercultural skills", "Learning progress and career entry", "Here you saw how learning progress and the move into work are supported."],
     ),
   ],
   eventBlock: {
@@ -90,7 +78,7 @@ export const SEED_CONFIG: MockupConfig = {
     ],
   },
   stats: {
-    visitsByStation: { francis: 24, translation: 19, tts: 17, transcription: 15, interpreter: 12, summary: 9 },
+    visitsByStation: { management: 24, study: 19, language: 17, intercultural: 12 },
     completeCards: 6,
   },
 };
