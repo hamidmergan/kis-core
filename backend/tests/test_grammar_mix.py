@@ -661,3 +661,22 @@ def test_an_unknown_language_falls_back_to_english(monkeypatch):
 
 def test_the_free_text_filter_still_rejects_a_question():
     assert not is_usable_pair("Was bedeutet das?", "Etwas.")
+
+
+def test_the_checker_sees_the_gap_as_the_learner_does(attributed):
+    """Reported: the gap swallowed the noun, the full sentence alone hides that."""
+    response = json.dumps({"title": "T", "exercises": [
+        {"kind": "cloze",
+         "sentence": "Das Geschäft bleibt wegen eines kurzen Umbaus geschlossen.",
+         "form_span": "kurzen Umbaus", "base_form": "kurz"},
+    ]})
+    _, _, _, calls = _generate(response, count=1)
+    pruefung = calls[-1][-1]["content"]
+    assert 'gap shown: "Das Geschäft bleibt wegen eines ___ (kurz) geschlossen."' in pruefung
+    assert 'answer typed: "kurzen Umbaus"' in pruefung
+
+
+def test_the_prompt_keeps_the_noun_out_of_the_gap(attributed):
+    _, _, _, calls = _generate(count=4)
+    system = calls[0][0]["content"]
+    assert 'form_span "neuen", base_form "neu"' in system

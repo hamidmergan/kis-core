@@ -226,7 +226,11 @@ def generate_grammar_from_source(
     _, falsch = _VERDICT_LABELS.get(locale, _VERDICT_LABELS["en"])
     wrong_on_purpose = [item.get("_kind") == "statement" and item.get("back") == falsch
                         for item in items]
-    ok = verdicts(client, model, claims, target_form, grammar_type["rule"], wrong_on_purpose)
+    # The gap as shown, the instruction above it left off.
+    gaps = [(item["front"].rsplit("\n\n", 1)[-1], item["back"])
+            if item.get("_kind") == "cloze" else None for item in items]
+    ok = verdicts(client, model, claims, target_form, grammar_type["rule"],
+                  wrong_on_purpose, gaps)
     items = [item for item, usable in zip(items, ok) if usable]
     claims = [claim for claim, usable in zip(claims, ok) if usable]
 
@@ -312,7 +316,13 @@ def _build_prompt(grammar_type: dict, target_form: str, examples: list[dict],
         "with NO gap in it. 'form_span' is the part of that sentence which carries "
         "the form, copied out of it character for character, at most three words. "
         "The software cuts the gap, not you. Whatever stands in 'form_span' is the "
-        "correct answer, so the sentence has to read correctly with it. The learner "
+        "correct answer, so the sentence has to read correctly with it. 'form_span' "
+        "holds ONLY words the learner can work out from 'base_form' and the target "
+        "form. Every other word stays in the sentence, the noun after an inflected "
+        "adjective too:\n"
+        '    sentence "Wir fahren mit dem neuen Zug nach Hamburg.", '
+        'form_span "neuen", base_form "neu"\n'
+        "  The learner "
         "TYPES the answer. 'base_form' is REQUIRED, never left out and never empty: "
         "the dictionary/infinitive form of the word in 'form_span', shown next to "
         "the gap as the learner's only hint at what to inflect. It is almost always "

@@ -24,7 +24,7 @@ def _prompt(target_form: str, rule: str) -> str:
         "the intended solution already put in.\n\n"
         f"Target form: {target_form}\n"
         f"Transformation rule: {rule}\n\n"
-        "Mark an item ok=false ONLY when one of these three is true:\n"
+        "Mark an item ok=false ONLY when one of these four is true:\n"
         "1. With the solution in it, the sentence is not correct in its language: a word "
         "is doubled, a verb is left over, a part is missing, an adjective ending or word "
         "order is wrong. Read it back before you judge.\n"
@@ -32,9 +32,18 @@ def _prompt(target_form: str, rule: str) -> str:
         "3. The sentence only STATES a rule about grammar instead of using the form. "
         'For example "Das Verb steht im Relativsatz immer am Ende." is a claim about '
         "grammar, not a sentence anybody practises a form in. A learner needs sentences "
-        "that USE the form.\n\n"
+        "that USE the form.\n"
+        "4. A line with a gap also shows the gap sentence the learner sees, the word in "
+        "brackets is their only hint, and the answer they have to type. Compare the "
+        "answer word by word with the gap sentence: ok=false when the answer holds a "
+        "word that is neither the hint inflected nor a word the target form demands, "
+        "so nobody could guess it:\n"
+        '   [gap shown: "Er kauft einen ___ (rot) im Laden.", answer typed: "roten '
+        'Apfel"] is ok=false, "Apfel" is nowhere in the gap sentence.\n'
+        '   [gap shown: "Er kauft einen ___ (rot) Apfel im Laden.", answer typed: '
+        '"roten"] is ok=true.\n\n'
         "Everything else is ok=true. Do NOT judge style, difficulty, wording, subject "
-        "matter or how interesting a sentence is. Only the three points above.\n"
+        "matter or how interesting a sentence is. Only the four points above.\n"
         f'A line marked "{_ON_PURPOSE}" carries a mistake the learner is supposed to '
         "spot. For those, check point 3 only, never point 1.\n"
         "Judge every sentence in the language it is written in. Never translate.\n"
@@ -44,12 +53,15 @@ def _prompt(target_form: str, rule: str) -> str:
 
 
 def verdicts(client, model, texts: list[str], target_form: str, rule: str,
-             wrong_on_purpose: list[bool] | None = None) -> list[bool]:
+             wrong_on_purpose: list[bool] | None = None,
+             gaps: list[tuple[str, str] | None] | None = None) -> list[bool]:
     """Per sentence, whether it is usable, True when in doubt."""
     if not texts:
         return []
     urteile = [True] * len(texts)
     markers = wrong_on_purpose or [False] * len(texts)
+    # Gap sentence and typed answer, only the learner's view shows a swallowed word.
+    gaps = gaps or [None] * len(texts)
 
     lines = []
     for i, text in enumerate(texts):
@@ -57,7 +69,10 @@ def verdicts(client, model, texts: list[str], target_form: str, rule: str,
         if not text:
             continue
         mark = f" ({_ON_PURPOSE})" if markers[i] else ""
-        lines.append(f"{i}.{mark} {text}")
+        gap = ""
+        if gaps[i]:
+            gap = f' [gap shown: "{gaps[i][0]}", answer typed: "{gaps[i][1]}"]'
+        lines.append(f"{i}.{mark} {text}{gap}")
     if not lines:
         return urteile
 

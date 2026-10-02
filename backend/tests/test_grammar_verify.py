@@ -50,6 +50,23 @@ def test_absichtlich_falsche_aussage_wird_gekennzeichnet():
     assert "wrong on purpose" in _aufgabenzeilen(calls)
 
 
+def test_luecke_geht_mit_der_sicht_der_lernenden_mit():
+    """Reported: the gap swallowed the noun, only the gap sentence shows it."""
+    satz = "Das Geschäft bleibt wegen eines kurzen Umbaus geschlossen."
+    luecke = "Das Geschäft bleibt wegen eines ___ (kurz) geschlossen."
+    client, calls = _client(_urteil((0, True)))
+    verdicts(client, "m", [satz], _FORM, _RULE, gaps=[(luecke, "kurzen Umbaus")])
+    zeilen = _aufgabenzeilen(calls)
+    assert luecke in zeilen
+    assert '"kurzen Umbaus"' in zeilen
+
+
+def test_satz_ohne_luecke_bleibt_ohne_luecken_angabe():
+    client, calls = _client(_urteil((0, True)))
+    verdicts(client, "m", [_SATZ_SAUBER], _FORM, _RULE, gaps=[None])
+    assert "gap shown" not in _aufgabenzeilen(calls)
+
+
 def test_richtige_aussage_wird_nicht_gekennzeichnet():
     client, calls = _client(_urteil((0, True)))
     verdicts(client, "m", [_THEORIESATZ], _FORM, _RULE)
