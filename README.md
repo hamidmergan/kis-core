@@ -52,16 +52,6 @@ cd frontend && npm install && npm run dev
 The script leaves the frontend container out, so port 3000 stays free, and it adds Adminer
 and Langfuse. The API docs are on `http://localhost:8000/docs`.
 
-### Modules
-
-`MODULES` in `.env` selects the halves: `aia,tools` (default), `aia`, or `tools`. A disabled half is
-not hidden but gone, its routes answer 404 and its Celery worker does not start. Changing the value
-needs a restart.
-
-`MODULES=aia` drops the global glossary. `MODULES=tools` drops the language trainer, flashcards and
-grammar exercises, and leaves the built in `user` role without permissions, so students need a custom
-role.
-
 ## AI providers
 
 The repository ships no API keys. Providers are added at runtime under **Admin → AI**, and every
