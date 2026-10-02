@@ -34,17 +34,17 @@ function Panel({ group, rows, solid }: { group: "project" | "platform"; rows: Pa
     <div className="grid grid-rows-subgrid row-span-2 gap-y-0 rounded-2xl border-2 border-border-soft bg-background p-6 @min-[40rem]:p-8" data-testid={`info-${group}`}>
       <div className="flex flex-col gap-3 items-start pb-6">
         <span
-          className={`rounded-full px-3 py-1 text-sm font-semibold ${solid ? "bg-kb text-on-accent" : "bg-kb/10 text-kb-dark"}`}
+          className={`rounded-full px-3 py-1 text-sm font-semibold ${solid ? "bg-kb text-on-accent dark:bg-kb-dark dark:text-background" : "bg-kb/10 text-kb-dark dark:bg-kb-dark/20"}`}
         >
           {t("tag")}
         </span>
-        <h3 className="text-2xl @min-[40rem]:text-3xl font-semibold tracking-[-0.02em] leading-tight">{t("title")}</h3>
+        <h3 className="text-2xl @min-[40rem]:text-3xl font-semibold tracking-[-0.02em] leading-tight dark:text-foreground!">{t("title")}</h3>
         <p className="text-lg leading-relaxed text-foreground-soft">{t("body")}</p>
       </div>
       <ul className="flex flex-col gap-5 border-t-2 border-border-soft pt-6">
         {rows.map(({ key, icon: Icon }) => (
           <li key={key} className="flex items-start gap-4">
-            <span className="flex items-center justify-center w-11 h-11 shrink-0 rounded-full bg-kb/10 text-kb-dark">
+            <span className="flex items-center justify-center w-11 h-11 shrink-0 rounded-full bg-kb/10 text-kb-dark dark:bg-kb-dark/20">
               <Icon size={24} weight="bold" aria-hidden="true" />
             </span>
             <div className="flex flex-col gap-0.5">
