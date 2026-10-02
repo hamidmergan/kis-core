@@ -4696,6 +4696,10 @@
           "q": "Who can use the platform, and can I try it?",
           "a": "Currently it is not generally accessible. Access is planned for a group of students for testing and for further test users. If you would like to try it, write to us via the contact at the end of the page. We will look together at whether and how a test is possible in your case."
         },
+        "studentServices": {
+          "q": "Can students use the services too?",
+          "a": "Not during the pilot phase. The services such as screencast, podcast or presentation are available to teachers only for now, students work with Francis. In the future it would make sense to open the services to students as well."
+        },
         "sources": {
           "q": "Where does Francis get its answers?",
           "a": "Francis answers from the sources in your workspace."

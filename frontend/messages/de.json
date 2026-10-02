@@ -4696,6 +4696,10 @@
           "q": "Wer kann die Plattform nutzen, und kann ich sie ausprobieren?",
           "a": "Aktuell ist sie nicht allgemein zugänglich. Der Zugang ist für eine Gruppe von Studierenden zum Testen und für weitere Testpersonen geplant. Wenn du sie ausprobieren möchtest, schreib uns über den Kontakt am Ende der Seite. Wir schauen gemeinsam, ob und wie ein Test in deinem Fall möglich ist."
         },
+        "studentServices": {
+          "q": "Können Studierende die Dienste auch nutzen?",
+          "a": "In der Pilotphase noch nicht. Die Dienste wie Screencast, Podcast oder Präsentation stehen zunächst nur Lehrenden zur Verfügung, Studierende arbeiten mit Francis. Künftig wäre es sinnvoll, die Dienste auch für Studierende freizugeben."
+        },
         "sources": {
           "q": "Woher nimmt Francis seine Antworten?",
           "a": "Francis antwortet aus den Quellen, die in deinem Workspace liegen."
