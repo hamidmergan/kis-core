@@ -4983,6 +4983,8 @@
         "icon": "Icon",
         "qr": "QR-Code",
         "empty": "Noch keine Stände",
+        "code": "Code auf dem Aufsteller",
+        "codeReroll": "Neu würfeln",
         "untitled": "Neuer Stand"
       },
       "poster": {
@@ -4997,7 +4999,7 @@
       },
       "master": {
         "title": "Master-Code",
-        "description": "Vier Zeichen, steht auf jedem Aufsteller. Groß- und Kleinschreibung ist egal.",
+        "description": "Vier Zeichen, öffnet die Standauswahl. Steht auf keinem Aufsteller, gib ihn nur persönlich weiter. Groß- und Kleinschreibung ist egal.",
         "reroll": "Neu würfeln",
         "apply": "Übernehmen",
         "copy": "Kopieren",

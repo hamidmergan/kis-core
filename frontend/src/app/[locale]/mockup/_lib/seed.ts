@@ -2,11 +2,13 @@ import type { MockupConfig, Station } from "./types";
 
 const station = (
   id: string,
+  code: string,
   icon: Station["icon"],
   de: [string, string, string],
   en: [string, string, string],
 ): Station => ({
   id,
+  code,
   icon,
   name: { de: de[0], en: en[0] },
   blurb: { de: de[1], en: en[1] },
@@ -18,30 +20,35 @@ export const SEED_CONFIG: MockupConfig = {
   stations: [
     station(
       "management",
+      "H4RV",
       "info",
       ["Projekt KIS", "Ziele, Antrag und Zeitplan", "Hier hast du gesehen, wofür das Projekt KIS steht und wie es aufgebaut ist."],
       ["Project KIS", "Goals, proposal and schedule", "Here you saw what the KIS project stands for and how it is organised."],
     ),
     station(
       "study",
+      "P9KT",
       "francis",
       ["Studium", "Assistent, Microcredentials und Fachlandkarte", "Hier hast du gesehen, wie das Studium auf internationale Studierende abgestimmt wird."],
       ["Studies", "Assistant, microcredentials and subject map", "Here you saw how the degree programme is adapted for international students."],
     ),
     station(
       "platform",
+      "M3XD",
       "platform",
       ["KIS-Plattform", "KI-Fachsprachen-Trainer und Übersetzung", "Hier hast du gesehen, wie die KIS-Plattform Materialien übersetzt und beim Fachwortschatz hilft."],
       ["KIS platform", "AI technical-language trainer and translation", "Here you saw how the KIS platform translates materials and helps with technical vocabulary."],
     ),
     station(
       "dafl",
+      "W7NC",
       "translation",
       ["Deutsch als Fremdsprache", "Sprachkurse und Buddy-Programm", "Hier hast du gesehen, wie Deutschkurse und Buddys internationale Studierende begleiten."],
       ["German as a foreign language", "Language courses and buddy programme", "Here you saw how German courses and buddies support international students."],
     ),
     station(
       "intercultural",
+      "T6QB",
       "lightbulb",
       ["Interkulturelle Kompetenzen", "Lernfortschritt und Berufseinstieg", "Hier hast du gesehen, wie Lernstand und Berufseinstieg begleitet werden."],
       ["Intercultural skills", "Learning progress and career entry", "Here you saw how learning progress and the move into work are supported."],

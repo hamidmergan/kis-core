@@ -1,3 +1,4 @@
+import { newUniqueCode } from "../../_lib/masterCode";
 import { SEED_CONFIG } from "../../_lib/seed";
 import type { MockupCard, Station } from "../../_lib/types";
 
@@ -36,9 +37,10 @@ export function stamp(card: MockupCard, stations: Station[], id: string, now: nu
   return syncCompletion({ ...card, stamped: { ...card.stamped, [id]: now } }, stations, now);
 }
 
-function genericStation(n: number): Station {
+function genericStation(n: number, code: string): Station {
   return {
     id: `stand-${n}`,
+    code,
     icon: "star",
     name: { de: `Stand ${n}`, en: `Stand ${n}` },
     blurb: { de: "Beispielstand für die Simulation", en: "Sample stand for the simulation" },
@@ -59,7 +61,7 @@ export function resizeStations(stations: Station[], count: number): Station[] {
     }
   }
   for (let n = 1; out.length < count; n++) {
-    const g = genericStation(n);
+    const g = genericStation(n, newUniqueCode([SEED_CONFIG.masterCode, ...out.map((s) => s.code)]));
     if (!used.has(g.id)) {
       out.push(g);
       used.add(g.id);

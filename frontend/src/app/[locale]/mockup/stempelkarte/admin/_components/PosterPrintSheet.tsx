@@ -7,9 +7,8 @@ import PosterSvg, { useStationQr } from "./PosterSvg";
 
 const SHEET = "mockup-poster-sheet";
 
-function PrintPoster({ station, masterCode, last, onReady }: {
+function PrintPoster({ station, last, onReady }: {
   station: Station;
-  masterCode: string;
   last: boolean;
   onReady: (id: string) => void;
 }) {
@@ -19,15 +18,14 @@ function PrintPoster({ station, masterCode, last, onReady }: {
   }, [qr, station.id, onReady]);
   return (
     <div style={{ breakAfter: last ? "auto" : "page" }}>
-      <PosterSvg station={station} qr={qr} masterCode={masterCode} className="block w-full h-auto" />
+      <PosterSvg station={station} qr={qr} className="block w-full h-auto" />
     </div>
   );
 }
 
 /** One poster per A5 page, opens the print dialog once every QR code is drawn. */
-export default function PosterPrintSheet({ stations, masterCode, onDone }: {
+export default function PosterPrintSheet({ stations, onDone }: {
   stations: Station[];
-  masterCode: string;
   onDone: () => void;
 }) {
   const [ready, setReady] = useState<Record<string, true>>({});
@@ -60,7 +58,6 @@ export default function PosterPrintSheet({ stations, masterCode, onDone }: {
         <PrintPoster
           key={s.id}
           station={s}
-          masterCode={masterCode}
           last={i === stations.length - 1}
           onReady={(id) => setReady((r) => (r[id] ? r : { ...r, [id]: true }))}
         />

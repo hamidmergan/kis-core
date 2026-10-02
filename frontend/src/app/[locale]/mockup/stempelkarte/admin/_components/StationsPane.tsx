@@ -29,7 +29,6 @@ export default function StationsPane() {
       {qrStation && (
         <StationQr
           station={qrStation}
-          masterCode={config.masterCode}
           onClose={() => setQrId(null)}
           onPrint={() => setJob({ ids: [qrStation.id], nonce: Date.now() })}
         />
@@ -38,7 +37,6 @@ export default function StationsPane() {
         <PosterPrintSheet
           key={job.nonce}
           stations={printStations}
-          masterCode={config.masterCode}
           onDone={clearJob}
         />
       )}

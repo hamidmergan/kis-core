@@ -41,11 +41,10 @@ function nameLines(name: string): string[] {
 interface Props {
   station: Station;
   qr: string | null;
-  masterCode: string;
   className?: string;
 }
 
-const PosterSvg = forwardRef<SVGSVGElement, Props>(function PosterSvg({ station, qr, masterCode, className }, ref) {
+const PosterSvg = forwardRef<SVGSVGElement, Props>(function PosterSvg({ station, qr, className }, ref) {
   const t = useTranslations("mockup.admin.poster");
   const text = useText2();
   const Icon = MOCKUP_ICONS[station.icon];
@@ -100,7 +99,7 @@ const PosterSvg = forwardRef<SVGSVGElement, Props>(function PosterSvg({ station,
         fill={ACCENT}
         letterSpacing="2.5"
       >
-        {masterCode}
+        {station.code}
       </text>
       <rect x={10} y={203} width={128} height={1} fill={ACCENT} />
     </svg>

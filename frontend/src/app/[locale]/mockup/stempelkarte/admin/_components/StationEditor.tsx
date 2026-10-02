@@ -5,6 +5,7 @@ import { ArrowDown, ArrowUp, QrCode } from "@phosphor-icons/react";
 import CollapsibleCard from "@/components/ui/CollapsibleCard";
 import IconButton from "@/components/ui/IconButton";
 import { MOCKUP_ICONS } from "../../../_lib/icons";
+import { newUniqueCode } from "../../../_lib/masterCode";
 import { useText2 } from "../../../_lib/useText2";
 import type { Station } from "../../../_lib/types";
 import { BTN_SECONDARY, IconSelect, TextPair } from "./fields";
@@ -18,10 +19,12 @@ interface Props {
   onMove: (delta: -1 | 1) => void;
   onRemove: () => void;
   onQr: () => void;
+  /** Codes of the master and all other stands, a new code must avoid them. */
+  takenCodes: string[];
 }
 
 /** One stand as a collapsible form, the arrows beside it change the order. */
-export default function StationEditor({ station, first, last, defaultOpen, onChange, onMove, onRemove, onQr }: Props) {
+export default function StationEditor({ station, first, last, defaultOpen, onChange, onMove, onRemove, onQr, takenCodes }: Props) {
   const t = useTranslations("mockup.admin.stations");
   const text = useText2();
   const Icon = MOCKUP_ICONS[station.icon];
@@ -51,6 +54,20 @@ export default function StationEditor({ station, first, last, defaultOpen, onCha
               </button>
               <button type="button" onClick={onRemove} className={BTN_SECONDARY} data-testid="station-remove">
                 {t("remove")}
+              </button>
+            </div>
+            <div className="flex flex-wrap items-center gap-3" data-testid="station-code-row">
+              <span className="text-sm text-foreground-soft">{t("code")}</span>
+              <span className="font-mono text-lg font-semibold tracking-widest text-foreground" data-testid="station-code">
+                {station.code}
+              </span>
+              <button
+                type="button"
+                onClick={() => onChange({ ...station, code: newUniqueCode(takenCodes) })}
+                className={BTN_SECONDARY}
+                data-testid="station-code-reroll"
+              >
+                {t("codeReroll")}
               </button>
             </div>
             <IconSelect label={t("icon")} value={station.icon} onChange={(icon) => onChange({ ...station, icon })} />

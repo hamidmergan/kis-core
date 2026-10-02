@@ -6,6 +6,8 @@ export type IconKey = ToolKey | "francis" | "info" | "gift" | "star" | "lightbul
 
 export interface Station {
   id: string;
+  /** Four characters printed on this stand's poster, a hit stamps this stand only. */
+  code: string;
   icon: IconKey;
   name: Text2;
   blurb: Text2;

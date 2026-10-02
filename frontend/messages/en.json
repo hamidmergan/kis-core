@@ -4983,6 +4983,8 @@
         "icon": "Icon",
         "qr": "QR code",
         "empty": "No stands yet",
+        "code": "Code on the poster",
+        "codeReroll": "Roll again",
         "untitled": "New stand"
       },
       "poster": {
@@ -4997,7 +4999,7 @@
       },
       "master": {
         "title": "Master code",
-        "description": "Four characters, printed on every poster. Upper and lower case do not matter.",
+        "description": "Four characters, opens the stand picker. Not on any poster, hand it out in person only. Upper and lower case do not matter.",
         "reroll": "Roll again",
         "apply": "Apply",
         "copy": "Copy",

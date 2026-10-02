@@ -4,11 +4,11 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useTranslations } from "next-intl";
 import Modal from "@/components/ui/Modal";
 import { MOCKUP_ICONS } from "../../_lib/icons";
-import { CODE_LENGTH, MAX_ATTEMPTS, afterWrongCode, codeMatches, lockRemainingMs } from "../../_lib/masterCode";
+import { CODE_LENGTH, MAX_ATTEMPTS, afterWrongCode, codeMatches, lockRemainingMs, stationByCode } from "../../_lib/masterCode";
 import { useMockup } from "../../_lib/store";
 import { useText2 } from "../../_lib/useText2";
 
-/** Master code from the poster, a hit opens the stand picker, five misses lock the field for a while. */
+/** A stand code stamps that stand, the master code opens the stand picker, five misses lock the field for a while. */
 export default function CodeEntry({ onStamp, onWrong }: { onStamp: (id: string) => void; onWrong: () => void }) {
   const t = useTranslations("mockup.stamp.code");
   const text = useText2();
@@ -33,6 +33,13 @@ export default function CodeEntry({ onStamp, onWrong }: { onStamp: (id: string) 
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (locked || value.length < CODE_LENGTH) return;
+    const own = stationByCode(value, config.stations);
+    if (own) {
+      setWrong(false);
+      setValue("");
+      onStamp(own.id);
+      return;
+    }
     if (codeMatches(value, config.masterCode)) {
       setWrong(false);
       setValue("");

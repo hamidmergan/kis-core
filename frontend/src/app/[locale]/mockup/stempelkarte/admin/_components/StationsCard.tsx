@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import Modal from "@/components/ui/Modal";
 import { SettingCard } from "@/app/[locale]/admin/_settings/fields";
+import { newUniqueCode } from "../../../_lib/masterCode";
 import { useMockup } from "../../../_lib/store";
 import type { Station } from "../../../_lib/types";
 import StationEditor from "./StationEditor";
@@ -33,7 +34,13 @@ export default function StationsCard({ onQr, onPrintAll }: { onQr: (id: string) 
   const add = () => {
     const id = nextId("stand", stations);
     setFreshId(id);
-    setStations((s) => [...s, { id, icon: "star", name: EMPTY, blurb: EMPTY, francis: EMPTY }]);
+    update((c) => ({
+      ...c,
+      stations: [
+        ...c.stations,
+        { id, code: newUniqueCode([c.masterCode, ...c.stations.map((x) => x.code)]), icon: "star", name: EMPTY, blurb: EMPTY, francis: EMPTY },
+      ],
+    }));
   };
   const move = (index: number, delta: -1 | 1) =>
     setStations((s) => {
@@ -72,6 +79,7 @@ export default function StationsCard({ onQr, onPrintAll }: { onQr: (id: string) 
             last={i === stations.length - 1}
             defaultOpen={station.id === freshId}
             onChange={(next) => setStations((s) => s.map((x) => (x.id === station.id ? next : x)))}
+            takenCodes={[config.masterCode, ...stations.filter((x) => x.id !== station.id).map((x) => x.code)]}
             onMove={(delta) => move(i, delta)}
             onRemove={() => setRemoveId(station.id)}
             onQr={() => onQr(station.id)}

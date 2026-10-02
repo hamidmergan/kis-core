@@ -11,13 +11,12 @@ import { BTN_SECONDARY } from "./fields";
 
 interface Props {
   station: Station;
-  masterCode: string;
   onClose: () => void;
   onPrint: () => void;
 }
 
 /** Poster preview for one stand with PNG download and the A5 print route. */
-export default function StationQr({ station, masterCode, onClose, onPrint }: Props) {
+export default function StationQr({ station, onClose, onPrint }: Props) {
   const t = useTranslations("mockup.admin.poster");
   const tc = useTranslations("mockup.common");
   const text = useText2();
@@ -66,7 +65,6 @@ export default function StationQr({ station, masterCode, onClose, onPrint }: Pro
           ref={svgRef}
           station={station}
           qr={qr}
-          masterCode={masterCode}
           className="w-full max-w-xs h-auto rounded-md border border-border shadow-sm"
         />
         <p className="text-xs text-muted text-center max-w-xs">{t("printHint")}</p>

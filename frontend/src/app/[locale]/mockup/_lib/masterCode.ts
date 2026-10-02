@@ -12,6 +12,14 @@ export function newMasterCode(): string {
   return Array.from(bytes, (b) => CODE_ALPHABET[b % CODE_ALPHABET.length]).join("");
 }
 
+/** A fresh code that differs from every code in use, master and stands alike. */
+export function newUniqueCode(taken: string[]): string {
+  const used = new Set(taken.map(normalizeCode));
+  let code = newMasterCode();
+  while (used.has(code)) code = newMasterCode();
+  return code;
+}
+
 export function normalizeCode(input: string): string {
   return input.replace(/\s+/g, "").toUpperCase();
 }
@@ -23,6 +31,10 @@ export function isValidMasterCode(code: string): boolean {
 
 export function codeMatches(input: string, master: string): boolean {
   return normalizeCode(input) === normalizeCode(master);
+}
+
+export function stationByCode<T extends { code: string }>(input: string, stations: T[]): T | undefined {
+  return stations.find((s) => codeMatches(input, s.code));
 }
 
 /** Counts a failed try and starts the lock once the limit is hit. */

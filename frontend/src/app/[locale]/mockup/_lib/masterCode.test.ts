@@ -8,7 +8,9 @@ import {
   isValidMasterCode,
   lockRemainingMs,
   newMasterCode,
+  newUniqueCode,
   normalizeCode,
+  stationByCode,
 } from "./masterCode";
 import { EMPTY_CARD } from "./types";
 
@@ -43,5 +45,18 @@ describe("masterCode", () => {
     expect(card.failedAttempts).toBe(0);
     expect(lockRemainingMs(card, 1000 + 10_000)).toBe(LOCK_MS - 10_000);
     expect(lockRemainingMs(card, 1000 + LOCK_MS + 1)).toBe(0);
+  });
+});
+
+describe("stand codes", () => {
+  it("finds a stand by its code, ignoring case and spaces", () => {
+    const stands = [{ code: "H4RV" }, { code: "P9KT" }];
+    expect(stationByCode(" p9 kt", stands)).toBe(stands[1]);
+    expect(stationByCode("ZZZZ", stands)).toBeUndefined();
+  });
+
+  it("rolls a code that is not taken", () => {
+    const taken = ["H4RV", "K7PM"];
+    for (let i = 0; i < 50; i++) expect(taken).not.toContain(newUniqueCode(taken));
   });
 });
