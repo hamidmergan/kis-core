@@ -4686,7 +4686,7 @@
         },
         "how": {
           "q": "How does working with the platform work?",
-          "a": "Teachers have services such as screencast, podcast or presentation and also the AI assistant Francis. Teachers create a workspace, upload documents and other materials and manage them. Then they invite students. The students work with the material in the workspace and ask Francis their questions about it. During the pilot phase the services are available to teachers only. In the future it would make sense to open them to students as well."
+          "a": "Teachers have services such as screencast, podcast or presentation and also the AI assistant Francis. Teachers create a workspace, upload documents and other materials and manage them. Then they invite students. The students work with the material in the workspace and ask Francis their questions about it. During the pilot phase the services are available to teachers only. Technically it would be possible to open them to students as well in the future."
         },
         "state": {
           "q": "What is the current status?",
