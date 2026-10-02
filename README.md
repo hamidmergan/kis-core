@@ -60,7 +60,8 @@ feature is routed to a model there. Any OpenAI compatible endpoint works, plus D
 Speech and local models run outside the stack and are reached by base URL, for example Ollama at
 `http://host.docker.internal:11434/v1`.
 
-The study assistant needs a model with a large context window. We run it with about 128k tokens.
+The study assistant needs a model with a large context window, at least 128k tokens. We run it
+with 256k.
 
 ## License
 
