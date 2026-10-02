@@ -67,5 +67,3 @@ with 256k.
 
 Apache 2.0, Copyright 2026 Technische Hochschule Lübeck.
 See [LICENSE](LICENSE), [NOTICE](NOTICE), [AUTHORS](AUTHORS) and [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt).
-
-Regenerate the notices after dependency changes with `python generate-licenses.py`.
