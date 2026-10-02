@@ -44,7 +44,9 @@ export default function StationEditor({ station, first, last, defaultOpen, onCha
           }
           description={text(station.blurb) || undefined}
         >
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 md:grid md:grid-cols-[minmax(0,1fr)_auto] md:gap-x-8 md:items-start">
+            {/* Top right on desktop, above the form on a phone. */}
+            <div className="flex flex-col gap-3 md:col-start-2 md:row-start-1 md:items-end">
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
@@ -70,6 +72,8 @@ export default function StationEditor({ station, first, last, defaultOpen, onCha
                 <DiceFive size={14} weight="bold" aria-hidden="true" />
               </IconButton>
             </div>
+            </div>
+            <div className="flex flex-col gap-3 md:col-start-1 md:row-start-1">
             <IconSelect label={t("icon")} value={station.icon} onChange={(icon) => onChange({ ...station, icon })} />
             <TextPair label={t("name")} value={station.name} onChange={(name) => onChange({ ...station, name })} />
             <TextPair label={t("blurb")} value={station.blurb} onChange={(blurb) => onChange({ ...station, blurb })} />
@@ -79,6 +83,7 @@ export default function StationEditor({ station, first, last, defaultOpen, onCha
               rows={2}
               onChange={(francis) => onChange({ ...station, francis })}
             />
+            </div>
           </div>
         </CollapsibleCard>
       </div>
