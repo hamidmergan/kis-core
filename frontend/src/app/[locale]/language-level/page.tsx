@@ -31,7 +31,7 @@ export default function ProfilePage() {
   return (
     <ProtectedRoute>
       <main className="page-shell py-8">
-        <h2 className="text-xl font-semibold mb-4">{t("title")}</h2>
+        <h1 className="text-xl font-semibold mb-4">{t("title")}</h1>
         {me === undefined ? (
           <div className="flex justify-center py-16">
             <Spinner size="lg" />

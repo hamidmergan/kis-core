@@ -37,20 +37,24 @@ export default function HeroTabs() {
             ]}
           />
           <div className="grid">
-            {keys.map((k) => (
+            {keys.map((k) => {
+              const Title = tab === k ? "h1" : "p";
+              return (
               <div
                 key={k}
                 className={`${FADE} flex flex-col gap-6 ${tab === k ? "opacity-100" : "opacity-0 pointer-events-none"}`}
                 aria-hidden={tab !== k}
               >
-                <h1 className={`${H1} text-4xl @min-[40rem]:text-5xl @min-[64rem]:text-6xl @min-[80rem]:text-7xl @min-[96rem]:text-8xl text-balance`}>
+                {/* Only the visible tab is the page title, the faded one must not be a second h1. */}
+                <Title className={`${H1} text-4xl @min-[40rem]:text-5xl @min-[64rem]:text-6xl @min-[80rem]:text-7xl @min-[96rem]:text-8xl text-balance`}>
                   {copy[k].title}
-                </h1>
+                </Title>
                 <p className="text-lg @min-[40rem]:text-xl @min-[80rem]:text-2xl leading-relaxed text-foreground-soft max-w-2xl text-balance">
                   {copy[k].lead}
                 </p>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
         <div className="grid">

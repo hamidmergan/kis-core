@@ -109,7 +109,8 @@ export default function Header({ hasSession = true, showLogout = false, hideLogi
   return (
     <header style={{ backgroundColor: "var(--header-bg)", borderBottom: "1px solid var(--border)" }} className="py-3 compact-on-short">
       <div className="px-4 sm:px-6 flex items-center justify-between">
-        <h1 className="flex items-center gap-2">
+        {/* The page title is the h1, the logo is only a link. */}
+        <div className="flex items-center gap-2">
           <Link
             href="/"
             aria-label={t("homeAria")}
@@ -122,7 +123,7 @@ export default function Header({ hasSession = true, showLogout = false, hideLogi
               DEV
             </span>
           )}
-        </h1>
+        </div>
 
         {showLogout && (
           <div className="flex items-center gap-1.5">

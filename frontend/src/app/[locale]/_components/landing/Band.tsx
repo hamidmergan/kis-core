@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 const TONES = {
   plain: "bg-background",
   tint: "bg-surface",
-  hero: "bg-gradient-to-b from-kb/10 via-kb/5 to-background",
+  hero: "bg-kb/10",
   accent: "bg-kb text-on-accent",
 } as const;
 

@@ -150,7 +150,7 @@ export default function MeineJobsPage() {
     <ProtectedRoute>
       <main className="page-shell py-8">
         <div className="flex items-center justify-between mb-1">
-          <h2 className="text-xl font-semibold mb-4">{t("title")}</h2>
+          <h1 className="text-xl font-semibold mb-4">{t("title")}</h1>
           <div className="flex items-center gap-2">
             {lastUpdated && !loading && (
               <span className="text-xs text-muted-soft">
