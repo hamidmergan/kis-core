@@ -13,7 +13,7 @@ Developed at Institut für Interaktive Systeme (ISy), Technische Hochschule Lüb
 - Podcasts from source material: script, voices, audio
 - Live interpreter: two-way speech and text translation
 - Transcription, text to speech, summaries, image generation
-- Study assistant: modules, sources (PDF, DOCX, PPTX, audio, video), chat with citations, mindmaps, schedules, notes
+- Study assistant: modules, sources, chat with citations, mindmaps, schedules, notes
 - Language training: flashcards, grammar and vocabulary exercises, quiz, placement test
 
 ## Stack
