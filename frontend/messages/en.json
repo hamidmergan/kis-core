@@ -4724,7 +4724,8 @@
       "tabServices": "Services",
       "servicesTitle": "Services for your material",
       "servicesLead": "Translate texts, have them read aloud, transcribe recordings or create a podcast, a presentation and a screencast from your material.",
-      "servicesAlt": "Screencast service in the rendering step, listen to every slide, here slide 8 with script and player"
+      "servicesAlt": "Screencast service in the rendering step, listen to every slide, here slide 8 with script and player",
+      "servicesLabel": "Screencast"
     },
     "stamp": {
       "title": "Stamp card",

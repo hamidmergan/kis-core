@@ -17,9 +17,9 @@ export default function HeroTabs() {
   const t = useTranslations("mockup.info");
   const [tab, setTab] = useState<Key>("aia");
   useBandTop("info-hero");
-  const copy: Record<Key, { title: string; lead: string; image: string; alt: string }> = {
+  const copy: Record<Key, { title: string; lead: string; image: string; alt: string; label?: string }> = {
     aia: { title: t("title"), lead: t("lead"), image: "workspace", alt: t("heroAlt") },
-    services: { title: t("servicesTitle"), lead: t("servicesLead"), image: "services", alt: t("servicesAlt") },
+    services: { title: t("servicesTitle"), lead: t("servicesLead"), image: "services", alt: t("servicesAlt"), label: t("servicesLabel") },
   };
   const keys: Key[] = ["aia", "services"];
   return (
@@ -56,7 +56,7 @@ export default function HeroTabs() {
         <div className="grid">
           {keys.map((k) => (
             <div key={k} className={`${FADE} ${tab === k ? "opacity-100" : "opacity-0 pointer-events-none"}`} aria-hidden={tab !== k}>
-              <Screenshot name={copy[k].image} alt={copy[k].alt} />
+              <Screenshot name={copy[k].image} alt={copy[k].alt} title={copy[k].label} />
             </div>
           ))}
         </div>
