@@ -69,10 +69,10 @@ describe("resizeStations", () => {
   it("cuts, refills from the seed and then invents stands with unique ids", () => {
     expect(resizeStations(SEED_CONFIG.stations, 3).map((s) => s.id)).toEqual(SEED_CONFIG.stations.slice(0, 3).map((s) => s.id));
     const five = resizeStations(stations, 5);
-    expect(five.map((s) => s.id)).toEqual([...SEED_CONFIG.stations.map((s) => s.id), "stand-1"]);
+    expect(five.map((s) => s.id)).toEqual(SEED_CONFIG.stations.slice(0, 5).map((s) => s.id));
     const eight = resizeStations(SEED_CONFIG.stations, 8);
     expect(eight).toHaveLength(8);
     expect(new Set(eight.map((s) => s.id)).size).toBe(8);
-    expect(resizeStations(eight, 9).map((s) => s.id)).toContain("stand-5");
+    expect(resizeStations(eight, 9).map((s) => s.id)).toContain("stand-4");
   });
 });

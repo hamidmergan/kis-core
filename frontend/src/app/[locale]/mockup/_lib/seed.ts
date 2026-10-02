@@ -29,10 +29,16 @@ export const SEED_CONFIG: MockupConfig = {
       ["Studies", "Assistant, microcredentials and subject map", "Here you saw how the degree programme is adapted for international students."],
     ),
     station(
-      "language",
+      "platform",
       "translation",
-      ["Sprachkompetenz", "KI-Tools für Fachsprache und Übersetzung", "Hier hast du gesehen, wie KIS Materialien übersetzt und beim Fachwortschatz hilft."],
-      ["Language skills", "AI tools for technical language and translation", "Here you saw how KIS translates materials and helps with technical vocabulary."],
+      ["Sprachkompetenz: KIS-Plattform", "KI-Fachsprachen-Trainer und Übersetzung", "Hier hast du gesehen, wie die KIS-Plattform Materialien übersetzt und beim Fachwortschatz hilft."],
+      ["Language skills: KIS platform", "AI technical-language trainer and translation", "Here you saw how the KIS platform translates materials and helps with technical vocabulary."],
+    ),
+    station(
+      "dafl",
+      "tts",
+      ["Sprachkompetenz: Deutsch als Fremdsprache", "Sprachkurse und Buddy-Programm", "Hier hast du gesehen, wie Deutschkurse und Buddys internationale Studierende begleiten."],
+      ["Language skills: German as a foreign language", "Language courses and buddy programme", "Here you saw how German courses and buddies support international students."],
     ),
     station(
       "intercultural",
@@ -78,7 +84,7 @@ export const SEED_CONFIG: MockupConfig = {
     ],
   },
   stats: {
-    visitsByStation: { management: 24, study: 19, language: 17, intercultural: 12 },
+    visitsByStation: { management: 24, study: 19, platform: 17, dafl: 14, intercultural: 12 },
     completeCards: 6,
   },
 };
