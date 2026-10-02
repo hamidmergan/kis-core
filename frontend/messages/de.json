@@ -4718,7 +4718,7 @@
         },
         "integration": {
           "q": "Wird die Plattform an Moodle und das THL-Konto angebunden?",
-          "a": "Das ist in Arbeit. Die Anmeldung mit dem THL-Konto (Single Sign-On) wird mit dem Rechenzentrum der THL abgestimmt. Zukünftig ist außerdem eine Anbindung an Moodle über den Standard LTI angedacht, sodass sich ein Workspace direkt aus einem Moodle-Kurs öffnen lässt."
+          "a": "Das ist in Arbeit. Vorgesehen ist eine Anmeldung per SSO, zukünftig ist außerdem eine Anbindung an Moodle über LTI angedacht."
         },
         "feedback": {
           "q": "Wie kann ich Rückmeldung geben?",
