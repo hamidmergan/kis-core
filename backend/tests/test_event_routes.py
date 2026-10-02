@@ -1,0 +1,288 @@
+"""The public card without a session, the admin form behind its right."""
+from unittest.mock import patch
+
+import pytest
+from fastapi.testclient import TestClient
+
+from src.features.event import repository as repo
+from src.features.event.service import default_config
+from src.limits import EVENT_CODE_MAX_ATTEMPTS
+
+BESUCHER = {"X-Visitor-Id": "abcdefghijklmnop0123"}
+ANDERER = {"X-Visitor-Id": "zyxwvutsrqponmlk9876"}
+
+
+@pytest.fixture
+def client():
+    from src.dependencies import get_current_user, get_settings
+    from src.security.auth import verify_auth
+    from src.app import app
+
+    get_settings.cache_clear()
+    app.dependency_overrides[verify_auth] = lambda: None
+    app.dependency_overrides[get_current_user] = lambda: {
+        "user_id": 1, "email": "admin@th-luebeck.de", "role": "admin",
+    }
+    yield TestClient(app)
+    app.dependency_overrides.clear()
+    get_settings.cache_clear()
+
+
+@pytest.fixture
+def client_ohne_recht():
+    """A logged-in user without the event right, to prove the gate holds."""
+    from src.dependencies import get_current_user, get_settings
+    from src.security.auth import verify_auth
+    from src.app import app
+
+    get_settings.cache_clear()
+    app.dependency_overrides[verify_auth] = lambda: None
+    app.dependency_overrides[get_current_user] = lambda: {
+        "user_id": 3, "email": "student@th-luebeck.de", "role": "user",
+    }
+    yield TestClient(app)
+    app.dependency_overrides.clear()
+    get_settings.cache_clear()
+
+
+@pytest.fixture
+def client_ohne_sitzung():
+    from src.dependencies import get_settings
+    from src.app import app
+
+    get_settings.cache_clear()
+    app.dependency_overrides.clear()
+    yield TestClient(app)
+    app.dependency_overrides.clear()
+    get_settings.cache_clear()
+
+
+class FakeRedis:
+    def __init__(self, store: dict):
+        self.store = store
+
+    def get(self, key):
+        wert = self.store.get(key)
+        return None if wert is None else str(wert).encode()
+
+    def incr(self, key):
+        self.store[key] = int(self.store.get(key, 0)) + 1
+        return self.store[key]
+
+    def expire(self, key, seconds, nx=False):
+        return True
+
+    def set(self, key, value, ex=None):
+        self.store[key] = value
+
+    def delete(self, key):
+        self.store.pop(key, None)
+
+    def close(self):
+        pass
+
+
+@pytest.fixture
+def speicher(monkeypatch):
+    """Stamps in a dict, the counter in a fake Redis, the seed as configuration."""
+    zustand = {"config": default_config(), "stamps": {}, "redis": {}, "uhr": [1_700_000_000_000]}
+
+    def add_stamp(visitor_hash, station_id):
+        karte = zustand["stamps"].setdefault(visitor_hash, {})
+        if station_id not in karte:
+            zustand["uhr"][0] += 1000
+            karte[station_id] = zustand["uhr"][0]
+
+    monkeypatch.setattr(repo, "get_config", lambda: zustand["config"])
+    monkeypatch.setattr(repo, "stamps_for", lambda h: dict(zustand["stamps"].get(h, {})))
+    monkeypatch.setattr(repo, "add_stamp", add_stamp)
+    monkeypatch.setattr(repo, "_redis", lambda: FakeRedis(zustand["redis"]))
+    return zustand
+
+
+# --- public ---------------------------------------------------------------------
+
+def test_the_public_configuration_carries_no_stand_codes(client, speicher):
+    r = client.get("/event/public")
+    assert r.status_code == 200
+    body = r.json()
+    assert len(body["stations"]) == 5
+    assert all("code" not in stand for stand in body["stations"])
+    assert "H4RV" not in r.text
+
+
+def test_the_public_configuration_hides_the_block_outside_its_window(client, speicher):
+    speicher["config"]["eventBlock"].update({"from": "2099-01-01", "until": "2099-01-02"})
+    assert client.get("/event/public").json()["eventBlock"] is None
+
+
+def test_the_public_configuration_shows_the_block_when_the_window_is_ignored(client, speicher):
+    speicher["config"]["eventBlock"]["ignoreWindow"] = True
+    assert client.get("/event/public").json()["eventBlock"]["tiles"][0]["id"] == "demo"
+
+
+def test_the_card_needs_a_visitor_id(client, speicher):
+    assert client.get("/event/card").status_code == 400
+    assert client.get("/event/card", headers={"X-Visitor-Id": "kurz"}).status_code == 400
+
+
+def test_a_fresh_card_is_empty_with_every_try_left(client, speicher):
+    r = client.get("/event/card", headers=BESUCHER)
+    assert r.status_code == 200
+    assert r.json() == {"stamped": {}, "completedAt": None, "lockedUntil": None, "attemptsLeft": EVENT_CODE_MAX_ATTEMPTS}
+
+
+def test_stamping_by_station_id_is_idempotent(client, speicher):
+    erster = client.post("/event/stamp", json={"stationId": "study"}, headers=BESUCHER)
+    zweiter = client.post("/event/stamp", json={"stationId": "study"}, headers=BESUCHER)
+    assert erster.status_code == 200
+    assert erster.json()["stationId"] == "study"
+    assert zweiter.json()["card"]["stamped"] == erster.json()["card"]["stamped"]
+    assert len(zweiter.json()["card"]["stamped"]) == 1
+
+
+def test_an_unknown_station_is_not_found(client, speicher):
+    r = client.post("/event/stamp", json={"stationId": "gibtsnicht"}, headers=BESUCHER)
+    assert r.status_code == 404
+    assert speicher["stamps"] == {}
+
+
+def test_only_the_hash_of_the_visitor_id_reaches_storage(client, speicher):
+    client.post("/event/stamp", json={"stationId": "study"}, headers=BESUCHER)
+    (schluessel,) = speicher["stamps"]
+    assert schluessel != BESUCHER["X-Visitor-Id"]
+    assert len(schluessel) == 64
+
+
+def test_two_visitors_keep_separate_cards(client, speicher):
+    client.post("/event/stamp", json={"stationId": "study"}, headers=BESUCHER)
+    assert client.get("/event/card", headers=ANDERER).json()["stamped"] == {}
+
+
+def test_the_right_code_stamps_its_stand(client, speicher):
+    r = client.post("/event/code", json={"code": " p9 kt"}, headers=BESUCHER)
+    assert r.status_code == 200
+    body = r.json()
+    assert body["result"] == "stamped"
+    assert body["stationId"] == "study"
+    assert "study" in body["card"]["stamped"]
+
+
+def test_a_wrong_code_counts_down_and_the_fifth_locks(client, speicher):
+    antworten = [
+        client.post("/event/code", json={"code": "ZZZZ"}, headers=BESUCHER).json()
+        for _ in range(EVENT_CODE_MAX_ATTEMPTS)
+    ]
+    assert [a["result"] for a in antworten] == ["wrong"] * EVENT_CODE_MAX_ATTEMPTS
+    assert [a["card"]["attemptsLeft"] for a in antworten[:-1]] == [4, 3, 2, 1]
+    assert all(a["card"]["lockedUntil"] is None for a in antworten[:-1])
+    assert antworten[-1]["card"]["lockedUntil"] is not None
+    assert antworten[-1]["stationId"] is None
+
+
+def test_a_locked_visitor_gets_no_comparison_even_with_the_right_code(client, speicher):
+    for _ in range(EVENT_CODE_MAX_ATTEMPTS):
+        client.post("/event/code", json={"code": "ZZZZ"}, headers=BESUCHER)
+    r = client.post("/event/code", json={"code": "P9KT"}, headers=BESUCHER)
+    assert r.json()["result"] == "locked"
+    assert r.json()["stationId"] is None
+    assert r.json()["card"]["stamped"] == {}
+
+
+def test_a_lock_of_one_visitor_does_not_touch_another(client, speicher):
+    for _ in range(EVENT_CODE_MAX_ATTEMPTS):
+        client.post("/event/code", json={"code": "ZZZZ"}, headers=BESUCHER)
+    assert client.post("/event/code", json={"code": "P9KT"}, headers=ANDERER).json()["result"] == "stamped"
+
+
+def test_the_card_is_complete_at_the_last_stamp_of_the_current_stands(client, speicher):
+    ids = [stand["id"] for stand in speicher["config"]["stations"]]
+    for stand_id in ids[:-1]:
+        karte = client.post("/event/stamp", json={"stationId": stand_id}, headers=BESUCHER).json()["card"]
+        assert karte["completedAt"] is None
+    karte = client.post("/event/stamp", json={"stationId": ids[-1]}, headers=BESUCHER).json()["card"]
+    assert karte["completedAt"] == max(karte["stamped"].values())
+
+
+def test_a_removed_stand_takes_its_stamp_and_the_completion_with_it(client, speicher):
+    for stand in speicher["config"]["stations"]:
+        client.post("/event/stamp", json={"stationId": stand["id"]}, headers=BESUCHER)
+    speicher["config"]["stations"].append({**speicher["config"]["stations"][0], "id": "neu", "code": "AAAA"})
+    karte = client.get("/event/card", headers=BESUCHER).json()
+    assert karte["completedAt"] is None
+    speicher["config"]["stations"] = speicher["config"]["stations"][1:]
+    karte = client.get("/event/card", headers=BESUCHER).json()
+    assert "management" not in karte["stamped"]
+
+
+# --- without a session ------------------------------------------------------------
+
+def test_the_public_configuration_needs_no_session(client_ohne_sitzung, speicher):
+    r = client_ohne_sitzung.get("/event/public")
+    assert r.status_code == 200, "401 heisst, das Praefix fehlt im Torwaechter"
+
+
+def test_the_card_needs_no_session(client_ohne_sitzung, speicher):
+    assert client_ohne_sitzung.get("/event/card", headers=BESUCHER).status_code == 200
+    assert client_ohne_sitzung.post("/event/code", json={"code": "P9KT"}, headers=BESUCHER).status_code == 200
+
+
+def test_the_admin_side_still_needs_a_session(client_ohne_sitzung, speicher):
+    assert client_ohne_sitzung.get("/admin/event").status_code == 401
+
+
+# --- admin ------------------------------------------------------------------------
+
+def test_the_admin_reads_the_configuration_with_codes(client, speicher):
+    r = client.get("/admin/event")
+    assert r.status_code == 200
+    assert r.json()["stations"][0]["code"] == "H4RV"
+
+
+def test_a_user_without_the_right_is_blocked(client_ohne_recht, speicher):
+    assert client_ohne_recht.get("/admin/event").status_code == 403
+    assert client_ohne_recht.get("/admin/event/stats").status_code == 403
+    with patch.object(repo, "save_config") as speichern:
+        assert client_ohne_recht.put("/admin/event", json=default_config()).status_code == 403
+    speichern.assert_not_called()
+
+
+def test_saving_a_valid_configuration_normalises_and_returns_it(client, speicher):
+    config = default_config()
+    config["stations"][0]["code"] = " h4 rv "
+    with patch.object(repo, "save_config") as speichern:
+        r = client.put("/admin/event", json=config)
+    assert r.status_code == 200
+    assert r.json()["stations"][0]["code"] == "H4RV"
+    assert speichern.call_args[0][0]["stations"][0]["code"] == "H4RV"
+    assert speichern.call_args[0][0]["eventBlock"]["from"] == "2026-11-06"
+
+
+def test_an_invalid_configuration_is_refused_with_a_localised_message(client, speicher):
+    config = default_config()
+    config["stations"][1]["code"] = "H4RV"
+    with patch.object(repo, "save_config") as speichern:
+        de = client.put("/admin/event", json=config, headers={"Accept-Language": "de"})
+        en = client.put("/admin/event", json=config, headers={"Accept-Language": "en"})
+    assert de.status_code == 422
+    assert "H4RV" in de.json()["detail"]
+    assert de.json()["detail"] != en.json()["detail"]
+    speichern.assert_not_called()
+
+
+def test_a_fifth_tile_is_refused(client, speicher):
+    config = default_config()
+    kachel = config["eventBlock"]["tiles"][0]
+    config["eventBlock"]["tiles"] = [{**kachel, "id": f"k{i}"} for i in range(5)]
+    assert client.put("/admin/event", json=config).status_code == 422
+
+
+def test_the_statistics_count_visits_per_current_stand_and_complete_cards(client, speicher):
+    with patch.object(repo, "visits_by_station", return_value={"study": 3, "alt": 7}), \
+         patch.object(repo, "complete_cards", return_value=2) as voll:
+        r = client.get("/admin/event/stats")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["visitsByStation"] == {"management": 0, "study": 3, "platform": 0, "dafl": 0, "intercultural": 0}
+    assert body["completeCards"] == 2
+    voll.assert_called_once_with(["management", "study", "platform", "dafl", "intercultural"])

@@ -636,6 +636,7 @@ def _load_fragments() -> None:
             admin,
             ai_assistant,
             evaluation,
+            event,
             feedback,
             impersonation,
             invites,
@@ -647,7 +648,7 @@ def _load_fragments() -> None:
 
         for module in (
             ai_assistant, jobs, admin, invites, access_codes, impersonation, feedback, evaluation, praesentation,
-            screencast, own_interfaces,
+            screencast, own_interfaces, event,
         ):
             entries = getattr(module, "MESSAGES", None)
             if entries:

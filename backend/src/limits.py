@@ -16,6 +16,12 @@ TOOL_BURST_BLOCK_MINUTES        = 10
 UPLOAD_HOURLY_MAX               = 100
 UPLOAD_HOURLY_WINDOW_SECONDS    = 3600
 
+# Stand codes of the event stamp card: wrong codes per visitor before a short lock, and how
+# long Redis remembers a visitor's wrong tries at all.
+EVENT_CODE_MAX_ATTEMPTS         = 5
+EVENT_CODE_LOCK_SECONDS         = 30
+EVENT_CODE_ATTEMPT_TTL_SECONDS  = 3600
+
 # Quota per user and tool: count, window length and display name.
 QUOTA_DEFAULTS: dict[str, dict] = {
     "tts":            {"limit": 100, "window_hours": 4, "label": "Text in Audio"},

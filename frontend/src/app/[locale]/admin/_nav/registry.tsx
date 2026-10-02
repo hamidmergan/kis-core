@@ -12,6 +12,7 @@ import {
   Ruler,
   Sparkle,
   SquaresFour,
+  Stamp,
   Users,
   type Icon,
 } from "@phosphor-icons/react";
@@ -97,6 +98,9 @@ import FeedbackPage from "../_pages/nutzer/feedback";
 import FeedbackDetailPage from "../_pages/nutzer/feedback-detail";
 import EvaluationPage from "../_pages/nutzer/evaluation";
 
+import EventStationsPage from "../_pages/event/stations";
+import EventBlockPage from "../_pages/event/block";
+import EventStatsPage from "../_pages/event/stats";
 import SystemPage from "../_pages/system";
 import HildePage from "../_pages/mascot/hilde";
 import FrancisPage from "../_pages/mascot/francis";
@@ -200,6 +204,20 @@ export const SECTIONS: AdminSection[] = [
       { slug: "evaluation", key: "evaluation", world: "both", perm: PERM.usersEvaluation, Component: EvaluationPage },
       // No entry of its own, the page is a jump-off from the user list.
       { slug: "quotas", key: "quota", world: "both", perm: PERM.usersAll, Component: QuotaPage, hidden: true },
+    ],
+  },
+  // Stands, event block and numbers of the stamp card, one subject in three views.
+  {
+    slug: "event",
+    key: "event",
+    Icon: Stamp,
+    world: "both",
+    rank: "admin",
+    perm: PERM.event,
+    tabs: [
+      { slug: "stations", labelKey: "stations", Component: EventStationsPage },
+      { slug: "block", labelKey: "block", Component: EventBlockPage },
+      { slug: "stats", labelKey: "stats", Component: EventStatsPage },
     ],
   },
   // System also carries the two platform-wide cards.

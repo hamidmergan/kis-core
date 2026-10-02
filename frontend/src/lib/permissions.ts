@@ -30,6 +30,8 @@ export const PERM = {
   usersEvaluation: "settings.nutzer.evaluation",
   system: "settings.system",
   mascot: "settings.mascot",
+  // Stands, event block and the numbers of the stamp card.
+  event: "settings.event",
   // Two tabs keep their old key so existing roles lose nothing.
   statsUsers: "settings.statistik.nutzer",
   statsModels: "settings.statistik.modelle",
@@ -64,6 +66,7 @@ export const SETTINGS_PERMS: string[] = [
   PERM.usersEvaluation,
   PERM.system,
   PERM.mascot,
+  PERM.event,
   PERM.statsUsers,
   PERM.statsModels,
   PERM.maintenanceAccess,

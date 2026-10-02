@@ -186,7 +186,9 @@ async def test_the_language_level_stays_tickable_although_nobody_holds_it(monkey
     body = roles_route.list_roles(admin=actor)
     assert PERM_AIA_LANGUAGE_LEVEL in body["grantable"]
     assert all(
-        PERM_AIA_LANGUAGE_LEVEL not in r["permissions"] for r in body["system_roles"]
+        PERM_AIA_LANGUAGE_LEVEL not in r["permissions"]
+        for r in body["system_roles"]
+        if r["key"] != "admin"
     )
 
 

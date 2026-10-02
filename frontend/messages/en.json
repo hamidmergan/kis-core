@@ -1851,6 +1851,15 @@
           "material": "Material",
           "kontext": "Context"
         }
+      },
+      "event": {
+        "label": "Event",
+        "sub": "Stands, posters, the tiles on the info page and the numbers of the stamp card. Changes are saved automatically.",
+        "tabs": {
+          "stations": "Stands",
+          "block": "Event block",
+          "stats": "Results"
+        }
       }
     },
     "jobStatus": {
@@ -2674,7 +2683,8 @@
           "anbieter": "Providers",
           "nutzer": "Users",
           "system": "System",
-          "mascot": "Mascots"
+          "mascot": "Mascots",
+          "event": "Event"
         }
       },
       "general": {
@@ -2731,7 +2741,8 @@
         },
         "wartung": {
           "zugang": "Access during maintenance"
-        }
+        },
+        "event": "Stands, event block and numbers of the stamp card"
       }
     },
     "toolLimits": {
@@ -4600,478 +4611,396 @@
       }
     }
   },
-  "mockup": {
-    "common": {
-      "ribbon": "Mockup",
-      "ribbonHint": "Preliminary view. All data stays in this browser.",
-      "backToOverview": "Back to mockup overview",
-      "login": "Log in",
-      "close": "Close",
-      "cancel": "Cancel",
-      "de": "German",
-      "en": "English"
+  "eventCommon": {
+    "close": "Close",
+    "cancel": "Cancel",
+    "de": "German",
+    "en": "English"
+  },
+  "eventBlock": {
+    "hidden": "The event block is hidden right now because it is off or outside its period.",
+    "target": {
+      "stamp": "Stamp card",
+      "info": "Info page",
+      "internal": "Internal page",
+      "directLogin": "Direct login with access code"
     },
-    "overview": {
-      "title": "Mockups",
-      "intro": "Preliminary pages with real components. Not linked anywhere, reachable only through these addresses.",
-      "info": {
-        "title": "Info page",
-        "body": "Public page about the pilot project with an event block."
-      },
-      "stamp": {
-        "title": "Stamp card",
-        "body": "Card for visitors, stamps by QR code or code."
-      },
-      "admin": {
-        "title": "Admin for stamp card and event block",
-        "body": "Stands, posters, master code, results and event tiles."
-      },
-      "resetAll": "Delete all mockup data",
-      "resetAllTitle": "Delete all mockup data?",
-      "resetAllText": "Stands, codes, event tiles and the stamp card in this browser go back to the sample data. This cannot be undone.",
-      "resetDone": "Deleted. The pages start with the sample data again."
-    },
-    "event": {
-      "hidden": "The event block is hidden right now because it is off or outside its period.",
-      "target": {
-        "stamp": "Stamp card",
-        "info": "Info page",
-        "internal": "Internal page",
-        "directLogin": "Direct login with access code"
-      },
-      "lockedFrom": "Available from {date}",
-      "lockedSoon": "Available soon"
-    },
-    "info": {
-      "eyebrow": "Pilot project at THL",
-      "title": "Learn with your own materials",
-      "lead": "The AI assistant Francis answers from your scripts, slides and lectures and names the source.",
-      "purpose": {
-        "heading": "Project and platform",
-        "project": {
-          "tag": "The project",
-          "title": "KIS, Kinternationalisierung von Studiengängen",
-          "body": "A funded pilot project at THL.",
-          "rows": {
-            "focus": {
-              "label": "Focus",
-              "value": "International students starting a degree in German at B1 level"
-            },
-            "funding": {
-              "label": "Funded by",
-              "value": "Stiftung Innovation in der Hochschullehre"
-            },
-            "pilot": {
-              "label": "Pilot phase",
-              "value": "Degree programme Electrical Engineering"
-            },
-            "next": {
-              "label": "Afterwards",
-              "value": "Transfer to further degree programmes"
-            }
-          }
-        },
-        "platform": {
-          "tag": "The platform",
-          "title": "Learning platform for students and teachers",
-          "body": "The project's tool. It is not limited to international students and can be used in any subject.",
-          "rows": {
-            "students": {
-              "label": "For students",
-              "value": "The AI assistant Francis answers questions about your materials and helps you practise"
-            },
-            "teachers": {
-              "label": "For teachers",
-              "value": "Services that turn material into translations, podcasts, presentations and screencasts"
-            },
-            "workspaces": {
-              "label": "Workspaces",
-              "value": "The material for each subject lives in a workspace of its own"
-            }
+    "lockedFrom": "Available from {date}",
+    "lockedSoon": "Available soon"
+  },
+  "eventInfo": {
+    "eyebrow": "Pilot project at THL",
+    "title": "Learn with your own materials",
+    "lead": "The AI assistant Francis answers from your scripts, slides and lectures and names the source.",
+    "purpose": {
+      "heading": "Project and platform",
+      "project": {
+        "tag": "The project",
+        "title": "KIS, Kinternationalisierung von Studiengängen",
+        "body": "A funded pilot project at THL.",
+        "rows": {
+          "focus": {
+            "label": "Focus",
+            "value": "International students starting a degree in German at B1 level"
+          },
+          "funding": {
+            "label": "Funded by",
+            "value": "Stiftung Innovation in der Hochschullehre"
+          },
+          "pilot": {
+            "label": "Pilot phase",
+            "value": "Degree programme Electrical Engineering"
+          },
+          "next": {
+            "label": "Afterwards",
+            "value": "Transfer to further degree programmes"
           }
         }
       },
-      "faq": {
-        "heading": "Frequently asked questions",
-        "items": {
-          "what": {
-            "q": "What is KIS?",
-            "a": "KIS stands for Kinternationalisierung von Studiengängen, the internationalisation of degree programmes. It is a funded pilot project at THL meant to support international students starting a degree taught in German."
-          },
-          "split": {
-            "q": "What is the difference between the project and the platform?",
-            "a": "KIS is the project. The platform is its tool. It offers the AI assistant Francis for students and services for teachers and is not limited to international students."
-          },
-          "how": {
-            "q": "How does working with the platform work?",
-            "a": "Teachers create a workspace, upload documents and other materials and manage them. Then they invite students. The students work with the material in the workspace and ask Francis their questions about it."
-          },
-          "state": {
-            "q": "What is the current status?",
-            "a": "KIS is in its pilot phase in the Electrical Engineering degree programme. The platform is being tested and developed further, some functions may still change."
-          },
-          "who": {
-            "q": "Who can use the platform?",
-            "a": "Currently it is not generally accessible. Access is planned for a group of students for testing and for further test users."
-          },
-          "join": {
-            "q": "I would like to try the platform. What can I do?",
-            "a": "Write to us via the contact at the end of the page. We will look together at whether and how a test is possible in your case."
-          },
-          "account": {
-            "q": "How do I get an account?",
-            "a": "You get one through an invitation or an access code. Signing in with the THL account is currently not possible."
-          },
-          "cost": {
-            "q": "Does using it cost anything?",
-            "a": "No. The project is funded, there are no costs for participants of the pilot phase."
+      "platform": {
+        "tag": "The platform",
+        "title": "Learning platform for students and teachers",
+        "body": "The project's tool. It is not limited to international students and can be used in any subject.",
+        "rows": {
+          "students": {
+            "label": "For students",
+            "value": "The AI assistant Francis answers questions about your materials and helps you practise"
           },
           "teachers": {
-            "q": "I teach at THL. Can I use the services?",
-            "a": "The services are part of the platform and are available with an account. How access for teachers is possible in the pilot phase, we are happy to clarify via the contact."
+            "label": "For teachers",
+            "value": "Services that turn material into translations, podcasts, presentations and screencasts"
           },
-          "device": {
-            "q": "Do I need to install anything?",
-            "a": "No. The platform runs in the browser."
-          },
-          "languages": {
-            "q": "Which languages can I use the platform in?",
-            "a": "The interface is available in German and English. Translations currently run between German and English."
-          },
-          "sources": {
-            "q": "Where does Francis get its answers?",
-            "a": "Francis answers from the sources in your workspace."
-          },
-          "names": {
-            "q": "How do I know what an answer is based on?",
-            "a": "Francis names the source for every answer so you can read up on it."
-          },
-          "material": {
-            "q": "Which material can I use?",
-            "a": "Scripts, slides and lecture videos are kept together in the workspace. Every video comes with a transcript."
-          },
-          "errors": {
-            "q": "Can Francis make mistakes?",
-            "a": "Yes, AI can make mistakes. Check the answers, especially before exams."
-          },
-          "dsgvo": {
-            "q": "Is the platform GDPR compliant?",
-            "a": "Yes. The platform is built so that only GDPR compliant services are used. Teachers who connect a voice service of their own do so with their own account and at their own responsibility."
-          },
-          "hosting": {
-            "q": "Where does the platform run?",
-            "a": "The platform is operated by the project team at THL and runs on servers in Germany. The AI models run on infrastructure of THL and of partners in Germany."
-          },
-          "expiry": {
-            "q": "What happens to my account after the test?",
-            "a": "Access through an access code is time limited. After it ends the account is deleted after a grace period, answers from surveys are kept anonymously."
-          },
-          "after": {
-            "q": "What happens after the pilot phase?",
-            "a": "Afterwards the project is meant to be transferred to further degree programmes. How exactly is decided by THL after the evaluation."
-          },
-          "feedback": {
-            "q": "How can I give feedback?",
-            "a": "On the platform there is a link to report errors or share an idea. You can also write to us via the contact."
-          }
-        },
-        "groups": {
-          "project": "Project",
-          "use": "Access",
-          "francis": "Francis",
-          "data": "Privacy",
-          "outlook": "Outlook"
-        }
-      },
-      "heroAlt": "Workspace with materials, chat and studio",
-      "learn": {
-        "heading": "Learning with Francis",
-        "intro": "You collect your materials in your workspace. Francis works only with this material.",
-        "rows": {
-          "material": {
-            "title": "All material in one place",
-            "body": "Scripts, slides and lecture videos sit together in the workspace. Every video comes with a transcript that follows along while it plays.",
-            "alt": "Lecture video with a running transcript next to the chat"
-          },
-          "sources": {
-            "title": "Answers with sources",
-            "body": "Francis answers only from your materials and adds the source to every statement. One click opens the passage in the document.",
-            "alt": "Answer in the chat, next to it the highlighted passage in the script"
-          },
-          "practice": {
-            "title": "Practise with quizzes and flashcards",
-            "body": "Your materials turn into quiz questions, flashcards and data tables for practice. Every task points to the passage it comes from.",
-            "alt": "Quiz question with four answers next to the chat"
-          },
-          "overview": {
-            "title": "Connections at a glance",
-            "body": "A mind map arranges a topic into branches. Each branch names the page it comes from.",
-            "alt": "Mind map on the basics of project management"
+          "workspaces": {
+            "label": "Workspaces",
+            "value": "The material for each subject lives in a workspace of its own"
           }
         }
-      },
-      "services": {
-        "heading": "Services for teachers",
-        "intro": "Besides the AI assistant, teachers find these services right on the start page.",
-        "more": "Learn more",
-        "detail": {
-          "translation": {
-            "lead": "Translates texts and documents between German and English. A presentation stays a presentation, layout and formatting are kept.",
-            "p1": "Type text directly or upload a file, such as Word, PowerPoint or Markdown",
-            "p2": "The source language is detected automatically",
-            "p3": "Glossaries let you decide how technical terms are translated",
-            "alt": "Translation with text input, target language and glossary selection"
-          },
-          "tts": {
-            "lead": "Reads texts and documents aloud with natural sounding voices. The result is an MP3 file.",
-            "p1": "Type text or upload a file",
-            "p2": "Listen to voices first and pick the one that fits",
-            "p3": "Long texts are voiced in pieces, finished pieces are kept if a job is stopped",
-            "alt": "Text to audio with text input, provider and voice"
-          },
-          "transcription": {
-            "lead": "Transcribes audio and video, either as plain text or as subtitles with timestamps.",
-            "p1": "Common audio and video formats are supported",
-            "p2": "Output as text, SRT or VTT",
-            "p3": "The transcript can be edited before you download it",
-            "alt": "Audio to text with file selection and output format"
-          },
-          "summary": {
-            "lead": "Combines several materials into one text, as a short briefing, study guide or timeline.",
-            "p1": "Up to ten files or materials from a workspace",
-            "p2": "An instruction narrows down a topic or shapes the text",
-            "p3": "The template decides how the text is structured",
-            "alt": "Summary with sources, template and instruction"
-          },
-          "podcast": {
-            "lead": "Your material becomes a conversation to listen to. You choose content and cast, check the script and have it voiced.",
-            "p1": "One to four speakers, each with a role and a voice",
-            "p2": "Length of about 5 to 20 minutes, style explanatory, casual or as an interview",
-            "p3": "The result is an MP3 file, the transcript comes with it",
-            "alt": "Podcast with source selection, language and instruction"
-          },
-          "praesentation": {
-            "lead": "Your material becomes slides in the university design, with images, tables and charts where the template provides for them.",
-            "p1": "The outline comes first for you to rearrange, then the slides",
-            "p2": "The THL template is preset, your own template can be uploaded",
-            "p3": "The result is a PowerPoint file, with speaker notes if you like",
-            "alt": "Presentation with source selection and slide master"
-          },
-          "screencast": {
-            "lead": "Turns a PowerPoint file into a narrated video, in another language if you like.",
-            "p1": "The narration comes from the slides, from an import or from the notes of the file",
-            "p2": "You can check and edit every narration text or rework it with Francis",
-            "p3": "The video is available as MP4, with subtitles if you like",
-            "alt": "Screencast with file upload and target language"
-          },
-          "image": {
-            "lead": "Create images, adapt existing images or have them described. Every result becomes the starting point for the next step.",
-            "p1": "Styles such as photo, illustration or THL slide style and several formats",
-            "p2": "Up to four variants at once",
-            "p3": "Images are created without text by default because image models often misspell words",
-            "alt": "Image generation with prompt, style and format"
-          },
-          "glossary": {
-            "lead": "Here you keep your own term lists so that technical terms are translated the same way everywhere.",
-            "p1": "An entry consists of the German and the English term",
-            "p2": "The glossary takes effect in translation, screencast and podcast",
-            "p3": "Glossaries can be exported and passed on to colleagues",
-            "alt": "Glossary with the list of your own term lists"
-          }
-        }
-      },
-      "tabAia": "AI assistant Francis",
-      "tabServices": "Services",
-      "servicesTitle": "Services for your material",
-      "servicesLead": "Translate texts, have them read aloud, transcribe recordings or create a podcast, a presentation and a screencast from your material.",
-      "servicesAlt": "Screencast service in the rendering step, listen to every slide, here slide 8 with script and player",
-      "servicesLabel": "Screencast",
-      "contact": {
-        "heading": "Contact",
-        "body": "Would you like to know more about the project, do you have questions or would you like to try the platform? Send us an email and we will get back to you."
-      },
-      "toTop": "Back to top"
-    },
-    "stamp": {
-      "title": "Stamp card",
-      "intro": "Visit the stands in any order. Every stand gives you a stamp.",
-      "progress": "{done} of {total} stamps",
-      "open": "Still open",
-      "done": "Stamped",
-      "code": {
-        "label": "Enter code",
-        "placeholder": "Four characters",
-        "hint": "You find the code on the poster at the stand.",
-        "submit": "Check",
-        "wrong": "The code is wrong. Take another look at the poster.",
-        "attemptsLeft": "{n, plural, one {# try left} other {# tries left}}",
-        "locked": "Too many wrong tries. Wait {seconds} more seconds.",
-        "pickTitle": "Which stand did you visit?",
-        "pickHint": "Tap the stand and the stamp is set right away.",
-        "alreadyStamped": "You already have this stamp."
-      },
-      "francis": {
-        "stamped": "Stamp for {station}.",
-        "next": "Next you could go to {station}.",
-        "allDone": "All fields are full.",
-        "wrong": "This code does not match any stand.",
-        "ask": "Ask Francis",
-        "welcome": "Scan the QR code at the stand or enter the code from the poster. I will then tell you where to go next."
-      },
-      "chat": {
-        "title": "Ask Francis",
-        "hint": "In the mockup the answers are prepared.",
-        "questions": {
-          "what": {
-            "q": "What is KIS?",
-            "a": "KIS is a pilot project at THL. The associated platform offers an AI assistant and services for your studies."
-          },
-          "sources": {
-            "q": "Where do your answers come from?",
-            "a": "From the sources in your workspace. I tell you the passage as well."
-          },
-          "reward": {
-            "q": "Where do I get the gift?",
-            "a": "At the info stand, as soon as your card is full."
-          }
-        },
-        "thinking": "Francis is thinking"
-      },
-      "complete": {
-        "title": "Done, your card is full",
-        "clock": "Current time",
-        "clockHint": "Show this page with the running clock at the info stand.",
-        "reward": "Pick up your gift at the info stand.",
-        "since": "Full since {time}"
-      },
-      "login": {
-        "title": "Link the card to your account",
-        "body": "If you log in, the card belongs to your account. We merge stamps from another device.",
-        "button": "Log in",
-        "linked": "This card is linked to your account.",
-        "simulate": "Show as logged in within the mockup",
-        "simulateHint": "Preview only. There is no real login in the mockup."
-      },
-      "sim": {
-        "heading": "Simulation, mockup only",
-        "hint": "Here you simulate the scan at the stand.",
-        "scan": "Scan QR: {station}",
-        "count": "Number of stands",
-        "resetCard": "Clear card",
-        "unlock": "Lift lock"
       }
     },
-    "admin": {
-      "eyebrow": "Event",
-      "title": "Stamp card and event block",
-      "sub": "Stands, posters and the tiles on the info page. Changes apply immediately, in the mockup only in this browser.",
-      "tabs": {
-        "stations": "Stands",
-        "event": "Event block",
-        "stats": "Results"
+    "faq": {
+      "heading": "Frequently asked questions",
+      "items": {
+        "what": {
+          "q": "What is KIS?",
+          "a": "KIS stands for Kinternationalisierung von Studiengängen, the internationalisation of degree programmes. It is a funded pilot project at THL meant to support international students starting a degree taught in German."
+        },
+        "split": {
+          "q": "What is the difference between the project and the platform?",
+          "a": "KIS is the project. The platform is its tool. It offers the AI assistant Francis for students and services for teachers and is not limited to international students."
+        },
+        "how": {
+          "q": "How does working with the platform work?",
+          "a": "Teachers create a workspace, upload documents and other materials and manage them. Then they invite students. The students work with the material in the workspace and ask Francis their questions about it."
+        },
+        "state": {
+          "q": "What is the current status?",
+          "a": "KIS is in its pilot phase in the Electrical Engineering degree programme. The platform is being tested and developed further, some functions may still change."
+        },
+        "who": {
+          "q": "Who can use the platform?",
+          "a": "Currently it is not generally accessible. Access is planned for a group of students for testing and for further test users."
+        },
+        "join": {
+          "q": "I would like to try the platform. What can I do?",
+          "a": "Write to us via the contact at the end of the page. We will look together at whether and how a test is possible in your case."
+        },
+        "account": {
+          "q": "How do I get an account?",
+          "a": "You get one through an invitation or an access code. Signing in with the THL account is currently not possible."
+        },
+        "cost": {
+          "q": "Does using it cost anything?",
+          "a": "No. The project is funded, there are no costs for participants of the pilot phase."
+        },
+        "teachers": {
+          "q": "I teach at THL. Can I use the services?",
+          "a": "The services are part of the platform and are available with an account. How access for teachers is possible in the pilot phase, we are happy to clarify via the contact."
+        },
+        "device": {
+          "q": "Do I need to install anything?",
+          "a": "No. The platform runs in the browser."
+        },
+        "languages": {
+          "q": "Which languages can I use the platform in?",
+          "a": "The interface is available in German and English. Translations currently run between German and English."
+        },
+        "sources": {
+          "q": "Where does Francis get its answers?",
+          "a": "Francis answers from the sources in your workspace."
+        },
+        "names": {
+          "q": "How do I know what an answer is based on?",
+          "a": "Francis names the source for every answer so you can read up on it."
+        },
+        "material": {
+          "q": "Which material can I use?",
+          "a": "Scripts, slides and lecture videos are kept together in the workspace. Every video comes with a transcript."
+        },
+        "errors": {
+          "q": "Can Francis make mistakes?",
+          "a": "Yes, AI can make mistakes. Check the answers, especially before exams."
+        },
+        "dsgvo": {
+          "q": "Is the platform GDPR compliant?",
+          "a": "Yes. The platform is built so that only GDPR compliant services are used. Teachers who connect a voice service of their own do so with their own account and at their own responsibility."
+        },
+        "hosting": {
+          "q": "Where does the platform run?",
+          "a": "The platform is operated by the project team at THL and runs on servers in Germany. The AI models run on infrastructure of THL and of partners in Germany."
+        },
+        "expiry": {
+          "q": "What happens to my account after the test?",
+          "a": "Access through an access code is time limited. After it ends the account is deleted after a grace period, answers from surveys are kept anonymously."
+        },
+        "after": {
+          "q": "What happens after the pilot phase?",
+          "a": "Afterwards the project is meant to be transferred to further degree programmes. How exactly is decided by THL after the evaluation."
+        },
+        "feedback": {
+          "q": "How can I give feedback?",
+          "a": "On the platform there is a link to report errors or share an idea. You can also write to us via the contact."
+        }
       },
-      "stations": {
-        "title": "Stands",
-        "codeRerollTitle": "Roll a new code for this stand?",
-        "codeRerollText": "The code on posters that are already printed stops working. The posters have to be printed again.",
-        "description": "Order, name, short text and what Francis says after the stamp.",
-        "add": "+ Stand",
-        "remove": "Remove",
-        "removeTitle": "Remove stand",
-        "removeText": "The stand disappears from the card and the posters.",
-        "up": "Move up",
-        "down": "Move down",
-        "name": "Name",
-        "blurb": "Short text",
-        "francis": "Francis text",
-        "icon": "Icon",
-        "qr": "QR code",
-        "empty": "No stands yet",
-        "code": "Code on the poster",
-        "codeReroll": "Roll again",
-        "untitled": "New stand"
-      },
-      "poster": {
-        "title": "Poster {station}",
-        "scanHint": "Scan the code or type it in",
-        "codeLabel": "Code",
-        "png": "Download as PNG",
-        "pdf": "As PDF (A5)",
-        "all": "All as PDF (A5)",
-        "printHint": "The print dialog opens. Choose Save as PDF there.",
-        "kicker": "KIS stamp card"
-      },
-      "master": {
-        "title": "Master code",
-        "rerollTitle": "Roll a new master code?",
-        "rerollText": "The current master code stops working afterwards.",
-        "resetCardTitle": "Reset the card?",
-        "resetCardText": "All stamps on the card in this browser are deleted.",
-        "description": "Four characters, opens the stand picker. Not on any poster, hand it out in person only. Upper and lower case do not matter.",
-        "reroll": "Roll again",
-        "apply": "Apply",
-        "copy": "Copy",
-        "copied": "Copied!",
-        "invalid": "Four characters from A to Z and 2 to 9, without I and O.",
-        "resetCard": "Reset the card in this browser",
-        "resetDone": "Reset",
-        "ownLabel": "Set your own code"
-      },
-      "stats": {
-        "title": "Results",
-        "description": "Sample numbers. Nothing is recorded in the mockup.",
-        "perStation": "Visitors per stand",
-        "complete": "Complete cards",
-        "visitors": "{n, plural, one {# visitor} other {# visitors}}"
-      },
-      "event": {
-        "title": "Event block on the info page",
-        "active": "Active. The block sits at the top of the info page while the period runs.",
-        "disabled": "Disabled. The info page shows no event block.",
-        "toggleAria": "Toggle event block",
-        "from": "From",
-        "until": "Until",
-        "heading": "Heading",
-        "text": "Short text",
-        "tiles": "Tiles",
-        "removeTileTitle": "Remove tile?",
-        "removeTileText": "The tile disappears from the event block.",
-        "addTile": "+ Tile",
-        "removeTile": "Remove tile",
-        "maxTiles": "At most four tiles",
-        "tileTitle": "Title",
-        "tileBody": "Description",
-        "tileButton": "Button label",
-        "tileIcon": "Icon",
-        "tileTarget": "Target",
-        "internalPath": "Path, for example /faq",
-        "accessCode": "Access code",
-        "preview": "Preview",
-        "noTiles": "No tiles yet",
-        "tileUntitled": "New tile",
-        "tileActive": "Active. Visitors can use the tile.",
-        "tileLocked": "Locked. The button is disabled and shows a note.",
-        "tileActiveAria": "Activate tile",
-        "tileAvailableFrom": "Available from, shown as a note under the button"
+      "groups": {
+        "project": "Project",
+        "use": "Access",
+        "francis": "Francis",
+        "data": "Privacy",
+        "outlook": "Outlook"
       }
     },
-    "icons": {
-      "francis": "Francis",
-      "translation": "Translation",
-      "interpreter": "Interpreter",
-      "tts": "Text to audio",
-      "transcription": "Audio to text",
-      "image": "Image generation",
-      "summary": "Summary",
-      "glossary": "Glossary",
-      "screencast": "Screencast",
-      "podcast": "Podcast",
-      "praesentation": "Presentation",
-      "info": "Info",
-      "gift": "Gift",
-      "star": "Star",
-      "lightbulb": "Idea",
-      "qrCode": "QR code"
-    }
+    "heroAlt": "Workspace with materials, chat and studio",
+    "learn": {
+      "heading": "Learning with Francis",
+      "intro": "You collect your materials in your workspace. Francis works only with this material.",
+      "rows": {
+        "material": {
+          "title": "All material in one place",
+          "body": "Scripts, slides and lecture videos sit together in the workspace. Every video comes with a transcript that follows along while it plays.",
+          "alt": "Lecture video with a running transcript next to the chat"
+        },
+        "sources": {
+          "title": "Answers with sources",
+          "body": "Francis answers only from your materials and adds the source to every statement. One click opens the passage in the document.",
+          "alt": "Answer in the chat, next to it the highlighted passage in the script"
+        },
+        "practice": {
+          "title": "Practise with quizzes and flashcards",
+          "body": "Your materials turn into quiz questions, flashcards and data tables for practice. Every task points to the passage it comes from.",
+          "alt": "Quiz question with four answers next to the chat"
+        },
+        "overview": {
+          "title": "Connections at a glance",
+          "body": "A mind map arranges a topic into branches. Each branch names the page it comes from.",
+          "alt": "Mind map on the basics of project management"
+        }
+      }
+    },
+    "services": {
+      "heading": "Services for teachers",
+      "intro": "Besides the AI assistant, teachers find these services right on the start page.",
+      "more": "Learn more",
+      "detail": {
+        "translation": {
+          "lead": "Translates texts and documents between German and English. A presentation stays a presentation, layout and formatting are kept.",
+          "p1": "Type text directly or upload a file, such as Word, PowerPoint or Markdown",
+          "p2": "The source language is detected automatically",
+          "p3": "Glossaries let you decide how technical terms are translated",
+          "alt": "Translation with text input, target language and glossary selection"
+        },
+        "tts": {
+          "lead": "Reads texts and documents aloud with natural sounding voices. The result is an MP3 file.",
+          "p1": "Type text or upload a file",
+          "p2": "Listen to voices first and pick the one that fits",
+          "p3": "Long texts are voiced in pieces, finished pieces are kept if a job is stopped",
+          "alt": "Text to audio with text input, provider and voice"
+        },
+        "transcription": {
+          "lead": "Transcribes audio and video, either as plain text or as subtitles with timestamps.",
+          "p1": "Common audio and video formats are supported",
+          "p2": "Output as text, SRT or VTT",
+          "p3": "The transcript can be edited before you download it",
+          "alt": "Audio to text with file selection and output format"
+        },
+        "summary": {
+          "lead": "Combines several materials into one text, as a short briefing, study guide or timeline.",
+          "p1": "Up to ten files or materials from a workspace",
+          "p2": "An instruction narrows down a topic or shapes the text",
+          "p3": "The template decides how the text is structured",
+          "alt": "Summary with sources, template and instruction"
+        },
+        "podcast": {
+          "lead": "Your material becomes a conversation to listen to. You choose content and cast, check the script and have it voiced.",
+          "p1": "One to four speakers, each with a role and a voice",
+          "p2": "Length of about 5 to 20 minutes, style explanatory, casual or as an interview",
+          "p3": "The result is an MP3 file, the transcript comes with it",
+          "alt": "Podcast with source selection, language and instruction"
+        },
+        "praesentation": {
+          "lead": "Your material becomes slides in the university design, with images, tables and charts where the template provides for them.",
+          "p1": "The outline comes first for you to rearrange, then the slides",
+          "p2": "The THL template is preset, your own template can be uploaded",
+          "p3": "The result is a PowerPoint file, with speaker notes if you like",
+          "alt": "Presentation with source selection and slide master"
+        },
+        "screencast": {
+          "lead": "Turns a PowerPoint file into a narrated video, in another language if you like.",
+          "p1": "The narration comes from the slides, from an import or from the notes of the file",
+          "p2": "You can check and edit every narration text or rework it with Francis",
+          "p3": "The video is available as MP4, with subtitles if you like",
+          "alt": "Screencast with file upload and target language"
+        },
+        "image": {
+          "lead": "Create images, adapt existing images or have them described. Every result becomes the starting point for the next step.",
+          "p1": "Styles such as photo, illustration or THL slide style and several formats",
+          "p2": "Up to four variants at once",
+          "p3": "Images are created without text by default because image models often misspell words",
+          "alt": "Image generation with prompt, style and format"
+        },
+        "glossary": {
+          "lead": "Here you keep your own term lists so that technical terms are translated the same way everywhere.",
+          "p1": "An entry consists of the German and the English term",
+          "p2": "The glossary takes effect in translation, screencast and podcast",
+          "p3": "Glossaries can be exported and passed on to colleagues",
+          "alt": "Glossary with the list of your own term lists"
+        }
+      }
+    },
+    "tabAia": "AI assistant Francis",
+    "tabServices": "Services",
+    "servicesTitle": "Services for your material",
+    "servicesLead": "Translate texts, have them read aloud, transcribe recordings or create a podcast, a presentation and a screencast from your material.",
+    "servicesAlt": "Screencast service in the rendering step, listen to every slide, here slide 8 with script and player",
+    "servicesLabel": "Screencast",
+    "contact": {
+      "heading": "Contact",
+      "body": "Would you like to know more about the project, do you have questions or would you like to try the platform? Send us an email and we will get back to you."
+    },
+    "toTop": "Back to top"
+  },
+  "eventStamp": {
+    "title": "Stamp card",
+    "intro": "Visit the stands in any order. Every stand gives you a stamp.",
+    "progress": "{done} of {total} stamps",
+    "open": "Still open",
+    "done": "Stamped",
+    "code": {
+      "label": "Enter code",
+      "hint": "You find the code on the poster at the stand.",
+      "submit": "Check",
+      "wrong": "The code is wrong. Take another look at the poster.",
+      "attemptsLeft": "{n, plural, one {# try left} other {# tries left}}",
+      "locked": "Too many wrong tries. Wait {seconds} more seconds."
+    },
+    "francis": {
+      "stamped": "Stamp for {station}.",
+      "next": "Next you could go to {station}.",
+      "allDone": "All fields are full.",
+      "wrong": "This code does not match any stand.",
+      "welcome": "Scan the QR code at the stand or enter the code from the poster. I will then tell you where to go next."
+    },
+    "complete": {
+      "title": "Done, your stamp card is complete",
+      "reward": "Pick up your gift at the info stand.",
+      "since": "Completed at {time}"
+    },
+    "loading": "Loading …",
+    "loadFailed": "The stamp card could not be loaded. Please try again in a moment."
+  },
+  "eventIcons": {
+    "francis": "Francis",
+    "translation": "Translation",
+    "interpreter": "Interpreter",
+    "tts": "Text to audio",
+    "transcription": "Audio to text",
+    "image": "Image generation",
+    "summary": "Summary",
+    "glossary": "Glossary",
+    "screencast": "Screencast",
+    "podcast": "Podcast",
+    "praesentation": "Presentation",
+    "info": "Info",
+    "gift": "Gift",
+    "star": "Star",
+    "lightbulb": "Idea",
+    "qrCode": "QR code",
+    "platform": "KIS platform"
+  },
+  "eventAdmin": {
+    "stations": {
+      "title": "Stands",
+      "codeRerollTitle": "Roll a new code for this stand?",
+      "codeRerollText": "The code on posters that are already printed stops working. The posters have to be printed again.",
+      "description": "Order, name, short text and what Francis says after the stamp.",
+      "add": "+ Stand",
+      "remove": "Remove",
+      "removeTitle": "Remove stand",
+      "removeText": "The stand disappears from the card and the posters.",
+      "up": "Move up",
+      "down": "Move down",
+      "name": "Name",
+      "blurb": "Short text",
+      "francis": "Francis text",
+      "icon": "Icon",
+      "qr": "QR code",
+      "empty": "No stands yet",
+      "code": "Code on the poster",
+      "codeReroll": "Roll again",
+      "untitled": "New stand"
+    },
+    "poster": {
+      "title": "Poster {station}",
+      "scanHint": "Scan the code or type it in",
+      "codeLabel": "Code",
+      "png": "Download as PNG",
+      "pdf": "As PDF (A5)",
+      "all": "All as PDF (A5)",
+      "printHint": "The print dialog opens. Choose Save as PDF there.",
+      "kicker": "KIS stamp card"
+    },
+    "stats": {
+      "title": "Results",
+      "description": "Visitors per stand, counted from the stamps.",
+      "perStation": "Visitors per stand",
+      "complete": "Complete cards",
+      "visitors": "{n, plural, one {# visitor} other {# visitors}}",
+      "loading": "Loading …",
+      "loadFailed": "The settings could not be loaded."
+    },
+    "event": {
+      "title": "Event block on the info page",
+      "active": "Active. The block sits at the top of the info page while the period runs.",
+      "disabled": "Disabled. The info page shows no event block.",
+      "toggleAria": "Toggle event block",
+      "from": "From",
+      "until": "Until",
+      "heading": "Heading",
+      "text": "Short text",
+      "tiles": "Tiles",
+      "removeTileTitle": "Remove tile?",
+      "removeTileText": "The tile disappears from the event block.",
+      "addTile": "+ Tile",
+      "removeTile": "Remove tile",
+      "maxTiles": "At most four tiles",
+      "tileTitle": "Title",
+      "tileBody": "Description",
+      "tileButton": "Button label",
+      "tileIcon": "Icon",
+      "tileTarget": "Target",
+      "internalPath": "Path, for example /faq",
+      "accessCode": "Access code",
+      "preview": "Preview",
+      "noTiles": "No tiles yet",
+      "tileUntitled": "New tile",
+      "tileActive": "Active. Visitors can use the tile.",
+      "tileLocked": "Locked. The button is disabled and shows a note.",
+      "tileActiveAria": "Activate tile",
+      "tileAvailableFrom": "Available from, shown as a note under the button"
+    },
+    "loading": "Loading …",
+    "loadFailed": "The settings could not be loaded.",
+    "saving": "Saving …",
+    "saved": "Saved",
+    "saveFailed": "Saving failed."
   }
 }

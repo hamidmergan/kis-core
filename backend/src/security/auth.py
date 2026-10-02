@@ -10,7 +10,8 @@ ACCESS_EXPIRED = "access_expired"
 
 _OPEN_PATHS = {"/health", "/health/maintenance", "/health/labels", "/docs", "/redoc", "/openapi.json"}
 # The invitation page and the access code page belong here, both carry their own credential.
-_OPEN_PREFIXES = ("/auth/", "/invites/", "/access-codes/")
+# The event pages are open on purpose, their visitors never have an account.
+_OPEN_PREFIXES = ("/auth/", "/invites/", "/access-codes/", "/event/")
 
 
 def access_expired_error() -> HTTPException:

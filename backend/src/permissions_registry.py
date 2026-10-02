@@ -18,6 +18,7 @@ GROUP_SET_PROVIDERS = "set.anbieter"
 GROUP_SET_USERS = "set.nutzer"
 GROUP_SET_SYSTEM = "set.system"
 GROUP_SET_MASCOT = "set.mascot"
+GROUP_SET_EVENT = "set.event"
 GROUP_GENERAL = "general"
 
 # === Allgemein ================================================================
@@ -72,6 +73,8 @@ PERM_SET_USERS_EVALUATION = "settings.nutzer.evaluation"
 # Label and hint now hang off PERM_SET_SYSTEM.
 PERM_SET_SYSTEM = "settings.system"
 PERM_SET_MASCOT = "settings.mascot"
+# The stands and the event block of the start page, including the stand codes.
+PERM_SET_EVENT = "settings.event"
 # Two statistics tabs keep their old key so roles lose nothing.
 PERM_SET_STATS_USERS = "settings.statistik.nutzer"
 PERM_SET_STATS_MODELS = "settings.statistik.modelle"
@@ -104,6 +107,7 @@ SET_USER_KEYS: tuple[str, ...] = (
 )
 SET_SYSTEM_KEYS: tuple[str, ...] = (PERM_SET_SYSTEM, PERM_MAINTENANCE_ACCESS)
 SET_MASCOT_KEYS: tuple[str, ...] = (PERM_SET_MASCOT,)
+SET_EVENT_KEYS: tuple[str, ...] = (PERM_SET_EVENT,)
 
 SETTINGS_KEYS: tuple[str, ...] = (
     SET_TOOLS_KEYS
@@ -113,6 +117,7 @@ SETTINGS_KEYS: tuple[str, ...] = (
     + SET_USER_KEYS
     + SET_SYSTEM_KEYS
     + SET_MASCOT_KEYS
+    + SET_EVENT_KEYS
 )
 
 # === The whole catalogue =====================================================
@@ -130,6 +135,7 @@ MATRIX_LAYOUT: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     (CHAPTER_MANAGE, GROUP_SET_USERS, SET_USER_KEYS),
     (CHAPTER_MANAGE, GROUP_SET_SYSTEM, SET_SYSTEM_KEYS),
     (CHAPTER_MANAGE, GROUP_SET_MASCOT, SET_MASCOT_KEYS),
+    (CHAPTER_MANAGE, GROUP_SET_EVENT, SET_EVENT_KEYS),
 )
 
 GROUPS: tuple[str, ...] = tuple(group for _, group, _ in MATRIX_LAYOUT)
@@ -188,14 +194,14 @@ def valid_keys(keys) -> tuple[str, ...]:
 # System roles are fixed in code, the table shows them greyed out.
 SYSTEM_ROLES: tuple[str, ...] = ("admin", "staff", "user")
 
-# No system role carries these, only a custom role, and anyone handing out roles may grant them.
+# Staff and user do not carry these, only admin or a custom role, and anyone handing out roles may grant them.
 ROLE_ONLY_KEYS: tuple[str, ...] = (PERM_AIA_LANGUAGE_LEVEL,)
 
 STAFF_AIA_KEYS: tuple[str, ...] = tuple(k for k in AIA_KEYS if k not in ROLE_ONLY_KEYS)
 
 # Lehrende lesen die Zahlen ihrer Module am Modul selbst, nicht in den Einstellungen.
 SYSTEM_ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
-    "admin": tuple(k for k in ALL_PERMISSION_KEYS if k not in ROLE_ONLY_KEYS),
+    "admin": ALL_PERMISSION_KEYS,
     "staff": GENERAL_KEYS + STAFF_AIA_KEYS + TOOL_KEYS,
     "user": (PERM_AIA_USE,),
 }

@@ -50,12 +50,12 @@ def test_system_roles_constant_lists_three_fixed_roles():
     assert SYSTEM_ROLES == ("admin", "staff", "user")
 
 
-def test_admin_has_every_permission_except_the_role_only_ones():
+def test_admin_has_every_permission():
     perms = permissions_for_system_role("admin")
     assert perms.allow_admin_panel is True
     assert perms.allow_aia is True
     assert set(perms.tools) == set(ALL_TOOL_KEYS)
-    assert set(perms.keys) == set(ALL_PERMISSION_KEYS) - set(ROLE_ONLY_KEYS)
+    assert set(perms.keys) == set(ALL_PERMISSION_KEYS)
 
 
 def test_staff_reads_its_numbers_at_the_module_not_in_the_settings():
@@ -68,9 +68,10 @@ def test_staff_reads_its_numbers_at_the_module_not_in_the_settings():
     assert perms.settings_pages == ()
 
 
-def test_no_system_role_holds_the_language_level():
-    """The trainer hangs on a custom role, no preset hands it out."""
-    for role in SYSTEM_ROLES:
+def test_only_admin_holds_the_language_level():
+    """Staff and user get the trainer through a custom role."""
+    assert permissions_for_system_role("admin").has(PERM_AIA_LANGUAGE_LEVEL)
+    for role in ("staff", "user"):
         assert not permissions_for_system_role(role).has(PERM_AIA_LANGUAGE_LEVEL), role
 
 

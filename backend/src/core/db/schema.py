@@ -575,6 +575,18 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                 "CREATE INDEX IF NOT EXISTS evaluation_responses_user_idx "
                 "ON evaluation_responses (user_id)"
             )
+            # Stamps of anonymous event visitors, only the hash of the browser's id is kept.
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS event_stamps (
+                    visitor_hash TEXT NOT NULL,
+                    station_id   TEXT NOT NULL,
+                    stamped_at   TIMESTAMP NOT NULL DEFAULT NOW(),
+                    PRIMARY KEY (visitor_hash, station_id)
+                )
+            """)
+            cur.execute(
+                "CREATE INDEX IF NOT EXISTS event_stamps_station_idx ON event_stamps (station_id)"
+            )
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS jobs (
                     id                  SERIAL PRIMARY KEY,

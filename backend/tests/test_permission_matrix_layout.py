@@ -40,6 +40,7 @@ def test_groups_stand_in_two_chapters_in_display_order():
         (CHAPTER_MANAGE, "set.nutzer"),
         (CHAPTER_MANAGE, "set.system"),
         (CHAPTER_MANAGE, "set.mascot"),
+        (CHAPTER_MANAGE, "set.event"),
     ]
 
 
