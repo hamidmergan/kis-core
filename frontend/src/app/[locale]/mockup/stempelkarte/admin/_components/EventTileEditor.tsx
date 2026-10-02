@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import CollapsibleCard from "@/components/ui/CollapsibleCard";
 import Select from "@/components/ui/Select";
-import { SettingCard } from "@/app/[locale]/admin/_settings/fields";
+import { SettingCard, Switch } from "@/app/[locale]/admin/_settings/fields";
 import { MOCKUP_ICONS } from "../../../_lib/icons";
 import { useMockup } from "../../../_lib/store";
 import { useText2 } from "../../../_lib/useText2";
@@ -66,6 +66,13 @@ function TileEditor({ tile, defaultOpen, onChange, onRemove }: {
             <input type="text" value={target.accessCode} onChange={(e) => onChange({ ...tile, target: { kind: "directLogin", accessCode: e.target.value } })} className={`${INPUT} font-mono`} />
           </Labeled>
         )}
+        <div className="flex items-center justify-between gap-4 rounded-lg border border-border-soft bg-surface px-3 py-2.5">
+          <span className="text-sm text-foreground-soft">{tile.active ? t("tileActive") : t("tileLocked")}</span>
+          <Switch checked={tile.active} onChange={(active) => onChange({ ...tile, active })} label={t("tileActiveAria")} />
+        </div>
+        <Labeled label={t("tileAvailableFrom")}>
+          <input type="date" value={tile.availableFrom} onChange={(e) => onChange({ ...tile, availableFrom: e.target.value })} className={`${INPUT} min-w-0`} />
+        </Labeled>
         <TextPair label={t("tileTitle")} value={tile.title} onChange={(title) => onChange({ ...tile, title })} />
         <TextPair label={t("tileBody")} value={tile.body} rows={2} onChange={(body) => onChange({ ...tile, body })} />
         <TextPair label={t("tileButton")} value={tile.button} onChange={(button) => onChange({ ...tile, button })} />
@@ -92,7 +99,7 @@ export default function EventTileEditor() {
   const add = () => {
     const id = nextId("kachel", tiles);
     setFreshId(id);
-    setTiles((ts) => [...ts, { id, icon: "star", title: EMPTY, body: EMPTY, button: EMPTY, target: { kind: "info" } }]);
+    setTiles((ts) => [...ts, { id, icon: "star", title: EMPTY, body: EMPTY, button: EMPTY, target: { kind: "info" }, active: false, availableFrom: "" }]);
   };
 
   return (

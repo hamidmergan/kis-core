@@ -25,6 +25,10 @@ export interface EventTile {
   body: Text2;
   button: Text2;
   target: TileTarget;
+  /** The button only works while this is on, the admin switches it. */
+  active: boolean;
+  /** Shown as a note while the button is locked, YYYY-MM-DD, empty for no date. */
+  availableFrom: string;
 }
 
 export interface EventBlock {

@@ -4631,7 +4631,9 @@
         "info": "Info page",
         "internal": "Internal page",
         "directLogin": "Direct login with access code"
-      }
+      },
+      "lockedFrom": "Available from {date}",
+      "lockedSoon": "Available soon"
     },
     "info": {
       "eyebrow": "Pilot project at THL",
@@ -4873,7 +4875,11 @@
         "accessCode": "Access code",
         "preview": "Preview",
         "noTiles": "No tiles yet",
-        "tileUntitled": "New tile"
+        "tileUntitled": "New tile",
+        "tileActive": "Active. Visitors can use the tile.",
+        "tileLocked": "Locked. The button is disabled and shows a note.",
+        "tileActiveAria": "Activate tile",
+        "tileAvailableFrom": "Available from, shown as a note under the button"
       }
     },
     "icons": {

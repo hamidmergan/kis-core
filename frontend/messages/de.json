@@ -4631,7 +4631,9 @@
         "info": "Info-Seite",
         "internal": "Interne Seite",
         "directLogin": "Direkt-Login mit Zugangscode"
-      }
+      },
+      "lockedFrom": "Freischaltung am {date}",
+      "lockedSoon": "Bald verfügbar"
     },
     "info": {
       "eyebrow": "Pilotprojekt an der THL",
@@ -4873,7 +4875,11 @@
         "accessCode": "Zugangscode",
         "preview": "Vorschau",
         "noTiles": "Noch keine Kacheln",
-        "tileUntitled": "Neue Kachel"
+        "tileUntitled": "Neue Kachel",
+        "tileActive": "Aktiv. Besucher können die Kachel nutzen.",
+        "tileLocked": "Gesperrt. Der Button ist deaktiviert und zeigt einen Hinweis.",
+        "tileActiveAria": "Kachel aktivieren",
+        "tileAvailableFrom": "Freischaltung am, steht als Hinweis unter dem Button"
       }
     },
     "icons": {

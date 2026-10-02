@@ -71,6 +71,8 @@ export const SEED_CONFIG: MockupConfig = {
         body: { de: "Mit einem Klick in KIS und selbst ausprobieren.", en: "One click into KIS to try it yourself." },
         button: { de: "Ausprobieren", en: "Try it" },
         target: { kind: "directLogin", accessCode: "KIS-DEMO-0000" },
+        active: false,
+        availableFrom: "2026-11-13",
       },
       {
         id: "stamp",
@@ -82,6 +84,8 @@ export const SEED_CONFIG: MockupConfig = {
         },
         button: { de: "Karte öffnen", en: "Open card" },
         target: { kind: "stamp" },
+        active: false,
+        availableFrom: "2026-11-13",
       },
     ],
   },

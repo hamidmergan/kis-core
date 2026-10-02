@@ -1,5 +1,6 @@
 "use client";
 
+import { useLocale, useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import Mascot from "@/components/ui/Mascot";
 import { useMascotPref } from "@/hooks/useMascotPref";
@@ -21,8 +22,17 @@ export function tileHref(target: EventTileData["target"]): string {
   }
 }
 
+function lockedNote(availableFrom: string, locale: string, t: (k: string, v?: Record<string, string>) => string): string {
+  const day = availableFrom ? new Date(`${availableFrom}T12:00:00`) : null;
+  if (!day || Number.isNaN(day.getTime())) return t("lockedSoon");
+  const date = day.toLocaleDateString(locale === "en" ? "en-GB" : "de-DE", { day: "numeric", month: "long", year: "numeric" });
+  return t("lockedFrom", { date });
+}
+
 export default function EventTile({ tile }: { tile: EventTileData }) {
   const text = useText2();
+  const t = useTranslations("mockup.event");
+  const locale = useLocale();
   const Icon = MOCKUP_ICONS[tile.icon];
   const { variant } = useMascotPref();
   return (
@@ -42,12 +52,31 @@ export default function EventTile({ tile }: { tile: EventTileData }) {
         <span className="text-base font-semibold tracking-[-0.01em]">{text(tile.title)}</span>
       </div>
       <p className="text-sm leading-[21px] text-foreground-soft flex-1">{text(tile.body)}</p>
-      <Link
-        href={tileHref(tile.target)}
-        className="self-center px-3 py-2 text-sm btn-primary rounded-md transition-colors whitespace-nowrap"
-      >
-        {text(tile.button)}
-      </Link>
+      {tile.active ? (
+        <>
+          <Link
+            href={tileHref(tile.target)}
+            className="self-center px-3 py-2 text-sm btn-primary rounded-md transition-colors whitespace-nowrap"
+          >
+            {text(tile.button)}
+          </Link>
+          <p className="text-xs -mt-1 invisible" aria-hidden="true">
+            &nbsp;
+          </p>
+        </>
+      ) : (
+        <>
+          <button
+            type="button"
+            disabled
+            className="self-center px-3 py-2 text-sm btn-primary rounded-md whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+            data-testid="event-tile-locked"
+          >
+            {text(tile.button)}
+          </button>
+          <p className="text-xs text-foreground-soft -mt-1">{lockedNote(tile.availableFrom, locale, t)}</p>
+        </>
+      )}
     </div>
   );
 }
