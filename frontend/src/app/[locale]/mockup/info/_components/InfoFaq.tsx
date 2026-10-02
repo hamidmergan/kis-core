@@ -8,7 +8,7 @@ import { SectionHeading } from "./InfoSections";
 const GROUPS = [
   { key: "project", items: ["what", "split", "how", "state"] },
   { key: "use", items: ["who", "join", "account", "cost", "teachers", "device", "languages"] },
-  { key: "francis", items: ["sources", "names", "material", "errors", "replace"] },
+  { key: "francis", items: ["sources", "names", "material", "errors"] },
   { key: "data", items: ["dsgvo", "hosting", "expiry"] },
   { key: "outlook", items: ["after", "feedback"] },
 ] as const;

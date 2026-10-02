@@ -4748,10 +4748,6 @@
             "q": "Can Francis make mistakes?",
             "a": "Yes, AI can make mistakes. Check the answers, especially before exams."
           },
-          "replace": {
-            "q": "Does Francis replace teaching?",
-            "a": "No. Francis supports learning and looking things up, it does not replace teaching."
-          },
           "dsgvo": {
             "q": "Is the platform GDPR compliant?",
             "a": "Yes. The platform is built so that only GDPR compliant services are used. Teachers who connect a voice service of their own do so with their own account and at their own responsibility."

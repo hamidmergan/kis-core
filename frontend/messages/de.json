@@ -4748,10 +4748,6 @@
             "q": "Kann Francis Fehler machen?",
             "a": "Ja, KI kann Fehler machen. Prüfe die Antworten, besonders vor Prüfungen."
           },
-          "replace": {
-            "q": "Ersetzt Francis die Lehre?",
-            "a": "Nein. Francis ergänzt die Lehre beim Lernen und Nachschlagen, er ersetzt sie nicht."
-          },
           "dsgvo": {
             "q": "Ist die Plattform DSGVO-konform?",
             "a": "Ja. Die Plattform ist so gebaut, dass nur DSGVO-konforme Dienste zum Einsatz kommen. Wer als Lehrperson einen eigenen Stimmdienst verbindet, tut das mit eigenem Konto und auf eigene Verantwortung."
