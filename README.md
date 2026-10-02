@@ -55,7 +55,7 @@ and Langfuse. The API docs are on `http://localhost:8000/docs`.
 ## AI providers
 
 The repository ships no API keys. Providers are added at runtime under **Admin → AI**, and every
-feature is routed to a model there. Any OpenAI compatible endpoint works, plus DeepL and Docling.
+feature is routed to a model there. Any OpenAI compatible endpoint works, plus DeepL.
 
 Speech and local models run outside the stack and are reached by base URL, for example Ollama at
 `http://host.docker.internal:11434/v1`.
