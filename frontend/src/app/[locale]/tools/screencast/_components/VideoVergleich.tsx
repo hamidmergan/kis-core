@@ -13,6 +13,8 @@ export interface DemoStimme {
   eigen: boolean;
   stimmen: Record<string, string>;
   kennungen: Record<string, string>;
+  /** The languages whose comparison shows this service. */
+  vergleich: string[];
   videos: string[];
 }
 
@@ -24,14 +26,17 @@ export default function VideoVergleich({ stimmen, sprache }: { stimmen: DemoStim
   const tScreencast = useTranslations("tools.screencast");
   const locale = useLocale();
   const { loaded, permissions } = usePermissions();
-  const sprachen = [...new Set(stimmen.flatMap((s) => Object.keys(s.stimmen)))];
+  // The order of the voice names, not of the first service, which may sit out a language.
+  const sprachen = [...new Set(stimmen.flatMap((s) => Object.keys(s.stimmen)))]
+    .filter((sp) => stimmen.some((s) => s.vergleich.includes(sp)));
   const [gewaehlteSprache, setGewaehlteSprache] = useState<string | null>(null);
   const [gewaehlt, setGewaehlt] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const stand = useRef<{ zeit: number; laeuft: boolean } | null>(null);
 
   const aktiveSprache = gewaehlteSprache ?? (sprachen.includes(sprache) ? sprache : sprachen[0]);
-  const aktiv = stimmen.find((s) => s.id === gewaehlt) ?? stimmen[0];
+  const dienste = stimmen.filter((s) => s.vergleich.includes(aktiveSprache));
+  const aktiv = dienste.find((s) => s.id === gewaehlt) ?? dienste[0];
   const quelle = aktiv?.videos.includes(aktiveSprache) ? vergleichUrl(aktiveSprache, aktiv.id) : null;
 
   // Another service starts where the last one stopped, so the voices compare on the same sentence.
@@ -82,7 +87,7 @@ export default function VideoVergleich({ stimmen, sprache }: { stimmen: DemoStim
         />
       )}
       <div className="overflow-x-auto">
-        <Tabs items={stimmen.map((s) => ({ key: s.id, label: s.anbieter }))} active={aktiv.id} onChange={(id) => { merken(); setGewaehlt(id); }} />
+        <Tabs items={dienste.map((s) => ({ key: s.id, label: s.anbieter }))} active={aktiv.id} onChange={(id) => { merken(); setGewaehlt(id); }} />
       </div>
       <p className="mt-3 mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-foreground-soft">
         {name && <span>{t("stimme", { name })}</span>}

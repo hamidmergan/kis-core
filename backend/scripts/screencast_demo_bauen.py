@@ -13,6 +13,7 @@ backend on localhost:8000 and ADMIN_PASSWORD in .env, the own voice services mus
 
 import argparse
 import base64
+import http.client
 import http.cookiejar
 import io
 import json
@@ -30,6 +31,9 @@ BACKEND = "http://localhost:8000"
 ZIELSPRACHE = {"de": "DE", "en": "EN-US"}
 FERTIG = ("success", "failed", "cancelled", "paused")
 NEUER_ANLAUF_S = 900
+# A restarted backend is back within minutes, a run that waits for a quota must outlast that.
+VERBINDUNG_VERSUCHE = 60
+VERBINDUNG_PAUSE_S = 30
 
 
 class Api:
@@ -41,11 +45,18 @@ class Api:
     def roh(self, pfad: str, daten: bytes | None = None, typ: str = "application/json", methode: str | None = None) -> bytes:
         anfrage = urllib.request.Request(BACKEND + pfad, data=daten, headers={"Content-Type": typ} if daten else {},
                                          method=methode)
-        try:
-            with self._op.open(anfrage, timeout=600) as antwort:
-                return antwort.read()
-        except urllib.error.HTTPError as e:
-            raise RuntimeError(f"{pfad}: HTTP {e.code} {e.read()[:300]!r}") from None
+        for versuch in range(VERBINDUNG_VERSUCHE):
+            try:
+                with self._op.open(anfrage, timeout=600) as antwort:
+                    return antwort.read()
+            except urllib.error.HTTPError as e:
+                if e.code != 502 and e.code != 503:
+                    raise RuntimeError(f"{pfad}: HTTP {e.code} {e.read()[:300]!r}") from None
+            except (urllib.error.URLError, http.client.HTTPException, ConnectionError, TimeoutError):
+                pass
+            print(f"Backend nicht erreichbar ({pfad}), neuer Versuch in {VERBINDUNG_PAUSE_S} s", flush=True)
+            time.sleep(VERBINDUNG_PAUSE_S)
+        raise RuntimeError(f"{pfad}: Backend nicht erreichbar")
 
     def json(self, pfad: str, body: dict | None = None):
         return json.loads(self.roh(pfad, json.dumps(body).encode() if body is not None else None))
@@ -172,6 +183,7 @@ def main() -> int:
 
         vergleich = ordner / "vergleich"
         offen = [s for s in stimmen if (not args.nur or s["id"] in args.nur)
+                 and sprache in s.get("vergleich", alle)
                  and (args.neu or not (vergleich / f"{s['id']}.mp4").exists())]
         if not offen:
             continue

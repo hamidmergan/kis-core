@@ -104,6 +104,8 @@ def demo_stimmen(_: dict = Depends(get_current_user)):
             "eigen": bool(s.get("eigen")),
             "stimmen": {sprache: (s.get("sprachen", {}).get(sprache) or {}).get("name", "") for sprache in sprachen},
             "kennungen": {sprache: (s.get("sprachen", {}).get(sprache) or {}).get("stimme", "") for sprache in sprachen},
+            # A service may sit out a language, there the result above already speaks with it.
+            "vergleich": [sprache for sprache in s.get("vergleich", sprachen) if sprache in sprachen],
             "videos": [sprache for sprache in sprachen if (DEMO_DIR / sprache / "vergleich" / f"{s['id']}.mp4").exists()],
         }
         for s in _stimmen()

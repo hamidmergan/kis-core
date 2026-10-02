@@ -10,7 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 STIMMEN = [
-    {"id": "hpc", "anbieter": "HPC", "eigen": True,
+    {"id": "hpc", "anbieter": "HPC", "eigen": True, "vergleich": ["en"],
      "sprachen": {"de": {"name": "Thorsten", "stimme": "thorsten"}, "en": {"name": "Michael", "stimme": "am_michael"}}},
     {"id": "gemini", "anbieter": "Gemini", "eigen": False,
      "sprachen": {"de": {"name": "Charon"}, "en": {"name": "Charon"}}},
@@ -79,8 +79,10 @@ def test_stimmen_in_ihrer_reihenfolge_mit_vorhandenen_videos(client):
     assert [s["id"] for s in stimmen] == ["hpc", "gemini"]
     assert stimmen[0] == {"id": "hpc", "anbieter": "HPC", "eigen": True,
                           "stimmen": {"de": "Thorsten", "en": "Michael"},
-                          "kennungen": {"de": "thorsten", "en": "am_michael"}, "videos": ["de", "en"]}
+                          "kennungen": {"de": "thorsten", "en": "am_michael"}, "vergleich": ["en"],
+                          "videos": ["de", "en"]}
     assert stimmen[1]["videos"] == ["de"]
+    assert stimmen[1]["vergleich"] == ["de", "en"]
 
 
 def test_vergleich_je_sprache_und_anbieter(client):
