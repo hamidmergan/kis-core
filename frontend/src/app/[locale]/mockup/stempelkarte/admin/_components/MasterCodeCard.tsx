@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { Check } from "@phosphor-icons/react";
 import { SettingCard } from "@/app/[locale]/admin/_settings/fields";
 import { copyTextFromPromise } from "@/lib/clipboard";
+import ConfirmDialog from "../../../_components/ConfirmDialog";
 import { resetMockup, useMockup } from "../../../_lib/store";
 import { CODE_LENGTH, isValidMasterCode, newMasterCode, normalizeCode } from "../../../_lib/masterCode";
 import { BTN_PRIMARY, BTN_SECONDARY, INPUT } from "./fields";
@@ -29,6 +30,7 @@ export default function MasterCodeCard() {
   const [invalid, setInvalid] = useState(false);
   const [copied, flashCopied] = useFlash();
   const [reset, flashReset] = useFlash();
+  const [ask, setAsk] = useState<"reroll" | "card" | null>(null);
 
   const copy = () => {
     copyTextFromPromise(Promise.resolve(config.masterCode));
@@ -59,7 +61,7 @@ export default function MasterCodeCard() {
             {copied && <Check size={14} weight="bold" aria-hidden="true" className="text-kb" />}
             {copied ? t("copied") : t("copy")}
           </button>
-          <button type="button" onClick={() => update({ masterCode: newMasterCode() })} className={BTN_SECONDARY} data-testid="master-reroll">
+          <button type="button" onClick={() => setAsk("reroll")} className={BTN_SECONDARY} data-testid="master-reroll">
             {t("reroll")}
           </button>
         </>
@@ -85,12 +87,29 @@ export default function MasterCodeCard() {
           </button>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <button type="button" onClick={() => { resetMockup("card"); flashReset(); }} className={BTN_SECONDARY}>
+          <button type="button" onClick={() => setAsk("card")} className={BTN_SECONDARY}>
             {t("resetCard")}
           </button>
           {reset && <span className="text-sm text-foreground-soft">{t("resetDone")}</span>}
         </div>
       </div>
+      {ask && (
+        <ConfirmDialog
+          title={t(ask === "reroll" ? "rerollTitle" : "resetCardTitle")}
+          text={t(ask === "reroll" ? "rerollText" : "resetCardText")}
+          confirmLabel={t(ask === "reroll" ? "reroll" : "resetCard")}
+          onConfirm={() => {
+            if (ask === "reroll") update({ masterCode: newMasterCode() });
+            else {
+              resetMockup("card");
+              flashReset();
+            }
+            setAsk(null);
+          }}
+          onCancel={() => setAsk(null)}
+          testId="master-confirm"
+        />
+      )}
     </SettingCard>
   );
 }

@@ -4627,6 +4627,8 @@
         "body": "Stands, posters, master code, results and event tiles."
       },
       "resetAll": "Delete all mockup data",
+      "resetAllTitle": "Delete all mockup data?",
+      "resetAllText": "Stands, codes, event tiles and the stamp card in this browser go back to the sample data. This cannot be undone.",
       "resetDone": "Deleted. The pages start with the sample data again."
     },
     "event": {
@@ -4970,6 +4972,8 @@
       },
       "stations": {
         "title": "Stands",
+        "codeRerollTitle": "Roll a new code for this stand?",
+        "codeRerollText": "The code on posters that are already printed stops working. The posters have to be printed again.",
         "description": "Order, name, short text and what Francis says after the stamp.",
         "add": "+ Stand",
         "remove": "Remove",
@@ -4999,6 +5003,10 @@
       },
       "master": {
         "title": "Master code",
+        "rerollTitle": "Roll a new master code?",
+        "rerollText": "The current master code stops working afterwards.",
+        "resetCardTitle": "Reset the card?",
+        "resetCardText": "All stamps on the card in this browser are deleted.",
         "description": "Four characters, opens the stand picker. Not on any poster, hand it out in person only. Upper and lower case do not matter.",
         "reroll": "Roll again",
         "apply": "Apply",
@@ -5026,6 +5034,8 @@
         "heading": "Heading",
         "text": "Short text",
         "tiles": "Tiles",
+        "removeTileTitle": "Remove tile?",
+        "removeTileText": "The tile disappears from the event block.",
         "addTile": "+ Tile",
         "removeTile": "Remove tile",
         "maxTiles": "At most four tiles",

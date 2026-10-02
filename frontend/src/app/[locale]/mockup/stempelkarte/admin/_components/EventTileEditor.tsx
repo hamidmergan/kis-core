@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import CollapsibleCard from "@/components/ui/CollapsibleCard";
 import Select from "@/components/ui/Select";
 import { SettingCard, Switch } from "@/app/[locale]/admin/_settings/fields";
+import ConfirmDialog from "../../../_components/ConfirmDialog";
 import { MOCKUP_ICONS } from "../../../_lib/icons";
 import { useMockup } from "../../../_lib/store";
 import { useText2 } from "../../../_lib/useText2";
@@ -33,6 +34,7 @@ function TileEditor({ tile, defaultOpen, onChange, onRemove }: {
   const text = useText2();
   const Icon = MOCKUP_ICONS[tile.icon];
   const target = tile.target;
+  const [removeOpen, setRemoveOpen] = useState(false);
   return (
     <CollapsibleCard
       defaultOpen={defaultOpen}
@@ -77,10 +79,20 @@ function TileEditor({ tile, defaultOpen, onChange, onRemove }: {
         <TextPair label={t("tileBody")} value={tile.body} rows={2} onChange={(body) => onChange({ ...tile, body })} />
         <TextPair label={t("tileButton")} value={tile.button} onChange={(button) => onChange({ ...tile, button })} />
         <div>
-          <button type="button" onClick={onRemove} className={BTN_SECONDARY} data-testid="tile-remove">
+          <button type="button" onClick={() => setRemoveOpen(true)} className={BTN_SECONDARY} data-testid="tile-remove">
             {t("removeTile")}
           </button>
         </div>
+        {removeOpen && (
+          <ConfirmDialog
+            title={t("removeTileTitle")}
+            text={t("removeTileText")}
+            confirmLabel={t("removeTile")}
+            onConfirm={onRemove}
+            onCancel={() => setRemoveOpen(false)}
+            testId="tile-remove-confirm"
+          />
+        )}
       </div>
     </CollapsibleCard>
   );

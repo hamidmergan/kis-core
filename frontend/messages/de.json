@@ -4627,6 +4627,8 @@
         "body": "Stände, Aufsteller, Master-Code, Auswertung und Event-Kacheln."
       },
       "resetAll": "Alle Mockup-Daten löschen",
+      "resetAllTitle": "Alle Mockup-Daten löschen?",
+      "resetAllText": "Stände, Codes, Event-Kacheln und die Stempelkarte in diesem Browser gehen auf die Beispieldaten zurück. Das lässt sich nicht rückgängig machen.",
       "resetDone": "Gelöscht. Die Seiten starten wieder mit den Beispieldaten."
     },
     "event": {
@@ -4970,6 +4972,8 @@
       },
       "stations": {
         "title": "Stände",
+        "codeRerollTitle": "Code des Stands neu würfeln?",
+        "codeRerollText": "Der Code auf bereits gedruckten Aufstellern gilt danach nicht mehr. Die Aufsteller müssen neu gedruckt werden.",
         "description": "Reihenfolge, Name, Kurztext und was Francis nach dem Stempel sagt.",
         "add": "+ Stand",
         "remove": "Entfernen",
@@ -4999,6 +5003,10 @@
       },
       "master": {
         "title": "Master-Code",
+        "rerollTitle": "Master-Code neu würfeln?",
+        "rerollText": "Der bisherige Master-Code funktioniert danach nicht mehr.",
+        "resetCardTitle": "Karte zurücksetzen?",
+        "resetCardText": "Alle Stempel der Karte in diesem Browser werden gelöscht.",
         "description": "Vier Zeichen, öffnet die Standauswahl. Steht auf keinem Aufsteller, gib ihn nur persönlich weiter. Groß- und Kleinschreibung ist egal.",
         "reroll": "Neu würfeln",
         "apply": "Übernehmen",
@@ -5026,6 +5034,8 @@
         "heading": "Überschrift",
         "text": "Kurztext",
         "tiles": "Kacheln",
+        "removeTileTitle": "Kachel entfernen?",
+        "removeTileText": "Die Kachel verschwindet aus dem Event-Block.",
         "addTile": "+ Kachel",
         "removeTile": "Kachel entfernen",
         "maxTiles": "Höchstens vier Kacheln",

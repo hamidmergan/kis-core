@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import Modal from "@/components/ui/Modal";
 import { SettingCard } from "@/app/[locale]/admin/_settings/fields";
 import { newUniqueCode } from "../../../_lib/masterCode";
+import ConfirmDialog from "../../../_components/ConfirmDialog";
 import { useMockup } from "../../../_lib/store";
 import type { Station } from "../../../_lib/types";
 import StationEditor from "./StationEditor";
@@ -23,7 +23,6 @@ const EMPTY = { de: "", en: "" };
 export default function StationsCard({ onQr, onPrintAll }: { onQr: (id: string) => void; onPrintAll: () => void }) {
   const t = useTranslations("mockup.admin.stations");
   const tp = useTranslations("mockup.admin.poster");
-  const tc = useTranslations("mockup.common");
   const [config, update] = useMockup("config");
   const [removeId, setRemoveId] = useState<string | null>(null);
   const [freshId, setFreshId] = useState<string | null>(null);
@@ -87,24 +86,14 @@ export default function StationsCard({ onQr, onPrintAll }: { onQr: (id: string) 
         ))}
       </div>
       {removeId && (
-        <Modal
-          open
-          onClose={() => setRemoveId(null)}
+        <ConfirmDialog
           title={t("removeTitle")}
-          size="sm"
-          footer={
-            <div className="flex justify-end gap-2">
-              <button type="button" onClick={() => setRemoveId(null)} autoFocus className="btn-cancel px-4 py-2 text-sm btn-secondary rounded-lg">
-                {tc("cancel")}
-              </button>
-              <button type="button" onClick={remove} className="px-4 py-2 text-sm btn-danger rounded-lg" data-testid="station-remove-confirm">
-                {t("remove")}
-              </button>
-            </div>
-          }
-        >
-          <p className="text-sm text-foreground-soft">{t("removeText")}</p>
-        </Modal>
+          text={t("removeText")}
+          confirmLabel={t("remove")}
+          onConfirm={remove}
+          onCancel={() => setRemoveId(null)}
+          testId="station-remove-confirm"
+        />
       )}
     </SettingCard>
   );

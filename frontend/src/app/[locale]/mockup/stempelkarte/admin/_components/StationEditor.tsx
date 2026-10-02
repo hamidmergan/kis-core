@@ -1,9 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { ArrowDown, ArrowUp, QrCode } from "@phosphor-icons/react";
 import CollapsibleCard from "@/components/ui/CollapsibleCard";
 import IconButton from "@/components/ui/IconButton";
+import ConfirmDialog from "../../../_components/ConfirmDialog";
 import { MOCKUP_ICONS } from "../../../_lib/icons";
 import { newUniqueCode } from "../../../_lib/masterCode";
 import { useText2 } from "../../../_lib/useText2";
@@ -28,6 +30,7 @@ export default function StationEditor({ station, first, last, defaultOpen, onCha
   const t = useTranslations("mockup.admin.stations");
   const text = useText2();
   const Icon = MOCKUP_ICONS[station.icon];
+  const [rerollOpen, setRerollOpen] = useState(false);
   return (
     <div className="flex items-start gap-2" data-testid="station-editor">
       <div className="flex-1 min-w-0">
@@ -63,7 +66,7 @@ export default function StationEditor({ station, first, last, defaultOpen, onCha
               </span>
               <button
                 type="button"
-                onClick={() => onChange({ ...station, code: newUniqueCode(takenCodes) })}
+                onClick={() => setRerollOpen(true)}
                 className={BTN_SECONDARY}
                 data-testid="station-code-reroll"
               >
@@ -90,6 +93,19 @@ export default function StationEditor({ station, first, last, defaultOpen, onCha
           <ArrowDown size={12} weight="bold" aria-hidden="true" />
         </IconButton>
       </div>
+      {rerollOpen && (
+        <ConfirmDialog
+          title={t("codeRerollTitle")}
+          text={t("codeRerollText")}
+          confirmLabel={t("codeReroll")}
+          onConfirm={() => {
+            onChange({ ...station, code: newUniqueCode(takenCodes) });
+            setRerollOpen(false);
+          }}
+          onCancel={() => setRerollOpen(false)}
+          testId="station-code-reroll-confirm"
+        />
+      )}
     </div>
   );
 }
