@@ -63,9 +63,9 @@ export default function Stimmvergleich({ proben }: { proben: Stimmprobe[] }) {
         ariaLabel={t("vergleichTitel")}
       />
       {quelle ? (
-        <audio ref={tonRef} controls preload="metadata" className="w-full" src={quelle} />
+        <audio ref={tonRef} controls preload="metadata" className="mx-auto block w-full max-w-md" src={quelle} />
       ) : (
-        <p className="flex h-[54px] items-center justify-center rounded-full bg-surface-dim text-sm text-muted">
+        <p className="mx-auto flex h-[54px] w-full max-w-md items-center justify-center rounded-full bg-surface-dim text-sm text-muted">
           {t("vergleichFolgt")}
         </p>
       )}
