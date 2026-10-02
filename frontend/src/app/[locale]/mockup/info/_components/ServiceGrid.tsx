@@ -28,9 +28,9 @@ export default function ServiceGrid() {
       <div className="flex flex-col gap-10">
         <div className="max-w-3xl flex flex-col gap-4">
           <SectionHeading>{t("heading")}</SectionHeading>
-          <p className="text-lg sm:text-xl leading-relaxed text-foreground-soft">{t("intro")}</p>
+          <p className="text-lg @min-[40rem]:text-xl leading-relaxed text-foreground-soft">{t("intro")}</p>
         </div>
-        <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-x-8 gap-y-10">
+        <ul className="grid grid-cols-1 @min-[40rem]:grid-cols-2 @min-[64rem]:grid-cols-3 @min-[80rem]:grid-cols-5 gap-x-8 gap-y-10">
           {SERVICES.map((key) => {
             const Icon = TOOL_ICONS[key];
             return (

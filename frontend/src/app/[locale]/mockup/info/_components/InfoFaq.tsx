@@ -19,7 +19,7 @@ export default function InfoFaq() {
   const t = useTranslations("mockup.info.faq");
   return (
     <Band tone="tint" testId="info-faq">
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,4fr)_minmax(0,8fr)] gap-8 lg:gap-16">
+      <div className="grid grid-cols-1 @min-[64rem]:grid-cols-[minmax(0,4fr)_minmax(0,8fr)] gap-8 @min-[64rem]:gap-16">
         <SectionHeading>{t("heading")}</SectionHeading>
         <div className="faq-list">
         {GROUPS.map((group) => (
