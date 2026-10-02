@@ -1,3 +1,4 @@
+import type { ErgebnisAngaben } from "@/components/jobs/ErgebnisInfo";
 import type { PodcastView, Stimmprobe } from "./_api";
 import type { JobProgress, Line } from "./_types";
 
@@ -7,7 +8,12 @@ export interface DemoMaterial {
   files: string[];
 }
 
-export type DemoView = PodcastView & DemoMaterial & { seconds: number | null; vergleich?: Stimmprobe[] };
+export type DemoView = PodcastView & DemoMaterial & {
+  seconds: number | null;
+  vergleich?: Stimmprobe[];
+  angaben?: ErgebnisAngaben;
+  erstellt?: string | null;
+};
 
 /** One moment of the simulated run: what the job reports, the draft so far, and how long it stays. */
 export interface DemoMoment {

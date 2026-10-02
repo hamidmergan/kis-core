@@ -59,6 +59,8 @@ def podcast(tmp_path_factory):
         "params": {"persons": [{"name": "Lena"}, {"name": "Jonas"}]},
         "lines": [{"id": "b0", "speaker": 0, "text": "Hallo"}, {"id": "b1", "speaker": 1, "text": "Servus"}],
         "seconds": 12.5, "workspace": "Projektmanagement", "dateien": ["Skript.pdf"],
+        "angaben": {"anbieter": "HPC", "besetzung": [{"name": "Lena", "rolle": "host", "stimme": "Kerstin"}]},
+        "erstellt": "2026-10-01T12:39:06Z",
     }), encoding="utf-8")
     (ordner / "audio").mkdir()
     (ordner / "audio" / "b0.mp3").write_bytes(b"ID3eins")
@@ -150,6 +152,8 @@ def test_podcast_ansicht_wie_ein_fertiger_lauf(client):
     assert v["voiced"] == ["b0"]
     assert v["seconds"] == 12.5
     assert v["files"] == ["Skript.pdf"]
+    assert v["angaben"]["besetzung"] == [{"name": "Lena", "rolle": "host", "stimme": "Kerstin"}]
+    assert v["erstellt"] == "2026-10-01T12:39:06Z"
     assert client.get("/podcast-demo/available").json() == {"available": True}
 
 

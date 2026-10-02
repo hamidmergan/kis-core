@@ -1,9 +1,11 @@
 "use client";
 
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
+import { ErgebnisInfoKnopf, useErgebnisAngaben, type Auftrag } from "@/components/jobs/ErgebnisInfo";
+import { sprachName } from "@/lib/format";
 import { resultUrl, transcriptUrl } from "../_api";
 import { linesToVoice, minutesOf } from "../_logic";
-import type { JobProgress, JobStatus, Line, Person, PersonCount } from "../_types";
+import { ROLES, type JobProgress, type JobStatus, type Line, type Person, type PersonCount, type Role } from "../_types";
 
 const downloadIcon = (
   <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -25,14 +27,23 @@ interface DoneStepProps {
   onVoice: () => void;
   onEditScript: () => void;
   onReset: () => void;
+  /** The demo brings its info along, a real run reads it from its job. */
+  auftrag?: Auftrag;
 }
 
 export default function DoneStep(props: DoneStepProps) {
   const { jobUuid, lines, persons, count, voicedIds, jobStatus, progress, seconds,
           onVoice, onEditScript, onReset } = props;
+  const locale = useLocale();
   const t = useTranslations("tools.podcast.done");
   const tScript = useTranslations("tools.podcast.script");
   const tPage = useTranslations("tools.podcast");
+  const tCast = useTranslations("tools.podcast.cast");
+  const tResult = useTranslations("common.result");
+  // Read once the run is through, the info is written as its last step.
+  const gelesen = useErgebnisAngaben(props.auftrag || jobStatus !== "success" ? null : jobUuid);
+  const auftrag = props.auftrag ?? gelesen;
+  const angaben = auftrag?.angaben;
   // The measured length once it exists, the estimate from the words until then.
   const minutes = seconds != null ? Math.max(1, Math.round(seconds / 60)) : minutesOf(lines);
   const offen = linesToVoice(lines, voicedIds).length;
@@ -47,7 +58,18 @@ export default function DoneStep(props: DoneStepProps) {
 
   return (
     <section className="animate-[fadeIn_0.3s_ease-out] pt-3 sm:py-10">
-      <div className="rounded-xl border border-kb/15 bg-kb/5 p-4 sm:p-5">
+      <div className="relative rounded-xl border border-kb/15 bg-kb/5 p-4 sm:p-5">
+      <div className="absolute top-3 right-3">
+        <ErgebnisInfoKnopf auftrag={auftrag} zeilen={[
+          { label: t("infoProvider"), wert: angaben?.anbieter },
+          { label: tResult("language"), wert: sprachName(angaben?.sprache, locale) },
+          { label: t("infoCast"), wert: angaben?.besetzung?.map((b) => {
+            const rolle = ROLES.includes(b.rolle as Role) ? tCast(`roles.${b.rolle as Role}`) : b.rolle;
+            return `${b.name} (${rolle})${b.stimme ? `: ${b.stimme}` : ""}`;
+          }).join("\n") },
+          { label: tResult("sources"), wert: angaben?.material?.split(", ").join("\n") },
+        ]} />
+      </div>
       <div className="flex justify-center mb-4">
         <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: "var(--kb)" }}>
           <svg className="w-6 h-6" style={{ color: "#fff" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">

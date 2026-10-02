@@ -18,8 +18,10 @@ from src import database as db  # noqa: E402
 from src.features.podcast import store as podcast_store  # noqa: E402
 from src.features.praesentation import store  # noqa: E402
 from src.features.summary.models import INSTRUCTIONS_FILE  # noqa: E402
+from src.routes.jobs._shared import _dt  # noqa: E402
 from src.routes.praesentation.media import _bildplaetze  # noqa: E402
 from src.services import sources  # noqa: E402
+from src.services.job_statistik import angaben_lesen  # noqa: E402
 from src.storage import get_file, get_job_file, job_file_exists, load_result_meta  # noqa: E402
 
 DEMO_DIR = Path(__file__).resolve().parent.parent / "demo"
@@ -103,6 +105,8 @@ def podcast(job: dict, workspace: str, ziel: Path) -> str:
         "seconds": (load_result_meta(uid, uuid) or {}).get("seconds"),
         "workspace": workspace,
         "dateien": dateien,
+        "angaben": angaben_lesen(job),
+        "erstellt": _dt(job.get("created_at")),
     }
     (ordner / "ansicht.json").write_text(json.dumps(ansicht, ensure_ascii=False, indent=2), encoding="utf-8")
     return f"Podcast mit {len(zeilen)} Beiträgen"

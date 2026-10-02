@@ -9,6 +9,7 @@ from src import database as db
 from src.celery_app import celery_app
 from src.features.podcast import audio as montage
 from src.features.podcast import store
+from src.features.podcast.angaben import angaben as podcast_angaben
 from src.features.podcast.schemas import Line, PodcastParams
 from src.i18n import t
 from src.limits import (
@@ -19,7 +20,7 @@ from src.limits import (
 )
 from src.services import tts_job_provider
 from src.services.job_recovery import attempt_failed, still_mine
-from src.services.job_statistik import anbieter_und_modelle, messe
+from src.services.job_statistik import anbieter_und_modelle, angaben_merken, messe
 from src.services.upstream_errors import is_upstream_busy
 from src.storage import (
     load_result_meta,
@@ -305,6 +306,7 @@ def run_podcast_render(self, job_uuid: str, user_id: int, locale: str = "de",
             "language": params.language,
             "voice_label": _stimmen_etikett(params, pin),
         })
+        angaben_merken(user_id, job_uuid, podcast_angaben(params, pin))
         save_result_and_evict(user_id, job_uuid, pfad, "podcast.mp3")
         db.update_job_status(job_uuid, "success", progress={
             "step": "done", "fertig": sorted(range(len(zeilen))), "behalten": sorted(gemerkt),

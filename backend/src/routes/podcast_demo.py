@@ -66,6 +66,8 @@ def demo_ansicht(_: dict = Depends(get_current_user), locale: str = Depends(get_
         "workspace": daten.get("workspace", ""),
         "files": daten.get("dateien", []),
         "vergleich": _vergleich(),
+        "angaben": daten.get("angaben") or {},
+        "erstellt": daten.get("erstellt"),
     }
 
 

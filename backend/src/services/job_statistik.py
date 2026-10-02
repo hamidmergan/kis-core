@@ -80,6 +80,13 @@ def angaben_lesen(job: dict) -> dict:
         if params.get("provider_id"):
             angaben.setdefault("anbieter", anbieter_name(params["provider_id"]))
         angaben.setdefault("anweisung", _job_text(uid, uuid, INSTRUCTIONS_FILE).strip())
+    elif tool == "podcast" and not angaben:
+        from src.features.podcast import store as podcast_store
+        from src.features.podcast.angaben import angaben as podcast_angaben
+
+        params = podcast_store.load_params(uid, uuid)
+        if params:
+            angaben = podcast_angaben(params, podcast_store.load_pin(uid, uuid))
     elif tool == "transcription":
         # The result's extension tells the format, named like the choice on the page.
         endung = Path(job.get("result_filename") or "").suffix.lstrip(".")

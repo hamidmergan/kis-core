@@ -176,7 +176,8 @@ function PodcastDemoLauf({ onNeu }: { onNeu: () => void }) {
             {state.step === "done" && (
               <DoneStep jobUuid={DEMO_JOB} lines={state.lines} persons={state.persons} count={state.count}
                 voicedIds={state.voicedIds} jobStatus={state.jobStatus} progress={state.progress} seconds={state.seconds}
-                onVoice={vertonen} onEditScript={() => dispatch({ type: "GO", step: "script" })} onReset={onNeu} />
+                onVoice={vertonen} onEditScript={() => dispatch({ type: "GO", step: "script" })} onReset={onNeu}
+                auftrag={{ angaben: view.angaben ?? {}, erstellt: view.erstellt ?? null, datei: null }} />
             )}
             {state.step === "done" && state.jobStatus === "success" && <Stimmvergleich proben={view.vergleich ?? []} />}
           </>

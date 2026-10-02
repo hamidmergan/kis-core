@@ -1380,7 +1380,9 @@
         "transcript": "Download transcript",
         "editScript": "Edit the script",
         "browserNoAudio": "Your browser cannot play this file.",
-        "filename": "podcast"
+        "filename": "podcast",
+        "infoProvider": "TTS provider",
+        "infoCast": "Cast"
       },
       "vorschau": {
         "ueberschrift": "Ready to listen to",

@@ -19,6 +19,9 @@ export interface ErgebnisAngaben {
   format?: string;
   vorlage?: string;
   anweisung?: string;
+  material?: string;
+  /** Who speaks in a podcast, the role as its key. */
+  besetzung?: { name: string; rolle: string; stimme: string }[];
 }
 
 export interface Auftrag {
