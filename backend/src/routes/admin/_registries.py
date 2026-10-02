@@ -29,7 +29,7 @@ TOOL_LABELS = {
 }
 
 
-DEFAULT_DISABLED_TOOLS: set[str] = set()
+DEFAULT_DISABLED_TOOLS: set[str] = {"interpreter"}
 
 
 def tools_matching_query(q: str) -> list[str]:
