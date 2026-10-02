@@ -156,7 +156,6 @@ export default function Header({ hasSession = true, showLogout = false }: Header
               <HeaderSettingsMenu
                 isAdmin={hasSession && isAdmin}
                 canViewManual={hasSession && canViewManual}
-                showFaq={hasSession}
                 showLanguageLevel={hasSession && mayLanguageLevel}
                 showInterfaces={hasSession && mayInterfaces}
                 showTour={hasSession && hasAia && tour.available}

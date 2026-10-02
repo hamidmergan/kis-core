@@ -5,7 +5,7 @@ import Link from "next/link";
 import LinkBusy from "@/components/ui/LinkBusy";
 import { useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { Check, Compass, FileText, Gear, Medal, Moon, PencilSimple, Plugs, Question, SignOut, Sun, UserCircleGear } from "@phosphor-icons/react";
+import { Check, Compass, FileText, Gear, Medal, Moon, PencilSimple, Plugs, SignOut, Sun, UserCircleGear } from "@phosphor-icons/react";
 import { useRouter, usePathname } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
 import { UI_LOCALES } from "@/lib/constants";
@@ -15,13 +15,11 @@ import { persistLocale, rememberLocaleCookie } from "@/lib/switchLocale";
 const LOCALES = UI_LOCALES as readonly Locale[];
 const THEMES: readonly Theme[] = ["light", "dark"];
 // Row groups below the appearance section, in the order they are rendered.
-const BLOCKS: readonly (readonly string[])[] = [["level", "interfaces", "tour", "evaluation", "faq", "manual"], ["admin"], ["logout"]];
+const BLOCKS: readonly (readonly string[])[] = [["level", "interfaces", "tour", "evaluation", "manual"], ["admin"], ["logout"]];
 
 interface HeaderSettingsMenuProps {
   isAdmin?: boolean;
   canViewManual?: boolean;
-  /** The FAQ hangs off no permission, every signed-in account sees it. */
-  showFaq?: boolean;
   showLanguageLevel?: boolean;
   /** Own accounts at outside voice services, only with the permission for it. */
   showInterfaces?: boolean;
@@ -35,11 +33,10 @@ interface HeaderSettingsMenuProps {
   onLogout?: () => void;
 }
 
-export default function HeaderSettingsMenu({ isAdmin = false, canViewManual = false, showFaq = false, showLanguageLevel = false, showInterfaces = false, showTour = false, onStartTour, showEvaluation = false, areaKey = "admin", showLogout = false, hasHomeNotice = false, onLogout }: HeaderSettingsMenuProps) {
+export default function HeaderSettingsMenu({ isAdmin = false, canViewManual = false, showLanguageLevel = false, showInterfaces = false, showTour = false, onStartTour, showEvaluation = false, areaKey = "admin", showLogout = false, hasHomeNotice = false, onLogout }: HeaderSettingsMenuProps) {
   const t = useTranslations("header");
   const tLang = useTranslations("languageSwitch");
   const tManual = useTranslations("manual");
-  const tFaq = useTranslations("faq");
   const router = useRouter();
   const pathname = usePathname();
   const currentLocale = useLocale() as Locale;
@@ -131,7 +128,7 @@ export default function HeaderSettingsMenu({ isAdmin = false, canViewManual = fa
   const logoutRowClass = `${rowBase} bg-[var(--border-soft)] hover:bg-[var(--border)] focus:bg-[var(--border)]`;
   const headingClass = "px-4 pt-2.5 pb-1 text-2xs font-semibold uppercase tracking-wide";
   // Own settings and help, then the admin area, then log out, each block opens with a divider.
-  const shown: Record<string, boolean> = { level: showLanguageLevel, interfaces: showInterfaces, tour: showTour, evaluation: showEvaluation, faq: showFaq, manual: canViewManual, admin: isAdmin, logout: showLogout };
+  const shown: Record<string, boolean> = { level: showLanguageLevel, interfaces: showInterfaces, tour: showTour, evaluation: showEvaluation, manual: canViewManual, admin: isAdmin, logout: showLogout };
   const blockStarts = new Set(BLOCKS.map((block) => block.find((row) => shown[row])).filter(Boolean));
   const dividerFor = (row: string) => (blockStarts.has(row) ? { borderTop: "1px solid var(--border)", marginTop: 4 } : {});
 
@@ -278,23 +275,6 @@ export default function HeaderSettingsMenu({ isAdmin = false, canViewManual = fa
                 <PencilSimple size={18} weight="bold" aria-hidden="true" />
               </LinkBusy>
               <span className="flex-1">{t("evaluation")}</span>
-            </Link>
-          )}
-
-          {showFaq && (
-            <Link
-              data-row
-              href="/faq"
-              role="menuitem"
-              tabIndex={-1}
-              onClick={closeIfHere("/faq")}
-              className={rowClass}
-              style={{ color: "var(--foreground)", ...dividerFor("faq") }}
-            >
-              <LinkBusy size="sm">
-                <Question size={18} weight="bold" aria-hidden="true" />
-              </LinkBusy>
-              <span className="flex-1">{tFaq("title")}</span>
             </Link>
           )}
 
