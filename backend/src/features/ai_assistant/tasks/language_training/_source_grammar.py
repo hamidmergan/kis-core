@@ -369,6 +369,11 @@ def _build_prompt(grammar_type: dict, target_form: str, examples: list[dict],
         "form, they never talk about it. If the source text is itself about grammar, "
         "take the subject matter from its example sentences (fire safety, rescue "
         "systems, measurements) and never its rules.\n"
+        "- Every sentence is complete in meaning for someone who never read the source. "
+        "When you shorten a fact, a noun that needs to say of what or of whom keeps "
+        "that part:\n"
+        '    source "Seitdem die Brücke gebaut wurde, wächst der Handel." -> '
+        '"Seit dem Bau der Brücke wächst der Handel."\n'
         "- Every sentence is a STATEMENT. Never a question, never an instruction to the "
         "learner, never a bare phrase.\n"
         "- Every 'before' MUST be a valid input for the transformation rule above. "

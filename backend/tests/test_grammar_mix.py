@@ -680,3 +680,9 @@ def test_the_prompt_keeps_the_noun_out_of_the_gap(attributed):
     _, _, _, calls = _generate(count=4)
     system = calls[0][0]["content"]
     assert 'form_span "neuen", base_form "neu"' in system
+
+
+def test_the_prompt_keeps_the_noun_complement_when_shortening(attributed):
+    _, _, _, calls = _generate(count=4)
+    system = calls[0][0]["content"]
+    assert '"Seit dem Bau der Brücke wächst der Handel."' in system

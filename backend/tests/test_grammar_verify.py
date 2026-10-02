@@ -67,6 +67,15 @@ def test_satz_ohne_luecke_bleibt_ohne_luecken_angabe():
     assert "gap shown" not in _aufgabenzeilen(calls)
 
 
+def test_pruefauftrag_verlangt_vollstaendigen_sinn_auch_bei_absichtlichen_fehlern():
+    """Reported: 'begann nach der Entdeckung', the coal was swallowed."""
+    client, calls = _client(_urteil((0, True)))
+    verdicts(client, "m", [_SATZ_SAUBER], _FORM, _RULE)
+    system = calls[0][0]["content"]
+    assert "incomplete in meaning" in system
+    assert "Points 3 and 5 still apply" in system
+
+
 def test_richtige_aussage_wird_nicht_gekennzeichnet():
     client, calls = _client(_urteil((0, True)))
     verdicts(client, "m", [_THEORIESATZ], _FORM, _RULE)

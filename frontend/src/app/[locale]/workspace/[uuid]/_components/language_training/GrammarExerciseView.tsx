@@ -148,6 +148,8 @@ export function GrammarExerciseView({
     const m = card.front.match(/^\*\*(.+?)\*\*\n\n([\s\S]+)$/);
     return m ? [m[1], m[2]] : ["", card.front];
   })();
+  // A gap asks for the missing words only, not for a whole sentence.
+  const isGap = !isChoice && sentence.includes("___");
   const verdictStyle = result ? VERDICT_STYLE[result.verdict] : null;
   const VerdictIcon = result?.verdict === "correct" ? Check : result?.verdict === "close" ? Minus : X;
   const verdictLabel = result
@@ -280,7 +282,7 @@ export function GrammarExerciseView({
                   disabled={answered || checking}
                   rows={3}
                   spellCheck={false}
-                  placeholder={t("grammar.answerPlaceholder")}
+                  placeholder={t(isGap ? "grammar.gapPlaceholder" : "grammar.answerPlaceholder")}
                   className="w-full rounded-xl px-3 py-2.5 text-sm resize-y bg-background text-foreground border-2 border-border transition-colors enabled:hover:border-kb focus:border-kb focus:outline-none disabled:opacity-75"
                 />
               )}

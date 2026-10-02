@@ -24,7 +24,7 @@ def _prompt(target_form: str, rule: str) -> str:
         "the intended solution already put in.\n\n"
         f"Target form: {target_form}\n"
         f"Transformation rule: {rule}\n\n"
-        "Mark an item ok=false ONLY when one of these four is true:\n"
+        "Mark an item ok=false ONLY when one of these five is true:\n"
         "1. With the solution in it, the sentence is not correct in its language: a word "
         "is doubled, a verb is left over, a part is missing, an adjective ending or word "
         "order is wrong. Read it back before you judge.\n"
@@ -41,11 +41,17 @@ def _prompt(target_form: str, rule: str) -> str:
         '   [gap shown: "Er kauft einen ___ (rot) im Laden.", answer typed: "roten '
         'Apfel"] is ok=false, "Apfel" is nowhere in the gap sentence.\n'
         '   [gap shown: "Er kauft einen ___ (rot) Apfel im Laden.", answer typed: '
-        '"roten"] is ok=true.\n\n'
+        '"roten"] is ok=true.\n'
+        "5. The sentence is incomplete in meaning: a noun leaves open of what or of "
+        "whom, so a reader who never saw the source cannot tell what it is about:\n"
+        '   "Der Handel wuchs nach dem Bau." is ok=false, the bridge is missing, '
+        '"Der Handel wuchs nach dem Bau der Brücke." is ok=true.\n\n'
         "Everything else is ok=true. Do NOT judge style, difficulty, wording, subject "
-        "matter or how interesting a sentence is. Only the four points above.\n"
+        "matter or how interesting a sentence is. Only the five points above.\n"
         f'A line marked "{_ON_PURPOSE}" carries a mistake the learner is supposed to '
-        "spot. For those, check point 3 only, never point 1.\n"
+        "spot. For those, skip point 1, the planted mistake is not a reason. Points 3 "
+        "and 5 still apply: read such a line with the mistake fixed, and if it is still "
+        "incomplete in meaning, it is ok=false.\n"
         "Judge every sentence in the language it is written in. Never translate.\n"
         "Give exactly one verdict per number and keep the numbers as they are.\n\n"
         + _SHAPE

@@ -3510,6 +3510,7 @@
         "grammar": {
           "sentenceNo": "Satz {no}",
           "answerPlaceholder": "Umgeformten Satz hier schreiben",
+          "gapPlaceholder": "Was in die Lücke gehört, hier eintragen",
           "check": "Antwort prüfen",
           "checking": "Wird geprüft…",
           "checkFailed": "Die Prüfung hat nicht geklappt. Bitte noch einmal versuchen.",

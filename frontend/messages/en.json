@@ -3510,6 +3510,7 @@
         "grammar": {
           "sentenceNo": "Sentence {no}",
           "answerPlaceholder": "Write the transformed sentence here",
+          "gapPlaceholder": "Enter what goes in the gap",
           "check": "Check answer",
           "checking": "Checking…",
           "checkFailed": "The check did not go through. Please try again.",
