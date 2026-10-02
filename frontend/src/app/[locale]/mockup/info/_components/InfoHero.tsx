@@ -7,7 +7,7 @@ import Band from "./Band";
 import Screenshot from "./Screenshot";
 import { useBandTop } from "./useBandTop";
 
-const H1 = "font-semibold tracking-[-0.02em] leading-[1.05] text-foreground!";
+const H1 = "font-semibold tracking-[-0.02em] leading-[1.05] text-kb! dark:text-kb-dark!";
 
 /** Says what the pilot is in a headline and one sentence. */
 export default function InfoHero({ layout = "split" }: { layout?: "split" | "center" }) {
