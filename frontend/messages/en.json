@@ -4679,7 +4679,8 @@
         "heading": "How we handle it",
         "sources": "Francis answers from the sources in your workspace.",
         "names": "Francis names the source for every answer so you can read it yourself.",
-        "errors": "AI can make mistakes. Check the answers, especially before exams."
+        "errors": "AI can make mistakes. Check the answers, especially before exams.",
+        "caption": "Space for a screenshot: an answer with its source"
       },
       "team": {
         "heading": "Who is behind it",
@@ -4709,13 +4710,18 @@
             "q": "What happens after the pilot?",
             "a": "THL decides that after the evaluation."
           }
+        },
+        "groups": {
+          "use": "Using KIS",
+          "outlook": "Data and outlook"
         }
       },
       "preview": {
         "heading": "Preview controls, mockup only",
         "blockOn": "Show event block",
         "tiles": "Tiles",
-        "ignoreWindow": "Ignore period"
+        "ignoreWindow": "Ignore period",
+        "hint": "Takes effect on the event block above right away. In real operation the admin sets this."
       }
     },
     "stamp": {
@@ -4741,7 +4747,8 @@
         "next": "Next you could go to {station}.",
         "allDone": "All fields are full.",
         "wrong": "This code does not match any stand.",
-        "ask": "Ask Francis"
+        "ask": "Ask Francis",
+        "welcome": "Scan the QR code at the stand or enter the code from the poster. I will then tell you where to go next."
       },
       "chat": {
         "title": "Ask Francis",
@@ -4759,7 +4766,8 @@
             "q": "Where do I get the reward?",
             "a": "At the info stand, as soon as your card is full."
           }
-        }
+        },
+        "thinking": "Francis is thinking"
       },
       "complete": {
         "title": "Done, your card is full",
@@ -4772,7 +4780,9 @@
         "title": "Link the card to your account",
         "body": "If you log in, the card belongs to your account. We merge stamps from another device.",
         "button": "Log in",
-        "linked": "This card is linked to your account."
+        "linked": "This card is linked to your account.",
+        "simulate": "Show as logged in within the mockup",
+        "simulateHint": "Preview only. There is no real login in the mockup."
       },
       "sim": {
         "heading": "Simulation, mockup only",
@@ -4806,7 +4816,8 @@
         "francis": "Francis text",
         "icon": "Icon",
         "qr": "QR code",
-        "empty": "No stands yet"
+        "empty": "No stands yet",
+        "untitled": "New stand"
       },
       "poster": {
         "title": "Poster {station}",
@@ -4815,7 +4826,8 @@
         "png": "Download as PNG",
         "pdf": "As PDF (A5)",
         "all": "All as PDF (A5)",
-        "printHint": "The print dialog opens. Choose Save as PDF there."
+        "printHint": "The print dialog opens. Choose Save as PDF there.",
+        "kicker": "KIS stamp card"
       },
       "master": {
         "title": "Master code",
@@ -4826,7 +4838,8 @@
         "copied": "Copied!",
         "invalid": "Four characters from A to Z and 2 to 9, without I and O.",
         "resetCard": "Reset the card in this browser",
-        "resetDone": "Reset"
+        "resetDone": "Reset",
+        "ownLabel": "Set your own code"
       },
       "stats": {
         "title": "Results",
@@ -4855,7 +4868,9 @@
         "tileTarget": "Target",
         "internalPath": "Path, for example /faq",
         "accessCode": "Access code",
-        "preview": "Preview"
+        "preview": "Preview",
+        "noTiles": "No tiles yet",
+        "tileUntitled": "New tile"
       }
     },
     "icons": {

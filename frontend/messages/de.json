@@ -4679,7 +4679,8 @@
         "heading": "Wie wir damit umgehen",
         "sources": "Francis antwortet aus den Quellen, die in deinem Workspace liegen.",
         "names": "Francis nennt die Quelle zu jeder Antwort, damit du nachlesen kannst.",
-        "errors": "KI kann Fehler machen. Prüfe die Antworten, besonders vor Prüfungen."
+        "errors": "KI kann Fehler machen. Prüfe die Antworten, besonders vor Prüfungen.",
+        "caption": "Platz für einen Screenshot: eine Antwort mit Quellenangabe"
       },
       "team": {
         "heading": "Wer dahintersteht",
@@ -4709,13 +4710,18 @@
             "q": "Was passiert nach dem Pilot?",
             "a": "Das entscheidet die THL nach der Auswertung."
           }
+        },
+        "groups": {
+          "use": "Nutzung",
+          "outlook": "Daten und Ausblick"
         }
       },
       "preview": {
         "heading": "Vorschau-Steuerung, nur im Mockup",
         "blockOn": "Event-Block anzeigen",
         "tiles": "Kacheln",
-        "ignoreWindow": "Zeitraum übergehen"
+        "ignoreWindow": "Zeitraum übergehen",
+        "hint": "Wirkt sofort auf den Event-Block oben. Im echten Betrieb stellt das der Admin ein."
       }
     },
     "stamp": {
@@ -4741,7 +4747,8 @@
         "next": "Als Nächstes könntest du zu {station} gehen.",
         "allDone": "Alle Felder sind voll.",
         "wrong": "Dieser Code passt zu keinem Stand.",
-        "ask": "Francis fragen"
+        "ask": "Francis fragen",
+        "welcome": "Scanne den QR-Code am Stand oder gib den Code vom Aufsteller ein. Ich sage dir dann, wo es weitergeht."
       },
       "chat": {
         "title": "Francis fragen",
@@ -4759,7 +4766,8 @@
             "q": "Wo bekomme ich die Belohnung?",
             "a": "Am Info-Stand, sobald deine Karte voll ist."
           }
-        }
+        },
+        "thinking": "Francis überlegt"
       },
       "complete": {
         "title": "Geschafft, deine Karte ist voll",
@@ -4772,7 +4780,9 @@
         "title": "Karte deinem Konto zuordnen",
         "body": "Wenn du dich anmeldest, gehört die Karte zu deinem Konto. Stempel von einem anderen Gerät führen wir zusammen.",
         "button": "Anmelden",
-        "linked": "Diese Karte ist deinem Konto zugeordnet."
+        "linked": "Diese Karte ist deinem Konto zugeordnet.",
+        "simulate": "Im Mockup als angemeldet zeigen",
+        "simulateHint": "Nur Vorschau. Eine echte Anmeldung gibt es im Mockup nicht."
       },
       "sim": {
         "heading": "Simulation, nur im Mockup",
@@ -4806,7 +4816,8 @@
         "francis": "Francis-Text",
         "icon": "Icon",
         "qr": "QR-Code",
-        "empty": "Noch keine Stände"
+        "empty": "Noch keine Stände",
+        "untitled": "Neuer Stand"
       },
       "poster": {
         "title": "Aufsteller {station}",
@@ -4815,7 +4826,8 @@
         "png": "Als PNG herunterladen",
         "pdf": "Als PDF (A5)",
         "all": "Alle als PDF (A5)",
-        "printHint": "Es öffnet sich der Druckdialog. Wähle dort Als PDF speichern."
+        "printHint": "Es öffnet sich der Druckdialog. Wähle dort Als PDF speichern.",
+        "kicker": "KIS Stempelkarte"
       },
       "master": {
         "title": "Master-Code",
@@ -4826,7 +4838,8 @@
         "copied": "Kopiert!",
         "invalid": "Vier Zeichen aus A bis Z und 2 bis 9, ohne I und O.",
         "resetCard": "Karte in diesem Browser zurücksetzen",
-        "resetDone": "Zurückgesetzt"
+        "resetDone": "Zurückgesetzt",
+        "ownLabel": "Eigenen Code setzen"
       },
       "stats": {
         "title": "Auswertung",
@@ -4855,7 +4868,9 @@
         "tileTarget": "Ziel",
         "internalPath": "Pfad, zum Beispiel /faq",
         "accessCode": "Zugangscode",
-        "preview": "Vorschau"
+        "preview": "Vorschau",
+        "noTiles": "Noch keine Kacheln",
+        "tileUntitled": "Neue Kachel"
       }
     },
     "icons": {
