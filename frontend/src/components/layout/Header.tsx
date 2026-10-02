@@ -5,8 +5,8 @@ import Image from "next/image";
 import LinkBusy from "@/components/ui/LinkBusy";
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { CalendarBlank, SquaresFour } from "@phosphor-icons/react";
-import { usePathname } from "@/i18n/navigation";
+import { CalendarBlank, SignIn, SquaresFour } from "@phosphor-icons/react";
+import { Link as LocaleLink, usePathname } from "@/i18n/navigation";
 import { checkAuthStatus, logout } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { areaLabelKey, hasPerm, PERM, type AreaKey } from "@/lib/permissions";
@@ -123,6 +123,13 @@ export default function Header({ hasSession = true, showLogout = false }: Header
 
         {showLogout && (
           <div className="flex items-center gap-1.5">
+            {/* Public pages have no session, the way in belongs at the top. */}
+            {!hasSession && (
+              <LocaleLink href="/login" className="flex items-center justify-center h-9 px-3.5 gap-1.5 rounded-full btn-on-dark" data-testid="header-login">
+                <SignIn size={17} weight="bold" aria-hidden="true" />
+                <span className="text-sm font-medium">{t("login")}</span>
+              </LocaleLink>
+            )}
             <div className="hidden sm:flex items-center gap-1.5">
               {hasSession && hasTools && (
                 <Link
