@@ -4718,7 +4718,7 @@
         },
         "integration": {
           "q": "Will the platform be connected to Moodle and the THL account?",
-          "a": "Not yet. Signing in with the THL account (single sign-on) is being coordinated with the THL computing centre. A connection to Moodle via the LTI standard is being considered, so that a workspace can be opened directly from a Moodle course."
+          "a": "This is in progress. Signing in with the THL account (single sign-on) is being coordinated with the THL computing centre. In the future, a connection to Moodle via the LTI standard is also being considered, so that a workspace can be opened directly from a Moodle course."
         },
         "feedback": {
           "q": "How can I give feedback?",
