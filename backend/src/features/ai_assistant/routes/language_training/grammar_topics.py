@@ -140,8 +140,12 @@ def update_topic_examples(
     topic = _topic_in_workspace(topic_id, workspace, locale)
     _require_topic_edit_access(workspace, topic, user_id, locale)
     spec = db.get_topic_spec(topic["id"], locale) or {"rule": ""}
+    # A stored rule wins, the sent one only fills a topic that never had one.
+    rule = spec.get("rule") or (body.rule or "").strip()
     pairs = [p.model_dump() for p in body.examples][:MAX_EXAMPLES]
-    saved = db.save_topic_spec(topic["id"], locale, spec.get("rule") or "", pairs)
+    if not rule or not pairs:
+        raise HTTPException(status_code=400, detail=t("grammar.topicNeedsExample", locale))
+    saved = db.update_topic_examples(topic["id"], locale, rule, pairs)
     return {"topic": topic, "examples": saved["examples"]}
 
 

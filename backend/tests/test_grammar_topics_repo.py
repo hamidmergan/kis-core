@@ -58,3 +58,27 @@ def test_the_first_example_is_the_one_the_learner_sees():
     entry = catalog_entry({"id": 1, "name": "X"}, {"rule": "r", "examples": pairs})
     assert entry["example"] == pairs[0]
     assert entry["examples"] == pairs
+
+
+def _store(monkeypatch, before):
+    """Stubs the spec store of the repository, counts pool clearings."""
+    from src.features.ai_assistant.repository import grammar_topics as repo
+    cleared = []
+    monkeypatch.setattr(repo, "get_topic_spec", lambda tid, lang: {"examples": before})
+    monkeypatch.setattr(repo, "save_topic_spec",
+                        lambda tid, lang, rule, ex: {"rule": rule, "examples": ex})
+    monkeypatch.setattr(repo, "clear_pool_for_topic", lambda tid: cleared.append(tid))
+    return repo, cleared
+
+
+def test_changed_examples_clear_the_topic_pool(monkeypatch):
+    """Stored exercises carry the old pattern."""
+    repo, cleared = _store(monkeypatch, [{"before": "a", "after": "b"}])
+    repo.update_topic_examples(5, "de", "r", [{"before": "a", "after": "c"}])
+    assert cleared == [5]
+
+
+def test_unchanged_examples_keep_the_pool(monkeypatch):
+    repo, cleared = _store(monkeypatch, [{"before": "a", "after": "b"}])
+    repo.update_topic_examples(5, "de", "r", [{"before": "a", "after": "b"}])
+    assert cleared == []

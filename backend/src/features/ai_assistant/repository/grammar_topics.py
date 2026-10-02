@@ -6,6 +6,7 @@ from psycopg2.extras import RealDictCursor
 
 from src.core.db.pool import get_connection
 from src.features.ai_assistant.repository.exercise_pool import (
+    clear_pool_for_topic,
     materialize_pool_items_for_topic,
 )
 
@@ -97,6 +98,16 @@ def get_topic_spec(topic_id: int, language: str) -> dict | None:
             )
             row = cur.fetchone()
             return dict(row) if row else None
+
+
+def update_topic_examples(topic_id: int, language: str, rule: str, examples: list) -> dict:
+    """Saves new examples, the pool built on the old ones goes."""
+    before = (get_topic_spec(topic_id, language) or {}).get("examples") or []
+    saved = save_topic_spec(topic_id, language, rule, examples)
+    # Stored exercises carry the old pattern and were built against it.
+    if saved["examples"] != before:
+        clear_pool_for_topic(topic_id)
+    return saved
 
 
 def save_topic_spec(topic_id: int, language: str, rule: str, examples: list) -> dict:

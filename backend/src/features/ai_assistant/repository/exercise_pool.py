@@ -206,6 +206,19 @@ def materialize_pool_items_for_topic(topic_id: int) -> int:
     return _materialize("p.topic_id = %s", topic_id)
 
 
+def clear_pool_for_topic(topic_id: int) -> int:
+    """Throws away the pool of a grammar topic, finished sets keep their content."""
+    _materialize("p.topic_id = %s", topic_id)
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM aia_exercise_pool WHERE topic_id = %s", (topic_id,))
+            geloescht = cur.rowcount
+            # The warm-up starts over, otherwise the empty pool counts as full.
+            cur.execute("DELETE FROM aia_exercise_pool_runs WHERE topic_id = %s", (topic_id,))
+        conn.commit()
+    return geloescht
+
+
 def pool_counts_by_tool() -> dict[str, int]:
     """How many exercises sit in the pool per tool, across all course rooms."""
     with get_connection() as conn:
@@ -255,6 +268,7 @@ __all__ = [
     "POOL_WARMUP_RUNS",
     "add_pool_items",
     "clear_pool_for_source",
+    "clear_pool_for_topic",
     "clear_pool_for_tools",
     "count_pool_run",
     "pool_counts_by_tool",

@@ -154,3 +154,41 @@ async def test_create_topic_still_caps_at_max_examples(workspace, monkeypatch):
         "w-1", _create_body("Viele Wege", pairs), {"user_id": EIGENTUEMER}, "de")
 
     assert len(saved["pairs"]) == 3
+
+
+# ─── Bearbeiten ──────────────────────────────────────────────────────────────
+
+_PAAR = {"before": "Das Team prüft die Quelle.", "after": "Die Quelle wird geprüft."}
+
+
+def _edit(monkeypatch, spec, body_rule):
+    """Runs the PATCH with a stubbed store, returns what was saved."""
+    saved = {}
+    monkeypatch.setattr(grammar_topics.db, "get_grammar_topic",
+                        lambda tid: {"id": tid, "workspace_id": 7, "name": "Passiv",
+                                     "created_by": EIGENTUEMER})
+    monkeypatch.setattr(grammar_topics.db, "get_topic_spec", lambda tid, loc: spec)
+    monkeypatch.setattr(grammar_topics.db, "update_topic_examples",
+                        lambda tid, loc, rule, pairs: saved.update(rule=rule, pairs=pairs)
+                        or {"examples": pairs})
+    body = types.SimpleNamespace(
+        rule=body_rule, examples=[types.SimpleNamespace(model_dump=lambda: _PAAR)])
+    grammar_topics.update_topic_examples("w-1", 5, body, {"user_id": EIGENTUEMER}, "de")
+    return saved
+
+
+def test_editing_keeps_the_stored_rule(workspace, monkeypatch):
+    saved = _edit(monkeypatch, {"rule": "gespeichert", "examples": []}, "geschickt")
+    assert saved == {"rule": "gespeichert", "pairs": [_PAAR]}
+
+
+def test_a_topic_without_elaboration_takes_the_sent_rule(workspace, monkeypatch):
+    """Seeded topics have no rule yet, the form fetched one by preview."""
+    saved = _edit(monkeypatch, None, "aus der Vorschau")
+    assert saved["rule"] == "aus der Vorschau"
+
+
+def test_a_topic_without_any_rule_is_refused(workspace, monkeypatch):
+    with pytest.raises(HTTPException) as err:
+        _edit(monkeypatch, None, None)
+    assert err.value.status_code == 400

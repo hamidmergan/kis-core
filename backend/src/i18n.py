@@ -177,6 +177,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Bitte gib ein Thema ein, zum Beispiel „Konjunktiv II“",
         "en": "Please enter a topic, for example “Konjunktiv II”",
     },
+    "grammar.topicNeedsExample": {
+        "de": "Bitte lass mindestens ein Musterpaar stehen",
+        "en": "Please keep at least one pattern pair",
+    },
     "grammar.topicExists": {
         "de": "Dieses Thema gibt es hier schon",
         "en": "This topic already exists here",

@@ -160,6 +160,8 @@ class GrammarTopicCreateBody(BaseModel):
 
 class GrammarTopicUpdateBody(BaseModel):
     examples: list[GrammarExamplePair]
+    # Only used when the topic has no elaboration yet, as with the seeded ones.
+    rule: str | None = Field(None, max_length=4000)
 
 
 class GrammarCheckBody(BaseModel):

@@ -1,8 +1,8 @@
 "use client";
 
-/** Create a topic: the teacher sees the pattern pair before anything is saved. */
+/** Create or edit a topic: the teacher sees the pattern pair before anything is saved. */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { ArrowClockwise, Sparkle, X } from "@phosphor-icons/react";
 
@@ -17,22 +17,56 @@ import {
 
 export function GrammarTopicForm({
   workspaceUuid,
+  topic,
   onSaved,
   onCancel,
 }: {
   workspaceUuid: string;
+  // Set means editing: the name stays, only the patterns change.
+  topic?: { id: number; name: string };
   onSaved: (topic: { id: number; name: string }) => void;
   onCancel: () => void;
 }) {
   const t = useTranslations("workspace.detail.languageTraining");
-  const [name, setName] = useState("");
+  const [name, setName] = useState(topic?.name ?? "");
   const [rule, setRule] = useState("");
   const [suggested, setSuggested] = useState("");
   const [pairs, setPairs] = useState<ExamplePair[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  const previewed = Boolean(rule);
+  const [loaded, setLoaded] = useState(false);
+  const editing = Boolean(topic);
+
+  const previewed = Boolean(rule) || (editing && loaded);
+
+  // Editing starts from the stored patterns, a topic without any gets a fresh suggestion.
+  useEffect(() => {
+    if (!topic) return;
+    let cancelled = false;
+    setBusy(true);
+    fetch(`/api/ai-assistant/workspaces/${workspaceUuid}/grammar-topics/${topic.id}`,
+      { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (cancelled) return;
+        const stored: ExamplePair[] = data?.examples || [];
+        setBusy(false);
+        if (stored.length) {
+          setPairs(stored);
+          setLoaded(true);
+        } else {
+          void preview();
+        }
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setBusy(false);
+        setError(t("grammarTopics.failed"));
+      });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [topic?.id, workspaceUuid]);
 
   async function preview() {
     setBusy(true);
@@ -72,12 +106,17 @@ export function GrammarTopicForm({
     setError("");
     try {
       const res = await fetch(
-        `/api/ai-assistant/workspaces/${workspaceUuid}/grammar-topics`,
+        topic
+          ? `/api/ai-assistant/workspaces/${workspaceUuid}/grammar-topics/${topic.id}`
+          : `/api/ai-assistant/workspaces/${workspaceUuid}/grammar-topics`,
         {
-          method: "POST",
+          method: topic ? "PATCH" : "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: name.trim(), rule, examples }),
+          // The rule only counts on an edit when the topic never had one.
+          body: JSON.stringify(topic
+            ? { examples, rule: rule || null }
+            : { name: name.trim(), rule, examples }),
         },
       );
       const data = await res.json().catch(() => null);
@@ -85,7 +124,7 @@ export function GrammarTopicForm({
         setError(data?.detail || t("grammarTopics.failed"));
         return;
       }
-      onSaved(data.topic);
+      onSaved(topic ?? data.topic);
     } catch {
       setError(t("grammarTopics.failed"));
     } finally {
@@ -108,7 +147,7 @@ export function GrammarTopicForm({
   }
 
   // The suggestion only appears when it says something other than what was typed.
-  const vorschlag = previewed ? shownSuggestion(name, suggested) : "";
+  const vorschlag = previewed && !editing ? shownSuggestion(name, suggested) : "";
 
   const field =
     "w-full px-2.5 py-1.5 rounded-lg text-xs bg-transparent text-foreground";
@@ -120,7 +159,8 @@ export function GrammarTopicForm({
         {t("grammarTopics.nameLabel")}
       </label>
       <input
-        autoFocus
+        autoFocus={!editing}
+        readOnly={editing}
         value={name}
         onChange={(e) => setName(e.target.value)}
         onKeyDown={(e) => {

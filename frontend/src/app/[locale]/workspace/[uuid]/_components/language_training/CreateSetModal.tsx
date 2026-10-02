@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { Plus, Sparkle, Trash } from "@phosphor-icons/react";
+import { PencilSimple, Plus, Sparkle, Trash } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
 import { backdropClose, newBackdropPress } from "@/components/ui/backdropClose";
 import Checkbox from "@/components/ui/Checkbox";
@@ -76,6 +76,8 @@ export function CreateSetModal({
   const [topicId, setTopicId] = useState<number | null>(null);
   const [typesLoading, setTypesLoading] = useState(false);
   const [addingTopic, setAddingTopic] = useState(false);
+  // The topic whose patterns are open for editing, in place of the list.
+  const [editingTopic, setEditingTopic] = useState<GrammarTopic | null>(null);
   const [reload, setReload] = useState(0);
   // A topic belongs to the course, a misclick is too expensive for that.
   const [confirmTopicId, setConfirmTopicId] = useState<number | null>(null);
@@ -150,7 +152,7 @@ export function CreateSetModal({
   })();
 
   const canCreate = isGrammar
-    ? Boolean(hasSource && topicId && !addingTopic
+    ? Boolean(hasSource && topicId && !addingTopic && !editingTopic
               && formatChoiceReady(formats))
     : isVocabulary
       // The text always comes from the sources, on the card path too.
@@ -221,7 +223,7 @@ export function CreateSetModal({
           <>
             <div className="text-3xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted)" }}>{t("createModal.grammarTypeHeading")}</div>
             <div className="flex flex-col gap-1.5 mb-3">
-              {!addingTopic && (
+              {!addingTopic && !editingTopic && (
                 <button type="button" onClick={() => setAddingTopic(true)}
                   className={`add-source-btn w-full flex items-center gap-2 px-3 py-2 rounded-lg text-2xs font-medium border-dashed text-[var(--kb)] border-[rgba(var(--kb-rgb),0.35)] hover:border-[var(--kb)] ${PICK_BOX}`}>
                   <Plus size={14} weight="bold" />
@@ -234,7 +236,7 @@ export function CreateSetModal({
               {!typesLoading && topics.length === 0 && !addingTopic && (
                 <p className="text-3xs" style={{ color: "#c4820e" }}>{t("createModal.noGrammarTypes")}</p>
               )}
-              {!addingTopic && (() => {
+              {!addingTopic && !editingTopic && (() => {
                 // Your own topic stays private to you, so it needs no "for everyone" warning.
                 const isOwn = (topic: GrammarTopic) => !canManage && topic.created_by === currentUserId;
                 const renderTopic = (topic: GrammarTopic) => {
@@ -265,15 +267,25 @@ export function CreateSetModal({
                     <div key={topic.id} className="relative">
                       <PickerOption selected={topicId === topic.id}
                         onClick={() => setTopicId(topic.id)}>
-                        <span className={`block font-semibold ${canRemove ? "pr-6" : ""}`}>{topic.name}</span>
+                        <span className={`block font-semibold ${canRemove ? "pr-14" : ""}`}>{topic.name}</span>
                       </PickerOption>
                       {canRemove && (
-                        <button type="button" onClick={() => setConfirmTopicId(topic.id)}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full flex items-center justify-center btn-icon"
-                          style={{ backgroundColor: "var(--surface-dim)" }}
-                          title={t("grammarTopics.deleteTopic")}>
-                          <Trash size={12} />
-                        </button>
+                        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1">
+                          <button type="button" onClick={() => setEditingTopic(topic)}
+                            className="w-6 h-6 rounded-full flex items-center justify-center btn-icon"
+                            style={{ backgroundColor: "var(--surface-dim)" }}
+                            title={t("grammarTopics.editTopic")}
+                            aria-label={t("grammarTopics.editTopic")}>
+                            <PencilSimple size={12} />
+                          </button>
+                          <button type="button" onClick={() => setConfirmTopicId(topic.id)}
+                            className="w-6 h-6 rounded-full flex items-center justify-center btn-icon"
+                            style={{ backgroundColor: "var(--surface-dim)" }}
+                            title={t("grammarTopics.deleteTopic")}
+                            aria-label={t("grammarTopics.deleteTopic")}>
+                            <Trash size={12} />
+                          </button>
+                        </div>
                       )}
                     </div>
                   );
@@ -304,6 +316,18 @@ export function CreateSetModal({
                   </>
                 );
               })()}
+              {editingTopic && (
+                <GrammarTopicForm
+                  key={editingTopic.id}
+                  workspaceUuid={workspaceUuid}
+                  topic={editingTopic}
+                  onCancel={() => setEditingTopic(null)}
+                  onSaved={(topic) => {
+                    setEditingTopic(null);
+                    setTopicId(topic.id);
+                  }}
+                />
+              )}
               {addingTopic && (
                 <GrammarTopicForm
                   workspaceUuid={workspaceUuid}

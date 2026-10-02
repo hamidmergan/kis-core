@@ -3543,6 +3543,7 @@
           "needExample": "Please keep at least one example pair, both sentences and not the same one twice",
           "failed": "That did not work, please try again",
           "deleteTopic": "Remove topic",
+          "editTopic": "Edit patterns",
           "deleteAsk": "Remove “{name}” for everyone in this course?",
           "deleteAskOwn": "Remove “{name}”?",
           "courseSectionHeading": "From the course",
