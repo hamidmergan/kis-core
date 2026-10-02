@@ -179,3 +179,37 @@ def test_glossar_leere_verbformen_erzeugen_keine_schluessel():
     assert extras["singular"] == "die Metapher"
     assert extras["plural"] == "die Metaphern"
     assert extras["word_class"] == "Nomen"
+
+
+# --- fixed preposition of a verb ---------------------------------------------
+
+def test_feste_praeposition_landet_in_extras():
+    item = _format_lernkarte({
+        "begriff": "sich beklagen",
+        "definition": "Sagen, dass man unzufrieden ist.",
+        "word_class": "Verb (regelmäßig, reflexiv)",
+        "verb_preposition": " über + Akk. ",
+    })
+    assert item["extras"]["verb_preposition"] == "über + Akk."
+
+
+def test_verb_ohne_praeposition_bekommt_keinen_schluessel():
+    item = _format_lernkarte({
+        "begriff": "lernen", "definition": "D", "verb_present": "lernt", "verb_preposition": "",
+    })
+    assert "verb_preposition" not in item["extras"]
+
+
+def test_prompt_verlangt_praeposition_mit_kasus():
+    """The case is what the learner cannot guess, so the examples carry it."""
+    assert "verb_preposition" in AIA_LERNKARTEN_PROMPT
+    assert "'sich beklagen' -> 'über + Akk.'" in AIA_LERNKARTEN_PROMPT
+    assert "'gratulieren' -> 'zu + Dat.'" in AIA_LERNKARTEN_PROMPT
+
+
+def test_prompt_haelt_die_praeposition_in_der_quellsprache():
+    assert "the preposition in 'verb_preposition' stay in that same language" in AIA_LERNKARTEN_PROMPT
+
+
+def test_gemeinsame_konstante_kennt_die_praeposition():
+    assert "verb_preposition" in AIA_FLASHCARD_EXTRAS_FIELDS

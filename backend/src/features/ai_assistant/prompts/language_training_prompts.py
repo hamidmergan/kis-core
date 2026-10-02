@@ -11,7 +11,7 @@ AIA_LERNKARTEN_PROMPT = (
     "Some examples further down are written in German for illustration only - IGNORE their language and always write in {language}. "
     "The 'begriff' (the technical term itself) stays VERBATIM in the source-text language, and the parts in "
     "'word_parts' / the part labels in 'word_parts_explained' / the forms in 'singular' and 'plural' / "
-    "the verb forms in 'verb_present', 'verb_past' and 'verb_perfect' stay in that same language "
+    "the verb forms in 'verb_present', 'verb_past' and 'verb_perfect' and the preposition in 'verb_preposition' stay in that same language "
     "- they are the term being studied. "
     "So an English card about a German term reads e.g. begriff='Literaturrecherche', definition='Searching for books and articles to gather information.'\n\n"
     "Respond ONLY with a JSON object in exactly this format:\n"
@@ -30,6 +30,7 @@ AIA_LERNKARTEN_PROMPT = (
     '      "verb_present": "3rd person singular, present tense (verbs only)",\n'
     '      "verb_past": "3rd person singular, simple past (verbs only)",\n'
     '      "verb_perfect": "perfect form WITH its auxiliary (verbs only)",\n'
+    '      "verb_preposition": "fixed preposition the verb requires, with its case (verbs only, else empty)",\n'
     '      "begriff_en": "English translation",\n'
     '      "source_label": "Filename.pdf",\n'
     '      "page_number": 5\n'
@@ -106,6 +107,18 @@ AIA_LERNKARTEN_PROMPT = (
     "  GOOD: 'backen' -> verb_present='backt', verb_past='backte', verb_perfect='hat gebacken'\n"
     "  BAD: 'backen' -> verb_present='backt', verb_past='', verb_perfect='hat gebackt' (one form skipped, one invented)\n"
     "- A language that does not build these three tenses leaves all three empty rather than forcing a form.\n"
+    "- verb_preposition: when the begriff is a verb that is used with a FIXED preposition, a preposition that belongs to the verb "
+    "and has to be learned with it, give that preposition in the source language together with the case it governs, "
+    "in the notation a learner's dictionary of that language uses. "
+    "German examples: 'sich beklagen' -> 'über + Akk.', 'sich interessieren' -> 'für + Akk.', 'denken' -> 'an + Akk.', "
+    "'gratulieren' -> 'zu + Dat.', 'teilnehmen' -> 'an + Dat.', 'sich bewerben' -> 'um + Akk.'. "
+    "A verb with two fixed prepositions lists both, separated by a comma: 'sich beschweren' -> 'bei + Dat., über + Akk.'. "
+    "A language without grammatical case gives the preposition alone. "
+    "Leave it EMPTY for a verb without a fixed preposition ('lernen', 'schreiben'), for a preposition that only names a place or time "
+    "and could be swapped freely, for anything that is not a verb, and whenever you are not certain. "
+    "When it is filled, the example_sentence MUST use the verb together with EXACTLY this preposition, never another one "
+    "the verb might also take, so the card and its example agree: "
+    "'sich beklagen' -> 'Der Student beklagt sich über die schwierige Prüfung.'\n"
     "- singular and plural: for a term that is a single inflectable word (typically a noun), fill BOTH fields. "
     "Give the term's singular form and its plural form in the source language, each WITH its definite article if that language uses one "
     "(German: singular='der Fluchtweg', plural='die Fluchtwege'). "
@@ -119,8 +132,8 @@ AIA_LERNKARTEN_PROMPT = (
     "- Only use terms from the given text\n"
     "- Focus on central technical terms, NO comprehension questions\n"
     "- REMINDER: title, definition, word_parts_explained, example_sentence and word_class MUST be written in {language} "
-    "(only begriff, word_parts, the part labels inside word_parts_explained, the singular/plural forms and the three "
-    "verb forms keep the source language).\n"
+    "(only begriff, word_parts, the part labels inside word_parts_explained, the singular/plural forms, the three "
+    "verb forms and the verb_preposition keep the source language).\n"
     "- Respond ONLY with the JSON object, no other text."
 )
 

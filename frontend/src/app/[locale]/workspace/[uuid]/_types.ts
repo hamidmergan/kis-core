@@ -231,6 +231,8 @@ export interface ExerciseItemExtras {
   verb_present?: string;
   verb_past?: string;
   verb_perfect?: string;
+  /** Fixed preposition of a verb with its case, e.g. "über + Akk.". */
+  verb_preposition?: string;
   /** Per gap the base form as a chip and the fitting form, in the order of the text. */
   gaps?: { base: string; solution: string }[];
   /** Instruction and solved example sit on the exercise because the pool holds exercises only. */

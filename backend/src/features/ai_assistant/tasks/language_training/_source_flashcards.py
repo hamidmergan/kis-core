@@ -17,7 +17,7 @@ from src.services.llm_call import create_logged
 AIA_FLASHCARD_EXTRAS_FIELDS = (
     "word_parts", "word_parts_explained", "example_sentence",
     "word_class", "singular", "plural",
-    "verb_present", "verb_past", "verb_perfect"
+    "verb_present", "verb_past", "verb_perfect", "verb_preposition"
 )
 
 

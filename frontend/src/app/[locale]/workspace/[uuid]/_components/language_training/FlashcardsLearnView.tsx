@@ -254,6 +254,7 @@ export function FlashcardsLearnView({
           const verbPresent = card.extras?.verb_present?.trim() || "";
           const verbPast = card.extras?.verb_past?.trim() || "";
           const verbPerfect = card.extras?.verb_perfect?.trim() || "";
+          const verbPreposition = card.extras?.verb_preposition?.trim() || "";
           // Every line on its own so a half-filled card shows no empty rows.
           const hasVerbForms = Boolean(verbPresent || verbPast || verbPerfect);
           return <>
@@ -263,7 +264,11 @@ export function FlashcardsLearnView({
                   <div className="p-5 flex flex-col gap-4">
                     {/* Term */}
                     <div className="text-center">
-                      <p className="text-lg leading-relaxed font-semibold" style={{ color: "var(--foreground)" }}>{card.front}</p>
+                      <p className="text-lg leading-relaxed font-semibold" style={{ color: "var(--foreground)" }}>
+                        {card.front}
+                        {/* The fixed preposition is learned together with the verb, so it sits right next to it. */}
+                        {verbPreposition && <span className="font-normal"> ({verbPreposition})</span>}
+                      </p>
                       {showTranslation && card.back_en && (
                         <p className="text-sm italic mt-0.5" >{t("flashcardsLearn.translationPrefix")} {card.back_en}</p>
                       )}
