@@ -4698,10 +4698,6 @@
             "q": "Kostet KIS etwas?",
             "a": "Nein. KIS ist ein gefördertes Pilotprojekt."
           },
-          "data": {
-            "q": "Was passiert mit meinen Daten?",
-            "a": "Deine Unterlagen bleiben in deinem Workspace. Mehr dazu steht im Datenschutz."
-          },
           "account": {
             "q": "Wie bekomme ich ein Konto?",
             "a": "Über eine Einladung oder einen Zugangscode deiner Lehrperson."
@@ -4709,11 +4705,20 @@
           "after": {
             "q": "Was passiert nach dem Pilot?",
             "a": "Das entscheidet die THL nach der Auswertung."
+          },
+          "dsgvo": {
+            "q": "Ist KIS DSGVO-konform?",
+            "a": "Ja. KIS ist so gebaut, dass nur DSGVO-konforme Dienste zum Einsatz kommen. Wer als Lehrperson einen eigenen Stimmdienst verbindet, tut das mit eigenem Konto und auf eigene Verantwortung."
+          },
+          "hosting": {
+            "q": "Wo läuft KIS?",
+            "a": "KIS wird vom Projektteam an der THL betrieben und läuft auf Servern in Deutschland. Die KI-Modelle laufen auf Infrastruktur der THL und von Partnern in Deutschland."
           }
         },
         "groups": {
           "use": "Nutzung",
-          "outlook": "Daten und Ausblick"
+          "outlook": "Daten und Ausblick",
+          "operation": "Betrieb"
         }
       },
       "preview": {

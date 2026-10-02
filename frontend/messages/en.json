@@ -4698,10 +4698,6 @@
             "q": "Does KIS cost anything?",
             "a": "No. KIS is a funded pilot project."
           },
-          "data": {
-            "q": "What happens to my data?",
-            "a": "Your materials stay in your workspace. More is in the privacy policy."
-          },
           "account": {
             "q": "How do I get an account?",
             "a": "Through an invitation or an access code from your teacher."
@@ -4709,11 +4705,20 @@
           "after": {
             "q": "What happens after the pilot?",
             "a": "THL decides that after the evaluation."
+          },
+          "dsgvo": {
+            "q": "Is KIS GDPR compliant?",
+            "a": "Yes. KIS is built so that only GDPR compliant services are used. Teachers who connect a voice service of their own do so with their own account and at their own responsibility."
+          },
+          "hosting": {
+            "q": "Where does KIS run?",
+            "a": "KIS is operated by the project team at THL and runs on servers in Germany. The AI models run on infrastructure of THL and of partners in Germany."
           }
         },
         "groups": {
           "use": "Using KIS",
-          "outlook": "Data and outlook"
+          "outlook": "Data and outlook",
+          "operation": "Operation"
         }
       },
       "preview": {

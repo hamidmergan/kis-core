@@ -7,7 +7,8 @@ import { SectionHeading } from "./InfoSections";
 
 const GROUPS = [
   { key: "use", items: ["who", "account", "cost"] },
-  { key: "outlook", items: ["data", "after"] },
+  { key: "operation", items: ["dsgvo", "hosting"] },
+  { key: "outlook", items: ["after"] },
 ] as const;
 
 const ROW =
