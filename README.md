@@ -8,7 +8,10 @@ Developed at Institut für Interaktive Systeme (ISy), Technische Hochschule Lüb
 ## Features
 
 - Document translation (DOCX, PPTX, MD, TEX, PDF) with glossary
+- Slide decks from an outline: layouts, charts, images
 - Screencasts from PPTX: script, speech, video, subtitles
+- Podcasts from source material: script, voices, audio
+- Live interpreter: two-way speech and text translation
 - Transcription, text to speech, summaries, image generation
 - Study assistant: modules, sources (PDF, DOCX, PPTX, audio, video), chat with citations, mindmaps, schedules, notes
 - Language training: flashcards, grammar and vocabulary exercises, quiz, placement test
