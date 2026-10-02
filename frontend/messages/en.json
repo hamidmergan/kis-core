@@ -4594,5 +4594,287 @@
         "fish": "Create the key at Fish Audio."
       }
     }
+  },
+  "mockup": {
+    "common": {
+      "ribbon": "Mockup",
+      "ribbonHint": "Preliminary view. All data stays in this browser.",
+      "backToOverview": "Back to mockup overview",
+      "login": "Log in",
+      "close": "Close",
+      "cancel": "Cancel",
+      "de": "German",
+      "en": "English"
+    },
+    "overview": {
+      "title": "Mockups",
+      "intro": "Preliminary pages with real components. Not linked anywhere, reachable only through these addresses.",
+      "info": {
+        "title": "Info page",
+        "body": "Public page about the pilot project with an event block."
+      },
+      "stamp": {
+        "title": "Stamp card",
+        "body": "Card for visitors, stamps by QR code or code."
+      },
+      "admin": {
+        "title": "Admin for stamp card and event block",
+        "body": "Stands, posters, master code, results and event tiles."
+      },
+      "resetAll": "Delete all mockup data",
+      "resetDone": "Deleted. The pages start with the sample data again."
+    },
+    "event": {
+      "hidden": "The event block is hidden right now because it is off or outside its period.",
+      "target": {
+        "stamp": "Stamp card",
+        "info": "Info page",
+        "internal": "Internal page",
+        "directLogin": "Direct login with access code"
+      }
+    },
+    "info": {
+      "eyebrow": "Pilot project",
+      "title": "KIS is a pilot project at THL",
+      "lead": "An AI assistant and services for your studies, tested in a pilot course. You can log in if you have been invited.",
+      "heroCaption": "Space for a large screenshot: Francis answers and names its sources",
+      "placeholder": "Space for a screenshot",
+      "purpose": {
+        "heading": "What the project is for",
+        "students": "KIS is aimed at international students who start a degree with German at B1.",
+        "pilot": "It is being tested in the pilot course General Electrical Engineering.",
+        "funding": "Funded by the Stiftung Innovation in der Hochschullehre.",
+        "scope": "KIS is a pilot project at THL. It is tested and developed here."
+      },
+      "features": {
+        "heading": "What you can do with it",
+        "items": {
+          "francis": {
+            "title": "AI assistant Francis",
+            "body": "Ask questions about the materials in your workspace. Francis answers from your sources."
+          },
+          "translation": {
+            "title": "Translation",
+            "body": "Translate texts and documents between German and English."
+          },
+          "tts": {
+            "title": "Text to audio",
+            "body": "Have texts and documents read aloud."
+          },
+          "transcription": {
+            "title": "Audio to text",
+            "body": "Transcribe lectures and videos, also with subtitles."
+          },
+          "interpreter": {
+            "title": "Interpreter",
+            "body": "A conversation in two languages, the translation follows along."
+          },
+          "summary": {
+            "title": "Summary",
+            "body": "Merge several materials into one text."
+          }
+        }
+      },
+      "handling": {
+        "heading": "How we handle it",
+        "sources": "Francis answers from the sources in your workspace.",
+        "names": "Francis names the source for every answer so you can read it yourself.",
+        "errors": "AI can make mistakes. Check the answers, especially before exams."
+      },
+      "team": {
+        "heading": "Who is behind it",
+        "body": "A team at THL develops and looks after KIS.",
+        "contact": "Space for contact"
+      },
+      "faq": {
+        "heading": "Frequently asked questions",
+        "items": {
+          "who": {
+            "q": "Who can use KIS?",
+            "a": "Participants of the pilot course and invited people."
+          },
+          "cost": {
+            "q": "Does KIS cost anything?",
+            "a": "No. KIS is a funded pilot project."
+          },
+          "data": {
+            "q": "What happens to my data?",
+            "a": "Your materials stay in your workspace. More is in the privacy policy."
+          },
+          "account": {
+            "q": "How do I get an account?",
+            "a": "Through an invitation or an access code from your teacher."
+          },
+          "after": {
+            "q": "What happens after the pilot?",
+            "a": "THL decides that after the evaluation."
+          }
+        }
+      },
+      "preview": {
+        "heading": "Preview controls, mockup only",
+        "blockOn": "Show event block",
+        "tiles": "Tiles",
+        "ignoreWindow": "Ignore period"
+      }
+    },
+    "stamp": {
+      "title": "Stamp card",
+      "intro": "Visit the stands in any order. Every stand gives you a stamp.",
+      "progress": "{done} of {total} stamps",
+      "open": "Still open",
+      "done": "Stamped",
+      "code": {
+        "label": "Enter code",
+        "placeholder": "Four characters",
+        "hint": "You find the code on the poster at the stand.",
+        "submit": "Check",
+        "wrong": "The code is wrong. Take another look at the poster.",
+        "attemptsLeft": "{n, plural, one {# try left} other {# tries left}}",
+        "locked": "Too many wrong tries. Wait {seconds} more seconds.",
+        "pickTitle": "Which stand did you visit?",
+        "pickHint": "Tap the stand and the stamp is set right away.",
+        "alreadyStamped": "You already have this stamp."
+      },
+      "francis": {
+        "stamped": "Stamp for {station}.",
+        "next": "Next you could go to {station}.",
+        "allDone": "All fields are full.",
+        "wrong": "This code does not match any stand.",
+        "ask": "Ask Francis"
+      },
+      "chat": {
+        "title": "Ask Francis",
+        "hint": "In the mockup the answers are prepared.",
+        "questions": {
+          "what": {
+            "q": "What is KIS?",
+            "a": "KIS is a pilot project at THL with an AI assistant and services for your studies."
+          },
+          "sources": {
+            "q": "Where do your answers come from?",
+            "a": "From the sources in your workspace. I tell you the passage as well."
+          },
+          "reward": {
+            "q": "Where do I get the reward?",
+            "a": "At the info stand, as soon as your card is full."
+          }
+        }
+      },
+      "complete": {
+        "title": "Done, your card is full",
+        "clock": "Current time",
+        "clockHint": "Show this page with the running clock at the info stand.",
+        "reward": "Pick up your reward at the info stand.",
+        "since": "Full since {time}"
+      },
+      "login": {
+        "title": "Link the card to your account",
+        "body": "If you log in, the card belongs to your account. We merge stamps from another device.",
+        "button": "Log in",
+        "linked": "This card is linked to your account."
+      },
+      "sim": {
+        "heading": "Simulation, mockup only",
+        "hint": "Here you simulate the scan at the stand.",
+        "scan": "Scan QR: {station}",
+        "count": "Number of stands",
+        "resetCard": "Clear card",
+        "unlock": "Lift lock"
+      }
+    },
+    "admin": {
+      "eyebrow": "Event",
+      "title": "Stamp card and event block",
+      "sub": "Stands, posters and the tiles on the info page. Changes apply immediately, in the mockup only in this browser.",
+      "tabs": {
+        "stations": "Stands",
+        "event": "Event block",
+        "stats": "Results"
+      },
+      "stations": {
+        "title": "Stands",
+        "description": "Order, name, short text and what Francis says after the stamp.",
+        "add": "+ Stand",
+        "remove": "Remove",
+        "removeTitle": "Remove stand",
+        "removeText": "The stand disappears from the card and the posters.",
+        "up": "Move up",
+        "down": "Move down",
+        "name": "Name",
+        "blurb": "Short text",
+        "francis": "Francis text",
+        "icon": "Icon",
+        "qr": "QR code",
+        "empty": "No stands yet"
+      },
+      "poster": {
+        "title": "Poster {station}",
+        "scanHint": "Scan the code or type it in",
+        "codeLabel": "Code",
+        "png": "Download as PNG",
+        "pdf": "As PDF (A5)",
+        "all": "All as PDF (A5)",
+        "printHint": "The print dialog opens. Choose Save as PDF there."
+      },
+      "master": {
+        "title": "Master code",
+        "description": "Four characters, printed on every poster. Upper and lower case do not matter.",
+        "reroll": "Roll again",
+        "apply": "Apply",
+        "copy": "Copy",
+        "copied": "Copied!",
+        "invalid": "Four characters from A to Z and 2 to 9, without I and O.",
+        "resetCard": "Reset the card in this browser",
+        "resetDone": "Reset"
+      },
+      "stats": {
+        "title": "Results",
+        "description": "Sample numbers. Nothing is recorded in the mockup.",
+        "perStation": "Visitors per stand",
+        "complete": "Complete cards",
+        "visitors": "{n, plural, one {# visitor} other {# visitors}}"
+      },
+      "event": {
+        "title": "Event block on the info page",
+        "active": "Active. The block sits at the top of the info page while the period runs.",
+        "disabled": "Disabled. The info page shows no event block.",
+        "toggleAria": "Toggle event block",
+        "from": "From",
+        "until": "Until",
+        "heading": "Heading",
+        "text": "Short text",
+        "tiles": "Tiles",
+        "addTile": "+ Tile",
+        "removeTile": "Remove tile",
+        "maxTiles": "At most four tiles",
+        "tileTitle": "Title",
+        "tileBody": "Description",
+        "tileButton": "Button label",
+        "tileIcon": "Icon",
+        "tileTarget": "Target",
+        "internalPath": "Path, for example /faq",
+        "accessCode": "Access code",
+        "preview": "Preview"
+      }
+    },
+    "icons": {
+      "francis": "Francis",
+      "translation": "Translation",
+      "interpreter": "Interpreter",
+      "tts": "Text to audio",
+      "transcription": "Audio to text",
+      "image": "Image generation",
+      "summary": "Summary",
+      "glossary": "Glossary",
+      "screencast": "Screencast",
+      "podcast": "Podcast",
+      "praesentation": "Presentation",
+      "info": "Info",
+      "gift": "Reward",
+      "star": "Star",
+      "lightbulb": "Idea",
+      "qrCode": "QR code"
+    }
   }
 }

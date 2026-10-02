@@ -4594,5 +4594,287 @@
         "fish": "Den Schlüssel legst du bei Fish Audio an."
       }
     }
+  },
+  "mockup": {
+    "common": {
+      "ribbon": "Mockup",
+      "ribbonHint": "Vorläufige Ansicht. Alle Daten liegen nur in diesem Browser.",
+      "backToOverview": "Zur Mockup-Übersicht",
+      "login": "Anmelden",
+      "close": "Schließen",
+      "cancel": "Abbrechen",
+      "de": "Deutsch",
+      "en": "Englisch"
+    },
+    "overview": {
+      "title": "Mockups",
+      "intro": "Vorläufige Seiten mit echten Bauteilen. Nicht verlinkt, nur über diese Adressen erreichbar.",
+      "info": {
+        "title": "Info-Seite",
+        "body": "Öffentliche Seite zum Pilotprojekt mit Event-Block."
+      },
+      "stamp": {
+        "title": "Stempelkarte",
+        "body": "Karte für Besucher, Stempel per QR-Code oder Code."
+      },
+      "admin": {
+        "title": "Admin für Stempelkarte und Event-Block",
+        "body": "Stände, Aufsteller, Master-Code, Auswertung und Event-Kacheln."
+      },
+      "resetAll": "Alle Mockup-Daten löschen",
+      "resetDone": "Gelöscht. Die Seiten starten wieder mit den Beispieldaten."
+    },
+    "event": {
+      "hidden": "Der Event-Block ist gerade ausgeblendet, weil er aus ist oder außerhalb des Zeitraums liegt.",
+      "target": {
+        "stamp": "Stempelkarte",
+        "info": "Info-Seite",
+        "internal": "Interne Seite",
+        "directLogin": "Direkt-Login mit Zugangscode"
+      }
+    },
+    "info": {
+      "eyebrow": "Pilotprojekt",
+      "title": "KIS ist ein Pilotprojekt an der THL",
+      "lead": "Ein KI-Assistent und Dienste für das Studium, erprobt in einem Pilotkurs. Du kannst dich anmelden, wenn du eingeladen bist.",
+      "heroCaption": "Platz für einen großen Screenshot: Francis antwortet und nennt seine Quellen",
+      "placeholder": "Platz für Screenshot",
+      "purpose": {
+        "heading": "Wofür das Projekt da ist",
+        "students": "KIS richtet sich an internationale Studierende, die mit Deutsch auf B1 in ein Fachstudium starten.",
+        "pilot": "Erprobt wird es im Pilotkurs Allgemeine Elektrotechnik.",
+        "funding": "Gefördert von der Stiftung Innovation in der Hochschullehre.",
+        "scope": "KIS ist ein Pilotprojekt an der THL. Es wird hier erprobt und weiterentwickelt."
+      },
+      "features": {
+        "heading": "Was du damit machen kannst",
+        "items": {
+          "francis": {
+            "title": "KI-Assistent Francis",
+            "body": "Fragen zu den Unterlagen deines Workspace stellen. Francis antwortet aus deinen Quellen."
+          },
+          "translation": {
+            "title": "Übersetzung",
+            "body": "Texte und Dokumente zwischen Deutsch und Englisch übersetzen."
+          },
+          "tts": {
+            "title": "Text in Audio",
+            "body": "Texte und Dokumente vorlesen lassen."
+          },
+          "transcription": {
+            "title": "Audio in Text",
+            "body": "Vorlesungen und Videos transkribieren, auch mit Untertiteln."
+          },
+          "interpreter": {
+            "title": "Dolmetscher",
+            "body": "Ein Gespräch in zwei Sprachen, die Übersetzung läuft mit."
+          },
+          "summary": {
+            "title": "Zusammenfassung",
+            "body": "Mehrere Materialien zu einem Text zusammenführen."
+          }
+        }
+      },
+      "handling": {
+        "heading": "Wie wir damit umgehen",
+        "sources": "Francis antwortet aus den Quellen, die in deinem Workspace liegen.",
+        "names": "Francis nennt die Quelle zu jeder Antwort, damit du nachlesen kannst.",
+        "errors": "KI kann Fehler machen. Prüfe die Antworten, besonders vor Prüfungen."
+      },
+      "team": {
+        "heading": "Wer dahintersteht",
+        "body": "Ein Team an der THL entwickelt und betreut KIS.",
+        "contact": "Platz für Kontakt"
+      },
+      "faq": {
+        "heading": "Häufige Fragen",
+        "items": {
+          "who": {
+            "q": "Wer kann KIS nutzen?",
+            "a": "Teilnehmende des Pilotkurses und eingeladene Personen."
+          },
+          "cost": {
+            "q": "Kostet KIS etwas?",
+            "a": "Nein. KIS ist ein gefördertes Pilotprojekt."
+          },
+          "data": {
+            "q": "Was passiert mit meinen Daten?",
+            "a": "Deine Unterlagen bleiben in deinem Workspace. Mehr dazu steht im Datenschutz."
+          },
+          "account": {
+            "q": "Wie bekomme ich ein Konto?",
+            "a": "Über eine Einladung oder einen Zugangscode deiner Lehrperson."
+          },
+          "after": {
+            "q": "Was passiert nach dem Pilot?",
+            "a": "Das entscheidet die THL nach der Auswertung."
+          }
+        }
+      },
+      "preview": {
+        "heading": "Vorschau-Steuerung, nur im Mockup",
+        "blockOn": "Event-Block anzeigen",
+        "tiles": "Kacheln",
+        "ignoreWindow": "Zeitraum übergehen"
+      }
+    },
+    "stamp": {
+      "title": "Stempelkarte",
+      "intro": "Besuche die Stände in beliebiger Reihenfolge. Jeder Stand gibt dir einen Stempel.",
+      "progress": "{done} von {total} Stempeln",
+      "open": "Noch offen",
+      "done": "Gestempelt",
+      "code": {
+        "label": "Code eingeben",
+        "placeholder": "Vier Zeichen",
+        "hint": "Den Code findest du auf dem Aufsteller am Stand.",
+        "submit": "Prüfen",
+        "wrong": "Der Code stimmt nicht. Schau noch mal auf den Aufsteller.",
+        "attemptsLeft": "{n, plural, one {Noch # Versuch} other {Noch # Versuche}}",
+        "locked": "Zu viele Fehlversuche. Warte noch {seconds} Sekunden.",
+        "pickTitle": "Welchen Stand hast du besucht?",
+        "pickHint": "Tippe den Stand an, der Stempel kommt sofort.",
+        "alreadyStamped": "Diesen Stempel hast du schon."
+      },
+      "francis": {
+        "stamped": "Stempel für {station}.",
+        "next": "Als Nächstes könntest du zu {station} gehen.",
+        "allDone": "Alle Felder sind voll.",
+        "wrong": "Dieser Code passt zu keinem Stand.",
+        "ask": "Francis fragen"
+      },
+      "chat": {
+        "title": "Francis fragen",
+        "hint": "Im Mockup sind die Antworten vorbereitet.",
+        "questions": {
+          "what": {
+            "q": "Was ist KIS?",
+            "a": "KIS ist ein Pilotprojekt an der THL mit einem KI-Assistenten und Diensten für das Studium."
+          },
+          "sources": {
+            "q": "Woher kommen deine Antworten?",
+            "a": "Aus den Quellen in deinem Workspace. Ich nenne dir die Stelle dazu."
+          },
+          "reward": {
+            "q": "Wo bekomme ich die Belohnung?",
+            "a": "Am Info-Stand, sobald deine Karte voll ist."
+          }
+        }
+      },
+      "complete": {
+        "title": "Geschafft, deine Karte ist voll",
+        "clock": "Aktuelle Uhrzeit",
+        "clockHint": "Zeig diese Seite mit der laufenden Uhr am Info-Stand.",
+        "reward": "Hol dir deine Belohnung am Info-Stand ab.",
+        "since": "Voll seit {time}"
+      },
+      "login": {
+        "title": "Karte deinem Konto zuordnen",
+        "body": "Wenn du dich anmeldest, gehört die Karte zu deinem Konto. Stempel von einem anderen Gerät führen wir zusammen.",
+        "button": "Anmelden",
+        "linked": "Diese Karte ist deinem Konto zugeordnet."
+      },
+      "sim": {
+        "heading": "Simulation, nur im Mockup",
+        "hint": "Hier simulierst du den Scan am Stand.",
+        "scan": "QR scannen: {station}",
+        "count": "Anzahl Stände",
+        "resetCard": "Karte leeren",
+        "unlock": "Sperre aufheben"
+      }
+    },
+    "admin": {
+      "eyebrow": "Veranstaltung",
+      "title": "Stempelkarte und Event-Block",
+      "sub": "Stände, Aufsteller und die Kacheln auf der Info-Seite. Änderungen wirken sofort, im Mockup nur in diesem Browser.",
+      "tabs": {
+        "stations": "Stände",
+        "event": "Event-Block",
+        "stats": "Auswertung"
+      },
+      "stations": {
+        "title": "Stände",
+        "description": "Reihenfolge, Name, Kurztext und was Francis nach dem Stempel sagt.",
+        "add": "+ Stand",
+        "remove": "Entfernen",
+        "removeTitle": "Stand entfernen",
+        "removeText": "Der Stand verschwindet aus Karte und Aufstellern.",
+        "up": "Nach oben",
+        "down": "Nach unten",
+        "name": "Name",
+        "blurb": "Kurztext",
+        "francis": "Francis-Text",
+        "icon": "Icon",
+        "qr": "QR-Code",
+        "empty": "Noch keine Stände"
+      },
+      "poster": {
+        "title": "Aufsteller {station}",
+        "scanHint": "Scanne den Code oder gib ihn ein",
+        "codeLabel": "Code",
+        "png": "Als PNG herunterladen",
+        "pdf": "Als PDF (A5)",
+        "all": "Alle als PDF (A5)",
+        "printHint": "Es öffnet sich der Druckdialog. Wähle dort Als PDF speichern."
+      },
+      "master": {
+        "title": "Master-Code",
+        "description": "Vier Zeichen, steht auf jedem Aufsteller. Groß- und Kleinschreibung ist egal.",
+        "reroll": "Neu würfeln",
+        "apply": "Übernehmen",
+        "copy": "Kopieren",
+        "copied": "Kopiert!",
+        "invalid": "Vier Zeichen aus A bis Z und 2 bis 9, ohne I und O.",
+        "resetCard": "Karte in diesem Browser zurücksetzen",
+        "resetDone": "Zurückgesetzt"
+      },
+      "stats": {
+        "title": "Auswertung",
+        "description": "Beispielzahlen. Im Mockup wird nichts erfasst.",
+        "perStation": "Besucher je Stand",
+        "complete": "Vollständige Karten",
+        "visitors": "{n, plural, one {# Besucher} other {# Besucher}}"
+      },
+      "event": {
+        "title": "Event-Block auf der Info-Seite",
+        "active": "Aktiv. Der Block steht oben auf der Info-Seite, solange der Zeitraum läuft.",
+        "disabled": "Deaktiviert. Die Info-Seite zeigt keinen Event-Block.",
+        "toggleAria": "Event-Block umschalten",
+        "from": "Von",
+        "until": "Bis",
+        "heading": "Überschrift",
+        "text": "Kurztext",
+        "tiles": "Kacheln",
+        "addTile": "+ Kachel",
+        "removeTile": "Kachel entfernen",
+        "maxTiles": "Höchstens vier Kacheln",
+        "tileTitle": "Titel",
+        "tileBody": "Beschreibung",
+        "tileButton": "Button-Beschriftung",
+        "tileIcon": "Icon",
+        "tileTarget": "Ziel",
+        "internalPath": "Pfad, zum Beispiel /faq",
+        "accessCode": "Zugangscode",
+        "preview": "Vorschau"
+      }
+    },
+    "icons": {
+      "francis": "Francis",
+      "translation": "Übersetzung",
+      "interpreter": "Dolmetscher",
+      "tts": "Text in Audio",
+      "transcription": "Audio in Text",
+      "image": "Bildgenerierung",
+      "summary": "Zusammenfassung",
+      "glossary": "Glossar",
+      "screencast": "Screencast",
+      "podcast": "Podcast",
+      "praesentation": "Präsentation",
+      "info": "Info",
+      "gift": "Belohnung",
+      "star": "Stern",
+      "lightbulb": "Idee",
+      "qrCode": "QR-Code"
+    }
   }
 }
