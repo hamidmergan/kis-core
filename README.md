@@ -30,8 +30,6 @@ Developed at Institut für Interaktive Systeme (ISy), Technische Hochschule Lüb
 
 ## Run it locally
 
-The same two commands on macOS, Linux and Windows:
-
 ```bash
 cp .env.example .env
 docker compose up -d
