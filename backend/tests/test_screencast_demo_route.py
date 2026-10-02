@@ -146,3 +146,13 @@ def test_ohne_daten_meldet_die_demo_nichts_verfuegbar(client, demo_dir):
     with patch("src.routes.screencast_demo.DEMO_DIR", demo_dir / "fehlt"):
         assert client.get("/screencast-demo/available").json()["available"] is False
         assert client.get("/screencast-demo/stimmen").json()["stimmen"] == []
+
+
+def test_angaben_nennen_die_stimme_des_videos(client):
+    de = client.get("/screencast-demo/angaben").json()
+    en = client.get("/screencast-demo/angaben?sprache=en").json()
+
+    assert de["angaben"] == {"anbieter": "HPC", "sprache": "de", "stimme": "Thorsten"}
+    assert en["angaben"]["stimme"] == "Michael"
+    assert de["datei"] == "Projektstart.pptx"
+    assert de["erstellt"].endswith("Z")

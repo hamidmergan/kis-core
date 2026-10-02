@@ -25,6 +25,7 @@ import ScriptReviewStep from "../screencast/_steps/ScriptReviewStep";
 import TtsSettingsStep from "../screencast/_steps/TtsSettingsStep";
 import RenderVorschau from "../screencast/_components/RenderVorschau";
 import VideoVergleich, { type DemoStimme } from "../screencast/_components/VideoVergleich";
+import type { Auftrag } from "@/components/jobs/ErgebnisInfo";
 import Lightbox from "../screencast/_components/Lightbox";
 import ZusatzMaterial, { KEIN_MATERIAL } from "../screencast/_components/ZusatzMaterial";
 import { useFolienAuswahl } from "../screencast/_hooks/useFolienAuswahl";
@@ -80,6 +81,15 @@ function ScreencastDemoLauf({ onNeu }: { onNeu: () => void }) {
       .then((data) => setStimmen(data.stimmen ?? []))
       .catch(() => {});
   }, []);
+  // What the prepared video of the chosen language was made with, for the info next to the result.
+  const [auftrag, setAuftrag] = useState<Auftrag | null>(null);
+  useEffect(() => {
+    setAuftrag(null);
+    fetch(`${DEMO_API}/angaben?sprache=${sprache}`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => data && setAuftrag(data))
+      .catch(() => {});
+  }, [sprache]);
   const video = `${DEMO_API}/video?sprache=${sprache}`;
 
   const [slidePause, setSlidePause] = useState(1.0);
@@ -491,6 +501,7 @@ function ScreencastDemoLauf({ onNeu }: { onNeu: () => void }) {
             onReset={onNeu}
             onNeuVertonen={() => dispatch({ type: "SET_STEP", step: "tts-settings" })}
             zipUrl={`${DEMO_API}/bundle?sprache=${sprache}`}
+            demoAuftrag={auftrag}
           />
         )}
         {step === "done" && <VideoVergleich stimmen={stimmen} sprache={sprache} />}

@@ -9,6 +9,7 @@ import base64
 import io
 import json
 import re
+from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -156,6 +157,23 @@ def demo_video(
         filename="screencast_demo.mp4" if download else None,
         content_disposition_type="attachment" if download else "inline",
     )
+
+
+@router.get("/screencast-demo/angaben")
+def demo_angaben(sprache: str = STANDARD_SPRACHE, _: dict = Depends(get_current_user)):
+    """What the prepared video was made with, for the info next to the result."""
+    ordner = _ordner(sprache)
+    stimmen = _stimmen()
+    # The video of a language speaks with the first service of stimmen.json.
+    erste = (stimmen[0].get("sprachen", {}).get(ordner.name) or {}) if stimmen else {}
+    video, deck = _video(ordner), _praesentation(ordner)
+    return {
+        "angaben": {"anbieter": erste.get("anbieter") or stimmen[0].get("anbieter", "") if stimmen else "",
+                    "sprache": ordner.name, "stimme": erste.get("name", "")},
+        # UTC with a Z, like every other date the pages format.
+        "erstellt": datetime.fromtimestamp(video.stat().st_mtime, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ") if video else None,
+        "datei": deck.name if deck else None,
+    }
 
 
 @router.get("/screencast-demo/vergleich/{sprache}/{anbieter}")
