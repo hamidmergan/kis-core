@@ -7,7 +7,7 @@ Developed at Institut für Interaktive Systeme (ISy), Technische Hochschule Lüb
 
 ## Features
 
-- Document translation (DOCX, PPTX, MD, TEX, PDF) with glossary
+- Document translation with glossary
 - Slide decks from an outline: layouts, charts, images
 - Screencasts from PPTX: script, speech, video, subtitles
 - Podcasts from source material: script, voices, audio
