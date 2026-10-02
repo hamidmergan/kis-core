@@ -4686,7 +4686,7 @@
         },
         "how": {
           "q": "Wie läuft die Arbeit mit der Plattform ab?",
-          "a": "Für Lehrende gibt es Dienste wie Screencast, Podcast oder Präsentation und daneben den KI-Assistenten Francis. Lehrende legen einen Workspace an, laden Dokumente und andere Materialien hoch und verwalten sie. Danach laden sie Studierende ein. Die Studierenden arbeiten im Workspace mit dem Material und stellen Francis ihre Fragen dazu."
+          "a": "Für Lehrende gibt es Dienste wie Screencast, Podcast oder Präsentation und daneben den KI-Assistenten Francis. Lehrende legen einen Workspace an, laden Dokumente und andere Materialien hoch und verwalten sie. Danach laden sie Studierende ein. Die Studierenden arbeiten im Workspace mit dem Material und stellen Francis ihre Fragen dazu. Die Dienste stehen in der Pilotphase nur Lehrenden zur Verfügung. Künftig wäre es sinnvoll, sie auch für Studierende freizugeben."
         },
         "state": {
           "q": "Wie ist der aktuelle Stand?",
@@ -4695,10 +4695,6 @@
         "who": {
           "q": "Wer kann die Plattform nutzen, und kann ich sie ausprobieren?",
           "a": "Aktuell ist sie nicht allgemein zugänglich. Der Zugang ist für eine Gruppe von Studierenden zum Testen und für weitere Testpersonen geplant. Wenn du sie ausprobieren möchtest, schreib uns über den Kontakt am Ende der Seite. Wir schauen gemeinsam, ob und wie ein Test in deinem Fall möglich ist."
-        },
-        "studentServices": {
-          "q": "Können Studierende die Dienste auch nutzen?",
-          "a": "In der Pilotphase noch nicht. Die Dienste wie Screencast, Podcast oder Präsentation stehen zunächst nur Lehrenden zur Verfügung, Studierende arbeiten mit Francis. Künftig wäre es sinnvoll, die Dienste auch für Studierende freizugeben."
         },
         "sources": {
           "q": "Woher nimmt Francis seine Antworten?",
