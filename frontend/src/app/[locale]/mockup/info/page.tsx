@@ -3,6 +3,7 @@
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import EventBlock from "../_components/EventBlock";
+import HeroTabs from "./_components/HeroTabs";
 import InfoHero from "./_components/InfoHero";
 import { HandlingSection, PurposeSection, TeamSection } from "./_components/InfoSections";
 import LearnRows from "./_components/LearnRows";
@@ -11,7 +12,9 @@ import InfoFaq from "./_components/InfoFaq";
 
 function Hero() {
   const params = useSearchParams();
-  return <InfoHero layout={params.get("hero") === "center" ? "center" : "split"} />;
+  if (params.get("hero") === "center") return <InfoHero layout="center" />;
+  if (params.get("hero") === "plain") return <InfoHero layout="split" />;
+  return <HeroTabs />;
 }
 
 // Zoom steps by window size, the ranges do not overlap so exactly one wins.
@@ -28,7 +31,7 @@ export default function MockupInfoPage() {
   return (
     // Grows like browser zoom on wide screens, breakpoints are container queries so they follow the zoomed width.
     <main className={`@container [zoom:var(--zoom)] ${ZOOM}`}>
-      <Suspense fallback={<InfoHero />}>
+      <Suspense fallback={<HeroTabs />}>
         <Hero />
       </Suspense>
       <EventBlock bleed />

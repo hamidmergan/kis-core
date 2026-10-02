@@ -4719,7 +4719,12 @@
       "services": {
         "heading": "Services for teachers",
         "intro": "Besides the AI assistant, teachers find these services right on the start page."
-      }
+      },
+      "tabAia": "AI assistant Francis",
+      "tabServices": "Services",
+      "servicesTitle": "Services for your material",
+      "servicesLead": "Translate, read aloud, turn into a podcast or a presentation and more. The services make new material out of your files.",
+      "servicesAlt": "Start page with the AI assistant Francis and the services"
     },
     "stamp": {
       "title": "Stamp card",

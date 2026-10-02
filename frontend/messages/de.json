@@ -4719,7 +4719,12 @@
       "services": {
         "heading": "Dienste für Lehrende",
         "intro": "Neben dem KI-Assistenten finden Lehrende diese Dienste direkt auf der Startseite."
-      }
+      },
+      "tabAia": "KI-Assistent Francis",
+      "tabServices": "Dienste",
+      "servicesTitle": "Dienste für dein Material",
+      "servicesLead": "Übersetzen, vorlesen lassen, als Podcast oder Präsentation aufbereiten und mehr. Die Dienste machen aus deinen Dateien neues Material.",
+      "servicesAlt": "Startseite mit dem KI-Assistenten Francis und den Diensten"
     },
     "stamp": {
       "title": "Stempelkarte",
