@@ -37,7 +37,7 @@ docker compose up -d
 Open `http://localhost:3000`.
 
 - Login: `admin` / `adminpw` from `.env.example`, by user name or mail address.
-- Other users: invitation link or access code, under **Admin → Nutzer**.
+- Other users: invitation link or access code, under **Admin → Users**.
 - Rename the admin or reset its password: change `ADMIN_USERNAME` / `ADMIN_EMAIL` / `ADMIN_PASSWORD`
   in `.env` and recreate the container (`docker restart` is not enough). Change `ADMIN_PASSWORD`
   before any real use, a production install refuses the example value.
@@ -70,7 +70,7 @@ role.
 
 ## AI providers
 
-The repository ships no API keys. Providers are added at runtime under **Admin → KI**, and every
+The repository ships no API keys. Providers are added at runtime under **Admin → AI**, and every
 feature is routed to a model there. Any OpenAI compatible endpoint works, plus DeepL and Docling.
 
 Speech and local models run outside the stack and are reached by base URL, for example Ollama at
