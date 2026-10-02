@@ -161,9 +161,9 @@ export default function LoginPage() {
   if (checking) return null;
 
   return (
-    <>
+    <div className="flex flex-col lg:min-h-dvh">
     <Header hasSession={false} showLogout hideLogin />
-    <main className="grid lg:grid-cols-[5fr_6fr] lg:min-h-[calc(100dvh-7rem)]">
+    <main className="grid lg:flex-1 lg:grid-cols-[5fr_6fr]">
       <h1 className="sr-only">{t("welcome")}</h1>
       <section className="relative hidden lg:flex items-center justify-center bg-kb px-14 py-14">
         <div className="flex w-full max-w-md flex-col items-center">
@@ -366,6 +366,6 @@ export default function LoginPage() {
         </div>
       </section>
     </main>
-    </>
+    </div>
   );
 }
