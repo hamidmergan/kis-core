@@ -27,11 +27,11 @@ export default function EventTile({ tile }: { tile: EventTileData }) {
   const { variant } = useMascotPref();
   return (
     <div
-      className="flex flex-col gap-3 border-2 border-[var(--tile-border)] rounded-2xl bg-[var(--tile-bg)] p-5 text-foreground"
+      className="flex flex-col items-center text-center gap-3 border-2 border-[var(--tile-border)] rounded-2xl bg-[var(--tile-bg)] p-5 text-foreground"
       style={{ boxShadow: "var(--shadow)" }}
       data-testid="event-tile"
     >
-      <div className="flex items-center gap-4">
+      <div className="flex flex-col items-center gap-3">
         <span className="flex items-center justify-center w-14 h-14 shrink-0 rounded-full bg-kb text-on-accent">
           {tile.icon === "francis" ? (
             <Mascot variant={variant} size={52} state="idle" />
@@ -44,7 +44,7 @@ export default function EventTile({ tile }: { tile: EventTileData }) {
       <p className="text-sm leading-[21px] text-foreground-soft flex-1">{text(tile.body)}</p>
       <Link
         href={tileHref(tile.target)}
-        className="self-start px-3 py-2 text-sm btn-primary rounded-md transition-colors whitespace-nowrap"
+        className="self-center px-3 py-2 text-sm btn-primary rounded-md transition-colors whitespace-nowrap"
       >
         {text(tile.button)}
       </Link>
