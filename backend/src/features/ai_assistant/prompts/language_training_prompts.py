@@ -24,13 +24,13 @@ AIA_LERNKARTEN_PROMPT = (
     '      "word_parts": "Teil1 + Teil2 + Teil3",\n'
     '      "word_parts_explained": "Teil1 = einfache Erklärung | Teil2 = einfache Erklärung",\n'
     '      "example_sentence": "Ein einfacher Beispielsatz mit dem Begriff, wie man ihn im Studienalltag benutzt.",\n'
-    '      "word_class": "part of speech, in {language}",\n'
     '      "singular": "singular form of the term with its article (fill for every noun)",\n'
     '      "plural": "plural form of the term with its article (fill unless the noun has no plural at all)",\n'
     '      "verb_present": "3rd person singular, present tense (verbs only)",\n'
     '      "verb_past": "3rd person singular, simple past (verbs only)",\n'
     '      "verb_perfect": "perfect form WITH its auxiliary (verbs only)",\n'
     '      "verb_preposition": "fixed preposition the verb requires, with its case (verbs only, else empty)",\n'
+    '      "word_class": "part of speech, in {language}, written AFTER the verb forms and read off them",\n'
     '      "begriff_en": "English translation",\n'
     '      "source_label": "Filename.pdf",\n'
     '      "page_number": 5\n'
@@ -93,15 +93,31 @@ AIA_LERNKARTEN_PROMPT = (
     "The sentence should help the student understand the term in context.\n"
     "- word_class: the part of speech of the begriff, written in {language} (e.g. Nomen / Verb / Adjektiv, or noun / verb / adjective). Always fill this.\n"
     "- word_class VERB MARKER: when the begriff is a VERB, append a bracket to the word class saying whether it is "
-    "regular or irregular, and add the word for reflexive when the verb is reflexive. Write the bracket in {language}. "
-    "German examples: 'sich treffen' -> 'Verb (unregelmäßig, reflexiv)'; 'lernen' -> 'Verb (regelmäßig)'; "
-    "'sich beeilen' -> 'Verb (regelmäßig, reflexiv)'. Anything that is not a verb gets NO bracket.\n"
+    "regular or irregular, then, in a language with separable verbs, whether it is separable or inseparable, "
+    "and add the word for reflexive when the verb is reflexive. Write the bracket in {language}. "
+    "Decide the bracket FROM the verb forms you wrote, never from the look of the infinitive, "
+    "so the bracket and the forms can never contradict each other. "
+    "Irregular means the stem changes in the past or the perfect, as in German 'stehen' -> 'stand' -> 'gestanden' "
+    "or 'heben' -> 'hob' -> 'gehoben'. A verb built on an irregular verb stays irregular with every prefix: "
+    "'ausstehen' and 'unterheben' are irregular because 'stehen' and 'heben' are. "
+    "Separable means the prefix splits off and moves to the end in the present and the past, as in "
+    "'ausstehen' -> 'steht aus', 'stand aus', 'hat ausgestanden'. "
+    "Some prefixes (German 'unter', 'über', 'um', 'durch', 'wieder') are separable in one verb and inseparable in another, "
+    "decide by this verb's meaning: 'unterheben' (mix in gently) -> 'hebt unter', 'hob unter', 'hat untergehoben', separable; "
+    "'unterrichten' -> 'unterrichtet', 'unterrichtete', 'hat unterrichtet', inseparable. "
+    "German examples: 'unterheben' -> 'Verb (unregelmäßig, trennbar)'; 'ausstehen' -> 'Verb (unregelmäßig, trennbar)'; "
+    "'sich treffen' -> 'Verb (unregelmäßig, reflexiv)'; 'lernen' -> 'Verb (regelmäßig)'; "
+    "'sich beeilen' -> 'Verb (regelmäßig, reflexiv)'; 'unterrichten' -> 'Verb (regelmäßig, untrennbar)'; "
+    "'einkaufen' -> 'Verb (regelmäßig, trennbar)'. "
+    "A verb without any prefix gets no separable marker. Anything that is not a verb gets NO bracket.\n"
     "- verb_present, verb_past, verb_perfect: fill all three ONLY when the begriff is a verb, otherwise leave all three "
     "empty. Give the THIRD PERSON SINGULAR in each tense and keep the reflexive pronoun with the verb when it has one. "
     "verb_perfect MUST carry its auxiliary, because that is the part a learner cannot guess. "
     "German example 'sich treffen': verb_present='trifft sich', verb_past='traf sich', verb_perfect='hat sich getroffen'. "
     "German example 'lernen': verb_present='lernt', verb_past='lernte', verb_perfect='hat gelernt'. "
-    "German example 'fahren': verb_present='fährt', verb_past='fuhr', verb_perfect='ist gefahren' (auxiliary 'ist', not 'hat').\n"
+    "German example 'fahren': verb_present='fährt', verb_past='fuhr', verb_perfect='ist gefahren' (auxiliary 'ist', not 'hat'). "
+    "A separable verb splits in the present and the past: 'unterheben' -> verb_present='hebt unter', "
+    "verb_past='hob unter', verb_perfect='hat untergehoben' (NOT 'unterhebt', 'unterhob').\n"
     "- verb forms CERTAINTY: if you are not fully certain of ONE of the forms, leave ALL THREE empty. "
     "A missing row costs the learner nothing, a wrong form teaches them something false.\n"
     "  GOOD: 'backen' -> verb_present='backt', verb_past='backte', verb_perfect='hat gebacken'\n"

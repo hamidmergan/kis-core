@@ -213,3 +213,22 @@ def test_prompt_haelt_die_praeposition_in_der_quellsprache():
 
 def test_gemeinsame_konstante_kennt_die_praeposition():
     assert "verb_preposition" in AIA_FLASHCARD_EXTRAS_FIELDS
+
+
+# --- separable and irregular, read off the forms -----------------------------
+
+def test_prompt_kennt_trennbar_in_der_klammer():
+    assert "'unterheben' -> 'Verb (unregelmäßig, trennbar)'" in AIA_LERNKARTEN_PROMPT
+    assert "'unterrichten' -> 'Verb (regelmäßig, untrennbar)'" in AIA_LERNKARTEN_PROMPT
+
+
+def test_prompt_trennt_die_formen_trennbarer_verben():
+    """'unterhob' was on a card although only 'hob unter' is correct."""
+    assert "verb_past='hob unter'" in AIA_LERNKARTEN_PROMPT
+
+
+def test_wortart_steht_hinter_den_verbformen():
+    """The bracket is read off the forms, so the model has to write the forms first."""
+    schema = AIA_LERNKARTEN_PROMPT.split("Rules:")[0]
+    assert schema.index('"verb_perfect"') < schema.index('"word_class"')
+    assert "Decide the bracket FROM the verb forms" in AIA_LERNKARTEN_PROMPT
