@@ -18,7 +18,7 @@ export default function ToolBackLink({ onRestart }: { onRestart?: () => void }) 
     );
   }
   return (
-    <Link href="/" className={CLASS} style={{ color: "var(--muted)" }}>
+    <Link href="/services" className={CLASS} style={{ color: "var(--muted)" }}>
       <CaretLeft size={13} weight="bold" />
       {t("backToTools")}
     </Link>

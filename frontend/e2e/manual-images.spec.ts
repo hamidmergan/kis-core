@@ -30,7 +30,7 @@ const STUDENT = {
 
 /** One picture per page that needs nothing but its address. */
 const PAGES: { name: string; path: string }[] = [
-  { name: "start-page", path: "/" },
+  { name: "start-page", path: "/services" },
   { name: "module-list", path: "/workspace" },
   { name: "tool-translation", path: "/tools/translate" },
   { name: "tool-text-to-speech", path: "/tools/tts" },
@@ -164,13 +164,13 @@ test.describe("Handbuch-Bilder", () => {
     for (const locale of LOCALES) {
       test(`erster-besuch ${locale}`, async ({ page }) => {
         await useLocale(page, locale);
-        await page.goto("/", { waitUntil: "domcontentloaded" });
+        await page.goto("/login", { waitUntil: "domcontentloaded" });
         await page.waitForSelector("#username");
         await page.fill("#username", STUDENT.user);
         await page.fill("#password", STUDENT.pass);
         await page.locator('button[type="submit"]').click();
         await page.waitForURL((url) => !url.pathname.includes("login"), { timeout: 30_000 });
-        // The login lands on "/", the student is sent on to the module list, the English version needs its address back.
+        // The login lands on "/services", the student is sent on to the module list, the English version needs its address back.
         await page.goto(`${prefix(locale)}/workspace`, { waitUntil: "domcontentloaded" });
         await settle(page);
 

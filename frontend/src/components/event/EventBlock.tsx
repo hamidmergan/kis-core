@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import Band from "@/app/[locale]/info/_components/Band";
+import Band from "@/app/[locale]/_components/landing/Band";
 import { useText2 } from "@/lib/event/useText2";
 import EventTile from "@/components/event/EventTile";
 import type { EventBlock as EventBlockData } from "@/lib/event/types";

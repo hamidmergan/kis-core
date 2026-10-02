@@ -7,7 +7,7 @@ import { enabledToolKeys, homeTargets } from "@/lib/modules";
 import { useEnabledTools } from "@/hooks/useEnabledTools";
 import type { AuthStatus } from "@/types";
 
-/** True when "/" really shows the tiles, false when it just redirects to the single target. */
+/** True when "/services" really shows the tiles, false when it just redirects to the single target. */
 export function useHasStartTiles(): boolean {
   const [auth, setAuth] = useState<AuthStatus | null>(null);
   const { loaded: toolsLoaded, tools: enabledTools } = useEnabledTools();

@@ -29,7 +29,7 @@ export default function Header({ hasSession = true, showLogout = false, hideLogi
   // The URL says where you are, the button in the header shows it.
   const onCalendar = pathname === "/calendar" || pathname.startsWith("/calendar/");
   // The button points at the start page, so standing there counts as being on Dienste.
-  const onTools = pathname === "/" || pathname.startsWith("/tools/");
+  const onTools = pathname === "/services" || pathname.startsWith("/tools/");
   const [isAdmin, setIsAdmin] = useState(false);
   const [canViewManual, setCanViewManual] = useState(false);
   // Admin only for whoever may do everything, everyone else goes to their settings.
@@ -142,7 +142,7 @@ export default function Header({ hasSession = true, showLogout = false, hideLogi
               <div className="hidden sm:flex items-center gap-1.5">
                 {hasSession && hasTools && (
                   <Link
-                    href="/"
+                    href="/services"
                     aria-label={t("tools")}
                     title={t("tools")}
                     aria-current={onTools ? "page" : undefined}

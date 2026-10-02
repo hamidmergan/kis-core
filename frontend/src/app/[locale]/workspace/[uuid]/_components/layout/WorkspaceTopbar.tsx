@@ -165,7 +165,7 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
   // A module has no blue bar any more, so the way back home hangs on the logo here.
   const logo = (
     <Link
-      href="/"
+      href="/services"
       aria-label={tHeader("homeAria")}
       title={tHeader("homeAria")}
       className="flex items-center gap-1.5 flex-shrink-0 no-underline logo-link"

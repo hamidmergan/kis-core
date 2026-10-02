@@ -25,7 +25,7 @@ export default function LayoutShell({
 
   const showHeader = !NO_HEADER_PATHS.has(pathname) && !matchesPrefix(pathname, NO_HEADER_PREFIXES);
   // The notice bar belongs to the two landing pages, the tiles and the module list.
-  const showNotice = pathname === "/" || pathname === "/workspace";
+  const showNotice = pathname === "/services" || pathname === "/workspace";
 
   // The banner sits above every early return, a borrowed account must never hide it.
   return (

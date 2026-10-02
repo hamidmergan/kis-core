@@ -29,7 +29,7 @@ export default function AdminAuth({ children }: { children: ReactNode }) {
       if (!s.authenticated) { router.push("/login"); return; }
       const perms = s.permissions ?? EMPTY_PERMS;
       // Whoever holds not a single settings permission has no business here.
-      if (!perms.allow_admin_panel) { router.push("/"); return; }
+      if (!perms.allow_admin_panel) { router.push("/services"); return; }
       setState({ email: s.email ?? "", perms });
     });
   }, [router]);

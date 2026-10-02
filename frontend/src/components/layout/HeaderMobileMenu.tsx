@@ -103,7 +103,7 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, canViewManual = 
   const activeRowStyle = { backgroundColor: "var(--surface-dim)", fontWeight: 600 };
   const onCalendar = pathname === "/calendar" || pathname.startsWith("/calendar/");
   // The button points at the start page, so standing there counts as being on Dienste.
-  const onTools = pathname === "/" || pathname.startsWith("/tools/");
+  const onTools = pathname === "/services" || pathname.startsWith("/tools/");
   const onJobsPage = pathname.startsWith("/my-jobs");
   const headingClass = "px-4 pt-2.5 pb-1 text-2xs font-semibold uppercase tracking-wide";
   // Own settings and help, then the admin area, then log out, each block opens with a divider.
@@ -134,8 +134,8 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, canViewManual = 
         >
           {hasSession && hasTools && (
             <Link
-              href="/"
-              onClick={closeIfHere("/")}
+              href="/services"
+              onClick={closeIfHere("/services")}
               aria-current={onTools ? "page" : undefined}
               className={rowClass}
               style={{ color: "var(--foreground)", ...(onTools ? activeRowStyle : {}) }}

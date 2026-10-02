@@ -87,7 +87,7 @@ export default function AccessExpiredPage() {
               </h2>
               <button
                 type="button"
-                onClick={() => window.location.assign("/")}
+                onClick={() => window.location.assign("/services")}
                 className="w-full px-4 py-2 text-sm font-medium rounded-md btn-primary"
               >
                 {t("doneGo")}

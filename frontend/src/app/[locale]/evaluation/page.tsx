@@ -138,7 +138,7 @@ export default function EvaluationPage() {
               </p>
               <button
                 type="button"
-                onClick={() => router.push("/")}
+                onClick={() => router.push("/services")}
                 className="px-4 py-2 text-sm btn-primary rounded-md transition-colors"
               >
                 {t("backToHome")}
@@ -278,7 +278,7 @@ export default function EvaluationPage() {
               )}
               <button
                 type="button"
-                onClick={() => router.push("/")}
+                onClick={() => router.push("/services")}
                 className="w-full px-4 py-2 text-sm btn-primary rounded-md transition-colors"
               >
                 {t("backToHome")}

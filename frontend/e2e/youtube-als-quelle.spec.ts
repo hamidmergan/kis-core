@@ -19,7 +19,7 @@ test.use({ storageState: { cookies: [], origins: [] }, locale: "de-DE" });
 test.setTimeout(240_000);
 
 async function anmelden(page: Page) {
-  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await page.goto("/login", { waitUntil: "domcontentloaded" });
   await page.waitForSelector("#username");
   await page.fill("#username", OWNER.username);
   await page.fill("#password", OWNER.password);

@@ -1,88 +1,65 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "@/i18n/navigation";
-import ProtectedRoute from "@/components/auth/ProtectedRoute";
-import LockedNotice from "@/components/auth/LockedNotice";
-import { checkAuthStatus } from "@/lib/auth";
-import { EMPTY_PERMS, PERM, hasPerm } from "@/lib/permissions";
-import { homeTargets, enabledToolKeys, type HomeTarget } from "@/lib/modules";
-import { useEnabledTools } from "@/hooks/useEnabledTools";
-import type { AuthStatus } from "@/types";
-import StartOverview from "./_components/StartOverview";
-import WelcomeModal from "./workspace/_components/WelcomeModal";
+import EventBlock from "@/components/event/EventBlock";
+import { usePublicEvent } from "@/lib/event/usePublicEvent";
+import HeroTabs from "./_components/landing/HeroTabs";
+import InfoHero from "./_components/landing/InfoHero";
+import { ContactSection, PurposeSection } from "./_components/landing/InfoSections";
+import LearnRows from "./_components/landing/LearnRows";
+import ServiceGrid from "./_components/landing/ServiceGrid";
+import InfoFaq from "./_components/landing/InfoFaq";
+import ScrollTopButton from "./_components/landing/ScrollTopButton";
+import { useFitZoom } from "./_components/landing/useFitZoom";
 
-interface HomeState {
-  targets: HomeTarget[];
-  firstName: string;
-}
-
-export default function HomePage() {
-  return (
-    <ProtectedRoute>
-      {/* The query string is only readable inside a Suspense boundary. */}
-      <Suspense>
-        <HomeRouter />
-      </Suspense>
-    </ProtectedRoute>
-  );
-}
-
-/** One place to go means a straight redirect, more than one means the tiles. */
-function HomeRouter() {
+/** Old invitation links still point at "/?code=", the enrolment is handled on the tiles page. */
+function CodeForward() {
+  const params = useSearchParams();
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const [auth, setAuth] = useState<AuthStatus | null>(null);
-  const { loaded: toolsLoaded, tools: enabledTools } = useEnabledTools();
-  const [state, setState] = useState<HomeState | null>(null);
-
+  const code = params.get("code");
   useEffect(() => {
-    checkAuthStatus().then(setAuth);
-  }, []);
+    if (code) router.replace(`/services?code=${encodeURIComponent(code)}`);
+  }, [code, router]);
+  return null;
+}
 
-  useEffect(() => {
-    if (!auth || !toolsLoaded) return;
-    const perms = auth.permissions ?? EMPTY_PERMS;
-    setState({
-      targets: homeTargets(auth.modules, perms, enabledToolKeys(enabledTools)),
-      firstName: auth.display_name?.split(" ")[0] ?? auth.username ?? "",
-    });
-  }, [auth, toolsLoaded, enabledTools]);
+function Hero() {
+  const params = useSearchParams();
+  if (params.get("hero") === "center") return <InfoHero layout="center" />;
+  if (params.get("hero") === "plain") return <InfoHero layout="split" />;
+  return <HeroTabs />;
+}
 
-  const code = searchParams.get("code");
-  const hasAia = state?.targets.some((z) => z.kind === "aia") ?? false;
-  // Old invitation links still point here, the enrolment card lives on the module list now.
-  const weiter =
-    state === null
-      ? null
-      : code && hasAia
-        ? `/workspace?code=${encodeURIComponent(code)}`
-        : state.targets.length === 1
-          ? state.targets[0].href
-          : null;
+// Zoom steps by window size, the ranges do not overlap so exactly one wins.
+const ZOOM = [
+  "[--zoom:1]",
+  "[@media(min-width:1024px)_and_(max-width:1279px)_and_(min-height:761px)]:[--zoom:1.25]",
+  "[@media(min-width:1280px)_and_(min-height:761px)_and_(max-height:849px)]:[--zoom:1.25]",
+  "[@media(min-width:1280px)_and_(min-height:850px)]:[--zoom:1.5]",
+  "[@media(min-width:1024px)_and_(max-height:760px)]:[--zoom:1.05]",
+].join(" ");
 
-  useEffect(() => {
-    if (weiter) router.replace(weiter);
-  }, [weiter, router]);
-
-  if (state === null || weiter) return null;
-
+/** Public page about the pilot, built as full-width bands, the event block is admin content and the server hides it outside its period. */
+export default function InfoPage() {
+  const mainRef = useRef<HTMLElement>(null);
+  useFitZoom(mainRef, "info-hero");
+  const { data } = usePublicEvent();
   return (
-    <>
-      {/* Impersonation shows the target account's own view, not an onboarding dialog for the admin's session. */}
-      {!auth?.impersonator && hasPerm(auth?.permissions, PERM.generalWelcome) && (
-        <WelcomeModal userId={auth?.user_id} />
-      )}
-      {state.targets.length === 0 ? (
-        <div className="px-4 sm:px-6 md:px-8 pt-10 pb-20">
-          <div className="max-w-2xl mx-auto">
-            <LockedNotice variant="aia" />
-          </div>
-        </div>
-      ) : (
-        <StartOverview firstName={state.firstName} targets={state.targets} />
-      )}
-    </>
+    // Grows like browser zoom on wide screens, breakpoints are container queries so they follow the zoomed width.
+    <main ref={mainRef} className={`@container [zoom:var(--zoom)] ${ZOOM}`}>
+      <Suspense fallback={<HeroTabs />}>
+        <CodeForward />
+        <Hero />
+      </Suspense>
+      <EventBlock block={data?.eventBlock ?? null} bleed />
+      <PurposeSection />
+      <LearnRows />
+      <ServiceGrid />
+      <InfoFaq />
+      <ContactSection />
+      <ScrollTopButton />
+    </main>
   );
 }

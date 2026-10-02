@@ -68,7 +68,7 @@ function AccessCodePageInner() {
       // The session cookie already arrived with this answer, no extra login needed.
       if (d.show_credentials === false) {
         // An event code with credentials switched off: straight into the app, nothing to note down.
-        window.location.assign("/");
+        window.location.assign("/services");
         return;
       }
       setFertig({ username: d.username, password: d.password, expiresAt: d.expires_at ?? null });
@@ -169,7 +169,7 @@ function AccessCodePageInner() {
               <button
                 type="button"
                 data-testid="access-code-continue"
-                onClick={() => window.location.assign("/")}
+                onClick={() => window.location.assign("/services")}
                 className="w-full px-4 py-2 text-sm font-medium rounded-md btn-primary"
               >
                 {t("doneGo")}

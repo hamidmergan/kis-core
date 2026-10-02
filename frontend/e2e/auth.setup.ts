@@ -4,13 +4,13 @@ const STATE = "e2e/.auth/state.json";
 
 /** Logs in once through the real form and saves the cookie. */
 setup("authenticate", async ({ page }) => {
-  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await page.goto("/login", { waitUntil: "domcontentloaded" });
   await page.waitForSelector("#username");
   await page.fill("#username", process.env.E2E_USER ?? "a");
   await page.fill("#password", process.env.E2E_PASS ?? "a");
   await page.locator('button[type="submit"]').click();
 
-  // Login does a hard nav to "/"; we're authenticated once the form is gone.
+  // Login does a hard nav to "/services"; we're authenticated once the form is gone.
   await page.waitForURL((url) => !url.pathname.includes("login"), { timeout: 30_000 });
   await expect(page.locator("#username")).toHaveCount(0);
 

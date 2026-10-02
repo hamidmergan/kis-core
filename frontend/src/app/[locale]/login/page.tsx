@@ -42,7 +42,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     checkAuthStatus().then((status) => {
-      if (status.authenticated) router.replace("/");
+      if (status.authenticated) router.replace("/services");
       else setChecking(false);
     });
   }, [router]);
@@ -111,7 +111,7 @@ export default function LoginPage() {
       const d = await r.json();
       // The session cookie already arrived with this answer, an event code without credentials goes straight in.
       if (d.show_credentials === false) {
-        window.location.assign("/");
+        window.location.assign("/services");
         return;
       }
       setFertig({ username: d.username, password: d.password, expiresAt: d.expires_at ?? null });
@@ -145,7 +145,7 @@ export default function LoginPage() {
       await login(username.trim(), password);
       await checkAuthStatus();
       // A hard navigation so the server reads the new session cookie.
-      window.location.assign("/");
+      window.location.assign("/services");
       return;
     } catch (err) {
       const message = err instanceof Error ? err.message : "";
@@ -356,7 +356,7 @@ export default function LoginPage() {
               <button
                 type="button"
                 data-testid="access-code-continue"
-                onClick={() => window.location.assign("/")}
+                onClick={() => window.location.assign("/services")}
                 className="w-full px-4 py-3 text-base font-medium btn-primary rounded-lg"
               >
                 {tc("doneGo")}

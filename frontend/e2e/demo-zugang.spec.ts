@@ -23,7 +23,7 @@ test("Demo-Fenster: einen Kurs betreten und wieder verlassen", async ({ page, ba
   await admin.patch(`/api/ai-assistant/workspaces/${angelegt.uuid}`, { data: { is_active: true } });
 
   try {
-    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await page.goto("/login", { waitUntil: "domcontentloaded" });
     await page.waitForSelector("#username");
     await page.fill("#username", BESUCHER.username);
     await page.fill("#password", BESUCHER.password);

@@ -18,7 +18,7 @@ test.setTimeout(240_000);
 
 /** Logs in and clears the welcome dialog, which a fresh profile always gets. */
 async function anmelden(page: Page) {
-  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await page.goto("/login", { waitUntil: "domcontentloaded" });
   await page.waitForSelector("#username");
   await page.fill("#username", OWNER.username);
   await page.fill("#password", OWNER.password);
