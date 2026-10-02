@@ -14,7 +14,7 @@ Developed at Institut für Interaktive Systeme (ISy), Technische Hochschule Lüb
 - Live interpreter: two-way speech and text translation
 - Transcription, text to speech, summaries, image generation
 - Study assistant: modules, sources, chat with citations, mindmaps, schedules, notes
-- Language training: flashcards, grammar and vocabulary exercises, quiz, CEFR placement test, chat and materials adapt to the diagnosed level
+- Language training: flashcards, grammar and vocabulary exercises, quiz, placement test
 
 ## Stack
 
