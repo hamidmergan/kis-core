@@ -24,8 +24,8 @@ export default function HeroTabs() {
   const keys: Key[] = ["aia", "services"];
   return (
     <Band tone="hero" testId="info-hero" fill>
-      <div className="grid grid-cols-1 @min-[48rem]:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] @min-[80rem]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-10 @min-[64rem]:gap-20 @min-[80rem]:gap-12 items-center">
-        <div className="flex flex-col gap-8">
+      <div className="grid grid-cols-1 @min-[48rem]:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] @min-[80rem]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-8 @min-[40rem]:gap-10 @min-[64rem]:gap-20 @min-[80rem]:gap-12 items-center">
+        <div className="flex flex-col gap-6 @min-[40rem]:gap-8">
           <Tabs
             variant="underline"
             active={tab}
