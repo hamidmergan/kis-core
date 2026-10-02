@@ -4693,12 +4693,8 @@
           "a": "KIS befindet sich in der Pilotphase im Studiengang Elektrotechnik. Die Plattform wird dabei erprobt und laufend weiterentwickelt, einzelne Funktionen können sich noch ändern."
         },
         "who": {
-          "q": "Wer kann die Plattform nutzen?",
-          "a": "Aktuell ist sie nicht allgemein zugänglich. Der Zugang ist für eine Gruppe von Studierenden zum Testen und für weitere Testpersonen geplant."
-        },
-        "join": {
-          "q": "Ich möchte die Plattform ausprobieren. Was kann ich tun?",
-          "a": "Schreib uns über den Kontakt am Ende der Seite. Wir schauen gemeinsam, ob und wie ein Test in deinem Fall möglich ist."
+          "q": "Wer kann die Plattform nutzen, und kann ich sie ausprobieren?",
+          "a": "Aktuell ist sie nicht allgemein zugänglich. Der Zugang ist für eine Gruppe von Studierenden zum Testen und für weitere Testpersonen geplant. Wenn du sie ausprobieren möchtest, schreib uns über den Kontakt am Ende der Seite. Wir schauen gemeinsam, ob und wie ein Test in deinem Fall möglich ist."
         },
         "account": {
           "q": "Wie bekomme ich ein Konto?",

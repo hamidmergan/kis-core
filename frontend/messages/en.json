@@ -4693,12 +4693,8 @@
           "a": "KIS is in its pilot phase in the Electrical Engineering degree programme. The platform is being tested and developed further, some functions may still change."
         },
         "who": {
-          "q": "Who can use the platform?",
-          "a": "Currently it is not generally accessible. Access is planned for a group of students for testing and for further test users."
-        },
-        "join": {
-          "q": "I would like to try the platform. What can I do?",
-          "a": "Write to us via the contact at the end of the page. We will look together at whether and how a test is possible in your case."
+          "q": "Who can use the platform, and can I try it?",
+          "a": "Currently it is not generally accessible. Access is planned for a group of students for testing and for further test users. If you would like to try it, write to us via the contact at the end of the page. We will look together at whether and how a test is possible in your case."
         },
         "account": {
           "q": "How do I get an account?",
