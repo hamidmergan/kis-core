@@ -4684,10 +4684,6 @@
           "q": "Was ist KIS?",
           "a": "KIS steht für Kinternationalisierung von Studiengängen. Es ist ein gefördertes Pilotprojekt an der THL, das internationale Studierende beim Start in ein deutschsprachiges Fachstudium unterstützen soll."
         },
-        "split": {
-          "q": "Was ist der Unterschied zwischen dem Projekt und der Plattform?",
-          "a": "KIS ist das Projekt. Die Plattform ist das Werkzeug dafür. Sie bietet den KI-Assistenten Francis für Studierende und Dienste für Lehrende und ist nicht auf internationale Studierende beschränkt."
-        },
         "how": {
           "q": "Wie läuft die Arbeit mit der Plattform ab?",
           "a": "Lehrende legen einen Workspace an, laden Dokumente und andere Materialien hoch und verwalten sie. Danach laden sie Studierende ein. Die Studierenden arbeiten im Workspace mit dem Material und stellen Francis ihre Fragen dazu."
@@ -4707,10 +4703,6 @@
         "account": {
           "q": "Wie bekomme ich ein Konto?",
           "a": "Du bekommst es über eine Einladung oder einen Zugangscode. Eine Anmeldung mit dem THL-Konto ist derzeit nicht möglich."
-        },
-        "cost": {
-          "q": "Kostet die Nutzung etwas?",
-          "a": "Nein. Das Projekt ist gefördert, für die Teilnehmenden der Pilotphase fallen keine Kosten an."
         },
         "teachers": {
           "q": "Ich lehre an der THL. Kann ich die Dienste nutzen?",

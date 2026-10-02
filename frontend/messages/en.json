@@ -4684,10 +4684,6 @@
           "q": "What is KIS?",
           "a": "KIS stands for Kinternationalisierung von Studiengängen, the internationalisation of degree programmes. It is a funded pilot project at THL meant to support international students starting a degree taught in German."
         },
-        "split": {
-          "q": "What is the difference between the project and the platform?",
-          "a": "KIS is the project. The platform is its tool. It offers the AI assistant Francis for students and services for teachers and is not limited to international students."
-        },
         "how": {
           "q": "How does working with the platform work?",
           "a": "Teachers create a workspace, upload documents and other materials and manage them. Then they invite students. The students work with the material in the workspace and ask Francis their questions about it."
@@ -4707,10 +4703,6 @@
         "account": {
           "q": "How do I get an account?",
           "a": "You get one through an invitation or an access code. Signing in with the THL account is currently not possible."
-        },
-        "cost": {
-          "q": "Does using it cost anything?",
-          "a": "No. The project is funded, there are no costs for participants of the pilot phase."
         },
         "teachers": {
           "q": "I teach at THL. Can I use the services?",
