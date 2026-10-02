@@ -3427,7 +3427,7 @@
           "verbPresent": "Present:",
           "verbPast": "Past:",
           "verbPerfect": "Perfect:",
-          "form": "Form:",
+          "noPlural": "no plural form known to the AI",
           "example": "Example",
           "playExample": "Listen to the example sentence",
           "stopExample": "Stop playback",

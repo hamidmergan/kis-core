@@ -3427,7 +3427,7 @@
           "verbPresent": "Präsens:",
           "verbPast": "Präteritum:",
           "verbPerfect": "Perfekt:",
-          "form": "Form:",
+          "noPlural": "laut KI keine Pluralform bekannt",
           "example": "Beispiel",
           "playExample": "Beispielsatz anhören",
           "stopExample": "Wiedergabe anhalten",

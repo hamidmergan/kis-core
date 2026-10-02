@@ -256,9 +256,6 @@ export function FlashcardsLearnView({
           const verbPerfect = card.extras?.verb_perfect?.trim() || "";
           // Every line on its own so a half-filled card shows no empty rows.
           const hasVerbForms = Boolean(verbPresent || verbPast || verbPerfect);
-          // A noun without a plural keeps the neutral label.
-          const showNumberPair = Boolean(singular && plural);
-          const showFormOnly = Boolean(singular && !plural);
           return <>
             <div className="flex-1 overflow-y-auto px-3 sm:px-4 pt-4 sm:pt-6 pb-3">
               <div className="mx-auto w-full flex flex-col gap-3" style={{ maxWidth: 560 }}>
@@ -315,23 +312,18 @@ export function FlashcardsLearnView({
                             <span >{wordClass}</span>
                           </div>
                         )}
-                        {showNumberPair && (
+                        {singular && (
                           <>
                             <div className="flex items-baseline gap-1.5 text-sm">
                               <span className="font-semibold shrink-0" style={{ color: "var(--foreground)" }}>{t("flashcardsLearn.singular")}</span>
                               <span >{singular}</span>
                             </div>
+                            {/* A noun without a plural still shows the row so every card reads the same. */}
                             <div className="flex items-baseline gap-1.5 text-sm">
                               <span className="font-semibold shrink-0" style={{ color: "var(--foreground)" }}>{t("flashcardsLearn.plural")}</span>
-                              <span >{plural}</span>
+                              {plural ? <span >{plural}</span> : <span className="italic">{t("flashcardsLearn.noPlural")}</span>}
                             </div>
                           </>
-                        )}
-                        {showFormOnly && (
-                          <div className="flex items-baseline gap-1.5 text-sm">
-                            <span className="font-semibold shrink-0" style={{ color: "var(--foreground)" }}>{t("flashcardsLearn.form")}</span>
-                            <span >{singular}</span>
-                          </div>
                         )}
                         {verbPresent && (
                           <div className="flex items-baseline gap-1.5 text-sm">
