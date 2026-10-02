@@ -20,7 +20,7 @@ export default function StationQr({ station, onClose, onPrint }: Props) {
   const t = useTranslations("eventAdmin.poster");
   const tc = useTranslations("eventCommon");
   const text = useText2();
-  const qr = useStationQr(station.id);
+  const art = useStationQr(station.id);
   const svgRef = useRef<SVGSVGElement>(null);
   const [busy, setBusy] = useState(false);
 
@@ -45,13 +45,13 @@ export default function StationQr({ station, onClose, onPrint }: Props) {
           <button type="button" onClick={onClose} className="btn-cancel px-4 py-2 text-sm btn-secondary rounded-lg">
             {tc("close")}
           </button>
-          <button type="button" onClick={onPrint} disabled={!qr} className={BTN_SECONDARY} data-testid="poster-pdf">
+          <button type="button" onClick={onPrint} disabled={!art} className={BTN_SECONDARY} data-testid="poster-pdf">
             {t("pdf")}
           </button>
           <button
             type="button"
             onClick={() => void download()}
-            disabled={!qr || busy}
+            disabled={!art || busy}
             className="px-4 py-2 text-sm btn-primary rounded-lg disabled:opacity-50"
             data-testid="poster-png"
           >
@@ -64,7 +64,7 @@ export default function StationQr({ station, onClose, onPrint }: Props) {
         <PosterSvg
           ref={svgRef}
           station={station}
-          qr={qr}
+          art={art}
           className="w-full max-w-xs h-auto rounded-md border border-border shadow-sm"
         />
         <p className="text-xs text-muted text-center max-w-xs">{t("printHint")}</p>

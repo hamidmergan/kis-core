@@ -12,13 +12,13 @@ function PrintPoster({ station, last, onReady }: {
   last: boolean;
   onReady: (id: string) => void;
 }) {
-  const qr = useStationQr(station.id);
+  const art = useStationQr(station.id);
   useEffect(() => {
-    if (qr) onReady(station.id);
-  }, [qr, station.id, onReady]);
+    if (art) onReady(station.id);
+  }, [art, station.id, onReady]);
   return (
     <div style={{ breakAfter: last ? "auto" : "page" }}>
-      <PosterSvg station={station} qr={qr} className="block w-full h-auto" />
+      <PosterSvg station={station} art={art} className="block w-full h-auto" />
     </div>
   );
 }
