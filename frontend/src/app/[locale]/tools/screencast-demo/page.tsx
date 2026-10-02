@@ -292,7 +292,7 @@ function ScreencastDemoLauf({ onNeu }: { onNeu: () => void }) {
         <div className={zeigtKopf ? "hidden sm:block" : ""}><ToolBackLink onRestart={zeigtKopf ? onNeu : undefined} /></div>
         {zeigtKopf && (
           <>
-            <div className="flex justify-end mb-8">
+            <div className="flex justify-end mb-3 sm:mb-8">
               <button
                 onClick={beenden}
                 className="inline-flex items-center rounded px-3.5 py-1.5 text-xs font-semibold border-2 border-transparent hover:border-black transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb"
@@ -301,6 +301,10 @@ function ScreencastDemoLauf({ onNeu }: { onNeu: () => void }) {
                 {tDemo("beenden")}
               </button>
             </div>
+            <p className="mb-8 flex items-start gap-2 rounded-lg bg-surface-dim px-3 py-2.5 text-sm text-foreground-soft">
+              <Info size={14} className="mt-0.5 flex-shrink-0 text-muted-soft" aria-hidden="true" />
+              {tDemo("hinweis")}
+            </p>
             <ScreencastStepper
               step={step}
               maxReachedIdx={maxReachedIdx}
@@ -308,10 +312,6 @@ function ScreencastDemoLauf({ onNeu }: { onNeu: () => void }) {
               hatErgebnis={videoUrl !== null}
               onStepClick={handleStepClick}
             />
-            <p className="mb-6 flex items-start gap-2 rounded-lg bg-surface-dim px-3 py-2.5 text-sm text-foreground-soft">
-              <Info size={14} className="mt-0.5 flex-shrink-0 text-muted-soft" aria-hidden="true" />
-              {tDemo("hinweis")}
-            </p>
           </>
         )}
 
