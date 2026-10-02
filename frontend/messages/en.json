@@ -4882,7 +4882,8 @@
       "contact": {
         "heading": "Contact",
         "body": "Would you like to know more about the project, do you have questions or would you like to try the platform? Send us an email and we will get back to you."
-      }
+      },
+      "toTop": "Back to top"
     },
     "stamp": {
       "title": "Stamp card",

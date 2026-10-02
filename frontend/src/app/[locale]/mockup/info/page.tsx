@@ -9,6 +9,7 @@ import { ContactSection, PurposeSection } from "./_components/InfoSections";
 import LearnRows from "./_components/LearnRows";
 import ServiceGrid from "./_components/ServiceGrid";
 import InfoFaq from "./_components/InfoFaq";
+import ScrollTopButton from "./_components/ScrollTopButton";
 
 function Hero() {
   const params = useSearchParams();
@@ -40,6 +41,7 @@ export default function MockupInfoPage() {
       <ServiceGrid />
       <InfoFaq />
       <ContactSection />
+      <ScrollTopButton />
     </main>
   );
 }
