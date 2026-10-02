@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { useTranslations } from "next-intl";
-import { ArrowCircleRight, Bank, Books, ChalkboardTeacher, Check, Copy, Envelope, Flask, Globe, GraduationCap, type Icon } from "@phosphor-icons/react";
-import { copyTextFromPromise } from "@/lib/clipboard";
+import { ArrowCircleRight, Bank, Books, ChalkboardTeacher, Envelope, Flask, Globe, GraduationCap, type Icon } from "@phosphor-icons/react";
 import { CONTACT_EMAIL } from "../../_lib/contact";
 import Band from "./Band";
 
@@ -78,39 +77,20 @@ export function PurposeSection() {
 /** Contact block at the end of the page, one address and a short invitation. */
 export function ContactSection() {
   const t = useTranslations("mockup.info.contact");
-  const [copied, setCopied] = useState(false);
-  // Not every browser has a mail program set up, so the address can also be copied.
-  const copyAddress = () => {
-    copyTextFromPromise(Promise.resolve(CONTACT_EMAIL));
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 2000);
-  };
   return (
     <Band testId="info-contact">
       <div className="grid grid-cols-1 @min-[64rem]:grid-cols-[minmax(0,4fr)_minmax(0,8fr)] gap-6 @min-[64rem]:gap-16 items-start">
         <SectionHeading>{t("heading")}</SectionHeading>
         <div className="flex flex-col items-start gap-6">
           <p className="text-lg @min-[40rem]:text-xl leading-snug text-foreground-soft max-w-prose">{t("body")}</p>
-          <div className="flex flex-wrap items-center gap-3">
-            <a
-              href={`mailto:${CONTACT_EMAIL}`}
-              className="inline-flex items-center gap-3 px-5 py-3 text-base btn-primary rounded-md transition-colors"
-              data-testid="info-contact-mail"
-            >
-              <Envelope size={22} weight="bold" aria-hidden="true" />
-              {CONTACT_EMAIL}
-            </a>
-            <button
-              type="button"
-              onClick={copyAddress}
-              className="btn-cancel inline-flex items-center gap-2 px-5 py-3 text-base btn-secondary rounded-md"
-              data-testid="info-contact-copy"
-            >
-              {copied ? <Check size={20} weight="bold" aria-hidden="true" /> : <Copy size={20} weight="bold" aria-hidden="true" />}
-              {copied ? t("copied") : t("copy")}
-            </button>
-          </div>
-          <p className="text-sm text-muted max-w-prose">{t("hint")}</p>
+          <a
+            href={`mailto:${CONTACT_EMAIL}`}
+            className="inline-flex items-center gap-3 px-5 py-3 text-base btn-primary rounded-md transition-colors"
+            data-testid="info-contact-mail"
+          >
+            <Envelope size={22} weight="bold" aria-hidden="true" />
+            {CONTACT_EMAIL}
+          </a>
         </div>
       </div>
     </Band>

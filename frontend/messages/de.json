@@ -4881,10 +4881,7 @@
       "servicesLabel": "Screencast",
       "contact": {
         "heading": "Kontakt",
-        "body": "Du möchtest mehr über das Projekt erfahren, hast Fragen oder möchtest die Plattform ausprobieren? Dann schreib uns gern eine E-Mail, wir melden uns bei dir.",
-        "copy": "Adresse kopieren",
-        "copied": "Kopiert",
-        "hint": "Öffnet sich kein Mailprogramm, kopiere die Adresse und schreib uns aus deinem Postfach."
+        "body": "Du möchtest mehr über das Projekt erfahren, hast Fragen oder möchtest die Plattform ausprobieren? Dann schreib uns gern eine E-Mail, wir melden uns bei dir."
       }
     },
     "stamp": {
