@@ -1680,7 +1680,6 @@
       "vergleichText": "Die ersten zehn Beiträge desselben Skripts, vertont von verschiedenen Stimmdiensten, für andere Sprachen übersetzt.",
       "vergleichAnbinden": "Solche Dienste kannst du mit deinem eigenen Konto unter <link>Schnittstellen</link> anbinden. Die Texte gehen dann an den jeweiligen Anbieter.",
       "vergleichStimmen": "Stimmen: {stimmen}",
-      "vergleichHier": "wie oben",
       "vergleichSelbst": "selbst gehostet (DSGVO-konform)",
       "vergleichFolgt": "Hörprobe folgt",
       "beenden": "Demo beenden"

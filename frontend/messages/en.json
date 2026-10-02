@@ -1680,7 +1680,6 @@
       "vergleichText": "The first ten contributions of the same script, voiced by different speech services, translated for other languages.",
       "vergleichAnbinden": "You can connect such services with your own account under <link>Interfaces</link>. The texts are then sent to that provider.",
       "vergleichStimmen": "Voices: {stimmen}",
-      "vergleichHier": "as above",
       "vergleichSelbst": "self-hosted (GDPR compliant)",
       "vergleichFolgt": "Sample coming soon",
       "beenden": "End demo"
