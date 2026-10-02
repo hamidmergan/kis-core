@@ -6,10 +6,11 @@ import Band from "./Band";
 import { SectionHeading } from "./InfoSections";
 
 const GROUPS = [
-  { key: "use", items: ["who", "account", "cost"] },
-  { key: "francis", items: ["sources", "names", "errors"] },
-  { key: "operation", items: ["dsgvo", "hosting"] },
-  { key: "outlook", items: ["after"] },
+  { key: "project", items: ["what", "split", "state"] },
+  { key: "use", items: ["who", "join", "account", "cost", "teachers", "device", "languages"] },
+  { key: "francis", items: ["sources", "names", "material", "errors", "replace"] },
+  { key: "data", items: ["dsgvo", "hosting", "expiry"] },
+  { key: "outlook", items: ["after", "feedback"] },
 ] as const;
 
 const ROW =

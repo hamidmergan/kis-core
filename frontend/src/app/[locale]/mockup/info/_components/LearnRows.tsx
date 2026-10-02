@@ -18,9 +18,9 @@ export default function LearnRows() {
   return (
     <Band tone="tint" testId="info-learn">
       <div className="flex flex-col gap-8 @min-[64rem]:gap-12">
-        <div className="max-w-3xl flex flex-col gap-4">
+        <div className="max-w-3xl flex flex-col gap-2">
           <SectionHeading>{t("heading")}</SectionHeading>
-          <p className="text-lg @min-[40rem]:text-xl leading-relaxed text-foreground-soft text-balance">{t("intro")}</p>
+          <p className="text-lg @min-[40rem]:text-xl leading-snug text-foreground-soft text-balance">{t("intro")}</p>
         </div>
         <div className="flex flex-col gap-14 @min-[64rem]:gap-24">
         {ROWS.map(({ key, image }, i) => (

@@ -4684,37 +4684,48 @@
           }
         }
       },
-      "team": {
-        "heading": "Wer dahintersteht",
-        "body": "Ein Team an der THL betreut das Projekt KIS und entwickelt die Plattform.",
-        "contact": "Platz für Kontakt"
-      },
       "faq": {
         "heading": "Häufige Fragen",
         "items": {
+          "what": {
+            "q": "Was ist KIS?",
+            "a": "KIS steht für Kinternationalisierung von Studiengängen. Es ist ein gefördertes Pilotprojekt an der THL, das internationale Studierende beim Start in ein deutschsprachiges Fachstudium unterstützen soll."
+          },
+          "split": {
+            "q": "Was ist der Unterschied zwischen dem Projekt und der Plattform?",
+            "a": "KIS ist das Projekt. Die Plattform ist das Werkzeug dafür. Sie bietet den KI-Assistenten Francis für Studierende und Dienste für Lehrende und ist nicht auf internationale Studierende beschränkt."
+          },
+          "state": {
+            "q": "Wie ist der aktuelle Stand?",
+            "a": "KIS befindet sich in der Pilotphase im Studiengang Elektrotechnik. Die Plattform wird dabei erprobt und laufend weiterentwickelt, einzelne Funktionen können sich noch ändern."
+          },
           "who": {
             "q": "Wer kann die Plattform nutzen?",
-            "a": "Zurzeit Studierende und Lehrende im Pilotstudiengang sowie eingeladene Personen."
+            "a": "Aktuell ist sie nicht allgemein zugänglich. Der Zugang ist für eine Gruppe von Studierenden zum Testen und für weitere Testpersonen geplant."
           },
-          "cost": {
-            "q": "Kostet die Nutzung etwas?",
-            "a": "Nein. Das Projekt KIS ist gefördert, die Nutzung kostet nichts."
+          "join": {
+            "q": "Ich möchte die Plattform ausprobieren. Was kann ich tun?",
+            "a": "Schreib uns über den Kontakt am Ende der Seite. Wir schauen gemeinsam, ob und wie ein Test in deinem Fall möglich ist."
           },
           "account": {
             "q": "Wie bekomme ich ein Konto?",
-            "a": "Über eine Einladung oder einen Zugangscode deiner Lehrperson."
+            "a": "Du bekommst es über eine Einladung oder einen Zugangscode. Eine Anmeldung mit dem THL-Konto ist derzeit nicht möglich."
           },
-          "after": {
-            "q": "Was passiert nach dem Pilot?",
-            "a": "Nach der Pilotphase soll das Projekt auf weitere Studiengänge übertragen werden. Wie genau, entscheidet die THL nach der Auswertung."
+          "cost": {
+            "q": "Kostet die Nutzung etwas?",
+            "a": "Nein. Das Projekt ist gefördert, für die Teilnehmenden der Pilotphase fallen keine Kosten an."
           },
-          "dsgvo": {
-            "q": "Ist die Plattform DSGVO-konform?",
-            "a": "Ja. Die Plattform ist so gebaut, dass nur DSGVO-konforme Dienste zum Einsatz kommen. Wer als Lehrperson einen eigenen Stimmdienst verbindet, tut das mit eigenem Konto und auf eigene Verantwortung."
+          "teachers": {
+            "q": "Ich lehre an der THL. Kann ich die Dienste nutzen?",
+            "a": "Die Dienste gehören zur Plattform und stehen mit einem Konto zur Verfügung. Wie ein Zugang für Lehrende in der Pilotphase möglich ist, klären wir gern über den Kontakt."
           },
-          "hosting": {
-            "q": "Wo läuft die Plattform?",
-            "a": "Die Plattform wird vom Projektteam an der THL betrieben und läuft auf Servern in Deutschland. Die KI-Modelle laufen auf Infrastruktur der THL und von Partnern in Deutschland."
+          "device": {
+            "q": "Muss ich etwas installieren?",
+            "a": "Nein. Die Plattform läuft im Browser."
+          },
+          "languages": {
+            "q": "In welchen Sprachen ist die Plattform nutzbar?",
+            "a": "Die Oberfläche gibt es auf Deutsch und Englisch. Übersetzungen laufen aktuell zwischen Deutsch und Englisch."
           },
           "sources": {
             "q": "Woher nimmt Francis seine Antworten?",
@@ -4724,16 +4735,45 @@
             "q": "Woher weiß ich, worauf eine Antwort beruht?",
             "a": "Zu jeder Antwort nennt Francis die Quelle, damit du nachlesen kannst."
           },
+          "material": {
+            "q": "Welches Material kann ich nutzen?",
+            "a": "Skripte, Folien und Vorlesungsvideos liegen zusammen im Workspace. Zu jedem Video gibt es ein Transkript."
+          },
           "errors": {
             "q": "Kann Francis Fehler machen?",
             "a": "Ja, KI kann Fehler machen. Prüfe die Antworten, besonders vor Prüfungen."
+          },
+          "replace": {
+            "q": "Ersetzt Francis die Lehre?",
+            "a": "Nein. Francis ergänzt die Lehre beim Lernen und Nachschlagen, er ersetzt sie nicht."
+          },
+          "dsgvo": {
+            "q": "Ist die Plattform DSGVO-konform?",
+            "a": "Ja. Die Plattform ist so gebaut, dass nur DSGVO-konforme Dienste zum Einsatz kommen. Wer als Lehrperson einen eigenen Stimmdienst verbindet, tut das mit eigenem Konto und auf eigene Verantwortung."
+          },
+          "hosting": {
+            "q": "Wo läuft die Plattform?",
+            "a": "Die Plattform wird vom Projektteam an der THL betrieben und läuft auf Servern in Deutschland. Die KI-Modelle laufen auf Infrastruktur der THL und von Partnern in Deutschland."
+          },
+          "expiry": {
+            "q": "Was passiert mit meinem Konto nach dem Test?",
+            "a": "Zugänge über einen Zugangscode sind befristet. Nach Ablauf wird das Konto nach einer Frist gelöscht, Antworten aus Befragungen bleiben anonym erhalten."
+          },
+          "after": {
+            "q": "Was passiert nach der Pilotphase?",
+            "a": "Danach soll das Projekt auf weitere Studiengänge übertragen werden. Wie genau, entscheidet die THL nach der Auswertung."
+          },
+          "feedback": {
+            "q": "Wie kann ich Rückmeldung geben?",
+            "a": "Auf der Plattform gibt es einen Link, um Fehler zu melden oder eine Idee zu teilen. Du kannst uns auch über den Kontakt schreiben."
           }
         },
         "groups": {
-          "use": "Nutzung",
+          "project": "Projekt",
+          "use": "Zugang",
           "francis": "Francis",
-          "outlook": "Ausblick",
-          "operation": "Betrieb"
+          "data": "Datenschutz",
+          "outlook": "Ausblick"
         }
       },
       "heroAlt": "Workspace mit Materialien, Chat und Studio",
@@ -4765,14 +4805,84 @@
       },
       "services": {
         "heading": "Dienste für Lehrende",
-        "intro": "Neben dem KI-Assistenten finden Lehrende diese Dienste direkt auf der Startseite."
+        "intro": "Neben dem KI-Assistenten finden Lehrende diese Dienste direkt auf der Startseite.",
+        "more": "Mehr erfahren",
+        "detail": {
+          "translation": {
+            "lead": "Übersetzt Texte und Dokumente zwischen Deutsch und Englisch. Aus einer Präsentation wird wieder eine Präsentation, Layout und Formatierung bleiben erhalten.",
+            "p1": "Text direkt eingeben oder eine Datei hochladen, etwa Word, PowerPoint oder Markdown",
+            "p2": "Die Ausgangssprache wird automatisch erkannt",
+            "p3": "Mit Glossaren legst du fest, wie Fachbegriffe übersetzt werden",
+            "alt": "Übersetzung mit Texteingabe, Zielsprache und Glossarauswahl"
+          },
+          "tts": {
+            "lead": "Liest Texte und Dokumente mit natürlich klingenden Stimmen vor. Das Ergebnis ist eine MP3-Datei.",
+            "p1": "Text eingeben oder eine Datei hochladen",
+            "p2": "Stimmen vorher anhören und die passende auswählen",
+            "p3": "Lange Texte werden in Stücken vertont, fertige Stücke bleiben bei einem Abbruch erhalten",
+            "alt": "Text in Audio mit Texteingabe, Anbieter und Stimme"
+          },
+          "transcription": {
+            "lead": "Schreibt Audio und Video mit, wahlweise als reinen Text oder als Untertitel mit Zeitstempeln.",
+            "p1": "Gängige Audio- und Videoformate werden unterstützt",
+            "p2": "Ausgabe als Text, SRT oder VTT",
+            "p3": "Das Transkript lässt sich vor dem Herunterladen bearbeiten",
+            "alt": "Audio in Text mit Dateiauswahl und Ausgabeformat"
+          },
+          "summary": {
+            "lead": "Führt mehrere Materialien zu einem Text zusammen, als Kurzbriefing, Lernleitfaden oder Zeitstrahl.",
+            "p1": "Bis zu zehn Dateien oder Materialien aus einem Workspace",
+            "p2": "Eine Anweisung engt auf ein Thema ein oder formt den Text",
+            "p3": "Die Vorlage bestimmt, wie der Text aufgebaut ist",
+            "alt": "Zusammenfassung mit Quellen, Vorlage und Anweisung"
+          },
+          "podcast": {
+            "lead": "Aus deinem Material wird ein Gespräch zum Anhören. Du wählst Inhalt und Besetzung, prüfst das Skript und lässt es vertonen.",
+            "p1": "Ein bis vier Sprechende mit eigener Rolle und Stimme",
+            "p2": "Länge von etwa 5 bis 20 Minuten, Stil erklärend, locker oder als Interview",
+            "p3": "Das Ergebnis ist eine MP3-Datei, das Transkript gibt es dazu",
+            "alt": "Podcast mit Quellenauswahl, Sprache und Anweisung"
+          },
+          "praesentation": {
+            "lead": "Aus deinem Material werden Folien im Design der Hochschule, mit Bildern, Tabellen und Diagrammen an den Stellen, die die Vorlage vorsieht.",
+            "p1": "Erst entsteht die Gliederung zum Umstellen, dann die Folien",
+            "p2": "Die THL-Vorlage ist voreingestellt, eine eigene Vorlage lässt sich hochladen",
+            "p3": "Fertig ist eine PowerPoint-Datei, auf Wunsch mit Sprechernotizen",
+            "alt": "Präsentation mit Quellenauswahl und Folienmaster"
+          },
+          "screencast": {
+            "lead": "Macht aus einer PowerPoint-Datei ein vertontes Video, wahlweise in einer anderen Sprache.",
+            "p1": "Die Sprechtexte entstehen aus den Folien, aus einem Import oder aus den Notizen der Datei",
+            "p2": "Jeden Sprechtext kannst du prüfen, ändern oder mit Francis überarbeiten",
+            "p3": "Das Video gibt es als MP4, auf Wunsch mit Untertiteln",
+            "alt": "Screencast mit Dateiupload und Zielsprache"
+          },
+          "image": {
+            "lead": "Bilder erzeugen, bestehende Bilder anpassen oder beschreiben lassen. Jedes Ergebnis wird zur Vorlage für den nächsten Schritt.",
+            "p1": "Stile wie Foto, Illustration oder THL-Folienstil und mehrere Formate",
+            "p2": "Bis zu vier Varianten auf einmal",
+            "p3": "Bilder entstehen standardmäßig ohne Schrift, weil Bildmodelle Wörter oft falsch schreiben",
+            "alt": "Bildgenerierung mit Prompt, Stil und Format"
+          },
+          "glossary": {
+            "lead": "Hier pflegst du eigene Begriffslisten, damit Fachbegriffe überall gleich übersetzt werden.",
+            "p1": "Ein Eintrag besteht aus dem deutschen und dem englischen Begriff",
+            "p2": "Das Glossar wirkt in Übersetzung, Screencast und Podcast",
+            "p3": "Glossare lassen sich exportieren und an Kolleginnen und Kollegen weitergeben",
+            "alt": "Glossar mit Liste der eigenen Begriffslisten"
+          }
+        }
       },
       "tabAia": "KI-Assistent Francis",
       "tabServices": "Dienste",
       "servicesTitle": "Dienste für dein Material",
       "servicesLead": "Texte übersetzen, vorlesen lassen, Aufnahmen transkribieren oder Podcast, Präsentation und Screencast aus deinem Material erstellen.",
       "servicesAlt": "Screencast-Dienst im Schritt Rendern, alle Folien einzeln anhören, hier Folie 8 mit Sprechtext und Player",
-      "servicesLabel": "Screencast"
+      "servicesLabel": "Screencast",
+      "contact": {
+        "heading": "Kontakt",
+        "body": "Du möchtest mehr über das Projekt erfahren, hast Fragen oder möchtest die Plattform ausprobieren? Dann schreib uns gern eine E-Mail, wir melden uns bei dir."
+      }
     },
     "stamp": {
       "title": "Stempelkarte",
