@@ -6,7 +6,7 @@ import Mascot from "@/components/ui/Mascot";
 import { useMascotPref } from "@/hooks/useMascotPref";
 import { ROUTES } from "../../_lib/routes";
 import Band from "./Band";
-import ScreenshotSlot from "./ScreenshotSlot";
+import Screenshot from "./Screenshot";
 
 const H1 = "font-semibold tracking-[-0.02em] leading-[1.05] text-foreground!";
 
@@ -34,7 +34,7 @@ export default function InfoHero({ layout = "split" }: { layout?: "split" | "cen
           <h1 className={`${H1} text-4xl sm:text-6xl lg:text-7xl max-w-5xl text-balance`}>{t("title")}</h1>
           <p className="text-lg sm:text-xl xl:text-2xl leading-relaxed text-foreground-soft max-w-3xl">{t("lead")}</p>
           {login}
-          <ScreenshotSlot className="w-full max-w-6xl mt-8" caption={t("heroCaption")} />
+          <Screenshot name="workspace" alt={t("heroAlt")} className="w-full max-w-6xl mt-8" />
         </div>
       </Band>
     );
@@ -48,7 +48,7 @@ export default function InfoHero({ layout = "split" }: { layout?: "split" | "cen
           <p className="text-lg sm:text-xl xl:text-2xl leading-relaxed text-foreground-soft max-w-2xl">{t("lead")}</p>
           <div className="flex">{login}</div>
         </div>
-        <ScreenshotSlot caption={t("heroCaption")} />
+        <Screenshot name="workspace" alt={t("heroAlt")} />
       </div>
     </Band>
   );

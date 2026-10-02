@@ -1,0 +1,38 @@
+"use client";
+
+import { useTranslations } from "next-intl";
+import Band from "./Band";
+import { SectionHeading } from "./InfoSections";
+import Screenshot from "./Screenshot";
+
+const ROWS = [
+  { key: "material", image: "video" },
+  { key: "sources", image: "citation" },
+  { key: "practice", image: "quiz" },
+  { key: "overview", image: "mindmap" },
+] as const;
+
+/** What learning with Francis looks like, one real screenshot per idea, image and text alternate sides. */
+export default function LearnRows() {
+  const t = useTranslations("mockup.info.learn");
+  return (
+    <Band tone="tint" testId="info-learn">
+      <div className="flex flex-col gap-14 lg:gap-24">
+        <div className="max-w-3xl flex flex-col gap-4">
+          <SectionHeading>{t("heading")}</SectionHeading>
+          <p className="text-lg sm:text-xl leading-relaxed text-foreground-soft">{t("intro")}</p>
+        </div>
+        {ROWS.map(({ key, image }, i) => (
+          <div key={key} className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-16 items-center" data-testid="learn-row">
+            <Screenshot name={image} alt={t(`rows.${key}.alt`)} className={`lg:col-span-7 ${i % 2 ? "lg:order-2" : ""}`} />
+            <div className={`lg:col-span-5 flex flex-col gap-4 ${i % 2 ? "lg:order-1" : ""}`}>
+              <span className="text-sm font-semibold text-kb-dark">{String(i + 1).padStart(2, "0")}</span>
+              <h3 className="text-2xl sm:text-3xl font-semibold tracking-[-0.02em] leading-tight">{t(`rows.${key}.title`)}</h3>
+              <p className="text-lg leading-relaxed text-foreground-soft">{t(`rows.${key}.body`)}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </Band>
+  );
+}

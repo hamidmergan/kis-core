@@ -5,7 +5,8 @@ import { useSearchParams } from "next/navigation";
 import EventBlock from "../_components/EventBlock";
 import InfoHero from "./_components/InfoHero";
 import { HandlingSection, PurposeSection, TeamSection } from "./_components/InfoSections";
-import FeatureTiles from "./_components/FeatureTiles";
+import LearnRows from "./_components/LearnRows";
+import ServiceGrid from "./_components/ServiceGrid";
 import InfoFaq from "./_components/InfoFaq";
 
 function Hero() {
@@ -22,7 +23,8 @@ export default function MockupInfoPage() {
       </Suspense>
       <EventBlock bleed />
       <PurposeSection />
-      <FeatureTiles />
+      <LearnRows />
+      <ServiceGrid />
       <HandlingSection />
       <TeamSection />
       <InfoFaq />

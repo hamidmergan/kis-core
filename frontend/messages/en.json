@@ -4637,8 +4637,6 @@
       "eyebrow": "Pilot project",
       "title": "KIS is a pilot project at THL",
       "lead": "An AI assistant and services for your studies, tested in a pilot course. You can log in if you have been invited.",
-      "heroCaption": "Space for a large screenshot: Francis answers and names its sources",
-      "placeholder": "Space for a screenshot",
       "purpose": {
         "heading": "What the project is for",
         "students": "KIS is aimed at international students who start a degree with German at B1.",
@@ -4646,41 +4644,11 @@
         "funding": "Funded by the Stiftung Innovation in der Hochschullehre.",
         "scope": "KIS is a pilot project at THL. It is tested and developed here."
       },
-      "features": {
-        "heading": "What you can do with it",
-        "items": {
-          "francis": {
-            "title": "AI assistant Francis",
-            "body": "Ask questions about the materials in your workspace. Francis answers from your sources."
-          },
-          "translation": {
-            "title": "Translation",
-            "body": "Translate texts and documents between German and English."
-          },
-          "tts": {
-            "title": "Text to audio",
-            "body": "Have texts and documents read aloud."
-          },
-          "transcription": {
-            "title": "Audio to text",
-            "body": "Transcribe lectures and videos, also with subtitles."
-          },
-          "interpreter": {
-            "title": "Interpreter",
-            "body": "A conversation in two languages, the translation follows along."
-          },
-          "summary": {
-            "title": "Summary",
-            "body": "Merge several materials into one text."
-          }
-        }
-      },
       "handling": {
         "heading": "How we handle it",
         "sources": "Francis answers from the sources in your workspace.",
         "names": "Francis names the source for every answer so you can read it yourself.",
-        "errors": "AI can make mistakes. Check the answers, especially before exams.",
-        "caption": "Space for a screenshot: an answer with its source"
+        "errors": "AI can make mistakes. Check the answers, especially before exams."
       },
       "team": {
         "heading": "Who is behind it",
@@ -4721,12 +4689,36 @@
           "operation": "Operation"
         }
       },
-      "preview": {
-        "heading": "Preview controls, mockup only",
-        "blockOn": "Show event block",
-        "tiles": "Tiles",
-        "ignoreWindow": "Ignore period",
-        "hint": "Takes effect on the event block above right away. In real operation the admin sets this."
+      "heroAlt": "Workspace with materials, chat and studio",
+      "learn": {
+        "heading": "Learning with Francis",
+        "intro": "Your materials live in the workspace. Francis works only with what is in there.",
+        "rows": {
+          "material": {
+            "title": "All material in one place",
+            "body": "Scripts, slides and lecture videos sit together in the workspace. Every video comes with a transcript that follows along while it plays.",
+            "alt": "Lecture video with a running transcript next to the chat"
+          },
+          "sources": {
+            "title": "Answers with sources",
+            "body": "Francis answers only from your materials and adds the source to every statement. One click opens the passage in the document.",
+            "alt": "Answer in the chat, next to it the highlighted passage in the script"
+          },
+          "practice": {
+            "title": "Practise with quizzes and flashcards",
+            "body": "Your materials turn into quiz questions, flashcards and data tables for practice. Every task points to the passage it comes from.",
+            "alt": "Quiz question with four answers next to the chat"
+          },
+          "overview": {
+            "title": "Connections at a glance",
+            "body": "A mind map arranges a topic into branches. Each branch names the page it comes from.",
+            "alt": "Mind map on the basics of project management"
+          }
+        }
+      },
+      "services": {
+        "heading": "Services for teachers",
+        "intro": "Besides the AI assistant, teachers find these services right on the start page."
       }
     },
     "stamp": {

@@ -4637,8 +4637,6 @@
       "eyebrow": "Pilotprojekt",
       "title": "KIS ist ein Pilotprojekt an der THL",
       "lead": "Ein KI-Assistent und Dienste für das Studium, erprobt in einem Pilotkurs. Du kannst dich anmelden, wenn du eingeladen bist.",
-      "heroCaption": "Platz für einen großen Screenshot: Francis antwortet und nennt seine Quellen",
-      "placeholder": "Platz für Screenshot",
       "purpose": {
         "heading": "Wofür das Projekt da ist",
         "students": "KIS richtet sich an internationale Studierende, die mit Deutsch auf B1 in ein Fachstudium starten.",
@@ -4646,41 +4644,11 @@
         "funding": "Gefördert von der Stiftung Innovation in der Hochschullehre.",
         "scope": "KIS ist ein Pilotprojekt an der THL. Es wird hier erprobt und weiterentwickelt."
       },
-      "features": {
-        "heading": "Was du damit machen kannst",
-        "items": {
-          "francis": {
-            "title": "KI-Assistent Francis",
-            "body": "Fragen zu den Unterlagen deines Workspace stellen. Francis antwortet aus deinen Quellen."
-          },
-          "translation": {
-            "title": "Übersetzung",
-            "body": "Texte und Dokumente zwischen Deutsch und Englisch übersetzen."
-          },
-          "tts": {
-            "title": "Text in Audio",
-            "body": "Texte und Dokumente vorlesen lassen."
-          },
-          "transcription": {
-            "title": "Audio in Text",
-            "body": "Vorlesungen und Videos transkribieren, auch mit Untertiteln."
-          },
-          "interpreter": {
-            "title": "Dolmetscher",
-            "body": "Ein Gespräch in zwei Sprachen, die Übersetzung läuft mit."
-          },
-          "summary": {
-            "title": "Zusammenfassung",
-            "body": "Mehrere Materialien zu einem Text zusammenführen."
-          }
-        }
-      },
       "handling": {
         "heading": "Wie wir damit umgehen",
         "sources": "Francis antwortet aus den Quellen, die in deinem Workspace liegen.",
         "names": "Francis nennt die Quelle zu jeder Antwort, damit du nachlesen kannst.",
-        "errors": "KI kann Fehler machen. Prüfe die Antworten, besonders vor Prüfungen.",
-        "caption": "Platz für einen Screenshot: eine Antwort mit Quellenangabe"
+        "errors": "KI kann Fehler machen. Prüfe die Antworten, besonders vor Prüfungen."
       },
       "team": {
         "heading": "Wer dahintersteht",
@@ -4721,12 +4689,36 @@
           "operation": "Betrieb"
         }
       },
-      "preview": {
-        "heading": "Vorschau-Steuerung, nur im Mockup",
-        "blockOn": "Event-Block anzeigen",
-        "tiles": "Kacheln",
-        "ignoreWindow": "Zeitraum übergehen",
-        "hint": "Wirkt sofort auf den Event-Block oben. Im echten Betrieb stellt das der Admin ein."
+      "heroAlt": "Workspace mit Materialien, Chat und Studio",
+      "learn": {
+        "heading": "Lernen mit Francis",
+        "intro": "Im Workspace liegen deine Unterlagen. Francis arbeitet nur mit dem, was dort liegt.",
+        "rows": {
+          "material": {
+            "title": "Alles Material an einem Ort",
+            "body": "Skripte, Folien und Vorlesungsvideos liegen zusammen im Workspace. Zu jedem Video gibt es ein Transkript, das beim Abspielen mitläuft.",
+            "alt": "Vorlesungsvideo mit mitlaufendem Transkript neben dem Chat"
+          },
+          "sources": {
+            "title": "Antworten mit Quelle",
+            "body": "Francis antwortet nur aus deinen Unterlagen und setzt zu jeder Aussage die Quelle. Ein Klick darauf öffnet die Stelle im Dokument.",
+            "alt": "Antwort im Chat, daneben die markierte Stelle im Skript"
+          },
+          "practice": {
+            "title": "Üben mit Quiz und Karteikarten",
+            "body": "Aus deinen Unterlagen entstehen Quizfragen, Karteikarten und Datentabellen zum Üben. Jede Aufgabe verweist auf die Stelle, aus der sie stammt.",
+            "alt": "Quizfrage mit vier Antworten neben dem Chat"
+          },
+          "overview": {
+            "title": "Zusammenhänge im Überblick",
+            "body": "Eine Mindmap ordnet ein Thema in Zweige. Jeder Zweig nennt die Seite, aus der er stammt.",
+            "alt": "Mindmap zu den Grundlagen des Projektmanagements"
+          }
+        }
+      },
+      "services": {
+        "heading": "Dienste für Lehrende",
+        "intro": "Neben dem KI-Assistenten finden Lehrende diese Dienste direkt auf der Startseite."
       }
     },
     "stamp": {
