@@ -124,14 +124,14 @@ export default function Header({ hasSession = true, showLogout = false }: Header
 
         {showLogout && (
           <div className="flex items-center gap-1.5">
-            {/* Public pages have no session, so the way in and the two basic switches replace the menus. */}
+            {/* Public pages have no session, so the two basic switches and the way in, last as the main action, replace the menus. */}
             {!hasSession && (
               <>
+                <HeaderPublicControls />
                 <LocaleLink href="/login" className="flex items-center justify-center h-9 px-3 sm:px-3.5 gap-1.5 rounded-full btn-on-dark" data-testid="header-login">
                   <SignIn size={17} weight="bold" aria-hidden="true" className="hidden sm:block" />
                   <span className="text-sm font-medium">{t("login")}</span>
                 </LocaleLink>
-                <HeaderPublicControls />
               </>
             )}
             {hasSession && (
