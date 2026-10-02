@@ -69,7 +69,7 @@ export default function Tabs<TKey extends string = string>({
             disabled={item.disabled}
             onClick={() => onChange(item.key)}
             className={`px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center gap-2 whitespace-nowrap rounded-t-md ${
-              isActive ? "bg-kb/10 text-kb" : "text-muted hover:bg-surface hover:text-foreground"
+              isActive ? "bg-kb/10 text-kb dark:text-foreground" : "text-muted hover:bg-surface hover:text-foreground"
             }`}
             style={{
               borderBottom: `2px solid ${isActive ? "var(--kb)" : "transparent"}`,
