@@ -38,7 +38,7 @@ function Panel({ group, rows, solid }: { group: "project" | "platform"; rows: Pa
         >
           {t("tag")}
         </span>
-        <h3 className="text-2xl @min-[40rem]:text-3xl font-semibold tracking-[-0.02em] leading-tight dark:text-foreground!">{t("title")}</h3>
+        <h3 className="text-2xl @min-[40rem]:text-3xl font-semibold tracking-[-0.02em] leading-tight dark:text-kb-dark!">{t("title")}</h3>
         <p className="text-lg leading-relaxed text-foreground-soft">{t("body")}</p>
       </div>
       <ul className="flex flex-col gap-5 border-t-2 border-border-soft pt-6">
