@@ -46,8 +46,9 @@ _PROMPT = (
     "says big twice. Rebuild the sentence so the predicate becomes the attribute "
     "instead of sitting there twice: \"Wir bewerben das große Studienangebot.\"\n"
     "- Write the example in {language}, whatever language the topic name is written in.\n"
-    "- Use no personal names. Write 'die Dozentin', 'das Team' or 'the lecturer' "
-    "instead, matching the output language.\n"
+    "- The person in the example is CONCRETE: a role ('die Professorin', 'der Student', "
+    "'the lecturer') or an invented first name ('Jasmin', 'Max'), matching the output "
+    "language. Never a vague subject such as 'das Team', 'die Person' or 'man'.\n"
 )
 
 

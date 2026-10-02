@@ -296,7 +296,7 @@ def _build_prompt(grammar_type: dict, target_form: str, examples: list[dict],
         '  "Wissenschaftliches Arbeiten"                (not a sentence)\n\n'
         # A separate example for the gap with its base form named.
         "GAP TO COPY, for kind \"cloze\":\n"
-        '  sentence "Der Bericht wird vom Team geschrieben.", form_span "wird", '
+        '  sentence "Der Bericht wird von Jasmin geschrieben.", form_span "wird", '
         'base_form "werden"\n\n'
     )
     return (
@@ -337,9 +337,9 @@ def _build_prompt(grammar_type: dict, target_form: str, examples: list[dict],
         "other complete transformations of the SAME 'before', each one wrong in "
         "exactly ONE detail of the target form, a plausible learner mistake, never a "
         "nonsense sentence. The two must differ from each other and from 'after':\n"
-        '    before "Das Team prüft die Quelle genau.", after "Die Quelle wird vom '
-        'Team genau geprüft.", wrong ["Die Quelle wurde vom Team genau geprüft.", '
-        '"Die Quelle ist vom Team genau geprüft."]\n'
+        '    before "Der Dozent prüft die Quelle genau.", after "Die Quelle wird vom '
+        'Dozenten genau geprüft.", wrong ["Die Quelle wurde vom Dozenten genau geprüft.", '
+        '"Die Quelle ist vom Dozenten genau geprüft."]\n'
         "- statement: a sentence that either shows the target form correctly or gets it "
         "wrong. 'answer' is true when it is correct. About half of them are false, and a "
         "false one is wrong in exactly ONE detail of the TARGET FORM ITSELF, never a "
@@ -412,8 +412,12 @@ def _build_prompt(grammar_type: dict, target_form: str, examples: list[dict],
         "exception, only when no other correct wording exists at all.\n"
         # No length rule, the difficulty comes from the language level alone.
         "- Every sentence is exactly ONE sentence.\n"
-        "- Do NOT use personal names. Write 'die Dozentin', 'das Team', 'according to the source' "
-        "instead, matching the output language.\n"
+        "- The people in the sentences are CONCRETE and fit the setting of the source: a "
+        "role ('die Professorin', 'der Dozent', 'die Mitarbeiterin', 'der Student') or an "
+        "invented first name ('Ali', 'Jasmin', 'Petra', 'Max'), matching the output language. "
+        "Never a vague subject such as 'das Team', 'die Person', 'jemand' or 'man', and vary "
+        "the people from one exercise to the next. Never use the name of a real person "
+        "mentioned in the source.\n"
         # The pattern sentence must not appear as an exercise itself.
         "- The worked pair above is a SHAPE, never an exercise. Never reuse its "
         "sentence, not as 'before', not in a gap sentence, not as an option.\n"
