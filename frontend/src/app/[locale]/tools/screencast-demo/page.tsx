@@ -24,7 +24,7 @@ import TranslationReviewStep from "../screencast/_steps/TranslationReviewStep";
 import ScriptReviewStep from "../screencast/_steps/ScriptReviewStep";
 import TtsSettingsStep from "../screencast/_steps/TtsSettingsStep";
 import RenderVorschau from "../screencast/_components/RenderVorschau";
-import StimmenVideo, { type DemoStimme } from "../screencast/_components/StimmenVideo";
+import VideoVergleich, { type DemoStimme } from "../screencast/_components/VideoVergleich";
 import Lightbox from "../screencast/_components/Lightbox";
 import ZusatzMaterial, { KEIN_MATERIAL } from "../screencast/_components/ZusatzMaterial";
 import { useFolienAuswahl } from "../screencast/_hooks/useFolienAuswahl";
@@ -74,15 +74,13 @@ function ScreencastDemoLauf({ onNeu }: { onNeu: () => void }) {
   // The prepared files exist per language, the chosen language decides which ones the run shows.
   const sprache = targetLang.split("-")[0].toLowerCase();
   const [stimmen, setStimmen] = useState<DemoStimme[]>([]);
-  const [anbieter, setAnbieter] = useState("");
   useEffect(() => {
     fetch(`${DEMO_API}/stimmen`, { credentials: "include" })
       .then((r) => r.json())
       .then((data) => setStimmen(data.stimmen ?? []))
       .catch(() => {});
   }, []);
-  const videoFuer = (id: string, download = false) =>
-    `${DEMO_API}/video?sprache=${sprache}&anbieter=${id}${download ? "&download=true" : ""}`;
+  const video = `${DEMO_API}/video?sprache=${sprache}`;
 
   const [slidePause, setSlidePause] = useState(1.0);
   const [subtitles, setSubtitles] = useState(false);
@@ -232,11 +230,7 @@ function ScreencastDemoLauf({ onNeu }: { onNeu: () => void }) {
         setRenderLabel(t("rendering.subtitles"));
         await warte(DAUER.schritt, signal);
       }
-      // The tab of the chosen voice opens first, when the demo has a video with it.
-      const passend = stimmen.find((s) => s.kennungen[sprache] === voiceId);
-      const start = passend?.id ?? stimmen[0]?.id ?? "";
-      setAnbieter(start);
-      setVideoUrl(videoFuer(start));
+      setVideoUrl(video);
       setRenderLabel("");
       dispatch({ type: "ENTER_STEP", step: "done", loading: false });
     } catch (err) {
@@ -493,21 +487,13 @@ function ScreencastDemoLauf({ onNeu }: { onNeu: () => void }) {
             videoUrl={videoUrl}
             audioId=""
             laufStempel=""
-            onDownloadMp4={() => herunterladen(videoFuer(anbieter, true))}
+            onDownloadMp4={() => herunterladen(`${video}&download=true`)}
             onReset={onNeu}
             onNeuVertonen={() => dispatch({ type: "SET_STEP", step: "tts-settings" })}
-            zipUrl={`${DEMO_API}/bundle?sprache=${sprache}&anbieter=${anbieter}`}
-            video={stimmen.length ? (
-              <StimmenVideo
-                stimmen={stimmen}
-                sprache={sprache}
-                aktiv={anbieter}
-                onAktiv={setAnbieter}
-                videoUrl={(id) => videoFuer(id)}
-              />
-            ) : undefined}
+            zipUrl={`${DEMO_API}/bundle?sprache=${sprache}`}
           />
         )}
+        {step === "done" && <VideoVergleich stimmen={stimmen} sprache={sprache} />}
 
         {step === "error" && (
           <ErrorStep errorMessage={errorMessage} failedRenderJobUuid={null} onRetry={() => {}} onReset={onNeu} />
