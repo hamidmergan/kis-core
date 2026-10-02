@@ -37,12 +37,8 @@ docker compose up -d
 Open `http://localhost:3000`.
 
 - Login: `admin` / `adminpw` from `.env.example`, by user name or mail address.
-- Rename the admin or reset its password: change `ADMIN_USERNAME` / `ADMIN_EMAIL` / `ADMIN_PASSWORD`
-  in `.env` and recreate the container (`docker restart` is not enough). Change `ADMIN_PASSWORD`
-  before any real use, a production install refuses the example value.
 - `AUTH_DISABLED=true` skips login, giving a `local` account every permission. Not a deployment
   mode, blocked by `PRODUCTION=true`.
-- Only reachable on `127.0.0.1`.
 
 ## Development setup
 
