@@ -58,7 +58,7 @@ export const SEED_CONFIG: MockupConfig = {
     ignoreWindow: true,
     from: "2026-11-06",
     until: "2026-11-13",
-    heading: { de: "Tag der Lehre am 13.11.", en: "Day of Teaching on 13 November" },
+    heading: { de: "Tag der Lehre am 13.11.2026", en: "Day of Teaching on 13 November 2026" },
     text: {
       de: "KIS wird vorgestellt. Probiere es direkt aus oder sammle Stempel an allen Ständen.",
       en: "KIS is presented. Try it right away or collect stamps at all stands.",
