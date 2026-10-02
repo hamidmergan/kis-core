@@ -4,7 +4,8 @@ import { useCallback, useSyncExternalStore } from "react";
 import { EMPTY_CARD, type MockupCard, type MockupConfig } from "./types";
 import { SEED_CONFIG } from "./seed";
 
-const KEYS = { config: "kis.mockup.config", card: "kis.mockup.card" } as const;
+// Raise the config version whenever the seed texts change, so stale saved copies stop shadowing them.
+const KEYS = { config: "kis.mockup.config.v2", card: "kis.mockup.card" } as const;
 type Slot = keyof typeof KEYS;
 type Value<S extends Slot> = S extends "config" ? MockupConfig : MockupCard;
 const DEFAULTS = { config: SEED_CONFIG, card: EMPTY_CARD } as { [S in Slot]: Value<S> };
