@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import EventBlock from "../_components/EventBlock";
 import HeroTabs from "./_components/HeroTabs";
 import InfoHero from "./_components/InfoHero";
-import { HandlingSection, PurposeSection, TeamSection } from "./_components/InfoSections";
+import { PurposeSection, TeamSection } from "./_components/InfoSections";
 import LearnRows from "./_components/LearnRows";
 import ServiceGrid from "./_components/ServiceGrid";
 import InfoFaq from "./_components/InfoFaq";
@@ -38,7 +38,6 @@ export default function MockupInfoPage() {
       <PurposeSection />
       <LearnRows />
       <ServiceGrid />
-      <HandlingSection />
       <TeamSection />
       <InfoFaq />
     </main>

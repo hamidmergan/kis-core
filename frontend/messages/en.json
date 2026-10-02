@@ -4640,17 +4640,32 @@
       "title": "Learn with your own materials",
       "lead": "The AI assistant Francis answers from your scripts, slides and lectures and names the source.",
       "purpose": {
-        "heading": "What the project is for",
-        "students": "KIS is aimed at international students who start a degree with German at B1.",
-        "pilot": "It is being tested in the pilot course General Electrical Engineering.",
-        "funding": "Funded by the Stiftung Innovation in der Hochschullehre.",
-        "scope": "KIS is a pilot project at THL. It is tested and developed here."
-      },
-      "handling": {
-        "heading": "How we handle it",
-        "sources": "Francis answers from the sources in your workspace.",
-        "names": "Francis names the source for every answer so you can read it yourself.",
-        "errors": "AI can make mistakes. Check the answers, especially before exams."
+        "heading": "What KIS is for",
+        "lead": "KIS is meant to make the start into a German-taught degree easier for international students. The AI assistant Francis helps them understand and practise course material.",
+        "facts": {
+          "who": {
+            "label": "Who it is for",
+            "value": "International students starting a degree in German at B1 level"
+          },
+          "pilot": {
+            "label": "Tested in",
+            "value": "Pilot course General Electrical Engineering at THL"
+          },
+          "funding": {
+            "label": "Funded by",
+            "value": "Stiftung Innovation in der Hochschullehre"
+          },
+          "status": {
+            "label": "Status",
+            "value": "Pilot project, tested and developed further at THL"
+          }
+        },
+        "rulesHeading": "How Francis handles your questions",
+        "rules": {
+          "sources": "Francis answers from the sources in your workspace.",
+          "names": "Francis names the source for every answer so you can read up on it.",
+          "errors": "AI can make mistakes. Check the answers, especially before exams."
+        }
       },
       "team": {
         "heading": "Who is behind it",

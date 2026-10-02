@@ -4640,17 +4640,32 @@
       "title": "Lernen mit deinen eigenen Unterlagen",
       "lead": "Der KI-Assistent Francis antwortet aus deinen Skripten, Folien und Vorlesungen und nennt die Quelle dazu.",
       "purpose": {
-        "heading": "Wofür das Projekt da ist",
-        "students": "KIS richtet sich an internationale Studierende, die mit Deutsch auf B1 in ein Fachstudium starten.",
-        "pilot": "Erprobt wird es im Pilotkurs Allgemeine Elektrotechnik.",
-        "funding": "Gefördert von der Stiftung Innovation in der Hochschullehre.",
-        "scope": "KIS ist ein Pilotprojekt an der THL. Es wird hier erprobt und weiterentwickelt."
-      },
-      "handling": {
-        "heading": "Wie wir damit umgehen",
-        "sources": "Francis antwortet aus den Quellen, die in deinem Workspace liegen.",
-        "names": "Francis nennt die Quelle zu jeder Antwort, damit du nachlesen kannst.",
-        "errors": "KI kann Fehler machen. Prüfe die Antworten, besonders vor Prüfungen."
+        "heading": "Wofür KIS da ist",
+        "lead": "KIS soll internationalen Studierenden den Einstieg in ein deutschsprachiges Fachstudium erleichtern. Der KI-Assistent Francis hilft dabei, Vorlesungsmaterial zu verstehen und zu üben.",
+        "facts": {
+          "who": {
+            "label": "Für wen",
+            "value": "Internationale Studierende, die mit Deutsch auf B1 in ein Fachstudium starten"
+          },
+          "pilot": {
+            "label": "Erprobt in",
+            "value": "Pilotkurs Allgemeine Elektrotechnik an der THL"
+          },
+          "funding": {
+            "label": "Gefördert von",
+            "value": "Stiftung Innovation in der Hochschullehre"
+          },
+          "status": {
+            "label": "Stand",
+            "value": "Pilotprojekt, wird an der THL erprobt und weiterentwickelt"
+          }
+        },
+        "rulesHeading": "So geht Francis mit deinen Fragen um",
+        "rules": {
+          "sources": "Francis antwortet aus den Quellen, die in deinem Workspace liegen.",
+          "names": "Zu jeder Antwort nennt Francis die Quelle, damit du nachlesen kannst.",
+          "errors": "KI kann Fehler machen. Prüfe die Antworten, besonders vor Prüfungen."
+        }
       },
       "team": {
         "heading": "Wer dahintersteht",
