@@ -7,6 +7,7 @@ import { newUniqueCode } from "@/lib/event/codes";
 import ConfirmDialog from "@/components/event/ConfirmDialog";
 import { useEventConfig } from "@/lib/event/adminStore";
 import type { Station } from "@/lib/event/types";
+import type { PrintSize } from "./posterExport";
 import StationEditor from "./StationEditor";
 import { BTN_PRIMARY, BTN_SECONDARY } from "./fields";
 
@@ -20,7 +21,7 @@ export function nextId(prefix: string, taken: { id: string }[]): string {
 
 const EMPTY = { de: "", en: "" };
 
-export default function StationsCard({ onQr, onPrintAll }: { onQr: (id: string) => void; onPrintAll: () => void }) {
+export default function StationsCard({ onQr, onPrintAll }: { onQr: (id: string) => void; onPrintAll: (size: PrintSize) => void }) {
   const t = useTranslations("eventAdmin.stations");
   const tp = useTranslations("eventAdmin.poster");
   const [config, update] = useEventConfig();
@@ -59,9 +60,18 @@ export default function StationsCard({ onQr, onPrintAll }: { onQr: (id: string) 
       description={t("description")}
       control={
         <>
-          <button type="button" onClick={onPrintAll} disabled={!stations.length} className={BTN_SECONDARY} data-testid="print-all">
-            {tp("all")}
-          </button>
+          {(["A5", "A4"] as const).map((size) => (
+            <button
+              key={size}
+              type="button"
+              onClick={() => onPrintAll(size)}
+              disabled={!stations.length}
+              className={BTN_SECONDARY}
+              data-testid={`print-all-${size.toLowerCase()}`}
+            >
+              {tp(size === "A5" ? "allA5" : "allA4")}
+            </button>
+          ))}
           <button type="button" onClick={add} className={BTN_PRIMARY} data-testid="station-add">
             {t("add")}
           </button>

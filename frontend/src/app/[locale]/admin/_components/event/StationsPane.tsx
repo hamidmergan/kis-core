@@ -5,8 +5,9 @@ import { useEventConfig } from "@/lib/event/adminStore";
 import StationsCard from "./StationsCard";
 import StationQr from "./StationQr";
 import PosterPrintSheet from "./PosterPrintSheet";
+import type { PrintSize } from "./posterExport";
 
-type PrintJob = { ids: string[]; nonce: number };
+type PrintJob = { ids: string[]; size: PrintSize; nonce: number };
 
 /** Stands, plus the poster modal and the print sheet they open. */
 export default function StationsPane() {
@@ -22,19 +23,20 @@ export default function StationsPane() {
     <div className="flex flex-col gap-4">
       <StationsCard
         onQr={setQrId}
-        onPrintAll={() => setJob({ ids: config.stations.map((s) => s.id), nonce: Date.now() })}
+        onPrintAll={(size) => setJob({ ids: config.stations.map((s) => s.id), size, nonce: Date.now() })}
       />
       {qrStation && (
         <StationQr
           station={qrStation}
           onClose={() => setQrId(null)}
-          onPrint={() => setJob({ ids: [qrStation.id], nonce: Date.now() })}
+          onPrint={(size) => setJob({ ids: [qrStation.id], size, nonce: Date.now() })}
         />
       )}
       {job && printStations.length > 0 && (
         <PosterPrintSheet
           key={job.nonce}
           stations={printStations}
+          size={job.size}
           onDone={clearJob}
         />
       )}

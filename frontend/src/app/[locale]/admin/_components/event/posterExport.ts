@@ -1,5 +1,7 @@
 import { triggerBlobDownload } from "../../../tools/screencast/_utils";
 
+export type PrintSize = "A5" | "A4";
+
 /** A5 in millimetres, the SVG viewBox uses the same units. */
 export const POSTER_MM = { w: 148, h: 210 } as const;
 const PX_PER_MM = 8;

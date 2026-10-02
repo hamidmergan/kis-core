@@ -4952,11 +4952,12 @@
       "title": "Aufsteller {station}",
       "scanHint": "Scanne den Code oder gib ihn ein",
       "codeLabel": "Code",
-      "png": "Als PNG herunterladen",
-      "pdf": "Als PDF (A5)",
-      "all": "Alle als PDF (A5)",
-      "printHint": "Es öffnet sich der Druckdialog. Wähle dort Als PDF speichern.",
-      "kicker": "Stempelkarte"
+      "png": "Als PNG",
+      "kicker": "Stempelkarte",
+      "a5": "Als A5",
+      "a4": "Als A4",
+      "allA5": "Alle als A5",
+      "allA4": "Alle als A4"
     },
     "stats": {
       "title": "Auswertung",

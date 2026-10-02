@@ -6,19 +6,18 @@ import Modal from "@/components/ui/Modal";
 import { useText2 } from "@/lib/event/useText2";
 import type { Station } from "@/lib/event/types";
 import PosterSvg, { useStationQr } from "./PosterSvg";
-import { exportPosterPng } from "./posterExport";
+import { exportPosterPng, type PrintSize } from "./posterExport";
 import { BTN_SECONDARY } from "./fields";
 
 interface Props {
   station: Station;
   onClose: () => void;
-  onPrint: () => void;
+  onPrint: (size: PrintSize) => void;
 }
 
-/** Poster preview for one stand with PNG download and the A5 print route. */
+/** Poster preview for one stand with PNG download and the A5 and A4 print routes. */
 export default function StationQr({ station, onClose, onPrint }: Props) {
   const t = useTranslations("eventAdmin.poster");
-  const tc = useTranslations("eventCommon");
   const text = useText2();
   const art = useStationQr(station.id);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -41,18 +40,24 @@ export default function StationQr({ station, onClose, onPrint }: Props) {
       title={t("title", { station: text(station.name) })}
       size="sm"
       footer={
-        <div className="flex flex-wrap justify-end gap-2">
-          <button type="button" onClick={onClose} className="btn-cancel px-4 py-2 text-sm btn-secondary rounded-lg">
-            {tc("close")}
-          </button>
-          <button type="button" onClick={onPrint} disabled={!art} className={BTN_SECONDARY} data-testid="poster-pdf">
-            {t("pdf")}
-          </button>
+        <div className="grid grid-cols-3 gap-2 w-full">
+          {(["A5", "A4"] as const).map((size) => (
+            <button
+              key={size}
+              type="button"
+              onClick={() => onPrint(size)}
+              disabled={!art}
+              className={`${BTN_SECONDARY} w-full`}
+              data-testid={`poster-${size.toLowerCase()}`}
+            >
+              {t(size === "A5" ? "a5" : "a4")}
+            </button>
+          ))}
           <button
             type="button"
             onClick={() => void download()}
             disabled={!art || busy}
-            className="px-4 py-2 text-sm btn-primary rounded-lg disabled:opacity-50"
+            className="w-full px-4 py-2 text-sm btn-primary rounded-md disabled:opacity-50"
             data-testid="poster-png"
           >
             {t("png")}
@@ -67,7 +72,6 @@ export default function StationQr({ station, onClose, onPrint }: Props) {
           art={art}
           className="w-full max-w-xs h-auto rounded-md border border-border shadow-sm"
         />
-        <p className="text-xs text-muted text-center max-w-xs">{t("printHint")}</p>
       </div>
     </Modal>
   );
