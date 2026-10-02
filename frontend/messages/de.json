@@ -4641,7 +4641,6 @@
       "lead": "Der KI-Assistent Francis antwortet aus deinen Skripten, Folien und Vorlesungen und nennt die Quelle dazu.",
       "purpose": {
         "heading": "Projekt und Plattform",
-        "lead": "KIS ist ein Projekt an der THL. Die Plattform ist das Werkzeug dafür und steht Studierenden und Lehrenden in jedem Fach zur Verfügung.",
         "project": {
           "tag": "Das Projekt",
           "title": "KIS, Kinternationalisierung von Studiengängen",
@@ -4679,12 +4678,6 @@
               "value": "Jedes Fach, keine Vorgaben für Inhalte"
             }
           }
-        },
-        "rulesHeading": "So geht Francis mit deinen Fragen um",
-        "rules": {
-          "sources": "Francis antwortet aus den Quellen, die in deinem Workspace liegen.",
-          "names": "Zu jeder Antwort nennt Francis die Quelle, damit du nachlesen kannst.",
-          "errors": "KI kann Fehler machen. Prüfe die Antworten, besonders vor Prüfungen."
         }
       },
       "team": {
@@ -4718,10 +4711,23 @@
           "hosting": {
             "q": "Wo läuft die Plattform?",
             "a": "Die Plattform wird vom Projektteam an der THL betrieben und läuft auf Servern in Deutschland. Die KI-Modelle laufen auf Infrastruktur der THL und von Partnern in Deutschland."
+          },
+          "sources": {
+            "q": "Woher nimmt Francis seine Antworten?",
+            "a": "Francis antwortet aus den Quellen, die in deinem Workspace liegen."
+          },
+          "names": {
+            "q": "Woher weiß ich, worauf eine Antwort beruht?",
+            "a": "Zu jeder Antwort nennt Francis die Quelle, damit du nachlesen kannst."
+          },
+          "errors": {
+            "q": "Kann Francis Fehler machen?",
+            "a": "Ja, KI kann Fehler machen. Prüfe die Antworten, besonders vor Prüfungen."
           }
         },
         "groups": {
           "use": "Nutzung",
+          "francis": "Francis",
           "outlook": "Ausblick",
           "operation": "Betrieb"
         }

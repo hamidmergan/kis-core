@@ -4641,7 +4641,6 @@
       "lead": "The AI assistant Francis answers from your scripts, slides and lectures and names the source.",
       "purpose": {
         "heading": "Project and platform",
-        "lead": "KIS is a project at THL. The platform is its tool and is available to students and teachers in any subject.",
         "project": {
           "tag": "The project",
           "title": "KIS, Kinternationalisierung von Studiengängen",
@@ -4679,12 +4678,6 @@
               "value": "Any subject, no restrictions on content"
             }
           }
-        },
-        "rulesHeading": "How Francis handles your questions",
-        "rules": {
-          "sources": "Francis answers from the sources in your workspace.",
-          "names": "Francis names the source for every answer so you can read up on it.",
-          "errors": "AI can make mistakes. Check the answers, especially before exams."
         }
       },
       "team": {
@@ -4718,10 +4711,23 @@
           "hosting": {
             "q": "Where does the platform run?",
             "a": "The platform is operated by the project team at THL and runs on servers in Germany. The AI models run on infrastructure of THL and of partners in Germany."
+          },
+          "sources": {
+            "q": "Where does Francis get its answers?",
+            "a": "Francis answers from the sources in your workspace."
+          },
+          "names": {
+            "q": "How do I know what an answer is based on?",
+            "a": "Francis names the source for every answer so you can read up on it."
+          },
+          "errors": {
+            "q": "Can Francis make mistakes?",
+            "a": "Yes, AI can make mistakes. Check the answers, especially before exams."
           }
         },
         "groups": {
           "use": "Using the platform",
+          "francis": "Francis",
           "outlook": "Outlook",
           "operation": "Operation"
         }
