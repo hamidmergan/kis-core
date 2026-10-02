@@ -21,10 +21,7 @@ export default function StationsPane() {
 
   return (
     <div className="flex flex-col gap-4">
-      <StationsCard
-        onQr={setQrId}
-        onPrintAll={(size) => setJob({ ids: config.stations.map((s) => s.id), size, nonce: Date.now() })}
-      />
+      <StationsCard onQr={setQrId} />
       {qrStation && (
         <StationQr
           station={qrStation}

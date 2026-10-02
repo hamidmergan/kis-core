@@ -4915,9 +4915,7 @@
       "png": "As PNG",
       "kicker": "Stamp card",
       "a5": "As A5",
-      "a4": "As A4",
-      "allA5": "All as A5",
-      "allA4": "All as A4"
+      "a4": "As A4"
     },
     "stats": {
       "title": "Results",
