@@ -22,8 +22,9 @@ export default function CompletionScreen({ variant, completedAt }: { variant: Ma
       {completedAt !== null && (
         <p className="text-sm text-foreground-soft tabular-nums">{t("since", { time: since.format(new Date(completedAt)) })}</p>
       )}
-      <p className="flex items-center gap-2 text-base font-medium text-foreground">
-        <Gift size={22} weight="bold" aria-hidden="true" className="text-kb" />
+      {/* Inline, so the icon stands right before the first line even when the text wraps. */}
+      <p className="text-base font-medium text-foreground">
+        <Gift size={22} weight="bold" aria-hidden="true" className="text-kb inline-block align-text-bottom mr-2" />
         {t("reward")}
       </p>
     </section>
