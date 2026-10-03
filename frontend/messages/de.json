@@ -4857,7 +4857,7 @@
       "next": "Als Nächstes könntest du zu {station} gehen.",
       "allDone": "Alle Felder sind voll.",
       "wrong": "Dieser Code passt zu keinem Stand.",
-      "welcome": "Scanne den QR-Code am Stand oder gib den Code vom Aufsteller ein. Ich sage dir dann, wo es weitergeht."
+      "welcome": "Scanne den QR-Code am Stand oder gib den Code vom Aufsteller ein."
     },
     "complete": {
       "title": "Geschafft, deine Stempelkarte ist vollständig",

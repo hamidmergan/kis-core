@@ -4857,7 +4857,7 @@
       "next": "Next you could go to {station}.",
       "allDone": "All fields are full.",
       "wrong": "This code does not match any stand.",
-      "welcome": "Scan the QR code at the stand or enter the code from the poster. I will then tell you where to go next."
+      "welcome": "Scan the QR code at the stand or enter the code from the poster."
     },
     "complete": {
       "title": "Done, your stamp card is complete",
