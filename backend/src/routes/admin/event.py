@@ -55,6 +55,8 @@ class EventBlockPayload(BaseModel):
 class EventConfigPayload(BaseModel):
     stations: list[StationPayload]
     eventBlock: EventBlockPayload
+    # Posters then carry the QR code only, the codes are told at the stand.
+    hideCodeOnPosters: bool = False
 
 
 @router.get("")

@@ -50,6 +50,8 @@ export interface EventBlock {
 export interface EventConfig {
   stations: Station[];
   eventBlock: EventBlock;
+  /** Leaves the code off every poster so a visitor has to scan, the admin still sees it. */
+  hideCodeOnPosters: boolean;
 }
 
 /** What every visitor may read, no codes, the block is null while it is off or outside its period. */

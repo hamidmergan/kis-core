@@ -4889,6 +4889,8 @@
   "eventAdmin": {
     "stations": {
       "title": "Stands",
+      "hideCode": "Do not print the code on the posters. Visitors have to scan the QR code, you tell the code at the stand.",
+      "hideCodeAria": "Hide the code on posters",
       "codeRerollTitle": "Roll a new code for this stand?",
       "codeRerollText": "The code on posters that are already printed stops working. The posters have to be printed again.",
       "description": "Order, name, short text and what Francis says after the stamp.",
@@ -4911,6 +4913,7 @@
     "poster": {
       "title": "Poster {station}",
       "scanHint": "Scan the code or type it in",
+      "scanHintOnly": "Scan the QR code with your camera",
       "codeLabel": "Code",
       "png": "As PNG",
       "kicker": "Stamp card",

@@ -4889,6 +4889,8 @@
   "eventAdmin": {
     "stations": {
       "title": "Stände",
+      "hideCode": "Code nicht auf die Aufsteller drucken. Besuchende müssen den QR-Code scannen, den Code nennst du am Stand.",
+      "hideCodeAria": "Code auf Aufstellern ausblenden",
       "codeRerollTitle": "Code des Stands neu würfeln?",
       "codeRerollText": "Der Code auf bereits gedruckten Aufstellern gilt danach nicht mehr. Die Aufsteller müssen neu gedruckt werden.",
       "description": "Reihenfolge, Name, Kurztext und was Francis nach dem Stempel sagt.",
@@ -4911,6 +4913,7 @@
     "poster": {
       "title": "Aufsteller {station}",
       "scanHint": "Scanne den Code oder gib ihn ein",
+      "scanHintOnly": "Scanne den QR-Code mit der Kamera",
       "codeLabel": "Code",
       "png": "Als PNG",
       "kicker": "Stempelkarte",

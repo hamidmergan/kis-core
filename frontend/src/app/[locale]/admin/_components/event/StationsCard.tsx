@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { SettingCard } from "@/app/[locale]/admin/_settings/fields";
+import { SettingCard, Switch } from "@/app/[locale]/admin/_settings/fields";
 import { newUniqueCode } from "@/lib/event/codes";
 import ConfirmDialog from "@/components/event/ConfirmDialog";
 import { useEventConfig } from "@/lib/event/adminStore";
@@ -64,6 +64,14 @@ export default function StationsCard({ onQr }: { onQr: (id: string) => void }) {
         </>
       }
     >
+      <div className="mt-4 flex items-center justify-between gap-4 rounded-lg border border-border-soft bg-surface px-3 py-2.5">
+        <span className="text-sm text-foreground-soft">{t("hideCode")}</span>
+        <Switch
+          checked={config.hideCodeOnPosters}
+          onChange={(hideCodeOnPosters) => update((c) => ({ ...c, hideCodeOnPosters }))}
+          label={t("hideCodeAria")}
+        />
+      </div>
       <div className="mt-4 flex flex-col gap-3" data-testid="station-list">
         {stations.length === 0 && <p className="text-sm text-muted">{t("empty")}</p>}
         {stations.map((station, i) => (

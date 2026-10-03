@@ -45,6 +45,7 @@ def _station(id: str, code: str, icon: str, de: tuple[str, str, str], en: tuple[
 def default_config() -> dict:
     """The stands and the event block a fresh install shows until the admin saves its own."""
     return {
+        "hideCodeOnPosters": False,
         "stations": [
             _station(
                 "management", "H4RV", "info",
@@ -263,4 +264,4 @@ def validate_config(config: dict) -> dict:
         geprueft.append({**tile, "id": tile_id, "availableFrom": ab})
     block["tiles"] = geprueft
 
-    return {"stations": stations, "eventBlock": block}
+    return {"stations": stations, "eventBlock": block, "hideCodeOnPosters": bool(config.get("hideCodeOnPosters"))}

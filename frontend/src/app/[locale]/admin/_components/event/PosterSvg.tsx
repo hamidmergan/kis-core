@@ -3,6 +3,7 @@
 import { forwardRef, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import QRCode from "qrcode";
+import { useEventConfig } from "@/lib/event/adminStore";
 import { EVENT_ICONS } from "@/lib/event/icons";
 import { stationQrUrl } from "@/lib/event/routes";
 import { useText2 } from "@/lib/event/useText2";
@@ -87,6 +88,8 @@ interface Props {
 
 const PosterSvg = forwardRef<SVGSVGElement, Props>(function PosterSvg({ station, art, className }, ref) {
   const t = useTranslations("eventAdmin.poster");
+  const [config] = useEventConfig();
+  const showCode = !config.hideCodeOnPosters;
   const text = useText2();
   const Icon = EVENT_ICONS[station.icon];
   const lines = nameLines(text(station.name));
@@ -140,8 +143,10 @@ const PosterSvg = forwardRef<SVGSVGElement, Props>(function PosterSvg({ station,
       <rect x={38} y={84} width={72} height={72} rx={3} fill={PAPER} stroke={ACCENT} strokeWidth={0.6} />
       {art && <image href={art.qr} x={42} y={88} width={64} height={64} />}
       <text x={74} y={167} textAnchor="middle" fontFamily={SANS} fontSize="5.4" fill={SOFT}>
-        {t("scanHint")}
+        {t(showCode ? "scanHint" : "scanHintOnly")}
       </text>
+      {showCode && (
+        <>
       <text x={74} y={178} textAnchor="middle" fontFamily={SANS} fontSize="4.2" fill={SOFT} letterSpacing="0.8">
         {t("codeLabel").toUpperCase()}
       </text>
@@ -157,6 +162,8 @@ const PosterSvg = forwardRef<SVGSVGElement, Props>(function PosterSvg({ station,
       >
         {station.code}
       </text>
+        </>
+      )}
       <rect x={10} y={203} width={128} height={1} fill={ACCENT} />
     </svg>
   );

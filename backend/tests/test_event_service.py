@@ -24,7 +24,8 @@ from src.features.event.service import (
 
 def test_the_seed_carries_neither_master_code_nor_statistics():
     config = default_config()
-    assert set(config) == {"stations", "eventBlock"}
+    assert set(config) == {"stations", "eventBlock", "hideCodeOnPosters"}
+    assert config["hideCodeOnPosters"] is False
     assert "masterCode" not in config
     assert len(config["stations"]) == 5
     assert len(config["eventBlock"]["tiles"]) == 2
@@ -222,3 +223,9 @@ def test_empty_dates_are_fine():
 
 def test_the_alphabet_has_no_look_alikes():
     assert not set("IO01") & set(CODE_ALPHABET)
+
+
+def test_validation_keeps_the_hide_setting_and_defaults_it_off():
+    config = default_config()
+    assert validate_config(config)["hideCodeOnPosters"] is False
+    assert validate_config({**config, "hideCodeOnPosters": True})["hideCodeOnPosters"] is True

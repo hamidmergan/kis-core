@@ -22,7 +22,10 @@ CONFIG_KEY = "event_config"
 def get_config() -> dict:
     """The saved configuration, the seed where nothing was saved yet."""
     roh = get_setting(CONFIG_KEY)
-    return json.loads(roh) if roh else default_config()
+    if not roh:
+        return default_config()
+    # A configuration saved before a setting existed lacks it, the default fills the gap.
+    return {**default_config(), **json.loads(roh)}
 
 
 def save_config(config: dict) -> None:

@@ -108,7 +108,14 @@ def test_an_unsaved_configuration_is_the_seed(monkeypatch):
 
 def test_a_saved_configuration_wins_over_the_seed(monkeypatch):
     monkeypatch.setattr(repo, "get_setting", lambda key, default="": '{"stations": [], "eventBlock": {}}')
-    assert repo.get_config() == {"stations": [], "eventBlock": {}}
+    assert repo.get_config() == {"stations": [], "eventBlock": {}, "hideCodeOnPosters": False}
+
+
+def test_a_saved_hide_setting_is_kept(monkeypatch):
+    monkeypatch.setattr(
+        repo, "get_setting", lambda key, default="": '{"stations": [], "eventBlock": {}, "hideCodeOnPosters": true}'
+    )
+    assert repo.get_config()["hideCodeOnPosters"] is True
 
 
 def test_saving_writes_json_under_the_one_key(monkeypatch):
