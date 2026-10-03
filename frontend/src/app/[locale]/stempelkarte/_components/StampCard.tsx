@@ -47,6 +47,7 @@ export default function StampCard() {
 
   const loading = !ready || !data;
   const complete = isComplete(card, stations);
+  const showComplete = !failed && !cardFailed && !loading && complete;
   const doneCount = stampedIds(card, stations).length;
   const lastId = mood.kind === "stamped" ? mood.station.id : null;
 
@@ -54,7 +55,7 @@ export default function StampCard() {
     <main className="max-w-3xl mx-auto px-4 py-6 sm:py-8 flex flex-col gap-6" data-testid="stamp-card">
       <div>
         <h1 className="text-2xl font-semibold tracking-[-0.01em] text-foreground">{t("title")}</h1>
-        <p className="text-base text-foreground-soft mt-1">{t("intro")}</p>
+        {!showComplete && <p className="text-base text-foreground-soft mt-1">{t("intro")}</p>}
       </div>
       {failed || cardFailed ? (
         <p className="text-sm text-error" role="alert">
@@ -62,7 +63,7 @@ export default function StampCard() {
         </p>
       ) : loading ? (
         <p className="text-sm text-foreground-soft">{t("loading")}</p>
-      ) : complete ? (
+      ) : showComplete ? (
         <CompletionScreen variant={variant} completedAt={card.completedAt} />
       ) : (
         <>
