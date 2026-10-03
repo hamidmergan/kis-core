@@ -4912,7 +4912,7 @@
     },
     "poster": {
       "title": "Poster {station}",
-      "scanHint": "Scan the code or type it in",
+      "scanHint": "Scan the QR code or type in the code",
       "scanHintOnly": "Scan the QR code",
       "codeLabel": "Code",
       "png": "As PNG",

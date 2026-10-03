@@ -4912,7 +4912,7 @@
     },
     "poster": {
       "title": "Aufsteller {station}",
-      "scanHint": "Scanne den Code oder gib ihn ein",
+      "scanHint": "Scanne den QR-Code oder gib den Code ein",
       "scanHintOnly": "Scanne den QR-Code",
       "codeLabel": "Code",
       "png": "Als PNG",
