@@ -146,23 +146,18 @@ const PosterSvg = forwardRef<SVGSVGElement, Props>(function PosterSvg({ station,
         {t(showCode ? "scanHint" : "scanHintOnly")}
       </text>
       {showCode && (
-        <>
-      <text x={74} y={178} textAnchor="middle" fontFamily={SANS} fontSize="4.2" fill={SOFT} letterSpacing="0.8">
-        {t("codeLabel").toUpperCase()}
-      </text>
-      <text
-        x={74}
-        y={196}
-        textAnchor="middle"
-        fontFamily={MONO}
-        fontSize="19"
-        fontWeight="700"
-        fill={ACCENT}
-        letterSpacing="2.5"
-      >
-        {station.code}
-      </text>
-        </>
+        <text
+          x={74}
+          y={192}
+          textAnchor="middle"
+          fontFamily={MONO}
+          fontSize="19"
+          fontWeight="700"
+          fill={ACCENT}
+          letterSpacing="2.5"
+        >
+          {station.code}
+        </text>
       )}
       <rect x={10} y={203} width={128} height={1} fill={ACCENT} />
     </svg>

@@ -4914,7 +4914,6 @@
       "title": "Aufsteller {station}",
       "scanHint": "Scanne den QR-Code oder gib den Code ein",
       "scanHintOnly": "Scanne den QR-Code",
-      "codeLabel": "Code",
       "png": "Als PNG",
       "kicker": "Stempelkarte",
       "a5": "Als A5",
