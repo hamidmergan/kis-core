@@ -4846,7 +4846,7 @@
     "done": "Stamped",
     "code": {
       "label": "Enter code",
-      "hint": "You find the code on the poster at the stand.",
+      "hint": "If scanning the QR code does not work, ask for the code at the stand.",
       "submit": "Check",
       "wrong": "The code is wrong. Take another look at the poster.",
       "attemptsLeft": "{n, plural, one {# try left} other {# tries left}}",

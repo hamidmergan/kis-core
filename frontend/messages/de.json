@@ -4846,7 +4846,7 @@
     "done": "Gestempelt",
     "code": {
       "label": "Code eingeben",
-      "hint": "Den Code findest du auf dem Aufsteller am Stand.",
+      "hint": "Falls das Scannen des QR-Codes nicht klappt, frag am Stand nach dem Code.",
       "submit": "Prüfen",
       "wrong": "Der Code stimmt nicht. Schau noch mal auf den Aufsteller.",
       "attemptsLeft": "{n, plural, one {Noch # Versuch} other {Noch # Versuche}}",
