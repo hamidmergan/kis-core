@@ -4913,7 +4913,7 @@
     "poster": {
       "title": "Aufsteller {station}",
       "scanHint": "Scanne den Code oder gib ihn ein",
-      "scanHintOnly": "Scanne den QR-Code mit der Kamera",
+      "scanHintOnly": "Scanne den QR-Code",
       "codeLabel": "Code",
       "png": "Als PNG",
       "kicker": "Stempelkarte",

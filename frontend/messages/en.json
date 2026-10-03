@@ -4913,7 +4913,7 @@
     "poster": {
       "title": "Poster {station}",
       "scanHint": "Scan the code or type it in",
-      "scanHintOnly": "Scan the QR code with your camera",
+      "scanHintOnly": "Scan the QR code",
       "codeLabel": "Code",
       "png": "As PNG",
       "kicker": "Stamp card",
