@@ -26,10 +26,12 @@ export default function OrtKarte({ ort, mapUrl }: { ort: OrtKarteDaten; mapUrl: 
         type="button"
         onClick={() => setOpen(true)}
         className="flex items-center gap-2 px-3 py-2 rounded-xl border-2 border-border hover:border-kb focus:border-kb transition-colors text-left bg-background max-w-full"
+        style={{ width: 320 }}
+        title={title}
         data-testid="campus-place-card"
       >
         <MapPin size={18} weight="fill" style={{ color: "var(--kb)", flexShrink: 0 }} />
-        <span className="min-w-0">
+        <span className="min-w-0 flex-1">
           <span className="block text-sm font-medium truncate" style={{ color: "var(--foreground)" }}>{title}</span>
           <span className="block text-2xs" style={{ color: "var(--muted)" }}>{t("showOnMap")}</span>
         </span>

@@ -26,6 +26,9 @@ function standText(date: string | null, locale: string): string | null {
   return d.toLocaleDateString(locale === "en" ? "en-GB" : "de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
+/** Source cards are as wide as the place cards, so both rows line up. */
+export const CARD_WIDTH = 320;
+
 export default function QuellenKarten({ quellen }: { quellen: CampusQuelle[] }) {
   const t = useTranslations("tools.campus");
   const locale = useLocale();
@@ -42,11 +45,11 @@ export default function QuellenKarten({ quellen }: { quellen: CampusQuelle[] }) 
           const inner = (
             <>
               <Icon size={16} weight="bold" style={{ color: "var(--kb)", flexShrink: 0 }} />
-              <span className="min-w-0">
+              <span className="min-w-0 flex-1">
                 <span className="block text-sm font-medium truncate" style={{ color: "var(--foreground)" }}>{q.title}</span>
                 <span className="block text-2xs truncate" style={{ color: "var(--muted)" }}>
                   {sub}
-                  {stand && ` · ${t("stand", { date: stand })}`}
+                  {stand && `${sub ? ", " : ""}${t("stand", { date: stand })}`}
                 </span>
               </span>
               {href && <ArrowSquareOut size={13} weight="bold" style={{ color: "var(--muted)", flexShrink: 0 }} />}
@@ -54,11 +57,11 @@ export default function QuellenKarten({ quellen }: { quellen: CampusQuelle[] }) 
           );
           const klasse = "flex items-center gap-2 px-3 py-2 rounded-xl border-2 border-border bg-background max-w-full no-underline";
           return href ? (
-            <a key={q.page_id} href={href} target="_blank" rel="noopener noreferrer" className={`${klasse} hover:border-kb focus:border-kb transition-colors`} style={{ maxWidth: 320 }}>
+            <a key={q.page_id} href={href} target="_blank" rel="noopener noreferrer" title={q.title} className={`${klasse} hover:border-kb focus:border-kb transition-colors`} style={{ width: CARD_WIDTH }}>
               {inner}
             </a>
           ) : (
-            <span key={q.page_id} className={klasse} style={{ maxWidth: 320 }}>
+            <span key={q.page_id} title={q.title} className={klasse} style={{ width: CARD_WIDTH }}>
               {inner}
             </span>
           );
