@@ -1943,6 +1943,7 @@
           "never": "noch nie",
           "running": "läuft gerade",
           "error": "Fehler",
+          "capped": "Obergrenze von {max, number} Webseiten erreicht. {count, number} neue Seiten aus der Sitemap wurden nicht aufgenommen.",
           "failed": "fehlgeschlagen"
         },
         "documents": {

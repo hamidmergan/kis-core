@@ -400,8 +400,10 @@ CAMPUS_SOURCE_CARDS_MAX                = 5
 CAMPUS_SOURCE_MAX_DISTANCE             = 0.5
 # One place per answer, the first one mentioned, the rest is found on the map.
 CAMPUS_PLACE_CARDS_MAX                 = 1
-# One nightly run over a university site, pages beyond the cap wait for the next night.
+# Web pages the index holds at most, new sitemap links beyond it are left out until pages drop away.
 CAMPUS_CRAWL_MAX_PAGES                 = 5_000
+# Chunks one web page brings at most, the rest of an overlong page is not indexed.
+CAMPUS_PAGE_MAX_CHUNKS                 = 200
 CAMPUS_PAGE_MAX_BYTES                  = 5_000_000
 CAMPUS_CRAWL_CONCURRENCY               = 4
 CAMPUS_FETCH_TIMEOUT_SECONDS           = 20

@@ -75,7 +75,7 @@ def test_unveraendert_gelöscht_und_neu(monkeypatch):
     ])
     monkeypatch.setattr(crawler, "page_repo", seiten)
     eingebettet = []
-    monkeypatch.setattr(crawler.indexer, "index_markdown", lambda pid, title, md, embed: eingebettet.append(pid) or 1)
+    monkeypatch.setattr(crawler.indexer, "index_markdown", lambda pid, title, md, embed, **k: eingebettet.append(pid) or 1)
     antworten = {
         "https://x.test/b/": FetchResult("unchanged"),
         "https://x.test/c/": FetchResult("ok", body=HTML, etag='"c"'),
@@ -105,15 +105,32 @@ def test_404_entfernt_die_seite_und_fehler_markiert(monkeypatch):
     assert ("no text" in [s[2] for s in seiten.status])
 
 
-def test_obergrenze_laesst_den_rest_stehen(monkeypatch):
-    seiten = _Pages([{"id": 9, "url": "https://x.test/alt/", "etag": None, "last_modified": None, "fetched_at": None, "status": "ready"}])
+def test_obergrenze_gilt_fuer_den_ganzen_index(monkeypatch):
+    seiten = _Pages([{"id": 9, "url": "https://x.test/c/", "etag": None, "last_modified": None, "fetched_at": None, "status": "ready"}])
+    monkeypatch.setattr(crawler, "page_repo", seiten)
+    geholt = []
+    monkeypatch.setattr(crawler.indexer, "index_markdown", lambda pid, *a, **k: geholt.append(pid) or 1)
+    antworten = {u: FetchResult("ok", body=HTML) for u in ("https://x.test/a/", "https://x.test/b/", "https://x.test/c/")}
+    stats = crawler.run(_einstellungen(), embed=lambda t: [], client=object(), max_pages=2, concurrency=1, fetch_fn=_fetch_factory(antworten))
+    # c is known and stays current, one slot is left for a, b and the javascript entry wait outside.
+    assert stats["indexed"] == 2 and stats["capped"] == 2 and stats["seen"] == 4
+    assert 9 in geholt and "https://x.test/b/" not in seiten.by_url
+    # A full sitemap read still lets the pages under the cap be checked for removal.
+    assert seiten.deleted == []
+
+
+def test_volle_obergrenze_nimmt_nichts_neues_auf(monkeypatch):
+    seiten = _Pages([
+        {"id": 1, "url": "https://x.test/a/", "etag": None, "last_modified": None, "fetched_at": None, "status": "ready"},
+        {"id": 2, "url": "https://x.test/alt/", "etag": None, "last_modified": None, "fetched_at": None, "status": "ready"},
+    ])
     monkeypatch.setattr(crawler, "page_repo", seiten)
     monkeypatch.setattr(crawler.indexer, "index_markdown", lambda *a, **k: 1)
     antworten = {u: FetchResult("ok", body=HTML) for u in ("https://x.test/a/", "https://x.test/b/", "https://x.test/c/")}
-    stats = crawler.run(_einstellungen(), embed=lambda t: [], client=object(), max_pages=2, concurrency=1, fetch_fn=_fetch_factory(antworten))
-    assert stats["indexed"] == 2 and stats["seen"] == 4
-    # Nothing was removed, the run did not see every page.
-    assert seiten.deleted == []
+    stats = crawler.run(_einstellungen(), embed=lambda t: [], client=object(), max_pages=1, concurrency=1, fetch_fn=_fetch_factory(antworten))
+    # alt left the sitemap and frees its slot first, then a fills the cap and nothing new comes in.
+    assert seiten.deleted == [2] and stats["capped"] == 3
+    assert set(seiten.by_url) == {"https://x.test/a/"}
 
 
 def test_unlesbare_teil_sitemap_loescht_nichts(monkeypatch):
@@ -186,7 +203,7 @@ def test_fehler_einer_seite_stoppt_den_lauf_nicht(monkeypatch):
     monkeypatch.setattr(crawler, "page_repo", seiten)
     aufrufe = []
 
-    def index(pid, title, md, embed):
+    def index(pid, title, md, embed, **k):
         aufrufe.append(pid)
         return 1
 
@@ -207,7 +224,7 @@ def test_fehler_einer_seite_stoppt_den_lauf_nicht(monkeypatch):
 def test_mehrere_sitemaps_und_ausgeschlossene_seiten(monkeypatch):
     seiten = _Pages([{"id": 7, "url": "https://x.test/b/", "etag": None, "last_modified": None, "fetched_at": None, "status": "ready", "content_hash": "v3:x"}])
     monkeypatch.setattr(crawler, "page_repo", seiten)
-    monkeypatch.setattr(crawler.indexer, "index_markdown", lambda pid, title, md, embed: 1)
+    monkeypatch.setattr(crawler.indexer, "index_markdown", lambda pid, title, md, embed, **k: 1)
     zweite = b'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>https://y.test/z/</loc></url></urlset>'
 
     def fetch_fn(client, url, etag=None, last_modified=None):

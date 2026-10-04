@@ -148,6 +148,9 @@ export default function CampusAdminPage() {
         {typeof status.error === "string" && status.error && (
           <p className="mt-2 text-xs" style={{ color: "var(--error)" }}>{t("status.error")}: {status.error}</p>
         )}
+        {typeof status.capped === "number" && status.capped > 0 && (
+          <p className="mt-2 text-xs text-muted">{t("status.capped", { max: Number(status.max_pages) || 0, count: status.capped })}</p>
+        )}
         {crawlError && <p className="mt-2 text-xs text-error">{crawlError}</p>}
         <div className="mt-4">
           <button type="button" onClick={crawl} disabled={busy || !!status.running} className={`${BTN_PRIMARY} inline-flex items-center gap-1.5`}>

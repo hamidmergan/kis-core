@@ -64,3 +64,13 @@ def test_seite_ohne_text_wird_als_fehler_markiert(monkeypatch):
     monkeypatch.setattr(indexer, "chunk_repo", _Chunks())
     assert indexer.index_markdown(1, None, "   ", _embed) == 0
     assert seiten.status == [("failed", "no text")]
+
+
+def test_ueberlange_seite_bringt_hoechstens_max_chunks(monkeypatch):
+    md = "# Titel\n\n" + "\n\n".join(f"## Abschnitt {i}\n\n" + "Ein Satz mit genug Woertern fuer einen eigenen Abschnitt im Index. " * 3 for i in range(10))
+    seiten = _Pages({"id": 1, "content_hash": "alt", "status": "ready"})
+    stuecke = _Chunks()
+    monkeypatch.setattr(indexer, "page_repo", seiten)
+    monkeypatch.setattr(indexer, "chunk_repo", stuecke)
+    assert indexer.index_markdown(1, "Titel", md, _embed, max_chunks=3) == 3
+    assert len(stuecke.replaced[0]) == 3 and seiten.indexed[0][3] == 3

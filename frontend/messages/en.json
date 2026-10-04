@@ -1943,6 +1943,7 @@
           "never": "never",
           "running": "running",
           "error": "Error",
+          "capped": "Limit of {max, number} web pages reached. {count, number} new pages from the sitemap were not added.",
           "failed": "failed"
         },
         "documents": {

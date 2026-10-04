@@ -11,7 +11,7 @@ from src.features.campus.services import fetch as fetch_mod
 from src.features.campus.services import indexer, sitemap
 from src.features.campus.services.extract import extract_markdown, is_current
 from src.features.campus.services.settings import CampusSettings
-from src.limits import CAMPUS_CRAWL_CONCURRENCY, CAMPUS_CRAWL_MAX_PAGES
+from src.limits import CAMPUS_CRAWL_CONCURRENCY, CAMPUS_CRAWL_MAX_PAGES, CAMPUS_PAGE_MAX_CHUNKS
 
 _MAX_SITEMAPS = 50
 
@@ -25,6 +25,8 @@ class CrawlStats:
     removed: int = 0
     failed: int = 0
     skipped: int = 0
+    capped: int = 0
+    max_pages: int = 0
 
 
 def _utcnow() -> datetime:
@@ -131,7 +133,7 @@ def _process_one(client, entry: sitemap.SitemapEntry, embed, now: datetime, stat
             stats.failed += 1
         return
     try:
-        written = indexer.index_markdown(page["id"], extracted.title, extracted.markdown, embed)
+        written = indexer.index_markdown(page["id"], extracted.title, extracted.markdown, embed, max_chunks=CAMPUS_PAGE_MAX_CHUNKS)
     except Exception as e:
         page_repo.set_page_status(page["id"], "failed", f"index: {e}"[:200])
         with lock:
@@ -156,7 +158,7 @@ def run(
 ) -> dict:
     """Crawls the sitemaps of the settings and returns the counts of this run."""
     now = now or _utcnow()
-    stats = CrawlStats()
+    stats = CrawlStats(max_pages=max_pages)
     client = client or fetch_mod.make_client()
     include = sitemap.parse_patterns(settings.url_include)
     exclude = sitemap.parse_patterns(settings.url_exclude)
@@ -164,15 +166,22 @@ def run(
     if excluded_urls:
         entries = [e for e in entries if e.url not in excluded_urls]
     stats.seen = len(entries)
-    entries = entries[:max_pages]
+    listed = {e.url for e in entries}
+    # Only a full, non-empty read of the sitemap may count missing pages as gone.
+    if complete and entries:
+        for url, page_id in page_repo.list_page_urls(page_repo.KIND_PAGE).items():
+            if url not in listed:
+                page_repo.delete_page(page_id)
+                stats.removed += 1
+    # Known pages stay current, new links only fill the room left under the cap.
+    known = set(page_repo.list_page_urls(page_repo.KIND_PAGE))
+    new = [e for e in entries if e.url not in known]
+    room = max(0, max_pages - len(known))
+    stats.capped = max(0, len(new) - room)
+    entries = [e for e in entries if e.url in known] + new[:room]
     lock = threading.Lock()
     with ThreadPoolExecutor(max_workers=max(1, concurrency)) as pool:
         list(pool.map(lambda e: _process(client, e, embed, now, stats, lock, fetch_fn), entries))
-    wanted = {e.url for e in entries}
-    # Only a full, non-empty read of the sitemap may count missing pages as gone.
-    if complete and entries and stats.seen <= max_pages:
-        for url, page_id in page_repo.list_page_urls(page_repo.KIND_PAGE).items():
-            if url not in wanted:
-                page_repo.delete_page(page_id)
-                stats.removed += 1
+    if stats.capped:
+        logger.warning("Campus: Obergrenze von {} Seiten erreicht, {} neue Seiten nicht aufgenommen", max_pages, stats.capped)
     return asdict(stats)

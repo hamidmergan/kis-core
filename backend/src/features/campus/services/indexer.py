@@ -11,15 +11,15 @@ EmbedFn = Callable[[list[str]], list[list[float]]]
 _EMBED_BATCH = 32
 
 
-def index_markdown(page_id: int, title: str | None, markdown: str, embed: EmbedFn, force: bool = False) -> int:
-    """Returns the number of chunks written, 0 when the page was unchanged."""
+def index_markdown(page_id: int, title: str | None, markdown: str, embed: EmbedFn, force: bool = False, max_chunks: int | None = None) -> int:
+    """Returns the number of chunks written, 0 when the page was unchanged; max_chunks keeps only the first ones."""
     digest = content_hash(markdown)
     page = page_repo.get_page(page_id)
     if page is None:
         return 0
     if not force and page.get("content_hash") == digest and page.get("status") == "ready":
         return 0
-    pieces = split_markdown(markdown)
+    pieces = split_markdown(markdown)[:max_chunks]
     if not pieces:
         page_repo.set_page_status(page_id, "failed", "no text")
         return 0
