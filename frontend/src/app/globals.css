@@ -962,6 +962,13 @@ me-tpc:hover .mm-src-chip {
   height: 100dvh;
 }
 
+/* A full screen app does not rubber band as a whole, only its own panels scroll. */
+html:has(.viewport-shell),
+html:has(.viewport-shell) body {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 /* Hide non-critical elements (disclaimers, labels) on phones in landscape
    so the chat/panel area keeps useful height. Scoped to touch devices so
    a narrow desktop window is unaffected. The single-panel tab layout stays
