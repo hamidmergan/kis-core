@@ -41,7 +41,7 @@ to them, but there is no guarantee.
 ## Script
 
 The script is written in parts, finished lines already stand below while it is being written.
-Afterwards every line can be changed, rephrased with Francis, deleted or added, and the speaking
+Afterwards every line can be changed, reworded, deleted or added, and the speaking
 person can be switched. Voicing starts only when you are happy with it.
 
 At most 250 lines, 100,000 characters together, 1,200 characters per line.

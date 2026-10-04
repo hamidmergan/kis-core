@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import Francis from "@/components/ui/Francis";
+import WarteKugel from "@/components/ui/WarteKugel";
 import IconButton from "@/components/ui/IconButton";
 import Spinner from "@/components/ui/Spinner";
 import type { RegenApplyMode } from "./apply";
@@ -106,7 +106,6 @@ export default function RegenChatModal({
           style={{ borderBottom: "1px solid var(--border)" }}
         >
           <div className="flex items-center gap-2">
-            <Francis size={40} state="idle" className="flex-shrink-0" />
             <span className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
               {t("headerTitle", { n: index + 1 })}
             </span>
@@ -149,14 +148,11 @@ export default function RegenChatModal({
             const isLastAssistant = !isUser && idx === messages.length - 1;
             return (
               <div key={idx} className={`flex flex-col gap-1.5 ${isUser ? "items-end" : "items-start"}`}>
-                {/* Only the newest answer wears the head, repeating it on every turn is noise. */}
+                {/* Only the newest answer carries the label, repeating it on every turn is noise. */}
                 {isLastAssistant && (
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <Francis size={56} state="idle" className="flex-shrink-0" />
-                    <span className="text-2xs font-medium" style={{ color: "var(--muted)" }}>
-                      {t("assistant")}
-                    </span>
-                  </div>
+                  <span className="text-2xs font-medium mb-0.5" style={{ color: "var(--muted)" }}>
+                    {t("assistant")}
+                  </span>
                 )}
                 {/* Die Antwort braucht w-full. Ohne das bestimmt die Standardbreite
                     des textarea (cols=20) die Blase, und ein langer Text steht in
@@ -242,8 +238,12 @@ export default function RegenChatModal({
             );
           })}
 
-          {/* Francis thinks with his own dots, a second bubble of dots next to it says nothing new. */}
-          {loading && <Francis size={56} state="thinking" className="flex-shrink-0" />}
+          {loading && (
+            <div role="status" aria-live="polite" className="flex items-center gap-2 px-1 text-xs" style={{ color: "var(--muted)" }}>
+              <WarteKugel />
+              <span className="text-glanz">{t("thinking")}</span>
+            </div>
+          )}
 
           <div ref={bottomRef} />
         </div>

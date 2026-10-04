@@ -1181,9 +1181,9 @@
         "continue": "Continue"
       },
       "regenChat": {
-        "headerTitle": "Francis on slide {n}",
-        "assistant": "Francis",
-        "thinking": "Thinking…",
+        "headerTitle": "Rework slide {n}",
+        "assistant": "Suggestion",
+        "thinking": "Suggestion is taking shape",
         "promptPlaceholder": "Enter text…",
         "promptPlaceholderDemo": "Not available in the demo",
         "errorMessage": "Error while generating.",
@@ -1339,7 +1339,7 @@
         "voiced": "voiced",
         "wordsApprox": "about {n} words",
         "edit": "Edit line {n}",
-        "regen": "Rework line {n} with Francis",
+        "regen": "Rework line {n}",
         "delete": "Delete line {n}",
         "add": "Add a line",
         "editAria": "Text of line {n}",
@@ -1354,9 +1354,9 @@
         "emptyLine": "Nothing written yet"
       },
       "regenChat": {
-        "headerTitle": "Francis on line {n}",
-        "assistant": "Francis",
-        "thinking": "Thinking…",
+        "headerTitle": "Rework line {n}",
+        "assistant": "Suggestion",
+        "thinking": "Suggestion is taking shape",
         "promptPlaceholder": "Enter text…",
         "promptPlaceholderDemo": "Not available in the demo",
         "errorMessage": "Error while reworking.",
@@ -4930,7 +4930,7 @@
         "screencast": {
           "lead": "Turns a PowerPoint file into a narrated video, in another language if you like.",
           "p1": "The narration comes from the slides, from an import or from the notes of the file",
-          "p2": "You can check and edit every narration text or rework it with Francis",
+          "p2": "You can check and edit every narration text or have a new one suggested",
           "p3": "The video is available as MP4, with subtitles if you like",
           "alt": "Screencast with file upload and target language"
         },

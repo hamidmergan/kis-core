@@ -42,7 +42,7 @@ daran, sicher ist es nicht.
 ## Skript
 
 Das Skript entsteht in Teilen, fertige Beiträge stehen schon beim Schreiben unten. Danach lässt
-sich jeder Beitrag ändern, mit Francis umformulieren, löschen oder ergänzen, und die sprechende
+sich jeder Beitrag ändern, neu formulieren, löschen oder ergänzen, und die sprechende
 Person lässt sich wechseln. Vertont wird erst, wenn Sie zufrieden sind.
 
 Höchstens 250 Beiträge, zusammen 100.000 Zeichen, je Beitrag 1.200 Zeichen.

@@ -15,7 +15,7 @@ Turns a PowerPoint file into a narrated video, in another language if you want.
    translation are marked.
 4. **Instructions**: where the scripts come from. AI generation from the slides, Enter manually,
    Import scripts as a JSON list or From the speaker notes of the file.
-5. **Scripts**: check every text, change it or rework it with Francis. That is the step where the
+5. **Scripts**: check every text, change it or have a new one suggested. That is the step where the
    quality is decided. All scripts together may have 100,000 characters.
 6. **Settings**: provider and voice, pause between slides from 0 s to 3 s, image quality and
    Add subtitles.

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { ArrowDown } from "@phosphor-icons/react";
-import Mascot from "@/components/ui/Mascot";
+import { Signpost } from "@phosphor-icons/react";
 import IconButton from "@/components/ui/IconButton";
 import { ChatInputBar } from "@/app/[locale]/workspace/[uuid]/_components/chat/ChatInputBar";
 import CampusNachricht from "./CampusNachricht";
@@ -54,7 +54,9 @@ export default function CampusChat({
         <div className="mx-auto w-full flex flex-col gap-4" style={{ maxWidth: 920 }}>
           {empty ? (
             <div className="flex flex-col items-center text-center pt-10 pb-6 gap-4">
-              <Mascot variant="francis" size={120} state="wave" />
+              <span className="flex items-center justify-center w-20 h-20 rounded-full bg-kb text-on-accent">
+                <Signpost size={40} weight="bold" aria-hidden="true" />
+              </span>
               <div>
                 <h2 className="text-lg font-semibold" style={{ color: "var(--kb)" }}>{t("emptyTitle")}</h2>
                 <p className="text-sm mt-1 max-w-md" style={{ color: "var(--muted)" }}>{t("emptyText")}</p>

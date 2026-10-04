@@ -1181,9 +1181,9 @@
         "continue": "Weiter"
       },
       "regenChat": {
-        "headerTitle": "Francis zu Folie {n}",
-        "assistant": "Francis",
-        "thinking": "Denkt nach…",
+        "headerTitle": "Folie {n} überarbeiten",
+        "assistant": "Vorschlag",
+        "thinking": "Vorschlag entsteht",
         "promptPlaceholder": "Text eingeben…",
         "promptPlaceholderDemo": "Nicht in der Demo verfügbar",
         "errorMessage": "Fehler beim Generieren.",
@@ -1339,7 +1339,7 @@
         "voiced": "vertont",
         "wordsApprox": "etwa {n} Wörter",
         "edit": "Beitrag {n} bearbeiten",
-        "regen": "Beitrag {n} mit Francis überarbeiten",
+        "regen": "Beitrag {n} überarbeiten",
         "delete": "Beitrag {n} löschen",
         "add": "Beitrag anfügen",
         "editAria": "Text von Beitrag {n}",
@@ -1354,9 +1354,9 @@
         "emptyLine": "Noch nichts geschrieben"
       },
       "regenChat": {
-        "headerTitle": "Francis zu Beitrag {n}",
-        "assistant": "Francis",
-        "thinking": "Denkt nach…",
+        "headerTitle": "Beitrag {n} überarbeiten",
+        "assistant": "Vorschlag",
+        "thinking": "Vorschlag entsteht",
         "promptPlaceholder": "Text eingeben…",
         "promptPlaceholderDemo": "Nicht in der Demo verfügbar",
         "errorMessage": "Fehler beim Überarbeiten.",
@@ -4930,7 +4930,7 @@
         "screencast": {
           "lead": "Macht aus einer PowerPoint-Datei ein vertontes Video, wahlweise in einer anderen Sprache.",
           "p1": "Die Sprechtexte entstehen aus den Folien, aus einem Import oder aus den Notizen der Datei",
-          "p2": "Jeden Sprechtext kannst du prüfen, ändern oder mit Francis überarbeiten",
+          "p2": "Jeden Sprechtext kannst du prüfen, ändern oder neu vorschlagen lassen",
           "p3": "Das Video gibt es als MP4, auf Wunsch mit Untertiteln",
           "alt": "Screencast mit Dateiupload und Zielsprache"
         },
