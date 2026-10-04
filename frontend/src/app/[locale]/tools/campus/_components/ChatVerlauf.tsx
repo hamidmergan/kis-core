@@ -36,7 +36,6 @@ export default function ChatVerlauf({
   onToggle: () => void;
 }) {
   const t = useTranslations("tools.campus");
-  const tHeader = useTranslations("header");
   const tCommon = useTranslations("common");
   const [renaming, setRenaming] = useState<number | null>(null);
   const [confirm, setConfirm] = useState<CampusChatEintrag | null>(null);
@@ -101,9 +100,10 @@ export default function ChatVerlauf({
   return (
     <div className="flex flex-col h-full min-h-0" data-testid="campus-history">
       <div className="flex items-center justify-between pl-4 pr-2 flex-shrink-0" style={{ height: 48 }}>
-        <Link href="/" aria-label={tHeader("homeAria")} title={tHeader("homeAria")} className="flex items-center no-underline logo-link">
+        {/* The logo starts a new chat here, the way home is the link in the header of the other pages. */}
+        <button type="button" onClick={onNew} aria-label={t("newChat")} title={t("newChat")} className="flex items-center logo-link">
           <Image src="/logos/kis-logo.svg" alt="KIS" width={228} height={78} className="h-6 w-auto" />
-        </Link>
+        </button>
         {toggle}
       </div>
       <div className="px-2 pt-1 pb-3 flex-shrink-0">
