@@ -1,6 +1,7 @@
 export const ROUTES = {
   info: "/",
   stamp: "/stempelkarte",
+  services: "/services",
   redeem: (code: string) => `/redeem?code=${encodeURIComponent(code)}`,
 } as const;
 

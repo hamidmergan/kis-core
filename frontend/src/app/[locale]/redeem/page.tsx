@@ -10,7 +10,7 @@ import Header from "@/components/layout/Header";
 import IconButton from "@/components/ui/IconButton";
 import Spinner from "@/components/ui/Spinner";
 import { copyTextFromPromise } from "@/lib/clipboard";
-import { alreadySignedIn } from "./alreadySignedIn";
+import { checkAuthStatus } from "@/lib/auth";
 import { checkForm } from "./checkForm";
 
 type Fertig = { username: string; password: string; expiresAt: string | null };
@@ -91,7 +91,7 @@ function AccessCodePageInner() {
     if (codeAusLink && !bereitsAusgeloest.current) {
       // React Strict Mode runs effects twice in dev, this must still redeem only once.
       bereitsAusgeloest.current = true;
-      alreadySignedIn().then((ja) => (ja ? window.location.assign("/services") : redeem(codeAusLink)));
+      checkAuthStatus().then((s) => (s.authenticated ? window.location.assign("/services") : redeem(codeAusLink)));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

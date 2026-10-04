@@ -11,7 +11,6 @@ import IconButton from "@/components/ui/IconButton";
 import Tabs from "@/components/ui/Tabs";
 import { login, checkAuthStatus } from "@/lib/auth";
 import { copyTextFromPromise } from "@/lib/clipboard";
-import { alreadySignedIn } from "../redeem/alreadySignedIn";
 import { checkForm } from "../redeem/checkForm";
 
 const FIELD =
@@ -78,7 +77,7 @@ export default function LoginPage() {
       autoDone.current = true;
       setTab("code");
       setCode(fromLink);
-      alreadySignedIn().then((ja) => (ja ? window.location.assign("/services") : redeem(fromLink)));
+      checkAuthStatus().then((s) => (s.authenticated ? window.location.assign("/services") : redeem(fromLink)));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

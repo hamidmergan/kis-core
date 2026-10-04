@@ -9,7 +9,7 @@ import { EVENT_ICONS } from "@/lib/event/icons";
 import { useText2 } from "@/lib/event/useText2";
 import type { EventTile as EventTileData } from "@/lib/event/types";
 
-export function tileHref(target: EventTileData["target"]): string {
+export function tileHref(target: EventTileData["target"], signedIn = false): string {
   switch (target.kind) {
     case "stamp":
       return ROUTES.stamp;
@@ -18,7 +18,8 @@ export function tileHref(target: EventTileData["target"]): string {
     case "internal":
       return target.path || "/";
     case "directLogin":
-      return ROUTES.redeem(target.accessCode);
+      // Whoever is signed in already must not get a second account from the code.
+      return signedIn ? ROUTES.services : ROUTES.redeem(target.accessCode);
   }
 }
 
@@ -29,7 +30,7 @@ function lockedNote(availableFrom: string, locale: string, t: (k: string, v?: Re
   return t("lockedFrom", { date });
 }
 
-export default function EventTile({ tile }: { tile: EventTileData }) {
+export default function EventTile({ tile, signedIn = false }: { tile: EventTileData; signedIn?: boolean }) {
   const text = useText2();
   const t = useTranslations("eventBlock");
   const locale = useLocale();
@@ -55,7 +56,7 @@ export default function EventTile({ tile }: { tile: EventTileData }) {
       {tile.active ? (
         <>
           <Link
-            href={tileHref(tile.target)}
+            href={tileHref(tile.target, signedIn)}
             className="self-center px-3 py-2 text-sm btn-primary rounded-md transition-colors whitespace-nowrap"
           >
             {text(tile.button)}

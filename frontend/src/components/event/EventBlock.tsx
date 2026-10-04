@@ -1,9 +1,11 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import Band from "@/app/[locale]/_components/landing/Band";
 import { useText2 } from "@/lib/event/useText2";
 import EventTile from "@/components/event/EventTile";
+import { checkAuthStatus } from "@/lib/auth";
 import type { EventBlock as EventBlockData } from "@/lib/event/types";
 
 const GRID: Record<number, string> = {
@@ -17,6 +19,10 @@ const GRID: Record<number, string> = {
 export default function EventBlock({ block, bleed = false }: { block: EventBlockData | null; bleed?: boolean }) {
   const t = useTranslations("eventBlock");
   const text = useText2();
+  const [signedIn, setSignedIn] = useState(false);
+  useEffect(() => {
+    checkAuthStatus().then((s) => setSignedIn(s.authenticated));
+  }, []);
   if (!block) return bleed ? null : <p className="text-sm text-foreground-soft">{t("hidden")}</p>;
   const tiles = block.tiles.slice(0, 4);
   const content = (
@@ -32,7 +38,7 @@ export default function EventBlock({ block, bleed = false }: { block: EventBlock
       {tiles.length > 0 && (
         <div className={`grid grid-cols-1 gap-4 @min-[64rem]:gap-6 w-full mx-auto ${GRID[tiles.length]}`}>
           {tiles.map((tile) => (
-            <EventTile key={tile.id} tile={tile} />
+            <EventTile key={tile.id} tile={tile} signedIn={signedIn} />
           ))}
         </div>
       )}
