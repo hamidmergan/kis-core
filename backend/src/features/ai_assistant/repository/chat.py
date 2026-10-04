@@ -110,13 +110,13 @@ def get_last_aia_user_questions(
             rows = cur.fetchall()
     return [q for q in ((row["content"] or "").strip() for row in rows) if q]
 
-def get_last_aia_round(
-    workspace_id: int, user_id: int, enrollment_id: int | None = None
-) -> dict | None:
-    """The last completed round, only to make a follow-up question self-contained."""
+def get_last_aia_rounds(
+    workspace_id: int, user_id: int, enrollment_id: int | None = None, n: int = 1
+) -> list[dict]:
+    """The last n completed rounds, oldest first, only to make a follow-up question self-contained."""
     where = "enrollment_id = %s" if enrollment_id is not None else "enrollment_id IS NULL"
     params: tuple = (workspace_id, user_id) + (
-        (enrollment_id,) if enrollment_id is not None else ()) + (_LAST_ROUND_SCAN,)
+        (enrollment_id,) if enrollment_id is not None else ()) + (max(_LAST_ROUND_SCAN, n * 4),)
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
@@ -129,19 +129,30 @@ def get_last_aia_round(
                 params,
             )
             rows = cur.fetchall()
-    for i, row in enumerate(rows):
-        if row["role"] != "assistant" or row["aborted"] or row["failed"]:
+    rounds: list[dict] = []
+    i = 0
+    while i < len(rows) and len(rounds) < n:
+        row = rows[i]
+        if row["role"] != "assistant" or row["aborted"] or row["failed"] or not (row["content"] or "").strip():
+            i += 1
             continue
-        if not (row["content"] or "").strip():
-            continue
-        frage = next((r["content"] for r in rows[i + 1:] if r["role"] == "user"), "")
-        return {
-            "question": (frage or "").strip(),
+        j = next((k for k in range(i + 1, len(rows)) if rows[k]["role"] == "user"), None)
+        rounds.append({
+            "question": ((rows[j]["content"] if j is not None else "") or "").strip(),
             "answer": row["content"].strip(),
             "source_pages": row["source_pages"] or [],
             "source_qmap": row["source_qmap"] or [],
-        }
-    return None
+        })
+        i = (j + 1) if j is not None else len(rows)
+    return list(reversed(rounds))
+
+
+def get_last_aia_round(
+    workspace_id: int, user_id: int, enrollment_id: int | None = None
+) -> dict | None:
+    """The last completed round."""
+    rounds = get_last_aia_rounds(workspace_id, user_id, enrollment_id, 1)
+    return rounds[0] if rounds else None
 
 
 def get_aia_user_settings(workspace_id: int, user_id: int) -> dict:

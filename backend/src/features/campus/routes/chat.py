@@ -24,6 +24,7 @@ from src.limits import (
     CAMPUS_MAX_QUESTIONS_PER_CHAT,
     CAMPUS_QUESTION_MAX_CHARS,
     CAMPUS_SOURCE_CARDS_MAX,
+    FOLLOWUP_HISTORY_ROUNDS,
 )
 from src.security.rate_limit import enforce_burst
 from src.security.usage_log import log_request
@@ -42,14 +43,14 @@ class ChatBody(BaseModel):
     chat_id: Optional[int] = None
 
 
-def _understand(llm: OpenAICompatLLMClient, question: str, last_round: tuple[str, str] | None) -> tuple[str, str]:
+def _understand(llm: OpenAICompatLLMClient, question: str, rounds: list[tuple[str, str]]) -> tuple[str, str]:
     """Standalone search query and answer language; on any failure the question itself and no language."""
     try:
         resp = llm._client.with_options(timeout=60.0, max_retries=0).chat.completions.create(
             model=llm._model,
             messages=[
                 {"role": "system", "content": prompts.precall_system()},
-                {"role": "user", "content": prompts.precall_user(question, last_round)},
+                {"role": "user", "content": prompts.precall_user(question, rounds)},
             ],
             temperature=0.0,
             response_format={"type": "json_object"},
@@ -100,7 +101,7 @@ async def campus_chat(
     provider_transport.exempt_this_request()
     question = body.question.strip()
 
-    last_round = None
+    rounds: list[tuple[str, str]] = []
     if body.chat_id is not None:
         chat = chat_repo.get_chat(body.chat_id, user_id)
         if chat is None:
@@ -109,13 +110,13 @@ async def campus_chat(
             chat_repo.drop_oldest_round(chat["id"])
         chat_id = chat["id"]
         title = chat["title"]
-        last_round = chat_repo.last_round(chat_id)
+        rounds = chat_repo.last_rounds(chat_id, FOLLOWUP_HISTORY_ROUNDS)
     else:
         chat_id = None
         title = make_title(question)
 
     # One small call names the language and makes a follow-up question stand on its own.
-    query, answer_language = await asyncio.to_thread(_understand, llm, question, last_round)
+    query, answer_language = await asyncio.to_thread(_understand, llm, question, rounds)
     context = await asyncio.to_thread(
         retrieval.build_context, query, _embed_one, chunk_repo.hybrid_search, chunk_repo.neighbors
     )

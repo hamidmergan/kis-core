@@ -220,6 +220,9 @@ YOUTUBE_MAX_DURATION_SECONDS     = 4 * 3600
 YOUTUBE_OEMBED_TIMEOUT_SECONDS   = 5
 YOUTUBE_LAST_SEGMENT_SECONDS     = 5.0     # the pasted text names no end for the last line
 
+# Rounds of a chat the pre-call may read to make a follow-up question stand on its own.
+FOLLOWUP_HISTORY_ROUNDS                = 4
+
 # Hard limit for a single chat question, the search query is shortened on top.
 AIA_QUESTION_MAX_CHARS                 = 8000
 AIA_EMBED_QUERY_MAX_CHARS              = 2000

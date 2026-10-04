@@ -101,8 +101,8 @@ class _Chats:
     def get_chat(self, chat_id, user_id):
         return self.chat
 
-    def last_round(self, chat_id):
-        return None
+    def last_rounds(self, chat_id, n):
+        return []
 
     def create_chat(self, user_id, title):
         self.created.append(title)
@@ -239,3 +239,11 @@ async def test_abbruch_waehrend_der_suche_schreibt_nichts(umgebung):
     resp = await chat_route.campus_chat(body, _Weg(), current_user={"user_id": 7}, llm=_FakeLLM([]), locale="de")
     assert resp.status_code == 204
     assert umgebung.created == [] and umgebung.messages == []
+
+
+def test_vorcall_bekommt_mehrere_runden_aeltere_kurz():
+    from src.features.campus import prompts
+    text = prompts.precall_user("und die?", [("F1", "A1" * 400), ("F2", "A2" * 400)])
+    assert text.index("F1") < text.index("F2") < text.index("und die?")
+    assert text.count("A1") == 150 and text.count("A2") == 400
+    assert prompts.precall_user("x", []) == "Newest question:\nx"

@@ -87,6 +87,8 @@ AIA_FOLLOWUP_BLOCK = (
     'content ("in 3 Stichpunkten", "kürzer", "als Tabelle", "fasse das zusammen"). '
     '"standalone" = a self-contained instruction naming the topic of the previous turn AND '
     'the requested shape.\n'
+    "If EARLIER TURNS are attached as well, the new line may refer to any of them: take the "
+    "topic from the turn it clearly refers to and from the PREVIOUS TURN when it is unclear.\n"
     "The standalone question MUST be written in the SAME language as the new line and must "
     "NEVER invent a topic that is in neither the previous turn nor the new line. If you are "
     'unsure, choose "none" — leaving the question alone is always the safe answer.\n'

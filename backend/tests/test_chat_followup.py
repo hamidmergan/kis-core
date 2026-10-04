@@ -432,3 +432,21 @@ def test_zugangslink_hat_seine_eigene_letzte_runde(fake_db):
     repo_chat.get_last_aia_round(1, 2)
     sql, params = calls[0]
     assert "enrollment_id IS NULL" in sql
+
+
+def test_aeltere_runden_stehen_vor_der_letzten_und_kurz():
+    aeltere = [{"question": "Erste Frage", "answer": "A" * 900}]
+    eingabe = fu.vorcall_eingabe("und davor?", RUNDE, aeltere)
+    assert eingabe.index("Erste Frage") < eingabe.index(RUNDE["question"]) < eingabe.index("und davor?")
+    assert eingabe.count("A") < 400
+
+
+def test_mehrere_runden_kommen_der_reihe_nach(fake_db):
+    fake_db([
+        _zeile("assistant", "Antwort 3"), _zeile("user", "Frage 3"),
+        _zeile("assistant", "halb", aborted=True), _zeile("user", "Frage abgebrochen"),
+        _zeile("assistant", "Antwort 2"), _zeile("user", "Frage 2"),
+        _zeile("assistant", "Antwort 1"), _zeile("user", "Frage 1"),
+    ])
+    runden = repo_chat.get_last_aia_rounds(1, 2, None, 3)
+    assert [r["question"] for r in runden] == ["Frage 1", "Frage 2", "Frage 3"]

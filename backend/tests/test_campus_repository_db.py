@@ -92,7 +92,7 @@ def test_chats_kappung_und_aufraeumen(nutzer_id, verbindung):
         assert chats.count_question(chat_id) == 1
         frage = chats.add_message(chat_id, "user", "Wo ist die Mensa?")
         antwort = chats.add_message(chat_id, "assistant", "In B.59.", sources=[{"url": "u"}], places=[{"id": "Mensa_B_59"}])
-        assert chats.last_round(chat_id) == ("Wo ist die Mensa?", "In B.59.")
+        assert chats.last_rounds(chat_id, 1) == [("Wo ist die Mensa?", "In B.59.")]
         assert chats.set_feedback(antwort, nutzer_id, 1) is True
         assert chats.set_feedback(frage, nutzer_id, 1) is False
         assert chats.set_feedback(antwort, nutzer_id + 999999, 1) is False

@@ -10,12 +10,14 @@ KEINE = "none"
 UMSCHREIBEN = "rewrite"
 UMFORMEN = "reformat"
 
-# Only short inputs are read as a follow-up question.
-MAX_NACHFRAGE_WOERTER = 15
+# Only short inputs are read as a follow-up question, the same bound as the pre-call itself.
+MAX_NACHFRAGE_WOERTER = 30
 
 # The last round is a clue, not material.
 _MAX_ANTWORT_ZEICHEN = 1200
 _MAX_FRAGE_ZEICHEN = 300
+# Rounds before the last one only name the topic.
+_MAX_AELTERE_ANTWORT_ZEICHEN = 300
 
 
 def lohnt_nachschlagen(frage: str, quelltext: Optional[str] = None) -> bool:
@@ -56,11 +58,19 @@ def verlaufsblock(letzte_runde: dict) -> str:
     )
 
 
-def vorcall_eingabe(frage: str, letzte_runde: Optional[dict]) -> str:
-    """The user message of the pre-call, the new line comes last."""
+def vorcall_eingabe(frage: str, letzte_runde: Optional[dict], aeltere: Optional[list[dict]] = None) -> str:
+    """The user message of the pre-call, older rounds first, the new line comes last."""
     if not letzte_runde:
         return frage
-    return f"{verlaufsblock(letzte_runde)}\n\nNEW LINE FROM THE USER:\n{frage}"
+    teile = []
+    if aeltere:
+        zeilen = []
+        for runde in aeltere:
+            antwort = _strip_inline_citation_chips(runde.get("answer") or "").strip()[:_MAX_AELTERE_ANTWORT_ZEICHEN]
+            zeilen.append(f"Question: {(runde.get('question') or '').strip()[:_MAX_FRAGE_ZEICHEN]}\nAnswer (truncated): {antwort}")
+        teile.append("EARLIER TURNS OF THIS CHAT, oldest first (context only):\n" + "\n\n".join(zeilen))
+    teile.append(verlaufsblock(letzte_runde))
+    return "\n\n".join(teile) + f"\n\nNEW LINE FROM THE USER:\n{frage}"
 
 
 def umform_nachrichten(

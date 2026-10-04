@@ -7,21 +7,22 @@ def precall_system() -> str:
     return (
         "You rewrite the newest question of a chat so that it can be searched on its own.\n"
         "Return JSON only: {\"query\": \"...\", \"lang\": \"...\"}.\n"
-        "- query: the newest question with every reference to the previous round resolved "
+        "- query: the newest question with every reference to the earlier rounds resolved "
         "(replace pronouns and ellipses with the thing meant), in the language of the newest question, "
         "nothing added, nothing answered.\n"
         "- lang: the English name of the language the newest question is written in, for example German or English."
     )
 
 
-def precall_user(question: str, last_round: tuple[str, str] | None) -> str:
-    if not last_round:
+def precall_user(question: str, rounds: list[tuple[str, str]]) -> str:
+    """Earlier rounds oldest first, only the latest answer with more room, then the newest question."""
+    if not rounds:
         return f"Newest question:\n{question}"
-    prev_q, prev_a = last_round
-    return (
-        f"Previous question:\n{prev_q}\n\nPrevious answer (shortened):\n{prev_a[:1500]}\n\n"
-        f"Newest question:\n{question}"
-    )
+    blocks = []
+    for i, (prev_q, prev_a) in enumerate(rounds):
+        room = 1500 if i == len(rounds) - 1 else 300
+        blocks.append(f"Question {i + 1}:\n{prev_q}\nAnswer {i + 1} (shortened):\n{prev_a[:room]}")
+    return "\n\n".join(blocks) + f"\n\nNewest question:\n{question}"
 
 
 def answer_system(answer_language: str | None) -> str:

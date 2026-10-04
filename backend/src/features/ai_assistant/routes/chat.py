@@ -14,7 +14,7 @@ from langfuse.decorators import langfuse_context, observe
 from src import database as db
 from src.dependencies import get_current_user, get_llm_client
 from src.i18n import get_locale, t
-from src.limits import AIA_ATTRIBUTION_EMBED_TIMEOUT_SECONDS
+from src.limits import AIA_ATTRIBUTION_EMBED_TIMEOUT_SECONDS, FOLLOWUP_HISTORY_ROUNDS
 from src.services import model_limits
 from src.services.aia_embeddings import get_embedding_provider, get_embedding_provider_with_fallback
 from src.security.rate_limit import enforce_burst
@@ -172,6 +172,7 @@ async def chat(
 
     # Pre-call: route, reference and follow-up in one go, the history stays here.
     _letzte_runde = None
+    _aeltere_runden: list[dict] = []
     if _should_skip_intent_classification(body.source_text, source_ids, body.question):
         intent, scope_raw, subqueries = "SPECIFIC", None, []
         _nachfrage, rewritten_question, _frage_sprache = _followup.KEINE, body.question, ""
@@ -181,13 +182,16 @@ async def chat(
         import time as _t_pc
         _t_pc0 = _t_pc.monotonic()
         if _followup.lohnt_nachschlagen(body.question, body.source_text):
-            _letzte_runde = await asyncio.to_thread(
-                db.get_last_aia_round, workspace["id"], user_id, enrollment_id)
+            _runden = await asyncio.to_thread(
+                db.get_last_aia_rounds, workspace["id"], user_id, enrollment_id, FOLLOWUP_HISTORY_ROUNDS)
+            _letzte_runde = _runden[-1] if _runden else None
+            _aeltere_runden = _runden[:-1]
             if not _followup.ist_nachfrage_moeglich(
                     body.question, _letzte_runde, body.source_text):
                 _letzte_runde = None
+                _aeltere_runden = []
         intent, scope_raw, subqueries, _nachfrage, rewritten_question, _frage_sprache = await _understand_query(
-            llm, body.question, _letzte_runde)
+            llm, body.question, _letzte_runde, _aeltere_runden)
         logger.info("Chat: pre-call routed intent={} scope={} subqueries={} nachfrage={} in {:.1f}s ('{}' across {} sources)",
                     intent, scope_raw, len(subqueries), _nachfrage, _t_pc.monotonic() - _t_pc0, body.question[:60], len(source_ids or []))
 

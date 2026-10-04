@@ -121,18 +121,25 @@ def list_messages(chat_id: int) -> list[dict]:
     return [dict(r) for r in rows]
 
 
-def last_round(chat_id: int) -> tuple[str, str] | None:
-    """The previous question and answer, for making a follow-up question stand on its own."""
+def last_rounds(chat_id: int, n: int) -> list[tuple[str, str]]:
+    """The last n completed rounds as (question, answer), oldest first, for making a follow-up question stand on its own."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
-                "SELECT role, content FROM campus_messages WHERE chat_id = %s ORDER BY id DESC LIMIT 2",
-                (chat_id,),
+                "SELECT role, content FROM campus_messages WHERE chat_id = %s ORDER BY id DESC LIMIT %s",
+                (chat_id, n * 2),
             )
-            rows = cur.fetchall()
-    if len(rows) == 2 and rows[0]["role"] == "assistant" and rows[1]["role"] == "user":
-        return rows[1]["content"], rows[0]["content"]
-    return None
+            rows = list(reversed(cur.fetchall()))
+    rounds: list[tuple[str, str]] = []
+    pending = None
+    for row in rows:
+        if row["role"] == "user":
+            pending = row["content"]
+        elif row["role"] == "assistant" and pending is not None:
+            rounds.append((pending, row["content"]))
+            pending = None
+    return rounds
+
 
 
 def set_feedback(message_id: int, user_id: int, value: int) -> bool:

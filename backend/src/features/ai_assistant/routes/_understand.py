@@ -70,7 +70,7 @@ def _parse_answer_language(content: str) -> str:
 
 
 async def _understand_query(
-    llm, question: str, letzte_runde: Optional[dict] = None
+    llm, question: str, letzte_runde: Optional[dict] = None, aeltere: Optional[list[dict]] = None
 ) -> tuple[str, dict, list[str], str, str, str]:
     """One pre-call for everything: route, reference, sub-questions, follow-up and language."""
     import asyncio
@@ -81,7 +81,7 @@ async def _understand_query(
             messages=[
                 {"role": "system",
                  "content": aia_query_understanding_system(bool(letzte_runde))},
-                {"role": "user", "content": _followup.vorcall_eingabe(question, letzte_runde)},
+                {"role": "user", "content": _followup.vorcall_eingabe(question, letzte_runde, aeltere)},
             ],
             temperature=0.0,
             # Forces valid JSON instead of merely asking for it.
