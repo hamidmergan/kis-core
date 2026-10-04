@@ -21,4 +21,40 @@ test.describe("Campus-Assistent", () => {
     await expect(page.locator('[data-testid="campus-examples"]')).toBeVisible();
     await expect(page.locator('[data-testid="assistant-message"]')).toHaveCount(0);
   });
+
+  test("Logo fuehrt zur Startseite, Dienste zu den Diensten, die Leiste klappt ein", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/tools/campus", { waitUntil: "domcontentloaded" });
+    const leiste = page.locator('[data-testid="campus-history"]');
+    await expect(leiste).toBeVisible({ timeout: 30_000 });
+
+    await expect(leiste.getByRole("link").first()).toHaveAttribute("href", /^\/(en)?$/);
+    await expect(page.locator('a[href$="/services"]:visible')).toHaveCount(1);
+
+    await page.locator('[data-testid="campus-sidebar-toggle"]').click();
+    const streifen = page.locator('[data-testid="campus-history-collapsed"]');
+    await expect(streifen).toBeVisible();
+    await expect(streifen.locator('img[src*="kis-vogel"]')).toBeVisible();
+    await streifen.locator('[data-testid="campus-new-chat"]').click();
+    await expect(page.locator('[data-testid="campus-examples"]')).toBeVisible();
+
+    // The choice survives a reload.
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(page.locator('[data-testid="campus-history-collapsed"]')).toBeVisible({ timeout: 30_000 });
+    await page.locator('[data-testid="campus-sidebar-toggle"]').click();
+    await expect(page.locator('[data-testid="campus-history"]')).toBeVisible();
+  });
+
+  test("am Handy oeffnet das Leistensymbol den Verlauf", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/tools/campus", { waitUntil: "domcontentloaded" });
+    await page.locator('[data-testid="campus-menu"]').click();
+    const leiste = page.locator('[data-testid="campus-history"]:visible');
+    await expect(leiste).toBeVisible();
+    const breite = (await leiste.boundingBox())?.width ?? 0;
+    expect(breite).toBeGreaterThan(300);
+    expect(breite).toBeLessThan(390);
+    await leiste.locator('[data-testid="campus-sidebar-toggle"]').click();
+    await expect(leiste).toHaveCount(0);
+  });
 });

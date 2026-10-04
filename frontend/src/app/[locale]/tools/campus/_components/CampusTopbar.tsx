@@ -2,57 +2,68 @@
 
 import Image from "next/image";
 import { useTranslations } from "next-intl";
-import { CaretLeft, List, X } from "@phosphor-icons/react";
+import { CaretLeft, NotePencil, SidebarSimple } from "@phosphor-icons/react";
 import { Link } from "@/i18n/navigation";
 
-/** The slim bar of the page: logo home, the way back to the services and the title. */
+/** The bar above the chat: the way back to the services and the title, on the phone also history, bird and new chat. */
 export default function CampusTopbar({
   title,
-  menuOpen,
-  onToggleMenu,
+  onOpenMenu,
+  onNew,
 }: {
   title: string;
-  menuOpen: boolean;
-  onToggleMenu: () => void;
+  onOpenMenu: () => void;
+  onNew: () => void;
 }) {
+  const t = useTranslations("tools.campus");
   const tHeader = useTranslations("header");
   const tCommon = useTranslations("common");
   return (
-    <div className="flex items-center px-3 sm:px-5 flex-shrink-0 relative" style={{ height: 48, borderBottom: "1px solid var(--border-soft)" }}>
+    <div className="flex items-center gap-1 px-2 md:px-5 flex-shrink-0 relative" style={{ height: 48, borderBottom: "1px solid var(--border-soft)" }}>
       <button
         type="button"
-        onClick={onToggleMenu}
-        aria-expanded={menuOpen}
-        aria-label={menuOpen ? tHeader("menuClose") : tHeader("menuOpen")}
-        className="md:hidden w-8 h-8 flex items-center justify-center rounded-full btn-icon mr-2"
+        onClick={onOpenMenu}
+        aria-label={t("openMenu")}
+        title={t("openMenu")}
+        className="md:hidden w-9 h-9 flex items-center justify-center rounded-full btn-icon"
         data-testid="campus-menu"
       >
-        {menuOpen ? <X size={18} weight="bold" /> : <List size={18} weight="bold" />}
+        <SidebarSimple size={20} />
       </button>
+      <Link
+        href="/"
+        aria-label={tHeader("homeAria")}
+        title={tHeader("homeAria")}
+        className="md:hidden flex items-center flex-shrink-0 no-underline logo-link"
+      >
+        <Image src="/logos/kis-vogel.svg" alt="KIS" width={154} height={78} className="h-5 w-auto" />
+      </Link>
       <Link
         href="/services"
         title={tCommon("backToTools")}
-        className="hidden md:inline-flex items-center gap-1 mr-4 text-sm font-medium no-underline flex-shrink-0 opacity-60 hover:opacity-100 transition-opacity"
+        className="hidden md:inline-flex items-center gap-1 text-sm font-medium no-underline flex-shrink-0 opacity-60 hover:opacity-100 transition-opacity"
         style={{ color: "var(--muted)" }}
       >
         <CaretLeft size={13} weight="bold" />
         <span>{tCommon("backToTools")}</span>
       </Link>
-      <Link
-        href="/services"
-        aria-label={tHeader("homeAria")}
-        title={tHeader("homeAria")}
-        className="flex items-center gap-1.5 flex-shrink-0 no-underline logo-link"
-      >
-        <Image src="/logos/kis-logo.svg" alt="KIS" width={228} height={78} className="h-6 w-auto" />
-      </Link>
-      {/* Centred on wide screens, next to the logo on the phone where the middle is too narrow. */}
-      <h1 className="md:hidden ml-3 text-base font-bold truncate min-w-0" style={{ color: "var(--kb)" }}>{title}</h1>
+      {/* Centred on wide screens, next to the bird on the phone where the middle is too narrow. */}
+      <h1 className="md:hidden ml-2 text-base font-bold truncate min-w-0 flex-1" style={{ color: "var(--kb)" }}>{title}</h1>
       <span className="hidden md:flex absolute inset-0 items-center justify-center pointer-events-none">
         <h1 className="text-lg font-bold truncate pointer-events-auto select-text" style={{ color: "var(--kb)", maxWidth: "calc(100% - 16rem)" }}>
           {title}
         </h1>
       </span>
+      <button
+        type="button"
+        onClick={onNew}
+        aria-label={t("newChat")}
+        title={t("newChat")}
+        className="md:hidden w-9 h-9 flex items-center justify-center rounded-full btn-icon"
+        data-testid="campus-new-chat-top"
+      >
+        <NotePencil size={20} />
+      </button>
     </div>
   );
 }

@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { useTranslations } from "next-intl";
-import { PencilSimple, Plus, Trash } from "@phosphor-icons/react";
+import { NotePencil, PencilSimple, SidebarSimple, Trash } from "@phosphor-icons/react";
+import { Link } from "@/i18n/navigation";
 import Modal from "@/components/ui/Modal";
 import { InlineRename } from "@/components/ui/InlineRename";
 import { gruppiere, type GruppenKey } from "../_gruppen";
@@ -18,6 +20,8 @@ export default function ChatVerlauf({
   onNew,
   onRename,
   onDelete,
+  collapsed = false,
+  onToggle,
 }: {
   chats: CampusChatEintrag[];
   activeId: number | null;
@@ -26,8 +30,13 @@ export default function ChatVerlauf({
   onNew: () => void;
   onRename: (id: number, title: string) => Promise<void>;
   onDelete: (id: number) => Promise<void>;
+  /** Only the narrow strip with bird, toggle and new chat. */
+  collapsed?: boolean;
+  /** Folds the bar on the desktop, closes the drawer on the phone. */
+  onToggle: () => void;
 }) {
   const t = useTranslations("tools.campus");
+  const tHeader = useTranslations("header");
   const [renaming, setRenaming] = useState<number | null>(null);
   const [confirm, setConfirm] = useState<CampusChatEintrag | null>(null);
   const [busy, setBusy] = useState(false);
@@ -44,16 +53,58 @@ export default function ChatVerlauf({
     }
   };
 
-  return (
-    <div className="flex flex-col h-full min-h-0" data-testid="campus-history">
-      <div className="p-3 flex-shrink-0">
+  const toggleLabel = collapsed ? t("openMenu") : t("closeMenu");
+  const toggle = (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-label={toggleLabel}
+      title={toggleLabel}
+      aria-expanded={!collapsed}
+      className="w-9 h-9 flex items-center justify-center rounded-full btn-icon flex-shrink-0"
+      data-testid="campus-sidebar-toggle"
+    >
+      <SidebarSimple size={20} />
+    </button>
+  );
+
+  if (collapsed) {
+    return (
+      <div className="flex flex-col items-center h-full min-h-0 gap-2 py-2" data-testid="campus-history-collapsed">
+        <Link href="/" aria-label={tHeader("homeAria")} title={tHeader("homeAria")} className="flex items-center justify-center h-9 no-underline logo-link">
+          <Image src="/logos/kis-vogel.svg" alt="KIS" width={154} height={78} className="h-5 w-auto" />
+        </Link>
+        {toggle}
         <button
           type="button"
           onClick={onNew}
-          className="btn-outline-accent w-full flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg transition-colors"
+          aria-label={t("newChat")}
+          title={t("newChat")}
+          className="w-9 h-9 flex items-center justify-center rounded-full btn-icon"
           data-testid="campus-new-chat"
         >
-          <Plus size={15} weight="bold" />
+          <NotePencil size={20} />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col h-full min-h-0" data-testid="campus-history">
+      <div className="flex items-center justify-between pl-4 pr-2 flex-shrink-0" style={{ height: 48 }}>
+        <Link href="/" aria-label={tHeader("homeAria")} title={tHeader("homeAria")} className="flex items-center no-underline logo-link">
+          <Image src="/logos/kis-logo.svg" alt="KIS" width={228} height={78} className="h-6 w-auto" />
+        </Link>
+        {toggle}
+      </div>
+      <div className="px-2 pt-1 pb-3 flex-shrink-0">
+        <button
+          type="button"
+          onClick={onNew}
+          className="btn-ghost bg-surface-dim w-full flex items-center gap-2.5 px-3 py-2 text-sm font-medium rounded-xl text-foreground"
+          data-testid="campus-new-chat"
+        >
+          <NotePencil size={20} />
           {t("newChat")}
         </button>
       </div>
