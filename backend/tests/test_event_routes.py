@@ -75,8 +75,9 @@ class FakeRedis:
     def set(self, key, value, ex=None):
         self.store[key] = value
 
-    def delete(self, key):
-        self.store.pop(key, None)
+    def delete(self, *keys):
+        for key in keys:
+            self.store.pop(key, None)
 
     def close(self):
         pass
@@ -96,6 +97,8 @@ def speicher(monkeypatch):
     monkeypatch.setattr(repo, "get_config", lambda: zustand["config"])
     monkeypatch.setattr(repo, "stamps_for", lambda h: dict(zustand["stamps"].get(h, {})))
     monkeypatch.setattr(repo, "add_stamp", add_stamp)
+    monkeypatch.setattr(repo, "delete_stamps_for", lambda h: zustand["stamps"].pop(h, None))
+    monkeypatch.setattr(repo, "delete_all_stamps", lambda: zustand["stamps"].clear())
     monkeypatch.setattr(repo, "_redis", lambda: FakeRedis(zustand["redis"]))
     return zustand
 
@@ -229,6 +232,7 @@ def test_the_card_needs_no_session(client_ohne_sitzung, speicher):
 
 def test_the_admin_side_still_needs_a_session(client_ohne_sitzung, speicher):
     assert client_ohne_sitzung.get("/admin/event").status_code == 401
+    assert client_ohne_sitzung.delete("/admin/event/stamps").status_code == 401
 
 
 # --- admin ------------------------------------------------------------------------
@@ -242,6 +246,8 @@ def test_the_admin_reads_the_configuration_with_codes(client, speicher):
 def test_a_user_without_the_right_is_blocked(client_ohne_recht, speicher):
     assert client_ohne_recht.get("/admin/event").status_code == 403
     assert client_ohne_recht.get("/admin/event/stats").status_code == 403
+    assert client_ohne_recht.delete("/admin/event/card", headers=BESUCHER).status_code == 403
+    assert client_ohne_recht.delete("/admin/event/stamps").status_code == 403
     with patch.object(repo, "save_config") as speichern:
         assert client_ohne_recht.put("/admin/event", json=default_config()).status_code == 403
     speichern.assert_not_called()
@@ -286,3 +292,34 @@ def test_the_statistics_count_visits_per_current_stand_and_complete_cards(client
     assert body["visitsByStation"] == {"management": 0, "study": 3, "platform": 0, "dafl": 0, "intercultural": 0}
     assert body["completeCards"] == 2
     voll.assert_called_once_with(["management", "study", "platform", "dafl", "intercultural"])
+
+
+# --- reset ----------------------------------------------------------------------
+
+def test_the_admin_resets_the_card_of_the_own_browser_only(client, speicher):
+    client.post("/event/stamp", json={"stationId": "study"}, headers=BESUCHER)
+    client.post("/event/stamp", json={"stationId": "study"}, headers=ANDERER)
+    r = client.delete("/admin/event/card", headers=BESUCHER)
+    assert r.status_code == 200
+    assert r.json()["stamped"] == {}
+    assert client.get("/event/card", headers=BESUCHER).json()["stamped"] == {}
+    assert "study" in client.get("/event/card", headers=ANDERER).json()["stamped"]
+
+
+def test_resetting_the_own_card_also_forgets_wrong_tries(client, speicher):
+    client.post("/event/code", json={"code": "XXXX"}, headers=BESUCHER)
+    assert client.get("/event/card", headers=BESUCHER).json()["attemptsLeft"] == EVENT_CODE_MAX_ATTEMPTS - 1
+    client.delete("/admin/event/card", headers=BESUCHER)
+    assert client.get("/event/card", headers=BESUCHER).json()["attemptsLeft"] == EVENT_CODE_MAX_ATTEMPTS
+
+
+def test_resetting_the_own_card_needs_a_visitor_id(client, speicher):
+    assert client.delete("/admin/event/card").status_code == 400
+
+
+def test_the_admin_empties_every_card(client, speicher):
+    client.post("/event/stamp", json={"stationId": "study"}, headers=BESUCHER)
+    client.post("/event/stamp", json={"stationId": "dafl"}, headers=ANDERER)
+    r = client.delete("/admin/event/stamps")
+    assert r.status_code == 200
+    assert speicher["stamps"] == {}

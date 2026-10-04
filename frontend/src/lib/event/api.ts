@@ -52,4 +52,6 @@ export const eventApi = {
       body: JSON.stringify(config),
     }),
   adminStats: () => request<EventStats>("/admin/event/stats"),
+  adminResetMyCard: () => request<Card>("/admin/event/card", { method: "DELETE", headers: visitor() }),
+  adminResetAllStamps: () => request<{ ok: boolean }>("/admin/event/stamps", { method: "DELETE" }),
 };

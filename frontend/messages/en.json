@@ -4928,6 +4928,21 @@
       "loading": "Loading …",
       "loadFailed": "The settings could not be loaded."
     },
+    "reset": {
+      "title": "Reset",
+      "description": "For testing the stamp card and for a fresh start on the day of the event.",
+      "mineTitle": "My stamp card",
+      "mineText": "Removes the stamps in this browser so you can walk the card once more.",
+      "mine": "Reset my card",
+      "mineDone": "Your card is empty.",
+      "allTitle": "All stamp cards",
+      "allText": "Removes the stamps of every visitor. The results start from zero.",
+      "all": "Delete all stamps",
+      "allDone": "All stamps are deleted.",
+      "allConfirmTitle": "Delete all stamps?",
+      "allConfirmText": "This affects every visitor and cannot be undone.",
+      "failed": "That did not work. Please try again."
+    },
     "event": {
       "title": "Event block on the info page",
       "active": "Active. The block sits at the top of the info page while the period runs.",

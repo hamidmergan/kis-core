@@ -78,8 +78,9 @@ class FakeRedis:
     def set(self, key, value, ex=None):
         self.store[key] = value
 
-    def delete(self, key):
-        self.store.pop(key, None)
+    def delete(self, *keys):
+        for key in keys:
+            self.store.pop(key, None)
 
     def close(self):
         pass
@@ -161,6 +162,24 @@ def test_visits_are_counted_per_stand(fake_db):
     assert repo.visits_by_station() == {"a": 3, "b": 1}
 
 
+def test_resetting_a_visitor_deletes_only_its_stamps_and_commits(fake_db):
+    calls = fake_db()
+    repo.delete_stamps_for(HASH)
+    (_, sql, params), commit = calls
+    assert sql == "DELETE FROM event_stamps WHERE visitor_hash = %s"
+    assert params == (HASH,)
+    assert commit == ("commit", None, None)
+
+
+def test_resetting_everything_deletes_every_stamp_and_commits(fake_db):
+    calls = fake_db()
+    repo.delete_all_stamps()
+    (_, sql, params), commit = calls
+    assert sql == "DELETE FROM event_stamps"
+    assert params is None
+    assert commit == ("commit", None, None)
+
+
 # --- wrong codes ----------------------------------------------------------------
 
 def test_a_fresh_visitor_has_every_try_left_and_no_lock(fake_redis):
@@ -192,3 +211,14 @@ def test_without_redis_there_is_no_lock_and_every_try_counts_as_the_first(broken
     """The stands keep working when Redis is down, nobody gets locked out."""
     assert repo.lock_state(HASH, JETZT) == (None, EVENT_CODE_MAX_ATTEMPTS)
     assert repo.register_failure(HASH, JETZT) == (None, EVENT_CODE_MAX_ATTEMPTS)
+
+
+def test_clearing_the_failures_drops_counter_and_lock(fake_redis):
+    repo.register_failure(HASH, JETZT)
+    fake_redis[repo._lock_key(HASH)] = JETZT + 10_000
+    repo.clear_failures(HASH)
+    assert fake_redis == {}
+
+
+def test_clearing_the_failures_without_redis_is_quiet(broken_redis):
+    repo.clear_failures(HASH)

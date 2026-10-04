@@ -9,6 +9,7 @@ from src.features.event import repository as repo
 from src.features.event.service import EventValidationError, validate_config
 from src.i18n import get_locale, t
 from src.permissions_registry import PERM_SET_EVENT
+from src.routes.event import _card, _now_ms, _visitor
 
 router = APIRouter(prefix="/event", tags=["admin: event"])
 
@@ -86,3 +87,17 @@ def event_stats(admin: dict = Depends(_require)):
         "visitsByStation": {stand_id: besuche.get(stand_id, 0) for stand_id in ids},
         "completeCards": repo.complete_cards(ids),
     }
+
+
+@router.delete("/card")
+def reset_own_card(admin: dict = Depends(_require), besucher: str = Depends(_visitor)):
+    """Empties the card of this browser so the holder of the right can walk the stands again."""
+    repo.delete_stamps_for(besucher)
+    repo.clear_failures(besucher)
+    return _card(besucher, repo.get_config()["stations"], _now_ms())
+
+
+@router.delete("/stamps")
+def reset_all_stamps(admin: dict = Depends(_require)):
+    repo.delete_all_stamps()
+    return {"ok": True}

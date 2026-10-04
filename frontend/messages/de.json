@@ -4928,6 +4928,21 @@
       "loading": "Lädt …",
       "loadFailed": "Die Einstellungen konnten nicht geladen werden."
     },
+    "reset": {
+      "title": "Zurücksetzen",
+      "description": "Zum Testen der Stempelkarte und für den Start am Veranstaltungstag.",
+      "mineTitle": "Meine Stempelkarte",
+      "mineText": "Löscht die Stempel in diesem Browser, damit du die Karte noch einmal durchspielen kannst.",
+      "mine": "Meine Karte zurücksetzen",
+      "mineDone": "Deine Karte ist leer.",
+      "allTitle": "Alle Stempelkarten",
+      "allText": "Löscht die Stempel aller Besucher. Die Auswertung beginnt bei null.",
+      "all": "Alle Stempel löschen",
+      "allDone": "Alle Stempel sind gelöscht.",
+      "allConfirmTitle": "Alle Stempel löschen?",
+      "allConfirmText": "Das betrifft jeden Besucher und lässt sich nicht rückgängig machen.",
+      "failed": "Das hat nicht geklappt. Bitte versuche es noch einmal."
+    },
     "event": {
       "title": "Event-Block auf der Info-Seite",
       "active": "Aktiv. Der Block steht oben auf der Info-Seite, solange der Zeitraum läuft.",

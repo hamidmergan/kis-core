@@ -66,6 +66,22 @@ def add_stamp(visitor_hash: str, station_id: str) -> None:
         conn.commit()
 
 
+def delete_stamps_for(visitor_hash: str) -> None:
+    """Takes every stamp off one card, the visitor starts over."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM event_stamps WHERE visitor_hash = %s", (visitor_hash,))
+        conn.commit()
+
+
+def delete_all_stamps() -> None:
+    """Empties every card at once, the numbers start at zero."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM event_stamps")
+        conn.commit()
+
+
 def visits_by_station() -> dict[str, int]:
     """How many visitors stamped each stand."""
     with get_connection() as conn:
@@ -137,3 +153,13 @@ def register_failure(visitor_hash: str, now_ms: int) -> tuple[int | None, int]:
         logger.warning("Event code failure Redis error: {}", fehler)
         return None, EVENT_CODE_MAX_ATTEMPTS
     return None, EVENT_CODE_MAX_ATTEMPTS - zaehler
+
+
+def clear_failures(visitor_hash: str) -> None:
+    """Forgets wrong tries and lock of one visitor, Redis trouble stays silent."""
+    try:
+        r = _redis()
+        r.delete(_count_key(visitor_hash), _lock_key(visitor_hash))
+        r.close()
+    except Exception as fehler:
+        logger.warning("Event code clear Redis error: {}", fehler)
