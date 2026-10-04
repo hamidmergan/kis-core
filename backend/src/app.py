@@ -13,6 +13,7 @@ from src import database as db
 from src.database import init_db
 from src.core.db.pool import run_once_across_processes
 from src.dependencies import get_session_store, get_settings, is_admin_user
+from src.features.campus.routes import router as campus_router
 from src.modules import MODULE_AIA, MODULE_TOOLS, active_modules
 from src.security.auth import verify_auth
 from src.limits import REQUEST_THREAD_LIMIT
@@ -246,6 +247,7 @@ def create_app(modules=None) -> FastAPI:
                       screencast_demo, podcast, podcast_demo, praesentation, praesentation_demo, summary, summary_demo,
                       glossaries, own_interfaces):
             application.include_router(modul.router)
+        application.include_router(campus_router)
 
     if MODULE_AIA in aktiv:
         application.include_router(aia.router)

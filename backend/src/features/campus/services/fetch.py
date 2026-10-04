@@ -1,10 +1,11 @@
-"""Conditional page fetches for the crawl; every link comes from the admin's own sitemap."""
+"""Conditional page fetches for the crawl, every hop restricted to public web hosts."""
 from dataclasses import dataclass, field
 from urllib.parse import urljoin, urlsplit
 
 import httpx
 
 from src.limits import CAMPUS_FETCH_TIMEOUT_SECONDS, CAMPUS_PAGE_MAX_BYTES
+from src.services.web_page_fetch import LinkError, validate_url
 
 _USER_AGENT = "KIS-Campus-Assistent/1.0 (+sitemap crawl)"
 _MAX_HOPS = 5
@@ -27,12 +28,18 @@ def make_client(timeout: float = CAMPUS_FETCH_TIMEOUT_SECONDS) -> httpx.Client:
 
 
 def is_web_url(url: str) -> bool:
-    """Only plain http(s) links, nothing else is ever fetched."""
+    """Only plain http(s) links to public hosts, the same rule as for pasted links."""
     try:
         parts = urlsplit(url.strip())
     except ValueError:
         return False
-    return parts.scheme in ("http", "https") and bool(parts.hostname) and not parts.username and not parts.password
+    if parts.scheme not in ("http", "https") or not parts.hostname:
+        return False
+    try:
+        validate_url(url)
+    except LinkError:
+        return False
+    return True
 
 
 def fetch_conditional(

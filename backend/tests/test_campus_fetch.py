@@ -1,7 +1,13 @@
-"""Bedingte Abrufe: 304 heißt unverändert, 404 heißt weg, nur http(s) wird geholt."""
+"""Bedingte Abrufe: 304 heißt unverändert, 404 heißt weg, nur öffentliche http(s)-Hosts."""
 import httpx
+import pytest
 
 from src.features.campus.services import fetch
+
+
+@pytest.fixture(autouse=True)
+def oeffentlich(monkeypatch):
+    monkeypatch.setattr("src.services.web_page_fetch._resolve", lambda host: ["93.184.216.34"])
 
 
 def _client(handler):
@@ -48,6 +54,13 @@ def test_umleitung_wird_gefolgt_aber_nur_zu_http():
     r = fetch.fetch_conditional(_client(fremd), "https://x.test/alt")
     assert r.status == "error" and "forbidden" in r.error
     assert fetch.fetch_conditional(_client(fremd), "file:///etc/passwd").status == "error"
+
+    def privat(req):
+        return httpx.Response(301, headers={"location": "http://localhost:8000/geheim"})
+
+    r = fetch.fetch_conditional(_client(privat), "https://x.test/alt")
+    assert r.status == "error" and "forbidden" in r.error
+    assert fetch.fetch_conditional(_client(privat), "http://kis-redis:6379/").status == "error"
 
 
 def test_zu_grosse_seite_und_fremder_typ():
