@@ -1937,6 +1937,7 @@
         "status": {
           "title": "Stand des Index",
           "pages": "Webseiten",
+          "pagesHelp": "Der Index nimmt höchstens {max, number} Webseiten auf. Ist er voll, bleiben neue Seiten aus der Sitemap draußen, bis andere wegfallen. Von sehr langen Seiten zählen nur die ersten {chunks, number} Abschnitte, Dokumente sind davon nicht betroffen.",
           "chunks": "Abschnitte",
           "documents": "Dokumente",
           "lastRun": "Letzter Abgleich",
@@ -4135,7 +4136,9 @@
         "karteikarten": "Karteikarten",
         "grammatik": "Grammatikübung",
         "wortschatz": "Wortschatzübung",
-        "quiz": "Quiz"
+        "quiz": "Quiz",
+        "data_table": "Datentabelle",
+        "mindmap": "Mindmap"
       },
       "share": {
         "title": "Freigeben"

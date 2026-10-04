@@ -1937,6 +1937,7 @@
         "status": {
           "title": "Index status",
           "pages": "Web pages",
+          "pagesHelp": "The index holds at most {max, number} web pages. Once full, new pages from the sitemap stay out until others drop away. Very long pages count with their first {chunks, number} passages only, documents are not affected.",
           "chunks": "Passages",
           "documents": "Documents",
           "lastRun": "Last refresh",
@@ -4135,7 +4136,9 @@
         "karteikarten": "Flashcards",
         "grammatik": "Grammar exercises",
         "wortschatz": "Vocabulary exercises",
-        "quiz": "Quiz"
+        "quiz": "Quiz",
+        "data_table": "Data table",
+        "mindmap": "Mind map"
       },
       "share": {
         "title": "Share"
