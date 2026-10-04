@@ -23,7 +23,7 @@ def _iso(value) -> str | None:
 def campus_config(current_user: dict = Depends(get_current_user)):
     cfg = campus_settings.read()
     return {
-        "map_url": cfg.map_url,
+        "map_url": cfg.shown_map_url,
         "retention_days": cfg.retention_days,
         "max_question_chars": CAMPUS_QUESTION_MAX_CHARS,
         "max_questions_per_chat": CAMPUS_MAX_QUESTIONS_PER_CHAT,

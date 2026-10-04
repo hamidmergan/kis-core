@@ -8,4 +8,4 @@ router = APIRouter(prefix="/campus", tags=["campus: public"])
 
 @router.get("/map")
 def campus_map():
-    return {"map_url": campus_settings.read().map_url}
+    return {"map_url": campus_settings.read().shown_map_url}

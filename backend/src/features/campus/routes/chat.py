@@ -17,6 +17,7 @@ from src.features.campus.repository import chunks as chunk_repo
 from src.features.campus.repository import places as place_repo
 from src.features.campus.routes._title import make_title
 from src.features.campus.services import attribution, retrieval
+from src.features.campus.services import settings as campus_settings
 from src.features.campus.services.place_match import find_places
 from src.i18n import get_locale, t
 from src.limits import (
@@ -78,9 +79,9 @@ def _embed_many(texts: list[str]) -> list[list[float]]:
     return get_embedding_provider_with_fallback().embed(texts)
 
 
-def pick_sources(sources: list[dict], places: list[dict]) -> list[dict]:
-    """The source cards of an answer; place pages step back once a place card stands for them."""
-    if places:
+def pick_sources(sources: list[dict], places: list[dict], map_on: bool = True) -> list[dict]:
+    """The source cards of an answer; place pages step back once a place card stands for them or the map is off."""
+    if places or not map_on:
         sources = [s for s in sources if s.get("kind") != "place"]
     return sources[:CAMPUS_SOURCE_CARDS_MAX]
 
@@ -206,11 +207,12 @@ async def campus_chat(
                 status = "error"
                 yield f"data: {json.dumps({'error': t('job.upstreamBusy', locale), 'code': 'empty_answer'})}\n\n"
                 return
-            places = [] if no_source else find_places(answer, place_repo.all_places())
+            map_on = campus_settings.read().map_enabled
+            places = [] if no_source or not map_on else find_places(answer, place_repo.all_places())
             used = [] if no_source else await asyncio.to_thread(
                 attribution.used_sources, answer, context.sources, context.chunk_ids, _embed_many, chunk_repo.nearest_in
             )
-            sources = pick_sources(used, places)
+            sources = pick_sources(used, places, map_on)
             message_id = chat_repo.add_message(chat_id, "assistant", answer, sources=sources, places=places, no_source=no_source)
             saved = True
             yield f"data: {json.dumps({'done': True, 'answer': answer, 'sources': sources, 'places': places, 'no_source': no_source, 'message_id': message_id})}\n\n"

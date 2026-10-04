@@ -34,6 +34,7 @@ class SettingsBody(BaseModel):
     url_include: Optional[str] = None
     url_exclude: Optional[str] = None
     map_url: Optional[str] = None
+    map_enabled: Optional[bool] = None
     retention_days: Optional[int] = None
 
 

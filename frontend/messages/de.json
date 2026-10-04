@@ -1927,6 +1927,7 @@
         "excludeHint": "Ein Muster je Zeile, zum Beispiel /news/. Seiten mit diesem Muster werden übersprungen.",
         "mapUrl": "Adresse der Campus Map",
         "mapHint": "Die Seite der Campus Map. Ortskarten im Chat öffnen sie mit dem passenden Ort.",
+        "mapEnabled": "Campus Map anzeigen",
         "retention": "Chats aufbewahren",
         "retentionHint": "Tage ohne Aktivität, danach wird ein Chat gelöscht. 0 behält alle.",
         "days": "Tage",

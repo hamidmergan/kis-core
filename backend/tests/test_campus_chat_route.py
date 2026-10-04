@@ -8,6 +8,7 @@ from fastapi import HTTPException
 from src.features.campus.routes import chat as chat_route
 from src.features.campus.routes._title import make_title
 from src.features.campus.services.retrieval import Context
+from src.features.campus.services.settings import CampusSettings
 
 
 class _Delta:
@@ -134,6 +135,7 @@ def umgebung(monkeypatch):
     monkeypatch.setattr(chat_route.chunk_repo, "neighbors", lambda p, pos, span: [])
     quelle = {"page_id": 1, "kind": "page", "url": "https://x.test/mensa/", "title": "Mensa", "filename": None, "fetched_at": "2026-10-03", "fragment": "Die Mensa"}
     monkeypatch.setattr(chat_route.retrieval, "build_context", lambda *a, **k: Context(text="<documents/>", sources=[quelle]))
+    monkeypatch.setattr(chat_route.campus_settings, "read", lambda: CampusSettings())
     monkeypatch.setattr(chat_route.place_repo, "all_places", lambda: [{"id": "Mensa_B_59", "code": "B.59", "title": {"de": "Mensa B.59", "en": "Mensa B.59"}}])
     return chats
 
@@ -230,6 +232,18 @@ def test_ortsseiten_treten_hinter_die_ortskarte():
     assert chat_route.pick_sources(seiten, []) == seiten
     viele = [{"kind": "page", "title": str(i)} for i in range(9)]
     assert len(chat_route.pick_sources(viele, [])) == chat_route.CAMPUS_SOURCE_CARDS_MAX
+
+
+def test_ohne_karte_fallen_ortsseiten_weg():
+    seiten = [{"kind": "place", "title": "Mensa"}, {"kind": "page", "title": "Wohnen"}]
+    assert chat_route.pick_sources(seiten, [], map_on=False) == [{"kind": "page", "title": "Wohnen"}]
+
+
+async def test_ohne_karte_keine_ortskarte(umgebung, monkeypatch):
+    monkeypatch.setattr(chat_route.campus_settings, "read", lambda: CampusSettings(map_enabled=False))
+    llm = _FakeLLM([_Chunk("Die Mensa ist in B.59.")])
+    done = (await _frage(llm))[-1]
+    assert done["places"] == [] and done["sources"][0]["url"] == "https://x.test/mensa/"
 
 
 def test_marker_trennung():

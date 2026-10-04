@@ -31,3 +31,9 @@ def test_kartenlink_kommt_ohne_sitzung(client_ohne_sitzung):
 def test_ohne_einstellung_bleibt_der_link_leer(client_ohne_sitzung):
     with patch(f"{ROUTE}.campus_settings.read", return_value=CampusSettings()):
         assert client_ohne_sitzung.get("/campus/map").json() == {"map_url": ""}
+
+
+def test_ausgeschaltete_karte_gibt_keinen_link(client_ohne_sitzung):
+    aus = CampusSettings(map_url="https://map.test/campus-map/", map_enabled=False)
+    with patch(f"{ROUTE}.campus_settings.read", return_value=aus):
+        assert client_ohne_sitzung.get("/campus/map").json() == {"map_url": ""}

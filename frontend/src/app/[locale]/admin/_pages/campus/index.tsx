@@ -13,6 +13,7 @@ interface Settings {
   url_include: string;
   url_exclude: string;
   map_url: string;
+  map_enabled: boolean;
   retention_days: number;
 }
 
@@ -169,7 +170,11 @@ export default function CampusAdminPage() {
 
       <SettingCard title={t("mapUrl")} description={t("mapHint")}>
         <div className="mt-3 flex flex-col gap-3">
-          <input value={form.map_url} onChange={(e) => set({ map_url: e.target.value })} className={INPUT} placeholder="https://" />
+          <label className="flex items-center gap-2 text-sm text-foreground">
+            <input type="checkbox" checked={form.map_enabled} onChange={(e) => set({ map_enabled: e.target.checked })} className="accent-kb" />
+            {t("mapEnabled")}
+          </label>
+          <input value={form.map_url} onChange={(e) => set({ map_url: e.target.value })} disabled={!form.map_enabled} className={INPUT} placeholder="https://" />
         </div>
       </SettingCard>
 
