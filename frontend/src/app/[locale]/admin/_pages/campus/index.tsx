@@ -22,7 +22,6 @@ interface Overview {
   stats: {
     pages: Record<string, Record<string, number>>;
     chunks: number;
-    places: number;
     last_fetched_at: string | null;
   };
   documents: { id: number; filename: string; status: string; chunk_count: number; error_message: string | null; created_at: string | null }[];
@@ -133,10 +132,9 @@ export default function CampusAdminPage() {
   return (
     <div className="flex flex-col gap-4 max-w-3xl">
       <SettingCard title={t("status.title")}>
-        <dl className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+        <dl className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
           <div><dt className="text-xs text-muted">{t("status.pages")}</dt><dd className="font-medium">{sum(pages)}{pages.failed ? ` (${pages.failed} ${t("status.failed")})` : ""}</dd></div>
           <div><dt className="text-xs text-muted">{t("status.chunks")}</dt><dd className="font-medium">{data.stats.chunks}</dd></div>
-          <div><dt className="text-xs text-muted">{t("status.places")}</dt><dd className="font-medium">{data.stats.places}</dd></div>
           <div><dt className="text-xs text-muted">{t("status.documents")}</dt><dd className="font-medium">{sum(data.stats.pages.document)}</dd></div>
           <div className="col-span-2"><dt className="text-xs text-muted">{t("status.lastRun")}</dt><dd className="font-medium">{status.running ? t("status.running") : lastRun ?? t("status.never")}</dd></div>
         </dl>

@@ -33,10 +33,3 @@ def all_places() -> list[dict]:
             cur.execute(f"SELECT {', '.join(_FIELDS)} FROM campus_places ORDER BY id")
             rows = cur.fetchall()
     return [dict(r) for r in rows]
-
-
-def place_count() -> int:
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT COUNT(*) FROM campus_places")
-            return cur.fetchone()[0]

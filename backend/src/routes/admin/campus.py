@@ -10,7 +10,6 @@ from src import storage
 from src.dependencies_rbac import require_permission
 from src.features.campus.repository import excluded as excluded_repo
 from src.features.campus.repository import pages as page_repo
-from src.features.campus.repository import places as place_repo
 from src.features.campus.services import fetch as fetch_mod
 from src.features.campus.services import settings as campus_settings
 from src.features.campus.services import sitemap as sitemap_mod
@@ -40,12 +39,10 @@ class SettingsBody(BaseModel):
 
 def _overview() -> dict:
     cfg = campus_settings.read()
-    stats = page_repo.page_stats()
-    stats["places"] = place_repo.place_count()
     return {
         "settings": cfg.as_dict(),
         "status": campus_settings.crawl_status(),
-        "stats": stats,
+        "stats": page_repo.page_stats(),
         "documents": [_document(d) for d in page_repo.list_pages(page_repo.KIND_DOCUMENT)],
     }
 
