@@ -118,6 +118,9 @@ class _Chats:
     def count_question(self, chat_id):
         return 1
 
+    def drop_oldest_round(self, chat_id):
+        self.dropped = chat_id
+
 
 @pytest.fixture
 def umgebung(monkeypatch):
@@ -189,11 +192,10 @@ async def test_normale_antwort_ohne_marker_kommt_sofort(umgebung):
     assert [e["token"] for e in events if "token" in e] == ["Ja, ", "das geht."]
 
 
-async def test_voller_chat_wird_abgewiesen(umgebung):
+async def test_voller_chat_wirft_die_aelteste_runde_weg(umgebung):
     umgebung.chat = {"id": 5, "title": "Alt", "question_count": chat_route.CAMPUS_MAX_QUESTIONS_PER_CHAT}
-    with pytest.raises(HTTPException) as info:
-        await _frage(_FakeLLM([]), chat_id=5)
-    assert info.value.status_code == 409 and info.value.detail["kind"] == "chat_full"
+    await _frage(_FakeLLM([_Chunk("Ja.")]), chat_id=5)
+    assert umgebung.dropped == 5
 
 
 async def test_fremder_chat_ist_unbekannt(umgebung):

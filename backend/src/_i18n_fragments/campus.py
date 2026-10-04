@@ -9,10 +9,6 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Diese Antwort gibt es nicht",
         "en": "This answer does not exist",
     },
-    "campus.chatFull": {
-        "de": "Dieser Chat ist voll. Starte einen neuen Chat.",
-        "en": "This chat is full. Start a new chat.",
-    },
     "campus.notConfigured": {
         "de": "Der Infoassistent ist noch nicht eingerichtet",
         "en": "The info assistant is not set up yet",

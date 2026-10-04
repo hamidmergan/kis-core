@@ -382,6 +382,7 @@ DB_BACKUP_TIME_LIMIT_SECONDS           = 3600
 
 # Campus assistant: one question stays readable, one chat stays a conversation, not an archive.
 CAMPUS_QUESTION_MAX_CHARS              = 2_000
+# Past this many, the oldest question and answer drop out of the chat.
 CAMPUS_MAX_QUESTIONS_PER_CHAT          = 50
 # The oldest chat makes room once a person holds this many.
 CAMPUS_MAX_CHATS_PER_USER              = 100

@@ -106,7 +106,7 @@ async def campus_chat(
         if chat is None:
             raise HTTPException(status_code=404, detail=t("campus.chatNotFound", locale))
         if chat["question_count"] >= CAMPUS_MAX_QUESTIONS_PER_CHAT:
-            raise HTTPException(status_code=409, detail={"message": t("campus.chatFull", locale), "kind": "chat_full"})
+            chat_repo.drop_oldest_round(chat["id"])
         chat_id = chat["id"]
         title = chat["title"]
         last_round = chat_repo.last_round(chat_id)

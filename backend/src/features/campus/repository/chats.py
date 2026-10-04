@@ -65,6 +65,18 @@ def count_question(chat_id: int) -> int:
     return n
 
 
+def drop_oldest_round(chat_id: int) -> None:
+    """Removes the oldest question and its answer to make room for a new one."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM campus_messages WHERE id IN (SELECT id FROM campus_messages WHERE chat_id = %s ORDER BY id LIMIT 2)",
+                (chat_id,),
+            )
+            cur.execute("UPDATE campus_chats SET question_count = GREATEST(question_count - 1, 0) WHERE id = %s", (chat_id,))
+        conn.commit()
+
+
 def touch_chat(chat_id: int) -> None:
     with get_connection() as conn:
         with conn.cursor() as cur:
