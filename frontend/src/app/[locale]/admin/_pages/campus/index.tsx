@@ -57,12 +57,13 @@ export default function CampusAdminPage() {
     load().catch(() => setNote(t("saveFailed")));
   }, [load, t]);
 
-  // While a refresh runs the numbers change, so the page looks again every few seconds.
+  // While a refresh runs or a document is processed the numbers change, so the page looks again every few seconds.
+  const working = !!data?.status?.running || !!data?.documents.some((d) => d.status === "pending" || d.status === "indexing");
   useEffect(() => {
-    if (!data?.status?.running) return;
+    if (!working) return;
     const id = setInterval(() => load().catch(() => undefined), 5000);
     return () => clearInterval(id);
-  }, [data?.status?.running, load]);
+  }, [working, load]);
 
   const set = (patch: Partial<Settings>) => setForm((f) => (f ? { ...f, ...patch } : f));
 
