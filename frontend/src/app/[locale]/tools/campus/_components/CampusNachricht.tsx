@@ -37,7 +37,7 @@ function CampusNachrichtInner({
 
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`} data-testid={isUser ? "user-message" : "assistant-message"}>
-      <div className={`flex gap-3 ${isUser ? "max-w-[85%]" : "max-w-full w-full"}`}>
+      <div className={`flex gap-3 ${isUser ? "max-w-[85%] sm:max-w-[75%]" : "w-full"}`}>
         {!isUser && (
           <div className="flex-shrink-0 hidden sm:block" style={{ width: 44 }}>
             <Mascot variant="francis" size={44} state={waiting ? "thinking" : msg.failed ? "confused" : "idle"} />
@@ -48,7 +48,7 @@ function CampusNachrichtInner({
             <WartezeileCampus metaArrived={!!msg.metaArrived} />
           ) : (
             <div
-              className="px-4 py-2 rounded-2xl text-base leading-snug break-words"
+              className={`px-4 py-2 rounded-2xl text-base leading-snug break-words ${isUser ? "" : "w-fit sm:max-w-[75%]"}`}
               style={
                 isUser
                   ? { backgroundColor: "var(--kb)", color: "white", borderBottomRightRadius: 6, whiteSpace: "pre-wrap", overflowWrap: "break-word" }
