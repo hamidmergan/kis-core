@@ -31,8 +31,14 @@
   "footer": {
     "aiNotice": "This platform uses AI and may make mistakes. Please verify the responses.",
     "feedback": "Report a bug or share an idea",
+    "campusMap": "Campus map",
+    "campusMapHint": "Open map",
     "imprint": "Imprint",
     "privacy": "Privacy"
+  },
+  "campusMap": {
+    "title": "Campus map",
+    "openInNewTab": "Open in new tab"
   },
   "languageSwitch": {
     "ariaLabel": "Select language",

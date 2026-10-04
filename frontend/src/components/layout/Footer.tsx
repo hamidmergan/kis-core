@@ -1,6 +1,12 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
+
+import MapModal from "@/components/campus/MapModal";
+import { campusApi } from "@/lib/campus/api";
 
 // The THL lettering is much heavier than the rest, a narrower cap evens out how much of its tile it fills.
 const PARTNERS = [
@@ -9,11 +15,20 @@ const PARTNERS = [
   { src: "/logos/stiftung-hochschullehre.jpg", alt: "Gefördert durch die Stiftung Innovation in der Hochschullehre", href: "https://stiftung-hochschullehre.de/", width: 1920, height: 942 },
 ];
 
-const TILE = "flex items-center justify-center bg-white rounded-lg h-20 sm:h-24 px-4 py-3";
+const TILE_BASE = "flex items-center justify-center bg-white rounded-lg px-4 py-3";
+const TILE = `${TILE_BASE} h-20 sm:h-24`;
 const LOGO = "max-h-full max-w-full w-auto h-auto object-contain";
 
 export default function Footer({ loggedIn }: { loggedIn?: boolean }) {
   const t = useTranslations("footer");
+  const [mapUrl, setMapUrl] = useState("");
+  const [mapOpen, setMapOpen] = useState(false);
+
+  // The map link is an admin setting, without it the map section stays away.
+  useEffect(() => {
+    campusApi.map().then((r) => setMapUrl(r.map_url)).catch(() => setMapUrl(""));
+  }, []);
+
   return (
     <footer
       className="px-6 pt-10 pb-6 text-base"
@@ -30,6 +45,30 @@ export default function Footer({ loggedIn }: { loggedIn?: boolean }) {
                 </Link>
               </p>
             </div>
+          </div>
+        )}
+        {mapUrl && (
+          <div className="flex justify-center">
+            <button
+              type="button"
+              onClick={() => setMapOpen(true)}
+              aria-haspopup="dialog"
+              className="logo-link flex flex-col items-center gap-2"
+            >
+              <span className={`${TILE_BASE} h-32 sm:h-40`}>
+                <Image
+                  src="/campus-map-preview.jpg"
+                  alt=""
+                  width={1280}
+                  height={720}
+                  sizes="(min-width: 640px) 284px, 228px"
+                  className={`${LOGO} rounded-md`}
+                />
+              </span>
+              <span className="text-sm font-semibold leading-tight">{t("campusMap")}</span>
+              <span className="text-xs leading-tight">{t("campusMapHint")}</span>
+            </button>
+            <MapModal open={mapOpen} onClose={() => setMapOpen(false)} mapUrl={mapUrl} />
           </div>
         )}
         <div className="flex flex-col md:flex-row items-stretch gap-4 md:gap-8">

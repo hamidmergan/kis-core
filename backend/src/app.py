@@ -13,6 +13,7 @@ from src import database as db
 from src.database import init_db
 from src.core.db.pool import run_once_across_processes
 from src.dependencies import get_session_store, get_settings, is_admin_user
+from src.features.campus.routes import public as campus_public
 from src.features.campus.routes import router as campus_router
 from src.modules import MODULE_AIA, MODULE_TOOLS, active_modules
 from src.security.auth import verify_auth
@@ -241,6 +242,7 @@ def create_app(modules=None) -> FastAPI:
     application.include_router(feedback.router)
     application.include_router(evaluation.router)
     application.include_router(event.router)
+    application.include_router(campus_public.router)
 
     if MODULE_TOOLS in aktiv:
         for modul in (translate, interpreter, image, tts, transcription, screencast,
