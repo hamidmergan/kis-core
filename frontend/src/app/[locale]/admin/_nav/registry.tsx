@@ -8,9 +8,9 @@ import {
   Bird,
   ChartBar,
   GearSix,
-  MapTrifold,
   Notebook,
   Ruler,
+  Signpost,
   Sparkle,
   SquaresFour,
   Stamp,
@@ -143,6 +143,16 @@ export const SECTIONS: AdminSection[] = [
       },
     ],
   },
+  // The third product, sits with the other assistant instead of among the admin work.
+  {
+    slug: "campus",
+    key: "campus",
+    Icon: Signpost,
+    world: "tools",
+    rank: "product",
+    perm: PERM.campus,
+    Component: CampusAdminPage,
+  },
   // Below both products, because a limit belongs to no single one of them.
   {
     slug: "limits",
@@ -221,16 +231,6 @@ export const SECTIONS: AdminSection[] = [
       { slug: "block", labelKey: "block", Component: EventBlockPage },
       { slug: "stats", labelKey: "stats", Component: EventStatsPage },
     ],
-  },
-  // Crawl, map link, documents and retention of the campus assistant.
-  {
-    slug: "campus",
-    key: "campus",
-    Icon: MapTrifold,
-    world: "tools",
-    rank: "admin",
-    perm: PERM.campus,
-    Component: CampusAdminPage,
   },
   // System also carries the two platform-wide cards.
   {
