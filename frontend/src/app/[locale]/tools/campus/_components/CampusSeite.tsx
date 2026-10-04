@@ -102,7 +102,8 @@ export default function CampusSeite() {
         </div>
       )}
       <div className="flex flex-col flex-1 min-w-0 min-h-0">
-        <CampusTopbar title={t("title")} onOpenMenu={() => setMenuOpen(true)} onNew={neuerChat} />
+        <h1 className="sr-only">{t("title")}</h1>
+        <CampusTopbar onOpenMenu={() => setMenuOpen(true)} onNew={neuerChat} />
         <main className="flex flex-col flex-1 min-w-0 min-h-0">
           <CampusChat
             messages={chat.messages}

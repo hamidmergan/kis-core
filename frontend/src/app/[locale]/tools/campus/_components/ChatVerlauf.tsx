@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
-import { NotePencil, PencilSimple, SidebarSimple, Trash } from "@phosphor-icons/react";
+import { CaretLeft, NotePencil, PencilSimple, SidebarSimple, Trash } from "@phosphor-icons/react";
 import { Link } from "@/i18n/navigation";
 import Modal from "@/components/ui/Modal";
 import { InlineRename } from "@/components/ui/InlineRename";
@@ -37,6 +37,7 @@ export default function ChatVerlauf({
 }) {
   const t = useTranslations("tools.campus");
   const tHeader = useTranslations("header");
+  const tCommon = useTranslations("common");
   const [renaming, setRenaming] = useState<number | null>(null);
   const [confirm, setConfirm] = useState<CampusChatEintrag | null>(null);
   const [busy, setBusy] = useState(false);
@@ -71,6 +72,14 @@ export default function ChatVerlauf({
   if (collapsed) {
     return (
       <div className="flex flex-col items-center h-full min-h-0 gap-2 py-2" data-testid="campus-history-collapsed">
+        <Link
+          href="/services"
+          aria-label={tCommon("backToTools")}
+          title={tCommon("backToTools")}
+          className="w-9 h-9 flex items-center justify-center rounded-full btn-icon no-underline"
+        >
+          <CaretLeft size={18} weight="bold" />
+        </Link>
         <Link href="/" aria-label={tHeader("homeAria")} title={tHeader("homeAria")} className="flex items-center justify-center h-9 no-underline logo-link">
           <Image src="/logos/kis-vogel.svg" alt="KIS" width={154} height={78} className="h-5 w-auto" />
         </Link>
@@ -91,6 +100,14 @@ export default function ChatVerlauf({
 
   return (
     <div className="flex flex-col h-full min-h-0" data-testid="campus-history">
+      <Link
+        href="/services"
+        className="inline-flex items-center gap-1 self-start ml-3 mt-2.5 text-sm font-medium no-underline opacity-60 hover:opacity-100 transition-opacity"
+        style={{ color: "var(--muted)" }}
+      >
+        <CaretLeft size={13} weight="bold" />
+        <span>{tCommon("backToTools")}</span>
+      </Link>
       <div className="flex items-center justify-between pl-4 pr-2 flex-shrink-0" style={{ height: 48 }}>
         <Link href="/" aria-label={tHeader("homeAria")} title={tHeader("homeAria")} className="flex items-center no-underline logo-link">
           <Image src="/logos/kis-logo.svg" alt="KIS" width={228} height={78} className="h-6 w-auto" />
