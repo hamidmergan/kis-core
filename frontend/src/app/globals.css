@@ -119,8 +119,8 @@
   --kb-darker:    #00293d;
   --kb60:         #668DA0;
   --kb20:         #EBEDF0;
-  /* Green of the bird in the KIS logo. */
-  --kis-gruen:    #7DC5AC;
+  /* Red of the ball in the THL logo. */
+  --thl-rot:      #E4003A;
 
   /* Neutrals (CD blue-tinted scale) */
   --background:      #ffffff;
@@ -1073,11 +1073,13 @@ body.is-phone-landscape [title="Panel minimieren"] {
 }
 
 /* The soft cousin of status-puls, for waiting text that should breathe without blinking. */
-/* Spark in front of the chat waiting line: turns a quarter and breathes. */
-@keyframes denk-funke {
-  0%   { transform: rotate(0deg) scale(1); }
-  50%  { transform: rotate(45deg) scale(0.7); }
-  100% { transform: rotate(90deg) scale(1); }
+/* THL ball hops out of its cup and lands again, squashing a little on the way down. */
+@keyframes thl-kugel {
+  0%, 100% { transform: translateY(0) scale(1, 1); }
+  12%      { transform: translateY(0) scale(1.08, 0.9); }
+  45%      { transform: translateY(-18px) scale(0.96, 1.04); }
+  55%      { transform: translateY(-19px) scale(1, 1); }
+  86%      { transform: translateY(0) scale(1.06, 0.92); }
 }
 
 /* A light band sweeping across the waiting text, the way other chat tools show they are working. */

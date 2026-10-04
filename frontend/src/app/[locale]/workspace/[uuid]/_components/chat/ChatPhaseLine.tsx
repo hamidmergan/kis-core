@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import DenkFunke from "@/components/ui/DenkFunke";
+import ThlKugel from "@/components/ui/ThlKugel";
 import { phaseAt } from "./_phase";
 
 /** Ticks often enough for the grace period and the minimum to land, rarely enough to stay cheap. */
@@ -41,7 +41,7 @@ export default function ChatPhaseLine({
       {/* Keyframe lives in globals.css, so reduced motion switches it off with everything else. */}
       {phase && (
         <span className="flex items-center gap-2">
-          <DenkFunke />
+          <ThlKugel />
           <span className="text-shimmer">{t(phase)}</span>
         </span>
       )}
