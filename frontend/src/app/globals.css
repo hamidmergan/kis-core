@@ -119,6 +119,8 @@
   --kb-darker:    #00293d;
   --kb60:         #668DA0;
   --kb20:         #EBEDF0;
+  /* Green of the bird in the KIS logo. */
+  --kis-gruen:    #7DC5AC;
 
   /* Neutrals (CD blue-tinted scale) */
   --background:      #ffffff;
@@ -1071,6 +1073,27 @@ body.is-phone-landscape [title="Panel minimieren"] {
 }
 
 /* The soft cousin of status-puls, for waiting text that should breathe without blinking. */
+/* Spark in front of the chat waiting line: turns a quarter and breathes. */
+@keyframes denk-funke {
+  0%   { transform: rotate(0deg) scale(1); }
+  50%  { transform: rotate(45deg) scale(0.7); }
+  100% { transform: rotate(90deg) scale(1); }
+}
+
+/* A light band sweeping across the waiting text, the way other chat tools show they are working. */
+.text-shimmer {
+  background: linear-gradient(90deg, var(--muted) 0%, var(--muted) 35%, var(--foreground) 50%, var(--muted) 65%, var(--muted) 100%);
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: text-shimmer 2s linear infinite;
+}
+@keyframes text-shimmer {
+  from { background-position: 100% 0; }
+  to   { background-position: 0% 0; }
+}
+
 @keyframes phase-puls {
   0%, 100% { opacity: 1; }
   50%      { opacity: 0.65; }
@@ -1278,19 +1301,6 @@ body.is-phone-landscape [title="Panel minimieren"] {
   0%, 100% { transform: scale(.7); opacity: .4; }
   20%      { transform: scale(1.1); opacity: 1; }
   40%      { transform: scale(.7); opacity: .4; }
-}
-
-/* Mini head in the chat waiting line: eyes glance around while searching */
-@keyframes francis-mini-look {
-  0%, 15%, 100% { transform: translateX(0); }
-  25%, 45%      { transform: translateX(-3px); }
-  60%, 80%      { transform: translateX(3px); }
-}
-
-/* Mini head in the chat waiting line: short nods while the answer is written */
-@keyframes francis-mini-nod {
-  0%, 100% { transform: rotate(0deg) translateY(0); }
-  50%      { transform: rotate(7deg) translateY(2px); }
 }
 
 /* ─── Rundgang (driver.js) ──────────────────────────────────────────────── */
