@@ -46,7 +46,7 @@ function CampusNachrichtInner({
             <WartezeileCampus metaArrived={!!msg.metaArrived} />
           ) : (
             <div
-              className={`px-4 py-2 rounded-2xl text-base leading-snug break-words ${isUser ? "" : "w-fit sm:max-w-[75%]"}`}
+              className={`px-4 py-2 rounded-2xl text-base leading-snug break-words ${isUser ? "" : "w-fit sm:max-w-[75%]"} ${!isUser && msg.streaming && msg.content ? "stream-cursor" : ""}`}
               style={
                 isUser
                   ? { backgroundColor: "var(--kb)", color: "white", borderBottomRightRadius: 6, whiteSpace: "pre-wrap", overflowWrap: "break-word" }
@@ -80,7 +80,6 @@ function CampusNachrichtInner({
                   {msg.content || t("noAnswer")}
                 </ReactMarkdown>
               )}
-              {!isUser && msg.streaming && msg.content && <span className="inline-block w-2 h-4 ml-0.5 align-text-bottom" style={{ backgroundColor: "var(--muted-soft)", animation: "phase-puls 1s ease-in-out infinite" }} />}
             </div>
           )}
 

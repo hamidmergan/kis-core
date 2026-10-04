@@ -135,18 +135,6 @@ function ChatMessageImpl({
     }
   }
 
-  const streamingDots = (
-    <span className="inline-flex gap-1 align-middle">
-      {[0, 1, 2].map((n) => (
-        <span
-          key={n}
-          className="inline-block w-1.5 h-1.5 rounded-full animate-bounce"
-          style={{ backgroundColor: "var(--muted)", animationDelay: `${n * 0.15}s` }}
-        />
-      ))}
-    </span>
-  );
-
   async function handleCopy() {
     try {
       await copyMessageText(msg.content);
@@ -260,6 +248,7 @@ function ChatMessageImpl({
               <>
                 <div
                   ref={assistantContentRef}
+                  className={isStreaming ? "stream-cursor" : undefined}
                   style={collapseAssistant ? { maxHeight: "8em", overflow: "hidden" } : undefined}
                 >
                   <ReactMarkdown
@@ -283,7 +272,6 @@ function ChatMessageImpl({
                     {_guardMathDollars(sanitizeCitationsForMarkdown(msg.content))}
                   </ReactMarkdown>
                 </div>
-                {isStreaming && <span className="inline-flex mt-1">{streamingDots}</span>}
                 {collapseByDefault && isAssistantOverflow && (
                   <button
                     type="button"
