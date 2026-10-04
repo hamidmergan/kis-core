@@ -136,8 +136,8 @@ function CitationChip({ desc, onChipClick, onPin }: { desc: ChipDesc; onChipClic
   if (removedTitle) {
     return (
       <span aria-disabled="true" title={removedTitle}
-        className="inline-flex items-center whitespace-nowrap text-3xs px-[0.3125rem] py-px rounded-full font-medium chip-cite chip-cite--clear align-middle mx-px opacity-50 cursor-not-allowed"
-        style={{ color: "var(--kb)" }}
+        className="inline-flex items-center whitespace-nowrap text-3xs px-[0.3125rem] py-px rounded-full font-medium chip-cite align-middle mx-px opacity-50 cursor-not-allowed"
+        style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)", color: "var(--kb)" }}
       >{displayQNum ? `[${displayQNum}] ` : ""}{label}</span>
     );
   }
@@ -155,9 +155,10 @@ function CitationChip({ desc, onChipClick, onPin }: { desc: ChipDesc; onChipClic
       onPointerDown={(e) => { if (e.button === 0) activate(); }}
       onKeyDown={(e) => { if (e.key === "Enter") activate(); }}
       // Deliberately smaller than the text, a chip is a marginal note.
-      className={`inline-flex items-center whitespace-nowrap text-3xs px-[0.3125rem] py-px rounded-full font-medium chip-cite chip-cite--clear align-middle mx-px cursor-pointer`}
+      className={`inline-flex items-center whitespace-nowrap text-3xs px-[0.3125rem] py-px rounded-full font-medium chip-cite align-middle mx-px cursor-pointer`}
       // The active chip carries the same frame as on hover, only filled in.
       style={{
+        backgroundColor: "rgba(var(--kb-rgb),0.12)",
         color: "var(--kb)",
         outlineColor: isActive ? "var(--cite-border)" : undefined,
       }}

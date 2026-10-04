@@ -300,11 +300,6 @@
   background-color: rgba(91, 163, 206, 0.18) !important;
 }
 
-/* Chat chips carry no fill, only text and the hover ring. */
-:root[data-theme="dark"] .chip-cite.chip-cite--clear {
-  background-color: transparent !important;
-}
-
 
 /* Dark Mode only: Quellen-hinzufuegen-Button — weisse Schrift, neutrale Border, Hover kb-blau (dashed bleibt). */
 :root[data-theme="dark"] .add-source-btn {
