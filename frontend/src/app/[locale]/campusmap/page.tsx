@@ -17,7 +17,9 @@ function absolute(href: string, locale: string): string {
 function CampusMap() {
   const t = useTranslations("campusMap");
   const locale = useLocale();
-  const show = useSearchParams().get("show") ?? undefined;
+  const params = useSearchParams();
+  const show = params.get("show") ?? undefined;
+  const from = params.get("from") ?? "";
   const [mapUrl, setMapUrl] = useState("");
   const frame = useRef<HTMLIFrameElement>(null);
 
@@ -26,7 +28,7 @@ function CampusMap() {
   }, []);
 
   if (!mapUrl) return null;
-  const partner = { home: absolute("/", locale), back: absolute("/services", locale) };
+  const partner = { home: absolute("/", locale), back: absolute(from.startsWith("/") && !from.startsWith("//") ? from : "/services", locale) };
   return (
     <iframe
       ref={frame}

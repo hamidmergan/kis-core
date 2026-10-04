@@ -3,7 +3,7 @@
 import { useLocale, useTranslations } from "next-intl";
 
 import Modal from "@/components/ui/Modal";
-import { getPathname } from "@/i18n/navigation";
+import { getPathname, usePathname } from "@/i18n/navigation";
 import { mapLink } from "@/lib/campus/mapLink";
 
 type Props = { open: boolean; onClose: () => void; mapUrl: string; show?: string };
@@ -12,9 +12,10 @@ type Props = { open: boolean; onClose: () => void; mapUrl: string; show?: string
 export default function MapModal({ open, onClose, mapUrl, show }: Props) {
   const t = useTranslations("campusMap");
   const locale = useLocale();
+  const from = usePathname();
   const src = mapLink(mapUrl, locale, show);
-  // The new tab stays inside KIS, the page there embeds the same widget.
-  const pageHref = getPathname({ href: { pathname: "/campusmap", query: show ? { show } : {} }, locale });
+  // The new tab stays inside KIS, the page there embeds the same widget and links back to this page.
+  const pageHref = getPathname({ href: { pathname: "/campusmap", query: { ...(show ? { show } : {}), from } }, locale });
   return (
     <Modal
       open={open}
