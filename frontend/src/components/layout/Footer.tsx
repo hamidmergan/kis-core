@@ -67,9 +67,12 @@ export default function Footer({ loggedIn }: { loggedIn?: boolean }) {
               type="button"
               onClick={() => setMapOpen(true)}
               aria-haspopup="dialog"
-              className="logo-link flex flex-col items-center gap-2"
+              className="logo-link"
             >
-              <span className={`${TILE_BASE} h-32 sm:h-40`}>
+              <span className={`${TILE_BASE} relative h-32 sm:h-40`}>
+                <span className="absolute left-4 top-2 text-xs font-medium" style={{ color: "rgba(0,0,0,0.45)" }}>
+                  {t("campusMap")}
+                </span>
                 <Image
                   src="/campus-map-preview.jpg"
                   alt=""
@@ -79,7 +82,6 @@ export default function Footer({ loggedIn }: { loggedIn?: boolean }) {
                   className={`${LOGO} rounded-md`}
                 />
               </span>
-              <span className="text-sm font-semibold leading-tight">{t("campusMap")}</span>
             </button>
             <MapModal open={mapOpen} onClose={() => setMapOpen(false)} mapUrl={mapUrl} />
           </div>
