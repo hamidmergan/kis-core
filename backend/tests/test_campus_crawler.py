@@ -1,6 +1,8 @@
 """Der Abgleich holt nur Geändertes, löscht Verschwundenes und hält die Obergrenze."""
 from datetime import datetime
 
+import pytest
+
 from src.features.campus.services import crawler
 from src.features.campus.services.fetch import FetchResult
 from src.features.campus.services.settings import CampusSettings
@@ -10,6 +12,7 @@ SITEMAP = b"""<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 <url><loc>https://x.test/b/</loc></url>
 <url><loc>https://x.test/c/</loc></url>
 <url><loc>https://x.test/news/1</loc></url>
+<url><loc>javascript:alert(1)</loc></url>
 </urlset>"""
 
 HTML = b"<html><body><main><h1>Seite</h1><p>" + b"Ein langer Absatz mit genug Text, damit die Extraktion ihn als Haupttext erkennt. " * 5 + b"</p></main></body></html>"
@@ -55,6 +58,11 @@ def _fetch_factory(responses):
     return fetch_fn
 
 
+@pytest.fixture(autouse=True)
+def oeffentlich(monkeypatch):
+    monkeypatch.setattr("src.services.web_page_fetch._resolve", lambda host: ["93.184.216.34"])
+
+
 def _einstellungen():
     return CampusSettings(sitemap_url="https://x.test/sitemap.xml", url_exclude="/news/")
 
@@ -76,7 +84,9 @@ def test_unveraendert_gelöscht_und_neu(monkeypatch):
     # a: the sitemap date lies before the last fetch, so it is not even requested.
     assert stats["skipped"] == 1 and stats["unchanged"] == 1 and stats["indexed"] == 1
     # weg: no longer in the sitemap, so it is removed; news is excluded by pattern.
-    assert stats["removed"] == 1 and 3 in seiten.deleted and stats["seen"] == 3
+    assert stats["removed"] == 1 and 3 in seiten.deleted and stats["seen"] == 4
+    # The javascript entry counts as failed and never becomes a row.
+    assert stats["failed"] == 1 and "javascript:alert(1)" not in seiten.by_url
     assert eingebettet == [seiten.by_url["https://x.test/c/"]["id"]]
 
 
@@ -90,7 +100,8 @@ def test_404_entfernt_die_seite_und_fehler_markiert(monkeypatch):
     }
     stats = crawler.run(_einstellungen(), embed=lambda t: [], client=object(), concurrency=2, fetch_fn=_fetch_factory(antworten))
     assert 1 in seiten.deleted and stats["removed"] == 1
-    assert stats["failed"] == 2
+    # b with its 500, c without text and the javascript entry.
+    assert stats["failed"] == 3
     assert ("no text" in [s[2] for s in seiten.status])
 
 
@@ -100,6 +111,6 @@ def test_obergrenze_laesst_den_rest_stehen(monkeypatch):
     monkeypatch.setattr(crawler.indexer, "index_markdown", lambda *a, **k: 1)
     antworten = {u: FetchResult("ok", body=HTML) for u in ("https://x.test/a/", "https://x.test/b/", "https://x.test/c/")}
     stats = crawler.run(_einstellungen(), embed=lambda t: [], client=object(), max_pages=2, concurrency=1, fetch_fn=_fetch_factory(antworten))
-    assert stats["indexed"] == 2 and stats["seen"] == 3
+    assert stats["indexed"] == 2 and stats["seen"] == 4
     # Nothing was removed, the run did not see every page.
     assert seiten.deleted == []

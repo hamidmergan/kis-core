@@ -66,6 +66,11 @@ def collect_entries(client, sitemap_url: str, include: list[str], exclude: list[
 
 
 def _process(client, entry: sitemap.SitemapEntry, embed, now: datetime, stats: CrawlStats, lock: threading.Lock, fetch_fn) -> None:
+    # A sitemap entry that is no public web link never gets a row.
+    if not fetch_mod.is_web_url(entry.url):
+        with lock:
+            stats.failed += 1
+        return
     page = page_repo.get_page_by_url(entry.url)
     if page is None:
         page_id = page_repo.upsert_page(page_repo.KIND_PAGE, entry.url)

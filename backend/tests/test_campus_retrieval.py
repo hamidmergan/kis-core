@@ -62,6 +62,12 @@ def test_fragment_laesst_ueberschrift_weg_und_kuerzt_am_wort():
     assert retrieval.fragment_for("Titel\n| a | b |\nEin ganz normaler Satz mit Inhalt.", "Titel") == "Ein ganz normaler Satz mit Inhalt."
 
 
+def test_ortsseite_ohne_karte_hat_keinen_link():
+    hits = [_hit(1, 3, 0, "Mensa, Mo bis Fr.", kind="place", url="place:Mensa_B_59")]
+    ctx = retrieval.build_context("f", lambda q: [0.0], lambda q, v, n: hits, lambda p, pos, span: [])
+    assert ctx.sources[0]["url"] is None
+
+
 def test_leere_suche_ergibt_leeren_kontext():
     ctx = retrieval.build_context("f", lambda q: [0.0], lambda q, v, n: [], lambda p, pos, span: [])
     assert ctx.text == "" and ctx.sources == []

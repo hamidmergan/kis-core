@@ -48,11 +48,16 @@ def _date_of(value) -> str | None:
     return str(value)[:10]
 
 
+def _web_url(url) -> str | None:
+    """Only links a browser may open, the internal place key stays inside."""
+    return url if isinstance(url, str) and url.startswith(("http://", "https://")) else None
+
+
 def _source_of(hit: dict, fragment: str | None) -> dict:
     return {
         "page_id": hit["page_id"],
         "kind": hit.get("kind") or "page",
-        "url": hit.get("url") if (hit.get("kind") or "page") != "document" else None,
+        "url": _web_url(hit.get("url")) if (hit.get("kind") or "page") != "document" else None,
         "title": hit.get("title") or hit.get("filename") or hit.get("url") or "",
         "filename": hit.get("filename"),
         "fetched_at": _date_of(hit.get("fetched_at")),
