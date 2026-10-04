@@ -102,7 +102,7 @@ export default function ChatVerlauf({
     <div className="flex flex-col h-full min-h-0" data-testid="campus-history">
       <Link
         href="/services"
-        className="inline-flex items-center gap-1 self-start ml-3 mt-2.5 text-sm font-medium no-underline opacity-60 hover:opacity-100 transition-opacity"
+        className="inline-flex items-center gap-1 self-start ml-3 mt-1 py-2 pr-3 mb-1 md:mt-2.5 md:py-0 md:pr-0 md:mb-0 text-sm font-medium no-underline opacity-60 hover:opacity-100 transition-opacity"
         style={{ color: "var(--muted)" }}
       >
         <CaretLeft size={13} weight="bold" />
