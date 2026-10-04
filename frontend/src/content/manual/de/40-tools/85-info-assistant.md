@@ -16,10 +16,6 @@ Links liegt der Verlauf, gruppiert nach Heute, Letzte 7 Tage und Älter. Jeder C
 
 Folgefragen beziehen sich auf die vorige Runde desselben Chats. Ein neues Thema beginnt am besten mit **Neuer Chat**.
 
-## Bewertung
-
-Daumen hoch und runter unter einer Antwort helfen, den Assistenten zu verbessern. Die Bewertung ist nur in der Verwaltung als Zahl sichtbar.
-
 ## Grenzen
 
 Eine Frage hat höchstens 2.000 Zeichen, ein Chat höchstens 50 Fragen, danach beginnt ein neuer Chat. Je Person bleiben höchstens 100 Chats, der älteste fällt weg. Chats ohne Aktivität werden nach einer von der Verwaltung festgelegten Zeit gelöscht, der Hinweis dazu steht unter dem Verlauf.

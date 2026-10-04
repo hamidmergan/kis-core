@@ -25,7 +25,6 @@ export interface CampusNachricht {
   sources: CampusQuelle[];
   places: CampusOrt[];
   no_source?: boolean;
-  feedback?: number;
   failed?: boolean;
   /** True while the answer is still arriving. */
   streaming?: boolean;

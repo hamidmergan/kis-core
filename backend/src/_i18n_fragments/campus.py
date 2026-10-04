@@ -5,10 +5,6 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Diesen Chat gibt es nicht",
         "en": "This chat does not exist",
     },
-    "campus.messageNotFound": {
-        "de": "Diese Antwort gibt es nicht",
-        "en": "This answer does not exist",
-    },
     "campus.notConfigured": {
         "de": "Der Infoassistent ist noch nicht eingerichtet",
         "en": "The info assistant is not set up yet",

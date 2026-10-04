@@ -8,7 +8,6 @@ from pydantic import BaseModel
 
 from src import storage
 from src.dependencies_rbac import require_permission
-from src.features.campus.repository import chats as chat_repo
 from src.features.campus.repository import excluded as excluded_repo
 from src.features.campus.repository import pages as page_repo
 from src.features.campus.repository import places as place_repo
@@ -46,7 +45,6 @@ def _overview() -> dict:
     cfg = campus_settings.read()
     stats = page_repo.page_stats()
     stats["places"] = place_repo.place_count()
-    stats["feedback"] = chat_repo.feedback_stats()
     return {
         "settings": cfg.as_dict(),
         "status": campus_settings.crawl_status(),

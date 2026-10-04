@@ -25,7 +25,6 @@ interface Overview {
     chunks: number;
     places: number;
     last_fetched_at: string | null;
-    feedback: { up: number; down: number; answers: number };
   };
   documents: { id: number; filename: string; status: string; chunk_count: number; error_message: string | null; created_at: string | null }[];
 }
@@ -145,7 +144,6 @@ export default function CampusAdminPage() {
           <div><dt className="text-xs text-muted">{t("status.places")}</dt><dd className="font-medium">{data.stats.places}</dd></div>
           <div><dt className="text-xs text-muted">{t("status.documents")}</dt><dd className="font-medium">{sum(data.stats.pages.document)}</dd></div>
           <div className="col-span-2"><dt className="text-xs text-muted">{t("status.lastRun")}</dt><dd className="font-medium">{status.running ? t("status.running") : lastRun ?? t("status.never")}</dd></div>
-          <div className="col-span-2"><dt className="text-xs text-muted">{t("status.feedback")}</dt><dd className="font-medium">{data.stats.feedback.up} {t("status.up")}, {data.stats.feedback.down} {t("status.down")}</dd></div>
         </dl>
         {typeof status.error === "string" && status.error && (
           <p className="mt-2 text-xs" style={{ color: "var(--error)" }}>{t("status.error")}: {status.error}</p>

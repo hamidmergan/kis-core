@@ -18,7 +18,6 @@ export default function CampusChat({
   config,
   onSend,
   onStop,
-  onRate,
   onNewChat,
 }: {
   messages: Nachricht[];
@@ -27,7 +26,6 @@ export default function CampusChat({
   config: CampusConfig | null;
   onSend: (text: string) => void;
   onStop: () => void;
-  onRate: (messageId: number, value: number) => void;
   onNewChat: () => void;
 }) {
   const t = useTranslations("tools.campus");
@@ -76,7 +74,7 @@ export default function CampusChat({
               </div>
             </div>
           ) : (
-            messages.map((m, i) => <CampusNachricht key={m.id ?? `m-${i}`} msg={m} mapUrl={config?.map_url ?? ""} onRate={onRate} />)
+            messages.map((m, i) => <CampusNachricht key={m.id ?? `m-${i}`} msg={m} mapUrl={config?.map_url ?? ""} />)
           )}
           {chatFull && (
             <div className="flex items-center justify-between gap-3 flex-wrap px-4 py-3 rounded-xl text-sm" style={{ backgroundColor: "rgba(var(--kb-rgb),0.07)", color: "var(--foreground)" }}>

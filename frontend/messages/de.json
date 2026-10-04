@@ -1734,8 +1734,6 @@
       "stand": "Stand: {date}",
       "document": "Dokument",
       "copy": "Kopieren",
-      "thumbsUp": "Gute Antwort",
-      "thumbsDown": "Antwort passt nicht",
       "scrollToBottom": "Nach unten scrollen",
       "chatFull": "Dieser Chat ist voll. Starte einen neuen Chat, dann geht es weiter.",
       "noAnswer": "(keine Antwort)",
@@ -1947,9 +1945,6 @@
           "never": "noch nie",
           "running": "läuft gerade",
           "error": "Fehler",
-          "feedback": "Bewertungen",
-          "up": "gut",
-          "down": "passt nicht",
           "failed": "fehlgeschlagen"
         },
         "documents": {

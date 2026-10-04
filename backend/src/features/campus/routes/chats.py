@@ -1,4 +1,4 @@
-"""Chat history of one person: list, rename, delete, read messages, rate answers, read limits."""
+"""Chat history of one person: list, rename, delete, read messages, read limits."""
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
@@ -13,10 +13,6 @@ router = APIRouter(tags=["campus: chats"])
 
 class RenameBody(BaseModel):
     title: str = Field(..., min_length=1, max_length=CAMPUS_TITLE_MAX_CHARS)
-
-
-class FeedbackBody(BaseModel):
-    value: int = Field(..., ge=-1, le=1)
 
 
 def _iso(value) -> str | None:
@@ -67,15 +63,8 @@ def list_messages(chat_id: int, current_user: dict = Depends(get_current_user), 
         "id": chat["id"], "title": chat["title"], "question_count": chat["question_count"],
         "messages": [
             {"id": m["id"], "role": m["role"], "content": m["content"], "sources": m["sources"] or [],
-             "places": m["places"] or [], "no_source": m["no_source"], "feedback": m["feedback"],
+             "places": m["places"] or [], "no_source": m["no_source"],
              "created_at": _iso(m["created_at"])}
             for m in chat_repo.list_messages(chat_id)
         ],
     }
-
-
-@router.post("/messages/{message_id}/feedback")
-def rate_message(message_id: int, body: FeedbackBody, current_user: dict = Depends(get_current_user), locale: str = Depends(get_locale)):
-    if not chat_repo.set_feedback(message_id, current_user["user_id"], body.value):
-        raise HTTPException(status_code=404, detail=t("campus.messageNotFound", locale))
-    return {"id": message_id, "feedback": body.value}

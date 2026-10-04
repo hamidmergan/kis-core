@@ -16,10 +16,6 @@ The history sits on the left, grouped into Today, Last 7 days and Older. Every c
 
 Follow-up questions refer to the previous round of the same chat. A new topic is best started with **New chat**.
 
-## Rating
-
-Thumbs up and down below an answer help to improve the assistant. The rating is only visible as a number in the administration.
-
 ## Limits
 
 A question holds at most 2,000 characters, a chat at most 50 questions, after that a new chat begins. Each person keeps at most 100 chats, the oldest drops out. Chats without activity are deleted after a period set by the administration, the note stands below the history.

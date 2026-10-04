@@ -90,14 +90,11 @@ def test_chats_kappung_und_aufraeumen(nutzer_id, verbindung):
         assert chats.get_chat(angelegt[0], nutzer_id) is not None
         chat_id = angelegt[0]
         assert chats.count_question(chat_id) == 1
-        frage = chats.add_message(chat_id, "user", "Wo ist die Mensa?")
+        chats.add_message(chat_id, "user", "Wo ist die Mensa?")
         antwort = chats.add_message(chat_id, "assistant", "In B.59.", sources=[{"url": "u"}], places=[{"id": "Mensa_B_59"}])
         assert chats.last_rounds(chat_id, 1) == [("Wo ist die Mensa?", "In B.59.")]
-        assert chats.set_feedback(antwort, nutzer_id, 1) is True
-        assert chats.set_feedback(frage, nutzer_id, 1) is False
-        assert chats.set_feedback(antwort, nutzer_id + 999999, 1) is False
         gelesen = chats.list_messages(chat_id)
-        assert gelesen[-1]["feedback"] == 1 and gelesen[-1]["places"] == [{"id": "Mensa_B_59"}]
+        assert gelesen[-1]["places"] == [{"id": "Mensa_B_59"}]
         assert chats.rename_chat(chat_id, nutzer_id, "Neu") and chats.get_chat(chat_id, nutzer_id)["title"] == "Neu"
         assert chats.prune_chats(0) == 0
         # A chat idle for a year goes, the one touched today stays.

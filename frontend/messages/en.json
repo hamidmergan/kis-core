@@ -1734,8 +1734,6 @@
       "stand": "As of {date}",
       "document": "Document",
       "copy": "Copy",
-      "thumbsUp": "Good answer",
-      "thumbsDown": "Answer does not fit",
       "scrollToBottom": "Scroll to bottom",
       "chatFull": "This chat is full. Start a new chat to continue.",
       "noAnswer": "(no answer)",
@@ -1947,9 +1945,6 @@
           "never": "never",
           "running": "running",
           "error": "Error",
-          "feedback": "Ratings",
-          "up": "good",
-          "down": "does not fit",
           "failed": "failed"
         },
         "documents": {

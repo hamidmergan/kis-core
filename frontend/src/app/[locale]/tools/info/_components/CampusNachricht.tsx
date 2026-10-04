@@ -4,7 +4,7 @@ import { memo, useState } from "react";
 import { useTranslations } from "next-intl";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Check, Copy, ThumbsDown, ThumbsUp } from "@phosphor-icons/react";
+import { Check, Copy } from "@phosphor-icons/react";
 import Mascot from "@/components/ui/Mascot";
 import OrtKarte from "@/components/campus/OrtKarte";
 import QuellenKarten, { KARTEN_RASTER } from "./QuellenKarten";
@@ -14,11 +14,9 @@ import type { CampusNachricht as Nachricht } from "../_types";
 function CampusNachrichtInner({
   msg,
   mapUrl,
-  onRate,
 }: {
   msg: Nachricht;
   mapUrl: string;
-  onRate: (messageId: number, value: number) => void;
 }) {
   const t = useTranslations("tools.campus");
   const [copied, setCopied] = useState(false);
@@ -99,30 +97,6 @@ function CampusNachrichtInner({
                   <button type="button" onClick={copy} title={t("copy")} className="w-7 h-7 flex items-center justify-center rounded-full btn-icon">
                     {copied ? <Check size={14} weight="bold" /> : <Copy size={14} weight="bold" />}
                   </button>
-                  {msg.id !== undefined && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => onRate(msg.id!, msg.feedback === 1 ? 0 : 1)}
-                        title={t("thumbsUp")}
-                        aria-pressed={msg.feedback === 1}
-                        className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
-                        style={msg.feedback === 1 ? { color: "var(--kb)" } : undefined}
-                      >
-                        <ThumbsUp size={14} weight={msg.feedback === 1 ? "fill" : "bold"} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onRate(msg.id!, msg.feedback === -1 ? 0 : -1)}
-                        title={t("thumbsDown")}
-                        aria-pressed={msg.feedback === -1}
-                        className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
-                        style={msg.feedback === -1 ? { color: "var(--kb)" } : undefined}
-                      >
-                        <ThumbsDown size={14} weight={msg.feedback === -1 ? "fill" : "bold"} />
-                      </button>
-                    </>
-                  )}
                 </div>
               )}
             </>

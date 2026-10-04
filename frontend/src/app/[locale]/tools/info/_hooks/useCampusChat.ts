@@ -202,14 +202,5 @@ export function useCampusChat({ chatId, onChatCreated, onAnswered }: Options) {
 
   const stop = useCallback(() => abortRef.current?.abort(), []);
 
-  const rate = useCallback(async (messageId: number, value: number) => {
-    setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, feedback: value } : m)));
-    try {
-      await backendApi.postJson(`/campus/messages/${messageId}/feedback`, { value });
-    } catch {
-      // The thumb stays as clicked, the next load shows the stored value.
-    }
-  }, []);
-
-  return { messages, loading, chatFull, questionCount, send, stop, rate };
+  return { messages, loading, chatFull, questionCount, send, stop };
 }

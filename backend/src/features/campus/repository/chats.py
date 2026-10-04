@@ -6,7 +6,7 @@ import psycopg2.extras
 from src.core.db.pool import get_connection
 
 _CHAT_COLS = "id, user_id, title, question_count, created_at, updated_at"
-_MSG_COLS = "id, chat_id, role, content, sources, places, no_source, feedback, created_at"
+_MSG_COLS = "id, chat_id, role, content, sources, places, no_source, created_at"
 
 
 def create_chat(user_id: int, title: str) -> int:
@@ -142,21 +142,6 @@ def last_rounds(chat_id: int, n: int) -> list[tuple[str, str]]:
 
 
 
-def set_feedback(message_id: int, user_id: int, value: int) -> bool:
-    """Only the owner of the chat may rate an answer."""
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                """UPDATE campus_messages m SET feedback = %s
-                   FROM campus_chats c
-                   WHERE m.id = %s AND m.chat_id = c.id AND c.user_id = %s AND m.role = 'assistant'""",
-                (value, message_id, user_id),
-            )
-            ok = cur.rowcount == 1
-        conn.commit()
-    return ok
-
-
 def prune_chats(days: int) -> int:
     """Removes chats without activity for this many days, 0 keeps everything."""
     if days <= 0:
@@ -167,15 +152,3 @@ def prune_chats(days: int) -> int:
             n = cur.rowcount
         conn.commit()
     return n
-
-
-def feedback_stats() -> dict:
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                """SELECT COUNT(*) FILTER (WHERE feedback = 1), COUNT(*) FILTER (WHERE feedback = -1),
-                          COUNT(*) FILTER (WHERE role = 'assistant')
-                   FROM campus_messages"""
-            )
-            up, down, total = cur.fetchone()
-    return {"up": up, "down": down, "answers": total}

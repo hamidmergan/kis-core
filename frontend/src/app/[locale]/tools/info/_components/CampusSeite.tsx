@@ -112,7 +112,6 @@ export default function CampusSeite() {
             config={config}
             onSend={chat.send}
             onStop={chat.stop}
-            onRate={chat.rate}
             onNewChat={neuerChat}
           />
         </main>
