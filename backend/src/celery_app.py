@@ -58,6 +58,7 @@ celery_app = Celery(
         "src.tasks.cleanup_tasks",
         "src.tasks.backup_tasks",
         "src.tasks.aia_tasks",
+        "src.tasks.campus_tasks",
     ],
 )
 
@@ -104,6 +105,10 @@ celery_app.conf.update(
         "cleanup.job_cap": {"queue": "general"},
         "cleanup.exercise_progress": {"queue": "general"},
         "backup.database": {"queue": "long"},
+        # The campus crawl is long and rare, the chat cleanup is tiny.
+        "campus.crawl": {"queue": "long"},
+        "campus.index_document": {"queue": "long"},
+        "cleanup.campus_chats": {"queue": "general"},
         # Sources get a queue of their own that the same worker takes turns with, never behind every tool.
         "aia.index_source": {"queue": "aia_ingest"},
         "aia.translate_transcript": {"queue": "aia_ingest"},
@@ -155,6 +160,18 @@ celery_app.conf.update(
         "cleanup-delete-expired-access-accounts": {
             "task": "cleanup.delete_expired_access_accounts",
             "schedule": crontab(hour=4, minute=45),
+            "options": {"queue": "general"},
+        },
+        # Campus pages are refreshed before the backup so the night backs up the fresh index.
+        "campus-crawl": {
+            "task": "campus.crawl",
+            "schedule": crontab(hour=1, minute=30),
+            "options": {"queue": "long"},
+        },
+        # Old campus chats go after the backup.
+        "cleanup-campus-chats": {
+            "task": "cleanup.campus_chats",
+            "schedule": crontab(hour=4, minute=20),
             "options": {"queue": "general"},
         },
         # Spoken example sentences nobody has listened to for a long time.

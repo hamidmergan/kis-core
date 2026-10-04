@@ -1,13 +1,7 @@
-"""Bedingte Abrufe: 304 heißt unverändert, 404 heißt weg, Umleitungen werden geprüft."""
+"""Bedingte Abrufe: 304 heißt unverändert, 404 heißt weg, nur http(s) wird geholt."""
 import httpx
-import pytest
 
 from src.features.campus.services import fetch
-
-
-@pytest.fixture(autouse=True)
-def oeffentlich(monkeypatch):
-    monkeypatch.setattr("src.services.web_page_fetch._resolve", lambda host: ["93.184.216.34"])
 
 
 def _client(handler):
@@ -40,7 +34,7 @@ def test_ok_liefert_koerper_und_validatoren():
     assert r.status == "ok" and r.body == b"<html>hi</html>" and r.etag == '"neu"' and r.content_type == "text/html"
 
 
-def test_umleitung_wird_gefolgt_aber_nicht_ins_private_netz(monkeypatch):
+def test_umleitung_wird_gefolgt_aber_nur_zu_http():
     def handler(req):
         if req.url.path == "/alt":
             return httpx.Response(301, headers={"location": "/neu"})
@@ -48,11 +42,12 @@ def test_umleitung_wird_gefolgt_aber_nicht_ins_private_netz(monkeypatch):
 
     assert fetch.fetch_conditional(_client(handler), "https://x.test/alt").body == b"<p>neu</p>"
 
-    def privat(req):
-        return httpx.Response(301, headers={"location": "http://localhost/geheim"})
+    def fremd(req):
+        return httpx.Response(301, headers={"location": "ftp://x.test/geheim"})
 
-    r = fetch.fetch_conditional(_client(privat), "https://x.test/alt")
+    r = fetch.fetch_conditional(_client(fremd), "https://x.test/alt")
     assert r.status == "error" and "forbidden" in r.error
+    assert fetch.fetch_conditional(_client(fremd), "file:///etc/passwd").status == "error"
 
 
 def test_zu_grosse_seite_und_fremder_typ():

@@ -398,3 +398,5 @@ CAMPUS_CRAWL_MAX_PAGES                 = 5_000
 CAMPUS_PAGE_MAX_BYTES                  = 5_000_000
 CAMPUS_CRAWL_CONCURRENCY               = 4
 CAMPUS_FETCH_TIMEOUT_SECONDS           = 20
+# A first run over a few thousand pages embeds everything, later nights finish in minutes.
+CAMPUS_CRAWL_TIME_LIMIT_SECONDS        = 3600

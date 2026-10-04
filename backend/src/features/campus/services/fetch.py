@@ -1,15 +1,14 @@
-"""Conditional page fetches for the crawl, every hop checked against the public-host rule."""
+"""Conditional page fetches for the crawl; every link comes from the admin's own sitemap."""
 from dataclasses import dataclass, field
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlsplit
 
 import httpx
 
 from src.limits import CAMPUS_FETCH_TIMEOUT_SECONDS, CAMPUS_PAGE_MAX_BYTES
-from src.services.web_page_fetch import LinkError, validate_url
 
 _USER_AGENT = "KIS-Campus-Assistent/1.0 (+sitemap crawl)"
 _MAX_HOPS = 5
-_HTML_TYPES = ("text/html", "application/xhtml+xml", "text/plain", "application/xml", "text/xml")
+_HTML_TYPES = ("text/html", "application/xhtml+xml", "text/plain", "application/xml", "text/xml", "application/json")
 
 
 @dataclass
@@ -27,6 +26,15 @@ def make_client(timeout: float = CAMPUS_FETCH_TIMEOUT_SECONDS) -> httpx.Client:
     return httpx.Client(follow_redirects=False, trust_env=False, timeout=timeout, headers={"User-Agent": _USER_AGENT})
 
 
+def is_web_url(url: str) -> bool:
+    """Only plain http(s) links, nothing else is ever fetched."""
+    try:
+        parts = urlsplit(url.strip())
+    except ValueError:
+        return False
+    return parts.scheme in ("http", "https") and bool(parts.hostname) and not parts.username and not parts.password
+
+
 def fetch_conditional(
     client: httpx.Client,
     url: str,
@@ -35,17 +43,15 @@ def fetch_conditional(
     max_bytes: int = CAMPUS_PAGE_MAX_BYTES,
 ) -> FetchResult:
     """GET with validators; 304 means unchanged, 404 and 410 mean the page is gone."""
-    headers = {"Accept": "text/html, application/xhtml+xml, application/xml;q=0.9, text/plain;q=0.8"}
+    headers = {"Accept": "text/html, application/xhtml+xml, application/xml;q=0.9, application/json;q=0.9, text/plain;q=0.8"}
     if etag:
         headers["If-None-Match"] = etag
     if last_modified:
         headers["If-Modified-Since"] = last_modified
     current = url
     for _ in range(_MAX_HOPS + 1):
-        try:
-            validate_url(current)
-        except LinkError as e:
-            return FetchResult("error", error=f"forbidden url: {e.key}")
+        if not is_web_url(current):
+            return FetchResult("error", error="forbidden url")
         try:
             with client.stream("GET", current, headers=headers) as resp:
                 if resp.status_code in (301, 302, 303, 307, 308):

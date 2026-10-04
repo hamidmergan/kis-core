@@ -1,0 +1,105 @@
+"""Der Abgleich holt nur Geändertes, löscht Verschwundenes und hält die Obergrenze."""
+from datetime import datetime
+
+from src.features.campus.services import crawler
+from src.features.campus.services.fetch import FetchResult
+from src.features.campus.services.settings import CampusSettings
+
+SITEMAP = b"""<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<url><loc>https://x.test/a/</loc><lastmod>2026-09-01T00:00:00+00:00</lastmod></url>
+<url><loc>https://x.test/b/</loc></url>
+<url><loc>https://x.test/c/</loc></url>
+<url><loc>https://x.test/news/1</loc></url>
+</urlset>"""
+
+HTML = b"<html><body><main><h1>Seite</h1><p>" + b"Ein langer Absatz mit genug Text, damit die Extraktion ihn als Haupttext erkennt. " * 5 + b"</p></main></body></html>"
+
+
+class _Pages:
+    def __init__(self, existing):
+        self.by_url = {p["url"]: p for p in existing}
+        self.deleted = []
+        self.fetched = []
+        self.status = []
+        self._next = 100
+
+    def get_page_by_url(self, url):
+        return self.by_url.get(url)
+
+    def upsert_page(self, kind, url, title=None, filename=None, file_path=None):
+        self._next += 1
+        self.by_url[url] = {"id": self._next, "url": url, "etag": None, "last_modified": None, "fetched_at": None, "status": "pending"}
+        return self._next
+
+    def set_page_fetch(self, page_id, etag, last_modified, fetched_at):
+        self.fetched.append(page_id)
+
+    def set_page_status(self, page_id, status, error_message=None):
+        self.status.append((page_id, status, error_message))
+
+    def delete_page(self, page_id):
+        self.deleted.append(page_id)
+        self.by_url = {u: p for u, p in self.by_url.items() if p["id"] != page_id}
+
+    def list_page_urls(self, kind):
+        return {u: p["id"] for u, p in self.by_url.items()}
+
+    KIND_PAGE = "page"
+
+
+def _fetch_factory(responses):
+    def fetch_fn(client, url, etag=None, last_modified=None):
+        if url == "https://x.test/sitemap.xml":
+            return FetchResult("ok", body=SITEMAP)
+        return responses.get(url, FetchResult("error", error="unknown"))
+    return fetch_fn
+
+
+def _einstellungen():
+    return CampusSettings(sitemap_url="https://x.test/sitemap.xml", url_exclude="/news/")
+
+
+def test_unveraendert_gelöscht_und_neu(monkeypatch):
+    seiten = _Pages([
+        {"id": 1, "url": "https://x.test/a/", "etag": '"a"', "last_modified": None, "fetched_at": datetime(2026, 9, 2), "status": "ready"},
+        {"id": 2, "url": "https://x.test/b/", "etag": '"b"', "last_modified": None, "fetched_at": datetime(2026, 9, 2), "status": "ready"},
+        {"id": 3, "url": "https://x.test/weg/", "etag": None, "last_modified": None, "fetched_at": None, "status": "ready"},
+    ])
+    monkeypatch.setattr(crawler, "page_repo", seiten)
+    eingebettet = []
+    monkeypatch.setattr(crawler.indexer, "index_markdown", lambda pid, title, md, embed: eingebettet.append(pid) or 1)
+    antworten = {
+        "https://x.test/b/": FetchResult("unchanged"),
+        "https://x.test/c/": FetchResult("ok", body=HTML, etag='"c"'),
+    }
+    stats = crawler.run(_einstellungen(), embed=lambda t: [], client=object(), concurrency=1, fetch_fn=_fetch_factory(antworten))
+    # a: the sitemap date lies before the last fetch, so it is not even requested.
+    assert stats["skipped"] == 1 and stats["unchanged"] == 1 and stats["indexed"] == 1
+    # weg: no longer in the sitemap, so it is removed; news is excluded by pattern.
+    assert stats["removed"] == 1 and 3 in seiten.deleted and stats["seen"] == 3
+    assert eingebettet == [seiten.by_url["https://x.test/c/"]["id"]]
+
+
+def test_404_entfernt_die_seite_und_fehler_markiert(monkeypatch):
+    seiten = _Pages([{"id": 1, "url": "https://x.test/a/", "etag": None, "last_modified": None, "fetched_at": None, "status": "pending"}])
+    monkeypatch.setattr(crawler, "page_repo", seiten)
+    antworten = {
+        "https://x.test/a/": FetchResult("gone"),
+        "https://x.test/b/": FetchResult("error", error="http 500"),
+        "https://x.test/c/": FetchResult("ok", body=b"<html><body><p>kurz</p></body></html>"),
+    }
+    stats = crawler.run(_einstellungen(), embed=lambda t: [], client=object(), concurrency=2, fetch_fn=_fetch_factory(antworten))
+    assert 1 in seiten.deleted and stats["removed"] == 1
+    assert stats["failed"] == 2
+    assert ("no text" in [s[2] for s in seiten.status])
+
+
+def test_obergrenze_laesst_den_rest_stehen(monkeypatch):
+    seiten = _Pages([{"id": 9, "url": "https://x.test/alt/", "etag": None, "last_modified": None, "fetched_at": None, "status": "ready"}])
+    monkeypatch.setattr(crawler, "page_repo", seiten)
+    monkeypatch.setattr(crawler.indexer, "index_markdown", lambda *a, **k: 1)
+    antworten = {u: FetchResult("ok", body=HTML) for u in ("https://x.test/a/", "https://x.test/b/", "https://x.test/c/")}
+    stats = crawler.run(_einstellungen(), embed=lambda t: [], client=object(), max_pages=2, concurrency=1, fetch_fn=_fetch_factory(antworten))
+    assert stats["indexed"] == 2 and stats["seen"] == 3
+    # Nothing was removed, the run did not see every page.
+    assert seiten.deleted == []
