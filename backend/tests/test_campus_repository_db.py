@@ -77,7 +77,7 @@ def test_orte_werden_als_ganzes_ersetzt(verbindung):
         places.replace_places(vorher)
 
 
-def test_chats_kappung_und_aufraeumen(nutzer_id):
+def test_chats_kappung_und_aufraeumen(nutzer_id, verbindung):
     angelegt = [chats.create_chat(nutzer_id, f"Chat {i}") for i in range(3)]
     try:
         chats.touch_chat(angelegt[0])
@@ -100,6 +100,16 @@ def test_chats_kappung_und_aufraeumen(nutzer_id):
         assert gelesen[-1]["feedback"] == 1 and gelesen[-1]["places"] == [{"id": "Mensa_B_59"}]
         assert chats.rename_chat(chat_id, nutzer_id, "Neu") and chats.get_chat(chat_id, nutzer_id)["title"] == "Neu"
         assert chats.prune_chats(0) == 0
+        # A chat idle for a year goes, the one touched today stays.
+        alt = chats.create_chat(nutzer_id, "Alt")
+        angelegt.append(alt)
+        with verbindung() as conn:
+            with conn.cursor() as cur:
+                cur.execute("UPDATE campus_chats SET updated_at = NOW() - interval '400 days' WHERE id = %s", (alt,))
+            conn.commit()
+        assert chats.prune_chats(365) >= 1
+        assert chats.get_chat(alt, nutzer_id) is None
+        assert chats.get_chat(chat_id, nutzer_id) is not None
     finally:
         for cid in angelegt:
             chats.delete_chat(cid, nutzer_id)

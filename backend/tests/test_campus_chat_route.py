@@ -34,14 +34,39 @@ class _Stream:
         return self._pieces.pop(0)
 
 
+class _SyncClient:
+    """The pre-call runs on the sync client and answers with a small JSON."""
+
+    def __init__(self, lang):
+        self.lang = lang
+        self.calls = []
+
+    def with_options(self, **kw):
+        return self
+
+    @property
+    def chat(self):
+        return self
+
+    @property
+    def completions(self):
+        return self
+
+    def create(self, **kw):
+        self.calls.append(kw)
+        content = json.dumps({"query": "Wo ist die Mensa (Gebäude)?", "lang": self.lang})
+        return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=content))])
+
+
 class _FakeLLM:
-    def __init__(self, pieces):
+    def __init__(self, pieces, lang="German"):
         self._model = "test-model"
         self._provider = "test"
         self._extra_body = None
         self._pieces = pieces
         self._async_client = self
-        self._client = self
+        self._client = _SyncClient(lang)
+        self.messages = None
 
     def sampling(self, standard):
         return {"temperature": standard}
@@ -58,6 +83,7 @@ class _FakeLLM:
         return self
 
     async def create(self, **kw):
+        self.messages = kw["messages"]
         return _Stream(self._pieces)
 
 
@@ -135,6 +161,17 @@ async def test_antwort_mit_quellen_und_ort(umgebung):
     assert done["sources"][0]["url"] == "https://x.test/mensa/"
     assert [p["id"] for p in done["places"]] == ["Mensa_B_59"]
     assert umgebung.messages[0]["role"] == "user" and umgebung.messages[1]["places"][0]["show"] == "B.59"
+    # The pre-call ran once and its language reached both prompts.
+    assert len(llm._client.calls) == 1
+    assert "German" in llm.messages[0]["content"] and "REMINDER: write the whole answer in German" in llm.messages[1]["content"]
+
+
+async def test_kaputter_vor_call_stoert_nicht(umgebung):
+    llm = _FakeLLM([_Chunk("Antwort.")])
+    llm._client.create = lambda **kw: (_ for _ in ()).throw(RuntimeError("weg"))
+    events = await _frage(llm)
+    assert events[-1]["answer"] == "Antwort."
+    assert "REMINDER" not in llm.messages[1]["content"]
 
 
 async def test_absage_marker_wird_entfernt_und_quellen_bleiben_leer(umgebung):

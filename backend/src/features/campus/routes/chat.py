@@ -115,9 +115,8 @@ async def campus_chat(
         chat_id = chat_repo.create_chat(user_id, title)
         chat_repo.enforce_chat_cap(user_id, CAMPUS_MAX_CHATS_PER_USER)
 
-    query, answer_language = question, ""
-    if last_round:
-        query, answer_language = await asyncio.to_thread(_understand, llm, question, last_round)
+    # One small call names the language and makes a follow-up question stand on its own.
+    query, answer_language = await asyncio.to_thread(_understand, llm, question, last_round)
 
     chat_repo.add_message(chat_id, "user", question)
     chat_repo.count_question(chat_id)
@@ -127,7 +126,7 @@ async def campus_chat(
     )
     messages = [
         {"role": "system", "content": prompts.answer_system(answer_language)},
-        {"role": "user", "content": prompts.answer_user(context.text or "(no documents found)", question)},
+        {"role": "user", "content": prompts.answer_user(context.text or "(no documents found)", question, answer_language)},
     ]
 
     async def _stream() -> AsyncGenerator[str, None]:
@@ -139,6 +138,7 @@ async def campus_chat(
         held = ""
         marker_checked = False
         no_source = False
+        saved = False
         try:
             yield f"data: {json.dumps({'meta': {'chat_id': chat_id, 'title': title}})}\n\n"
             stream = await llm._async_client.with_options(timeout=90.0, max_retries=0).chat.completions.create(
@@ -188,8 +188,8 @@ async def campus_chat(
                     yield f"data: {json.dumps({'token': held})}\n\n"
             answer = "".join(parts).strip()
             if status == "cancelled":
-                if answer:
-                    chat_repo.add_message(chat_id, "assistant", answer, sources=[], places=[], no_source=no_source)
+                chat_repo.add_message(chat_id, "assistant", answer, sources=[], places=[], no_source=no_source)
+                saved = True
                 return
             if not answer:
                 status = "error"
@@ -198,12 +198,19 @@ async def campus_chat(
             places = [] if no_source else find_places(answer, place_repo.all_places())
             sources = [] if no_source else pick_sources(context.sources, places)
             message_id = chat_repo.add_message(chat_id, "assistant", answer, sources=sources, places=places, no_source=no_source)
+            saved = True
             yield f"data: {json.dumps({'done': True, 'answer': answer, 'sources': sources, 'places': places, 'no_source': no_source, 'message_id': message_id})}\n\n"
         except Exception as e:  # noqa: BLE001
             status = "error"
             logger.exception("Campus: Antwort fehlgeschlagen")
             yield f"data: {json.dumps({'error': t('job.upstreamBusy', locale), 'code': upstream_error_code(e)})}\n\n"
         finally:
+            # A closed connection ends the generator at a yield, the part that arrived is kept.
+            if not saved and status == "ok":
+                try:
+                    chat_repo.add_message(chat_id, "assistant", "".join(parts).strip(), sources=[], places=[], no_source=no_source)
+                except Exception:  # noqa: BLE001
+                    logger.warning("Campus: abgebrochene Antwort nicht gespeichert")
             log_request(
                 user_id, endpoint="campus", provider=getattr(llm, "_provider", None), model=getattr(llm, "_model", None),
                 tokens_in=tokens_in, tokens_out=tokens_out, duration_ms=int((time.monotonic() - started) * 1000), status=status,
