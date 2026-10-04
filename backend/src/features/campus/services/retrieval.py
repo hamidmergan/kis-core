@@ -18,19 +18,26 @@ class Context:
     chunk_ids: list[int] = field(default_factory=list)
 
 
+_MARKUP_RE = re.compile(r"[*_`#>|]+")
+_MIN_FRAGMENT_LETTERS = 12
+
+
 def fragment_for(content: str, heading: str | None) -> str | None:
     """A short verbatim start of the chunk body, the browser can jump to it with a text fragment."""
     body = content
     if heading and body.startswith(heading + "\n"):
         body = body[len(heading) + 1:]
-    body = re.sub(r"^[#>\-\*\s]+", "", body.strip().split("\n", 1)[0]).strip()
-    if len(body) < 12:
-        return None
-    if len(body) <= _FRAGMENT_MAX:
-        return body
-    cut = body[:_FRAGMENT_MAX]
-    space = cut.rfind(" ")
-    return cut[:space] if space > _FRAGMENT_MAX // 2 else cut
+    for raw in body.split("\n"):
+        # Markdown markers never stand on the page, so they would break the match.
+        line = " ".join(_MARKUP_RE.sub(" ", raw).split()).lstrip("- ").strip()
+        if sum(ch.isalpha() for ch in line) < _MIN_FRAGMENT_LETTERS:
+            continue
+        if len(line) <= _FRAGMENT_MAX:
+            return line
+        cut = line[:_FRAGMENT_MAX]
+        space = cut.rfind(" ")
+        return cut[:space] if space > _FRAGMENT_MAX // 2 else cut
+    return None
 
 
 def _date_of(value) -> str | None:

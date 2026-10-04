@@ -57,6 +57,9 @@ def test_fragment_laesst_ueberschrift_weg_und_kuerzt_am_wort():
     frag = retrieval.fragment_for(lang, None)
     assert len(frag) <= 80 and not frag.endswith(" ")
     assert retrieval.fragment_for("- kurz", None) is None
+    # Markup and a line of stars never stand on the page, the next real line is taken.
+    assert retrieval.fragment_for("Hochschule.*******************\n- **Verpflichtender Upload:** Gültiger Personalausweis.", None) == "Verpflichtender Upload: Gültiger Personalausweis."
+    assert retrieval.fragment_for("Titel\n| a | b |\nEin ganz normaler Satz mit Inhalt.", "Titel") == "Ein ganz normaler Satz mit Inhalt."
 
 
 def test_leere_suche_ergibt_leeren_kontext():
