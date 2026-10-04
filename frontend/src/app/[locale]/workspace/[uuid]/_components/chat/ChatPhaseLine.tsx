@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import FrancisMini from "@/components/ui/FrancisMini";
 import { phaseAt } from "./_phase";
 
 /** Ticks often enough for the grace period and the minimum to land, rarely enough to stay cheap. */
@@ -38,7 +39,12 @@ export default function ChatPhaseLine({
       style={{ color: "var(--muted)" }}
     >
       {/* Keyframe lives in globals.css, so reduced motion switches it off with everything else. */}
-      {phase && <span style={{ animation: "phase-puls 2.5s ease-in-out infinite" }}>{t(phase)}</span>}
+      {phase && (
+        <span className="flex items-center gap-1.5">
+          <FrancisMini phase={phase} />
+          <span style={{ animation: "phase-puls 2.5s ease-in-out infinite" }}>{t(phase)}</span>
+        </span>
+      )}
     </div>
   );
 }

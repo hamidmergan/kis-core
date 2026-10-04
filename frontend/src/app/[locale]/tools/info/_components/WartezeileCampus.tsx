@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import FrancisMini from "@/components/ui/FrancisMini";
 import { phaseAt } from "@/app/[locale]/workspace/[uuid]/_components/chat/_phase";
 
 const TICK_MS = 100;
@@ -23,7 +24,12 @@ export default function WartezeileCampus({ metaArrived }: { metaArrived: boolean
   const phase = phaseAt({ elapsedMs, qmapAtMs: metaAt.current, hasText: false, isPopup: false });
   return (
     <div role="status" aria-live="polite" data-testid="campus-phase" className="flex items-center h-5 px-1 text-xs" style={{ color: "var(--muted)" }}>
-      {phase && <span style={{ animation: "phase-puls 2.5s ease-in-out infinite" }}>{t(phase)}</span>}
+      {phase && (
+        <span className="flex items-center gap-1.5">
+          <FrancisMini phase={phase} />
+          <span style={{ animation: "phase-puls 2.5s ease-in-out infinite" }}>{t(phase)}</span>
+        </span>
+      )}
     </div>
   );
 }

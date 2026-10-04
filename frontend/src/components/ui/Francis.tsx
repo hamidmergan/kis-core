@@ -10,15 +10,15 @@ export interface FrancisProps {
 }
 
 // Colours taken 1:1 from the reference, do not retune.
-const WHITE = "#FDFCFA";
-const EDGE = "#E7E1D6";
+export const WHITE = "#FDFCFA";
+export const EDGE = "#E7E1D6";
 const WING = "#A6AEB2";
 const WING_D = "#828D93";
-const BEAK = "#F2A81C";
-const BEAK_D = "#DC9210";
+export const BEAK = "#F2A81C";
+export const BEAK_D = "#DC9210";
 const LEG = "#E7C3AF";
 const LEG_D = "#CDA38B";
-const EYE = "#1B1B1B";
+export const EYE = "#1B1B1B";
 const RED = "#D62B2B";
 const ACCENT = "#004261";
 

@@ -1280,6 +1280,19 @@ body.is-phone-landscape [title="Panel minimieren"] {
   40%      { transform: scale(.7); opacity: .4; }
 }
 
+/* Mini head in the chat waiting line: eyes glance around while searching */
+@keyframes francis-mini-look {
+  0%, 15%, 100% { transform: translateX(0); }
+  25%, 45%      { transform: translateX(-3px); }
+  60%, 80%      { transform: translateX(3px); }
+}
+
+/* Mini head in the chat waiting line: short nods while the answer is written */
+@keyframes francis-mini-nod {
+  0%, 100% { transform: rotate(0deg) translateY(0); }
+  50%      { transform: rotate(7deg) translateY(2px); }
+}
+
 /* ─── Rundgang (driver.js) ──────────────────────────────────────────────── */
 /* The note button in the transcript only shows on hover, the tour points at it. */
 .driver-active-element[data-tour="transcript-note"] {
