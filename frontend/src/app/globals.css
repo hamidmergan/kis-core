@@ -121,6 +121,8 @@
   --kb20:         #EBEDF0;
   /* Red of the ball in the THL logo. */
   --thl-rot:      #E4003A;
+  /* Light band that sweeps across a waiting text. */
+  --glanz:        #C9D7DD;
 
   /* Neutrals (CD blue-tinted scale) */
   --background:      #ffffff;
@@ -215,6 +217,7 @@
   --kb-darker:    #9BD2F0;
   --kb60:         #4F7A91;
   --kb20:         #1C2A33;
+  --glanz:        #ffffff;
 
   /* Neutrals — Deep Slate (fast schwarz, minimaler Blau-Tint) */
   --background:      #0A0B0D;
@@ -1091,13 +1094,18 @@ body.is-phone-landscape [title="Panel minimieren"] {
   80%, 100% { transform: rotate(360deg); }
 }
 
-/* The waiting text turns lighter and darker again, the way other chat tools show they are working. */
-.text-puls {
-  animation: text-puls 2.4s ease-in-out infinite;
+/* A light band sweeping slowly across the waiting text, the way other chat tools show they are working. */
+.text-glanz {
+  background: linear-gradient(90deg, var(--muted) 0%, var(--muted) 40%, var(--glanz) 50%, var(--muted) 60%, var(--muted) 100%);
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: text-glanz 3s linear infinite;
 }
-@keyframes text-puls {
-  0%, 100% { opacity: 1; }
-  50%      { opacity: 0.6; }
+@keyframes text-glanz {
+  from { background-position: 100% 0; }
+  to   { background-position: 0% 0; }
 }
 
 @keyframes phase-puls {
