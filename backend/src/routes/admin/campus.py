@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from pydantic import BaseModel
 
 from src import storage
+from src.celery_app import celery_app
 from src.dependencies_rbac import require_permission
 from src.features.campus.repository import excluded as excluded_repo
 from src.features.campus.repository import pages as page_repo
@@ -39,12 +40,22 @@ class SettingsBody(BaseModel):
     retention_days: Optional[int] = None
 
 
+def _nightly_crawl() -> dict | None:
+    """Hour and minute of the nightly refresh in UTC, straight from the beat schedule."""
+    entry = celery_app.conf.beat_schedule.get("campus-crawl")
+    sched = entry and entry.get("schedule")
+    if not hasattr(sched, "hour") or not hasattr(sched, "minute"):
+        return None
+    return {"hour_utc": min(sched.hour), "minute_utc": min(sched.minute)}
+
+
 def _overview() -> dict:
     cfg = campus_settings.read()
     return {
         "settings": cfg.as_dict(),
         "status": campus_settings.crawl_status(),
         "stats": page_repo.page_stats(),
+        "nightly": _nightly_crawl(),
         "limits": {"max_pages": CAMPUS_CRAWL_MAX_PAGES, "max_chunks_per_page": CAMPUS_PAGE_MAX_CHUNKS},
         "documents": [_document(d) for d in page_repo.list_pages(page_repo.KIND_DOCUMENT)],
     }

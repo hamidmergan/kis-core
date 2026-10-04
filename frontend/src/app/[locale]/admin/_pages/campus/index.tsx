@@ -27,12 +27,20 @@ interface Overview {
     last_fetched_at: string | null;
   };
   limits: { max_pages: number; max_chunks_per_page: number };
+  nightly: { hour_utc: number; minute_utc: number } | null;
   documents: { id: number; filename: string; status: string; chunk_count: number; error_message: string | null; created_at: string | null }[];
 }
 
 const INPUT = "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:border-kb disabled:opacity-50";
 const BTN_PRIMARY = "px-3 py-2 text-sm btn-primary rounded-md transition-colors whitespace-nowrap disabled:opacity-60";
 const BTN_SECONDARY = "px-4 py-2 text-sm rounded-md border-2 border-border text-foreground-soft hover:border-kb transition-colors disabled:opacity-60";
+
+/** Tonight's UTC run time as a wall-clock time in the browser's zone, so summer and winter time come out right. */
+function localTime(hourUtc: number, minuteUtc: number, locale: string): string {
+  const d = new Date();
+  d.setUTCHours(hourUtc, minuteUtc, 0, 0);
+  return d.toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" });
+}
 
 function sum(counts: Record<string, number> | undefined): number {
   return Object.values(counts ?? {}).reduce((a, b) => a + b, 0);
@@ -145,7 +153,7 @@ export default function CampusAdminPage() {
           <div><dt className="text-xs text-muted inline-flex items-center gap-1">{t("status.pages")}<HelpTooltip text={t("status.pagesHelp", { max: data.limits.max_pages, chunks: data.limits.max_chunks_per_page })} /></dt><dd className="font-medium">{sum(pages)}{pages.failed ? ` (${pages.failed} ${t("status.failed")})` : ""}</dd></div>
           <div><dt className="text-xs text-muted">{t("status.chunks")}</dt><dd className="font-medium">{data.stats.chunks}</dd></div>
           <div><dt className="text-xs text-muted">{t("status.documents")}</dt><dd className="font-medium">{sum(data.stats.pages.document)}</dd></div>
-          <div className="col-span-2"><dt className="text-xs text-muted inline-flex items-center gap-1">{t("status.lastRun")}<HelpTooltip text={t("status.lastRunHelp")} /></dt><dd className="font-medium">{status.running ? t("status.running") : lastRun ?? t("status.never")}</dd></div>
+          <div className="col-span-2"><dt className="text-xs text-muted inline-flex items-center gap-1">{t("status.lastRun")}<HelpTooltip text={data.nightly ? t("status.lastRunHelp", { time: localTime(data.nightly.hour_utc, data.nightly.minute_utc, locale) }) : t("status.lastRunHelpNoTime")} /></dt><dd className="font-medium">{status.running ? t("status.running") : lastRun ?? t("status.never")}</dd></div>
         </dl>
         {typeof status.error === "string" && status.error && (
           <p className="mt-2 text-xs" style={{ color: "var(--error)" }}>{t("status.error")}: {status.error}</p>

@@ -88,3 +88,11 @@ def test_seite_ausschliessen_entfernt_sie_und_merkt_die_adresse(monkeypatch):
     assert gemerkt == ["https://x.test/a/"] and geloescht == [5]
     with pytest.raises(HTTPException):
         admin_campus.exclude_page(admin_campus.ExcludeBody(url="javascript:alert(1)"), admin=ADMIN, locale="de")
+
+
+def test_naechtlicher_abgleich_kommt_aus_dem_zeitplan(monkeypatch):
+    from celery.schedules import crontab
+    monkeypatch.setitem(admin_campus.celery_app.conf.beat_schedule, "campus-crawl", {"schedule": crontab(hour=2, minute=5)})
+    assert admin_campus._nightly_crawl() == {"hour_utc": 2, "minute_utc": 5}
+    monkeypatch.setitem(admin_campus.celery_app.conf.beat_schedule, "campus-crawl", {"schedule": 3600.0})
+    assert admin_campus._nightly_crawl() is None
