@@ -2,11 +2,11 @@ import {
   BookOpen,
   ChatsCircle,
   Image as ImageIcon,
-  MapTrifold,
   Microphone,
   MicrophoneStage,
   MonitorPlay,
   Presentation,
+  Signpost,
   SpeakerHigh,
   TextAlignLeft,
   Translate,
@@ -16,7 +16,7 @@ import type { ToolKey } from "./modules";
 
 /** One icon per tool, kept apart from modules.ts so the routing tests never load React. */
 export const TOOL_ICONS: Record<ToolKey, Icon> = {
-  campus: MapTrifold,
+  campus: Signpost,
   translation: Translate,
   interpreter: ChatsCircle,
   tts: SpeakerHigh,
