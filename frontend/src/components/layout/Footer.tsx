@@ -47,6 +47,20 @@ export default function Footer({ loggedIn }: { loggedIn?: boolean }) {
             </div>
           </div>
         )}
+        <div className="flex flex-col md:flex-row items-stretch gap-4 md:gap-8">
+          <Link href="/" aria-label="KIS" className={`${TILE} logo-link md:w-60 flex-shrink-0`}>
+            <Image src="/logos/kis-logo-claim.svg" alt="KIS – KInternationalisierung von Studiengängen" width={228} height={142} className={LOGO} />
+          </Link>
+          <div className="hidden md:block w-px self-stretch" style={{ backgroundColor: "rgba(255,255,255,0.15)" }} />
+          <div className="grid grid-cols-3 gap-3 sm:gap-4 flex-1">
+            {PARTNERS.map((p) => (
+              <a key={p.src} href={p.href} target="_blank" rel="noopener noreferrer" aria-label={p.alt} className={`${TILE} logo-link`}>
+                <Image src={p.src} alt={p.alt} width={p.width} height={p.height} className={LOGO} style={{ maxWidth: p.maxWidth }} />
+              </a>
+            ))}
+          </div>
+        </div>
+
         {mapUrl && (
           <div className="flex justify-center">
             <button
@@ -66,24 +80,10 @@ export default function Footer({ loggedIn }: { loggedIn?: boolean }) {
                 />
               </span>
               <span className="text-sm font-semibold leading-tight">{t("campusMap")}</span>
-              <span className="text-xs leading-tight">{t("campusMapHint")}</span>
             </button>
             <MapModal open={mapOpen} onClose={() => setMapOpen(false)} mapUrl={mapUrl} />
           </div>
         )}
-        <div className="flex flex-col md:flex-row items-stretch gap-4 md:gap-8">
-          <Link href="/" aria-label="KIS" className={`${TILE} logo-link md:w-60 flex-shrink-0`}>
-            <Image src="/logos/kis-logo-claim.svg" alt="KIS – KInternationalisierung von Studiengängen" width={228} height={142} className={LOGO} />
-          </Link>
-          <div className="hidden md:block w-px self-stretch" style={{ backgroundColor: "rgba(255,255,255,0.15)" }} />
-          <div className="grid grid-cols-3 gap-3 sm:gap-4 flex-1">
-            {PARTNERS.map((p) => (
-              <a key={p.src} href={p.href} target="_blank" rel="noopener noreferrer" aria-label={p.alt} className={`${TILE} logo-link`}>
-                <Image src={p.src} alt={p.alt} width={p.width} height={p.height} className={LOGO} style={{ maxWidth: p.maxWidth }} />
-              </a>
-            ))}
-          </div>
-        </div>
 
         <div className="flex flex-col items-center gap-3 pt-6 text-center" style={{ borderTop: "1px solid rgba(255,255,255,0.15)" }}>
           <div className="text-sm">
