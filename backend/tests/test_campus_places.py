@@ -17,9 +17,9 @@ def test_code_und_name_finden_den_ort():
     assert karten[0]["show"] == "B.59"
 
 
-def test_einrichtung_fuehrt_zum_gebaeude_in_reihenfolge_der_nennung():
+def test_nur_ein_ort_der_zuerst_genannte():
     karten = find_places("Das International Office findest du in A.1, die Mensa daneben.", ORTE)
-    assert [k["id"] for k in karten] == ["Gebaeude_A_1", "Mensa_B_59"]
+    assert [k["id"] for k in karten] == ["Gebaeude_A_1"]
 
 
 def test_wortteile_zaehlen_nicht():

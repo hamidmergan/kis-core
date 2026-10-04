@@ -108,11 +108,9 @@ export default function CampusSeite() {
           <CampusChat
             messages={chat.messages}
             loading={chat.loading}
-            chatFull={chat.chatFull}
             config={config}
             onSend={chat.send}
             onStop={chat.stop}
-            onNewChat={neuerChat}
           />
         </main>
       </div>

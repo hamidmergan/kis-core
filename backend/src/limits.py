@@ -398,7 +398,8 @@ CAMPUS_SEARCH_CANDIDATES               = 60
 CAMPUS_SOURCE_CARDS_MAX                = 5
 # A source card only for pages an answer sentence lies this close to, measured 0.25 to 0.45 for real use.
 CAMPUS_SOURCE_MAX_DISTANCE             = 0.5
-CAMPUS_PLACE_CARDS_MAX                 = 3
+# One place per answer, the first one mentioned, the rest is found on the map.
+CAMPUS_PLACE_CARDS_MAX                 = 1
 # One nightly run over a university site, pages beyond the cap wait for the next night.
 CAMPUS_CRAWL_MAX_PAGES                 = 5_000
 CAMPUS_PAGE_MAX_BYTES                  = 5_000_000

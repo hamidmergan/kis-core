@@ -20,7 +20,7 @@ interface Props {
 /** The whole tile is the link, hover only recolours the border. */
 export function StartTile({ href, icon: Icon, avatar, title, body, badge, testId }: Props) {
   const shell =
-    "flex items-center gap-4 border-2 border-[var(--tile-border)] rounded-2xl bg-[var(--tile-bg)] p-5 text-foreground";
+    "flex flex-1 items-center gap-4 border-2 border-[var(--tile-border)] rounded-2xl bg-[var(--tile-bg)] p-5 text-foreground";
   // While the link loads the spinner takes the icon's place, so the slot keeps its size either way.
   const busy = (node: ReactNode) => (href ? <LinkBusy size="sm">{node}</LinkBusy> : node);
   const media = (

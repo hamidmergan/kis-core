@@ -14,7 +14,6 @@ AUSNAHMEN = {
     # The campus index has no row in the job table, its state lives in the settings.
     ("admin/campus.py", "run_crawl"),
     ("admin/campus.py", "run_index_document"),
-    ("admin/campus.py", "run_sync_places_file"),
 }
 
 

@@ -347,7 +347,9 @@
     "francisName": "Francis",
     "francisRole": "Lernassistent",
     "tabAccount": "Mit Konto",
-    "tabCode": "Mit Zugangscode"
+    "tabCode": "Mit Zugangscode",
+    "toHome": "Zur Startseite",
+    "forgot": "Zugangsdaten vergessen? Melde dich bei uns."
   },
   "startOverview": {
     "groups": {
@@ -1722,7 +1724,6 @@
       "retentionHint": "Chats ohne Aktivität werden nach {days} Tagen gelöscht.",
       "closeMenu": "Verlauf schließen",
       "emptyTitle": "Was möchtest du über die Hochschule wissen?",
-      "emptyText": "Ich antworte nur aus den Webseiten und Unterlagen der Hochschule und zeige dir die Quelle dazu.",
       "openMenu": "Verlauf öffnen",
       "example1": "Welche Unterlagen brauche ich für die Einschreibung?",
       "example2": "Wo finde ich die Studienberatung?",
@@ -1731,11 +1732,12 @@
       "inputPlaceholder": "Deine Frage zur Hochschule…",
       "disclaimer": "Die Antworten stammen von einer KI, die Fehler machen kann. Maßgeblich ist die verlinkte Quelle.",
       "sourcesTitle": "Quellen",
+      "sourcesMore": "+{n} weitere",
+      "sourcesLess": "Weniger anzeigen",
       "stand": "Stand: {date}",
       "document": "Dokument",
       "copy": "Kopieren",
       "scrollToBottom": "Nach unten scrollen",
-      "chatFull": "Dieser Chat ist voll. Starte einen neuen Chat, dann geht es weiter.",
       "noAnswer": "(keine Antwort)",
       "genericError": "Es ist ein Fehler aufgetreten.",
       "upstreamBusy": "Der KI-Anbieter ist gerade ausgelastet. Bitte versuche es gleich noch einmal.",
@@ -1925,8 +1927,6 @@
         "excludeHint": "Ein Muster je Zeile, zum Beispiel /news/. Seiten mit diesem Muster werden übersprungen.",
         "mapUrl": "Adresse der Campus Map",
         "mapHint": "Die Seite der Campus Map. Ortskarten im Chat öffnen sie mit dem passenden Ort.",
-        "placesUrl": "Adresse der Ortsliste",
-        "placesHint": "Die places.json der Campus Map. Alternativ unten als Datei hochladen.",
         "retention": "Chats aufbewahren",
         "retentionHint": "Tage ohne Aktivität, danach wird ein Chat gelöscht. 0 behält alle.",
         "days": "Tage",
@@ -1960,9 +1960,6 @@
             "failed": "fehlgeschlagen"
           }
         },
-        "places": {
-          "title": "Ortsliste hochladen",
-          "hint": "Die places.json aus der Campus Map. Danach werden die Orte sofort neu eingelesen.",
         "pages": {
           "title": "Eingelesene Webseiten",
           "hint": "Alle Seiten, die der Infoassistent kennt. Eine ausgeschlossene Seite wird sofort entfernt und beim Abgleich nicht mehr geholt.",
@@ -1977,9 +1974,6 @@
           "prev": "Zurück",
           "next": "Weiter",
           "status": { "ready": "bereit", "pending": "wartet", "failed": "fehlgeschlagen" }
-        },
-          "button": "places.json wählen",
-          "done": "{n} Orte eingelesen"
         }
       }
     },
@@ -3756,7 +3750,6 @@
         "emptyFrancisGreeting": "Hallo, ich bin Francis.",
         "emptyHildeIntro": "Frag mich was zu deinen Materialien - ich helfe dir beim Verstehen, Zusammenfassen und Wiederholen.",
         "adaptiveLevel": "Niveau {level}",
-        "adaptiveOff": "adaptiv aus",
         "hildeName": "Hilde",
         "francisName": "Francis",
         "noAnswer": "(keine Antwort)",
@@ -4944,7 +4937,7 @@
         "glossary": {
           "lead": "Hier pflegst du eigene Begriffslisten, damit Fachbegriffe überall gleich übersetzt werden.",
           "p1": "Ein Eintrag besteht aus dem deutschen und dem englischen Begriff",
-          "p2": "Das Glossar wirkt in Übersetzung, Screencast und Podcast",
+          "p2": "Das Glossar wirkt in Übersetzung und Screencast",
           "p3": "Glossare lassen sich exportieren und an Kolleginnen und Kollegen weitergeben",
           "alt": "Glossar mit Liste der eigenen Begriffslisten"
         }
@@ -5008,7 +5001,8 @@
     "star": "Stern",
     "lightbulb": "Idee",
     "qrCode": "QR-Code",
-    "platform": "KIS-Plattform"
+    "platform": "KIS-Plattform",
+    "campus": "Infoassistent"
   },
   "eventAdmin": {
     "stations": {

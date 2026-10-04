@@ -29,3 +29,10 @@ def test_leere_seite_ergibt_none():
 def test_hash_ist_stabil():
     assert extract.content_hash("abc") == extract.content_hash("abc")
     assert extract.content_hash("abc") != extract.content_hash("abd")
+
+
+def test_cookie_banner_wird_nicht_als_haupttext_genommen():
+    banner = "<section aria-label='cookie-consent'><div>" + "Cookie Hinweis Datenschutz Einwilligung " * 40 + "</div></section>"
+    inhalt = "<div><p>" + "Semesterdauer 01.09.2026 bis 28.02.2027 Rueckmeldung im Juni. " * 3 + "</p></div>"
+    out = extract.extract_markdown(f"<html><body>{banner}{inhalt}</body></html>", "https://x.test/k/")
+    assert out is not None and "Semesterdauer" in out.markdown and "Cookie Hinweis" not in out.markdown

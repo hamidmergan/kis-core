@@ -14,8 +14,6 @@ A new one starts with **+ New glossary**. An entry consists of the German and th
   way the machine thinks is right.
 - **Screencast**: chosen in the Upload step, it applies to the translation of the slides and to
   the scripts.
-- **Podcast**: terms from the glossary that appear in the material are handed to the AI as a
-  guideline. It usually keeps to them, but there is no guarantee.
 
 Everywhere up to 3 glossaries can be chosen at once. If a term is in several, the glossary at
 the top of the selection wins.

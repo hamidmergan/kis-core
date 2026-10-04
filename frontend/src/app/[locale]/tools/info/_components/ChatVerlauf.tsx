@@ -72,7 +72,7 @@ export default function ChatVerlauf({
   if (collapsed) {
     return (
       <div className="flex flex-col items-center h-full min-h-0 gap-2 py-2" data-testid="campus-history-collapsed">
-        {/* The bird opens the bar again, so the strip needs no extra icon for it. */}
+        {/* The strip shows only the bird, it opens the bar again. */}
         <button
           type="button"
           onClick={onToggle}
@@ -83,16 +83,6 @@ export default function ChatVerlauf({
           data-testid="campus-sidebar-toggle"
         >
           <Image src="/logos/kis-vogel.svg" alt="" width={154} height={78} className="h-5 w-auto" />
-        </button>
-        <button
-          type="button"
-          onClick={onNew}
-          aria-label={t("newChat")}
-          title={t("newChat")}
-          className="w-9 h-9 flex items-center justify-center rounded-full btn-icon"
-          data-testid="campus-new-chat"
-        >
-          <NotePencil size={20} />
         </button>
       </div>
     );

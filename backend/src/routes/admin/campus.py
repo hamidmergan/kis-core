@@ -1,4 +1,4 @@
-"""Settings, crawl status, documents and the place list of the campus assistant."""
+"""Settings, crawl status and documents of the campus assistant."""
 import uuid
 from pathlib import Path
 from typing import Optional
@@ -14,7 +14,6 @@ from src.features.campus.repository import places as place_repo
 from src.features.campus.services import fetch as fetch_mod
 from src.features.campus.services import settings as campus_settings
 from src.features.campus.services import sitemap as sitemap_mod
-from src.features.campus.services.places_sync import parse_places
 from src.i18n import get_locale, t
 from src.permissions_registry import PERM_SET_CAMPUS
 from src.services import tool_limits
@@ -24,7 +23,6 @@ router = APIRouter(prefix="/campus", tags=["admin: campus"])
 
 _require = require_permission(PERM_SET_CAMPUS)
 _DOC_EXTENSIONS = (".pdf", ".docx", ".pptx", ".md", ".txt")
-_PLACES_KEY = "campus/places.json"
 _PAGE_STATUSES = ("pending", "ready", "failed")
 
 
@@ -37,7 +35,6 @@ class SettingsBody(BaseModel):
     url_include: Optional[str] = None
     url_exclude: Optional[str] = None
     map_url: Optional[str] = None
-    places_url: Optional[str] = None
     retention_days: Optional[int] = None
 
 
@@ -107,7 +104,7 @@ def include_page(body: ExcludeBody, admin: dict = Depends(_require)):
 @router.patch("")
 def update_campus(body: SettingsBody, admin: dict = Depends(_require), locale: str = Depends(get_locale)):
     values = body.model_dump(exclude_unset=True)
-    urls = sitemap_mod.parse_patterns(values.get("sitemap_url") or "") + sitemap_mod.parse_patterns(values.get("places_url") or "")
+    urls = sitemap_mod.parse_patterns(values.get("sitemap_url") or "")
     if any(not fetch_mod.is_web_url(u) for u in urls):
         raise HTTPException(status_code=400, detail=t("campus.urlInvalid", locale))
     map_url = (values.get("map_url") or "").strip()
@@ -118,10 +115,7 @@ def update_campus(body: SettingsBody, admin: dict = Depends(_require), locale: s
 
 
 @router.post("/crawl")
-def start_crawl(admin: dict = Depends(_require), locale: str = Depends(get_locale)):
-    cfg = campus_settings.read()
-    if not cfg.sitemap_url and not cfg.places_url and not storage.key_file_exists(_PLACES_KEY):
-        raise HTTPException(status_code=400, detail=t("campus.notConfigured", locale))
+def start_crawl(admin: dict = Depends(_require)):
     status = campus_settings.crawl_status()
     if status.get("running"):
         return status
@@ -164,17 +158,3 @@ def delete_document(page_id: int, admin: dict = Depends(_require), locale: str =
             pass
     page_repo.delete_page(page_id)
     return {"deleted": True}
-
-
-@router.post("/places")
-async def upload_places(file: UploadFile = File(...), admin: dict = Depends(_require), locale: str = Depends(get_locale)):
-    """A places.json of the campus map, indexed right away in the background."""
-    data = await file.read(tool_limits.max_upload_bytes() + 1)
-    try:
-        places = parse_places(data)
-    except (ValueError, UnicodeDecodeError):
-        raise HTTPException(status_code=400, detail=t("campus.placesInvalid", locale))
-    storage.save_key_file(_PLACES_KEY, data)
-    from src.features.campus.tasks import run_sync_places_file
-    run_sync_places_file.delay()
-    return {"places": len(places)}

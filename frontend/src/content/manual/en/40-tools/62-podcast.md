@@ -9,7 +9,7 @@ script and have it voiced. The result is an MP3 file.
 
 1. **Content**: up to 10 files as PDF, Word, PowerPoint or text, at most 500 MB and 500,000
    characters together, or up to 10 sources from a workspace. Plus the Podcast language, German
-   or English, the AI provider with model, a glossary and an instruction. With Your own script
+   or English, the AI provider with model and an instruction. With Your own script
    the script comes from you, with no AI at all.
 2. **Cast**: who speaks.
 3. **Script**: check and change.
@@ -34,9 +34,6 @@ delete in the script.
 Facts, figures, deadlines and conditions come only from the material. Examples, comparisons and
 objections it may bring itself, so the matter becomes vivid, and the people bring their own
 observations. Numbers and formulas are written out, because the text is read aloud.
-
-Glossary terms that appear in the material are handed to the AI as a guideline. It usually keeps
-to them, but there is no guarantee.
 
 ## Script
 

@@ -25,9 +25,6 @@ export type Audience = "lehrende" | "studierende";
 /** The tools group addresses teaching staff only for now. */
 export const TOOLS_AUDIENCE: readonly Audience[] = ["lehrende"];
 
-/** The campus assistant answers everyone at the university. */
-export const CAMPUS_AUDIENCE: readonly Audience[] = ["studierende", "lehrende"];
-
 /** The assistant is the only group reaching teaching staff and students alike. */
 export const AIA_AUDIENCE: readonly Audience[] = ["lehrende", "studierende"];
 

@@ -9,7 +9,6 @@ KEY_SITEMAP_URL = "campus_sitemap_url"
 KEY_URL_INCLUDE = "campus_url_include"
 KEY_URL_EXCLUDE = "campus_url_exclude"
 KEY_MAP_URL = "campus_map_url"
-KEY_PLACES_URL = "campus_places_url"
 KEY_RETENTION_DAYS = "campus_chat_retention_days"
 KEY_CRAWL_STATUS = "campus_crawl_status"
 
@@ -22,7 +21,6 @@ class CampusSettings:
     url_include: str = ""
     url_exclude: str = ""
     map_url: str = ""
-    places_url: str = ""
     retention_days: int = CAMPUS_CHAT_RETENTION_DAYS
 
     def as_dict(self) -> dict:
@@ -43,7 +41,6 @@ def read() -> CampusSettings:
         url_include=db.get_setting(KEY_URL_INCLUDE, ""),
         url_exclude=db.get_setting(KEY_URL_EXCLUDE, ""),
         map_url=db.get_setting(KEY_MAP_URL, "").strip(),
-        places_url=db.get_setting(KEY_PLACES_URL, "").strip(),
         retention_days=clamp_retention(db.get_setting(KEY_RETENTION_DAYS, str(CAMPUS_CHAT_RETENTION_DAYS))),
     )
 
@@ -52,7 +49,7 @@ def write(values: dict) -> CampusSettings:
     """Stores only the known fields, unknown ones are ignored."""
     text_keys = {
         "sitemap_url": KEY_SITEMAP_URL, "url_include": KEY_URL_INCLUDE, "url_exclude": KEY_URL_EXCLUDE,
-        "map_url": KEY_MAP_URL, "places_url": KEY_PLACES_URL,
+        "map_url": KEY_MAP_URL,
     }
     for field, key in text_keys.items():
         if field in values and values[field] is not None:

@@ -9,7 +9,7 @@ Skript und lassen es vertonen. Das Ergebnis ist eine MP3-Datei.
 
 1. **Inhalt**: bis zu 10 Dateien als PDF, Word, PowerPoint oder Text, zusammen höchstens 500 MB
    und 500.000 Zeichen, oder bis zu 10 Materialien aus einem Workspace. Dazu die Sprache des
-   Podcasts, Deutsch oder Englisch, der KI-Anbieter mit Modell, ein Glossar und eine Anweisung.
+   Podcasts, Deutsch oder Englisch, der KI-Anbieter mit Modell und eine Anweisung.
    Mit Eigenes Skript kommt das Skript ganz ohne KI von Ihnen.
 2. **Besetzung**: wer spricht.
 3. **Skript**: prüfen und ändern.
@@ -35,9 +35,6 @@ Fakten, Zahlen, Fristen und Bedingungen nimmt sie ausschließlich aus dem Materi
 Vergleiche und Einwände darf sie selbst beisteuern, damit die Sache anschaulich wird, und die
 Personen bringen eigene Beobachtungen ein. Zahlen und Formeln werden ausgeschrieben, weil der
 Text vorgelesen wird.
-
-Glossarbegriffe, die im Material vorkommen, bekommt die KI als Vorgabe. Sie hält sich meistens
-daran, sicher ist es nicht.
 
 ## Skript
 

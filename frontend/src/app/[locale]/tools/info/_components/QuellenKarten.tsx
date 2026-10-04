@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { ArrowSquareOut, FileText, Globe, MapPin } from "@phosphor-icons/react";
+import Modal from "@/components/ui/Modal";
 import type { CampusQuelle } from "../_types";
 
 /** The link with a text fragment, so supporting browsers jump to the passage. */
@@ -26,47 +28,58 @@ function standText(date: string | null, locale: string): string | null {
   return d.toLocaleDateString(locale === "en" ? "en-GB" : "de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
-/** Three cards per row on wide screens, the same grid the place cards use. */
-export const KARTEN_RASTER = "grid grid-cols-1 sm:grid-cols-3 gap-2";
+/** Quiet one-line chip, shared by the source and place chips. */
+export const CHIP_KLASSE = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full border-2 border-transparent bg-background text-xs min-w-0 max-w-full no-underline";
+export const CHIP_HOVER = "hover:border-kb focus:border-kb transition-colors";
+
+/** Domain or file name with the date, shown under each source in the dialog. */
+function quellenInfo(q: CampusQuelle, locale: string, t: ReturnType<typeof useTranslations>) {
+  const stand = standText(q.fetched_at, locale);
+  const sub = q.kind === "document" ? q.filename ?? t("document") : q.url ? domain(q.url) : "";
+  const detail = sub && `${sub}${stand ? `, ${t("stand", { date: stand })}` : ""}`;
+  return { detail };
+}
 
 export default function QuellenKarten({ quellen }: { quellen: CampusQuelle[] }) {
   const t = useTranslations("tools.campus");
   const locale = useLocale();
+  const [offen, setOffen] = useState(false);
   if (quellen.length === 0) return null;
   return (
-    <div className="mt-2" data-testid="campus-sources">
-      <p className="text-2xs font-semibold uppercase tracking-wide mb-1" style={{ color: "var(--muted)" }}>{t("sourcesTitle")}</p>
-      <div className={KARTEN_RASTER}>
-        {quellen.map((q) => {
-          const href = quellenLink(q);
-          const Icon = q.kind === "document" ? FileText : q.kind === "place" ? MapPin : Globe;
-          const stand = standText(q.fetched_at, locale);
-          const sub = q.kind === "document" ? q.filename ?? t("document") : q.url ? domain(q.url) : "";
-          const inner = (
-            <>
-              <Icon size={16} weight="bold" style={{ color: "var(--kb)", flexShrink: 0 }} />
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-medium truncate" style={{ color: "var(--foreground)" }}>{q.title}</span>
-                <span className="block text-2xs truncate" style={{ color: "var(--muted)" }}>
-                  {sub}
-                  {stand && `${sub ? ", " : ""}${t("stand", { date: stand })}`}
+    <>
+      <button type="button" onClick={() => setOffen(true)} data-testid="campus-sources" className={`${CHIP_KLASSE} ${CHIP_HOVER}`} style={{ color: "var(--muted)" }}>
+        <FileText size={14} weight="fill" style={{ color: "var(--muted)", flexShrink: 0 }} />
+        <span>{t("sourcesTitle")} ({quellen.length})</span>
+      </button>
+      <Modal open={offen} onClose={() => setOffen(false)} title={t("sourcesTitle")} size="md">
+        <ul className="flex flex-col gap-2" data-testid="campus-sources-list">
+          {quellen.map((q) => {
+            const href = quellenLink(q);
+            const info = quellenInfo(q, locale, t);
+            const Icon = q.kind === "document" ? FileText : q.kind === "place" ? MapPin : Globe;
+            const inner = (
+              <>
+                <Icon size={18} weight="bold" style={{ color: "var(--kb)", flexShrink: 0 }} />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-medium break-words" style={{ color: "var(--foreground)" }}>{q.title}</span>
+                  {info.detail && <span className="block text-xs mt-0.5" style={{ color: "var(--muted)" }}>{info.detail}</span>}
                 </span>
-              </span>
-              {href && <ArrowSquareOut size={13} weight="bold" style={{ color: "var(--muted)", flexShrink: 0 }} />}
-            </>
-          );
-          const klasse = "flex items-center gap-2 px-3 py-2 rounded-xl border-2 border-border bg-background min-w-0 no-underline";
-          return href ? (
-            <a key={q.page_id} href={href} target="_blank" rel="noopener noreferrer" title={q.title} className={`${klasse} hover:border-kb focus:border-kb transition-colors`}>
-              {inner}
-            </a>
-          ) : (
-            <span key={q.page_id} title={q.title} className={klasse}>
-              {inner}
-            </span>
-          );
-        })}
-      </div>
-    </div>
+                {href && <ArrowSquareOut size={14} weight="bold" style={{ color: "var(--muted)", flexShrink: 0 }} />}
+              </>
+            );
+            const klasse = "flex items-center gap-3 px-3 py-2 rounded-xl border-2 border-border min-w-0 no-underline";
+            return (
+              <li key={q.page_id} className="min-w-0">
+                {href ? (
+                  <a href={href} target="_blank" rel="noopener noreferrer" className={`${klasse} hover:border-kb focus:border-kb transition-colors`}>{inner}</a>
+                ) : (
+                  <div className={klasse}>{inner}</div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </Modal>
+    </>
   );
 }

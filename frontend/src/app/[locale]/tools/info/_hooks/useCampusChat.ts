@@ -26,7 +26,6 @@ export function useCampusChat({ chatId, onChatCreated, onAnswered }: Options) {
   const t = useTranslations("tools.campus");
   const [messages, setMessages] = useState<CampusNachricht[]>([]);
   const [loading, setLoading] = useState(false);
-  const [chatFull, setChatFull] = useState(false);
   const [questionCount, setQuestionCount] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
   // The chat the running stream just opened, so switching to it must not abort or reload.
@@ -38,7 +37,6 @@ export function useCampusChat({ chatId, onChatCreated, onAnswered }: Options) {
       return;
     }
     abortRef.current?.abort();
-    setChatFull(false);
     if (chatId === null) {
       setMessages([]);
       setQuestionCount(0);
@@ -166,9 +164,6 @@ export function useCampusChat({ chatId, onChatCreated, onAnswered }: Options) {
           if (buffer.trim()) handle(buffer);
           if (raf != null) { cancelAnimationFrame(raf); raf = null; }
           flush();
-        } else if (res.status === 409) {
-          setChatFull(true);
-          updateLast({ content: t("chatFull"), failed: true, streaming: false });
         } else if (res.status === 429) {
           let msg = t("tooManyRequests");
           try {
@@ -202,5 +197,5 @@ export function useCampusChat({ chatId, onChatCreated, onAnswered }: Options) {
 
   const stop = useCallback(() => abortRef.current?.abort(), []);
 
-  return { messages, loading, chatFull, questionCount, send, stop };
+  return { messages, loading, questionCount, send, stop };
 }

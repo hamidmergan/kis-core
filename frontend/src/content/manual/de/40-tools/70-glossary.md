@@ -15,8 +15,6 @@ Begriff.
   statt wie es die Maschine für richtig hält.
 - **Screencast**: im Schritt Upload gewählt, gilt es für die Übersetzung der Folien und für die
   Sprechtexte.
-- **Podcast**: Begriffe aus dem Glossar, die im Material vorkommen, bekommt die KI als Vorgabe.
-  Sie hält sich meistens daran, sicher ist es nicht.
 
 Überall lassen sich bis zu 3 Glossare zugleich wählen. Steht ein Begriff in mehreren, gewinnt das
 Glossar, das in der Auswahl oben steht.

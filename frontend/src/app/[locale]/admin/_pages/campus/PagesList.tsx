@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Prohibit } from "@phosphor-icons/react";
+import { Trash } from "@phosphor-icons/react";
 import { SettingCard } from "@/app/[locale]/admin/_settings/fields";
 import { backendApi } from "@/lib/api";
 
@@ -79,7 +79,7 @@ export default function PagesList({ refreshKey }: { refreshKey: number }) {
                   {p.status === "ready" ? t("chunks", { n: p.chunk_count }) : t(`status.${p.status}` as "status.ready")}
                 </span>
                 <button type="button" onClick={() => change("/admin/campus/pages/exclude", p.url)} disabled={busy} title={t("exclude")} className="w-7 h-7 flex items-center justify-center rounded-full btn-icon" style={{ backgroundColor: "var(--surface-dim)" }}>
-                  <Prohibit size={13} weight="bold" />
+                  <Trash size={13} weight="bold" />
                 </button>
               </li>
             ))}

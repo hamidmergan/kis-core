@@ -59,15 +59,6 @@ async def test_dokument_wird_gespeichert_und_eingereiht(monkeypatch):
     assert angelegt["kind"] == "document" and angelegt["file_path"].startswith("/store/campus/documents/") and angelegt["title"] == "faq"
 
 
-def test_abgleich_ohne_einrichtung_wird_abgewiesen(monkeypatch):
-    from src.features.campus.services.settings import CampusSettings
-    monkeypatch.setattr(admin_campus.campus_settings, "read", lambda: CampusSettings())
-    monkeypatch.setattr(admin_campus.storage, "key_file_exists", lambda key: False)
-    with pytest.raises(HTTPException) as info:
-        admin_campus.start_crawl(admin=ADMIN, locale="de")
-    assert info.value.status_code == 400
-
-
 def test_abgleich_wird_eingereiht(monkeypatch):
     from src.features.campus.services.settings import CampusSettings
     monkeypatch.setattr(admin_campus.campus_settings, "read", lambda: CampusSettings(sitemap_url="https://x.test/sitemap.xml"))
@@ -77,7 +68,7 @@ def test_abgleich_wird_eingereiht(monkeypatch):
     import src.features.campus.tasks as tasks
     aufgerufen = []
     monkeypatch.setattr(tasks.run_crawl, "delay", lambda: aufgerufen.append(True))
-    out = admin_campus.start_crawl(admin=ADMIN, locale="de")
+    out = admin_campus.start_crawl(admin=ADMIN)
     assert out["running"] and aufgerufen == [True] and gesetzt["queued"]
 
 

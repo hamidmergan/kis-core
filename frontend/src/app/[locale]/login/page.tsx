@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Link } from "@/i18n/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { Check, Copy, Eye, EyeSlash } from "@phosphor-icons/react";
 import Header from "@/components/layout/Header";
@@ -363,6 +364,19 @@ export default function LoginPage() {
               </button>
             </div>
           )}
+
+          {tab === "login" && !fertig && (
+            <p className="mt-6 text-sm text-foreground-soft">
+              {t("forgot")}{" "}
+              <a href="mailto:hamid.mergan@th-luebeck.de" className="text-kb-dark hover:underline">
+                hamid.mergan@th-luebeck.de
+              </a>
+            </p>
+          )}
+
+          <Link href="/" className="mt-6 inline-block text-sm text-kb-dark hover:underline">
+            {t("toHome")}
+          </Link>
         </div>
       </section>
     </main>

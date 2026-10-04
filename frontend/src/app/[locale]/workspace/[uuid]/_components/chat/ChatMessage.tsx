@@ -4,9 +4,9 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
-import { ArrowClockwise, Binoculars, CaretDown, CaretUp, Check, ChatCircle, Copy, FunnelSimple, Lightbulb, ListBullets, NotePencil, Stop, Translate, type Icon as PhosphorIconType } from "@phosphor-icons/react";
+import { ArrowClockwise, Binoculars, CaretDown, CaretUp, Check, ChatCircle, Copy, FileText, FunnelSimple, Lightbulb, ListBullets, NotePencil, Stop, Translate, type Icon as PhosphorIconType } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
-import Mascot, { type MascotState, type MascotVariant } from "@/components/ui/Mascot";
+import Modal from "@/components/ui/Modal";
 import { _embedQmapIntoCitations, _getChipIcon, _guardMathDollars } from "../../_utils";
 import { KATEX_OPTIONS } from "../../_constants";
 import type { ChatMessage as ChatMessageType } from "../../_types";
@@ -25,9 +25,6 @@ const POPUP_ACTION_ICONS: Record<string, PhosphorIconType> = {
   ChatCircle,
 };
 
-
-// The refusal sentence comes at the end, the last patterns catch it.
-const SORRY_PATTERN = /nichts gefunden|keine information|in den (?:quellen|materialien) nicht enthalten|nicht in den (?:bereitgestellten |angegebenen )?(?:quellen|materialien)|kann ich nicht beantworten|steht nicht in den|not in the (?:provided |given )?sources?|no information (?:found|available|in)|could(?:n['']t| not) find|cannot find|is not (?:in|available in|contained in) (?:the )?sources?|stehe?n nicht in den (?:quellen|materialien)|(?:is|are) not in the sources/i;
 
 // Two silent failure shapes of the translation are replaced by a message.
 function _normalizeForCompare(s: string): string {
@@ -57,7 +54,6 @@ interface ChatMessageProps {
   onSaveNote?: (content: string, sourceUuids?: string[], extras?: AddNoteExtras) => void | Promise<void>;
   onRetry?: () => void;
   loading: boolean;
-  variant?: MascotVariant;
   isLatest?: boolean;
   collapseByDefault?: boolean;
   popupActions?: { key: string; label: string; icon: string }[];
@@ -67,14 +63,14 @@ interface ChatMessageProps {
 
 function ChatMessageImpl({
   msg, msgKey, activeSourceIds, getFilename, onChipClick, onSaveNote, onRetry, loading,
-  variant = "francis", isLatest = false, collapseByDefault = false,
+  isLatest = false, collapseByDefault = false,
   popupActions, isAdmin = false,
 }: ChatMessageProps) {
   const t = useTranslations("workspace.detail.chat");
   const tChip = useTranslations("sourceChip");
   const [expandUserContent, setExpandUserContent] = useState(false);
   const [expandAssistantContent, setExpandAssistantContent] = useState(false);
-  const [expandSources, setExpandSources] = useState(false);
+  const [sourcesOpen, setSourcesOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   // The toggle reaches exactly the chip positions of this message.
   const allChipsOpen = useAllChipsOpen(msgKey);
@@ -123,18 +119,6 @@ function ChatMessageImpl({
     && !isStreaming
     && _isTranslateNoop(msg.content, msg.popup_selection?.text);
 
-  let avatarState: MascotState = "idle";
-  if (msg.role === "assistant") {
-    // Thinking for the whole stream, the source numbers arrive earlier.
-    if (isStreaming) {
-      avatarState = "thinking";
-    } else if (translateFailed || SORRY_PATTERN.test(msg.content)) {
-      avatarState = "confused";
-    } else if (isLatest && msgQmap.length > 0) {
-      avatarState = "found";
-    }
-  }
-
   async function handleCopy() {
     try {
       await copyMessageText(msg.content);
@@ -162,40 +146,42 @@ function ChatMessageImpl({
   }
 
   // An empty answer has nothing to copy or save.
+  const copyButton = (
+    <button
+      type="button"
+      onClick={handleCopy}
+      title={t("copy")}
+      // A user message shows the icon only on hover and not on touch devices, an answer always.
+      className={`w-7 h-7 flex items-center justify-center rounded-full btn-icon${msg.role === "user" ? " [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:none)]:hidden" : ""}`}
+    >
+      {copied ? <Check size={14} weight="bold" /> : <Copy size={14} weight="bold" />}
+    </button>
+  );
   const actionButtons = msg.role === "assistant" && !msg.content ? null : (
     <>
-      {msg.role === "assistant" && hasCitations(msg.content) && (
-        <button
-          type="button"
-          onClick={() => toggleAllChips(msgKey)}
-          aria-pressed={allChipsOpen}
-          // The toggle stays visible while it is on.
-          className={`mt-1 p-1 rounded-full btn-icon${allChipsOpen ? "" : " [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100"}`}
-          title={allChipsOpen ? t("hideAllCitations") : t("showAllCitations")}
-        >
-          <ChipToggleMark open={allChipsOpen} size={13} opacity={1} strokeWidth={0.63} />
-        </button>
-      )}
-      <button
-        type="button"
-        onClick={handleCopy}
-        className="mt-1 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 p-1 rounded-full btn-icon"
-        title={t("copy")}
-      >
-        {copied ? <Check size={13} weight="bold" /> : <Copy size={13} />}
-      </button>
       {msg.role === "assistant" && onSaveNote && !loading && (
         <button
           type="button"
           disabled={savingNote}
           onClick={handleSaveNote}
-          className={`[@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 p-1 rounded-full ${saved ? "" : "btn-icon"}`}
+          className={`w-7 h-7 flex items-center justify-center rounded-full ${saved ? "" : "btn-icon"}`}
           style={saved ? { color: "var(--success)" } : undefined}
           title={t("saveAsNote")}
         >
           {savingNote
             ? <Spinner size="xs" color="current" />
-            : saved ? <Check size={13} weight="bold" /> : <NotePencil size={13} />}
+            : saved ? <Check size={14} weight="bold" /> : <NotePencil size={14} weight="bold" />}
+        </button>
+      )}
+      {msg.role === "assistant" && hasCitations(msg.content) && (
+        <button
+          type="button"
+          onClick={() => toggleAllChips(msgKey)}
+          aria-pressed={allChipsOpen}
+          className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
+          title={allChipsOpen ? t("hideAllCitations") : t("showAllCitations")}
+        >
+          <ChipToggleMark open={allChipsOpen} size={14} opacity={1} strokeWidth={0.63} />
         </button>
       )}
     </>
@@ -206,17 +192,9 @@ function ChatMessageImpl({
       data-testid={msg.role === "assistant" ? "assistant-message" : "user-message"}
       className={`flex flex-col gap-1.5 group ${msg.role === "user" ? "items-end" : "items-start"}`}
     >
-      {msg.role === "assistant" && isLatest && (
-        <div className="flex items-center gap-2 mb-0.5">
-          <Mascot variant={variant} size={80} state={avatarState} />
-          <span className="text-base font-medium">{variant === "hilde" ? t("hildeName") : t("francisName")}</span>
-        </div>
-      )}
-      {isAdmin && msg.role === "assistant" && msg.content ? (
+      {isAdmin && msg.role === "assistant" && msg.content && msg.applied_level ? (
         <span className="text-xs mb-0.5" style={{ color: "var(--muted-soft)" }}>
-          {msg.applied_level
-            ? t("adaptiveLevel", { level: msg.applied_level })
-            : t("adaptiveOff")}
+          {t("adaptiveLevel", { level: msg.applied_level })}
         </span>
       ) : null}
       <div className="flex flex-col max-w-[96%] w-fit">
@@ -232,7 +210,7 @@ function ChatMessageImpl({
             style={
               msg.role === "user"
                 ? { backgroundColor: "var(--kb)", color: "white", borderBottomRightRadius: 6, whiteSpace: "pre-wrap", overflowWrap: "break-word" }
-                : { backgroundColor: "var(--surface)", color: "var(--foreground)", border: "1px solid var(--border)", borderTopLeftRadius: 6, overflowWrap: "break-word" }
+                : { backgroundColor: "var(--surface)", color: "var(--foreground)", borderTopLeftRadius: 6, overflowWrap: "break-word" }
             }
           >
             {msg.role === "assistant" && !msg.content ? (
@@ -359,51 +337,51 @@ function ChatMessageImpl({
           </button>
         )}
 
-        {msg.role === "assistant" && msgQmap.length > 0 ? (
-          <div className="mt-1 self-stretch">
-            <div className="flex items-center justify-between w-full">
+        {msg.role === "assistant" && !msg.content ? null : (
+          <div className={`flex items-center ${msg.role === "user" ? "justify-end gap-1 mt-1" :"self-start flex-wrap gap-1.5 mt-2"}`}>
+            {msg.role === "assistant" && msgQmap.length > 0 && !isStreaming && (
               <button
                 type="button"
-                onClick={() => setExpandSources(v => !v)}
-                className="flex items-center gap-1 text-xs text-[var(--muted)] hover-lighten transition-colors"
+                onClick={() => setSourcesOpen(true)}
+                data-testid="chat-sources"
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border-2 border-transparent bg-transparent text-xs min-w-0 max-w-full hover:border-kb focus:border-kb transition-colors"
+                style={{ color: "var(--muted)" }}
               >
-                {expandSources ? <CaretUp size={10} /> : <CaretDown size={10} />}
-                {t("sourcesCount", { n: msgQmap.length })}
+                <FileText size={14} weight="fill" style={{ color: "var(--muted)", flexShrink: 0 }} />
+                <span>{t("sourcesCount", { n: msgQmap.length })}</span>
               </button>
-              <div className="flex items-center gap-1">{actionButtons}</div>
+            )}
+            <div className="flex items-center gap-1">
+              {msg.role === "assistant" && actionButtons}
+              {copyButton}
             </div>
-            {expandSources && (
-              <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 ml-3.5">
-                {msgQmap.map((q) => {
-                  const ChipIcon = _getChipIcon(q.filename);
-                  // A source removed since stays listed but opens nothing.
-                  const removed = getFilename(q.uuid) == null;
-                  return (
-                    <span
-                      key={q.qnum}
-                      role="button"
-                      tabIndex={removed ? -1 : 0}
-                      aria-disabled={removed || undefined}
-                      onClick={removed ? undefined : () => onChipClick(q.uuid, 0, q.filename)}
-                      onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.click(); }}
-                      className={`inline-flex items-center gap-1 text-xs text-[var(--muted)] ${removed ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover-lighten transition-colors"}`}
+          </div>
+        )}
+        {msg.role === "assistant" && msgQmap.length > 0 && (
+          <Modal open={sourcesOpen} onClose={() => setSourcesOpen(false)} title={t("sourcesCount", { n: msgQmap.length })} size="md">
+            <ul className="flex flex-col gap-2" data-testid="chat-sources-list">
+              {msgQmap.map((q) => {
+                const ChipIcon = _getChipIcon(q.filename);
+                // A source removed since stays listed but opens nothing.
+                const removed = getFilename(q.uuid) == null;
+                return (
+                  <li key={q.qnum}>
+                    <button
+                      type="button"
+                      disabled={removed}
+                      onClick={() => { setSourcesOpen(false); onChipClick(q.uuid, 0, q.filename); }}
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl border-2 border-border text-left min-w-0 ${removed ? "opacity-50 cursor-not-allowed" : "hover:border-kb focus:border-kb transition-colors"}`}
                       title={removed ? `${q.filename}, ${tChip("removed")}` : q.filename}
                     >
-                      <ChipIcon size={10} weight="bold" />
-                      {msgQmap.length > 1 && (
-                        <span style={{ color: "var(--kb)" }}>[{q.qnum}]</span>
-                      )}
-                      <span className="max-w-125 truncate">{q.filename}</span>
-                    </span>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className={`flex items-center gap-2 ${msg.role === "user" ? "flex-row-reverse" : "self-end"}`}>
-            {actionButtons}
-          </div>
+                      <ChipIcon size={18} weight="bold" style={{ color: "var(--kb)", flexShrink: 0 }} />
+                      {msgQmap.length > 1 && <span className="text-sm" style={{ color: "var(--kb)" }}>[{q.qnum}]</span>}
+                      <span className="text-sm font-medium break-words min-w-0 flex-1" style={{ color: "var(--foreground)" }}>{q.filename}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </Modal>
         )}
       </div>
     </div>

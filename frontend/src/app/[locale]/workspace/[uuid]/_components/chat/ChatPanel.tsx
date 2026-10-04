@@ -201,8 +201,9 @@ export function ChatPanel({
                 .slice(-2)
             );
             return messages.map((msg, i) => (
+              // Extra space where the speaker changes.
+              <div key={msg.id ?? i} className={i > 0 && messages[i - 1].role !== msg.role ? "mt-5" : undefined}>
               <ChatMessage
-                key={msg.id ?? i}
                 msg={msg}
                 msgKey={String(msg.id ?? i)}
                 activeSourceIds={activeSourceIds}
@@ -211,12 +212,12 @@ export function ChatPanel({
                 onSaveNote={onSaveNote}
                 onRetry={onRetry ? handleRetry : undefined}
                 loading={loading}
-                variant={mascotVariant}
                 isLatest={i === messages.length - 1}
                 collapseByDefault={msg.role === "assistant" && !recentAssistantIdx.has(i)}
                 popupActions={popupActions}
                 isAdmin={isAdmin}
               />
+              </div>
             ));
           })()}
         </div>

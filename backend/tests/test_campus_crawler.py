@@ -69,8 +69,8 @@ def _einstellungen():
 
 def test_unveraendert_gelöscht_und_neu(monkeypatch):
     seiten = _Pages([
-        {"id": 1, "url": "https://x.test/a/", "etag": '"a"', "last_modified": None, "fetched_at": datetime(2026, 9, 2), "status": "ready", "content_hash": "v2:x"},
-        {"id": 2, "url": "https://x.test/b/", "etag": '"b"', "last_modified": None, "fetched_at": datetime(2026, 9, 2), "status": "ready", "content_hash": "v2:x"},
+        {"id": 1, "url": "https://x.test/a/", "etag": '"a"', "last_modified": None, "fetched_at": datetime(2026, 9, 2), "status": "ready", "content_hash": "v3:x"},
+        {"id": 2, "url": "https://x.test/b/", "etag": '"b"', "last_modified": None, "fetched_at": datetime(2026, 9, 2), "status": "ready", "content_hash": "v3:x"},
         {"id": 3, "url": "https://x.test/weg/", "etag": None, "last_modified": None, "fetched_at": None, "status": "ready"},
     ])
     monkeypatch.setattr(crawler, "page_repo", seiten)
@@ -205,7 +205,7 @@ def test_fehler_einer_seite_stoppt_den_lauf_nicht(monkeypatch):
 
 
 def test_mehrere_sitemaps_und_ausgeschlossene_seiten(monkeypatch):
-    seiten = _Pages([{"id": 7, "url": "https://x.test/b/", "etag": None, "last_modified": None, "fetched_at": None, "status": "ready", "content_hash": "v2:x"}])
+    seiten = _Pages([{"id": 7, "url": "https://x.test/b/", "etag": None, "last_modified": None, "fetched_at": None, "status": "ready", "content_hash": "v3:x"}])
     monkeypatch.setattr(crawler, "page_repo", seiten)
     monkeypatch.setattr(crawler.indexer, "index_markdown", lambda pid, title, md, embed: 1)
     zweite = b'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>https://y.test/z/</loc></url></urlset>'

@@ -1,5 +1,6 @@
 """Loads the place list of the campus map and keeps one indexed page per place."""
 import json
+from pathlib import Path
 from urllib.parse import quote
 
 from src.features.campus.repository import pages as page_repo
@@ -55,6 +56,9 @@ def place_url(map_url: str, place: dict) -> str:
     if not base.endswith("/"):
         base += "/"
     return f"{base}?show={quote(show_param(place))}"
+
+
+BUNDLED_PLACES = Path(__file__).resolve().parents[1] / "data" / "places.json"
 
 
 def parse_places(raw: bytes | str) -> list[dict]:

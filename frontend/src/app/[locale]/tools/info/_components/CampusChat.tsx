@@ -9,24 +9,20 @@ import { ChatInputBar } from "@/app/[locale]/workspace/[uuid]/_components/chat/C
 import CampusNachricht from "./CampusNachricht";
 import type { CampusConfig, CampusNachricht as Nachricht } from "../_types";
 
-const BEISPIELE = ["example1", "example2", "example3", "example4"] as const;
+const BEISPIELE = ["example4", "example1", "example2", "example3"] as const;
 
 export default function CampusChat({
   messages,
   loading,
-  chatFull,
   config,
   onSend,
   onStop,
-  onNewChat,
 }: {
   messages: Nachricht[];
   loading: boolean;
-  chatFull: boolean;
   config: CampusConfig | null;
   onSend: (text: string) => void;
   onStop: () => void;
-  onNewChat: () => void;
 }) {
   const t = useTranslations("tools.campus");
   const listRef = useRef<HTMLDivElement>(null);
@@ -46,7 +42,6 @@ export default function CampusChat({
   };
 
   const empty = messages.length === 0;
-  const inputDisabled = chatFull;
 
   return (
     <div className="flex flex-col flex-1 min-h-0 relative">
@@ -59,7 +54,6 @@ export default function CampusChat({
               </span>
               <div>
                 <h2 className="text-lg font-semibold" style={{ color: "var(--kb)" }}>{t("emptyTitle")}</h2>
-                <p className="text-sm mt-1 max-w-md" style={{ color: "var(--muted)" }}>{t("emptyText")}</p>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-xl" data-testid="campus-examples">
                 {BEISPIELE.map((key) => (
@@ -76,13 +70,12 @@ export default function CampusChat({
               </div>
             </div>
           ) : (
-            messages.map((m, i) => <CampusNachricht key={m.id ?? `m-${i}`} msg={m} mapUrl={config?.map_url ?? ""} />)
-          )}
-          {chatFull && (
-            <div className="flex items-center justify-between gap-3 flex-wrap px-4 py-3 rounded-xl text-sm" style={{ backgroundColor: "rgba(var(--kb-rgb),0.07)", color: "var(--foreground)" }}>
-              <span>{t("chatFull")}</span>
-              <button type="button" onClick={onNewChat} className="px-3 py-1.5 text-sm btn-primary rounded-md transition-colors">{t("newChat")}</button>
-            </div>
+            messages.map((m, i) => (
+              // Extra space where the speaker changes.
+              <div key={m.id ?? `m-${i}`} className={i > 0 && messages[i - 1].role !== m.role ? "mt-5" : undefined}>
+                <CampusNachricht msg={m} mapUrl={config?.map_url ?? ""} isLatest={i === messages.length - 1} />
+              </div>
+            ))
           )}
         </div>
       </div>
@@ -98,7 +91,6 @@ export default function CampusChat({
         onSend={onSend}
         onStop={onStop}
         placeholder={t("inputPlaceholder")}
-        disabled={inputDisabled}
         maxLength={config?.max_question_chars ?? 2000}
       />
       <p className="text-center text-2xs px-6 pt-1.5 pb-2 hide-on-short" style={{ color: "var(--muted)" }}>{t("disclaimer")}</p>

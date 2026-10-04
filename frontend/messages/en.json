@@ -347,7 +347,9 @@
     "francisName": "Francis",
     "francisRole": "Learning assistant",
     "tabAccount": "With account",
-    "tabCode": "With access code"
+    "tabCode": "With access code",
+    "toHome": "Back to home page",
+    "forgot": "Forgot your login details? Please contact us."
   },
   "startOverview": {
     "groups": {
@@ -1722,7 +1724,6 @@
       "retentionHint": "Chats without activity are deleted after {days} days.",
       "closeMenu": "Close history",
       "emptyTitle": "What would you like to know about the university?",
-      "emptyText": "I answer only from the university's web pages and documents and show you the source.",
       "openMenu": "Open history",
       "example1": "Which documents do I need for enrolment?",
       "example2": "Where do I find the student advisory service?",
@@ -1731,11 +1732,12 @@
       "inputPlaceholder": "Your question about the university…",
       "disclaimer": "Answers come from an AI that can make mistakes. The linked source is what counts.",
       "sourcesTitle": "Sources",
+      "sourcesMore": "+{n} more",
+      "sourcesLess": "Show less",
       "stand": "As of {date}",
       "document": "Document",
       "copy": "Copy",
       "scrollToBottom": "Scroll to bottom",
-      "chatFull": "This chat is full. Start a new chat to continue.",
       "noAnswer": "(no answer)",
       "genericError": "Something went wrong.",
       "upstreamBusy": "The AI provider is busy right now. Please try again in a moment.",
@@ -1925,8 +1927,6 @@
         "excludeHint": "One pattern per line, for example /news/. Pages with this pattern are skipped.",
         "mapUrl": "Campus map address",
         "mapHint": "The page of the campus map. Place cards in the chat open it at the right spot.",
-        "placesUrl": "Place list address",
-        "placesHint": "The places.json of the campus map. Or upload it as a file below.",
         "retention": "Keep chats",
         "retentionHint": "Days without activity after which a chat is deleted. 0 keeps all.",
         "days": "days",
@@ -1960,9 +1960,6 @@
             "failed": "failed"
           }
         },
-        "places": {
-          "title": "Upload place list",
-          "hint": "The places.json from the campus map. The places are read in right away.",
         "pages": {
           "title": "Indexed web pages",
           "hint": "Every page the info assistant knows. An excluded page is removed right away and no longer fetched by the refresh.",
@@ -1977,9 +1974,6 @@
           "prev": "Back",
           "next": "Next",
           "status": { "ready": "ready", "pending": "waiting", "failed": "failed" }
-        },
-          "button": "Choose places.json",
-          "done": "{n} places read"
         }
       }
     },
@@ -3756,7 +3750,6 @@
         "emptyFrancisGreeting": "Hi, I'm Francis.",
         "emptyHildeIntro": "Ask me anything about your sources - I'll help you understand, summarize and review.",
         "adaptiveLevel": "Level {level}",
-        "adaptiveOff": "adaptive off",
         "hildeName": "Hilde",
         "francisName": "Francis",
         "noAnswer": "(no answer)",
@@ -4944,7 +4937,7 @@
         "glossary": {
           "lead": "Here you keep your own term lists so that technical terms are translated the same way everywhere.",
           "p1": "An entry consists of the German and the English term",
-          "p2": "The glossary takes effect in translation, screencast and podcast",
+          "p2": "The glossary takes effect in translation and screencast",
           "p3": "Glossaries can be exported and passed on to colleagues",
           "alt": "Glossary with the list of your own term lists"
         }
@@ -5008,7 +5001,8 @@
     "star": "Star",
     "lightbulb": "Idea",
     "qrCode": "QR code",
-    "platform": "KIS platform"
+    "platform": "KIS platform",
+    "campus": "Info assistant"
   },
   "eventAdmin": {
     "stations": {

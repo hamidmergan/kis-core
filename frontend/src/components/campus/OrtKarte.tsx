@@ -25,12 +25,12 @@ export default function OrtKarte({ ort, mapUrl }: { ort: OrtKarteDaten; mapUrl: 
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border-2 border-border hover:border-kb focus:border-kb transition-colors bg-background text-xs max-w-full"
+        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border-2 border-transparent hover:border-kb focus:border-kb transition-colors bg-background text-xs max-w-full"
         title={`${title}\n${t("showOnMap")}`}
         data-testid="campus-place-card"
       >
-        <MapPin size={14} weight="fill" style={{ color: "var(--kb)", flexShrink: 0 }} />
-        <span className="truncate font-medium" style={{ color: "var(--foreground)", maxWidth: 220 }}>{title}</span>
+        <MapPin size={14} weight="fill" style={{ color: "var(--muted)", flexShrink: 0 }} />
+        <span className="truncate" style={{ color: "var(--muted)", maxWidth: 220 }}>{title}</span>
       </button>
       <MapModal open={open} onClose={() => setOpen(false)} mapUrl={mapUrl} show={ort.show} />
     </>

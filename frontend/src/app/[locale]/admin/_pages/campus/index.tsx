@@ -13,7 +13,6 @@ interface Settings {
   url_include: string;
   url_exclude: string;
   map_url: string;
-  places_url: string;
   retention_days: number;
 }
 
@@ -45,7 +44,6 @@ export default function CampusAdminPage() {
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const docRef = useRef<HTMLInputElement>(null);
-  const placesRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
     const out = await backendApi.getJson<Overview>("/admin/campus");
@@ -110,9 +108,6 @@ export default function CampusAdminPage() {
           // The generic text stays.
         }
         setNote(msg);
-      } else if (path.endsWith("/places")) {
-        const out = (await res.json()) as { places: number };
-        setNote(t("places.done", { n: out.places }));
       }
       await load();
     } finally {
@@ -150,7 +145,7 @@ export default function CampusAdminPage() {
         )}
         <div className="mt-4">
           <button type="button" onClick={crawl} disabled={busy || !!status.running} className={`${BTN_PRIMARY} inline-flex items-center gap-1.5`}>
-            <ArrowsClockwise size={15} weight="bold" />
+            <ArrowsClockwise size={15} weight="bold" className={status.running ? "animate-spin" : undefined} />
             {status.running ? t("crawlQueued") : t("crawlNow")}
           </button>
         </div>
@@ -177,19 +172,6 @@ export default function CampusAdminPage() {
       <SettingCard title={t("mapUrl")} description={t("mapHint")}>
         <div className="mt-3 flex flex-col gap-3">
           <input value={form.map_url} onChange={(e) => set({ map_url: e.target.value })} className={INPUT} placeholder="https://" />
-          <label className="flex flex-col gap-1">
-            <span className="text-xs text-muted">{t("placesUrl")}</span>
-            <input value={form.places_url} onChange={(e) => set({ places_url: e.target.value })} className={INPUT} placeholder="https://" />
-            <span className="text-2xs text-muted">{t("placesHint")}</span>
-          </label>
-          <div className="flex items-center gap-3 flex-wrap">
-            <input ref={placesRef} type="file" accept=".json,application/json" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) upload("/admin/campus/places", f); e.target.value = ""; }} />
-            <button type="button" onClick={() => placesRef.current?.click()} disabled={busy} className={`${BTN_SECONDARY} inline-flex items-center gap-1.5`}>
-              <UploadSimple size={15} weight="bold" />
-              {t("places.button")}
-            </button>
-            <span className="text-2xs text-muted">{t("places.hint")}</span>
-          </div>
         </div>
       </SettingCard>
 
