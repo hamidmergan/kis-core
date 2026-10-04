@@ -1091,18 +1091,13 @@ body.is-phone-landscape [title="Panel minimieren"] {
   80%, 100% { transform: rotate(360deg); }
 }
 
-/* A light band sweeping across the waiting text, the way other chat tools show they are working. */
-.text-shimmer {
-  background: linear-gradient(90deg, var(--muted) 0%, var(--muted) 35%, var(--foreground) 50%, var(--muted) 65%, var(--muted) 100%);
-  background-size: 250% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  animation: text-shimmer 2s linear infinite;
+/* The waiting text turns lighter and darker again, the way other chat tools show they are working. */
+.text-puls {
+  animation: text-puls 2.4s ease-in-out infinite;
 }
-@keyframes text-shimmer {
-  from { background-position: 100% 0; }
-  to   { background-position: 0% 0; }
+@keyframes text-puls {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.6; }
 }
 
 @keyframes phase-puls {

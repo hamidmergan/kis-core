@@ -42,7 +42,7 @@ export default function ChatPhaseLine({
       {phase && (
         <span className="flex items-center gap-2">
           <RoteKugel />
-          <span className="text-shimmer">{t(phase)}</span>
+          <span className="text-puls">{t(phase)}</span>
         </span>
       )}
     </div>
