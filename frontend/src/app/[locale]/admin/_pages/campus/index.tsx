@@ -6,6 +6,7 @@ import { ArrowsClockwise, Trash, UploadSimple } from "@phosphor-icons/react";
 import { SettingCard } from "@/app/[locale]/admin/_settings/fields";
 import { backendApi, parseDetail } from "@/lib/api";
 import { formatDate } from "@/lib/format";
+import HelpTooltip from "@/components/ui/HelpTooltip";
 import PagesList from "./PagesList";
 
 interface Settings {
@@ -25,6 +26,7 @@ interface Overview {
     chunks: number;
     last_fetched_at: string | null;
   };
+  limits: { max_pages: number; max_chunks_per_page: number };
   documents: { id: number; filename: string; status: string; chunk_count: number; error_message: string | null; created_at: string | null }[];
 }
 
@@ -140,7 +142,7 @@ export default function CampusAdminPage() {
     <div className="flex flex-col gap-4 max-w-3xl">
       <SettingCard title={t("status.title")}>
         <dl className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
-          <div><dt className="text-xs text-muted">{t("status.pages")}</dt><dd className="font-medium">{sum(pages)}{pages.failed ? ` (${pages.failed} ${t("status.failed")})` : ""}</dd></div>
+          <div><dt className="text-xs text-muted inline-flex items-center gap-1">{t("status.pages")}<HelpTooltip text={t("status.pagesHelp", { max: data.limits.max_pages, chunks: data.limits.max_chunks_per_page })} /></dt><dd className="font-medium">{sum(pages)}{pages.failed ? ` (${pages.failed} ${t("status.failed")})` : ""}</dd></div>
           <div><dt className="text-xs text-muted">{t("status.chunks")}</dt><dd className="font-medium">{data.stats.chunks}</dd></div>
           <div><dt className="text-xs text-muted">{t("status.documents")}</dt><dd className="font-medium">{sum(data.stats.pages.document)}</dd></div>
           <div className="col-span-2"><dt className="text-xs text-muted">{t("status.lastRun")}</dt><dd className="font-medium">{status.running ? t("status.running") : lastRun ?? t("status.never")}</dd></div>

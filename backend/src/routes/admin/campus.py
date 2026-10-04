@@ -14,6 +14,7 @@ from src.features.campus.services import fetch as fetch_mod
 from src.features.campus.services import settings as campus_settings
 from src.features.campus.services import sitemap as sitemap_mod
 from src.i18n import get_locale, t
+from src.limits import CAMPUS_CRAWL_MAX_PAGES, CAMPUS_PAGE_MAX_CHUNKS
 from src.permissions_registry import PERM_SET_CAMPUS
 from src.services import tool_limits
 from src.utils.file_validation import validate_or_raise
@@ -44,6 +45,7 @@ def _overview() -> dict:
         "settings": cfg.as_dict(),
         "status": campus_settings.crawl_status(),
         "stats": page_repo.page_stats(),
+        "limits": {"max_pages": CAMPUS_CRAWL_MAX_PAGES, "max_chunks_per_page": CAMPUS_PAGE_MAX_CHUNKS},
         "documents": [_document(d) for d in page_repo.list_pages(page_repo.KIND_DOCUMENT)],
     }
 
