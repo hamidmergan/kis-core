@@ -226,3 +226,14 @@ def test_marker_trennung():
     assert chat_route.split_marker("NO_SOURCE: nix") == (True, "nix")
     assert chat_route.split_marker("  NO_SOURCE:nix") == (True, "nix")
     assert chat_route.split_marker("Hallo") == (False, "Hallo")
+
+
+async def test_abbruch_waehrend_der_suche_schreibt_nichts(umgebung):
+    class _Weg:
+        async def is_disconnected(self):
+            return True
+
+    body = chat_route.ChatBody(question="Wo ist die Mensa?")
+    resp = await chat_route.campus_chat(body, _Weg(), current_user={"user_id": 7}, llm=_FakeLLM([]), locale="de")
+    assert resp.status_code == 204
+    assert umgebung.created == [] and umgebung.messages == []

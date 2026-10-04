@@ -11,16 +11,18 @@ class SitemapEntry:
     lastmod: str | None
 
 
-def parse(xml_bytes: bytes) -> tuple[list[str], list[SitemapEntry]]:
-    """Child sitemaps of an index file and the page entries of a urlset, either may be empty."""
+def parse(xml_bytes: bytes) -> tuple[list[str], list[SitemapEntry]] | None:
+    """Child sitemaps of an index file and the page entries of a urlset, None when it is no readable sitemap."""
     # A sitemap never needs a DTD, one with entities is refused before the parser sees it.
     head = xml_bytes[:4096].upper()
     if b"<!DOCTYPE" in head or b"<!ENTITY" in head:
-        return [], []
+        return None
     try:
         root = ElementTree.fromstring(xml_bytes)
     except ElementTree.ParseError:
-        return [], []
+        return None
+    if root.tag.replace(_NS, "") not in ("sitemapindex", "urlset"):
+        return None
     children: list[str] = []
     entries: list[SitemapEntry] = []
     for node in root.iter():

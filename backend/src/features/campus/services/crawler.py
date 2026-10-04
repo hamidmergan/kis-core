@@ -32,12 +32,15 @@ def _utcnow() -> datetime:
 
 
 def _parse_lastmod(value: str | None) -> datetime | None:
+    """A date without time counts as the end of that day, a change later that day must not be skipped."""
     if not value:
         return None
     try:
         dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
         return None
+    if "T" not in value and " " not in value.strip():
+        dt = dt.replace(hour=23, minute=59, second=59)
     if dt.tzinfo is not None:
         dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
     return dt
@@ -59,7 +62,12 @@ def collect_entries(client, sitemap_url: str, include: list[str], exclude: list[
             logger.warning("Campus: Sitemap {} nicht lesbar ({})", url, result.error or result.status)
             complete = False
             continue
-        children, found = sitemap.parse(result.body)
+        parsed = sitemap.parse(result.body)
+        if parsed is None:
+            logger.warning("Campus: Sitemap {} ist keine lesbare Sitemap", url)
+            complete = False
+            continue
+        children, found = parsed
         queue.extend(c for c in children if c not in done)
         for e in found:
             if e.url not in entries and sitemap.allowed(e.url, include, exclude):
@@ -70,6 +78,16 @@ def collect_entries(client, sitemap_url: str, include: list[str], exclude: list[
 
 
 def _process(client, entry: sitemap.SitemapEntry, embed, now: datetime, stats: CrawlStats, lock: threading.Lock, fetch_fn) -> None:
+    """One page; a failure counts for this page only and never stops the run."""
+    try:
+        _process_one(client, entry, embed, now, stats, lock, fetch_fn)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("Campus: Seite {} fehlgeschlagen: {}", entry.url, e)
+        with lock:
+            stats.failed += 1
+
+
+def _process_one(client, entry: sitemap.SitemapEntry, embed, now: datetime, stats: CrawlStats, lock: threading.Lock, fetch_fn) -> None:
     # A sitemap entry that is no public web link never gets a row.
     if not fetch_mod.is_web_url(entry.url):
         with lock:

@@ -32,16 +32,21 @@ def run_crawl() -> dict:
     try:
         embed = embedder()
         client = fetch_mod.make_client()
-        if cfg.places_url:
-            result = fetch_mod.fetch_conditional(client, cfg.places_url)
-            if result.status == "ok":
-                status["places"] = places_sync.sync(result.body, cfg.map_url, embed)
+        # A broken place list must not cost the night its page crawl.
+        try:
+            if cfg.places_url:
+                result = fetch_mod.fetch_conditional(client, cfg.places_url)
+                if result.status == "ok":
+                    status["places"] = places_sync.sync(result.body, cfg.map_url, embed)
+                else:
+                    status["places_error"] = result.error or result.status
             else:
-                status["places_error"] = result.error or result.status
-        else:
-            from src import storage
-            if storage.key_file_exists("campus/places.json"):
-                status["places"] = places_sync.sync(storage.get_key_file("campus/places.json"), cfg.map_url, embed)
+                from src import storage
+                if storage.key_file_exists("campus/places.json"):
+                    status["places"] = places_sync.sync(storage.get_key_file("campus/places.json"), cfg.map_url, embed)
+        except Exception as e:  # noqa: BLE001
+            logger.exception("Campus: Ortsliste nicht eingelesen")
+            status["places_error"] = f"{type(e).__name__}: {e}"[:300]
         if cfg.sitemap_url:
             status.update(crawler.run(cfg, embed, client=client))
         status["error"] = None

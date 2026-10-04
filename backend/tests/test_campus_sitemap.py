@@ -31,12 +31,13 @@ def test_urlset_liefert_seiten_mit_aenderungsdatum():
 
 
 def test_kaputtes_xml_ergibt_leer():
-    assert sitemap.parse(b"<urlset><url><loc>x") == ([], [])
+    assert sitemap.parse(b"<urlset><url><loc>x") is None
+    assert sitemap.parse(b"<html><body>Wartung</body></html>") is None
 
 
 def test_xml_mit_entitaeten_wird_abgewiesen():
     boese = b'<?xml version="1.0"?><!DOCTYPE x [<!ENTITY a "aaaa">]><urlset><url><loc>https://x.test/&a;</loc></url></urlset>'
-    assert sitemap.parse(boese) == ([], [])
+    assert sitemap.parse(boese) is None
 
 
 def test_muster_pruefen():

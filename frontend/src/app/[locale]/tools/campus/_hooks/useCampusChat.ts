@@ -144,6 +144,9 @@ export function useCampusChat({ chatId, onChatCreated, onAnswered }: Options) {
                 });
                 setQuestionCount((n) => n + 1);
               } else if (evt.error) {
+                // Tokens still waiting for the next frame must not land behind the error text.
+                if (raf != null) { cancelAnimationFrame(raf); raf = null; }
+                pending = "";
                 const key = evt.code === "upstream_busy" ? "upstreamBusy" : "genericError";
                 updateLast({ content: t(key), failed: true, streaming: false });
               }

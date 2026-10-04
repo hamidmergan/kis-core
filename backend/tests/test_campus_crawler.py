@@ -156,3 +156,49 @@ def test_alte_indexversion_wird_voll_geholt(monkeypatch):
     crawler.run(_einstellungen(), embed=lambda t: [], client=object(), concurrency=1, fetch_fn=fetch_fn)
     # Despite an older lastmod and a stored etag, page a is fetched without validators.
     assert "https://x.test/a/" in gesehen and gesehen["https://x.test/a/"] is None
+
+
+def test_html_statt_teil_sitemap_loescht_nichts(monkeypatch):
+    seiten = _Pages([{"id": 9, "url": "https://x.test/alt/", "etag": None, "last_modified": None, "fetched_at": None, "status": "ready"}])
+    monkeypatch.setattr(crawler, "page_repo", seiten)
+    monkeypatch.setattr(crawler.indexer, "index_markdown", lambda *a, **k: 1)
+
+    def fetch_fn(client, url, etag=None, last_modified=None):
+        if url == "https://x.test/sitemap.xml":
+            return FetchResult("ok", body=b'<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><sitemap><loc>https://x.test/a.xml</loc></sitemap><sitemap><loc>https://x.test/b.xml</loc></sitemap></sitemapindex>')
+        if url == "https://x.test/a.xml":
+            return FetchResult("ok", body=SITEMAP)
+        if url == "https://x.test/b.xml":
+            return FetchResult("ok", body=b"<!DOCTYPE html><html><body>Wartung</body></html>")
+        return FetchResult("ok", body=HTML)
+
+    stats = crawler.run(_einstellungen(), embed=lambda t: [], client=object(), concurrency=1, fetch_fn=fetch_fn)
+    assert seiten.deleted == [] and stats["removed"] == 0
+
+
+def test_datum_ohne_uhrzeit_gilt_bis_tagesende():
+    assert crawler._parse_lastmod("2026-10-04") == datetime(2026, 10, 4, 23, 59, 59)
+    assert crawler._parse_lastmod("2026-10-04T10:00:00+02:00") == datetime(2026, 10, 4, 8, 0, 0)
+
+
+def test_fehler_einer_seite_stoppt_den_lauf_nicht(monkeypatch):
+    seiten = _Pages([])
+    monkeypatch.setattr(crawler, "page_repo", seiten)
+    aufrufe = []
+
+    def index(pid, title, md, embed):
+        aufrufe.append(pid)
+        return 1
+
+    monkeypatch.setattr(crawler.indexer, "index_markdown", index)
+    kaputt = {"n": 0}
+
+    def fetch_fn(client, url, etag=None, last_modified=None):
+        if url == "https://x.test/sitemap.xml":
+            return FetchResult("ok", body=SITEMAP)
+        if url == "https://x.test/a/":
+            raise RuntimeError("Datenbank weg")
+        return FetchResult("ok", body=HTML)
+
+    stats = crawler.run(_einstellungen(), embed=lambda t: [], client=object(), concurrency=1, fetch_fn=fetch_fn)
+    assert stats["failed"] >= 1 and stats["indexed"] == 2

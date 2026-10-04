@@ -20,6 +20,9 @@ export async function POST(req: NextRequest) {
     signal: req.signal,
   });
 
+  // The backend answers 204 when the browser left during the search, a body is not allowed then.
+  if (upstream.status === 204) return new Response(null, { status: 204 });
+
   if (!upstream.ok || !upstream.body) {
     return new Response(await upstream.text(), {
       status: upstream.status,

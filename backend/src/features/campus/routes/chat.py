@@ -6,7 +6,7 @@ import time
 from typing import AsyncGenerator, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from loguru import logger
 from pydantic import BaseModel, Field
 
@@ -111,19 +111,23 @@ async def campus_chat(
         title = chat["title"]
         last_round = chat_repo.last_round(chat_id)
     else:
+        chat_id = None
         title = make_title(question)
-        chat_id = chat_repo.create_chat(user_id, title)
-        chat_repo.enforce_chat_cap(user_id, CAMPUS_MAX_CHATS_PER_USER)
 
     # One small call names the language and makes a follow-up question stand on its own.
     query, answer_language = await asyncio.to_thread(_understand, llm, question, last_round)
-
-    chat_repo.add_message(chat_id, "user", question)
-    chat_repo.count_question(chat_id)
-
     context = await asyncio.to_thread(
         retrieval.build_context, query, _embed_one, chunk_repo.hybrid_search, chunk_repo.neighbors
     )
+
+    # Whoever stopped during the search leaves nothing behind, the chat is only written now.
+    if await request.is_disconnected():
+        return Response(status_code=204)
+    if chat_id is None:
+        chat_id = chat_repo.create_chat(user_id, title)
+        chat_repo.enforce_chat_cap(user_id, CAMPUS_MAX_CHATS_PER_USER)
+    chat_repo.add_message(chat_id, "user", question)
+    chat_repo.count_question(chat_id)
     messages = [
         {"role": "system", "content": prompts.answer_system(answer_language)},
         {"role": "user", "content": prompts.answer_user(context.text or "(no documents found)", question, answer_language)},
@@ -188,7 +192,8 @@ async def campus_chat(
                     yield f"data: {json.dumps({'token': held})}\n\n"
             answer = "".join(parts).strip()
             if status == "cancelled":
-                chat_repo.add_message(chat_id, "assistant", answer, sources=[], places=[], no_source=no_source)
+                if answer:
+                    chat_repo.add_message(chat_id, "assistant", answer, sources=[], places=[], no_source=no_source)
                 saved = True
                 return
             if not answer:
@@ -206,9 +211,10 @@ async def campus_chat(
             yield f"data: {json.dumps({'error': t('job.upstreamBusy', locale), 'code': upstream_error_code(e)})}\n\n"
         finally:
             # A closed connection ends the generator at a yield, the part that arrived is kept.
-            if not saved and status == "ok":
+            partial = "".join(parts).strip()
+            if not saved and status == "ok" and partial:
                 try:
-                    chat_repo.add_message(chat_id, "assistant", "".join(parts).strip(), sources=[], places=[], no_source=no_source)
+                    chat_repo.add_message(chat_id, "assistant", partial, sources=[], places=[], no_source=no_source)
                 except Exception:  # noqa: BLE001
                     logger.warning("Campus: abgebrochene Antwort nicht gespeichert")
             log_request(
