@@ -3,6 +3,7 @@
 import { useLocale, useTranslations } from "next-intl";
 
 import Modal from "@/components/ui/Modal";
+import { getPathname } from "@/i18n/navigation";
 import { mapLink } from "@/lib/campus/mapLink";
 
 type Props = { open: boolean; onClose: () => void; mapUrl: string; show?: string };
@@ -12,19 +13,21 @@ export default function MapModal({ open, onClose, mapUrl, show }: Props) {
   const t = useTranslations("campusMap");
   const locale = useLocale();
   const src = mapLink(mapUrl, locale, show);
+  // The new tab stays inside KIS, the page there embeds the same widget.
+  const pageHref = getPathname({ href: { pathname: "/campusmap", query: show ? { show } : {} }, locale });
   return (
     <Modal
       open={open}
       onClose={onClose}
-      title={t("title")}
-      size="xl"
-      footer={
-        <a href={src} target="_blank" rel="noopener noreferrer" className="btn-cancel px-4 py-2 text-sm btn-secondary rounded-lg">
+      size="full"
+      flush
+      title={
+        <a href={pageHref} target="_blank" rel="noopener noreferrer" className="btn-cancel px-3 py-1 text-sm btn-secondary rounded-lg">
           {t("openInNewTab")}
         </a>
       }
     >
-      <div className="relative w-full overflow-hidden rounded-lg" style={{ height: "min(70dvh, 560px)" }}>
+      <div className="relative w-full overflow-hidden rounded-b-xl" style={{ height: "calc(100dvh - 6rem)" }}>
         <iframe
           src={src}
           title={t("title")}

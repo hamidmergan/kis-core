@@ -11,7 +11,8 @@ interface ModalProps {
   title?: ReactNode;
   children: ReactNode;
   footer?: ReactNode;
-  size?: "sm" | "md" | "lg" | "xl";
+  flush?: boolean;
+  size?: "sm" | "md" | "lg" | "xl" | "full";
   closeOnBackdropClick?: boolean;
   closeOnEscape?: boolean;
   className?: string;
@@ -22,6 +23,7 @@ const sizeClass: Record<NonNullable<ModalProps["size"]>, string> = {
   md: "max-w-lg",
   lg: "max-w-2xl",
   xl: "max-w-4xl",
+  full: "max-w-[1400px]",
 };
 
 type Area = { left: number; top: number; width: number; height: number };
@@ -51,6 +53,7 @@ export default function Modal({
   title,
   children,
   footer,
+  flush = false,
   size = "md",
   closeOnBackdropClick = true,
   closeOnEscape = true,
@@ -113,7 +116,7 @@ export default function Modal({
               type="button"
               onClick={onClose}
               aria-label={t("close")}
-              className="w-7 h-7 flex-shrink-0 inline-flex items-center justify-center rounded-full btn-icon transition-colors"
+              className="w-7 h-7 flex-shrink-0 inline-flex items-center justify-center rounded-full btn-icon dark:text-white dark:hover:!text-white transition-colors"
               style={{ backgroundColor: "var(--surface-dim)" }}
             >
               <svg
@@ -133,7 +136,7 @@ export default function Modal({
           </div>
         )}
 
-        <div className="px-5 py-4 overflow-y-auto flex-1">{children}</div>
+        <div className={`${flush ? "" : "px-5 py-4"} overflow-y-auto flex-1`}>{children}</div>
 
         {footer && (
           <div
