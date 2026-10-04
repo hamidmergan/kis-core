@@ -145,7 +145,7 @@ export default function CampusAdminPage() {
           <div><dt className="text-xs text-muted inline-flex items-center gap-1">{t("status.pages")}<HelpTooltip text={t("status.pagesHelp", { max: data.limits.max_pages, chunks: data.limits.max_chunks_per_page })} /></dt><dd className="font-medium">{sum(pages)}{pages.failed ? ` (${pages.failed} ${t("status.failed")})` : ""}</dd></div>
           <div><dt className="text-xs text-muted">{t("status.chunks")}</dt><dd className="font-medium">{data.stats.chunks}</dd></div>
           <div><dt className="text-xs text-muted">{t("status.documents")}</dt><dd className="font-medium">{sum(data.stats.pages.document)}</dd></div>
-          <div className="col-span-2"><dt className="text-xs text-muted">{t("status.lastRun")}</dt><dd className="font-medium">{status.running ? t("status.running") : lastRun ?? t("status.never")}</dd></div>
+          <div className="col-span-2"><dt className="text-xs text-muted inline-flex items-center gap-1">{t("status.lastRun")}<HelpTooltip text={t("status.lastRunHelp")} /></dt><dd className="font-medium">{status.running ? t("status.running") : lastRun ?? t("status.never")}</dd></div>
         </dl>
         {typeof status.error === "string" && status.error && (
           <p className="mt-2 text-xs" style={{ color: "var(--error)" }}>{t("status.error")}: {status.error}</p>
