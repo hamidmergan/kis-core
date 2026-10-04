@@ -100,14 +100,6 @@ export default function ChatVerlauf({
 
   return (
     <div className="flex flex-col h-full min-h-0" data-testid="campus-history">
-      <Link
-        href="/services"
-        className="inline-flex items-center gap-1 self-start ml-3 mt-1 py-2 pr-3 mb-1 md:mt-2.5 md:py-0 md:pr-0 md:mb-0 text-sm font-medium no-underline opacity-60 hover:opacity-100 transition-opacity"
-        style={{ color: "var(--muted)" }}
-      >
-        <CaretLeft size={13} weight="bold" />
-        <span>{tCommon("backToTools")}</span>
-      </Link>
       <div className="flex items-center justify-between pl-4 pr-2 flex-shrink-0" style={{ height: 48 }}>
         <Link href="/" aria-label={tHeader("homeAria")} title={tHeader("homeAria")} className="flex items-center no-underline logo-link">
           <Image src="/logos/kis-logo.svg" alt="KIS" width={228} height={78} className="h-6 w-auto" />
@@ -181,11 +173,23 @@ export default function ChatVerlauf({
           ),
         )}
       </div>
-      {retentionDays > 0 && (
-        <p className="text-2xs px-4 py-2 flex-shrink-0" style={{ color: "var(--muted)", borderTop: "1px solid var(--border-soft)" }}>
-          {t("retentionHint", { days: retentionDays })}
-        </p>
-      )}
+      {/* The way back sits at the foot, away from the logo and the toggle at the top. */}
+      <div className="flex-shrink-0 px-2 pt-2 pb-3" style={{ borderTop: "1px solid var(--border-soft)" }}>
+        <Link
+          href="/services"
+          className="flex items-center gap-1.5 px-2 py-1.5 text-sm font-medium no-underline opacity-70 hover:opacity-100 transition-opacity"
+          style={{ color: "var(--muted)" }}
+          data-testid="campus-back-services"
+        >
+          <CaretLeft size={13} weight="bold" />
+          <span>{tCommon("backToTools")}</span>
+        </Link>
+        {retentionDays > 0 && (
+          <p className="text-2xs px-2 pt-1" style={{ color: "var(--muted)" }}>
+            {t("retentionHint", { days: retentionDays })}
+          </p>
+        )}
+      </div>
       <Modal
         open={confirm !== null}
         onClose={() => (busy ? undefined : setConfirm(null))}

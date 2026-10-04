@@ -28,8 +28,7 @@ test.describe("Campus-Assistent", () => {
     const leiste = page.locator('[data-testid="campus-history"]');
     await expect(leiste).toBeVisible({ timeout: 30_000 });
 
-    await expect(leiste.getByRole("link").first()).toHaveAttribute("href", /\/services$/);
-    await expect(leiste.getByRole("link").nth(1)).toHaveAttribute("href", /^\/(en)?$/);
+    await expect(leiste.locator('[data-testid="campus-back-services"]')).toHaveAttribute("href", /\/services$/);
     await expect(page.locator('a[href$="/services"]:visible')).toHaveCount(1);
 
     await page.locator('[data-testid="campus-sidebar-toggle"]').click();
