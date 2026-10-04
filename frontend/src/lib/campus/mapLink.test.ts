@@ -8,6 +8,11 @@ describe("mapLink", () => {
   it("adds the place and encodes it", () => {
     expect(mapLink("https://map.test/campus-map/", "de", "MFC 8")).toBe("https://map.test/campus-map/?lang=de&show=MFC+8");
   });
+  it("adds the partner and its two links", () => {
+    expect(mapLink("https://map.test/", "de", undefined, { home: "https://k.test/", back: "https://k.test/services" })).toBe(
+      "https://map.test/?lang=de&partner=kis&home=https%3A%2F%2Fk.test%2F&back=https%3A%2F%2Fk.test%2Fservices",
+    );
+  });
   it("replaces a language already in the link", () => {
     expect(mapLink("https://map.test/?lang=de", "en")).toBe("https://map.test/?lang=en");
   });
