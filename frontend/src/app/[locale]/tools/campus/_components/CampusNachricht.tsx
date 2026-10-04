@@ -44,6 +44,11 @@ function CampusNachrichtInner({
           </div>
         )}
         <div className="min-w-0 flex-1">
+          {!isUser && !waiting && !msg.streaming && !msg.failed && msg.places.length > 0 && (
+            <div className={`${KARTEN_RASTER} mb-2`}>
+              {msg.places.map((ort) => <OrtKarte key={ort.id} ort={ort} mapUrl={mapUrl} />)}
+            </div>
+          )}
           {waiting ? (
             <WartezeileCampus metaArrived={!!msg.metaArrived} />
           ) : (
@@ -88,11 +93,6 @@ function CampusNachrichtInner({
 
           {!isUser && !msg.streaming && !msg.failed && (
             <>
-              {msg.places.length > 0 && (
-                <div className={`${KARTEN_RASTER} mt-2`}>
-                  {msg.places.map((ort) => <OrtKarte key={ort.id} ort={ort} mapUrl={mapUrl} />)}
-                </div>
-              )}
               <QuellenKarten quellen={msg.sources} />
               {msg.content && (
                 <div className="flex items-center gap-1 mt-1.5">
