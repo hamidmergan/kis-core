@@ -79,7 +79,7 @@ export default function ChatVerlauf({
           aria-label={toggleLabel}
           title={toggleLabel}
           aria-expanded={false}
-          className="w-11 h-9 flex items-center justify-center rounded-full btn-icon"
+          className="w-11 h-9 flex items-center justify-center logo-link"
           data-testid="campus-sidebar-toggle"
         >
           <Image src="/logos/kis-vogel.svg" alt="" width={154} height={78} className="h-5 w-auto" />
