@@ -177,6 +177,14 @@ def test_titel_wird_am_wort_gekuerzt():
     assert lang.endswith("…") and len(lang) <= 61 and " " in lang and not lang.endswith(" …")
 
 
+def test_ortsseiten_treten_hinter_die_ortskarte():
+    seiten = [{"kind": "place", "title": "Mensa"}, {"kind": "page", "title": "Wohnen"}, {"kind": "place", "title": "Cafeteria"}]
+    assert chat_route.pick_sources(seiten, [{"id": "Mensa_B_59"}]) == [{"kind": "page", "title": "Wohnen"}]
+    assert chat_route.pick_sources(seiten, []) == seiten
+    viele = [{"kind": "page", "title": str(i)} for i in range(9)]
+    assert len(chat_route.pick_sources(viele, [])) == chat_route.CAMPUS_SOURCE_CARDS_MAX
+
+
 def test_marker_trennung():
     assert chat_route.split_marker("NO_SOURCE: nix") == (True, "nix")
     assert chat_route.split_marker("  NO_SOURCE:nix") == (True, "nix")

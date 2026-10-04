@@ -3,16 +3,17 @@
 import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { MapPin } from "@phosphor-icons/react";
-import OrtModal from "./OrtModal";
+import MapModal from "./MapModal";
 
 export interface OrtKarteDaten {
   id: string;
   code: string | null;
   title: { de?: string; en?: string };
+  /** What the map's show parameter expects. */
   show: string;
 }
 
-/** A card per place the answer mentions, the click opens the campus map. */
+/** A card per place an answer mentions, the click opens the campus map at that place. */
 export default function OrtKarte({ ort, mapUrl }: { ort: OrtKarteDaten; mapUrl: string }) {
   const t = useTranslations("campusMap");
   const locale = useLocale();
@@ -33,7 +34,7 @@ export default function OrtKarte({ ort, mapUrl }: { ort: OrtKarteDaten; mapUrl: 
           <span className="block text-2xs" style={{ color: "var(--muted)" }}>{t("showOnMap")}</span>
         </span>
       </button>
-      <OrtModal open={open} onClose={() => setOpen(false)} mapUrl={mapUrl} show={ort.show} title={title} />
+      <MapModal open={open} onClose={() => setOpen(false)} mapUrl={mapUrl} show={ort.show} />
     </>
   );
 }

@@ -29,10 +29,14 @@ export function useCampusChat({ chatId, onChatCreated, onAnswered }: Options) {
   const [chatFull, setChatFull] = useState(false);
   const [questionCount, setQuestionCount] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
-  // The id the running stream belongs to, so a late event never lands in another chat.
-  const streamChatRef = useRef<number | null>(null);
+  // The chat the running stream just opened, so switching to it must not abort or reload.
+  const createdRef = useRef<number | null>(null);
 
   useEffect(() => {
+    if (chatId !== null && createdRef.current === chatId) {
+      createdRef.current = null;
+      return;
+    }
     abortRef.current?.abort();
     setChatFull(false);
     if (chatId === null) {
@@ -77,7 +81,6 @@ export function useCampusChat({ chatId, onChatCreated, onAnswered }: Options) {
       ]);
       const ac = new AbortController();
       abortRef.current = ac;
-      streamChatRef.current = chatId;
       let timer: ReturnType<typeof setTimeout> | null = null;
       let timedOut = false;
       const resetTimer = () => {
@@ -124,7 +127,10 @@ export function useCampusChat({ chatId, onChatCreated, onAnswered }: Options) {
               } else if (evt.meta) {
                 answeredChat = evt.meta.chat_id;
                 updateLast({ metaArrived: true });
-                if (chatId === null) onChatCreated(evt.meta.chat_id, evt.meta.title);
+                if (chatId === null) {
+                  createdRef.current = evt.meta.chat_id;
+                  onChatCreated(evt.meta.chat_id, evt.meta.title);
+                }
               } else if (evt.done) {
                 if (raf != null) { cancelAnimationFrame(raf); raf = null; }
                 flush();

@@ -46,7 +46,9 @@ export default function CampusTopbar({
       >
         <Image src="/logos/kis-logo.svg" alt="KIS" width={228} height={78} className="h-6 w-auto" />
       </Link>
-      <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
+      {/* Centred on wide screens, next to the logo on the phone where the middle is too narrow. */}
+      <h1 className="md:hidden ml-3 text-base font-bold truncate min-w-0" style={{ color: "var(--kb)" }}>{title}</h1>
+      <span className="hidden md:flex absolute inset-0 items-center justify-center pointer-events-none">
         <h1 className="text-lg font-bold truncate pointer-events-auto select-text" style={{ color: "var(--kb)", maxWidth: "calc(100% - 16rem)" }}>
           {title}
         </h1>

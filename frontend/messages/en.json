@@ -37,8 +37,9 @@
     "privacy": "Privacy"
   },
   "campusMap": {
-    "showOnMap": "Show on the campus map",
+    "title": "Campus map",
     "openInNewTab": "Open in new tab",
+    "showOnMap": "Show on the campus map",
     "close": "Close"
   },
   "languageSwitch": {
@@ -1723,7 +1724,7 @@
       "closeMenu": "Close history",
       "emptyTitle": "What would you like to know about the university?",
       "emptyText": "I answer only from the university's web pages and documents and show you the source.",
-      "example1": "When is the re-registration deadline?",
+      "example1": "Which documents do I need for enrolment?",
       "example2": "Where do I find the student advisory service?",
       "example3": "How do I apply for a master's programme?",
       "example4": "What are the opening hours of the Mensa?",

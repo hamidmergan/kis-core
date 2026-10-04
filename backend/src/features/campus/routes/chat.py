@@ -72,6 +72,13 @@ def _embed_one(text: str) -> list[float]:
     return get_embedding_provider_with_fallback().embed_one(text)
 
 
+def pick_sources(sources: list[dict], places: list[dict]) -> list[dict]:
+    """The source cards of an answer; place pages step back once a place card stands for them."""
+    if places:
+        sources = [s for s in sources if s.get("kind") != "place"]
+    return sources[:CAMPUS_SOURCE_CARDS_MAX]
+
+
 def split_marker(text: str) -> tuple[bool, str]:
     """Whether the answer starts with the no-source marker, and the text without it."""
     stripped = text.lstrip()
@@ -188,8 +195,8 @@ async def campus_chat(
                 status = "error"
                 yield f"data: {json.dumps({'error': t('job.upstreamBusy', locale), 'code': 'empty_answer'})}\n\n"
                 return
-            sources = [] if no_source else context.sources[:CAMPUS_SOURCE_CARDS_MAX]
             places = [] if no_source else find_places(answer, place_repo.all_places())
+            sources = [] if no_source else pick_sources(context.sources, places)
             message_id = chat_repo.add_message(chat_id, "assistant", answer, sources=sources, places=places, no_source=no_source)
             yield f"data: {json.dumps({'done': True, 'answer': answer, 'sources': sources, 'places': places, 'no_source': no_source, 'message_id': message_id})}\n\n"
         except Exception as e:  # noqa: BLE001

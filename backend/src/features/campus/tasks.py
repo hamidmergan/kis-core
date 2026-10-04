@@ -14,7 +14,8 @@ from src.limits import CAMPUS_CRAWL_TIME_LIMIT_SECONDS
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+    """UTC without offset, the form the rest of the backend hands to the browser."""
+    return datetime.now(timezone.utc).replace(microsecond=0, tzinfo=None).isoformat()
 
 
 @celery_app.task(

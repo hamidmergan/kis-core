@@ -39,7 +39,7 @@ def answer_system(answer_language: str | None) -> str:
         "followed by one or two sentences in the language of the question saying that this information is not in "
         "the available sources. If a document names an office or contact responsible for the topic, name it in that "
         "sentence. Never guess and never answer partially from your own knowledge.\n"
-        f"3. {lang_rule}\n"
+        f"3. {lang_rule} Address the reader informally where the language distinguishes (German: du).\n"
         "4. Be concrete and short: dates, deadlines, rooms, opening hours and amounts stand in the documents, "
         "quote them exactly. Three to eight sentences or a short list, markdown headings only for long answers.\n"
         "5. Write building codes exactly as the documents write them (for example A.1, B.59, MFC 7).\n"

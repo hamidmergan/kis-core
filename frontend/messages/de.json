@@ -37,8 +37,9 @@
     "privacy": "Datenschutz"
   },
   "campusMap": {
-    "showOnMap": "Auf der Campus Map zeigen",
+    "title": "Campusplan",
     "openInNewTab": "In neuem Tab öffnen",
+    "showOnMap": "Auf dem Campusplan zeigen",
     "close": "Schließen"
   },
   "languageSwitch": {
@@ -1723,7 +1724,7 @@
       "closeMenu": "Verlauf schließen",
       "emptyTitle": "Was möchtest du über die Hochschule wissen?",
       "emptyText": "Ich antworte nur aus den Webseiten und Unterlagen der Hochschule und zeige dir die Quelle dazu.",
-      "example1": "Wann ist die Rückmeldefrist?",
+      "example1": "Welche Unterlagen brauche ich für die Einschreibung?",
       "example2": "Wo finde ich die Studienberatung?",
       "example3": "Wie bewerbe ich mich für einen Masterstudiengang?",
       "example4": "Welche Öffnungszeiten hat die Mensa?",
