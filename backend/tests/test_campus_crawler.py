@@ -69,8 +69,8 @@ def _einstellungen():
 
 def test_unveraendert_gelöscht_und_neu(monkeypatch):
     seiten = _Pages([
-        {"id": 1, "url": "https://x.test/a/", "etag": '"a"', "last_modified": None, "fetched_at": datetime(2026, 9, 2), "status": "ready"},
-        {"id": 2, "url": "https://x.test/b/", "etag": '"b"', "last_modified": None, "fetched_at": datetime(2026, 9, 2), "status": "ready"},
+        {"id": 1, "url": "https://x.test/a/", "etag": '"a"', "last_modified": None, "fetched_at": datetime(2026, 9, 2), "status": "ready", "content_hash": "v2:x"},
+        {"id": 2, "url": "https://x.test/b/", "etag": '"b"', "last_modified": None, "fetched_at": datetime(2026, 9, 2), "status": "ready", "content_hash": "v2:x"},
         {"id": 3, "url": "https://x.test/weg/", "etag": None, "last_modified": None, "fetched_at": None, "status": "ready"},
     ])
     monkeypatch.setattr(crawler, "page_repo", seiten)
@@ -139,3 +139,20 @@ def test_leere_sitemap_loescht_nichts(monkeypatch):
     leer = b'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>'
     stats = crawler.run(_einstellungen(), embed=lambda t: [], client=object(), fetch_fn=lambda c, u, e=None, l=None: FetchResult("ok", body=leer))
     assert seiten.deleted == [] and stats["removed"] == 0
+
+
+def test_alte_indexversion_wird_voll_geholt(monkeypatch):
+    seiten = _Pages([{"id": 1, "url": "https://x.test/a/", "etag": '"a"', "last_modified": None, "fetched_at": datetime(2026, 9, 2), "status": "ready", "content_hash": "abc"}])
+    monkeypatch.setattr(crawler, "page_repo", seiten)
+    monkeypatch.setattr(crawler.indexer, "index_markdown", lambda *a, **k: 1)
+    gesehen = {}
+
+    def fetch_fn(client, url, etag=None, last_modified=None):
+        if url == "https://x.test/sitemap.xml":
+            return FetchResult("ok", body=SITEMAP)
+        gesehen[url] = etag
+        return FetchResult("ok", body=HTML)
+
+    crawler.run(_einstellungen(), embed=lambda t: [], client=object(), concurrency=1, fetch_fn=fetch_fn)
+    # Despite an older lastmod and a stored etag, page a is fetched without validators.
+    assert "https://x.test/a/" in gesehen and gesehen["https://x.test/a/"] is None

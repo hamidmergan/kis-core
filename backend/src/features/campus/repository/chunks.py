@@ -1,4 +1,6 @@
 """Chunks of the campus index and the hybrid search over them."""
+import re
+
 import psycopg2.extras
 
 from src.core.db.pool import get_connection
@@ -43,6 +45,43 @@ def set_embeddings(pairs: list[tuple[int, list[float]]]) -> None:
         conn.commit()
 
 
+_WORD_RE = re.compile(r"\w+", re.UNICODE)
+# A word in more than this share of all chunks says nothing about the question, in any language.
+_COMMON_SHARE = 0.05
+_MAX_TERMS = 6
+
+
+def query_words(text: str) -> list[str]:
+    """The distinct words of a question, lower case, in order."""
+    seen: dict[str, None] = {}
+    for w in _WORD_RE.findall(text.lower()):
+        if len(w) >= 2 and not w.startswith("_"):
+            seen.setdefault(w, None)
+    return list(seen)
+
+
+def pick_rare(counts: dict[str, int], total: int, max_terms: int = _MAX_TERMS) -> list[str]:
+    """Words that occur at all but in few chunks, rarest first."""
+    limit = max(1, int(total * _COMMON_SHARE))
+    rare = [(n, w) for w, n in counts.items() if 0 < n <= limit]
+    return [w for _, w in sorted(rare)[:max_terms]]
+
+
+def _rare_terms(cur, query_text: str) -> list[str]:
+    words = query_words(query_text)[:30]
+    if not words:
+        return []
+    cur.execute(
+        """SELECT t, (SELECT COUNT(*) FROM campus_chunks c WHERE c.search_vector @@ plainto_tsquery('simple', t))
+           FROM unnest(%s::text[]) AS t""",
+        (words,),
+    )
+    counts = {row[0]: row[1] for row in cur.fetchall()}
+    cur.execute("SELECT COUNT(*) FROM campus_chunks")
+    total = cur.fetchone()[0]
+    return pick_rare(counts, total)
+
+
 _HIT_COLS = """c.id, c.page_id, c.position, c.heading, c.content,
                p.url, p.title, p.kind, p.filename, p.fetched_at"""
 
@@ -73,14 +112,18 @@ def hybrid_search(query_text: str, query_embedding: list[float] | None, limit: i
                     (str(list(query_embedding)), len(query_embedding), str(list(query_embedding)), _ARM_LIMIT),
                 )
                 vec_rows = cur.fetchall()
-            cur.execute(
-                """SELECT c.id, ROW_NUMBER() OVER (ORDER BY ts_rank_cd(c.search_vector, q) DESC) AS rank
-                   FROM campus_chunks c, websearch_to_tsquery('simple', %s) q
-                   WHERE c.search_vector @@ q
-                   LIMIT %s""",
-                (query_text, _ARM_LIMIT),
-            )
-            kw_rows = cur.fetchall()
+            kw_rows = []
+            terms = _rare_terms(cur, query_text)
+            if terms:
+                cur.execute(
+                    """SELECT id, rank FROM (
+                           SELECT c.id, ROW_NUMBER() OVER (ORDER BY ts_rank_cd(c.search_vector, q) DESC, c.id) AS rank
+                           FROM campus_chunks c, to_tsquery('simple', %s) q
+                           WHERE c.search_vector @@ q) r
+                       ORDER BY rank LIMIT %s""",
+                    (" | ".join(terms), _ARM_LIMIT),
+                )
+                kw_rows = cur.fetchall()
             scores, kw_ids = _rrf_fuse(vec_rows, kw_rows, _RRF_K)
             if not scores:
                 return []

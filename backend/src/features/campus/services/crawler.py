@@ -9,7 +9,7 @@ from loguru import logger
 from src.features.campus.repository import pages as page_repo
 from src.features.campus.services import fetch as fetch_mod
 from src.features.campus.services import indexer, sitemap
-from src.features.campus.services.extract import extract_markdown
+from src.features.campus.services.extract import extract_markdown, is_current
 from src.features.campus.services.settings import CampusSettings
 from src.limits import CAMPUS_CRAWL_CONCURRENCY, CAMPUS_CRAWL_MAX_PAGES
 
@@ -80,11 +80,14 @@ def _process(client, entry: sitemap.SitemapEntry, embed, now: datetime, stats: C
         page_id = page_repo.upsert_page(page_repo.KIND_PAGE, entry.url)
         page = {"id": page_id, "etag": None, "last_modified": None, "fetched_at": None, "status": "pending"}
     lastmod = _parse_lastmod(entry.lastmod)
-    if page.get("status") == "ready" and page.get("fetched_at") and lastmod and lastmod <= page["fetched_at"]:
+    # A page indexed by an older version is fetched in full, whatever the server says about changes.
+    current = page.get("status") == "ready" and is_current(page.get("content_hash"))
+    if current and page.get("fetched_at") and lastmod and lastmod <= page["fetched_at"]:
         with lock:
             stats.skipped += 1
         return
-    result = fetch_fn(client, entry.url, page.get("etag"), page.get("last_modified"))
+    etag, last_modified = (page.get("etag"), page.get("last_modified")) if current else (None, None)
+    result = fetch_fn(client, entry.url, etag, last_modified)
     if result.status == "unchanged":
         page_repo.set_page_fetch(page["id"], page.get("etag"), page.get("last_modified"), now)
         with lock:

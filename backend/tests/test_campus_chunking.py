@@ -38,3 +38,14 @@ def test_langer_abschnitt_wird_geteilt_und_behaelt_die_kette():
 def test_text_ohne_ueberschrift():
     chunks = split_markdown("Nur ein Absatz ohne Überschrift.")
     assert chunks == [{"position": 0, "heading": None, "content": "Nur ein Absatz ohne Überschrift."}]
+
+
+def test_reste_wie_cookie_hinweise_fallen_weg():
+    md = "# Labor\n\n" + ("Das Labor bietet Messplätze für eingebettete Systeme und Mikrocontroller. " * 6) + "\n\n## Cookies\n\nDatenschutzerklärung des Anbieters.\n\n\t | Anbieter: | guestoo.de |\n"
+    chunks = split_markdown(md, piece_chars=300, overlap=50)
+    assert chunks and not any("guestoo" in c["content"] for c in chunks)
+    assert all("\t" not in c["content"] for c in chunks)
+
+
+def test_kurze_seite_behaelt_ihren_text():
+    assert split_markdown("# Kontakt\n\nTelefon 0451 300 5000.")[0]["content"] == "Kontakt\nTelefon 0451 300 5000."

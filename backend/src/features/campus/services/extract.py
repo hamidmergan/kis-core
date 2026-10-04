@@ -39,5 +39,14 @@ def extract_markdown(html: bytes | str, url: str) -> Extracted | None:
     return Extracted(title=title[:200], markdown=markdown)
 
 
+# Raised whenever extraction or chunking changes, pages with an older mark are read again in full.
+INDEX_VERSION = 2
+HASH_PREFIX = f"v{INDEX_VERSION}:"
+
+
 def content_hash(markdown: str) -> str:
-    return hashlib.sha256(markdown.encode("utf-8")).hexdigest()
+    return HASH_PREFIX + hashlib.sha256(markdown.encode("utf-8")).hexdigest()
+
+
+def is_current(digest: str | None) -> bool:
+    return bool(digest) and digest.startswith(HASH_PREFIX)
