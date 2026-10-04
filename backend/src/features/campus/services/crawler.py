@@ -43,11 +43,12 @@ def _parse_lastmod(value: str | None) -> datetime | None:
     return dt
 
 
-def collect_entries(client, sitemap_url: str, include: list[str], exclude: list[str], fetch_fn=fetch_mod.fetch_conditional) -> list[sitemap.SitemapEntry]:
-    """Follows index files and returns the allowed page entries, each url once."""
+def collect_entries(client, sitemap_url: str, include: list[str], exclude: list[str], fetch_fn=fetch_mod.fetch_conditional) -> tuple[list[sitemap.SitemapEntry], bool]:
+    """Follows index files and returns the allowed page entries, each url once, and whether every sitemap was read."""
     queue = [sitemap_url]
     done: set[str] = set()
     entries: dict[str, sitemap.SitemapEntry] = {}
+    complete = True
     while queue and len(done) < _MAX_SITEMAPS:
         url = queue.pop(0)
         if url in done:
@@ -56,13 +57,16 @@ def collect_entries(client, sitemap_url: str, include: list[str], exclude: list[
         result = fetch_fn(client, url)
         if result.status != "ok":
             logger.warning("Campus: Sitemap {} nicht lesbar ({})", url, result.error or result.status)
+            complete = False
             continue
         children, found = sitemap.parse(result.body)
         queue.extend(c for c in children if c not in done)
         for e in found:
             if e.url not in entries and sitemap.allowed(e.url, include, exclude):
                 entries[e.url] = e
-    return list(entries.values())
+    if queue:
+        complete = False
+    return list(entries.values()), complete
 
 
 def _process(client, entry: sitemap.SitemapEntry, embed, now: datetime, stats: CrawlStats, lock: threading.Lock, fetch_fn) -> None:
@@ -134,15 +138,15 @@ def run(
     client = client or fetch_mod.make_client()
     include = sitemap.parse_patterns(settings.url_include)
     exclude = sitemap.parse_patterns(settings.url_exclude)
-    entries = collect_entries(client, settings.sitemap_url, include, exclude, fetch_fn)
+    entries, complete = collect_entries(client, settings.sitemap_url, include, exclude, fetch_fn)
     stats.seen = len(entries)
     entries = entries[:max_pages]
     lock = threading.Lock()
     with ThreadPoolExecutor(max_workers=max(1, concurrency)) as pool:
         list(pool.map(lambda e: _process(client, e, embed, now, stats, lock, fetch_fn), entries))
     wanted = {e.url for e in entries}
-    # Pages beyond the cap were never visited this run and must not be mistaken for gone.
-    if stats.seen <= max_pages:
+    # Only a full, non-empty read of the sitemap may count missing pages as gone.
+    if complete and entries and stats.seen <= max_pages:
         for url, page_id in page_repo.list_page_urls(page_repo.KIND_PAGE).items():
             if url not in wanted:
                 page_repo.delete_page(page_id)

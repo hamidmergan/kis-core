@@ -114,3 +114,28 @@ def test_obergrenze_laesst_den_rest_stehen(monkeypatch):
     assert stats["indexed"] == 2 and stats["seen"] == 4
     # Nothing was removed, the run did not see every page.
     assert seiten.deleted == []
+
+
+def test_unlesbare_teil_sitemap_loescht_nichts(monkeypatch):
+    seiten = _Pages([{"id": 9, "url": "https://x.test/alt/", "etag": None, "last_modified": None, "fetched_at": None, "status": "ready"}])
+    monkeypatch.setattr(crawler, "page_repo", seiten)
+
+    def fetch_fn(client, url, etag=None, last_modified=None):
+        if url == "https://x.test/sitemap.xml":
+            return FetchResult("ok", body=b'<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><sitemap><loc>https://x.test/a.xml</loc></sitemap><sitemap><loc>https://x.test/b.xml</loc></sitemap></sitemapindex>')
+        if url == "https://x.test/a.xml":
+            return FetchResult("ok", body=SITEMAP)
+        if url == "https://x.test/b.xml":
+            return FetchResult("error", error="http 500")
+        return FetchResult("unchanged")
+
+    stats = crawler.run(_einstellungen(), embed=lambda t: [], client=object(), concurrency=1, fetch_fn=fetch_fn)
+    assert stats["removed"] == 0 and seiten.deleted == []
+
+
+def test_leere_sitemap_loescht_nichts(monkeypatch):
+    seiten = _Pages([{"id": 9, "url": "https://x.test/alt/", "etag": None, "last_modified": None, "fetched_at": None, "status": "ready"}])
+    monkeypatch.setattr(crawler, "page_repo", seiten)
+    leer = b'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>'
+    stats = crawler.run(_einstellungen(), embed=lambda t: [], client=object(), fetch_fn=lambda c, u, e=None, l=None: FetchResult("ok", body=leer))
+    assert seiten.deleted == [] and stats["removed"] == 0
