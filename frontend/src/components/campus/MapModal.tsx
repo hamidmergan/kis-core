@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import { useLocale, useTranslations } from "next-intl";
 
 import Modal from "@/components/ui/Modal";
@@ -13,6 +14,7 @@ export default function MapModal({ open, onClose, mapUrl, show }: Props) {
   const t = useTranslations("campusMap");
   const locale = useLocale();
   const from = usePathname();
+  const frame = useRef<HTMLIFrameElement>(null);
   const src = mapLink(mapUrl, locale, show);
   // The new tab stays inside KIS, the page there embeds the same widget and links back to this page.
   const pageHref = getPathname({ href: { pathname: "/campusmap", query: { ...(show ? { show } : {}), from } }, locale });
@@ -30,6 +32,8 @@ export default function MapModal({ open, onClose, mapUrl, show }: Props) {
     >
       <div className="relative w-full overflow-hidden rounded-b-xl" style={{ height: "calc(100dvh - 6rem)" }}>
         <iframe
+          ref={frame}
+          onLoad={() => frame.current?.focus()}
           src={src}
           title={t("title")}
           className="absolute inset-0 h-full w-full border-0"
