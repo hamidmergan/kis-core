@@ -37,8 +37,9 @@
     "privacy": "Privacy"
   },
   "campusMap": {
-    "title": "Campus map",
-    "openInNewTab": "Open in new tab"
+    "showOnMap": "Show on the campus map",
+    "openInNewTab": "Open in new tab",
+    "close": "Close"
   },
   "languageSwitch": {
     "ariaLabel": "Select language",
@@ -351,7 +352,8 @@
   "startOverview": {
     "groups": {
       "aia": "AI assistant",
-      "tools": "Services"
+      "tools": "Services",
+      "campus": "Campus Assistant"
     },
     "audience": {
       "lehrende": "Teachers",
@@ -405,6 +407,10 @@
       "praesentation": {
         "title": "Presentation",
         "body": "Your material becomes slides in the university's design, with pictures, tables and charts where the template provides for them."
+      },
+      "campus": {
+        "title": "Campus Assistant",
+        "body": "Questions about applying, starting and studying. Answers come from the university's web pages, with a link to the source."
       }
     }
   },
@@ -1697,6 +1703,48 @@
       "vergleichSelbst": "self‑hosted (GDPR compliant)",
       "vergleichFolgt": "Sample coming soon",
       "beenden": "End demo"
+    },
+    "campus": {
+      "title": "Campus Assistant",
+      "newChat": "New chat",
+      "noChats": "No chats yet.",
+      "group": {
+        "heute": "Today",
+        "woche": "Last 7 days",
+        "aelter": "Older"
+      },
+      "rename": "Rename",
+      "delete": "Delete",
+      "deleteTitle": "Delete chat",
+      "deleteConfirm": "Really delete “{title}”?",
+      "cancel": "Cancel",
+      "renameFailed": "Renaming did not work",
+      "retentionHint": "Chats without activity are deleted after {days} days.",
+      "closeMenu": "Close history",
+      "emptyTitle": "What would you like to know about the university?",
+      "emptyText": "I answer only from the university's web pages and documents and show you the source.",
+      "example1": "When is the re-registration deadline?",
+      "example2": "Where do I find the student advisory service?",
+      "example3": "How do I apply for a master's programme?",
+      "example4": "What are the opening hours of the Mensa?",
+      "inputPlaceholder": "Your question about the university…",
+      "disclaimer": "Answers come from an AI that can make mistakes. The linked source is what counts.",
+      "sourcesTitle": "Sources",
+      "stand": "As of {date}",
+      "document": "Document",
+      "copy": "Copy",
+      "thumbsUp": "Good answer",
+      "thumbsDown": "Answer does not fit",
+      "scrollToBottom": "Scroll to bottom",
+      "chatFull": "This chat is full. Start a new chat to continue.",
+      "noAnswer": "(no answer)",
+      "genericError": "Something went wrong.",
+      "upstreamBusy": "The AI provider is busy right now. Please try again in a moment.",
+      "tooManyRequests": "Too many requests. Please wait a moment and send again.",
+      "phases": {
+        "searching": "Searching the university pages",
+        "generating": "Writing the answer"
+      }
     }
   },
   "admin": {
@@ -1865,6 +1913,62 @@
           "stations": "Stands",
           "block": "Event block",
           "stats": "Results"
+        }
+      },
+      "campus": {
+        "label": "Campus assistant",
+        "sub": "Which web pages are refreshed at night, the link to the campus map, extra documents and how long chats are kept.",
+        "sitemapUrl": "Sitemap address",
+        "sitemapHint": "The sitemap of the university site. Left empty, no web pages are fetched.",
+        "include": "Only addresses with",
+        "includeHint": "One pattern per line, for example /studies/. Empty means every page of the sitemap.",
+        "exclude": "Addresses without",
+        "excludeHint": "One pattern per line, for example /news/. Pages with this pattern are skipped.",
+        "mapUrl": "Campus map address",
+        "mapHint": "The page of the campus map. Place cards in the chat open it at the right spot.",
+        "placesUrl": "Place list address",
+        "placesHint": "The places.json of the campus map. Or upload it as a file below.",
+        "retention": "Keep chats",
+        "retentionHint": "Days without activity after which a chat is deleted. 0 keeps all.",
+        "days": "days",
+        "save": "Save",
+        "saved": "Saved",
+        "saveFailed": "Saving did not work",
+        "crawlNow": "Refresh now",
+        "crawlQueued": "Refresh running",
+        "status": {
+          "title": "Index status",
+          "pages": "Web pages",
+          "chunks": "Passages",
+          "places": "Places",
+          "documents": "Documents",
+          "lastRun": "Last refresh",
+          "never": "never",
+          "running": "running",
+          "error": "Error",
+          "feedback": "Ratings",
+          "up": "good",
+          "down": "does not fit",
+          "failed": "failed"
+        },
+        "documents": {
+          "title": "Documents",
+          "hint": "PDF, Word, PowerPoint, Markdown or text. They are searched like the web pages, the chat then names the file.",
+          "upload": "Upload document",
+          "empty": "No documents yet.",
+          "delete": "Remove",
+          "status": {
+            "pending": "waiting",
+            "indexing": "processing",
+            "ready": "ready",
+            "failed": "failed"
+          }
+        },
+        "places": {
+          "title": "Upload place list",
+          "hint": "The places.json from the campus map. The places are read in right away.",
+          "button": "Choose places.json",
+          "done": "{n} places read"
         }
       }
     },
@@ -2690,7 +2794,8 @@
           "nutzer": "Users",
           "system": "System",
           "mascot": "Mascots",
-          "event": "Event"
+          "event": "Event",
+          "campus": "Campus assistant"
         }
       },
       "general": {
@@ -2715,7 +2820,8 @@
         "screencast": "Screencast",
         "podcast": "Podcast",
         "praesentation": "Presentation",
-        "glossary": "Glossary"
+        "glossary": "Glossary",
+        "campus": "Campus assistant"
       },
       "settings": {
         "werkzeuge": {
@@ -2748,7 +2854,8 @@
         "wartung": {
           "zugang": "Access during maintenance"
         },
-        "event": "Stands, event block and numbers of the stamp card"
+        "event": "Stands, event block and numbers of the stamp card",
+        "campus": "Set up the campus assistant"
       }
     },
     "toolLimits": {

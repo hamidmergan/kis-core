@@ -4,7 +4,7 @@ import { usePathname } from "@/i18n/navigation";
 import Footer from "./Footer";
 
 const NO_FOOTER_PATHS = ["/pending"];
-const NO_FOOTER_PREFIXES = ["/workspace/"];
+const NO_FOOTER_PREFIXES = ["/workspace/", "/tools/campus"];
 
 export default function FooterWrapper({ hasSession }: { hasSession: boolean }) {
   const pathname = usePathname();

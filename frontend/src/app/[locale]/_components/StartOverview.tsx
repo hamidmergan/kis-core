@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { AIA_AUDIENCE, TOOLS_AUDIENCE, type Audience, type HomeTarget } from "@/lib/modules";
+import { AIA_AUDIENCE, CAMPUS_AUDIENCE, TOOLS_AUDIENCE, type Audience, type HomeTarget } from "@/lib/modules";
 import { TOOL_ICONS } from "@/lib/toolIcons";
 import { Greeting } from "@/app/[locale]/workspace/_components/Greeting";
 import { EvaluationInvite } from "@/app/[locale]/workspace/_components/EvaluationInvite";
@@ -35,7 +35,9 @@ export default function StartOverview({ firstName, targets }: { firstName: strin
   const t = useTranslations("startOverview");
   const { variant: mascotVariant } = useMascotPref();
   const aia = targets.find((z) => z.kind === "aia");
-  const tools = targets.filter((z): z is ToolTarget => z.kind === "tool");
+  // The campus assistant addresses everyone, so it stands apart from the teaching tools.
+  const campus = targets.find((z): z is ToolTarget => z.kind === "tool" && z.key === "campus");
+  const tools = targets.filter((z): z is ToolTarget => z.kind === "tool" && z.key !== "campus");
   const headingClass = "text-sm font-semibold uppercase tracking-wider";
   const gridClass = "grid gap-4 sm:grid-cols-2 lg:grid-cols-3";
   const audienceTags = (audience: readonly Audience[]) =>
@@ -70,6 +72,24 @@ export default function StartOverview({ firstName, targets }: { firstName: strin
           <div className="flex flex-col md:flex-row gap-4 empty:hidden">
             <EvaluationInvite />
           </div>
+
+          {campus && (
+            <section className="flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <h2 className={headingClass}>{t("groups.campus")}</h2>
+                <AudienceTags tags={audienceTags(CAMPUS_AUDIENCE)} />
+              </div>
+              <div className={gridClass}>
+                <StartTile
+                  href={campus.href}
+                  icon={TOOL_ICONS[campus.key]}
+                  title={t("tools.campus.title")}
+                  body={t("tools.campus.body")}
+                  testId="start-tile-campus"
+                />
+              </div>
+            </section>
+          )}
 
           {tools.length > 0 && (
             <section className="flex flex-col gap-2">

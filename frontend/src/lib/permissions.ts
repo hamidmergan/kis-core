@@ -32,6 +32,8 @@ export const PERM = {
   mascot: "settings.mascot",
   // Stands, event block and the numbers of the stamp card.
   event: "settings.event",
+  // Crawl, map link and retention of the campus assistant.
+  campus: "settings.campus",
   // Two tabs keep their old key so existing roles lose nothing.
   statsUsers: "settings.statistik.nutzer",
   statsModels: "settings.statistik.modelle",

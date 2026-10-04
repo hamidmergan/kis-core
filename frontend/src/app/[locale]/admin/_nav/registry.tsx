@@ -8,6 +8,7 @@ import {
   Bird,
   ChartBar,
   GearSix,
+  MapTrifold,
   Notebook,
   Ruler,
   Sparkle,
@@ -102,6 +103,7 @@ import EventStationsPage from "../_pages/event/stations";
 import EventBlockPage from "../_pages/event/block";
 import EventStatsPage from "../_pages/event/stats";
 import SystemPage from "../_pages/system";
+import CampusAdminPage from "../_pages/campus";
 import HildePage from "../_pages/mascot/hilde";
 import FrancisPage from "../_pages/mascot/francis";
 
@@ -219,6 +221,16 @@ export const SECTIONS: AdminSection[] = [
       { slug: "block", labelKey: "block", Component: EventBlockPage },
       { slug: "stats", labelKey: "stats", Component: EventStatsPage },
     ],
+  },
+  // Crawl, map link, documents and retention of the campus assistant.
+  {
+    slug: "campus",
+    key: "campus",
+    Icon: MapTrifold,
+    world: "tools",
+    rank: "admin",
+    perm: PERM.campus,
+    Component: CampusAdminPage,
   },
   // System also carries the two platform-wide cards.
   {

@@ -4,6 +4,7 @@ export const ALL_MODULES = ["aia", "tools"] as const;
 
 /** Order of the tools on the start page, nach Wichtigkeit für die Lehre. */
 export const TOOL_ROUTES = [
+  { key: "campus", href: "/tools/campus" },
   { key: "translation", href: "/tools/translate" },
   { key: "tts", href: "/tools/tts" },
   { key: "transcription", href: "/tools/stt" },
@@ -23,6 +24,9 @@ export type Audience = "lehrende" | "studierende";
 
 /** The tools group addresses teaching staff only for now. */
 export const TOOLS_AUDIENCE: readonly Audience[] = ["lehrende"];
+
+/** The campus assistant answers everyone at the university. */
+export const CAMPUS_AUDIENCE: readonly Audience[] = ["studierende", "lehrende"];
 
 /** The assistant is the only group reaching teaching staff and students alike. */
 export const AIA_AUDIENCE: readonly Audience[] = ["lehrende", "studierende"];

@@ -37,8 +37,9 @@
     "privacy": "Datenschutz"
   },
   "campusMap": {
-    "title": "Campusplan",
-    "openInNewTab": "In neuem Tab öffnen"
+    "showOnMap": "Auf der Campus Map zeigen",
+    "openInNewTab": "In neuem Tab öffnen",
+    "close": "Schließen"
   },
   "languageSwitch": {
     "ariaLabel": "Sprache wählen",
@@ -351,7 +352,8 @@
   "startOverview": {
     "groups": {
       "aia": "KI-Assistent",
-      "tools": "Dienste"
+      "tools": "Dienste",
+      "campus": "Campus-Assistent"
     },
     "audience": {
       "lehrende": "Lehrende",
@@ -405,6 +407,10 @@
       "praesentation": {
         "title": "Präsentation",
         "body": "Aus deinem Material werden Folien im Design der Hochschule, mit Bildern, Tabellen und Diagrammen an den Stellen, die die Vorlage vorsieht."
+      },
+      "campus": {
+        "title": "Campus-Assistent",
+        "body": "Fragen zu Bewerbung, Studienstart und Studium. Die Antworten kommen aus den Webseiten der Hochschule, mit Link zur Quelle."
       }
     }
   },
@@ -1697,6 +1703,48 @@
       "vergleichSelbst": "selbst gehostet (DSGVO‑konform)",
       "vergleichFolgt": "Hörprobe folgt",
       "beenden": "Demo beenden"
+    },
+    "campus": {
+      "title": "Campus-Assistent",
+      "newChat": "Neuer Chat",
+      "noChats": "Noch keine Chats.",
+      "group": {
+        "heute": "Heute",
+        "woche": "Letzte 7 Tage",
+        "aelter": "Älter"
+      },
+      "rename": "Umbenennen",
+      "delete": "Löschen",
+      "deleteTitle": "Chat löschen",
+      "deleteConfirm": "„{title}“ wirklich löschen?",
+      "cancel": "Abbrechen",
+      "renameFailed": "Umbenennen hat nicht geklappt",
+      "retentionHint": "Chats ohne Aktivität werden nach {days} Tagen gelöscht.",
+      "closeMenu": "Verlauf schließen",
+      "emptyTitle": "Was möchtest du über die Hochschule wissen?",
+      "emptyText": "Ich antworte nur aus den Webseiten und Unterlagen der Hochschule und zeige dir die Quelle dazu.",
+      "example1": "Wann ist die Rückmeldefrist?",
+      "example2": "Wo finde ich die Studienberatung?",
+      "example3": "Wie bewerbe ich mich für einen Masterstudiengang?",
+      "example4": "Welche Öffnungszeiten hat die Mensa?",
+      "inputPlaceholder": "Deine Frage zur Hochschule…",
+      "disclaimer": "Die Antworten stammen von einer KI, die Fehler machen kann. Maßgeblich ist die verlinkte Quelle.",
+      "sourcesTitle": "Quellen",
+      "stand": "Stand: {date}",
+      "document": "Dokument",
+      "copy": "Kopieren",
+      "thumbsUp": "Gute Antwort",
+      "thumbsDown": "Antwort passt nicht",
+      "scrollToBottom": "Nach unten scrollen",
+      "chatFull": "Dieser Chat ist voll. Starte einen neuen Chat, dann geht es weiter.",
+      "noAnswer": "(keine Antwort)",
+      "genericError": "Es ist ein Fehler aufgetreten.",
+      "upstreamBusy": "Der KI-Anbieter ist gerade ausgelastet. Bitte versuche es gleich noch einmal.",
+      "tooManyRequests": "Zu viele Anfragen. Bitte einen Moment warten und erneut senden.",
+      "phases": {
+        "searching": "Hochschulseiten werden durchsucht",
+        "generating": "Antwort wird erstellt"
+      }
     }
   },
   "admin": {
@@ -1865,6 +1913,62 @@
           "stations": "Stände",
           "block": "Event-Block",
           "stats": "Auswertung"
+        }
+      },
+      "campus": {
+        "label": "Campus-Assistent",
+        "sub": "Welche Webseiten nachts abgeglichen werden, der Link zur Campus Map, zusätzliche Dokumente und wie lange Chats bleiben.",
+        "sitemapUrl": "Sitemap-Adresse",
+        "sitemapHint": "Die Sitemap der Hochschulseite. Bleibt sie leer, werden keine Webseiten geholt.",
+        "include": "Nur Adressen mit",
+        "includeHint": "Ein Muster je Zeile, zum Beispiel /studium/. Leer heißt alle Seiten der Sitemap.",
+        "exclude": "Adressen ohne",
+        "excludeHint": "Ein Muster je Zeile, zum Beispiel /news/. Seiten mit diesem Muster werden übersprungen.",
+        "mapUrl": "Adresse der Campus Map",
+        "mapHint": "Die Seite der Campus Map. Ortskarten im Chat öffnen sie mit dem passenden Ort.",
+        "placesUrl": "Adresse der Ortsliste",
+        "placesHint": "Die places.json der Campus Map. Alternativ unten als Datei hochladen.",
+        "retention": "Chats aufbewahren",
+        "retentionHint": "Tage ohne Aktivität, danach wird ein Chat gelöscht. 0 behält alle.",
+        "days": "Tage",
+        "save": "Speichern",
+        "saved": "Gespeichert",
+        "saveFailed": "Speichern hat nicht geklappt",
+        "crawlNow": "Jetzt abgleichen",
+        "crawlQueued": "Abgleich läuft",
+        "status": {
+          "title": "Stand des Index",
+          "pages": "Webseiten",
+          "chunks": "Abschnitte",
+          "places": "Orte",
+          "documents": "Dokumente",
+          "lastRun": "Letzter Abgleich",
+          "never": "noch nie",
+          "running": "läuft gerade",
+          "error": "Fehler",
+          "feedback": "Bewertungen",
+          "up": "gut",
+          "down": "passt nicht",
+          "failed": "fehlgeschlagen"
+        },
+        "documents": {
+          "title": "Dokumente",
+          "hint": "PDF, Word, PowerPoint, Markdown oder Text. Sie werden wie die Webseiten durchsucht, der Chat nennt dann den Dateinamen.",
+          "upload": "Dokument hochladen",
+          "empty": "Noch keine Dokumente.",
+          "delete": "Entfernen",
+          "status": {
+            "pending": "wartet",
+            "indexing": "wird verarbeitet",
+            "ready": "bereit",
+            "failed": "fehlgeschlagen"
+          }
+        },
+        "places": {
+          "title": "Ortsliste hochladen",
+          "hint": "Die places.json aus der Campus Map. Danach werden die Orte sofort neu eingelesen.",
+          "button": "places.json wählen",
+          "done": "{n} Orte eingelesen"
         }
       }
     },
@@ -2690,7 +2794,8 @@
           "nutzer": "Nutzer",
           "system": "System",
           "mascot": "Maskottchen",
-          "event": "Event"
+          "event": "Event",
+          "campus": "Campus-Assistent"
         }
       },
       "general": {
@@ -2715,7 +2820,8 @@
         "screencast": "Screencast",
         "podcast": "Podcast",
         "praesentation": "Präsentation",
-        "glossary": "Glossar"
+        "glossary": "Glossar",
+        "campus": "Campus-Assistent"
       },
       "settings": {
         "werkzeuge": {
@@ -2748,7 +2854,8 @@
         "wartung": {
           "zugang": "Zugriff während der Wartung"
         },
-        "event": "Stände, Event-Block und Zahlen der Stempelkarte"
+        "event": "Stände, Event-Block und Zahlen der Stempelkarte",
+        "campus": "Campus-Assistent einrichten"
       }
     },
     "toolLimits": {
