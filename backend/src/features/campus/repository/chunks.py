@@ -159,6 +159,20 @@ def neighbors(page_id: int, position: int, span: int = 1) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def nearest_in(embedding: list[float], chunk_ids: list[int]) -> tuple[int, float] | None:
+    """The page of the closest chunk among the given ones and its cosine distance."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """SELECT page_id, embedding <=> %s::vector AS d FROM campus_chunks
+                   WHERE id = ANY(%s) AND embedding IS NOT NULL AND vector_dims(embedding) = %s
+                   ORDER BY d LIMIT 1""",
+                (str(list(embedding)), chunk_ids, len(embedding)),
+            )
+            row = cur.fetchone()
+    return (row[0], float(row[1])) if row else None
+
+
 def chunk_count() -> int:
     with get_connection() as conn:
         with conn.cursor() as cur:

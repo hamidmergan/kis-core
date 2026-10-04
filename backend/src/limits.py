@@ -396,6 +396,8 @@ CAMPUS_TITLE_MAX_CHARS                 = 60
 CAMPUS_CONTEXT_MAX_CHARS               = 40_000
 CAMPUS_SEARCH_CANDIDATES               = 60
 CAMPUS_SOURCE_CARDS_MAX                = 5
+# A source card only for pages an answer sentence lies this close to, measured 0.25 to 0.45 for real use.
+CAMPUS_SOURCE_MAX_DISTANCE             = 0.5
 CAMPUS_PLACE_CARDS_MAX                 = 3
 # One nightly run over a university site, pages beyond the cap wait for the next night.
 CAMPUS_CRAWL_MAX_PAGES                 = 5_000

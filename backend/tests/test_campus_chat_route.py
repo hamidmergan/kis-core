@@ -169,6 +169,14 @@ async def test_antwort_mit_quellen_und_ort(umgebung):
     assert "German" in llm.messages[0]["content"] and "REMINDER: write the whole answer in German" in llm.messages[1]["content"]
 
 
+async def test_antwort_bekommt_die_aufgeloeste_frage(umgebung):
+    llm = _FakeLLM([_Chunk("Ja.")])
+    await _frage(llm, question="Und wo ist sie?")
+    assert "Wo ist die Mensa (Gebäude)?" in llm.messages[1]["content"]
+    assert "Und wo ist sie?" not in llm.messages[1]["content"]
+    assert umgebung.messages[0]["content"] == "Und wo ist sie?"
+
+
 async def test_kaputter_vor_call_stoert_nicht(umgebung):
     llm = _FakeLLM([_Chunk("Antwort.")])
     llm._client.create = lambda **kw: (_ for _ in ()).throw(RuntimeError("weg"))

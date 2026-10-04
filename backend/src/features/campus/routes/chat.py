@@ -16,7 +16,7 @@ from src.features.campus.repository import chats as chat_repo
 from src.features.campus.repository import chunks as chunk_repo
 from src.features.campus.repository import places as place_repo
 from src.features.campus.routes._title import make_title
-from src.features.campus.services import retrieval
+from src.features.campus.services import attribution, retrieval
 from src.features.campus.services.place_match import find_places
 from src.i18n import get_locale, t
 from src.limits import (
@@ -71,6 +71,11 @@ def _understand(llm: OpenAICompatLLMClient, question: str, rounds: list[tuple[st
 def _embed_one(text: str) -> list[float]:
     from src.services.aia_embeddings import get_embedding_provider_with_fallback
     return get_embedding_provider_with_fallback().embed_one(text)
+
+
+def _embed_many(texts: list[str]) -> list[list[float]]:
+    from src.services.aia_embeddings import get_embedding_provider_with_fallback
+    return get_embedding_provider_with_fallback().embed(texts)
 
 
 def pick_sources(sources: list[dict], places: list[dict]) -> list[dict]:
@@ -131,7 +136,7 @@ async def campus_chat(
     chat_repo.count_question(chat_id)
     messages = [
         {"role": "system", "content": prompts.answer_system(answer_language)},
-        {"role": "user", "content": prompts.answer_user(context.text or "(no documents found)", question, answer_language)},
+        {"role": "user", "content": prompts.answer_user(context.text or "(no documents found)", query, answer_language)},
     ]
 
     async def _stream() -> AsyncGenerator[str, None]:
@@ -202,7 +207,10 @@ async def campus_chat(
                 yield f"data: {json.dumps({'error': t('job.upstreamBusy', locale), 'code': 'empty_answer'})}\n\n"
                 return
             places = [] if no_source else find_places(answer, place_repo.all_places())
-            sources = [] if no_source else pick_sources(context.sources, places)
+            used = [] if no_source else await asyncio.to_thread(
+                attribution.used_sources, answer, context.sources, context.chunk_ids, _embed_many, chunk_repo.nearest_in
+            )
+            sources = pick_sources(used, places)
             message_id = chat_repo.add_message(chat_id, "assistant", answer, sources=sources, places=places, no_source=no_source)
             saved = True
             yield f"data: {json.dumps({'done': True, 'answer': answer, 'sources': sources, 'places': places, 'no_source': no_source, 'message_id': message_id})}\n\n"
