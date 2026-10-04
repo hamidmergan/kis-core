@@ -108,6 +108,7 @@ celery_app.conf.update(
         # The campus crawl is long and rare, the chat cleanup is tiny.
         "campus.crawl": {"queue": "long"},
         "campus.index_document": {"queue": "long"},
+        "campus.sync_places_file": {"queue": "long"},
         "cleanup.campus_chats": {"queue": "general"},
         # Sources get a queue of their own that the same worker takes turns with, never behind every tool.
         "aia.index_source": {"queue": "aia_ingest"},

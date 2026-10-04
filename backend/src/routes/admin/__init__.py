@@ -12,6 +12,7 @@ from src.routes.admin.invites import router as _invites_router
 from src.routes.admin.jobs import router as _jobs_router
 from src.routes.admin.load import router as _load_router
 from src.routes.admin.accounts import router as _accounts_router
+from src.routes.admin.campus import router as _campus_router
 from src.routes.admin.maintenance import router as _maintenance_router
 from src.routes.admin.model_windows import router as _model_windows_router
 from src.routes.admin.pools import router as _pools_router
@@ -44,5 +45,6 @@ router.include_router(_impersonation_router)
 router.include_router(_feedback_router)
 router.include_router(_evaluation_router)
 router.include_router(_event_router)
+router.include_router(_campus_router)
 
 __all__ = ["router"]

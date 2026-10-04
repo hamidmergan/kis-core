@@ -37,6 +37,10 @@ def run_crawl() -> dict:
                 status["places"] = places_sync.sync(result.body, cfg.map_url, embed)
             else:
                 status["places_error"] = result.error or result.status
+        else:
+            from src import storage
+            if storage.key_file_exists("campus/places.json"):
+                status["places"] = places_sync.sync(storage.get_key_file("campus/places.json"), cfg.map_url, embed)
         if cfg.sitemap_url:
             status.update(crawler.run(cfg, embed, client=client))
         status["error"] = None
@@ -47,6 +51,26 @@ def run_crawl() -> dict:
     status["finished_at"] = _now_iso()
     campus_settings.set_crawl_status(status)
     return status
+
+
+@celery_app.task(name="campus.sync_places_file", queue="long")
+def run_sync_places_file() -> int:
+    """Indexes the uploaded places.json, the same way the nightly run does with a place url."""
+    from src import storage
+
+    try:
+        raw = storage.get_key_file("campus/places.json")
+        n = places_sync.sync(raw, campus_settings.read().map_url, embedder())
+        status = campus_settings.crawl_status()
+        status["places"] = n
+        campus_settings.set_crawl_status(status)
+        return n
+    except Exception as e:
+        logger.exception("Campus: Ortsliste nicht indexiert")
+        status = campus_settings.crawl_status()
+        status["places_error"] = f"{type(e).__name__}: {e}"[:300]
+        campus_settings.set_crawl_status(status)
+        return 0
 
 
 @celery_app.task(name="campus.index_document", queue="long")

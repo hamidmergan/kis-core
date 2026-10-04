@@ -25,6 +25,14 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Eine Datei mit diesem Namen gibt es schon",
         "en": "A file with this name already exists",
     },
+    "campus.urlInvalid": {
+        "de": "Diese Adresse ist keine öffentliche http(s)-Adresse",
+        "en": "This address is not a public http(s) address",
+    },
+    "campus.placesInvalid": {
+        "de": "Die Datei ist keine gültige Ortsliste (places.json)",
+        "en": "The file is not a valid place list (places.json)",
+    },
     "campus.documentNotFound": {
         "de": "Dieses Dokument gibt es nicht",
         "en": "This document does not exist",
