@@ -1,6 +1,6 @@
-# Campus-Assistent
+# Infoassistent
 
-Der Campus-Assistent beantwortet Fragen zur Hochschule: Bewerbung, Einschreibung, Fristen, Beratung, Gebäude und Campusleben. Er antwortet nur aus den Webseiten der Hochschule, aus hochgeladenen Dokumenten und aus der Ortsliste des Campusplans. Zu jeder Antwort zeigt er die Quellen.
+Der Infoassistent beantwortet Fragen zur Hochschule: Bewerbung, Einschreibung, Fristen, Beratung, Gebäude und Campusleben. Er antwortet nur aus den Webseiten der Hochschule, aus hochgeladenen Dokumenten und aus der Ortsliste des Campusplans. Zu jeder Antwort zeigt er die Quellen.
 
 ## Fragen und Quellen
 
@@ -26,4 +26,4 @@ Eine Frage hat höchstens 2.000 Zeichen, ein Chat höchstens 50 Fragen, danach b
 
 ## Für die Verwaltung
 
-Unter **Verwaltung → Campus-Assistent** stehen die Sitemap der Hochschulseite, Muster für ein- und auszuschließende Adressen, die Adresse des Campusplans, die Ortsliste und die Aufbewahrung der Chats. Der Abgleich der Seiten läuft jede Nacht und lässt sich dort auch sofort starten. Geänderte Seiten werden neu gelesen, verschwundene entfernt. Dokumente, die nicht auf der Webseite stehen, lassen sich dort hochladen.
+Unter **Verwaltung → Infoassistent** stehen die Sitemap der Hochschulseite, Muster für ein- und auszuschließende Adressen, die Adresse des Campusplans, die Ortsliste und die Aufbewahrung der Chats. Der Abgleich der Seiten läuft jede Nacht und lässt sich dort auch sofort starten. Geänderte Seiten werden neu gelesen, verschwundene entfernt. Dokumente, die nicht auf der Webseite stehen, lassen sich dort hochladen.

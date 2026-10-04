@@ -16,7 +16,7 @@ Marke Lehrende, sie richtet sich an Lehrende.
 - **Dolmetscher** übersetzt ein Gespräch zwischen zwei Sprachen live mit
 - **Glossar** pflegt Begriffslisten für Übersetzungen
 
-Wer nur ein einziges Ziel hat, etwa Studierende mit dem KI-Assistenten allein, landet direkt dort
+Wer nur ein einziges Ziel hat, etwa Studierende mit dem Lernassistenten allein, landet direkt dort
 und sieht die Kachelseite nicht. Zurück zur Startseite führt immer das KIS-Logo oben links.
 
 ## Wer welche Dienste sieht
@@ -30,7 +30,7 @@ beiden.
 Die meisten Dienste arbeiten mit einer hochgeladenen Datei: hinein, Ergebnis, herunterladen.
 Zusammenfassung, Podcast, Präsentation und das Zusatzmaterial des Screencasts haben daneben einen
 Reiter Workspace. Dort wählen Sie fertig verarbeitete Materialien aus einem Ihrer Workspaces, ohne
-sie noch einmal hochzuladen. Der Reiter erscheint nur, wenn Sie den KI-Assistenten nutzen dürfen.
+sie noch einmal hochzuladen. Der Reiter erscheint nur, wenn Sie den Lernassistenten nutzen dürfen.
 
 ## Aufträge und Kontingent
 

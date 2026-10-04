@@ -345,15 +345,15 @@
     "expiredTitle": "Dein Zugang ist abgelaufen",
     "expiredText": "Bei Interesse melde dich bei uns.",
     "francisName": "Francis",
-    "francisRole": "KI-Assistent von KIS",
+    "francisRole": "Lernassistent von KIS",
     "tabAccount": "Mit Konto",
     "tabCode": "Mit Zugangscode"
   },
   "startOverview": {
     "groups": {
-      "aia": "KI-Assistent",
+      "aia": "Lernassistent",
       "tools": "Dienste",
-      "campus": "Campus-Assistent"
+      "campus": "Infoassistent"
     },
     "audience": {
       "lehrende": "Lehrende",
@@ -364,8 +364,8 @@
       "studierende": "Studierende arbeiten in den Workspaces, zu denen ihre Lehrenden sie eingeladen haben."
     },
     "aia": {
-      "title": "KI-Assistent Francis",
-      "body": "Deine Workspaces mit Materialien, Chat und Tools. Der KI-Assistent antwortet nur aus den Unterlagen des jeweiligen Workspaces."
+      "title": "Lernassistent",
+      "body": "Deine Workspaces mit Materialien, Chat und Tools. Der Lernassistent antwortet nur aus den Unterlagen des jeweiligen Workspaces."
     },
     "tools": {
       "translation": {
@@ -409,7 +409,7 @@
         "body": "Aus deinem Material werden Folien im Design der Hochschule, mit Bildern, Tabellen und Diagrammen an den Stellen, die die Vorlage vorsieht."
       },
       "campus": {
-        "title": "Campus-Assistent",
+        "title": "Infoassistent",
         "body": "Fragen zu Bewerbung, Studienstart und Studium. Die Antworten kommen aus den Webseiten der Hochschule, mit Link zur Quelle."
       }
     }
@@ -1705,7 +1705,7 @@
       "beenden": "Demo beenden"
     },
     "campus": {
-      "title": "Campus-Assistent",
+      "title": "Infoassistent",
       "newChat": "Neuer Chat",
       "noChats": "Noch keine Chats.",
       "group": {
@@ -1782,7 +1782,7 @@
       "toolsLabel": "Dienste",
       "allJobs": "Alle Jobs",
       "jobStats": "Jobs Statistiken",
-      "kiStats": "KI-Assistent Statistiken",
+      "kiStats": "Lernassistent Statistiken",
       "mascot": "Maskottchen",
       "speech": "Sprache",
       "images": "Bilder",
@@ -1797,7 +1797,7 @@
         "tabs": {
           "nutzer": "Nutzer",
           "werkzeuge": "Dienste",
-          "assistent": "KI-Assistent",
+          "assistent": "Lernassistent",
           "modelle": "Modelle",
           "evaluation": "Evaluation"
         }
@@ -1861,7 +1861,7 @@
         }
       },
       "assistent": {
-        "label": "KI-Assistent",
+        "label": "Lernassistent",
         "sub": "Der Assistent im Workspace.",
         "sources": {
           "label": "Materialien",
@@ -1917,7 +1917,7 @@
         }
       },
       "campus": {
-        "label": "Campus-Assistent",
+        "label": "Infoassistent",
         "sub": "Welche Webseiten nachts abgeglichen werden, der Link zur Campus Map, zusätzliche Dokumente und wie lange Chats bleiben.",
         "sitemapUrl": "Sitemap-Adresse",
         "sitemapHint": "Die Sitemap der Hochschulseite. Bleibt sie leer, werden keine Webseiten geholt.",
@@ -2265,7 +2265,7 @@
         "deeplFreeOnProUrl": "DeepL-Free-Key (Suffix :fx) erkannt, Base-URL zeigt aber auf den Pro-Endpoint. KIS leitet automatisch auf api-free.deepl.com um.",
         "deeplProOnFreeUrl": "DeepL-Pro-Key erkannt, Base-URL zeigt aber auf den Free-Endpoint. KIS leitet automatisch auf api.deepl.com um.",
         "fieldConcurrency": "Gleichzeitige Aufrufe",
-        "concurrencyHint": "So viele Aufrufe schickt KIS gleichzeitig an diesen Anbieter. Leer heißt ohne Grenze. Der Chat mit dem KI-Assistenten Francis zählt nicht mit, Bildanalyse zählt beim LLM mit.",
+        "concurrencyHint": "So viele Aufrufe schickt KIS gleichzeitig an diesen Anbieter. Leer heißt ohne Grenze. Der Chat mit dem Lernassistenten zählt nicht mit, Bildanalyse zählt beim LLM mit.",
         "concurrencyNoLimit": "ohne Grenze",
         "concurrencyBucket": {
           "llm": "LLM",
@@ -2441,7 +2441,7 @@
       "ocrMasterOn": "Seiten mit großen eingebetteten Bildern werden an das Vision-Modell gesendet.",
       "ocrMasterOff": "Deaktiviert - PDF-Seiten mit Screenshots/Scans werden nicht transkribiert.",
       "ocrMasterWarning": "Achtung: mit Docling dauert jede OCR-Seite ~7 Sekunden (mit THL myLab chandra: 30-70 Sekunden). Ein gescanntes 300-Seiten-Dokument kann 30+ Minuten brauchen. Deaktivieren wenn deine Materialien überwiegend Text sind.",
-      "embeddingTitle": "Embeddings (KI-Assistent)",
+      "embeddingTitle": "Embeddings (Lernassistent)",
       "embeddingHint": "Nur ein Anbieter gleichzeitig - Wechsel erfordert Reindex (siehe unten).",
       "llmTitle": "LLM Chat",
       "llmHint": "Nur ein Anbieter gleichzeitig. Wechsel wirkt sofort fuer alle LLM-Calls (Chat, Mindmap, Summary, Skript).",
@@ -2707,7 +2707,7 @@
       "sizeHero": "320 (Hero)",
       "replay": "Animationen neu abspielen",
       "allMoodsHeading": "Alle Stimmungen nebeneinander",
-      "chatHeading": "Im Chat-Kontext (so würde sie im KI-Assistenten erscheinen)",
+      "chatHeading": "Im Chat-Kontext (so würde sie im Lernassistenten erscheinen)",
       "chatUserMessage": "Kannst du mir die Kapitel 3 und 4 aus dem Skript zusammenfassen?",
       "chatThinking": "Einen Moment, ich gehe das Skript durch…",
       "chatFound": "Klar! Hier die Kernpunkte aus Kapitel 3 und 4: Markov-Ketten beschreiben Übergänge zwischen Zuständen, wobei die Wahrscheinlichkeit nur vom aktuellen Zustand abhängt…",
@@ -2733,7 +2733,7 @@
       "sizeHero": "320 (Hero)",
       "replay": "Animationen neu abspielen",
       "allMoodsHeading": "Alle Stimmungen nebeneinander",
-      "chatHeading": "Im Chat-Kontext (so würde Francis im KI-Assistenten erscheinen)",
+      "chatHeading": "Im Chat-Kontext (so würde Francis im Lernassistenten erscheinen)",
       "chatUserMessage": "Kannst du mir die Kapitel 3 und 4 aus dem Skript zusammenfassen?",
       "chatThinking": "Moment, ich flieg kurz das Skript ab…",
       "chatFound": "Hab's! Aus Kapitel 3 und 4: Markov-Ketten beschreiben Übergänge zwischen Zuständen, die Wahrscheinlichkeit hängt nur vom aktuellen Zustand ab…",
@@ -2773,7 +2773,7 @@
       },
       "systemRoleHint": {
         "admin": "Der Administrator darf alles. Nicht änderbar.",
-        "staff": "Staff nutzt den KI-Assistenten mit eigenen Workspaces und alle Dienste, aber keine Einstellungen. Nicht änderbar.",
+        "staff": "Staff nutzt den Lernassistenten mit eigenen Workspaces und alle Dienste, aber keine Einstellungen. Nicht änderbar.",
         "user": "User öffnet nur geteilte Workspaces. Nicht änderbar."
       },
       "more": "Mehr"
@@ -2785,18 +2785,18 @@
       },
       "group": {
         "general": "Allgemein",
-        "aia": "KI-Assistent",
+        "aia": "Lernassistent",
         "tools": "Dienste",
         "set": {
           "werkzeuge": "Dienste",
-          "assistent": "KI-Assistent",
+          "assistent": "Lernassistent",
           "statistik": "Statistik",
           "anbieter": "Anbieter",
           "nutzer": "Nutzer",
           "system": "System",
           "mascot": "Maskottchen",
           "event": "Event",
-          "campus": "Campus-Assistent"
+          "campus": "Infoassistent"
         }
       },
       "general": {
@@ -2822,7 +2822,7 @@
         "podcast": "Podcast",
         "praesentation": "Präsentation",
         "glossary": "Glossar",
-        "campus": "Campus-Assistent"
+        "campus": "Infoassistent"
       },
       "settings": {
         "werkzeuge": {
@@ -2834,7 +2834,7 @@
         "assistent": {
           "sources": "Verarbeitung der Materialien",
           "level": "Sprachniveau, KI-Verhalten und Prompts",
-          "usage": "KI-Assistent (alle Workspaces)"
+          "usage": "Lernassistent (alle Workspaces)"
         },
         "anbieter": "Modelle eintragen und Funktionen zuordnen",
         "nutzer": {
@@ -2856,7 +2856,7 @@
           "zugang": "Zugriff während der Wartung"
         },
         "event": "Stände, Event-Block und Zahlen der Stempelkarte",
-        "campus": "Campus-Assistent einrichten"
+        "campus": "Infoassistent einrichten"
       }
     },
     "toolLimits": {
@@ -3290,7 +3290,7 @@
     },
     "grenzen": {
       "werkzeuge": "Dienste",
-      "assistent": "KI-Assistent",
+      "assistent": "Lernassistent",
       "gemeinsam": "Gemeinsam"
     }
   },
@@ -4149,7 +4149,7 @@
         "description": "Zeigt die wichtigsten Funktionen des Workspaces.",
         "dismiss": "Ausblenden",
         "inviteTitle": "Rundgang durch den Demo-Workspace",
-        "inviteBody": "Ein kurzer Rundgang durch einen Beispiel-Workspace. Zeigt Materialien, den KI-Assistenten Francis und die Tools im Studienbereich.",
+        "inviteBody": "Ein kurzer Rundgang durch einen Beispiel-Workspace. Zeigt Materialien, den Lernassistenten und die Tools im Studienbereich.",
         "steps": {
           "preview": {
             "title": "Lehrenden- und Studierenden-Ansicht",
@@ -4183,11 +4183,11 @@
         "demo": {
           "willkommen": {
             "title": "Willkommen im Demo-Workspace",
-            "text": "Ein Workspace ist der Ort, an dem du die Materialien deiner Veranstaltung hochlädst. Deine Studierenden arbeiten direkt damit, sie stellen dem KI-Assistenten Francis Fragen dazu und lassen sich Karteikarten, Quiz und weitere Formate daraus erzeugen. Diesen Rundgang gibt es für Lehrende und für Studierende, du siehst deine eigene Fassung."
+            "text": "Ein Workspace ist der Ort, an dem du die Materialien deiner Veranstaltung hochlädst. Deine Studierenden arbeiten direkt damit, sie stellen dem Lernassistenten Fragen dazu und lassen sich Karteikarten, Quiz und weitere Formate daraus erzeugen. Diesen Rundgang gibt es für Lehrende und für Studierende, du siehst deine eigene Fassung."
           },
           "willkommenStudi": {
             "title": "Willkommen im Demo-Workspace",
-            "text": "Ein Workspace ist der Ort, an dem deine Lehrenden die Materialien der Veranstaltung hochladen. Du arbeitest direkt damit, du stellst dem KI-Assistenten Francis Fragen dazu und lässt dir Karteikarten, Quiz und weitere Formate daraus erzeugen. Diesen Rundgang gibt es für Lehrende und für Studierende, du siehst deine eigene Fassung."
+            "text": "Ein Workspace ist der Ort, an dem deine Lehrenden die Materialien der Veranstaltung hochladen. Du arbeitest direkt damit, du stellst dem Lernassistenten Fragen dazu und lässt dir Karteikarten, Quiz und weitere Formate daraus erzeugen. Diesen Rundgang gibt es für Lehrende und für Studierende, du siehst deine eigene Fassung."
           },
           "materialien": {
             "title": "Der Materialbereich",
@@ -4243,7 +4243,7 @@
           },
           "chat": {
             "title": "Francis, der Chat zum Workspace",
-            "text": "Francis, dein KI-Assistent, antwortet nur aus den angehakten Materialien, mit Beleg zu jeder Aussage."
+            "text": "Francis, dein Lernassistent, antwortet nur aus den angehakten Materialien, mit Beleg zu jeder Aussage."
           },
           "werkzeuge": {
             "title": "Tools im Studio",
@@ -4404,7 +4404,7 @@
     },
     "demoHint": {
       "title": "Noch kein Workspace",
-      "body": "Deine Workspace-Liste ist leer. Füge dir den Demo-Workspace hinzu und probier ihn in Ruhe aus. Er enthält fertige Materialien, den KI-Assistenten Francis und die Tools im Studienbereich.",
+      "body": "Deine Workspace-Liste ist leer. Füge dir den Demo-Workspace hinzu und probier ihn in Ruhe aus. Er enthält fertige Materialien, den Lernassistenten und die Tools im Studienbereich.",
       "join": "Demo-Workspace hinzufügen",
       "dialogTitle": "Demo-Workspace hinzufügen",
       "dialogBody": "Du wirst in den Demo-Workspace eingeschrieben und findest ihn danach in deiner Workspace-Liste. Verlassen kannst du ihn jederzeit über das Menü in der Workspace-Zeile.",
@@ -4529,7 +4529,7 @@
     "groups": {
       "basics": "Grundsätzliches",
       "data": "Daten und Recht",
-      "francis": "Der KI-Assistent Francis",
+      "francis": "Der Lernassistent",
       "operation": "Im Betrieb"
     },
     "closer": {
@@ -4539,11 +4539,11 @@
     "items": {
       "whatIsKis": {
         "q": "Was ist KIS und wofür ist es da?",
-        "a": "KIS ist ein Pilotprojekt an der TH Lübeck. Es bündelt zwei Dinge: den KI-Assistenten Francis, der in einem Workspace aus den hinterlegten Materialien antwortet, und die Dienste, mit denen sich Lehrmaterial erzeugen lässt."
+        "a": "KIS ist ein Pilotprojekt an der TH Lübeck. Es bündelt zwei Dinge: den Lernassistenten, der in einem Workspace aus den hinterlegten Materialien antwortet, und die Dienste, mit denen sich Lehrmaterial erzeugen lässt."
       },
       "vsChatgpt": {
-        "q": "Was unterscheidet den KI-Assistenten Francis von ChatGPT?",
-        "a": "Der KI-Assistent Francis setzt auf RAG (Retrieval-Augmented Generation): Er sucht die passenden Stellen in den Materialien deines Workspaces und antwortet nur daraus, mit einem Beleg an jedem Satz, mit dem du die Stelle im Dokument aufschlägst. Alles darüber hinaus lehnt er ab. Der Vergleich passt deshalb eher zu Gemini Notebook von Google (früher NotebookLM) als zu ChatGPT.\n\nDazu läuft die Verarbeitung bei Anbietern in Deutschland, nicht in den USA. Mit den Daten wird nicht trainiert.\n\nAußerdem ist KIS Open Source unter der Apache-2.0-Lizenz."
+        "q": "Was unterscheidet den Lernassistenten von ChatGPT?",
+        "a": "Der Lernassistent setzt auf RAG (Retrieval-Augmented Generation): Er sucht die passenden Stellen in den Materialien deines Workspaces und antwortet nur daraus, mit einem Beleg an jedem Satz, mit dem du die Stelle im Dokument aufschlägst. Alles darüber hinaus lehnt er ab. Der Vergleich passt deshalb eher zu Gemini Notebook von Google (früher NotebookLM) als zu ChatGPT.\n\nDazu läuft die Verarbeitung bei Anbietern in Deutschland, nicht in den USA. Mit den Daten wird nicht trainiert.\n\nAußerdem ist KIS Open Source unter der Apache-2.0-Lizenz."
       },
       "moduleServiceTool": {
         "q": "Was ist der Unterschied zwischen Workspace, Dienst und Tool?",
@@ -4563,7 +4563,7 @@
       },
       "models": {
         "q": "Welche KI-Modelle werden genutzt und wer entscheidet das?",
-        "a": "Die Modelle stellt das KIS-Team zentral ein. Sie laufen bei drei Anbietern: THL myLab an der TH Lübeck, KISSKI von der GWDG in Göttingen und DeepL für die Übersetzung von Dateien.\n\nIm Chat mit dem KI-Assistenten Francis antwortet gemma4-31b. Welches Modell hinter den übrigen Diensten steckt, wechselt gelegentlich. Ist für einen Dienst mehr als ein Anbieter eingerichtet, zum Beispiel bei Übersetzung, Text in Audio oder Bildgenerator, wählst du ihn im Formular selbst aus."
+        "a": "Die Modelle stellt das KIS-Team zentral ein. Sie laufen bei drei Anbietern: THL myLab an der TH Lübeck, KISSKI von der GWDG in Göttingen und DeepL für die Übersetzung von Dateien.\n\nIm Chat mit dem Lernassistenten antwortet gemma4-31b. Welches Modell hinter den übrigen Diensten steckt, wechselt gelegentlich. Ist für einen Dienst mehr als ein Anbieter eingerichtet, zum Beispiel bei Übersetzung, Text in Audio oder Bildgenerator, wählst du ihn im Formular selbst aus."
       },
       "whoSees": {
         "q": "Wer sieht meine Materialien und meinen Chat?",
@@ -4574,12 +4574,12 @@
         "a": "Spätestens wenn das Pilotprojekt endet, werden deine Workspaces und hochgeladenen Dateien gelöscht. Willst du das früher, schreib uns eine E-Mail oder eine Nachricht über das Feedback-Formular."
       },
       "notFound": {
-        "q": "Warum weiß der KI-Assistent Francis etwas nicht, obwohl es im Dokument steht?",
-        "a": "Der KI-Assistent Francis sucht nicht im ganzen Dokument auf einmal, sondern in Abschnitten. Steht die Antwort verteilt über viele Stellen oder nur in einer Tabelle oder Grafik, findet er sie unter Umständen nicht.\n\nWas hilft: die Frage enger stellen, den Kapitelnamen nennen, oder in der Quellenauswahl nur das eine Dokument aktiv lassen."
+        "q": "Warum weiß der Lernassistent etwas nicht, obwohl es im Dokument steht?",
+        "a": "Der Lernassistent sucht nicht im ganzen Dokument auf einmal, sondern in Abschnitten. Steht die Antwort verteilt über viele Stellen oder nur in einer Tabelle oder Grafik, findet er sie unter Umständen nicht.\n\nWas hilft: die Frage enger stellen, den Kapitelnamen nennen, oder in der Quellenauswahl nur das eine Dokument aktiv lassen."
       },
       "generalQuestions": {
         "q": "Warum antwortet er nicht auf allgemeine Fragen?",
-        "a": "Das ist Absicht. Der KI-Assistent Francis ist an die Materialien des Workspaces gebunden, damit nichts in die Antwort gerät, was dort nicht steht. Für alles andere ist er nicht gedacht."
+        "a": "Das ist Absicht. Der Lernassistent ist an die Materialien des Workspaces gebunden, damit nichts in die Antwort gerät, was dort nicht steht. Für alles andere ist er nicht gedacht."
       },
       "trust": {
         "q": "Kann ich den Antworten trauen, und wofür sind die Belege am Satz?",
@@ -4745,7 +4745,7 @@
   "eventInfo": {
     "eyebrow": "Pilotprojekt an der THL",
     "title": "Lernen mit deinen eigenen Unterlagen",
-    "lead": "Der KI-Assistent Francis antwortet aus deinen Skripten, Folien und Vorlesungen und nennt die Quelle dazu.",
+    "lead": "Der Lernassistent antwortet aus deinen Skripten, Folien und Vorlesungen und nennt die Quelle dazu.",
     "purpose": {
       "heading": "Projekt und Plattform",
       "project": {
@@ -4778,7 +4778,7 @@
         "rows": {
           "students": {
             "label": "Für Studierende",
-            "value": "Der KI-Assistent Francis beantwortet Fragen zu deinen Unterlagen und hilft beim Üben"
+            "value": "Der Lernassistent beantwortet Fragen zu deinen Unterlagen und hilft beim Üben"
           },
           "teachers": {
             "label": "Für Lehrende",
@@ -4800,7 +4800,7 @@
         },
         "how": {
           "q": "Wie läuft die Arbeit mit der Plattform ab?",
-          "a": "Für Lehrende gibt es Dienste wie Screencast, Podcast oder Präsentation und daneben den KI-Assistenten Francis. Lehrende legen einen Workspace an, laden Dokumente und andere Materialien hoch und verwalten sie. Danach laden sie Studierende ein. Die Studierenden arbeiten im Workspace mit dem Material und stellen Francis ihre Fragen dazu. Die Dienste stehen in der Pilotphase nur Lehrenden zur Verfügung. Technisch wäre es möglich, sie künftig auch für Studierende freizugeben."
+          "a": "Für Lehrende gibt es Dienste wie Screencast, Podcast oder Präsentation und daneben den Lernassistenten. Lehrende legen einen Workspace an, laden Dokumente und andere Materialien hoch und verwalten sie. Danach laden sie Studierende ein. Die Studierenden arbeiten im Workspace mit dem Material und stellen Francis ihre Fragen dazu. Die Dienste stehen in der Pilotphase nur Lehrenden zur Verfügung. Technisch wäre es möglich, sie künftig auch für Studierende freizugeben."
         },
         "state": {
           "q": "Wie ist der aktuelle Stand?",
@@ -4872,7 +4872,7 @@
     },
     "services": {
       "heading": "Dienste für Lehrende",
-      "intro": "Neben dem KI-Assistenten finden Lehrende diese Dienste direkt auf der Startseite.",
+      "intro": "Neben dem Lernassistenten finden Lehrende diese Dienste direkt auf der Startseite.",
       "more": "Mehr erfahren",
       "detail": {
         "translation": {
@@ -4940,7 +4940,7 @@
         }
       }
     },
-    "tabAia": "KI-Assistent Francis",
+    "tabAia": "Lernassistent",
     "tabServices": "Dienste",
     "servicesTitle": "Dienste für dein Material",
     "servicesLead": "Texte übersetzen, vorlesen lassen, Aufnahmen transkribieren oder Podcast, Präsentation und Screencast aus deinem Material erstellen.",

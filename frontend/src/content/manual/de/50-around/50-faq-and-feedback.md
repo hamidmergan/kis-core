@@ -6,7 +6,7 @@ Drei Wege, um kurz nachzuschlagen, etwas zu melden oder zurückzumelden, wie KIS
 
 Die FAQ im Zahnrad-Menü, gleich über der Dokumentation, sieht jedes angemeldete Konto ohne eigenes
 Recht. Sie ist nach Problemen sortiert, die Dokumentation nach Funktionen, in vier Gruppen:
-Grundsätzliches, Daten und Recht, Der KI-Assistent Francis, Im Betrieb. Fehlt eine Frage, führt der
+Grundsätzliches, Daten und Recht, Der Lernassistent, Im Betrieb. Fehlt eine Frage, führt der
 Kasten Frage nicht dabei? zur Dokumentation und zum Feedback-Formular.
 
 ![Die FAQ-Seite mit einer aufgeklappten Frage](/manual/{lang}/faq.png)

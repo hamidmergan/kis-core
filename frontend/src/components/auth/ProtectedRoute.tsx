@@ -17,7 +17,7 @@ const TOOL_KEY_BY_SLUG: Record<string, string> = {
   podcast: "podcast",
   praesentation: "praesentation",
   glossary: "glossary",
-  campus: "campus",
+  info: "campus",
 };
 
 function toolKeyFromPath(pathname: string | null): string | null {

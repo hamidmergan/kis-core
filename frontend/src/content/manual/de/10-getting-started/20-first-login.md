@@ -11,8 +11,8 @@ einmal.
 
 ## Die Startseite
 
-Die Startseite ist die Kachel-Übersicht mit zwei Gruppen: KI-Assistent mit der Kachel
-KI-Assistent Francis und Dienste mit einer Kachel je freigegebenem Dienst. An jeder Gruppe steht,
+Die Startseite ist die Kachel-Übersicht mit drei Gruppen: Lernassistent, Infoassistent und
+Dienste mit einer Kachel je freigegebenem Dienst. An jeder Gruppe steht,
 für wen sie gedacht ist, Lehrende oder Studierende. Wer nur ein Ziel hat, etwa Studierende ohne
 Dienste, landet ohne Umweg dort, in der Workspace-Liste. Was die Dienste können, steht im Kapitel
 Dienste.
@@ -42,7 +42,7 @@ Zahnrad oben rechts erreichbar.
   eingeschaltet haben
 - **Sprachtest starten** schaltet den Trainer ein und führt sofort in den Test, das Ergebnis wird
   Ihr Sprachniveau
-- **Niveau**: bestimmt, wie der KI-Assistent im Workspace erklärt und wie Karteikarten, Quiz und
+- **Niveau**: bestimmt, wie der Lernassistent im Workspace erklärt und wie Karteikarten, Quiz und
   Übungen formuliert sind
 - **Ausblenden** merkt nur die Antwort, den Test holen Sie unter Sprachniveau im Zahnrad jederzeit
   nach

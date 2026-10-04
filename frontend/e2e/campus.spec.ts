@@ -1,9 +1,9 @@
 import { test, expect } from "@playwright/test";
 
-/** The campus assistant answers with sources and keeps the chat in the history. */
-test.describe("Campus-Assistent", () => {
+/** The info assistant answers with sources and keeps the chat in the history. */
+test.describe("Infoassistent", () => {
   test("Beispielfrage bringt Antwort mit Quellen und legt einen Chat an", async ({ page }) => {
-    await page.goto("/tools/campus", { waitUntil: "domcontentloaded" });
+    await page.goto("/tools/info", { waitUntil: "domcontentloaded" });
     await page.waitForSelector('[data-testid="campus-examples"]', { timeout: 30_000 });
 
     await page.locator('[data-testid="campus-examples"] button').nth(3).click();
@@ -16,7 +16,7 @@ test.describe("Campus-Assistent", () => {
   });
 
   test("ein neuer Chat startet leer", async ({ page }) => {
-    await page.goto("/tools/campus", { waitUntil: "domcontentloaded" });
+    await page.goto("/tools/info", { waitUntil: "domcontentloaded" });
     await page.locator('[data-testid="campus-new-chat"]').click();
     await expect(page.locator('[data-testid="campus-examples"]')).toBeVisible();
     await expect(page.locator('[data-testid="assistant-message"]')).toHaveCount(0);
@@ -24,7 +24,7 @@ test.describe("Campus-Assistent", () => {
 
   test("Logo fuehrt zur Startseite, Dienste zu den Diensten, die Leiste klappt ein", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
-    await page.goto("/tools/campus", { waitUntil: "domcontentloaded" });
+    await page.goto("/tools/info", { waitUntil: "domcontentloaded" });
     const leiste = page.locator('[data-testid="campus-history"]');
     await expect(leiste).toBeVisible({ timeout: 30_000 });
 
@@ -48,7 +48,7 @@ test.describe("Campus-Assistent", () => {
 
   test("am Handy oeffnet das Leistensymbol den Verlauf", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto("/tools/campus", { waitUntil: "domcontentloaded" });
+    await page.goto("/tools/info", { waitUntil: "domcontentloaded" });
     await page.locator('[data-testid="campus-menu"]').click();
     const leiste = page.locator('[data-testid="campus-history"]:visible');
     await expect(leiste).toBeVisible();

@@ -4,7 +4,7 @@ export const ALL_MODULES = ["aia", "tools"] as const;
 
 /** Order of the tools on the start page, nach Wichtigkeit für die Lehre. */
 export const TOOL_ROUTES = [
-  { key: "campus", href: "/tools/campus" },
+  { key: "campus", href: "/tools/info" },
   { key: "translation", href: "/tools/translate" },
   { key: "tts", href: "/tools/tts" },
   { key: "transcription", href: "/tools/stt" },

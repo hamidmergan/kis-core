@@ -2,13 +2,13 @@
 
 ![The workspace list with your own workspaces](/manual/{lang}/module-list.png)
 
-Reached through the **AI assistant Francis** tile on the start page. Anyone with nothing but the
+Reached through the **Learning assistant** tile on the start page. Anyone with nothing but the
 assistant released lands here straight after signing in.
 
 ## The header
 
 - **Services** only appears when at least one service is released, and so does **Jobs**
-- **Calendar** only comes together with the AI assistant
+- **Calendar** only comes together with the learning assistant
 - **Gear**: language, light or dark, and depending on your rights language level, interfaces,
   tour through the demo workspace, evaluation, FAQ and documentation. The entry for the
   administration is called Admin, Administration or Statistics, depending on what you may do.

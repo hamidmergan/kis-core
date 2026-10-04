@@ -11,8 +11,8 @@ once more.
 
 ## The start page
 
-The start page is the tile overview with two groups: AI assistant with the tile AI assistant
-Francis, and Services with one tile per released service. Each group says whom it is meant for,
+The start page is the tile overview with three groups: Learning assistant, Info assistant and
+Services with one tile per released service. Each group says whom it is meant for,
 Teachers or Students. Whoever has only one place to go, for example students without services,
 lands there directly, in the workspace list. What the services do is in the Services chapter.
 
@@ -39,7 +39,7 @@ answered, a card is gone, all three offers stay reachable through the gear icon 
   the platform
 - **Start the language test** switches the trainer on and leads straight into the test, the result
   becomes your language level
-- **Level**: decides how the AI assistant in a workspace explains and how flashcards, quizzes and
+- **Level**: decides how the learning assistant in a workspace explains and how flashcards, quizzes and
   exercises are worded
 - **Hide** only records the answer, you can take the test later under Language level in the gear
   menu

@@ -1,6 +1,6 @@
-# Campus Assistant
+# Info assistant
 
-The campus assistant answers questions about the university: applying, enrolment, deadlines, advisory services, buildings and campus life. It answers only from the university's web pages, from uploaded documents and from the place list of the campus map. Every answer shows its sources.
+The info assistant answers questions about the university: applying, enrolment, deadlines, advisory services, buildings and campus life. It answers only from the university's web pages, from uploaded documents and from the place list of the campus map. Every answer shows its sources.
 
 ## Questions and sources
 
@@ -26,4 +26,4 @@ A question holds at most 2,000 characters, a chat at most 50 questions, after th
 
 ## For administrators
 
-Under **Administration → Campus assistant** you find the sitemap of the university site, patterns for addresses to include or exclude, the address of the campus map, the place list and the retention of chats. The refresh of the pages runs every night and can be started there right away. Changed pages are read again, vanished ones removed. Documents that are not on the website can be uploaded there.
+Under **Administration → Info assistant** you find the sitemap of the university site, patterns for addresses to include or exclude, the address of the campus map, the place list and the retention of chats. The refresh of the pages runs every night and can be started there right away. Changed pages are read again, vanished ones removed. Documents that are not on the website can be uploaded there.

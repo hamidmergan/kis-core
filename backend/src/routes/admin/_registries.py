@@ -11,7 +11,7 @@ TOOLS_CONFIG = [
     {"key": "image",         "label": "Bild-KI"},
     {"key": "glossary",      "label": "Glossaries"},
     {"key": "summary",       "label": "Zusammenfassung"},
-    {"key": "campus",        "label": "Campus-Assistent"},
+    {"key": "campus",        "label": "Infoassistent"},
 ]
 
 

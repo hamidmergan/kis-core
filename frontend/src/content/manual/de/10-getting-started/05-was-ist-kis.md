@@ -1,13 +1,13 @@
 # Was ist KIS
 
 KIS steht für KInternationalisierung von Studiengängen und ist ein Pilotprojekt an der TH Lübeck,
-eine KI-Plattform für Lehre und Studium. Sie deckt zwei getrennte Bereiche ab: den KI-Assistenten
-Francis in Workspaces und eigenständige Dienste.
+eine KI-Plattform für Lehre und Studium. Sie deckt drei getrennte Bereiche ab: den Lernassistenten
+in Workspaces, den Infoassistenten für Fragen zur Hochschule und eigenständige Dienste.
 
-## Der KI-Assistent Francis
+## Der Lernassistent
 
-Ein Workspace bündelt die Materialien zu einem Thema, etwa einer Vorlesung. Der KI-Assistent
-Francis beantwortet Fragen dazu nur aus genau diesen Materialien, mit einem Beleg an jedem Satz.
+Ein Workspace bündelt die Materialien zu einem Thema, etwa einer Vorlesung. Der Lernassistent
+beantwortet Fragen dazu nur aus genau diesen Materialien, mit einem Beleg an jedem Satz.
 Dazu kommen die Tools im Studio des Workspace, etwa Karteikarten und Quiz zum Inhalt, und je nach
 Freischaltung ein Sprachtrainer für Deutsch als Fremdsprache.
 

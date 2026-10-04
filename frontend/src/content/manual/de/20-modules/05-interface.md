@@ -2,13 +2,13 @@
 
 ![Die Workspace-Liste mit den eigenen Workspaces](/manual/{lang}/module-list.png)
 
-Erreichbar über die Kachel **KI-Assistent Francis** auf der Startseite. Wer außer dem Assistenten
+Erreichbar über die Kachel **Lernassistent** auf der Startseite. Wer außer dem Assistenten
 nichts freigeschaltet hat, landet nach der Anmeldung direkt hier.
 
 ## Die Kopfzeile
 
 - **Dienste** steht nur da, wenn mindestens ein Dienst freigeschaltet ist, **Jobs** ebenso
-- **Kalender** gibt es nur zusammen mit dem KI-Assistenten
+- **Kalender** gibt es nur zusammen mit dem Lernassistenten
 - **Zahnrad**: Sprache, Hell oder Dunkel, dazu je nach Rechten Sprachniveau, Schnittstellen,
   Rundgang durch den Demo-Workspace, Evaluation, FAQ und Dokumentation. Der Eintrag zur
   Verwaltung heißt Admin, Verwaltung oder Statistik, je nachdem, was Sie dürfen. Mehr dazu

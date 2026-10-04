@@ -1,4 +1,4 @@
-"""Text fragments of the campus assistant."""
+"""Text fragments of the info assistant."""
 
 MESSAGES: dict[str, dict[str, str]] = {
     "campus.chatNotFound": {
@@ -14,8 +14,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "This chat is full. Start a new chat.",
     },
     "campus.notConfigured": {
-        "de": "Der Campus-Assistent ist noch nicht eingerichtet",
-        "en": "The campus assistant is not set up yet",
+        "de": "Der Infoassistent ist noch nicht eingerichtet",
+        "en": "The info assistant is not set up yet",
     },
     "campus.docTypeNotAllowed": {
         "de": "Dieser Dateityp wird nicht unterstützt",

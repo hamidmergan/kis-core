@@ -35,7 +35,7 @@ Language level, do the three tools appear in the studio.
 
 ## What the administration decides
 
-- **The platform switch** under AI assistant, Language level. It is off by default, then the card
+- **The platform switch** under Learning assistant, Language level. It is off by default, then the card
   is missing and nobody sees the language trainer. Levels and choices already made stay stored
   and apply again once it is on
 - **The permission Own language level and language test**: none of the system roles holds it,

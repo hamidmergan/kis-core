@@ -16,7 +16,7 @@ the tag Teachers, it is aimed at teaching staff.
 - **Interpreter** translates a conversation between two languages as it happens
 - **Glossary** keeps term lists for translations
 
-Anyone with a single destination only, such as students with just the AI assistant, lands there
+Anyone with a single destination only, such as students with just the learning assistant, lands there
 directly and never sees the tile page. The KIS logo in the top left always leads back to the
 start page.
 
@@ -31,7 +31,7 @@ of the two is the reason.
 Most services work with an uploaded file: in, result, download. Summary, podcast, presentation
 and the additional material of the screencast also have a Workspace tab. There you pick fully
 processed sources from one of your workspaces without uploading them again. The tab only appears
-when you may use the AI assistant.
+when you may use the learning assistant.
 
 ## Jobs and quota
 

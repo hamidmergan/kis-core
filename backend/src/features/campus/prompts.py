@@ -1,4 +1,4 @@
-"""Prompts of the campus assistant, one small pre-call for follow-ups and one answer call."""
+"""Prompts of the info assistant, one small pre-call for follow-ups and one answer call."""
 
 NO_SOURCE_MARKER = "NO_SOURCE:"
 
@@ -31,7 +31,7 @@ def answer_system(answer_language: str | None) -> str:
         else "Write the whole answer in the language the question is written in."
     )
     return (
-        "You are the campus assistant of a university. You answer questions of prospective and current students "
+        "You are the info assistant of a university. You answer questions of prospective and current students "
         "about applying, enrolment, deadlines, studying, services, buildings and campus life.\n\n"
         "Rules:\n"
         f"1. {lang_rule} Address the reader informally where the language distinguishes (German: du). "

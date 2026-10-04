@@ -1,12 +1,12 @@
 # What KIS is
 
 KIS stands for KInternationalisierung von Studiengängen and is a pilot project at TH Lübeck, an AI
-platform for teaching and study. It covers two separate areas: the AI assistant Francis in
-workspaces and standalone services.
+platform for teaching and study. It covers three separate areas: the learning assistant in
+workspaces, the info assistant for questions about the university, and standalone services.
 
-## The AI assistant Francis
+## The learning assistant
 
-A workspace bundles the materials on a topic, for example a lecture. The AI assistant Francis
+A workspace bundles the materials on a topic, for example a lecture. The learning assistant
 answers questions about it from exactly these materials only, with a citation on every sentence.
 On top come the tools in the workspace's studio, such as flashcards and quizzes on the content,
 and, where it is switched on, a language trainer for German as a foreign language.

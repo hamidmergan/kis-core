@@ -1,6 +1,6 @@
-# Setting up the AI assistant
+# Setting up the learning assistant
 
-Under AI Assistant you decide how material is read in and how the language trainer works.
+Under Learning assistant you decide how material is read in and how the language trainer works.
 
 ## Materials
 

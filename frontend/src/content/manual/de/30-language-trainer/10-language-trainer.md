@@ -34,7 +34,7 @@ festgelegt, erscheinen die drei Tools im Studio.
 
 ## Was die Verwaltung entscheidet
 
-- **Der Schalter der Plattform** unter KI-Assistent, Sprachniveau. Ab Werk ist er aus, dann
+- **Der Schalter der Plattform** unter Lernassistent, Sprachniveau. Ab Werk ist er aus, dann
   fehlt die Karte und niemand sieht den Sprachtrainer. Niveaus und getroffene Entscheidungen
   bleiben gespeichert und gelten wieder, sobald er an ist
 - **Das Recht Eigenes Sprachniveau und Sprachtest**: Keine der festen Rollen trägt es, auch

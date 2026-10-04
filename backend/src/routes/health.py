@@ -7,7 +7,7 @@ router = APIRouter(tags=["health"])
 # Shipped default for the first-login welcome dialog, editable in Admin -> System.
 DEFAULT_WELCOME_MODAL_TEXT = (
     "KIS ist ein Pilotprojekt an der TH Lübeck, eine KI-Plattform für Lehre und "
-    "Studium.\n\nDer KI-Assistent Francis steht allen offen. Lehrende legen Workspaces "
+    "Studium.\n\nDer Lernassistent steht allen offen. Lehrende legen Workspaces "
     "an und laden dort ihre Kursmaterialien hoch, Studierende arbeiten in den "
     "Workspaces, zu denen ihre Lehrenden sie eingeladen haben. Darin beantwortet "
     "Francis Fragen aus genau diesen Materialien. Lehrende finden daneben die "

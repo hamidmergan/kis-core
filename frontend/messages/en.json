@@ -345,15 +345,15 @@
     "expiredTitle": "Your access has expired",
     "expiredText": "If you would like to carry on, get in touch.",
     "francisName": "Francis",
-    "francisRole": "AI assistant of KIS",
+    "francisRole": "Learning assistant of KIS",
     "tabAccount": "With account",
     "tabCode": "With access code"
   },
   "startOverview": {
     "groups": {
-      "aia": "AI assistant",
+      "aia": "Learning assistant",
       "tools": "Services",
-      "campus": "Campus Assistant"
+      "campus": "Info assistant"
     },
     "audience": {
       "lehrende": "Teachers",
@@ -364,8 +364,8 @@
       "studierende": "Students work in the workspaces their teachers have invited them to."
     },
     "aia": {
-      "title": "AI assistant Francis",
-      "body": "Your workspaces with materials, chat and tools. The AI assistant answers from each workspace's own documents only."
+      "title": "Learning assistant",
+      "body": "Your workspaces with materials, chat and tools. The learning assistant answers from each workspace's own documents only."
     },
     "tools": {
       "translation": {
@@ -409,7 +409,7 @@
         "body": "Your material becomes slides in the university's design, with pictures, tables and charts where the template provides for them."
       },
       "campus": {
-        "title": "Campus Assistant",
+        "title": "Info assistant",
         "body": "Questions about applying, starting and studying. Answers come from the university's web pages, with a link to the source."
       }
     }
@@ -1705,7 +1705,7 @@
       "beenden": "End demo"
     },
     "campus": {
-      "title": "Campus Assistant",
+      "title": "Info assistant",
       "newChat": "New chat",
       "noChats": "No chats yet.",
       "group": {
@@ -1782,7 +1782,7 @@
       "toolsLabel": "Services",
       "allJobs": "All jobs",
       "jobStats": "Job statistics",
-      "kiStats": "AI assistant statistics",
+      "kiStats": "Learning assistant statistics",
       "mascot": "Mascot",
       "speech": "Speech",
       "images": "Images",
@@ -1797,7 +1797,7 @@
         "tabs": {
           "nutzer": "Users",
           "werkzeuge": "Services",
-          "assistent": "AI assistant",
+          "assistent": "Learning assistant",
           "modelle": "Models",
           "evaluation": "Evaluation"
         }
@@ -1861,7 +1861,7 @@
         }
       },
       "assistent": {
-        "label": "AI assistant",
+        "label": "Learning assistant",
         "sub": "The assistant inside a workspace.",
         "sources": {
           "label": "Sources",
@@ -1917,7 +1917,7 @@
         }
       },
       "campus": {
-        "label": "Campus assistant",
+        "label": "Info assistant",
         "sub": "Which web pages are refreshed at night, the link to the campus map, extra documents and how long chats are kept.",
         "sitemapUrl": "Sitemap address",
         "sitemapHint": "The sitemap of the university site. Left empty, no web pages are fetched.",
@@ -2265,7 +2265,7 @@
         "deeplFreeOnProUrl": "DeepL Free key (suffix :fx) detected, but the base URL points to the Pro endpoint. KIS will auto-route to api-free.deepl.com.",
         "deeplProOnFreeUrl": "DeepL Pro key detected, but the base URL points to the Free endpoint. KIS will auto-route to api.deepl.com.",
         "fieldConcurrency": "Simultaneous calls",
-        "concurrencyHint": "How many calls KIS sends to this provider at the same time. Empty means no limit. The chat with the AI assistant Francis does not count, image analysis counts with the LLM.",
+        "concurrencyHint": "How many calls KIS sends to this provider at the same time. Empty means no limit. The chat with the learning assistant does not count, image analysis counts with the LLM.",
         "concurrencyNoLimit": "no limit",
         "concurrencyBucket": {
           "llm": "LLM",
@@ -2441,7 +2441,7 @@
       "ocrMasterOn": "Pages with large embedded images are sent to the vision model.",
       "ocrMasterOff": "Disabled - PDF pages with screenshots/scans will not be transcribed.",
       "ocrMasterWarning": "Heads up: with Docling each OCR'd page takes ~7 seconds (with THL myLab chandra: 30-70 seconds). A scanned 300-page document can take 30+ minutes to ingest. Disable OCR if your sources are mostly text-based.",
-      "embeddingTitle": "Embeddings (AI assistant)",
+      "embeddingTitle": "Embeddings (learning assistant)",
       "embeddingHint": "Only one provider at a time - switching requires reindex (see below).",
       "llmTitle": "LLM chat",
       "llmHint": "Only one provider at a time. Switching takes immediate effect for all LLM calls (chat, mindmap, summary, script).",
@@ -2707,7 +2707,7 @@
       "sizeHero": "320 (hero)",
       "replay": "Replay animations",
       "allMoodsHeading": "All moods side by side",
-      "chatHeading": "In chat context (how she would appear in the AI assistant)",
+      "chatHeading": "In chat context (how she would appear in the learning assistant)",
       "chatUserMessage": "Can you summarize chapters 3 and 4 from the script?",
       "chatThinking": "One moment, I am going through the script…",
       "chatFound": "Sure! Here are the key points from chapters 3 and 4: Markov chains describe transitions between states, where the probability depends only on the current state…",
@@ -2733,7 +2733,7 @@
       "sizeHero": "320 (hero)",
       "replay": "Replay animations",
       "allMoodsHeading": "All moods side by side",
-      "chatHeading": "In chat context (how Francis would appear in the AI assistant)",
+      "chatHeading": "In chat context (how Francis would appear in the learning assistant)",
       "chatUserMessage": "Can you summarize chapters 3 and 4 from the script?",
       "chatThinking": "One sec, let me fly through the script…",
       "chatFound": "Got it! From chapters 3 and 4: Markov chains describe transitions between states, where the probability depends only on the current state…",
@@ -2773,7 +2773,7 @@
       },
       "systemRoleHint": {
         "admin": "The administrator may do everything. Not editable.",
-        "staff": "Staff uses the AI assistant with own workspaces and all services, but no settings. Not editable.",
+        "staff": "Staff uses the learning assistant with own workspaces and all services, but no settings. Not editable.",
         "user": "User only opens shared workspaces. Not editable."
       },
       "more": "More"
@@ -2785,18 +2785,18 @@
       },
       "group": {
         "general": "General",
-        "aia": "AI assistant",
+        "aia": "Learning assistant",
         "tools": "Services",
         "set": {
           "werkzeuge": "Services",
-          "assistent": "AI assistant",
+          "assistent": "Learning assistant",
           "statistik": "Statistics",
           "anbieter": "Providers",
           "nutzer": "Users",
           "system": "System",
           "mascot": "Mascots",
           "event": "Event",
-          "campus": "Campus assistant"
+          "campus": "Info assistant"
         }
       },
       "general": {
@@ -2822,7 +2822,7 @@
         "podcast": "Podcast",
         "praesentation": "Presentation",
         "glossary": "Glossary",
-        "campus": "Campus assistant"
+        "campus": "Info assistant"
       },
       "settings": {
         "werkzeuge": {
@@ -2834,7 +2834,7 @@
         "assistent": {
           "sources": "Processing of material",
           "level": "Language level, AI behaviour and prompts",
-          "usage": "AI assistant (all workspaces)"
+          "usage": "Learning assistant (all workspaces)"
         },
         "anbieter": "Add models and route features",
         "nutzer": {
@@ -2856,7 +2856,7 @@
           "zugang": "Access during maintenance"
         },
         "event": "Stands, event block and numbers of the stamp card",
-        "campus": "Set up the campus assistant"
+        "campus": "Set up the info assistant"
       }
     },
     "toolLimits": {
@@ -3290,7 +3290,7 @@
     },
     "grenzen": {
       "werkzeuge": "Services",
-      "assistent": "AI assistant",
+      "assistent": "Learning assistant",
       "gemeinsam": "Shared"
     }
   },
@@ -4149,7 +4149,7 @@
         "description": "Shows the key features of this workspace.",
         "dismiss": "Hide",
         "inviteTitle": "Tour through the demo workspace",
-        "inviteBody": "A short tour through a sample workspace. Shows the materials, the AI assistant Francis and the tools in the study area.",
+        "inviteBody": "A short tour through a sample workspace. Shows the materials, the learning assistant and the tools in the study area.",
         "steps": {
           "preview": {
             "title": "Teacher and student view",
@@ -4183,11 +4183,11 @@
         "demo": {
           "willkommen": {
             "title": "Welcome to the demo workspace",
-            "text": "A workspace is the place where you upload the materials of your course. Your students work with them directly, they ask the AI assistant Francis about them and have flashcards, quizzes and other formats generated from those materials. This tour exists for both teachers and students, you're seeing your own version."
+            "text": "A workspace is the place where you upload the materials of your course. Your students work with them directly, they ask the learning assistant about them and have flashcards, quizzes and other formats generated from those materials. This tour exists for both teachers and students, you're seeing your own version."
           },
           "willkommenStudi": {
             "title": "Welcome to the demo workspace",
-            "text": "A workspace is the place where your teachers upload the materials of the course. You work with them directly, you ask the AI assistant Francis about them and have flashcards, quizzes and other formats generated from those materials. This tour exists for both teachers and students, you're seeing your own version."
+            "text": "A workspace is the place where your teachers upload the materials of the course. You work with them directly, you ask the learning assistant about them and have flashcards, quizzes and other formats generated from those materials. This tour exists for both teachers and students, you're seeing your own version."
           },
           "materialien": {
             "title": "The materials area",
@@ -4243,7 +4243,7 @@
           },
           "chat": {
             "title": "Francis, the chat for the workspace",
-            "text": "Francis, your AI assistant, answers only from the ticked materials, with a citation for every statement."
+            "text": "Francis, your learning assistant, answers only from the ticked materials, with a citation for every statement."
           },
           "werkzeuge": {
             "title": "Tools in the studio",
@@ -4404,7 +4404,7 @@
     },
     "demoHint": {
       "title": "No workspace yet",
-      "body": "Your workspace list is empty. Add the demo workspace and take your time trying it out. It comes with ready-made materials, the AI assistant Francis and the tools in the study area.",
+      "body": "Your workspace list is empty. Add the demo workspace and take your time trying it out. It comes with ready-made materials, the learning assistant and the tools in the study area.",
       "join": "Add demo workspace",
       "dialogTitle": "Add demo workspace",
       "dialogBody": "You will be enrolled in the demo workspace and find it in your workspace list afterwards. You can leave it any time from the menu in its row.",
@@ -4529,7 +4529,7 @@
     "groups": {
       "basics": "Basics",
       "data": "Data and law",
-      "francis": "The AI assistant Francis",
+      "francis": "The learning assistant",
       "operation": "Day to day"
     },
     "closer": {
@@ -4539,11 +4539,11 @@
     "items": {
       "whatIsKis": {
         "q": "What is KIS and what is it for?",
-        "a": "KIS is a pilot project at TH Lübeck. It brings together two things: the AI assistant Francis, who answers from the materials stored in a workspace, and the services you use to produce teaching material."
+        "a": "KIS is a pilot project at TH Lübeck. It brings together two things: the learning assistant, who answers from the materials stored in a workspace, and the services you use to produce teaching material."
       },
       "vsChatgpt": {
-        "q": "How is the AI assistant Francis different from ChatGPT?",
-        "a": "The AI assistant Francis is built on RAG (Retrieval-Augmented Generation): it looks up the matching passages in your workspace's materials and answers only from those, attaching a source to every sentence, which opens the exact spot in the document. Anything beyond that he turns down. The closer comparison is Gemini Notebook by Google (formerly NotebookLM), not ChatGPT.\n\nOn top of that, processing runs with providers in Germany, not in the US. Our data is not used for training.\n\nKIS itself is open source under the Apache 2.0 license."
+        "q": "How is the learning assistant different from ChatGPT?",
+        "a": "The learning assistant is built on RAG (Retrieval-Augmented Generation): it looks up the matching passages in your workspace's materials and answers only from those, attaching a source to every sentence, which opens the exact spot in the document. Anything beyond that he turns down. The closer comparison is Gemini Notebook by Google (formerly NotebookLM), not ChatGPT.\n\nOn top of that, processing runs with providers in Germany, not in the US. Our data is not used for training.\n\nKIS itself is open source under the Apache 2.0 license."
       },
       "moduleServiceTool": {
         "q": "What is the difference between a workspace, a service and a tool?",
@@ -4563,7 +4563,7 @@
       },
       "models": {
         "q": "Which AI models are used and who decides that?",
-        "a": "The KIS team configures the models centrally. They run at three providers: THL myLab at TH Lübeck, KISSKI from GWDG in Göttingen, and DeepL for translating files.\n\nIn the chat with the AI assistant Francis, gemma4-31b answers. Which model sits behind the other services changes from time to time. When a service has more than one provider set up, for example translation, text to audio or the image generator, you pick it yourself in the form."
+        "a": "The KIS team configures the models centrally. They run at three providers: THL myLab at TH Lübeck, KISSKI from GWDG in Göttingen, and DeepL for translating files.\n\nIn the chat with the learning assistant, gemma4-31b answers. Which model sits behind the other services changes from time to time. When a service has more than one provider set up, for example translation, text to audio or the image generator, you pick it yourself in the form."
       },
       "whoSees": {
         "q": "Who can see my materials and my chat?",
@@ -4574,12 +4574,12 @@
         "a": "At the latest when the pilot project ends, your workspaces and uploaded files are deleted. If you want that sooner, send us an email or a message through the feedback form."
       },
       "notFound": {
-        "q": "Why does the AI assistant Francis not know something that is in the document?",
-        "a": "The AI assistant Francis does not search a whole document at once, he searches it in sections. If the answer is spread across many places, or sits only in a table or a graphic, he may not find it.\n\nWhat helps: narrow the question, name the chapter, or leave only that one document active in the source selection."
+        "q": "Why does the learning assistant not know something that is in the document?",
+        "a": "The learning assistant does not search a whole document at once, he searches it in sections. If the answer is spread across many places, or sits only in a table or a graphic, he may not find it.\n\nWhat helps: narrow the question, name the chapter, or leave only that one document active in the source selection."
       },
       "generalQuestions": {
         "q": "Why does he not answer general questions?",
-        "a": "That is deliberate. The AI assistant Francis is tied to the materials of the workspace so that nothing enters an answer that is not in them. He is not meant for anything else."
+        "a": "That is deliberate. The learning assistant is tied to the materials of the workspace so that nothing enters an answer that is not in them. He is not meant for anything else."
       },
       "trust": {
         "q": "Can I trust the answers, and what are the sources on each sentence for?",
@@ -4745,7 +4745,7 @@
   "eventInfo": {
     "eyebrow": "Pilot project at THL",
     "title": "Learn with your own materials",
-    "lead": "The AI assistant Francis answers from your scripts, slides and lectures and names the source.",
+    "lead": "The learning assistant answers from your scripts, slides and lectures and names the source.",
     "purpose": {
       "heading": "Project and platform",
       "project": {
@@ -4778,7 +4778,7 @@
         "rows": {
           "students": {
             "label": "For students",
-            "value": "The AI assistant Francis answers questions about your materials and helps you practise"
+            "value": "The learning assistant answers questions about your materials and helps you practise"
           },
           "teachers": {
             "label": "For teachers",
@@ -4800,7 +4800,7 @@
         },
         "how": {
           "q": "How does working with the platform work?",
-          "a": "Teachers have services such as screencast, podcast or presentation and also the AI assistant Francis. Teachers create a workspace, upload documents and other materials and manage them. Then they invite students. The students work with the material in the workspace and ask Francis their questions about it. During the pilot phase the services are available to teachers only. Technically it would be possible to open them to students as well in the future."
+          "a": "Teachers have services such as screencast, podcast or presentation and also the learning assistant. Teachers create a workspace, upload documents and other materials and manage them. Then they invite students. The students work with the material in the workspace and ask Francis their questions about it. During the pilot phase the services are available to teachers only. Technically it would be possible to open them to students as well in the future."
         },
         "state": {
           "q": "What is the current status?",
@@ -4872,7 +4872,7 @@
     },
     "services": {
       "heading": "Services for teachers",
-      "intro": "Besides the AI assistant, teachers find these services right on the start page.",
+      "intro": "Besides the learning assistant, teachers find these services right on the start page.",
       "more": "Learn more",
       "detail": {
         "translation": {
@@ -4940,7 +4940,7 @@
         }
       }
     },
-    "tabAia": "AI assistant Francis",
+    "tabAia": "Learning assistant",
     "tabServices": "Services",
     "servicesTitle": "Services for your material",
     "servicesLead": "Translate texts, have them read aloud, transcribe recordings or create a podcast, a presentation and a screencast from your material.",

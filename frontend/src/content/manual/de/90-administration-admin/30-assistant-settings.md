@@ -1,6 +1,6 @@
-# KI-Assistent einstellen
+# Lernassistent einstellen
 
-Unter KI-Assistent legen Sie fest, wie Material eingelesen wird und wie der Sprachtrainer
+Unter Lernassistent legen Sie fest, wie Material eingelesen wird und wie der Sprachtrainer
 arbeitet.
 
 ## Materialien

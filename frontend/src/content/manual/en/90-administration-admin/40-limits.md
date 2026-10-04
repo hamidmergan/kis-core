@@ -11,6 +11,6 @@ oldest one disappears automatically. There is no fixed deadline, only this numbe
 
 ## Context
 
-How much text the AI assistant Francis and the tools may give the model per request, separately
+How much text the learning assistant and the tools may give the model per request, separately
 for overview questions, specific questions, and the tools. Too small a value makes jobs fail at
 the model's window, and only lowering it helps.

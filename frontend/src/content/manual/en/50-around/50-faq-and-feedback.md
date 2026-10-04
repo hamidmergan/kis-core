@@ -6,7 +6,7 @@ Three ways to look something up quickly, report something, or say how KIS is wor
 
 The FAQ in the gear menu, right above the documentation, is visible to every signed-in account
 without any permission. It is sorted by problem, the documentation by feature, in four groups:
-Basics, Data and law, The AI assistant Francis, Day to day. If a question is missing, the box
+Basics, Data and law, The learning assistant, Day to day. If a question is missing, the box
 Question not covered? leads to the documentation and to the feedback form.
 
 ![The FAQ page with one question expanded](/manual/{lang}/faq.png)

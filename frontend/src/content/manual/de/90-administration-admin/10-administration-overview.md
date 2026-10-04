@@ -12,11 +12,11 @@ weder in der Leiste noch über die Adresse. Beim Öffnen landen Sie auf den Auft
 Recht auf der ersten Seite, die Sie sehen dürfen.
 
 - **Dienste**: die Freigabe der zehn Dienste und die Aufträge aller Personen
-- **KI-Assistent**: wie Materialien eingelesen werden, dazu Sprachtrainer, Sprachtest und das
+- **Lernassistent**: wie Materialien eingelesen werden, dazu Sprachtrainer, Sprachtest und das
   Verhalten der KI je Sprachniveau
 - **Grenzen**: wie viel Material hereinkommt und wie viel davon ins Modell geht, für Dienste und
-  KI-Assistent gemeinsam
-- **Statistik**: Zahlen zu Nutzern, Diensten, KI-Assistent, Modellen und Evaluation. Hier wird
+  Lernassistent gemeinsam
+- **Statistik**: Zahlen zu Nutzern, Diensten, Lernassistent, Modellen und Evaluation. Hier wird
   nichts eingestellt
 - **Anbieter & Modelle**: die KI-Anbieter mit Adresse und Schlüssel, und welche Funktion welches
   Modell nutzt
@@ -39,6 +39,6 @@ es nicht.
 
 ## Was die Installation mitbringt
 
-Ob eine Installation den KI-Assistenten, die Dienste oder beides hat, legt der Server fest. Fehlt
+Ob eine Installation den Lernassistenten, die Dienste oder beides hat, legt der Server fest. Fehlt
 ein Teil, fehlen auch seine Seiten und Rechte. Ohne Dienste gibt es zum Beispiel weder Freigabe
 noch Aufträge noch Grenzen.

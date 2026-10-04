@@ -12,6 +12,6 @@ Frist gibt es nicht, nur diese Zahl.
 
 ## Kontext
 
-Wie viel Text der KI-Assistent Francis und die Tools je Anfrage ins Modell geben dürfen, getrennt
+Wie viel Text der Lernassistent und die Tools je Anfrage ins Modell geben dürfen, getrennt
 für Überblicksfragen, gezielte Fragen und die Tools. Ein zu kleiner Wert lässt Aufträge am
 Modellfenster scheitern, dann hilft nur, ihn zu senken.

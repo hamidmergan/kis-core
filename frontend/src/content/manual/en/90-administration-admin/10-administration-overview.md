@@ -12,11 +12,11 @@ neither in the sidebar nor by address. Opening it lands you on Jobs, or on the f
 see without that right.
 
 - **Services**: releasing the ten services and the jobs of every person
-- **AI Assistant**: how materials are read in, plus the language trainer, the language test, and
+- **Learning assistant**: how materials are read in, plus the language trainer, the language test, and
   the AI's behaviour per language level
 - **Limits**: how much material comes in and how much of it goes into the model, shared by
-  services and the AI assistant
-- **Statistics**: numbers on users, services, the AI assistant, models, and the evaluation.
+  services and the learning assistant
+- **Statistics**: numbers on users, services, the learning assistant, models, and the evaluation.
   Nothing is set here
 - **Providers & models**: the AI providers with address and key, and which function uses which
   model
@@ -38,6 +38,6 @@ button. There is no preview and no test mode.
 
 ## What the installation brings
 
-Whether an installation has the AI assistant, the services, or both is set by the server. A
+Whether an installation has the learning assistant, the services, or both is set by the server. A
 missing part also means its pages and rights are missing. Without services there is, for example,
 neither release, nor jobs, nor limits.
