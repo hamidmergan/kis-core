@@ -218,6 +218,8 @@
   --kb60:         #4F7A91;
   --kb20:         #1C2A33;
   --glanz:        #ffffff;
+  /* The brand blue disappears on the dark background, the light blue stays visible. */
+  --warte-kugel:  var(--kb-dark);
 
   /* Neutrals — Deep Slate (fast schwarz, minimaler Blau-Tint) */
   --background:      #0A0B0D;
