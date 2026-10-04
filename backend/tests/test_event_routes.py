@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from src.features.event import repository as repo
 from src.features.event.service import default_config
 from src.limits import EVENT_CODE_MAX_ATTEMPTS
+from src.permissions_registry import PERM_SET_EVENT
 
 BESUCHER = {"X-Visitor-Id": "abcdefghijklmnop0123"}
 ANDERER = {"X-Visitor-Id": "zyxwvutsrqponmlk9876"}
@@ -39,6 +40,28 @@ def client_ohne_recht():
     app.dependency_overrides[verify_auth] = lambda: None
     app.dependency_overrides[get_current_user] = lambda: {
         "user_id": 3, "email": "student@th-luebeck.de", "role": "user",
+    }
+    yield TestClient(app)
+    app.dependency_overrides.clear()
+    get_settings.cache_clear()
+
+
+@pytest.fixture
+def client_mit_event_recht(monkeypatch):
+    """A custom role that holds the event page and nothing else of the settings."""
+    from src import database
+    from src.dependencies import get_current_user, get_settings
+    from src.security.auth import verify_auth
+    from src.app import app
+
+    monkeypatch.setattr(
+        database, "get_custom_role",
+        lambda role_id: {"id": role_id, "name": "Event", "permissions": [PERM_SET_EVENT]},
+    )
+    get_settings.cache_clear()
+    app.dependency_overrides[verify_auth] = lambda: None
+    app.dependency_overrides[get_current_user] = lambda: {
+        "user_id": 4, "email": "event@th-luebeck.de", "role": "custom", "custom_role_id": 1,
     }
     yield TestClient(app)
     app.dependency_overrides.clear()
@@ -323,3 +346,8 @@ def test_the_admin_empties_every_card(client, speicher):
     r = client.delete("/admin/event/stamps")
     assert r.status_code == 200
     assert speicher["stamps"] == {}
+
+
+def test_the_event_right_alone_resets_the_own_card_but_not_every_card(client_mit_event_recht, speicher):
+    assert client_mit_event_recht.delete("/admin/event/card", headers=BESUCHER).status_code == 200
+    assert client_mit_event_recht.delete("/admin/event/stamps").status_code == 403

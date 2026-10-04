@@ -4,7 +4,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from src.dependencies_rbac import require_permission
+from src.dependencies_rbac import require_full_admin, require_permission
 from src.features.event import repository as repo
 from src.features.event.service import EventValidationError, validate_config
 from src.i18n import get_locale, t
@@ -98,6 +98,6 @@ def reset_own_card(admin: dict = Depends(_require), besucher: str = Depends(_vis
 
 
 @router.delete("/stamps")
-def reset_all_stamps(admin: dict = Depends(_require)):
+def reset_all_stamps(admin: dict = Depends(require_full_admin)):
     repo.delete_all_stamps()
     return {"ok": True}

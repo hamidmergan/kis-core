@@ -3,7 +3,7 @@ from fastapi import Depends, HTTPException, Request
 
 from src.dependencies import get_current_user, get_settings
 from src.i18n import get_locale, t
-from src.permissions import Permissions, resolve_user_permissions
+from src.permissions import Permissions, is_full_admin, resolve_user_permissions
 from src.permissions_registry import ROLE_ONLY_KEYS, is_settings_key
 from src.services.tool_release import is_released_now
 
@@ -68,6 +68,16 @@ async def require_admin(
     if not perms.allow_admin_panel:
         raise HTTPException(status_code=403, detail=t("auth.adminRequired", locale))
     return perms
+
+
+async def require_full_admin(
+    user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
+) -> dict:
+    """Only whoever holds every settings page, the frontend hides the same things."""
+    if not is_full_admin(permissions_of(user)):
+        raise HTTPException(status_code=403, detail=t("auth.adminRequired", locale))
+    return user
 
 
 async def require_aia_access(

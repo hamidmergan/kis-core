@@ -1,6 +1,6 @@
 """Der Rechte-Katalog richtet sich nach dem Modul-Profil."""
 from src.modules import MODULE_AIA, MODULE_TOOLS
-from src.permissions import custom_role_permissions, permissions_for_system_role
+from src.permissions import custom_role_permissions, is_full_admin, permissions_for_system_role
 from src.permissions_registry import (
     ALL_PERMISSION_KEYS,
     PERM_AIA_USE,
@@ -8,6 +8,7 @@ from src.permissions_registry import (
     PERM_SET_AIA_LEVEL,
     PERM_SET_AIA_SOURCES,
     PERM_SET_AIA_USAGE,
+    PERM_SET_EVENT,
     PERM_SET_PROVIDERS,
     PERM_SET_SYSTEM,
     PERM_SET_TOOLS_JOBS,
@@ -133,3 +134,15 @@ def test_eigene_rolle_ohne_uebrige_rechte_ist_leer_statt_kaputt():
     perms = custom_role_permissions([PERM_AIA_USE], modules=NUR_TOOLS)
     assert perms.keys == frozenset()
     assert perms.allow_admin_panel is False
+
+
+# --- voller Admin ---------------------------------------------------------------
+
+def test_voller_admin_haelt_jede_verwalten_seite_seines_profils():
+    assert is_full_admin(permissions_for_system_role("admin", BEIDE), BEIDE) is True
+    assert is_full_admin(permissions_for_system_role("admin", NUR_AIA), NUR_AIA) is True
+
+
+def test_wer_nur_eine_verwalten_seite_hat_ist_kein_voller_admin():
+    assert is_full_admin(custom_role_permissions([PERM_SET_EVENT], BEIDE), BEIDE) is False
+    assert is_full_admin(permissions_for_system_role("staff", BEIDE), BEIDE) is False

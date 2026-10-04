@@ -75,6 +75,12 @@ def custom_role_permissions(keys, modules=None) -> Permissions:
     return Permissions(keys=frozenset(k for k in valid_keys(keys) if k in erlaubt))
 
 
+def is_full_admin(perms: Permissions, modules=None) -> bool:
+    """Holds every settings page of the active catalogue, the frontend measures the same way."""
+    erlaubt = keys_for_modules(modules if modules is not None else active_modules())
+    return all(k in perms.keys for k in erlaubt if is_settings_key(k))
+
+
 def resolve_user_permissions(
     role: str,
     custom_role_id: int | None,

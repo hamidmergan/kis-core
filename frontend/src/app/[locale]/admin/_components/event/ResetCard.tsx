@@ -2,16 +2,19 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
+import { useAdminPerms } from "@/app/[locale]/admin/_nav/AdminAuth";
 import { SettingCard } from "@/app/[locale]/admin/_settings/fields";
 import ConfirmDialog from "@/components/event/ConfirmDialog";
 import { eventApi } from "@/lib/event/api";
+import { isFullAdmin } from "@/lib/permissions";
 import { BTN_SECONDARY } from "./fields";
 
 type Status = "idle" | "mine" | "all" | "failed";
 
-/** Two ways back to zero: the card of this browser for another test run, and every card at once. */
+/** Two ways back to zero: the card of this browser for another test run, and for full admins every card at once. */
 export default function ResetCard({ onDone }: { onDone: () => void }) {
   const t = useTranslations("eventAdmin.reset");
+  const fullAdmin = isFullAdmin(useAdminPerms());
   const [confirmAll, setConfirmAll] = useState(false);
   const [status, setStatus] = useState<Status>("idle");
   const [busy, setBusy] = useState(false);
@@ -47,21 +50,23 @@ export default function ResetCard({ onDone }: { onDone: () => void }) {
             {t("mine")}
           </button>
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="min-w-0 flex-1 basis-64">
-            <p className="text-sm text-foreground">{t("allTitle")}</p>
-            <p className="text-xs text-muted">{t("allText")}</p>
+        {fullAdmin && (
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0 flex-1 basis-64">
+              <p className="text-sm text-foreground">{t("allTitle")}</p>
+              <p className="text-xs text-muted">{t("allText")}</p>
+            </div>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => setConfirmAll(true)}
+              className="px-4 py-2 text-sm btn-danger rounded-lg disabled:opacity-50"
+              data-testid="reset-all"
+            >
+              {t("all")}
+            </button>
           </div>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => setConfirmAll(true)}
-            className="px-4 py-2 text-sm btn-danger rounded-lg disabled:opacity-50"
-            data-testid="reset-all"
-          >
-            {t("all")}
-          </button>
-        </div>
+        )}
         <p className={`text-xs h-4 ${status === "failed" ? "text-error" : "text-muted"}`} role="status" data-testid="reset-status">
           {status === "mine" && t("mineDone")}
           {status === "all" && t("allDone")}
