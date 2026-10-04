@@ -1919,8 +1919,8 @@
       "campus": {
         "label": "Infoassistent",
         "sub": "Welche Webseiten nachts abgeglichen werden, der Link zur Campus Map, zusätzliche Dokumente und wie lange Chats bleiben.",
-        "sitemapUrl": "Sitemap-Adresse",
-        "sitemapHint": "Die Sitemap der Hochschulseite. Bleibt sie leer, werden keine Webseiten geholt.",
+        "sitemapUrl": "Sitemap-Adressen",
+        "sitemapHint": "Die Sitemaps der Hochschulseiten, eine Adresse je Zeile. Bleibt das Feld leer, werden keine Webseiten geholt.",
         "include": "Nur Adressen mit",
         "includeHint": "Ein Muster je Zeile, zum Beispiel /studium/. Leer heißt alle Seiten der Sitemap.",
         "exclude": "Adressen ohne",
@@ -1968,6 +1968,21 @@
         "places": {
           "title": "Ortsliste hochladen",
           "hint": "Die places.json aus der Campus Map. Danach werden die Orte sofort neu eingelesen.",
+        "pages": {
+          "title": "Eingelesene Webseiten",
+          "hint": "Alle Seiten, die der Infoassistent kennt. Eine ausgeschlossene Seite wird sofort entfernt und beim Abgleich nicht mehr geholt.",
+          "search": "Suchen nach Adresse oder Titel",
+          "all": "Alle",
+          "total": "{n} Seiten",
+          "none": "Keine Seiten gefunden.",
+          "chunks": "{n} Abschnitte",
+          "exclude": "Ausschließen",
+          "excluded": "Ausgeschlossene Seiten",
+          "include": "Wieder zulassen",
+          "prev": "Zurück",
+          "next": "Weiter",
+          "status": { "ready": "bereit", "pending": "wartet", "failed": "fehlgeschlagen" }
+        },
           "button": "places.json wählen",
           "done": "{n} Orte eingelesen"
         }

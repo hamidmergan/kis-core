@@ -202,3 +202,23 @@ def test_fehler_einer_seite_stoppt_den_lauf_nicht(monkeypatch):
 
     stats = crawler.run(_einstellungen(), embed=lambda t: [], client=object(), concurrency=1, fetch_fn=fetch_fn)
     assert stats["failed"] >= 1 and stats["indexed"] == 2
+
+
+def test_mehrere_sitemaps_und_ausgeschlossene_seiten(monkeypatch):
+    seiten = _Pages([{"id": 7, "url": "https://x.test/b/", "etag": None, "last_modified": None, "fetched_at": None, "status": "ready", "content_hash": "v2:x"}])
+    monkeypatch.setattr(crawler, "page_repo", seiten)
+    monkeypatch.setattr(crawler.indexer, "index_markdown", lambda pid, title, md, embed: 1)
+    zweite = b'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>https://y.test/z/</loc></url></urlset>'
+
+    def fetch_fn(client, url, etag=None, last_modified=None):
+        if url == "https://y.test/sitemap.xml":
+            return FetchResult("ok", body=zweite)
+        if url == "https://x.test/sitemap.xml":
+            return FetchResult("ok", body=SITEMAP)
+        return FetchResult("ok", body=HTML)
+
+    einstellungen = CampusSettings(sitemap_url="https://x.test/sitemap.xml\nhttps://y.test/sitemap.xml", url_exclude="/news/")
+    stats = crawler.run(einstellungen, embed=lambda t: [], client=object(), concurrency=1, fetch_fn=fetch_fn, excluded_urls={"https://x.test/c/"})
+    # a, b, z and the bad link are seen; c is excluded by address, so it never becomes a row.
+    assert "https://y.test/z/" in seiten.by_url and "https://x.test/c/" not in seiten.by_url
+    assert stats["seen"] == 4

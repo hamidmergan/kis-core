@@ -132,3 +132,26 @@ def page_stats() -> dict:
     for kind, status, n in rows:
         counts.setdefault(kind, {})[status] = n
     return {"pages": counts, "chunks": chunks, "last_fetched_at": last.isoformat() if last else None}
+
+
+def search_pages(query: str, status: str, limit: int, offset: int) -> tuple[list[dict], int]:
+    """Crawled web pages filtered by a text in url or title and by status, plus the total of the filter."""
+    where, args = ["kind = %s"], [KIND_PAGE]
+    if query:
+        where.append("(url ILIKE %s OR title ILIKE %s)")
+        like = "%" + query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+        args += [like, like]
+    if status:
+        where.append("status = %s")
+        args.append(status)
+    clause = " AND ".join(where)
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute(f"SELECT COUNT(*) FROM campus_pages WHERE {clause}", args)
+            total = cur.fetchone()[0]
+            cur.execute(
+                f"SELECT {_COLS} FROM campus_pages WHERE {clause} ORDER BY url LIMIT %s OFFSET %s",
+                args + [limit, offset],
+            )
+            rows = cur.fetchall()
+    return [dict(r) for r in rows], total

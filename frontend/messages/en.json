@@ -1919,8 +1919,8 @@
       "campus": {
         "label": "Info assistant",
         "sub": "Which web pages are refreshed at night, the link to the campus map, extra documents and how long chats are kept.",
-        "sitemapUrl": "Sitemap address",
-        "sitemapHint": "The sitemap of the university site. Left empty, no web pages are fetched.",
+        "sitemapUrl": "Sitemap addresses",
+        "sitemapHint": "The sitemaps of the university sites, one address per line. Left empty, no web pages are fetched.",
         "include": "Only addresses with",
         "includeHint": "One pattern per line, for example /studies/. Empty means every page of the sitemap.",
         "exclude": "Addresses without",
@@ -1968,6 +1968,21 @@
         "places": {
           "title": "Upload place list",
           "hint": "The places.json from the campus map. The places are read in right away.",
+        "pages": {
+          "title": "Indexed web pages",
+          "hint": "Every page the info assistant knows. An excluded page is removed right away and no longer fetched by the refresh.",
+          "search": "Search by address or title",
+          "all": "All",
+          "total": "{n} pages",
+          "none": "No pages found.",
+          "chunks": "{n} sections",
+          "exclude": "Exclude",
+          "excluded": "Excluded pages",
+          "include": "Allow again",
+          "prev": "Back",
+          "next": "Next",
+          "status": { "ready": "ready", "pending": "waiting", "failed": "failed" }
+        },
           "button": "Choose places.json",
           "done": "{n} places read"
         }

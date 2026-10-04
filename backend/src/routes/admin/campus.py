@@ -3,16 +3,18 @@ import uuid
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from pydantic import BaseModel
 
 from src import storage
 from src.dependencies_rbac import require_permission
 from src.features.campus.repository import chats as chat_repo
+from src.features.campus.repository import excluded as excluded_repo
 from src.features.campus.repository import pages as page_repo
 from src.features.campus.repository import places as place_repo
 from src.features.campus.services import fetch as fetch_mod
 from src.features.campus.services import settings as campus_settings
+from src.features.campus.services import sitemap as sitemap_mod
 from src.features.campus.services.places_sync import parse_places
 from src.i18n import get_locale, t
 from src.permissions_registry import PERM_SET_CAMPUS
@@ -24,6 +26,11 @@ router = APIRouter(prefix="/campus", tags=["admin: campus"])
 _require = require_permission(PERM_SET_CAMPUS)
 _DOC_EXTENSIONS = (".pdf", ".docx", ".pptx", ".md", ".txt")
 _PLACES_KEY = "campus/places.json"
+_PAGE_STATUSES = ("pending", "ready", "failed")
+
+
+class ExcludeBody(BaseModel):
+    url: str
 
 
 class SettingsBody(BaseModel):
@@ -61,13 +68,50 @@ def get_campus(admin: dict = Depends(_require)):
     return _overview()
 
 
+@router.get("/pages")
+def list_pages(
+    q: str = Query("", max_length=200),
+    status: str = Query("", max_length=20),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    admin: dict = Depends(_require),
+):
+    rows, total = page_repo.search_pages(q.strip(), status if status in _PAGE_STATUSES else "", limit, offset)
+    items = [
+        {
+            "id": r["id"], "url": r["url"], "title": r["title"], "status": r["status"], "chunk_count": r["chunk_count"],
+            "error_message": r["error_message"], "fetched_at": r["fetched_at"].isoformat() if r.get("fetched_at") else None,
+        }
+        for r in rows
+    ]
+    return {"items": items, "total": total, "excluded": excluded_repo.list_all()}
+
+
+@router.post("/pages/exclude")
+def exclude_page(body: ExcludeBody, admin: dict = Depends(_require), locale: str = Depends(get_locale)):
+    """Takes a page out of the index now and keeps the crawl from bringing it back."""
+    url = body.url.strip()
+    if not url or not fetch_mod.is_web_url(url):
+        raise HTTPException(status_code=400, detail=t("campus.urlInvalid", locale))
+    excluded_repo.add(url)
+    page = page_repo.get_page_by_url(url)
+    if page is not None and page["kind"] == page_repo.KIND_PAGE:
+        page_repo.delete_page(page["id"])
+    return {"excluded": True}
+
+
+@router.post("/pages/include")
+def include_page(body: ExcludeBody, admin: dict = Depends(_require)):
+    """Lets a page back in, the next crawl reads it again."""
+    return {"included": excluded_repo.remove(body.url.strip())}
+
+
 @router.patch("")
 def update_campus(body: SettingsBody, admin: dict = Depends(_require), locale: str = Depends(get_locale)):
     values = body.model_dump(exclude_unset=True)
-    for key in ("sitemap_url", "places_url"):
-        value = (values.get(key) or "").strip()
-        if value and not fetch_mod.is_web_url(value):
-            raise HTTPException(status_code=400, detail=t("campus.urlInvalid", locale))
+    urls = sitemap_mod.parse_patterns(values.get("sitemap_url") or "") + sitemap_mod.parse_patterns(values.get("places_url") or "")
+    if any(not fetch_mod.is_web_url(u) for u in urls):
+        raise HTTPException(status_code=400, detail=t("campus.urlInvalid", locale))
     map_url = (values.get("map_url") or "").strip()
     if map_url and not map_url.startswith(("http://", "https://")):
         raise HTTPException(status_code=400, detail=t("campus.urlInvalid", locale))

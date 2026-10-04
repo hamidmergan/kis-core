@@ -46,9 +46,9 @@ def _parse_lastmod(value: str | None) -> datetime | None:
     return dt
 
 
-def collect_entries(client, sitemap_url: str, include: list[str], exclude: list[str], fetch_fn=fetch_mod.fetch_conditional) -> tuple[list[sitemap.SitemapEntry], bool]:
-    """Follows index files and returns the allowed page entries, each url once, and whether every sitemap was read."""
-    queue = [sitemap_url]
+def collect_entries(client, sitemap_urls: str, include: list[str], exclude: list[str], fetch_fn=fetch_mod.fetch_conditional) -> tuple[list[sitemap.SitemapEntry], bool]:
+    """Follows index files of every start url (one per line) and returns the allowed page entries, each url once, and whether every sitemap was read."""
+    queue = sitemap.parse_patterns(sitemap_urls)
     done: set[str] = set()
     entries: dict[str, sitemap.SitemapEntry] = {}
     complete = True
@@ -152,14 +152,17 @@ def run(
     max_pages: int = CAMPUS_CRAWL_MAX_PAGES,
     concurrency: int = CAMPUS_CRAWL_CONCURRENCY,
     fetch_fn=fetch_mod.fetch_conditional,
+    excluded_urls: set[str] | None = None,
 ) -> dict:
-    """Crawls the sitemap of the settings and returns the counts of this run."""
+    """Crawls the sitemaps of the settings and returns the counts of this run."""
     now = now or _utcnow()
     stats = CrawlStats()
     client = client or fetch_mod.make_client()
     include = sitemap.parse_patterns(settings.url_include)
     exclude = sitemap.parse_patterns(settings.url_exclude)
     entries, complete = collect_entries(client, settings.sitemap_url, include, exclude, fetch_fn)
+    if excluded_urls:
+        entries = [e for e in entries if e.url not in excluded_urls]
     stats.seen = len(entries)
     entries = entries[:max_pages]
     lock = threading.Lock()

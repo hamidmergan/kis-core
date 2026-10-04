@@ -5,6 +5,7 @@ from loguru import logger
 
 from src.celery_app import celery_app
 from src.features.campus.repository import chats as chat_repo
+from src.features.campus.repository import excluded as excluded_repo
 from src.features.campus.repository import pages as page_repo
 from src.features.campus.services import crawler, places_sync
 from src.features.campus.services import fetch as fetch_mod
@@ -48,7 +49,7 @@ def run_crawl() -> dict:
             logger.exception("Campus: Ortsliste nicht eingelesen")
             status["places_error"] = f"{type(e).__name__}: {e}"[:300]
         if cfg.sitemap_url:
-            status.update(crawler.run(cfg, embed, client=client))
+            status.update(crawler.run(cfg, embed, client=client, excluded_urls=excluded_repo.list_urls()))
         status["error"] = None
     except Exception as e:
         logger.exception("Campus: Abgleich fehlgeschlagen")

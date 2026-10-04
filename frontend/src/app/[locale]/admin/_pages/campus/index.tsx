@@ -6,6 +6,7 @@ import { ArrowsClockwise, Trash, UploadSimple } from "@phosphor-icons/react";
 import { SettingCard } from "@/app/[locale]/admin/_settings/fields";
 import { backendApi, parseDetail } from "@/lib/api";
 import { formatDate } from "@/lib/format";
+import PagesList from "./PagesList";
 
 interface Settings {
   sitemap_url: string;
@@ -159,7 +160,7 @@ export default function CampusAdminPage() {
 
       <SettingCard title={t("sitemapUrl")} description={t("sitemapHint")}>
         <div className="mt-3 flex flex-col gap-3">
-          <input value={form.sitemap_url} onChange={(e) => set({ sitemap_url: e.target.value })} className={INPUT} placeholder="https://" />
+          <textarea value={form.sitemap_url} onChange={(e) => set({ sitemap_url: e.target.value })} className={INPUT} rows={2} placeholder="https://" />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <label className="flex flex-col gap-1">
               <span className="text-xs text-muted">{t("include")}</span>
@@ -205,6 +206,8 @@ export default function CampusAdminPage() {
         <button type="button" onClick={save} disabled={busy} className={BTN_PRIMARY}>{t("save")}</button>
         {note && <span className="text-sm" style={{ color: "var(--muted)" }}>{note}</span>}
       </div>
+
+      <PagesList refreshKey={pages.ready ?? 0} />
 
       <SettingCard title={t("documents.title")} description={t("documents.hint")}>
         <div className="mt-3 flex flex-col gap-2">

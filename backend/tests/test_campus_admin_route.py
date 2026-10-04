@@ -79,3 +79,21 @@ def test_abgleich_wird_eingereiht(monkeypatch):
     monkeypatch.setattr(tasks.run_crawl, "delay", lambda: aufgerufen.append(True))
     out = admin_campus.start_crawl(admin=ADMIN, locale="de")
     assert out["running"] and aufgerufen == [True] and gesetzt["queued"]
+
+
+def test_mehrere_sitemap_adressen_je_zeile_werden_geprueft(umgebung):
+    admin_campus.update_campus(admin_campus.SettingsBody(sitemap_url="https://x.test/a.xml\nhttps://y.test/b.xml"), admin=ADMIN, locale="de")
+    with pytest.raises(HTTPException):
+        admin_campus.update_campus(admin_campus.SettingsBody(sitemap_url="https://x.test/a.xml\nhttp://localhost/b.xml"), admin=ADMIN, locale="de")
+
+
+def test_seite_ausschliessen_entfernt_sie_und_merkt_die_adresse(monkeypatch):
+    monkeypatch.setattr("src.services.web_page_fetch._resolve", lambda host: ["93.184.216.34"])
+    gemerkt, geloescht = [], []
+    monkeypatch.setattr(admin_campus.excluded_repo, "add", gemerkt.append)
+    monkeypatch.setattr(admin_campus.page_repo, "get_page_by_url", lambda url: {"id": 5, "kind": "page"})
+    monkeypatch.setattr(admin_campus.page_repo, "delete_page", geloescht.append)
+    admin_campus.exclude_page(admin_campus.ExcludeBody(url=" https://x.test/a/ "), admin=ADMIN, locale="de")
+    assert gemerkt == ["https://x.test/a/"] and geloescht == [5]
+    with pytest.raises(HTTPException):
+        admin_campus.exclude_page(admin_campus.ExcludeBody(url="javascript:alert(1)"), admin=ADMIN, locale="de")

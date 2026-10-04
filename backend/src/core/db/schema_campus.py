@@ -32,6 +32,12 @@ def create_campus_tables(cur) -> None:
     """)
     cur.execute("CREATE INDEX IF NOT EXISTS idx_campus_pages_kind ON campus_pages (kind, status)")
     cur.execute("""
+        CREATE TABLE IF NOT EXISTS campus_excluded_urls (
+            url         TEXT PRIMARY KEY,
+            created_at  TIMESTAMP NOT NULL DEFAULT NOW()
+        )
+    """)
+    cur.execute("""
         CREATE TABLE IF NOT EXISTS campus_chunks (
             id             SERIAL PRIMARY KEY,
             page_id        INTEGER NOT NULL REFERENCES campus_pages(id) ON DELETE CASCADE,
