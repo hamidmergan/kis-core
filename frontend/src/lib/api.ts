@@ -7,6 +7,13 @@ const ACCESS_EXPIRED_DETAIL = "access_expired";
 const EXPIRED_PATH = "/login?expired=1";
 /** Pages that talk about the expiry themselves and must not be thrown around. */
 const EXPIRY_HOME = ["/login", "/redeem", "/redeem/expired"];
+/** Pages anyone may see, a stale session there is dropped instead of sending the visitor to the login. */
+const PUBLIC_PAGES = ["/", "/info", "/imprint", "/privacy", "/campusmap"];
+
+function isPublicPage(path: string): boolean {
+  const ohneSprache = path.replace(/^\/en(?=\/|$)/, "") || "/";
+  return PUBLIC_PAGES.includes(ohneSprache);
+}
 
 // The first redirect wins, a 401 running behind it must not swallow the expiry hint.
 let umgeleitet = false;
@@ -15,6 +22,15 @@ function verlassen(ziel: string) {
   if (umgeleitet) return;
   umgeleitet = true;
   window.location.href = ziel;
+}
+
+/** Clears the cookie the backend no longer knows and shows the same page again as a guest. */
+function sitzungVerwerfen() {
+  if (umgeleitet) return;
+  umgeleitet = true;
+  fetch("/auth/logout", { method: "POST", credentials: "include" })
+    .catch(() => undefined)
+    .finally(() => window.location.reload());
 }
 
 const FALLBACKS = {
@@ -128,7 +144,9 @@ class ApiClient {
 
     if (response.status === 401 && typeof window !== "undefined") {
       const currentPath = window.location.pathname;
-      if (currentPath !== "/login") {
+      if (isPublicPage(currentPath)) {
+        sitzungVerwerfen();
+      } else if (currentPath !== "/login") {
         verlassen("/login");
       }
     }
