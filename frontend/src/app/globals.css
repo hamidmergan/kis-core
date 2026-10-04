@@ -1073,7 +1073,7 @@ body.is-phone-landscape [title="Panel minimieren"] {
 }
 
 /* The soft cousin of status-puls, for waiting text that should breathe without blinking. */
-/* Red ball in front of the chat waiting line: it bursts into six dots, the dots step once around clockwise, the dots gather into the ball again. */
+/* Red ball in front of the chat waiting line: it bursts into six dots, the ring turns once clockwise, the dots gather into the ball again. */
 @keyframes rote-kugel-ganz {
   0%, 22%  { transform: scale(1); }
   32%, 88% { transform: scale(0); }
@@ -1087,9 +1087,7 @@ body.is-phone-landscape [title="Panel minimieren"] {
   95%, 100% { transform: translate(0, 0) scale(1.8); opacity: 0; }
 }
 @keyframes rote-kugel-drehen {
-  0%        { transform: rotate(0deg); }
-  /* The dots move on one place at a time instead of gliding. */
-  34%       { transform: rotate(0deg); animation-timing-function: steps(6, end); }
+  0%, 34%   { transform: rotate(0deg); }
   80%, 100% { transform: rotate(360deg); }
 }
 
