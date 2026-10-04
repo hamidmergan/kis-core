@@ -119,8 +119,8 @@
   --kb-darker:    #00293d;
   --kb60:         #668DA0;
   --kb20:         #EBEDF0;
-  /* Red of the ball in the THL logo. */
-  --thl-rot:      #E4003A;
+  /* Ball in front of the chat waiting line. */
+  --warte-kugel:  var(--kb);
   /* Light band that sweeps across a waiting text. */
   --glanz:        #C9D7DD;
 
@@ -1076,20 +1076,20 @@ body.is-phone-landscape [title="Panel minimieren"] {
 }
 
 /* The soft cousin of status-puls, for waiting text that should breathe without blinking. */
-/* Red ball in front of the chat waiting line: it bursts into six dots, the ring turns once clockwise, the dots gather into the ball again. */
-@keyframes rote-kugel-ganz {
+/* Ball in front of the chat waiting line: it bursts into six dots, the ring turns once clockwise, the dots gather into the ball again. */
+@keyframes warte-kugel-ganz {
   0%, 22%  { transform: scale(1); }
   32%, 88% { transform: scale(0); }
   95%      { transform: scale(1.1); }
   100%     { transform: scale(1); }
 }
-@keyframes rote-kugel-punkt {
+@keyframes warte-kugel-punkt {
   0%, 22%  { transform: translate(0, 0) scale(0); opacity: 0; }
   34%, 80% { transform: translate(var(--dx), var(--dy)) scale(1); opacity: 1; }
   92%      { transform: translate(0, 0) scale(1.8); opacity: 1; }
   95%, 100% { transform: translate(0, 0) scale(1.8); opacity: 0; }
 }
-@keyframes rote-kugel-drehen {
+@keyframes warte-kugel-drehen {
   0%, 34%   { transform: rotate(0deg); }
   80%, 100% { transform: rotate(360deg); }
 }

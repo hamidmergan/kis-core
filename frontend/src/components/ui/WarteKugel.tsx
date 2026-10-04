@@ -8,23 +8,23 @@ const PUNKTE = [0, 60, 120, 180, 240, 300].map((deg) => {
 
 const MITTE: CSSProperties = { transformBox: "fill-box", transformOrigin: "center" };
 
-/** The red THL ball bursting into dots that turn once clockwise and gather into the ball again. */
-export default function RoteKugel({ size = 16 }: { size?: number }) {
+/** A ball in the brand colour bursting into dots that turn once clockwise and gather into the ball again. */
+export default function WarteKugel({ size = 16 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" style={{ display: "block", flexShrink: 0, overflow: "visible" }}>
-      <g style={{ animation: "rote-kugel-drehen 4s ease-in-out infinite", transformOrigin: "12px 12px" }}>
+      <g style={{ animation: "warte-kugel-drehen 4s ease-in-out infinite", transformOrigin: "12px 12px" }}>
         {PUNKTE.map(({ dx, dy }) => (
           <circle
             key={`${dx}-${dy}`}
             cx="12"
             cy="12"
             r="1.8"
-            fill="var(--thl-rot)"
-            style={{ ...MITTE, "--dx": `${dx}px`, "--dy": `${dy}px`, animation: "rote-kugel-punkt 4s ease-in-out infinite" } as CSSProperties}
+            fill="var(--warte-kugel)"
+            style={{ ...MITTE, "--dx": `${dx}px`, "--dy": `${dy}px`, animation: "warte-kugel-punkt 4s ease-in-out infinite" } as CSSProperties}
           />
         ))}
       </g>
-      <circle cx="12" cy="12" r="8" fill="var(--thl-rot)" style={{ ...MITTE, animation: "rote-kugel-ganz 4s ease-in-out infinite" }} />
+      <circle cx="12" cy="12" r="8" fill="var(--warte-kugel)" style={{ ...MITTE, animation: "warte-kugel-ganz 4s ease-in-out infinite" }} />
     </svg>
   );
 }
