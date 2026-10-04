@@ -10,6 +10,7 @@ import psycopg2.pool
 _TZ_BERLIN = ZoneInfo("Europe/Berlin")
 _REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
 from src.core.db.pool import get_connection
+from src.core.db.schema_campus import create_campus_hnsw, create_campus_tables
 from src.limits import IMAGE_PROVIDER_MAX_CONCURRENT, TTS_PROVIDER_MAX_CONCURRENT
 
 
@@ -1851,6 +1852,7 @@ def _init_db(admin_email: Optional[str] = None) -> None:
                 CREATE INDEX IF NOT EXISTS idx_exercise_pool_seen_user
                 ON aia_exercise_pool_seen(user_id, seen_at DESC)
             """)
+            create_campus_tables(cur)
         conn.commit()
 
     # tsvector switched to the simple parser so foreign language text gets hits too.
@@ -1903,6 +1905,7 @@ def _init_db(admin_email: Optional[str] = None) -> None:
             except Exception as e:
                 conn.rollback()
                 _log.warning("hnsw vector index build skipped/failed (vector search falls back to scan): {}", e)
+    create_campus_hnsw()
 
 
 # --- Users ---

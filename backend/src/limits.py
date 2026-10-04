@@ -378,3 +378,23 @@ DB_BACKUP_KEEP_WEEKS                   = 5
 DB_BACKUP_KEEP_MONTHS                  = 12
 # Generous so the backup is never cut off midway.
 DB_BACKUP_TIME_LIMIT_SECONDS           = 3600
+
+
+# Campus assistant: one question stays readable, one chat stays a conversation, not an archive.
+CAMPUS_QUESTION_MAX_CHARS              = 2_000
+CAMPUS_MAX_QUESTIONS_PER_CHAT          = 50
+# The oldest chat makes room once a person holds this many.
+CAMPUS_MAX_CHATS_PER_USER              = 100
+# Chats without activity for this long are removed nightly, 0 keeps them.
+CAMPUS_CHAT_RETENTION_DAYS             = 90
+CAMPUS_TITLE_MAX_CHARS                 = 60
+# Context for one answer, page chunks are short so this holds about 30 of them.
+CAMPUS_CONTEXT_MAX_CHARS               = 40_000
+CAMPUS_SEARCH_CANDIDATES               = 60
+CAMPUS_SOURCE_CARDS_MAX                = 5
+CAMPUS_PLACE_CARDS_MAX                 = 3
+# One nightly run over a university site, pages beyond the cap wait for the next night.
+CAMPUS_CRAWL_MAX_PAGES                 = 5_000
+CAMPUS_PAGE_MAX_BYTES                  = 5_000_000
+CAMPUS_CRAWL_CONCURRENCY               = 4
+CAMPUS_FETCH_TIMEOUT_SECONDS           = 20

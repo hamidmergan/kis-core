@@ -19,6 +19,7 @@ GROUP_SET_USERS = "set.nutzer"
 GROUP_SET_SYSTEM = "set.system"
 GROUP_SET_MASCOT = "set.mascot"
 GROUP_SET_EVENT = "set.event"
+GROUP_SET_CAMPUS = "set.campus"
 GROUP_GENERAL = "general"
 
 # === Allgemein ================================================================
@@ -75,6 +76,8 @@ PERM_SET_SYSTEM = "settings.system"
 PERM_SET_MASCOT = "settings.mascot"
 # The stands and the event block of the start page, including the stand codes.
 PERM_SET_EVENT = "settings.event"
+# Crawl, map link and retention of the campus assistant.
+PERM_SET_CAMPUS = "settings.campus"
 # Two statistics tabs keep their old key so roles lose nothing.
 PERM_SET_STATS_USERS = "settings.statistik.nutzer"
 PERM_SET_STATS_MODELS = "settings.statistik.modelle"
@@ -108,6 +111,7 @@ SET_USER_KEYS: tuple[str, ...] = (
 SET_SYSTEM_KEYS: tuple[str, ...] = (PERM_SET_SYSTEM, PERM_MAINTENANCE_ACCESS)
 SET_MASCOT_KEYS: tuple[str, ...] = (PERM_SET_MASCOT,)
 SET_EVENT_KEYS: tuple[str, ...] = (PERM_SET_EVENT,)
+SET_CAMPUS_KEYS: tuple[str, ...] = (PERM_SET_CAMPUS,)
 
 SETTINGS_KEYS: tuple[str, ...] = (
     SET_TOOLS_KEYS
@@ -118,6 +122,7 @@ SETTINGS_KEYS: tuple[str, ...] = (
     + SET_SYSTEM_KEYS
     + SET_MASCOT_KEYS
     + SET_EVENT_KEYS
+    + SET_CAMPUS_KEYS
 )
 
 # === The whole catalogue =====================================================
@@ -136,6 +141,7 @@ MATRIX_LAYOUT: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     (CHAPTER_MANAGE, GROUP_SET_SYSTEM, SET_SYSTEM_KEYS),
     (CHAPTER_MANAGE, GROUP_SET_MASCOT, SET_MASCOT_KEYS),
     (CHAPTER_MANAGE, GROUP_SET_EVENT, SET_EVENT_KEYS),
+    (CHAPTER_MANAGE, GROUP_SET_CAMPUS, SET_CAMPUS_KEYS),
 )
 
 GROUPS: tuple[str, ...] = tuple(group for _, group, _ in MATRIX_LAYOUT)
@@ -159,6 +165,7 @@ KEY_MODULE: dict[str, str] = {
     PERM_SET_TOOLS_JOBS: MODULE_TOOLS,
     PERM_SET_TOOLS_LIMITS: MODULE_TOOLS,
     PERM_SET_TOOLS_STATS: MODULE_TOOLS,
+    PERM_SET_CAMPUS: MODULE_TOOLS,
 }
 
 
@@ -203,7 +210,7 @@ STAFF_AIA_KEYS: tuple[str, ...] = tuple(k for k in AIA_KEYS if k not in ROLE_ONL
 SYSTEM_ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
     "admin": ALL_PERMISSION_KEYS,
     "staff": GENERAL_KEYS + STAFF_AIA_KEYS + TOOL_KEYS,
-    "user": (PERM_AIA_USE,),
+    "user": (PERM_AIA_USE, f"{TOOL_PERM_PREFIX}campus"),
 }
 
 # Which settings field belongs to which right, unknown ones count as admin business.

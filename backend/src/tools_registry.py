@@ -12,4 +12,5 @@ ALL_TOOL_KEYS: tuple[str, ...] = (
     "podcast",
     "praesentation",
     "glossary",
+    "campus",
 )
