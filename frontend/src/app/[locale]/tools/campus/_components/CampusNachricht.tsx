@@ -7,7 +7,7 @@ import remarkGfm from "remark-gfm";
 import { Check, Copy, ThumbsDown, ThumbsUp } from "@phosphor-icons/react";
 import Mascot from "@/components/ui/Mascot";
 import OrtKarte from "@/components/campus/OrtKarte";
-import QuellenKarten from "./QuellenKarten";
+import QuellenKarten, { KARTEN_RASTER } from "./QuellenKarten";
 import WartezeileCampus from "./WartezeileCampus";
 import type { CampusNachricht as Nachricht } from "../_types";
 
@@ -89,7 +89,7 @@ function CampusNachrichtInner({
           {!isUser && !msg.streaming && !msg.failed && (
             <>
               {msg.places.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-2">
+                <div className={`${KARTEN_RASTER} mt-2`}>
                   {msg.places.map((ort) => <OrtKarte key={ort.id} ort={ort} mapUrl={mapUrl} />)}
                 </div>
               )}

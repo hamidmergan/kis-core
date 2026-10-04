@@ -26,8 +26,8 @@ function standText(date: string | null, locale: string): string | null {
   return d.toLocaleDateString(locale === "en" ? "en-GB" : "de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
-/** Source cards are as wide as the place cards, so both rows line up. */
-export const CARD_WIDTH = 320;
+/** Three cards per row on wide screens, the same grid the place cards use. */
+export const KARTEN_RASTER = "grid grid-cols-1 sm:grid-cols-3 gap-2";
 
 export default function QuellenKarten({ quellen }: { quellen: CampusQuelle[] }) {
   const t = useTranslations("tools.campus");
@@ -36,7 +36,7 @@ export default function QuellenKarten({ quellen }: { quellen: CampusQuelle[] }) 
   return (
     <div className="mt-2" data-testid="campus-sources">
       <p className="text-2xs font-semibold uppercase tracking-wide mb-1" style={{ color: "var(--muted)" }}>{t("sourcesTitle")}</p>
-      <div className="flex flex-wrap gap-2">
+      <div className={KARTEN_RASTER}>
         {quellen.map((q) => {
           const href = quellenLink(q);
           const Icon = q.kind === "document" ? FileText : q.kind === "place" ? MapPin : Globe;
@@ -55,13 +55,13 @@ export default function QuellenKarten({ quellen }: { quellen: CampusQuelle[] }) 
               {href && <ArrowSquareOut size={13} weight="bold" style={{ color: "var(--muted)", flexShrink: 0 }} />}
             </>
           );
-          const klasse = "flex items-center gap-2 px-3 py-2 rounded-xl border-2 border-border bg-background max-w-full no-underline";
+          const klasse = "flex items-center gap-2 px-3 py-2 rounded-xl border-2 border-border bg-background min-w-0 no-underline";
           return href ? (
-            <a key={q.page_id} href={href} target="_blank" rel="noopener noreferrer" title={q.title} className={`${klasse} hover:border-kb focus:border-kb transition-colors`} style={{ width: CARD_WIDTH }}>
+            <a key={q.page_id} href={href} target="_blank" rel="noopener noreferrer" title={q.title} className={`${klasse} hover:border-kb focus:border-kb transition-colors`}>
               {inner}
             </a>
           ) : (
-            <span key={q.page_id} title={q.title} className={klasse} style={{ width: CARD_WIDTH }}>
+            <span key={q.page_id} title={q.title} className={klasse}>
               {inner}
             </span>
           );

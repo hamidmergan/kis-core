@@ -25,8 +25,7 @@ export default function OrtKarte({ ort, mapUrl }: { ort: OrtKarteDaten; mapUrl: 
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex items-center gap-2 px-3 py-2 rounded-xl border-2 border-border hover:border-kb focus:border-kb transition-colors text-left bg-background max-w-full"
-        style={{ width: 320 }}
+        className="flex items-center gap-2 px-3 py-2 rounded-xl border-2 border-border hover:border-kb focus:border-kb transition-colors text-left bg-background min-w-0"
         title={title}
         data-testid="campus-place-card"
       >
