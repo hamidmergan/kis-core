@@ -1931,8 +1931,6 @@
         "retention": "Chats aufbewahren",
         "retentionHint": "Tage ohne Aktivität, danach wird ein Chat gelöscht. 0 behält alle.",
         "days": "Tage",
-        "save": "Speichern",
-        "saved": "Gespeichert",
         "saveFailed": "Speichern hat nicht geklappt",
         "crawlNow": "Jetzt abgleichen",
         "crawlQueued": "Abgleich läuft",

@@ -1931,8 +1931,6 @@
         "retention": "Keep chats",
         "retentionHint": "Days without activity after which a chat is deleted. 0 keeps all.",
         "days": "days",
-        "save": "Save",
-        "saved": "Saved",
         "saveFailed": "Saving did not work",
         "crawlNow": "Refresh now",
         "crawlQueued": "Refresh running",

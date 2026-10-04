@@ -41,7 +41,9 @@ export default function CampusAdminPage() {
   const locale = useLocale();
   const [data, setData] = useState<Overview | null>(null);
   const [form, setForm] = useState<Settings | null>(null);
-  const [note, setNote] = useState<string | null>(null);
+  const [errors, setErrors] = useState<Partial<Record<keyof Settings, string>>>({});
+  const [crawlError, setCrawlError] = useState<string | null>(null);
+  const [docError, setDocError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const docRef = useRef<HTMLInputElement>(null);
 
@@ -52,8 +54,8 @@ export default function CampusAdminPage() {
   }, []);
 
   useEffect(() => {
-    load().catch(() => setNote(t("saveFailed")));
-  }, [load, t]);
+    load().catch(() => undefined);
+  }, [load]);
 
   // While a refresh runs or a document is processed the numbers change, so the page looks again every few seconds.
   const working = !!data?.status?.running || !!data?.documents.some((d) => d.status === "pending" || d.status === "indexing");
@@ -65,29 +67,33 @@ export default function CampusAdminPage() {
 
   const set = (patch: Partial<Settings>) => setForm((f) => (f ? { ...f, ...patch } : f));
 
-  const save = async () => {
-    if (!form) return;
-    setBusy(true);
-    setNote(null);
+  // Like every other settings page: a field saves itself once it is left, other drafts stay untouched.
+  const commit = async <K extends keyof Settings>(field: K, value: Settings[K] = form![field]) => {
+    if (!data || value === data.settings[field]) return;
+    setErrors((e) => ({ ...e, [field]: undefined }));
     try {
-      const out = await backendApi.patchJson<Overview>("/admin/campus", form);
+      const out = await backendApi.patchJson<Overview>("/admin/campus", { [field]: value });
       setData(out);
-      setForm(out.settings);
-      setNote(t("saved"));
+      setForm((f) => (f ? { ...f, [field]: out.settings[field] } : f));
     } catch (e) {
-      setNote(parseDetail((e as { detail?: unknown })?.detail, t("saveFailed")));
-    } finally {
-      setBusy(false);
+      setErrors((prev) => ({ ...prev, [field]: parseDetail((e as { detail?: unknown })?.detail, t("saveFailed")) }));
     }
   };
 
+  const blurOnEnter = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") e.currentTarget.blur();
+  };
+
+  const cardError = (...fields: (keyof Settings)[]) => fields.map((f) => errors[f]).find(Boolean) ?? null;
+
   const crawl = async () => {
     setBusy(true);
+    setCrawlError(null);
     try {
       await backendApi.postJson("/admin/campus/crawl", {});
       await load();
     } catch (e) {
-      setNote(parseDetail((e as { detail?: unknown })?.detail, t("saveFailed")));
+      setCrawlError(parseDetail((e as { detail?: unknown })?.detail, t("saveFailed")));
     } finally {
       setBusy(false);
     }
@@ -95,7 +101,7 @@ export default function CampusAdminPage() {
 
   const upload = async (path: string, file: File) => {
     setBusy(true);
-    setNote(null);
+    setDocError(null);
     try {
       const body = new FormData();
       body.append("file", file);
@@ -107,7 +113,7 @@ export default function CampusAdminPage() {
         } catch {
           // The generic text stays.
         }
-        setNote(msg);
+        setDocError(msg);
       }
       await load();
     } finally {
@@ -142,6 +148,7 @@ export default function CampusAdminPage() {
         {typeof status.error === "string" && status.error && (
           <p className="mt-2 text-xs" style={{ color: "var(--error)" }}>{t("status.error")}: {status.error}</p>
         )}
+        {crawlError && <p className="mt-2 text-xs text-error">{crawlError}</p>}
         <div className="mt-4">
           <button type="button" onClick={crawl} disabled={busy || !!status.running} className={`${BTN_PRIMARY} inline-flex items-center gap-1.5`}>
             <ArrowsClockwise size={15} weight="bold" className={status.running ? "animate-spin" : undefined} />
@@ -150,45 +157,40 @@ export default function CampusAdminPage() {
         </div>
       </SettingCard>
 
-      <SettingCard title={t("sitemapUrl")} description={t("sitemapHint")}>
+      <SettingCard title={t("sitemapUrl")} description={t("sitemapHint")} error={cardError("sitemap_url", "url_include", "url_exclude")}>
         <div className="mt-3 flex flex-col gap-3">
-          <textarea value={form.sitemap_url} onChange={(e) => set({ sitemap_url: e.target.value })} className={INPUT} rows={2} placeholder="https://" />
+          <textarea value={form.sitemap_url} onChange={(e) => set({ sitemap_url: e.target.value })} onBlur={() => commit("sitemap_url")} className={INPUT} rows={2} placeholder="https://" />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <label className="flex flex-col gap-1">
               <span className="text-xs text-muted">{t("include")}</span>
-              <textarea value={form.url_include} onChange={(e) => set({ url_include: e.target.value })} className={INPUT} rows={3} />
+              <textarea value={form.url_include} onChange={(e) => set({ url_include: e.target.value })} onBlur={() => commit("url_include")} className={INPUT} rows={3} />
               <span className="text-2xs text-muted">{t("includeHint")}</span>
             </label>
             <label className="flex flex-col gap-1">
               <span className="text-xs text-muted">{t("exclude")}</span>
-              <textarea value={form.url_exclude} onChange={(e) => set({ url_exclude: e.target.value })} className={INPUT} rows={3} />
+              <textarea value={form.url_exclude} onChange={(e) => set({ url_exclude: e.target.value })} onBlur={() => commit("url_exclude")} className={INPUT} rows={3} />
               <span className="text-2xs text-muted">{t("excludeHint")}</span>
             </label>
           </div>
         </div>
       </SettingCard>
 
-      <SettingCard title={t("mapUrl")} description={t("mapHint")}>
+      <SettingCard title={t("mapUrl")} description={t("mapHint")} error={cardError("map_enabled", "map_url")}>
         <div className="mt-3 flex flex-col gap-3">
           <label className="flex items-center gap-2 text-sm text-foreground">
-            <input type="checkbox" checked={form.map_enabled} onChange={(e) => set({ map_enabled: e.target.checked })} className="accent-kb" />
+            <input type="checkbox" checked={form.map_enabled} onChange={(e) => { set({ map_enabled: e.target.checked }); void commit("map_enabled", e.target.checked); }} className="accent-kb" />
             {t("mapEnabled")}
           </label>
-          <input value={form.map_url} onChange={(e) => set({ map_url: e.target.value })} disabled={!form.map_enabled} className={INPUT} placeholder="https://" />
+          <input value={form.map_url} onChange={(e) => set({ map_url: e.target.value })} onBlur={() => commit("map_url")} onKeyDown={blurOnEnter} disabled={!form.map_enabled} className={INPUT} placeholder="https://" />
         </div>
       </SettingCard>
 
-      <SettingCard title={t("retention")} description={t("retentionHint")}>
+      <SettingCard title={t("retention")} description={t("retentionHint")} error={cardError("retention_days")}>
         <div className="mt-3 flex items-center gap-2">
-          <input type="number" min={0} max={3650} value={form.retention_days} onChange={(e) => set({ retention_days: Number(e.target.value) })} className={`${INPUT} w-28`} />
+          <input type="number" min={0} max={3650} value={form.retention_days} onChange={(e) => set({ retention_days: Number(e.target.value) })} onBlur={() => commit("retention_days")} onKeyDown={blurOnEnter} className={INPUT.replace("w-full", "w-28")} />
           <span className="text-sm text-muted">{t("days")}</span>
         </div>
       </SettingCard>
-
-      <div className="flex items-center gap-3">
-        <button type="button" onClick={save} disabled={busy} className={BTN_PRIMARY}>{t("save")}</button>
-        {note && <span className="text-sm" style={{ color: "var(--muted)" }}>{note}</span>}
-      </div>
 
       <PagesList refreshKey={pages.ready ?? 0} />
 
@@ -201,6 +203,7 @@ export default function CampusAdminPage() {
               {t("documents.upload")}
             </button>
           </div>
+          {docError && <p className="text-xs text-error">{docError}</p>}
           {data.documents.length === 0 ? (
             <p className="text-xs text-muted">{t("documents.empty")}</p>
           ) : (
