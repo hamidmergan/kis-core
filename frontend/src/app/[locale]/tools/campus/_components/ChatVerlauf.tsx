@@ -72,10 +72,18 @@ export default function ChatVerlauf({
   if (collapsed) {
     return (
       <div className="flex flex-col items-center h-full min-h-0 gap-2 py-2" data-testid="campus-history-collapsed">
-        <Link href="/" aria-label={tHeader("homeAria")} title={tHeader("homeAria")} className="flex items-center justify-center h-9 no-underline logo-link">
-          <Image src="/logos/kis-vogel.svg" alt="KIS" width={154} height={78} className="h-5 w-auto" />
-        </Link>
-        {toggle}
+        {/* The bird opens the bar again, so the strip needs no extra icon for it. */}
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-label={toggleLabel}
+          title={toggleLabel}
+          aria-expanded={false}
+          className="w-11 h-9 flex items-center justify-center rounded-full btn-icon"
+          data-testid="campus-sidebar-toggle"
+        >
+          <Image src="/logos/kis-vogel.svg" alt="" width={154} height={78} className="h-5 w-auto" />
+        </button>
         <button
           type="button"
           onClick={onNew}
