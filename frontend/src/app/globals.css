@@ -1073,13 +1073,22 @@ body.is-phone-landscape [title="Panel minimieren"] {
 }
 
 /* The soft cousin of status-puls, for waiting text that should breathe without blinking. */
-/* THL ball hops out of its cup and lands again, squashing a little on the way down. */
-@keyframes thl-kugel {
-  0%, 100% { transform: translateY(0) scale(1, 1); }
-  12%      { transform: translateY(0) scale(1.08, 0.9); }
-  45%      { transform: translateY(-18px) scale(0.96, 1.04); }
-  55%      { transform: translateY(-19px) scale(1, 1); }
-  86%      { transform: translateY(0) scale(1.06, 0.92); }
+/* Red ball in front of the chat waiting line: it bursts into six dots, the ring turns, the dots gather into the ball again. */
+@keyframes rote-kugel-ganz {
+  0%, 38%  { transform: scale(1); }
+  48%, 88% { transform: scale(0); }
+  95%      { transform: scale(1.1); }
+  100%     { transform: scale(1); }
+}
+@keyframes rote-kugel-punkt {
+  0%, 38%  { transform: translate(0, 0) scale(0); opacity: 0; }
+  50%, 78% { transform: translate(var(--dx), var(--dy)) scale(1); opacity: 1; }
+  92%      { transform: translate(0, 0) scale(1.8); opacity: 1; }
+  95%, 100% { transform: translate(0, 0) scale(1.8); opacity: 0; }
+}
+@keyframes rote-kugel-drehen {
+  0%, 50%   { transform: rotate(0deg); }
+  80%, 100% { transform: rotate(240deg); }
 }
 
 /* A light band sweeping across the waiting text, the way other chat tools show they are working. */

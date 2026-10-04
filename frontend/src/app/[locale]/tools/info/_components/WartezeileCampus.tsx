@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import ThlKugel from "@/components/ui/ThlKugel";
+import RoteKugel from "@/components/ui/RoteKugel";
 import { phaseAt } from "@/app/[locale]/workspace/[uuid]/_components/chat/_phase";
 
 const TICK_MS = 100;
@@ -26,7 +26,7 @@ export default function WartezeileCampus({ metaArrived }: { metaArrived: boolean
     <div role="status" aria-live="polite" data-testid="campus-phase" className="flex items-center h-5 px-1 text-xs" style={{ color: "var(--muted)" }}>
       {phase && (
         <span className="flex items-center gap-2">
-          <ThlKugel />
+          <RoteKugel />
           <span className="text-shimmer">{t(phase)}</span>
         </span>
       )}
