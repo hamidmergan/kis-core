@@ -60,7 +60,11 @@ export default function StartOverview({ firstName, targets, stamp = null, stampF
             <div className="sm:col-span-2">
               <Greeting firstName={firstName} />
             </div>
-            {/* First in the source so it tops the single column on a phone, the grid keeps it in the third column on wide screens. */}
+            {/* Right after the greeting in the source so the invite tops the single column on a phone, wide screens move it below the tiles. */}
+            <div className="flex flex-col md:flex-row gap-4 empty:hidden sm:col-span-2 lg:col-span-3 sm:order-last sm:mt-4">
+              <EvaluationInvite />
+            </div>
+            {/* Before the assistant in the source so it follows on a phone, the grid keeps it in the third column on wide screens. */}
             {stamp && (
               <section className="flex flex-col gap-2 lg:col-start-3 lg:row-start-2">
                 <h2 className={headingClass}>{t("groups.event")}</h2>
@@ -101,10 +105,6 @@ export default function StartOverview({ firstName, targets, stamp = null, stampF
                 />
               </section>
             )}
-          </div>
-
-          <div className="flex flex-col md:flex-row gap-4 empty:hidden">
-            <EvaluationInvite />
           </div>
 
           {tools.length > 0 && (
