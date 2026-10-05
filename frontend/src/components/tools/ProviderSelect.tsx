@@ -1,6 +1,7 @@
 "use client";
 
 import Select from "@/components/ui/Select";
+import ProviderAvailabilityHint from "@/components/tools/ProviderAvailabilityHint";
 import type { FeatureProvider } from "@/hooks/useFeatureProviders";
 
 type Props = {
@@ -42,6 +43,7 @@ export default function ProviderSelect({
           label: p.name,
         }))}
       />
+      <ProviderAvailabilityHint />
     </div>
   );
 }

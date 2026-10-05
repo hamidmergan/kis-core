@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
+import ProviderAvailabilityHint from "@/components/tools/ProviderAvailabilityHint";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import ProviderTab from "./_tabs/ProviderTab";
 import type { ProviderWithVoices } from "./_utils";
@@ -35,6 +36,7 @@ function VoicesPageInner() {
     <ProtectedRoute>
       <div className="max-w-4xl mx-auto px-4 py-8">
         <h1 className="text-xl font-bold mb-1">{t("title")}</h1>
+        <ProviderAvailabilityHint />
 
         {loading && <p className="text-sm text-muted mt-4">{t("loading")}</p>}
 

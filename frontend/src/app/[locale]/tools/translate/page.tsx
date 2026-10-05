@@ -19,6 +19,7 @@ import { copyTextFromPromise } from "@/lib/clipboard";
 import Spinner from "@/components/ui/Spinner";
 import BackgroundHint from "@/components/tools/BackgroundHint";
 import Select from "@/components/ui/Select";
+import ProviderAvailabilityHint from "@/components/tools/ProviderAvailabilityHint";
 import Tabs from "@/components/ui/Tabs";
 import { TEXT_MODE_FILENAME, TRANSLATE_MAX_CHARS } from "@/lib/constants";
 
@@ -235,6 +236,7 @@ function UebersetzungPageInner() {
                 disabled={processing}
                 options={providers.map((p) => ({ value: String(p.id), label: p.label }))}
               />
+              <ProviderAvailabilityHint />
             </div>
           )}
 

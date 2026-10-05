@@ -465,7 +465,8 @@
       "sources": "Material",
       "instructions": "Anweisung",
       "language": "Sprache"
-    }
+    },
+    "providerAvailability": "Nicht alle Anbieter sind immer verfügbar, weil die Rechenkapazität begrenzt ist. Fehlt einer, schau später wieder vorbei."
   },
   "tools": {
     "stt": {

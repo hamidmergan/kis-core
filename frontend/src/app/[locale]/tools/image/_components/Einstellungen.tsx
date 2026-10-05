@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { CaretRight } from "@phosphor-icons/react";
 import Select from "@/components/ui/Select";
+import ProviderAvailabilityHint from "@/components/tools/ProviderAvailabilityHint";
 import type { FeatureProvider } from "@/hooks/useFeatureProviders";
 
 interface Option<T extends string> {
@@ -73,6 +74,7 @@ export function AnbieterReihe({ providers, value, onChange, disabled }: {
         ariaLabel={t("providerLabel")}
         options={providers.map((p) => ({ value: String(p.id), label: p.name }))}
       />
+      <ProviderAvailabilityHint />
     </Reihe>
   );
 }

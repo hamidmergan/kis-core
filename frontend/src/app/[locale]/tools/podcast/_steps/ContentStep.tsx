@@ -7,6 +7,7 @@ import Checkbox from "@/components/ui/Checkbox";
 import { EmptyState } from "@/components/ui/EmptyState";
 import IconButton from "@/components/ui/IconButton";
 import Select from "@/components/ui/Select";
+import ProviderAvailabilityHint from "@/components/tools/ProviderAvailabilityHint";
 import Spinner from "@/components/ui/Spinner";
 import Tabs from "@/components/ui/Tabs";
 import EinstellungsFeld from "@/components/tools/EinstellungsFeld";
@@ -182,6 +183,7 @@ export default function ContentStep({ canUseModules, source, language, instructi
                 <EinstellungsFeld titel={t("providerLabel")} wert={anbieter} htmlFor="podcast-provider" {...zeile("provider")}>
                   <Select id="podcast-provider" value={String(llmProviderId ?? "")} onChange={(v) => onLlmProvider(Number(v))}
                     ariaLabel={t("providerLabel")} options={llmProviders.map((p) => ({ value: String(p.id), label: p.name }))} />
+                  <ProviderAvailabilityHint />
                 </EinstellungsFeld>
               )}
 

@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import Select from "@/components/ui/Select";
+import ProviderAvailabilityHint from "@/components/tools/ProviderAvailabilityHint";
 import Tabs from "@/components/ui/Tabs";
 import type { ProviderWithVoices } from "@/hooks/useVoices";
 import OwnVoicesLink from "@/components/OwnVoicesLink";
@@ -109,7 +110,8 @@ export default function CastStep(props: CastStepProps) {
           </div>
         ))}
       </div>
-      <div className="flex flex-col items-start gap-1">
+      <ProviderAvailabilityHint />
+      <div className="mt-3 flex flex-col items-start gap-1">
         <a href="/tools/tts/voices" target="_blank" rel="noopener noreferrer" className="text-sm text-kb hover:underline">
           {t("previewVoices")}
         </a>

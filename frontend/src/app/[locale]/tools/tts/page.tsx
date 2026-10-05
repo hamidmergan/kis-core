@@ -18,6 +18,7 @@ import type { TTSState } from "@/types";
 import Select from "@/components/ui/Select";
 import Tabs from "@/components/ui/Tabs";
 import type { ProviderWithVoices } from "@/hooks/useVoices";
+import ProviderAvailabilityHint from "@/components/tools/ProviderAvailabilityHint";
 import OwnVoicesLink from "@/components/OwnVoicesLink";
 import { preselectedVoice } from "@/hooks/_voiceDefault";
 import { LANGUAGE_FLAG } from "@/lib/languageFlags";
@@ -346,6 +347,7 @@ function TtsPageInner() {
                     label: `${LANGUAGE_FLAG[v.language] ?? ""} ${v.name}${v.description ? ` — ${v.description}` : ""}`.trim(),
                   }))}
                 />
+                <ProviderAvailabilityHint />
               </div>
               <div className="flex flex-col items-start gap-1">
                 <a

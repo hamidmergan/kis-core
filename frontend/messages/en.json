@@ -465,7 +465,8 @@
       "sources": "Material",
       "instructions": "Instruction",
       "language": "Language"
-    }
+    },
+    "providerAvailability": "Not every provider is always available because computing capacity is limited. If one is missing, check back later."
   },
   "tools": {
     "stt": {

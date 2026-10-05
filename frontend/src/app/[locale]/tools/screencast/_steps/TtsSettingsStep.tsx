@@ -5,6 +5,7 @@ import type { SlideData } from "@/types";
 import type { ProviderWithVoices } from "@/hooks/useVoices";
 import OwnVoicesLink from "@/components/OwnVoicesLink";
 import Select from "@/components/ui/Select";
+import ProviderAvailabilityHint from "@/components/tools/ProviderAvailabilityHint";
 import Checkbox from "@/components/ui/Checkbox";
 import { LANGUAGE_FLAG } from "@/lib/languageFlags";
 import StepFooter from "./StepFooter";
@@ -132,6 +133,7 @@ export default function TtsSettingsStep(props: TtsSettingsStepProps) {
                 label: `${LANGUAGE_FLAG[v.language] ?? ""} ${v.name}${v.description ? ` — ${v.description}` : ""}`.trim(),
               }))}
             />
+            <ProviderAvailabilityHint />
           </div>
           <div className="flex flex-col items-start gap-1">
             <a
