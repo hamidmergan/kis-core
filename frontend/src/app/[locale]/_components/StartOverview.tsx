@@ -37,7 +37,7 @@ export default function StartOverview({ firstName, targets, stamp = null, stampF
   const t = useTranslations("startOverview");
   const locale = useLocale();
   const day = stampFrom ? new Date(`${stampFrom}T12:00:00`) : null;
-  const stampBadge =
+  const stampNote =
     day && !Number.isNaN(day.getTime())
       ? t("stamp.from", { date: day.toLocaleDateString(locale === "en" ? "en-GB" : "de-DE", { day: "numeric", month: "long", year: "numeric" }) })
       : t("stamp.soon");
@@ -92,7 +92,7 @@ export default function StartOverview({ firstName, targets, stamp = null, stampF
                 <h2 className={headingClass}>{t("groups.event")}</h2>
                 <StartTile
                   href={stamp === "open" ? ROUTES.stamp : undefined}
-                  badge={stamp === "upcoming" ? stampBadge : undefined}
+                  note={stamp === "upcoming" ? stampNote : undefined}
                   icon={EVENT_ICONS.star}
                   title={t("stamp.title")}
                   body={t("stamp.body")}
