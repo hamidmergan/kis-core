@@ -38,7 +38,7 @@ export function StartTile({ href, icon: Icon, avatar, title, body, badge, note, 
     <>
       {media}
       <div className="flex-1 min-w-0">
-        {note && <p className="text-xs font-semibold mb-0.5" style={{ color: "var(--kb)" }}>{note}</p>}
+        {note && <p className="text-xs font-semibold mb-0.5" style={{ color: "var(--kb-dark)" }}>{note}</p>}
         <div className="flex items-center gap-2">
           <span className="text-base font-semibold tracking-[-0.01em]">{title}</span>
           {badge && (
