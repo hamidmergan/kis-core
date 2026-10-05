@@ -1740,7 +1740,7 @@
       "scrollToBottom": "Nach unten scrollen",
       "noAnswer": "(keine Antwort)",
       "genericError": "Es ist ein Fehler aufgetreten.",
-      "upstreamBusy": "Der KI-Anbieter ist gerade ausgelastet. Bitte versuche es gleich noch einmal.",
+      "upstreamBusy": "Die KI steht wegen begrenzter Rechenkapazität nicht immer zur Verfügung. Bitte versuche es später noch einmal.",
       "tooManyRequests": "Zu viele Anfragen. Bitte einen Moment warten und erneut senden.",
       "phases": {
         "searching": "Hochschulseiten werden durchsucht",
@@ -3771,7 +3771,7 @@
         "indexingInProgress": "{label} wird noch indiziert. Bitte warte einen Moment und versuche es erneut.",
         "tooManyRequests": "Zu viele Anfragen. Bitte einen Moment warten und erneut senden.",
         "genericError": "Es ist ein Fehler aufgetreten.",
-        "upstreamBusy": "Der KI-Anbieter dahinter war gerade überlastet oder nicht erreichbar. Bitte versuche es später noch einmal.",
+        "upstreamBusy": "Die KI steht wegen begrenzter Rechenkapazität nicht immer zur Verfügung. Bitte versuche es später noch einmal.",
         "translateFailed": "Diese Passage konnte nicht übersetzt werden."
       },
       "sources": {

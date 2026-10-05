@@ -111,8 +111,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "Job expired, no further input was received.",
     },
     "job.upstreamBusy": {
-        "de": "Der KI-Anbieter dahinter war gerade überlastet oder nicht erreichbar. Bitte versuche es später noch einmal.",
-        "en": "The AI provider behind this was busy or unreachable. Please try again later.",
+        "de": "Die KI steht wegen begrenzter Rechenkapazität nicht immer zur Verfügung. Bitte versuche es später noch einmal.",
+        "en": "The AI is not always available because computing capacity is limited. Please try again later.",
     },
     "job.unexpectedError": {
         "de": "Unerwarteter Fehler: {error}",
