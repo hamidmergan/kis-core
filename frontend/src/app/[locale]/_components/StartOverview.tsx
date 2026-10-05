@@ -60,6 +60,20 @@ export default function StartOverview({ firstName, targets, stamp = null, stampF
             <div className="sm:col-span-2">
               <Greeting firstName={firstName} />
             </div>
+            {/* First in the source so it tops the single column on a phone, the grid keeps it in the third column on wide screens. */}
+            {stamp && (
+              <section className="flex flex-col gap-2 lg:col-start-3 lg:row-start-2">
+                <h2 className={headingClass}>{t("groups.event")}</h2>
+                <StartTile
+                  href={stamp === "open" ? ROUTES.stamp : undefined}
+                  note={stamp === "upcoming" ? stampNote : undefined}
+                  icon={EVENT_ICONS.star}
+                  title={t("stamp.title")}
+                  body={t("stamp.body")}
+                  testId="start-tile-stamp"
+                />
+              </section>
+            )}
             {aia && (
               <section className="flex flex-col gap-2 lg:col-start-1 lg:row-start-2">
                 <div className="flex items-center gap-2">
@@ -84,19 +98,6 @@ export default function StartOverview({ firstName, targets, stamp = null, stampF
                   title={t("tools.campus.title")}
                   body={t("tools.campus.body")}
                   testId="start-tile-campus"
-                />
-              </section>
-            )}
-            {stamp && (
-              <section className="flex flex-col gap-2 lg:col-start-3 lg:row-start-2">
-                <h2 className={headingClass}>{t("groups.event")}</h2>
-                <StartTile
-                  href={stamp === "open" ? ROUTES.stamp : undefined}
-                  note={stamp === "upcoming" ? stampNote : undefined}
-                  icon={EVENT_ICONS.star}
-                  title={t("stamp.title")}
-                  body={t("stamp.body")}
-                  testId="start-tile-stamp"
                 />
               </section>
             )}
