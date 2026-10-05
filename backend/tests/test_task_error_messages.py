@@ -75,7 +75,7 @@ def test_ueberlastung_wird_zu_klartext(db):
     assert status == "attempt"
     assert "500" not in text
     assert "Internal Server Error" not in text
-    assert "überlastet" in text
+    assert "Rechenkapazität" in text
 
 
 def test_ueberlastung_auf_englisch(db):
