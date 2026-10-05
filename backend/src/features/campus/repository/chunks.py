@@ -159,6 +159,24 @@ def neighbors(page_id: int, position: int, span: int = 1) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def rare_word_pages(text: str, chunk_ids: list[int]) -> dict[int, set[str]]:
+    """For each page among the given chunks, which of the rare words of a text it holds."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            terms = _rare_terms(cur, text)
+            if not terms:
+                return {}
+            cur.execute(
+                """SELECT DISTINCT c.page_id, t FROM campus_chunks c, unnest(%s::text[]) AS t
+                   WHERE c.id = ANY(%s) AND c.search_vector @@ plainto_tsquery('simple', t)""",
+                (terms, chunk_ids),
+            )
+            out: dict[int, set[str]] = {}
+            for page_id, term in cur.fetchall():
+                out.setdefault(page_id, set()).add(term)
+            return out
+
+
 def nearest_in(embedding: list[float], chunk_ids: list[int]) -> tuple[int, float] | None:
     """The page of the closest chunk among the given ones and its cosine distance."""
     with get_connection() as conn:

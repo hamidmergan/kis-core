@@ -210,7 +210,8 @@ async def campus_chat(
             map_on = campus_settings.read().map_enabled
             places = [] if no_source or not map_on else find_places(answer, place_repo.all_places())
             used = [] if no_source else await asyncio.to_thread(
-                attribution.used_sources, answer, context.sources, context.chunk_ids, _embed_many, chunk_repo.nearest_in
+                attribution.used_sources, answer, context.sources, context.chunk_ids, _embed_many, chunk_repo.nearest_in,
+                chunk_repo.rare_word_pages,
             )
             sources = pick_sources(used, places, map_on)
             message_id = chat_repo.add_message(chat_id, "assistant", answer, sources=sources, places=places, no_source=no_source)

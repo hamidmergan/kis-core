@@ -46,3 +46,18 @@ def test_kaputte_einbettung_laesst_alle_fundstellen_stehen():
         raise RuntimeError("down")
     out = used_sources("Der Semesterbeitrag beträgt 394,30 Euro.", QUELLEN, [10], kaputt, _nearest_from([]))
     assert out == QUELLEN
+
+
+def test_ferner_satz_bekommt_die_seite_mit_seinen_seltenen_woertern():
+    answer = "Die Mensa liegt in B.59. Sie wird auch unter Mönkhofer Weg 241 geführt."
+    words = lambda unit, chunk_ids: {2: {"241", "mönkhofer", "weg"}, 4: {"weg"}} if "241" in unit else {}
+    out = used_sources(answer, QUELLEN, [10], _embed, _nearest_from([(1, 0.3), (4, 0.57)]), words)
+    assert out == [QUELLEN[0], QUELLEN[1]]
+
+
+def test_woerter_die_auch_andere_seiten_halten_ergeben_keine_karte():
+    answer = "Du hast dafür folgende Möglichkeiten:"
+    geteilt = lambda unit, chunk_ids: {2: {"dafür", "folgende", "möglichkeiten"}, 3: {"dafür", "folgende"}}
+    zu_wenig = lambda unit, chunk_ids: {2: {"möglichkeiten"}}
+    assert used_sources(answer, QUELLEN, [10], _embed, _nearest_from([(5, 0.7)]), geteilt) == []
+    assert used_sources(answer, QUELLEN, [10], _embed, _nearest_from([(5, 0.7)]), zu_wenig) == []

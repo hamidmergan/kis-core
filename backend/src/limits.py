@@ -398,6 +398,8 @@ CAMPUS_SEARCH_CANDIDATES               = 60
 CAMPUS_SOURCE_CARDS_MAX                = 5
 # A source card only for pages an answer sentence lies this close to, measured 0.25 to 0.45 for real use.
 CAMPUS_SOURCE_MAX_DISTANCE             = 0.5
+# A sentence too far from every passage still gets the one page holding this many of its rare words that no other fetched page holds.
+CAMPUS_SOURCE_MIN_RARE_WORDS           = 2
 # One place per answer, the first one mentioned, the rest is found on the map.
 CAMPUS_PLACE_CARDS_MAX                 = 1
 # Web pages the index holds at most, new sitemap links beyond it are left out until pages drop away.
