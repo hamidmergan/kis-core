@@ -58,8 +58,8 @@ export interface EventConfig {
 export interface PublicEvent {
   stations: PublicStation[];
   eventBlock: EventBlock | null;
-  /** When the event runs, null while it is switched off, dates are YYYY-MM-DD with an empty side for no bound. */
-  window: { from: string; until: string; state: "upcoming" | "open" | "over" } | null;
+  /** The stamp tile's own switch and date (YYYY-MM-DD, empty for none), null while off, over or without such a tile. */
+  stamp: { active: boolean; availableFrom: string } | null;
 }
 
 /** One visitor's card as the server keeps it, times are epoch milliseconds. */

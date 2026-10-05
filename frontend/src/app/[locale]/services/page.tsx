@@ -85,7 +85,7 @@ function HomeRouter() {
           </div>
         </div>
       ) : (
-        <StartOverview firstName={state.firstName} targets={state.targets} stamp={state.stamp} stampFrom={event?.window?.from ?? ""} />
+        <StartOverview firstName={state.firstName} targets={state.targets} stamp={state.stamp} stampFrom={event?.stamp?.availableFrom ?? ""} />
       )}
     </>
   );

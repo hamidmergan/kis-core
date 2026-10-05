@@ -231,10 +231,12 @@ def test_validation_keeps_the_hide_setting_and_defaults_it_off():
     assert validate_config({**config, "hideCodeOnPosters": True})["hideCodeOnPosters"] is True
 
 
-def test_event_window_states():
+def test_event_window_follows_the_stamp_tile():
     from src.features.event.service import event_window
 
-    assert event_window(BLOCK, date(2026, 11, 5))["state"] == "upcoming"
-    assert event_window(BLOCK, date(2026, 11, 9))["state"] == "open"
-    assert event_window(BLOCK, date(2026, 11, 14))["state"] == "over"
-    assert event_window({**BLOCK, "enabled": False}, date(2026, 11, 9)) is None
+    tile = {"id": "s", "target": {"kind": "stamp"}, "active": False, "availableFrom": "2026-11-06"}
+    config = {"eventBlock": {**BLOCK, "tiles": [tile]}}
+    assert event_window(config, date(2026, 11, 5)) == {"active": False, "availableFrom": "2026-11-06"}
+    assert event_window(config, date(2026, 11, 14)) is None
+    assert event_window({"eventBlock": {**BLOCK, "tiles": []}}, date(2026, 11, 9)) is None
+    assert event_window({"eventBlock": {**BLOCK, "enabled": False, "tiles": [tile]}}, date(2026, 11, 9)) is None

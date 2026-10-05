@@ -179,19 +179,18 @@ def event_block_visible(block: dict, today: date) -> bool:
     return (not von or von <= heute) and (not bis or heute <= bis)
 
 
-def event_window(block: dict, today: date) -> dict | None:
-    """When the event runs and whether it is still ahead, open or over, None while the block is off."""
+def event_window(config: dict, today: date) -> dict | None:
+    """The stamp card's own switch and date, None while the event is off, over or has no stamp tile."""
+    block = config["eventBlock"]
     if not block.get("enabled"):
         return None
     heute = today.isoformat()
-    von, bis = block.get("from") or "", block.get("until") or ""
-    if block.get("ignoreWindow") or event_block_visible(block, today):
-        state = "open"
-    elif von and heute < von:
-        state = "upcoming"
-    else:
-        state = "over"
-    return {"from": von, "until": bis, "state": state}
+    if not block.get("ignoreWindow") and (block.get("until") or "") and heute > block["until"]:
+        return None
+    kachel = next((t for t in block.get("tiles", []) if (t.get("target") or {}).get("kind") == "stamp"), None)
+    if kachel is None:
+        return None
+    return {"active": bool(kachel.get("active")), "availableFrom": kachel.get("availableFrom") or ""}
 
 
 def public_view(config: dict, today: date) -> dict:
@@ -202,7 +201,7 @@ def public_view(config: dict, today: date) -> dict:
             {feld: stand[feld] for feld in _PUBLIC_STATION_FIELDS} for stand in config["stations"]
         ],
         "eventBlock": block if event_block_visible(block, today) else None,
-        "window": event_window(block, today),
+        "stamp": event_window(config, today),
     }
 
 

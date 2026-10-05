@@ -373,8 +373,8 @@
     "stamp": {
       "title": "Stempelkarte",
       "body": "Besuche die Stände in beliebiger Reihenfolge und sammle für jeden einen Stempel.",
-      "from": "Ab {date}",
-      "soon": "Demnächst"
+      "from": "Freischaltung am {date}",
+      "soon": "Bald verfügbar"
     },
     "tools": {
       "translation": {
