@@ -9,6 +9,7 @@ import { checkAuthStatus } from "@/lib/auth";
 import { EMPTY_PERMS, PERM, hasPerm } from "@/lib/permissions";
 import { homeTargets, enabledToolKeys, type HomeTarget } from "@/lib/modules";
 import { useEnabledTools } from "@/hooks/useEnabledTools";
+import { stampCardOpen, usePublicEvent } from "@/lib/event/usePublicEvent";
 import type { AuthStatus } from "@/types";
 import StartOverview from "../_components/StartOverview";
 import WelcomeModal from "../workspace/_components/WelcomeModal";
@@ -16,6 +17,7 @@ import WelcomeModal from "../workspace/_components/WelcomeModal";
 interface HomeState {
   targets: HomeTarget[];
   firstName: string;
+  stamp: boolean;
 }
 
 export default function HomePage() {
@@ -35,6 +37,7 @@ function HomeRouter() {
   const searchParams = useSearchParams();
   const [auth, setAuth] = useState<AuthStatus | null>(null);
   const { loaded: toolsLoaded, tools: enabledTools } = useEnabledTools();
+  const { data: event, failed: eventFailed } = usePublicEvent();
   const [state, setState] = useState<HomeState | null>(null);
 
   useEffect(() => {
@@ -42,13 +45,14 @@ function HomeRouter() {
   }, []);
 
   useEffect(() => {
-    if (!auth || !toolsLoaded) return;
+    if (!auth || !toolsLoaded || (!event && !eventFailed)) return;
     const perms = auth.permissions ?? EMPTY_PERMS;
     setState({
       targets: homeTargets(auth.modules, perms, enabledToolKeys(enabledTools)),
       firstName: auth.display_name?.split(" ")[0] ?? auth.username ?? "",
+      stamp: stampCardOpen(event),
     });
-  }, [auth, toolsLoaded, enabledTools]);
+  }, [auth, toolsLoaded, enabledTools, event, eventFailed]);
 
   const code = searchParams.get("code");
   const hasAia = state?.targets.some((z) => z.kind === "aia") ?? false;
@@ -58,7 +62,7 @@ function HomeRouter() {
       ? null
       : code && hasAia
         ? `/workspace?code=${encodeURIComponent(code)}`
-        : state.targets.length === 1
+        : state.targets.length === 1 && !state.stamp
           ? state.targets[0].href
           : null;
 
@@ -74,14 +78,14 @@ function HomeRouter() {
       {!auth?.impersonator && hasPerm(auth?.permissions, PERM.generalWelcome) && (
         <WelcomeModal userId={auth?.user_id} />
       )}
-      {state.targets.length === 0 ? (
+      {state.targets.length === 0 && !state.stamp ? (
         <div className="px-4 sm:px-6 md:px-8 pt-10 pb-20">
           <div className="max-w-2xl mx-auto">
             <LockedNotice variant="aia" />
           </div>
         </div>
       ) : (
-        <StartOverview firstName={state.firstName} targets={state.targets} />
+        <StartOverview firstName={state.firstName} targets={state.targets} stamp={state.stamp} />
       )}
     </>
   );

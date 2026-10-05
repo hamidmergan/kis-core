@@ -8,6 +8,8 @@ import { EvaluationInvite } from "@/app/[locale]/workspace/_components/Evaluatio
 import HoverTooltip from "@/components/ui/HoverTooltip";
 import Mascot from "@/components/ui/Mascot";
 import { useMascotPref } from "@/hooks/useMascotPref";
+import { ROUTES } from "@/lib/event/routes";
+import { EVENT_ICONS } from "@/lib/event/icons";
 import { StartTile } from "./StartTile";
 
 type ToolTarget = Extract<HomeTarget, { kind: "tool" }>;
@@ -31,7 +33,7 @@ function AudienceTags({ tags }: { tags: { label: string; hint: string }[] }) {
 }
 
 /** The start page for everyone with more than one place to go: the assistant first, then every tool. */
-export default function StartOverview({ firstName, targets }: { firstName: string; targets: HomeTarget[] }) {
+export default function StartOverview({ firstName, targets, stamp = false }: { firstName: string; targets: HomeTarget[]; stamp?: boolean }) {
   const t = useTranslations("startOverview");
   const { variant: mascotVariant } = useMascotPref();
   const aia = targets.find((z) => z.kind === "aia");
@@ -76,6 +78,18 @@ export default function StartOverview({ firstName, targets }: { firstName: strin
                   title={t("tools.campus.title")}
                   body={t("tools.campus.body")}
                   testId="start-tile-campus"
+                />
+              </section>
+            )}
+            {stamp && (
+              <section className="flex flex-col gap-2 lg:col-start-3 lg:row-start-2">
+                <h2 className={headingClass}>{t("groups.event")}</h2>
+                <StartTile
+                  href={ROUTES.stamp}
+                  icon={EVENT_ICONS.star}
+                  title={t("stamp.title")}
+                  body={t("stamp.body")}
+                  testId="start-tile-stamp"
                 />
               </section>
             )}

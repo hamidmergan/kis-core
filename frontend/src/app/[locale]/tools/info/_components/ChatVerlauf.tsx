@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
-import { CaretLeft, NotePencil, PencilSimple, SidebarSimple, Trash } from "@phosphor-icons/react";
+import { NotePencil, PencilSimple, SidebarSimple, Trash } from "@phosphor-icons/react";
 import { Link } from "@/i18n/navigation";
 import Modal from "@/components/ui/Modal";
 import { InlineRename } from "@/components/ui/InlineRename";
@@ -36,7 +36,6 @@ export default function ChatVerlauf({
   onToggle: () => void;
 }) {
   const t = useTranslations("tools.campus");
-  const tCommon = useTranslations("common");
   const tHeader = useTranslations("header");
   const [renaming, setRenaming] = useState<number | null>(null);
   const [confirm, setConfirm] = useState<CampusChatEintrag | null>(null);
@@ -91,8 +90,8 @@ export default function ChatVerlauf({
   return (
     <div className="flex flex-col h-full min-h-0" data-testid="campus-history">
       <div className="flex items-center justify-between pl-4 pr-2 flex-shrink-0" style={{ height: 48 }}>
-        {/* The logo leads to the landing page, like the logo in the header of the other pages. */}
-        <Link href="/" aria-label={tHeader("homeAria")} title={tHeader("homeAria")} className="flex items-center logo-link" data-testid="campus-home">
+        {/* The logo leads to the tiles, like the logo in the header of the other pages. */}
+        <Link href="/services" aria-label={tHeader("homeAria")} title={tHeader("homeAria")} className="flex items-center logo-link" data-testid="campus-home">
           <Image src="/logos/kis-logo.svg" alt="KIS" width={228} height={78} className="h-6 w-auto" />
         </Link>
         {toggle}
@@ -164,23 +163,13 @@ export default function ChatVerlauf({
           ),
         )}
       </div>
-      {/* The way back sits at the foot, away from the logo and the toggle at the top. */}
-      <div className="flex-shrink-0 px-2 pt-2 pb-3" style={{ borderTop: "1px solid var(--border-soft)" }}>
-        <Link
-          href="/services"
-          className="flex items-center gap-1.5 px-2 py-1.5 text-sm font-medium no-underline opacity-70 hover:opacity-100 transition-opacity"
-          style={{ color: "var(--muted)" }}
-          data-testid="campus-back-services"
-        >
-          <CaretLeft size={13} weight="bold" />
-          <span>{tCommon("backToTools")}</span>
-        </Link>
-        {retentionDays > 0 && (
-          <p className="text-2xs px-2 pt-1" style={{ color: "var(--muted)" }}>
+      {retentionDays > 0 && (
+        <div className="flex-shrink-0 px-2 pt-2 pb-3" style={{ borderTop: "1px solid var(--border-soft)" }}>
+          <p className="text-2xs px-2" style={{ color: "var(--muted)" }}>
             {t("retentionHint", { days: retentionDays })}
           </p>
-        )}
-      </div>
+        </div>
+      )}
       <Modal
         open={confirm !== null}
         onClose={() => (busy ? undefined : setConfirm(null))}

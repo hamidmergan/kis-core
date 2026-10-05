@@ -5,7 +5,7 @@ import Link from "next/link";
 import LinkBusy from "@/components/ui/LinkBusy";
 import { useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { CalendarBlank, Check, Compass, FileText, List, Medal, Moon, PencilSimple, Plugs, SignOut, Stack, SquaresFour, Sun, UserCircleGear, X } from "@phosphor-icons/react";
+import { CalendarBlank, Check, Compass, FileText, List, Medal, Moon, PencilSimple, Plugs, SignOut, Stack, Sun, UserCircleGear, X } from "@phosphor-icons/react";
 import { useRouter, usePathname } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
 import { UI_LOCALES } from "@/lib/constants";
@@ -102,8 +102,6 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, canViewManual = 
   // The row of the page you are currently on stays highlighted.
   const activeRowStyle = { backgroundColor: "var(--surface-dim)", fontWeight: 600 };
   const onCalendar = pathname === "/calendar" || pathname.startsWith("/calendar/");
-  // The button points at the start page, so standing there counts as being on Dienste.
-  const onTools = pathname === "/services" || pathname.startsWith("/tools/");
   const onJobsPage = pathname.startsWith("/my-jobs");
   const headingClass = "px-4 pt-2.5 pb-1 text-2xs font-semibold uppercase tracking-wide";
   // Own settings and help, then the admin area, then log out, each block opens with a divider.
@@ -132,20 +130,6 @@ export default function HeaderMobileMenu({ hasSession, isAdmin, canViewManual = 
             borderTop: "1px solid var(--border)",
           }}
         >
-          {hasSession && hasTools && (
-            <Link
-              href="/services"
-              onClick={closeIfHere("/services")}
-              aria-current={onTools ? "page" : undefined}
-              className={rowClass}
-              style={{ color: "var(--foreground)", ...(onTools ? activeRowStyle : {}) }}
-            >
-              <LinkBusy size="sm">
-                <SquaresFour size={20} weight="bold" />
-              </LinkBusy>
-              <span>{t("tools")}</span>
-            </Link>
-          )}
           {hasSession && hasAia && (
             <Link
               href="/calendar"

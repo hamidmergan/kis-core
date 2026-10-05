@@ -48,7 +48,7 @@ export default function Footer({ loggedIn }: { loggedIn?: boolean }) {
           </div>
         )}
         <div className="flex flex-col md:flex-row items-stretch gap-4 md:gap-8">
-          <Link href="/" aria-label="KIS" className={`${TILE} logo-link md:w-60 flex-shrink-0`}>
+          <Link href={loggedIn ? "/services" : "/"} aria-label="KIS" className={`${TILE} logo-link md:w-60 flex-shrink-0`}>
             <Image src="/logos/kis-logo-claim.svg" alt="KIS – KInternationalisierung von Studiengängen" width={228} height={142} className={LOGO} />
           </Link>
           <div className="hidden md:block w-px self-stretch" style={{ backgroundColor: "rgba(255,255,255,0.15)" }} />

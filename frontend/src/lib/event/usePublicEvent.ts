@@ -20,3 +20,8 @@ export function usePublicEvent(): { data: PublicEvent | null; failed: boolean } 
   }, []);
   return { data, failed };
 }
+
+/** The stamp card is offered while the event block is live and there are stands to visit. */
+export function stampCardOpen(data: PublicEvent | null): boolean {
+  return data !== null && data.eventBlock !== null && data.stations.length > 0;
+}

@@ -355,7 +355,8 @@
     "groups": {
       "aia": "Learning assistant",
       "tools": "Services",
-      "campus": "Info assistant"
+      "campus": "Info assistant",
+      "event": "Event"
     },
     "audience": {
       "lehrende": "Teachers",
@@ -368,6 +369,10 @@
     "aia": {
       "title": "Learning assistant",
       "body": "Your workspaces with materials, chat and tools. The learning assistant answers from each workspace's own documents only."
+    },
+    "stamp": {
+      "title": "Stamp card",
+      "body": "Visit the stands in any order and collect a stamp at each one."
     },
     "tools": {
       "translation": {
