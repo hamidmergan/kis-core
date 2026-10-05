@@ -28,7 +28,7 @@ function CampusMap() {
   }, []);
 
   if (!mapUrl) return null;
-  const partner = { home: absolute("/", locale), back: absolute(from.startsWith("/") && !from.startsWith("//") ? from : "/services", locale) };
+  const partner = { home: absolute("/services", locale), back: absolute(from.startsWith("/") && !from.startsWith("//") ? from : "/services", locale) };
   return (
     <iframe
       ref={frame}
