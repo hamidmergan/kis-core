@@ -24,6 +24,7 @@ from src.features.ai_assistant.tasks.studio.schedule._extract import (
     hit_blocks,
     items_to_pairs,
     packets,
+    parallel_packets,
 )
 from src.features.ai_assistant.tasks.studio.schedule._harmonize import (
     _harmonize_same_date_titles,
@@ -55,10 +56,6 @@ def _split_rejected_ranges(candidates: list[dict],
         cands.append(zweiter)
         cls_out.append(dict(cls))
     return cands, cls_out
-
-
-# Measured: the provider runs two big requests side by side, a third slows all of them.
-_PARALLEL_PACKETS = 2
 
 
 @celery_app.task(bind=True, name="aia.generate_schedule", queue="aia",
@@ -151,7 +148,7 @@ def run_generate_schedule(self, job_id: int, workspace_id: int, user_id: int,
         def zeit_bei(block: dict, offset: int):
             return _fundstelle_zeit(zeitachsen.get(block["source_id"]), block["chunk"], offset)
 
-        # Two packets at a time, a source is saved as soon as all its packets are through.
+        # Packets side by side, a source is saved as soon as all its packets are through.
         pakete = packets(blocks, tool_context_budget())
         quellen_je_paket = [{b["source_id"] for b in p} for p in pakete]
         pakete_je_quelle: dict[int, set[int]] = {}
@@ -160,7 +157,7 @@ def run_generate_schedule(self, job_id: int, workspace_id: int, user_id: int,
                 pakete_je_quelle.setdefault(sid, set()).add(pi)
         ergebnis: dict[int, dict[int, tuple[list[dict], list[dict]]]] = {}
         fehler: Exception | None = None
-        pool = ThreadPoolExecutor(max_workers=_PARALLEL_PACKETS)
+        pool = ThreadPoolExecutor(max_workers=parallel_packets(pakete))
         try:
             # Each packet keeps the trace context of the task in its thread.
             futures = {

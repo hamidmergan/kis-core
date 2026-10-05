@@ -7,7 +7,7 @@ from datetime import date
 import pytest
 
 from src.features.ai_assistant.tasks.studio.schedule._extract import (
-    extract_packet, hit_blocks, items_to_pairs, packets,
+    extract_packet, hit_blocks, items_to_pairs, packets, parallel_packets,
 )
 from src.features.ai_assistant.prompts.schedule_prompts import AIA_SCHEDULE_EXTRACT_PROMPT
 
@@ -73,6 +73,19 @@ def test_an_oversize_block_travels_alone():
 
 def test_no_blocks_means_no_packets():
     assert packets([], 800000) == []
+
+
+def test_every_source_gets_its_own_packet():
+    """In a shared packet the model names a repeated date only once, the other sources lose it."""
+    blocks = [_block(0, "a", source_id=1), _block(1, "b", source_id=1), _block(2, "c", source_id=2)]
+    out = packets(blocks, 800000)
+    assert [[b["id"] for b in p] for p in out] == [[0, 1], [2]]
+
+
+def test_small_packets_run_wider_side_by_side():
+    klein = [[_block(0, "x" * 1000)], [_block(1, "x" * 1000)]]
+    gross = [[_block(0, "x" * 1000)], [_block(1, "x" * 200_000)]]
+    assert parallel_packets(klein) > parallel_packets(gross) == 2
 
 
 # --- extract_packet ---------------------------------------------------------

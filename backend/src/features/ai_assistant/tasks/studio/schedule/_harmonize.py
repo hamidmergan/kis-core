@@ -34,10 +34,16 @@ def _harmonize_same_date_titles(
         ende = _range_end_date(cand, d, today_d) if cls.get("is_range") else None
         cand_groups[(d, ende, cand.get("date_precision") or "day")].append(idx)
 
+    # One anchor per title and day, many people with the same entry would bloat the answer.
     existing_by_date: dict[tuple, list[dict]] = defaultdict(list)
+    seen_titles: set[tuple] = set()
     for e in existing_entries:
-        existing_by_date[(e.get("due_date"), e.get("end_date"),
-                          e.get("date_precision") or "day")].append(e)
+        key = (e.get("due_date"), e.get("end_date"), e.get("date_precision") or "day")
+        title_key = (key, (e.get("title") or "").strip().casefold())
+        if title_key in seen_titles:
+            continue
+        seen_titles.add(title_key)
+        existing_by_date[key].append(e)
 
     rollen = (
         "Some items are NEW candidates (role=candidate, title can be rewritten).\n"

@@ -140,6 +140,23 @@ def test_mehrere_tage_mit_ankern_kosten_eine_anfrage():
                                          "Online-Präsenz: Schreibwerkstatt", "Abgabe: Hausarbeit"]
 
 
+def test_gleiche_anker_vieler_personen_stehen_nur_einmal_in_der_anfrage():
+    cands = [_cand("2026-05-29")]
+    cls = [_cls("Peer-Review")]
+    anker = [{"id": i, "due_date": date(2026, 5, 29), "title": "Online-Präsenz: Peer-Review",
+              "description": None, "type": "termin"} for i in range(1, 18)]
+    client, calls = _make_client({"groups": [
+        {"ids": ["c0", "e1"], "canonical_title": "Online-Präsenz: Peer-Review"},
+    ]})
+
+    mod._harmonize_same_date_titles(client, "m", cands, cls, HEUTE, anker)
+
+    frage = calls[0][1]["content"]
+    assert '"e1"' in frage
+    assert '"e2"' not in frage
+    assert cls[0]["title"] == "Online-Präsenz: Peer-Review"
+
+
 def test_eine_gruppe_ueber_zwei_tage_wird_verworfen():
     cands = [_cand("2026-05-29"), _cand("2026-05-29"), _cand("2026-06-27"), _cand("2026-06-27")]
     cls = [_cls("Peer-Review"), _cls("Review"), _cls("Werkstatt"), _cls("Schreibwerkstatt")]

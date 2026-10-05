@@ -48,13 +48,14 @@ def hit_blocks(src: dict, chunks: list[dict], open_spots: dict) -> list[dict]:
 
 
 def packets(blocks: list[dict], max_chars: int) -> list[list[dict]]:
-    """Greedy packets in block order, an oversize block travels alone."""
+    """Greedy packets in block order, one source per packet, an oversize block travels alone."""
     out: list[list[dict]] = []
     current: list[dict] = []
     size = 0
     for b in blocks:
         n = len(b["text"])
-        if current and size + n > max_chars:
+        # A shared packet lets the model name a repeated date for one source only.
+        if current and (size + n > max_chars or b["source_id"] != current[-1]["source_id"]):
             out.append(current)
             current, size = [], 0
         current.append(b)
@@ -62,6 +63,20 @@ def packets(blocks: list[dict], max_chars: int) -> list[list[dict]]:
     if current:
         out.append(current)
     return out
+
+
+# Measured: the provider runs two big requests side by side, a third slows all of them.
+_PARALLEL_BIG = 2
+# Small requests cost mostly answer time, several of them share the provider well.
+_PARALLEL_SMALL = 6
+# From this size on, inputs running side by side drag the provider down.
+_BIG_PACKET_CHARS = 100_000
+
+
+def parallel_packets(pakete: list[list[dict]]) -> int:
+    """How many packets run side by side, big inputs keep it at two."""
+    groesste = max((sum(len(b["text"]) for b in p) for p in pakete), default=0)
+    return _PARALLEL_BIG if groesste >= _BIG_PACKET_CHARS else _PARALLEL_SMALL
 
 
 def extract_packet(client, model, packet: list[dict], today: date) -> list[dict]:
