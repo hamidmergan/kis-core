@@ -265,7 +265,7 @@
     },
     "fromMark": "from",
     "untilMark": "by",
-    "yearAssumed": "The source gives no year. {jahr} is assumed because it puts the date closest to today.",
+    "yearAssumed": "The source gives no year. {jahr} is assumed because it puts the date in the current semester or after it.",
     "yearAssumedAria": "year assumed"
   },
   "imprint": {

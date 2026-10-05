@@ -9,7 +9,7 @@ from loguru import logger
 
 from src.features.ai_assistant.prompts.schedule_prompts import AIA_SCHEDULE_EXTRACT_PROMPT
 from src.features.ai_assistant.tasks._helpers import _clean_llm_json
-from src.features.ai_assistant.tasks.studio.schedule._parse import _parse_date
+from src.features.ai_assistant.tasks.studio.schedule._parse import _parse_date, _year_written
 from src.features.ai_assistant.tasks.studio.schedule._regex import _date_candidates_in_text
 
 _TIMEOUT_SECS = 600
@@ -133,13 +133,6 @@ def _extract_once(client, model, packet: list[dict], today: date) -> list[dict]:
         raise ValueError("Terminsuche lieferte kein JSON-Objekt")
     items = parsed.get("appointments") or []
     return [i for i in items if isinstance(i, dict)]
-
-
-def _year_written(year: int, text: str) -> bool:
-    """Does the text write this year, in full or as the short year of a numeric date?"""
-    if re.search(rf"(?<!\d){year}(?!\d)", text):
-        return True
-    return bool(re.search(rf"\d{{1,2}}[./-]\d{{1,2}}[./-]{year % 100:02d}(?!\d)", text))
 
 
 def _date_parts(value, text: str | None = None) -> tuple[str | None, tuple[int, int] | None, str] | None:

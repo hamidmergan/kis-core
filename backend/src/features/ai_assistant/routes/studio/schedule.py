@@ -72,7 +72,7 @@ def _serialize_entry(row: dict) -> dict:
         "is_open_ended": bool(row.get("is_open_ended")),
         # 'month' = the source named only a month, the view then shows no day
         "date_precision": row.get("date_precision") or "day",
-        # Set when the source wrote no year and the system picked the nearest one.
+        # Set when the source wrote no year and the system picked it from the running semester.
         "year_assumed": bool(row.get("year_assumed")),
         "is_optional": row["is_optional"],
         "is_checked": row["is_checked"],
@@ -106,7 +106,7 @@ def _serialize_global_entry(row: dict) -> dict:
         "is_open_ended": bool(row.get("is_open_ended")),
         # 'month' = the source named only a month, the view then shows no day
         "date_precision": row.get("date_precision") or "day",
-        # Set when the source wrote no year and the system picked the nearest one.
+        # Set when the source wrote no year and the system picked it from the running semester.
         "year_assumed": bool(row.get("year_assumed")),
         "is_checked": row["is_checked"],
     }

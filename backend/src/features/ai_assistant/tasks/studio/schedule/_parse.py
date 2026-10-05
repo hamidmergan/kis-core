@@ -218,6 +218,13 @@ def _in_year(year: int, month: int, day: int) -> Optional[date]:
         return None
 
 
+def _year_written(year: int, text: str) -> bool:
+    """Does the text write this year, in full or as the short year of a numeric date?"""
+    if re.search(rf"(?<!\d){year}(?!\d)", text):
+        return True
+    return bool(re.search(rf"\d{{1,2}}[./-]\d{{1,2}}[./-]{year % 100:02d}(?!\d)", text))
+
+
 def _year_evidence(candidates: list[dict], entries: list[dict]) -> dict[tuple[int, int], set[int]]:
     """Per month and day, the years a source writes out for it."""
     belegt: dict[tuple[int, int], set[int]] = {}
@@ -227,23 +234,46 @@ def _year_evidence(candidates: list[dict], entries: list[dict]) -> dict[tuple[in
             belegt.setdefault((d.month, d.day), set()).add(d.year)
     for e in entries:
         d = e.get("due_date")
-        if d and (e.get("date_precision") or "day") == "day" and not e.get("year_assumed"):
-            belegt.setdefault((d.month, d.day), set()).add(d.year)
+        if not d or (e.get("date_precision") or "day") != "day" or e.get("year_assumed"):
+            continue
+        # Older model entries carry years their quote never wrote, only a written one counts.
+        if e.get("origin") == "llm" and not any(
+                _year_written(d.year, str(r.get("raw_quote") or ""))
+                for r in e.get("source_refs") or []):
+            continue
+        belegt.setdefault((d.month, d.day), set()).add(d.year)
     return belegt
+
+
+# Summer semester runs from March, winter semester from September.
+_SEMESTER_START_MONTHS = (3, 9)
+
+
+def _semester_start(today_d: date) -> date:
+    """First day of the semester today falls in."""
+    month = max((m for m in _SEMESTER_START_MONTHS if m <= today_d.month), default=None)
+    if month is None:
+        return date(today_d.year - 1, _SEMESTER_START_MONTHS[-1], 1)
+    return date(today_d.year, month, 1)
 
 
 def _resolve_year(today_d: date, month: int, day: int,
                   evidence: Optional[dict] = None) -> tuple[Optional[date], bool]:
-    """A year-less date and whether its year is only assumed, a written year wins over the nearest one."""
+    """A year-less date and whether its year is only assumed, a written year wins over the semester."""
     years = (evidence or {}).get((month, day))
-    assumed = not years
-    if assumed:
-        years = {today_d.year - 1, today_d.year, today_d.year + 1}
-    dates = [d for d in (_in_year(y, month, day) for y in years) if d]
-    if not dates:
-        return None, False
-    # The nearest occurrence, on a tie the coming one.
-    return min(dates, key=lambda d: (abs((d - today_d).days), d < today_d)), assumed
+    if years:
+        dates = [d for d in (_in_year(y, month, day) for y in years) if d]
+        if not dates:
+            return None, False
+        # The nearest written occurrence, on a tie the coming one.
+        return min(dates, key=lambda d: (abs((d - today_d).days), d < today_d)), False
+    # The first occurrence from the start of the running semester on.
+    start = _semester_start(today_d)
+    for y in (start.year, start.year + 1):
+        d = _in_year(y, month, day)
+        if d and d >= start:
+            return d, True
+    return None, False
 
 
 def _candidate_start(cand: dict, today_d: date, evidence: Optional[dict] = None,

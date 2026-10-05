@@ -1,4 +1,4 @@
-"""A date without a year gets its nearest occurrence, a year written elsewhere wins."""
+"""A date without a year falls into the running semester or the months after it, a written year wins."""
 
 from datetime import date
 
@@ -28,6 +28,33 @@ def test_im_januar_ist_der_dezember_der_vergangene():
     assert _resolve_year(date(2027, 1, 5), 12, 20) == (date(2026, 12, 20), True)
 
 
+def test_im_wintersemester_liegen_januar_und_februar_im_naechsten_jahr():
+    heute = date(2026, 10, 5)
+    assert _resolve_year(heute, 1, 15) == (date(2027, 1, 15), True)
+    assert _resolve_year(heute, 2, 28) == (date(2027, 2, 28), True)
+    assert _resolve_year(heute, 9, 1) == (date(2026, 9, 1), True)
+    assert _resolve_year(heute, 12, 31) == (date(2026, 12, 31), True)
+
+
+def test_ein_sommerdatum_im_wintersemester_ist_das_kommende_sommersemester():
+    assert _resolve_year(date(2026, 10, 5), 5, 15) == (date(2027, 5, 15), True)
+
+
+def test_im_februar_gilt_noch_das_wintersemester_vom_vorjahr():
+    heute = date(2027, 2, 10)
+    assert _resolve_year(heute, 10, 1) == (date(2026, 10, 1), True)
+    assert _resolve_year(heute, 1, 15) == (date(2027, 1, 15), True)
+    assert _resolve_year(heute, 4, 1) == (date(2027, 4, 1), True)
+
+
+def test_im_sommersemester_bleiben_maerz_bis_august_im_laufenden_jahr():
+    heute = date(2026, 5, 10)
+    assert _resolve_year(heute, 3, 1) == (date(2026, 3, 1), True)
+    assert _resolve_year(heute, 8, 31) == (date(2026, 8, 31), True)
+    assert _resolve_year(heute, 10, 15) == (date(2026, 10, 15), True)
+    assert _resolve_year(heute, 1, 15) == (date(2027, 1, 15), True)
+
+
 def test_29_februar_nimmt_das_naechste_schaltjahr_in_reichweite():
     assert _resolve_year(date(2027, 9, 1), 2, 29) == (date(2028, 2, 29), True)
 
@@ -49,6 +76,18 @@ def test_belege_kommen_aus_kandidaten_und_bestehenden_eintraegen():
          {"due_date": date(2027, 2, 1), "date_precision": "day", "year_assumed": True}],
     )
     assert beleg == {(1, 10): {2027}, (12, 3): {2026}}
+
+
+def test_ein_alter_eintrag_ohne_jahr_im_zitat_ist_kein_beleg():
+    beleg = _year_evidence([], [
+        {"due_date": date(2026, 1, 15), "date_precision": "day", "origin": "llm",
+         "source_refs": [{"raw_quote": "Besprechung am 15.01."}]},
+        {"due_date": date(2027, 1, 29), "date_precision": "day", "origin": "llm",
+         "source_refs": [{"raw_quote": "Klausur am 29.01.2027"}]},
+        {"due_date": date(2026, 2, 1), "date_precision": "day", "origin": "manual",
+         "source_refs": []},
+    ])
+    assert beleg == {(1, 29): {2027}, (2, 1): {2026}}
 
 
 def test_kandidat_ohne_jahr_ist_als_annahme_markiert():

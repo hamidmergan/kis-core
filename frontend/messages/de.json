@@ -265,7 +265,7 @@
     },
     "fromMark": "ab",
     "untilMark": "bis",
-    "yearAssumed": "In der Quelle steht kein Jahr. {jahr} ist angenommen, weil das Datum dann am nächsten an heute liegt.",
+    "yearAssumed": "In der Quelle steht kein Jahr. {jahr} ist angenommen, weil das Datum so ins laufende Semester oder danach fällt.",
     "yearAssumedAria": "Jahr angenommen"
   },
   "imprint": {
