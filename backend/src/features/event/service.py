@@ -179,6 +179,21 @@ def event_block_visible(block: dict, today: date) -> bool:
     return (not von or von <= heute) and (not bis or heute <= bis)
 
 
+def event_window(block: dict, today: date) -> dict | None:
+    """When the event runs and whether it is still ahead, open or over, None while the block is off."""
+    if not block.get("enabled"):
+        return None
+    heute = today.isoformat()
+    von, bis = block.get("from") or "", block.get("until") or ""
+    if block.get("ignoreWindow") or event_block_visible(block, today):
+        state = "open"
+    elif von and heute < von:
+        state = "upcoming"
+    else:
+        state = "over"
+    return {"from": von, "until": bis, "state": state}
+
+
 def public_view(config: dict, today: date) -> dict:
     """What a visitor may see: the stands without their codes, the block only inside its window."""
     block = config["eventBlock"]
@@ -187,6 +202,7 @@ def public_view(config: dict, today: date) -> dict:
             {feld: stand[feld] for feld in _PUBLIC_STATION_FIELDS} for stand in config["stations"]
         ],
         "eventBlock": block if event_block_visible(block, today) else None,
+        "window": event_window(block, today),
     }
 
 

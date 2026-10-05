@@ -58,6 +58,8 @@ export interface EventConfig {
 export interface PublicEvent {
   stations: PublicStation[];
   eventBlock: EventBlock | null;
+  /** When the event runs, null while it is switched off, dates are YYYY-MM-DD with an empty side for no bound. */
+  window: { from: string; until: string; state: "upcoming" | "open" | "over" } | null;
 }
 
 /** One visitor's card as the server keeps it, times are epoch milliseconds. */

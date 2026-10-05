@@ -372,7 +372,9 @@
     },
     "stamp": {
       "title": "Stempelkarte",
-      "body": "Besuche die Stände in beliebiger Reihenfolge und sammle für jeden einen Stempel."
+      "body": "Besuche die Stände in beliebiger Reihenfolge und sammle für jeden einen Stempel.",
+      "from": "Ab {date}",
+      "soon": "Demnächst"
     },
     "tools": {
       "translation": {

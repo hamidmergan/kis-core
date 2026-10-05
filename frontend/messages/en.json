@@ -372,7 +372,9 @@
     },
     "stamp": {
       "title": "Stamp card",
-      "body": "Visit the stands in any order and collect a stamp at each one."
+      "body": "Visit the stands in any order and collect a stamp at each one.",
+      "from": "From {date}",
+      "soon": "Coming soon"
     },
     "tools": {
       "translation": {

@@ -21,7 +21,8 @@ export function usePublicEvent(): { data: PublicEvent | null; failed: boolean } 
   return { data, failed };
 }
 
-/** The stamp card is offered while the event block is live and there are stands to visit. */
-export function stampCardOpen(data: PublicEvent | null): boolean {
-  return data !== null && data.eventBlock !== null && data.stations.length > 0;
+/** The stamp card is on offer while the event is open, announced while it is ahead, and gone once it is over. */
+export function stampCardState(data: PublicEvent | null): "open" | "upcoming" | null {
+  if (!data || data.stations.length === 0 || !data.window) return null;
+  return data.window.state === "over" ? null : data.window.state;
 }

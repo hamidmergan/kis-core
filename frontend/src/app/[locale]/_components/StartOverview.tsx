@@ -1,6 +1,6 @@
 "use client";
 
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { AIA_AUDIENCE, TOOLS_AUDIENCE, type Audience, type HomeTarget } from "@/lib/modules";
 import { TOOL_ICONS } from "@/lib/toolIcons";
 import { Greeting } from "@/app/[locale]/workspace/_components/Greeting";
@@ -33,8 +33,14 @@ function AudienceTags({ tags }: { tags: { label: string; hint: string }[] }) {
 }
 
 /** The start page for everyone with more than one place to go: the assistant first, then every tool. */
-export default function StartOverview({ firstName, targets, stamp = false }: { firstName: string; targets: HomeTarget[]; stamp?: boolean }) {
+export default function StartOverview({ firstName, targets, stamp = null, stampFrom = "" }: { firstName: string; targets: HomeTarget[]; stamp?: "open" | "upcoming" | null; stampFrom?: string }) {
   const t = useTranslations("startOverview");
+  const locale = useLocale();
+  const day = stampFrom ? new Date(`${stampFrom}T12:00:00`) : null;
+  const stampBadge =
+    day && !Number.isNaN(day.getTime())
+      ? t("stamp.from", { date: day.toLocaleDateString(locale === "en" ? "en-GB" : "de-DE", { day: "numeric", month: "long", year: "numeric" }) })
+      : t("stamp.soon");
   const { variant: mascotVariant } = useMascotPref();
   const aia = targets.find((z) => z.kind === "aia");
   // The campus assistant addresses everyone, so it sits beside the assistant instead of among the teaching tools.
@@ -85,7 +91,8 @@ export default function StartOverview({ firstName, targets, stamp = false }: { f
               <section className="flex flex-col gap-2 lg:col-start-3 lg:row-start-2">
                 <h2 className={headingClass}>{t("groups.event")}</h2>
                 <StartTile
-                  href={ROUTES.stamp}
+                  href={stamp === "open" ? ROUTES.stamp : undefined}
+                  badge={stamp === "upcoming" ? stampBadge : undefined}
                   icon={EVENT_ICONS.star}
                   title={t("stamp.title")}
                   body={t("stamp.body")}

@@ -9,7 +9,7 @@ import { checkAuthStatus } from "@/lib/auth";
 import { EMPTY_PERMS, PERM, hasPerm } from "@/lib/permissions";
 import { homeTargets, enabledToolKeys, type HomeTarget } from "@/lib/modules";
 import { useEnabledTools } from "@/hooks/useEnabledTools";
-import { stampCardOpen, usePublicEvent } from "@/lib/event/usePublicEvent";
+import { stampCardState, usePublicEvent } from "@/lib/event/usePublicEvent";
 import type { AuthStatus } from "@/types";
 import StartOverview from "../_components/StartOverview";
 import WelcomeModal from "../workspace/_components/WelcomeModal";
@@ -17,7 +17,7 @@ import WelcomeModal from "../workspace/_components/WelcomeModal";
 interface HomeState {
   targets: HomeTarget[];
   firstName: string;
-  stamp: boolean;
+  stamp: "open" | "upcoming" | null;
 }
 
 export default function HomePage() {
@@ -50,7 +50,7 @@ function HomeRouter() {
     setState({
       targets: homeTargets(auth.modules, perms, enabledToolKeys(enabledTools)),
       firstName: auth.display_name?.split(" ")[0] ?? auth.username ?? "",
-      stamp: stampCardOpen(event),
+      stamp: stampCardState(event),
     });
   }, [auth, toolsLoaded, enabledTools, event, eventFailed]);
 
@@ -85,7 +85,7 @@ function HomeRouter() {
           </div>
         </div>
       ) : (
-        <StartOverview firstName={state.firstName} targets={state.targets} stamp={state.stamp} />
+        <StartOverview firstName={state.firstName} targets={state.targets} stamp={state.stamp} stampFrom={event?.window?.from ?? ""} />
       )}
     </>
   );
