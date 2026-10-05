@@ -496,6 +496,22 @@ def upsert_source_extraction(
         conn.commit()
 
 
+def clear_workspace_source_extractions(workspace_id: int) -> int:
+    """Throws away the stored analyses of one course room's sources."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                DELETE FROM aia_schedule_source_extractions
+                 WHERE source_id IN (SELECT id FROM aia_sources WHERE workspace_id = %s)
+                """,
+                (workspace_id,),
+            )
+            geloescht = cur.rowcount
+        conn.commit()
+    return geloescht
+
+
 def count_source_extractions() -> int:
     """How many sources have a stored analysis, across all course rooms."""
     with get_connection() as conn:

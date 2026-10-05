@@ -393,4 +393,7 @@ def delete_all(
     user_id = current_user["user_id"]
     workspace = _require_module_access(workspace_uuid, user_id, locale=locale)
     count = db.delete_all_schedule_entries(workspace["id"], user_id)
+    # Only the owner's reset also empties the shared pool, an enrolled person's never does.
+    if workspace["user_id"] == user_id:
+        db.clear_workspace_source_extractions(workspace["id"])
     return {"deleted": count}
