@@ -5,7 +5,7 @@ import Image from "next/image";
 import LinkBusy from "@/components/ui/LinkBusy";
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { CalendarBlank, SignIn } from "@phosphor-icons/react";
+import { CalendarBlank, SignIn, SquaresFour } from "@phosphor-icons/react";
 import { Link as LocaleLink, usePathname } from "@/i18n/navigation";
 import { checkAuthStatus, logout } from "@/lib/auth";
 import { api } from "@/lib/api";
@@ -28,6 +28,8 @@ export default function Header({ hasSession = true, showLogout = false, hideLogi
   const pathname = usePathname();
   // The URL says where you are, the button in the header shows it.
   const onCalendar = pathname === "/calendar" || pathname.startsWith("/calendar/");
+  // The button points at the start page, so standing there counts as being on Dienste.
+  const onTools = pathname === "/services" || pathname.startsWith("/tools/");
   const [isAdmin, setIsAdmin] = useState(false);
   const [canViewManual, setCanViewManual] = useState(false);
   // Admin only for whoever may do everything, everyone else goes to their settings.
@@ -140,6 +142,20 @@ export default function Header({ hasSession = true, showLogout = false, hideLogi
             )}
             {hasSession && (
               <div className="hidden sm:flex items-center gap-1.5">
+                {hasSession && hasTools && (
+                  <Link
+                    href="/services"
+                    aria-label={t("tools")}
+                    title={t("tools")}
+                    aria-current={onTools ? "page" : undefined}
+                    className={`flex items-center justify-center h-9 px-3 gap-1.5 rounded-full btn-on-dark${onTools ? " is-active" : ""}`}
+                  >
+                    <LinkBusy size="sm">
+                      <SquaresFour size={17} weight="bold" />
+                    </LinkBusy>
+                    <span className="text-sm font-medium">{t("tools")}</span>
+                  </Link>
+                )}
                 {hasSession && hasAia && (
                   <Link
                     href="/calendar"
