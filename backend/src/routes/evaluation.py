@@ -24,7 +24,7 @@ def _may_see(user: dict, config: dict) -> bool:
 
 class AnswerPayload(BaseModel):
     question_id: str
-    value: str | int
+    value: str | int | list[str]
 
 
 class SubmitPayload(BaseModel):

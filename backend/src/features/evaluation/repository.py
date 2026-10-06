@@ -33,6 +33,7 @@ def get_config() -> dict:
         "outro_text": get_setting("evaluation_outro_text") if gespeichert else voreinstellung["outro_text"],
         "outro_link_label": get_setting("evaluation_outro_link_label"),
         "outro_link_url": get_setting("evaluation_outro_link_url"),
+        "contact_email": get_setting("evaluation_contact_email") if gespeichert else voreinstellung["contact_email"],
         "questions": json.loads(fragen_roh) if gespeichert else voreinstellung["questions"],
     }
 
@@ -46,6 +47,7 @@ def save_config(config: dict) -> None:
     set_setting("evaluation_outro_text", config["outro_text"])
     set_setting("evaluation_outro_link_label", config["outro_link_label"])
     set_setting("evaluation_outro_link_url", config["outro_link_url"])
+    set_setting("evaluation_contact_email", config["contact_email"])
     set_setting("evaluation_questions", json.dumps(config["questions"]))
 
 

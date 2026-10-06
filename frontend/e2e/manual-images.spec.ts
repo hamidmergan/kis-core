@@ -239,7 +239,7 @@ test.describe("Handbuch-Bilder", () => {
       await useLocale(page, locale);
       await page.goto(`${prefix(locale)}/evaluation`, { waitUntil: "domcontentloaded" });
       await settle(page);
-      // The intro screen only appears when an intro text is set, Los geht's/Get started either way.
+      // The intro screen always opens first, for the anonymity notice if nothing else.
       const start = page.getByRole("button", { name: /Los geht's|Get started|Weiter|Next/ }).first();
       if (await start.count()) await start.click();
       await page.waitForTimeout(800);

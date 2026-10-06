@@ -9,11 +9,19 @@ import Mascot from "@/components/ui/Mascot";
 import Spinner from "@/components/ui/Spinner";
 import { useMascotPref } from "@/hooks/useMascotPref";
 import { useRouter } from "@/i18n/navigation";
-import { hatAnfang } from "./intro";
 import { zuSenden } from "./antworten";
+import { naechsterSichtbarerIndex, istSichtbar } from "./sichtbarkeit";
 import { springtWeiter } from "./sprung";
 
-type Frage = { id: string; type: "scale" | "text"; text: string; scale_low?: string; scale_high?: string };
+type ShowIf = { question_id: string; in: string[] };
+type Frage = {
+  id: string;
+  type: "choice" | "multi" | "text";
+  text: string;
+  options?: string[];
+  skippable?: boolean;
+  show_if?: ShowIf;
+};
 
 type AktiveEvaluation = {
   active: boolean;
@@ -24,13 +32,16 @@ type AktiveEvaluation = {
   outro_text?: string;
   outro_link_label?: string;
   outro_link_url?: string;
+  contact_email?: string;
   questions?: Frage[];
   already_responded?: boolean;
 };
 
-type Antworten = Record<string, string | number>;
+type Antworten = Record<string, string | string[]>;
 
 type Stufe = "loading" | "unavailable" | "intro" | "questions" | "outro";
+
+const NICHT_GETESTET = "not_tested";
 
 export default function EvaluationPage() {
   const t = useTranslations("evaluationFlow");
@@ -55,14 +66,15 @@ export default function EvaluationPage() {
           setStufe("unavailable");
           return;
         }
-        setStufe(hatAnfang(d) ? "intro" : "questions");
+        // The anonymity notice always has something to say, so the intro step always opens first.
+        setStufe("intro");
       })
       .catch(() => setStufe("unavailable"));
   }, []);
 
-  async function submit() {
+  async function submit(quelle: Antworten = antworten) {
     if (!daten?.questions) return;
-    const abgabe = zuSenden(daten.questions, antworten);
+    const abgabe = zuSenden(daten.questions, quelle);
     // Nothing answered is not a mistake, so it ends on the closing screen instead of an error.
     if (abgabe.length === 0) {
       setStufe("outro");
@@ -94,33 +106,58 @@ export default function EvaluationPage() {
     if (sprungTimer.current) clearTimeout(sprungTimer.current);
   }, [index]);
 
-  function waehle(id: string, wert: number) {
-    setAntworten({ ...antworten, [id]: wert });
+  function gehtWeiterZu(aktualisiert: Antworten) {
+    if (!daten?.questions) return;
+    const next = naechsterSichtbarerIndex(daten.questions, aktualisiert, index + 1, 1);
+    if (next >= daten.questions.length) {
+      submit(aktualisiert);
+    } else {
+      setIndex(next);
+    }
+  }
+
+  function waehle(id: string, wert: string) {
+    const aktualisiert = { ...antworten, [id]: wert };
+    setAntworten(aktualisiert);
     if (!springtWeiter(daten?.questions, index)) return;
     if (sprungTimer.current) clearTimeout(sprungTimer.current);
-    // A short pause so the picked circle is visible before the next question opens.
-    sprungTimer.current = setTimeout(() => setIndex((i) => i + 1), 250);
+    // A short pause so the picked row is visible before the next question opens.
+    sprungTimer.current = setTimeout(() => gehtWeiterZu(aktualisiert), 250);
+  }
+
+  function toggleMulti(id: string, option: string) {
+    const bisher = Array.isArray(antworten[id]) ? (antworten[id] as string[]) : [];
+    const neu = bisher.includes(option) ? bisher.filter((o) => o !== option) : [...bisher, option];
+    setAntworten({ ...antworten, [id]: neu });
+  }
+
+  function nichtGetestet(id: string) {
+    const aktualisiert = { ...antworten, [id]: NICHT_GETESTET };
+    setAntworten(aktualisiert);
+    gehtWeiterZu(aktualisiert);
   }
 
   function weiter() {
     if (!daten?.questions) return;
-    if (index + 1 >= daten.questions.length) {
+    const next = naechsterSichtbarerIndex(daten.questions, antworten, index + 1, 1);
+    if (next >= daten.questions.length) {
       submit();
     } else {
-      setIndex(index + 1);
+      setIndex(next);
     }
   }
 
-  // An empty label falls back to the wording that was there before labels per question.
-  function rand(frage: Frage, seite: "scale_low" | "scale_high"): string {
-    return frage[seite]?.trim() || t(seite === "scale_low" ? "scaleLow" : "scaleHigh");
+  function zurueck() {
+    if (!daten?.questions) return;
+    const prev = naechsterSichtbarerIndex(daten.questions, antworten, index - 1, -1);
+    if (prev < 0) return;
+    setError(null);
+    setIndex(prev);
   }
 
-  function zurueck() {
-    if (index === 0) return;
-    setError(null);
-    setIndex(index - 1);
-  }
+  const frage = daten?.questions?.[index];
+  const sichtbareFragen = daten?.questions?.filter((f) => istSichtbar(f, antworten)) ?? [];
+  const position = frage ? sichtbareFragen.findIndex((f) => f.id === frage.id) + 1 : 0;
 
   return (
     <>
@@ -150,6 +187,7 @@ export default function EvaluationPage() {
             <div className="bg-background rounded-xl shadow-sm border border-border-soft p-8 flex flex-col items-center text-center gap-4">
               <Mascot variant={figur} size={80} state="confused" />
               <h1 className="text-lg font-semibold">{daten.title}</h1>
+              <p className="text-sm font-medium">{t("anonymousNotice")}</p>
               {daten.intro_text && (
                 <p className="text-sm" style={{ color: "var(--foreground-soft)" }}>{daten.intro_text}</p>
               )}
@@ -174,67 +212,70 @@ export default function EvaluationPage() {
             </div>
           )}
 
-          {stufe === "questions" && daten?.questions && (
+          {stufe === "questions" && daten?.questions && frage && (
             <div className="bg-background rounded-xl shadow-sm border border-border-soft px-8 py-10 flex flex-col gap-6">
               <div className="h-1 w-full rounded-full overflow-hidden" style={{ backgroundColor: "var(--surface-dim)" }}>
                 <div
                   className="h-full rounded-full bg-kb transition-all"
-                  style={{ width: `${((index + 1) / daten.questions.length) * 100}%` }}
+                  style={{ width: `${(position / sichtbareFragen.length) * 100}%` }}
                 />
               </div>
               <p className="text-xs uppercase tracking-wide text-muted">
-                {t("progress", { current: index + 1, total: daten.questions.length })}
+                {t("progress", { current: position, total: sichtbareFragen.length })}
               </p>
               <div className="flex justify-center py-4">
                 <Mascot variant={figur} size={80} state="confused" />
               </div>
-              <p className="text-sm font-medium">{daten.questions[index].text}</p>
+              <p className="text-sm font-medium">{frage.text}</p>
 
-              {daten.questions[index].type === "scale" ? (
-                <div className="flex justify-center py-2">
-                  {/* Labels sit beside the scale where there is room and drop under its ends when there is not. */}
-                  <div className="inline-flex flex-col items-center sm:flex-row sm:gap-3">
-                    <span className="hidden sm:block text-xs text-muted">{rand(daten.questions[index], "scale_low")}</span>
-                    <div className="flex gap-3 sm:gap-2">
-                      {[1, 2, 3, 4, 5].map((n) => {
-                        const gewaehlt = antworten[daten.questions![index].id] === n;
-                        return (
-                          <button
-                            key={n}
-                            type="button"
-                            onClick={() => waehle(daten.questions![index].id, n)}
-                            className={
-                              "w-12 h-12 rounded-full border-2 text-base flex items-center justify-center transition-colors " +
-                              (gewaehlt
-                                ? "border-kb bg-kb text-white"
-                                : "border-border text-foreground-soft hover:border-kb")
-                            }
-                          >
-                            {n}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <span className="hidden sm:block text-xs text-muted">{rand(daten.questions[index], "scale_high")}</span>
-                    <div className="flex justify-between w-full mt-2 text-xs text-muted sm:hidden">
-                      <span>{rand(daten.questions[index], "scale_low")}</span>
-                      <span>{rand(daten.questions[index], "scale_high")}</span>
-                    </div>
-                  </div>
-                </div>
-              ) : (
+              {frage.type === "text" ? (
                 <textarea
-                  value={(antworten[daten.questions[index].id] as string) || ""}
-                  onChange={(e) => setAntworten({ ...antworten, [daten.questions![index].id]: e.target.value })}
+                  value={(antworten[frage.id] as string) || ""}
+                  onChange={(e) => setAntworten({ ...antworten, [frage.id]: e.target.value })}
                   rows={3}
+                  maxLength={2000}
                   className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-kb resize-none"
                 />
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {frage.options?.map((option) => {
+                    const istMulti = frage.type === "multi";
+                    const ausgewaehlt = istMulti
+                      ? Array.isArray(antworten[frage.id]) && (antworten[frage.id] as string[]).includes(option)
+                      : antworten[frage.id] === option;
+                    return (
+                      <button
+                        key={option}
+                        type="button"
+                        onClick={() => (istMulti ? toggleMulti(frage.id, option) : waehle(frage.id, option))}
+                        className={
+                          "w-full text-left px-4 py-2.5 text-sm rounded-md border-2 transition-colors " +
+                          (ausgewaehlt
+                            ? "border-kb bg-kb text-white"
+                            : "border-border text-foreground-soft hover:border-kb")
+                        }
+                      >
+                        {option}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {frage.skippable && (
+                <button
+                  type="button"
+                  onClick={() => nichtGetestet(frage.id)}
+                  className="self-start text-xs underline text-muted"
+                >
+                  {t("notTested")}
+                </button>
               )}
 
               {error && <p className="text-sm text-error">{error}</p>}
 
               <div className="flex items-center justify-between">
-                {index > 0 ? (
+                {position > 1 ? (
                   <button
                     type="button"
                     onClick={zurueck}
@@ -250,7 +291,7 @@ export default function EvaluationPage() {
                   disabled={submitting}
                   className="px-4 py-2 text-sm btn-primary rounded-md transition-colors disabled:opacity-60"
                 >
-                  {index + 1 >= daten.questions.length
+                  {position >= sichtbareFragen.length
                     ? (submitting ? t("submitting") : t("submit"))
                     : t("next")}
                 </button>
@@ -275,6 +316,14 @@ export default function EvaluationPage() {
                 >
                   {daten.outro_link_label || daten.outro_link_url}
                 </a>
+              )}
+              {daten.contact_email && (
+                <p className="text-sm" style={{ color: "var(--foreground-soft)" }}>
+                  {t("contactPrompt")}{" "}
+                  <a href={`mailto:${daten.contact_email}`} className="underline" style={{ color: "var(--kb)" }}>
+                    {daten.contact_email}
+                  </a>
+                </p>
               )}
               <button
                 type="button"

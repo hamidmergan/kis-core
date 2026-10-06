@@ -1,15 +1,23 @@
 """Pure rules around the evaluation, without database access."""
 import secrets
 
-QUESTION_TYPES = ("scale", "text")
+QUESTION_TYPES = ("choice", "multi", "text")
 
 MAX_TITLE_CHARS = 120
 MAX_INTRO_OUTRO_CHARS = 600
 MAX_LINK_LABEL_CHARS = 80
 MAX_LINK_URL_CHARS = 300
+MAX_CONTACT_EMAIL_CHARS = 200
 MAX_QUESTION_CHARS = 300
-MAX_SCALE_LABEL_CHARS = 30
+MAX_OPTION_CHARS = 120
+MAX_OPTIONS = 12
 MAX_QUESTIONS = 20
+
+_JA_NEIN = ["Ja", "Eher ja", "Eher nein", "Nein"]
+_HILFREICH = ["Sehr hilfreich", "Eher hilfreich", "Eher nicht hilfreich", "Nicht hilfreich"]
+_LERNASSISTENT = "Lernassistent (Chat, Karteikarten, Quiz, ...)"
+_INFOASSISTENT = "Infoassistent (allgemeine Fragen, Campus)"
+_DIENSTE = "Dienste für Lehrende (Podcast, Präsentation, ...)"
 
 
 def new_question_id() -> str:
@@ -22,7 +30,8 @@ def default_config() -> dict:
 
     Fixed ids: nothing was saved yet, so this gets rebuilt on every read until the
     admin hits save. Random ids would then change on every read too, and a
-    submission's answers would never match the questions it was shown for.
+    submission's answers would never match the questions it was shown for, and
+    show_if below points at these same ids.
     """
     return {
         "active": False,
@@ -33,25 +42,55 @@ def default_config() -> dict:
         "outro_text": "Vielen Dank, dass du dir die Zeit genommen hast.",
         "outro_link_label": "",
         "outro_link_url": "",
+        "contact_email": "hamid.mergan@th-luebeck.de",
         "questions": [
-            # General first, then the assistant, then the tools, the verdict and the open word last.
-            {"id": "seed-1", "type": "scale", "text": "Wie klar war dir nach dem Rundgang, was KIS kann?",
-             "scale_low": "gar nicht klar", "scale_high": "völlig klar"},
-            {"id": "seed-2", "type": "scale", "text": "Wie hilfreich waren die Antworten vom Lernassistenten?",
-             "scale_low": "nicht hilfreich", "scale_high": "sehr hilfreich"},
-            {"id": "seed-3", "type": "scale", "text": "Wie gut konntest du nachvollziehen, woher eine Antwort von Francis stammt?",
-             "scale_low": "gar nicht", "scale_high": "sehr gut"},
-            {"id": "seed-4", "type": "scale", "text": "Wie leicht war es, eigenes Material in einen Workspace zu laden?",
-             "scale_low": "sehr mühsam", "scale_high": "sehr leicht"},
-            {"id": "seed-5", "type": "text", "text": "Welcher Dienst für Lehrende war für dich der nützlichste und welcher der schwächste (z.B. Screencast, Übersetzung, Zusammenfassung, Glossar), und warum?"},
-            {"id": "seed-6", "type": "text", "text": "Welches Tool im Lernassistenten war für dich das beste und welches das schlechteste (z.B. Karteikarten, Quiz, Datentabelle, Mindmap), und warum?"},
-            {"id": "seed-7", "type": "scale", "text": "Wie einfach war die Bedienung von KIS insgesamt?",
-             "scale_low": "umständlich", "scale_high": "sehr einfach"},
-            {"id": "seed-8", "type": "scale", "text": "Wie wahrscheinlich ist es, dass du KIS wieder nutzt?",
-             "scale_low": "eher nicht", "scale_high": "sehr wahrscheinlich"},
-            {"id": "seed-9", "type": "text", "text": "Was hat gestört, gefehlt oder nicht funktioniert, und was möchtest du uns sonst noch mitgeben?"},
+            # Breit zuerst (Trichtertechnik), dann die Bereichsfrage, dann je Bereich
+            # spezifisch, zum Schluss offen und die beiden Gesamturteile.
+            {"id": "zurechtgefunden", "type": "choice", "text": "Hast du dich auf KIS zurechtgefunden?",
+             "options": _JA_NEIN},
+            {"id": "unklar", "type": "text", "text": "Was war unklar?",
+             "show_if": {"question_id": "zurechtgefunden", "in": ["Eher nein", "Nein"]}},
+            {"id": "intuitiv", "type": "choice", "text": "Fandest du KIS intuitiv zu bedienen?",
+             "options": _JA_NEIN},
+
+            {"id": "bereich", "type": "multi", "text": "Welchen Bereich von KIS hast du bisher genutzt?",
+             "options": [_LERNASSISTENT, _INFOASSISTENT, _DIENSTE]},
+
+            {"id": "la-hilfreich", "type": "choice", "text": "Wie hilfreich waren die Antworten vom Lernassistenten?",
+             "options": _HILFREICH, "show_if": {"question_id": "bereich", "in": [_LERNASSISTENT]}, "skippable": True},
+            {"id": "la-quellen", "type": "choice", "text": "Wie gut konntest du nachvollziehen, woher eine Antwort stammt?",
+             "options": ["Sehr gut", "Eher gut", "Eher schlecht", "Gar nicht"],
+             "show_if": {"question_id": "bereich", "in": [_LERNASSISTENT]}, "skippable": True},
+            {"id": "la-tools", "type": "multi", "text": "Welche Tools im Lernassistenten fandest du gut?",
+             "options": ["Karteikarten", "Quiz", "Datentabelle", "Mindmap"],
+             "show_if": {"question_id": "bereich", "in": [_LERNASSISTENT]}, "skippable": True},
+
+            {"id": "ia-hilfreich", "type": "choice", "text": "Wie hilfreich waren die Antworten vom Infoassistenten?",
+             "options": _HILFREICH, "show_if": {"question_id": "bereich", "in": [_INFOASSISTENT]}, "skippable": True},
+
+            {"id": "dienste-nuetzlich", "type": "multi", "text": "Welche der Dienste sind für dich nützlich?",
+             "options": ["Übersetzung", "Text in Audio", "Transkript", "Zusammenfassung", "Podcast",
+                         "Präsentation", "Screencast", "Bilder", "Glossar"],
+             "show_if": {"question_id": "bereich", "in": [_DIENSTE]}, "skippable": True},
+
+            {"id": "gestoert", "type": "text", "text": "Was hat gestört, gefehlt oder nicht funktioniert?"},
+            {"id": "nutzen", "type": "choice", "text": "Könntest du dir vorstellen, KIS regelmäßig zu nutzen?",
+             "options": _JA_NEIN},
+            {"id": "empfehlen", "type": "choice", "text": "Würdest du KIS weiterempfehlen?",
+             "options": _JA_NEIN},
         ],
     }
+
+
+def _validate_show_if(show_if: dict | None) -> dict | None:
+    """A show_if names an earlier question and the answers that reveal this one."""
+    if show_if is None:
+        return None
+    frage_id = (show_if.get("question_id") or "").strip()
+    werte = [str(w).strip() for w in (show_if.get("in") or []) if str(w).strip()]
+    if not frage_id or not werte:
+        raise ValueError("show_if needs a question_id and at least one value")
+    return {"question_id": frage_id, "in": werte}
 
 
 def validate_questions(questions: list[dict]) -> list[dict]:
@@ -75,15 +114,40 @@ def validate_questions(questions: list[dict]) -> list[dict]:
             "type": typ,
             "text": text,
         }
-        # Only a scale has ends to label, a free text field would carry them for nothing.
-        if typ == "scale":
-            for rand in ("scale_low", "scale_high"):
-                beschriftung = (frage.get(rand) or "").strip()
-                if len(beschriftung) > MAX_SCALE_LABEL_CHARS:
-                    raise ValueError(f"{rand} must be at most {MAX_SCALE_LABEL_CHARS} characters")
-                eintrag[rand] = beschriftung
+        # Only choice and multi pick from a fixed list, a free text field has none.
+        if typ in ("choice", "multi"):
+            optionen = [(o or "").strip() for o in (frage.get("options") or []) if (o or "").strip()]
+            if len(optionen) < 2:
+                raise ValueError("choice and multi need at least two options")
+            if len(optionen) > MAX_OPTIONS:
+                raise ValueError(f"at most {MAX_OPTIONS} options")
+            if any(len(o) > MAX_OPTION_CHARS for o in optionen):
+                raise ValueError(f"an option must be at most {MAX_OPTION_CHARS} characters")
+            eintrag["options"] = optionen
+            eintrag["skippable"] = bool(frage.get("skippable"))
+        show_if = _validate_show_if(frage.get("show_if"))
+        if show_if:
+            eintrag["show_if"] = show_if
         bereinigt.append(eintrag)
     return bereinigt
+
+
+def _verteilung(werte: list, optionen: list[str], mehrfach: bool) -> dict[str, int]:
+    """Counts how often each option was picked, zero included for options nobody chose.
+
+    "not_tested" is the skip button's own value, never one of the admin's options,
+    so it gets its own bucket and only shows up once someone actually used it.
+    """
+    zaehler = {option: 0 for option in optionen}
+    zaehler["not_tested"] = 0
+    for wert in werte:
+        gewaehlt = wert if mehrfach and isinstance(wert, list) else [wert]
+        for eintrag in gewaehlt:
+            if eintrag in zaehler:
+                zaehler[eintrag] += 1
+    if zaehler["not_tested"] == 0:
+        del zaehler["not_tested"]
+    return zaehler
 
 
 def summarize(responses: list[dict], questions: list[dict]) -> dict:
@@ -102,16 +166,15 @@ def summarize(responses: list[dict], questions: list[dict]) -> dict:
     fragen_auswertung = []
     for frage in questions:
         werte = nach_frage[frage["id"]]
-        if frage["type"] == "scale":
-            zahlen = [int(w) for w in werte if isinstance(w, (int, float)) or str(w).isdigit()]
-            verteilung = {stufe: zahlen.count(stufe) for stufe in range(1, 6)}
+        if frage["type"] in ("choice", "multi"):
+            mehrfach = frage["type"] == "multi"
+            beantwortet = [w for w in werte if w]
             fragen_auswertung.append({
                 "id": frage["id"],
-                "type": "scale",
+                "type": frage["type"],
                 "text": frage["text"],
-                "answered": len(zahlen),
-                "average": round(sum(zahlen) / len(zahlen), 2) if zahlen else None,
-                "distribution": verteilung,
+                "answered": len(beantwortet),
+                "distribution": _verteilung(beantwortet, frage["options"], mehrfach),
             })
         else:
             texte = [str(w).strip() for w in werte if str(w).strip()]
@@ -143,7 +206,11 @@ def validate_answers(answers: list[dict], questions: list[dict]) -> list[dict]:
     bereinigt = []
     for frage in questions:
         wert = nach_id.get(frage["id"])
-        if wert is None or (isinstance(wert, str) and not wert.strip()):
+        if wert is None:
+            continue
+        if isinstance(wert, str) and not wert.strip():
+            continue
+        if isinstance(wert, list) and not wert:
             continue
         bereinigt.append({"question_id": frage["id"], "value": wert})
     if not bereinigt:

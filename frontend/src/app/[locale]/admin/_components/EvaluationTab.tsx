@@ -10,9 +10,17 @@ import ToggleRow from "@/components/ui/ToggleRow";
 import IconButton from "@/components/ui/IconButton";
 import Spinner from "@/components/ui/Spinner";
 
-type FrageTyp = "scale" | "text";
+type FrageTyp = "choice" | "multi" | "text";
+type ShowIf = { question_id: string; in: string[] };
 
-type Frage = { id: string; type: FrageTyp; text: string; scale_low?: string; scale_high?: string };
+type Frage = {
+  id: string;
+  type: FrageTyp;
+  text: string;
+  options?: string[];
+  skippable?: boolean;
+  show_if?: ShowIf;
+};
 
 type Config = {
   active: boolean;
@@ -24,6 +32,7 @@ type Config = {
   outro_text: string;
   outro_link_label: string;
   outro_link_url: string;
+  contact_email: string;
   questions: Frage[];
 };
 
@@ -81,7 +90,7 @@ export default function EvaluationTab() {
     if (!config) return;
     setConfig({
       ...config,
-      questions: [...config.questions, { id: neueLokaleId(), type: "scale", text: "" }],
+      questions: [...config.questions, { id: neueLokaleId(), type: "text", text: "" }],
     });
   }
 
@@ -116,11 +125,13 @@ export default function EvaluationTab() {
           outro_text: config.outro_text,
           outro_link_label: config.outro_link_label,
           outro_link_url: config.outro_link_url,
-          questions: config.questions.map(({ type, text, scale_low, scale_high }) => ({
-            type,
-            text,
-            scale_low: scale_low ?? "",
-            scale_high: scale_high ?? "",
+          contact_email: config.contact_email,
+          // id and show_if ride along unchanged, so existing conditionals and
+          // past answers still match after a save that only touches other fields.
+          questions: config.questions.map((frage) => ({
+            ...frage,
+            options: frage.options ?? [],
+            skippable: frage.skippable ?? false,
           })),
         }),
       });
@@ -148,7 +159,8 @@ export default function EvaluationTab() {
   }
 
   const typOptionen = [
-    { value: "scale" as const, label: t("typeScale") },
+    { value: "choice" as const, label: t("typeChoice") },
+    { value: "multi" as const, label: t("typeMulti") },
     { value: "text" as const, label: t("typeText") },
   ];
 
@@ -210,16 +222,15 @@ export default function EvaluationTab() {
 
       <div className="space-y-2">
         <label className="text-xs uppercase tracking-wide text-muted">{t("questionsLabel")}</label>
-        {/* Stacked on narrow screens, so each pair needs more air than the gap inside it. */}
-        <div className="space-y-4 sm:space-y-2">
+        <div className="space-y-4">
           {config.questions.map((frage) => (
-            <div key={frage.id} className="flex flex-col gap-2">
+            <div key={frage.id} className="flex flex-col gap-2 border border-border-soft rounded-xl p-3">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
                 <Select
                   value={frage.type}
                   onChange={(value) => updateQuestion(frage.id, { type: value })}
                   options={typOptionen}
-                  className="w-full sm:w-36 sm:flex-shrink-0"
+                  className="w-full sm:w-44 sm:flex-shrink-0"
                 />
                 <div className="flex min-w-0 flex-1 items-start gap-2">
                   <input
@@ -233,24 +244,25 @@ export default function EvaluationTab() {
                   </IconButton>
                 </div>
               </div>
-              {/* Only a scale has ends to label, and an empty field keeps the wording from the translations. */}
-              {frage.type === "scale" && (
-                <div className="flex gap-2 sm:ml-[9.5rem] sm:mr-11">
-                  <input
-                    value={frage.scale_low ?? ""}
-                    onChange={(e) => updateQuestion(frage.id, { scale_low: e.target.value })}
-                    placeholder={t("scaleLowPlaceholder")}
-                    maxLength={30}
-                    className="min-w-0 flex-1 text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-kb"
+              {/* Only choice and multi pick from a fixed list, a free text field has none. */}
+              {frage.type !== "text" && (
+                <>
+                  <textarea
+                    value={(frage.options ?? []).join("\n")}
+                    onChange={(e) => updateQuestion(frage.id, { options: e.target.value.split("\n") })}
+                    rows={3}
+                    placeholder={t("optionsPlaceholder")}
+                    className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-kb resize-none"
                   />
-                  <input
-                    value={frage.scale_high ?? ""}
-                    onChange={(e) => updateQuestion(frage.id, { scale_high: e.target.value })}
-                    placeholder={t("scaleHighPlaceholder")}
-                    maxLength={30}
-                    className="min-w-0 flex-1 text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-kb"
-                  />
-                </div>
+                  <label className="flex items-center gap-2 text-xs text-muted">
+                    <input
+                      type="checkbox"
+                      checked={frage.skippable ?? false}
+                      onChange={(e) => updateQuestion(frage.id, { skippable: e.target.checked })}
+                    />
+                    {t("skippableLabel")}
+                  </label>
+                </>
               )}
             </div>
           ))}
@@ -288,6 +300,12 @@ export default function EvaluationTab() {
             className="min-w-0 flex-1 text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-kb"
           />
         </div>
+        <input
+          value={config.contact_email}
+          onChange={(e) => setConfig({ ...config, contact_email: e.target.value })}
+          placeholder={t("contactEmailPlaceholder")}
+          className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-kb"
+        />
       </fieldset>
 
       {error && <p className="text-sm text-error">{error}</p>}

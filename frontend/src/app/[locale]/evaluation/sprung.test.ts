@@ -2,13 +2,13 @@ import { describe, it, expect } from "vitest";
 import { springtWeiter } from "./sprung";
 
 const fragen = [
-  { type: "scale" },
+  { type: "choice" },
   { type: "text" },
-  { type: "scale" },
+  { type: "choice" },
 ];
 
 describe("Sprung zur naechsten Frage", () => {
-  it("springt bei einer Skalenfrage mit Nachfolger", () => {
+  it("springt bei einer Auswahlfrage mit Nachfolger", () => {
     expect(springtWeiter(fragen, 0)).toBe(true);
   });
 
@@ -26,5 +26,9 @@ describe("Sprung zur naechsten Frage", () => {
 
   it("springt nicht, wenn gar keine Fragen kamen", () => {
     expect(springtWeiter(undefined, 0)).toBe(false);
+  });
+
+  it("springt nicht, wenn die Frage einen Ueberspringen-Button hat", () => {
+    expect(springtWeiter([{ type: "choice", skippable: true }, { type: "text" }], 0)).toBe(false);
   });
 });

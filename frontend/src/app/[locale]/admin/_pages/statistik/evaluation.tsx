@@ -10,20 +10,14 @@ import { Balken, Kachel, Karte, Ladeanzeige } from "./_bausteine";
 import { ZeitraumChips } from "./_raster";
 
 type Frage =
-  | {
-      id: string;
-      type: "scale";
-      text: string;
-      answered: number;
-      average: number | null;
-      distribution: Record<string, number>;
-    }
+  | { id: string; type: "choice"; text: string; answered: number; distribution: Record<string, number> }
+  | { id: string; type: "multi"; text: string; answered: number; distribution: Record<string, number> }
   | { id: string; type: "text"; text: string; answered: number; answers: string[] };
 
 interface Teilnahme {
   number: number;
   created_at: string;
-  answers: { question_id: string; value: string | number }[];
+  answers: { question_id: string; value: string | number | string[] }[];
 }
 
 interface Daten {
@@ -73,20 +67,17 @@ export default function StatistikEvaluationPage() {
           </div>
 
           {daten.questions.map((frage) =>
-            frage.type === "scale" ? (
+            frage.type === "choice" || frage.type === "multi" ? (
               <Karte
                 key={frage.id}
                 titel={frage.text}
-                hinweis={t("evaluation.scaleHint", {
-                  answered: frage.answered,
-                  average: frage.average === null ? "-" : frage.average.toFixed(2).replace(".", ","),
-                })}
+                hinweis={t("evaluation.textHint", { answered: frage.answered })}
               >
                 <div className="mt-3">
                   <Balken
-                    zeilen={[1, 2, 3, 4, 5].map((stufe) => ({
-                      label: String(stufe),
-                      wert: frage.distribution[String(stufe)] ?? 0,
+                    zeilen={Object.entries(frage.distribution).map(([option, anzahl]) => ({
+                      label: option === "not_tested" ? t("evaluation.notTested") : option,
+                      wert: anzahl,
                     }))}
                     kopf={[t("evaluation.count")]}
                     labelBreite={24}
@@ -159,6 +150,10 @@ export default function StatistikEvaluationPage() {
                       <p className="text-sm mt-1">
                         {antwort === undefined ? (
                           <span className="text-muted-soft">{t("evaluation.skipped")}</span>
+                        ) : antwort.value === "not_tested" ? (
+                          <span className="text-muted-soft">{t("evaluation.notTested")}</span>
+                        ) : Array.isArray(antwort.value) ? (
+                          antwort.value.join(", ")
                         ) : (
                           String(antwort.value)
                         )}

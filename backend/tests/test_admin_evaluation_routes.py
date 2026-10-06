@@ -60,7 +60,7 @@ def test_saving_writes_every_field(client):
             "title": "Kurze Evaluation",
             "intro_text": "Willkommen",
             "outro_text": "Danke",
-            "questions": [{"type": "scale", "text": "Wie war's?"}],
+            "questions": [{"type": "choice", "text": "Wie war's?", "options": ["Gut", "Schlecht"]}],
         })
     assert r.status_code == 200
     gespeichert = speichern.call_args[0][0]
@@ -101,7 +101,7 @@ def test_saving_the_questions_answers_with_both_switches(client):
                return_value={"active": True, "for_all": True, "reveal_round": 3}):
         r = client.put("/admin/evaluation", json={
             "title": "Kurze Evaluation",
-            "questions": [{"type": "scale", "text": "Wie war's?"}],
+            "questions": [{"type": "choice", "text": "Wie war's?", "options": ["Gut", "Schlecht"]}],
         })
     assert r.status_code == 200
     assert r.json()["active"] is True

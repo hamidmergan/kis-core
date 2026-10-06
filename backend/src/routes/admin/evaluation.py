@@ -2,11 +2,12 @@
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from src.dependencies_rbac import require_permission
 from src.features.evaluation import repository as repo
 from src.features.evaluation.service import (
+    MAX_CONTACT_EMAIL_CHARS,
     MAX_INTRO_OUTRO_CHARS,
     MAX_LINK_LABEL_CHARS,
     MAX_LINK_URL_CHARS,
@@ -22,12 +23,27 @@ router = APIRouter(prefix="/evaluation", tags=["admin: evaluation"])
 _require = require_permission(PERM_SET_USERS_EVALUATION)
 
 
+class ShowIfPayload(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    question_id: str
+    anzeigen_bei: list[str] = Field(default_factory=list, alias="in")
+
+
 class QuestionPayload(BaseModel):
     id: str | None = None
     type: str
     text: str
-    scale_low: str = ""
-    scale_high: str = ""
+    options: list[str] = Field(default_factory=list)
+    skippable: bool = False
+    show_if: ShowIfPayload | None = None
+
+    def model_dump(self, **kwargs):
+        roh = super().model_dump(**kwargs)
+        zeigt = roh.pop("show_if")
+        if zeigt:
+            roh["show_if"] = {"question_id": zeigt["question_id"], "in": zeigt["anzeigen_bei"]}
+        return roh
 
 
 class SaveConfigPayload(BaseModel):
@@ -38,6 +54,7 @@ class SaveConfigPayload(BaseModel):
     outro_text: str = Field("", max_length=MAX_INTRO_OUTRO_CHARS)
     outro_link_label: str = Field("", max_length=MAX_LINK_LABEL_CHARS)
     outro_link_url: str = Field("", max_length=MAX_LINK_URL_CHARS)
+    contact_email: str = Field("", max_length=MAX_CONTACT_EMAIL_CHARS)
     questions: list[QuestionPayload]
 
 
@@ -72,6 +89,7 @@ def save_evaluation(
         "outro_text": payload.outro_text.strip(),
         "outro_link_label": payload.outro_link_label.strip(),
         "outro_link_url": payload.outro_link_url.strip(),
+        "contact_email": payload.contact_email.strip(),
         "questions": fragen,
     }
     repo.save_config(config)
