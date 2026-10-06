@@ -350,6 +350,15 @@ const nextConfig: NextConfig = {
         source: "/openapi.json",
         destination: `${backendUrl}/openapi.json`,
       },
+      // Campusplan: statisches Verzeichnis unter public/, Next loest "/campus-map/" selbst nicht auf eine index.html auf.
+      {
+        source: "/campus-map",
+        destination: "/campus-map/index.html",
+      },
+      {
+        source: "/campus-map/",
+        destination: "/campus-map/index.html",
+      },
     ];
   },
 };
