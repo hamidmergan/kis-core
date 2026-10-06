@@ -4,6 +4,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import { Check } from "@phosphor-icons/react";
 import Header from "@/components/layout/Header";
 import Mascot from "@/components/ui/Mascot";
 import Spinner from "@/components/ui/Spinner";
@@ -238,6 +239,9 @@ export default function EvaluationPage() {
                 />
               ) : (
                 <div className="flex flex-col gap-2">
+                  {frage.type === "multi" && (
+                    <p className="text-xs text-muted">{t("multiHint")}</p>
+                  )}
                   {frage.options?.map((option) => {
                     const istMulti = frage.type === "multi";
                     const ausgewaehlt = istMulti
@@ -249,12 +253,21 @@ export default function EvaluationPage() {
                         type="button"
                         onClick={() => (istMulti ? toggleMulti(frage.id, option) : waehle(frage.id, option))}
                         className={
-                          "w-full text-left px-4 py-2.5 text-sm rounded-md border-2 transition-colors " +
-                          (ausgewaehlt
-                            ? "border-kb bg-kb text-white"
-                            : "border-border text-foreground-soft hover:border-kb")
+                          "w-full flex items-center gap-3 text-left px-4 py-2.5 text-sm rounded-md border-2 transition-colors " +
+                          (ausgewaehlt ? "border-kb" : "border-border text-foreground-soft hover:border-kb")
                         }
                       >
+                        <span
+                          className={
+                            "flex-shrink-0 w-5 h-5 flex items-center justify-center border-2 transition-colors " +
+                            (istMulti ? "rounded-md" : "rounded-full") +
+                            " " +
+                            (ausgewaehlt ? "border-kb bg-kb" : "border-border")
+                          }
+                          style={{ color: "#fff" }}
+                        >
+                          {ausgewaehlt && (istMulti ? <Check size={11} weight="bold" /> : <span className="w-2 h-2 rounded-full bg-white" />)}
+                        </span>
                         {option}
                       </button>
                     );
