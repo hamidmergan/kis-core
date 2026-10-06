@@ -230,6 +230,8 @@ const SHORT_LINE_SHARE = 0.6;
 const BULLET_START = /^\s*(?:[•●○◦▪▫‣►▸■□➢➤✓✔→\-–—*]|\d{1,2}[.)])\s/u;
 // A line without lower case letters is a heading and stands alone.
 const HEADING_LINE = /^[^\p{Ll}]*\p{Lu}[^\p{Ll}]*$/u;
+// A separator inside a line such as "Name · Role" starts a new unit.
+const FIELD_SEP = /\s[·|•]\s/gu;
 
 /** Sentences of prose and lines of a slide, as spans of the normalised text. */
 export function segmentUnits(text: string): Span[] {
@@ -249,19 +251,32 @@ export function segmentUnits(text: string): Span[] {
     const body = text.slice(line.start, line.end);
     const standsAlone = BULLET_START.test(body) || HEADING_LINE.test(body);
     if (standsAlone) close();
-    // Sentence ends inside the line split it into fragments.
-    const frags: Span[] = [];
+    // Sentence ends inside the line split it into fragments, a field separator such as "·" also closes the unit.
+    const frags: (Span & { alone?: boolean })[] = [];
     let last = line.start;
+    const cuts: { at: number; next: number; alone: boolean }[] = [];
     for (const m of body.matchAll(SENTENCE_BREAK)) {
-      const cut = line.start + (m.index ?? 0) + m[0].length;
       const before = body.slice(Math.max(0, (m.index ?? 0) - 2), m.index ?? 0);
       // "z. B." and initials do not end a sentence.
       if (/(^|\s)\p{L}$/u.test(before)) continue;
-      frags.push({ start: last, end: cut });
-      last = cut;
+      const cut = line.start + (m.index ?? 0) + m[0].length;
+      cuts.push({ at: cut, next: cut, alone: false });
     }
-    if (last < line.end) frags.push({ start: last, end: line.end });
+    for (const m of body.matchAll(FIELD_SEP)) {
+      const at = line.start + (m.index ?? 0);
+      cuts.push({ at, next: at + m[0].length, alone: true });
+    }
+    cuts.sort((a, b) => a.at - b.at);
+    let alone = false;
+    for (const c of cuts) {
+      if (c.at < last) continue;
+      frags.push({ start: last, end: c.at, alone });
+      last = c.next;
+      alone = c.alone;
+    }
+    if (last < line.end) frags.push({ start: last, end: line.end, alone });
     for (const frag of frags) {
+      if (frag.alone) close();
       const fragText = text.slice(frag.start, frag.end).trim();
       if (!fragText) continue;
       const s = frag.start + (frag.end - frag.start - text.slice(frag.start, frag.end).trimStart().length);

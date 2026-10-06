@@ -171,8 +171,7 @@ describe("findClaimSpot", () => {
     const hit = findClaimSpot(text, "Jonas Feddersen, M.Sc., ist im Modul Projektmanagement (PM-B-301) für die Begleitung der Übungen zuständig und übernimmt die Besprechung des Übungsblatts 1.");
     expect(hit?.kind).toBe("passage");
     const got = slice(text, hit!.spans).join(" ");
-    expect(got).toContain("Jonas Feddersen");
-    expect(got).not.toContain("Modulhandbuch");
+    expect(got).toBe("Übungen: Jonas Feddersen, M.Sc.");
   });
 
   it("tolerates hyphenation at a line break", () => {
