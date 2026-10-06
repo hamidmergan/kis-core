@@ -10,6 +10,7 @@ import { summaryJumpHref, summaryJumpKind } from "@/components/jobs/_summaryJump
 import { translateJumpHref, translateJumpKind } from "@/components/jobs/_translateJump";
 import { ttsJumpHref, ttsJumpKind } from "@/components/jobs/_ttsJump";
 import { sttJumpHref, sttJumpKind } from "@/components/jobs/_sttJump";
+import { bildJumpHref, bildJumpKind } from "@/components/jobs/_bildJump";
 
 
 function DownloadChip({ onClick, href, filename, label }: { onClick?: () => void | Promise<void>; href?: string; filename?: string; label: string }) {
@@ -288,6 +289,7 @@ export function JobArtifacts({ job }: { job: MyJob }) {
             label="DOCX"
           />
         )}
+        {bildJumpKind(job) === "open" && <OpenChip href={bildJumpHref(job.job_uuid)} label={t("openImage")} />}
       </div>
     );
   }

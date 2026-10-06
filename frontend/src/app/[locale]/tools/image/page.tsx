@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import ToolBackLink from "@/components/ui/ToolBackLink";
@@ -22,7 +23,7 @@ import { validateImageFile } from "./_utils";
 type Tab = "generate" | "edit" | "analyze";
 
 /** One large picture on the right for all three tasks, the settings of the open task on the left, all pictures below. */
-export default function ImagePage() {
+function ImagePageInner() {
   const t = useTranslations("tools.image");
   const tt = useTranslations("tools.image.tabs");
   const tCommon = useTranslations("common");
@@ -39,12 +40,25 @@ export default function ImagePage() {
   const fragen = useBildFragen(t("analyze.spinner"), t("analyze.longRunning"), tCommon("unknownError"),
     bilder.vormerken, bilder.beschrieben);
   const buehne = useRef<HTMLDivElement>(null);
+  const ausListe = useSearchParams().get("job");
+  const ausListeGeoeffnet = useRef(false);
 
   const bild = bilder.alle.find((b) => b.key === gewaehlt) ?? null;
   const { vorlageLaden } = bilder;
   const { antwortenLaden } = fragen;
   useEffect(() => { if (bild) void vorlageLaden(bild); }, [bild, vorlageLaden]);
   useEffect(() => { if (bild) void antwortenLaden(bild); }, [bild, antwortenLaden]);
+
+  // A link from the jobs list opens its picture once it is in the strip, an answer in the describe task.
+  useEffect(() => {
+    if (!ausListe || ausListeGeoeffnet.current) return;
+    const treffer = bilder.alle.find((b) => b.key === ausListe || b.beschreibungen?.some((d) => d.jobUuid === ausListe));
+    if (!treffer) return;
+    ausListeGeoeffnet.current = true;
+    setGewaehlt(treffer.key);
+    if (treffer.beschreibungen?.some((d) => d.jobUuid === ausListe)) setTab("analyze");
+    else if (treffer.bearbeitet) setTab("edit");
+  }, [ausListe, bilder.alle]);
 
   // On a phone the form sits above the result, so a finished task scrolls down to it.
   const zumErgebnis = useCallback(() => {
@@ -196,5 +210,14 @@ export default function ImagePage() {
         )}
       </div>
     </ProtectedRoute>
+  );
+}
+
+/** Wrapped so useSearchParams (the jobs-list link) has the Suspense boundary it needs. */
+export default function ImagePage() {
+  return (
+    <Suspense fallback={null}>
+      <ImagePageInner />
+    </Suspense>
   );
 }

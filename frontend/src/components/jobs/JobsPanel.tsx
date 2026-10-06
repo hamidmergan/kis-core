@@ -20,6 +20,7 @@ import { summaryJumpHref, summaryJumpKind } from "./_summaryJump";
 import { translateJumpHref, translateJumpKind } from "./_translateJump";
 import { ttsJumpHref, ttsJumpKind } from "./_ttsJump";
 import { sttJumpHref, sttJumpKind } from "./_sttJump";
+import { bildJumpHref, bildJumpKind } from "@/components/jobs/_bildJump";
 import { JobSources } from "./JobSources";
 import { readPrefs, updatePrefs } from "@/lib/browserStore";
 
@@ -550,6 +551,17 @@ export default function JobsPanel() {
                             className="inline-flex items-center gap-1 text-xs text-kb-dark bg-kb20 border border-kb60 hover:outline-2 hover:outline-kb-dark transition-colors px-2.5 py-1 rounded-full"
                           >
                             {tArtifacts("openStt")}
+                          </a>
+                        </div>
+                      )}
+                      {bildJumpKind(job) === "open" && (
+                        <div className="mt-2">
+                          <a
+                            href={bildJumpHref(job.job_uuid)}
+                            onClick={(e) => { e.stopPropagation(); setOpen(false); }}
+                            className="inline-flex items-center gap-1 text-xs text-kb-dark bg-kb20 border border-kb60 hover:outline-2 hover:outline-kb-dark transition-colors px-2.5 py-1 rounded-full"
+                          >
+                            {tArtifacts("openImage")}
                           </a>
                         </div>
                       )}

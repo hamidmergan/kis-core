@@ -193,7 +193,8 @@
       "openSummary": "Zusammenfassung öffnen",
       "openTranslation": "Übersetzung öffnen",
       "openTts": "Audio öffnen",
-      "openStt": "Transkript öffnen"
+      "openStt": "Transkript öffnen",
+      "openImage": "Bild öffnen"
     },
     "duration": {
       "seconds": "{n} Sek.",
