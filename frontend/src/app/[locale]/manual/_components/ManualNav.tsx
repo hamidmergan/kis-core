@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Link, usePathname } from "@/i18n/navigation";
-import { CaretDown, MagnifyingGlass } from "@phosphor-icons/react";
+import { CaretDown, MagnifyingGlass, X } from "@phosphor-icons/react";
 import LinkBusy from "@/components/ui/LinkBusy";
 import { checkAuthStatus } from "@/lib/auth";
 import { filterTree } from "../_lib/filterTree";
@@ -15,6 +15,7 @@ export default function ManualNav({ tree }: { tree: ManualGroup[] }) {
   const activeSlug = usePathname().split("/").pop() ?? "";
   const [query, setQuery] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
+  const filterInput = useRef<HTMLInputElement>(null);
   // Auf dem Handy steht sonst die ganze Liste vor dem Artikel.
   const [openOnPhone, setOpenOnPhone] = useState(false);
 
@@ -62,15 +63,30 @@ export default function ManualNav({ tree }: { tree: ManualGroup[] }) {
           className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-soft pointer-events-none"
         />
         <input
+          ref={filterInput}
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={t("filterPlaceholder")}
           aria-label={t("filterPlaceholder")}
-          className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-border bg-background
-                     text-foreground placeholder:text-muted-soft
-                     focus:outline-none focus:border-kb focus:ring-3 focus:ring-kb/12"
+          className="w-full pl-9 pr-9 py-2 text-sm rounded-lg border-2 border-border bg-background
+                     text-foreground placeholder:text-muted-soft transition-colors
+                     hover:border-kb focus:outline-none focus:border-kb"
         />
+        {query && (
+          <button
+            type="button"
+            onClick={() => {
+              setQuery("");
+              filterInput.current?.focus();
+            }}
+            aria-label={t("filterClear")}
+            title={t("filterClear")}
+            className="absolute right-1.5 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-full btn-icon"
+          >
+            <X size={14} weight="bold" />
+          </button>
+        )}
       </div>
 
       {groups.length === 0 && (

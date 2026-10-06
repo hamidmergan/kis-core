@@ -4539,6 +4539,7 @@
     "subtitle": "KIS - KInternationalisierung von Studiengängen",
     "navLabel": "Documentation articles",
     "filterPlaceholder": "Filter articles",
+    "filterClear": "Clear search",
     "noMatch": "No article matches this filter."
   },
   "faq": {
