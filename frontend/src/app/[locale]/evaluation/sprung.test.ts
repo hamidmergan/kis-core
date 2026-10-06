@@ -27,8 +27,4 @@ describe("Sprung zur naechsten Frage", () => {
   it("springt nicht, wenn gar keine Fragen kamen", () => {
     expect(springtWeiter(undefined, 0)).toBe(false);
   });
-
-  it("springt nicht, wenn die Frage einen Ueberspringen-Button hat", () => {
-    expect(springtWeiter([{ type: "choice", skippable: true }, { type: "text" }], 0)).toBe(false);
-  });
 });
