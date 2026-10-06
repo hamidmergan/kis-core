@@ -1,5 +1,5 @@
 /** The map link in the viewer's language, optionally jumping straight to one place. */
-export function mapLink(mapUrl: string, locale: string, show?: string, partner?: { home: string; back: string }): string {
+export function mapLink(mapUrl: string, locale: string, show?: string, partner?: { home: string; back: string }, noIntro?: boolean): string {
   let url: URL;
   try {
     url = new URL(mapUrl);
@@ -13,5 +13,7 @@ export function mapLink(mapUrl: string, locale: string, show?: string, partner?:
     url.searchParams.set("home", partner.home);
     url.searchParams.set("back", partner.back);
   }
+  // The modal is a quick glance, the intro zoom only fits the full page in its own tab.
+  if (noIntro) url.searchParams.set("intro", "0");
   return url.toString();
 }

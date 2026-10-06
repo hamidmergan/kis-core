@@ -2392,9 +2392,11 @@ async function initAnimations() {
 
     // Nach einem Sprachwechsel (Seiten-Reload) das Intro nicht erneut zeigen.
     // Direktlink (?show=… / ?info=…): ohne Intro gleich zum Ziel
+    // Im Modal (?intro=0, kommt von KIS): kein Intro, nur im eigenen Tab
     const params = new URLSearchParams(window.location.search);
     const hasDirectLink = params.has('show') || params.has('info');
-    const animationsOn = areAnimationsEnabled() && !CAME_FROM_LANG_SWITCH && !hasDirectLink;
+    const introDisabled = params.get('intro') === '0';
+    const animationsOn = areAnimationsEnabled() && !CAME_FROM_LANG_SWITCH && !hasDirectLink && !introDisabled;
 
     if (!cachedCampusMapSvg) {
         try {

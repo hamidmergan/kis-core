@@ -13,6 +13,9 @@ describe("mapLink", () => {
       "https://map.test/?lang=de&partner=kis&home=https%3A%2F%2Fk.test%2F&back=https%3A%2F%2Fk.test%2Fservices",
     );
   });
+  it("turns off the intro zoom for the modal", () => {
+    expect(mapLink("https://map.test/", "de", undefined, undefined, true)).toBe("https://map.test/?lang=de&intro=0");
+  });
   it("replaces a language already in the link", () => {
     expect(mapLink("https://map.test/?lang=de", "en")).toBe("https://map.test/?lang=en");
   });

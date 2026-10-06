@@ -15,7 +15,7 @@ export default function MapModal({ open, onClose, mapUrl, show }: Props) {
   const locale = useLocale();
   const from = usePathname();
   const frame = useRef<HTMLIFrameElement>(null);
-  const src = mapLink(mapUrl, locale, show);
+  const src = mapLink(mapUrl, locale, show, undefined, true);
   // The new tab stays inside KIS, the page there embeds the same widget and links back to this page.
   const pageHref = getPathname({ href: { pathname: "/campusmap", query: { ...(show ? { show } : {}), from } }, locale });
   return (
