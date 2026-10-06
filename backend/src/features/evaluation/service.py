@@ -70,7 +70,7 @@ def default_config() -> dict:
 
             {"id": "dienste-nuetzlich", "type": "multi", "text": "Welche der Dienste sind für dich nützlich?",
              "options": ["Übersetzung", "Text in Audio", "Transkript", "Zusammenfassung", "Podcast",
-                         "Präsentation", "Screencast", "Bilder", "Glossar"],
+                         "Präsentation", "Screencast", "Bildgenerierung", "Glossar"],
              "show_if": {"question_id": "bereich", "in": [_DIENSTE]}, "skippable": True},
 
             {"id": "gestoert", "type": "text", "text": "Was hat gestört, gefehlt oder nicht funktioniert?"},

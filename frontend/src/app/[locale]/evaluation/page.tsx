@@ -239,9 +239,6 @@ export default function EvaluationPage() {
                 />
               ) : (
                 <div className="flex flex-col gap-2">
-                  {frage.type === "multi" && (
-                    <p className="text-xs text-muted">{t("multiHint")}</p>
-                  )}
                   {frage.options?.map((option) => {
                     const istMulti = frage.type === "multi";
                     const ausgewaehlt = istMulti
