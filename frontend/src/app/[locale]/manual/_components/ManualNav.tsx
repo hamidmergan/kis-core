@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Link, usePathname } from "@/i18n/navigation";
-import { CaretDown } from "@phosphor-icons/react";
+import { CaretDown, MagnifyingGlass } from "@phosphor-icons/react";
 import LinkBusy from "@/components/ui/LinkBusy";
 import { checkAuthStatus } from "@/lib/auth";
 import { filterTree } from "../_lib/filterTree";
@@ -54,6 +54,25 @@ export default function ManualNav({ tree }: { tree: ManualGroup[] }) {
       </button>
 
       <div className={`${openOnPhone ? "block" : "hidden"} lg:block`}>
+      <div className="relative mb-4">
+        <MagnifyingGlass
+          size={15}
+          weight="bold"
+          aria-hidden
+          className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-soft pointer-events-none"
+        />
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={t("filterPlaceholder")}
+          aria-label={t("filterPlaceholder")}
+          className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-border bg-background
+                     text-foreground placeholder:text-muted-soft
+                     focus:outline-none focus:border-kb focus:ring-3 focus:ring-kb/12"
+        />
+      </div>
+
       {groups.length === 0 && (
         <p className="text-sm" style={{ color: "var(--muted)" }}>
           {t("noMatch")}
