@@ -301,6 +301,10 @@ const MIN_UNITS_FOR_DF = 5;
 const MAX_KEYWORDS = 8;
 const PASSAGE_MAX_CHARS = 700;
 const GROW_STEPS = 6;
+// A prefix stands in for an inflection ending, a longer rest makes it another word.
+const MAX_ENDING_CHARS = 3;
+// Function words only decide between units that score the same otherwise.
+const TIE_WEIGHT = 0.01;
 
 /** Words of the file name repeat in headers and footers, so they carry little. */
 function titleWords(title: string | undefined): Set<string> {
@@ -343,7 +347,7 @@ function meaningful(term: Term): boolean {
 /** Equal, or one the prefix of the other, which stands in for a stemmer. */
 function wordMatches(a: string, b: string): boolean {
   if (a === b) return true;
-  if (a.length < 5 || b.length < 5) return false;
+  if (a.length < 5 || b.length < 5 || Math.abs(a.length - b.length) > MAX_ENDING_CHARS) return false;
   return a.startsWith(b) || b.startsWith(a);
 }
 
@@ -375,7 +379,11 @@ export function findClaimSpot(pageText: string, claim: string, title?: string): 
     });
   }
   const live = terms.filter((t) => units.length < MIN_UNITS_FOR_DF || (df.get(t.key) ?? 0) <= units.length * COMMON_SHARE);
-  const weightOf = (keys: Set<string>) => live.reduce((sum, t) => sum + (keys.has(t.key) ? t.weight : 0), 0);
+  // A term found in several units points less to one of them.
+  const weightOf = (keys: Set<string>) => live.reduce((sum, t) => {
+    if (!keys.has(t.key)) return sum;
+    return sum + (meaningful(t) ? t.weight / (df.get(t.key) ?? 1) : TIE_WEIGHT);
+  }, 0);
   const scores = hitsPerUnit.map(weightOf);
 
   let best = -1;

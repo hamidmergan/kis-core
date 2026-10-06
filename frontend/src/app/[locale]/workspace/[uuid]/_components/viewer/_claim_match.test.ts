@@ -153,6 +153,28 @@ describe("findClaimSpot", () => {
     expect(findClaimSpot(text, "Quantenmechanik Schrödinger Wellenfunktion")).toBeNull();
   });
 
+  it("prefers the line with the rare words over a table full of common ones", () => {
+    const { text } = normalizePageText([
+      "Projektmanagement, PM-B-301",
+      "Semesterplan",
+      "Prof. Dr.-Ing. Malte Kaltenbach · Übungen: Jonas Feddersen, M.Sc.",
+      "Termine",
+      "Nr. Datum Einheit Vorbereitung",
+      "1 Fr, 09.10.2026 Grundlagen des Projektmanagements Modulhandbuch lesen",
+      "2 Fr, 23.10.2026 Der Projektstart Skript Kapitel 1",
+      "3 Fr, 06.11.2026 Struktur und Aufwand Skript Kapitel 2, Fallstudie ",
+      "Abschnitt 1 bis 3",
+      "4 Fr, 20.11.2026 Ablauf und Termine Skript Kapitel 3",
+      "5 Fr, 04.12.2026 Steuerung Skript Kapitel 4, Übungsblatt ",
+      "Aufgaben 1 bis 4",
+    ].join("\r\n"));
+    const hit = findClaimSpot(text, "Jonas Feddersen, M.Sc., ist im Modul Projektmanagement (PM-B-301) für die Begleitung der Übungen zuständig und übernimmt die Besprechung des Übungsblatts 1.");
+    expect(hit?.kind).toBe("passage");
+    const got = slice(text, hit!.spans).join(" ");
+    expect(got).toContain("Jonas Feddersen");
+    expect(got).not.toContain("Modulhandbuch");
+  });
+
   it("tolerates hyphenation at a line break", () => {
     const { text } = normalizePageText("Die Ver-\r\nwaltung prüft jeden Antrag sorgfältig auf Vollständigkeit.\r\nEin zweiter Satz ohne Bezug steht hier.");
     const hit = findClaimSpot(text, "Die Verwaltung prüft Anträge auf Vollständigkeit.");
