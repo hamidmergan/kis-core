@@ -29,7 +29,7 @@ export default function InfoFaq() {
             <h3 className="faq-label">{t(`groups.${group.key}`)}</h3>
             <div>
               {group.items.map((item) => (
-                <details key={item} name={group.key} className="faq-item group hover:bg-background">
+                <details key={item} name="faq" className="faq-item group hover:bg-background">
                   <summary className={ROW}>
                     <span className="faq-q">{t(`items.${item}.q`)}</span>
                     <span className="row-caret shrink-0 transition-colors" aria-hidden="true">

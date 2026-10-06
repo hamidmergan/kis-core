@@ -30,7 +30,7 @@ export default function FaqPage() {
                 <h2 className="faq-label">{t(`groups.${gruppe.key}`)}</h2>
                 <div>
                   {gruppe.items.map((schluessel) => (
-                    <details key={schluessel} name={gruppe.key} className="faq-item group">
+                    <details key={schluessel} name="faq" className="faq-item group">
                       <summary className={rowClass}>
                         <span className="faq-q">{t(`items.${schluessel}.q`)}</span>
                         <span className="row-caret shrink-0 transition-colors" aria-hidden="true">
