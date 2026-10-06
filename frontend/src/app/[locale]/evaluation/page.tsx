@@ -233,9 +233,9 @@ export default function EvaluationPage() {
                 <textarea
                   value={(antworten[frage.id] as string) || ""}
                   onChange={(e) => setAntworten({ ...antworten, [frage.id]: e.target.value })}
-                  rows={3}
+                  rows={6}
                   maxLength={2000}
-                  className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-kb resize-none"
+                  className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-kb resize-y"
                 />
               ) : (
                 <div className="flex flex-col gap-2">
