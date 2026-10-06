@@ -313,7 +313,7 @@
     "notAvailable": "No evaluation is active right now.",
     "backToHome": "Back to the start page",
     "start": "Let's go",
-    "progress": "Question {current} of {total}",
+    "progress": "Question {current}",
     "anonymousNotice": "This evaluation is anonymous.",
     "back": "Back",
     "next": "Next",
@@ -3222,7 +3222,25 @@
       "deleteAfterTitle": "Delete expired test accounts",
       "deleteAfterHint": "Once the lifetime runs out a test account is locked and stays readable for you. After this grace period a nightly run deletes the account together with its workspaces, chats and files. Evaluation answers stay on anonymously. Zero never deletes.",
       "deleteAfterUnit": "days after expiry",
-      "deleteAfterOutOfRange": "The grace period must be between 0 and 3650 days."
+      "deleteAfterOutOfRange": "The grace period must be between 0 and 3650 days.",
+      "allUsersButton": "All accounts",
+      "allUsersTitle": "All accounts from access codes",
+      "allUsersSummary": "{n, plural, one {# account} other {# accounts}}",
+      "allUsersEmpty": "Nobody has redeemed an access code yet",
+      "colFromCode": "Access code",
+      "colLogin": "Login",
+      "lockUser": "Block login",
+      "unlockUser": "Allow login",
+      "lockAll": "Lock all",
+      "lockAllTitle": "Lock all accounts",
+      "lockAllText": "{n, plural, =0 {No account is active right now.} one {# account will no longer be able to log in.} other {# accounts will no longer be able to log in.}} Open sessions end right away. Workspaces, chats and files are kept.",
+      "lockAllConfirm": "Lock",
+      "deleteAll": "Delete all",
+      "deleteUser": "Delete account",
+      "deleteUsersTitle": "Delete accounts",
+      "deleteAllText": "{n, plural, one {# account is} other {# accounts are}} deleted along with their workspaces, chats and files.",
+      "deleteUserText": "The account {name} is deleted along with its workspaces, chats and files.",
+      "deleteUsersHint": "This cannot be undone. Evaluation answers stay, anonymously."
     },
     "createAccessCode": {
       "title": "Create access code",
@@ -3254,7 +3272,9 @@
       "copy": "Copy code",
       "copied": "Copied!",
       "close": "Close",
-      "errorGeneric": "The code could not be created"
+      "errorGeneric": "The code could not be created",
+      "customDays": "Custom number (days)",
+      "customDaysHint": "Between 1 and {max} days"
     },
     "codeWorkspaces": {
       "label": "Workspaces",
@@ -3275,7 +3295,9 @@
     },
     "accessCodeQr": {
       "alt": "QR code to redeem",
-      "download": "Download as PNG"
+      "download": "Download as PNG",
+      "kicker": "Access code",
+      "scanHint": "Scan the QR code or enter the code"
     },
     "evaluationEditor": {
       "loading": "Loading …",

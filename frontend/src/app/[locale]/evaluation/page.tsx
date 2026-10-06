@@ -221,7 +221,7 @@ export default function EvaluationPage() {
                 />
               </div>
               <p className="text-xs uppercase tracking-wide text-muted">
-                {t("progress", { current: position, total: sichtbareFragen.length })}
+                {t("progress", { current: position })}
               </p>
               <div className="flex justify-center py-4">
                 <Mascot variant={figur} size={80} state="confused" />

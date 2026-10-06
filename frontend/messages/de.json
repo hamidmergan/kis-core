@@ -313,7 +313,7 @@
     "notAvailable": "Gerade ist keine Evaluation aktiv.",
     "backToHome": "Zurück zur Startseite",
     "start": "Los geht's",
-    "progress": "Frage {current} von {total}",
+    "progress": "Frage {current}",
     "anonymousNotice": "Diese Evaluation ist anonym.",
     "back": "Zurück",
     "next": "Weiter",
@@ -3222,7 +3222,25 @@
       "deleteAfterTitle": "Abgelaufene Testkonten löschen",
       "deleteAfterHint": "Nach Ablauf der Lebensdauer wird ein Testkonto gesperrt und bleibt für dich lesbar. Nach dieser Frist löscht ein nächtlicher Lauf das Konto samt Workspaces, Chats und Dateien. Antworten aus der Evaluation bleiben anonym erhalten. Mit 0 wird nie gelöscht.",
       "deleteAfterUnit": "Tage nach Ablauf",
-      "deleteAfterOutOfRange": "Die Frist muss zwischen 0 und 3650 Tagen liegen."
+      "deleteAfterOutOfRange": "Die Frist muss zwischen 0 und 3650 Tagen liegen.",
+      "allUsersButton": "Alle Konten",
+      "allUsersTitle": "Alle Konten aus Zugangscodes",
+      "allUsersSummary": "{n, plural, one {# Konto} other {# Konten}}",
+      "allUsersEmpty": "Noch hat niemand einen Zugangscode eingelöst",
+      "colFromCode": "Zugangscode",
+      "colLogin": "Anmeldung",
+      "lockUser": "Anmeldung sperren",
+      "unlockUser": "Anmeldung erlauben",
+      "lockAll": "Alle sperren",
+      "lockAllTitle": "Alle Konten sperren",
+      "lockAllText": "{n, plural, =0 {Kein Konto ist gerade aktiv.} one {# Konto kann sich danach nicht mehr anmelden.} other {# Konten können sich danach nicht mehr anmelden.}} Offene Sitzungen enden sofort. Workspaces, Chats und Dateien bleiben erhalten.",
+      "lockAllConfirm": "Sperren",
+      "deleteAll": "Alle löschen",
+      "deleteUser": "Konto löschen",
+      "deleteUsersTitle": "Konten löschen",
+      "deleteAllText": "{n, plural, one {# Konto wird} other {# Konten werden}} samt Workspaces, Chats und Dateien gelöscht.",
+      "deleteUserText": "Das Konto {name} wird samt Workspaces, Chats und Dateien gelöscht.",
+      "deleteUsersHint": "Das lässt sich nicht rückgängig machen. Antworten aus der Evaluation bleiben anonym erhalten."
     },
     "createAccessCode": {
       "title": "Zugangscode anlegen",
@@ -3254,7 +3272,9 @@
       "copy": "Code kopieren",
       "copied": "Kopiert!",
       "close": "Schließen",
-      "errorGeneric": "Der Code konnte nicht angelegt werden"
+      "errorGeneric": "Der Code konnte nicht angelegt werden",
+      "customDays": "Eigene Zahl (Tage)",
+      "customDaysHint": "Zwischen 1 und {max} Tagen"
     },
     "codeWorkspaces": {
       "label": "Workspaces",
@@ -3275,7 +3295,9 @@
     },
     "accessCodeQr": {
       "alt": "QR-Code zum Einlösen",
-      "download": "Als PNG herunterladen"
+      "download": "Als PNG herunterladen",
+      "kicker": "Zugangscode",
+      "scanHint": "Scanne den QR-Code oder gib den Code ein"
     },
     "evaluationEditor": {
       "loading": "Wird geladen …",
