@@ -12,6 +12,8 @@ export async function generateMetadata({
   return {
     title: t("title"),
     description: t("description"),
+    // Legal pages stay reachable but out of search results, so name searches land on the start page.
+    robots: { index: false, follow: true },
   };
 }
 
