@@ -12,6 +12,8 @@ import SeatsField from "./SeatsField";
 import { choiceToSeats } from "./seats";
 import AccessHoursField from "./AccessHoursField";
 import { choiceToHours, hoursToChoice } from "./accessHours";
+import ValidDaysField from "./ValidDaysField";
+import { choiceToDays } from "./validDays";
 import AccessCodeQr from "./AccessCodeQr";
 import CodeWorkspacesField from "./CodeWorkspacesField";
 
@@ -24,8 +26,6 @@ type CustomRole = { id: number; name: string };
 
 type Erstellt = { code: string; label: string };
 
-const VALID_DAYS = [7, 14, 30, 60];
-
 export default function CreateAccessCodeDialog({ onClose, onCreated }: Props) {
   const t = useTranslations("admin.createAccessCode");
   const tWs = useTranslations("admin.codeWorkspaces");
@@ -34,6 +34,7 @@ export default function CreateAccessCodeDialog({ onClose, onCreated }: Props) {
   const [maxUses, setMaxUses] = useState("10");
   const [customUses, setCustomUses] = useState("");
   const [validDays, setValidDays] = useState("7");
+  const [customDays, setCustomDays] = useState("");
   const startStunden = hoursToChoice(168);
   const [accessHours, setAccessHours] = useState(startStunden.choice);
   const [customHours, setCustomHours] = useState(startStunden.custom);
@@ -64,17 +65,13 @@ export default function CreateAccessCodeDialog({ onClose, onCreated }: Props) {
     [t, customRoles],
   );
 
-  const validDaysOptions = useMemo(
-    () => VALID_DAYS.map((n) => ({ value: String(n), label: t("days", { n }) })),
-    [t],
-  );
-
   const plaetze = choiceToSeats(maxUses, customUses);
   const stunden = choiceToHours(accessHours, customHours);
+  const tage = choiceToDays(validDays, customDays);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (plaetze === null || stunden === undefined) return;
+    if (plaetze === null || stunden === undefined || tage === null) return;
     setSubmitting(true);
     setError(null);
     const custom = role.startsWith("custom:");
@@ -86,7 +83,7 @@ export default function CreateAccessCodeDialog({ onClose, onCreated }: Props) {
         body: JSON.stringify({
           label: label.trim(),
           max_uses: plaetze,
-          valid_days: Number(validDays),
+          valid_days: tage,
           access_hours: stunden,
           show_credentials: showCredentials,
           show_evaluation: showEvaluation,
@@ -142,7 +139,7 @@ export default function CreateAccessCodeDialog({ onClose, onCreated }: Props) {
               </button>
             </div>
 
-            <AccessCodeQr code={erstellt.code} />
+            <AccessCodeQr code={erstellt.code} label={erstellt.label} />
 
             <div className="flex justify-end pt-2">
               <button
@@ -181,10 +178,12 @@ export default function CreateAccessCodeDialog({ onClose, onCreated }: Props) {
               onCustom={setCustomUses}
             />
 
-            <div className="space-y-1">
-              <label className="text-xs uppercase tracking-wide text-muted">{t("validDays")}</label>
-              <Select value={validDays} onChange={setValidDays} options={validDaysOptions} className="w-full" />
-            </div>
+            <ValidDaysField
+              choice={validDays}
+              custom={customDays}
+              onChoice={setValidDays}
+              onCustom={setCustomDays}
+            />
 
             <AccessHoursField
               choice={accessHours}
@@ -228,7 +227,7 @@ export default function CreateAccessCodeDialog({ onClose, onCreated }: Props) {
               <button
                 type="submit"
                 data-testid="access-code-submit"
-                disabled={submitting || !label.trim() || plaetze === null || stunden === undefined}
+                disabled={submitting || !label.trim() || plaetze === null || stunden === undefined || tage === null}
                 className="px-4 py-2 text-sm btn-primary rounded-md transition-colors disabled:opacity-60"
               >
                 {submitting ? t("submitting") : t("submit")}

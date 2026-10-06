@@ -11,6 +11,8 @@ import { choiceToSeats, seatsToChoice } from "./seats";
 import AccessHoursField from "./AccessHoursField";
 import { choiceToHours, hoursToChoice } from "./accessHours";
 import CodeWorkspacesField from "./CodeWorkspacesField";
+import ValidDaysField from "./ValidDaysField";
+import { choiceToDays, daysToChoice, remainingDays } from "./validDays";
 
 type Code = {
   id: number;
@@ -35,13 +37,6 @@ type Props = {
 
 type CustomRole = { id: number; name: string };
 
-const VALID_DAYS = [7, 14, 30, 60];
-
-function verbleibendeTage(validUntil: string): number {
-  const tage = Math.ceil((new Date(validUntil).getTime() - Date.now()) / 86_400_000);
-  return Math.min(60, Math.max(1, tage));
-}
-
 export default function EditAccessCodeDialog({ code, onClose, onSaved }: Props) {
   const t = useTranslations("admin.editAccessCode");
   const tCreate = useTranslations("admin.createAccessCode");
@@ -51,7 +46,9 @@ export default function EditAccessCodeDialog({ code, onClose, onSaved }: Props) 
   const startPlaetze = seatsToChoice(code.max_uses);
   const [maxUses, setMaxUses] = useState(startPlaetze.choice);
   const [customUses, setCustomUses] = useState(startPlaetze.custom);
-  const [validDays, setValidDays] = useState(String(verbleibendeTage(code.valid_until)));
+  const startTage = daysToChoice(remainingDays(code.valid_until));
+  const [validDays, setValidDays] = useState(startTage.choice);
+  const [customDays, setCustomDays] = useState(startTage.custom);
   const startStunden = hoursToChoice(code.access_hours);
   const [accessHours, setAccessHours] = useState(startStunden.choice);
   const [customHours, setCustomHours] = useState(startStunden.custom);
@@ -80,17 +77,13 @@ export default function EditAccessCodeDialog({ code, onClose, onSaved }: Props) 
     [tCreate, customRoles],
   );
 
-  const validDaysOptions = useMemo(() => {
-    const werte = VALID_DAYS.includes(Number(validDays)) ? VALID_DAYS : [Number(validDays), ...VALID_DAYS];
-    return werte.map((n) => ({ value: String(n), label: tCreate("days", { n }) }));
-  }, [tCreate, validDays]);
-
   const plaetze = choiceToSeats(maxUses, customUses);
   const stunden = choiceToHours(accessHours, customHours);
+  const tage = choiceToDays(validDays, customDays);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (plaetze === null || stunden === undefined) return;
+    if (plaetze === null || stunden === undefined || tage === null) return;
     setSubmitting(true);
     setError(null);
     const custom = role.startsWith("custom:");
@@ -102,7 +95,7 @@ export default function EditAccessCodeDialog({ code, onClose, onSaved }: Props) 
         body: JSON.stringify({
           label: label.trim(),
           max_uses: plaetze,
-          valid_days: Number(validDays),
+          valid_days: tage,
           access_hours: stunden,
           show_credentials: showCredentials,
           show_evaluation: showEvaluation,
@@ -158,10 +151,12 @@ export default function EditAccessCodeDialog({ code, onClose, onSaved }: Props) 
             onCustom={setCustomUses}
           />
 
-          <div className="space-y-1">
-            <label className="text-xs uppercase tracking-wide text-muted">{tCreate("validDays")}</label>
-            <Select value={validDays} onChange={setValidDays} options={validDaysOptions} className="w-full" />
-          </div>
+          <ValidDaysField
+            choice={validDays}
+            custom={customDays}
+            onChoice={setValidDays}
+            onCustom={setCustomDays}
+          />
 
           <AccessHoursField
             choice={accessHours}
@@ -205,7 +200,7 @@ export default function EditAccessCodeDialog({ code, onClose, onSaved }: Props) 
             <button
               type="submit"
               data-testid="access-code-edit-submit"
-              disabled={submitting || !label.trim() || plaetze === null || stunden === undefined}
+              disabled={submitting || !label.trim() || plaetze === null || stunden === undefined || tage === null}
               className="px-4 py-2 text-sm btn-primary rounded-md transition-colors disabled:opacity-60"
             >
               {submitting ? t("submitting") : t("submit")}

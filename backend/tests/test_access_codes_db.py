@@ -136,3 +136,34 @@ def test_deleting_the_code_keeps_the_account_and_its_deadline(schema, konto_am_c
     assert aktiv == 1, "Das Konto bleibt eingeschaltet"
     assert verweis is None, "Der Verweis wird geleert, ON DELETE SET NULL"
     assert abs((ablauf - frist).total_seconds()) < 1, "Die Frist steht unveraendert"
+
+
+def test_set_users_active_switches_code_accounts_but_never_others(schema, konto_am_code):
+    code_id, user_id, _ = konto_am_code
+    kennung = uuid_modul.uuid4().hex[:8]
+    with schema() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO users (ldap_username, display_name, email, active, role) "
+                "VALUES (%s, 'Echt', %s, 1, 'user') RETURNING id",
+                (f"test.echt.{kennung}", f"test.echt.{kennung}@demo.kis.local"),
+            )
+            echt_id = cur.fetchone()[0]
+        conn.commit()
+    try:
+        assert repo.set_users_active([user_id, echt_id], False) == [user_id]
+        with schema() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT id, active FROM users WHERE id = ANY(%s) ORDER BY id",
+                            ([user_id, echt_id],))
+                zustand = dict(cur.fetchall())
+        assert zustand == {user_id: 0, echt_id: 1}
+        assert user_id in repo.list_all_code_user_ids()
+        assert echt_id not in repo.list_all_code_user_ids()
+        eintrag = next(z for z in repo.list_all_code_users() if z["id"] == user_id)
+        assert eintrag["code_id"] == code_id
+    finally:
+        with schema() as conn:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM users WHERE id = %s", (echt_id,))
+            conn.commit()

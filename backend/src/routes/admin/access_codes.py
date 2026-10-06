@@ -9,6 +9,7 @@ from src import database
 from src.dependencies import get_settings
 from src.dependencies_rbac import assert_may_grant, permissions_of, require_permission
 from src.features.access_codes import repository as repo
+from src.features.access_codes.accounts import delete_accounts, lock_accounts
 from src.features.access_codes.retention import grace_period_days
 from src.features.access_codes.service import (
     deletion_due_at,
@@ -24,7 +25,7 @@ router = APIRouter(tags=["admin: access codes"])
 
 _require = require_permission(PERM_SET_USERS_ALL)
 
-MAX_VALID_DAYS = 60
+MAX_VALID_DAYS = 365
 MAX_ACCESS_HOURS = 720  # 30 Tage
 MAX_SEATS = 500
 MAX_WORKSPACES = 50
@@ -245,25 +246,111 @@ def list_access_code_users(
     locale: str = Depends(get_locale),
 ):
     _require_feature(locale)
+    return {"users": _with_status(repo.list_users_for_code(code_id))}
+
+
+def _with_status(eintraege: list[dict]) -> list[dict]:
+    """Adds the account state and the planned deletion date to each row."""
     jetzt = datetime.now()
     frist = grace_period_days()
-    return {
-        "users": [
-            {
-                **eintrag,
-                "status": user_status_of(
-                    active=eintrag["active"],
-                    access_expires_at=eintrag["access_expires_at"],
-                    now=jetzt,
-                ),
-                "delete_at": deletion_due_at(
-                    access_expires_at=eintrag["access_expires_at"],
-                    grace_days=frist,
-                ),
-            }
-            for eintrag in repo.list_users_for_code(code_id)
-        ]
-    }
+    return [
+        {
+            **eintrag,
+            "status": user_status_of(
+                active=eintrag["active"],
+                access_expires_at=eintrag["access_expires_at"],
+                now=jetzt,
+            ),
+            "delete_at": deletion_due_at(
+                access_expires_at=eintrag["access_expires_at"],
+                grace_days=frist,
+            ),
+        }
+        for eintrag in eintraege
+    ]
+
+
+@router.get("/access-codes/users")
+def list_all_access_code_users(admin: dict = Depends(_require), locale: str = Depends(get_locale)):
+    """Every account any code created, across all codes."""
+    _require_feature(locale)
+    return {"users": _with_status(repo.list_all_code_users())}
+
+
+class BulkUsersPayload(BaseModel):
+    action: str = Field(..., pattern="^(lock|delete)$")
+    # None means the accounts of every code.
+    code_id: int | None = None
+
+
+@router.post("/access-codes/users/bulk")
+def bulk_access_code_users(
+    payload: BulkUsersPayload,
+    admin: dict = Depends(_require),
+    locale: str = Depends(get_locale),
+):
+    """Locks or deletes every account of one code, or of all codes."""
+    _require_feature(locale)
+    if payload.code_id is None:
+        user_ids = repo.list_all_code_user_ids()
+    else:
+        if repo.get_code_by_id(payload.code_id) is None:
+            raise HTTPException(status_code=404, detail=t("access.notFound", locale))
+        user_ids = repo.list_user_ids_for_code(payload.code_id)
+
+    if payload.action == "lock":
+        anzahl = lock_accounts(user_ids)
+    else:
+        anzahl = delete_accounts(user_ids)
+    logger.info(
+        "admin {} ran {} on {} code accounts (code_id={})",
+        admin.get("email"), payload.action, anzahl, payload.code_id,
+    )
+    return {"status": "ok", "count": anzahl}
+
+
+def _code_account(user_id: int, locale: str) -> dict:
+    """The account, but only one a code created, never a real staff or admin account."""
+    konto = database.get_user_by_id(user_id)
+    if not konto or not konto.get("access_code_id"):
+        raise HTTPException(status_code=403, detail=t("access.notFromCode", locale))
+    return konto
+
+
+class UserActivePayload(BaseModel):
+    active: bool
+
+
+@router.patch("/access-codes/users/{user_id}")
+def set_access_code_user_active(
+    user_id: int,
+    payload: UserActivePayload,
+    admin: dict = Depends(_require),
+    locale: str = Depends(get_locale),
+):
+    """Switches the login of one code account on or off."""
+    _require_feature(locale)
+    _code_account(user_id, locale)
+    if payload.active:
+        repo.set_users_active([user_id], True)
+    else:
+        lock_accounts([user_id])
+    return {"status": "ok"}
+
+
+@router.delete("/access-codes/users/{user_id}")
+def delete_access_code_user(
+    user_id: int,
+    admin: dict = Depends(_require),
+    locale: str = Depends(get_locale),
+):
+    """Removes one code account with everything it owns."""
+    _require_feature(locale)
+    _code_account(user_id, locale)
+    if not delete_accounts([user_id]):
+        raise HTTPException(status_code=500, detail=t("access.deleteAccountFailed", locale))
+    logger.info("admin {} deleted code account user_id={}", admin.get("email"), user_id)
+    return {"status": "ok"}
 
 
 @router.post("/access-codes/users/{user_id}/password")

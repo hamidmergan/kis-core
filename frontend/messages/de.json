@@ -318,6 +318,7 @@
     "back": "Zurück",
     "next": "Weiter",
     "notTested": "Habe ich nicht getestet",
+    "multiHint": "Mehrfachauswahl möglich",
     "submit": "Abschicken",
     "submitting": "Wird gesendet …",
     "submitError": "Senden fehlgeschlagen. Bitte versuche es erneut.",

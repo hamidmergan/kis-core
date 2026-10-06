@@ -11,12 +11,12 @@ import type { Station } from "@/lib/event/types";
 import { KIS_LOGO_MARKUP, KIS_LOGO_VIEWBOX } from "./kisLogo";
 import { POSTER_MM } from "./posterExport";
 
-const ACCENT = "#004261";
-const INK = "#1b2a33";
-const SOFT = "#5a6b75";
-const PAPER = "#ffffff";
-const SANS = "system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
-const MONO = "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+export const ACCENT = "#004261";
+export const INK = "#1b2a33";
+export const SOFT = "#5a6b75";
+export const PAPER = "#ffffff";
+export const SANS = "system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
+export const MONO = "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
 
 export interface PosterArt {
   qr: string;
@@ -49,30 +49,35 @@ function loadLogos(): Promise<Pick<PosterArt, "thl" | "isy">> {
   return logoCache;
 }
 
-/** QR and logos as data URLs so the SVG stays self-contained for PNG export and print, null until all are ready. */
-export function useStationQr(stationId: string): PosterArt | null {
+/** QR for any target plus the logos as data URLs so the SVG stays self-contained for PNG export and print, null until all are ready. */
+export function usePosterArt(target: string): PosterArt | null {
   const [art, setArt] = useState<PosterArt | null>(null);
   useEffect(() => {
+    if (!target) return;
     let active = true;
-    const target = stationQrUrl(window.location.origin, stationId);
     Promise.all([QRCode.toDataURL(target, { width: 512, margin: 0, color: { dark: INK, light: PAPER } }), loadLogos()])
       .then(([qr, logos]) => { if (active) setArt({ qr, ...logos }); })
       .catch(() => { if (active) setArt(null); });
     return () => { active = false; };
-  }, [stationId]);
+  }, [target]);
   return art;
 }
 
-const LOGO_H = 8;
-const LOGO_W = (LOGO_H * KIS_LOGO_VIEWBOX.w) / KIS_LOGO_VIEWBOX.h;
-// White plate on the right of the bar, the partner logos have white backgrounds of their own.
-const LOGO_IMG_H = 7;
-const PLATE_PAD = 2;
-const THL_W = (LOGO_IMG_H * 473) / 166;
-const ISY_W = (LOGO_IMG_H * 634) / 523;
-const PLATE_W = PLATE_PAD * 3 + THL_W + ISY_W;
+/** The poster art for one stand. */
+export function useStationQr(stationId: string): PosterArt | null {
+  return usePosterArt(typeof window === "undefined" ? "" : stationQrUrl(window.location.origin, stationId));
+}
 
-function nameLines(name: string): string[] {
+export const LOGO_H = 8;
+export const LOGO_W = (LOGO_H * KIS_LOGO_VIEWBOX.w) / KIS_LOGO_VIEWBOX.h;
+// White plate on the right of the bar, the partner logos have white backgrounds of their own.
+export const LOGO_IMG_H = 7;
+export const PLATE_PAD = 2;
+export const THL_W = (LOGO_IMG_H * 473) / 166;
+export const ISY_W = (LOGO_IMG_H * 634) / 523;
+export const PLATE_W = PLATE_PAD * 3 + THL_W + ISY_W;
+
+export function nameLines(name: string): string[] {
   if (name.length <= 18) return [name];
   const words = name.split(" ");
   let first = "";

@@ -90,3 +90,26 @@ class SessionStore:
             self._redis().delete(_KEY_PREFIX + raw_id)
         except Exception as e:
             logger.error("Session delete failed (Redis): {}", e)
+
+    def destroy_for_users(self, user_ids: list[int]) -> int:
+        """Ends every session that belongs to one of these accounts and returns how many."""
+        ziele = set(user_ids)
+        if not ziele:
+            return 0
+        beendet = 0
+        try:
+            client = self._redis()
+            for key in client.scan_iter(match=_KEY_PREFIX + "*", count=500):
+                raw = client.get(key)
+                if raw is None:
+                    continue
+                try:
+                    user_id = json.loads(raw).get("user_id")
+                except (ValueError, AttributeError):
+                    continue
+                if user_id in ziele:
+                    client.delete(key)
+                    beendet += 1
+        except Exception as e:
+            logger.error("Session sweep failed (Redis): {}", e)
+        return beendet

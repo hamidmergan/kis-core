@@ -337,3 +337,41 @@ def list_user_ids_for_code(code_id: int) -> list[int]:
         with conn.cursor() as cur:
             cur.execute("SELECT id FROM users WHERE access_code_id = %s", (code_id,))
             return [zeile[0] for zeile in cur.fetchall()]
+
+
+def list_all_code_users() -> list[dict]:
+    """Every account any code created, with the code it came from, newest first."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute(
+                """SELECT u.id, u.ldap_username, u.created_at, u.access_expires_at, u.active,
+                          c.id AS code_id, c.label AS code_label, c.code
+                   FROM users u JOIN access_codes c ON c.id = u.access_code_id
+                   ORDER BY u.created_at DESC"""
+            )
+            return [dict(zeile) for zeile in cur.fetchall()]
+
+
+def list_all_code_user_ids() -> list[int]:
+    """The ids of every account any code created."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id FROM users WHERE access_code_id IS NOT NULL ORDER BY id")
+            return [zeile[0] for zeile in cur.fetchall()]
+
+
+def set_users_active(user_ids: list[int], active: bool) -> list[int]:
+    """Switches the login of these code accounts on or off, other accounts are never touched."""
+    if not user_ids:
+        return []
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """UPDATE users SET active = %s
+                   WHERE id = ANY(%s) AND access_code_id IS NOT NULL
+                   RETURNING id""",
+                (1 if active else 0, list(user_ids)),
+            )
+            getroffen = [zeile[0] for zeile in cur.fetchall()]
+        conn.commit()
+        return getroffen

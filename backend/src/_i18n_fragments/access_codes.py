@@ -41,6 +41,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Das Passwort konnte nicht geaendert werden",
         "en": "The password could not be changed",
     },
+    "access.deleteAccountFailed": {
+        "de": "Das Konto konnte nicht geloescht werden",
+        "en": "The account could not be deleted",
+    },
     "access.maxUsesBelowUsed": {
         "de": "Die Obergrenze darf nicht unter die bereits erfolgte Anzahl fallen",
         "en": "The limit cannot be set below the number already used",
