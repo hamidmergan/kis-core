@@ -116,12 +116,14 @@ export default function ManualNav({ tree }: { tree: ManualGroup[] }) {
                     href={`/manual/${article.slug}`}
                     onClick={() => setOpenOnPhone(false)}
                     aria-current={active ? "page" : undefined}
-                    // btn-ghost bringt den Hover-Ring, der offene Eintrag zeigt denselben Ring dauerhaft.
+                    // btn-ghost bringt den Hover-Ring bei den uebrigen Eintraegen. Der offene
+                    // Eintrag bekommt statt Ring eine Fuellfarbe, der Ring bleibt dafuer fest
+                    // transparent, sonst kaeme beim Drueberfahren zusaetzlich einer dazu.
                     // Der Ring liegt nach innen, sonst schneidet ihn die scrollende Nav links und rechts ab.
-                    className="btn-ghost flex items-center gap-2 pl-5 pr-3 py-1.5 rounded-lg text-sm -outline-offset-2"
+                    className={`btn-ghost flex items-center gap-2 pl-5 pr-3 py-1.5 rounded-lg text-sm -outline-offset-2 ${active ? "bg-kb/10" : ""}`}
                     style={{
                       color: active ? "var(--kb-dark)" : "var(--foreground)",
-                      outlineColor: active ? "var(--kb)" : undefined,
+                      outlineColor: active ? "transparent" : undefined,
                       fontWeight: active ? 600 : 400,
                     }}
                   >
