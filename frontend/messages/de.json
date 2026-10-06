@@ -356,7 +356,7 @@
       "aia": "Lernassistent",
       "tools": "Dienste",
       "campus": "Infoassistent",
-      "event": "Veranstaltung"
+      "event": "Tag der Lehre"
     },
     "audience": {
       "lehrende": "Lehrende",
@@ -4861,7 +4861,6 @@
     "heroAlt": "Workspace mit Materialien, Chat und Studio",
     "learn": {
       "heading": "Lernen mit Francis",
-      "intro": "In deinem Workspace sammelst du deine Unterlagen. Francis arbeitet ausschließlich mit diesem Material.",
       "rows": {
         "material": {
           "title": "Alles Material an einem Ort",

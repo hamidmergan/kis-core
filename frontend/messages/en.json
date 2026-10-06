@@ -356,7 +356,7 @@
       "aia": "Learning assistant",
       "tools": "Services",
       "campus": "Info assistant",
-      "event": "Event"
+      "event": "Tag der Lehre"
     },
     "audience": {
       "lehrende": "Teachers",
@@ -4861,7 +4861,6 @@
     "heroAlt": "Workspace with materials, chat and studio",
     "learn": {
       "heading": "Learning with Francis",
-      "intro": "You collect your materials in your workspace. Francis works only with this material.",
       "rows": {
         "material": {
           "title": "All material in one place",
