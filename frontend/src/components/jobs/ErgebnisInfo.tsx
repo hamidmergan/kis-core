@@ -29,6 +29,10 @@ export interface ErgebnisAngaben {
   groesse?: string;
   aufgabe?: string;
   frage?: string;
+  /** Who wrote the text when another provider speaks or draws, and who drew the pictures. */
+  textanbieter?: string;
+  bildanbieter?: string;
+  bildstil?: string;
 }
 
 export interface Auftrag {

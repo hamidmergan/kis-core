@@ -3,6 +3,7 @@
 import { ArrowRight } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
+import type { Auftrag } from "@/components/jobs/ErgebnisInfo";
 import BackgroundHint from "@/components/tools/BackgroundHint";
 import Checkbox from "@/components/ui/Checkbox";
 import Modal from "@/components/ui/Modal";
@@ -11,6 +12,7 @@ import StatusMark from "@/components/ui/StatusMark";
 import FolienGrossbild from "../_components/FolienGrossbild";
 import FolienKarte from "../_components/FolienKarte";
 import FolienSkizze from "../_components/FolienSkizze";
+import PraesentationInfo from "../_components/PraesentationInfo";
 import { FIELD } from "../_components/VorlageHochladen";
 import { imageUrl, previewUrl } from "../_api";
 import { fortschrittMeldung, kannEinfuegen, skizzen } from "../_logic";
@@ -59,6 +61,8 @@ interface PreviewStepProps {
   onFinalize: () => void;
   /** The prepared demo run, its slides can be looked at but not changed. */
   demo?: boolean;
+  /** The demo brings its info along, a real run reads it from its job. */
+  auftrag?: Auftrag;
 }
 
 /** The deck as rows: a skeleton that fills while the run writes and draws, then the real slides to check and edit. */
@@ -112,6 +116,7 @@ export default function PreviewStep(p: PreviewStepProps) {
                 <StatusMark tone="success" className="text-inherit">{t("previewReady")}</StatusMark>
               </h2>
               <span className="text-sm text-muted">{t("summary", { n: p.slides.length })}</span>
+              <PraesentationInfo jobUuid={p.jobUuid} bereit={bereit} auftrag={p.auftrag} />
             </div>
           ) : (
             <>

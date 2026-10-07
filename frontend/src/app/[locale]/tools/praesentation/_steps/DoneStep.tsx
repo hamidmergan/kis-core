@@ -4,7 +4,9 @@ import { DownloadSimple } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
 import BackgroundHint from "@/components/tools/BackgroundHint";
 import Spinner from "@/components/ui/Spinner";
+import type { Auftrag } from "@/components/jobs/ErgebnisInfo";
 import FolienBetrachter from "../_components/FolienBetrachter";
+import PraesentationInfo from "../_components/PraesentationInfo";
 import { downloadUrl, previewUrl } from "../_api";
 import { LAEUFT, fortschrittMeldung } from "../_logic";
 import type { JobProgress, JobStatus, Slide } from "../_types";
@@ -22,6 +24,8 @@ interface DoneStepProps {
   onCancel: () => void;
   /** The prepared demo run, nothing runs in the background there. */
   demo?: boolean;
+  /** The demo brings its info along, a real run reads it from its job. */
+  auftrag?: Auftrag;
 }
 
 const cancelIcon = (
@@ -91,7 +95,10 @@ export default function DoneStep(p: DoneStepProps) {
           </svg>
         </div>
       </div>
-      <h2 className="text-lg font-bold text-center">{t("heading")}</h2>
+      <div className="flex items-center justify-center gap-1">
+        <h2 className="text-lg font-bold text-center">{t("heading")}</h2>
+        <PraesentationInfo jobUuid={p.jobUuid} bereit={p.jobStatus === "success"} auftrag={p.auftrag} />
+      </div>
       <p className="text-sm text-muted mt-1 mb-6 text-center">{t("summary", { n: p.slides.length })}</p>
 
       <FolienBetrachter ids={p.slides.map((s) => s.id)}

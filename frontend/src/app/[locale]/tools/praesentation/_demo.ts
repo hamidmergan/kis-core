@@ -1,3 +1,4 @@
+import type { ErgebnisAngaben } from "@/components/jobs/ErgebnisInfo";
 import type { PraesentationView } from "./_api";
 import type { JobProgress, JobStatus, Outline, Slide } from "./_types";
 
@@ -5,6 +6,9 @@ import type { JobProgress, JobStatus, Outline, Slide } from "./_types";
 export interface DemoMaterial {
   workspace: string;
   files: string[];
+  /** What the prepared run was made with, for the info like a real run shows it. */
+  angaben?: ErgebnisAngaben;
+  erstellt?: string | null;
 }
 
 export type DemoView = PraesentationView & DemoMaterial;

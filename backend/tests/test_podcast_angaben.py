@@ -62,3 +62,15 @@ def test_gespeicherte_angaben_gehen_vor(lokal):
     a = job_statistik.angaben_lesen({"user_id": UID, "job_uuid": JOB, "tool": "podcast"})
 
     assert a == {"anbieter": "Gemini", "besetzung": []}
+
+
+def test_anweisung_und_wer_das_skript_schrieb(lokal):
+    params = _params()
+    params.instructions = "Nur Kapitel 2"
+    store.save_params(UID, JOB, params)
+    job_statistik.notiere(UID, JOB, "skript", {"anbieter": "THL myLab", "modell": "m"})
+    job_statistik.angaben_merken(UID, JOB, {"anbieter": "HPC"})
+
+    a = job_statistik.angaben_lesen({"user_id": UID, "job_uuid": JOB, "tool": "podcast"})
+
+    assert a == {"anbieter": "HPC", "anweisung": "Nur Kapitel 2", "textanbieter": "THL myLab"}

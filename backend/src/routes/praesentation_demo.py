@@ -10,7 +10,8 @@ from fastapi.responses import FileResponse
 from src.dependencies import get_current_user
 from src.dependencies_rbac import require_tool_access
 from src.features.praesentation import store
-from src.features.praesentation.schemas import Slide
+from src.features.praesentation.angaben import angaben as praesentation_angaben
+from src.features.praesentation.schemas import PraesentationParams, Slide
 from src.i18n import get_locale, t
 from src.routes.praesentation.media import _SLIDE_ID, _SLOT, _bildplaetze, _verkleinert
 from src.utils.download_header import attachment
@@ -58,7 +59,16 @@ def demo_ansicht(_: dict = Depends(get_current_user), locale: str = Depends(get_
         "has_deck": (DEMO_DIR / store.DECK_FILE).exists(),
         "workspace": daten.get("workspace", ""),
         "files": daten.get("dateien", []),
+        "angaben": _angaben(daten),
+        "erstellt": daten.get("erstellt"),
     }
+
+
+def _angaben(daten: dict) -> dict:
+    """The info a real run shows, from its settings and the providers the prepared run recorded."""
+    params = PraesentationParams.model_validate(daten.get("params") or {})
+    werte = {**praesentation_angaben(params), **(daten.get("angaben") or {})}
+    return {k: v for k, v in werte.items() if v}
 
 
 @router.get("/praesentation-demo/preview/{slide_id}.png")

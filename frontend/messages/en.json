@@ -474,7 +474,11 @@
       "info": "About this result",
       "sources": "Material",
       "instructions": "Instruction",
-      "language": "Language"
+      "language": "Language",
+      "textProvider": "Text provider",
+      "imageProvider": "Image provider",
+      "template": "Template",
+      "imageStyle": "Image style"
     },
     "providerAvailability": "Not every provider is always available because computing capacity is limited. If one is missing, check back later."
   },

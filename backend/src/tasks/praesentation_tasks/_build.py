@@ -12,6 +12,7 @@ from src import database as db
 from src.celery_app import celery_app
 from src.features.praesentation import bau, bild
 from src.features.praesentation import folien, gliederung, store, teilung, vorlage, vorschau
+from src.features.praesentation.angaben import angaben as praesentation_angaben
 from src.features.praesentation.schemas import Outline, OutlineRow, Slide
 from src.features.praesentation.vorlage import Analyse
 from src.i18n import t
@@ -25,6 +26,7 @@ from src.services.text_map import Karte
 from src.services.json_llm import call_json_llm
 from src.services import sources as quellen
 from src.services.job_recovery import attempt_failed, still_mine
+from src.services.job_statistik import angaben_merken, route_kennung
 from src.services.provider_slots import ProviderFull
 from src.services.upstream_errors import is_upstream_busy
 from src.storage import save_result_and_evict
@@ -98,6 +100,7 @@ def run_praesentation_build(self, job_uuid: str, user_id: int, locale: str = "de
             except Exception as e:  # noqa: BLE001 - a missing preview must not cost the deck
                 logger.warning("Präsentation {}: Vorschau fehlgeschlagen: {}", job_uuid[:8], e)
 
+        _angaben_merken(user_id, job_uuid, params, bool(bilder))
         if final:
             name = (_DATEINAME.sub("", outline.title).strip() or "Praesentation")[:80]
             # The exact value the storage helper returned, the same idiom the podcast render uses.
@@ -311,6 +314,16 @@ def _bilder_erzeugen(job_uuid, user_id, style_text, fehlend: list[tuple], clock:
         erledigt = list(pool.map(eins, fehlend))
     if not all(erledigt):
         raise StageContinue
+
+
+def _angaben_merken(user_id, job_uuid, params, mit_bildern: bool) -> None:
+    """Keeps what the deck was made with for its info, a failure there must not cost the deck."""
+    try:
+        angaben_merken(user_id, job_uuid, praesentation_angaben(
+            params, route_kennung("chat", params.llm_provider_id)["anbieter"],
+            route_kennung("image_gen")["anbieter"] if mit_bildern else ""))
+    except Exception as e:  # noqa: BLE001 - the info is an extra beside the result
+        logger.warning("Präsentation {}: Angaben nicht gemerkt ({})", job_uuid[:8], e)
 
 
 def _bilder_laden(user_id, job_uuid, slides: list[Slide]) -> dict[str, bytes]:

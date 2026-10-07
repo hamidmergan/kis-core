@@ -80,13 +80,26 @@ def angaben_lesen(job: dict) -> dict:
         if params.get("provider_id"):
             angaben.setdefault("anbieter", anbieter_name(params["provider_id"]))
         angaben.setdefault("anweisung", _job_text(uid, uuid, INSTRUCTIONS_FILE).strip())
-    elif tool == "podcast" and not angaben:
+    elif tool == "podcast":
         from src.features.podcast import store as podcast_store
         from src.features.podcast.angaben import angaben as podcast_angaben
 
         params = podcast_store.load_params(uid, uuid)
         if params:
-            angaben = podcast_angaben(params, podcast_store.load_pin(uid, uuid))
+            if not angaben:
+                angaben = podcast_angaben(params, podcast_store.load_pin(uid, uuid))
+            angaben.setdefault("anweisung", params.instructions.strip())
+        # The script's provider is already measured for the admins, the info reuses it.
+        skript = ((load_result_meta(uid, uuid) or {}).get("stats") or {}).get("skript") or {}
+        angaben.setdefault("textanbieter", skript.get("anbieter"))
+    elif tool == "praesentation":
+        from src.features.praesentation import store as praesentation_store
+        from src.features.praesentation.angaben import angaben as praesentation_angaben
+
+        params = praesentation_store.load_params(uid, uuid)
+        if params:
+            for k, v in praesentation_angaben(params).items():
+                angaben.setdefault(k, v)
     elif tool in ("screencast_translate", "screencast_render"):
         # The render keeps the voice that really spoke, after a fallback too.
         params = json.loads(_job_text(uid, uuid, "render_params.json") or "{}")

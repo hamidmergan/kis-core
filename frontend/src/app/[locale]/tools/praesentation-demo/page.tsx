@@ -49,6 +49,8 @@ function PraesentationDemoLauf({ onNeu }: { onNeu: () => void }) {
     return () => abortRef.current?.abort();
   }, []);
 
+  const demoAuftrag = view ? { angaben: view.angaben ?? {}, erstellt: view.erstellt ?? null, datei: null } : undefined;
+
   const neuerLauf = () => {
     abortRef.current?.abort();
     const ctrl = new AbortController();
@@ -158,12 +160,13 @@ function PraesentationDemoLauf({ onNeu }: { onNeu: () => void }) {
                 onNotesInclude={(include) => dispatch({ type: "SET_NOTES_INCLUDE", include })}
                 onSlide={keineAktion} onMove={keineAktion} onDelete={keineAktion} onInsertAfter={keineAktion}
                 onRegenImage={keineAktion} onAnchor={keineAktion} onRestart={onNeu} onCancel={abbrechen}
-                onResume={starten} onFinalize={fertigstellen} demo />
+                onResume={starten} onFinalize={fertigstellen} demo auftrag={demoAuftrag} />
             )}
             {state.step === "done" && (
               <DoneStep jobUuid={api.DEMO_JOB} slides={state.slides} previews={state.previews}
                 jobStatus={state.jobStatus} progress={state.progress} error={state.error}
-                onResume={fertigstellen} onBackToPreview={zurueckZurVorschau} onNew={onNeu} onCancel={zurueckZurVorschau} demo />
+                onResume={fertigstellen} onBackToPreview={zurueckZurVorschau} onNew={onNeu} onCancel={zurueckZurVorschau} demo
+                auftrag={demoAuftrag} />
             )}
           </>
         )}

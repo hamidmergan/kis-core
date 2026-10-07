@@ -42,6 +42,7 @@ def praesentation(tmp_path):
         "outline": {"title": "Der Projektstart!", "subtitle": "", "rows": []},
         "slides": [_folie("s1", 1), _folie("s2", 1)],
         "workspace": "Projektmanagement", "dateien": ["Skript.pdf"],
+        "angaben": {"anbieter": "HPC", "bildanbieter": "HPC Bild"}, "erstellt": "2026-10-01T09:57:28Z",
     }), encoding="utf-8")
     (tmp_path / "preview").mkdir()
     (tmp_path / "images").mkdir()
@@ -129,6 +130,8 @@ def test_praesentation_ansicht_wie_ein_fertiger_lauf(client):
     assert v["missing_images"] == ["s2"]
     assert v["has_deck"] is True
     assert v["files"] == ["Skript.pdf"]
+    assert v["angaben"] == {"anbieter": "HPC", "bildanbieter": "HPC Bild", "vorlage": "thl", "sprache": "de"}
+    assert v["erstellt"] == "2026-10-01T09:57:28Z"
     assert client.get("/praesentation-demo/available").json() == {"available": True}
 
 

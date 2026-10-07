@@ -61,6 +61,7 @@ export default function DoneStep(props: DoneStepProps) {
       <div className="relative rounded-xl border border-kb/15 bg-kb/5 p-4 sm:p-5">
       <div className="absolute top-3 right-3">
         <ErgebnisInfoKnopf auftrag={auftrag} zeilen={[
+          { label: tResult("textProvider"), wert: angaben?.textanbieter },
           { label: t("infoProvider"), wert: angaben?.anbieter },
           { label: tResult("language"), wert: sprachName(angaben?.sprache, locale) },
           { label: t("infoCast"), wert: angaben?.besetzung?.map((b) => {
@@ -68,6 +69,7 @@ export default function DoneStep(props: DoneStepProps) {
             return `${b.name} (${rolle})${b.stimme ? `: ${b.stimme}` : ""}`;
           }).join("\n") },
           { label: tResult("sources"), wert: angaben?.material?.split(", ").join("\n") },
+          { label: tResult("instructions"), wert: angaben?.anweisung },
         ]} />
       </div>
       <div className="flex justify-center mb-4">

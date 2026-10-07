@@ -1,4 +1,5 @@
 import type { JobProgress, JobStatus, Outline, OutlineRow, PraesentationState, Slide, Vorlage } from "./_types";
+import type { DemoView } from "./_demo";
 
 export interface PraesentationView {
   job_uuid: string;
@@ -110,7 +111,7 @@ const ablage = (uuid: string) => (uuid === DEMO_JOB ? "/api/praesentation-demo" 
 
 export const fetchDemo = () =>
   fetch("/api/praesentation-demo/ansicht", { credentials: "include" })
-    .then((r) => json<PraesentationView & { workspace: string; files: string[] }>(r));
+    .then((r) => json<DemoView>(r));
 
 export const demoAvailable = () =>
   fetch("/api/praesentation-demo/available", { credentials: "include" })

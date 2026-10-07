@@ -50,7 +50,8 @@ def get_job_status(
         except Exception:
             pass
 
-    if job["status"] == "success":
+    # A presentation waits for its check with the slides already made, its info stands from there.
+    if job["status"] in ("success", "awaiting_user"):
         try:
             response["angaben"] = angaben_lesen(job)
         except Exception as e:
