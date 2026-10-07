@@ -29,7 +29,7 @@ const HEUTE_KANTE: React.CSSProperties = {
   top: 0,
   left: 0,
   right: 0,
-  height: 2,
+  height: 3,
   backgroundColor: "var(--kb)",
 };
 
@@ -553,19 +553,22 @@ export default function ScheduleMonth({ initialDate }: { initialDate?: string })
     </div>
 
     <aside
-      className="hidden xl:block xl:pl-5"
+      className="hidden xl:flex xl:flex-col xl:pl-5"
       style={{ borderLeft: "1px solid var(--border-soft)" }}
     >
-      <p className="text-2xs font-bold uppercase tracking-wide mb-3" style={{ color: "var(--muted)" }}>
+      <p className="text-2xs font-bold uppercase tracking-wide mb-3 shrink-0" style={{ color: "var(--muted)" }}>
         {sideHeading}
       </p>
-      {sideEntries.length > 0 ? (
-        rows(sideEntries)
-      ) : (
-        <p className="text-xs py-4" style={{ color: "var(--muted)" }}>
-          {t(selected ? "month.emptyDay" : "month.empty")}
-        </p>
-      )}
+      {/* Bei vielen Terminen rollt die Liste, statt die Seite länger zu ziehen als das Raster links. */}
+      <div className="xl:max-h-[68vh] overflow-y-auto">
+        {sideEntries.length > 0 ? (
+          rows(sideEntries)
+        ) : (
+          <p className="text-xs py-4" style={{ color: "var(--muted)" }}>
+            {t(selected ? "month.emptyDay" : "month.empty")}
+          </p>
+        )}
+      </div>
     </aside>
 
     {(modalOpen || editing) && (
