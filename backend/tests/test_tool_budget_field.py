@@ -46,3 +46,27 @@ def test_the_same_material_fills_the_same_amount_for_every_tool(feld):
     erster = cb.fill_sources_evenly(quellen)
     zweiter = cb.fill_sources_evenly(quellen)
     assert len(erster[0][2]) == len(zweiter[0][2])
+
+
+def _fenster(monkeypatch, fenster, quelle):
+    from src.services import model_limits as ml
+    profil = None if fenster is None else ml.ModelProfile(fenster, quelle, False, "")
+    monkeypatch.setattr(ml, "profile_for_feature", lambda feature="chat": profil)
+
+
+def test_ein_kleines_von_hand_gesetztes_fenster_ist_ein_kleines_modell(monkeypatch):
+    from src.services import model_limits as ml
+    monkeypatch.setattr("src.database.get_setting", lambda key, default: default)
+    _fenster(monkeypatch, 32768, ml.QUELLE_GESETZT)
+    assert cb.small_model() is True
+
+
+@pytest.mark.parametrize("fenster,quelle", [
+    (262144, "gesetzt"),   # myLab: entered by hand, but bigger than the field needs
+    (32768, "gemessen"),   # measured windows never decide
+    (None, "gesetzt"),     # nothing known about the model
+])
+def test_cloud_anbieter_bleiben_beim_gewohnten_weg(monkeypatch, fenster, quelle):
+    monkeypatch.setattr("src.database.get_setting", lambda key, default: default)
+    _fenster(monkeypatch, fenster, quelle)
+    assert cb.small_model() is False

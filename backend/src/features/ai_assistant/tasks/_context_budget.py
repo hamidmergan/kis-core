@@ -29,13 +29,22 @@ def context_budget() -> int:
 
 def tool_context_budget() -> int:
     """Character budget of the overview tools, the same admin field for all of them."""
+    return model_limits.cap_for_admin_window(_tool_field(), model_limits.TOOL_SHARE)
+
+
+def _tool_field() -> int:
+    """The admin field of the overview tools, before any model window caps it."""
     from src import database as db
     try:
         value = int(db.get_setting("aia_tool_context_max_chars", str(AIA_TOOL_CONTEXT_MAX_CHARS)))
     except (ValueError, TypeError):
         value = AIA_TOOL_CONTEXT_MAX_CHARS
-    return model_limits.cap_for_admin_window(max(1000, min(value, AIA_TOOL_CONTEXT_HARD_CAP)),
-                                             model_limits.TOOL_SHARE)
+    return max(1000, min(value, AIA_TOOL_CONTEXT_HARD_CAP))
+
+
+def small_model() -> bool:
+    """True when an admin-entered window shrinks the tools' budget, the tools then work in smaller steps."""
+    return tool_context_budget() < _tool_field()
 
 
 def exercise_context_budget(count: int) -> int:

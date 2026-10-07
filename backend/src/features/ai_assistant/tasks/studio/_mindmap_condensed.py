@@ -212,6 +212,118 @@ def apply_located(paare: list[tuple[dict, list[dict]]], antwort: dict) -> int:
     return gesetzt
 
 
+def within(text: str, limit_chars: int) -> str:
+    """The text cut at the last passage that still fits, so no passage is half sent."""
+    if len(text) <= limit_chars:
+        return text
+    cut = text.rfind("\n\n", 0, limit_chars)
+    return text[:cut] if cut > 0 else text[:limit_chars]
+
+
+def branch_files(branch: dict, dateien: dict[str, str]) -> set[str]:
+    """The files the nodes of one main branch rest on."""
+    out: set[str] = set()
+
+    def sammeln(node: dict) -> None:
+        label = dateien.get((node.get("topic") or "").strip())
+        if label:
+            out.add(label)
+        for child in node.get("children") or []:
+            sammeln(child)
+
+    sammeln(branch)
+    return out
+
+
+def located_in_batches(paare: list[tuple[dict, list[dict]]], limit_chars: int
+                       ) -> list[list[tuple[dict, list[dict]]]]:
+    """The leaves in groups whose numbered list stays within the limit, at least one leaf each."""
+    gruppen: list[list] = []
+    aktuell: list = []
+    for paar in paare:
+        if aktuell and len(locate_context(aktuell + [paar])) > limit_chars:
+            gruppen.append(aktuell)
+            aktuell = []
+        aktuell.append(paar)
+    if aktuell:
+        gruppen.append(aktuell)
+    return gruppen
+
+
+def build_small(*, sources: list[dict], language: str, adaptive_suffix: str, ask,
+                embed, search, limit_chars: int, stand: dict, verify=None, locate=None
+                ) -> dict | None:
+    """The same map for a small model: one deepening call per main branch, every step remembered."""
+    import json as _json
+    from src.features.ai_assistant.prompts.studio_prompts import (
+        AIA_MINDMAP_DEEPEN_PROMPT,
+        AIA_MINDMAP_LOCATE_PROMPT,
+        AIA_MINDMAP_SKELETON_PROMPT,
+    )
+
+    skeleton = stand.get("skelett")
+    if skeleton is None:
+        skeleton = ask([
+            {"role": "system",
+             "content": AIA_MINDMAP_SKELETON_PROMPT.replace("{language}", language) + adaptive_suffix},
+            {"role": "user", "content": "/no_think\nSummaries:\n\n"
+             + within(summary_context(sources), limit_chars)},
+        ])
+        if not isinstance(skeleton, dict) or "topic" not in skeleton:
+            return None
+        stand["skelett"] = skeleton
+
+    bekannt = {s["label"] for s in sources if s.get("label")}
+    dateien = skeleton_sources(skeleton, bekannt)
+    skeleton.pop("source_label", None)
+    treffer = search_evidence(node_topics(skeleton), embed=embed, search=search)
+
+    aeste: list[dict] = []
+    for i, ast in enumerate(skeleton.get("children") or []):
+        fertig_ast = stand.get(f"ast{i}")
+        if fertig_ast is None:
+            teil = {"topic": skeleton["topic"], "children": [ast]}
+            belege = evidence_context({t: treffer[t] for t in node_topics(teil) if t in treffer})
+            eigene = branch_files(ast, dateien)
+            zusammenfassungen = summary_context(
+                [s for s in sources if s.get("label") in eigene] or sources)
+            fertig_ast = ast
+            if belege:
+                # Skeleton and summaries go in whole, the passages take what room is left.
+                kopf = ("/no_think\nSkeleton:\n" + _json.dumps(teil, ensure_ascii=False)
+                        + "\n\nSummaries:\n\n" + zusammenfassungen + "\n\nPassages:\n\n")
+                antwort = ask([
+                    {"role": "system",
+                     "content": AIA_MINDMAP_DEEPEN_PROMPT.replace("{language}", language) + adaptive_suffix},
+                    {"role": "user", "content": kopf + within(belege, max(1, limit_chars - len(kopf)))},
+                ])
+                kinder = antwort.get("children") if isinstance(antwort, dict) else None
+                if isinstance(kinder, list) and len(kinder) == 1 and isinstance(kinder[0], dict):
+                    fertig_ast = kinder[0]
+                else:
+                    logger.warning("Mindmap: Ast {} unbrauchbar vertieft, er bleibt wie im Gerippe", i + 1)
+            stand[f"ast{i}"] = fertig_ast
+        aeste.append(fertig_ast)
+
+    fertig = {"topic": skeleton["topic"], "children": aeste}
+    if verify is not None:
+        ohne_deckung = strip_unbacked(fertig, verify)
+        logger.info("Mindmap: {} Belege ohne Deckung entfernt", ohne_deckung)
+    fill_sources(fertig, dateien)
+
+    offen = pageless_leaves(fertig)
+    if offen and locate is not None:
+        paare = [(blatt, kandidaten) for blatt in offen
+                 if (kandidaten := locate(blatt["topic"], blatt["source_label"], _PER_LEAF))]
+        for gruppe in located_in_batches(paare, limit_chars):
+            wahl = ask([
+                {"role": "system", "content": AIA_MINDMAP_LOCATE_PROMPT},
+                {"role": "user", "content": "/no_think\n" + locate_context(gruppe)},
+            ])
+            apply_located(gruppe, wahl if isinstance(wahl, dict) else {})
+    return fertig
+
+
 def build(*, sources: list[dict], language: str, adaptive_suffix: str, ask,
           embed, search, verify=None, locate=None) -> dict | None:
     """Two calls: the summaries give the structure, the searched passages give the depth."""

@@ -416,3 +416,89 @@ def test_material_that_does_not_fit_goes_through_the_summaries():
 
 def test_without_summaries_the_raw_way_stays_even_when_it_does_not_fit():
     assert mc.should_condense(110_000, 100_000, _OHNE) is False
+
+
+# --- build_small: a small model takes one deepening call per main branch -------
+
+_DREI_AESTE = {"topic": "Wurzel", "children": [
+    {"topic": "Ast A", "source_label": "a.pdf"},
+    {"topic": "Ast B", "source_label": "b.pdf"},
+    {"topic": "Ast C", "source_label": "a.pdf"}]}
+
+
+def _ast(topic):
+    return {"topic": "Wurzel", "children": [{"topic": topic, "children": [{"topic": topic + " 1"}]}]}
+
+
+def _klein(antworten, stand=None, limit=100000, **over):
+    calls = []
+
+    def ask(messages):
+        calls.append(messages)
+        return antworten[len(calls) - 1] if len(calls) <= len(antworten) else None
+
+    def suche(q, vec, limit):
+        datei = "b.pdf" if "B" in q else "a.pdf"
+        return [_chunk(datei, 7 if datei == "b.pdf" else 3)]
+
+    args = dict(sources=[_src(1, "a.pdf", "Über Alpha."), _src(2, "b.pdf", "Über Beta.")],
+                language="Deutsch", adaptive_suffix="", ask=ask, embed=lambda t: [0.1],
+                search=suche, limit_chars=limit, stand={} if stand is None else stand)
+    args.update(over)
+    return mc.build_small(**args), calls
+
+
+def test_klein_jeder_hauptast_bekommt_einen_eigenen_aufruf():
+    karte, calls = _klein([_DREI_AESTE, _ast("Ast A"), _ast("Ast B"), _ast("Ast C")])
+    assert len(calls) == 4
+    assert [k["topic"] for k in karte["children"]] == ["Ast A", "Ast B", "Ast C"]
+    assert karte["children"][1]["children"][0]["topic"] == "Ast B 1"
+
+
+def test_klein_ein_ast_sieht_nur_seine_eigenen_belege():
+    _karte, calls = _klein([_DREI_AESTE, _ast("Ast A"), _ast("Ast B"), _ast("Ast C")])
+    ast_b = calls[2][1]["content"]
+    assert "[b.pdf, S. 7]" in ast_b and "[a.pdf, S. 3]" not in ast_b
+    assert "Über Beta." in ast_b and "Über Alpha." not in ast_b
+
+
+def test_klein_ein_kaputter_ast_bleibt_wie_im_gerippe():
+    karte, _calls = _klein([_DREI_AESTE, _ast("Ast A"), None, _ast("Ast C")])
+    assert karte["children"][1]["topic"] == "Ast B"
+    assert "children" not in karte["children"][1]
+
+
+def test_klein_ein_neuer_lauf_macht_beim_gemerkten_stand_weiter():
+    """Ran out of time after branch A: the next run asks only for B and C."""
+    stand = {"skelett": _DREI_AESTE, "ast0": _ast("Ast A")["children"][0]}
+    karte, calls = _klein([_ast("Ast B"), _ast("Ast C")], stand=stand)
+    assert len(calls) == 2
+    assert "Ast B" in calls[0][1]["content"] and "Ast C" in calls[1][1]["content"]
+    assert karte["children"][0]["children"][0]["topic"] == "Ast A 1"
+
+
+def test_klein_jeder_schritt_wird_gemerkt():
+    stand = {}
+    _klein([_DREI_AESTE, _ast("Ast A"), _ast("Ast B"), _ast("Ast C")], stand=stand)
+    assert set(stand) == {"skelett", "ast0", "ast1", "ast2"}
+
+
+def test_klein_kein_aufruf_ist_groesser_als_die_grenze():
+    viel = [_chunk("a.pdf", s) for s in range(1, 40)]
+    for c in viel:
+        c["content"] = "x" * 500
+    _karte, calls = _klein([_DREI_AESTE, _ast("Ast A"), _ast("Ast B"), _ast("Ast C")],
+                           limit=3000, search=lambda q, vec, limit: viel)
+    assert all(len(c[1]["content"]) <= 3000 for c in calls[1:])
+
+
+def test_ohne_gerippe_gibt_es_keine_karte():
+    karte, calls = _klein([None])
+    assert karte is None and len(calls) == 1
+
+
+def test_seitensuche_wird_in_passende_gruppen_geteilt():
+    blatt = lambda i: ({"topic": f"N{i}"}, [{"content": "y" * 400}])
+    gruppen = mc.located_in_batches([blatt(i) for i in range(10)], 1000)
+    assert len(gruppen) > 1 and sum(len(g) for g in gruppen) == 10
+    assert all(len(mc.locate_context(g)) <= 1000 for g in gruppen)

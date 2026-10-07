@@ -28,12 +28,14 @@ def _is_media_source(filename: str) -> bool:
     return aia_chunker.is_media_file(Path(filename).suffix)
 
 
-def _ask_json(client, model, messages: list[dict], mindmap_id: int) -> dict | None:
+def _ask_json(client, model, messages: list[dict], mindmap_id: int,
+              max_tokens: int | None = None) -> dict | None:
     """One request that must answer JSON, with a second try on a broken answer."""
     import json as _json
+    grenze = {"max_tokens": max_tokens} if max_tokens else {}
     for attempt in range(2):
         response = create_logged(client, endpoint="mindmap", model=model,
-                                 messages=messages, temperature=0.2)
+                                 messages=messages, temperature=0.2, **grenze)
         msg = response.choices[0].message
         raw = msg.content or getattr(msg, "reasoning_content", None)
         if not raw:
@@ -52,6 +54,43 @@ def _ask_json(client, model, messages: list[dict], mindmap_id: int) -> dict | No
             logger.warning("mindmap {} JSON parse failed (attempt {}/2): {}",
                            mindmap_id, attempt + 1, e)
     return None
+
+
+class _Zwischenstand:
+    """The finished steps of a small model's map in Redis, so a requeued run continues there."""
+
+    def __init__(self, mindmap_id: int):
+        self._key = f"kis:mindmap-stand:{mindmap_id}"
+
+    def _redis(self):
+        import os
+        import redis
+        return redis.from_url(os.environ.get("REDIS_URL", "redis://kis-redis:6379/0"),
+                              socket_connect_timeout=2, socket_timeout=2)
+
+    def get(self, feld: str, default=None):
+        import json as _json
+        try:
+            roh = self._redis().hget(self._key, feld)
+        except Exception as e:  # noqa: BLE001 - without Redis the run simply starts from the front
+            logger.debug("Mindmap-Zwischenstand nicht lesbar: {}", e)
+            return default
+        return _json.loads(roh) if roh else default
+
+    def __setitem__(self, feld: str, wert) -> None:
+        import json as _json
+        try:
+            r = self._redis()
+            r.hset(self._key, feld, _json.dumps(wert, ensure_ascii=False))
+            r.expire(self._key, 86400)
+        except Exception as e:  # noqa: BLE001
+            logger.debug("Mindmap-Zwischenstand nicht speicherbar: {}", e)
+
+    def loeschen(self) -> None:
+        try:
+            self._redis().delete(self._key)
+        except Exception as e:  # noqa: BLE001
+            logger.debug("Mindmap-Zwischenstand nicht loeschbar: {}", e)
 
 
 def _collect_sources(source_ids: list[int], source_uuids: list[str]
@@ -83,6 +122,7 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
     """Generates a mind map from the sources as a background job."""
     # A requeued run takes the seat along and gives it back itself.
     platz_weiter = False
+    klein = False
     import json as _json
 
     from src.features.ai_assistant.tasks._helpers import learning_tools_language
@@ -121,9 +161,13 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
         # Whoever fits gets read in full, only the rest goes through the summaries.
         gesamt = sum(len(c.get("content") or "")
                      for _s, _l, alle, _p in gesammelt for c in alle)
+        # A small model always goes the stepwise way, its single call would write too long.
+        from src.features.ai_assistant.tasks._context_budget import small_model
+        klein = small_model()
         # Found spots always fit, they take the single call.
-        verdichtet = wahl.chunks is None and _condensed.should_condense(
-            gesamt, tool_context_budget(), quellen)
+        verdichtet = wahl.chunks is None and (
+            _condensed.should_condense(gesamt, tool_context_budget(), quellen)
+            or (klein and _condensed.usable(quellen)))
         logger.info("mindmap {}: {} Zeichen Material, Weg {}", mindmap_id, gesamt,
                     "verdichtet" if verdichtet else "Volltext")
 
@@ -199,13 +243,28 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
                     c["source_label"] = label
                 return treffer
 
-            mindmap = _condensed.build(
-                sources=quellen, language=language, adaptive_suffix=adaptive_suffix,
-                ask=lambda nachrichten: _ask_json(client, model, nachrichten, mindmap_id),
-                embed=_provider_emb.embed_one, search=_suche,
-                verify=lambda label, stelle: _stellen.get((label, str(stelle)), ""),
-                locate=_im_eigenen_dokument,
-            )
+            if klein:
+                from src.services import model_limits
+                # Every call also writes, so it reads only the chat share of the window.
+                mindmap = _condensed.build_small(
+                    sources=quellen, language=language, adaptive_suffix=adaptive_suffix,
+                    ask=lambda nachrichten: _ask_json(client, model, nachrichten, mindmap_id,
+                                                      max_tokens=model_limits.CHAT_MAX_OUTPUT_TOKENS),
+                    embed=_provider_emb.embed_one, search=_suche,
+                    limit_chars=model_limits.cap_for_admin_window(tool_context_budget(),
+                                                                  model_limits.CHAT_SHARE),
+                    stand=_Zwischenstand(mindmap_id),
+                    verify=lambda label, stelle: _stellen.get((label, str(stelle)), ""),
+                    locate=_im_eigenen_dokument,
+                )
+            else:
+                mindmap = _condensed.build(
+                    sources=quellen, language=language, adaptive_suffix=adaptive_suffix,
+                    ask=lambda nachrichten: _ask_json(client, model, nachrichten, mindmap_id),
+                    embed=_provider_emb.embed_one, search=_suche,
+                    verify=lambda label, stelle: _stellen.get((label, str(stelle)), ""),
+                    locate=_im_eigenen_dokument,
+                )
         else:
             mindmap = _ask_json(client, model, messages, mindmap_id)
 
@@ -269,6 +328,9 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
         logger.error("KI Tutor: mindmap {} generation failed: {}", mindmap_id, e)
         db.update_aia_mindmap(mindmap_id, "failed", error=str(e))
     finally:
+        # A finished or failed small-model map needs no remembered steps any more.
+        if klein and not platz_weiter:
+            _Zwischenstand(mindmap_id).loeschen()
         if _aia_job_uuid and not platz_weiter:
             try:
                 from src.features.ai_assistant.scheduling.service import on_complete

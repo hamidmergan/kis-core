@@ -39,6 +39,7 @@ def stack(monkeypatch):
     monkeypatch.setattr(mod, "_collect_sources", lambda ids, uuids: [
         (1, "u1.pdf", CHUNKS_A, CHUNKS_A), (2, "u2.pdf", CHUNKS_B, CHUNKS_B)])
     monkeypatch.setattr(mod, "tool_context_budget", lambda: 10_000)
+    monkeypatch.setattr("src.features.ai_assistant.tasks._context_budget.small_model", lambda: False)
     monkeypatch.setattr(mod, "build_adaptive_tool_suffix", lambda uid: "")
 
     def _ask(client, model, messages, mid):
