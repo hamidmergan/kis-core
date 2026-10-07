@@ -159,6 +159,8 @@ export default function EvaluationPage() {
   const frage = daten?.questions?.[index];
   const sichtbareFragen = daten?.questions?.filter((f) => istSichtbar(f, antworten)) ?? [];
   const position = frage ? sichtbareFragen.findIndex((f) => f.id === frage.id) + 1 : 0;
+  // Progress counts against every question, so hidden ones are jumped over instead of shrinking the total.
+  const gesamt = daten?.questions?.length ?? 0;
 
   return (
     <>
@@ -218,11 +220,11 @@ export default function EvaluationPage() {
               <div className="h-1 w-full rounded-full overflow-hidden" style={{ backgroundColor: "var(--surface-dim)" }}>
                 <div
                   className="h-full rounded-full bg-kb transition-all"
-                  style={{ width: `${(position / sichtbareFragen.length) * 100}%` }}
+                  style={{ width: `${((index + 1) / gesamt) * 100}%` }}
                 />
               </div>
               <p className="text-xs uppercase tracking-wide text-muted">
-                {t("progress", { current: position })}
+                {t("progress", { current: index + 1 })}
               </p>
               <div className="flex justify-center py-4">
                 <Mascot variant={figur} size={80} state="confused" />
