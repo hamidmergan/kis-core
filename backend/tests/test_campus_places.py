@@ -32,6 +32,15 @@ def test_codes_mit_und_ohne_trenner():
     assert [k["id"] for k in find_places("Treffpunkt A1 vor dem Eingang.", ORTE)] == ["Gebaeude_A_1"]
 
 
+def test_nummern_auch_roemisch():
+    assert [k["id"] for k in find_places("Das ZDL sitzt im MFC VII.", ORTE)] == ["MFC_7"]
+    assert [k["id"] for k in find_places("Im MFCVII, zweiter Stock.", ORTE)] == ["MFC_7"]
+    # Kleingeschrieben oder nach einbuchstabigem Code ist es ein Wort, kein Gebäude.
+    assert find_places("Das mfc vii stimmt so nicht.", ORTE) == []
+    assert find_places("Kurs zu AI und Daten.", ORTE) == []
+    assert find_places("Im MFC VIII ist es nicht.", ORTE) == []
+
+
 def test_unbekannt_und_grenze():
     assert find_places("Das Rathaus ist in der Innenstadt.", ORTE) == []
     viele = find_places("A.1, B.59, MFC 7 und die Cafeteria.", ORTE, limit=3)
