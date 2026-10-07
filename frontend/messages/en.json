@@ -3465,7 +3465,7 @@
           "resultTitle": "Your result",
           "skip": "Skip",
           "skipped": "Skipped",
-          "disclaimer": "Please keep in mind that this result was created by an AI, which can make mistakes.",
+          "disclaimer": "This platform uses AI and may make mistakes. Please verify the responses.",
           "continue": "Continue",
           "abort": "Cancel",
           "abortConfirmTitle": "Stop the test?",
