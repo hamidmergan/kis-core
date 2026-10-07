@@ -319,6 +319,8 @@
     "back": "Zurück",
     "next": "Weiter",
     "notTested": "Habe ich nicht getestet",
+    "selectAll": "Alle auswählen",
+    "deselectAll": "Alle abwählen",
     "submit": "Abschicken",
     "submitting": "Wird gesendet …",
     "submitError": "Senden fehlgeschlagen. Bitte versuche es erneut.",

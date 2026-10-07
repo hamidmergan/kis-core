@@ -319,6 +319,8 @@
     "back": "Back",
     "next": "Next",
     "notTested": "I haven't tried this",
+    "selectAll": "Select all",
+    "deselectAll": "Deselect all",
     "submit": "Submit",
     "submitting": "Sending …",
     "submitError": "Sending failed. Please try again.",

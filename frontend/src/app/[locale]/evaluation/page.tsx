@@ -132,6 +132,12 @@ export default function EvaluationPage() {
     setAntworten({ ...antworten, [id]: neu });
   }
 
+  function toggleAlle(id: string, optionen: string[]) {
+    const bisher = Array.isArray(antworten[id]) ? (antworten[id] as string[]) : [];
+    const alleGewaehlt = optionen.every((o) => bisher.includes(o));
+    setAntworten({ ...antworten, [id]: alleGewaehlt ? [] : [...optionen] });
+  }
+
   function nichtGetestet(id: string) {
     const aktualisiert = { ...antworten, [id]: NICHT_GETESTET };
     setAntworten(aktualisiert);
@@ -241,6 +247,29 @@ export default function EvaluationPage() {
                 />
               ) : (
                 <div className="flex flex-col gap-2">
+                  {frage.type === "multi" && frage.options && frage.options.length > 0 && (() => {
+                    const optionen = frage.options;
+                    const bisher = Array.isArray(antworten[frage.id]) ? (antworten[frage.id] as string[]) : [];
+                    const alleGewaehlt = optionen.every((o) => bisher.includes(o));
+                    return (
+                      <button
+                        type="button"
+                        onClick={() => toggleAlle(frage.id, optionen)}
+                        className="self-start flex items-center gap-3 px-4 py-1 text-sm text-foreground-soft"
+                      >
+                        <span
+                          className={
+                            "flex-shrink-0 w-5 h-5 flex items-center justify-center border-2 rounded-md transition-colors " +
+                            (alleGewaehlt ? "border-kb bg-kb" : "border-border")
+                          }
+                          style={{ color: "#fff" }}
+                        >
+                          {alleGewaehlt && <Check size={11} weight="bold" />}
+                        </span>
+                        {alleGewaehlt ? t("deselectAll") : t("selectAll")}
+                      </button>
+                    );
+                  })()}
                   {frage.options?.map((option) => {
                     const istMulti = frage.type === "multi";
                     const ausgewaehlt = istMulti
