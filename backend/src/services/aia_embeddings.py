@@ -1,6 +1,7 @@
 """The embedding provider, chosen through the admin route."""
 
 import json
+import re
 import time
 from abc import ABC, abstractmethod
 
@@ -208,6 +209,17 @@ def get_embedding_provider_with_fallback(*, timeout: float = 60.0,
 def fingerprint_from_dim(provider: EmbeddingProvider, dim: int) -> str:
     """Builds the fingerprint from an already known size, without a call."""
     return json.dumps({"model": provider.model_name, "dim": dim}, sort_keys=True)
+
+
+def same_embedding_space(a: str, b: str) -> bool:
+    """Equal size and model name apart from punctuation, Ollama writes qwen3-embedding:4b for qwen3-embedding-4b."""
+    def key(fp: str):
+        try:
+            d = json.loads(fp)
+            return re.sub(r"[^a-z0-9]", "", str(d.get("model", "")).lower()), d.get("dim")
+        except (ValueError, AttributeError):
+            return fp
+    return key(a) == key(b)
 
 
 def compute_fingerprint(provider: EmbeddingProvider) -> str:

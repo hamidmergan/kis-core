@@ -32,3 +32,18 @@ def test_fingerprint_differs_for_different_dimension():
     a = _JitteryProvider("some-model", dim=1024)
     b = _JitteryProvider("some-model", dim=768)
     assert compute_fingerprint(a) != compute_fingerprint(b)
+
+
+def test_ollama_schreibweise_gilt_als_gleiches_modell():
+    # Lokal 08.10.: Ollama heißt qwen3-embedding:4b, GWDG qwen3-embedding-4b, gleicher Index.
+    from src.services.aia_embeddings import same_embedding_space
+    gwdg = compute_fingerprint(_JitteryProvider("qwen3-embedding-4b", dim=2560))
+    ollama = compute_fingerprint(_JitteryProvider("qwen3-embedding:4b", dim=2560))
+    assert same_embedding_space(gwdg, ollama)
+
+
+def test_anderes_modell_oder_andere_groesse_bleibt_verschieden():
+    from src.services.aia_embeddings import same_embedding_space
+    basis = compute_fingerprint(_JitteryProvider("qwen3-embedding-4b", dim=2560))
+    assert not same_embedding_space(basis, compute_fingerprint(_JitteryProvider("qwen3-embedding:8b", dim=2560)))
+    assert not same_embedding_space(basis, compute_fingerprint(_JitteryProvider("qwen3-embedding-4b", dim=1024)))

@@ -96,10 +96,13 @@ def get_aia_sources_by_workspace(workspace_id: int) -> list[dict]:
 
 def list_aia_workspaces_with_stale_fingerprint(current_fingerprint: str) -> list[dict]:
     """Course rooms whose stored fingerprint differs from the current one."""
+    from src.services.aia_embeddings import same_embedding_space
+
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
-                """SELECT DISTINCT m.id, m.uuid, m.title, u.display_name AS owner
+                """SELECT DISTINCT m.id, m.uuid, m.title, u.display_name AS owner,
+                          m.embedding_fingerprint
                    FROM aia_workspaces m
                    JOIN aia_sources s ON s.workspace_id = m.id
                    LEFT JOIN users u ON u.id = m.user_id
@@ -108,7 +111,9 @@ def list_aia_workspaces_with_stale_fingerprint(current_fingerprint: str) -> list
                    ORDER BY m.title ASC""",
                 (current_fingerprint,),
             )
-            return [dict(row) for row in cur.fetchall()]
+            rows = [dict(row) for row in cur.fetchall()]
+    return [{k: v for k, v in r.items() if k != "embedding_fingerprint"} for r in rows
+            if not same_embedding_space(r["embedding_fingerprint"], current_fingerprint)]
 
 def get_all_aia_sources() -> list[dict]:
     """Return every KI-Assistent source across all workspaces - used for global re-indexing."""
