@@ -58,3 +58,44 @@ def test_nur_chat_aehnliche_funktionen(monkeypatch):
     c = _Client()
     feature_router.attach_stored_think_off(c, _binding("embedding"))
     assert c._extra_body is None
+
+
+# ── The tools: their retrying client sends the switch on every call ──────────
+
+class _Fake:
+    def __init__(self):
+        self.calls = []
+        outer = self
+
+        class _C:
+            def create(self, **kw):
+                outer.calls.append(kw)
+                return "ok"
+
+        class _Ch:
+            completions = _C()
+
+        self.chat = _Ch()
+
+
+def test_werkzeug_client_schickt_den_schalter_bei_jedem_aufruf():
+    from src.features.ai_assistant.tasks._retry import RetryingClient
+    fake = _Fake()
+    c = RetryingClient(fake, extra_body={"reasoning_effort": "none"})
+    c.chat.completions.create(model="m", messages=[])
+    assert fake.calls[0]["extra_body"] == {"reasoning_effort": "none"}
+
+
+def test_eigene_extra_body_eines_aufrufs_geht_vor():
+    from src.features.ai_assistant.tasks._retry import RetryingClient
+    fake = _Fake()
+    c = RetryingClient(fake, extra_body={"reasoning_effort": "none", "a": 1})
+    c.chat.completions.create(model="m", messages=[], extra_body={"a": 2})
+    assert fake.calls[0]["extra_body"] == {"reasoning_effort": "none", "a": 2}
+
+
+def test_ohne_schalter_bleibt_der_aufruf_unveraendert():
+    from src.features.ai_assistant.tasks._retry import RetryingClient
+    fake = _Fake()
+    RetryingClient(fake).chat.completions.create(model="m", messages=[])
+    assert "extra_body" not in fake.calls[0]

@@ -63,11 +63,15 @@ def call_with_retry(func, *args, sleep_fn=time.sleep, **kwargs):
 class _Completions:
     """Only ``create`` is intercepted, everything else passes through."""
 
-    def __init__(self, inner, sleep_fn):
+    def __init__(self, inner, sleep_fn, extra_body=None):
         self._inner = inner
         self._sleep_fn = sleep_fn
+        self._extra_body = dict(extra_body or {})
 
     def create(self, *args, **kwargs):
+        if self._extra_body:
+            # What a single call sends itself wins over the default.
+            kwargs["extra_body"] = {**self._extra_body, **(kwargs.get("extra_body") or {})}
         return call_with_retry(self._inner.create, *args, sleep_fn=self._sleep_fn, **kwargs)
 
     def __getattr__(self, name):
@@ -75,9 +79,9 @@ class _Completions:
 
 
 class _Chat:
-    def __init__(self, inner, sleep_fn):
+    def __init__(self, inner, sleep_fn, extra_body=None):
         self._inner = inner
-        self.completions = _Completions(inner.completions, sleep_fn)
+        self.completions = _Completions(inner.completions, sleep_fn, extra_body)
 
     def __getattr__(self, name):
         return getattr(self._inner, name)
@@ -86,9 +90,9 @@ class _Chat:
 class RetryingClient:
     """A wrapper around the client, only the model call is retried."""
 
-    def __init__(self, inner, sleep_fn=time.sleep):
+    def __init__(self, inner, sleep_fn=time.sleep, extra_body=None):
         self._inner = inner
-        self.chat = _Chat(inner.chat, sleep_fn)
+        self.chat = _Chat(inner.chat, sleep_fn, extra_body)
 
     def __getattr__(self, name):
         return getattr(self._inner, name)

@@ -70,7 +70,11 @@ def _get_llm_client():
     langfuse_context.update_current_observation(
         metadata={"provider": _provider, "base_url": _base_url, "model": _model},
     )
-    return RetryingClient(client), _model, _provider
+    from src.services import model_limits
+    # A thinking model would otherwise spend the tool's answer budget on its thoughts.
+    think_off = model_limits.think_off_body(
+        model_limits.stored_profile(binding.provider.get("id"), _model))
+    return RetryingClient(client, extra_body=think_off), _model, _provider
 
 
 def _clean_llm_json(text: str) -> str:
