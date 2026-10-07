@@ -1704,13 +1704,13 @@
       "anbinden": "Solche Dienste kannst du mit deinem eigenen Konto unter <link>Schnittstellen</link> anbinden. Die Texte gehen dann an den jeweiligen Anbieter."
     },
     "summarizeDemo": {
-      "demoBadge": "Demo",
+      "beenden": "Demo beenden",
       "hinweis": "Das ist die Demo. Du kannst die Vorlagen und Einstellungen ausprobieren, das Ergebnis ist aber immer die vorbereitete Zusammenfassung zur gewählten Vorlage.",
       "materialVorgegeben": "In der Demo sind Workspace, Material und Anweisung vorgegeben.",
       "keinErgebnis": "Für die Demo ist noch kein Ergebnis hinterlegt."
     },
     "praesentationDemo": {
-      "beenden": "Demo beenden",
+      "demoBadge": "Demo",
       "hinweis": "Das ist die Demo. Du kannst alle Schritte ausprobieren, das Ergebnis sind aber immer die vorbereiteten Folien.",
       "materialVorgegeben": "In der Demo sind Workspace, Material und Anweisung vorgegeben.",
       "keinErgebnis": "Für die Demo ist noch kein Ergebnis hinterlegt.",

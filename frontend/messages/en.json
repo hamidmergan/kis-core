@@ -1704,13 +1704,13 @@
       "anbinden": "You can connect such services with your own account under <link>Interfaces</link>. The texts are then sent to that provider."
     },
     "summarizeDemo": {
-      "demoBadge": "Demo",
+      "beenden": "End demo",
       "hinweis": "This is the demo. You can try the templates and settings, but the result is always the prepared summary for the chosen template.",
       "materialVorgegeben": "In the demo the workspace, material and instruction are fixed.",
       "keinErgebnis": "No result has been added for the demo yet."
     },
     "praesentationDemo": {
-      "beenden": "End demo",
+      "demoBadge": "Demo",
       "hinweis": "This is the demo. You can try every step, but the result is always the prepared slides.",
       "materialVorgegeben": "In the demo the workspace, material and instruction are fixed.",
       "keinErgebnis": "No result has been added for the demo yet.",
