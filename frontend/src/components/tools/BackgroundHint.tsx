@@ -7,8 +7,8 @@ import { Info } from "@phosphor-icons/react";
 export default function BackgroundHint({ className = "mt-6" }: { className?: string }) {
   const t = useTranslations("common");
   return (
-    <p className={`flex items-start gap-2 rounded-lg bg-surface px-4 py-3 text-left text-sm text-foreground-soft ${className}`}>
-      <Info size={14} className="mt-0.5 flex-shrink-0 text-muted-soft" aria-hidden="true" />
+    <p className={`flex items-start gap-2 rounded-lg border border-border bg-background px-4 py-3 text-left text-sm text-foreground-soft ${className}`}>
+      <Info size={14} className="mt-0.5 flex-shrink-0 text-kb-dark" aria-hidden="true" />
       {t("jobBackgroundHint")}
     </p>
   );
