@@ -77,6 +77,38 @@ def test_nach_drei_zeitgrenzen_ist_schluss(werkzeug):
     assert stand["status"][-1] == "failed" and stand["neu"] == []
 
 
+def _versteckte_zeitgrenze():
+    """The deadline the way the OpenAI SDK hands it on: wrapped in a connection error."""
+    import httpx
+    import openai
+    try:
+        try:
+            raise SoftTimeLimitExceeded()
+        except SoftTimeLimitExceeded as innen:
+            raise openai.APIConnectionError(request=httpx.Request("POST", "http://x")) from innen
+    except openai.APIConnectionError as aussen:
+        return aussen
+
+
+def test_eine_versteckte_zeitgrenze_zaehlt_als_zeitgrenze_nicht_als_wartende_ki(werkzeug):
+    """Am 07.10. lief eine Mindmap so in 12 Stunden Wiederholung statt nach 3 Laeufen zu enden."""
+    task, args, stand = werkzeug
+    stand["fehler"] = _versteckte_zeitgrenze()
+
+    task.run(*args, _aia_job_uuid="a1", anlauf=3)
+
+    assert stand["status"][-1] == "failed" and stand["neu"] == []
+
+
+def test_eine_versteckte_zeitgrenze_darf_vorher_neu_einreihen(werkzeug):
+    task, args, stand = werkzeug
+    stand["fehler"] = _versteckte_zeitgrenze()
+
+    task.run(*args, _aia_job_uuid="a1", anlauf=0)
+
+    assert len(stand["neu"]) == 1
+
+
 def test_nach_zwoelf_stunden_warten_ist_schluss(werkzeug):
     task, args, stand = werkzeug
     stand["fehler"] = RuntimeError("503 service unavailable")

@@ -402,7 +402,9 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
 
 def _wieder_einreihen(e: Exception, erstellt, anlauf: int, args: list, kwargs: dict) -> bool:
     """Puts the set back in the queue when only the provider was too slow or too busy."""
-    if isinstance(e, SoftTimeLimitExceeded):
+    from src.features.ai_assistant.tasks._retry import _soft_deadline
+    # The SDK hides an expired deadline behind a connection error, that is no busy provider.
+    if isinstance(e, SoftTimeLimitExceeded) or _soft_deadline(e) is not None:
         if anlauf >= _ZEITGRENZE_ANLAEUFE:
             return False
     elif not is_upstream_busy(e):

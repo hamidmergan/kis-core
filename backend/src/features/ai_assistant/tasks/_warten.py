@@ -27,7 +27,9 @@ def platz_nachfuehren(kwargs: dict, ergebnis) -> None:
 
 def wieder_einreihen(task, e: Exception, *, anlauf: int, seit: float | None, args: list, kwargs: dict) -> bool:
     """Requeues the same run after a short wait, the caller then keeps its seat and marks nothing failed."""
-    if isinstance(e, SoftTimeLimitExceeded):
+    from src.features.ai_assistant.tasks._retry import _soft_deadline
+    # The SDK hides an expired deadline behind a connection error, that is no busy provider.
+    if isinstance(e, SoftTimeLimitExceeded) or _soft_deadline(e) is not None:
         if anlauf >= ZEITGRENZE_ANLAEUFE:
             return False
     elif not is_upstream_busy(e):
