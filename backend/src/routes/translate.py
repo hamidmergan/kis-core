@@ -39,12 +39,13 @@ router = APIRouter(
 )
 
 @router.get("/translate/config")
-def get_translate_config(
+async def get_translate_config(
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
     from src.dependencies import get_translation_providers
-    raw_providers = get_translation_providers()
+    from src.services.feature_provider_choices import only_reachable
+    raw_providers = await only_reachable(get_translation_providers())
     providers = [{"id": p["id"], "label": p["name"]} for p in raw_providers]
 
     languages = [{"id": lang, "label": t(f"lang.{lang}", locale)} for lang in TRANSLATE_LANGUAGES]

@@ -122,14 +122,19 @@ async def _is_reachable(provider: dict) -> bool:
         return False
 
 
+async def only_reachable(providers: list[dict]) -> list[dict]:
+    """The providers that answer right now, order kept."""
+    flags = await asyncio.gather(*(_is_reachable(p) for p in providers))
+    return [p for p, ok in zip(providers, flags) if ok]
+
+
 async def list_reachable_choices(feature: str) -> dict:
     """The selectable providers with a default, empty when nothing is reachable."""
     candidates, route = _candidates(feature)
     if not candidates:
         return {"providers": [], "default_id": None}
 
-    flags = await asyncio.gather(*(_is_reachable(p) for p in candidates))
-    reachable = [p for p, ok in zip(candidates, flags) if ok]
+    reachable = await only_reachable(candidates)
 
     # The admin's first choice, else the admin's fallback, only then the oldest provider that answers.
     reachable_ids = {p["id"] for p in reachable}
