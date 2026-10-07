@@ -1,4 +1,4 @@
-"""Der Linkgang findet Seiten ohne Sitemap, achtet auf noindex und canonical und bleibt unter der Startadresse."""
+"""Der Linkgang findet Seiten ohne Sitemap, übergeht Kopien und bleibt unter der Startadresse."""
 import pytest
 
 from src.features.campus.services import crawler, links
@@ -6,17 +6,18 @@ from src.features.campus.services.fetch import FetchResult
 from src.features.campus.services.settings import CampusSettings
 
 
-def _seite(links_html: str = "", head: str = "") -> FetchResult:
-    return FetchResult("ok", body=f"<html><head>{head}</head><body>{links_html}</body></html>".encode())
+def _seite(text: str, links_html: str = "", head: str = "") -> FetchResult:
+    absatz = f"Auf dieser Seite steht {text}, und zwar in einem langen Absatz, damit die Extraktion ihn als Haupttext erkennt. " * 5
+    return FetchResult("ok", body=f"<html><head>{head}</head><body><main><h1>{text}</h1><p>{absatz}</p>{links_html}</main></body></html>".encode())
 
 
 SEITEN = {
-    "https://x.test/isy/": _seite('<a href="/isy/projekte/">P</a><a href="https://x.test/isy/team/">T</a><a href="/anderswo/">A</a><a href="/isy/flyer.pdf">F</a><a href="/isy/?type=1">Q</a><a href="#oben">O</a>'),
-    "https://x.test/isy/projekte/": _seite('<a href="dlc/">D</a><a href="/isy/projekte/p/2/">2</a><a href="/isy/weg/">W</a>'),
-    "https://x.test/isy/projekte/dlc/": _seite('<a href="/isy/projekte/dlc/dlc/">doppelt</a>'),
-    "https://x.test/isy/projekte/dlc/dlc/": _seite(head='<meta name="robots" content="noindex,nofollow">'),
-    "https://x.test/isy/projekte/p/2/": _seite('<a href="/isy/news/1/">N</a>', head='<link rel="canonical" href="https://x.test/isy/projekte/">'),
-    "https://x.test/isy/news/1/": _seite(),
+    "https://x.test/isy/": _seite("Start", '<a href="/isy/projekte/">P</a><a href="https://x.test/isy/team/">T</a><a href="/anderswo/">A</a><a href="/isy/flyer.pdf">F</a><a href="/isy/?type=1">Q</a><a href="#oben">O</a>'),
+    "https://x.test/isy/projekte/": _seite("Projekte", '<a href="dlc/">D</a><a href="/isy/projekte/p/2/">2</a><a href="/isy/weg/">W</a>'),
+    "https://x.test/isy/projekte/dlc/": _seite("DLC", '<a href="/isy/projekte/dlc/dlc/">doppelt</a>', head='<meta name="robots" content="noindex,nofollow">'),
+    "https://x.test/isy/projekte/dlc/dlc/": _seite("DLC", '<a href="/isy/projekte/dlc/dlc/">doppelt</a>'),
+    "https://x.test/isy/projekte/p/2/": _seite("Projekte Seite 2", '<a href="/isy/news/1/">N</a>', head='<link rel="canonical" href="https://x.test/isy/projekte/">'),
+    "https://x.test/isy/news/1/": _seite("Neuigkeit"),
     "https://x.test/isy/team/": FetchResult("error", error="http 500"),
     "https://x.test/isy/weg/": FetchResult("gone"),
 }

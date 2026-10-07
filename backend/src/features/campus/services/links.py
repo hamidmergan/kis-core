@@ -1,4 +1,5 @@
 """Walks the links below start addresses, for site sections that no sitemap lists."""
+import hashlib
 import re
 from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import urljoin, urlsplit, urlunsplit
@@ -8,6 +9,7 @@ from lxml import html as lxml_html
 
 from src.features.campus.services import fetch as fetch_mod
 from src.features.campus.services import sitemap
+from src.features.campus.services.extract import extract_markdown
 from src.limits import CAMPUS_CRAWL_CONCURRENCY, CAMPUS_LINK_WALK_MAX_PAGES
 
 # Links to files are no web pages, documents come in through the upload.
@@ -26,18 +28,20 @@ def _clean(url: str) -> str | None:
 
 
 def _read(body: bytes, url: str) -> tuple[list[str], bool]:
-    """Links of the page and whether the page wants to be indexed under this very address."""
+    """Links of the page and whether it is its own page rather than a view of another address."""
+    # Robots tags are ignored on purpose, the site marks real project pages noindex for search engines.
     try:
         tree = lxml_html.fromstring(body)
     except (ValueError, lxml_html.etree.ParserError):
         return [], False
-    robots = " ".join(tree.xpath("//meta[@name='robots']/@content")).lower()
     canonical = [_clean(urljoin(url, c)) for c in tree.xpath("//link[@rel='canonical']/@href")]
-    indexable = "noindex" not in robots and (not canonical or canonical[0] == url)
-    if "nofollow" in robots:
-        return [], indexable
     links = [_clean(urljoin(url, h)) for h in tree.xpath("//a/@href")]
-    return [link for link in links if link], indexable
+    return [link for link in links if link], not canonical or canonical[0] == url
+
+
+def _text_hash(body: bytes, url: str) -> str | None:
+    extracted = extract_markdown(body, url)
+    return hashlib.sha256(extracted.markdown.encode()).hexdigest() if extracted else None
 
 
 def walk(client, start_urls: str, include: list[str], exclude: list[str], fetch_fn=fetch_mod.fetch_conditional, max_pages: int = CAMPUS_LINK_WALK_MAX_PAGES) -> tuple[list[sitemap.SitemapEntry], set[str], bool]:
@@ -48,6 +52,7 @@ def walk(client, start_urls: str, include: list[str], exclude: list[str], fetch_
     level = list(starts)
     found: list[sitemap.SitemapEntry] = []
     unread: set[str] = set()
+    texts: set[str] = set()
     complete = True
     read = 0
 
@@ -70,8 +75,12 @@ def walk(client, start_urls: str, include: list[str], exclude: list[str], fetch_
                     unread.add(url)
                     continue
                 links, indexable = _read(result.body, url)
+                # The same text under a second address is a copy, the first address found keeps it.
                 if indexable and sitemap.allowed(url, include, exclude):
-                    found.append(sitemap.SitemapEntry(url, None))
+                    digest = _text_hash(result.body, url)
+                    if digest and digest not in texts:
+                        texts.add(digest)
+                        found.append(sitemap.SitemapEntry(url, None))
                 for link in links:
                     if link not in seen and link.startswith(prefixes) and not _FILE_SUFFIX.search(link) and fetch_mod.is_web_url(link):
                         seen.add(link)
