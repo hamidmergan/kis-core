@@ -2400,7 +2400,7 @@ async function initAnimations() {
 
     if (!cachedCampusMapSvg) {
         try {
-            const r = await fetch('assets/campus_map_v2.svg?v=20261004c');
+            const r = await fetch('assets/campus_map_v2.svg?v=20261007a');
             if (r.ok) cachedCampusMapSvg = await r.text();
         } catch (e) { }
     }
