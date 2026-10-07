@@ -107,6 +107,7 @@ export default function PreviewStep(p: PreviewStepProps) {
 
   return (
     <section className="animate-[fadeIn_0.3s_ease-out]">
+      {p.laeuft && !p.demo && <BackgroundHint />}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
         <div className="min-w-0 flex-1">
           {/* A stopped run says what happened in its own box below, it needs no heading. */}
@@ -207,7 +208,6 @@ export default function PreviewStep(p: PreviewStepProps) {
         </ol>
       )}
 
-      {p.laeuft && !p.demo && <BackgroundHint />}
       {p.laeuft && p.onCancel ? (
         <div className="flex justify-center mt-6">
           <button type="button" onClick={p.onCancel}

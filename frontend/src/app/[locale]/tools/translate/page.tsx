@@ -266,10 +266,12 @@ function UebersetzungPageInner() {
         <section className="min-w-0 order-first lg:order-none lg:col-start-2 lg:row-start-1">
           <div className="rounded-xl border border-kb/15 bg-kb/5 p-4 sm:p-5" aria-live="polite">
             {processing ? (
-              <div className="flex flex-col items-center justify-center gap-3 py-14 text-center">
-                <Spinner label={tCommon("processing")} />
+              <>
                 <BackgroundHint />
-              </div>
+                <div className="flex flex-col items-center justify-center gap-3 py-14 text-center">
+                  <Spinner label={tCommon("processing")} />
+                </div>
+              </>
             ) : doneJobUuid ? (
               <div className="space-y-3">
                 <div className="flex items-center justify-between gap-2">

@@ -39,6 +39,7 @@ export default function Antworten({ antworten, laeuft, label, fehler, dateiname,
 
   return (
     <div className="mt-3 space-y-3">
+      {laeuft && <BackgroundHint />}
       {antworten.map((a, i) => (
         <article key={a.jobUuid} className="rounded-md border-2 border-border-soft bg-background p-3">
           <div className="mb-1 flex items-start justify-between gap-2">
@@ -52,7 +53,6 @@ export default function Antworten({ antworten, laeuft, label, fehler, dateiname,
         </article>
       ))}
       {laeuft && <Spinner label={label} />}
-      {laeuft && <BackgroundHint className="" />}
       {fehler && <p className="text-sm text-error" role="alert">{fehler}</p>}
       {!antworten.length && !laeuft && !fehler && onNachfrage && <p className="text-sm text-muted">{t("empty")}</p>}
       {antworten.length > 0 && (

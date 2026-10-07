@@ -45,11 +45,11 @@ export default function DoneStep(p: DoneStepProps) {
   if (LAEUFT.has(p.jobStatus)) {
     const meldung = fortschrittMeldung(p.jobStatus, p.progress);
     return (
-      <section className="animate-[fadeIn_0.3s_ease-out] text-center py-10" aria-live="polite">
+      <section className={`animate-[fadeIn_0.3s_ease-out] text-center pb-10 ${p.demo ? "pt-10" : ""}`} aria-live="polite">
+        {!p.demo && <BackgroundHint />}
         <Spinner size="lg" className="justify-center mb-4" />
         <h2 className="text-lg font-bold">{t("building")}</h2>
         <p className="text-sm text-foreground-soft mt-1">{tSlides(meldung.key, meldung.values)}</p>
-        {!p.demo && <BackgroundHint />}
         <button type="button" onClick={p.onCancel}
                 className="btn-cancel mt-6 px-4 py-2 text-sm text-error border border-error-border rounded-md transition-colors inline-flex items-center gap-2">
           {cancelIcon}

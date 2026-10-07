@@ -7,6 +7,7 @@ import IconButton from "@/components/ui/IconButton";
 import SparkleIcon from "@/components/ui/SparkleIcon";
 import Select from "@/components/ui/Select";
 import Spinner from "@/components/ui/Spinner";
+import BackgroundHint from "@/components/tools/BackgroundHint";
 import StatusMark from "@/components/ui/StatusMark";
 import Speaker from "../_components/Speaker";
 import StepFooter from "../_components/StepFooter";
@@ -73,6 +74,7 @@ export default function ScriptStep(props: ScriptStepProps) {
   if (busy && lines.length === 0 && !selfWritten) {
     return (
       <section className="animate-[fadeIn_0.3s_ease-out]">
+        {!demo && <BackgroundHint />}
         <div className={`text-center ${draft.length ? "py-8" : "py-20"}`} role="status" aria-live="polite">
           <Spinner size="lg" className="justify-center mb-4" />
           <p className="text-sm text-foreground-soft animate-pulse">{t("generating")}</p>

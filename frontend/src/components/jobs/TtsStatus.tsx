@@ -43,13 +43,13 @@ export default function TtsStatus({
     <>
       {(state === "uploading" || state === "processing") && (
         <>
+          <BackgroundHint />
           <div className="flex items-center gap-3">
             <Spinner />
             <span className="text-sm text-foreground-soft">
               {state === "uploading" ? t("uploadingFile") : t("generatingAudio")}
             </span>
           </div>
-          <BackgroundHint />
         </>
       )}
 

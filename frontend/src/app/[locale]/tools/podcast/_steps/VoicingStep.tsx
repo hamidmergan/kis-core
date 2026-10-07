@@ -49,6 +49,7 @@ export default function VoicingStep(props: VoicingStepProps) {
 
   return (
     <section className="animate-[fadeIn_0.3s_ease-out] py-4" role="status" aria-live="polite">
+      {(running || wartet) && !demo && <BackgroundHint />}
       <div className="text-center">
         {rueckblick ? (
           <>
@@ -70,8 +71,6 @@ export default function VoicingStep(props: VoicingStepProps) {
           </>
         )}
       </div>
-
-      {(running || wartet) && !demo && <BackgroundHint />}
 
       {gestoert && (
         <div className="mt-6 rounded-lg border border-error-border bg-error-bg px-4 py-3" role="alert">

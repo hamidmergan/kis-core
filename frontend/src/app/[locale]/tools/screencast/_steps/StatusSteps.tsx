@@ -25,13 +25,13 @@ export function TranslatingStep({
 }) {
   const t = useTranslations("tools.screencast");
   return (
-    <section className="animate-[fadeIn_0.3s_ease-out] text-center py-20" role="status" aria-live="polite">
+    <section className={`animate-[fadeIn_0.3s_ease-out] text-center pb-20 ${ohneHintergrund ? "pt-20" : ""}`} role="status" aria-live="polite">
+      {!ohneHintergrund && <BackgroundHint />}
       <Spinner size="lg" className="justify-center mb-4" />
       <p className="text-sm text-foreground-soft animate-pulse">
         {skipTranslation ? t("translating.preparing") : t("translating.translating")}
       </p>
       <p className="text-xs text-muted-soft mt-2">{t("translating.subtle")}</p>
-      {!ohneHintergrund && <BackgroundHint />}
       <button
         onClick={onCancel}
         className="btn-cancel mt-6 px-4 py-2 text-sm text-error border border-error-border rounded-md transition-colors inline-flex items-center gap-2"
@@ -55,11 +55,11 @@ export function GeneratingScriptsStep({
 }) {
   const t = useTranslations("tools.screencast");
   return (
-    <section className="animate-[fadeIn_0.3s_ease-out] text-center py-20" role="status" aria-live="polite">
+    <section className={`animate-[fadeIn_0.3s_ease-out] text-center pb-20 ${ohneHintergrund ? "pt-20" : ""}`} role="status" aria-live="polite">
+      {!ohneHintergrund && <BackgroundHint />}
       <Spinner size="lg" className="justify-center mb-4" />
       <p className="text-sm text-foreground-soft animate-pulse">{t("generatingScripts.title")}</p>
       <p className="text-xs text-muted-soft mt-2">{t("generatingScripts.subtle", { n: slideCount })}</p>
-      {!ohneHintergrund && <BackgroundHint />}
       <button
         onClick={onCancel}
         className="btn-cancel mt-6 px-4 py-2 text-sm text-error border border-error-border rounded-md transition-colors inline-flex items-center gap-2"
@@ -91,8 +91,9 @@ export function RenderingStep({
   const t = useTranslations("tools.screencast");
   const tv = useTranslations("tools.screencast.vorschau");
   return (
-    <section className="animate-[fadeIn_0.3s_ease-out] py-10" role="status" aria-live="polite">
-      <div className="text-center">
+    <section className="animate-[fadeIn_0.3s_ease-out] pb-10" role="status" aria-live="polite">
+      {!rueckblick && !ohneHintergrund && <BackgroundHint />}
+      <div className={`text-center ${rueckblick || ohneHintergrund ? "pt-10" : ""}`}>
         {rueckblick ? (
           <h2 className="text-lg font-bold">{tv("rueckblick")}</h2>
         ) : (
@@ -104,7 +105,6 @@ export function RenderingStep({
             )}
           </>
         )}
-        {!rueckblick && !ohneHintergrund && <BackgroundHint />}
       </div>
 
       {vorschau}

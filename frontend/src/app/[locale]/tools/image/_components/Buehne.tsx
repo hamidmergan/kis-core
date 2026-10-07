@@ -39,10 +39,10 @@ const Buehne = forwardRef<HTMLDivElement, Props>(function Buehne(
       {meldungen.map((m) => <p key={m} className="mb-3 text-sm text-error" role="alert">{m}</p>)}
       {laeuft ? (
         <>
+          <BackgroundHint />
           <div className="flex aspect-video items-center justify-center rounded-md bg-surface-dim animate-pulse">
             <Spinner label={label} />
           </div>
-          <BackgroundHint className="mt-3" />
         </>
       ) : bild ? (
         <>
