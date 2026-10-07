@@ -88,7 +88,7 @@ def default_config() -> dict:
             "ignoreWindow": False,
             "from": "2026-11-06",
             "until": "2026-11-13",
-            "heading": _text("Tag der Lehre am 13.11.2026", "Day of Teaching on 13 November 2026"),
+            "heading": _text("Tag der Lehre am 13.11.2026", "Tag der Lehre on 13 November 2026"),
             "text": _text(
                 "KIS wird vorgestellt. Probiere es direkt aus oder sammle Stempel an allen Ständen.",
                 "KIS is presented. Try it right away or collect stamps at all stands.",
