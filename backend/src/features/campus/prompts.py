@@ -10,7 +10,14 @@ def precall_system() -> str:
         "- query: the newest question with every reference to the earlier rounds resolved "
         "(replace pronouns and ellipses with the thing meant), in the language of the newest question, "
         "nothing added, nothing answered.\n"
-        "- lang: the English name of the language the newest question is written in, for example German or English."
+        "- lang: the English name of the language the newest question is written in, for example German or English. "
+        "If the newest question is too short to tell (a greeting, a single word, a name, a code) and earlier "
+        "questions exist, take the language of the earlier questions.\n"
+        "Examples with earlier questions in German:\n"
+        "\"hi\" -> German\n"
+        "\"ok thanks\" -> German\n"
+        "\"MFC 7?\" -> German\n"
+        "\"Where can I find the library?\" -> English"
     )
 
 
