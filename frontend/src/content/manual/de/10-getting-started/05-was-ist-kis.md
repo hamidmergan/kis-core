@@ -20,7 +20,7 @@ herunterladen.
   Formatierung bleiben erhalten
 - **Text in Audio** liest Texte und Dokumente mit natürlich klingenden Stimmen vor
 - **Audio in Text** transkribiert Audio und Video, auch als Untertitel mit Zeitstempeln
-- **Zusammenfassung** führt mehrere Materialien zu einem Text zusammen, als Kurzbriefing,
+- **Report** führt mehrere Materialien zu einem Text zusammen, als Kurzbriefing,
   Lernleitfaden oder Zeitstrahl
 - **Screencast** macht aus PowerPoint-Folien ein vertontes Video, wahlweise in einer anderen Sprache
 - **Podcast** macht aus Material ein Gespräch zum Anhören, Sie prüfen das Skript und lassen es vertonen

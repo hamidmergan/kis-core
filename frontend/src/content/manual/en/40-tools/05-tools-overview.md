@@ -8,7 +8,7 @@ the tag Teachers, it is aimed at teaching staff.
 - **Translation** translates texts and documents between German and English and keeps the layout
 - **Text to audio** reads texts and documents aloud
 - **Audio to text** writes audio and video down
-- **Summary** brings several sources together into one text
+- **Report** brings several sources together into one text
 - **Screencast** turns slides into a narrated video
 - **Podcast** turns material into a conversation to listen to
 - **Presentation** turns material into a PowerPoint file in the university's design
@@ -28,7 +28,7 @@ of the two is the reason.
 
 ## Files or workspace
 
-Most services work with an uploaded file: in, result, download. Summary, podcast, presentation
+Most services work with an uploaded file: in, result, download. Report, podcast, presentation
 and the additional material of the screencast also have a Workspace tab. There you pick fully
 processed sources from one of your workspaces without uploading them again. The tab only appears
 when you may use the learning assistant.
@@ -46,13 +46,13 @@ header.
   finished.
 - **Both numbers** are changed by the administration under Limits.
 
-## Material for summary, podcast and presentation
+## Material for report, podcast and presentation
 
 The three services and the additional material of the screencast take the same material with the
 same limits:
 
 - **Amount**: up to 10 files or workspace sources per job, as PDF, Word, PowerPoint, text or
-  Markdown. The summary also takes subtitles as SRT and VTT.
+  Markdown. The report also takes subtitles as SRT and VTT.
 - **Per file**: 500 MB and 200 pages, both set by the administration.
 - **Together**: 500,000 characters across all files, fixed in the code. A counter on the page
   shows while you pick how much of it is used. If it is too much, the start stays locked until
@@ -62,7 +62,7 @@ same limits:
 
 ## The optional instruction
 
-Summary, podcast and presentation have an Instruction field. It stays empty when you want nothing
+Report, podcast and presentation have an Instruction field. It stays empty when you want nothing
 special. The AI reads the instruction next to the material and sorts it:
 
 - **A topic** narrows down: only chapter 2 plans everything around what the material says on it
@@ -70,7 +70,7 @@ special. The AI reads the instruction next to the material and sorts it:
 - **A wish about the manner** only shapes the text: for first-year students, short, with
   examples. The content stays that of the material, nothing is added.
 - **A topic the material does not cover** drops out. Podcast and presentation say so with a
-  notice and use all of the material, the summary does it silently.
+  notice and use all of the material, the report does it silently.
 - **Nonsense** or a request to leave the material drops out silently.
 
 After 500 characters the instruction is cut off.
@@ -84,7 +84,7 @@ allows:
 - **Video** from the screencast: a notice slide at the beginning and at the end
 - **Images**: in the image information of the PNG file
 - **Subtitles as VTT**: a note line that no player shows
-- **Summary**: a line below the title, in Markdown as in Word
+- **Report**: a line below the title, in Markdown as in Word
 - **Presentation**: AI generated in the bottom right of every slide
 
 Translated documents, subtitles as SRT, the transcript of a podcast and the transcript of the

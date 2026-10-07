@@ -12,7 +12,7 @@ DEFAULT_WELCOME_MODAL_TEXT = (
     "Workspaces, zu denen ihre Lehrenden sie eingeladen haben. Darin beantwortet "
     "Francis Fragen aus genau diesen Materialien. Lehrende finden daneben die "
     "Dienste, mit denen sich Lehrmaterial erzeugen lässt, etwa Übersetzung, "
-    "Screencast, Podcast und Zusammenfassung.\n\nMehr in der Dokumentation, oben "
+    "Screencast, Podcast und Report.\n\nMehr in der Dokumentation, oben "
     "rechts im Menü."
 )
 

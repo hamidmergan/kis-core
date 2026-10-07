@@ -146,8 +146,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "\"{name}\" carries {chars} characters and is read in one piece. The chosen model holds {window} tokens, {needed} would be needed. Please pick a larger model or a shorter file.",
     },
     "summary.tooManySources": {
-        "de": "Höchstens {max} Materialien je Zusammenfassung.",
-        "en": "At most {max} sources per summary.",
+        "de": "Höchstens {max} Materialien je Report.",
+        "en": "At most {max} sources per report.",
     },
     "summary.noFiles": {
         "de": "Bitte wähle mindestens eine Datei aus.",

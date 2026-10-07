@@ -26,7 +26,7 @@ Turns a PowerPoint file into a narrated video, in another language if you want.
 
 With AI generation you can hand over material whose matching passages flow into the scripts of
 the individual slides: up to 10 files or workspace sources, at most 500,000 characters together.
-The same limits apply as for the summary.
+The same limits apply as for the report.
 
 ## Subtitles
 

@@ -26,7 +26,7 @@ Macht aus einer PowerPoint-Datei ein vertontes Video, auf Wunsch in einer andere
 
 Bei der KI-Generierung können Sie Material mitgeben, aus dem passende Stellen in die Sprechtexte
 der einzelnen Folien einfließen: bis zu 10 Dateien oder Workspace-Materialien, zusammen höchstens
-500.000 Zeichen. Es gelten dieselben Grenzen wie bei der Zusammenfassung.
+500.000 Zeichen. Es gelten dieselben Grenzen wie beim Report.
 
 ## Untertitel
 

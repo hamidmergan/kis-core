@@ -140,7 +140,7 @@ MESSAGES: dict[str, dict[str, str]] = {
     },
     # Quota labels (interpolated into quota.limitReached)
     "quota.label.tts": {"de": "Text in Audio", "en": "Text to audio"},
-    "quota.label.summary": {"de": "Zusammenfassung", "en": "Summary"},
+    "quota.label.summary": {"de": "Report", "en": "Report"},
     "quota.label.translate": {"de": "Dokumentenübersetzung", "en": "Document translation"},
     "quota.label.transcription": {"de": "Transkription", "en": "Transcription"},
     "quota.label.image_generate": {"de": "Bild-Generierung", "en": "Image generation"},
@@ -575,7 +575,7 @@ MESSAGES: dict[str, dict[str, str]] = {
     "tool.image_generate": {"de": "Bild-Generierung", "en": "Image generation"},
     "tool.image_edit": {"de": "Bild-Bearbeitung", "en": "Image editing"},
     "tool.image_analyze": {"de": "Bild-Analyse", "en": "Image analysis"},
-    "tool.summary": {"de": "Zusammenfassung", "en": "Summary"},
+    "tool.summary": {"de": "Report", "en": "Report"},
     "tool.podcast": {"de": "Podcast", "en": "Podcast"},
     # Translate provider labels
     "translateProvider.deepl": {"de": "DeepL (schnell)", "en": "DeepL (fast)"},

@@ -8,7 +8,7 @@ Stimmen stehen Ihnen danach in Text in Audio, Podcast und Screencast zur Verfüg
 ## Aktuell nur Stimmen
 
 Verbinden lassen sich derzeit ElevenLabs, Gemini und Fish Audio. Eigene Sprachmodelle für Chat,
-Übersetzung oder Zusammenfassung lassen sich hier nicht anbinden, dafür nutzt KIS weiter die
+Übersetzung oder Report lassen sich hier nicht anbinden, dafür nutzt KIS weiter die
 Modelle der Hochschule.
 
 ## Vorher ein Hinweis

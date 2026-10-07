@@ -8,7 +8,7 @@ then available to you in Text to audio, Podcast and Screencast.
 ## Currently voices only
 
 At the moment you can connect ElevenLabs, Gemini and Fish Audio. Your own language models for
-chat, translation or summaries cannot be connected here, KIS keeps using the university's models
+chat, translation or reports cannot be connected here, KIS keeps using the university's models
 for those.
 
 ## A notice first

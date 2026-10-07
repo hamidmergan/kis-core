@@ -19,7 +19,7 @@ Ten services for individual tasks, independent of workspaces: upload material, d
   formatting stay intact
 - **Text to audio** reads texts and documents aloud with natural sounding voices
 - **Audio to text** transcribes audio and video, also as subtitles with timestamps
-- **Summary** merges several materials into one text, as a short briefing, study guide or timeline
+- **Report** merges several materials into one text, as a short briefing, study guide or timeline
 - **Screencast** turns PowerPoint slides into a narrated video, optionally in another language
 - **Podcast** turns material into a conversation to listen to, you check the script and have it voiced
 - **Presentation** creates slides from material in the university's design

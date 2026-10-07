@@ -1,8 +1,8 @@
-# Zusammenfassung
+# Report
 
 Bringt mehrere Quellen zu einem Text, als Kurzbriefing, Lernleitfaden oder Zeitstrahl.
 
-![Der Dienst Zusammenfassung](/manual/{lang}/tool-summary.png)
+![Der Dienst Report](/manual/{lang}/tool-summary.png)
 
 ## Quellen
 
@@ -34,15 +34,15 @@ dass keine Datei unter den Tisch fällt, außer die Anweisung nennt ein Thema. E
 
 - **MD herunterladen** gibt den Text als Markdown, mit Titel, Datum und dem Hinweis auf KI
   darüber.
-- **DOCX herunterladen** gibt dieselbe Zusammenfassung als Word-Datei. Ein Inhaltsverzeichnis
-  bekommt sie erst ab 5 Überschriften.
+- **DOCX herunterladen** gibt denselben Report als Word-Datei. Ein Inhaltsverzeichnis
+  bekommt er erst ab 5 Überschriften.
 
 Nennt Ihr Material die Stelle, auf der eine Aussage beruht, etwa einen Paragrafen oder einen
 Artikel, steht diese Stelle hinter der Aussage. Seitenzahlen nennt der Text nie.
 
 ## Was Sie erwarten dürfen
 
-Eine Zusammenfassung ist eine Verkürzung und lässt zwangsläufig etwas weg. Sie ersetzt das
+Ein Report ist eine Verkürzung und lässt zwangsläufig etwas weg. Er ersetzt das
 Original nicht, wenn es auf Genauigkeit ankommt.
 
 ## Der Unterschied zum Chat im Workspace

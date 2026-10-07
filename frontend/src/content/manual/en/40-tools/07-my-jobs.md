@@ -13,7 +13,7 @@ job has finished or failed.
 ## What you do there
 
 - **Filter** by service, period or search term.
-- **Download**: the result, for a summary also the Word file. If a job has several sources, the
+- **Download**: the result, for a report also the Word file. If a job has several sources, the
   file list folds open below the name.
 - **Open**: podcast, presentation and screencast lead back into their service, an interrupted
   screencast can be resumed from there.
@@ -38,7 +38,7 @@ names the last error. Continue picks up where it stopped, finished parts stay.
 An overloaded AI provider does not count as a failure. The job waits 1 to 3 minutes and tries
 again, for up to 12 hours, without using up an attempt.
 
-This applies to text to audio, summary, screencast, podcast and presentation. In the podcast and
+This applies to text to audio, report, screencast, podcast and presentation. In the podcast and
 the presentation only the voicing and the slide build keep their finished parts, script and
 outline start over on a failure. Translation, audio to text and image generation know no pausing,
 there it says Failed right away and you retry.

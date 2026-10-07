@@ -22,6 +22,6 @@ translation, ...) shows every eligible provider with its own model field.
 - If the first provider for the LLM is full, a call shifts to the next one with a model
   automatically. Images and voices never shift.
 - For some functions the person chooses the provider in the service themselves, likewise for
-  podcast, presentation, and summary, where the star is only the default.
+  podcast, presentation, and report, where the star is only the default.
 - Per row, a test of the current selection. Every change applies immediately for everyone, there
   is no preview and no test mode.

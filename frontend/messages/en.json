@@ -68,7 +68,7 @@
         "all": "All services",
         "transcription": "Audio to text",
         "translation": "Translation",
-        "summary": "Summary",
+        "summary": "Report",
         "tts": "Text to audio",
         "screencast": "Screencast",
         "image": "Image",
@@ -190,7 +190,7 @@
       "fallbackFile": "File",
       "openPodcast": "Open podcast",
       "openPraesentation": "Open presentation",
-      "openSummary": "Open summary",
+      "openSummary": "Open report",
       "openTranslation": "Open translation",
       "openTts": "Open audio",
       "openStt": "Open transcript",
@@ -401,7 +401,7 @@
         "body": "Create images, edit existing images, or have them described."
       },
       "summary": {
-        "title": "Summary",
+        "title": "Report",
         "body": "Bring several sources together into one text, as a short briefing, study guide or timeline."
       },
       "glossary": {
@@ -511,10 +511,10 @@
       "newTranscript": "New transcript"
     },
     "summarize": {
-      "title": "Summary",
+      "title": "Report",
       "intro": "Bring several sources together into one text, as a short briefing, study guide or timeline.",
-      "selectFileAria": "Choose files to summarise",
-      "submit": "Create summary",
+      "selectFileAria": "Choose files for the report",
+      "submit": "Create report",
       "downloadLabel": "Download MD",
       "downloadDocxLabel": "Download DOCX",
       "providerLabel": "AI provider",
@@ -528,7 +528,7 @@
       "noSources": "No source here has finished processing yet.",
       "chosenFiles": "Chosen sources",
       "removeFile": "Remove",
-      "tooManySources": "At most {max} sources per summary",
+      "tooManySources": "At most {max} sources per report",
       "step": {
         "extract": "Reading the sources",
         "extractCounted": "Reading source {part} of {total}",
@@ -541,13 +541,13 @@
       },
       "demoBadge": "View demo",
       "history": {
-        "title": "Your summaries",
-        "empty": "No summary yet.",
-        "hint": "New summaries are added at the top, a click brings one back on the right.",
+        "title": "Your reports",
+        "empty": "No report yet.",
+        "hint": "New reports are added at the top, a click brings one back on the right.",
         "colMaterial": "Material",
         "colDate": "Date"
       },
-      "newSummary": "New summary"
+      "newSummary": "New report"
     },
     "translate": {
       "title": "Translation",
@@ -1705,7 +1705,7 @@
     },
     "summarizeDemo": {
       "beenden": "End demo",
-      "hinweis": "This is the demo. You can try the templates and settings, but the result is always the prepared summary for the chosen template.",
+      "hinweis": "This is the demo. You can try the templates and settings, but the result is always the prepared report for the chosen template.",
       "materialVorgegeben": "In the demo the workspace, material and instruction are fixed.",
       "keinErgebnis": "No result has been added for the demo yet."
     },
@@ -2686,7 +2686,7 @@
       "outOfRange": "Value must be between {min} and {max}.",
       "aia_source_max_chars": {
         "title": "Maximum characters per document",
-        "hint": "How much text a single workspace document may have. It is counted after reading, so the limit holds for every format. A document above it is shown as failed and is not cut. At 500,000 every document also fits alone into podcast, presentation and summary.",
+        "hint": "How much text a single workspace document may have. It is counted after reading, so the limit holds for every format. A document above it is shown as failed and is not cut. At 500,000 every document also fits alone into podcast, presentation and report.",
         "unit": "characters"
       },
       "summary_read_max_facts": {
@@ -2719,7 +2719,7 @@
     },
     "sourceMaxPagesCard": {
       "title": "Max. pages per source",
-      "hint": "Maximum number of pages an uploaded document (PDF/DOCX/PPTX) may have. Applies to workspace material and to Podcast, Summary and Translation. Larger ones are rejected, please upload long scripts chapter by chapter. Default 200: up to that size a source stays manageable, with very large documents the overview becomes front-heavy. Media (mp3/mp4) and Screencast are not affected.",
+      "hint": "Maximum number of pages an uploaded document (PDF/DOCX/PPTX) may have. Applies to workspace material and to Podcast, Report and Translation. Larger ones are rejected, please upload long scripts chapter by chapter. Default 200: up to that size a source stays manageable, with very large documents the overview becomes front-heavy. Media (mp3/mp4) and Screencast are not affected.",
       "unit": "pages",
       "outOfRange": "Value must be between 1 and 2000.",
       "saveFailed": "Save failed."
@@ -2850,7 +2850,7 @@
         "tts": "Text to audio",
         "transcription": "Audio to text",
         "image": "Image generation",
-        "summary": "Summary",
+        "summary": "Report",
         "screencast": "Screencast",
         "podcast": "Podcast",
         "praesentation": "Presentation",
@@ -3006,7 +3006,7 @@
           "transcription": "Transcription",
           "translation": "Translation",
           "tts": "Text to audio",
-          "summary": "Summary",
+          "summary": "Report",
           "image_generate": "Image generation",
           "image_edit": "Image editing",
           "image_analyze": "Image analysis"
@@ -4954,7 +4954,7 @@
           "p1": "Up to ten files or materials from a workspace",
           "p2": "An instruction narrows down a topic or shapes the text",
           "p3": "The template decides how the text is structured",
-          "alt": "Summary with sources, template and instruction"
+          "alt": "Report with sources, template and instruction"
         },
         "podcast": {
           "lead": "Your material becomes a conversation to listen to. You choose content and cast, check the script and have it voiced.",
@@ -5041,7 +5041,7 @@
     "tts": "Text to audio",
     "transcription": "Audio to text",
     "image": "Image generation",
-    "summary": "Summary",
+    "summary": "Report",
     "glossary": "Glossary",
     "screencast": "Screencast",
     "podcast": "Podcast",

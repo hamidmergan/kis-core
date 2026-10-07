@@ -1,8 +1,8 @@
-# Summary
+# Report
 
 Brings several sources together into one text, as a short briefing, study guide or timeline.
 
-![The summary service](/manual/{lang}/tool-summary.png)
+![The report service](/manual/{lang}/tool-summary.png)
 
 ## Sources
 
@@ -33,7 +33,7 @@ takes a few minutes, the job keeps running in the background.
 ## The result
 
 - **Download MD** gives the text as Markdown, with title, date and the AI notice above it.
-- **Download DOCX** gives the same summary as a Word file. It only gets a table of contents from
+- **Download DOCX** gives the same report as a Word file. It only gets a table of contents from
   5 headings on.
 
 Where your material names the part a statement rests on, such as a section or an article, that
@@ -41,7 +41,7 @@ reference stands behind the statement. The text never names page numbers.
 
 ## What to expect
 
-A summary is a shortening and inevitably leaves something out. It does not replace the original
+A report is a shortening and inevitably leaves something out. It does not replace the original
 when accuracy matters.
 
 ## The difference to the chat inside a workspace

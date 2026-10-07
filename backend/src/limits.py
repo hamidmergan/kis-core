@@ -25,7 +25,7 @@ EVENT_CODE_ATTEMPT_TTL_SECONDS  = 3600
 # Quota per user and tool: count, window length and display name.
 QUOTA_DEFAULTS: dict[str, dict] = {
     "tts":            {"limit": 100, "window_hours": 4, "label": "Text in Audio"},
-    "summary":        {"limit": 100, "window_hours": 4, "label": "Zusammenfassung"},
+    "summary":        {"limit": 100, "window_hours": 4, "label": "Report"},
     "translate":      {"limit": 100, "window_hours": 4, "label": "Dokumentenübersetzung"},
     "transcription":  {"limit": 100, "window_hours": 4, "label": "Transkription"},
     "image_generate": {"limit": 100, "window_hours": 4, "label": "Bild-Generierung"},

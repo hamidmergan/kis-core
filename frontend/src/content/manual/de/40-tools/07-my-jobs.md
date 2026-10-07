@@ -13,7 +13,7 @@ geöffnet haben, ist ein Auftrag fertig geworden oder gescheitert.
 ## Was Sie dort tun
 
 - **Filtern** nach Dienst, Zeitraum oder Suchbegriff.
-- **Herunterladen**: das Ergebnis, bei einer Zusammenfassung zusätzlich die Word-Datei. Hat ein
+- **Herunterladen**: das Ergebnis, bei einem Report zusätzlich die Word-Datei. Hat ein
   Auftrag mehrere Quellen, klappt die Dateiliste unter dem Namen auf.
 - **Öffnen**: Podcast, Präsentation und Screencast führen zurück in ihren Dienst, ein
   unterbrochener Screencast lässt sich von dort fortsetzen.
@@ -39,7 +39,7 @@ bleiben.
 Ein überlasteter KI-Anbieter zählt nicht als Fehler. Der Auftrag wartet 1 bis 3 Minuten und
 versucht es erneut, bis zu 12 Stunden lang, ohne dass ein Anlauf verbraucht wird.
 
-Das gilt für Text in Audio, Zusammenfassung, Screencast, Podcast und Präsentation. Beim Podcast
+Das gilt für Text in Audio, Report, Screencast, Podcast und Präsentation. Beim Podcast
 und der Präsentation behalten nur Vertonung und Folienbau ihre fertigen Teile, Skript und
 Gliederung beginnen bei einem Fehler von vorn. Übersetzung, Audio in Text und Bildgenerierung
 kennen kein Anhalten, dort steht gleich Fehler und Sie wiederholen.

@@ -23,6 +23,6 @@ Text-to-Speech, Übersetzung, ...) zeigt alle passenden Anbieter mit eigenem Mod
 - Läuft der erste Anbieter beim LLM voll, weicht ein Aufruf von selbst auf den nächsten mit Modell
   aus. Bilder und Stimmen weichen nie aus.
 - Bei einigen Funktionen wählt die Person den Anbieter selbst im Dienst, bei Podcast,
-  Präsentation und Zusammenfassung ebenso, der Stern ist dort nur die Vorgabe.
+  Präsentation und Report ebenso, der Stern ist dort nur die Vorgabe.
 - Je Zeile ein Test der aktuellen Auswahl. Jede Änderung gilt sofort für alle, eine Vorschau oder
   einen Testbetrieb gibt es nicht.

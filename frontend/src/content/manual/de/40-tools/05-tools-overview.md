@@ -8,7 +8,7 @@ Marke Lehrende, sie richtet sich an Lehrende.
 - **Übersetzung** übersetzt Texte und Dokumente zwischen Deutsch und Englisch und behält das Layout
 - **Text in Audio** liest Texte und Dokumente vor
 - **Audio in Text** schreibt Audio und Video mit
-- **Zusammenfassung** führt mehrere Materialien zu einem Text zusammen
+- **Report** führt mehrere Materialien zu einem Text zusammen
 - **Screencast** macht aus Folien ein vertontes Video
 - **Podcast** macht aus Material ein Gespräch zum Anhören
 - **Präsentation** macht aus Material eine PowerPoint-Datei im Design der Hochschule
@@ -28,7 +28,7 @@ beiden.
 ## Dateien oder Workspace
 
 Die meisten Dienste arbeiten mit einer hochgeladenen Datei: hinein, Ergebnis, herunterladen.
-Zusammenfassung, Podcast, Präsentation und das Zusatzmaterial des Screencasts haben daneben einen
+Report, Podcast, Präsentation und das Zusatzmaterial des Screencasts haben daneben einen
 Reiter Workspace. Dort wählen Sie fertig verarbeitete Materialien aus einem Ihrer Workspaces, ohne
 sie noch einmal hochzuladen. Der Reiter erscheint nur, wenn Sie den Lernassistenten nutzen dürfen.
 
@@ -45,13 +45,13 @@ Lange Aufträge laufen im Hintergrund. Sie können die Seite verlassen, das Erge
   bis einer fertig ist.
 - **Beide Zahlen** ändert die Verwaltung unter Grenzen.
 
-## Material für Zusammenfassung, Podcast und Präsentation
+## Material für Report, Podcast und Präsentation
 
 Die drei Dienste und das Zusatzmaterial des Screencasts nehmen dasselbe Material mit denselben
 Grenzen:
 
 - **Umfang**: bis zu 10 Dateien oder Workspace-Materialien je Auftrag, als PDF, Word, PowerPoint,
-  Text oder Markdown. Die Zusammenfassung nimmt auch Untertitel als SRT und VTT.
+  Text oder Markdown. Der Report nimmt auch Untertitel als SRT und VTT.
 - **Je Datei**: 500 MB und 200 Seiten, beides stellt die Verwaltung ein.
 - **Zusammen**: 500.000 Zeichen über alle Dateien, fest im Code. Ein Zähler auf der Seite zeigt
   beim Auswählen, wie viel davon verbraucht ist. Ist es zu viel, bleibt der Start gesperrt, bis
@@ -61,7 +61,7 @@ Grenzen:
 
 ## Die optionale Anweisung
 
-Zusammenfassung, Podcast und Präsentation haben ein Feld Anweisung. Es bleibt leer, wenn Sie
+Report, Podcast und Präsentation haben ein Feld Anweisung. Es bleibt leer, wenn Sie
 nichts Besonderes wollen. Die KI liest die Anweisung neben dem Material und ordnet sie ein:
 
 - **Ein Thema** engt ein: Nur Kapitel 2 plant alles um das, was das Material dazu sagt, und lässt
@@ -69,7 +69,7 @@ nichts Besonderes wollen. Die KI liest die Anweisung neben dem Material und ordn
 - **Ein Wunsch zur Art** formt nur den Text: für Erstsemester, kurz, mit Beispielen. Der Inhalt
   bleibt der des Materials, nichts kommt dazu.
 - **Ein Thema, das im Material fehlt**, fällt weg. Podcast und Präsentation sagen das mit einem
-  Hinweis und nutzen das ganze Material, die Zusammenfassung tut es stillschweigend.
+  Hinweis und nutzen das ganze Material, der Report tut es stillschweigend.
 - **Unsinn** oder die Bitte, das Material zu verlassen, fällt still weg.
 
 Nach 500 Zeichen wird die Anweisung abgeschnitten.
@@ -83,7 +83,7 @@ das zulässt:
 - **Video** aus dem Screencast: eine Hinweisfolie am Anfang und am Ende
 - **Bilder**: in den Bildinformationen der PNG-Datei
 - **Untertitel als VTT**: eine Notizzeile, die kein Player anzeigt
-- **Zusammenfassung**: eine Zeile unter dem Titel, in Markdown wie in Word
+- **Report**: eine Zeile unter dem Titel, in Markdown wie in Word
 - **Präsentation**: KI generiert unten rechts auf jeder Folie
 
 Übersetzte Dokumente, Untertitel als SRT, das Transkript eines Podcasts und das Protokoll des

@@ -10,7 +10,7 @@ TOOLS_CONFIG = [
     {"key": "transcription", "label": "Transkription"},
     {"key": "image",         "label": "Bild-KI"},
     {"key": "glossary",      "label": "Glossaries"},
-    {"key": "summary",       "label": "Zusammenfassung"},
+    {"key": "summary",       "label": "Report"},
     {"key": "campus",        "label": "Infoassistent"},
 ]
 
@@ -26,7 +26,7 @@ TOOL_LABELS = {
     "image_generate": "Bild-Generierung",
     "image_edit": "Bild-Bearbeitung",
     "image_analyze": "Bild-Analyse",
-    "summary": "Zusammenfassung",
+    "summary": "Report",
 }
 
 
