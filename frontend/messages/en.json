@@ -3930,6 +3930,7 @@
         },
         "summary": {
           "open": "What this is about",
+          "create": "Create summary",
           "title": "What this is about",
           "failed": "The summary could not be loaded.",
           "empty": "There is no summary for this material yet."

@@ -81,6 +81,7 @@ export default function KiTutorWorkspacePage() {
     deleteSource: handleDeleteSource,
     renameSource: handleRenameSource,
     retrySource: handleRetrySource,
+    summarizeSource: handleSummarizeSource,
     uploadFiles: handleUpload,
     addLink: handleAddLink,
     addYoutube: handleAddYoutube,
@@ -572,6 +573,7 @@ export default function KiTutorWorkspacePage() {
         onDeleteSource={handleDeleteSource}
         onRenameSource={handleRenameSource}
         onRetrySource={handleRetrySource}
+        onSummarizeSource={handleSummarizeSource}
         onUpload={handleUpload}
         onAddLink={handleAddLink}
         onAddYoutube={handleAddYoutube}

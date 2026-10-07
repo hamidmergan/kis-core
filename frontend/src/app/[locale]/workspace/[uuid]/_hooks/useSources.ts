@@ -83,6 +83,16 @@ export function useSources({ uuid, onModuleUpdate }: UseSourcesOptions) {
     } catch { /* ignore */ }
   }, [uuid]);
 
+  // The progress makes the row spin and keeps the polling on until the summary is there.
+  const summarizeSource = useCallback(async (srcUuid: string) => {
+    try {
+      const res = await fetch(`/api/ai-assistant/workspaces/${uuid}/sources/${srcUuid}/summary`, { method: "POST", credentials: "include" });
+      if (res.ok) {
+        setSources((prev) => prev.map((s) => s.uuid === srcUuid ? { ...s, progress: { stage: "summarizing" } } : s));
+      }
+    } catch { /* ignore */ }
+  }, [uuid]);
+
   const uploadFiles = useCallback(async (files: File[]) => {
     if (files.length === 0) return;
     // Only caps absurdly large batches, the real limits are drawn by the backend.
@@ -207,6 +217,6 @@ export function useSources({ uuid, onModuleUpdate }: UseSourcesOptions) {
     selectedSourceIds, setSelectedSourceIds,
     uploadProgress,
     uploadErrors, setUploadErrors,
-    toggleSource, deleteSource, renameSource, retrySource, uploadFiles, addLink, addYoutube,
+    toggleSource, deleteSource, renameSource, retrySource, summarizeSource, uploadFiles, addLink, addYoutube,
   };
 }

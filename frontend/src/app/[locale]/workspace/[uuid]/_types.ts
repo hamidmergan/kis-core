@@ -2,7 +2,8 @@ export type IndexingStage =
   | "parsing"
   | "ocr"
   | "chunking"
-  | "embedding";
+  | "embedding"
+  | "summarizing";
 
 export interface IndexingProgress {
   stage: IndexingStage;

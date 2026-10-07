@@ -63,3 +63,63 @@ def test_a_source_from_another_module_is_not_found(client, monkeypatch):
 def test_a_source_without_a_summary_answers_empty(client, monkeypatch):
     monkeypatch.setattr("src.database.get_aia_source", lambda uuid: {**SOURCE, "summary": None})
     assert _hole(client).json()["summary"] == ""
+
+
+@pytest.fixture
+def dispatch(monkeypatch):
+    """Records progress writes and dispatched jobs instead of touching database and broker."""
+    calls = {"progress": [], "cleared": [], "delay": []}
+    monkeypatch.setattr("src.database.update_aia_source_progress",
+                        lambda uuid, stage: calls["progress"].append((uuid, stage)))
+    monkeypatch.setattr("src.database.clear_aia_source_progress",
+                        lambda uuid: calls["cleared"].append(uuid))
+    monkeypatch.setattr("src.database.is_workspace_tutor", lambda wid, uid: False)
+    from src.features.ai_assistant.tasks.ingestion import run_summarize_source
+    monkeypatch.setattr(run_summarize_source, "delay", lambda uuid: calls["delay"].append(uuid))
+    return calls
+
+
+def _hole_nach(client, ws="ws-1", src="src-1"):
+    return client.post(f"/api/ai-assistant/workspaces/{ws}/sources/{src}/summary")
+
+
+def test_a_missing_summary_is_caught_up(client, monkeypatch, dispatch):
+    monkeypatch.setattr("src.database.get_aia_source",
+                        lambda uuid: {**SOURCE, "status": "ready", "summary": None})
+    antwort = _hole_nach(client)
+    assert antwort.status_code == 200
+    assert dispatch["progress"] == [("src-1", "summarizing")]
+    assert dispatch["delay"] == ["src-1"]
+
+
+@pytest.mark.parametrize("zustand", [
+    {"status": "ready"},
+    {"status": "ready", "summary": None, "progress": {"stage": "summarizing"}},
+    {"status": "indexing", "summary": None},
+])
+def test_no_catch_up_with_a_summary_or_while_busy(client, monkeypatch, dispatch, zustand):
+    monkeypatch.setattr("src.database.get_aia_source", lambda uuid: {**SOURCE, **zustand})
+    assert _hole_nach(client).status_code == 409
+    assert dispatch["delay"] == []
+
+
+def test_only_the_owner_may_catch_up(client, monkeypatch, dispatch):
+    monkeypatch.setattr("src.database.get_aia_workspace",
+                        lambda uuid: {**WORKSPACE, "user_id": 99})
+    monkeypatch.setattr("src.database.get_aia_source",
+                        lambda uuid: {**SOURCE, "status": "ready", "summary": None})
+    assert _hole_nach(client).status_code == 403
+    assert dispatch["delay"] == []
+
+
+def test_a_failed_dispatch_leaves_no_spinner(client, monkeypatch, dispatch):
+    monkeypatch.setattr("src.database.get_aia_source",
+                        lambda uuid: {**SOURCE, "status": "ready", "summary": None})
+    from src.features.ai_assistant.tasks.ingestion import run_summarize_source
+
+    def kaputt(uuid):
+        raise ConnectionError("broker down")
+    monkeypatch.setattr(run_summarize_source, "delay", kaputt)
+    with pytest.raises(ConnectionError):
+        _hole_nach(client)
+    assert dispatch["cleared"] == ["src-1"]

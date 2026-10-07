@@ -31,6 +31,7 @@ export function SourcesPanel({
   onDeleteSource,
   onRenameSource,
   onRetrySource,
+  onSummarizeSource,
   onUpload,
   onAddLink,
   onAddYoutube,
@@ -59,6 +60,8 @@ export function SourcesPanel({
   onDeleteSource: (uuid: string) => void;
   onRenameSource?: (uuid: string, name: string) => Promise<void>;
   onRetrySource: (uuid: string) => void;
+  /** Catches up on the summary of a finished source that has none. */
+  onSummarizeSource?: (uuid: string) => void;
   onUpload: (files: File[]) => void;
   /** Reads in a web page by link, missing means the plus opens the file picker straight away. */
   onAddLink?: (url: string) => Promise<void>;
@@ -183,6 +186,7 @@ export function SourcesPanel({
         onDelete={setDeleteSourceId}
         onRename={onRenameSource}
         onRetry={onRetrySource}
+        onSummarize={onSummarizeSource}
         onMoveToChapter={onSetSourceChapter}
         onShowSummary={setSummarySource}
       />

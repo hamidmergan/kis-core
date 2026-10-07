@@ -40,6 +40,7 @@ export function SourceRow({
   onDelete,
   onRename,
   onRetry,
+  onSummarize,
   onMoveToChapter,
   onShowSummary,
 }: {
@@ -67,6 +68,7 @@ export function SourceRow({
   onDelete: (uuid: string) => void;
   onRename?: (uuid: string, name: string) => Promise<void>;
   onRetry: (uuid: string) => void;
+  onSummarize?: (uuid: string) => void;
   onMoveToChapter?: (sourceUuid: string, chapterUuid: string | null) => void;
   onShowSummary?: (source: Source) => void;
 }) {
@@ -318,6 +320,13 @@ export function SourceRow({
                               icon={<TextAa size={16} weight="bold" />}
                               label={t("editTranscript")}
                               onClick={() => { onMenuOpen(false); onEditTranscript(src); }}
+                            />
+                          )}
+                          {onSummarize && ready && !src.has_summary && (
+                            <MenuItem
+                              icon={<TextAlignLeft size={16} weight="bold" />}
+                              label={t("summary.create")}
+                              onClick={() => { onMenuOpen(false); onSummarize(src.uuid); }}
                             />
                           )}
                           {/* Zustand und Nachholen stehen zusammen im Menue, damit die
