@@ -113,7 +113,7 @@ def get_llm_client(locale: str = Depends(get_locale)) -> OpenAICompatLLMClient:
         logger.warning("LLM provider resolution failed: {}", e)
         raise HTTPException(status_code=503, detail=t("llm.notConfigured", locale))
     api_key, base_url, model, provider = _binding_tuple(binding)
-    return OpenAICompatLLMClient(
+    client = OpenAICompatLLMClient(
         api_key=api_key,
         base_url=base_url,
         model=model,
@@ -121,6 +121,9 @@ def get_llm_client(locale: str = Depends(get_locale)) -> OpenAICompatLLMClient:
         provider=provider,
         **provider_transport.sdk_clients(binding),
     )
+    # A person waits live, a thinking model would spend the whole answer budget on its thoughts.
+    feature_router.attach_stored_think_off(client, binding)
+    return client
 
 
 # ─── TTS resolvers ─────────────────────────────────────────────────────────

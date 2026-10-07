@@ -134,6 +134,21 @@ def _attach_model_profile(client, binding: FeatureBinding) -> None:
         client._extra_body = {**(client._extra_body or {}), **zusatz}
 
 
+def attach_stored_think_off(client, binding: FeatureBinding) -> None:
+    """Turns thinking off from the stored measurement, without measuring and without window learning."""
+    from src.services import model_limits
+
+    if binding.feature not in model_limits.CHAT_LIKE_FEATURES or not binding.model:
+        return
+    profil = model_limits.stored_profile(binding.provider.get("id"), binding.model)
+    if profil is None:
+        return
+    client._model_profile = profil
+    zusatz = model_limits.think_off_body(profil)
+    if zusatz:
+        client._extra_body = {**(client._extra_body or {}), **zusatz}
+
+
 def make_whisper_client(binding: FeatureBinding):
     """A client for speech recognition, the model is mandatory here."""
     if not binding.model:
