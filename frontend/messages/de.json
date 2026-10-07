@@ -1706,7 +1706,7 @@
       "keinErgebnis": "Für die Demo ist noch kein Ergebnis hinterlegt."
     },
     "praesentationDemo": {
-      "demoBadge": "Demo",
+      "beenden": "Demo beenden",
       "hinweis": "Das ist die Demo. Du kannst alle Schritte ausprobieren, das Ergebnis sind aber immer die vorbereiteten Folien.",
       "materialVorgegeben": "In der Demo sind Workspace, Material und Anweisung vorgegeben.",
       "keinErgebnis": "Für die Demo ist noch kein Ergebnis hinterlegt.",

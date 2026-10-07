@@ -1706,7 +1706,7 @@
       "keinErgebnis": "No result has been added for the demo yet."
     },
     "praesentationDemo": {
-      "demoBadge": "Demo",
+      "beenden": "End demo",
       "hinweis": "This is the demo. You can try every step, but the result is always the prepared slides.",
       "materialVorgegeben": "In the demo the workspace, material and instruction are fixed.",
       "keinErgebnis": "No result has been added for the demo yet.",

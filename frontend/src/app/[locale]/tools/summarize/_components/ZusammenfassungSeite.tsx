@@ -354,7 +354,9 @@ function ZusammenfassungSeiteInner({ demo = false }: { demo?: boolean }) {
         <div className="flex items-baseline justify-between gap-3 mb-1">
           <h1 className="text-xl font-bold">{t("title")}</h1>
           {demo ? (
-            <span className={DEMO_BADGE} style={DEMO_FARBE}>{tDemo("demoBadge")}</span>
+            <Link href="/tools/summarize" className={`${DEMO_BADGE} hover:border-black transition-colors`} style={DEMO_FARBE}>
+              {tDemo("beenden")}
+            </Link>
           ) : !!demoSetup?.templates.length && (
             <Link href="/tools/summarize-demo" className={`${DEMO_BADGE} hover:border-black transition-colors`} style={DEMO_FARBE}>
               {t("demoBadge")}
