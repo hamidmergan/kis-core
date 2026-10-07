@@ -47,6 +47,7 @@ def test_the_exercise_tools_have_no_setting_of_their_own(monkeypatch):
         return default
 
     monkeypatch.setattr("src.database.get_setting", get_setting)
+    monkeypatch.setattr("src.services.model_limits.profile_for_feature", lambda feature="chat": None)
     cb.exercise_context_budget(15)
     assert gelesen == ["aia_tool_context_max_chars"]
 

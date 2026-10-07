@@ -249,3 +249,35 @@ def test_denker_ohne_wirksamen_schalter_bekommt_auch_keine():
     profil = ml.ModelProfile(window_tokens=1, source=ml.QUELLE_GEMESSEN,
                              thinks=True, think_off="")
     assert ml.think_off_body(profil) == {}
+
+
+
+# ── Budget capped by a window the admin entered ─────────────────────────────
+
+def _fenster(monkeypatch, fenster, quelle):
+    profil = None if fenster is None else ml.ModelProfile(fenster, quelle, False, "")
+    monkeypatch.setattr(ml, "profile_for_feature", lambda feature="chat": profil)
+
+
+def test_von_hand_gesetztes_kleines_fenster_deckelt(monkeypatch):
+    """A local model with 32k tokens entered by hand must not get the 250k characters of a big one."""
+    _fenster(monkeypatch, 32768, ml.QUELLE_GESETZT)
+    assert ml.cap_for_admin_window(250000, ml.CHAT_SHARE) == ml.context_chars(32768, ml.CHAT_SHARE)
+    assert ml.cap_for_admin_window(500000, ml.TOOL_SHARE) == ml.context_chars(32768, ml.TOOL_SHARE)
+
+
+def test_von_hand_gesetztes_grosses_fenster_laesst_die_admin_zahl(monkeypatch):
+    _fenster(monkeypatch, 262144, ml.QUELLE_GESETZT)
+    assert ml.cap_for_admin_window(250000, ml.CHAT_SHARE) == 250000
+
+
+@pytest.mark.parametrize("quelle", [ml.QUELLE_GEMESSEN, ml.QUELLE_GELERNT, ml.QUELLE_UNBEKANNT])
+def test_gemessene_oder_gelernte_fenster_deckeln_nie(monkeypatch, quelle):
+    """Only the admin's own number may shrink the budget, nothing guessed or learned."""
+    _fenster(monkeypatch, 32768, quelle)
+    assert ml.cap_for_admin_window(250000, ml.CHAT_SHARE) == 250000
+
+
+def test_ohne_wissen_ueber_das_modell_bleibt_das_budget(monkeypatch):
+    _fenster(monkeypatch, None, ml.QUELLE_GESETZT)
+    assert ml.cap_for_admin_window(250000, ml.CHAT_SHARE) == 250000

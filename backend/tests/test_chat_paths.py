@@ -309,6 +309,7 @@ def test_gezielte_frage_wird_nach_oben_und_unten_begrenzt(monkeypatch):
     from src.features.ai_assistant.tasks._context_budget import specific_context_budget
     from src.limits import AIA_CONTEXT_HARD_CAP
 
+    _kenne_fenster(monkeypatch, None)
     monkeypatch.setattr(chat_mod.db, "get_setting", lambda k, d=None: "5")
     assert specific_context_budget() == 1000
     monkeypatch.setattr(chat_mod.db, "get_setting", lambda k, d=None: "99999999")
@@ -351,6 +352,7 @@ def test_gezielte_frage_liegt_unter_dem_chat_budget(monkeypatch):
     from src.features.ai_assistant.tasks._context_budget import specific_context_budget
 
     werte = {"aia_context_max_chars": "250000", "aia_specific_max_chars": "60000"}
+    _kenne_fenster(monkeypatch, None)
     monkeypatch.setattr(chat_mod.db, "get_setting", lambda k, d=None: werte.get(k, d))
     assert specific_context_budget() == 60000
     assert specific_context_budget() < _context_budget()

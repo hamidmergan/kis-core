@@ -2,6 +2,7 @@
 
 import re
 
+from src.services import model_limits
 from src.limits import (
     AIA_CONTEXT_MAX_CHARS,
     AIA_CONTEXT_HARD_CAP,
@@ -22,7 +23,8 @@ def context_budget() -> int:
         value = int(db.get_setting("aia_context_max_chars", str(AIA_CONTEXT_MAX_CHARS)))
     except (ValueError, TypeError):
         value = AIA_CONTEXT_MAX_CHARS
-    return max(1000, min(value, AIA_CONTEXT_HARD_CAP))
+    return model_limits.cap_for_admin_window(max(1000, min(value, AIA_CONTEXT_HARD_CAP)),
+                                             model_limits.CHAT_SHARE)
 
 
 def tool_context_budget() -> int:
@@ -32,7 +34,8 @@ def tool_context_budget() -> int:
         value = int(db.get_setting("aia_tool_context_max_chars", str(AIA_TOOL_CONTEXT_MAX_CHARS)))
     except (ValueError, TypeError):
         value = AIA_TOOL_CONTEXT_MAX_CHARS
-    return max(1000, min(value, AIA_TOOL_CONTEXT_HARD_CAP))
+    return model_limits.cap_for_admin_window(max(1000, min(value, AIA_TOOL_CONTEXT_HARD_CAP)),
+                                             model_limits.TOOL_SHARE)
 
 
 def exercise_context_budget(count: int) -> int:
@@ -52,7 +55,8 @@ def specific_context_budget() -> int:
         value = int(db.get_setting("aia_specific_max_chars", str(AIA_SPECIFIC_MAX_CHARS)))
     except (ValueError, TypeError):
         value = AIA_SPECIFIC_MAX_CHARS
-    return max(1000, min(value, AIA_CONTEXT_HARD_CAP))
+    return model_limits.cap_for_admin_window(max(1000, min(value, AIA_CONTEXT_HARD_CAP)),
+                                             model_limits.SPECIFIC_SHARE)
 
 
 def select_chunks_for_budget(

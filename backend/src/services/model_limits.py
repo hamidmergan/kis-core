@@ -413,6 +413,14 @@ def cap_for_provider_model(budget_chars: int, share: float, provider_id: int, mo
     return _capped(budget_chars, share, stored_profile(provider_id, model))
 
 
+def cap_for_admin_window(budget_chars: int, share: float, feature: str = "chat") -> int:
+    """Trims a budget only to a window an admin entered by hand, measured or learned sizes never decide."""
+    profil = profile_for_feature(feature)
+    if profil is None or profil.source != QUELLE_GESETZT or profil.window_tokens <= 0:
+        return budget_chars
+    return min(budget_chars, context_chars(profil.window_tokens, share))
+
+
 def _with_v1(base_url: str) -> str:
     """Some providers sit in the database with ``/v1``, some without."""
     url = (base_url or "").rstrip("/")

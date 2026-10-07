@@ -11,6 +11,7 @@ def feld(monkeypatch):
     state = {"wert": 500000}
     monkeypatch.setattr("src.database.get_setting",
                         lambda key, default: str(state["wert"]))
+    monkeypatch.setattr("src.services.model_limits.profile_for_feature", lambda feature="chat": None)
     return state
 
 
@@ -28,6 +29,7 @@ def test_the_field_is_the_one_of_the_overview_tools(monkeypatch):
         return default
 
     monkeypatch.setattr("src.database.get_setting", get_setting)
+    monkeypatch.setattr("src.services.model_limits.profile_for_feature", lambda feature="chat": None)
     assert cb.tool_context_budget() == 500000
     assert seen["key"] == "aia_tool_context_max_chars"
 

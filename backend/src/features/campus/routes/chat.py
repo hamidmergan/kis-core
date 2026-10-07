@@ -21,6 +21,7 @@ from src.features.campus.services import settings as campus_settings
 from src.features.campus.services.place_match import find_places
 from src.i18n import get_locale, t
 from src.limits import (
+    CAMPUS_CONTEXT_MAX_CHARS,
     CAMPUS_MAX_CHATS_PER_USER,
     CAMPUS_MAX_QUESTIONS_PER_CHAT,
     CAMPUS_QUESTION_MAX_CHARS,
@@ -124,7 +125,8 @@ async def campus_chat(
     # One small call names the language and makes a follow-up question stand on its own.
     query, answer_language = await asyncio.to_thread(_understand, llm, question, rounds)
     context = await asyncio.to_thread(
-        retrieval.build_context, query, _embed_one, chunk_repo.hybrid_search, chunk_repo.neighbors
+        retrieval.build_context, query, _embed_one, chunk_repo.hybrid_search, chunk_repo.neighbors,
+        budget=model_limits.cap_for_admin_window(CAMPUS_CONTEXT_MAX_CHARS, model_limits.CHAT_SHARE),
     )
 
     # Whoever stopped during the search leaves nothing behind, the chat is only written now.
