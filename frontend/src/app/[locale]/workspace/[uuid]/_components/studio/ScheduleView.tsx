@@ -5,6 +5,7 @@ import { CalendarBlank, CheckCircle, Files, PencilSimple, Plus, Sparkle, Trash }
 import Spinner from "@/components/ui/Spinner";
 import HelpTooltip from "@/components/ui/HelpTooltip";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { centerInList } from "@/lib/scrollInList";
 import { backdropClose, newBackdropPress } from "@/components/ui/backdropClose";
 import type { ScheduleEntry, ScheduleData } from "../../_types";
 import {
@@ -137,10 +138,11 @@ export function ScheduleView({
   // Once the list stands, the linked appointment moves into view.
   useEffect(() => {
     if (gescrollt.current || markiertId === null || loading) return;
-    const zeile = document.querySelector(`[data-entry-id="${markiertId}"]`);
-    if (!zeile) return;
+    const zeile = document.querySelector<HTMLElement>(`[data-entry-id="${markiertId}"]`);
+    const liste = zeile?.closest<HTMLElement>(".overflow-y-auto");
+    if (!zeile || !liste) return;
     gescrollt.current = true;
-    zeile.scrollIntoView({ block: "center", behavior: "smooth" });
+    centerInList(liste, zeile);
   }, [markiertId, loading, entries]);
 
   // A deleted source takes its appointments along, so the list loads again.

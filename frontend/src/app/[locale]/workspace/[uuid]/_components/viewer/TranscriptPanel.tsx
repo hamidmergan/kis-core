@@ -5,6 +5,7 @@ import Spinner from "@/components/ui/Spinner";
 import Select, { type SelectOption } from "@/components/ui/Select";
 import { genericErrorMessage, parseDetail } from "@/lib/api";
 import { readUserData, updateUserData } from "@/lib/browserStore";
+import { centerInList } from "@/lib/scrollInList";
 import { langLabel } from "../../_types";
 import type { AddNoteExtras } from "../../_hooks/useNotes";
 import { useOwnerPreview } from "../layout/OwnerOnly";
@@ -342,7 +343,7 @@ export function TranscriptPanel({
     if (el && listRef.current) {
       const prev = lastScrolledIdx.current;
       const isJump = prev < 0 || Math.abs(currentIdx - prev) > 1;
-      el.scrollIntoView({ block: "center", behavior: isJump ? "instant" : "smooth" });
+      centerInList(listRef.current, el, isJump ? "instant" : "smooth");
       lastScrolledIdx.current = currentIdx;
     }
     // The list is unmounted in off mode, coming back needs a fresh centring.
@@ -375,7 +376,8 @@ export function TranscriptPanel({
       citationNonceRef.current = citationNonce;
       const target = focus.focusIdx;
       requestAnimationFrame(() => {
-        itemRefs.current[target]?.scrollIntoView({ block: "center", behavior: "instant" });
+        const el = itemRefs.current[target];
+        if (el && listRef.current) centerInList(listRef.current, el, "instant");
       });
     }
   }, [citationNonce, citationTime, citationEndTime, citationChunkStart, citationClaim, masterCues, claimCorpus, sourceUuid, mode, onCitationFocusTime]);
@@ -422,7 +424,7 @@ export function TranscriptPanel({
       return;
     }
     const el = itemRefs.current[currentIdx];
-    if (el) el.scrollIntoView({ block: "center", behavior: "smooth" });
+    if (el && listRef.current) centerInList(listRef.current, el);
     setFollowCurrent(true);
   };
 
@@ -439,7 +441,8 @@ export function TranscriptPanel({
   const jumpToCitation = () => {
     if (citationFocusIdx < 0) return;
     // Same target as the original jump, so pressing the button twice never lands differently.
-    itemRefs.current[citationFocusIdx]?.scrollIntoView({ block: "center", behavior: "smooth" });
+    const el = itemRefs.current[citationFocusIdx];
+    if (el && listRef.current) centerInList(listRef.current, el);
   };
 
   // Highlight and chip frame go away together.
