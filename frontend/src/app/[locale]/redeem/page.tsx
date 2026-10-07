@@ -6,12 +6,16 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { Check, Copy } from "@phosphor-icons/react";
-import Header from "@/components/layout/Header";
+import AuthSplit from "@/components/layout/AuthSplit";
+import { Link } from "@/i18n/navigation";
 import IconButton from "@/components/ui/IconButton";
 import Spinner from "@/components/ui/Spinner";
 import { copyTextFromPromise } from "@/lib/clipboard";
 import { checkAuthStatus } from "@/lib/auth";
 import { checkForm } from "./checkForm";
+
+const FIELD =
+  "w-full px-3 py-2.5 text-base bg-background text-foreground border-2 border-border rounded-lg outline-none hover:border-kb focus:border-kb transition-colors disabled:opacity-50";
 
 type Fertig = { username: string; password: string; expiresAt: string | null };
 type Kopiert = "user" | "password" | null;
@@ -110,129 +114,94 @@ function AccessCodePageInner() {
     : "";
 
   return (
-    <>
-      <Header />
-      <main className="flex items-start justify-center px-4 py-12">
-        <div className="w-full max-w-sm">
-          <h1 className="text-2xl font-bold text-center mb-6">{t("welcome")}</h1>
+    <AuthSplit heading={t("welcome")}>
+      <h2 className="text-2xl font-semibold tracking-[-0.01em] text-foreground">
+        {fertig ? t("doneTitle") : t("title")}
+      </h2>
 
-          {fertig ? (
-            <div
-              data-testid="access-code-done"
-              className="bg-background rounded-xl shadow-sm border border-border-soft p-8 space-y-4"
-            >
-              <h2 className="text-lg font-semibold">{t("doneTitle")}</h2>
-
-              <div>
-                <p className="text-xs font-medium text-foreground-soft mb-1">{t("doneUser")}</p>
-                <div className="flex items-center justify-between gap-2 rounded-md border border-border px-3 py-2">
-                  <span data-testid="access-code-username" className="font-mono text-sm break-all">
-                    {fertig.username}
-                  </span>
-                  <IconButton
-                    size="sm"
-                    onClick={() => kopieren("user", fertig.username)}
-                    aria-label={kopiert === "user" ? t("copied") : t("copyUser")}
-                  >
-                    {kopiert === "user" ? (
-                      <Check size={14} weight="bold" className="text-kb" />
-                    ) : (
-                      <Copy size={14} weight="bold" />
-                    )}
-                  </IconButton>
-                </div>
-              </div>
-
-              <div>
-                <p className="text-xs font-medium text-foreground-soft mb-1">{t("donePassword")}</p>
-                <div className="flex items-center justify-between gap-2 rounded-md border border-border px-3 py-2">
-                  <span data-testid="access-code-password" className="font-mono text-sm break-all">
-                    {fertig.password}
-                  </span>
-                  <IconButton
-                    size="sm"
-                    onClick={() => kopieren("password", fertig.password)}
-                    aria-label={kopiert === "password" ? t("copied") : t("copyPassword")}
-                  >
-                    {kopiert === "password" ? (
-                      <Check size={14} weight="bold" className="text-kb" />
-                    ) : (
-                      <Copy size={14} weight="bold" />
-                    )}
-                  </IconButton>
-                </div>
-              </div>
-
-              <p className="text-xs text-muted-soft">{t("doneOnce")}</p>
-
-              <p className="text-sm">{fertig.expiresAt ? t("doneUntil", { date: bisDatum }) : t("doneUnlimited")}</p>
-
-              <button
-                type="button"
-                data-testid="access-code-continue"
-                onClick={() => window.location.assign("/services")}
-                className="w-full px-4 py-2 text-sm font-medium rounded-md btn-primary"
-              >
-                {t("doneGo")}
-              </button>
-            </div>
-          ) : autoLoeseEin ? (
-            <div
-              data-testid="access-code-auto"
-              className="bg-background rounded-xl shadow-sm border border-border-soft p-8 flex flex-col items-center gap-3 text-center"
-            >
-              <Spinner size="lg" />
-              <p className="text-sm text-foreground-soft">{t("autoRedeeming")}</p>
-            </div>
-          ) : (
-            <div className="bg-background rounded-xl shadow-sm border border-border-soft p-8">
-              <h2 className="text-lg font-semibold mb-1">{t("title")}</h2>
-              <p className="text-sm text-foreground-soft mb-4">{t("intro")}</p>
-
-              <form onSubmit={submit} data-testid="access-code-form" className="space-y-4">
-                <div>
-                  <label htmlFor="access-code" className="block text-sm font-medium text-foreground-soft mb-1">
-                    {t("code")}
-                  </label>
-                  <input
-                    id="access-code"
-                    type="text"
-                    value={code}
-                    onChange={(e) => setCode(e.target.value)}
-                    autoCapitalize="none"
-                    autoCorrect="off"
-                    spellCheck={false}
-                    required
-                    disabled={sending}
-                    className="w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-kb focus:border-transparent disabled:opacity-50"
-                  />
-                  <p className="mt-1.5 text-xs text-muted-soft">{t("codeHint")}</p>
-                </div>
-
-                {error && (
-                  <p className="text-sm text-error" role="alert">
-                    {error}
-                  </p>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={sending || !code.trim()}
-                  className="w-full px-4 py-2 text-sm font-medium rounded-md btn-primary disabled:opacity-50"
-                >
-                  {sending ? t("submitting") : t("submit")}
-                </button>
-
-                <p className="text-center text-sm">
-                  <a href="/login" className="text-kb hover:underline">
-                    {t("toLogin")}
-                  </a>
+      {fertig ? (
+        <div data-testid="access-code-done" className="mt-6 space-y-5">
+          {(["user", "password"] as const).map((f) => {
+            const wert = f === "user" ? fertig.username : fertig.password;
+            return (
+              <div key={f}>
+                <p className="text-sm font-medium text-foreground-soft mb-1.5">
+                  {f === "user" ? t("doneUser") : t("donePassword")}
                 </p>
-              </form>
-            </div>
-          )}
+                <div className="flex items-center justify-between gap-2 rounded-lg border-2 border-border px-3 py-2.5">
+                  <span data-testid={f === "user" ? "access-code-username" : "access-code-password"} className="font-mono text-base break-all">
+                    {wert}
+                  </span>
+                  <IconButton
+                    size="sm"
+                    onClick={() => kopieren(f, wert)}
+                    aria-label={kopiert === f ? t("copied") : f === "user" ? t("copyUser") : t("copyPassword")}
+                  >
+                    {kopiert === f ? <Check size={14} weight="bold" className="text-kb" /> : <Copy size={14} weight="bold" />}
+                  </IconButton>
+                </div>
+              </div>
+            );
+          })}
+          <p className="text-sm text-muted">{t("doneOnce")}</p>
+          <p className="text-sm text-foreground">
+            {fertig.expiresAt ? t("doneUntil", { date: bisDatum }) : t("doneUnlimited")}
+          </p>
+          <button
+            type="button"
+            data-testid="access-code-continue"
+            onClick={() => window.location.assign("/services")}
+            className="w-full px-4 py-3 text-base font-medium btn-primary rounded-lg"
+          >
+            {t("doneGo")}
+          </button>
         </div>
-      </main>
-    </>
+      ) : autoLoeseEin ? (
+        <div data-testid="access-code-auto" className="mt-6 flex items-center gap-3">
+          <Spinner size="lg" />
+          <p className="text-sm text-foreground-soft">{t("autoRedeeming")}</p>
+        </div>
+      ) : (
+        <form onSubmit={submit} data-testid="access-code-form" className="mt-6 space-y-5">
+          <p className="text-sm text-foreground-soft">{t("intro")}</p>
+          <div>
+            <label htmlFor="access-code" className="block text-sm font-medium text-foreground-soft mb-1.5">
+              {t("code")}
+            </label>
+            <input
+              id="access-code"
+              type="text"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              required
+              disabled={sending}
+              placeholder={t("codeHint")}
+              className={`${FIELD} font-mono`}
+            />
+          </div>
+
+          {error && (
+            <p className="text-sm text-error" role="alert">
+              {error}
+            </p>
+          )}
+
+          <button
+            type="submit"
+            disabled={sending || !code.trim()}
+            className="w-full px-4 py-3 text-base font-medium btn-primary rounded-lg"
+          >
+            {sending ? t("submitting") : t("submit")}
+          </button>
+        </form>
+      )}
+
+      <Link href="/login" className="mt-6 inline-block text-sm text-kb-dark hover:underline">
+        {t("toLogin")}
+      </Link>
+    </AuthSplit>
   );
 }
