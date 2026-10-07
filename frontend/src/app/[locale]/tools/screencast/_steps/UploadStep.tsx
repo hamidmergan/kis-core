@@ -107,8 +107,8 @@ export default function UploadStep(props: UploadStepProps) {
       </div>
       <p className="text-sm text-muted mb-6">{t("intro")}</p>
       {demoDatei && (
-        <p className="mb-6 flex items-start gap-2 rounded-lg bg-surface-dim px-3 py-2.5 text-sm text-foreground-soft">
-          <Info size={14} className="mt-0.5 flex-shrink-0 text-muted-soft" aria-hidden="true" />
+        <p className="mb-6 flex items-start gap-2 rounded-lg border border-warn-border bg-warn-bg px-3 py-2.5 text-sm text-warn-strong">
+          <Info size={14} className="mt-0.5 flex-shrink-0 text-warn" aria-hidden="true" />
           {tDemo("hinweis")}
         </p>
       )}
