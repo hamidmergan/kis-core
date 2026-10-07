@@ -1281,12 +1281,10 @@ body.is-phone-landscape [title="Panel minimieren"] {
   89%, 100% { transform: rotate(0deg); }
 }
 
-/* Confused: head cocks toward the question mark with a slight wobble, then glances to the other side once per loop */
+/* Confused: head cocks toward the question mark, then to the other side, holding each side equally long */
 @keyframes francis-confused-cock {
-  0%, 35%, 70%, 100% { transform: rotate(13deg); }
-  17.5%, 52.5%       { transform: rotate(10deg); }
-  76%, 82%           { transform: rotate(-8deg); }
-  88%                { transform: rotate(13deg); }
+  0%, 40%, 100% { transform: rotate(13deg); }
+  50%, 90%      { transform: rotate(-13deg); }
 }
 
 /* Wave: two short hops at the loop start, then pause until 15s */

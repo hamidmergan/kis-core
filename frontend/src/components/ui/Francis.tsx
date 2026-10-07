@@ -37,7 +37,7 @@ export default function Francis({ size = 120, state = "idle", className }: Franc
   const headAnim = isThink
     ? "none"
     : isConf
-      ? "francis-confused-cock 15s ease-in-out infinite"
+      ? "francis-confused-cock 10s ease-in-out infinite"
       : `francis-head-tilt ${isIdle ? "11s" : "18s"} ease-in-out infinite`;
 
   const foot = (x: number, y: number) => (
