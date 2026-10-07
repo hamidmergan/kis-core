@@ -89,6 +89,10 @@ reliably.
    On a Mac use the Ollama download from ollama.com, not Homebrew. The Homebrew build lacks
    structured output, which KIS needs.
 
+   The script lets Ollama listen on every network interface, otherwise the containers cannot
+   reach it. Ollama has no login, so anyone on the same network can use your models. Run it
+   only on a trusted network with the firewall on.
+
 2. Under **Admin → AI** add a provider with the base URL `http://host.docker.internal:11434/v1`
    and no API key.
 3. Route chat, transcript translation and document translation to `gemma4:31b-mlx` (Mac) or

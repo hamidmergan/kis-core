@@ -39,6 +39,8 @@ if curl -s -o /dev/null http://127.0.0.1:11434/; then
     echo "Ollama is already running. Stop it first if it was not started by this script,"
     echo "it has to listen on 0.0.0.0 for the containers."
 else
+    echo "Note: Ollama has no login and now answers on every network interface."
+    echo "Use it only on a trusted network with the firewall on."
     mkdir -p "$HOME/.ollama"
     # 32k context is what KIS was measured with, a longer keep alive spares reloading the model.
     OLLAMA_HOST=0.0.0.0:11434 OLLAMA_CONTEXT_LENGTH=32768 OLLAMA_FLASH_ATTENTION=1 \
