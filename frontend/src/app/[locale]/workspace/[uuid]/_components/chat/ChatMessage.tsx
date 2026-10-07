@@ -339,6 +339,10 @@ function ChatMessageImpl({
 
         {msg.role === "assistant" && !msg.content ? null : (
           <div className={`flex items-center ${msg.role === "user" ? "justify-end gap-1 mt-1" :"self-start flex-wrap gap-1.5 mt-2"}`}>
+            <div className="flex items-center gap-1">
+              {copyButton}
+              {msg.role === "assistant" && actionButtons}
+            </div>
             {msg.role === "assistant" && msgQmap.length > 0 && !isStreaming && (
               <button
                 type="button"
@@ -351,10 +355,6 @@ function ChatMessageImpl({
                 <span>{t("sourcesCount", { n: msgQmap.length })}</span>
               </button>
             )}
-            <div className="flex items-center gap-1">
-              {msg.role === "assistant" && actionButtons}
-              {copyButton}
-            </div>
           </div>
         )}
         {msg.role === "assistant" && msgQmap.length > 0 && (
