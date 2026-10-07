@@ -16,6 +16,7 @@ import ValidDaysField from "./ValidDaysField";
 import { choiceToDays } from "./validDays";
 import AccessCodeQr from "./AccessCodeQr";
 import CodeWorkspacesField from "./CodeWorkspacesField";
+import DialogHeading from "./DialogHeading";
 
 type Props = {
   onClose: () => void;
@@ -119,7 +120,7 @@ export default function CreateAccessCodeDialog({ onClose, onCreated }: Props) {
       <div className="bg-background border border-border rounded-xl shadow-xl w-full max-w-md max-h-[90dvh] overflow-y-auto p-6 space-y-4">
         {erstellt ? (
           <>
-            <h2 className="text-lg font-semibold">{t("createdTitle")}</h2>
+            <DialogHeading onClose={onClose}>{t("createdTitle")}</DialogHeading>
             <p className="text-sm text-muted-soft">{t("createdHint")}</p>
 
             <div className="flex items-center gap-2">
@@ -153,7 +154,7 @@ export default function CreateAccessCodeDialog({ onClose, onCreated }: Props) {
           </>
         ) : (
           <form onSubmit={submit} className="space-y-3">
-            <h2 className="text-lg font-semibold">{t("title")}</h2>
+            <DialogHeading onClose={onClose} disabled={submitting}>{t("title")}</DialogHeading>
 
             <div className="space-y-1">
               <label className="text-xs uppercase tracking-wide text-muted" htmlFor="access-code-label">

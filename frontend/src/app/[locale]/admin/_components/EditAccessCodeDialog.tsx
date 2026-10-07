@@ -11,6 +11,7 @@ import { choiceToSeats, seatsToChoice } from "./seats";
 import AccessHoursField from "./AccessHoursField";
 import { choiceToHours, hoursToChoice } from "./accessHours";
 import CodeWorkspacesField from "./CodeWorkspacesField";
+import DialogHeading from "./DialogHeading";
 import ValidDaysField from "./ValidDaysField";
 import { choiceToDays, daysToChoice, remainingDays } from "./validDays";
 
@@ -122,7 +123,7 @@ export default function EditAccessCodeDialog({ code, onClose, onSaved }: Props) 
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="bg-background border border-border rounded-xl shadow-xl w-full max-w-md max-h-[90dvh] overflow-y-auto p-6 space-y-4">
         <form onSubmit={submit} className="space-y-3">
-          <h2 className="text-lg font-semibold">{t("title")}</h2>
+          <DialogHeading onClose={onClose} disabled={submitting}>{t("title")}</DialogHeading>
 
           <div className="space-y-1">
             <span className="text-xs uppercase tracking-wide text-muted">{t("code")}</span>
