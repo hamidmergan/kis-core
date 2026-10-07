@@ -63,8 +63,40 @@ feature is routed to a model there. Any OpenAI compatible endpoint works, plus D
 Speech and local models run outside the stack and are reached by base URL, for example Ollama at
 `http://host.docker.internal:11434/v1`.
 
-The study assistant needs a model with a large context window, at least 128k tokens. We run it
-with 256k.
+The study assistant works best with a large context window, we run it with 256k tokens. A smaller
+model works too once its window is entered by hand under **Admin → AI** (see below).
+
+### Fully local with Ollama
+
+KIS also runs without any cloud provider, with every model on your own machine. It is slower
+than a server GPU and needs a strong computer:
+
+| | Recommended |
+|---|---|
+| Mac | Apple Silicon Pro/Max with 64 GB memory |
+| Windows / Linux | NVIDIA GPU with 24–32 GB (RTX 4090/5090) and 32 GB memory |
+
+Measured on an M5 Max with 64 GB: a chat answer takes 10 to 70 seconds, a mind map several
+minutes. Smaller models answer faster but do not yet follow the study assistant's answer format
+reliably.
+
+1. Start Ollama so the containers can reach it, and fetch the models:
+
+   ```bash
+   ./start-ollama.sh
+   ```
+
+   On a Mac use the Ollama download from ollama.com, not Homebrew. The Homebrew build lacks
+   structured output, which KIS needs.
+
+2. Under **Admin → AI** add a provider with the base URL `http://host.docker.internal:11434/v1`
+   and no API key.
+3. Route chat, transcript translation and document translation to `gemma4:31b-mlx` (Mac) or
+   `gemma4:31b` (NVIDIA), and embedding to `qwen3-embedding:4b`.
+4. Enter the context window `32768` by hand for the chat model. KIS then sizes its context,
+   and splits large mind maps into smaller steps, to fit the model.
+
+Changing the embedding model later means the sources have to be indexed again.
 
 ## License
 
