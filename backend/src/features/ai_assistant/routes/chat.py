@@ -37,7 +37,7 @@ from src.features.ai_assistant.prompts.refusal_prompts import (
 )
 from . import _chat_failover
 from . import _followup
-from ._greeting import greeting_chunks
+from ._greeting import greeting_chunks, overview_chunks
 from ._prewarm import start_prewarm
 from ._source_map import build_source_pages, build_source_qmap, load_transcripts
 from ._attribution_run import run_attribution
@@ -257,7 +257,15 @@ async def chat(
         logger.info("Greeting: {} summaries stand in for the text, skipping retrieval",
                     len(_gruss_chunks))
 
-    _fit_full = (None if (body.source_text or _umformen or _gruss_chunks
+    # An overview reads the summaries, they cover every source and are short.
+    _ueberblick_chunks = (overview_chunks(source_ids, resolved_sources)
+                          if intent == "GENERIC" and not (body.source_text or _umformen or scope_chunks)
+                          else [])
+    if _ueberblick_chunks:
+        logger.info("Overview: {} summaries stand in for the text, skipping retrieval",
+                    len(_ueberblick_chunks))
+
+    _fit_full = (None if (body.source_text or _umformen or _gruss_chunks or _ueberblick_chunks
                           or intent not in _UEBERBLICK_INTENTS)
                  else await asyncio.to_thread(_full_context_if_fits, source_ids, context_budget))
     if _umformen:
@@ -267,6 +275,8 @@ async def chat(
         chunks = scope_chunks
     elif _gruss_chunks:
         chunks = _gruss_chunks
+    elif _ueberblick_chunks:
+        chunks = _ueberblick_chunks
     elif _fit_full is not None:
         chunks = _fit_full
         from collections import Counter
@@ -321,6 +331,9 @@ async def chat(
     )
     if _umformen:
         seen_pages_by_source = _umform_gesehen
+    elif _ueberblick_chunks:
+        # A summary names no page, so the chips search every page of the chosen sources.
+        seen_pages_by_source = None
     context = batches[0] if batches else "<documents>\n\n</documents>"
     _ctx_chars = sum(len(b) for b in batches)
     logger.info(

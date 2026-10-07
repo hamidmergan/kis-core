@@ -1,4 +1,4 @@
-"""The greeting reads the source summaries, every other chat path stays untouched."""
+"""Greeting and overview read the source summaries, every other chat path stays untouched."""
 from src.features.ai_assistant import summaries
 from src.features.ai_assistant.routes import _greeting
 from src.features.ai_assistant.routes._retrieval import _pack_context_batches
@@ -76,3 +76,30 @@ def test_source_pages_skip_a_chunk_without_a_spot():
     sources = {1: {"uuid": "u1", "filename": "a.pdf"}, 2: {"uuid": "u2", "filename": "b.pdf"}}
     out = build_source_pages(chunks, sources, umformen=False, umform_pages=[], popup_entry=None)
     assert out == []
+
+
+# --- overview: the summaries stand in for the text ----------------------------
+
+from src.features.ai_assistant.routes._greeting import overview_chunks
+
+
+def _quelle(sid, summary):
+    return {"id": sid, "summary": summary}
+
+
+def test_ueberblick_nimmt_die_zusammenfassung_jeder_quelle():
+    quellen = {1: _quelle(1, "Über Alpha."), 2: _quelle(2, "Über Beta.")}
+    chunks = overview_chunks([1, 2], quellen)
+    assert [c["content"] for c in chunks] == ["Über Alpha.", "Über Beta."]
+    assert all(c["page_number"] is None for c in chunks)
+
+
+def test_fehlt_eine_zusammenfassung_bleibt_der_alte_weg():
+    """A source still being summarized would otherwise vanish from the overview."""
+    quellen = {1: _quelle(1, "Über Alpha."), 2: _quelle(2, "")}
+    assert overview_chunks([1, 2], quellen) == []
+
+
+def test_ohne_gewaehlte_quellen_bleibt_der_alte_weg():
+    assert overview_chunks(None, {}) == []
+    assert overview_chunks([], {}) == []
