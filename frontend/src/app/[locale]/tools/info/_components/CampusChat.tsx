@@ -93,7 +93,7 @@ export default function CampusChat({
         placeholder={t("inputPlaceholder")}
         maxLength={config?.max_question_chars ?? 2000}
       />
-      <p className="text-center text-2xs px-6 pt-1.5 pb-2 hide-on-short" style={{ color: "var(--muted)" }}>{t("disclaimer")}</p>
+      <p className="hide-on-short w-full text-center mt-1 pb-0 text-xs" style={{ color: "var(--muted)" }}>{t("disclaimer")}</p>
     </div>
   );
 }
