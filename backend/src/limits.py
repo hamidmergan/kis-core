@@ -408,6 +408,8 @@ CAMPUS_CRAWL_MAX_PAGES                 = 5_000
 CAMPUS_PAGE_MAX_CHUNKS                 = 200
 CAMPUS_PAGE_MAX_BYTES                  = 5_000_000
 CAMPUS_CRAWL_CONCURRENCY               = 4
+# Pages the link walk below start addresses reads per night, for sections no sitemap lists.
+CAMPUS_LINK_WALK_MAX_PAGES             = 1_000
 CAMPUS_FETCH_TIMEOUT_SECONDS           = 20
 # A first run over a few thousand pages embeds everything, later nights finish in minutes.
 CAMPUS_CRAWL_TIME_LIMIT_SECONDS        = 3600

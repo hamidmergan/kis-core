@@ -8,7 +8,7 @@ from loguru import logger
 
 from src.features.campus.repository import pages as page_repo
 from src.features.campus.services import fetch as fetch_mod
-from src.features.campus.services import indexer, sitemap
+from src.features.campus.services import indexer, links, sitemap
 from src.features.campus.services.extract import extract_markdown, is_current
 from src.features.campus.services.settings import CampusSettings
 from src.limits import CAMPUS_CRAWL_CONCURRENCY, CAMPUS_CRAWL_MAX_PAGES, CAMPUS_PAGE_MAX_CHUNKS
@@ -156,17 +156,22 @@ def run(
     fetch_fn=fetch_mod.fetch_conditional,
     excluded_urls: set[str] | None = None,
 ) -> dict:
-    """Crawls the sitemaps of the settings and returns the counts of this run."""
+    """Crawls the sitemaps and the link walks of the settings and returns the counts of this run."""
     now = now or _utcnow()
     stats = CrawlStats(max_pages=max_pages)
     client = client or fetch_mod.make_client()
     include = sitemap.parse_patterns(settings.url_include)
     exclude = sitemap.parse_patterns(settings.url_exclude)
     entries, complete = collect_entries(client, settings.sitemap_url, include, exclude, fetch_fn)
+    walked, unread, walk_complete = links.walk(client, settings.start_urls, include, exclude, fetch_fn)
+    known_entries = {e.url for e in entries}
+    entries += [e for e in walked if e.url not in known_entries]
+    complete = complete and walk_complete
     if excluded_urls:
         entries = [e for e in entries if e.url not in excluded_urls]
     stats.seen = len(entries)
-    listed = {e.url for e in entries}
+    # A walked page that failed tonight is not refetched but also not counted as gone.
+    listed = {e.url for e in entries} | unread
     # Only a full, non-empty read of the sitemap may count missing pages as gone.
     if complete and entries:
         for url, page_id in page_repo.list_page_urls(page_repo.KIND_PAGE).items():

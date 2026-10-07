@@ -33,6 +33,7 @@ class ExcludeBody(BaseModel):
 
 class SettingsBody(BaseModel):
     sitemap_url: Optional[str] = None
+    start_urls: Optional[str] = None
     url_include: Optional[str] = None
     url_exclude: Optional[str] = None
     map_url: Optional[str] = None
@@ -115,7 +116,7 @@ def include_page(body: ExcludeBody, admin: dict = Depends(_require)):
 @router.patch("")
 def update_campus(body: SettingsBody, admin: dict = Depends(_require), locale: str = Depends(get_locale)):
     values = body.model_dump(exclude_unset=True)
-    urls = sitemap_mod.parse_patterns(values.get("sitemap_url") or "")
+    urls = sitemap_mod.parse_patterns(values.get("sitemap_url") or "") + sitemap_mod.parse_patterns(values.get("start_urls") or "")
     if any(not fetch_mod.is_web_url(u) for u in urls):
         raise HTTPException(status_code=400, detail=t("campus.urlInvalid", locale))
     map_url = (values.get("map_url") or "").strip()

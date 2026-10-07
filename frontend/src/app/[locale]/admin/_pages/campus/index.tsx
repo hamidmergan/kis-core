@@ -11,6 +11,7 @@ import PagesList from "./PagesList";
 
 interface Settings {
   sitemap_url: string;
+  start_urls: string;
   url_include: string;
   url_exclude: string;
   map_url: string;
@@ -170,9 +171,14 @@ export default function CampusAdminPage() {
         </div>
       </SettingCard>
 
-      <SettingCard title={t("sitemapUrl")} description={t("sitemapHint")} error={cardError("sitemap_url", "url_include", "url_exclude")}>
+      <SettingCard title={t("sitemapUrl")} description={t("sitemapHint")} error={cardError("sitemap_url", "start_urls", "url_include", "url_exclude")}>
         <div className="mt-3 flex flex-col gap-3">
           <textarea value={form.sitemap_url} onChange={(e) => set({ sitemap_url: e.target.value })} onBlur={() => commit("sitemap_url")} className={INPUT} rows={2} placeholder="https://" />
+          <label className="flex flex-col gap-1">
+            <span className="text-xs text-muted">{t("startUrls")}</span>
+            <textarea value={form.start_urls} onChange={(e) => set({ start_urls: e.target.value })} onBlur={() => commit("start_urls")} className={INPUT} rows={2} placeholder="https://" />
+            <span className="text-2xs text-muted">{t("startUrlsHint")}</span>
+          </label>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <label className="flex flex-col gap-1">
               <span className="text-xs text-muted">{t("include")}</span>

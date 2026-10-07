@@ -24,7 +24,7 @@ def _now_iso() -> str:
     soft_time_limit=CAMPUS_CRAWL_TIME_LIMIT_SECONDS, time_limit=CAMPUS_CRAWL_TIME_LIMIT_SECONDS + 300,
 )
 def run_crawl() -> dict:
-    """Syncs the bundled place list and crawls the sitemap when one is configured."""
+    """Syncs the bundled place list and crawls the web pages when a sitemap or start address is configured."""
     cfg = campus_settings.read()
     status = {"started_at": _now_iso(), "running": True}
     campus_settings.set_crawl_status(status)
@@ -37,7 +37,7 @@ def run_crawl() -> dict:
         except Exception as e:  # noqa: BLE001
             logger.exception("Campus: Ortsliste nicht eingelesen")
             status["places_error"] = f"{type(e).__name__}: {e}"[:300]
-        if cfg.sitemap_url:
+        if cfg.sitemap_url or cfg.start_urls:
             status.update(crawler.run(cfg, embed, client=client, excluded_urls=excluded_repo.list_urls()))
         status["error"] = None
     except Exception as e:

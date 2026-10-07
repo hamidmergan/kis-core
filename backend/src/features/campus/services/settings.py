@@ -6,6 +6,7 @@ from src.features.admin.repository import settings as db
 from src.limits import CAMPUS_CHAT_RETENTION_DAYS
 
 KEY_SITEMAP_URL = "campus_sitemap_url"
+KEY_START_URLS = "campus_start_urls"
 KEY_URL_INCLUDE = "campus_url_include"
 KEY_URL_EXCLUDE = "campus_url_exclude"
 KEY_MAP_URL = "campus_map_url"
@@ -19,6 +20,7 @@ _RETENTION_MAX = 3650
 @dataclass
 class CampusSettings:
     sitemap_url: str = ""
+    start_urls: str = ""
     url_include: str = ""
     url_exclude: str = ""
     map_url: str = ""
@@ -45,6 +47,7 @@ def clamp_retention(value) -> int:
 def read() -> CampusSettings:
     return CampusSettings(
         sitemap_url=db.get_setting(KEY_SITEMAP_URL, "").strip(),
+        start_urls=db.get_setting(KEY_START_URLS, "").strip(),
         url_include=db.get_setting(KEY_URL_INCLUDE, ""),
         url_exclude=db.get_setting(KEY_URL_EXCLUDE, ""),
         map_url=db.get_setting(KEY_MAP_URL, "").strip(),
@@ -56,7 +59,7 @@ def read() -> CampusSettings:
 def write(values: dict) -> CampusSettings:
     """Stores only the known fields, unknown ones are ignored."""
     text_keys = {
-        "sitemap_url": KEY_SITEMAP_URL, "url_include": KEY_URL_INCLUDE, "url_exclude": KEY_URL_EXCLUDE,
+        "sitemap_url": KEY_SITEMAP_URL, "start_urls": KEY_START_URLS, "url_include": KEY_URL_INCLUDE, "url_exclude": KEY_URL_EXCLUDE,
         "map_url": KEY_MAP_URL,
     }
     for field, key in text_keys.items():
