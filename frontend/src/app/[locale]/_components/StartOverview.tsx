@@ -10,6 +10,8 @@ import Mascot from "@/components/ui/Mascot";
 import { useMascotPref } from "@/hooks/useMascotPref";
 import { ROUTES } from "@/lib/event/routes";
 import { EVENT_ICONS } from "@/lib/event/icons";
+import { useText2 } from "@/lib/event/useText2";
+import type { Text2 } from "@/lib/event/types";
 import { StartTile } from "./StartTile";
 
 type ToolTarget = Extract<HomeTarget, { kind: "tool" }>;
@@ -33,8 +35,23 @@ function AudienceTags({ tags }: { tags: { label: string; hint: string }[] }) {
 }
 
 /** The start page for everyone with more than one place to go: the assistant first, then every tool. */
-export default function StartOverview({ firstName, targets, stamp = null, stampFrom = "" }: { firstName: string; targets: HomeTarget[]; stamp?: "open" | "upcoming" | null; stampFrom?: string }) {
+export default function StartOverview({
+  firstName,
+  targets,
+  stamp = null,
+  stampFrom = "",
+  stampTitle,
+  stampBody,
+}: {
+  firstName: string;
+  targets: HomeTarget[];
+  stamp?: "open" | "upcoming" | null;
+  stampFrom?: string;
+  stampTitle?: Text2;
+  stampBody?: Text2;
+}) {
   const t = useTranslations("startOverview");
+  const text = useText2();
   const locale = useLocale();
   const day = stampFrom ? new Date(`${stampFrom}T12:00:00`) : null;
   const stampNote =
@@ -72,8 +89,8 @@ export default function StartOverview({ firstName, targets, stamp = null, stampF
                   href={stamp === "open" ? ROUTES.stamp : undefined}
                   note={stamp === "upcoming" ? stampNote : undefined}
                   icon={EVENT_ICONS.star}
-                  title={t("stamp.title")}
-                  body={t("stamp.body")}
+                  title={stampTitle ? text(stampTitle) : t("stamp.title")}
+                  body={stampBody ? text(stampBody) : t("stamp.body")}
                   testId="start-tile-stamp"
                 />
               </section>

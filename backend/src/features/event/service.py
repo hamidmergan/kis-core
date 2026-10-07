@@ -190,7 +190,12 @@ def event_window(config: dict, today: date) -> dict | None:
     kachel = next((t for t in block.get("tiles", []) if (t.get("target") or {}).get("kind") == "stamp"), None)
     if kachel is None:
         return None
-    return {"active": bool(kachel.get("active")), "availableFrom": kachel.get("availableFrom") or ""}
+    return {
+        "active": bool(kachel.get("active")),
+        "availableFrom": kachel.get("availableFrom") or "",
+        "title": kachel.get("title") or _text("", ""),
+        "body": kachel.get("body") or _text("", ""),
+    }
 
 
 def public_view(config: dict, today: date) -> dict:

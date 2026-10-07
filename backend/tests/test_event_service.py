@@ -234,9 +234,21 @@ def test_validation_keeps_the_hide_setting_and_defaults_it_off():
 def test_event_window_follows_the_stamp_tile():
     from src.features.event.service import event_window
 
-    tile = {"id": "s", "target": {"kind": "stamp"}, "active": False, "availableFrom": "2026-11-06"}
+    tile = {
+        "id": "s",
+        "target": {"kind": "stamp"},
+        "active": False,
+        "availableFrom": "2026-11-06",
+        "title": {"de": "Stempelkarte", "en": "Stamp card"},
+        "body": {"de": "Besuche alle Stände.", "en": "Visit all stands."},
+    }
     config = {"eventBlock": {**BLOCK, "tiles": [tile]}}
-    assert event_window(config, date(2026, 11, 5)) == {"active": False, "availableFrom": "2026-11-06"}
+    assert event_window(config, date(2026, 11, 5)) == {
+        "active": False,
+        "availableFrom": "2026-11-06",
+        "title": {"de": "Stempelkarte", "en": "Stamp card"},
+        "body": {"de": "Besuche alle Stände.", "en": "Visit all stands."},
+    }
     assert event_window(config, date(2026, 11, 14)) is None
     assert event_window({"eventBlock": {**BLOCK, "tiles": []}}, date(2026, 11, 9)) is None
     assert event_window({"eventBlock": {**BLOCK, "enabled": False, "tiles": [tile]}}, date(2026, 11, 9)) is None
