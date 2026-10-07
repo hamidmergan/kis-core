@@ -177,3 +177,25 @@ def test_screencast_mit_allsprachiger_stimme_nennt_die_zielsprache(lokal, monkey
     save_result_meta(UID, JOB, {"target_lang": "EN-US"})
 
     assert job_statistik.angaben_lesen(_job("screencast_translate")) == {"anbieter": "THL myLab", "sprache": "en", "stimme": "Alloy"}
+
+
+def test_bilder_bringen_anbieter_prompt_und_einstellungen_mit(lokal):
+    """Nutzerwunsch 07.10.2026: auch Bilder bekommen das i mit Anbieter, Art und Prompt."""
+    from src.services.job_statistik import angaben_lesen
+    from src.storage import save_result_meta
+
+    save_result_meta(UID, JOB, {"beschreibung": "Ein Apfel", "modell_prompt": "Foto. Ein Apfel", "stil": "foto",
+                                "format": "16:9", "qualitaet": "hoch", "groesse": "1344x768", "anbieter": "HPC"})
+
+    assert angaben_lesen(_job("image_generate")) == {"anbieter": "HPC", "stil": "foto", "format": "16:9",
+                                                     "qualitaet": "hoch", "groesse": "1344x768", "prompt": "Ein Apfel"}
+
+
+def test_eine_bildanalyse_nennt_aufgabe_und_frage(lokal):
+    from src.services.job_statistik import angaben_lesen
+    from src.storage import save_result_meta
+
+    save_result_meta(UID, JOB, {"quelle": "", "titel": "Wie alt?", "aufgabe": "frage", "frage": "Wie alt?",
+                                "vorlage": "vorlage.png", "dateiname": "a.png", "anbieter": "THL myLab"})
+
+    assert angaben_lesen(_job("image_analyze")) == {"anbieter": "THL myLab", "aufgabe": "frage", "frage": "Wie alt?"}

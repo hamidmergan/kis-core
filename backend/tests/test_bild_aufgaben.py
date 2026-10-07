@@ -58,6 +58,7 @@ def _umgebung(monkeypatch, client, meta=None, dateien=None):
     monkeypatch.setattr(gt, "job_heartbeat", _herzschlag)
     monkeypatch.setattr(gt, "get_file", lambda p: _png())
     monkeypatch.setattr(gt, "_image_http_client", lambda *a, **k: ("http://x", "modell", client))
+    monkeypatch.setattr(gt, "wer_antwortete", lambda feature, pid=None: f"Anbieter {feature}")
 
 
 _BILD = {"data": [{"b64_json": base64.b64encode(_png()).decode()}]}
@@ -174,7 +175,8 @@ def test_eine_beschreibung_behaelt_ihr_bild_und_ihre_verknuepfung(monkeypatch):
     gt.run_image_analyze.run.__func__(None, "job1", "ip", "a.jpg", "", None, anweisung="Beschreibe.",
                                       angaben={"quelle": "bild1", "titel": "Beschreiben"})
     assert dateien["vorlage.jpg"] == _png()
-    assert meta == {"quelle": "bild1", "titel": "Beschreiben", "vorlage": "vorlage.jpg", "dateiname": "a.jpg"}
+    assert meta == {"quelle": "bild1", "titel": "Beschreiben", "vorlage": "vorlage.jpg", "dateiname": "a.jpg",
+                    "anbieter": "Anbieter vision"}
 
 
 def test_ein_aufgefuelltes_panorama_wird_auf_seinen_streifen_zugeschnitten(monkeypatch):

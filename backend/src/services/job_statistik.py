@@ -100,6 +100,13 @@ def angaben_lesen(job: dict) -> dict:
             ziel = ((load_result_meta(uid, uuid) or {}).get("target_lang") or "").split("-")[0].lower()
             angaben.setdefault("sprache", _voice_language_for(pid, stimme) or ziel)
             angaben.setdefault("stimme", params.get("voice_label") or (voice_name(pid, stimme) if stimme else ""))
+    elif tool in ("image_generate", "image_edit", "image_analyze"):
+        # Pictures keep their settings at the top of the meta, older ones without the provider.
+        meta = load_result_meta(uid, uuid) or {}
+        for k in ("anbieter", "stil", "format", "qualitaet", "groesse", "aufgabe", "frage"):
+            angaben.setdefault(k, meta.get(k))
+        if tool != "image_analyze":
+            angaben.setdefault("prompt", meta.get("beschreibung"))
     elif tool == "transcription":
         # The result's extension tells the format, named like the choice on the page.
         endung = Path(job.get("result_filename") or "").suffix.lstrip(".")

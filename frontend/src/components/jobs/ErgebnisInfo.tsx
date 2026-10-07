@@ -22,6 +22,13 @@ export interface ErgebnisAngaben {
   material?: string;
   /** Who speaks in a podcast, the role as its key. */
   besetzung?: { name: string; rolle: string; stimme: string }[];
+  /** A picture's prompt and settings, the task and question of an answer about it. */
+  prompt?: string;
+  stil?: string;
+  qualitaet?: string;
+  groesse?: string;
+  aufgabe?: string;
+  frage?: string;
 }
 
 export interface Auftrag {

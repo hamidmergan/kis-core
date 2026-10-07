@@ -272,6 +272,7 @@ def run_image_generate(
 ):
     try:
         db.update_job_status(job_uuid, "running")
+        provider_transport.record_answering()
         user_id = _resolve_user_id(job_uuid)
 
         # A large picture in high quality takes myLab about a minute, 300 s leave room for a busy provider.
@@ -314,7 +315,8 @@ def run_image_generate(
         # The picture's description stays with it, for the result card and the history.
         # The chosen style, format and quality go along, the picture shows what it was made with.
         save_result_meta(user_id, job_uuid, {**(angaben or {}), "beschreibung": titel or prompt,
-                                             "modell_prompt": prompt, "groesse": body["size"]})
+                                             "modell_prompt": prompt, "groesse": body["size"],
+                                             "anbieter": wer_antwortete("image_gen", provider_id)})
         db.update_job_status(job_uuid, "success")
         logger.info("Image generate task {} completed", job_uuid)
 
@@ -346,6 +348,7 @@ def run_image_edit(
 ):
     try:
         db.update_job_status(job_uuid, "running")
+        provider_transport.record_answering()
         user_id = _resolve_user_id(job_uuid)
 
         content = get_file(input_path)
@@ -408,7 +411,7 @@ def run_image_edit(
         vorlage = f"vorlage{'.png' if zuschnitt else ext}"
         save_job_file(user_id, job_uuid, vorlage, _zuschneiden(content, zuschnitt) if zuschnitt else content)
         save_result_meta(user_id, job_uuid, {**(angaben or {}), "beschreibung": prompt, "groesse": size,
-                                             "vorlage": vorlage})
+                                             "vorlage": vorlage, "anbieter": wer_antwortete("image_edit", provider_id)})
         db.update_job_status(job_uuid, "success")
         delete_file(input_path)
         logger.info("Image edit task {} completed", job_uuid)
@@ -437,6 +440,7 @@ def run_image_analyze(
 ):
     try:
         db.update_job_status(job_uuid, "running")
+        provider_transport.record_answering()
         user_id = _resolve_user_id(job_uuid)
 
         content = get_file(input_path)
@@ -498,7 +502,8 @@ def run_image_analyze(
         # The described picture stays with its answer, so the page can show both again later.
         vorlage = f"vorlage{ext}"
         save_job_file(user_id, job_uuid, vorlage, content)
-        save_result_meta(user_id, job_uuid, {**(angaben or {}), "vorlage": vorlage, "dateiname": filename})
+        save_result_meta(user_id, job_uuid, {**(angaben or {}), "vorlage": vorlage, "dateiname": filename,
+                                             "anbieter": wer_antwortete("vision", provider_id)})
         db.update_job_status(job_uuid, "success")
         delete_file(input_path)
         logger.info("Image analyze task {} completed", job_uuid)

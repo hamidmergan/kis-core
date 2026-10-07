@@ -280,7 +280,8 @@ async def analyze_image(
 
     from src.tasks.general_tasks import run_image_analyze
     task = run_image_analyze.delay(job_uuid, input_path, image.filename, prompt, provider_id, anweisung=anweisung,
-                                   angaben={"quelle": quelle, "titel": titel.strip()[:200]})
+                                   angaben={"quelle": quelle, "titel": titel.strip()[:200], "aufgabe": aufgabe,
+                                            "frage": prompt.strip()[:500] if aufgabe == "frage" else ""})
     db.set_job_celery_task_id(job_uuid, task.id)
 
     logger.info("Image analyze job {} queued for '{}'", job_uuid, image.filename)

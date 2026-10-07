@@ -4,6 +4,7 @@ import { forwardRef, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
 import BackgroundHint from "@/components/tools/BackgroundHint";
+import BildInfo from "./BildInfo";
 import Platzhalter from "./Platzhalter";
 import VorherNachher from "./VorherNachher";
 import type { BildErgebnis } from "./useBildAuftraege";
@@ -51,7 +52,7 @@ const Buehne = forwardRef<HTMLDivElement, Props>(function Buehne(
           ) : (
             <img src={bild.url} alt={bild.beschreibung ?? bild.filename} className="w-full max-h-[60vh] rounded-md bg-surface object-contain" />
           )}
-          <div className="mt-3 flex flex-wrap gap-1.5">
+          <div className="mt-3 flex flex-wrap items-center gap-1.5">
             {bild.jobUuid && (
               <>
                 <button type="button" className={KNOPF} onClick={() => speichern(bild.blob, bild.filename)}>
@@ -63,6 +64,9 @@ const Buehne = forwardRef<HTMLDivElement, Props>(function Buehne(
               </>
             )}
             {(!!bild.jobUuid || !!bild.beschreibungen?.length) && onLoeschen && <button type="button" className={KNOPF} onClick={onLoeschen}>{t("delete")}</button>}
+            {bild.jobUuid && (
+              <span className="ml-auto"><BildInfo jobUuid={bild.jobUuid} art={bild.bearbeitet ? "edit" : "generate"} /></span>
+            )}
           </div>
           {children}
           {onNeu && (

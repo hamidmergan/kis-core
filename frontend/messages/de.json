@@ -960,6 +960,16 @@
         "warning": "Das Bild und sein Job werden endgültig gelöscht.",
         "cancel": "Abbrechen",
         "confirm": "Löschen"
+      },
+      "info": {
+        "type": "Art",
+        "types": {
+          "generate": "Generierung",
+          "edit": "Bearbeitung",
+          "analyze": "Analyse"
+        },
+        "question": "Frage",
+        "pixels": "{breite} × {hoehe} px"
       }
     },
     "screencast": {

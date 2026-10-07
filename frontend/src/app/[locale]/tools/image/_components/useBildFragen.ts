@@ -6,6 +6,7 @@ import type { BildErgebnis, Beschreibung } from "./useBildAuftraege";
 import type { AUFGABEN } from "../_utils";
 
 export interface Antwort {
+  jobUuid: string;
   frage: string;
   text: string;
 }
@@ -57,7 +58,7 @@ export function useBildFragen(spinner: string, laenger: string, unbekannt: strin
       await pollJob(daten.job_uuid, undefined, 3000, undefined, () => setLabel(laenger), 60_000);
       window.dispatchEvent(new Event("kis-jobs-changed"));
       const { blob } = await downloadJobAsBlob(daten.job_uuid);
-      const eintrag = { frage: frage.titel, text: await blob.text() };
+      const eintrag = { jobUuid: daten.job_uuid, frage: frage.titel, text: await blob.text() };
       setAntworten((alt) => ({ ...alt, [bild.key]: [...(alt[bild.key] ?? []), eintrag] }));
       onAntwort(bild.key, { jobUuid: daten.job_uuid, titel: frage.titel });
       return true;
@@ -82,7 +83,7 @@ export function useBildFragen(spinner: string, laenger: string, unbekannt: strin
     try {
       const geladen = await Promise.all(liste.map(async (b) => {
         const { blob } = await downloadJobAsBlob(b.jobUuid);
-        return { frage: b.titel, text: await blob.text() };
+        return { jobUuid: b.jobUuid, frage: b.titel, text: await blob.text() };
       }));
       // A question asked in the meantime already shows its answer, the kept ones go in front of it.
       setAntworten((alt) => ({ ...alt, [bild.key]: [...geladen, ...(alt[bild.key] ?? [])] }));

@@ -960,6 +960,16 @@
         "warning": "The image and its job are deleted for good.",
         "cancel": "Cancel",
         "confirm": "Delete"
+      },
+      "info": {
+        "type": "Type",
+        "types": {
+          "generate": "Generation",
+          "edit": "Editing",
+          "analyze": "Analysis"
+        },
+        "question": "Question",
+        "pixels": "{breite} × {hoehe} px"
       }
     },
     "screencast": {

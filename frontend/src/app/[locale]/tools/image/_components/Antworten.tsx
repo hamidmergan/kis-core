@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
 import BackgroundHint from "@/components/tools/BackgroundHint";
+import BildInfo from "./BildInfo";
 import type { Antwort } from "./useBildFragen";
 import { kopieren as inZwischenablage, speichern } from "../_utils";
 
@@ -39,8 +40,11 @@ export default function Antworten({ antworten, laeuft, label, fehler, dateiname,
   return (
     <div className="mt-3 space-y-3">
       {antworten.map((a, i) => (
-        <article key={i} className="rounded-md border-2 border-border-soft bg-background p-3">
-          <p className="mb-1 text-xs font-semibold text-muted">{a.frage}</p>
+        <article key={a.jobUuid} className="rounded-md border-2 border-border-soft bg-background p-3">
+          <div className="mb-1 flex items-start justify-between gap-2">
+            <p className="text-xs font-semibold text-muted">{a.frage}</p>
+            <BildInfo jobUuid={a.jobUuid} art="analyze" />
+          </div>
           <p className="whitespace-pre-wrap break-words text-sm text-foreground">{a.text}</p>
           <button type="button" className={`${KNOPF} mt-2`} onClick={() => kopieren(i, a.text)}>
             {kopiert === i ? t("copied") : t("copy")}
