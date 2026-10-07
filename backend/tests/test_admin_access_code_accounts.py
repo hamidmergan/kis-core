@@ -1,7 +1,6 @@
 """Locking, deleting and listing the accounts that access codes created."""
 
 import json
-from datetime import datetime, timedelta
 from unittest.mock import patch
 
 import pytest
@@ -46,21 +45,6 @@ def client_ohne_recht(monkeypatch):
     get_settings.cache_clear()
 
 
-def test_all_accounts_come_with_code_and_state(client):
-    zeile = {
-        "id": 9, "ldap_username": "abcdefgh", "created_at": datetime(2026, 10, 1),
-        "access_expires_at": datetime.now() + timedelta(days=3), "active": 1,
-        "code_id": 4, "code_label": "Kollegen", "code": "KIS-AAAA-BBBB",
-    }
-    with patch(f"{R}.repo.list_all_code_users", return_value=[zeile]):
-        r = client.get("/admin/access-codes/users")
-
-    assert r.status_code == 200
-    konto = r.json()["users"][0]
-    assert konto["code_label"] == "Kollegen"
-    assert konto["status"] == "active"
-
-
 def test_bulk_lock_for_one_code_locks_only_its_accounts(client):
     with patch(f"{R}.repo.get_code_by_id", return_value={"id": 4}), \
          patch(f"{R}.repo.list_user_ids_for_code", return_value=[7, 8]), \
@@ -72,13 +56,22 @@ def test_bulk_lock_for_one_code_locks_only_its_accounts(client):
     sperren.assert_called_once_with([7, 8])
 
 
-def test_bulk_delete_without_code_takes_every_code_account(client):
-    with patch(f"{R}.repo.list_all_code_user_ids", return_value=[7, 8, 9]), \
+def test_bulk_delete_takes_the_accounts_of_the_code(client):
+    with patch(f"{R}.repo.get_code_by_id", return_value={"id": 4}), \
+         patch(f"{R}.repo.list_user_ids_for_code", return_value=[7, 8, 9]), \
          patch(f"{R}.delete_accounts", return_value=3) as loeschen:
-        r = client.post("/admin/access-codes/users/bulk", json={"action": "delete"})
+        r = client.post("/admin/access-codes/users/bulk", json={"action": "delete", "code_id": 4})
 
     assert r.status_code == 200
     loeschen.assert_called_once_with([7, 8, 9])
+
+
+def test_bulk_without_a_code_is_refused(client):
+    with patch(f"{R}.delete_accounts") as loeschen:
+        r = client.post("/admin/access-codes/users/bulk", json={"action": "delete"})
+
+    assert r.status_code == 422
+    loeschen.assert_not_called()
 
 
 def test_bulk_for_an_unknown_code_is_404(client):
@@ -91,7 +84,7 @@ def test_bulk_for_an_unknown_code_is_404(client):
 
 
 def test_bulk_with_an_unknown_action_is_refused(client):
-    r = client.post("/admin/access-codes/users/bulk", json={"action": "wipe"})
+    r = client.post("/admin/access-codes/users/bulk", json={"action": "wipe", "code_id": 4})
     assert r.status_code == 422
 
 
@@ -137,7 +130,7 @@ def test_deleting_one_account(client):
 
 def test_without_the_right_nothing_is_locked(client_ohne_recht):
     with patch(f"{R}.lock_accounts") as sperren:
-        r = client_ohne_recht.post("/admin/access-codes/users/bulk", json={"action": "lock"})
+        r = client_ohne_recht.post("/admin/access-codes/users/bulk", json={"action": "lock", "code_id": 4})
 
     assert r.status_code == 403
     sperren.assert_not_called()

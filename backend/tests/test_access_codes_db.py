@@ -158,10 +158,6 @@ def test_set_users_active_switches_code_accounts_but_never_others(schema, konto_
                             ([user_id, echt_id],))
                 zustand = dict(cur.fetchall())
         assert zustand == {user_id: 0, echt_id: 1}
-        assert user_id in repo.list_all_code_user_ids()
-        assert echt_id not in repo.list_all_code_user_ids()
-        eintrag = next(z for z in repo.list_all_code_users() if z["id"] == user_id)
-        assert eintrag["code_id"] == code_id
     finally:
         with schema() as conn:
             with conn.cursor() as cur:

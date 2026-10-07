@@ -1,6 +1,6 @@
 "use client";
 
-/** The accounts of one access code or of all codes: log in on or off, new password, delete. */
+/** The accounts one access code created: login on or off, new password, delete, one by one or all at once. */
 
 import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
@@ -23,8 +23,6 @@ type Konto = {
   status: KontoZustand;
   /** When the nightly sweep removes the account, null while nothing removes it. */
   delete_at: string | null;
-  /** Only filled in the list across all codes. */
-  code_label?: string;
 };
 
 const TON_KONTO: Record<KontoZustand, StatusTone> = {
@@ -33,8 +31,7 @@ const TON_KONTO: Record<KontoZustand, StatusTone> = {
   disabled: "muted",
 };
 
-/** One code, or null for the accounts of every code. */
-export type KontenUmfang = { id: number; label: string; code: string } | null;
+export type KontenUmfang = { id: number; label: string; code: string };
 
 type Rueckfrage = { art: "lock" | "delete" } | { art: "deleteOne"; konto: Konto };
 
@@ -60,8 +57,7 @@ export default function AccessCodeUsersDialog({ umfang, onClose }: Props) {
   const [rueckfrage, setRueckfrage] = useState<Rueckfrage | null>(null);
   const [arbeitet, setArbeitet] = useState(false);
 
-  const alle = umfang === null;
-  const adresse = alle ? "/api/admin/access-codes/users" : `/api/admin/access-codes/${umfang.id}/users`;
+  const adresse = `/api/admin/access-codes/${umfang.id}/users`;
 
   const laden = useCallback(() => {
     setError("");
@@ -140,7 +136,7 @@ export default function AccessCodeUsersDialog({ umfang, onClose }: Props) {
               method: "POST",
               credentials: "include",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ action: rueckfrage.art, code_id: umfang?.id ?? null }),
+              body: JSON.stringify({ action: rueckfrage.art, code_id: umfang.id }),
             });
       if (!r.ok) setError(t("saveError"));
       setRueckfrage(null);
@@ -165,7 +161,7 @@ export default function AccessCodeUsersDialog({ umfang, onClose }: Props) {
       <Modal
         open
         onClose={onClose}
-        title={alle ? t("allUsersTitle") : umfang.label}
+        title={umfang.label}
         size="xl"
         footer={
           <button type="button" onClick={onClose} className="btn-cancel px-4 py-2 text-sm btn-secondary rounded-lg">
@@ -176,7 +172,7 @@ export default function AccessCodeUsersDialog({ umfang, onClose }: Props) {
         <div data-testid="access-code-users">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
             <p className="text-xs text-muted-soft">
-              {alle ? t("allUsersSummary", { n: konten.length }) : <span className="font-mono">{umfang.code}</span>}
+              <span className="font-mono">{umfang.code}</span>
             </p>
             {konten.length > 0 && (
               <div className="flex flex-wrap gap-2">
@@ -206,14 +202,13 @@ export default function AccessCodeUsersDialog({ umfang, onClose }: Props) {
           {loading ? (
             <Spinner className="flex justify-center py-8" />
           ) : konten.length === 0 ? (
-            <p className="text-sm text-muted-soft text-center py-6">{alle ? t("allUsersEmpty") : t("usersEmpty")}</p>
+            <p className="text-sm text-muted-soft text-center py-6">{t("usersEmpty")}</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm border border-border-soft rounded-xl overflow-hidden">
                 <thead className="bg-surface text-xs text-muted uppercase">
                   <tr>
                     <th className="px-3 py-2 text-left">{t("colUser")}</th>
-                    {alle && <th className="px-3 py-2 text-left">{t("colFromCode")}</th>}
                     <th className="px-3 py-2 text-left">{t("colCreated")}</th>
                     <th className="px-3 py-2 text-left">{t("colExpires")}</th>
                     <th className="px-3 py-2 text-left">{t("colDeleteAt")}</th>
@@ -236,7 +231,6 @@ export default function AccessCodeUsersDialog({ umfang, onClose }: Props) {
                           {kopiertNutzer === k.id && <Check size={12} weight="bold" className="text-kb" />}
                         </button>
                       </td>
-                      {alle && <td className="px-3 py-2 text-foreground-soft">{k.code_label}</td>}
                       <td className="px-3 py-2 text-foreground-soft">{datum(k.created_at)}</td>
                       <td className="px-3 py-2 text-foreground-soft">
                         {k.access_expires_at == null ? t("accessUnlimited") : datum(k.access_expires_at)}

@@ -286,17 +286,9 @@ def _with_status(eintraege: list[dict]) -> list[dict]:
     ]
 
 
-@router.get("/access-codes/users")
-def list_all_access_code_users(admin: dict = Depends(_require), locale: str = Depends(get_locale)):
-    """Every account any code created, across all codes."""
-    _require_feature(locale)
-    return {"users": _with_status(repo.list_all_code_users())}
-
-
 class BulkUsersPayload(BaseModel):
     action: str = Field(..., pattern="^(lock|delete)$")
-    # None means the accounts of every code.
-    code_id: int | None = None
+    code_id: int
 
 
 @router.post("/access-codes/users/bulk")
@@ -305,14 +297,11 @@ def bulk_access_code_users(
     admin: dict = Depends(_require),
     locale: str = Depends(get_locale),
 ):
-    """Locks or deletes every account of one code, or of all codes."""
+    """Locks or deletes every account one code created."""
     _require_feature(locale)
-    if payload.code_id is None:
-        user_ids = repo.list_all_code_user_ids()
-    else:
-        if repo.get_code_by_id(payload.code_id) is None:
-            raise HTTPException(status_code=404, detail=t("access.notFound", locale))
-        user_ids = repo.list_user_ids_for_code(payload.code_id)
+    if repo.get_code_by_id(payload.code_id) is None:
+        raise HTTPException(status_code=404, detail=t("access.notFound", locale))
+    user_ids = repo.list_user_ids_for_code(payload.code_id)
 
     if payload.action == "lock":
         anzahl = lock_accounts(user_ids)

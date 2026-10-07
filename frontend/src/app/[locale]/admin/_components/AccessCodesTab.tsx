@@ -4,7 +4,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Check, PencilSimple, QrCode, Trash } from "@phosphor-icons/react";
+import { Check, PencilSimple, QrCode, Trash, Users } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 import Modal from "@/components/ui/Modal";
 import IconButton from "@/components/ui/IconButton";
@@ -108,8 +108,7 @@ export default function AccessCodesTab() {
   const [loeschen, setLoeschen] = useState<Code | null>(null);
   const [qrCode, setQrCode] = useState<Code | null>(null);
   const [umschaltend, setUmschaltend] = useState<number | null>(null);
-  // undefined keeps the account list closed, null shows the accounts of every code.
-  const [konten, setKonten] = useState<KontenUmfang | undefined>(undefined);
+  const [konten, setKonten] = useState<KontenUmfang | null>(null);
   const [aktivitaetKonto, setAktivitaetKonto] = useState<Konto | null>(null);
   const [aktivitaetModule, setAktivitaetModule] = useState<ModulEintrag[]>([]);
   const [aktivitaetNachrichten, setAktivitaetNachrichten] = useState<NachrichtEintrag[]>([]);
@@ -201,24 +200,14 @@ export default function AccessCodesTab() {
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-xs text-muted-soft">{t("summary", { n: codes.length, aktiv })}</span>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => setKonten(null)}
-            data-testid="access-code-all-users"
-            className="btn-cancel px-4 py-2 text-sm btn-secondary rounded-lg whitespace-nowrap"
-          >
-            {t("allUsersButton")}
-          </button>
-          <button
-            type="button"
-            onClick={() => setDialogOffen(true)}
-            data-testid="access-code-create"
-            className="px-3 py-2 text-sm btn-primary rounded-md transition-colors whitespace-nowrap"
-          >
-            {t("createButton")}
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => setDialogOffen(true)}
+          data-testid="access-code-create"
+          className="px-3 py-2 text-sm btn-primary rounded-md transition-colors whitespace-nowrap"
+        >
+          {t("createButton")}
+        </button>
       </div>
 
       {error && <p className="text-xs text-error">{error}</p>}
@@ -309,6 +298,15 @@ export default function AccessCodesTab() {
                     <div className="flex items-center gap-1">
                       <IconButton
                         size="sm"
+                        title={t("usersTitle")}
+                        aria-label={t("usersTitle")}
+                        data-testid="access-code-users-open"
+                        onClick={() => setKonten({ id: e.id, label: e.label, code: e.code })}
+                      >
+                        <Users size={14} weight="bold" />
+                      </IconButton>
+                      <IconButton
+                        size="sm"
                         title={t("qrButton")}
                         aria-label={t("qrButton")}
                         onClick={() => setQrCode(e)}
@@ -377,9 +375,7 @@ export default function AccessCodesTab() {
         <p className="mt-2 text-xs text-muted-soft">{t("deleteHint")}</p>
       </Modal>
 
-      {konten !== undefined && (
-        <AccessCodeUsersDialog umfang={konten} onClose={() => setKonten(undefined)} />
-      )}
+      {konten && <AccessCodeUsersDialog umfang={konten} onClose={() => setKonten(null)} />}
 
       <Modal
         open={!!aktivitaetKonto}

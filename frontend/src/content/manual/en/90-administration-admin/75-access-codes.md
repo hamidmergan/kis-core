@@ -18,9 +18,9 @@ credentials, meant for events with a QR code.
 You pick the validity of the code from the list or enter your own number of days.
 
 Each code shows its QR image as a poster to download, can be switched on or off, edited, and
-deleted. Per code you see the accounts it created with status and can set a new password.
-**All accounts** lists the accounts of every code in one place. There and per code you can block
-the login of single accounts or of all accounts at once, open sessions end right away. Single or
-all accounts can also be deleted along with their workspaces, chats and files. Expired test
+deleted. **Accounts created** shows the accounts a code created with status, and you can set a
+new password. There you can block the login of single accounts or of all accounts of the code at
+once, open sessions end right away. Single or all accounts can also be deleted along with their
+workspaces, chats and files. Expired test
 accounts are deleted automatically after a configurable period, with evaluation answers staying
 on anonymously.
