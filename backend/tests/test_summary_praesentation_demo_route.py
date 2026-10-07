@@ -24,6 +24,7 @@ def _folie(sid: str, bilder: int) -> dict:
 def zusammenfassung(tmp_path):
     (tmp_path / "demo.json").write_text(json.dumps({
         "workspace": "Projektmanagement", "dateien": ["A.pdf", "B.pdf"], "anweisung": "Kurz halten",
+        "anbieter": "HPC", "erstellt": "2026-10-01T01:38:17Z",
     }), encoding="utf-8")
     (tmp_path / "kurzbriefing").mkdir()
     (tmp_path / "kurzbriefing" / "Kurzbriefing.md").write_text("# T\n\n## Eins\n\nx\n\n### Zwei\n\ny\n", encoding="utf-8")
@@ -98,6 +99,7 @@ def test_zusammenfassung_nennt_material_und_vorbereitete_vorlagen(client):
     assert r.status_code == 200
     assert r.json() == {
         "workspace": "Projektmanagement", "files": ["A.pdf", "B.pdf"], "instructions": "Kurz halten",
+        "provider": "HPC", "created": "2026-10-01T01:38:17Z",
         "templates": ["kurzbriefing"], "sections": {"kurzbriefing": 2},
     }
 

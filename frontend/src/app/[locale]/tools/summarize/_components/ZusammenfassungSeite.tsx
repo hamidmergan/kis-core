@@ -6,7 +6,7 @@ import { Info } from "@phosphor-icons/react";
 import { useLocale, useTranslations } from "next-intl";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ErgebnisInfoKnopf, ErgebnisLoeschenKnopf, useErgebnisAngaben } from "@/components/jobs/ErgebnisInfo";
+import { ErgebnisInfoKnopf, ErgebnisLoeschenKnopf, useErgebnisAngaben, type Auftrag } from "@/components/jobs/ErgebnisInfo";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import ToolBackLink from "@/components/ui/ToolBackLink";
 import StatusMark from "@/components/ui/StatusMark";
@@ -71,7 +71,7 @@ function ZusammenfassungSeiteInner({ demo = false }: { demo?: boolean }) {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [doneJobUuid, setDoneJobUuid] = useState<string | null>(null);
-  const auftrag = useErgebnisAngaben(demo ? null : doneJobUuid);
+  const echterAuftrag = useErgebnisAngaben(demo ? null : doneJobUuid);
   const [errorMessage, setErrorMessage] = useState("");
   // Read straight on the page once a run is done, the downloads stay as a second way to get it.
   const [previewText, setPreviewText] = useState<string | null>(null);
@@ -99,6 +99,13 @@ function ZusammenfassungSeiteInner({ demo = false }: { demo?: boolean }) {
   const voll = sourceIds.length >= maxSources;
   const hatInhalt = demo ? templates.length > 0 : mode === "files" ? files.length > 0 : sourceIds.length > 0;
   const bereit = demo || messung.ready;
+  // The demo result is named after its template and fills the info like a real run would.
+  const auftrag: Auftrag | null = demo
+    ? doneJobUuid && demoSetup
+      ? { angaben: { vorlage: doneJobUuid, anweisung: demoSetup.instructions, anbieter: demoSetup.provider },
+          erstellt: demoSetup.created, datei: null }
+      : null
+    : echterAuftrag;
 
   useEffect(() => {
     backendApi.fetch("/summary/templates")

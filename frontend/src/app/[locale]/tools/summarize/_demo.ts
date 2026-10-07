@@ -3,6 +3,8 @@ export type DemoSetup = {
   workspace: string;
   files: string[];
   instructions: string;
+  provider: string;
+  created: string | null;
   templates: string[];
   sections: Record<string, number>;
 };

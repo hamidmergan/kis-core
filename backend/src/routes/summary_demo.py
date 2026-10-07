@@ -44,6 +44,9 @@ def demo_setup(_: dict = Depends(get_current_user)):
         "workspace": daten.get("workspace", ""),
         "files": daten.get("dateien", []),
         "instructions": daten.get("anweisung", ""),
+        # What a real run shows in its info, so the demo result reads the same.
+        "provider": daten.get("anbieter", ""),
+        "created": daten.get("erstellt"),
         "templates": list(ergebnisse),
         # The simulated run counts the sections the prepared text really has.
         "sections": {slug: max(1, len(_ABSCHNITT.findall(md.read_text(encoding="utf-8"))))
