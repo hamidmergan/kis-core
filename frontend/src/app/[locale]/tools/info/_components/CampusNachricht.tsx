@@ -96,13 +96,13 @@ function CampusNachrichtInner({
             <>
               {(msg.places.length > 0 || msg.sources.length > 0 || msg.content) && (
                 <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                  {msg.places.map((ort) => <OrtKarte key={ort.id} ort={ort} mapUrl={mapUrl} />)}
-                  <QuellenKarten quellen={msg.sources} />
                   {msg.content && (
                     <button type="button" onClick={copy} title={t("copy")} className="w-7 h-7 flex items-center justify-center rounded-full btn-icon">
                       {copied ? <Check size={14} weight="bold" /> : <Copy size={14} weight="bold" />}
                     </button>
                   )}
+                  {msg.places.map((ort) => <OrtKarte key={ort.id} ort={ort} mapUrl={mapUrl} />)}
+                  <QuellenKarten quellen={msg.sources} />
                 </div>
               )}
             </>
