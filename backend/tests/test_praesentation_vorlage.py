@@ -39,6 +39,7 @@ class TestThl:
         assert _namen(thl, "text")[0] == "Text oder Grafik"
         assert _namen(thl, "zwei_spalten")[0] == "Zwei Inhalte"
         assert _namen(thl, "abschnitt")[0] == "Abschnitt"
+        assert all(not thl.layout(i).der_art("bild") for i in thl.rollen["abschnitt"])
         assert _namen(thl, "bild_gross")[0] == "Großes Bild"
         assert _namen(thl, "abschluss") == ["Titelfolie 2"]
         assert thl.uebersprungen == []
@@ -74,7 +75,7 @@ class TestThl:
         assert thl.typeface == "Calibri"
 
     def test_waehlbare_rollen(self, thl):
-        assert vorlage.waehlbare_rollen(thl) == ["abschnitt", "bild_gross", "text", "text_mit_bild", "zwei_spalten"]
+        assert vorlage.waehlbare_rollen(thl) == ["abschnitt", "text", "text_mit_bild", "zwei_spalten"]
 
     def test_rundreise_als_dict(self, thl):
         assert vorlage.als_dict(vorlage.aus_dict(vorlage.als_dict(thl))) == vorlage.als_dict(thl)

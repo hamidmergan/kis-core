@@ -10,8 +10,8 @@ from src.limits import PRAESENTATION_MAX_SLIDES, PRAESENTATION_MIN_SLIDES
 ROLLEN: tuple[str, ...] = (
     "deckblatt", "abschnitt", "text", "zwei_spalten", "text_mit_bild", "bild_gross", "abschluss",
 )
-# The model picks from these for the middle of the deck, first and last slide are forced.
-WAEHLBARE_ROLLEN: tuple[str, ...] = ("abschnitt", "text", "zwei_spalten", "text_mit_bild", "bild_gross")
+# The model picks from these for the middle of the deck, first and last slide are forced, a slide of picture and title alone is never offered.
+WAEHLBARE_ROLLEN: tuple[str, ...] = ("abschnitt", "text", "zwei_spalten", "text_mit_bild")
 LANGUAGES: tuple[str, ...] = ("de", "en")
 # How many slides an outline may hold, the model picks its own number inside this range.
 FOLIEN_GRENZEN: tuple[int, int] = (PRAESENTATION_MIN_SLIDES, PRAESENTATION_MAX_SLIDES)

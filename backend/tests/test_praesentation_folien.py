@@ -35,6 +35,12 @@ class TestPrompt:
         assert "SLIDE s2 (role text)" in user and "body: up to 90 words, allowed kinds: bullets, table, chart" in user
         assert "SLIDE s3 (role text_mit_bild)" in user and "images: 2" in user and "notes: yes" in user
 
+    def test_sprechtext_bleibt_bei_der_eigenen_folie(self):
+        system = folien.build_messages("Q", PraesentationParams(notes=True), ROWS, FORMEN)[0]["content"]
+        assert "every point, column, card, step, row or figure of it" in system
+        assert "Never what a later slide shows" in system
+        assert "A section divider gets one or two sentences" in system
+
     def test_ohne_titel_soll_das_modell_die_ueberschrift_schreiben(self):
         """A slide added by instruction alone has no title yet, the model has to invent one."""
         rows = [OutlineRow(id="s2", role="text", title="", gist="vergleiche die beiden Verfahren")]

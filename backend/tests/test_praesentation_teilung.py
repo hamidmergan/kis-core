@@ -98,6 +98,18 @@ def test_die_zweite_haelfte_behaelt_den_sprechtext():
     assert all(o.notes == "So spreche ich dazu." for o in out)
 
 
+def test_jede_haelfte_spricht_ueber_ihre_eigenen_punkte():
+    notes = "Erst kommt Alpha. Dann folgt Beta. Danach kommt Gamma. Zuletzt folgt Delta."
+    vorn, hinten = teilung.notizen_teilen(notes, 0.5)
+    assert vorn == "Erst kommt Alpha. Dann folgt Beta."
+    assert hinten == "Danach kommt Gamma. Zuletzt folgt Delta."
+
+
+def test_abkuerzungen_trennen_keinen_satz():
+    vorn, hinten = teilung.notizen_teilen("Das gilt z. B. heute. Und morgen auch.", 0.1)
+    assert (vorn, hinten) == ("Das gilt z. B. heute.", "Und morgen auch.")
+
+
 def test_eine_folie_mit_layout_misst_gegen_ihr_eigenes_feld():
     # Six short points fit the large field of layout 2, the small one of layout 1 is not this slide's.
     s = Slide(id="s3", role="text", layout=2, title="T", body=Body(items=["a", "b", "c", "d", "e", "f"]))

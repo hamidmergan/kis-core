@@ -111,9 +111,14 @@ def build_messages(source: str, params: PraesentationParams, rows: list[OutlineR
         '  image: {"kind": "image", "prompt": "..."} only when allowed, at most on every fourth slide.\n'
         '- columns: when the slide has two or more text fields, one entry per field: {"heading": "...", "items": [...]}\n'
         '- images: one entry per image field: {"prompt": "..."}, an English description of a scene, object or visual '
-        "metaphor. Never a diagram, chart, curve, formula, map, sign or screen, and never words, labels, numbers or "
-        "letters in the picture: whatever needs labelling belongs in the slide text. The same holds for an image body.\n"
-        "- notes: speaker notes of 60 to 120 words in the slide language, only when asked, else an empty string\n"
+        "metaphor. Never a diagram, chart, curve, formula, map, sign, screen, timeline, schedule or calendar, and never "
+        "words, labels, numbers, dates or letters in the picture: whatever needs labelling belongs in the slide text. "
+        "The same holds for an image body.\n"
+        "- notes: speaker notes in the slide language, only when asked, else an empty string. They speak about "
+        "what stands on this slide and nothing else: every point, column, card, step, row or figure of it, in the "
+        "order it stands there, each in one or two sentences, about 60 to 180 words in all. Never what a later "
+        "slide shows, and never an announcement that the points follow. A section divider gets one or two "
+        "sentences naming the topic that comes next, without its content.\n"
         'Answer with one JSON object only: {"slides": [{"id": "...", "title": "...", "subtitle": "...", '
         '"body": {...}, "columns": [...], "images": [...], "notes": "..."}]}.\n'
         'Every slide object goes inside that one "slides" array, nothing else at the top level.\n'

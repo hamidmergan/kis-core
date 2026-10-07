@@ -327,6 +327,10 @@ def _rollen_zuordnen(a: Analyse) -> None:
     for rolle in WAEHLBARE_ROLLEN:
         if rolle in a.rollen:
             a.rollen[rolle].sort(key=lambda i: len(a.layout(i).der_art("bild")))
+    # A section divider with a picture is a slide of picture and title alone, the plain ones win where the template has them.
+    schlicht = [i for i in a.rollen.get("abschnitt", []) if not a.layout(i).der_art("bild")]
+    if schlicht:
+        a.rollen["abschnitt"] = schlicht
     if "abschluss" not in a.rollen:
         deckblaetter = a.rollen.get("deckblatt", [erstes.index])
         a.rollen["abschluss"] = [deckblaetter[1] if len(deckblaetter) > 1 else deckblaetter[0]]

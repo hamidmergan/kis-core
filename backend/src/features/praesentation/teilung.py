@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from src.features.praesentation.schemas import Body, Column, Slide
 from src.features.praesentation.store import neue_id
 from src.features.praesentation.vorlage import EMU_PER_PT, Analyse, Feld
@@ -74,6 +76,22 @@ def _felder(s: Slide, a: Analyse, n: int) -> list[Feld] | None:
 
 
 _BILD_ROLLEN = ("text_mit_bild", "bild_gross")
+# A sentence ends behind a word of three or more characters, so abbreviations like "z. B." stay whole.
+_SATZENDE = re.compile(r"(?<=\w{3}[.!?])\s+")
+
+
+def notizen_teilen(notes: str, anteil: float) -> tuple[str, str]:
+    """The notes cut at the sentence end nearest the share of points the first half keeps, each half keeps at least one sentence."""
+    saetze = _SATZENDE.split(notes.strip())
+    if len(saetze) < 2:
+        return notes, notes
+    ziel = anteil * len(notes)
+    stand, schnitt, abstand = 0, 1, float("inf")
+    for i, satz in enumerate(saetze[:-1], 1):
+        stand += len(satz) + 1
+        if abs(stand - ziel) < abstand:
+            schnitt, abstand = i, abs(stand - ziel)
+    return " ".join(saetze[:schnitt]), " ".join(saetze[schnitt:])
 
 
 def _rest_form(s: Slide, a: Analyse) -> tuple[str, int | None]:
@@ -91,17 +109,21 @@ def _abgeschnitten(s: Slide, a: Analyse) -> Slide | None:
         felder = _felder(s, a, 1)
         if felder and not passt(s.body.items, felder[0], a.typeface):
             mitte = (len(s.body.items) + 1) // 2
-            # The half slide carries the notes along, no slide may end up without speaker text.
+            # Each half speaks about its own points, no slide may end up without speaker text.
+            s.notes, rest_notes = notizen_teilen(s.notes, mitte / len(s.body.items))
             rolle, layout = _rest_form(s, a)
-            rest = Slide(role=rolle, layout=layout, title=s.title, notes=s.notes,
+            rest = Slide(role=rolle, layout=layout, title=s.title, notes=rest_notes,
                          body=Body(kind="bullets", items=s.body.items[mitte:]))
             s.body.items = s.body.items[:mitte]
             return rest
     if s.columns and all(len(c.items) >= 2 * MIN_PUNKTE_JE_SPALTE for c in s.columns):
         felder = _felder(s, a, len(s.columns))
         if felder and any(not passt(c.items, f, a.typeface) for c, f in zip(s.columns, felder)):
+            gesamt = sum(len(c.items) for c in s.columns)
+            s.notes, rest_notes = notizen_teilen(
+                s.notes, sum((len(c.items) + 1) // 2 for c in s.columns) / gesamt)
             rolle, layout = _rest_form(s, a)
-            rest = Slide(role=rolle, layout=layout, title=s.title, notes=s.notes, columns=[
+            rest = Slide(role=rolle, layout=layout, title=s.title, notes=rest_notes, columns=[
                 Column(heading=c.heading, items=c.items[(len(c.items) + 1) // 2:]) for c in s.columns])
             for c in s.columns:
                 c.items = c.items[:(len(c.items) + 1) // 2]

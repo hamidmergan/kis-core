@@ -17,7 +17,6 @@ _ROLLE_TEXT = {
              "icons for parallel topics, bars for durations or shares, or one highlighted key figure"),
     "zwei_spalten": "a heading with two or more columns, each with its own subheading",
     "text_mit_bild": "a heading, bullet points and one or more illustrations",
-    "bild_gross": "a heading and one or more large illustrations, no text",
 }
 SPRACHE = {"de": "German", "en": "English"}
 _ID = re.compile(r"^s\d+$")
@@ -206,7 +205,7 @@ def pruefe(outline: Outline, rollen: list[str], bounds: tuple[int, int] | None =
     for i in range(1, len(rows) - 1):
         vorher = rows[i - 1].role
         if rows[i].role == vorher and vorher != "text":
-            ersatz = [r for r in ("text_mit_bild", "zwei_spalten", "text", "bild_gross", "abschnitt")
+            ersatz = [r for r in ("text_mit_bild", "zwei_spalten", "text", "abschnitt")
                       if r in erlaubt and r != vorher]
             rows[i].role = ersatz[0] if ersatz else "text"
     # Pictures only where the cap allows, the rest of those slides keep their text.
