@@ -18,7 +18,6 @@ type Frage = {
   type: FrageTyp;
   text: string;
   options?: string[];
-  skippable?: boolean;
   show_if?: ShowIf;
 };
 
@@ -131,7 +130,6 @@ export default function EvaluationTab() {
           questions: config.questions.map((frage) => ({
             ...frage,
             options: frage.options ?? [],
-            skippable: frage.skippable ?? false,
           })),
         }),
       });
@@ -254,14 +252,6 @@ export default function EvaluationTab() {
                     placeholder={t("optionsPlaceholder")}
                     className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-kb resize-none"
                   />
-                  <label className="flex items-center gap-2 text-xs text-muted">
-                    <input
-                      type="checkbox"
-                      checked={frage.skippable ?? false}
-                      onChange={(e) => updateQuestion(frage.id, { skippable: e.target.checked })}
-                    />
-                    {t("skippableLabel")}
-                  </label>
                 </>
               )}
             </div>

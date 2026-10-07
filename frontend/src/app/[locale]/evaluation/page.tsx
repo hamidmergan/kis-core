@@ -20,7 +20,6 @@ type Frage = {
   type: "choice" | "multi" | "text";
   text: string;
   options?: string[];
-  skippable?: boolean;
   show_if?: ShowIf;
 };
 
@@ -42,7 +41,6 @@ type Antworten = Record<string, string | string[]>;
 
 type Stufe = "loading" | "unavailable" | "intro" | "questions" | "outro";
 
-const NICHT_GETESTET = "not_tested";
 
 // Short lists are quicker to tick by hand, so the select-all row only shows above this many options.
 const ALLE_AB = 4;
@@ -139,12 +137,6 @@ export default function EvaluationPage() {
     const bisher = Array.isArray(antworten[id]) ? (antworten[id] as string[]) : [];
     const alleGewaehlt = optionen.every((o) => bisher.includes(o));
     setAntworten({ ...antworten, [id]: alleGewaehlt ? [] : [...optionen] });
-  }
-
-  function nichtGetestet(id: string) {
-    const aktualisiert = { ...antworten, [id]: NICHT_GETESTET };
-    setAntworten(aktualisiert);
-    gehtWeiterZu(aktualisiert);
   }
 
   function weiter() {
@@ -304,16 +296,6 @@ export default function EvaluationPage() {
                     );
                   })}
                 </div>
-              )}
-
-              {frage.skippable && (
-                <button
-                  type="button"
-                  onClick={() => nichtGetestet(frage.id)}
-                  className="self-start text-xs underline text-muted"
-                >
-                  {t("notTested")}
-                </button>
               )}
 
               {error && <p className="text-sm text-error">{error}</p>}

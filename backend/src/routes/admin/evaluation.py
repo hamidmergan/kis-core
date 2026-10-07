@@ -35,7 +35,6 @@ class QuestionPayload(BaseModel):
     type: str
     text: str
     options: list[str] = Field(default_factory=list)
-    skippable: bool = False
     show_if: ShowIfPayload | None = None
 
     def model_dump(self, **kwargs):

@@ -57,21 +57,21 @@ def default_config() -> dict:
              "options": [_LERNASSISTENT, _INFOASSISTENT, _DIENSTE]},
 
             {"id": "la-hilfreich", "type": "choice", "text": "Wie hilfreich waren die Antworten vom Lernassistenten?",
-             "options": _HILFREICH, "show_if": {"question_id": "bereich", "in": [_LERNASSISTENT]}, "skippable": True},
+             "options": _HILFREICH, "show_if": {"question_id": "bereich", "in": [_LERNASSISTENT]}},
             {"id": "la-quellen", "type": "choice", "text": "Wie gut konntest du nachvollziehen, woher eine Antwort stammt?",
              "options": ["Sehr gut", "Eher gut", "Eher schlecht", "Gar nicht"],
-             "show_if": {"question_id": "bereich", "in": [_LERNASSISTENT]}, "skippable": True},
+             "show_if": {"question_id": "bereich", "in": [_LERNASSISTENT]}},
             {"id": "la-tools", "type": "multi", "text": "Welche Tools im Lernassistenten fandest du gut?",
              "options": ["Karteikarten", "Quiz", "Datentabelle", "Mindmap"],
-             "show_if": {"question_id": "bereich", "in": [_LERNASSISTENT]}, "skippable": True},
+             "show_if": {"question_id": "bereich", "in": [_LERNASSISTENT]}},
 
             {"id": "ia-hilfreich", "type": "choice", "text": "Wie hilfreich waren die Antworten vom Infoassistenten?",
-             "options": _HILFREICH, "show_if": {"question_id": "bereich", "in": [_INFOASSISTENT]}, "skippable": True},
+             "options": _HILFREICH, "show_if": {"question_id": "bereich", "in": [_INFOASSISTENT]}},
 
             {"id": "dienste-nuetzlich", "type": "multi", "text": "Welche der Dienste sind für dich nützlich?",
              "options": ["Übersetzung", "Text in Audio", "Transkript", "Zusammenfassung", "Podcast",
                          "Präsentation", "Screencast", "Bildgenerierung", "Glossar"],
-             "show_if": {"question_id": "bereich", "in": [_DIENSTE]}, "skippable": True},
+             "show_if": {"question_id": "bereich", "in": [_DIENSTE]}},
 
             {"id": "gestoert", "type": "text", "text": "Was hat gestört, gefehlt oder nicht funktioniert?"},
             {"id": "nutzen", "type": "choice", "text": "Könntest du dir vorstellen, KIS regelmäßig zu nutzen?",
@@ -124,7 +124,6 @@ def validate_questions(questions: list[dict]) -> list[dict]:
             if any(len(o) > MAX_OPTION_CHARS for o in optionen):
                 raise ValueError(f"an option must be at most {MAX_OPTION_CHARS} characters")
             eintrag["options"] = optionen
-            eintrag["skippable"] = bool(frage.get("skippable"))
         show_if = _validate_show_if(frage.get("show_if"))
         if show_if:
             eintrag["show_if"] = show_if
