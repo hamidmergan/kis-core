@@ -44,6 +44,9 @@ type Stufe = "loading" | "unavailable" | "intro" | "questions" | "outro";
 
 const NICHT_GETESTET = "not_tested";
 
+// Short lists are quicker to tick by hand, so the select-all row only shows above this many options.
+const ALLE_AB = 4;
+
 export default function EvaluationPage() {
   const t = useTranslations("evaluationFlow");
   const router = useRouter();
@@ -247,7 +250,7 @@ export default function EvaluationPage() {
                 />
               ) : (
                 <div className="flex flex-col gap-2">
-                  {frage.type === "multi" && frage.options && frage.options.length > 0 && (() => {
+                  {frage.type === "multi" && frage.options && frage.options.length > ALLE_AB && (() => {
                     const optionen = frage.options;
                     const bisher = Array.isArray(antworten[frage.id]) ? (antworten[frage.id] as string[]) : [];
                     const alleGewaehlt = optionen.every((o) => bisher.includes(o));
