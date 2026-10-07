@@ -83,6 +83,8 @@ def _clean_llm_json(text: str) -> str:
     if text.startswith("```"):
         # Remove opening fence (```json or ```)
         text = re.sub(r"^```(?:json)?\s*\n?", "", text)
+        # A local gemma wrote notes after the closing fence, JSON strings hold no raw line break.
+        text = text.split("\n```", 1)[0]
         # Remove closing fence
         text = re.sub(r"\n?```\s*$", "", text)
     # In load run 15 gemma left a comma after the last option and two quizzes failed on it.

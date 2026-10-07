@@ -37,6 +37,12 @@ def test_kommas_in_texten_bleiben_stehen():
     assert daten["zitat"] == 'Er sagte ", ]" und ging'
 
 
+def test_notiz_nach_dem_codeblock_faellt_weg():
+    # Lokal 08.10.: gemma4:31b hängte an den Lückentext einen "Korrekturhinweis (intern)" an.
+    roh = '```json\n{\n  "text": "Ein `Paper` schreiben",\n  "gaps": []\n}\n```\n\n**Korrekturhinweis:**\n1. `Paper`'
+    assert json.loads(_clean_llm_json(roh)) == {"text": "Ein `Paper` schreiben", "gaps": []}
+
+
 def test_gueltiges_json_bleibt_wie_es_ist():
     roh = '{"a": [1, 2, 3], "b": {"c": "d, e"}}'
     assert _clean_llm_json(roh) == roh
