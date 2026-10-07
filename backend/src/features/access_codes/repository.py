@@ -283,19 +283,62 @@ def workspaces_by_code() -> dict[int, list[dict]]:
             return ergebnis
 
 
-def list_workspace_owners() -> list[dict]:
-    """Every real account that owns workspaces, each with its workspaces, demo accounts left out."""
+def custom_role_ids_with(permission: str) -> list[int]:
+    """The custom roles that hold this permission."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id FROM custom_roles WHERE permissions ? %s", (permission,))
+            return [zeile[0] for zeile in cur.fetchall()]
+
+
+def search_workspace_owners(
+    *,
+    query: str,
+    user_ids: list[int],
+    system_roles: list[str],
+    custom_role_ids: list[int],
+    admin_email: str,
+    limit: int,
+) -> list[dict]:
+    """Real accounts with the given rights that own workspaces, found by name, username or workspace title, or by id."""
+    muster = "%" + query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
-                """SELECT u.id AS user_id, u.role,
+                """WITH treffer AS (
+                       SELECT u.id, LOWER(COALESCE(NULLIF(u.display_name, ''), u.ldap_username)) AS sortname
+                       FROM users u
+                       WHERE NOT u.is_demo
+                         AND EXISTS (SELECT 1 FROM aia_workspaces w WHERE w.user_id = u.id)
+                         AND (u.role = ANY(%(rollen)s)
+                              OR (u.role = 'custom' AND u.custom_role_id = ANY(%(eigene)s))
+                              OR (%(admin)s <> '' AND LOWER(u.email) = %(admin)s))
+                         AND (u.id = ANY(%(ids)s)
+                              OR (%(q)s <> '' AND (
+                                  COALESCE(u.display_name, '') ILIKE %(muster)s
+                                  OR u.ldap_username ILIKE %(muster)s
+                                  OR EXISTS (SELECT 1 FROM aia_workspaces w
+                                             WHERE w.user_id = u.id AND w.title ILIKE %(muster)s))))
+                       ORDER BY sortname
+                       LIMIT %(limit)s
+                   )
+                   SELECT u.id AS user_id, u.role,
                           COALESCE(NULLIF(u.display_name, ''), u.ldap_username) AS name,
                           u.ldap_username AS username,
                           w.id AS workspace_id, w.title
-                   FROM aia_workspaces w
-                   JOIN users u ON u.id = w.user_id
-                   WHERE NOT u.is_demo
-                   ORDER BY LOWER(COALESCE(NULLIF(u.display_name, ''), u.ldap_username)), LOWER(w.title)"""
+                   FROM treffer t
+                   JOIN users u ON u.id = t.id
+                   JOIN aia_workspaces w ON w.user_id = u.id
+                   ORDER BY t.sortname, LOWER(w.title)""",
+                {
+                    "rollen": list(system_roles),
+                    "eigene": list(custom_role_ids),
+                    "admin": admin_email,
+                    "ids": list(user_ids),
+                    "q": query,
+                    "muster": muster,
+                    "limit": limit,
+                },
             )
             besitzer: dict[int, dict] = {}
             for zeile in cur.fetchall():

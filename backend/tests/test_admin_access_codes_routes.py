@@ -658,19 +658,41 @@ def test_the_list_carries_each_codes_workspaces(client):
     assert r.json()["codes"][0]["workspaces"] == [arbeitsbereich]
 
 
-def test_the_workspace_owners_are_listed_for_the_picker(client):
+def test_the_workspace_owners_are_searched_in_the_database(client):
     besitzer = [{"user_id": 5, "name": "Erika", "username": "erika", "role": "staff",
                  "workspaces": [{"id": 11, "title": "Recht"}]}]
-    with patch("src.routes.admin.access_codes.repo.list_workspace_owners", return_value=besitzer):
-        r = client.get("/admin/access-codes/workspace-owners")
+    with patch("src.routes.admin.access_codes.repo.search_workspace_owners", return_value=besitzer) as suche, \
+         patch("src.routes.admin.access_codes.repo.custom_role_ids_with", return_value=[4]):
+        r = client.get("/admin/access-codes/workspace-owners", params={"q": " eri "})
 
     assert r.status_code == 200
     assert r.json() == {"owners": besitzer}
+    argumente = suche.call_args.kwargs
+    assert argumente["query"] == "eri"
+    assert "staff" in argumente["system_roles"] and "user" not in argumente["system_roles"]
+    assert argumente["custom_role_ids"] == [4]
+    assert argumente["limit"] == 20
+
+
+def test_the_workspace_owners_can_be_fetched_by_id_for_editing(client):
+    with patch("src.routes.admin.access_codes.repo.search_workspace_owners", return_value=[]) as suche, \
+         patch("src.routes.admin.access_codes.repo.custom_role_ids_with", return_value=[]):
+        client.get("/admin/access-codes/workspace-owners?user_ids=5&user_ids=6")
+
+    assert suche.call_args.kwargs["user_ids"] == [5, 6]
+
+
+def test_without_search_nothing_is_loaded(client):
+    with patch("src.routes.admin.access_codes.repo.search_workspace_owners") as suche:
+        r = client.get("/admin/access-codes/workspace-owners")
+
+    assert r.json() == {"owners": []}
+    suche.assert_not_called()
 
 
 def test_the_workspace_owners_stay_closed_without_the_right(client_ohne_recht):
-    with patch("src.routes.admin.access_codes.repo.list_workspace_owners") as liste:
-        r = client_ohne_recht.get("/admin/access-codes/workspace-owners")
+    with patch("src.routes.admin.access_codes.repo.search_workspace_owners") as liste:
+        r = client_ohne_recht.get("/admin/access-codes/workspace-owners", params={"q": "a"})
 
     assert r.status_code == 403
     liste.assert_not_called()

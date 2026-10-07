@@ -3279,8 +3279,8 @@
     },
     "codeWorkspaces": {
       "label": "Workspaces",
-      "pickPerson": "Choose a person",
-      "noOwners": "Nobody has created a workspace yet.",
+      "searchPerson": "Search person or workspace",
+      "noHits": "Nobody found",
       "all": "All workspaces of this person",
       "chosen": "{n, plural, one {# workspace} other {# workspaces}}",
       "hintCreate": "Anyone who redeems the code is enrolled in these workspaces as a learner right away. Several people are possible.",

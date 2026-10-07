@@ -1,7 +1,7 @@
 """Create, list, switch off and delete access codes for test rounds."""
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from loguru import logger
 from pydantic import BaseModel, Field, model_validator
 
@@ -19,7 +19,7 @@ from src.features.access_codes.service import (
 )
 from src.features.accounts.passwords import generate_password, hash_password
 from src.i18n import get_locale, t
-from src.permissions_registry import PERM_SET_USERS_ALL, SYSTEM_ROLE_PERMISSIONS
+from src.permissions_registry import PERM_AIA_WORKSPACE_CREATE, PERM_SET_USERS_ALL, SYSTEM_ROLE_PERMISSIONS
 
 router = APIRouter(tags=["admin: access codes"])
 
@@ -29,6 +29,7 @@ MAX_VALID_DAYS = 365
 MAX_ACCESS_HOURS = 720  # 30 Tage
 MAX_SEATS = 500
 MAX_WORKSPACES = 50
+MAX_OWNER_HITS = 20
 
 
 def _require_feature(locale: str) -> None:
@@ -167,10 +168,25 @@ def list_access_codes(admin: dict = Depends(_require), locale: str = Depends(get
 
 
 @router.get("/access-codes/workspace-owners")
-def list_access_code_workspace_owners(admin: dict = Depends(_require), locale: str = Depends(get_locale)):
-    """Everyone who owns workspaces, so the admin can pick a person and then their workspaces."""
+def list_access_code_workspace_owners(
+    q: str = Query("", max_length=64),
+    user_ids: list[int] = Query(default_factory=list, max_length=MAX_WORKSPACES),
+    admin: dict = Depends(_require),
+    locale: str = Depends(get_locale),
+):
+    """People who may create workspaces and own some, found by search or by id, never the whole list."""
     _require_feature(locale)
-    return {"owners": repo.list_workspace_owners()}
+    suche = q.strip()
+    if not suche and not user_ids:
+        return {"owners": []}
+    return {"owners": repo.search_workspace_owners(
+        query=suche,
+        user_ids=user_ids,
+        system_roles=[r for r, rechte in SYSTEM_ROLE_PERMISSIONS.items() if PERM_AIA_WORKSPACE_CREATE in rechte],
+        custom_role_ids=repo.custom_role_ids_with(PERM_AIA_WORKSPACE_CREATE),
+        admin_email=(get_settings().admin_email or "").strip().lower(),
+        limit=MAX_OWNER_HITS,
+    )}
 
 
 @router.patch("/access-codes/{code_id}")

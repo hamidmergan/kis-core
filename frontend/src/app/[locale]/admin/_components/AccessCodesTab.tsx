@@ -67,7 +67,7 @@ type Code = {
   access_hours: number | null;
   show_credentials: boolean;
   show_evaluation: boolean;
-  workspaces: { id: number; title: string; owner_name: string | null }[];
+  workspaces: { id: number; title: string; owner_id: number | null; owner_name: string | null }[];
   active: boolean;
   created_at: string;
   status: Zustand;

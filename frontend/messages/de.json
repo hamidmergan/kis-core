@@ -3279,8 +3279,8 @@
     },
     "codeWorkspaces": {
       "label": "Workspaces",
-      "pickPerson": "Person wählen",
-      "noOwners": "Noch niemand hat einen Workspace angelegt.",
+      "searchPerson": "Person oder Workspace suchen",
+      "noHits": "Niemand gefunden",
       "all": "Alle Workspaces dieser Person",
       "chosen": "{n, plural, one {# Workspace} other {# Workspaces}}",
       "hintCreate": "Wer den Code einlöst, ist sofort als lernende Person in diesen Workspaces eingeschrieben. Mehrere Personen sind möglich.",

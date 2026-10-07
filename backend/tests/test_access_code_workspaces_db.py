@@ -118,11 +118,28 @@ def test_a_deleted_workspace_drops_out_of_the_code(verbindung, aufbau):
     assert [w["id"] for w in repo.workspaces_by_code()[aufbau["code_id"]]] == [physik]
 
 
-def test_the_owner_list_carries_the_owner_with_both_workspaces(aufbau):
-    besitzer = next(b for b in repo.list_workspace_owners() if b["user_id"] == aufbau["besitzer"])
+def _suche(query="", user_ids=(), rollen=("admin", "staff")):
+    return repo.search_workspace_owners(
+        query=query, user_ids=list(user_ids), system_roles=list(rollen),
+        custom_role_ids=[], admin_email="", limit=20,
+    )
 
-    assert sorted(w["id"] for w in besitzer["workspaces"]) == sorted(aufbau["ws"])
-    assert besitzer["role"] == "staff"
+
+def test_the_owner_search_finds_the_owner_with_both_workspaces(aufbau):
+    kennung = repo.get_code_by_id(aufbau["code_id"])["code"].split("-")[-1].lower()
+    for query in (f"ws.besitzer.{kennung}", f"Recht {kennung}"):
+        treffer = [b for b in _suche(query) if b["user_id"] == aufbau["besitzer"]]
+        assert len(treffer) == 1
+        assert sorted(w["id"] for w in treffer[0]["workspaces"]) == sorted(aufbau["ws"])
+
+
+def test_the_owner_search_by_id_and_the_rights_filter(aufbau):
+    assert [b["user_id"] for b in _suche(user_ids=[aufbau["besitzer"]])] == [aufbau["besitzer"]]
+    assert _suche(user_ids=[aufbau["besitzer"]], rollen=("user",)) == []
+
+
+def test_wildcards_in_the_search_are_taken_literally(aufbau):
+    assert [b for b in _suche("%") if b["user_id"] == aufbau["besitzer"]] == []
 
 
 def test_the_user_ids_of_a_code(aufbau):

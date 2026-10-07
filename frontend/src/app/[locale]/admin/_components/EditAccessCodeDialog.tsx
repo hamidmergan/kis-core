@@ -26,7 +26,7 @@ type Code = {
   access_hours: number | null;
   show_credentials: boolean;
   show_evaluation: boolean;
-  workspaces: { id: number }[];
+  workspaces: { id: number; title: string; owner_id: number | null }[];
 };
 
 type Props = {
@@ -170,7 +170,7 @@ export default function EditAccessCodeDialog({ code, onClose, onSaved }: Props) 
             <Select value={role} onChange={setRole} options={roleOptions} className="w-full" />
           </div>
 
-          <CodeWorkspacesField value={workspaceIds} onChange={setWorkspaceIds} hint={tWs("hintEdit")} />
+          <CodeWorkspacesField value={workspaceIds} onChange={setWorkspaceIds} initial={code.workspaces} hint={tWs("hintEdit")} />
 
           <Checkbox
             checked={showCredentials}
