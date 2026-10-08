@@ -15,6 +15,9 @@ eine Kurzfassung, eine Mindmap über alle Abschnitte, eine Wortwolke der Fachwö
 zwei Bilder. Zahlen stammen immer aus dem Material. Quizfragen enthält eine Seite nicht, sie
 fasst nur zusammen.
 
+Unter dem Titel steht nur, dass die Seite mit KI erstellt wurde. Woraus und womit, zeigt das
+i-Symbol auf der Karte: Material, Workspace, Anweisung und KI-Anbieter. Das sehen nur Sie.
+
 ## Bearbeiten
 
 Oben rechts wechseln Sie zwischen Bearbeiten und Vorschau.

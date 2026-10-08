@@ -82,13 +82,8 @@ def test_draft_builds_title_gist_map_sections_and_cloud():
     assert ids == ["top", "gist", "map", "s1", "s2", "s3", "s4", "words"]
     assert seite["sections"][0]["blocks"][0]["src"] == pl.HERO_IMAGE
     assert seite["sections"][4]["blocks"][0]["src"] == pl.SECTION_IMAGE
-    assert seite["names"] == "Skript.pdf"
     assert seite["footer"] == ""
-    fertig = pl.finish(schema.clean_page(seite), names="Skript.pdf", today=__import__("datetime").date(2026, 10, 8))
-    assert fertig["sections"][0]["meta"].startswith("Text und Bilder mit KI erstellt aus Skript.pdf am 08.10.2026")
-
-
-def test_many_files_are_counted_not_listed():
-    quellen = [Source(dateiname=f"f{i}.pdf", fassung="x", text="t", stuecke=[], seiten=1) for i in range(5)]
-    assert pl.source_line(quellen, "de") == "5 Dateien"
-    assert pl.source_line(quellen[:2], "de") == "f0.pdf und f1.pdf"
+    fertig = pl.finish(schema.clean_page(seite), today=__import__("datetime").date(2026, 10, 8))
+    # The page names no source, that stays with the owner behind the info icon.
+    assert fertig["sections"][0]["meta"].startswith("Erstellt mit KI am 08.10.2026, etwa ")
+    assert "Skript" not in fertig["sections"][0]["meta"]

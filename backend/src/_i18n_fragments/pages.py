@@ -14,15 +14,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "The technical terms of this page. The larger a word, the more often the material uses it.",
     },
     "pages.wordsCaption": {"de": "Die häufigsten Fachwörter", "en": "The most frequent terms"},
-    "pages.metaImages": {
-        "de": "Text und Bilder mit KI erstellt aus {names} am {date}, etwa {minutes} Min. Lesezeit.",
-        "en": "Text and pictures made with AI from {names} on {date}, about {minutes} min to read.",
+    "pages.meta": {
+        "de": "Erstellt mit KI am {date}, etwa {minutes} Min. Lesezeit.",
+        "en": "Made with AI on {date}, about {minutes} min to read.",
     },
-    "pages.metaText": {
-        "de": "Text mit KI erstellt aus {names} am {date}, etwa {minutes} Min. Lesezeit.",
-        "en": "Text made with AI from {names} on {date}, about {minutes} min to read.",
-    },
-    "pages.filesCount": {"de": "{n} Dateien", "en": "{n} files"},
     "pages.notFound": {"de": "Diese Seite gibt es nicht.", "en": "This page does not exist."},
     "pages.notReady": {"de": "Die Seite ist noch nicht fertig.", "en": "The page is not finished yet."},
     "pages.notShared": {"de": "Diese Seite ist nicht mehr geteilt.",

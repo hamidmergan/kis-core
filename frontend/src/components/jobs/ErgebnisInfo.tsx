@@ -33,6 +33,8 @@ export interface ErgebnisAngaben {
   textanbieter?: string;
   bildanbieter?: string;
   bildstil?: string;
+  /** The workspace the material was taken from, by its name at the time. */
+  workspace?: string;
 }
 
 export interface Auftrag {
@@ -61,10 +63,12 @@ export function useErgebnisAngaben(jobUuid: string | null): Auftrag | null {
 }
 
 /** An info icon next to the result, a click shows in a modal what it was made with. */
-export function ErgebnisInfoKnopf({ auftrag, zeilen }: {
+export function ErgebnisInfoKnopf({ auftrag, zeilen, size = "sm" }: {
   auftrag: Auftrag | null;
   /** Tool-specific rows, an empty value leaves its row out. */
   zeilen: { label: string; wert?: ReactNode }[];
+  /** The icon size, the default suits a result, md the round buttons on a card. */
+  size?: "sm" | "md";
 }) {
   const t = useTranslations("common.result");
   const locale = useLocale();
@@ -78,8 +82,8 @@ export function ErgebnisInfoKnopf({ auftrag, zeilen }: {
   if (!alle.length) return null;
   return (
     <>
-      <IconButton size="sm" aria-label={t("info")} title={t("info")} onClick={() => setOffen(true)}>
-        <Info size={16} />
+      <IconButton size={size} aria-label={t("info")} title={t("info")} onClick={() => setOffen(true)}>
+        <Info size={size === "md" ? 15 : 16} />
       </IconButton>
       {offen && (
         <Modal open onClose={() => setOffen(false)} size="sm" title={t("info")}>

@@ -26,6 +26,7 @@ from src.quotas import enforce_quota
 from src.routes.material_measure import measure_router
 from src.security.rate_limit import enforce_tool_burst
 from src.services import feature_provider_choices, sources
+from src.services.job_statistik import angaben_lesen
 from src.services.open_jobs import create_counted_job, enforce_open_jobs
 from src.services.tool_limits import max_upload_bytes
 from src.storage import get_job_file, save_job_file
@@ -75,6 +76,9 @@ def _card(user_id: int, row: dict) -> dict:
         "sources": row["original_filename"],
         "created_at": _dt(row["created_at"]),
         "updated_at": (page or {}).get("saved_at") or _dt(row["completed_at"] or row["created_at"]),
+        # What the page was made from and with, shown to the owner behind the info icon.
+        "info": angaben_lesen({"user_id": user_id, "job_uuid": row["job_uuid"], "tool": "pages"})
+        if row["status"] == "success" else {},
         "shared": bool(row["shared"]),
         "code": row["code"] if row["shared"] else None,
     }
@@ -126,11 +130,14 @@ async def create_page(
     enforce_tool_burst(user_id, "pages", locale)
 
     # The summary's reading and its messages, the material is the same.
+    workspace_title = ""
     if mode == "module":
         from src.services import workspace_sources as arbeitsraum
         gelesen = await asyncio.to_thread(arbeitsraum.read_workspace,
             workspace_uuid, arbeitsraum.parse_uuids(source_uuids), user_id=user_id,
             locale=locale, hoechstens=SUMMARY_MAX_SOURCES, schluessel="summary")
+        # Kept for the owner's info on the card, the workspace may be renamed or gone later.
+        workspace_title = (db.get_aia_workspace(workspace_uuid) or {}).get("title") or ""
     else:
         gelesen = await sources.read_uploads(files, locale=locale, hoechstens=SUMMARY_MAX_SOURCES,
                                              schluessel="summary")
@@ -139,7 +146,7 @@ async def create_page(
     job_uuid = uuid.uuid4().hex
     await asyncio.to_thread(sources.save_sources, user_id, job_uuid, gelesen)
     create_counted_job(job_uuid, user_id, "pages", sources.label(gelesen), locale=locale)
-    save_job_file(user_id, job_uuid, PARAMS_FILE, json.dumps({"provider_id": provider_id}).encode())
+    save_job_file(user_id, job_uuid, PARAMS_FILE, json.dumps({"provider_id": provider_id, "workspace": workspace_title}).encode())
     if instructions.strip():
         from src.services.job_files import write_job_text
         write_job_text(user_id, job_uuid, INSTRUCTIONS_FILE, instructions.strip()[:2000])

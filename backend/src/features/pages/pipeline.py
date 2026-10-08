@@ -175,26 +175,6 @@ def page_locale(language: str) -> str:
     return "de" if (language or "").casefold().startswith(("german", "deutsch")) else "en"
 
 
-# More files than this are counted instead of listed under the title.
-MAX_NAMED_FILES = 3
-
-
-def source_line(sources: list[Source], locale: str) -> str:
-    """The files the page was made from, by their real names, so a reader can find them."""
-    namen = [q.dateiname for q in sources]
-    if len(namen) > MAX_NAMED_FILES:
-        return t("pages.filesCount", locale, n=len(namen))
-    return join_names(namen, locale)
-
-
-def join_names(names: list[str], locale: str) -> str:
-    """Several names as a reader writes them, the last one joined with "and"."""
-    if len(names) <= 1:
-        return "".join(names)
-    und = " und " if locale == "de" else " and "
-    return ", ".join(names[:-1]) + und + names[-1]
-
-
 def _count(term: str, text: str) -> int:
     return len(re.findall(r"(?<!\w)" + re.escape(term) + r"(?!\w)", text, re.I))
 
@@ -270,12 +250,8 @@ def draft(plan: Outline, bloecke: dict[int, dict], frame: dict, *, sources: list
                        "blocks": [{"kind": "wordcloud", "caption": t("pages.wordsCaption", loc),
                                    "words": woerter}]})
 
-    namen = source_line(sources, loc)
     # The line under the title is the page's one AI notice, so there is no footer repeating it.
-    seite = schema.clean_page({"lang": loc, "sections": seiten, "footer": ""})
-    # Kept beside the page for the line under the title, which needs the pictures first.
-    seite["names"] = namen
-    return seite
+    return schema.clean_page({"lang": loc, "sections": seiten, "footer": ""})
 
 
 def _words_on(page: dict) -> int:
@@ -297,14 +273,12 @@ def _words_on(page: dict) -> int:
     return n
 
 
-def finish(page: dict, *, names: str, today: date) -> dict:
-    """The line under the title, written once the pictures are known."""
+def finish(page: dict, *, today: date) -> dict:
+    """The line under the title, the page's one AI notice. The sources stay with the owner."""
     loc = page.get("lang") or "de"
-    bilder = bool(schema.images_of(page))
     minuten = max(1, round(_words_on(page) / WORDS_PER_MINUTE))
     datum = today.strftime("%d.%m.%Y") if loc == "de" else today.strftime("%d %B %Y").lstrip("0")
-    meta = t("pages.metaImages" if bilder else "pages.metaText", loc, names=names, date=datum,
-             minutes=minuten)
+    meta = t("pages.meta", loc, date=datum, minutes=minuten)
     for s in page["sections"]:
         if s.get("hero"):
             s["meta"] = meta

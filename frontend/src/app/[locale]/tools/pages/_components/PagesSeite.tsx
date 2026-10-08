@@ -24,6 +24,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import * as api from "../_lib/api";
 import type { PageCard, PagesList } from "../_lib/types";
 import { CopyButton, ShareSwitch } from "./Sharing";
+import { ErgebnisInfoKnopf } from "@/components/jobs/ErgebnisInfo";
 
 type SourceMode = "files" | "module";
 const FALLBACK_EXTENSIONS = [".pdf", ".docx", ".pptx", ".txt", ".md", ".srt", ".vtt"];
@@ -56,6 +57,7 @@ export function useDate() {
 export default function PagesSeite() {
   const t = useTranslations("tools.pages");
   const tCommon = useTranslations("common");
+  const tResult = useTranslations("common.result");
   const router = useRouter();
   const date = useDate();
   const { providers, providerId, setProviderId } = useFeatureProviders("/pages/providers");
@@ -378,6 +380,21 @@ export default function PagesSeite() {
                               <div className="flex items-center gap-1.5">
                                 {open && p.shared && p.code && (
                                   <CopyButton text={() => api.shareUrl(p.code!)} label={t("copyLink")} />
+                                )}
+                                {open && (
+                                  <ErgebnisInfoKnopf
+                                    size="md"
+                                    auftrag={{ angaben: p.info, erstellt: p.created_at, datei: p.sources }}
+                                    zeilen={[
+                                      { label: tResult("sources"), wert: (
+                                        <ul className="space-y-0.5">{p.sources.split(", ").map((n, i) => <li key={i}>{n}</li>)}</ul>
+                                      ) },
+                                      { label: "Workspace", wert: p.info.workspace },
+                                      { label: tResult("instructions"), wert: p.info.anweisung },
+                                      { label: tResult("textProvider"), wert: p.info.anbieter },
+                                      { label: tResult("imageProvider"), wert: p.info.bildanbieter },
+                                    ]}
+                                  />
                                 )}
                                 <button
                                   type="button"

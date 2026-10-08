@@ -1,3 +1,5 @@
+import type { ErgebnisAngaben } from "@/components/jobs/ErgebnisInfo";
+
 /** The page as the backend stores it in page.json, plain text only. */
 
 export type CardIcon = "info" | "check" | "x" | "warning" | "idea";
@@ -70,6 +72,8 @@ export interface PageCard {
   updated_at: string | null;
   shared: boolean;
   code: string | null;
+  /** What the page was made with, for the owner's info icon. */
+  info: ErgebnisAngaben;
 }
 
 export interface PagesList {

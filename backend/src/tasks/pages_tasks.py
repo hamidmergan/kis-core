@@ -26,7 +26,7 @@ from src.security.usage_log import log_llm_response
 from src.services import provider_transport, sources
 from src.services.job_files import JobState, parse_job_json, read_job_text, write_job_text
 from src.services.job_recovery import attempt_failed, still_mine
-from src.services.job_statistik import angaben_merken, wer_antwortete
+from src.services.job_statistik import angaben_merken, route_kennung, wer_antwortete
 from src.storage import (
     get_job_file,
     job_file_exists,
@@ -209,17 +209,22 @@ def _run_pages_inner(job_uuid: str, provider_id: int | None, versuch: int) -> No
 
     _draw_images(user_id, job_uuid, entwurf, clock, versuch)
 
-    namen = entwurf.pop("names", "")
+    entwurf.pop("names", None)
     # A picture that could not be drawn leaves the page instead of standing there empty.
     for s in entwurf["sections"]:
         s["blocks"] = [b for b in s["blocks"]
                        if b["kind"] != "image" or job_file_exists(user_id, job_uuid, b["src"])]
-    seite = pl.finish(schema.clean_page(entwurf), names=namen, today=local_date.today())
+    seite = pl.finish(schema.clean_page(entwurf), today=local_date.today())
     titel = schema.title_of(seite) or "Page"
     pfad = save_job_file(user_id, job_uuid, PAGE_FILE,
                          json.dumps(seite, ensure_ascii=False).encode("utf-8"))
     save_result_and_evict(user_id, job_uuid, pfad, f"{schema.text(titel, 80)}.json")
-    angaben_merken(user_id, job_uuid, {"anbieter": wer_antwortete("chat", provider_id)})
+    params = parse_job_json(job_uuid, PARAMS_FILE, read_job_text(user_id, job_uuid, PARAMS_FILE), None) or {}
+    angaben_merken(user_id, job_uuid, {
+        "anbieter": wer_antwortete("chat", provider_id),
+        "bildanbieter": route_kennung("image_gen")["anbieter"] if schema.images_of(seite) else "",
+        "workspace": params.get("workspace") or "",
+    })
     db.update_job_status(job_uuid, "success")
     logger.info("Pages {} fertig: {}", job_uuid[:8], titel)
 

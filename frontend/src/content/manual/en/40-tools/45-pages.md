@@ -14,6 +14,9 @@ steps, measured values as a chart, comparisons as a table. On top come a summary
 all sections, a word cloud of the technical terms and up to two pictures. Figures always come
 from the material. A page holds no quiz questions, it only condenses.
 
+Under the title the page only says that it was made with AI. What it was made from and with is
+behind the i icon on its card: material, workspace, instruction and AI provider. Only you see it.
+
 ## Editing
 
 Top right you switch between Edit and Preview.
