@@ -1,4 +1,4 @@
-"""Screencast-Skript-Generierung (refine + Batch) via the configured LLM."""
+"""Screencast-Skript-Generierung (Batch) via the configured LLM."""
 
 import re
 import time
@@ -6,9 +6,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from loguru import logger
 
-from src.tool_prompts import SCRIPT_REFINE_DEFAULT as _SCRIPT_REFINE_DEFAULT
-
-from src.services.openai_compat_llm.base import load_prompt
 from src.security.usage_log import log_llm_response as _verbrauch
 
 # Wait before the second attempt of a batch.
@@ -136,117 +133,8 @@ def build_length_and_format_rules(
     )
 
 
-def _place_rules(position: tuple[int, int] | None, add_greeting: bool, add_closing: bool) -> str:
-    """Where the slide sits in the deck, plus the rule its end carries."""
-    if not position:
-        return ""
-    nummer, gesamt = position
-    text = f"\nThis is slide {nummer} of {gesamt}.\n"
-    if nummer == 1:
-        text += (
-            "Begin the script with a time-neutral greeting such as 'Welcome' or 'Hello everyone' (never time-specific like 'Good morning').\n"
-            if add_greeting else "Do not use any greeting or welcome phrase.\n"
-        )
-    elif nummer == gesamt and not add_closing:
-        text += "Do not add any closing statement or thank-you.\n"
-    return text
-
-
 class _ScriptsMixin:
     """Expects client, model and the batch settings on the object."""
-
-    def refine_script(
-        self,
-        user_prompt: str,
-        current_script: str = "",
-        slide_text: str = "",
-        target_lang: str = "EN-US",
-        selected_text: str | None = None,
-        messages: list[dict] | None = None,
-        glossary: dict[str, str] | None = None,
-        position: tuple[int, int] | None = None,
-        add_greeting: bool = True,
-        add_closing: bool = False,
-        material: str = "",
-    ) -> str:
-        """Rewrites the script of a single slide following an instruction."""
-        current_script_content = current_script.strip() or slide_text.strip()
-        is_followup = messages is not None and len(messages) > 1
-        glossary_hint = _glossary_hint(glossary)
-        stelle = _place_rules(position, add_greeting, add_closing)
-        fakten_regel = (
-            "Never add facts that are neither in the slide content nor in the material below."
-            if material.strip() else "Never add facts that are not in the slide content below."
-        )
-        if material.strip():
-            stelle += (
-                "\nThe lecturer's own documents on this slide, usable for explanations and examples. "
-                "Never mention them as a source:\n[MATERIAL]\n" + material.strip() + "\n[END MATERIAL]\n"
-            )
-        if selected_text and selected_text.strip():
-            instruction = user_prompt.strip() or "Improve this excerpt."
-            if is_followup:
-                system_prompt = (
-                    glossary_hint +
-                    f"You are an expert editor of spoken narration scripts for presentations.\n"
-                    f"The user is refining your previous response. Apply the new instruction to your last answer.\n"
-                    f"Output ONLY the refined text. Do not repeat the instruction. Do not add labels or explanations. "
-                    f"Write in flowing spoken language suitable for a university lecture. "
-                    f"Never exceed 600 words. "
-                    f"Output must be in {target_lang}, unless the task explicitly requests a translation to a different language.\n"
-                    f"{fakten_regel}\n\n"
-                    f"Slide content:\n{slide_text.strip()}\n"
-                    f"{stelle}\n"
-                    f"Original excerpt for context: «{selected_text.strip()}»"
-                )
-            else:
-                system_prompt = (
-                    glossary_hint +
-                    f"You are an expert editor of spoken narration scripts for presentations.\n"
-                    f"You will receive a selected excerpt from a script and a task to perform on it.\n"
-                    f"Output ONLY the resulting text that should replace the excerpt. "
-                    f"Do not repeat the instruction. Do not add labels or explanations. "
-                    f"Write in flowing spoken language suitable for a university lecture. "
-                    f"Never exceed 600 words. "
-                    f"Output must be in {target_lang}, unless the task explicitly requests a translation to a different language.\n"
-                    f"{fakten_regel}\n\n"
-                    f"Slide content:\n{slide_text.strip()}\n"
-                    f"{stelle}\n"
-                    f"Selected excerpt: «{selected_text.strip()}»\n\n"
-                    f"Task: {instruction}"
-                )
-        else:
-            system_prompt = glossary_hint + load_prompt("prompt_script_refine", _SCRIPT_REFINE_DEFAULT).format(
-                TARGET_LANG=target_lang,
-                CURRENT_SCRIPT=current_script_content,
-                USER_INSTRUCTION=user_prompt.strip(),
-            ) + stelle
-
-        # Build message history: system + prior turns + final user message
-        chat_messages: list[dict] = [{"role": "system", "content": system_prompt}]
-        if messages and len(messages) > 1:
-            # All messages except the last (current) user message - already included via user_prompt in prompt
-            for m in messages[:-1]:
-                chat_messages.append({"role": m["role"], "content": m["content"]})
-        chat_messages.append({"role": "user", "content": user_prompt.strip() or "Generate the script."})
-
-        try:
-            response = self._client.chat.completions.create(
-                model=self._model,
-                messages=chat_messages,
-                temperature=0.4,
-                max_tokens=800,
-                extra_body=self._extra_body or None,
-            )
-            _verbrauch("screencast", self, response)
-            content = response.choices[0].message.content
-            if content is None:
-                raise RuntimeError("LLM returned empty response")
-            return content.strip()
-        except Exception as e:
-            if isinstance(e, RuntimeError):
-                raise
-            raise RuntimeError(f"LLM API error: {e}") from e
 
     def _generate_scripts_single_batch(
         self,

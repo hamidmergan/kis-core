@@ -7,7 +7,6 @@ import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import ToolBackLink from "@/components/ui/ToolBackLink";
 import ScreencastStepper from "@/components/screencast/ScreencastStepper";
 import { indexToStep, istErreichbar, stepToIndex, vorherErreichbar } from "@/components/screencast/steps";
-import RegenChatModal from "@/components/regen/RegenChatModal";
 import { useRouter } from "@/i18n/navigation";
 import { parseDetail } from "@/lib/api";
 import { SCREENCAST_MAX_CHARS, SCREENCAST_TARGET_LANGUAGES } from "@/lib/constants";
@@ -16,7 +15,6 @@ import { useVoices } from "@/hooks/useVoices";
 import { useLanguageConfig } from "@/hooks/useLanguageConfig";
 import { useScriptEditing } from "@/hooks/useScriptEditing";
 import { useScriptInputMode } from "@/hooks/useScriptInputMode";
-import { useRegenAnchor } from "@/hooks/useRegenAnchor";
 import UploadStep from "../screencast/_steps/UploadStep";
 import { TranslatingStep, GeneratingScriptsStep, RenderingStep, DoneStep, ErrorStep } from "../screencast/_steps/StatusSteps";
 import UserPromptStep from "../screencast/_steps/UserPromptStep";
@@ -121,7 +119,6 @@ function ScreencastDemoLauf({ onNeu }: { onNeu: () => void }) {
   const abortRef = useRef<AbortController | null>(null);
 
   const scriptInput = useScriptInputMode("notes");
-  const regen = useRegenAnchor();
   const editing = useScriptEditing({
     onSave: (index, script) => dispatch({ type: "UPDATE_SLIDE_SCRIPT", index, script }),
   });
@@ -417,13 +414,9 @@ function ScreencastDemoLauf({ onNeu }: { onNeu: () => void }) {
             openAccordion={editing.openAccordion}
             editingSlide={editing.editingSlide}
             editBuffer={editing.editBuffer}
-            regenAnchorSlide={regen.anchorSlide}
-            regenAnchorText={regen.anchorText}
             onEditBufferChange={editing.setEditBuffer}
             onLightboxOpen={(idx) => dispatch({ type: "SET_LIGHTBOX", index: idx })}
             onAccordionToggle={editing.toggleAccordion}
-            onRegenAnchor={regen.setAnchor}
-            onOpenRegen={regen.open}
             onStartEdit={(i) => editing.startEdit(i, slides[i]?.script ?? "")}
             onCancelEdit={editing.cancelEdit}
             onSaveEdit={editing.saveEdit}
@@ -516,16 +509,6 @@ function ScreencastDemoLauf({ onNeu }: { onNeu: () => void }) {
             slides={slides}
             onClose={() => dispatch({ type: "SET_LIGHTBOX", index: null })}
             onIndexChange={(idx) => dispatch({ type: "SET_LIGHTBOX", index: idx })}
-          />
-        )}
-
-        {regen.regeneratingSlide !== null && slides[regen.regeneratingSlide] && (
-          <RegenChatModal
-            index={regen.regeneratingSlide}
-            anchorText={regen.anchorText}
-            demo
-            onSend={async () => ""}
-            onClose={regen.close}
           />
         )}
       </div>

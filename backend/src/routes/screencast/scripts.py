@@ -1,7 +1,6 @@
-"""Skript-Endpoints: Auto-Save, Batch-Generierung, Einzel-Folien-Refinement."""
+"""Skript-Endpoints: Auto-Save und Batch-Generierung."""
 
 import asyncio
-from functools import partial
 import json
 import re
 
@@ -20,7 +19,6 @@ from src.services.tool_limits import max_screencast_slides
 
 from src.routes.screencast._models import (
     GenerateScriptsRequest,
-    RegenerateSlideScriptRequest,
     SaveScriptsRequest,
 )
 from src.routes.screencast._shared import get_script_gen_lock, vertonung_verwerfen
@@ -206,61 +204,3 @@ async def screencast_generate_scripts(
             pass
 
     return {"scripts": scripts}
-
-
-@router.post("/screencast/regenerate-slide-script")
-async def screencast_regenerate_slide_script(
-    body: RegenerateSlideScriptRequest,
-    current_user: dict = Depends(get_current_user),
-    locale: str = Depends(get_locale),
-):
-    """Rewrites the text of a single slide, in one call."""
-    user_prompt = body.user_prompt or (body.messages[-1].content if body.messages else "")
-    has_content = (
-        body.slide_text.strip()
-        or (body.current_script or "").strip()
-        or user_prompt.strip()
-    )
-    if not has_content:
-        return {"script": ""}
-
-    llm_client = get_llm_client()
-
-    glossary_dict: dict | None = None
-    if body.glossary_json:
-        try:
-            glossary_dict = json.loads(body.glossary_json)
-        except (json.JSONDecodeError, TypeError):
-            pass
-
-    stoff = ""
-    if body.translate_job_uuid and body.slide_index is not None and re.match(r"^[a-f0-9]{32}$", body.translate_job_uuid):
-        job_row = db.get_job(body.translate_job_uuid)
-        if job_row and job_row["user_id"] == current_user.get("user_id", 0):
-            stoff = zusatzmaterial.material_einer_folie(job_row["user_id"], body.translate_job_uuid, body.slide_index)
-
-    try:
-        position = (
-            (body.slide_index + 1, body.slide_count)
-            if body.slide_index is not None and body.slide_count else None
-        )
-        script = await asyncio.to_thread(
-            partial(
-                llm_client.refine_script,
-                user_prompt,
-                body.current_script or "",
-                body.slide_text,
-                body.target_lang,
-                body.selected_text or None,
-                [{"role": m.role, "content": m.content} for m in body.messages],
-                glossary_dict,
-                position=position,
-                add_greeting=body.add_greeting,
-                add_closing=body.add_closing,
-                material=stoff,
-            )
-        )
-    except RuntimeError as e:
-        raise HTTPException(status_code=502, detail=t("screencast.scriptGenerationFailed", locale, error=str(e)))
-
-    return {"script": script}

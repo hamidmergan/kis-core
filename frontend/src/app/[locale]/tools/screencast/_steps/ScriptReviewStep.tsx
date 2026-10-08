@@ -3,7 +3,6 @@
 import { CaretDown } from "@phosphor-icons/react";
 import { useTranslations } from "next-intl";
 import IconButton from "@/components/ui/IconButton";
-import SparkleIcon from "@/components/ui/SparkleIcon";
 import Spinner from "@/components/ui/Spinner";
 import { wordCount } from "@/lib/text";
 import type { SlideData } from "@/types";
@@ -15,13 +14,9 @@ interface ScriptReviewStepProps {
   openAccordion: number;
   editingSlide: number | null;
   editBuffer: string;
-  regenAnchorSlide: number | null;
-  regenAnchorText: string;
   onEditBufferChange: (v: string) => void;
   onLightboxOpen: (index: number) => void;
   onAccordionToggle: (index: number) => void;
-  onRegenAnchor: (slide: number | null, text: string) => void;
-  onOpenRegen: (index: number) => void;
   onStartEdit: (index: number) => void;
   onCancelEdit: () => void;
   onSaveEdit: (index: number) => void;
@@ -34,13 +29,9 @@ export default function ScriptReviewStep({
   openAccordion,
   editingSlide,
   editBuffer,
-  regenAnchorSlide,
-  regenAnchorText,
   onEditBufferChange,
   onLightboxOpen,
   onAccordionToggle,
-  onRegenAnchor,
-  onOpenRegen,
   onStartEdit,
   onCancelEdit,
   onSaveEdit,
@@ -137,14 +128,6 @@ export default function ScriptReviewStep({
                             <span className="text-xs text-muted-soft">{t("scriptReview.wordsApprox", { n: wc })}</span>
                             <div className="flex items-center gap-1">
                               <IconButton
-                                onClick={() => onOpenRegen(i)}
-                                className={regenAnchorSlide === i && regenAnchorText ? "text-kb" : "text-muted-soft"}
-                                aria-label={t("scriptReview.regenAria", { n: i + 1 })}
-                                title={t("scriptReview.regenTitle")}
-                              >
-                                <SparkleIcon />
-                              </IconButton>
-                              <IconButton
                                 onClick={() => onStartEdit(i)}
                                 className="text-muted-soft"
                                 aria-label={t("scriptReview.editAria", { n: i + 1 })}
@@ -162,10 +145,6 @@ export default function ScriptReviewStep({
                           </div>
                           <p
                             className="text-sm font-mono text-foreground-soft whitespace-pre-wrap leading-relaxed"
-                            onMouseUp={() => {
-                              const text = window.getSelection()?.toString().trim();
-                              onRegenAnchor(text ? i : null, text || "");
-                            }}
                           >
                             {slide.script || <span className="text-muted-soft italic">{t("scriptReview.emptyScript")}</span>}
                           </p>

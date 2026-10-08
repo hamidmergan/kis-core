@@ -15,8 +15,8 @@ Macht aus einer PowerPoint-Datei ein vertontes Video, auf Wunsch in einer andere
    nicht geändert hat, sind markiert.
 4. **Anweisungen**: woher die Sprechtexte kommen. KI-Generierung aus den Folien, Manuell
    eingeben, Skript importieren als JSON-Liste oder Aus den Sprechernotizen der Datei.
-5. **Skripte**: jeden Text prüfen, ändern oder neu vorschlagen lassen. Das ist der Schritt, an
-   dem sich die Qualität entscheidet. Alle Sprechtexte zusammen dürfen 100.000 Zeichen haben.
+5. **Skripte**: jeden Text prüfen und ändern. Das ist der Schritt, an dem sich die Qualität
+   entscheidet. Alle Sprechtexte zusammen dürfen 100.000 Zeichen haben.
 6. **Einstellungen**: Anbieter und Stimme, Pause zwischen den Folien von 0 s bis 3 s,
    Bildqualität und Untertitel einbauen.
 7. **Rendern**: Vertonung und Videoproduktion, läuft im Hintergrund.

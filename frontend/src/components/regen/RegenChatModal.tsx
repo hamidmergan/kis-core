@@ -47,8 +47,8 @@ export interface RegenTurn {
 interface RegenChatModalProps {
   /** Only for the heading: slide or contribution number. */
   index: number;
-  /** Where the texts of this window come from, the two tools mirror the keys. */
-  namespace?: string;
+  /** Where the texts of this window come from. */
+  namespace: string;
   anchorText?: string;
   demo?: boolean;
   onSend: (messages: RegenTurn[]) => Promise<string>;
@@ -58,7 +58,7 @@ interface RegenChatModalProps {
 
 export default function RegenChatModal({
   index,
-  namespace = "tools.screencast.regenChat",
+  namespace,
   anchorText = "",
   demo = false,
   onSend,

@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { PencilSimple, Plus, Trash } from "@phosphor-icons/react";
 import IconButton from "@/components/ui/IconButton";
-import SparkleIcon from "@/components/ui/SparkleIcon";
 import Select from "@/components/ui/Select";
 import Spinner from "@/components/ui/Spinner";
 import BackgroundHint from "@/components/tools/BackgroundHint";
@@ -35,12 +34,8 @@ interface ScriptStepProps {
   /** The instruction named something the material does not cover. */
   instructionUnmatched: boolean;
   /** The contribution whose text is marked, so the chat can work on that spot. */
-  regenAnchorIndex: number | null;
-  regenAnchorText: string;
   onUpdate: (id: string, text: string) => void;
   onSpeaker: (id: string, speaker: number) => void;
-  onRegenAnchor: (index: number | null, text: string) => void;
-  onOpenRegen: (index: number) => void;
   onDelete: (id: string) => void;
   onAdd: () => void;
   onBack: (() => void) | null;
@@ -52,8 +47,8 @@ interface ScriptStepProps {
 
 export default function ScriptStep(props: ScriptStepProps) {
   const { lines, draft, draftParts, persons, count, voicedIds, busy, error, allDone, selfWritten,
-          instructionUnmatched, regenAnchorIndex, regenAnchorText,
-          onUpdate, onSpeaker, onRegenAnchor, onOpenRegen, onDelete, onAdd, onBack, onVoice, onToDone, demo = false } = props;
+          instructionUnmatched,
+          onUpdate, onSpeaker, onDelete, onAdd, onBack, onVoice, onToDone, demo = false } = props;
   const t = useTranslations("tools.podcast.script");
   const tDemo = useTranslations("tools.podcastDemo");
   const tCast = useTranslations("tools.podcast.cast");
@@ -201,18 +196,6 @@ export default function ScriptStep(props: ScriptStepProps) {
                     >
                       <PencilSimple size={12} weight="bold" />
                     </IconButton>
-                    {!selfWritten && (
-                      <IconButton
-                        size="sm"
-                        disabled={demo}
-                        aria-label={t("regen", { n: i + 1 })}
-                        title={t("regen", { n: i + 1 })}
-                        className={regenAnchorIndex === i && regenAnchorText ? "text-kb" : undefined}
-                        onClick={() => onOpenRegen(i)}
-                      >
-                        <SparkleIcon className="w-3 h-3" />
-                      </IconButton>
-                    )}
                     <IconButton size="sm" disabled={demo} aria-label={t("delete", { n: i + 1 })} title={t("delete", { n: i + 1 })} onClick={() => onDelete(line.id)}>
                       <Trash size={12} weight="bold" />
                     </IconButton>
@@ -244,10 +227,6 @@ export default function ScriptStep(props: ScriptStepProps) {
               ) : (
                 <p
                   className={`text-sm leading-relaxed whitespace-pre-wrap ${line.text ? "text-foreground" : "text-muted-soft italic"}`}
-                  onMouseUp={() => {
-                    const markiert = window.getSelection()?.toString().trim();
-                    onRegenAnchor(markiert ? i : null, markiert || "");
-                  }}
                 >
                   {line.text || t("emptyLine")}
                 </p>

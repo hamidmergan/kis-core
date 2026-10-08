@@ -15,28 +15,6 @@ class GenerateScriptsRequest(BaseModel):
     target_lang: str = "EN-US"
 
 
-class ChatMessage(BaseModel):
-    role: str
-    content: str
-
-
-class RegenerateSlideScriptRequest(BaseModel):
-    slide_text: str = ""
-    current_script: str | None = None
-    user_prompt: str | None = None
-    messages: list[ChatMessage] = []
-    selected_text: str | None = None
-    target_lang: str = "EN-US"
-    glossary_json: str = ""
-    # Without these the model does not know whether this slide opens or ends the deck.
-    slide_index: int | None = None
-    slide_count: int | None = None
-    add_greeting: bool = True
-    add_closing: bool = False
-    # The job whose extra material this slide may draw on.
-    translate_job_uuid: str | None = None
-
-
 class RenderRequest(BaseModel):
     scripts: list[str]
     translate_job_uuid: str          # the existing translate job to update

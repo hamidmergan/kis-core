@@ -1164,8 +1164,6 @@
         "wordsApprox": "approx. {n} words",
         "wordsAndDuration": "approx. {words} words · ~{seconds} sec",
         "emptyScript": "No script (empty slide)",
-        "regenAria": "Regenerate script for slide {n} with AI",
-        "regenTitle": "Regenerate with AI",
         "editAria": "Edit script for slide {n}",
         "missingScripts": "{n} slide(s) have no script. Please fill them in before continuing.",
         "acceptAll": "Accept all scripts"
@@ -1302,21 +1300,6 @@
         "resumeFailed": "This screencast can no longer be resumed. It has expired, was deleted, or is running in another tab. You can start over here.",
         "pausedHeading": "Paused",
         "continue": "Continue"
-      },
-      "regenChat": {
-        "headerTitle": "Rework slide {n}",
-        "assistant": "Suggestion",
-        "thinking": "Suggestion is taking shape",
-        "promptPlaceholder": "Enter text…",
-        "promptPlaceholderDemo": "Not available in the demo",
-        "errorMessage": "Error while generating.",
-        "actions": {
-          "replaceSelection": "Replace selection",
-          "insertBefore": "Before",
-          "insertAfter": "After",
-          "wholeScript": "Whole script",
-          "replace": "Replace"
-        }
       },
       "scriptImport": {
         "invalidExtension": "Please select a valid JSON file (.json).",
@@ -1462,7 +1445,6 @@
         "voiced": "voiced",
         "wordsApprox": "about {n} words",
         "edit": "Edit line {n}",
-        "regen": "Rework line {n}",
         "delete": "Delete line {n}",
         "add": "Add a line",
         "editAria": "Text of line {n}",
@@ -1475,21 +1457,6 @@
         "blankIntro": "Add contributions, pick who speaks and type the text. The voicing only happens once you are happy.",
         "blankEmpty": "No contribution yet. Add the first one.",
         "emptyLine": "Nothing written yet"
-      },
-      "regenChat": {
-        "headerTitle": "Rework line {n}",
-        "assistant": "Suggestion",
-        "thinking": "Suggestion is taking shape",
-        "promptPlaceholder": "Enter text…",
-        "promptPlaceholderDemo": "Not available in the demo",
-        "errorMessage": "Error while reworking.",
-        "actions": {
-          "replaceSelection": "Replace selection",
-          "insertBefore": "Before",
-          "insertAfter": "After",
-          "wholeScript": "Whole line",
-          "replace": "Replace"
-        }
       },
       "voicing": {
         "heading": "Voicing",

@@ -12,9 +12,6 @@ import { useRouter } from "@/i18n/navigation";
 import Spinner from "@/components/ui/Spinner";
 import { notifyJobsChanged } from "@/lib/jobs-events";
 import { usePermissions } from "@/hooks/usePermissions";
-import { useRegenAnchor } from "@/hooks/useRegenAnchor";
-import RegenChatModal, { type RegenTurn } from "@/components/regen/RegenChatModal";
-import { applyRegen, type RegenApplyMode } from "@/components/regen/apply";
 import { useVoices } from "@/hooks/useVoices";
 import { useFeatureProviders } from "@/hooks/useFeatureProviders";
 import CastStep from "./_steps/CastStep";
@@ -24,7 +21,7 @@ import ScriptStep from "./_steps/ScriptStep";
 import VoicingStep from "./_steps/VoicingStep";
 import PodcastStepper from "./_components/PodcastStepper";
 import BestaetigungModal from "./_components/BestaetigungModal";
-import { cancelJob, demoAvailable, fetchJob, fetchPodcast, rephraseLine, savePodcastParams, saveScript, startPodcast, startRender } from "./_api";
+import { cancelJob, demoAvailable, fetchJob, fetchPodcast, savePodcastParams, saveScript, startPodcast, startRender } from "./_api";
 import { LAEUFT, closedForGood, hatErgebnisse, isBusy, ohneKi, reachable } from "./_logic";
 import { INITIAL_STATE, defaultPersons, reducer } from "./_reducer";
 import { STEPS, type Line, type Person, type PodcastState, type Step } from "./_types";
@@ -54,7 +51,6 @@ function PodcastPageInner() {
   const { permissions } = usePermissions();
   // Without it every visit starts fresh, only the jobs list links straight to one podcast.
   const ausListe = useSearchParams().get("job");
-  const regen = useRegenAnchor();
   const aenderung = useRef(0);
   // The parts of the script already written, shown while the rest is still being written.
   const [entwurf, setEntwurf] = useState<Line[]>([]);
@@ -185,21 +181,6 @@ function PodcastPageInner() {
     const naechster = reducer(stateRef.current, action);
     dispatch(action);
     speichern(naechster.lines);
-  };
-
-  /** The chat window at one contribution, the same one the screencast uses. */
-  const regenLine = regen.regeneratingSlide !== null ? state.lines[regen.regeneratingSlide] : null;
-
-  const umformulieren = async (messages: RegenTurn[]) => {
-    const uuid = stateRef.current.jobUuid;
-    if (!uuid || !regenLine) return "";
-    return rephraseLine(uuid, regenLine.id, messages, regen.anchorText);
-  };
-
-  const uebernehmen = (mode: RegenApplyMode, content: string) => {
-    if (!regenLine) return;
-    aendern({ type: "UPDATE_LINE", id: regenLine.id, text: applyRegen(regenLine.text, regen.anchorText, mode, content) });
-    regen.close();
   };
 
   const starten = async () => {
@@ -361,10 +342,6 @@ function PodcastPageInner() {
                 error={state.error}
                 onUpdate={(id, text) => aendern({ type: "UPDATE_LINE", id, text })}
                 onSpeaker={(id, speaker) => aendern({ type: "SET_SPEAKER", id, speaker })}
-                onRegenAnchor={regen.setAnchor}
-                onOpenRegen={regen.open}
-                regenAnchorIndex={regen.anchorSlide}
-                regenAnchorText={regen.anchorText}
                 onDelete={(id) => aendern({ type: "DELETE_LINE", id })}
                 onAdd={() => aendern({ type: "ADD_LINE" })}
                 onBack={() => dispatch({ type: "GO", step: "cast" })}
@@ -406,17 +383,6 @@ function PodcastPageInner() {
               />
             )}
           </>
-        )}
-
-        {regenLine && (
-          <RegenChatModal
-            index={regen.regeneratingSlide ?? 0}
-            namespace="tools.podcast.regenChat"
-            anchorText={regen.anchorText}
-            onSend={umformulieren}
-            onApply={uebernehmen}
-            onClose={regen.close}
-          />
         )}
 
         {nachfrage && (

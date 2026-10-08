@@ -160,8 +160,7 @@ function PodcastDemoLauf({ onNeu }: { onNeu: () => void }) {
                   ? { done: state.progress.part ?? 0, total: state.progress.total } : null}
                 persons={state.persons} count={state.count} voicedIds={state.voicedIds} busy={isBusy(state)}
                 error="" allDone={state.jobStatus === "success"} selfWritten={false} instructionUnmatched={false}
-                regenAnchorIndex={null} regenAnchorText=""
-                onUpdate={keineAktion} onSpeaker={keineAktion} onRegenAnchor={keineAktion} onOpenRegen={keineAktion}
+                onUpdate={keineAktion} onSpeaker={keineAktion}
                 onDelete={keineAktion} onAdd={keineAktion}
                 onBack={() => dispatch({ type: "GO", step: "cast" })}
                 onVoice={vertonen} onToDone={() => dispatch({ type: "GO", step: "done" })} demo />

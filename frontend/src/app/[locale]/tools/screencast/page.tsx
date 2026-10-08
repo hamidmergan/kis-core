@@ -27,7 +27,6 @@ import ScriptReviewStep from "./_steps/ScriptReviewStep";
 import TtsSettingsStep from "./_steps/TtsSettingsStep";
 import RenderVorschau from "./_components/RenderVorschau";
 import ScreencastOverlays from "./_components/ScreencastOverlays";
-import { applyRegen, type RegenApplyMode } from "@/components/regen/apply";
 import { holeNotizen, parseScriptJsonFile, checkHasActiveJob, checkJobValidity, checkJobFolderExists, computeVoiceLabel, laufWaereUmsonst, stimmwechselOhneWirkung, sprachZuletztDerRueckfall, ausgeschlosseneFolien, sprachIdFuerLocale, type LaufStand } from "./_utils";
 import { flowReducer, INITIAL_FLOW_STATE } from "./_reducer";
 import { renderFlowMessages, translateFlowMessages } from "./_messages";
@@ -46,7 +45,6 @@ import { useLanguageConfig } from "@/hooks/useLanguageConfig";
 import { useRenderResult } from "@/hooks/useRenderResult";
 import { useFailedRender } from "@/hooks/useFailedRender";
 import { useScriptInputMode } from "@/hooks/useScriptInputMode";
-import { useRegenAnchor } from "@/hooks/useRegenAnchor";
 import { usePermissions } from "@/hooks/usePermissions";
 import ZusatzMaterial from "./_components/ZusatzMaterial";
 import { useZusatzMaterial } from "./_hooks/useZusatzMaterial";
@@ -93,8 +91,6 @@ function ScreencastPageInner() {
   const [slidePause, setSlidePause] = useState<number>(1.0);
   const [dpi, setDpi] = useState(96);
   const [subtitles, setSubtitles] = useState(false);
-  const regen = useRegenAnchor();
-  const { regeneratingSlide, anchorText: regenAnchorText, anchorSlide: regenAnchorSlide } = regen;
 
 
   const [glossaryIds, setGlossaryIds] = useState<string[]>(["", "", ""]);
@@ -498,17 +494,6 @@ function ScreencastPageInner() {
     a.click();
   };
 
-  const openRegen = regen.open;
-  const closeRegen = regen.close;
-
-  const handleApplyRegen = (index: number, mode: RegenApplyMode, content: string) => {
-    const newScript = applyRegen(slides[index].script || "", regenAnchorText, mode, content);
-    dispatch({ type: "UPDATE_SLIDE_SCRIPT", index, script: newScript });
-    const updated = slides.map((s, i) => i === index ? { ...s, script: newScript } : s);
-    autosaveScripts(updated.map((s) => s.script));
-    closeRegen();
-  };
-
   // ── Back to script review (from tts-settings) ──
   const handleBackToScripts = () => {
     if (step === "rendering") return;
@@ -744,13 +729,9 @@ function ScreencastPageInner() {
             openAccordion={openAccordion}
             editingSlide={editingSlide}
             editBuffer={editBuffer}
-            regenAnchorSlide={regenAnchorSlide}
-            regenAnchorText={regenAnchorText}
             onEditBufferChange={setEditBuffer}
             onLightboxOpen={(idx) => dispatch({ type: "SET_LIGHTBOX", index: idx })}
             onAccordionToggle={toggleAccordion}
-            onRegenAnchor={regen.setAnchor}
-            onOpenRegen={openRegen}
             onStartEdit={startEdit}
             onCancelEdit={cancelEdit}
             onSaveEdit={saveEdit}
@@ -852,9 +833,6 @@ function ScreencastPageInner() {
         )}
         <ScreencastOverlays
           slides={slides}
-          jobUuid={translateJobUuid}
-          targetLang={targetLang}
-          glossaryJson={mergeToApiJson(glossaryIds) || ""}
           pendingExit={pendingExit}
           onExitCancel={() => setPendingExit(null)}
           onExitConfirm={async () => {
@@ -870,10 +848,6 @@ function ScreencastPageInner() {
           }}
           lightboxIndex={lightboxIndex}
           onLightboxIndexChange={(idx) => dispatch({ type: "SET_LIGHTBOX", index: idx })}
-          regeneratingSlide={regeneratingSlide}
-          regenAnchorText={regenAnchorText}
-          onRegenApply={handleApplyRegen}
-          onRegenClose={closeRegen}
         />
       </div>
     </ProtectedRoute>

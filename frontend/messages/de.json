@@ -1164,8 +1164,6 @@
         "wordsApprox": "ca. {n} Wörter",
         "wordsAndDuration": "ca. {words} Wörter · ~{seconds} Sek",
         "emptyScript": "Kein Skript (leere Folie)",
-        "regenAria": "Skript für Folie {n} per KI neu generieren",
-        "regenTitle": "Mit KI neu generieren",
         "editAria": "Skript für Folie {n} bearbeiten",
         "missingScripts": "{n} Folie(n) haben kein Skript. Bitte fülle diese aus, bevor du fortfährst.",
         "acceptAll": "Alle Skripte übernehmen"
@@ -1302,21 +1300,6 @@
         "resumeFailed": "Dieser Screencast lässt sich nicht mehr fortsetzen. Er ist abgelaufen, wurde gelöscht oder läuft gerade in einem anderen Tab. Du kannst hier neu starten.",
         "pausedHeading": "Angehalten",
         "continue": "Weiter"
-      },
-      "regenChat": {
-        "headerTitle": "Folie {n} überarbeiten",
-        "assistant": "Vorschlag",
-        "thinking": "Vorschlag entsteht",
-        "promptPlaceholder": "Text eingeben…",
-        "promptPlaceholderDemo": "Nicht in der Demo verfügbar",
-        "errorMessage": "Fehler beim Generieren.",
-        "actions": {
-          "replaceSelection": "Markierung ersetzen",
-          "insertBefore": "Davor",
-          "insertAfter": "Danach",
-          "wholeScript": "Ganzes Skript",
-          "replace": "Ersetzen"
-        }
       },
       "scriptImport": {
         "invalidExtension": "Bitte eine gültige JSON-Datei auswählen (.json).",
@@ -1462,7 +1445,6 @@
         "voiced": "vertont",
         "wordsApprox": "etwa {n} Wörter",
         "edit": "Beitrag {n} bearbeiten",
-        "regen": "Beitrag {n} überarbeiten",
         "delete": "Beitrag {n} löschen",
         "add": "Beitrag anfügen",
         "editAria": "Text von Beitrag {n}",
@@ -1475,21 +1457,6 @@
         "blankIntro": "Leg Beiträge an, wähle die sprechende Person und tippe den Text. Vertont wird erst, wenn du zufrieden bist.",
         "blankEmpty": "Noch kein Beitrag. Leg den ersten an.",
         "emptyLine": "Noch nichts geschrieben"
-      },
-      "regenChat": {
-        "headerTitle": "Beitrag {n} überarbeiten",
-        "assistant": "Vorschlag",
-        "thinking": "Vorschlag entsteht",
-        "promptPlaceholder": "Text eingeben…",
-        "promptPlaceholderDemo": "Nicht in der Demo verfügbar",
-        "errorMessage": "Fehler beim Überarbeiten.",
-        "actions": {
-          "replaceSelection": "Markierung ersetzen",
-          "insertBefore": "Davor",
-          "insertAfter": "Danach",
-          "wholeScript": "Ganzer Beitrag",
-          "replace": "Ersetzen"
-        }
       },
       "voicing": {
         "heading": "Vertonung",
